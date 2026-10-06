@@ -1,8 +1,9 @@
 //! The checks a built graph goes through, and loading the extensions they
-//! come from: core validation, the registry checks, the extensions'
-//! declarative rules and their Wasm `check: "custom"` rules.
+//! come from: core validation, the registry checks and the rule set (the
+//! extensions' declarative and Wasm `check: "custom"` rules, ADR 0020).
 
 use crate::snapshot::EntitySnapshot;
+use crate::verdicts::WasmVerdicts;
 use specforge_common::{Diagnostic, ExtensionEntry, Severity};
 use specforge_graph::{Graph, GraphConfig};
 use specforge_protocol_types::ExtensionDeclaration;
@@ -12,11 +13,11 @@ use specforge_registry::{
         detect_identifier_length_violations, detect_mistyped_references,
         detect_reserved_entity_ids, detect_unknown_entity_fields, detect_unknown_entity_kinds,
     },
-    validation_engine::{ValidationRulePattern, execute_pattern},
+    rules::{CustomVerdicts, NoVerdicts},
 };
 use specforge_validator::{ValidatorConfig, validate_with_config};
 use specforge_wasm::WasmRuntime;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::path::Path;
 
 /// The graph build's inputs, from a registry build. Every surface that
@@ -97,27 +98,18 @@ pub fn check_graph(graph: &Graph, checks: &GraphChecks) -> Vec<Diagnostic> {
         ));
     }
 
-    // Edge label mapping (manifest label -> field name used in graph).
-    let edge_label_to_field: HashMap<String, String> = field_reg
-        .iter()
-        .filter_map(|(_, field, entry)| {
-            entry
-                .declared
-                .edge
-                .clone()
-                .map(|edge| (edge, field.to_string()))
-        })
-        .collect();
-
-    // Extension validation rules (declarative + custom via wasm).
-    let extension_diags = run_extension_validation(
-        &checks.registries.rules,
-        graph,
-        checks.entities,
-        checks.runtime,
-        &edge_label_to_field,
+    // The rule set (declarative, cycles and custom via the extensions'
+    // modules); without a runtime custom rules are skipped.
+    let verdicts: Box<dyn CustomVerdicts + '_> = match checks.runtime {
+        Some(runtime) => Box::new(WasmVerdicts::new(runtime, checks.entities)),
+        None => Box::new(NoVerdicts),
+    };
+    diagnostics.extend(
+        checks
+            .registries
+            .rules
+            .check(&checks.entities.rule_input(), verdicts.as_ref()),
     );
-    diagnostics.extend(extension_diags);
 
     diagnostics
 }
@@ -219,262 +211,3 @@ pub fn load_extensions(
     diagnostics.extend(warnings);
     declarations
 }
-
-/// Wasm dispatch for extensions' `check: "custom"` rules.
-///
-/// The `wasm_function` names in manifests are contracts: each names an
-/// export on THAT extension's module. Per call the host hands the guest the
-/// entity's [`ValidatorContext`] from the snapshot
-/// ([`EntitySnapshot::validator_context`]: the entity, its resolved
-/// references, the declared type ids and the primitive list), and the guest
-/// answers with a [`ValidatorVerdict`] — the wasm mirror of the host's
-/// `CustomVerdict` (WASM-only migration, Phase 5; closes C10).
-///
-/// [`ValidatorContext`]: specforge_protocol_types::ValidatorContext
-/// [`ValidatorVerdict`]: specforge_protocol_types::ValidatorVerdict
-pub struct WasmCustomRules<'a> {
-    pub runtime: &'a dyn WasmRuntime,
-    /// Extension whose module owns the `wasm_function` export.
-    pub extension: &'a str,
-    /// The graph's entities, as the guest receives each one.
-    pub entities: &'a EntitySnapshot,
-}
-
-impl<'a> specforge_registry::validation_engine::WasmValidationRuntime for WasmCustomRules<'a> {
-    fn custom_verdict(
-        &self,
-        wasm_function: &str,
-        entity_id: &str,
-        _entity_kind: &str,
-    ) -> Result<specforge_registry::validation_engine::CustomVerdict, String> {
-        if std::env::var("SPECFORGE_DEBUG_RULES").is_ok() {
-            eprintln!(
-                "DETAILED fn={wasm_function} entity={entity_id} ext={} tier=wasm",
-                self.extension
-            );
-        }
-
-        let context = self
-            .entities
-            .validator_context(entity_id)
-            .ok_or_else(|| format!("unknown entity '{entity_id}'"))?;
-        call_validator(self.runtime, self.extension, wasm_function, &context)
-            .map_err(|error| error.to_string())
-    }
-}
-
-/// Call `extension`'s `wasm_function` on `context` and read its verdict
-/// (the protocol's `ValidatorVerdict`). Err: the call failed (E028).
-fn call_validator(
-    runtime: &dyn WasmRuntime,
-    extension: &str,
-    wasm_function: &str,
-    context: &specforge_protocol_types::ValidatorContext,
-) -> Result<specforge_registry::validation_engine::CustomVerdict, specforge_wasm::CallError> {
-    use specforge_protocol_types::ValidatorVerdict;
-    use specforge_registry::validation_engine::CustomVerdict;
-
-    let verdict =
-        specforge_wasm::ExtensionCalls::new(runtime).validate(extension, wasm_function, context)?;
-    Ok(match verdict {
-        ValidatorVerdict::Pass => CustomVerdict::Pass,
-        ValidatorVerdict::Fail { field, value } => CustomVerdict::Fail { field, value },
-    })
-}
-
-/// Resolve each `check: "custom"` rule's `wasm_function` against the
-/// extension that declared it, when the rules are registered: one call with
-/// an entity of the rule's target kind that declares nothing. A name the
-/// extension does not export, or an export that does not answer with a
-/// verdict, is W112 here, once, instead of a rule that silently never fires
-/// (dispatch skips an entity whose call fails). The rule stays registered.
-pub fn probe_custom_rules(
-    rules: &[(ValidationRulePattern, String)],
-    runtime: &dyn WasmRuntime,
-) -> Vec<Diagnostic> {
-    use specforge_registry::validation_engine::ValidationPatternKind;
-
-    let mut diagnostics = Vec::new();
-    for (pattern, extension) in rules {
-        if pattern.check != ValidationPatternKind::Custom {
-            continue;
-        }
-        // parse_rule_pattern rejects a custom rule without one.
-        let Some(wasm_function) = pattern.wasm_function.as_deref() else {
-            continue;
-        };
-        let context =
-            EntitySnapshot::probe_context(pattern.target_kind.as_deref().unwrap_or_default());
-        if let Err(error) = call_validator(runtime, extension, wasm_function, &context) {
-            diagnostics.push(Diagnostic {
-                code: "W112".to_string(),
-                severity: Severity::Warning,
-                message: format!(
-                    "extension '{extension}': rule '{}': wasm_function '{wasm_function}' could not be resolved ({error}) — the rule will not fire",
-                    pattern.code
-                ),
-                span: None,
-                suggestion: Some(format!(
-                    "export '{wasm_function}' from '{extension}', or fix the rule's wasm_function"
-                )),
-                data: None,
-            });
-        }
-    }
-    diagnostics
-}
-
-fn run_extension_validation(
-    patterns: &[(ValidationRulePattern, String)],
-    graph: &Graph,
-    entities: &EntitySnapshot,
-    runtime: Option<&dyn WasmRuntime>,
-    edge_label_to_field: &HashMap<String, String>,
-) -> Vec<Diagnostic> {
-    if patterns.is_empty() {
-        return Vec::new();
-    }
-
-    let input = entities.rule_input();
-
-    if std::env::var("SPECFORGE_DEBUG_RULES").is_ok() {
-        for (p, ext) in patterns {
-            eprintln!(
-                "RULE {} ext={} check={:?} target={:?} values={:?}",
-                p.code,
-                ext,
-                p.check,
-                p.target_kind,
-                p.constraint.as_ref().map(|c| c.values.clone())
-            );
-        }
-    }
-    let mut diagnostics: Vec<specforge_common::Diagnostic> = Vec::new();
-    for (pattern, extension) in patterns {
-        if pattern.check
-            == specforge_registry::validation_engine::ValidationPatternKind::CycleDetection
-        {
-            let diags = detect_cycles(pattern, graph, edge_label_to_field);
-            diagnostics.extend(diags);
-        } else {
-            // Declarative rules evaluate host-side; custom ones need the
-            // extension's module, so they're skipped without a runtime.
-            let verdicts = runtime.map(|runtime| WasmCustomRules {
-                runtime,
-                extension,
-                entities,
-            });
-            let diags = execute_pattern(
-                pattern,
-                &input,
-                verdicts.as_ref().map(|v| {
-                    v as &dyn specforge_registry::validation_engine::WasmValidationRuntime
-                }),
-            );
-            diagnostics.extend(diags);
-        }
-    }
-    diagnostics
-}
-
-/// A `cycle_detection` rule over the graph: each cycle among `target_kind`
-/// entities along the rule's edge type, reported with the rule's code and
-/// severity. `edge_label_to_field` maps a manifest edge type to the field
-/// whose references form those edges.
-pub fn detect_cycles(
-    pattern: &ValidationRulePattern,
-    graph: &Graph,
-    edge_label_to_field: &HashMap<String, String>,
-) -> Vec<Diagnostic> {
-    let manifest_edge_label = match &pattern.edge_type {
-        Some(label) => label.as_str(),
-        None => return Vec::new(),
-    };
-    let edge_label = edge_label_to_field
-        .get(manifest_edge_label)
-        .map(|s| s.as_str())
-        .unwrap_or(manifest_edge_label);
-    let target_kind = match &pattern.target_kind {
-        Some(kind) => kind.as_str(),
-        None => return Vec::new(),
-    };
-
-    // Deterministic node order: seed and traversal order must not depend on
-    // HashMap iteration (per-process RandomState) — R-6.
-    let mut nodes: Vec<&specforge_graph::Node> = graph
-        .nodes()
-        .into_iter()
-        .filter(|n| n.kind.raw == target_kind)
-        .collect();
-    nodes.sort_by_key(|n| n.id.raw);
-
-    if nodes.is_empty() {
-        return Vec::new();
-    }
-
-    let node_ids: HashSet<&str> = nodes.iter().map(|n| n.id.raw.as_str()).collect();
-    let mut adj: HashMap<&str, Vec<&str>> = HashMap::new();
-    for edge in graph.edges() {
-        if edge.label == edge_label
-            && node_ids.contains(edge.source.as_str())
-            && node_ids.contains(edge.target.as_str())
-        {
-            adj.entry(edge.source.as_str())
-                .or_default()
-                .push(edge.target.as_str());
-        }
-    }
-    for neighbors in adj.values_mut() {
-        neighbors.sort_unstable();
-    }
-
-    // Cycle membership via the shared exact-membership walker (C5-00):
-    // one 3-color DFS with path-stack semantics for every entity-level
-    // detector (graph.rs, this pass).
-    let btree_adj: std::collections::BTreeMap<String, std::collections::BTreeSet<String>> = adj
-        .iter()
-        .map(|(k, v)| {
-            (
-                (*k).to_string(),
-                v.iter().map(|s| (*s).to_string()).collect(),
-            )
-        })
-        .collect();
-    let seeds: Vec<String> = nodes.iter().map(|n| n.id.raw.to_string()).collect();
-    let (cycle_members_set, _) =
-        specforge_graph::find_cycles(&seeds, &btree_adj, specforge_graph::CycleOptions::default());
-    let cycle_members: HashSet<&str> = cycle_members_set.iter().map(|s| s.as_str()).collect();
-
-    let mut diagnostics = Vec::new();
-    let mut sorted_members: Vec<&str> = cycle_members.into_iter().collect();
-    sorted_members.sort();
-
-    for id in sorted_members {
-        if let Some(node) = graph.node(id) {
-            let message = specforge_registry::validation_engine::interpolate_template(
-                &pattern.message_template,
-                id,
-                target_kind,
-                None,
-                None,
-                None,
-            );
-            diagnostics.push(Diagnostic {
-                code: pattern.code.clone(),
-                severity: pattern.severity,
-                message,
-                span: Some(node.source_span.clone()),
-                suggestion: None,
-                data: None,
-            });
-        }
-    }
-
-    diagnostics
-}
-
-// Conditional field validation (status-dependent rules like I059, W057, I060,
-// I066, I069, I070) is now handled by the ConditionalFieldRequired pattern kind
-// in the validation engine. The rules are declared by @specforge/product's
-// validation_rules() and executed by check_graph alongside all other
-// extension validation patterns. No hardcoded domain knowledge remains in the compiler.

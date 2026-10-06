@@ -114,7 +114,7 @@ fn did_change_applies_edits() {
     );
 }
 
-// -- validation_patterns -------------------------------------------------------
+// -- the rule set -------------------------------------------------------
 
 fn load_patterns_for(ext_names: &[&str]) -> specforge_registry::RegistryBuild {
     let names: Vec<String> = ext_names.iter().map(|s| s.to_string()).collect();
@@ -135,7 +135,7 @@ fn load_patterns_for(ext_names: &[&str]) -> specforge_registry::RegistryBuild {
 fn state_starts_with_empty_registries() {
     let state = specforge_lsp::LspState::new();
     assert!(state.kind_registry().is_empty());
-    assert!(state.validation_patterns().is_empty());
+    assert!(state.registries().rules.is_empty());
 }
 
 #[spec(
@@ -154,7 +154,7 @@ fn extensions_produce_e006_rules() {
         !patterns.is_empty(),
         "extensions should produce validation patterns"
     );
-    let e006_count = patterns.iter().filter(|p| p.0.code == "E006").count();
+    let e006_count = patterns.iter().filter(|p| p.code() == "E006").count();
     assert!(
         e006_count > 0,
         "E006 rules should be auto-generated from required fields"
@@ -174,42 +174,52 @@ fn e006_covers_all_required_fields() {
     ])
     .rules;
 
-    let e006_targets: Vec<(&str, &str)> = patterns
+    let e006_targets: Vec<(String, String)> = patterns
         .iter()
-        .filter(|p| p.0.code == "E006")
-        .filter_map(|p| Some((p.0.target_kind.as_deref()?, p.0.field.as_deref()?)))
+        .filter(|p| p.code() == "E006")
+        .filter_map(|p| {
+            Some((
+                p.target_kind()?.to_string(),
+                p.describe()["field"].as_str()?.to_string(),
+            ))
+        })
         .collect();
+    let has = |kind: &str, field: &str| {
+        e006_targets
+            .iter()
+            .any(|(k, f)| k.as_str() == kind && f.as_str() == field)
+    };
 
     // software
-    assert!(e006_targets.contains(&("behavior", "contract")));
-    assert!(e006_targets.contains(&("invariant", "guarantee")));
-    assert!(e006_targets.contains(&("port", "direction")));
+    assert!(has("behavior", "contract"));
+    assert!(has("invariant", "guarantee"));
+    assert!(has("port", "direction"));
     // product
-    assert!(e006_targets.contains(&("feature", "problem")));
-    assert!(e006_targets.contains(&("term", "definition")));
-    assert!(e006_targets.contains(&("release", "version")));
-    assert!(e006_targets.contains(&("journey", "flow")));
-    assert!(e006_targets.contains(&("deliverable", "artifact_type")));
-    assert!(e006_targets.contains(&("persona", "description")));
-    assert!(e006_targets.contains(&("channel", "description")));
+    assert!(has("feature", "problem"));
+    assert!(has("term", "definition"));
+    assert!(has("release", "version"));
+    assert!(has("journey", "flow"));
+    assert!(has("deliverable", "artifact_type"));
+    assert!(has("persona", "description"));
+    assert!(has("channel", "description"));
     // governance
-    assert!(e006_targets.contains(&("decision", "status")));
-    assert!(e006_targets.contains(&("decision", "context")));
-    assert!(e006_targets.contains(&("decision", "decision")));
-    assert!(e006_targets.contains(&("constraint", "description")));
-    assert!(e006_targets.contains(&("failure_mode", "severity")));
-    assert!(e006_targets.contains(&("failure_mode", "cause")));
-    assert!(e006_targets.contains(&("failure_mode", "effect")));
+    assert!(has("decision", "status"));
+    assert!(has("decision", "context"));
+    assert!(has("decision", "decision"));
+    assert!(has("constraint", "description"));
+    assert!(has("failure_mode", "severity"));
+    assert!(has("failure_mode", "cause"));
+    assert!(has("failure_mode", "effect"));
     // formal
-    assert!(e006_targets.contains(&("property", "expression")));
-    assert!(e006_targets.contains(&("property", "property_type")));
-    assert!(e006_targets.contains(&("axiom", "expression")));
-    assert!(e006_targets.contains(&("refinement", "abstract_entity")));
-    assert!(e006_targets.contains(&("refinement", "concrete_entity")));
-    assert!(e006_targets.contains(&("protocol", "alphabet")));
-    assert!(e006_targets.contains(&("protocol", "initial_state")));
-    assert!(e006_targets.contains(&("process", "alphabet")));
-    assert!(e006_targets.contains(&("process", "initial_state")));
+    assert!(has("property", "expression"));
+    assert!(has("property", "property_type"));
+    assert!(has("axiom", "expression"));
+    assert!(has("refinement", "abstract_entity"));
+    assert!(has("refinement", "concrete_entity"));
+    assert!(has("protocol", "alphabet"));
+    assert!(has("protocol", "initial_state"));
+    assert!(has("process", "alphabet"));
+    assert!(has("process", "initial_state"));
 }
 /// Build a Wasm runtime for a temp project listing `ext_names`, mirroring
 /// how a real session loads extensions from specforge.json.

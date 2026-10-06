@@ -134,12 +134,18 @@ behavior topological_sort_extensions "Topological Sort Extensions" {
   contract   """
     The compiler MUST compute a topological order over installed extensions
     based on their peer dependencies. Extensions with no dependencies MUST
-    be loaded first. Cycles in peer dependencies MUST produce an error
-    diagnostic. The sort MUST be deterministic — ties broken by extension name.
+    be loaded first. A cycle among required peer dependencies MUST produce
+    an error diagnostic (E027). An optional peer only prefers a load order:
+    extensions MAY name each other as optional peers, so the required
+    edges are sorted first and the optional ones are added in name order,
+    each skipped when it would close a cycle. The sort MUST be
+    deterministic — ties broken by extension name.
   """
   produces   [extensions_sorted]
   verify unit "extensions sorted in dependency order"
   verify unit "cycle in peer dependencies produces error"
+  verify unit "extensions naming each other as optional peers sort without a cycle"
+  verify unit "a cycle among required peers is E027, an optional edge closing a cycle is dropped"
   verify unit "deterministic ordering on ties"
   verify contract "Topological Sort Extensions: topological extension sorting holds — peer_dependencies_validated_fired, extensions_sorted_emitted, sort_deterministic, cycles_diagnosed"
 }

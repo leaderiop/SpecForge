@@ -3,11 +3,12 @@ mod coerce;
 pub use coerce::FieldCoercion;
 mod derive;
 pub use derive::{DerivedFrom, DerivedReference};
-pub mod cycles;
 mod graph;
 mod obligations;
-pub use cycles::{CycleOptions, find_cycles};
+// The cycle walker lives in specforge-common (the registry's rules use it
+// without linking the graph); re-exported here unchanged.
 pub use obligations::obligations;
+pub use specforge_common::cycles::{CycleOptions, find_cycles};
 pub mod rename;
 
 pub use build::{

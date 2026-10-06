@@ -25,21 +25,37 @@ behavior parse_validation_rule_pattern "Parse Validation Rule Pattern" {
   ensures {
     patterns_parsed     "Each validationRules entry parsed into a well-formed ValidationRulePattern"
     unrecognized_warned "Unrecognized pattern kinds produce warning diagnostics with extension name"
+    ignored_warned      "Properties a check does not read produce W147; the rule is registered without them"
   }
   contract   """
-    When the compiler reads a extension manifest's validationRules array,
-    it MUST parse each entry into a ValidationRulePattern. The check
-    field MUST be one of the recognized pattern kinds: no_incoming_edges,
-    no_outgoing_edges, missing_field_when_flag_set, field_value_constraint,
-    cycle_detection, file_exists. Unrecognized pattern kinds MUST produce
-    a warning diagnostic with the extension name and invalid kind.
+    When the registry build reads an extension declaration's validation
+    rules, it MUST turn each into a typed rule whose check carries exactly
+    what that check reads. The check MUST be one of the extension
+    vocabulary's kinds: no_incoming_edges, no_outgoing_edges, no_edges,
+    missing_field_when_flag_set, missing_required_field,
+    conditional_field_required, field_value_constraint, cycle_detection,
+    file_exists, verify_kind_allowlist, no_verify_statements, custom.
+    A rule that cannot work as declared — an unrecognized check, a field,
+    constraint, edge type or wasm_function its check requires and lacks, an
+    empty values list, a regex that does not compile — or a rule that reads
+    verify statements on a declared kind that accepts none — MUST produce
+    W112 with the extension name and MUST NOT be registered. A property its
+    check does not read (an edge_type on a field check, a constraint on an
+    edge check, a wasm_function on a declarative check, a constraint kind
+    or a pattern or values its check does not read) MUST produce W147, and
+    the rule MUST be registered without it.
   """
   verify unit "parses no_incoming_edges pattern from manifest"
   verify unit "parses missing_field_when_flag_set pattern from manifest"
   verify unit "unrecognized pattern kind produces warning"
   verify unit "all required fields validated on each rule"
   verify unit "parses field_value_constraint pattern from manifest"
-  verify contract "Parse Validation Rule Pattern: validation rule parsing holds — manifest_rules_available, patterns_parsed, unrecognized_warned"
+  verify unit "a cycle_detection rule without an edge_type produces W112 and is not registered"
+  verify unit "a verify_kind_allowlist rule without values produces W112 and is not registered"
+  verify unit "a rule that reads verify statements on a kind that accepts none produces W112 and is not registered"
+  verify unit "a property its check does not read produces W147 and the rule is registered without it"
+  verify unit "a conditional_field_required constraint of another kind produces W147 and is read as when_field_equals"
+  verify contract "Parse Validation Rule Pattern: validation rule parsing holds — manifest_rules_available, patterns_parsed, unrecognized_warned, ignored_warned"
 }
 
 behavior execute_validation_pattern "Execute Validation Pattern" {
@@ -69,10 +85,12 @@ behavior execute_validation_pattern "Execute Validation Pattern" {
     entities whose kind has the specified flag set to true have the specified field. field_value_constraint MUST
     check that a named field on entities of the target kind satisfies a
     value predicate (non-empty, matches regex, or is one of an allowed set).
-    cycle_detection MUST check for cycles among the specified edge type.
+    cycle_detection MUST report each entity of the target kind (every
+    entity when no target kind is set) that sits on a cycle of the edge
+    type's edges, following every field that writes that edge type.
     file_exists MUST check that file-reference fields point to existing
     files, a relative path resolved against the spec root (never the
-    working directory). A rule without a target kind applies to entities
+    working directory). A list field's items are each a path. A rule without a target kind applies to entities
     of every kind. custom MUST dispatch to the Wasm function registered by
     register_custom_validation_patterns. Each pattern violation MUST
     produce a diagnostic with the configured code and severity.
@@ -83,8 +101,12 @@ behavior execute_validation_pattern "Execute Validation Pattern" {
   verify unit "missing_field_when_flag_set detects missing specified field on flagged entity"
   verify unit "field_value_constraint rejects invalid field value"
   verify unit "cycle_detection finds cycles in edge type"
+  verify unit "a cycle_detection rule without a target_kind reports every entity on a cycle of its edge type"
+  verify unit "cycle_detection follows every field that writes its edge type"
+  verify unit "the builtin extensions' rules register with no W112, W147 or W021"
   verify unit "file_exists reports missing file-reference field targets"
   verify unit "file_exists resolves a relative path against the spec root, never the working directory"
+  verify unit "file_exists checks each item of a list field as its own path"
   verify unit "custom pattern dispatches to registered Wasm function"
   verify unit "pattern violation produces diagnostic with configured code and severity"
   verify contract "Execute Validation Pattern: declarative validation holds — all_entities_matched, violations_diagnosed, deterministic_order"
@@ -122,7 +144,7 @@ behavior register_custom_validation_patterns "Register Custom Validation Pattern
   features   [declarative_validation_rules]
   invariants [zero_domain_knowledge_core, declarative_validation_determinism]
   category   command
-  types      [ValidationRulePattern, CustomValidationPattern, ExtensionDeclaration]
+  types      [ValidationRulePattern, CustomCall, ExtensionDeclaration]
   refs       [provide_host_function_query_graph]
   ports      [WasmRuntime]
   consumes   [extension_manifests_loaded]
@@ -155,8 +177,10 @@ behavior register_custom_validation_patterns "Register Custom Validation Pattern
     time: when the extensions load, each custom rule's wasm_function is
     called once on an entity of the rule's target kind that declares
     nothing, and a call that does not answer with a verdict is reported.
-    The rule stays registered; dispatch then skips an entity whose call
-    fails without reporting it again. A custom rule that names no
+    The rule stays registered. During validation, the entities whose call
+    fails are not checked; they MUST be reported once per rule per check
+    as W148, naming how many failed and the first one with its error, and
+    carrying every failed entity with its error as the diagnostic's data. A custom rule that names no
     wasm_function MUST produce W112 and MUST NOT be registered.
   """
   verify unit "custom pattern registered with wasm_function reference"
@@ -165,6 +189,7 @@ behavior register_custom_validation_patterns "Register Custom Validation Pattern
   verify unit "custom pattern dispatched to Wasm runtime during validation"
   verify unit "custom pattern failure emits configured diagnostic"
   verify unit "a custom validator's verdict is read as the protocol's ValidatorVerdict, and a failure is reported once as W112"
+  verify unit "a custom rule whose function fails on entities produces one W148 per check naming how many were not checked"
   verify contract "Register Custom Validation Patterns: custom validation pattern registration holds — extension_manifests_loaded_fired, wasm_runtime_available, custom_patterns_registered, wasm_functions_resolved"
 }
 

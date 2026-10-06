@@ -178,7 +178,14 @@ fn digest(build: &RegistryBuild) -> Value {
         "rules": build
             .rules
             .iter()
-            .map(|(rule, origin)| json!([rule.code, origin, rule.target_kind, rule.field]))
+            .map(|rule| {
+                json!([
+                    rule.code(),
+                    rule.origin().name(),
+                    rule.target_kind(),
+                    rule.describe()["field"]
+                ])
+            })
             .collect::<Vec<_>>(),
         "kinds": kinds,
         "fields": fields,

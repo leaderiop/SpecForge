@@ -10,7 +10,10 @@ use specforge_ops::trace::{Target, TraceChain};
 use specforge_ops::view::ProjectView;
 use specforge_project::Environment;
 use specforge_project::coverage::RecordedCoverage;
-use specforge_registry::validation_engine::{ValidationPatternKind, ValidationRulePattern};
+use specforge_protocol_types::{
+    ExtensionDeclaration, ValidationRuleDescriptor, ValidationSeverity,
+};
+use specforge_registry::rules::{Registries, Rules};
 use specforge_registry::{FieldRegistryEntry, KindRegistryEntry, ManifestFieldType, RegistryBuild};
 use tempfile::TempDir;
 
@@ -27,23 +30,18 @@ pub fn kind(name: &str, testable: bool) -> KindRegistryEntry {
     }
 }
 
-/// The W004 rule requiring `kind`'s entities to declare obligations.
-pub fn obligations_rule(kind: &str) -> (ValidationRulePattern, String) {
-    (
-        ValidationRulePattern {
-            code: "W004".into(),
-            severity: specforge_common::Severity::Warning,
-            message_template: "{kind} '{id}' is testable but declares no verify obligations".into(),
-            check: ValidationPatternKind::NoVerifyStatements,
-            target_kind: Some(kind.to_string()),
-            edge_type: None,
-            edge_peer_kind: None,
-            field: Some("verify".into()),
-            constraint: None,
-            wasm_function: None,
-        },
-        "@t/soft".into(),
-    )
+/// The W004 rule requiring `kind`'s entities to declare obligations, as
+/// `@t/soft` declares it.
+pub fn obligations_rule(kind: &str) -> ValidationRuleDescriptor {
+    ValidationRuleDescriptor {
+        code: "W004".into(),
+        severity: ValidationSeverity::Warning,
+        message_template: "{kind} '{id}' is testable but declares no verify obligations".into(),
+        check: "no_verify_statements".into(),
+        target_kind: Some(kind.to_string()),
+        field: Some("verify".into()),
+        ..Default::default()
+    }
 }
 
 /// A boolean `kind.field` that, set, exempts the entity from obligations
@@ -67,13 +65,26 @@ pub fn exempting_field(kind: &str, field: &str) -> FieldRegistryEntry {
 /// with no such rule (governance kinds).
 pub fn registries(obligated: &[&str], free: &[&str]) -> RegistryBuild {
     let mut build = RegistryBuild::default();
-    for name in obligated {
-        build.kinds.register(kind(name, true));
-        build.rules.push(obligations_rule(name));
-    }
-    for name in free {
+    for name in obligated.iter().chain(free) {
         build.kinds.register(kind(name, true));
     }
+    // The rule set `@t/soft`'s W004 rules make, through the rules' build.
+    let mut soft = ExtensionDeclaration::default();
+    soft.handshake.name = "@t/soft".into();
+    soft.validation_rules = obligated
+        .iter()
+        .map(|name| obligations_rule(name))
+        .collect();
+    let (rules, diagnostics) = Rules::build(
+        &[soft],
+        Registries {
+            kinds: &build.kinds,
+            fields: &build.fields,
+            edges: &build.edges,
+        },
+    );
+    assert!(diagnostics.is_empty(), "{diagnostics:?}");
+    build.rules = rules;
     build
 }
 

@@ -1005,6 +1005,9 @@ expression: "digest(&load(&runtime, &[name]))"
       "check": "no_incoming_edges",
       "code": "W008",
       "constraint": null,
+      "edge_fields": [
+        "features"
+      ],
       "edge_peer_kind": "behavior",
       "edge_type": "BehaviorImplementsFeature",
       "field": null,

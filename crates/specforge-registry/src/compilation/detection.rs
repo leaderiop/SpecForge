@@ -1,5 +1,4 @@
 use crate::entity::EntityRecord;
-use crate::validation_engine::{ValidationPatternKind, ValidationRulePattern};
 use crate::{FieldRegistry, KindRegistry};
 use specforge_common::{Diagnostic, DiagnosticData, Severity};
 use std::collections::HashMap;
@@ -295,43 +294,26 @@ pub fn detect_mistyped_references(
     diagnostics
 }
 
-/// Auto-generate E006 validation rules for every field marked `required: true`
-/// in the FieldRegistry. Each rule fires at Error severity when the field is
-/// absent on an entity of the corresponding kind.
-pub fn generate_required_field_rules(field_registry: &FieldRegistry) -> Vec<ValidationRulePattern> {
-    let mut rules: Vec<ValidationRulePattern> = field_registry
-        .iter()
-        .filter(|(_, _, entry)| entry.declared.required)
-        .map(|(kind, field, _)| ValidationRulePattern {
-            code: "E006".to_string(),
-            severity: Severity::Error,
-            message_template: format!("{kind} '{{id}}' is missing required field '{field}'"),
-            check: ValidationPatternKind::MissingRequiredField,
-            target_kind: Some(kind.to_string()),
-            edge_type: None,
-            edge_peer_kind: None,
-            field: Some(field.to_string()),
-            constraint: None,
-            wasm_function: None,
-        })
-        .collect();
-    rules.sort_by(|a, b| {
-        a.target_kind
-            .cmp(&b.target_kind)
-            .then_with(|| a.field.cmp(&b.field))
-    });
-    rules
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::RegistryBuild;
-    use crate::compilation::tests::support::{declare, extension};
     use specforge_common::SourceSpan;
     use specforge_common::Sym;
     use specforge_extension_sdk::prelude::*;
     use specforge_protocol_types::ExtensionDeclaration;
+
+    /// A builder for the extension `name`, version 1.0.0.
+    fn extension(name: &str) -> ContributionsBuilder {
+        ContributionsBuilder::new(ExtensionMeta::new(name, "1.0.0"))
+    }
+
+    /// The declaration of the extension `name` (1.0.0) that `f` fills.
+    fn declare(name: &str, f: impl FnOnce(&mut ContributionsBuilder)) -> ExtensionDeclaration {
+        let mut c = extension(name);
+        f(&mut c);
+        c.declaration()
+    }
 
     fn software() -> ExtensionDeclaration {
         declare("@specforge/software", |c| {

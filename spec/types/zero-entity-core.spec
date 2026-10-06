@@ -229,6 +229,11 @@ type ManifestFieldType = string_type
   | reference_list_type
   | block_type
 
+// A validation rule as an extension declares it (the protocol's
+// ValidationRuleDescriptor). The registry build turns it into a typed rule
+// (specforge_registry::rules::Rule) carrying only what its check reads;
+// constraint.pattern is a regex for field_value_constraint/matches and the
+// condition field's name for conditional_field_required.
 type ValidationRulePattern {
   code             string          @readonly
   severity         string          @readonly
@@ -238,6 +243,8 @@ type ValidationRulePattern {
   edge_type        string          @optional
   field            string          @optional
   constraint       FieldConstraint @optional
+  wasm_function    string          @optional
+  target_extension string          @optional
   verify unit "ValidationRulePattern schema is valid"
 }
 
@@ -271,11 +278,13 @@ type ValidationPatternKind = no_incoming_edges
   | no_verify_statements
   | custom
 
-type CustomValidationPattern {
-  name          string   @readonly
-  wasm_function string   @readonly
-  params        FieldMap @optional
-  verify unit "CustomValidationPattern schema is valid"
+// One call of a custom rule's function: the extension that exports it, the
+// function, and what it is asked about (an entity, or the load-time probe).
+type CustomCall {
+  extension string @readonly
+  function  string @readonly
+  subject   string @readonly
+  verify unit "CustomCall schema is valid"
 }
 
 type FieldRegistryEntry {

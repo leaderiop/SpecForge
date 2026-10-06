@@ -34,10 +34,21 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   builds it, the guest serves it, the host loads it once, the Registry build reads it, a package
   registry stores it (ADR 0012).
 - **Registry build**: the pure result of turning extension declarations into kind, field and
-  edge registries, rules, pass order and derived graph inputs, and the diagnostics of those
+  edge registries, the rule set, pass order and derived graph inputs, and the diagnostics of those
   declarations (`specforge_registry::build_registries`). Its outcomes are the `registry_build_*`
   behaviors. Tests and every caller reach it only through `build_registries`; its steps are
   private.
+- **Rule set**: the extensions' declared validation rules plus the host's E006 rules for required
+  fields, each turned once per registry build into a typed rule that carries only what its check
+  reads, resolved against the registries (a compiled regex, an edge rule's peer kind, the fields an
+  edge type is written as). It runs itself over the entity snapshot's records (`RuleInput`, ADR
+  0019), cycles included, and answers which rule applies to a kind, which the snapshot's standing
+  reads (`specforge_registry::rules::Rules`, ADR 0020). A declared rule that cannot work is W112; a
+  property its check does not read is W147.
+- **Custom verdict**: an extension's answer, through its `wasm_function`, on one entity for a
+  `check: "custom"` rule: pass, or fail naming a field and value. The rule set asks for it through
+  the `CustomVerdicts` port; the project's adapter calls the extension (`ExtensionCalls::validate`),
+  tests answer with a closure. A function that cannot answer is W112 at load, W148 at check.
 - **Entity snapshot**: every entity of one built graph as every check after the build reads it, taken
   once per compile and per session check (`specforge_project::snapshot::EntitySnapshot`, ADR 0019).
   Each entity's record holds:

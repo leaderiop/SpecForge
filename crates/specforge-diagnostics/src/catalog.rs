@@ -498,7 +498,7 @@ catalog! {
         "An entity sets a field that isn't declared for its kind by any installed extension. Remove the field, fix a typo in its name, or install the extension that declares it.";
     W021: Warning core,
         "Undeclared target kind or edge label",
-        "A field or edge type references a `target_kind` or edge label that isn't declared — either in the extension's own manifest when it declares no peer dependencies, or in the compiler's global kind/edge registry once all extensions are loaded. Declare the missing kind or edge label, or add the appropriate peer dependency. The same code reports a declaration the registry refuses: a `derived_from` that derives nothing, a `proof_role` other than `bound` or `claim`, or a `lifecycle_field` that is not one of the kind's fields.";
+        "A field, edge type or validation rule references a `target_kind` or edge label that isn't declared — either in the extension's own manifest when it declares no peer dependencies, or in the compiler's global kind/edge registry once all extensions are loaded. Declare the missing kind or edge label, or add the appropriate peer dependency (a validation rule on another extension's kind that this one works without names that extension as its `target_extension` instead). The same code reports a declaration the registry refuses: a `derived_from` that derives nothing, a `proof_role` other than `bound` or `claim`, or a `lifecycle_field` that is not one of the kind's fields.";
     W023: Warning core,
         "Duplicate validation rule code",
         "Two extensions register a validation rule using the same diagnostic code. Change one extension's rule to use a unique code.";
@@ -609,7 +609,7 @@ catalog! {
         "A behavior's `refines` field names a target behavior that is not marked `abstract true`. Add `abstract true` to the target behavior, or point `refines` at a behavior that is actually abstract.";
     W112: Warning core,
         "Validation rule cannot fire",
-        "An extension-declared validation rule cannot work as declared: its `check` kind is unrecognized, it is missing a field or constraint its check needs, its values list is empty, its `matches` regex does not compile, or its `wasm_function` is absent or failed a probe call. Fix or remove the rule in the extension's manifest.";
+        "An extension-declared validation rule cannot work as declared: its `check` kind is unrecognized, it is missing a field or constraint its check needs (a `cycle_detection` rule needs an `edge_type`, a `verify_kind_allowlist` rule a constraint with values; a rule that reads `verify` statements needs a target kind that accepts them), its values list is empty, its `matches` regex does not compile, or its `wasm_function` is absent or failed a probe call. Fix or remove the rule in the extension's manifest.";
     W113: Warning core,
         "Circular file import",
         "Two or more `.spec` files import each other, forming a cycle in the import graph. Break the cycle by removing one of the `use` imports or extracting the shared entities into a separate file.";
@@ -673,4 +673,10 @@ catalog! {
     W146: Warning core,
         "Unknown field type in the model",
         "`specforge model` (and MCP `specforge.model`) met a field type in the Graph Protocol schema that the model does not know, and rendered the field as a string. A schema built from the loaded extensions only carries known types, so this comes from a schema built some other way. Fix the schema's `field_type`, or add the type to the model.";
+    W147: Warning core,
+        "Validation rule property ignored",
+        "An extension-declared validation rule sets a property its check does not read — an `edge_type` on a field check, a `constraint` on an edge check, a `wasm_function` on a declarative check, a constraint kind, `pattern` or `values` its check does not read. The rule is registered without it, so it does not do what its author meant. Remove the property, or use the check that reads it (`conditional_field_required` reads `constraint.pattern` as the condition field's name, `field_value_constraint` with `matches` as a regex).";
+    W148: Warning core,
+        "Custom rule could not check entities",
+        "A `check: \"custom\"` rule's `wasm_function` failed (trapped, or answered something that is not a verdict) on some entities during this check, so they were not checked. Reported once per rule, with how many failed and the first one's error. The load-time probe (W112) calls the function on an empty entity only; fix the function so that it answers every entity of the rule's target kind. The diagnostic's data lists every entity that was not checked, with its error.";
 }
