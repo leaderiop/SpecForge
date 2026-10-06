@@ -240,7 +240,8 @@ type McpExtensionInfo {
   name             string @readonly
   /// The loaded version, else the locked one; absent when neither.
   version          string @optional
-  /// "builtin", or the lock entry's source ("registry", "local:<path>").
+  /// "builtin", the lock entry's source ("registry", "local:<path>"), or
+  /// "file:<path>" for a .wasm file entry of specforge.json.
   source           string @readonly
   /// The entity kinds the extension contributes.
   entity_kinds     string[]

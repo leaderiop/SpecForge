@@ -31,6 +31,21 @@ pub enum Origin {
     /// Installed under `.specforge/extensions/`, pinned in `specforge.lock`.
     /// `source` is the lock entry's (`registry`, `local:<path>`, ...).
     Installed { source: String },
+    /// Loaded from the `.wasm` file a `specforge.json` entry names; `path`
+    /// as the entry writes it.
+    File { path: String },
+}
+
+impl Origin {
+    /// What the listings call it: `builtin`, the lock entry's source, or
+    /// `file:<path>`.
+    pub fn source(&self) -> String {
+        match self {
+            Origin::Builtin => "builtin".to_string(),
+            Origin::Installed { source } => source.clone(),
+            Origin::File { path } => format!("file:{path}"),
+        }
+    }
 }
 
 /// The builtin `specifier` names (`@specforge/product`, optionally with an

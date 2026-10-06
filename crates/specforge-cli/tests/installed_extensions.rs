@@ -419,3 +419,140 @@ fn a_peer_recorded_at_a_non_semver_version_is_remedied_by_reinstalling_it() {
     assert!(check.contains("'local'"), "{check}");
     assert!(check.contains("^0.1.0"), "{check}");
 }
+
+/// Enable `entries` in the project at `root`, replacing what it enabled.
+fn enable(root: &Path, entries: Value) {
+    std::fs::write(
+        root.join("specforge.json"),
+        json!({"name": "p", "version": "0.1.0", "extensions": entries}).to_string(),
+    )
+    .unwrap();
+}
+
+/// A greeting project with the greet component at `greet.wasm`, not
+/// installed: `specforge.json` names the file itself.
+fn greet_file_project() -> TempDir {
+    let dir = greeting_project();
+    std::fs::write(dir.path().join("greet.wasm"), greet_wasm()).unwrap();
+    dir
+}
+
+/// Every form a `.wasm` entry takes, for the project at `root`.
+fn wasm_entry_forms(root: &Path) -> Vec<String> {
+    let absolute = root.join("greet.wasm").display().to_string();
+    vec![
+        "greet.wasm".to_string(),
+        "./greet.wasm".to_string(),
+        "@sdk/greet=greet.wasm".to_string(),
+        absolute.clone(),
+        format!("@sdk/greet={absolute}"),
+    ]
+}
+
+#[specforge_test(
+    behavior = "load_extension_manifests",
+    verify = "an entry naming a .wasm file loads that component from disk under the name it declares"
+)]
+fn a_wasm_file_entry_loads_through_check() {
+    let probe = greet_file_project();
+    for entry in wasm_entry_forms(probe.path()) {
+        let dir = greet_file_project();
+        let entry = entry.replace(
+            &probe.path().display().to_string(),
+            &dir.path().display().to_string(),
+        );
+        enable(dir.path(), json!(["@specforge/software", entry]));
+
+        let (ok, found) = check(dir.path());
+
+        assert!(ok, "{entry}: {found:?}");
+        // `greeting` is a known kind, and greet's field types (W019) and
+        // rule (W112) resolved against the extension it declares.
+        for code in ["E024", "E028", "E033", "W019", "W112"] {
+            assert!(!codes(&found).contains(&code), "{entry}: {code}: {found:?}");
+        }
+    }
+}
+
+#[specforge_test(
+    behavior = "list_installed_extensions",
+    verify = "a .wasm file entry is listed under the name it declares, loaded, with source file:<path>"
+)]
+fn a_wasm_file_entry_is_listed_by_its_declared_name() {
+    let dir = greet_file_project();
+    enable(dir.path(), json!(["@specforge/software", "greet.wasm"]));
+
+    let out = specforge()
+        .args(["extensions", "--format", "json", "--path"])
+        .arg(dir.path())
+        .output()
+        .unwrap();
+
+    assert!(out.status.success(), "{out:?}");
+    let listed: Value = serde_json::from_slice(&out.stdout).unwrap();
+    let names: Vec<&str> = listed["extensions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| e["name"].as_str().unwrap())
+        .collect();
+    assert_eq!(names, ["@sdk/greet", "@specforge/software"], "{listed}");
+    let greet = &listed["extensions"][0];
+    assert_eq!(greet["status"], "loaded", "{greet}");
+    assert_eq!(greet["source"], "file:greet.wasm", "{greet}");
+    assert_eq!(greet["version"], "0.1.0", "{greet}");
+    assert_eq!(greet["entity_kinds"], json!(["greeting"]), "{greet}");
+    assert_eq!(greet["entity_count"], 1, "{greet}");
+}
+
+#[specforge_test(
+    behavior = "load_extension_manifests",
+    verify = "a .wasm file entry that is missing, is not a component, names another extension or repeats a loaded one produces E028 naming the entry"
+)]
+fn a_wasm_file_entry_that_cannot_load_is_e028_naming_it() {
+    let cases = [
+        ("missing.wasm", "does not exist"),
+        ("bad.wasm", "does not load as an extension component"),
+        ("@acme/other=greet.wasm", "declares '@sdk/greet'"),
+        ("copy.wasm", "'@sdk/greet' is already loaded"),
+    ];
+    for (entry, says) in cases {
+        let dir = greet_file_project();
+        std::fs::write(dir.path().join("bad.wasm"), b"\0asm not a component").unwrap();
+        std::fs::write(dir.path().join("copy.wasm"), greet_wasm()).unwrap();
+        enable(
+            dir.path(),
+            json!(["@specforge/software", "greet.wasm", entry]),
+        );
+
+        let (ok, found) = check(dir.path());
+
+        assert!(!ok, "{entry}: {found:?}");
+        let e028: Vec<_> = found.iter().filter(|(code, _, _)| code == "E028").collect();
+        assert_eq!(e028.len(), 1, "{entry}: {found:?}");
+        let (_, message, suggestion) = e028[0];
+        assert!(
+            message.contains(&format!("'{entry}'")),
+            "{entry}: {message}"
+        );
+        assert!(message.contains(says), "{entry}: {message}");
+        assert!(!suggestion.is_empty(), "{entry}: {message}");
+    }
+}
+
+#[test]
+fn a_legacy_versioned_builtin_entry_still_loads() {
+    let dir = greet_file_project();
+    // A builtin as `add` wrote it before D3-b.
+    enable(
+        dir.path(),
+        json!(["@specforge/software@0.1.0", "greet.wasm"]),
+    );
+
+    let (ok, found) = check(dir.path());
+
+    assert!(ok, "{found:?}");
+    for code in ["E024", "E028", "I002"] {
+        assert!(!codes(&found).contains(&code), "{code}: {found:?}");
+    }
+}

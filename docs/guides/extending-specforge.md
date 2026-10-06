@@ -373,7 +373,20 @@ $ specforge add ./target/wasm32-wasip2/release/my-ext.wasm
 
 `specforge add` copies the module into the project and registers it in
 `specforge.json`. From that moment, `check`, `analyze`, `watch`, the LSP, and
-the MCP server all load your vocabulary. Verify with a round trip:
+the MCP server all load your vocabulary.
+
+While you iterate, `specforge.json` can name the built file instead, so every
+run loads your latest build without re-adding it:
+
+```json
+{ "extensions": ["../my-ext/target/wasm32-wasip2/release/my_ext.wasm"] }
+```
+
+The path is relative to the project root; the extension is the one the file
+declares (`"@acme/my-ext=…/my_ext.wasm"` names it explicitly, and must match).
+A file that is missing, does not load, or declares another name is E028.
+
+Verify with a round trip:
 
 ```console
 $ specforge check          # your validation rules run

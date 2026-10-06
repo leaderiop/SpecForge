@@ -47,7 +47,7 @@ use specforge_resolver::{ResolveConfig, ResolvedProject, resolve_project_with_co
 use specforge_wasm::WasmRuntime;
 
 pub use build_cache::{BUILD_CACHE_FILE, BUILD_CACHE_FORMAT, BuildCache, CachedStatus};
-pub use compile::CompilationContext;
+pub use compile::{CompilationContext, EnabledExtension};
 pub use delta::{EdgeChange, GraphDelta, ModifiedNodeChange, NodeChange, compute_graph_delta};
 pub use inputs::{Changes, EnvironmentInputs, InputRole, Origin, UpdateKind, source_key};
 pub use policy::{
@@ -61,6 +61,10 @@ pub struct Environment {
     /// The project root (where `specforge.json` lives).
     pub root: PathBuf,
     pub config: ProjectConfig,
+    /// What each `specforge.json` `extensions` entry enables, in order, as
+    /// the runtime loaded it (a `.wasm` file entry by the name its
+    /// component declares).
+    pub enabled: Vec<EnabledExtension>,
     /// Where `.spec` files are discovered: `spec_root` from the config,
     /// relative to the project root, or the project root itself.
     pub spec_root: PathBuf,
@@ -85,6 +89,7 @@ impl Environment {
         Environment {
             root: PathBuf::new(),
             config: ProjectConfig::default(),
+            enabled: Vec::new(),
             spec_root: PathBuf::new(),
             registries: RegistryBuild::default(),
             provider_schemes: HashSet::new(),
@@ -107,6 +112,11 @@ impl Environment {
     /// (none without one), then build the registries from them.
     pub fn load(root: &Path, runtime: Option<&dyn WasmRuntime>) -> Self {
         let config = load_project_config(root);
+        let enabled = config
+            .extensions
+            .iter()
+            .map(|entry| EnabledExtension::of(entry, runtime))
+            .collect();
         let mut load_diagnostics = Vec::new();
         let declarations = match runtime {
             Some(runtime) => load_extensions(&config.extensions, runtime, &mut load_diagnostics),
@@ -131,6 +141,7 @@ impl Environment {
         Environment {
             root: root.to_path_buf(),
             config,
+            enabled,
             spec_root,
             registries,
             provider_schemes,

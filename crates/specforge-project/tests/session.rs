@@ -501,6 +501,61 @@ fn a_reload_reads_the_environment_again() {
     assert_matches_a_fresh_compile(&session, root);
 }
 
+/// A `.wasm` file entry loads in a session (what the LSP and MCP hold)
+/// under the name its component declares, its file is an environment
+/// input, and a reload after it stops loading reports E028 naming it.
+#[test]
+fn a_wasm_file_entry_loads_in_a_session_and_reloads_with_its_file() {
+    let greet = fs::read(
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/greet-extension/greet.wasm"),
+    )
+    .unwrap();
+    let dir = project(
+        r#"{"name":"s","version":"0.1.0","extensions":["@specforge/software","ext/greet.wasm"]}"#,
+        &[("a.spec", "greeting hello \"Hello\" {\n  style warm\n}\n")],
+    );
+    let root = dir.path();
+    fs::create_dir_all(root.join("ext")).unwrap();
+    fs::write(root.join("ext/greet.wasm"), &greet).unwrap();
+    let mut session = ProjectSession::open(root);
+
+    let enabled = &session.environment().enabled;
+    assert_eq!(enabled[1].name, "@sdk/greet");
+    assert_eq!(enabled[1].file.as_deref(), Some("ext/greet.wasm"));
+    let codes: Vec<String> = session.diagnostics().into_iter().map(|d| d.code).collect();
+    for code in ["E024", "E028", "W019", "W112"] {
+        assert!(!codes.iter().any(|c| c == code), "{code}: {codes:?}");
+    }
+    assert_eq!(
+        session.classify(&root.join("ext/greet.wasm")),
+        specforge_project::InputRole::Environment
+    );
+
+    fs::write(root.join("ext/greet.wasm"), b"\0asm not a component").unwrap();
+    let update = session.reload_environment();
+    let e028: Vec<&Diagnostic> = update
+        .diagnostics
+        .iter()
+        .filter(|d| d.code == "E028")
+        .collect();
+    assert_eq!(e028.len(), 1, "{:?}", update.diagnostics);
+    assert!(
+        e028[0].message.contains("'ext/greet.wasm'"),
+        "{}",
+        e028[0].message
+    );
+    assert_matches_a_fresh_compile(&session, root);
+
+    fs::write(root.join("ext/greet.wasm"), &greet).unwrap();
+    let update = session.reload_environment();
+    assert!(
+        !update
+            .diagnostics
+            .iter()
+            .any(|d| d.code == "E028" || d.code == "E024")
+    );
+}
+
 /// A session over a graph built in memory serves that graph and the
 /// diagnostics given for it, in its environment, with nothing to reload.
 #[test]

@@ -1,8 +1,9 @@
 //! `specforge extensions` / `specforge providers` and their MCP tools.
 
 use super::{Origin, builtin_name, lock_path};
-use specforge_common::{Diagnostic, extension_entry_name, load_project_config};
+use specforge_common::{Diagnostic, ExtensionEntry as Entry, load_project_config};
 use specforge_graph::Graph;
+use specforge_project::EnabledExtension;
 use specforge_protocol_types::ExtensionDeclaration;
 use specforge_registry::{
     KindRegistry, ProviderStatus, load_provider_configurations,
@@ -47,25 +48,30 @@ pub struct ExtensionEntry {
     pub validation_rules: usize,
 }
 
-/// Every extension the project enables, has installed, or loaded, sorted
+/// Every extension the project enables (`enabled`, what its environment
+/// read each `specforge.json` entry as), has installed, or loaded, sorted
 /// by name, with the entity kinds each registered (from the KindRegistry),
 /// how many of the graph's entities use them, and its rule count.
 pub fn list(
     root: &Path,
+    enabled: &[EnabledExtension],
     loaded: &[ExtensionDeclaration],
     kinds: &KindRegistry,
     graph: &Graph,
 ) -> Vec<ExtensionEntry> {
     let entries = load_project_config(root).extensions;
-    let enabled: Vec<String> = entries
-        .iter()
-        .map(|e| extension_entry_name(e).to_string())
-        .collect();
+    let file_of = |name: &str| {
+        enabled
+            .iter()
+            .find(|e| e.name == name)
+            .and_then(|e| e.file.clone())
+    };
+    let enabled: Vec<String> = enabled.iter().map(|e| e.name.clone()).collect();
     // The version a legacy `name@version` entry names.
     let configured_version = |name: &str| {
         entries.iter().find_map(|e| {
             let e = e.trim();
-            (extension_entry_name(e) == name && e.len() > name.len())
+            (Entry::parse(e) == Entry::Named(name) && e.len() > name.len())
                 .then(|| e[name.len() + 1..].to_string())
         })
     };
@@ -91,6 +97,8 @@ pub fn list(
                 (false, _) => Status::NotConfigured,
             };
             let origin = match (builtin_name(&name), locked) {
+                // What the environment loaded: the file, over a lock entry.
+                _ if let Some(path) = file_of(&name) => Origin::File { path },
                 (_, Some(entry)) => Origin::Installed {
                     source: entry.source.clone(),
                 },

@@ -2,7 +2,7 @@
 //! come from: core validation, the registry checks, the extensions'
 //! declarative rules and their Wasm `check: "custom"` rules.
 
-use specforge_common::{Diagnostic, Severity, load_project_config};
+use specforge_common::{Diagnostic, ExtensionEntry, Severity, load_project_config};
 use specforge_graph::{Graph, GraphConfig, build_graph};
 use specforge_protocol_types::ExtensionDeclaration;
 use specforge_registry::{
@@ -201,28 +201,44 @@ pub fn compile_simple(path: &Path) -> CompilationContext {
     }
 }
 
-/// Normalize an extension specifier to its canonical `@specforge/` name.
-///
-/// Config files can reference extensions as paths (`./extensions/product`,
-/// `/abs/path/to/extensions/product`) or canonical names (`@specforge/product`).
-/// The runtime dispatches by canonical name.
-fn normalize_extension_name(ext_spec: &str) -> String {
-    if ext_spec.starts_with('@') {
-        // `@scope/name`, or `@scope/name@version` as older `add`s wrote
-        // it: the runtime loads it under its name.
-        return specforge_common::extension_entry_name(ext_spec).to_string();
+/// What one `specforge.json` `extensions` entry enables, as the runtime
+/// loaded it: the entry read by [`ExtensionEntry`], the rule the runtime
+/// (`specforge_component::project_runtime`) loads it by.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EnabledExtension {
+    /// The extension's name: a named entry's; for a `.wasm` file entry the
+    /// name its component declares once it loaded, else the name written
+    /// before `=`, else the path.
+    pub name: String,
+    /// The path a `.wasm` file entry names, as written.
+    pub file: Option<String>,
+}
+
+impl EnabledExtension {
+    /// What `entry` enables, as `runtime` (if any) loaded it.
+    pub fn of(entry: &str, runtime: Option<&dyn WasmRuntime>) -> Self {
+        match ExtensionEntry::parse(entry) {
+            ExtensionEntry::Named(name) => EnabledExtension {
+                name: name.to_string(),
+                file: None,
+            },
+            ExtensionEntry::File { name, path } => EnabledExtension {
+                name: runtime
+                    .and_then(|runtime| runtime.file_entry_extension(entry.trim()))
+                    .or(name.map(str::to_string))
+                    .unwrap_or_else(|| path.to_string()),
+                file: Some(path.to_string()),
+            },
+        }
     }
-    let last = std::path::Path::new(ext_spec)
-        .file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or(ext_spec);
-    format!("@specforge/{}", last)
 }
 
 /// Load the declarations of `extensions` (as `specforge.json` lists them)
-/// through `runtime`, in that order: one [`load_declaration`] each. An
-/// extension that does not load is E028 (or the runtime's own reason, E033,
-/// when it knows one) and is left out. `diagnostics` receives those runtime
+/// through `runtime`, in that order: one [`load_declaration`] per
+/// extension, each entry naming the extension [`EnabledExtension::of`]
+/// says (an extension two entries enable is read once). An extension that
+/// does not load is E028 (or the runtime's own reason, E028/E033, when it
+/// knows one) and is left out. `diagnostics` receives those runtime
 /// failures in load order, then the W138s of the declarations that loaded.
 /// What the declarations themselves are worth (E030, W021, E027, W145) is
 /// the registry build's to say.
@@ -237,8 +253,22 @@ pub fn load_extensions(
 
     let mut declarations = Vec::new();
     let mut warnings = Vec::new();
-    for ext_spec in extensions {
-        let ext_name = normalize_extension_name(ext_spec);
+    let mut read = HashSet::new();
+    for entry in extensions {
+        // A `.wasm` file's failure is known by the entry (what it would
+        // have declared is not), and is reported whatever the entry names.
+        let (failure_key, file) = match ExtensionEntry::parse(entry) {
+            ExtensionEntry::Named(name) => (name, false),
+            ExtensionEntry::File { .. } => (entry.trim(), true),
+        };
+        if file && let Some(failure) = runtime.load_failure(failure_key) {
+            diagnostics.push(failure);
+            continue;
+        }
+        let ext_name = EnabledExtension::of(entry, Some(runtime)).name;
+        if !read.insert(ext_name.clone()) {
+            continue;
+        }
         match load_declaration(runtime, &ext_name) {
             Ok(loaded) => {
                 warnings.extend(loaded.warnings);
@@ -246,7 +276,7 @@ pub fn load_extensions(
             }
             // Why the runtime could not load it (a missing or tampered
             // installed binary), when it knows.
-            Err(_) if let Some(failure) = runtime.load_failure(&ext_name) => {
+            Err(_) if let Some(failure) = runtime.load_failure(failure_key) => {
                 diagnostics.push(failure);
             }
             Err(e) => {

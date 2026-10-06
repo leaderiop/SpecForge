@@ -33,7 +33,9 @@ pub fn run(name: &str, path: &Path, force: bool, format: OutputFormat) -> i32 {
             });
             match &outcome.origin {
                 Origin::Builtin => output["source"] = json!("builtin"),
-                Origin::Installed { .. } => output["version"] = json!(outcome.version),
+                Origin::Installed { .. } | Origin::File { .. } => {
+                    output["version"] = json!(outcome.version)
+                }
             }
             println!(
                 "{}",
@@ -43,7 +45,7 @@ pub fn run(name: &str, path: &Path, force: bool, format: OutputFormat) -> i32 {
         OutputFormat::Human => {
             match &outcome.origin {
                 Origin::Builtin => println!("Disabled builtin extension '{}'", outcome.name),
-                Origin::Installed { .. } => println!(
+                Origin::Installed { .. } | Origin::File { .. } => println!(
                     "Removed extension '{}' (v{})",
                     outcome.name,
                     outcome.version.as_deref().unwrap_or("?")

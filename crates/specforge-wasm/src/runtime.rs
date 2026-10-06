@@ -42,8 +42,19 @@ pub trait WasmRuntime: Send + Sync {
 
     /// Why `extension_name` failed to load when the runtime was built (a
     /// missing or tampered installed binary), so compile can report that
-    /// diagnostic instead of a bare "not loaded".
+    /// diagnostic instead of a bare "not loaded". For a `.wasm` file entry
+    /// of `specforge.json` the key is the entry itself (trimmed), since
+    /// what it would have declared is unknown.
     fn load_failure(&self, _extension_name: &str) -> Option<specforge_common::Diagnostic> {
+        None
+    }
+
+    /// The extension the `.wasm` file entry `entry` of `specforge.json`
+    /// (trimmed; see [`specforge_common::ExtensionEntry::File`]) was
+    /// loaded as when the runtime was built: the name its component
+    /// declares, which its exports are called by. `None` when the runtime
+    /// did not load that entry.
+    fn file_entry_extension(&self, _entry: &str) -> Option<String> {
         None
     }
 }

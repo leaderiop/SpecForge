@@ -56,7 +56,14 @@ behavior load_extension_manifests "Load Extension Manifests" {
     name, on every surface, only when the binary's hash is the one its
     specforge.lock entry records; a mismatch MUST be refused with E033, and
     an extension enabled but not installed MUST produce E028 naming the
-    command that installs it. This behavior orchestrates: for each extension, it loads its
+    command that installs it. An entry ending in .wasm names a component
+    file instead (path.wasm, or name=path.wasm; a relative path is relative
+    to the project root): it MUST load from that file, on every surface,
+    under the name the component declares, the one rule the runtime and the
+    environment both read an entry by; a name written before = MUST be the
+    declared one. A file that does not exist, does not load as a component,
+    declares another name than the one written, or declares an extension
+    another entry already loads MUST produce E028 naming the entry. This behavior orchestrates: for each extension, it loads its
     binary and reads its declaration once. Once all declarations are loaded
     and the extension_manifests_loaded event is produced, the registry build
     (build_registries_from_declarations) validates them and populates the
@@ -67,6 +74,8 @@ behavior load_extension_manifests "Load Extension Manifests" {
   verify unit "installed extension manifest is loaded"
   verify integration "an extension installed from a registry loads through check"
   verify integration "an enabled extension with no installed binary produces E028 naming the command that installs it"
+  verify integration "an entry naming a .wasm file loads that component from disk under the name it declares"
+  verify integration "a .wasm file entry that is missing, is not a component, names another extension or repeats a loaded one produces E028 naming the entry"
   verify unit "missing extension produces diagnostic"
   verify unit "a declaration declares entity types and validations"
   verify integration "two extensions loaded and registries populated without collision"
@@ -351,14 +360,16 @@ behavior list_installed_extensions "List Installed Extensions" {
     When specforge extensions is invoked, the system MUST list all installed
     extensions with their name, version, entity count, and registered entity types.
     The listing MUST query the KindRegistry to enumerate entity kinds per
-    extension. Each entry MUST carry its source (builtin, registry or
-    local:<path>) and its status (loaded, not_loaded, not_configured). The
+    extension. Each entry MUST carry its source (builtin, registry,
+    local:<path>, or file:<path> for a .wasm file entry of specforge.json,
+    listed under the name its component declares) and its status (loaded, not_loaded, not_configured). The
     CLI and the MCP extensions tool MUST list the same entries.
     Output order MUST be deterministic (alphabetical by extension name).
   """
   verify unit "list shows all installed extensions"
   verify unit "list includes entity counts and entity types"
   verify unit "output order is deterministic"
+  verify integration "a .wasm file entry is listed under the name it declares, loaded, with source file:<path>"
   verify integration "the CLI and the MCP extensions tool list the same entries"
   verify contract "List Installed Extensions: extension listing holds — kind_registry_ready, all_extensions_listed, entity_counts_included, output_deterministic"
 }

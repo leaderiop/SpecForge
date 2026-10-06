@@ -336,8 +336,10 @@ Level: error
 E028: Extension load or execution failure
 
 An extension failed somewhere in its lifecycle: its binary is missing,
-unreadable or does not load as a component; its handshake or one of its describe
-categories failed or does not parse, so its declaration cannot be read
+unreadable or does not load as a component (a `.wasm` file entry of
+`specforge.json` also when the file declares another name than the entry writes,
+or an extension another entry already loads); its handshake or one of its
+describe categories failed or does not parse, so its declaration cannot be read
 (`specforge add` and `specforge publish` refuse such a binary); or a call the
 host makes on the loaded extension failed. The host calls ten exports: the
 handshake and describe, a command, an MCP tool, an MCP resource, a compiler

@@ -365,10 +365,7 @@ fn add_extension_op(call: &Call<'_>, args: AddArgs) -> Handled {
         trust: Trust::Refuse,
         dry_run,
     };
-    let source_of = |origin: &Origin| match origin {
-        Origin::Builtin => "builtin".to_string(),
-        Origin::Installed { source } => source.clone(),
-    };
+    let source_of = Origin::source;
     let outcome = match extension::add(&request, &registry) {
         Ok(AddOutcome::Builtin {
             name,
@@ -574,13 +571,14 @@ pub(crate) fn migrate_op(call: &mut Call<'_>, args: MigrateArgs) -> Handled {
 // ── extensions ──────────────────────────────────────────────────────────────
 
 pub(crate) fn extensions_op(call: &mut Call<'_>, _args: crate::args::NoArgs) -> Handled {
-    use specforge_ops::extension::{self, Origin};
+    use specforge_ops::extension;
 
     let project = call.project()?;
     let root = project.root;
     // The shared listing, over what the project compiled.
     let entries = extension::list(
         root,
+        &project.env.enabled,
         project.env.registries.declarations(),
         &project.env.registries.kinds,
         project.graph,
@@ -591,10 +589,7 @@ pub(crate) fn extensions_op(call: &mut Call<'_>, _args: crate::args::NoArgs) -> 
             json!({
                 "name": e.name,
                 "version": e.version,
-                "source": match &e.origin {
-                    Origin::Builtin => "builtin",
-                    Origin::Installed { source } => source.as_str(),
-                },
+                "source": e.origin.source(),
                 "status": e.status.as_str(),
                 "entity_kinds": e.entity_kinds,
                 "entity_count": e.entity_count,

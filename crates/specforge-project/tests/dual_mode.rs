@@ -32,18 +32,13 @@ fn setup_project(extensions: &[&str], spec_content: &str) -> TempDir {
 #[test]
 fn protocol_extension_loaded_with_runtime() {
     let dir = setup_project(
-        &["./ext-proto"],
+        &["@test/proto"],
         "behavior hello \"Hello\" {\n    status planned\n}\n",
     );
 
-    let ext_dir = dir.path().join("ext-proto");
-    fs::create_dir_all(&ext_dir).unwrap();
-    fs::write(ext_dir.join("extension.wasm"), [0x00, 0x61, 0x73, 0x6d]).unwrap();
-
-    // The project names it by path; the runtime loads it under the name
-    // that path normalizes to, and it declares its own name.
+    // The project names it; the runtime serves it under that name.
     let runtime = InProcessRuntime::new().serving(
-        "@specforge/ext-proto",
+        "@test/proto",
         || {
             let mut c = ContributionsBuilder::new(ExtensionMeta::new("@test/proto", "1.0.0"));
             c.kind("gadget", |k| {
@@ -105,16 +100,12 @@ fn protocol_extension_loaded_with_runtime() {
 )]
 fn protocol_handshake_trap_produces_e028() {
     let dir = setup_project(
-        &["./ext-broken"],
+        &["@test/broken"],
         "behavior hello \"Hello\" {\n    status planned\n}\n",
     );
 
-    let ext_dir = dir.path().join("ext-broken");
-    fs::create_dir_all(&ext_dir).unwrap();
-    fs::write(ext_dir.join("extension.wasm"), [0x00, 0x61, 0x73, 0x6d]).unwrap();
-
     let runtime = InProcessRuntime::new().answer_raw(
-        "@specforge/ext-broken",
+        "@test/broken",
         "__handshake",
         WasmCallResult::Trap(WasmTrapInfo {
             kind: "unreachable".to_string(),
@@ -139,7 +130,7 @@ fn protocol_handshake_trap_produces_e028() {
         e028
     );
     assert!(
-        e028[0].message.contains("ext-broken"),
+        e028[0].message.contains("@test/broken"),
         "E028 should mention extension name"
     );
     assert!(
@@ -161,13 +152,9 @@ fn protocol_handshake_trap_produces_e028() {
 )]
 fn protocol_version_mismatch_produces_e028() {
     let dir = setup_project(
-        &["./ext-badver"],
+        &["@test/badver"],
         "behavior hello \"Hello\" {\n    status planned\n}\n",
     );
-
-    let ext_dir = dir.path().join("ext-badver");
-    fs::create_dir_all(&ext_dir).unwrap();
-    fs::write(ext_dir.join("extension.wasm"), [0x00, 0x61, 0x73, 0x6d]).unwrap();
 
     // Return a handshake with wrong protocol version
     let bad_handshake = HandshakeResponse {
@@ -183,7 +170,7 @@ fn protocol_version_mismatch_produces_e028() {
         ..Default::default()
     };
     let runtime = InProcessRuntime::new().answer_raw(
-        "@specforge/ext-badver",
+        "@test/badver",
         "__handshake",
         WasmCallResult::Ok(serde_json::to_vec(&bad_handshake).unwrap()),
     );

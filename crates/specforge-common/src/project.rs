@@ -21,14 +21,84 @@ pub fn find_project_root(start: &Path) -> Option<PathBuf> {
     }
 }
 
-/// The extension a `specforge.json` `extensions` entry names: `name`, or
-/// `name@version` as older `specforge add`s wrote it (`@acme/foo@1.2.0`
-/// names `@acme/foo`). A path entry is returned whole.
+/// What one `specforge.json` `extensions` entry enables: the one reading
+/// of an entry that the runtime loading extensions, the environment
+/// reading their declarations, the freshness inputs and the extension
+/// operations share.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExtensionEntry<'a> {
+    /// A builtin or an installed extension, by its name: `name`, or
+    /// `name@version` as older `specforge add`s wrote it (`@acme/foo@1.2.0`
+    /// names `@acme/foo`).
+    Named(&'a str),
+    /// A component loaded from a `.wasm` file: `path.wasm`, or
+    /// `name=path.wasm` where `name` must be the name the component
+    /// declares. A relative path is relative to the project root. The
+    /// extension is the one the component declares (its handshake `name`).
+    File {
+        /// The name written before `=`, if any.
+        name: Option<&'a str>,
+        /// The path as written.
+        path: &'a str,
+    },
+}
+
+impl<'a> ExtensionEntry<'a> {
+    /// Read an entry (surrounding whitespace ignored): one ending in
+    /// `.wasm` names a file, any other an extension.
+    pub fn parse(entry: &'a str) -> Self {
+        let entry = entry.trim();
+        if entry.ends_with(".wasm") {
+            return match entry.split_once('=') {
+                Some((name, path)) => ExtensionEntry::File {
+                    name: Some(name.trim()),
+                    path: path.trim(),
+                },
+                None => ExtensionEntry::File {
+                    name: None,
+                    path: entry,
+                },
+            };
+        }
+        match entry.rfind('@') {
+            Some(at) if at > 0 && !entry[at + 1..].contains('/') => {
+                ExtensionEntry::Named(&entry[..at])
+            }
+            _ => ExtensionEntry::Named(entry),
+        }
+    }
+
+    /// The extension's name as far as the entry alone says: a named
+    /// entry's name, a file entry's name before `=`; `None` for a bare
+    /// file (only its component says).
+    pub fn name(&self) -> Option<&'a str> {
+        match *self {
+            ExtensionEntry::Named(name) => Some(name),
+            ExtensionEntry::File { name, .. } => name,
+        }
+    }
+
+    /// The file a file entry loads, a relative path resolved against
+    /// `root` (the project root).
+    pub fn file(&self, root: &Path) -> Option<PathBuf> {
+        match *self {
+            ExtensionEntry::Named(_) => None,
+            ExtensionEntry::File { path, .. } => Some(root.join(path)),
+        }
+    }
+}
+
+/// The extension a `specforge.json` `extensions` entry names, as far as
+/// the entry alone says ([`ExtensionEntry`]): `name`, or `name@version`
+/// (`@acme/foo@1.2.0` names `@acme/foo`); for a `.wasm` file entry the
+/// name before `=`, else the path as written.
 pub fn extension_entry_name(entry: &str) -> &str {
-    let entry = entry.trim();
-    match entry.rfind('@') {
-        Some(at) if at > 0 && !entry[at + 1..].contains('/') => &entry[..at],
-        _ => entry,
+    match ExtensionEntry::parse(entry) {
+        ExtensionEntry::Named(name)
+        | ExtensionEntry::File {
+            name: Some(name), ..
+        } => name,
+        ExtensionEntry::File { name: None, path } => path,
     }
 }
 
@@ -156,4 +226,69 @@ pub fn validate_project_name(name: &str) -> Result<(), &'static str> {
         return Err("name must not contain whitespace");
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn an_entry_names_an_extension_or_a_wasm_file() {
+        use ExtensionEntry::{File, Named};
+        let cases = [
+            ("@specforge/product", Named("@specforge/product")),
+            (" @acme/foo@1.2.0 ", Named("@acme/foo")),
+            ("greet", Named("greet")),
+            (
+                "greet.wasm",
+                File {
+                    name: None,
+                    path: "greet.wasm",
+                },
+            ),
+            (
+                "./ext/greet.wasm",
+                File {
+                    name: None,
+                    path: "./ext/greet.wasm",
+                },
+            ),
+            (
+                "/a@b/greet.wasm",
+                File {
+                    name: None,
+                    path: "/a@b/greet.wasm",
+                },
+            ),
+            (
+                "@sdk/greet = ext/greet.wasm",
+                File {
+                    name: Some("@sdk/greet"),
+                    path: "ext/greet.wasm",
+                },
+            ),
+        ];
+        for (entry, expected) in cases {
+            assert_eq!(ExtensionEntry::parse(entry), expected, "{entry}");
+        }
+    }
+
+    #[test]
+    fn a_file_entry_resolves_against_the_root_and_names_what_it_writes() {
+        let root = Path::new("/p");
+        let bare = ExtensionEntry::parse("ext/greet.wasm");
+        assert_eq!(bare.file(root), Some(PathBuf::from("/p/ext/greet.wasm")));
+        assert_eq!(bare.name(), None);
+        assert_eq!(extension_entry_name("ext/greet.wasm"), "ext/greet.wasm");
+
+        let named = ExtensionEntry::parse("@sdk/greet=/abs/greet.wasm");
+        assert_eq!(named.file(root), Some(PathBuf::from("/abs/greet.wasm")));
+        assert_eq!(named.name(), Some("@sdk/greet"));
+        assert_eq!(
+            extension_entry_name("@sdk/greet=/abs/greet.wasm"),
+            "@sdk/greet"
+        );
+
+        assert_eq!(ExtensionEntry::parse("@acme/foo@1.0.0").file(root), None);
+    }
 }

@@ -140,6 +140,9 @@ pub struct ComponentRuntime {
     /// Why an extension the project enables failed to load (a missing or
     /// tampered installed binary), by name: compile reports it.
     load_failures: Mutex<HashMap<String, specforge_common::Diagnostic>>,
+    /// The extension each `.wasm` file entry of `specforge.json` loaded
+    /// as (the name its component declares), by the entry.
+    file_entries: Mutex<HashMap<String, String>>,
 }
 
 impl ComponentRuntime {
@@ -196,6 +199,7 @@ impl ComponentRuntime {
             fuel: DEFAULT_FUEL_LIMIT,
             default_deadline_ms,
             load_failures: Mutex::new(HashMap::new()),
+            file_entries: Mutex::new(HashMap::new()),
         }
     }
 
@@ -205,6 +209,30 @@ impl ComponentRuntime {
             .lock()
             .unwrap_or_else(|e| e.into_inner())
             .insert(name.to_string(), diagnostic);
+    }
+
+    /// Record that the `.wasm` file entry `entry` loaded as `extension`,
+    /// for [`WasmRuntime::file_entry_extension`].
+    pub(crate) fn record_file_entry(&self, entry: &str, extension: &str) {
+        self.file_entries
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .insert(entry.to_string(), extension.to_string());
+    }
+
+    /// Register the extension loaded as `from` under `to` instead, without
+    /// compiling or instantiating it again. False when `from` is not loaded.
+    pub(crate) fn rename(&self, from: &str, to: &str) -> bool {
+        let Ok(mut plugins) = self.plugins.lock() else {
+            return false;
+        };
+        match plugins.remove(from) {
+            Some(plugin) => {
+                plugins.insert(to.to_string(), plugin);
+                true
+            }
+            None => false,
+        }
     }
 
     /// Deterministic per-call instruction budget, enforced by the engine.
@@ -449,6 +477,14 @@ impl WasmRuntime for ComponentRuntime {
             .lock()
             .unwrap_or_else(|e| e.into_inner())
             .get(extension_name)
+            .cloned()
+    }
+
+    fn file_entry_extension(&self, entry: &str) -> Option<String> {
+        self.file_entries
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .get(entry)
             .cloned()
     }
 }

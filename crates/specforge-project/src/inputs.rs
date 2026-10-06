@@ -11,7 +11,7 @@
 
 use std::path::{Path, PathBuf};
 
-use specforge_common::{ProjectConfig, extension_entry_name};
+use specforge_common::{ExtensionEntry, ProjectConfig};
 use specforge_parser::FieldValue;
 
 use crate::Environment;
@@ -200,24 +200,14 @@ pub(crate) fn environment_inputs(
     let modules = config
         .extensions
         .iter()
-        .filter_map(|entry| {
-            if entry.ends_with(".wasm") {
-                // `name=path.wasm` or a bare `path.wasm`, relative to the
-                // root (as `specforge_component::project_runtime` resolves
-                // it).
-                let path = entry.split_once('=').map_or(entry.as_str(), |(_, p)| p);
-                let path = Path::new(path);
-                return Some(if path.is_relative() {
-                    root.join(path)
-                } else {
-                    path.to_path_buf()
-                });
+        .filter_map(|entry| match ExtensionEntry::parse(entry) {
+            // Relative to the root, as `specforge_component::project_runtime`
+            // resolves it.
+            file @ ExtensionEntry::File { .. } => file.file(root),
+            ExtensionEntry::Named(name) if specforge_component::builtins::is_builtin(name) => None,
+            ExtensionEntry::Named(name) => {
+                Some(specforge_wasm::installed_wasm_path(&installed, name))
             }
-            let name = extension_entry_name(entry);
-            if specforge_component::builtins::is_builtin(name) {
-                return None;
-            }
-            Some(specforge_wasm::installed_wasm_path(&installed, name))
         })
         .collect();
     EnvironmentInputs {
