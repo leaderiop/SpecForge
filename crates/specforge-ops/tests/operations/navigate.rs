@@ -4,7 +4,7 @@
 use specforge_common::SourceSpan;
 use specforge_ops::navigate::{Direction, Navigator, Occurrence, Precision, ReferenceQuery, Role};
 use specforge_ops::view::ProjectView;
-use specforge_project::CompiledProject;
+use specforge_project::{CompiledProject, Environment};
 use specforge_test::prelude::*;
 use tempfile::TempDir;
 
@@ -776,12 +776,12 @@ fn the_verify_stub_lands_inside_the_block() {
 /// A view of `p`'s graph with `registries` instead of its extensions'.
 fn with_registries<'a>(
     p: &'a Compiled,
-    registries: &'a RegistryBuild,
+    env: &'a Environment,
     recorded: &'a RecordedCoverage,
 ) -> Navigator<'a, impl Fn(&str) -> Option<String> + 'a> {
     let spec_root = &p.project.env.spec_root;
     Navigator::new(
-        ProjectView::new(&p.project.graph, registries, None, recorded),
+        ProjectView::new(&p.project.graph, env, None, recorded),
         move |file| std::fs::read_to_string(spec_root.join(file)).ok(),
     )
 }
@@ -821,7 +821,8 @@ fn the_verify_stub_uses_the_kinds_first_allowed_verify_kind() {
         build
     };
     let recorded = RecordedCoverage::default();
-    let fixes = with_registries(&p, &registries, &recorded).fixes(&[], &FixQuery::default());
+    let fixes = with_registries(&p, &Environment::with_registries(registries), &recorded)
+        .fixes(&[], &FixQuery::default());
     assert_eq!(
         titles(&fixes),
         ["Add verify stub for unique_ids"],
@@ -983,8 +984,8 @@ fn no_stub_without_a_target_kind() {
         build.fields = invariants_field(None);
         build
     };
-    let fixes =
-        with_registries(&p, &untargeted, &recorded).fixes(&diagnostics, &FixQuery::default());
+    let fixes = with_registries(&p, &Environment::with_registries(untargeted), &recorded)
+        .fixes(&diagnostics, &FixQuery::default());
     assert!(
         fixes.iter().all(|f| f.source != FixSource::CreateStub),
         "{:?}",
@@ -995,7 +996,8 @@ fn no_stub_without_a_target_kind() {
         build.fields = invariants_field(Some("invariant"));
         build
     };
-    let fixes = with_registries(&p, &targeted, &recorded).fixes(&diagnostics, &FixQuery::default());
+    let fixes = with_registries(&p, &Environment::with_registries(targeted), &recorded)
+        .fixes(&diagnostics, &FixQuery::default());
     assert!(fixes.iter().any(|f| f.source == FixSource::CreateStub));
 }
 

@@ -57,8 +57,8 @@ fn one_compile_reports_every_layers_errors() {
     assert!(position("E025") < position("E002"), "{codes:?}");
 }
 
-/// The flat view carries the same diagnostics, and the spec root and
-/// resolved files the compile read (MCP needs both: plan 01, D8).
+/// A compile keeps the spec root and the resolved files it read (MCP
+/// needs both: plan 01, D8).
 #[test]
 fn the_context_view_keeps_the_spec_root_and_the_resolved_files() {
     let dir = project(
@@ -70,12 +70,14 @@ fn the_context_view_keeps_the_spec_root_and_the_resolved_files() {
     );
 
     let compiled = compile(dir.path());
-    let diagnostics = compiled.diagnostics();
-    let ctx = compiled.into_context();
 
-    assert_eq!(ctx.diagnostics, diagnostics);
-    assert_eq!(ctx.spec_root, dir.path().join("spec"));
-    let files: Vec<&str> = ctx.resolved.files.iter().map(|f| f.path.as_str()).collect();
+    assert_eq!(compiled.env.spec_root, dir.path().join("spec"));
+    let files: Vec<&str> = compiled
+        .resolved
+        .files
+        .iter()
+        .map(|f| f.path.as_str())
+        .collect();
     assert_eq!(files, ["a.spec"]);
 }
 
@@ -771,4 +773,97 @@ mod passes_of_the_declaration {
         let codes: Vec<&str> = env.diagnostics().map(|d| d.code.as_str()).collect();
         assert_eq!(codes, ["E028", "E030"], "{codes:?}");
     }
+}
+
+/// A `specforge.json` that is there and can't be used: E069 first (an
+/// error), then an I002 that names the file, not "no extensions
+/// configured".
+#[specforge_test(
+    behavior = "load_extension_manifests",
+    verify = "a specforge.json that is there and can't be used produces E069 first and an I002 that names it"
+)]
+fn an_unusable_config_is_e069_then_i002_naming_it() {
+    let dir = TempDir::new().unwrap();
+    fs::write(dir.path().join("specforge.json"), r#"{ "extensions": ["#).unwrap();
+    let runtime = specforge_component::project_runtime(dir.path());
+
+    let env = specforge_project::Environment::load(dir.path(), Some(&runtime));
+
+    let diagnostics: Vec<&specforge_common::Diagnostic> = env.diagnostics().collect();
+    let codes: Vec<&str> = diagnostics.iter().map(|d| d.code.as_str()).collect();
+    assert_eq!(codes, ["E069", "I002"], "{diagnostics:?}");
+    assert_eq!(diagnostics[0].severity, specforge_common::Severity::Error);
+    assert!(
+        diagnostics[0]
+            .message
+            .starts_with("specforge.json can't be used: "),
+        "{}",
+        diagnostics[0].message
+    );
+    assert!(
+        diagnostics[0].message.ends_with("; no extension is loaded"),
+        "{}",
+        diagnostics[0].message
+    );
+    assert_eq!(
+        diagnostics[1].message,
+        "specforge.json could not be read — operating in structural-only mode"
+    );
+    assert_eq!(
+        diagnostics[1].suggestion.as_deref(),
+        Some("fix specforge.json (E069 above)")
+    );
+    assert!(
+        matches!(
+            env.config_problems.as_slice(),
+            [specforge_common::ConfigProblem::NotJson { .. }]
+        ),
+        "{:?}",
+        env.config_problems
+    );
+    assert!(env.config_found);
+
+    // No file at all: no problem, the old wording.
+    let empty = TempDir::new().unwrap();
+    let env = specforge_project::Environment::load(empty.path(), Some(&runtime));
+    assert!(!env.config_found);
+    assert!(env.config_problems.is_empty());
+    let messages: Vec<&str> = env.diagnostics().map(|d| d.message.as_str()).collect();
+    assert_eq!(
+        messages,
+        ["no extensions configured — operating in structural-only mode"]
+    );
+}
+
+/// A non-string `extensions` item is one E069 (it is ignored); the other
+/// entries load, so there is no I002.
+#[specforge_test(
+    behavior = "load_extension_manifests",
+    verify = "E069 names a mistyped key or a non-string item, and the rest of specforge.json is used"
+)]
+fn a_non_string_extension_entry_is_e069_and_the_others_load() {
+    let dir = project(
+        serde_json::json!({"extensions": ["@specforge/product", 42]}),
+        &[("a.spec", "feature f \"F\" {\n}\n")],
+    );
+
+    let compiled = compile(dir.path());
+
+    let diagnostics = compiled.diagnostics();
+    let e069: Vec<&specforge_common::Diagnostic> =
+        diagnostics.iter().filter(|d| d.code == "E069").collect();
+    assert_eq!(e069.len(), 1, "{diagnostics:?}");
+    assert_eq!(
+        e069[0].message,
+        format!(
+            "specforge.json: \"extensions\"[1] in {} must be a string, found 42; it is ignored",
+            dir.path().join("specforge.json").display()
+        )
+    );
+    assert_eq!(codes(&diagnostics)[0], "E069", "E069 is reported first");
+    assert!(!codes(&diagnostics).contains(&"I002"), "{diagnostics:?}");
+    assert!(
+        compiled.env.registries.kinds.get("feature").is_some(),
+        "product loaded: its kinds are registered"
+    );
 }

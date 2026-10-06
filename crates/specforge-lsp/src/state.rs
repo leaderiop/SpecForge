@@ -187,7 +187,7 @@ impl LspState {
         match &self.project {
             Project::Held(session) => ProjectView::of_session(session, session.root()),
             Project::Out { graph, env } => {
-                ProjectView::new(graph, &env.registries, None, &self.stand_in_recorded)
+                ProjectView::new(graph, env, None, &self.stand_in_recorded)
             }
         }
     }

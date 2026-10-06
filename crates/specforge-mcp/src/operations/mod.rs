@@ -8,7 +8,6 @@ use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
 use specforge_common::{Diagnostic, find_project_root};
-use specforge_wasm::read_lock_file;
 
 use crate::args::{lenient, strings};
 use crate::target::{Call, CallTarget};
@@ -436,40 +435,36 @@ pub(crate) fn remove_extension_op(call: &mut Call<'_>, args: RemoveArgs) -> Hand
     let force = args.force.unwrap_or(false);
     let dry_run = args.dry_run.unwrap_or(false);
 
-    // The shared operation, over what the call's project loaded: its
+    // The shared operation, over the view of the call's project: its
     // dependents and its orphaned entities, the served project's or those
     // of the project `path` names.
-    let project = call.project()?;
     let request = specforge_ops::extension::RemoveRequest {
-        root: project.root,
         name: &name,
         force,
         dry_run,
-        enabled: &project.env.enabled,
-        loaded: project.env.registries.declarations(),
-        kinds: &project.env.registries.kinds,
-        graph: project.graph,
     };
-    Ok(match specforge_ops::extension::remove(&request) {
-        Ok(outcome) => {
-            let mut result = json!({
-                "removed_extension": outcome.name,
-                "success": true,
-                "version": outcome.version,
-                "orphan_warnings": outcome.orphan_warnings,
-            });
-            if outcome.dry_run {
-                result["dry_run"] = Value::from(true);
+    Ok(
+        match specforge_ops::extension::remove(&call.project()?.view(), &request) {
+            Ok(outcome) => {
+                let mut result = json!({
+                    "removed_extension": outcome.name,
+                    "success": true,
+                    "version": outcome.version,
+                    "orphan_warnings": outcome.orphan_warnings,
+                });
+                if outcome.dry_run {
+                    result["dry_run"] = Value::from(true);
+                }
+                ok(result)
             }
-            ok(result)
-        }
-        Err(mut error) => {
-            if error.code == specforge_ops::extension::NOT_FOUND {
-                error.data = Some(json!({"extension": name}));
+            Err(mut error) => {
+                if error.code == specforge_ops::extension::NOT_FOUND {
+                    error.data = Some(json!({"extension": name}));
+                }
+                err_op(error)
             }
-            err_op(error)
-        }
-    })
+        },
+    )
 }
 
 // ── migrate ─────────────────────────────────────────────────────────────────
@@ -572,80 +567,29 @@ pub(crate) fn migrate_op(call: &mut Call<'_>, args: MigrateArgs) -> Handled {
 // ── extensions ──────────────────────────────────────────────────────────────
 
 pub(crate) fn extensions_op(call: &mut Call<'_>, _args: crate::args::NoArgs) -> Handled {
-    use specforge_ops::extension;
-
-    let project = call.project()?;
-    let root = project.root;
-    // The shared listing, over what the project compiled.
-    let entries = extension::list(
-        root,
-        &project.env.enabled,
-        project.env.registries.declarations(),
-        &project.env.registries.kinds,
-        project.graph,
-    );
-    let listed: Vec<Value> = entries
+    // The shared listing, over the project view: what the project
+    // compiled, its lock and the kinds its graph uses.
+    let listing = specforge_ops::extension::list(&call.project()?.view());
+    let extensions: Vec<Value> = listing.extensions.iter().map(|e| e.to_json()).collect();
+    let lock_entries: Vec<Value> = listing
+        .locked
         .iter()
-        .map(|e| {
-            json!({
-                "name": e.name,
-                "version": e.version,
-                "source": e.origin.source(),
-                "status": e.status.as_str(),
-                "entity_kinds": e.entity_kinds,
-                "entity_count": e.entity_count,
-                "validation_rules": e.validation_rules,
-            })
-        })
+        .map(|e| json!({ "name": e.name, "version": e.version }))
         .collect();
-
-    let lock_entries: Vec<Value> = read_lock_file(&root.join("specforge.lock"))
-        .map(|l| {
-            l.entries
-                .iter()
-                .map(|e| json!({ "name": e.name, "version": e.version }))
-                .collect()
-        })
-        .unwrap_or_default();
-    let kinds: std::collections::BTreeSet<String> = project
-        .graph
-        .nodes()
-        .iter()
-        .map(|n| n.kind.raw.to_string())
-        .collect();
-
     Ok(ok(json!({
-        "extensions": listed,
+        "extensions": extensions,
         "lock_file_entries": lock_entries,
-        "entity_kinds_in_graph": kinds,
+        "entity_kinds_in_graph": listing.kinds_in_graph,
     })))
 }
 
 // ── providers ───────────────────────────────────────────────────────────────
 
 pub(crate) fn providers_op(call: &mut Call<'_>, _args: crate::args::NoArgs) -> Handled {
-    let project = call.project()?;
     // The providers specforge.json configures, as the scheme registry built
     // from the loaded extensions sees them: the listing the CLI prints.
-    let (providers, diagnostics) =
-        specforge_ops::extension::providers(project.root, project.env.registries.declarations());
-    let listed: Vec<Value> = providers
-        .iter()
-        .map(|p| {
-            json!({
-                "scheme": p.scheme,
-                "alias": p.alias,
-                "extension": p.extension,
-                "status": p.status.as_str(),
-            })
-        })
-        .collect();
-    let count = listed.len();
-    Ok(ok(json!({
-        "providers": listed,
-        "count": count,
-        "diagnostics": specforge_common::diagnostics_json(&diagnostics),
-    })))
+    let listing = specforge_ops::extension::providers(&call.project()?.view());
+    Ok(ok(listing.to_json()))
 }
 
 // ── doctor ──────────────────────────────────────────────────────────────────
@@ -665,11 +609,7 @@ pub(crate) fn doctor_op(call: &mut Call<'_>, _args: DoctorArgs) -> Handled {
     // The same report `specforge doctor` prints, as the spec's
     // McpDoctorReport plus its sections. Credential health is the user's,
     // not the project's: only the CLI reports it.
-    let report = specforge_ops::doctor::diagnose(
-        project.root,
-        project.env.registries.declarations(),
-        &project.diagnostics(),
-    );
+    let report = specforge_ops::doctor::diagnose(&project.view());
     Ok(ok(json!({
         "extensions_ok": report.extensions_ok(),
         "conflicts": report.conflict_messages(),
@@ -709,11 +649,7 @@ pub(crate) fn collect_op(call: &mut Call<'_>, args: CollectArgs) -> Handled {
     // project up to date, or compiled the project `path` names for this
     // call, in the runtime it collects with.
     let project = call.project()?;
-    let runtime = project.runtime;
-    let known = collect::KnownEntities::from_graph(project.graph);
-
     let request = Request {
-        root: project.root,
         runner,
         mode: if run {
             // The server owns stdio: the runner's output is discarded.
@@ -721,18 +657,13 @@ pub(crate) fn collect_op(call: &mut Call<'_>, args: CollectArgs) -> Handled {
         } else {
             Mode::NoRun
         },
+        // The server never prompts: a command runs only if the user already
+        // approved it for this project with `specforge collect` in a terminal.
+        consent: Consent::Approved,
+        announce: &mut |_, _| {},
     };
     Ok(
-        match collect::collect(
-            &request,
-            project.env.registries.declarations(),
-            runtime.as_ref(),
-            &known,
-            // The server never prompts: a command runs only if the user already
-            // approved it for this project with `specforge collect` in a terminal.
-            Consent::Approved,
-            &mut |_, _| {},
-        ) {
+        match collect::collect(&project.view(), project.runtime.as_ref(), request) {
             Ok(outcome) => ok(outcome.to_json()),
             Err(e) if e.code == "E059" => McpError::from_diagnostic(&Diagnostic::error(
                 e.code,

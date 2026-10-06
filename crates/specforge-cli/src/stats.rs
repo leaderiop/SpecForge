@@ -1,4 +1,4 @@
-use specforge_ops::stats::{Stats, StatsRequest};
+use specforge_ops::stats::Stats;
 use specforge_ops::view::ProjectView;
 use std::path::Path;
 
@@ -11,11 +11,7 @@ use crate::pipeline;
 /// 2), as in `analyze`.
 pub fn run(path: &Path, format: OutputFormat) -> i32 {
     let (project, _runtime) = pipeline::compile_project(path);
-    let diagnostics = project.diagnostics();
-    let request = StatsRequest {
-        diagnostics: &diagnostics,
-    };
-    let stats = match specforge_ops::stats::stats(&ProjectView::of(&project), &request) {
+    let stats = match specforge_ops::stats::stats(&ProjectView::of(&project)) {
         Ok(stats) => stats,
         Err(e) => {
             eprintln!("{}", crate::export::render_plain(&e.diagnostic()));

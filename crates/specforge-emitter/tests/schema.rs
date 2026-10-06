@@ -1405,12 +1405,16 @@ fn schema_reflects_current_state() {
     // schema from the compilation's registries, serialize it.
     fn serve(dir: &std::path::Path) -> serde_json::Value {
         let runtime = specforge_component::project_runtime(dir);
-        let ctx = specforge_project::CompiledProject::compile(dir, Some(&runtime)).into_context();
+        let ctx = specforge_project::CompiledProject::compile(dir, Some(&runtime));
         let schema = generate_schema(
-            &ctx.kind_registry,
-            &ctx.edge_registry,
-            &ctx.field_registry,
-            &ctx.extension_info,
+            &ctx.env.registries.kinds,
+            &ctx.env.registries.edges,
+            &ctx.env.registries.fields,
+            &ctx.env
+                .registries
+                .extension_info()
+                .map(|(name, version)| (name.to_string(), version.to_string()))
+                .collect::<Vec<_>>(),
         );
         serde_json::from_str(&emit_schema(&schema).unwrap()).unwrap()
     }

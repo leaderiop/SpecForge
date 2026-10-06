@@ -7,6 +7,7 @@ use crate::OutputFormat;
 use serde_json::json;
 use specforge_common::inference::MANIFEST_FILENAME;
 use specforge_ops::infer::{self, Gaps, Progress};
+use specforge_ops::view::ProjectView;
 use std::path::Path;
 
 pub fn run(
@@ -16,8 +17,9 @@ pub fn run(
     show_stale: bool,
     show_gaps_detail: bool,
 ) -> i32 {
-    let (ctx, runtime) = crate::pipeline::compile_with_runtime(path);
-    let progress = match infer::progress(path, &ctx.declarations) {
+    let (project, runtime) = crate::pipeline::compile_project(path);
+    let view = ProjectView::of(&project);
+    let progress = match infer::progress(&view) {
         Ok(progress) => progress,
         Err(error) => {
             format.print_op_error(&error);
@@ -25,7 +27,7 @@ pub fn run(
         }
     };
     let gaps = if show_gaps_detail {
-        match infer::gaps(path, &ctx.declarations, &ctx.graph, &runtime) {
+        match infer::gaps(&view, &runtime) {
             Ok(gaps) => Some(gaps),
             Err(error) => {
                 format.print_op_error(&error);

@@ -18,8 +18,9 @@ fn wasm_runtime_for(ext_names: &[&str]) -> specforge_component::ComponentRuntime
     specforge_component::project_runtime(dir.path())
 }
 
-/// Helper: write spec files to a temp dir and run the simple compilation pipeline.
-fn compile_specs(files: &[(&str, &str)]) -> specforge_project::CompilationContext {
+/// Helper: write spec files to a temp dir and compile them with no extension
+/// loaded (structure only).
+fn compile_specs(files: &[(&str, &str)]) -> specforge_project::CompiledProject {
     let dir = TempDir::new().unwrap();
     for (name, content) in files {
         let path = dir.path().join(name);
@@ -28,14 +29,14 @@ fn compile_specs(files: &[(&str, &str)]) -> specforge_project::CompilationContex
         }
         fs::write(&path, content).unwrap();
     }
-    specforge_project::compile::compile_simple(dir.path())
+    specforge_project::CompiledProject::compile(dir.path(), None)
 }
 
 /// Helper: compile with the builtin runtime for the given extensions (full pipeline).
 fn compile_with_builtins(
     extensions: &[&str],
     files: &[(&str, &str)],
-) -> specforge_project::CompilationContext {
+) -> specforge_project::CompiledProject {
     let dir = TempDir::new().unwrap();
     let ext_json = extensions
         .iter()
@@ -57,7 +58,7 @@ fn compile_with_builtins(
         fs::write(&path, content).unwrap();
     }
     let runtime = wasm_runtime_for(extensions);
-    specforge_project::CompiledProject::compile(dir.path(), Some(&runtime)).into_context()
+    specforge_project::CompiledProject::compile(dir.path(), Some(&runtime))
 }
 
 // B:extension_owned_body_syntax — verify unit "port method body syntax does not surface parse errors"
@@ -82,15 +83,12 @@ port TaskRepository "Repo" {
 "#,
         )],
     );
+    let diagnostics = ctx.diagnostics();
 
     // Port method signatures are extension-owned body syntax. The core grammar
     // cannot parse them, but they must NOT surface as E001 parse errors to the
     // user — the `port` entity itself parses fine (direction, category, verify).
-    let e001: Vec<_> = ctx
-        .diagnostics
-        .iter()
-        .filter(|d| d.code == "E001")
-        .collect();
+    let e001: Vec<_> = diagnostics.iter().filter(|d| d.code == "E001").collect();
     assert!(
         e001.is_empty(),
         "port method body must not produce E001 parse errors, got: {:?}",
@@ -116,15 +114,12 @@ type Manifest "M" {
 "#,
         )],
     );
+    let diagnostics = ctx.diagnostics();
 
     // Inline union field types (`string | string[]`) are extension-owned body
     // syntax the core grammar does not parse, but they must NOT surface as E001
     // parse errors — the `type` entity itself still resolves its other fields.
-    let e001: Vec<_> = ctx
-        .diagnostics
-        .iter()
-        .filter(|d| d.code == "E001")
-        .collect();
+    let e001: Vec<_> = diagnostics.iter().filter(|d| d.code == "E001").collect();
     assert!(
         e001.is_empty(),
         "type inline-union field must not produce E001 parse errors, got: {:?}",
@@ -163,9 +158,9 @@ port Broken "Broken" {
 "#,
         )],
     );
+    let diagnostics = ctx.diagnostics();
 
-    let e004: Vec<_> = ctx
-        .diagnostics
+    let e004: Vec<_> = diagnostics
         .iter()
         .filter(|d| d.code == "E004")
         .map(|d| d.message.as_str())
@@ -199,12 +194,9 @@ fn type_body_syntax_the_grammar_rejects_does_not_surface_parse_errors() {
 "#,
         )],
     );
+    let diagnostics = ctx.diagnostics();
 
-    let e001: Vec<_> = ctx
-        .diagnostics
-        .iter()
-        .filter(|d| d.code == "E001")
-        .collect();
+    let e001: Vec<_> = diagnostics.iter().filter(|d| d.code == "E001").collect();
     assert!(
         e001.is_empty(),
         "a body-parser kind's body must not produce E001 parse errors, got: {e001:?}"
@@ -234,6 +226,7 @@ type CodeAction "Code Action" {
 "#,
         )],
     );
+    let diagnostics = ctx.diagnostics();
 
     // `kind` here is an ordinary struct field (of type CodeActionKind), not the
     // struct meta-attribute. It must NOT trip the type-kind enum constraint.
@@ -251,8 +244,7 @@ type CodeAction "Code Action" {
         "`kind` is an ordinary field of the type: {:?}",
         node.fields
     );
-    let about_kind: Vec<_> = ctx
-        .diagnostics
+    let about_kind: Vec<_> = diagnostics
         .iter()
         .filter(|d| d.message.contains("'kind'"))
         .collect();
@@ -323,15 +315,12 @@ behavior login "User Login" {
 "#,
         ),
     ]);
+    let diagnostics = ctx.diagnostics();
 
     // Should have 2 nodes
     assert_eq!(ctx.graph.nodes().len(), 2, "expected 2 nodes");
     // Should have resolved the import (no E025 file-not-found errors)
-    let file_errors: Vec<_> = ctx
-        .diagnostics
-        .iter()
-        .filter(|d| d.code == "E025")
-        .collect();
+    let file_errors: Vec<_> = diagnostics.iter().filter(|d| d.code == "E025").collect();
     assert!(
         file_errors.is_empty(),
         "should not have file errors: {:?}",
@@ -358,13 +347,9 @@ behavior login "User Login" {
     );
 
     // The path is looked up on disk: a `use` naming no file is E025.
-    let missing = compile_specs(&[("main.spec", "use \"no_such_file\"\n")]);
-    let e025: Vec<_> = missing
-        .diagnostics
-        .iter()
-        .filter(|d| d.code == "E025")
-        .collect();
-    assert_eq!(e025.len(), 1, "{:?}", missing.diagnostics);
+    let missing = compile_specs(&[("main.spec", "use \"no_such_file\"\n")]).diagnostics();
+    let e025: Vec<_> = missing.iter().filter(|d| d.code == "E025").collect();
+    assert_eq!(e025.len(), 1, "{missing:?}");
     assert!(e025[0].message.contains("no_such_file"), "{:?}", e025[0]);
 }
 
@@ -413,18 +398,15 @@ fn validation_diagnostics_surface() {
 }
 "#,
     )]);
+    let diagnostics = ctx.diagnostics();
 
     // Exactly one E003, naming the unresolved reference.
-    let e003: Vec<_> = ctx
-        .diagnostics
-        .iter()
-        .filter(|d| d.code == "E003")
-        .collect();
+    let e003: Vec<_> = diagnostics.iter().filter(|d| d.code == "E003").collect();
     assert_eq!(
         e003.len(),
         1,
         "expected one E003 for the unresolved reference, got: {:?}",
-        ctx.diagnostics
+        diagnostics
     );
     assert_eq!(e003[0].severity, specforge_common::Severity::Error);
     assert!(
@@ -443,7 +425,7 @@ fn validation_diagnostics_surface() {
 )]
 fn empty_project_produces_empty_graph() {
     let dir = TempDir::new().unwrap();
-    let ctx = specforge_project::compile::compile_simple(dir.path());
+    let ctx = specforge_project::CompiledProject::compile(dir.path(), None);
 
     assert!(
         ctx.graph.nodes().is_empty(),

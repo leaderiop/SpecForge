@@ -24,7 +24,7 @@ pub fn call(call: &mut Call<'_>, args: Args) -> Handled {
     {
         return Err(crate::tool::entity_not_found(entity_id).into());
     }
-    let diagnostics = super::reported(call);
+    let diagnostics = call.view().reported();
     let query = FixQuery {
         entity: args.entity_id.as_deref(),
         file: args.file_path.as_deref(),

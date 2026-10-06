@@ -1661,3 +1661,166 @@ fn extensions_list_each_extensions_kinds_and_entities() {
         "{text}"
     );
 }
+
+// ===============================================================
+// Plan 05 pins: the management operations before they take the
+// project view
+// ===============================================================
+
+#[specforge_test(
+    behavior = "remove_extension",
+    verify = "a removal with an unreadable specforge.json is config_invalid and changes nothing"
+)]
+fn removing_a_builtin_with_an_unreadable_config_is_config_invalid() {
+    let dir = TempDir::new().unwrap();
+    let config = r#"{ "extensions": ["@specforge/product",  }"#;
+    fs::write(dir.path().join("specforge.json"), config).unwrap();
+
+    let output = specforge_cmd()
+        .args(["remove", "@specforge/product", "--format", "json", "--path"])
+        .arg(dir.path())
+        .output()
+        .unwrap();
+
+    assert_eq!(output.status.code(), Some(1), "{output:?}");
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(json["code"], "config_invalid", "{json}");
+    assert_eq!(
+        fs::read_to_string(dir.path().join("specforge.json")).unwrap(),
+        config
+    );
+}
+
+#[specforge_test(
+    behavior = "list_installed_extensions",
+    verify = "list includes entity counts and entity types"
+)]
+fn a_legacy_entry_that_did_not_load_is_listed_with_its_written_version() {
+    let dir = TempDir::new().unwrap();
+    write_config_with_extensions(dir.path(), &["@specforge/product", "@acme/missing@1.2.0"]);
+
+    let output = specforge_cmd()
+        .args(["extensions", "--format", "json", "--path"])
+        .arg(dir.path())
+        .output()
+        .unwrap();
+
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    let missing = json["extensions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|e| e["name"] == "@acme/missing")
+        .unwrap_or_else(|| panic!("@acme/missing not listed: {json}"));
+    assert_eq!(missing["version"], "1.2.0", "{missing}");
+    assert_eq!(missing["status"], "not_loaded", "{missing}");
+    assert_eq!(missing["source"], "unknown", "{missing}");
+}
+
+/// Doctor's findings, without the z3 probe's (it depends on PATH).
+fn project_findings(report: &serde_json::Value) -> Vec<serde_json::Value> {
+    report["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|f| f["code"] != "z3_missing")
+        .cloned()
+        .collect()
+}
+
+// Panel D5 (plan 05): a directory without specforge.json is a valid
+// default project, but doctor says so, as a warning.
+#[specforge_test(
+    behavior = "run_doctor_check",
+    verify = "doctor in a directory without specforge.json reports config_missing as a warning"
+)]
+fn doctor_without_specforge_json_says_so() {
+    let dir = TempDir::new().unwrap();
+
+    let (report, code) = doctor_json(dir.path());
+
+    assert_eq!(code, 0, "{report}");
+    assert_eq!(report["status"], "healthy", "{report}");
+    assert_eq!(report["extensions"], serde_json::json!([]), "{report}");
+    assert_eq!(report["extensions_checked"], 0, "{report}");
+    let findings = project_findings(&report);
+    let codes: Vec<(&str, &str)> = findings
+        .iter()
+        .map(|f| (f["code"].as_str().unwrap(), f["status"].as_str().unwrap()))
+        .collect();
+    assert_eq!(codes, [("config_missing", "warn")], "{report}");
+
+    let (human, code) = doctor_human(dir.path());
+    assert_eq!(code, 0, "{human}");
+    assert!(
+        human.contains("[WARN] [config_missing] specforge.json at "),
+        "{human}"
+    );
+    assert!(human.contains("No issues found."), "{human}");
+}
+
+/// `specforge.json` texts that are there and can't be used: not JSON, not
+/// an object, an `extensions` value that is not an array.
+const UNUSABLE_CONFIGS: [&str; 3] = [
+    r#"{ "extensions": ["@specforge/product",  }"#,
+    "[1,2]",
+    r#"{"extensions": "@specforge/product"}"#,
+];
+
+// R3 (plan 05): a specforge.json that is there and can't be used fails
+// check with E069 (an error), then an I002 that names the file. It used to
+// compile silently as "no extensions configured".
+#[specforge_test(
+    behavior = "load_extension_manifests",
+    verify = "a specforge.json that is there and can't be used produces E069 first and an I002 that names it"
+)]
+fn an_unusable_config_fails_check_with_e069() {
+    for config in UNUSABLE_CONFIGS {
+        let dir = TempDir::new().unwrap();
+        fs::write(dir.path().join("specforge.json"), config).unwrap();
+        fs::write(dir.path().join("main.spec"), "feature f \"F\" {\n}\n").unwrap();
+
+        for strict in [false, true] {
+            let mut command = specforge_cmd();
+            command.args(["check", "--format", "json"]).arg(dir.path());
+            if strict {
+                command.arg("--strict");
+            }
+            let output = command.output().unwrap();
+
+            assert_eq!(output.status.code(), Some(1), "{config}: {output:?}");
+            let found: Vec<serde_json::Value> = serde_json::from_slice(&output.stdout).unwrap();
+            let codes: Vec<&str> = found.iter().map(|d| d["code"].as_str().unwrap()).collect();
+            assert_eq!(codes, ["E069", "I002"], "{config}: {found:?}");
+            assert_eq!(found[0]["severity"], "Error", "{config}");
+            let message = found[0]["message"].as_str().unwrap();
+            assert!(
+                message.starts_with("specforge.json can't be used: ")
+                    && message.ends_with("; no extension is loaded"),
+                "{config}: {message}"
+            );
+            assert_eq!(
+                found[1]["message"],
+                "specforge.json could not be read — operating in structural-only mode",
+                "{config}"
+            );
+        }
+    }
+
+    // The JSON error names its line and column.
+    let dir = TempDir::new().unwrap();
+    fs::write(dir.path().join("specforge.json"), UNUSABLE_CONFIGS[0]).unwrap();
+    let output = specforge_cmd()
+        .args(["check", "--format", "json"])
+        .arg(dir.path())
+        .output()
+        .unwrap();
+    let found: Vec<serde_json::Value> = serde_json::from_slice(&output.stdout).unwrap();
+    assert!(
+        found[0]["message"]
+            .as_str()
+            .unwrap()
+            .contains("is not valid JSON: expected value at line 1 column 41"),
+        "{found:?}"
+    );
+}

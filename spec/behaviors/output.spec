@@ -206,12 +206,15 @@ behavior read_views_over_the_project_view "Read Views over the Project View" {
     test report is <root>/specforge-report.json and its schema cache
     <root>/.specforge/schema-cache.json, and no view looks in an ancestor
     directory. A report that exists but cannot be read is an error on
-    every view (E045). Coverage is computed once per compiled project or
-    session state and per content of the recorded report; a rewritten
-    report is read again. An entity is unverified when it counts toward
-    coverage and is not proven.
+    every view (E045). The view says what its surface reports for the
+    project: what specforge check reports for the compile behind it, then
+    what the surface adds (MCP: I017). Coverage is computed once per
+    compiled project or session state and per content of the recorded
+    report; a rewritten report is read again. An entity is unverified when
+    it counts toward coverage and is not proven.
   """
   verify unit "the recorded test report is read at the view's root, never an ancestor's"
+  verify unit "a view reports what its compile reported, then what its surface adds"
   verify unit "the schema cache is the view root's, never an ancestor's"
   verify unit "coverage is computed once per compile and report content, and again after the report changes"
   verify unit "an entity is unverified when it counts toward coverage and is not proven"

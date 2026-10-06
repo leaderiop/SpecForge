@@ -15,6 +15,7 @@ use crate::OutputFormat;
 use specforge_common::find_project_root;
 use specforge_ops::OpError;
 use specforge_ops::collect::{self, Collector, Consent, Mode, Request, RunnerOutput};
+use specforge_ops::view::ProjectView;
 use std::io::{BufRead, IsTerminal, Write};
 use std::path::{Path, PathBuf};
 
@@ -32,8 +33,7 @@ pub fn run(path: &Path, options: &Options, format: OutputFormat) -> i32 {
         return 1;
     };
 
-    let (ctx, runtime) = crate::pipeline::compile_with_runtime(&root);
-    let known = collect::KnownEntities::from_graph(&ctx.graph);
+    let (project, runtime) = crate::pipeline::compile_project(&root);
 
     let mode = if !options.reports.is_empty() {
         Mode::Reports(options.reports)
@@ -44,11 +44,6 @@ pub fn run(path: &Path, options: &Options, format: OutputFormat) -> i32 {
         Mode::Run(RunnerOutput::Stderr)
     } else {
         Mode::Run(RunnerOutput::Inherit)
-    };
-    let request = Request {
-        root: &root,
-        runner: options.runner,
-        mode,
     };
     let mut prompt = |collector: &Collector, argv: &[String]| ask(collector, argv, &root);
     let consent = if options.yes {
@@ -69,14 +64,15 @@ pub fn run(path: &Path, options: &Options, format: OutputFormat) -> i32 {
             );
         }
     };
-    let outcome = match collect::collect(
-        &request,
-        &ctx.declarations,
-        &runtime,
-        &known,
+    let request = Request {
+        runner: options.runner,
+        mode,
         consent,
-        &mut announce,
-    ) {
+        announce: &mut announce,
+    };
+    // The view is rooted where the project compiled: the report lands where
+    // every view over the project reads it.
+    let outcome = match collect::collect(&ProjectView::of(&project), &runtime, request) {
         Ok(outcome) => outcome,
         Err(e) => {
             format.print_op_error(&e);

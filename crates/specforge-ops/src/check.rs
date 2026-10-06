@@ -455,9 +455,9 @@ mod tests {
     #[test]
     fn no_root_with_cache_or_lint_is_refused() {
         let graph = Graph::new();
-        let registries = RegistryBuild::default();
+        let env = specforge_project::Environment::with_registries(RegistryBuild::default());
         let recorded = RecordedCoverage::default();
-        let view = ProjectView::new(&graph, &registries, None, &recorded);
+        let view = ProjectView::new(&graph, &env, None, &recorded);
         let reported = vec![Diagnostic::warning("W002", "unused")];
 
         for options in [

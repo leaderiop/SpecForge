@@ -49,15 +49,12 @@ fn protocol_extension_loaded_with_runtime() {
         no_other_exports,
     );
 
-    let ctx =
-        specforge_project::CompiledProject::compile(dir.path(), Some(&runtime)).into_context();
+    let ctx = specforge_project::CompiledProject::compile(dir.path(), Some(&runtime));
+
+    let diagnostics = ctx.diagnostics();
 
     // No W031 — runtime was provided
-    let w031: Vec<_> = ctx
-        .diagnostics
-        .iter()
-        .filter(|d| d.code == "W031")
-        .collect();
+    let w031: Vec<_> = diagnostics.iter().filter(|d| d.code == "W031").collect();
     assert!(
         w031.is_empty(),
         "should not have W031 when runtime is provided: {:?}",
@@ -65,24 +62,20 @@ fn protocol_extension_loaded_with_runtime() {
     );
 
     // No E028 — protocol loading should succeed
-    let e028: Vec<_> = ctx
-        .diagnostics
-        .iter()
-        .filter(|d| d.code == "E028")
-        .collect();
+    let e028: Vec<_> = diagnostics.iter().filter(|d| d.code == "E028").collect();
     assert!(e028.is_empty(), "should not have E028: {:?}", e028);
 
-    // Its declaration should appear in ctx.declarations
+    // Its declaration should appear in ctx.env.registries.declarations()
     assert_eq!(
-        ctx.declarations.len(),
+        ctx.env.registries.declarations().len(),
         1,
         "expected 1 declaration from protocol extension"
     );
-    assert_eq!(ctx.declarations[0].name(), "@test/proto");
+    assert_eq!(ctx.env.registries.declarations()[0].name(), "@test/proto");
 
     // KindRegistry should have "gadget"
     assert!(
-        ctx.kind_registry.contains("gadget"),
+        ctx.env.registries.kinds.contains("gadget"),
         "expected gadget kind in registry"
     );
 }
@@ -114,15 +107,12 @@ fn protocol_handshake_trap_produces_e028() {
         }),
     );
 
-    let ctx =
-        specforge_project::CompiledProject::compile(dir.path(), Some(&runtime)).into_context();
+    let ctx = specforge_project::CompiledProject::compile(dir.path(), Some(&runtime));
+
+    let diagnostics = ctx.diagnostics();
 
     // E028 diagnostic should be emitted
-    let e028: Vec<_> = ctx
-        .diagnostics
-        .iter()
-        .filter(|d| d.code == "E028")
-        .collect();
+    let e028: Vec<_> = diagnostics.iter().filter(|d| d.code == "E028").collect();
     assert_eq!(
         e028.len(),
         1,
@@ -140,7 +130,7 @@ fn protocol_handshake_trap_produces_e028() {
 
     // No declaration from the broken extension
     assert!(
-        ctx.declarations.is_empty(),
+        ctx.env.registries.declarations().is_empty(),
         "broken extension should not produce a declaration"
     );
 }
@@ -175,14 +165,11 @@ fn protocol_version_mismatch_produces_e028() {
         WasmCallResult::Ok(serde_json::to_vec(&bad_handshake).unwrap()),
     );
 
-    let ctx =
-        specforge_project::CompiledProject::compile(dir.path(), Some(&runtime)).into_context();
+    let ctx = specforge_project::CompiledProject::compile(dir.path(), Some(&runtime));
 
-    let e028: Vec<_> = ctx
-        .diagnostics
-        .iter()
-        .filter(|d| d.code == "E028")
-        .collect();
+    let diagnostics = ctx.diagnostics();
+
+    let e028: Vec<_> = diagnostics.iter().filter(|d| d.code == "E028").collect();
     assert_eq!(
         e028.len(),
         1,

@@ -5,6 +5,7 @@ mod events;
 mod fake_extension;
 mod invariants;
 mod lifecycle;
+mod management_view;
 mod notifications;
 mod operations_mgmt;
 mod operations_mutation;
