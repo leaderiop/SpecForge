@@ -29,10 +29,7 @@ async fn concurrent_reads_complete() {
         let other = state.clone();
         let second = tokio::spawn(async move {
             let s = other.read().await;
-            s.document("file:///test.spec")
-                .unwrap()
-                .content()
-                .to_string()
+            s.document("file:///test.spec").unwrap().text().to_string()
         });
         let content = tokio::time::timeout(std::time::Duration::from_secs(5), second)
             .await
@@ -59,7 +56,7 @@ async fn concurrent_reads_complete() {
             );
             let doc = s.document("file:///test.spec").unwrap();
             assert!(
-                doc.content().contains("behavior foo"),
+                doc.text().contains("behavior foo"),
                 "reader {i} content mismatch"
             );
             s.open_uris().len()
@@ -101,7 +98,7 @@ async fn concurrent_reads_see_consistent_state() {
     async fn observe(state: &RwLock<LspState>) -> (usize, Vec<usize>) {
         let s = state.read().await;
         let version = |id: &str| id.trim_start_matches("entity_").parse::<usize>().unwrap();
-        let content = s.document(URI).unwrap().content().to_string();
+        let content = s.document(URI).unwrap().text().to_string();
         let doc = version(content.split_whitespace().nth(1).unwrap());
         let graph = s
             .graph()
@@ -242,14 +239,14 @@ async fn rapid_open_close_no_corruption() {
                 let s = state.read().await;
                 assert!(s.is_open(&uri), "document must be open after open_document");
                 let doc = s.document(&uri).unwrap();
-                assert!(doc.content().contains(&format!("rapid_{i}")));
+                assert!(doc.text().contains(&format!("rapid_{i}")));
             }
 
             // Apply a change
             {
                 let mut s = state.write().await;
                 // Replace the title text (starts after the first quote)
-                s.apply_change(&uri, 0, 0, 0, 0, "// edited\n");
+                s.apply_change(&uri, Some(crate::lsp_range(0, 0, 0, 0)), "// edited\n");
             }
 
             // Read the change
@@ -257,7 +254,7 @@ async fn rapid_open_close_no_corruption() {
                 let s = state.read().await;
                 let doc = s.document(&uri).unwrap();
                 assert!(
-                    doc.content().starts_with("// edited\n"),
+                    doc.text().starts_with("// edited\n"),
                     "change must be reflected in buffer"
                 );
             }
@@ -315,7 +312,7 @@ async fn concurrent_writes_to_different_documents() {
         handles.push(tokio::spawn(async move {
             let uri = format!("file:///cw_{i}.spec");
             let mut s = state.write().await;
-            s.apply_change(&uri, 0, 0, 0, 0, "// header\n");
+            s.apply_change(&uri, Some(crate::lsp_range(0, 0, 0, 0)), "// header\n");
         }));
     }
     for handle in handles {
@@ -329,11 +326,11 @@ async fn concurrent_writes_to_different_documents() {
         let uri = format!("file:///cw_{i}.spec");
         let doc = s.document(&uri).expect("document must exist");
         assert!(
-            doc.content().starts_with("// header\n"),
+            doc.text().starts_with("// header\n"),
             "document {uri} must have header prepended"
         );
         assert!(
-            doc.content().contains(&format!("cw_{i}")),
+            doc.text().contains(&format!("cw_{i}")),
             "document {uri} must retain original content"
         );
     }

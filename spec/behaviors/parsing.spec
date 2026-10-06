@@ -313,6 +313,32 @@ behavior parse_ref_blocks "Parse Ref Blocks" {
   verify contract "Parse Ref Blocks: ref block parsing holds — source_parser_available, ref_components_extracted, both_forms_handled, malformed_refs_rejected"
 }
 
+behavior lex_spec_text "Lex Spec Text" {
+  features   [spec_file_parsing]
+  invariants [zero_domain_knowledge_core, source_span_completeness]
+  category   query
+  types      [SourceSpan]
+  ports      [SourceParser]
+  requires {
+    valid_utf8_input "Input buffer is valid UTF-8"
+  }
+  ensures {
+    lexemes_match_grammar "every identifier, scheme ref ID, number, string and comment the grammar reads is one lexeme with the same bytes"
+    half_typed_text_lexes "text the grammar rejects still lexes, an unclosed regular string ending at its line's end"
+  }
+  contract   """
+    The lexer MUST read a .spec text, complete or half-typed, into the
+    lexemes the grammar tokenizes: identifiers, scheme ref IDs (one lexeme),
+    numbers, strings, comments and punctuation, without a parse. Navigation
+    and the LSP read text through it and through no scanner of their own
+    (ADR 0023). A regular string ends at its line's end, so an unclosed
+    quote never swallows the rest of a document being typed.
+  """
+  verify unit "the lexer agrees with the grammar on every spec file of the repository"
+  verify unit "a scheme ref ID is one lexeme"
+  verify unit "strings and comments are lexemes of their own and hold no others"
+}
+
 behavior parse_define_blocks "Parse Define Blocks" {
   features   [spec_file_parsing]
   invariants [

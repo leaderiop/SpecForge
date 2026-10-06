@@ -3,7 +3,7 @@ use super::*;
 #[tokio::test]
 async fn e2e_did_change_incremental_updates_hover() {
     let text = "behavior old_name \"Old\" {}\n";
-    let (mut client, uri) = start_server_with_doc(None, "test.spec", text).await;
+    let (mut client, uri) = Session::with_doc(None, "test.spec", text).await;
 
     // Rename "old_name" to "new_name" via incremental change (replace chars 9-17 on line 0)
     client
@@ -39,7 +39,7 @@ async fn e2e_did_change_incremental_updates_hover() {
 #[tokio::test]
 async fn e2e_did_change_triggers_diagnostics() {
     let text = "behavior valid \"Valid\" {}\n";
-    let (mut client, uri) = start_server_with_doc(None, "test.spec", text).await;
+    let (mut client, uri) = Session::with_doc(None, "test.spec", text).await;
 
     // Introduce a parse error by replacing full content
     client
@@ -66,7 +66,7 @@ async fn e2e_did_change_triggers_diagnostics() {
 #[tokio::test]
 async fn e2e_did_change_multiple_edits() {
     let text = "behavior aaa \"A\" {}\n";
-    let (mut client, uri) = start_server_with_doc(None, "test.spec", text).await;
+    let (mut client, uri) = Session::with_doc(None, "test.spec", text).await;
 
     // Three sequential changes
     for (ver, name) in [(2, "bbb"), (3, "ccc"), (4, "ddd")] {
@@ -95,7 +95,7 @@ async fn e2e_did_change_multiple_edits() {
 #[tokio::test]
 async fn e2e_did_change_full_replacement() {
     let text = "behavior first \"First\" {}\n";
-    let (mut client, uri) = start_server_with_doc(None, "test.spec", text).await;
+    let (mut client, uri) = Session::with_doc(None, "test.spec", text).await;
 
     // Full text replacement (no range = full document)
     client
@@ -124,7 +124,7 @@ async fn e2e_did_change_full_replacement() {
 #[tokio::test]
 async fn e2e_prepare_rename_on_entity() {
     let text = "behavior user_login \"Login\" {}\n";
-    let (mut client, uri) = start_server_with_doc(None, "test.spec", text).await;
+    let (mut client, uri) = Session::with_doc(None, "test.spec", text).await;
     // Cursor on "user_login" (line 0, col 12)
     let resp = client.rename_range_at(&uri, 0, 12).await;
     let result = &resp["result"];
@@ -142,7 +142,7 @@ async fn e2e_prepare_rename_on_entity() {
 #[tokio::test]
 async fn e2e_prepare_rename_on_non_entity() {
     let text = "behavior foo \"Foo\" {}\n";
-    let (mut client, uri) = start_server_with_doc(None, "test.spec", text).await;
+    let (mut client, uri) = Session::with_doc(None, "test.spec", text).await;
     // Cursor on "behavior" keyword (col 4) — not an entity ID in the graph
     let resp = client.rename_range_at(&uri, 0, 4).await;
     let result = &resp["result"];
@@ -158,7 +158,7 @@ async fn e2e_prepare_rename_on_non_entity() {
 #[tokio::test]
 async fn e2e_rename_updates_all_references() {
     let text = "type token \"Token\" {}\nbehavior login \"Login\" {\n  types [token]\n}\n";
-    let (mut client, uri) = start_server_with_doc(None, "test.spec", text).await;
+    let (mut client, uri) = Session::with_doc(None, "test.spec", text).await;
     // Rename "token" at line 0, col 6
     let resp = client.rename(&uri, 0, 6, "jwt_token").await;
     let result = &resp["result"];
@@ -186,7 +186,7 @@ async fn e2e_rename_updates_all_references() {
 #[tokio::test]
 async fn e2e_rename_rejects_duplicate() {
     let text = "behavior alpha \"Alpha\" {}\nbehavior beta \"Beta\" {}\n";
-    let (mut client, uri) = start_server_with_doc(None, "test.spec", text).await;
+    let (mut client, uri) = Session::with_doc(None, "test.spec", text).await;
     // Try to rename "alpha" to "beta" (duplicate)
     let resp = client.rename(&uri, 0, 10, "beta").await;
     let result = &resp["result"];
@@ -206,7 +206,7 @@ async fn e2e_rename_multibyte_lines_utf16_columns() {
     // (Spec files accept free-text strings anywhere a string is legal; the
     // declaration line itself is what rename targets.)
     let text = "type token \"Token – ünits\" {}\nbehavior login \"Login\" {\n  types [token]\n}\n";
-    let (mut client, uri) = start_server_with_doc(None, "test.spec", text).await;
+    let (mut client, uri) = Session::with_doc(None, "test.spec", text).await;
     // Rename "token" at line 0, col 6 (ASCII declaration line)
     let resp = client.rename(&uri, 0, 6, "jwt_token").await;
     let result = &resp["result"];
@@ -241,7 +241,7 @@ async fn e2e_rename_multibyte_lines_utf16_columns() {
 }
 
 /// The diagnostic codes of the next publishDiagnostics for `uri`.
-async fn next_published_codes(client: &mut LspClient, uri: &str) -> Vec<String> {
+async fn next_published_codes(client: &mut Session, uri: &str) -> Vec<String> {
     loop {
         let msg = client
             .wait_for_notification("textDocument/publishDiagnostics", 5000)
@@ -266,7 +266,7 @@ async fn next_published_codes(client: &mut LspClient, uri: &str) -> Vec<String> 
 #[tokio::test]
 async fn e2e_diagnostics_follow_each_edit() {
     let clean = "invariant token_unique \"T\" {\n  guarantee \"g\"\n}\n\nbehavior login \"L\" {\n  invariants [token_unique]\n}\n";
-    let (mut client, uri, _dir) = start_server_with_extensions(
+    let (mut client, uri, _dir) = Session::with_extensions(
         &["@specforge/software", "@specforge/testing"],
         "auth.spec",
         clean,
@@ -296,7 +296,7 @@ async fn e2e_extension_cycle_rule_reports_its_own_code() {
     // Two modules that depend on each other: product's cycle rule is E007.
     let text = "module core \"Core\" {\n  depends_on [ui]\n}\n\nmodule ui \"UI\" {\n  depends_on [core]\n}\n";
     let (mut client, uri, _dir) =
-        start_server_with_extensions(&["@specforge/product"], "modules.spec", text).await;
+        Session::with_extensions(&["@specforge/product"], "modules.spec", text).await;
 
     // A no-op edit republishes the file's diagnostics.
     client

@@ -347,6 +347,32 @@ fn strings_comments_and_verify_texts_are_not_occurrences() {
     );
 }
 
+/// A ref and a behavior listing it (plan 06's R1 fixture).
+const REFS: &str = concat!(
+    "ref gh.issue:42 \"Support Wasm\"\n",
+    "\n",
+    "behavior issue \"Issue tracking\" {\n",
+    "  contract \"tracks issues\"\n",
+    "}\n",
+    "\n",
+    "behavior login \"Login\" {\n",
+    "  contract \"see [docs\"\n",
+    "  refs [gh.issue:42]\n",
+    "}\n",
+);
+
+#[specforge_test(
+    behavior = "go_to_definition",
+    verify = "the definition's selection is the entity's name token"
+)]
+fn a_refs_definition_selects_its_scheme_id() {
+    // A scheme ref ID is one token (the grammar's `scheme_ref_id`).
+    let p = compile(SOFTWARE, &[("main.spec", REFS)]);
+    let definition = p.navigator().definition("gh.issue:42").unwrap();
+    assert_eq!(definition.precision, Precision::Token);
+    assert_eq!(at(&definition.name), "main.spec 1:5-1:16");
+}
+
 #[test]
 fn a_stale_text_gives_entity_precision() {
     let p = nav();

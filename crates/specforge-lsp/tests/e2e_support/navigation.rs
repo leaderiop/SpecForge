@@ -4,7 +4,7 @@ use tempfile::TempDir;
 #[tokio::test]
 async fn e2e_goto_definition_entity() {
     let text = "type token \"Token\" {}\nbehavior login \"Login\" {\n  types [token]\n}\n";
-    let (mut client, uri) = start_server_with_doc(None, "test.spec", text).await;
+    let (mut client, uri) = Session::with_doc(None, "test.spec", text).await;
     // "token" on line 2, col ~10 (inside [token])
     let resp = client.goto_definition(&uri, 2, 10).await;
     let result = &resp["result"];
@@ -16,7 +16,7 @@ async fn e2e_goto_definition_entity() {
 #[tokio::test]
 async fn e2e_goto_definition_nonexistent() {
     let text = "behavior foo \"Foo\" {}\n";
-    let (mut client, uri) = start_server_with_doc(None, "test.spec", text).await;
+    let (mut client, uri) = Session::with_doc(None, "test.spec", text).await;
     // Position past end of meaningful content
     let resp = client.goto_definition(&uri, 0, 50).await;
     let result = &resp["result"];
@@ -32,7 +32,7 @@ async fn e2e_goto_definition_cross_file() {
     std::fs::write(&file_a, "behavior login \"Login\" {\n  types [token]\n}\n").unwrap();
 
     let root = dir.path().to_str().unwrap();
-    let mut client = start_server(Some(root)).await;
+    let mut client = Session::launch(Some(root), json!({})).await.0;
 
     // Wait for workspace indexing log
     client
@@ -67,7 +67,7 @@ async fn e2e_goto_definition_on_use_line() {
     std::fs::write(types_dir.join("core.spec"), "type token \"Token\" {}\n").unwrap();
 
     let root = dir.path().to_str().unwrap();
-    let mut client = start_server(Some(root)).await;
+    let mut client = Session::launch(Some(root), json!({})).await.0;
     client
         .wait_for_notification("window/logMessage", 5000)
         .await;
@@ -105,7 +105,7 @@ async fn e2e_references_returns_all_sites() {
         "  types [token]\n",
         "}\n",
     );
-    let (mut client, uri) = start_server_with_doc(None, "test.spec", text).await;
+    let (mut client, uri) = Session::with_doc(None, "test.spec", text).await;
     // "token" at line 0, col 6 (the declaration)
     let resp = client.references(&uri, 0, 6).await;
     let result = &resp["result"];
@@ -127,7 +127,7 @@ async fn e2e_references_includes_declaration() {
         "  types [token]\n",
         "}\n",
     );
-    let (mut client, uri) = start_server_with_doc(None, "test.spec", text).await;
+    let (mut client, uri) = Session::with_doc(None, "test.spec", text).await;
     let resp = client.references(&uri, 0, 6).await;
     let result = &resp["result"];
     assert!(!result.is_null());
@@ -142,7 +142,7 @@ async fn e2e_references_includes_declaration() {
 #[tokio::test]
 async fn e2e_references_nonexistent() {
     let text = "behavior foo \"Foo\" {}\n";
-    let (mut client, uri) = start_server_with_doc(None, "test.spec", text).await;
+    let (mut client, uri) = Session::with_doc(None, "test.spec", text).await;
     // Position on a word that isn't an entity ID in the graph references
     let resp = client.references(&uri, 0, 50).await;
     let result = &resp["result"];
@@ -184,7 +184,7 @@ const LIMIT_AND_LOGIN: &str = "invariant session_limit \"Limit\" {\n  guarantee 
 async fn find_all_references_contract() {
     // Requires: the project's graph is built, with the entity's references.
     let (mut client, uri, _dir) =
-        start_server_with_extensions(&["@specforge/software"], "a.spec", LIMIT_AND_LOGIN).await;
+        Session::with_extensions(&["@specforge/software"], "a.spec", LIMIT_AND_LOGIN).await;
     // Ensures: every reference, each its token; the declaration's name
     // only when the request includes it.
     let with = client.references_with(&uri, 0, 12, true).await;
@@ -218,7 +218,7 @@ async fn find_all_references_contract() {
 async fn e2e_reference_ranges_are_utf16() {
     let text = "invariant cap \"é→\" { guarantee \"x\" }\nbehavior b \"é→\" { invariants [cap] }\n";
     let (mut client, uri, _dir) =
-        start_server_with_extensions(&["@specforge/software"], "a.spec", text).await;
+        Session::with_extensions(&["@specforge/software"], "a.spec", text).await;
     let resp = client.references_with(&uri, 0, 11, true).await;
     // `cap` follows "é→" on line 1: 2 UTF-16 units, 5 bytes.
     assert_eq!(
@@ -235,7 +235,7 @@ async fn e2e_reference_ranges_are_utf16() {
 #[tokio::test]
 async fn e2e_prepare_rename_answers_the_token() {
     let (mut client, uri, _dir) =
-        start_server_with_extensions(&["@specforge/software"], "a.spec", LIMIT_AND_LOGIN).await;
+        Session::with_extensions(&["@specforge/software"], "a.spec", LIMIT_AND_LOGIN).await;
     let declaration = client.rename_range_at(&uri, 0, 15).await;
     assert_eq!(
         lsp_range(&declaration["result"]),
@@ -253,7 +253,7 @@ async fn e2e_prepare_rename_answers_the_token() {
 #[tokio::test]
 async fn e2e_prepare_rename_outside_an_id_is_not_available() {
     let (mut client, uri, _dir) =
-        start_server_with_extensions(&["@specforge/software"], "a.spec", LIMIT_AND_LOGIN).await;
+        Session::with_extensions(&["@specforge/software"], "a.spec", LIMIT_AND_LOGIN).await;
     // The title, the kind keyword, a field name.
     for (line, character) in [(0, 27), (0, 3), (1, 4)] {
         let resp = client.rename_range_at(&uri, line, character).await;
@@ -264,7 +264,7 @@ async fn e2e_prepare_rename_outside_an_id_is_not_available() {
 #[tokio::test]
 async fn e2e_goto_definition_selects_the_name() {
     let (mut client, uri, _dir) =
-        start_server_with_extensions(&["@specforge/software"], "a.spec", LIMIT_AND_LOGIN).await;
+        Session::with_extensions(&["@specforge/software"], "a.spec", LIMIT_AND_LOGIN).await;
     let resp = client.goto_definition(&uri, 4, 16).await;
     assert_eq!(lsp_range(&resp["result"]["range"]), "0:10-0:23", "{resp}");
 }
@@ -272,7 +272,7 @@ async fn e2e_goto_definition_selects_the_name() {
 #[tokio::test]
 async fn e2e_goto_definition_links_the_block_and_its_name() {
     let capabilities = json!({"textDocument": {"definition": {"linkSupport": true}}});
-    let (mut client, uri, _dir, _) = start_server_with_extensions_as(
+    let (mut client, uri, _dir, _) = Session::with_extensions_as(
         &["@specforge/software"],
         "a.spec",
         LIMIT_AND_LOGIN,

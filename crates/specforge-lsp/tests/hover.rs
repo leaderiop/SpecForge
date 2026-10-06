@@ -1,7 +1,9 @@
 use specforge_common::{SourceSpan, Sym};
 use specforge_graph::{Edge, Graph, Node};
+use specforge_lsp::LineIndex;
 use specforge_parser::{EntityId, EntityKind, FieldMap};
 use specforge_test_macros::test as spec;
+use tower_lsp::lsp_types::Position;
 
 fn node(id: &str, kind: &str, title: Option<&str>) -> Node {
     Node {
@@ -424,46 +426,6 @@ fn field_hover_unknown_kind_returns_none() {
     assert!(specforge_lsp::hover_field_info("contract", "unknown_kind", &reg).is_none());
 }
 
-// -- enclosing_entity_kind ---------------------------------------------------
-
-#[test]
-fn enclosing_entity_kind_finds_block() {
-    let content = "behavior login \"Login\" {\n  contract \"test\"\n}\n";
-    let kind = specforge_lsp::enclosing_entity_kind(content, 1);
-    assert_eq!(kind.as_deref(), Some("behavior"));
-}
-
-#[test]
-fn enclosing_entity_kind_outside_block_returns_none() {
-    let content = "behavior login \"Login\" {\n  contract \"test\"\n}\n\n// file level\n";
-    let kind = specforge_lsp::enclosing_entity_kind(content, 4);
-    assert_eq!(kind, None);
-}
-
-#[test]
-fn enclosing_entity_kind_on_header_line() {
-    let content = "feature user_mgmt \"User Management\" {\n  problem \"x\"\n}\n";
-    let kind = specforge_lsp::enclosing_entity_kind(content, 0);
-    assert_eq!(kind.as_deref(), Some("feature"));
-}
-
-#[test]
-fn enclosing_entity_kind_skips_nested_braces() {
-    // requires/ensures blocks have their own { } but are indented
-    let content = r#"behavior load "Load" {
-  requires {
-    x "something"
-  }
-  ensures {
-    y "result"
-  }
-  features [some_feature]
-}"#;
-    // Line 7 is `  features [some_feature]` — should find `behavior` despite `}` on lines 3 and 6
-    let kind = specforge_lsp::enclosing_entity_kind(content, 7);
-    assert_eq!(kind.as_deref(), Some("behavior"));
-}
-
 fn diagnostic_at(
     code: &str,
     message: &str,
@@ -502,7 +464,12 @@ fn hovering_a_diagnostic_shows_the_catalogue_entry() {
         15,
     )];
 
-    let md = specforge_lsp::diagnostic_hover(&diagnostics, content, 1, 11).unwrap();
+    let md = specforge_lsp::diagnostic_hover(
+        &diagnostics,
+        &LineIndex::new(content),
+        Position::new(1, 11),
+    )
+    .unwrap();
     assert_eq!(
         md,
         "**E003** · Unresolved reference\n\nunresolved reference 'ghost'\n\n\
@@ -513,7 +480,11 @@ fn hovering_a_diagnostic_shows_the_catalogue_entry() {
     );
     // Outside the range, nothing.
     assert_eq!(
-        specforge_lsp::diagnostic_hover(&diagnostics, content, 0, 3),
+        specforge_lsp::diagnostic_hover(
+            &diagnostics,
+            &LineIndex::new(content),
+            Position::new(0, 3)
+        ),
         None
     );
 }
@@ -527,7 +498,12 @@ fn an_uncatalogued_diagnostic_hover_shows_code_and_message() {
     // E901 is a third-party extension's code.
     let diagnostics = [diagnostic_at("E901", "acme says no", 2, 10, 15)];
     assert_eq!(
-        specforge_lsp::diagnostic_hover(&diagnostics, content, 1, 12).as_deref(),
+        specforge_lsp::diagnostic_hover(
+            &diagnostics,
+            &LineIndex::new(content),
+            Position::new(1, 12)
+        )
+        .as_deref(),
         Some("**E901**\n\nacme says no")
     );
 }

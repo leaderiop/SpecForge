@@ -4,7 +4,7 @@ use super::*;
 async fn e2e_semantic_tokens_non_empty() {
     let text = "behavior foo \"Foo\" {\n  contract \"test\"\n}\n";
     let (mut client, uri, _dir) =
-        start_server_with_extensions(&["@specforge/software"], "test.spec", text).await;
+        Session::with_extensions(&["@specforge/software"], "test.spec", text).await;
     let resp = client.semantic_tokens_full(&uri).await;
     let result = &resp["result"];
     assert!(!result.is_null(), "Expected semantic tokens result");
@@ -16,7 +16,7 @@ async fn e2e_semantic_tokens_non_empty() {
 async fn e2e_semantic_tokens_delta_encoded() {
     let text = "behavior foo \"Foo\" {\n  contract \"test\"\n}\n";
     let (mut client, uri, _dir) =
-        start_server_with_extensions(&["@specforge/software"], "test.spec", text).await;
+        Session::with_extensions(&["@specforge/software"], "test.spec", text).await;
     let resp = client.semantic_tokens_full(&uri).await;
     let data = resp["result"]["data"].as_array().unwrap();
     // Semantic tokens are encoded as groups of 5 integers:
@@ -44,7 +44,7 @@ async fn e2e_semantic_tokens_delta_encoded() {
 async fn e2e_semantic_tokens_keyword_type() {
     let text = "behavior foo \"Foo\" {}\n";
     let (mut client, uri, _dir) =
-        start_server_with_extensions(&["@specforge/software"], "test.spec", text).await;
+        Session::with_extensions(&["@specforge/software"], "test.spec", text).await;
     let resp = client.semantic_tokens_full(&uri).await;
     let data = resp["result"]["data"].as_array().unwrap();
     // First token should be "behavior" entity kind at line 0, col 0
@@ -67,7 +67,7 @@ async fn e2e_semantic_tokens_multibyte_lines_use_utf16() {
     let text = "behavior –ü foo {
 }\n";
     let (mut client, uri, _dir) =
-        start_server_with_extensions(&["@specforge/software"], "test.spec", text).await;
+        Session::with_extensions(&["@specforge/software"], "test.spec", text).await;
     let resp = client.semantic_tokens_full(&uri).await;
     let data = resp["result"]["data"].as_array().expect("token data array");
 
@@ -156,7 +156,7 @@ async fn e2e_semantic_tokens_declaration_uses_kind_semantic_token() {
     // @specforge/software declares port -> interface, invariant -> property;
     // @specforge/formal declares axiom -> constant, which no legend carries.
     let text = "port repo \"Repo\" {\n}\n\ninvariant always \"Always\" {\n}\n\naxiom excluded \"Excluded\" {\n}\n";
-    let (mut client, uri, _dir, init) = start_server_with_extensions_initialized(
+    let (mut client, uri, _dir, init) = Session::with_extensions_as(
         &[
             "@specforge/software",
             "@specforge/testing",
@@ -164,6 +164,7 @@ async fn e2e_semantic_tokens_declaration_uses_kind_semantic_token() {
         ],
         "test.spec",
         text,
+        json!({}),
     )
     .await;
     let resp = client.semantic_tokens_full(&uri).await;
