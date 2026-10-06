@@ -122,6 +122,7 @@ behavior migrate_spec_files_in_place "Migrate Spec Files In Place" {
   verify unit "interrupted migration leaves no partially written files"
   verify unit "pre-migration snapshot captured before migration_starting event"
   verify unit "files already at target version are skipped with skippedCount incremented"
+  verify unit "only the project's sources are migrated: under spec_root, without excluded files"
 }
 
 behavior generate_migration_diff "Generate Migration Diff" {
