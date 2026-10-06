@@ -23,10 +23,8 @@
 use specforge_test_macros::test as spec;
 
 use specforge_common::{Severity, SourceSpan, Sym};
-use specforge_extension_sdk::{ContributionsBuilder, EnhancementBuilder, ExtensionMeta, FieldType};
-use specforge_protocol_types::{EntityEnhancementDescriptor, ExtensionDeclaration};
+use specforge_extension_sdk::{ContributionsBuilder, ExtensionMeta};
 use specforge_registry::compilation::EntityView;
-use specforge_registry::compilation::apply_entity_enhancements;
 use specforge_registry::{
     EdgeRegistry, FieldRegistry, FieldRegistryEntry, KindRegistry, ManifestFieldType,
     detect_unknown_entity_fields,
@@ -39,19 +37,6 @@ use crate::compilation::populate::populate;
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-/// The enhancement `extension` declares on `target` (owned by itself),
-/// with what `f` adds.
-fn enhancement(
-    extension: &str,
-    target: &str,
-    f: impl FnOnce(&mut EnhancementBuilder),
-) -> (String, EntityEnhancementDescriptor) {
-    let declaration = declare(extension, |c| {
-        c.enhance(target, extension, f);
-    });
-    (extension.to_string(), declaration.enhancements[0].clone())
-}
 
 #[allow(dead_code)]
 fn span(file: &str) -> SourceSpan {
@@ -650,145 +635,6 @@ fn suggest_missing_ext_contract() {
 // ===========================================================================
 // B:register_entity_enhancements (5 verifies)
 // ===========================================================================
-
-#[spec(
-    behavior = "register_entity_enhancements",
-    verify = "enhancement fields registered in FieldRegistry"
-)]
-fn enhancements_merge_fields() {
-    let (mut kind_reg, mut field_reg, _, _) = populate(&[software()]);
-    let enhancements = vec![enhancement("@test/coverage", "behavior", |e| {
-        e.field("coverage_threshold", |f| {
-            f.field_type(FieldType::String);
-        });
-    })];
-    let diags = apply_entity_enhancements(&enhancements, &[], &mut kind_reg, &mut field_reg);
-    assert!(diags.is_empty());
-    assert!(field_reg.contains("behavior", "coverage_threshold"));
-}
-
-#[spec(
-    behavior = "register_entity_enhancements",
-    verify = "unknown target kind produces I004 info diagnostic"
-)]
-fn enhancements_unknown_kind_i004() {
-    let (mut kind_reg, mut field_reg, _, _) = populate(&[software()]);
-    let enhancements = vec![enhancement("@test/ext", "nonexistent_kind", |e| {
-        e.field("extra", |f| {
-            f.field_type(FieldType::String);
-        });
-    })];
-    let diags = apply_entity_enhancements(&enhancements, &[], &mut kind_reg, &mut field_reg);
-    assert_eq!(diags.len(), 1);
-    assert_eq!(diags[0].code, "I004");
-    assert!(diags[0].message.contains("nonexistent_kind"));
-    assert!(!field_reg.contains("nonexistent_kind", "extra"));
-}
-
-#[spec(
-    behavior = "register_entity_enhancements",
-    verify = "enhancement field does NOT overwrite existing kind-level field"
-)]
-fn enhancements_no_overwrite() {
-    let (mut kind_reg, mut field_reg, _, _) = populate(&[software()]);
-    let enhancements = vec![enhancement("@test/ext", "behavior", |e| {
-        e.field("contract", |f| {
-            f.field_type(FieldType::String); // different type!
-        });
-    })];
-    let diags = apply_entity_enhancements(&enhancements, &[], &mut kind_reg, &mut field_reg);
-    assert!(diags.is_empty());
-    let contract = field_reg.get("behavior", "contract").unwrap();
-    assert_eq!(contract.field_type, ManifestFieldType::Block);
-    assert_eq!(contract.source_extension, "@specforge/software");
-}
-
-#[spec(
-    behavior = "register_entity_enhancements",
-    verify = "enhancement fields registered in FieldRegistry"
-)]
-fn enhancements_two_non_conflicting() {
-    let (mut kind_reg, mut field_reg, _, _) = populate(&[software()]);
-    let enhancements = vec![
-        enhancement("@ext/a", "behavior", |e| {
-            e.field("priority", |f| {
-                f.field_type(FieldType::String);
-            });
-        }),
-        enhancement("@ext/b", "behavior", |e| {
-            e.field("category", |f| {
-                f.field_type(FieldType::String);
-            });
-        }),
-    ];
-    let diags = apply_entity_enhancements(&enhancements, &[], &mut kind_reg, &mut field_reg);
-    assert!(diags.is_empty());
-    assert!(field_reg.contains("behavior", "priority"));
-    assert!(field_reg.contains("behavior", "category"));
-}
-
-#[spec(
-    behavior = "register_entity_enhancements",
-    verify = "Register Entity Enhancements: entity enhancement registration holds — manifests_validated, enhancement_registered_emitted, registration_before_resolve, registration_order_deterministic"
-)]
-fn enhancements_contract() {
-    // Two extensions each add an `owner` field to behavior, with different types.
-    let enhancer = |name: &str, field_type: FieldType| -> ExtensionDeclaration {
-        declare(name, |c| {
-            c.enhance("behavior", name, |e| {
-                e.field("owner", |f| {
-                    f.field_type(field_type);
-                });
-                e.field(&format!("{}_note", field_type.as_str()), |f| {
-                    f.field_type(FieldType::String);
-                });
-            });
-        })
-    };
-    let a = enhancer("@test/a", FieldType::String);
-    let b = enhancer("@test/b", FieldType::Reference);
-
-    // requires manifests_validated: every declaration passes its shape check.
-    for d in [&software(), &a, &b] {
-        assert!(shape(d).is_empty(), "{}", d.name());
-    }
-
-    let (kind_reg, field_reg, _, diags) = populate(&[software(), a.clone(), b.clone()]);
-    assert!(diags.is_empty(), "{diags:?}");
-
-    // enhancement_registered_emitted: each registered field records the
-    // extension, target kind, field and type the event carries.
-    let owner = field_reg.get("behavior", "owner").unwrap();
-    assert_eq!(owner.kind_name, "behavior");
-    assert_eq!(owner.source_extension, "@test/a");
-    assert_eq!(owner.field_type, ManifestFieldType::String);
-    let note = field_reg.get("behavior", "reference_note").unwrap();
-    assert_eq!(note.source_extension, "@test/b");
-
-    // registration_before_resolve: the registries populate hands
-    // on already accept an enhanced field on a parsed entity.
-    let unknown = detect_unknown_entity_fields(
-        &[EntityView::new("behavior", "b1", pinned(span("main.spec")))
-            .with_fields(&["owner", "string_note"])],
-        &kind_reg,
-        &field_reg,
-    );
-    assert!(unknown.is_empty(), "{unknown:?}");
-
-    // registration_order_deterministic: the extensions array order decides
-    // which `owner` wins, and the same order always gives the same result.
-    let (_, swapped, _, _) = populate(&[software(), b.clone(), a.clone()]);
-    let owner = swapped.get("behavior", "owner").unwrap();
-    assert_eq!(owner.source_extension, "@test/b");
-    assert_eq!(owner.field_type, ManifestFieldType::Reference);
-    for _ in 0..3 {
-        let (_, again, _, _) = populate(&[software(), a.clone(), b.clone()]);
-        assert_eq!(
-            again.get("behavior", "owner").unwrap().source_extension,
-            "@test/a"
-        );
-    }
-}
 
 // ===========================================================================
 // B:validate_extension_manifest_consistency (6 verifies)

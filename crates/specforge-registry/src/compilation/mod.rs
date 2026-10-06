@@ -26,6 +26,3 @@ pub use provider::{
 
 #[cfg(test)]
 mod tests;
-
-#[cfg(test)]
-pub(crate) use populate::apply_entity_enhancements;

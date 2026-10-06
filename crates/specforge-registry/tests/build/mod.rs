@@ -3,6 +3,7 @@
 
 mod consistency;
 mod edges;
+mod enhancements;
 mod fields;
 mod kinds;
 mod peers;
