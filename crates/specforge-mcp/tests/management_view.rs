@@ -217,10 +217,14 @@ fn infer_tools_without_a_project_answer_their_empty_documents() {
     assert_eq!(gaps["message"], "No project root available", "{gaps}");
 }
 
-// pins R3; flipped by 05-T5: an unparsable specforge.json is served as "no
-// extensions configured", and doctor finds nothing.
-#[test]
-fn validate_over_an_unparsable_config_reports_only_i002_today() {
+// R3 (plan 05): an unusable specforge.json is E069 on MCP too: validate's
+// verdict fails, and doctor lists it as an error finding. It used to be
+// served as "no extensions configured", and doctor found nothing.
+#[specforge_test(
+    behavior = "provide_mcp_doctor_tool",
+    verify = "specforge.doctor reports an unusable specforge.json (E069) as a finding"
+)]
+fn validate_and_doctor_report_an_unusable_config() {
     let (mut server, _root) = server_over_text(r#"{ "extensions": ["#);
 
     let resp = call_tool(&mut server, "specforge.validate", json!({}));
@@ -231,18 +235,46 @@ fn validate_over_an_unparsable_config_reports_only_i002_today() {
         .iter()
         .map(|d| d["code"].as_str().unwrap())
         .collect();
-    assert_eq!(codes, ["I002"], "{validated}");
+    assert_eq!(codes, ["E069", "I002"], "{validated}");
     assert_eq!(
-        resp["result"]["_meta"]["specforge/check"]["warnings"], 0,
-        "{resp}"
-    );
-    assert_eq!(
-        resp["result"]["_meta"]["specforge/check"]["ok"], true,
+        resp["result"]["_meta"]["specforge/check"],
+        json!({"ok": false, "errors": 1, "warnings": 0, "infos": 1, "shown": 2}),
         "{resp}"
     );
 
     let report = answer(&call_tool(&mut server, "specforge.doctor", json!({})));
-    assert_eq!(project_findings(&report), Vec::<Value>::new(), "{report}");
+    let findings: Vec<(&str, &str)> = report["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|f| f["code"] != "z3_missing")
+        .map(|f| (f["code"].as_str().unwrap(), f["status"].as_str().unwrap()))
+        .collect();
+    assert_eq!(findings, [("E069", "error")], "{report}");
+}
+
+#[specforge_test(
+    behavior = "run_doctor_check",
+    verify = "doctor in a directory without specforge.json reports config_missing as a warning"
+)]
+fn doctor_over_a_served_directory_without_specforge_json_says_so() {
+    let dir = tempfile::TempDir::new().unwrap();
+    std::fs::write(dir.path().join("main.spec"), "behavior b \"B\" {\n}\n").unwrap();
+    let mut server = McpServer::new();
+    let req = json!({"jsonrpc": "2.0", "id": 1, "method": "initialize",
+        "params": {"projectRoot": dir.path().to_str().unwrap()}});
+    server.handle_message(&req.to_string());
+
+    let report = answer(&call_tool(&mut server, "specforge.doctor", json!({})));
+
+    assert_eq!(
+        project_findings(&report)
+            .iter()
+            .map(|f| (f["code"].clone(), f["status"].clone()))
+            .collect::<Vec<_>>(),
+        [(json!("config_missing"), json!("warn"))],
+        "{report}"
+    );
 }
 
 #[specforge_test(

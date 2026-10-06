@@ -1,6 +1,8 @@
 use crate::OutputFormat;
 use serde_json::json;
-use specforge_ops::doctor::{BinaryIssue, DoctorReport, FindingStatus, diagnose};
+use specforge_ops::doctor::{
+    BinaryIssue, CONFIG_CODES, CONFIG_MISSING, DoctorReport, FindingStatus, diagnose,
+};
 use specforge_ops::view::ProjectView;
 use specforge_registry_client::credential_health::{
     CredentialHealth, CredentialLevel, user_credential_health,
@@ -44,6 +46,27 @@ fn render_human(report: &DoctorReport, credentials: &CredentialHealth) -> String
         () => { out.push('\n') };
         ($($arg:tt)*) => {{ out.push_str(&format!($($arg)*)); out.push('\n'); }};
     }
+    // The config itself, when doctor has something to say about it (E069,
+    // or no specforge.json at the root).
+    let config: Vec<_> = report
+        .findings
+        .iter()
+        .filter(|f| CONFIG_CODES.contains(&f.code.as_str()) || f.code == CONFIG_MISSING)
+        .collect();
+    if !config.is_empty() {
+        line!("Configuration:");
+        for finding in config {
+            let tag = match finding.status {
+                FindingStatus::Error => "ERROR",
+                FindingStatus::Warn => "WARN",
+                FindingStatus::Ok => "ok",
+            };
+            line!("  [{tag}] [{}] {}", finding.code, finding.check);
+            line!("    fix: {}", finding.remediation);
+        }
+        line!();
+    }
+
     line!("Extensions ({}):", report.extensions.len());
     if report.extensions.is_empty() {
         line!("  none enabled");

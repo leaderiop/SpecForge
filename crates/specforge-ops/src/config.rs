@@ -225,4 +225,35 @@ mod tests {
         let err = add_extension(dir.path(), "@acme/bar", "@acme/bar").unwrap_err();
         assert_eq!(err.code, "config_invalid");
     }
+
+    // The reason E069 names and the reason an edit refuses with are one
+    // text, so `remove` can refuse from the compile's reason without
+    // reading the file again.
+    #[test]
+    fn an_edit_refuses_with_the_reason_the_compile_reports() {
+        for config in [
+            r#"{ "extensions": ["@specforge/product",  }"#,
+            "[1,2]",
+            r#"{"name":"p","extensions":"@acme/foo"}"#,
+        ] {
+            let dir = project(config);
+            let read = specforge_common::read_project_config(dir.path());
+            let [problem] = read.problems.as_slice() else {
+                panic!("{config}: {:?}", read.problems);
+            };
+            assert!(problem.blocks_edits(), "{config}");
+
+            let err = remove_extension(dir.path(), "@acme/foo").unwrap_err();
+
+            assert_eq!(err.code, "config_invalid", "{config}");
+            assert_eq!(err.message, problem.to_string(), "{config}");
+        }
+
+        // A problem that does not block an edit: the edit goes around it.
+        let dir = project(r#"{"extensions": ["@acme/foo", 42], "spec_root": 5}"#);
+        let read = specforge_common::read_project_config(dir.path());
+        assert_eq!(read.problems.len(), 2, "{:?}", read.problems);
+        assert!(read.problems.iter().all(|p| !p.blocks_edits()));
+        assert!(remove_extension(dir.path(), "@acme/foo").unwrap());
+    }
 }

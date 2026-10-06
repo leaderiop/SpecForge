@@ -229,13 +229,15 @@ pub(crate) mod testing {
     }
 
     impl Fixture {
-        /// An empty project rooted at a fresh temp directory: the default
-        /// config, nothing enabled, no extension, nothing reported.
+        /// An empty project rooted at a fresh temp directory: the compile
+        /// found a `specforge.json` there (not written to disk) with the
+        /// default config, nothing enabled, no extension, nothing reported.
         pub fn new() -> Self {
             let dir = TempDir::new().unwrap();
             let env = Environment {
                 root: dir.path().to_path_buf(),
                 spec_root: dir.path().to_path_buf(),
+                config_found: true,
                 ..Environment::empty()
             };
             Fixture {
@@ -323,6 +325,12 @@ pub(crate) mod testing {
             };
             specforge_wasm::write_lock_file(&lock, &self.dir.path().join("specforge.lock"))
                 .unwrap();
+            self
+        }
+
+        /// The compile found no `specforge.json` at the root.
+        pub fn without_config_file(mut self) -> Self {
+            self.env.config_found = false;
             self
         }
 

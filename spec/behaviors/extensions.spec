@@ -63,7 +63,18 @@ behavior load_extension_manifests "Load Extension Manifests" {
     environment both read an entry by; a name written before = MUST be the
     declared one. A file that does not exist, does not load as a component,
     declares another name than the one written, or declares an extension
-    another entry already loads MUST produce E028 naming the entry. This behavior orchestrates: for each extension, it loads its
+    another entry already loads MUST produce E028 naming the entry. A
+    specforge.json that is there and is not used as written MUST produce
+    the error E069 naming why, one per problem, before any other
+    diagnostic. When the file is not readable, not JSON or not a JSON
+    object, or its extensions value is not an array, the compile loads no
+    extension, and the I002 that follows MUST say that specforge.json
+    could not be read, not that no extensions are configured. A key of the
+    wrong type (name, version or spec_root not a string, exclude not an
+    array) is replaced by its default, and an extensions or exclude item
+    that is not a string is ignored; the rest of the file is used. A
+    missing specforge.json is the default config and produces no E069.
+    This behavior orchestrates: for each extension, it loads its
     binary and reads its declaration once. Once all declarations are loaded
     and the extension_manifests_loaded event is produced, the registry build
     (build_registries_from_declarations) validates them and populates the
@@ -80,6 +91,9 @@ behavior load_extension_manifests "Load Extension Manifests" {
   verify unit "a declaration declares entity types and validations"
   verify integration "two extensions loaded and registries populated without collision"
   verify unit "unloadable extension binary produces diagnostic instead of crash"
+  verify unit "E069 names why specforge.json can't be used"
+  verify unit "E069 names a mistyped key or a non-string item, and the rest of specforge.json is used"
+  verify integration "a specforge.json that is there and can't be used produces E069 first and an I002 that names it"
   verify contract "Load Extension Manifests: extension manifest loading holds — all_files_parsed, extensions_config_available, all_extensions_attempted, loaded_manifests_available, failed_extensions_diagnosed, loaded_event_fired, extension_isolation"
 }
 

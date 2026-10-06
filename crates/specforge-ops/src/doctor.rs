@@ -35,6 +35,13 @@ pub const SHADOWING_CODES: [&str; 2] = ["E013", "E026"];
 /// matches the lock file's hash).
 pub const LOAD_FAILURE_CODES: [&str; 2] = ["E028", "E033"];
 
+/// Codes that mean `specforge.json` is not used as written: E069 (it can't
+/// be read, isn't a JSON object, or has a mistyped key or item).
+pub const CONFIG_CODES: [&str; 1] = ["E069"];
+
+/// The finding code of a project root without `specforge.json`.
+pub const CONFIG_MISSING: &str = "config_missing";
+
 /// Everything `specforge doctor` reports about a project.
 #[derive(Debug, Clone, Serialize)]
 pub struct DoctorReport {
@@ -235,6 +242,37 @@ pub fn diagnose_with(view: &ProjectView, z3_available: bool) -> DoctorReport {
     }
 
     let mut findings = Vec::new();
+
+    // The config itself: a `specforge.json` the compile could not use as
+    // written (E069, an error: `check` fails on it, so doctor does too),
+    // or none at the project root (a warning: the default config is a
+    // valid project, but rarely the one meant).
+    for diag in diagnostics
+        .iter()
+        .filter(|d| CONFIG_CODES.contains(&d.code.as_str()))
+    {
+        findings.push(Finding {
+            check: diag.message.clone(),
+            status: match diag.severity {
+                Severity::Error => FindingStatus::Error,
+                _ => FindingStatus::Warn,
+            },
+            code: diag.code.clone(),
+            remediation: remediation(diag, || format!("run `specforge explain {}`", diag.code)),
+        });
+    }
+    if let Some(root) = view.root
+        && !view.env.config_found
+    {
+        findings.push(Finding {
+            check: format!("specforge.json at {}", root.display()),
+            status: FindingStatus::Warn,
+            code: CONFIG_MISSING.into(),
+            remediation: "run `specforge init` here, or pass --path to the project root; without \
+                          specforge.json the project has the default config and no extension"
+                .into(),
+        });
+    }
 
     // Installed binaries against the lock file.
     let installed_versions: HashMap<String, String> = lock_entries
@@ -716,5 +754,79 @@ mod tests {
                 extension.name
             );
         }
+    }
+
+    fn finding_codes(report: &DoctorReport) -> Vec<(&str, FindingStatus)> {
+        report
+            .findings
+            .iter()
+            .map(|f| (f.code.as_str(), f.status))
+            .collect()
+    }
+
+    #[specforge_test(
+        behavior = "run_doctor_check",
+        verify = "doctor in a directory without specforge.json reports config_missing as a warning"
+    )]
+    fn doctor_without_specforge_json_says_so() {
+        let fixture = Fixture::new().without_config_file();
+
+        let report = diagnose_with(&fixture.view(), true);
+
+        assert_eq!(
+            finding_codes(&report),
+            [(CONFIG_MISSING, FindingStatus::Warn)]
+        );
+        assert!(!report.has_errors(), "a warning: doctor stays healthy");
+        assert!(
+            report.findings[0]
+                .check
+                .contains(&fixture.dir.path().display().to_string()),
+            "{:?}",
+            report.findings[0]
+        );
+        assert!(report.findings[0].remediation.contains("specforge init"));
+
+        // A project with specforge.json gets no such finding.
+        let found = Fixture::new();
+        assert!(finding_codes(&diagnose_with(&found.view(), true)).is_empty());
+    }
+
+    #[specforge_test(
+        behavior = "run_doctor_check",
+        verify = "doctor in a directory without specforge.json reports config_missing as a warning"
+    )]
+    fn a_rootless_view_has_no_config_missing_finding() {
+        let fixture = Fixture::new().without_config_file();
+
+        let report = diagnose_with(&fixture.rootless_view(), true);
+
+        assert!(finding_codes(&report).is_empty(), "{:?}", report.findings);
+    }
+
+    #[specforge_test(
+        behavior = "provide_mcp_doctor_tool",
+        verify = "specforge.doctor reports an unusable specforge.json (E069) as a finding"
+    )]
+    fn an_unusable_config_is_an_error_finding() {
+        let e069 = diag(
+            "E069",
+            "specforge.json can't be used: ./specforge.json is not valid JSON: expected value at line 1 column 41; no extension is loaded",
+            Some("fix specforge.json; `specforge explain E069` says what it must be"),
+        );
+        let fixture = Fixture::new().reporting(vec![e069]);
+
+        let report = diagnose_with(&fixture.view(), true);
+
+        assert_eq!(finding_codes(&report), [("E069", FindingStatus::Error)]);
+        assert!(report.has_errors());
+        assert_eq!(
+            report.findings[0].remediation,
+            "fix specforge.json; `specforge explain E069` says what it must be"
+        );
+        assert!(
+            report.load_failures.is_empty(),
+            "E069 is about the config, not an extension"
+        );
     }
 }
