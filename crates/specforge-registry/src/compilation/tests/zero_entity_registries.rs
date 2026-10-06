@@ -23,9 +23,7 @@
 use specforge_test_macros::test as spec;
 
 use specforge_common::{Severity, SourceSpan, Sym};
-use specforge_extension_sdk::{
-    ContributionsBuilder, EnhancementBuilder, ExtensionMeta, FieldType, PeerDependency,
-};
+use specforge_extension_sdk::{ContributionsBuilder, EnhancementBuilder, ExtensionMeta, FieldType};
 use specforge_protocol_types::{EntityEnhancementDescriptor, ExtensionDeclaration};
 use specforge_registry::compilation::EntityView;
 use specforge_registry::compilation::apply_entity_enhancements;
@@ -34,29 +32,13 @@ use specforge_registry::{
     detect_unknown_entity_fields,
 };
 
-use super::support::{declare, peer, software};
+use super::support::{declare, software};
 use crate::compilation::declaration::shape;
 use crate::compilation::populate::populate;
-use crate::compilation::validate::peer_dependencies;
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-/// The declaration of `name` at `version`, with `peers` and nothing else.
-fn versioned(name: &str, version: &str, peers: Vec<PeerDependency>) -> ExtensionDeclaration {
-    let mut c = ContributionsBuilder::new(ExtensionMeta::new(name, version));
-    c.meta.peer_dependencies = peers;
-    c.declaration()
-}
-
-/// An optional peer dependency on `name` in `version`.
-fn optional_peer(name: &str, version: &str) -> PeerDependency {
-    PeerDependency {
-        optional: true,
-        ..peer(name, version)
-    }
-}
 
 /// The enhancement `extension` declares on `target` (owned by itself),
 /// with what `f` adds.
@@ -652,132 +634,6 @@ fn suggest_missing_ext_contract() {
 // ===========================================================================
 // B:validate_peer_dependencies (4 verifies)
 // ===========================================================================
-
-#[spec(
-    behavior = "validate_peer_dependencies",
-    verify = "satisfied peer dependency passes validation"
-)]
-fn peer_deps_satisfied() {
-    let m1 = software();
-    let m2 = versioned(
-        "@specforge/product",
-        "1.0.0",
-        vec![peer("@specforge/software", ">=1.0.0")],
-    );
-    let diags = peer_dependencies(&[m1, m2]);
-    assert!(diags.is_empty());
-}
-
-#[spec(
-    behavior = "validate_peer_dependencies",
-    verify = "missing peer dependency produces hard error"
-)]
-fn peer_deps_missing() {
-    let m = versioned(
-        "@specforge/product",
-        "1.0.0",
-        vec![peer("@specforge/software", ">=1.0.0")],
-    );
-    let diags = peer_dependencies(&[m]);
-    assert!(
-        diags
-            .iter()
-            .any(|d| d.code == "E027" && d.message.contains("@specforge/software"))
-    );
-}
-
-#[spec(
-    behavior = "validate_peer_dependencies",
-    verify = "incompatible version produces hard error with required range"
-)]
-fn peer_deps_incompatible_version() {
-    let m1 = versioned("@specforge/software", "0.5.0", vec![]);
-    let m2 = versioned(
-        "@specforge/product",
-        "1.0.0",
-        vec![peer("@specforge/software", ">=1.0.0")],
-    );
-    let diags = peer_dependencies(&[m1, m2]);
-    assert!(
-        diags.iter().any(|d| d.code == "E027"
-            && d.message.contains(">=1.0.0")
-            && d.message.contains("0.5.0"))
-    );
-}
-
-#[spec(
-    behavior = "validate_peer_dependencies",
-    verify = "missing optional peer dependency passes validation"
-)]
-fn peer_deps_missing_optional_peer_passes() {
-    let m = versioned(
-        "@specforge/software",
-        "1.0.0",
-        vec![optional_peer("@specforge/product", "^1.0")],
-    );
-    let diags = peer_dependencies(&[m]);
-    assert!(diags.is_empty(), "{diags:?}");
-}
-
-/// Governance works without software (only ConstrainsBehavior targets a
-/// software kind), so its peer on software is optional; with the peer
-/// check on compile, a required one would fail governance-only projects.
-#[spec(
-    behavior = "ge_declare_manifest",
-    verify = "peer_dependencies includes optional @specforge/software"
-)]
-fn governance_peer_on_software_is_optional() {
-    let handshake = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../specforge-component/tests/declarations/governance/handshake.json");
-    let handshake: serde_json::Value =
-        serde_json::from_str(&std::fs::read_to_string(handshake).unwrap()).unwrap();
-    let software = handshake["peer_dependencies"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|p| p["name"] == "@specforge/software")
-        .expect("governance declares a peer on software");
-    assert_eq!(software["version"], "^1.0");
-    assert_eq!(software["optional"], true);
-}
-
-#[spec(
-    behavior = "validate_peer_dependencies",
-    verify = "installed optional peer outside its range produces hard error"
-)]
-fn peer_deps_installed_optional_peer_is_range_checked() {
-    let product = versioned("@specforge/product", "2.0.0", vec![]);
-    let software = versioned(
-        "@specforge/software",
-        "1.0.0",
-        vec![optional_peer("@specforge/product", "^1.0")],
-    );
-    let diags = peer_dependencies(&[product, software]);
-    assert_eq!(diags.len(), 1, "{diags:?}");
-    assert_eq!(diags[0].code, "E027");
-    assert!(diags[0].message.contains("^1.0") && diags[0].message.contains("2.0.0"));
-}
-
-#[spec(
-    behavior = "validate_peer_dependencies",
-    verify = "Validate Peer Dependencies: peer dependency validation holds — manifests_available, dependencies_validated, unsatisfied_blocked, loading_failed_emitted"
-)]
-fn peer_deps_contract() {
-    let m1 = software();
-    let m2 = versioned(
-        "@specforge/product",
-        "1.0.0",
-        vec![peer("@specforge/software", ">=1.0.0")],
-    );
-    assert!(peer_dependencies(&[m1, m2]).is_empty());
-    let m3 = versioned(
-        "@specforge/product",
-        "1.0.0",
-        vec![peer("@specforge/missing", ">=1.0.0")],
-    );
-    let diags = peer_dependencies(&[m3]);
-    assert!(diags.iter().any(|d| d.code == "E027"));
-}
 
 // ===========================================================================
 // B:validate_extension_testability (5 verifies)

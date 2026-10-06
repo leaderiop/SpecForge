@@ -5,5 +5,6 @@ mod consistency;
 mod edges;
 mod fields;
 mod kinds;
+mod peers;
 mod pin;
 mod rules;

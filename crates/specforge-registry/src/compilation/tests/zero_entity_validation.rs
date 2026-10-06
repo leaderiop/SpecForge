@@ -7,17 +7,13 @@
 //! - emit_diagnostic_from_pattern (5)
 //! - register_custom_validation_patterns (2; the rest in specforge-project)
 //! - registry_build_rules (1; the rest through the build, tests/build/rules.rs)
-//! - validate_peer_dependencies (4)
 
 use specforge_common::{Severity, SourceSpan, Sym};
 use specforge_extension_sdk::prelude::*;
-use specforge_protocol_types::{
-    ExtensionDeclaration, FieldConstraintDescriptor, ValidationRuleDescriptor,
-};
+use specforge_protocol_types::{FieldConstraintDescriptor, ValidationRuleDescriptor};
 use specforge_registry::compilation::EntityView;
 use specforge_registry::compilation::populate::populate;
-use specforge_registry::compilation::tests::support::{extension, peer, software};
-use specforge_registry::compilation::validate::peer_dependencies;
+use specforge_registry::compilation::tests::support::software;
 use specforge_registry::validation_engine::{
     CustomVerdict, ValidationEntity, ValidationPatternKind, ValidationRulePattern,
     WasmValidationRuntime, execute_pattern, interpolate_template, parse_all_rule_patterns,
@@ -76,13 +72,6 @@ fn make_entity(id: &str, kind: &str, incoming: usize, outgoing: usize) -> Valida
         incoming_kinds: Default::default(),
         obligation_exempt: false,
     }
-}
-
-/// `@specforge/product`, declaring no kinds, whose peer is `name` >=1.0.0.
-fn needs_peer(name: &str) -> ExtensionDeclaration {
-    let mut c = extension("@specforge/product");
-    c.meta.peer_dependencies.push(peer(name, ">=1.0.0"));
-    c.declaration()
 }
 
 // ============================================================================
@@ -884,75 +873,6 @@ fn detect_unknown_entity_fields_contract() {
         specforge_registry::compilation::detect_unknown_entity_fields(&e3, &kind_reg, &field_reg)
             .is_empty()
     );
-}
-
-// ============================================================================
-// B:validate_peer_dependencies (4 verifies)
-// ============================================================================
-
-#[specforge_test(
-    behavior = "validate_peer_dependencies",
-    verify = "satisfied peer dependency passes validation"
-)]
-fn satisfied_peer_dependency_passes_validation() {
-    let m1 = software();
-    let m2 = needs_peer("@specforge/software");
-    let diags = peer_dependencies(&[m1, m2]);
-    assert!(
-        diags.is_empty(),
-        "expected no diagnostics, got: {:?}",
-        diags
-    );
-}
-
-#[specforge_test(
-    behavior = "validate_peer_dependencies",
-    verify = "missing peer dependency produces hard error"
-)]
-fn missing_peer_dependency_produces_hard_error() {
-    let m = needs_peer("@specforge/software");
-    let diags = peer_dependencies(&[m]);
-    assert!(
-        diags
-            .iter()
-            .any(|d| d.code == "E027" && d.message.contains("@specforge/software")),
-        "expected E027 for missing peer, got: {:?}",
-        diags
-    );
-}
-
-#[specforge_test(
-    behavior = "validate_peer_dependencies",
-    verify = "incompatible version produces hard error with required range"
-)]
-fn incompatible_version_produces_hard_error_with_required_range() {
-    let m1 =
-        ContributionsBuilder::new(ExtensionMeta::new("@specforge/software", "0.5.0")).declaration();
-    let m2 = needs_peer("@specforge/software");
-    let diags = peer_dependencies(&[m1, m2]);
-    assert!(
-        diags.iter().any(|d| d.code == "E027"
-            && d.message.contains(">=1.0.0")
-            && d.message.contains("0.5.0")),
-        "expected E027 with version info, got: {:?}",
-        diags
-    );
-}
-
-#[specforge_test(
-    behavior = "validate_peer_dependencies",
-    verify = "Validate Peer Dependencies: peer dependency validation holds — manifests_available, dependencies_validated, unsatisfied_blocked, loading_failed_emitted"
-)]
-fn validate_peer_dependencies_contract() {
-    // requires: manifests loaded
-    // ensures: satisfied deps → no error
-    let m1 = software();
-    let m2 = needs_peer("@specforge/software");
-    assert!(peer_dependencies(&[m1, m2]).is_empty());
-    // ensures: missing dep → E027
-    let m3 = needs_peer("@specforge/missing");
-    let diags = peer_dependencies(&[m3]);
-    assert!(diags.iter().any(|d| d.code == "E027"));
 }
 
 // ============================================================================
