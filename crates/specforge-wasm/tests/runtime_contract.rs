@@ -20,6 +20,7 @@ fn crashing() -> ContributionsBuilder {
     behavior = "call_extension_exports",
     verify = "both runtimes report an unknown extension, an unrouted export, a guest error and a guest panic as traps"
 )]
+#[specforge_test_macros::test(port = "WasmRuntime", verify = "WasmRuntime contract is satisfied")]
 fn the_in_process_runtime_keeps_the_runtime_contract() {
     let runtime = InProcessRuntime::new().with(crashing);
     assert_runtime_contract(&runtime, "@contract/crash", "cmd__crash");

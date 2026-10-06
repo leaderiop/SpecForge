@@ -30,8 +30,8 @@ event all_files_parsed "All Files Parsed" {
   // registries_populated.
   // Co-consumer ordering: detect_duplicate_entity_ids runs on raw IDs (no registry
   // needed); load_extension_manifests loads extensions; read_lock_file reads
-  // specforge.lock for integrity verification. All three are independent.
-  // Lock verification feeds into load_wasm_module via wasm_integrity_verified.
+  // specforge.lock, whose hash pins load_wasm_module checks. All three are
+  // independent.
   verify integration "emits all_files_parsed after every file in the project has been parsed"
   verify integration "consumer populates the KindRegistry from extension manifests before Phase 2"
 }

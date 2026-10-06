@@ -3,8 +3,7 @@
 // Design note: Host functions are synchronous RPC-style ABI calls within a
 // single compilation step, not asynchronous pipeline stages. They do NOT
 // produce events themselves — traceability comes from the calling behavior's
-// events (e.g., extension_validated, contribution_exports_dispatched), not
-// from the host function invocation. This is an intentional architectural
+// events, not from the host function invocation. This is an intentional architectural
 // decision: host functions are leaf operations in the call chain, not
 // pipeline stages that trigger downstream consumers.
 
@@ -14,39 +13,6 @@ use "ports/outbound"
 use "types/wasm"
 use "types/zero-entity-core"
 
-behavior compute_extension_query_scope "Compute Extension Query Scope" {
-  features   [wasm_host_function_api]
-  invariants [wasm_sandbox_integrity, host_function_type_safety]
-  category   query
-  types      [HostFunctionBinding, ExtensionDeclaration, SandboxPolicy]
-  ports      [WasmRuntime]
-  requires {
-    manifest_available      "extension manifest is loaded with query_scope and peer dependency declarations"
-    kind_registry_populated "KindRegistry contains all declared entity kinds from all loaded extensions"
-  }
-  ensures {
-    scope_computed "query scope is computed based on manifest declarations (own kinds, peer kinds, or all)"
-    scope_cached   "computed scope is cached per extension for the duration of the compilation"
-  }
-  contract   """
-    Before serving a query_graph call, the runtime MUST compute the
-    calling extension's query scope. The scope is derived from the
-    extension's manifest: it includes all entity kinds declared by
-    the extension itself, all entity kinds declared by its peer
-    dependencies, and any entity kinds explicitly listed in the
-    manifest's query_scope field. If query_scope is omitted, the
-    default is "all" — the full graph is visible. If query_scope
-    is set to "own", only entities of kinds declared by the extension
-    and its peers are included. The computed scope MUST be cached
-    per extension for the duration of the compilation.
-  """
-  verify unit "default query_scope exposes full graph"
-  verify unit "query_scope 'own' limits to extension and peer kinds"
-  verify unit "explicit query_scope list limits to listed kinds"
-  verify unit "computed scope cached per extension per compilation"
-  verify contract "Compute Extension Query Scope: extension query scope computation holds — manifest_available, kind_registry_populated, scope_computed, scope_cached"
-}
-
 behavior provide_host_function_query_graph "Provide Host Function: query_graph" {
   features   [wasm_host_function_api]
   invariants [wasm_sandbox_integrity, host_function_type_safety]
@@ -54,25 +20,19 @@ behavior provide_host_function_query_graph "Provide Host Function: query_graph" 
   types      [HostFunctionBinding]
   ports      [WasmRuntime]
   requires {
-    graph_built          "compiled graph is available for querying"
-    query_scope_computed "extension's query scope has been computed by compute_extension_query_scope"
+    graph_built "compiled graph is available for querying"
   }
   ensures {
     valid_json_returned "query_graph returns valid JSON graph string"
-    scope_enforced      "restricted-scope extensions receive filtered subgraph, not the full graph"
   }
   contract   """
     The specforge.query_graph host function MUST expose the compiled
-    graph as a JSON string to the calling extension. The graph MUST include
-    all entities, edges, and metadata accessible to the extension based
-    on its declared scope as computed by compute_extension_query_scope.
-    Extensions with query_scope "all" (default) receive the full graph.
-    Extensions with restricted scope receive a filtered subgraph.
+    graph as a JSON string to the calling extension, with all its
+    entities, edges and metadata.
   """
   verify unit "query_graph returns valid JSON graph"
   verify unit "graph includes entities and edges"
-  verify unit "restricted scope returns filtered subgraph"
-  verify contract "Provide Host Function: query_graph: query_graph host function holds — graph_built, query_scope_computed, valid_json_returned, scope_enforced"
+  verify contract "Provide Host Function: query_graph: query_graph host function holds — graph_built, valid_json_returned"
 }
 
 behavior provide_host_function_emit_diagnostic "Provide Host Function: emit_diagnostic" {

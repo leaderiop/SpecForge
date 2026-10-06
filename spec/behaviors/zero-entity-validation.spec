@@ -296,9 +296,8 @@ behavior check_field_value_types "Check Field Value Types" {
   verify contract "Check Field Value Types: declared field types hold — registries_populated_fired, single_values_listed, mismatches_diagnosed, undeclared_untouched"
 }
 
-// Registry-level collision detection during manifest loading. Called by
-// detect_entity_kind_collision (behaviors/wasm-extensions.spec) as part of its
-// orchestration — focuses exclusively on inter-extension kind collisions (E026).
+// Registry-level collision detection during manifest loading: inter-extension
+// kind collisions (E026).
 behavior detect_duplicate_entity_kinds "Detect Duplicate Entity Kinds" {
   features   [entity_kind_conflict_prevention]
   invariants [zero_domain_knowledge_core, registry_population_before_validation]
@@ -315,10 +314,7 @@ behavior detect_duplicate_entity_kinds "Detect Duplicate Entity Kinds" {
     When two extensions register the same entity kind keyword, the compiler
     MUST detect the collision during registry population. The first extension
     in topological order MUST own the kind. The second registration MUST
-    produce an E026 diagnostic naming both extensions. This collision
-    detection is distinct from detect_entity_kind_collision (behaviors/wasm-extensions.spec)
-    which handles the user-facing resolution — this behavior handles the
-    registry-level detection during manifest loading.
+    produce an E026 diagnostic naming both extensions.
   """
   verify unit "duplicate kind from two extensions produces E026"
   verify unit "first extension in topological order owns the kind"

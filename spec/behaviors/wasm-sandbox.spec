@@ -83,7 +83,7 @@ behavior reuse_session_runtime "Reuse Session Runtime" {
   features   [wasm_performance_optimization]
   invariants [extension_isolation]
   category   command
-  types      [ExtensionLifecycleState]
+  types      [WasmTrapInfo]
   ports      [WasmRuntime]
   requires {
     session_context        "the process is a CLI run, an LSP session, or an MCP server session"
@@ -111,38 +111,6 @@ behavior reuse_session_runtime "Reuse Session Runtime" {
 }
 
 // -- Error Recovery -----
-
-behavior handle_wasm_trap "Handle Wasm Trap" {
-  features   [wasm_extension_runtime]
-  invariants [extension_isolation, wasm_sandbox_integrity]
-  category   command
-  types      [WasmTrapInfo, ExtensionLifecycleState, ExtensionError]
-  ports      [WasmRuntime]
-  consumes   [wasm_sandbox_violation, wasm_integrity_check_failed]
-  requires {
-    trap_occurred "a Wasm trap has occurred during an extension export call (sandbox violation or integrity failure)"
-  }
-  ensures {
-    wasm_trap_caught_emitted      "wasm_trap_caught event is emitted with trap details"
-    lifecycle_transitioned        "extension lifecycle transitions to failed state"
-    trapped_extension_skipped     "trapped extension is not called again in the current compilation"
-    remaining_extensions_continue "remaining extensions continue execution normally after trap"
-  }
-  contract   """
-    When a Wasm trap occurs during any extension export call, the compiler
-    MUST catch the trap, extract trap details (kind, message, export name),
-    transition the extension lifecycle to failed, and emit a ExtensionError
-    diagnostic. The trapped extension MUST NOT be called again in the current
-    compilation. Remaining extensions MUST continue execution normally.
-  """
-  produces   [wasm_trap_caught]
-  verify unit "catches trap during validate() export"
-  verify unit "catches trap during render() call"
-  verify unit "extracts trap kind and message"
-  verify unit "transitions extension to failed state"
-  verify unit "remaining extensions continue after trap"
-  verify contract "Handle Wasm Trap: Wasm trap handling holds — trap_occurred, wasm_trap_caught_emitted, lifecycle_transitioned, trapped_extension_skipped, remaining_extensions_continue"
-}
 
 // -- Compile Cache -----
 // The compile cache is owned by the runtime engine (wasmtime): entries are

@@ -267,7 +267,6 @@ milestone wasm_runtime "Phase 10: Wasm Extension Runtime" {
     entity_kind_conflict_prevention,
     provider_based_ref_validation,
     contribution_based_extensions,
-    extension_query_contributions,
     surface_contributions,
     product_graph_queries,
     product_surface_access,

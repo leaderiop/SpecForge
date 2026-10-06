@@ -11,7 +11,9 @@ listed the product module. Both close here: the queries are `@specforge/product`
 ## The contract
 
 - **An extension declares a command** in its surfaces (`id`, `title`, `description`, `export`,
-  `args`). The export, `cmd__<ext>_<id>` for the builtins, receives the SDK's `CommandInput`:
+  `args`). The export, `cmd__<ext>_<id>` for the builtins, receives the SDK's `CommandInput` (since
+  [ADR 0013](0013-typed-extension-calls.md) the protocol type `specforge_protocol_types::CommandInput`,
+  same fields and defaults):
   `args` (what the caller set, typed as declared), `cwd` (the project root) and `graph`, the
   compiled graph in the graph export's shape (`specforge_emitter::json::emit_json`: entities by
   id, edges by source, target, label). It answers with `CommandOutput` (`exit_code`, `stdout`,

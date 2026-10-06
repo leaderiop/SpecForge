@@ -231,6 +231,7 @@ fn no_override_expands_the_ceiling() {
     behavior = "call_extension_exports",
     verify = "both runtimes report an unknown extension, an unrouted export, a guest error and a guest panic as traps"
 )]
+#[specforge_test(port = "WasmRuntime", verify = "WasmRuntime contract is satisfied")]
 fn the_component_runtime_keeps_the_runtime_contract() {
     specforge_wasm::testing::assert_runtime_contract(&probe_runtime(), PROBE, "cmd__trap");
 }

@@ -44,10 +44,20 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   independent of surface. The CLI and MCP are adapters over it (`specforge-ops`).
 - **Extension command**: a CLI command an extension declares in its surfaces (with the SDK, together
   with its handler: `ContributionsBuilder::command`), answered by its `cmd__` export over the graph
-  the host passes (`CommandInput`: args, project root, graph, the
+  the host passes (`specforge_protocol_types::CommandInput`: args, project root, graph, the
   command format and today's date, UTC). The CLI runs it as `specforge <short> <command>`, MCP as
   the auto-promoted tool `specforge.<short>.<id>`, `short` being the declaration's (`ext_short`,
   else its name's last segment); neither knows any command (`specforge_ops::command`, ADR 0008).
+- **Extension call**: one typed operation the host performs on a loaded extension — handshake,
+  describe, command, MCP tool, MCP resource, compiler pass, collector, custom validator, scanner,
+  migration hook — over the `WasmRuntime` port. Its input and answer are protocol types
+  (`specforge_protocol_types`) the SDK shares; every failure is one `CallError`, E028, naming the
+  operation, the export and the extension (`specforge_wasm::calls::ExtensionCalls`, ADR 0013).
+- **In-process runtime**: the test adapter of the `WasmRuntime` port that runs an SDK-declared
+  extension in the host process through the guest's own routing (`guest_call`), unsandboxed
+  (`specforge_wasm::testing::InProcessRuntime`). Host tests declare their extensions with it; the
+  component runtime is the production adapter, and both keep one contract
+  (`assert_runtime_contract`).
 - **Command format**: the output an extension command is asked for, `human` (the CLI default) or
   `json` (always, over MCP). The host owns the `--format` flag; the extension renders both, since
   only it knows its payloads (ADR 0011).

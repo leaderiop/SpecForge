@@ -44,36 +44,7 @@ type SandboxPolicy {
   verify unit "SandboxPolicy schema is valid"
 }
 
-// trapped state removed — extensions that trap are immediately unloaded
-type ExtensionLifecycleState = discovered
-  | loading
-  | initialized
-  | validating
-  | exporting
-  | unloaded
-  | failed
-
 // ── Entity Enhancement Types ─────────────────────────────────
-
-type EnhancedFieldType = string_type
-  | integer_type
-  | bool_type
-  | enum_type
-  | string_list_type
-  | reference_type
-  | reference_list_type
-
-type EnumFieldType {
-  values string[]
-  verify unit "EnumFieldType schema is valid"
-}
-
-type ReferenceFieldType {
-  // Maps to EdgeType.label when building graph edges
-  edge_label  string
-  target_kind string @optional
-  verify unit "ReferenceFieldType schema is valid"
-}
 
 type DynamicEdgeType {
   label            string  @readonly
@@ -81,30 +52,6 @@ type DynamicEdgeType {
   soft             boolean @optional
   verify unit "DynamicEdgeType schema is valid"
 }
-
-type EnhancementConflict {
-  entity_kind      string @readonly
-  field_name       string @readonly
-  first_extension  string @readonly
-  second_extension string @readonly
-  resolution       ConflictResolution
-  verify unit "EnhancementConflict schema is valid"
-}
-
-type ConflictResolution = unresolved | explicit_override | load_order | namespaced
-
-// v1: error only. priority and namespace policies are deferred to a future phase.
-type EnhancementPolicy = error
-
-// ── Query Extension Types ───────────────────────────────────
-
-type QueryExtension {
-  kind     QueryFileKind @readonly
-  patterns string
-  verify unit "QueryExtension schema is valid"
-}
-
-type QueryFileKind = highlights | folds | indents | injections
 
 // ── Extension Lifecycle Types ─────────────────────────────────
 

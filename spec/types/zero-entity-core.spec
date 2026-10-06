@@ -168,16 +168,6 @@ type AnalyzerDescriptor {
   verify unit "AnalyzerDescriptor schema is valid"
 }
 
-type EntityKindConflict {
-  kind_name        string @readonly
-  first_extension  string @readonly
-  second_extension string @readonly
-  conflict_type    string @readonly
-  resolution       string @optional
-  policy_applied   string @optional
-  verify unit "EntityKindConflict schema is valid"
-}
-
 type FieldDescriptor {
   name                string                 @readonly
   field_type          ManifestFieldType      @readonly
@@ -218,8 +208,8 @@ type ProofRole = bound | claim
 type DerivedReferenceSource = type_expressions | method_signatures
 
 // ManifestFieldType covers field types available in .spec DSL syntax for
-// extension-declared fields. This is a superset of EnhancedFieldType (which
-// is for enhancement fields only). The block_type variant corresponds to
+// extension-declared fields, enhancement fields included. The block_type
+// variant corresponds to
 // triple-quoted string blocks which have a dedicated grammar rule.
 //
 // verify is NOT a field type — it is a grammar-level construct parsed by a

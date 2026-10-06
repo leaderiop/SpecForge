@@ -408,11 +408,13 @@ there), and the pure export that maps the report to entities.
 }
 ```
 
-The host calls the export with `{"reports": [{"path", "content"}],
-"stdout"?}` (`stdout` only when the collector captures it) and
-expects `{"entity_results": [{"entity_id", "test_results": [{"name",
-"status", "verify"?, "duration_ms"?}]}], "unlinked"?: [{"name", "path",
-"status"}]}`, with `status` one of `passed`, `failed` or `skipped`.
+The host calls the export with a `CollectInput`, `{"reports": [{"path",
+"content"}], "stdout"?}` (`stdout` only when the collector captures it), and
+reads a `CollectOutput`, `{"entity_results": [{"entity_id", "test_results":
+[{"name", "status", "verify"?, "duration_ms"?}]}], "unlinked"?: [{"name",
+"path", "status"}]}`, with `status` one of `passed`, `failed` or `skipped`.
+`entity_results` and each test's `name` are required: an answer without them
+is E028 naming the collector, never empty results.
 `unlinked` lists tests the report doesn't link to an entity (`path` is the
 test's name split into segments, its own name last); the host links them by
 naming convention when it can (`entity_id__obligation_slug`, or a module
@@ -425,12 +427,17 @@ Returns compiler pass descriptors. Each pass declares ordering constraints relat
 `phase: "check"` makes the pass part of every compile: it runs after the
 graph checks, and its diagnostics join the compile's (`specforge check`,
 watch, the LSP, MCP). Passes with any other phase, or none, run only under
-`specforge analyze`. The `__pass_<name>` export receives `{"entities",
-"edges", "test_results"?, "proved_claims"?, "previous"?}` and returns host
-diagnostics, bare or as `{"diagnostics", "summary"}`. A diagnostic may carry
+`specforge analyze`. The `__pass_<name>` export receives a `PassInput`
+(`{"entities", "edges", "test_results"?, "proved_claims"?, "previous"?}`;
+each entity is `{"id", "kind", "fields", "incoming_edge_count",
+"outgoing_edge_count", "span"?, "testable", "exempt", "verify_kinds",
+"verify_texts"}`, `exempt` meaning it owes no obligations of its own, decided
+by the host from the registries) and answers host diagnostics, bare or as
+`{"diagnostics", "summary"}` (a `PassAnswer`). A diagnostic may carry
 `"entity": "<id>"`; with no `span`, the host attaches that entity's.
 `previous` (check passes only) is the build cache, `{"statuses": {"<id>":
-{"kind", "status"}}}`, when `specforge-cache.json` exists.
+{"kind", "status"}}}`, when `specforge-cache.json` exists. See
+[Operate](#operate) for every operation's input and answer.
 
 ```json
 {
@@ -467,6 +474,63 @@ Returns feature flag descriptors. Each flag declares allowed values and a defaul
   ]
 }
 ```
+
+## Operate
+
+Once the declaration is loaded, the host calls an extension's exports on
+demand, each through one call of the bridge `call(name, export, input)` with a
+JSON input, reading a JSON answer ([ADR 0013](adr/0013-typed-extension-calls.md)).
+Every input and answer is a type of `specforge_protocol_types` (module
+`calls`), the same definitions the SDK re-exports, so a Rust guest built with
+the SDK cannot answer the wrong shape; a guest in another language reads the
+table below and the goldens in `crates/specforge-wasm/tests/wire/`.
+
+| Operation | Export | Input | Answer |
+|---|---|---|---|
+| Handshake | `__handshake` | `HandshakeRequest` `{"host_version", "supported_categories"}` | `HandshakeResponse` |
+| Describe | `__describe` | `DescribeRequest` `{"category"}` | `DescribeResponse` `{"category", "items"}` |
+| Command | the command's `export` (`cmd__<id>`) | `CommandInput` `{"args", "cwd", "format", "today", "graph"}` | `CommandOutput` `{"exit_code", "stdout"?, "stderr"?}` |
+| MCP tool | the tool's `export` (`mcp__<name>`) | the JSON its `input_schema` describes | the JSON its `output_schema` describes |
+| MCP resource | the resource's `export` (`mcp__<name>`) | `McpResourceRequest` `{"uri"}` | `McpResourceContent` `{"content", "mime_type"}` |
+| Compiler pass | `__pass_<name>` | `PassInput` | `PassAnswer`: `[PassDiagnostic]` or `{"diagnostics", "summary"?}` |
+| Collector | the collector's `export` (`collect__<name>`) | `CollectInput` | `CollectOutput` |
+| Custom validator | the rule's `wasm_function` (`validate__<code>`) | `ValidatorContext` `{"entity", "referenced", "declared_types", "primitives"}` | `ValidatorVerdict` `{"verdict": "pass"}` or `{"verdict": "fail", "field"?, "value"?}` |
+| Scanner | the analyzer's `scan_export` (`scan__<language>`) | `ScanRequest` `{"file_path", "content"}` | `ScanResponse` `{"items": [{"name", "item_kind", "line", "visibility"?, "signature"?}], "language"?}` |
+| Migration hook | the handshake's `migration_hook` | `MigrationInput` `{"from", "to", "files"}` | not read |
+
+An analyzer also declares `classify_export` and `map_export`; the host does
+not call them.
+
+The wire rules, on both sides:
+
+- **Absent, never null.** An optional field that is unset is left out (the
+  host leaves out a collect input's `stdout`, a pass input's `test_results`,
+  `proved_claims` and `previous`, an entity's `span`), and an absent optional
+  field reads as its default.
+- **Strict on shape, lenient on unknown fields.** A required field is required:
+  a command answer without `exit_code`, a resource answer without `mime_type`,
+  a collected test without `name` is not that type. A field the reader does
+  not know is ignored, so a newer peer may add one.
+
+Every failure of a call is E028, in one shape: `<operation> <export>() of
+'<extension>' trapped: <kind>: <message>` (the export trapped, ran out of time
+or fuel, or the guest does not route it: `guest_error: unknown export
+'<export>'`), `... answered output that is not a <Type>: <reason>`, or `... is
+not loaded`, with the suggestion to report it to the extension's author. What
+the failure costs is the operation's: a check pass's is a compile error, an
+analyze pass's an E028 finding of that pass (the analysis fails), a command's
+its error (exit 1; under `--format json` one `{code, message, suggestion}`
+object on stderr), an MCP tool's or resource's a structured MCP error, a
+scanner's an entry of the gap report's `scan_failures` (the report is then
+approximate), a collector's the `collect` error, a custom validator's the
+probe's W112 at load, a migration hook's a failure line that rolls the
+migration back.
+
+With the SDK, every one of these exports is declared together with its
+handler (`ContributionsBuilder::command`, `mcp_tool`, `mcp_resource`, `pass`
+with `run`, `collector` with `collect`, `rule` with `validate`, `analyzer`
+with `scan`, `migration_hook_handler`); the SDK decodes the input and encodes
+the answer. See [the SDK guide](extension-sdk.md).
 
 ## Host Functions
 
@@ -628,8 +692,9 @@ info[I004]: Unknown entity 'create_user' in field 'behaviors'
                     │                 │  cmd__*          │   │
                     │                 │  validate__*     │   │
                     │                 │  mcp__*          │   │
-                    │                 │  parse__*        │   │
+                    │                 │  __pass_*        │   │
                     │                 │  collect__*      │   │
+                    │                 │  scan__*         │   │
                     │                 └────────┬─────────┘   │
                     │                          │              │
                     │                          v              │
@@ -660,10 +725,14 @@ All extension exports follow a strict naming convention that the host uses to di
 |--------|---------|---------|
 | `__handshake` | Protocol handshake | `__handshake` |
 | `__describe` | Category description | `__describe` |
-| `cmd__` | CLI command execution | `cmd__validate` |
-| `validate__` | Custom validation logic | `validate__verify_kind_allowlist` |
+| `cmd__` | CLI command execution | `cmd__product_features` |
 | `mcp__` | MCP tool or resource execution | `mcp__model` |
-| `collect__` | Collector execution | `collect__rust` |
+| `__pass_` | Compiler pass | `__pass_coverage` |
+| `collect__` | Collector execution | `collect__cargo_test` |
+| `validate__` | Custom validation logic (a rule's `wasm_function`) | `validate__port_methods` |
+| `scan__` | Source scanner (an analyzer's `scan_export`) | `scan__rust` |
+| `classify__`, `map__` | Declared by analyzers; the host does not call them | `classify__rust` |
+| (any name) | Migration hook (the handshake's `migration_hook`) | `migrate_acme` |
 
 ## Design Principles
 

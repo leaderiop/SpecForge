@@ -385,7 +385,7 @@ behavior invoke_extension_migration_hooks "Invoke Extension Migration Hooks" {
     extension_load_order_determinism,
     migration_cross_extension_stability,
   ]
-  types      [MigrationResult, ExtensionLifecycleState, WasmTrapInfo, ExtensionDeclaration]
+  types      [MigrationResult, MigrationInput, WasmTrapInfo, ExtensionDeclaration]
   ports      [CompilerApi, WasmRuntime]
   consumes   [migration_complete]
   produces   [extension_migration_hooks_complete]
@@ -432,8 +432,8 @@ behavior invoke_extension_migration_hooks "Invoke Extension Migration Hooks" {
     failure MUST NOT prevent other extensions from running their hooks.
 
     The compiler MUST invoke extension hooks in the deterministic load order
-    defined by extension_load_order_determinism. The compiler MUST NOT
-    invoke hooks for extensions in a failed ExtensionLifecycleState.
+    defined by extension_load_order_determinism. An extension that failed
+    to load is not loaded, so it has no hook to invoke.
 
     Cross-extension reference stability: extension migration hooks MUST
     NOT rename or remove entities that are referenced by other extensions.

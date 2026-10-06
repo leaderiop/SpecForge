@@ -49,12 +49,13 @@ port RefValidator {
 port WasmRuntime {
   direction outbound
   category  "runtime/wasm"
-  method loadModule(wasmPath: string) -> Result<string, ExtensionError>
-  method callExport(extensionId: string, exportName: string, input: JsonValue) -> Result<JsonValue, ExtensionError>
-  method registerHostFunction(name: string, handler: string) -> Result<void, ExtensionError>
-  method unloadModule(extensionId: string) -> Result<void, ExtensionError>
-  method getMemoryUsage(extensionId: string) -> Result<integer, never>
-  method discoverExtensions(source: string, extensionSpec: string) -> Result<string[], ExtensionError>
+  // The byte-level port under call_extension_exports (ADR 0013): its two
+  // adapters are the component runtime (production) and the in-process
+  // runtime (tests).
+  method loadModule(extensionId: string, wasmPath: string) -> Result<void, ExtensionError>
+  method callExport(extensionId: string, exportName: string, input: u8[]) -> Result<u8[], WasmTrapInfo>
+  method setExecutionDeadline(extensionId: string, maxExecutionMs: integer) -> Result<void, never>
+  method loadFailure(extensionId: string) -> Result<Diagnostic, never>
   verify integration "WasmRuntime contract is satisfied"
 }
 

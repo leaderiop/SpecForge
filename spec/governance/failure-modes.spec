@@ -211,25 +211,6 @@ failure_mode peer_dependency_version_mismatch "Peer Dependency Version Mismatch"
   verify unit "Peer Dependency Version Mismatch failure mode is handled"
 }
 
-failure_mode builtin_field_shadow "Grammar-Level Construct Shadow by Extension" {
-  threatens_features [product_entity_registration]
-  invariant          enhancement_builtin_precedence
-  severity           critical
-  occurrence         unlikely
-  detection          likely
-  rpn                32
-  cause              "Extension registers an enhancement field with the same name as a grammar-level construct (entity title, verify)"
-  effect             "Grammar-level construct is shadowed — parser/resolver uses extension field definition instead of grammar-level syntax, causing unpredictable validation and broken contract extraction"
-  mitigation         "Enhancement registration checks every field name against the reserved grammar-level construct names; shadow attempt produces hard error E018 regardless of enhancement_policy; integration test with deliberate shadow attempt"
-  post_mitigation {
-    severity   critical
-    occurrence rare
-    detection  certain
-    rpn        8
-  }
-  verify unit "Grammar-Level Construct Shadow by Extension failure mode is handled"
-}
-
 failure_mode wasm_compile_cache_corruption "Wasm Compile Cache Corruption" {
   invariant  wasm_compile_cache_integrity
   severity   medium
@@ -312,7 +293,7 @@ failure_mode entity_kind_collision_undetected "Entity Kind Collision Undetected"
   rpn                28
   cause              "Two extensions register the same entity kind name but the KindRegistry fails to detect the collision — e.g., race condition or case-insensitive match not checked"
   effect             "One extension's entity kind silently shadows the other — entities parsed incorrectly, wrong validation rules applied, corrupted graph"
-  mitigation         "KindRegistry checks all registrations against reserved words and existing extension kinds; duplicate registration returns hard error E022/E023; property-based tests with random kind name combinations"
+  mitigation         "The registry build checks every kind registration against the kinds earlier-loaded extensions registered; a duplicate is E026 and the first registration wins; property-based tests with random kind name combinations"
   post_mitigation {
     severity   high
     occurrence rare

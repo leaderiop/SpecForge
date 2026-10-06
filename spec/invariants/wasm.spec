@@ -85,16 +85,14 @@ invariant host_function_type_safety "Host Function Type Safety" {
 
 invariant entity_kind_uniqueness "Entity Kind Uniqueness" {
   guarantee """
-    No two extensions MAY register the same entity kind name. Two
-    distinct collision codes apply: collisions with structural keywords
-    (spec, use, define) MUST produce E023, and collisions between two
-    extension-registered kinds MUST produce E026. All collisions are detected at
-    extension load time. The compiler never arbitrates conflicts —
-    extension authors resolve collisions via renames or peer dependencies.
+    No two extensions MAY register the same entity kind name: a kind an
+    earlier-loaded extension registered is E026, and the first extension
+    in load order keeps it. Collisions are detected when the registries are
+    built. The compiler never arbitrates conflicts — extension authors
+    resolve collisions via renames or peer dependencies.
   """
   risk      high
   verify property "no two extensions can silently register the same entity kind"
-  verify unit "built-in keyword rejection is unconditional"
 }
 
 // -- Entity Enhancement Invariants --------------------------------------------
@@ -102,28 +100,13 @@ invariant entity_kind_uniqueness "Entity Kind Uniqueness" {
 invariant enhancement_field_uniqueness "Enhancement Field Uniqueness" {
   guarantee """
     No two extensions MAY register the same field name for the same entity
-    kind. When a conflict is detected, the compiler MUST resolve it
-    according to the configured enhancement_policy or produce a hard
-    error. The resolution MUST be deterministic and explicit.
+    kind: an enhancement never overwrites a field the kind already has,
+    whether the kind's own or an earlier enhancement's, so the first
+    registration in load order wins. The resolution is deterministic.
   """
   risk      medium
   verify property "no two extensions can silently claim the same field"
   verify unit "conflict resolution is deterministic across runs"
-}
-
-invariant enhancement_builtin_precedence "Enhancement Built-in Precedence" {
-  guarantee """
-    Core grammar-level constructs MUST always take precedence over extension
-    enhancements. An extension MUST NOT register an enhancement field whose
-    name collides with a grammar-level construct: the entity title (the
-    string after keyword and ID) or verify statements. These constructs are parsed by dedicated grammar
-    rules and exist independently of the FieldRegistry. Attempts to
-    shadow them MUST produce E018 regardless of enhancement_policy
-    configuration.
-  """
-  risk      high
-  verify unit "enhancement shadowing grammar-level construct produces E018"
-  verify unit "E018 not configurable via enhancement_policy"
 }
 
 // -- Collector Invariants ---------------------------------------------------
@@ -204,21 +187,6 @@ invariant credential_secrecy "Registry Credential Secrecy" {
   verify unit "registry token is not included in log output"
   verify unit "diagnostic messages report credential presence not value"
   verify property "no log line contains raw token string"
-}
-
-invariant renderer_output_restriction "Renderer Output Restriction" {
-  guarantee """
-    Extension renderers MUST only emit spec-layer diagnostic artifacts:
-    coverage reports, traceability matrices, validation dashboards, graph
-    visualizations. Renderers MUST NOT produce application source code,
-    configuration files, executable artifacts, or any output consumed by
-    end users or deployed to production. SpecForge provides context;
-    agents produce code.
-  """
-  risk      high
-  verify unit "emit_file rejects blacklisted code extensions"
-  verify unit "renderer output restricted to allowed_output_extensions"
-  verify property "no renderer can bypass emit_file extension whitelist"
 }
 
 invariant surface_schema_validity "Surface Schema Validity" {

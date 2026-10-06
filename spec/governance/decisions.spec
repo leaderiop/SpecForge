@@ -239,20 +239,17 @@ decision config_driven_kind_registry "Config-Driven Kind Registry" {
     conflicts but no equivalent exists for entity kind names.
   """
   decision     """
-    Introduce a 2-layer entity kind conflict prevention system:
-    Layer 1 — Registration guard: host function rejects structural
-    keywords (spec, use, define, ref, verify, true, false) and DSL
-    syntax words at manifest registration time.
-    Layer 2 — Manifest-level uniqueness: host function rejects any
-    extension whose manifest declares an entity kind already registered
-    by a previously loaded extension, emitting E022. Conflict resolution
-    is the extension author's responsibility — rename the kind or declare
-    a peer dependency. The compiler never arbitrates domain-level conflicts;
+    Entity kind names are unique across the loaded extensions: the
+    registry build rejects any extension's kind already registered by a
+    previously loaded extension, emitting E026, and the first registration
+    wins. Entity ids that collide with the grammar's structural keywords
+    or an extension's kind keyword are E013. Conflict resolution is the
+    extension author's responsibility — rename the kind or declare a peer
+    dependency. The compiler never arbitrates domain-level conflicts;
     if two installed extensions declare the same kind, it is a hard error
     at startup, not a runtime policy decision.
   """
   consequences [
-    "No silent shadowing of structural or define-block entity kinds",
     "Duplicate kind names are a hard error at extension load time",
     "Zero config surface — no entity_kind_policy or entity_kinds in specforge.json",
     "No @extension/kind qualified syntax needed — conflicts are impossible at parse time",
@@ -275,20 +272,18 @@ decision entity_enhancement_model "Entity Enhancement Model" {
     Extension manifests declare entity enhancements with target entity kind,
     field name, field type, and optional edge mappings. The compiler builds
     a FieldRegistry combining extension-defined and enhanced fields, threads
-    it through the resolve/graph-build/validate pipeline. Conflicts between
-    extensions are resolved via configurable policies (error/priority/namespace).
-    Core structural field shadowing always produces E018 regardless of policy.
-    specforge doctor provides visibility into all enhancements.
+    it through the resolve/graph-build/validate pipeline. An enhancement
+    never overwrites a field the kind already has: the first registration
+    in load order wins. specforge doctor provides visibility into all
+    enhancements.
   """
   consequences [
     "Extensions can annotate existing entities without forking the grammar",
     "FieldRegistry becomes the single source of truth for field definitions",
-    "v1 ships with error policy only — priority and namespace policies deferred to reduce configuration surface (P8)",
-    "E018 hard error prevents accidental structural field shadowing",
-    "specforge doctor provides actionable conflict resolution",
-    "Enhancement conflicts detected at manifest load time (startup), not lazily during validation",
+    "No conflict policy to configure: the load order decides, deterministically",
+    "Enhancements are applied when the registries are built, not lazily during validation",
   ]
-  invariants   [enhancement_field_uniqueness, enhancement_builtin_precedence]
+  invariants   [enhancement_field_uniqueness]
 }
 
 decision wasm_compile_cache_strategy "Wasm Compile Cache Strategy" {
@@ -895,10 +890,8 @@ decision adr_surface_contribution_model "Surface Contribution Model" {
 
     P7 compliance: Surface contribution dispatch (register, validate, dispatch
     behaviors) is core infrastructure, not domain logic. This parallels
-    call_extension_validators and dispatch_contribution_exports — both are
-    generic dispatch mechanisms where
-    the core routes to extension-provided Wasm exports without inspecting
-    content. The content of each surface contribution is extension-defined;
+    call_extension_exports, the generic mechanism by which the core calls
+    extension-provided Wasm exports without inspecting content. The content of each surface contribution is extension-defined;
     the dispatch mechanism is structural plumbing. Extracting dispatch into
     a separate extension would create a bootstrap paradox: the dispatch
     extension would need to be loaded before any other extension could

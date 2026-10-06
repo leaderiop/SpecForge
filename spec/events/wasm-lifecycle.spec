@@ -23,17 +23,6 @@ event extension_initialized "Extension Initialized" {
     edgeTypeCount integer
   }
   verify integration "emits extension_initialized with correct entityCount and edgeTypeCount"
-  verify integration "consumer call_extension_validators receives event and begins validation"
-}
-
-event extension_validated "Extension Validated" {
-  channel "wasm.extension_validated"
-  payload {
-    extensionName   string
-    diagnosticCount integer
-    durationMs      integer
-  }
-  verify integration "emits extension_validated with correct diagnosticCount and durationMs"
 }
 
 event extension_unloaded "Extension Unloaded" {
@@ -76,16 +65,6 @@ event manifest_validated "Manifest Validated" {
     validationPassed boolean
   }
   verify integration "emits manifest_validated with correct entityKindCount and validation status"
-}
-
-event wasm_integrity_verified "Wasm Integrity Verified" {
-  channel "wasm.integrity_verified"
-  payload {
-    extensionName string
-    wasmHash      string
-    verified      boolean
-  }
-  verify integration "emits wasm_integrity_verified with correct hash after successful check"
 }
 
 // ── Extension Lifecycle Events ─────────────────────────────────
