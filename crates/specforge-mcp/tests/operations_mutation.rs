@@ -960,7 +960,7 @@ fn init_contract() {
     // tool_invoked_emitted.
     let initialized = events(&server, "project_initialized");
     assert_eq!(initialized.len(), 1, "{initialized:?}");
-    assert_eq!(initialized[0]["name"], "contractproject");
+    assert_eq!(initialized[0]["projectName"], "contractproject");
     assert!(invoked(&server, "specforge.init"));
 }
 
@@ -1551,7 +1551,9 @@ fn add_extension_contract() {
     // extension_added_emitted, tool_invoked_emitted
     let added = events(&server, "extension_added");
     assert_eq!(added.len(), 1, "{added:?}");
-    assert_eq!(added[0]["extension"], GREET);
+    assert_eq!(added[0]["extensionSpecifier"], specifier);
+    assert_eq!(added[0]["wasDuplicate"], false);
+    assert_eq!(added[0]["totalExtensions"], 1);
     assert!(invoked(&server, "specforge.add_extension"));
 }
 

@@ -163,9 +163,62 @@ fn enabling_an_enabled_builtin_writes_nothing() {
         last_completed(&server),
         Some(completed("specforge.add_extension", 0, 0, true))
     );
-    // BUG (04-T4 flips; spec: wasDuplicate): the duplicate add emits no
-    // extension_added.
-    assert_eq!(events(&server, "extension_added").len(), 1);
+    // The duplicate add still emits extension_added, a duplicate.
+    let added = events(&server, "extension_added");
+    assert_eq!(added.len(), 2, "{added:?}");
+    assert_eq!(added[1]["wasDuplicate"], true, "{added:?}");
+}
+
+/// The extensions `specforge.json` at `root` enables.
+fn enabled(root: &Path) -> Vec<Value> {
+    let text = std::fs::read_to_string(root.join("specforge.json")).unwrap();
+    let config: Value = serde_json::from_str(&text).unwrap();
+    config["extensions"].as_array().cloned().unwrap_or_default()
+}
+
+#[specforge_test(
+    behavior = "extension_added",
+    verify = "wasDuplicate is true when extension was already installed"
+)]
+fn a_duplicate_add_emits_was_duplicate() {
+    let mut server = empty_components();
+    let root = server.root().to_path_buf();
+    for specifier in [PRODUCT.to_string(), greet()] {
+        for _ in 0..2 {
+            assert_ok(&call_tool(
+                &mut server,
+                "specforge.add_extension",
+                json!({"specifier": specifier}),
+            ));
+        }
+    }
+
+    let total = enabled(&root).len();
+    let added = events(&server, "extension_added");
+    let duplicates: Vec<(&Value, &Value)> = added
+        .iter()
+        .map(|e| (&e["extensionSpecifier"], &e["wasDuplicate"]))
+        .collect();
+    let (product, blob) = (json!(PRODUCT), json!(greet()));
+    assert_eq!(
+        duplicates,
+        [
+            (&product, &json!(false)),
+            (&product, &json!(true)),
+            (&blob, &json!(false)),
+            // A local blob already installed with these bytes: AlreadyPresent.
+            (&blob, &json!(true)),
+        ]
+    );
+    assert_eq!(added[3]["totalExtensions"], total, "{added:?}");
+    // A dry run emits none.
+    let since = added.len();
+    assert_ok(&call_tool(
+        &mut server,
+        "specforge.add_extension",
+        json!({"specifier": PRODUCT, "dry_run": true}),
+    ));
+    assert_eq!(events(&server, "extension_added").len(), since);
 }
 
 // 4
@@ -532,33 +585,81 @@ fn the_domain_event_precedes_the_mutation_event() {
     );
 }
 
-// 14
-#[test]
-fn domain_event_payloads() {
+// 14 (split: the spec's payloads)
+#[specforge_test(
+    behavior = "extension_added",
+    verify = "emits extension_added with correct extensionSpecifier after specforge add"
+)]
+fn extension_added_names_the_specifier_and_the_total() {
     let mut server = empty_components();
+    let root = server.root().to_path_buf();
     assert_ok(&call_tool(
         &mut server,
         "specforge.add_extension",
         json!({"specifier": PRODUCT}),
     ));
-    // BUG (04-T4 flips; spec: extensionSpecifier, totalExtensions,
-    // wasDuplicate).
+    // The product builtin and the builtin peers it requires.
+    let total = enabled(&root).len();
+    assert!(total >= 1);
     assert_eq!(
         events(&server, "extension_added"),
-        [json!({"extension": PRODUCT, "version": null})]
+        [json!({"extensionSpecifier": PRODUCT, "totalExtensions": total, "wasDuplicate": false})]
     );
 
+    // A local blob: the specifier as the call gave it, not the name it
+    // declares.
+    assert_ok(&call_tool(
+        &mut server,
+        "specforge.add_extension",
+        json!({"specifier": greet()}),
+    ));
+    assert_eq!(
+        events(&server, "extension_added")[1],
+        json!({"extensionSpecifier": greet(), "totalExtensions": total + 1, "wasDuplicate": false})
+    );
+}
+
+/// Init `name` in a new directory of `scratch` with `extensions`; the
+/// `project_initialized` events recorded.
+fn initialized(name: &str, extensions: Value) -> Vec<Value> {
+    let mut server = empty_components();
     let scratch = tempfile::TempDir::new().unwrap();
-    let dir = scratch.path().join("newone");
+    let dir = scratch.path().join(name);
     assert_ok(&call_tool(
         &mut server,
         "specforge.init",
-        json!({"path": dir.to_str().unwrap(), "name": "newone"}),
+        json!({"path": dir.to_str().unwrap(), "name": name, "extensions": extensions}),
     ));
-    // BUG (04-T4 flips; spec: projectName, extensionCount, specFilePath).
+    events(&server, "project_initialized")
+}
+
+#[specforge_test(
+    behavior = "project_initialized",
+    verify = "emits project_initialized with correct projectName and extensionCount"
+)]
+fn project_initialized_counts_the_extensions() {
+    let none = initialized("newone", json!([]));
+    assert_eq!(none.len(), 1, "{none:?}");
+    assert_eq!(none[0]["projectName"], "newone");
+    assert_eq!(none[0]["extensionCount"], 0);
+
+    // A builtin and a local blob: product (and the builtin peers it
+    // requires), and @sdk/greet.
+    let some = initialized("newtwo", json!([PRODUCT, greet()]));
+    assert_eq!(some[0]["projectName"], "newtwo");
+    let count = some[0]["extensionCount"].as_u64().unwrap();
+    assert!(count >= 2, "{some:?}");
+}
+
+#[specforge_test(
+    behavior = "project_initialized",
+    verify = "specFilePath refers to the starter entity spec file, not specforge.json"
+)]
+fn project_initialized_names_the_starter_file() {
+    let events = initialized("starter", json!([]));
     assert_eq!(
-        events(&server, "project_initialized"),
-        [json!({"name": "newone", "path": dir.display().to_string()})]
+        events,
+        [json!({"projectName": "starter", "extensionCount": 0, "specFilePath": "spec/hello.spec"})]
     );
 }
 

@@ -78,16 +78,28 @@ impl Written {
 }
 
 /// A domain event a mutation produces (`spec/behaviors/mcp-operations.spec`:
-/// init produces `project_initialized`, add_extension `extension_added`).
+/// init produces `project_initialized`, add_extension `extension_added`),
+/// its payload the one `spec/events/compilation.spec` declares.
 #[derive(Debug, Clone, PartialEq)]
 pub enum MutationEvent {
-    /// `extension_added`: an add that installed or enabled an extension.
+    /// `extension_added`: an add that succeeded, a duplicate included.
     ExtensionAdded {
-        extension: String,
-        version: Option<String>,
+        /// The specifier as the call gave it.
+        specifier: String,
+        /// How many extensions `specforge.json` enables after the add.
+        total_extensions: usize,
+        /// The extension was already installed (or enabled): nothing
+        /// changed.
+        was_duplicate: bool,
     },
     /// `project_initialized`: the scaffold init wrote.
-    ProjectInitialized { name: String, path: String },
+    ProjectInitialized {
+        project_name: String,
+        extension_count: usize,
+        /// The starter entity spec file, relative to the new root (not
+        /// `specforge.json`).
+        spec_file_path: String,
+    },
 }
 
 impl MutationEvent {
@@ -99,15 +111,28 @@ impl MutationEvent {
         }
     }
 
-    /// Its payload (`timestamp` is added when recorded).
+    /// Its payload, camelCase as declared (`timestamp` is added when
+    /// recorded).
     pub fn params(&self) -> Value {
         match self {
-            MutationEvent::ExtensionAdded { extension, version } => {
-                json!({ "extension": extension, "version": version })
-            }
-            MutationEvent::ProjectInitialized { name, path } => {
-                json!({ "name": name, "path": path })
-            }
+            MutationEvent::ExtensionAdded {
+                specifier,
+                total_extensions,
+                was_duplicate,
+            } => json!({
+                "extensionSpecifier": specifier,
+                "totalExtensions": total_extensions,
+                "wasDuplicate": was_duplicate,
+            }),
+            MutationEvent::ProjectInitialized {
+                project_name,
+                extension_count,
+                spec_file_path,
+            } => json!({
+                "projectName": project_name,
+                "extensionCount": extension_count,
+                "specFilePath": spec_file_path,
+            }),
         }
     }
 }
@@ -322,8 +347,9 @@ mod tests {
         let failure = McpError::new(ErrorCode::InternalError, "failed to write /p/a.spec");
         let written = Written::files(Writes::from_iter(["/p/b.spec"])).with_event(
             MutationEvent::ExtensionAdded {
-                extension: "@x/y".into(),
-                version: None,
+                specifier: "@x/y".into(),
+                total_extensions: 1,
+                was_duplicate: false,
             },
         );
 
@@ -352,8 +378,9 @@ mod tests {
         let mut state = served();
         let written = Written::files(Writes::from_iter(["/p/specforge.json"])).with_event(
             MutationEvent::ExtensionAdded {
-                extension: "@x/y".into(),
-                version: None,
+                specifier: "@x/y".into(),
+                total_extensions: 1,
+                was_duplicate: false,
             },
         );
 
@@ -375,15 +402,25 @@ mod tests {
     #[test]
     fn event_names_are_the_specs() {
         let added = MutationEvent::ExtensionAdded {
-            extension: "@x/y".into(),
-            version: Some("1.0.0".into()),
+            specifier: "@x/y".into(),
+            total_extensions: 2,
+            was_duplicate: true,
         };
         let initialized = MutationEvent::ProjectInitialized {
-            name: "demo".into(),
-            path: "/p".into(),
+            project_name: "demo".into(),
+            extension_count: 1,
+            spec_file_path: "spec/hello.spec".into(),
         };
         assert_eq!(added.name(), "extension_added");
+        assert_eq!(
+            added.params(),
+            json!({"extensionSpecifier": "@x/y", "totalExtensions": 2, "wasDuplicate": true})
+        );
         assert_eq!(initialized.name(), "project_initialized");
+        assert_eq!(
+            initialized.params(),
+            json!({"projectName": "demo", "extensionCount": 1, "specFilePath": "spec/hello.spec"})
+        );
     }
 
     #[test]

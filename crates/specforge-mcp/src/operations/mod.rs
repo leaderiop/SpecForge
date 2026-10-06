@@ -315,8 +315,9 @@ pub(crate) fn init_op(call: &mut Call<'_>, args: InitArgs) -> Mutated {
     // With no project served, the server serves the one it created (ADR
     // 0014 D5): `mutation::refresh` does, once it wrote.
     let event = MutationEvent::ProjectInitialized {
-        name: outcome.name.clone(),
-        path: path.display().to_string(),
+        project_name: outcome.name.clone(),
+        extension_count: outcome.extensions.len(),
+        spec_file_path: init::STARTER_FILE.to_string(),
     };
     Mutated::wrote(result, Written::files(outcome.writes).with_event(event))
 }
@@ -337,7 +338,8 @@ pub struct AddArgs {
 }
 
 /// `specforge.add_extension`: the shared add, its reply, the files it
-/// wrote and `extension_added` when it installed or enabled an extension.
+/// wrote and `extension_added` (for an extension already there too,
+/// `wasDuplicate`).
 pub(crate) fn add_extension(call: &mut Call<'_>, args: AddArgs) -> MutationHandled {
     use specforge_ops::extension::{self, AddOutcome, AddRequest, Origin, Source, Trust};
 
@@ -384,7 +386,7 @@ pub(crate) fn add_extension(call: &mut Call<'_>, args: AddArgs) -> MutationHandl
         }
     };
     let source_of = Origin::source;
-    let (reply, installed) = match added.outcome {
+    let (reply, was_duplicate) = match added.outcome {
         AddOutcome::Builtin {
             name,
             changed,
@@ -398,7 +400,7 @@ pub(crate) fn add_extension(call: &mut Call<'_>, args: AddArgs) -> MutationHandl
                 "peers_enabled": peers_enabled,
                 "note": note,
             }),
-            changed.then(|| (name.to_string(), None)),
+            !changed,
         ),
         AddOutcome::Installed {
             name,
@@ -416,7 +418,7 @@ pub(crate) fn add_extension(call: &mut Call<'_>, args: AddArgs) -> MutationHandl
                 "source": source_of(&origin),
                 "note": note,
             }),
-            Some((name, Some(version))),
+            false,
         ),
         // Already installed and enabled: an info response, nothing changed.
         AddOutcome::AlreadyPresent { name, version } => (
@@ -427,7 +429,7 @@ pub(crate) fn add_extension(call: &mut Call<'_>, args: AddArgs) -> MutationHandl
                 "version": version,
                 "message": format!("{name} {version} is already installed; specforge.json is unchanged"),
             }),
-            None,
+            true,
         ),
         AddOutcome::Planned {
             name,
@@ -444,13 +446,14 @@ pub(crate) fn add_extension(call: &mut Call<'_>, args: AddArgs) -> MutationHandl
             return Ok(Mutated::preview(ok(plan).with_diagnostics(reported)));
         }
     };
-    let mut written = Written::files(added.writes);
-    if let Some((extension, version)) = installed {
-        written = written.with_event(MutationEvent::ExtensionAdded { extension, version });
-    }
+    let event = MutationEvent::ExtensionAdded {
+        specifier: args.specifier,
+        total_extensions: added.extensions_enabled,
+        was_duplicate,
+    };
     Ok(Mutated::wrote(
         ok(reply).with_diagnostics(reported),
-        written,
+        Written::files(added.writes).with_event(event),
     ))
 }
 
