@@ -334,7 +334,7 @@ Returns CLI command, MCP tool, and MCP resource descriptors. CLI commands auto-p
 ```json
 {
   "category": "surfaces",
-  "items": {
+  "items": [{
     "commands": [
       {
         "id": "validate",
@@ -343,33 +343,61 @@ Returns CLI command, MCP tool, and MCP resource descriptors. CLI commands auto-p
         "category": "analysis",
         "export": "cmd__validate",
         "args": [
-          { "name": "path", "arg_type": "path", "required": true, "description": "Path to spec root" },
-          { "name": "lint", "arg_type": "enum", "required": false, "description": "Lint profile", "default": "default" }
+          { "name": "target", "arg_type": "string", "required": true, "description": "The entity to validate" },
+          { "name": "profile", "arg_type": { "enum": { "values": ["default", "strict"] } }, "default_value": "default", "description": "Lint profile" },
+          { "name": "limit", "arg_type": "integer", "minimum": 0, "description": "Report at most this many" },
+          { "name": "details", "arg_type": "bool", "description": "Show each finding" }
         ],
         "sandbox": { "fs_read": true }
       }
     ],
     "mcp_tools": [
       {
-        "name": "model",
+        "name": "acme.model",
         "description": "Generate entity model",
         "category": "visualization",
-        "export": "mcp__model",
+        "export": "mcp__acme_model",
         "input_schema": { "type": "object", "properties": { "format": { "type": "string" } } }
       }
     ],
     "mcp_resources": [
       {
-        "uri": "specforge://entities/{kind}",
+        "uri_template": "specforge://ext/acme/{kind}",
         "name": "entity_list",
         "description": "List entities by kind",
         "mime_type": "application/json",
         "export": "mcp__entity_list"
       }
     ]
-  }
+  }]
 }
 ```
+
+A command arg declares `name`, `arg_type` (`"string"`, `"path"`, `"bool"`, `"integer"`, or
+`{"enum": {"values": [..]}}`), and optionally `required`, `default_value` (a string, read as the arg's
+type), `description` and `minimum` (the least value of an integer arg: `0` for a count; a host or guest
+that does not know the field ignores it). The host reads the declaration by one rule, the SDK's too
+(`specforge_protocol_types::command_args`, ADR 0017):
+
+- **Refused declarations.** A command with an arg named `path`, `format` or `help` (the host's own
+  options), two args whose names spell one option (`all_kinds`, `all-kinds`), a flag or a required arg
+  with a default, or a default its type refuses, runs on no surface: the CLI refuses it (exit 2) and MCP
+  serves no tool for it (I017). The SDK refuses to build such an extension.
+- **Normalized args.** Both surfaces send a `cmd__` export the same args for the same input: every
+  declared arg the caller set, as its type (an integer or a flag may come as the string a command line
+  gives); an absent arg its default; an unset flag `false` (a flag is never required). A missing
+  required arg, a value of another type or below the minimum, or an undeclared argument is refused
+  before the export runs, as one `{"code": "INVALID_INPUT", "message", "suggestion"?}` object on both
+  surfaces.
+- **The MCP tool** of a command is `specforge.<short>.<id>`; its `inputSchema` states each arg's type,
+  values, minimum, default and description, `required` lists the required args that are not flags, and
+  `additionalProperties` is `false`.
+
+MCP serves each tool name and resource URI once: the core ones, then explicit tools and resources in
+extension load order, then the commands. A contribution not served under its name (an explicit tool
+named as a core tool, a resource whose URIs a core resource serves, a command whose tool name is taken)
+is reported with I017. A resource template may use any scheme; its read failing (a trap, an answer that
+is not `{content, mime_type}`) is a JSON-RPC internal error whose `data` is an McpError carrying E028.
 
 ### Reserved: grammars and body_parsers
 

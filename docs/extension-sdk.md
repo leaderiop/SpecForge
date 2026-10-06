@@ -337,9 +337,9 @@ Every macro maps to a protocol category. The SDK generates the appropriate Wasm 
 | `#[enhance]` | Entity enhancement | `enhancements` |
 | `#[validation_rule]` | Declarative validation rule | `validation_rules` |
 | `c.rule(...)` with `r.validate(...)` (builder) | Custom rule + `validate__*` export | `validation_rules` |
-| `#[cli_command]` | `cmd__*` export | `surfaces` |
-| `#[mcp_tool]` | `mcp__*` export | `surfaces` |
-| `#[mcp_resource]` | `mcp__*` export | `surfaces` |
+| `c.command(...)` with `cmd.arg(...)` and `cmd.handler(...)` (builder) | `cmd__*` export | `surfaces` |
+| `c.mcp_tool(...)` with `t.handler(...)` (builder) | `mcp__*` export | `surfaces` |
+| `c.mcp_resource(...)` with `r.handler(...)` (builder) | `mcp__*` export | `surfaces` |
 | `c.collector(...)` with `k.collect(...)` (builder) | declared command + `collect__*` export | `collectors` |
 | `c.pass(...)` with `p.run(...)` (builder) | Pass descriptor + `__pass_*` export | `passes` |
 | `c.analyzer(...)` with `a.scan(...)` (builder) | Analyzer descriptor + `scan__*` export | `analyzers` |
@@ -349,7 +349,7 @@ Every macro maps to a protocol category. The SDK generates the appropriate Wasm 
 | `#[peer_dependency]` | Dependency declaration | handshake |
 | `#[lsp]` | LSP metadata on entity kind | `entities` |
 | `#[dot]` | DOT visualization metadata | `entities` |
-| `#[arg]` | CLI/MCP argument descriptor | `surfaces` |
+| `cmd.arg(...)` (builder) | Command argument descriptor | `surfaces` |
 | `#[auto_detect]` | Collector auto-detection config | `collectors` |
 
 ## Macro Details
@@ -446,36 +446,43 @@ c.rule("W009", |r| {
 A custom rule without `validate` panics when the extension is built, so a rule
 that would never fire cannot ship.
 
-### #[cli_command]
+### Commands and their args
 
-Declares a CLI command. The SDK generates a `cmd__*` export and a surface descriptor.
+`c.command(id, |cmd| ...)` declares a CLI command with the function that answers it: the SDK
+generates its `cmd__*` export (`cmd__<prefix>_<id>` under `command_prefix`) and its surface
+descriptor, and routes the export to the handler. The CLI runs it as `specforge <short> <id with _ as
+->`, MCP as the tool `specforge.<short>.<id>`.
 
-| Attribute | Required | Description |
-|-----------|----------|-------------|
-| `id` | yes | Command identifier (used in `specforge <ext-short> <id>`) |
-| `title` | yes | Human-readable title |
-| `description` | yes | Detailed description |
-| `category` | no | Command category for grouping |
+| Builder call | Description |
+|-----------|-------------|
+| `cmd.title(..)` | The one-line title help lists it under |
+| `cmd.description(..)` | Its long help and its MCP tool's description |
+| `cmd.category(..)` | A CLI grouping |
+| `cmd.arg(name, \|a\| ..)` | Declares an arg (below) |
+| `cmd.handler(\|call\| ..)` | The function answering it: `CommandCall` in, `CommandOutput` out |
 
-### #[arg]
+An arg is a string unless its builder says otherwise:
 
-Declares an argument on a CLI command or MCP tool.
+| Arg builder | On the wire | Read with |
+|-----------|------------------|-----------|
+| `a.string()` (default) | `"string"` | `call.str(name)` |
+| `a.path()` | `"path"` | `call.str(name)` |
+| `a.flag()` | `"bool"`: `--name`, `false` unless set | `call.flag(name)` |
+| `a.integer()` | `"integer"` | `call.integer(name)` |
+| `a.count()` | `"integer"` with `"minimum": 0` | `call.count(name)` |
+| `a.one_of(&[..])` | `{"enum": {"values": [..]}}` | `call.str(name)` |
+| `a.required()` | `"required": true`: positional on the command line | |
+| `a.default_value(..)` | `"default_value"`: what an absent arg is, on every surface | |
+| `a.description(..)` | its help and its MCP property's description | |
 
-| Attribute | Required | Description |
-|-----------|----------|-------------|
-| `required` | no | Whether the argument must be provided (default: `false`) |
-| `description` | no | Human-readable description |
-| `default` | no | Default value as string |
-
-Argument types:
-
-| Rust Type | Protocol Arg Type |
-|-----------|------------------|
-| `PathArg` | `path` |
-| `String` | `string` |
-| `bool` | `boolean` |
-| `EnumArg` | `enum` |
-| `Option<T>` | optional variant of inner type |
+The host and the SDK read args by one rule (`specforge_protocol_types::command_args`, ADR 0017): both
+surfaces send the export the args normalized (declared defaults applied, an unset flag `false`, each
+value its declared type), and refuse a missing required arg, a value of another type or below its
+minimum, or an undeclared arg before the export runs, as one `INVALID_INPUT` object; `CommandCall`
+runs the same rule on what it receives. The builder panics on a declaration the host would refuse (an
+arg named `path`, `format` or `help`, two args spelling one option such as `all_kinds` and `all-kinds`,
+a flag or required arg with a default, a default its type refuses) and on a required flag or an empty
+`one_of`, so the extension's first test finds it.
 
 ### Collectors
 

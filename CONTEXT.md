@@ -79,7 +79,16 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   the host passes (`specforge_protocol_types::CommandInput`: args, project root, graph, the
   command format and today's date, UTC). The CLI runs it as `specforge <short> <command>`, MCP as
   the auto-promoted tool `specforge.<short>.<id>`, `short` being the declaration's (`ext_short`,
-  else its name's last segment); neither knows any command (`specforge_ops::command`, ADR 0008).
+  else its name's last segment); neither knows any command (ADR 0008). One derivation serves both
+  surfaces (`specforge_ops::command::ExtensionCommand`): its CLI name, its tool name, its args'
+  command-line shapes, its input schema and the args both send, normalized by the one arg rule the
+  SDK also runs (`specforge_protocol_types::command_args`): declared defaults applied by the host,
+  an unset flag `false`, each value its declared type (ADR 0017).
+- **Extension surface table**: what MCP serves from the project's extensions, built once per
+  reload from their declarations: each tool once (an explicit `mcp__` tool, or an extension
+  command), each resource with its URI template; listings are the core tables plus it, and a call
+  is one lookup in it. A contribution it does not serve is reported with I017
+  (`specforge_mcp`'s `ExtensionSurfaceTable`, ADR 0017).
 - **Extension call**: one typed operation the host performs on a loaded extension — handshake,
   describe, command, MCP tool, MCP resource, compiler pass, collector, custom validator, scanner,
   migration hook — over the `WasmRuntime` port. Its input and answer are protocol types
