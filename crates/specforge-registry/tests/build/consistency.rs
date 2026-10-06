@@ -5,11 +5,11 @@
 
 use specforge_common::Severity;
 use specforge_extension_sdk::prelude::*;
-use specforge_protocol_types::{EdgeTypeDescriptor, ExtensionDeclaration};
+use specforge_protocol_types::{EdgeTypeDescriptor, ExtensionDeclaration, PeerDependency};
 use specforge_test_macros::test as spec;
 
 use crate::support::{
-    build, coded, codes, declare, diagnostics, extension, peer, product, software,
+    build, coded, codes, declare, diagnostics, extension, optional_peer, peer, product, software,
 };
 
 #[spec(
@@ -324,8 +324,8 @@ fn declaration_consistency_holds() {
     assert!(build.fields.contains("task", "robot"));
 }
 
-/// An extension `name` with `peers`, declaring one `no_incoming_edges` rule
-/// `code` on `behavior` scoped to `edge_type`.
+/// An extension `name` with `peers`, declaring one untargeted
+/// `no_incoming_edges` rule `code` scoped to `edge_type`.
 fn edge_rule(name: &str, peers: &[&str], code: &str, edge_type: &str) -> ExtensionDeclaration {
     let mut c = extension(name);
     for p in peers {
@@ -335,7 +335,6 @@ fn edge_rule(name: &str, peers: &[&str], code: &str, edge_type: &str) -> Extensi
         r.severity(ValidationSeverity::Warning)
             .message_template("{id}")
             .check(CheckKind::NoIncomingEdges)
-            .target_kind("behavior")
             .edge_type(edge_type);
     });
     c.declaration()
@@ -383,4 +382,52 @@ fn a_rules_edge_type_nobody_it_knows_declares_is_w021() {
             .any(|d| d.code == "W021")
     );
     assert_eq!(coded(&build, "W021")[0].severity, Severity::Warning);
+}
+
+#[spec(
+    behavior = "registry_build_declaration_consistency",
+    verify = "a rule's target kind that neither its extension nor its peers declare produces W021"
+)]
+fn a_rules_target_kind_nobody_it_knows_declares_is_w021() {
+    let targeting = |name: &str, peers: Vec<PeerDependency>, target: &str| {
+        let mut c = extension(name);
+        c.meta.peer_dependencies = peers;
+        c.rule("X200", |r| {
+            r.severity(ValidationSeverity::Warning)
+                .message_template("{id}")
+                .check(CheckKind::NoIncomingEdges)
+                .target_kind(target);
+        });
+        c.declaration()
+    };
+    // A stranger's kind, and a kind nobody declares.
+    let stranger = targeting("@test/stranger", Vec::new(), "behavior");
+    let nobody = targeting("@test/nobody", Vec::new(), "ghost");
+    // A loaded peer's kind; a kind of an optional peer that is not loaded.
+    let peering = targeting(
+        "@test/peering",
+        vec![peer("@specforge/software", ">=1.0.0")],
+        "behavior",
+    );
+    let waiting = targeting(
+        "@test/waiting",
+        vec![optional_peer("@test/absent", ">=1.0.0")],
+        "absent_kind",
+    );
+
+    let build = build([software(), stranger, nobody, peering, waiting]);
+
+    let w021: Vec<&str> = coded(&build, "W021")
+        .iter()
+        .map(|d| d.message.as_str())
+        .collect();
+    assert_eq!(
+        w021,
+        [
+            "extension '@test/stranger': rule 'X200' references target_kind 'behavior' declared by '@specforge/software', which is not a peer dependency",
+            "extension '@test/nobody': rule 'X200' references target_kind 'ghost' not declared by this extension",
+        ]
+    );
+    // The rules stay registered (inert where no entity has their kind).
+    assert_eq!(build.rules.len(), 4);
 }

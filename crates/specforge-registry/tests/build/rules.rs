@@ -49,6 +49,10 @@ fn nth(build: &specforge_registry::RegistryBuild, i: usize) -> &Rule {
 )]
 fn every_declared_rule_is_in_the_build_with_its_extension() {
     let a = declare("@ext/a", |c| {
+        // Its rule targets software's kind: software is its peer.
+        c.meta
+            .peer_dependencies
+            .push(crate::support::peer("@specforge/software", ">=1.0.0"));
         c.rule("W100", |r| {
             r.severity(ValidationSeverity::Warning)
                 .message_template("orphan {kind} '{id}'")
@@ -140,6 +144,9 @@ fn the_extensions_rules_are_ordered_by_code() {
 )]
 fn the_build_keeps_a_rule_whose_target_kind_no_extension_declares() {
     let ghostly = declare("@t/e", |c| {
+        c.meta
+            .peer_dependencies
+            .push(crate::support::peer("@specforge/software", ">=1.0.0"));
         c.rule("W101", |r| {
             r.severity(ValidationSeverity::Warning)
                 .message_template("orphan {id}")
@@ -147,6 +154,12 @@ fn the_build_keeps_a_rule_whose_target_kind_no_extension_declares() {
                 .target_kind("behavior")
                 .edge_type("GhostEdge");
         });
+    });
+    // `nonexistent_kind` belongs to an optional peer that is not installed.
+    let waiting = declare("@t/f", |c| {
+        c.meta
+            .peer_dependencies
+            .push(crate::support::optional_peer("@t/absent", ">=1.0.0"));
         c.rule("W102", |r| {
             r.severity(ValidationSeverity::Warning)
                 .message_template("lonely {id}")
@@ -154,11 +167,11 @@ fn the_build_keeps_a_rule_whose_target_kind_no_extension_declares() {
                 .target_kind("nonexistent_kind");
         });
     });
-    let build = build([software(), ghostly]);
+    let build = build([software(), ghostly, waiting]);
 
     // W102 is kept (inert: no entity has its kind); W101 is dropped, and
     // its extension is told about the edge type (W021).
-    assert_eq!(rule_codes(&build), [("W102", "@t/e")]);
+    assert_eq!(rule_codes(&build), [("W102", "@t/f")]);
     assert_eq!(nth(&build, 0).target_kind(), Some("nonexistent_kind"));
     let w021: Vec<&str> = coded(&build, "W021")
         .iter()
@@ -239,6 +252,10 @@ fn rule_collection_holds() {
         ],
     );
     let b = declare("@ext/b", |c| {
+        // `ghost` belongs to an optional peer that is not installed.
+        c.meta
+            .peer_dependencies
+            .push(crate::support::optional_peer("@ext/ghosts", ">=1.0.0"));
         c.kind("Task", |k| {
             k.keyword("task");
             k.field("owner", |f| {

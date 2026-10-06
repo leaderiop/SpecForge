@@ -442,10 +442,11 @@ fn product_lifecycle_kinds_declare_status() {
 
 /// The nine builtin extensions loaded together, as a project enabling all
 /// of them does: their rules register with no W112 or W147, the custom
-/// ones' functions answer the load probe.
+/// ones' functions answer the load probe, and every rule's target kind and
+/// edge type is its extension's or a declared peer's (no W021).
 #[specforge_test_macros::test(
     behavior = "execute_validation_pattern",
-    verify = "the builtin extensions' rules register with no W112 or W147"
+    verify = "the builtin extensions' rules register with no W112, W147 or W021"
 )]
 fn the_builtin_extensions_rules_register_cleanly() {
     let dir = tempfile::TempDir::new().unwrap();
@@ -468,7 +469,7 @@ fn the_builtin_extensions_rules_register_cleanly() {
     );
     let unworkable: Vec<&Diagnostic> = env
         .diagnostics()
-        .filter(|d| d.code == "W112" || d.code == "W147")
+        .filter(|d| ["W112", "W147", "W021"].contains(&d.code.as_str()))
         .collect();
     assert!(unworkable.is_empty(), "{unworkable:?}");
 }

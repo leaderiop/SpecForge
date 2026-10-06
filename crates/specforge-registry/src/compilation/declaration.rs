@@ -101,9 +101,10 @@ fn derived_from_problem(field: &FieldDescriptor, source: &str) -> Option<&'stati
 /// W021: the kind exists, but the dependency is undeclared. While a named
 /// peer is not loaded its kinds are unknown, so any kind is let through.
 /// Every edge label a field maps to must be one of its own edges, and a
-/// `derived_from` must derive something. A validation rule's edge type
-/// must be one of its own edges or a loaded peer's (anything goes while a
-/// named peer is not loaded).
+/// `derived_from` must derive something. A validation rule's target kind
+/// resolves as a field's does, and its edge type must be one of its own
+/// edges or a loaded peer's (anything goes while a named peer is not
+/// loaded).
 pub(crate) fn consistency(
     declaration: &ExtensionDeclaration,
     loaded: &[ExtensionDeclaration],
@@ -206,6 +207,14 @@ pub(crate) fn consistency(
     }
 
     for rule in &declaration.validation_rules {
+        if let Some(target) = &rule.target_kind
+            && let Some(why) = unresolved(target)
+        {
+            diagnostics.push(warn(format!(
+                "extension '{}': rule '{}' references target_kind '{}' {}",
+                name, rule.code, target, why
+            )));
+        }
         if let Some(edge_type) = &rule.edge_type
             && peers_known
             && !own_edge_labels.contains(edge_type.as_str())

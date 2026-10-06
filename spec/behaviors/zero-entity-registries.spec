@@ -514,8 +514,9 @@ behavior registry_build_rules "Registry Build Collects Rules" {
     an optional peer that is not installed (an edge rule whose edge type's
     far-end kind no extension declares is dropped too). An edge type is
     resolved through the edge registry only, never read as a field name. A
-    rule naming an edge type that neither its extension nor its loaded
-    peers declare is the extension author's mistake, reported as W021 when
+    rule naming a target kind or an edge type that neither its extension
+    nor its loaded peers declare is the extension author's mistake,
+    reported as W021 when
     the extensions load, as is a field or edge type that references an
     undeclared kind (registry_build_declaration_consistency). After the
     extensions' rules,
@@ -562,9 +563,9 @@ behavior registry_build_declaration_consistency "Registry Build Checks Declarati
     kind exists but the dependency is undeclared). While a named peer is
     not loaded its kinds are unknown, so any target is let through. A
     field's edge label MUST name an edge type the declaration declares. A
-    validation rule's edge_type MUST name an edge type the declaration or
-    one of its loaded peers declares (anything goes while a named peer is
-    not loaded). A
+    validation rule's target_kind resolves as a field's does, and its
+    edge_type MUST name an edge type the declaration or one of its loaded
+    peers declares (anything goes while a named peer is not loaded). A
     field's derived_from MUST name type_expressions or method_signatures
     and sit on a reference or reference_list field with a target_kind.
     Every violation is a W021 warning among the build's declaration
@@ -579,6 +580,7 @@ behavior registry_build_declaration_consistency "Registry Build Checks Declarati
   verify unit "an edge label the extension declares no edge type for is a W021 warning"
   verify unit "a derived_from the host can't apply produces a W021 warning"
   verify unit "a rule's edge type that neither its extension nor its peers declare produces W021"
+  verify unit "a rule's target kind that neither its extension nor its peers declare produces W021"
   verify unit "cross-validation uses no domain-specific logic"
   verify integration "a declaration's W021 does not fail the compile, and its kinds still register"
   verify contract "Registry Build Checks Declaration Consistency: declaration consistency holds — declarations_in_load_order, peers_loaded, references_resolved, authoring_errors_diagnosed, compile_not_failed"

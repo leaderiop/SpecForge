@@ -103,7 +103,7 @@ behavior execute_validation_pattern "Execute Validation Pattern" {
   verify unit "cycle_detection finds cycles in edge type"
   verify unit "a cycle_detection rule without a target_kind reports every entity on a cycle of its edge type"
   verify unit "cycle_detection follows every field that writes its edge type"
-  verify unit "the builtin extensions' rules register with no W112 or W147"
+  verify unit "the builtin extensions' rules register with no W112, W147 or W021"
   verify unit "file_exists reports missing file-reference field targets"
   verify unit "file_exists resolves a relative path against the spec root, never the working directory"
   verify unit "file_exists checks each item of a list field as its own path"
