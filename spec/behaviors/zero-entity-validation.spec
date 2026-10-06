@@ -83,7 +83,7 @@ behavior execute_validation_pattern "Execute Validation Pattern" {
     type's edges, following every field that writes that edge type.
     file_exists MUST check that file-reference fields point to existing
     files, a relative path resolved against the spec root (never the
-    working directory). A rule without a target kind applies to entities
+    working directory). A list field's items are each a path. A rule without a target kind applies to entities
     of every kind. custom MUST dispatch to the Wasm function registered by
     register_custom_validation_patterns. Each pattern violation MUST
     produce a diagnostic with the configured code and severity.
@@ -98,6 +98,7 @@ behavior execute_validation_pattern "Execute Validation Pattern" {
   verify unit "cycle_detection follows every field that writes its edge type"
   verify unit "file_exists reports missing file-reference field targets"
   verify unit "file_exists resolves a relative path against the spec root, never the working directory"
+  verify unit "file_exists checks each item of a list field as its own path"
   verify unit "custom pattern dispatches to registered Wasm function"
   verify unit "pattern violation produces diagnostic with configured code and severity"
   verify contract "Execute Validation Pattern: declarative validation holds — all_entities_matched, violations_diagnosed, deterministic_order"

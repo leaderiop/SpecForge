@@ -364,6 +364,47 @@ fn file_exists_resolves_against_the_spec_root_not_the_working_directory() {
     assert!(built.rules.check(&input, &NoVerdicts).is_empty());
 }
 
+#[spec(
+    behavior = "execute_validation_pattern",
+    verify = "file_exists checks each item of a list field as its own path"
+)]
+fn file_exists_checks_each_item_of_a_list_field() {
+    let mut declared = rule("E102", "file_exists");
+    declared.field = Some("docs".to_string());
+    declared.message_template = "{id}: missing '{value}'".to_string();
+    let built = one(declared);
+    let root = tempfile::tempdir().unwrap();
+    std::fs::write(root.path().join("a.md"), "").unwrap();
+    let entities = [
+        entity("b1", "behavior", 0, 0).with_list("docs", &["a.md", "b.md"]),
+        // An empty list names no path.
+        entity("b2", "behavior", 0, 0).with_list("docs", &[]),
+        // A scalar is one path, as written.
+        entity("b3", "behavior", 0, 0).with_field("docs", "a.md, b.md"),
+    ];
+    let input = RuleInput {
+        entities: &entities,
+        edges: &[],
+        spec_root: root.path(),
+    };
+
+    let diagnostics = built.rules.check(&input, &NoVerdicts);
+
+    assert_eq!(
+        messages(&diagnostics),
+        ["b1: missing 'b.md'", "b3: missing 'a.md, b.md'"]
+    );
+    // The files the rule reads: every item, once, against the spec root.
+    assert_eq!(
+        built.rules.files(&input),
+        [
+            root.path().join("a.md"),
+            root.path().join("a.md, b.md"),
+            root.path().join("b.md"),
+        ]
+    );
+}
+
 /// W009-like: a `verify_kind_allowlist` rule on `target` allowing `allowed`.
 fn allowlist(target: &str, allowed: &[&str]) -> super::Built {
     one(ValidationRuleDescriptor {

@@ -225,13 +225,18 @@ impl Rules {
         self.verify_rule_for(kind).is_some()
     }
 
-    /// The files `file_exists` rules read on `input`, resolved against
-    /// `input.spec_root`.
+    /// The files `file_exists` rules read on `input` (each item of a list
+    /// field), resolved against `input.spec_root`, sorted and unique: check
+    /// inputs of a project session, so creating one re-runs the checks.
     pub fn files(&self, input: &RuleInput<'_>) -> Vec<PathBuf> {
-        self.rules
+        let mut files: Vec<PathBuf> = self
+            .rules
             .iter()
             .flat_map(|rule| check::files(rule, input))
-            .collect()
+            .collect();
+        files.sort();
+        files.dedup();
+        files
     }
 
     pub fn iter(&self) -> std::slice::Iter<'_, Rule> {

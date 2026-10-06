@@ -109,9 +109,12 @@ pub(super) fn run(
     if let Check::Cycle { labels } = &rule.check {
         return cycles(rule, labels, input);
     }
+    if let Check::FileExists { field } = &rule.check {
+        return missing_files(rule, field, input);
+    }
     let mut diagnostics = Vec::new();
     for record in input.entities.iter().filter(|e| rule.applies_to(&e.kind)) {
-        let violation = match evaluate(rule, record, input, verdicts) {
+        let violation = match evaluate(rule, record, verdicts) {
             Ok(Some(violation)) => violation,
             Ok(None) => continue,
             // No verdict: the entity is not checked.
@@ -127,7 +130,6 @@ pub(super) fn run(
 fn evaluate(
     rule: &Rule,
     record: &EntityRecord,
-    input: &RuleInput<'_>,
     verdicts: &dyn CustomVerdicts,
 ) -> Result<Option<Violation>, VerdictError> {
     let violated = |violated: bool| Ok(violated.then(Violation::default));
@@ -169,14 +171,8 @@ fn evaluate(
                 .is_some_and(|condition| equals.iter().any(|v| v == condition))
                 && record.field(field).is_none_or(str::is_empty),
         ),
-        Check::Cycle { .. } => Ok(None),
-        Check::FileExists { field } => violated(
-            // A relative path is the spec root's; an absolute one is checked
-            // as written (`join` keeps it).
-            record
-                .field(field)
-                .is_some_and(|path| !input.spec_root.join(path).exists()),
-        ),
+        // Run over the input by `cycles` and `missing_files`.
+        Check::Cycle { .. } | Check::FileExists { .. } => Ok(None),
         Check::VerifyKindAllowlist { allowed } => Ok(record
             .obligations
             .iter()
@@ -347,7 +343,49 @@ pub(super) fn probe(rule: &Rule, verdicts: &dyn CustomVerdicts) -> Option<Diagno
     }
 }
 
-/// The paths a `file_exists` rule reads on `input`, against the spec root.
+/// The paths `record` names in `field`: each item of a list field, else
+/// the field's text (nothing when it does not write the field).
+fn named_paths<'r>(record: &'r EntityRecord, field: &str) -> Vec<&'r str> {
+    match record.fields.iter().rev().find(|f| f.key == field) {
+        Some(written) => match &written.items {
+            Some(items) => items.iter().map(String::as_str).collect(),
+            None => vec![written.text.as_str()],
+        },
+        None => Vec::new(),
+    }
+}
+
+/// A `file_exists` rule over `input`: each path an entity it applies to
+/// names in `field` that does not exist, by entity id then path order. A
+/// relative path is the spec root's; an absolute one is checked as written
+/// (`join` keeps it). A list field's items are each a path, reported on
+/// their own (`{value}` is the missing item).
+fn missing_files(rule: &Rule, field: &str, input: &RuleInput<'_>) -> Vec<Diagnostic> {
+    let mut diagnostics = Vec::new();
+    for record in input.entities.iter().filter(|e| rule.applies_to(&e.kind)) {
+        let listed = record
+            .fields
+            .iter()
+            .rev()
+            .find(|f| f.key == field)
+            .is_some_and(|f| f.items.is_some());
+        for path in named_paths(record, field) {
+            if input.spec_root.join(path).exists() {
+                continue;
+            }
+            let violation = if listed {
+                Violation::value(path)
+            } else {
+                Violation::default()
+            };
+            diagnostics.push(report(rule, record, violation));
+        }
+    }
+    diagnostics
+}
+
+/// The paths a `file_exists` rule reads on `input` (every item of a list
+/// field), against the spec root.
 pub(super) fn files(rule: &Rule, input: &RuleInput<'_>) -> Vec<PathBuf> {
     let Check::FileExists { field } = &rule.check else {
         return Vec::new();
@@ -356,7 +394,7 @@ pub(super) fn files(rule: &Rule, input: &RuleInput<'_>) -> Vec<PathBuf> {
         .entities
         .iter()
         .filter(|e| rule.applies_to(&e.kind))
-        .filter_map(|e| e.field(field))
+        .flat_map(|e| named_paths(e, field))
         .map(|path| input.spec_root.join(path))
         .collect()
 }

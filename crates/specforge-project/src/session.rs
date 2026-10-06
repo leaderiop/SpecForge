@@ -409,7 +409,7 @@ impl ProjectSession {
             return Vec::new();
         }
         let inputs = self.env.inputs();
-        let references = self.env.referenced_files(self.graph());
+        let references = self.env.named_files(self.graph(), self.entities());
         let candidates = [canonical(&self.env.root), canonical(&self.env.spec_root)]
             .into_iter()
             .chain(
@@ -517,7 +517,7 @@ impl ProjectSession {
     /// on disk: computed once per batch.
     fn classifier(&self) -> Classifier {
         let inputs = self.env.inputs();
-        let references = self.env.referenced_files(self.graph());
+        let references = self.env.named_files(self.graph(), self.entities());
         Classifier {
             spec_root: canonical(&self.env.spec_root),
             environment: inputs.environment_paths().map(canonical).collect(),
@@ -586,29 +586,35 @@ impl ProjectSession {
         .diagnostics
     }
 
-    /// Run every check on the current graph, over a snapshot of it taken
-    /// now (ADR 0019): the coverage memo starts again from that snapshot.
-    fn check(&mut self) -> Vec<Diagnostic> {
-        let graph = self.build.graph();
-        let entities = Arc::new(EntitySnapshot::of(
-            graph,
+    /// A snapshot of the current graph, taken now (ADR 0019).
+    fn snapshot_now(&self) -> Arc<EntitySnapshot> {
+        Arc::new(EntitySnapshot::of(
+            self.build.graph(),
             &self.env.registries,
             &self.env.spec_root,
-        ));
-        let diagnostics = self
-            .env
-            .run_checks(graph, &entities, self.runtime.as_deref());
+        ))
+    }
+
+    /// Run every check on the current graph over `entities`, its snapshot:
+    /// the coverage memo starts again from that snapshot.
+    fn check_over(&mut self, entities: Arc<EntitySnapshot>) -> Vec<Diagnostic> {
+        let diagnostics =
+            self.env
+                .run_checks(self.build.graph(), &entities, self.runtime.as_deref());
         self.recorded = RecordedCoverage::of(entities);
         diagnostics
     }
 
-    /// [`Self::check`], the check inputs stamped first.
+    /// Every check on the current graph, over a snapshot of it taken now,
+    /// the check inputs (which the snapshot's `file_exists` rules add to)
+    /// stamped first.
     fn checked(&mut self) -> Vec<Diagnostic> {
+        let entities = self.snapshot_now();
         if self.origin == Origin::Disk {
-            let inputs = self.env.check_inputs(self.build.graph());
+            let inputs = self.env.check_inputs(self.build.graph(), &entities);
             self.snapshot.stamp_checks(inputs);
         }
-        self.check()
+        self.check_over(entities)
     }
 }
 
