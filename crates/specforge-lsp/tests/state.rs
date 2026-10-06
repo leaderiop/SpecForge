@@ -116,12 +116,7 @@ fn did_change_applies_edits() {
 
 // -- validation_patterns -------------------------------------------------------
 
-fn load_patterns_for(
-    ext_names: &[&str],
-) -> Vec<(
-    specforge_registry::validation_engine::ValidationRulePattern,
-    String,
-)> {
+fn load_patterns_for(ext_names: &[&str]) -> specforge_registry::RegistryBuild {
     let names: Vec<String> = ext_names.iter().map(|s| s.to_string()).collect();
     let runtime = wasm_runtime_for(&names);
     let mut declarations = Vec::new();
@@ -130,7 +125,7 @@ fn load_patterns_for(
             declarations.push(loaded.declaration);
         }
     }
-    specforge_registry::build_registries(declarations).rules
+    specforge_registry::build_registries(declarations)
 }
 
 #[spec(
@@ -153,7 +148,8 @@ fn extensions_produce_e006_rules() {
         "@specforge/product",
         "@specforge/governance",
         "@specforge/formal",
-    ]);
+    ])
+    .rules;
     assert!(
         !patterns.is_empty(),
         "extensions should produce validation patterns"
@@ -175,7 +171,8 @@ fn e006_covers_all_required_fields() {
         "@specforge/product",
         "@specforge/governance",
         "@specforge/formal",
-    ]);
+    ])
+    .rules;
 
     let e006_targets: Vec<(&str, &str)> = patterns
         .iter()

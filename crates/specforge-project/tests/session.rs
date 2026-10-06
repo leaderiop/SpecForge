@@ -556,35 +556,6 @@ fn a_wasm_file_entry_loads_in_a_session_and_reloads_with_its_file() {
     );
 }
 
-/// A session over a graph built in memory serves that graph and the
-/// diagnostics given for it, in its environment, with nothing to reload.
-#[test]
-fn a_session_from_a_graph_serves_it_as_given() {
-    let dir = project(CONFIG, &[("a.spec", "term alpha \"Alpha\" {\n}\n")]);
-    let compiled = CompiledProject::compile(dir.path(), None);
-    let built = compiled.graph.clone();
-    let warning = Diagnostic::warning("W001", "given");
-
-    let mut session = ProjectSession::from_graph(
-        std::sync::Arc::new(specforge_project::Environment::empty()),
-        built,
-        vec![warning.clone()],
-    );
-
-    assert_eq!(session.origin(), specforge_project::Origin::InMemory);
-    assert_eq!(
-        graph_contents(session.graph()),
-        graph_contents(&compiled.graph)
-    );
-    assert_eq!(session.diagnostics(), vec![warning.clone()]);
-    let update = session.reload_environment();
-    assert!(
-        update.delta.added_nodes.is_empty() && update.delta.removed_nodes.is_empty(),
-        "nothing on disk to reload"
-    );
-    assert_eq!(session.diagnostics(), vec![warning]);
-}
-
 fn behavior(id: &str, extra: &str) -> String {
     format!(
         "behavior {id} \"{id}\" {{\n  category command\n  contract \"The system MUST {id}\"\n{extra}}}\n"
@@ -1515,38 +1486,6 @@ fn a_lock_change_reloads_the_environment() {
     assert_eq!(locked.len(), 1);
     assert_ne!(locked, unlocked);
     assert_matches_a_fresh_compile(&session, root);
-}
-
-#[specforge_test(
-    behavior = "bring_session_up_to_date",
-    verify = "a session built in memory is never changed by disk"
-)]
-fn an_in_memory_session_ignores_disk() {
-    let dir = project(CONFIG, &[("a.spec", "behavior alpha \"A\" {\n}\n")]);
-    let root = dir.path();
-    let runtime = specforge_component::project_runtime(root);
-    let compiled = CompiledProject::compile(root, Some(&runtime));
-    let built = compiled.graph.clone();
-    let mut session = ProjectSession::from_graph(
-        std::sync::Arc::new(compiled.env),
-        built,
-        compiled.graph_diagnostics,
-    );
-    let before = graph_contents(session.graph());
-
-    write(root, "a.spec", "behavior omega \"Omega\" {\n}\n");
-    write(root, "b.spec", "behavior beta \"B\" {\n}\n");
-    fs::write(
-        root.join("specforge.json"),
-        r#"{"name":"s","version":"0.1.0"}"#,
-    )
-    .unwrap();
-
-    assert!(session.stale().is_empty());
-    assert!(session.ensure_fresh().is_none());
-    let changes = session.changes([root.join("a.spec").as_path()]);
-    assert!(session.apply(&changes).is_none());
-    assert_eq!(graph_contents(session.graph()), before);
 }
 
 /// How long bringing an unchanged project of 1 000 files up to date takes

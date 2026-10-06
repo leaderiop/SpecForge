@@ -4,8 +4,8 @@
 //! description names each choice. The tools that parse a format with a
 //! table accept its names and aliases and refuse any other name.
 
+use crate::support::{Served, TestProject, call_tool};
 use serde_json::{Value, json};
-use specforge_mcp::McpServer;
 use specforge_ops::coverage::STATUS;
 use specforge_ops::export::{AGENT_FORMAT, FORMAT};
 use specforge_ops::model::{
@@ -179,34 +179,15 @@ fn each_enumerated_argument_advertises_its_table() {
 }
 
 /// A server serving a project on disk: one behavior `alpha`, the software
-/// extension. The directory outlives the server (the test process exits).
-fn served() -> McpServer {
-    let dir = tempfile::TempDir::new().unwrap();
-    std::fs::write(
-        dir.path().join("specforge.json"),
-        r#"{"name":"t","version":"0.1.0","extensions":["@specforge/software"]}"#,
-    )
-    .unwrap();
-    std::fs::write(
-        dir.path().join("main.spec"),
-        "behavior alpha \"Alpha\" {\n  contract \"The system MUST work\"\n}\n",
-    )
-    .unwrap();
-    let root = dir.keep();
-    let mut server = McpServer::with_project_root(root);
-    let init = json!({"jsonrpc": "2.0", "id": 0, "method": "initialize", "params": {
-        "protocolVersion": "2025-03-26", "capabilities": {},
-        "clientInfo": {"name": "option_tables", "version": "0"}}});
-    server.handle_message(&init.to_string());
-    server
-}
-
-/// The `tools/call` response for `name` with `arguments`.
-fn call(server: &mut McpServer, name: &str, arguments: Value) -> Value {
-    let request = json!({"jsonrpc": "2.0", "id": 1, "method": "tools/call",
-        "params": {"name": name, "arguments": arguments}});
-    let response = server.handle_message(&request.to_string()).unwrap();
-    serde_json::from_str(&response).unwrap()
+/// extension.
+fn served() -> Served {
+    TestProject::new()
+        .enabling(&["@specforge/software"])
+        .file(
+            "main.spec",
+            "behavior alpha \"Alpha\" {\n  contract \"The system MUST work\"\n}\n",
+        )
+        .serve_components()
 }
 
 /// A successful call's result, its text read as JSON.
@@ -225,7 +206,7 @@ fn render_accepts_graph_and_its_json_alias() {
     let mut written = Vec::new();
     for name in ["graph", "json"] {
         let out = tempfile::TempDir::new().unwrap();
-        let result = content(&call(
+        let result = content(&call_tool(
             &mut server,
             "specforge.render",
             json!({"format": name, "out_dir": out.path().to_str().unwrap()}),
@@ -264,7 +245,7 @@ fn query_refuses_an_unknown_format() {
             "Unknown format: dot. Expected: graph, context, brief",
         ),
     ] {
-        let response = call(
+        let response = call_tool(
             &mut server,
             "specforge.query",
             json!({"entity_id": "alpha", "format": name}),
@@ -275,12 +256,12 @@ fn query_refuses_an_unknown_format() {
         assert_eq!(error["message"], message);
     }
     // The json alias reads as graph.
-    let graph = content(&call(
+    let graph = content(&call_tool(
         &mut server,
         "specforge.query",
         json!({"entity_id": "alpha", "format": "graph"}),
     ));
-    let json = content(&call(
+    let json = content(&call_tool(
         &mut server,
         "specforge.query",
         json!({"entity_id": "alpha", "format": "json"}),
@@ -292,7 +273,7 @@ fn query_refuses_an_unknown_format() {
 #[test]
 fn coverage_and_find_references_refuse_with_the_table_wording() {
     let mut server = served();
-    let coverage = call(
+    let coverage = call_tool(
         &mut server,
         "specforge.coverage",
         json!({"status_filter": "coverd"}),
@@ -306,7 +287,7 @@ fn coverage_and_find_references_refuse_with_the_table_wording() {
     );
     assert_eq!(error["data"]["suggestion"], "did you mean 'covered'?");
 
-    let references = call(
+    let references = call_tool(
         &mut server,
         "specforge.find_references",
         json!({"entity_id": "alpha", "direction": "sideways"}),
@@ -320,7 +301,7 @@ fn coverage_and_find_references_refuse_with_the_table_wording() {
     );
 
     // Absent, the direction is the table's default, echoed by name.
-    let answered = content(&call(
+    let answered = content(&call_tool(
         &mut server,
         "specforge.find_references",
         json!({"entity_id": "alpha"}),

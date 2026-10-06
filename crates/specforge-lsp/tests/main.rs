@@ -9,6 +9,7 @@ mod hover;
 mod lifecycle;
 mod navigation;
 mod publish;
+mod registries;
 mod rename;
 mod semantic_tokens;
 mod session;

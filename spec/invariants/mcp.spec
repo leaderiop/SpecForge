@@ -60,6 +60,9 @@ invariant mcp_served_project_consistency "MCP Served Project Consistency" {
     path names another project acts on that project only, compiled for the
     call, and the server keeps serving its own without reloading it. A call
     whose path names a project while none is served serves that project.
+    With no project served, a read that names a file or an entity is the
+    no-project refusal (precondition_failed), never not-found; a read of the
+    whole project answers over the empty session.
   """
   risk      high
   verify unit "an environment change on disk updates the extension tools listed"
@@ -74,6 +77,7 @@ invariant mcp_served_project_consistency "MCP Served Project Consistency" {
   verify unit "analyze notifies subscribers when the diagnostics it compiled changed"
   verify unit "validate with a path to another project leaves the served project in place"
   verify unit "a mutation tool that wrote files leaves the server serving what is on disk"
+  verify unit "with no project served, a read naming a file or an entity is the no-project refusal, an aggregate read answers over the empty session"
 }
 
 invariant mcp_type_schema_versioning "MCP Type Schema Versioning" {

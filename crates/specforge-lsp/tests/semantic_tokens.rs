@@ -1,14 +1,14 @@
 use specforge_common::{SourceSpan, Sym};
+use specforge_extension_sdk::prelude::{ContributionsBuilder, FieldType};
 use specforge_graph::{Graph, Node};
 use specforge_lsp::{Document, MOD_DECLARATION, MOD_REFERENCE, SemanticToken};
 use specforge_ops::view::ProjectView;
 use specforge_parser::{EntityId, EntityKind, FieldMap};
 use specforge_project::coverage::RecordedCoverage;
-use specforge_registry::{
-    FieldDescriptor, FieldRegistry, FieldRegistryEntry, KindRegistry, KindRegistryEntry,
-    ManifestFieldType, RegistryBuild,
-};
+use specforge_registry::{KindRegistry, RegistryBuild};
 use specforge_test_macros::test as spec;
+
+use crate::registries::registries;
 
 /// The semantic tokens of `text` over `registries` and `graph`.
 fn tokens_over(text: &str, registries: RegistryBuild, graph: &Graph) -> Vec<SemanticToken> {
@@ -29,24 +29,22 @@ fn tokens_of(text: &str, kinds: KindRegistry) -> Vec<SemanticToken> {
     tokens_over(text, registries, &Graph::new())
 }
 
-/// A registry of `(kind keyword, declared semantic_token)` pairs.
-fn kinds(entries: &[(&str, Option<&str>)]) -> KindRegistry {
-    let mut registry = KindRegistry::new();
+/// What an extension declares for `(kind keyword, declared semantic_token)`
+/// pairs.
+fn declare_kinds(c: &mut ContributionsBuilder, entries: &[(&str, Option<&str>)]) {
     for (kind, token) in entries {
-        registry.register(KindRegistryEntry {
-            kind_name: kind.to_string(),
-            source_extension: "@test/ext".into(),
-            testable: true,
-            supports_verify: true,
-            allowed_verify_kinds: vec![],
-            lifecycle_field: None,
-            declared: specforge_registry::EntityKindDescriptor {
-                semantic_token: token.map(str::to_string),
-                ..Default::default()
-            },
+        c.kind(kind, |k| {
+            k.testable(true).supports_verify(true);
+            if let Some(token) = token {
+                k.semantic_token(token);
+            }
         });
     }
-    registry
+}
+
+/// A registry of `(kind keyword, declared semantic_token)` pairs.
+fn kinds(entries: &[(&str, Option<&str>)]) -> KindRegistry {
+    registries("@test/ext", |c| declare_kinds(c, entries)).kinds
 }
 
 /// The token classified for `text`, which must exist.
@@ -529,38 +527,27 @@ fn node(id: &str, kind: &str) -> Node {
     }
 }
 
-/// A field `name` of `kind` typed `field_type`.
-fn field(kind: &str, name: &str, field_type: ManifestFieldType) -> FieldRegistryEntry {
-    FieldRegistryEntry {
-        kind_name: kind.into(),
-        field_type,
-        source_extension: "@test/ext".into(),
-        proof_role: None,
-        declared: FieldDescriptor {
-            name: name.into(),
-            ..Default::default()
-        },
-    }
-}
-
 #[spec(
     behavior = "provide_semantic_tokens",
     verify = "a reference is classified as the kind of the entity it names"
 )]
 fn a_reference_takes_its_targets_kind_token() {
-    let mut registries = {
-        let mut registries = RegistryBuild::default();
-        registries.kinds = kinds(&[("behavior", None), ("feature", Some("class"))]);
-        registries
-    };
-    registries.fields.register(field(
-        "behavior",
-        "features",
-        ManifestFieldType::ReferenceList,
-    ));
-    registries
-        .fields
-        .register(field("behavior", "extends", ManifestFieldType::Reference));
+    let registries = registries("@test/ext", |c| {
+        c.kind("feature", |k| {
+            k.testable(true)
+                .supports_verify(true)
+                .semantic_token("class");
+        });
+        c.kind("behavior", |k| {
+            k.testable(true).supports_verify(true);
+            k.field("features", |f| {
+                f.field_type(FieldType::ReferenceList);
+            });
+            k.field("extends", |f| {
+                f.field_type(FieldType::Reference);
+            });
+        });
+    });
     let mut graph = Graph::new();
     graph.add_node(node("signin", "feature"));
     let tokens = tokens_over(
@@ -589,19 +576,21 @@ fn a_reference_takes_its_targets_kind_token() {
     verify = "an enum field's value is an enumMember and a boolean field's value a keyword"
 )]
 fn enum_and_bool_values_are_classified() {
-    let mut registries = {
-        let mut registries = RegistryBuild::default();
-        registries.kinds = kinds(&[("task", None)]);
-        registries
-    };
-    let fields: &mut FieldRegistry = &mut registries.fields;
-    fields.register(field(
-        "task",
-        "state",
-        ManifestFieldType::Enum(vec!["draft".into(), "done".into()]),
-    ));
-    fields.register(field("task", "done", ManifestFieldType::Bool));
-    fields.register(field("task", "kind", ManifestFieldType::String));
+    let registries = registries("@test/ext", |c| {
+        c.kind("task", |k| {
+            k.testable(true).supports_verify(true);
+            k.field("state", |f| {
+                f.field_type(FieldType::Enum)
+                    .enum_values(&["draft", "done"]);
+            });
+            k.field("done", |f| {
+                f.field_type(FieldType::Bool);
+            });
+            k.field("kind", |f| {
+                f.field_type(FieldType::String);
+            });
+        });
+    });
     let mut graph = Graph::new();
     // A value that spells an entity's ID names nothing in an enum field.
     graph.add_node(node("draft", "task"));

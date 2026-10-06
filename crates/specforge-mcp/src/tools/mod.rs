@@ -34,20 +34,16 @@ use crate::tool::{ErrorCode, Handler, McpError, ToolOutcome, ToolSpec, envelope}
 pub use table::CORE_TOOLS;
 
 /// The navigator over what the call reads (`specforge_ops::navigate`):
-/// its project's view, else the served graph without a root, each file's
-/// text read from disk under the spec root (a graph built in memory with
-/// no project names its files as given). The navigation tools render its
-/// answers as JSON and nothing else (ADR 0016).
+/// its project's view, else the empty session's graph without a root, each
+/// file's text read from disk under the spec root (with no project, no
+/// file is read). The navigation tools render its answers as JSON and
+/// nothing else (ADR 0016).
 pub(crate) fn navigator<'c>(
     call: &'c Call<'_>,
 ) -> specforge_ops::navigate::Navigator<'c, impl Fn(&str) -> Option<String> + 'c> {
     let spec_root = call.spec_root().map(std::path::Path::to_path_buf);
     specforge_ops::navigate::Navigator::new(call.view(), move |file| {
-        let path = match &spec_root {
-            Some(root) => root.join(file),
-            None => std::path::PathBuf::from(file),
-        };
-        std::fs::read_to_string(path).ok()
+        std::fs::read_to_string(spec_root.as_ref()?.join(file)).ok()
     })
 }
 
@@ -264,7 +260,7 @@ pub fn handle_tool_call(state: &mut McpState, params: Value, id: Option<Value>) 
                 Ok(target) => {
                     let mut call = Call::new(state, target);
                     let mut mutated = handler(&mut call, arguments);
-                    let root = mutation::refresh(&mut call, target_spec.reach, &mut mutated);
+                    let root = mutation::refresh(&mut call, &mut mutated);
                     (mutated, root)
                 }
             };
@@ -273,7 +269,11 @@ pub fn handle_tool_call(state: &mut McpState, params: Value, id: Option<Value>) 
         (Some(Handler::Tool(handler)), _) => {
             match target::resolve(state, target_spec, &arguments) {
                 Err(refused) => ToolOutcome::from(McpError::from(refused)),
-                Ok(target) => handler(&mut Call::new(state, target), arguments),
+                Ok(target) => {
+                    let mut call = Call::new(state, target);
+                    let outcome = handler(&mut call, arguments);
+                    target::without_project_outcome(call.target(), outcome)
+                }
             }
             .from_tool(name)
         }
@@ -285,7 +285,7 @@ pub fn handle_tool_call(state: &mut McpState, params: Value, id: Option<Value>) 
                 if let Some((event, params)) = dispatched {
                     call.state.push_event(event, params);
                 }
-                outcome
+                target::without_project_outcome(call.target(), outcome)
             }
         }
         .from_tool(name),

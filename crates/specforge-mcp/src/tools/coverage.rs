@@ -53,8 +53,8 @@ pub struct Args {
 }
 
 /// `specforge.coverage`: the coverage view of the served project (its
-/// recorded tests read at its root; a graph built in memory with no
-/// project has none). With no filter, the entities that count toward
+/// recorded tests read at its root; with nothing served there is no root,
+/// so none). With no filter, the entities that count toward
 /// coverage, the ones stats counts as testable.
 pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
     let status =
