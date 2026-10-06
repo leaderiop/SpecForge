@@ -1,5 +1,4 @@
 use specforge_common::{SourceSpan, Sym};
-use specforge_lsp::backend::word_at_position;
 use specforge_lsp::{Document, LineIndex};
 use specforge_test_macros::test as spec;
 use tower_lsp::lsp_types::Position;
@@ -139,35 +138,6 @@ fn utf16_columns_resolve_to_byte_offsets_after_multibyte_chars() {
     // after the closing quote).
     buf.apply_change(Some(crate::lsp_range(0, 18, 0, 18)), " // 🌟");
     assert_eq!(buf.text(), "behavior foo \"🌟界\" // 🌟 {\n}\n");
-}
-
-#[spec(
-    invariant = "lsp_utf16_positions",
-    verify = "word_at_position extracts words using utf16 columns"
-)]
-fn word_at_position_handles_utf16_columns() {
-    // `contract ` = 9 units/bytes, 🚀 = 2 units/4 bytes, ` ` = 1 unit/byte,
-    // `alpha_beta` spans units 12..22 (bytes 14..24).
-    let content = "contract 🚀 alpha_beta\n";
-
-    // Column 12 (word start in UTF-16 units) maps to byte 14, not byte 12
-    // (which is inside the emoji).
-    assert_eq!(
-        word_at_position(content, 0, 12),
-        Some("alpha_beta".to_string())
-    );
-
-    // Column past the word end (unit 22 = byte 24) still scans back to it.
-    assert_eq!(
-        word_at_position(content, 0, 22),
-        Some("alpha_beta".to_string())
-    );
-
-    // A column inside the emoji's surrogate pair clamps to the emoji start.
-    assert_eq!(word_at_position(content, 0, 10), None);
-
-    // A column beyond the line's UTF-16 length yields no word.
-    assert_eq!(word_at_position(content, 0, 23), None);
 }
 
 // -- line_index -----------------------------------------------------------------

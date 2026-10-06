@@ -426,46 +426,6 @@ fn field_hover_unknown_kind_returns_none() {
     assert!(specforge_lsp::hover_field_info("contract", "unknown_kind", &reg).is_none());
 }
 
-// -- enclosing_entity_kind ---------------------------------------------------
-
-#[test]
-fn enclosing_entity_kind_finds_block() {
-    let content = "behavior login \"Login\" {\n  contract \"test\"\n}\n";
-    let kind = specforge_lsp::enclosing_entity_kind(content, 1);
-    assert_eq!(kind.as_deref(), Some("behavior"));
-}
-
-#[test]
-fn enclosing_entity_kind_outside_block_returns_none() {
-    let content = "behavior login \"Login\" {\n  contract \"test\"\n}\n\n// file level\n";
-    let kind = specforge_lsp::enclosing_entity_kind(content, 4);
-    assert_eq!(kind, None);
-}
-
-#[test]
-fn enclosing_entity_kind_on_header_line() {
-    let content = "feature user_mgmt \"User Management\" {\n  problem \"x\"\n}\n";
-    let kind = specforge_lsp::enclosing_entity_kind(content, 0);
-    assert_eq!(kind.as_deref(), Some("feature"));
-}
-
-#[test]
-fn enclosing_entity_kind_skips_nested_braces() {
-    // requires/ensures blocks have their own { } but are indented
-    let content = r#"behavior load "Load" {
-  requires {
-    x "something"
-  }
-  ensures {
-    y "result"
-  }
-  features [some_feature]
-}"#;
-    // Line 7 is `  features [some_feature]` — should find `behavior` despite `}` on lines 3 and 6
-    let kind = specforge_lsp::enclosing_entity_kind(content, 7);
-    assert_eq!(kind.as_deref(), Some("behavior"));
-}
-
 fn diagnostic_at(
     code: &str,
     message: &str,

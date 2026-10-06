@@ -1,20 +1,25 @@
 //! The LSP's one reader of a `.spec` buffer (ADR 0023): a [`Document`]
-//! owns an open buffer, its version and its [`LineIndex`], the only
-//! conversion between byte offsets and UTF-16 positions.
+//! owns an open buffer, its version, its [`LineIndex`] (the only
+//! conversion between byte offsets and UTF-16 positions) and its syntax,
+//! which answers what is at a position ([`Cursor`]).
 
+mod cursor;
 mod line_index;
+mod syntax;
 
+pub use cursor::{Cursor, EntityAt, Place, Target, Word};
 pub use line_index::LineIndex;
 
-use std::sync::Arc;
-use tower_lsp::lsp_types::Range;
+use std::sync::{Arc, OnceLock};
+use syntax::Syntax;
+use tower_lsp::lsp_types::{Position, Range};
 
-/// An open document: the editor's text of one `.spec` file, its version
-/// and its line index. Every question the LSP asks about a buffer's text
-/// is asked here: where a position is (`index`). The graph is never
+/// An open document: the editor's text of one `.spec` file, its version,
+/// its line index, and (read on first use, once per edit) its syntax. Every
+/// question the LSP asks about a buffer's text is asked here: where a
+/// position is (`index`), what is at it (`at`). The graph is never
 /// consulted for structure: it lags the buffer while the user types
 /// (ADR 0023).
-#[derive(Debug, Clone)]
 pub struct Document {
     uri: String,
     text: String,
@@ -22,6 +27,7 @@ pub struct Document {
     /// diagnostics so clients drop stale deliveries.
     version: Option<i32>,
     index: Arc<LineIndex>,
+    syntax: OnceLock<Syntax>,
 }
 
 impl Document {
@@ -32,6 +38,7 @@ impl Document {
             text,
             version: None,
             index,
+            syntax: OnceLock::new(),
         }
     }
 
@@ -69,5 +76,24 @@ impl Document {
             None => self.text = text.to_string(),
         }
         self.index = Arc::new(LineIndex::new(&self.text));
+        self.syntax = OnceLock::new();
+    }
+
+    /// The document's syntax, read on first use after an edit.
+    fn syntax(&self) -> &Syntax {
+        self.syntax.get_or_init(|| Syntax::read(&self.text))
+    }
+
+    /// What is at `position`; `None` past the end of its line or of the
+    /// document.
+    pub fn at(&self, position: Position) -> Option<Cursor<'_>> {
+        let offset = self.index.offset(position)?;
+        Some(Cursor {
+            text: &self.text,
+            index: &self.index,
+            syntax: self.syntax(),
+            offset,
+            position,
+        })
     }
 }

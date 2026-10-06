@@ -2,6 +2,7 @@ mod code_actions;
 mod completion;
 mod concurrency;
 mod contracts;
+mod cursor;
 mod diagnostics;
 mod document;
 mod e2e;

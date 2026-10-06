@@ -129,12 +129,6 @@ fn parse_entity_header(line: &str) -> Option<String> {
     }
 }
 
-/// Find the entity kind of the enclosing block at the given line (its
-/// header line included).
-pub fn enclosing_entity_kind(content: &str, line: usize) -> Option<String> {
-    enclosing_block(content, line, usize::MAX).map(|(kind, _)| kind)
-}
-
 /// The entity block enclosing the cursor at (`line`, UTF-16 `col`): its
 /// kind (the first word of the line that opened it) and the cursor's brace
 /// depth (1 in the block's own body, more inside a nested clause). `None`

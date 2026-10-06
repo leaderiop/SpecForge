@@ -142,7 +142,12 @@ behavior handle_text_document_change "Handle Text Document Change" {
 behavior go_to_definition "Go-to-Definition" {
   features   [go_to_definition_and_references]
   category   query
-  invariants [reference_resolution_completeness, lsp_response_latency, zero_domain_knowledge_core]
+  invariants [
+    reference_resolution_completeness,
+    lsp_response_latency,
+    zero_domain_knowledge_core,
+    cursor_names_one_entity,
+  ]
   types      [EntityId, SourceSpan]
   ports      [LspProtocol]
   requires {
@@ -156,20 +161,28 @@ behavior go_to_definition "Go-to-Definition" {
     When a user Ctrl+clicks on an entity ID in a .spec file, the LSP
     MUST navigate to the declaration site of that entity. The declaration
     site MUST include the file path, line, and column of the entity's
-    block header.
+    block header. On a use statement, the cursor on a binding's imported
+    name that names an entity goes to that entity; anywhere else on the
+    statement, to the imported file.
   """
   verify unit "go-to-def navigates to entity declaration"
   verify unit "go-to-def on non-existent ID returns no result"
   verify integration "go-to-def works across files"
   verify unit "source spans convert from 1-based to 0-based for LSP"
   verify unit "the definition's selection is the entity's name token"
+  verify unit "a use binding's imported name goes to the entity it names"
   verify contract "Go-to-Definition: go-to-definition holds — graph_available, declaration_site_returned"
 }
 
 behavior find_all_references "Find All References" {
   features   [go_to_definition_and_references]
   category   query
-  invariants [reference_resolution_completeness, lsp_response_latency, zero_domain_knowledge_core]
+  invariants [
+    reference_resolution_completeness,
+    lsp_response_latency,
+    zero_domain_knowledge_core,
+    cursor_names_one_entity,
+  ]
   types      [EntityId, SourceSpan]
   ports      [LspProtocol]
   requires {
@@ -201,7 +214,12 @@ behavior find_all_references "Find All References" {
 behavior hover_information "Hover Information" {
   features   [hover_and_autocomplete]
   category   query
-  invariants [zero_domain_knowledge_core, reference_resolution_completeness, lsp_response_latency]
+  invariants [
+    zero_domain_knowledge_core,
+    reference_resolution_completeness,
+    lsp_response_latency,
+    cursor_names_one_entity,
+  ]
   types      [EntityId, Node, KindRegistryEntry, FieldRegistryEntry, HoverContent]
   ports      [LspProtocol]
   requires {
@@ -223,10 +241,13 @@ behavior hover_information "Hover Information" {
     testability, reference counts, and first string field summary.
     This behavior is responsible only for dispatching the hover request
     and returning the formatted result. The hover content MUST be
-    formatted as markdown.
+    formatted as markdown. Field help (the field's declared type and
+    description) answers when the cursor is on a field's name in an
+    entity's own body, nowhere else.
   """
   verify unit "hover delegates to provide_extension_entity_hover"
   verify unit "hover returns markdown-formatted content"
+  verify unit "field help answers only on a field's name"
   verify contract "Hover Information: hover information holds — graph_available, kind_registry_available, hover_delegated, markdown_produced"
 }
 
@@ -295,7 +316,12 @@ behavior autocomplete_entity_ids "Autocomplete Entity IDs" {
 behavior prepare_rename "Prepare Rename" {
   features   [rename_refactoring]
   category   query
-  invariants [entity_id_uniqueness, lsp_response_latency, zero_domain_knowledge_core]
+  invariants [
+    entity_id_uniqueness,
+    lsp_response_latency,
+    zero_domain_knowledge_core,
+    cursor_names_one_entity,
+  ]
   types      [EntityId, SourceSpan]
   ports      [LspProtocol]
   requires {
@@ -325,6 +351,7 @@ behavior rename_entity_id "Rename Entity ID" {
     lsp_response_latency,
     rename_atomicity,
     zero_domain_knowledge_core,
+    cursor_names_one_entity,
   ]
   category   mutation
   types      [EntityId, TextEdit, WorkspaceEditResult]

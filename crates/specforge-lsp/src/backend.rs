@@ -10,7 +10,7 @@ use tower_lsp::{Client, LanguageServer};
 
 use specforge_project::{CheckMode, ProjectSession, SourceChange, UpdateKind};
 
-use crate::document::{Document, LineIndex};
+use crate::document::{LineIndex, Target};
 use crate::navigation::{
     Ranges, fix_to_code_action, navigator, outline_to_document_symbols, symbol_kind_from_entity,
     uri_of,
@@ -465,6 +465,16 @@ fn key_of(state: &LspState, uri: &Url) -> String {
     state.source_key(&uri_to_file_path(uri))
 }
 
+/// The entity the cursor at `position` of the open document `uri` names
+/// ([`crate::Cursor::target`]): what references and rename act on.
+fn entity_under_cursor(state: &LspState, uri: &Url, position: Position) -> Option<Sym> {
+    let cursor = state.document(uri.as_str())?.at(position)?;
+    match cursor.target(&navigator(state), &key_of(state, uri))? {
+        Target::Entity { id, .. } => Some(id),
+        _ => None,
+    }
+}
+
 pub fn file_path_to_uri(path: &str) -> Url {
     Url::from_file_path(path).unwrap_or_else(|_| {
         Url::parse(&format!("file://{path}")).unwrap_or_else(|_| Url::parse("file:///").unwrap())
@@ -516,90 +526,6 @@ fn diagnostic_to_lsp(
             .and_then(|data| serde_json::to_value(data).ok()),
         ..Default::default()
     }
-}
-
-/// Extract the word at a given cursor position from document content.
-pub fn word_at_position(content: &str, line: usize, col: usize) -> Option<String> {
-    let index = LineIndex::new(content);
-    let (start, end) = word_span(content, &index, line, col)?;
-    Some(content[start..end].to_string())
-}
-
-/// The byte range of the ASCII word under a cursor (UTF-16 `col`).
-fn word_span(content: &str, index: &LineIndex, line: usize, col: usize) -> Option<(usize, usize)> {
-    let offset = index.offset(Position {
-        line: line as u32,
-        character: col as u32,
-    })?;
-    let line_start = index.line_start(line)?;
-    let line_end = index.line_end(line)?;
-    let bytes = content.as_bytes();
-    let is_id_char = |b: u8| b.is_ascii_alphanumeric() || b == b'_';
-    let mut start = offset;
-    while start > line_start && is_id_char(bytes[start - 1]) {
-        start -= 1;
-    }
-    let mut end = offset;
-    while end < line_end && is_id_char(bytes[end]) {
-        end += 1;
-    }
-    (start != end).then_some((start, end))
-}
-
-/// The entity a cursor names: the occurrence (declaration or reference)
-/// whose token is under it, else the word under it when an entity has
-/// that id. With the range of what names it in the document.
-fn entity_at(
-    state: &LspState,
-    ranges: &Ranges,
-    uri: &Url,
-    doc: &Document,
-    position: Position,
-) -> Option<(String, Range)> {
-    let nav = navigator(state);
-    let (line, col) = doc.index().source_position(position)?;
-    if let Some(occurrence) = nav.occurrence_at(&key_of(state, uri), line, col) {
-        return Some((
-            occurrence.target.to_string(),
-            ranges.range(&occurrence.span),
-        ));
-    }
-    let index = doc.index();
-    let (start, end) = word_span(
-        doc.text(),
-        index,
-        position.line as usize,
-        position.character as usize,
-    )?;
-    let word = &doc.text()[start..end];
-    state.graph().node(word)?;
-    Some((
-        word.to_string(),
-        Range {
-            start: index.position(start),
-            end: index.position(end),
-        },
-    ))
-}
-
-/// If the line is a `use` import statement, returns the import path portion.
-/// Handles all three forms:
-///   use "path"
-///   use { ... } from "path"
-///   use * as x from "path"
-/// Also handles `pub use` variants.
-pub fn import_path_on_line(line: &str) -> Option<&str> {
-    let trimmed = line.trim();
-    // Strip pub prefix if present
-    let rest = trimmed
-        .strip_prefix("pub use ")
-        .or_else(|| trimmed.strip_prefix("use "))?;
-    // Extract the quoted path — it's always the last "..." on the line
-    let last_quote_end = rest.rfind('"')?;
-    let before_last = &rest[..last_quote_end];
-    let last_quote_start = before_last.rfind('"')?;
-    let path = &rest[last_quote_start + 1..last_quote_end];
-    if path.is_empty() { None } else { Some(path) }
 }
 
 /// Formatter edits (0-based lines, byte columns of the formatted
@@ -975,7 +901,6 @@ impl LanguageServer for Backend {
         let Some(doc) = state.document(uri.as_str()) else {
             return Ok(None);
         };
-        let content = doc.text();
 
         // A diagnostic under the cursor comes first: what it means and how
         // to fix it, from the catalogue.
@@ -991,11 +916,6 @@ impl LanguageServer for Backend {
             })
         };
 
-        let word = match word_at_position(content, pos.line as usize, pos.character as usize) {
-            Some(w) => w,
-            None => return Ok(diagnostic_md.and_then(markdown)),
-        };
-
         let kind_reg = state.kind_registry();
         let field_reg = state.field_registry();
         let kr = if kind_reg.is_empty() {
@@ -1008,16 +928,18 @@ impl LanguageServer for Backend {
         } else {
             Some(field_reg)
         };
-        let info = hover_info_with_registries(state.graph(), &word, kr, fr).or_else(|| {
-            // Fallback: try field hover if word is not an entity ID
-            if !field_reg.is_empty() {
-                let entity_kind =
-                    crate::completion::enclosing_entity_kind(content, pos.line as usize)?;
-                hover_field_info(&word, &entity_kind, field_reg)
-            } else {
-                None
-            }
-        });
+        // What the cursor names: the entity's hover, or a field's help.
+        let nav = navigator(&state);
+        let file = key_of(&state, &uri);
+        let info = doc
+            .at(pos)
+            .and_then(|cursor| match cursor.target(&nav, &file)? {
+                Target::Entity { id, .. } => {
+                    hover_info_with_registries(state.graph(), id.as_str(), kr, fr)
+                }
+                Target::Field { kind, field } => hover_field_info(&field, &kind, field_reg),
+                Target::Import { .. } => None,
+            });
         let combined = match (diagnostic_md, info) {
             (Some(diag), Some(entity)) => Some(format!("{diag}\n\n---\n\n{entity}")),
             (diag, entity) => diag.or(entity),
@@ -1035,7 +957,9 @@ impl LanguageServer for Backend {
             None => return Ok(None),
         };
 
-        let prefix = word_at_position(&content, pos.line as usize, pos.character as usize)
+        let prefix = state
+            .document(uri.as_str())
+            .and_then(|doc| doc.at(pos)?.word().map(|word| word.text.to_string()))
             .unwrap_or_default();
 
         let mut items: Vec<CompletionItem> = Vec::new();
@@ -1150,44 +1074,43 @@ impl LanguageServer for Backend {
         let pos = params.text_document_position_params.position;
 
         let state = self.state.read().await;
-        let Some(doc) = state.document(uri.as_str()) else {
+        let Some(cursor) = state.document(uri.as_str()).and_then(|doc| doc.at(pos)) else {
             return Ok(None);
         };
         let ranges = Ranges::new(&state);
-
-        if let Some(import_path) = doc
-            .text()
-            .lines()
-            .nth(pos.line as usize)
-            .and_then(import_path_on_line)
-            && !state.spec_root().as_os_str().is_empty()
-        {
-            let span = goto_import_definition(
-                import_path,
-                &key_of(&state, &uri),
-                state.spec_root(),
-                &state.environment().resolve_config(),
-            );
-            return Ok(span.map(|s| GotoDefinitionResponse::Scalar(ranges.location(&s))));
+        let nav = navigator(&state);
+        let file = key_of(&state, &uri);
+        match cursor.target(&nav, &file) {
+            Some(Target::Import { path }) => {
+                if state.spec_root().as_os_str().is_empty() {
+                    return Ok(None);
+                }
+                let span = goto_import_definition(
+                    &path,
+                    &file,
+                    state.spec_root(),
+                    &state.environment().resolve_config(),
+                );
+                Ok(span.map(|s| GotoDefinitionResponse::Scalar(ranges.location(&s))))
+            }
+            Some(Target::Entity { id, origin }) => {
+                let Ok(definition) = nav.definition(id.as_str()) else {
+                    return Ok(None);
+                };
+                if self.definition_links.load(Ordering::Relaxed) {
+                    return Ok(Some(GotoDefinitionResponse::Link(vec![LocationLink {
+                        origin_selection_range: Some(origin),
+                        target_uri: uri_of(&state, definition.block.file.as_str()),
+                        target_range: ranges.range(&definition.block),
+                        target_selection_range: ranges.range(&definition.name),
+                    }])));
+                }
+                Ok(Some(GotoDefinitionResponse::Scalar(
+                    ranges.location(&definition.name),
+                )))
+            }
+            _ => Ok(None),
         }
-
-        let Some((id, origin)) = entity_at(&state, &ranges, &uri, doc, pos) else {
-            return Ok(None);
-        };
-        let Ok(definition) = navigator(&state).definition(&id) else {
-            return Ok(None);
-        };
-        if self.definition_links.load(Ordering::Relaxed) {
-            return Ok(Some(GotoDefinitionResponse::Link(vec![LocationLink {
-                origin_selection_range: Some(origin),
-                target_uri: uri_of(&state, definition.block.file.as_str()),
-                target_range: ranges.range(&definition.block),
-                target_selection_range: ranges.range(&definition.name),
-            }])));
-        }
-        Ok(Some(GotoDefinitionResponse::Scalar(
-            ranges.location(&definition.name),
-        )))
     }
 
     /// The references to the entity under the cursor: incoming, its
@@ -1197,18 +1120,17 @@ impl LanguageServer for Backend {
         let pos = params.text_document_position.position;
 
         let state = self.state.read().await;
-        let Some(doc) = state.document(uri.as_str()) else {
-            return Ok(None);
-        };
         let ranges = Ranges::new(&state);
-        let Some((id, _)) = entity_at(&state, &ranges, &uri, doc, pos) else {
+        let Some(id) = entity_under_cursor(&state, &uri, pos) else {
             return Ok(None);
         };
         let query = ReferenceQuery {
             direction: Direction::Incoming,
             include_declaration: params.context.include_declaration,
         };
-        let refs = navigator(&state).references(&id, query).unwrap_or_default();
+        let refs = navigator(&state)
+            .references(id.as_str(), query)
+            .unwrap_or_default();
         if refs.is_empty() {
             return Ok(None);
         }
@@ -1225,17 +1147,14 @@ impl LanguageServer for Backend {
         let pos = params.position;
 
         let state = self.state.read().await;
-        let Some(doc) = state.document(uri.as_str()) else {
+        let Some(cursor) = state.document(uri.as_str()).and_then(|doc| doc.at(pos)) else {
             return Ok(None);
         };
 
         // The token as written under the cursor, declaration or
         // reference; nothing else renames.
-        let Some((line, col)) = doc.index().source_position(pos) else {
-            return Ok(None);
-        };
         let ranges = Ranges::new(&state);
-        let occurrence = navigator(&state).occurrence_at(&key_of(&state, &uri), line, col);
+        let occurrence = cursor.occurrence(&navigator(&state), &key_of(&state, &uri));
         Ok(occurrence.map(|o| PrepareRenameResponse::Range(ranges.range(&o.span))))
     }
 
@@ -1245,12 +1164,8 @@ impl LanguageServer for Backend {
         let new_name = params.new_name;
 
         let state = self.state.read().await;
-        let Some(doc) = state.document(uri.as_str()) else {
-            return Ok(None);
-        };
         let ranges = Ranges::new(&state);
-
-        let Some((id, _)) = entity_at(&state, &ranges, &uri, doc, pos) else {
+        let Some(id) = entity_under_cursor(&state, &uri, pos) else {
             return Ok(None);
         };
 
@@ -1258,7 +1173,7 @@ impl LanguageServer for Backend {
         // the open buffer, else disk, planned by the shared rename (the MCP
         // tool's rules). A rename is all or nothing: one that cannot be
         // done whole is refused with why.
-        let edits = match specforge_ops::rename::plan(&navigator(&state), &id, &new_name) {
+        let edits = match specforge_ops::rename::plan(&navigator(&state), id.as_str(), &new_name) {
             Ok(plan) => plan.edits,
             Err(e) if e.code == specforge_ops::rename::NOT_FOUND => return Ok(None),
             Err(e) => return Err(tower_lsp::jsonrpc::Error::invalid_params(e.message)),

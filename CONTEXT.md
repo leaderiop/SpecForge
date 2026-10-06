@@ -128,6 +128,14 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   entities a diagnostic is about, and the fixes a diagnostic's data names. The LSP and MCP answer
   from one module (`specforge_ops::navigate`) in source spans. The LSP converts them to UTF-16
   ranges through each text's line index, MCP renders them as JSON (ADR 0016, ADR 0023).
+- **Cursor**: what the LSP knows about a position in an open document, read from the document's lexemes
+  (`specforge_parser::lex`) and their block structure, never from the graph: the word under it, whether
+  it is in code, a string or a comment, the entity block, field and reference list around it, and the
+  `use` statement it is on. The entity a cursor names is the declaration or reference token under it,
+  else an identifier at a reference position (a header's name, a value or item of a field the
+  registry does not type as a non-reference, a `use` binding's imported name) that names an entity;
+  hover, definition, references and rename all ask the cursor, completion asks it what completes
+  there, and semantic tokens mark the same reference positions (`specforge_lsp::document`, ADR 0023).
 - **Proof role**: what a field's value is to the prove pass, declared by its extension
   (`proof_role`): a **bound** the solver assumes (bounds must be consistent, E046) or a **claim**
   that must follow from the bounds (W139 when not; an entailed claim is a proved claim). A field

@@ -11,8 +11,8 @@ pub mod watchers;
 
 pub use capabilities::{ServerCapabilities, ServerInfo, server_capabilities, server_info};
 pub use completion::{CursorContext, complete_field_names, complete_keywords, cursor_context};
-pub use completion::{enclosing_block, enclosing_entity_kind, field_snippet, keyword_snippet};
-pub use document::{Document, LineIndex};
+pub use completion::{enclosing_block, field_snippet, keyword_snippet};
+pub use document::{Cursor, Document, EntityAt, LineIndex, Place, Target, Word};
 pub use hover::{diagnostic_hover, hover_field_info, hover_info, hover_info_with_registries};
 pub use navigation::{goto_import_definition, navigator};
 pub use semantic_tokens::{
