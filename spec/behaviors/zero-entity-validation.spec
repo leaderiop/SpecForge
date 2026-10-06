@@ -177,8 +177,10 @@ behavior register_custom_validation_patterns "Register Custom Validation Pattern
     time: when the extensions load, each custom rule's wasm_function is
     called once on an entity of the rule's target kind that declares
     nothing, and a call that does not answer with a verdict is reported.
-    The rule stays registered; dispatch then skips an entity whose call
-    fails without reporting it again. A custom rule that names no
+    The rule stays registered. During validation, the entities whose call
+    fails are not checked; they MUST be reported once per rule per check
+    as W148, naming how many failed and the first one with its error, and
+    carrying every failed entity with its error as the diagnostic's data. A custom rule that names no
     wasm_function MUST produce W112 and MUST NOT be registered.
   """
   verify unit "custom pattern registered with wasm_function reference"
@@ -187,6 +189,7 @@ behavior register_custom_validation_patterns "Register Custom Validation Pattern
   verify unit "custom pattern dispatched to Wasm runtime during validation"
   verify unit "custom pattern failure emits configured diagnostic"
   verify unit "a custom validator's verdict is read as the protocol's ValidatorVerdict, and a failure is reported once as W112"
+  verify unit "a custom rule whose function fails on entities produces one W148 per check naming how many were not checked"
   verify contract "Register Custom Validation Patterns: custom validation pattern registration holds — extension_manifests_loaded_fired, wasm_runtime_available, custom_patterns_registered, wasm_functions_resolved"
 }
 

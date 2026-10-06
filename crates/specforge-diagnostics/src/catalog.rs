@@ -676,4 +676,7 @@ catalog! {
     W147: Warning core,
         "Validation rule property ignored",
         "An extension-declared validation rule sets a property its check does not read — an `edge_type` on a field check, a `constraint` on an edge check, a `wasm_function` on a declarative check, a constraint kind, `pattern` or `values` its check does not read. The rule is registered without it, so it does not do what its author meant. Remove the property, or use the check that reads it (`conditional_field_required` reads `constraint.pattern` as the condition field's name, `field_value_constraint` with `matches` as a regex).";
+    W148: Warning core,
+        "Custom rule could not check entities",
+        "A `check: \"custom\"` rule's `wasm_function` failed (trapped, or answered something that is not a verdict) on some entities during this check, so they were not checked. Reported once per rule, with how many failed and the first one's error. The load-time probe (W112) calls the function on an empty entity only; fix the function so that it answers every entity of the rule's target kind. The diagnostic's data lists every entity that was not checked, with its error.";
 }

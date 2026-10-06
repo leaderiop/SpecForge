@@ -265,9 +265,11 @@ fn file_exists_reads_the_spec_root_whatever_the_working_directory() {
     );
 }
 
-// PIN: flipped by T9 (W148 for the entities the function failed on).
-#[test]
-fn a_custom_function_failing_on_an_entity_is_silent() {
+#[spec(
+    behavior = "register_custom_validation_patterns",
+    verify = "a custom rule whose function fails on entities produces one W148 per check naming how many were not checked"
+)]
+fn a_custom_function_failing_on_an_entity_is_w148() {
     let diagnostics = check(
         NODES,
         json!([{
@@ -285,11 +287,30 @@ fn a_custom_function_failing_on_an_entity_is_silent() {
         naming(&diagnostics, "W112", "X007").is_empty(),
         "{diagnostics:?}"
     );
-    let others: Vec<&Diagnostic> = diagnostics
+    // beta, which the function cannot answer for, is reported once.
+    let w148: Vec<&Diagnostic> = diagnostics.iter().filter(|d| d.code == "W148").collect();
+    assert_eq!(w148.len(), 1, "{diagnostics:?}");
+    let message = &w148[0].message;
+    assert!(
+        message.starts_with(
+            "extension '@pin/rules': rule 'X007': wasm_function 'validate__x007' failed on 1 entity ('beta': "
+        ) && message.contains("cannot read beta")
+            && message.ends_with(") — it was not checked"),
+        "{message}"
+    );
+    // `check --format json` carries every failure under `data`.
+    let json = serde_json::to_value(specforge_common::diagnostics_json(&diagnostics)).unwrap();
+    let entry = json
+        .as_array()
+        .unwrap()
         .iter()
-        .filter(|d| d.code != "X007" && d.message.contains("X007"))
-        .collect();
-    assert!(others.is_empty(), "{others:?}");
+        .find(|d| d["code"] == "W148")
+        .unwrap();
+    assert_eq!(entry["data"]["kind"], "custom_rule_failures");
+    assert_eq!(entry["data"]["rule"], "X007");
+    assert_eq!(entry["data"]["function"], "validate__x007");
+    assert_eq!(entry["data"]["failures"][0]["entity"], "beta");
+    assert_eq!(entry["data"]["failures"].as_array().unwrap().len(), 1);
 }
 
 // Stable: declared rules in code order, then the host's E006 rules; each

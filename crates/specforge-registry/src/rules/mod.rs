@@ -189,8 +189,10 @@ impl Rules {
 
     /// Run every rule over `input`: each rule in order, its entities by id
     /// (a cycle rule: the entities on a cycle, by id). A `custom` rule asks
-    /// `verdicts`; an entity whose verdict is unavailable or failed is
-    /// skipped.
+    /// `verdicts`; the entities whose verdict failed are W148, once per
+    /// rule, right after that rule's diagnostics, with every failure as its
+    /// data; an unavailable verdict ([`NoVerdicts`]) skips the rule
+    /// silently.
     pub fn check(&self, input: &RuleInput<'_>, verdicts: &dyn CustomVerdicts) -> Vec<Diagnostic> {
         self.rules
             .iter()

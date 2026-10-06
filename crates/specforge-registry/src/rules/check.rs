@@ -5,8 +5,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
 
-use specforge_common::Diagnostic;
 use specforge_common::cycles::{CycleOptions, find_cycles};
+use specforge_common::{CustomRuleFailure, Diagnostic, DiagnosticData};
 
 use super::Rule;
 use super::verdicts::{CustomCall, CustomVerdicts, Subject, Verdict, VerdictError};
@@ -113,16 +113,67 @@ pub(super) fn run(
         return missing_files(rule, field, input);
     }
     let mut diagnostics = Vec::new();
+    let mut failures = Vec::new();
     for record in input.entities.iter().filter(|e| rule.applies_to(&e.kind)) {
         let violation = match evaluate(rule, record, verdicts) {
             Ok(Some(violation)) => violation,
             Ok(None) => continue,
-            // No verdict: the entity is not checked.
-            Err(_) => continue,
+            // No runtime: the rule checks nothing, and says nothing.
+            Err(VerdictError::Unavailable) => continue,
+            // The function failed on it: it is not checked, and the rule
+            // says so once, after its own diagnostics (W148).
+            Err(VerdictError::Failed(error)) => {
+                failures.push(CustomRuleFailure {
+                    entity: record.id.clone(),
+                    error,
+                });
+                continue;
+            }
         };
         diagnostics.push(report(rule, record, violation));
     }
+    if let Check::Custom {
+        extension,
+        function,
+    } = &rule.check
+        && !failures.is_empty()
+    {
+        diagnostics.push(not_checked(rule, extension, function, failures));
+    }
     diagnostics
+}
+
+/// W148: `rule`'s `function` (an export of `extension`) failed on
+/// `failures`' entities during this check. One per rule per check: the
+/// message names how many and the first, the data every one, by id.
+fn not_checked(
+    rule: &Rule,
+    extension: &str,
+    function: &str,
+    mut failures: Vec<CustomRuleFailure>,
+) -> Diagnostic {
+    failures.sort_by(|a, b| a.entity.cmp(&b.entity));
+    let first = &failures[0];
+    let (entities, they) = if failures.len() == 1 {
+        ("entity", "it was")
+    } else {
+        ("entities", "they were")
+    };
+    Diagnostic::warning(
+        "W148",
+        format!(
+            "extension '{extension}': rule '{}': wasm_function '{function}' failed on {} {entities} ('{}': {}) — {they} not checked",
+            rule.code,
+            failures.len(),
+            first.entity,
+            first.error
+        ),
+    )
+    .with_data(DiagnosticData::CustomRuleFailures {
+        rule: rule.code.clone(),
+        function: function.to_string(),
+        failures,
+    })
 }
 
 /// Whether `record` violates `rule`, and what the violation names. Err: a

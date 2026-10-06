@@ -2696,6 +2696,23 @@ Owner: core
 Level: warning
 ```
 
+## W148
+
+```
+W148: Custom rule could not check entities
+
+A `check: "custom"` rule's `wasm_function` failed (trapped, or answered
+something that is not a verdict) on some entities during this check, so they
+were not checked. Reported once per rule, with how many failed and the first
+one's error. The load-time probe (W112) calls the function on an empty entity
+only; fix the function so that it answers every entity of the rule's target
+kind. The diagnostic's data lists every entity that was not checked, with its
+error.
+
+Owner: core
+Level: warning
+```
+
 ## Retired codes
 
 These codes are no longer emitted, and are never reused for another meaning.

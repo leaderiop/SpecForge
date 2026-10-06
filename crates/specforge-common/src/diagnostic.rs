@@ -76,12 +76,28 @@ pub enum DiagnosticData {
     /// A diagnostic an extension pass raised about `entity` (the pass named
     /// it), whether or not the graph holds that entity.
     Subject { entity: String },
+    /// W148: the custom rule `rule`'s `function` failed on these entities
+    /// during one check, so they were not checked: every failure, entities
+    /// by id (the message names only how many and the first).
+    CustomRuleFailures {
+        rule: String,
+        function: String,
+        failures: Vec<CustomRuleFailure>,
+    },
+}
+
+/// One entity a custom rule's function failed on, with the call's error.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct CustomRuleFailure {
+    pub entity: String,
+    pub error: String,
 }
 
 impl DiagnosticData {
     /// The entities the payload says the diagnostic is about, each once,
     /// in the payload's order: an unresolved reference's holder, a cycle's
-    /// entities, a pass diagnostic's subject. None for the others.
+    /// entities, a pass diagnostic's subject, the entities a custom rule
+    /// could not check. None for the others.
     /// Navigation attributes a diagnostic from these, never its message.
     pub fn entities(&self) -> Vec<&str> {
         let mut entities: Vec<&str> = Vec::new();
@@ -89,6 +105,9 @@ impl DiagnosticData {
             DiagnosticData::UnresolvedReference { entity, .. }
             | DiagnosticData::Subject { entity } => vec![entity.as_str()],
             DiagnosticData::ReferenceCycle { path } => path.iter().map(String::as_str).collect(),
+            DiagnosticData::CustomRuleFailures { failures, .. } => {
+                failures.iter().map(|f| f.entity.as_str()).collect()
+            }
             DiagnosticData::UnresolvedImport { .. } | DiagnosticData::ShadowedKeyword { .. } => {
                 Vec::new()
             }

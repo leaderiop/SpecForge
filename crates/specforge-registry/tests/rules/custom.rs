@@ -4,7 +4,7 @@
 
 use std::cell::RefCell;
 
-use specforge_common::Severity;
+use specforge_common::{CustomRuleFailure, DiagnosticData, Severity};
 use specforge_protocol_types::{ValidationRuleDescriptor, ValidationSeverity};
 use specforge_registry::rules::{CustomCall, NoVerdicts, Subject, Verdict, VerdictError};
 use specforge_test_macros::test as spec;
@@ -115,25 +115,81 @@ fn custom_pattern_failure_emits_configured_diagnostic() {
     assert_eq!(diagnostics[0].message, "behavior 'b1' custom check failed");
 }
 
-// PIN (T9): an entity whose verdict failed is skipped silently.
-#[test]
-fn an_entity_without_a_verdict_is_not_checked() {
-    let built = one(custom("E202", "flaky", Some("behavior")));
+#[spec(
+    behavior = "register_custom_validation_patterns",
+    verify = "a custom rule whose function fails on entities produces one W148 per check naming how many were not checked"
+)]
+fn a_function_failing_on_entities_is_one_w148_per_check() {
+    let built = rules(vec![
+        custom("E202", "flaky", Some("behavior")),
+        custom("E203", "fragile", Some("behavior")),
+        custom("E204", "sound", Some("behavior")),
+    ]);
     let entities = [
         entity("a", "behavior", 1, 0),
         entity("b", "behavior", 1, 0),
         entity("c", "behavior", 1, 0),
+        entity("d", "behavior", 1, 0),
     ];
-    let verdicts = |call: CustomCall<'_>| match call.subject {
-        Subject::Entity(record) if record.id == "b" => Err(VerdictError::Failed("trap".into())),
-        Subject::Entity(record) if record.id == "c" => Ok(failed()),
-        _ => Ok(Verdict::Pass),
+    let verdicts = |call: CustomCall<'_>| {
+        let Subject::Entity(record) = call.subject else {
+            unreachable!()
+        };
+        match (call.function, record.id.as_str()) {
+            ("flaky", "b" | "d") => Err(VerdictError::Failed(format!("trap on {}", record.id))),
+            ("flaky", "c") => Ok(failed()),
+            ("fragile", "a") => Err(VerdictError::Failed("bad answer".into())),
+            _ => Ok(Verdict::Pass),
+        }
     };
-    let diagnostics = built.rules.check(&over(&entities), &verdicts);
-    assert_eq!(diagnostics.len(), 1);
-    assert!(diagnostics[0].message.contains("'c'"));
 
-    // Without a runtime, the rule checks nothing and reports nothing.
+    let diagnostics = built.rules.check(&over(&entities), &verdicts);
+
+    // Each rule's own diagnostics, then its W148 right after them.
+    let reported: Vec<(&str, &str)> = diagnostics
+        .iter()
+        .map(|d| (d.code.as_str(), d.message.as_str()))
+        .collect();
+    assert_eq!(
+        reported,
+        [
+            ("E202", "behavior 'c' fails {field} ({value})"),
+            (
+                "W148",
+                "extension '@test': rule 'E202': wasm_function 'flaky' failed on 2 entities ('b': trap on b) — they were not checked"
+            ),
+            (
+                "W148",
+                "extension '@test': rule 'E203': wasm_function 'fragile' failed on 1 entity ('a': bad answer) — it was not checked"
+            ),
+        ]
+    );
+    assert!(
+        diagnostics[1..]
+            .iter()
+            .all(|d| d.severity == Severity::Warning && d.span.is_none())
+    );
+    // The data carries every failure, by id.
+    assert_eq!(
+        diagnostics[1].data.as_deref(),
+        Some(&DiagnosticData::CustomRuleFailures {
+            rule: "E202".into(),
+            function: "flaky".into(),
+            failures: vec![
+                CustomRuleFailure {
+                    entity: "b".into(),
+                    error: "trap on b".into()
+                },
+                CustomRuleFailure {
+                    entity: "d".into(),
+                    error: "trap on d".into()
+                },
+            ],
+        })
+    );
+    assert_eq!(diagnostics[1].data.as_ref().unwrap().entities(), ["b", "d"]);
+
+    // Without a runtime, the rules check nothing and report nothing.
     assert!(built.rules.check(&over(&entities), &NoVerdicts).is_empty());
 }
 
