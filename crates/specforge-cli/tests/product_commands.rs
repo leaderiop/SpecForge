@@ -785,7 +785,7 @@ fn under_json_a_usage_error_is_an_invalid_input_object() {
             .output()
             .unwrap()
     };
-    let cases: [(&[&str], serde_json::Value); 4] = [
+    let cases: [(&[&str], serde_json::Value); 5] = [
         (
             &["features", "--status", "bogus"],
             serde_json::json!({"code": "INVALID_INPUT",
@@ -804,7 +804,14 @@ fn under_json_a_usage_error_is_an_invalid_input_object() {
         (
             &["features", "--limit", "abc"],
             serde_json::json!({"code": "INVALID_INPUT",
-                "message": "limit must be an integer, got 'abc'"}),
+                "message": "limit must be a non-negative integer, got 'abc'"}),
+        ),
+        // A count below its minimum is the command line's to refuse, as it
+        // is MCP's: the export never runs.
+        (
+            &["features", "--limit", "-1"],
+            serde_json::json!({"code": "INVALID_INPUT",
+                "message": "limit must be a non-negative integer, got -1"}),
         ),
     ];
     for (args, expected) in &cases {

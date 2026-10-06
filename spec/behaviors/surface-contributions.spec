@@ -187,7 +187,8 @@ behavior dispatch_surface_command "Dispatch Surface Command" {
     and exits 1. A
     usage error the command line catches before the command runs (a
     value outside a one_of, a missing required arg, an unknown flag, a
-    value that is not an integer) is, under --format json (wherever it
+    value that is not an integer, or below the arg's minimum) is, under
+    --format json (wherever it
     is on the command line), one INVALID_INPUT error object of that
     shape on stderr ({code, message, suggestion?}, the message naming
     the arg as declared and, for a one_of, its values), nothing on
