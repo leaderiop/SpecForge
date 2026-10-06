@@ -405,7 +405,7 @@ impl<'d> Cursor<'d> {
         let entity = |i: usize| {
             let lexeme = self.syntax.lexemes[i];
             let id = lexeme.text(self.text);
-            view.graph.node(id)?;
+            view.graph().node(id)?;
             Some(Target::Entity {
                 id: Sym::new(id),
                 origin: Range {
@@ -435,7 +435,7 @@ impl<'d> Cursor<'d> {
             });
         }
         let word = word?;
-        let fields = &view.registries.fields;
+        let fields = &view.registries().fields;
         if self
             .syntax
             .reference_position(self.text, word as u32, fields)

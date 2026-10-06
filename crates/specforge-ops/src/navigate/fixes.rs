@@ -92,7 +92,7 @@ impl<F: Fn(&str) -> Option<String>> Navigator<'_, F> {
     /// then title. Every fix has at least one edit; a diagnostic whose
     /// data names no fix offers none.
     pub fn fixes(&self, diagnostics: &[Diagnostic], query: &FixQuery) -> Vec<Fix> {
-        let graph = self.view.graph;
+        let graph = self.view.graph();
         let mut fixes = Vec::new();
         let mut stubbed: BTreeSet<String> = BTreeSet::new();
         for diagnostic in diagnostics {
@@ -188,14 +188,14 @@ impl<F: Fn(&str) -> Option<String>> Navigator<'_, F> {
         else {
             return None;
         };
-        let graph = self.view.graph;
+        let graph = self.view.graph();
         if graph.node(target).is_some() || stubbed.contains(target) {
             return None;
         }
         let holder = graph.node(entity)?;
         let kind = self
             .view
-            .registries
+            .registries()
             .fields
             .get(holder.kind.raw.as_str(), field)?
             .declared
@@ -231,7 +231,7 @@ impl<F: Fn(&str) -> Option<String>> Navigator<'_, F> {
     /// (`unit` when it names none), inserted before the block's closing
     /// brace; it fixes the rule that obliges the entity's kind, if any.
     fn verify_stub(&self, node: &Node) -> Option<Fix> {
-        let registries = self.view.registries;
+        let registries = self.view.registries();
         let kind = registries
             .kinds
             .get(node.kind.raw.as_str())

@@ -29,7 +29,7 @@ pub struct ModelOutcome {
 
 /// The logical data model of the view's extensions, as `options` asks.
 pub fn model(view: &ProjectView, options: &ModelOptions) -> ModelOutcome {
-    render_schema(&view.schema(), view.registries.declarations(), options)
+    render_schema(&view.schema(), view.registries().declarations(), options)
 }
 
 /// The model of `schema`, themed by `declarations`: what [`model`] renders
@@ -56,7 +56,7 @@ pub fn render_schema(
 /// The architecture of the view's extensions (dependencies, enhancements,
 /// contributions), as `options` asks.
 pub fn outline(view: &ProjectView, options: &OutlineOptions) -> String {
-    let outline = OutlineIntermediate_from_declarations(view.registries.declarations());
+    let outline = OutlineIntermediate_from_declarations(view.registries().declarations());
     specforge_emitter::outline::render(&outline, options)
 }
 

@@ -34,7 +34,7 @@ pub struct References {
 impl References {
     /// The references of `id`; empty for an entity the graph lacks.
     pub fn of(view: &ProjectView, id: &str) -> Self {
-        let graph = view.graph;
+        let graph = view.graph();
         if graph.node(id).is_none() {
             return References::default();
         }

@@ -695,8 +695,8 @@ pub fn collect(
         mut consent,
         announce,
     } = request;
-    let known = &KnownEntities::from_graph(view.graph);
-    let available = collectors(view.registries.declarations());
+    let known = &KnownEntities::from_graph(view.graph());
+    let available = collectors(view.registries().declarations());
     let parse_only = !matches!(mode, Mode::Run(_));
     let selected = select(&available, runner, root)?;
     if let Mode::Reports(_) = mode

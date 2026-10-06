@@ -37,16 +37,9 @@ use crate::{OpError, OpErrorKind};
 /// disk refuses with `no_project` ([`Self::project_root`]).
 #[derive(Clone, Copy)]
 pub struct ProjectView<'a> {
-    pub graph: &'a Graph,
-    /// What `specforge.json` and the loaded extensions gave the compile:
-    /// the config, what each `extensions` entry enabled, the spec root,
-    /// the registry build. Operations read the config here, never from
-    /// disk again.
-    pub env: &'a Environment,
-    /// `&env.registries`: kinds, fields, edges, rules, the extension
-    /// declarations and their ordered passes.
-    pub registries: &'a RegistryBuild,
-    pub root: Option<&'a Path>,
+    graph: &'a Graph,
+    env: &'a Environment,
+    root: Option<&'a Path>,
     /// The memo of the graph's entity snapshot, the recorded report and the
     /// coverage, owned by whoever owns `graph`.
     recorded: &'a RecordedCoverage,
@@ -83,7 +76,6 @@ impl<'a> ProjectView<'a> {
         ProjectView {
             graph,
             env,
-            registries: &env.registries,
             root,
             recorded,
             reported: Reported::Listed(&[]),
@@ -118,6 +110,39 @@ impl<'a> ProjectView<'a> {
                 session.recorded(),
             )
         }
+    }
+
+    /// The project's graph.
+    pub fn graph(&self) -> &'a Graph {
+        self.graph
+    }
+
+    /// What `specforge.json` and the loaded extensions gave the compile:
+    /// the config, what each `extensions` entry enabled, the spec root,
+    /// the registry build. Operations read them here, never from disk
+    /// again.
+    pub fn env(&self) -> &'a Environment {
+        self.env
+    }
+
+    /// The registry build of the environment: kinds, fields, edges, rules,
+    /// the extension declarations and their ordered passes. The one way to
+    /// reach it (`env().registries` is the same value).
+    pub fn registries(&self) -> &'a RegistryBuild {
+        &self.env.registries
+    }
+
+    /// The root the project was compiled from; `None` for a graph built in
+    /// memory ([`Self::project_root`] refuses instead).
+    pub fn root(&self) -> Option<&'a Path> {
+        self.root
+    }
+
+    /// This view over the same project at another root (a test of what a
+    /// view reads at its root, never in an ancestor).
+    #[cfg(test)]
+    pub(crate) fn rooted_at(self, root: Option<&'a Path>) -> Self {
+        ProjectView { root, ..self }
     }
 
     /// This view, reporting `diagnostics` in place of its owner's (a graph
@@ -183,7 +208,7 @@ impl<'a> ProjectView<'a> {
         // The snapshot first, so an unseeded memo takes it with the
         // environment's spec root.
         self.entities();
-        self.recorded.at(self.root, self.graph, self.registries)
+        self.recorded.at(self.root, self.graph, self.registries())
     }
 
     /// The graph's entity snapshot (ADR 0019): every entity with what it
@@ -192,13 +217,13 @@ impl<'a> ProjectView<'a> {
     /// stand-in) takes one on first use, with the environment's spec root.
     pub fn entities(&self) -> &'a EntitySnapshot {
         self.recorded
-            .entities(self.graph, self.registries, &self.env.spec_root)
+            .entities(self.graph, self.registries(), &self.env.spec_root)
     }
 
     /// The Graph Protocol schema the loaded extensions produce, unversioned
     /// (what the model diagram renders).
     pub fn schema(&self) -> GraphProtocolSchema {
-        let registries = self.registries;
+        let registries = self.registries();
         generate_schema(
             &registries.kinds,
             &registries.edges,
@@ -467,8 +492,9 @@ mod tests {
         let compiled = CompiledProject::compile(dir.path(), None);
         let of = ProjectView::of(&compiled);
         assert_eq!(of.reported(), compiled.diagnostics());
-        assert_eq!(of.root, Some(dir.path()));
-        assert!(std::ptr::eq(of.registries, &of.env.registries));
+        assert_eq!(of.root(), Some(dir.path()));
+        // One registry build: the environment's, reached through one accessor.
+        assert!(std::ptr::eq(of.registries(), &compiled.env.registries));
 
         // A view built in memory reports nothing until it is told what.
         let graph = Graph::new();

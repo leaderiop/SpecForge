@@ -71,7 +71,7 @@ impl EntityCoverage {
 /// reports about it (MCP: its call target's; the LSP: what it published).
 /// An entity the graph lacks is `navigate::NOT_FOUND`.
 pub fn inspect<'v>(view: &ProjectView<'v>, entity_id: &str) -> Result<EntityFacts<'v>, OpError> {
-    let graph = view.graph;
+    let graph = view.graph();
     let node = graph.node(entity_id).ok_or_else(|| not_found(entity_id))?;
     // The snapshot is built over the same graph: a node it lacks is not one
     // this view can state facts about.
@@ -89,8 +89,8 @@ pub fn inspect<'v>(view: &ProjectView<'v>, entity_id: &str) -> Result<EntityFact
     });
     Ok(EntityFacts {
         node,
-        kind: view.registries.kinds.get(node.kind.raw.as_str()),
-        headline: specforge_emitter::context::headline_statement(node, &view.registries.fields),
+        kind: view.registries().kinds.get(node.kind.raw.as_str()),
+        headline: specforge_emitter::context::headline_statement(node, &view.registries().fields),
         standing,
         obligations: specforge_graph::obligations(node),
         references: References::of(view, entity_id),

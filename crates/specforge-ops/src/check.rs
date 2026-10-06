@@ -216,7 +216,7 @@ pub fn check(
     options: &CheckOptions,
 ) -> Result<CheckOutcome, CheckError> {
     let needs_root = options.record_cache || !options.lint_profiles.is_empty();
-    let root = match view.root {
+    let root = match view.root() {
         Some(root) => root,
         None if needs_root => return Err(CheckError::NoProjectRoot),
         None => Path::new(""),
@@ -230,7 +230,7 @@ pub fn check(
     let cache = match (options.record_cache, counts.errors == 0) {
         (false, _) => CacheRecord::NotRequested,
         (true, false) => CacheRecord::NotWritten,
-        (true, true) => match BuildCache::of(view.graph, &view.registries.kinds).write(root) {
+        (true, true) => match BuildCache::of(view.graph(), &view.registries().kinds).write(root) {
             Ok(()) => CacheRecord::Written,
             Err(e) => CacheRecord::WriteFailed(e.to_string()),
         },

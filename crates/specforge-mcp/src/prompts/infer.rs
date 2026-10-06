@@ -137,15 +137,16 @@ fn rendered(instruction: impl Into<String>, payload: Value) -> Rendered {
 
 fn get_overview(project: &ProjectView) -> Rendered {
     let mut kind_counts: HashMap<String, usize> = HashMap::new();
-    for node in project.graph.nodes() {
+    for node in project.graph().nodes() {
         *kind_counts.entry(node.kind.raw.to_string()).or_default() += 1;
     }
 
     let mut kinds_info: Vec<Value> = Vec::new();
-    for declaration in project.registries.declarations() {
+    for declaration in project.registries().declarations() {
         for kind in &declaration.entities {
             let keyword = keyword(kind).to_lowercase();
-            let guide = build_guide_for_kind(&keyword, declaration, &project.env.config.inference);
+            let guide =
+                build_guide_for_kind(&keyword, declaration, &project.env().config.inference);
             let fields: Vec<String> = kind
                 .fields
                 .iter()
@@ -168,10 +169,16 @@ fn get_overview(project: &ProjectView) -> Rendered {
         }
     }
 
-    let global_conventions = project.env.config.inference.global.as_deref().unwrap_or("");
+    let global_conventions = project
+        .env()
+        .config
+        .inference
+        .global
+        .as_deref()
+        .unwrap_or("");
 
     let result = json!({
-        "installed_extensions": project.registries.extension_info().map(|(name, _)| name.to_string()).collect::<Vec<_>>(),
+        "installed_extensions": project.registries().extension_info().map(|(name, _)| name.to_string()).collect::<Vec<_>>(),
         "existing_entities": kind_counts,
         "kinds": kinds_info,
         "project_conventions": global_conventions,
@@ -190,7 +197,7 @@ fn get_overview(project: &ProjectView) -> Rendered {
 
 fn get_kind_scoped(project: &ProjectView, kind_name: &str) -> PromptOutcome {
     let matched_kind = project
-        .registries
+        .registries()
         .declarations()
         .iter()
         .flat_map(|d| d.entities.iter().map(move |k| (d, k)))
@@ -201,14 +208,14 @@ fn get_kind_scoped(project: &ProjectView, kind_name: &str) -> PromptOutcome {
     };
 
     let existing_ids: Vec<String> = project
-        .graph
+        .graph()
         .nodes()
         .into_iter()
         .filter(|n| n.kind.raw == kind_name)
         .map(|n| n.id.raw.to_string())
         .collect();
 
-    let guide = build_guide_for_kind(kind_name, declaration, &project.env.config.inference);
+    let guide = build_guide_for_kind(kind_name, declaration, &project.env().config.inference);
     let fields: Vec<Value> = kind_def
         .fields
         .iter()
@@ -245,7 +252,7 @@ fn get_kind_scoped(project: &ProjectView, kind_name: &str) -> PromptOutcome {
 /// closest installed kind.
 fn unknown_kind(project: &ProjectView, kind_name: &str) -> McpError {
     let installed: Vec<String> = project
-        .registries
+        .registries()
         .declarations()
         .iter()
         .flat_map(|d| d.entities.iter())
@@ -269,7 +276,7 @@ fn get_file_scoped(project: &ProjectView, file_path: &str) -> PromptOutcome {
     // (specforge_ops::navigate::anchors_of_file) over the anchors manifest,
     // the answer specforge.find_spec_for_source gives (C9-09). With no
     // project there is no manifest.
-    let manifest = match project.root {
+    let manifest = match project.root() {
         Some(root) => load_anchor_manifest(root).map_err(crate::tools::manifest_mcp_error)?,
         None => AnchorManifest::default(),
     };
@@ -277,15 +284,16 @@ fn get_file_scoped(project: &ProjectView, file_path: &str) -> PromptOutcome {
     let referencing_entities: Vec<Value> = found
         .anchors
         .iter()
-        .map(|anchor| anchor_json(anchor, project.graph))
+        .map(|anchor| anchor_json(anchor, project.graph()))
         .collect();
     let match_mode = file_match_name(found.mode);
 
     let mut kinds_info: Vec<Value> = Vec::new();
-    for declaration in project.registries.declarations() {
+    for declaration in project.registries().declarations() {
         for kind in &declaration.entities {
             let keyword = keyword(kind).to_lowercase();
-            let guide = build_guide_for_kind(&keyword, declaration, &project.env.config.inference);
+            let guide =
+                build_guide_for_kind(&keyword, declaration, &project.env().config.inference);
             kinds_info.push(json!({
                 "kind": keyword,
                 "inference_guide": guide,
@@ -293,7 +301,13 @@ fn get_file_scoped(project: &ProjectView, file_path: &str) -> PromptOutcome {
         }
     }
 
-    let global_conventions = project.env.config.inference.global.as_deref().unwrap_or("");
+    let global_conventions = project
+        .env()
+        .config
+        .inference
+        .global
+        .as_deref()
+        .unwrap_or("");
 
     let result = json!({
         "file": file_path,
@@ -323,14 +337,14 @@ fn get_plan(project: &ProjectView, target_spec_directory: Option<&str>, cursor: 
     let (summary, unanalyzed, stale) = (progress.summary, progress.unanalyzed, progress.stale);
 
     let kind_priorities: Vec<Value> = project
-        .registries
+        .registries()
         .declarations()
         .iter()
         .flat_map(|d| d.entities.iter().map(move |k| (d, k)))
         .map(|(d, k)| {
             let keyword = keyword(k).to_lowercase();
             let existing_count = project
-                .graph
+                .graph()
                 .nodes()
                 .into_iter()
                 .filter(|n| n.kind.raw == keyword.as_str())
@@ -397,7 +411,7 @@ fn get_workflow(project: &ProjectView) -> Rendered {
     ];
 
     let installed_kinds: Vec<String> = project
-        .registries
+        .registries()
         .declarations()
         .iter()
         .flat_map(|d| d.entities.iter())

@@ -133,11 +133,13 @@ drifted: 94bbdeb3 gave `list` and `remove` the `enabled` entries and not `doctor
 
 ### The view, completed
 
-`ProjectView` also borrows the **Environment** it was compiled in (`env`: the config, what each
-`extensions` entry enabled, the spec root; `registries` is `&env.registries`) and says **what its
+`ProjectView` also borrows the **Environment** it was compiled in (`env()`: the config, what each
+`extensions` entry enabled, the spec root, the registry build; `registries()` is its one accessor,
+the view keeps no copy) and says **what its
 surface reports** for the project (`reported()`): a `CompiledProject`'s diagnostics, a session's
 plus MCP's I017 notices (`also_reporting`), or a listed slice (`reporting`, for graphs built in
-memory). `ProjectView::new` takes `&Environment` (`Environment::with_registries` for a bare build).
+memory). The view's fields are private: `graph()`, `env()`, `registries()` and `root()` are the
+way in. `ProjectView::new` takes `&Environment` (`Environment::with_registries` for a bare build).
 `project_root()` is the root for an operation that reads or writes the project on disk, `no_project`
 without one.
 

@@ -75,7 +75,7 @@ pub struct RemoveOutcome {
 pub fn remove(view: &ProjectView, req: &RemoveRequest) -> Result<RemoveOutcome, OpError> {
     let root = view.project_root()?;
     if let Some(problem) = view
-        .env
+        .env()
         .config_problems
         .iter()
         .find(|problem| problem.blocks_edits())
@@ -91,10 +91,10 @@ pub fn remove(view: &ProjectView, req: &RemoveRequest) -> Result<RemoveOutcome, 
         name: req.name,
         force: req.force,
         dry_run: req.dry_run,
-        enabled: &view.env.enabled,
-        loaded: view.registries.declarations(),
-        kinds: &view.registries.kinds,
-        graph: view.graph,
+        enabled: &view.env().enabled,
+        loaded: view.registries().declarations(),
+        kinds: &view.registries().kinds,
+        graph: view.graph(),
     };
     // The `.wasm` file entries `name` names, and whether a named entry
     // (legacy `name@version` duplicates included) enables it too.

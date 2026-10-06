@@ -191,10 +191,10 @@ pub fn diagnose(view: &ProjectView) -> DoctorReport {
 
 /// [`diagnose`] with the z3 probe supplied, so tests do not depend on PATH.
 pub fn diagnose_with(view: &ProjectView, z3_available: bool) -> DoctorReport {
-    let declarations = view.registries.declarations();
+    let declarations = view.registries().declarations();
     let diagnostics = view.reported();
     let lock = view
-        .root
+        .root()
         .and_then(|root| read_lock_file(&root.join("specforge.lock")).ok());
     let lock_entries = lock.as_ref().map(|l| l.entries.as_slice()).unwrap_or(&[]);
 
@@ -207,7 +207,7 @@ pub fn diagnose_with(view: &ProjectView, z3_available: bool) -> DoctorReport {
         .map(|d| ExtensionHealth {
             name: d.name().to_string(),
             version: d.version().to_string(),
-            source: Origin::of(d.name(), &view.env.enabled, lock.as_ref()).source(),
+            source: Origin::of(d.name(), &view.env().enabled, lock.as_ref()).source(),
             enhancement_count: d.enhancements.len(),
         })
         .collect();
@@ -261,8 +261,8 @@ pub fn diagnose_with(view: &ProjectView, z3_available: bool) -> DoctorReport {
             remediation: remediation(diag, || format!("run `specforge explain {}`", diag.code)),
         });
     }
-    if let Some(root) = view.root
-        && !view.env.config_found
+    if let Some(root) = view.root()
+        && !view.env().config_found
     {
         findings.push(Finding {
             check: format!("specforge.json at {}", root.display()),
@@ -285,7 +285,7 @@ pub fn diagnose_with(view: &ProjectView, z3_available: bool) -> DoctorReport {
     };
     let statuses = lock
         .as_ref()
-        .zip(view.root)
+        .zip(view.root())
         .map(|(l, root)| {
             run_doctor_check(
                 l,

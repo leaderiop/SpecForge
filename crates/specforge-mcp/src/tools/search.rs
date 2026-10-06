@@ -41,7 +41,7 @@ pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
         referencing: args.references.as_deref(),
         limit: Some(args.limit.unwrap_or(20) as usize),
     };
-    let results: Vec<Value> = find_entities(view.graph, &query)
+    let results: Vec<Value> = find_entities(view.graph(), &query)
         .iter()
         .map(|m| {
             let mut result = json!({

@@ -91,10 +91,10 @@ pub struct ExtensionListing {
 /// entities use them, and its rule count; the lock's entries; the kinds
 /// its graph uses. Without a root no lock is read.
 pub fn list(view: &ProjectView) -> ExtensionListing {
-    let enabled = &view.env.enabled;
-    let entries = &view.env.config.extensions;
-    let loaded = view.registries.declarations();
-    let kinds = &view.registries.kinds;
+    let enabled = &view.env().enabled;
+    let entries = &view.env().config.extensions;
+    let loaded = view.registries().declarations();
+    let kinds = &view.registries().kinds;
     // The version a legacy `name@version` entry names.
     let configured_version = |name: &str| {
         entries.iter().find_map(|e| {
@@ -104,7 +104,7 @@ pub fn list(view: &ProjectView) -> ExtensionListing {
         })
     };
     let lock: Option<LockFile> = view
-        .root
+        .root()
         .and_then(|root| read_lock_file(&lock_path(root)).ok());
     let lock_entries = lock.as_ref().map_or(&[][..], |lock| &lock.entries);
     let enabled_names: Vec<&str> = enabled.iter().map(|e| e.name.as_str()).collect();
@@ -135,7 +135,7 @@ pub fn list(view: &ProjectView) -> ExtensionListing {
                 .collect();
             entity_kinds.sort();
             let entity_count = view
-                .graph
+                .graph()
                 .nodes()
                 .iter()
                 .filter(|n| entity_kinds.iter().any(|k| k == n.kind.raw.as_str()))
@@ -165,7 +165,7 @@ pub fn list(view: &ProjectView) -> ExtensionListing {
             })
             .collect(),
         kinds_in_graph: view
-            .graph
+            .graph()
             .nodes()
             .iter()
             .map(|n| n.kind.raw.to_string())
@@ -221,10 +221,10 @@ impl ProviderListing {
 /// the scheme registry built from the loaded declarations, and the
 /// diagnostics loading and registering them produced (W118, E057).
 pub fn providers(view: &ProjectView) -> ProviderListing {
-    let config = view.env.config.raw.clone().unwrap_or(Value::Null);
+    let config = view.env().config.raw.clone().unwrap_or(Value::Null);
     let (configs, mut diagnostics) = load_provider_configurations(&config);
     let (_, statuses, registration) =
-        register_provider_schemes_with_status(&configs, view.registries.declarations());
+        register_provider_schemes_with_status(&configs, view.registries().declarations());
     diagnostics.extend(registration);
     let providers = configs
         .into_iter()

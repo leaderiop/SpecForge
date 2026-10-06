@@ -82,7 +82,7 @@ impl<'a, F: Fn(&str) -> Option<String>> Navigator<'a, F> {
 
     /// The entity `id`, or [`NOT_FOUND`].
     fn node(&self, id: &str) -> Result<&'a specforge_graph::Node, OpError> {
-        self.view.graph.node(id).ok_or_else(|| not_found(id))
+        self.view.graph().node(id).ok_or_else(|| not_found(id))
     }
 }
 

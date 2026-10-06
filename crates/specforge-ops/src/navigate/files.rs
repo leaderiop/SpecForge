@@ -124,7 +124,7 @@ pub fn outline<F: Fn(&str) -> Option<String>>(
     nav: &Navigator<'_, F>,
     file: &str,
 ) -> Vec<OutlineEntry> {
-    let graph = nav.view.graph;
+    let graph = nav.view.graph();
     let mut nodes: Vec<&Node> = graph
         .nodes()
         .into_iter()

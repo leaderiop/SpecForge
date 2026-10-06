@@ -126,7 +126,7 @@ pub fn check(view: &ProjectView, plan: &Value) -> Result<PlanOutcome, PlanError>
 }
 
 fn validate(view: &ProjectView, entries: &[Value], coverage: &ProjectCoverage) -> PlanOutcome {
-    let graph = view.graph;
+    let graph = view.graph();
     let mut errors = Vec::new();
     let mut warnings = Vec::new();
     let mut ordering_violations = Vec::new();

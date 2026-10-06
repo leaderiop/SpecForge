@@ -69,7 +69,7 @@ pub struct SemanticToken {
 /// The token type of an entity of `kind`: its declared `semantic_token`
 /// when the legend carries it, else `function`.
 fn kind_token(view: &ProjectView, kind: &str) -> &'static str {
-    view.registries
+    view.registries()
         .kinds
         .get(kind)
         .and_then(|entry| entry.declared.semantic_token.as_deref())
@@ -107,10 +107,10 @@ fn classify(
         Role::Key => Some(("property", 0)),
         Role::VerifyKind => Some(("enumMember", 0)),
         Role::Value | Role::Item | Role::ImportName if lexeme.is_name() => {
-            let fields = &view.registries.fields;
+            let fields = &view.registries().fields;
             if syntax.reference_position(text, i as u32, fields) {
                 let token = view
-                    .graph
+                    .graph()
                     .node(lexeme.text(text))
                     .map_or("variable", |node| kind_token(view, node.kind.raw.as_str()));
                 return Some((token, MOD_REFERENCE));

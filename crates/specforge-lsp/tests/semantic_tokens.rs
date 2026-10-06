@@ -655,7 +655,7 @@ fn tokens_agree_with_the_grammar() {
     let project = specforge_project::CompiledProject::compile(&root, Some(&runtime));
     let view = ProjectView::of(&project);
     let declared: Vec<&str> = view
-        .registries
+        .registries()
         .kinds
         .iter()
         .filter_map(|(_, entry)| entry.declared.semantic_token.as_deref())
