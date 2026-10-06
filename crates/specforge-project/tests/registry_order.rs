@@ -103,8 +103,8 @@ fn registry_diagnostics_keep_their_order() {
     // Compiled again and again, with fresh hash maps each time: the order
     // must not depend on them.
     for _ in 0..20 {
-        let ctx =
-            specforge_project::CompiledProject::compile(dir.path(), Some(&runtime)).into_context();
-        assert_eq!(render(&ctx.diagnostics), expected);
+        let ctx = specforge_project::CompiledProject::compile(dir.path(), Some(&runtime));
+        let diagnostics = ctx.diagnostics();
+        assert_eq!(render(&diagnostics), expected);
     }
 }

@@ -3,9 +3,9 @@ use tempfile::TempDir;
 
 /// Compile through the real Wasm runtime (post-migration equivalent of the
 /// removed `specforge_emitter::compile` convenience).
-fn compile(dir: &TempDir) -> specforge_project::CompilationContext {
+fn compile(dir: &TempDir) -> specforge_project::CompiledProject {
     let runtime = specforge_component::project_runtime(dir.path());
-    specforge_project::CompiledProject::compile(dir.path(), Some(&runtime)).into_context()
+    specforge_project::CompiledProject::compile(dir.path(), Some(&runtime))
 }
 fn setup_project_with_extension(spec_content: &str) -> TempDir {
     let dir = TempDir::new().unwrap();
@@ -46,13 +46,10 @@ fn test_pipeline_with_product_extension_recognizes_feature() {
     );
 
     let ctx = compile(&dir);
+    let diagnostics = ctx.diagnostics();
 
     // Should NOT have I004 warnings about unrecognized keyword
-    let i004_diags: Vec<_> = ctx
-        .diagnostics
-        .iter()
-        .filter(|d| d.code == "I004")
-        .collect();
+    let i004_diags: Vec<_> = diagnostics.iter().filter(|d| d.code == "I004").collect();
     assert!(
         i004_diags.is_empty(),
         "expected no I004 for 'feature', got: {:?}",
@@ -73,17 +70,14 @@ fn test_pipeline_with_product_extension_runs_validation() {
     );
 
     let ctx = compile(&dir);
+    let diagnostics = ctx.diagnostics();
 
     // Should have W077 for invalid feature status
-    let w077_diags: Vec<_> = ctx
-        .diagnostics
-        .iter()
-        .filter(|d| d.code == "W077")
-        .collect();
+    let w077_diags: Vec<_> = diagnostics.iter().filter(|d| d.code == "W077").collect();
     assert!(
         !w077_diags.is_empty(),
         "expected W077 for invalid status, diagnostics: {:?}",
-        ctx.diagnostics
+        diagnostics
     );
 }
 
@@ -96,17 +90,14 @@ fn test_pipeline_with_product_extension_validates_priority() {
     );
 
     let ctx = compile(&dir);
+    let diagnostics = ctx.diagnostics();
 
     // W078 should fire for invalid priority
-    let w078_diags: Vec<_> = ctx
-        .diagnostics
-        .iter()
-        .filter(|d| d.code == "W078")
-        .collect();
+    let w078_diags: Vec<_> = diagnostics.iter().filter(|d| d.code == "W078").collect();
     assert!(
         !w078_diags.is_empty(),
         "expected W078 for invalid priority, diagnostics: {:?}",
-        ctx.diagnostics
+        diagnostics
     );
 }
 
@@ -120,17 +111,14 @@ fn test_pipeline_with_product_extension_detects_orphans() {
     );
 
     let ctx = compile(&dir);
+    let diagnostics = ctx.diagnostics();
 
     // W041 should fire for orphan feature (no incoming edges)
-    let w041_diags: Vec<_> = ctx
-        .diagnostics
-        .iter()
-        .filter(|d| d.code == "W041")
-        .collect();
+    let w041_diags: Vec<_> = diagnostics.iter().filter(|d| d.code == "W041").collect();
     assert!(
         !w041_diags.is_empty(),
         "expected W041 for orphan feature, diagnostics: {:?}",
-        ctx.diagnostics
+        diagnostics
     );
 }
 
@@ -143,10 +131,10 @@ fn test_pipeline_without_extension_no_extension_validation() {
     );
 
     let ctx = compile(&dir);
+    let diagnostics = ctx.diagnostics();
 
     // No W077/W041 since no extension is loaded to provide those rules
-    let extension_diags: Vec<_> = ctx
-        .diagnostics
+    let extension_diags: Vec<_> = diagnostics
         .iter()
         .filter(|d| d.code.starts_with("W0") && d.code.len() == 4)
         .collect();
@@ -187,6 +175,7 @@ module mod1 "Module One" {
     );
 
     let ctx = compile(&dir);
+    let diagnostics = ctx.diagnostics();
 
     // All 3 entities should be in the graph
     assert!(ctx.graph.node("f1").is_some());
@@ -198,8 +187,7 @@ module mod1 "Module One" {
     assert!(!edges.is_empty(), "milestone m1 should have edges to f1");
 
     // f1 is referenced by m1 and mod1, so W041 (orphan feature) should NOT fire
-    let w041_diags: Vec<_> = ctx
-        .diagnostics
+    let w041_diags: Vec<_> = diagnostics
         .iter()
         .filter(|d| d.code == "W041" && d.message.contains("f1"))
         .collect();
@@ -217,15 +205,15 @@ fn test_pipeline_registries_populated() {
     let ctx = compile(&dir);
 
     // Kind registry should have all 9 product entity kinds
-    assert!(ctx.kind_registry.contains("feature"));
-    assert!(ctx.kind_registry.contains("journey"));
-    assert!(ctx.kind_registry.contains("deliverable"));
-    assert!(ctx.kind_registry.contains("milestone"));
-    assert!(ctx.kind_registry.contains("module"));
-    assert!(ctx.kind_registry.contains("term"));
-    assert!(ctx.kind_registry.contains("persona"));
-    assert!(ctx.kind_registry.contains("channel"));
-    assert!(ctx.kind_registry.contains("release"));
+    assert!(ctx.env.registries.kinds.contains("feature"));
+    assert!(ctx.env.registries.kinds.contains("journey"));
+    assert!(ctx.env.registries.kinds.contains("deliverable"));
+    assert!(ctx.env.registries.kinds.contains("milestone"));
+    assert!(ctx.env.registries.kinds.contains("module"));
+    assert!(ctx.env.registries.kinds.contains("term"));
+    assert!(ctx.env.registries.kinds.contains("persona"));
+    assert!(ctx.env.registries.kinds.contains("channel"));
+    assert!(ctx.env.registries.kinds.contains("release"));
 }
 
 #[test]
@@ -280,9 +268,9 @@ term specification "Specification" {
     );
 
     let ctx = compile(&dir);
+    let diagnostics = ctx.diagnostics();
 
-    let errors: Vec<_> = ctx
-        .diagnostics
+    let errors: Vec<_> = diagnostics
         .iter()
         .filter(|d| d.severity == specforge_common::Severity::Error)
         .collect();
@@ -307,16 +295,13 @@ module mod_b "Module B" {
     );
 
     let ctx = compile(&dir);
+    let diagnostics = ctx.diagnostics();
 
-    let e007_diags: Vec<_> = ctx
-        .diagnostics
-        .iter()
-        .filter(|d| d.code == "E007")
-        .collect();
+    let e007_diags: Vec<_> = diagnostics.iter().filter(|d| d.code == "E007").collect();
     assert!(
         !e007_diags.is_empty(),
         "expected E007 for module cycle, diagnostics: {:?}",
-        ctx.diagnostics
+        diagnostics
     );
 }
 
@@ -336,12 +321,9 @@ module mod_c "Module C" {
     );
 
     let ctx = compile(&dir);
+    let diagnostics = ctx.diagnostics();
 
-    let cycle_diags: Vec<_> = ctx
-        .diagnostics
-        .iter()
-        .filter(|d| d.code == "E007")
-        .collect();
+    let cycle_diags: Vec<_> = diagnostics.iter().filter(|d| d.code == "E007").collect();
     assert!(
         cycle_diags.is_empty(),
         "expected no E007 for linear deps, got: {:?}",
@@ -367,16 +349,13 @@ feature f2 "Feature 2" {
     );
 
     let ctx = compile(&dir);
+    let diagnostics = ctx.diagnostics();
 
-    let w045_diags: Vec<_> = ctx
-        .diagnostics
-        .iter()
-        .filter(|d| d.code == "W045")
-        .collect();
+    let w045_diags: Vec<_> = diagnostics.iter().filter(|d| d.code == "W045").collect();
     assert!(
         !w045_diags.is_empty(),
         "expected W045 for feature cycle, diagnostics: {:?}",
-        ctx.diagnostics
+        diagnostics
     );
 }
 
@@ -390,16 +369,13 @@ fn test_pipeline_conditional_deferred_feature_without_reason() {
     );
 
     let ctx = compile(&dir);
+    let diagnostics = ctx.diagnostics();
 
-    let i059_diags: Vec<_> = ctx
-        .diagnostics
-        .iter()
-        .filter(|d| d.code == "I059")
-        .collect();
+    let i059_diags: Vec<_> = diagnostics.iter().filter(|d| d.code == "I059").collect();
     assert!(
         !i059_diags.is_empty(),
         "expected I059 for deferred feature without reason, diagnostics: {:?}",
-        ctx.diagnostics
+        diagnostics
     );
 }
 
@@ -414,12 +390,9 @@ fn test_pipeline_conditional_deferred_feature_with_reason_no_warning() {
     );
 
     let ctx = compile(&dir);
+    let diagnostics = ctx.diagnostics();
 
-    let i059_diags: Vec<_> = ctx
-        .diagnostics
-        .iter()
-        .filter(|d| d.code == "I059")
-        .collect();
+    let i059_diags: Vec<_> = diagnostics.iter().filter(|d| d.code == "I059").collect();
     assert!(
         i059_diags.is_empty(),
         "expected no I059 when reason is present, got: {:?}",
@@ -442,16 +415,13 @@ milestone m1 "Done Milestone" {
     );
 
     let ctx = compile(&dir);
+    let diagnostics = ctx.diagnostics();
 
-    let w057_diags: Vec<_> = ctx
-        .diagnostics
-        .iter()
-        .filter(|d| d.code == "W057")
-        .collect();
+    let w057_diags: Vec<_> = diagnostics.iter().filter(|d| d.code == "W057").collect();
     assert!(
         !w057_diags.is_empty(),
         "expected W057 for completed milestone without exit_criteria, diagnostics: {:?}",
-        ctx.diagnostics
+        diagnostics
     );
 }
 #[test]
@@ -469,12 +439,9 @@ journey broken_journey "Missing flow" {
     );
 
     let ctx = compile(&dir);
+    let diagnostics = ctx.diagnostics();
 
-    let e006_diags: Vec<_> = ctx
-        .diagnostics
-        .iter()
-        .filter(|d| d.code == "E006")
-        .collect();
+    let e006_diags: Vec<_> = diagnostics.iter().filter(|d| d.code == "E006").collect();
 
     assert!(
         e006_diags.iter().any(|d| d.message.contains("problem")),
@@ -505,12 +472,9 @@ journey j1 "Complete" {
     );
 
     let ctx = compile(&dir);
+    let diagnostics = ctx.diagnostics();
 
-    let e006_diags: Vec<_> = ctx
-        .diagnostics
-        .iter()
-        .filter(|d| d.code == "E006")
-        .collect();
+    let e006_diags: Vec<_> = diagnostics.iter().filter(|d| d.code == "E006").collect();
     assert!(
         e006_diags.is_empty(),
         "Expected no E006 when required fields present, got: {:?}",

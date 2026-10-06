@@ -14,9 +14,6 @@
 //!   applies changes as an update, an environment reload or a re-check
 //!   (watch, the LSP and MCP each hold one). After any sequence of updates
 //!   its diagnostics are the set a fresh compile reports.
-//!
-//! [`CompilationContext`] is the flat view older callers read; it is built
-//! from a compiled project with [`CompiledProject::into_context`].
 
 mod build_cache;
 mod check_passes;
@@ -49,7 +46,7 @@ use specforge_resolver::{ResolveConfig, ResolvedProject, resolve_project_with_co
 use specforge_wasm::WasmRuntime;
 
 pub use build_cache::{BUILD_CACHE_FILE, BUILD_CACHE_FORMAT, BuildCache, CachedStatus};
-pub use compile::{CompilationContext, EnabledExtension};
+pub use compile::EnabledExtension;
 pub use delta::{EdgeChange, GraphDelta, ModifiedNodeChange, NodeChange, compute_graph_delta};
 pub use inputs::{Changes, EnvironmentInputs, InputRole, Origin, UpdateKind, source_key};
 pub use policy::{
@@ -407,34 +404,5 @@ impl CompiledProject {
     /// graph against it, memoized for this compile.
     pub fn recorded(&self) -> &RecordedCoverage {
         &self.recorded
-    }
-
-    /// The flat view older callers read.
-    pub fn into_context(self) -> CompilationContext {
-        let diagnostics = self.diagnostics();
-        let CompiledProject {
-            env,
-            resolved,
-            graph,
-            ..
-        } = self;
-        let registries = env.registries;
-        let declarations = registries.declarations().to_vec();
-        CompilationContext {
-            graph,
-            extension_info: registries
-                .extension_info()
-                .map(|(name, version)| (name.to_string(), version.to_string()))
-                .collect(),
-            kind_registry: registries.kinds,
-            field_registry: registries.fields,
-            edge_registry: registries.edges,
-            diagnostics,
-            resolved,
-            extension_rules: registries.rules,
-            declarations,
-            passes: registries.passes,
-            spec_root: env.spec_root,
-        }
     }
 }

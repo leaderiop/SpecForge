@@ -57,8 +57,8 @@ fn one_compile_reports_every_layers_errors() {
     assert!(position("E025") < position("E002"), "{codes:?}");
 }
 
-/// The flat view carries the same diagnostics, and the spec root and
-/// resolved files the compile read (MCP needs both: plan 01, D8).
+/// A compile keeps the spec root and the resolved files it read (MCP
+/// needs both: plan 01, D8).
 #[test]
 fn the_context_view_keeps_the_spec_root_and_the_resolved_files() {
     let dir = project(
@@ -70,12 +70,14 @@ fn the_context_view_keeps_the_spec_root_and_the_resolved_files() {
     );
 
     let compiled = compile(dir.path());
-    let diagnostics = compiled.diagnostics();
-    let ctx = compiled.into_context();
 
-    assert_eq!(ctx.diagnostics, diagnostics);
-    assert_eq!(ctx.spec_root, dir.path().join("spec"));
-    let files: Vec<&str> = ctx.resolved.files.iter().map(|f| f.path.as_str()).collect();
+    assert_eq!(compiled.env.spec_root, dir.path().join("spec"));
+    let files: Vec<&str> = compiled
+        .resolved
+        .files
+        .iter()
+        .map(|f| f.path.as_str())
+        .collect();
     assert_eq!(files, ["a.spec"]);
 }
 
