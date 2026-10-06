@@ -8,11 +8,9 @@
 //! what its sources and its extension declare.
 
 pub mod extension;
-mod legacy;
 pub mod project;
 pub mod rpc;
 
 pub use extension::TestExtension;
-pub use legacy::{report, update_of};
 pub use project::{Served, TestProject};
 pub use rpc::*;
