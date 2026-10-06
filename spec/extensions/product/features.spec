@@ -219,7 +219,7 @@ feature pe_graph_rendering "Product Graph Rendering" {
 
 feature pe_cross_extension_cooperation "Cross-Extension Cooperation" {
   problem  """
-    @specforge/product declares no peer_dependencies and operates standalone,
+    @specforge/product declares only an optional peer (governance) and operates standalone,
     but @specforge/software declares a peer_dependency on product and
     contributes the BehaviorImplementsFeature edge (behavior->feature) and an entity_enhancement
     adding a behaviors field to milestone. There is no specification for how cross-extension
