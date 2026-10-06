@@ -13,6 +13,7 @@ use crate::prompt::{PromptArgs, PromptOutcome, Rendered};
 use crate::target::Call;
 use crate::tool::{ErrorCode, McpError};
 use crate::tools::find_spec_for_source::{anchor_json, file_match_name};
+use specforge_ops::view::ProjectView;
 
 /// Maximum number of files listed per page in the plan prompt (C9-08).
 const MAX_LISTED_FILES: usize = 50;
@@ -108,38 +109,11 @@ fn page_files(files: &[String], cursor: usize) -> Vec<Value> {
 }
 
 pub fn render(call: &Call<'_>, args: Args) -> PromptOutcome {
-    let project = Inferring {
-        graph: call.view().graph,
-        env: call.environment(),
-        root: call.root(),
-    };
-    respond(&project, args)
-}
-
-/// What the prompt reads of the call's project: its graph, environment and
-/// root (none while no project is served: the empty session).
-struct Inferring<'a> {
-    graph: &'a specforge_graph::Graph,
-    env: &'a specforge_project::Environment,
-    root: Option<&'a std::path::Path>,
-}
-
-impl Inferring<'_> {
-    fn graph(&self) -> &specforge_graph::Graph {
-        self.graph
-    }
-
-    fn registries(&self) -> &specforge_registry::RegistryBuild {
-        &self.env.registries
-    }
-
-    fn config(&self) -> &specforge_common::ProjectConfig {
-        &self.env.config
-    }
+    respond(&call.view(), args)
 }
 
 /// The prompt over `project`.
-fn respond(project: &Inferring<'_>, args: Args) -> PromptOutcome {
+fn respond(project: &ProjectView, args: Args) -> PromptOutcome {
     match Scope::parse(args.scope.as_deref())? {
         Scope::Plan => Ok(get_plan(
             project,
@@ -161,17 +135,17 @@ fn rendered(instruction: impl Into<String>, payload: Value) -> Rendered {
     }
 }
 
-fn get_overview(project: &Inferring<'_>) -> Rendered {
+fn get_overview(project: &ProjectView) -> Rendered {
     let mut kind_counts: HashMap<String, usize> = HashMap::new();
-    for node in project.graph().nodes() {
+    for node in project.graph.nodes() {
         *kind_counts.entry(node.kind.raw.to_string()).or_default() += 1;
     }
 
     let mut kinds_info: Vec<Value> = Vec::new();
-    for declaration in project.registries().declarations() {
+    for declaration in project.registries.declarations() {
         for kind in &declaration.entities {
             let keyword = keyword(kind).to_lowercase();
-            let guide = build_guide_for_kind(&keyword, declaration, &project.config().inference);
+            let guide = build_guide_for_kind(&keyword, declaration, &project.env.config.inference);
             let fields: Vec<String> = kind
                 .fields
                 .iter()
@@ -194,10 +168,10 @@ fn get_overview(project: &Inferring<'_>) -> Rendered {
         }
     }
 
-    let global_conventions = project.config().inference.global.as_deref().unwrap_or("");
+    let global_conventions = project.env.config.inference.global.as_deref().unwrap_or("");
 
     let result = json!({
-        "installed_extensions": project.registries().extension_info().map(|(name, _)| name.to_string()).collect::<Vec<_>>(),
+        "installed_extensions": project.registries.extension_info().map(|(name, _)| name.to_string()).collect::<Vec<_>>(),
         "existing_entities": kind_counts,
         "kinds": kinds_info,
         "project_conventions": global_conventions,
@@ -214,9 +188,9 @@ fn get_overview(project: &Inferring<'_>) -> Rendered {
     rendered(instruction, result)
 }
 
-fn get_kind_scoped(project: &Inferring<'_>, kind_name: &str) -> PromptOutcome {
+fn get_kind_scoped(project: &ProjectView, kind_name: &str) -> PromptOutcome {
     let matched_kind = project
-        .registries()
+        .registries
         .declarations()
         .iter()
         .flat_map(|d| d.entities.iter().map(move |k| (d, k)))
@@ -227,14 +201,14 @@ fn get_kind_scoped(project: &Inferring<'_>, kind_name: &str) -> PromptOutcome {
     };
 
     let existing_ids: Vec<String> = project
-        .graph()
+        .graph
         .nodes()
         .into_iter()
         .filter(|n| n.kind.raw == kind_name)
         .map(|n| n.id.raw.to_string())
         .collect();
 
-    let guide = build_guide_for_kind(kind_name, declaration, &project.config().inference);
+    let guide = build_guide_for_kind(kind_name, declaration, &project.env.config.inference);
     let fields: Vec<Value> = kind_def
         .fields
         .iter()
@@ -269,9 +243,9 @@ fn get_kind_scoped(project: &Inferring<'_>, kind_name: &str) -> PromptOutcome {
 
 /// A kind no installed extension declares: I020's wording, with the
 /// closest installed kind.
-fn unknown_kind(project: &Inferring<'_>, kind_name: &str) -> McpError {
+fn unknown_kind(project: &ProjectView, kind_name: &str) -> McpError {
     let installed: Vec<String> = project
-        .registries()
+        .registries
         .declarations()
         .iter()
         .flat_map(|d| d.entities.iter())
@@ -287,7 +261,7 @@ fn unknown_kind(project: &Inferring<'_>, kind_name: &str) -> McpError {
     crate::operations::op_error(error).with_argument("scope")
 }
 
-fn get_file_scoped(project: &Inferring<'_>, file_path: &str) -> PromptOutcome {
+fn get_file_scoped(project: &ProjectView, file_path: &str) -> PromptOutcome {
     // The entities anchored to the file: the one file rule
     // (specforge_ops::navigate::anchors_of_file) over the anchors manifest,
     // the answer specforge.find_spec_for_source gives (C9-09). With no
@@ -300,15 +274,15 @@ fn get_file_scoped(project: &Inferring<'_>, file_path: &str) -> PromptOutcome {
     let referencing_entities: Vec<Value> = found
         .anchors
         .iter()
-        .map(|anchor| anchor_json(anchor, project.graph()))
+        .map(|anchor| anchor_json(anchor, project.graph))
         .collect();
     let match_mode = file_match_name(found.mode);
 
     let mut kinds_info: Vec<Value> = Vec::new();
-    for declaration in project.registries().declarations() {
+    for declaration in project.registries.declarations() {
         for kind in &declaration.entities {
             let keyword = keyword(kind).to_lowercase();
-            let guide = build_guide_for_kind(&keyword, declaration, &project.config().inference);
+            let guide = build_guide_for_kind(&keyword, declaration, &project.env.config.inference);
             kinds_info.push(json!({
                 "kind": keyword,
                 "inference_guide": guide,
@@ -316,7 +290,7 @@ fn get_file_scoped(project: &Inferring<'_>, file_path: &str) -> PromptOutcome {
         }
     }
 
-    let global_conventions = project.config().inference.global.as_deref().unwrap_or("");
+    let global_conventions = project.env.config.inference.global.as_deref().unwrap_or("");
 
     let result = json!({
         "file": file_path,
@@ -337,40 +311,23 @@ fn get_file_scoped(project: &Inferring<'_>, file_path: &str) -> PromptOutcome {
     Ok(rendered(instruction, result))
 }
 
-fn get_plan(
-    project: &Inferring<'_>,
-    target_spec_directory: Option<&str>,
-    cursor: usize,
-) -> Rendered {
+fn get_plan(project: &ProjectView, target_spec_directory: Option<&str>, cursor: usize) -> Rendered {
     let target_spec_directory = target_spec_directory.unwrap_or("spec/");
 
-    let project_root = project.root;
-
-    let (summary, unanalyzed, stale) = match project_root {
-        Some(root) => {
-            let progress =
-                specforge_ops::infer::progress_or_fresh(root, project.registries().declarations());
-            (progress.summary, progress.unanalyzed, progress.stale)
-        }
-        None => {
-            let summary = specforge_common::InferenceSummary {
-                files_total: 0,
-                files_analyzed: 0,
-                entities_produced: 0,
-            };
-            (summary, Vec::new(), Vec::new())
-        }
-    };
+    // A fresh count when specforge-infer.json can't be read; nothing
+    // without a root.
+    let progress = specforge_ops::infer::progress_or_fresh(project);
+    let (summary, unanalyzed, stale) = (progress.summary, progress.unanalyzed, progress.stale);
 
     let kind_priorities: Vec<Value> = project
-        .registries()
+        .registries
         .declarations()
         .iter()
         .flat_map(|d| d.entities.iter().map(move |k| (d, k)))
         .map(|(d, k)| {
             let keyword = keyword(k).to_lowercase();
             let existing_count = project
-                .graph()
+                .graph
                 .nodes()
                 .into_iter()
                 .filter(|n| n.kind.raw == keyword.as_str())
@@ -426,7 +383,7 @@ fn get_plan(
     rendered(instruction, result)
 }
 
-fn get_workflow(project: &Inferring<'_>) -> Rendered {
+fn get_workflow(project: &ProjectView) -> Rendered {
     let tool_names: Vec<&str> = vec![
         "specforge.infer_session",
         "specforge.infer_progress",
@@ -437,7 +394,7 @@ fn get_workflow(project: &Inferring<'_>) -> Rendered {
     ];
 
     let installed_kinds: Vec<String> = project
-        .registries()
+        .registries
         .declarations()
         .iter()
         .flat_map(|d| d.entities.iter())

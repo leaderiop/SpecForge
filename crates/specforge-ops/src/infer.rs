@@ -7,12 +7,12 @@
 //! items and keeps the ones no graph entity names.
 
 use crate::OpError;
+use crate::view::ProjectView;
 use serde_json::{Value, json};
 use specforge_common::AnalyzerConfig;
 use specforge_common::inference::{
     self, InferenceManifest, InferenceSummary, SourceItem, discovery::SourceDiscoveryConfig,
 };
-use specforge_graph::Graph;
 use specforge_protocol_types::ExtensionDeclaration;
 use specforge_wasm::runtime::WasmRuntime;
 use std::collections::BTreeMap;
@@ -83,16 +83,34 @@ fn source_files(
     inference::discover_source_files(root, &manifest.source_roots, &discovery)
 }
 
-/// Inference progress for the project at `root`, whose enabled extensions
-/// are `declarations`.
-pub fn progress(root: &Path, declarations: &[ExtensionDeclaration]) -> Result<Progress, OpError> {
-    Ok(progress_under(root, declarations, &manifest(root)?))
+/// Inference progress for the project the view was compiled from: the
+/// source files its loaded analyzers would scan at its root, against
+/// `specforge-infer.json` there. Without a root: `no_project`.
+pub fn progress(view: &ProjectView) -> Result<Progress, OpError> {
+    let root = view.project_root()?;
+    Ok(progress_under(
+        root,
+        view.registries.declarations(),
+        &manifest(root)?,
+    ))
 }
 
 /// [`progress`], counting from scratch when `specforge-infer.json` cannot
-/// be read: the infer prompt plans a fresh inference then.
-pub fn progress_or_fresh(root: &Path, declarations: &[ExtensionDeclaration]) -> Progress {
-    progress_under(root, declarations, &manifest(root).unwrap_or_default())
+/// be read, and nothing without a root: what the infer prompt plans from.
+pub fn progress_or_fresh(view: &ProjectView) -> Progress {
+    let Some(root) = view.root else {
+        return Progress {
+            summary: InferenceManifest::default().compute_summary(0),
+            unanalyzed: Vec::new(),
+            stale: Vec::new(),
+            deleted: Vec::new(),
+        };
+    };
+    progress_under(
+        root,
+        view.registries.declarations(),
+        &manifest(root).unwrap_or_default(),
+    )
 }
 
 fn progress_under(
@@ -116,17 +134,16 @@ fn progress_under(
     }
 }
 
-/// The public items of the project's source files that no entity of
-/// `graph` names, scanned through the extensions' scanners on `runtime`.
-pub fn gaps(
-    root: &Path,
-    declarations: &[ExtensionDeclaration],
-    graph: &Graph,
-    runtime: &dyn WasmRuntime,
-) -> Result<Gaps, OpError> {
+/// The public items of the view's source files that no entity of its
+/// graph names, scanned through its extensions' scanners on `runtime`.
+/// Without a root: `no_project`.
+pub fn gaps(view: &ProjectView, runtime: &dyn WasmRuntime) -> Result<Gaps, OpError> {
+    let root = view.project_root()?;
+    let declarations = view.registries.declarations();
     let files = source_files(root, declarations, &manifest(root)?);
     let scanned = crate::scan::scan_source_files(runtime, declarations, root, &files);
-    let entity_ids: Vec<&str> = graph
+    let entity_ids: Vec<&str> = view
+        .graph
         .nodes()
         .into_iter()
         .map(|n| n.id.raw.as_str())
@@ -227,11 +244,14 @@ impl Gaps {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::view::testing::Fixture;
     use specforge_test_macros::test as specforge_test;
 
-    /// A project with Rust sources under `src/`, one of them indexed.
-    fn project() -> tempfile::TempDir {
-        let dir = tempfile::tempdir().unwrap();
+    /// A project with Rust sources under `src/`, one of them indexed,
+    /// whose compile loaded a Rust analyzer.
+    fn project() -> Fixture {
+        let fixture = Fixture::new().declarations(rust_analyzer());
+        let dir = &fixture.dir;
         std::fs::create_dir_all(dir.path().join("src/net")).unwrap();
         std::fs::write(dir.path().join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
         std::fs::write(dir.path().join("src/net/wire.rs"), "pub struct Wire;\n").unwrap();
@@ -251,7 +271,7 @@ mod tests {
             .to_string(),
         )
         .unwrap();
-        dir
+        fixture
     }
 
     /// An extension analyzing Rust files.
@@ -280,7 +300,7 @@ mod tests {
     )]
     fn progress_lists_unindexed_and_deleted_files() {
         let dir = project();
-        let progress = progress(dir.path(), &rust_analyzer()).unwrap();
+        let progress = progress(&dir.view()).unwrap();
         assert_eq!(progress.unanalyzed, ["src/net/wire.rs"]);
         assert_eq!(progress.deleted, ["src/gone.rs"]);
         assert!(progress.stale.is_empty(), "{progress:?}");
@@ -298,11 +318,8 @@ mod tests {
     )]
     fn progress_detects_a_changed_file() {
         let dir = project();
-        std::fs::write(dir.path().join("src/lib.rs"), "pub fn beta() {}\n").unwrap();
-        assert_eq!(
-            progress(dir.path(), &rust_analyzer()).unwrap().stale,
-            ["src/lib.rs"]
-        );
+        std::fs::write(dir.dir.path().join("src/lib.rs"), "pub fn beta() {}\n").unwrap();
+        assert_eq!(progress(&dir.view()).unwrap().stale, ["src/lib.rs"]);
     }
 
     #[specforge_test(
@@ -311,8 +328,8 @@ mod tests {
     )]
     fn progress_without_a_manifest_counts_every_file_unanalyzed() {
         let dir = project();
-        std::fs::remove_file(dir.path().join("specforge-infer.json")).unwrap();
-        let progress = progress(dir.path(), &rust_analyzer()).unwrap();
+        std::fs::remove_file(dir.dir.path().join("specforge-infer.json")).unwrap();
+        let progress = progress(&dir.view()).unwrap();
         assert_eq!(progress.summary.files_analyzed, 0);
         assert!(progress.unanalyzed.contains(&"src/lib.rs".to_string()));
     }
@@ -320,11 +337,25 @@ mod tests {
     #[test]
     fn an_invalid_manifest_is_its_own_error() {
         let dir = project();
-        std::fs::write(dir.path().join("specforge-infer.json"), "{ nope").unwrap();
-        assert_eq!(
-            progress(dir.path(), &rust_analyzer()).unwrap_err().code,
-            MANIFEST_INVALID
-        );
+        std::fs::write(dir.dir.path().join("specforge-infer.json"), "{ nope").unwrap();
+        assert_eq!(progress(&dir.view()).unwrap_err().code, MANIFEST_INVALID);
+    }
+
+    #[test]
+    fn progress_over_a_rootless_view_is_no_project_and_fresh_counts_nothing() {
+        let dir = project();
+        let rootless = dir.rootless_view();
+
+        assert_eq!(progress(&rootless).unwrap_err().code, "no_project");
+        let runtime = specforge_wasm::testing::InProcessRuntime::new();
+        assert_eq!(gaps(&rootless, &runtime).unwrap_err().code, "no_project");
+        let fresh = progress_or_fresh(&rootless);
+        assert_eq!(fresh.summary.files_total, 0);
+        assert_eq!(fresh.summary.files_analyzed, 0);
+        assert!(fresh.unanalyzed.is_empty() && fresh.stale.is_empty() && fresh.deleted.is_empty());
+
+        // Rooted, the same view counts the files at its root.
+        assert_eq!(progress_or_fresh(&dir.view()).summary.files_total, 2);
     }
 
     #[test]

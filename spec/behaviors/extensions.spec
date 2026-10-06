@@ -471,6 +471,7 @@ behavior management_operations_over_the_project_view "Management Operations over
   verify unit "the extensions listing reads the config entries from the view, never specforge.json again"
   verify unit "doctor reads the diagnostics its view reports"
   verify unit "collect maps test results to the entities of its view"
+  verify contract "Management Operations over the Project View: management operations hold — project_compiled, one_project_read, root_for_disk"
 }
 
 // Called imperatively by validate_provider_refs (which consumes provider_schemes_registered).

@@ -16,13 +16,7 @@ pub fn call(call: &mut Call<'_>, _args: crate::args::NoArgs) -> ToolOutcome {
             "message": "No project root available"
         }));
     };
-    let runtime = project.runtime;
-    match specforge_ops::infer::gaps(
-        project.root,
-        project.env.registries.declarations(),
-        project.graph,
-        runtime.as_ref(),
-    ) {
+    match specforge_ops::infer::gaps(&project.view(), project.runtime.as_ref()) {
         Ok(gaps) => ToolOutcome::ok(gaps.to_json()),
         Err(error) => crate::operations::op_error(error).into(),
     }
