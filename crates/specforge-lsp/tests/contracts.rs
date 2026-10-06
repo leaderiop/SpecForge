@@ -263,6 +263,36 @@ async fn formatting_keeps_the_compile_diagnostics() {
     assert_eq!(codes, expected, "{after:?}");
 }
 
+/// Pin (plan 03): today's behaviour; flipped by T9.
+#[tokio::test]
+async fn formatting_ignores_the_project_format_config() {
+    use wire::{Session, uri_of};
+
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path().canonicalize().unwrap();
+    std::fs::write(root.join("specforge.json"), "{}").unwrap();
+    std::fs::write(root.join(".specforgefmt.toml"), "indent_width = 4\n").unwrap();
+    std::fs::create_dir(root.join("spec")).unwrap();
+    let file = root.join("spec/a.spec");
+    let text = "behavior login \"Login\" {\n    contract \"The system MUST log in\"\n}\n";
+    std::fs::write(&file, text).unwrap();
+    let (mut session, _) = Session::start(Some(&root)).await;
+    let uri = uri_of(&file);
+    session.open(&uri, text).await;
+    session.diagnostics(&uri).await;
+
+    // Canonical under the project's config, the file is still reindented
+    // to the editor's tabSize 2.
+    let edits = session.format(&uri).await;
+    let edits = edits.as_array().expect("an edit list");
+    assert!(!edits.is_empty(), "{edits:?}");
+    let new_text = edits[0]["newText"].as_str().unwrap();
+    assert!(
+        new_text.starts_with("  contract") && !new_text.starts_with("   "),
+        "{new_text:?}"
+    );
+}
+
 // B:autocomplete_entity_ids — verify contract "requires/ensures consistency for entity ID autocomplete"
 #[specforge_test(
     behavior = "autocomplete_entity_ids",

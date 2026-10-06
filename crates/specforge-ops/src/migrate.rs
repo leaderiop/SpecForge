@@ -373,6 +373,30 @@ mod tests {
         assert_eq!(parse_target(None).unwrap(), CURRENT_FORMAT_VERSION);
     }
 
+    /// Pin (plan 03): today's behaviour; flipped by T10.
+    #[test]
+    fn migrate_ignores_the_configured_spec_root() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let root = dir.path();
+        std::fs::write(root.join("specforge.json"), r#"{"spec_root": "specs"}"#).unwrap();
+        for file in ["specs/a.spec", "fixtures/fx.spec"] {
+            std::fs::create_dir_all(root.join(file).parent().unwrap()).unwrap();
+            std::fs::write(root.join(file), OLD).unwrap();
+        }
+
+        let summary = migrate_project(root, &CURRENT_FORMAT_VERSION, true, true);
+
+        let visited: Vec<&str> = summary
+            .results
+            .iter()
+            .map(|r| r.file_path.as_str())
+            .collect();
+        assert!(
+            visited.iter().any(|f| f.ends_with("fixtures/fx.spec")),
+            "{visited:?}"
+        );
+    }
+
     /// `@acme/x`, served in process, declaring its migration hook
     /// `migrate_acme` with its handler, or no hook; the runtime records
     /// every export the host calls.

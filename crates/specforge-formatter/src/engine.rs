@@ -1090,6 +1090,28 @@ mod tests {
         );
     }
 
+    /// Three blocks, then a stray `}}}` on line 13 (0-based 12).
+    const RANGE_WITH_A_KEPT_REGION: &str = "behavior a \"A\" {\n  contract \"a\"\n}\n\nbehavior b \"B\" {\n  contract \"b\"\n}\n\nbehavior c \"C\" {\n      contract \"c\"\n}\n\n}}}\n";
+
+    /// Pin (plan 03): today's behaviour; flipped by T2.
+    #[test]
+    fn range_w142_counts_lines_from_the_range() {
+        let result = format_range(RANGE_WITH_A_KEPT_REGION, 8, 12, &FormatConfig::default());
+
+        let w142: Vec<_> = result
+            .diagnostics
+            .iter()
+            .filter(|d| d.code == "W142")
+            .collect();
+        assert_eq!(w142.len(), 1, "{:?}", result.diagnostics);
+        assert!(
+            w142[0].message.starts_with("Parse error at lines 5-5,"),
+            "{}",
+            w142[0].message
+        );
+        assert!(w142[0].span.is_none());
+    }
+
     // --- Slice 10: compute_edits ---
 
     #[specforge_test_macros::test(

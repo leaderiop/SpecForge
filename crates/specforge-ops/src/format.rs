@@ -178,4 +178,86 @@ mod tests {
         assert_eq!(second.checked, 2);
         assert!(second.changes.is_empty());
     }
+
+    /// Write `files` (path, text) under a fresh directory holding
+    /// `specforge.json` = `config`.
+    fn project_with(config: &str, files: &[(&str, &str)]) -> tempfile::TempDir {
+        let dir = tempfile::TempDir::new().unwrap();
+        std::fs::write(dir.path().join("specforge.json"), config).unwrap();
+        for (path, text) in files {
+            let path = dir.path().join(path);
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(path, text).unwrap();
+        }
+        dir
+    }
+
+    /// The changed files of a check run over `root`, relative to it.
+    fn changed(root: &Path) -> Vec<String> {
+        run(&request(root, Mode::Check))
+            .changes
+            .iter()
+            .map(|c| relative(root, &c.path))
+            .collect()
+    }
+
+    /// `path` relative to `root`, with `/` separators.
+    fn relative(root: &Path, path: &Path) -> String {
+        path.strip_prefix(root)
+            .unwrap_or(path)
+            .to_string_lossy()
+            .replace('\\', "/")
+    }
+
+    /// Pin (plan 03): today's behaviour; flipped by T6.
+    #[test]
+    fn targets_ignore_the_configured_spec_root() {
+        let dir = project_with(
+            r#"{"spec_root": "specs"}"#,
+            &[("specs/a.spec", MESSY), ("fixtures/fx.spec", MESSY)],
+        );
+        // No spec/ directory: the whole root is searched, fixtures too.
+        let changes = changed(dir.path());
+        assert!(changes.contains(&"fixtures/fx.spec".into()), "{changes:?}");
+
+        // With a spec/ directory only it is searched: the configured spec
+        // root is never looked at.
+        std::fs::create_dir(dir.path().join("spec")).unwrap();
+        std::fs::write(dir.path().join("spec/old.spec"), MESSY).unwrap();
+        let changes = changed(dir.path());
+        assert!(!changes.contains(&"specs/a.spec".into()), "{changes:?}");
+    }
+
+    /// Pin (plan 03): today's behaviour; flipped by T6.
+    #[test]
+    fn targets_ignore_the_project_exclude() {
+        let dir = project_with(
+            r#"{"exclude": ["drafts"]}"#,
+            &[("spec/drafts/d.spec", MESSY)],
+        );
+
+        let changes = changed(dir.path());
+        assert!(
+            changes.contains(&"spec/drafts/d.spec".into()),
+            "{changes:?}"
+        );
+    }
+
+    /// Pin (plan 03): today's behaviour; flipped by T7.
+    #[test]
+    fn one_config_applies_to_every_file() {
+        let four = "behavior login \"Login\" {\n    contract \"The system MUST log in\"\n}\n";
+        let dir = project_with(
+            "{}",
+            &[
+                ("spec/sub/.specforgefmt.toml", "indent_width = 4\n"),
+                ("spec/sub/a.spec", four),
+            ],
+        );
+
+        // The run's one config is the root's (the defaults): the nested
+        // file's own config is never read.
+        let changes = changed(dir.path());
+        assert!(changes.contains(&"spec/sub/a.spec".into()), "{changes:?}");
+    }
 }

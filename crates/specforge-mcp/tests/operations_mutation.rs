@@ -219,6 +219,53 @@ fn format_returns_the_config_diagnostics() {
     );
 }
 
+/// UNFORMATTED in canonical form.
+const CANONICAL: &str = "behavior messy \"Messy\" {\n  contract \"The system MUST work\"\n}\n";
+
+/// A project whose spec files are a canonical a.spec and `extra` (path,
+/// text), test.spec empty, and its root.
+fn server_with_canonical_and(extra: (&str, &str)) -> (Served, std::path::PathBuf) {
+    let server = project()
+        .file("test.spec", "")
+        .file("a.spec", CANONICAL)
+        .file(extra.0, extra.1)
+        .serve(&[TestExtension::software()]);
+    let root = server.root().to_path_buf();
+    (server, root)
+}
+
+/// Pin (plan 03): today's behaviour; flipped by T8.
+#[test]
+fn format_reports_a_parse_error_file_clean() {
+    let broken = "behavior login \"Login\" {\n  contract \"ok\"\n}\n\n}}}\n";
+    let (mut server, _root) = server_with_canonical_and(("broken.spec", broken));
+
+    let parsed = format_result(&mut server, json!({"check": true}));
+
+    assert_eq!(parsed["all_clean"], true, "{parsed}");
+    assert_eq!(parsed["diagnostics"], json!([]), "{parsed}");
+}
+
+/// Pin (plan 03): today's behaviour; flipped by T8.
+#[cfg(unix)]
+#[test]
+fn format_skips_an_unreadable_file_silently() {
+    use std::os::unix::fs::PermissionsExt;
+    let other = CANONICAL.replace("messy", "other");
+    let (mut server, root) = server_with_canonical_and(("locked.spec", &other));
+    let locked = root.join("locked.spec");
+    std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o000)).unwrap();
+
+    let resp = call_tool(&mut server, "specforge.format", json!({"check": true}));
+    std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o644)).unwrap();
+
+    let parsed: Value =
+        serde_json::from_str(&tool_text(&resp)).unwrap_or_else(|_| panic!("{resp}"));
+    assert_eq!(parsed["all_clean"], true, "{parsed}");
+    // test.spec and a.spec: the locked file is not counted.
+    assert_eq!(parsed["total_checked"], 2, "{parsed}");
+}
+
 // --- specforge.rename ---
 
 // B:provide_mcp_rename_tool — verify unit "unknown entity returns error"

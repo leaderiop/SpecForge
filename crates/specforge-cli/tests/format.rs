@@ -544,3 +544,55 @@ fn format_from_stdin_contract_requires_ensures() {
         "stdin formatting uses the resolved FormatConfig"
     );
 }
+
+// --- Pins (plan 03) ---
+
+/// `specforge format --check --path <root>`: exit code and stderr.
+fn check_in(root: &std::path::Path) -> (Option<i32>, String) {
+    let output = Command::cargo_bin("specforge")
+        .unwrap()
+        .args(["format", "--check", "--path", root.to_str().unwrap()])
+        .output()
+        .unwrap();
+    (
+        output.status.code(),
+        String::from_utf8_lossy(&output.stderr).into_owned(),
+    )
+}
+
+/// Pin (plan 03): today's behaviour; flipped by T8.
+#[cfg(unix)]
+#[test]
+fn check_exits_zero_on_an_unreadable_file() {
+    use std::os::unix::fs::PermissionsExt;
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path();
+    setup_project(root);
+    write_spec(root, "ok.spec", CANONICAL_FOO);
+    write_spec(root, "locked.spec", CANONICAL_FOO);
+    let locked = root.join("spec/locked.spec");
+    fs::set_permissions(&locked, fs::Permissions::from_mode(0o000)).unwrap();
+
+    let (code, stderr) = check_in(root);
+    fs::set_permissions(&locked, fs::Permissions::from_mode(0o644)).unwrap();
+
+    assert_eq!(code, Some(0), "{stderr}");
+    assert!(stderr.contains("failed to read"), "{stderr}");
+}
+
+/// Pin (plan 03): today's behaviour; flipped by T8.
+#[test]
+fn check_exits_zero_on_a_parse_error() {
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path();
+    setup_project(root);
+    write_spec(root, "broken.spec", &format!("{CANONICAL_FOO}\n}}}}}}\n"));
+
+    let (code, stderr) = check_in(root);
+
+    assert_eq!(code, Some(0), "{stderr}");
+    assert!(
+        stderr.contains("error region preserved verbatim"),
+        "{stderr}"
+    );
+}
