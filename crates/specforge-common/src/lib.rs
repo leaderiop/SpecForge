@@ -1,3 +1,4 @@
+pub mod cycles;
 mod diagnostic;
 pub mod discovery;
 pub mod inference;
