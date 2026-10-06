@@ -254,8 +254,8 @@ fn coverage_line(facts: &EntityFacts, rebuilding: bool) -> Option<String> {
     if rebuilding {
         return Some("unavailable while the project rebuilds".to_string());
     }
-    if standing.exempt {
-        return Some(if standing.obligated {
+    if standing.exempt() {
+        return Some(if standing.obligated() {
             "exempt: it owes none (a union or an exempting field)".to_string()
         } else {
             "exempt: its kind need not declare obligations".to_string()

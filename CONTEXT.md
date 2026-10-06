@@ -93,7 +93,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   model and outline diagrams, the versioned schema, and inspect. Each returns a typed outcome; the
   CLI, MCP and the LSP only render it.
 - **Entity facts**: what inspect returns for one entity: its node and kind entry, headline
-  statement, standing (testable, obligated, exempt), obligations, references in both directions,
+  statement, standing (the snapshot's own, borrowed), obligations, references in both directions,
   coverage, and the reported diagnostics about it (`specforge_ops::inspect::EntityFacts`). MCP
   `specforge.inspect` renders it as JSON and the LSP hover as markdown, so the two cannot disagree.
 - **Management operation**: an operation about a project's setup and tooling rather than its

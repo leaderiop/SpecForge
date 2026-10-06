@@ -393,7 +393,7 @@ fn hover_shows_each_coverage_case() {
         // The line agrees with the read view MCP inspect renders.
         let facts = specforge_ops::inspect::inspect(&project.view(), id).unwrap();
         if let Some(expected) = expected
-            && !facts.standing.exempt
+            && !facts.standing.exempt()
         {
             let status =
                 specforge_ops::coverage::STATUS.name_of(facts.coverage.as_ref().unwrap().status());

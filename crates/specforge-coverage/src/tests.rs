@@ -388,3 +388,26 @@ fn without_grading_no_kind_is_risk_tallied_and_nothing_is_a002() {
         Some("severe-risk hazard: add at least one `verify property` obligation")
     );
 }
+
+#[test]
+fn the_counting_rule_is_one_function_every_entity_applies() {
+    for testable in [false, true] {
+        for exempt in [false, true] {
+            for obligations in [0usize, 1, 2] {
+                let entity = Entity {
+                    testable,
+                    exempt,
+                    verify_kinds: vec!["unit".to_string(); obligations],
+                    verify_texts: vec!["works".to_string(); obligations],
+                    ..Entity::default()
+                };
+                let expected = testable && (!exempt || obligations > 0);
+                assert_eq!(
+                    counts_toward_coverage(testable, exempt, obligations),
+                    expected
+                );
+                assert_eq!(entity.counts_toward_coverage(), expected);
+            }
+        }
+    }
+}

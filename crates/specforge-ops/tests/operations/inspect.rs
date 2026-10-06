@@ -3,10 +3,11 @@
 //! render them (ADR 0015, section "Inspect").
 
 use specforge_common::{Diagnostic, DiagnosticData, Severity, SourceSpan, Sym};
-use specforge_ops::inspect::{Standing, inspect};
+use specforge_ops::inspect::inspect;
 use specforge_ops::navigate::{NOT_FOUND, Reference};
 use specforge_ops::view::ProjectView;
 use specforge_project::coverage::Status;
+use specforge_project::snapshot::Standing;
 use specforge_test::prelude::*;
 
 use crate::navigate::compile;
@@ -36,7 +37,17 @@ fn standings() -> Project {
 const IDS: [&str; 6] = ["ob", "fr", "U", "ab", "n", "done"];
 
 fn standing(view: &ProjectView, id: &str) -> Standing {
-    inspect(view, id).unwrap().standing
+    inspect(view, id).unwrap().standing.clone()
+}
+
+/// `(testable, obligated, exempt)`, how inspect states a standing.
+fn shape(view: &ProjectView, id: &str) -> (bool, bool, bool) {
+    let facts = inspect(view, id).unwrap();
+    (
+        facts.standing.testable,
+        facts.standing.obligated(),
+        facts.standing.exempt(),
+    )
 }
 
 #[specforge_test(
@@ -50,20 +61,15 @@ fn standing_is_the_coverage_views() {
         let standing = standing(&view, id);
         let row = specforge_ops::coverage::row(&view, id).unwrap().unwrap();
         assert_eq!(standing.testable, row.testable, "{id}");
-        assert_eq!(standing.exempt, row.exempt, "{id}");
+        assert_eq!(standing.exempt(), row.exempt, "{id}");
         assert_eq!(standing.counts(), row.testable && !row.exempt, "{id}");
     }
-    let expected = |testable, obligated, exempt| Standing {
-        testable,
-        obligated,
-        exempt,
-    };
-    assert_eq!(standing(&view, "ob"), expected(true, true, false));
-    assert_eq!(standing(&view, "fr"), expected(true, false, true));
-    assert_eq!(standing(&view, "U"), expected(true, true, true));
-    assert_eq!(standing(&view, "ab"), expected(true, true, true));
-    assert_eq!(standing(&view, "n"), expected(false, false, false));
-    assert_eq!(standing(&view, "done"), expected(true, true, false));
+    assert_eq!(shape(&view, "ob"), (true, true, false));
+    assert_eq!(shape(&view, "fr"), (true, false, true));
+    assert_eq!(shape(&view, "U"), (true, true, true));
+    assert_eq!(shape(&view, "ab"), (true, true, true));
+    assert_eq!(shape(&view, "n"), (false, false, false));
+    assert_eq!(shape(&view, "done"), (true, true, false));
 }
 
 #[specforge_test(
@@ -118,7 +124,7 @@ fn an_unreadable_report_is_the_coverage_error_not_the_inspects() {
             .coverage
             .expect_err("the coverage is the report's error");
         assert_eq!(error.diagnostic().code, "E045", "{id}");
-        assert_eq!(facts.standing, readable, "{id}");
+        assert_eq!(facts.standing, &readable, "{id}");
     }
 }
 

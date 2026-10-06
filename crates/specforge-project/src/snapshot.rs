@@ -335,10 +335,14 @@ impl Standing {
     }
 
     /// It counts toward coverage: testable, and it owes obligations or
-    /// declares some (`specforge_coverage::Entity::counts_toward_coverage`
-    /// of its adapter, pinned by a test).
+    /// declares some. The rule is `specforge_coverage`'s, the one its
+    /// entities apply; this is its only caller besides them.
     pub fn counts(&self) -> bool {
-        self.testable && (self.owes_obligations() || self.declared > 0)
+        specforge_coverage::counts_toward_coverage(
+            self.testable,
+            !self.owes_obligations(),
+            self.declared,
+        )
     }
 
     /// Testable, but it owes none and declares none, so it does not count

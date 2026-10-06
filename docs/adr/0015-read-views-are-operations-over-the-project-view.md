@@ -216,7 +216,8 @@ prompt, read the same headline, edges and obligations.
 
 - **I1. Inspect is a read view**: `specforge_ops::inspect::inspect(view, entity_id) ->
   Result<EntityFacts, OpError>`. `EntityFacts` borrows the node and its kind's registry entry and
-  carries the headline statement, the standing (testable, obligated, exempt), the obligations, the
+  carries the headline statement, the standing (the entity snapshot's `snapshot::Standing`,
+  borrowed: `testable`, `obligated()`, `exempt()`; inspect keeps no standing type of its own), the obligations, the
   references (`navigate::References`, one per edge, in edge order, with the peer's kind and the
   field), the coverage (`Result<EntityCoverage, ReportError>`) and the diagnostics the view reports
   about it (`navigate::is_about`). MCP inspect, the context prompt and the hover only render it.
