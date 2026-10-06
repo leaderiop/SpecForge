@@ -15,7 +15,7 @@
     "crates/specforge-extension-sdk/src/testing.rs": "44d5c6548b43e3503b2b1a60aee6a1076098ccd4a508f168809af8b3f01f0a41",
     "crates/specforge-protocol-types/Cargo.toml": "627567aea56e0aea4ff700b0f38548d6a1079db3ee333f6a7f4dcdbed449ba76",
     "crates/specforge-protocol-types/src/calls.rs": "bbcfb7dec037810bef144d723ce1b6ad52525bf96f677ad53e224e2eb3abf6a8",
-    "crates/specforge-protocol-types/src/command_args.rs": "c730745e5ee808cd5d4702b83d54916b249c6031e24c02ef018f8bb72f520fe2",
+    "crates/specforge-protocol-types/src/command_args.rs": "720eb3f296673ff5e937a8cd6731918d3e85304102f26dfe81579a6693dc87d0",
     "crates/specforge-protocol-types/src/declaration.rs": "6a4061ad20fe44986ba3816e9a148c46e3dc4b6222cb5196b7434acbb09706e4",
     "crates/specforge-protocol-types/src/lib.rs": "21c8f552c31e8d26a99dbb5bde46e80ee3bbb4238d731f84362751e372fc0203",
     "crates/specforge-protocol-types/src/vocabulary.rs": "5ac29ff84aee649bd56a873d2fae8941e0c1beb6c6255aa98631a3a650c2247d",
