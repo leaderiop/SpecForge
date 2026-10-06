@@ -1148,6 +1148,49 @@ fn remove_extension_removes_it_from_config_lock_and_disk() {
 
 #[specforge_test(
     behavior = "provide_mcp_remove_extension_tool",
+    verify = "specforge.remove_extension removes a .wasm file entry by the name it declares, leaving its file in place"
+)]
+fn remove_extension_removes_a_wasm_file_entry_by_its_declared_name() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+    std::fs::copy(greet_blob(), root.join("greet.wasm")).unwrap();
+    std::fs::write(
+        root.join("specforge.json"),
+        json!({"name": "p", "version": "0.1.0", "extensions": ["@specforge/software", "greet.wasm"]})
+            .to_string(),
+    )
+    .unwrap();
+    std::fs::write(
+        root.join("main.spec"),
+        "greeting hello \"Hello\" {\n  style warm\n}\n",
+    )
+    .unwrap();
+    let mut server = McpServer::new();
+    server.handle_message(
+        &json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}).to_string(),
+    );
+
+    let resp = call_tool(
+        &mut server,
+        "specforge.remove_extension",
+        json!({"name": GREET, "path": root.to_str().unwrap()}),
+    );
+
+    let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+    assert_eq!(parsed["success"], true, "{parsed}");
+    assert_eq!(parsed["removed_extension"], GREET, "{parsed}");
+    assert_eq!(parsed["version"], "0.1.0", "{parsed}");
+    assert!(
+        parsed["orphan_warnings"].to_string().contains("'hello'"),
+        "{parsed}"
+    );
+    assert_eq!(config_extensions(root), ["@specforge/software"]);
+    assert!(root.join("greet.wasm").is_file(), "the file is the user's");
+    assert!(!root.join("specforge.lock").exists());
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_remove_extension_tool",
     verify = "dry_run returns preview without modifying files"
 )]
 fn remove_extension_dry_run_writes_nothing() {

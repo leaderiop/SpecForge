@@ -274,8 +274,11 @@ behavior provide_mcp_remove_extension_tool "Provide MCP Remove Extension Tool" {
     If the specified extension is not installed (not listed in specforge.json),
     the tool MUST return an isError result whose McpError code is
     "extension_not_found" and whose message names the unknown extension.
+    A .wasm file entry is removed as remove_extension removes it: by the
+    name its component declares or by its entry, its file left in place.
   """
   verify unit "specforge.remove_extension removes extension from config"
+  verify integration "specforge.remove_extension removes a .wasm file entry by the name it declares, leaving its file in place"
   verify unit "orphan entities produce a warning"
   verify unit "non-installed extension returns extension_not_found error"
   verify unit "dry_run returns preview without modifying files"

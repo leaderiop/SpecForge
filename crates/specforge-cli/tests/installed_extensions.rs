@@ -556,3 +556,161 @@ fn a_legacy_versioned_builtin_entry_still_loads() {
         assert!(!codes(&found).contains(&code), "{code}: {found:?}");
     }
 }
+
+/// `specforge remove <name> --format json` on `root` (with `extra`
+/// arguments): whether it succeeded, and its JSON output.
+fn remove(root: &Path, name: &str, extra: &[&str]) -> (bool, Value) {
+    let out = specforge()
+        .args(["remove", name, "--format", "json", "--path"])
+        .arg(root)
+        .args(extra)
+        .output()
+        .unwrap();
+    let output = serde_json::from_slice(&out.stdout)
+        .unwrap_or_else(|e| panic!("remove is not JSON ({e}): {out:?}"));
+    (out.status.success(), output)
+}
+
+#[specforge_test(
+    behavior = "remove_extension",
+    verify = "a .wasm file entry is removed by the name it declares or by its entry as written, leaving its file in place"
+)]
+fn a_wasm_file_entry_is_removed_by_its_declared_name_or_its_entry() {
+    let cases = [
+        ("greet.wasm", "@sdk/greet"),
+        ("greet.wasm", "greet.wasm"),
+        ("./greet.wasm", "./greet.wasm"),
+        ("@sdk/greet=greet.wasm", "@sdk/greet"),
+        ("@sdk/greet=greet.wasm", "@sdk/greet=greet.wasm"),
+        ("@sdk/greet=greet.wasm", "greet.wasm"),
+    ];
+    for (entry, name) in cases {
+        let dir = greet_file_project();
+        enable(dir.path(), json!(["@specforge/software", entry]));
+
+        let (ok, output) = remove(dir.path(), name, &[]);
+
+        assert!(ok, "{entry} by {name}: {output}");
+        assert_eq!(
+            output["removed"], "@sdk/greet",
+            "{entry} by {name}: {output}"
+        );
+        assert_eq!(
+            output["source"],
+            format!("file:{}", entry.rsplit('=').next().unwrap())
+        );
+        assert_eq!(output["version"], "0.1.0", "{output}");
+        // `hello` is a greeting, a kind only greet defines.
+        let warnings = output["orphan_warnings"].to_string();
+        assert!(warnings.contains("'hello'"), "{entry} by {name}: {output}");
+        assert_eq!(enabled(dir.path()), json!(["@specforge/software"]));
+        assert!(
+            dir.path().join("greet.wasm").is_file(),
+            "the file is the user's"
+        );
+        assert!(!dir.path().join("specforge.lock").exists());
+    }
+
+    // An entry whose file does not load is removed by its entry.
+    let dir = greet_file_project();
+    enable(dir.path(), json!(["@specforge/software", "missing.wasm"]));
+    let (ok, output) = remove(dir.path(), "missing.wasm", &[]);
+    assert!(ok, "{output}");
+    assert_eq!(output["removed"], "missing.wasm", "{output}");
+    assert_eq!(enabled(dir.path()), json!(["@specforge/software"]));
+}
+
+#[specforge_test(
+    behavior = "remove_extension",
+    verify = "a name more than one specforge.json entry enables is refused as ambiguous, naming the entries"
+)]
+fn a_name_two_entries_enable_is_refused_as_ambiguous() {
+    let cases = [
+        // Not installed, so the file is what loads `@sdk/greet`.
+        json!(["@sdk/greet", "greet.wasm"]),
+        json!(["@sdk/greet=greet.wasm", "@sdk/greet=copy.wasm"]),
+    ];
+    for entries in cases {
+        let dir = greet_file_project();
+        std::fs::write(dir.path().join("copy.wasm"), greet_wasm()).unwrap();
+        enable(dir.path(), entries.clone());
+        let before = std::fs::read(dir.path().join("specforge.json")).unwrap();
+
+        let (ok, output) = remove(dir.path(), "@sdk/greet", &[]);
+
+        assert!(!ok, "{entries}: {output}");
+        assert_eq!(output["code"], "extension_conflict", "{output}");
+        let message = output["error"].as_str().unwrap();
+        for entry in entries.as_array().unwrap() {
+            assert!(
+                message.contains(&format!("'{}'", entry.as_str().unwrap())),
+                "{message}"
+            );
+        }
+        assert!(output["suggestion"].as_str().is_some(), "{output}");
+        assert_eq!(
+            std::fs::read(dir.path().join("specforge.json")).unwrap(),
+            before
+        );
+    }
+}
+
+#[specforge_test(
+    behavior = "remove_extension",
+    verify = "removing a .wasm file entry another extension requires fails with E027 unless --force"
+)]
+fn removing_a_wasm_file_entry_another_requires_is_e027_unless_forced() {
+    let dir = greet_file_project();
+    enable(dir.path(), json!(["@specforge/software", "greet.wasm"]));
+    let lock = json!({
+        "lockfile_version": 1,
+        "entries": [{"name": "@acme/uses-greet", "version": "1.0.0", "source": "registry",
+                     "wasm_hash": "00",
+                     "peer_dependencies": [{"name": "@sdk/greet", "version": "^0.1.0"}]}],
+    });
+    std::fs::write(dir.path().join("specforge.lock"), lock.to_string()).unwrap();
+    let lock_before = std::fs::read(dir.path().join("specforge.lock")).unwrap();
+
+    let (ok, output) = remove(dir.path(), "greet.wasm", &[]);
+    assert!(!ok, "{output}");
+    assert_eq!(output["code"], "E027", "{output}");
+    assert!(
+        output["error"]
+            .as_str()
+            .unwrap()
+            .contains("@acme/uses-greet"),
+        "{output}"
+    );
+    assert_eq!(
+        enabled(dir.path()),
+        json!(["@specforge/software", "greet.wasm"])
+    );
+
+    let (ok, output) = remove(dir.path(), "@sdk/greet", &["--force"]);
+    assert!(ok, "{output}");
+    assert_eq!(enabled(dir.path()), json!(["@specforge/software"]));
+    assert_eq!(
+        std::fs::read(dir.path().join("specforge.lock")).unwrap(),
+        lock_before
+    );
+    assert!(dir.path().join("greet.wasm").is_file());
+}
+
+#[test]
+fn removing_a_wasm_file_no_entry_names_is_not_found() {
+    let dir = greet_file_project();
+    enable(dir.path(), json!(["@specforge/software", "greet.wasm"]));
+
+    let (ok, output) = remove(dir.path(), "other.wasm", &[]);
+
+    assert!(!ok, "{output}");
+    assert_eq!(output["code"], "extension_not_found", "{output}");
+    assert!(
+        output["error"].as_str().unwrap().contains("'other.wasm'"),
+        "{output}"
+    );
+    assert_eq!(
+        enabled(dir.path()),
+        json!(["@specforge/software", "greet.wasm"])
+    );
+}

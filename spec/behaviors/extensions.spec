@@ -318,6 +318,16 @@ behavior remove_extension "Remove Extension" {
     deleting the .wasm binary, updating
     specforge.lock, and checking peer dependencies. A builtin extension has
     no binary or lock entry: removing it removes its specforge.json entry.
+    A .wasm file entry (read by the rule load_extension_manifests loads it
+    by) MUST be removable by the name its component declares, as the
+    extensions listing names it, or by the entry as specforge.json writes
+    it (or its path); removing it MUST only drop that entry from
+    specforge.json, never delete the file nor touch specforge.lock, with
+    the same dependents (E027) and orphan checks as any extension. A name
+    more than one specforge.json entry enables MUST be refused as
+    ambiguous (extension_conflict), naming the entries and changing
+    nothing; a name no entry, lock entry or builtin matches is
+    extension_not_found.
     Removing an extension that another loaded or installed extension
     requires as a non-optional peer MUST fail with E027 naming the
     dependents, unless --force is given. The CLI and the MCP
@@ -340,6 +350,9 @@ behavior remove_extension "Remove Extension" {
   verify unit "specforge remove with no lock file reports error"
   verify integration "removing an installed extension drops its specforge.json entry"
   verify integration "removing an extension another installed extension requires fails with E027 unless --force"
+  verify integration "a .wasm file entry is removed by the name it declares or by its entry as written, leaving its file in place"
+  verify integration "a name more than one specforge.json entry enables is refused as ambiguous, naming the entries"
+  verify integration "removing a .wasm file entry another extension requires fails with E027 unless --force"
 }
 
 // Read-only query. (produces [] declared below; no event of its own.)

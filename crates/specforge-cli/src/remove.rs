@@ -7,15 +7,17 @@ use std::path::Path;
 /// the project, whose loaded declarations say which extensions depend on the
 /// one removed.
 pub fn run(name: &str, path: &Path, force: bool, format: OutputFormat) -> i32 {
-    let ctx = crate::pipeline::compile(path);
+    let (project, _runtime) = crate::pipeline::compile_project(path);
+    let env = &project.env;
     let request = RemoveRequest {
         root: path,
         name,
         force,
         dry_run: false,
-        loaded: &ctx.declarations,
-        kinds: &ctx.kind_registry,
-        graph: &ctx.graph,
+        enabled: &env.enabled,
+        loaded: env.registries.declarations(),
+        kinds: &env.registries.kinds,
+        graph: &project.graph,
     };
     let outcome = match extension::remove(&request) {
         Ok(outcome) => outcome,
@@ -33,8 +35,10 @@ pub fn run(name: &str, path: &Path, force: bool, format: OutputFormat) -> i32 {
             });
             match &outcome.origin {
                 Origin::Builtin => output["source"] = json!("builtin"),
-                Origin::Installed { .. } | Origin::File { .. } => {
-                    output["version"] = json!(outcome.version)
+                Origin::Installed { .. } => output["version"] = json!(outcome.version),
+                Origin::File { .. } => {
+                    output["version"] = json!(outcome.version);
+                    output["source"] = json!(outcome.origin.source());
                 }
             }
             println!(
@@ -45,7 +49,11 @@ pub fn run(name: &str, path: &Path, force: bool, format: OutputFormat) -> i32 {
         OutputFormat::Human => {
             match &outcome.origin {
                 Origin::Builtin => println!("Disabled builtin extension '{}'", outcome.name),
-                Origin::Installed { .. } | Origin::File { .. } => println!(
+                Origin::File { path } => println!(
+                    "Disabled extension '{}' loaded from {path} (the file is left in place)",
+                    outcome.name
+                ),
+                Origin::Installed { .. } => println!(
                     "Removed extension '{}' (v{})",
                     outcome.name,
                     outcome.version.as_deref().unwrap_or("?")

@@ -206,6 +206,8 @@ pub fn compile_simple(path: &Path) -> CompilationContext {
 /// (`specforge_component::project_runtime`) loads it by.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EnabledExtension {
+    /// The entry as `specforge.json` writes it (trimmed).
+    pub entry: String,
     /// The extension's name: a named entry's; for a `.wasm` file entry the
     /// name its component declares once it loaded, else the name written
     /// before `=`, else the path.
@@ -219,10 +221,12 @@ impl EnabledExtension {
     pub fn of(entry: &str, runtime: Option<&dyn WasmRuntime>) -> Self {
         match ExtensionEntry::parse(entry) {
             ExtensionEntry::Named(name) => EnabledExtension {
+                entry: entry.trim().to_string(),
                 name: name.to_string(),
                 file: None,
             },
             ExtensionEntry::File { name, path } => EnabledExtension {
+                entry: entry.trim().to_string(),
                 name: runtime
                     .and_then(|runtime| runtime.file_entry_extension(entry.trim()))
                     .or(name.map(str::to_string))

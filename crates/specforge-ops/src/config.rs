@@ -105,6 +105,17 @@ pub fn remove_extension(root: &Path, name: &str) -> Result<bool, OpError> {
     })
 }
 
+/// Drop the entries written exactly `entry` (surrounding whitespace
+/// ignored) from the project's extensions. `Ok(false)` when none was.
+pub fn remove_entry(root: &Path, entry: &str) -> Result<bool, OpError> {
+    let entry = entry.trim();
+    edit_extensions(root, |extensions| {
+        let before = extensions.len();
+        extensions.retain(|e| e.as_str().is_none_or(|s| s.trim() != entry));
+        extensions.len() != before
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

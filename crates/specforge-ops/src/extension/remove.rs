@@ -2,7 +2,9 @@
 
 use super::{NOT_FOUND, Origin, builtin_name, extensions_dir, lock_path};
 use crate::OpError;
+use specforge_common::ExtensionEntry;
 use specforge_graph::Graph;
+use specforge_project::EnabledExtension;
 use specforge_protocol_types::ExtensionDeclaration;
 use specforge_registry::KindRegistry;
 use specforge_wasm::{LockFile, read_lock_file, uninstall_extension, write_lock_file};
@@ -16,6 +18,10 @@ pub struct RemoveRequest<'a> {
     pub force: bool,
     /// Report what would be removed; change nothing.
     pub dry_run: bool,
+    /// What each `specforge.json` entry enabled in that compile
+    /// (`Environment::enabled`): how a `.wasm` file entry is found by the
+    /// name its component declared.
+    pub enabled: &'a [EnabledExtension],
     /// The declarations a compile of the project loaded.
     pub loaded: &'a [ExtensionDeclaration],
     pub kinds: &'a KindRegistry,
@@ -37,9 +43,71 @@ pub struct RemoveOutcome {
 
 /// Remove `name` from the project: a locked install is uninstalled
 /// (binary, lock entry and `specforge.json` entry); a builtin is disabled
-/// (its `specforge.json` entry). Refused with E027 while another loaded or
-/// locked extension requires it as a non-optional peer, unless `force`.
+/// (its `specforge.json` entry); a `.wasm` file entry, named by the
+/// extension it loaded as, its entry or its path, is dropped from
+/// `specforge.json` (the file and the lock are left alone). Refused with
+/// E027 while another loaded or locked extension requires it as a
+/// non-optional peer, unless `force`; with `extension_conflict` when more
+/// than one entry enables `name`.
 pub fn remove(req: &RemoveRequest) -> Result<RemoveOutcome, OpError> {
+    // The `.wasm` file entries `name` names, and whether a named entry
+    // (legacy `name@version` duplicates included) enables it too.
+    let files: Vec<&EnabledExtension> = req
+        .enabled
+        .iter()
+        .filter(|e| {
+            e.file
+                .as_deref()
+                .is_some_and(|path| e.entry == req.name || path == req.name || e.name == req.name)
+        })
+        .collect();
+    let named: Vec<&EnabledExtension> = req
+        .enabled
+        .iter()
+        .filter(|e| e.file.is_none() && e.name == req.name)
+        .collect();
+    match (files.as_slice(), named.is_empty()) {
+        ([], _) => {}
+        ([file], true) => return remove_file(req, file),
+        _ => {
+            // In the order specforge.json lists them.
+            let entries: Vec<&str> = req
+                .enabled
+                .iter()
+                .filter(|e| files.contains(e) || named.contains(e))
+                .map(|e| e.entry.as_str())
+                .collect();
+            let quoted: Vec<String> = entries.iter().map(|e| format!("'{e}'")).collect();
+            let mut error = OpError::new(
+                "extension_conflict",
+                format!(
+                    "'{}' is enabled by {} specforge.json entries: {}",
+                    req.name,
+                    quoted.len(),
+                    quoted.join(", ")
+                ),
+            )
+            .with_suggestion(
+                "remove one entry by its text as specforge.json writes it, or edit specforge.json",
+            );
+            error.data = Some(serde_json::json!({"extension": req.name, "entries": entries}));
+            return Err(error);
+        }
+    }
+    if ExtensionEntry::parse(req.name)
+        .file(Path::new(""))
+        .is_some()
+    {
+        return Err(OpError::new(
+            NOT_FOUND,
+            format!(
+                "extension '{}' is not enabled: no specforge.json entry names that file",
+                req.name
+            ),
+        )
+        .with_suggestion("`specforge extensions` lists what the project enables"));
+    }
+
     let lock = read_lock_file(&lock_path(req.root)).ok();
     let locked = lock
         .as_ref()
@@ -65,18 +133,7 @@ pub fn remove(req: &RemoveRequest) -> Result<RemoveOutcome, OpError> {
         }
     };
 
-    let dependents = dependents(req.name, req.loaded, lock.as_ref());
-    if !dependents.is_empty() && !req.force {
-        return Err(OpError::new(
-            "E027",
-            format!(
-                "cannot uninstall '{}': required by {}",
-                req.name,
-                dependents.join(", ")
-            ),
-        )
-        .with_suggestion("use --force to uninstall anyway, or remove dependent extensions first"));
-    }
+    refuse_if_required(req, req.name, lock.as_ref())?;
 
     let outcome = RemoveOutcome {
         name: req.name.to_string(),
@@ -101,6 +158,52 @@ pub fn remove(req: &RemoveRequest) -> Result<RemoveOutcome, OpError> {
         Err(e) if e.code != "config_not_found" => Err(e),
         _ => Ok(outcome),
     }
+}
+
+/// Remove the `.wasm` file entry `file`: only its `specforge.json` entry
+/// goes. The extension it loaded as (if it loaded) is what dependents and
+/// orphans are checked against.
+fn remove_file(req: &RemoveRequest, file: &EnabledExtension) -> Result<RemoveOutcome, OpError> {
+    let declaration = req.loaded.iter().find(|d| d.name() == file.name);
+    if declaration.is_some() {
+        let lock = read_lock_file(&lock_path(req.root)).ok();
+        refuse_if_required(req, &file.name, lock.as_ref())?;
+    }
+    let outcome = RemoveOutcome {
+        name: file.name.clone(),
+        version: declaration.map(|d| d.version().to_string()),
+        orphan_warnings: orphan_warnings(req.graph, req.kinds, &file.name),
+        dry_run: req.dry_run,
+        origin: Origin::File {
+            path: file.file.clone().unwrap_or_default(),
+        },
+    };
+    if !req.dry_run {
+        crate::config::remove_entry(req.root, &file.entry)?;
+    }
+    Ok(outcome)
+}
+
+/// E027 when another loaded or locked extension requires `name` as a
+/// non-optional peer, unless the request forces it.
+fn refuse_if_required(
+    req: &RemoveRequest,
+    name: &str,
+    lock: Option<&LockFile>,
+) -> Result<(), OpError> {
+    let dependents = dependents(name, req.loaded, lock);
+    if dependents.is_empty() || req.force {
+        return Ok(());
+    }
+    Err(OpError::new(
+        "E027",
+        format!(
+            "cannot uninstall '{}': required by {}",
+            name,
+            dependents.join(", ")
+        ),
+    )
+    .with_suggestion("use --force to uninstall anyway, or remove dependent extensions first"))
 }
 
 /// Whether `specforge.json` enables `name`. No config: not enabled.

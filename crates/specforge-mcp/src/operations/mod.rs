@@ -445,6 +445,7 @@ pub(crate) fn remove_extension_op(call: &mut Call<'_>, args: RemoveArgs) -> Hand
         name: &name,
         force,
         dry_run,
+        enabled: &project.env.enabled,
         loaded: project.env.registries.declarations(),
         kinds: &project.env.registries.kinds,
         graph: project.graph,
