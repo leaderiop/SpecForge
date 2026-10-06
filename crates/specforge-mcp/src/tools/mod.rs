@@ -66,17 +66,16 @@ pub(crate) fn span_json(span: &specforge_common::SourceSpan) -> Value {
 /// `did you mean` suggestion when a known kind is close. The filter still
 /// drops them: they match no entity.
 pub(crate) fn unknown_kind_diagnostics(
-    state: &McpState,
+    view: &specforge_ops::view::ProjectView<'_>,
     kinds: &[&str],
 ) -> Vec<specforge_common::Diagnostic> {
-    let mut known: Vec<&str> = state
+    let mut known: Vec<&str> = view
         .registries()
         .kinds
         .keywords()
         .map(String::as_str)
         .chain(
-            state
-                .graph()
+            view.graph()
                 .nodes()
                 .into_iter()
                 .map(|n| n.kind.raw.as_str()),
@@ -377,7 +376,7 @@ fn extension_tool(
             };
             command_adapter(
                 project.runtime.as_ref(),
-                project.graph,
+                project.graph(),
                 project.root,
                 command,
                 &args,

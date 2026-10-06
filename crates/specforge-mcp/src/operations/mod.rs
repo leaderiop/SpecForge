@@ -160,7 +160,7 @@ pub(crate) fn rename_op(call: &mut Call<'_>, args: RenameArgs) -> MutationHandle
     // Planned on the call's project as it is on disk (the target brought
     // the served project up to date, or compiled the project `path`
     // names), whose spans are relative to its spec root.
-    let spec_root = call.project()?.spec_root.to_path_buf();
+    let spec_root = call.project()?.spec_root().to_path_buf();
     let planned = rename::plan(&crate::tools::navigator(call), entity_id, new_name);
     let refused = |outcome: ToolOutcome| Ok(Mutated::refused_unless_preview(dry_run, outcome));
     let plan = match planned {

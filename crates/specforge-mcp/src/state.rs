@@ -1,6 +1,6 @@
 use specforge_common::{Diagnostic, ProjectConfig};
 use specforge_graph::Graph;
-use specforge_project::{Environment, Origin, ProjectSession, SharedRuntime, Update, UpdateKind};
+use specforge_project::{Origin, ProjectSession, SharedRuntime, Update, UpdateKind};
 use specforge_registry::RegistryBuild;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -122,19 +122,17 @@ impl McpState {
         self.session.graph()
     }
 
-    /// The served project's environment: config, spec root, registries.
-    pub fn environment(&self) -> &Environment {
-        self.session.environment()
-    }
-
     /// The served project's registries, rules, declarations and surfaces.
+    /// What a call reads goes through its target's view
+    /// ([`crate::target::Call::view`]); this is the served session's, for
+    /// the server itself (the surface table, the lifecycle answers).
     pub fn registries(&self) -> &RegistryBuild {
-        &self.environment().registries
+        &self.session.environment().registries
     }
 
     /// The served project's `specforge.json`.
     pub fn config(&self) -> &ProjectConfig {
-        &self.environment().config
+        &self.session.environment().config
     }
 
     /// Where the served project's `.spec` files live: spans are relative

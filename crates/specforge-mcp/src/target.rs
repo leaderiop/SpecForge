@@ -15,7 +15,7 @@ use serde_json::Value;
 use specforge_common::{Diagnostic, find_project_root};
 use specforge_graph::Graph;
 use specforge_ops::view::ProjectView;
-use specforge_project::{CompiledProject, Environment, SharedRuntime};
+use specforge_project::{CompiledProject, SharedRuntime};
 
 use crate::state::McpState;
 use crate::tool::{ErrorCode, FILE_NOT_FOUND, McpError};
@@ -192,10 +192,6 @@ fn project_runtime(root: &Path) -> SharedRuntime {
 pub struct ProjectRef<'a> {
     /// The project root (where `specforge.json` lives).
     pub root: &'a Path,
-    /// Where its `.spec` files are keyed from: spans are relative to it.
-    pub spec_root: &'a Path,
-    pub env: &'a Environment,
-    pub graph: &'a Graph,
     /// The runtime its extensions run in: every project a call reaches has
     /// one (the served session's, the host's or the project's own; the
     /// one-shot compile's for another project), so an extension call never
@@ -207,6 +203,16 @@ pub struct ProjectRef<'a> {
 }
 
 impl<'a> ProjectRef<'a> {
+    /// The project's graph, the view's.
+    pub fn graph(&self) -> &'a Graph {
+        self.view.graph()
+    }
+
+    /// Where its `.spec` files are keyed from: spans are relative to it.
+    pub fn spec_root(&self) -> &'a Path {
+        &self.view.env().spec_root
+    }
+
     /// What every operation over this project reads, rooted at the project
     /// root: the one way MCP builds a project view. Its recorded test
     /// report and coverage are memoized by its owner (the served session,
@@ -386,9 +392,6 @@ impl<'s> Call<'s> {
                 };
                 Ok(ProjectRef {
                     root,
-                    spec_root: &session.environment().spec_root,
-                    env: session.environment(),
-                    graph: session.graph(),
                     runtime,
                     view: ProjectView::of_session(session, Some(root))
                         .also_reporting(self.state.surfaces().diagnostics()),
@@ -396,9 +399,6 @@ impl<'s> Call<'s> {
             }
             CallTarget::Other(other) => Ok(ProjectRef {
                 root: &other.root,
-                spec_root: &other.project.env.spec_root,
-                env: &other.project.env,
-                graph: &other.project.graph,
                 runtime: &other.runtime,
                 // Rooted where it was compiled: `other.root`.
                 view: ProjectView::of(&other.project),
@@ -442,11 +442,7 @@ impl<'s> Call<'s> {
     /// from, when it has a root ([`Self::root`]).
     pub fn spec_root(&self) -> Option<&Path> {
         match &self.target {
-            CallTarget::Served => self
-                .state
-                .session()
-                .root()
-                .map(|_| self.state.environment().spec_root.as_path()),
+            CallTarget::Served => self.state.spec_root(),
             CallTarget::Other(other) => Some(&other.project.env.spec_root),
             CallTarget::New(_) | CallTarget::Unscoped | CallTarget::NoProject(_) => None,
         }

@@ -22,7 +22,6 @@ pub struct Args {
 
 pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
     let view = call.view();
-    let state = &*call.state;
     let entity_id = args.entity_id.as_str();
     let depth = args.depth.unwrap_or(1) as usize;
     // The formats an agent reads; an unknown one is refused, never read as
@@ -34,7 +33,7 @@ pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
     let include_coverage = args.include_coverage.unwrap_or(false);
 
     let kinds: Vec<&str> = args.kinds.iter().map(String::as_str).collect();
-    let unknown_kinds = super::unknown_kind_diagnostics(state, &kinds);
+    let unknown_kinds = super::unknown_kind_diagnostics(&view, &kinds);
 
     let query_result = {
         let options = EmitOptions {
@@ -42,10 +41,10 @@ pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
             scope: Some(entity_id),
             depth: Some(depth),
             kind_filter: kinds,
-            field_registry: Some(&state.registries().fields),
+            field_registry: Some(&view.registries().fields),
             ..EmitOptions::default()
         };
-        emit(state.graph(), &options)
+        emit(view.graph(), &options)
     };
 
     match query_result {
