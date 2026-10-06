@@ -717,6 +717,7 @@ mod tests {
             },
             registry,
         )
+        .map(|added| added.outcome)
     }
 
     fn with_peer(

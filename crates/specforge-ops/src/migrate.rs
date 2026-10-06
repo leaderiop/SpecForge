@@ -17,7 +17,7 @@ use specforge_protocol_types::ExtensionDeclaration;
 use specforge_wasm::WasmRuntime;
 use std::path::Path;
 
-use crate::OpError;
+use crate::{OpError, Writes};
 
 /// The format version to migrate to: `raw`, checked, else the current one.
 /// A version that doesn't parse, or one newer than this build supports, is
@@ -79,6 +79,10 @@ pub struct Outcome {
     pub post_diagnostics: Vec<Diagnostic>,
     /// The restore, when the migration was rolled back.
     pub rollback: Option<RollbackSummary>,
+    /// The files the run left changed: each migrated file and each backup;
+    /// after a rollback, the backups (the migrated files hold their old
+    /// text again). Nothing for a dry run or with nothing pending.
+    pub writes: Writes,
 }
 
 impl Outcome {
@@ -147,6 +151,7 @@ pub fn run_with_hooks(
         structural_differences: Vec::new(),
         post_diagnostics: Vec::new(),
         rollback: None,
+        writes: Writes::none(),
     };
     if !pending || request.dry_run {
         return outcome;
@@ -158,6 +163,7 @@ pub fn run_with_hooks(
 
     outcome.summary = migrate_project(root, target, false, request.no_backup);
     outcome.applied = true;
+    outcome.writes = summary_writes(&outcome.summary);
     if outcome.summary.failed_count > 0 {
         return outcome;
     }
@@ -178,7 +184,7 @@ pub fn run_with_hooks(
     outcome.hooks_invoked = invoked;
     outcome.hook_failures = failures;
     if !outcome.hook_failures.is_empty() {
-        outcome.rollback = Some(run_rollback(root));
+        roll_back(root, &mut outcome);
         return outcome;
     }
 
@@ -189,9 +195,55 @@ pub fn run_with_hooks(
     outcome.structural_differences = compare_graphs(&pre.graph, &post.graph);
     outcome.post_diagnostics = post.diagnostics();
     if !outcome.structural_differences.is_empty() {
-        outcome.rollback = Some(run_rollback(root));
+        roll_back(root, &mut outcome);
     }
     outcome
+}
+
+/// What `migrate_project` wrote: each file it migrated and each backup
+/// it made.
+fn summary_writes(summary: &MigrationSummary) -> Writes {
+    let migrated = summary
+        .results
+        .iter()
+        .filter(|r| r.status == specforge_migrate::MigrationStatus::Migrated)
+        .map(|r| r.file_path.as_str());
+    let backups = summary.backups.iter().map(|b| b.backup_path.as_str());
+    migrated.chain(backups).collect()
+}
+
+/// Restore the project's files from their backups after a failed check: a
+/// file this run migrated holds its old text again and is forgotten; any
+/// other file a backup restored was rewritten, and is recorded.
+fn roll_back(root: &Path, outcome: &mut Outcome) {
+    let summary = run_rollback(root);
+    for restored in summary
+        .results
+        .iter()
+        .filter(|r| r.status == specforge_migrate::MigrationStatus::Restored)
+    {
+        let path = Path::new(&restored.file_path);
+        let migrated_here = outcome.summary.results.iter().any(|r| {
+            r.status == specforge_migrate::MigrationStatus::Migrated
+                && r.file_path == restored.file_path
+        });
+        if migrated_here {
+            outcome.writes.forget(path);
+        } else {
+            outcome.writes.record(path);
+        }
+    }
+    outcome.rollback = Some(summary);
+}
+
+/// What a rollback rewrote: each file it restored from its backup.
+pub fn restored(summary: &RollbackSummary) -> Writes {
+    summary
+        .results
+        .iter()
+        .filter(|r| r.status == specforge_migrate::MigrationStatus::Restored)
+        .map(|r| r.file_path.as_str())
+        .collect()
 }
 
 /// Restore every migrated file from its `.bak` backup.

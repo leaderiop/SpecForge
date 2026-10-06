@@ -36,8 +36,8 @@ pub fn run(
         dry_run: false,
     };
     match extension::add(&request, &registry) {
-        Ok(outcome) => {
-            present(&outcome, format);
+        Ok(added) => {
+            present(&added.outcome, format);
             0
         }
         Err(error) => {

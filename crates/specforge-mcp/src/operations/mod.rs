@@ -371,7 +371,7 @@ fn add_extension_op(call: &Call<'_>, args: AddArgs) -> Handled {
         dry_run,
     };
     let source_of = Origin::source;
-    let outcome = match extension::add(&request, &registry) {
+    let outcome = match extension::add(&request, &registry).map(|added| added.outcome) {
         Ok(AddOutcome::Builtin {
             name,
             changed,

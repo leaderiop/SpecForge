@@ -124,8 +124,8 @@ pub fn plan<F: Fn(&str) -> Option<String>>(
 /// Write `plan`'s edits to the files under `spec_root`: every file is
 /// read and edited first, then written; if a write fails, the files
 /// already written, and the one that failed part-way, get their old text
-/// back.
-pub fn apply(plan: &RenamePlan, spec_root: &Path) -> Result<(), OpError> {
+/// back (and nothing is reported written). Returns the files it wrote.
+pub fn apply(plan: &RenamePlan, spec_root: &Path) -> Result<crate::Writes, OpError> {
     let mut changes = Vec::new();
     for file in plan.affected_files() {
         let path = spec_root.join(file);
@@ -149,7 +149,11 @@ pub fn apply(plan: &RenamePlan, spec_root: &Path) -> Result<(), OpError> {
             ));
         }
     }
-    Ok(())
+    Ok(changes
+        .into_iter()
+        .filter(|(_, old, new)| old != new)
+        .map(|(path, _, _)| path)
+        .collect())
 }
 
 #[cfg(test)]
