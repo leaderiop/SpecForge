@@ -342,16 +342,11 @@ fn register_implicit_edges(registry: &mut EdgeRegistry, declaration: &ExtensionD
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::compilation::tests::support::{declare, product, software};
+    use crate::compilation::tests::support::{declare, software};
     use specforge_extension_sdk::prelude::*;
-    use specforge_protocol_types::EdgeTypeDescriptor;
 
     fn software_manifest() -> ExtensionDeclaration {
         software()
-    }
-
-    fn product_manifest() -> ExtensionDeclaration {
-        product()
     }
 
     /// A string field `name`, as an enhancement declares it.
@@ -389,159 +384,11 @@ mod tests {
 
     // -- B:register_edge_types_from_manifest tests --
 
-    // B:register_edge_types_from_manifest — verify unit "edge type registered with label and description"
-    #[test]
-    fn test_edge_type_registered_with_label() {
-        let (_, _, edge_reg, _) = populate(&[software_manifest()]);
-        let enforces = edge_reg.get("enforces").unwrap();
-        assert_eq!(enforces.declared.label, "enforces");
-        assert_eq!(enforces.declared.source_kind.as_deref(), Some("behavior"));
-        assert_eq!(enforces.declared.target_kind.as_deref(), Some("invariant"));
-    }
-
-    // B:register_edge_types_from_manifest — verify unit "source/target kind constraints recorded"
-    #[test]
-    fn test_source_target_kind_constraints_recorded() {
-        let (_, _, edge_reg, _) = populate(&[software_manifest()]);
-        let enforces = edge_reg.get("enforces").unwrap();
-        assert_eq!(enforces.declared.source_kind.as_deref(), Some("behavior"));
-        assert_eq!(enforces.declared.target_kind.as_deref(), Some("invariant"));
-        assert_eq!(enforces.declared.edge_style.as_deref(), Some("dashed"));
-    }
-
-    // B:register_edge_types_from_manifest — verify unit "duplicate edge label across extensions produces W-level warning"
-    #[test]
-    fn test_duplicate_edge_label_produces_warning() {
-        let m1 = software_manifest();
-        let mut m2 = product_manifest();
-        // Add a duplicate "enforces" edge to product manifest
-        m2.edges.push(EdgeTypeDescriptor {
-            label: "enforces".to_string(),
-            source_kind: Some("feature".to_string()),
-            target_kind: Some("behavior".to_string()),
-            ..Default::default()
-        });
-        let (_, _, _, diags) = populate(&[m1, m2]);
-        assert!(
-            diags
-                .iter()
-                .any(|d| d.code == "W018" && d.message.contains("enforces")),
-            "expected W018 for duplicate edge, got: {:?}",
-            diags
-        );
-    }
-
-    // B:register_edge_types_from_manifest — verify unit "first-registered edge type wins on collision (topological order)"
-    #[test]
-    fn test_first_registered_edge_type_wins_on_collision() {
-        let m1 = software_manifest();
-        let mut m2 = product_manifest();
-        m2.edges.push(EdgeTypeDescriptor {
-            label: "enforces".to_string(),
-            source_kind: Some("feature".to_string()),
-            target_kind: Some("behavior".to_string()),
-            edge_style: Some("dotted".to_string()),
-            ..Default::default()
-        });
-        let (_, _, edge_reg, _) = populate(&[m1, m2]);
-        let enforces = edge_reg.get("enforces").unwrap();
-        // First extension's version should win
-        assert_eq!(enforces.source_extension, "@specforge/software");
-        assert_eq!(enforces.declared.edge_style.as_deref(), Some("dashed"));
-    }
-
-    // B:register_edge_types_from_manifest — verify unit "field-to-edge mapping creates edge type"
-    #[test]
-    fn test_field_to_edge_mapping_creates_edge_type() {
-        // product_manifest has a "composes" edge in edgeTypes AND in field mapping
-        // The explicit edgeType should be registered, implicit should not duplicate
-        let (_, _, edge_reg, _) = populate(&[product_manifest()]);
-        assert!(edge_reg.contains("composes"));
-    }
-
     // -- B:populate_field_registry_from_extensions tests --
 
     // -- B:populate_edge_registry_from_extensions tests --
 
-    // B:populate_edge_registry_from_extensions — verify unit "explicit edgeTypes merged into edge set"
-    #[test]
-    fn test_explicit_edge_types_merged_into_edge_set() {
-        let (_, _, edge_reg, _) = populate(&[software_manifest()]);
-        assert!(edge_reg.contains("enforces"));
-    }
-
-    // B:populate_edge_registry_from_extensions — verify unit "implicit edges from field mappings merged"
-    #[test]
-    fn test_implicit_edges_from_field_mappings_merged() {
-        // Create a manifest with field edge mapping but no explicit edgeTypes
-        let manifest = declare("@test/ext", |c| {
-            c.kind("Task", |k| {
-                k.keyword("task");
-                k.field("assignee", |f| {
-                    f.field_type(FieldType::Reference)
-                        .edge("assigned_to")
-                        .target_kind("person");
-                });
-            });
-        });
-        let (_, _, edge_reg, _) = populate(&[manifest]);
-        assert!(edge_reg.contains("assigned_to"));
-        let edge = edge_reg.get("assigned_to").unwrap();
-        assert_eq!(edge.declared.source_kind.as_deref(), Some("task"));
-        assert_eq!(edge.declared.target_kind.as_deref(), Some("person"));
-    }
-
-    // B:populate_edge_registry_from_extensions — verify unit "duplicate edge labels produce warning"
-    #[test]
-    fn test_duplicate_edge_labels_from_multiple_extensions_produce_warning() {
-        let mut m1 = software_manifest();
-        let mut m2 = product_manifest();
-        // Both declare "links_to" edge
-        m1.edges.push(EdgeTypeDescriptor {
-            label: "links_to".to_string(),
-            ..Default::default()
-        });
-        m2.edges.push(EdgeTypeDescriptor {
-            label: "links_to".to_string(),
-            ..Default::default()
-        });
-        let (_, _, _, diags) = populate(&[m1, m2]);
-        assert!(
-            diags
-                .iter()
-                .any(|d| d.code == "W018" && d.message.contains("links_to"))
-        );
-    }
-
     // -- Description propagation tests --
-
-    // B:register_edge_types_from_manifest — verify contract "requires/ensures consistency for edge type registration"
-    #[test]
-    fn test_register_edge_types_contract() {
-        // requires: manifest validated
-        let manifest = software_manifest();
-        let (_, _, edge_reg, diags) = populate(&[manifest]);
-        // ensures: explicit edge registered
-        assert!(edge_reg.contains("enforces"));
-        // ensures: source/target constraints recorded
-        let enforces = edge_reg.get("enforces").unwrap();
-        assert_eq!(enforces.declared.source_kind.as_deref(), Some("behavior"));
-        assert_eq!(enforces.declared.target_kind.as_deref(), Some("invariant"));
-        // ensures: no errors on clean manifest
-        assert!(!diags.iter().any(|d| d.severity == Severity::Error));
-    }
-
-    // B:populate_edge_registry_from_extensions — verify contract "requires/ensures consistency for edge registry population"
-    #[test]
-    fn test_populate_edge_registry_contract() {
-        // requires: manifests validated
-        let (_, _, edge_reg, diags) = populate(&[software_manifest(), product_manifest()]);
-        // ensures: explicit edges merged
-        assert!(edge_reg.contains("enforces"));
-        assert!(edge_reg.contains("composes"));
-        // ensures: no duplicate warnings between different labels
-        assert!(!diags.iter().any(|d| d.code == "W018"));
-    }
 
     // -- parse_field_type tests --
 

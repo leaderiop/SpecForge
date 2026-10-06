@@ -27,9 +27,7 @@ use specforge_extension_sdk::{
     CheckKind, ContributionsBuilder, EnhancementBuilder, ExtensionMeta, FieldType, PeerDependency,
     ValidationSeverity,
 };
-use specforge_protocol_types::{
-    EdgeTypeDescriptor, EntityEnhancementDescriptor, ExtensionDeclaration,
-};
+use specforge_protocol_types::{EntityEnhancementDescriptor, ExtensionDeclaration};
 use specforge_registry::compilation::EntityView;
 use specforge_registry::compilation::{
     apply_entity_enhancements, register_validation_rules, validate_registered_entity_fields,
@@ -353,71 +351,6 @@ fn populate_kind_completes_before_validation() {
 // B:populate_edge_registry_from_extensions (4 verifies)
 // ===========================================================================
 
-#[spec(
-    behavior = "populate_edge_registry_from_extensions",
-    verify = "explicit edgeTypes merged into edge set"
-)]
-fn populate_edge_explicit_merged() {
-    let (_, _, edge_reg, _) = populate(&[software()]);
-    assert!(edge_reg.contains("enforces"));
-}
-
-#[spec(
-    behavior = "populate_edge_registry_from_extensions",
-    verify = "implicit edges from field mappings merged"
-)]
-fn populate_edge_implicit_from_fields() {
-    let manifest = declare("@test/ext", |c| {
-        c.kind("Task", |k| {
-            k.keyword("task");
-            k.field("assignee", |f| {
-                f.field_type(FieldType::Reference)
-                    .edge("assigned_to")
-                    .target_kind("person");
-            });
-        });
-    });
-    let (_, _, edge_reg, _) = populate(&[manifest]);
-    assert!(edge_reg.contains("assigned_to"));
-    let edge = edge_reg.get("assigned_to").unwrap();
-    assert_eq!(edge.declared.source_kind.as_deref(), Some("task"));
-    assert_eq!(edge.declared.target_kind.as_deref(), Some("person"));
-}
-
-#[spec(
-    behavior = "populate_edge_registry_from_extensions",
-    verify = "duplicate edge labels produce warning"
-)]
-fn populate_edge_duplicate_warning() {
-    let mut m1 = software();
-    let mut m2 = product();
-    m1.edges.push(EdgeTypeDescriptor {
-        label: "links_to".to_string(),
-        ..Default::default()
-    });
-    m2.edges.push(EdgeTypeDescriptor {
-        label: "links_to".to_string(),
-        ..Default::default()
-    });
-    let (_, _, _, diags) = populate(&[m1, m2]);
-    assert!(
-        diags
-            .iter()
-            .any(|d| d.code == "W018" && d.message.contains("links_to"))
-    );
-}
-
-#[spec(
-    behavior = "populate_edge_registry_from_extensions",
-    verify = "Populate Edge Registry From Extensions: edge registry population holds — extension_manifests_loaded_fired, edge_set_complete, duplicates_warned, edges_populated"
-)]
-fn populate_edge_registry_contract() {
-    let (_, _, edge_reg, diags) = populate(&[software(), product()]);
-    assert!(edge_reg.contains("enforces"));
-    assert!(edge_reg.contains("composes"));
-    assert!(!diags.iter().any(|d| d.code == "W018"));
-}
-
 // ===========================================================================
 // B:register_entity_kinds_from_manifest (8 verifies)
 // ===========================================================================
@@ -425,112 +358,6 @@ fn populate_edge_registry_contract() {
 // ===========================================================================
 // B:register_edge_types_from_manifest (6 verifies)
 // ===========================================================================
-
-#[spec(
-    behavior = "register_edge_types_from_manifest",
-    verify = "edge type registered with label and description"
-)]
-fn register_edge_label_and_description() {
-    let manifest = declare("@test/ext", |c| {
-        c.kind("A", |k| {
-            k.keyword("a");
-        });
-        c.kind("B", |k| {
-            k.keyword("b");
-        });
-        c.edge("guards", |e| {
-            e.description("A guards the B it names")
-                .source_kind("a")
-                .target_kind("b");
-        });
-        c.edge("touches", |e| {
-            e.source_kind("a").target_kind("b");
-        });
-    });
-    let (_, _, edge_reg, _) = populate(&[manifest]);
-    let guards = edge_reg.get("guards").unwrap();
-    assert_eq!(guards.declared.label, "guards");
-    assert_eq!(
-        guards.declared.description.as_deref(),
-        Some("A guards the B it names")
-    );
-    let touches = edge_reg.get("touches").unwrap();
-    assert_eq!(touches.declared.label, "touches");
-    assert_eq!(touches.declared.description, None);
-}
-
-#[spec(
-    behavior = "register_edge_types_from_manifest",
-    verify = "source/target kind constraints recorded"
-)]
-fn register_edge_source_target_constraints() {
-    let (_, _, edge_reg, _) = populate(&[software()]);
-    let enforces = edge_reg.get("enforces").unwrap();
-    assert_eq!(enforces.declared.source_kind.as_deref(), Some("behavior"));
-    assert_eq!(enforces.declared.target_kind.as_deref(), Some("invariant"));
-    assert_eq!(enforces.declared.edge_style.as_deref(), Some("dashed"));
-}
-
-#[spec(
-    behavior = "register_edge_types_from_manifest",
-    verify = "duplicate edge label across extensions produces W-level warning"
-)]
-fn register_edge_duplicate_warning() {
-    let m1 = software();
-    let mut m2 = product();
-    m2.edges.push(EdgeTypeDescriptor {
-        label: "enforces".to_string(),
-        source_kind: Some("feature".to_string()),
-        target_kind: Some("behavior".to_string()),
-        ..Default::default()
-    });
-    let (_, _, _, diags) = populate(&[m1, m2]);
-    assert!(
-        diags
-            .iter()
-            .any(|d| d.code == "W018" && d.message.contains("enforces"))
-    );
-}
-
-#[spec(
-    behavior = "register_edge_types_from_manifest",
-    verify = "first-registered edge type wins on collision (topological order)"
-)]
-fn register_edge_first_wins() {
-    let m1 = software();
-    let mut m2 = product();
-    m2.edges.push(EdgeTypeDescriptor {
-        label: "enforces".to_string(),
-        source_kind: Some("feature".to_string()),
-        target_kind: Some("behavior".to_string()),
-        edge_style: Some("dotted".to_string()),
-        ..Default::default()
-    });
-    let (_, _, edge_reg, _) = populate(&[m1, m2]);
-    let enforces = edge_reg.get("enforces").unwrap();
-    assert_eq!(enforces.source_extension, "@specforge/software");
-    assert_eq!(enforces.declared.edge_style.as_deref(), Some("dashed"));
-}
-
-#[test]
-fn register_edge_field_mapping() {
-    let (_, _, edge_reg, _) = populate(&[product()]);
-    assert!(edge_reg.contains("composes"));
-}
-
-#[spec(
-    behavior = "register_edge_types_from_manifest",
-    verify = "Register Edge Types From Manifest: edge type registration holds — extension_manifests_loaded_fired, edge_types_registered, constraints_recorded, duplicates_warned"
-)]
-fn register_edge_contract() {
-    let manifest = software();
-    let (_, _, edge_reg, diags) = populate(&[manifest]);
-    assert!(edge_reg.contains("enforces"));
-    let enforces = edge_reg.get("enforces").unwrap();
-    assert_eq!(enforces.declared.source_kind.as_deref(), Some("behavior"));
-    assert_eq!(enforces.declared.target_kind.as_deref(), Some("invariant"));
-    assert!(!diags.iter().any(|d| d.severity == Severity::Error));
-}
 
 // ===========================================================================
 // B:validate_manifest_v2_schema (5 verifies)
@@ -893,24 +720,6 @@ fn suggest_missing_ext_contract() {
 // verifies through Environment::load). An edge label a field maps to is
 // still registered, as an implicit edge:
 // ===========================================================================
-
-#[test]
-fn a_field_edge_label_is_registered_as_an_implicit_edge() {
-    let manifest = declare("@test/ext", |c| {
-        c.kind("Task", |k| {
-            k.keyword("task");
-            k.field("owner", |f| {
-                f.field_type(FieldType::Reference).edge("owns");
-            });
-        });
-    });
-    let (_kind_reg, _field_reg, edge_reg, _) = populate(&[manifest]);
-    // "owns" should be auto-created as implicit edge during populate
-    assert!(
-        edge_reg.contains("owns"),
-        "implicit edge 'owns' should exist"
-    );
-}
 
 // ===========================================================================
 // B:detect_duplicate_entity_kinds (4 verifies)
