@@ -6,17 +6,17 @@ use "types/zero-entity-core"
 behavior ge_declare_manifest "Declare @specforge/governance Manifest" {
   features [ge_core_entity_kinds]
   category command
-  types    [ManifestV2, ManifestEntityKind, ManifestEdgeType]
+  types    [ExtensionDeclaration, EntityKindDescriptor, EdgeTypeDescriptor]
   contract """
-    The @specforge/governance extension MUST declare a v2 manifest with name
-    "@specforge/governance", manifestVersion 2. The manifest MUST declare
+    The @specforge/governance extension MUST declare itself with name
+    "@specforge/governance". Its declaration MUST declare
     exactly 3 entity kinds (decision, constraint, failure_mode), 4 edge types
     (DecisionInvariant, ConstrainsBehavior, ProtectsInvariant,
     FailureModeInvariant), and all associated validation rules.
   """
   requires {
-    valid_manifest_version "manifestVersion == 2"
-    valid_extension_name   "name == '@specforge/governance'"
+    supported_protocol   "the handshake's protocol major version is the host's"
+    valid_extension_name "name == '@specforge/governance'"
   }
   ensures {
     three_entity_kinds   "entityKinds.length == 3"
@@ -26,16 +26,14 @@ behavior ge_declare_manifest "Declare @specforge/governance Manifest" {
     contributes_declared "contributes declares entities=true and validators=true"
     optional_peer_dep    "peer_dependencies contains @specforge/software ^1.0 (optional, for ConstrainsBehavior cross-extension edge targeting behavior kind)"
     sandbox_restricted   "sandbox_policy declares network_access=false, file_system_access=read-only, max_memory_mb=256, max_execution_ms=5000"
-    host_api_declared    "host_api_version is 1.0.0"
   }
   verify unit "manifest name is @specforge/governance"
   verify unit "manifest declares exactly 3 entity kinds"
   verify unit "manifest declares exactly 4 edge types"
-  verify unit "manifest version is 2"
+  verify unit "the handshake's protocol major is the host's"
   verify unit "contributes declares entities and validators"
   verify unit "peer_dependencies includes optional @specforge/software"
   verify unit "sandbox_policy declares no network access and read-only filesystem"
-  verify unit "host_api_version is 1.0.0"
 }
 
 invariant ge_manifest_three_entity_kinds "Three Entity Kinds" {

@@ -13,6 +13,11 @@ impl MockHost {
         Self(builder)
     }
 
+    /// Everything this extension declares, as a host loads it.
+    pub fn declaration(&self) -> specforge_protocol_types::ExtensionDeclaration {
+        self.0.declaration()
+    }
+
     /// The handshake wire JSON this extension will report.
     pub fn handshake_json(&self) -> String {
         self.0.handshake_json()
@@ -43,7 +48,8 @@ impl MockHost {
 
 /// Run every command `b` declares once over `graph`, as the host would
 /// under `--format json`, with every arg it declares set to a value of its
-/// declared type: an enum's first value, `1` for an integer or a count,
+/// declared type: an enum's first value, `1` for an integer or a count (its
+/// minimum when that is more),
 /// `true` for a flag, and `text(command_id, arg_name)` for a string or a
 /// path. A handler that reads an arg its command does not declare, or reads
 /// one as another type, panics here, in a test, rather than trapping in the
@@ -65,7 +71,9 @@ pub fn call_every_command(
                 .map(|arg| {
                     let value = match &arg.arg_type {
                         CommandArgType::Enum { values } => serde_json::json!(values[0]),
-                        CommandArgType::Integer => serde_json::json!(1),
+                        CommandArgType::Integer => {
+                            serde_json::json!(arg.minimum.map_or(1, |minimum| minimum.max(1)))
+                        }
                         CommandArgType::Bool => serde_json::json!(true),
                         CommandArgType::String | CommandArgType::Path => {
                             serde_json::json!(text(&command.id, &arg.name))

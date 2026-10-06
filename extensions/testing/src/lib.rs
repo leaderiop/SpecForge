@@ -100,7 +100,11 @@ const TESTABLE: &[Testable] = &[
     },
 ];
 
-#[specforge_extension_sdk::extension(name = "@specforge/testing", version = "1.0.0")]
+#[specforge_extension_sdk::extension(
+    name = "@specforge/testing",
+    version = "1.0.0",
+    description = "The runner-agnostic test vocabulary: which kinds owe verify obligations, the rules over them and the coverage pass"
+)]
 struct Testing;
 
 impl Contributions for Testing {
@@ -142,7 +146,7 @@ impl Contributions for Testing {
         }
 
         c.pass("coverage", |p| {
-            p.after("resolve");
+            p.after("resolve").run(pass_coverage);
         });
     }
 }
@@ -158,8 +162,9 @@ impl Contributions for Testing {
 ///
 /// The rule itself is `specforge-coverage` (ADR 0004, D2-f), which the host
 /// links too; this pass only adapts the pass input to it and its findings
-/// to pass diagnostics. `exempt` is parallel to `input.entities`.
-fn pass_coverage(input: &PassInput, exempt: &[bool]) -> PassOutput {
+/// to pass diagnostics. Whether an entity is exempt is the host's call,
+/// read from the snapshot (`PassEntity::exempt`).
+fn pass_coverage(input: &PassInput) -> PassOutput {
     // The one kind TESTABLE grades by risk.
     let graded = TESTABLE
         .iter()
@@ -171,12 +176,11 @@ fn pass_coverage(input: &PassInput, exempt: &[bool]) -> PassOutput {
     let entities: Vec<coverage::Entity> = input
         .entities
         .iter()
-        .enumerate()
-        .map(|(i, e)| coverage::Entity {
+        .map(|e| coverage::Entity {
             id: e.id.clone(),
             kind: e.kind.clone(),
             testable: e.testable,
-            exempt: exempt.get(i).copied().unwrap_or(false),
+            exempt: e.exempt,
             verify_kinds: e.verify_kinds.clone(),
             verify_texts: e.verify_texts.clone(),
             risk: graded
@@ -235,46 +239,14 @@ fn pass_coverage(input: &PassInput, exempt: &[bool]) -> PassOutput {
         .collect();
     PassOutput {
         diagnostics,
-        summary: serde_json::to_value(&assessment.summary).unwrap_or_default(),
+        summary: match serde_json::to_value(&assessment.summary) {
+            Ok(serde_json::Value::Object(summary)) => summary,
+            _ => serde_json::Map::new(),
+        },
     }
 }
 
-/// What the coverage pass reads beyond the SDK's `PassEntity`: whether the
-/// host found each entity exempt from owing obligations (ADR 0004, D2-b),
-/// which it decides from the registry. Kept here, not in the SDK, so only
-/// this extension's blob depends on it.
-#[derive(serde::Deserialize)]
-struct Exemptions {
-    #[serde(default)]
-    entities: Vec<Exemption>,
-}
-
-#[derive(serde::Deserialize)]
-struct Exemption {
-    #[serde(default)]
-    exempt: bool,
-}
-
-/// The `__pass_coverage` export: the SDK's `PassInput`, plus the exemption
-/// flags read from the same snapshot.
-fn dispatch_coverage(input: &[u8]) -> Result<Vec<u8>, String> {
-    let request: PassInput =
-        serde_json::from_slice(input).map_err(|e| format!("invalid pass request: {e}"))?;
-    let exemptions: Exemptions =
-        serde_json::from_slice(input).map_err(|e| format!("invalid pass request: {e}"))?;
-    let exempt: Vec<bool> = exemptions.entities.iter().map(|e| e.exempt).collect();
-    serde_json::to_vec(&pass_coverage(&request, &exempt))
-        .map_err(|e| format!("pass serialization failed: {e}"))
-}
-
-fn dispatch(export: &str, input: &[u8]) -> Option<Result<Vec<u8>, String>> {
-    match export {
-        "__pass_coverage" => Some(dispatch_coverage(input)),
-        _ => None,
-    }
-}
-
-specforge_extension_sdk::component_guest!(build = specforge_extension_build, handler = dispatch);
+specforge_extension_sdk::component_guest!(build = specforge_extension_build);
 
 #[cfg(test)]
 mod tests {
@@ -293,13 +265,15 @@ mod tests {
         for case in cases {
             let name = case["name"].as_str().unwrap();
             let expect = &case["expect"];
-            // As `dispatch_coverage` reads the snapshot: the SDK's input,
-            // plus the exemption flags.
+            // As the pass reads the snapshot: the SDK's input, each entity
+            // carrying whether the host found it exempt.
             let input: PassInput = serde_json::from_value(case["input"].clone()).unwrap();
-            let exemptions: Exemptions = serde_json::from_value(case["input"].clone()).unwrap();
-            let exempt: Vec<bool> = exemptions.entities.iter().map(|e| e.exempt).collect();
-            let out = pass_coverage(&input, &exempt);
-            assert_eq!(out.summary, expect["summary"], "summary of {name:?}");
+            let out = pass_coverage(&input);
+            assert_eq!(
+                Value::Object(out.summary),
+                expect["summary"],
+                "summary of {name:?}"
+            );
             let findings: Vec<Value> = out
                 .diagnostics
                 .iter()
@@ -343,7 +317,6 @@ mod tests {
                 ]
             }))
             .unwrap(),
-            &[],
         );
         let files: Vec<&str> = out
             .diagnostics
@@ -351,5 +324,22 @@ mod tests {
             .map(|d| d.span.as_ref().unwrap().file.as_str())
             .collect();
         assert_eq!(files, ["a.spec", "b.spec"]);
+    }
+
+    /// The pass reads each entity's exemption from the snapshot: an exempt
+    /// testable entity that declares nothing is not reported (A001).
+    #[test]
+    fn the_pass_reads_the_exemption_from_each_entity() {
+        let input = |exempt: bool| -> PassInput {
+            serde_json::from_value(json!({"entities": [
+                {"id": "u", "kind": "type", "testable": true, "exempt": exempt}
+            ]}))
+            .unwrap()
+        };
+        let codes = |out: PassOutput| -> Vec<String> {
+            out.diagnostics.into_iter().map(|d| d.code).collect()
+        };
+        assert_eq!(codes(pass_coverage(&input(false))), ["A001"]);
+        assert!(codes(pass_coverage(&input(true))).is_empty());
     }
 }

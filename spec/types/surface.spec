@@ -10,8 +10,9 @@
 // payload below and the routing of each export to its handler from that
 // one declaration, and checks a command's args against their declared
 // types before the handler reads them, through the declaration
-// (CommandCall): a missing required arg or a value of another type is
-// INVALID_INPUT, exit 2. Two surfaces cannot share an export (names that
+// (CommandCall) and by the host's own rule (command_args, ADR 0017): a
+// missing required arg, a value of another type or an arg the command does
+// not declare is INVALID_INPUT, exit 2. Two surfaces cannot share an export (names that
 // differ only in characters an export spells _, or a tool and a resource
 // of one name). On the wire an unset optional field is absent, not null.
 
@@ -22,11 +23,11 @@ use "types/wasm"
 
 // ── Surface Contribution Container ──────────────────────────
 
-type SurfaceContributions {
+type SurfaceDescriptor {
   commands      CommandContribution[]     @optional
   mcp_tools     McpToolContribution[]     @optional
   mcp_resources McpResourceContribution[] @optional
-  verify unit "SurfaceContributions schema is valid"
+  verify unit "SurfaceDescriptor schema is valid"
 }
 
 // ── CLI Command Contributions ───────────────────────────────
@@ -64,6 +65,8 @@ type CommandArg {
   description   string   @optional
   // For enum_arg: allowed values
   values        string[] @optional
+  // The least integer value: 0 for a count
+  minimum       integer  @optional
   verify unit "CommandArg schema is valid"
 }
 
@@ -139,15 +142,21 @@ type SurfaceSandboxOverride {
   verify unit "SurfaceSandboxOverride schema is valid"
 }
 
-// ── Auto-Promotion ──────────────────────────────────────────
+// ── Extension Commands ──────────────────────────────────────
 
-type AutoPromotedMcpTool {
-  source_command       string @readonly
-  source_extension     string @readonly
-  // MCP tool name: specforge.{ext_short}.{cmd_id}
-  mcp_tool_name        string @readonly
-  derived_input_schema JsonSchema
-  verify unit "AutoPromotedMcpTool schema is valid"
+// One command an extension declares, derived once for every surface:
+// its CLI name, its MCP tool name, its args' command-line shapes, its
+// input schema, the args both surfaces send, and why the host refuses it.
+type ExtensionCommand {
+  extension    string @readonly
+  short        string @readonly
+  cli_name     string @readonly
+  // specforge.{short}.{id}
+  tool_name    string @readonly
+  args         CommandArg[]
+  input_schema JsonSchema
+  refusal      string @optional
+  verify unit "ExtensionCommand schema is valid"
 }
 
 // ── Surface Registry ────────────────────────────────────────
@@ -160,7 +169,7 @@ type SurfaceRegistryEntry {
   verify unit "SurfaceRegistryEntry schema is valid"
 }
 
-type SurfaceType = command | mcp_tool | mcp_resource | auto_promoted_tool
+type SurfaceType = command | mcp_tool | mcp_resource
 
 // ── Surface Errors ──────────────────────────────────────────
 

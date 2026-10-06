@@ -31,6 +31,21 @@ pub enum Origin {
     /// Installed under `.specforge/extensions/`, pinned in `specforge.lock`.
     /// `source` is the lock entry's (`registry`, `local:<path>`, ...).
     Installed { source: String },
+    /// Loaded from the `.wasm` file a `specforge.json` entry names; `path`
+    /// as the entry writes it.
+    File { path: String },
+}
+
+impl Origin {
+    /// What the listings call it: `builtin`, the lock entry's source, or
+    /// `file:<path>`.
+    pub fn source(&self) -> String {
+        match self {
+            Origin::Builtin => "builtin".to_string(),
+            Origin::Installed { source } => source.clone(),
+            Origin::File { path } => format!("file:{path}"),
+        }
+    }
 }
 
 /// The builtin `specifier` names (`@specforge/product`, optionally with an
@@ -53,18 +68,18 @@ pub fn enabled_builtins(root: &Path) -> Vec<&'static str> {
 }
 
 /// Builtins that `name` requires: its non-optional peer dependencies that
-/// are themselves builtins, read from its handshake.
+/// are themselves builtins, read from its declaration.
 pub fn required_builtin_peers(name: &str) -> Vec<&'static str> {
     let runtime = specforge_component::ComponentRuntime::new();
     if specforge_component::builtins::load_builtins_for(&runtime, &[name.to_string()]).is_err() {
         return Vec::new();
     }
-    let host = specforge_wasm::protocol::ProtocolHost::new(&runtime);
-    let Ok(handshake) = host.handshake(name) else {
+    let Ok(loaded) = specforge_wasm::protocol::load_declaration(&runtime, name) else {
         return Vec::new();
     };
-    handshake
-        .peer_dependencies
+    loaded
+        .declaration
+        .peers()
         .iter()
         .filter(|peer| !peer.optional)
         .filter_map(|peer| builtin_name(&peer.name))

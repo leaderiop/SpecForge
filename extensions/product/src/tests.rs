@@ -121,8 +121,9 @@ fn a_closed_enum_is_the_one_its_validation_rule_checks() {
     // against (W077, W078, ...) is the enum its list filters and sorts by,
     // and the `one_of` its list's filter arg declares, value for value and
     // in order; `family`'s (I062, an info) is open.
-    let rules: serde_json::Value =
-        serde_json::from_slice(crate::DESCRIBE_VALIDATION_RULES).unwrap();
+    let rules = serde_json::json!({
+        "items": crate::specforge_extension_build().declaration().validation_rules,
+    });
     let kinds = [
         &FEATURES,
         &JOURNEYS,
@@ -1975,6 +1976,10 @@ fn fnv1a(bytes: &[u8]) -> u64 {
 ///   values rather than `string`; nothing else changed. The SDK refuses
 ///   another value with the message the command gave (`INVALID_INPUT`,
 ///   exit 2), the CLI first, and the MCP tools' schemas list the values.
+/// - 40797 bytes, `0x8b30_7f56_fa96_83ca`: counts carry `minimum: 0` (the 29
+///   `--limit`, `--offset` and `--max-hops` args, ADR 0017); nothing else
+///   changed. The host refuses a negative one on both surfaces before the
+///   export runs.
 #[test]
 fn the_surfaces_payload_is_pinned() {
     let payload = crate::specforge_extension_build()
@@ -1982,7 +1987,7 @@ fn the_surfaces_payload_is_pinned() {
         .unwrap();
     assert_eq!(
         (payload.len(), fnv1a(payload.as_bytes())),
-        (39985, 0xd8a4_3928_7a28_0e5e),
+        (40797, 0x8b30_7f56_fa96_83ca),
         "the surfaces payload changed"
     );
 }

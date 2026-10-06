@@ -51,7 +51,7 @@ fn unknown_name_error(resp: &Value) -> Option<String> {
 )]
 fn every_listed_core_tool_dispatches_to_its_handler() {
     let (mut server, _dir) = server_over_scratch_project();
-    let tools = specforge_mcp::registry::default_tools();
+    let tools = crate::support::core_tools();
     assert!(tools.len() >= 15, "the core tool surface is listed");
 
     let listed = call(&mut server, "tools/list", json!({}));

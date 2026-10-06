@@ -13,44 +13,39 @@ use "types/zero-entity-core"
 
 // -- Extension Manifest V2 ---------------------------------------------------
 
-behavior validate_manifest_v2_schema "Validate Manifest V2 Schema" {
+behavior validate_manifest_v2_schema "Validate Extension Declaration" {
   features   [extension_manifest]
   invariants [zero_domain_knowledge_core, registry_population_before_validation]
   category   validation
-  types      [ManifestV2, ExtensionError]
+  types      [ExtensionDeclaration, ExtensionError]
   requires {
-    manifest_json_available "Manifest JSON has been parsed from disk and is available as a structured object"
+    declaration_loaded "The extension's declaration has been loaded from its handshake and describe answers"
   }
   ensures {
-    schema_validated    "Manifest passes all v2 schema checks — required fields present, manifest_version is 2, contributions structurally correct"
-    malformed_diagnosed "Malformed JSON or missing required fields produce hard error diagnostics"
+    shape_validated     "The declaration has a name and a version, a declared ext_short is lowercase kebab case, and every analyzer has a language, file extensions and exports"
+    malformed_diagnosed "A declaration the host cannot use produces a hard error diagnostic"
   }
   contract   """
-    The compiler MUST validate a manifest against the v2 schema. This
-    behavior is a pure schema check — it does NOT handle v1 detection or
-    migration. Required fields (name, version, manifest_version, wasm_path)
-    MUST be present. The manifest_version MUST be 2. Unknown top-level
-    fields MUST produce a warning. Grammar and body parser contribution
-    arrays, when present, MUST be validated for structural correctness:
-    entity_kinds MUST be non-empty arrays, grammar_wasm_path and
-    export_name MUST be non-empty strings. Malformed JSON MUST produce a
-    hard error. This behavior is called by validate_extension_manifest
-    (behaviors/wasm-lifecycle.spec) after initial manifest parsing. Schema
-    validation MUST complete for all manifests before registry population
-    begins.
+    The registry build MUST validate each declaration: name and version
+    present, a declared ext_short is lowercase kebab case, analyzer
+    contributions have a language, file extensions and exports (E030). The
+    load MUST refuse a handshake whose protocol major version differs from
+    the host's (E028). Unknown describe keys produce W138 at load.
+    Declaration validation MUST complete for all declarations before
+    registry population begins.
   """
-  verify unit "valid v2 manifest passes schema validation"
+  verify unit "a valid declaration passes validation"
   verify unit "missing required field produces hard error"
-  verify unit "manifestVersion != 2 produces hard error"
-  verify unit "unknown top-level field produces warning"
-  verify contract "Validate Manifest V2 Schema: manifest v2 schema validation holds — manifest_json_available, schema_validated, malformed_diagnosed"
+  verify integration "an unsupported protocol major version fails the load"
+  verify integration "an unknown describe key produces a warning"
+  verify contract "Validate Extension Declaration: declaration validation holds — declaration_loaded, shape_validated, malformed_diagnosed"
 }
 
 behavior register_entity_kinds_from_manifest "Register Entity Kinds From Manifest" {
   features   [dynamic_entity_registration]
   invariants [zero_domain_knowledge_core, registry_population_before_validation]
   category   command
-  types      [ManifestV2, ManifestEntityKind, KindRegistryEntry]
+  types      [ExtensionDeclaration, EntityKindDescriptor, KindRegistryEntry]
   consumes   [extension_manifests_loaded]
   requires {
     extension_manifests_loaded_fired "extension_manifests_loaded event has fired, confirming all manifests are parsed and accessible"
@@ -85,7 +80,7 @@ behavior register_edge_types_from_manifest "Register Edge Types From Manifest" {
   features   [dynamic_entity_registration]
   invariants [zero_domain_knowledge_core, registry_population_before_validation]
   category   command
-  types      [ManifestV2, ManifestEdgeType]
+  types      [ExtensionDeclaration, EdgeTypeDescriptor]
   consumes   [extension_manifests_loaded]
   requires {
     extension_manifests_loaded_fired "extension_manifests_loaded event has fired, confirming all manifests are parsed and accessible"
@@ -99,7 +94,7 @@ behavior register_edge_types_from_manifest "Register Edge Types From Manifest" {
     For each edgeTypes entry in a extension manifest, the compiler MUST
     register the edge label in the edge type set. The source and target
     kind constraints MUST be recorded for graph validation. Field-to-edge
-    mappings from ManifestField entries MUST create corresponding edge
+    mappings from FieldDescriptor entries MUST create corresponding edge
     type registrations.
 
     Duplicate edge labels across extensions MUST produce a W-level warning
@@ -126,7 +121,7 @@ behavior register_validation_rules_from_manifest "Register Validation Rules From
     declarative_validation_determinism,
   ]
   category   command
-  types      [ManifestV2, ValidationRulePattern]
+  types      [ExtensionDeclaration, ValidationRulePattern]
   consumes   [extension_manifests_loaded]
   requires {
     extension_manifests_loaded_fired "extension_manifests_loaded event has fired, confirming all manifests are parsed and accessible"
@@ -163,7 +158,7 @@ behavior register_verify_kinds_from_manifest "Register Verify Kinds From Manifes
   features   [extension_manifest]
   invariants [zero_domain_knowledge_core, registry_population_before_validation]
   category   validation
-  types      [ManifestV2, ManifestEntityKind]
+  types      [ExtensionDeclaration, EntityKindDescriptor]
   consumes   [extension_manifests_loaded]
   requires {
     extension_manifests_loaded_fired "extension_manifests_loaded event has fired, confirming all manifests are parsed and accessible"
@@ -246,7 +241,7 @@ behavior boot_empty_edge_registry "Boot Empty Edge Registry" {
   features   [dynamic_entity_registration]
   invariants [zero_domain_knowledge_core]
   category   command
-  types      [ManifestEdgeType]
+  types      [EdgeTypeDescriptor]
   requires {
     compiler_initializing "Compiler initialization has started and memory is allocated"
   }
@@ -297,7 +292,7 @@ behavior populate_kind_registry_from_extensions "Populate Kind Registry From Ext
     compilation_pipeline_ordering,
   ]
   category   command
-  types      [ManifestV2, ManifestEntityKind, KindRegistryEntry]
+  types      [ExtensionDeclaration, EntityKindDescriptor, KindRegistryEntry]
   produces   [registries_populated]
   requires {
     manifests_loaded    "All extension manifests MUST be loaded and their entity_kinds arrays accessible"
@@ -330,7 +325,7 @@ behavior populate_field_registry_from_extensions "Populate Field Registry From E
   features   [dynamic_entity_registration]
   invariants [zero_domain_knowledge_core, registry_population_before_validation]
   category   command
-  types      [ManifestV2, ManifestField, FieldRegistryEntry, ManifestFieldType]
+  types      [ExtensionDeclaration, FieldDescriptor, FieldRegistryEntry, ManifestFieldType]
   consumes   [extension_manifests_loaded]
   // Orchestrated by populate_kind_registry_from_extensions which fires registries_populated after all three complete.
   requires {
@@ -338,19 +333,19 @@ behavior populate_field_registry_from_extensions "Populate Field Registry From E
     kind_registry_populated          "KindRegistry is already populated so field registrations can reference valid entity kinds"
   }
   ensures {
-    fields_registered     "Every ManifestEntityKind's fields array is registered in the FieldRegistry"
+    fields_registered     "Every EntityKindDescriptor's fields array is registered in the FieldRegistry"
     field_types_validated "All field type declarations validated against ManifestFieldType variants"
     fields_populated      "FieldRegistry is fully populated and ready for downstream consumers"
   }
   contract   """
     After populating the KindRegistry, the compiler MUST populate the
-    FieldRegistry from all extension manifests. Each ManifestEntityKind's
+    FieldRegistry from all extension manifests. Each EntityKindDescriptor's
     fields array MUST be registered as valid field definitions for that
     entity kind. Field types (string, string[], reference, reference[],
     block) MUST be validated against ManifestFieldType variants. Invalid
     field types MUST produce a warning. Note: verify is NOT a field type
     — it is a grammar-level construct governed by the supports_verify
-    flag on ManifestEntityKind. A field's normative flag MUST be kept in
+    flag on EntityKindDescriptor. A field's normative flag MUST be kept in
     its registry entry, so exports can tell the text that states what an
     entity promises from prose without core knowing any field's name.
     Likewise a field's proof_role (bound or claim) MUST reach its registry
@@ -360,6 +355,7 @@ behavior populate_field_registry_from_extensions "Populate Field Registry From E
   verify unit "fields registered per entity kind"
   verify unit "a field's normative flag reaches its registry entry"
   verify unit "a field's proof_role reaches the field registry"
+  verify unit "a field's declared default value reaches the field registry"
   verify unit "a proof_role other than bound or claim is refused"
   verify unit "field types validated against known types"
   verify unit "invalid field type produces warning"
@@ -370,7 +366,7 @@ behavior populate_edge_registry_from_extensions "Populate Edge Registry From Ext
   features   [dynamic_entity_registration]
   invariants [zero_domain_knowledge_core, registry_population_before_validation]
   category   command
-  types      [ManifestV2, ManifestEdgeType, ManifestField, EdgeRegistryEntry]
+  types      [ExtensionDeclaration, EdgeTypeDescriptor, FieldDescriptor, EdgeRegistryEntry]
   consumes   [extension_manifests_loaded]
   // Orchestrated by populate_kind_registry_from_extensions which fires registries_populated after all three complete.
   requires {
@@ -384,7 +380,7 @@ behavior populate_edge_registry_from_extensions "Populate Edge Registry From Ext
   contract   """
     The compiler MUST build the complete edge type set from two sources:
     explicit edgeTypes declarations in manifests, and implicit edge types
-    derived from ManifestField entries with an edge property. Both sources
+    derived from FieldDescriptor entries with an edge property. Both sources
     MUST be merged into a single edge type set before graph construction.
     Duplicate edge labels MUST be warned about but not rejected.
   """
@@ -399,10 +395,10 @@ behavior validate_registered_entity_fields "Validate Registered Entity Fields" {
   invariants [zero_domain_knowledge_core, registry_population_before_validation]
   category   validation
   types      [
-    ManifestV2,
-    ManifestField,
-    ManifestEntityKind,
-    ManifestEdgeType,
+    ExtensionDeclaration,
+    FieldDescriptor,
+    EntityKindDescriptor,
+    EdgeTypeDescriptor,
     FieldRegistryEntry,
     KindRegistryEntry,
   ]
@@ -723,7 +719,7 @@ behavior render_extension_defined_edge_styles "Render Extension-Defined Edge Sty
   features   [extension_driven_visualization]
   invariants [zero_domain_knowledge_core]
   category   query
-  types      [ManifestEdgeType, EdgeRegistryEntry]
+  types      [EdgeTypeDescriptor, EdgeRegistryEntry]
   requires {
     edge_registry_available "Edge type registry is populated and queryable for style metadata"
     graph_available         "Compiled graph with typed edges is available for rendering"
@@ -758,26 +754,26 @@ behavior validate_extension_manifest_consistency "Validate Extension Manifest Co
   features   [extension_manifest]
   invariants [zero_domain_knowledge_core, registry_population_before_validation]
   category   validation
-  types      [ManifestV2, ManifestEntityKind, ManifestEdgeType, ManifestField]
+  types      [ExtensionDeclaration, EntityKindDescriptor, EdgeTypeDescriptor, FieldDescriptor]
   requires {
-    manifest_parsed         "Extension manifest has been parsed and its entity kinds, fields, and edge types are accessible"
-    peer_dependencies_known "Peer dependency manifests are available for cross-manifest reference validation"
+    manifest_parsed         "The extension's declaration has been loaded and its entity kinds, fields, and edge types are accessible"
+    peer_dependencies_known "The loaded peers' declarations are available for cross-declaration reference validation"
   }
   ensures {
     self_consistency_validated "All internal target_kind and edge_type references checked for self-consistency"
     authoring_errors_diagnosed "Self-contradictory and undeclared cross-extension references produce W021 warnings"
   }
   contract   """
-    When an extension is loaded, the compiler MUST validate that the manifest
-    is self-consistent: all target_kind references in fields MUST reference
-    entity kinds declared in the same manifest or in a peer dependency.
-    All edge labels in field-to-edge mappings MUST have corresponding
-    edgeType declarations. This validation is domain-agnostic — it checks
-    structural consistency of the manifest without knowledge of what the
-    entity kinds or edge types represent.
+    When an extension is loaded, the registry build MUST validate that its
+    declaration is self-consistent: all target_kind references in fields
+    MUST reference entity kinds declared in the same declaration or in a
+    peer dependency. All edge labels in field-to-edge mappings MUST have
+    corresponding edge type declarations. This validation is domain-agnostic
+    — it checks structural consistency of the declaration without knowledge
+    of what the entity kinds or edge types represent.
 
-    Self-contradictory references within the same manifest (target_kind or
-    edge_type that references a name not declared in the manifest itself
+    Self-contradictory references within the same declaration (target_kind
+    or edge_type that references a name not declared in the declaration itself
     and not in any peer dependency) MUST produce a W021 warning naming the
     reference. They are authoring errors in the extension, not in the
     user's spec, so they MUST NOT fail the user's compile. Cross-extension

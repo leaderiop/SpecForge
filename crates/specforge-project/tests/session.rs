@@ -501,6 +501,61 @@ fn a_reload_reads_the_environment_again() {
     assert_matches_a_fresh_compile(&session, root);
 }
 
+/// A `.wasm` file entry loads in a session (what the LSP and MCP hold)
+/// under the name its component declares, its file is an environment
+/// input, and a reload after it stops loading reports E028 naming it.
+#[test]
+fn a_wasm_file_entry_loads_in_a_session_and_reloads_with_its_file() {
+    let greet = fs::read(
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/greet-extension/greet.wasm"),
+    )
+    .unwrap();
+    let dir = project(
+        r#"{"name":"s","version":"0.1.0","extensions":["@specforge/software","ext/greet.wasm"]}"#,
+        &[("a.spec", "greeting hello \"Hello\" {\n  style warm\n}\n")],
+    );
+    let root = dir.path();
+    fs::create_dir_all(root.join("ext")).unwrap();
+    fs::write(root.join("ext/greet.wasm"), &greet).unwrap();
+    let mut session = ProjectSession::open(root);
+
+    let enabled = &session.environment().enabled;
+    assert_eq!(enabled[1].name, "@sdk/greet");
+    assert_eq!(enabled[1].file.as_deref(), Some("ext/greet.wasm"));
+    let codes: Vec<String> = session.diagnostics().into_iter().map(|d| d.code).collect();
+    for code in ["E024", "E028", "W019", "W112"] {
+        assert!(!codes.iter().any(|c| c == code), "{code}: {codes:?}");
+    }
+    assert_eq!(
+        session.classify(&root.join("ext/greet.wasm")),
+        specforge_project::InputRole::Environment
+    );
+
+    fs::write(root.join("ext/greet.wasm"), b"\0asm not a component").unwrap();
+    let update = session.reload_environment();
+    let e028: Vec<&Diagnostic> = update
+        .diagnostics
+        .iter()
+        .filter(|d| d.code == "E028")
+        .collect();
+    assert_eq!(e028.len(), 1, "{:?}", update.diagnostics);
+    assert!(
+        e028[0].message.contains("'ext/greet.wasm'"),
+        "{}",
+        e028[0].message
+    );
+    assert_matches_a_fresh_compile(&session, root);
+
+    fs::write(root.join("ext/greet.wasm"), &greet).unwrap();
+    let update = session.reload_environment();
+    assert!(
+        !update
+            .diagnostics
+            .iter()
+            .any(|d| d.code == "E028" || d.code == "E024")
+    );
+}
+
 /// A session over a graph built in memory serves that graph and the
 /// diagnostics given for it, in its environment, with nothing to reload.
 #[test]
@@ -516,7 +571,7 @@ fn a_session_from_a_graph_serves_it_as_given() {
         vec![warning.clone()],
     );
 
-    assert!(session.is_detached());
+    assert_eq!(session.origin(), specforge_project::Origin::InMemory);
     assert_eq!(
         graph_contents(session.graph()),
         graph_contents(&compiled.graph)
@@ -1202,4 +1257,376 @@ fn random_updates_leave_what_a_fresh_compile_builds() {
             );
         }
     }
+}
+
+/// Bring `session` up to date with what is on disk, as MCP does before
+/// every request: without a watcher, applying exactly what changed.
+fn bring_up_to_date(session: &mut ProjectSession) {
+    session.ensure_fresh().expect("something changed on disk");
+}
+
+/// Sources edited, created and deleted, the config rewritten and the lock
+/// written: after each, a session brought up to date with disk is what a
+/// fresh compile of the files on disk builds.
+#[specforge_test(
+    behavior = "bring_session_up_to_date",
+    verify = "after bringing itself up to date a session matches a fresh compile"
+)]
+fn every_update_kind_leaves_what_a_fresh_compile_builds() {
+    let dir = project(
+        CONFIG,
+        &[
+            (
+                "a.spec",
+                "behavior alpha \"A\" {\n  category command\n  contract \"The system MUST a\"\n  verify unit \"a\"\n}\n",
+            ),
+            (
+                "b.spec",
+                "behavior beta \"B\" {\n  category command\n  contract \"The system MUST b\"\n}\n",
+            ),
+        ],
+    );
+    let root = dir.path();
+    let mut session = ProjectSession::open(root);
+    session.set_verify_incremental(true);
+    assert_matches_a_fresh_compile(&session, root);
+
+    // An edit that leaves a reference dangling.
+    write(
+        root,
+        "a.spec",
+        "behavior alpha \"A\" {\n  category command\n  contract \"The system MUST a\"\n  invariants [missing]\n}\n",
+    );
+    bring_up_to_date(&mut session);
+    assert_matches_a_fresh_compile(&session, root);
+
+    // A file created, another deleted, in one go.
+    write(
+        root,
+        "nested/c.spec",
+        "behavior gamma \"C\" {\n  category command\n  contract \"The system MUST c\"\n}\n",
+    );
+    fs::remove_file(root.join("b.spec")).unwrap();
+    bring_up_to_date(&mut session);
+    assert_matches_a_fresh_compile(&session, root);
+    assert!(session.graph().node("gamma").is_some());
+    assert!(session.graph().node("beta").is_none());
+
+    // The config enables an extension that is not installed: E028, no
+    // lock entry.
+    let config = r#"{"name":"s","version":"0.1.0","extensions":["@specforge/software","@specforge/testing","@acme/missing"]}"#;
+    fs::write(root.join("specforge.json"), config).unwrap();
+    bring_up_to_date(&mut session);
+    assert_matches_a_fresh_compile(&session, root);
+    let e028 = |session: &ProjectSession| -> Vec<String> {
+        session
+            .diagnostics()
+            .iter()
+            .filter(|d| d.code == "E028")
+            .map(|d| d.message.clone())
+            .collect()
+    };
+    let unlocked = e028(&session);
+    assert_eq!(unlocked.len(), 1, "{unlocked:?}");
+
+    // The lock now names it: the environment reads the lock, so the E028
+    // becomes "binary not found".
+    let lock = serde_json::json!({
+        "lockfile_version": 1,
+        "entries": [{"name": "@acme/missing", "version": "1.0.0", "source": "local:missing.wasm", "wasm_hash": "sha256:00"}]
+    });
+    fs::write(root.join("specforge.lock"), lock.to_string()).unwrap();
+    bring_up_to_date(&mut session);
+    assert_matches_a_fresh_compile(&session, root);
+    let locked = e028(&session);
+    assert_eq!(locked.len(), 1, "{locked:?}");
+    assert_ne!(
+        locked, unlocked,
+        "the lock changed what the environment loads"
+    );
+}
+
+/// Set the modification time of every file under `root` `age` in the
+/// past, so none is racy when a session stamps it.
+fn age_files(root: &Path, age: std::time::Duration) {
+    let then = std::time::SystemTime::now() - age;
+    for entry in walk(root) {
+        fs::File::options()
+            .write(true)
+            .open(&entry)
+            .unwrap()
+            .set_modified(then)
+            .unwrap();
+    }
+}
+
+fn walk(dir: &Path) -> Vec<std::path::PathBuf> {
+    let mut files = Vec::new();
+    for entry in fs::read_dir(dir).unwrap() {
+        let path = entry.unwrap().path();
+        if path.is_dir() {
+            files.extend(walk(&path));
+        } else {
+            files.push(path);
+        }
+    }
+    files
+}
+
+#[specforge_test(
+    behavior = "bring_session_up_to_date",
+    verify = "an up-to-date session reports no change and re-parses nothing"
+)]
+fn an_up_to_date_session_changes_nothing() {
+    let dir = project(
+        CONFIG,
+        &[
+            ("a.spec", "behavior alpha \"A\" {\n  category command\n}\n"),
+            (
+                "nested/b.spec",
+                "behavior beta \"B\" {\n  category command\n}\n",
+            ),
+        ],
+    );
+    age_files(dir.path(), std::time::Duration::from_secs(10));
+    let mut session = ProjectSession::open(dir.path());
+    let before = graph_contents(session.graph());
+
+    assert!(session.stale().is_empty(), "{:?}", session.stale());
+    assert!(session.ensure_fresh().is_none());
+    assert_eq!(graph_contents(session.graph()), before);
+}
+
+/// Files written just now are racy (their stamp alone cannot be trusted):
+/// unchanged, they are still not reported.
+#[test]
+fn an_unchanged_racy_file_is_not_reported() {
+    let dir = project(CONFIG, &[("a.spec", "behavior alpha \"A\" {\n}\n")]);
+    let mut session = ProjectSession::open(dir.path());
+    assert!(session.stale().is_empty(), "{:?}", session.stale());
+    assert!(session.ensure_fresh().is_none());
+}
+
+#[specforge_test(
+    behavior = "bring_session_up_to_date",
+    verify = "edits, creations and deletions since the last build are applied as one update"
+)]
+fn edits_creations_and_deletions_apply_as_one_update() {
+    let dir = project(
+        CONFIG,
+        &[
+            ("a.spec", "behavior alpha \"A\" {\n  category command\n}\n"),
+            ("b.spec", "behavior beta \"B\" {\n  category command\n}\n"),
+        ],
+    );
+    let root = dir.path();
+    let mut session = ProjectSession::open(root);
+    session.set_verify_incremental(true);
+
+    write(
+        root,
+        "a.spec",
+        "behavior alpha \"A, edited\" {\n  category command\n}\n",
+    );
+    write(
+        root,
+        "c.spec",
+        "behavior gamma \"C\" {\n  category command\n}\n",
+    );
+    fs::remove_file(root.join("b.spec")).unwrap();
+
+    let stale = session.stale();
+    assert_eq!(stale.sources, vec!["a.spec", "b.spec", "c.spec"]);
+    assert!(!stale.environment && !stale.check_inputs);
+    let update = session.ensure_fresh().expect("three files changed");
+    assert_eq!(update.kind, specforge_project::UpdateKind::Sources);
+    assert_eq!(update.rebuilt_files, vec!["a.spec", "b.spec", "c.spec"]);
+    assert_eq!(update.verification, Some(Ok(())));
+    assert_matches_a_fresh_compile(&session, root);
+
+    // Applied: nothing is left to apply.
+    assert!(session.stale().is_empty(), "{:?}", session.stale());
+    assert!(session.ensure_fresh().is_none());
+}
+
+#[specforge_test(
+    behavior = "bring_session_up_to_date",
+    verify = "a file rewritten within the timestamp granularity of the last build is still seen"
+)]
+fn a_racy_rewrite_is_still_seen() {
+    let dir = project(CONFIG, &[("a.spec", "behavior alpha \"A\" {\n}\n")]);
+    let root = dir.path();
+    let path = root.join("a.spec");
+    let stamp = fs::metadata(&path).unwrap().modified().unwrap();
+    let mut session = ProjectSession::open(root);
+
+    // Same length, same modification time: only the content tells.
+    fs::write(&path, "behavior omega \"A\" {\n}\n").unwrap();
+    fs::File::options()
+        .write(true)
+        .open(&path)
+        .unwrap()
+        .set_modified(stamp)
+        .unwrap();
+    assert_eq!(fs::metadata(&path).unwrap().modified().unwrap(), stamp);
+
+    assert_eq!(session.stale().sources, vec!["a.spec"]);
+    session.ensure_fresh().expect("the rewrite is seen");
+    assert!(session.graph().node("omega").is_some());
+    assert!(session.graph().node("alpha").is_none());
+    assert_matches_a_fresh_compile(&session, root);
+}
+
+#[specforge_test(
+    behavior = "bring_session_up_to_date",
+    verify = "a specforge.lock change reloads the environment"
+)]
+fn a_lock_change_reloads_the_environment() {
+    let config =
+        r#"{"name":"s","version":"0.1.0","extensions":["@specforge/software","@acme/missing"]}"#;
+    let dir = project(config, &[("a.spec", "behavior alpha \"A\" {\n}\n")]);
+    let root = dir.path();
+    let mut session = ProjectSession::open(root);
+    let e028 = |session: &ProjectSession| -> Vec<String> {
+        session
+            .diagnostics()
+            .iter()
+            .filter(|d| d.code == "E028")
+            .map(|d| d.message.clone())
+            .collect()
+    };
+    let unlocked = e028(&session);
+    assert!(
+        unlocked[0].contains("no specforge.lock entry"),
+        "{unlocked:?}"
+    );
+
+    let lock = serde_json::json!({
+        "lockfile_version": 1,
+        "entries": [{"name": "@acme/missing", "version": "1.0.0", "source": "local:missing.wasm", "wasm_hash": "sha256:00"}]
+    });
+    fs::write(root.join("specforge.lock"), lock.to_string()).unwrap();
+
+    let stale = session.stale();
+    assert!(stale.environment && stale.sources.is_empty(), "{stale:?}");
+    let update = session.ensure_fresh().expect("the lock changed");
+    assert_eq!(update.kind, specforge_project::UpdateKind::Environment);
+    let locked = e028(&session);
+    assert_eq!(locked.len(), 1);
+    assert_ne!(locked, unlocked);
+    assert_matches_a_fresh_compile(&session, root);
+}
+
+#[specforge_test(
+    behavior = "bring_session_up_to_date",
+    verify = "a session built in memory is never changed by disk"
+)]
+fn an_in_memory_session_ignores_disk() {
+    let dir = project(CONFIG, &[("a.spec", "behavior alpha \"A\" {\n}\n")]);
+    let root = dir.path();
+    let runtime = specforge_component::project_runtime(root);
+    let compiled = CompiledProject::compile(root, Some(&runtime));
+    let built = compiled.graph.clone();
+    let mut session = ProjectSession::from_graph(
+        std::sync::Arc::new(compiled.env),
+        built,
+        compiled.graph_diagnostics,
+    );
+    let before = graph_contents(session.graph());
+
+    write(root, "a.spec", "behavior omega \"Omega\" {\n}\n");
+    write(root, "b.spec", "behavior beta \"B\" {\n}\n");
+    fs::write(
+        root.join("specforge.json"),
+        r#"{"name":"s","version":"0.1.0"}"#,
+    )
+    .unwrap();
+
+    assert!(session.stale().is_empty());
+    assert!(session.ensure_fresh().is_none());
+    let changes = session.changes([root.join("a.spec").as_path()]);
+    assert!(session.apply(&changes).is_none());
+    assert_eq!(graph_contents(session.graph()), before);
+}
+
+/// How long bringing an unchanged project of 1 000 files up to date takes
+/// (plan 01 T2 records it; run with `--ignored --nocapture`).
+#[test]
+#[ignore = "a measurement, not a check"]
+fn measure_ensure_fresh_on_a_thousand_files() {
+    let files: Vec<(String, String)> = (0..1000)
+        .map(|i| {
+            (
+                format!("dir{}/f{i}.spec", i % 20),
+                format!("behavior b{i} \"B{i}\" {{\n  category command\n}}\n"),
+            )
+        })
+        .collect();
+    let refs: Vec<(&str, &str)> = files
+        .iter()
+        .map(|(p, t)| (p.as_str(), t.as_str()))
+        .collect();
+    let dir = project(CONFIG, &refs);
+    age_files(dir.path(), std::time::Duration::from_secs(10));
+    let mut session = ProjectSession::open(dir.path());
+    let started = std::time::Instant::now();
+    let rounds = 20;
+    for _ in 0..rounds {
+        assert!(session.ensure_fresh().is_none());
+    }
+    eprintln!(
+        "ensure_fresh, 1000 unchanged files: {:?} per call",
+        started.elapsed() / rounds
+    );
+}
+
+#[specforge_test(
+    behavior = "read_views_over_the_project_view",
+    verify = "coverage is computed once per compile and report content, and again after the report changes"
+)]
+fn an_update_starts_a_fresh_coverage_memo() {
+    use specforge_project::coverage::CoverageRegistries;
+    let dir = project(
+        CONFIG,
+        &[(
+            "a.spec",
+            "behavior a \"A\" {\n  contract \"The system MUST a\"\n  verify unit \"a works\"\n}\n",
+        )],
+    );
+    let root = dir.path();
+    let mut session = ProjectSession::open(root);
+    let coverage = |session: &ProjectSession| {
+        session
+            .recorded()
+            .at(
+                Some(root),
+                session.graph(),
+                CoverageRegistries::of(&session.environment().registries),
+            )
+            .unwrap()
+            .coverage
+    };
+    let first = coverage(&session);
+    assert!(std::sync::Arc::ptr_eq(&first, &coverage(&session)));
+    assert!(first.standing("a").unwrap().counts);
+
+    // A source update: the memo scores the new graph.
+    write(
+        root,
+        "b.spec",
+        "behavior b \"B\" {\n  contract \"The system MUST b\"\n}\n",
+    );
+    session.update(SourceChange::Disk(&changed(&["b.spec"])));
+    let updated = coverage(&session);
+    assert!(!std::sync::Arc::ptr_eq(&first, &updated));
+    assert!(updated.is_unverified("b"));
+
+    // Brought up to date with disk, without a watcher, likewise.
+    write(
+        root,
+        "c.spec",
+        "behavior c \"C\" {\n  contract \"The system MUST c\"\n}\n",
+    );
+    assert!(session.ensure_fresh().is_some());
+    assert!(coverage(&session).standing("c").is_some());
 }

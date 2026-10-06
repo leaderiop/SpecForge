@@ -29,14 +29,67 @@ behavior watch_file_system_for_changes "Watch File System for Changes" {
     When specforge watch is active, the system MUST monitor all .spec files
     under the spec root for changes using the OS file watching API.
     File creation, modification, and deletion MUST each trigger
-    recompilation of affected files.
+    recompilation of affected files. Changed paths are classified by the
+    project session (classify_project_changes); after an environment
+    reload the watcher follows the session's new watch roots.
   """
   verify unit "file modification triggers recompilation"
   verify unit "file creation triggers recompilation"
   verify unit "file deletion triggers recompilation"
   verify integration "watch detects changes within 100ms"
   verify contract "Watch File System for Changes: file system watching holds for the declared obligations"
-  verify unit "specforge.json and .wasm changes classify as config/plugin"
+  verify integration "a specforge.lock change reloads the environment"
+  verify integration "a .wasm file no extension loads changes nothing"
+  verify integration "after spec_root changes, files under the new spec root are watched"
+}
+
+behavior classify_project_changes "Classify Project Changes" {
+  features   [incremental_compilation]
+  invariants [incremental_correctness]
+  category   command
+  ports      [FileSystem]
+  contract   """
+    A project session MUST classify a changed path by what the project is
+    built from: a .spec file that discovery finds under the spec root is a
+    source change, keyed relative to the spec root; specforge.json,
+    specforge.lock and every extension module the environment loaded (an
+    installed extension's extension.wasm, a local .wasm entry) are
+    environment changes; specforge-cache.json, which check-phase passes
+    read, and every file a file_reference field names, which the checks
+    look for, are check-input changes; any other path changes nothing.
+    Watch, the LSP and MCP MUST classify through the session.
+  """
+  verify unit "a discovered .spec file is a source change keyed relative to the spec root"
+  verify unit "specforge.json, specforge.lock and a loaded extension module are environment changes"
+  verify unit "a .wasm file no extension loads changes nothing"
+  verify unit "specforge-cache.json re-runs the checks without re-parsing"
+  verify unit "a file a file_reference field names re-runs the checks"
+  verify unit "an excluded or undiscovered .spec file changes nothing"
+}
+
+behavior bring_session_up_to_date "Bring a Session Up to Date with Disk" {
+  features   [incremental_compilation]
+  invariants [incremental_correctness]
+  category   command
+  ports      [FileSystem]
+  contract   """
+    A project session opened from disk MUST bring itself up to date
+    without a file watcher: it compares every discovered source and every
+    environment and check input with what it last built from (size and
+    modification time; a file modified within the timestamp granularity of
+    the last build counts as changed unless its content is unchanged) and
+    applies exactly those changes: sources by an update, environment
+    inputs by an environment reload, check inputs by re-running the
+    checks. Afterwards its graph and diagnostics MUST be those a fresh
+    compile of the files on disk produces. A session built in memory is
+    never changed by disk.
+  """
+  verify unit "an up-to-date session reports no change and re-parses nothing"
+  verify unit "edits, creations and deletions since the last build are applied as one update"
+  verify unit "a file rewritten within the timestamp granularity of the last build is still seen"
+  verify unit "a specforge.lock change reloads the environment"
+  verify unit "after bringing itself up to date a session matches a fresh compile"
+  verify unit "a session built in memory is never changed by disk"
 }
 
 behavior invalidate_changed_files "Invalidate Changed Files" {
@@ -295,7 +348,7 @@ behavior dispatch_incremental_validators "Dispatch Incremental Validators" {
   features   [incremental_graph_deltas]
   invariants [incremental_correctness, diagnostic_determinism, zero_domain_knowledge_core]
   category   command
-  types      [GraphDelta, Graph, ManifestEntityKind]
+  types      [GraphDelta, Graph, EntityKindDescriptor]
   ports      [WasmRuntime]
   consumes   [graph_delta_computed]
   produces   [incremental_validators_dispatched]

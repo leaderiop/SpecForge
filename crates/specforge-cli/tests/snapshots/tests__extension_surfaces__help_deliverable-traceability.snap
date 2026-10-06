@@ -1,0 +1,26 @@
+---
+source: crates/specforge-cli/tests/extension_surfaces.rs
+expression: help
+---
+Every feature a deliverable reaches through its journeys or its modules, once each, and how many each path reaches.
+
+Usage: specforge product deliverable-traceability [OPTIONS] <DELIVERABLE>
+
+Arguments:
+  <DELIVERABLE>
+          The deliverable id
+
+Options:
+      --path <PATH>
+          Path to the project
+          
+          [default: .]
+
+      --format <FORMAT>
+          Output format
+          
+          [default: human]
+          [possible values: human, json]
+
+  -h, --help
+          Print help (see a summary with '-h')

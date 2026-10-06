@@ -1,14 +1,21 @@
 use crate::OutputFormat;
 use serde_json::json;
-use specforge_ops::extension::{self, ExtensionEntry, Origin};
+use specforge_ops::extension::{self, ExtensionEntry};
 use std::path::Path;
 
 /// `specforge extensions`: every extension the project enables, has
 /// installed or loaded, alphabetically, with the entity kinds each
 /// registered and how many of the project's entities use them.
 pub fn run(path: &Path, format: OutputFormat) -> i32 {
-    let ctx = crate::pipeline::compile(path);
-    let entries = extension::list(path, &ctx.manifests, &ctx.kind_registry, &ctx.graph);
+    let (project, _runtime) = crate::pipeline::compile_project(path);
+    let env = &project.env;
+    let entries = extension::list(
+        path,
+        &env.enabled,
+        env.registries.declarations(),
+        &env.registries.kinds,
+        &project.graph,
+    );
 
     match format {
         OutputFormat::Json => {
@@ -53,7 +60,7 @@ pub fn run(path: &Path, format: OutputFormat) -> i32 {
                 println!(
                     "  {}{version} ({}){status}{provides}",
                     entry.name,
-                    source(&entry.origin)
+                    entry.origin.source()
                 );
             }
             println!();
@@ -64,18 +71,11 @@ pub fn run(path: &Path, format: OutputFormat) -> i32 {
     0
 }
 
-fn source(origin: &Origin) -> &str {
-    match origin {
-        Origin::Builtin => "builtin",
-        Origin::Installed { source } => source,
-    }
-}
-
 fn entry_json(entry: &ExtensionEntry) -> serde_json::Value {
     json!({
         "name": entry.name,
         "version": entry.version,
-        "source": source(&entry.origin),
+        "source": entry.origin.source(),
         "status": entry.status.as_str(),
         "entity_kinds": entry.entity_kinds,
         "entity_count": entry.entity_count,

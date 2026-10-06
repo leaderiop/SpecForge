@@ -1,24 +1,24 @@
 use specforge_test_macros::test as spec;
-use specforge_watch::{SpecWatcher, WatchEvent, WatchEventKind};
+use specforge_watch::SpecWatcher;
 use std::fs;
+use std::path::PathBuf;
 use std::sync::mpsc;
 use std::time::{Duration, Instant};
 use tempfile::TempDir;
 
-fn wait_for_event(
-    rx: &mpsc::Receiver<Vec<WatchEvent>>,
-    timeout: Duration,
-) -> Option<Vec<WatchEvent>> {
+fn wait_for_event(rx: &mpsc::Receiver<Vec<PathBuf>>, timeout: Duration) -> Option<Vec<PathBuf>> {
     rx.recv_timeout(timeout).ok()
 }
 
 // ── file modification triggers recompilation ──────────────────
 
+/// A modified file is reported as its whole path under the (canonical)
+/// watched directory: what it is to the project is the session's to say.
 #[spec(
     behavior = "watch_file_system_for_changes",
     verify = "file modification triggers recompilation"
 )]
-fn file_modification_triggers_recompilation() {
+fn changed_paths_are_reported_whole() {
     let dir = TempDir::new().unwrap();
     let spec_path = dir.path().join("a.spec");
     fs::write(&spec_path, r#"behavior foo "Foo" { contract "x" }"#).unwrap();
@@ -39,11 +39,12 @@ fn file_modification_triggers_recompilation() {
         "should receive change event after file modification"
     );
     let events = event.unwrap();
+    let expected = fs::canonicalize(dir.path()).unwrap().join("a.spec");
     assert!(
-        events.iter().any(|f| f.path.ends_with("a.spec")),
-        "changed files should include a.spec, got: {:?}",
-        events
+        events.contains(&expected),
+        "changed paths should include {expected:?}, got: {events:?}"
     );
+    assert!(events.iter().all(|p| p.is_absolute()), "{events:?}");
 }
 
 // ── file creation triggers recompilation ──────────────────────
@@ -72,7 +73,7 @@ fn file_creation_triggers_recompilation() {
     );
     let events = event.unwrap();
     assert!(
-        events.iter().any(|f| f.path.ends_with("new.spec")),
+        events.iter().any(|p| p.ends_with("new.spec")),
         "changed files should include new.spec, got: {:?}",
         events
     );
@@ -105,7 +106,7 @@ fn file_deletion_triggers_recompilation() {
     );
     let events = event.unwrap();
     assert!(
-        events.iter().any(|f| f.path.ends_with("doomed.spec")),
+        events.iter().any(|p| p.ends_with("doomed.spec")),
         "changed files should include doomed.spec, got: {:?}",
         events
     );
@@ -138,7 +139,7 @@ fn watch_detects_changes_within_latency_target() {
 
     let events = event.expect("should receive change event");
     assert!(
-        events.iter().any(|e| e.path == "latency.spec"),
+        events.iter().any(|p| p.ends_with("latency.spec")),
         "{events:?}"
     );
     // Obligation: detected within 100ms. The batch is emitted after the
@@ -176,56 +177,11 @@ fn watch_contract_consistency() {
     let event = wait_for_event(&rx, Duration::from_secs(2));
     assert!(event.is_some(), "ensures: file_changed for modification");
 
-    // Non-.spec files should NOT trigger events
+    // Any other file is reported too, whole: the project session decides
+    // that it changes nothing (classify_project_changes), so watch does
+    // not recompile for it.
     let txt_path = dir.path().join("readme.txt");
     fs::write(&txt_path, "not a spec").unwrap();
-    let event = wait_for_event(&rx, Duration::from_millis(500));
-    assert!(event.is_none(), "non-.spec files must not trigger events");
-}
-
-// ── config + plugin artifacts classify (hardening-plan H2 / R-5) ──
-#[spec(
-    behavior = "watch_file_system_for_changes",
-    verify = "specforge.json and .wasm changes classify as config/plugin"
-)]
-fn config_and_plugin_changes_classify() {
-    let dir = TempDir::new().unwrap();
-    fs::write(
-        dir.path().join("specforge.json"),
-        r#"{"name":"t","version":"0.1.0"}"#,
-    )
-    .unwrap();
-
-    let (tx, rx) = mpsc::channel();
-    let _watcher =
-        SpecWatcher::new(dir.path(), tx, specforge_watch::DEFAULT_DEBOUNCE_WINDOW).unwrap();
-    std::thread::sleep(Duration::from_millis(100));
-
-    // Config change
-    fs::write(
-        dir.path().join("specforge.json"),
-        r#"{"name":"t2","version":"0.1.0"}"#,
-    )
-    .unwrap();
-    let batch = wait_for_event(&rx, Duration::from_secs(2));
-    let batch = batch.expect("config change should produce an event");
-    assert!(
-        batch
-            .iter()
-            .any(|e| e.kind == WatchEventKind::Config && e.path.ends_with("specforge.json")),
-        "expected Config event, got: {:?}",
-        batch
-    );
-
-    // Plugin change
-    fs::write(dir.path().join("patch.wasm"), b"\x00asm\x01\x00\x00\x00").unwrap();
-    let batch = wait_for_event(&rx, Duration::from_secs(2));
-    let batch = batch.expect("plugin change should produce an event");
-    assert!(
-        batch
-            .iter()
-            .any(|e| e.kind == WatchEventKind::Plugin && e.path.ends_with("patch.wasm")),
-        "expected Plugin event, got: {:?}",
-        batch
-    );
+    let event = wait_for_event(&rx, Duration::from_secs(2)).expect("readme.txt reported");
+    assert!(event.iter().any(|p| p.ends_with("readme.txt")), "{event:?}");
 }

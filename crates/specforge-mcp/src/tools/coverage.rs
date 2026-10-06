@@ -1,73 +1,45 @@
-use serde_json::Value;
-use specforge_project::coverage::TestReport;
-use specforge_project::coverage::{CoverageRegistries, ProjectCoverage, ReportError, Status};
+use serde_json::{Value, json};
+use specforge_ops::coverage::{CoverageQuery, CoverageRow, parse_status};
+use specforge_project::coverage::ReportError;
 
-use crate::state::McpState;
+use crate::target::Call;
 use crate::tool::{ErrorCode, McpError, ToolOutcome};
-
-/// The project's `specforge-report.json` (written by `specforge collect`),
-/// if there is one. Tests link themselves to entities by annotation
-/// (ADR 0002), so recorded results are the linkage. A report that is there
-/// but unreadable is an error, as in the CLI (ADR 0004, D2-e).
-pub(crate) fn recorded_report(state: &McpState) -> Result<Option<TestReport>, ReportError> {
-    match &state.project_root {
-        Some(root) => specforge_project::coverage::read_report(root),
-        None => Ok(None),
-    }
-}
 
 /// A test report the tool cannot use, as an `McpError` (ADR 0004, D4-a):
 /// `schema_mismatch` when it doesn't parse, `file_not_found` when a named
 /// one doesn't exist, `internal_error` when it can't be read; the E045
-/// diagnostic rides in `diagnostic`.
-pub(crate) fn report_mcp_error(error: &ReportError, tool: &str) -> McpError {
+/// diagnostic rides in `diagnostic`. The dispatcher names the tool or the
+/// prompt that refused.
+pub(crate) fn report_mcp_error(error: &ReportError) -> McpError {
     let code = match error {
         ReportError::Malformed { .. } => ErrorCode::SchemaMismatch,
         ReportError::Unreadable { missing: true, .. } => ErrorCode::FileNotFound,
         ReportError::Unreadable { .. } => ErrorCode::InternalError,
     };
-    let mut mcp_error = McpError::new(code, error.to_string()).with_diagnostic(&error.diagnostic());
-    mcp_error.tool = Some(tool.to_string());
-    mcp_error
+    McpError::new(code, error.to_string()).with_diagnostic(&error.diagnostic())
 }
 
 /// [`report_mcp_error`] as the tool's `isError` result.
-pub(crate) fn report_error_result(error: &ReportError, tool: &str) -> ToolOutcome {
-    report_mcp_error(error, tool).into()
+pub(crate) fn report_error_result(error: &ReportError) -> ToolOutcome {
+    report_mcp_error(error).into()
 }
 
-/// The project's coverage under the one rule `analyze coverage` applies
-/// (`specforge-coverage`), so no MCP view re-derives it: an entity is
-/// covered exactly when that rule holds it proven, and never while analyze
-/// reports A015 or A014 for it.
-pub(crate) fn project_coverage(
-    state: &McpState,
-    tool: &str,
-) -> Result<ProjectCoverage, ToolOutcome> {
-    let report = recorded_report(state).map_err(|e| report_error_result(&e, tool))?;
-    Ok(ProjectCoverage::compute(
-        state.graph(),
-        coverage_registries(state),
-        report.as_ref(),
-    ))
-}
-
-/// The served project's registries, as the coverage rule reads them.
-pub(crate) fn coverage_registries(state: &McpState) -> CoverageRegistries<'_> {
-    CoverageRegistries {
-        kinds: &state.registries().kinds,
-        fields: &state.registries().fields,
-        rules: &state.registries().rules,
-    }
-}
-
-/// A coverage status as the MCP results spell it.
-pub(crate) fn status_name(status: Status) -> &'static str {
-    match status {
-        Status::Covered => "covered",
-        Status::Partial => "partial",
-        Status::Uncovered => "uncovered",
-    }
+/// One row of the coverage view as MCP spells it (`McpCoverageResult`):
+/// the one presenter of a coverage row, for the coverage tool and every
+/// view that lists rows.
+pub(crate) fn row_json(row: &CoverageRow) -> Value {
+    json!({
+        "entity_id": row.entity_id,
+        "kind": row.kind,
+        "status": specforge_ops::coverage::status_name(row.status()),
+        "declared": row.declared(),
+        "linked": row.linked(),
+        "evidence_collected": row.linked(),
+        "obligations": row.verdict.obligations,
+        "proven": row.verdict.proven,
+        "unproven": row.verdict.unproven,
+        "exempt": row.exempt,
+    })
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -80,44 +52,26 @@ pub struct Args {
     status_filter: Option<String>,
 }
 
-pub fn call(state: &McpState, args: Args) -> ToolOutcome {
-    let coverage = match project_coverage(state, "specforge.coverage") {
-        Ok(coverage) => coverage,
-        Err(outcome) => return outcome,
+/// `specforge.coverage`: the coverage view of the served project (its
+/// recorded tests read at its root; a graph built in memory with no
+/// project has none). With no filter, the entities that count toward
+/// coverage, the ones stats counts as testable.
+pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
+    let status = match args.status_filter.as_deref().map(parse_status).transpose() {
+        Ok(status) => status,
+        Err(error) => {
+            return crate::operations::op_error(error)
+                .with_argument("status_filter")
+                .into();
+        }
     };
-    let entity_filter = args.entity_id.as_deref();
-    let kind_filter = args.kind.as_deref();
-    let status_filter = args.status_filter.as_deref();
-
-    // Testability is the extensions' call (their kinds' manifests).
-    let testable = specforge_project::coverage::testable_kinds(&state.registries().kinds);
-    let results: Vec<Value> = state
-        .graph()
-        .nodes()
-        .into_iter()
-        .filter(|n| {
-            if let Some(eid) = entity_filter {
-                return n.id.raw == eid;
-            }
-            testable.contains(n.kind.raw.as_str())
-                && kind_filter.is_none_or(|kind| n.kind.raw == kind)
-        })
-        .filter_map(|n| Some((n, coverage.verdict(n.id.raw.as_str())?)))
-        .filter(|(_, verdict)| status_filter.is_none_or(|s| status_name(verdict.status()) == s))
-        .map(|(n, verdict)| {
-            serde_json::json!({
-                "entity_id": n.id.raw,
-                "kind": n.kind.raw,
-                "status": status_name(verdict.status()),
-                "declared": verdict.obligations > 0,
-                "linked": verdict.tests > 0,
-                "evidence_collected": verdict.tests > 0,
-                "obligations": verdict.obligations,
-                "proven": verdict.proven,
-                "unproven": verdict.unproven,
-            })
-        })
-        .collect();
-
-    ToolOutcome::ok(Value::Array(results))
+    let query = CoverageQuery {
+        entity_id: args.entity_id.as_deref(),
+        kind: args.kind.as_deref(),
+        status,
+    };
+    match specforge_ops::coverage::coverage(&call.view(), &query) {
+        Ok(outcome) => ToolOutcome::ok(Value::Array(outcome.rows.iter().map(row_json).collect())),
+        Err(error) => report_error_result(&error),
+    }
 }

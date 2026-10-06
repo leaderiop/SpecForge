@@ -3,6 +3,7 @@ use serde_json::{Value, json};
 use specforge_common::inference::{self, InferenceManifest, SourceFileEntry};
 
 use crate::state::McpState;
+use crate::target::Call;
 use crate::tool::{ErrorCode, McpError, ToolOutcome};
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -33,13 +34,11 @@ pub struct Args {
     status: Option<String>,
 }
 
-pub fn call(state: &McpState, args: Args) -> ToolOutcome {
-    let project_root = match &state.project_root {
-        Some(p) => p.clone(),
-        None => {
-            return ToolOutcome::no_project("No project root available");
-        }
+pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
+    let Some(project_root) = call.root().map(std::path::Path::to_path_buf) else {
+        return crate::target::no_project().into();
     };
+    let state = &*call.state;
 
     let action = match args.action.as_deref() {
         Some(a) => a,

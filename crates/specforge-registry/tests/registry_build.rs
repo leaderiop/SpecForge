@@ -1,71 +1,71 @@
-// `build_registries`: the one call that turns loaded manifests into
+// `build_registries`: the one call that turns loaded declarations into
 // everything the compiler needs from them (architecture plan 05, step R1).
-// In-memory manifests, no Wasm.
+// In-memory declarations, no Wasm.
 
 use specforge_test_macros::test as spec;
 
-use specforge_registry::{ManifestV2, build_registries};
+use specforge_extension_sdk::prelude::*;
+use specforge_protocol_types::ExtensionDeclaration;
+use specforge_registry::build_registries;
 
-fn manifest(json: &str) -> ManifestV2 {
-    serde_json::from_str(json).unwrap()
+/// A builder for the extension `name` in `version`.
+fn extension(name: &str, version: &str) -> ContributionsBuilder {
+    ContributionsBuilder::new(ExtensionMeta::new(name, version))
+}
+
+/// The command `hello`, described as `description`.
+fn hello(c: &mut ContributionsBuilder, description: &str) {
+    c.command("hello", |cmd| {
+        cmd.title("Hello")
+            .description(description)
+            .handler(|_| CommandOutput::ok("hello"));
+    });
 }
 
 /// Kinds with fields, a required field, a single reference, a body parser,
 /// an edge, a rule and a CLI command.
-fn software() -> ManifestV2 {
-    manifest(
-        r#"{
-            "name": "@test/software",
-            "version": "1.2.0",
-            "manifestVersion": 2,
-            "wasmPath": "software.wasm",
-            "entityKinds": [
-                {
-                    "name": "Behavior",
-                    "keyword": "behavior",
-                    "testable": true,
-                    "supportsVerify": true,
-                    "fields": [
-                        { "name": "contract", "fieldType": "string", "required": true },
-                        { "name": "owner", "fieldType": "reference", "edge": "owned_by", "targetKind": "team" },
-                        { "name": "types", "fieldType": "reference_list", "edge": "uses", "targetKind": "type" }
-                    ]
-                },
-                { "name": "Type", "keyword": "type", "hasBodyParser": true }
-            ],
-            "edgeTypes": [
-                { "label": "uses", "sourceKind": "behavior", "targetKind": "type" }
-            ],
-            "validationRules": [
-                {
-                    "code": "W901",
-                    "severity": "warning",
-                    "messageTemplate": "behavior '{id}' uses nothing",
-                    "check": "no_outgoing_edges",
-                    "targetKind": "behavior",
-                    "edgeType": "uses"
-                }
-            ],
-            "surfaces": { "commands": [
-                { "id": "hello", "title": "Hello", "description": "hello", "export": "run_hello" }
-            ] }
-        }"#,
-    )
+fn software() -> ExtensionDeclaration {
+    let mut c = extension("@test/software", "1.2.0");
+    c.kind("Behavior", |k| {
+        k.keyword("behavior").testable(true).supports_verify(true);
+        k.field("contract", |f| {
+            f.field_type(FieldType::String).required();
+        });
+        k.field("owner", |f| {
+            f.field_type(FieldType::Reference)
+                .edge("owned_by")
+                .target_kind("team");
+        });
+        k.field("types", |f| {
+            f.field_type(FieldType::ReferenceList)
+                .edge("uses")
+                .target_kind("type");
+        });
+    });
+    c.kind("Type", |k| {
+        k.keyword("type").has_body_parser();
+    });
+    c.edge("uses", |e| {
+        e.source_kind("behavior").target_kind("type");
+    });
+    c.rule("W901", |r| {
+        r.severity(ValidationSeverity::Warning)
+            .message_template("behavior '{id}' uses nothing")
+            .check(CheckKind::NoOutgoingEdges)
+            .target_kind("behavior")
+            .edge_type("uses");
+    });
+    hello(&mut c, "hello");
+    c.declaration()
 }
 
-fn product() -> ManifestV2 {
-    manifest(
-        r#"{
-            "name": "@test/product",
-            "version": "0.3.0",
-            "manifestVersion": 2,
-            "wasmPath": "product.wasm",
-            "entityKinds": [ { "name": "Feature", "keyword": "feature" } ],
-            "surfaces": { "commands": [
-                { "id": "hello", "title": "Hello", "description": "hello again", "export": "run_hello" }
-            ] }
-        }"#,
-    )
+fn product() -> ExtensionDeclaration {
+    let mut c = extension("@test/product", "0.3.0");
+    c.kind("Feature", |k| {
+        k.keyword("feature");
+    });
+    hello(&mut c, "hello again");
+    c.declaration()
 }
 
 #[test]
@@ -79,13 +79,10 @@ fn kinds_fields_and_edges_come_from_the_descriptors() {
     assert!(build.fields.contains("behavior", "owner"));
     assert!(build.edges.contains("uses"));
     assert_eq!(
-        build.extension_info,
-        vec![
-            ("@test/software".to_string(), "1.2.0".to_string()),
-            ("@test/product".to_string(), "0.3.0".to_string()),
-        ]
+        build.extension_info().collect::<Vec<_>>(),
+        vec![("@test/software", "1.2.0"), ("@test/product", "0.3.0")]
     );
-    assert_eq!(build.manifests.len(), 2);
+    assert_eq!(build.declarations().len(), 2);
 }
 
 #[spec(
@@ -167,7 +164,15 @@ fn surface_conflicts_land_in_their_own_bucket() {
         "E039 is reported last, apart from the registry diagnostics"
     );
     assert_eq!(build.surfaces.len(), 1, "first registration wins");
-    assert_eq!(build.manifest_surfaces.len(), 2);
+    assert_eq!(
+        build
+            .declarations()
+            .iter()
+            .map(|d| d.surfaces.commands.len())
+            .sum::<usize>(),
+        2,
+        "each declaration keeps its own surfaces"
+    );
 }
 
 /// Two extensions declaring one rule code: the build warns (W023), after
@@ -178,11 +183,13 @@ fn surface_conflicts_land_in_their_own_bucket() {
 )]
 fn a_rule_code_declared_by_two_extensions_warns() {
     let rule = |name: &str| {
-        manifest(&format!(
-            r#"{{"name":"{name}","version":"1.0.0","manifestVersion":2,"wasmPath":"x.wasm",
-                "validationRules":[{{"code":"W100","severity":"warning","messageTemplate":"m",
-                "check":"no_incoming_edges"}}]}}"#
-        ))
+        let mut c = extension(name, "1.0.0");
+        c.rule("W100", |r| {
+            r.severity(ValidationSeverity::Warning)
+                .message_template("m")
+                .check(CheckKind::NoIncomingEdges);
+        });
+        c.declaration()
     };
 
     let build = build_registries(vec![rule("@ext/a"), rule("@ext/b")]);

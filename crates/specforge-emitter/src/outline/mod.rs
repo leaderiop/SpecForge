@@ -200,7 +200,7 @@ pub struct OutlineCrossEdge {
 // Public API
 // ---------------------------------------------------------------------------
 
-pub use build::OutlineIntermediate_from_manifests;
+pub use build::OutlineIntermediate_from_declarations;
 
 pub fn filter_dependencies(
     deps: &[OutlineDependency],

@@ -5,7 +5,7 @@ use "types/wasm"
 behavior ct_declare_cargo_collector "Declare the cargo test Collector" {
   features [ct_cargo_test_collection]
   category query
-  types    [CollectorContribution]
+  types    [CollectorDescriptor]
   contract """
     @specforge/cargo-test MUST declare one collector, `cargo-test`, selected
     by a `Cargo.toml` at the project root. Its command is
@@ -29,7 +29,7 @@ behavior ct_declare_cargo_collector "Declare the cargo test Collector" {
 behavior ct_map_binary_reports "Map specforge-test Reports to Entities" {
   features [ct_cargo_test_collection]
   category query
-  types    [CollectorDispatchInput, CollectorReport]
+  types    [CollectInput, CollectOutput]
   contract """
     `collect__cargo_test` MUST map every per-binary report entry
     (`entity_id`, `test_name`, `verify`, `duration_ms`, `status`) to a test
@@ -49,7 +49,7 @@ behavior ct_map_binary_reports "Map specforge-test Reports to Entities" {
 behavior ct_report_unlinked_tests "Report Plain Tests as Unlinked" {
   features [ct_cargo_test_collection]
   category query
-  types    [CollectorDispatchInput, CollectorReport]
+  types    [CollectInput, CollectOutput]
   contract """
     Plain `#[test]` functions write no report: they only appear in
     libtest's output as `test <path> ... ok|FAILED|ignored`.

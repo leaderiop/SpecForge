@@ -33,7 +33,7 @@ expression: mcp_snap
     "changed": true,
     "extension": "@specforge/product",
     "installed": true,
-    "note": "re-run specforge.analyze (use_cached=false) to load it",
+    "note": "the server serves it from the next call on",
     "peers_enabled": [],
     "source": "builtin"
   }

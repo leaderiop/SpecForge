@@ -97,9 +97,15 @@ behavior provide_mcp_rename_tool "Provide MCP Rename Tool" {
   }
   contract   """
     In MCP server mode, the system MUST register a specforge.rename tool that
-    accepts entity_id (required), new_name (required), and dry_run? (optional
-    boolean, default false). The tool MUST rename the entity and update all
-    references across all spec files. The response MUST include the list of
+    accepts entity_id (required), new_name (required), dry_run? (optional
+    boolean, default false) and path? (the project root; the served project
+    when omitted; another project is planned, edited and recompiled on its
+    own, the served one untouched). The rename is planned on the project as
+    it is on disk. The tool MUST rename the entity and update all
+    references across all spec files. The edits are exactly the entity's
+    declaration name and its references, as find-references returns them;
+    text in strings, comments and verify statements that mentions the ID
+    is not a reference and is not edited. The response MUST include the list of
     McpRenameEdit operations applied. When dry_run is true, the tool MUST return
     the rename plan (affected files and McpRenameEdit operations) without applying
     any changes. If the entity does not exist, the tool MUST return an error.
@@ -113,6 +119,8 @@ behavior provide_mcp_rename_tool "Provide MCP Rename Tool" {
   verify unit "invalid new_name returns validation error"
   verify unit "dry_run returns rename plan without applying changes"
   verify contract "Provide MCP Rename Tool: MCP rename tool holds — graph_available, filesystem_available, references_updated, recompilation_triggered, dry_run_safe, mutation_completed_emitted, tool_invoked_emitted"
+  verify unit "rename plans on the project as it is on disk, references added since the last call included"
+  verify unit "rename edits exactly the declaration and the references find_references returns"
 }
 
 // MCP init creates a project at a specified path, not the current project.
@@ -228,6 +236,7 @@ behavior provide_mcp_add_extension_tool "Provide MCP Add Extension Tool" {
   verify unit "invalid specifier format returns error"
   verify integration "a builtin is enabled with no registry and no network"
   verify integration "a version diamond with a locked peer is refused with R-RES-006, as specforge add refuses it"
+  verify unit "after add_extension the server serves the extension it installed"
 }
 
 behavior provide_mcp_remove_extension_tool "Provide MCP Remove Extension Tool" {
@@ -255,7 +264,8 @@ behavior provide_mcp_remove_extension_tool "Provide MCP Remove Extension Tool" {
   contract   """
     In MCP server mode, the system MUST register a specforge.remove_extension
     tool that accepts name (required), force? and dry_run? (optional
-    booleans, default false). When dry_run is true, the tool MUST return a
+    booleans, default false) and path? (as rename); dependents and orphan
+    entities are those of the project the path names. When dry_run is true, the tool MUST return a
     preview of the removal (including orphan warnings) without modifying
     specforge.json. The tool MUST remove the
     extension from specforge.json. If removing the extension would leave
@@ -264,8 +274,11 @@ behavior provide_mcp_remove_extension_tool "Provide MCP Remove Extension Tool" {
     If the specified extension is not installed (not listed in specforge.json),
     the tool MUST return an isError result whose McpError code is
     "extension_not_found" and whose message names the unknown extension.
+    A .wasm file entry is removed as remove_extension removes it: by the
+    name its component declares or by its entry, its file left in place.
   """
   verify unit "specforge.remove_extension removes extension from config"
+  verify integration "specforge.remove_extension removes a .wasm file entry by the name it declares, leaving its file in place"
   verify unit "orphan entities produce a warning"
   verify unit "non-installed extension returns extension_not_found error"
   verify unit "dry_run returns preview without modifying files"
@@ -394,10 +407,10 @@ behavior provide_mcp_doctor_tool "Provide MCP Doctor Tool" {
     conflicts, stale Wasm cache entries, extensions that fail to load (E028,
     E033), missing specforge.json fields, version mismatches, and orphan
     entities. The response MUST include detected issues and deterministic
-    resolution steps. Like specforge.validate, the tool MUST compile the
-    project afresh before checking it, so it sees edits made outside the
-    server; with use_cached (optional boolean, default false) it MUST report
-    on the server's last compile instead.
+    resolution steps. Like specforge.validate, the tool MUST bring the
+    project up to date with disk before checking it, so it sees edits made
+    outside the server; with use_cached (optional boolean, default false) it
+    MUST report on the project as last brought up to date instead.
   """
   verify unit "specforge.doctor detects extension conflicts"
   verify unit "response checks wasm cache integrity"

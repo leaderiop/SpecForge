@@ -1,46 +1,50 @@
-use serde_json::Value;
+//! `specforge://prompts/context`: what implementing one entity needs.
 
-use crate::protocol::{JsonRpcResponse, error_codes};
-use crate::state::McpState;
+use serde::Deserialize;
+use serde_json::{Value, json};
 
-pub fn get(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse {
-    let entity_id = match args.get("entity_id").and_then(|v| v.as_str()) {
-        Some(e) => e,
-        None => {
-            return JsonRpcResponse::error(
-                id,
-                error_codes::INVALID_PARAMS,
-                "Missing required argument: entity_id",
-            );
-        }
-    };
+use crate::prompt::{PromptArgs, PromptOutcome, Rendered};
+use crate::target::Call;
+use crate::tool::{ErrorCode, McpError, entity_not_found};
 
-    let node = match state.graph().node(entity_id) {
-        Some(n) => n,
-        None => {
-            return JsonRpcResponse::error(
-                id,
-                error_codes::INVALID_PARAMS,
-                format!("Entity not found: {}", entity_id),
-            );
-        }
-    };
+#[derive(Debug, Deserialize)]
+pub struct Args {
+    entity_id: String,
+    #[serde(default, deserialize_with = "crate::args::id_list")]
+    structural_constraints: Vec<String>,
+}
+
+impl PromptArgs for Args {
+    const DESCRIPTIONS: &'static [(&'static str, &'static str)] = &[
+        ("entity_id", "Entity ID to get context for"),
+        (
+            "structural_constraints",
+            "Entity IDs to include as context even when not connected (array or comma-separated)",
+        ),
+    ];
+}
+
+pub fn render(call: &Call<'_>, args: Args) -> PromptOutcome {
+    let view = call.view();
+    let graph = view.graph;
+    let entity_id = args.entity_id.as_str();
+    let node = graph
+        .node(entity_id)
+        .ok_or_else(|| entity_not_found(entity_id))?;
 
     // The statement the extension declares (headline and normative), e.g.
     // a behavior's `contract`; empty for a kind that declares none.
     let contract_text =
-        specforge_emitter::context::headline_statement(node, &state.registries().fields)
+        specforge_emitter::context::headline_statement(node, &view.registries.fields)
             .unwrap_or_default();
 
-    let upstream: Vec<String> = state
-        .graph()
+    let upstream: Vec<String> = graph
         .edges_to(entity_id)
         .iter()
         .map(|e| e.source.to_string())
         .collect();
 
-    let downstream: Vec<String> = state
-        .graph()
+    let downstream: Vec<String> = graph
         .edges_from(entity_id)
         .iter()
         .map(|e| e.target.to_string())
@@ -53,28 +57,19 @@ pub fn get(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse 
 
     // Structural constraints: entities the caller wants in the context even
     // when no edge connects them to this one.
-    let mut constraint_ids: Vec<String> = Vec::new();
     let mut constraint_entities: Vec<Value> = Vec::new();
-    // MCP prompt arguments are strings, so a comma-separated list works too.
-    let requested: Vec<&str> = match args.get("structural_constraints") {
-        Some(Value::Array(ids)) => ids.iter().filter_map(|v| v.as_str()).collect(),
-        Some(Value::String(ids)) => ids
-            .split(',')
-            .map(str::trim)
-            .filter(|id| !id.is_empty())
-            .collect(),
-        _ => Vec::new(),
-    };
-    for constraint_id in requested {
-        let Some(constraint) = state.graph().node(constraint_id) else {
-            return JsonRpcResponse::error(
-                id,
-                error_codes::INVALID_PARAMS,
-                format!("Structural constraint entity not found: {constraint_id}"),
-            );
+    for constraint_id in &args.structural_constraints {
+        let Some(constraint) = graph.node(constraint_id) else {
+            return Err(Box::new(
+                McpError::new(
+                    ErrorCode::EntityNotFound,
+                    format!("Structural constraint entity not found: {constraint_id}"),
+                )
+                .with_entity(constraint_id.as_str())
+                .with_argument("structural_constraints"),
+            ));
         };
-        constraint_ids.push(constraint_id.to_string());
-        constraint_entities.push(serde_json::json!({
+        constraint_entities.push(json!({
             "entity_id": constraint.id.raw,
             "kind": constraint.kind.raw,
             "title": constraint.title,
@@ -82,8 +77,8 @@ pub fn get(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse 
         }));
     }
 
-    let result = serde_json::json!({
-        "structural_constraints": constraint_ids,
+    let payload = json!({
+        "structural_constraints": args.structural_constraints,
         "structural_constraint_entities": constraint_entities,
         "entity_id": entity_id,
         "kind": node.kind.raw,
@@ -103,19 +98,8 @@ pub fn get(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse 
         entity_id, node.kind.raw
     );
 
-    JsonRpcResponse::success(
-        id,
-        serde_json::json!({
-            "messages": [
-                {
-                    "role": "user",
-                    "content": { "type": "text", "text": instruction }
-                },
-                {
-                    "role": "assistant",
-                    "content": { "type": "text", "text": result.to_string() }
-                }
-            ]
-        }),
-    )
+    Ok(Rendered {
+        instruction,
+        payload,
+    })
 }

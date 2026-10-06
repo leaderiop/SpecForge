@@ -168,7 +168,7 @@ fn graph_resource_has_mime_type() {
 
 /// A project on disk using `extensions`, compiled into `server` through
 /// `specforge.validate`.
-fn compile_project(server: &mut McpServer, dir: &std::path::Path, extensions: &[&str]) {
+fn validate_project(server: &mut McpServer, dir: &std::path::Path, extensions: &[&str]) {
     std::fs::write(
         dir.join("specforge.json"),
         json!({"name": "t", "version": "0.1.0", "extensions": extensions}).to_string(),
@@ -203,7 +203,7 @@ fn kind_names(schema: &Value) -> Vec<&str> {
 fn schema_resource_returns_the_graph_protocol_schema() {
     let dir = tempfile::tempdir().unwrap();
     let mut server = test_server();
-    compile_project(&mut server, dir.path(), &["@specforge/software"]);
+    validate_project(&mut server, dir.path(), &["@specforge/software"]);
 
     let schema: Value = serde_json::from_str(&resource_text(&read_resource(
         &mut server,
@@ -308,14 +308,17 @@ fn diagnostics_resource_returns_array() {
         suggestion: None,
         data: None,
     };
-    server.state_mut().surface_diagnostics = vec![
-        diagnostic(
-            "E003",
-            specforge_common::Severity::Error,
-            "unresolved reference",
-        ),
-        diagnostic("W001", specforge_common::Severity::Warning, "orphan entity"),
-    ];
+    crate::support::report(
+        server.state_mut(),
+        vec![
+            diagnostic(
+                "E003",
+                specforge_common::Severity::Error,
+                "unresolved reference",
+            ),
+            diagnostic("W001", specforge_common::Severity::Warning, "orphan entity"),
+        ],
+    );
     let resp = read_resource(&mut server, "specforge://diagnostics");
     let text = resource_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();
@@ -474,7 +477,7 @@ fn graph_refreshes_after_recompilation() {
 fn schema_updates_when_extensions_change() {
     let dir = tempfile::tempdir().unwrap();
     let mut server = test_server();
-    compile_project(&mut server, dir.path(), &["@specforge/software"]);
+    validate_project(&mut server, dir.path(), &["@specforge/software"]);
     let read = |server: &mut McpServer| -> Value {
         serde_json::from_str(&resource_text(&read_resource(server, "specforge://schema"))).unwrap()
     };
@@ -482,7 +485,7 @@ fn schema_updates_when_extensions_change() {
     assert!(!kind_names(&before).contains(&"feature"), "{before}");
 
     // Adding @specforge/product brings its kinds and its extension entry.
-    compile_project(
+    validate_project(
         &mut server,
         dir.path(),
         &["@specforge/software", "@specforge/product"],
@@ -579,10 +582,9 @@ fn diagnostics_updates_after_recompilation() {
     let count1 = parsed1.as_array().unwrap().len();
 
     // Add a diagnostic to state
-    server
-        .state_mut()
-        .surface_diagnostics
-        .push(specforge_common::Diagnostic {
+    crate::support::report_also(
+        server.state_mut(),
+        specforge_common::Diagnostic {
             code: "V001".into(),
             severity: specforge_common::Severity::Error,
             message: "test diagnostic".into(),
@@ -595,7 +597,8 @@ fn diagnostics_updates_after_recompilation() {
             }),
             suggestion: None,
             data: None,
-        });
+        },
+    );
 
     let resp2 = read_resource(&mut server, "specforge://diagnostics");
     let text2 = resource_text(&resp2);
@@ -612,10 +615,9 @@ fn diagnostics_updates_after_recompilation() {
 fn diagnostics_fields_present() {
     let mut server = test_server();
 
-    server
-        .state_mut()
-        .surface_diagnostics
-        .push(specforge_common::Diagnostic {
+    crate::support::report_also(
+        server.state_mut(),
+        specforge_common::Diagnostic {
             code: "V001".into(),
             severity: specforge_common::Severity::Error,
             message: "test error".into(),
@@ -628,7 +630,8 @@ fn diagnostics_fields_present() {
             }),
             suggestion: None,
             data: None,
-        });
+        },
+    );
 
     let resp = read_resource(&mut server, "specforge://diagnostics");
     let text = resource_text(&resp);
@@ -879,7 +882,10 @@ fn diagnostics_resource_gives_catalogued_codes_their_title() {
         data: None,
     };
     // W008 is catalogued; W901 is a third-party extension's.
-    server.state_mut().surface_diagnostics = vec![diagnostic("W008"), diagnostic("W901")];
+    crate::support::report(
+        server.state_mut(),
+        vec![diagnostic("W008"), diagnostic("W901")],
+    );
     let bag: Value = serde_json::from_str(&resource_text(&read_resource(
         &mut server,
         "specforge://diagnostics",

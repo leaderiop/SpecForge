@@ -17,7 +17,11 @@ type Diagnostic {
 
 // A diagnostic's structured payload, tagged by kind. A kind exists only
 // for a diagnostic some consumer acts on.
-type DiagnosticData = UnresolvedReferenceData | UnresolvedImportData | ShadowedKeywordData
+type DiagnosticData = UnresolvedReferenceData
+  | UnresolvedImportData
+  | ShadowedKeywordData
+  | ReferenceCycleData
+  | SubjectData
 
 // E003: entity's reference field names target, which no entity declares.
 type UnresolvedReferenceData {
@@ -37,12 +41,26 @@ type UnresolvedImportData {
   verify unit "UnresolvedImportData schema is valid"
 }
 
-// E013, E023, E026: keyword (an entity id or an extension's kind keyword)
+// E013, E026: keyword (an entity id or an extension's kind keyword)
 // collides with a keyword the grammar or an earlier extension owns.
 type ShadowedKeywordData {
   kind    "shadowed_keyword" @literal
   keyword string
   verify unit "ShadowedKeywordData schema is valid"
+}
+
+// W061: the reference cycle's entities, in path order.
+type ReferenceCycleData {
+  kind "reference_cycle" @literal
+  path string[]
+  verify unit "ReferenceCycleData schema is valid"
+}
+
+// A diagnostic an extension pass raised about entity.
+type SubjectData {
+  kind   "subject" @literal
+  entity string
+  verify unit "SubjectData schema is valid"
 }
 
 // ValidationCode is a structured type with a display format: the prefix

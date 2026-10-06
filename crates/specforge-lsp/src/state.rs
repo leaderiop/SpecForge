@@ -1,6 +1,8 @@
 use crate::DocumentBuffer;
 use specforge_common::Diagnostic;
 use specforge_graph::Graph;
+use specforge_ops::view::ProjectView;
+use specforge_project::coverage::RecordedCoverage;
 use specforge_project::{Environment, ProjectSession};
 use specforge_registry::{
     EdgeRegistry, FieldRegistry, KindRegistry, RegistryBuild,
@@ -23,6 +25,9 @@ pub struct LspState {
     /// recompile can tell whether the client's semantic tokens went stale.
     last_token_signature: u64,
     shutdown: bool,
+    /// The recorded-coverage memo of the stand-in graph readers see while
+    /// the session is out for an update (it records nothing: no root).
+    stand_in_recorded: RecordedCoverage,
 }
 
 /// The session, or what readers see while it is out for an update.
@@ -53,6 +58,7 @@ impl LspState {
             anchor: None,
             last_token_signature: 0,
             shutdown: false,
+            stand_in_recorded: RecordedCoverage::default(),
         };
         state.last_token_signature = state.token_signature();
         state
@@ -74,7 +80,7 @@ impl LspState {
         let mut kinds: Vec<(&String, Option<&String>)> = self
             .kind_registry()
             .iter()
-            .map(|(keyword, entry)| (keyword, entry.semantic_token.as_ref()))
+            .map(|(keyword, entry)| (keyword, entry.declared.semantic_token.as_ref()))
             .collect();
         kinds.sort();
         kinds.hash(&mut hasher);
@@ -173,6 +179,19 @@ impl LspState {
         }
     }
 
+    /// The project view reads take (navigation among them): the
+    /// session's graph and registries, rooted at its project root; while
+    /// the session is out for an update, its last complete graph, with no
+    /// root.
+    pub fn view(&self) -> ProjectView<'_> {
+        match &self.project {
+            Project::Held(session) => ProjectView::of_session(session, session.root()),
+            Project::Out { graph, env } => {
+                ProjectView::new(graph, &env.registries, None, &self.stand_in_recorded)
+            }
+        }
+    }
+
     /// The project session, unless it is out for an update.
     pub fn session(&self) -> Option<&ProjectSession> {
         match &self.project {
@@ -245,9 +264,11 @@ impl LspState {
         &self.environment().spec_root
     }
 
-    /// The session's file key for an absolute path (see [`file_key`]).
-    pub fn file_key(&self, path: &str) -> String {
-        file_key(self.spec_root(), path)
+    /// The session's key for a file's absolute path
+    /// ([`Environment::source_key`]): relative to the spec root when the
+    /// file is under it, else the path itself.
+    pub fn source_key(&self, path: &str) -> String {
+        self.environment().source_key(Path::new(path))
     }
 
     /// The absolute path of a session file key.
@@ -276,27 +297,4 @@ impl LspState {
     pub fn set_anchor(&mut self, uri: Option<String>) {
         self.anchor = uri;
     }
-}
-
-/// The session's file key for an absolute path: relative to the spec root
-/// when the file is under it (as `specforge check` names it), else the
-/// absolute path itself.
-pub fn file_key(spec_root: &Path, path: &str) -> String {
-    if spec_root.as_os_str().is_empty() {
-        return path.to_string();
-    }
-    let path = Path::new(path);
-    if let Ok(relative) = path.strip_prefix(spec_root) {
-        return relative.to_string_lossy().into_owned();
-    }
-    // The editor and the workspace root may spell the same directory
-    // differently (a symlinked temp dir): compare canonical forms.
-    if let (Ok(canonical), Ok(canonical_root)) = (
-        std::fs::canonicalize(path),
-        std::fs::canonicalize(spec_root),
-    ) && let Ok(relative) = canonical.strip_prefix(&canonical_root)
-    {
-        return relative.to_string_lossy().into_owned();
-    }
-    path.to_string_lossy().into_owned()
 }

@@ -1,37 +1,45 @@
 use crate::{
     EdgeRegistry, EdgeRegistryEntry, FieldRegistry, FieldRegistryEntry, KindRegistry,
-    KindRegistryEntry, ManifestFieldType, ManifestV2, ProofRole,
+    KindRegistryEntry, ManifestFieldType, ProofRole,
 };
 use specforge_common::{Diagnostic, DiagnosticData, Severity};
+use specforge_protocol_types::{
+    EntityEnhancementDescriptor, EntityKindDescriptor, ExtensionDeclaration, FieldDescriptor,
+};
 
-/// Populate all three registries from a list of extension manifests.
-/// Manifests should be provided in topological order (dependencies first).
-/// Returns populated registries plus any diagnostics.
-pub fn populate_registries(
-    manifests: &[ManifestV2],
+/// The keyword a kind's entities are written with: its declared keyword,
+/// else its name.
+pub(crate) fn keyword(kind: &EntityKindDescriptor) -> &str {
+    kind.keyword.as_deref().unwrap_or(&kind.name)
+}
+
+/// Populate all three registries from the declarations, in load order
+/// (dependencies first), plus the diagnostics of doing so.
+pub(crate) fn populate(
+    declarations: &[ExtensionDeclaration],
 ) -> (KindRegistry, FieldRegistry, EdgeRegistry, Vec<Diagnostic>) {
     let mut kind_reg = KindRegistry::new();
     let mut field_reg = FieldRegistry::new();
     let mut edge_reg = EdgeRegistry::new();
     let mut diagnostics = Vec::new();
 
-    for manifest in manifests {
-        register_entity_kinds(&mut kind_reg, manifest, &mut diagnostics);
-        register_fields(&mut field_reg, manifest, &mut diagnostics);
-        register_edge_types(&mut edge_reg, manifest, &mut diagnostics);
-        register_implicit_edges(&mut edge_reg, manifest, &mut diagnostics);
+    for declaration in declarations {
+        register_entity_kinds(&mut kind_reg, declaration, &mut diagnostics);
+        register_fields(&mut field_reg, declaration, &mut diagnostics);
+        register_edge_types(&mut edge_reg, declaration, &mut diagnostics);
+        register_implicit_edges(&mut edge_reg, declaration);
     }
 
-    // After all manifests processed, apply entity enhancements
-    let all_enhancements: Vec<_> = manifests
+    // After every extension, apply the entity enhancements.
+    let all_enhancements: Vec<(String, EntityEnhancementDescriptor)> = declarations
         .iter()
-        .flat_map(|m| {
-            m.entity_enhancements
+        .flat_map(|d| {
+            d.enhancements
                 .iter()
-                .map(move |e| (m.name.clone(), e.clone()))
+                .map(move |e| (d.name().to_string(), e.clone()))
         })
         .collect();
-    let loaded: Vec<String> = manifests.iter().map(|m| m.name.clone()).collect();
+    let loaded: Vec<String> = declarations.iter().map(|d| d.name().to_string()).collect();
     let enh_diags =
         apply_entity_enhancements(&all_enhancements, &loaded, &mut kind_reg, &mut field_reg);
     diagnostics.extend(enh_diags);
@@ -50,7 +58,7 @@ pub fn populate_registries(
 /// An enhancement carrying `verify_kinds` makes its target kind testable
 /// with exactly those kinds (ADR 0002).
 pub fn apply_entity_enhancements(
-    enhancements: &[(String, crate::FieldEnhancement)],
+    enhancements: &[(String, EntityEnhancementDescriptor)],
     loaded_extensions: &[String],
     kind_reg: &mut KindRegistry,
     field_reg: &mut FieldRegistry,
@@ -107,31 +115,22 @@ pub fn apply_entity_enhancements(
     diagnostics
 }
 
-/// Register entity kinds from a single manifest into the KindRegistry.
+/// Register a declaration's entity kinds into the KindRegistry.
 fn register_entity_kinds(
     registry: &mut KindRegistry,
-    manifest: &ManifestV2,
+    declaration: &ExtensionDeclaration,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
-    for kind in &manifest.entity_kinds {
+    for kind in &declaration.entities {
+        let keyword = keyword(kind);
         let entry = KindRegistryEntry {
-            kind_name: kind.keyword.clone(),
-            description: kind.description.clone(),
-            source_extension: manifest.name.clone(),
+            kind_name: keyword.to_string(),
+            source_extension: declaration.name().to_string(),
             testable: kind.testable,
-            singleton: kind.singleton,
             supports_verify: kind.supports_verify,
-            allowed_verify_kinds: kind.allowed_verify_kinds.clone(),
-            has_body_parser: kind.has_body_parser,
-            semantic_token: kind.semantic_token.clone(),
-            lsp_icon: kind.lsp_icon.clone(),
-            dot_shape: kind.dot_shape.clone(),
-            dot_color: kind.dot_color.clone(),
-            dot_fillcolor: kind.dot_fillcolor.clone(),
-            open_fields: kind.open_fields,
-            contract_target: kind.contract_target,
-            declares_types: kind.declares_types,
-            lifecycle_field: lifecycle_field(kind, manifest, diagnostics),
+            allowed_verify_kinds: kind.verify_kinds.clone(),
+            lifecycle_field: lifecycle_field(kind, declaration, diagnostics),
+            declared: kind.clone(),
         };
         if let Some(existing) = registry.register(entry) {
             // Duplicate — first extension wins (already registered), emit E026
@@ -140,12 +139,14 @@ fn register_entity_kinds(
                 severity: Severity::Error,
                 message: format!(
                     "entity kind '{}' registered by '{}' conflicts with '{}' (first registration wins)",
-                    kind.keyword, manifest.name, existing.source_extension
+                    keyword,
+                    declaration.name(),
+                    existing.source_extension
                 ),
                 span: None,
                 suggestion: None,
                 data: Some(Box::new(DiagnosticData::ShadowedKeyword {
-                    keyword: kind.keyword.clone(),
+                    keyword: keyword.to_string(),
                 })),
             });
             // Restore the first registration (it wins)
@@ -154,20 +155,33 @@ fn register_entity_kinds(
     }
 }
 
-/// Register fields from a manifest into the FieldRegistry.
+/// Register a declaration's fields into the FieldRegistry: its shared
+/// fields on every kind it declares, then each kind's own.
 fn register_fields(
     registry: &mut FieldRegistry,
-    manifest: &ManifestV2,
+    declaration: &ExtensionDeclaration,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
-    for kind in &manifest.entity_kinds {
+    for kind in &declaration.entities {
         // Extension-level shared fields first
-        for field in &manifest.fields {
-            register_single_field(registry, &kind.keyword, field, &manifest.name, diagnostics);
+        for field in &declaration.shared_fields {
+            register_single_field(
+                registry,
+                keyword(kind),
+                field,
+                declaration.name(),
+                diagnostics,
+            );
         }
         // Kind-level fields override extension-level
         for field in &kind.fields {
-            register_single_field(registry, &kind.keyword, field, &manifest.name, diagnostics);
+            register_single_field(
+                registry,
+                keyword(kind),
+                field,
+                declaration.name(),
+                diagnostics,
+            );
         }
     }
 }
@@ -175,7 +189,7 @@ fn register_fields(
 fn register_single_field(
     registry: &mut FieldRegistry,
     kind_name: &str,
-    field: &crate::ManifestField,
+    field: &FieldDescriptor,
     source_extension: &str,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
@@ -201,20 +215,10 @@ fn register_single_field(
 
     registry.register(FieldRegistryEntry {
         kind_name: kind_name.to_string(),
-        field_name: field.name.clone(),
-        description: field.description.clone(),
-        field_type,
         source_extension: source_extension.to_string(),
-        edge: field.edge.clone(),
-        target_kind: field.target_kind.clone(),
-        file_reference: field.file_reference,
-        required: field.required,
-        inverse_of: field.inverse_of.clone(),
-        normative: field.normative,
-        exempts_obligations: field.exempts_obligations,
-        headline: field.headline,
-        derived_from: field.derived_from.clone(),
+        field_type,
         proof_role: proof_role(kind_name, field, source_extension, diagnostics),
+        declared: field.clone(),
     });
 }
 
@@ -222,15 +226,15 @@ fn register_single_field(
 /// among its own or the extension's shared fields; a name it does not
 /// declare is refused (W021).
 fn lifecycle_field(
-    kind: &crate::ManifestEntityKind,
-    manifest: &ManifestV2,
+    kind: &EntityKindDescriptor,
+    declaration: &ExtensionDeclaration,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Option<String> {
     let name = kind.lifecycle_field.as_ref()?;
     let declared = kind
         .fields
         .iter()
-        .chain(&manifest.fields)
+        .chain(&declaration.shared_fields)
         .any(|f| &f.name == name);
     if declared {
         return Some(name.clone());
@@ -240,7 +244,9 @@ fn lifecycle_field(
         severity: Severity::Warning,
         message: format!(
             "extension '{}': kind '{}' declares lifecycle_field '{}', which is not one of its fields",
-            manifest.name, kind.keyword, name
+            declaration.name(),
+            keyword(kind),
+            name
         ),
         span: None,
         suggestion: None,
@@ -253,7 +259,7 @@ fn lifecycle_field(
 /// `bound` or `claim` is refused (W021).
 fn proof_role(
     kind_name: &str,
-    field: &crate::ManifestField,
+    field: &FieldDescriptor,
     source_extension: &str,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Option<ProofRole> {
@@ -279,22 +285,16 @@ fn parse_field_type(s: &str) -> Option<ManifestFieldType> {
     specforge_protocol_types::FieldType::parse(s).map(ManifestFieldType::from)
 }
 
-/// Register explicit edge types from a manifest.
+/// Register a declaration's explicit edge types.
 fn register_edge_types(
     registry: &mut EdgeRegistry,
-    manifest: &ManifestV2,
+    declaration: &ExtensionDeclaration,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
-    for edge in &manifest.edge_types {
+    for edge in &declaration.edges {
         let entry = EdgeRegistryEntry {
-            label: edge.label.clone(),
-            description: edge.description.clone(),
-            source_kind: edge.source_kind.clone(),
-            target_kind: edge.target_kind.clone(),
-            source_extension: manifest.name.clone(),
-            edge_style: edge.edge_style.clone(),
-            edge_color: edge.edge_color.clone(),
-            edge_arrowhead: edge.edge_arrowhead.clone(),
+            source_extension: declaration.name().to_string(),
+            declared: edge.clone(),
         };
         if let Some(existing) = registry.register(entry) {
             diagnostics.push(Diagnostic {
@@ -302,7 +302,10 @@ fn register_edge_types(
                 severity: Severity::Warning,
                 message: format!(
                     "edge type '{}' from '{}' duplicates '{}' from '{}' (first wins)",
-                    edge.label, manifest.name, existing.label, existing.source_extension
+                    edge.label,
+                    declaration.name(),
+                    existing.declared.label,
+                    existing.source_extension
                 ),
                 span: None,
                 suggestion: None,
@@ -314,108 +317,67 @@ fn register_edge_types(
     }
 }
 
-/// Register implicit edge types from field-to-edge mappings.
-fn register_implicit_edges(
-    registry: &mut EdgeRegistry,
-    manifest: &ManifestV2,
-    diagnostics: &mut Vec<Diagnostic>,
-) {
-    for kind in &manifest.entity_kinds {
+/// Register the edge types a declaration's fields map to without declaring
+/// them.
+fn register_implicit_edges(registry: &mut EdgeRegistry, declaration: &ExtensionDeclaration) {
+    for kind in &declaration.entities {
         for field in &kind.fields {
             if let Some(ref edge_label) = field.edge
                 && !registry.contains(edge_label)
             {
                 registry.register(EdgeRegistryEntry {
-                    label: edge_label.clone(),
-                    description: None,
-                    source_kind: Some(kind.keyword.clone()),
-                    target_kind: field.target_kind.clone(),
-                    source_extension: manifest.name.clone(),
-                    edge_style: None,
-                    edge_color: None,
-                    edge_arrowhead: None,
+                    source_extension: declaration.name().to_string(),
+                    declared: specforge_protocol_types::EdgeTypeDescriptor {
+                        label: edge_label.clone(),
+                        source_kind: Some(keyword(kind).to_string()),
+                        target_kind: field.target_kind.clone(),
+                        ..Default::default()
+                    },
                 });
             }
         }
     }
-    // Suppress unused warning — diagnostics are used for future duplicate implicit edge warnings
-    let _ = diagnostics;
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::compilation::tests::support::{declare, product, software};
+    use specforge_extension_sdk::prelude::*;
+    use specforge_protocol_types::EdgeTypeDescriptor;
 
-    fn software_manifest() -> ManifestV2 {
-        serde_json::from_str(
-            r#"{
-                "name": "@specforge/software",
-                "version": "1.0.0",
-                "manifestVersion": 2,
-                "wasmPath": "software.wasm",
-                "entityKinds": [
-                    {
-                        "name": "Behavior",
-                        "keyword": "behavior",
-                        "testable": true,
-                        "singleton": false,
-                        "supportsVerify": true,
-                        "semanticToken": "function",
-                        "lspIcon": "Method",
-                        "dotShape": "ellipse",
-                        "fields": [
-                            { "name": "contract", "fieldType": "block" },
-                            { "name": "invariants", "fieldType": "reference_list", "edge": "enforces", "targetKind": "invariant" }
-                        ]
-                    },
-                    {
-                        "name": "Invariant",
-                        "keyword": "invariant",
-                        "testable": true,
-                        "supportsVerify": true,
-                        "dotShape": "diamond"
-                    }
-                ],
-                "edgeTypes": [
-                    { "label": "enforces", "sourceKind": "behavior", "targetKind": "invariant", "edgeStyle": "dashed" }
-                ]
-            }"#,
-        )
-        .unwrap()
+    fn software_manifest() -> ExtensionDeclaration {
+        software()
     }
 
-    fn product_manifest() -> ManifestV2 {
-        serde_json::from_str(
-            r#"{
-                "name": "@specforge/product",
-                "version": "1.0.0",
-                "manifestVersion": 2,
-                "wasmPath": "product.wasm",
-                "entityKinds": [
-                    {
-                        "name": "Feature",
-                        "keyword": "feature",
-                        "testable": false,
-                        "dotShape": "box",
-                        "fields": [
-                            { "name": "behaviors", "fieldType": "reference_list", "edge": "composes", "targetKind": "behavior" }
-                        ]
-                    }
-                ],
-                "edgeTypes": [
-                    { "label": "composes", "sourceKind": "feature", "targetKind": "behavior" }
-                ]
-            }"#,
-        )
-        .unwrap()
+    fn product_manifest() -> ExtensionDeclaration {
+        product()
     }
 
-    // -- B:register_entity_kinds_from_manifest tests --
+    /// A string field `name`, as an enhancement declares it.
+    fn string_field(name: &str) -> FieldDescriptor {
+        FieldDescriptor {
+            name: name.to_string(),
+            field_type: FieldType::String.as_str().to_string(),
+            ..Default::default()
+        }
+    }
+
+    /// An enhancement of `target_kind` by `owner` adding string `fields`.
+    fn enhancement(target_kind: &str, owner: &str, fields: &[&str]) -> EntityEnhancementDescriptor {
+        EntityEnhancementDescriptor {
+            target_kind: target_kind.to_string(),
+            source_extension: owner.to_string(),
+            fields: fields.iter().map(|f| string_field(f)).collect(),
+            edge_types: vec![],
+            verify_kinds: None,
+        }
+    }
 
     // B:register_entity_kinds_from_manifest — verify unit "entity kind registered with testable flag"
     #[test]
     fn test_entity_kind_registered_with_testable_flag() {
-        let (kind_reg, _, _, diags) = populate_registries(&[software_manifest()]);
+        let (kind_reg, _, _, diags) = populate(&[software_manifest()]);
         assert!(diags.is_empty());
         let behavior = kind_reg.get("behavior").unwrap();
         assert!(behavior.testable);
@@ -426,24 +388,27 @@ mod tests {
     // B:register_entity_kinds_from_manifest — verify unit "entity kind registered with singleton flag"
     #[test]
     fn test_entity_kind_registered_with_singleton_flag() {
-        let (kind_reg, _, _, _) = populate_registries(&[software_manifest()]);
+        let (kind_reg, _, _, _) = populate(&[software_manifest()]);
         let behavior = kind_reg.get("behavior").unwrap();
-        assert!(!behavior.singleton);
+        assert!(!behavior.declared.singleton);
     }
 
     // B:register_entity_kinds_from_manifest — verify unit "entity kind registered with LSP metadata"
     #[test]
     fn test_entity_kind_registered_with_lsp_metadata() {
-        let (kind_reg, _, _, _) = populate_registries(&[software_manifest()]);
+        let (kind_reg, _, _, _) = populate(&[software_manifest()]);
         let behavior = kind_reg.get("behavior").unwrap();
-        assert_eq!(behavior.semantic_token.as_deref(), Some("function"));
-        assert_eq!(behavior.lsp_icon.as_deref(), Some("Method"));
+        assert_eq!(
+            behavior.declared.semantic_token.as_deref(),
+            Some("function")
+        );
+        assert_eq!(behavior.declared.lsp_icon.as_deref(), Some("Method"));
     }
 
     // B:register_entity_kinds_from_manifest — verify unit "source extension recorded in registry entry"
     #[test]
     fn test_source_extension_recorded_in_registry_entry() {
-        let (kind_reg, _, _, _) = populate_registries(&[software_manifest()]);
+        let (kind_reg, _, _, _) = populate(&[software_manifest()]);
         let behavior = kind_reg.get("behavior").unwrap();
         assert_eq!(behavior.source_extension, "@specforge/software");
     }
@@ -451,7 +416,7 @@ mod tests {
     // B:register_entity_kinds_from_manifest — verify unit "testable=true entity participates in coverage"
     #[test]
     fn test_testable_true_entity_participates_in_coverage() {
-        let (kind_reg, _, _, _) = populate_registries(&[software_manifest()]);
+        let (kind_reg, _, _, _) = populate(&[software_manifest()]);
         let testable_kinds: Vec<_> = kind_reg
             .iter()
             .filter(|(_, e)| e.testable)
@@ -464,7 +429,7 @@ mod tests {
     // B:register_entity_kinds_from_manifest — verify unit "testable=false entity excluded from coverage"
     #[test]
     fn test_testable_false_entity_excluded_from_coverage() {
-        let (kind_reg, _, _, _) = populate_registries(&[product_manifest()]);
+        let (kind_reg, _, _, _) = populate(&[product_manifest()]);
         let feature = kind_reg.get("feature").unwrap();
         assert!(!feature.testable);
     }
@@ -473,19 +438,12 @@ mod tests {
     #[test]
     fn test_no_default_testability_assumed_by_core() {
         // An entity kind with no testable flag explicitly set defaults to false
-        let manifest: ManifestV2 = serde_json::from_str(
-            r#"{
-                "name": "@test/ext",
-                "version": "1.0.0",
-                "manifestVersion": 2,
-                "wasmPath": "x.wasm",
-                "entityKinds": [
-                    { "name": "Thing", "keyword": "thing" }
-                ]
-            }"#,
-        )
-        .unwrap();
-        let (kind_reg, _, _, _) = populate_registries(&[manifest]);
+        let manifest = declare("@test/ext", |c| {
+            c.kind("Thing", |k| {
+                k.keyword("thing");
+            });
+        });
+        let (kind_reg, _, _, _) = populate(&[manifest]);
         let thing = kind_reg.get("thing").unwrap();
         assert!(!thing.testable, "default testability should be false");
     }
@@ -496,7 +454,7 @@ mod tests {
     #[test]
     fn test_extensions_iterated_in_topological_order() {
         // First manifest's kinds should be registered first
-        let (kind_reg, _, _, _) = populate_registries(&[software_manifest(), product_manifest()]);
+        let (kind_reg, _, _, _) = populate(&[software_manifest(), product_manifest()]);
         // Both should be present
         assert!(kind_reg.contains("behavior"));
         assert!(kind_reg.contains("invariant"));
@@ -506,7 +464,7 @@ mod tests {
     // B:populate_kind_registry_from_extensions — verify unit "all entityKinds entries registered"
     #[test]
     fn test_all_entity_kinds_entries_registered() {
-        let (kind_reg, _, _, _) = populate_registries(&[software_manifest()]);
+        let (kind_reg, _, _, _) = populate(&[software_manifest()]);
         assert_eq!(kind_reg.len(), 2); // behavior + invariant
         assert!(kind_reg.contains("behavior"));
         assert!(kind_reg.contains("invariant"));
@@ -515,7 +473,7 @@ mod tests {
     // B:populate_kind_registry_from_extensions — verify unit "registered keywords available to parser"
     #[test]
     fn test_registered_keywords_available_to_parser() {
-        let (kind_reg, _, _, _) = populate_registries(&[software_manifest(), product_manifest()]);
+        let (kind_reg, _, _, _) = populate(&[software_manifest(), product_manifest()]);
         let keywords: Vec<String> = kind_reg.keywords().cloned().collect();
         assert!(keywords.contains(&"behavior".to_string()));
         assert!(keywords.contains(&"invariant".to_string()));
@@ -527,7 +485,7 @@ mod tests {
     fn test_population_completes_before_validation() {
         // populate_registries returns all three registries fully populated.
         // Validation is a separate step that consumes these registries.
-        let (kind_reg, field_reg, edge_reg, _) = populate_registries(&[software_manifest()]);
+        let (kind_reg, field_reg, edge_reg, _) = populate(&[software_manifest()]);
         assert!(!kind_reg.is_empty());
         assert!(!field_reg.is_empty());
         assert!(!edge_reg.is_empty());
@@ -536,8 +494,7 @@ mod tests {
     // B:populate_kind_registry_from_extensions — verify integration "two extensions register kinds without collision"
     #[test]
     fn test_two_extensions_register_kinds_without_collision() {
-        let (kind_reg, _, _, diags) =
-            populate_registries(&[software_manifest(), product_manifest()]);
+        let (kind_reg, _, _, diags) = populate(&[software_manifest(), product_manifest()]);
         // No E026 diagnostics
         assert!(
             !diags.iter().any(|d| d.code == "E026"),
@@ -552,21 +509,21 @@ mod tests {
     // B:register_edge_types_from_manifest — verify unit "edge type registered with label and description"
     #[test]
     fn test_edge_type_registered_with_label() {
-        let (_, _, edge_reg, _) = populate_registries(&[software_manifest()]);
+        let (_, _, edge_reg, _) = populate(&[software_manifest()]);
         let enforces = edge_reg.get("enforces").unwrap();
-        assert_eq!(enforces.label, "enforces");
-        assert_eq!(enforces.source_kind.as_deref(), Some("behavior"));
-        assert_eq!(enforces.target_kind.as_deref(), Some("invariant"));
+        assert_eq!(enforces.declared.label, "enforces");
+        assert_eq!(enforces.declared.source_kind.as_deref(), Some("behavior"));
+        assert_eq!(enforces.declared.target_kind.as_deref(), Some("invariant"));
     }
 
     // B:register_edge_types_from_manifest — verify unit "source/target kind constraints recorded"
     #[test]
     fn test_source_target_kind_constraints_recorded() {
-        let (_, _, edge_reg, _) = populate_registries(&[software_manifest()]);
+        let (_, _, edge_reg, _) = populate(&[software_manifest()]);
         let enforces = edge_reg.get("enforces").unwrap();
-        assert_eq!(enforces.source_kind.as_deref(), Some("behavior"));
-        assert_eq!(enforces.target_kind.as_deref(), Some("invariant"));
-        assert_eq!(enforces.edge_style.as_deref(), Some("dashed"));
+        assert_eq!(enforces.declared.source_kind.as_deref(), Some("behavior"));
+        assert_eq!(enforces.declared.target_kind.as_deref(), Some("invariant"));
+        assert_eq!(enforces.declared.edge_style.as_deref(), Some("dashed"));
     }
 
     // B:register_edge_types_from_manifest — verify unit "duplicate edge label across extensions produces W-level warning"
@@ -575,16 +532,13 @@ mod tests {
         let m1 = software_manifest();
         let mut m2 = product_manifest();
         // Add a duplicate "enforces" edge to product manifest
-        m2.edge_types.push(crate::ManifestEdgeType {
+        m2.edges.push(EdgeTypeDescriptor {
             label: "enforces".to_string(),
-            description: None,
             source_kind: Some("feature".to_string()),
             target_kind: Some("behavior".to_string()),
-            edge_style: None,
-            edge_color: None,
-            edge_arrowhead: None,
+            ..Default::default()
         });
-        let (_, _, _, diags) = populate_registries(&[m1, m2]);
+        let (_, _, _, diags) = populate(&[m1, m2]);
         assert!(
             diags
                 .iter()
@@ -599,20 +553,18 @@ mod tests {
     fn test_first_registered_edge_type_wins_on_collision() {
         let m1 = software_manifest();
         let mut m2 = product_manifest();
-        m2.edge_types.push(crate::ManifestEdgeType {
+        m2.edges.push(EdgeTypeDescriptor {
             label: "enforces".to_string(),
-            description: None,
             source_kind: Some("feature".to_string()),
             target_kind: Some("behavior".to_string()),
             edge_style: Some("dotted".to_string()),
-            edge_color: None,
-            edge_arrowhead: None,
+            ..Default::default()
         });
-        let (_, _, edge_reg, _) = populate_registries(&[m1, m2]);
+        let (_, _, edge_reg, _) = populate(&[m1, m2]);
         let enforces = edge_reg.get("enforces").unwrap();
         // First extension's version should win
         assert_eq!(enforces.source_extension, "@specforge/software");
-        assert_eq!(enforces.edge_style.as_deref(), Some("dashed"));
+        assert_eq!(enforces.declared.edge_style.as_deref(), Some("dashed"));
     }
 
     // B:register_edge_types_from_manifest — verify unit "field-to-edge mapping creates edge type"
@@ -620,7 +572,7 @@ mod tests {
     fn test_field_to_edge_mapping_creates_edge_type() {
         // product_manifest has a "composes" edge in edgeTypes AND in field mapping
         // The explicit edgeType should be registered, implicit should not duplicate
-        let (_, _, edge_reg, _) = populate_registries(&[product_manifest()]);
+        let (_, _, edge_reg, _) = populate(&[product_manifest()]);
         assert!(edge_reg.contains("composes"));
     }
 
@@ -629,7 +581,7 @@ mod tests {
     // B:populate_field_registry_from_extensions — verify unit "fields registered per entity kind"
     #[test]
     fn test_fields_registered_per_entity_kind() {
-        let (_, field_reg, _, _) = populate_registries(&[software_manifest()]);
+        let (_, field_reg, _, _) = populate(&[software_manifest()]);
         assert!(field_reg.contains("behavior", "contract"));
         assert!(field_reg.contains("behavior", "invariants"));
         // invariant has no declared fields
@@ -639,7 +591,7 @@ mod tests {
     // B:populate_field_registry_from_extensions — verify unit "field types validated against known types"
     #[test]
     fn test_field_types_validated_against_known_types() {
-        let (_, field_reg, _, _) = populate_registries(&[software_manifest()]);
+        let (_, field_reg, _, _) = populate(&[software_manifest()]);
         let contract = field_reg.get("behavior", "contract").unwrap();
         assert_eq!(contract.field_type, ManifestFieldType::Block);
         let invariants = field_reg.get("behavior", "invariants").unwrap();
@@ -649,25 +601,17 @@ mod tests {
     // B:populate_field_registry_from_extensions — verify unit "invalid field type produces warning"
     #[test]
     fn test_invalid_field_type_produces_warning() {
-        let manifest: ManifestV2 = serde_json::from_str(
-            r#"{
-                "name": "@test/ext",
-                "version": "1.0.0",
-                "manifestVersion": 2,
-                "wasmPath": "x.wasm",
-                "entityKinds": [
-                    {
-                        "name": "Thing",
-                        "keyword": "thing",
-                        "fields": [
-                            { "name": "data", "fieldType": "unknown_type_xyz" }
-                        ]
-                    }
-                ]
-            }"#,
-        )
-        .unwrap();
-        let (_, field_reg, _, diags) = populate_registries(&[manifest]);
+        let mut manifest = declare("@test/ext", |c| {
+            c.kind("Thing", |k| {
+                k.keyword("thing");
+                k.field("data", |f| {
+                    f.field_type(FieldType::String);
+                });
+            });
+        });
+        // Not a field type the vocabulary knows.
+        manifest.entities[0].fields[0].field_type = "unknown_type_xyz".to_string();
+        let (_, field_reg, _, diags) = populate(&[manifest]);
         assert!(
             diags
                 .iter()
@@ -684,7 +628,7 @@ mod tests {
     // B:populate_edge_registry_from_extensions — verify unit "explicit edgeTypes merged into edge set"
     #[test]
     fn test_explicit_edge_types_merged_into_edge_set() {
-        let (_, _, edge_reg, _) = populate_registries(&[software_manifest()]);
+        let (_, _, edge_reg, _) = populate(&[software_manifest()]);
         assert!(edge_reg.contains("enforces"));
     }
 
@@ -692,29 +636,21 @@ mod tests {
     #[test]
     fn test_implicit_edges_from_field_mappings_merged() {
         // Create a manifest with field edge mapping but no explicit edgeTypes
-        let manifest: ManifestV2 = serde_json::from_str(
-            r#"{
-                "name": "@test/ext",
-                "version": "1.0.0",
-                "manifestVersion": 2,
-                "wasmPath": "x.wasm",
-                "entityKinds": [
-                    {
-                        "name": "Task",
-                        "keyword": "task",
-                        "fields": [
-                            { "name": "assignee", "fieldType": "reference", "edge": "assigned_to", "targetKind": "person" }
-                        ]
-                    }
-                ]
-            }"#,
-        )
-        .unwrap();
-        let (_, _, edge_reg, _) = populate_registries(&[manifest]);
+        let manifest = declare("@test/ext", |c| {
+            c.kind("Task", |k| {
+                k.keyword("task");
+                k.field("assignee", |f| {
+                    f.field_type(FieldType::Reference)
+                        .edge("assigned_to")
+                        .target_kind("person");
+                });
+            });
+        });
+        let (_, _, edge_reg, _) = populate(&[manifest]);
         assert!(edge_reg.contains("assigned_to"));
         let edge = edge_reg.get("assigned_to").unwrap();
-        assert_eq!(edge.source_kind.as_deref(), Some("task"));
-        assert_eq!(edge.target_kind.as_deref(), Some("person"));
+        assert_eq!(edge.declared.source_kind.as_deref(), Some("task"));
+        assert_eq!(edge.declared.target_kind.as_deref(), Some("person"));
     }
 
     // B:populate_edge_registry_from_extensions — verify unit "duplicate edge labels produce warning"
@@ -723,25 +659,15 @@ mod tests {
         let mut m1 = software_manifest();
         let mut m2 = product_manifest();
         // Both declare "links_to" edge
-        m1.edge_types.push(crate::ManifestEdgeType {
+        m1.edges.push(EdgeTypeDescriptor {
             label: "links_to".to_string(),
-            description: None,
-            source_kind: None,
-            target_kind: None,
-            edge_style: None,
-            edge_color: None,
-            edge_arrowhead: None,
+            ..Default::default()
         });
-        m2.edge_types.push(crate::ManifestEdgeType {
+        m2.edges.push(EdgeTypeDescriptor {
             label: "links_to".to_string(),
-            description: None,
-            source_kind: None,
-            target_kind: None,
-            edge_style: None,
-            edge_color: None,
-            edge_arrowhead: None,
+            ..Default::default()
         });
-        let (_, _, _, diags) = populate_registries(&[m1, m2]);
+        let (_, _, _, diags) = populate(&[m1, m2]);
         assert!(
             diags
                 .iter()
@@ -753,74 +679,51 @@ mod tests {
 
     #[test]
     fn test_entity_kind_description_propagated_to_registry() {
-        let manifest: ManifestV2 = serde_json::from_str(
-            r#"{
-                "name": "@test/ext",
-                "version": "1.0.0",
-                "manifestVersion": 2,
-                "wasmPath": "x.wasm",
-                "entityKinds": [
-                    {
-                        "name": "Behavior",
-                        "keyword": "behavior",
-                        "description": "A testable unit of system functionality"
-                    }
-                ]
-            }"#,
-        )
-        .unwrap();
-        let (kind_reg, _, _, _) = populate_registries(&[manifest]);
+        let manifest = declare("@test/ext", |c| {
+            c.kind("Behavior", |k| {
+                k.keyword("behavior")
+                    .description("A testable unit of system functionality");
+            });
+        });
+        let (kind_reg, _, _, _) = populate(&[manifest]);
         let entry = kind_reg.get("behavior").unwrap();
         assert_eq!(
-            entry.description.as_deref(),
+            entry.declared.description.as_deref(),
             Some("A testable unit of system functionality")
         );
     }
 
     #[test]
     fn test_entity_kind_without_description_has_none() {
-        let (kind_reg, _, _, _) = populate_registries(&[software_manifest()]);
+        let (kind_reg, _, _, _) = populate(&[software_manifest()]);
         let entry = kind_reg.get("behavior").unwrap();
-        assert!(entry.description.is_none());
+        assert!(entry.declared.description.is_none());
     }
 
     #[test]
     fn test_field_description_propagated_to_registry() {
-        let manifest: ManifestV2 = serde_json::from_str(
-            r#"{
-                "name": "@test/ext",
-                "version": "1.0.0",
-                "manifestVersion": 2,
-                "wasmPath": "x.wasm",
-                "entityKinds": [
-                    {
-                        "name": "Behavior",
-                        "keyword": "behavior",
-                        "fields": [
-                            {
-                                "name": "contract",
-                                "fieldType": "block",
-                                "description": "The behavioral contract this entity fulfills"
-                            }
-                        ]
-                    }
-                ]
-            }"#,
-        )
-        .unwrap();
-        let (_, field_reg, _, _) = populate_registries(&[manifest]);
+        let manifest = declare("@test/ext", |c| {
+            c.kind("Behavior", |k| {
+                k.keyword("behavior");
+                k.field("contract", |f| {
+                    f.field_type(FieldType::Block)
+                        .description("The behavioral contract this entity fulfills");
+                });
+            });
+        });
+        let (_, field_reg, _, _) = populate(&[manifest]);
         let entry = field_reg.get("behavior", "contract").unwrap();
         assert_eq!(
-            entry.description.as_deref(),
+            entry.declared.description.as_deref(),
             Some("The behavioral contract this entity fulfills")
         );
     }
 
     #[test]
     fn test_field_without_description_has_none() {
-        let (_, field_reg, _, _) = populate_registries(&[software_manifest()]);
+        let (_, field_reg, _, _) = populate(&[software_manifest()]);
         let entry = field_reg.get("behavior", "contract").unwrap();
-        assert!(entry.description.is_none());
+        assert!(entry.declared.description.is_none());
     }
 
     // B:register_entity_kinds_from_manifest — verify contract "requires/ensures consistency for entity kind registration"
@@ -828,7 +731,7 @@ mod tests {
     fn test_register_entity_kinds_contract() {
         // requires: manifest validated, registries empty
         let manifest = software_manifest();
-        let (kind_reg, _, _, diags) = populate_registries(&[manifest]);
+        let (kind_reg, _, _, diags) = populate(&[manifest]);
         // ensures: all kinds registered
         assert!(kind_reg.contains("behavior"));
         assert!(kind_reg.contains("invariant"));
@@ -848,13 +751,13 @@ mod tests {
     fn test_register_edge_types_contract() {
         // requires: manifest validated
         let manifest = software_manifest();
-        let (_, _, edge_reg, diags) = populate_registries(&[manifest]);
+        let (_, _, edge_reg, diags) = populate(&[manifest]);
         // ensures: explicit edge registered
         assert!(edge_reg.contains("enforces"));
         // ensures: source/target constraints recorded
         let enforces = edge_reg.get("enforces").unwrap();
-        assert_eq!(enforces.source_kind.as_deref(), Some("behavior"));
-        assert_eq!(enforces.target_kind.as_deref(), Some("invariant"));
+        assert_eq!(enforces.declared.source_kind.as_deref(), Some("behavior"));
+        assert_eq!(enforces.declared.target_kind.as_deref(), Some("invariant"));
         // ensures: no errors on clean manifest
         assert!(!diags.iter().any(|d| d.severity == Severity::Error));
     }
@@ -864,7 +767,7 @@ mod tests {
     fn test_populate_kind_registry_contract() {
         // requires: manifests in topological order, registries empty
         let (kind_reg, field_reg, edge_reg, diags) =
-            populate_registries(&[software_manifest(), product_manifest()]);
+            populate(&[software_manifest(), product_manifest()]);
         // ensures: all registries populated
         assert!(!kind_reg.is_empty());
         assert!(!field_reg.is_empty());
@@ -882,7 +785,7 @@ mod tests {
     #[test]
     fn test_populate_field_registry_contract() {
         // requires: manifests validated
-        let (_, field_reg, _, diags) = populate_registries(&[software_manifest()]);
+        let (_, field_reg, _, diags) = populate(&[software_manifest()]);
         // ensures: fields registered per entity kind
         assert!(field_reg.contains("behavior", "contract"));
         assert!(field_reg.contains("behavior", "invariants"));
@@ -897,8 +800,7 @@ mod tests {
     #[test]
     fn test_populate_edge_registry_contract() {
         // requires: manifests validated
-        let (_, _, edge_reg, diags) =
-            populate_registries(&[software_manifest(), product_manifest()]);
+        let (_, _, edge_reg, diags) = populate(&[software_manifest(), product_manifest()]);
         // ensures: explicit edges merged
         assert!(edge_reg.contains("enforces"));
         assert!(edge_reg.contains("composes"));
@@ -938,7 +840,7 @@ mod tests {
 
     #[test]
     fn test_parse_field_type_enum_returns_empty_values() {
-        // Enum values come from ManifestField.enum_values, not the type string
+        // Enum values come from FieldDescriptor.enum_values, not the type string
         if let Some(ManifestFieldType::Enum(values)) = parse_field_type("enum") {
             assert!(
                 values.is_empty(),
@@ -980,29 +882,16 @@ mod tests {
 
     #[test]
     fn test_enum_field_type_registered_through_manifest() {
-        let manifest: ManifestV2 = serde_json::from_str(
-            r#"{
-                "name": "@test/ext",
-                "version": "1.0.0",
-                "manifestVersion": 2,
-                "wasmPath": "x.wasm",
-                "entityKinds": [
-                    {
-                        "name": "Feature",
-                        "keyword": "feature",
-                        "fields": [
-                            {
-                                "name": "status",
-                                "fieldType": "enum",
-                                "enumValues": ["draft", "active", "done"]
-                            }
-                        ]
-                    }
-                ]
-            }"#,
-        )
-        .unwrap();
-        let (_, field_reg, _, diags) = populate_registries(&[manifest]);
+        let manifest = declare("@test/ext", |c| {
+            c.kind("Feature", |k| {
+                k.keyword("feature");
+                k.field("status", |f| {
+                    f.field_type(FieldType::Enum)
+                        .enum_values(&["draft", "active", "done"]);
+                });
+            });
+        });
+        let (_, field_reg, _, diags) = populate(&[manifest]);
         // No W019 warning for "enum" field type
         assert!(
             !diags.iter().any(|d| d.code == "W019"),
@@ -1021,56 +910,22 @@ mod tests {
 
     // -- Slice 6: apply_entity_enhancements tests --
 
-    fn enhancement_manifest() -> ManifestV2 {
-        serde_json::from_str(
-            r#"{
-                "name": "@test/coverage",
-                "version": "1.0.0",
-                "manifestVersion": 2,
-                "wasmPath": "coverage.wasm",
-                "entityEnhancements": [
-                    {
-                        "targetKind": "behavior",
-                        "sourceExtension": "@test/coverage",
-                        "fields": [
-                            { "name": "coverage_threshold", "fieldType": "string" }
-                        ]
-                    }
-                ]
-            }"#,
-        )
-        .unwrap()
+    fn enhancement_manifest() -> ExtensionDeclaration {
+        declare("@test/coverage", |c| {
+            c.enhance("behavior", "@test/coverage", |e| {
+                e.field("coverage_threshold", |f| {
+                    f.field_type(FieldType::String);
+                });
+            });
+        })
     }
-
     // B:apply_entity_enhancements — verify unit "merges enhancement fields into FieldRegistry for known target kind"
     #[test]
     fn test_apply_enhancements_merges_fields_for_known_kind() {
-        let (mut kind_reg, mut field_reg, _, _) = populate_registries(&[software_manifest()]);
+        let (mut kind_reg, mut field_reg, _, _) = populate(&[software_manifest()]);
         let enhancements = vec![(
             "@test/coverage".to_string(),
-            crate::FieldEnhancement {
-                verify_kinds: None,
-                target_kind: "behavior".to_string(),
-                source_extension: "@test/coverage".to_string(),
-                fields: vec![crate::ManifestField {
-                    name: "coverage_threshold".to_string(),
-                    field_type: "string".to_string(),
-                    description: None,
-                    edge: None,
-                    target_kind: None,
-                    file_reference: false,
-                    required: false,
-                    default_value: None,
-                    enum_values: vec![],
-                    inverse_of: None,
-                    normative: false,
-                    exempts_obligations: false,
-                    headline: false,
-                    derived_from: None,
-                    proof_role: None,
-                }],
-                edge_types: vec![],
-            },
+            enhancement("behavior", "@test/coverage", &["coverage_threshold"]),
         )];
         let diags = apply_entity_enhancements(&enhancements, &[], &mut kind_reg, &mut field_reg);
         assert!(
@@ -1084,32 +939,10 @@ mod tests {
     // B:apply_entity_enhancements — verify unit "unknown target kind produces I004 info diagnostic"
     #[test]
     fn test_apply_enhancements_unknown_kind_produces_i004() {
-        let (mut kind_reg, mut field_reg, _, _) = populate_registries(&[software_manifest()]);
+        let (mut kind_reg, mut field_reg, _, _) = populate(&[software_manifest()]);
         let enhancements = vec![(
             "@test/ext".to_string(),
-            crate::FieldEnhancement {
-                verify_kinds: None,
-                target_kind: "nonexistent_kind".to_string(),
-                source_extension: "@test/ext".to_string(),
-                fields: vec![crate::ManifestField {
-                    name: "extra".to_string(),
-                    field_type: "string".to_string(),
-                    description: None,
-                    edge: None,
-                    target_kind: None,
-                    file_reference: false,
-                    required: false,
-                    default_value: None,
-                    enum_values: vec![],
-                    inverse_of: None,
-                    normative: false,
-                    exempts_obligations: false,
-                    headline: false,
-                    derived_from: None,
-                    proof_role: None,
-                }],
-                edge_types: vec![],
-            },
+            enhancement("nonexistent_kind", "@test/ext", &["extra"]),
         )];
         let diags = apply_entity_enhancements(&enhancements, &[], &mut kind_reg, &mut field_reg);
         assert_eq!(diags.len(), 1);
@@ -1119,20 +952,14 @@ mod tests {
         assert!(!field_reg.contains("nonexistent_kind", "extra"));
     }
 
-    fn enhancement_of(target_kind: &str, owner: &str) -> crate::FieldEnhancement {
-        crate::FieldEnhancement {
-            verify_kinds: None,
-            target_kind: target_kind.to_string(),
-            source_extension: owner.to_string(),
-            fields: vec![],
-            edge_types: vec![],
-        }
+    fn enhancement_of(target_kind: &str, owner: &str) -> EntityEnhancementDescriptor {
+        enhancement(target_kind, owner, &[])
     }
 
     // B:apply_entity_enhancements — verify unit "enhancement of a kind owned by an extension that is not loaded is skipped silently"
     #[test]
     fn test_apply_enhancements_for_absent_owner_is_silent() {
-        let (mut kind_reg, mut field_reg, _, _) = populate_registries(&[software_manifest()]);
+        let (mut kind_reg, mut field_reg, _, _) = populate(&[software_manifest()]);
         let enhancements = vec![(
             "@specforge/software".to_string(),
             enhancement_of("module", "@specforge/product"),
@@ -1156,7 +983,7 @@ mod tests {
     // B:register_entity_enhancements — verify unit "an enhancement with verify kinds makes its target kind testable"
     #[test]
     fn test_apply_enhancements_with_verify_kinds_makes_kind_testable() {
-        let (mut kind_reg, mut field_reg, _, _) = populate_registries(&[software_manifest()]);
+        let (mut kind_reg, mut field_reg, _, _) = populate(&[software_manifest()]);
         kind_reg.get_mut("behavior").unwrap().supports_verify = false;
         let mut enhancement = enhancement_of("behavior", "@specforge/software");
         enhancement.verify_kinds = Some(vec!["unit".to_string(), "contract".to_string()]);
@@ -1172,33 +999,12 @@ mod tests {
     // B:apply_entity_enhancements — verify unit "enhancement field does NOT overwrite existing kind-level field"
     #[test]
     fn test_apply_enhancements_does_not_overwrite_kind_level_field() {
-        let (mut kind_reg, mut field_reg, _, _) = populate_registries(&[software_manifest()]);
+        let (mut kind_reg, mut field_reg, _, _) = populate(&[software_manifest()]);
         // "contract" is already a kind-level field on behavior (type: block)
         let enhancements = vec![(
             "@test/ext".to_string(),
-            crate::FieldEnhancement {
-                verify_kinds: None,
-                target_kind: "behavior".to_string(),
-                source_extension: "@test/ext".to_string(),
-                fields: vec![crate::ManifestField {
-                    name: "contract".to_string(),
-                    field_type: "string".to_string(), // Different type!
-                    description: None,
-                    edge: None,
-                    target_kind: None,
-                    file_reference: false,
-                    required: false,
-                    default_value: None,
-                    enum_values: vec![],
-                    inverse_of: None,
-                    normative: false,
-                    exempts_obligations: false,
-                    headline: false,
-                    derived_from: None,
-                    proof_role: None,
-                }],
-                edge_types: vec![],
-            },
+            // A string field: a different type!
+            enhancement("behavior", "@test/ext", &["contract"]),
         )];
         let diags = apply_entity_enhancements(&enhancements, &[], &mut kind_reg, &mut field_reg);
         assert!(diags.is_empty());
@@ -1211,59 +1017,15 @@ mod tests {
     // B:apply_entity_enhancements — verify unit "two non-conflicting enhancements on same kind both registered"
     #[test]
     fn test_apply_two_non_conflicting_enhancements_on_same_kind() {
-        let (mut kind_reg, mut field_reg, _, _) = populate_registries(&[software_manifest()]);
+        let (mut kind_reg, mut field_reg, _, _) = populate(&[software_manifest()]);
         let enhancements = vec![
             (
                 "@ext/a".to_string(),
-                crate::FieldEnhancement {
-                    verify_kinds: None,
-                    target_kind: "behavior".to_string(),
-                    source_extension: "@ext/a".to_string(),
-                    fields: vec![crate::ManifestField {
-                        name: "priority".to_string(),
-                        field_type: "string".to_string(),
-                        description: None,
-                        edge: None,
-                        target_kind: None,
-                        file_reference: false,
-                        required: false,
-                        default_value: None,
-                        enum_values: vec![],
-                        inverse_of: None,
-                        normative: false,
-                        exempts_obligations: false,
-                        headline: false,
-                        derived_from: None,
-                        proof_role: None,
-                    }],
-                    edge_types: vec![],
-                },
+                enhancement("behavior", "@ext/a", &["priority"]),
             ),
             (
                 "@ext/b".to_string(),
-                crate::FieldEnhancement {
-                    verify_kinds: None,
-                    target_kind: "behavior".to_string(),
-                    source_extension: "@ext/b".to_string(),
-                    fields: vec![crate::ManifestField {
-                        name: "category".to_string(),
-                        field_type: "string".to_string(),
-                        description: None,
-                        edge: None,
-                        target_kind: None,
-                        file_reference: false,
-                        required: false,
-                        default_value: None,
-                        enum_values: vec![],
-                        inverse_of: None,
-                        normative: false,
-                        exempts_obligations: false,
-                        headline: false,
-                        derived_from: None,
-                        proof_role: None,
-                    }],
-                    edge_types: vec![],
-                },
+                enhancement("behavior", "@ext/b", &["category"]),
             ),
         ];
         let diags = apply_entity_enhancements(&enhancements, &[], &mut kind_reg, &mut field_reg);
@@ -1277,7 +1039,7 @@ mod tests {
     fn test_apply_entity_enhancements_contract() {
         // requires: KindRegistry populated
         let manifests = vec![software_manifest(), enhancement_manifest()];
-        let (_kind_reg, field_reg, _, diags) = populate_registries(&manifests);
+        let (_kind_reg, field_reg, _, diags) = populate(&manifests);
 
         // ensures: enhancements applied during populate_registries
         assert!(

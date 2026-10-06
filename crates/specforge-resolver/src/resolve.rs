@@ -39,7 +39,7 @@ pub fn resolve_project(spec_root: &Path) -> ResolvedProject {
 #[must_use]
 pub fn resolve_project_with_config(spec_root: &Path, config: &ResolveConfig) -> ResolvedProject {
     let mut diagnostics = Vec::new();
-    let mut parsed: Vec<(String, SpecFile)> = Vec::new();
+    let mut parsed: Vec<(String, String, SpecFile)> = Vec::new();
     for path in specforge_common::discover_spec_files(spec_root, &config.exclude) {
         let source = match std::fs::read_to_string(&path) {
             Ok(s) => s,
@@ -57,26 +57,31 @@ pub fn resolve_project_with_config(spec_root: &Path, config: &ResolveConfig) -> 
         };
         let rel = relative(spec_root, &path);
         let spec_file = parse(&source, &rel);
-        parsed.push((rel, spec_file));
+        parsed.push((rel, source, spec_file));
     }
 
     let mut resolution = {
-        let files: Vec<(&str, &SpecFile)> = parsed.iter().map(|(p, f)| (p.as_str(), f)).collect();
+        let files: Vec<(&str, &SpecFile)> =
+            parsed.iter().map(|(p, _, f)| (p.as_str(), f)).collect();
         resolve_parsed(spec_root, &files, config, &|p: &Path| p.is_file())
     };
     diagnostics.append(&mut resolution.diagnostics);
 
     // Each file after the files it imports; the cyclic ones last.
-    let mut parsed: HashMap<String, SpecFile> = parsed.into_iter().collect();
+    let mut parsed: HashMap<String, (String, SpecFile)> = parsed
+        .into_iter()
+        .map(|(path, source, spec_file)| (path, (source, spec_file)))
+        .collect();
     let files = resolution
         .order
         .into_iter()
         .filter_map(|path| {
-            let spec_file = parsed.remove(&path)?;
+            let (source, spec_file) = parsed.remove(&path)?;
             Some(ResolvedFile {
                 import_targets: resolution.import_targets.remove(&path).unwrap_or_default(),
                 reexports: resolution.reexports.remove(&path).unwrap_or_default(),
                 path,
+                source,
                 spec_file,
             })
         })

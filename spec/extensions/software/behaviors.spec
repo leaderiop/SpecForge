@@ -9,7 +9,7 @@ behavior se_register_entity_kinds "Register Software Entity Kinds" {
   category   command
   invariants [se_manifest_six_entity_kinds]
   types      [
-    ManifestEntityKind,
+    EntityKindDescriptor,
     SoftwareBehavior,
     SoftwareInvariant,
     SoftwareFeature,
@@ -23,7 +23,7 @@ behavior se_register_entity_kinds "Register Software Entity Kinds" {
     testability and verify kinds are contributed by @specforge/testing.
   """
   requires {
-    manifest_loaded    "ManifestV2 is parsed and schema-validated"
+    manifest_loaded    "ExtensionDeclaration is parsed and schema-validated"
     no_duplicate_kinds "KindRegistry has no entries with names matching this extension's kinds"
   }
   ensures {
@@ -45,7 +45,7 @@ behavior se_register_edge_types "Register Software Edge Types" {
   features   [se_core_entity_kinds]
   category   command
   invariants [se_manifest_nine_edge_types]
-  types      [ManifestEdgeType]
+  types      [EdgeTypeDescriptor]
   contract   """
     The @specforge/software extension MUST register 9 edge types that
     model all relationships between the 6 entity kinds.
@@ -75,8 +75,8 @@ behavior se_register_field_definitions "Register Software Field Definitions" {
   features [se_core_entity_kinds]
   category command
   types    [
-    ManifestField,
-    ManifestEntityKind,
+    FieldDescriptor,
+    EntityKindDescriptor,
     BehaviorCategory,
     PortDirection,
     TypeDefKind,
@@ -127,7 +127,7 @@ behavior se_register_validation_rules "Register Software Validation Rules" {
 behavior se_register_lsp_metadata "Register Software LSP Metadata" {
   features [se_core_entity_kinds]
   category command
-  types    [ManifestEntityKind, KindRegistryEntry]
+  types    [EntityKindDescriptor, KindRegistryEntry]
   contract """
     The @specforge/software extension MUST register LSP metadata for each
     entity kind: semanticToken for highlighting, lspIcon for outline.
@@ -144,7 +144,7 @@ behavior se_validate_entity_fields "Validate Software Entity Fields" {
   features   [se_core_entity_kinds, dynamic_entity_registration]
   category   query
   invariants [se_port_direction_constraint]
-  types      [ManifestField, ManifestEntityKind]
+  types      [FieldDescriptor, EntityKindDescriptor]
   contract   """
     During semantic validation, field definitions MUST be used to
     validate field values on parsed entities.
@@ -184,7 +184,7 @@ behavior se_parse_gherkin_statements "Register Gherkin Field" {
 behavior se_validate_entity_references "Validate Software Entity References" {
   features [reference_resolution]
   category query
-  types    [ManifestField, ManifestEdgeType]
+  types    [FieldDescriptor, EdgeTypeDescriptor]
   contract """
     For each reference field, the compiler MUST verify that the
     referenced entity exists and is of the expected target kind.

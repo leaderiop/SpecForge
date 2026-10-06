@@ -214,20 +214,14 @@ fn context_keeps_normative_fields() {
     for (field, normative) in [("guarantee", true), ("description", false)] {
         registry.register(FieldRegistryEntry {
             kind_name: "invariant".to_string(),
-            field_name: field.to_string(),
-            description: None,
             field_type: ManifestFieldType::String,
             source_extension: "@test/ext".to_string(),
-            edge: None,
-            target_kind: None,
-            file_reference: false,
-            required: false,
-            inverse_of: None,
-            normative,
-            exempts_obligations: false,
-            headline: false,
-            derived_from: None,
             proof_role: None,
+            declared: specforge_registry::FieldDescriptor {
+                name: field.to_string(),
+                normative,
+                ..Default::default()
+            },
         });
     }
 
@@ -285,20 +279,15 @@ fn context_lifts_the_fields_an_extension_declares_headline() {
     for field in ["contract", "status"] {
         registry.register(FieldRegistryEntry {
             kind_name: "behavior".to_string(),
-            field_name: field.to_string(),
-            description: None,
             field_type: ManifestFieldType::String,
             source_extension: "@test/ext".to_string(),
-            edge: None,
-            target_kind: None,
-            file_reference: false,
-            required: false,
-            inverse_of: None,
-            normative: field == "contract",
-            exempts_obligations: false,
-            headline: true,
-            derived_from: None,
             proof_role: None,
+            declared: specforge_registry::FieldDescriptor {
+                name: field.to_string(),
+                normative: field == "contract",
+                headline: true,
+                ..Default::default()
+            },
         });
     }
     let options = specforge_emitter::EmitOptions {

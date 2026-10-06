@@ -1,6 +1,6 @@
 use specforge_common::{Diagnostic, DiagnosticData, SourceSpan, Sym, find_close_match};
 use specforge_parser::{EntityId, EntityKind, FieldMap, FieldValue};
-use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 #[derive(Debug, Clone)]
 pub struct Node {
@@ -19,6 +19,17 @@ pub struct Edge {
     pub source: Sym,
     pub target: Sym,
     pub label: Sym,
+}
+
+/// An entity [`Graph::reach`] reached.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Reached {
+    pub id: Sym,
+    /// Hops from the root.
+    pub depth: usize,
+    /// The entity it was first reached from, and the label of the edge
+    /// between them; `None` for the root.
+    pub via: Option<(Sym, Sym)>,
 }
 
 #[derive(Debug, Clone)]
@@ -240,94 +251,112 @@ impl Graph {
         self.edges.len()
     }
 
-    /// Collect all neighbor node syms for a given node, using the source and target indexes.
-    fn neighbors(&self, id: Sym) -> Vec<Sym> {
+    /// The neighbours of `id` over edges both ways, each with the label of
+    /// the edge to it, in `(id, label)` order.
+    fn labelled_neighbors(&self, id: Sym) -> Vec<(Sym, Sym)> {
         let mut result = Vec::new();
         if let Some(indices) = self.source_index.get(&id) {
-            for &idx in indices {
-                result.push(self.edges[idx].target);
-            }
+            result.extend(
+                indices
+                    .iter()
+                    .map(|&i| (self.edges[i].target, self.edges[i].label)),
+            );
         }
         if let Some(indices) = self.target_index.get(&id) {
-            for &idx in indices {
-                result.push(self.edges[idx].source);
+            result.extend(
+                indices
+                    .iter()
+                    .map(|&i| (self.edges[i].source, self.edges[i].label)),
+            );
+        }
+        result.sort_unstable();
+        result
+    }
+
+    /// Breadth-first from `root_id` over edges both ways, nearest first: the
+    /// one traversal the subgraphs and the explore prompt share. Each
+    /// node's neighbours are taken in `(id, label)` order, so the order and
+    /// each [`Reached::via`] are deterministic. Only nodes of the graph are
+    /// reached (an edge to an id no node declares is not walked), and
+    /// nothing beyond `max_depth` hops (unbounded when `None`; depth 0 is
+    /// the root alone). `None` when `root_id` is not a node.
+    pub fn reach(&self, root_id: &str, max_depth: Option<usize>) -> Option<Vec<Reached>> {
+        let root = Sym::new(root_id);
+        if !self.nodes.contains_key(&root) {
+            return None;
+        }
+        let mut reached = vec![Reached {
+            id: root,
+            depth: 0,
+            via: None,
+        }];
+        let mut seen: HashSet<Sym> = HashSet::from([root]);
+        let mut next = 0;
+        while let Some(&Reached { id, depth, .. }) = reached.get(next) {
+            next += 1;
+            if max_depth.is_some_and(|max| depth >= max) {
+                continue;
+            }
+            for (neighbor, label) in self.labelled_neighbors(id) {
+                if self.nodes.contains_key(&neighbor) && seen.insert(neighbor) {
+                    reached.push(Reached {
+                        id: neighbor,
+                        depth: depth + 1,
+                        via: Some((id, label)),
+                    });
+                }
             }
         }
-        result
+        Some(reached)
+    }
+
+    /// The edge labels on the path [`Self::reach`] found to `id`, root
+    /// first: empty for the root, or for an id it did not reach.
+    pub fn reach_path(reached: &[Reached], id: Sym) -> Vec<Sym> {
+        let mut labels = Vec::new();
+        let mut at = reached.iter().rposition(|r| r.id == id);
+        while let Some(index) = at {
+            let Some((from, label)) = reached[index].via else {
+                break;
+            };
+            labels.push(label);
+            // A node is reached from one reached before it.
+            at = reached[..index].iter().rposition(|r| r.id == from);
+        }
+        labels.reverse();
+        labels
+    }
+
+    /// The subgraph `reached` induces: its nodes, and every edge between
+    /// two of them, in edge order.
+    fn induced(&self, reached: &[Reached]) -> Graph {
+        let ids: HashSet<Sym> = reached.iter().map(|r| r.id).collect();
+        let mut sub = Graph::with_bidirectional_pairs(self.bidirectional_pairs.clone());
+        for id in &ids {
+            if let Some(node) = self.nodes.get(id) {
+                sub.add_node(node.clone());
+            }
+        }
+        for edge in &self.edges {
+            if ids.contains(&edge.source) && ids.contains(&edge.target) {
+                sub.add_edge(*edge);
+            }
+        }
+        sub
     }
 
     /// Extract the subgraph reachable from `root_id` following edges in both directions.
     /// Returns None if `root_id` is not in the graph.
     pub fn subgraph(&self, root_id: &str) -> Option<Graph> {
-        let root_sym = Sym::new(root_id);
-        if !self.nodes.contains_key(&root_sym) {
-            return None;
-        }
-
-        let mut visited = HashSet::new();
-        let mut queue = VecDeque::new();
-        visited.insert(root_sym);
-        queue.push_back(root_sym);
-
-        while let Some(id) = queue.pop_front() {
-            for neighbor in self.neighbors(id) {
-                if visited.insert(neighbor) {
-                    queue.push_back(neighbor);
-                }
-            }
-        }
-
-        let mut sub = Graph::with_bidirectional_pairs(self.bidirectional_pairs.clone());
-        for id in &visited {
-            if let Some(node) = self.nodes.get(id) {
-                sub.add_node(node.clone());
-            }
-        }
-        for edge in &self.edges {
-            if visited.contains(&edge.source) && visited.contains(&edge.target) {
-                sub.add_edge(*edge);
-            }
-        }
-        Some(sub)
+        self.reach(root_id, None)
+            .map(|reached| self.induced(&reached))
     }
 
     /// Extract the subgraph reachable from `root_id` within `max_depth` hops (both directions).
     /// Depth 0 returns only the root. Returns None if `root_id` is not in the graph.
     pub fn subgraph_depth(&self, root_id: &str, max_depth: usize) -> Option<Graph> {
-        let root_sym = Sym::new(root_id);
-        if !self.nodes.contains_key(&root_sym) {
-            return None;
-        }
-
-        let mut visited: HashMap<Sym, usize> = HashMap::new();
-        let mut queue = VecDeque::new();
-        visited.insert(root_sym, 0);
-        queue.push_back((root_sym, 0usize));
-
-        while let Some((id, depth)) = queue.pop_front() {
-            if depth >= max_depth {
-                continue;
-            }
-            for neighbor in self.neighbors(id) {
-                if let std::collections::hash_map::Entry::Vacant(e) = visited.entry(neighbor) {
-                    e.insert(depth + 1);
-                    queue.push_back((neighbor, depth + 1));
-                }
-            }
-        }
-
-        let mut sub = Graph::with_bidirectional_pairs(self.bidirectional_pairs.clone());
-        for id in visited.keys() {
-            if let Some(node) = self.nodes.get(id) {
-                sub.add_node(node.clone());
-            }
-        }
-        for edge in &self.edges {
-            if visited.contains_key(&edge.source) && visited.contains_key(&edge.target) {
-                sub.add_edge(*edge);
-            }
-        }
-        Some(sub)
+        self.reach(root_id, Some(max_depth))
+            .map(|reached| self.induced(&reached))
     }
 
     /// Resolve reference fields into graph edges and return E001

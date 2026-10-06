@@ -15,18 +15,12 @@ behavior load_wasm_module "Load Wasm Module" {
   features   [wasm_extension_runtime]
   invariants [wasm_sandbox_integrity]
   category   command
-  types      [ManifestV2, ExtensionError]
+  types      [ExtensionDeclaration, ExtensionError]
   ports      [WasmRuntime]
-  consumes   [
-    manifest_validated,
-    wasm_integrity_verified,
-    extension_install_completed,
-    extension_upgrade_completed,
-  ]
+  consumes   [manifest_validated, extension_install_completed, extension_upgrade_completed]
   requires {
-    manifest_validated_fired      "manifest_validated event has fired, confirming manifest schema and required fields are valid"
-    wasm_integrity_verified_fired "wasm_integrity_verified event has fired, confirming SHA256 hash matches lock file"
-    wasm_runtime_available        "WasmRuntime port is available for module loading"
+    manifest_validated_fired "manifest_validated event has fired, confirming manifest schema and required fields are valid"
+    wasm_runtime_available   "WasmRuntime port is available for module loading"
   }
   ensures {
     extension_loaded_emitted     "extension_loaded event is emitted on successful module load"
@@ -36,7 +30,7 @@ behavior load_wasm_module "Load Wasm Module" {
   }
   contract   """
     When the compiler loads an extension, it MUST locate the .wasm binary
-    from the manifest's wasmPath, verify its content hash against the
+    from its installed path, verify its content hash against the
     specforge.lock pin (refusing a mismatch with E033; legacy entries
     without a hash warn and load), and load it into the Wasm runtime.
     Component compilation caching is the engine's concern (see
@@ -48,14 +42,14 @@ behavior load_wasm_module "Load Wasm Module" {
   verify unit "tampered installed binary refused via E033 lockfile pin"
   verify unit "legacy lockfile entry without hash loads unchanged"
   verify unit "missing .wasm produces ExtensionError"
-  verify contract "Load Wasm Module: Wasm module loading holds — manifest_validated_fired, wasm_integrity_verified_fired, wasm_runtime_available, extension_loaded_emitted, extension_loaded_via_runtime, tampered_binary_refused, missing_binary_diagnosed"
+  verify contract "Load Wasm Module: Wasm module loading holds — manifest_validated_fired, wasm_runtime_available, extension_loaded_emitted, extension_loaded_via_runtime, tampered_binary_refused, missing_binary_diagnosed"
 }
 
 behavior initialize_wasm_extension "Initialize Wasm Extension" {
   features   [wasm_extension_runtime]
   invariants [peer_dependency_satisfaction]
   category   command
-  types      [ManifestV2, ExtensionLifecycleState]
+  types      [ExtensionDeclaration]
   ports      [WasmRuntime]
   consumes   [extension_loaded]
   requires {
@@ -95,43 +89,13 @@ behavior initialize_wasm_extension "Initialize Wasm Extension" {
   verify contract "Initialize Wasm Extension: Wasm extension initialization holds — extension_loaded_fired, registries_populated, extension_initialized_emitted, lifecycle_state_updated, no_manifest_override"
 }
 
-behavior call_extension_validators "Call Extension Validators" {
-  features   [wasm_extension_runtime]
-  invariants [extension_load_order_determinism]
-  category   command
-  types      [ManifestV2, ExtensionLifecycleState]
-  ports      [WasmRuntime]
-  consumes   [extension_initialized, extensions_sorted]
-  requires {
-    extension_initialized_fired "extension_initialized event has fired for all extensions"
-    extensions_sorted_fired     "extensions_sorted event has fired, confirming topological order is computed"
-  }
-  ensures {
-    extension_validated_emitted "extension_validated event is emitted for each extension after validate() completes"
-    diagnostics_collected       "all diagnostics emitted via host function are collected by the compiler"
-    validation_continues        "validation continues to next extension after errors in any single extension"
-  }
-  contract   """
-    After all extensions are initialized, the compiler MUST call each
-    extension's validate() export in topological order determined by
-    peer dependencies. Extensions MUST emit diagnostics via the
-    specforge.emit_diagnostic host function. The compiler MUST
-    collect all diagnostics and continue to the next extension.
-  """
-  produces   [extension_validated]
-  verify unit "calls validate() in topological order"
-  verify unit "diagnostics emitted via host function are collected"
-  verify unit "validation continues to next extension after errors"
-  verify contract "Call Extension Validators: extension validator dispatch holds — extension_initialized_fired, extensions_sorted_fired, extension_validated_emitted, diagnostics_collected, validation_continues"
-}
-
 // -- Dependencies -----
 
 behavior validate_extension_peer_dependencies "Validate Extension Peer Dependencies" {
   features   [wasm_extension_runtime]
   invariants [peer_dependency_satisfaction]
   category   validation
-  types      [PeerDependency, ManifestV2, ExtensionError]
+  types      [PeerDependency, ExtensionDeclaration, ExtensionError]
   requires {
     manifests_loaded "all extension manifests have been loaded and parsed"
   }
@@ -157,7 +121,7 @@ behavior topological_sort_extensions "Topological Sort Extensions" {
   features   [wasm_extension_runtime]
   invariants [extension_load_order_determinism]
   category   command
-  types      [PeerDependency, ManifestV2]
+  types      [PeerDependency, ExtensionDeclaration]
   consumes   [peer_dependencies_validated]
   requires {
     peer_dependencies_validated_fired "peer_dependencies_validated event has fired, confirming all peer dependencies are satisfied"
@@ -190,7 +154,7 @@ behavior install_wasm_extension "Install Wasm Extension" {
     offline_first_extension_resolution,
   ]
   category   command
-  types      [ManifestV2, ExtensionInstallResult, ExtensionSource, ExtensionError]
+  types      [ExtensionDeclaration, ExtensionInstallResult, ExtensionSource, ExtensionError]
   ports      [WasmRuntime, FileSystem]
   requires {
     extension_source_available "extension source (registry, local path, or git) is reachable"
@@ -228,7 +192,7 @@ behavior upgrade_wasm_extension "Upgrade Wasm Extension" {
   features   [wasm_extension_installation]
   invariants [peer_dependency_satisfaction, extension_operation_atomicity]
   category   mutation
-  types      [ManifestV2, PeerDependency, ExtensionInstallResult, ExtensionError]
+  types      [ExtensionDeclaration, PeerDependency, ExtensionInstallResult, ExtensionError]
   ports      [WasmRuntime, FileSystem]
   requires {
     extension_installed "target extension is currently installed with a valid manifest"
@@ -270,7 +234,7 @@ behavior uninstall_wasm_extension "Uninstall Wasm Extension" {
     extension_operation_atomicity,
   ]
   category   command
-  types      [ManifestV2, ExtensionInstallResult, ExtensionError]
+  types      [ExtensionDeclaration, ExtensionInstallResult, ExtensionError]
   ports      [WasmRuntime, FileSystem]
   requires {
     extension_installed_ready "target extension is currently installed and its manifest is loaded"
@@ -307,61 +271,31 @@ behavior validate_extension_manifest "Validate Extension Manifest" {
   features   [contribution_based_extensions]
   invariants [host_function_type_safety]
   category   validation
-  types      [ManifestV2, ExtensionError]
+  types      [ExtensionDeclaration, ExtensionError]
   ports      [FileSystem]
   consumes   [manifest_loaded]
   requires {
-    manifest_loaded_fired "manifest_loaded event has fired, confirming sidecar manifest.json has been parsed"
+    declaration_loaded_fired "the extension's declaration has been loaded (load_extension_declaration)"
   }
   ensures {
     manifest_validated_emitted "manifest_validated event is emitted on successful validation"
-    invalid_manifest_diagnosed "manifests with missing required fields or invalid manifest_version produce hard error"
-    schema_validated           "manifest schema is validated via validate_manifest_v2_schema"
+    invalid_manifest_diagnosed "declarations with missing required fields, or a handshake of another protocol major, produce a hard error"
+    schema_validated           "the declaration is validated via validate_manifest_v2_schema"
   }
   contract   """
-    This is the single entry point for manifest validation. The compiler
-    MUST call this behavior once per extension manifest. It delegates to
-    validate_manifest_v2_schema for schema validation. The entity_kinds
-    array, if present, MUST contain valid ManifestEntityKind entries.
-    Manifests missing required fields or with an invalid manifest_version
-    MUST produce a hard error. The compiler MUST accept manifest_version
-    2 (current). Unknown or missing manifest_version values MUST produce
-    a hard error with diagnostic code E028. Future manifest versions
-    MUST be rejected until the compiler is updated to support them.
+    This is the single entry point for validating what an extension
+    declares. The compiler MUST call this behavior once per loaded
+    declaration (no sidecar manifest file is read). It delegates to
+    validate_manifest_v2_schema for the declaration's validation. The
+    entities, if present, MUST be valid entity kind descriptors.
+    Declarations missing required fields MUST produce a hard error. A
+    handshake whose protocol major version differs from the host's MUST
+    fail the extension's load with E028.
   """
   produces   [manifest_validated]
   verify unit "valid manifest passes validation"
   verify unit "missing required fields produce hard error"
-  verify unit "unknown fields produce warning"
-  verify unit "unknown manifest_version produces hard error"
-  verify contract "Validate Extension Manifest: extension manifest validation holds — manifest_loaded_fired, manifest_validated_emitted, invalid_manifest_diagnosed, schema_validated"
-}
-
-behavior verify_wasm_integrity "Verify Wasm Integrity" {
-  features   [wasm_lock_management]
-  invariants [wasm_compile_cache_integrity, registry_integrity]
-  category   validation
-  types      [ManifestV2, LockFileEntry, ExtensionError]
-  ports      [FileSystem]
-  consumes   [lock_file_read]
-  requires {
-    lock_file_read_fired "lock_file_read event has fired, confirming lock file entries with expected hashes are available"
-    filesystem_available "FileSystem port is available for reading .wasm binaries"
-  }
-  ensures {
-    wasm_integrity_verified_emitted     "wasm_integrity_verified event is emitted when hash matches"
-    wasm_integrity_check_failed_emitted "wasm_integrity_check_failed event is emitted on hash mismatch"
-    tampering_diagnosed                 "hash mismatches produce hard error diagnostic indicating potential tampering"
-  }
-  contract   """
-    The system MUST verify the SHA256 hash of each .wasm binary against
-    the wasm_hash recorded in specforge.lock. Hash mismatches MUST produce
-    a hard error diagnostic indicating potential tampering. The --skip-verify
-    flag MUST bypass integrity checks with a warning.
-  """
-  produces   [wasm_integrity_verified, wasm_integrity_check_failed]
-  verify unit "matching hash passes verification"
-  verify unit "mismatched hash produces hard error"
-  verify unit "--skip-verify bypasses check with warning"
-  verify contract "Verify Wasm Integrity: Wasm integrity verification holds — lock_file_read_fired, filesystem_available, wasm_integrity_verified_emitted, wasm_integrity_check_failed_emitted, tampering_diagnosed"
+  verify unit "an unknown describe key produces W138"
+  verify unit "a handshake whose protocol major differs from the host's produces E028"
+  verify contract "Validate Extension Manifest: extension declaration validation holds — declaration_loaded_fired, manifest_validated_emitted, invalid_manifest_diagnosed, schema_validated"
 }

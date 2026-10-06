@@ -11,7 +11,7 @@ use specforge_test_macros::test as specforge_test;
 use std::fs;
 use tempfile::TempDir;
 
-fn setup_product_project() -> TempDir {
+pub fn setup_product_project() -> TempDir {
     let dir = TempDir::new().unwrap();
 
     let config = serde_json::json!({
@@ -642,7 +642,7 @@ fn completions_include_the_commands_of_the_project_here() {
 
 /// `requests` after an `initialize` negotiating MCP 2025-06-18, the first
 /// revision with structured content.
-fn structured_session(dir: &TempDir, requests: &[String]) -> Vec<serde_json::Value> {
+pub fn structured_session(dir: &TempDir, requests: &[String]) -> Vec<serde_json::Value> {
     let initialize = mcp_request(
         0,
         "initialize",
@@ -785,7 +785,7 @@ fn under_json_a_usage_error_is_an_invalid_input_object() {
             .output()
             .unwrap()
     };
-    let cases: [(&[&str], serde_json::Value); 4] = [
+    let cases: [(&[&str], serde_json::Value); 5] = [
         (
             &["features", "--status", "bogus"],
             serde_json::json!({"code": "INVALID_INPUT",
@@ -804,7 +804,14 @@ fn under_json_a_usage_error_is_an_invalid_input_object() {
         (
             &["features", "--limit", "abc"],
             serde_json::json!({"code": "INVALID_INPUT",
-                "message": "limit must be an integer, got 'abc'"}),
+                "message": "limit must be a non-negative integer, got 'abc'"}),
+        ),
+        // A count below its minimum is the command line's to refuse, as it
+        // is MCP's: the export never runs.
+        (
+            &["features", "--limit", "-1"],
+            serde_json::json!({"code": "INVALID_INPUT",
+                "message": "limit must be a non-negative integer, got -1"}),
         ),
     ];
     for (args, expected) in &cases {
@@ -918,15 +925,14 @@ fn the_timeline_compares_against_today_unless_as_of_says_otherwise() {
 fn check_reports_no_overdue_milestone() {
     let dir = setup_overdue_project();
     let mut cmd = cargo_bin_cmd!("specforge");
-    cmd.current_dir(dir.path())
-        .args(["check", "--lint=pedantic"]);
+    cmd.current_dir(dir.path()).arg("check");
     let output = cmd.output().unwrap();
     let all = format!(
         "{}{}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
-    // Pedantic shows the infos, so an I058 would be among them.
+    // Infos are always reported, so an I058 would be among them.
     assert!(output.status.code().is_some_and(|c| c <= 1), "{all}");
     assert!(!all.contains("I058"), "{all}");
 }

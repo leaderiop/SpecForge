@@ -9,11 +9,11 @@
 //! - a [`CompiledProject`] is an environment plus the resolved sources and
 //!   the built graph. Its [`CompiledProject::diagnostics`] are, by
 //!   definition, what `specforge check` reports;
-//! - a [`ProjectSession`] is a long-lived compiled project that accepts
-//!   source changes and environment reloads (watch, the LSP and MCP each
-//!   hold one). After any
-//!   sequence of updates its diagnostics are the set a fresh compile
-//!   reports.
+//! - a [`ProjectSession`] is a long-lived compiled project that knows what
+//!   it is built from: it classifies any changed path ([`InputRole`]) and
+//!   applies changes as an update, an environment reload or a re-check
+//!   (watch, the LSP and MCP each hold one). After any sequence of updates
+//!   its diagnostics are the set a fresh compile reports.
 //!
 //! [`CompilationContext`] is the flat view older callers read; it is built
 //! from a compiled project with [`CompiledProject::into_context`].
@@ -24,7 +24,9 @@ pub mod compile;
 pub mod coverage;
 mod delta;
 pub mod field_types;
+mod freshness;
 mod incremental;
+mod inputs;
 pub mod passes;
 mod policy;
 mod session;
@@ -33,24 +35,24 @@ use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
 use compile::{GraphChecks, check_graph, load_extensions, probe_custom_rules};
-use coverage::{CoverageRegistries, ProjectCoverage, TestReport};
+use coverage::RecordedCoverage;
 use specforge_common::{Diagnostic, ProjectConfig, is_discovered, load_project_config};
 use specforge_graph::{Graph, GraphConfig, build_graph_with_config};
 use specforge_parser::SpecFile;
+use specforge_protocol_types::ExtensionDeclaration;
 use specforge_registry::{
-    ManifestV2, RegistryBuild, build_registries, load_provider_configurations,
-    register_provider_schemes,
+    RegistryBuild, build_registries, load_provider_configurations, register_provider_schemes,
 };
 use specforge_resolver::{ResolveConfig, ResolvedProject, resolve_project_with_config};
 use specforge_wasm::WasmRuntime;
 
-pub use build_cache::{
-    BUILD_CACHE_FILE, BUILD_CACHE_FORMAT, BuildCache, CachedStatus, record_build_cache,
-};
-pub use check_passes::CheckPass;
-pub use compile::CompilationContext;
+pub use build_cache::{BUILD_CACHE_FILE, BUILD_CACHE_FORMAT, BuildCache, CachedStatus};
+pub use compile::{CompilationContext, EnabledExtension};
 pub use delta::{EdgeChange, GraphDelta, ModifiedNodeChange, NodeChange, compute_graph_delta};
-pub use policy::{DiagnosticPolicy, apply_policy};
+pub use inputs::{Changes, EnvironmentInputs, InputRole, Origin, UpdateKind, source_key};
+pub use policy::{
+    DiagnosticPolicy, LINT_PROFILE_NAMES, LintProfile, UnknownLintProfile, apply_policy,
+};
 pub use session::{CheckMode, ProjectSession, SharedRuntime, SourceChange, Update};
 
 /// Everything derived from `specforge.json` and the loaded extensions,
@@ -59,20 +61,26 @@ pub struct Environment {
     /// The project root (where `specforge.json` lives).
     pub root: PathBuf,
     pub config: ProjectConfig,
+    /// What each `specforge.json` `extensions` entry enables, in order, as
+    /// the runtime loaded it (a `.wasm` file entry by the name its
+    /// component declares).
+    pub enabled: Vec<EnabledExtension>,
     /// Where `.spec` files are discovered: `spec_root` from the config,
     /// relative to the project root, or the project root itself.
     pub spec_root: PathBuf,
-    /// The registries, rules and graph inputs built from the manifests.
+    /// The registries, rules, passes and graph inputs built from the loaded
+    /// declarations.
     pub registries: RegistryBuild,
     /// The ref schemes the configured providers registered (ADR 0004
     /// D3-c): with any registered, a ref with another scheme is I005.
     pub provider_schemes: HashSet<String>,
-    /// Extension loading diagnostics (E028, manifest validation, peer
-    /// consistency), in load order.
+    /// Extension loading diagnostics: the runtime's load failures
+    /// (E028/E033) in load order, then the declarations' unknown keys
+    /// (W138).
     pub load_diagnostics: Vec<Diagnostic>,
-    /// The compiler passes the extensions declare with `phase: "check"`,
-    /// in the order every compile runs them after the graph checks.
-    pub check_passes: Vec<CheckPass>,
+    /// After the registry build: provider registration (W118/E057), then
+    /// I002 when no extension loaded.
+    pub setup_diagnostics: Vec<Diagnostic>,
 }
 
 impl Environment {
@@ -81,11 +89,22 @@ impl Environment {
         Environment {
             root: PathBuf::new(),
             config: ProjectConfig::default(),
+            enabled: Vec::new(),
             spec_root: PathBuf::new(),
             registries: RegistryBuild::default(),
             provider_schemes: HashSet::new(),
             load_diagnostics: Vec::new(),
-            check_passes: Vec::new(),
+            setup_diagnostics: Vec::new(),
+        }
+    }
+
+    /// An environment of `declarations` (in load order) and no project:
+    /// the default config, no spec root, the registry build of exactly
+    /// these declarations.
+    pub fn from_declarations(declarations: Vec<ExtensionDeclaration>) -> Self {
+        Environment {
+            registries: build_registries(declarations),
+            ..Environment::empty()
         }
     }
 
@@ -93,25 +112,27 @@ impl Environment {
     /// (none without one), then build the registries from them.
     pub fn load(root: &Path, runtime: Option<&dyn WasmRuntime>) -> Self {
         let config = load_project_config(root);
+        let enabled = config
+            .extensions
+            .iter()
+            .map(|entry| EnabledExtension::of(entry, runtime))
+            .collect();
         let mut load_diagnostics = Vec::new();
-        let manifests = match runtime {
+        let declarations = match runtime {
             Some(runtime) => load_extensions(&config.extensions, runtime, &mut load_diagnostics),
             None => Vec::new(),
         };
-        let mut registries = build_registries(manifests);
+        let mut registries = build_registries(declarations);
         // A custom rule's wasm_function is resolved against its extension
         // now, so a name it does not export is reported once (W112).
         if let Some(runtime) = runtime {
             let probes = probe_custom_rules(&registries.rules, runtime);
             registries.registry_diagnostics.extend(probes);
         }
-        let provider_schemes = register_providers(&config, &registries, &mut load_diagnostics);
-        let check_passes = match runtime {
-            Some(runtime) => check_passes::declared(&registries.manifests, runtime),
-            None => Vec::new(),
-        };
-        if registries.manifests.is_empty() {
-            load_diagnostics.push(structural_only_notice(&config.extensions));
+        let mut setup_diagnostics = Vec::new();
+        let provider_schemes = register_providers(&config, &registries, &mut setup_diagnostics);
+        if registries.declarations().is_empty() {
+            setup_diagnostics.push(structural_only_notice(&config.extensions));
         }
         let spec_root = match &config.spec_root {
             Some(spec_root) => root.join(spec_root),
@@ -120,11 +141,12 @@ impl Environment {
         Environment {
             root: root.to_path_buf(),
             config,
+            enabled,
             spec_root,
             registries,
             provider_schemes,
             load_diagnostics,
-            check_passes,
+            setup_diagnostics,
         }
     }
 
@@ -158,11 +180,15 @@ impl Environment {
         diagnostics
     }
 
-    /// The diagnostics reported before any source: extension loading, then
-    /// the registry build.
+    /// The diagnostics reported before any source, in this order: the
+    /// runtime's load failures (E028/E033), unknown declaration keys
+    /// (W138), the declarations' own (E030, W021, E027, W145), provider
+    /// registration (W118/E057), I002, then the registry build's.
     pub fn diagnostics(&self) -> impl Iterator<Item = &Diagnostic> {
         self.load_diagnostics
             .iter()
+            .chain(&self.registries.declaration_diagnostics)
+            .chain(&self.setup_diagnostics)
             .chain(&self.registries.registry_diagnostics)
     }
 
@@ -216,12 +242,7 @@ fn register_providers(
     };
     let (providers, config_diagnostics) = load_provider_configurations(raw);
     diagnostics.extend(config_diagnostics);
-    let manifests: Vec<(String, ManifestV2)> = registries
-        .manifests
-        .iter()
-        .map(|m| (m.name.clone(), m.clone()))
-        .collect();
-    let (schemes, registration) = register_provider_schemes(&providers, &manifests);
+    let (schemes, registration) = register_provider_schemes(&providers, registries.declarations());
     diagnostics.extend(registration);
     schemes.entries.into_iter().map(|e| e.scheme).collect()
 }
@@ -287,6 +308,9 @@ pub struct CompiledProject {
     /// What the checks on the built graph reported: core validation, the
     /// registry checks, the extensions' rules, then the check-phase passes.
     pub check_diagnostics: Vec<Diagnostic>,
+    /// The recorded test report at the root and the coverage of the graph
+    /// against it, memoized for the life of this compile.
+    recorded: RecordedCoverage,
 }
 
 impl CompiledProject {
@@ -304,6 +328,7 @@ impl CompiledProject {
             graph,
             graph_diagnostics,
             check_diagnostics,
+            recorded: RecordedCoverage::default(),
         }
     }
 
@@ -321,20 +346,10 @@ impl CompiledProject {
             .collect()
     }
 
-    /// The project's coverage against its recorded tests (`None` without a
-    /// report): the rule the `@specforge/testing:coverage` pass applies,
-    /// per entity and in summary.
-    pub fn coverage(&self, report: Option<&TestReport>) -> ProjectCoverage {
-        let registries = &self.env.registries;
-        ProjectCoverage::compute(
-            &self.graph,
-            CoverageRegistries {
-                kinds: &registries.kinds,
-                fields: &registries.fields,
-                rules: &registries.rules,
-            },
-            report,
-        )
+    /// The recorded test report at the project root and the coverage of the
+    /// graph against it, memoized for this compile.
+    pub fn recorded(&self) -> &RecordedCoverage {
+        &self.recorded
     }
 
     /// The flat view older callers read.
@@ -347,18 +362,21 @@ impl CompiledProject {
             ..
         } = self;
         let registries = env.registries;
+        let declarations = registries.declarations().to_vec();
         CompilationContext {
             graph,
+            extension_info: registries
+                .extension_info()
+                .map(|(name, version)| (name.to_string(), version.to_string()))
+                .collect(),
             kind_registry: registries.kinds,
             field_registry: registries.fields,
             edge_registry: registries.edges,
             diagnostics,
             resolved,
             extension_rules: registries.rules,
-            extension_info: registries.extension_info,
-            surface_entries: registries.surfaces,
-            manifest_surfaces: registries.manifest_surfaces,
-            manifests: registries.manifests,
+            declarations,
+            passes: registries.passes,
             spec_root: env.spec_root,
         }
     }

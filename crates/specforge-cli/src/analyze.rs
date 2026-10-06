@@ -8,12 +8,12 @@ use std::path::Path;
 
 use specforge_common::truncate_diagnostics;
 use specforge_ops::analyze::{
-    AnalyzeOptions, Gate, ProjectView, ProveOptions, ReportSource, analyze,
+    AnalyzeError, AnalyzeOptions, Gate, ProveOptions, ReportSource, analyze,
 };
+use specforge_ops::view::ProjectView;
 use specforge_validator::{diagnostic_summary_detailed, render_diagnostics_colored};
 
 use crate::AnalysisPass;
-use crate::check::build_source_map;
 use crate::pipeline;
 
 pub fn run(
@@ -25,9 +25,9 @@ pub fn run(
     min: Option<f64>,
     prove: bool,
 ) -> i32 {
-    let (ctx, runtime) = pipeline::compile_with_runtime(path);
+    let (project, runtime) = pipeline::compile_project(path);
     // Without --test-results, the operation uses what `specforge collect`
-    // last recorded.
+    // last recorded at the root it compiled.
     let report = match test_results {
         Some(report_path) => ReportSource::File(report_path.to_path_buf()),
         None => ReportSource::Recorded,
@@ -39,8 +39,13 @@ pub fn run(
         min,
         prove: prove.then(ProveOptions::default),
     };
-    let outcome = match analyze(&ProjectView::of(&ctx, path), &runtime, &options) {
+    let outcome = match analyze(&ProjectView::of(&project), Some(&runtime), &options) {
         Ok(outcome) => outcome,
+        // E045, with its code and what to do about it.
+        Err(AnalyzeError::UnusableReport(e)) => {
+            eprintln!("{}", crate::export::render_op_error(&e));
+            return 2;
+        }
         Err(e) => {
             eprintln!("error: {e}");
             return 2;
@@ -62,7 +67,6 @@ pub fn run(
         }
     }
     let reports = &outcome.passes;
-    let sources = build_source_map(&ctx.spec_root, &ctx.resolved.files);
 
     if json {
         let doc = outcome.to_json();
@@ -71,6 +75,8 @@ pub fn run(
         // Human output is capped at the codebase-wide diagnostic limit so a
         // noisy first run stays readable; JSON output is never truncated.
         let color = crate::color::stdout();
+        // The text each file was compiled from, to quote in snippets.
+        let sources = project.resolved.source_texts();
         for report in reports {
             println!("analyze/{} — {}", report.name, report.description);
             if report.findings.is_empty() {

@@ -123,7 +123,7 @@ behavior register_extension_validation_rules "Register Extension Validation Rule
     registry_population_before_validation,
   ]
   category   command
-  types      [ValidationRulePattern, ManifestV2]
+  types      [ValidationRulePattern, ExtensionDeclaration]
   consumes   [extension_manifests_loaded]
   requires {
     extension_manifests_loaded_fired "extension_manifests_loaded event has fired, confirming all manifests are parsed and accessible"
@@ -159,7 +159,7 @@ behavior register_custom_validation_patterns "Register Custom Validation Pattern
   features   [declarative_validation_rules]
   invariants [zero_domain_knowledge_core, declarative_validation_determinism]
   category   command
-  types      [ValidationRulePattern, CustomValidationPattern, ManifestV2]
+  types      [ValidationRulePattern, CustomValidationPattern, ExtensionDeclaration]
   refs       [provide_host_function_query_graph]
   ports      [WasmRuntime]
   consumes   [extension_manifests_loaded]
@@ -177,7 +177,12 @@ behavior register_custom_validation_patterns "Register Custom Validation Pattern
     the extension's module. The custom pattern MUST be registered alongside
     declarative patterns. During validation, custom patterns MUST be
     dispatched to the Wasm runtime via the extension's exported function.
-    The Wasm function receives the entity ID and returns a boolean (pass/fail).
+    The Wasm function receives the protocol's ValidatorContext (the entity,
+    the resolution of its references, the declared types and the host's
+    primitives) and answers the protocol's ValidatorVerdict (`pass`, or
+    `fail` with the offending field and value), read strictly: an answer
+    that is not a verdict is a failed call (call_extension_exports), never
+    a pass or a fail.
     The function body MAY call the `specforge.query_graph` host function
     (see provide_host_function_query_graph) to access the compiled graph
     for cross-entity semantic checks and custom graph traversals.
@@ -196,6 +201,7 @@ behavior register_custom_validation_patterns "Register Custom Validation Pattern
   verify unit "custom rule without a wasm_function produces warning and is not registered"
   verify unit "custom pattern dispatched to Wasm runtime during validation"
   verify unit "custom pattern failure emits configured diagnostic"
+  verify unit "a custom validator's verdict is read as the protocol's ValidatorVerdict, and a failure is reported once as W112"
   verify contract "Register Custom Validation Patterns: custom validation pattern registration holds — extension_manifests_loaded_fired, wasm_runtime_available, custom_patterns_registered, wasm_functions_resolved"
 }
 
@@ -290,14 +296,13 @@ behavior check_field_value_types "Check Field Value Types" {
   verify contract "Check Field Value Types: declared field types hold — registries_populated_fired, single_values_listed, mismatches_diagnosed, undeclared_untouched"
 }
 
-// Registry-level collision detection during manifest loading. Called by
-// detect_entity_kind_collision (behaviors/wasm-extensions.spec) as part of its
-// orchestration — focuses exclusively on inter-extension kind collisions (E026).
+// Registry-level collision detection during manifest loading: inter-extension
+// kind collisions (E026).
 behavior detect_duplicate_entity_kinds "Detect Duplicate Entity Kinds" {
   features   [entity_kind_conflict_prevention]
   invariants [zero_domain_knowledge_core, registry_population_before_validation]
   category   validation
-  types      [ManifestV2, ManifestEntityKind, KindRegistryEntry, Diagnostic]
+  types      [ExtensionDeclaration, EntityKindDescriptor, KindRegistryEntry, Diagnostic]
   requires {
     manifests_loading "Extension manifests are being loaded and entity kinds are being registered into KindRegistry"
   }
@@ -309,10 +314,7 @@ behavior detect_duplicate_entity_kinds "Detect Duplicate Entity Kinds" {
     When two extensions register the same entity kind keyword, the compiler
     MUST detect the collision during registry population. The first extension
     in topological order MUST own the kind. The second registration MUST
-    produce an E026 diagnostic naming both extensions. This collision
-    detection is distinct from detect_entity_kind_collision (behaviors/wasm-extensions.spec)
-    which handles the user-facing resolution — this behavior handles the
-    registry-level detection during manifest loading.
+    produce an E026 diagnostic naming both extensions.
   """
   verify unit "duplicate kind from two extensions produces E026"
   verify unit "first extension in topological order owns the kind"
@@ -324,7 +326,7 @@ behavior validate_peer_dependencies "Validate Peer Dependencies" {
   features   [wasm_extension_runtime]
   invariants [zero_domain_knowledge_core, registry_population_before_validation]
   category   validation
-  types      [ManifestV2, PeerDependency, ExtensionError]
+  types      [ExtensionDeclaration, PeerDependency, ExtensionError]
   produces   [extension_loading_failed]
   requires {
     manifests_available "All declared extension manifests have been loaded and their peer_dependencies fields are accessible"

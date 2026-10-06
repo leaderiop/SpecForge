@@ -22,7 +22,7 @@ pub fn install_extension(
     extensions_dir: &Path,
     lock: &mut LockFile,
     key_id: Option<&str>,
-    peer_dependencies: Vec<specforge_registry::PeerDependency>,
+    peer_dependencies: Vec<specforge_protocol_types::PeerDependency>,
 ) -> Result<InstallResult, Diagnostic> {
     // 1. Verify SHA256
     let actual_hash = hex_sha256(wasm_bytes);
@@ -112,48 +112,6 @@ pub fn install_extension(
         version: version.to_string(),
         wasm_hash: actual_hash,
     })
-}
-
-/// Install an extension from a local path (copy).
-pub fn install_from_local(
-    name: &str,
-    version: &str,
-    local_wasm_path: &Path,
-    extensions_dir: &Path,
-    lock: &mut LockFile,
-) -> Result<InstallResult, Diagnostic> {
-    let wasm_bytes = std::fs::read(local_wasm_path).map_err(|e| Diagnostic {
-        code: "E028".to_string(),
-        severity: Severity::Error,
-        message: format!(
-            "cannot read local .wasm binary at '{}': {}",
-            local_wasm_path.display(),
-            e
-        ),
-        span: None,
-        suggestion: None,
-        data: None,
-    })?;
-
-    let hash = hex_sha256(&wasm_bytes);
-
-    // Use install_extension with the computed hash as expected (always matches)
-    let result = install_extension(
-        name,
-        version,
-        &wasm_bytes,
-        &hash,
-        extensions_dir,
-        lock,
-        None,       // local installs are unsigned
-        Vec::new(), // local manifests are not parsed for peers
-    )?;
-    // A local install is never a registry package: `update` must not
-    // replace it with one of the same name (ADR 0004 D3-b).
-    if let Some(entry) = lock.entries.iter_mut().find(|e| e.name == name) {
-        entry.source = format!("local:{}", local_wasm_path.display());
-    }
-    Ok(result)
 }
 
 /// Rollback: remove extension directory if it was partially created.

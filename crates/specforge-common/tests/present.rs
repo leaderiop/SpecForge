@@ -613,3 +613,73 @@ fn a_diagnostic_round_trips_its_payload_and_reads_without_one() {
     assert_eq!(read.data, None);
     assert_eq!(serde_json::to_value(&read).unwrap(), old);
 }
+
+/// The payloads navigation attributes a diagnostic from: a reference
+/// cycle's path and a pass diagnostic's subject are presented under
+/// `data`, tagged by kind, like the others.
+#[test]
+fn the_entity_payloads_are_presented_under_data() {
+    let cycle = Diagnostic::warning("W061", "reference cycle detected: a -> b -> a").with_data(
+        DiagnosticData::ReferenceCycle {
+            path: vec!["a".into(), "b".into(), "a".into()],
+        },
+    );
+    let subject =
+        Diagnostic::error("E951", "gadget fails the audit").with_data(DiagnosticData::Subject {
+            entity: "bad_one".into(),
+        });
+    let json = specforge_common::serialize_diagnostics(&[cycle.clone(), subject.clone()]);
+    let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
+    assert_eq!(
+        parsed[0]["data"],
+        serde_json::json!({"kind": "reference_cycle", "path": ["a", "b", "a"]})
+    );
+    assert_eq!(
+        parsed[1]["data"],
+        serde_json::json!({"kind": "subject", "entity": "bad_one"})
+    );
+    for diagnostic in [cycle, subject] {
+        let back: Diagnostic =
+            serde_json::from_str(&serde_json::to_string(&diagnostic).unwrap()).unwrap();
+        assert_eq!(back, diagnostic, "the payload round-trips");
+    }
+}
+
+#[specforge_test(
+    type = "ReferenceCycleData",
+    verify = "ReferenceCycleData schema is valid"
+)]
+fn reference_cycle_data_is_tagged_and_names_its_path() {
+    let data = DiagnosticData::ReferenceCycle {
+        path: vec!["x".into(), "y".into(), "x".into()],
+    };
+    assert_eq!(
+        serde_json::to_value(&data).unwrap(),
+        serde_json::json!({"kind": "reference_cycle", "path": ["x", "y", "x"]})
+    );
+    assert_eq!(data.entities(), ["x", "y"]);
+}
+
+#[specforge_test(type = "SubjectData", verify = "SubjectData schema is valid")]
+fn subject_data_is_tagged_and_names_its_entity() {
+    let data = DiagnosticData::Subject {
+        entity: "bad_one".into(),
+    };
+    assert_eq!(
+        serde_json::to_value(&data).unwrap(),
+        serde_json::json!({"kind": "subject", "entity": "bad_one"})
+    );
+    assert_eq!(data.entities(), ["bad_one"]);
+    let unresolved = DiagnosticData::UnresolvedReference {
+        target: "t".into(),
+        entity: "holder".into(),
+        field: "f".into(),
+        did_you_mean: None,
+    };
+    assert_eq!(unresolved.entities(), ["holder"]);
+    let import = DiagnosticData::UnresolvedImport {
+        path: "p".into(),
+        did_you_mean: None,
+    };
+    assert!(import.entities().is_empty());
+}

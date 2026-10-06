@@ -135,6 +135,34 @@ fn tool_text(resp: &Value) -> String {
         .to_string()
 }
 
+/// A server serving a project of `files` with `@specforge/software`,
+/// compiled from disk: spans come from the parser. Keep the directory.
+fn served(files: &[(&str, &str)]) -> (McpServer, tempfile::TempDir) {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join("specforge.json"),
+        r#"{"name":"nav","extensions":["@specforge/software"]}"#,
+    )
+    .unwrap();
+    for (file, text) in files {
+        std::fs::write(dir.path().join(file), text).unwrap();
+    }
+    let mut server = McpServer::new();
+    let req = json!({"jsonrpc": "2.0", "id": 1, "method": "initialize",
+        "params": {"projectRoot": dir.path().to_str().unwrap()}});
+    server.handle_message(&req.to_string());
+    (server, dir)
+}
+
+const LIMIT: &str = "invariant session_limit \"Limit\" {\n  guarantee \"x\"\n}\n";
+const LOGIN: &str = "behavior login \"Login\" {\n  invariants [session_limit]\n}\n";
+
+/// The result of `tool` with `args`, parsed.
+fn result(server: &mut McpServer, tool: &str, args: Value) -> Value {
+    let resp = call_tool(server, tool, args);
+    serde_json::from_str(&tool_text(&resp)).unwrap_or_else(|e| panic!("{e}: {resp}"))
+}
+
 // --- specforge.inspect ---
 
 /// The statement inspect reports is the field the extension declares
@@ -181,17 +209,27 @@ fn inspect_returns_details() {
 )]
 fn inspect_includes_reference_count() {
     let mut server = test_server();
-    let resp = call_tool(
+    let parsed = result(
         &mut server,
         "specforge.inspect",
         json!({"entity_id": "alpha"}),
     );
-    let text = tool_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
-    // beta -> alpha is alpha's only edge.
+    // beta -> alpha is alpha's only edge: beta references alpha, and alpha
+    // refers to nothing.
+    assert_eq!(parsed["referenced_by"], json!(["beta"]));
+    assert_eq!(parsed["refers_to"], json!([]));
+    assert_eq!(parsed["verify_declarations"], json!(["unit test alpha"]));
+    // The deprecated aliases: both directions, unlabeled.
     assert_eq!(parsed["references"], json!(["beta"]));
     assert_eq!(parsed["reference_count"], 1);
-    assert_eq!(parsed["verify_declarations"], json!(["unit test alpha"]));
+
+    let parsed = result(
+        &mut server,
+        "specforge.inspect",
+        json!({"entity_id": "beta"}),
+    );
+    assert_eq!(parsed["referenced_by"], json!([]));
+    assert_eq!(parsed["refers_to"], json!(["alpha"]));
 }
 
 // B:provide_mcp_inspect_tool — verify unit "unknown entity returns error"
@@ -269,7 +307,7 @@ fn inspect_coverage_matches_the_coverage_tool() {
         )
     };
     let project = tempfile::tempdir().unwrap();
-    server.state_mut().project_root = Some(project.path().to_path_buf());
+    crate::support::serve_in_memory_at(server.state_mut(), project.path());
     let report = |tests: &str| {
         std::fs::write(
             project.path().join("specforge-report.json"),
@@ -320,24 +358,27 @@ fn inspect_diagnostics_are_the_entitys_own() {
     state.edit_graph(|graph| {
         graph.add_node(node("task_id_uniqueness", at(30, 34)));
     });
-    let diagnostic = |code: &str, message: &str, span| specforge_common::Diagnostic {
+    let diagnostic = |code: &str, span, subject: Option<&str>| specforge_common::Diagnostic {
         code: code.into(),
         severity: specforge_common::Severity::Warning,
-        message: message.into(),
+        message: "a finding".into(),
         span,
         suggestion: None,
-        data: None,
+        data: subject.map(|entity| {
+            Box::new(specforge_common::DiagnosticData::Subject {
+                entity: entity.into(),
+            })
+        }),
     };
-    state.surface_diagnostics = vec![
-        diagnostic(
-            "W003",
-            "invariant 'task_id_uniqueness' is not enforced",
-            Some(at(30, 34)),
-        ),
-        diagnostic("W100", "field inside task", Some(at(21, 21))),
-        diagnostic("W101", "invariant 'task' is spanless", None),
-        diagnostic("W102", "invariant 'task_id_uniqueness' is spanless", None),
-    ];
+    crate::support::report(
+        state,
+        vec![
+            diagnostic("W003", Some(at(30, 34)), None),
+            diagnostic("W100", Some(at(21, 21)), None),
+            diagnostic("W101", None, Some("task")),
+            diagnostic("W102", None, Some("task_id_uniqueness")),
+        ],
+    );
     let codes = |server: &mut McpServer, id: &str| {
         let resp = call_tool(server, "specforge.inspect", json!({"entity_id": id}));
         let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
@@ -355,6 +396,41 @@ fn inspect_diagnostics_are_the_entitys_own() {
     );
 }
 
+#[specforge_test(
+    behavior = "provide_mcp_inspect_tool",
+    verify = "a spanless diagnostic belongs to the entities its data names, never to one its message quotes"
+)]
+fn inspect_attributes_spanless_diagnostics_by_data() {
+    // A reference cycle: no span, its entities in its data.
+    let (mut server, _dir) = served(&[(
+        "a.spec",
+        "behavior alpha \"A\" {\n  depends_on [beta]\n}\nbehavior beta \"B\" {\n  depends_on [alpha]\n}\nbehavior gamma \"G\" {\n}\n",
+    )]);
+    let codes = |server: &mut McpServer, id: &str| -> Vec<String> {
+        let parsed = result(server, "specforge.inspect", json!({"entity_id": id}));
+        parsed["diagnostics"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|d| d["code"].as_str().unwrap().to_string())
+            .collect()
+    };
+    assert!(codes(&mut server, "alpha").contains(&"W061".to_string()));
+    assert!(codes(&mut server, "beta").contains(&"W061".to_string()));
+    assert!(!codes(&mut server, "gamma").contains(&"W061".to_string()));
+
+    // A spanless diagnostic whose message quotes an ID but whose data
+    // names none belongs to nobody.
+    crate::support::report(
+        server.state_mut(),
+        vec![specforge_common::Diagnostic::warning(
+            "W900",
+            "behavior 'gamma' is mentioned here",
+        )],
+    );
+    assert!(!codes(&mut server, "gamma").contains(&"W900".to_string()));
+}
+
 // --- specforge.find_definition ---
 
 // B:provide_mcp_find_definition_tool — verify unit "returns source location"
@@ -363,31 +439,42 @@ fn inspect_diagnostics_are_the_entitys_own() {
     verify = "specforge.find_definition returns file, line, and column"
 )]
 fn find_definition_returns_location() {
-    let mut server = test_server();
-    let resp = call_tool(
+    let (mut server, _dir) = served(&[("limit.spec", LIMIT), ("login.spec", LOGIN)]);
+    let parsed = result(
         &mut server,
         "specforge.find_definition",
-        json!({"entity_id": "alpha"}),
+        json!({"entity_id": "session_limit"}),
     );
-    let text = tool_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
-    assert_eq!(parsed["entity_id"], "alpha");
-    assert_eq!(parsed["file_path"], "test.spec");
-    assert_eq!(parsed["line"], 1);
-    assert_eq!(parsed["column"], 0);
+    // The position is the entity's name, where a cursor goes.
+    assert_eq!(parsed["entity_id"], "session_limit");
+    assert_eq!(parsed["file_path"], "limit.spec");
+    assert_eq!(
+        (&parsed["line"], &parsed["column"]),
+        (&json!(1), &json!(11))
+    );
+    assert_eq!(
+        parsed["name_span"],
+        json!({"file": "limit.spec", "start_line": 1, "start_col": 11, "end_line": 1, "end_col": 24})
+    );
+    assert_eq!(
+        parsed["source_span"],
+        json!({"file": "limit.spec", "start_line": 1, "start_col": 1, "end_line": 3, "end_col": 2})
+    );
+    assert_eq!(parsed["precision"], "token");
 
-    // An entity declared mid-line reports its own line and column.
+    // A graph without text: the block's start, and says so.
+    let mut server = test_server();
     add_node_at(&mut server, "indented", "nested.spec", 7, 4);
-    let resp = call_tool(
+    let parsed = result(
         &mut server,
         "specforge.find_definition",
         json!({"entity_id": "indented"}),
     );
-    let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
     assert_eq!(
-        parsed,
-        json!({"entity_id": "indented", "file_path": "nested.spec", "line": 7, "column": 4})
+        (&parsed["file_path"], &parsed["line"], &parsed["column"]),
+        (&json!("nested.spec"), &json!(7), &json!(4))
     );
+    assert_eq!(parsed["precision"], "entity");
 }
 
 // B:provide_mcp_find_definition_tool — verify unit "unknown entity returns error"
@@ -419,18 +506,79 @@ fn find_definition_unknown_entity() {
     verify = "specforge.find_references returns all reference locations"
 )]
 fn find_references_returns_refs() {
-    let mut server = test_server();
+    let (mut server, _dir) = served(&[("limit.spec", LIMIT), ("login.spec", LOGIN)]);
+    let parsed = result(
+        &mut server,
+        "specforge.find_references",
+        json!({"entity_id": "session_limit"}),
+    );
+    assert_eq!(parsed["entity_id"], "session_limit");
+    // One location per occurrence: the token as written, its field.
+    assert_eq!(
+        parsed["locations"],
+        json!([{
+            "referencing_entity_id": "login",
+            "referenced_entity_id": "session_limit",
+            "field": "invariants",
+            "role": "reference",
+            "precision": "token",
+            "source_span": {"file": "login.spec", "start_line": 2, "start_col": 15, "end_line": 2, "end_col": 28}
+        }])
+    );
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_find_references_tool",
+    verify = "direction and include_declaration select which occurrences are returned"
+)]
+fn find_references_direction_and_declaration() {
+    let (mut server, _dir) = served(&[("limit.spec", LIMIT), ("login.spec", LOGIN)]);
+    let mut spans = |args: Value| -> Vec<String> {
+        let parsed = result(&mut server, "specforge.find_references", args);
+        parsed["locations"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|l| {
+                let s = &l["source_span"];
+                format!(
+                    "{} {}:{} {} {}",
+                    s["file"].as_str().unwrap(),
+                    s["start_line"],
+                    s["start_col"],
+                    l["role"].as_str().unwrap(),
+                    l["referencing_entity_id"].as_str().unwrap()
+                )
+            })
+            .collect()
+    };
+    assert_eq!(
+        spans(json!({"entity_id": "session_limit", "include_declaration": true})),
+        [
+            "limit.spec 1:11 declaration session_limit",
+            "login.spec 2:15 reference login"
+        ]
+    );
+    // Incoming is the default: nothing references login.
+    assert!(spans(json!({"entity_id": "login"})).is_empty());
+    assert_eq!(
+        spans(json!({"entity_id": "login", "direction": "outgoing"})),
+        ["login.spec 2:15 reference login"]
+    );
+    assert_eq!(
+        spans(json!({"entity_id": "login", "direction": "both", "include_declaration": true})),
+        [
+            "login.spec 1:10 declaration login",
+            "login.spec 2:15 reference login"
+        ]
+    );
     let resp = call_tool(
         &mut server,
         "specforge.find_references",
-        json!({"entity_id": "alpha"}),
+        json!({"entity_id": "login", "direction": "sideways"}),
     );
-    let text = tool_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
-    assert_eq!(parsed["entity_id"], "alpha");
-    let locations = parsed["locations"].as_array().unwrap();
-    assert!(!locations.is_empty());
-    assert_eq!(locations[0]["referencing_entity_id"], "beta");
+    assert_eq!(resp["result"]["isError"], true, "{resp}");
+    assert!(tool_text(&resp).contains("direction"), "{resp}");
 }
 
 // B:provide_mcp_find_references_tool — verify unit "unknown entity returns error"
@@ -502,7 +650,7 @@ fn outline_of_an_existing_file_without_entities_is_empty() {
     let dir = tempfile::TempDir::new().unwrap();
     std::fs::write(dir.path().join("empty.spec"), "// nothing yet\n").unwrap();
     let mut server = test_server();
-    server.state_mut().project_root = Some(dir.path().to_path_buf());
+    crate::support::serve_in_memory_at(server.state_mut(), dir.path());
 
     let resp = call_tool(
         &mut server,
@@ -528,71 +676,63 @@ fn outline_sorted_by_line() {
 
 // --- specforge.suggest_fixes ---
 
+/// `nav`: logout names `sesion_limit`, which no entity declares and is
+/// close to `session_limit`.
+const NAV_LOGIN: &str = "behavior login \"Login\" {\n  invariants [session_limit]\n}\n\n\
+                         behavior logout \"Logout\" {\n  invariants [sesion_limit]\n}\n";
+
+/// The fixes `args` asks for, as `"title kind code | file L:C-L:C new_text…"`.
+fn fixes(server: &mut McpServer, args: Value) -> Vec<String> {
+    let parsed = result(server, "specforge.suggest_fixes", args);
+    parsed
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|f| {
+            let edits: Vec<String> = f["edits"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|e| {
+                    let r = &e["range"];
+                    format!(
+                        "{} {}:{}-{}:{} {:?}",
+                        e["file_path"].as_str().unwrap(),
+                        r["start_line"],
+                        r["start_col"],
+                        r["end_line"],
+                        r["end_col"],
+                        e["new_text"].as_str().unwrap()
+                    )
+                })
+                .collect();
+            format!(
+                "{} {} {} | {}",
+                f["title"].as_str().unwrap(),
+                f["kind"].as_str().unwrap(),
+                f["diagnostic_code"].as_str().unwrap_or("-"),
+                edits.join(" | ")
+            )
+        })
+        .collect()
+}
+
+const REPLACE: &str =
+    "Replace with 'session_limit' quickfix E003 | login.spec 6:15-6:27 \"session_limit\"";
+const CREATE: &str = "Create invariant stub for sesion_limit refactor E003 | login.spec 8:1-8:1 \"\\ninvariant sesion_limit \\\"sesion_limit\\\" {\\n  // TODO: fill in fields\\n}\\n\"";
+
 // B:provide_mcp_suggest_fixes_tool — verify unit "returns suggestions from diagnostics"
 #[specforge_test(
     behavior = "provide_mcp_suggest_fixes_tool",
     verify = "specforge.suggest_fixes returns applicable fix suggestions"
 )]
 fn suggest_fixes_returns_suggestions() {
-    let mut server = test_server();
-    // Add a diagnostic with suggestion
-    server
-        .state_mut()
-        .surface_diagnostics
-        .push(specforge_common::Diagnostic {
-            code: "W001".into(),
-            severity: specforge_common::Severity::Warning,
-            message: "alpha has no tests field".into(),
-            span: Some(span()),
-            suggestion: Some("Add a tests field".into()),
-            data: None,
-        });
-
-    let resp = call_tool(
-        &mut server,
-        "specforge.suggest_fixes",
-        json!({"entity_id": "alpha"}),
+    let (mut server, _dir) = served(&[("limit.spec", LIMIT), ("login.spec", NAV_LOGIN)]);
+    // Each fix carries the edits that apply it.
+    assert_eq!(
+        fixes(&mut server, json!({"entity_id": "logout"})),
+        [CREATE, REPLACE]
     );
-    let text = tool_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
-    let suggestions = parsed.as_array().unwrap();
-    assert!(!suggestions.is_empty());
-    assert_eq!(suggestions[0]["kind"], "quickfix");
-}
-
-/// `test_server` with one fixable diagnostic inside alpha's span and one,
-/// spanless, that names beta.
-fn server_with_fixable_diagnostics() -> McpServer {
-    use specforge_common::{Diagnostic, Severity};
-    let mut server = test_server();
-    server.state_mut().surface_diagnostics.push(Diagnostic {
-        code: "V001".into(),
-        severity: Severity::Error,
-        message: "alpha is missing a field".into(),
-        span: Some(span()),
-        suggestion: Some("fix alpha".into()),
-        data: None,
-    });
-    server.state_mut().surface_diagnostics.push(Diagnostic {
-        code: "W001".into(),
-        severity: Severity::Warning,
-        message: "feature 'beta' has no owner".into(),
-        span: None,
-        suggestion: Some("fix beta".into()),
-        data: None,
-    });
-    server
-}
-
-fn fix_titles(server: &mut McpServer, args: Value) -> Vec<String> {
-    let resp = call_tool(server, "specforge.suggest_fixes", args);
-    let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
-    parsed
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|s| s["title"].as_str().unwrap().to_string())
-        .collect()
 }
 
 #[specforge_test(
@@ -600,31 +740,17 @@ fn fix_titles(server: &mut McpServer, args: Value) -> Vec<String> {
     verify = "clean entity with no diagnostics returns empty list"
 )]
 fn suggest_fixes_for_a_clean_entity_is_empty() {
-    use specforge_common::{Diagnostic, Severity};
-    let mut server = test_server();
-    server.state_mut().surface_diagnostics.push(Diagnostic {
-        code: "V001".into(),
-        severity: Severity::Error,
-        message: "alpha is missing a field".into(),
-        span: Some(span()),
-        suggestion: Some("fix alpha".into()),
-        data: None,
-    });
-    // About another entity whose id merely contains beta's.
-    server.state_mut().surface_diagnostics.push(Diagnostic {
-        code: "W001".into(),
-        severity: Severity::Warning,
-        message: "feature 'beta_two' has no owner".into(),
-        span: None,
-        suggestion: Some("fix beta_two".into()),
-        data: None,
-    });
-
-    assert!(fix_titles(&mut server, json!({"entity_id": "beta"})).is_empty());
-    assert_eq!(
-        fix_titles(&mut server, json!({"entity_id": "alpha"})),
-        ["fix alpha"]
+    let (mut server, _dir) = served(&[("limit.spec", LIMIT), ("login.spec", NAV_LOGIN)]);
+    let inspected = result(
+        &mut server,
+        "specforge.inspect",
+        json!({"entity_id": "session_limit"}),
     );
+    assert_eq!(inspected["diagnostics"], json!([]), "{inspected}");
+    assert!(fixes(&mut server, json!({"entity_id": "session_limit"})).is_empty());
+    // A diagnostic whose data names no fix offers none: login's W006 and
+    // E006 have suggestion text, not edits.
+    assert!(fixes(&mut server, json!({"entity_id": "login"})).is_empty());
 }
 
 #[specforge_test(
@@ -632,42 +758,31 @@ fn suggest_fixes_for_a_clean_entity_is_empty() {
     verify = "diagnostic_code filter restricts to matching diagnostics"
 )]
 fn suggest_fixes_diagnostic_code_filter() {
-    let mut server = server_with_fixable_diagnostics();
-
+    let (mut server, _dir) = served(&[("limit.spec", LIMIT), ("login.spec", NAV_LOGIN)]);
     assert_eq!(
-        fix_titles(&mut server, json!({})),
-        ["fix alpha", "fix beta"]
+        fixes(&mut server, json!({"diagnostic_code": "E003"})),
+        [CREATE, REPLACE]
     );
-    assert_eq!(
-        fix_titles(&mut server, json!({"diagnostic_code": "W001"})),
-        ["fix beta"]
-    );
+    assert!(fixes(&mut server, json!({"diagnostic_code": "W006"})).is_empty());
 }
 
 #[test]
 fn suggest_fixes_entity_and_file_filters() {
-    let mut server = server_with_fixable_diagnostics();
-
+    let (mut server, _dir) = served(&[("limit.spec", LIMIT), ("login.spec", NAV_LOGIN)]);
     assert_eq!(
-        fix_titles(&mut server, json!({"entity_id": "beta"})),
-        ["fix beta"]
+        fixes(&mut server, json!({"file_path": "login.spec"})),
+        [CREATE, REPLACE]
     );
-    assert_eq!(
-        fix_titles(&mut server, json!({"file_path": "test.spec"})),
-        ["fix alpha"]
-    );
-    assert!(fix_titles(&mut server, json!({"file_path": "other.spec"})).is_empty());
-    let unknown = call_tool(
+    assert!(fixes(&mut server, json!({"file_path": "limit.spec"})).is_empty());
+    assert!(fixes(&mut server, json!({"entity_id": "login"})).is_empty());
+    let resp = call_tool(
         &mut server,
         "specforge.suggest_fixes",
-        json!({"entity_id": "no_such_entity"}),
+        json!({"entity_id": "nope"}),
     );
-    let error = crate::tool_errors::mcp_error(&unknown);
-    assert_eq!(error["code"], "entity_not_found", "{error}");
-    assert_eq!(error["entity_id"], "no_such_entity", "{error}");
+    assert_eq!(resp["result"]["isError"], true, "{resp}");
 }
 
-// B:provide_mcp_find_references_tool — verify unit "entity with no references returns empty list"
 #[specforge_test(
     behavior = "provide_mcp_find_references_tool",
     verify = "entity with no references returns empty list"
@@ -776,18 +891,21 @@ fn outline_nests_an_entitys_methods() {
 )]
 fn find_references_returns_source_spans() {
     let mut server = test_server();
-    let resp = call_tool(
+    let parsed = result(
         &mut server,
         "specforge.find_references",
         json!({"entity_id": "alpha"}),
     );
-    let text = tool_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
-    // One reference: beta, declared at test.spec lines 10-15.
+    // A graph built without text: the token cannot be read, so the
+    // location is beta's block (test.spec lines 10-15), and says so.
     assert_eq!(
         parsed["locations"],
         json!([{
             "referencing_entity_id": "beta",
+            "referenced_entity_id": "alpha",
+            "field": "behaviors",
+            "role": "reference",
+            "precision": "entity",
             "source_span": {
                 "file": "test.spec",
                 "start_line": 10,

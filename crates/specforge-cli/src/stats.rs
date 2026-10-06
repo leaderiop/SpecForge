@@ -1,34 +1,27 @@
-use specforge_ops::stats::{ProjectStats, compute_project_stats};
-use specforge_project::coverage::{CoverageRegistries, ProjectCoverage};
+use specforge_ops::stats::{Stats, StatsRequest};
+use specforge_ops::view::ProjectView;
 use std::path::Path;
 
 use crate::OutputFormat;
 use crate::pipeline;
 
+/// `specforge stats`: the stats operation over the project compiled at
+/// `path`, its proof percentage read from what `specforge collect` last
+/// recorded there; a report that is there but unusable is an error (exit
+/// 2), as in `analyze`.
 pub fn run(path: &Path, format: OutputFormat) -> i32 {
-    let ctx = pipeline::compile(path);
-    // The proof percentage reads what `specforge collect` last recorded; a
-    // report that is there but unusable is an error, as in `analyze`.
-    let report = match specforge_project::coverage::read_report(path) {
-        Ok(report) => report,
+    let (project, _runtime) = pipeline::compile_project(path);
+    let diagnostics = project.diagnostics();
+    let request = StatsRequest {
+        diagnostics: &diagnostics,
+    };
+    let stats = match specforge_ops::stats::stats(&ProjectView::of(&project), &request) {
+        Ok(stats) => stats,
         Err(e) => {
-            eprintln!("error: {e}");
+            eprintln!("{}", crate::export::render_plain(&e.diagnostic()));
             return 2;
         }
     };
-
-    // Coverage is the coverage rule's, over the kinds the extensions
-    // declare testable, less the entities W004 exempts.
-    let coverage = ProjectCoverage::compute(
-        &ctx.graph,
-        CoverageRegistries {
-            kinds: &ctx.kind_registry,
-            fields: &ctx.field_registry,
-            rules: &ctx.extension_rules,
-        },
-        report.as_ref(),
-    );
-    let stats = compute_project_stats(&ctx.graph, &coverage.summary, &ctx.diagnostics);
 
     match format {
         OutputFormat::Json => print_json(&stats),
@@ -38,7 +31,7 @@ pub fn run(path: &Path, format: OutputFormat) -> i32 {
     0
 }
 
-fn print_human(stats: &ProjectStats) {
+fn print_human(stats: &Stats) {
     println!("Entities: {}", stats.total_entities);
     for (kind, count) in &stats.entities_by_kind {
         println!("  {}: {}", kind, count);
@@ -66,7 +59,7 @@ fn print_human(stats: &ProjectStats) {
     }
 }
 
-fn print_json(stats: &ProjectStats) {
+fn print_json(stats: &Stats) {
     let json = serde_json::json!({
         "total_entities": stats.total_entities,
         "total_edges": stats.total_edges,

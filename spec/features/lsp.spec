@@ -101,7 +101,8 @@ feature semantic_tokens "Semantic Tokens" {
 }
 
 feature code_actions "Code Actions" {
-  // Bridge: code_actions_for_missing_verify, code_action_create_entity_stub
+  // Bridge: code_actions_for_missing_verify, code_action_create_entity_stub,
+  //   code_action_replace_unresolved
   //   (owned by extension_driven_code_actions in features/zero-entity-core.spec)
   problem  """
     Untested entities are easy to overlook. Adding verify declarations

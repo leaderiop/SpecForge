@@ -9,9 +9,8 @@
 //! for it. `dot` never carries a schema.
 
 use crate::OpError;
+use crate::view::ProjectView;
 use specforge_emitter::{EmitFormat, EmitOptions, GraphProtocolSchema, SchemaVersion, emit};
-use specforge_graph::Graph;
-use specforge_registry::{FieldRegistry, KindRegistry};
 use std::str::FromStr;
 
 /// An export format.
@@ -67,16 +66,6 @@ pub enum Schema {
     Without,
 }
 
-/// The project an export reads.
-#[derive(Clone, Copy)]
-pub struct Project<'a> {
-    pub graph: &'a Graph,
-    pub kinds: &'a KindRegistry,
-    pub fields: &'a FieldRegistry,
-    /// The schema the project's extensions produce.
-    pub schema: &'a GraphProtocolSchema,
-}
-
 /// What to export.
 #[derive(Debug, Clone, Default)]
 pub struct Request<'a> {
@@ -113,10 +102,12 @@ impl Request<'_> {
     }
 }
 
-/// The export text for `request`.
-pub fn export(project: &Project, request: &Request) -> Result<String, OpError> {
+/// The export text of the view's project for `request`. A schema it
+/// carries is the view's versioned schema (`specforge export`'s version,
+/// computed against the root's schema cache, which this only reads).
+pub fn export(view: &ProjectView, request: &Request) -> Result<String, OpError> {
     let schema = if request.attaches_schema() {
-        Some(negotiated(project.schema, request.schema_version)?)
+        Some(negotiated(view.versioned_schema(), request.schema_version)?)
     } else {
         None
     };
@@ -127,10 +118,10 @@ pub fn export(project: &Project, request: &Request) -> Result<String, OpError> {
         kind_filter: request.kinds.clone(),
         schema: schema.as_ref(),
         token_budget: request.max_tokens,
-        kind_registry: Some(project.kinds),
-        field_registry: Some(project.fields),
+        kind_registry: Some(&view.registries.kinds),
+        field_registry: Some(&view.registries.fields),
     };
-    emit(project.graph, &options).map_err(|e| {
+    emit(view.graph, &options).map_err(|e| {
         let message = e.to_string();
         OpError::new(leading_code(&message).unwrap_or("export_failed"), message)
     })
@@ -139,10 +130,9 @@ pub fn export(project: &Project, request: &Request) -> Result<String, OpError> {
 /// `schema`, at `requested` when one is asked for: the same major as the
 /// produced schema, minor and patch from 0 up to the produced version.
 fn negotiated(
-    schema: &GraphProtocolSchema,
+    mut schema: GraphProtocolSchema,
     requested: Option<&str>,
 ) -> Result<GraphProtocolSchema, OpError> {
-    let mut schema = schema.clone();
     let Some(requested) = requested else {
         return Ok(schema);
     };

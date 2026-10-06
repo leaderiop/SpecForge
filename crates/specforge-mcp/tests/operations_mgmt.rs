@@ -18,7 +18,7 @@ fn attach_project(state: &mut specforge_mcp::state::McpState) {
     .unwrap();
     let root = dir.path().to_path_buf();
     std::mem::forget(dir); // outlives the test
-    state.project_root = Some(root);
+    crate::support::serve_in_memory_at(state, &root);
 }
 
 fn test_server() -> McpServer {
@@ -326,7 +326,11 @@ fn collect_result_is_an_mcp_collect_result() {
     );
     assert_eq!(
         result["report"],
-        root.join("specforge-report.json").display().to_string()
+        std::fs::canonicalize(&root)
+            .unwrap()
+            .join("specforge-report.json")
+            .display()
+            .to_string()
     );
     assert_eq!(result["diagnostics"][0]["code"], "W115", "{result}");
 }
@@ -444,7 +448,7 @@ fn providers_entry_fields() {
 fn extensions_contract() {
     // compiler_api_available: the server compiled the project.
     let (mut server, root) = software_project();
-    assert!(!server.state().registries().manifests.is_empty());
+    assert!(!server.state().registries().declarations().is_empty());
 
     // extensions_listed: name, version, entity kinds and status.
     let resp = call_tool(&mut server, "specforge.extensions", json!({}));
@@ -464,18 +468,8 @@ fn extensions_contract() {
         json!({"name": "t", "version": "0.1.0", "extensions": ["@specforge/testing"]}).to_string(),
     )
     .unwrap();
-    assert_eq!(
-        listed_extensions(&mut server),
-        vec![
-            (
-                "@specforge/software".to_string(),
-                "not_configured".to_string()
-            ),
-            ("@specforge/testing".to_string(), "not_loaded".to_string()),
-        ]
-    );
-    // After the next compile, only the configured extension is loaded.
-    call_tool(&mut server, "specforge.validate", json!({}));
+    // The call serves the project as it is on disk now: only the
+    // configured extension is loaded.
     assert_eq!(
         listed_extensions(&mut server),
         vec![("@specforge/testing".to_string(), "loaded".to_string())]
@@ -497,7 +491,7 @@ fn providers_contract() {
         "name": "t", "version": "0.1.0", "extensions": ["@specforge/software"],
         "providers": [{"alias": "tracker", "scheme": "jira", "extension": "@acme/jira"}]
     }));
-    assert!(!server.state().registries().manifests.is_empty());
+    assert!(!server.state().registries().declarations().is_empty());
 
     // providers_listed: scheme, alias, extension and status.
     let resp = call_tool(&mut server, "specforge.providers", json!({}));
@@ -566,7 +560,11 @@ const GREET: &str = "@sdk/greet";
 /// `test_server` with the product blob installed in its project.
 fn server_with_product() -> (McpServer, std::path::PathBuf) {
     let mut server = test_server();
-    let root = server.state().project_root.clone().unwrap();
+    let root = server
+        .state()
+        .project_root()
+        .map(std::path::Path::to_path_buf)
+        .unwrap();
     let blob = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../fixtures/greet-extension/greet.wasm");
     let resp = call_tool(
@@ -727,31 +725,30 @@ fn doctor_compiles_afresh_unless_use_cached() {
 fn doctor_lists_extension_conflicts_from_the_compile() {
     let mut server = test_server();
     // What the compiler reports when two extensions register one kind.
-    server
-        .state_mut()
-        .surface_diagnostics
-        .push(specforge_common::Diagnostic {
+    crate::support::report_also(
+        server.state_mut(),
+        specforge_common::Diagnostic {
             code: "E026".into(),
             severity: specforge_common::Severity::Error,
             message: "entity kind 'feature' is already registered by '@specforge/product'".into(),
             span: None,
             suggestion: None,
             data: None,
-        });
-    server
-        .state_mut()
-        .surface_diagnostics
-        .push(specforge_common::Diagnostic {
+        },
+    );
+    crate::support::report_also(
+        server.state_mut(),
+        specforge_common::Diagnostic {
             code: "W001".into(),
             severity: specforge_common::Severity::Warning,
             message: "an unrelated warning".into(),
             span: None,
             suggestion: None,
             data: None,
-        });
+        },
+    );
 
     // Over those diagnostics, as the last compile's, not a fresh compile.
-    server.state_mut().loaded_at = Some(std::time::SystemTime::now());
     let resp = call_tool(&mut server, "specforge.doctor", json!({"use_cached": true}));
     let report: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
 

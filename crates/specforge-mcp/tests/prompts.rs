@@ -93,6 +93,10 @@ fn test_server() -> McpServer {
     state.edit_environment(|env| {
         env.registries.kinds.register(kind_entry("feature", false));
     });
+    // As @specforge/software does: behaviors and invariants must declare
+    // obligations, so one that declares none counts toward coverage.
+    crate::support::obligate(&mut server, "behavior");
+    crate::support::obligate(&mut server, "invariant");
 
     server
 }
@@ -100,22 +104,12 @@ fn test_server() -> McpServer {
 fn kind_entry(kind: &str, testable: bool) -> specforge_registry::KindRegistryEntry {
     specforge_registry::KindRegistryEntry {
         kind_name: kind.into(),
-        description: None,
         source_extension: "@test/ext".into(),
         testable,
-        singleton: false,
         supports_verify: testable,
         allowed_verify_kinds: Vec::new(),
-        has_body_parser: false,
-        semantic_token: None,
-        lsp_icon: None,
-        dot_shape: None,
-        dot_color: None,
-        dot_fillcolor: None,
-        open_fields: false,
-        contract_target: false,
-        declares_types: false,
         lifecycle_field: None,
+        ..Default::default()
     }
 }
 
@@ -130,7 +124,7 @@ fn call_prompt(server: &mut McpServer, name: &str, args: Value) -> Value {
 }
 
 fn prompt_text(resp: &Value) -> String {
-    // Data is in the last message (assistant role), instruction is first (user role)
+    // The instruction is the first user message, the JSON payload the second.
     let messages = resp["result"]["messages"].as_array().unwrap();
     let last = messages.last().unwrap();
     last["content"]["text"].as_str().unwrap().to_string()
@@ -173,10 +167,10 @@ fn context_prompt_returns_context() {
         instruction
     );
 
-    // Second message has the data (role: assistant)
+    // Second message has the data, a user message too (C9-14)
     assert_eq!(
-        messages[1]["role"], "assistant",
-        "data message should be role 'assistant'"
+        messages[1]["role"], "user",
+        "data message should be role 'user'"
     );
     let text = messages[1]["content"]["text"].as_str().unwrap();
     let parsed: Value = serde_json::from_str(text).unwrap();
@@ -373,9 +367,82 @@ fn trace_prompt_identifies_unverified() {
     );
     let text = prompt_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();
-    let unverified = parsed["unverified_entities"].as_array().unwrap();
-    // beta is in the trace but has no verify
-    assert!(unverified.contains(&json!("beta")));
+    assert_eq!(
+        parsed["affected_entities"],
+        json!(["alpha", "beta"]),
+        "{parsed}"
+    );
+    // alpha is testable and no test proves it; beta, a feature, is not
+    // testable, so it is not unverified though it declares no verify.
+    assert_eq!(parsed["unverified_entities"], json!(["alpha"]), "{parsed}");
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_trace_prompt",
+    verify = "unverified entities are the ones the trace reaches that count toward coverage and are not proven"
+)]
+fn trace_unverified_is_counted_and_not_proven() {
+    let mut server = test_server();
+    let t = trace_plan(&mut server, json!({"entries": [{"entity_id": "beta"}]}));
+    assert_eq!(t["affected_entities"], json!(["alpha", "beta"]));
+    assert_eq!(t["unverified_entities"], json!(["alpha"]));
+
+    // A recorded test proving alpha's obligation: nothing is unverified.
+    let project = tempfile::tempdir().unwrap();
+    std::fs::write(
+        project.path().join("specforge-report.json"),
+        r#"{"results":{"alpha":{"tests":[{"name":"t","verify":"test alpha","status":"pass"}]}}}"#,
+    )
+    .unwrap();
+    crate::support::serve_in_memory_at(server.state_mut(), project.path());
+    let t = trace_plan(&mut server, json!({"entries": [{"entity_id": "beta"}]}));
+    assert_eq!(t["unverified_entities"], json!([]), "{t}");
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_trace_prompt",
+    verify = "response returns identified gaps with gap context"
+)]
+fn trace_entity_mode_reports_the_chains_missing_links() {
+    let mut server = test_server();
+    // A behavior is expected to reference an invariant: alpha does not.
+    crate::support::declare_reference(&mut server, "behavior", "invariants", "invariant");
+    // A dangling edge elsewhere is no gap of alpha's chain.
+    server.state_mut().edit_graph(|graph| {
+        graph.add_edge(Edge {
+            source: "gamma_orphan".into(),
+            target: "nowhere".into(),
+            label: "refines".into(),
+        });
+    });
+    let resp = call_prompt(
+        &mut server,
+        "specforge://prompts/trace",
+        json!({"entity_id": "alpha"}),
+    );
+    let parsed: Value = serde_json::from_str(&prompt_text(&resp)).unwrap();
+    let gaps = parsed["coverage_gaps"].as_array().unwrap();
+    assert_eq!(gaps.len(), 1, "{parsed}");
+    let gap = &gaps[0];
+    assert_eq!(gap["source_entity"], "alpha");
+    assert_eq!(gap["target_entity"], "invariant");
+    assert!(gap["missing_link_type"].is_string(), "{gap}");
+    assert!(
+        gap["gap_context"].as_str().is_some_and(|c| !c.is_empty()),
+        "{gap}"
+    );
+    // The same missing link the trace tool reports.
+    let req = json!({"jsonrpc": "2.0", "id": 1, "method": "tools/call",
+        "params": {"name": "specforge.trace", "arguments": {"entity_id": "alpha"}}});
+    let tool: Value =
+        serde_json::from_str(&server.handle_message(&req.to_string()).unwrap()).unwrap();
+    let document: Value =
+        serde_json::from_str(tool["result"]["content"][0]["text"].as_str().unwrap()).unwrap();
+    assert_eq!(
+        document["missing"].as_array().map(Vec::len),
+        Some(1),
+        "{document}"
+    );
 }
 
 #[test]
@@ -486,7 +553,8 @@ fn trace_prompt_lists_the_entities_a_plan_affects() {
         json!(["alpha", "beta"]),
         "{result}"
     );
-    assert_eq!(result["unverified_entities"], json!(["beta"]), "{result}");
+    // alpha is testable and unproven; beta, a feature, is not testable.
+    assert_eq!(result["unverified_entities"], json!(["alpha"]), "{result}");
 }
 
 #[specforge_test(
@@ -611,6 +679,10 @@ fn unknown_prompt_returns_error() {
             "{method} {params}: error.message must be a non-empty string, got {error}"
         );
         assert!(resp.get("result").is_none(), "{method}: {resp}");
+        // A prompt that cannot render carries its McpError as data.
+        if method == "prompts/get" && params["arguments"]["entity_id"] == "nope" {
+            assert_eq!(error["data"]["code"], "entity_not_found", "{resp}");
+        }
     }
 }
 
@@ -798,7 +870,7 @@ fn review_coverage_matches_the_coverage_tool() {
         r#"{"results":{"alpha":{"tests":[{"name":"t","verify":"test alpha","status":"pass"}]}}}"#,
     )
     .unwrap();
-    server.state_mut().project_root = Some(project.path().to_path_buf());
+    crate::support::serve_in_memory_at(server.state_mut(), project.path());
     let resp = call_prompt(
         &mut server,
         "specforge://prompts/review",
@@ -808,4 +880,420 @@ fn review_coverage_matches_the_coverage_tool() {
     let alpha = &parsed["coverage_summary"][0];
     assert_eq!(alpha["status"], "covered", "{parsed}");
     assert_eq!(alpha["linked"], true);
+}
+
+// --- The Prompt spec pipeline (serve_mcp_prompt) ---
+
+/// A full, valid argument set for each core prompt over `test_server`'s
+/// graph: every argument the prompt lists.
+fn full_arguments(prompt: &str) -> Value {
+    match prompt {
+        "specforge://prompts/context" => {
+            json!({"entity_id": "alpha", "structural_constraints": "gamma_orphan"})
+        }
+        "specforge://prompts/review" => json!({"entity_id": "alpha", "depth": "1"}),
+        "specforge://prompts/trace" => json!({
+            "plan": {"entries": [{"entity_id": "alpha", "action": "modify"}]},
+            "entity_id": "alpha",
+        }),
+        "specforge://prompts/explore" => {
+            json!({"entity_id": "alpha", "kind": "behavior", "depth": "1"})
+        }
+        "specforge://prompts/infer" => {
+            json!({"scope": "plan", "target_spec_directory": "spec/", "cursor": "0"})
+        }
+        other => panic!("no full argument set for {other}"),
+    }
+}
+
+/// Each listed prompt and its listed arguments, `(name, required)`.
+fn listed_prompts(server: &mut McpServer) -> Vec<(String, Vec<(String, bool)>)> {
+    let req = json!({"jsonrpc": "2.0", "id": 1, "method": "prompts/list", "params": {}});
+    let resp: Value =
+        serde_json::from_str(&server.handle_message(&req.to_string()).unwrap()).unwrap();
+    resp["result"]["prompts"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|p| {
+            let arguments = p["arguments"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|a| {
+                    (
+                        a["name"].as_str().unwrap().to_string(),
+                        a["required"].as_bool().unwrap(),
+                    )
+                })
+                .collect();
+            (p["name"].as_str().unwrap().to_string(), arguments)
+        })
+        .collect()
+}
+
+#[specforge_test(
+    behavior = "serve_mcp_prompt",
+    verify = "a listed required argument is exactly one the prompt cannot render without"
+)]
+fn listed_required_arguments_are_exactly_the_unrenderable_omissions() {
+    let mut server = test_server();
+    for (prompt, arguments) in listed_prompts(&mut server) {
+        let full = full_arguments(&prompt);
+        let listed: Vec<&str> = arguments.iter().map(|(name, _)| name.as_str()).collect();
+        let given: Vec<&str> = full
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(String::as_str)
+            .collect();
+        let (mut listed_sorted, mut given_sorted) = (listed.clone(), given.clone());
+        listed_sorted.sort_unstable();
+        given_sorted.sort_unstable();
+        assert_eq!(
+            listed_sorted, given_sorted,
+            "{prompt}: the full set is every listed argument"
+        );
+
+        let rendered = call_prompt(&mut server, &prompt, full.clone());
+        assert!(
+            rendered["error"].is_null(),
+            "{prompt} renders with every argument: {rendered}"
+        );
+
+        for (argument, required) in &arguments {
+            let mut without = full.clone();
+            without.as_object_mut().unwrap().remove(argument);
+            let resp = call_prompt(&mut server, &prompt, without);
+            let missing = resp["error"]["message"]
+                .as_str()
+                .is_some_and(|m| m.starts_with("Missing required parameter"));
+            if *required {
+                assert_eq!(
+                    resp["error"]["code"], -32602,
+                    "{prompt} without {argument}: {resp}"
+                );
+                assert_eq!(
+                    resp["error"]["data"]["argument"],
+                    argument.as_str(),
+                    "{resp}"
+                );
+                assert!(missing, "{prompt} without {argument}: {resp}");
+            } else {
+                assert!(!missing, "{prompt} without optional {argument}: {resp}");
+            }
+        }
+    }
+}
+
+#[specforge_test(
+    behavior = "serve_mcp_prompt",
+    verify = "a prompt refusal is a JSON-RPC error whose data is an McpError naming the prompt"
+)]
+#[specforge_test(
+    behavior = "mcp_structured_error_responses",
+    verify = "a failed prompts/get carries its McpError as the error's data"
+)]
+fn every_prompt_refusal_carries_an_mcp_error() {
+    let mut server = test_server();
+    for (name, args) in [
+        ("context", json!({})),
+        ("context", json!({"entity_id": "ghost"})),
+        ("context", json!({"entity_id": 42})),
+        ("review", json!({"entity_id": "ghost"})),
+        ("review", json!({"entity_id": "alpha", "depth": "two"})),
+        ("trace", json!({})),
+        ("trace", json!({"plan": "{not json"})),
+        ("trace", json!({"entity_id": "ghost"})),
+        ("infer", json!({"scope": "kind:"})),
+        ("infer", json!({"scope": "kind:nope"})),
+        ("infer", json!({"scope": "plan", "cursor": "-1"})),
+    ] {
+        let prompt = format!("specforge://prompts/{name}");
+        let resp = call_prompt(&mut server, &prompt, args.clone());
+        let error = &resp["error"];
+        let data = &error["data"];
+        assert!(data["code"].is_string(), "{name} {args}: {resp}");
+        assert_eq!(data["prompt"], prompt.as_str(), "{resp}");
+        assert!(data.get("tool").is_none(), "{resp}");
+        assert_eq!(error["message"], data["message"], "{resp}");
+        let expected = if data["code"] == "invalid_input" || data["code"] == "entity_not_found" {
+            -32602
+        } else {
+            -32603
+        };
+        assert_eq!(error["code"], expected, "{resp}");
+    }
+    // An unknown entity is the tools' entity_not_found, its E003 in diagnostic.
+    let resp = call_prompt(
+        &mut server,
+        "specforge://prompts/context",
+        json!({"entity_id": "ghost"}),
+    );
+    let data = &resp["error"]["data"];
+    assert_eq!(data["code"], "entity_not_found", "{resp}");
+    assert_eq!(data["entity_id"], "ghost");
+    assert_eq!(data["diagnostic"]["code"], "E003");
+}
+
+#[specforge_test(
+    behavior = "serve_mcp_prompt",
+    verify = "a missing required prompt argument is -32602 naming the argument"
+)]
+fn missing_required_prompt_argument_names_it() {
+    let mut server = test_server();
+    let resp = call_prompt(&mut server, "specforge://prompts/context", json!({}));
+    assert_eq!(resp["error"]["code"], -32602, "{resp}");
+    assert_eq!(
+        resp["error"]["message"],
+        "Missing required parameter: entity_id"
+    );
+    let data = &resp["error"]["data"];
+    assert_eq!(data["code"], "invalid_input");
+    assert_eq!(data["argument"], "entity_id");
+    assert_eq!(data["prompt"], "specforge://prompts/context");
+}
+
+#[specforge_test(
+    behavior = "serve_mcp_prompt",
+    verify = "prompt arguments that are not an object produce -32602 Invalid params"
+)]
+fn prompt_arguments_must_be_an_object() {
+    let mut server = test_server();
+    for arguments in [json!("x"), json!(["entity_id"]), json!(3)] {
+        let resp = call_prompt(
+            &mut server,
+            "specforge://prompts/context",
+            arguments.clone(),
+        );
+        assert_eq!(resp["error"]["code"], -32602, "{arguments}: {resp}");
+        assert_eq!(
+            resp["error"]["message"], "Invalid params: arguments must be an object",
+            "{resp}"
+        );
+    }
+    // Absent or null arguments are none.
+    let req = json!({"jsonrpc": "2.0", "id": 1, "method": "prompts/get",
+        "params": {"name": "specforge://prompts/explore", "arguments": null}});
+    let resp: Value =
+        serde_json::from_str(&server.handle_message(&req.to_string()).unwrap()).unwrap();
+    assert!(resp["error"].is_null(), "{resp}");
+}
+
+#[specforge_test(
+    behavior = "serve_mcp_prompt",
+    verify = "a numeric prompt argument is read from a string, as MCP sends it"
+)]
+fn review_reads_depth_from_a_string() {
+    let mut server = test_server();
+    // alpha <- beta -> delta: delta, testable, is two hops from alpha.
+    let mut delta = server.state().graph().node("alpha").unwrap().clone();
+    delta.id = EntityId {
+        raw: "delta".into(),
+    };
+    server.state_mut().edit_graph(|graph| {
+        graph.add_node(delta);
+        graph.add_edge(Edge {
+            source: "beta".into(),
+            target: "delta".into(),
+            label: "behaviors".into(),
+        });
+    });
+    let as_number = review(&mut server, json!({"entity_id": "alpha", "depth": 2}));
+    let as_string = review(&mut server, json!({"entity_id": "alpha", "depth": "2"}));
+    assert_eq!(as_string, as_number);
+    assert_eq!(reviewed_ids(&as_string), ["alpha", "delta"]);
+}
+
+#[specforge_test(
+    behavior = "serve_mcp_prompt",
+    verify = "a numeric prompt argument is read from a string, as MCP sends it"
+)]
+fn infer_plan_reads_cursor_from_a_string() {
+    let mut server = test_server();
+    let plan = |server: &mut McpServer, cursor: Value| {
+        let resp = call_prompt(
+            server,
+            "specforge://prompts/infer",
+            json!({"scope": "plan", "cursor": cursor}),
+        );
+        serde_json::from_str::<Value>(&prompt_text(&resp)).unwrap()["plan"]["cursor"].clone()
+    };
+    assert_eq!(plan(&mut server, json!("50")), 50);
+    assert_eq!(plan(&mut server, json!(50)), 50);
+}
+
+#[specforge_test(
+    behavior = "serve_mcp_prompt",
+    verify = "an unknown prompt records no mcp_prompt_invoked event"
+)]
+fn unknown_prompt_records_no_invocation() {
+    let mut server = test_server();
+    let invoked = |server: &McpServer| {
+        server
+            .state()
+            .events
+            .iter()
+            .filter(|e| e.name == "mcp_prompt_invoked")
+            .count()
+    };
+    let resp = call_prompt(&mut server, "specforge://prompts/nope", json!({}));
+    assert_eq!(resp["error"]["code"], -32602, "{resp}");
+    assert_eq!(invoked(&server), 0);
+    // A known prompt refused for its arguments is still an invocation, as a
+    // tool's is.
+    call_prompt(&mut server, "specforge://prompts/context", json!({}));
+    assert_eq!(invoked(&server), 1);
+}
+
+#[specforge_test(
+    behavior = "serve_mcp_prompt",
+    verify = "every prompt result is an instruction then a JSON payload, both user messages"
+)]
+fn every_prompt_renders_an_instruction_then_a_json_payload() {
+    let mut server = test_server();
+    let mut cases: Vec<(&str, Value)> = vec![
+        ("specforge://prompts/context", json!({"entity_id": "alpha"})),
+        ("specforge://prompts/review", json!({})),
+        ("specforge://prompts/trace", json!({"entity_id": "alpha"})),
+        ("specforge://prompts/explore", json!({"entity_id": "alpha"})),
+    ];
+    for scope in [
+        None,
+        Some("kind:behavior"),
+        Some("file:test.spec"),
+        Some("plan"),
+        Some("workflow"),
+    ] {
+        let arguments = scope.map_or_else(|| json!({}), |scope| json!({"scope": scope}));
+        cases.push(("specforge://prompts/infer", arguments));
+    }
+    // Infer's kind scope needs the kind's extension.
+    server.state_mut().edit_environment(|env| {
+        // The declarations, beside the registries the test built by hand.
+        let mut registries = specforge_registry::build_registries(vec![behavior_declaration()]);
+        std::mem::swap(&mut registries.kinds, &mut env.registries.kinds);
+        std::mem::swap(&mut registries.fields, &mut env.registries.fields);
+        std::mem::swap(&mut registries.edges, &mut env.registries.edges);
+        std::mem::swap(&mut registries.rules, &mut env.registries.rules);
+        env.registries = registries;
+    });
+    let listed: Vec<String> = listed_prompts(&mut server)
+        .into_iter()
+        .map(|(name, _)| name)
+        .collect();
+    for (prompt, arguments) in cases {
+        let resp = call_prompt(&mut server, prompt, arguments.clone());
+        let result = &resp["result"];
+        assert!(
+            result["description"].is_string(),
+            "{prompt} {arguments}: {resp}"
+        );
+        let messages = result["messages"].as_array().unwrap();
+        assert_eq!(messages.len(), 2, "{prompt} {arguments}: {resp}");
+        for message in messages {
+            assert_eq!(message["role"], "user", "{prompt} {arguments}: {resp}");
+            assert_eq!(message["content"]["type"], "text");
+        }
+        let instruction = messages[0]["content"]["text"].as_str().unwrap();
+        assert!(!instruction.is_empty(), "{prompt}: {resp}");
+        let payload = messages[1]["content"]["text"].as_str().unwrap();
+        assert!(
+            serde_json::from_str::<Value>(payload).is_ok_and(|p| p.is_object()),
+            "{prompt} {arguments}: the second message is a JSON object: {payload}"
+        );
+    }
+    assert_eq!(listed.len(), 5, "every core prompt is covered: {listed:?}");
+}
+
+/// A declaration of `behavior`, as `@specforge/software` makes.
+fn behavior_declaration() -> specforge_protocol_types::ExtensionDeclaration {
+    use specforge_extension_sdk::prelude::*;
+    let mut c = ContributionsBuilder::new(ExtensionMeta::new("@test/ext", "1.0.0"));
+    c.kind("behavior", |k| {
+        k.keyword("behavior");
+    });
+    c.declaration()
+}
+
+// --- explore and review share Graph::reach ---
+
+/// A chain `a - b - c - d` of testable behaviors.
+fn chain_server() -> McpServer {
+    let mut server = test_server();
+    let template = server.state().graph().node("alpha").unwrap().clone();
+    let mut graph = Graph::new();
+    for id in ["a", "b", "c", "d"] {
+        let mut node = template.clone();
+        node.id = EntityId { raw: id.into() };
+        graph.add_node(node);
+    }
+    for (source, target) in [("a", "b"), ("b", "c"), ("c", "d")] {
+        graph.add_edge(Edge {
+            source: source.into(),
+            target: target.into(),
+            label: "next".into(),
+        });
+    }
+    server.state_mut().serve_graph(graph, Vec::new());
+    server.state_mut().edit_environment(|env| {
+        env.registries.kinds.register(kind_entry("behavior", true));
+    });
+    server
+}
+
+const EXPLORE: &str = "specforge://prompts/explore";
+
+/// The entities explore's relationship paths reach.
+fn explored_ids(resp: &Value) -> Vec<String> {
+    let payload: Value = serde_json::from_str(&prompt_text(resp)).unwrap();
+    payload["relationship_paths"]
+        .as_array()
+        .unwrap_or_else(|| panic!("{resp}"))
+        .iter()
+        .map(|p| p["to_entity"].as_str().unwrap().to_string())
+        .collect()
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_explore_prompt",
+    verify = "explore and review reach the same entities at the same depth"
+)]
+fn explore_and_review_share_one_neighbourhood() {
+    let mut server = chain_server();
+    for depth in [0, 1, 2, 3] {
+        let depth = depth.to_string();
+        let explore = call_prompt(
+            &mut server,
+            EXPLORE,
+            json!({"entity_id": "a", "depth": depth}),
+        );
+        let explored: std::collections::BTreeSet<String> = explored_ids(&explore)
+            .into_iter()
+            .chain(["a".to_string()])
+            .collect();
+        let reviewed = review(&mut server, json!({"entity_id": "a", "depth": depth}));
+        let reviewed: std::collections::BTreeSet<String> = reviewed_ids(&reviewed)
+            .into_iter()
+            .map(str::to_string)
+            .collect();
+        assert_eq!(explored, reviewed, "depth {depth}");
+    }
+    // Unbounded by default: the whole component, nearest first.
+    let all = call_prompt(&mut server, EXPLORE, json!({"entity_id": "a"}));
+    assert_eq!(explored_ids(&all), ["b", "c", "d"]);
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_explore_prompt",
+    verify = "unknown entity_id returns error"
+)]
+fn explore_unknown_entity_is_an_error() {
+    let mut server = test_server();
+    let resp = call_prompt(&mut server, EXPLORE, json!({"entity_id": "ghost"}));
+    assert_eq!(resp["error"]["code"], -32602, "{resp}");
+    let data = &resp["error"]["data"];
+    assert_eq!(data["code"], "entity_not_found");
+    assert_eq!(data["entity_id"], "ghost");
+    assert_eq!(data["diagnostic"]["code"], "E003");
 }

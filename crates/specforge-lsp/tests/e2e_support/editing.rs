@@ -126,7 +126,7 @@ async fn e2e_prepare_rename_on_entity() {
     let text = "behavior user_login \"Login\" {}\n";
     let (mut client, uri) = start_server_with_doc(None, "test.spec", text).await;
     // Cursor on "user_login" (line 0, col 12)
-    let resp = client.prepare_rename(&uri, 0, 12).await;
+    let resp = client.rename_range_at(&uri, 0, 12).await;
     let result = &resp["result"];
     assert!(
         !result.is_null(),
@@ -144,7 +144,7 @@ async fn e2e_prepare_rename_on_non_entity() {
     let text = "behavior foo \"Foo\" {}\n";
     let (mut client, uri) = start_server_with_doc(None, "test.spec", text).await;
     // Cursor on "behavior" keyword (col 4) — not an entity ID in the graph
-    let resp = client.prepare_rename(&uri, 0, 4).await;
+    let resp = client.rename_range_at(&uri, 0, 4).await;
     let result = &resp["result"];
     // "behavior" is the keyword, not a graph entity; prepare_rename checks graph
     // It may return null or a range depending on implementation

@@ -244,7 +244,10 @@ behavior provide_mcp_infer_gaps_tool "Provide MCP Infer Gaps Tool" {
     as approximate. Cross-references matched items with entities in the
     compiled graph via the inference manifest's source_index. Returns an
     InferenceGapReport with per-directory breakdowns including structured
-    InferenceGap items (name, item_kind, file, line).
+    InferenceGap items (name, item_kind, file, line). A scanner that fails
+    on a file (it traps, or answers what is not a scan response) is
+    reported in scan_failures (the file and its E028), never counted as a
+    file without public items, and makes the report approximate.
     Items in test files, build scripts, and standard trait impls are excluded.
   """
   verify unit "scans Rust files for pub items via regex"
@@ -310,6 +313,24 @@ behavior provide_infer_workflow_scope "Provide Infer Prompt Workflow Scope" {
   verify unit "workflow returns step-by-step protocol"
   verify unit "workflow includes all MCP tool names"
   verify unit "workflow documents retry pattern"
+}
+
+behavior provide_infer_file_scope "Provide Infer Prompt File Scope" {
+  features [infer_plan_mode]
+  category mcp
+  ensures {
+    existing_listed "entities that belong to the file are listed so the agent does not duplicate them"
+    one_answer      "the same entities specforge.find_spec_for_source finds for that file"
+  }
+  contract """
+    When specforge://prompts/infer is invoked with scope=file:<path>,
+    list the entities that belong to that source file under the one
+    file rule MCP navigation and the LSP share, with each one's kind,
+    line and symbol, and the kind guides. The list is the one
+    specforge.find_spec_for_source returns for the same path.
+  """
+  verify unit "file scope lists the entities find_spec_for_source finds for the same file"
+  verify unit "an unanchored file lists no existing entities"
 }
 
 // ---------------------------------------------------------------------------

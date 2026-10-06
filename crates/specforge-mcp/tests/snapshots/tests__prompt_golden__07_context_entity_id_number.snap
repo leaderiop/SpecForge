@@ -1,0 +1,15 @@
+---
+source: crates/specforge-mcp/tests/prompt_golden.rs
+expression: "shape(&reply, dir.path())"
+---
+{
+  "error": {
+    "code": -32602,
+    "data": {
+      "code": "invalid_input",
+      "message": "Invalid arguments: invalid type: integer `42`, expected a string",
+      "prompt": "specforge://prompts/context"
+    },
+    "message": "Invalid arguments: invalid type: integer `42`, expected a string"
+  }
+}

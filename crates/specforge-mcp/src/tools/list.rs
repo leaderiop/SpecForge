@@ -1,6 +1,6 @@
 use serde_json::{Map, Value, json};
 
-use crate::state::McpState;
+use crate::target::Call;
 use crate::tool::ToolOutcome;
 
 #[derive(Debug, serde::Deserialize)]
@@ -23,7 +23,8 @@ pub struct Args {
 /// `where` asks, sorted by id, then paged by `offset` and `limit`. Domain
 /// free: any kind, any field (an extension's own list commands, such as
 /// `specforge.product.features`, render their kinds their way).
-pub fn call(state: &McpState, args: Args) -> ToolOutcome {
+pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
+    let state = &*call.state;
     let kind = args.kind.as_deref().filter(|k| !k.is_empty());
     let wanted = args.where_fields.unwrap_or_default();
     let entities: Vec<Value> = state

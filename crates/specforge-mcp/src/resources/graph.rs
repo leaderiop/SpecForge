@@ -1,8 +1,9 @@
 use serde_json::Value;
 use specforge_ops::export::{Format, Request};
 
+use specforge_ops::view::ProjectView;
+
 use crate::resources::{ReadOutcome, ResourceText, invalid_params};
-use crate::state::McpState;
 
 /// `specforge://graph` — full corpus, or scoped via query parameters
 /// (C9-06): `?root=<entity_id>` scopes to a subgraph, `depth=<n>` bounds the
@@ -10,7 +11,7 @@ use crate::state::McpState;
 /// payload. It is `specforge export --format graph` through the same
 /// function (ADR 0004 D3-a): the full graph embeds the schema, a scoped one
 /// references it (`schema_ref`), and a budgeted one leaves it out.
-pub fn read(state: &McpState, uri: &str) -> ReadOutcome {
+pub fn read(view: &ProjectView, uri: &str) -> ReadOutcome {
     let (base, query) = crate::resources::split_query(uri);
     let parsed = crate::resources::parse_query(query);
 
@@ -22,7 +23,7 @@ pub fn read(state: &McpState, uri: &str) -> ReadOutcome {
         max_tokens: parsed.max_tokens,
         ..Request::default()
     };
-    match crate::operations::export_graph(state, &request) {
+    match specforge_ops::export::export(view, &request) {
         Ok(payload) => {
             let contents: Value =
                 serde_json::from_str(&payload).expect("graph emit always produces JSON");

@@ -1,6 +1,9 @@
 use specforge_common::{SourceSpan, Sym};
 use specforge_graph::{Edge, Graph, Node};
-use specforge_ops::trace::{TraceExpectations, TraceLinkStatus};
+use specforge_ops::trace::{Target, TraceExpectations, TraceLinkStatus};
+use specforge_registry::RegistryBuild;
+
+use crate::view_support::{Project, chain, chain_in, every_chain};
 use specforge_parser::{EntityId, EntityKind, FieldMap};
 use specforge_test::prelude::*;
 
@@ -53,7 +56,7 @@ fn build_chain() -> Graph {
 )]
 fn trace_shows_upstream_and_downstream() {
     let graph = build_chain();
-    let trace = specforge_ops::trace::trace(&graph, "b").unwrap();
+    let trace = chain(&graph, "b");
 
     assert!(
         trace.upstream.iter().any(|l| l.entity_id == "a"),
@@ -79,7 +82,7 @@ fn trace_shows_full_chain_depth() {
         label: "produces".into(),
     });
 
-    let trace = specforge_ops::trace::trace(&graph, "a").unwrap();
+    let trace = chain(&graph, "a");
     // a is root, so no upstream, downstream = b, c, d
     assert!(trace.upstream.is_empty());
     let ids: Vec<&str> = trace
@@ -97,7 +100,8 @@ fn trace_shows_full_chain_depth() {
 #[specforge_test(behavior = "compute_traceability_chain")]
 fn trace_nonexistent_entity_returns_error() {
     let graph = build_chain();
-    let result = specforge_ops::trace::trace(&graph, "nonexistent");
+    let project = Project::of_graph(graph, RegistryBuild::default());
+    let result = specforge_ops::trace::trace(&project.view(), Target::Entity("nonexistent"));
     assert!(result.is_err());
 }
 
@@ -108,8 +112,9 @@ fn trace_nonexistent_entity_returns_error() {
 )]
 fn trace_serializes_to_json() {
     let graph = build_chain();
-    let trace = specforge_ops::trace::trace(&graph, "b").unwrap();
-    let json = specforge_ops::trace::serialize_trace(&trace).unwrap();
+    let project = Project::of_graph(graph, RegistryBuild::default());
+    let outcome = specforge_ops::trace::trace(&project.view(), Target::Entity("b")).unwrap();
+    let json = serde_json::to_string_pretty(&outcome).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
 
     assert_eq!(parsed["entity_id"], "b");
@@ -123,7 +128,7 @@ fn trace_serializes_to_json() {
 #[specforge_test(behavior = "compute_traceability_chain")]
 fn trace_on_leaf_has_upstream_only() {
     let graph = build_chain();
-    let trace = specforge_ops::trace::trace(&graph, "c").unwrap();
+    let trace = chain(&graph, "c");
 
     assert!(!trace.upstream.is_empty(), "leaf should have upstream");
     assert!(
@@ -137,7 +142,7 @@ fn trace_on_leaf_has_upstream_only() {
 #[specforge_test(behavior = "compute_traceability_chain")]
 fn trace_on_root_has_downstream_only() {
     let graph = build_chain();
-    let trace = specforge_ops::trace::trace(&graph, "a").unwrap();
+    let trace = chain(&graph, "a");
 
     assert!(trace.upstream.is_empty(), "root should have no upstream");
     assert!(!trace.downstream.is_empty(), "root should have downstream");
@@ -148,9 +153,9 @@ fn trace_on_root_has_downstream_only() {
     behavior = "serialize_traceability_data",
     verify = "full trace covers all root entities across registered edge types"
 )]
-fn trace_all_covers_all_root_entities() {
+fn tracing_every_entity_covers_all_root_entities() {
     let graph = build_chain();
-    let traces = specforge_ops::trace::trace_all(&graph);
+    let traces = every_chain(&graph, RegistryBuild::default()).chains;
     // All 3 entities should have a trace
     assert_eq!(traces.len(), 3);
     let ids: Vec<&str> = traces.iter().map(|t| t.entity_id.as_str()).collect();
@@ -161,10 +166,10 @@ fn trace_all_covers_all_root_entities() {
 
 // B:serialize_traceability_data — verify unit "output conforms to Graph Protocol schema"
 #[specforge_test(behavior = "serialize_traceability_data")]
-fn trace_all_serializes_as_json_array() {
+fn every_trace_serializes_as_json_array() {
     let graph = build_chain();
-    let traces = specforge_ops::trace::trace_all(&graph);
-    let json = specforge_ops::trace::serialize_trace_all(&traces).unwrap();
+    let traces = every_chain(&graph, RegistryBuild::default());
+    let json = serde_json::to_string_pretty(&traces).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
     assert!(parsed["schema_version"].is_string());
     assert!(parsed["traces"].is_array());
@@ -209,8 +214,7 @@ fn trace_missing_link_flagged() {
         label: "behaviors".into(),
     });
 
-    let trace =
-        specforge_ops::trace::trace_with_expectations(&graph, "b", &expectations()).unwrap();
+    let trace = chain_in(&graph, crate::trace_support::build(), "b").unwrap();
     assert_eq!(missing(&trace), vec![("b", "invariants", "invariant")]);
     let gap = &trace.missing[0];
     assert_eq!(gap.from_kind, "behavior");
@@ -228,19 +232,16 @@ fn trace_missing_link_flagged() {
         target: "i".into(),
         label: "invariants".into(),
     });
-    let trace =
-        specforge_ops::trace::trace_with_expectations(&graph, "b", &expectations()).unwrap();
+    let trace = chain_in(&graph, crate::trace_support::build(), "b").unwrap();
     assert!(trace.missing.is_empty(), "{:?}", trace.missing);
 
     // A feature with no behavior misses one; a behavior nothing links
     // misses both.
     graph.add_node(node("lonely", "feature"));
     graph.add_node(node("orphan", "behavior"));
-    let lonely =
-        specforge_ops::trace::trace_with_expectations(&graph, "lonely", &expectations()).unwrap();
+    let lonely = chain_in(&graph, crate::trace_support::build(), "lonely").unwrap();
     assert_eq!(missing(&lonely), vec![("lonely", "behaviors", "behavior")]);
-    let orphan =
-        specforge_ops::trace::trace_with_expectations(&graph, "orphan", &expectations()).unwrap();
+    let orphan = chain_in(&graph, crate::trace_support::build(), "orphan").unwrap();
     assert_eq!(
         missing(&orphan),
         vec![
@@ -269,16 +270,11 @@ fn trace_dangling_edge_is_not_a_missing_link() {
         label: "invariants".into(),
     });
 
-    let trace =
-        specforge_ops::trace::trace_with_expectations(&graph, "b", &expectations()).unwrap();
+    let trace = chain_in(&graph, crate::trace_support::build(), "b").unwrap();
     assert!(trace.missing.is_empty(), "{:?}", trace.missing);
     assert!(
         !trace.downstream.iter().any(|l| l.entity_id == "phantom"),
         "an undeclared entity is not part of the chain"
-    );
-    assert_eq!(
-        specforge_ops::trace::detect_trace_gaps(&graph),
-        vec!["dangling edge target 'phantom' in edge b -> phantom (invariants)".to_string()]
     );
 }
 
@@ -309,7 +305,7 @@ fn trace_expectations_come_from_the_registries() {
     let (mut fields, kinds) = crate::trace_support::registries();
     let mut parent =
         crate::trace_support::reference("behavior", "parent", "behavior", "@t/formal", None);
-    parent.required = true;
+    parent.declared.required = true;
     fields.register(parent);
     let expected = TraceExpectations::from_registries(&fields, &kinds);
     let parent = expected
@@ -340,10 +336,10 @@ fn trace_human_output_marks_missing_links() {
         target: "b".into(),
         label: "behaviors".into(),
     });
-    let trace =
-        specforge_ops::trace::trace_with_expectations(&graph, "b", &expectations()).unwrap();
+    let project = Project::of_graph(graph, crate::trace_support::build());
+    let outcome = specforge_ops::trace::trace(&project.view(), Target::Entity("b")).unwrap();
     assert_eq!(
-        specforge_ops::trace::render_trace_human(&trace),
+        outcome.to_human(),
         concat!(
             "b [behavior]\n",
             "  upstream:\n",

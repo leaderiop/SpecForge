@@ -1,6 +1,6 @@
 use specforge_component::ComponentRuntime;
 use specforge_ops::scan;
-use specforge_registry::{AnalyzerContribution, ExtensionContributions, ManifestV2};
+use specforge_protocol_types::{AnalyzerDescriptor, ExtensionDeclaration, HandshakeResponse};
 use tempfile::TempDir;
 
 /// Build a Wasm runtime for a temp project listing `ext_names` — the only
@@ -21,31 +21,14 @@ fn rust_only_runtime() -> ComponentRuntime {
     wasm_runtime_for(&["@specforge/rust"])
 }
 
-fn rust_manifest() -> ManifestV2 {
-    ManifestV2 {
-        name: "@specforge/rust".into(),
-        version: "1.0.0".into(),
-        manifest_version: 2,
-        wasm_path: String::new(),
-        contributes: ExtensionContributions::default(),
-        entity_kinds: vec![],
-        edge_types: vec![],
-        validation_rules: vec![],
-        verify_kinds: vec![],
-        fields: vec![],
-        incremental: None,
-        reserved_keywords: vec![],
-        migration_hook: None,
-        peer_dependencies: vec![],
-        sandbox_policy: None,
-        host_api_version: None,
-        entity_enhancements: vec![],
-        starter_template: None,
-        theme_color: None,
-        ext_short: None,
-        query_scope: None,
-        collector_contributions: vec![],
-        analyzer_contributions: vec![AnalyzerContribution {
+fn rust_manifest() -> ExtensionDeclaration {
+    ExtensionDeclaration {
+        handshake: HandshakeResponse {
+            name: "@specforge/rust".into(),
+            version: "1.0.0".into(),
+            ..HandshakeResponse::default()
+        },
+        analyzers: vec![AnalyzerDescriptor {
             language: "rust".into(),
             file_extensions: vec![".rs".into()],
             excluded_dirs: vec!["target".into()],
@@ -54,7 +37,7 @@ fn rust_manifest() -> ManifestV2 {
             map_export: "map__rust".into(),
             description: None,
         }],
-        surfaces: None,
+        ..ExtensionDeclaration::default()
     }
 }
 
@@ -69,8 +52,11 @@ fn scan_only_matching_extensions() {
     let manifests = vec![rust_manifest()];
     let source_files = vec!["lib.rs".into(), "readme.md".into(), "app.txt".into()];
 
-    let (items, scanners) =
-        scan::scan_source_files(&runtime, &manifests, dir.path(), &source_files);
+    let scan::ScanOutcome {
+        items,
+        scanners_used: scanners,
+        ..
+    } = scan::scan_source_files(&runtime, &manifests, dir.path(), &source_files);
 
     assert_eq!(items.len(), 1);
     assert_eq!(items[0].name, "hello");
@@ -86,7 +72,11 @@ fn scan_empty_source_list() {
     let runtime = rust_only_runtime();
     let manifests = vec![rust_manifest()];
 
-    let (items, scanners) = scan::scan_source_files(&runtime, &manifests, dir.path(), &[]);
+    let scan::ScanOutcome {
+        items,
+        scanners_used: scanners,
+        ..
+    } = scan::scan_source_files(&runtime, &manifests, dir.path(), &[]);
 
     assert!(items.is_empty());
     assert!(scanners.is_empty());
@@ -100,7 +90,11 @@ fn scan_no_manifests_skips_all_files() {
     let runtime = rust_only_runtime();
     let source_files = vec!["lib.rs".into()];
 
-    let (items, scanners) = scan::scan_source_files(&runtime, &[], dir.path(), &source_files);
+    let scan::ScanOutcome {
+        items,
+        scanners_used: scanners,
+        ..
+    } = scan::scan_source_files(&runtime, &[], dir.path(), &source_files);
 
     assert!(items.is_empty());
     assert!(scanners.is_empty());
@@ -114,8 +108,11 @@ fn scan_missing_file_skipped_gracefully() {
     let manifests = vec![rust_manifest()];
     let source_files = vec!["nonexistent.rs".into()];
 
-    let (items, scanners) =
-        scan::scan_source_files(&runtime, &manifests, dir.path(), &source_files);
+    let scan::ScanOutcome {
+        items,
+        scanners_used: scanners,
+        ..
+    } = scan::scan_source_files(&runtime, &manifests, dir.path(), &source_files);
 
     assert!(items.is_empty());
     assert!(scanners.is_empty());
@@ -134,8 +131,11 @@ fn default_runtime_scans_rust_files() {
     let manifests = vec![rust_manifest()];
     let source_files = vec!["main.rs".into()];
 
-    let (items, scanners) =
-        scan::scan_source_files(&runtime, &manifests, dir.path(), &source_files);
+    let scan::ScanOutcome {
+        items,
+        scanners_used: scanners,
+        ..
+    } = scan::scan_source_files(&runtime, &manifests, dir.path(), &source_files);
 
     assert_eq!(items.len(), 2);
     assert_eq!(items[0].name, "process_order");
@@ -143,31 +143,14 @@ fn default_runtime_scans_rust_files() {
     assert_eq!(scanners, vec!["@specforge/rust"]);
 }
 
-fn typescript_manifest() -> ManifestV2 {
-    ManifestV2 {
-        name: "@specforge/typescript".into(),
-        version: "1.0.0".into(),
-        manifest_version: 2,
-        wasm_path: String::new(),
-        contributes: ExtensionContributions::default(),
-        entity_kinds: vec![],
-        edge_types: vec![],
-        validation_rules: vec![],
-        verify_kinds: vec![],
-        fields: vec![],
-        incremental: None,
-        reserved_keywords: vec![],
-        migration_hook: None,
-        peer_dependencies: vec![],
-        sandbox_policy: None,
-        host_api_version: None,
-        entity_enhancements: vec![],
-        starter_template: None,
-        theme_color: None,
-        ext_short: None,
-        query_scope: None,
-        collector_contributions: vec![],
-        analyzer_contributions: vec![AnalyzerContribution {
+fn typescript_manifest() -> ExtensionDeclaration {
+    ExtensionDeclaration {
+        handshake: HandshakeResponse {
+            name: "@specforge/typescript".into(),
+            version: "1.0.0".into(),
+            ..HandshakeResponse::default()
+        },
+        analyzers: vec![AnalyzerDescriptor {
             language: "typescript".into(),
             file_extensions: vec![".ts".into(), ".tsx".into(), ".js".into(), ".jsx".into()],
             excluded_dirs: vec!["node_modules".into(), "dist".into()],
@@ -176,7 +159,7 @@ fn typescript_manifest() -> ManifestV2 {
             map_export: "map__typescript".into(),
             description: None,
         }],
-        surfaces: None,
+        ..ExtensionDeclaration::default()
     }
 }
 
@@ -207,8 +190,11 @@ fn multi_scanner_mixed_project() {
         "readme.md".into(),
     ];
 
-    let (items, scanners) =
-        scan::scan_source_files(&runtime, &manifests, dir.path(), &source_files);
+    let scan::ScanOutcome {
+        items,
+        scanners_used: scanners,
+        ..
+    } = scan::scan_source_files(&runtime, &manifests, dir.path(), &source_files);
 
     assert_eq!(items.len(), 5);
 
@@ -232,4 +218,55 @@ fn multi_scanner_mixed_project() {
     assert_eq!(scanners.len(), 2);
     assert!(scanners.contains(&"@specforge/rust".to_string()));
     assert!(scanners.contains(&"@specforge/typescript".to_string()));
+}
+
+/// A scanner that traps, or answers what is not a scan response, on a
+/// file: the file is reported as a failure (E028 naming the scanner), never
+/// silently counted as having no public items, and the gap report it feeds
+/// is approximate.
+#[specforge_test_macros::test(
+    behavior = "call_extension_exports",
+    verify = "a scanner that traps or answers malformed output is reported, not dropped"
+)]
+fn a_scanner_that_fails_is_reported_not_dropped() {
+    use specforge_wasm::testing::InProcessRuntime;
+    use specforge_wasm::{CallFailure, WasmCallResult, WasmTrapInfo};
+
+    let dir = TempDir::new().unwrap();
+    std::fs::write(dir.path().join("a.rs"), "pub fn a() {}\n").unwrap();
+    std::fs::write(dir.path().join("b.rs"), "pub fn b() {}\n").unwrap();
+    let trapped = WasmCallResult::Trap(WasmTrapInfo {
+        kind: "call_failed".into(),
+        message: "unreachable: the scanner panicked".into(),
+        export_name: "scan__rust".into(),
+    });
+    for answer in [trapped, WasmCallResult::Ok(b"garbage".to_vec())] {
+        let runtime = InProcessRuntime::new().answer_raw("@specforge/rust", "scan__rust", answer);
+        let outcome = scan::scan_source_files(
+            &runtime,
+            &[rust_manifest()],
+            dir.path(),
+            &["a.rs".into(), "b.rs".into()],
+        );
+        assert!(outcome.items.is_empty() && outcome.scanners_used.is_empty());
+        let failed: Vec<&str> = outcome.failures.iter().map(|f| f.file.as_str()).collect();
+        assert_eq!(failed, ["a.rs", "b.rs"], "one failure per file");
+        for failure in &outcome.failures {
+            assert_eq!(failure.error.export, "scan__rust");
+            assert_eq!(failure.error.extension, "@specforge/rust");
+            let diagnostic = failure.error.diagnostic();
+            assert_eq!(diagnostic.code, "E028");
+            assert!(
+                diagnostic
+                    .message
+                    .starts_with("scanner scan__rust() of '@specforge/rust' "),
+                "{}",
+                diagnostic.message
+            );
+        }
+        assert!(!matches!(
+            outcome.failures[0].error.failure,
+            CallFailure::NotLoaded
+        ));
+    }
 }

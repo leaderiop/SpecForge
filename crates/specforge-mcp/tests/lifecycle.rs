@@ -16,28 +16,28 @@ fn init_server() -> McpServer {
     server
 }
 
-/// Register what an extension's manifest contributes to MCP, as loading
-/// the extension does.
-fn load_extension_surfaces(server: &mut McpServer) {
-    let surfaces: specforge_registry::SurfaceContributions = serde_json::from_value(json!({
-        "mcpTools": [{
+/// A server over a project whose one extension declares the MCP tool
+/// `ext.hello` and the resource template `specforge://ext/hello/{name}`,
+/// served through the runtime seam as loading the extension does.
+fn server_with_extension_surfaces() -> (
+    McpServer,
+    std::sync::Arc<crate::fake_extension::FakeExtension>,
+    TempDir,
+) {
+    crate::fake_extension::initialized(crate::fake_extension::FakeExtension::declaring(json!({
+        "mcp_tools": [{
             "name": "ext.hello",
             "description": "Say hello",
             "export": "tool__hello",
-            "inputSchema": {"type": "object"}
+            "input_schema": {"type": "object"}
         }],
-        "mcpResources": [{
-            "uriTemplate": "specforge://ext/hello/{name}",
+        "mcp_resources": [{
+            "uri_template": "specforge://ext/hello/{name}",
             "name": "hello",
             "export": "resource__hello",
-            "mimeType": "application/json"
+            "mime_type": "application/json"
         }]
-    }))
-    .unwrap();
-    specforge_mcp::registry::register_extension_surfaces(
-        server.state_mut(),
-        &[("@you/hello".to_string(), surfaces)],
-    );
+    })))
 }
 
 /// What a cancellation must leave untouched: the registries, the graph, the
@@ -59,9 +59,8 @@ fn state_snapshot(server: &McpServer) -> Value {
         .collect();
     subscriptions.sort();
     json!({
-        "tools": state.tool_registry,
-        "resources": state.resource_registry,
-        "prompts": state.prompt_registry,
+        "tools": specforge_mcp::registry::listed_tools(state).collect::<Vec<_>>(),
+        "resources": specforge_mcp::registry::listed_resources(state).collect::<Vec<_>>(),
         "nodes": nodes,
         "edges": state.graph().edge_count(),
         "diagnostics": state.diagnostics().iter().map(|d| d.code.clone()).collect::<Vec<_>>(),
@@ -290,7 +289,11 @@ fn duplicate_initialize_returns_error() {
 )]
 fn can_reinitialize_after_shutdown() {
     let (mut server, _dir) = init_server_with_project();
-    let root = server.state().project_root.clone().unwrap();
+    let root = server
+        .state()
+        .project_root()
+        .map(std::path::Path::to_path_buf)
+        .unwrap();
     call(&mut server, "shutdown", json!({}));
 
     let resp = call(
@@ -449,18 +452,25 @@ fn reinit_rejected_session_continues() {
 )]
 fn reinit_rejected_no_resource_leak() {
     let mut server = init_server();
-    let tools_before = server.state().tool_registry.len();
-    let resources_before = server.state().resource_registry.len();
-    let prompts_before = server.state().prompt_registry.len();
+    let listed = |server: &McpServer| {
+        (
+            specforge_mcp::registry::listed_tools(server.state()).count(),
+            specforge_mcp::registry::listed_resources(server.state()).count(),
+        )
+    };
+    let before = listed(&server);
+    let prompts_before = call(&mut server, "prompts/list", json!({}))["result"]["prompts"].clone();
 
     // Attempt duplicate init — should be rejected
     let resp = call(&mut server, "initialize", json!({}));
     assert!(resp["error"].is_object());
 
     // Counts must remain the same
-    assert_eq!(server.state().tool_registry.len(), tools_before);
-    assert_eq!(server.state().resource_registry.len(), resources_before);
-    assert_eq!(server.state().prompt_registry.len(), prompts_before);
+    assert_eq!(listed(&server), before);
+    assert_eq!(
+        call(&mut server, "prompts/list", json!({}))["result"]["prompts"],
+        prompts_before
+    );
 }
 
 // B:list_mcp_tools — verify unit "returns core-provided descriptors when no extensions"
@@ -490,8 +500,7 @@ fn list_tools_core_descriptors_no_extensions() {
     verify = "reflects tools from newly loaded extension"
 )]
 fn list_tools_reflects_extension_tools() {
-    let mut server = init_server();
-    load_extension_surfaces(&mut server);
+    let (mut server, _ext, _dir) = server_with_extension_surfaces();
     let resp = call(&mut server, "tools/list", json!({}));
     let tools = resp["result"]["tools"].as_array().unwrap();
     let ext = tools
@@ -529,8 +538,7 @@ fn list_resources_core_descriptors_no_extensions() {
     verify = "reflects resources from newly loaded extension"
 )]
 fn list_resources_reflects_extension_resources() {
-    let mut server = init_server();
-    load_extension_surfaces(&mut server);
+    let (mut server, _ext, _dir) = server_with_extension_surfaces();
     let resp = call(&mut server, "resources/list", json!({}));
     let uris: Vec<&str> = resp["result"]["resources"]
         .as_array()

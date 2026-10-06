@@ -78,7 +78,10 @@ pub struct McpToolDescriptor {
     pub annotations: Option<Value>,
 }
 
+/// A resource as `resources/list` lists it (MCP `Resource`: `mimeType` on
+/// the wire).
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct McpResourceDescriptor {
     pub uri: String,
     pub name: String,

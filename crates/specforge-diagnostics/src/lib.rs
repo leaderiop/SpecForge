@@ -269,20 +269,6 @@ pub const CATALOG: &[CodeEntry] = &[
         explanation: "A file-reference field on an entity points at a path that doesn't exist under the spec root. Fix the path, or create the missing file; a similarly-named file is suggested when one is found.",
     },
     CodeEntry {
-        code: "E017",
-        title: "Entity enhancement conflict",
-        owner: "core",
-        level: Level::Error,
-        explanation: "Two installed extensions both declare an entity-enhancement field with the same name on the same target entity kind, and no explicit override resolves it. Rename one extension's field, or add an override for that kind/field in `specforge.json`.",
-    },
-    CodeEntry {
-        code: "E018",
-        title: "Grammar contribution conflict",
-        owner: "core",
-        level: Level::Error,
-        explanation: "Two extensions both contribute a tree-sitter grammar for the same entity kind. Only one extension may own an entity kind's grammar — uninstall one of the conflicting extensions or set a grammar conflict policy in the compiler config.",
-    },
-    CodeEntry {
         code: "E019",
         title: "Unsupported format version",
         owner: "core",
@@ -290,25 +276,11 @@ pub const CATALOG: &[CodeEntry] = &[
         explanation: "A `.spec` file's `// specforge-format: MAJOR.MINOR` header declares a version newer than this build supports, or the header itself doesn't parse; `specforge migrate --target-version` reports the same for a target it can't parse or doesn't support. Lower the declared version or upgrade SpecForge.",
     },
     CodeEntry {
-        code: "E020",
-        title: "Missing Wasm export",
-        owner: "core",
-        level: Level::Error,
-        explanation: "An extension's manifest declares a contribution (validator, renderer, parser, collector, grammar, or surface command/tool) whose required Wasm export function isn't present in the compiled module. Add the matching `#[export_name = \"...\"]` export to the extension's Wasm binary.",
-    },
-    CodeEntry {
         code: "E022",
         title: "Reference targets wrong kind",
         owner: "core",
         level: Level::Error,
         explanation: "A reference field is declared to only accept entities of a specific kind, but the target ID resolves to an entity of a different kind. Point the field at an entity of the expected kind.",
-    },
-    CodeEntry {
-        code: "E023",
-        title: "Entity kind conflicts with keyword",
-        owner: "core",
-        level: Level::Error,
-        explanation: "An extension declares an entity kind keyword that collides with a structural DSL keyword (`spec`, `ref`, `use`, `define`). Choose a different keyword for the entity kind.",
     },
     CodeEntry {
         code: "E024",
@@ -343,14 +315,14 @@ pub const CATALOG: &[CodeEntry] = &[
         title: "Extension load or execution failure",
         owner: "core",
         level: Level::Error,
-        explanation: "An extension's Wasm module failed somewhere in its lifecycle — the binary is missing or unreadable, failed to load, trapped while running `initialize`/`validate`/a check-phase compiler pass/a collector/body parser/surface command/MCP tool or resource, returned output that isn't valid JSON, a grammar cache path couldn't be written, or the extension's declared host API version isn't supported. Check the extension's logs or report the trap to its author, and confirm the extension is installed and up to date.",
+        explanation: "An extension failed somewhere in its lifecycle: its binary is missing, unreadable or does not load as a component (a `.wasm` file entry of `specforge.json` also when the file declares another name than the entry writes, or an extension another entry already loads); its handshake or one of its describe categories failed or does not parse, so its declaration cannot be read (`specforge add` and `specforge publish` refuse such a binary); or a call the host makes on the loaded extension failed. The host calls ten exports: the handshake and describe, a command, an MCP tool, an MCP resource, a compiler pass, a collector, a custom validator, a scanner and the migration hook. Each call fails when the export traps (its time or fuel included), when the extension does not route it, or when it answers output that is not the protocol type the operation owes; the message names the operation, the export and the extension (`command cmd__x() of '@acme/x' trapped: ...`). What the failure costs is the operation's: a check pass's is the compile's error, an analyze pass's a finding of that pass, a scanner's makes `infer` approximate. Report the failure to the extension's author, and confirm the extension is installed and up to date.",
     },
     CodeEntry {
         code: "E030",
-        title: "Invalid extension manifest",
+        title: "Invalid extension declaration",
         owner: "core",
         level: Level::Error,
-        explanation: "An extension's manifest is unreadable, isn't valid JSON, or fails schema validation — a wrong `manifestVersion`, a missing `name`/`version`/`wasmPath`, an empty grammar/body-parser/analyzer contribution field, or a sandbox policy that allowlists a code file extension for output. `specforge publish` reports it for a `manifest.json` that doesn't parse. Fix the manifest according to the reported detail.",
+        explanation: "An extension's declaration (its handshake and describe answers) can't be used as declared: its name or version is empty, its `ext_short` isn't lowercase kebab case (`[a-z][a-z0-9-]*`; it names the extension's CLI subcommand and MCP tool prefix), or an analyzer has no language, no file extensions or an empty export name. The registry build reports it on every load, and `specforge publish` refuses such a binary before any network call. Fix the declaration in the extension's source (with the SDK: `#[extension(name, version, short)]` and the builders) and rebuild it.",
     },
     CodeEntry {
         code: "E031",
@@ -374,13 +346,6 @@ pub const CATALOG: &[CodeEntry] = &[
         explanation: "`specforge.lock` couldn't be serialized, written, read, or parsed, or the hash it records for an installed extension no longer matches the binary on disk; `specforge update` reports it when there is no lock file to update. Delete the lock file and reinstall extensions, reinstall the specific extension whose binary changed, or run `specforge add` first.",
     },
     CodeEntry {
-        code: "E035",
-        title: "Reserved or invalid entity kind name",
-        owner: "core",
-        level: Level::Error,
-        explanation: "An extension-declared entity kind name is a reserved structural keyword, doesn't match the identifier pattern `[a-z][a-z0-9_]{1,59}`, or is already reserved by another installed extension. Choose a different, valid entity kind name.",
-    },
-    CodeEntry {
         code: "E039",
         title: "Duplicate surface contribution",
         owner: "core",
@@ -389,10 +354,10 @@ pub const CATALOG: &[CodeEntry] = &[
     },
     CodeEntry {
         code: "E040",
-        title: "Missing extension project file",
+        title: "Extension project not found or not built",
         owner: "core",
         level: Level::Error,
-        explanation: "`specforge extension build`, `extension validate` or `publish` was run against a directory that's missing its `Cargo.toml` or `manifest.json`, or (`publish`) the Wasm binary the manifest's `wasmPath` names, or one of those files couldn't be read. Run the command from a scaffolded extension project, build the binary, or create the missing file.",
+        explanation: "`specforge extension build`, `extension validate` or `publish` found no extension to work on: the directory has no `Cargo.toml`, the build (`cargo build --release --target wasm32-wasip2`) failed, no built component is in `target/wasm32-wasip2/release/` (or several are, and none is the crate's), or the `.wasm` file couldn't be read. Build the extension, fix the build error the message quotes, or name the component to use.",
     },
     CodeEntry {
         code: "E041",
@@ -599,10 +564,10 @@ pub const CATALOG: &[CodeEntry] = &[
     },
     CodeEntry {
         code: "I017",
-        title: "Command not auto-promoted to MCP tool",
+        title: "Extension surface not served under its name",
         owner: "core",
         level: Level::Info,
-        explanation: "An extension command would normally be auto-promoted to an MCP tool named `specforge.<ext>.<command>`, but an explicit MCP tool with that name already exists. The explicit tool definition takes precedence, so no action is needed unless the name collision was unintended.",
+        explanation: "MCP serves each name once (ADR 0017): the core tools and resources first, then each extension's explicit MCP tools and resources in extension load order, then its commands as the tools `specforge.<ext>.<command>`. A contribution not served under its name is reported here, with why: an explicit tool named as a core tool or an earlier extension's tool; a resource whose URIs a core resource or an earlier extension resource already serves; a command whose tool name an explicit tool (or a core tool) already has; a command the host refuses (an arg taking `--path`, `--format` or `--help`, two args spelling one option, or a default its declaration contradicts); a command another extension of the same short name routes first. Only MCP reports it, so `specforge check` does not. Rename the contribution if the collision is unintended; otherwise no action is needed.",
     },
     CodeEntry {
         code: "I020",
@@ -1158,13 +1123,6 @@ pub const CATALOG: &[CodeEntry] = &[
         explanation: "A selective `pub use { A, B } from \"target\"` re-export names a binding that isn't actually exported by the target module. Correct the binding name or remove it from the re-export list.",
     },
     CodeEntry {
-        code: "W028",
-        title: "Extension memory ceiling exceeded",
-        owner: "core",
-        level: Level::Warning,
-        explanation: "The combined `max_memory_mb` declared across all installed extensions' sandbox policies exceeds the configured total memory ceiling. Reduce `max_memory_mb` in one or more extension sandbox policies.",
-    },
-    CodeEntry {
         code: "W029",
         title: "Event never consumed",
         owner: "@specforge/formal",
@@ -1417,32 +1375,11 @@ pub const CATALOG: &[CodeEntry] = &[
         explanation: "Two or more `.spec` files import each other, forming a cycle in the import graph. Break the cycle by removing one of the `use` imports or extracting the shared entities into a separate file.",
     },
     CodeEntry {
-        code: "W114",
-        title: "Integrity check skipped",
-        owner: "core",
-        level: Level::Warning,
-        explanation: "A Wasm extension's integrity check was bypassed because the `--skip-verify` flag was passed. Remove `--skip-verify` to re-enable hash verification of the extension's `.wasm` binary.",
-    },
-    CodeEntry {
         code: "W115",
         title: "Invalid collector report",
         owner: "core",
         level: Level::Warning,
         explanation: "A collector reported tests for an entity ID that no spec declares (usually a renamed entity or a typo in the test's annotation), or its `total`/`passed`/`failed`/`skipped` stats are inconsistent. `specforge collect` drops those results; fix the test annotation so it names a declared entity.",
-    },
-    CodeEntry {
-        code: "W116",
-        title: "Extension discovery failure",
-        owner: "core",
-        level: Level::Warning,
-        explanation: "While scanning an extensions directory, a `manifest.json` could not be read or read directory itself failed, or a manifest failed to parse as valid JSON matching the manifest schema. Fix the directory permissions or correct the malformed `manifest.json`; discovery skips the broken entry and continues with the rest.",
-    },
-    CodeEntry {
-        code: "W117",
-        title: "Invalid query extension pattern",
-        owner: "core",
-        level: Level::Warning,
-        explanation: "An extension's tree-sitter query extension pattern (for `highlights`, `locals`, or `injections`) is empty or contains null bytes. Provide a non-empty query pattern with no null bytes; the invalid pattern is skipped rather than loaded.",
     },
     CodeEntry {
         code: "W118",
@@ -1516,10 +1453,10 @@ pub const CATALOG: &[CodeEntry] = &[
     },
     CodeEntry {
         code: "W138",
-        title: "Unknown manifest field",
+        title: "Unknown describe key",
         owner: "core",
         level: Level::Warning,
-        explanation: "An extension's manifest.json has a top-level field the v2 manifest schema doesn't define, so SpecForge ignores it. It is usually a misspelling (`entityKnds` for `entityKinds`) that leaves the extension without what the field was meant to declare. Fix the spelling or remove the field.",
+        explanation: "An item of an extension's describe answer has a key the extension protocol doesn't define, so the host ignores it. It's usually a misspelling in a hand-written (`raw_category`) item, `testabel` for `testable`, which leaves the item without what the key was meant to declare; or the extension was built with a newer SDK than this host. The message names the extension, the category, the item and the key. Fix the spelling, or update SpecForge.",
     },
     CodeEntry {
         code: "W139",
@@ -1563,12 +1500,31 @@ pub const CATALOG: &[CodeEntry] = &[
         level: Level::Warning,
         explanation: "The project root has a `specforge-cache.json` that can't be read, isn't valid JSON, or declares a `format` other than 1. The build cache records each entity's status from the build `specforge check --cache` last wrote, and check-phase passes compare against it (status transitions); with the file invalid they get no previous statuses, so history rules stay silent. Rewrite it with `specforge check --cache`, or delete it.",
     },
+    CodeEntry {
+        code: "W145",
+        title: "Pass order constraints form a cycle",
+        owner: "core",
+        level: Level::Warning,
+        explanation: "An extension's compiler passes declare `after`/`before` constraints that form a cycle, so no order satisfies them all. The registry build reports it, naming the passes in the cycle, and runs that extension's passes in the order it declares them. Remove the constraint that closes the cycle.",
+    },
+    CodeEntry {
+        code: "W146",
+        title: "Unknown field type in the model",
+        owner: "core",
+        level: Level::Warning,
+        explanation: "`specforge model` (and MCP `specforge.model`) met a field type in the Graph Protocol schema that the model does not know, and rendered the field as a string. A schema built from the loaded extensions only carries known types, so this comes from a schema built some other way. Fix the schema's `field_type`, or add the type to the model.",
+    },
 ];
 
 /// Codes that are no longer emitted, with the code that replaced them (if
 /// any). A retired code is never reused for another meaning.
 pub const RETIRED: &[(&str, Option<&str>)] = &[
+    ("E017", None),
+    ("E018", None),
+    ("E020", None),
+    ("E023", None),
     ("E029", None),
+    ("E035", None),
     ("E037", None),
     ("E038", None),
     ("E047", Some("W139")),
@@ -1577,9 +1533,13 @@ pub const RETIRED: &[(&str, Option<&str>)] = &[
     ("W024", None),
     ("W025", None),
     ("W026", None),
+    ("W028", None),
     ("W063", None),
     ("W099", None),
     ("W111", None),
+    ("W114", None),
+    ("W116", None),
+    ("W117", None),
     ("W120", None),
     ("W122", None),
 ];
@@ -1976,7 +1936,7 @@ mod tests {
                 if parts.len() < 3 || parts[2] != "src" {
                     continue;
                 }
-                if !is_rust && file_name != "describe_validation_rules.json" {
+                if !is_rust {
                     continue;
                 }
                 format!("@specforge/{}", parts[1])
@@ -2002,11 +1962,7 @@ mod tests {
             let Ok(src) = std::fs::read_to_string(&path) else {
                 continue;
             };
-            let lines = if is_rust {
-                strip_test_items(&src)
-            } else {
-                src.lines().collect()
-            };
+            let lines = strip_test_items(&src);
             for (index, line) in lines.iter().enumerate() {
                 for (code, range) in code_literals(line) {
                     if is_third_party(code) {

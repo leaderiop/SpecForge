@@ -13,13 +13,22 @@ fn repo_root() -> std::path::PathBuf {
 
 fn manifest_domain_kinds() -> BTreeSet<String> {
     let mut kinds = BTreeSet::new();
-    for entry in std::fs::read_dir(repo_root().join("extensions")).expect("extensions dir") {
-        let path = entry.unwrap().path().join("src/describe_entities.json");
-        // Registry-language extensions (e.g. typescript) have no Rust
-        // describe fixtures; only the four builtins ship them.
-        if !path.exists() {
+    // The builtins' pinned wire declarations (the SDK greet fixture beside
+    // them is not a builtin).
+    let pinned = repo_root().join("crates/specforge-component/tests/declarations");
+    for entry in std::fs::read_dir(&pinned).expect("pinned declarations") {
+        let dir = entry.unwrap().path();
+        let handshake: serde_json::Value = serde_json::from_str(
+            &std::fs::read_to_string(dir.join("handshake.json")).expect("pinned handshake"),
+        )
+        .expect("valid handshake JSON");
+        if !handshake["name"]
+            .as_str()
+            .is_some_and(|n| n.starts_with("@specforge/"))
+        {
             continue;
         }
+        let path = dir.join("describe_entities.json");
         let raw =
             std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
         let doc: serde_json::Value = serde_json::from_str(&raw).expect("valid describe JSON");

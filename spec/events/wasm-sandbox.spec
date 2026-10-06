@@ -11,18 +11,6 @@ event wasm_sandbox_violation "Wasm Sandbox Violation" {
     policyLimit     string
   }
   verify integration "emits wasm_sandbox_violation with violation details"
-  verify integration "consumer handle_wasm_trap receives event and transitions extension to failed"
-}
-
-event wasm_trap_caught "Wasm Trap Caught" {
-  channel "wasm.trap_caught"
-  payload {
-    extensionName string
-    trapKind      string
-    exportName    string
-    message       string
-  }
-  verify integration "emits wasm_trap_caught with correct trapKind, exportName, and message"
 }
 
 // ── Sandbox Configuration Events ─────────────────────────────

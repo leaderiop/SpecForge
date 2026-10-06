@@ -1,22 +1,19 @@
-//! @software — SDK-authored Wasm twin of the software builtin.
+//! @software — the software vocabulary, authored with the extension SDK.
 //!
-//! The describe payloads are the protocol envelopes extracted from the
-//! served through the SDK's `raw_category`; the handshake is derived by the
-//! SDK from the extension metadata and contribution flags. It also hosts the
-//! four `validate__*` custom-rule exports (E004/E006/E010/W010).
+//! Its kinds, edges, enhancements and rules are declared with the SDK
+//! builders in [`declaration`]; the handshake is derived by the SDK from the
+//! extension metadata and the contributions. It also hosts the four
+//! `validate__*` custom-rule exports (E004/E006/E010/W010).
+
+mod declaration;
 
 use specforge_extension_sdk::prelude::*;
 
-static DESCRIBE_ENTITIES: &[u8] = include_bytes!("describe_entities.json");
-static DESCRIBE_EDGES: &[u8] = include_bytes!("describe_edges.json");
-static DESCRIBE_FIELDS: &[u8] = include_bytes!("describe_fields.json");
-static DESCRIBE_SHARED_FIELDS: &[u8] = include_bytes!("describe_shared_fields.json");
-static DESCRIBE_ENHANCEMENTS: &[u8] = include_bytes!("describe_enhancements.json");
-static DESCRIBE_VALIDATION_RULES: &[u8] = include_bytes!("describe_validation_rules.json");
-static DESCRIBE_PASSES: &[u8] = include_bytes!("describe_passes.json");
-static DESCRIBE_FEATURE_FLAGS: &[u8] = include_bytes!("describe_feature_flags.json");
-
-#[specforge_extension_sdk::extension(name = "@specforge/software", version = "1.0.0")]
+#[specforge_extension_sdk::extension(
+    name = "@specforge/software",
+    version = "1.0.0",
+    description = "Software design: behaviors, invariants, events, types and ports, and the checks that keep them consistent"
+)]
 struct Software;
 
 impl Contributions for Software {
@@ -43,31 +40,15 @@ impl Contributions for Software {
         // enables software.
         c.starter_template(include_str!("starter.spec"));
 
-        for (category, bytes) in [
-            ("entities", DESCRIBE_ENTITIES),
-            ("edges", DESCRIBE_EDGES),
-            ("fields", DESCRIBE_FIELDS),
-            ("shared_fields", DESCRIBE_SHARED_FIELDS),
-            ("enhancements", DESCRIBE_ENHANCEMENTS),
-            ("validation_rules", DESCRIBE_VALIDATION_RULES),
-            ("passes", DESCRIBE_PASSES),
-            ("feature_flags", DESCRIBE_FEATURE_FLAGS),
-        ] {
-            let envelope: serde_json::Value = serde_json::from_slice(bytes).unwrap_or_else(|e| {
-                panic!("software describe '{category}' is not valid JSON: {e}")
-            });
-            c.raw_category(category, envelope["items"].clone());
-        }
+        declaration::declare(c);
     }
 }
 
 // ── Custom validators (`check: "custom"` rules) ────────────────────────────
-// Wire ABI v1: a `validate__<rule>` export receives a `ValidatorContext`
-// (`specforge-protocol-types`) and returns a `ValidatorVerdict`. The host
-// precomputes everything the native walks in `project/compile.rs` touched,
-// so each validator is a pure function of the context. The exports use the
-// same `#[plugin_fn]` wrapping the SDK's `#[compiler_pass]` generates for
-// `__pass_<name>` exports.
+// Each `validate__<rule>` export is declared with its rule (`declaration`):
+// it receives the protocol's `ValidatorContext` and answers a
+// `ValidatorVerdict` (ADR 0013). The host precomputes everything the
+// validator needs, so each is a pure function of the context.
 
 use specforge_extension_sdk::{ValidatorContext, ValidatorVerdict};
 
@@ -250,33 +231,7 @@ fn validate_port_methods(context: &ValidatorContext) -> ValidatorVerdict {
     ValidatorVerdict::Pass
 }
 
-fn parse_req<T: serde::de::DeserializeOwned>(input: &[u8]) -> Result<T, String> {
-    serde_json::from_slice(input).map_err(|e| format!("invalid request: {e}"))
-}
-
-fn to_json<T: serde::Serialize>(value: &T) -> Result<Vec<u8>, String> {
-    serde_json::to_vec(value).map_err(|e| format!("serialization failed: {e}"))
-}
-
-fn dispatch(export: &str, input: &[u8]) -> Option<Result<Vec<u8>, String>> {
-    match export {
-        "validate__event_triggers" => {
-            Some(parse_req(input).and_then(|c| to_json(&validate_event_triggers(&c))))
-        }
-        "validate__milestone_behavior_ranges" => {
-            Some(parse_req(input).and_then(|c| to_json(&validate_milestone_behavior_ranges(&c))))
-        }
-        "validate__type_field_annotations" => {
-            Some(parse_req(input).and_then(|c| to_json(&validate_type_field_annotations(&c))))
-        }
-        "validate__port_methods" => {
-            Some(parse_req(input).and_then(|c| to_json(&validate_port_methods(&c))))
-        }
-        _ => None,
-    }
-}
-
-specforge_extension_sdk::component_guest!(build = specforge_extension_build, handler = dispatch);
+specforge_extension_sdk::component_guest!(build = specforge_extension_build);
 
 #[cfg(test)]
 mod validator_tests {

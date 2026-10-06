@@ -71,7 +71,7 @@ pub fn run(path: &Path, options: &Options, format: OutputFormat) -> i32 {
     };
     let outcome = match collect::collect(
         &request,
-        &ctx.manifests,
+        &ctx.declarations,
         &runtime,
         &known,
         consent,

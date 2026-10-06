@@ -1,12 +1,9 @@
 use serde::Deserialize;
-use specforge_emitter::generate_schema;
-use specforge_emitter::model::{
-    FieldLevel, GroupBy, ModelFormat, ModelIntermediate_from_schema, ModelOptions, filter_entities,
-    filter_fields, render,
-};
+use specforge_emitter::model::{FieldLevel, GroupBy, ModelFormat, ModelOptions};
+use specforge_ops::model::Named;
 
 use crate::args::{lenient, some_strings};
-use crate::state::McpState;
+use crate::target::Call;
 use crate::tool::ToolOutcome;
 
 #[derive(Debug, Deserialize)]
@@ -27,78 +24,42 @@ pub struct Args {
     depth: Option<u64>,
 }
 
-pub fn call(state: &McpState, args: Args) -> ToolOutcome {
-    let format = args.format.as_deref().unwrap_or("markdown");
-    let group_by = args.group_by.as_deref().unwrap_or("extension");
-    let fields = args.fields.as_deref().unwrap_or("keys");
-    let extension = args.extension.as_deref();
-    let root = args.root.as_deref();
-    let depth = args.depth.map(|d| d as usize);
+/// An argument's name parsed by the operation's rule, or the tool's
+/// `invalid_input` refusal on that argument.
+pub(super) fn parse<T>(argument: &str, name: &str) -> Result<T, ToolOutcome>
+where
+    Named<T>: std::str::FromStr<Err = specforge_ops::OpError>,
+{
+    name.parse::<Named<T>>()
+        .map(|Named(value)| value)
+        .map_err(|error| {
+            crate::operations::op_error(error)
+                .with_argument(argument)
+                .into()
+        })
+}
 
-    let model_format = match format {
-        "markdown" => ModelFormat::Markdown,
-        "mermaid" => ModelFormat::Mermaid,
-        "dot" => ModelFormat::Dot,
-        "json" => ModelFormat::Json,
-        "dbml" => ModelFormat::Dbml,
-        _ => {
-            return ToolOutcome::invalid_input(
-                "format",
-                format!(
-                    "Unknown format: {}. Expected: markdown, mermaid, dot, json, dbml",
-                    format
-                ),
-            );
-        }
+/// `specforge.model`: the model operation over the served project; its
+/// W146 warnings are the result's diagnostics.
+pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
+    let options = match options(args) {
+        Ok(options) => options,
+        Err(refused) => return refused,
     };
+    let outcome = specforge_ops::model::model(&call.view(), &options);
+    ToolOutcome::text(outcome.rendered).with_diagnostics(outcome.warnings)
+}
 
-    let group = match group_by {
-        "extension" => GroupBy::Extension,
-        "none" => GroupBy::None,
-        _ => {
-            return ToolOutcome::invalid_input(
-                "group_by",
-                format!("Unknown group_by: {}. Expected: extension, none", group_by),
-            );
-        }
-    };
-
-    let field_level = match fields {
-        "none" => FieldLevel::None,
-        "keys" => FieldLevel::Keys,
-        "all" => FieldLevel::All,
-        _ => {
-            return ToolOutcome::invalid_input(
-                "fields",
-                format!("Unknown fields: {}. Expected: none, keys, all", fields),
-            );
-        }
-    };
-
-    let kind_filter = args.kinds.clone();
-
-    let options = ModelOptions {
-        format: model_format,
-        group_by: group,
-        fields: field_level,
-        extension_filter: extension.map(String::from),
-        kind_filter,
-        root: root.map(String::from),
-        depth,
-    };
-
-    let schema = generate_schema(
-        &state.registries().kinds,
-        &state.registries().edges,
-        &state.registries().fields,
-        &state.registries().extension_info,
-    );
-
-    let model =
-        ModelIntermediate_from_schema(&schema).with_theme_colors(&state.registries().manifests);
-    let model = filter_entities(&model, &options);
-    let model = filter_fields(&model, options.fields);
-    let output = render(&model, &options);
-
-    ToolOutcome::text(output)
+/// The model options the arguments name (defaults: markdown, grouped by
+/// extension, key fields).
+fn options(args: Args) -> Result<ModelOptions, ToolOutcome> {
+    Ok(ModelOptions {
+        format: parse::<ModelFormat>("format", args.format.as_deref().unwrap_or("markdown"))?,
+        group_by: parse::<GroupBy>("group_by", args.group_by.as_deref().unwrap_or("extension"))?,
+        fields: parse::<FieldLevel>("fields", args.fields.as_deref().unwrap_or("keys"))?,
+        extension_filter: args.extension,
+        kind_filter: args.kinds,
+        root: args.root,
+        depth: args.depth.map(|d| d as usize),
+    })
 }

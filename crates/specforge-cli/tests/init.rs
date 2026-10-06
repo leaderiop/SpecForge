@@ -1129,9 +1129,10 @@ fn starter_written_for(extensions: &[&str]) -> String {
 fn declared_starter(extension: &str) -> Option<String> {
     let runtime = specforge_component::ComponentRuntime::new();
     specforge_component::builtins::load_builtins_for(&runtime, &[extension.to_string()]).unwrap();
-    let host = specforge_wasm::protocol::ProtocolHost::new(&runtime);
-    let handshake = host.handshake(extension).unwrap();
-    handshake
+    let loaded = specforge_wasm::protocol::load_declaration(&runtime, extension).unwrap();
+    loaded
+        .declaration
+        .handshake
         .starter_template
         .map(|template| template.replace("{project}", "demo"))
 }

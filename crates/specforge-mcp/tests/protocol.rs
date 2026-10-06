@@ -361,6 +361,6 @@ fn server_with_corrupt_inference_manifest() -> (McpServer, tempfile::TempDir) {
     let project = tempfile::tempdir().unwrap();
     std::fs::write(project.path().join("specforge-infer.json"), "{ not json").unwrap();
     let mut server = init_server();
-    server.state_mut().project_root = Some(project.path().to_path_buf());
+    crate::support::serve_in_memory_at(server.state_mut(), project.path());
     (server, project)
 }

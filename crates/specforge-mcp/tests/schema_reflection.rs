@@ -44,6 +44,45 @@ fn each_core_tool_schema_advertises_exactly_what_its_handler_reads() {
     assert!(drift.is_empty(), "schema drift: {drift:#?}");
 }
 
+#[specforge_test(
+    behavior = "serve_mcp_prompt",
+    verify = "each core prompt lists exactly the arguments its handler reads"
+)]
+fn each_core_prompt_lists_exactly_the_arguments_its_handler_reads() {
+    let mut drift = Vec::new();
+    for prompt in specforge_mcp::prompts::CORE_PROMPTS {
+        let read: Vec<&str> = (prompt.fields)().to_vec();
+        let listed: Vec<String> = prompt
+            .descriptor()
+            .arguments
+            .unwrap_or_default()
+            .into_iter()
+            .map(|a| a.name)
+            .collect();
+        if listed != read {
+            drift.push(format!("{}: lists {listed:?}, reads {read:?}", prompt.name));
+        }
+        let described: BTreeSet<&str> = prompt.descriptions.iter().map(|(f, _)| *f).collect();
+        let read: BTreeSet<&str> = read.into_iter().collect();
+        if described != read {
+            drift.push(format!(
+                "{}: describes {described:?}, reads {read:?}",
+                prompt.name
+            ));
+        }
+        if prompt.descriptions.iter().any(|(_, text)| text.is_empty()) {
+            drift.push(format!("{}: an argument has no description", prompt.name));
+        }
+    }
+    assert!(drift.is_empty(), "prompt argument drift: {drift:#?}");
+    assert!(
+        specforge_mcp::prompts::CORE_PROMPTS
+            .iter()
+            .all(|p| !(p.fields)().is_empty()),
+        "the field tracer sees every prompt's Args"
+    );
+}
+
 #[test]
 fn the_field_tracer_sees_each_args_struct() {
     let query = specforge_mcp::tools::core_tool("specforge.query").unwrap();
@@ -55,10 +94,10 @@ fn the_field_tracer_sees_each_args_struct() {
     assert!((stats.fields)().is_empty(), "stats takes no arguments");
 }
 
-/// Advertised property names per tool, extracted from `default_tools()`.
+/// Advertised property names per tool, extracted from the core tool table.
 fn advertised_properties() -> BTreeMap<String, Vec<String>> {
     let mut out = BTreeMap::new();
-    for tool in specforge_mcp::registry::default_tools() {
+    for tool in crate::support::core_tools() {
         let props = tool
             .input_schema
             .get("properties")

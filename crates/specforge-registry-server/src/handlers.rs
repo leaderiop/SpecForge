@@ -522,7 +522,7 @@ async fn publish_package(
 
     // Parse multipart form
     let mut wasm_bytes: Option<Vec<u8>> = None;
-    let mut manifest_json: Option<String> = None;
+    let mut declaration_json: Option<String> = None;
     let mut signature_json: Option<String> = None;
 
     while let Ok(Some(field)) = multipart.next_field().await {
@@ -532,7 +532,7 @@ async fn publish_package(
                 wasm_bytes = field.bytes().await.ok().map(|b| b.to_vec());
             }
             "manifest" => {
-                manifest_json = field.text().await.ok();
+                declaration_json = field.text().await.ok();
             }
             "signature" => {
                 signature_json = field.text().await.ok();
@@ -613,48 +613,49 @@ async fn publish_package(
         ));
     }
 
-    // 3. Manifest must parse and validate against the v2 schema.
-    if manifest_json.as_deref().is_none_or(|m| m.trim().is_empty()) {
+    // 3. The manifest is the package's declaration (ADR 0012): it must
+    //    parse as one.
+    if declaration_json
+        .as_deref()
+        .is_none_or(|m| m.trim().is_empty())
+    {
         return Err(ApiError::bad_request(
             "INVALID_MANIFEST",
             "missing 'manifest' field in multipart body",
         ));
     }
-    let manifest: specforge_registry::ManifestV2 =
-        match serde_json::from_str(manifest_json.as_deref().unwrap_or("")) {
-            Ok(m) => m,
-            Err(e) => {
-                return Err(ApiError::bad_request(
-                    "INVALID_MANIFEST",
-                    format!("manifest is not valid JSON for ManifestV2: {e}"),
-                ));
-            }
-        };
-    let schema_issues = specforge_registry::validate_manifest(&manifest);
-    if !schema_issues.is_empty() {
-        let first = &schema_issues[0];
-        return Err(ApiError::bad_request(
-            "INVALID_MANIFEST",
-            format!(
-                "manifest failed schema validation ({}): {}",
-                first.code, first.message
-            ),
-        ));
-    }
+    let declaration: specforge_protocol_types::ExtensionDeclaration = match serde_json::from_str(
+        declaration_json.as_deref().unwrap_or(""),
+    ) {
+        Ok(d) => d,
+        Err(e) => {
+            return Err(ApiError::bad_request(
+                "INVALID_MANIFEST",
+                format!(
+                    "manifest is not an extension declaration: {e} (publish it with \
+                         `specforge publish`, which uploads the declaration it reads from the binary)"
+                ),
+            ));
+        }
+    };
 
-    // 4. Manifest identity must match the upload URL.
-    if manifest.name != name || manifest.version != version {
+    // 4. Its identity must match the upload URL.
+    if declaration.name() != name || declaration.version() != version {
         return Err(ApiError::bad_request(
             "NAME_MISMATCH",
             format!(
                 "manifest identifies {}@{} but the upload path is {}@{}",
-                manifest.name, manifest.version, name, version
+                declaration.name(),
+                declaration.version(),
+                name,
+                version
             ),
         ));
     }
 
     // 5. v1 registry bar: no network-needing extensions.
-    if manifest
+    if declaration
+        .handshake
         .sandbox_policy
         .as_ref()
         .and_then(|p| p.network_access)
@@ -677,28 +678,14 @@ async fn publish_package(
     })
     .await
     .expect("sha256 hashing task panicked");
-    // Parse description/keywords from manifest
-    let (description, keywords) = if let Some(json_str) = &manifest_json {
-        let v: serde_json::Value = serde_json::from_str(json_str).unwrap_or_default();
-        let desc = v
-            .get("description")
-            .and_then(|d| d.as_str())
-            .unwrap_or("")
-            .to_string();
-        let kw = v
-            .get("keywords")
-            .and_then(|k| k.as_array())
-            .map(|arr| {
-                arr.iter()
-                    .filter_map(|v| v.as_str())
-                    .collect::<Vec<_>>()
-                    .join(",")
-            })
-            .unwrap_or_default();
-        (desc, kw)
-    } else {
-        (String::new(), String::new())
-    };
+    // What search shows: the description and keywords the declaration's
+    // handshake carries.
+    let description = declaration
+        .handshake
+        .description
+        .clone()
+        .unwrap_or_default();
+    let keywords = declaration.handshake.keywords.join(",");
 
     // C8-06 atomic publish: (1) write the blob to a fsynced temp file,
     // (2) let the database's UNIQUE(name, version) arbitrate concurrent
@@ -742,7 +729,7 @@ async fn publish_package(
         published_at: chrono::Utc::now().to_rfc3339(),
         signature: signature_json,
         key_id: key_id.clone(),
-        manifest: manifest_json.unwrap_or_default(),
+        manifest: declaration_json.unwrap_or_default(),
     };
 
     // Run the insert on the blocking pool, but keep the temp path

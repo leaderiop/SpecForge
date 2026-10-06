@@ -128,8 +128,13 @@ link) as depending on it. Fixed here: only a `depends_on` reference is a depende
 
 - **A refused command is on neither surface.** The rule that refuses a command line (an arg
   named `path`, `format` or `help`, or two args of one name) is one function,
-  `specforge_ops::command::refusal`; MCP does not promote a command it refuses, so a
-  `format` arg never reaches an agent either.
+  `specforge_protocol_types::command_args::refusal` (ADR 0017; it also refuses a default its
+  declaration contradicts); MCP does not promote a command it refuses, so a `format` arg never
+  reaches an agent either.
+- **The host applies a command's declared defaults.** Both surfaces send the args normalized by
+  one rule (ADR 0017): the declared defaults, `false` for an unset flag, each value its declared
+  type, no undeclared arg; the SDK runs the same rule, so a guest not built with the SDK gets them
+  too, and a command tool's argument errors are the command's `INVALID_INPUT` object.
 - **A command whose export trapped answers in the format asked for.** Under `--format json`
   the CLI writes E028 to stderr as one `{code, message}` object, the shape commands write
   their own errors in, rather than the diagnostic line.
@@ -234,8 +239,8 @@ link) as depending on it. Fixed here: only a `depends_on` reference is a depende
   catches is instead the same `INVALID_INPUT` object, `{code, message, suggestion?}`, the
   message the SDK's for a `one_of`, so an agent never parses prose), and the MCP tools'
   schemas carry the enum. That is the one change to the payload (the pin says so), and the drift test checks each `one_of` against the value rule
-  of its field. An absent arg takes its declared default on every surface (the SDK applies it,
-  as clap does on the command line); a declaration that contradicts itself (a required arg or
+  of its field. An absent arg takes its declared default on every surface (the host applies
+  it on both since ADR 0017, and the SDK by the same rule); a declaration that contradicts itself (a required arg or
   a flag with a default, a required flag, a default its type refuses, two surfaces with one
   export) panics when the extension is built, so its first test finds it.
   `testing::call_every_command` runs every command with every arg set, which a test uses to

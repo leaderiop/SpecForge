@@ -1,81 +1,95 @@
-use serde_json::Value;
+//! `specforge://prompts/trace`: the dependency chain of a plan or of one
+//! entity, and what in it is unverified.
 
-use crate::protocol::{JsonRpcResponse, error_codes};
-use crate::state::McpState;
+use std::collections::BTreeSet;
 
-pub fn get(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse {
-    // A plan's entries, or the one entity, seed the trace.
-    let (seeds, coverage_gaps, subject) = if let Some(plan) = args.get("plan") {
-        match crate::tools::trace::analyze_plan(state, plan) {
-            Ok(analysis) => (
-                analysis.entries,
-                Value::from(analysis.gaps),
-                "the plan".to_string(),
-            ),
-            Err(message) => {
-                return JsonRpcResponse::error(id, error_codes::INVALID_PARAMS, message);
-            }
-        }
-    } else {
-        let entity_id = match args.get("entity_id").and_then(|v| v.as_str()) {
-            Some(e) => e,
-            None => {
-                return JsonRpcResponse::error(
-                    id,
-                    error_codes::INVALID_PARAMS,
-                    "Missing required argument: plan or entity_id",
-                );
-            }
-        };
-        if state.graph().node(entity_id).is_none() {
-            return JsonRpcResponse::error(
-                id,
-                error_codes::INVALID_PARAMS,
-                format!("Entity not found: {}", entity_id),
-            );
-        }
-        let gaps = serde_json::to_value(specforge_ops::trace::detect_trace_gaps(state.graph()))
-            .unwrap_or_default();
+use serde::Deserialize;
+use serde_json::{Value, json};
+use specforge_ops::plan::PlanError;
+use specforge_ops::trace::{Target, trace};
+
+use crate::prompt::{PromptArgs, PromptOutcome, Rendered};
+use crate::target::Call;
+use crate::tool::{ErrorCode, McpError, entity_not_found};
+use crate::tools::coverage::report_mcp_error;
+use crate::tools::trace::{analyze_plan, gap_json};
+
+#[derive(Debug, Deserialize)]
+pub struct Args {
+    /// An `AgentPlan` object, or JSON text of one.
+    #[serde(default)]
+    plan: Option<Value>,
+    #[serde(default)]
+    entity_id: Option<String>,
+}
+
+impl PromptArgs for Args {
+    const DESCRIPTIONS: &'static [(&'static str, &'static str)] = &[
         (
-            vec![entity_id.to_string()],
-            gaps,
-            format!("entity '{entity_id}'"),
-        )
+            "plan",
+            "AgentPlan JSON ({\"entries\": [{\"entity_id\", \"action\"}]}) to check against the graph",
+        ),
+        ("entity_id", "Entity ID to trace when no plan is given"),
+    ];
+}
+
+pub fn render(call: &Call<'_>, args: Args) -> PromptOutcome {
+    let view = call.view();
+    // A plan's entries, or the one entity, seed the trace; the gaps are the
+    // plan's, or the entity's chain's missing links.
+    let (seeds, coverage_gaps, subject) = match (&args.plan, args.entity_id.as_deref()) {
+        (Some(plan), _) => {
+            let analysis = analyze_plan(&view, plan).map_err(|error| match error {
+                PlanError::NotAPlan(why) => {
+                    McpError::new(ErrorCode::InvalidInput, why).with_argument("plan")
+                }
+                PlanError::Report(e) => report_mcp_error(&e),
+            })?;
+            (analysis.entries, analysis.gaps, "the plan".to_string())
+        }
+        (None, Some(entity_id)) => {
+            // As the trace tool traces it: its chain and missing links.
+            let outcome =
+                trace(&view, Target::Entity(entity_id)).map_err(|_| entity_not_found(entity_id))?;
+            let gaps = outcome.gaps().iter().map(gap_json).collect();
+            (
+                vec![entity_id.to_string()],
+                gaps,
+                format!("entity '{entity_id}'"),
+            )
+        }
+        (None, None) => {
+            // As the trace tool refuses it.
+            return Err(Box::new(
+                McpError::new(
+                    ErrorCode::InvalidInput,
+                    "Missing required parameter: entity_id or plan",
+                )
+                .with_argument("entity_id"),
+            ));
+        }
     };
 
     // Everything the seeds' trace chains reach, the seeds included.
-    let mut affected: Vec<String> = seeds.clone();
+    let mut affected: BTreeSet<String> = seeds.iter().cloned().collect();
     for seed in &seeds {
-        if let Ok(chain) = specforge_ops::trace::trace(state.graph(), seed) {
-            affected.extend(
-                chain
-                    .upstream
-                    .iter()
-                    .chain(chain.downstream.iter())
-                    .map(|l| l.entity_id.clone()),
-            );
+        if let Ok(outcome) = trace(&view, Target::Entity(seed)) {
+            affected.extend(outcome.reached().into_iter().map(str::to_string));
         }
     }
-    affected.sort();
-    affected.dedup();
 
-    // Find unverified entities in the trace
-    let unverified: Vec<String> = affected
+    // The affected entities that count toward coverage and are not proven
+    // (the coverage view's one definition of unverified).
+    let coverage = view.coverage().map_err(|e| report_mcp_error(&e))?;
+    let unverified: Vec<&String> = affected
         .iter()
-        .filter(|eid| {
-            state
-                .graph()
-                .node(eid)
-                .map(|n| specforge_graph::obligations(n).is_empty())
-                .unwrap_or(true)
-        })
-        .cloned()
+        .filter(|id| coverage.is_unverified(id))
         .collect();
 
-    let result = serde_json::json!({
+    let payload = json!({
         "coverage_gaps": coverage_gaps,
         "unverified_entities": unverified,
-        "affected_entities": affected
+        "affected_entities": affected,
     });
 
     let instruction = format!(
@@ -85,19 +99,8 @@ pub fn get(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse 
         subject
     );
 
-    JsonRpcResponse::success(
-        id,
-        serde_json::json!({
-            "messages": [
-                {
-                    "role": "user",
-                    "content": { "type": "text", "text": instruction }
-                },
-                {
-                    "role": "assistant",
-                    "content": { "type": "text", "text": result.to_string() }
-                }
-            ]
-        }),
-    )
+    Ok(Rendered {
+        instruction,
+        payload,
+    })
 }

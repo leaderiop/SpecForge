@@ -11,13 +11,13 @@ behavior pe_register_release_kind "Register Release Entity Kind" {
   features   [pe_release_coordination]
   category   command
   invariants [pe_release_non_testable]
-  types      [ManifestEntityKind, ProductRelease, ReleaseStatus]
+  types      [EntityKindDescriptor, ProductRelease, ReleaseStatus]
   contract   """
     The @specforge/product extension MUST register the release entity kind
     with testable=false, supportsVerify=false, and appropriate LSP/DOT metadata.
   """
   requires {
-    manifest_loaded "ManifestV2 is parsed and schema-validated"
+    manifest_loaded "ExtensionDeclaration is parsed and schema-validated"
   }
   ensures {
     release_registered "KindRegistry contains release: testable=false, supportsVerify=false, semanticToken=constant, lspIcon=Constant, dotShape=doubleoctagon"
@@ -29,7 +29,7 @@ behavior pe_register_release_kind "Register Release Entity Kind" {
 behavior pe_register_release_edges "Register Release Edge Types" {
   features [pe_release_coordination]
   category command
-  types    [ManifestEdgeType]
+  types    [EdgeTypeDescriptor]
   contract """
     The @specforge/product extension MUST register 3 release-specific edge types:
     ReleaseIncludesDeliverable (release->deliverable), ReleaseCompletesMilestone

@@ -11,56 +11,59 @@ behavior scaffold_wasm_extension_project "Scaffold Wasm Extension Project" {
   features   [wasm_extension_authoring]
   invariants [extension_operation_atomicity]
   category   command
-  types      [ManifestV2]
+  types      [ExtensionDeclaration]
   ports      [FileSystem]
   requires {
     filesystem_available "FileSystem port is available for writing project scaffold files"
   }
   ensures {
-    manifest_created                     "A valid manifest file is created in the project directory"
-    skeleton_exports_created             "src/ directory contains a skeleton implementing initialize/validate/export exports"
-    build_script_created                 "A build script targeting wasm32-wasi is created"
+    declaration_created                  "An SDK crate declaring the extension (name, version, short name, description) is created in the project directory"
+    skeleton_exports_created             "src/ contains a skeleton whose exports the SDK generates (component_guest!)"
+    build_target_configured              "The crate builds a wasm32-wasip2 component"
     extension_project_scaffolded_emitted "extension_project_scaffolded event is emitted after successful scaffolding"
   }
   contract   """
     When specforge extension init is invoked, the system MUST scaffold a
-    new Wasm extension project with: a manifest file, a src/ directory
-    with a skeleton implementing initialize/validate/export exports,
-    a build script targeting wasm32-wasi, and a README with PDK docs.
+    new extension crate written with specforge-extension-sdk: a Cargo.toml
+    depending on the SDK, a src/lib.rs whose #[extension(name, version,
+    short, description)] declares the extension and whose
+    component_guest! generates every export, and a cargo configuration
+    building a wasm32-wasip2 component. No manifest file is written: the
+    binary declares the extension (ADR 0012).
     It MUST refuse to scaffold into a directory that already exists,
     default the extension name when --name is not given, and describe what
     it created as structured JSON under --format=json.
   """
   produces   [extension_project_scaffolded]
-  verify unit "scaffold creates manifest file"
+  verify unit "scaffold creates an SDK crate declaring the extension"
   verify unit "scaffold creates src/ with skeleton exports"
-  verify unit "scaffold creates build script for wasm32-wasi"
+  verify unit "scaffold builds for wasm32-wasip2"
   verify unit "specforge extension init rejects when directory already exists"
   verify unit "specforge extension init --format=json outputs structured JSON"
   verify unit "specforge extension init uses default name when --name not provided"
-  verify contract "Scaffold Wasm Extension Project: Wasm extension scaffolding holds — filesystem_available, manifest_created, skeleton_exports_created, build_script_created, extension_project_scaffolded_emitted"
+  verify contract "Scaffold Wasm Extension Project: Wasm extension scaffolding holds — filesystem_available, declaration_created, skeleton_exports_created, build_target_configured, extension_project_scaffolded_emitted"
 }
 
 behavior build_wasm_extension "Build Wasm Extension" {
   features   [wasm_extension_authoring]
   invariants [extension_operation_atomicity]
   category   command
-  types      [ManifestV2, ExtensionError]
+  types      [ExtensionDeclaration, ExtensionError]
   ports      [FileSystem]
   requires {
     source_available    "Extension source code exists in the project directory"
-    toolchain_available "The configured Wasm toolchain (targeting wasm32-wasi) is installed and accessible"
+    toolchain_available "cargo and the wasm32-wasip2 target are installed"
   }
   ensures {
-    wasm_binary_produced    "A .wasm binary is placed alongside the manifest after successful build"
+    wasm_binary_produced    "The component is built at target/wasm32-wasip2/release/<crate>.wasm"
     build_errors_diagnosed  "Build errors are reported as ExtensionError diagnostics"
     extension_built_emitted "extension_built event is emitted after successful build"
   }
   contract   """
     When specforge extension build is invoked, the system MUST compile
-    the extension source to a .wasm binary using the configured toolchain.
-    The output .wasm MUST be placed alongside the manifest. Build
-    errors MUST be reported as ExtensionError diagnostics.
+    the extension crate to a wasm32-wasip2 component (cargo build
+    --release --target wasm32-wasip2) and name the component it built.
+    Build errors MUST be reported as ExtensionError diagnostics (E040).
     Before compiling, it MUST check that the extension project
     structure exists and fail with a diagnostic when it doesn't.
   """
@@ -75,10 +78,10 @@ behavior validate_wasm_extension_locally "Validate Wasm Extension Locally" {
   features   [wasm_extension_authoring]
   invariants [wasm_sandbox_integrity]
   category   validation
-  types      [ManifestV2, SandboxPolicy, ExtensionError]
+  types      [ExtensionDeclaration, SandboxPolicy, ExtensionError]
   ports      [WasmRuntime, FileSystem]
   requires {
-    wasm_binary_available  "A locally built .wasm binary exists alongside the manifest"
+    wasm_binary_available  "A locally built component exists (a .wasm file, or the crate's target/wasm32-wasip2/release component)"
     wasm_runtime_available "WasmRuntime port is available for loading and executing the extension"
     fixtures_available     "Fixture .spec files are shipped with the extension for validation"
   }
@@ -99,16 +102,20 @@ behavior validate_wasm_extension_locally "Validate Wasm Extension Locally" {
     each contribution export, not a test report. The extension MUST run in the same sandbox as
     production to catch permission errors early. Export failures MUST be
     reported as ExtensionError diagnostics.
-    A missing or malformed manifest.json MUST be reported as an error
-    before anything is loaded.
+    It MUST load the component's declaration as every environment loads it
+    (load_extension_declaration) and report what the registry build of
+    that declaration alone reports (E030, W021, W138, ...; missing peers
+    are not reported, they are installed beside it), with the declaration
+    itself under --format json. No built component is an error (E040), and
+    a binary that is not an extension is E028.
   """
   produces   [extension_fixtures_validated]
   verify unit "validation loads local .wasm binary"
   verify unit "validation runs against fixtures"
   verify unit "validation uses production sandbox policy"
   verify unit "validation failure reported as ExtensionError"
-  verify unit "specforge extension validate errors on invalid manifest JSON"
-  verify unit "specforge extension validate errors on missing manifest.json"
+  verify unit "specforge extension validate reports the declaration's registry build diagnostics"
+  verify unit "specforge extension validate errors when no built component is found"
   verify contract "Validate Wasm Extension Locally: local Wasm extension validation holds — wasm_binary_available, wasm_runtime_available, fixtures_available, production_sandbox_used, export_failures_diagnosed, extension_fixtures_validated_emitted"
 }
 
@@ -118,28 +125,28 @@ behavior publish_wasm_extension "Publish Wasm Extension" {
   features   [wasm_extension_authoring]
   invariants [registry_integrity, registry_api_openness]
   category   command
-  types      [ManifestV2, ExtensionError]
+  types      [ExtensionDeclaration, ExtensionError]
   ports      [FileSystem, RegistryClient]
   requires {
-    wasm_binary_available "A built .wasm binary exists alongside the manifest"
-    manifest_valid        "The manifest has been validated and is syntactically correct"
+    wasm_binary_available "A built component exists"
+    declaration_valid     "The declaration read from the component has been validated"
     registry_available    "RegistryClient port is available for publishing to the configured registry"
   }
   ensures {
-    bundle_published            "The .wasm binary and manifest are bundled and published to the configured registry"
+    bundle_published            "The .wasm binary and the declaration derived from it are published to the configured registry"
     publish_failures_diagnosed  "Validation or publishing failures are reported as ExtensionError diagnostics"
     extension_published_emitted "extension_published event is emitted after successful publication"
   }
   contract   """
-    When specforge extension publish is invoked, the system MUST bundle
-    the .wasm binary and manifest, then publish to the configured
-    registry (npm, OCI, or GitHub Releases). The manifest MUST be
-    validated before publishing. Validation or publishing failures MUST
+    When specforge publish is invoked, the system MUST publish the .wasm
+    binary and the declaration derived from it (its manifest) to the
+    configured registry. The declaration MUST be validated before
+    publishing. Validation or publishing failures MUST
     be reported as ExtensionError diagnostics.
   """
   produces   [extension_published]
-  verify unit "publish bundles .wasm and manifest"
-  verify unit "manifest validated before publish"
+  verify unit "publish uploads the .wasm binary and the declaration derived from it"
+  verify unit "the declaration read from the component is validated before publish"
   verify unit "publish failure reported as ExtensionError"
-  verify contract "Publish Wasm Extension: Wasm extension publishing holds — wasm_binary_available, manifest_valid, registry_available, bundle_published, publish_failures_diagnosed, extension_published_emitted"
+  verify contract "Publish Wasm Extension: Wasm extension publishing holds — wasm_binary_available, declaration_valid, registry_available, bundle_published, publish_failures_diagnosed, extension_published_emitted"
 }

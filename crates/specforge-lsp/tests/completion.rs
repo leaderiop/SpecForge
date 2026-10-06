@@ -1,6 +1,3 @@
-use specforge_common::{SourceSpan, Sym};
-use specforge_graph::{Graph, Node};
-use specforge_parser::{EntityId, EntityKind, FieldMap};
 use specforge_registry::FieldRegistry;
 use specforge_test_macros::test as spec;
 
@@ -15,123 +12,13 @@ fn default_field_registry() -> FieldRegistry {
     .map(|s| s.to_string())
     .collect();
     let runtime = wasm_runtime_for(&ext_names);
-    let host = specforge_wasm::protocol::ProtocolHost::new(&runtime);
-    let mut manifests = Vec::new();
+    let mut declarations = Vec::new();
     for name in &ext_names {
-        if let Ok(ext) = specforge_wasm::protocol::load_protocol_extension(&host, name) {
-            manifests.push(specforge_wasm::protocol::protocol_extension_to_manifest(
-                &ext,
-            ));
+        if let Ok(loaded) = specforge_wasm::protocol::load_declaration(&runtime, name) {
+            declarations.push(loaded.declaration);
         }
     }
-    specforge_registry::build_registries(manifests).fields
-}
-
-fn node(id: &str, kind: &str, title: Option<&str>) -> Node {
-    Node {
-        id: EntityId { raw: Sym::new(id) },
-        kind: EntityKind {
-            raw: Sym::new(kind),
-        },
-        title: title.map(|t| t.to_string()),
-        fields: FieldMap::new(),
-        source_span: SourceSpan {
-            file: Sym::new("test.spec"),
-            start_line: 0,
-            start_col: 0,
-            end_line: 0,
-            end_col: 0,
-        },
-        methods: Vec::new(),
-    }
-}
-
-// -- autocomplete_entity_ids --------------------------------------------------
-
-#[spec(
-    behavior = "autocomplete_entity_ids",
-    verify = "autocomplete suggests matching IDs"
-)]
-fn autocomplete_suggests_matching_ids() {
-    let mut g = Graph::new();
-    g.add_node(node("user_login", "behavior", Some("User Login")));
-    g.add_node(node("user_logout", "behavior", Some("User Logout")));
-    g.add_node(node("auth_token", "type", Some("Auth Token")));
-
-    let items = specforge_lsp::complete_entity_ids(&g, "user");
-    assert_eq!(items.len(), 2);
-    assert!(items.iter().any(|c| c.id == "user_login"));
-    assert!(items.iter().any(|c| c.id == "user_logout"));
-}
-
-#[spec(
-    behavior = "autocomplete_entity_ids",
-    verify = "suggestions include entity titles and kinds"
-)]
-fn autocomplete_includes_titles_and_kinds() {
-    let mut g = Graph::new();
-    g.add_node(node("user_login", "behavior", Some("User Login")));
-
-    let items = specforge_lsp::complete_entity_ids(&g, "user");
-    assert_eq!(items.len(), 1);
-    assert_eq!(items[0].kind, "behavior");
-    assert_eq!(items[0].title.as_deref(), Some("User Login"));
-}
-
-#[spec(
-    behavior = "autocomplete_entity_ids",
-    verify = "suggestions filtered by target_kind when FieldRegistry has constraint"
-)]
-fn autocomplete_filters_by_target_kind() {
-    let mut g = Graph::new();
-    g.add_node(node("user_login", "behavior", Some("User Login")));
-    g.add_node(node("auth_token", "type", Some("Auth Token")));
-
-    let items = specforge_lsp::complete_entity_ids_filtered(&g, "", Some("type"));
-    assert_eq!(items.len(), 1);
-    assert_eq!(items[0].id, "auth_token");
-}
-
-#[spec(
-    behavior = "autocomplete_entity_ids",
-    verify = "all IDs suggested when no target_kind constraint exists"
-)]
-fn autocomplete_all_ids_without_filter() {
-    let mut g = Graph::new();
-    g.add_node(node("a", "behavior", None));
-    g.add_node(node("b", "type", None));
-
-    let items = specforge_lsp::complete_entity_ids_filtered(&g, "", None);
-    assert_eq!(items.len(), 2);
-}
-
-// C4-06: prefix matches rank before substring matches.
-#[test]
-fn prefix_matches_rank_before_substring_matches() {
-    let mut g = Graph::new();
-    g.add_node(node("reuser_login", "behavior", None)); // substring
-    g.add_node(node("user_logout", "behavior", None)); // prefix
-
-    let items = specforge_lsp::complete_entity_ids(&g, "user");
-    assert_eq!(items[0].id, "user_logout", "prefix match must rank first");
-    assert_eq!(items.len(), 2, "substring match is still suggested");
-}
-
-// C4-06: fuzzy matches (Jaro-Winkler >= 0.7) fill in behind structured
-// matches so a typo still surfaces the intended entity.
-#[test]
-fn fuzzy_match_suggested_behind_exact_matches() {
-    let mut g = Graph::new();
-    g.add_node(node("user_login", "behavior", None));
-    g.add_node(node("auth_token", "type", None));
-
-    let items = specforge_lsp::complete_entity_ids(&g, "user_lgon");
-    assert!(
-        items.iter().any(|c| c.id == "user_login"),
-        "typo'd prefix should still fuzzy-match user_login, got: {:?}",
-        items.iter().map(|c| c.id.clone()).collect::<Vec<_>>()
-    );
-    assert_eq!(items[0].id, "user_login", "fuzzy match should be ranked");
+    specforge_registry::build_registries(declarations).fields
 }
 
 // -- complete_field_names -----------------------------------------------------
@@ -174,37 +61,25 @@ fn complete_field_names_from_registry() {
     let mut reg = FieldRegistry::new();
     reg.register(FieldRegistryEntry {
         kind_name: "behavior".into(),
-        field_name: "contract".into(),
-        description: None,
         field_type: ManifestFieldType::Block,
         source_extension: "@specforge/software".into(),
-        edge: None,
-        target_kind: None,
-        file_reference: false,
-        required: false,
-        inverse_of: None,
-        normative: false,
-        exempts_obligations: false,
-        headline: false,
-        derived_from: None,
         proof_role: None,
+        declared: specforge_registry::FieldDescriptor {
+            name: "contract".into(),
+            ..Default::default()
+        },
     });
     reg.register(FieldRegistryEntry {
         kind_name: "behavior".into(),
-        field_name: "invariants".into(),
-        description: None,
         field_type: ManifestFieldType::ReferenceList,
         source_extension: "@specforge/software".into(),
-        edge: Some("enforces".into()),
-        target_kind: Some("invariant".into()),
-        file_reference: false,
-        required: false,
-        inverse_of: None,
-        normative: false,
-        exempts_obligations: false,
-        headline: false,
-        derived_from: None,
         proof_role: None,
+        declared: specforge_registry::FieldDescriptor {
+            name: "invariants".into(),
+            edge: Some("enforces".into()),
+            target_kind: Some("invariant".into()),
+            ..Default::default()
+        },
     });
     let fields = specforge_lsp::complete_field_names("behavior", Some(&reg));
     assert!(fields.contains(&"contract".to_string()));

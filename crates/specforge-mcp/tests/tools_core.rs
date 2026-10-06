@@ -108,7 +108,7 @@ fn test_server() -> McpServer {
             if testable {
                 env.registries
                     .rules
-                    .push((obligations_rule(kind), "@test/ext".into()));
+                    .push(crate::support::obligations_rule(kind));
             }
         });
     }
@@ -135,43 +135,16 @@ fn inspect_testable_is_the_kinds_and_declared_is_the_entitys() {
     assert_eq!(inspect("beta_feature"), (json!(false), json!(false)));
 }
 
-/// The W004 rule requiring `kind`'s entities to declare obligations.
-fn obligations_rule(kind: &str) -> specforge_registry::validation_engine::ValidationRulePattern {
-    use specforge_registry::validation_engine::{ValidationPatternKind, ValidationRulePattern};
-    ValidationRulePattern {
-        code: "W004".into(),
-        severity: specforge_common::Severity::Warning,
-        message_template: "{kind} '{id}' is testable but declares no verify obligations".into(),
-        check: ValidationPatternKind::NoVerifyStatements,
-        target_kind: Some(kind.into()),
-        edge_type: None,
-        edge_peer_kind: None,
-        field: Some("verify".into()),
-        constraint: None,
-        wasm_function: None,
-    }
-}
-
 /// A kind as an extension registers it; only `testable` matters here.
 fn kind_entry(kind: &str, testable: bool) -> specforge_registry::KindRegistryEntry {
     specforge_registry::KindRegistryEntry {
         kind_name: kind.into(),
-        description: None,
         source_extension: "@test/ext".into(),
         testable,
-        singleton: false,
         supports_verify: testable,
         allowed_verify_kinds: Vec::new(),
-        has_body_parser: false,
-        semantic_token: None,
-        lsp_icon: None,
-        dot_shape: None,
-        dot_color: None,
-        dot_fillcolor: None,
-        open_fields: false,
-        contract_target: false,
-        declares_types: false,
         lifecycle_field: None,
+        ..Default::default()
     }
 }
 
@@ -718,7 +691,7 @@ fn server_with_report(tests: &[(&str, &str)]) -> (McpServer, tempfile::TempDir) 
         json!({"results": {"two": {"tests": tests}}}).to_string(),
     )
     .unwrap();
-    server.state_mut().project_root = Some(project.path().to_path_buf());
+    crate::support::serve_in_memory_at(server.state_mut(), project.path());
     (server, project)
 }
 
@@ -933,7 +906,7 @@ fn coverage_refuses_a_malformed_report() {
         r#"{"results": {"alpha": {"tests": ["#,
     )
     .unwrap();
-    server.state_mut().project_root = Some(project.path().to_path_buf());
+    crate::support::serve_in_memory_at(server.state_mut(), project.path());
 
     let error = mcp_error(&call_tool(&mut server, "specforge.coverage", json!({})));
     assert_eq!(error["code"], "schema_mismatch", "{error}");
@@ -1091,7 +1064,10 @@ fn analyze_of_another_project_leaves_the_served_one() {
     use crate::fake_extension::{self, FakeExtension};
 
     let (mut server, _ext, _served) = fake_extension::initialized(FakeExtension::new());
-    let served_root = server.state_mut().project_root.clone();
+    let served_root = server
+        .state_mut()
+        .project_root()
+        .map(std::path::Path::to_path_buf);
     assert!(served_root.is_some());
     let served_nodes = server.state_mut().graph().node_count();
 
@@ -1114,7 +1090,13 @@ fn analyze_of_another_project_leaves_the_served_one() {
     let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
     assert_eq!(parsed["passes"][0]["pass"], "contracts", "{parsed}");
 
-    assert_eq!(server.state_mut().project_root, served_root);
+    assert_eq!(
+        server
+            .state()
+            .project_root()
+            .map(std::path::Path::to_path_buf),
+        served_root
+    );
     assert_eq!(server.state_mut().graph().node_count(), served_nodes);
 }
 
@@ -1228,11 +1210,16 @@ fn unknown_tool_returns_error() {
 fn validate_returns_all_diagnostics() {
     let project = project_with_errors_and_warnings();
     let mut server = test_server();
-    server.state_mut().project_root = Some(project.path().to_path_buf());
     assert!(server.state().graph().node("alpha").is_some());
     assert!(server.state().diagnostics().is_empty());
 
-    let resp = call_tool(&mut server, "specforge.validate", json!({}));
+    // The project the path names, while no project on disk is served: the
+    // call compiles and serves it.
+    let resp = call_tool(
+        &mut server,
+        "specforge.validate",
+        json!({"path": project.path().to_str().unwrap()}),
+    );
     let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
 
     // The project was compiled: its entities replaced the injected graph,
@@ -1318,6 +1305,121 @@ fn validate_strict_promotes_warnings_to_errors() {
     assert!(strict.iter().any(|(c, _)| c == "W003"));
 }
 
+/// `specforge.validate` on the project at `path` with `args` added: the
+/// whole response.
+fn validate_response(path: &str, mut args: Value) -> Value {
+    args["path"] = json!(path);
+    let mut server = test_server();
+    call_tool(&mut server, "specforge.validate", args)
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_validate_tool",
+    verify = "an unknown severity_filter or lint profile is invalid input"
+)]
+fn validate_refuses_an_unknown_severity_filter_or_lint_profile() {
+    let project = project_with_errors_and_warnings();
+    let path = project.path().to_str().unwrap();
+    for (args, argument, suggestion) in [
+        (
+            json!({"severity_filter": "errors"}),
+            "severity_filter",
+            Some("did you mean 'error'?"),
+        ),
+        (json!({"severity_filter": "fatal"}), "severity_filter", None),
+        (json!({"lint": ["nonsense"]}), "lint", None),
+        (
+            json!({"lint": ["inferred", "pedantik"]}),
+            "lint",
+            Some("did you mean 'pedantic'?"),
+        ),
+    ] {
+        let resp = validate_response(path, args.clone());
+        assert_eq!(resp["result"]["isError"], true, "{args}: {resp}");
+        let error: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+        assert_eq!(error["code"], "invalid_input", "{args}: {error}");
+        assert_eq!(error["argument"], argument, "{args}: {error}");
+        assert_eq!(
+            error["data"]["suggestion"].as_str(),
+            suggestion,
+            "{args}: {error}"
+        );
+        let message = error["message"].as_str().unwrap();
+        assert!(message.starts_with("Unknown "), "{message}");
+    }
+
+    // The payload's own spelling of a severity filters like the lowercase
+    // name, and the documented profiles are accepted.
+    let path = project.path().to_str().unwrap();
+    for spelling in ["Error", "ERROR"] {
+        assert_eq!(
+            validate(json!({"path": path, "severity_filter": spelling})),
+            validate(json!({"path": path, "severity_filter": "error"})),
+            "{spelling}"
+        );
+    }
+    assert_eq!(
+        validate(json!({"path": path, "lint": ["pedantic"]})),
+        validate(json!({"path": path}))
+    );
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_validate_tool",
+    verify = "the verdict on every reported diagnostic rides in _meta, whatever severity_filter shows"
+)]
+fn validate_verdict_in_meta_counts_everything_reported() {
+    let project = project_with_errors_and_warnings();
+    let path = project.path().to_str().unwrap();
+    let all = validate(json!({"path": path}));
+    let count = |severity: &str| all.iter().filter(|(_, s)| s == severity).count();
+    let (errors, warnings, infos) = (count("Error"), count("Warning"), count("Info"));
+    assert!(errors > 0 && warnings > 0, "{all:?}");
+
+    let resp = validate_response(path, json!({"severity_filter": "warning"}));
+    assert_eq!(resp["result"]["isError"], false, "{resp}");
+    let shown: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+    assert_eq!(shown.as_array().unwrap().len(), warnings);
+    assert_eq!(
+        resp["result"]["_meta"]["specforge/check"],
+        json!({
+            "ok": false,
+            "errors": errors,
+            "warnings": warnings,
+            "infos": infos,
+            "shown": warnings,
+        }),
+        "{resp}"
+    );
+
+    // Strict promotes first: the verdict counts the promoted warnings as
+    // errors, and a warning filter then shows nothing.
+    let strict = validate_response(path, json!({"strict": true, "severity_filter": "warning"}));
+    assert_eq!(
+        strict["result"]["_meta"]["specforge/check"],
+        json!({
+            "ok": false,
+            "errors": errors + warnings,
+            "warnings": 0,
+            "infos": infos,
+            "shown": 0,
+        }),
+        "{strict}"
+    );
+
+    // A clean project passes.
+    let clean = tempfile::tempdir().unwrap();
+    std::fs::write(
+        clean.path().join("specforge.json"),
+        r#"{"name":"c","version":"0.1.0","extensions":[]}"#,
+    )
+    .unwrap();
+    let resp = validate_response(clean.path().to_str().unwrap(), json!({}));
+    let verdict = &resp["result"]["_meta"]["specforge/check"];
+    assert_eq!(verdict["ok"], true, "{resp}");
+    assert_eq!(verdict["errors"], 0, "{resp}");
+}
+
 // B:provide_mcp_validate_tool — verify unit "use_cached=false triggers fresh compilation"
 #[specforge_test(
     behavior = "provide_mcp_validate_tool",
@@ -1326,8 +1428,12 @@ fn validate_strict_promotes_warnings_to_errors() {
 fn validate_use_cached_false() {
     let project = project_with_errors_and_warnings();
     let mut server = test_server();
-    server.state_mut().project_root = Some(project.path().to_path_buf());
-    let first = codes_of(&call_tool(&mut server, "specforge.validate", json!({})));
+    // The first call serves the project its path names.
+    let first = codes_of(&call_tool(
+        &mut server,
+        "specforge.validate",
+        json!({"path": project.path().to_str().unwrap()}),
+    ));
     assert!(first.contains(&"E003".to_string()), "{first:?}");
 
     // Fix the unresolved reference on disk.
@@ -1576,6 +1682,55 @@ fn coverage_status_filter_restricts_status() {
 }
 
 #[specforge_test(
+    behavior = "provide_mcp_schema_tool",
+    verify = "an unknown kind is an invalid-input error naming the closest kind"
+)]
+fn schema_unknown_kind_is_invalid_input() {
+    let mut server = test_server();
+    for (kind, suggestion) in [
+        ("behaviour", json!("did you mean 'behavior'?")),
+        ("nosuch", Value::Null),
+    ] {
+        let resp = call_tool(&mut server, "specforge.schema", json!({"kind": kind}));
+        assert_eq!(resp["result"]["isError"], true, "{resp}");
+        let error: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+        assert_eq!(error["code"], "invalid_input", "{error}");
+        assert_eq!(error["argument"], "kind", "{error}");
+        assert_eq!(
+            error["message"],
+            format!("unknown entity kind: '{kind}'"),
+            "{error}"
+        );
+        assert_eq!(error["data"]["suggestion"], suggestion, "{error}");
+    }
+    // A known kind still answers its part of the schema.
+    let resp = call_tool(&mut server, "specforge.schema", json!({"kind": "behavior"}));
+    let schema: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+    assert_eq!(schema["entity_kinds"][0]["name"], "behavior", "{schema}");
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_coverage_tool",
+    verify = "an unknown status_filter is an invalid-input error naming the closest status"
+)]
+fn coverage_refuses_an_unknown_status_filter() {
+    let mut server = test_server();
+    let resp = call_tool(
+        &mut server,
+        "specforge.coverage",
+        json!({"status_filter": "coverd"}),
+    );
+    assert_eq!(resp["result"]["isError"], true, "{resp}");
+    let error: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+    assert_eq!(error["code"], "invalid_input", "{error}");
+    assert_eq!(error["argument"], "status_filter", "{error}");
+    assert_eq!(
+        error["data"]["suggestion"], "did you mean 'covered'?",
+        "{error}"
+    );
+}
+
+#[specforge_test(
     behavior = "provide_mcp_stats_tool",
     verify = "response includes coverage percentage"
 )]
@@ -1727,13 +1882,17 @@ fn search_references_filter() {
     let resp = call_tool(
         &mut server,
         "specforge.search",
-        json!({"query": "alpha", "references": "alpha"}),
+        json!({"query": "", "references": "alpha"}),
     );
     let text = tool_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();
     let results = parsed.as_array().unwrap();
     // beta_feature has an edge to alpha
     assert!(results.iter().any(|r| r["entity_id"] == "beta_feature"));
+    assert!(
+        results.iter().all(|r| r["entity_id"] != "alpha"),
+        "{parsed}"
+    );
 }
 
 // B:provide_mcp_stats_tool — verify unit "diagnostic_summary includes severity counts"
@@ -1752,11 +1911,14 @@ fn stats_diagnostic_summary_severity_counts() {
         suggestion: None,
         data: None,
     };
-    server.state_mut().surface_diagnostics = vec![
-        diagnostic("E003", Severity::Error),
-        diagnostic("W001", Severity::Warning),
-        diagnostic("W003", Severity::Warning),
-    ];
+    crate::support::report(
+        server.state_mut(),
+        vec![
+            diagnostic("E003", Severity::Error),
+            diagnostic("W001", Severity::Warning),
+            diagnostic("W003", Severity::Warning),
+        ],
+    );
     let resp = call_tool(&mut server, "specforge.stats", json!({}));
     let text = tool_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();
@@ -1766,23 +1928,40 @@ fn stats_diagnostic_summary_severity_counts() {
     );
 }
 
-// B:provide_mcp_trace_tool — verify unit "gaps array lists missing expected links"
+// B:provide_mcp_trace_tool — the missing links are the expected edges the
+// entity lacks, as `specforge trace` flags them.
 #[specforge_test(
     behavior = "provide_mcp_trace_tool",
     verify = "missing links flagged in trace output"
 )]
-fn trace_gaps_array() {
+fn trace_flags_the_missing_links() {
     let mut server = test_server();
+    // Invariants are expected to name the behaviors that enforce them.
+    crate::support::declare_reference(&mut server, "invariant", "enforced_by", "behavior");
     let resp = call_tool(
         &mut server,
         "specforge.trace",
         json!({"entity_id": "gamma_orphan"}),
     );
-    let text = tool_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
-    let gaps = parsed["gaps"].as_array().unwrap();
-    assert!(gaps.contains(&json!("no upstream links")));
-    assert!(gaps.contains(&json!("no downstream links")));
+    let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+    let missing: Vec<(&str, &str, &str)> = parsed["missing"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|m| {
+            assert_eq!(m["status"], "missing", "{m}");
+            (
+                m["from"].as_str().unwrap(),
+                m["edge_label"].as_str().unwrap(),
+                m["expected_kind"].as_str().unwrap(),
+            )
+        })
+        .collect();
+    assert_eq!(missing, [("gamma_orphan", "enforced_by", "behavior")]);
+    // Isolation is an empty upstream and downstream, not a gap list.
+    assert_eq!(parsed["upstream"], json!([]));
+    assert_eq!(parsed["downstream"], json!([]));
+    assert!(parsed.get("gaps").is_none(), "{parsed}");
 }
 
 // B:provide_mcp_validate_tool — verify unit "use_cached returns existing diagnostics"
@@ -1793,8 +1972,12 @@ fn trace_gaps_array() {
 fn validate_use_cached_true() {
     let project = project_with_errors_and_warnings();
     let mut server = test_server();
-    server.state_mut().project_root = Some(project.path().to_path_buf());
-    let first = codes_of(&call_tool(&mut server, "specforge.validate", json!({})));
+    // The first call serves the project its path names.
+    let first = codes_of(&call_tool(
+        &mut server,
+        "specforge.validate",
+        json!({"path": project.path().to_str().unwrap()}),
+    ));
     assert!(first.contains(&"E003".to_string()), "{first:?}");
 
     // The spec changes on disk, but a cached validate does not recompile:
@@ -1853,7 +2036,7 @@ fn validate_updates_graph() {
 fn validate_use_cached_false_triggers_fresh() {
     let mut server = test_server();
     let project_root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
-    server.state_mut().project_root = Some(project_root);
+    crate::support::serve_in_memory_at(server.state_mut(), &project_root);
     // First compile
     let _resp1 = call_tool(&mut server, "specforge.validate", json!({}));
     // Second call with use_cached=false should recompile

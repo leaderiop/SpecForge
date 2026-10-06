@@ -1,14 +1,13 @@
 use specforge_common::{Diagnostic, ProjectConfig};
 use specforge_graph::Graph;
-use specforge_ops::analyze::ProjectView;
-use specforge_project::{CompiledProject, Environment, ProjectSession, SharedRuntime};
-use specforge_registry::{RegistryBuild, SurfaceRegistryEntry};
+use specforge_project::{Environment, Origin, ProjectSession, SharedRuntime, Update, UpdateKind};
+use specforge_registry::RegistryBuild;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::time::SystemTime;
 
-use crate::types::{McpEvent, McpPromptDescriptor, McpResourceDescriptor, McpToolDescriptor};
+use crate::surface_table::ExtensionSurfaceTable;
+use crate::types::McpEvent;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ServerPhase {
@@ -31,70 +30,32 @@ pub struct McpState {
     pub served: bool,
     /// Open `subscriptions/listen` streams, by their request id.
     pub listens: Vec<Listen>,
-    /// The served project: its environment (config, spec root, registries,
-    /// rules, manifests, surfaces), graph, diagnostics and extension
-    /// runtime. Detached while no project is served.
+    /// The served project: its root, environment (config, spec root,
+    /// registries, rules, manifests, surfaces), graph, diagnostics and
+    /// extension runtime. With no project ([`Origin::None`]) while none is
+    /// served.
     session: ProjectSession,
-    /// What registering the served project's surfaces with MCP reported
-    /// (auto-promotion conflicts), after the project's own diagnostics.
-    pub surface_diagnostics: Vec<Diagnostic>,
-    /// The tools MCP auto-promoted from the served project's extension
-    /// commands, listed after the project's own surfaces.
-    pub promoted_surfaces: Vec<SurfaceRegistryEntry>,
-    pub project_root: Option<PathBuf>,
+    /// How many times the served project changed: every update applied to
+    /// it and every replacement bumps it ([`Self::session_generation`]).
+    generation: u64,
+    /// The last update [`Self::ensure_fresh`] applied.
+    last_update: Option<Update>,
+    /// What MCP serves from the served project's extensions, built from
+    /// their declarations whenever its environment loads.
+    surfaces: ExtensionSurfaceTable,
     /// Project compiled when the client's `initialize` names no `projectRoot`
     /// (the `specforge mcp <path>` argument).
     pub default_project_root: Option<PathBuf>,
     pub subscriptions: HashMap<String, Vec<Subscription>>,
     pub previous_diagnostics: Vec<Diagnostic>,
-    pub tool_registry: Vec<McpToolDescriptor>,
-    pub resource_registry: Vec<McpResourceDescriptor>,
-    pub prompt_registry: Vec<McpPromptDescriptor>,
     pub events: Vec<McpEvent>,
     /// Server→client notifications queued for subscribed channels (C9-01),
     /// drained by the host loop via `pending_notifications`.
     pub notification_outbox: Vec<serde_json::Value>,
-    /// When the served project was last brought up to date with disk.
-    /// Compared against the watch snapshot marker mtime to detect
-    /// staleness (C9-07).
-    pub loaded_at: Option<SystemTime>,
     /// The Wasm runtime extensions run in, when the host supplies one; by
     /// default the served project's session builds the project's runtime
     /// (`specforge_component::project_runtime`) each time it loads.
     pub extension_runtime: Option<SharedRuntime>,
-}
-
-impl McpState {
-    /// Path of the watch snapshot marker for this project, if configured.
-    pub fn snapshot_marker(&self) -> Option<PathBuf> {
-        self.project_root
-            .as_ref()
-            .map(|root| root.join(".specforge").join("graph.json"))
-    }
-
-    /// Reload the served project when watch has written a newer snapshot
-    /// (C9-07). No-op without a project root, without a snapshot, or when
-    /// fresh.
-    pub fn refresh_if_stale(&mut self) {
-        let Some(marker) = self.snapshot_marker() else {
-            return;
-        };
-        let Ok(meta) = std::fs::metadata(&marker) else {
-            return;
-        };
-        let mtime = meta.modified().ok();
-        let stale = match (self.loaded_at, mtime) {
-            (Some(loaded), Some(m)) => m > loaded,
-            (None, _) => true, // never compiled against a snapshot
-            _ => false,
-        };
-        if !stale {
-            return;
-        }
-        if let Some(root) = self.project_root.clone() {
-            self.reload(&root);
-        }
-    }
 }
 
 /// One `subscriptions/listen` stream (MCP 2026-07-28): the resources it
@@ -127,18 +88,14 @@ impl McpState {
             served: false,
             listens: Vec::new(),
             session: ProjectSession::detached(),
-            surface_diagnostics: Vec::new(),
-            promoted_surfaces: Vec::new(),
-            project_root: None,
+            generation: 0,
+            last_update: None,
+            surfaces: ExtensionSurfaceTable::empty(),
             default_project_root: None,
             subscriptions: HashMap::new(),
             previous_diagnostics: Vec::new(),
-            tool_registry: Vec::new(),
-            resource_registry: Vec::new(),
-            prompt_registry: Vec::new(),
             events: Vec::new(),
             notification_outbox: Vec::new(),
-            loaded_at: None,
             extension_runtime: None,
         }
     }
@@ -146,6 +103,19 @@ impl McpState {
     /// The served project's session.
     pub fn session(&self) -> &ProjectSession {
         &self.session
+    }
+
+    /// The served project's root: `None` while no project is served (a
+    /// project built in memory may have one).
+    pub fn project_root(&self) -> Option<&Path> {
+        self.session.root()
+    }
+
+    /// How many times the served project changed since the server started:
+    /// every update applied to it and every replacement counts once. A call
+    /// that found nothing changed on disk leaves it as it was.
+    pub fn session_generation(&self) -> u64 {
+        self.generation
     }
 
     /// The served project's graph.
@@ -158,7 +128,7 @@ impl McpState {
         self.session.environment()
     }
 
-    /// The served project's registries, rules, manifests and surfaces.
+    /// The served project's registries, rules, declarations and surfaces.
     pub fn registries(&self) -> &RegistryBuild {
         &self.environment().registries
     }
@@ -171,56 +141,23 @@ impl McpState {
     /// Where the served project's `.spec` files live: spans are relative
     /// to it. None while no project on disk is served.
     pub fn spec_root(&self) -> Option<&Path> {
-        (!self.session.is_detached()).then(|| self.environment().spec_root.as_path())
+        self.session.spec_root()
     }
 
     /// Everything the server reports for the served project: what
-    /// `specforge check` reports, then what registering its surfaces with
-    /// MCP reported.
+    /// `specforge check` reports, then the contributions of its extensions
+    /// MCP does not serve under their names (I017).
     pub fn diagnostics(&self) -> Vec<Diagnostic> {
         let mut diagnostics = self.session.diagnostics();
-        diagnostics.extend(self.surface_diagnostics.iter().cloned());
+        diagnostics.extend(self.surfaces.diagnostics().iter().cloned());
         diagnostics
     }
 
-    /// The surfaces the server serves: the project's, then the tools MCP
-    /// auto-promoted from its commands.
-    pub fn surface_entries(&self) -> impl Iterator<Item = &SurfaceRegistryEntry> {
-        self.registries()
-            .surfaces
-            .iter()
-            .chain(&self.promoted_surfaces)
-    }
-
-    /// What an analysis of the served project reads.
-    pub fn project_view(&self) -> ProjectView<'_> {
-        ProjectView::in_environment(
-            self.environment(),
-            self.graph(),
-            self.project_root.as_deref(),
-        )
-    }
-
-    /// The runtime extensions of the project at `root` run in: the served
-    /// project's session's, which its compile loaded and which serves
-    /// every call until the project loads again; the host's; or, for
-    /// another project, the project's own, built for the call.
-    pub fn wasm_runtime(&self, root: &Path) -> SharedRuntime {
-        if !self.serves_other_than(root)
-            && let Some(runtime) = self.session.runtime()
-        {
-            return Arc::clone(runtime);
-        }
-        self.fresh_runtime(root)
-    }
-
-    /// A runtime for `root` built now: the host's, or a new one of the
-    /// project's own.
-    fn fresh_runtime(&self, root: &Path) -> SharedRuntime {
-        match &self.extension_runtime {
-            Some(runtime) => Arc::clone(runtime),
-            None => Arc::new(specforge_component::project_runtime(root)),
-        }
+    /// What MCP serves from the served project's extensions: listed after
+    /// the core tools and resources, and looked up by a call that names no
+    /// core one.
+    pub fn surfaces(&self) -> &ExtensionSurfaceTable {
+        &self.surfaces
     }
 
     /// Whether requests are served: after `initialize`, or for a stateless
@@ -262,73 +199,124 @@ impl McpState {
         self.events.push(McpEvent { name, params });
     }
 
-    /// Compile another project at `root` for one call, without serving
-    /// it: its extensions run in a runtime built for it, so its modules
-    /// are what is on disk now.
-    pub fn compile_project(&self, root: &Path) -> CompiledProject {
-        let runtime = self.fresh_runtime(root);
-        CompiledProject::compile(root, Some(runtime.as_ref()))
-    }
-
-    /// Whether `root` names a project other than the one this server
-    /// serves. With no project served yet, no path is another's.
-    pub fn serves_other_than(&self, root: &Path) -> bool {
-        let canonical = |p: &Path| std::fs::canonicalize(p).unwrap_or_else(|_| p.to_path_buf());
-        self.project_root
-            .as_deref()
-            .is_some_and(|served| canonical(served) != canonical(root))
-    }
-
     /// Serve the project at `root` as it is on disk now, its config and
     /// extensions included: the served session reloads its environment
     /// and rebuilds from the sources (a fresh compile), or a session is
     /// opened when `root` is not the project served. The graph,
     /// diagnostics, registries, config and runtime change together, with
-    /// the session; the tools and resources listed become the defaults
-    /// plus what this project's extensions contribute, so nothing a
-    /// previous load contributed survives, and nothing is listed twice.
+    /// the session; the extension surface table is built again from this
+    /// project's declarations, so nothing a previous load contributed
+    /// survives, and nothing is listed twice.
     /// Subscribed clients learn what changed. The one place the served
-    /// project is replaced (initialize, a stale refresh, validate,
-    /// analyze, doctor, collect and the mutation tools all come through
-    /// here).
-    pub fn reload(&mut self, root: &Path) {
+    /// project is replaced (initialize, adopting a call's path, a call that
+    /// wrote an in-memory project's files).
+    pub fn serve(&mut self, root: &Path) {
         let previous_diagnostics = self.diagnostics();
-        let update = if self.serves_session_at(root) {
+        // The served session reloads when it is the project on disk at
+        // `root`; any other root is opened.
+        let canonical = |p: &Path| std::fs::canonicalize(p).unwrap_or_else(|_| p.to_path_buf());
+        let reloads = self.session.origin() == Origin::Disk
+            && self
+                .project_root()
+                .is_some_and(|served| canonical(served) == canonical(root));
+        let update = if reloads {
             self.session.reload_environment()
         } else {
-            let next = match &self.extension_runtime {
+            let mut next = match &self.extension_runtime {
                 Some(runtime) => ProjectSession::open_with_runtime(root, Some(Arc::clone(runtime))),
                 None => ProjectSession::open(root),
             };
+            // Every update of a served project is checked against a cold
+            // rebuild in a debug build (ADR 0006): MCP's tests check every
+            // one.
+            next.set_verify_incremental(cfg!(debug_assertions));
             let previous = std::mem::replace(&mut self.session, next);
             self.session.replaced(&previous)
         };
-        self.project_root = Some(root.to_path_buf());
-        self.loaded_at = Some(SystemTime::now());
+        self.applied(update, &previous_diagnostics);
+    }
 
-        self.surface_diagnostics.clear();
-        self.promoted_surfaces.clear();
-        crate::registry::register_defaults(self);
-        let env = self.session.shared_environment();
-        crate::registry::register_extension_surfaces(self, &env.registries.manifest_surfaces);
-        crate::notifications::enqueue_compile_notifications(
-            self,
-            &update.delta,
-            &previous_diagnostics,
-        );
+    /// Bring the served project up to date with disk (behavior
+    /// `bring_session_up_to_date`): exactly what changed since it was last
+    /// built is applied, an update for changed sources, an environment
+    /// reload (its extension tools and resources registered again) for a
+    /// changed `specforge.json`, `specforge.lock` or extension module, a
+    /// re-check for a changed check input. Subscribed clients learn what
+    /// changed. `None` when nothing did, or the project was built in
+    /// memory.
+    pub fn ensure_fresh(&mut self) -> Option<&Update> {
+        let previous_diagnostics = self.diagnostics();
+        let update = self.session.ensure_fresh()?;
+        if let Some(Err(divergence)) = &update.verification {
+            debug_assert!(
+                false,
+                "an update of the served project diverged from a cold rebuild: {divergence}"
+            );
+        }
+        self.applied(update, &previous_diagnostics);
+        self.last_update.as_ref()
+    }
+
+    /// Record `update`, applied to the served session: the extension
+    /// surface table is built again when its environment loaded again, and
+    /// subscribed clients learn what changed.
+    fn applied(&mut self, update: Update, previous_diagnostics: &[Diagnostic]) {
+        self.generation += 1;
+        if update.kind == UpdateKind::Environment {
+            self.surfaces = ExtensionSurfaceTable::build(
+                self.registries(),
+                crate::tools::CORE_TOOLS,
+                crate::resources::CORE_RESOURCES,
+            );
+            let stats = self.surfaces.stats();
+            if stats.declared > 0 {
+                self.push_event(
+                    "commands_auto_promoted",
+                    serde_json::json!({
+                        "promotedCount": stats.promoted,
+                        "conflictCount": stats.conflicts,
+                    }),
+                );
+            }
+        }
+        crate::notifications::enqueue_compile_notifications(self, &update, previous_diagnostics);
+        self.last_update = Some(update);
     }
 
     /// Serve `session`, a project built in memory or opened by the host,
     /// as it is: no surface is registered again and no client notified.
     pub fn serve_session(&mut self, session: ProjectSession) {
         self.session = session;
+        self.generation += 1;
     }
 
     /// Serve `graph` with `diagnostics` as its graph build's, in the
     /// served project's environment ([`ProjectSession::from_graph`]).
     pub fn serve_graph(&mut self, graph: Graph, diagnostics: Vec<Diagnostic>) {
         let env = self.session.shared_environment();
-        self.session = ProjectSession::from_graph(env, graph, diagnostics);
+        self.serve_session(ProjectSession::from_graph(env, graph, diagnostics));
+    }
+
+    /// Serve `graph`, built in memory, with `diagnostics` as its graph
+    /// build's, in the served project's environment rooted at `root` (its
+    /// spec root the config's, under it): a host that assembles its graph
+    /// itself, or a test. It is never refreshed from disk; a call that
+    /// writes files under `root` serves the project on disk there.
+    pub fn serve_in_memory_at(
+        &mut self,
+        root: Option<PathBuf>,
+        graph: Graph,
+        diagnostics: Vec<Diagnostic>,
+    ) {
+        self.edit_environment(|env| {
+            let root = root.unwrap_or_default();
+            env.spec_root = match (&env.config.spec_root, root.as_os_str().is_empty()) {
+                (Some(spec_root), false) => root.join(spec_root),
+                _ => root.clone(),
+            };
+            env.root = root;
+        });
+        self.serve_graph(graph, diagnostics);
     }
 
     /// Serve the served graph as `edit` leaves it, in the same environment
@@ -349,12 +337,7 @@ impl McpState {
         let mut env = session.shared_environment();
         drop(session);
         edit(Arc::get_mut(&mut env).expect("the served environment is shared elsewhere"));
-        self.session = ProjectSession::from_graph(env, graph, diagnostics);
-    }
-
-    /// Whether the session serves the project on disk at `root`.
-    fn serves_session_at(&self, root: &Path) -> bool {
-        !self.session.is_detached() && self.project_root.is_some() && !self.serves_other_than(root)
+        self.serve_session(ProjectSession::from_graph(env, graph, diagnostics));
     }
 
     pub fn shutdown(&mut self) {
@@ -373,9 +356,7 @@ impl McpState {
         // The outbox stays: the host drains it after the shutdown response.
         self.previous_diagnostics = self.diagnostics();
         self.session = ProjectSession::detached();
-        self.surface_diagnostics.clear();
-        self.promoted_surfaces.clear();
-        self.project_root = None;
-        self.loaded_at = None;
+        self.generation += 1;
+        self.surfaces = ExtensionSurfaceTable::empty();
     }
 }

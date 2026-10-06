@@ -1,58 +1,59 @@
-use serde_json::Value;
-use std::collections::{HashMap, VecDeque};
+//! `specforge://prompts/explore`: where to start exploring the graph.
 
-use crate::protocol::JsonRpcResponse;
-use crate::state::McpState;
+use serde::Deserialize;
+use serde_json::{Value, json};
+use specforge_graph::{Graph, Reached};
 
-/// Breadth-first search from `start` over edges in both directions: one
-/// `McpRelationshipPath` per entity reached, in BFS order, carrying the
-/// edge labels along the shortest path. With `kind`, only paths ending at
-/// an entity of that kind are kept.
-fn bfs_paths(state: &McpState, start: &str, kind: Option<&str>) -> Vec<Value> {
-    if state.graph().node(start).is_none() {
+use crate::prompt::{PromptArgs, PromptOutcome, Rendered};
+use crate::target::Call;
+use crate::tool::entity_not_found;
+
+#[derive(Debug, Deserialize)]
+pub struct Args {
+    #[serde(default)]
+    entity_id: Option<String>,
+    #[serde(default)]
+    kind: Option<String>,
+    #[serde(default, deserialize_with = "crate::args::some_count")]
+    depth: Option<usize>,
+}
+
+impl PromptArgs for Args {
+    const DESCRIPTIONS: &'static [(&'static str, &'static str)] = &[
+        ("entity_id", "Starting entity (optional)"),
+        ("kind", "Filter by entity kind"),
+        (
+            "depth",
+            "Hops from entity_id the exploration reaches (unbounded if omitted)",
+        ),
+    ];
+}
+
+/// One `McpRelationshipPath` per entity [`Graph::reach`] reached from
+/// the root (the root itself aside), nearest first, carrying the edge
+/// labels on the path to it. With `kind`, only paths ending at an entity
+/// of that kind are kept.
+fn relationship_paths(graph: &Graph, reached: &[Reached], kind: Option<&str>) -> Vec<Value> {
+    let Some(root) = reached.first() else {
         return Vec::new();
-    }
-    // Entity id -> edge labels on the shortest path from `start`.
-    let mut labels: HashMap<String, Vec<String>> = HashMap::from([(start.to_string(), vec![])]);
-    let mut order: Vec<String> = Vec::new();
-    let mut queue = VecDeque::from([start.to_string()]);
-    while let Some(current) = queue.pop_front() {
-        let path = labels[&current].clone();
-        let mut neighbors: Vec<(String, String)> = state
-            .graph()
-            .edges_from(&current)
-            .iter()
-            .map(|e| (e.target.to_string(), e.label.to_string()))
-            .chain(
-                state
-                    .graph()
-                    .edges_to(&current)
-                    .iter()
-                    .map(|e| (e.source.to_string(), e.label.to_string())),
-            )
-            .collect();
-        neighbors.sort();
-        for (next, label) in neighbors {
-            if labels.contains_key(&next) {
-                continue;
-            }
-            let mut next_path = path.clone();
-            next_path.push(label);
-            labels.insert(next.clone(), next_path);
-            order.push(next.clone());
-            queue.push_back(next);
-        }
-    }
-    order
-        .into_iter()
-        .filter(|id| {
-            kind.is_none_or(|kind| state.graph().node(id).is_some_and(|n| n.kind.raw == kind))
+    };
+    reached[1..]
+        .iter()
+        .filter(|r| {
+            kind.is_none_or(|kind| {
+                graph
+                    .node(r.id.as_str())
+                    .is_some_and(|n| n.kind.raw == kind)
+            })
         })
-        .map(|id| {
-            let edge_types = &labels[&id];
-            serde_json::json!({
-                "from_entity": start,
-                "to_entity": id,
+        .map(|r| {
+            let edge_types: Vec<&str> = Graph::reach_path(reached, r.id)
+                .iter()
+                .map(|label| label.as_str())
+                .collect();
+            json!({
+                "from_entity": root.id.as_str(),
+                "to_entity": r.id.as_str(),
                 "edge_types": edge_types,
                 "path_length": edge_types.len(),
             })
@@ -60,12 +61,21 @@ fn bfs_paths(state: &McpState, start: &str, kind: Option<&str>) -> Vec<Value> {
         .collect()
 }
 
-pub fn get(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse {
-    let entity_filter = args.get("entity_id").and_then(|v| v.as_str());
-    let kind_filter = args.get("kind").and_then(|v| v.as_str());
+pub fn render(call: &Call<'_>, args: Args) -> PromptOutcome {
+    let graph = call.view().graph;
+    let entity_filter = args.entity_id.as_deref();
+    let kind_filter = args.kind.as_deref();
+    // The entities reached from entity_id, as review's neighbourhood is.
+    let reached = match entity_filter {
+        Some(start) => Some(
+            graph
+                .reach(start, args.depth)
+                .ok_or_else(|| entity_not_found(start))?,
+        ),
+        None => None,
+    };
 
-    let matching: Vec<String> = state
-        .graph()
+    let matching: Vec<String> = graph
         .nodes()
         .into_iter()
         .filter(|n| {
@@ -85,13 +95,12 @@ pub fn get(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse 
         .collect();
 
     // High connectivity: nodes with most edges (exclude zero-edge nodes)
-    let mut connectivity: Vec<(String, usize)> = state
-        .graph()
+    let mut connectivity: Vec<(String, usize)> = graph
         .nodes()
         .into_iter()
         .map(|n| {
-            let count = state.graph().edges_from(n.id.raw.as_str()).len()
-                + state.graph().edges_to(n.id.raw.as_str()).len();
+            let count =
+                graph.edges_from(n.id.raw.as_str()).len() + graph.edges_to(n.id.raw.as_str()).len();
             (n.id.raw.to_string(), count)
         })
         .collect();
@@ -111,13 +120,12 @@ pub fn get(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse 
         .collect();
 
     // Starting points: high out-degree, low in-degree
-    let mut starting_points: Vec<(String, i64)> = state
-        .graph()
+    let mut starting_points: Vec<(String, i64)> = graph
         .nodes()
         .into_iter()
         .map(|n| {
-            let out = state.graph().edges_from(n.id.raw.as_str()).len() as i64;
-            let in_ = state.graph().edges_to(n.id.raw.as_str()).len() as i64;
+            let out = graph.edges_from(n.id.raw.as_str()).len() as i64;
+            let in_ = graph.edges_to(n.id.raw.as_str()).len() as i64;
             (n.id.raw.to_string(), out - in_)
         })
         .collect();
@@ -128,12 +136,12 @@ pub fn get(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse 
         .map(|(id, _)| id.clone())
         .collect();
 
-    let relationship_paths = match entity_filter {
-        Some(start) => bfs_paths(state, start, kind_filter),
-        None => Vec::new(),
-    };
+    let relationship_paths = reached
+        .as_deref()
+        .map(|reached| relationship_paths(graph, reached, kind_filter))
+        .unwrap_or_default();
 
-    let result = serde_json::json!({
+    let payload = json!({
         "matching_entities": matching,
         "relationship_paths": relationship_paths,
         "starting_points": starting_points,
@@ -146,19 +154,8 @@ pub fn get(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse 
          then investigate orphan nodes that may need relationships. \
          Use starting_points for top-down traversal.";
 
-    JsonRpcResponse::success(
-        id,
-        serde_json::json!({
-            "messages": [
-                {
-                    "role": "user",
-                    "content": { "type": "text", "text": instruction }
-                },
-                {
-                    "role": "assistant",
-                    "content": { "type": "text", "text": result.to_string() }
-                }
-            ]
-        }),
-    )
+    Ok(Rendered {
+        instruction: instruction.to_string(),
+        payload,
+    })
 }

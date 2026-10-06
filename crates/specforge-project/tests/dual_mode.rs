@@ -1,12 +1,12 @@
 //! Protocol extension loading: extensions are loaded via the Wasm protocol
 //! (__handshake / __describe) through a WasmRuntime implementation.
 
+use specforge_extension_sdk::{ContributionsBuilder, ExtensionMeta, no_other_exports};
+use specforge_protocol_types::{ContributionFlags, HandshakeResponse};
 use specforge_test::prelude::*;
-use specforge_wasm::protocol::*;
-use specforge_wasm::{WasmCallResult, WasmRuntime, WasmTrapInfo};
-use std::collections::HashMap;
+use specforge_wasm::testing::InProcessRuntime;
+use specforge_wasm::{WasmCallResult, WasmTrapInfo};
 use std::fs;
-use std::path::Path;
 use tempfile::TempDir;
 
 /// Helper: create a temp project dir with specforge.json and optional extensions.
@@ -22,95 +22,7 @@ fn setup_project(extensions: &[&str], spec_content: &str) -> TempDir {
     dir
 }
 
-// (Removed: manifest loading tests — manifest.json is no longer supported.
-// Extensions are loaded via the Wasm protocol pipeline.)
-
-// ── MockRuntime ──
-// Category-aware mock: keys on "__handshake" for handshake, "__describe::{category}" for describe.
-
-struct MockRuntime {
-    call_results: HashMap<String, WasmCallResult>,
-}
-
-impl MockRuntime {
-    fn new() -> Self {
-        Self {
-            call_results: HashMap::new(),
-        }
-    }
-
-    fn with_handshake(mut self, name: &str, entities: bool, validators: bool) -> Self {
-        let resp = HandshakeResponse {
-            protocol_version: PROTOCOL_VERSION.to_string(),
-            name: name.to_string(),
-            version: "1.0.0".to_string(),
-            contribution_flags: ContributionFlags {
-                entities,
-                validators,
-                ..Default::default()
-            },
-            peer_dependencies: vec![],
-            sandbox_policy: None,
-            starter_template: None,
-            theme_color: None,
-            migration_hook: None,
-        };
-        self.call_results.insert(
-            "__handshake".to_string(),
-            WasmCallResult::Ok(serde_json::to_vec(&resp).unwrap()),
-        );
-        self
-    }
-
-    fn with_describe(mut self, category: &str, items: serde_json::Value) -> Self {
-        let resp = DescribeResponse {
-            category: category.to_string(),
-            items,
-        };
-        self.call_results.insert(
-            format!("__describe::{}", category),
-            WasmCallResult::Ok(serde_json::to_vec(&resp).unwrap()),
-        );
-        self
-    }
-
-    fn with_call_trap(mut self, key: &str, trap: WasmTrapInfo) -> Self {
-        self.call_results
-            .insert(key.to_string(), WasmCallResult::Trap(trap));
-        self
-    }
-}
-
-impl WasmRuntime for MockRuntime {
-    fn load_module(&self, _wasm_path: &Path) -> Result<(), String> {
-        Ok(())
-    }
-
-    fn call_export(
-        &self,
-        _extension_name: &str,
-        export_name: &str,
-        input: &[u8],
-    ) -> WasmCallResult {
-        if export_name == "__describe"
-            && let Ok(req) = serde_json::from_slice::<DescribeRequest>(input)
-        {
-            let compound_key = format!("__describe::{}", req.category);
-            if let Some(result) = self.call_results.get(&compound_key) {
-                return result.clone();
-            }
-        }
-        self.call_results
-            .get(export_name)
-            .cloned()
-            .unwrap_or_else(|| {
-                let default_resp = serde_json::json!({"category": "unknown", "items": []});
-                WasmCallResult::Ok(serde_json::to_vec(&default_resp).unwrap())
-            })
-    }
-}
-
-// --- Step 6: Protocol extension loaded with MockRuntime ---
+// --- Step 6: Protocol extension loaded through a runtime ---
 
 // B:dual_mode_loading — verify unit "protocol extension loaded via runtime"
 // Not linked to "installed extension manifest is loaded": the mock answers
@@ -120,30 +32,22 @@ impl WasmRuntime for MockRuntime {
 #[test]
 fn protocol_extension_loaded_with_runtime() {
     let dir = setup_project(
-        &["./ext-proto"],
+        &["@test/proto"],
         "behavior hello \"Hello\" {\n    status planned\n}\n",
     );
 
-    let ext_dir = dir.path().join("ext-proto");
-    fs::create_dir_all(&ext_dir).unwrap();
-    fs::write(ext_dir.join("extension.wasm"), [0x00, 0x61, 0x73, 0x6d]).unwrap();
-
-    let runtime = MockRuntime::new()
-        .with_handshake("@test/proto", true, false)
-        .with_describe(
-            "entities",
-            serde_json::json!([{
-                "name": "gadget",
-                "description": "A test gadget"
-            }]),
-        )
-        .with_describe("edges", serde_json::json!([]))
-        .with_describe("fields", serde_json::json!([]))
-        .with_describe("shared_fields", serde_json::json!([]))
-        .with_describe("enhancements", serde_json::json!([]))
-        .with_describe("surfaces", serde_json::json!([]))
-        .with_describe("passes", serde_json::json!([]))
-        .with_describe("feature_flags", serde_json::json!([]));
+    // The project names it; the runtime serves it under that name.
+    let runtime = InProcessRuntime::new().serving(
+        "@test/proto",
+        || {
+            let mut c = ContributionsBuilder::new(ExtensionMeta::new("@test/proto", "1.0.0"));
+            c.kind("gadget", |k| {
+                k.description("A test gadget");
+            });
+            c
+        },
+        no_other_exports,
+    );
 
     let ctx =
         specforge_project::CompiledProject::compile(dir.path(), Some(&runtime)).into_context();
@@ -168,13 +72,13 @@ fn protocol_extension_loaded_with_runtime() {
         .collect();
     assert!(e028.is_empty(), "should not have E028: {:?}", e028);
 
-    // ManifestV2 should appear in ctx.manifests
+    // Its declaration should appear in ctx.declarations
     assert_eq!(
-        ctx.manifests.len(),
+        ctx.declarations.len(),
         1,
-        "expected 1 manifest from protocol extension"
+        "expected 1 declaration from protocol extension"
     );
-    assert_eq!(ctx.manifests[0].name, "@test/proto");
+    assert_eq!(ctx.declarations[0].name(), "@test/proto");
 
     // KindRegistry should have "gadget"
     assert!(
@@ -196,21 +100,18 @@ fn protocol_extension_loaded_with_runtime() {
 )]
 fn protocol_handshake_trap_produces_e028() {
     let dir = setup_project(
-        &["./ext-broken"],
+        &["@test/broken"],
         "behavior hello \"Hello\" {\n    status planned\n}\n",
     );
 
-    let ext_dir = dir.path().join("ext-broken");
-    fs::create_dir_all(&ext_dir).unwrap();
-    fs::write(ext_dir.join("extension.wasm"), [0x00, 0x61, 0x73, 0x6d]).unwrap();
-
-    let runtime = MockRuntime::new().with_call_trap(
+    let runtime = InProcessRuntime::new().answer_raw(
+        "@test/broken",
         "__handshake",
-        WasmTrapInfo {
+        WasmCallResult::Trap(WasmTrapInfo {
             kind: "unreachable".to_string(),
             message: "extension panicked during handshake".to_string(),
             export_name: "__handshake".to_string(),
-        },
+        }),
     );
 
     let ctx =
@@ -229,7 +130,7 @@ fn protocol_handshake_trap_produces_e028() {
         e028
     );
     assert!(
-        e028[0].message.contains("ext-broken"),
+        e028[0].message.contains("@test/broken"),
         "E028 should mention extension name"
     );
     assert!(
@@ -237,10 +138,10 @@ fn protocol_handshake_trap_produces_e028() {
         "E028 should describe the error"
     );
 
-    // No manifests from the broken extension
+    // No declaration from the broken extension
     assert!(
-        ctx.manifests.is_empty(),
-        "broken extension should not produce a manifest"
+        ctx.declarations.is_empty(),
+        "broken extension should not produce a declaration"
     );
 }
 
@@ -251,13 +152,9 @@ fn protocol_handshake_trap_produces_e028() {
 )]
 fn protocol_version_mismatch_produces_e028() {
     let dir = setup_project(
-        &["./ext-badver"],
+        &["@test/badver"],
         "behavior hello \"Hello\" {\n    status planned\n}\n",
     );
-
-    let ext_dir = dir.path().join("ext-badver");
-    fs::create_dir_all(&ext_dir).unwrap();
-    fs::write(ext_dir.join("extension.wasm"), [0x00, 0x61, 0x73, 0x6d]).unwrap();
 
     // Return a handshake with wrong protocol version
     let bad_handshake = HandshakeResponse {
@@ -270,17 +167,13 @@ fn protocol_version_mismatch_produces_e028() {
         starter_template: None,
         theme_color: None,
         migration_hook: None,
+        ..Default::default()
     };
-    let runtime = MockRuntime {
-        call_results: {
-            let mut m = HashMap::new();
-            m.insert(
-                "__handshake".to_string(),
-                WasmCallResult::Ok(serde_json::to_vec(&bad_handshake).unwrap()),
-            );
-            m
-        },
-    };
+    let runtime = InProcessRuntime::new().answer_raw(
+        "@test/badver",
+        "__handshake",
+        WasmCallResult::Ok(serde_json::to_vec(&bad_handshake).unwrap()),
+    );
 
     let ctx =
         specforge_project::CompiledProject::compile(dir.path(), Some(&runtime)).into_context();

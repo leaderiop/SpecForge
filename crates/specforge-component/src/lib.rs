@@ -54,6 +54,10 @@ struct PluginInstance {
     /// Enforced with wasmtime epoch interruption; `set_epoch_deadline` is
     /// refreshed from this value before every `call`.
     deadline_ms: u64,
+    /// What the instance was made from, to make a fresh one after a trap:
+    /// a component instance that trapped cannot be entered again.
+    component: Component,
+    fuel: u64,
 }
 
 /// Deterministic per-call instruction budget, shared by every surface.
@@ -136,6 +140,9 @@ pub struct ComponentRuntime {
     /// Why an extension the project enables failed to load (a missing or
     /// tampered installed binary), by name: compile reports it.
     load_failures: Mutex<HashMap<String, specforge_common::Diagnostic>>,
+    /// The extension each `.wasm` file entry of `specforge.json` loaded
+    /// as (the name its component declares), by the entry.
+    file_entries: Mutex<HashMap<String, String>>,
 }
 
 impl ComponentRuntime {
@@ -192,6 +199,7 @@ impl ComponentRuntime {
             fuel: DEFAULT_FUEL_LIMIT,
             default_deadline_ms,
             load_failures: Mutex::new(HashMap::new()),
+            file_entries: Mutex::new(HashMap::new()),
         }
     }
 
@@ -201,6 +209,30 @@ impl ComponentRuntime {
             .lock()
             .unwrap_or_else(|e| e.into_inner())
             .insert(name.to_string(), diagnostic);
+    }
+
+    /// Record that the `.wasm` file entry `entry` loaded as `extension`,
+    /// for [`WasmRuntime::file_entry_extension`].
+    pub(crate) fn record_file_entry(&self, entry: &str, extension: &str) {
+        self.file_entries
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .insert(entry.to_string(), extension.to_string());
+    }
+
+    /// Register the extension loaded as `from` under `to` instead, without
+    /// compiling or instantiating it again. False when `from` is not loaded.
+    pub(crate) fn rename(&self, from: &str, to: &str) -> bool {
+        let Ok(mut plugins) = self.plugins.lock() else {
+            return false;
+        };
+        match plugins.remove(from) {
+            Some(plugin) => {
+                plugins.insert(to.to_string(), plugin);
+                true
+            }
+            None => false,
+        }
     }
 
     /// Deterministic per-call instruction budget, enforced by the engine.
@@ -268,6 +300,29 @@ impl ComponentRuntime {
         component: Component,
         fuel: u64,
     ) -> Result<(), String> {
+        let (store, bindings) = self.fresh_instance(name, &component, fuel)?;
+        let mut plugins = self.plugins.lock().map_err(|e| e.to_string())?;
+        plugins.insert(
+            name.to_string(),
+            Arc::new(Mutex::new(PluginInstance {
+                store,
+                bindings,
+                deadline_ms: self.default_deadline_ms,
+                component,
+                fuel,
+            })),
+        );
+        Ok(())
+    }
+
+    /// A new instance of `component`, with `fuel` and the default
+    /// wall-clock budget armed.
+    fn fresh_instance(
+        &self,
+        name: &str,
+        component: &Component,
+        fuel: u64,
+    ) -> Result<(Store<HostState>, Bridge), String> {
         let mut linker: Linker<HostState> = Linker::new(&self.engine);
         wasmtime_wasi::p2::add_to_linker_sync(&mut linker)
             .map_err(|e| format!("failed to add WASI to linker: {e}"))?;
@@ -283,19 +338,9 @@ impl ComponentRuntime {
         // wall-clock budget before any guest code can run.
         store.set_epoch_deadline(ms_to_ticks(self.default_deadline_ms));
 
-        let bindings = Bridge::instantiate(&mut store, &component, &linker)
+        let bindings = Bridge::instantiate(&mut store, component, &linker)
             .map_err(|e| format!("failed to instantiate component {name}: {e}"))?;
-
-        let mut plugins = self.plugins.lock().map_err(|e| e.to_string())?;
-        plugins.insert(
-            name.to_string(),
-            Arc::new(Mutex::new(PluginInstance {
-                store,
-                bindings,
-                deadline_ms: self.default_deadline_ms,
-            })),
-        );
-        Ok(())
+        Ok((store, bindings))
     }
 
     /// Applies a plugin-declared wall-clock budget (its handshake
@@ -358,6 +403,8 @@ impl ComponentRuntime {
             store,
             bindings,
             deadline_ms,
+            component,
+            fuel,
         } = &mut *instance;
         store.set_epoch_deadline(ms_to_ticks(*deadline_ms));
         match bindings.call_call(&mut *store, name, export, input) {
@@ -375,6 +422,16 @@ impl ComponentRuntime {
                     e.downcast_ref::<wasmtime::Trap>(),
                     Some(wasmtime::Trap::Interrupt)
                 );
+                // An instance that trapped cannot be entered again: the
+                // extension's next call gets a fresh one, as a guest that
+                // panics in one call must not take the extension down for
+                // the rest of the process (an MCP session).
+                if let Ok((fresh_store, fresh_bindings)) =
+                    self.fresh_instance(name, component, *fuel)
+                {
+                    *store = fresh_store;
+                    *bindings = fresh_bindings;
+                }
                 WasmCallResult::Trap(WasmTrapInfo {
                     kind: if deadline_hit {
                         "deadline_exceeded"
@@ -420,6 +477,14 @@ impl WasmRuntime for ComponentRuntime {
             .lock()
             .unwrap_or_else(|e| e.into_inner())
             .get(extension_name)
+            .cloned()
+    }
+
+    fn file_entry_extension(&self, entry: &str) -> Option<String> {
+        self.file_entries
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .get(entry)
             .cloned()
     }
 }

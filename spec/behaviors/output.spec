@@ -124,11 +124,14 @@ behavior compute_traceability_chain "Compute Traceability Chain" {
     entities in the current graph. This distinguishes from broken
     references (E003), which are caught during resolution.
     The JSON trace output MUST carry the Graph Protocol schema_version.
+    Tracing an entity the graph does not have MUST be E003, naming the
+    closest entity when one is near.
   """
   verify unit "trace from entity shows upstream and downstream connections"
   verify unit "trace shows full chain depth"
   verify unit "missing link in chain is flagged"
   verify unit "trace output includes schema version"
+  verify unit "tracing an entity the graph lacks is E003 naming the closest entity"
   verify contract "Compute Traceability Chain: traceability chain computation holds — validation_complete_fired, full_chain_traversed, missing_links_flagged, trace_chain_computed_emitted"
 }
 
@@ -176,6 +179,47 @@ behavior compute_project_statistics "Compute Project Statistics" {
   verify unit "stats leaves the entities W004 exempts out of the testable count"
   verify integration "stats reports the declared and proof percentages"
   verify contract "Compute Project Statistics: project statistics computation holds — validation_complete_fired, entity_counts_produced, coverage_computed, zero_testable_safe"
+}
+
+// The read views are operations over the project view: one per view,
+// shared by the CLI and MCP.
+behavior read_views_over_the_project_view "Read Views over the Project View" {
+  features   [mcp_core_tools, extension_driven_coverage, traceability_serialization]
+  invariants [diagnostic_determinism, testable_entity_classification, zero_domain_knowledge_core]
+  category   query
+  types      [Graph, KindRegistryEntry, GraphProtocolSchema, TraceChain]
+  ports      [CompilerApi, McpProtocol]
+  requires {
+    project_compiled "A compiled project or a project session supplies the project view"
+  }
+  ensures {
+    one_report_rule        "The recorded test report and the schema cache are the view root's, never an ancestor's"
+    one_coverage_per_state "Coverage is computed once per compile and per recorded report content"
+    surfaces_agree         "The CLI and MCP report the same numbers, chains, schema version and diagrams for one project"
+  }
+  contract   """
+    Stats, trace (one entity or every entity), the coverage view, the
+    model and outline diagrams and the versioned Graph Protocol schema
+    MUST each be one operation over the project view, shared by the CLI
+    and MCP; a surface maps its arguments and renders the outcome. The
+    view's root is the root the project was compiled from: its recorded
+    test report is <root>/specforge-report.json and its schema cache
+    <root>/.specforge/schema-cache.json, and no view looks in an ancestor
+    directory. A report that exists but cannot be read is an error on
+    every view (E045). Coverage is computed once per compiled project or
+    session state and per content of the recorded report; a rewritten
+    report is read again. An entity is unverified when it counts toward
+    coverage and is not proven.
+  """
+  verify unit "the recorded test report is read at the view's root, never an ancestor's"
+  verify unit "the schema cache is the view root's, never an ancestor's"
+  verify unit "coverage is computed once per compile and report content, and again after the report changes"
+  verify unit "an entity is unverified when it counts toward coverage and is not proven"
+  verify integration "specforge stats and specforge.stats report the same numbers"
+  verify integration "specforge trace and specforge.trace return the same chain for an entity"
+  verify integration "specforge schema and specforge.schema carry the same version"
+  verify integration "specforge outline and specforge.outline_extensions render the same text"
+  verify contract "Read Views over the Project View: read views hold — project_compiled, one_report_rule, one_coverage_per_state, surfaces_agree"
 }
 
 behavior print_diagnostics_structured "Print Diagnostics Structured" {
@@ -228,13 +272,15 @@ behavior exit_code_reflects_diagnostic_severity "Exit Code Reflects Diagnostic S
     exit with code 1 if any error-level diagnostic exists. With --strict,
     warnings MUST also cause exit code 1.
     A command-line value outside a flag's allowed set, such as an
-    unknown --format, MUST be rejected while arguments are parsed, with
-    exit code 2, before anything is compiled.
+    unknown --format, an unknown --lint profile or an unknown --severity,
+    MUST be rejected while arguments are parsed, with exit code 2, before
+    anything is compiled.
   """
   verify unit "exit 0 with no errors"
   verify unit "exit 1 with errors"
   verify unit "exit 1 with warnings in strict mode"
   verify unit "a typo'd --format fails with a clap error (exit 2), not a bespoke runtime error"
+  verify unit "an unknown --lint profile fails with a clap error (exit 2), before anything is compiled"
   verify contract "Exit Code Reflects Diagnostic Severity: exit code severity mapping holds — validation_complete_fired, exit_zero_on_clean, exit_one_on_errors, strict_mode_enforced"
 }
 
@@ -370,6 +416,65 @@ behavior check_mode_for_ci "Check Mode for CI" {
   verify unit "check mode prints diagnostics to stderr"
   verify integration "check mode works in CI environment"
   verify contract "Check Mode for CI: CI check mode holds — validation_complete_fired, no_output_files_produced, diagnostics_to_stderr, appropriate_exit_code"
+}
+
+behavior check_diagnostic_policy "Apply the Diagnostic Policy Once" {
+  features   [ci_integration, diagnostic_reporting]
+  invariants [diagnostic_determinism, zero_domain_knowledge_core]
+  category   validation
+  types      [Diagnostic]
+  ports      [CompilerApi]
+  requires {
+    project_compiled "the project compiled and its diagnostics are known"
+  }
+  ensures {
+    policy_once        "lint profiles add their diagnostics, then strict promotes warnings, the same way for specforge check and MCP validate"
+    closed_profiles    "the lint profiles are inferred and pedantic; any other name is refused"
+    verdict_unfiltered "the check passes when nothing reported is an error, whatever a severity filter shows"
+  }
+  contract   """
+    What a project reports is decided once, for specforge check and the
+    MCP specforge.validate tool alike: the compiled project's
+    diagnostics, then those of each requested lint profile (inferred:
+    I200 and I202 from specforge-infer.json; pedantic adds nothing, as
+    info diagnostics are always reported), then strict promotion of
+    warnings to errors. A lint profile SpecForge does not define MUST be
+    refused: by the CLI while arguments are parsed (exit 2), by MCP as
+    invalid input. The check passes when no reported diagnostic is an
+    error; a severity filter selects what is shown and MUST NOT change
+    whether the check passes or whether the build cache is written.
+  """
+  verify unit "an unknown lint profile is refused by name, and pedantic adds nothing"
+  verify unit "the verdict and the cache decision are taken over every reported diagnostic, never the filtered ones"
+  verify unit "strict promotes warnings before the verdict, so a strict check with warnings is not clean"
+  verify unit "--lint pedantic is accepted and changes nothing"
+}
+
+behavior filter_reported_diagnostics "Filter Reported Diagnostics by Severity" {
+  features   [ci_integration, diagnostic_reporting]
+  invariants [diagnostic_determinism]
+  category   query
+  types      [Diagnostic]
+  ports      [CompilerApi]
+  requires {
+    policy_applied "the diagnostic policy has been applied"
+  }
+  ensures {
+    shows_one_severity "only diagnostics of the named severity (error, warning or info, any case) are shown, after strict promotion"
+    same_both_surfaces "specforge check --severity and MCP validate severity_filter show the same diagnostics"
+    exit_unaffected    "the exit code and the build cache decision are those of the unfiltered check"
+  }
+  contract   """
+    specforge check --severity <error|warning|info> and the
+    severity_filter argument of specforge.validate show only the
+    reported diagnostics of that severity, after strict promotion, in
+    check's order. The name matches ignoring case; any other value MUST
+    be refused (CLI: exit 2 while arguments are parsed; MCP: invalid
+    input naming severity_filter). The filter MUST NOT change the exit
+    code, the build cache decision, or MCP's verdict.
+  """
+  verify unit "check --severity prints only that severity and never changes the exit code"
+  verify integration "check --severity and MCP validate severity_filter report the same diagnostics"
 }
 
 behavior export_diagnostics_as_json "Export Diagnostics as JSON" {

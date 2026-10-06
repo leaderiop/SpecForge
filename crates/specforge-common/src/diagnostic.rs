@@ -46,10 +46,40 @@ pub enum DiagnosticData {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         did_you_mean: Option<String>,
     },
-    /// E013, E023, E026: `keyword` — an entity id, or an extension's kind
+    /// E013, E026: `keyword` — an entity id, or an extension's kind
     /// keyword — collides with a keyword the grammar or an earlier
     /// extension already owns.
     ShadowedKeyword { keyword: String },
+    /// W061: the entities of a reference cycle, in path order (the first
+    /// one repeated last, closing the cycle).
+    ReferenceCycle { path: Vec<String> },
+    /// A diagnostic an extension pass raised about `entity` (the pass named
+    /// it), whether or not the graph holds that entity.
+    Subject { entity: String },
+}
+
+impl DiagnosticData {
+    /// The entities the payload says the diagnostic is about, each once,
+    /// in the payload's order: an unresolved reference's holder, a cycle's
+    /// entities, a pass diagnostic's subject. None for the others.
+    /// Navigation attributes a diagnostic from these, never its message.
+    pub fn entities(&self) -> Vec<&str> {
+        let mut entities: Vec<&str> = Vec::new();
+        let named: Vec<&str> = match self {
+            DiagnosticData::UnresolvedReference { entity, .. }
+            | DiagnosticData::Subject { entity } => vec![entity.as_str()],
+            DiagnosticData::ReferenceCycle { path } => path.iter().map(String::as_str).collect(),
+            DiagnosticData::UnresolvedImport { .. } | DiagnosticData::ShadowedKeyword { .. } => {
+                Vec::new()
+            }
+        };
+        for entity in named {
+            if !entities.contains(&entity) {
+                entities.push(entity);
+            }
+        }
+        entities
+    }
 }
 
 impl std::fmt::Display for Severity {

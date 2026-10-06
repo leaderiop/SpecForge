@@ -150,6 +150,7 @@ behavior go_to_definition "Go-to-Definition" {
   }
   ensures {
     declaration_site_returned "the file path, line, and column of the entity declaration block header are returned"
+    name_selected             "the entity's name token is the definition's selection range"
   }
   contract   """
     When a user Ctrl+clicks on an entity ID in a .spec file, the LSP
@@ -161,6 +162,7 @@ behavior go_to_definition "Go-to-Definition" {
   verify unit "go-to-def on non-existent ID returns no result"
   verify integration "go-to-def works across files"
   verify unit "source spans convert from 1-based to 0-based for LSP"
+  verify unit "the definition's selection is the entity's name token"
   verify contract "Go-to-Definition: go-to-definition holds — graph_available, declaration_site_returned"
 }
 
@@ -175,16 +177,24 @@ behavior find_all_references "Find All References" {
   }
   ensures {
     all_references_returned "every location across all .spec files where the entity is referenced is returned"
-    declaration_included    "the entity's own declaration site is included in results"
+    declaration_included    "the entity's own declaration site is included when the request asks for it"
   }
   contract   """
     When a user triggers find-references on an entity ID, the LSP MUST
-    return every location across all .spec files where that entity is
-    referenced. Results MUST include the entity's own declaration site.
+    return every location across all .spec files where another entity's
+    field names that entity: the identifier token as written, one location
+    per occurrence. What the entity itself references is not a reference
+    to it. The entity's own declaration (its name token) MUST be included
+    when the request asks for it (includeDeclaration) and MUST NOT be
+    otherwise. The LSP and MCP specforge.find_references answer from the
+    same navigation (specforge_ops::navigate).
   """
   verify unit "find-refs returns all reference sites"
   verify unit "find-refs includes the declaration site"
   verify unit "find-refs across multiple files"
+  verify unit "find-refs excludes what the entity itself references"
+  verify unit "find-refs omits the declaration when the request excludes it"
+  verify unit "each reference is the identifier token as written"
   verify contract "Find All References: find all references holds — graph_available, all_references_returned, declaration_included"
 }
 
@@ -271,6 +281,9 @@ behavior autocomplete_entity_ids "Autocomplete Entity IDs" {
     MUST be suggested. Entity IDs are globally unique regardless of
     kind — the filtering is a UX optimization based on
     extension-declared field metadata, not a compiler requirement.
+    Suggestions are ranked by the shared ranking over IDs and titles
+    (exact, prefix, substring, then within the fuzzy threshold), as
+    workspace symbols and MCP specforge.search rank.
   """
   verify unit "autocomplete suggests matching IDs"
   verify unit "suggestions include entity titles and kinds"
@@ -332,9 +345,13 @@ behavior rename_entity_id "Rename Entity ID" {
     all .spec files. The rename MUST be atomic — all files are updated
     or none are. The new ID follows the same rule as the MCP rename tool's:
     a name that is not a legal entity ID, or that is taken, MUST be refused
-    with an error saying why.
+    with an error saying why. The edits are exactly the entity's
+    declaration name and its references, as find-references returns them;
+    text in strings, comments and verify statements that mentions the ID
+    is not a reference and is not edited.
   """
   verify unit "rename updates declaration and all references"
+  verify unit "rename leaves strings, comments and verify texts alone"
   verify unit "rename is atomic — all or nothing"
   verify unit "rename across multiple files"
   verify unit "rename rejects new name that duplicates existing entity ID"
@@ -367,12 +384,16 @@ behavior emit_live_diagnostics "Live Diagnostics" {
     The LSP MUST provide real-time diagnostics as the user types.
     After each file change, the LSP MUST incrementally recompile and
     push updated diagnostics to the editor. Error squiggles MUST appear
-    within 100ms of the user stopping typing.
+    within 100ms of the user stopping typing. A diagnostic without a span
+    that is about entities (its data names them, as a reference cycle's
+    does) MUST be published at the first one's name, with related
+    information at each other's.
   """
   verify unit "diagnostics update after file change"
   verify unit "code actions act on the diagnostics last published for the document"
   verify unit "only changed file diagnostics are refreshed"
   verify integration "diagnostics appear within 100ms"
+  verify unit "a spanless diagnostic about entities is published at the first one's name"
   verify contract "Live Diagnostics: live diagnostics holds — lsp_initialized_fired, graph_available, diagnostics_pushed, latency_enforced"
 }
 
@@ -399,7 +420,8 @@ behavior code_actions_for_missing_verify "Code Actions for Missing Verify" {
   contract   """
     The LSP SHOULD offer code actions on entities whose kind has
     testable=true in the KindRegistry but no verify declarations or
-    linked test files. The code action MUST add verify stub declarations
+    linked test files. The code actions offered for a request are those
+    whose diagnostic, or whose entity, overlaps the requested range. The code action MUST add verify stub declarations
     to the entity block in the .spec file, using verify kinds from the
     entity kind's allowed_verify_kinds in the KindRegistry (not hardcoded
     kinds). If no allowed_verify_kinds are specified, the stub MUST use
@@ -418,6 +440,7 @@ behavior code_actions_for_missing_verify "Code Actions for Missing Verify" {
   verify unit "stub format is verify <kind> entity_id TODO"
   verify unit "code action kind is QuickFix"
   verify unit "no test source files or application code generated"
+  verify unit "code actions are those whose diagnostic or entity overlaps the requested range"
   verify contract "Code Actions for Missing Verify: missing verify code actions holds — kind_registry_available, graph_available, quickfix_offered, verify_stubs_produced, no_code_generated"
 }
 
@@ -443,9 +466,13 @@ behavior outline_view "Outline View" {
     the lsp_icon field from the KindRegistry — the outline MUST NOT
     hardcode any SymbolKind mappings for specific entity types. Test
     coverage indicators SHOULD be shown when coverage data is available.
+    The tree is the one specforge.outline returns: entities in line order,
+    each entity's method members as its children, each entry selecting its
+    name.
   """
   verify unit "outline lists all entities in file"
   verify unit "outline shows entity kind, ID, and title"
+  verify integration "the outline nests an entity's methods as the MCP outline does"
   verify unit "outline uses extension-defined SymbolKind from KindRegistry lsp_icon"
   verify contract "Outline View: outline view holds — graph_available, kind_registry_available, all_entities_listed, symbol_kind_delegated"
 }
@@ -465,13 +492,16 @@ behavior workspace_symbol_search "Workspace Symbol Search" {
     symbol_kind_delegated      "SymbolKind for each result is determined by provide_extension_defined_lsp_icons"
   }
   contract   """
-    The LSP MUST support workspace symbol search. Typing an entity ID
-    prefix or title fragment MUST return matching entities across all
-    .spec files in the workspace. The SymbolKind for each result MUST
-    be determined by provide_extension_defined_lsp_icons.
+    The LSP MUST support workspace symbol search. Typing an entity ID or
+    title fragment, exactly or within the fuzzy threshold, MUST return
+    matching entities across all .spec files in the workspace, ranked by
+    the shared ranking (specforge_ops::navigate, the one MCP
+    specforge.search and completion use). The SymbolKind for each result
+    MUST be determined by provide_extension_defined_lsp_icons.
   """
   verify unit "search by ID prefix returns matches"
   verify unit "search by title fragment returns matches"
+  verify unit "a misspelled query within the fuzzy threshold finds the entity"
   verify unit "search results use extension-defined SymbolKind"
   verify contract "Workspace Symbol Search: workspace symbol search holds — graph_available, kind_registry_available, matching_entities_returned, symbol_kind_delegated"
 }
@@ -661,6 +691,30 @@ behavior goto_import_definition "Go-to-Definition on Imports" {
   verify unit "go-to-def on use path navigates to target file"
   verify unit "go-to-def on non-existent use path returns no result"
   verify contract "Go-to-Definition on Imports: import go-to-definition holds — imports_resolved, target_file_navigated"
+}
+
+behavior code_action_replace_unresolved "Code Action: Replace an Unresolved Reference" {
+  category   mutation
+  invariants [zero_domain_knowledge_core, lsp_response_latency, lsp_text_edit_non_overlapping]
+  types      [CodeAction, Diagnostic, TextEdit]
+  ports      [LspProtocol]
+  features   [extension_driven_code_actions, code_actions]
+  requires {
+    did_you_mean_known "the diagnostic's data names a close match"
+  }
+  ensures {
+    token_replaced "the unresolved token, and only it, is replaced by the close match"
+  }
+  contract   """
+    For an unresolved reference (E003) or import (E025) whose data names a
+    close match (did_you_mean), the LSP and MCP specforge.suggest_fixes MUST
+    offer one quick fix that replaces the unresolved token with the match.
+    Target, path and match MUST be read from the diagnostic's data, never
+    its message or suggestion text.
+  """
+  verify unit "an unresolved reference with a close match is replaced at its token"
+  verify unit "an unresolved import with a close match is replaced inside its quotes"
+  verify unit "the replacement is read from the diagnostic's data, whatever its message says"
 }
 
 behavior code_action_create_entity_stub "Code Action: Create Entity Stub" {

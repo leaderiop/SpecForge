@@ -35,6 +35,8 @@ type McpError "MCP Structured Error Response" {
   message    string
   entity_id  string     @optional
   tool       string     @optional
+  /// The prompt that refused, for a prompts/get answered with an error.
+  prompt     string     @optional
   /// The argument the tool could not use, for invalid_input.
   argument   string     @optional
   /// The diagnostic behind the failure: its code (E003, E059, ...) is
@@ -125,6 +127,7 @@ type McpInspectResult {
   testable            boolean
   /// The entity declares at least one verify obligation.
   declared            boolean
+  /// Deprecated: the number of edges in both directions.
   reference_count     integer
   summary             string       @optional
   source_span         SourceSpan   @readonly
@@ -132,6 +135,11 @@ type McpInspectResult {
   /// behavior's contract); absent when its kind declares none.
   contract            string       @optional
   fields              FieldMap     @optional
+  /// The entities that reference this one (incoming), distinct, sorted.
+  referenced_by       string[]
+  /// The entities this one references (outgoing), distinct, sorted.
+  refers_to           string[]
+  /// Deprecated: both directions, unlabeled. Use referenced_by and refers_to.
   references          string[]     @optional
   verify_declarations string[]     @optional
   coverage_status     string       @optional
@@ -140,38 +148,63 @@ type McpInspectResult {
 }
 
 type McpDefinitionResult {
-  entity_id string  @readonly
-  file_path string  @readonly
-  line      integer @readonly
-  column    integer @readonly
+  entity_id   string     @readonly
+  file_path   string     @readonly
+  /// The position of the entity's name.
+  line        integer    @readonly
+  column      integer    @readonly
+  /// The entity's block.
+  source_span SourceSpan @readonly
+  /// The entity's name as written; its block when the name could not be read.
+  name_span   SourceSpan @readonly
+  /// "token" when name_span is the name as written, else "entity".
+  precision   string     @readonly
   verify unit "McpDefinitionResult schema is valid"
 }
 
 type McpReferenceLocation {
   referencing_entity_id string     @readonly
+  referenced_entity_id  string     @readonly
+  /// The field naming the referenced entity; absent for its declaration.
+  field                 string     @optional
+  /// "declaration" or "reference".
+  role                  string
+  /// "token" when source_span is the identifier as written, else "entity"
+  /// (the text was unreadable or stale: the referencing entity's block).
+  precision             string
   source_span           SourceSpan @readonly
   verify unit "McpReferenceLocation schema is valid"
 }
 
 type McpReferenceResult {
   entity_id string @readonly
+  /// "incoming", "outgoing" or "both".
+  direction string @readonly
   locations McpReferenceLocation[]
   verify unit "McpReferenceResult schema is valid"
 }
 
 type McpOutlineEntry {
-  entity_id string            @readonly
-  kind      string            @readonly
-  title     string
-  range     SourceSpan        @readonly
-  children  McpOutlineEntry[] @optional
+  entity_id  string            @readonly
+  kind       string            @readonly
+  title      string
+  /// The entity's (or method's) block.
+  range      SourceSpan        @readonly
+  /// Its name as written: what an editor selects.
+  name_range SourceSpan        @readonly
+  children   McpOutlineEntry[] @optional
   verify unit "McpOutlineEntry schema is valid"
 }
 
 type McpFixSuggestion {
+  /// The LSP code action's title, e.g. "Replace with 'session_limit'".
   title           string
+  /// "quickfix" or "refactor".
   kind            string
   diagnostic_code string @optional
+  /// The entity the fix is about.
+  entity_id       string @optional
+  /// At least one: what applying the fix changes.
   edits           TextEdit[]
   verify unit "McpFixSuggestion schema is valid"
 }
@@ -207,7 +240,8 @@ type McpExtensionInfo {
   name             string @readonly
   /// The loaded version, else the locked one; absent when neither.
   version          string @optional
-  /// "builtin", or the lock entry's source ("registry", "local:<path>").
+  /// "builtin", the lock entry's source ("registry", "local:<path>"), or
+  /// "file:<path>" for a .wasm file entry of specforge.json.
   source           string @readonly
   /// The entity kinds the extension contributes.
   entity_kinds     string[]
@@ -268,7 +302,13 @@ type McpSearchResult {
   title         string
   file_path     string  @readonly
   line          integer @readonly
+  /// The rank band: 1.0 exact, 0.9 prefix, 0.8 substring, 0.7 field text,
+  /// 0.6 × similarity for a fuzzy match.
+  score         float
+  /// What matched: "id", "title" or a string field's name; absent for an
+  /// empty query.
   match_field   string  @optional
+  /// For a field-text match, the field's text around the match.
   match_snippet string  @optional
   verify unit "McpSearchResult schema is valid"
 }
@@ -297,6 +337,8 @@ type McpCoverageResult {
   proven             integer
   /// Verify texts no passing recorded test names, in declaration order.
   unproven           string[]
+  /// A testable-kind entity that owes no obligations and declares none (W004 exempts it).
+  exempt             boolean
   verify unit "McpCoverageResult schema is valid"
 }
 
@@ -414,9 +456,9 @@ type McpReviewFinding {
 }
 
 type McpTracePromptResult "Trace Prompt Result" {
-  /// Gaps in traceability between plan items and graph entities.
+  /// Plan gaps for a plan; the traced entities' missing links for an entity.
   coverage_gaps       McpTraceGap[]
-  /// Entity IDs that have no verify declarations, no linked evidence, and no collected evidence.
+  /// Entity IDs the trace reaches that count toward coverage and are not proven.
   unverified_entities string[]
   /// Entity IDs that the plan touches directly or transitively via graph edges.
   affected_entities   string[]

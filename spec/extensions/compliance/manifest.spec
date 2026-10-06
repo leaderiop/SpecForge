@@ -5,18 +5,18 @@ use "types/zero-entity-core"
 behavior ce_declare_manifest "Declare @specforge/compliance Manifest" {
   features [ce_core_entity_kinds]
   category command
-  types    [ManifestV2, ManifestEntityKind, ManifestEdgeType]
+  types    [ExtensionDeclaration, EntityKindDescriptor, EdgeTypeDescriptor]
   contract """
-    The @specforge/compliance extension MUST declare a v2 manifest with name
-    "@specforge/compliance", manifestVersion 2. The manifest MUST declare
+    The @specforge/compliance extension MUST declare itself with name
+    "@specforge/compliance". Its declaration MUST declare
     exactly 4 entity kinds (regulation, control, evidence, audit), 4 edge
     types (Governs, ImplementedBy, ProvidedBy, Audits), and all associated
-    validation rules. The wasmPath MUST point to the compiled Wasm module.
+    validation rules. The compiled Wasm component MUST serve it.
   """
   requires {
-    valid_manifest_version "manifestVersion == 2"
-    valid_extension_name   "name == '@specforge/compliance'"
-    wasm_module_exists     "wasmPath points to a compiled Wasm binary"
+    supported_protocol   "the handshake's protocol major version is the host's"
+    valid_extension_name "name == '@specforge/compliance'"
+    wasm_module_exists   "the declaration is read from the compiled Wasm component"
   }
   ensures {
     four_entity_kinds    "entityKinds.length == 4"
@@ -28,7 +28,7 @@ behavior ce_declare_manifest "Declare @specforge/compliance Manifest" {
   verify unit "manifest name is @specforge/compliance"
   verify unit "manifest declares exactly 4 entity kinds"
   verify unit "manifest declares exactly 4 edge types"
-  verify unit "manifest version is 2"
+  verify unit "the handshake's protocol major is the host's"
   verify unit "contributes declares entities, validators, and renderers"
 }
 

@@ -46,7 +46,7 @@ invariant testable_entity_classification "Testable Entity Classification" {
     populated from extension manifests. An entity kind with testable=true
     MUST accept verify statements and participate in coverage calculations
     and code action suggestions. These flags MUST NOT be hardcoded — they
-    come from the extension's ManifestEntityKind declarations. The core
+    come from the extension's EntityKindDescriptor declarations. The core
     compiler MUST NOT assume any entity kind is testable by default.
 
     P2 justification: The testable flag is structural dispatch, not domain

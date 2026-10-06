@@ -14,7 +14,7 @@ use "types/zero-entity-core"
 behavior fa_declare_manifest "Declare @specforge/formal Manifest" {
   category command
   types    [
-    ManifestV2,
+    ExtensionDeclaration,
     CompilerPassDeclaration,
     FeatureFlagDeclaration,
     FormalProperty,
@@ -24,8 +24,8 @@ behavior fa_declare_manifest "Declare @specforge/formal Manifest" {
     FormalProcess,
   ]
   contract """
-    The @specforge/formal extension MUST declare a v2 manifest with name
-    "@specforge/formal", manifestVersion 2. The manifest MUST declare
+    The @specforge/formal extension MUST declare itself with name
+    "@specforge/formal". Its declaration MUST declare
     5 entity kinds and 8 edge types.
 
     Entity kind declarations (all testable=false, supports_verify=false):
@@ -97,9 +97,9 @@ behavior fa_declare_manifest "Declare @specforge/formal Manifest" {
     required for basic SpecForge usage.
   """
   requires {
-    valid_manifest_version "manifestVersion == 2"
-    valid_extension_name   "name == '@specforge/formal'"
-    wasm_module_exists     "wasmPath points to a compiled Wasm binary"
+    supported_protocol   "the handshake's protocol major version is the host's"
+    valid_extension_name "name == '@specforge/formal'"
+    wasm_module_exists   "the declaration is read from the compiled Wasm component"
   }
   ensures {
     five_entity_kinds        "entityKinds contains property, axiom, protocol, refinement, process (all testable=false, supports_verify=false)"
@@ -125,7 +125,6 @@ behavior fa_declare_manifest "Declare @specforge/formal Manifest" {
     peer_dep_software        "peer_dependencies contains @specforge/software ^1.0 (required)"
     warning_level_strict     "all formal warnings require warning_level=strict"
     sandbox_restricted       "sandbox_policy declares network_access=false, file_system_access=read-only"
-    host_api_declared        "host_api_version is 1.0.0"
   }
   features [fa_progressive_warnings]
   verify unit "manifest name is @specforge/formal"

@@ -1,6 +1,6 @@
 # Extension Protocol
 
-The Extension Protocol defines how extensions communicate with the SpecForge host through a Wasm-based bidirectional interface, replacing the static `manifest.json` approach with a live negotiation model.
+The Extension Protocol defines how extensions communicate with the SpecForge host through a Wasm-based bidirectional interface. An extension declares itself: the host reads its declaration from the binary, and no file beside it.
 
 ## Overview
 
@@ -26,6 +26,8 @@ Host                                Extension (.wasm)
  |-- __describe("validation_rules") ---->|
  |<-- validation rule descriptors --------|
  |                                        |
+ |   ... every declared category, once    |
+ |                                        |
  |-- (register contributions) ---------->|  (internal)
  |                                        |
  |-- cmd__validate(args) --------------->|  (on demand)
@@ -38,7 +40,7 @@ Host                                Extension (.wasm)
 
 ### Handshake
 
-The handshake is the first call the host makes after loading a Wasm binary. It establishes identity, compatibility, and contribution scope.
+The handshake is the first call the host makes after loading a Wasm binary. It establishes identity, compatibility and the extension's metadata.
 
 **Export:** `__handshake`
 
@@ -46,63 +48,67 @@ The handshake is the first call the host makes after loading a Wasm binary. It e
 
 ```json
 {
-  "host_version": "1.2.0"
+  "host_version": "1.0.0",
+  "supported_categories": ["entities", "edges", "fields", "shared_fields", "enhancements", "validation_rules", "surfaces", "grammars", "body_parsers", "collectors", "passes", "feature_flags", "analyzers"]
 }
 ```
 
-**Output:**
+**Output** (`specforge_protocol_types::HandshakeResponse`):
 
 ```json
 {
+  "protocol_version": "1.0.0",
   "name": "@specforge/software",
   "version": "1.0.0",
-  "protocol_version": "1.0.0",
-  "ext_short": "software",
-  "host_api_version": "1.0.0",
-  "incremental": true,
-  "query_scope": "all",
-  "starter_template": "spec \"{project}\" {\n  version \"0.1.0\"\n}\n",
-  "migration_hook": "migrate_v1_to_v2",
-  "reserved_keywords": ["spec", "ref"],
   "contribution_flags": {
     "entities": true,
     "validators": true,
     "renderers": false,
     "providers": false,
-    "collectors": true,
+    "collectors": false,
     "prompts": false,
     "parsers": false,
     "grammars": false,
-    "body_parsers": true
+    "body_parsers": false,
+    "analyzers": false
   },
+  "peer_dependencies": [
+    { "name": "@specforge/product", "version": "^1.0", "optional": true }
+  ],
   "sandbox_policy": {
     "max_memory_mb": 256,
     "max_execution_ms": 5000,
+    "allowed_domains": [],
+    "allowed_paths": [],
+    "allowed_output_extensions": [],
     "network_access": false,
     "file_system_access": false
   },
-  "peer_dependencies": [
-    { "name": "@specforge/product", "version": "^1.0", "optional": false }
-  ]
+  "starter_template": "spec \"{project}\" {\n  version \"0.1.0\"\n}\n",
+  "theme_color": "#4a90d9",
+  "ext_short": "software",
+  "description": "Software design: behaviors, invariants, events, types and ports",
+  "keywords": ["design", "contracts"]
 }
 ```
 
-The `contribution_flags` object tells the host which categories this extension contributes to. The host uses these flags to decide which `__describe` calls to make. An extension that sets `entities: false` will never receive a `__describe("entities")` call.
+`protocol_version`, `name`, `version`, `contribution_flags`, `peer_dependencies` and `sandbox_policy` are required on the wire (`sandbox_policy` may be `null`: the host then applies its own deny-by-default policy). The others are optional and omitted when absent:
 
-`starter_template` is optional: the text of the starter `.spec` file `specforge init` writes for a project that enables the extension, with `{project}` standing for the project's entity id. When several enabled extensions declare one, `init` uses the template of the extension listed first in `specforge.json`; when none does, it writes a structural starter. SDK authors set it with `ContributionsBuilder::starter_template`.
+- `starter_template`: the text of the starter `.spec` file `specforge init` writes for a project that enables the extension, `{project}` standing for the project's entity id. When several enabled extensions declare one, `init` uses the first listed in `specforge.json`. SDK: `ContributionsBuilder::starter_template`.
+- `migration_hook`: the export `specforge migrate` calls after migrating the project's files. SDK: `ContributionsBuilder::migration_hook`.
+- `theme_color`: the hex colour (`#rgb`, `#rrggbb` or `#rrggbbaa`) the `model` and `outline` diagrams draw the extension in; grey otherwise. SDK: `ContributionsBuilder::theme_color`.
+- `ext_short`: the short name that routes the extension's commands, `specforge <ext_short> <command>` on the CLI and `specforge.<ext_short>.<id>` over MCP. Lowercase kebab case (`[a-z][a-z0-9-]*`); a malformed one is E030. Absent, it is the name's last segment (`@specforge/product` is `product`). SDK: `#[extension(short = "...")]`, checked at compile time.
+- `description` and `keywords`: what a package registry shows for the extension. `specforge publish` uploads them with the rest of the declaration. SDK: `#[extension(description = "...")]`, `ExtensionMeta::keywords`.
 
-`theme_color` is optional: the hex colour (`#rgb`, `#rrggbb` or `#rrggbbaa`) the `model` and `outline` diagrams draw the extension in; anything else, or none, draws it grey. SDK authors set it with `ContributionsBuilder::theme_color`.
+`contribution_flags` are informational: the SDK derives them from what the extension declares, and the host reads every declared category whatever they say. Only `providers`, which has no describe category, is read from them.
 
-The host checks `protocol_version` for compatibility. If the extension declares a protocol version the host does not support, the host emits a diagnostic and skips the extension.
+The host checks `protocol_version`: a major version other than its own fails the extension's load (E028), and its handshake's `sandbox_policy.max_execution_ms` bounds every later call into it.
 
 ### Describe
 
-After the handshake, the host calls `__describe(category)` for each category the extension flagged as `true`. The host decides which categories it needs based on context:
+After the handshake, the host calls `__describe(category)` once for each category it reads, always, in this order: `entities`, `edges`, `shared_fields`, `enhancements`, `validation_rules`, `surfaces`, `collectors`, `analyzers`, `passes`, `feature_flags` (`specforge_protocol_types::DECLARED_CATEGORIES`). Together with the handshake they are the extension's **declaration** (`specforge_protocol_types::ExtensionDeclaration`, ADR 0012): the host loads it once per environment load (`specforge_wasm::protocol::load_declaration`) and nothing describes a category again. An extension answers every supported category, `[]` when it contributes nothing to it; the SDK does.
 
-- The **CLI** skips MCP tool schemas (it uses CLI command descriptors instead)
-- The **MCP server** skips DOT visualization colors (it uses MCP tool schemas instead)
-- The **LSP** requests entity kinds with full LSP metadata (semantic tokens, icons)
-- **All contexts** request entities, edges, fields, and validation rules
+A category whose answer fails or doesn't parse as its descriptors fails the extension's load (E028), naming the category. An item key a descriptor doesn't define is ignored and reported (W138), naming the extension, the category, the item and the key.
 
 **Export:** `__describe`
 
@@ -114,26 +120,33 @@ After the handshake, the host calls `__describe(category)` for each category the
 }
 ```
 
-**Output (varies by category):**
+**Output:**
 
-The response structure depends on the requested category. Each category returns an array of descriptors specific to that category.
+```json
+{
+  "category": "entities",
+  "items": [ ... ]
+}
+```
+
+`items` is an array of the category's descriptors.
 
 ### Describe Categories
 
-The protocol defines 11 contribution categories:
-
-| Category | What it returns | When the host requests it |
+| Category | What it returns | Read by the host |
 |----------|----------------|--------------------------|
-| `entities` | Entity kind descriptors (keyword, fields, LSP metadata, DOT metadata) | Always |
+| `entities` | Entity kind descriptors (keyword, fields, LSP and DOT metadata) | Always |
 | `edges` | Edge type descriptors (label, source/target kind, visual style) | Always |
-| `fields` | Shared field descriptors applied to all entity kinds | Always |
-| `enhancements` | Field enhancements on other extensions' entity kinds | Always |
+| `shared_fields` | Field descriptors every kind of the extension gets (a kind's own field of the same name wins) | Always |
+| `fields` | Every kind's fields, concatenated (derived; the SDK answers it) | Never |
+| `enhancements` | Fields, edge types and verify kinds added to other extensions' entity kinds | Always |
 | `validation_rules` | Declarative and custom validation rule descriptors | Always |
-| `surfaces` | CLI commands, MCP tools, MCP resources | CLI, MCP |
-| `grammars`, `body_parsers` | Reserved: the host never asks for them | Never |
-| `collectors` | Collector descriptors with auto-detection config | When `collectors` flag is true |
-| `passes` | Compiler pass descriptors with ordering constraints | When extension declares passes |
-| `feature_flags` | Feature flag descriptors with allowed values and defaults | Always |
+| `surfaces` | One descriptor of the CLI commands, MCP tools and MCP resources, or none | Always |
+| `collectors` | Test result collector descriptors | Always |
+| `analyzers` | Language analyzer descriptors (`specforge infer`) | Always |
+| `passes` | Compiler pass descriptors with ordering constraints | Always |
+| `feature_flags` | Feature flag descriptors | Always |
+| `grammars`, `body_parsers` | Reserved | Never |
 
 ### Category: entities
 
@@ -215,13 +228,13 @@ Returns edge type descriptors. Each descriptor declares a labeled relationship b
 }
 ```
 
-### Category: fields
+### Category: shared_fields
 
-Returns shared field descriptors. Shared fields are applied to all entity kinds declared by this extension (and can be overridden per-kind).
+Returns the field descriptors every entity kind of the extension gets; a kind's own field of the same name wins.
 
 ```json
 {
-  "category": "fields",
+  "category": "shared_fields",
   "items": [
     {
       "name": "tags",
@@ -231,6 +244,8 @@ Returns shared field descriptors. Shared fields are applied to all entity kinds 
   ]
 }
 ```
+
+The `fields` category is derived: every kind's fields (from its `entities` descriptor), concatenated. The SDK answers it; the host never asks for it.
 
 ### Category: enhancements
 
@@ -319,7 +334,7 @@ Returns CLI command, MCP tool, and MCP resource descriptors. CLI commands auto-p
 ```json
 {
   "category": "surfaces",
-  "items": {
+  "items": [{
     "commands": [
       {
         "id": "validate",
@@ -328,33 +343,61 @@ Returns CLI command, MCP tool, and MCP resource descriptors. CLI commands auto-p
         "category": "analysis",
         "export": "cmd__validate",
         "args": [
-          { "name": "path", "arg_type": "path", "required": true, "description": "Path to spec root" },
-          { "name": "lint", "arg_type": "enum", "required": false, "description": "Lint profile", "default": "default" }
+          { "name": "target", "arg_type": "string", "required": true, "description": "The entity to validate" },
+          { "name": "profile", "arg_type": { "enum": { "values": ["default", "strict"] } }, "default_value": "default", "description": "Lint profile" },
+          { "name": "limit", "arg_type": "integer", "minimum": 0, "description": "Report at most this many" },
+          { "name": "details", "arg_type": "bool", "description": "Show each finding" }
         ],
         "sandbox": { "fs_read": true }
       }
     ],
     "mcp_tools": [
       {
-        "name": "model",
+        "name": "acme.model",
         "description": "Generate entity model",
         "category": "visualization",
-        "export": "mcp__model",
+        "export": "mcp__acme_model",
         "input_schema": { "type": "object", "properties": { "format": { "type": "string" } } }
       }
     ],
     "mcp_resources": [
       {
-        "uri": "specforge://entities/{kind}",
+        "uri_template": "specforge://ext/acme/{kind}",
         "name": "entity_list",
         "description": "List entities by kind",
         "mime_type": "application/json",
         "export": "mcp__entity_list"
       }
     ]
-  }
+  }]
 }
 ```
+
+A command arg declares `name`, `arg_type` (`"string"`, `"path"`, `"bool"`, `"integer"`, or
+`{"enum": {"values": [..]}}`), and optionally `required`, `default_value` (a string, read as the arg's
+type), `description` and `minimum` (the least value of an integer arg: `0` for a count; a host or guest
+that does not know the field ignores it). The host reads the declaration by one rule, the SDK's too
+(`specforge_protocol_types::command_args`, ADR 0017):
+
+- **Refused declarations.** A command with an arg named `path`, `format` or `help` (the host's own
+  options), two args whose names spell one option (`all_kinds`, `all-kinds`), a flag or a required arg
+  with a default, or a default its type refuses, runs on no surface: the CLI refuses it (exit 2) and MCP
+  serves no tool for it (I017). The SDK refuses to build such an extension.
+- **Normalized args.** Both surfaces send a `cmd__` export the same args for the same input: every
+  declared arg the caller set, as its type (an integer or a flag may come as the string a command line
+  gives); an absent arg its default; an unset flag `false` (a flag is never required). A missing
+  required arg, a value of another type or below the minimum, or an undeclared argument is refused
+  before the export runs, as one `{"code": "INVALID_INPUT", "message", "suggestion"?}` object on both
+  surfaces.
+- **The MCP tool** of a command is `specforge.<short>.<id>`; its `inputSchema` states each arg's type,
+  values, minimum, default and description, `required` lists the required args that are not flags, and
+  `additionalProperties` is `false`.
+
+MCP serves each tool name and resource URI once: the core ones, then explicit tools and resources in
+extension load order, then the commands. A contribution not served under its name (an explicit tool
+named as a core tool, a resource whose URIs a core resource serves, a command whose tool name is taken)
+is reported with I017. A resource template may use any scheme; its read failing (a trap, an answer that
+is not `{content, mime_type}`) is a JSON-RPC internal error whose `data` is an McpError carrying E028.
 
 ### Reserved: grammars and body_parsers
 
@@ -393,11 +436,13 @@ there), and the pure export that maps the report to entities.
 }
 ```
 
-The host calls the export with `{"reports": [{"path", "content"}],
-"stdout"?}` (`stdout` only when the collector captures it) and
-expects `{"entity_results": [{"entity_id", "test_results": [{"name",
-"status", "verify"?, "duration_ms"?}]}], "unlinked"?: [{"name", "path",
-"status"}]}`, with `status` one of `passed`, `failed` or `skipped`.
+The host calls the export with a `CollectInput`, `{"reports": [{"path",
+"content"}], "stdout"?}` (`stdout` only when the collector captures it), and
+reads a `CollectOutput`, `{"entity_results": [{"entity_id", "test_results":
+[{"name", "status", "verify"?, "duration_ms"?}]}], "unlinked"?: [{"name",
+"path", "status"}]}`, with `status` one of `passed`, `failed` or `skipped`.
+`entity_results` and each test's `name` are required: an answer without them
+is E028 naming the collector, never empty results.
 `unlinked` lists tests the report doesn't link to an entity (`path` is the
 test's name split into segments, its own name last); the host links them by
 naming convention when it can (`entity_id__obligation_slug`, or a module
@@ -410,12 +455,17 @@ Returns compiler pass descriptors. Each pass declares ordering constraints relat
 `phase: "check"` makes the pass part of every compile: it runs after the
 graph checks, and its diagnostics join the compile's (`specforge check`,
 watch, the LSP, MCP). Passes with any other phase, or none, run only under
-`specforge analyze`. The `__pass_<name>` export receives `{"entities",
-"edges", "test_results"?, "proved_claims"?, "previous"?}` and returns host
-diagnostics, bare or as `{"diagnostics", "summary"}`. A diagnostic may carry
+`specforge analyze`. The `__pass_<name>` export receives a `PassInput`
+(`{"entities", "edges", "test_results"?, "proved_claims"?, "previous"?}`;
+each entity is `{"id", "kind", "fields", "incoming_edge_count",
+"outgoing_edge_count", "span"?, "testable", "exempt", "verify_kinds",
+"verify_texts"}`, `exempt` meaning it owes no obligations of its own, decided
+by the host from the registries) and answers host diagnostics, bare or as
+`{"diagnostics", "summary"}` (a `PassAnswer`). A diagnostic may carry
 `"entity": "<id>"`; with no `span`, the host attaches that entity's.
 `previous` (check passes only) is the build cache, `{"statuses": {"<id>":
-{"kind", "status"}}}`, when `specforge-cache.json` exists.
+{"kind", "status"}}}`, when `specforge-cache.json` exists. See
+[Operate](#operate) for every operation's input and answer.
 
 ```json
 {
@@ -452,6 +502,63 @@ Returns feature flag descriptors. Each flag declares allowed values and a defaul
   ]
 }
 ```
+
+## Operate
+
+Once the declaration is loaded, the host calls an extension's exports on
+demand, each through one call of the bridge `call(name, export, input)` with a
+JSON input, reading a JSON answer ([ADR 0013](adr/0013-typed-extension-calls.md)).
+Every input and answer is a type of `specforge_protocol_types` (module
+`calls`), the same definitions the SDK re-exports, so a Rust guest built with
+the SDK cannot answer the wrong shape; a guest in another language reads the
+table below and the goldens in `crates/specforge-wasm/tests/wire/`.
+
+| Operation | Export | Input | Answer |
+|---|---|---|---|
+| Handshake | `__handshake` | `HandshakeRequest` `{"host_version", "supported_categories"}` | `HandshakeResponse` |
+| Describe | `__describe` | `DescribeRequest` `{"category"}` | `DescribeResponse` `{"category", "items"}` |
+| Command | the command's `export` (`cmd__<id>`) | `CommandInput` `{"args", "cwd", "format", "today", "graph"}` | `CommandOutput` `{"exit_code", "stdout"?, "stderr"?}` |
+| MCP tool | the tool's `export` (`mcp__<name>`) | the JSON its `input_schema` describes | the JSON its `output_schema` describes |
+| MCP resource | the resource's `export` (`mcp__<name>`) | `McpResourceRequest` `{"uri"}` | `McpResourceContent` `{"content", "mime_type"}` |
+| Compiler pass | `__pass_<name>` | `PassInput` | `PassAnswer`: `[PassDiagnostic]` or `{"diagnostics", "summary"?}` |
+| Collector | the collector's `export` (`collect__<name>`) | `CollectInput` | `CollectOutput` |
+| Custom validator | the rule's `wasm_function` (`validate__<code>`) | `ValidatorContext` `{"entity", "referenced", "declared_types", "primitives"}` | `ValidatorVerdict` `{"verdict": "pass"}` or `{"verdict": "fail", "field"?, "value"?}` |
+| Scanner | the analyzer's `scan_export` (`scan__<language>`) | `ScanRequest` `{"file_path", "content"}` | `ScanResponse` `{"items": [{"name", "item_kind", "line", "visibility"?, "signature"?}], "language"?}` |
+| Migration hook | the handshake's `migration_hook` | `MigrationInput` `{"from", "to", "files"}` | not read |
+
+An analyzer also declares `classify_export` and `map_export`; the host does
+not call them.
+
+The wire rules, on both sides:
+
+- **Absent, never null.** An optional field that is unset is left out (the
+  host leaves out a collect input's `stdout`, a pass input's `test_results`,
+  `proved_claims` and `previous`, an entity's `span`), and an absent optional
+  field reads as its default.
+- **Strict on shape, lenient on unknown fields.** A required field is required:
+  a command answer without `exit_code`, a resource answer without `mime_type`,
+  a collected test without `name` is not that type. A field the reader does
+  not know is ignored, so a newer peer may add one.
+
+Every failure of a call is E028, in one shape: `<operation> <export>() of
+'<extension>' trapped: <kind>: <message>` (the export trapped, ran out of time
+or fuel, or the guest does not route it: `guest_error: unknown export
+'<export>'`), `... answered output that is not a <Type>: <reason>`, or `... is
+not loaded`, with the suggestion to report it to the extension's author. What
+the failure costs is the operation's: a check pass's is a compile error, an
+analyze pass's an E028 finding of that pass (the analysis fails), a command's
+its error (exit 1; under `--format json` one `{code, message, suggestion}`
+object on stderr), an MCP tool's or resource's a structured MCP error, a
+scanner's an entry of the gap report's `scan_failures` (the report is then
+approximate), a collector's the `collect` error, a custom validator's the
+probe's W112 at load, a migration hook's a failure line that rolls the
+migration back.
+
+With the SDK, every one of these exports is declared together with its
+handler (`ContributionsBuilder::command`, `mcp_tool`, `mcp_resource`, `pass`
+with `run`, `collector` with `collect`, `rule` with `validate`, `analyzer`
+with `scan`, `migration_hook_handler`); the SDK decodes the input and encodes
+the answer. See [the SDK guide](extension-sdk.md).
 
 ## Host Functions
 
@@ -533,8 +640,8 @@ Connection follows the full lifecycle: load, handshake, describe, register.
 2. Host calls __handshake(host_version)
 3. Host validates protocol_version compatibility
 4. Host checks peer_dependencies are satisfied
-5. Host calls __describe(category) for each flagged category
-6. Host registers contributions in KindRegistry, FieldRegistry, EdgeRegistry
+5. Host calls __describe(category) for every declared category, once
+6. The registry build checks the declarations and registers them in KindRegistry, FieldRegistry, EdgeRegistry
 7. Extension is now "connected"
 8. Host calls cmd__*, validate__*, mcp__* exports as needed
 ```
@@ -613,8 +720,9 @@ info[I004]: Unknown entity 'create_user' in field 'behaviors'
                     │                 │  cmd__*          │   │
                     │                 │  validate__*     │   │
                     │                 │  mcp__*          │   │
-                    │                 │  parse__*        │   │
+                    │                 │  __pass_*        │   │
                     │                 │  collect__*      │   │
+                    │                 │  scan__*         │   │
                     │                 └────────┬─────────┘   │
                     │                          │              │
                     │                          v              │
@@ -645,26 +753,14 @@ All extension exports follow a strict naming convention that the host uses to di
 |--------|---------|---------|
 | `__handshake` | Protocol handshake | `__handshake` |
 | `__describe` | Category description | `__describe` |
-| `cmd__` | CLI command execution | `cmd__validate` |
-| `validate__` | Custom validation logic | `validate__verify_kind_allowlist` |
+| `cmd__` | CLI command execution | `cmd__product_features` |
 | `mcp__` | MCP tool or resource execution | `mcp__model` |
-| `collect__` | Collector execution | `collect__rust` |
-
-## Comparison with manifest.json
-
-The Extension Protocol replaces the static `manifest.json` approach while maintaining the same contribution model.
-
-| Aspect | manifest.json (v2) | Extension Protocol |
-|--------|-------------------|-------------------|
-| Discovery | Parse JSON file at startup | `__handshake` + `__describe` at load time |
-| Contribution model | Same 18 contribution categories | Same 18 contribution categories |
-| Host functions | Not available | Planned import surface: `host_query_graph`, `host_emit_diagnostic`, `host_read_file`, and four more (see Host Function Table) |
-| Hot plug | Requires restart | Connect/disconnect at runtime |
-| Context-aware loading | All metadata loaded always | Host requests only needed categories |
-| Validation | Declarative only | Declarative + custom Wasm validators |
-| Type safety | JSON schema validation | Protocol-typed responses |
-
-The contribution categories, entity kind descriptors, edge type descriptors, and all other metadata structures remain identical. The protocol wraps them in a negotiation layer that enables runtime flexibility and bidirectional communication.
+| `__pass_` | Compiler pass | `__pass_coverage` |
+| `collect__` | Collector execution | `collect__cargo_test` |
+| `validate__` | Custom validation logic (a rule's `wasm_function`) | `validate__port_methods` |
+| `scan__` | Source scanner (an analyzer's `scan_export`) | `scan__rust` |
+| `classify__`, `map__` | Declared by analyzers; the host does not call them | `classify__rust` |
+| (any name) | Migration hook (the handshake's `migration_hook`) | `migrate_acme` |
 
 ## Design Principles
 
@@ -674,4 +770,4 @@ The Extension Protocol embodies three SpecForge principles:
 
 **Principle 7 (extensions over built-ins):** The protocol is the sole mechanism for adding domain vocabulary. There is no alternative path that bypasses it.
 
-**Principle 8 (seconds to value):** The protocol supports lazy loading. The host only calls `__describe` for categories it needs in the current context, avoiding unnecessary Wasm execution during startup.
+**Principle 8 (seconds to value):** The declaration is read once per environment load, the handshake and one `__describe` call per declared category, and nothing describes a category again; the operations that follow call only the exports they need.

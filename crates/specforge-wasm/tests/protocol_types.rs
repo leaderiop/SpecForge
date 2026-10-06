@@ -1,4 +1,4 @@
-use specforge_wasm::protocol::*;
+use specforge_protocol_types::*;
 
 // ── Step 1: HandshakeRequest tracer bullet ──
 
@@ -79,6 +79,7 @@ fn handshake_response_round_trip() {
         starter_template: Some("spec \"{project}\" {}\n".to_string()),
         theme_color: None,
         migration_hook: None,
+        ..Default::default()
     };
     let json = serde_json::to_string(&resp).unwrap();
     let decoded: HandshakeResponse = serde_json::from_str(&json).unwrap();
@@ -573,6 +574,7 @@ fn surface_descriptor_full_round_trip() {
                 required: true,
                 default_value: None,
                 description: Some("Project path".to_string()),
+                minimum: None,
             }],
             sandbox: Some(SurfaceSandboxOverride {
                 fs_read: Some(true),
@@ -621,6 +623,7 @@ fn command_arg_type_enum_variant_with_values() {
         required: false,
         default_value: Some("json".to_string()),
         description: None,
+        minimum: None,
     };
     let json = serde_json::to_string(&arg).unwrap();
     let decoded: CommandArgDescriptor = serde_json::from_str(&json).unwrap();

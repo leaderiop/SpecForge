@@ -455,9 +455,6 @@ fn empty_project_produces_empty_graph() {
     );
 }
 
-// (Removed: surfaces_flow_through_compilation_context — tested manifest.json surface loading
-// which is no longer supported. Surface wiring is tested in MCP surface_wiring tests.)
-
 // B:serialize_json_graph — verify unit "all emit formats work on pipeline output"
 #[specforge_test(behavior = "serialize_json_graph", verify = "output is valid JSON")]
 fn all_emit_formats_work() {

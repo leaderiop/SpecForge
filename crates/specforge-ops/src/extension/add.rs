@@ -3,6 +3,7 @@
 use super::{Origin, builtin_name, check_diamonds, extensions_dir, lock_path};
 use crate::OpError;
 use crate::registry::Registry;
+use specforge_protocol_types::ExtensionDeclaration;
 use specforge_wasm::{
     ExtensionSpecifier, install_extension, parse_extension_specifier, read_lock_file,
     write_lock_file,
@@ -191,14 +192,14 @@ fn add_local(req: &AddRequest, path: &Path) -> Result<AddOutcome, OpError> {
     };
     if req.dry_run {
         return Ok(AddOutcome::Planned {
-            name: declared.name,
-            version: Some(declared.version),
+            name: declared.name().to_string(),
+            version: Some(declared.version().to_string()),
             origin,
         });
     }
     let sha256 = specforge_wasm::hex_sha256(&wasm);
     let mut lock = read_lock_file(&lock_path(req.root)).unwrap_or_default();
-    if let Some(present) = already_present(req.root, &lock, &declared.name, |e| {
+    if let Some(present) = already_present(req.root, &lock, declared.name(), |e| {
         e.wasm_hash == sha256 && e.source.starts_with("local:")
     }) {
         return Ok(present);
@@ -271,21 +272,35 @@ pub(super) fn fetch_checked(
     // the registry adapter's (one implementation, shared with every surface).
     let package = registry.fetch(name, version, allow_unsigned, trust)?;
 
-    // The peers the published manifest declares decide the diamond gate
-    // before anything is loaded; the binary must then be the package it
-    // claims to be.
-    check_diamonds(lock, &package.name, &package.peers, &|peer| {
+    // The peers the published declaration declares decide the diamond gate
+    // before anything is loaded (ADR 0001); the binary must then be the
+    // package it claims to be, and declare exactly what was published
+    // (ADR 0012).
+    check_diamonds(lock, &package.name, package.declaration.peers(), &|peer| {
         registry.versions(peer)
     })?;
     let declared = Declared::of(&package.wasm)?;
-    if declared.name != package.name || declared.version != package.version {
+    if declared.name() != package.name || declared.version() != package.version {
         return Err(OpError::new(
             "E028",
             format!(
                 "registry package {}@{} declares itself {}@{}",
-                package.name, package.version, declared.name, declared.version
+                package.name,
+                package.version,
+                declared.name(),
+                declared.version()
             ),
         ));
+    }
+    if let Some(category) = first_difference(&package.declaration, &declared.declaration) {
+        return Err(OpError::new(
+            crate::registry::METADATA_MISMATCH,
+            format!(
+                "registry package {}@{} declares another {category} than the binary it serves",
+                package.name, package.version
+            ),
+        )
+        .with_suggestion("don't install the package, and check the registry"));
     }
     Ok(Checked { package, declared })
 }
@@ -305,18 +320,29 @@ pub fn declared(path: &Path) -> Result<(String, String), OpError> {
         )
     })?;
     let declared = Declared::of(&wasm)?;
-    Ok((declared.name, declared.version))
+    Ok((declared.name().to_string(), declared.version().to_string()))
 }
 
-/// What an extension binary's handshake declares.
+/// What an extension binary declares: its whole declaration, loaded as
+/// every environment loads it.
 pub(super) struct Declared {
-    pub(super) name: String,
-    pub(super) version: String,
-    pub(super) peers: Vec<specforge_registry::PeerDependency>,
+    pub(super) declaration: ExtensionDeclaration,
 }
 
 impl Declared {
-    /// Load `wasm` and read its handshake: a binary that isn't a loadable
+    pub(super) fn name(&self) -> &str {
+        self.declaration.name()
+    }
+
+    pub(super) fn version(&self) -> &str {
+        self.declaration.version()
+    }
+
+    pub(super) fn peers(&self) -> &[specforge_registry::PeerDependency] {
+        self.declaration.peers()
+    }
+
+    /// Load `wasm` and read its declaration: a binary that isn't a loadable
     /// extension, or that claims a builtin's name, is refused.
     fn of(wasm: &[u8]) -> Result<Self, OpError> {
         const CANDIDATE: &str = "__candidate";
@@ -328,36 +354,40 @@ impl Declared {
         runtime
             .load_module_bytes(CANDIDATE, wasm)
             .map_err(invalid)?;
-        let handshake = specforge_wasm::protocol::ProtocolHost::new(&runtime)
-            .handshake(CANDIDATE)
-            .map_err(|e| invalid(e.to_string()))?;
-        if super::builtin_name(&handshake.name).is_some() {
+        let declaration = specforge_wasm::protocol::load_declaration(&runtime, CANDIDATE)
+            .map_err(|e| invalid(e.to_string()))?
+            .declaration;
+        if super::builtin_name(declaration.name()).is_some() {
             return Err(OpError::new(
                 "extension_conflict",
                 format!(
                     "the extension declares the name of the builtin '{}'",
-                    handshake.name
+                    declaration.name()
                 ),
             )
             .with_suggestion(format!(
                 "enable the builtin instead: specforge add {}",
-                handshake.name
+                declaration.name()
             )));
         }
-        Ok(Declared {
-            name: handshake.name,
-            version: handshake.version,
-            peers: handshake
-                .peer_dependencies
-                .into_iter()
-                .map(|p| specforge_registry::PeerDependency {
-                    name: p.name,
-                    version: p.version,
-                    optional: p.optional,
-                })
-                .collect(),
-        })
+        Ok(Declared { declaration })
     }
+}
+
+/// The first part of a declaration that differs between `served` and
+/// `binary` (`handshake`, or a describe category), or `None` when they are
+/// equal.
+fn first_difference(
+    served: &ExtensionDeclaration,
+    binary: &ExtensionDeclaration,
+) -> Option<&'static str> {
+    if served.handshake != binary.handshake {
+        return Some("handshake");
+    }
+    specforge_protocol_types::DECLARED_CATEGORIES
+        .iter()
+        .copied()
+        .find(|category| served.describe_items(category) != binary.describe_items(category))
 }
 
 /// `AlreadyPresent` when the lock holds `name` as `same` accepts, its
@@ -401,7 +431,7 @@ fn install(
         origin,
     )?;
     write_lock_file(lock, &lock_path(root)).map_err(OpError::from)?;
-    crate::config::add_extension(root, &declared.name, &declared.name).map_err(config_error)?;
+    crate::config::add_extension(root, declared.name(), declared.name()).map_err(config_error)?;
     Ok(AddOutcome::Installed {
         name: result.name,
         version: result.version,
@@ -423,21 +453,21 @@ pub(super) fn place(
     origin: &Origin,
 ) -> Result<specforge_wasm::InstallResult, OpError> {
     let result = install_extension(
-        &declared.name,
-        &declared.version,
+        declared.name(),
+        declared.version(),
         wasm,
         sha256,
         &extensions_dir(root),
         lock,
         key_id,
-        declared.peers.clone(),
+        declared.peers().to_vec(),
     )
     .map_err(OpError::from)?;
-    if let Some(entry) = lock.entries.iter_mut().find(|e| e.name == declared.name) {
+    if let Some(entry) = lock.entries.iter_mut().find(|e| e.name == declared.name()) {
         if let Origin::Installed { source } = origin {
             entry.source = source.clone();
         }
-        entry.peer_dependencies = declared.peers.clone();
+        entry.peer_dependencies = declared.peers().to_vec();
     }
     Ok(result)
 }

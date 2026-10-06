@@ -9,99 +9,51 @@
 //! (step R1) must keep this order byte for byte.
 
 use specforge_common::Diagnostic;
-use specforge_wasm::protocol::*;
-use specforge_wasm::{WasmCallResult, WasmRuntime};
-use std::collections::HashMap;
-use std::path::Path;
-
-/// A runtime whose extensions answer from fixed tables, keyed by extension
-/// name, so two extensions can describe different (conflicting) things.
-struct Extensions {
-    /// (extension, describe category) -> items
-    describe: HashMap<(String, String), serde_json::Value>,
-}
-
-impl WasmRuntime for Extensions {
-    fn load_module(&self, _wasm_path: &Path) -> Result<(), String> {
-        Ok(())
-    }
-
-    fn call_export(&self, extension: &str, export: &str, input: &[u8]) -> WasmCallResult {
-        let reply = match export {
-            "__handshake" => serde_json::to_value(HandshakeResponse {
-                protocol_version: PROTOCOL_VERSION.to_string(),
-                name: extension.to_string(),
-                version: "1.0.0".to_string(),
-                contribution_flags: ContributionFlags {
-                    entities: true,
-                    validators: true,
-                    ..Default::default()
-                },
-                peer_dependencies: vec![],
-                sandbox_policy: None,
-                starter_template: None,
-                theme_color: None,
-                migration_hook: None,
-            })
-            .unwrap(),
-            "__describe" => {
-                let request: DescribeRequest = serde_json::from_slice(input).unwrap();
-                let items = self
-                    .describe
-                    .get(&(extension.to_string(), request.category.clone()))
-                    .cloned()
-                    .unwrap_or_else(|| serde_json::json!([]));
-                serde_json::to_value(DescribeResponse {
-                    category: request.category,
-                    items,
-                })
-                .unwrap()
-            }
-            other => panic!("unexpected export {other}"),
-        };
-        WasmCallResult::Ok(serde_json::to_vec(&reply).unwrap())
-    }
-}
+use specforge_extension_sdk::{ContributionsBuilder, ExtensionMeta};
+use specforge_wasm::testing::InProcessRuntime;
 
 /// Two extensions that collide on everything the registry build checks:
 /// the same entity kind (E026), the same edge label (W018) and the same CLI
 /// command (E039); each also declares a rule whose check kind doesn't
 /// exist (W112).
-fn colliding_extensions() -> Extensions {
-    let mut describe = HashMap::new();
-    for ext in ["@test/alpha", "@test/beta"] {
-        let mut add = |category: &str, items: serde_json::Value| {
-            describe.insert((ext.to_string(), category.to_string()), items);
-        };
-        add(
-            "entities",
-            serde_json::json!([{"name": "gadget", "description": format!("gadget from {ext}")}]),
-        );
-        add(
-            "edges",
-            serde_json::json!([{"label": "GadgetUses", "source_kind": "gadget", "target_kind": "gadget"}]),
-        );
-        add(
-            "validation_rules",
-            serde_json::json!([{
-                "code": "W900",
-                "severity": "warning",
-                "message_template": "never fires",
-                "check": format!("no_such_check_{}", &ext[6..]),
-                "target_kind": "gadget"
-            }]),
-        );
-        add(
-            "surfaces",
-            serde_json::json!([{"commands": [{
-                "id": "hello",
-                "title": "Hello",
-                "description": format!("hello from {ext}"),
-                "export": "run_hello"
-            }]}]),
-        );
-    }
-    Extensions { describe }
+fn colliding_extensions() -> InProcessRuntime {
+    ["@test/alpha", "@test/beta"]
+        .into_iter()
+        .fold(InProcessRuntime::new(), |runtime, ext| {
+            runtime.with(move || {
+                let mut c = ContributionsBuilder::new(ExtensionMeta::new(ext, "1.0.0"));
+                // Declared as given (`raw_category`): a builder would refuse
+                // a rule whose check does not exist.
+                c.raw_category(
+                    "entities",
+                    serde_json::json!([{"name": "gadget", "description": format!("gadget from {ext}")}]),
+                );
+                c.raw_category(
+                    "edges",
+                    serde_json::json!([{"label": "GadgetUses", "source_kind": "gadget", "target_kind": "gadget"}]),
+                );
+                c.raw_category(
+                    "validation_rules",
+                    serde_json::json!([{
+                        "code": "W900",
+                        "severity": "warning",
+                        "message_template": "never fires",
+                        "check": format!("no_such_check_{}", &ext[6..]),
+                        "target_kind": "gadget"
+                    }]),
+                );
+                c.raw_category(
+                    "surfaces",
+                    serde_json::json!([{"commands": [{
+                        "id": "hello",
+                        "title": "Hello",
+                        "description": format!("hello from {ext}"),
+                        "export": "run_hello"
+                    }]}]),
+                );
+                c
+            })
+        })
 }
 
 fn project() -> tempfile::TempDir {

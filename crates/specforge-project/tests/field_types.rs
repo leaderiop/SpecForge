@@ -6,43 +6,52 @@ use specforge_graph::{Graph, GraphConfig, build_graph_with_config};
 use specforge_parser::FieldValue;
 use specforge_project::compile::{GraphChecks, check_graph};
 use specforge_project::field_types::field_coercions;
-use specforge_registry::{ManifestV2, populate_registries};
+use specforge_protocol_types::{
+    EntityKindDescriptor, ExtensionDeclaration, FieldDescriptor, HandshakeResponse,
+};
+use specforge_registry::build_registries;
 use specforge_test_macros::test as specforge_test;
 
 /// An extension declaring a `ticket` with one field of each checked type.
-fn ticket_manifest() -> ManifestV2 {
-    serde_json::from_str(
-        r#"{
-            "name": "@test/tickets",
-            "version": "1.0.0",
-            "manifestVersion": 2,
-            "wasmPath": "tickets.wasm",
-            "entityKinds": [
-                {
-                    "name": "Ticket",
-                    "keyword": "ticket",
-                    "fields": [
-                        { "name": "priority", "fieldType": "enum", "enumValues": ["low", "medium", "high"] },
-                        { "name": "urgent", "fieldType": "bool" },
-                        { "name": "points", "fieldType": "integer" },
-                        { "name": "labels", "fieldType": "string_list" },
-                        { "name": "summary", "fieldType": "string" }
-                    ]
-                }
-            ]
-        }"#,
-    )
-    .unwrap()
+fn ticket_manifest() -> ExtensionDeclaration {
+    let field = |name: &str, field_type: &str, enum_values: &[&str]| FieldDescriptor {
+        name: name.into(),
+        field_type: field_type.into(),
+        enum_values: enum_values.iter().map(|v| v.to_string()).collect(),
+        ..FieldDescriptor::default()
+    };
+    ExtensionDeclaration {
+        handshake: HandshakeResponse {
+            name: "@test/tickets".into(),
+            version: "1.0.0".into(),
+            ..HandshakeResponse::default()
+        },
+        entities: vec![EntityKindDescriptor {
+            name: "Ticket".into(),
+            keyword: Some("ticket".into()),
+            fields: vec![
+                field("priority", "enum", &["low", "medium", "high"]),
+                field("urgent", "bool", &[]),
+                field("points", "integer", &[]),
+                field("labels", "string_list", &[]),
+                field("summary", "string", &[]),
+            ],
+            ..EntityKindDescriptor::default()
+        }],
+        ..ExtensionDeclaration::default()
+    }
 }
 
 /// Build and check `source` against the ticket extension's registries.
 fn build_and_check(source: &str) -> (Graph, Vec<Diagnostic>) {
-    let (kind_reg, field_reg, _edges, pop_diags) = populate_registries(&[ticket_manifest()]);
+    let build = build_registries(vec![ticket_manifest()]);
+    let pop_diags = &build.registry_diagnostics;
     assert!(pop_diags.is_empty(), "{pop_diags:?}");
+    let (kind_reg, field_reg) = (&build.kinds, &build.fields);
     let parsed = specforge_parser::parse(source, "main.spec");
     assert!(parsed.errors.is_empty(), "{:?}", parsed.errors);
     let config = GraphConfig {
-        field_coercions: field_coercions(&field_reg),
+        field_coercions: field_coercions(field_reg),
         ..GraphConfig::default()
     };
     let (graph, mut diags) = build_graph_with_config(&[parsed], &config);
@@ -50,8 +59,8 @@ fn build_and_check(source: &str) -> (Graph, Vec<Diagnostic>) {
         &graph,
         &GraphChecks {
             spec_root: std::path::Path::new("."),
-            kind_registry: &kind_reg,
-            field_registry: &field_reg,
+            kind_registry: kind_reg,
+            field_registry: field_reg,
             rules: &[],
             runtime: None,
         },

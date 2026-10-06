@@ -1,4 +1,5 @@
 use crate::ComponentRuntime;
+use specforge_common::ExtensionEntry;
 
 static PRODUCT_WASM: &[u8] =
     include_bytes!("../../../extensions/product/wasm/specforge_ext_product.wasm");
@@ -37,12 +38,17 @@ pub fn is_builtin(name: &str) -> bool {
         .any(|(builtin, _)| *builtin == name)
 }
 
-/// Load only the builtin Wasm extensions whose names appear in `requested`.
+/// Load only the builtin Wasm extensions `requested` (`specforge.json`
+/// entries, read by [`ExtensionEntry`]: a legacy `name@version` names the
+/// builtin too) names.
 ///
-/// Non-builtin names (e.g. custom `.wasm` paths) are silently skipped.
+/// Other entries (installed extensions, `.wasm` files) are skipped.
 pub fn load_builtins_for(runtime: &ComponentRuntime, requested: &[String]) -> Result<(), String> {
     for (name, wasm_bytes) in BUILTIN_EXTENSIONS {
-        if requested.iter().any(|r| r == *name) {
+        if requested
+            .iter()
+            .any(|entry| ExtensionEntry::parse(entry) == ExtensionEntry::Named(name))
+        {
             runtime.load_module_bytes(name, wasm_bytes)?;
         }
     }

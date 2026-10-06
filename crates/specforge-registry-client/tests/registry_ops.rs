@@ -1,7 +1,7 @@
 use parking_lot::Mutex;
 
 use specforge_common::Severity;
-use specforge_registry::ManifestV2;
+use specforge_protocol_types::ExtensionDeclaration;
 use specforge_registry_client::registry_ops::{
     publish_to_registry, resolve_from_registry, search_registries, verify_registry_integrity,
 };
@@ -102,7 +102,7 @@ impl RegistryClient for MockRegistryClient {
     fn publish(
         &self,
         _package: &[u8],
-        _manifest: &ManifestV2,
+        _declaration: &ExtensionDeclaration,
         _manifest_json: &str,
         signature: Option<&str>,
         _registry: &RegistryConfig,
@@ -151,15 +151,17 @@ fn scoped_registry(alias: &str, scope: &str) -> RegistryConfig {
     }
 }
 
-fn minimal_manifest() -> ManifestV2 {
-    serde_json::from_str(
-        r#"{
+fn minimal_manifest() -> ExtensionDeclaration {
+    serde_json::from_value(serde_json::json!({
+        "handshake": {
+            "protocol_version": "1.0.0",
             "name": "@test/ext",
             "version": "1.0.0",
-            "manifestVersion": 2,
-            "wasmPath": "ext.wasm"
-        }"#,
-    )
+            "contribution_flags": {},
+            "peer_dependencies": [],
+            "sandbox_policy": null
+        }
+    }))
     .unwrap()
 }
 
@@ -544,7 +546,7 @@ fn publish_signs_package_when_key_provided() {
         .with_fetch_for(
             "default",
             Err(RegistryError::NotFound {
-                specifier: format!("{}@{}", manifest.name, manifest.version),
+                specifier: format!("{}@{}", manifest.name(), manifest.version()),
             }),
         )
         .with_publish(Ok("https://r.specforge.dev/@test/ext/1.0.0".into()));
@@ -578,7 +580,7 @@ fn publish_without_key_sends_no_signature() {
         .with_fetch_for(
             "default",
             Err(RegistryError::NotFound {
-                specifier: format!("{}@{}", manifest.name, manifest.version),
+                specifier: format!("{}@{}", manifest.name(), manifest.version()),
             }),
         )
         .with_publish(Ok("https://r.specforge.dev/@test/ext/1.0.0".into()));

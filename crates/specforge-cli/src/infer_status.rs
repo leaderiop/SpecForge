@@ -17,7 +17,7 @@ pub fn run(
     show_gaps_detail: bool,
 ) -> i32 {
     let (ctx, runtime) = crate::pipeline::compile_with_runtime(path);
-    let progress = match infer::progress(path, &ctx.manifests) {
+    let progress = match infer::progress(path, &ctx.declarations) {
         Ok(progress) => progress,
         Err(error) => {
             format.print_op_error(&error);
@@ -25,7 +25,7 @@ pub fn run(
         }
     };
     let gaps = if show_gaps_detail {
-        match infer::gaps(path, &ctx.manifests, &ctx.graph, &runtime) {
+        match infer::gaps(path, &ctx.declarations, &ctx.graph, &runtime) {
             Ok(gaps) => Some(gaps),
             Err(error) => {
                 format.print_op_error(&error);
@@ -134,6 +134,22 @@ fn render_human(progress: &Progress, gaps: bool, stale: bool, detail: Option<&Ga
         line!("  Public items: {}", report.total_pub_items);
         line!("  Covered:      {}", report.covered_items);
         line!("  Gaps:         {}", report.gap_count());
+        if !report.scan_failures.is_empty() {
+            line!();
+            line!(
+                "  Approximate: a scanner failed on {} file(s):",
+                report.scan_failures.len()
+            );
+            for failure in &report.scan_failures {
+                let diagnostic = failure.error.diagnostic();
+                line!(
+                    "    {}: error[{}]: {}",
+                    failure.file,
+                    diagnostic.code,
+                    diagnostic.message
+                );
+            }
+        }
         if report.gap_count() > 0 {
             line!();
             for (dir, items) in &report.by_directory {

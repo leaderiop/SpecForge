@@ -33,7 +33,7 @@ expression: mcp_snap
     "extension": "@sdk/greet",
     "installed": true,
     "key_id": null,
-    "note": "re-run specforge.analyze (use_cached=false) to load it",
+    "note": "the server serves it from the next call on",
     "sha256": "[SHA256]",
     "source": "local:[BLOB]",
     "version": "0.1.0"

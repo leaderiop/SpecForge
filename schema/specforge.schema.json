@@ -56,7 +56,7 @@
     },
     "extensions": {
       "type": "array",
-      "description": "Installed extension packages that extend the entity model.",
+      "description": "The extensions that extend the entity model: a builtin or installed extension by name (`@scope/name`), or a component file (`path.wasm`, or `name=path.wasm` with the name it declares; relative to the project root).",
       "items": {
         "type": "string"
       },

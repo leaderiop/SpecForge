@@ -13,7 +13,14 @@ use crate::tool::{ErrorCode, McpError, ToolOutcome};
 /// missing required argument says `Missing required parameter: <name>`
 /// and names it; anything else serde rejects says why.
 pub fn parse<A: DeserializeOwned>(arguments: Value) -> Result<A, ToolOutcome> {
-    serde_json::from_value(arguments).map_err(|error| refusal(&error).into())
+    parse_args(arguments).map_err(ToolOutcome::Refused)
+}
+
+/// [`parse`], the refusal as the `McpError` itself (boxed, as
+/// [`ToolOutcome::Refused`] holds it): what a prompt answers with, a
+/// JSON-RPC error carrying it (prompts have no `isError`).
+pub fn parse_args<A: DeserializeOwned>(arguments: Value) -> Result<A, Box<McpError>> {
+    serde_json::from_value(arguments).map_err(|error| Box::new(refusal(&error)))
 }
 
 /// Why serde refused the arguments, as the tool reports it.
@@ -41,6 +48,109 @@ pub fn fields<A: DeserializeOwned>() -> &'static [&'static str] {
     match A::deserialize(FieldTracer) {
         Err(Traced(Some(fields))) => fields,
         _ => &[],
+    }
+}
+
+/// The fields `A` cannot be read without, in field order. serde names the
+/// first missing field of a struct; the probe gives it an empty string and
+/// reads again, until the struct reads (or refuses for another reason).
+/// Every argument of a prompt is a string (MCP sends them as strings), so
+/// an empty string is a value each required field accepts.
+pub fn required<A: DeserializeOwned>() -> Vec<&'static str> {
+    let fields = fields::<A>();
+    let mut probe = serde_json::Map::new();
+    let mut required = Vec::new();
+    while let Err(error) = serde_json::from_value::<A>(Value::Object(probe.clone())) {
+        let message = error.to_string();
+        let Some(missing) = message
+            .strip_prefix("missing field `")
+            .and_then(|rest| rest.split('`').next())
+            .and_then(|name| fields.iter().find(|field| **field == name))
+        else {
+            break;
+        };
+        if probe.contains_key(*missing) {
+            break;
+        }
+        probe.insert((*missing).to_string(), Value::from(""));
+        required.push(*missing);
+    }
+    let order = |name: &&str| fields.iter().position(|field| field == name);
+    required.sort_by_key(order);
+    required
+}
+
+/// A count: a non-negative integer, or a string holding one (MCP sends
+/// prompt arguments as strings). Anything else is refused.
+pub fn count<'de, D: Deserializer<'de>>(deserializer: D) -> Result<usize, D::Error> {
+    match Value::deserialize(deserializer)? {
+        Value::Number(number) => number
+            .as_u64()
+            .and_then(|n| usize::try_from(n).ok())
+            .ok_or_else(|| {
+                de::Error::custom(format!(
+                    "invalid count {number}, expected a non-negative integer"
+                ))
+            }),
+        Value::String(text) => text.trim().parse::<usize>().map_err(|_| {
+            de::Error::custom(format!(
+                "invalid count \"{text}\", expected a non-negative integer"
+            ))
+        }),
+        other => Err(de::Error::custom(format!(
+            "invalid type: {}, expected a non-negative integer",
+            kind_of(&other)
+        ))),
+    }
+}
+
+/// [`count`], absent or `null` read as none.
+pub fn some_count<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Option<usize>, D::Error> {
+    match Value::deserialize(deserializer)? {
+        Value::Null => Ok(None),
+        value => count(value).map(Some).map_err(de::Error::custom),
+    }
+}
+
+/// Entity ids: a list of strings, or one comma-separated string (MCP sends
+/// prompt arguments as strings); blank entries are dropped. Anything else
+/// is refused.
+pub fn id_list<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Vec<String>, D::Error> {
+    match Value::deserialize(deserializer)? {
+        Value::Null => Ok(Vec::new()),
+        Value::String(ids) => Ok(ids
+            .split(',')
+            .map(str::trim)
+            .filter(|id| !id.is_empty())
+            .map(String::from)
+            .collect()),
+        Value::Array(items) => items
+            .into_iter()
+            .map(|item| match item {
+                Value::String(id) => Ok(id),
+                other => Err(de::Error::custom(format!(
+                    "invalid type: {}, expected an entity id string",
+                    kind_of(&other)
+                ))),
+            })
+            .collect(),
+        other => Err(de::Error::custom(format!(
+            "invalid type: {}, expected a list of entity ids or a comma-separated string",
+            kind_of(&other)
+        ))),
+    }
+}
+
+/// How serde names a JSON value's type in its messages.
+fn kind_of(value: &Value) -> String {
+    match value {
+        Value::Null => "null".into(),
+        Value::Bool(b) => format!("boolean `{b}`"),
+        Value::Number(n) if n.is_f64() => format!("floating point `{n}`"),
+        Value::Number(n) => format!("integer `{n}`"),
+        Value::String(s) => format!("string \"{s}\""),
+        Value::Array(_) => "sequence".into(),
+        Value::Object(_) => "map".into(),
     }
 }
 
@@ -118,3 +228,98 @@ pub fn some_strings<'de, D: Deserializer<'de>>(
 /// The arguments of a tool that takes none.
 #[derive(Debug, Default, Deserialize)]
 pub struct NoArgs {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[derive(Debug, Deserialize)]
+    #[allow(dead_code, reason = "read by the probe only")]
+    struct Probe {
+        first: String,
+        #[serde(default)]
+        defaulted: Option<String>,
+        second: String,
+    }
+
+    #[test]
+    fn required_names_each_field_the_struct_cannot_read_without() {
+        assert_eq!(required::<Probe>(), ["first", "second"]);
+        assert!(required::<NoArgs>().is_empty());
+    }
+
+    #[derive(Debug, Deserialize)]
+    struct Counted {
+        #[serde(deserialize_with = "count")]
+        n: usize,
+    }
+
+    fn counted(n: Value) -> Result<usize, Box<McpError>> {
+        parse_args::<Counted>(json!({ "n": n })).map(|c| c.n)
+    }
+
+    #[test]
+    fn a_count_is_an_integer_or_a_string_holding_one() {
+        assert_eq!(counted(json!(2)).unwrap(), 2);
+        assert_eq!(counted(json!("2")).unwrap(), 2);
+        for refused in [
+            json!("two"),
+            json!(-1),
+            json!("-1"),
+            json!(1.5),
+            json!(true),
+        ] {
+            let error = counted(refused.clone()).unwrap_err();
+            assert_eq!(error.code, ErrorCode::InvalidInput, "{refused}");
+            assert!(
+                error.message.starts_with("Invalid arguments: "),
+                "{refused}: {}",
+                error.message
+            );
+        }
+    }
+
+    #[derive(Debug, Deserialize)]
+    struct MaybeCounted {
+        #[serde(default, deserialize_with = "some_count")]
+        n: Option<usize>,
+    }
+
+    #[test]
+    fn an_absent_count_is_none() {
+        let read = |args: Value| parse_args::<MaybeCounted>(args).map(|c| c.n);
+        assert_eq!(read(json!({})).unwrap(), None);
+        assert_eq!(read(json!({ "n": null })).unwrap(), None);
+        assert_eq!(read(json!({ "n": "3" })).unwrap(), Some(3));
+        assert!(read(json!({ "n": "three" })).is_err());
+    }
+
+    #[derive(Debug, Deserialize)]
+    struct Ids {
+        #[serde(default, deserialize_with = "id_list")]
+        ids: Vec<String>,
+    }
+
+    #[test]
+    fn an_id_list_is_a_list_or_a_comma_separated_string() {
+        let read = |args: Value| parse_args::<Ids>(args).map(|i| i.ids);
+        assert_eq!(read(json!({ "ids": ["a", "b"] })).unwrap(), ["a", "b"]);
+        assert_eq!(read(json!({ "ids": "a, b,,c " })).unwrap(), ["a", "b", "c"]);
+        assert!(read(json!({})).unwrap().is_empty());
+        assert!(read(json!({ "ids": 4 })).is_err());
+        assert!(read(json!({ "ids": ["a", 4] })).is_err());
+    }
+
+    #[test]
+    fn a_missing_required_field_is_named() {
+        let error = parse_args::<Probe>(json!({ "second": "x" })).unwrap_err();
+        assert_eq!(error.message, "Missing required parameter: first");
+        assert_eq!(error.argument.as_deref(), Some("first"));
+        let error = parse_args::<Probe>(json!({ "first": 42, "second": "x" })).unwrap_err();
+        assert_eq!(
+            error.message,
+            "Invalid arguments: invalid type: integer `42`, expected a string"
+        );
+    }
+}

@@ -9,7 +9,7 @@ decision formal_extension_split "Split Formal Analysis from Software Extension" 
     (Design by Contract, B-Method, CSP) oversells string-matching
     capabilities. E034 fires on all cycles (false positives on normal
     feedback loops). E033 has no implementable algorithm for semantic
-    requirement satisfaction. ManifestV2 lacks passes, feature_flags,
+    requirement satisfaction. ExtensionDeclaration lacks passes, feature_flags,
     and field_provenance. New users see 30+ unfamiliar warnings from
     formal analysis they haven't opted into.
   """
@@ -26,7 +26,7 @@ decision formal_extension_split "Split Formal Analysis from Software Extension" 
     "@specforge/software is simpler and focused on 5 entity kinds + 11 edges",
     "Formal analysis is opt-in via extension installation",
     "Progressive warning levels prevent overwhelming new users",
-    "ManifestV2 gains passes and feature_flags for extension-contributed analysis",
+    "ExtensionDeclaration gains passes and feature_flags for extension-contributed analysis",
     "Entity enhancement mechanism proves its value for cross-extension composition",
     "@specforge/formal requires peer_dependency on @specforge/software",
     "Inline condition fields (requires/ensures/maintains) reference invariants for reusable constraints",

@@ -2,7 +2,7 @@
 
 ## Overview
 
-SpecForge uses a **zero-entity core** architecture: the compiler is a pure typed-graph engine with zero domain knowledge. Two **structural kinds** (`spec` and `ref`) are parsed by the core grammar. All domain entity kinds (currently 22, declared by the four builtin extensions) come from **extensions** via ManifestV2 declarations.
+SpecForge uses a **zero-entity core** architecture: the compiler is a pure typed-graph engine with zero domain knowledge. Two **structural kinds** (`spec` and `ref`) are parsed by the core grammar. All domain entity kinds (currently 22, declared by the four builtin extensions) come from **extensions** through their declarations (`ExtensionDeclaration`, ADR 0012).
 
 Four official extensions provide the domain vocabulary:
 - **@specforge/software** (5 kinds): behavior, invariant, event, type, port
@@ -46,7 +46,7 @@ Every entity has a unique ID, compiler-checked cross-references, and a defined r
 - `spec` — singleton project configuration (name, version, extensions, providers)
 - `ref` — external resource references with scheme-based routing
 
-The core grammar parses ANY `keyword name { fields }` block generically. Validation of which keywords are legal, what fields are allowed, and what edges exist comes entirely from extensions via ManifestV2. If a new domain requires a compiler change, the architecture has failed.
+The core grammar parses ANY `keyword name { fields }` block generically. Validation of which keywords are legal, what fields are allowed, and what edges exist comes entirely from extensions' declarations. If a new domain requires a compiler change, the architecture has failed.
 
 **@specforge/software** is a recommended-by-default extension (like Terraform's built-in providers). It adds the software engineering domain: behavioral contracts (`behavior → invariant`), the domain event model (`event`), and the code bridge (`type` + `port`). All 5 entity kinds are testable with verify support.
 

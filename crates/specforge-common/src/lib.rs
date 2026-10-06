@@ -25,8 +25,8 @@ pub use present::{
     serialize_diagnostics, truncate_diagnostics,
 };
 pub use project::{
-    InferenceConfig, ProjectConfig, extension_entry_name, find_project_root, load_project_config,
-    validate_project_name,
+    ExtensionEntry, InferenceConfig, ProjectConfig, extension_entry_name, find_project_root,
+    load_project_config, validate_project_name,
 };
 pub use slug::slug;
 pub use span::SourceSpan;

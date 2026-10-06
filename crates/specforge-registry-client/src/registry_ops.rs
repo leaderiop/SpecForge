@@ -9,7 +9,7 @@ use super::registry_client::{
     RegistryClient, RegistryError, RegistryResponse, RegistrySearchResult,
 };
 use super::registry_config::{RegistryConfig, RegistryCredential, find_registry_for_specifier};
-use specforge_registry::ManifestV2;
+use specforge_protocol_types::ExtensionDeclaration;
 
 /// Compute the hex-encoded SHA256 digest of the given data.
 fn hex_sha256(data: &[u8]) -> String {
@@ -96,25 +96,26 @@ pub fn search_registries(
 
 /// Publish to a registry, optionally signing the package.
 ///
-/// Serializes the manifest once — the uploaded bytes, the `manifest_sha256`
-/// inside the signature payload, and the stored manifest are byte-identical.
+/// The package's manifest is its declaration (ADR 0012), serialized once —
+/// the uploaded bytes, the `manifest_sha256` inside the signature payload,
+/// and the stored manifest are byte-identical.
 /// When `signing` is provided, the upload carries a [`PackageSignature`] over
 /// `{name, version, wasm_sha256, manifest_sha256, signed_at}`.
 /// `credential`, when provided, authenticates the upload.
 /// Rejects duplicate versions unless `force` is true. Returns the registry URL on success.
 pub fn publish_to_registry(
     package: &[u8],
-    manifest: &ManifestV2,
+    declaration: &ExtensionDeclaration,
     registry: &RegistryConfig,
     credential: Option<&RegistryCredential>,
     client: &dyn RegistryClient,
     force: bool,
     signing: Option<&crate::SigningKey>,
 ) -> Result<String, Diagnostic> {
-    let manifest_json = serde_json::to_string(manifest).map_err(|e| Diagnostic {
+    let manifest_json = serde_json::to_string(declaration).map_err(|e| Diagnostic {
         code: "R-OPS-003".to_string(),
         severity: specforge_common::Severity::Error,
-        message: format!("failed to serialize manifest: {}", e),
+        message: format!("failed to serialize the declaration: {}", e),
         span: None,
         suggestion: None,
         data: None,
@@ -124,8 +125,8 @@ pub fn publish_to_registry(
     // manifest bytes and the wasm hash to the publisher key.
     let signature = signing.map(|key| {
         let signature = key.sign_package(
-            &manifest.name,
-            &manifest.version,
+            declaration.name(),
+            declaration.version(),
             &hex_sha256(package),
             &hex_sha256(manifest_json.as_bytes()),
             &chrono::Utc::now().to_rfc3339(),
@@ -135,12 +136,12 @@ pub fn publish_to_registry(
 
     // First, check if the version already exists by trying to fetch it
     if !force {
-        let specifier = format!("{}@{}", manifest.name, manifest.version);
+        let specifier = format!("{}@{}", declaration.name(), declaration.version());
         match client.fetch(&specifier, registry) {
             Ok(_) => {
                 return Err(RegistryError::DuplicateVersion {
-                    name: manifest.name.clone(),
-                    version: manifest.version.clone(),
+                    name: declaration.name().to_string(),
+                    version: declaration.version().to_string(),
                 }
                 .to_diagnostic());
             }
@@ -156,7 +157,7 @@ pub fn publish_to_registry(
     client
         .publish(
             package,
-            manifest,
+            declaration,
             &manifest_json,
             signature.as_deref(),
             registry,

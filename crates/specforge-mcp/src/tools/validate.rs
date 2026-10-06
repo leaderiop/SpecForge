@@ -1,14 +1,15 @@
 use serde::Deserialize;
-use std::path::PathBuf;
 
 use crate::args::{lenient, strings};
-use crate::state::McpState;
-use crate::tool::ToolOutcome;
-use specforge_project::DiagnosticPolicy;
+use crate::target::Call;
+use crate::tool::{Handled, ToolOutcome};
+use specforge_ops::check::{CheckError, CheckOptions, check, parse_lint_profiles, parse_severity};
 
 #[derive(Debug, Deserialize)]
 pub struct Args {
+    /// Read by the call's target (`target::resolve`), not here.
     #[serde(default, deserialize_with = "lenient")]
+    #[allow(dead_code, reason = "the call target resolves path")]
     path: Option<String>,
     #[serde(default, deserialize_with = "lenient")]
     severity_filter: Option<String>,
@@ -16,57 +17,57 @@ pub struct Args {
     strict: Option<bool>,
     #[serde(default, deserialize_with = "strings")]
     lint: Vec<String>,
+    /// Read by the call's target (`Freshness::FreshUnlessCached`), not here.
     #[serde(default, deserialize_with = "lenient")]
+    #[allow(dead_code, reason = "the call target applies use_cached")]
     use_cached: Option<bool>,
 }
 
-pub fn call(state: &mut McpState, args: Args) -> ToolOutcome {
-    let path = args
-        .path
-        .map(PathBuf::from)
-        .or_else(|| state.project_root.clone());
+/// The `_meta` key of validate's verdict: `{ok, errors, warnings, infos,
+/// shown}` over everything reported, whatever `severity_filter` shows.
+pub const VERDICT_META: &str = "specforge/check";
 
-    let root = match path {
-        Some(p) => p,
-        None => {
-            return ToolOutcome::no_project("No project root available; pass {\"path\": ...}");
-        }
+/// `specforge.validate`: the check operation over what `specforge check`
+/// reports for the call's project (the target brought the served project
+/// up to date with disk unless `use_cached`, or compiled the project
+/// `path` names for this call). Finding errors is a successful call (ADR
+/// 0004 D4-a); whether the check passed is the `_meta` verdict. The tool
+/// never records the build cache.
+pub fn call(call: &mut Call<'_>, args: Args) -> Handled {
+    let severity = match args.severity_filter.as_deref().map(parse_severity) {
+        None => None,
+        Some(Ok(severity)) => Some(severity),
+        Some(Err(error)) => return Ok(refused(error, "severity_filter")),
     };
-
-    let severity_filter = args.severity_filter.as_deref();
-    let use_cached = args.use_cached.unwrap_or(false);
-
-    // A path naming another project is validated for this call only: the
-    // server keeps serving its own.
-    let reported: Vec<specforge_common::Diagnostic> = if state.serves_other_than(&root) {
-        state.compile_project(&root).diagnostics()
-    } else {
-        if !use_cached || state.diagnostics().is_empty() {
-            state.reload(&root);
-        }
-        state.diagnostics()
+    let lint_profiles = match parse_lint_profiles(&args.lint) {
+        Ok(profiles) => profiles,
+        Err(error) => return Ok(refused(error, "lint")),
     };
-
-    // The policy `specforge check` applies: lint profiles add theirs, and
-    // strict promotes warnings before filtering, so a promoted warning
-    // counts as an error for `severity_filter` and `isError` alike.
-    let policy = DiagnosticPolicy {
+    let project = call.project()?;
+    let options = CheckOptions {
         strict: args.strict.unwrap_or(false),
-        lint_profiles: args.lint,
+        lint_profiles,
+        severity,
+        record_cache: false,
     };
-    let promoted = policy.apply(&root, reported);
-    let diagnostics: Vec<&specforge_common::Diagnostic> = promoted
-        .iter()
-        .filter(|d| match severity_filter {
-            Some("error") => d.severity == specforge_common::Severity::Error,
-            Some("warning") => d.severity == specforge_common::Severity::Warning,
-            Some("info") => d.severity == specforge_common::Severity::Info,
-            _ => true,
-        })
-        .collect();
+    let outcome = match check(&project.view(), project.diagnostics(), &options) {
+        Ok(outcome) => outcome,
+        Err(error) => return Ok(refused(error, "path")),
+    };
+    let shown: Vec<specforge_common::Diagnostic> = outcome.shown().into_iter().cloned().collect();
+    Ok(
+        ToolOutcome::text(specforge_common::serialize_diagnostics(&shown))
+            .with_meta(VERDICT_META, outcome.verdict_json()),
+    )
+}
 
-    let filtered: Vec<specforge_common::Diagnostic> = diagnostics.into_iter().cloned().collect();
-    let diag_json = specforge_common::serialize_diagnostics(&filtered);
-
-    ToolOutcome::text(diag_json)
+/// Why validate could not run: an argument it cannot use (`invalid_input`
+/// naming it, with the closest valid name), or no project root.
+fn refused(error: CheckError, argument: &str) -> ToolOutcome {
+    match error {
+        CheckError::NoProjectRoot => ToolOutcome::no_project(error.to_string()),
+        error => crate::operations::op_error(error.into())
+            .with_argument(argument)
+            .into(),
+    }
 }

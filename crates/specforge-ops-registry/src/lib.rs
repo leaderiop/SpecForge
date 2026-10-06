@@ -10,8 +10,10 @@ use specforge_common::Diagnostic;
 use specforge_ops::OpError;
 use specforge_ops::config::CONFIG_FILE;
 use specforge_ops::extension::Trust;
-use specforge_ops::registry::{Package, Registry, is_range, no_registry};
-use specforge_registry::ManifestV2;
+use specforge_ops::registry::{
+    METADATA_MISMATCH, Package, Registry, UNREADABLE_MANIFEST, is_range, no_registry,
+};
+use specforge_protocol_types::ExtensionDeclaration;
 use specforge_registry_client::{
     HttpRegistryClient, RegistryConfig, find_registry_for_specifier, parse_registries_from_config,
     resolve_from_registry, resolve_version, verify_registry_integrity,
@@ -28,14 +30,6 @@ pub struct Configured {
     /// shows them.
     pub diagnostics: Vec<Diagnostic>,
 }
-
-/// The registry's answer doesn't describe what was asked for, or its
-/// metadata disagrees with the signature.
-const METADATA_MISMATCH: &str = "R-TRUST-004";
-
-/// The registry served no manifest for the package, or one that isn't a
-/// readable extension manifest.
-const UNREADABLE_MANIFEST: &str = "R-OPS-004";
 
 /// The diagnostic for a registry configuration that can't be read.
 const INVALID_CONFIG: &str = "E067";
@@ -160,29 +154,20 @@ impl Registry for HttpRegistry {
             .map_err(|e| OpError::from(e.to_diagnostic()))?;
         verify_registry_integrity(&wasm, &response.sha256).map_err(OpError::from)?;
 
-        // The served manifest declares the peers the diamond gate (ADR 0001)
-        // decides on. One that can't be read must not pass as "no peers",
-        // and one describing another package must not be installed as this
-        // one. Checked before the signature, so a refused package pins no
-        // key.
-        let manifest = serde_json::from_str::<ManifestV2>(&response.manifest).map_err(|e| {
-            let why = if response.manifest.trim().is_empty() {
-                "the registry served none".to_string()
-            } else {
-                e.to_string()
-            };
-            OpError::new(
-                UNREADABLE_MANIFEST,
-                format!("the manifest of {name}@{version} can't be read: {why}"),
-            )
-            .with_suggestion("don't install the package, and check the registry")
-        })?;
-        if manifest.name != name || manifest.version != version {
+        // The served manifest is the package's declaration (ADR 0012): the
+        // peers the diamond gate (ADR 0001) decides on, and what the binary
+        // must declare once loaded. One that can't be read must not pass as
+        // "no peers", and one describing another package must not be
+        // installed as this one. Checked before the signature, so a refused
+        // package pins no key.
+        let declaration = read_declaration(name, version, &response.manifest)?;
+        if declaration.name() != name || declaration.version() != version {
             return Err(OpError::new(
                 METADATA_MISMATCH,
                 format!(
-                    "registry served {name}@{version} with the manifest of {}@{}",
-                    manifest.name, manifest.version
+                    "registry served {name}@{version} with the declaration of {}@{}",
+                    declaration.name(),
+                    declaration.version()
                 ),
             )
             .with_suggestion("don't install the package, and check the registry"));
@@ -210,7 +195,7 @@ impl Registry for HttpRegistry {
             version: response.version,
             sha256: response.sha256,
             wasm,
-            peers: manifest.peer_dependencies,
+            declaration,
             key_id: trusted.key_id,
         })
     }
@@ -221,6 +206,39 @@ impl Registry for HttpRegistry {
             .fetch_versions(name, registry)
             .map_err(|e| OpError::from(e.to_diagnostic()))
     }
+}
+
+/// The declaration a registry stores as `name@version`'s manifest. A
+/// manifest from before ADR 0012 (the camelCase `manifest.json` form, with
+/// `manifestVersion`) can't be read as one: it is refused with the
+/// suggestion to re-publish the package.
+fn read_declaration(
+    name: &str,
+    version: &str,
+    manifest: &str,
+) -> Result<ExtensionDeclaration, OpError> {
+    let unreadable = |why: String| {
+        OpError::new(
+            UNREADABLE_MANIFEST,
+            format!("the manifest of {name}@{version} can't be read: {why}"),
+        )
+        .with_suggestion("don't install the package, and check the registry")
+    };
+    if manifest.trim().is_empty() {
+        return Err(unreadable("the registry served none".to_string()));
+    }
+    let value: serde_json::Value =
+        serde_json::from_str(manifest).map_err(|e| unreadable(e.to_string()))?;
+    if value.get("manifestVersion").is_some() {
+        return Err(unreadable(
+            "it is a manifest.json from before extension declarations".to_string(),
+        )
+        .with_suggestion(format!(
+            "re-publish {name}@{version} with this version of specforge publish, which uploads \
+             the declaration it reads from the binary"
+        )));
+    }
+    serde_json::from_value(value).map_err(|e| unreadable(e.to_string()))
 }
 
 #[cfg(test)]

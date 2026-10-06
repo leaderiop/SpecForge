@@ -1,16 +1,14 @@
 use std::collections::HashMap;
 
-#[derive(Debug, Clone)]
+use specforge_protocol_types::EdgeTypeDescriptor;
+
+/// One registered edge type, as its extension declared it (an edge a
+/// field maps to without declaring it is registered with the field's kind
+/// as its source and its target kind, nothing else).
+#[derive(Debug, Clone, Default)]
 pub struct EdgeRegistryEntry {
-    pub label: String,
-    /// What the edge means, as its extension describes it.
-    pub description: Option<String>,
-    pub source_kind: Option<String>,
-    pub target_kind: Option<String>,
     pub source_extension: String,
-    pub edge_style: Option<String>,
-    pub edge_color: Option<String>,
-    pub edge_arrowhead: Option<String>,
+    pub declared: EdgeTypeDescriptor,
 }
 
 #[derive(Debug, Default)]
@@ -42,7 +40,7 @@ impl EdgeRegistry {
     }
 
     pub fn register(&mut self, entry: EdgeRegistryEntry) -> Option<EdgeRegistryEntry> {
-        self.entries.insert(entry.label.clone(), entry)
+        self.entries.insert(entry.declared.label.clone(), entry)
     }
 
     pub fn iter(&self) -> impl Iterator<Item = (&String, &EdgeRegistryEntry)> {

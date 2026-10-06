@@ -1,5 +1,6 @@
 use specforge_common::{SourceSpan, Sym};
-use specforge_graph::{Edge, Graph, Node};
+use specforge_graph::{Graph, Node};
+use specforge_ops::navigate::{EntityQuery, MatchScope, find_entities};
 use specforge_parser::{EntityId, EntityKind, FieldMap};
 use specforge_test_macros::test as specforge_test;
 
@@ -156,16 +157,15 @@ fn registries_for(
 ) {
     let names: Vec<String> = extensions.iter().map(|s| s.to_string()).collect();
     let runtime = wasm_runtime_for(&names);
-    let host = specforge_wasm::protocol::ProtocolHost::new(&runtime);
-    let manifests: Vec<_> = names
+    let declarations: Vec<_> = names
         .iter()
         .map(|name| {
-            let ext = specforge_wasm::protocol::load_protocol_extension(&host, name)
+            let loaded = specforge_wasm::protocol::load_declaration(&runtime, name)
                 .unwrap_or_else(|e| panic!("{name} does not load: {e:?}"));
-            specforge_wasm::protocol::protocol_extension_to_manifest(&ext)
+            loaded.declaration
         })
         .collect();
-    let build = specforge_registry::build_registries(manifests);
+    let build = specforge_registry::build_registries(declarations);
     (build.kinds, build.fields)
 }
 
@@ -276,13 +276,31 @@ fn autocomplete_entity_ids_contract() {
     g.add_node(node("user_logout", "behavior", Some("User Logout")));
     g.add_node(node("auth_token", "type", Some("Auth Token")));
 
-    let items = specforge_lsp::complete_entity_ids(&g, "user");
+    // What completion asks of the shared ranking: ids and titles.
+    let query = EntityQuery::new("user", MatchScope::Names);
+    let items = find_entities(&g, &query);
 
     assert_eq!(items.len(), 2, "only matching IDs returned");
     for item in &items {
-        assert!(item.id.starts_with("user"), "each item must match prefix");
-        assert!(!item.kind.is_empty(), "kind must be populated");
+        assert!(
+            item.node.id.raw.as_str().starts_with("user"),
+            "each item must match prefix"
+        );
+        assert!(
+            !item.node.kind.raw.as_str().is_empty(),
+            "kind must be populated"
+        );
     }
+    // With the enclosing field's target kind, only that kind.
+    let types = EntityQuery {
+        kinds: &["type"],
+        ..EntityQuery::new("", MatchScope::Names)
+    };
+    let ids: Vec<&str> = find_entities(&g, &types)
+        .iter()
+        .map(|m| m.node.id.raw.as_str())
+        .collect();
+    assert_eq!(ids, ["auth_token"]);
 }
 
 // B:complete_field_names — verify contract "requires/ensures consistency for field name completion"
@@ -303,16 +321,13 @@ fn complete_field_names_contract() {
     .map(|s| s.to_string())
     .collect();
     let runtime = wasm_runtime_for(&ext_names);
-    let host = specforge_wasm::protocol::ProtocolHost::new(&runtime);
-    let mut manifests = Vec::new();
+    let mut declarations = Vec::new();
     for name in &ext_names {
-        if let Ok(ext) = specforge_wasm::protocol::load_protocol_extension(&host, name) {
-            manifests.push(specforge_wasm::protocol::protocol_extension_to_manifest(
-                &ext,
-            ));
+        if let Ok(loaded) = specforge_wasm::protocol::load_declaration(&runtime, name) {
+            declarations.push(loaded.declaration);
         }
     }
-    let field_reg = specforge_registry::build_registries(manifests).fields;
+    let field_reg = specforge_registry::build_registries(declarations).fields;
 
     let behavior_fields = specforge_lsp::complete_field_names("behavior", Some(&field_reg));
     assert!(
@@ -386,44 +401,6 @@ fn hover_information_contract() {
     assert!(missing.is_none(), "missing entity must return None");
 }
 
-// B:find_all_references — verify contract "requires/ensures consistency for find all references"
-#[specforge_test(
-    behavior = "find_all_references",
-    verify = "Find All References: find all references holds — graph_available, all_references_returned, declaration_included"
-)]
-fn find_all_references_contract() {
-    // Requires: entity in graph with edges from other entities
-    // Ensures: declaration + all reference sites returned
-    let mut g = Graph::new();
-    g.add_node(node_at("auth_token", "type", "types.spec", 10, 5));
-    g.add_node(node_at("login", "behavior", "auth.spec", 5, 9));
-    g.add_node(node_at("refresh", "behavior", "session.spec", 3, 9));
-    g.add_edge(Edge {
-        source: "login".into(),
-        target: "auth_token".into(),
-        label: "types".into(),
-    });
-    g.add_edge(Edge {
-        source: "refresh".into(),
-        target: "auth_token".into(),
-        label: "types".into(),
-    });
-
-    let refs = specforge_lsp::find_all_references(&g, "auth_token");
-
-    assert_eq!(refs.len(), 3, "declaration + 2 reference sites");
-    let files: Vec<&str> = refs.iter().map(|l| l.file.as_str()).collect();
-    assert!(
-        files.contains(&"types.spec"),
-        "must include declaration site"
-    );
-    assert!(files.contains(&"auth.spec"), "must include reference site");
-    assert!(
-        files.contains(&"session.spec"),
-        "must include reference site"
-    );
-}
-
 // B:goto_import_definition — verify contract "requires/ensures consistency for import go-to-definition"
 #[specforge_test(
     behavior = "goto_import_definition",
@@ -462,20 +439,61 @@ fn goto_import_definition_contract() {
     behavior = "prepare_rename",
     verify = "Prepare Rename: prepare rename holds — graph_available, token_range_returned, non_renameable_rejected"
 )]
-fn prepare_rename_contract() {
-    // Requires: entity ID in graph
-    // Ensures: returns token range for existing entity; None for missing
-    let mut g = Graph::new();
-    g.add_node(node_at("auth_token", "type", "types.spec", 5, 5));
+fn contract_prepare_rename() {
+    // Requires: the graph, built from the files' text
+    // Ensures: the token under the cursor (declaration or reference) is
+    // renameable, with its range; anything else is not.
+    let state = buffers(&[
+        (
+            "/p/types.spec",
+            "\n\n\n\ntype auth_token \"auth_token\" {\n}\n",
+        ),
+        (
+            "/p/auth.spec",
+            "behavior login \"L\" {\n  types [auth_token]\n}\n",
+        ),
+    ]);
+    let nav = specforge_lsp::navigator(&state);
 
-    let result = specforge_lsp::prepare_rename(&g, "auth_token");
-    let range = result.expect("existing entity must return range");
-    assert_eq!(range.file, "types.spec");
-    assert_eq!(range.start_line, 5);
-    assert_eq!(range.start_col, 5);
+    let declaration = nav
+        .occurrence_at("/p/types.spec", 5, 8)
+        .expect("the declaration's name is renameable");
+    let span = &declaration.span;
+    assert_eq!(
+        (
+            span.file.as_str(),
+            span.start_line,
+            span.start_col,
+            span.end_col
+        ),
+        ("/p/types.spec", 5, 6, 16)
+    );
+    let reference = nav
+        .occurrence_at("/p/auth.spec", 2, 12)
+        .expect("a reference's token is renameable");
+    assert_eq!(reference.target, "auth_token");
 
-    let missing = specforge_lsp::prepare_rename(&g, "nonexistent");
-    assert!(missing.is_none(), "missing entity must return None");
+    // The title naming it, a keyword, nothing: not renameable.
+    assert!(nav.occurrence_at("/p/types.spec", 5, 20).is_none());
+    assert!(nav.occurrence_at("/p/types.spec", 5, 2).is_none());
+    assert!(nav.occurrence_at("/p/types.spec", 1, 1).is_none());
+}
+
+/// An LSP state whose session holds `files` (absolute paths) as open
+/// buffers.
+fn buffers(files: &[(&str, &str)]) -> specforge_lsp::LspState {
+    let mut state = specforge_lsp::LspState::new();
+    for (path, text) in files {
+        state.open_document(&format!("file://{path}"), text);
+        state
+            .session_mut()
+            .unwrap()
+            .update(specforge_project::SourceChange::Buffer {
+                path,
+                text: Some(text),
+            });
+    }
+    state
 }
 
 // B:rename_entity_id — verify contract "requires/ensures consistency for entity rename"
@@ -485,42 +503,35 @@ fn prepare_rename_contract() {
 )]
 fn rename_entity_id_contract() {
     // Requires: entity in graph with references from other entities + new name
-    // Ensures: edits for declaration + all reference sites; rejects duplicate name
-    let mut g = Graph::new();
-    g.add_node(node_at("auth_token", "type", "types.spec", 5, 5));
-    g.add_node(node_at("user_login", "behavior", "auth.spec", 10, 9));
-    g.add_edge(Edge {
-        source: "user_login".into(),
-        target: "auth_token".into(),
-        label: "types".into(),
-    });
-
-    // Each node's id on its first line; user_login's line also names what
-    // it references.
-    let texts: std::collections::HashMap<&str, String> = [
-        ("types.spec", format!("{}     auth_token\n", "\n".repeat(4))),
+    // Ensures: edits for the declaration and every reference, nothing
+    // else; a taken name, or a file the rename cannot read, is refused.
+    let state = buffers(&[
+        ("/p/types.spec", "type auth_token \"auth_token\" {\n}\n"),
         (
-            "auth.spec",
-            format!("{}         user_login [auth_token]\n", "\n".repeat(9)),
+            "/p/auth.spec",
+            "behavior user_login \"L\" {\n  types [auth_token]\n  // auth_token\n}\n",
         ),
-    ]
-    .into();
-    let text_of = |f: &str| texts.get(f).cloned();
-    let edits = specforge_lsp::identifier_edits(&g, "auth_token", "session_token", text_of);
-    let edits = edits.expect("valid rename must produce edits");
-    assert!(edits.len() >= 2, "must edit declaration + reference sites");
-    assert!(
-        edits.iter().any(|e| e.file == "types.spec"),
-        "must edit declaration file"
-    );
-    assert!(
-        edits.iter().any(|e| e.file == "auth.spec"),
-        "must edit reference file"
-    );
+    ]);
+    let nav = specforge_lsp::navigator(&state);
+    let plan = specforge_ops::rename::plan(&nav, "auth_token", "session_token")
+        .expect("valid rename must produce edits");
+    let edits: Vec<(&str, usize, usize)> = plan
+        .edits
+        .iter()
+        .map(|e| (e.file.as_str(), e.line, e.start_col))
+        .collect();
+    assert_eq!(edits, [("/p/auth.spec", 2, 9), ("/p/types.spec", 1, 5)]);
 
     // Reject rename to existing ID
-    let dup = specforge_lsp::identifier_edits(&g, "auth_token", "user_login", text_of);
-    assert!(dup.is_none(), "rename to existing ID must be rejected");
+    let dup = specforge_ops::rename::plan(&nav, "auth_token", "user_login");
+    assert_eq!(dup.unwrap_err().code, specforge_ops::rename::TAKEN);
+
+    // All or nothing: a file the rename cannot read refuses the whole.
+    let blind = specforge_ops::navigate::Navigator::new(state.view(), |file: &str| {
+        (file != "/p/auth.spec").then(|| "type auth_token \"auth_token\" {\n}\n".to_string())
+    });
+    let refused = specforge_ops::rename::plan(&blind, "auth_token", "session_token");
+    assert_eq!(refused.unwrap_err().code, specforge_ops::rename::UNREADABLE);
 }
 
 // B:outline_view — verify contract "requires/ensures consistency for outline view"
@@ -530,18 +541,34 @@ fn rename_entity_id_contract() {
 )]
 fn outline_view_contract() {
     // Requires: graph with entities across files
-    // Ensures: document_symbols returns entities in the specified file with kind, id, title
-    let mut g = Graph::new();
-    g.add_node(node_at("a", "behavior", "test.spec", 0, 0));
-    g.add_node(node_at("b", "type", "test.spec", 5, 0));
-    g.add_node(node_at("c", "event", "other.spec", 10, 0));
+    // Ensures: the outline of a file is its entities, in line order, each
+    // with its kind, id and title, selecting its name
+    let state = buffers(&[
+        (
+            "/p/test.spec",
+            "type b \"B\" {\n}\n\nbehavior a \"A\" {\n}\n",
+        ),
+        ("/p/other.spec", "event c \"C\" {\n}\n"),
+    ]);
+    let entries =
+        specforge_ops::navigate::outline(&specforge_lsp::navigator(&state), "/p/test.spec");
 
-    let symbols = specforge_lsp::document_symbols(&g, "test.spec");
-
-    assert_eq!(symbols.len(), 2, "only entities from target file");
-    for sym in &symbols {
-        assert!(!sym.kind.is_empty(), "each symbol must have kind");
-        assert!(!sym.id.is_empty(), "each symbol must have id");
+    let ids: Vec<&str> = entries.iter().map(|e| e.id.as_str()).collect();
+    assert_eq!(
+        ids,
+        ["b", "a"],
+        "only entities from target file, in line order"
+    );
+    for entry in &entries {
+        assert!(
+            !entry.kind.as_str().is_empty(),
+            "each symbol must have kind"
+        );
+        assert!(entry.title.is_some(), "each symbol must have title");
+        assert_eq!(
+            entry.name.start_line, entry.block.start_line,
+            "the name is selected"
+        );
     }
 }
 
@@ -558,12 +585,16 @@ fn workspace_symbol_search_contract() {
     g.add_node(node_at("user_logout", "behavior", "a.spec", 5, 0));
     g.add_node(node_at("auth_token", "type", "b.spec", 0, 0));
 
-    let by_prefix = specforge_lsp::workspace_symbols(&g, "user");
+    // What workspace symbols ask of the shared ranking: ids and titles.
+    let by_prefix = find_entities(&g, &EntityQuery::new("user", MatchScope::Names));
     assert_eq!(by_prefix.len(), 2, "ID prefix search must match");
 
-    let by_title = specforge_lsp::workspace_symbols(&g, "Auth");
+    let by_title = find_entities(&g, &EntityQuery::new("Auth", MatchScope::Names));
     assert_eq!(by_title.len(), 1, "title fragment search must match");
-    assert_eq!(by_title[0].kind, "type", "result must include kind");
+    assert_eq!(
+        by_title[0].node.kind.raw, "type",
+        "result must include kind"
+    );
 }
 
 // B:provide_semantic_tokens — verify contract "requires/ensures consistency for semantic tokens"
@@ -727,19 +758,66 @@ async fn client_without_refresh_support_never_gets_token_refresh() {
     verify = "Code Action: Create Entity Stub: create entity stub holds — graph_available, field_registry_available, stub_created, kind_inferred, no_code_generated"
 )]
 fn code_action_create_entity_stub_contract() {
-    // Requires: missing entity ID + target kind from FieldRegistry
-    // Ensures: stub with correct kind inserted in current file; None without target_kind
-    let action =
-        specforge_lsp::code_action_create_stub("missing_event", Some("event"), "current.spec");
-    let action = action.expect("entity stub must be created with target_kind");
+    // Requires: an E003 for an id no entity has + the enclosing field's
+    // target kind in the FieldRegistry
+    // Ensures: a refactoring that appends a bare stub of that kind to the
+    // current file; none without a target kind
+    let text = "behavior login \"L\" {\n  invariants [missing_inv]\n}\n";
+    let state = buffers(&[("/p/auth.spec", text)]);
+    let diagnostics = state.session().unwrap().diagnostics();
+    let recorded = specforge_project::coverage::RecordedCoverage::default();
+    let fixes_with = |target_kind: Option<&str>| {
+        let registries = {
+            let mut build = specforge_registry::RegistryBuild::default();
+            build.fields = invariants_field(target_kind);
+            build
+        };
+        let view =
+            specforge_ops::view::ProjectView::new(state.graph(), &registries, None, &recorded);
+        let nav = specforge_ops::navigate::Navigator::new(view, |_: &str| Some(text.to_string()));
+        nav.fixes(&diagnostics, &specforge_ops::navigate::FixQuery::default())
+    };
+
+    let fixes = fixes_with(Some("invariant"));
+    let stub = fixes
+        .iter()
+        .find(|f| f.kind == specforge_ops::navigate::FixKind::Refactor)
+        .expect("entity stub must be created with target_kind");
+    assert_eq!(stub.title, "Create invariant stub for missing_inv");
+    let edit = &stub.edits[0];
     assert!(
-        action.edit_text.contains("event missing_event"),
+        edit.new_text.contains("invariant missing_inv"),
         "stub must use correct kind and ID"
     );
-    assert_eq!(action.file, "current.spec", "stub must target current file");
+    assert_eq!(
+        edit.span.file, "/p/auth.spec",
+        "stub must target current file"
+    );
+    assert!(!edit.new_text.contains("fn "), "no application code");
 
-    let no_kind = specforge_lsp::code_action_create_stub("unknown", None, "current.spec");
-    assert!(no_kind.is_none(), "must return None without target_kind");
+    assert!(
+        fixes_with(None)
+            .iter()
+            .all(|f| f.kind != specforge_ops::navigate::FixKind::Refactor),
+        "no stub without target_kind"
+    );
+}
+
+/// `behavior.invariants` as a reference list targeting `target_kind`.
+fn invariants_field(target_kind: Option<&str>) -> specforge_registry::FieldRegistry {
+    let mut fields = specforge_registry::FieldRegistry::new();
+    fields.register(specforge_registry::FieldRegistryEntry {
+        kind_name: "behavior".into(),
+        field_type: specforge_registry::ManifestFieldType::ReferenceList,
+        source_extension: "@test/ext".into(),
+        proof_role: None,
+        declared: specforge_registry::FieldDescriptor {
+            name: "invariants".into(),
+            target_kind: target_kind.map(str::to_string),
+            ..Default::default()
+        },
+    });
+    fields
 }
 
 // B:code_actions_for_missing_verify — verify contract "requires/ensures consistency for missing verify code actions"
@@ -749,22 +827,12 @@ fn verifiable(kinds: &[&str], verify_kinds: &[&str]) -> specforge_registry::Kind
     for kind in kinds {
         registry.register(specforge_registry::KindRegistryEntry {
             kind_name: kind.to_string(),
-            description: None,
             source_extension: "@test/ext".into(),
             testable: true,
-            singleton: false,
             supports_verify: true,
             allowed_verify_kinds: verify_kinds.iter().map(|k| k.to_string()).collect(),
-            has_body_parser: false,
-            semantic_token: None,
-            lsp_icon: None,
-            dot_shape: None,
-            dot_color: None,
-            dot_fillcolor: None,
-            open_fields: false,
-            contract_target: false,
-            declares_types: false,
             lifecycle_field: None,
+            ..Default::default()
         });
     }
     registry
@@ -777,29 +845,38 @@ fn verifiable(kinds: &[&str], verify_kinds: &[&str]) -> specforge_registry::Kind
 fn code_actions_for_missing_verify_contract() {
     // Requires: testable entity without verify statements
     // Ensures: quickfix code action with verify stub targeting the .spec file
-    let mut g = Graph::new();
-    g.add_node(node_at("my_behavior", "behavior", "a.spec", 5, 0));
-
-    let actions =
-        specforge_lsp::code_actions_missing_verify(&g, "a.spec", &verifiable(&["behavior"], &[]));
+    let text = "\n\n\n\nbehavior my_behavior \"B\" {\n  contract \"c\"\n}\n";
+    let state = buffers(&[("/p/a.spec", text)]);
+    let registries = {
+        let mut build = specforge_registry::RegistryBuild::default();
+        build.kinds = verifiable(&["behavior"], &[]);
+        build
+    };
+    let recorded = specforge_project::coverage::RecordedCoverage::default();
+    let view = specforge_ops::view::ProjectView::new(state.graph(), &registries, None, &recorded);
+    let nav = specforge_ops::navigate::Navigator::new(view, |_: &str| Some(text.to_string()));
+    let fixes = nav.fixes(&[], &specforge_ops::navigate::FixQuery::default());
 
     assert!(
-        !actions.is_empty(),
+        !fixes.is_empty(),
         "untested testable entity must produce code action"
     );
-    assert_eq!(actions[0].entity_id, "my_behavior");
+    assert_eq!(fixes[0].subject, Some("my_behavior".into()));
     assert_eq!(
-        actions[0].action_kind, "quickfix",
+        fixes[0].kind,
+        specforge_ops::navigate::FixKind::QuickFix,
         "must be quickfix action"
     );
+    let edit = &fixes[0].edits[0];
     assert!(
-        actions[0].edit_text.contains("verify unit"),
+        edit.new_text.contains("verify unit"),
         "stub must include verify statement"
     );
     assert!(
-        actions[0].file.ends_with(".spec"),
+        edit.span.file.as_str().ends_with(".spec"),
         "edit must target .spec file"
     );
+    assert_eq!(edit.span.start_line, 7, "before the block's closing brace");
 }
 
 // B:go_to_definition — verify contract "requires/ensures consistency for go-to-definition"
@@ -809,24 +886,44 @@ fn code_actions_for_missing_verify_contract() {
 )]
 fn go_to_definition_contract() {
     // Requires: graph with resolved entity declarations
-    // Ensures: declaration site (file, line, col) returned for existing entity; None for missing
-    let mut g = Graph::new();
-    g.add_node(node_at("auth_token", "type", "types.spec", 10, 5));
-    g.add_node(node_at("login", "behavior", "auth.spec", 3, 0));
-    g.add_edge(Edge {
-        source: "login".into(),
-        target: "auth_token".into(),
-        label: "types".into(),
-    });
+    // Ensures: the declaration site (file, line, column of the block
+    // header) returned for an existing entity, its name selected; none for
+    // a missing one.
+    let mut state = specforge_lsp::LspState::new();
+    for (path, text) in [
+        ("/p/types.spec", "\n\ntype   auth_token \"Token\" {\n}\n"),
+        (
+            "/p/auth.spec",
+            "behavior login \"L\" {\n  types [auth_token]\n}\n",
+        ),
+    ] {
+        state.open_document(&format!("file://{path}"), text);
+        state
+            .session_mut()
+            .unwrap()
+            .update(specforge_project::SourceChange::Buffer {
+                path,
+                text: Some(text),
+            });
+    }
+    let nav = specforge_lsp::navigator(&state);
 
-    let loc = specforge_lsp::go_to_definition(&g, "auth_token");
-    let loc = loc.expect("existing entity must return declaration site");
-    assert_eq!(loc.file, "types.spec", "must return correct file");
-    assert_eq!(loc.start_line, 10, "must return correct line");
-    assert_eq!(loc.start_col, 5, "must return correct column");
+    let def = nav
+        .definition("auth_token")
+        .expect("existing entity must return declaration site");
+    assert_eq!(def.block.file, "/p/types.spec", "must return correct file");
+    assert_eq!(def.block.start_line, 3, "must return correct line");
+    assert_eq!(def.block.start_col, 1, "must return correct column");
+    assert_eq!(
+        (def.name.start_line, def.name.start_col, def.name.end_col),
+        (3, 8, 18),
+        "the name is selected"
+    );
 
-    let missing = specforge_lsp::go_to_definition(&g, "nonexistent");
-    assert!(missing.is_none(), "missing entity must return None");
+    assert!(
+        nav.definition("nonexistent").is_err(),
+        "missing entity must return nothing"
+    );
 }
 
 // B:incremental_document_sync — verify contract "requires/ensures consistency for incremental document sync"
@@ -931,8 +1028,8 @@ fn shared_incremental_pipeline_contract() {
         });
 
     // Graph is shared: navigation works on the same graph instance
-    let def = specforge_lsp::go_to_definition(state.graph(), "a");
-    assert!(def.is_some(), "shared graph must serve navigation");
+    let def = specforge_lsp::navigator(&state).definition("a");
+    assert!(def.is_ok(), "shared graph must serve navigation");
 
     // Diagnostics pushed through the shared state
     state.set_diagnostics("file:///a.spec", vec![]);
@@ -945,6 +1042,74 @@ fn shared_incremental_pipeline_contract() {
 /// A JSON-RPC session with an in-process server that keeps every message
 /// the server sends, so tests can assert on published diagnostics and log
 /// messages (the e2e client reads past them).
+/// A reference cycle has no one place: the LSP publishes it at the
+/// first entity its data names, on that entity's name, pointing at the
+/// others as related information (ADR 0016, D8), not on line 1 of the
+/// document last edited.
+#[specforge_test(
+    behavior = "emit_live_diagnostics",
+    verify = "a spanless diagnostic about entities is published at the first one's name"
+)]
+#[tokio::test]
+async fn a_spanless_diagnostic_about_entities_is_published_at_its_name() {
+    use serde_json::Value;
+    use wire::{Session, uri_of};
+
+    let dir = tempfile::TempDir::new().unwrap();
+    std::fs::write(
+        dir.path().join("specforge.json"),
+        r#"{"name":"c","extensions":["@specforge/software"]}"#,
+    )
+    .unwrap();
+    let cycle = dir.path().join("cycle.spec");
+    let other = dir.path().join("other.spec");
+    let cycle_text = "behavior alpha \"A\" {\n  depends_on [beta]\n}\nbehavior beta \"B\" {\n  depends_on [alpha]\n}\n";
+    std::fs::write(&cycle, cycle_text).unwrap();
+    std::fs::write(&other, "behavior gamma \"G\" {\n}\n").unwrap();
+    let (mut session, _) = Session::start(Some(dir.path())).await;
+    // Edit the other document: the cycle is still published on its own.
+    let other_uri = uri_of(&other);
+    session
+        .open(&other_uri, "behavior gamma \"G\" {\n}\n")
+        .await;
+
+    let cycle_uri = uri_of(&cycle);
+    let has_w061 = |p: &Value| {
+        p["diagnostics"]
+            .as_array()
+            .is_some_and(|d| d.iter().any(|d| d["code"] == "W061"))
+    };
+    let published = session
+        .notification("textDocument/publishDiagnostics", |p| {
+            p["uri"] == cycle_uri && has_w061(p)
+        })
+        .await
+        .expect("W061 is published on the cycle's file");
+    let w061 = published["diagnostics"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|d| d["code"] == "W061")
+        .unwrap()
+        .clone();
+    let range = |r: &Value| {
+        (
+            r["start"]["line"].as_u64().unwrap(),
+            r["start"]["character"].as_u64().unwrap(),
+            r["end"]["character"].as_u64().unwrap(),
+        )
+    };
+    assert_eq!(range(&w061["range"]), (0, 9, 14), "alpha's name: {w061}");
+    let related = w061["relatedInformation"].as_array().expect("the others");
+    assert_eq!(related.len(), 1, "{w061}");
+    assert_eq!(related[0]["location"]["uri"], cycle_uri);
+    assert_eq!(
+        range(&related[0]["location"]["range"]),
+        (3, 9, 13),
+        "beta's name"
+    );
+}
+
 pub(crate) mod wire {
     use serde_json::{Value, json};
     use std::path::Path;

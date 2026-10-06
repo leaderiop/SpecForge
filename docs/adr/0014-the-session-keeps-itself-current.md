@@ -1,0 +1,102 @@
+# The project session keeps itself current; MCP calls name their target
+
+**Status:** accepted (2026-10-05)
+
+Which project an MCP call served, and whether that project was current with disk, was decided in a
+dozen places. Each handler resolved its `path` against a public `McpState::project_root`, picked one
+of three staleness predicates (`use_cached || diagnostics.is_empty()`, `node_count() == 0`,
+`loaded_at.is_none()`) and called a full environment reload when it saw fit; the dispatcher reloaded
+the served project after any mutation, whatever project the mutation wrote; the router refreshed
+only `tools/call` and `resources/read`, and only when `specforge watch` had written a newer
+`.specforge/graph.json` (C9-07). Watch and the LSP each hard-coded "an environment change" as
+`specforge.json` or any `*.wasm`. The confirmed results: `rename` with another project's `path`
+planned on the served graph, edited the served project and then served the other one;
+`remove_extension` checked the served project's dependents; `rename` planned on a stale graph and
+left a reference dangling; `prompts/get` served a stale graph, and without watch every read did;
+`validate use_cached` recompiled every project with no diagnostics; watch never reloaded on
+`specforge.lock` but did on `cargo build` output, and kept its old spec root after `spec_root`
+changed.
+
+Two modules now own these questions (architecture plan 01).
+
+## The session knows what it is built from
+
+`ProjectSession` (`specforge-project`) classifies any changed path (`classify`, `changes`): a
+`.spec` file discovery finds under the spec root is a **source**, keyed relative to it;
+`specforge.json`, `specforge.lock` and the module of every extension the config enables that is not
+built in are **environment inputs**; `specforge-cache.json` (when check-phase passes read it) and the
+files `file_reference` fields name are **check inputs**; anything else changes nothing. `apply`
+runs the one rebuild a batch needs: an environment reload, an update of the changed sources, or a
+re-check. `watch_roots` names the directories a watcher must watch. It can also bring itself up to
+date without any watcher: `stale` compares what it last read (size and modification time, stamped
+before each read) with disk, and `ensure_fresh` applies exactly that.
+
+## Decisions
+
+- **D1. Freshness is the session's, on demand.** Not watch's marker, not an MCP-side watcher:
+  `ensure_fresh` is exact at the request boundary, needs no other process, and costs a directory
+  walk and a stat per input (6.5 ms on an unchanged 1 000-file project in a test build), far below
+  the full reload validate, analyze, doctor and collect paid per call. Every MCP read sees disk as of
+  the request, with or without `specforge watch`.
+- **D2. MCP adopts the incremental update.** ADR 0006 makes an update's diagnostics equal a fresh
+  compile's, so MCP reloads the environment only when an environment input changed. In a debug build
+  every MCP update is verified against a cold rebuild, and a divergence is a debug assertion. This
+  amends CONTEXT.md's "every fresh compile … is an environment reload".
+- **D3. `.specforge/graph.json` is gone**, writer and reader: nothing else read it, and it was not a
+  graph. Watch no longer creates it; a stale one is ignored. This supersedes C9-07 (`cacded2f`).
+- **D4. A mutation with another project's `path` acts entirely on that project.** It is planned,
+  checked, written and reported against a project compiled for the call (`OtherProject`), recompiled
+  for the returned diagnostics; the served session is never touched or reloaded.
+- **D5. A `path` while nothing is served is adopted** by every tool that takes one (and `init`
+  serves the project it created), so "a project is served" never depends on which tool came first.
+- **D6. Path normalization.** Canonical, then the nearest enclosing project (`specforge.json` or
+  `specforge.spec`), else the directory itself; one that does not exist is `file_not_found` on
+  `path`. A path inside the served project is the served project. `init`'s path is used as given and
+  may not lie inside the served project.
+- **D7. One refusal for "no project".** With nothing served and no `path`, `Call::project` is
+  `precondition_failed`; analyze no longer runs over an empty graph with a `NoRuntime`. Tools that
+  answer usefully without a project (list, stats, coverage and outline over the empty session or a
+  graph built in memory) keep reading the session.
+- **D8. Environment inputs** are `specforge.json`, `specforge.lock` and each loaded module path,
+  even outside the root; builtin blobs are in the binary. A `.wasm` no extension loads changes
+  nothing. Check inputs re-run the checks without re-parsing.
+- **D9. One classifier for watch, the LSP and MCP.** The watcher reports whole paths; watch re-arms
+  its watchers from `watch_roots` after a reload that moved them (and catches up with
+  `ensure_fresh`); the LSP classifies inside the update, while it holds the session, and registers
+  its `didChangeWatchedFiles` watchers from the session, again after a reload that changed them.
+- **D10. No public root.** `McpState::project_root()` is the session's root. A graph built in memory
+  carries its root (`serve_in_memory_at`) and is never refreshed from disk; a call that writes
+  project files under that root serves the project on disk there. An `initialize` root that does
+  not exist serves nothing.
+- **D11. `use_cached`** (validate, analyze, doctor) skips bringing the served project up to date,
+  whatever its diagnostics. With nothing served there is nothing cached, so a call with a `path`
+  adopts and compiles it. ADR 0004 D3-d's "compiles fresh" now reads "brought up to date with disk,
+  with a fresh compile's diagnostics" (ADR 0006 guarantees the equality).
+- **D12. Which methods refresh**: `tools/call` (per its tool's target), `resources/read`,
+  `prompts/get` and the three list methods, since an environment change changes the extension tools
+  listed. `resources/templates/list`, `ping` and subscriptions do not.
+
+## The MCP call target
+
+`specforge_mcp::target` resolves each call before its handler runs. Every tool, resource and prompt
+entry declares a `TargetSpec`: its reach (`Unscoped`, `Served`, `AnyProject`, `WritesAnyProject`,
+`NewProject`) and freshness (`Fresh`, or `FreshUnlessCached` for validate, analyze and doctor).
+`resolve` turns the call's `path` and that spec into one `CallTarget` (`Served`, `Other`, `New`,
+`Unscoped`, `NoProject`), and handlers read their project through `Call::project()` as a
+`ProjectRef` (root, spec root, environment, graph, runtime, `view()`, `diagnostics()`), unable to
+tell the served session from a project compiled for the call. `Call::wrote` brings the target up to
+date after a handler writes it. The dispatcher no longer reloads after mutations; a successful
+mutation of the served project brings it up to date with exactly what changed.
+
+## Consequences
+
+- ADR 0006 is the mechanism; nothing conflicts with it. ADR 0004 D4-c's `ttlMs: 0` stays correct:
+  "any request may recompile" reads "any request brings the project up to date".
+- `specforge watch` reports a new `rechecked` event (same fields as `rebuilt`) for a check input,
+  and reloads on a lock change.
+- Racy files: a file modified within 2 s of being stamped also records its content hash, compared
+  when its stamp is unchanged, so a same-second same-length rewrite is still seen and an unchanged
+  file is not reported. A file with a future modification time stays racy (hashed per request)
+  until the clock passes it.
+- Rollback is one line: MCP's `ensure_fresh` can call `reload_environment` whenever `stale()` is not
+  empty, without touching the API.

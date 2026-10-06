@@ -64,7 +64,17 @@ type InferenceGapReport "Per-Directory Inference Gap Analysis" {
   total_items   integer
   total_matched integer
   approximate   boolean
+  // The files a scanner failed on: their items are unknown.
+  scan_failures ScanFailure[] @optional
   verify unit "InferenceGapReport marks results as approximate when using regex fallback"
+}
+
+// A source file a scanner failed on, with the E028 the call reported.
+type ScanFailure "Failed Scan of One Source File" {
+  file    string
+  code    string
+  message string
+  verify unit "a scanner that traps or answers malformed output is reported, not dropped"
 }
 
 type DirectoryGaps "Gap Analysis for One Source Directory" {

@@ -15,6 +15,7 @@ path = "tests/main.rs"
 # (ADR 0004 D1-d).
 specforge-graph = { path = "../specforge-graph" }
 specforge-registry = { workspace = true }
+specforge-protocol-types = { path = "../specforge-protocol-types" }
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
@@ -23,7 +24,7 @@ sha2.workspace = true
 specforge-common = { path = "../specforge-common" }
 specforge-parser = { workspace = true }
 specforge-component = { path = "../specforge-component" }
-# The outline tests read the real builtin manifests.
+# The outline tests read the real builtin declarations.
 specforge-wasm = { path = "../specforge-wasm" }
 # Integration tests compile whole projects through the crate built on this one.
 specforge-project = { workspace = true }

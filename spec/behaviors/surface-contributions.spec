@@ -29,7 +29,7 @@ behavior register_surface_contributions "Register Surface Contributions" {
   features   [surface_contributions]
   invariants [surface_contribution_uniqueness]
   category   command
-  types      [ManifestV2, SurfaceContributions, SurfaceRegistryEntry, SurfaceType, SurfaceError]
+  types      [ExtensionDeclaration, SurfaceDescriptor, SurfaceRegistryEntry, SurfaceType, SurfaceError]
   consumes   [manifest_loaded]
   requires {
     manifest_loaded_fired "manifest_loaded event has fired, confirming extension manifests are parsed and available"
@@ -94,7 +94,7 @@ behavior auto_promote_commands_to_mcp_tools "Auto-Promote Commands to MCP Tools"
   features   [surface_contributions]
   invariants [surface_contribution_uniqueness]
   category   command
-  types      [CommandContribution, AutoPromotedMcpTool, SurfaceRegistryEntry]
+  types      [CommandContribution, ExtensionCommand]
   produces   [commands_auto_promoted]
   requires {
     surfaces_registered "the registry build has registered the project's CLI command and MCP tool contributions"
@@ -104,6 +104,7 @@ behavior auto_promote_commands_to_mcp_tools "Auto-Promote Commands to MCP Tools"
     naming_convention_enforced     "Auto-promoted tools follow the specforge.{ext_short}.{cmd_id} naming pattern"
     explicit_tool_wins             "Explicit MCP tool contributions take precedence over auto-promoted tools with I017 emitted"
     commands_auto_promoted_emitted "commands_auto_promoted event is emitted after promotion completes"
+    schema_is_the_declaration      "The derived input_schema states each arg's type, one_of values, minimum, default and description; required lists the required args that are not flags; no undeclared property is accepted"
   }
   contract   """
     After surface contributions are registered, the compiler MUST
@@ -111,7 +112,11 @@ behavior auto_promote_commands_to_mcp_tools "Auto-Promote Commands to MCP Tools"
     the naming convention specforge.{ext_short}.{cmd_id}, but one the
     host refuses on the command line (an arg named path, format or help,
     or two args of one name): the one rule keeps both surfaces alike. The derived
-    input_schema MUST be computed from the command's args declaration.
+    input_schema MUST be computed from the command's args declaration
+    alone (specforge_ops::command::ExtensionCommand): each arg's type,
+    its one_of values, its minimum, its default and its description;
+    required lists the required args that are not flags, since a flag is
+    false unless set; no undeclared property is accepted.
     If an explicit MCP tool contribution already exists with the same
     name, the explicit tool MUST win and I017 MUST be emitted. Auto-
     promoted tools appear in list_mcp_tools alongside explicit tools.
@@ -121,7 +126,10 @@ behavior auto_promote_commands_to_mcp_tools "Auto-Promote Commands to MCP Tools"
   verify unit "derived input_schema computed from command args"
   verify unit "explicit MCP tool wins over auto-promoted tool with I017"
   verify unit "a command the CLI refuses, such as one declaring an arg named format, is not promoted"
-  verify contract "Auto-Promote Commands to MCP Tools: command-to-MCP-tool auto-promotion holds — surfaces_registered, all_commands_promoted, naming_convention_enforced, explicit_tool_wins, commands_auto_promoted_emitted"
+  verify unit "the derived input_schema states each arg's default and minimum and accepts no undeclared argument"
+  verify unit "a required flag is not required over MCP, as on the command line"
+  verify unit "an explicit extension tool named as a core tool is not listed, with I017"
+  verify contract "Auto-Promote Commands to MCP Tools: command-to-MCP-tool auto-promotion holds — surfaces_registered, all_commands_promoted, naming_convention_enforced, explicit_tool_wins, commands_auto_promoted_emitted, schema_is_the_declaration"
 }
 
 // ── Dispatch ────────────────────────────────────────────────
@@ -142,6 +150,7 @@ behavior dispatch_surface_command "Dispatch Surface Command" {
     traps_caught                       "Wasm traps are caught and reported as ExtensionError diagnostics"
     output_returned                    "Exit code, stdout, and stderr are returned to the caller"
     surface_command_dispatched_emitted "Over MCP, a surface_command_dispatched event records the command and its exit code once its export returns; the CLI has no event sink"
+    args_normalized_by_the_host        "Both surfaces send the export the args normalized by one rule before it runs: an absent arg takes its declared default, an unset flag is false, each value is its declared type, no undeclared arg is passed; a value the rule refuses is INVALID_INPUT, the same error object on both surfaces, and the export is not called"
   }
   contract   """
     When a CLI command from an extension is invoked, the host MUST
@@ -156,7 +165,11 @@ behavior dispatch_surface_command "Dispatch Surface Command" {
     the declared args and the host's --path, --help and --format (human,
     the default, or json; a command declaring an arg of one of those
     names is refused, exit 2); an auto-promoted MCP tool runs the same
-    export with its arguments as the args, over the served graph, always
+    export with its arguments as the args, normalized by the rule the
+    command line applies (its declared defaults, false for an unset flag,
+    each value its declared type; an argument the rule refuses is an
+    isError result carrying the INVALID_INPUT object the CLI writes, and
+    the export is not called), over the served graph, always
     asking for json: a JSON object the command prints on success (with
     nothing on stderr) is the tool result's structured content too, and
     a failure that prints one JSON object on stderr and nothing on stdout
@@ -173,11 +186,15 @@ behavior dispatch_surface_command "Dispatch Surface Command" {
     Wasm traps MUST be caught and reported as ExtensionError
     diagnostics, as is a declared export the guest does not route (the
     host cannot list a component guest's exports, so presence is known
-    only by calling); under --format json the CLI writes it to stderr as
-    one error object of the shape commands write ({code, message}). A
+    only by calling). An answer that is not a CommandOutput is an
+    ExtensionError (E028), like a trap: never exit 0 with the raw bytes.
+    Under --format json the CLI writes the error to stderr as one error
+    object of the shape commands write ({code, message, suggestion}),
+    and exits 1. A
     usage error the command line catches before the command runs (a
     value outside a one_of, a missing required arg, an unknown flag, a
-    value that is not an integer) is, under --format json (wherever it
+    value that is not an integer, or below the arg's minimum) is, under
+    --format json (wherever it
     is on the command line), one INVALID_INPUT error object of that
     shape on stderr ({code, message, suggestion?}, the message naming
     the arg as declared and, for a one_of, its values), nothing on
@@ -195,10 +212,14 @@ behavior dispatch_surface_command "Dispatch Surface Command" {
   verify unit "the CommandInput carries the format the caller asked for and the host's date"
   verify unit "a command declaring an arg named format is refused on the command line"
   verify unit "under --format json a command whose export trapped prints one JSON error object"
+  verify unit "a command whose output is not a CommandOutput is an ExtensionError, not exit 0 with the raw bytes"
+  verify unit "the host and the SDK normalize a command's args by the same rule"
+  verify unit "over MCP an argument the command's declaration refuses is the INVALID_INPUT error object the CLI writes, and the export is not called"
+  verify integration "the CLI and MCP send a command's export the same args for the same input, its declared defaults applied by the host"
   verify integration "under --format json a usage error the command line catches is one INVALID_INPUT error object on stderr, exit 2"
   verify integration "over MCP a command is asked for json and its JSON output is the tool's structured content"
   verify unit "over MCP a failure's JSON error object is an isError result carrying it, and output that is not one object is text"
-  verify contract "Dispatch Surface Command: surface command dispatch holds — command_declared, args_serialized, sandbox_restricted, traps_caught, output_returned, surface_command_dispatched_emitted"
+  verify contract "Dispatch Surface Command: surface command dispatch holds — command_declared, args_serialized, sandbox_restricted, traps_caught, output_returned, surface_command_dispatched_emitted, args_normalized_by_the_host"
 }
 
 behavior dispatch_surface_mcp_tool "Dispatch Surface MCP Tool" {
@@ -261,7 +282,13 @@ behavior dispatch_surface_mcp_resource "Dispatch Surface MCP Resource" {
     mcp_structured_error_responses,
   ]
   category   command
-  types      [McpResourceContribution, SurfaceError, WasmTrapInfo]
+  types      [
+    McpResourceContribution,
+    McpResourceRequest,
+    McpResourceContent,
+    SurfaceError,
+    WasmTrapInfo,
+  ]
   ports      [WasmRuntime, McpProtocol]
   produces   [surface_mcp_resource_dispatched]
   requires {
@@ -270,7 +297,7 @@ behavior dispatch_surface_mcp_resource "Dispatch Surface MCP Resource" {
   ensures {
     uri_matched                             "Requested URI is matched against registered URI templates"
     fs_write_denied                         "MCP resources have no fs_write access (no capability at all), whatever their sandbox override asks for"
-    traps_as_mcp_errors                     "Wasm traps are caught and returned as structured MCP error responses"
+    traps_as_mcp_errors                     "Wasm traps are caught and returned as an internal error whose data is an McpError with the E028 diagnostic"
     content_returned                        "Resource content and mime_type are returned to the MCP client"
     surface_mcp_resource_dispatched_emitted "surface_mcp_resource_dispatched event is emitted after resource read completes"
   }
@@ -283,8 +310,16 @@ behavior dispatch_surface_mcp_resource "Dispatch Surface MCP Resource" {
     granted no capability, whatever its sandbox override asks for
     (surface_sandbox_ceiling). The export receives only the URI, not
     the graph: a resource serves content that needs no project data
-    (graph queries are commands, served as tools). Wasm traps MUST be
-    caught and returned as structured MCP error responses. The resource
+    (graph queries are commands, served as tools). A read whose export
+    trapped, or that the guest does not route, MUST be a JSON-RPC
+    internal error (-32603) whose data is an McpError carrying the
+    diagnostic (E028) in diagnostic.code, never only in the message; so
+    is an answer that is not the resource's content and MIME type
+    (McpResourceContent), an ExtensionError (E028) like a trap: it is
+    never served as raw bytes. The URI is matched against the registered
+    templates after the core resources, whatever its scheme; a template a
+    core resource already serves is not served, and is reported with
+    I017. The resource
     content and mime_type MUST be returned to the MCP client. The MCP
     server records each read whose export returned as a
     surface_mcp_resource_dispatched event.
@@ -294,6 +329,9 @@ behavior dispatch_surface_mcp_resource "Dispatch Surface MCP Resource" {
   verify unit "fs_write denied for resource contributions"
   verify unit "Wasm trap returned as structured MCP error"
   verify unit "resource content and mime_type returned to client"
+  verify unit "a resource whose answer is not its content and mime type is a structured MCP error"
+  verify unit "an extension resource template outside specforge://ext/ is read through its export"
+  verify unit "an extension resource template a core resource serves is not listed, with I017"
   verify integration "a returned resource read is recorded as a surface_mcp_resource_dispatched event"
   verify contract "Dispatch Surface MCP Resource: surface MCP resource dispatch holds — resource_registered, uri_matched, fs_write_denied, traps_as_mcp_errors, content_returned, surface_mcp_resource_dispatched_emitted"
 }

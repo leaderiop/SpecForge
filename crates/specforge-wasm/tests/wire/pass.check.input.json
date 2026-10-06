@@ -1,0 +1,85 @@
+{
+  "edges": [
+    {
+      "label": "needs",
+      "source": "a",
+      "target": "b"
+    }
+  ],
+  "entities": [
+    {
+      "exempt": false,
+      "fields": {
+        "needs": "b",
+        "status": "active",
+        "verify": "a works"
+      },
+      "id": "a",
+      "incoming_edge_count": 0,
+      "kind": "gadget",
+      "outgoing_edge_count": 1,
+      "span": {
+        "end_col": 2,
+        "end_line": 5,
+        "file": "a.spec",
+        "start_col": 1,
+        "start_line": 1
+      },
+      "testable": true,
+      "verify_kinds": [
+        "unit"
+      ],
+      "verify_texts": [
+        "a works"
+      ]
+    },
+    {
+      "exempt": false,
+      "fields": {
+        "status": "retired"
+      },
+      "id": "b",
+      "incoming_edge_count": 1,
+      "kind": "gadget",
+      "outgoing_edge_count": 0,
+      "span": {
+        "end_col": 2,
+        "end_line": 9,
+        "file": "a.spec",
+        "start_col": 1,
+        "start_line": 7
+      },
+      "testable": true,
+      "verify_kinds": [],
+      "verify_texts": []
+    },
+    {
+      "exempt": true,
+      "fields": {
+        "abstract": "true"
+      },
+      "id": "c",
+      "incoming_edge_count": 0,
+      "kind": "gadget",
+      "outgoing_edge_count": 0,
+      "span": {
+        "end_col": 2,
+        "end_line": 13,
+        "file": "a.spec",
+        "start_col": 1,
+        "start_line": 11
+      },
+      "testable": true,
+      "verify_kinds": [],
+      "verify_texts": []
+    }
+  ],
+  "previous": {
+    "statuses": {
+      "a": {
+        "kind": "gadget",
+        "status": "draft"
+      }
+    }
+  }
+}

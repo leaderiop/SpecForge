@@ -1,0 +1,22 @@
+---
+source: crates/specforge-cli/tests/extension_surfaces.rs
+expression: help
+---
+Terms, see_also references between them, average and maximum connections, hub terms (more than twice the average and at least 3) and isolated terms.
+
+Usage: specforge product term-density [OPTIONS]
+
+Options:
+      --path <PATH>
+          Path to the project
+          
+          [default: .]
+
+      --format <FORMAT>
+          Output format
+          
+          [default: human]
+          [possible values: human, json]
+
+  -h, --help
+          Print help (see a summary with '-h')

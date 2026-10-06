@@ -8,7 +8,7 @@ SpecForge validates your specs in real time and reports issues as you type. Ever
 |--------|----------|---------|
 | **E** | Error | Must fix -- the graph cannot be built correctly |
 | **W** | Warning | Should fix -- the spec is valid but likely incorrect |
-| **I** | Info | Consider fixing -- best practice suggestion (pedantic profile only) |
+| **I** | Info | Consider fixing -- best practice suggestion |
 
 ## Common diagnostics
 
@@ -58,11 +58,8 @@ specforge explain E001
 
 This shows the full explanation with examples and suggested fixes.
 
-## Diagnostic profiles
+## Info-level advice
 
-By default, SpecForge shows only errors and warnings. To also see informational diagnostics, change the lint profile in your settings:
+SpecForge always reports info-level diagnostics (I-codes) next to errors and warnings: best practice checks like missing descriptions, orphaned modules, and effort estimation gaps. They are suggestions, not problems.
 
-- Open Settings and search for `specforge.lint.profile`
-- Change from `default` to `pedantic`
-
-Pedantic mode enables info-level diagnostics (I-codes) for best practice checks like missing descriptions, orphaned modules, and effort estimation gaps.
+On the command line, `specforge check --severity info` shows only them (or `--severity error`, `--severity warning`); the exit code still counts everything reported.

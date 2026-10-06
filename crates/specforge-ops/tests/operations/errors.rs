@@ -1,6 +1,6 @@
 use specforge_common::{SourceSpan, Sym};
-use specforge_emitter::EmitterError;
 use specforge_graph::{Edge, Graph, Node};
+use specforge_ops::trace::TraceError;
 use specforge_parser::{EntityId, EntityKind, FieldMap};
 
 fn span() -> SourceSpan {
@@ -38,15 +38,44 @@ fn build_graph() -> Graph {
     graph
 }
 
-// M2: trace for non-existent entity returns EmitterError::EntityNotFound
+// M2: trace for non-existent entity returns TraceError::EntityNotFound
 #[test]
 fn trace_nonexistent_returns_entity_not_found() {
-    let graph = build_graph();
-    let result = specforge_ops::trace::trace(&graph, "nonexistent");
-    let err = result.unwrap_err();
+    let project = crate::view_support::Project::of_graph(build_graph(), Default::default());
+    let err = specforge_ops::trace::trace(
+        &project.view(),
+        specforge_ops::trace::Target::Entity("nonexistent"),
+    )
+    .unwrap_err();
     assert!(
-        matches!(err, EmitterError::EntityNotFound(_)),
-        "expected EntityNotFound, got: {:?}",
-        err
+        matches!(err, TraceError::EntityNotFound { .. }),
+        "expected EntityNotFound, got: {err:?}"
     );
+}
+
+#[specforge_test_macros::test(
+    behavior = "compute_traceability_chain",
+    verify = "tracing an entity the graph lacks is E003 naming the closest entity"
+)]
+fn tracing_an_unknown_entity_is_e003_with_a_suggestion() {
+    let project = crate::view_support::Project::of_graph(build_graph(), Default::default());
+    let trace = |id| {
+        specforge_ops::trace::trace(&project.view(), specforge_ops::trace::Target::Entity(id))
+            .unwrap_err()
+    };
+    let near = trace("bb");
+    assert_eq!(
+        near,
+        TraceError::EntityNotFound {
+            entity_id: "bb".into(),
+            near: Some("b".into()),
+        }
+    );
+    let error = specforge_ops::OpError::from(near);
+    assert_eq!(error.code, "E003");
+    assert_eq!(error.message, "unresolved entity 'bb' — not found in graph");
+    assert_eq!(error.suggestion.as_deref(), Some("did you mean 'b'?"));
+    // Nothing close: no suggestion.
+    let far = specforge_ops::OpError::from(trace("zzzzzzzz"));
+    assert_eq!(far.suggestion, None);
 }

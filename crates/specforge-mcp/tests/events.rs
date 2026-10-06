@@ -20,7 +20,7 @@ fn attach_project(state: &mut specforge_mcp::state::McpState) {
     .unwrap();
     let root = dir.path().to_path_buf();
     std::mem::forget(dir); // outlives the test
-    state.project_root = Some(root);
+    crate::support::serve_in_memory_at(state, &root);
 }
 
 fn call(server: &mut McpServer, method: &str, params: Value) -> Value {
@@ -380,15 +380,20 @@ fn event_mcp_prompt_invoked() {
 )]
 fn event_mcp_delta_notified() {
     let mut server = init_server();
+    // A real project on disk, served; then a file written beside its own:
+    // the routed read brings the project up to date and notifies.
+    let root = server
+        .state()
+        .project_root()
+        .map(std::path::Path::to_path_buf)
+        .unwrap();
+    server.state_mut().serve(&root);
     subscriptions::subscribe(server.state_mut(), "client1", "specforge/graphChanged");
-
-    // Attach a real project plus a watch snapshot marker so the routed read
-    // performs an honest recompile (C9-07 staleness path).
-    attach_project(server.state_mut());
-    let root = server.state().project_root.clone().unwrap();
-    let marker_dir = root.join(".specforge");
-    std::fs::create_dir_all(&marker_dir).unwrap();
-    std::fs::write(marker_dir.join("graph.json"), "{}").unwrap();
+    std::fs::write(
+        root.join("more.spec"),
+        "behavior gamma \"Gamma\" {\n}\nbehavior delta \"Delta\" {\n}\n",
+    )
+    .unwrap();
 
     call(
         &mut server,
@@ -403,7 +408,7 @@ fn event_mcp_delta_notified() {
         "subscribed client must receive the graph delta: {notifications:?}"
     );
     assert_eq!(notifications[0]["method"], "specforge/graphChanged");
-    // The empty graph became alpha and beta.
+    // gamma and delta were added.
     assert_eq!(
         only_event(&server, "mcp_delta_notified"),
         json!({"notificationType": "graph", "subscriberCount": 1,
@@ -418,7 +423,11 @@ fn event_mcp_delta_notified() {
 )]
 fn event_mcp_mutation_completed() {
     let mut server = init_server();
-    let root = server.state().project_root.clone().unwrap();
+    let root = server
+        .state()
+        .project_root()
+        .map(std::path::Path::to_path_buf)
+        .unwrap();
     // Two unformatted files: the formatter rewrites both.
     std::fs::write(root.join("a.spec"), "behavior a   \"A\" {\n}\n").unwrap();
     std::fs::write(root.join("b.spec"), "behavior b   \"B\" {\n}\n").unwrap();

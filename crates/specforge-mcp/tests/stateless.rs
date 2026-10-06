@@ -263,7 +263,7 @@ fn change_graph(server: &mut McpServer, dir: &tempfile::TempDir) {
         "behavior beta \"Beta\" {\n  contract \"MUST also work\"\n}\n",
     )
     .unwrap();
-    server.state_mut().reload(dir.path());
+    server.state_mut().serve(dir.path());
 }
 
 #[specforge_test(
@@ -306,7 +306,7 @@ fn a_change_reaches_the_stream() {
     );
 
     // A recompile that changes nothing sends nothing.
-    server.state_mut().reload(dir.path());
+    server.state_mut().serve(dir.path());
     assert!(server.take_notifications().is_empty());
 
     change_graph(&mut server, &dir);
@@ -347,7 +347,7 @@ fn a_stream_hears_only_what_it_asked_for() {
 
     // A broken spec changes the diagnostics: that is heard.
     std::fs::write(dir.path().join("broken.spec"), "behavior {\n").unwrap();
-    server.state_mut().reload(dir.path());
+    server.state_mut().serve(dir.path());
     let sent = server.take_notifications();
     assert_eq!(sent.len(), 1, "{sent:?}");
     assert_eq!(sent[0]["params"]["uri"], "specforge://diagnostics");
@@ -383,4 +383,26 @@ fn cancelling_the_listen_request_ends_the_stream() {
 
     change_graph(&mut server, &dir);
     assert!(server.take_notifications().is_empty());
+}
+
+#[specforge_test(
+    behavior = "serve_mcp_prompt",
+    verify = "a stateless prompts/get renders without initialize"
+)]
+fn stateless_prompt_get_renders() {
+    let dir = project();
+    let mut server = server(&dir);
+    let reply = stateless(
+        &mut server,
+        "prompts/get",
+        json!({"name": "specforge://prompts/context", "arguments": {"entity_id": "alpha"}}),
+    );
+    let result = &reply["result"];
+    assert_eq!(result["resultType"], "complete", "{reply}");
+    let messages = result["messages"].as_array().expect("messages");
+    assert_eq!(messages.len(), 2, "{reply}");
+    let payload: Value =
+        serde_json::from_str(messages[1]["content"]["text"].as_str().unwrap()).unwrap();
+    assert_eq!(payload["entity_id"], "alpha");
+    assert_eq!(payload["contract_text"], "MUST work");
 }

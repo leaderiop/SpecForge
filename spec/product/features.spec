@@ -14,7 +14,7 @@ feature product_entity_registration "Product Entity Registration" {
     see extensions/product — not in prose).
   """
   solution     """
-    A comprehensive ManifestV2 declaration provides all entity kinds with
+    A comprehensive ExtensionDeclaration declaration provides all entity kinds with
     testability flags, LSP metadata, DOT shapes, typed field definitions
     with edge mappings, and declarative validation rules. Registration
     follows the zero-entity core protocol.

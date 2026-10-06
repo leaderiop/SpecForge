@@ -1,0 +1,26 @@
+---
+source: crates/specforge-cli/tests/extension_surfaces.rs
+expression: help
+---
+Every deliverable that holds a feature through one of its journeys or modules, once each, and how many each path reaches.
+
+Usage: specforge product feature-deliverables [OPTIONS] <FEATURE>
+
+Arguments:
+  <FEATURE>
+          The feature id
+
+Options:
+      --path <PATH>
+          Path to the project
+          
+          [default: .]
+
+      --format <FORMAT>
+          Output format
+          
+          [default: human]
+          [possible values: human, json]
+
+  -h, --help
+          Print help (see a summary with '-h')

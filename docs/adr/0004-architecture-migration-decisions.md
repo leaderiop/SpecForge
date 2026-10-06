@@ -87,6 +87,10 @@ Changed answers are marked *(amended)*.
   project on disk, which any request may recompile. `subscriptions/listen` honours resource
   subscriptions and sends `notifications/resources/updated`; the server offers no list-changed
   notifications, and the handshake era's `specforge/graphChanged` never goes on a listen stream.
+- **D4-d** *(2026-10, plan 07)* Prompts follow the tool table: one Prompt spec per prompt, typed
+  arguments whose listing derives from the type, and one envelope. A prompt failure is a JSON-RPC
+  error (-32602 for client input, -32603 server-side) whose `data` is the McpError, which gains
+  `prompt`. Every prompt result is two user messages, instruction then JSON payload.
 
 ## Registry build (plan 05)
 

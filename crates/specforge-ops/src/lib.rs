@@ -10,9 +10,11 @@
 
 pub mod analyze;
 pub mod builtin_passes;
+pub mod check;
 pub mod collect;
 pub mod command;
 pub mod config;
+pub mod coverage;
 pub mod doctor;
 pub mod export;
 pub mod extension;
@@ -20,14 +22,19 @@ pub mod format;
 pub mod infer;
 pub mod init;
 pub mod migrate;
+pub mod model;
+pub mod navigate;
 pub mod plan;
 pub mod prove;
+pub mod publish;
 pub mod registry;
 pub mod rename;
 pub mod scan;
+pub mod schema;
 pub mod schema_cache;
 pub mod stats;
 pub mod trace;
+pub mod view;
 
 use std::borrow::Cow;
 

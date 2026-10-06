@@ -45,7 +45,7 @@ pub fn diagnostic_hover(
 /// Shows:
 /// - Entity kind, ID, and title
 /// - Extension source (from KindRegistry, if available)
-/// - **References** (outgoing edges): grouped by field label, listing target IDs
+/// - **Refers to** (outgoing edges): grouped by field label, listing target IDs
 /// - **Referenced by** (incoming edges): grouped by "source_kind via label", listing source IDs
 /// - **Fields**: actual field values from the entity
 pub fn hover_info(graph: &Graph, entity_id: &str) -> Option<String> {
@@ -73,7 +73,7 @@ pub fn hover_info_with_registries(
     // did not prepend one.
     let icon = kind_registry
         .and_then(|reg| reg.get(node.kind.raw.as_str()))
-        .and_then(|entry| entry.lsp_icon.clone())
+        .and_then(|entry| entry.declared.lsp_icon.clone())
         .map(|i| format!("{i} "))
         .unwrap_or_default();
 
@@ -82,7 +82,7 @@ pub fn hover_info_with_registries(
     if let Some(kind_reg) = kind_registry
         && let Some(entry) = kind_reg.get(node.kind.raw.as_str())
     {
-        if let Some(ref desc) = entry.description {
+        if let Some(ref desc) = entry.declared.description {
             header_section.push_str(&format!("\n\n{}", desc));
         }
 
@@ -93,7 +93,7 @@ pub fn hover_info_with_registries(
         if entry.supports_verify {
             ext_line.push_str(" · `verify`");
         }
-        if entry.singleton {
+        if entry.declared.singleton {
             ext_line.push_str(" · `singleton`");
         }
         header_section.push_str(&format!("\n{}", ext_line));
@@ -101,7 +101,7 @@ pub fn hover_info_with_registries(
 
     let mut sections: Vec<String> = vec![header_section];
 
-    // Section 2: Outgoing edges (References)
+    // Section 2: Outgoing edges (Refers to)
     let outgoing = graph.edges_from(entity_id);
     if !outgoing.is_empty() {
         let mut by_label: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
@@ -112,7 +112,7 @@ pub fn hover_info_with_registries(
                 .push(edge.target.as_str());
         }
         let total_count = outgoing.len();
-        let mut section = format!("**References** *({})*", total_count);
+        let mut section = format!("**Refers to** *({})*", total_count);
         for (label, targets) in &by_label {
             let ids: Vec<&str> = targets.to_vec();
             section.push_str(&format!("\n- `{}` → {}", label, ids.join(", ")));
@@ -179,7 +179,7 @@ pub fn hover_field_info(
     let type_str = format_field_type(&entry.field_type);
 
     // First line: field name + type, with optional target kind on same line
-    let first_line = if let Some(ref target) = entry.target_kind {
+    let first_line = if let Some(ref target) = entry.declared.target_kind {
         format!("**`{}`** : {} → **{}**", field_name, type_str, target)
     } else {
         format!("**`{}`** : {}", field_name, type_str)
@@ -187,12 +187,12 @@ pub fn hover_field_info(
 
     let mut parts = vec![first_line];
 
-    if let Some(ref desc) = entry.description {
+    if let Some(ref desc) = entry.declared.description {
         parts.push(desc.clone());
     }
 
     // Edge and required on same line
-    match (&entry.edge, entry.required) {
+    match (&entry.declared.edge, entry.declared.required) {
         (Some(edge_name), true) => {
             parts.push(format!("Edge `{}` · *required*", edge_name));
         }

@@ -68,7 +68,7 @@ fn hover_shows_outgoing_edges() {
 
     let text = specforge_lsp::hover_info(&g, "create_user").unwrap();
     assert!(
-        text.contains("**References** *(2)*"),
+        text.contains("**Refers to** *(2)*"),
         "should have References section:\n{text}"
     );
     assert!(
@@ -122,7 +122,7 @@ fn hover_shows_both_directions() {
 
     let text = specforge_lsp::hover_info(&g, "create_user").unwrap();
     assert!(
-        text.contains("**References** *(1)*"),
+        text.contains("**Refers to** *(1)*"),
         "should have outgoing:\n{text}"
     );
     assert!(
@@ -187,22 +187,12 @@ fn hover_shows_extension_source() {
     let mut kind_reg = KindRegistry::new();
     kind_reg.register(KindRegistryEntry {
         kind_name: "behavior".into(),
-        description: None,
         source_extension: "@specforge/software".into(),
         testable: true,
-        singleton: false,
         supports_verify: true,
         allowed_verify_kinds: vec![],
-        has_body_parser: false,
-        semantic_token: None,
-        lsp_icon: None,
-        dot_shape: None,
-        dot_color: None,
-        dot_fillcolor: None,
-        open_fields: false,
-        contract_target: false,
-        declares_types: false,
         lifecycle_field: None,
+        ..Default::default()
     });
 
     let text =
@@ -307,22 +297,15 @@ fn hover_shows_entity_kind_description() {
     let mut kind_reg = KindRegistry::new();
     kind_reg.register(KindRegistryEntry {
         kind_name: "behavior".into(),
-        description: Some("A testable unit of system functionality".into()),
         source_extension: "@specforge/software".into(),
         testable: true,
-        singleton: false,
         supports_verify: true,
         allowed_verify_kinds: vec![],
-        has_body_parser: false,
-        semantic_token: None,
-        lsp_icon: None,
-        dot_shape: None,
-        dot_color: None,
-        dot_fillcolor: None,
-        open_fields: false,
-        contract_target: false,
-        declares_types: false,
         lifecycle_field: None,
+        declared: specforge_registry::EntityKindDescriptor {
+            description: Some("A testable unit of system functionality".into()),
+            ..Default::default()
+        },
     });
 
     let text =
@@ -339,20 +322,14 @@ fn hover_shows_field_description() {
     let mut reg = FieldRegistry::new();
     reg.register(FieldRegistryEntry {
         kind_name: "behavior".into(),
-        field_name: "contract".into(),
-        description: Some("The behavioral contract this entity fulfills".into()),
         field_type: ManifestFieldType::String,
         source_extension: "@specforge/software".into(),
-        edge: None,
-        target_kind: None,
-        file_reference: false,
-        required: false,
-        inverse_of: None,
-        normative: false,
-        exempts_obligations: false,
-        headline: false,
-        derived_from: None,
         proof_role: None,
+        declared: specforge_registry::FieldDescriptor {
+            name: "contract".into(),
+            description: Some("The behavioral contract this entity fulfills".into()),
+            ..Default::default()
+        },
     });
 
     let text = specforge_lsp::hover_field_info("contract", "behavior", &reg).unwrap();
@@ -381,37 +358,26 @@ fn make_field_registry() -> specforge_registry::FieldRegistry {
     let mut reg = FieldRegistry::new();
     reg.register(FieldRegistryEntry {
         kind_name: "behavior".into(),
-        field_name: "contract".into(),
-        description: None,
         field_type: ManifestFieldType::String,
         source_extension: "@specforge/software".into(),
-        edge: None,
-        target_kind: None,
-        file_reference: false,
-        required: false,
-        inverse_of: None,
-        normative: false,
-        exempts_obligations: false,
-        headline: false,
-        derived_from: None,
         proof_role: None,
+        declared: specforge_registry::FieldDescriptor {
+            name: "contract".into(),
+            ..Default::default()
+        },
     });
     reg.register(FieldRegistryEntry {
         kind_name: "behavior".into(),
-        field_name: "features".into(),
-        description: None,
         field_type: ManifestFieldType::ReferenceList,
         source_extension: "@specforge/software".into(),
-        edge: Some("BehaviorImplementsFeature".into()),
-        target_kind: Some("feature".into()),
-        file_reference: false,
-        required: true,
-        inverse_of: None,
-        normative: false,
-        exempts_obligations: false,
-        headline: false,
-        derived_from: None,
         proof_role: None,
+        declared: specforge_registry::FieldDescriptor {
+            name: "features".into(),
+            edge: Some("BehaviorImplementsFeature".into()),
+            target_kind: Some("feature".into()),
+            required: true,
+            ..Default::default()
+        },
     });
     reg
 }

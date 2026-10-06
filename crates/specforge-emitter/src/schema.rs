@@ -388,13 +388,13 @@ pub fn generate_schema(
                 .fields_for_kind(&entry.kind_name)
                 .into_iter()
                 .map(|f| SchemaField {
-                    name: f.field_name.clone(),
+                    name: f.declared.name.clone(),
                     field_type: map_field_type(&f.field_type),
-                    required: f.required,
+                    required: f.declared.required,
                     enum_values: enum_values(&f.field_type),
-                    edge: f.edge.clone(),
-                    target_kind: f.target_kind.clone(),
-                    description: f.description.clone(),
+                    edge: f.declared.edge.clone(),
+                    target_kind: f.declared.target_kind.clone(),
+                    description: f.declared.description.clone(),
                     default_value: None,
                     source_extension: f.source_extension.clone(),
                 })
@@ -405,7 +405,7 @@ pub fn generate_schema(
                 name: entry.kind_name.clone(),
                 source_extension: entry.source_extension.clone(),
                 testable: entry.testable,
-                dot_color: entry.dot_color.clone(),
+                dot_color: entry.declared.dot_color.clone(),
                 fields: kind_fields,
             }
         })
@@ -415,10 +415,10 @@ pub fn generate_schema(
     let mut edge_types: Vec<SchemaEdgeType> = edges
         .iter()
         .map(|(_, entry)| SchemaEdgeType {
-            label: entry.label.clone(),
+            label: entry.declared.label.clone(),
             source_extension: entry.source_extension.clone(),
-            source_kinds: entry.source_kind.as_ref().map(|k| vec![k.clone()]),
-            target_kinds: entry.target_kind.as_ref().map(|k| vec![k.clone()]),
+            source_kinds: entry.declared.source_kind.as_ref().map(|k| vec![k.clone()]),
+            target_kinds: entry.declared.target_kind.as_ref().map(|k| vec![k.clone()]),
         })
         .collect();
 
@@ -435,11 +435,12 @@ pub fn generate_schema(
 
         for (_, kind_entry) in kinds.iter() {
             for field in fields.fields_for_kind(&kind_entry.kind_name) {
-                if field.edge.as_deref() == Some(&edge_type.label) {
+                if field.declared.edge.as_deref() == Some(&edge_type.label) {
                     if !sources.contains(&kind_entry.kind_name) {
                         sources.push(kind_entry.kind_name.clone());
                     }
                     if let Some(tk) = field
+                        .declared
                         .target_kind
                         .as_ref()
                         .filter(|tk| !targets.contains(tk))

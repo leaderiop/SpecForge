@@ -1,9 +1,18 @@
-use serde::Serialize;
+//! `specforge trace` and `specforge.trace`: traceability chains, one
+//! operation over the project view (ADR 0015), and the vocabulary of what
+//! falls short ([`Gap`]: a missing link, or a plan gap).
+
+use serde::ser::SerializeStruct;
+use serde::{Serialize, Serializer};
 use specforge_graph::Graph;
 use specforge_registry::{FieldRegistry, KindRegistry, ManifestFieldType};
-use std::collections::{BTreeMap, HashSet, VecDeque};
+use std::collections::{BTreeMap, BTreeSet, HashSet, VecDeque};
 
-use specforge_emitter::{EmitterError, SCHEMA_VERSION};
+use specforge_emitter::SCHEMA_VERSION;
+
+use crate::OpError;
+use crate::plan::PlanGap;
+use crate::view::ProjectView;
 
 #[derive(Debug, Serialize)]
 pub struct TraceChain {
@@ -95,7 +104,7 @@ impl TraceExpectations {
     pub fn from_registries(fields: &FieldRegistry, kinds: &KindRegistry) -> Self {
         let mut expectations = Self::new();
         for (kind, field, entry) in fields.iter() {
-            let Some(target) = entry.target_kind.as_deref() else {
+            let Some(target) = entry.declared.target_kind.as_deref() else {
                 continue;
             };
             let is_reference = matches!(
@@ -107,18 +116,19 @@ impl TraceExpectations {
                 .is_some_and(|k| k.source_extension == entry.source_extension);
             if !is_reference
                 || !kinds.contains(target)
-                || !(own_field || entry.required)
-                || (target == kind && !entry.required)
+                || !(own_field || entry.declared.required)
+                || (target == kind && !entry.declared.required)
             {
                 continue;
             }
-            let mut inverse_labels: Vec<String> = entry.inverse_of.iter().cloned().collect();
+            let mut inverse_labels: Vec<String> =
+                entry.declared.inverse_of.iter().cloned().collect();
             inverse_labels.extend(
                 fields
                     .fields_for_kind(target)
                     .into_iter()
-                    .filter(|other| other.inverse_of.as_deref() == Some(field))
-                    .map(|other| other.field_name.clone()),
+                    .filter(|other| other.declared.inverse_of.as_deref() == Some(field))
+                    .map(|other| other.declared.name.clone()),
             );
             inverse_labels.sort();
             inverse_labels.dedup();
@@ -126,9 +136,9 @@ impl TraceExpectations {
                 kind,
                 ExpectedEdge {
                     label: field.to_string(),
-                    edge_type: entry.edge.clone(),
+                    edge_type: entry.declared.edge.clone(),
                     target_kind: target.to_string(),
-                    required: entry.required,
+                    required: entry.declared.required,
                     inverse_labels,
                 },
             );
@@ -154,55 +164,226 @@ impl TraceExpectations {
     }
 }
 
-/// The chain of `entity_id`, with no expectations: nothing is missing.
-pub fn trace(graph: &Graph, entity_id: &str) -> Result<TraceChain, EmitterError> {
-    trace_with_expectations(graph, entity_id, &TraceExpectations::new())
+/// What to trace.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Target<'t> {
+    /// One entity's chain.
+    Entity(&'t str),
+    /// Every entity's chain, ordered by entity id.
+    Every,
 }
 
-/// The chain of `entity_id` both ways, with every expected edge the traced
-/// entity or anything downstream of it lacks flagged as missing.
-pub fn trace_with_expectations(
-    graph: &Graph,
-    entity_id: &str,
-    expectations: &TraceExpectations,
-) -> Result<TraceChain, EmitterError> {
-    let root = graph.node(entity_id).ok_or_else(|| {
-        EmitterError::EntityNotFound(format!(
-            "E003: unresolved entity '{}' — not found in graph",
-            entity_id
-        ))
-    })?;
+/// The chains a trace computed. It serializes as the document `specforge
+/// trace --format json` writes: one chain as `{schema_version, entity_id,
+/// entity_kind, upstream, downstream, missing}`, every chain as
+/// `{schema_version, traces}`.
+#[derive(Debug)]
+pub struct TraceOutcome {
+    pub chains: Vec<TraceChain>,
+    /// One entity was traced (else every one).
+    single: bool,
+}
 
-    let upstream = directed_bfs(graph, entity_id, Direction::Upstream);
-    let downstream = directed_bfs(graph, entity_id, Direction::Downstream);
+impl Serialize for TraceOutcome {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        match (self.single, self.chains.first()) {
+            (true, Some(chain)) => {
+                let mut doc = serializer.serialize_struct("TraceChain", 6)?;
+                doc.serialize_field("schema_version", SCHEMA_VERSION)?;
+                doc.serialize_field("entity_id", &chain.entity_id)?;
+                doc.serialize_field("entity_kind", &chain.entity_kind)?;
+                doc.serialize_field("upstream", &chain.upstream)?;
+                doc.serialize_field("downstream", &chain.downstream)?;
+                doc.serialize_field("missing", &chain.missing)?;
+                doc.end()
+            }
+            _ => {
+                let mut doc = serializer.serialize_struct("TraceAll", 2)?;
+                doc.serialize_field("schema_version", SCHEMA_VERSION)?;
+                doc.serialize_field("traces", &self.chains)?;
+                doc.end()
+            }
+        }
+    }
+}
 
-    let missing = missing_links(graph, entity_id, expectations);
+impl TraceOutcome {
+    /// The chains as terminal text, one block per chain ([`render_human`]),
+    /// separated by a blank line.
+    pub fn to_human(&self) -> String {
+        self.chains
+            .iter()
+            .map(render_human)
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
 
-    Ok(TraceChain {
+    /// Every entity the chains reach, the traced ones included.
+    pub fn reached(&self) -> BTreeSet<&str> {
+        self.chains
+            .iter()
+            .flat_map(|chain| {
+                std::iter::once(chain.entity_id.as_str()).chain(
+                    chain
+                        .upstream
+                        .iter()
+                        .chain(&chain.downstream)
+                        .map(|link| link.entity_id.as_str()),
+                )
+            })
+            .collect()
+    }
+
+    /// The missing links of every chain, as gaps.
+    pub fn gaps(&self) -> Vec<Gap> {
+        self.chains
+            .iter()
+            .flat_map(|chain| chain.missing.iter().cloned().map(Gap::MissingLink))
+            .collect()
+    }
+}
+
+/// Why a trace could not run.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TraceError {
+    /// The entity to trace is not in the graph; `near` is the closest id.
+    EntityNotFound {
+        entity_id: String,
+        near: Option<String>,
+    },
+}
+
+impl std::fmt::Display for TraceError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TraceError::EntityNotFound { entity_id, .. } => {
+                write!(f, "unresolved entity '{entity_id}' — not found in graph")
+            }
+        }
+    }
+}
+
+impl std::error::Error for TraceError {}
+
+/// E003, its message, and a did-you-mean when an entity is close.
+impl From<TraceError> for OpError {
+    fn from(error: TraceError) -> Self {
+        let message = error.to_string();
+        match error {
+            TraceError::EntityNotFound { near, .. } => {
+                let op_error = OpError::new("E003", message);
+                match near {
+                    Some(near) => op_error.with_suggestion(format!("did you mean '{near}'?")),
+                    None => op_error,
+                }
+            }
+        }
+    }
+}
+
+/// Trace `target` in the view's graph: each chain both ways, with every
+/// edge the registries lead the traced entity to have, and it lacks,
+/// flagged as missing.
+pub fn trace(view: &ProjectView, target: Target) -> Result<TraceOutcome, TraceError> {
+    let expectations =
+        TraceExpectations::from_registries(&view.registries.fields, &view.registries.kinds);
+    let graph = view.graph;
+    match target {
+        Target::Entity(entity_id) => {
+            let chain = chain(graph, entity_id, &expectations).ok_or_else(|| {
+                TraceError::EntityNotFound {
+                    entity_id: entity_id.to_string(),
+                    near: specforge_common::suggest::find_close_match(
+                        entity_id,
+                        graph.nodes().iter().map(|n| n.id.raw.as_str()),
+                    )
+                    .map(str::to_string),
+                }
+            })?;
+            Ok(TraceOutcome {
+                chains: vec![chain],
+                single: true,
+            })
+        }
+        Target::Every => {
+            let mut chains: Vec<TraceChain> = graph
+                .nodes()
+                .iter()
+                .filter_map(|n| chain(graph, n.id.raw.as_str(), &expectations))
+                .collect();
+            chains.sort_by(|a, b| a.entity_id.cmp(&b.entity_id));
+            Ok(TraceOutcome {
+                chains,
+                single: false,
+            })
+        }
+    }
+}
+
+/// The chain of `entity_id` both ways, with every expected edge it lacks
+/// flagged as missing; `None` when the graph lacks it.
+fn chain(graph: &Graph, entity_id: &str, expectations: &TraceExpectations) -> Option<TraceChain> {
+    let root = graph.node(entity_id)?;
+    Some(TraceChain {
         entity_id: entity_id.to_string(),
         entity_kind: root.kind.raw.to_string(),
-        upstream,
-        downstream,
-        missing,
+        upstream: directed_bfs(graph, entity_id, Direction::Upstream),
+        downstream: directed_bfs(graph, entity_id, Direction::Downstream),
+        missing: missing_links(graph, entity_id, expectations),
     })
 }
 
-pub fn trace_all(graph: &Graph) -> Vec<TraceChain> {
-    trace_all_with_expectations(graph, &TraceExpectations::new())
+/// What falls short, in one vocabulary (CONTEXT.md): a missing link, an
+/// expected edge a traced entity lacks; or a plan gap, how an agent plan
+/// falls short of the graph. An edge to an entity that does not exist is
+/// neither: it is E003, `check`'s business.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Gap {
+    MissingLink(MissingLink),
+    Plan(PlanGap),
 }
 
-/// One chain per entity, ordered by entity ID.
-pub fn trace_all_with_expectations(
-    graph: &Graph,
-    expectations: &TraceExpectations,
-) -> Vec<TraceChain> {
-    let mut chains: Vec<TraceChain> = graph
-        .nodes()
-        .iter()
-        .filter_map(|n| trace_with_expectations(graph, n.id.raw.as_str(), expectations).ok())
-        .collect();
-    chains.sort_by(|a, b| a.entity_id.cmp(&b.entity_id));
-    chains
+impl Gap {
+    /// The entity that falls short (`plan` for the plan itself).
+    pub fn source(&self) -> &str {
+        match self {
+            Gap::MissingLink(link) => &link.from,
+            Gap::Plan(gap) => &gap.source,
+        }
+    }
+
+    /// What it falls short of: the kind a missing link would point at, or
+    /// the entity a plan gap names.
+    pub fn target(&self) -> &str {
+        match self {
+            Gap::MissingLink(link) => &link.expected_kind,
+            Gap::Plan(gap) => &gap.target,
+        }
+    }
+
+    /// `missing_link`, or the plan gap's kind (`unresolved_entity`,
+    /// `missing_plan_entry`, `ordering`).
+    pub fn kind(&self) -> &'static str {
+        match self {
+            Gap::MissingLink(_) => "missing_link",
+            Gap::Plan(gap) => gap.kind.as_str(),
+        }
+    }
+
+    /// The gap in a sentence.
+    pub fn context(&self) -> String {
+        match self {
+            Gap::MissingLink(link) => format!(
+                "{} '{}' has no '{}' link to a {}{}",
+                link.from_kind,
+                link.from,
+                link.edge_label,
+                link.expected_kind,
+                if link.required { " (required)" } else { "" }
+            ),
+            Gap::Plan(gap) => gap.context.clone(),
+        }
+    }
 }
 
 /// The expected edges `entity_id` does not have, one hop from it. An edge
@@ -245,73 +426,9 @@ fn missing_links(
         .collect()
 }
 
-/// Edges whose source or target is not a node of the graph. These are
-/// broken references (E003 in check), not missing links of a chain.
-pub fn detect_trace_gaps(graph: &Graph) -> Vec<String> {
-    let node_ids: HashSet<&str> = graph.nodes().iter().map(|n| n.id.raw.as_str()).collect();
-    let mut gaps = Vec::new();
-    for edge in graph.edges() {
-        if !node_ids.contains(edge.source.as_str()) {
-            gaps.push(format!(
-                "dangling edge source '{}' in edge {} -> {} ({})",
-                edge.source, edge.source, edge.target, edge.label
-            ));
-        }
-        if !node_ids.contains(edge.target.as_str()) {
-            gaps.push(format!(
-                "dangling edge target '{}' in edge {} -> {} ({})",
-                edge.target, edge.source, edge.target, edge.label
-            ));
-        }
-    }
-    gaps.sort();
-    gaps.dedup();
-    gaps
-}
-
-pub fn serialize_trace_all(chains: &[TraceChain]) -> Result<String, EmitterError> {
-    #[derive(Serialize)]
-    struct TraceAllOutput<'a> {
-        schema_version: &'static str,
-        traces: &'a [TraceChain],
-    }
-
-    let output = TraceAllOutput {
-        schema_version: SCHEMA_VERSION,
-        traces: chains,
-    };
-
-    serde_json::to_string_pretty(&output)
-        .map_err(|e| EmitterError::SerializationError(e.to_string()))
-}
-
-pub fn serialize_trace(chain: &TraceChain) -> Result<String, EmitterError> {
-    #[derive(Serialize)]
-    struct TraceOutput<'a> {
-        schema_version: &'static str,
-        entity_id: &'a str,
-        entity_kind: &'a str,
-        upstream: &'a [TraceLink],
-        downstream: &'a [TraceLink],
-        missing: &'a [MissingLink],
-    }
-
-    let output = TraceOutput {
-        schema_version: SCHEMA_VERSION,
-        entity_id: &chain.entity_id,
-        entity_kind: &chain.entity_kind,
-        upstream: &chain.upstream,
-        downstream: &chain.downstream,
-        missing: &chain.missing,
-    };
-
-    serde_json::to_string_pretty(&output)
-        .map_err(|e| EmitterError::SerializationError(e.to_string()))
-}
-
 /// A chain as terminal text: the entity, then its upstream, downstream and
 /// missing links, one per line. Missing links are marked `MISSING`.
-pub fn render_trace_human(chain: &TraceChain) -> String {
+fn render_human(chain: &TraceChain) -> String {
     let mut out = format!("{} [{}]\n", chain.entity_id, chain.entity_kind);
     let section = |out: &mut String, name: &str, links: &[TraceLink], arrow: fn(&str) -> String| {
         out.push_str(&format!("  {name}:\n"));

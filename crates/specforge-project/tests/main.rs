@@ -1,14 +1,17 @@
 mod builtins;
 mod check_passes;
+mod classify;
 mod compile;
 mod custom_rules;
 mod delta;
 mod derived_references;
 mod dual_mode;
 mod e2e_pipeline;
+mod extension_calls;
 mod field_types;
 mod policy;
 mod registered_fields;
+mod registry_build_snapshot;
 mod registry_fields;
 mod registry_order;
 mod session;

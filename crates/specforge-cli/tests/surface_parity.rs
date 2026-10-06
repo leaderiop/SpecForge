@@ -8,8 +8,9 @@
 //! Diagnostics are compared as multisets of `"CODE severity file:line"`
 //! keys (`-` for a diagnostic without a span; the file is relative to the
 //! spec root). The LSP cannot say everything `check` says: it must attach
-//! a span-less diagnostic to some document, and puts it on the edited one
-//! at line 1, so `check`'s keys are projected onto that. Watch's events
+//! a span-less diagnostic to some document, and puts one about entities
+//! (its data names them) at the first one's name and any other on the
+//! edited one at line 1, so `check`'s keys are projected onto that. Watch's events
 //! carry the full list; its `rebuilt` event also gets a key when the debug
 //! build's check of the incremental graph against a cold build fails.
 //!
@@ -138,19 +139,72 @@ fn difference(a: &Keys, b: &Keys) -> Vec<String> {
     out
 }
 
-/// Project `check`'s keys onto what the LSP can publish. A diagnostic
-/// without a span has to be attached to some document, and the LSP
-/// attaches it to the one being edited, at its first line.
-fn as_published(keys: &Keys, edited: &str) -> Keys {
-    let mut out = Keys::new();
-    for (k, &n) in keys {
-        let k = match k.strip_suffix(" -") {
-            Some(head) => format!("{head} {edited}:1"),
-            None => k.clone(),
+/// What `check` reports, projected onto what the LSP publishes. A
+/// diagnostic without a span has to be attached to some document: one
+/// about entities (its data names them) goes at the first one's name (its
+/// file and line, as MCP find_definition answers them); one about none
+/// on the document being edited, at its first line.
+fn as_published(project: &Project, edited: &str) -> Keys {
+    let out = check_output(project);
+    let diagnostics: Value =
+        serde_json::from_str(&out).unwrap_or_else(|e| panic!("check JSON ({e}): {out}"));
+    let mut keys = Vec::new();
+    for d in diagnostics.as_array().unwrap() {
+        let code = d["code"].as_str().unwrap();
+        let severity = d["severity"].as_str().unwrap();
+        let location = match d["span"].as_object() {
+            Some(s) => (
+                s["file"].as_str().unwrap().to_string(),
+                s["start_line"].as_u64().unwrap(),
+            ),
+            None => subject_name(project, &d["data"]).unwrap_or((edited.to_string(), 1)),
         };
-        *out.entry(k).or_default() += n;
+        keys.push(key(code, severity, Some(location)));
     }
-    out
+    multiset(keys)
+}
+
+/// The entities a diagnostic's data names, in order: an unresolved
+/// reference's holder, a cycle's path, a pass diagnostic's subject.
+fn data_entities(data: &Value) -> Vec<String> {
+    let names: Vec<&Value> = match data["kind"].as_str() {
+        Some("unresolved_reference" | "subject") => vec![&data["entity"]],
+        Some("reference_cycle") => data["path"].as_array().unwrap().iter().collect(),
+        _ => Vec::new(),
+    };
+    names
+        .into_iter()
+        .filter_map(|v| v.as_str().map(str::to_string))
+        .collect()
+}
+
+/// The file and line of the name of the first entity `data` names that
+/// the project declares (MCP find_definition's answer).
+fn subject_name(project: &Project, data: &Value) -> Option<(String, u64)> {
+    data_entities(data).into_iter().find_map(|entity| {
+        let mut server = specforge_mcp::McpServer::new();
+        let mut call = |method: &str, params: Value| -> Value {
+            let req = json!({"jsonrpc": "2.0", "id": 1, "method": method, "params": params});
+            serde_json::from_str(&server.handle_message(&req.to_string()).unwrap()).unwrap()
+        };
+        call(
+            "initialize",
+            json!({"projectRoot": project.root.to_str().unwrap()}),
+        );
+        let resp = call(
+            "tools/call",
+            json!({"name": "specforge.find_definition", "arguments": {"entity_id": entity}}),
+        );
+        if resp["result"]["isError"] == true {
+            return None;
+        }
+        let found: Value =
+            serde_json::from_str(resp["result"]["content"][0]["text"].as_str()?).ok()?;
+        Some((
+            found["file_path"].as_str()?.to_string(),
+            found["line"].as_u64()?,
+        ))
+    })
 }
 
 // ── The project under test ──────────────────────────────────────────────
@@ -308,7 +362,7 @@ fn mcp_validate_json(project: &Project, arguments: Value) -> Value {
 
 // ── LSP ─────────────────────────────────────────────────────────────────
 
-mod lsp {
+pub(crate) mod lsp {
     use serde_json::{Value, json};
     use tokio::io::{AsyncReadExt, AsyncWriteExt, DuplexStream};
     use tokio::time::{Duration, Instant, timeout};
@@ -382,7 +436,7 @@ mod lsp {
             msg
         }
 
-        async fn request(&mut self, method: &str, params: Value) -> Value {
+        pub(crate) async fn request(&mut self, method: &str, params: Value) -> Value {
             let id = self.next_id;
             self.next_id += 1;
             self.write(&json!({"jsonrpc": "2.0", "id": id, "method": method, "params": params}))
@@ -395,17 +449,27 @@ mod lsp {
             }
         }
 
-        async fn notify(&mut self, method: &str, params: Value) {
+        pub(crate) async fn notify(&mut self, method: &str, params: Value) {
             self.write(&json!({"jsonrpc": "2.0", "method": method, "params": params}))
                 .await;
         }
 
         /// Initialize on `root` and wait until background indexing ends.
         pub async fn open_workspace(&mut self, root: &std::path::Path) {
+            self.open_workspace_with(root, json!({})).await;
+        }
+
+        /// Initialize on `root` as a client declaring `capabilities`, and
+        /// wait until background indexing ends.
+        pub(crate) async fn open_workspace_with(
+            &mut self,
+            root: &std::path::Path,
+            capabilities: Value,
+        ) {
             let uri = Url::from_file_path(root).unwrap().to_string();
             self.request(
                 "initialize",
-                json!({"processId": null, "rootUri": uri, "capabilities": {}}),
+                json!({"processId": null, "rootUri": uri, "capabilities": capabilities}),
             )
             .await;
             self.notify("initialized", json!({})).await;
@@ -696,7 +760,7 @@ fn assert_parity(fixture: &str) {
     );
 
     // Last: its Then step may delete a file.
-    compare_lsp(fixture, &project, then, &check_keys, &mut failures);
+    compare_lsp(fixture, &project, then, &mut failures);
 
     assert!(
         failures.is_empty(),
@@ -707,16 +771,10 @@ fn assert_parity(fixture: &str) {
 
 /// What the LSP publishes after opening the entry file, and after the
 /// fixture's [`Then`] step, against what `check` reports then.
-fn compare_lsp(
-    fixture: &str,
-    project: &Project,
-    then: Then,
-    check_keys: &Keys,
-    failures: &mut Vec<String>,
-) {
+fn compare_lsp(fixture: &str, project: &Project, then: Then, failures: &mut Vec<String>) {
     let edited = project.relative(&project.entry);
+    let published = as_published(project, &edited);
     let run = lsp(project, then);
-    let published = as_published(check_keys, &edited);
     compare(fixture, Surface::Lsp, &published, &run.opened, failures);
     match (then, run.then) {
         (Then::ReloadConfig, Some(after)) => compare(
@@ -727,7 +785,7 @@ fn compare_lsp(
             failures,
         ),
         (Then::Delete(_), Some(after)) => {
-            let now = as_published(&multiset(check(project)), &edited);
+            let now = as_published(project, &edited);
             compare(fixture, Surface::LspAfterDelete, &now, &after, failures)
         }
         _ => {}
@@ -838,8 +896,7 @@ fn lsp_publishes_what_check_reports_on_every_fixture() {
     let mut failures = Vec::new();
     for &(fixture, entry, then) in FIXTURES {
         let project = project(fixture, entry);
-        let check_keys = multiset(check(&project));
-        compare_lsp(fixture, &project, then, &check_keys, &mut failures);
+        compare_lsp(fixture, &project, then, &mut failures);
     }
     assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
@@ -888,6 +945,47 @@ fn mcp_validate_applies_the_lint_profiles_check_applies() {
         let validated = mcp_validate(&project, json!({"lint": ["inferred"], "strict": strict}));
         assert_eq!(validated, checked, "strict: {strict}");
     }
+}
+
+/// `check --severity` and MCP validate's `severity_filter` show the same
+/// diagnostics on every fixture, for each severity, with and without
+/// strict promotion (one filter, the check operation's), and the filter's
+/// name matches ignoring case on both.
+#[specforge_test(
+    behavior = "filter_reported_diagnostics",
+    verify = "check --severity and MCP validate severity_filter report the same diagnostics"
+)]
+fn check_severity_and_mcp_severity_filter_agree_on_every_fixture() {
+    let mut failures = Vec::new();
+    for &(fixture, entry, _) in FIXTURES {
+        let project = project(fixture, entry);
+        let everything = multiset(check(&project));
+        let mut shown_total = 0;
+        for severity in ["error", "warning", "Info"] {
+            for strict in [false, true] {
+                let mut flags = vec!["--severity", severity];
+                let mut arguments = json!({"severity_filter": severity});
+                if strict {
+                    flags.push("--strict");
+                    arguments["strict"] = json!(true);
+                }
+                let out = check_output_with(&project, &flags);
+                let checked = multiset(keys_of(&serde_json::from_str(&out).unwrap()));
+                let validated = mcp_validate(&project, arguments);
+                if checked != validated {
+                    failures.push(format!(
+                        "{fixture} --severity {severity} strict={strict}: check {checked:?}, validate {validated:?}"
+                    ));
+                }
+                if !strict {
+                    shown_total += checked.values().sum::<usize>();
+                }
+            }
+        }
+        // The three filters partition what check reports.
+        assert_eq!(shown_total, everything.values().sum::<usize>(), "{fixture}");
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
 
 /// `check --format json` and MCP validate print the same entries, key for

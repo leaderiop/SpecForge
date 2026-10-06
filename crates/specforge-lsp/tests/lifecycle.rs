@@ -104,6 +104,8 @@ async fn init_zero_extensions() {
 
 /// Apply an editor buffer to the state's project session.
 fn edit(state: &mut specforge_lsp::LspState, path: &str, text: &str) {
+    // The buffer is the file's text: what navigation reads.
+    state.open_document(&format!("file://{path}"), text);
     state.session_mut().expect("no update is running").update(
         specforge_project::SourceChange::Buffer {
             path,
@@ -173,12 +175,19 @@ fn lsp_state_holds_graph() {
     let limit = "invariant session_limit \"Limit\" {\n}\n";
     edit(&mut state, "/p/login.spec", LOGIN);
     edit(&mut state, "/p/limit.spec", limit);
-    let def = specforge_lsp::go_to_definition(state.graph(), "session_limit")
+    let nav = specforge_lsp::navigator(&state);
+    let def = nav
+        .definition("session_limit")
         .expect("the session's entity is navigable");
-    assert_eq!(def.file, "/p/limit.spec");
-    let refs = specforge_lsp::find_all_references(state.graph(), "session_limit");
-    let ref_files: Vec<&str> = refs.iter().map(|r| r.file.as_str()).collect();
+    assert_eq!(def.block.file, "/p/limit.spec");
+    let with_declaration = specforge_ops::navigate::ReferenceQuery {
+        include_declaration: true,
+        ..Default::default()
+    };
+    let refs = nav.references("session_limit", with_declaration).unwrap();
+    let ref_files: Vec<&str> = refs.iter().map(|r| r.span.file.as_str()).collect();
     assert_eq!(ref_files, ["/p/limit.spec", "/p/login.spec"]);
+    drop(nav);
 
     // A session fed the same changes, as `specforge watch` feeds its own,
     // builds the same graph and reports the same diagnostics.
@@ -220,13 +229,16 @@ fn graph_update_serves_all_features() {
     );
 
     // The same graph serves go-to-definition
-    let def = specforge_lsp::go_to_definition(state.graph(), "token");
-    assert!(def.is_some(), "go-to-definition must use shared graph");
+    let nav = specforge_lsp::navigator(&state);
+    assert!(
+        nav.definition("token").is_ok(),
+        "go-to-definition must use shared graph"
+    );
 
     // The same graph serves find-all-references
-    let refs = specforge_lsp::find_all_references(state.graph(), "token");
+    let refs = nav.references("token", Default::default()).unwrap();
     assert!(
-        refs.iter().any(|r| r.file == "/p/auth.spec"),
+        refs.iter().any(|r| r.span.file == "/p/auth.spec"),
         "find-all-references must use shared graph: {refs:?}"
     );
 
@@ -234,12 +246,12 @@ fn graph_update_serves_all_features() {
     let hover = specforge_lsp::hover_info(state.graph(), "login");
     assert!(hover.is_some(), "hover must use shared graph");
 
-    // The same graph serves workspace symbols
-    let syms = specforge_lsp::workspace_symbols(state.graph(), "login");
+    // The same graph serves workspace symbols and completions (one
+    // ranking, over ids and titles)
+    use specforge_ops::navigate::{EntityQuery, MatchScope, find_entities};
+    let syms = find_entities(state.graph(), &EntityQuery::new("login", MatchScope::Names));
     assert!(!syms.is_empty(), "workspace symbols must use shared graph");
-
-    // The same graph serves completions
-    let completions = specforge_lsp::complete_entity_ids(state.graph(), "log");
+    let completions = find_entities(state.graph(), &EntityQuery::new("log", MatchScope::Names));
     assert!(!completions.is_empty(), "completions must use shared graph");
 }
 
@@ -275,5 +287,67 @@ fn shutdown_frees_the_wasm_runtime() {
     assert!(
         engine.upgrade().is_none(),
         "the engine is freed, not just forgotten"
+    );
+}
+
+/// The watchers derive from the session: relative to each input's
+/// directory for a client with relative pattern support, absolute globs
+/// otherwise, and the static set with no project.
+#[test]
+fn file_watchers_follow_what_the_session_is_built_from() {
+    use tower_lsp::lsp_types::{GlobPattern, OneOf};
+
+    let dir = tempfile::TempDir::new().unwrap();
+    std::fs::write(
+        dir.path().join("specforge.json"),
+        r#"{"name":"w","version":"0.1.0","extensions":["@acme/local=ext/local.wasm"]}"#,
+    )
+    .unwrap();
+    let session = specforge_project::ProjectSession::open_with_runtime(dir.path(), None);
+    let root = dir.path().to_string_lossy().into_owned();
+
+    let absolute: Vec<String> = specforge_lsp::watchers::file_watchers(&session, false)
+        .into_iter()
+        .map(|w| match w.glob_pattern {
+            GlobPattern::String(glob) => glob,
+            other => panic!("expected an absolute glob, got {other:?}"),
+        })
+        .collect();
+    assert_eq!(
+        absolute,
+        vec![
+            format!("{root}/**/*.spec"),
+            format!("{root}/specforge.json"),
+            format!("{root}/specforge.lock"),
+            format!("{root}/ext/local.wasm"),
+        ]
+    );
+
+    let relative: Vec<(std::path::PathBuf, String)> =
+        specforge_lsp::watchers::file_watchers(&session, true)
+            .into_iter()
+            .map(|w| match w.glob_pattern {
+                GlobPattern::Relative(pattern) => {
+                    let OneOf::Right(base) = pattern.base_uri else {
+                        panic!("a base URI")
+                    };
+                    (base.to_file_path().unwrap(), pattern.pattern)
+                }
+                other => panic!("expected a relative pattern, got {other:?}"),
+            })
+            .collect();
+    assert!(
+        relative.contains(&(dir.path().join("ext"), "local.wasm".to_string())),
+        "{relative:?}"
+    );
+    assert!(
+        relative.contains(&(dir.path().to_path_buf(), "**/*.spec".to_string())),
+        "{relative:?}"
+    );
+
+    let detached = specforge_project::ProjectSession::detached();
+    assert_eq!(
+        specforge_lsp::watchers::file_watchers(&detached, true),
+        specforge_lsp::watchers::default_watchers()
     );
 }

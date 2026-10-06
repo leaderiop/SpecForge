@@ -3,16 +3,17 @@
 //! history rules such as status transitions compare against a declared
 //! input, never hidden state. An entity is recorded when its kind declares
 //! a lifecycle field (`lifecycle_field`, ADR 0009); the cache names no
-//! field itself. `specforge check --cache` writes it (behavior
-//! `write_build_cache`); every compile that runs a check-phase pass reads
-//! it and hands it to the passes as `previous` (behavior
-//! `read_build_cache`).
+//! field itself. `specforge check --cache` writes it, through the check
+//! operation (`specforge_ops::check`), only when the check passes and no
+//! other surface does (behavior `write_build_cache`); every compile that
+//! runs a check-phase pass reads it and hands it to the passes as
+//! `previous` (behavior `read_build_cache`).
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
-use specforge_common::{Diagnostic, Severity};
+use specforge_common::Diagnostic;
 use specforge_graph::Graph;
 use specforge_parser::FieldValue;
 use specforge_registry::KindRegistry;
@@ -38,6 +39,27 @@ pub struct BuildCache {
 pub struct CachedStatus {
     pub kind: String,
     pub status: String,
+}
+
+/// The cache as a check-phase pass receives it (`PassInput::previous`).
+impl From<&BuildCache> for specforge_protocol_types::PassBuildCache {
+    fn from(cache: &BuildCache) -> Self {
+        specforge_protocol_types::PassBuildCache {
+            statuses: cache
+                .statuses
+                .iter()
+                .map(|(id, cached)| {
+                    (
+                        id.clone(),
+                        specforge_protocol_types::PassCachedStatus {
+                            kind: cached.kind.clone(),
+                            status: cached.status.clone(),
+                        },
+                    )
+                })
+                .collect(),
+        }
+    }
 }
 
 impl BuildCache {
@@ -117,23 +139,6 @@ impl BuildCache {
     }
 }
 
-/// `specforge check --cache`: write the lifecycle states of `graph` (per
-/// the lifecycle fields `kinds` declare) to the project at `root`, unless
-/// what check `reported` has an error (a check that fails is not a
-/// baseline). Whether the file was written.
-pub fn record_build_cache(
-    root: &Path,
-    graph: &Graph,
-    kinds: &KindRegistry,
-    reported: &[Diagnostic],
-) -> std::io::Result<bool> {
-    if reported.iter().any(|d| d.severity == Severity::Error) {
-        return Ok(false);
-    }
-    BuildCache::of(graph, kinds).write(root)?;
-    Ok(true)
-}
-
 fn invalid_cache(problem: &str) -> Diagnostic {
     Diagnostic::warning(
         "W144",
@@ -156,22 +161,12 @@ mod tests {
     fn kind(name: &str, lifecycle_field: Option<&str>) -> KindRegistryEntry {
         KindRegistryEntry {
             kind_name: name.to_string(),
-            description: None,
             source_extension: "@test/ext".to_string(),
             testable: false,
-            singleton: false,
             supports_verify: false,
             allowed_verify_kinds: vec![],
-            has_body_parser: false,
-            semantic_token: None,
-            lsp_icon: None,
-            dot_shape: None,
-            dot_color: None,
-            dot_fillcolor: None,
-            open_fields: false,
-            contract_target: false,
-            declares_types: false,
             lifecycle_field: lifecycle_field.map(str::to_string),
+            ..Default::default()
         }
     }
 

@@ -2,27 +2,21 @@ use serde_json::{Value, json};
 
 use specforge_common::inference::anchors;
 
-use crate::state::McpState;
-use crate::tool::ToolOutcome;
+use crate::target::Call;
+use crate::tool::{Handled, ToolOutcome};
 
 #[derive(Debug, serde::Deserialize)]
 pub struct Args {
     entity_id: String,
 }
 
-pub fn call(state: &McpState, args: Args) -> ToolOutcome {
+pub fn call(call: &mut Call<'_>, args: Args) -> Handled {
     let entity_id = args.entity_id.as_str();
 
-    let project_root = match &state.project_root {
-        Some(p) => p.clone(),
-        None => {
-            return ToolOutcome::no_project("No project root available");
-        }
-    };
-
-    let manifest = match anchors::load_anchor_manifest(&project_root) {
+    let project = call.project()?;
+    let manifest = match anchors::load_anchor_manifest(project.root) {
         Ok(m) => m,
-        Err(e) => return super::manifest_error(e),
+        Err(e) => return Ok(super::manifest_error(e)),
     };
 
     let sources: Vec<Value> = manifest
@@ -46,5 +40,5 @@ pub fn call(state: &McpState, args: Args) -> ToolOutcome {
         "count": sources.len(),
     });
 
-    ToolOutcome::ok(result)
+    Ok(ToolOutcome::ok(result))
 }

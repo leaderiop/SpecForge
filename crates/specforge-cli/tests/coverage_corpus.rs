@@ -29,7 +29,7 @@ use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use tempfile::TempDir;
 
-fn specforge() -> Command {
+pub(crate) fn specforge() -> Command {
     Command::new(env!("CARGO_BIN_EXE_specforge"))
 }
 
@@ -39,7 +39,7 @@ fn fixture_dir(name: &str) -> PathBuf {
         .join(name)
 }
 
-fn copy_tree(from: &Path, to: &Path) {
+pub(crate) fn copy_tree(from: &Path, to: &Path) {
     for entry in std::fs::read_dir(from).unwrap().flatten() {
         let dest = to.join(entry.file_name());
         if entry.path().is_dir() {
@@ -52,14 +52,14 @@ fn copy_tree(from: &Path, to: &Path) {
 }
 
 /// A scratch copy of a corpus project, so no surface writes into the repo.
-fn project(name: &str) -> TempDir {
+pub(crate) fn project(name: &str) -> TempDir {
     let tmp = TempDir::new().unwrap();
     copy_tree(&fixture_dir(name), tmp.path());
     tmp
 }
 
 /// The `@specforge/testing:coverage` pass of `analyze coverage --json`.
-fn analyze_coverage(root: &Path) -> Value {
+pub(crate) fn analyze_coverage(root: &Path) -> Value {
     let out = specforge()
         .args([
             "analyze",
@@ -101,7 +101,7 @@ fn findings(pass: &Value) -> Vec<(String, String)> {
     out
 }
 
-fn stats(root: &Path) -> Value {
+pub(crate) fn stats(root: &Path) -> Value {
     let out = specforge()
         .args(["stats", "--format", "json", root.to_str().unwrap()])
         .output()
@@ -114,11 +114,10 @@ fn stats(root: &Path) -> Value {
     })
 }
 
-/// Call MCP tools in one `specforge mcp` session; one result per call, in
-/// order: the tool's JSON content, `{"isError": content}` for an error
-/// result, or `{"error": ...}` for a JSON-RPC error. A call is a tool's
-/// `{name, arguments}`, or `{method, params}` for any other request.
-fn mcp_calls(root: &Path, calls: &[Value]) -> Vec<Value> {
+/// The JSON-RPC responses of one `specforge mcp` session, one per call, in
+/// order. A call is a tool's `{name, arguments}`, or `{method, params}`
+/// for any other request.
+pub(crate) fn mcp_responses(root: &Path, calls: &[Value]) -> Vec<Value> {
     let mut child = std::process::Command::new(env!("CARGO_BIN_EXE_specforge"))
         .arg("mcp")
         .arg(root)
@@ -149,10 +148,22 @@ fn mcp_calls(root: &Path, calls: &[Value]) -> Vec<Value> {
         .collect();
     (1..=calls.len())
         .map(|id| {
-            let resp = responses
+            responses
                 .iter()
                 .find(|r| r["id"] == id)
-                .unwrap_or_else(|| panic!("no response {id}: {responses:?}"));
+                .cloned()
+                .unwrap_or_else(|| panic!("no response {id}: {responses:?}"))
+        })
+        .collect()
+}
+
+/// Call MCP tools in one `specforge mcp` session; one result per call, in
+/// order: the tool's JSON content, `{"isError": content}` for an error
+/// result, or `{"error": ...}` for a JSON-RPC error ([`mcp_responses`]).
+pub(crate) fn mcp_calls(root: &Path, calls: &[Value]) -> Vec<Value> {
+    mcp_responses(root, calls)
+        .into_iter()
+        .map(|resp| {
             if !resp["error"].is_null() {
                 return json!({"error": resp["error"]});
             }
@@ -169,7 +180,7 @@ fn mcp_calls(root: &Path, calls: &[Value]) -> Vec<Value> {
 }
 
 /// `specforge.coverage` rows as `id -> (status, obligations, proven)`.
-fn coverage_rows(content: &Value) -> BTreeMap<String, (String, u64, u64)> {
+pub(crate) fn coverage_rows(content: &Value) -> BTreeMap<String, (String, u64, u64)> {
     content
         .as_array()
         .unwrap_or_else(|| panic!("coverage is not an array: {content}"))
@@ -262,10 +273,11 @@ fn fx1_mcp_coverage_today() {
     let rows = coverage_rows(&results[0]);
     let row =
         |status: &str, obligations: u64, proven: u64| (status.to_string(), obligations, proven);
+    // The union Status owes nothing: it does not count toward coverage, so
+    // the unfiltered view leaves it out, as stats does (plan 02 D3).
     let expected: BTreeMap<String, (String, u64, u64)> = [
         // Payload's statement sits behind its `verify` struct field (S2).
         ("Payload", row("covered", 1, 1)),
-        ("Status", row("uncovered", 0, 0)),
         ("login", row("covered", 1, 1)),
         ("logout", row("uncovered", 0, 0)),
         ("reset_password", row("uncovered", 1, 0)),
@@ -336,12 +348,13 @@ fn assert_mcp_coverage_matches_analyze(root: &Path) {
             &[json!({"name": "specforge.coverage", "arguments": {}})],
         )[0],
     );
-    // MCP lists every entity of a testable kind, exempt ones included.
+    // MCP lists the entities that count toward coverage, as analyze counts
+    // them.
     let summary = &pass["summary"];
     assert_eq!(
         rows.len() as u64,
-        summary["testable_total"].as_u64().unwrap() + summary["testable_exempt"].as_u64().unwrap(),
-        "MCP lists every entity of a testable kind analyze sees"
+        summary["testable_total"].as_u64().unwrap(),
+        "MCP lists the testable entities analyze counts"
     );
     let covered = rows.values().filter(|(status, _, _)| status == "covered");
     assert_eq!(
@@ -372,6 +385,54 @@ fn mcp_coverage_matches_analyze_coverage() {
         example.path(),
     );
     assert_mcp_coverage_matches_analyze(example.path());
+}
+
+/// `specforge.coverage {}` lists exactly the entities `specforge stats`
+/// counts as testable, and covers exactly as many as analyze proves.
+fn assert_mcp_coverage_rows_are_what_stats_counts(root: &Path) {
+    let results = mcp_calls(
+        root,
+        &[
+            json!({"name": "specforge.coverage", "arguments": {}}),
+            json!({"name": "specforge.coverage", "arguments": {"status_filter": "covered"}}),
+        ],
+    );
+    let stats = stats(root);
+    assert_eq!(
+        results[0].as_array().unwrap().len() as u64,
+        stats["testable_count"].as_u64().unwrap(),
+        "{}",
+        results[0]
+    );
+    assert!(
+        results[0]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|row| row["exempt"] == false)
+    );
+    let proven = analyze_coverage(root)["summary"]["testable_proven"].clone();
+    assert_eq!(
+        json!(results[1].as_array().unwrap().len()),
+        proven,
+        "{}",
+        results[1]
+    );
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_coverage_tool",
+    verify = "with no filters the coverage rows are the entities stats counts as testable"
+)]
+fn mcp_coverage_rows_are_what_stats_counts() {
+    let tmp = project("fx1");
+    assert_mcp_coverage_rows_are_what_stats_counts(tmp.path());
+    let example = TempDir::new().unwrap();
+    copy_tree(
+        &Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/todo-app"),
+        example.path(),
+    );
+    assert_mcp_coverage_rows_are_what_stats_counts(example.path());
 }
 
 #[specforge_test(

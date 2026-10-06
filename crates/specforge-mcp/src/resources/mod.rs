@@ -10,6 +10,8 @@ use serde_json::Value;
 
 use crate::protocol::{JsonRpcError, JsonRpcResponse, error_codes};
 use crate::state::McpState;
+use crate::surface_table::ResourceEntry;
+use crate::target::{self, Call, TargetSpec};
 use crate::types::McpResourceDescriptor;
 
 /// The one text content a resource read returns.
@@ -71,7 +73,22 @@ pub fn handle_resource_read(
         }
     };
 
-    match read(state, &uri) {
+    // The project the read serves, brought up to date with disk first.
+    let spec = CORE_RESOURCES
+        .iter()
+        .find(|r| r.matches(&uri))
+        .map_or(TargetSpec::SERVED, |r| r.target);
+    let target = match target::resolve(state, spec, &Value::Null) {
+        Ok(target) => target,
+        Err(refused) => {
+            let refused = crate::tool::McpError::from(refused);
+            return JsonRpcResponse::error(id, error_codes::INVALID_PARAMS, refused.message);
+        }
+    };
+    let call = Call::new(state, target);
+    let read = read(&call, &uri);
+    drop(call);
+    match read {
         Ok(mut content) => {
             if let Some(dispatched) = content.dispatched.take() {
                 state.push_event("surface_mcp_resource_dispatched", dispatched);
@@ -94,8 +111,10 @@ pub struct ResourceSpec {
     pub name: &'static str,
     pub description: &'static str,
     pub mime_type: &'static str,
+    /// Which project it reads: the served one, brought up to date first.
+    pub target: TargetSpec,
     /// Read the resource at a URI it [matches](Self::matches).
-    pub(crate) read: fn(&McpState, &str) -> ReadOutcome,
+    pub(crate) read: fn(&Call<'_>, &str) -> ReadOutcome,
 }
 
 impl ResourceSpec {
@@ -139,146 +158,126 @@ pub static CORE_RESOURCES: &[ResourceSpec] = &[
         name: "graph",
         description: "Full spec graph in JSON format",
         mime_type: "application/json",
-        read: graph::read,
+        target: TargetSpec::SERVED,
+        read: |call, uri| graph::read(&call.view(), uri),
     },
     ResourceSpec {
         uri: "specforge://schema",
         name: "schema",
         description: "Graph schema definition",
         mime_type: "application/json",
-        read: |state, _| schema::read(state),
+        target: TargetSpec::SERVED,
+        read: |call, _| schema::read(&call.view()),
     },
     ResourceSpec {
         uri: "specforge://context",
         name: "context",
         description: "Context-optimized graph (contract, status, verify fields)",
         mime_type: "application/json",
-        read: context::read,
+        target: TargetSpec::SERVED,
+        read: |call, uri| context::read(call.state, uri),
     },
     ResourceSpec {
         uri: "specforge://context/{entity_id}",
         name: "context_entity",
         description: "Context-optimized subgraph rooted at an entity",
         mime_type: "application/json",
-        read: context::read,
+        target: TargetSpec::SERVED,
+        read: |call, uri| context::read(call.state, uri),
     },
     ResourceSpec {
         uri: "specforge://brief",
         name: "brief",
         description: "Brief graph (id, kind, title, edges only)",
         mime_type: "application/json",
-        read: brief::read,
+        target: TargetSpec::SERVED,
+        read: |call, uri| brief::read(call.state, uri),
     },
     ResourceSpec {
         uri: "specforge://diagnostics",
         name: "diagnostics",
         description: "Current compilation diagnostics",
         mime_type: "application/json",
-        read: |state, _| diagnostics::read(state),
+        target: TargetSpec::SERVED,
+        read: |call, _| diagnostics::read(call.state),
     },
     ResourceSpec {
         uri: "specforge://graph/{entity_id}",
         name: "entity",
         description: "Subgraph rooted at a specific entity",
         mime_type: "application/json",
-        read: |state, uri| entity::read(state, after(uri, "specforge://graph/")),
+        target: TargetSpec::SERVED,
+        read: |call, uri| entity::read(call.state, after(uri, "specforge://graph/")),
     },
     ResourceSpec {
         uri: "specforge://entities/{kind}",
         name: "entities_by_kind",
         description: "All entities of a specific kind (e.g. feature, behavior)",
         mime_type: "application/json",
-        read: |state, uri| entities_by_kind::read(state, after(uri, "specforge://entities/")),
+        target: TargetSpec::SERVED,
+        read: |call, uri| entities_by_kind::read(call.state, after(uri, "specforge://entities/")),
     },
 ];
 
-fn read(state: &McpState, uri: &str) -> ReadOutcome {
+/// The resource `uri` names, read: a core one (matched first), else the
+/// extension resource whose template names it, whatever its scheme (the
+/// table serves no template a core resource already serves).
+fn read(call: &Call<'_>, uri: &str) -> ReadOutcome {
     if let Some(resource) = CORE_RESOURCES.iter().find(|r| r.matches(uri)) {
-        return (resource.read)(state, uri);
+        return (resource.read)(call, uri);
     }
-    if uri.starts_with("specforge://ext/") {
-        return extension_resource(state, uri);
+    match call.state.surfaces().resource(uri) {
+        Some(entry) => extension_resource(call, entry, uri),
+        None => Err(invalid_params(format!("Unknown resource URI: {uri}"))),
     }
-    Err(invalid_params(format!("Unknown resource URI: {uri}")))
 }
 
 /// Whether `uri` names a resource the server serves: a core one, or one an
 /// extension contributes.
 pub(crate) fn is_served(state: &McpState, uri: &str) -> bool {
-    CORE_RESOURCES.iter().any(|r| r.matches(uri))
-        || (uri.starts_with("specforge://ext/") && extension_resource_entry(state, uri).is_some())
+    CORE_RESOURCES.iter().any(|r| r.matches(uri)) || state.surfaces().resource(uri).is_some()
 }
 
-/// The extension resource whose URI template `uri` matches.
-fn extension_resource_entry<'a>(
-    state: &'a McpState,
-    uri: &str,
-) -> Option<&'a specforge_registry::SurfaceRegistryEntry> {
-    state.surface_entries().find(|e| {
-        e.surface_type == specforge_registry::SurfaceType::McpResource
-            && uri_template(state, e).is_some_and(|template| matches_uri_template(template, uri))
-    })
-}
-
-/// The URI template the extension resource `entry` registers (entries name
-/// a resource by its `name`).
-fn uri_template<'a>(
-    state: &'a McpState,
-    entry: &specforge_registry::SurfaceRegistryEntry,
-) -> Option<&'a str> {
-    state
-        .registries()
-        .manifest_surfaces
-        .iter()
-        .filter(|(extension, _)| *extension == entry.extension_name)
-        .flat_map(|(_, surfaces)| &surfaces.mcp_resources)
-        .find(|resource| resource.name == entry.contribution_name)
-        .map(|resource| resource.uri_template.as_str())
-}
-
-/// An extension-contributed resource, read through the Wasm runtime
-/// (WASM-only migration, Phase 4).
-fn extension_resource(state: &McpState, uri: &str) -> ReadOutcome {
-    let Some(entry) = extension_resource_entry(state, uri) else {
-        return Err(invalid_params(format!("Unknown resource URI: {uri}")));
-    };
-    let Some(root) = state.project_root.clone() else {
-        return Err(invalid_params(
-            "Extension resources need a project root; pass {\"path\": ...} to specforge.analyze first",
-        ));
-    };
-    let runtime = state.wasm_runtime(&root);
+/// The resource adapter: an extension resource read through its `mcp__`
+/// export, over the `WasmRuntime` seam the call's project was compiled in.
+/// A failed read (a trap, an answer that is not its content and MIME type,
+/// an export the guest does not route) is a server-side fault of the
+/// extension: an internal error (-32603) whose `data` is the `McpError`
+/// carrying the E028 diagnostic (D6, `mcp_structured_error_responses`).
+fn extension_resource(call: &Call<'_>, entry: &ResourceEntry, uri: &str) -> ReadOutcome {
+    // The project the resource reads, in the runtime it was compiled in.
+    let project = call
+        .project()
+        .map_err(|refused| invalid_params(refused.message.clone()).with_data(refused.to_json()))?;
+    let runtime = project.runtime;
     let started = std::time::Instant::now();
-    match specforge_wasm::dispatch_surface_mcp_resource(
-        &entry.extension_name,
-        &entry.export_name,
+    match specforge_wasm::ExtensionCalls::new(runtime.as_ref()).read_mcp_resource(
+        &entry.extension,
+        &entry.export,
         uri,
-        runtime.as_ref(),
     ) {
-        // A read whose export returned is a dispatched resource; a trap is
-        // the read's error, and no dispatch is recorded.
-        Ok((content, mime)) => Ok(ResourceText {
+        // A read whose export answered its content is a dispatched
+        // resource; a failed call (a trap, or an answer that is not the
+        // content and its MIME type) is the read's error, and no dispatch is
+        // recorded.
+        Ok(read) => Ok(ResourceText {
             dispatched: Some(serde_json::json!({
-                "extensionName": entry.extension_name,
-                "uriTemplate": uri_template(state, entry).unwrap_or_default(),
-                "mimeType": mime,
+                "extensionName": entry.extension,
+                "uriTemplate": entry.uri_template,
+                "mimeType": read.mime_type,
                 "durationMs": u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX),
             })),
-            text: String::from_utf8_lossy(&content).into_owned(),
+            text: read.content,
             uri: uri.to_string(),
-            mime_type: mime,
+            mime_type: read.mime_type,
         }),
-        Err(diag) => Err(invalid_params(format!("{}: {}", diag.code, diag.message))),
-    }
-}
-
-/// Whether `uri` is one `template` names: the template itself when it has
-/// no `{placeholder}`, else its text before the first placeholder followed
-/// by more (`specforge://ext/widgets/{id}` names `specforge://ext/widgets/w1`).
-fn matches_uri_template(template: &str, uri: &str) -> bool {
-    match template.split_once('{') {
-        Some((head, _)) => uri.len() > head.len() && uri.starts_with(head),
-        None => uri == template,
+        Err(error) => {
+            let diagnostic = error.diagnostic();
+            Err(
+                JsonRpcError::new(error_codes::INTERNAL_ERROR, diagnostic.message.clone())
+                    .with_data(crate::tool::McpError::from_diagnostic(&diagnostic).to_json()),
+            )
+        }
     }
 }
 
@@ -295,7 +294,7 @@ fn notification_channel(uri: &str) -> &'static str {
 }
 
 /// MCP `resources/subscribe`: track the client's interest in a resource so
-/// recompiles deliver delta notifications (C9-01).
+/// updates of the served project deliver delta notifications (C9-01).
 pub fn handle_resource_subscribe(
     state: &mut McpState,
     params: Value,

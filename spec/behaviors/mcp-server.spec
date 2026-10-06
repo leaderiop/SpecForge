@@ -138,6 +138,7 @@ behavior list_mcp_tools "List MCP Tools" {
   ensures {
     complete_list_returned "All registered tool descriptors returned including auto-promoted CLI commands"
     discovery_emitted      "mcp_discovery_invoked event emitted"
+    listed_once            "Every tool listed is the one tools/call dispatches under that name, each name once: core tools first, then explicit extension tools in extension load order, then auto-promoted commands; a contribution not served under its name is reported with I017 saying why"
   }
   contract   """
     The MCP server MUST return all registered tool descriptors,
@@ -160,7 +161,7 @@ behavior list_mcp_tools "List MCP Tools" {
   verify unit "returns all registered tool descriptors after extension load"
   verify unit "returns core-provided descriptors when no extensions installed"
   verify unit "reflects tools from newly loaded extension"
-  verify contract "List MCP Tools: listing MCP tools holds — server_initialized, complete_list_returned, discovery_emitted"
+  verify contract "List MCP Tools: listing MCP tools holds — server_initialized, complete_list_returned, discovery_emitted, listed_once"
   verify unit "tools have categories"
   verify unit "every listed core tool dispatches to its handler"
   verify unit "each core tool's input schema advertises exactly the arguments its handler reads"
@@ -168,6 +169,8 @@ behavior list_mcp_tools "List MCP Tools" {
   verify unit "core tools are annotated: read-only tools readOnlyHint, writing tools how they write"
   verify unit "an extension tool is listed once across recompiles"
   verify unit "an extension tool's declared output_schema is listed as its outputSchema"
+  verify unit "every tool that reads path or use_cached declares it in its target"
+  verify unit "every listed extension tool is the one dispatched under its name, listed once"
 }
 
 behavior list_mcp_prompts "List MCP Prompts" {
@@ -181,18 +184,17 @@ behavior list_mcp_prompts "List MCP Prompts" {
     server_initialized "MCP server has been initialized and all extensions loaded"
   }
   ensures {
-    complete_list_returned "All registered prompt descriptors returned including extension-contributed"
+    complete_list_returned "Every core prompt's descriptor returned, derived from its Prompt spec"
     discovery_emitted      "mcp_discovery_invoked event emitted"
   }
   contract   """
-    The MCP server MUST return all registered prompt descriptors,
-    including both core-provided and extension-contributed capabilities.
-    The list MUST be complete and reflect the current set of loaded extensions.
-    Every core prompt it lists MUST resolve to a handler.
+    The MCP server MUST return the descriptor of every core prompt, derived
+    from its Prompt spec (serve_mcp_prompt). No extension contributes a
+    prompt: an extension's surfaces are commands, MCP tools and MCP
+    resources. Every prompt it lists MUST resolve to a handler.
   """
-  verify unit "returns all registered prompt descriptors after extension load"
+  verify unit "lists every core prompt, each one prompts/get serves"
   verify unit "returns core-provided descriptors when no extensions installed"
-  verify unit "reflects prompts from newly loaded extension"
   verify contract "List MCP Prompts: listing MCP prompts holds — server_initialized, complete_list_returned, discovery_emitted"
   verify unit "every listed core prompt resolves to a handler"
 }
@@ -509,7 +511,9 @@ behavior handle_mcp_protocol_error "Handle MCP Protocol Error" {
     -32603 (Internal error). An unknown tool is -32602 too. A tool that
     detects invalid arguments is not a malformed request: it returns an
     isError result carrying an McpError, not -32602 (MCP 2025-11-25,
-    SEP-1303). A handler that panics is a server fault: the request gets
+    SEP-1303). prompts/get has no isError result: a prompt that cannot
+    render answers -32602 or -32603 with its McpError as the error's data.
+    A handler that panics is a server fault: the request gets
     -32603 and the server keeps serving. The error response MUST NOT crash
     the server or leak internal state (stack traces, file paths, memory
     addresses). The error response MUST include a human-readable message

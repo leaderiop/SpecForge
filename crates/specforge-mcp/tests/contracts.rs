@@ -21,7 +21,7 @@ fn attach_project(state: &mut specforge_mcp::state::McpState) {
     .unwrap();
     let root = dir.path().to_path_buf();
     std::mem::forget(dir); // outlives the test
-    state.project_root = Some(root);
+    crate::support::serve_in_memory_at(state, &root);
 }
 
 fn span_at(file: &str, start_line: usize, start_col: usize, end_line: usize) -> SourceSpan {
@@ -64,25 +64,32 @@ fn text_field(key: &str, text: &str) -> FieldMap {
 }
 
 /// A kind as an extension registers it; only `testable` matters here.
+/// The W004 rule requiring `kind`'s entities to declare obligations.
+fn obligations_rule(kind: &str) -> specforge_registry::validation_engine::ValidationRulePattern {
+    use specforge_registry::validation_engine::{ValidationPatternKind, ValidationRulePattern};
+    ValidationRulePattern {
+        code: "W004".into(),
+        severity: Severity::Warning,
+        message_template: "{kind} '{id}' is testable but declares no verify obligations".into(),
+        check: ValidationPatternKind::NoVerifyStatements,
+        target_kind: Some(kind.into()),
+        edge_type: None,
+        edge_peer_kind: None,
+        field: Some("verify".into()),
+        constraint: None,
+        wasm_function: None,
+    }
+}
+
 fn kind_entry(kind: &str, testable: bool) -> specforge_registry::KindRegistryEntry {
     specforge_registry::KindRegistryEntry {
         kind_name: kind.into(),
-        description: None,
         source_extension: "@test/ext".into(),
         testable,
-        singleton: false,
         supports_verify: testable,
         allowed_verify_kinds: Vec::new(),
-        has_body_parser: false,
-        semantic_token: None,
-        lsp_icon: None,
-        dot_shape: None,
-        dot_color: None,
-        dot_fillcolor: None,
-        open_fields: false,
-        contract_target: false,
-        declares_types: false,
         lifecycle_field: None,
+        ..Default::default()
     }
 }
 
@@ -169,7 +176,7 @@ fn tool(server: &mut McpServer, name: &str, args: Value) -> Value {
     tool_json(&call_tool(server, name, args))
 }
 
-/// A prompt's structured payload: the assistant message's JSON text.
+/// A prompt's structured payload: the second user message's JSON text.
 fn prompt(server: &mut McpServer, name: &str, args: Value) -> Value {
     let resp = call(
         server,
@@ -352,12 +359,12 @@ fn contract_initialize() {
 
     // surface_contributions_merged: after the core tools and resources come
     // the extension's explicit tool, its promoted command, and its resource.
-    let core_tools = specforge_mcp::registry::default_tools().len();
+    let core_tools = crate::support::core_tools().len();
     assert_eq!(
         tools[core_tools..],
         ["specforge.cmds.check", "specforge.cmds.report"]
     );
-    let core_resources = specforge_mcp::registry::default_resource_count();
+    let core_resources = specforge_mcp::resources::CORE_RESOURCES.len();
     assert_eq!(
         resources[core_resources..],
         ["specforge://ext/cmds/summary"]
@@ -365,13 +372,17 @@ fn contract_initialize() {
 
     // compiler_api_available: the project root was located and used.
     assert_eq!(
-        server.state().project_root.as_deref(),
+        server.state().project_root(),
         Some(dir.path()),
         "initialize must adopt the projectRoot it was given"
     );
     assert_eq!(
-        server.state().registries().extension_info,
-        [(EXT.to_string(), "0.1.0".to_string())]
+        server
+            .state()
+            .registries()
+            .extension_info()
+            .collect::<Vec<_>>(),
+        [(EXT, "0.1.0")]
     );
 
     // mcp_initialized_emitted, with the advertised counts.
@@ -415,7 +426,11 @@ fn contract_shutdown() {
     // A compile left a graph notification pending for the subscriber.
     let delta =
         specforge_mcp::notifications::compute_graph_delta(&Graph::new(), server.state().graph());
-    specforge_mcp::notifications::enqueue_compile_notifications(server.state_mut(), &delta, &[]);
+    specforge_mcp::notifications::enqueue_compile_notifications(
+        server.state_mut(),
+        &crate::support::update_of(delta),
+        &[],
+    );
     assert_eq!(server.state().notification_outbox.len(), 1);
 
     let resp = call(&mut server, "shutdown", json!({}));
@@ -449,9 +464,10 @@ fn contract_shutdown() {
     // wasm_engines_released: nothing compiled survives shutdown.
     let state = server.state();
     assert_eq!(state.graph().node_count(), 0);
-    assert!(state.registries().manifests.is_empty());
-    assert!(state.surface_entries().next().is_none());
-    assert!(state.project_root.is_none());
+    assert!(state.registries().declarations().is_empty());
+    assert!(state.surfaces().tools().is_empty());
+    assert!(state.surfaces().resources().is_empty());
+    assert!(state.project_root().is_none());
 
     // shutdown_emitted, with what it released.
     let shutdown = events(&server, "mcp_server_shutdown");
@@ -673,10 +689,12 @@ fn contract_trace() {
         json!([{"entity_id": "beta", "entity_kind": "feature", "edge_label": "behaviors", "depth": 1, "status": "resolved"}])
     );
     assert_eq!(chain["downstream"], json!([]));
-    // gaps_identified: alpha has nothing downstream, beta nothing upstream.
-    assert_eq!(chain["gaps"], json!(["no downstream links"]));
+    // gaps_identified: the missing links, the expected edges an entity
+    // lacks; isolation on a side is an empty list, not a gap.
+    assert!(chain["missing"].is_array());
+    assert!(chain.get("gaps").is_none(), "{chain}");
     let beta = tool(&mut server, "specforge.trace", json!({"entity_id": "beta"}));
-    assert_eq!(beta["gaps"], json!(["no upstream links"]));
+    assert_eq!(beta["upstream"], json!([]));
 
     // ...or a McpTracePlanResult for a plan, flagging what the graph lacks.
     let plan = tool(
@@ -814,9 +832,7 @@ fn contract_stats() {
             FieldMap::new(),
         ));
     });
-    state
-        .surface_diagnostics
-        .push(diagnostic("W001", "a warning", None));
+    crate::support::report_also(state, diagnostic("W001", "a warning", None));
     let stats = tool(&mut server, "specforge.stats", json!({}));
     assert_eq!(
         stats["entity_counts"],
@@ -835,18 +851,14 @@ fn contract_stats() {
 fn contract_inspect() {
     let mut server = test_server();
     crate::support::declare_headline_fields(&mut server, "behavior");
-    let diagnostics = &mut server.state_mut().surface_diagnostics;
     // One diagnostic inside alpha's span, one in beta's file.
-    diagnostics.push(diagnostic(
-        "W001",
-        "inside alpha",
-        Some(span_at("test.spec", 2, 4, 2)),
-    ));
-    diagnostics.push(diagnostic(
-        "W002",
-        "inside beta",
-        Some(span_at("feat.spec", 2, 0, 2)),
-    ));
+    crate::support::report(
+        server.state_mut(),
+        vec![
+            diagnostic("W001", "inside alpha", Some(span_at("test.spec", 2, 4, 2))),
+            diagnostic("W002", "inside beta", Some(span_at("feat.spec", 2, 0, 2))),
+        ],
+    );
 
     let details = tool(
         &mut server,
@@ -894,18 +906,30 @@ fn contract_find_definition() {
         "specforge.find_definition",
         json!({"entity_id": "alpha"}),
     );
+    // A graph built without text: the position is the block's start (the
+    // name cannot be read), and the answer says so.
+    let location = |v: &Value| {
+        json!([
+            v["entity_id"],
+            v["file_path"],
+            v["line"],
+            v["column"],
+            v["precision"]
+        ])
+    };
     assert_eq!(
-        alpha,
-        json!({"entity_id": "alpha", "file_path": "test.spec", "line": 1, "column": 0})
+        location(&alpha),
+        json!(["alpha", "test.spec", 1, 0, "entity"])
     );
+    assert_eq!(alpha["source_span"], alpha["name_span"]);
     let gamma = tool(
         &mut server,
         "specforge.find_definition",
         json!({"entity_id": "gamma"}),
     );
     assert_eq!(
-        gamma,
-        json!({"entity_id": "gamma", "file_path": "more/gamma.spec", "line": 7, "column": 2})
+        location(&gamma),
+        json!(["gamma", "more/gamma.spec", 7, 2, "entity"])
     );
 
     assert_tool_invoked(&server, "specforge.find_definition");
@@ -1024,11 +1048,16 @@ fn contract_coverage() {
             "obligations": 1,
             "proven": 0,
             "unproven": ["works"],
+            "exempt": false,
         }])
     );
 
     // Recorded evidence: a passing test that names the obligation.
-    let root = server.state().project_root.clone().unwrap();
+    let root = server
+        .state()
+        .project_root()
+        .map(std::path::Path::to_path_buf)
+        .unwrap();
     std::fs::write(
         root.join("specforge-report.json"),
         json!({"results": {"alpha": {"tests": [
@@ -1044,14 +1073,38 @@ fn contract_coverage() {
     assert_eq!(alpha["linked"], true);
     assert_eq!(alpha["unproven"], json!([]));
 
-    // testability_respected: the registry, not the kind name, decides.
+    // testability_respected: the registry, not the kind name, decides. A
+    // testable feature no rule obliges to declare obligations owes none:
+    // it does not count, and is reachable by id, exempt.
     server.state_mut().edit_environment(|env| {
         env.registries.kinds.register(kind_entry("feature", true));
+    });
+    let coverage = tool(&mut server, "specforge.coverage", json!({}));
+    assert!(
+        coverage
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|r| r["entity_id"] != "beta")
+    );
+    let beta = tool(
+        &mut server,
+        "specforge.coverage",
+        json!({"entity_id": "beta"}),
+    );
+    assert_eq!(beta[0]["exempt"], true, "{beta}");
+    assert_eq!(beta[0]["obligations"], 0);
+    // Once a rule obliges features to declare obligations, beta counts.
+    server.state_mut().edit_environment(|env| {
+        env.registries
+            .rules
+            .push((obligations_rule("feature"), String::new()));
     });
     let coverage = tool(&mut server, "specforge.coverage", json!({}));
     let beta = find(&coverage, "entity_id", "beta");
     assert_eq!(beta["obligations"], 0);
     assert_eq!(beta["status"], "uncovered");
+    assert_eq!(beta["exempt"], false);
 
     assert_tool_invoked(&server, "specforge.coverage");
 }
@@ -1145,6 +1198,8 @@ fn contract_context_prompt() {
 )]
 fn contract_review_prompt() {
     let mut server = test_server();
+    // A behavior must declare obligations, as @specforge/software says.
+    crate::support::obligate(&mut server, "behavior");
     // gamma: a testable behavior of beta with no verify declarations;
     // delta: two hops from beta, outside depth 1.
     let state = server.state_mut();
@@ -1224,7 +1279,9 @@ fn contract_trace_prompt() {
         json!({"plan": {"entries": [{"entity_id": "alpha"}, {"entity_id": "ghost"}]}}),
     );
     assert_eq!(trace["affected_entities"], json!(["alpha", "beta"]));
-    assert_eq!(trace["unverified_entities"], json!(["beta"]));
+    // alpha counts toward coverage and is not proven; beta, a feature, is
+    // not testable (kind_entry("feature", false)).
+    assert_eq!(trace["unverified_entities"], json!(["alpha"]));
 
     // gaps_returned: the entry the graph lacks, with its gap context.
     let gaps = trace["coverage_gaps"].as_array().unwrap();
@@ -1312,49 +1369,31 @@ fn contract_explore_prompt() {
     assert_prompt_invoked(&server, "specforge://prompts/explore");
 }
 
-/// Register an extension tool and resource, each with its surface entry.
-fn add_extension_surface(server: &mut McpServer, name: &str) {
-    use specforge_mcp::types::{McpResourceDescriptor, McpToolDescriptor};
-    use specforge_registry::{SurfaceRegistryEntry, SurfaceType};
-    let state = server.state_mut();
-    state.tool_registry.push(McpToolDescriptor {
-        name: format!("ext.{name}"),
-        description: format!("{name} tool"),
-        input_schema: json!({"type": "object"}),
-        category: Some("core".into()),
-        source: Some("@test/ext".into()),
-        ..Default::default()
-    });
-    state.resource_registry.push(McpResourceDescriptor {
-        uri: format!("specforge://ext/{name}"),
-        name: format!("ext-{name}"),
-        description: None,
-        mime_type: Some("application/json".into()),
-    });
-    for (surface_type, contribution) in [
-        (SurfaceType::McpTool, format!("ext.{name}")),
-        (SurfaceType::McpResource, format!("ext-{name}")),
-    ] {
-        let entry = SurfaceRegistryEntry {
-            surface_type,
-            contribution_name: contribution,
-            extension_name: "@test/ext".into(),
-            export_name: format!("export_{name}"),
-        };
-        state.edit_environment(|env| env.registries.surfaces.push(entry));
-    }
+/// `fake` also declaring the MCP tool `ext.<name>` and the resource
+/// `specforge://ext/<name>`.
+fn with_extension_surface(
+    fake: crate::fake_extension::FakeExtension,
+    name: &str,
+) -> crate::fake_extension::FakeExtension {
+    fake.with_tool(
+        json!({"name": format!("ext.{name}"), "description": format!("{name} tool"),
+        "export": format!("export_{name}"), "input_schema": {"type": "object"}}),
+    )
+    .with_resource(json!({"uri_template": format!("specforge://ext/{name}"),
+            "name": format!("ext-{name}"), "export": format!("export_{name}_resource"),
+            "mime_type": "application/json"}))
 }
 
 #[specforge_test(
     behavior = "list_mcp_tools",
-    verify = "List MCP Tools: listing MCP tools holds — server_initialized, complete_list_returned, discovery_emitted"
+    verify = "List MCP Tools: listing MCP tools holds — server_initialized, complete_list_returned, discovery_emitted, listed_once"
 )]
 fn contract_list_tools() {
     use crate::fake_extension::{self, FakeExtension};
     // server_initialized: over a project whose extension contributes an
     // MCP tool and two CLI commands.
-    let (mut server, _ext, _dir) = fake_extension::initialized(FakeExtension::new());
-    add_extension_surface(&mut server, "on");
+    let (mut server, _ext, _dir) =
+        fake_extension::initialized(with_extension_surface(FakeExtension::new(), "on"));
 
     let resp = call(&mut server, "tools/list", json!({}));
     let names: Vec<&str> = resp["result"]["tools"]
@@ -1394,15 +1433,29 @@ fn contract_list_tools() {
         assert!(names.contains(&core), "{core} missing: {names:?}");
     }
     // complete_list_returned: every core tool, then the extension's
-    // auto-promoted commands, and the injected tool.
-    let core: Vec<String> = specforge_mcp::registry::default_tools()
+    // explicit tools, then its auto-promoted commands.
+    let core: Vec<String> = crate::support::core_tools()
         .into_iter()
         .map(|t| t.name)
         .collect();
     assert_eq!(names[..core.len()], core);
     assert_eq!(
         names[core.len()..],
-        ["specforge.cmds.check", "specforge.cmds.report", "ext.on"]
+        ["specforge.cmds.check", "ext.on", "specforge.cmds.report"]
+    );
+    // listed_once: each name once; the command whose tool name the explicit
+    // check has is reported, not listed.
+    let mut unique = names.clone();
+    unique.sort_unstable();
+    unique.dedup();
+    assert_eq!(unique.len(), names.len(), "{names:?}");
+    assert!(
+        server
+            .state()
+            .diagnostics()
+            .iter()
+            .any(|d| d.code == "I017" && d.message.starts_with("command 'check'")),
+        "the shadowed command is reported"
     );
 
     // discovery_emitted: the count is what the client got.
@@ -1414,10 +1467,11 @@ fn contract_list_tools() {
 
 #[specforge_test(
     behavior = "auto_promote_commands_to_mcp_tools",
-    verify = "Auto-Promote Commands to MCP Tools: command-to-MCP-tool auto-promotion holds — surfaces_registered, all_commands_promoted, naming_convention_enforced, explicit_tool_wins, commands_auto_promoted_emitted"
+    verify = "Auto-Promote Commands to MCP Tools: command-to-MCP-tool auto-promotion holds — surfaces_registered, all_commands_promoted, naming_convention_enforced, explicit_tool_wins, commands_auto_promoted_emitted, schema_is_the_declaration"
 )]
 fn contract_auto_promote_commands() {
     use crate::fake_extension::{self, EXT, FakeExtension};
+    use specforge_mcp::surface_table::ToolKind;
     use specforge_registry::SurfaceType;
     let output = json!({"exit_code": 0, "stdout": "report written", "stderr": ""});
     let (mut server, ext, _dir) =
@@ -1428,7 +1482,9 @@ fn contract_auto_promote_commands() {
     let entries = |ty: SurfaceType| -> Vec<(String, String)> {
         server
             .state()
-            .surface_entries()
+            .registries()
+            .surfaces
+            .iter()
             .filter(|e| e.surface_type == ty)
             .map(|e| (e.contribution_name.clone(), e.export_name.clone()))
             .collect()
@@ -1445,9 +1501,38 @@ fn contract_auto_promote_commands() {
 
     // all_commands_promoted + naming_convention_enforced: every command
     // becomes specforge.cmds.<id> unless an explicit tool has the name.
+    let promoted: Vec<(String, String)> = server
+        .state()
+        .surfaces()
+        .tools()
+        .iter()
+        .filter_map(|tool| match &tool.kind {
+            ToolKind::Command(command) => Some(pair(&tool.name, command.export())),
+            ToolKind::McpTool { .. } => None,
+        })
+        .collect();
+    assert_eq!(promoted, [pair("specforge.cmds.report", "cmd__report")]);
+    // schema_is_the_declaration: each arg's type, values and description;
+    // the required non-flag args; nothing undeclared.
+    let report = find(
+        &call(&mut server, "tools/list", json!({}))["result"]["tools"],
+        "name",
+        "specforge.cmds.report",
+    )
+    .clone();
     assert_eq!(
-        entries(SurfaceType::AutoPromotedTool),
-        [pair("specforge.cmds.report", "cmd__report")]
+        report["inputSchema"],
+        json!({
+            "type": "object",
+            "properties": {
+                "style": {"type": "string", "enum": ["md", "json"], "description": "Output style"},
+                "verbose": {"type": "boolean", "default": false},
+                "limit": {"type": "integer"},
+                "out": {"type": "string"}
+            },
+            "required": ["style"],
+            "additionalProperties": false
+        })
     );
     let resp = call_tool(
         &mut server,
@@ -1461,7 +1546,11 @@ fn contract_auto_promote_commands() {
             .iter()
             .map(|(ext, export, input)| (ext.as_str(), export.as_str(), &input["args"]))
             .collect::<Vec<_>>(),
-        [(EXT, "cmd__report", &json!({"style": "json"}))]
+        [(
+            EXT,
+            "cmd__report",
+            &json!({"style": "json", "verbose": false})
+        )]
     );
 
     // explicit_tool_wins: `check` stays the explicit tool, with I017.
@@ -1494,7 +1583,7 @@ fn contract_auto_promote_commands() {
 
 #[specforge_test(
     behavior = "dispatch_surface_command",
-    verify = "Dispatch Surface Command: surface command dispatch holds — command_declared, args_serialized, sandbox_restricted, traps_caught, output_returned, surface_command_dispatched_emitted"
+    verify = "Dispatch Surface Command: surface command dispatch holds — command_declared, args_serialized, sandbox_restricted, traps_caught, output_returned, surface_command_dispatched_emitted, args_normalized_by_the_host"
 )]
 fn contract_dispatch_surface_command() {
     // The sandbox probe (fixtures/sandbox-probe), in the component runtime
@@ -1522,7 +1611,11 @@ fn contract_dispatch_surface_command() {
         json!({"projectRoot": dir.path().to_str().unwrap()}),
     );
     assert!(init["error"].is_null(), "{init}");
-    let root = server.state().project_root.clone().unwrap();
+    let root = server
+        .state()
+        .project_root()
+        .map(std::path::Path::to_path_buf)
+        .unwrap();
 
     // command_declared: the commands the probe declares are its tools.
     let tools = call(&mut server, "tools/list", json!({}));
@@ -1588,10 +1681,34 @@ fn contract_dispatch_surface_command() {
         error["message"]
             .as_str()
             .unwrap()
-            .starts_with("surface command cmd__trap() trapped"),
+            .starts_with("command cmd__trap() of '@test/probe' trapped: call_failed: "),
         "{error}"
     );
     assert_eq!(events(&server, "surface_command_dispatched").len(), 1);
+
+    // args_normalized_by_the_host: the export gets the args the command
+    // line would send, each its declared type; an argument the declaration
+    // refuses is the command's INVALID_INPUT object, and it does not run.
+    let resp = call_tool(
+        &mut server,
+        "specforge.probe.probe",
+        json!({"port": port.to_string()}),
+    );
+    assert_eq!(tool_json(&resp)["args"], json!({"port": port}), "{resp}");
+    assert_eq!(events(&server, "surface_command_dispatched").len(), 2);
+    for (arguments, message) in [
+        (json!({"port": "x"}), "port must be an integer, got 'x'"),
+        (json!({"dir": "/"}), "unknown argument 'dir'"),
+    ] {
+        let resp = call_tool(&mut server, "specforge.probe.probe", arguments.clone());
+        assert_eq!(resp["result"]["isError"], true, "{arguments}: {resp}");
+        assert_eq!(
+            resp["result"]["structuredContent"],
+            json!({"code": "INVALID_INPUT", "message": message}),
+            "{arguments}"
+        );
+    }
+    assert_eq!(events(&server, "surface_command_dispatched").len(), 2);
 }
 
 #[specforge_test(
@@ -1733,8 +1850,11 @@ fn event_surface_mcp_resource_dispatched() {
     verify = "List MCP Resources: listing MCP resources holds — server_initialized, complete_list_returned, discovery_emitted"
 )]
 fn contract_list_resources() {
-    let mut server = test_server();
-    add_extension_surface(&mut server, "on");
+    use crate::fake_extension::{self, FakeExtension};
+    let (mut server, _ext, _dir) = fake_extension::initialized(with_extension_surface(
+        FakeExtension::declaring(json!({})),
+        "on",
+    ));
 
     let resp = call(&mut server, "resources/list", json!({}));
     let mut uris: Vec<&str> = resp["result"]["resources"]
@@ -1793,18 +1913,15 @@ fn contract_list_resources() {
     behavior = "list_mcp_prompts",
     verify = "List MCP Prompts: listing MCP prompts holds — server_initialized, complete_list_returned, discovery_emitted"
 )]
+#[specforge_test(
+    behavior = "list_mcp_prompts",
+    verify = "lists every core prompt, each one prompts/get serves"
+)]
 fn contract_list_prompts() {
     let mut server = test_server();
-    // An extension-contributed prompt, registered beside the core ones.
-    server
-        .state_mut()
-        .prompt_registry
-        .push(specforge_mcp::types::McpPromptDescriptor {
-            name: "specforge://prompts/ext_review".into(),
-            description: "Extension review".into(),
-            arguments: None,
-        });
 
+    // The listing is the Prompt spec table: every prompt listed is one
+    // prompts/get serves.
     let resp = call(&mut server, "prompts/list", json!({}));
     let mut names: Vec<&str> = resp["result"]["prompts"]
         .as_array()
@@ -1818,7 +1935,6 @@ fn contract_list_prompts() {
         [
             "specforge://prompts/context",
             "specforge://prompts/explore",
-            "specforge://prompts/ext_review",
             "specforge://prompts/infer",
             "specforge://prompts/review",
             "specforge://prompts/trace",
@@ -1830,6 +1946,11 @@ fn contract_list_prompts() {
         events(&server, "mcp_discovery_invoked"),
         [json!({"discoveryType": "prompts", "resultCount": names.len()})]
     );
+    for name in names {
+        let get = call(&mut server, "prompts/get", json!({"name": name}));
+        let message = get["error"]["message"].as_str().unwrap_or_default();
+        assert!(!message.starts_with("Unknown prompt"), "{name}: {get}");
+    }
 
     let mut fresh = McpServer::new();
     let resp = call(&mut fresh, "prompts/list", json!({}));
@@ -1842,8 +1963,11 @@ fn contract_list_prompts() {
 )]
 fn contract_guard_reinit() {
     let mut server = test_server();
-    let root = server.state().project_root.clone();
-    let tools = server.state().tool_registry.len();
+    let root = server
+        .state()
+        .project_root()
+        .map(std::path::Path::to_path_buf);
+    let tools = specforge_mcp::registry::listed_tools(server.state()).count();
     let other = tempfile::TempDir::new().unwrap();
 
     // reinit_rejected: -32600, even when naming another project.
@@ -1856,8 +1980,8 @@ fn contract_guard_reinit() {
 
     // session_unaffected: same project, graph and registries.
     let state = server.state();
-    assert_eq!(state.project_root, root);
-    assert_eq!(state.tool_registry.len(), tools);
+    assert_eq!(state.project_root().map(std::path::Path::to_path_buf), root);
+    assert_eq!(specforge_mcp::registry::listed_tools(state).count(), tools);
     assert_eq!(state.graph().node_count(), 2);
     let stats = tool(&mut server, "specforge.stats", json!({}));
     assert_eq!(stats["edge_count"], 1);
@@ -1887,8 +2011,8 @@ fn contract_protocol_error() {
     let mut server = test_server();
     let root = server
         .state()
-        .project_root
-        .clone()
+        .project_root()
+        .map(std::path::Path::to_path_buf)
         .unwrap()
         .display()
         .to_string();
@@ -1935,7 +2059,7 @@ fn contract_protocol_error() {
 
 #[specforge_test(
     behavior = "provide_mcp_validate_tool",
-    verify = "Provide MCP Validate Tool: MCP validate tool holds — compiler_api_available, diagnostics_returned, strict_promotion_enforced, tool_invoked_emitted"
+    verify = "Provide MCP Validate Tool: MCP validate tool holds — compiler_api_available, diagnostics_returned, strict_promotion_enforced, tool_invoked_emitted, verdict_in_meta"
 )]
 fn contract_validate() {
     let dir = tempfile::TempDir::new().unwrap();
@@ -2004,6 +2128,12 @@ fn contract_validate() {
     );
     // Finding errors is what a validation run is for: a successful call.
     assert_eq!(resp["result"]["isError"], false, "{resp}");
+    // verdict_in_meta: whether the check passed, over everything reported.
+    assert_eq!(
+        resp["result"]["_meta"]["specforge/check"],
+        json!({"ok": false, "errors": 1, "warnings": 1, "infos": 0, "shown": 2}),
+        "{resp}"
+    );
 
     // strict_promotion_enforced: the warning comes back as an error.
     let strict = tool(&mut server, "specforge.validate", json!({"strict": true}));
@@ -2016,6 +2146,16 @@ fn contract_validate() {
     assert_eq!(severities.len(), 2, "{strict}");
     assert!(severities.contains(&("W004", "Error")), "{strict}");
     assert!(severities.contains(&("E006", "Error")), "{strict}");
+    let strict = call_tool(
+        &mut server,
+        "specforge.validate",
+        json!({"strict": true, "severity_filter": "warning"}),
+    );
+    assert_eq!(
+        strict["result"]["_meta"]["specforge/check"],
+        json!({"ok": false, "errors": 2, "warnings": 0, "infos": 0, "shown": 0}),
+        "{strict}"
+    );
 
     assert_tool_invoked(&server, "specforge.validate");
 }
@@ -2025,38 +2165,61 @@ fn contract_validate() {
     verify = "Provide MCP Suggest Fixes Tool: MCP suggest fixes tool holds — graph_available, fixes_returned, empty_for_clean, tool_invoked_emitted"
 )]
 fn contract_suggest_fixes() {
-    let mut server = test_server();
-    server.state_mut().surface_diagnostics.push(diagnostic(
-        "W001",
-        "inside alpha",
-        Some(span_at("test.spec", 2, 4, 2)),
-    ));
+    // graph_available: a project compiled from disk, logout naming
+    // `sesion_limit`, which no entity declares.
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join("specforge.json"),
+        r#"{"name":"c","extensions":["@specforge/software"]}"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.path().join("a.spec"),
+        "invariant session_limit \"L\" {\n  guarantee \"g\"\n}\n\
+         behavior logout \"Logout\" {\n  invariants [sesion_limit]\n}\n",
+    )
+    .unwrap();
+    let mut server = McpServer::new();
+    let init = json!({"jsonrpc": "2.0", "id": 1, "method": "initialize",
+        "params": {"projectRoot": dir.path().to_str().unwrap()}});
+    server.handle_message(&init.to_string());
 
-    // fixes_returned: the diagnostic's fix, with title, edits, diagnostic.
-    let fixes = tool(&mut server, "specforge.suggest_fixes", json!({}));
+    // fixes_returned: each fix with its title, kind, diagnostic and edits.
+    let fixes = tool(
+        &mut server,
+        "specforge.suggest_fixes",
+        json!({"diagnostic_code": "E003"}),
+    );
+    let replace = fixes
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|f| f["title"] == "Replace with 'session_limit'")
+        .unwrap_or_else(|| panic!("no replacement in {fixes}"));
+    assert_eq!(replace["kind"], "quickfix");
+    assert_eq!(replace["diagnostic_code"], "E003");
     assert_eq!(
-        fixes,
+        replace["edits"],
         json!([{
-            "title": "fix W001",
-            "kind": "quickfix",
-            "diagnostic_code": "W001",
-            "edits": [],
+            "file_path": "a.spec",
+            "range": {"file": "a.spec", "start_line": 5, "start_col": 15, "end_line": 5, "end_col": 27},
+            "new_text": "session_limit",
         }])
     );
-    let for_alpha = tool(
+    let for_logout = tool(
         &mut server,
         "specforge.suggest_fixes",
-        json!({"entity_id": "alpha"}),
+        json!({"entity_id": "logout"}),
     );
-    assert_eq!(for_alpha, fixes);
+    assert_eq!(for_logout, fixes);
 
-    // empty_for_clean: beta has no diagnostics.
-    let for_beta = tool(
+    // empty_for_clean: session_limit has no diagnostics.
+    let for_limit = tool(
         &mut server,
         "specforge.suggest_fixes",
-        json!({"entity_id": "beta"}),
+        json!({"entity_id": "session_limit"}),
     );
-    assert_eq!(for_beta, json!([]));
+    assert_eq!(for_limit, json!([]));
 
     assert_tool_invoked(&server, "specforge.suggest_fixes");
 }
@@ -2067,7 +2230,11 @@ fn contract_suggest_fixes() {
 )]
 fn contract_format() {
     let mut server = test_server();
-    let root = server.state().project_root.clone().unwrap();
+    let root = server
+        .state()
+        .project_root()
+        .map(std::path::Path::to_path_buf)
+        .unwrap();
     let messy = root.join("messy.spec");
     let source = "behavior   gamma \"Gamma\"{\ncontract \"x\"\n}\n";
     std::fs::write(&messy, source).unwrap();
@@ -2184,7 +2351,7 @@ fn contract_doctor() {
     )
     .unwrap();
     let mut server = test_server();
-    server.state_mut().project_root = Some(dir.path().to_path_buf());
+    crate::support::serve_in_memory_at(server.state_mut(), dir.path());
     let installed = tool(
         &mut server,
         "specforge.add_extension",
@@ -2349,16 +2516,20 @@ fn contract_brief_resource() {
 )]
 fn contract_diagnostics_resource() {
     let mut server = test_server();
-    let diagnostics = &mut server.state_mut().surface_diagnostics;
-    diagnostics.push(Diagnostic {
-        code: "E003".into(),
-        severity: Severity::Error,
-        message: "unresolved reference 'ghost'".into(),
-        span: Some(span_at("feat.spec", 2, 14, 2)),
-        suggestion: None,
-        data: None,
-    });
-    diagnostics.push(diagnostic("W001", "a warning", None));
+    crate::support::report(
+        server.state_mut(),
+        vec![
+            Diagnostic {
+                code: "E003".into(),
+                severity: Severity::Error,
+                message: "unresolved reference 'ghost'".into(),
+                span: Some(span_at("feat.spec", 2, 14, 2)),
+                suggestion: None,
+                data: None,
+            },
+            diagnostic("W001", "a warning", None),
+        ],
+    );
 
     // diagnostics_returned: severity, code, message, file and position.
     let (content, bag) = resource(&mut server, "specforge://diagnostics");
@@ -2377,7 +2548,7 @@ fn contract_diagnostics_resource() {
     );
 
     // Updates with the compilation's diagnostics.
-    server.state_mut().surface_diagnostics.clear();
+    crate::support::report(server.state_mut(), Vec::new());
     let (_, bag) = resource(&mut server, "specforge://diagnostics");
     assert_eq!(bag, json!([]));
 
@@ -2438,23 +2609,23 @@ fn unsubscribe(server: &mut McpServer, uri: &str) {
     assert_eq!(resp["result"], json!({}), "{resp}");
 }
 
-/// A server over the on-disk project [`attach_project`] writes (alpha and
-/// beta in test.spec), not yet compiled; and that spec file's path.
+/// A server serving the on-disk project [`attach_project`] writes (alpha
+/// and beta in test.spec); and that spec file's path.
 fn project_server() -> (McpServer, PathBuf) {
     let mut server = McpServer::new();
     call(&mut server, "initialize", json!({}));
     attach_project(server.state_mut());
-    let spec = server
+    let root = server
         .state()
-        .project_root
-        .clone()
-        .unwrap()
-        .join("test.spec");
-    (server, spec)
+        .project_root()
+        .map(std::path::Path::to_path_buf)
+        .unwrap();
+    server.state_mut().serve(&root);
+    (server, root.join("test.spec"))
 }
 
-/// Rebuild the project the way a client does: `specforge.validate`
-/// recompiles it, and the delta notifications follow the compile.
+/// Rebuild the project the way a client does: `specforge.validate` brings
+/// it up to date with disk, and the delta notifications follow.
 fn rebuild(server: &mut McpServer) {
     let resp = call_tool(server, "specforge.validate", json!({}));
     assert!(resp["error"].is_null(), "{resp}");
@@ -2733,7 +2904,7 @@ fn contract_diagnostics_notification() {
 fn contract_add_extension() {
     let dir = tempfile::TempDir::new().unwrap();
     let mut server = test_server();
-    server.state_mut().project_root = Some(dir.path().to_path_buf());
+    crate::support::serve_in_memory_at(server.state_mut(), dir.path());
     std::fs::write(
         dir.path().join("specforge.json"),
         r#"{"name":"t","version":"0.1.0","extensions":[]}"#,
@@ -2758,7 +2929,7 @@ fn contract_add_extension() {
 fn contract_remove_extension() {
     let dir = tempfile::TempDir::new().unwrap();
     let mut server = test_server();
-    server.state_mut().project_root = Some(dir.path().to_path_buf());
+    crate::support::serve_in_memory_at(server.state_mut(), dir.path());
     std::fs::write(
         dir.path().join("specforge.json"),
         r#"{"name":"t","version":"0.1.0","extensions":[]}"#,
@@ -2782,7 +2953,11 @@ fn contract_remove_extension() {
 #[test]
 fn contract_migrate() {
     let mut server = test_server();
-    let root = server.state().project_root.clone().unwrap();
+    let root = server
+        .state()
+        .project_root()
+        .map(std::path::Path::to_path_buf)
+        .unwrap();
     let before = std::fs::read_to_string(root.join("test.spec")).unwrap();
 
     let result = tool(&mut server, "specforge.migrate", json!({"dry_run": false}));
@@ -2801,7 +2976,11 @@ fn contract_migrate() {
 )]
 fn contract_providers() {
     let mut server = test_server();
-    let root = server.state().project_root.clone().unwrap();
+    let root = server
+        .state()
+        .project_root()
+        .map(std::path::Path::to_path_buf)
+        .unwrap();
     std::fs::write(
         root.join("specforge.json"),
         json!({
@@ -2815,17 +2994,16 @@ fn contract_providers() {
     )
     .unwrap();
     // Only an extension that contributes providers can back a scheme.
-    let github: specforge_registry::ManifestV2 = serde_json::from_value(json!({
-        "name": "@acme/github-provider",
-        "version": "1.0.0",
-        "manifestVersion": 2,
-        "wasmPath": "github.wasm",
-        "contributes": {"providers": true},
-    }))
-    .unwrap();
-    server
-        .state_mut()
-        .edit_environment(|env| env.registries.manifests.push(github));
+    let mut github = specforge_extension_sdk::ContributionsBuilder::new(
+        specforge_extension_sdk::ExtensionMeta::new("@acme/github-provider", "1.0.0"),
+    );
+    github.raw_category("providers", json!([]));
+    server.state_mut().edit_environment(|env| {
+        let mut declarations = env.registries.declarations().to_vec();
+        declarations.push(github.declaration());
+        let built = specforge_project::Environment::from_declarations(declarations);
+        env.registries = built.registries;
+    });
 
     // providers_listed: scheme, alias, backing extension and status.
     let listed = tool(&mut server, "specforge.providers", json!({}));
@@ -2912,4 +3090,232 @@ fn contract_analyze() {
     // Built-in passes always run; coverage is @specforge/testing's pass and
     // this fixture enables no extensions.
     assert!(passes.iter().any(|p| p["pass"] == "contracts"));
+}
+
+// ── specforge.model ─────────────────────────────────────────────────────────
+
+/// A server serving a project with @specforge/software.
+fn model_server() -> (McpServer, tempfile::TempDir) {
+    let project = project_dir(
+        json!({"name": "t", "version": "0.1.0", "extensions": ["@specforge/software"]}),
+        "behavior act \"Act\" {\n  contract \"MUST act\"\n}\n",
+    );
+    let mut server = McpServer::new();
+    call(
+        &mut server,
+        "initialize",
+        json!({"projectRoot": project.path().to_str().unwrap()}),
+    );
+    (server, project)
+}
+
+/// `specforge.model`'s rendered text.
+fn model_text(server: &mut McpServer, args: Value) -> String {
+    let resp = call_tool(server, "specforge.model", args);
+    assert_eq!(resp["result"]["isError"], false, "{resp}");
+    resp["result"]["content"][0]["text"]
+        .as_str()
+        .unwrap_or_else(|| panic!("no text in {resp}"))
+        .to_string()
+}
+
+/// The entity kinds a JSON model lists.
+fn model_kinds(server: &mut McpServer, mut args: Value) -> Vec<String> {
+    args["format"] = json!("json");
+    let model: Value = serde_json::from_str(&model_text(server, args)).unwrap();
+    model["entities"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| e["name"].as_str().unwrap().to_string())
+        .collect()
+}
+
+#[specforge_test(
+    behavior = "expose_model_mcp_tool",
+    verify = "specforge.model appears in MCP tool list"
+)]
+fn the_model_tool_is_listed_with_its_parameters() {
+    let (mut server, _project) = model_server();
+    let tools = call(&mut server, "tools/list", json!({}));
+    let model = tools["result"]["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|t| t["name"] == "specforge.model")
+        .unwrap_or_else(|| panic!("specforge.model is not listed: {tools}"));
+    let properties = model["inputSchema"]["properties"].as_object().unwrap();
+    for parameter in [
+        "format",
+        "group_by",
+        "fields",
+        "extension",
+        "kinds",
+        "root",
+        "depth",
+    ] {
+        assert!(properties.contains_key(parameter), "{parameter}: {model}");
+    }
+}
+
+#[specforge_test(
+    behavior = "expose_model_mcp_tool",
+    verify = "default format is markdown"
+)]
+fn the_model_defaults_to_markdown() {
+    let (mut server, _project) = model_server();
+    let default = model_text(&mut server, json!({}));
+    assert!(default.starts_with("# Logical Data Model"), "{default}");
+    assert_eq!(
+        default,
+        model_text(&mut server, json!({"format": "markdown"}))
+    );
+}
+
+#[specforge_test(
+    behavior = "expose_model_mcp_tool",
+    verify = "all five formats produce valid output"
+)]
+fn every_model_format_renders() {
+    let (mut server, _project) = model_server();
+    let text = |server: &mut McpServer, format: &str| model_text(server, json!({"format": format}));
+    assert!(text(&mut server, "mermaid").starts_with("erDiagram"));
+    assert!(text(&mut server, "dot").starts_with("digraph model {"));
+    assert!(
+        text(&mut server, "dbml").starts_with("// Generated by specforge model"),
+        "dbml"
+    );
+    let json: Value = serde_json::from_str(&text(&mut server, "json")).unwrap();
+    assert_eq!(json["extensions"][0]["name"], "@specforge/software");
+    assert!(
+        text(&mut server, "markdown").contains("behavior"),
+        "markdown names the kinds"
+    );
+    // Any other format is refused on the argument.
+    let refused = call_tool(&mut server, "specforge.model", json!({"format": "svg"}));
+    assert_eq!(refused["result"]["isError"], true, "{refused}");
+    let error = tool_json(&refused);
+    assert_eq!(error["code"], "invalid_input");
+    assert_eq!(error["argument"], "format");
+}
+
+#[specforge_test(
+    behavior = "expose_model_mcp_tool",
+    verify = "filter parameters are passed through to model options"
+)]
+fn model_filters_reach_the_model() {
+    let (mut server, _project) = model_server();
+    let all = model_kinds(&mut server, json!({}));
+    assert!(all.len() > 1, "{all:?}");
+    assert_eq!(
+        model_kinds(&mut server, json!({"kinds": ["behavior"]})),
+        ["behavior"]
+    );
+    // An extension the project does not load contributes nothing.
+    assert!(model_kinds(&mut server, json!({"extension": "@specforge/product"})).is_empty());
+    assert_eq!(
+        model_kinds(&mut server, json!({"extension": "@specforge/software"})),
+        all
+    );
+    // root + depth: the root kind and what it reaches in one hop.
+    let near = model_kinds(&mut server, json!({"root": "behavior", "depth": 1}));
+    assert!(near.contains(&"behavior".to_string()), "{near:?}");
+    assert!(near.len() <= all.len());
+    // group_by and fields change the rendering, not the kinds.
+    let grouped = model_text(&mut server, json!({"format": "markdown"}));
+    let flat = model_text(
+        &mut server,
+        json!({"format": "markdown", "group_by": "none"}),
+    );
+    assert_ne!(grouped, flat);
+    let keys = model_text(&mut server, json!({"format": "dbml"}));
+    let every = model_text(&mut server, json!({"format": "dbml", "fields": "all"}));
+    assert!(every.len() > keys.len());
+}
+
+#[specforge_test(
+    behavior = "expose_model_mcp_tool",
+    verify = "Expose Model as MCP Tool: MCP model tool holds — validation_complete_fired, tool_registered, all_formats_available, all_filters_available, result_is_string"
+)]
+fn contract_model() {
+    // validation_complete_fired: initialize compiled the project.
+    let (mut server, _project) = model_server();
+    // tool_registered.
+    let tools = call(&mut server, "tools/list", json!({}));
+    assert!(
+        tools["result"]["tools"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|t| t["name"] == "specforge.model")
+    );
+    // all_formats_available and result_is_string: each format is one text
+    // block, with no structured content.
+    for format in ["markdown", "mermaid", "dot", "json", "dbml"] {
+        let resp = call_tool(&mut server, "specforge.model", json!({"format": format}));
+        let content = resp["result"]["content"].as_array().unwrap();
+        assert_eq!(content.len(), 1, "{format}: {resp}");
+        assert_eq!(content[0]["type"], "text");
+        assert!(!content[0]["text"].as_str().unwrap().is_empty());
+        assert!(resp["result"].get("structuredContent").is_none(), "{resp}");
+    }
+    // all_filters_available: every filter is accepted.
+    let filtered = call_tool(
+        &mut server,
+        "specforge.model",
+        json!({"extension": "@specforge/software", "kinds": ["behavior"], "root": "behavior",
+               "depth": 1, "group_by": "none", "fields": "all"}),
+    );
+    assert_eq!(filtered["result"]["isError"], false, "{filtered}");
+    assert_tool_invoked(&server, "specforge.model");
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_coverage_tool",
+    verify = "entity_id filter returns single entity coverage"
+)]
+fn coverage_by_entity_id_is_one_row() {
+    let mut server = test_server();
+    let rows = tool(
+        &mut server,
+        "specforge.coverage",
+        json!({"entity_id": "alpha"}),
+    );
+    assert_eq!(rows.as_array().unwrap().len(), 1, "{rows}");
+    assert_eq!(rows[0]["entity_id"], "alpha");
+    assert_eq!(rows[0]["obligations"], 1);
+    // The kind filter does not narrow a named entity, and an entity the
+    // graph lacks has no row.
+    let named = tool(
+        &mut server,
+        "specforge.coverage",
+        json!({"entity_id": "alpha", "kind": "feature"}),
+    );
+    assert_eq!(named, rows);
+    let ghost = tool(
+        &mut server,
+        "specforge.coverage",
+        json!({"entity_id": "ghost"}),
+    );
+    assert_eq!(ghost, json!([]));
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_trace_tool",
+    verify = "response includes upstream and downstream links"
+)]
+fn trace_lists_upstream_and_downstream_links() {
+    let mut server = test_server();
+    // beta lists alpha: beta is upstream of alpha, alpha downstream of beta.
+    let alpha = tool(
+        &mut server,
+        "specforge.trace",
+        json!({"entity_id": "alpha"}),
+    );
+    assert_eq!(alpha["upstream"][0]["entity_id"], "beta", "{alpha}");
+    assert_eq!(alpha["upstream"][0]["edge_label"], "behaviors");
+    let beta = tool(&mut server, "specforge.trace", json!({"entity_id": "beta"}));
+    assert_eq!(beta["downstream"][0]["entity_id"], "alpha", "{beta}");
+    assert_eq!(beta["downstream"][0]["depth"], 1);
+    assert_eq!(beta["downstream"][0]["status"], "resolved");
 }

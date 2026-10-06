@@ -1,11 +1,12 @@
+use specforge_ops::view::ProjectView;
+
 use crate::protocol::{JsonRpcError, error_codes};
 use crate::resources::{ReadOutcome, ResourceText};
-use crate::state::McpState;
 
 /// `specforge://schema`: the GraphProtocolSchema a full export embeds, the
 /// same document `specforge.schema` returns unfiltered.
-pub fn read(state: &McpState) -> ReadOutcome {
-    let schema = crate::operations::project_schema(state);
+pub fn read(view: &ProjectView) -> ReadOutcome {
+    let schema = view.versioned_schema();
     let schema_json = serde_json::to_string(&schema).map_err(|err| {
         JsonRpcError::new(
             error_codes::INTERNAL_ERROR,

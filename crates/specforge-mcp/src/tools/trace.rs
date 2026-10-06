@@ -1,8 +1,11 @@
 use serde::Deserialize;
-use serde_json::Value;
+use serde_json::{Value, json};
+use specforge_ops::plan::PlanError;
+use specforge_ops::trace::{Gap, Target};
+use specforge_ops::view::ProjectView;
 
 use crate::args::lenient;
-use crate::state::McpState;
+use crate::target::Call;
 use crate::tool::ToolOutcome;
 
 #[derive(Debug, Deserialize)]
@@ -13,67 +16,58 @@ pub struct Args {
     plan: Option<Value>,
 }
 
-pub fn call(state: &McpState, args: Args) -> ToolOutcome {
+/// `specforge.trace`: the trace operation over the served project. An
+/// entity's result is the document `specforge trace <entity> --format
+/// json` writes; a plan's is an `McpTracePlanResult`.
+pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
+    let view = call.view();
     if let Some(plan) = &args.plan {
-        return plan_gaps(state, plan);
+        return plan_gaps(&view, plan);
     }
-    let entity_id = match args.entity_id.as_deref() {
-        Some(e) => e,
-        None => {
-            return ToolOutcome::invalid_input(
-                "entity_id",
-                "Missing required parameter: entity_id or plan",
-            );
-        }
+    let Some(entity_id) = args.entity_id.as_deref() else {
+        return ToolOutcome::invalid_input(
+            "entity_id",
+            "Missing required parameter: entity_id or plan",
+        );
     };
-
-    // The same expectations `specforge trace` uses, so both flag the same
-    // missing links.
-    let expectations = specforge_ops::trace::TraceExpectations::from_registries(
-        &state.registries().fields,
-        &state.registries().kinds,
-    );
-    match specforge_ops::trace::trace_with_expectations(state.graph(), entity_id, &expectations) {
-        Ok(chain) => {
-            let mut trace_val: serde_json::Value =
-                match specforge_ops::trace::serialize_trace(&chain) {
-                    Ok(json) => serde_json::from_str(&json).unwrap_or(serde_json::Value::Null),
-                    Err(e) => return super::emitter_error(e, entity_id),
-                };
-
-            // Add gaps detection
-            let mut gaps = Vec::new();
-            if chain.upstream.is_empty() {
-                gaps.push("no upstream links");
-            }
-            if chain.downstream.is_empty() {
-                gaps.push("no downstream links");
-            }
-            if let Some(obj) = trace_val.as_object_mut() {
-                obj.insert("gaps".into(), serde_json::json!(gaps));
-            }
-
-            ToolOutcome::ok(trace_val)
-        }
-        Err(err) => super::emitter_error(err, entity_id),
+    match specforge_ops::trace::trace(&view, Target::Entity(entity_id)) {
+        Ok(outcome) => match serde_json::to_value(&outcome) {
+            Ok(document) => ToolOutcome::ok(document),
+            Err(e) => ToolOutcome::error(
+                crate::tool::ErrorCode::InternalError,
+                format!("trace serialization failed: {e}"),
+            ),
+        },
+        Err(error) => crate::operations::op_error(error.into())
+            .with_entity(entity_id)
+            .into(),
     }
 }
 
 /// Gap analysis of an agent plan against the graph, as an
 /// `McpTracePlanResult`.
-fn plan_gaps(state: &McpState, plan: &Value) -> ToolOutcome {
-    let analysis = match analyze_plan(state, plan) {
-        Ok(analysis) => analysis,
-        Err(message) => return ToolOutcome::invalid_input("plan", message),
-    };
-    let body = serde_json::json!({
-        "affected_entities": analysis.entries,
-        "gaps": analysis.gaps,
-    });
-    ToolOutcome::ok(body)
+fn plan_gaps(view: &ProjectView, plan: &Value) -> ToolOutcome {
+    match analyze_plan(view, plan) {
+        Ok(analysis) => ToolOutcome::ok(json!({
+            "affected_entities": analysis.entries,
+            "gaps": analysis.gaps,
+        })),
+        Err(PlanError::NotAPlan(why)) => ToolOutcome::invalid_input("plan", why),
+        Err(PlanError::Report(error)) => super::coverage::report_error_result(&error),
+    }
 }
 
-/// An agent plan checked against the graph by `validate_plan`.
+/// A gap as MCP spells it (`McpTraceGap`).
+pub(crate) fn gap_json(gap: &Gap) -> Value {
+    json!({
+        "source_entity": gap.source(),
+        "target_entity": gap.target(),
+        "missing_link_type": gap.kind(),
+        "gap_context": gap.context(),
+    })
+}
+
+/// An agent plan checked against the graph (`specforge_ops::plan::check`).
 pub(crate) struct PlanAnalysis {
     /// Plan entries that name an entity in the graph, in plan order.
     pub entries: Vec<String>,
@@ -82,45 +76,15 @@ pub(crate) struct PlanAnalysis {
 }
 
 /// Check `plan` — an `AgentPlan` object, or JSON text of one — against the
-/// graph. `Err` describes why it isn't a plan.
-pub(crate) fn analyze_plan(state: &McpState, plan: &Value) -> Result<PlanAnalysis, String> {
-    let parsed;
-    let plan = match plan {
-        Value::String(text) => {
-            parsed = serde_json::from_str::<Value>(text)
-                .map_err(|e| format!("plan is not valid JSON: {e}"))?;
-            &parsed
-        }
-        other => other,
-    };
-    let Some(entries) = plan.get("entries").and_then(|e| e.as_array()) else {
-        return Err("plan must be an AgentPlan object with an entries array".into());
-    };
-    for (i, entry) in entries.iter().enumerate() {
-        if !entry.get("entity_id").is_some_and(|v| v.is_string()) {
-            return Err(format!("plan.entries[{i}].entity_id must be a string"));
-        }
-    }
-
-    let testable: Vec<&str> =
-        specforge_project::coverage::testable_kinds(&state.registries().kinds)
-            .into_iter()
-            .collect();
-    let result = specforge_ops::plan::validate_plan(state.graph(), plan, &testable);
-    let gaps = result
-        .gaps
-        .iter()
-        .map(|gap| {
-            serde_json::json!({
-                "source_entity": gap.source,
-                "target_entity": gap.target,
-                "missing_link_type": gap.kind.as_str(),
-                "gap_context": gap.context,
-            })
-        })
-        .collect();
+/// view's graph.
+pub(crate) fn analyze_plan(view: &ProjectView, plan: &Value) -> Result<PlanAnalysis, PlanError> {
+    let outcome = specforge_ops::plan::check(view, plan)?;
     Ok(PlanAnalysis {
-        entries: result.validated_entries,
-        gaps,
+        entries: outcome.entries,
+        gaps: outcome
+            .gaps
+            .into_iter()
+            .map(|gap| gap_json(&Gap::Plan(gap)))
+            .collect(),
     })
 }

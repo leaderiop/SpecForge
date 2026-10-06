@@ -85,27 +85,33 @@ behavior provide_mcp_validate_tool "Provide MCP Validate Tool" {
     diagnostics_returned      "All diagnostics matching filter returned with severity, message, file path, and line number"
     strict_promotion_enforced "When strict is true, warnings promoted to errors in response"
     tool_invoked_emitted      "mcp_tool_invoked event emitted"
+    verdict_in_meta           "_meta[\"specforge/check\"] carries ok and the error, warning and info counts of everything reported, and how many diagnostics are shown"
   }
   contract   """
     In MCP server mode, the system MUST register a specforge.validate tool
-    that triggers a full compilation and returns validation results as Graph
-    Protocol diagnostics. The tool accepts severity_filter? (optional: error,
-    warning, info), strict? (optional boolean, treat warnings as errors),
-    lint? (optional list of lint profiles, as specforge check --lint takes),
-    and use_cached? (optional boolean, default false). When use_cached is
-    true and the MCP server has a warm compilation, the tool MUST return
-    existing diagnostics without recompilation.
+    that brings the served project up to date with disk (its diagnostics
+    are what specforge check reports) and returns validation results as
+    Graph Protocol diagnostics. The tool accepts path? (optional: the
+    project; another project is compiled for the call only),
+    severity_filter? (optional: error, warning or info, matched ignoring
+    case; any other value is invalid input), strict? (optional boolean,
+    treat warnings as errors), lint? (optional list of inferred and
+    pedantic; any other name is invalid input), and use_cached? (optional
+    boolean, default false).
     The response MUST include all diagnostics matching the filter with their
     severity, message, file path, and line number, and each diagnostic whose
     code is catalogued MUST carry the catalogue's title for it (null for any
     other code). When strict is true,
     warnings MUST be promoted to errors in the response.
 
-    Cache semantics: use_cached=true returns stale results if no compilation
-    has occurred since the last invocation. On cold start (no prior compilation),
-    use_cached=true MUST trigger a fresh compilation — it MUST NOT return an
-    empty result. Cache is invalidated on any file change detected by the
-    file watcher.
+    Cache semantics: use_cached=true reports the served project as last
+    brought up to date, even when files changed since; with no project
+    served there is nothing cached, so the call compiles.
+
+    A run that finds errors is a successful call (isError false, ADR 0004
+    D4-a); whether the check passed is in _meta["specforge/check"].ok,
+    over every reported diagnostic whatever severity_filter shows. The
+    tool never writes the build cache.
   """
   verify unit "each catalogued diagnostic carries its title"
   verify unit "specforge.validate tool triggers compilation"
@@ -115,7 +121,9 @@ behavior provide_mcp_validate_tool "Provide MCP Validate Tool" {
   verify integration "validate with lint profiles reports what specforge check reports with the same profiles"
   verify unit "validate with use_cached=false triggers fresh compilation"
   verify unit "validate with use_cached=true returns existing diagnostics without recompilation"
-  verify contract "Provide MCP Validate Tool: MCP validate tool holds — compiler_api_available, diagnostics_returned, strict_promotion_enforced, tool_invoked_emitted"
+  verify unit "an unknown severity_filter or lint profile is invalid input"
+  verify unit "the verdict on every reported diagnostic rides in _meta, whatever severity_filter shows"
+  verify contract "Provide MCP Validate Tool: MCP validate tool holds — compiler_api_available, diagnostics_returned, strict_promotion_enforced, tool_invoked_emitted, verdict_in_meta"
 }
 
 behavior provide_mcp_export_tool "Provide MCP Export Tool" {
@@ -185,15 +193,17 @@ behavior provide_mcp_trace_tool "Provide MCP Trace Tool" {
   }
   ensures {
     trace_result_returned "TraceChain or McpTracePlanResult returned depending on input parameter"
-    gaps_identified       "Missing traceability links flagged in trace output"
+    gaps_identified       "Missing links flagged in the trace document"
     tool_invoked_emitted  "mcp_tool_invoked event emitted"
   }
   contract   """
     In MCP server mode, the system MUST register a specforge.trace tool that
     accepts entityId? (optional) and plan? (optional inline JSON). When entityId
     is provided, the tool MUST delegate to compute_traceability_chain to traverse
-    the graph upstream and downstream from the entity and return a TraceChain
-    with TraceLink entries and gap indicators. When plan is provided, the tool
+    the graph upstream and downstream from the entity and return the document
+    `specforge trace <entity> --format json` writes: the TraceChain with its
+    TraceLink entries and its missing links, the expected edges the entity
+    lacks. It carries no other gap list. When plan is provided, the tool
     MUST perform gap analysis against the graph and return a McpTracePlanResult
     containing affected entities, gaps, and suggestions. At least one of entityId
     or plan MUST be provided; otherwise the tool MUST return an error.
@@ -229,15 +239,16 @@ behavior provide_mcp_search_tool "Provide MCP Search Tool" {
   }
   contract   """
     In MCP server mode, the system MUST register a specforge.search tool that
-    accepts kind?[] (entity kind filter), field? (field name), value? (field
-    value), references? (entity_id to find referencing entities), text? (fuzzy
-    text search across names and string fields), and limit? (max results, default
-    50). The tool MUST combine these filters with AND semantics. Unknown
-    kind values in the kind[] array MUST be silently filtered out and an
-    I-level diagnostic MUST be included in the response metadata listing
-    the unrecognized kinds. Fuzzy text search MUST use the same algorithm
-    as LSP workspaceSymbol. An empty query with no filters MUST return
-    all entities up to the limit.
+    accepts query (required; empty matches every entity), kinds?[], field?
+    and value?, references? (an entity id: only entities that reference
+    it), and limit? (default 20). The tool MUST combine these filters with
+    AND semantics. Unknown kind values in the kinds[] array MUST be
+    silently filtered out and an I-level diagnostic MUST be included in the
+    response metadata listing the unrecognized kinds. Fuzzy text search
+    MUST use the same algorithm as LSP workspaceSymbol and completion:
+    exact, prefix, substring, field text (search only), then Jaro-Winkler
+    similarity of at least 0.8 over ID and title. An empty query with no
+    filters MUST return all entities up to the limit.
   """
   verify unit "text search finds entities matching by name or contract"
   verify unit "kind filter restricts results to matching entity kinds"
@@ -245,6 +256,8 @@ behavior provide_mcp_search_tool "Provide MCP Search Tool" {
   verify unit "limit caps the number of returned results"
   verify unit "empty query returns all entities up to limit"
   verify unit "references filter returns entities referencing target"
+  verify unit "the references filter combines with the other filters"
+  verify integration "search ranks exactly as LSP workspaceSymbol and completion rank"
   verify contract "Provide MCP Search Tool: MCP search tool holds — graph_available, filtered_results_returned, unknown_kinds_reported, tool_invoked_emitted"
   verify unit "missing query returns error"
 }
@@ -304,8 +317,14 @@ behavior provide_mcp_schema_tool "Provide MCP Schema Tool" {
     to a single entity kind. When include_edges is false, edge type definitions
     MUST be omitted. When include_validation_rules is true, the response MUST
     include declared validation rules from loaded extensions.
+    The schema MUST carry the version `specforge export` would give it,
+    computed against the project root's schema cache, which the tool only
+    reads. A kind no loaded extension declares MUST be an invalid-input
+    error on kind naming the closest known kind, as `specforge schema
+    --kind` refuses it.
   """
   verify unit "specforge.schema returns full GraphProtocolSchema"
+  verify unit "an unknown kind is an invalid-input error naming the closest kind"
   verify unit "kind filter restricts schema to single entity kind"
   verify unit "include_edges false omits edge type definitions"
   verify unit "include_validation_rules true includes validation rules"
@@ -351,10 +370,20 @@ behavior provide_mcp_coverage_tool "Provide MCP Coverage Tool" {
     A specforge-report.json that exists but cannot be read or parsed MUST be
     an error, an isError result carrying an McpError, as the CLI refuses it;
     it is never read as a project with no recorded tests.
-    When no filters are provided, the tool MUST return coverage for all
-    testable entities. Testability is determined by extension manifests.
+    When no filters are provided, the tool MUST return coverage for every
+    entity that counts toward coverage: an entity of a kind the extension
+    manifests declare testable, less the entities W004 exempts that
+    declare no obligations (union types, abstract entities, governance
+    kinds), the entities stats counts as testable. An entity_id filter
+    returns that entity whether it counts or not; each result says
+    whether the entity is exempt. A status_filter other than covered,
+    uncovered or partial MUST be an invalid-input error on status_filter
+    naming the closest status.
   """
   verify unit "specforge.coverage returns coverage for all testable entities"
+  verify unit "with no filters the rows are the entities that count toward coverage"
+  verify unit "an exempt entity named by entity_id is returned with exempt true"
+  verify unit "an unknown status_filter is an invalid-input error naming the closest status"
   verify unit "entity_id filter returns single entity coverage"
   verify unit "kind filter restricts to matching entity kinds"
   verify unit "status_filter restricts to matching coverage status"
@@ -363,6 +392,7 @@ behavior provide_mcp_coverage_tool "Provide MCP Coverage Tool" {
   verify unit "a field named verify does not hide an entity's verify statements"
   verify unit "a malformed specforge-report.json is an error result, not an empty report"
   verify integration "specforge.coverage reports covered exactly for the entities analyze coverage proves"
+  verify integration "with no filters the coverage rows are the entities stats counts as testable"
   verify contract "Provide MCP Coverage Tool: MCP coverage tool holds — graph_available, coverage_returned, testability_respected, tool_invoked_emitted"
 }
 
@@ -439,12 +469,16 @@ behavior provide_mcp_inspect_tool "Provide MCP Inspect Tool" {
     field the entity declares, whatever its kind names them (an invariant's
     guarantee, a decision's rationale), not just contract. The coverage status
     MUST count the recorded test results in specforge-report.json exactly as
-    specforge.coverage does. The related diagnostics are those whose span
-    lies within the entity's source span, or, for a diagnostic without a
-    span, whose message names the entity in quotes; an entity whose ID is a
-    prefix of another's never collects the other's diagnostics. LSP equivalence: this tool
-    mirrors textDocument/hover, providing the same entity detail an IDE shows
-    on hover but over the MCP transport. If the entity does not exist, the
+    specforge.coverage does. References are split by direction:
+    referenced_by (incoming) and refers_to (outgoing); references and
+    reference_count remain as deprecated aliases. The related diagnostics
+    are those about the entity: the entities a diagnostic's data names, or,
+    when its data names none, the innermost entity whose source span holds
+    the diagnostic's span. A diagnostic's message is never read; an entity
+    whose ID is a prefix of another's never collects the other's
+    diagnostics. LSP equivalence: this tool mirrors textDocument/hover,
+    providing the same entity detail an IDE shows on hover but over the MCP
+    transport. If the entity does not exist, the
     tool MUST return an error response.
   """
   verify unit "specforge.inspect returns full entity details"
@@ -453,6 +487,7 @@ behavior provide_mcp_inspect_tool "Provide MCP Inspect Tool" {
   verify unit "response includes every field, like an invariant's guarantee"
   verify unit "coverage status matches specforge.coverage obligation by obligation"
   verify unit "diagnostics are the entity's own, not those of an entity whose ID contains it"
+  verify unit "a spanless diagnostic belongs to the entities its data names, never to one its message quotes"
   verify unit "testable is the kind's testability and declared says whether the entity has obligations"
   verify contract "Provide MCP Inspect Tool: MCP inspect tool holds — graph_available, entity_details_returned, tool_invoked_emitted"
 }
@@ -474,6 +509,7 @@ behavior provide_mcp_find_definition_tool "Provide MCP Find Definition Tool" {
   }
   ensures {
     source_location_returned "Source location returned including file path, line number, and column"
+    name_position            "the position is the entity's name"
     tool_invoked_emitted     "mcp_tool_invoked event emitted"
   }
   contract   """
@@ -512,16 +548,20 @@ behavior provide_mcp_find_references_tool "Provide MCP Find References Tool" {
   }
   contract   """
     In MCP server mode, the system MUST register a specforge.find_references
-    tool that accepts entity_id (required). The tool MUST return all locations
-    where the entity is referenced, including the referencing entity's id, file
-    path, line number, and column. LSP equivalence: this tool mirrors
-    textDocument/references (findReferences), returning the same location list
-    an IDE shows but over the MCP transport. An entity with no references MUST
-    return an empty list, not an error.
+    tool that accepts entity_id (required), direction? ("incoming", the
+    default; "outgoing"; "both") and include_declaration? (default false).
+    The tool MUST return each occurrence: the referencing entity's id, the
+    referenced entity's id, the field, its role (declaration or reference)
+    and the identifier token's source span. LSP equivalence: with the
+    defaults it returns the occurrences textDocument/references returns
+    with includeDeclaration false. An entity with no references MUST return
+    an empty list, not an error.
   """
   verify unit "specforge.find_references returns all reference locations"
   verify unit "entity with no references returns empty list"
   verify unit "non-existent entity returns error response"
+  verify unit "direction and include_declaration select which occurrences are returned"
+  verify integration "find_references and the LSP's references answer the same occurrences"
   verify contract "Provide MCP Find References Tool: MCP find references tool holds — graph_available, references_returned, empty_list_for_unreferenced, tool_invoked_emitted"
 }
 
@@ -548,7 +588,8 @@ behavior provide_mcp_outline_tool "Provide MCP Outline Tool" {
     In MCP server mode, the system MUST register a specforge.outline tool that
     accepts file (required). The tool MUST return all entities defined in
     the file as McpOutlineEntry items, including entity id, kind, name, line
-    range, and any nested children (an entity's method members). LSP equivalence: this tool mirrors
+    range, the range of its name, and any nested children (an entity's
+    method members). LSP equivalence: this tool mirrors
     textDocument/documentSymbol, returning the same outline structure an IDE
     shows in its symbol navigator but over the MCP transport. If the file
     does not exist, the tool MUST return an error.
@@ -558,6 +599,7 @@ behavior provide_mcp_outline_tool "Provide MCP Outline Tool" {
   verify unit "non-existent file returns error response"
   verify contract "Provide MCP Outline Tool: MCP outline tool holds — graph_available, outline_returned, tool_invoked_emitted"
   verify unit "outline entries sorted by line number"
+  verify unit "a file under the spec root with no entities has an empty outline"
   verify unit "sorted by line number"
 }
 
@@ -587,15 +629,20 @@ behavior provide_mcp_suggest_fixes_tool "Provide MCP Suggest Fixes Tool" {
     diagnostic_code? (optional). When all three parameters are omitted, the
     system MUST return all fix suggestions for the current project. The tool
     MUST return applicable fix suggestions as McpFixSuggestion items, each
-    including a title, edit operations, and the diagnostic it resolves. LSP equivalence: this tool mirrors
-    textDocument/codeAction, returning the same quick-fix suggestions an IDE
-    offers but over the MCP transport. Fix suggestions derive from extension
-    validation rules — the core does not hardcode any fix patterns. A clean
-    entity with no diagnostics MUST return an empty list.
+    including a title, edit operations, and the diagnostic it resolves.
+    LSP equivalence: this tool mirrors textDocument/codeAction, returning
+    the same quick-fix suggestions an IDE offers but over the MCP
+    transport. Each suggestion is a fix the LSP offers as a code action for
+    the same diagnostic or entity, with the same title and the same edits
+    (file_path, range, new_text); a diagnostic whose data names no fix
+    contributes none (its suggestion text stays on the diagnostic). Fixes
+    read the diagnostic's data, never its message. A clean entity with no
+    diagnostics MUST return an empty list.
   """
   verify unit "specforge.suggest_fixes returns applicable fix suggestions"
   verify unit "clean entity with no diagnostics returns empty list"
   verify unit "diagnostic_code filter restricts to matching diagnostics"
+  verify integration "every suggestion carries the edits the LSP's code action applies"
   verify contract "Provide MCP Suggest Fixes Tool: MCP suggest fixes tool holds — graph_available, fixes_returned, empty_for_clean, tool_invoked_emitted"
 }
 
@@ -620,14 +667,21 @@ behavior provide_mcp_analyze_tool "Provide MCP Analyze Tool" {
     `contracts` pass and every extension-owned pass (such as
     @specforge/testing's coverage), or only the one named by `pass`. It
     accepts `strict` (warnings become errors), `test_results` (a
-    specforge-report.json path) and `use_cached` (analyze the last compiled
-    graph instead of recompiling). Without `test_results` it MUST read the
+    specforge-report.json path), `use_cached` (analyze the served project
+    as last brought up to date instead of bringing it up to date with disk)
+    and `path` (another project, compiled for the call only, its extension
+    passes run in the one runtime it was compiled in). With no project
+    served and no `path` there is nothing to analyze: the call MUST be an
+    isError result with a no-project McpError. Without `test_results` it MUST read the
     project's own specforge-report.json when one exists, as the CLI does,
     so proof coverage never silently drops. A test report that cannot be read
     or parsed, the project's own or the one `test_results` names, MUST be an
     isError result carrying an McpError, as the CLI exits 2 on it. The result MUST list each pass with its
     findings and summary, plus an `ok` flag that is false when any finding
-    is an error. The tool does not run the prove pass, so extension passes
+    is an error. An extension pass that traps or answers what does not
+    parse is one E028 finding of that pass (its summary marks it
+    `failed`), so the analysis is not ok. The tool does not run the prove
+    pass, so extension passes
     MUST receive no proved claims, as `specforge analyze` without --prove.
     The tool runs through the shared analyze operation of specforge-ops, the
     one the CLI runs: a `pass` that is not `all`, `coverage`, `contracts` or a
@@ -645,6 +699,7 @@ behavior provide_mcp_analyze_tool "Provide MCP Analyze Tool" {
   verify unit "an unknown or undeclared pass is an invalid-input error listing the available passes"
   verify unit "strict promotes warnings and clears ok"
   verify unit "analyzing another project leaves the served project untouched"
+  verify unit "analyze with no project served and no path is a no-project error"
   verify unit "orphaned test records come back as an optional orphans field"
   verify contract "Provide MCP Analyze Tool: MCP analyze tool holds — graph_available, passes_run, results_structured, tool_invoked_emitted"
 }

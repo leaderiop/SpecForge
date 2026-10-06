@@ -4,14 +4,14 @@
 //! cache is handed to it as `previous`.
 
 use std::fs;
-use std::path::Path;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use serde_json::{Value, json};
 use specforge_common::{Diagnostic, Severity};
+use specforge_extension_sdk::prelude::*;
 use specforge_project::{CompiledProject, ProjectSession, SourceChange};
 use specforge_test::prelude::*;
-use specforge_wasm::{WasmCallResult, WasmRuntime, WasmTrapInfo};
+use specforge_wasm::testing::InProcessRuntime;
 use tempfile::TempDir;
 
 const EXT: &str = "@test/passes";
@@ -20,58 +20,106 @@ const EXT: &str = "@test/passes";
 /// passes, deliberately out of order:
 /// - `second` (check, after `first`) and `first` (check) report nothing;
 /// - `audit` (check) reports E951 for every gadget whose id starts with
-///   `bad`, naming the entity and giving no span, and W952 with an explicit
-///   span-less, entity-less message;
-/// - `boom` (check) traps;
+///   `bad`, naming the entity and giving no span, W952 with an explicit
+///   span-less, entity-less message, and W953 naming `ghost_gadget`, an
+///   entity the graph does not hold;
+/// - `boom` (check) panics, a trap;
 /// - `report` (no phase) reports A999 for every gadget.
 ///
-/// Every pass call is recorded with its input, oldest first.
-struct PassesExtension {
-    calls: Mutex<Vec<(String, Value)>>,
+/// The runtime records every call with its input, oldest first.
+pub(crate) fn passes_extension() -> InProcessRuntime {
+    InProcessRuntime::new().with(|| {
+        let mut c = ContributionsBuilder::new(ExtensionMeta::new(EXT, "1.0.0"));
+        // `docs` names files (a file reference field): the checks report
+        // a missing one (E016).
+        c.kind("gadget", |k| {
+            k.keyword("gadget");
+            k.field("docs", |f| {
+                f.field_type(FieldType::StringList).file_reference();
+            });
+        });
+        c.pass("second", |p| {
+            p.after("first").phase("check").run(nothing);
+        });
+        c.pass("audit", |p| {
+            p.after("resolve").phase("check").run(audit);
+        });
+        c.pass("report", |p| {
+            p.after("resolve").run(report);
+        });
+        c.pass("boom", |p| {
+            p.phase("check")
+                .run(|_: &PassInput| -> Vec<PassDiagnostic> { panic!("the pass broke") });
+        });
+        c.pass("first", |p| {
+            p.phase("check").run(nothing);
+        });
+        c
+    })
 }
 
-impl PassesExtension {
-    fn new() -> Self {
-        Self {
-            calls: Mutex::new(Vec::new()),
-        }
-    }
+fn nothing(_: &PassInput) -> Vec<PassDiagnostic> {
+    Vec::new()
+}
 
-    fn passes() -> Value {
-        json!([
-            { "name": "second", "after": "first", "phase": "check" },
-            { "name": "audit", "after": "resolve", "phase": "check" },
-            { "name": "report", "after": "resolve" },
-            { "name": "boom", "phase": "check" },
-            { "name": "first", "phase": "check" }
-        ])
+fn audit(input: &PassInput) -> PassOutput {
+    let mut diagnostics: Vec<PassDiagnostic> = input
+        .entities
+        .iter()
+        .filter(|e| e.kind == "gadget" && e.id.starts_with("bad"))
+        .map(|e| {
+            PassDiagnostic::new(
+                "E951",
+                PassSeverity::Error,
+                format!("gadget '{}' fails the audit", e.id),
+            )
+            .with_entity(&e.id)
+        })
+        .collect();
+    diagnostics.push(PassDiagnostic::warning("W952", "the audit ran"));
+    // About an entity the graph does not hold.
+    diagnostics
+        .push(PassDiagnostic::warning("W953", "a gadget went missing").with_entity("ghost_gadget"));
+    let mut summary = serde_json::Map::new();
+    summary.insert("audited".to_string(), true.into());
+    PassOutput {
+        diagnostics,
+        summary,
     }
+}
 
-    /// The pass exports called so far, oldest first.
-    fn called(&self) -> Vec<String> {
-        self.calls
-            .lock()
-            .unwrap()
-            .iter()
-            .map(|(export, _)| export.clone())
-            .collect()
-    }
+fn report(input: &PassInput) -> Vec<PassDiagnostic> {
+    input
+        .entities
+        .iter()
+        .filter(|e| e.kind == "gadget")
+        .map(|e| {
+            PassDiagnostic::new(
+                "A999",
+                PassSeverity::Info,
+                format!("gadget '{}' reported", e.id),
+            )
+        })
+        .collect()
+}
 
-    /// The input the last call to `export` received.
-    fn last_input(&self, export: &str) -> Value {
-        self.calls
-            .lock()
-            .unwrap()
-            .iter()
-            .rev()
-            .find(|(e, _)| e == export)
-            .map(|(_, input)| input.clone())
-            .unwrap_or_else(|| panic!("{export} was never called"))
-    }
+/// The pass exports called so far, oldest first.
+fn called(ext: &InProcessRuntime) -> Vec<String> {
+    ext.calls()
+        .into_iter()
+        .filter(|c| c.export.starts_with("__pass_"))
+        .map(|c| c.export)
+        .collect()
+}
 
-    fn clear(&self) {
-        self.calls.lock().unwrap().clear();
-    }
+/// The input the last call to `export` received.
+fn last_input(ext: &InProcessRuntime, export: &str) -> Value {
+    ext.calls()
+        .into_iter()
+        .rev()
+        .find(|c| c.export == export)
+        .map(|c| c.input)
+        .unwrap_or_else(|| panic!("{export} was never called"))
 }
 
 fn gadgets(input: &Value) -> Vec<String> {
@@ -84,88 +132,7 @@ fn gadgets(input: &Value) -> Vec<String> {
         .collect()
 }
 
-impl WasmRuntime for PassesExtension {
-    fn load_module(&self, _: &Path) -> Result<(), String> {
-        Ok(())
-    }
-
-    fn call_export(&self, extension: &str, export: &str, input: &[u8]) -> WasmCallResult {
-        let ok = |value: Value| WasmCallResult::Ok(value.to_string().into_bytes());
-        let trap = |kind: &str| {
-            WasmCallResult::Trap(WasmTrapInfo {
-                kind: kind.to_string(),
-                message: format!("{kind}: {export}"),
-                export_name: export.to_string(),
-            })
-        };
-        if extension != EXT {
-            return trap("extension_not_found");
-        }
-        match export {
-            "__handshake" => ok(json!({
-                "protocol_version": "1.0.0",
-                "name": EXT,
-                "version": "1.0.0",
-                "contribution_flags": { "entities": true },
-                "peer_dependencies": [],
-                "sandbox_policy": null
-            })),
-            "__describe" => {
-                let request: Value = serde_json::from_slice(input).unwrap();
-                let category = request["category"].as_str().unwrap();
-                let items = match category {
-                    "entities" => json!([{ "name": "gadget", "keyword": "gadget" }]),
-                    "passes" => Self::passes(),
-                    _ => json!([]),
-                };
-                ok(json!({ "category": category, "items": items }))
-            }
-            pass if pass.starts_with("__pass_") => {
-                let input: Value = serde_json::from_slice(input).unwrap();
-                self.calls
-                    .lock()
-                    .unwrap()
-                    .push((pass.to_string(), input.clone()));
-                match pass {
-                    "__pass_audit" => {
-                        let mut diagnostics: Vec<Value> = gadgets(&input)
-                            .into_iter()
-                            .filter(|id| id.starts_with("bad"))
-                            .map(|id| {
-                                json!({
-                                    "code": "E951", "severity": "Error",
-                                    "message": format!("gadget '{id}' fails the audit"),
-                                    "entity": id
-                                })
-                            })
-                            .collect();
-                        diagnostics.push(json!({
-                            "code": "W952", "severity": "Warning",
-                            "message": "the audit ran"
-                        }));
-                        ok(json!({ "diagnostics": diagnostics, "summary": { "audited": true } }))
-                    }
-                    "__pass_report" => ok(Value::Array(
-                        gadgets(&input)
-                            .into_iter()
-                            .map(|id| {
-                                json!({
-                                    "code": "A999", "severity": "Info",
-                                    "message": format!("gadget '{id}' reported")
-                                })
-                            })
-                            .collect(),
-                    )),
-                    "__pass_boom" => trap("unreachable"),
-                    _ => ok(json!([])),
-                }
-            }
-            _ => trap("export_not_found"),
-        }
-    }
-}
-
-fn project(spec: &str) -> TempDir {
+pub(crate) fn project(spec: &str) -> TempDir {
     let dir = TempDir::new().unwrap();
     let config = json!({ "name": "p", "version": "0.1.0", "extensions": [EXT] });
     fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
@@ -173,7 +140,7 @@ fn project(spec: &str) -> TempDir {
     dir
 }
 
-const SPEC: &str =
+pub(crate) const SPEC: &str =
     "gadget good \"Good\" {\n  status active\n}\n\ngadget bad_one \"Bad\" {\n  status retired\n}\n";
 
 fn with_code<'a>(diagnostics: &'a [Diagnostic], code: &str) -> Vec<&'a Diagnostic> {
@@ -186,7 +153,7 @@ fn with_code<'a>(diagnostics: &'a [Diagnostic], code: &str) -> Vec<&'a Diagnosti
 )]
 fn a_check_pass_runs_on_every_compile() {
     let dir = project(SPEC);
-    let ext = PassesExtension::new();
+    let ext = passes_extension();
 
     let compiled = CompiledProject::compile(dir.path(), Some(&ext));
 
@@ -199,16 +166,46 @@ fn a_check_pass_runs_on_every_compile() {
     assert_eq!(ran.len(), 1, "{diagnostics:?}");
     assert_eq!(ran[0].severity, Severity::Warning);
     assert_eq!(
-        gadgets(&ext.last_input("__pass_audit")),
+        gadgets(&last_input(&ext, "__pass_audit")),
         ["bad_one", "good"],
         "the pass sees the compiled entities"
     );
 
     // A second compile runs it again.
-    ext.clear();
+    ext.clear_calls();
     let again = CompiledProject::compile(dir.path(), Some(&ext)).diagnostics();
     assert_eq!(with_code(&again, "E951").len(), 1, "{again:?}");
-    assert!(ext.called().contains(&"__pass_audit".to_string()));
+    assert!(called(&ext).contains(&"__pass_audit".to_string()));
+}
+
+/// A pass that names the entity a diagnostic is about: the name survives
+/// as `Subject` data (attribution reads it, never the message), the span
+/// is the entity's when the graph holds it, and none when it does not.
+#[test]
+fn a_pass_diagnostic_naming_an_entity_carries_it_as_data() {
+    let dir = project(SPEC);
+    let ext = passes_extension();
+    let diagnostics = CompiledProject::compile(dir.path(), Some(&ext)).diagnostics();
+
+    let audit = with_code(&diagnostics, "E951")[0];
+    assert_eq!(
+        audit.data.as_deref(),
+        Some(&specforge_common::DiagnosticData::Subject {
+            entity: "bad_one".into()
+        })
+    );
+    assert_eq!(audit.span.as_ref().map(|s| s.start_line), Some(5));
+    let ghost = with_code(&diagnostics, "W953")[0];
+    assert!(ghost.span.is_none(), "{ghost:?}");
+    assert_eq!(
+        ghost.data.as_deref().map(|d| d.entities()),
+        Some(vec!["ghost_gadget"])
+    );
+    let ran = with_code(&diagnostics, "W952")[0];
+    assert!(
+        ran.data.is_none(),
+        "a diagnostic naming nothing carries nothing"
+    );
 }
 
 #[specforge_test(
@@ -217,7 +214,7 @@ fn a_check_pass_runs_on_every_compile() {
 )]
 fn a_session_reports_check_pass_diagnostics_after_an_update() {
     let dir = project("gadget good \"Good\" {\n}\n");
-    let ext = Arc::new(PassesExtension::new());
+    let ext = Arc::new(passes_extension());
     let mut session = ProjectSession::open_with_runtime(
         dir.path(),
         Some(Arc::clone(&ext) as specforge_project::SharedRuntime),
@@ -258,17 +255,17 @@ fn as_set(diagnostics: &[Diagnostic]) -> Vec<String> {
 )]
 fn a_pass_without_the_check_phase_runs_only_under_analyze() {
     let dir = project(SPEC);
-    let ext = PassesExtension::new();
+    let ext = passes_extension();
 
     let compiled = CompiledProject::compile(dir.path(), Some(&ext));
     assert!(
-        !ext.called().contains(&"__pass_report".to_string()),
+        !called(&ext).contains(&"__pass_report".to_string()),
         "{:?}",
-        ext.called()
+        called(&ext)
     );
     assert!(with_code(&compiled.diagnostics(), "A999").is_empty());
 
-    ext.clear();
+    ext.clear_calls();
     let registries = &compiled.env.registries;
     let ctx = specforge_project::passes::AnalysisContext {
         graph: &compiled.graph,
@@ -280,11 +277,11 @@ fn a_pass_without_the_check_phase_runs_only_under_analyze() {
         proved_claims: None,
     };
     let reports =
-        specforge_project::passes::run_extension_passes(&registries.manifests, &ctx, &ext, "all");
+        specforge_project::passes::run_extension_passes(&registries.passes, &ctx, &ext, "all");
     let names: Vec<&str> = reports.iter().map(|r| r.name.as_str()).collect();
     assert_eq!(names, ["@test/passes:report"], "analyze skips check passes");
     assert_eq!(reports[0].findings.len(), 2);
-    assert_eq!(ext.called(), ["__pass_report"]);
+    assert_eq!(called(&ext), ["__pass_report"]);
 }
 
 #[specforge_test(
@@ -293,14 +290,14 @@ fn a_pass_without_the_check_phase_runs_only_under_analyze() {
 )]
 fn check_passes_run_in_their_declared_order() {
     let dir = project(SPEC);
-    let ext = PassesExtension::new();
+    let ext = passes_extension();
 
     CompiledProject::compile(dir.path(), Some(&ext));
 
     // `second` is declared first but runs after `first`; the others keep
     // their declaration order.
     assert_eq!(
-        ext.called(),
+        called(&ext),
         [
             "__pass_audit",
             "__pass_boom",
@@ -316,13 +313,16 @@ fn check_passes_run_in_their_declared_order() {
 )]
 fn a_trapping_check_pass_is_a_diagnostic() {
     let dir = project(SPEC);
-    let ext = PassesExtension::new();
+    let ext = passes_extension();
 
     let diagnostics = CompiledProject::compile(dir.path(), Some(&ext)).diagnostics();
 
     let failures: Vec<&Diagnostic> = with_code(&diagnostics, "E028")
         .into_iter()
-        .filter(|d| d.message.contains("'@test/passes:boom'"))
+        .filter(|d| {
+            d.message
+                .starts_with("compiler pass __pass_boom() of '@test/passes' trapped: ")
+        })
         .collect();
     assert_eq!(failures.len(), 1, "{diagnostics:?}");
     assert_eq!(failures[0].severity, Severity::Error);
@@ -332,7 +332,7 @@ fn a_trapping_check_pass_is_a_diagnostic() {
         failures[0].message
     );
     // The passes after it still ran.
-    assert!(ext.called().contains(&"__pass_second".to_string()));
+    assert!(called(&ext).contains(&"__pass_second".to_string()));
 }
 
 #[specforge_test(
@@ -341,7 +341,7 @@ fn a_trapping_check_pass_is_a_diagnostic() {
 )]
 fn a_pass_diagnostic_naming_an_entity_gets_its_span() {
     let dir = project(SPEC);
-    let ext = PassesExtension::new();
+    let ext = passes_extension();
 
     let compiled = CompiledProject::compile(dir.path(), Some(&ext));
 
@@ -356,7 +356,7 @@ fn a_pass_diagnostic_naming_an_entity_gets_its_span() {
 
 // ── the build cache, read ──────────────────────────────────────────────────
 
-fn write_cache(dir: &TempDir, text: &str) {
+pub(crate) fn write_cache(dir: &TempDir, text: &str) {
     fs::write(dir.path().join(specforge_project::BUILD_CACHE_FILE), text).unwrap();
 }
 
@@ -373,7 +373,7 @@ fn check_passes_receive_the_cached_statuses() {
             "gone": {"kind": "gadget", "status": "done"}
         }}"#,
     );
-    let ext = PassesExtension::new();
+    let ext = passes_extension();
 
     let diagnostics = CompiledProject::compile(dir.path(), Some(&ext)).diagnostics();
 
@@ -384,7 +384,7 @@ fn check_passes_receive_the_cached_statuses() {
         }
     });
     for pass in ["__pass_audit", "__pass_first", "__pass_second"] {
-        assert_eq!(ext.last_input(pass)["previous"], expected, "{pass}");
+        assert_eq!(last_input(&ext, pass)["previous"], expected, "{pass}");
     }
     assert!(
         with_code(&diagnostics, "W144").is_empty(),
@@ -392,19 +392,19 @@ fn check_passes_receive_the_cached_statuses() {
     );
 
     // A session reads it too, and sees a cache written after it opened.
-    let ext = Arc::new(PassesExtension::new());
+    let ext = Arc::new(passes_extension());
     let mut session = ProjectSession::open_with_runtime(
         dir.path(),
         Some(Arc::clone(&ext) as specforge_project::SharedRuntime),
     );
-    assert_eq!(ext.last_input("__pass_audit")["previous"], expected);
+    assert_eq!(last_input(&ext, "__pass_audit")["previous"], expected);
     write_cache(
         &dir,
         r#"{"format": 1, "statuses": {"good": {"kind": "gadget", "status": "active"}}}"#,
     );
     session.update(SourceChange::Disk(&["a.spec".to_string()]));
     assert_eq!(
-        ext.last_input("__pass_audit")["previous"]["statuses"]["good"]["status"],
+        last_input(&ext, "__pass_audit")["previous"]["statuses"]["good"]["status"],
         "active"
     );
 }
@@ -415,11 +415,11 @@ fn check_passes_receive_the_cached_statuses() {
 )]
 fn without_a_cache_previous_is_absent() {
     let dir = project(SPEC);
-    let ext = PassesExtension::new();
+    let ext = passes_extension();
 
     let diagnostics = CompiledProject::compile(dir.path(), Some(&ext)).diagnostics();
 
-    let input = ext.last_input("__pass_audit");
+    let input = last_input(&ext, "__pass_audit");
     assert!(input.get("previous").is_none(), "{input}");
     assert!(
         with_code(&diagnostics, "W144").is_empty(),
@@ -439,7 +439,7 @@ fn an_invalid_cache_is_w144() {
     ] {
         let dir = project(SPEC);
         write_cache(&dir, text);
-        let ext = PassesExtension::new();
+        let ext = passes_extension();
 
         let diagnostics = CompiledProject::compile(dir.path(), Some(&ext)).diagnostics();
 
@@ -451,7 +451,7 @@ fn an_invalid_cache_is_w144() {
             "{}",
             warnings[0].message
         );
-        assert!(ext.last_input("__pass_audit").get("previous").is_none());
+        assert!(last_input(&ext, "__pass_audit").get("previous").is_none());
         // The passes still ran.
         assert_eq!(with_code(&diagnostics, "E951").len(), 1);
     }
@@ -464,5 +464,78 @@ fn an_invalid_cache_is_w144() {
     assert!(
         with_code(&diagnostics, "W144").is_empty(),
         "{diagnostics:?}"
+    );
+}
+
+/// What the coverage rule needs to read from each entity, read the way a
+/// guest built with the SDK reads it: through the SDK's own `PassEntity`.
+#[specforge_test(
+    behavior = "run_check_phase_passes",
+    verify = "the pass input carries each entity's exemption, which the SDK's PassEntity reads"
+)]
+fn the_pass_input_carries_each_entitys_exemption() {
+    use specforge_extension_sdk::prelude::*;
+    use specforge_wasm::testing::InProcessRuntime;
+    use std::cell::RefCell;
+
+    thread_local! {
+        static SEEN: RefCell<Vec<(String, bool, bool)>> = const { RefCell::new(Vec::new()) };
+    }
+    fn extension() -> ContributionsBuilder {
+        let mut c = ContributionsBuilder::new(ExtensionMeta::new("@test/exempt", "1.0.0"));
+        c.kind("gadget", |k| {
+            k.keyword("gadget").testable(true).supports_verify(true);
+            k.field("abstract", |f| {
+                f.field_type(FieldType::Bool).exempts_obligations();
+            });
+        });
+        // Only gadgets owe obligations: a widget is exempt by its kind.
+        c.kind("widget", |k| {
+            k.keyword("widget").testable(true);
+        });
+        c.rule("W990", |r| {
+            r.check(CheckKind::NoVerifyStatements)
+                .target_kind("gadget")
+                .message_template("gadget '{id}' declares no obligations");
+        });
+        // The pass reads the SDK's PassInput: what it sees is recorded.
+        c.pass("exempt", |p| {
+            p.phase("check").run(|input: &PassInput| {
+                SEEN.with(|seen| {
+                    seen.borrow_mut().extend(
+                        input
+                            .entities
+                            .iter()
+                            .map(|e| (e.id.clone(), e.testable, e.exempt)),
+                    )
+                });
+                Vec::<PassDiagnostic>::new()
+            });
+        });
+        c
+    }
+
+    let dir = TempDir::new().unwrap();
+    let config = json!({ "name": "p", "version": "0.1.0", "extensions": ["@test/exempt"] });
+    fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
+    fs::write(
+        dir.path().join("a.spec"),
+        "gadget owes \"Owes\" {\n  verify unit \"it works\"\n}\n\n\
+         gadget free \"Free\" {\n  abstract true\n}\n\nwidget w \"W\" {\n}\n",
+    )
+    .unwrap();
+    let runtime = InProcessRuntime::new().with(extension);
+
+    CompiledProject::compile(dir.path(), Some(&runtime));
+
+    let mut seen = SEEN.with(|seen| seen.borrow().clone());
+    seen.sort();
+    assert_eq!(
+        seen,
+        [
+            ("free".to_string(), true, true),
+            ("owes".to_string(), true, false),
+            ("w".to_string(), true, true),
+        ]
     );
 }

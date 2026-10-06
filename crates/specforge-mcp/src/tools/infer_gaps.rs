@@ -1,13 +1,13 @@
 use serde_json::json;
 
-use crate::state::McpState;
+use crate::target::Call;
 use crate::tool::ToolOutcome;
 
 /// `specforge.infer_gaps`: the shared gap report
 /// (`specforge_ops::infer::gaps`), as `specforge infer-status --gaps-detail
 /// --format json` prints it under `gap_analysis`.
-pub fn call(state: &McpState, _args: crate::args::NoArgs) -> ToolOutcome {
-    let Some(root) = state.project_root.clone() else {
+pub fn call(call: &mut Call<'_>, _args: crate::args::NoArgs) -> ToolOutcome {
+    let Ok(project) = call.project() else {
         return ToolOutcome::ok(json!({
             "total_pub_items": 0,
             "covered_items": 0,
@@ -16,11 +16,11 @@ pub fn call(state: &McpState, _args: crate::args::NoArgs) -> ToolOutcome {
             "message": "No project root available"
         }));
     };
-    let runtime = state.wasm_runtime(&root);
+    let runtime = project.runtime;
     match specforge_ops::infer::gaps(
-        &root,
-        &state.registries().manifests,
-        state.graph(),
+        project.root,
+        project.env.registries.declarations(),
+        project.graph,
         runtime.as_ref(),
     ) {
         Ok(gaps) => ToolOutcome::ok(gaps.to_json()),

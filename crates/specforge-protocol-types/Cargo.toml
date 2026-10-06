@@ -9,4 +9,9 @@ readme = "../../docs/extension-protocol.md"
 
 [dependencies]
 serde = { workspace = true }
-serde_json = { workspace = true }
+# `raw_value`: the command input splices the host's rendered graph (`RawGraph`).
+serde_json = { workspace = true, features = ["raw_value"] }
+
+[dev-dependencies]
+specforge-test-macros = { workspace = true }
+specforge-test = { workspace = true }

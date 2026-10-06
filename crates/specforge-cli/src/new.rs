@@ -2,8 +2,9 @@
 //! project (spec #21 follow-through / SDK adoption).
 //!
 //! The generated project mirrors `fixtures/greet-extension`: a cdylib crate
-//! depending on `specforge-extension-sdk`, targeting `wasm32-unknown-unknown`,
-//! with a `src/lib.rs` skeleton that builds and describes out of the box.
+//! depending on `specforge-extension-sdk`, built as a `wasm32-wasip2`
+//! component, with a `src/lib.rs` skeleton that builds and describes out of
+//! the box. `specforge extension init` writes the same project.
 
 use crate::OutputFormat;
 use serde_json::json;
@@ -52,9 +53,9 @@ pub fn run(name: &str, extension: bool, path: &Path, format: OutputFormat) -> i3
             println!();
             println!("next steps:");
             println!("  cd {}", dir.display());
-            println!("  cargo build --release --target wasm32-unknown-unknown");
+            println!("  cargo build --release --target wasm32-wasip2");
             let wasm = format!(
-                "./target/wasm32-unknown-unknown/release/{}.wasm",
+                "./target/wasm32-wasip2/release/{}.wasm",
                 crate_name(name).replace('-', "_")
             );
             println!("  specforge add {wasm}   # local-path install once built");
@@ -96,11 +97,33 @@ fn crate_name(name: &str) -> String {
     }
 }
 
+/// The extension's short name, which routes its commands
+/// (`specforge <short> <command>`): the crate name in lowercase kebab case,
+/// starting with a letter.
+pub(crate) fn short_name(name: &str) -> String {
+    let kebab: String = crate_name(name)
+        .to_ascii_lowercase()
+        .chars()
+        .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
+        .collect();
+    let kebab = kebab.trim_matches('-').to_string();
+    match kebab.chars().next() {
+        Some(c) if c.is_ascii_lowercase() => kebab,
+        _ => format!("ext-{kebab}").trim_end_matches('-').to_string(),
+    }
+}
+
 fn target_dir(path: &Path, name: &str) -> PathBuf {
     path.join(crate_name(name))
 }
 
-fn scaffold(dir: &Path, name: &str) -> Result<(), String> {
+/// The files [`scaffold`] writes, relative to the project directory.
+pub(crate) const SCAFFOLDED: &[&str] = &["Cargo.toml", ".cargo/config.toml", "src/lib.rs"];
+
+/// Write an SDK extension crate declaring `name` into `dir`: its
+/// [`SCAFFOLDED`] files.
+pub(crate) fn scaffold(dir: &Path, name: &str) -> Result<(), String> {
+    let short = short_name(name);
     let crate_name = crate_name(name);
     let src = dir.join("src");
     std::fs::create_dir_all(&src)
@@ -143,7 +166,8 @@ use specforge_extension_sdk::prelude::*;
 #[specforge_extension_sdk::extension(
     name = "{name}",
     version = "0.1.0",
-    short = "TODO: one-line description"
+    short = "{short}",
+    description = "TODO: one line saying what the extension is for"
 )]
 struct Extension;
 
@@ -168,8 +192,8 @@ impl Contributions for Extension {{
         }});
 
         // Contribute a command, declared with the function that answers it
-        // (delete if not needed). It runs as `specforge <short> things` and is
-        // the MCP tool `specforge.<short>.things`; its args are read through
+        // (delete if not needed). It runs as `specforge {short} things` and is
+        // the MCP tool `specforge.{short}.things`; its args are read through
         // the declaration.
         c.command("things", |cmd| {{
             cmd.title("List things")
@@ -215,6 +239,13 @@ mod tests {
         assert_eq!(crate_name("@you/my-ext"), "my-ext");
         assert_eq!(crate_name("plain"), "plain");
         assert_eq!(crate_name("@weird scope/name!"), "name-");
+    }
+
+    #[test]
+    fn the_short_name_is_lowercase_kebab_case() {
+        assert_eq!(short_name("@you/my-ext"), "my-ext");
+        assert_eq!(short_name("My_Ext"), "my-ext");
+        assert_eq!(short_name("@x/4th-kind"), "ext-4th-kind");
     }
 
     #[test]

@@ -22,7 +22,6 @@ term t_spec_file "spec file" {
     t_sandbox_policy,
     t_wasm_trap,
     t_fuel_metering,
-    t_enhancement_policy,
     t_structured_conditions,
     t_coverage_tracking_item,
     t_event_graph_linting,
@@ -475,17 +474,6 @@ term t_content_addressed_cache "content-addressed cache" {
   see_also   [t_wasm, t_compile_cache]
 }
 
-term t_enhancement_policy "enhancement policy" {
-  definition """
-    The strategy for resolving conflicts when two extensions register the
-    same field name for the same entity kind. Three policies: error
-    (default, hard error on conflict), priority (first extension wins,
-    warning emitted), namespace (conflicting fields prefixed with
-    extension name). Configured in specforge.json.
-  """
-  aliases    ["conflict policy"]
-}
-
 // ── @specforge/formal Terms ──────────────────────────────────
 //
 // @specforge/formal's vocabulary was deliberately renamed away from academic
@@ -675,9 +663,11 @@ term t_verify_statement "verify statement" {
 term t_specforge_report_json "specforge-report.json" {
   definition """
     The project's recorded test results, written by `specforge collect`
-    and read by `specforge analyze`. Contains per-entity test results
-    (name, pass/fail, the verify obligation, duration, and the runner that
-    recorded it) for any testable entity kind.
+    and read, at the root the project was compiled from and never an
+    ancestor's, by `specforge analyze`, `specforge stats` and the MCP
+    coverage views. Contains per-entity test results (name, pass/fail, the
+    verify obligation, duration, and the runner that recorded it) for any
+    testable entity kind.
   """
   aliases    ["coverage report", "test report"]
 }

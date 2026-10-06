@@ -19,7 +19,7 @@ behavior pe_register_entity_kinds "Register Product Entity Kinds" {
     pe_product_verify_support,
   ]
   types      [
-    ManifestEntityKind,
+    EntityKindDescriptor,
     ProductFeature,
     ProductJourney,
     ProductDeliverable,
@@ -39,7 +39,7 @@ behavior pe_register_entity_kinds "Register Product Entity Kinds" {
     full metadata in the KindRegistry.
   """
   requires {
-    manifest_loaded    "ManifestV2 is parsed and schema-validated"
+    manifest_loaded    "ExtensionDeclaration is parsed and schema-validated"
     no_duplicate_kinds "KindRegistry has no entries with names matching this extension's kinds"
   }
   ensures {
@@ -69,7 +69,7 @@ behavior pe_register_entity_kinds "Register Product Entity Kinds" {
 
 behavior pe_register_edge_types "Register Product Edge Types" {
   category command
-  types    [ManifestEdgeType, ProductEdgeTypesRegisteredPayload]
+  types    [EdgeTypeDescriptor, ProductEdgeTypesRegisteredPayload]
   produces [pe_edge_types_registered]
   contract """
     The @specforge/product extension MUST register 20 edge types that
@@ -122,7 +122,7 @@ behavior pe_register_edge_types "Register Product Edge Types" {
 
 behavior pe_register_field_definitions "Register Product Field Definitions" {
   category command
-  types    [ManifestField, ManifestEntityKind, ProductFieldsRegisteredPayload]
+  types    [FieldDescriptor, EntityKindDescriptor, ProductFieldsRegisteredPayload]
   produces [pe_field_definitions_registered]
   contract """
     The @specforge/product extension MUST register field definitions for

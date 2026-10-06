@@ -47,12 +47,17 @@ fn resource_json(resp: &serde_json::Value) -> serde_json::Value {
     serde_json::from_str(text).unwrap_or_else(|e| panic!("resource text not JSON: {e}\n{text}"))
 }
 
-/// The JSON data message (the last one) a `prompts/get` response carries.
+/// The JSON data message (the second user message, after the instruction)
+/// a `prompts/get` response carries.
 fn prompt_data(resp: &serde_json::Value) -> serde_json::Value {
     let messages = resp["result"]["messages"]
         .as_array()
         .unwrap_or_else(|| panic!("no messages: {resp}"));
-    assert!(messages.len() >= 2, "instruction + data messages: {resp}");
+    assert_eq!(messages.len(), 2, "instruction + data messages: {resp}");
+    assert!(
+        messages.iter().all(|m| m["role"] == "user"),
+        "both messages are user messages: {resp}"
+    );
     let text = messages.last().unwrap()["content"]["text"]
         .as_str()
         .unwrap_or_else(|| panic!("data message has no text: {resp}"));
@@ -419,7 +424,7 @@ fn mcp_tool_trace_returns_chain() {
     behavior = "provide_mcp_trace_tool",
     verify = "missing links flagged in trace output"
 )]
-fn mcp_tool_trace_includes_gaps() {
+fn mcp_tool_trace_of_an_isolated_entity_lists_no_invented_gaps() {
     let responses = mcp_session(
         ISOLATED_SPEC,
         &[mcp_request(
@@ -435,17 +440,12 @@ fn mcp_tool_trace_includes_gaps() {
     let resp = find_response(&responses, 1).expect("should get response for id 1");
     assert!(resp["error"].is_null(), "should not be error: {}", resp);
     let content = parse_tool_content(resp);
-    let gaps = content["gaps"]
-        .as_array()
-        .expect("trace should have gaps array");
-    assert!(
-        gaps.iter()
-            .any(|g| g.as_str().unwrap().contains("upstream"))
-    );
-    assert!(
-        gaps.iter()
-            .any(|g| g.as_str().unwrap().contains("downstream"))
-    );
+    // Isolation is an empty upstream and downstream; what the entity
+    // lacks are its missing links, the trace document's only gaps.
+    assert_eq!(content["upstream"], serde_json::json!([]), "{content}");
+    assert_eq!(content["downstream"], serde_json::json!([]), "{content}");
+    assert!(content["missing"].is_array(), "{content}");
+    assert!(content.get("gaps").is_none(), "{content}");
 }
 
 // The MCP trace flags the same missing links as `specforge trace`: pay has
@@ -1075,7 +1075,8 @@ fn mcp_tool_inspect_missing_entity_returns_error() {
     verify = "specforge.find_definition returns file, line, and column"
 )]
 fn mcp_tool_find_definition_returns_location() {
-    // alpha's declaration starts on line 3, column 3.
+    // alpha's declaration starts on line 3, column 3; its name, where the
+    // position points, at column 12.
     let spec = "behavior beta \"Beta\" { contract \"second\" }\n\n  behavior alpha \"Alpha\" {\n    contract \"first\"\n  }\n";
     let responses = mcp_session(
         spec,
@@ -1095,7 +1096,8 @@ fn mcp_tool_find_definition_returns_location() {
     assert_eq!(content["entity_id"], "alpha");
     assert_eq!(content["file_path"], "main.spec", "{content}");
     assert_eq!(content["line"], 3, "{content}");
-    assert_eq!(content["column"], 3, "{content}");
+    assert_eq!(content["column"], 12, "{content}");
+    assert_eq!(content["source_span"]["start_col"], 3, "{content}");
 }
 
 #[specforge_test(
@@ -1120,8 +1122,8 @@ fn mcp_tool_find_references_returns_locations() {
     assert!(resp["error"].is_null(), "should not be error: {}", resp);
     let content = parse_tool_content(resp);
     assert_eq!(content["entity_id"], "alpha");
-    // Both referencing entities, each at its own line: gamma (line 3) and
-    // inv (line 4).
+    // Both referencing entities, each at its token: gamma's behaviors
+    // [alpha, ...] (line 3) and inv's enforced_by [alpha] (line 4).
     let mut locations: Vec<(&str, &str, u64, u64)> = content["locations"]
         .as_array()
         .expect("should have locations array")
@@ -1138,7 +1140,7 @@ fn mcp_tool_find_references_returns_locations() {
     locations.sort_unstable();
     assert_eq!(
         locations,
-        [("gamma", "main.spec", 3, 1), ("inv", "main.spec", 4, 1)],
+        [("gamma", "main.spec", 3, 61), ("inv", "main.spec", 4, 61)],
         "{content}"
     );
 }
@@ -1463,10 +1465,13 @@ fn mcp_tool_search_with_kinds() {
     };
     let pair = |id: &str, kind: &str| (id.to_string(), kind.to_string());
 
+    // "a" is in every id: alpha (prefix), beta, gamma (substring) and
+    // inv's title "Invariant".
     assert_eq!(
         kinds_of(1),
         [
             pair("alpha", "behavior"),
+            pair("beta", "behavior"),
             pair("gamma", "feature"),
             pair("inv", "invariant")
         ],
@@ -1474,8 +1479,8 @@ fn mcp_tool_search_with_kinds() {
     );
     assert_eq!(
         kinds_of(2),
-        [pair("alpha", "behavior")],
-        "kinds=[behavior] keeps only the behavior"
+        [pair("alpha", "behavior"), pair("beta", "behavior")],
+        "kinds=[behavior] keeps only the behaviors"
     );
 }
 
@@ -1492,7 +1497,7 @@ fn mcp_tool_search_references() {
             "tools/call",
             serde_json::json!({
                 "name": "specforge.search",
-                "arguments": { "query": "alpha", "references": "alpha" }
+                "arguments": { "query": "", "references": "alpha" }
             }),
         )],
     );
@@ -1502,13 +1507,65 @@ fn mcp_tool_search_references() {
     let content = parse_tool_content(resp);
     let arr = content.as_array().expect("search should return array");
     // gamma references alpha via behaviors [alpha, beta], and inv via
-    // enforced_by [alpha]; alpha itself (the name match) is not a referrer.
+    // enforced_by [alpha]; alpha itself is not a referrer.
     let mut ids: Vec<&str> = arr
         .iter()
         .map(|r| r["entity_id"].as_str().unwrap())
         .collect();
     ids.sort_unstable();
     assert_eq!(ids, ["gamma", "inv"], "{content}");
+}
+
+/// `references` is one filter among the others, ANDed: the referrers of
+/// alpha that are also invariants, or also match the query.
+#[specforge_test(
+    behavior = "provide_mcp_search_tool",
+    verify = "the references filter combines with the other filters"
+)]
+fn mcp_tool_search_references_combines_with_the_other_filters() {
+    let search = |id: u64, arguments: serde_json::Value| {
+        mcp_request(
+            id,
+            "tools/call",
+            serde_json::json!({"name": "specforge.search", "arguments": arguments}),
+        )
+    };
+    let responses = mcp_session(
+        BASIC_SPEC,
+        &[
+            search(
+                1,
+                serde_json::json!({"query": "", "references": "alpha", "kinds": ["invariant"]}),
+            ),
+            search(
+                2,
+                serde_json::json!({"query": "gamma", "references": "alpha"}),
+            ),
+            search(
+                3,
+                serde_json::json!({"query": "zzz", "references": "alpha"}),
+            ),
+            search(
+                4,
+                serde_json::json!({"query": "", "references": "alpha", "field": "guarantee", "value": "never"}),
+            ),
+            search(5, serde_json::json!({"query": "", "references": "nope"})),
+        ],
+    );
+    let ids = |id: u64| -> Vec<String> {
+        let resp = find_response(&responses, id).expect("a response");
+        parse_tool_content(resp)
+            .as_array()
+            .expect("search returns an array")
+            .iter()
+            .map(|r| r["entity_id"].as_str().unwrap().to_string())
+            .collect()
+    };
+    assert_eq!(ids(1), ["inv"], "kinds narrows the referrers");
+    assert_eq!(ids(2), ["gamma"], "the query narrows the referrers");
+    assert!(ids(3).is_empty(), "no referrer matches zzz");
+    assert!(ids(4).is_empty(), "inv's guarantee does not contain never");
+    assert!(ids(5).is_empty(), "an unknown target has no referrers");
 }
 
 // ============================================================
@@ -1755,7 +1812,7 @@ fn mcp_prompt_context_returns_messages() {
         messages.len() >= 2,
         "should have instruction + data messages"
     );
-    // Data is in the last message (assistant role)
+    // Data is in the last message (a user message, after the instruction)
     let data_msg = messages.last().unwrap();
     let text = data_msg["content"]["text"]
         .as_str()
@@ -2567,7 +2624,12 @@ fn mcp_tool_suggest_fixes_returns_array() {
     let fixes = broken.as_array().expect("array");
     assert_eq!(fixes.len(), 1, "{broken}");
     assert_eq!(fixes[0]["diagnostic_code"], "E003", "{broken}");
-    assert_eq!(fixes[0]["title"], "did you mean 'alpha'?", "{broken}");
+    // The LSP's title, and the edit that applies it: the token.
+    assert_eq!(fixes[0]["title"], "Replace with 'alpha'", "{broken}");
+    let edits = fixes[0]["edits"].as_array().expect("edits");
+    assert_eq!(edits.len(), 1, "{broken}");
+    assert_eq!(edits[0]["new_text"], "alpha", "{broken}");
+    assert_eq!(edits[0]["file_path"], "main.spec", "{broken}");
 }
 
 #[test]
@@ -2734,7 +2796,8 @@ fn mcp_tool_search_with_limit() {
             .collect()
     };
     let unlimited = ids(1);
-    assert_eq!(unlimited.len(), 3, "the query matches three: {unlimited:?}");
+    assert_eq!(unlimited.len(), 4, "the query matches four: {unlimited:?}");
+    assert_eq!(unlimited[0], "alpha", "the prefix match ranks first");
     assert_eq!(
         ids(2),
         [unlimited[0].clone()],
@@ -2901,15 +2964,13 @@ fn mcp_stdio_client_receives_graph_notification() {
     ));
     lines.next().unwrap().unwrap();
 
-    // What watch leaves behind: a new entity and a newer graph snapshot.
+    // A new entity on disk: the next read brings the project up to date,
+    // with no watch running.
     std::fs::write(
         dir.path().join("spec/added.spec"),
         r#"behavior added "A" { contract "a" }"#,
     )
     .unwrap();
-    std::thread::sleep(std::time::Duration::from_millis(50));
-    std::fs::create_dir_all(dir.path().join(".specforge")).unwrap();
-    std::fs::write(dir.path().join(".specforge/graph.json"), "{}").unwrap();
 
     send(mcp_request(
         2,

@@ -1,0 +1,206 @@
+[
+  {
+    "declared_types": [],
+    "entity": {
+      "fields": [],
+      "id": "__probe__",
+      "kind": "gadget",
+      "methods": []
+    },
+    "primitives": [
+      "string",
+      "void",
+      "bool",
+      "i8",
+      "i16",
+      "i32",
+      "i64",
+      "u8",
+      "u16",
+      "u32",
+      "u64",
+      "f32",
+      "f64",
+      "usize",
+      "isize",
+      "any",
+      "number",
+      "integer",
+      "boolean",
+      "timestamp",
+      "never",
+      "Result",
+      "Option",
+      "Vec",
+      "Box",
+      "Arc",
+      "Rc",
+      "HashMap",
+      "HashSet",
+      "BTreeMap",
+      "BTreeSet",
+      "String"
+    ],
+    "referenced": []
+  },
+  {
+    "declared_types": [],
+    "entity": {
+      "fields": [
+        {
+          "annotations": [],
+          "key": "needs",
+          "value": "b"
+        },
+        {
+          "annotations": [],
+          "key": "status",
+          "value": "active"
+        },
+        {
+          "annotations": [],
+          "key": "verify",
+          "value": "a works"
+        }
+      ],
+      "id": "a",
+      "kind": "gadget",
+      "methods": []
+    },
+    "primitives": [
+      "string",
+      "void",
+      "bool",
+      "i8",
+      "i16",
+      "i32",
+      "i64",
+      "u8",
+      "u16",
+      "u32",
+      "u64",
+      "f32",
+      "f64",
+      "usize",
+      "isize",
+      "any",
+      "number",
+      "integer",
+      "boolean",
+      "timestamp",
+      "never",
+      "Result",
+      "Option",
+      "Vec",
+      "Box",
+      "Arc",
+      "Rc",
+      "HashMap",
+      "HashSet",
+      "BTreeMap",
+      "BTreeSet",
+      "String"
+    ],
+    "referenced": []
+  },
+  {
+    "declared_types": [],
+    "entity": {
+      "fields": [
+        {
+          "annotations": [],
+          "key": "status",
+          "value": "retired"
+        }
+      ],
+      "id": "b",
+      "kind": "gadget",
+      "methods": []
+    },
+    "primitives": [
+      "string",
+      "void",
+      "bool",
+      "i8",
+      "i16",
+      "i32",
+      "i64",
+      "u8",
+      "u16",
+      "u32",
+      "u64",
+      "f32",
+      "f64",
+      "usize",
+      "isize",
+      "any",
+      "number",
+      "integer",
+      "boolean",
+      "timestamp",
+      "never",
+      "Result",
+      "Option",
+      "Vec",
+      "Box",
+      "Arc",
+      "Rc",
+      "HashMap",
+      "HashSet",
+      "BTreeMap",
+      "BTreeSet",
+      "String"
+    ],
+    "referenced": []
+  },
+  {
+    "declared_types": [],
+    "entity": {
+      "fields": [
+        {
+          "annotations": [],
+          "key": "abstract",
+          "value": "true"
+        }
+      ],
+      "id": "c",
+      "kind": "gadget",
+      "methods": []
+    },
+    "primitives": [
+      "string",
+      "void",
+      "bool",
+      "i8",
+      "i16",
+      "i32",
+      "i64",
+      "u8",
+      "u16",
+      "u32",
+      "u64",
+      "f32",
+      "f64",
+      "usize",
+      "isize",
+      "any",
+      "number",
+      "integer",
+      "boolean",
+      "timestamp",
+      "never",
+      "Result",
+      "Option",
+      "Vec",
+      "Box",
+      "Arc",
+      "Rc",
+      "HashMap",
+      "HashSet",
+      "BTreeMap",
+      "BTreeSet",
+      "String"
+    ],
+    "referenced": []
+  }
+]

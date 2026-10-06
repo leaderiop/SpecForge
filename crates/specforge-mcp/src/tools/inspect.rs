@@ -1,42 +1,85 @@
 use serde_json::Value;
 
-use crate::state::McpState;
-use crate::tool::{ErrorCode, McpError, ToolOutcome};
+use specforge_ops::navigate::Direction;
+
+use crate::target::Call;
+use crate::tool::ToolOutcome;
 
 #[derive(Debug, serde::Deserialize)]
 pub struct Args {
     entity_id: String,
 }
 
-pub fn call(state: &McpState, args: Args) -> ToolOutcome {
+pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
+    let view = call.view();
     let entity_id = args.entity_id.as_str();
 
-    let node = match state.graph().node(entity_id) {
+    let node = match view.graph.node(entity_id) {
         Some(n) => n,
         None => {
-            return McpError::new(
-                ErrorCode::EntityNotFound,
-                format!("Entity not found: {entity_id}"),
-            )
-            .with_entity(entity_id)
-            .into();
+            return crate::tool::entity_not_found(entity_id).into();
         }
     };
 
+    // References split by direction (ADR 0016): the entities that
+    // reference this one, and those it refers to. `references` (both,
+    // unlabeled) and `reference_count` stay as deprecated aliases.
+    let nav = super::navigator(call);
+    let ids = |direction| -> Vec<String> {
+        let query = specforge_ops::navigate::ReferenceQuery {
+            direction,
+            include_declaration: false,
+        };
+        let occurrences = nav.references(entity_id, query).unwrap_or_default();
+        let ids: std::collections::BTreeSet<String> = occurrences
+            .iter()
+            .map(|o| match direction {
+                Direction::Outgoing => o.target.to_string(),
+                _ => o.holder.to_string(),
+            })
+            .collect();
+        ids.into_iter().collect()
+    };
+    let referenced_by = ids(Direction::Incoming);
+    let refers_to = ids(Direction::Outgoing);
     let reference_count =
-        state.graph().edges_to(entity_id).len() + state.graph().edges_from(entity_id).len();
+        view.graph.edges_to(entity_id).len() + view.graph.edges_from(entity_id).len();
+    let references: Vec<String> = view
+        .graph
+        .edges_to(entity_id)
+        .iter()
+        .map(|e| e.source.to_string())
+        .chain(
+            view.graph
+                .edges_from(entity_id)
+                .iter()
+                .map(|e| e.target.to_string()),
+        )
+        .collect();
 
     // The statement the extension declares (headline and normative): a
     // behavior's `contract`; `null` for a kind that declares none.
-    let contract = specforge_emitter::context::headline_statement(node, &state.registries().fields);
+    let contract = specforge_emitter::context::headline_statement(node, &view.registries.fields);
 
+    // The entity's row of the coverage view: whether its kind counts toward
+    // coverage, as hover, the schema and the outline say (ADR 0004, D2-d);
+    // whether the entity itself declares obligations; and the status
+    // `specforge.coverage` reports for it.
+    let row = match specforge_ops::coverage::row(&view, entity_id) {
+        Ok(row) => row,
+        Err(error) => return super::coverage::report_error_result(&error),
+    };
     let obligations = specforge_graph::obligations(node);
-    let declared = !obligations.is_empty();
-    // Whether the entity's kind counts toward coverage, as hover, the
-    // schema and the outline say (ADR 0004, D2-d); `declared` says whether
-    // the entity itself declares obligations.
-    let testable = specforge_project::coverage::testable_kinds(&state.registries().kinds)
-        .contains(node.kind.raw.as_str());
+    let declared = row
+        .as_ref()
+        .map_or(!obligations.is_empty(), |row| row.declared());
+    let testable = row.as_ref().is_some_and(|row| row.testable);
+    let coverage_status = specforge_ops::coverage::status_name(
+        row.as_ref()
+            .map_or(specforge_project::coverage::Status::Uncovered, |row| {
+                row.status()
+            }),
+    );
     let verify_declarations: Option<Vec<String>> = declared.then(|| {
         obligations
             .iter()
@@ -44,38 +87,20 @@ pub fn call(state: &McpState, args: Args) -> ToolOutcome {
             .collect()
     });
 
-    let references: Vec<String> = state
-        .graph()
-        .edges_to(entity_id)
+    // The diagnostics about the entity: those its data names it in, else
+    // those inside its block (ADR 0016); never by reading the message.
+    let entity_diagnostics: Vec<Value> = super::reported(call)
         .iter()
-        .map(|e| e.source.to_string())
-        .chain(
-            state
-                .graph()
-                .edges_from(entity_id)
-                .iter()
-                .map(|e| e.target.to_string()),
-        )
-        .collect();
-
-    let entity_diagnostics: Vec<Value> = state
-        .diagnostics()
-        .iter()
-        .filter(|d| belongs_to(d, node))
+        .filter(|d| specforge_ops::navigate::is_about(view.graph, d, entity_id))
         .map(|d| {
             serde_json::json!({
                 "code": d.code,
                 "severity": format!("{:?}", d.severity),
-                "message": d.message
+                "message": d.message,
+                "suggestion": d.suggestion
             })
         })
         .collect();
-
-    // The same classification `specforge.coverage` reports.
-    let coverage_status = match super::coverage::project_coverage(state, "specforge.inspect") {
-        Ok(coverage) => super::coverage::status_name(coverage.status(entity_id)),
-        Err(outcome) => return outcome,
-    };
 
     let result = serde_json::json!({
         "entity_id": node.id.raw,
@@ -96,28 +121,12 @@ pub fn call(state: &McpState, args: Args) -> ToolOutcome {
         // `guarantee`, a decision's `rationale`, a feature's `description`.
         "fields": specforge_emitter::field_map_to_json(&node.fields),
         "verify_declarations": verify_declarations,
+        "referenced_by": referenced_by,
+        "refers_to": refers_to,
         "references": references,
         "coverage_status": coverage_status,
         "diagnostics": entity_diagnostics
     });
 
     ToolOutcome::ok(result)
-}
-
-/// Whether `diagnostic` is about `node`: its span lies within the node's,
-/// or, without a span, its message names the node in quotes. A substring
-/// match would give `task` the diagnostics of `task_id_uniqueness`.
-pub(crate) fn belongs_to(
-    diagnostic: &specforge_common::Diagnostic,
-    node: &specforge_graph::Node,
-) -> bool {
-    let entity = &node.source_span;
-    match &diagnostic.span {
-        Some(span) => {
-            span.file == entity.file
-                && span.start_line >= entity.start_line
-                && span.end_line <= entity.end_line
-        }
-        None => diagnostic.message.contains(&format!("'{}'", node.id.raw)),
-    }
 }

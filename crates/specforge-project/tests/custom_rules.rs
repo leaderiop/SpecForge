@@ -3,13 +3,13 @@
 //! the extension when it loads, and dispatched to it on compile.
 
 use std::fs;
-use std::path::Path;
 
 use specforge_common::{Diagnostic, Severity};
+use specforge_extension_sdk::prelude::*;
 use specforge_project::{CompiledProject, Environment};
 use specforge_registry::validation_engine::ValidationPatternKind;
 use specforge_test::prelude::*;
-use specforge_wasm::{WasmCallResult, WasmRuntime, WasmTrapInfo};
+use specforge_wasm::testing::InProcessRuntime;
 use tempfile::TempDir;
 
 fn project(extensions: &[&str], spec: &str) -> TempDir {
@@ -40,15 +40,18 @@ const EXTENSION: &str = "@test/rules";
 /// rules on it: a declarative one, a custom one whose `validate__present`
 /// it exports (failing the gadget `bad`), a custom one naming
 /// `validate__absent`, which it does not export, and a custom one naming no
-/// function. An unknown export errors the way the extension SDK's guest
-/// glue does.
-struct RulesExtension;
-
-impl RulesExtension {
-    fn describe(category: &str) -> serde_json::Value {
-        let items = match category {
-            "entities" => serde_json::json!([{ "name": "gadget", "keyword": "gadget" }]),
-            "validation_rules" => serde_json::json!([
+/// function. The rules are declared as given (`raw_category`): an SDK
+/// builder would refuse the last two. An unknown export errors the way the
+/// SDK's guest routing does.
+fn rules_extension() -> InProcessRuntime {
+    fn build() -> ContributionsBuilder {
+        let mut c = ContributionsBuilder::new(ExtensionMeta::new(EXTENSION, "1.0.0"));
+        c.kind("gadget", |k| {
+            k.keyword("gadget");
+        });
+        c.raw_category(
+            "validation_rules",
+            serde_json::json!([
                 {
                     "code": "W900", "severity": "warning", "check": "no_incoming_edges",
                     "message_template": "gadget '{id}' is unreferenced",
@@ -70,54 +73,25 @@ impl RulesExtension {
                     "target_kind": "gadget"
                 }
             ]),
-            _ => serde_json::json!([]),
-        };
-        serde_json::json!({ "category": category, "items": items })
+        );
+        c
     }
-}
-
-impl WasmRuntime for RulesExtension {
-    fn load_module(&self, _: &Path) -> Result<(), String> {
-        Ok(())
-    }
-
-    fn call_export(&self, extension: &str, export: &str, input: &[u8]) -> WasmCallResult {
-        let ok = |value: serde_json::Value| WasmCallResult::Ok(value.to_string().into_bytes());
-        if extension != EXTENSION {
-            return WasmCallResult::Trap(WasmTrapInfo {
-                kind: "extension_not_found".to_string(),
-                message: format!("Extension '{extension}' not loaded"),
-                export_name: export.to_string(),
-            });
-        }
-        match export {
-            "__handshake" => ok(serde_json::json!({
-                "protocol_version": "1.0.0",
-                "name": EXTENSION,
-                "version": "1.0.0",
-                "contribution_flags": { "entities": true, "validators": true },
-                "peer_dependencies": [],
-                "sandbox_policy": null
-            })),
-            "__describe" => {
-                let request: serde_json::Value = serde_json::from_slice(input).unwrap();
-                ok(Self::describe(request["category"].as_str().unwrap()))
-            }
-            "validate__present" => {
-                let context: serde_json::Value = serde_json::from_slice(input).unwrap();
-                if context["entity"]["id"] == "bad" {
-                    ok(serde_json::json!({ "verdict": "fail", "field": "present" }))
+    /// `validate__present`, the one custom function the extension exports.
+    fn present(export: &str, input: &[u8]) -> Option<Result<Vec<u8>, String>> {
+        (export == "validate__present").then(|| {
+            specforge_extension_sdk::answer_export(export, input, |context: &ValidatorContext| {
+                if context.entity.id == "bad" {
+                    ValidatorVerdict::Fail {
+                        field: Some("present".to_string()),
+                        value: None,
+                    }
                 } else {
-                    ok(serde_json::json!({ "verdict": "pass" }))
+                    ValidatorVerdict::Pass
                 }
-            }
-            other => WasmCallResult::Trap(WasmTrapInfo {
-                kind: "guest_error".to_string(),
-                message: format!("unknown export '{other}'"),
-                export_name: other.to_string(),
-            }),
-        }
+            })
+        })
     }
+    InProcessRuntime::new().with_handler(build, present)
 }
 
 /// The builtin software extension's custom rules come out of the load
@@ -166,7 +140,7 @@ fn a_builtin_custom_rule_is_registered_with_its_wasm_function() {
 fn an_unresolvable_wasm_function_is_w112_on_load() {
     let dir = project(&[EXTENSION], "");
 
-    let env = Environment::load(dir.path(), Some(&RulesExtension));
+    let env = Environment::load(dir.path(), Some(&rules_extension()));
 
     let diagnostics: Vec<Diagnostic> = env.diagnostics().cloned().collect();
     let warnings = w112_naming(&diagnostics, "'validate__absent'");
@@ -194,7 +168,7 @@ fn an_unresolvable_wasm_function_is_w112_on_load() {
 fn a_custom_rule_without_a_wasm_function_is_w112_and_not_registered() {
     let dir = project(&[EXTENSION], "");
 
-    let env = Environment::load(dir.path(), Some(&RulesExtension));
+    let env = Environment::load(dir.path(), Some(&rules_extension()));
 
     let diagnostics: Vec<Diagnostic> = env.diagnostics().cloned().collect();
     let warnings = w112_naming(&diagnostics, "'E903'");
@@ -228,10 +202,10 @@ fn custom_rules_register_resolve_and_dispatch_through_a_compile() {
         "gadget good \"Good\" {\n}\n\ngadget bad \"Bad\" {\n}\n",
     );
 
-    let compiled = CompiledProject::compile(dir.path(), Some(&RulesExtension));
+    let compiled = CompiledProject::compile(dir.path(), Some(&rules_extension()));
 
     // extension_manifests_loaded_fired + custom_patterns_registered
-    assert_eq!(compiled.env.registries.manifests.len(), 1);
+    assert_eq!(compiled.env.registries.declarations().len(), 1);
     let mut registered: Vec<(&str, &str)> = compiled
         .env
         .registries

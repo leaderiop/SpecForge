@@ -61,7 +61,7 @@ fn build_graph() -> Graph {
 fn stats_output_is_deterministic() {
     let outputs: Vec<_> = (0..5)
         .map(|_| {
-            let stats = specforge_ops::stats::compute_stats(&build_graph());
+            let stats = crate::view_support::stats_of(&build_graph(), &[], &[]);
             format!("{:?}", stats)
         })
         .collect();
@@ -82,10 +82,13 @@ fn trace_output_is_deterministic() {
     let graph = build_graph();
     let outputs: Vec<_> = (0..5)
         .map(|_| {
-            specforge_ops::trace::serialize_trace(
-                &specforge_ops::trace::trace(&graph, "alpha").unwrap(),
+            let project = crate::view_support::Project::of_graph(graph.clone(), Default::default());
+            let outcome = specforge_ops::trace::trace(
+                &project.view(),
+                specforge_ops::trace::Target::Entity("alpha"),
             )
-            .unwrap()
+            .unwrap();
+            serde_json::to_string_pretty(&outcome).unwrap()
         })
         .collect();
     for output in &outputs[1..] {

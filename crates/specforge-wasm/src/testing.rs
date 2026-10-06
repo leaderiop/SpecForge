@@ -1,0 +1,312 @@
+//! An in-process adapter of the [`WasmRuntime`] seam, for tests: it serves
+//! an extension straight from its SDK [`ContributionsBuilder`], routed by
+//! the guest's own [`guest_call`] — the function `component_guest!` calls in
+//! a component — so a test declares an extension with the same builders an
+//! extension author uses, and the host loads it exactly as it loads a
+//! component.
+//!
+//! It is a test adapter: the "guest" runs in the host process, with no
+//! sandbox, no fuel and no deadline. Sandbox obligations stay proven only
+//! through the component runtime.
+
+use std::collections::BTreeMap;
+use std::path::Path;
+use std::sync::{Arc, Mutex};
+
+use specforge_common::Diagnostic;
+use specforge_extension_sdk::{ContributionsBuilder, ExportHandler, guest_call, no_other_exports};
+
+use crate::runtime::{WasmCallResult, WasmRuntime, WasmTrapInfo};
+
+/// What builds an extension's contributions, per call (as its guest does).
+type Build = Arc<dyn Fn() -> ContributionsBuilder + Send + Sync>;
+
+/// One call the runtime answered.
+#[derive(Debug, Clone, PartialEq)]
+pub struct RecordedCall {
+    pub extension: String,
+    pub export: String,
+    /// The input as JSON (a string of the bytes when they are not JSON).
+    pub input: serde_json::Value,
+}
+
+/// An answer given instead of routing a call: to one export, or to one
+/// export called with one input.
+type Overrides = Vec<(String, String, Option<serde_json::Value>, WasmCallResult)>;
+
+/// Serves SDK-declared extensions in process; see the module docs.
+#[derive(Default)]
+pub struct InProcessRuntime {
+    extensions: BTreeMap<String, (Build, ExportHandler)>,
+    overrides: Mutex<Overrides>,
+    load_failures: BTreeMap<String, Diagnostic>,
+    faults: Vec<(String, String)>,
+    calls: Mutex<Vec<RecordedCall>>,
+    deadlines: Mutex<Vec<(String, u64)>>,
+}
+
+impl InProcessRuntime {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Serve the extension `build` declares (named by its `meta.name`),
+    /// routed as its guest is, with no exports beyond its declarations.
+    pub fn with(self, build: impl Fn() -> ContributionsBuilder + Send + Sync + 'static) -> Self {
+        self.with_handler(build, no_other_exports)
+    }
+
+    /// Serve the extension `build` declares, with `handler` answering the
+    /// exports no declaration answers (`component_guest!`'s `handler`).
+    pub fn with_handler(
+        self,
+        build: impl Fn() -> ContributionsBuilder + Send + Sync + 'static,
+        handler: ExportHandler,
+    ) -> Self {
+        let name = build().meta.name.clone();
+        self.serving(&name, build, handler)
+    }
+
+    /// Serve the extension `build` declares under `name`, the name the
+    /// host loads it by, which need not be the one it declares (a binary
+    /// installed from a path), with `handler` as in
+    /// [`InProcessRuntime::with_handler`].
+    pub fn serving(
+        mut self,
+        name: &str,
+        build: impl Fn() -> ContributionsBuilder + Send + Sync + 'static,
+        handler: ExportHandler,
+    ) -> Self {
+        self.extensions
+            .insert(name.to_string(), (Arc::new(build), handler));
+        self
+    }
+
+    /// Answer `export` of `extension` with `result` (raw bytes or a trap)
+    /// instead of routing it: for failure-mapping tests. The extension
+    /// need not be served otherwise.
+    pub fn answer_raw(self, extension: &str, export: &str, result: WasmCallResult) -> Self {
+        self.overriding(extension, export, None, result)
+    }
+
+    /// Answer `export` of `extension` with `result` when it is called with
+    /// `input` (compared as JSON), and route its other calls: one describe
+    /// category answering what its declaration could not hold.
+    pub fn answer_raw_to(
+        self,
+        extension: &str,
+        export: &str,
+        input: serde_json::Value,
+        result: WasmCallResult,
+    ) -> Self {
+        self.overriding(extension, export, Some(input), result)
+    }
+
+    fn overriding(
+        self,
+        extension: &str,
+        export: &str,
+        input: Option<serde_json::Value>,
+        result: WasmCallResult,
+    ) -> Self {
+        self.overrides.lock().expect("overrides lock").push((
+            extension.to_string(),
+            export.to_string(),
+            input,
+            result,
+        ));
+        self
+    }
+
+    /// Make calling `export` of `extension` panic in the host, outside the
+    /// guest: a fault of the runtime itself (a broken host function), not a
+    /// guest trap, for tests of what the host does when its runtime fails.
+    pub fn fault(mut self, extension: &str, export: &str) -> Self {
+        self.faults
+            .push((extension.to_string(), export.to_string()));
+        self
+    }
+
+    /// Report `diagnostic` as why `extension` failed to load (a missing
+    /// or tampered binary, as the component runtime knows it).
+    pub fn with_load_failure(mut self, extension: &str, diagnostic: Diagnostic) -> Self {
+        self.load_failures.insert(extension.to_string(), diagnostic);
+        self
+    }
+
+    /// Every call answered so far, in order.
+    pub fn calls(&self) -> Vec<RecordedCall> {
+        self.calls.lock().expect("calls lock").clone()
+    }
+
+    /// Forget the calls answered so far.
+    pub fn clear_calls(&self) {
+        self.calls.lock().expect("calls lock").clear();
+    }
+
+    /// Every wall-clock budget the host applied (`(extension, ms)`), in
+    /// order. The in-process runtime records them; it enforces none.
+    pub fn deadlines(&self) -> Vec<(String, u64)> {
+        self.deadlines.lock().expect("deadlines lock").clone()
+    }
+}
+
+fn trap(kind: &str, message: String, export: &str) -> WasmCallResult {
+    WasmCallResult::Trap(WasmTrapInfo {
+        kind: kind.to_string(),
+        message,
+        export_name: export.to_string(),
+    })
+}
+
+impl WasmRuntime for InProcessRuntime {
+    fn load_module(&self, wasm_path: &Path) -> Result<(), String> {
+        Err(format!(
+            "the in-process runtime serves SDK builders, not binaries ({})",
+            wasm_path.display()
+        ))
+    }
+
+    /// Loading a binary under a name the runtime serves is a no-op: the
+    /// extension is already there. Any other name cannot be loaded.
+    fn load_module_named(&self, extension: &str, wasm_path: &Path) -> Result<(), String> {
+        if self.extensions.contains_key(extension) {
+            Ok(())
+        } else {
+            self.load_module(wasm_path)
+        }
+    }
+
+    fn set_execution_deadline_ms(&self, extension: &str, max_execution_ms: u64) {
+        self.deadlines
+            .lock()
+            .expect("deadlines lock")
+            .push((extension.to_string(), max_execution_ms));
+    }
+
+    fn load_failure(&self, extension: &str) -> Option<Diagnostic> {
+        self.load_failures.get(extension).cloned()
+    }
+
+    fn call_export(&self, extension: &str, export: &str, input: &[u8]) -> WasmCallResult {
+        let input_json: serde_json::Value = serde_json::from_slice(input)
+            .unwrap_or_else(|_| String::from_utf8_lossy(input).into_owned().into());
+        self.calls.lock().expect("calls lock").push(RecordedCall {
+            extension: extension.to_string(),
+            export: export.to_string(),
+            input: input_json.clone(),
+        });
+        if self
+            .faults
+            .iter()
+            .any(|(e, x)| e == extension && x == export)
+        {
+            panic!("the runtime failed calling {export} of {extension}");
+        }
+        let overridden = self
+            .overrides
+            .lock()
+            .expect("overrides lock")
+            .iter()
+            .find(|(e, x, when, _)| {
+                e == extension && x == export && when.as_ref().is_none_or(|w| *w == input_json)
+            })
+            .map(|(_, _, _, result)| result.clone());
+        if let Some(result) = overridden {
+            return result;
+        }
+        let Some((build, handler)) = self.extensions.get(extension) else {
+            return trap(
+                "extension_not_found",
+                format!("Extension '{extension}' not loaded"),
+                export,
+            );
+        };
+        // A guest panic is a trap, as `unreachable` is in a component.
+        let answer = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            guest_call(&build(), *handler, export, input)
+        }));
+        match answer {
+            Ok(Ok(bytes)) => WasmCallResult::Ok(bytes),
+            Ok(Err(message)) => trap("guest_error", message, export),
+            Err(panic) => {
+                let message = panic
+                    .downcast_ref::<String>()
+                    .cloned()
+                    .or_else(|| panic.downcast_ref::<&str>().map(|s| s.to_string()))
+                    .unwrap_or_default();
+                trap("call_failed", format!("unreachable: {message}"), export)
+            }
+        }
+    }
+}
+
+/// The contract every adapter of the [`WasmRuntime`] port keeps, asserted
+/// over `runtime`, which must serve `extension` (an SDK-built guest) with
+/// `panicking` an export whose handler panics:
+///
+/// - a call to an extension the runtime did not load is the trap
+///   `extension_not_found`;
+/// - an export the guest does not route is the trap `guest_error`
+///   `unknown export '<name>'`, as the guest's own routing answers it;
+/// - a handler's error is the trap `guest_error` carrying its message (the
+///   guest's `__describe` of a category the protocol does not have);
+/// - a guest that panics is a trap (`call_failed`), never a host crash;
+/// - the runtime still answers the extension afterwards (its handshake).
+///
+/// The component runtime and [`InProcessRuntime`] run it in their tests,
+/// so the two adapters cannot disagree on what a failure looks like.
+pub fn assert_runtime_contract(runtime: &dyn WasmRuntime, extension: &str, panicking: &str) {
+    let trap = |result: WasmCallResult, what: &str| match result {
+        WasmCallResult::Trap(trap) => trap,
+        WasmCallResult::Ok(bytes) => panic!(
+            "{what}: answered {} instead of trapping",
+            String::from_utf8_lossy(&bytes)
+        ),
+    };
+
+    let missing = trap(
+        runtime.call_export("@contract/not-loaded", "__handshake", b"{}"),
+        "an extension that is not loaded",
+    );
+    assert_eq!(missing.kind, "extension_not_found", "{missing:?}");
+    assert_eq!(missing.export_name, "__handshake");
+
+    let unrouted = trap(
+        runtime.call_export(extension, "contract__no_such_export", b"{}"),
+        "an export the guest does not route",
+    );
+    assert_eq!(unrouted.kind, "guest_error", "{unrouted:?}");
+    assert_eq!(
+        unrouted.message,
+        "unknown export 'contract__no_such_export'"
+    );
+    assert_eq!(unrouted.export_name, "contract__no_such_export");
+
+    let refused = trap(
+        runtime.call_export(
+            extension,
+            "__describe",
+            br#"{"category":"no_such_category"}"#,
+        ),
+        "a handler's error",
+    );
+    assert_eq!(refused.kind, "guest_error", "{refused:?}");
+    assert_eq!(refused.message, "unsupported category: no_such_category");
+
+    let panicked = trap(
+        runtime.call_export(extension, panicking, b"{}"),
+        "a guest that panics",
+    );
+    assert_eq!(panicked.kind, "call_failed", "{panicked:?}");
+    assert_eq!(panicked.export_name, panicking);
+
+    match runtime.call_export(extension, "__handshake", b"{}") {
+        WasmCallResult::Ok(bytes) => {
+            let handshake: serde_json::Value =
+                serde_json::from_slice(&bytes).expect("a handshake is JSON");
+            assert_eq!(handshake["name"], extension);
+        }
+        WasmCallResult::Trap(trap) => panic!("the extension stopped answering: {trap:?}"),
+    }
+}

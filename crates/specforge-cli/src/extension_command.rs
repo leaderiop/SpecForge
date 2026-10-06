@@ -6,23 +6,29 @@
 //! same as `ext command`. The project is the one at `--path` (default `.`),
 //! and the output the one `--format` asks for (`human`, the default, or
 //! `json`): options every extension command has, the host's, which no
-//! declared arg may take (ADR 0011). Its extensions declare the
-//! commands: this module builds their command line from the declared args
-//! (a required arg is positional, in declaration order; any other is a
-//! `--flag`), compiles the project, and runs the command's `cmd__` export
-//! over the graph with the format and today's date (UTC)
-//! (`specforge_ops::command`). The export's stdout and stderr are printed as
-//! they are, and its exit code is the CLI's.
+//! declared arg may take (ADR 0011). Its extensions declare the commands,
+//! and `specforge_ops::command::ExtensionCommand` derives each one's command
+//! line (a required arg is positional, in declaration order; any other is a
+//! `--option`; every flag is a `--flag`, set or not) and the args its export
+//! receives, by the one arg rule MCP also sends them by (ADR 0017). This
+//! module renders that derivation as clap's command line, compiles the
+//! project, and runs the command's `cmd__` export over the graph with the
+//! format and today's date (UTC). The export's stdout and stderr are printed
+//! as they are, and its exit code is the CLI's.
 
 use clap::builder::PossibleValuesParser;
+use clap::parser::ValueSource;
 use clap::{Arg, ArgAction, ArgMatches, Command};
 use serde_json::{Map, Value};
 use specforge_ops::command::{
-    CommandContext, CommandFormat, ExtensionCommand, ext_short, extension_commands, refusal,
-    run_command,
+    ArgShape, ArgValue, CommandContext, CommandFormat, ExtensionArg, ExtensionCommand,
+    ExtensionCommands, run_command,
 };
 use specforge_project::Environment;
-use specforge_registry::{CommandArg, CommandArgType};
+use specforge_protocol_types::CommandError;
+use specforge_protocol_types::command_args::{ArgError, normalize_arg};
+use specforge_wasm::CallError;
+use specforge_wasm::runtime::WasmRuntime;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
@@ -56,37 +62,50 @@ pub fn run(argv: &[String], builtins: &[String]) -> i32 {
     let root = project_path(&rest);
     let runtime = specforge_component::project_runtime(&root);
     let env = Environment::load(&root, Some(&runtime));
-    let build = &env.registries;
-    let all = extension_commands(build);
-    let commands: Vec<ExtensionCommand> = all
-        .iter()
-        .copied()
-        .filter(|c| ext_short(&build.manifests, c.extension) == ext)
-        .collect();
+    let routed = ExtensionCommands::build(&env.registries);
+    let commands: Vec<&ExtensionCommand> = routed.of(&ext).collect();
     if commands.is_empty() {
         eprintln!(
             "error: unrecognized subcommand '{ext}': no built-in command, and no extension of the project at {} with that name contributes commands",
             root.display()
         );
-        let mut names: Vec<String> = builtins.to_vec();
-        names.extend(all.iter().map(|c| ext_short(&build.manifests, c.extension)));
-        if let Some(close) =
-            specforge_common::find_close_match(&ext, names.iter().map(String::as_str))
-        {
+        let mut names: Vec<&str> = builtins.iter().map(String::as_str).collect();
+        names.extend(routed.shorts());
+        if let Some(close) = specforge_common::find_close_match(&ext, names) {
             eprintln!("\n  tip: a similar subcommand exists: '{close}'");
         }
         eprintln!("\nFor more information, try 'specforge --help'.");
         return 2;
     }
-    if let Some(requested) = rest.first()
-        && let Some(command) = commands.iter().find(|c| c.cli_name() == *requested)
-        && let Some(why) = refusal(command.contribution)
-    {
-        eprintln!(
-            "error: {}'s command '{requested}' cannot run on the command line: {why}",
-            command.extension
-        );
-        return 2;
+    let requested = rest.first().and_then(|requested| {
+        commands
+            .iter()
+            .copied()
+            .find(|c| c.cli_name() == *requested)
+    });
+    if let Some(command) = requested {
+        if let Some(why) = command.refusal() {
+            eprintln!(
+                "error: {}'s command '{}' cannot run on the command line: {why}",
+                command.extension(),
+                command.cli_name()
+            );
+            return 2;
+        }
+        // A later extension's command of this name is not routed (D13):
+        // say which, so its author can tell why it never runs.
+        for shadowed in routed
+            .shadowed()
+            .iter()
+            .filter(|s| s.short() == ext && s.cli_name() == command.cli_name())
+        {
+            eprintln!(
+                "note: {}'s command '{}' is not routed: {}'s command of that name came first",
+                shadowed.extension(),
+                shadowed.cli_name(),
+                command.extension()
+            );
+        }
     }
 
     // Known before parsing, so a usage error is written in the format asked
@@ -97,7 +116,7 @@ pub fn run(argv: &[String], builtins: &[String]) -> i32 {
     let matches = match command_line(&ext, &commands).try_get_matches_from(rest) {
         Ok(matches) => matches,
         Err(e) if json && !is_display(&e) => {
-            eprintln!("{}", usage_error(&e));
+            eprintln!("{}", usage_error(&e, requested));
             return INVALID_INPUT_EXIT;
         }
         Err(e) => {
@@ -108,54 +127,93 @@ pub fn run(argv: &[String], builtins: &[String]) -> i32 {
     let Some((name, matches)) = matches.subcommand() else {
         return 2;
     };
-    let Some(command) = commands.iter().find(|c| c.cli_name() == name) else {
+    let Some(command) = commands.iter().copied().find(|c| c.cli_name() == name) else {
         return 2;
     };
 
-    let args = arg_values(&command.contribution.args, matches);
+    let format = format_value(matches);
+    // What the command line set, normalized by the rule MCP sends its
+    // arguments by: the declared defaults, false for an unset flag.
+    let args = match command.normalize(&arg_values(command, matches)) {
+        Ok(args) => args,
+        Err(error) => {
+            eprintln!("{}", refused_args(&error, format));
+            return INVALID_INPUT_EXIT;
+        }
+    };
     let context = CommandContext {
-        format: format_value(matches),
+        format,
         today: chrono::Utc::now().format("%Y-%m-%d").to_string(),
     };
     let cwd = std::fs::canonicalize(&root).unwrap_or(root);
-    match run_command(
+    dispatch(
         &runtime,
-        command.extension,
-        &command.contribution.export,
+        command,
         &env.build_graph(),
         &args,
         &cwd,
         &context,
-    ) {
+        &mut std::io::stdout(),
+        &mut std::io::stderr(),
+    )
+}
+
+/// Run `command`'s export over `graph` in `runtime`, writing what it
+/// printed to `stdout` and `stderr` as it printed it; its exit code. An
+/// export that did not answer a command output (it trapped, or answered
+/// something else: E028) writes why to `stderr` and exits 1.
+#[allow(clippy::too_many_arguments)]
+fn dispatch(
+    runtime: &dyn WasmRuntime,
+    command: &ExtensionCommand,
+    graph: &specforge_graph::Graph,
+    args: &Map<String, Value>,
+    cwd: &Path,
+    context: &CommandContext,
+    stdout: &mut dyn Write,
+    stderr: &mut dyn Write,
+) -> i32 {
+    match run_command(runtime, command, graph, args, cwd, context) {
         Ok(output) => {
-            let _ = std::io::stdout().write_all(&output.stdout);
-            let _ = std::io::stderr().write_all(&output.stderr);
+            let _ = stdout.write_all(output.stdout.as_bytes());
+            let _ = stderr.write_all(output.stderr.as_bytes());
             output.exit_code
         }
-        Err(diagnostic) => {
-            eprint!("{}", failed_run(&diagnostic, context.format));
+        Err(error) => {
+            let _ = stderr.write_all(failed_run(&error, context.format).as_bytes());
             1
         }
     }
 }
 
-/// What the CLI writes to stderr when a command's export did not answer
-/// (it trapped: E028), in the format asked for: under `json` one error
-/// object of the shape commands write (`{code, message, suggestion?}`),
-/// under `human` the diagnostic line.
-fn failed_run(diagnostic: &specforge_common::Diagnostic, format: CommandFormat) -> String {
+/// What the CLI writes to stderr when a command's export did not answer a
+/// command output (E028), in the format asked for: under `json` one
+/// [`CommandError`] (`{code, message, suggestion?}`), the object commands
+/// write; under `human` the diagnostic line.
+fn failed_run(error: &CallError, format: CommandFormat) -> String {
+    let diagnostic = error.diagnostic();
     match format {
         CommandFormat::Json => {
-            let mut error = serde_json::json!({
-                "code": diagnostic.code,
-                "message": diagnostic.message,
-            });
-            if let Some(suggestion) = &diagnostic.suggestion {
-                error["suggestion"] = Value::from(suggestion.as_str());
-            }
-            format!("{error}\n")
+            let error = CommandError {
+                suggestion: diagnostic.suggestion,
+                ..CommandError::new(diagnostic.code, diagnostic.message)
+            };
+            let mut line =
+                serde_json::to_string(&error).expect("command error serialization cannot fail");
+            line.push('\n');
+            line
         }
-        CommandFormat::Human => format!("{}\n", crate::export::render_plain(diagnostic)),
+        CommandFormat::Human => format!("{}\n", crate::export::render_plain(&diagnostic)),
+    }
+}
+
+/// Args the rule refuses after clap parsed them, in the format asked for:
+/// under `json` the `INVALID_INPUT` object; under `human` `error: ` and its
+/// message.
+fn refused_args(error: &ArgError, format: CommandFormat) -> String {
+    match format {
+        CommandFormat::Json => error.to_json().to_string(),
+        CommandFormat::Human => format!("error: {error}"),
     }
 }
 
@@ -163,26 +221,16 @@ fn failed_run(diagnostic: &specforge_common::Diagnostic, format: CommandFormat) 
 /// contributes commands, as `specforge <ext>` routes them: what shell
 /// completions are generated from. An extension whose short name is a
 /// built-in command's is left out (the built-in wins), and so is any
-/// command whose args [`refusal`] refuses.
+/// command the host refuses.
 pub fn with_extension_commands(mut cli: Command, root: &Path) -> Command {
     let runtime = specforge_component::project_runtime(root);
     let env = Environment::load(root, Some(&runtime));
-    let build = &env.registries;
-    let mut by_ext: Vec<(String, Vec<ExtensionCommand>)> = Vec::new();
-    for command in extension_commands(build) {
-        if refusal(command.contribution).is_some() {
-            continue;
-        }
-        let short = ext_short(&build.manifests, command.extension);
-        match by_ext.iter_mut().find(|(ext, _)| *ext == short) {
-            Some((_, commands)) => commands.push(command),
-            None => by_ext.push((short, vec![command])),
-        }
-    }
-    for (ext, commands) in by_ext {
-        if cli.find_subcommand(&ext).is_none() {
+    let routed = ExtensionCommands::build(&env.registries);
+    for ext in routed.shorts() {
+        if cli.find_subcommand(ext).is_none() {
+            let commands: Vec<&ExtensionCommand> = routed.of(ext).collect();
             let about = format!("{ext} extension commands");
-            cli = cli.subcommand(command_line(&ext, &commands).about(about));
+            cli = cli.subcommand(command_line(ext, &commands).about(about));
         }
     }
     cli
@@ -221,63 +269,53 @@ fn is_display(e: &clap::Error) -> bool {
     )
 }
 
-/// A usage error clap caught on an extension's command line, as the error
-/// object commands write under `json` (`{code, message, suggestion?}`):
-/// `INVALID_INPUT`, the message naming the arg as declared, as the SDK's
-/// would (`status must be one of ..., got 'x'`, `missing required arg
-/// 'milestone'`), and clap's suggestion when it has one.
-fn usage_error(e: &clap::Error) -> Value {
+/// A usage error clap caught on an extension's command line (`command`'s,
+/// when the command line named one), as the error object commands write
+/// under `json` (`{code, message, suggestion?}`): `INVALID_INPUT`, with the
+/// message and suggestion of the one arg rule
+/// (`specforge_protocol_types::command_args`), the ones MCP answers for the
+/// same mistake; an unknown option is named as typed, with clap's
+/// suggestion.
+fn usage_error(e: &clap::Error, command: Option<&ExtensionCommand>) -> Value {
     use clap::error::{ContextKind, ContextValue, ErrorKind};
     let text = |kind| match e.get(kind) {
         Some(ContextValue::String(s)) => Some(s.clone()),
         Some(ContextValue::Strings(s)) => s.first().cloned(),
         _ => None,
     };
-    let arg = text(ContextKind::InvalidArg).map(|a| declared_name(&a));
-    let value = text(ContextKind::InvalidValue).unwrap_or_default();
-    let (message, suggestion) = match e.kind() {
-        ErrorKind::InvalidValue => {
-            let arg = arg.unwrap_or_default();
-            let message = match e.get(ContextKind::ValidValue) {
-                Some(ContextValue::Strings(values)) => {
-                    format!("{arg} must be one of {}, got '{value}'", values.join(", "))
-                }
-                _ => format!("invalid value '{value}' for {arg}"),
-            };
-            (message, text(ContextKind::SuggestedValue))
+    // The declared arg clap names, and the value it refused.
+    let declared = text(ContextKind::InvalidArg).and_then(|shown| {
+        let name = declared_name(&shown);
+        command?
+            .declaration()
+            .args
+            .iter()
+            .find(|arg| arg.name == name)
+    });
+    let refused = match (e.kind(), declared) {
+        (ErrorKind::InvalidValue | ErrorKind::ValueValidation, Some(declared)) => {
+            let value = Value::String(text(ContextKind::InvalidValue).unwrap_or_default());
+            normalize_arg(declared, &value).err()
         }
-        ErrorKind::ValueValidation => {
-            let arg = arg.unwrap_or_default();
-            let integer = std::error::Error::source(e)
-                .is_some_and(|s| s.downcast_ref::<std::num::ParseIntError>().is_some());
-            let message = match std::error::Error::source(e) {
-                _ if integer => format!("{arg} must be an integer, got '{value}'"),
-                Some(why) => format!("invalid value '{value}' for {arg}: {why}"),
-                None => format!("invalid value '{value}' for {arg}"),
-            };
-            (message, None)
-        }
-        ErrorKind::MissingRequiredArgument => {
+        (ErrorKind::MissingRequiredArgument, _) => {
             let names = match e.get(ContextKind::InvalidArg) {
-                Some(ContextValue::Strings(args)) => args
-                    .iter()
-                    .map(|a| format!("'{}'", declared_name(a)))
-                    .collect::<Vec<_>>(),
+                Some(ContextValue::Strings(args)) => {
+                    args.iter().map(|a| declared_name(a)).collect()
+                }
                 _ => Vec::new(),
             };
-            let s = if names.len() > 1 { "s" } else { "" };
-            (
-                format!("missing required arg{s} {}", names.join(", ")),
-                None,
-            )
+            Some(ArgError::Missing { names })
         }
-        ErrorKind::UnknownArgument => (
-            format!(
-                "unknown argument '{}'",
-                text(ContextKind::InvalidArg).unwrap_or_default()
-            ),
-            text(ContextKind::SuggestedArg),
-        ),
+        (ErrorKind::UnknownArgument, _) => Some(ArgError::Unknown {
+            name: text(ContextKind::InvalidArg).unwrap_or_default(),
+            suggestion: text(ContextKind::SuggestedArg),
+        }),
+        _ => None,
+    };
+    if let Some(refused) = refused {
+        return refused.to_json();
+    }
+    let (message, suggestion) = match e.kind() {
         ErrorKind::InvalidSubcommand => (
             format!(
                 "unknown command '{}'",
@@ -294,11 +332,14 @@ fn usage_error(e: &clap::Error) -> Value {
             )
         }
     };
-    let mut error = serde_json::json!({"code": "INVALID_INPUT", "message": message});
-    if let Some(suggestion) = suggestion {
-        error["suggestion"] = Value::from(suggestion);
-    }
-    error
+    serde_json::to_value(CommandError {
+        suggestion,
+        ..CommandError::new(
+            specforge_protocol_types::command_args::INVALID_INPUT,
+            message,
+        )
+    })
+    .expect("a command error serializes to a JSON object")
 }
 
 /// The declared name of an arg as clap shows it: `<MILESTONE>` is
@@ -333,23 +374,19 @@ fn project_path(args: &[String]) -> PathBuf {
     PathBuf::from(".")
 }
 
-/// `specforge <ext>`'s command line: one subcommand per command, none of
-/// them refused by [`refusal`].
-fn command_line(ext: &str, commands: &[ExtensionCommand]) -> Command {
+/// `specforge <ext>`'s command line: one subcommand per command the host
+/// does not refuse.
+fn command_line(ext: &str, commands: &[&ExtensionCommand]) -> Command {
     let mut cli = Command::new(ext.to_string())
         .bin_name(format!("specforge {ext}"))
         .subcommand_required(true)
         .arg_required_else_help(true);
-    for command in commands {
-        let contribution = command.contribution;
-        if refusal(contribution).is_some() {
-            continue;
+    for command in commands.iter().filter(|c| c.refusal().is_none()) {
+        let mut sub = Command::new(command.cli_name()).about(command.title().to_string());
+        if !command.description().is_empty() {
+            sub = sub.long_about(command.description().to_string());
         }
-        let mut sub = Command::new(command.cli_name()).about(contribution.title.clone());
-        if !contribution.description.is_empty() {
-            sub = sub.long_about(contribution.description.clone());
-        }
-        for arg in &contribution.args {
+        for arg in command.args() {
             sub = sub.arg(declared_arg(arg));
         }
         sub = sub
@@ -375,32 +412,40 @@ fn command_line(ext: &str, commands: &[ExtensionCommand]) -> Command {
     cli
 }
 
-/// A declared arg on the command line: required ones are positional, but a
-/// bool, which is always a `--flag` (set or not).
-fn declared_arg(declared: &CommandArg) -> Arg {
+/// An arg as clap takes it, from its derived shape: a positional, a
+/// `--option <VALUE>` or a `--flag`; an integer at least its minimum (a
+/// negative one given as a value, not taken for an option), one of its
+/// values; its default shown and filled.
+fn declared_arg(declared: &ExtensionArg) -> Arg {
     let mut arg = Arg::new(declared.name.clone());
-    let flag = matches!(declared.arg_type, CommandArgType::Bool);
-    if !flag {
-        arg = arg.value_name(declared.name.to_uppercase());
-    }
-    if declared.required && !flag {
-        arg = arg.required(true);
-    } else {
-        arg = arg.long(declared.name.replace('_', "-"));
-    }
+    arg = match &declared.shape {
+        ArgShape::Positional { .. } => arg.value_name(declared.name.to_uppercase()).required(true),
+        ArgShape::Option { long } => arg
+            .long(long.clone())
+            .value_name(declared.name.to_uppercase()),
+        ArgShape::Flag { long } => arg.long(long.clone()).action(ArgAction::SetTrue),
+    };
     if let Some(help) = &declared.description {
         arg = arg.help(help.clone());
     }
-    arg = match &declared.arg_type {
-        CommandArgType::Bool => arg.action(ArgAction::SetTrue),
-        CommandArgType::Integer => arg.value_parser(clap::value_parser!(i64)),
-        CommandArgType::Enum { values } => arg.value_parser(PossibleValuesParser::new(values)),
-        CommandArgType::String | CommandArgType::Path => arg,
+    arg = match &declared.value {
+        ArgValue::Integer { minimum } => {
+            let integer = clap::value_parser!(i64);
+            let arg = arg.allow_negative_numbers(true);
+            match minimum {
+                Some(minimum) => arg.value_parser(integer.range(*minimum..)),
+                None => arg.value_parser(integer),
+            }
+        }
+        ArgValue::OneOf(values) => arg.value_parser(PossibleValuesParser::new(values)),
+        ArgValue::Text | ArgValue::Path | ArgValue::Flag => arg,
     };
-    if let Some(default) = &declared.default_value
-        && !matches!(declared.arg_type, CommandArgType::Bool)
-    {
-        arg = arg.default_value(default.clone());
+    if let Some(default) = &declared.default {
+        let shown = match default {
+            Value::String(s) => s.clone(),
+            other => other.to_string(),
+        };
+        arg = arg.default_value(shown);
     }
     arg
 }
@@ -413,14 +458,17 @@ fn format_value(matches: &ArgMatches) -> CommandFormat {
         .unwrap_or_default()
 }
 
-/// The args the command line set (or defaulted), typed as declared; never
-/// the host's own options.
-fn arg_values(declared: &[CommandArg], matches: &ArgMatches) -> Map<String, Value> {
+/// The args the user set on the command line, typed as clap parsed them;
+/// never a default (the rule fills those) nor the host's own options.
+fn arg_values(command: &ExtensionCommand, matches: &ArgMatches) -> Map<String, Value> {
     let mut args = Map::new();
-    for arg in declared {
-        let value = match arg.arg_type {
-            CommandArgType::Bool => Some(Value::Bool(matches.get_flag(&arg.name))),
-            CommandArgType::Integer => matches.get_one::<i64>(&arg.name).map(|n| Value::from(*n)),
+    for arg in command.args() {
+        if matches.value_source(&arg.name) != Some(ValueSource::CommandLine) {
+            continue;
+        }
+        let value = match arg.value {
+            ArgValue::Flag => Some(Value::Bool(matches.get_flag(&arg.name))),
+            ArgValue::Integer { .. } => matches.get_one::<i64>(&arg.name).map(|n| Value::from(*n)),
             _ => matches
                 .get_one::<String>(&arg.name)
                 .map(|s| Value::from(s.as_str())),
@@ -435,26 +483,28 @@ fn arg_values(declared: &[CommandArg], matches: &ArgMatches) -> Map<String, Valu
 #[cfg(test)]
 mod tests {
     use super::*;
-    use specforge_registry::CommandContribution;
+    use specforge_protocol_types::{CommandArgDescriptor, CommandArgType, CommandDescriptor};
     use specforge_test_macros::test as specforge_test;
+    use specforge_wasm::{CallFailure, Operation};
 
     fn arg(
         name: &str,
         arg_type: CommandArgType,
         required: bool,
         default: Option<&str>,
-    ) -> CommandArg {
-        CommandArg {
+    ) -> CommandArgDescriptor {
+        CommandArgDescriptor {
             name: name.into(),
             arg_type,
             required,
             default_value: default.map(str::to_string),
             description: None,
+            minimum: None,
         }
     }
 
-    fn contribution() -> CommandContribution {
-        CommandContribution {
+    fn contribution() -> CommandDescriptor {
+        CommandDescriptor {
             id: "milestone_completion".into(),
             title: "Show progress".into(),
             description: String::new(),
@@ -477,20 +527,26 @@ mod tests {
         }
     }
 
+    /// The args `specforge x <argv>` sends the export of `c`, and the
+    /// format asked for.
+    fn sent_by(
+        c: &CommandDescriptor,
+        argv: &[&str],
+    ) -> Result<(Map<String, Value>, CommandFormat), clap::Error> {
+        let command = ExtensionCommand::new("@acme/x", "x", c);
+        let matches = command_line("x", &[&command])
+            .try_get_matches_from(std::iter::once("specforge x").chain(argv.iter().copied()))?;
+        let (name, sub) = matches.subcommand().unwrap();
+        assert_eq!(name, command.cli_name());
+        assert_eq!(sub.get_one::<String>(PATH).map(String::as_str), Some("."));
+        let args = command.normalize(&arg_values(&command, sub)).unwrap();
+        Ok((args, format_value(sub)))
+    }
+
     fn parse_with_format(
         argv: &[&str],
     ) -> Result<(Map<String, Value>, CommandFormat), clap::Error> {
-        let c = contribution();
-        let commands = [ExtensionCommand {
-            extension: "@acme/x",
-            contribution: &c,
-        }];
-        let matches = command_line("x", &commands)
-            .try_get_matches_from(std::iter::once("specforge x").chain(argv.iter().copied()))?;
-        let (name, sub) = matches.subcommand().unwrap();
-        assert_eq!(name, "milestone-completion");
-        assert_eq!(sub.get_one::<String>(PATH).map(String::as_str), Some("."));
-        Ok((arg_values(&c.args, sub), format_value(sub)))
+        sent_by(&contribution(), argv)
     }
 
     fn parse(argv: &[&str]) -> Result<Map<String, Value>, clap::Error> {
@@ -536,47 +592,43 @@ mod tests {
     fn a_required_bool_is_a_flag_and_a_repeated_flag_is_refused() {
         let mut c = contribution();
         c.args.push(arg("strict", CommandArgType::Bool, true, None));
-        let commands = [ExtensionCommand {
-            extension: "@acme/x",
-            contribution: &c,
-        }];
         let parse = |argv: &[&str]| {
-            command_line("x", &commands)
-                .try_get_matches_from(["specforge x", "milestone-completion"].iter().chain(argv))
+            let argv: Vec<&str> = std::iter::once("milestone-completion")
+                .chain(argv.iter().copied())
+                .collect();
+            sent_by(&c, &argv).map(|(args, _)| args)
         };
-        let matches = parse(&["m1", "--strict"]).unwrap();
-        let (_, sub) = matches.subcommand().unwrap();
-        assert_eq!(arg_values(&c.args, sub)["strict"], true);
-        let matches = parse(&["m1"]).unwrap();
-        let (_, sub) = matches.subcommand().unwrap();
-        assert_eq!(arg_values(&c.args, sub)["strict"], false);
+        assert_eq!(parse(&["m1", "--strict"]).unwrap()["strict"], true);
+        assert_eq!(parse(&["m1"]).unwrap()["strict"], false);
         assert!(parse(&["m1", "--limit", "1", "--limit", "2"]).is_err());
     }
 
-    #[specforge_test(
-        behavior = "dispatch_surface_command",
-        verify = "a command declaring an arg named format is refused on the command line"
-    )]
-    fn an_arg_taking_a_host_option_or_another_args_name_is_refused() {
-        let with = |args: Vec<CommandArg>| CommandContribution {
-            args,
-            ..contribution()
+    #[test]
+    fn a_count_below_its_minimum_is_refused_and_a_negative_integer_is_a_value() {
+        let mut c = contribution();
+        c.args[1].minimum = Some(0);
+        c.args
+            .push(arg("shift", CommandArgType::Integer, false, None));
+        let parse = |argv: &[&str]| {
+            let argv: Vec<&str> = ["milestone-completion", "m1"]
+                .into_iter()
+                .chain(argv.iter().copied())
+                .collect();
+            sent_by(&c, &argv).map(|(args, _)| args)
         };
-        assert_eq!(refusal(&contribution()), None);
-        for name in ["path", "format", "help"] {
-            let c = with(vec![arg(name, CommandArgType::String, false, None)]);
-            assert_eq!(
-                refusal(&c),
-                Some(format!("its arg '{name}' takes the host's --{name}"))
-            );
-        }
-        let twice = with(vec![
-            arg("all_kinds", CommandArgType::Bool, false, None),
-            arg("all-kinds", CommandArgType::Bool, false, None),
-        ]);
+        assert_eq!(parse(&["--shift", "-2"]).unwrap()["shift"], -2);
+        assert_eq!(parse(&["--limit", "0"]).unwrap()["limit"], 0);
+        let refused = parse(&["--limit", "-1"]).unwrap_err();
+        let command = ExtensionCommand::new("@acme/x", "x", &c);
         assert_eq!(
-            refusal(&twice),
-            Some("it declares the arg 'all-kinds' twice".into())
+            usage_error(&refused, Some(&command)),
+            serde_json::json!({"code": "INVALID_INPUT",
+                "message": "limit must be a non-negative integer, got -1"})
+        );
+        let refused = parse(&["--limit", "abc"]).unwrap_err();
+        assert_eq!(
+            usage_error(&refused, Some(&command))["message"],
+            "limit must be a non-negative integer, got 'abc'"
         );
     }
 
@@ -585,22 +637,133 @@ mod tests {
         verify = "under --format json a command whose export trapped prints one JSON error object"
     )]
     fn a_trapped_command_reports_in_the_format_asked_for() {
-        let trap = specforge_common::Diagnostic::error(
-            "E028",
-            "CLI command cmd__x() trapped: unreachable: the command panicked",
+        let trap = CallError::new(
+            Operation::Command,
+            "@acme/x",
+            "cmd__x",
+            CallFailure::Trapped {
+                kind: "call_failed".into(),
+                message: "unreachable: the command panicked".into(),
+            },
         );
         let json = failed_run(&trap, CommandFormat::Json);
         let error: Value = serde_json::from_str(&json).unwrap();
         assert_eq!(
             error,
             serde_json::json!({"code": "E028",
-                "message": "CLI command cmd__x() trapped: unreachable: the command panicked"})
+                "message": "command cmd__x() of '@acme/x' trapped: call_failed: unreachable: the command panicked",
+                "suggestion": "report the failure to the author of '@acme/x', or check it is installed and up to date"})
         );
         assert!(json.ends_with('\n') && json.lines().count() == 1, "{json}");
         let human = failed_run(&trap, CommandFormat::Human);
         assert!(
-            human.starts_with("error[E028]: CLI command cmd__x() trapped"),
+            human.starts_with("error[E028]: command cmd__x() of '@acme/x' trapped"),
             "{human}"
+        );
+    }
+
+    #[specforge_test(
+        behavior = "dispatch_surface_command",
+        verify = "a command whose output is not a CommandOutput is an ExtensionError, not exit 0 with the raw bytes"
+    )]
+    fn a_command_answering_no_command_output_exits_1_with_e028() {
+        use specforge_wasm::runtime::WasmCallResult;
+        use specforge_wasm::testing::InProcessRuntime;
+
+        let c = contribution();
+        let command = ExtensionCommand::new("@acme/x", "x", &c);
+        for format in CommandFormat::ALL {
+            let runtime = InProcessRuntime::new().answer_raw(
+                "@acme/x",
+                &c.export,
+                WasmCallResult::Ok(b"not json at all".to_vec()),
+            );
+            let (mut stdout, mut stderr) = (Vec::new(), Vec::new());
+            let context = CommandContext {
+                format,
+                today: "2026-10-05".into(),
+            };
+            let code = dispatch(
+                &runtime,
+                &command,
+                &specforge_graph::Graph::new(),
+                &Map::new(),
+                Path::new("/p"),
+                &context,
+                &mut stdout,
+                &mut stderr,
+            );
+            assert_eq!(code, 1, "{format:?}");
+            assert!(stdout.is_empty(), "the raw bytes are not printed");
+            let stderr = String::from_utf8(stderr).unwrap();
+            let message = "command cmd__x_milestone_completion() of '@acme/x' answered output \
+                           that is not a CommandOutput: ";
+            match format {
+                CommandFormat::Json => {
+                    let error: Value = serde_json::from_str(&stderr).unwrap();
+                    assert_eq!(error["code"], "E028");
+                    assert!(
+                        error["message"].as_str().unwrap().starts_with(message),
+                        "{error}"
+                    );
+                }
+                CommandFormat::Human => assert!(
+                    stderr.starts_with(&format!("error[E028]: {message}")),
+                    "{stderr}"
+                ),
+            }
+        }
+    }
+
+    /// The args `specforge x <argv>` sends the export of `declared`, a
+    /// `CommandDescriptor` as JSON.
+    fn sent(declared: Value, argv: &[&str]) -> Value {
+        let c: CommandDescriptor = serde_json::from_value(declared).unwrap();
+        Value::Object(sent_by(&c, argv).unwrap().0)
+    }
+
+    /// What the command line sends for the declarations
+    /// `crates/specforge-mcp/tests/surface_wiring.rs` sends over MCP
+    /// (`ordered_command`, `strict_command`): `ExtensionCommand::normalize`
+    /// of what was typed, as MCP sends `normalize` of its arguments.
+    #[specforge_test(
+        behavior = "dispatch_surface_command",
+        verify = "the CLI and MCP send a command's export the same args for the same input, its declared defaults applied by the host"
+    )]
+    fn the_cli_sends_the_args_the_derivation_normalizes() {
+        let ordered = serde_json::json!({"id": "ordered", "title": "Ordered",
+            "description": "List in order", "export": "cmd__ordered",
+            "args": [{"name": "order", "arg_type": {"enum": {"values": ["asc", "desc"]}},
+                      "default_value": "desc"},
+                     {"name": "all", "arg_type": "bool"}]});
+        assert_eq!(
+            sent(ordered.clone(), &["ordered"]),
+            serde_json::json!({"order": "desc", "all": false})
+        );
+        // The same map MCP sends for no arguments.
+        let derived = ExtensionCommand::new(
+            "@test/cmds",
+            "x",
+            &serde_json::from_value(ordered.clone()).unwrap(),
+        );
+        assert_eq!(
+            sent(ordered.clone(), &["ordered"]),
+            Value::Object(derived.normalize(&Map::new()).unwrap())
+        );
+        assert_eq!(
+            sent(ordered, &["ordered", "--order", "asc", "--all"]),
+            serde_json::json!({"order": "asc", "all": true})
+        );
+        let strict = serde_json::json!({"id": "strict", "title": "Strict",
+            "description": "Check strictly", "export": "cmd__strict",
+            "args": [{"name": "strict", "arg_type": "bool", "required": true}]});
+        assert_eq!(
+            sent(strict.clone(), &["strict"]),
+            serde_json::json!({"strict": false})
+        );
+        assert_eq!(
+            sent(strict, &["strict", "--strict"]),
+            serde_json::json!({"strict": true})
         );
     }
 

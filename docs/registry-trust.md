@@ -29,7 +29,7 @@ registries it trusts in `specforge.json`:
 
 ## What is verified
 
-Every registry install performs three checks, in order:
+Every registry install performs four checks, in order:
 
 1. **Integrity** — the downloaded wasm bytes must match the `sha256` the
    registry reports (transfer-level check).
@@ -37,12 +37,16 @@ Every registry install performs three checks, in order:
    Ed25519 signature over the canonical payload
    `{name, version, wasmSha256, manifestSha256, signedAt}`. The client
    re-derives the payload from the **downloaded wasm bytes** and the
-   **manifest the registry serves** and verifies the signature with the public
+   **manifest the registry serves** (the package's extension declaration,
+   which `specforge publish` derives from the binary; ADR 0012) and verifies the signature with the public
    key carried inside the signature object. A tampered binary *or* a swapped
    manifest breaks verification.
 3. **Key policy (TOFU)** — on the first verified install the publisher's key id
    is **pinned** (recorded in `specforge.lock` and in
    `~/.specforge/known-keys.json`). Later installs must present the same key.
+4. **Declaration** — once loaded, the binary's own declaration must equal the
+   served one, field for field; the peers the served one declares are what the
+   version-diamond check decided on before anything was loaded.
 
 The registry stores and serves signatures, but is **not the trust anchor**:
 even a fully compromised registry cannot forge a valid publisher signature —
@@ -54,6 +58,8 @@ it can only replay previously signed packages (see [residual risks](#residual-ri
 |---|---|
 | Reply (or its manifest) names another package or version than requested | **Always refused** ([R-TRUST-004](diagnostics.md#r-trust-004)), before any key is pinned |
 | Manifest missing or unreadable | **Always refused** ([R-OPS-004](diagnostics.md#r-ops-004)): it declares the peers the diamond check needs, so it is never read as "no peers" |
+| Manifest published before extension declarations (it carries `manifestVersion`) | **Always refused** ([R-OPS-004](diagnostics.md#r-ops-004)), suggesting to re-publish the package with this version of `specforge publish` |
+| Binary declares other than the served declaration | **Always refused** ([R-TRUST-004](diagnostics.md#r-trust-004)), naming the first category that differs |
 | Package unsigned | Refused. `--allow-unsigned` accepts the risk explicitly |
 | Signature invalid (tampered wasm/manifest) | **Always refused** — `--allow-unsigned` does not bypass a broken signature |
 | Key differs from the pinned key | Refused with both key ids; interactive re-pin offered (`y/N`); `--yes` accepts non-interactively for CI |

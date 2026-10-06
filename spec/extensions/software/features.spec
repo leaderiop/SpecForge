@@ -31,7 +31,7 @@ feature se_core_entity_kinds "Core Entity Kind Registration" {
     testability flags, verify kind allowlists, LSP metadata (semantic
     tokens, icons), DOT shapes, typed field definitions with edge
     mappings, and declarative validation rules. Registration follows
-    the zero-entity core protocol defined in ManifestV2.
+    the zero-entity core protocol defined in ExtensionDeclaration.
   """
 }
 

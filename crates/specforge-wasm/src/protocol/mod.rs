@@ -1,15 +1,7 @@
-mod bridge;
-mod detect;
-mod error;
-mod host;
-mod types;
+//! The one loader that reads an extension's declaration
+//! ([`load_declaration`], ADR 0012). The wire types are
+//! `specforge_protocol_types`, shared with the SDK.
 
-pub use bridge::{
-    populate_from_protocol, protocol_extension_to_manifest, protocol_surfaces_to_manifest,
-};
-pub use detect::{ExtensionMode, detect_extension_mode, find_wasm_binary};
-pub use error::ProtocolError;
-pub use host::{ExtensionDescriptions, ProtocolExtension, ProtocolHost, load_protocol_extension};
-pub use types::*;
+mod load;
 
-pub use specforge_protocol_types::{PROTOCOL_VERSION, SUPPORTED_CATEGORIES};
+pub use load::{Loaded, load_declaration};

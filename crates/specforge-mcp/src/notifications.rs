@@ -9,6 +9,7 @@ pub const DIAGNOSTICS_CHANNEL: &str = "specforge/diagnosticsChanged";
 use crate::state::McpState;
 use crate::subscriptions::subscribers;
 use specforge_common::Diagnostic;
+use specforge_project::Update;
 pub use specforge_project::{EdgeChange, GraphDelta, compute_graph_delta};
 
 pub struct DiagnosticsDelta {
@@ -121,17 +122,18 @@ pub fn format_diagnostics_notification(delta: &DiagnosticsDelta) -> Value {
     })
 }
 
-/// Queue delta notifications after a (re)compile (C9-01): `graph_delta` is
-/// what the compile changed in the graph, and the previous diagnostics are
-/// diffed against the fresh ones. One notification per subscribed channel
-/// goes onto the server→client outbox.
+/// Queue delta notifications after an update of the served project
+/// (C9-01): its delta is what changed in the graph, and the previous
+/// diagnostics are diffed against the fresh ones. One notification per
+/// subscribed channel goes onto the server→client outbox.
 /// Channels without subscribers are suppressed, and unchanged state emits
 /// nothing.
 pub fn enqueue_compile_notifications(
     state: &mut McpState,
-    graph_delta: &GraphDelta,
+    update: &Update,
     previous_diagnostics: &[Diagnostic],
 ) {
+    let graph_delta = &update.delta;
     // Streams opened with subscriptions/listen (MCP 2026-07-28) hear that a
     // resource they listen to changed.
     if !state.listens.is_empty() {

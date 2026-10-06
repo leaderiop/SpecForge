@@ -1,0 +1,20 @@
+{
+  "category": "validation_rules",
+  "items": [
+    {
+      "check": "field_value_constraint",
+      "code": "G101",
+      "constraint": {
+        "kind": "matches",
+        "pattern": "^(warm|formal)$",
+        "values": []
+      },
+      "edge_type": null,
+      "field": "style",
+      "message_template": "greeting '{id}' has unknown style",
+      "severity": "error",
+      "target_kind": "greeting",
+      "wasm_function": null
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+---
+source: crates/specforge-cli/tests/extension_surfaces.rs
+expression: help
+---
+For each product kind with a lifecycle, how many entities have each status.
+
+Usage: specforge product bulk-status [OPTIONS]
+
+Options:
+      --path <PATH>
+          Path to the project
+          
+          [default: .]
+
+      --format <FORMAT>
+          Output format
+          
+          [default: human]
+          [possible values: human, json]
+
+  -h, --help
+          Print help (see a summary with '-h')

@@ -1,11 +1,9 @@
 use serde::Deserialize;
-use specforge_emitter::outline::{
-    DependencyDepth, OutlineDetail, OutlineFormat, OutlineIntermediate_from_manifests,
-    OutlineOptions, render,
-};
+use specforge_emitter::outline::{DependencyDepth, OutlineDetail, OutlineFormat, OutlineOptions};
 
+use super::model::parse;
 use crate::args::lenient;
-use crate::state::McpState;
+use crate::target::Call;
 use crate::tool::ToolOutcome;
 
 #[derive(Debug, Deserialize)]
@@ -18,59 +16,21 @@ pub struct Args {
     deps: Option<String>,
 }
 
-pub fn call(state: &McpState, args: Args) -> ToolOutcome {
-    let format = args.format.as_deref().unwrap_or("json");
-    let fields = args.fields.as_deref().unwrap_or("keys");
-    let deps = args.deps.as_deref().unwrap_or("direct");
+/// `specforge.outline_extensions`: the outline operation over the served
+/// project.
+pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
+    match options(&args) {
+        Ok(options) => ToolOutcome::text(specforge_ops::model::outline(&call.view(), &options)),
+        Err(refused) => refused,
+    }
+}
 
-    let outline_format = match format {
-        "markdown" => OutlineFormat::Markdown,
-        "mermaid" => OutlineFormat::Mermaid,
-        "dot" => OutlineFormat::Dot,
-        "json" => OutlineFormat::Json,
-        _ => {
-            return ToolOutcome::invalid_input(
-                "format",
-                format!(
-                    "Unknown format: {}. Expected: markdown, mermaid, dot, json",
-                    format
-                ),
-            );
-        }
-    };
-
-    let detail = match fields {
-        "none" => OutlineDetail::None,
-        "keys" => OutlineDetail::Keys,
-        "all" => OutlineDetail::All,
-        _ => {
-            return ToolOutcome::invalid_input(
-                "fields",
-                format!("Unknown fields: {}. Expected: none, keys, all", fields),
-            );
-        }
-    };
-
-    let dep_depth = match deps {
-        "direct" => DependencyDepth::Direct,
-        "effective" => DependencyDepth::Effective,
-        "full" => DependencyDepth::Full,
-        _ => {
-            return ToolOutcome::invalid_input(
-                "deps",
-                format!("Unknown deps: {}. Expected: direct, effective, full", deps),
-            );
-        }
-    };
-
-    let options = OutlineOptions {
-        format: outline_format,
-        detail,
-        deps: dep_depth,
-    };
-
-    let outline = OutlineIntermediate_from_manifests(&state.registries().manifests);
-    let output = render(&outline, &options);
-
-    ToolOutcome::text(output)
+/// The outline options the arguments name (defaults: json, key fields,
+/// direct dependencies).
+fn options(args: &Args) -> Result<OutlineOptions, ToolOutcome> {
+    Ok(OutlineOptions {
+        format: parse::<OutlineFormat>("format", args.format.as_deref().unwrap_or("json"))?,
+        detail: parse::<OutlineDetail>("fields", args.fields.as_deref().unwrap_or("keys"))?,
+        deps: parse::<DependencyDepth>("deps", args.deps.as_deref().unwrap_or("direct"))?,
+    })
 }
