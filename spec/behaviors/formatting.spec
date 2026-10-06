@@ -341,7 +341,10 @@ behavior lsp_format_document "LSP Format Document" {
     When the LSP server receives a textDocument/formatting request,
     it MUST format the full document using the formatting engine and
     return a list of TextEdit operations. The result MUST be identical
-    to running specforge format on the same file. TextEdit coordinates
+    to running specforge format on the same file.
+    The configuration is the one specforge format uses for that file: the
+    .specforgefmt.toml nearest the document's directory within its project,
+    else the defaults (see lsp_respect_editor_config). TextEdit coordinates
     use 0-indexed lines and columns (LSP standard). TextEdit operations
     in a response MUST NOT overlap. When the document contains parse
     errors, the server MUST format well-formed regions and leave error
@@ -410,16 +413,21 @@ behavior lsp_respect_editor_config "LSP Respect Editor Config" {
     lsp_initialized_fired "LSP server has been initialized and editor settings are available"
   }
   ensures {
-    config_precedence_enforced ".specforgefmt.toml takes precedence over editor settings when it exists"
-    editor_fallback_applied    "editor-level tab size and insert-spaces are used when no config file exists"
+    config_precedence_enforced "inside a project, the project's format configuration (its .specforgefmt.toml, else the defaults) is used and editor settings are ignored"
+    editor_fallback_applied    "outside any project, editor-level tab size and insert-spaces are used"
   }
   contract   """
-    When no .specforgefmt.toml exists, the LSP formatting MUST respect
-    editor-level settings for tab size and insert-spaces. When a
-    .specforgefmt.toml exists, it MUST take precedence over editor settings.
+    Inside a project (an ancestor directory holds specforge.json), LSP
+    formatting MUST use the configuration specforge format uses for the
+    file: the nearest .specforgefmt.toml, else the defaults. Editor settings
+    MUST NOT change it, so a file the editor formats passes
+    specforge format --check. Outside any project (an unsaved buffer, a file
+    with no specforge.json above it), LSP formatting MUST use the editor's
+    tab size and insert-spaces.
   """
-  verify unit "editor tab size used when no config file exists"
+  verify unit "editor settings are used for a document outside any project"
   verify unit "config file takes precedence over editor settings"
+  verify unit "a project without a config file formats with the defaults, not the editor's settings"
   verify contract "LSP Respect Editor Config: editor config respect holds — lsp_initialized_fired, config_precedence_enforced, editor_fallback_applied"
 }
 

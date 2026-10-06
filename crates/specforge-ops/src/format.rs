@@ -1,13 +1,241 @@
-//! `specforge format` and the MCP `specforge.format` tool: one run over a
-//! project's `.spec` files.
+//! `specforge format`, MCP `specforge.format` and the LSP's formatting
+//! requests: one document, or every source of a project, formatted with the
+//! configuration `specforge format` uses for each file (ADR 0021).
 //!
 //! A file that can't be read or written is recorded and the run goes on, so
 //! a failure on one file never leaves the others half-done. The surfaces
-//! present what happened: the CLI prints it, MCP returns it.
+//! present what happened: the CLI prints it, MCP returns it, the LSP turns
+//! it into edits.
 
-use specforge_common::Diagnostic;
-use specforge_formatter::{FormatConfig, discover_targets, format_source, load_config};
+use specforge_common::{Diagnostic, Sym, codes, find_project_root};
+use specforge_formatter::config::{find_config_path, read_config_file};
+use specforge_formatter::{
+    FormatConfig, TextEdit, compute_edits, discover_targets, format_range, format_source,
+    load_config,
+};
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+
+/// Where a document's text belongs, which decides its format configuration.
+#[derive(Debug, Clone, Copy)]
+pub enum Place<'a> {
+    /// A file on disk. Its project is the nearest ancestor holding
+    /// `specforge.json`; `.specforgefmt.toml` discovery starts at the file's
+    /// directory and stops at that root. Outside any project it is formatted
+    /// as [`Place::Detached`].
+    File(&'a Path),
+    /// Text of a project that is no file (`format --stdin`): discovery
+    /// starts at `dir` and stops at `root`.
+    InProject { root: &'a Path, dir: &'a Path },
+    /// Text outside any project (an unsaved editor buffer).
+    Detached,
+}
+
+/// An editor's indentation settings (LSP `FormattingOptions`). They apply
+/// only to a document outside any project.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct EditorOptions {
+    pub tab_size: usize,
+    pub insert_spaces: bool,
+}
+
+impl EditorOptions {
+    /// The defaults, indented as the editor says.
+    fn config(self) -> FormatConfig {
+        FormatConfig {
+            indent_width: self.tab_size,
+            use_tabs: !self.insert_spaces,
+            ..FormatConfig::default()
+        }
+    }
+}
+
+/// Lines to format, 0-based and inclusive. The engine widens them to the
+/// whole blocks they touch.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Lines {
+    pub first: usize,
+    pub last: usize,
+}
+
+/// Which configuration formatted a document.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ConfigSource {
+    /// The `.specforgefmt.toml` nearest the document, within its project.
+    File(PathBuf),
+    /// A project without one: the defaults, as `specforge format` uses.
+    Defaults,
+    /// No project: the editor's settings (the defaults without any).
+    Editor,
+}
+
+/// One formatted document.
+#[derive(Debug, Clone)]
+pub struct FormattedDocument<'a> {
+    source: &'a str,
+    /// The whole document, formatted (only the widened lines change for a range).
+    pub formatted: String,
+    pub config: FormatConfig,
+    pub config_source: ConfigSource,
+    /// W141 when the configuration file is invalid (named in the message),
+    /// then one W142 per region kept verbatim, spanned at its document
+    /// lines; the span's file is the document's path (empty without one).
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+impl FormattedDocument<'_> {
+    /// Whether formatting changes the text.
+    pub fn changed(&self) -> bool {
+        self.formatted != self.source
+    }
+
+    /// The edits that turn the source into `formatted`: 0-based lines, byte
+    /// columns, non-overlapping, in order. A surface converts the columns.
+    pub fn edits(&self) -> Vec<TextEdit> {
+        compute_edits(self.source, &self.formatted)
+    }
+
+    /// Whether every region parsed (no W142): the text is in canonical form
+    /// when this holds and nothing changed.
+    pub fn complete(&self) -> bool {
+        !self.diagnostics.iter().any(|d| d.is(codes::W142))
+    }
+}
+
+/// Format `text`, which belongs at `place`: the whole document, or the
+/// blocks `lines` touch. Inside a project its `.specforgefmt.toml` (else the
+/// defaults) decides, never `editor`; outside one, `editor` (else the
+/// defaults).
+pub fn document<'a>(
+    place: Place<'_>,
+    text: &'a str,
+    lines: Option<Lines>,
+    editor: Option<EditorOptions>,
+) -> FormattedDocument<'a> {
+    let mut configs = Configs::default();
+    let (file, resolved) = match place {
+        Place::File(path) => {
+            let dir = directory_of(path);
+            let resolved = match configs.project_of(&dir) {
+                Some(root) => configs.resolve(&dir, &root),
+                None => Resolved::editor(editor),
+            };
+            (Some(path), resolved)
+        }
+        Place::InProject { root, dir } => (None, configs.resolve(dir, root)),
+        Place::Detached => (None, Resolved::editor(editor)),
+    };
+    format_text(resolved, text, lines, file)
+}
+
+/// The directory `file` is in (`.` for a bare file name).
+fn directory_of(file: &Path) -> PathBuf {
+    match file.parent() {
+        Some(dir) if !dir.as_os_str().is_empty() => dir.to_path_buf(),
+        _ => PathBuf::from("."),
+    }
+}
+
+/// A document's configuration, where it came from, and what reading it
+/// reported (only the first time a run reads that file).
+struct Resolved {
+    config: FormatConfig,
+    source: ConfigSource,
+    diagnostics: Vec<Diagnostic>,
+}
+
+impl Resolved {
+    /// Outside any project: the editor's settings, else the defaults.
+    fn editor(editor: Option<EditorOptions>) -> Resolved {
+        Resolved {
+            config: editor.map_or_else(FormatConfig::default, EditorOptions::config),
+            source: ConfigSource::Editor,
+            diagnostics: Vec::new(),
+        }
+    }
+}
+
+/// The configurations of one run: one project lookup per directory, one
+/// walk per directory and project, one read per configuration file. A
+/// file's W141 goes out the first time it is used.
+#[derive(Default)]
+struct Configs {
+    projects: HashMap<PathBuf, Option<PathBuf>>,
+    found: HashMap<(PathBuf, PathBuf), Option<PathBuf>>,
+    read: HashMap<PathBuf, FormatConfig>,
+}
+
+impl Configs {
+    /// The root of the project `dir` is in.
+    fn project_of(&mut self, dir: &Path) -> Option<PathBuf> {
+        self.projects
+            .entry(dir.to_path_buf())
+            .or_insert_with(|| find_project_root(dir))
+            .clone()
+    }
+
+    /// The configuration of a document in `dir`, in the project at `root`:
+    /// the nearest `.specforgefmt.toml` up to `root`, else the defaults.
+    fn resolve(&mut self, dir: &Path, root: &Path) -> Resolved {
+        let file = self
+            .found
+            .entry((dir.to_path_buf(), root.to_path_buf()))
+            .or_insert_with(|| find_config_path(dir, root))
+            .clone();
+        let Some(file) = file else {
+            return Resolved {
+                config: FormatConfig::default(),
+                source: ConfigSource::Defaults,
+                diagnostics: Vec::new(),
+            };
+        };
+        let (config, diagnostics) = match self.read.get(&file) {
+            Some(config) => (config.clone(), Vec::new()),
+            None => {
+                let (config, diagnostics) = read_config_file(&file);
+                self.read.insert(file.clone(), config.clone());
+                (config, diagnostics)
+            }
+        };
+        Resolved {
+            config,
+            source: ConfigSource::File(file),
+            diagnostics,
+        }
+    }
+}
+
+/// Format `text` (the blocks `lines` touch, else all of it) with
+/// `resolved`, spanning what the engine reports at `file`.
+fn format_text<'a>(
+    resolved: Resolved,
+    text: &'a str,
+    lines: Option<Lines>,
+    file: Option<&Path>,
+) -> FormattedDocument<'a> {
+    let result = match lines {
+        // An empty document has no lines to widen.
+        Some(lines) if !text.is_empty() => {
+            format_range(text, lines.first, lines.last, &resolved.config)
+        }
+        _ => format_source(text, &resolved.config),
+    };
+    let file = Sym::new(&file.map(|f| f.display().to_string()).unwrap_or_default());
+    let mut diagnostics = resolved.diagnostics;
+    diagnostics.extend(result.diagnostics.into_iter().map(|mut d| {
+        if let Some(span) = &mut d.span {
+            span.file = file;
+        }
+        d
+    }));
+    FormattedDocument {
+        source: text,
+        formatted: result.formatted,
+        config: resolved.config,
+        config_source: resolved.source,
+        diagnostics,
+    }
+}
 
 /// What the run does with a file whose formatting would change.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -259,5 +487,397 @@ mod tests {
         // file's own config is never read.
         let changes = changed(dir.path());
         assert!(changes.contains(&"spec/sub/a.spec".into()), "{changes:?}");
+    }
+
+    // --- One document (lsp_format_document, lsp_format_range,
+    // lsp_respect_editor_config, format_from_stdin) ---
+
+    use specforge_test_macros::test as specforge_test;
+
+    /// A behavior whose contract is indented by 6.
+    const MISINDENTED: &str = "behavior foo \"Foo\" {\n      contract \"does stuff\"\n}\n";
+    /// Two blocks: `foo` (whose fields full formatting aligns) and `bar`,
+    /// misindented on line 6.
+    const TWO_BLOCKS: &str = "behavior foo \"Foo\" {\n  contract \"a\"\n  types [x]\n}\n\nbehavior bar \"Bar\" {\n      contract \"b\"\n}\n";
+    /// A canonical block, then a stray `}}}` on line 5.
+    const BROKEN: &str = "behavior login \"Login\" {\n  contract \"ok\"\n}\n\n}}}\n";
+    /// A behavior indented by 4.
+    const FOUR: &str = "behavior login \"Login\" {\n    contract \"The system MUST log in\"\n}\n";
+
+    const EDITOR_4: EditorOptions = EditorOptions {
+        tab_size: 4,
+        insert_spaces: true,
+    };
+
+    /// Whether `edits` are in order and none overlaps the next.
+    fn in_order_without_overlap(edits: &[TextEdit]) -> bool {
+        edits
+            .windows(2)
+            .all(|w| (w[1].start_line, w[1].start_col) >= (w[0].end_line, w[0].end_col))
+    }
+
+    /// The W142 diagnostics of `doc`.
+    fn kept_regions<'d>(doc: &'d FormattedDocument) -> Vec<&'d Diagnostic> {
+        doc.diagnostics
+            .iter()
+            .filter(|d| d.is(codes::W142))
+            .collect()
+    }
+
+    /// A project (`specforge.json` = `{}`) with `files` written (path, text).
+    fn on_disk(files: &[(&str, &str)]) -> tempfile::TempDir {
+        project_with("{}", files)
+    }
+
+    #[specforge_test(
+        behavior = "lsp_format_document",
+        verify = "formatting request returns TextEdit list"
+    )]
+    fn a_misformatted_document_gets_edits() {
+        let doc = document(Place::Detached, MISINDENTED, None, None);
+
+        assert!(doc.changed());
+        assert_eq!(
+            doc.edits(),
+            [TextEdit {
+                start_line: 1,
+                start_col: 0,
+                end_line: 1,
+                // The whole misindented line, in bytes.
+                end_col: 27,
+                new_text: "  contract \"does stuff\"".into(),
+            }]
+        );
+    }
+
+    #[specforge_test(
+        behavior = "lsp_format_document",
+        verify = "TextEdit coordinates are 0-indexed lines and columns"
+    )]
+    fn edit_coordinates_are_zero_based_lines_and_byte_columns() {
+        let edits = document(Place::Detached, MISINDENTED, None, None).edits();
+        assert_eq!((edits[0].start_line, edits[0].start_col), (1, 0));
+
+        // A multibyte line: the end column counts bytes, not characters.
+        let text = "behavior foo \"Foo\" {\n      contract \"é\"\n}\n";
+        let edits = document(Place::Detached, text, None, None).edits();
+        let line = text.lines().nth(1).unwrap();
+        assert_eq!(edits[0].end_col, line.len());
+        assert_ne!(line.len(), line.chars().count());
+    }
+
+    #[specforge_test(
+        behavior = "lsp_format_document",
+        verify = "TextEdit operations in a response do not overlap"
+    )]
+    fn edits_do_not_overlap() {
+        let text = "behavior foo \"Foo\" {\n      contract \"a\"\n      types [x]\n}\n";
+        let edits = document(Place::Detached, text, None, None).edits();
+
+        assert!(!edits.is_empty());
+        assert!(in_order_without_overlap(&edits), "{edits:?}");
+    }
+
+    #[specforge_test(
+        behavior = "lsp_format_document",
+        verify = "parse errors in document trigger format_with_parse_errors delegation"
+    )]
+    fn a_parse_error_is_reported_and_kept() {
+        let dir = on_disk(&[("spec/x.spec", BROKEN)]);
+        let file = dir.path().join("spec/x.spec");
+
+        let doc = document(Place::File(&file), BROKEN, None, None);
+
+        let kept = kept_regions(&doc);
+        assert_eq!(kept.len(), 1, "{:?}", doc.diagnostics);
+        let span = kept[0].span.as_ref().unwrap();
+        assert_eq!(span.file.as_str(), file.display().to_string());
+        assert_eq!(span.start_line, 5);
+        assert_eq!(doc.formatted.lines().nth(4), Some("}}}"));
+        assert!(!doc.complete());
+    }
+
+    #[specforge_test(
+        behavior = "lsp_format_document",
+        verify = "formats document within 50ms for files under 1000 lines"
+    )]
+    fn formats_a_document_within_50ms() {
+        let mut source = String::from("use types/core\n\n");
+        for i in 0..50 {
+            source.push_str(&format!(
+                "behavior b{i} \"Behavior {i}\" {{\n  invariants [a, b]\n  types [x]\n  contract \"thing {i}\"\n  verify unit \"test {i}\"\n}}\n\n"
+            ));
+        }
+
+        let start = std::time::Instant::now();
+        document(Place::Detached, &source, None, None);
+        let elapsed = start.elapsed();
+
+        assert!(
+            elapsed.as_millis() < 50,
+            "formatting took {}ms",
+            elapsed.as_millis()
+        );
+    }
+
+    #[specforge_test(
+        behavior = "lsp_format_document",
+        verify = "LSP Format Document: LSP document formatting holds — document_open, format_config_loaded, textedit_list_returned, cli_parity_enforced, format_complete_emitted"
+    )]
+    fn document_contract() {
+        // document_open: the text is the open document's.
+        let dir = on_disk(&[("spec/a.spec", MISINDENTED)]);
+        let file = dir.path().join("spec/a.spec");
+
+        let doc = document(Place::File(&file), MISINDENTED, None, Some(EDITOR_4));
+
+        // format_config_loaded: the project's (no file: the defaults), not
+        // the editor's.
+        assert_eq!(doc.config_source, ConfigSource::Defaults);
+        assert_eq!(doc.config, FormatConfig::default());
+        // textedit_list_returned: non-overlapping edits.
+        let edits = doc.edits();
+        assert!(!edits.is_empty());
+        assert!(in_order_without_overlap(&edits), "{edits:?}");
+        // cli_parity_enforced: what `specforge format` writes for the file.
+        let outcome = run(&request(dir.path(), Mode::Check));
+        assert_eq!(outcome.changes[0].after, doc.formatted);
+        assert!(doc.complete());
+    }
+
+    #[specforge_test(
+        behavior = "lsp_format_range",
+        verify = "range is expanded to block boundaries"
+    )]
+    fn the_range_widens_to_whole_blocks() {
+        let lines = Lines { first: 6, last: 6 };
+
+        let edits = document(Place::Detached, TWO_BLOCKS, Some(lines), None).edits();
+
+        assert_eq!(edits.len(), 1, "{edits:?}");
+        assert_eq!(edits[0].start_line, 6);
+        assert_eq!(edits[0].new_text, "  contract \"b\"");
+        // The whole document would also realign `foo` (lines 0–4).
+        let full = document(Place::Detached, TWO_BLOCKS, None, None).edits();
+        assert!(full.iter().any(|e| e.start_line < 5), "{full:?}");
+    }
+
+    #[specforge_test(
+        behavior = "lsp_format_range",
+        verify = "range formatting matches full formatting for affected blocks"
+    )]
+    fn a_range_formats_its_blocks_as_the_whole_document_does() {
+        let range = document(
+            Place::Detached,
+            TWO_BLOCKS,
+            Some(Lines { first: 4, last: 6 }),
+            None,
+        );
+        let full = document(Place::Detached, TWO_BLOCKS, None, None);
+
+        let block = |text: &str| text.lines().skip(4).take(4).collect::<Vec<_>>().join("\n");
+        assert_eq!(block(&range.formatted), block(&full.formatted));
+    }
+
+    #[specforge_test(
+        behavior = "lsp_format_range",
+        verify = "parse errors within range are left unchanged per format_with_parse_errors"
+    )]
+    fn a_parse_error_in_a_range_is_kept() {
+        let text = "behavior a \"A\" {\n  contract \"a\"\n}\n\nbehavior b \"B\" {\n  contract \"b\"\n}\n\nbehavior c \"C\" {\n      contract \"c\"\n}\n\n}}}\n";
+
+        let doc = document(
+            Place::Detached,
+            text,
+            Some(Lines { first: 8, last: 12 }),
+            None,
+        );
+
+        assert_eq!(doc.formatted.lines().nth(12), Some("}}}"));
+        assert_eq!(doc.formatted.lines().nth(9), Some("  contract \"c\""));
+        let kept = kept_regions(&doc);
+        assert_eq!(kept.len(), 1, "{:?}", doc.diagnostics);
+        assert_eq!(kept[0].span.as_ref().unwrap().start_line, 13);
+    }
+
+    #[specforge_test(
+        behavior = "lsp_format_range",
+        verify = "formats range within 20ms for ranges under 200 lines"
+    )]
+    fn formats_a_range_within_20ms() {
+        let mut source = String::from("use types/core\n\n");
+        for i in 0..20 {
+            source.push_str(&format!(
+                "behavior b{i} \"Behavior {i}\" {{\n  contract \"thing {i}\"\n}}\n\n"
+            ));
+        }
+
+        let start = std::time::Instant::now();
+        document(
+            Place::Detached,
+            &source,
+            Some(Lines {
+                first: 10,
+                last: 20,
+            }),
+            None,
+        );
+        let elapsed = start.elapsed();
+
+        assert!(
+            elapsed.as_millis() < 20,
+            "range formatting took {}ms",
+            elapsed.as_millis()
+        );
+    }
+
+    #[specforge_test(
+        behavior = "lsp_format_range",
+        verify = "LSP Format Range: LSP range formatting holds — document_open, format_config_loaded, range_expanded, textedit_list_returned, full_format_parity, format_complete_emitted"
+    )]
+    fn range_contract() {
+        // document_open, format_config_loaded: a project file, with its
+        // project's configuration.
+        let dir = on_disk(&[
+            (".specforgefmt.toml", "indent_width = 4\n"),
+            ("spec/a.spec", TWO_BLOCKS),
+        ]);
+        let file = dir.path().join("spec/a.spec");
+        let lines = Lines { first: 6, last: 6 };
+
+        let range = document(Place::File(&file), TWO_BLOCKS, Some(lines), None);
+        let full = document(Place::File(&file), TWO_BLOCKS, None, None);
+
+        assert_eq!(range.config.indent_width, 4);
+        // range_expanded, textedit_list_returned: one block's edits, in order.
+        let edits = range.edits();
+        assert!(edits.iter().all(|e| e.start_line >= 5), "{edits:?}");
+        assert!(in_order_without_overlap(&edits), "{edits:?}");
+        // full_format_parity: the block reads as full formatting has it.
+        let tail = |text: &str| text.lines().skip(5).collect::<Vec<_>>().join("\n");
+        assert_eq!(tail(&range.formatted), tail(&full.formatted));
+    }
+
+    #[specforge_test(
+        behavior = "lsp_respect_editor_config",
+        verify = "editor settings are used for a document outside any project"
+    )]
+    fn editor_settings_apply_outside_a_project() {
+        let doc = document(Place::Detached, FOUR, None, Some(EDITOR_4));
+        assert_eq!(doc.config.indent_width, 4);
+        assert_eq!(doc.config_source, ConfigSource::Editor);
+        assert!(doc.edits().is_empty());
+
+        // A file with no specforge.json above it.
+        let dir = tempfile::TempDir::new().unwrap();
+        let loose = dir.path().join("loose.spec");
+        std::fs::write(&loose, FOUR).unwrap();
+        let doc = document(Place::File(&loose), FOUR, None, Some(EDITOR_4));
+        assert_eq!(doc.config_source, ConfigSource::Editor);
+        assert_eq!(doc.config.indent_width, 4);
+        assert!(doc.edits().is_empty());
+    }
+
+    #[specforge_test(
+        behavior = "lsp_respect_editor_config",
+        verify = "config file takes precedence over editor settings"
+    )]
+    fn config_file_takes_precedence_over_editor() {
+        let dir = on_disk(&[
+            (".specforgefmt.toml", "indent_width = 4\n"),
+            ("spec/a.spec", FOUR),
+        ]);
+        let file = dir.path().join("spec/a.spec");
+        let editor = EditorOptions {
+            tab_size: 8,
+            insert_spaces: true,
+        };
+
+        let doc = document(Place::File(&file), FOUR, None, Some(editor));
+
+        let ConfigSource::File(config_file) = &doc.config_source else {
+            panic!("{:?}", doc.config_source);
+        };
+        assert!(config_file.ends_with(".specforgefmt.toml"));
+        assert_eq!(doc.config.indent_width, 4);
+        assert!(doc.edits().is_empty());
+    }
+
+    #[specforge_test(
+        behavior = "lsp_respect_editor_config",
+        verify = "a project without a config file formats with the defaults, not the editor's settings"
+    )]
+    fn a_project_without_a_config_file_uses_the_defaults() {
+        let dir = on_disk(&[("spec/a.spec", FOUR)]);
+        let file = dir.path().join("spec/a.spec");
+
+        let doc = document(Place::File(&file), FOUR, None, Some(EDITOR_4));
+
+        assert_eq!(doc.config_source, ConfigSource::Defaults);
+        assert_eq!(doc.config.indent_width, 2);
+        assert!(doc.changed(), "reindented to the defaults");
+    }
+
+    #[specforge_test(
+        behavior = "lsp_respect_editor_config",
+        verify = "LSP Respect Editor Config: editor config respect holds — lsp_initialized_fired, config_precedence_enforced, editor_fallback_applied"
+    )]
+    fn editor_config_contract() {
+        // lsp_initialized_fired: the editor's settings are given.
+        let editor = Some(EDITOR_4);
+        // editor_fallback_applied: outside any project.
+        let detached = document(Place::Detached, FOUR, None, editor);
+        assert_eq!(detached.config_source, ConfigSource::Editor);
+        assert_eq!(detached.config.indent_width, 4);
+
+        // config_precedence_enforced: inside a project, its config file …
+        let dir = on_disk(&[
+            (".specforgefmt.toml", "indent_width = 3\n"),
+            ("spec/a.spec", FOUR),
+            ("plain/specforge.json", "{}"),
+            ("plain/spec/b.spec", FOUR),
+        ]);
+        let with_file = document(
+            Place::File(&dir.path().join("spec/a.spec")),
+            FOUR,
+            None,
+            editor,
+        );
+        assert_eq!(with_file.config.indent_width, 3);
+        // … else the defaults, never the editor's settings.
+        let without = document(
+            Place::File(&dir.path().join("plain/spec/b.spec")),
+            FOUR,
+            None,
+            editor,
+        );
+        assert_eq!(without.config_source, ConfigSource::Defaults);
+        assert_eq!(without.config.indent_width, 2);
+    }
+
+    #[specforge_test(
+        behavior = "format_from_stdin",
+        verify = "stdin content is formatted and written to stdout"
+    )]
+    fn stdin_text_uses_the_config_of_its_directory() {
+        let dir = on_disk(&[("spec/sub/.specforgefmt.toml", "indent_width = 4\n")]);
+        let sub = dir.path().join("spec/sub");
+
+        let doc = document(
+            Place::InProject {
+                root: dir.path(),
+                dir: &sub,
+            },
+            MISINDENTED,
+            None,
+            None,
+        );
+
+        assert_eq!(doc.config.indent_width, 4);
+        assert!(
+            doc.formatted.contains("\n    contract"),
+            "{}",
+            doc.formatted
+        );
     }
 }

@@ -95,6 +95,26 @@ pub fn format_range(
     let (expanded_start, expanded_end) = expand_to_block_boundaries(root, start_line, end_line);
 
     let lines: Vec<&str> = source.lines().collect();
+    // Blank lines at either end of the range lie between blocks: they stay
+    // as they are (formatted alone, the range would lose them).
+    let is_blank = |row: usize| lines[row].trim().is_empty();
+    let mut expanded_start = expanded_start;
+    let mut expanded_end = expanded_end.min(lines.len().saturating_sub(1));
+    while expanded_start <= expanded_end && expanded_start < lines.len() && is_blank(expanded_start)
+    {
+        expanded_start += 1;
+    }
+    while expanded_end > expanded_start && is_blank(expanded_end) {
+        expanded_end -= 1;
+    }
+    if expanded_start > expanded_end || expanded_start >= lines.len() {
+        // Nothing but blank lines (or nothing at all) to format.
+        return FormatResult {
+            formatted: source.to_string(),
+            diagnostics: vec![],
+        };
+    }
+
     let mut result_lines: Vec<String> = Vec::new();
 
     // Copy lines before the range
@@ -103,7 +123,7 @@ pub fn format_range(
     }
 
     // Format the range
-    let range_source: String = lines[expanded_start..=expanded_end.min(lines.len() - 1)].join("\n");
+    let range_source: String = lines[expanded_start..=expanded_end].join("\n");
     let range_result = format_source(&range_source, config);
 
     for line in range_result.formatted.lines() {
@@ -1670,6 +1690,24 @@ mod tests {
             full_bar, range_bar,
             "range formatting should match full formatting for affected blocks"
         );
+    }
+
+    #[specforge_test_macros::test(
+        behavior = "lsp_format_range",
+        verify = "range formatting matches full formatting for affected blocks"
+    )]
+    fn a_range_keeps_the_blank_lines_around_it() {
+        let source = "behavior foo \"Foo\" {\n  contract \"a\"\n}\n\nbehavior bar \"Bar\" {\n      contract \"b\"\n}\n";
+        // The range starts on the blank line between the blocks.
+        let range = format_range(source, 3, 6, &FormatConfig::default());
+
+        assert_eq!(
+            range.formatted,
+            "behavior foo \"Foo\" {\n  contract \"a\"\n}\n\nbehavior bar \"Bar\" {\n  contract \"b\"\n}\n"
+        );
+        // A range of blank lines only changes nothing.
+        let blank = format_range(source, 3, 3, &FormatConfig::default());
+        assert_eq!(blank.formatted, source);
     }
 
     // --- Performance tests ---
