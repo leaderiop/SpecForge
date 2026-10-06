@@ -9,9 +9,12 @@ use specforge_ops::view::ProjectView;
 use specforge_parser::{EntityId, EntityKind, FieldMap};
 use specforge_project::Environment;
 use specforge_project::coverage::RecordedCoverage;
-use specforge_registry::{KindRegistryEntry, RegistryBuild};
+use specforge_registry::RegistryBuild;
 use specforge_test_macros::test as spec;
 use tower_lsp::lsp_types::Position;
+
+use crate::registries::{declaration, kind, obligating, registries, registries_of};
+use specforge_extension_sdk::prelude::FieldType;
 
 pub fn node(id: &str, kind: &str, title: Option<&str>) -> Node {
     Node {
@@ -38,28 +41,6 @@ fn edge(source: &str, target: &str, label: &str) -> Edge {
         target: target.into(),
         label: label.into(),
     }
-}
-
-/// A kind `extension` declares.
-fn kind(name: &str, extension: &str, testable: bool) -> KindRegistryEntry {
-    KindRegistryEntry {
-        kind_name: name.into(),
-        source_extension: extension.into(),
-        testable,
-        supports_verify: testable,
-        allowed_verify_kinds: vec![],
-        lifecycle_field: None,
-        ..Default::default()
-    }
-}
-
-/// The registries of `kinds`.
-fn declaring(kinds: Vec<KindRegistryEntry>) -> RegistryBuild {
-    let mut build = RegistryBuild::default();
-    for entry in kinds {
-        build.kinds.register(entry);
-    }
-    build
 }
 
 /// The hover of the entity `id` of `graph`, compiled with `registries`
@@ -98,12 +79,18 @@ fn hover_renders_markdown() {
 fn hover_shows_the_kind_and_its_extension() {
     let mut g = Graph::new();
     g.add_node(node("login", "behavior", Some("User Login")));
-    let mut behavior = kind("behavior", "@specforge/software", true);
-    behavior.declared.description = Some("A testable unit of system functionality".into());
-    // A SymbolKind name, for document symbols: never printed in the hover.
-    behavior.declared.lsp_icon = Some("Method".into());
+    let declared = registries("@specforge/software", |c| {
+        c.kind("behavior", |k| {
+            k.testable(true)
+                .supports_verify(true)
+                .description("A testable unit of system functionality")
+                // A SymbolKind name, for document symbols: never printed in
+                // the hover.
+                .lsp_icon("Method");
+        });
+    });
 
-    let text = entity_hover(&g, declaring(vec![behavior]), "login").unwrap();
+    let text = entity_hover(&g, declared, "login").unwrap();
     assert!(text.starts_with("**"), "editor-neutral header:\n{text}");
     let header = text.split("\n\n---\n\n").next().unwrap();
     assert_eq!(
@@ -122,13 +109,13 @@ fn hover_shows_testability_from_the_standing() {
     let mut g = Graph::new();
     g.add_node(node("login", "behavior", Some("Login")));
     g.add_node(node("auth", "feature", Some("Auth")));
-    let registries = || {
-        declaring(vec![
-            kind("behavior", "@specforge/software", true),
-            kind("feature", "@specforge/product", false),
+    let declared = || {
+        registries_of(vec![
+            declaration("@specforge/software", |c| kind(c, "behavior", true)),
+            declaration("@specforge/product", |c| kind(c, "feature", false)),
         ])
     };
-    let env = Environment::with_registries(registries());
+    let env = Environment::with_registries(declared());
     let recorded = RecordedCoverage::default();
     let view = ProjectView::new(&g, &env, None, &recorded);
     for (id, testable) in [("login", true), ("auth", false)] {
@@ -138,7 +125,7 @@ fn hover_shows_testability_from_the_standing() {
         assert_eq!(text.contains("`testable`"), testable, "{id}:\n{text}");
     }
     assert!(
-        entity_hover(&g, registries(), "auth")
+        entity_hover(&g, declared(), "auth")
             .unwrap()
             .ends_with("*@specforge/product*")
     );
@@ -275,31 +262,6 @@ fn hover_shows_field_values() {
 
 // -- headline, coverage and the entity's diagnostics ------------------------
 
-/// The W004 rule requiring `kind`'s entities to declare obligations.
-fn obligations_rule(
-    kind: &str,
-) -> (
-    specforge_registry::validation_engine::ValidationRulePattern,
-    String,
-) {
-    use specforge_registry::validation_engine::{ValidationPatternKind, ValidationRulePattern};
-    (
-        ValidationRulePattern {
-            code: "W004".into(),
-            severity: specforge_common::Severity::Warning,
-            message_template: "{kind} '{id}' is testable but declares no verify obligations".into(),
-            check: ValidationPatternKind::NoVerifyStatements,
-            target_kind: Some(kind.to_string()),
-            edge_type: None,
-            edge_peer_kind: None,
-            field: Some("verify".into()),
-            constraint: None,
-            wasm_function: None,
-        },
-        "@t/soft".into(),
-    )
-}
-
 /// A project on disk: `source` compiled with `registries`, rooted at a
 /// temp directory where a test report can be recorded.
 struct OnDisk {
@@ -352,28 +314,21 @@ impl OnDisk {
 /// `behavior` (obligated) with a headline `contract`, `type` (obligated),
 /// `constraint` (testable, no rule) and `note` (not testable).
 fn coverage_registries() -> RegistryBuild {
-    use specforge_registry::{FieldDescriptor, FieldRegistryEntry, ManifestFieldType};
-    let mut build = declaring(vec![
-        kind("behavior", "@t/soft", true),
-        kind("type", "@t/soft", true),
-        kind("constraint", "@t/gov", true),
-        kind("note", "@t/doc", false),
-    ]);
-    build.rules.push(obligations_rule("behavior"));
-    build.rules.push(obligations_rule("type"));
-    build.fields.register(FieldRegistryEntry {
-        kind_name: "behavior".into(),
-        field_type: ManifestFieldType::String,
-        source_extension: "@t/soft".into(),
-        proof_role: None,
-        declared: FieldDescriptor {
-            name: "contract".into(),
-            headline: true,
-            normative: true,
-            ..Default::default()
-        },
-    });
-    build
+    registries_of(vec![
+        declaration("@t/soft", |c| {
+            c.kind("behavior", |k| {
+                k.testable(true).supports_verify(true);
+                k.field("contract", |f| {
+                    f.field_type(FieldType::String).headline().normative();
+                });
+            });
+            kind(c, "type", true);
+            obligating(c, "behavior");
+            obligating(c, "type");
+        }),
+        declaration("@t/gov", |c| kind(c, "constraint", true)),
+        declaration("@t/doc", |c| kind(c, "note", false)),
+    ])
 }
 
 const COVERAGE: &str = "\
@@ -566,19 +521,15 @@ fn hover_lists_the_diagnostics_not_already_shown() {
 
 #[test]
 fn hover_shows_field_description() {
-    use specforge_registry::{FieldRegistry, FieldRegistryEntry, ManifestFieldType};
-    let mut reg = FieldRegistry::new();
-    reg.register(FieldRegistryEntry {
-        kind_name: "behavior".into(),
-        field_type: ManifestFieldType::String,
-        source_extension: "@specforge/software".into(),
-        proof_role: None,
-        declared: specforge_registry::FieldDescriptor {
-            name: "contract".into(),
-            description: Some("The behavioral contract this entity fulfills".into()),
-            ..Default::default()
-        },
-    });
+    let reg = registries("@specforge/software", |c| {
+        c.kind("behavior", |k| {
+            k.field("contract", |f| {
+                f.field_type(FieldType::String)
+                    .description("The behavioral contract this entity fulfills");
+            });
+        });
+    })
+    .fields;
 
     let text = specforge_lsp::hover_field_info("contract", "behavior", &reg).unwrap();
     assert!(
@@ -590,32 +541,20 @@ fn hover_shows_field_description() {
 // -- hover_field_info --------------------------------------------------------
 
 fn make_field_registry() -> specforge_registry::FieldRegistry {
-    use specforge_registry::{FieldRegistry, FieldRegistryEntry, ManifestFieldType};
-    let mut reg = FieldRegistry::new();
-    reg.register(FieldRegistryEntry {
-        kind_name: "behavior".into(),
-        field_type: ManifestFieldType::String,
-        source_extension: "@specforge/software".into(),
-        proof_role: None,
-        declared: specforge_registry::FieldDescriptor {
-            name: "contract".into(),
-            ..Default::default()
-        },
-    });
-    reg.register(FieldRegistryEntry {
-        kind_name: "behavior".into(),
-        field_type: ManifestFieldType::ReferenceList,
-        source_extension: "@specforge/software".into(),
-        proof_role: None,
-        declared: specforge_registry::FieldDescriptor {
-            name: "features".into(),
-            edge: Some("BehaviorImplementsFeature".into()),
-            target_kind: Some("feature".into()),
-            required: true,
-            ..Default::default()
-        },
-    });
-    reg
+    registries("@specforge/software", |c| {
+        c.kind("behavior", |k| {
+            k.field("contract", |f| {
+                f.field_type(FieldType::String);
+            });
+            k.field("features", |f| {
+                f.field_type(FieldType::ReferenceList)
+                    .edge("BehaviorImplementsFeature")
+                    .target_kind("feature")
+                    .required();
+            });
+        });
+    })
+    .fields
 }
 
 #[test]

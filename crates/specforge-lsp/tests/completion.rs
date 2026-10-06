@@ -2,7 +2,9 @@
 //! (`Document::at(..).completion()`) and its items
 //! (`completion::items`) over a project view.
 
+use crate::registries::registries;
 use specforge_common::{SourceSpan, Sym};
+use specforge_extension_sdk::prelude::FieldType;
 use specforge_graph::{Graph, Node};
 use specforge_lsp::completion::items;
 use specforge_lsp::{CompletionSite, Document};
@@ -10,9 +12,7 @@ use specforge_ops::view::ProjectView;
 use specforge_parser::{EntityId, EntityKind, FieldMap};
 use specforge_project::CompiledProject;
 use specforge_project::coverage::RecordedCoverage;
-use specforge_registry::{
-    FieldDescriptor, FieldRegistryEntry, KindRegistryEntry, ManifestFieldType, RegistryBuild,
-};
+use specforge_registry::RegistryBuild;
 use specforge_test_macros::test as spec;
 use tower_lsp::lsp_types::{CompletionItem, CompletionItemKind, CompletionTextEdit, Position};
 
@@ -266,38 +266,29 @@ struct Fixture {
 
 impl Fixture {
     fn new() -> Fixture {
-        let mut registries = RegistryBuild::default();
-        registries.kinds.register(KindRegistryEntry {
-            kind_name: "task".into(),
-            source_extension: "@test/ext".into(),
-            testable: true,
-            supports_verify: true,
-            allowed_verify_kinds: vec!["unit".into(), "contract".into()],
-            lifecycle_field: None,
-            declared: specforge_registry::EntityKindDescriptor::default(),
-        });
-        let mut field = |name: &str, field_type: ManifestFieldType, target: Option<&str>| {
-            registries.fields.register(FieldRegistryEntry {
-                kind_name: "task".into(),
-                field_type,
-                source_extension: "@test/ext".into(),
-                proof_role: None,
-                declared: FieldDescriptor {
-                    name: name.into(),
-                    description: Some(format!("the {name}")),
-                    target_kind: target.map(str::to_string),
-                    ..Default::default()
-                },
+        let registries = registries("@test/ext", |c| {
+            c.kind("task", |k| {
+                k.testable(true)
+                    .supports_verify(true)
+                    .verify_kinds(&["unit", "contract"]);
+                let mut field =
+                    |name: &str, field_type: FieldType, target: Option<&str>, values: &[&str]| {
+                        k.field(name, |f| {
+                            f.field_type(field_type).description(&format!("the {name}"));
+                            if let Some(target) = target {
+                                f.target_kind(target);
+                            }
+                            if !values.is_empty() {
+                                f.enum_values(values);
+                            }
+                        });
+                    };
+                field("state", FieldType::Enum, None, &["draft", "active", "done"]);
+                field("done", FieldType::Bool, None, &[]);
+                field("tags", FieldType::StringList, None, &[]);
+                field("owner", FieldType::Reference, Some("task"), &[]);
             });
-        };
-        field(
-            "state",
-            ManifestFieldType::Enum(vec!["draft".into(), "active".into(), "done".into()]),
-            None,
-        );
-        field("done", ManifestFieldType::Bool, None);
-        field("tags", ManifestFieldType::StringList, None);
-        field("owner", ManifestFieldType::Reference, Some("task"));
+        });
         let mut graph = Graph::new();
         for (id, kind) in [("alpha", "task"), ("gh.issue:7", "ref")] {
             graph.add_node(Node {
