@@ -122,14 +122,14 @@ fn sdk_vocabulary_round_trips_through_the_registry_build() {
         &[("description", "a thing"), ("style", "warm")],
     )];
 
-    let fired = execute_pattern(rule("W900"), &bare, None);
+    let fired = execute_pattern(rule("W900"), &bare, std::path::Path::new(""), None);
     assert_eq!(fired.len(), 1, "{fired:?}");
     assert_eq!(fired[0].message, "thing 'bare' is missing a description");
-    let fired = execute_pattern(rule("G101"), &bare, None);
+    let fired = execute_pattern(rule("G101"), &bare, std::path::Path::new(""), None);
     assert_eq!(fired.len(), 1, "{fired:?}");
     assert_eq!(fired[0].code, "G101");
-    assert!(execute_pattern(rule("W900"), &fine, None).is_empty());
-    assert!(execute_pattern(rule("G101"), &fine, None).is_empty());
+    assert!(execute_pattern(rule("W900"), &fine, std::path::Path::new(""), None).is_empty());
+    assert!(execute_pattern(rule("G101"), &fine, std::path::Path::new(""), None).is_empty());
 }
 
 /// Rules written by SDK releases before the vocabulary was shared still

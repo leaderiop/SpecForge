@@ -24,6 +24,7 @@ use specforge_registry::{
     ManifestFieldType,
 };
 use specforge_test_macros::test as specforge_test;
+use std::path::Path;
 
 // ============================================================================
 // Helpers
@@ -231,7 +232,7 @@ fn no_incoming_edges_detects_orphan_entities() {
         make_entity("b1", "behavior", 0, 2), // orphan
         make_entity("b2", "behavior", 1, 0), // not orphan
     ];
-    let diags = execute_pattern(&pattern, &entities, None);
+    let diags = execute_pattern(&pattern, &entities, Path::new(""), None);
     assert_eq!(diags.len(), 1);
     assert!(diags[0].message.contains("b1"));
 }
@@ -279,7 +280,7 @@ fn an_edge_rule_counts_only_its_edge_type() {
     kinds.register(kind("feature"));
     let (mut patterns, _) = parse_all_rule_patterns(&[("@test".to_string(), vec![rule.clone()])]);
     resolve_edge_rules(&mut patterns, &edges, &kinds);
-    let diags = execute_pattern(&patterns[0].0, &entities, None);
+    let diags = execute_pattern(&patterns[0].0, &entities, Path::new(""), None);
     assert_eq!(diags.len(), 1, "{diags:?}");
     assert!(diags[0].message.contains("b1"));
 
@@ -303,7 +304,7 @@ fn no_outgoing_edges_detects_entities_with_zero_outgoing_edges() {
         make_entity("b1", "behavior", 1, 0), // leaf
         make_entity("b2", "behavior", 1, 3), // not leaf
     ];
-    let diags = execute_pattern(&pattern, &entities, None);
+    let diags = execute_pattern(&pattern, &entities, Path::new(""), None);
     assert_eq!(diags.len(), 1);
     assert!(diags[0].message.contains("b1"));
 }
@@ -323,7 +324,7 @@ fn missing_field_when_flag_set_detects_missing_field() {
     e2.fields
         .insert("contract".to_string(), "some text".to_string());
 
-    let diags = execute_pattern(&pattern, &[e1, e2], None);
+    let diags = execute_pattern(&pattern, &[e1, e2], Path::new(""), None);
     assert_eq!(diags.len(), 1);
     assert!(diags[0].message.contains("b1"));
 }
@@ -360,7 +361,7 @@ fn field_value_constraint_rejects_invalid_field_value() {
     let mut e2 = make_entity("b2", "behavior", 1, 0);
     e2.fields.insert("status".to_string(), "active".to_string());
 
-    let diags = execute_pattern(&pattern, &[e1, e2], None);
+    let diags = execute_pattern(&pattern, &[e1, e2], Path::new(""), None);
     assert_eq!(diags.len(), 1);
     assert!(diags[0].message.contains("b1"));
 }
@@ -372,7 +373,12 @@ fn cycle_detection_finds_cycles_in_edge_type() {
     let rule = make_rule("E100", "cycle_detection");
     let pattern = parse_rule_pattern(&rule, "@test").unwrap();
     assert_eq!(pattern.check, ValidationPatternKind::CycleDetection);
-    let diags = execute_pattern(&pattern, &[make_entity("b1", "behavior", 1, 1)], None);
+    let diags = execute_pattern(
+        &pattern,
+        &[make_entity("b1", "behavior", 1, 1)],
+        Path::new(""),
+        None,
+    );
     assert!(
         diags.is_empty(),
         "cycle detection deferred to graph-aware caller"
@@ -396,16 +402,36 @@ fn file_exists_reports_missing_file_reference_field_targets() {
         wasm_function: None,
     };
     let pattern = parse_rule_pattern(&rule, "@test").unwrap();
+    let root = tempfile::tempdir().unwrap();
+    std::fs::create_dir(root.path().join("features")).unwrap();
+    std::fs::write(root.path().join("features/login.feature"), "").unwrap();
+    let naming = |id: &str, path: &str| {
+        let mut entity = make_entity(id, "behavior", 1, 0);
+        entity
+            .fields
+            .insert("gherkin".to_string(), path.to_string());
+        entity
+    };
+    let present = root.path().join("features/login.feature");
+    let entities = [
+        naming("b1", "features/login.feature"),
+        naming("b2", "features/logout.feature"),
+        naming("b3", "/nonexistent/file.feature"),
+        naming("b4", present.to_str().unwrap()),
+    ];
 
-    let mut entity = make_entity("b1", "behavior", 1, 0);
-    entity.fields.insert(
-        "gherkin".to_string(),
-        "/nonexistent/file.feature".to_string(),
+    // Relative paths are the spec root's; absolute ones are checked as
+    // written.
+    let diags = execute_pattern(&pattern, &entities, root.path(), None);
+    let reported: Vec<&str> = diags.iter().map(|d| d.message.as_str()).collect();
+    assert_eq!(
+        reported,
+        [
+            "behavior 'b2' references missing file",
+            "behavior 'b3' references missing file",
+        ]
     );
-
-    let diags = execute_pattern(&pattern, &[entity], None);
-    assert_eq!(diags.len(), 1);
-    assert_eq!(diags[0].code, "E101");
+    assert!(diags.iter().all(|d| d.code == "E101"));
 }
 
 #[specforge_test(
@@ -446,7 +472,7 @@ fn custom_pattern_dispatches_to_registered_wasm_function() {
         make_entity("bad_name", "behavior", 1, 0),
         make_entity("good_name", "behavior", 1, 0),
     ];
-    let diags = execute_pattern(&pattern, &entities, Some(&NamingValidator));
+    let diags = execute_pattern(&pattern, &entities, Path::new(""), Some(&NamingValidator));
     assert_eq!(diags.len(), 1);
     assert!(diags[0].message.contains("bad_name"));
 }
@@ -469,7 +495,7 @@ fn pattern_violation_produces_diagnostic_with_configured_code_and_severity() {
     };
     let pattern = parse_rule_pattern(&rule, "@test").unwrap();
     let entities = vec![make_entity("b1", "behavior", 0, 1)];
-    let diags = execute_pattern(&pattern, &entities, None);
+    let diags = execute_pattern(&pattern, &entities, Path::new(""), None);
     assert_eq!(diags[0].code, "E999");
     assert_eq!(diags[0].severity, Severity::Error);
 }
@@ -487,7 +513,7 @@ fn execute_validation_pattern_contract() {
         make_entity("b2", "behavior", 2, 0),
         make_entity("f1", "feature", 0, 0), // different kind, skipped
     ];
-    let diags = execute_pattern(&pattern, &entities, None);
+    let diags = execute_pattern(&pattern, &entities, Path::new(""), None);
     // Only behavior with 0 incoming edges diagnosed
     assert_eq!(diags.len(), 1);
     assert!(diags[0].message.contains("b1"));
@@ -546,7 +572,12 @@ fn diagnostic_code_matches_pattern_code() {
         wasm_function: None,
     };
     let pattern = parse_rule_pattern(&rule, "@test").unwrap();
-    let diags = execute_pattern(&pattern, &[make_entity("b1", "behavior", 0, 0)], None);
+    let diags = execute_pattern(
+        &pattern,
+        &[make_entity("b1", "behavior", 0, 0)],
+        Path::new(""),
+        None,
+    );
     assert_eq!(diags[0].code, "E999");
 }
 
@@ -572,7 +603,12 @@ fn diagnostic_severity_matches_pattern_severity() {
             wasm_function: None,
         };
         let pattern = parse_rule_pattern(&rule, "@test").unwrap();
-        let diags = execute_pattern(&pattern, &[make_entity("b1", "behavior", 0, 0)], None);
+        let diags = execute_pattern(
+            &pattern,
+            &[make_entity("b1", "behavior", 0, 0)],
+            Path::new(""),
+            None,
+        );
         assert_eq!(
             diags[0].severity, *expected,
             "severity mismatch for {:?}",
@@ -593,7 +629,12 @@ fn emit_diagnostic_from_pattern_contract() {
     // ensures: code and severity match
     let rule = make_rule("W100", "no_incoming_edges");
     let pattern = parse_rule_pattern(&rule, "@test").unwrap();
-    let diags = execute_pattern(&pattern, &[make_entity("b1", "behavior", 0, 0)], None);
+    let diags = execute_pattern(
+        &pattern,
+        &[make_entity("b1", "behavior", 0, 0)],
+        Path::new(""),
+        None,
+    );
     assert_eq!(diags[0].code, "W100");
     assert_eq!(diags[0].severity, Severity::Warning);
 }
@@ -640,7 +681,7 @@ fn custom_pattern_dispatched_to_wasm_runtime_during_validation() {
         make_entity("bad", "behavior", 1, 0),
         make_entity("good", "behavior", 1, 0),
     ];
-    let diags = execute_pattern(&pattern, &entities, Some(&FailRuntime));
+    let diags = execute_pattern(&pattern, &entities, Path::new(""), Some(&FailRuntime));
     assert_eq!(diags.len(), 1);
     assert!(diags[0].message.contains("bad"));
 }
@@ -676,6 +717,7 @@ fn custom_pattern_failure_emits_configured_diagnostic() {
     let diags = execute_pattern(
         &pattern,
         &[make_entity("b1", "behavior", 1, 0)],
+        Path::new(""),
         Some(&AlwaysFail),
     );
     assert_eq!(diags[0].code, "E201");
@@ -926,13 +968,16 @@ fn a_rule_for_an_unloaded_kind_reports_nothing() {
         make_entity("b1", "behavior", 0, 0),
         make_entity("b2", "behavior", 0, 0),
     ];
-    assert!(execute_pattern(&patterns[0].0, &orphans, None).is_empty());
+    assert!(execute_pattern(&patterns[0].0, &orphans, Path::new(""), None).is_empty());
 
     // The same rule on a loaded kind does fire: it is inert, not broken.
     let mut rule = make_rule("W100", "no_incoming_edges");
     rule.target_kind = Some("behavior".to_string());
     let (patterns, _) = parse_all_rule_patterns(&[("@test".to_string(), vec![rule])]);
-    assert_eq!(execute_pattern(&patterns[0].0, &orphans, None).len(), 2);
+    assert_eq!(
+        execute_pattern(&patterns[0].0, &orphans, Path::new(""), None).len(),
+        2
+    );
 }
 
 /// A custom rule's failing verdict, with no field or value to name.

@@ -591,7 +591,12 @@ mod tests {
         let mut ids: Vec<String> = ["behavior", "type"]
             .into_iter()
             .flat_map(|kind| {
-                specforge_registry::validation_engine::execute_pattern(&w004(kind), &entities, None)
+                specforge_registry::validation_engine::execute_pattern(
+                    &w004(kind),
+                    &entities,
+                    Path::new(""),
+                    None,
+                )
             })
             .map(|d| d.message.split('\'').nth(1).unwrap().to_string())
             .collect();

@@ -136,6 +136,7 @@ pub fn check_graph(graph: &Graph, checks: &GraphChecks) -> Vec<Diagnostic> {
         graph,
         kind_reg,
         field_reg,
+        &spec_root,
         runtime,
         &edge_label_to_field,
     );
@@ -614,6 +615,7 @@ fn run_extension_validation(
     graph: &Graph,
     kinds: &KindRegistry,
     fields: &FieldRegistry,
+    spec_root: &Path,
     runtime: Option<&dyn WasmRuntime>,
     edge_label_to_field: &HashMap<String, String>,
 ) -> Vec<Diagnostic> {
@@ -655,6 +657,7 @@ fn run_extension_validation(
             let diags = execute_pattern(
                 pattern,
                 &entities,
+                spec_root,
                 verdicts.as_ref().map(|v| {
                     v as &dyn specforge_registry::validation_engine::WasmValidationRuntime
                 }),

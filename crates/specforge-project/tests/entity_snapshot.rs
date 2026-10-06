@@ -382,12 +382,20 @@ fn an_untargeted_obligation_rule_skips_kinds_that_accept_no_verify() {
     assert_eq!(testable_total(&compiled, dir.path()), 2);
 }
 
-#[test]
-fn pin_file_exists_reads_the_working_directory() {
-    // pin (01-T0): today's behaviour; flipped by 01-T5
+#[specforge_test_macros::test(
+    behavior = "execute_validation_pattern",
+    verify = "file_exists resolves a relative path against the spec root, never the working directory"
+)]
+fn file_exists_resolves_against_the_spec_root() {
     let dir = project();
+    // The test runs in the crate directory, where no `doc.md` is: only the
+    // spec root holds one.
+    assert!(!Path::new("doc.md").exists());
     let (_, diagnostics) = compile(dir.path(), &runtime());
-    // The test runs in the crate directory, never the temp spec root.
+    assert!(reported(&diagnostics, "P4").is_empty(), "{diagnostics:?}");
+
+    fs::remove_file(dir.path().join("spec/doc.md")).unwrap();
+    let (_, diagnostics) = compile(dir.path(), &runtime());
     assert_eq!(
         reported(&diagnostics, "P4"),
         ["P400 alpha: file 'doc.md' does not exist"]
