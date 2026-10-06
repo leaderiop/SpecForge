@@ -4,7 +4,9 @@ use "types/core"
 use "types/diagnostics"
 use "types/formatting"
 
-type JsonRpcErrorCode = -32700 | -32600 | -32601 | -32602 | -32603
+/// -32002: resource not found, in the handshake revisions (2025-03-26 to
+/// 2025-11-25); the 2026-07-28 revision answers -32602.
+type JsonRpcErrorCode = -32700 | -32600 | -32601 | -32602 | -32603 | -32002
 
 type McpErrorCode = "invalid_input"
   | "compilation_failed"
@@ -37,6 +39,8 @@ type McpError "MCP Structured Error Response" {
   tool       string     @optional
   /// The prompt that refused, for a prompts/get answered with an error.
   prompt     string     @optional
+  /// The URI of the resource whose read failed (the URI read).
+  uri        string     @optional
   /// The argument the tool could not use, for invalid_input.
   argument   string     @optional
   /// The diagnostic behind the failure: its code (E003, E059, ...) is

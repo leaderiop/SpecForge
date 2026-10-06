@@ -1,11 +1,11 @@
 use specforge_emitter::{EmitFormat, EmitOptions, emit};
 
-use crate::resources::{ReadOutcome, ResourceText, entity_not_found, invalid_params};
+use crate::resources::{ReadOutcome, ResourceText, entity_not_found, invalid_input};
 use crate::state::McpState;
 
 pub fn read(state: &McpState, entity_id: &str) -> ReadOutcome {
     if entity_id.is_empty() {
-        return Err(invalid_params("Malformed entity ID: must not be empty"));
+        return Err(invalid_input("Malformed entity ID: must not be empty"));
     }
     // A malformed ID (the 400 case) is told apart from a well-formed one
     // that names no entity (the 404 case).
@@ -13,7 +13,7 @@ pub fn read(state: &McpState, entity_id: &str) -> ReadOutcome {
         .chars()
         .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '.' | ':' | '-'))
     {
-        return Err(invalid_params(format!(
+        return Err(invalid_input(format!(
             "Malformed entity ID: {:?} may only contain letters, digits, '_', '.', ':' and '-'",
             entity_id
         )));
@@ -30,7 +30,7 @@ pub fn read(state: &McpState, entity_id: &str) -> ReadOutcome {
     match emit(state.graph(), &options) {
         Ok(json_str) => Ok(ResourceText::json(json_str)),
         Err(_) => Err(entity_not_found(
-            format!("Entity not found: {entity_id}"),
+            &format!("E003: Entity not found: {entity_id}"),
             entity_id,
         )),
     }

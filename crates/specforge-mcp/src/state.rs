@@ -179,6 +179,19 @@ impl McpState {
             && self.protocol_version == crate::lifecycle::BATCHING_PROTOCOL_VERSION
     }
 
+    /// The JSON-RPC code of a resource that does not exist, in the revision
+    /// the request in hand speaks: -32002 in a handshake session (MCP
+    /// 2025-03-26 to 2025-11-25, server/resources), -32602 in a 2026-07-28
+    /// request, which says "Invalid Params" and asks clients to accept
+    /// -32002 as earlier revisions used it.
+    pub fn resource_not_found_code(&self) -> i64 {
+        if crate::lifecycle::MODERN_PROTOCOL_VERSIONS.contains(&self.revision()) {
+            crate::protocol::error_codes::INVALID_PARAMS
+        } else {
+            crate::protocol::error_codes::RESOURCE_NOT_FOUND
+        }
+    }
+
     /// Whether tool results carry `structuredContent` (2025-06-18 on).
     pub fn sends_structured_content(&self) -> bool {
         self.revision() >= crate::lifecycle::STRUCTURED_CONTENT_PROTOCOL_VERSION

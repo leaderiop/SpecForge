@@ -393,7 +393,10 @@ behavior expose_entity_as_mcp_resource "Expose Per-Entity MCP Resource" {
     resource template that returns a single entity and its immediate neighbors as
     a subgraph. The resource MUST include the target node, all directly connected
     nodes, and the edges between them. If the entity_id does not exist, the
-    resource MUST return a 404 error. The resource MUST refresh after recompilation.
+    read MUST fail as not found (-32002 in a handshake session, -32602 in a
+    2026-07-28 request) whose data is an entity_not_found McpError carrying
+    E003 and the uri (the 404 case); a malformed entity_id is invalid input
+    (the 400 case). The resource MUST refresh after recompilation.
   """
   verify unit "specforge://graph/{entity_id} returns entity and its neighbors"
   verify unit "non-existent entity_id returns 404 error"
@@ -513,8 +516,12 @@ behavior handle_mcp_protocol_error "Handle MCP Protocol Error" {
     -32603 (Internal error). An unknown tool is -32602 too. A tool that
     detects invalid arguments is not a malformed request: it returns an
     isError result carrying an McpError, not -32602 (MCP 2025-11-25,
-    SEP-1303). prompts/get has no isError result: a prompt that cannot
-    render answers -32602 or -32603 with its McpError as the error's data.
+    SEP-1303). prompts/get and resources/read have no isError result: a
+    prompt that cannot render, or a resource that cannot be read, answers
+    -32602 (input the client can fix, an argument it named included) or
+    -32603 with its McpError as the error's data. A resource that does not
+    exist is -32002 in a handshake session (the MCP 2025-xx revisions) and
+    -32602 in a 2026-07-28 request, with data naming its uri.
     Every method that needs a session refuses before initialize with -32600;
     an unknown method is -32601 whether or not the session is initialized.
     A handler that panics is a server fault: the request gets
@@ -532,6 +539,8 @@ behavior handle_mcp_protocol_error "Handle MCP Protocol Error" {
   verify unit "server remains operational after protocol error"
   verify unit "returns -32600 for invalid request"
   verify unit "each request method that needs a session refuses before initialize with -32600"
+  verify unit "a refusal naming an argument is -32602 for a prompt or a resource read"
+  verify unit "a resource that does not exist is -32002 in a handshake session and -32602 in a 2026-07-28 request, its data naming the uri"
   verify unit "returns -32603 for internal error"
   verify unit "truly unknown tool returns -32602 Invalid params (MCP spec example)"
   verify contract "Handle MCP Protocol Error: MCP protocol error handling holds — mcp_protocol_available, standard_error_returned, no_state_leaked, server_operational, error_handled_emitted"

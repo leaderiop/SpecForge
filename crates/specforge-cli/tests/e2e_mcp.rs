@@ -1718,7 +1718,12 @@ fn mcp_resource_read_unknown_uri_returns_error() {
 
     let resp = find_response(&responses, 1).expect("should get response for id 1");
     assert!(resp["error"].is_object(), "should be error for unknown URI");
-    assert_eq!(resp["error"]["code"], -32602, "should be INVALID_PARAMS");
+    // Not found, as the handshake revisions say it (MCP 2025-11-25).
+    assert_eq!(
+        resp["error"]["code"], -32002,
+        "should be resource not found"
+    );
+    assert_eq!(resp["error"]["data"]["uri"], "specforge://nonexistent");
 }
 
 #[test]
@@ -1749,7 +1754,15 @@ fn mcp_resource_read_entity_not_found() {
         resp["error"].is_object(),
         "should be error for nonexistent entity"
     );
-    assert_eq!(resp["error"]["code"], -32602, "should be INVALID_PARAMS");
+    assert_eq!(
+        resp["error"]["code"], -32002,
+        "should be resource not found"
+    );
+    assert_eq!(resp["error"]["data"]["code"], "entity_not_found");
+    assert_eq!(
+        resp["error"]["data"]["uri"],
+        "specforge://graph/nonexistent"
+    );
 }
 
 #[test]

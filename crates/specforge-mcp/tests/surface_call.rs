@@ -125,28 +125,60 @@ fn the_entity_resource_is_a_1_0_document() {
 
 // --- P3: a core resource's refusal ---
 
-#[test]
-fn a_core_resource_failure_is_a_bare_message() {
+#[specforge_test(
+    invariant = "mcp_structured_error_responses",
+    verify = "a failed resources/read carries its McpError as the error's data"
+)]
+fn a_failed_resource_read_carries_its_mcp_error() {
     let mut server = served();
-    // PIN: flipped by T5 (-32002 in a handshake session, `data.uri`) and,
-    // for the message, T6.
-    for uri in ["specforge://graph?root=ghost", "specforge://context/ghost"] {
+    // A resource that does not exist is not found, in a handshake session
+    // -32002; its data is its McpError, naming the URI read.
+    for uri in [
+        "specforge://graph?root=ghost",
+        "specforge://context/ghost",
+        "specforge://graph/ghost",
+    ] {
         let error = read_error(&mut server, uri);
-        assert_eq!(error["code"], -32602, "{uri}: {error}");
-        assert!(
-            error["message"].as_str().unwrap().starts_with("E003:"),
-            "{uri}: {error}"
-        );
+        assert_eq!(error["code"], -32002, "{uri}: {error}");
         assert_eq!(error["data"]["code"], "entity_not_found", "{uri}: {error}");
         assert_eq!(error["data"]["entity_id"], "ghost", "{uri}: {error}");
-        assert!(error["data"].get("uri").is_none(), "{uri}: {error}");
+        assert_eq!(
+            error["data"]["diagnostic"]["code"], "E003",
+            "{uri}: {error}"
+        );
+        assert_eq!(error["data"]["uri"], uri, "{uri}: {error}");
         assert!(error["data"].get("resource").is_none(), "{uri}: {error}");
+        assert!(
+            !error["message"].as_str().unwrap().starts_with("E003"),
+            "the code is in `diagnostic`: {error}"
+        );
     }
+    // PIN: flipped by T6: the export's message for the entity resource too.
     let error = read_error(&mut server, "specforge://graph/ghost");
-    assert_eq!(error["code"], -32602, "{error}");
     assert_eq!(error["message"], "Entity not found: ghost");
-    assert_eq!(error["data"]["code"], "entity_not_found", "{error}");
-    assert!(error["data"].get("uri").is_none(), "{error}");
+}
+
+#[specforge_test(
+    behavior = "handle_mcp_protocol_error",
+    verify = "a resource that does not exist is -32002 in a handshake session and -32602 in a 2026-07-28 request, its data naming the uri"
+)]
+fn a_missing_resource_is_not_found_in_the_revision_it_was_asked_in() {
+    let mut server = served();
+    for uri in ["specforge://nope", "specforge://graph/ghost"] {
+        // A handshake session (2025-11-25) says -32002.
+        let error = read_error(&mut server, uri);
+        assert_eq!(error["code"], -32002, "{uri}: {error}");
+        assert_eq!(error["data"]["uri"], uri, "{uri}: {error}");
+
+        // A stateless request (2026-07-28) says -32602, naming the same URI.
+        let reply = call(&mut server, "resources/read", modern(json!({"uri": uri})));
+        assert_eq!(reply["error"]["code"], -32602, "{uri}: {reply}");
+        assert_eq!(reply["error"]["data"]["uri"], uri, "{uri}: {reply}");
+    }
+    // Other refusals are not "not found": invalid input stays -32602 in a
+    // handshake session.
+    let error = read_error(&mut server, "specforge://graph?max_tokens=1");
+    assert_ne!(error["code"], -32002, "{error}");
 }
 
 // --- P4, P5: a prompt's refusal ---
@@ -172,16 +204,19 @@ fn a_prompt_refusal_carries_its_mcp_error() {
     );
 }
 
-#[test]
-fn a_prompt_path_refusal_is_a_server_fault() {
+#[specforge_test(
+    behavior = "handle_mcp_protocol_error",
+    verify = "a refusal naming an argument is -32602 for a prompt or a resource read"
+)]
+fn a_prompt_path_refusal_is_invalid_params() {
     let mut server = served();
     let reply = get_prompt(
         &mut server,
         "specforge://prompts/context",
         json!({"entity_id": "alpha", "path": "/nope"}),
     );
-    // PIN: flipped by T5: -32602, an argument the client named.
-    assert_eq!(reply["error"]["code"], -32603, "{reply}");
+    // An argument the client named: -32602, not a server fault.
+    assert_eq!(reply["error"]["code"], -32602, "{reply}");
     assert_eq!(reply["error"]["data"]["code"], "file_not_found", "{reply}");
     assert_eq!(reply["error"]["data"]["argument"], "path", "{reply}");
 }
@@ -224,16 +259,14 @@ fn a_budget_too_small_is_invalid_input() {
 }
 
 #[test]
-fn a_budget_too_small_for_a_resource_is_a_bare_message() {
+fn a_budget_too_small_for_a_resource_is_invalid_input() {
     let mut server = served();
-    // PIN: flipped by T5: the resource's refusal carries its McpError.
+    // Invalid input, not "not found": -32602, its McpError carrying E062.
     let error = read_error(&mut server, "specforge://graph?max_tokens=1");
     assert_eq!(error["code"], -32602, "{error}");
-    assert!(
-        error["message"].as_str().unwrap().starts_with("E062"),
-        "{error}"
-    );
-    assert!(error.get("data").is_none(), "{error}");
+    assert_eq!(error["data"]["code"], "invalid_input", "{error}");
+    assert_eq!(error["data"]["diagnostic"]["code"], "E062", "{error}");
+    assert_eq!(error["data"]["uri"], "specforge://graph?max_tokens=1");
 }
 
 #[specforge_test(

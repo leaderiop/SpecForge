@@ -14,7 +14,7 @@ use crate::prompt::{PromptOutcome, PromptSpec, prompt_envelope};
 use crate::protocol::JsonRpcResponse;
 use crate::state::McpState;
 use crate::surface_call::{Event, Found, Invocation, Ran, Surface};
-use crate::target::{self, Call, CallTarget, TargetSpec};
+use crate::target::{Call, TargetSpec};
 use crate::tool::McpError;
 use crate::types::McpPromptDescriptor;
 pub use table::CORE_PROMPTS;
@@ -86,8 +86,8 @@ impl Surface for Prompts {
         Ran::of(Err(Box::new(error)))
     }
 
-    fn without_project(target: &CallTarget, outcome: PromptOutcome) -> PromptOutcome {
-        outcome.map_err(|refused| Box::new(target::without_project(target, *refused)))
+    fn refusal_mut(outcome: &mut PromptOutcome) -> Option<&mut McpError> {
+        outcome.as_mut().err().map(|refusal| &mut **refusal)
     }
 
     fn completed(

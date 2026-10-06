@@ -30,7 +30,7 @@ use crate::protocol::JsonRpcResponse;
 use crate::state::McpState;
 use crate::surface_call::{Event, Found, Invocation, Ran, Surface};
 use crate::surface_table::{ToolEntry, ToolKind};
-use crate::target::{self, Call, CallTarget, TargetSpec};
+use crate::target::{Call, TargetSpec};
 use crate::tool::{ErrorCode, Handler, McpError, ToolOutcome, ToolSpec, envelope};
 pub use table::CORE_TOOLS;
 
@@ -289,8 +289,11 @@ impl Surface for Tools {
         }
     }
 
-    fn without_project(target: &CallTarget, outcome: ToolOutcome) -> ToolOutcome {
-        target::without_project_outcome(target, outcome)
+    fn refusal_mut(outcome: &mut ToolOutcome) -> Option<&mut McpError> {
+        match outcome {
+            ToolOutcome::Refused(error) => Some(error),
+            ToolOutcome::Done { .. } => None,
+        }
     }
 
     fn completed(

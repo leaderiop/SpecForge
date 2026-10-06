@@ -282,8 +282,13 @@ fn entity_resource_returns_subgraph() {
 fn entity_resource_error_for_unknown() {
     let mut server = test_server();
     let resp = read_resource(&mut server, "specforge://graph/nonexistent");
-    assert_eq!(resp["error"]["code"], -32602);
+    // Not found, as a handshake session says it (MCP 2025-11-25).
+    assert_eq!(resp["error"]["code"], -32002);
     assert_eq!(resp["error"]["message"], "Entity not found: nonexistent");
+    let data = &resp["error"]["data"];
+    assert_eq!(data["code"], "entity_not_found", "{resp}");
+    assert_eq!(data["entity_id"], "nonexistent", "{resp}");
+    assert_eq!(data["uri"], "specforge://graph/nonexistent", "{resp}");
     // Told apart from a malformed ID.
     let malformed = read_resource(&mut server, "specforge://graph/!@#$");
     assert_ne!(malformed["error"]["message"], resp["error"]["message"]);
@@ -625,8 +630,12 @@ fn graph_resource_max_tokens_budgets() {
     // fails with E062 when not even the empty envelope fits, as
     // `specforge export --max-tokens` does (ADR 0004 D3-a).
     let resp = read_resource(&mut server, "specforge://graph?max_tokens=1");
-    let message = resp["error"]["message"].as_str().unwrap_or_default();
-    assert!(message.starts_with("E062"), "{resp}");
+    assert_eq!(resp["error"]["code"], -32602, "{resp}");
+    assert_eq!(resp["error"]["data"]["code"], "invalid_input", "{resp}");
+    assert_eq!(
+        resp["error"]["data"]["diagnostic"]["code"], "E062",
+        "{resp}"
+    );
 
     let resp = read_resource(&mut server, "specforge://graph?max_tokens=200");
     let text = resource_text(&resp);

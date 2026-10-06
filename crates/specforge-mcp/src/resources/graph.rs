@@ -3,7 +3,8 @@ use specforge_ops::export::{Format, Request};
 
 use specforge_ops::view::ProjectView;
 
-use crate::resources::{ReadOutcome, ResourceText, entity_not_found, invalid_params};
+use crate::resources::{ReadOutcome, ResourceText};
+use crate::tool::McpError;
 
 /// `specforge://graph` — full corpus, or scoped via query parameters
 /// (C9-06): `?root=<entity_id>` scopes to a subgraph, `depth=<n>` bounds the
@@ -29,20 +30,9 @@ pub fn read(view: &ProjectView, uri: &str) -> ReadOutcome {
                 serde_json::from_str(&payload).expect("graph emit always produces JSON");
             Ok(ResourceText::json(contents.to_string()))
         }
-        // The export's message leads with its diagnostic code, as a
-        // resource refusal always did; a scope the graph has no entity
-        // for (E003) names the root.
-        Err(err) => {
-            let message = if crate::tool::is_diagnostic_code(&err.code) {
-                format!("{}: {}", err.code, err.message)
-            } else {
-                err.message
-            };
-            if err.code == "E003" {
-                Err(entity_not_found(message, parsed.root.unwrap_or_default()))
-            } else {
-                Err(invalid_params(message))
-            }
-        }
+        // The operation's failure: a scope the graph has no entity for is
+        // `entity_not_found` with its E003, a budget too small `invalid_input`
+        // with its E062.
+        Err(error) => Err(Box::new(McpError::from(error))),
     }
 }

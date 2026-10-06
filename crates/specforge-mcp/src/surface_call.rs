@@ -11,7 +11,7 @@ use serde_json::Value;
 
 use crate::protocol::{JsonRpcError, JsonRpcResponse, error_codes};
 use crate::state::McpState;
-use crate::target::{self, Call, CallTarget, TargetSpec};
+use crate::target::{self, Call, TargetSpec};
 use crate::tool::McpError;
 
 /// An event to record: its name and payload.
@@ -132,11 +132,19 @@ pub(crate) trait Surface {
     /// What a refusal of the call's target is: the outcome, and what a
     /// refused mutation still records.
     fn refused(found: &Found<Self::Core, Self::Extension>, error: McpError) -> Ran<Self::Outcome>;
-    /// The outcome of a call whose handler ran, as its target makes it: with
-    /// nothing served ([`CallTarget::NoProject`]), a refusal that names a
-    /// file or an entity is the no-project refusal ([`target::without_project`],
+    /// How an unknown name is refused (-32602 for a tool or a prompt; a
+    /// resource that does not exist is not found in the revision of the
+    /// request, ADR 0024 D4).
+    fn unknown(_state: &McpState, name: &str) -> JsonRpcError {
+        JsonRpcError::new(
+            error_codes::INVALID_PARAMS,
+            format!("{}: {name}", Self::UNKNOWN),
+        )
+    }
+    /// The refusal an outcome is, if it is one: the pipeline makes it the
+    /// no-project refusal when its target is none ([`target::without_project`],
     /// ADR 0025).
-    fn without_project(target: &CallTarget, outcome: Self::Outcome) -> Self::Outcome;
+    fn refusal_mut(outcome: &mut Self::Outcome) -> Option<&mut McpError>;
     /// Recorded after the handler's events (`mcp_resource_read`).
     fn completed(
         found: &Found<Self::Core, Self::Extension>,
@@ -165,11 +173,7 @@ pub(crate) fn serve<S: Surface>(
         Err(error) => return JsonRpcResponse::from_error(id, error),
     };
     let Some(found) = find::<S>(state, &invocation.name) else {
-        return JsonRpcResponse::error(
-            id,
-            error_codes::INVALID_PARAMS,
-            format!("{}: {}", S::UNKNOWN, invocation.name),
-        );
+        return JsonRpcResponse::from_error(id, S::unknown(state, &invocation.name));
     };
     if let Some((name, event)) = S::invoked(&found, &invocation) {
         state.push_event(name, event);
@@ -180,11 +184,14 @@ pub(crate) fn serve<S: Surface>(
         match target::resolve(state, S::target(&found), &invocation.arguments) {
             Ok(target) => {
                 let mut call = Call::new(state, target);
-                let ran = S::run(&mut call, &found, &invocation);
-                Ran {
-                    outcome: S::without_project(call.target(), ran.outcome),
-                    events: ran.events,
+                let mut ran = S::run(&mut call, &found, &invocation);
+                // With nothing served, a refusal that names a file or an
+                // entity is the no-project refusal, whichever kind of
+                // request it is.
+                if let Some(refusal) = S::refusal_mut(&mut ran.outcome) {
+                    target::refuse_without_project(call.target(), refusal);
                 }
+                ran
             }
             Err(refused) => S::refused(&found, McpError::from(refused)),
         };

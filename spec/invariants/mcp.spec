@@ -9,9 +9,15 @@ invariant mcp_structured_error_responses "MCP Structured Error Responses" {
     ensures agents can programmatically handle errors without parsing
     free-form text. A failed tool call is an isError result whose content is
     an McpError; a diagnostic code behind the failure is in its diagnostic,
-    not only in the message. A failed prompts/get, which has no isError
-    result, is a JSON-RPC error whose data is its McpError. An operation's
-    failure kind decides the McpError code.
+    not only in the message. A failed prompts/get or resources/read, which
+    have no isError result, is a JSON-RPC error whose data is its McpError:
+    -32602 when the client can fix it (an argument it named, invalid input,
+    an unknown entity or extension, a conflict), -32603 otherwise. A resource
+    that does not exist (no entry serves the URI, or the entity it names is
+    not in the graph) is -32002 in a handshake session and -32602 in a
+    2026-07-28 request, and its data names the URI as uri. A refusal for a
+    missing project names the path argument only where the entry takes one.
+    An operation's failure kind decides the McpError code.
   """
   risk      medium
   verify unit "error response includes error code and message fields"
@@ -21,6 +27,8 @@ invariant mcp_structured_error_responses "MCP Structured Error Responses" {
   verify unit "a failed tool call is an isError result whose content is an McpError with a code"
   verify unit "a diagnostic code behind a failed tool call is in its McpError diagnostic"
   verify unit "a failed prompts/get carries its McpError as the error's data"
+  verify unit "a failed resources/read carries its McpError as the error's data"
+  verify unit "a no-project refusal names path only for an entry that takes one"
   verify unit "a path that does not exist is a file_not_found error on path"
   verify unit "an operation's failure kind decides its McpError code, never its code text"
 }

@@ -12,7 +12,8 @@ use crate::protocol::{JsonRpcError, JsonRpcResponse, error_codes};
 use crate::state::McpState;
 use crate::surface_call::{Event, Found, Invocation, Ran, Surface};
 use crate::surface_table::ResourceEntry;
-use crate::target::{self, Call, CallTarget, TargetSpec};
+use crate::target::{Call, TargetSpec};
+use crate::tool::{ErrorCode, McpError};
 use crate::types::McpResourceDescriptor;
 
 /// `resources/read`: the core resources (matched first), then the extension
@@ -62,13 +63,17 @@ impl Surface for Resources {
 
     fn refused(
         _: &Found<&'static ResourceSpec, ResourceEntry>,
-        error: crate::tool::McpError,
+        error: McpError,
     ) -> Ran<ReadOutcome> {
-        Ran::of(Err(invalid_params(error.message)))
+        Ran::of(Err(Box::new(error)))
     }
 
-    fn without_project(target: &CallTarget, outcome: ReadOutcome) -> ReadOutcome {
-        outcome.map_err(|refused| without_project(target, refused))
+    fn unknown(state: &McpState, uri: &str) -> JsonRpcError {
+        unknown_resource(state.resource_not_found_code(), uri)
+    }
+
+    fn refusal_mut(outcome: &mut ReadOutcome) -> Option<&mut McpError> {
+        outcome.as_mut().err().map(|refusal| &mut **refusal)
     }
 
     fn completed(
@@ -85,19 +90,23 @@ impl Surface for Resources {
     }
 
     fn envelope(
-        _: &McpState,
+        state: &McpState,
         found: &Found<&'static ResourceSpec, ResourceEntry>,
         invocation: &Invocation,
-        outcome: ReadOutcome,
+        mut outcome: ReadOutcome,
         id: Option<Value>,
     ) -> JsonRpcResponse {
+        // A refusal names the URI read.
+        if let Err(refusal) = &mut outcome {
+            refusal.uri.get_or_insert_with(|| invocation.name.clone());
+        }
         // A core resource answers under its URI without the query it was
         // read with; an extension's, under the URI read.
         let uri = match found {
             Found::Core(_) => split_query(&invocation.name).0,
             Found::Extension(_) => invocation.name.as_str(),
         };
-        resource_envelope(outcome, uri, id)
+        resource_envelope(outcome, uri, state.resource_not_found_code(), id)
     }
 }
 
@@ -117,14 +126,18 @@ impl ResourceText {
     }
 }
 
-/// What a resource read produced, or why it was refused.
-pub(crate) type ReadOutcome = Result<ResourceText, JsonRpcError>;
+/// What a resource read produced, or why it was refused (ADR 0024 D4).
+pub(crate) type ReadOutcome = Result<ResourceText, Box<McpError>>;
 
-/// The `resources/read` reply: the only place that builds `contents`. Its
-/// `uri` is the one given.
+/// The `resources/read` reply: the only place that builds `contents` or a
+/// resource's error. Its `uri` is the one given. A refusal is a JSON-RPC
+/// error whose data is its McpError ([`McpError::into_rpc_error`]); one
+/// that says the entity a read names does not exist is *not found*, and
+/// carries `not_found`, the code of the revision the request speaks.
 pub(crate) fn resource_envelope(
     outcome: ReadOutcome,
     uri: &str,
+    not_found: i64,
     id: Option<Value>,
 ) -> JsonRpcResponse {
     match outcome {
@@ -138,42 +151,53 @@ pub(crate) fn resource_envelope(
                 }]
             }),
         ),
-        Err(error) => JsonRpcResponse::from_error(id, error),
+        Err(refusal) => {
+            let missing = refusal.code == ErrorCode::EntityNotFound;
+            let mut error = refusal.into_rpc_error();
+            if missing {
+                error.code = not_found;
+            }
+            JsonRpcResponse::from_error(id, error)
+        }
     }
 }
 
-pub(crate) fn invalid_params(message: impl Into<String>) -> JsonRpcError {
-    JsonRpcError::new(error_codes::INVALID_PARAMS, message)
+/// A read of a URI no core resource and no extension serves: a lookup
+/// failure, like "Unknown tool", so it carries no McpError, but it is *not
+/// found* in the revision of the request (`not_found`) and names the URI.
+pub(crate) fn unknown_resource(not_found: i64, uri: &str) -> JsonRpcError {
+    JsonRpcError::new(not_found, format!("Unknown resource URI: {uri}"))
+        .with_data(json!({ "uri": uri }))
 }
 
-/// A read that names an entity the graph does not have: invalid params, as
-/// ever, its `McpError` (`entity_not_found`) as the error's `data`, which is
-/// what [`without_project`] reads.
-pub(crate) fn entity_not_found(message: impl Into<String>, entity_id: &str) -> JsonRpcError {
-    let error = crate::tool::entity_not_found(entity_id);
-    JsonRpcError::new(error.code.rpc_code(), message).with_data(error.to_json())
+/// A read the client cannot make as it asked: `invalid_input`.
+pub(crate) fn invalid_input(message: impl Into<String>) -> Box<McpError> {
+    Box::new(McpError::new(ErrorCode::InvalidInput, message))
 }
 
-/// What a read refused with, as the call's target makes it
-/// ([`target::without_project`]): with nothing served, an entity that is
-/// not found is the no-project refusal, an internal error (-32603) whose
-/// `data` is its `McpError`, as the refusal of a resource that needs a
-/// project is. Any other refusal is returned as it is.
-fn without_project(target: &CallTarget, error: JsonRpcError) -> JsonRpcError {
-    let named = error
-        .data
-        .as_ref()
-        .filter(|data| data.get("code").and_then(Value::as_str) == Some("entity_not_found"))
-        .and_then(|data| data.get("entity_id")?.as_str())
-        .map(str::to_string);
-    let Some(entity_id) = named else {
-        return error;
-    };
-    let refused = target::without_project(target, crate::tool::entity_not_found(&entity_id));
-    if refused.code != crate::tool::ErrorCode::PreconditionFailed {
-        return error;
+/// A read that names an entity the graph does not have: `entity_not_found`
+/// about `entity_id`, its E003 in `diagnostic`. `message` leads with the
+/// code, as the emitter words it (`E003: unresolved scope entity …`).
+pub(crate) fn entity_not_found(message: &str, entity_id: &str) -> Box<McpError> {
+    Box::new(
+        McpError::from_coded_message(ErrorCode::EntityNotFound, message).with_entity(entity_id),
+    )
+}
+
+/// An emitter failure of a read scoped to `scope`.
+pub(crate) fn emitter_refusal(
+    error: specforge_emitter::EmitterError,
+    scope: Option<&str>,
+) -> Box<McpError> {
+    match error {
+        specforge_emitter::EmitterError::EntityNotFound(message) => {
+            entity_not_found(&message, scope.unwrap_or_default())
+        }
+        other => Box::new(McpError::from_coded_message(
+            ErrorCode::InvalidInput,
+            &other.to_string(),
+        )),
     }
-    JsonRpcError::new(refused.code.rpc_code(), refused.message.clone()).with_data(refused.to_json())
 }
 
 /// One core resource: everything the server lists and reads about it.
@@ -307,11 +331,7 @@ fn extension_resource(call: &Call<'_>, entry: &ResourceEntry, uri: &str) -> Ran<
     // The project the resource reads, in the runtime it was compiled in.
     let project = match call.project() {
         Ok(project) => project,
-        Err(refused) => {
-            return Ran::of(Err(
-                invalid_params(refused.message.clone()).with_data(refused.to_json())
-            ));
-        }
+        Err(refused) => return Ran::of(Err(Box::new(refused))),
     };
     let runtime = project.runtime;
     let started = std::time::Instant::now();
@@ -339,16 +359,9 @@ fn extension_resource(call: &Call<'_>, entry: &ResourceEntry, uri: &str) -> Ran<
                 mime_type: read.mime_type,
             }),
         },
-        Err(error) => {
-            let diagnostic = error.diagnostic();
-            Ran::of(Err(JsonRpcError::new(
-                error_codes::INTERNAL_ERROR,
-                diagnostic.message.clone(),
-            )
-            .with_data(
-                crate::tool::McpError::from_diagnostic(&diagnostic).to_json(),
-            )))
-        }
+        Err(error) => Ran::of(Err(Box::new(McpError::from_diagnostic(
+            &error.diagnostic(),
+        )))),
     }
 }
 

@@ -86,9 +86,9 @@ pub fn arguments<A: PromptArgs>() -> Vec<McpPromptArgument> {
 /// prompt's `messages` or a prompt's error. A rendered prompt is its
 /// description and two user messages: the instruction, then the payload
 /// as JSON text. MCP prompts have no `isError`,
-/// so a refusal is a JSON-RPC error: -32602 for input the client can fix,
-/// -32603 for a failure on the server's side ([`crate::tool::ErrorCode::rpc_code`]),
-/// its `McpError`, naming the prompt, as the error's `data`.
+/// so a refusal is a JSON-RPC error under the one code rule
+/// ([`McpError::into_rpc_error`]), its `McpError`, naming the prompt, as the
+/// error's `data`.
 pub fn prompt_envelope(
     outcome: PromptOutcome,
     spec: &PromptSpec,
@@ -112,12 +112,7 @@ pub fn prompt_envelope(
         ),
         Err(mut error) => {
             error.prompt.get_or_insert_with(|| spec.name.to_string());
-            JsonRpcResponse::error_with_data(
-                id,
-                error.code.rpc_code(),
-                error.message.clone(),
-                error.to_json(),
-            )
+            JsonRpcResponse::from_error(id, error.into_rpc_error())
         }
     }
 }
