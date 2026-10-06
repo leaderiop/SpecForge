@@ -746,6 +746,7 @@ fn a_command_the_cli_refuses_is_no_tool() {
                 required: false,
                 default_value: None,
                 description: None,
+                minimum: None,
             }],
             sandbox: None,
         })

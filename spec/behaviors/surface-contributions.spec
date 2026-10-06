@@ -199,6 +199,7 @@ behavior dispatch_surface_command "Dispatch Surface Command" {
   verify unit "a command declaring an arg named format is refused on the command line"
   verify unit "under --format json a command whose export trapped prints one JSON error object"
   verify unit "a command whose output is not a CommandOutput is an ExtensionError, not exit 0 with the raw bytes"
+  verify unit "the host and the SDK normalize a command's args by the same rule"
   verify integration "under --format json a usage error the command line catches is one INVALID_INPUT error object on stderr, exit 2"
   verify integration "over MCP a command is asked for json and its JSON output is the tool's structured content"
   verify unit "over MCP a failure's JSON error object is an isError result carrying it, and output that is not one object is text"

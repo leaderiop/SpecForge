@@ -10,8 +10,9 @@
 // payload below and the routing of each export to its handler from that
 // one declaration, and checks a command's args against their declared
 // types before the handler reads them, through the declaration
-// (CommandCall): a missing required arg or a value of another type is
-// INVALID_INPUT, exit 2. Two surfaces cannot share an export (names that
+// (CommandCall) and by the host's own rule (command_args, ADR 0017): a
+// missing required arg, a value of another type or an arg the command does
+// not declare is INVALID_INPUT, exit 2. Two surfaces cannot share an export (names that
 // differ only in characters an export spells _, or a tool and a resource
 // of one name). On the wire an unset optional field is absent, not null.
 
@@ -64,6 +65,8 @@ type CommandArg {
   description   string   @optional
   // For enum_arg: allowed values
   values        string[] @optional
+  // The least integer value: 0 for a count
+  minimum       integer  @optional
   verify unit "CommandArg schema is valid"
 }
 

@@ -484,6 +484,7 @@ mod tests {
             required,
             default_value: default.map(str::to_string),
             description: None,
+            minimum: None,
         }
     }
 

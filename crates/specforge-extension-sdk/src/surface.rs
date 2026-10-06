@@ -47,21 +47,19 @@ use crate::{
     McpResourceRequest,
 };
 use serde_json::Value;
+use specforge_protocol_types::command_args::{self, normalize_args};
 use specforge_protocol_types::{
     CommandArgDescriptor, CommandArgType, CommandDescriptor, McpResourceDescriptor,
     McpToolDescriptor, SurfaceDescriptor, SurfaceSandboxOverride,
 };
 
-/// The error code of a command called with an arg it cannot use (ADR 0011).
-pub const INVALID_INPUT: &str = "INVALID_INPUT";
+/// The error code of a command called with an arg it cannot use (ADR 0011):
+/// the host's own ([`command_args::INVALID_INPUT`]).
+pub use specforge_protocol_types::command_args::INVALID_INPUT;
 
 /// The exit code of an `INVALID_INPUT` answer, the code clap gives the usage
 /// errors it catches itself (ADR 0011).
 pub const INVALID_INPUT_EXIT: i32 = 2;
-
-/// Arg names the host owns on every command: a command declaring one is
-/// refused on both surfaces (ADR 0008, ADR 0011).
-const HOST_ARGS: &[&str] = &["path", "format", "help"];
 
 type CommandHandler = Box<dyn Fn(&CommandCall<'_>) -> CommandOutput>;
 type ToolHandler = Box<dyn Fn(&Value) -> Result<Value, String>>;
@@ -98,15 +96,9 @@ const MACHINERY: Machinery = Machinery {
 };
 
 struct Command {
+    /// The command as declared, its args included.
     descriptor: CommandDescriptor,
-    args: Vec<Arg>,
     handler: CommandHandler,
-}
-
-struct Arg {
-    descriptor: CommandArgDescriptor,
-    /// An integer arg that must not be negative ([`ArgBuilder::count`]).
-    count: bool,
 }
 
 struct Tool {
@@ -224,7 +216,6 @@ impl Surfaces {
                 args: Vec::new(),
                 sandbox: None,
             },
-            args: Vec::new(),
             handler: None,
         }
     }
@@ -235,11 +226,8 @@ impl Surfaces {
             panic!("command '{id}' declares no handler");
         };
         self.assert_free(&b.descriptor.export, &format!("command '{id}'"));
-        let mut descriptor = b.descriptor;
-        descriptor.args = b.args.iter().map(|a| a.descriptor.clone()).collect();
         self.commands.push(Command {
-            descriptor,
-            args: b.args,
+            descriptor: b.descriptor,
             handler,
         });
     }
@@ -392,8 +380,8 @@ impl Surfaces {
 
 /// Builder for one command ([`crate::ContributionsBuilder::command`]).
 pub struct CommandBuilder {
+    /// The command as declared so far, its args included.
     descriptor: CommandDescriptor,
-    args: Vec<Arg>,
     handler: Option<CommandHandler>,
 }
 
@@ -426,69 +414,39 @@ impl CommandBuilder {
     /// command line a required arg is positional, in declaration order; any
     /// other, and every flag, is `--<name with _ as ->`.
     ///
-    /// Panics on an arg the host owns (`path`, `format`, `help`) or one
-    /// declared twice, which the host would refuse, and on a declaration
-    /// that contradicts itself: a required arg with a default, a required
-    /// flag or one with a default (a flag is `false` unless set), a
-    /// default its type refuses, an empty `one_of`.
+    /// Panics on what the host refuses ([`command_args::refusal`]): an arg
+    /// taking an option the host owns (`path`, `format`, `help`), two args
+    /// spelling one option (`all_kinds`, `all-kinds`), a required arg with
+    /// a default, a flag with a default (a flag is `false` unless set), a
+    /// default its type refuses; and on a required flag or an empty
+    /// `one_of`, which would mean nothing.
     pub fn arg(&mut self, name: &str, f: impl FnOnce(&mut ArgBuilder)) -> &mut Self {
-        let mut b = self.start_arg(name);
+        let mut b = ArgBuilder(CommandArgDescriptor {
+            name: name.to_string(),
+            ..Default::default()
+        });
         f(&mut b);
         self.finish_arg(b)
-    }
-
-    fn start_arg(&self, name: &str) -> ArgBuilder {
-        let id = &self.descriptor.id;
-        assert!(
-            !HOST_ARGS.contains(&name),
-            "command '{id}' declares arg '{name}', which the host owns on every command"
-        );
-        assert!(
-            !self.args.iter().any(|a| a.descriptor.name == name),
-            "command '{id}' declares arg '{name}' twice"
-        );
-        ArgBuilder(Arg {
-            descriptor: CommandArgDescriptor {
-                name: name.to_string(),
-                arg_type: CommandArgType::String,
-                required: false,
-                default_value: None,
-                description: None,
-            },
-            count: false,
-        })
     }
 
     fn finish_arg(&mut self, b: ArgBuilder) -> &mut Self {
         let id = &self.descriptor.id;
         let arg = b.0;
-        let d = &arg.descriptor;
-        let name = &d.name;
-        if let CommandArgType::Enum { values } = &d.arg_type {
+        let name = &arg.name;
+        if let CommandArgType::Enum { values } = &arg.arg_type {
             assert!(
                 !values.is_empty(),
                 "command '{id}' declares arg '{name}' one of no value"
             );
         }
-        if d.arg_type == CommandArgType::Bool {
-            assert!(
-                !d.required && d.default_value.is_none(),
-                "command '{id}' declares the flag '{name}' required or with a default: a flag is false unless set"
-            );
+        assert!(
+            !(arg.arg_type == CommandArgType::Bool && arg.required),
+            "command '{id}' declares the flag '{name}' required: a flag is false unless set"
+        );
+        self.descriptor.args.push(arg);
+        if let Some(refused) = command_args::refusal(&self.descriptor.args) {
+            panic!("command '{id}' is refused by the host: {refused}");
         }
-        if let Some(default) = &d.default_value {
-            assert!(
-                !d.required,
-                "command '{id}' declares arg '{name}' both required and with a default"
-            );
-            if let Err(e) = normalize(&arg, &Value::String(default.clone())) {
-                panic!(
-                    "command '{id}' declares arg '{name}' with a default its type refuses: {}",
-                    e.message
-                );
-            }
-        }
-        self.args.push(arg);
         self
     }
 
@@ -503,7 +461,7 @@ impl CommandBuilder {
 }
 
 /// Builder for one command arg ([`CommandBuilder::arg`]).
-pub struct ArgBuilder(Arg);
+pub struct ArgBuilder(CommandArgDescriptor);
 
 impl ArgBuilder {
     /// A string (the default); read with [`CommandCall::str`].
@@ -526,11 +484,11 @@ impl ArgBuilder {
         self.set(CommandArgType::Integer)
     }
 
-    /// A non-negative integer (an integer on the wire); read with
-    /// [`CommandCall::count`]. A negative value is `INVALID_INPUT`.
+    /// A non-negative integer (an integer of `minimum` 0 on the wire); read
+    /// with [`CommandCall::count`]. A negative value is `INVALID_INPUT`.
     pub fn count(&mut self) -> &mut Self {
         self.set(CommandArgType::Integer);
-        self.0.count = true;
+        self.0.minimum = Some(0);
         self
     }
 
@@ -544,27 +502,28 @@ impl ArgBuilder {
 
     /// The caller must set it: a positional arg on the command line.
     pub fn required(&mut self) -> &mut Self {
-        self.0.descriptor.required = true;
+        self.0.required = true;
         self
     }
 
     /// The value the arg has when the caller leaves it out, on every
-    /// surface: the CLI shows and fills it, and the SDK applies it to a call
-    /// that lacks it (an MCP tool call). Not for a `required` arg or a flag.
+    /// surface: the host applies it on the command line and over MCP, and
+    /// the SDK to a call that lacks it ([`command_args::normalize_args`]).
+    /// Not for a `required` arg or a flag.
     pub fn default_value(&mut self, value: &str) -> &mut Self {
-        self.0.descriptor.default_value = Some(value.to_string());
+        self.0.default_value = Some(value.to_string());
         self
     }
 
     /// The arg's help text and its MCP tool property's description.
     pub fn description(&mut self, description: &str) -> &mut Self {
-        self.0.descriptor.description = Some(description.to_string());
+        self.0.description = Some(description.to_string());
         self
     }
 
     fn set(&mut self, arg_type: CommandArgType) -> &mut Self {
-        self.0.descriptor.arg_type = arg_type;
-        self.0.count = false;
+        self.0.arg_type = arg_type;
+        self.0.minimum = None;
         self
     }
 }
@@ -690,24 +649,14 @@ pub struct CommandCall<'a> {
 }
 
 impl<'a> CommandCall<'a> {
-    /// `input`'s args checked against `command`'s declaration, an absent
-    /// arg taking its declared default: a required arg missing, or a value
-    /// of another type, is `INVALID_INPUT`. Args the command does not
-    /// declare are ignored.
+    /// `input`'s args normalized by the host's rule
+    /// ([`command_args::normalize_args`]): an absent arg takes its declared
+    /// default and an unset flag is `false`; a required arg missing, a value
+    /// of another type, or an arg the command does not declare is
+    /// `INVALID_INPUT`.
     fn new(command: &'a Command, input: &'a CommandInput) -> Result<Self, CommandError> {
-        let mut values = serde_json::Map::new();
-        for arg in &command.args {
-            let name = arg.descriptor.name.as_str();
-            let value = match (input.args.get(name), &arg.descriptor.default_value) {
-                (Some(value), _) => normalize(arg, value)?,
-                (None, Some(default)) => normalize(arg, &Value::String(default.clone()))?,
-                (None, None) if arg.descriptor.required => {
-                    return Err(invalid(format!("missing required arg '{name}'")));
-                }
-                (None, None) => continue,
-            };
-            values.insert(name.to_string(), value);
-        }
+        let values = normalize_args(&command.descriptor.args, &input.args)
+            .map_err(|error| error.to_command_error())?;
         Ok(CommandCall {
             command,
             input,
@@ -746,7 +695,7 @@ impl<'a> CommandCall<'a> {
     }
 
     /// Whether the declared arg `name` has a value: the caller's, or its
-    /// declared default.
+    /// declared default (a flag always has one, `false` unless set).
     pub fn is_set(&self, name: &str) -> bool {
         self.declared(name);
         self.values.contains_key(name)
@@ -758,7 +707,7 @@ impl<'a> CommandCall<'a> {
         self.expect(
             arg,
             matches!(
-                arg.descriptor.arg_type,
+                arg.arg_type,
                 CommandArgType::String | CommandArgType::Path | CommandArgType::Enum { .. }
             ),
             "a string",
@@ -770,7 +719,7 @@ impl<'a> CommandCall<'a> {
     /// beyond `usize` (on a 32-bit guest) is `usize::MAX`.
     pub fn count(&self, name: &str) -> Option<usize> {
         let arg = self.declared(name);
-        self.expect(arg, arg.count, "a count");
+        self.expect(arg, is_count(arg), "a count");
         self.values
             .get(name)
             .and_then(Value::as_u64)
@@ -780,22 +729,14 @@ impl<'a> CommandCall<'a> {
     /// The integer (or count) arg `name`, when set.
     pub fn integer(&self, name: &str) -> Option<i64> {
         let arg = self.declared(name);
-        self.expect(
-            arg,
-            arg.descriptor.arg_type == CommandArgType::Integer,
-            "an integer",
-        );
+        self.expect(arg, arg.arg_type == CommandArgType::Integer, "an integer");
         self.values.get(name).and_then(Value::as_i64)
     }
 
     /// The flag `name`; `false` when unset.
     pub fn flag(&self, name: &str) -> bool {
         let arg = self.declared(name);
-        self.expect(
-            arg,
-            arg.descriptor.arg_type == CommandArgType::Bool,
-            "a flag",
-        );
+        self.expect(arg, arg.arg_type == CommandArgType::Bool, "a flag");
         self.values
             .get(name)
             .and_then(Value::as_bool)
@@ -825,12 +766,13 @@ impl<'a> CommandCall<'a> {
         CommandOutput::error(self.format(), error, exit_code)
     }
 
-    fn declared(&self, name: &str) -> &'a Arg {
+    fn declared(&self, name: &str) -> &'a CommandArgDescriptor {
         let command = self.command;
         command
+            .descriptor
             .args
             .iter()
-            .find(|a| a.descriptor.name == name)
+            .find(|a| a.name == name)
             .unwrap_or_else(|| {
                 panic!(
                     "command '{}' reads arg '{name}', which it does not declare",
@@ -839,71 +781,22 @@ impl<'a> CommandCall<'a> {
             })
     }
 
-    fn expect(&self, arg: &Arg, ok: bool, what: &str) {
+    fn expect(&self, arg: &CommandArgDescriptor, ok: bool, what: &str) {
         assert!(
             ok,
             "command '{}' reads arg '{}' as {what}, but declares it {:?}{}",
             self.command.descriptor.id,
-            arg.descriptor.name,
-            arg.descriptor.arg_type,
-            if arg.count { " (a count)" } else { "" }
+            arg.name,
+            arg.arg_type,
+            if is_count(arg) { " (a count)" } else { "" }
         );
     }
 }
 
-fn invalid(message: String) -> CommandError {
-    CommandError::new(INVALID_INPUT, message)
-}
-
-/// `value` as `arg` declares it, or `INVALID_INPUT`. Integers and booleans
-/// may come as strings holding one (`"5"`, `"true"`).
-fn normalize(arg: &Arg, value: &Value) -> Result<Value, CommandError> {
-    let name = &arg.descriptor.name;
-    match &arg.descriptor.arg_type {
-        CommandArgType::String | CommandArgType::Path => match value {
-            Value::String(_) => Ok(value.clone()),
-            _ => Err(invalid(format!("{name} must be a string, got {value}"))),
-        },
-        CommandArgType::Enum { values } => match value.as_str() {
-            Some(s) if values.iter().any(|v| v == s) => Ok(value.clone()),
-            Some(s) => Err(invalid(format!(
-                "{name} must be one of {}, got '{s}'",
-                values.join(", ")
-            ))),
-            None => Err(invalid(format!(
-                "{name} must be one of {}, got {value}",
-                values.join(", ")
-            ))),
-        },
-        CommandArgType::Integer if arg.count => {
-            let n = match value {
-                Value::Number(n) => n.as_u64(),
-                Value::String(s) => s.parse::<u64>().ok(),
-                _ => None,
-            };
-            n.map(Value::from).ok_or_else(|| {
-                invalid(format!(
-                    "{name} must be a non-negative integer, got {value}"
-                ))
-            })
-        }
-        CommandArgType::Integer => {
-            let n = match value {
-                Value::Number(n) => n.as_i64(),
-                Value::String(s) => s.parse::<i64>().ok(),
-                _ => None,
-            };
-            n.map(Value::from)
-                .ok_or_else(|| invalid(format!("{name} must be an integer, got {value}")))
-        }
-        CommandArgType::Bool => match value {
-            Value::Bool(_) => Ok(value.clone()),
-            Value::String(s) if s == "true" || s == "false" => Ok(Value::Bool(s == "true")),
-            _ => Err(invalid(format!(
-                "{name} must be true or false, got {value}"
-            ))),
-        },
-    }
+/// Whether `arg` is a count ([`ArgBuilder::count`]): an integer that is
+/// never negative.
+fn is_count(arg: &CommandArgDescriptor) -> bool {
+    arg.arg_type == CommandArgType::Integer && arg.minimum.is_some_and(|minimum| minimum >= 0)
 }
 
 #[cfg(test)]
@@ -972,7 +865,7 @@ mod tests {
                 "args": [
                     {"name": "widget", "arg_type": "string", "required": true,
                      "description": "The widget id"},
-                    {"name": "limit", "arg_type": "integer", "required": false},
+                    {"name": "limit", "arg_type": "integer", "required": false, "minimum": 0},
                     {"name": "shift", "arg_type": "integer", "required": false},
                     {"name": "all", "arg_type": "bool", "required": false},
                     {"name": "color", "arg_type": {"enum": {"values": ["red", "blue"]}},
@@ -994,8 +887,7 @@ mod tests {
     fn the_handler_reads_the_declared_args_typed() {
         let out = call(
             &builder(),
-            json!({"widget": "w1", "limit": "3", "shift": -2, "all": "true", "color": "red",
-                   "undeclared": 1}),
+            json!({"widget": "w1", "limit": "3", "shift": -2, "all": "true", "color": "red"}),
         );
         assert_eq!(out.exit_code, 0, "{out:?}");
         let out: serde_json::Value = serde_json::from_str(&out.stdout).unwrap();
@@ -1017,7 +909,11 @@ mod tests {
             ),
             (
                 json!({"widget": "w", "shift": "x"}),
-                "shift must be an integer, got \"x\"",
+                "shift must be an integer, got 'x'",
+            ),
+            (
+                json!({"widget": "w", "undeclared": 1}),
+                "unknown argument 'undeclared'",
             ),
             (
                 json!({"widget": "w", "all": 1}),
@@ -1081,11 +977,25 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "declares arg 'format', which the host owns")]
+    #[should_panic(expected = "is refused by the host: its arg 'format' takes the host's --format")]
     fn an_arg_the_host_owns_is_refused() {
         let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/x", "1.0.0"));
         c.command("w", |cmd| {
             cmd.arg("format", |_| {});
+        });
+    }
+
+    #[test]
+    #[should_panic(expected = "is refused by the host: it declares the arg 'all-kinds' twice")]
+    fn two_args_spelling_one_option_are_refused() {
+        let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/x", "1.0.0"));
+        c.command("w", |cmd| {
+            cmd.arg("all_kinds", |a| {
+                a.flag();
+            })
+            .arg("all-kinds", |a| {
+                a.flag();
+            });
         });
     }
 

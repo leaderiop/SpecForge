@@ -65,12 +65,14 @@
             {
               "arg_type": "integer",
               "description": "Return at most this many (default 100, clamped to 1-1000)",
+              "minimum": 0,
               "name": "limit",
               "required": false
             },
             {
               "arg_type": "integer",
               "description": "Skip this many first (default 0)",
+              "minimum": 0,
               "name": "offset",
               "required": false
             }
@@ -132,12 +134,14 @@
             {
               "arg_type": "integer",
               "description": "Return at most this many (default 100, clamped to 1-1000)",
+              "minimum": 0,
               "name": "limit",
               "required": false
             },
             {
               "arg_type": "integer",
               "description": "Skip this many first (default 0)",
+              "minimum": 0,
               "name": "offset",
               "required": false
             }
@@ -213,12 +217,14 @@
             {
               "arg_type": "integer",
               "description": "Return at most this many (default 100, clamped to 1-1000)",
+              "minimum": 0,
               "name": "limit",
               "required": false
             },
             {
               "arg_type": "integer",
               "description": "Skip this many first (default 0)",
+              "minimum": 0,
               "name": "offset",
               "required": false
             }
@@ -289,12 +295,14 @@
             {
               "arg_type": "integer",
               "description": "Return at most this many (default 100, clamped to 1-1000)",
+              "minimum": 0,
               "name": "limit",
               "required": false
             },
             {
               "arg_type": "integer",
               "description": "Skip this many first (default 0)",
+              "minimum": 0,
               "name": "offset",
               "required": false
             }
@@ -341,12 +349,14 @@
             {
               "arg_type": "integer",
               "description": "Return at most this many (default 100, clamped to 1-1000)",
+              "minimum": 0,
               "name": "limit",
               "required": false
             },
             {
               "arg_type": "integer",
               "description": "Skip this many first (default 0)",
+              "minimum": 0,
               "name": "offset",
               "required": false
             }
@@ -387,12 +397,14 @@
             {
               "arg_type": "integer",
               "description": "Return at most this many (default 100, clamped to 1-1000)",
+              "minimum": 0,
               "name": "limit",
               "required": false
             },
             {
               "arg_type": "integer",
               "description": "Skip this many first (default 0)",
+              "minimum": 0,
               "name": "offset",
               "required": false
             }
@@ -462,12 +474,14 @@
             {
               "arg_type": "integer",
               "description": "Return at most this many (default 100, clamped to 1-1000)",
+              "minimum": 0,
               "name": "limit",
               "required": false
             },
             {
               "arg_type": "integer",
               "description": "Skip this many first (default 0)",
+              "minimum": 0,
               "name": "offset",
               "required": false
             }
@@ -538,12 +552,14 @@
             {
               "arg_type": "integer",
               "description": "Return at most this many (default 100, clamped to 1-1000)",
+              "minimum": 0,
               "name": "limit",
               "required": false
             },
             {
               "arg_type": "integer",
               "description": "Skip this many first (default 0)",
+              "minimum": 0,
               "name": "offset",
               "required": false
             }
@@ -599,12 +615,14 @@
             {
               "arg_type": "integer",
               "description": "Return at most this many (default 100, clamped to 1-1000)",
+              "minimum": 0,
               "name": "limit",
               "required": false
             },
             {
               "arg_type": "integer",
               "description": "Skip this many first (default 0)",
+              "minimum": 0,
               "name": "offset",
               "required": false
             }
@@ -829,12 +847,14 @@
             {
               "arg_type": "integer",
               "description": "Return at most this many (default 100, clamped to 1-1000)",
+              "minimum": 0,
               "name": "limit",
               "required": false
             },
             {
               "arg_type": "integer",
               "description": "Skip this many first (default 0)",
+              "minimum": 0,
               "name": "offset",
               "required": false
             }
@@ -881,12 +901,14 @@
             {
               "arg_type": "integer",
               "description": "Return at most this many (default 100, clamped to 1-1000)",
+              "minimum": 0,
               "name": "limit",
               "required": false
             },
             {
               "arg_type": "integer",
               "description": "Skip this many first (default 0)",
+              "minimum": 0,
               "name": "offset",
               "required": false
             }
@@ -917,12 +939,14 @@
             {
               "arg_type": "integer",
               "description": "Return at most this many (default 100, clamped to 1-1000)",
+              "minimum": 0,
               "name": "limit",
               "required": false
             },
             {
               "arg_type": "integer",
               "description": "Skip this many first (default 0)",
+              "minimum": 0,
               "name": "offset",
               "required": false
             }
@@ -938,12 +962,14 @@
             {
               "arg_type": "integer",
               "description": "Return at most this many (default 100, clamped to 1-1000)",
+              "minimum": 0,
               "name": "limit",
               "required": false
             },
             {
               "arg_type": "integer",
               "description": "Skip this many first (default 0)",
+              "minimum": 0,
               "name": "offset",
               "required": false
             }
@@ -959,12 +985,14 @@
             {
               "arg_type": "integer",
               "description": "Return at most this many (default 100, clamped to 1-1000)",
+              "minimum": 0,
               "name": "limit",
               "required": false
             },
             {
               "arg_type": "integer",
               "description": "Skip this many first (default 0)",
+              "minimum": 0,
               "name": "offset",
               "required": false
             }
@@ -986,6 +1014,7 @@
             {
               "arg_type": "integer",
               "description": "How many see_also hops to follow (default 1; above 5 counts as 5)",
+              "minimum": 0,
               "name": "max_hops",
               "required": false
             }

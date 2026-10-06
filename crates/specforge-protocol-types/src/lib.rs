@@ -16,12 +16,16 @@
 //!   custom validator ([`ValidatorContext`], [`ValidatorVerdict`]), a
 //!   scanner ([`ScanRequest`], [`ScanResponse`]) and the migration hook
 //!   ([`MigrationInput`]).
+//!
+//! And one rule both sides run: [`command_args`], what a command's declared
+//! args admit and what its export receives (ADR 0017).
 
 use std::fmt;
 
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 pub mod calls;
+pub mod command_args;
 mod declaration;
 mod vocabulary;
 pub use calls::*;
@@ -482,6 +486,11 @@ pub struct CommandArgDescriptor {
     pub default_value: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
+    /// The least value of an integer arg: `0` for a count. Absent, any
+    /// integer (wire compatible both ways: a host or guest that does not
+    /// know it ignores it).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub minimum: Option<i64>,
 }
 
 /// Type of a command argument.

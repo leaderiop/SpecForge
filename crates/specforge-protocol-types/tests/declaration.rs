@@ -83,6 +83,7 @@ fn full() -> ExtensionDeclaration {
                     required: false,
                     default_value: Some("10".to_string()),
                     description: None,
+                    minimum: Some(0),
                 }],
                 sandbox: None,
             }],
