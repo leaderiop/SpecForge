@@ -1,0 +1,28 @@
+---
+source: crates/specforge-cli/tests/extension_surfaces.rs
+expression: help
+---
+The features two or more deliverables reach through a journey or a module, with those deliverables, most shared first, paged.
+
+Usage: specforge product feature-overlap [OPTIONS]
+
+Options:
+      --limit <LIMIT>
+          Return at most this many (default 100, clamped to 1-1000)
+
+      --offset <OFFSET>
+          Skip this many first (default 0)
+
+      --path <PATH>
+          Path to the project
+          
+          [default: .]
+
+      --format <FORMAT>
+          Output format
+          
+          [default: human]
+          [possible values: human, json]
+
+  -h, --help
+          Print help (see a summary with '-h')

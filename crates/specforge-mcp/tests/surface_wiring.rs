@@ -1203,3 +1203,226 @@ fn an_extension_resources_content_and_mime_type_are_returned() {
     assert_eq!(content["mimeType"], "application/json", "{resp}");
     assert_eq!(content["text"], "{\"commands\":2}", "{resp}");
 }
+
+// --- What MCP serves from `@test/cmds`, pinned (plan 06 T1) ---
+//
+// Characterization: these describe today's listings, the args a command's
+// export receives over MCP and the errors a command tool answers. Later
+// changes flip them on purpose.
+
+/// `ordered`: an enum arg with a declared default, and a flag (R2).
+fn ordered_command() -> Value {
+    json!({"id": "ordered", "title": "Ordered", "description": "List in order",
+        "export": "cmd__ordered",
+        "args": [{"name": "order", "arg_type": {"enum": {"values": ["asc", "desc"]}},
+                  "default_value": "desc"},
+                 {"name": "all", "arg_type": "bool"}]})
+}
+
+/// `strict`: a required flag (R3).
+fn strict_command() -> Value {
+    json!({"id": "strict", "title": "Strict", "description": "Check strictly",
+        "export": "cmd__strict",
+        "args": [{"name": "strict", "arg_type": "bool", "required": true}]})
+}
+
+/// An explicit tool named as a core tool (R5).
+fn core_named_tool() -> Value {
+    json!({"name": "specforge.validate", "description": "Validate, the extension's way",
+        "export": "mcp__v", "input_schema": {"type": "object"}})
+}
+
+/// A resource outside `specforge://ext/` (R6).
+fn acme_resource() -> Value {
+    json!({"uri_template": "acme://doc/{id}", "name": "doc", "export": "mcp__doc",
+        "mime_type": "text/plain"})
+}
+
+/// A resource whose template a core resource's names (R6).
+fn core_shadowed_resource() -> Value {
+    json!({"uri_template": "specforge://graph/ext/{id}", "name": "graph-ext",
+        "export": "mcp__graph_ext", "mime_type": "application/json"})
+}
+
+/// What the server lists beside the core surface: extension tools (in
+/// listed order), resources and templates, and the diagnostics it reports.
+fn extension_listings(server: &mut McpServer) -> Value {
+    let core_uris: Vec<&str> = specforge_mcp::resources::CORE_RESOURCES
+        .iter()
+        .map(|r| r.uri)
+        .collect();
+    let tools: Vec<Value> = call(server, "tools/list", json!({}))["result"]["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|t| t["source"] != "core")
+        .cloned()
+        .collect();
+    let resources: Vec<Value> = call(server, "resources/list", json!({}))["result"]["resources"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|r| !core_uris.contains(&r["uri"].as_str().unwrap()))
+        .cloned()
+        .collect();
+    let templates: Vec<Value> =
+        call(server, "resources/templates/list", json!({}))["result"]["resourceTemplates"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|r| !core_uris.contains(&r["uriTemplate"].as_str().unwrap()))
+            .cloned()
+            .collect();
+    let diagnostics: Vec<Value> = server
+        .state()
+        .diagnostics()
+        .iter()
+        .map(|d| json!({"code": d.code, "message": d.message}))
+        .collect();
+    json!({"tools": tools, "resources": resources, "resourceTemplates": templates,
+        "diagnostics": diagnostics})
+}
+
+#[test]
+fn pinned_fake_extension_listings() {
+    let fakes: [(&str, FakeExtension); 5] = [
+        ("plain", FakeExtension::new()),
+        (
+            "r2_default",
+            FakeExtension::new().with_command(ordered_command()),
+        ),
+        (
+            "r3_required_flag",
+            FakeExtension::new().with_command(strict_command()),
+        ),
+        (
+            "r5_core_named_tool",
+            FakeExtension::new().with_tool(core_named_tool()),
+        ),
+        (
+            "r6_resources",
+            FakeExtension::new()
+                .with_resource(acme_resource())
+                .with_resource(core_shadowed_resource()),
+        ),
+    ];
+    for (name, fake) in fakes {
+        let (mut server, _ext, _dir) = fake_extension::initialized(fake);
+        insta::assert_json_snapshot!(
+            format!("fake_extension_listings_{name}"),
+            extension_listings(&mut server)
+        );
+    }
+}
+
+/// The args the export of `tool` received for each of `calls`, in order:
+/// `None` for a call that reached no export.
+fn args_reaching(fake: FakeExtension, tool: &str, calls: &[Value]) -> Vec<Option<Value>> {
+    let export = format!("cmd__{}", tool.rsplit('.').next().unwrap());
+    let fake = fake.with_output(
+        &export,
+        json!({"exit_code": 0, "stdout": "{}", "stderr": ""}),
+    );
+    let (mut server, ext, _dir) = fake_extension::initialized(fake);
+    calls
+        .iter()
+        .map(|arguments| {
+            let before = ext.calls().len();
+            call_tool(&mut server, tool, arguments.clone());
+            ext.calls()
+                .get(before)
+                .map(|(_, _, input)| input["args"].clone())
+        })
+        .collect()
+}
+
+#[test]
+fn pinned_args_reaching_cmd_exports_over_mcp() {
+    // R2: the declared default does not reach the export, and an unset
+    // flag is absent (the CLI sends {"order": "desc", "all": false}).
+    let ordered = args_reaching(
+        FakeExtension::new().with_command(ordered_command()),
+        "specforge.cmds.ordered",
+        &[json!({}), json!({"order": "asc", "all": true})],
+    );
+    assert_eq!(
+        ordered,
+        [Some(json!({})), Some(json!({"order": "asc", "all": true}))]
+    );
+    // R3: a required flag is required over MCP (the CLI runs it with
+    // strict: false).
+    let strict = args_reaching(
+        FakeExtension::new().with_command(strict_command()),
+        "specforge.cmds.strict",
+        &[json!({}), json!({"strict": true})],
+    );
+    assert_eq!(strict, [None, Some(json!({"strict": true}))]);
+    // An undeclared argument passes through to the export.
+    let report = args_reaching(
+        FakeExtension::new(),
+        "specforge.cmds.report",
+        &[json!({"style": "md", "bogus": 1})],
+    );
+    assert_eq!(report, [Some(json!({"style": "md", "bogus": 1}))]);
+}
+
+#[test]
+fn pinned_command_tool_argument_errors() {
+    let (mut server, ext, _dir) = fake_extension::initialized(FakeExtension::new());
+    let mut errors = Vec::new();
+    for arguments in [
+        json!({}),
+        json!({"style": "xml"}),
+        json!({"style": "md", "limit": "x"}),
+    ] {
+        let resp = call_tool(&mut server, "specforge.cmds.report", arguments.clone());
+        assert_eq!(resp["result"]["isError"], true, "{resp}");
+        errors.push(json!({"arguments": arguments,
+            "structuredContent": resp["result"]["structuredContent"]}));
+    }
+    assert!(ext.calls().is_empty(), "{:?}", ext.calls());
+    insta::assert_json_snapshot!("command_tool_argument_errors", errors);
+}
+
+#[test]
+fn pinned_a_core_named_tool_is_listed_twice_and_the_core_tool_runs() {
+    let (mut server, ext, _dir) =
+        fake_extension::initialized(FakeExtension::new().with_tool(core_named_tool()));
+    let resp = call(&mut server, "tools/list", json!({}));
+    let named = resp["result"]["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|t| t["name"] == "specforge.validate")
+        .count();
+    assert_eq!(named, 2, "R5: listed twice");
+    call_tool(&mut server, "specforge.validate", json!({}));
+    assert!(ext.calls().is_empty(), "the core tool ran, not mcp__v");
+}
+
+#[test]
+fn pinned_resources_outside_ext_are_unreadable_and_core_ones_shadow() {
+    let (mut server, ext, _dir) = fake_extension::initialized(
+        FakeExtension::new()
+            .with_resource(acme_resource())
+            .with_resource(core_shadowed_resource())
+            .with_output(
+                "mcp__doc",
+                json!({"content": "doc 1", "mime_type": "text/plain"}),
+            ),
+    );
+    let resp = read_resource(&mut server, "acme://doc/1");
+    assert_eq!(resp["error"]["code"], -32602, "{resp}");
+    assert_eq!(
+        resp["error"]["message"],
+        "Unknown resource URI: acme://doc/1"
+    );
+    // The core entity resource answers a URI the extension's template names.
+    let resp = read_resource(&mut server, "specforge://graph/ext/1");
+    assert!(resp["error"].is_object(), "{resp}");
+    assert_ne!(
+        resp["error"]["message"],
+        "Unknown resource URI: specforge://graph/ext/1"
+    );
+    assert!(ext.calls().is_empty(), "{:?}", ext.calls());
+}

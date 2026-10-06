@@ -1,0 +1,22 @@
+---
+source: crates/specforge-cli/tests/extension_surfaces.rs
+expression: help
+---
+The connected components of the see_also graph between terms (undirected), largest first, ties by first term id; terms with no see_also link are counted as isolated.
+
+Usage: specforge product term-clusters [OPTIONS]
+
+Options:
+      --path <PATH>
+          Path to the project
+          
+          [default: .]
+
+      --format <FORMAT>
+          Output format
+          
+          [default: human]
+          [possible values: human, json]
+
+  -h, --help
+          Print help (see a summary with '-h')

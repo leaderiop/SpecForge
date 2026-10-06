@@ -1,0 +1,28 @@
+---
+source: crates/specforge-cli/tests/extension_surfaces.rs
+expression: help
+---
+Per owner, the features, milestones, deliverables and releases it owns (most first, ties by owner), paged, and how many of those entities have no owner.
+
+Usage: specforge product owner-workload [OPTIONS]
+
+Options:
+      --limit <LIMIT>
+          Return at most this many (default 100, clamped to 1-1000)
+
+      --offset <OFFSET>
+          Skip this many first (default 0)
+
+      --path <PATH>
+          Path to the project
+          
+          [default: .]
+
+      --format <FORMAT>
+          Output format
+          
+          [default: human]
+          [possible values: human, json]
+
+  -h, --help
+          Print help (see a summary with '-h')

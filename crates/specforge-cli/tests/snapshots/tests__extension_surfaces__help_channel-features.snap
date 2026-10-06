@@ -1,0 +1,26 @@
+---
+source: crates/specforge-cli/tests/extension_surfaces.rs
+expression: help
+---
+The features of every journey that uses the channel, and those journeys, sorted.
+
+Usage: specforge product channel-features [OPTIONS] <CHANNEL>
+
+Arguments:
+  <CHANNEL>
+          The channel id
+
+Options:
+      --path <PATH>
+          Path to the project
+          
+          [default: .]
+
+      --format <FORMAT>
+          Output format
+          
+          [default: human]
+          [possible values: human, json]
+
+  -h, --help
+          Print help (see a summary with '-h')

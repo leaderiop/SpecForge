@@ -11,7 +11,7 @@ use specforge_test_macros::test as specforge_test;
 use std::fs;
 use tempfile::TempDir;
 
-fn setup_product_project() -> TempDir {
+pub fn setup_product_project() -> TempDir {
     let dir = TempDir::new().unwrap();
 
     let config = serde_json::json!({
@@ -642,7 +642,7 @@ fn completions_include_the_commands_of_the_project_here() {
 
 /// `requests` after an `initialize` negotiating MCP 2025-06-18, the first
 /// revision with structured content.
-fn structured_session(dir: &TempDir, requests: &[String]) -> Vec<serde_json::Value> {
+pub fn structured_session(dir: &TempDir, requests: &[String]) -> Vec<serde_json::Value> {
     let initialize = mcp_request(
         0,
         "initialize",

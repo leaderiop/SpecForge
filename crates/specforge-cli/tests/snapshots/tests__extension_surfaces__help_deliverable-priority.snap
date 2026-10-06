@@ -1,0 +1,26 @@
+---
+source: crates/specforge-cli/tests/extension_surfaces.rs
+expression: help
+---
+The highest priority among the milestones and journeys a deliverable references that declare one (null when none does), and how many declare one.
+
+Usage: specforge product deliverable-priority [OPTIONS] <DELIVERABLE>
+
+Arguments:
+  <DELIVERABLE>
+          The deliverable id
+
+Options:
+      --path <PATH>
+          Path to the project
+          
+          [default: .]
+
+      --format <FORMAT>
+          Output format
+          
+          [default: human]
+          [possible values: human, json]
+
+  -h, --help
+          Print help (see a summary with '-h')

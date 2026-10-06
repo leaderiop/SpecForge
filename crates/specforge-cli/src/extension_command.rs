@@ -700,6 +700,53 @@ mod tests {
         }
     }
 
+    /// The args `specforge x <argv>` sends the export of `declared`, a
+    /// `CommandDescriptor` as JSON.
+    fn sent(declared: Value, argv: &[&str]) -> Value {
+        let c: CommandDescriptor = serde_json::from_value(declared).unwrap();
+        let commands = [ExtensionCommand {
+            extension: "@test/cmds",
+            contribution: &c,
+        }];
+        let matches = command_line("x", &commands)
+            .try_get_matches_from(std::iter::once("specforge x").chain(argv.iter().copied()))
+            .unwrap();
+        let (_, sub) = matches.subcommand().unwrap();
+        Value::Object(arg_values(&c.args, sub))
+    }
+
+    /// Characterization (plan 06 T1): what the command line sends for the
+    /// declarations `crates/specforge-mcp/tests/surface_wiring.rs` pins over
+    /// MCP (`ordered_command`, `strict_command`; the JSON is duplicated until
+    /// both surfaces read one derivation).
+    #[test]
+    fn pinned_args_the_cli_sends() {
+        let ordered = serde_json::json!({"id": "ordered", "title": "Ordered",
+            "description": "List in order", "export": "cmd__ordered",
+            "args": [{"name": "order", "arg_type": {"enum": {"values": ["asc", "desc"]}},
+                      "default_value": "desc"},
+                     {"name": "all", "arg_type": "bool"}]});
+        assert_eq!(
+            sent(ordered.clone(), &["ordered"]),
+            serde_json::json!({"order": "desc", "all": false})
+        );
+        assert_eq!(
+            sent(ordered, &["ordered", "--order", "asc", "--all"]),
+            serde_json::json!({"order": "asc", "all": true})
+        );
+        let strict = serde_json::json!({"id": "strict", "title": "Strict",
+            "description": "Check strictly", "export": "cmd__strict",
+            "args": [{"name": "strict", "arg_type": "bool", "required": true}]});
+        assert_eq!(
+            sent(strict.clone(), &["strict"]),
+            serde_json::json!({"strict": false})
+        );
+        assert_eq!(
+            sent(strict, &["strict", "--strict"]),
+            serde_json::json!({"strict": true})
+        );
+    }
+
     #[test]
     fn the_project_path_is_found_before_parsing() {
         let args = |a: &[&str]| a.iter().map(|s| s.to_string()).collect::<Vec<_>>();

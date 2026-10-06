@@ -25,6 +25,7 @@ mod explain;
 mod export;
 mod export_version;
 mod extension_authoring;
+mod extension_surfaces;
 mod extensions;
 #[allow(dead_code)]
 mod fake_registry;

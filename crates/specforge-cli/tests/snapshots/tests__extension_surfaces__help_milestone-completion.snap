@@ -1,0 +1,26 @@
+---
+source: crates/specforge-cli/tests/extension_surfaces.rs
+expression: help
+---
+How many of a milestone's features are done: the count, the ratio in [0, 1] and their ids.
+
+Usage: specforge product milestone-completion [OPTIONS] <MILESTONE>
+
+Arguments:
+  <MILESTONE>
+          The milestone id
+
+Options:
+      --path <PATH>
+          Path to the project
+          
+          [default: .]
+
+      --format <FORMAT>
+          Output format
+          
+          [default: human]
+          [possible values: human, json]
+
+  -h, --help
+          Print help (see a summary with '-h')

@@ -1,0 +1,26 @@
+---
+source: crates/specforge-cli/tests/extension_surfaces.rs
+expression: help
+---
+How many of a release's deliverables are shipped, as a count and a ratio in [0, 1] (null without deliverables).
+
+Usage: specforge product release-completion [OPTIONS] <RELEASE>
+
+Arguments:
+  <RELEASE>
+          The release id
+
+Options:
+      --path <PATH>
+          Path to the project
+          
+          [default: .]
+
+      --format <FORMAT>
+          Output format
+          
+          [default: human]
+          [possible values: human, json]
+
+  -h, --help
+          Print help (see a summary with '-h')

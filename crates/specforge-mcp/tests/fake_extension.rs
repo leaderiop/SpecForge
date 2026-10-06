@@ -2,7 +2,8 @@
 //! declares, as given (`raw_category`), surfaces — two CLI commands
 //! (`report`, `check`), an explicit MCP tool named `specforge.cmds.check`
 //! (the name `check` would be auto-promoted to), and one MCP resource —
-//! and any compiler passes a test adds. Every export call is recorded; an
+//! and any commands, MCP tools, MCP resources and compiler passes a test
+//! adds. Every export call is recorded; an
 //! export answers its configured output, else the guest's own "unknown
 //! export" error, so a test sees which export a tool call reached and with
 //! what input.
@@ -28,6 +29,10 @@ pub struct FakeExtension {
     passes: Value,
     /// Commands declared beside `report` and `check`.
     commands: Vec<Value>,
+    /// MCP tools declared beside `specforge.cmds.check`.
+    tools: Vec<Value>,
+    /// MCP resources declared beside `cmds-summary`.
+    resources: Vec<Value>,
     /// The runtime serving it, made on first use.
     runtime: OnceLock<Arc<InProcessRuntime>>,
 }
@@ -39,6 +44,8 @@ impl FakeExtension {
             panics: Vec::new(),
             passes: json!([]),
             commands: Vec::new(),
+            tools: Vec::new(),
+            resources: Vec::new(),
             runtime: OnceLock::new(),
         }
     }
@@ -46,6 +53,20 @@ impl FakeExtension {
     /// Also declare `command` (a `CommandDescriptor`).
     pub fn with_command(mut self, command: Value) -> Self {
         self.commands.push(command);
+        self
+    }
+
+    /// Also declare the MCP tool `tool` (an `McpToolDescriptor`), after
+    /// `specforge.cmds.check`.
+    pub fn with_tool(mut self, tool: Value) -> Self {
+        self.tools.push(tool);
+        self
+    }
+
+    /// Also declare the MCP resource `resource` (an
+    /// `McpResourceDescriptor`), after `cmds-summary`.
+    pub fn with_resource(mut self, resource: Value) -> Self {
+        self.resources.push(resource);
         self
     }
 
@@ -90,6 +111,14 @@ impl FakeExtension {
             .as_array_mut()
             .unwrap()
             .extend(self.commands.iter().cloned());
+        surfaces["mcp_tools"]
+            .as_array_mut()
+            .unwrap()
+            .extend(self.tools.iter().cloned());
+        surfaces["mcp_resources"]
+            .as_array_mut()
+            .unwrap()
+            .extend(self.resources.iter().cloned());
         let passes = self.passes.clone();
         let mut runtime = InProcessRuntime::new().with(move || {
             let mut c = ContributionsBuilder::new(ExtensionMeta::new(EXT, "0.1.0"));

@@ -1,0 +1,26 @@
+---
+source: crates/specforge-cli/tests/extension_surfaces.rs
+expression: help
+---
+The features of every journey the persona undertakes, and those journeys, sorted.
+
+Usage: specforge product persona-features [OPTIONS] <PERSONA>
+
+Arguments:
+  <PERSONA>
+          The persona id
+
+Options:
+      --path <PATH>
+          Path to the project
+          
+          [default: .]
+
+      --format <FORMAT>
+          Output format
+          
+          [default: human]
+          [possible values: human, json]
+
+  -h, --help
+          Print help (see a summary with '-h')
