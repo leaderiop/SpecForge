@@ -81,16 +81,8 @@ impl Entity {
     /// the gate's denominator): its kind is testable, and it is not an
     /// exempt entity that declares nothing.
     pub fn counts_toward_coverage(&self) -> bool {
-        counts_toward_coverage(self.testable, self.exempt, self.obligations())
+        self.testable && !(self.exempt && self.obligations() == 0)
     }
-}
-
-/// The one statement of the counting rule (ADR 0004 D2-b): a testable
-/// entity counts unless it is exempt from obligations and declares none.
-/// [`Entity::counts_toward_coverage`] and the host's entity standing both
-/// call it, so no reader restates the formula.
-pub fn counts_toward_coverage(testable: bool, exempt: bool, obligations: usize) -> bool {
-    testable && !(exempt && obligations == 0)
 }
 
 /// One recorded test for an entity (a `specforge-report.json` entry).

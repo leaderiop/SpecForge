@@ -85,9 +85,12 @@ beside it (`FieldRecord::items`, never on the wire).
 It **owes** obligations when a rule applies and nothing exempts it; it **counts** toward coverage when
 testable and owing or declaring; it is **exempt** (the coverage view's word) when testable and neither.
 
-- The counting formula is stated once, `specforge_coverage::counts_toward_coverage(testable, exempt,
-  obligations)`; `Standing::counts` and `Entity::counts_toward_coverage` both call it. Every reader
-  (inspect included) borrows the snapshot's `Standing`; none re-derives it.
+- The counting formula is `Standing::counts`, the host's one statement of it. The pass's entity (the
+  `coverage` extension's input, which that crate scores without the host) has its own,
+  `Entity::counts_toward_coverage`; a test pins them equal over every combination. Every other
+  reader (inspect included) borrows the snapshot's `Standing`; none re-derives it. They are not one
+  function because `specforge-coverage` is an input of two builtin blobs, so sharing one would
+  re-vendor them.
 - The pass input's and the coverage rule's `exempt` is "owes none".
 - The verify stub is offered to an entity that declares none and either owes obligations or is of a
   testable kind nothing exempts. It fixes the rule that reports it, if any.
