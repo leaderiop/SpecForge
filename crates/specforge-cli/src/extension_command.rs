@@ -18,11 +18,12 @@ use clap::builder::PossibleValuesParser;
 use clap::{Arg, ArgAction, ArgMatches, Command};
 use serde_json::{Map, Value};
 use specforge_ops::command::{
-    CommandContext, CommandFormat, ExtensionCommand, ext_short, extension_commands, refusal,
-    run_command,
+    CommandContext, CommandFormat, ExtensionCommand, extension_commands, refusal, run_command,
 };
 use specforge_project::Environment;
-use specforge_registry::{CommandArg, CommandArgType};
+use specforge_protocol_types::{CommandArgDescriptor, CommandArgType, CommandError};
+use specforge_wasm::CallError;
+use specforge_wasm::runtime::WasmRuntime;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
@@ -56,20 +57,16 @@ pub fn run(argv: &[String], builtins: &[String]) -> i32 {
     let root = project_path(&rest);
     let runtime = specforge_component::project_runtime(&root);
     let env = Environment::load(&root, Some(&runtime));
-    let build = &env.registries;
-    let all = extension_commands(build);
-    let commands: Vec<ExtensionCommand> = all
-        .iter()
-        .copied()
-        .filter(|c| ext_short(&build.manifests, c.extension) == ext)
-        .collect();
+    let all = extension_commands(&env.registries);
+    let short = |c: &ExtensionCommand| short_name(&env, c.extension);
+    let commands: Vec<ExtensionCommand> = all.iter().copied().filter(|c| short(c) == ext).collect();
     if commands.is_empty() {
         eprintln!(
             "error: unrecognized subcommand '{ext}': no built-in command, and no extension of the project at {} with that name contributes commands",
             root.display()
         );
         let mut names: Vec<String> = builtins.to_vec();
-        names.extend(all.iter().map(|c| ext_short(&build.manifests, c.extension)));
+        names.extend(all.iter().map(short));
         if let Some(close) =
             specforge_common::find_close_match(&ext, names.iter().map(String::as_str))
         {
@@ -118,44 +115,72 @@ pub fn run(argv: &[String], builtins: &[String]) -> i32 {
         today: chrono::Utc::now().format("%Y-%m-%d").to_string(),
     };
     let cwd = std::fs::canonicalize(&root).unwrap_or(root);
-    match run_command(
+    dispatch(
         &runtime,
-        command.extension,
-        &command.contribution.export,
+        command,
         &env.build_graph(),
         &args,
         &cwd,
         &context,
+        &mut std::io::stdout(),
+        &mut std::io::stderr(),
+    )
+}
+
+/// Run `command`'s export over `graph` in `runtime`, writing what it
+/// printed to `stdout` and `stderr` as it printed it; its exit code. An
+/// export that did not answer a command output (it trapped, or answered
+/// something else: E028) writes why to `stderr` and exits 1.
+#[allow(clippy::too_many_arguments)]
+fn dispatch(
+    runtime: &dyn WasmRuntime,
+    command: &ExtensionCommand,
+    graph: &specforge_graph::Graph,
+    args: &Map<String, Value>,
+    cwd: &Path,
+    context: &CommandContext,
+    stdout: &mut dyn Write,
+    stderr: &mut dyn Write,
+) -> i32 {
+    match run_command(
+        runtime,
+        command.extension,
+        &command.contribution.export,
+        graph,
+        args,
+        cwd,
+        context,
     ) {
         Ok(output) => {
-            let _ = std::io::stdout().write_all(&output.stdout);
-            let _ = std::io::stderr().write_all(&output.stderr);
+            let _ = stdout.write_all(output.stdout.as_bytes());
+            let _ = stderr.write_all(output.stderr.as_bytes());
             output.exit_code
         }
-        Err(diagnostic) => {
-            eprint!("{}", failed_run(&diagnostic, context.format));
+        Err(error) => {
+            let _ = stderr.write_all(failed_run(&error, context.format).as_bytes());
             1
         }
     }
 }
 
-/// What the CLI writes to stderr when a command's export did not answer
-/// (it trapped: E028), in the format asked for: under `json` one error
-/// object of the shape commands write (`{code, message, suggestion?}`),
-/// under `human` the diagnostic line.
-fn failed_run(diagnostic: &specforge_common::Diagnostic, format: CommandFormat) -> String {
+/// What the CLI writes to stderr when a command's export did not answer a
+/// command output (E028), in the format asked for: under `json` one
+/// [`CommandError`] (`{code, message, suggestion?}`), the object commands
+/// write; under `human` the diagnostic line.
+fn failed_run(error: &CallError, format: CommandFormat) -> String {
+    let diagnostic = error.diagnostic();
     match format {
         CommandFormat::Json => {
-            let mut error = serde_json::json!({
-                "code": diagnostic.code,
-                "message": diagnostic.message,
-            });
-            if let Some(suggestion) = &diagnostic.suggestion {
-                error["suggestion"] = Value::from(suggestion.as_str());
-            }
-            format!("{error}\n")
+            let error = CommandError {
+                suggestion: diagnostic.suggestion,
+                ..CommandError::new(diagnostic.code, diagnostic.message)
+            };
+            let mut line =
+                serde_json::to_string(&error).expect("command error serialization cannot fail");
+            line.push('\n');
+            line
         }
-        CommandFormat::Human => format!("{}\n", crate::export::render_plain(diagnostic)),
+        CommandFormat::Human => format!("{}\n", crate::export::render_plain(&diagnostic)),
     }
 }
 
@@ -167,13 +192,12 @@ fn failed_run(diagnostic: &specforge_common::Diagnostic, format: CommandFormat) 
 pub fn with_extension_commands(mut cli: Command, root: &Path) -> Command {
     let runtime = specforge_component::project_runtime(root);
     let env = Environment::load(root, Some(&runtime));
-    let build = &env.registries;
     let mut by_ext: Vec<(String, Vec<ExtensionCommand>)> = Vec::new();
-    for command in extension_commands(build) {
+    for command in extension_commands(&env.registries) {
         if refusal(command.contribution).is_some() {
             continue;
         }
-        let short = ext_short(&build.manifests, command.extension);
+        let short = short_name(&env, command.extension);
         match by_ext.iter_mut().find(|(ext, _)| *ext == short) {
             Some((_, commands)) => commands.push(command),
             None => by_ext.push((short, vec![command])),
@@ -186,6 +210,15 @@ pub fn with_extension_commands(mut cli: Command, root: &Path) -> Command {
         }
     }
     cli
+}
+
+/// The short name of the loaded extension `extension`, which names its
+/// commands on the command line.
+fn short_name(env: &Environment, extension: &str) -> String {
+    env.registries
+        .short(extension)
+        .map(std::borrow::Cow::into_owned)
+        .unwrap_or_default()
 }
 
 /// The exit code of a usage error clap catches, `INVALID_INPUT`'s: the
@@ -377,7 +410,7 @@ fn command_line(ext: &str, commands: &[ExtensionCommand]) -> Command {
 
 /// A declared arg on the command line: required ones are positional, but a
 /// bool, which is always a `--flag` (set or not).
-fn declared_arg(declared: &CommandArg) -> Arg {
+fn declared_arg(declared: &CommandArgDescriptor) -> Arg {
     let mut arg = Arg::new(declared.name.clone());
     let flag = matches!(declared.arg_type, CommandArgType::Bool);
     if !flag {
@@ -415,7 +448,7 @@ fn format_value(matches: &ArgMatches) -> CommandFormat {
 
 /// The args the command line set (or defaulted), typed as declared; never
 /// the host's own options.
-fn arg_values(declared: &[CommandArg], matches: &ArgMatches) -> Map<String, Value> {
+fn arg_values(declared: &[CommandArgDescriptor], matches: &ArgMatches) -> Map<String, Value> {
     let mut args = Map::new();
     for arg in declared {
         let value = match arg.arg_type {
@@ -435,16 +468,17 @@ fn arg_values(declared: &[CommandArg], matches: &ArgMatches) -> Map<String, Valu
 #[cfg(test)]
 mod tests {
     use super::*;
-    use specforge_registry::CommandContribution;
+    use specforge_protocol_types::CommandDescriptor;
     use specforge_test_macros::test as specforge_test;
+    use specforge_wasm::{CallFailure, Operation};
 
     fn arg(
         name: &str,
         arg_type: CommandArgType,
         required: bool,
         default: Option<&str>,
-    ) -> CommandArg {
-        CommandArg {
+    ) -> CommandArgDescriptor {
+        CommandArgDescriptor {
             name: name.into(),
             arg_type,
             required,
@@ -453,8 +487,8 @@ mod tests {
         }
     }
 
-    fn contribution() -> CommandContribution {
-        CommandContribution {
+    fn contribution() -> CommandDescriptor {
+        CommandDescriptor {
             id: "milestone_completion".into(),
             title: "Show progress".into(),
             description: String::new(),
@@ -558,7 +592,7 @@ mod tests {
         verify = "a command declaring an arg named format is refused on the command line"
     )]
     fn an_arg_taking_a_host_option_or_another_args_name_is_refused() {
-        let with = |args: Vec<CommandArg>| CommandContribution {
+        let with = |args: Vec<CommandArgDescriptor>| CommandDescriptor {
             args,
             ..contribution()
         };
@@ -585,23 +619,85 @@ mod tests {
         verify = "under --format json a command whose export trapped prints one JSON error object"
     )]
     fn a_trapped_command_reports_in_the_format_asked_for() {
-        let trap = specforge_common::Diagnostic::error(
-            "E028",
-            "CLI command cmd__x() trapped: unreachable: the command panicked",
+        let trap = CallError::new(
+            Operation::Command,
+            "@acme/x",
+            "cmd__x",
+            CallFailure::Trapped {
+                kind: "call_failed".into(),
+                message: "unreachable: the command panicked".into(),
+            },
         );
         let json = failed_run(&trap, CommandFormat::Json);
         let error: Value = serde_json::from_str(&json).unwrap();
         assert_eq!(
             error,
             serde_json::json!({"code": "E028",
-                "message": "CLI command cmd__x() trapped: unreachable: the command panicked"})
+                "message": "command cmd__x() of '@acme/x' trapped: call_failed: unreachable: the command panicked",
+                "suggestion": "report the failure to the author of '@acme/x', or check it is installed and up to date"})
         );
         assert!(json.ends_with('\n') && json.lines().count() == 1, "{json}");
         let human = failed_run(&trap, CommandFormat::Human);
         assert!(
-            human.starts_with("error[E028]: CLI command cmd__x() trapped"),
+            human.starts_with("error[E028]: command cmd__x() of '@acme/x' trapped"),
             "{human}"
         );
+    }
+
+    #[specforge_test(
+        behavior = "dispatch_surface_command",
+        verify = "a command whose output is not a CommandOutput is an ExtensionError, not exit 0 with the raw bytes"
+    )]
+    fn a_command_answering_no_command_output_exits_1_with_e028() {
+        use specforge_wasm::runtime::WasmCallResult;
+        use specforge_wasm::testing::InProcessRuntime;
+
+        let c = contribution();
+        let command = ExtensionCommand {
+            extension: "@acme/x",
+            contribution: &c,
+        };
+        for format in CommandFormat::ALL {
+            let runtime = InProcessRuntime::new().answer_raw(
+                "@acme/x",
+                &c.export,
+                WasmCallResult::Ok(b"not json at all".to_vec()),
+            );
+            let (mut stdout, mut stderr) = (Vec::new(), Vec::new());
+            let context = CommandContext {
+                format,
+                today: "2026-10-05".into(),
+            };
+            let code = dispatch(
+                &runtime,
+                &command,
+                &specforge_graph::Graph::new(),
+                &Map::new(),
+                Path::new("/p"),
+                &context,
+                &mut stdout,
+                &mut stderr,
+            );
+            assert_eq!(code, 1, "{format:?}");
+            assert!(stdout.is_empty(), "the raw bytes are not printed");
+            let stderr = String::from_utf8(stderr).unwrap();
+            let message = "command cmd__x_milestone_completion() of '@acme/x' answered output \
+                           that is not a CommandOutput: ";
+            match format {
+                CommandFormat::Json => {
+                    let error: Value = serde_json::from_str(&stderr).unwrap();
+                    assert_eq!(error["code"], "E028");
+                    assert!(
+                        error["message"].as_str().unwrap().starts_with(message),
+                        "{error}"
+                    );
+                }
+                CommandFormat::Human => assert!(
+                    stderr.starts_with(&format!("error[E028]: {message}")),
+                    "{stderr}"
+                ),
+            }
+        }
     }
 
     #[test]

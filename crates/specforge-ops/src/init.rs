@@ -287,7 +287,7 @@ fn starter_template(extensions: &[String], installs: &[PathBuf]) -> Option<Strin
     let mut ignored = Vec::new();
     specforge_project::compile::load_extensions(extensions, &runtime, &mut ignored)
         .into_iter()
-        .find_map(|manifest| manifest.starter_template)
+        .find_map(|declaration| declaration.handshake.starter_template)
 }
 
 fn sanitize_entity_id(name: &str) -> String {

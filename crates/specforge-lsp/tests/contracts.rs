@@ -157,16 +157,15 @@ fn registries_for(
 ) {
     let names: Vec<String> = extensions.iter().map(|s| s.to_string()).collect();
     let runtime = wasm_runtime_for(&names);
-    let host = specforge_wasm::protocol::ProtocolHost::new(&runtime);
-    let manifests: Vec<_> = names
+    let declarations: Vec<_> = names
         .iter()
         .map(|name| {
-            let ext = specforge_wasm::protocol::load_protocol_extension(&host, name)
+            let loaded = specforge_wasm::protocol::load_declaration(&runtime, name)
                 .unwrap_or_else(|e| panic!("{name} does not load: {e:?}"));
-            specforge_wasm::protocol::protocol_extension_to_manifest(&ext)
+            loaded.declaration
         })
         .collect();
-    let build = specforge_registry::build_registries(manifests);
+    let build = specforge_registry::build_registries(declarations);
     (build.kinds, build.fields)
 }
 
@@ -322,16 +321,13 @@ fn complete_field_names_contract() {
     .map(|s| s.to_string())
     .collect();
     let runtime = wasm_runtime_for(&ext_names);
-    let host = specforge_wasm::protocol::ProtocolHost::new(&runtime);
-    let mut manifests = Vec::new();
+    let mut declarations = Vec::new();
     for name in &ext_names {
-        if let Ok(ext) = specforge_wasm::protocol::load_protocol_extension(&host, name) {
-            manifests.push(specforge_wasm::protocol::protocol_extension_to_manifest(
-                &ext,
-            ));
+        if let Ok(loaded) = specforge_wasm::protocol::load_declaration(&runtime, name) {
+            declarations.push(loaded.declaration);
         }
     }
-    let field_reg = specforge_registry::build_registries(manifests).fields;
+    let field_reg = specforge_registry::build_registries(declarations).fields;
 
     let behavior_fields = specforge_lsp::complete_field_names("behavior", Some(&field_reg));
     assert!(
@@ -771,9 +767,10 @@ fn code_action_create_entity_stub_contract() {
     let diagnostics = state.session().unwrap().diagnostics();
     let recorded = specforge_project::coverage::RecordedCoverage::default();
     let fixes_with = |target_kind: Option<&str>| {
-        let registries = specforge_registry::RegistryBuild {
-            fields: invariants_field(target_kind),
-            ..Default::default()
+        let registries = {
+            let mut build = specforge_registry::RegistryBuild::default();
+            build.fields = invariants_field(target_kind);
+            build
         };
         let view =
             specforge_ops::view::ProjectView::new(state.graph(), &registries, None, &recorded);
@@ -811,20 +808,14 @@ fn invariants_field(target_kind: Option<&str>) -> specforge_registry::FieldRegis
     let mut fields = specforge_registry::FieldRegistry::new();
     fields.register(specforge_registry::FieldRegistryEntry {
         kind_name: "behavior".into(),
-        field_name: "invariants".into(),
-        description: None,
         field_type: specforge_registry::ManifestFieldType::ReferenceList,
         source_extension: "@test/ext".into(),
-        edge: None,
-        target_kind: target_kind.map(str::to_string),
-        file_reference: false,
-        required: false,
-        inverse_of: None,
-        normative: false,
-        exempts_obligations: false,
-        headline: false,
-        derived_from: None,
         proof_role: None,
+        declared: specforge_registry::FieldDescriptor {
+            name: "invariants".into(),
+            target_kind: target_kind.map(str::to_string),
+            ..Default::default()
+        },
     });
     fields
 }
@@ -836,22 +827,12 @@ fn verifiable(kinds: &[&str], verify_kinds: &[&str]) -> specforge_registry::Kind
     for kind in kinds {
         registry.register(specforge_registry::KindRegistryEntry {
             kind_name: kind.to_string(),
-            description: None,
             source_extension: "@test/ext".into(),
             testable: true,
-            singleton: false,
             supports_verify: true,
             allowed_verify_kinds: verify_kinds.iter().map(|k| k.to_string()).collect(),
-            has_body_parser: false,
-            semantic_token: None,
-            lsp_icon: None,
-            dot_shape: None,
-            dot_color: None,
-            dot_fillcolor: None,
-            open_fields: false,
-            contract_target: false,
-            declares_types: false,
             lifecycle_field: None,
+            ..Default::default()
         });
     }
     registry
@@ -866,9 +847,10 @@ fn code_actions_for_missing_verify_contract() {
     // Ensures: quickfix code action with verify stub targeting the .spec file
     let text = "\n\n\n\nbehavior my_behavior \"B\" {\n  contract \"c\"\n}\n";
     let state = buffers(&[("/p/a.spec", text)]);
-    let registries = specforge_registry::RegistryBuild {
-        kinds: verifiable(&["behavior"], &[]),
-        ..Default::default()
+    let registries = {
+        let mut build = specforge_registry::RegistryBuild::default();
+        build.kinds = verifiable(&["behavior"], &[]);
+        build
     };
     let recorded = specforge_project::coverage::RecordedCoverage::default();
     let view = specforge_ops::view::ProjectView::new(state.graph(), &registries, None, &recorded);

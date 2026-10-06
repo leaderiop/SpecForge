@@ -873,7 +873,7 @@ impl LanguageServer for Backend {
             let (ext_count, kind_count, file_count, spec_root) = {
                 let st = state.read().await;
                 (
-                    st.registries().manifests.len(),
+                    st.registries().declarations().len(),
                     st.kind_registry().len(),
                     st.session().map_or(0, ProjectSession::file_count),
                     st.spec_root().to_string_lossy().into_owned(),
@@ -1013,7 +1013,7 @@ impl LanguageServer for Backend {
             // The environment loaded again (hardening-plan H4 / R-5): the
             // spec root re-indexed, everything republished, and the
             // watchers follow what the project is now built from.
-            let ext_count = self.state.read().await.registries().manifests.len();
+            let ext_count = self.state.read().await.registries().declarations().len();
             self.client
                 .log_message(
                     MessageType::INFO,
@@ -1124,7 +1124,7 @@ impl LanguageServer for Backend {
             let field_reg = state.field_registry();
             field_reg
                 .get(&c.entity_kind, &c.field_name)
-                .and_then(|entry| entry.target_kind.clone())
+                .and_then(|entry| entry.declared.target_kind.clone())
         });
 
         // Outside a reference list the enclosing block decides: its own
@@ -1137,15 +1137,20 @@ impl LanguageServer for Backend {
         let lower_prefix = prefix.to_lowercase();
         if let Some((kind, 1)) = &block {
             let mut fields = state.field_registry().fields_for_kind(kind);
-            fields.sort_by(|a, b| a.field_name.cmp(&b.field_name));
+            fields.sort_by(|a, b| a.declared.name.cmp(&b.declared.name));
             for field in fields {
-                if !field.field_name.to_lowercase().starts_with(&lower_prefix) {
+                if !field
+                    .declared
+                    .name
+                    .to_lowercase()
+                    .starts_with(&lower_prefix)
+                {
                     continue;
                 }
                 items.push(CompletionItem {
-                    label: field.field_name.clone(),
+                    label: field.declared.name.clone(),
                     kind: Some(CompletionItemKind::FIELD),
-                    detail: field.description.clone(),
+                    detail: field.declared.description.clone(),
                     insert_text: Some(crate::completion::field_snippet(field, 1)),
                     insert_text_format: Some(InsertTextFormat::SNIPPET),
                     ..Default::default()

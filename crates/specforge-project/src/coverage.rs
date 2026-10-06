@@ -58,6 +58,33 @@ pub struct ReportedTest {
 
 pub use specforge_coverage::{Status, Summary, Verdict};
 
+/// The report as a pass receives it (`PassInput::test_results`): per entity
+/// id, each test's name, status and the obligation it proves.
+impl From<&TestReport> for specforge_protocol_types::PassTestResults {
+    fn from(report: &TestReport) -> Self {
+        use specforge_protocol_types::{PassEntityResults, PassTestResult};
+        specforge_protocol_types::PassTestResults {
+            runner: report.runner.clone(),
+            results: report
+                .results
+                .iter()
+                .map(|(id, entity)| {
+                    let tests = entity
+                        .tests
+                        .iter()
+                        .map(|test| PassTestResult {
+                            name: test.name.clone(),
+                            status: test.status.clone(),
+                            verify: test.verify.clone(),
+                        })
+                        .collect();
+                    (id.clone(), PassEntityResults { tests })
+                })
+                .collect(),
+        }
+    }
+}
+
 /// The kinds that count toward coverage: those an extension's manifest
 /// declares `testable`. Nothing is testable by default, and accepting
 /// `verify` statements (`supports_verify`) does not make a kind testable.
@@ -176,7 +203,7 @@ pub fn obligation_exempt(node: &Node, fields: &FieldRegistry) -> bool {
                 is_set(value)
                     && fields
                         .get(kind, entry.key.as_str())
-                        .is_some_and(|f| f.exempts_obligations)
+                        .is_some_and(|f| f.declared.exempts_obligations)
             }
         })
 }
@@ -500,22 +527,12 @@ mod tests {
     fn kind(name: &str, testable: bool, supports_verify: bool) -> KindRegistryEntry {
         KindRegistryEntry {
             kind_name: name.into(),
-            description: None,
             source_extension: "@test/ext".into(),
             testable,
-            singleton: false,
             supports_verify,
             allowed_verify_kinds: Vec::new(),
-            has_body_parser: false,
-            semantic_token: None,
-            lsp_icon: None,
-            dot_shape: None,
-            dot_color: None,
-            dot_fillcolor: None,
-            open_fields: false,
-            contract_target: false,
-            declares_types: false,
             lifecycle_field: None,
+            ..Default::default()
         }
     }
 
@@ -531,20 +548,14 @@ mod tests {
         let mut fields = FieldRegistry::new();
         fields.register(specforge_registry::FieldRegistryEntry {
             kind_name: "behavior".into(),
-            field_name: "abstract".into(),
-            description: None,
             field_type: specforge_registry::ManifestFieldType::Bool,
             source_extension: "@test/formal".into(),
-            edge: None,
-            target_kind: None,
-            file_reference: false,
-            required: false,
-            inverse_of: None,
-            normative: false,
-            exempts_obligations: true,
-            headline: false,
-            derived_from: None,
             proof_role: None,
+            declared: specforge_protocol_types::FieldDescriptor {
+                name: "abstract".into(),
+                exempts_obligations: true,
+                ..Default::default()
+            },
         });
         fields
     }

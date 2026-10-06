@@ -4,12 +4,30 @@
 //! plugin-side SDK (specforge-extension-sdk) both consume these types, so the
 //! wire format cannot drift between them. Compiles clean on host and
 //! wasm32-unknown-unknown (serde-only).
+//!
+//! Two families:
+//! - the declaration: the `__handshake` and `__describe` payloads and the
+//!   descriptors an extension declares ([`ExtensionDeclaration`], ADR 0012);
+//! - the operations ([`calls`], ADR 0013): what the host sends each export
+//!   it calls and what the export answers — a command ([`CommandInput`],
+//!   [`CommandOutput`]), an MCP resource ([`McpResourceRequest`],
+//!   [`McpResourceContent`]), a compiler pass ([`PassInput`],
+//!   [`PassAnswer`]), a collector ([`CollectInput`], [`CollectOutput`]), a
+//!   custom validator ([`ValidatorContext`], [`ValidatorVerdict`]), a
+//!   scanner ([`ScanRequest`], [`ScanResponse`]) and the migration hook
+//!   ([`MigrationInput`]).
 
 use std::fmt;
 
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
+pub mod calls;
+mod declaration;
 mod vocabulary;
+pub use calls::*;
+pub use declaration::{
+    DECLARED_CATEGORIES, ExtensionDeclaration, UnknownKey, default_short, is_valid_short,
+};
 pub use vocabulary::{CheckKind, ConstraintKind, FieldType};
 
 /// Protocol version for the extension wire format (semver).
@@ -113,7 +131,14 @@ pub struct HandshakeRequest {
 /// `migration_hook` is optional too: the name of the export `specforge
 /// migrate` calls after it migrates the project's files. Omitted from the
 /// wire when absent; an extension without one has no hook to run.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+///
+/// `ext_short`, `description` and `keywords` are optional metadata, omitted
+/// when absent: the short name that routes the extension's commands
+/// (`specforge <ext_short> <command>`, MCP `specforge.<ext_short>.<id>`;
+/// the name's last segment when absent), and what a package registry shows
+/// for it. Absent fields serialize nothing, so a handshake without them is
+/// byte-identical to one from before they existed.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct HandshakeResponse {
     pub protocol_version: String,
     pub name: String,
@@ -130,10 +155,23 @@ pub struct HandshakeResponse {
     /// Omitted from the wire when absent; diagrams then use a neutral grey.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub theme_color: Option<String>,
+    /// The short name routing the extension's commands and tools
+    /// (lowercase kebab case); the name's last segment when absent.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ext_short: Option<String>,
+    /// One line saying what the extension is for (package registries show
+    /// it in search results).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    /// Search keywords for package registries.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub keywords: Vec<String>,
 }
 
-/// Declares which contribution categories an extension provides.
-/// Controls which `__describe` categories the host will request.
+/// Declares which contribution categories an extension provides. Derived
+/// from the declaration's content (`ExtensionDeclaration::contribution_flags`)
+/// and informational: a host reads every declared category whatever these
+/// say, and only `providers` (no describe category) is read from them.
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ContributionFlags {
     #[serde(default)]
@@ -206,6 +244,11 @@ impl DescribeResponse {
     /// Parse the raw `items` array into a typed `Vec<T>`.
     pub fn parse_items<T: DeserializeOwned>(&self) -> Result<Vec<T>, ProtocolError> {
         serde_json::from_value(self.items.clone()).map_err(ProtocolError::from)
+    }
+
+    /// The answer as a guest puts it on the wire (pretty JSON).
+    pub fn wire_json(&self) -> String {
+        serde_json::to_string_pretty(self).expect("describe serialization cannot fail")
     }
 }
 
@@ -318,7 +361,7 @@ pub struct FieldDescriptor {
 // ── Edge Type Descriptor ──
 
 /// Describes an edge type (relationship) between entity kinds.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct EdgeTypeDescriptor {
     pub label: String,
     #[serde(default)]
@@ -343,7 +386,7 @@ pub type SharedFieldDescriptor = FieldDescriptor;
 // ── Entity Enhancement Descriptor ──
 
 /// Describes fields and edge types added to a foreign entity kind.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct EntityEnhancementDescriptor {
     pub target_kind: String,
     pub source_extension: String,
@@ -359,16 +402,17 @@ pub struct EntityEnhancementDescriptor {
 // ── Validation Rule Descriptor ──
 
 /// Severity level for validation diagnostics.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum ValidationSeverity {
     Error,
+    #[default]
     Warning,
     Info,
 }
 
 /// Constraint on a field value.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct FieldConstraintDescriptor {
     /// A [`ConstraintKind`] name.
     pub kind: String,
@@ -379,7 +423,7 @@ pub struct FieldConstraintDescriptor {
 }
 
 /// Describes a validation rule contributed by an extension.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ValidationRuleDescriptor {
     pub code: String,
     pub severity: ValidationSeverity,
@@ -413,7 +457,7 @@ pub struct SurfaceDescriptor {
 }
 
 /// Describes a CLI command contributed by an extension.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CommandDescriptor {
     pub id: String,
     pub title: String,
@@ -428,7 +472,7 @@ pub struct CommandDescriptor {
 }
 
 /// Describes an argument to a CLI command.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CommandArgDescriptor {
     pub name: String,
     pub arg_type: CommandArgType,
@@ -441,9 +485,10 @@ pub struct CommandArgDescriptor {
 }
 
 /// Type of a command argument.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum CommandArgType {
+    #[default]
     String,
     Path,
     Bool,
@@ -455,7 +500,7 @@ pub enum CommandArgType {
 }
 
 /// Describes an MCP tool contributed by an extension.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct McpToolDescriptor {
     pub name: String,
     pub description: String,
@@ -470,7 +515,7 @@ pub struct McpToolDescriptor {
 }
 
 /// Describes an MCP resource contributed by an extension.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct McpResourceDescriptor {
     pub uri_template: String,
     pub name: String,
@@ -483,7 +528,7 @@ pub struct McpResourceDescriptor {
 }
 
 /// Per-surface sandbox override.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct SurfaceSandboxOverride {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fs_read: Option<bool>,
@@ -516,7 +561,7 @@ pub struct BodyParserDescriptor {
 // ── Collector Descriptor ──
 
 /// Auto-detection configuration for a collector.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AutoDetectConfig {
     pub file_patterns: Vec<String>,
     #[serde(default)]
@@ -533,7 +578,7 @@ pub struct AutoDetectConfig {
 /// (ADR 0002). With `capture: "stdout"` the host also keeps the command's
 /// standard output and passes it along, for runners whose results only
 /// appear there.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CollectorDescriptor {
     pub name: String,
     pub input_formats: Vec<String>,
@@ -620,7 +665,7 @@ pub struct MapSymbolResponse {
 // ── Analyzer Descriptor ──
 
 /// Describes a language analyzer contributed by an extension.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AnalyzerDescriptor {
     pub language: String,
     pub file_extensions: Vec<String>,
@@ -636,7 +681,7 @@ pub struct AnalyzerDescriptor {
 // ── Compiler Pass Descriptor ──
 
 /// Describes a compiler pass contributed by an extension.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CompilerPassDescriptor {
     pub name: String,
     #[serde(default)]
@@ -650,7 +695,7 @@ pub struct CompilerPassDescriptor {
 // ── Feature Flag Descriptor ──
 
 /// Describes a feature flag contributed by an extension.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct FeatureFlagDescriptor {
     pub name: String,
     #[serde(default)]

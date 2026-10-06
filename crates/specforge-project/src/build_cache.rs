@@ -41,6 +41,27 @@ pub struct CachedStatus {
     pub status: String,
 }
 
+/// The cache as a check-phase pass receives it (`PassInput::previous`).
+impl From<&BuildCache> for specforge_protocol_types::PassBuildCache {
+    fn from(cache: &BuildCache) -> Self {
+        specforge_protocol_types::PassBuildCache {
+            statuses: cache
+                .statuses
+                .iter()
+                .map(|(id, cached)| {
+                    (
+                        id.clone(),
+                        specforge_protocol_types::PassCachedStatus {
+                            kind: cached.kind.clone(),
+                            status: cached.status.clone(),
+                        },
+                    )
+                })
+                .collect(),
+        }
+    }
+}
+
 impl BuildCache {
     /// The lifecycle states of `graph`: every entity whose kind declares a
     /// lifecycle field in `kinds` and that gives it a text value.
@@ -140,22 +161,12 @@ mod tests {
     fn kind(name: &str, lifecycle_field: Option<&str>) -> KindRegistryEntry {
         KindRegistryEntry {
             kind_name: name.to_string(),
-            description: None,
             source_extension: "@test/ext".to_string(),
             testable: false,
-            singleton: false,
             supports_verify: false,
             allowed_verify_kinds: vec![],
-            has_body_parser: false,
-            semantic_token: None,
-            lsp_icon: None,
-            dot_shape: None,
-            dot_color: None,
-            dot_fillcolor: None,
-            open_fields: false,
-            contract_target: false,
-            declares_types: false,
             lifecycle_field: lifecycle_field.map(str::to_string),
+            ..Default::default()
         }
     }
 

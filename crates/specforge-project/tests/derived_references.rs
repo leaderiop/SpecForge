@@ -4,12 +4,12 @@
 //! signatures, and the extension's own rules see them.
 
 use std::fs;
-use std::path::Path;
 
 use specforge_common::Diagnostic;
+use specforge_extension_sdk::prelude::*;
 use specforge_project::CompiledProject;
 use specforge_test::prelude::*;
-use specforge_wasm::{WasmCallResult, WasmRuntime, WasmTrapInfo};
+use specforge_wasm::testing::InProcessRuntime;
 use tempfile::TempDir;
 
 const EXTENSION: &str = "@test/shapes";
@@ -18,72 +18,32 @@ const EXTENSION: &str = "@test/shapes";
 /// derives from its field types, and `iface`, whose `uses` field derives
 /// from its method signatures; both point at `shape`. A rule reports a
 /// shape nothing references.
-struct ShapesExtension;
-
-impl ShapesExtension {
-    fn describe(category: &str) -> serde_json::Value {
-        let items = match category {
-            "entities" => serde_json::json!([
-                {
-                    "name": "Shape", "keyword": "shape", "open_fields": true,
-                    "fields": [{
-                        "name": "parts", "field_type": "reference_list",
-                        "target_kind": "shape", "derived_from": "type_expressions"
-                    }]
-                },
-                {
-                    "name": "Iface", "keyword": "iface", "open_fields": true,
-                    "fields": [{
-                        "name": "uses", "field_type": "reference_list",
-                        "target_kind": "shape", "derived_from": "method_signatures"
-                    }]
-                }
-            ]),
-            "validation_rules" => serde_json::json!([{
-                "code": "W950", "severity": "warning", "check": "no_incoming_edges",
-                "message_template": "shape '{id}' is not referenced",
-                "target_kind": "shape"
-            }]),
-            _ => serde_json::json!([]),
-        };
-        serde_json::json!({ "category": category, "items": items })
-    }
-}
-
-impl WasmRuntime for ShapesExtension {
-    fn load_module(&self, _: &Path) -> Result<(), String> {
-        Ok(())
-    }
-
-    fn call_export(&self, extension: &str, export: &str, input: &[u8]) -> WasmCallResult {
-        let ok = |value: serde_json::Value| WasmCallResult::Ok(value.to_string().into_bytes());
-        if extension != EXTENSION {
-            return WasmCallResult::Trap(WasmTrapInfo {
-                kind: "extension_not_found".to_string(),
-                message: format!("Extension '{extension}' not loaded"),
-                export_name: export.to_string(),
+fn shapes_extension() -> InProcessRuntime {
+    InProcessRuntime::new().with(|| {
+        let mut c = ContributionsBuilder::new(ExtensionMeta::new(EXTENSION, "1.0.0"));
+        c.kind("Shape", |k| {
+            k.keyword("shape").open_fields(true);
+            k.field("parts", |f| {
+                f.field_type(FieldType::ReferenceList)
+                    .target_kind("shape")
+                    .derived_from("type_expressions");
             });
-        }
-        match export {
-            "__handshake" => ok(serde_json::json!({
-                "protocol_version": "1.0.0",
-                "name": EXTENSION,
-                "version": "1.0.0",
-                "contribution_flags": { "entities": true, "validators": true },
-                "peer_dependencies": [],
-                "sandbox_policy": null
-            })),
-            "__describe" => {
-                let request: serde_json::Value = serde_json::from_slice(input).unwrap();
-                ok(Self::describe(request["category"].as_str().unwrap()))
-            }
-            other => WasmCallResult::Trap(WasmTrapInfo {
-                kind: "guest_error".to_string(),
-                message: format!("unknown export '{other}'"),
-                export_name: other.to_string(),
-            }),
-        }
-    }
+        });
+        c.kind("Iface", |k| {
+            k.keyword("iface").open_fields(true);
+            k.field("uses", |f| {
+                f.field_type(FieldType::ReferenceList)
+                    .target_kind("shape")
+                    .derived_from("method_signatures");
+            });
+        });
+        c.rule("W950", |r| {
+            r.check(CheckKind::NoIncomingEdges)
+                .message_template("shape '{id}' is not referenced")
+                .target_kind("shape");
+        });
+        c
+    })
 }
 
 fn project(spec: &str) -> TempDir {
@@ -133,7 +93,7 @@ iface Garage {
 "#,
     );
 
-    let compiled = CompiledProject::compile(dir.path(), Some(&ShapesExtension));
+    let compiled = CompiledProject::compile(dir.path(), Some(&shapes_extension()));
 
     let edge = |target: &str, label: &str| (target.to_string(), label.to_string());
     assert_eq!(edges_from(&compiled, "Car"), vec![edge("Wheel", "parts")]);

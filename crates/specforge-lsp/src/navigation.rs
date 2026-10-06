@@ -230,7 +230,7 @@ pub(crate) fn symbol_kind_from_entity(kind: &str, kind_registry: &KindRegistry) 
         return SymbolKind::NAMESPACE;
     }
     if let Some(entry) = kind_registry.get(kind)
-        && let Some(ref icon) = entry.lsp_icon
+        && let Some(ref icon) = entry.declared.lsp_icon
     {
         return lsp_icon_to_symbol_kind(icon);
     }

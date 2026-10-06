@@ -163,9 +163,9 @@ fn report(session: &ProjectSession, update: &Update, changed: &[String], json: b
         let extensions: Vec<&str> = session
             .environment()
             .registries
-            .manifests
+            .declarations()
             .iter()
-            .map(|m| m.name.as_str())
+            .map(|d| d.name())
             .collect();
         if json {
             println!(

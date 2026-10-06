@@ -110,70 +110,41 @@ fn with_filter_note(summary: &str, severity: Option<Severity>) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json::{Value, json};
+    use serde_json::json;
+    use specforge_extension_sdk::prelude::*;
     use specforge_test_macros::test as specforge_test;
-    use specforge_wasm::{WasmCallResult, WasmTrapInfo};
+    use specforge_wasm::testing::InProcessRuntime;
 
     const EXT: &str = "@test/audit";
 
     /// An extension, in process, that declares the `gadget` kind and one
     /// check-phase pass, `audit`, which fails (E951) every gadget whose id
     /// starts with `bad`.
-    struct AuditExtension;
-
-    impl WasmRuntime for AuditExtension {
-        fn load_module(&self, _: &Path) -> Result<(), String> {
-            Ok(())
-        }
-
-        fn call_export(&self, extension: &str, export: &str, input: &[u8]) -> WasmCallResult {
-            let ok = |value: Value| WasmCallResult::Ok(value.to_string().into_bytes());
-            if extension != EXT {
-                return WasmCallResult::Trap(WasmTrapInfo {
-                    kind: "extension_not_found".into(),
-                    message: extension.into(),
-                    export_name: export.into(),
-                });
-            }
-            let input: Value = serde_json::from_slice(input).unwrap_or(Value::Null);
-            match export {
-                "__handshake" => ok(json!({
-                    "protocol_version": "1.0.0", "name": EXT, "version": "1.0.0",
-                    "contribution_flags": { "entities": true },
-                    "peer_dependencies": [], "sandbox_policy": null
-                })),
-                "__describe" => {
-                    let category = input["category"].as_str().unwrap_or_default();
-                    let items = match category {
-                        "entities" => json!([{ "name": "gadget", "keyword": "gadget" }]),
-                        "passes" => json!([{ "name": "audit", "phase": "check" }]),
-                        _ => json!([]),
-                    };
-                    ok(json!({ "category": category, "items": items }))
-                }
-                "__pass_audit" => ok(Value::Array(
-                    input["entities"]
-                        .as_array()
-                        .into_iter()
-                        .flatten()
-                        .filter_map(|e| e["id"].as_str())
-                        .filter(|id| id.starts_with("bad"))
-                        .map(|id| {
-                            json!({
-                                "code": "E951", "severity": "Error",
-                                "message": format!("gadget '{id}' fails the audit"),
-                                "entity": id
-                            })
+    fn audit_extension() -> InProcessRuntime {
+        InProcessRuntime::new().with(|| {
+            let mut c = ContributionsBuilder::new(ExtensionMeta::new(EXT, "1.0.0"));
+            c.kind("gadget", |k| {
+                k.keyword("gadget");
+            });
+            c.pass("audit", |p| {
+                p.phase("check").run(|input: &PassInput| {
+                    input
+                        .entities
+                        .iter()
+                        .filter(|e| e.id.starts_with("bad"))
+                        .map(|e| {
+                            PassDiagnostic::new(
+                                "E951",
+                                PassSeverity::Error,
+                                format!("gadget '{}' fails the audit", e.id),
+                            )
+                            .with_entity(&e.id)
                         })
-                        .collect(),
-                )),
-                other => WasmCallResult::Trap(WasmTrapInfo {
-                    kind: "export_not_found".into(),
-                    message: other.into(),
-                    export_name: other.into(),
-                }),
-            }
-        }
+                        .collect::<Vec<_>>()
+                });
+            });
+            c
+        })
     }
 
     fn project(spec: &str) -> tempfile::TempDir {
@@ -195,7 +166,7 @@ mod tests {
         let human = |dir: &tempfile::TempDir| {
             run_in(
                 dir.path(),
-                &AuditExtension,
+                &audit_extension(),
                 OutputFormat::Human,
                 &CheckOptions::default(),
             )
@@ -206,7 +177,7 @@ mod tests {
         // What check reports is the compile's diagnostics, the pass's
         // among them with its code and severity.
         let reported =
-            CompiledProject::compile(failing.path(), Some(&AuditExtension)).diagnostics();
+            CompiledProject::compile(failing.path(), Some(&audit_extension())).diagnostics();
         let audit: Vec<_> = reported.iter().filter(|d| d.code == "E951").collect();
         assert_eq!(audit.len(), 1, "{reported:?}");
         assert_eq!(audit[0].severity, specforge_common::Severity::Error);

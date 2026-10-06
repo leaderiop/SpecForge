@@ -23,8 +23,8 @@ adapters. Architecture plan 02 makes it the pattern for every read view.
 ## The project view
 
 `specforge_ops::view::ProjectView` borrows what every read operation reads: the graph, the whole
-`RegistryBuild` (kinds, fields, edges, rules, manifests, extension info), the root the project was
-compiled from, and its owner's coverage memo. Three constructors: `ProjectView::of(&CompiledProject)`
+`RegistryBuild` (kinds, fields, edges, rules, the extension declarations and their ordered passes,
+ADR 0012), the root the project was compiled from, and its owner's coverage memo. Three constructors: `ProjectView::of(&CompiledProject)`
 (the CLI), `ProjectView::of_session(&ProjectSession, root)` (the LSP), `ProjectView::new` (tests and
 graphs built in memory); MCP builds every view through `ProjectRef::view()` of its call target (ADR
 0014), or `Call::view()` for a call that may have no project. The view owns the recorded test

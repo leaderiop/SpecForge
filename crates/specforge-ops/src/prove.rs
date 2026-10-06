@@ -763,20 +763,14 @@ mod tests {
         ] {
             registry.register(FieldRegistryEntry {
                 kind_name: kind.to_string(),
-                field_name: field.to_string(),
-                description: None,
                 field_type: ManifestFieldType::String,
                 source_extension: "@test/roles".to_string(),
-                edge: None,
-                target_kind: None,
-                file_reference: false,
-                required: false,
-                inverse_of: None,
-                normative: true,
-                exempts_obligations: false,
-                headline: false,
-                derived_from: None,
                 proof_role: Some(role),
+                declared: specforge_protocol_types::FieldDescriptor {
+                    name: field.to_string(),
+                    normative: true,
+                    ..Default::default()
+                },
             });
         }
         registry

@@ -5,6 +5,7 @@ mod contracts;
 mod coverage;
 mod determinism;
 mod errors;
+mod extension_calls;
 mod model;
 mod navigate;
 mod plan;

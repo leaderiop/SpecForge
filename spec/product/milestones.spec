@@ -215,7 +215,7 @@ milestone ms_code_formatting "Phase 8: Code Formatting" {
 // ════════════════════════════════════════════════════════════════
 
 milestone zero_entity_core "Phase 9: Zero-Entity Core Architecture" {
-  description   "Core compiler refactored to have zero hardcoded entity types. All domain vocabulary comes from extensions via ManifestV2 declarations."
+  description   "Core compiler refactored to have zero hardcoded entity types. All domain vocabulary comes from extensions via ExtensionDeclaration declarations."
   status        completed
   start_date    "2025-12-01"
   target_date   "2026-01-15"
@@ -267,7 +267,6 @@ milestone wasm_runtime "Phase 10: Wasm Extension Runtime" {
     entity_kind_conflict_prevention,
     provider_based_ref_validation,
     contribution_based_extensions,
-    extension_query_contributions,
     surface_contributions,
     product_graph_queries,
     product_surface_access,

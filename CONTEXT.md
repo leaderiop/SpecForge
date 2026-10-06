@@ -26,16 +26,23 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Graph delta**: what an update or a reload changed in the graph: added, removed and modified
   nodes (source positions ignored) and edges. Watch prints it and MCP notifies it
   (`specforge_project::GraphDelta`).
-- **Registry build**: the pure result of turning extension manifests into kind, field and edge
-  registries, rules and derived graph inputs (`specforge_registry::build_registries`).
+- **Extension declaration**: everything one extension declares — its handshake and every describe
+  category — as the protocol types (`specforge_protocol_types::ExtensionDeclaration`). The SDK
+  builds it, the guest serves it, the host loads it once, the Registry build reads it, a package
+  registry stores it (ADR 0012).
+- **Registry build**: the pure result of turning extension declarations into kind, field and edge
+  registries, rules, pass order and derived graph inputs, and the diagnostics of those
+  declarations (`specforge_registry::build_registries`).
 - **Package registry client**: what talks to a package registry: search, resolve and publish over
   HTTP, credentials in the OS keyring, publisher trust and package signing
   (`specforge-registry-client`). Not the Registry build, which is pure and needs none of it.
   Operations reach it only through the `Registry` port; its adapter (`specforge-ops-registry`)
-  is linked by the CLI and MCP, never the LSP (ADR 0010).
+  is linked by the CLI and MCP, never the LSP (ADR 0010). Publish derives the stored declaration
+  from the binary; `add` checks the binary declares what was published (ADR 0012).
 - **Project view**: the read-only slice of a compiled project every operation reads: the graph, the
-  registry build (kinds, fields, edges, rules, manifests) and the root the project was compiled from,
-  borrowed (`specforge_ops::view::ProjectView`). It owns the project's recorded test report and its
+  registry build (kinds, fields, edges, rules, the extension declarations and their ordered
+  passes) and the root the project was compiled from, borrowed (`specforge_ops::view::ProjectView`).
+  It owns the project's recorded test report and its
   versioned schema, both read at that root and never an ancestor's. The CLI builds one from its
   compiled project (`ProjectView::of`); MCP from its call target (`ProjectRef::view`: the project
   session, or another project compiled for one call); the LSP from its session
@@ -69,10 +76,20 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   (`specforge_project::DiagnosticPolicy`).
 - **Extension command**: a CLI command an extension declares in its surfaces (with the SDK, together
   with its handler: `ContributionsBuilder::command`), answered by its `cmd__` export over the graph
-  the host passes (`CommandInput`: args, project root, graph, the
-  command format and today's date, UTC). The CLI runs it as `specforge <ext_short> <command>`, MCP as
-  the auto-promoted tool `specforge.<ext_short>.<id>`; neither knows any command
-  (`specforge_ops::command`, ADR 0008).
+  the host passes (`specforge_protocol_types::CommandInput`: args, project root, graph, the
+  command format and today's date, UTC). The CLI runs it as `specforge <short> <command>`, MCP as
+  the auto-promoted tool `specforge.<short>.<id>`, `short` being the declaration's (`ext_short`,
+  else its name's last segment); neither knows any command (`specforge_ops::command`, ADR 0008).
+- **Extension call**: one typed operation the host performs on a loaded extension — handshake,
+  describe, command, MCP tool, MCP resource, compiler pass, collector, custom validator, scanner,
+  migration hook — over the `WasmRuntime` port. Its input and answer are protocol types
+  (`specforge_protocol_types`) the SDK shares; every failure is one `CallError`, E028, naming the
+  operation, the export and the extension (`specforge_wasm::calls::ExtensionCalls`, ADR 0013).
+- **In-process runtime**: the test adapter of the `WasmRuntime` port that runs an SDK-declared
+  extension in the host process through the guest's own routing (`guest_call`), unsandboxed
+  (`specforge_wasm::testing::InProcessRuntime`). Host tests declare their extensions with it; the
+  component runtime is the production adapter, and both keep one contract
+  (`assert_runtime_contract`).
 - **Command format**: the output an extension command is asked for, `human` (the CLI default) or
   `json` (always, over MCP). The host owns the `--format` flag; the extension renders both, since
   only it knows its payloads (ADR 0011).

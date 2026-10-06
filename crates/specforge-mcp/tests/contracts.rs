@@ -84,22 +84,12 @@ fn obligations_rule(kind: &str) -> specforge_registry::validation_engine::Valida
 fn kind_entry(kind: &str, testable: bool) -> specforge_registry::KindRegistryEntry {
     specforge_registry::KindRegistryEntry {
         kind_name: kind.into(),
-        description: None,
         source_extension: "@test/ext".into(),
         testable,
-        singleton: false,
         supports_verify: testable,
         allowed_verify_kinds: Vec::new(),
-        has_body_parser: false,
-        semantic_token: None,
-        lsp_icon: None,
-        dot_shape: None,
-        dot_color: None,
-        dot_fillcolor: None,
-        open_fields: false,
-        contract_target: false,
-        declares_types: false,
         lifecycle_field: None,
+        ..Default::default()
     }
 }
 
@@ -387,8 +377,12 @@ fn contract_initialize() {
         "initialize must adopt the projectRoot it was given"
     );
     assert_eq!(
-        server.state().registries().extension_info,
-        [(EXT.to_string(), "0.1.0".to_string())]
+        server
+            .state()
+            .registries()
+            .extension_info()
+            .collect::<Vec<_>>(),
+        [(EXT, "0.1.0")]
     );
 
     // mcp_initialized_emitted, with the advertised counts.
@@ -470,7 +464,7 @@ fn contract_shutdown() {
     // wasm_engines_released: nothing compiled survives shutdown.
     let state = server.state();
     assert_eq!(state.graph().node_count(), 0);
-    assert!(state.registries().manifests.is_empty());
+    assert!(state.registries().declarations().is_empty());
     assert!(state.surface_entries().next().is_none());
     assert!(state.project_root().is_none());
 
@@ -1660,7 +1654,7 @@ fn contract_dispatch_surface_command() {
         error["message"]
             .as_str()
             .unwrap()
-            .starts_with("surface command cmd__trap() trapped"),
+            .starts_with("command cmd__trap() of '@test/probe' trapped: call_failed: "),
         "{error}"
     );
     assert_eq!(events(&server, "surface_command_dispatched").len(), 1);
@@ -2942,17 +2936,16 @@ fn contract_providers() {
     )
     .unwrap();
     // Only an extension that contributes providers can back a scheme.
-    let github: specforge_registry::ManifestV2 = serde_json::from_value(json!({
-        "name": "@acme/github-provider",
-        "version": "1.0.0",
-        "manifestVersion": 2,
-        "wasmPath": "github.wasm",
-        "contributes": {"providers": true},
-    }))
-    .unwrap();
-    server
-        .state_mut()
-        .edit_environment(|env| env.registries.manifests.push(github));
+    let mut github = specforge_extension_sdk::ContributionsBuilder::new(
+        specforge_extension_sdk::ExtensionMeta::new("@acme/github-provider", "1.0.0"),
+    );
+    github.raw_category("providers", json!([]));
+    server.state_mut().edit_environment(|env| {
+        let mut declarations = env.registries.declarations().to_vec();
+        declarations.push(github.declaration());
+        let built = specforge_project::Environment::from_declarations(declarations);
+        env.registries = built.registries;
+    });
 
     // providers_listed: scheme, alias, backing extension and status.
     let listed = tool(&mut server, "specforge.providers", json!({}));

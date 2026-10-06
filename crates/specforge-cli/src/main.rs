@@ -452,9 +452,15 @@ enum Commands {
         #[arg(long, default_value = "human")]
         format: OutputFormat,
     },
-    /// Publish an extension to the registry
+    /// Publish an extension to the registry: its binary, and the declaration
+    /// read from it as the package's manifest
     Publish {
-        /// Path to the extension project
+        /// The extension to publish: a .wasm component, or the extension's
+        /// crate directory (its target/wasm32-wasip2/release component).
+        /// Defaults to the --path directory
+        extension: Option<PathBuf>,
+
+        /// The project whose specforge.json configures the registries
         #[arg(long, default_value = ".")]
         path: PathBuf,
 
@@ -716,7 +722,7 @@ enum Commands {
 
 #[derive(Subcommand)]
 enum ExtensionAction {
-    /// Scaffold a new extension project
+    /// Scaffold an extension crate written with the SDK
     Init {
         /// Extension name
         #[arg(long)]
@@ -730,7 +736,8 @@ enum ExtensionAction {
         #[arg(long, default_value = "human")]
         format: OutputFormat,
     },
-    /// Validate extension project structure
+    /// Build the extension's component (cargo build --release --target
+    /// wasm32-wasip2)
     Build {
         /// Path to the extension project
         #[arg(long, default_value = ".")]
@@ -740,7 +747,7 @@ enum ExtensionAction {
         #[arg(long, default_value = "human")]
         format: OutputFormat,
     },
-    /// Validate extension manifest against schema
+    /// Load the built component and report its declaration's diagnostics
     Validate {
         /// Path to the extension project
         #[arg(long, default_value = ".")]
@@ -903,7 +910,11 @@ fn main() {
             format,
         } => remove::run(&name, &path, force, format),
         Commands::Extensions { path, format } => extensions::run(&path, format),
-        Commands::Publish { path, format } => publish::run(&path, format),
+        Commands::Publish {
+            extension,
+            path,
+            format,
+        } => publish::run(extension.as_deref().unwrap_or(&path), &path, format),
         Commands::Search {
             query,
             path,

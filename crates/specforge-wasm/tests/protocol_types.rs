@@ -1,4 +1,4 @@
-use specforge_wasm::protocol::*;
+use specforge_protocol_types::*;
 
 // ── Step 1: HandshakeRequest tracer bullet ──
 
@@ -79,6 +79,7 @@ fn handshake_response_round_trip() {
         starter_template: Some("spec \"{project}\" {}\n".to_string()),
         theme_color: None,
         migration_hook: None,
+        ..Default::default()
     };
     let json = serde_json::to_string(&resp).unwrap();
     let decoded: HandshakeResponse = serde_json::from_str(&json).unwrap();

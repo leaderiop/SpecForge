@@ -4,7 +4,7 @@ use specforge_ops::extension::{self, Origin, RemoveRequest};
 use std::path::Path;
 
 /// `specforge remove`: the shared remove operation over a fresh compile of
-/// the project, whose loaded manifests say which extensions depend on the
+/// the project, whose loaded declarations say which extensions depend on the
 /// one removed.
 pub fn run(name: &str, path: &Path, force: bool, format: OutputFormat) -> i32 {
     let ctx = crate::pipeline::compile(path);
@@ -13,7 +13,7 @@ pub fn run(name: &str, path: &Path, force: bool, format: OutputFormat) -> i32 {
         name,
         force,
         dry_run: false,
-        loaded: &ctx.manifests,
+        loaded: &ctx.declarations,
         kinds: &ctx.kind_registry,
         graph: &ctx.graph,
     };

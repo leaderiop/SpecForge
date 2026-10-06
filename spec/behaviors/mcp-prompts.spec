@@ -4,7 +4,7 @@
 // review, trace, explore). They contain zero domain knowledge — they traverse
 // generic graph nodes and edges. No extension contributes a prompt today: an
 // extension's surfaces are commands, MCP tools and MCP resources
-// (ExtensionContributions.prompts stays reserved).
+// (ContributionFlags.prompts stays reserved).
 //
 // 5 behaviors: serve, context, review, trace, explore (infer's scopes are in
 // behaviors/infer.spec)

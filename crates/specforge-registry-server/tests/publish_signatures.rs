@@ -6,7 +6,7 @@
 //! is served in metadata, and verifies offline — the registry is not needed
 //! as a trust anchor.
 
-use specforge_registry::ManifestV2;
+use specforge_protocol_types::ExtensionDeclaration;
 use specforge_registry_client::registry_config::{AuthMethod, RegistryConfig, RegistryCredential};
 use specforge_registry_client::{
     HttpRegistryClient, PackageSignature, SigningKey, publish_to_registry, verify_signature,
@@ -14,15 +14,17 @@ use specforge_registry_client::{
 use specforge_registry_server::{auth, db::Database, handlers, state::AppState};
 use std::sync::Arc;
 
-fn minimal_manifest() -> ManifestV2 {
-    serde_json::from_str(
-        r#"{
+fn minimal_manifest() -> ExtensionDeclaration {
+    serde_json::from_value(serde_json::json!({
+        "handshake": {
+            "protocol_version": "1.0.0",
             "name": "@test/signed-ext",
             "version": "1.0.0",
-            "manifestVersion": 2,
-            "wasmPath": "ext.wasm"
-        }"#,
-    )
+            "contribution_flags": {},
+            "peer_dependencies": [],
+            "sandbox_policy": null
+        }
+    }))
     .unwrap()
 }
 
@@ -129,8 +131,8 @@ async fn signed_publish_round_trips_through_http_boundary() {
     // + served manifest + timestamp inside the signature object. The registry
     // is not the trust anchor.
     verify_signature(
-        &manifest.name,
-        &manifest.version,
+        manifest.name(),
+        manifest.version(),
         &sha256_hex(wasm_bytes),
         &sha256_hex(served_manifest.as_bytes()),
         &signature,
@@ -145,22 +147,22 @@ fn tampered_wasm_fails_offline_verification() {
     // A signature over one wasm hash must not verify against different bytes.
     let key = SigningKey::generate();
     let manifest = minimal_manifest();
-    let manifest_json = serde_json::to_string(&manifest).unwrap();
+    let declaration_json = serde_json::to_string(&manifest).unwrap();
     let wasm = b"\0asm-real-bytes";
     let signature = key.sign_package(
-        &manifest.name,
-        &manifest.version,
+        manifest.name(),
+        manifest.version(),
         &sha256_hex(wasm),
-        &sha256_hex(manifest_json.as_bytes()),
+        &sha256_hex(declaration_json.as_bytes()),
         "2026-09-24T00:00:00+00:00",
     );
 
     let tampered = b"\0asm-swapped-bytes";
     let err = verify_signature(
-        &manifest.name,
-        &manifest.version,
+        manifest.name(),
+        manifest.version(),
         &sha256_hex(tampered),
-        &sha256_hex(manifest_json.as_bytes()),
+        &sha256_hex(declaration_json.as_bytes()),
         &signature,
     )
     .unwrap_err();
@@ -173,22 +175,22 @@ fn tampered_manifest_fails_offline_verification() {
     // signature even when the wasm bytes are untouched.
     let key = SigningKey::generate();
     let manifest = minimal_manifest();
-    let manifest_json = serde_json::to_string(&manifest).unwrap();
+    let declaration_json = serde_json::to_string(&manifest).unwrap();
     let wasm = b"\0asm-bytes";
     let signature = key.sign_package(
-        &manifest.name,
-        &manifest.version,
+        manifest.name(),
+        manifest.version(),
         &sha256_hex(wasm),
-        &sha256_hex(manifest_json.as_bytes()),
+        &sha256_hex(declaration_json.as_bytes()),
         "2026-09-24T00:00:00+00:00",
     );
 
-    let mut swapped: ManifestV2 = minimal_manifest();
-    swapped.version = "9.9.9".to_string();
+    let mut swapped: ExtensionDeclaration = minimal_manifest();
+    swapped.handshake.version = "9.9.9".to_string();
     let swapped_json = serde_json::to_string(&swapped).unwrap();
     let err = verify_signature(
-        &manifest.name,
-        &manifest.version,
+        manifest.name(),
+        manifest.version(),
         &sha256_hex(wasm),
         &sha256_hex(swapped_json.as_bytes()),
         &signature,

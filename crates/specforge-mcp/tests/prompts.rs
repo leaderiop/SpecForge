@@ -104,22 +104,12 @@ fn test_server() -> McpServer {
 fn kind_entry(kind: &str, testable: bool) -> specforge_registry::KindRegistryEntry {
     specforge_registry::KindRegistryEntry {
         kind_name: kind.into(),
-        description: None,
         source_extension: "@test/ext".into(),
         testable,
-        singleton: false,
         supports_verify: testable,
         allowed_verify_kinds: Vec::new(),
-        has_body_parser: false,
-        semantic_token: None,
-        lsp_icon: None,
-        dot_shape: None,
-        dot_color: None,
-        dot_fillcolor: None,
-        open_fields: false,
-        contract_target: false,
-        declares_types: false,
         lifecycle_field: None,
+        ..Default::default()
     }
 }
 
@@ -1180,7 +1170,13 @@ fn every_prompt_renders_an_instruction_then_a_json_payload() {
     }
     // Infer's kind scope needs the kind's extension.
     server.state_mut().edit_environment(|env| {
-        env.registries.manifests.push(behavior_manifest());
+        // The declarations, beside the registries the test built by hand.
+        let mut registries = specforge_registry::build_registries(vec![behavior_declaration()]);
+        std::mem::swap(&mut registries.kinds, &mut env.registries.kinds);
+        std::mem::swap(&mut registries.fields, &mut env.registries.fields);
+        std::mem::swap(&mut registries.edges, &mut env.registries.edges);
+        std::mem::swap(&mut registries.rules, &mut env.registries.rules);
+        env.registries = registries;
     });
     let listed: Vec<String> = listed_prompts(&mut server)
         .into_iter()
@@ -1210,16 +1206,14 @@ fn every_prompt_renders_an_instruction_then_a_json_payload() {
     assert_eq!(listed.len(), 5, "every core prompt is covered: {listed:?}");
 }
 
-/// A manifest declaring `behavior`, as `@specforge/software` does.
-fn behavior_manifest() -> specforge_registry::ManifestV2 {
-    serde_json::from_value(json!({
-        "name": "@test/ext",
-        "version": "1.0.0",
-        "manifestVersion": 2,
-        "wasmPath": "",
-        "entityKinds": [{"name": "behavior", "keyword": "behavior"}],
-    }))
-    .expect("a minimal manifest")
+/// A declaration of `behavior`, as `@specforge/software` makes.
+fn behavior_declaration() -> specforge_protocol_types::ExtensionDeclaration {
+    use specforge_extension_sdk::prelude::*;
+    let mut c = ContributionsBuilder::new(ExtensionMeta::new("@test/ext", "1.0.0"));
+    c.kind("behavior", |k| {
+        k.keyword("behavior");
+    });
+    c.declaration()
 }
 
 // --- explore and review share Graph::reach ---

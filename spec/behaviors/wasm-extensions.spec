@@ -15,146 +15,7 @@ use "types/zero-entity-core"
 
 // -- Query Extensions -----
 
-behavior provide_extension_query_extensions "Provide Extension Query Extensions" {
-  features   [extension_query_contributions]
-  invariants [host_function_type_safety]
-  category   query
-  types      [ManifestV2, QueryExtension, QueryFileKind, ExtensionError]
-  ports      [WasmRuntime]
-  consumes   [extension_manifests_loaded]
-  requires {
-    extension_manifests_loaded_fired "extension_manifests_loaded event has fired, confirming manifests with queryExtensions are available"
-  }
-  ensures {
-    query_extensions_loaded_emitted "query_extensions_loaded event is emitted after valid patterns are stored"
-    invalid_patterns_warned         "invalid query patterns produce warning diagnostic without blocking extension loading"
-    patterns_stored                 "valid patterns are stored alongside extension registration data"
-  }
-  contract   """
-    When an extension manifest declares queryExtensions, the compiler
-    MUST extract the .scm query patterns and make them available to
-    the LSP and editor tooling. Query patterns MUST be validated for
-    syntax correctness at extension load time by parsing them with
-    tree_sitter::Query::new(). Invalid patterns MUST produce a
-    warning diagnostic without blocking extension loading. Valid patterns
-    MUST be stored alongside the extension's registration data for
-    retrieval during query composition.
-  """
-  produces   [query_extensions_loaded]
-  verify unit "valid query extension stored in extension registration"
-  verify unit "invalid query pattern produces warning diagnostic"
-  verify unit "invalid pattern does not block extension loading"
-  verify unit "query extensions extracted from manifest"
-  verify contract "Provide Extension Query Extensions: extension query extension loading holds — extension_manifests_loaded_fired, query_extensions_loaded_emitted, invalid_patterns_warned, patterns_stored"
-}
-
-behavior compose_query_files_from_extensions "Compose Query Files From Extensions" {
-  features   [extension_query_contributions]
-  invariants [extension_load_order_determinism]
-  category   query
-  types      [QueryExtension, QueryFileKind]
-  consumes   [query_extensions_loaded]
-  requires {
-    query_extensions_loaded_fired "query_extensions_loaded event has fired, confirming all extension query patterns are available"
-  }
-  ensures {
-    query_files_composed_emitted "query_files_composed event is emitted with the final composed query"
-    composition_deterministic    "same set of extensions always produces the same final query"
-    base_queries_first           "base queries appear first in composed output, extensions appended"
-  }
-  contract   """
-    The LSP MUST compose final query files by concatenating base
-    queries with extension query extensions in extension load order. The
-    composition MUST follow the string concatenation pattern: base
-    queries first, extensions appended. Extension patterns with #match?
-    predicates for entity keywords MUST work correctly in the composed
-    query. The composed query MUST be re-validated after concatenation
-    to catch cross-pattern conflicts. Composition MUST be deterministic
-    — the same set of extensions always produces the same final query.
-  """
-  produces   [query_files_composed]
-  verify unit "base queries come first in composed output"
-  verify unit "extension query extensions appended in load order"
-  verify unit "#match? predicates work in composed query"
-  verify unit "composition is deterministic across runs"
-  verify contract "Compose Query Files From Extensions: query file composition holds — query_extensions_loaded_fired, query_files_composed_emitted, composition_deterministic, base_queries_first"
-}
-
 // -- Entity Kind Conflict Prevention -----
-
-behavior reject_reserved_entity_kind "Reject Reserved Entity Kind" {
-  features   [entity_kind_conflict_prevention]
-  invariants [entity_kind_uniqueness]
-  category   command
-  types      [KindRegistryEntry, ManifestV2]
-  consumes   [extension_manifests_loaded]
-  requires {
-    extension_manifests_loaded_fired "extension_manifests_loaded event has fired, confirming entity kind registrations are pending"
-  }
-  ensures {
-    reserved_entity_kind_rejected_emitted "reserved_entity_kind_rejected event is emitted when a structural keyword collision is detected"
-    rejection_before_registration         "rejection returns error to calling extension before the kind is registered"
-    invalid_identifiers_rejected          "invalid identifier characters are rejected"
-  }
-  contract   """
-    The KindRegistry MUST reject entity kind names that match structural
-    DSL keywords parsed by dedicated grammar rules: spec, use, define, ref,
-    verify, true, false. These are the ONLY core-reserved words —
-    they have dedicated grammar rules or are literal tokens and cannot be
-    used as entity kind names. Domain keywords like behavior, feature,
-    invariant, etc. are NOT reserved because they come from extensions. An
-    extension registering "behavior" is valid (e.g., a software-domain
-    extension provides the "behavior" keyword). Extension-specific keywords
-    (e.g., gherkin, scenario, given, when, then) are NOT core-reserved —
-    they are reserved by their owning extension via the extension's own
-    reserved_keywords manifest field. Rejection MUST
-    return an error to the calling extension before the kind is registered.
-    Invalid identifier characters MUST also be rejected.
-  """
-  produces   [reserved_entity_kind_rejected]
-  verify unit "rejects structural keyword 'spec'"
-  verify unit "rejects DSL syntax word 'define'"
-  verify unit "rejects literal token 'true'"
-  verify unit "accepts domain keyword 'behavior' from extension"
-  verify unit "accepts valid custom kind name"
-  verify unit "rejects invalid identifier characters"
-  verify unit "rejects keyword reserved by another extension via reserved_keywords manifest field"
-  verify unit "extension reserving 'scenario' prevents other extensions from using it as a kind"
-  verify contract "Reject Reserved Entity Kind: reserved entity kind rejection holds — extension_manifests_loaded_fired, reserved_entity_kind_rejected_emitted, rejection_before_registration, invalid_identifiers_rejected"
-}
-
-// User-facing conflict resolution layer. Distinct from detect_duplicate_entity_kinds
-// (behaviors/zero-entity-validation.spec) which handles registry-level detection
-// during manifest loading. This behavior handles the policy-based resolution UI.
-behavior detect_entity_kind_collision "Detect Entity Kind Collision" {
-  features   [entity_kind_conflict_prevention]
-  invariants [entity_kind_uniqueness]
-  category   validation
-  types      [ManifestV2, ExtensionError, EntityKindConflict]
-  consumes   [extension_manifests_loaded]
-  requires {
-    extension_manifests_loaded_fired "extension_manifests_loaded event has fired, confirming all entity kind declarations are available for collision checking"
-  }
-  ensures {
-    entity_kind_conflict_detected_emitted "entity_kind_conflict_detected event is emitted when a collision is found"
-    all_collision_types_checked           "structural keyword collisions (E023) and inter-extension collisions (E026) are all checked"
-  }
-  contract   """
-    The host MUST detect when two extensions attempt to register the same
-    entity kind name. This behavior acts as the orchestrator for all kind
-    collision checks: it delegates to reject_reserved_entity_kind for
-    structural keyword collisions (E023), and delegates to
-    detect_duplicate_entity_kinds
-    (behaviors/zero-entity-validation.spec) for inter-extension kind
-    collisions (E026). The compiler never arbitrates domain-level
-    conflicts.
-  """
-  produces   [entity_kind_conflict_detected]
-  verify unit "two extensions registering same kind produces conflict"
-  verify unit "collision with structural keyword produces E023"
-  verify unit "no false positive for different kind names"
-  verify contract "Detect Entity Kind Collision: entity kind collision detection holds — extension_manifests_loaded_fired, entity_kind_conflict_detected_emitted, all_collision_types_checked"
-}
 
 // -- Entity Enhancement -----
 
@@ -162,54 +23,50 @@ behavior load_extension_manifest "Load Extension Manifest" {
   features   [extension_manifest]
   invariants [extension_load_order_determinism]
   category   command
-  types      [ManifestV2, ExtensionError]
+  types      [ExtensionDeclaration, ExtensionError]
   ports      [FileSystem]
   produces   [manifest_loaded]
   requires {
-    extension_discovered "installed extension has been discovered with a known path to its sidecar manifest.json"
-    filesystem_available "FileSystem port is available for reading manifest files"
+    extension_discovered "installed extension has been discovered with a known path to its .wasm binary"
+    filesystem_available "FileSystem port is available for reading the binary"
   }
   ensures {
-    manifest_loaded_emitted          "manifest_loaded event is emitted after successful parse of sidecar manifest.json"
-    malformed_manifest_diagnosed     "malformed manifests produce ExtensionError diagnostic"
-    initialization_sequence_followed "per-extension initialization follows the documented 7-step sequence"
+    manifest_loaded_emitted          "manifest_loaded event is emitted once the extension's declaration has been read"
+    malformed_manifest_diagnosed     "a declaration that cannot be read fails the extension's load with a diagnostic"
+    initialization_sequence_followed "per-extension initialization follows the documented 4-step sequence"
   }
   contract   """
-    When the compiler discovers an installed extension, it MUST locate
-    and parse the extension's sidecar manifest.json file alongside the
-    .wasm binary. Malformed manifests MUST produce a ExtensionError
-    diagnostic. There are no hardcoded manifest factory methods —
-    all extensions, including all installed extensions, are loaded from
-    their sidecar manifests.
-    Bundled extensions are loaded from the compiler's bundled resources
-    directory.
+    When the compiler loads an extension, it MUST read the extension's
+    declaration from the .wasm binary itself (load_extension_declaration);
+    no sidecar file is read. A declaration that cannot be read MUST fail
+    the extension's load with a diagnostic (E028). There are no hardcoded
+    manifest factory methods — all extensions, including all installed
+    extensions, declare themselves. Bundled extensions are loaded from the
+    compiler's bundled resources.
 
-    INITIALIZATION SEQUENCE: The guaranteed per-extension initialization
-    order is:
-      1. load_extension_manifest — parse sidecar manifest.json
-      2. validate_extension_manifest — validate schema and required fields
-      3. register_entity_kinds_from_manifest — populate KindRegistry
-      4. register_edge_types_from_manifest — populate edge type registry
-      5. register_validation_rules_from_manifest — populate validation rules
-      6. register_entity_enhancements — populate FieldRegistry enhancements
-      6.5. register_surface_contributions — populate SurfaceRegistry (CLI commands, MCP tools, MCP resources)
-      7. initialize_wasm_extension — call initialize() export
-    Steps 1-6 are declarative (manifest-driven). Step 7 is the first
-    point at which extension code executes. This sequence is repeated
-    per extension in topological order (see topological_sort_extensions).
+    INITIALIZATION SEQUENCE: The guaranteed initialization order is:
+      1. handshake — the extension's identity, protocol version and policy
+      2. describe — every declared category, once
+      3. build_registries_from_declarations — validate the declarations
+         and populate the kind, field and edge registries and the rules
+      4. register_surface_contributions — populate SurfaceRegistry (CLI
+         commands, MCP tools, MCP resources)
+    Steps 1-2 run per extension in topological order (see
+    topological_sort_extensions); steps 3-4 run once over every loaded
+    declaration, in that order.
   """
-  verify unit "sidecar JSON parsed into ManifestV2"
-  verify unit "malformed sidecar produces ExtensionError"
+  verify unit "the declaration is read from the binary"
+  verify unit "a declaration that cannot be read produces a diagnostic"
   verify unit "bundled extensions loaded from bundled resources directory"
-  verify unit "initialization follows documented 7-step sequence"
+  verify unit "initialization follows the documented 4-step sequence"
   verify contract "Load Extension Manifest: extension manifest loading holds — extension_discovered, filesystem_available, manifest_loaded_emitted, malformed_manifest_diagnosed, initialization_sequence_followed"
 }
 
 behavior register_entity_enhancements "Register Entity Enhancements" {
   features   [entity_enhancement]
-  invariants [enhancement_field_uniqueness, enhancement_builtin_precedence]
+  invariants [enhancement_field_uniqueness]
   category   command
-  types      [ManifestV2, FieldEnhancement, DynamicEdgeType]
+  types      [ExtensionDeclaration, EntityEnhancementDescriptor, DynamicEdgeType]
   requires {
     manifests_validated "all extension manifests have been validated and entity kinds registered"
   }
@@ -243,128 +100,71 @@ behavior register_entity_enhancements "Register Entity Enhancements" {
   verify contract "Register Entity Enhancements: entity enhancement registration holds — manifests_validated, enhancement_registered_emitted, registration_before_resolve, registration_order_deterministic"
 }
 
-behavior detect_enhancement_conflicts "Detect Enhancement Conflicts" {
-  features   [entity_enhancement]
-  invariants [enhancement_field_uniqueness, enhancement_builtin_precedence]
-  category   validation
-  types      [
-    EnhancementConflict,
-    FieldEnhancement,
-    EnhancedFieldType,
-    EnumFieldType,
-    ReferenceFieldType,
-  ]
-  requires {
-    enhancements_being_registered "enhancement registration is in progress with field-to-entity mappings being processed"
-  }
-  ensures {
-    enhancement_conflict_detected_emitted "enhancement_conflict_detected event is emitted when two extensions register the same field for the same entity kind"
-    grammar_conflicts_hard_error          "conflicts with grammar-level constructs always produce hard error E018"
-    conflict_record_complete              "conflict record includes both extension identities and conflicting field types"
-  }
-  contract   """
-    During enhancement registration, the compiler MUST detect when two
-    extensions register the same field name for the same entity kind. Each
-    conflict MUST be recorded with both extension identities and the
-    conflicting field types. Conflicts with grammar-level constructs
-    (entity title, verify) MUST always produce a hard
-    error (E018). Conflicts between extensions MUST be resolved according
-    to the configured enhancement_policy.
-  """
-  produces   [enhancement_conflict_detected]
-  verify unit "same (entity, field) from two extensions produces conflict"
-  verify unit "conflict with grammar-level construct produces E018"
-  verify unit "conflict record includes both extension identities"
-  verify unit "no false positives for same field on different entities"
-  verify contract "Detect Enhancement Conflicts: enhancement conflict detection holds — enhancements_being_registered, enhancement_conflict_detected_emitted, grammar_conflicts_hard_error, conflict_record_complete"
-}
-
-behavior resolve_enhancement_conflicts "Resolve Enhancement Conflicts" {
-  features   [entity_enhancement]
-  invariants [enhancement_field_uniqueness]
-  category   query
-  types      [EnhancementConflict, ConflictResolution, EnhancementPolicy]
-  consumes   [enhancement_conflict_detected]
-  requires {
-    enhancement_conflict_detected_fired "enhancement_conflict_detected event has fired, confirming conflicts exist to resolve"
-  }
-  ensures {
-    enhancement_conflict_resolved_emitted "enhancement_conflict_resolved event is emitted after policy is applied"
-    error_policy_enforced                 "with error policy, unresolved conflicts produce E017 diagnostics"
-    overrides_precedence                  "explicit enhancement_overrides in specforge.json take precedence over policy"
-  }
-  contract   """
-    When enhancement conflicts are detected, the compiler MUST apply
-    the configured enhancement policy. With policy "error" (default and
-    only v1 policy), unresolved conflicts MUST produce E017 diagnostics.
-    Explicit enhancement_overrides in specforge.json MUST take precedence
-    over the policy. Additional policies (priority, namespace) are
-    deferred to a future phase.
-  """
-  produces   [enhancement_conflict_resolved]
-  verify unit "error policy produces E017 for unresolved conflicts"
-  verify unit "explicit override takes precedence over policy"
-  verify contract "Resolve Enhancement Conflicts: enhancement conflict resolution holds — enhancement_conflict_detected_fired, enhancement_conflict_resolved_emitted, error_policy_enforced, overrides_precedence"
-}
-
 // -- Contribution Model -----
 
-behavior dispatch_contribution_exports "Dispatch Contribution Exports" {
+behavior call_extension_exports "Call Extension Exports" {
   features   [contribution_based_extensions]
-  invariants [extension_load_order_determinism, renderer_output_restriction]
-  category   query
-  types      [ManifestV2, ExtensionContributions, ExtensionError]
+  invariants [extension_isolation]
+  category   command
+  types      [
+    CommandInput,
+    CommandOutput,
+    McpResourceRequest,
+    McpResourceContent,
+    PassInput,
+    PassOutput,
+    PassDiagnostic,
+    CollectInput,
+    CollectOutput,
+    ValidatorContext,
+    ValidatorVerdict,
+    ScanRequest,
+    ScanResponse,
+    MigrationInput,
+    WasmTrapInfo,
+  ]
   ports      [WasmRuntime]
-  consumes   [contribution_exports_validated, contribution_toggled, collector_report_ingested]
   requires {
-    contribution_exports_validated_fired "contribution_exports_validated event has fired, confirming all declared exports exist"
-    wasm_runtime_available               "WasmRuntime port is available for calling contribution exports"
+    extension_loaded "the extension is one the project's runtime loaded"
   }
   ensures {
-    contribution_exports_dispatched_emitted "contribution_exports_dispatched event is emitted after all contributions are called"
-    missing_export_diagnosed                "missing exports for declared contributions produce E020"
-    renderers_refreshed_on_ingestion        "renderer contributions are re-dispatched after collector_report_ingested, but not entity/validator/provider/parser"
+    one_protocol_type "each operation's input and answer is one specforge_protocol_types type the host and the SDK share"
+    strict_answers    "an answer that does not decode as its protocol type is E028; unknown fields are ignored and absent optional fields take their defaults"
+    one_failure       "a trap, an unrouted export, an extension not loaded or a malformed answer is E028 naming the operation, the export and the extension"
+    no_silent_failure "no operation drops a failure: a pass's is a finding, a scanner's is reported, a command's is the command's error"
+    runtimes_agree    "an SDK-declared extension answers the same through the in-process runtime as through the component runtime"
   }
   contract   """
-    When an extension declares contributions in its manifest, the compiler
-    MUST route calls to the extension's namespaced Wasm exports based on
-    the contribution type. Entity contributions MUST call initialize()
-    and validate(). Validator contributions MUST call validate().
-    Renderer contributions (for non-code outputs such as reports,
-    dashboards, traceability matrices) MUST call render().
-    Provider contributions MUST call validate_ref(). Parser
-    contributions MUST call parse() — parsers run AFTER .spec parsing
-    and reference resolution but BEFORE validation, per ADR
-    extension_file_parsers. Missing exports for declared contributions
-    MUST produce E020.
-
-    This behavior handles compile-time contributions only (entities,
-    validators, renderers, providers, parsers, collectors). Surface
-    contributions (CLI commands, MCP tools, MCP resources) are dispatched
-    by the surface-contributions behaviors (dispatch_surface_command,
-    dispatch_surface_mcp_tool, dispatch_surface_mcp_resource).
-
-    Dispatch MUST NOT begin until validate_contribution_exports has
-    completed for the extension — this ensures all declared exports
-    exist before any are called.
-
-    When triggered by collector_report_ingested, dispatch MUST re-invoke
-    renderer contributions only — refreshing outputs (reports, dashboards,
-    traceability matrices) with updated coverage metadata. Entity, validator,
-    provider, and parser contributions are NOT re-dispatched on collector
-    ingestion.
+    The host performs ten operations on a loaded extension, each one call
+    of one export over the WasmRuntime port: handshake and describe (the
+    declaration, ADR 0012), a command (cmd__), an MCP tool or resource
+    (mcp__), a compiler pass (__pass_<name>), a collector (collect__), a
+    custom validator (the rule's wasm_function), a scanner (the analyzer's
+    scan export) and a migration hook. Each sends one protocol type as
+    JSON and reads one protocol type back (specforge_protocol_types); an
+    optional field the host leaves unset is absent, never null. A trap, an
+    export the guest does not route, an extension the runtime did not load,
+    or an answer that does not decode is E028 naming the operation, the
+    export and the extension, with the suggestion to report it to the
+    extension's author. What a failure means is the operation's: a check
+    pass's is a compile diagnostic, an analyze pass's a finding of that
+    pass, a command's its E028 error, a scanner's a reported failure that
+    makes the gap report approximate, a collector's the collect error. A
+    migration hook's answer is not read.
   """
-  produces   [contribution_exports_dispatched]
-  verify unit "entity contributions dispatched to initialize() and validate()"
-  verify unit "validator contributions dispatched to validate()"
-  verify unit "renderer contributions dispatched to render()"
-  verify unit "provider contributions dispatched to validate_ref()"
-  verify unit "missing export for declared contribution produces E020"
-  verify unit "dispatch waits for validate_contribution_exports to complete"
-  verify unit "parser contribution exports dispatched before validation phase"
-  verify unit "parser contribution receives read_file, emit_diagnostic, add_graph_node, add_graph_edge only"
-  verify unit "renderer contributions re-dispatched after collector_report_ingested"
-  verify contract "Dispatch Contribution Exports: contribution export dispatch holds — contribution_exports_validated_fired, wasm_runtime_available, contribution_exports_dispatched_emitted, missing_export_diagnosed, renderers_refreshed_on_ingestion"
+  verify unit "every operational payload is one protocol type the host and the SDK share"
+  verify unit "an SDK-declared extension answers the same through the in-process runtime as through the component runtime"
+  verify unit "both runtimes report an unknown extension, an unrouted export, a guest error and a guest panic as traps"
+  verify unit "every extension call encodes its input as the protocol type the SDK decodes"
+  verify unit "every extension call decodes the protocol type the SDK encodes"
+  verify unit "a call whose export trapped is E028 naming the extension, the operation and the export"
+  verify unit "a call whose answer does not decode as its protocol type is E028, never a default"
+  verify unit "an unknown field in an answer is ignored and an absent optional field takes its default"
+  verify unit "a pass answer may be bare diagnostics or diagnostics with a summary, and its diagnostics come back in canonical order with an entity's span attached"
+  verify unit "an analyze pass that traps is reported as an E028 finding of that pass"
+  verify unit "a scanner that traps or answers malformed output is reported, not dropped"
+  verify unit "a pass, collector, custom rule, scanner or migration hook is declared with its handler, and its export answers through it"
+  verify contract "Call Extension Exports: extension calls hold — extension_loaded, one_protocol_type, strict_answers, one_failure, no_silent_failure, runtimes_agree"
 }
 
 // -- Check-Phase Passes and the Build Cache -----
@@ -373,7 +173,7 @@ behavior run_check_phase_passes "Run Check-Phase Passes" {
   features   [contribution_based_extensions]
   invariants [extension_load_order_determinism]
   category   validation
-  types      [ManifestV2, Diagnostic, WasmTrapInfo]
+  types      [ExtensionDeclaration, Diagnostic, WasmTrapInfo]
   ports      [WasmRuntime]
   requires {
     graph_checked "the graph is built and its checks (core validation, the registry checks and the extensions' validation rules) have run"
@@ -395,14 +195,17 @@ behavior run_check_phase_passes "Run Check-Phase Passes" {
     once, when the extensions load; a compile with none costs nothing.
 
     The pass export `__pass_<name>` receives the same input an analyze
-    pass does (`entities`, `edges`), with no `test_results` or
+    pass does (`entities`, `edges`; each entity carries `testable` and
+    `exempt`: it owes no obligations of its own, decided from the
+    registries), with no `test_results` or
     `proved_claims` (a compile has neither) and with `previous`, the
     statuses of the build cache (read_build_cache). It answers the same
     output: diagnostics, bare or as `{diagnostics, summary}`; the summary
     is ignored. Each diagnostic keeps the code and severity the pass gave
     it. One with no span that carries `entity: "<id>"` gets the span of
     that entity. A trap or an answer that does not parse is E028 naming
-    the pass; the other passes still run.
+    the pass's export and its extension (call_extension_exports); the
+    other passes still run.
 
     A pass with any other phase, or none, runs only under `specforge
     analyze`, which skips check passes: their findings are the compile's.
@@ -415,6 +218,8 @@ behavior run_check_phase_passes "Run Check-Phase Passes" {
   verify unit "check passes run in their declared after/before order"
   verify unit "a trapping check pass is a diagnostic, not a crash"
   verify unit "a pass diagnostic naming an entity gets that entity's span"
+  verify unit "a pass entity carries whether the host found it exempt"
+  verify unit "the pass input carries each entity's exemption, which the SDK's PassEntity reads"
 }
 
 behavior write_build_cache "Write the Build Cache" {
@@ -494,7 +299,7 @@ behavior enforce_per_call_site_permissions "Enforce Per-Call-Site Permissions" {
   features   [contribution_based_extensions]
   invariants [wasm_sandbox_integrity]
   category   command
-  types      [ManifestV2, SandboxPolicy]
+  types      [ExtensionDeclaration, SandboxPolicy]
   ports      [WasmRuntime]
   requires {
     sandbox_policy_ready    "sandbox policy has been computed for the extension"
@@ -535,67 +340,6 @@ behavior enforce_per_call_site_permissions "Enforce Per-Call-Site Permissions" {
   verify contract "Enforce Per-Call-Site Permissions: per-call-site permission enforcement holds — sandbox_policy_ready, contribution_type_known, contribution_permission_denied_emitted, per_call_site_enforced, unauthorized_calls_rejected"
 }
 
-behavior validate_contribution_exports "Validate Contribution Exports" {
-  features   [contribution_based_extensions]
-  invariants [host_function_type_safety]
-  category   validation
-  types      [ManifestV2, ExtensionError]
-  ports      [WasmRuntime]
-  requires {
-    extension_loaded_ready          "extension .wasm binary has been loaded into the runtime"
-    manifest_contributions_declared "extension manifest declares compile-time contributions to validate"
-  }
-  ensures {
-    contribution_exports_validated_emitted        "contribution_exports_validated event is emitted when all declared exports are present"
-    contribution_export_validation_failed_emitted "contribution_export_validation_failed event is emitted when exports are missing"
-    missing_exports_diagnosed                     "missing exports produce E020 diagnostic listing expected export names"
-  }
-  contract   """
-    After loading an extension, the compiler MUST verify that the .wasm binary
-    exports all functions required by its declared compile-time contributions.
-    Missing exports MUST produce an E020 diagnostic listing the expected export
-    names. Extra exports beyond declared contributions MUST be ignored.
-    Surface contribution exports (cmd__, mcp__) are not checked at load:
-    a missing one is an E028 when dispatched (ADR 0011).
-  """
-  produces   [contribution_exports_validated, contribution_export_validation_failed]
-  verify unit "all declared contribution exports present passes"
-  verify unit "missing contribution export produces E020"
-  verify unit "extra exports beyond contributions are ignored"
-  verify contract "Validate Contribution Exports: contribution export validation holds — extension_loaded_ready, manifest_contributions_declared, contribution_exports_validated_emitted, contribution_export_validation_failed_emitted, missing_exports_diagnosed"
-}
-
-behavior toggle_extension_contributions "Toggle Extension Contributions" {
-  features   [contribution_based_extensions]
-  invariants [extension_load_order_determinism]
-  category   command
-  types      [ManifestV2, ExtensionContributions]
-  ports      [CompilerApi]
-  requires {
-    extension_loaded_ready "extension is loaded and initialized before contributions can be toggled"
-    config_available       "specforge.json configuration is available for reading contribution toggle state"
-  }
-  ensures {
-    contribution_toggled_emitted   "contribution_toggled event is emitted after toggle state is applied"
-    disabled_contributions_skipped "disabled contributions are skipped during dispatch"
-    sole_provider_warned           "disabling the only entity provider for a kind produces W145 warning"
-  }
-  contract   """
-    The specforge.json configuration MUST support enabling or disabling
-    individual contributions from an extension. Disabled contributions MUST
-    be skipped during dispatch. The extension MUST still be loaded and
-    initialized — only the disabled contribution exports are not called.
-    Disabling the only entity provider for a kind MUST produce a W145
-    warning listing the affected entity kind.
-  """
-  produces   [contribution_toggled]
-  verify unit "disabled contribution is skipped during dispatch"
-  verify unit "extension still loaded when some contributions disabled"
-  verify unit "re-enabled contribution resumes normal dispatch"
-  verify unit "disabling only entity provider for a kind produces W145"
-  verify contract "Toggle Extension Contributions: extension contribution toggling holds — extension_loaded_ready, config_available, contribution_toggled_emitted, disabled_contributions_skipped, sole_provider_warned"
-}
-
 // -- Collector Contribution Behaviors -----
 
 // Cross-ref: the collect flow (ADR 0002) spans these behaviors:
@@ -607,7 +351,7 @@ behavior register_collector_contributions "Register Collector Contributions" {
   features   [test_result_collection]
   invariants [extension_load_order_determinism]
   category   query
-  types      [ManifestV2, CollectorContribution, CollectorAutoDetect]
+  types      [ExtensionDeclaration, CollectorDescriptor, CollectorAutoDetect]
   ports      [WasmRuntime]
   requires {
     manifest_declares_collectors "an enabled extension's handshake raises the collectors flag and its describe payload lists collectors"
@@ -636,7 +380,7 @@ behavior auto_detect_collector "Auto-Detect Collector" {
   features   [test_result_collection]
   invariants [extension_load_order_determinism]
   category   validation
-  types      [CollectorContribution, CollectorAutoDetect]
+  types      [CollectorDescriptor, CollectorAutoDetect]
   ports      [FileSystem]
   consumes   [collector_registered]
   requires {
@@ -671,7 +415,7 @@ behavior approve_collector_command "Approve Collector Command" {
   features   [test_result_collection]
   invariants [extension_isolation]
   category   validation
-  types      [CollectorContribution]
+  types      [CollectorDescriptor]
   ports      [FileSystem]
   requires {
     command_declared "the selected collector declares a command"
@@ -705,7 +449,7 @@ behavior run_collector_command "Run Collector Command" {
   features   [test_result_collection]
   invariants [extension_isolation]
   category   command
-  types      [CollectorContribution]
+  types      [CollectorDescriptor]
   ports      [FileSystem]
   requires {
     command_approved "approve_collector_command allowed the command"
@@ -748,7 +492,7 @@ behavior dispatch_collector "Dispatch Collector" {
   features   [test_result_collection]
   invariants [wasm_sandbox_integrity, extension_isolation]
   category   query
-  types      [CollectorContribution, CollectorDispatchInput, CollectorReport, WasmTrapInfo]
+  types      [CollectorDescriptor, CollectInput, CollectOutput, WasmTrapInfo]
   ports      [WasmRuntime, FileSystem]
   requires {
     report_available "the collector's report exists: a file, or a directory of *.json files"
@@ -761,18 +505,23 @@ behavior dispatch_collector "Dispatch Collector" {
   contract   """
     The host reads the report (the file itself, or every `*.json` file
     directly inside a report directory, in path order) and passes the files
-    to the collector's pure export as `{"reports": [{"path", "content"}],
-    "stdout"?}`, `stdout` being the captured standard output when the
-    collector declares one.
+    to the collector's pure export as the protocol's CollectInput
+    (`{"reports": [{"path", "content"}], "stdout"?}`, `stdout` being the
+    captured standard output when the collector declares one, absent
+    otherwise), and reads its answer as the protocol's CollectOutput
+    (specforge_protocol_types, through call_extension_exports).
     The export answers with test results grouped by entity:
     `{"entity_results": [{"entity_id", "test_results": [{"name", "status",
     "verify"?, "duration_ms"?}]}], "unlinked"?: [{"name", "path",
     "status"}]}`, where status is passed, failed or skipped and `unlinked`
-    lists tests the report doesn't link to an entity. A trap or an answer that doesn't parse is E028. `--no-run`
+    lists tests the report doesn't link to an entity. A trap or an answer
+    that is not a CollectOutput (a test without a name, an empty object) is
+    E028 naming the collector, never empty results. `--no-run`
     and `--report` skip running and dispatch an existing report.
   """
   produces   [collector_dispatched]
   verify unit "reads a file or every json file in a directory"
+  verify unit "the collector receives a CollectInput and answers a CollectOutput, and an answer that is not one is an error naming the collector"
   verify contract "Dispatch Collector: collector dispatch holds — report_available, collector_dispatched_emitted, report_files_passed, traps_reported"
 }
 
@@ -780,7 +529,7 @@ behavior ingest_collector_report "Ingest Collector Report" {
   features   [test_result_collection]
   invariants [collector_output_conformance]
   category   query
-  types      [CollectorReport, Graph]
+  types      [CollectOutput, Graph]
   ports      [FileSystem]
   consumes   [collector_dispatched]
   requires {
@@ -871,53 +620,15 @@ behavior slug_obligation_text "Slug an Obligation Text" {
 
 // -- Discovery & Configuration -----
 
-behavior discover_extensions "Discover Extensions" {
-  features   [wasm_extension_maintenance]
-  invariants [
-    extension_load_order_determinism,
-    registry_integrity,
-    offline_first_extension_resolution,
-  ]
-  category   command
-  types      [ExtensionSource, ManifestV2, ExtensionError]
-  ports      [WasmRuntime]
-  requires {
-    registries_configured "at least one registry source (npm, OCI, GitHub Releases) is configured"
-  }
-  ensures {
-    extensions_discovered_emitted "extensions_discovered event is emitted with aggregated discovery results"
-    network_failure_graceful      "network failures produce warning diagnostic without aborting discovery"
-    results_complete              "results include extension name, available versions, description, and source registry"
-  }
-  contract   """
-    The system MUST query configured registries to discover available
-    extensions and check for updates to installed extensions. Discovery
-    MUST search all configured registry sources (npm, OCI, GitHub Releases)
-    and aggregate results. For each installed extension, the system MUST
-    check whether a newer version exists that satisfies the declared semver
-    range. Discovery results MUST include extension name, available versions,
-    description, and source registry. Network failures MUST produce a
-    warning diagnostic without aborting the discovery process. Specifier
-    parsing is handled by parse_extension_specifier — this behavior is
-    responsible for the registry query and result aggregation.
-  """
-  produces   [extensions_discovered]
-  verify unit "queries configured registries for available extensions"
-  verify unit "checks for updates to installed extensions"
-  verify unit "aggregates results across multiple registries"
-  verify unit "network failure produces warning without aborting"
-  verify contract "Discover Extensions: extension discovery holds — registries_configured, extensions_discovered_emitted, network_failure_graceful, results_complete"
-}
-
 behavior run_doctor_check "Run Doctor Check" {
   features   [entity_enhancement]
   // Doctor REPORTS on invariant violations — it does not ENFORCE them.
   // Enforcement is done by the behaviors listed in each invariant's enforced_by.
   category   validation
   invariants [diagnostic_determinism]
-  types      [ManifestV2, EnhancementConflict, FieldEnhancement]
+  types      [ExtensionDeclaration, EntityEnhancementDescriptor]
   ports      [FileSystem]
-  consumes   [enhancement_registered, wasm_trap_caught]
+  consumes   [enhancement_registered]
   requires {
     enhancement_registered_fired "enhancement_registered event has fired, confirming FieldRegistry is built"
     filesystem_available         "FileSystem port is available for reading extension manifests"
@@ -986,7 +697,7 @@ behavior resolve_extension_source "Resolve Extension Source" {
   features   [wasm_extension_installation]
   invariants [registry_integrity]
   category   query
-  types      [ManifestV2, ExtensionSpecifier, ExtensionSource, ExtensionError]
+  types      [ExtensionDeclaration, ExtensionSpecifier, ExtensionSource, ExtensionError]
   ports      [FileSystem, RegistryClient]
   consumes   [extension_specifier_parsed]
   requires {
@@ -1018,7 +729,7 @@ behavior write_lock_file "Write Lock File" {
   features   [wasm_lock_management]
   invariants [extension_load_order_determinism, registry_integrity]
   category   command
-  types      [ManifestV2, LockFile, LockFileEntry]
+  types      [ExtensionDeclaration, LockFile, LockFileEntry]
   ports      [FileSystem]
   requires {
     extensions_resolved  "all extensions have been resolved with exact versions and wasm hashes"
@@ -1048,7 +759,7 @@ behavior read_lock_file "Read Lock File" {
   features   [wasm_lock_management]
   invariants [extension_load_order_determinism]
   category   command
-  types      [ManifestV2, LockFile, LockFileEntry, ExtensionError]
+  types      [ExtensionDeclaration, LockFile, LockFileEntry, ExtensionError]
   ports      [FileSystem]
   consumes   [all_files_parsed]
   requires {
@@ -1084,7 +795,7 @@ behavior update_all_extensions "Update All Extensions" {
     extension_operation_atomicity,
   ]
   category   command
-  types      [ManifestV2, LockFileEntry, ExtensionError]
+  types      [ExtensionDeclaration, LockFileEntry, ExtensionError]
   ports      [WasmRuntime]
   requires {
     extensions_installed "at least one extension is installed with a valid manifest"
@@ -1122,35 +833,4 @@ behavior update_all_extensions "Update All Extensions" {
   verify unit "failed upgrade rolls back all changes"
   verify integration "update never replaces a locally installed extension from a registry"
   verify contract "Update All Extensions: batch extension update holds — extensions_installed, registries_reachable, batch_update_completed_emitted, semver_constraints_respected, lock_hashes_refreshed, atomic_rollback_on_failure"
-}
-
-behavior refresh_lock_file "Refresh Lock File" {
-  features   [wasm_lock_management]
-  invariants [wasm_compile_cache_integrity, registry_integrity]
-  category   command
-  types      [LockFileEntry, ManifestV2]
-  ports      [WasmRuntime, FileSystem]
-  requires {
-    lock_file_exists     "specforge.lock file exists with entries to refresh"
-    registries_reachable "configured registries are reachable for re-resolution"
-  }
-  ensures {
-    lock_file_refreshed_emitted "lock_file_refreshed event is emitted after lock file is regenerated"
-    versions_unchanged          "pinned versions are not changed during refresh"
-    hashes_verified             "SHA256 hashes of all installed .wasm binaries are verified against lock entries"
-  }
-  contract   """
-    When specforge update --lock is invoked, the system MUST re-resolve all
-    extension specifiers from their configured registries without changing
-    pinned versions. The system MUST verify SHA256 hashes of all installed
-    .wasm binaries against the lock file entries. Mismatched hashes MUST
-    produce a warning diagnostic. The lock file MUST be regenerated with
-    current resolution metadata including timestamps and registry URLs.
-  """
-  produces   [lock_file_refreshed]
-  verify unit "specifiers re-resolved without version changes"
-  verify unit "SHA256 hashes verified against lock entries"
-  verify unit "mismatched hash produces warning"
-  verify unit "lock file regenerated with current metadata"
-  verify contract "Refresh Lock File: lock file refresh holds — lock_file_exists, registries_reachable, lock_file_refreshed_emitted, versions_unchanged, hashes_verified"
 }

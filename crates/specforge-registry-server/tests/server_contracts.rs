@@ -7,8 +7,8 @@ use specforge_registry_server::{auth, db::Database, handlers, rate::RateLimiter,
 use std::sync::Arc;
 use tower::ServiceExt as _;
 
-const VALID_MANIFEST: &str =
-    r#"{"name":"@test/signed-ext","version":"1.0.0","manifestVersion":2,"wasmPath":"ext.wasm"}"#;
+/// A package's manifest: its declaration, as `specforge publish` uploads it.
+const VALID_MANIFEST: &str = r#"{"handshake":{"protocol_version":"1","name":"@test/signed-ext","version":"1.0.0","contribution_flags":{},"peer_dependencies":[],"sandbox_policy":null}}"#;
 const WASM: &[u8] = b"\0asm-fake-extension-bytes";
 
 fn app_state(dir: &std::path::Path, publish_limit_per_token: u32) -> Arc<AppState> {
@@ -193,7 +193,7 @@ async fn network_enabled_sandbox_policy_is_rejected() {
     let state = app_state(dir.path(), 100);
     let raw = auth::create_token(&state.database, None, "pub", Some(90), false);
 
-    let manifest = r#"{"name":"@test/signed-ext","version":"1.0.0","manifestVersion":2,"wasmPath":"ext.wasm","sandboxPolicy":{"networkAccess":true}}"#;
+    let manifest = r#"{"handshake":{"protocol_version":"1","name":"@test/signed-ext","version":"1.0.0","contribution_flags":{},"peer_dependencies":[],"sandbox_policy":{"network_access":true}}}"#;
     let response = app(state)
         .oneshot(put_request(
             &raw,
@@ -387,7 +387,7 @@ mod ownership {
 
     fn signed_for(name: &str, version: &str) -> axum::body::Body {
         let manifest = format!(
-            r#"{{"name":"{name}","version":"{version}","manifestVersion":2,"wasmPath":"ext.wasm"}}"#
+            r#"{{"handshake":{{"protocol_version":"1","name":"{name}","version":"{version}","contribution_flags":{{}},"peer_dependencies":[],"sandbox_policy":null}}}}"#
         );
         multipart_body(
             &manifest,
@@ -496,5 +496,89 @@ mod ownership {
             .await
             .unwrap();
         assert_eq!(response.status(), StatusCode::FORBIDDEN);
+    }
+}
+
+/// The body of an answer.
+async fn json_of(response: axum::response::Response) -> serde_json::Value {
+    serde_json::from_slice(
+        &axum::body::to_bytes(response.into_body(), 1_000_000)
+            .await
+            .unwrap(),
+    )
+    .unwrap()
+}
+
+const SIGNATURE: &str = r#"{"sig":"x","keyId":"y","pubkey":"z","signedAt":"now"}"#;
+
+#[specforge_test_macros::test(
+    behavior = "publish_to_registry",
+    verify = "the registry refuses a manifest that is not an extension declaration"
+)]
+#[tokio::test]
+async fn a_manifest_that_is_not_a_declaration_is_refused() {
+    let dir = tempfile::tempdir().unwrap();
+    let state = app_state(dir.path(), 100);
+    let raw = auth::create_token(&state.database, None, "pub", Some(90), false);
+    // The camelCase manifest file of before ADR 0012.
+    let legacy = r#"{"name":"@test/signed-ext","version":"1.0.0","manifestVersion":2,"wasmPath":"ext.wasm"}"#;
+    let response = app(state)
+        .oneshot(put_request(
+            &raw,
+            "@test%2Fsigned-ext",
+            "1.0.0",
+            multipart_body(legacy, WASM, Some(SIGNATURE)),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let body = json_of(response).await;
+    assert_eq!(body["error"]["code"], "INVALID_MANIFEST");
+    let message = body["error"]["message"].as_str().unwrap();
+    assert!(
+        message.contains("not an extension declaration"),
+        "{message}"
+    );
+}
+
+#[specforge_test_macros::test(
+    behavior = "publish_to_registry",
+    verify = "the registry takes a package's description and keywords from its declaration"
+)]
+#[tokio::test]
+async fn description_and_keywords_come_from_the_declaration() {
+    let dir = tempfile::tempdir().unwrap();
+    let state = app_state(dir.path(), 100);
+    let raw = auth::create_token(&state.database, None, "pub", Some(90), false);
+    let router = app_clone(&state);
+    let manifest = r#"{"handshake":{"protocol_version":"1","name":"@test/signed-ext","version":"1.0.0","contribution_flags":{},"peer_dependencies":[],"sandbox_policy":null,"description":"Reports over the graph","keywords":["reports","dashboards"]}}"#;
+    let response = router
+        .clone()
+        .oneshot(put_request(
+            &raw,
+            "@test%2Fsigned-ext",
+            "1.0.0",
+            multipart_body(manifest, WASM, Some(SIGNATURE)),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::CREATED);
+
+    // One query the description answers, one only a keyword does.
+    for query in ["graph", "dashboards"] {
+        let response = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri(format!("/v1/search?q={query}"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let body = json_of(response).await;
+        let hit = &body["results"][0];
+        assert_eq!(hit["name"], "@test/signed-ext", "{query}: {body}");
+        assert_eq!(hit["description"], "Reports over the graph");
     }
 }

@@ -1,42 +1,100 @@
+//! `specforge extension init|build|validate` author an extension with the
+//! SDK: an SDK crate declaring the extension, its wasm32-wasip2 component,
+//! and the declaration that component serves (ADR 0012).
+
 use assert_cmd::Command;
-use predicates::prelude::*;
 use specforge_test_macros::test as specforge_test;
 use std::fs;
+use std::path::{Path, PathBuf};
 use tempfile::TempDir;
+
+/// Every file under `dir`, recursively.
+fn walk(dir: &Path) -> Vec<PathBuf> {
+    let mut files = Vec::new();
+    for entry in fs::read_dir(dir).unwrap() {
+        let path = entry.unwrap().path();
+        if path.is_dir() {
+            files.extend(walk(&path));
+        } else {
+            files.push(path);
+        }
+    }
+    files
+}
 
 fn specforge_cmd() -> Command {
     assert_cmd::cargo_bin_cmd!("specforge")
 }
 
+fn repo_root() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
+}
+
+/// `extension init --name <name>` in a fresh directory.
+fn init(name: &str) -> (TempDir, PathBuf) {
+    let dir = TempDir::new().unwrap();
+    specforge_cmd()
+        .args(["extension", "init", "--name", name, "--path"])
+        .arg(dir.path())
+        .assert()
+        .success();
+    let ext = dir.path().join(name);
+    (dir, ext)
+}
+
+fn json_of(output: &std::process::Output) -> serde_json::Value {
+    serde_json::from_slice(&output.stdout).unwrap_or_else(|e| {
+        panic!(
+            "{e}: {}{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        )
+    })
+}
+
+/// Whether this toolchain can build wasm32-wasip2 components.
+fn wasip2_installed() -> bool {
+    std::process::Command::new("rustc")
+        .args(["--print", "target-libdir", "--target", "wasm32-wasip2"])
+        .output()
+        .is_ok_and(|o| {
+            o.status.success() && Path::new(String::from_utf8_lossy(&o.stdout).trim()).exists()
+        })
+}
+
 // ===============================================================
-// Behavior: extension_scaffold_init
+// extension init
 // ===============================================================
 
 #[specforge_test(
     behavior = "scaffold_wasm_extension_project",
-    verify = "scaffold creates manifest file"
+    verify = "scaffold creates an SDK crate declaring the extension"
 )]
-fn extension_init_creates_manifest_json() {
-    let dir = TempDir::new().unwrap();
-
-    specforge_cmd()
-        .args(["extension", "init", "--name", "test-ext", "--path"])
-        .arg(dir.path())
-        .assert()
-        .success();
-
-    let manifest_path = dir.path().join("test-ext").join("manifest.json");
-    assert!(manifest_path.exists(), "manifest.json should be created");
-
-    let content = fs::read_to_string(&manifest_path).unwrap();
-    let json: serde_json::Value =
-        serde_json::from_str(&content).expect("manifest.json should be valid JSON");
-
-    assert_eq!(json["name"], "@local/test-ext");
-    assert_eq!(json["version"], "0.1.0");
-    assert_eq!(json["manifestVersion"], 2);
-    assert!(json["wasmPath"].as_str().unwrap().contains("test_ext"));
-    assert!(json["contributes"]["entities"].as_bool().unwrap());
+fn extension_init_creates_an_sdk_crate() {
+    let (_dir, ext) = init("my-ext");
+    let lib = fs::read_to_string(ext.join("src/lib.rs")).unwrap();
+    assert!(
+        lib.contains("#[specforge_extension_sdk::extension("),
+        "{lib}"
+    );
+    assert!(lib.contains(r#"name = "@local/my-ext""#), "{lib}");
+    assert!(lib.contains(r#"short = "my-ext""#), "{lib}");
+    assert!(lib.contains("description = "), "{lib}");
+    let cargo = fs::read_to_string(ext.join("Cargo.toml")).unwrap();
+    assert!(cargo.contains("specforge-extension-sdk"), "{cargo}");
+    assert!(cargo.contains(r#"crate-type = ["cdylib"]"#), "{cargo}");
+    // The binary declares the extension: the crate is all there is.
+    let mut written: Vec<String> = walk(&ext)
+        .into_iter()
+        .map(|p| {
+            p.strip_prefix(&ext)
+                .unwrap()
+                .to_string_lossy()
+                .replace('\\', "/")
+        })
+        .collect();
+    written.sort();
+    assert_eq!(written, [".cargo/config.toml", "Cargo.toml", "src/lib.rs"]);
 }
 
 #[specforge_test(
@@ -44,61 +102,32 @@ fn extension_init_creates_manifest_json() {
     verify = "scaffold creates src/ with skeleton exports"
 )]
 fn extension_init_creates_src_lib_rs() {
-    let dir = TempDir::new().unwrap();
-
-    specforge_cmd()
-        .args(["extension", "init", "--name", "my-ext", "--path"])
-        .arg(dir.path())
-        .assert()
-        .success();
-
-    let lib_path = dir.path().join("my-ext").join("src").join("lib.rs");
-    assert!(lib_path.exists(), "src/lib.rs should be created");
-
-    let content = fs::read_to_string(&lib_path).unwrap();
+    let (_dir, ext) = init("skeleton-ext");
+    let lib = fs::read_to_string(ext.join("src/lib.rs")).unwrap();
+    // The SDK generates every export: the protocol's and the declared
+    // command's.
+    assert!(lib.contains("impl Contributions for Extension"), "{lib}");
+    assert!(lib.contains("c.command(\"things\""), "{lib}");
     assert!(
-        content.contains("_start"),
-        "src/lib.rs should contain _start export"
+        lib.contains(
+            "specforge_extension_sdk::component_guest!(build = specforge_extension_build)"
+        ),
+        "{lib}"
     );
-    assert!(
-        content.contains("no_mangle"),
-        "src/lib.rs should contain #[no_mangle]"
-    );
-    assert!(
-        content.contains("wasm32-wasip1"),
-        "src/lib.rs should mention wasm32-wasip1 build target"
-    );
+    assert!(!lib.contains("_start"), "{lib}");
 }
 
 #[specforge_test(
     behavior = "scaffold_wasm_extension_project",
-    verify = "scaffold creates build script for wasm32-wasi"
+    verify = "scaffold builds for wasm32-wasip2"
 )]
-fn extension_init_creates_cargo_toml() {
-    let dir = TempDir::new().unwrap();
-
-    specforge_cmd()
-        .args(["extension", "init", "--name", "cargo-ext", "--path"])
-        .arg(dir.path())
-        .assert()
-        .success();
-
-    let cargo_path = dir.path().join("cargo-ext").join("Cargo.toml");
-    assert!(cargo_path.exists(), "Cargo.toml should be created");
-
-    let content = fs::read_to_string(&cargo_path).unwrap();
-    assert!(
-        content.contains(r#"name = "cargo-ext""#),
-        "Cargo.toml should have the extension name"
-    );
-    assert!(
-        content.contains(r#"crate-type = ["cdylib"]"#),
-        "Cargo.toml should specify cdylib crate type"
-    );
-    assert!(
-        content.contains(r#"edition = "2024""#),
-        "Cargo.toml should use edition 2024"
-    );
+fn extension_init_targets_wasm32_wasip2() {
+    let (_dir, ext) = init("target-ext");
+    let config = fs::read_to_string(ext.join(".cargo/config.toml")).unwrap();
+    assert!(config.contains(r#"target = "wasm32-wasip2""#), "{config}");
+    let lib = fs::read_to_string(ext.join("src/lib.rs")).unwrap();
+    assert!(lib.contains("wasm32-wasip2"), "{lib}");
+    assert!(!lib.contains("wasip1"), "{lib}");
 }
 
 #[specforge_test(
@@ -107,15 +136,22 @@ fn extension_init_creates_cargo_toml() {
 )]
 fn extension_init_rejects_existing_directory() {
     let dir = TempDir::new().unwrap();
-    let ext_dir = dir.path().join("existing-ext");
-    fs::create_dir_all(&ext_dir).unwrap();
-
-    specforge_cmd()
-        .args(["extension", "init", "--name", "existing-ext", "--path"])
+    fs::create_dir(dir.path().join("taken")).unwrap();
+    let output = specforge_cmd()
+        .args([
+            "extension",
+            "init",
+            "--name",
+            "taken",
+            "--format",
+            "json",
+            "--path",
+        ])
         .arg(dir.path())
-        .assert()
-        .failure()
-        .stderr(predicate::str::contains("already exists"));
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(json_of(&output)["code"], "E065");
 }
 
 #[specforge_test(
@@ -124,7 +160,6 @@ fn extension_init_rejects_existing_directory() {
 )]
 fn extension_init_json_output() {
     let dir = TempDir::new().unwrap();
-
     let output = specforge_cmd()
         .args([
             "extension",
@@ -138,16 +173,15 @@ fn extension_init_json_output() {
         .arg(dir.path())
         .output()
         .unwrap();
-
     assert!(output.status.success());
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let json: serde_json::Value =
-        serde_json::from_str(&stdout).expect("--format=json should produce valid JSON");
-
-    assert_eq!(json["name"], "json-ext");
-    assert!(json["path"].as_str().unwrap().contains("json-ext"));
-    let files = json["files"].as_array().unwrap();
-    assert_eq!(files.len(), 3);
+    let json = json_of(&output);
+    assert_eq!(json["status"], "created");
+    assert_eq!(json["name"], "@local/json-ext");
+    assert_eq!(json["short"], "json-ext");
+    assert_eq!(
+        json["files"],
+        serde_json::json!(["Cargo.toml", ".cargo/config.toml", "src/lib.rs"])
+    );
 }
 
 #[specforge_test(
@@ -156,20 +190,16 @@ fn extension_init_json_output() {
 )]
 fn extension_init_default_name() {
     let dir = TempDir::new().unwrap();
-
     specforge_cmd()
         .args(["extension", "init", "--path"])
         .arg(dir.path())
         .assert()
         .success();
-
-    let ext_dir = dir.path().join("my-extension");
-    assert!(ext_dir.exists(), "should use default name 'my-extension'");
-    assert!(ext_dir.join("manifest.json").exists());
+    assert!(dir.path().join("my-extension/src/lib.rs").exists());
 }
 
 // ===============================================================
-// Behavior: extension_build_validate_structure
+// extension build
 // ===============================================================
 
 #[specforge_test(
@@ -178,280 +208,198 @@ fn extension_init_default_name() {
 )]
 fn extension_build_validates_structure() {
     let dir = TempDir::new().unwrap();
-
-    // First create a valid extension scaffold
-    specforge_cmd()
-        .args(["extension", "init", "--name", "build-ext", "--path"])
-        .arg(dir.path())
-        .assert()
-        .success();
-
-    // Then validate it
-    specforge_cmd()
-        .args(["extension", "build", "--path"])
-        .arg(dir.path().join("build-ext"))
-        .assert()
-        .success()
-        .stdout(predicate::str::contains("validated"));
-}
-
-#[specforge_test(
-    behavior = "build_wasm_extension",
-    verify = "build errors reported as ExtensionError diagnostics"
-)]
-fn extension_build_errors_missing_cargo_toml() {
-    let dir = TempDir::new().unwrap();
-    // Create manifest.json but no Cargo.toml
-    fs::write(dir.path().join("manifest.json"), "{}").unwrap();
-
-    specforge_cmd()
-        .args(["extension", "build", "--path"])
-        .arg(dir.path())
-        .assert()
-        .failure()
-        .stderr(predicate::str::contains("E040"))
-        .stderr(predicate::str::contains("Cargo.toml"));
-}
-
-#[specforge_test(
-    behavior = "build_wasm_extension",
-    verify = "build errors reported as ExtensionError diagnostics"
-)]
-fn extension_build_errors_missing_manifest() {
-    let dir = TempDir::new().unwrap();
-    // Create Cargo.toml but no manifest.json
-    fs::write(dir.path().join("Cargo.toml"), "[package]").unwrap();
-
-    specforge_cmd()
-        .args(["extension", "build", "--path"])
-        .arg(dir.path())
-        .assert()
-        .failure()
-        .stderr(predicate::str::contains("E040"))
-        .stderr(predicate::str::contains("manifest.json"));
-}
-
-#[specforge_test(
-    behavior = "build_wasm_extension",
-    verify = "build errors reported as ExtensionError diagnostics"
-)]
-fn extension_build_json_error() {
-    let dir = TempDir::new().unwrap();
-
     let output = specforge_cmd()
         .args(["extension", "build", "--format", "json", "--path"])
         .arg(dir.path())
         .output()
         .unwrap();
+    assert_eq!(output.status.code(), Some(1));
+    let json = json_of(&output);
+    assert_eq!(json["code"], "E040", "{json}");
+    assert_eq!(
+        json["error"],
+        format!("no Cargo.toml found at {}", dir.path().display())
+    );
+}
 
-    assert!(!output.status.success());
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let json: serde_json::Value =
-        serde_json::from_str(&stdout).expect("--format=json should produce valid JSON on error");
-    assert_eq!(json["code"], "E040");
-    assert_eq!(json["exit_code"], 1);
+#[specforge_test(
+    behavior = "build_wasm_extension",
+    verify = "build errors reported as ExtensionError diagnostics"
+)]
+fn extension_build_reports_a_failed_build() {
+    let dir = TempDir::new().unwrap();
+    fs::write(
+        dir.path().join("Cargo.toml"),
+        "[package]\nname = \"broken\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\n[lib]\ncrate-type = [\"cdylib\"]\n",
+    )
+    .unwrap();
+    fs::create_dir(dir.path().join("src")).unwrap();
+    fs::write(dir.path().join("src/lib.rs"), "this is not rust").unwrap();
+    let output = specforge_cmd()
+        .args(["extension", "build", "--format", "json", "--path"])
+        .arg(dir.path())
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(1));
+    let json = json_of(&output);
+    assert_eq!(json["code"], "E040", "{json}");
+    let error = json["error"].as_str().unwrap();
+    assert!(
+        error.contains("cargo build --release --target wasm32-wasip2 failed"),
+        "{error}"
+    );
+}
+
+/// `init`, then `build`, then `validate`: the scaffold builds, as is, into
+/// a component that declares a valid extension. Needs the wasm32-wasip2
+/// target (CI installs it); without it, the build is skipped.
+#[specforge_test(
+    behavior = "build_wasm_extension",
+    verify = "build produces .wasm binary"
+)]
+fn a_scaffolded_extension_builds_and_validates() {
+    if !wasip2_installed() {
+        eprintln!("skipped: the wasm32-wasip2 target is not installed");
+        return;
+    }
+    let (_dir, ext) = init("round-trip");
+    // Build against this repository's SDK, from the local cargo cache.
+    let mut cargo = fs::read_to_string(ext.join("Cargo.toml")).unwrap();
+    let sdk = repo_root().join("crates/specforge-extension-sdk");
+    cargo.push_str(&format!(
+        "\n[patch.crates-io]\nspecforge-extension-sdk = {{ path = {:?} }}\n",
+        sdk.canonicalize().unwrap()
+    ));
+    fs::write(ext.join("Cargo.toml"), cargo).unwrap();
+
+    // A target directory configured elsewhere doesn't move the component
+    // out of the crate, where `validate` and `publish` look.
+    let elsewhere = TempDir::new().unwrap();
+    let output = specforge_cmd()
+        .args(["extension", "build", "--format", "json", "--path"])
+        .arg(&ext)
+        .env("CARGO_NET_OFFLINE", "true")
+        .env("CARGO_TARGET_DIR", elsewhere.path())
+        .output()
+        .unwrap();
+    let json = json_of(&output);
+    assert!(output.status.success(), "{json}");
+    assert_eq!(json["status"], "built");
+    let component = PathBuf::from(json["component"].as_str().unwrap());
+    assert!(component.ends_with("target/wasm32-wasip2/release/round_trip.wasm"));
+    assert!(component.exists());
+
+    let output = specforge_cmd()
+        .args(["extension", "validate", "--format", "json", "--path"])
+        .arg(&ext)
+        .output()
+        .unwrap();
+    let json = json_of(&output);
+    assert!(output.status.success(), "{json}");
+    assert_eq!(json["valid"], true);
+    assert_eq!(json["name"], "@local/round-trip");
+    assert_eq!(json["short"], "round-trip");
+    assert_eq!(json["declaration"]["entities"][0]["name"], "thing");
 }
 
 // ===============================================================
-// Behavior: extension_validate_manifest
+// extension validate
 // ===============================================================
 
-#[specforge_test(
-    behavior = "validate_extension_manifest",
-    verify = "valid manifest passes validation"
-)]
-fn extension_validate_valid_manifest() {
-    let dir = TempDir::new().unwrap();
-
-    // Create a valid manifest
-    let manifest = serde_json::json!({
-        "name": "@local/valid-ext",
-        "version": "1.0.0",
-        "manifestVersion": 2,
-        "wasmPath": "target/wasm32-wasip1/release/valid_ext.wasm",
-        "contributes": { "entities": true },
-        "entityKinds": [],
-        "edgeTypes": [],
-        "fields": []
-    });
-    fs::write(
-        dir.path().join("manifest.json"),
-        serde_json::to_string_pretty(&manifest).unwrap(),
-    )
-    .unwrap();
-
-    specforge_cmd()
-        .args(["extension", "validate", "--path"])
-        .arg(dir.path())
-        .assert()
-        .success()
-        .stdout(predicate::str::contains("valid"));
+fn greet_wasm() -> PathBuf {
+    repo_root().join("fixtures/greet-extension/greet.wasm")
 }
 
 #[specforge_test(
     behavior = "validate_wasm_extension_locally",
-    verify = "specforge extension validate errors on invalid manifest JSON"
+    verify = "specforge extension validate errors when no built component is found"
 )]
-fn extension_validate_invalid_json() {
+fn extension_validate_without_a_built_component() {
     let dir = TempDir::new().unwrap();
-    fs::write(dir.path().join("manifest.json"), "not valid json {{{").unwrap();
-
-    specforge_cmd()
-        .args(["extension", "validate", "--path"])
-        .arg(dir.path())
-        .assert()
-        .failure()
-        .stderr(predicate::str::contains("E030"));
-}
-
-#[specforge_test(
-    behavior = "validate_extension_manifest",
-    verify = "unknown manifest_version produces hard error"
-)]
-fn extension_validate_wrong_manifest_version() {
-    let dir = TempDir::new().unwrap();
-
-    let manifest = serde_json::json!({
-        "name": "@local/bad-version",
-        "version": "1.0.0",
-        "manifestVersion": 1,
-        "wasmPath": "x.wasm"
-    });
-    fs::write(
-        dir.path().join("manifest.json"),
-        serde_json::to_string_pretty(&manifest).unwrap(),
-    )
-    .unwrap();
-
-    specforge_cmd()
-        .args(["extension", "validate", "--path"])
-        .arg(dir.path())
-        .assert()
-        .failure();
-}
-
-#[specforge_test(
-    behavior = "validate_wasm_extension_locally",
-    verify = "specforge extension validate errors on missing manifest.json"
-)]
-fn extension_validate_missing_manifest() {
-    let dir = TempDir::new().unwrap();
-
-    specforge_cmd()
-        .args(["extension", "validate", "--path"])
-        .arg(dir.path())
-        .assert()
-        .failure()
-        .stderr(predicate::str::contains("E040"));
-}
-
-#[specforge_test(
-    behavior = "validate_extension_manifest",
-    verify = "valid manifest passes validation"
-)]
-fn extension_validate_json_output_valid() {
-    let dir = TempDir::new().unwrap();
-
-    let manifest = serde_json::json!({
-        "name": "@local/json-valid",
-        "version": "2.0.0",
-        "manifestVersion": 2,
-        "wasmPath": "ext.wasm"
-    });
-    fs::write(
-        dir.path().join("manifest.json"),
-        serde_json::to_string_pretty(&manifest).unwrap(),
-    )
-    .unwrap();
-
     let output = specforge_cmd()
         .args(["extension", "validate", "--format", "json", "--path"])
         .arg(dir.path())
         .output()
         .unwrap();
-
-    assert!(output.status.success());
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-    assert_eq!(json["valid"], true);
-    assert_eq!(json["name"], "@local/json-valid");
-    assert_eq!(json["version"], "2.0.0");
+    assert_eq!(output.status.code(), Some(1));
+    let json = json_of(&output);
+    assert_eq!(json["code"], "E040", "{json}");
+    assert!(
+        json["error"]
+            .as_str()
+            .unwrap()
+            .contains("no built component"),
+        "{json}"
+    );
 }
 
 #[specforge_test(
-    behavior = "validate_extension_manifest",
-    verify = "unknown manifest_version produces hard error"
+    behavior = "validate_wasm_extension_locally",
+    verify = "specforge extension validate reports the declaration's registry build diagnostics"
 )]
-fn extension_validate_json_output_invalid() {
-    let dir = TempDir::new().unwrap();
-
-    // Valid in every respect but manifestVersion, below and above 2.
-    for version in [1, 3] {
-        let manifest = serde_json::json!({
-            "name": "@local/versioned",
-            "version": "1.0.0",
-            "manifestVersion": version,
-            "wasmPath": "ext.wasm"
-        });
-        fs::write(
-            dir.path().join("manifest.json"),
-            serde_json::to_string_pretty(&manifest).unwrap(),
-        )
+fn extension_validate_reports_the_registry_build_diagnostics() {
+    // The formal builtin, alone: it enhances software's kinds, which no
+    // loaded extension declares (I004), reported; its missing peer is not
+    // (it is installed beside it), and it is still valid.
+    let formal = repo_root().join("extensions/formal/wasm/specforge_ext_formal.wasm");
+    let output = specforge_cmd()
+        .args(["extension", "validate", "--format", "json", "--path"])
+        .arg(&formal)
+        .output()
         .unwrap();
+    let json = json_of(&output);
+    assert!(output.status.success(), "{json}");
+    assert_eq!(json["name"], "@specforge/formal");
+    let codes: Vec<&str> = json["diagnostics"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|d| d["code"].as_str().unwrap())
+        .collect();
+    assert!(codes.contains(&"I004"), "{codes:?}");
+    assert!(!codes.contains(&"E027"), "{codes:?}");
 
-        let output = specforge_cmd()
-            .args(["extension", "validate", "--format", "json", "--path"])
-            .arg(dir.path())
-            .output()
-            .unwrap();
-
-        assert_eq!(output.status.code(), Some(1), "a hard error");
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-        assert_eq!(json["valid"], false);
-        assert_eq!(
-            json["diagnostics"],
-            serde_json::json!([{
-                "code": "E030",
-                "message": format!(
-                    "extension '@local/versioned': manifestVersion must be 2, got {version}"
-                ),
-            }])
-        );
-    }
+    // A binary that is not an extension is E028.
+    let dir = TempDir::new().unwrap();
+    let bogus = dir.path().join("bogus.wasm");
+    fs::write(&bogus, b"\0asm\x01\0\0\0").unwrap();
+    let output = specforge_cmd()
+        .args(["extension", "validate", "--format", "json", "--path"])
+        .arg(&bogus)
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(json_of(&output)["code"], "E028");
 }
-
-// ===============================================================
-// Behavior: extension_init_then_validate_roundtrip
-// ===============================================================
 
 #[specforge_test(
     behavior = "validate_extension_manifest",
     verify = "valid manifest passes validation"
 )]
-fn extension_init_then_validate_roundtrip() {
-    let dir = TempDir::new().unwrap();
+fn extension_validate_a_valid_declaration() {
+    let output = specforge_cmd()
+        .args(["extension", "validate", "--format", "json", "--path"])
+        .arg(greet_wasm())
+        .output()
+        .unwrap();
+    let json = json_of(&output);
+    assert!(output.status.success(), "{json}");
+    assert_eq!(json["valid"], true);
+    assert_eq!(json["name"], "@sdk/greet");
+    assert_eq!(json["version"], "0.1.0");
+    assert_eq!(json["short"], "greet");
+    assert_eq!(json["diagnostics"], serde_json::json!([]));
+    assert_eq!(json["declaration"]["handshake"]["name"], "@sdk/greet");
 
-    // Scaffold
-    specforge_cmd()
-        .args(["extension", "init", "--name", "roundtrip-ext", "--path"])
-        .arg(dir.path())
-        .assert()
-        .success();
-
-    // Validate the scaffolded manifest
+    // Human output says so.
     specforge_cmd()
         .args(["extension", "validate", "--path"])
-        .arg(dir.path().join("roundtrip-ext"))
+        .arg(greet_wasm())
         .assert()
-        .success();
-
-    // Build (structure check) the scaffolded project
-    specforge_cmd()
-        .args(["extension", "build", "--path"])
-        .arg(dir.path().join("roundtrip-ext"))
-        .assert()
-        .success();
+        .success()
+        .stdout(predicates::str::contains(
+            "@sdk/greet v0.1.0 declares a valid extension",
+        ));
 }
 
 // ===============================================================
@@ -460,128 +408,50 @@ fn extension_init_then_validate_roundtrip() {
 
 #[specforge_test(
     behavior = "scaffold_wasm_extension_project",
-    verify = "Scaffold Wasm Extension Project: Wasm extension scaffolding holds — filesystem_available, manifest_created, skeleton_exports_created, build_script_created, extension_project_scaffolded_emitted"
+    verify = "Scaffold Wasm Extension Project: Wasm extension scaffolding holds — filesystem_available, declaration_created, skeleton_exports_created, build_target_configured, extension_project_scaffolded_emitted"
 )]
-fn contract_init_creates_three_files() {
-    let dir = TempDir::new().unwrap();
-
-    specforge_cmd()
-        .args(["extension", "init", "--name", "contract-ext", "--path"])
-        .arg(dir.path())
-        .assert()
-        .success();
-
-    let ext_dir = dir.path().join("contract-ext");
-    assert!(ext_dir.join("manifest.json").exists());
-    assert!(ext_dir.join("src/lib.rs").exists());
-    assert!(ext_dir.join("Cargo.toml").exists());
-
-    // Verify manifest.json is a valid ManifestV2
-    let content = fs::read_to_string(ext_dir.join("manifest.json")).unwrap();
-    let manifest: serde_json::Value = serde_json::from_str(&content).unwrap();
-    assert_eq!(manifest["manifestVersion"], 2);
-    assert!(manifest["name"].as_str().unwrap().starts_with("@local/"));
+fn contract_init_creates_the_sdk_crate() {
+    let (_dir, ext) = init("contract-ext");
+    for file in ["Cargo.toml", ".cargo/config.toml", "src/lib.rs"] {
+        assert!(ext.join(file).exists(), "{file}");
+    }
+    let lib = fs::read_to_string(ext.join("src/lib.rs")).unwrap();
+    assert!(lib.contains(r#"name = "@local/contract-ext""#), "{lib}");
 }
 
 #[specforge_test(
     behavior = "build_wasm_extension",
-    verify = "build errors reported as ExtensionError diagnostics"
+    verify = "Build Wasm Extension: Wasm extension building holds — source_available, toolchain_available, wasm_binary_produced, build_errors_diagnosed, extension_built_emitted"
 )]
-fn contract_build_requires_both_files() {
-    // Each failure is an E040 ExtensionError naming the missing file, on
-    // stderr, and the same code in JSON.
-    let assert_e040 = |dir: &std::path::Path, missing: &str| {
-        let expected = format!("no {missing} found at {}", dir.display());
-        specforge_cmd()
-            .args(["extension", "build", "--path"])
-            .arg(dir)
-            .assert()
-            .code(1)
-            .stderr(predicate::str::contains(format!("E040: {expected}")));
-        let output = specforge_cmd()
-            .args(["extension", "build", "--format", "json", "--path"])
-            .arg(dir)
-            .output()
-            .unwrap();
-        assert_eq!(output.status.code(), Some(1));
-        let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
-        assert_eq!(json["code"], "E040", "{json}");
-        assert_eq!(json["error"], expected, "{json}");
-    };
-
-    // Neither file
-    let dir1 = TempDir::new().unwrap();
-    assert_e040(dir1.path(), "Cargo.toml");
-
-    // Only Cargo.toml
-    let dir2 = TempDir::new().unwrap();
-    fs::write(dir2.path().join("Cargo.toml"), "[package]").unwrap();
-    assert_e040(dir2.path(), "manifest.json");
-
-    // Only manifest.json
-    let dir3 = TempDir::new().unwrap();
-    fs::write(dir3.path().join("manifest.json"), "{}").unwrap();
-    assert_e040(dir3.path(), "Cargo.toml");
-
-    // Both files present -> success
-    let dir4 = TempDir::new().unwrap();
-    fs::write(dir4.path().join("Cargo.toml"), "[package]").unwrap();
-    fs::write(dir4.path().join("manifest.json"), "{}").unwrap();
+fn contract_build_needs_a_crate() {
+    // No crate: E040 before anything runs, on stderr in human form.
+    let dir = TempDir::new().unwrap();
     specforge_cmd()
         .args(["extension", "build", "--path"])
-        .arg(dir4.path())
+        .arg(dir.path())
         .assert()
-        .success();
+        .code(1)
+        .stderr(predicates::str::contains(
+            "error[E040]: no Cargo.toml found",
+        ));
 }
 
 #[specforge_test(
     behavior = "validate_extension_manifest",
-    verify = "Validate Extension Manifest: extension manifest validation holds — manifest_loaded_fired, manifest_validated_emitted, invalid_manifest_diagnosed, schema_validated"
+    verify = "Validate Extension Manifest: extension declaration validation holds — declaration_loaded_fired, manifest_validated_emitted, invalid_manifest_diagnosed, schema_validated"
 )]
 fn contract_validate_exit_codes() {
-    // Valid manifest -> exit 0
-    let dir1 = TempDir::new().unwrap();
-    let valid = serde_json::json!({
-        "name": "@local/valid",
-        "version": "1.0.0",
-        "manifestVersion": 2,
-        "wasmPath": "x.wasm"
-    });
-    fs::write(
-        dir1.path().join("manifest.json"),
-        serde_json::to_string_pretty(&valid).unwrap(),
-    )
-    .unwrap();
+    // A valid declaration exits 0, no component or a binary that is not an
+    // extension exits 1.
     specforge_cmd()
         .args(["extension", "validate", "--path"])
-        .arg(dir1.path())
+        .arg(greet_wasm())
         .assert()
         .success();
-
-    // Invalid manifest (manifestVersion != 2) -> exit 1
-    let dir2 = TempDir::new().unwrap();
-    let invalid = serde_json::json!({
-        "name": "@local/invalid",
-        "version": "1.0.0",
-        "manifestVersion": 99,
-        "wasmPath": "x.wasm"
-    });
-    fs::write(
-        dir2.path().join("manifest.json"),
-        serde_json::to_string_pretty(&invalid).unwrap(),
-    )
-    .unwrap();
+    let dir = TempDir::new().unwrap();
     specforge_cmd()
         .args(["extension", "validate", "--path"])
-        .arg(dir2.path())
-        .assert()
-        .failure();
-
-    // Missing manifest -> exit 1
-    let dir3 = TempDir::new().unwrap();
-    specforge_cmd()
-        .args(["extension", "validate", "--path"])
-        .arg(dir3.path())
+        .arg(dir.path())
         .assert()
         .failure();
 }

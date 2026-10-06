@@ -7,6 +7,7 @@
 
 use serde::Serialize;
 use specforge_extension_sdk::prelude::{CommandError, CommandGraph, GraphNode};
+use specforge_extension_sdk::EntityKindDescriptor;
 use std::collections::BTreeMap;
 
 /// The kinds this extension declares, in the order `health` reports them.
@@ -245,19 +246,15 @@ pub fn sortable(kind: &str, field: &str) -> bool {
     matches!(field, "id" | "title" | "tags") || declared_fields(kind).contains(&field)
 }
 
-/// The fields `kind` declares (`describe_entities.json`).
+/// The fields `kind` declares (its kind in [`crate::declaration`]).
 fn declared_fields(kind: &str) -> Vec<&'static str> {
-    static KINDS: std::sync::OnceLock<serde_json::Value> = std::sync::OnceLock::new();
-    let kinds = KINDS.get_or_init(|| {
-        serde_json::from_slice(crate::DESCRIBE_ENTITIES).unwrap_or(serde_json::Value::Null)
-    });
-    kinds["items"]
-        .as_array()
-        .into_iter()
-        .flatten()
-        .filter(|k| k["keyword"] == kind)
-        .flat_map(|k| k["fields"].as_array().into_iter().flatten())
-        .filter_map(|f| f["name"].as_str())
+    static KINDS: std::sync::OnceLock<Vec<EntityKindDescriptor>> = std::sync::OnceLock::new();
+    let kinds = KINDS.get_or_init(|| crate::specforge_extension_build().declaration().entities);
+    kinds
+        .iter()
+        .filter(|k| k.keyword.as_deref() == Some(kind))
+        .flat_map(|k| &k.fields)
+        .map(|f| f.name.as_str())
         .collect()
 }
 

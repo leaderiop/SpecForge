@@ -254,10 +254,10 @@ fn uri_template<'a>(
 ) -> Option<&'a str> {
     state
         .registries()
-        .manifest_surfaces
+        .declaration(&entry.extension_name)?
+        .surfaces
+        .mcp_resources
         .iter()
-        .filter(|(extension, _)| *extension == entry.extension_name)
-        .flat_map(|(_, surfaces)| &surfaces.mcp_resources)
         .find(|resource| resource.name == entry.contribution_name)
         .map(|resource| resource.uri_template.as_str())
 }
@@ -277,26 +277,30 @@ fn extension_resource(call: &Call<'_>, uri: &str) -> ReadOutcome {
         return Err(invalid_params("the project has no extension runtime"));
     };
     let started = std::time::Instant::now();
-    match specforge_wasm::dispatch_surface_mcp_resource(
+    match specforge_wasm::ExtensionCalls::new(runtime.as_ref()).read_mcp_resource(
         &entry.extension_name,
         &entry.export_name,
         uri,
-        runtime.as_ref(),
     ) {
-        // A read whose export returned is a dispatched resource; a trap is
-        // the read's error, and no dispatch is recorded.
-        Ok((content, mime)) => Ok(ResourceText {
+        // A read whose export answered its content is a dispatched
+        // resource; a failed call (a trap, or an answer that is not the
+        // content and its MIME type) is the read's error, and no dispatch is
+        // recorded.
+        Ok(read) => Ok(ResourceText {
             dispatched: Some(serde_json::json!({
                 "extensionName": entry.extension_name,
                 "uriTemplate": uri_template(state, entry).unwrap_or_default(),
-                "mimeType": mime,
+                "mimeType": read.mime_type,
                 "durationMs": u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX),
             })),
-            text: String::from_utf8_lossy(&content).into_owned(),
+            text: read.content,
             uri: uri.to_string(),
-            mime_type: mime,
+            mime_type: read.mime_type,
         }),
-        Err(diag) => Err(invalid_params(format!("{}: {}", diag.code, diag.message))),
+        Err(error) => {
+            let diag = error.diagnostic();
+            Err(invalid_params(format!("{}: {}", diag.code, diag.message)))
+        }
     }
 }
 

@@ -17,22 +17,12 @@ use tempfile::TempDir;
 pub fn kind(name: &str, testable: bool) -> KindRegistryEntry {
     KindRegistryEntry {
         kind_name: name.to_string(),
-        description: None,
         source_extension: "@t/soft".into(),
         testable,
-        singleton: false,
         supports_verify: testable,
         allowed_verify_kinds: Vec::new(),
-        has_body_parser: false,
-        semantic_token: None,
-        lsp_icon: None,
-        dot_shape: None,
-        dot_color: None,
-        dot_fillcolor: None,
-        open_fields: false,
-        contract_target: false,
-        declares_types: false,
         lifecycle_field: None,
+        ..Default::default()
     }
 }
 
@@ -60,20 +50,14 @@ pub fn obligations_rule(kind: &str) -> (ValidationRulePattern, String) {
 pub fn exempting_field(kind: &str, field: &str) -> FieldRegistryEntry {
     FieldRegistryEntry {
         kind_name: kind.to_string(),
-        field_name: field.to_string(),
-        description: None,
         field_type: ManifestFieldType::Bool,
         source_extension: "@t/formal".into(),
-        edge: None,
-        target_kind: None,
-        file_reference: false,
-        required: false,
-        inverse_of: None,
-        normative: false,
-        exempts_obligations: true,
-        headline: false,
-        derived_from: None,
         proof_role: None,
+        declared: specforge_registry::FieldDescriptor {
+            name: field.to_string(),
+            exempts_obligations: true,
+            ..Default::default()
+        },
     }
 }
 

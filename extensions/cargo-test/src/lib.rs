@@ -19,7 +19,11 @@ use std::collections::{BTreeMap, BTreeSet};
 
 const COLLECTOR: &str = "cargo-test";
 
-#[specforge_extension_sdk::extension(name = "@specforge/cargo-test", version = "1.0.0")]
+#[specforge_extension_sdk::extension(
+    name = "@specforge/cargo-test",
+    version = "1.0.0",
+    description = "Collects cargo test results for tests linked to entities with #[specforge_test]"
+)]
 struct CargoTest;
 
 impl Contributions for CargoTest {
@@ -35,7 +39,8 @@ impl Contributions for CargoTest {
                 .detect_files(&["Cargo.toml"])
                 .run(&["cargo", "test", "--workspace", "--no-fail-fast"])
                 .report("target/specforge")
-                .capture_stdout();
+                .capture_stdout()
+                .collect(|input| Ok(collect(input)));
         });
     }
 }
@@ -206,20 +211,7 @@ fn strip_ansi(text: &str) -> String {
     out
 }
 
-fn collect_export(input: &[u8]) -> Result<Vec<u8>, String> {
-    let input: CollectInput =
-        serde_json::from_slice(input).map_err(|e| format!("malformed collect input: {e}"))?;
-    serde_json::to_vec(&collect(&input)).map_err(|e| e.to_string())
-}
-
-fn dispatch(export: &str, input: &[u8]) -> Option<Result<Vec<u8>, String>> {
-    match export {
-        "collect__cargo_test" => Some(collect_export(input)),
-        _ => None,
-    }
-}
-
-specforge_extension_sdk::component_guest!(build = specforge_extension_build, handler = dispatch);
+specforge_extension_sdk::component_guest!(build = specforge_extension_build);
 
 #[cfg(test)]
 mod tests {

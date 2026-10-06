@@ -41,7 +41,7 @@ type UnresolvedImportData {
   verify unit "UnresolvedImportData schema is valid"
 }
 
-// E013, E023, E026: keyword (an entity id or an extension's kind keyword)
+// E013, E026: keyword (an entity id or an extension's kind keyword)
 // collides with a keyword the grammar or an earlier extension owns.
 type ShadowedKeywordData {
   kind    "shadowed_keyword" @literal

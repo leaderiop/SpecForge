@@ -77,22 +77,12 @@ fn test_server() -> McpServer {
 fn kind_entry(kind: &str, testable: bool) -> specforge_registry::KindRegistryEntry {
     specforge_registry::KindRegistryEntry {
         kind_name: kind.into(),
-        description: None,
         source_extension: "@test/ext".into(),
         testable,
-        singleton: false,
         supports_verify: testable,
         allowed_verify_kinds: Vec::new(),
-        has_body_parser: false,
-        semantic_token: None,
-        lsp_icon: None,
-        dot_shape: None,
-        dot_color: None,
-        dot_fillcolor: None,
-        open_fields: false,
-        contract_target: false,
-        declares_types: false,
         lifecycle_field: None,
+        ..Default::default()
     }
 }
 
@@ -1983,8 +1973,7 @@ fn add_then_tools_list_shows_the_extension_tools() {
         server
             .state()
             .registries()
-            .manifests
-            .iter()
-            .any(|m| m.name == "@specforge/product")
+            .declaration("@specforge/product")
+            .is_some()
     );
 }

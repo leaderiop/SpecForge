@@ -8,7 +8,7 @@ use "types/zero-entity-core"
 
 behavior pe_declare_surface_contributions "Declare Surface Contributions" {
   category command
-  types    [ManifestV2, ProductListFilter, ProductSurfaceError]
+  types    [ExtensionDeclaration, ProductListFilter, ProductSurfaceError]
   contract """
     The @specforge/product extension MUST declare its CLI commands in its
     manifest's surfaces, each answered by its own cmd__product_<id> export
@@ -43,7 +43,7 @@ behavior pe_declare_surface_contributions "Declare Surface Contributions" {
 
 behavior pe_migration_hook_absent "Migration Hook Absent in v1" {
   category query
-  types    [ManifestV2]
+  types    [ExtensionDeclaration]
   contract """
     The @specforge/product extension intentionally omits a migration_hook
     in v1. The entity model is new — there is no prior version to migrate
@@ -60,7 +60,7 @@ behavior pe_migration_hook_absent "Migration Hook Absent in v1" {
 
 behavior pe_starter_template_content "Starter Template Content" {
   category command
-  types    [ManifestV2]
+  types    [ExtensionDeclaration]
   contract """
     The @specforge/product starter template (extensions/product/src/starter.spec) MUST
     contain at least one feature, one journey, and one deliverable entity
@@ -241,7 +241,7 @@ behavior pe_enforce_migration_strategy "Extension Version Migration" {
 
 behavior pe_field_defaults_in_schema "Field Defaults in Graph Protocol Schema" {
   category query
-  types    [ManifestField]
+  types    [FieldDescriptor]
   contract """
     The @specforge/product extension declares no default_value on any field,
     status fields included, so Graph Protocol JSON Schema metadata carries

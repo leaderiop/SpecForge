@@ -12,16 +12,13 @@ fn default_field_registry() -> FieldRegistry {
     .map(|s| s.to_string())
     .collect();
     let runtime = wasm_runtime_for(&ext_names);
-    let host = specforge_wasm::protocol::ProtocolHost::new(&runtime);
-    let mut manifests = Vec::new();
+    let mut declarations = Vec::new();
     for name in &ext_names {
-        if let Ok(ext) = specforge_wasm::protocol::load_protocol_extension(&host, name) {
-            manifests.push(specforge_wasm::protocol::protocol_extension_to_manifest(
-                &ext,
-            ));
+        if let Ok(loaded) = specforge_wasm::protocol::load_declaration(&runtime, name) {
+            declarations.push(loaded.declaration);
         }
     }
-    specforge_registry::build_registries(manifests).fields
+    specforge_registry::build_registries(declarations).fields
 }
 
 // -- complete_field_names -----------------------------------------------------
@@ -64,37 +61,25 @@ fn complete_field_names_from_registry() {
     let mut reg = FieldRegistry::new();
     reg.register(FieldRegistryEntry {
         kind_name: "behavior".into(),
-        field_name: "contract".into(),
-        description: None,
         field_type: ManifestFieldType::Block,
         source_extension: "@specforge/software".into(),
-        edge: None,
-        target_kind: None,
-        file_reference: false,
-        required: false,
-        inverse_of: None,
-        normative: false,
-        exempts_obligations: false,
-        headline: false,
-        derived_from: None,
         proof_role: None,
+        declared: specforge_registry::FieldDescriptor {
+            name: "contract".into(),
+            ..Default::default()
+        },
     });
     reg.register(FieldRegistryEntry {
         kind_name: "behavior".into(),
-        field_name: "invariants".into(),
-        description: None,
         field_type: ManifestFieldType::ReferenceList,
         source_extension: "@specforge/software".into(),
-        edge: Some("enforces".into()),
-        target_kind: Some("invariant".into()),
-        file_reference: false,
-        required: false,
-        inverse_of: None,
-        normative: false,
-        exempts_obligations: false,
-        headline: false,
-        derived_from: None,
         proof_role: None,
+        declared: specforge_registry::FieldDescriptor {
+            name: "invariants".into(),
+            edge: Some("enforces".into()),
+            target_kind: Some("invariant".into()),
+            ..Default::default()
+        },
     });
     let fields = specforge_lsp::complete_field_names("behavior", Some(&reg));
     assert!(fields.contains(&"contract".to_string()));

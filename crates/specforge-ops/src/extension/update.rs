@@ -163,15 +163,15 @@ pub fn update(req: &UpdateRequest, registry: &dyn Registry) -> Result<UpdateOutc
                 Ok(Some(checked)) => {
                     let status = UpdateStatus::Updated {
                         from: entry.version.clone(),
-                        to: checked.declared.version.clone(),
+                        to: checked.declared.version().to_string(),
                         sha256: checked.package.sha256.clone(),
                         key_id: checked.package.key_id.clone(),
                     };
                     if let Some(staged_entry) =
                         staged.entries.iter_mut().find(|e| e.name == entry.name)
                     {
-                        staged_entry.version = checked.declared.version.clone();
-                        staged_entry.peer_dependencies = checked.declared.peers.clone();
+                        staged_entry.version = checked.declared.version().to_string();
+                        staged_entry.peer_dependencies = checked.declared.peers().to_vec();
                     }
                     planned.push((entry.name.clone(), checked));
                     status
@@ -328,6 +328,7 @@ fn restore(root: &Path, placed: &[(String, Option<Vec<u8>>)]) {
 mod tests {
     use super::*;
     use crate::registry::Package;
+    use specforge_protocol_types::ExtensionDeclaration;
     use specforge_registry::PeerDependency;
     use specforge_test_macros::test as specforge_test;
     use specforge_wasm::{LockFileEntry, hex_sha256};
@@ -346,7 +347,17 @@ mod tests {
     struct FakeRegistry {
         published: Vec<(&'static str, Vec<&'static str>)>,
         served: Vec<(&'static str, &'static str, Vec<u8>)>,
+        /// The declaration published with a package, when it isn't the one
+        /// its binary declares.
+        declared: Vec<(&'static str, &'static str, ExtensionDeclaration)>,
         ranges: RefCell<Vec<String>>,
+    }
+
+    /// What `wasm` declares, as `publish` would upload it.
+    fn declaration_of(wasm: &[u8]) -> ExtensionDeclaration {
+        crate::publish::prepare(wasm.to_vec())
+            .expect("a publishable binary")
+            .declaration
     }
 
     impl FakeRegistry {
@@ -354,6 +365,7 @@ mod tests {
             Self {
                 published: Vec::new(),
                 served: Vec::new(),
+                declared: Vec::new(),
                 ranges: RefCell::new(Vec::new()),
             }
         }
@@ -363,6 +375,17 @@ mod tests {
         }
         fn serve(mut self, name: &'static str, version: &'static str, wasm: Vec<u8>) -> Self {
             self.served.push((name, version, wasm));
+            self
+        }
+        /// Publish `name@version` with `declaration` as its manifest
+        /// instead of what its binary declares.
+        fn declare(
+            mut self,
+            name: &'static str,
+            version: &'static str,
+            declaration: ExtensionDeclaration,
+        ) -> Self {
+            self.declared.push((name, version, declaration));
             self
         }
     }
@@ -396,12 +419,18 @@ mod tests {
                 .iter()
                 .find(|(n, v, _)| *n == name && *v == version)
                 .ok_or_else(|| OpError::new("R-RES-001", format!("{name}@{version} not served")))?;
+            let declaration = self
+                .declared
+                .iter()
+                .find(|(n, v, _)| *n == name && *v == version)
+                .map(|(_, _, d)| d.clone())
+                .unwrap_or_else(|| declaration_of(wasm));
             Ok(Package {
                 name: name.to_string(),
                 version: version.to_string(),
                 wasm: wasm.clone(),
                 sha256: hex_sha256(wasm),
-                peers: Vec::new(),
+                declaration,
                 key_id: None,
             })
         }
@@ -658,5 +687,124 @@ mod tests {
         let unconfigured = crate::registry::Unconfigured("update");
         let error = update(&request(dir.path(), false), &unconfigured).unwrap_err();
         assert_eq!(error.code, NO_REGISTRY);
+    }
+
+    /// A project enabling nothing yet, with `lock` locked.
+    fn add_project(lock: Vec<LockFileEntry>) -> tempfile::TempDir {
+        let dir = project(lock);
+        std::fs::write(
+            dir.path().join("specforge.json"),
+            r#"{"name": "p", "version": "0.1.0", "extensions": []}"#,
+        )
+        .unwrap();
+        dir
+    }
+
+    fn add_greet(
+        root: &Path,
+        registry: &FakeRegistry,
+    ) -> Result<super::super::AddOutcome, OpError> {
+        super::super::add(
+            &super::super::AddRequest {
+                root,
+                source: super::super::Source::Registry {
+                    name: "@sdk/greet".to_string(),
+                    range: "0.1.0".to_string(),
+                },
+                allow_unsigned: true,
+                trust: Trust::Refuse,
+                dry_run: false,
+            },
+            registry,
+        )
+    }
+
+    fn with_peer(
+        mut declaration: ExtensionDeclaration,
+        name: &str,
+        range: &str,
+    ) -> ExtensionDeclaration {
+        declaration
+            .handshake
+            .peer_dependencies
+            .push(PeerDependency {
+                name: name.to_string(),
+                version: range.to_string(),
+                optional: false,
+            });
+        declaration
+    }
+
+    #[specforge_test(
+        behavior = "check_registry_reply",
+        verify = "add refuses a package whose binary declares other than its published declaration"
+    )]
+    fn a_binary_that_declares_other_than_its_published_declaration_is_refused() {
+        // R4/R5: the published declaration differs from the binary's, in
+        // its handshake (another description) or in a category (no kinds).
+        // A served declaration is trusted for nothing the binary doesn't
+        // declare: the package is refused before anything is installed.
+        let mut description = declaration_of(&greet());
+        description.handshake.description = Some("Something else".to_string());
+        for published in [description, {
+            let mut kinds = declaration_of(&greet());
+            kinds.entities.clear();
+            kinds
+        }] {
+            let dir = add_project(Vec::new());
+            let registry = FakeRegistry::new()
+                .publish("@sdk/greet", &["0.1.0"])
+                .serve("@sdk/greet", "0.1.0", greet())
+                .declare("@sdk/greet", "0.1.0", published);
+            let err = add_greet(dir.path(), &registry).unwrap_err();
+            assert_eq!(err.code, crate::registry::METADATA_MISMATCH, "{err:?}");
+            assert!(err.message.contains("@sdk/greet@0.1.0"), "{err:?}");
+            assert!(
+                !installed_wasm_path(&extensions_dir(dir.path()), "@sdk/greet").exists(),
+                "nothing is installed"
+            );
+        }
+        // The message names the first part that differs.
+        let mut kinds = declaration_of(&greet());
+        kinds.entities.clear();
+        let dir = add_project(Vec::new());
+        let registry = FakeRegistry::new()
+            .publish("@sdk/greet", &["0.1.0"])
+            .serve("@sdk/greet", "0.1.0", greet())
+            .declare("@sdk/greet", "0.1.0", kinds);
+        let err = add_greet(dir.path(), &registry).unwrap_err();
+        assert!(err.message.contains("another entities"), "{err:?}");
+        // The published declaration equal to the binary's installs.
+        let dir = add_project(Vec::new());
+        let registry = FakeRegistry::new().publish("@sdk/greet", &["0.1.0"]).serve(
+            "@sdk/greet",
+            "0.1.0",
+            greet(),
+        );
+        add_greet(dir.path(), &registry).unwrap();
+    }
+
+    #[specforge_test(
+        behavior = "check_registry_reply",
+        verify = "the diamond gate decides on the published declaration's peers"
+    )]
+    fn the_diamond_gate_reads_the_published_declarations_peers() {
+        // R4: the published declaration names a peer @acme/x ^2 that the
+        // lock holds at 1.0.0. The gate refuses before the binary (which
+        // declares no peer) is loaded.
+        let dir = add_project(vec![entry("@acme/x", "1.0.0", "registry", &[])]);
+        let registry = FakeRegistry::new()
+            .publish("@sdk/greet", &["0.1.0"])
+            .publish("@acme/x", &["1.0.0"])
+            .serve("@sdk/greet", "0.1.0", greet())
+            .declare(
+                "@sdk/greet",
+                "0.1.0",
+                with_peer(declaration_of(&greet()), "@acme/x", "^2"),
+            );
+        let err = add_greet(dir.path(), &registry).unwrap_err();
+        assert_ne!(err.code, crate::registry::METADATA_MISMATCH, "{err:?}");
+        assert!(err.code.starts_with("R-RES"), "{err:?}");
+        assert!(err.message.contains("@acme/x"), "{err:?}");
     }
 }

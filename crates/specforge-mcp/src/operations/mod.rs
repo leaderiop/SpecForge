@@ -448,7 +448,7 @@ pub(crate) fn remove_extension_op(call: &mut Call<'_>, args: RemoveArgs) -> Hand
         name: &name,
         force,
         dry_run,
-        loaded: &project.env.registries.manifests,
+        loaded: project.env.registries.declarations(),
         kinds: &project.env.registries.kinds,
         graph: project.graph,
     };
@@ -586,7 +586,7 @@ pub(crate) fn extensions_op(call: &mut Call<'_>, _args: crate::args::NoArgs) -> 
     // The shared listing, over what the project compiled.
     let entries = extension::list(
         root,
-        &project.env.registries.manifests,
+        project.env.registries.declarations(),
         &project.env.registries.kinds,
         project.graph,
     );
@@ -637,7 +637,7 @@ pub(crate) fn providers_op(call: &mut Call<'_>, _args: crate::args::NoArgs) -> H
     // The providers specforge.json configures, as the scheme registry built
     // from the loaded extensions sees them: the listing the CLI prints.
     let (providers, diagnostics) =
-        specforge_ops::extension::providers(project.root, &project.env.registries.manifests);
+        specforge_ops::extension::providers(project.root, project.env.registries.declarations());
     let listed: Vec<Value> = providers
         .iter()
         .map(|p| {
@@ -676,7 +676,7 @@ pub(crate) fn doctor_op(call: &mut Call<'_>, _args: DoctorArgs) -> Handled {
     // not the project's: only the CLI reports it.
     let report = specforge_ops::doctor::diagnose(
         project.root,
-        &project.env.registries.manifests,
+        project.env.registries.declarations(),
         &project.diagnostics(),
     );
     Ok(ok(json!({
@@ -739,7 +739,7 @@ pub(crate) fn collect_op(call: &mut Call<'_>, args: CollectArgs) -> Handled {
     Ok(
         match collect::collect(
             &request,
-            &project.env.registries.manifests,
+            project.env.registries.declarations(),
             runtime.as_ref(),
             &known,
             // The server never prompts: a command runs only if the user already

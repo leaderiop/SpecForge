@@ -289,7 +289,7 @@ impl<F: Fn(&str) -> Option<String>> Navigator<'_, F> {
         let derived = registries
             .fields
             .get(kind, edge.label.as_str())
-            .and_then(|entry| entry.derived_from.as_deref())
+            .and_then(|entry| entry.declared.derived_from.as_deref())
             .and_then(DerivedFrom::parse);
         let target = edge.target.as_str();
         let mut spans = Vec::new();

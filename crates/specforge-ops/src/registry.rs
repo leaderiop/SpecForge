@@ -11,11 +11,20 @@
 
 use crate::OpError;
 use crate::extension::Trust;
-use specforge_registry::PeerDependency;
+use specforge_protocol_types::ExtensionDeclaration;
 
 /// The diagnostic a registry operation reports when no registry is
 /// configured.
 pub const NO_REGISTRY: &str = "E063";
+
+/// A registry answered with metadata that doesn't describe the package
+/// asked for: another name or version, or a declaration other than its
+/// binary's.
+pub const METADATA_MISMATCH: &str = "R-TRUST-004";
+
+/// The registry served a package whose manifest can't be read as an
+/// extension declaration.
+pub const UNREADABLE_MANIFEST: &str = "R-OPS-004";
 
 /// How to configure a registry, for E063's suggestion.
 pub const CONFIGURE_HINT: &str = "add a \"registries\" array to specforge.json, e.g. \
@@ -41,8 +50,10 @@ pub struct Package {
     pub version: String,
     pub wasm: Vec<u8>,
     pub sha256: String,
-    /// The peers its published manifest declares.
-    pub peers: Vec<PeerDependency>,
+    /// The declaration published with it (its manifest): the diamond gate
+    /// reads its peers before the binary is loaded, and the binary must then
+    /// declare exactly the same (ADR 0012).
+    pub declaration: ExtensionDeclaration,
     /// The publisher key it was signed with; `None` when unsigned (and
     /// unsigned packages were allowed).
     pub key_id: Option<String>,

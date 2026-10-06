@@ -53,6 +53,9 @@ specforge-registry-client = { path = "../specforge-registry-client" }
 semver = { workspace = true }
 
 [dev-dependencies]
+# Extensions declared with the SDK, served in process (`specforge_wasm::testing`).
+specforge-extension-sdk = { path = "../specforge-extension-sdk" }
+specforge-wasm = { workspace = true, features = ["testing"] }
 assert_cmd = { workspace = true }
 predicates = { workspace = true }
 insta = { workspace = true }
@@ -63,4 +66,6 @@ specforge-migrate = { workspace = true }
 specforge-component = { path = "../specforge-component" }
 specforge-lsp = { path = "../specforge-lsp" }
 tokio = { workspace = true }
+specforge-registry-server = { path = "../specforge-registry-server" }
+axum = "0.8.4"
 tower-lsp = { workspace = true }

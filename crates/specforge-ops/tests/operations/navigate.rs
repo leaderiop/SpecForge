@@ -497,7 +497,7 @@ fn completion_keeps_the_fields_target_kind() {
         .registries
         .fields
         .get("behavior", "invariants")
-        .and_then(|f| f.target_kind.clone())
+        .and_then(|f| f.declared.target_kind.clone())
         .expect("@specforge/software's invariants field targets a kind");
     let kinds = [target.as_str()];
     let query = EntityQuery {
@@ -792,22 +792,12 @@ fn verifiable(kinds: &[&str], verify_kinds: &[&str]) -> KindRegistry {
     for kind in kinds {
         registry.register(KindRegistryEntry {
             kind_name: kind.to_string(),
-            description: None,
             source_extension: "@test/ext".into(),
             testable: true,
-            singleton: false,
             supports_verify: true,
             allowed_verify_kinds: verify_kinds.iter().map(|k| k.to_string()).collect(),
-            has_body_parser: false,
-            semantic_token: None,
-            lsp_icon: None,
-            dot_shape: None,
-            dot_color: None,
-            dot_fillcolor: None,
-            open_fields: false,
-            contract_target: false,
-            declares_types: false,
             lifecycle_field: None,
+            ..Default::default()
         });
     }
     registry
@@ -825,9 +815,10 @@ fn the_verify_stub_uses_the_kinds_first_allowed_verify_kind() {
             "invariant unique_ids \"U\" {\n  guarantee \"g\"\n}\nfeature untestable \"F\" {\n}\n",
         )],
     );
-    let registries = RegistryBuild {
-        kinds: verifiable(&["invariant"], &["property", "unit"]),
-        ..RegistryBuild::default()
+    let registries = {
+        let mut build = RegistryBuild::default();
+        build.kinds = verifiable(&["invariant"], &["property", "unit"]);
+        build
     };
     let recorded = RecordedCoverage::default();
     let fixes = with_registries(&p, &registries, &recorded).fixes(&[], &FixQuery::default());
@@ -967,20 +958,14 @@ fn invariants_field(target_kind: Option<&str>) -> FieldRegistry {
     let mut fields = FieldRegistry::new();
     fields.register(FieldRegistryEntry {
         kind_name: "behavior".into(),
-        field_name: "invariants".into(),
-        description: None,
         field_type: ManifestFieldType::ReferenceList,
         source_extension: "@test/ext".into(),
-        edge: None,
-        target_kind: target_kind.map(str::to_string),
-        file_reference: false,
-        required: false,
-        inverse_of: None,
-        normative: false,
-        exempts_obligations: false,
-        headline: false,
-        derived_from: None,
         proof_role: None,
+        declared: specforge_registry::FieldDescriptor {
+            name: "invariants".into(),
+            target_kind: target_kind.map(str::to_string),
+            ..Default::default()
+        },
     });
     fields
 }
@@ -993,9 +978,10 @@ fn no_stub_without_a_target_kind() {
     let p = compile(TESTING, &[("auth.spec", DANGLING)]);
     let diagnostics = p.project.diagnostics();
     let recorded = RecordedCoverage::default();
-    let untargeted = RegistryBuild {
-        fields: invariants_field(None),
-        ..RegistryBuild::default()
+    let untargeted = {
+        let mut build = RegistryBuild::default();
+        build.fields = invariants_field(None);
+        build
     };
     let fixes =
         with_registries(&p, &untargeted, &recorded).fixes(&diagnostics, &FixQuery::default());
@@ -1004,9 +990,10 @@ fn no_stub_without_a_target_kind() {
         "{:?}",
         titles(&fixes)
     );
-    let targeted = RegistryBuild {
-        fields: invariants_field(Some("invariant")),
-        ..RegistryBuild::default()
+    let targeted = {
+        let mut build = RegistryBuild::default();
+        build.fields = invariants_field(Some("invariant"));
+        build
     };
     let fixes = with_registries(&p, &targeted, &recorded).fixes(&diagnostics, &FixQuery::default());
     assert!(fixes.iter().any(|f| f.source == FixSource::CreateStub));

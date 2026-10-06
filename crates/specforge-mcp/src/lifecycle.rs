@@ -85,7 +85,7 @@ pub fn handle_initialize(
             "tools_registered": state.tool_registry.len(),
             "resources_registered": state.resource_registry.len(),
             "prompts_registered": crate::prompts::CORE_PROMPTS.len(),
-            "extensions_loaded": state.registries().extension_info.len(),
+            "extensions_loaded": state.registries().extension_info().count(),
             "surface_tools_registered": state.tool_registry.len().saturating_sub(default_tools),
             "surface_resources_registered": state
                 .resource_registry

@@ -15,7 +15,7 @@ feature ge_core_entity_kinds "Governance Entity Kind Registration" {
     testability flags (all false — governance entities are declarative
     records), LSP metadata (semantic tokens, icons), DOT shapes, typed
     field definitions with edge mappings, and declarative validation rules.
-    Registration follows the zero-entity core protocol defined in ManifestV2.
+    Registration follows the zero-entity core protocol defined in ExtensionDeclaration.
   """
 }
 

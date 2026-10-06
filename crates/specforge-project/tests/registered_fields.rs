@@ -3,82 +3,48 @@
 //! manifest consistency check once every configured extension is in.
 
 use std::fs;
-use std::path::Path;
 
 use specforge_common::{Diagnostic, Severity};
+use specforge_extension_sdk::prelude::*;
 use specforge_project::Environment;
 use specforge_test::prelude::*;
-use specforge_wasm::{WasmCallResult, WasmRuntime, WasmTrapInfo};
+use specforge_wasm::testing::InProcessRuntime;
 use tempfile::TempDir;
 
-/// In-process extensions that contribute entity kinds (with their fields)
-/// and edge types. Each is `{ "name", "peers": [..], "entities": [..],
-/// "edges": [..] }`, the descriptor JSON the protocol carries.
-struct KindExtensions(Vec<serde_json::Value>);
-
-impl KindExtensions {
-    fn find(&self, name: &str) -> Option<&serde_json::Value> {
-        self.0.iter().find(|e| e["name"] == name)
-    }
-}
-
-impl WasmRuntime for KindExtensions {
-    fn load_module(&self, _: &Path) -> Result<(), String> {
-        Ok(())
-    }
-
-    fn call_export(&self, extension: &str, export: &str, input: &[u8]) -> WasmCallResult {
-        let ok = |value: serde_json::Value| WasmCallResult::Ok(value.to_string().into_bytes());
-        let Some(ext) = self.find(extension) else {
-            return WasmCallResult::Trap(WasmTrapInfo {
-                kind: "extension_not_found".to_string(),
-                message: format!("Extension '{extension}' not loaded"),
-                export_name: export.to_string(),
-            });
-        };
-        match export {
-            "__handshake" => {
-                let peers: Vec<serde_json::Value> = ext["peers"]
+/// Extensions, served in process, that contribute entity kinds (with their
+/// fields) and edge types. Each is `{ "name", "peers": [..], "entities":
+/// [..], "edges": [..] }`: its kinds and edges are the descriptor JSON the
+/// protocol carries, declared as given (`raw_category`).
+fn kind_extensions(specs: Vec<serde_json::Value>) -> InProcessRuntime {
+    specs
+        .into_iter()
+        .fold(InProcessRuntime::new(), |runtime, spec| {
+            runtime.with(move || {
+                let name = spec["name"].as_str().unwrap();
+                let mut meta = ExtensionMeta::new(name, "1.0.0");
+                meta.peer_dependencies = spec["peers"]
                     .as_array()
                     .into_iter()
                     .flatten()
-                    .map(|peer| serde_json::json!({ "name": peer, "version": "^1.0.0" }))
+                    .map(|peer| PeerDependency {
+                        name: peer.as_str().unwrap().to_string(),
+                        version: "^1.0.0".to_string(),
+                        optional: false,
+                    })
                     .collect();
-                ok(serde_json::json!({
-                    "protocol_version": "1.0.0",
-                    "name": extension,
-                    "version": "1.0.0",
-                    "contribution_flags": { "entities": true },
-                    "peer_dependencies": peers,
-                    "sandbox_policy": null
-                }))
-            }
-            "__describe" => {
-                let request: serde_json::Value = serde_json::from_slice(input).unwrap();
-                let category = request["category"].as_str().unwrap();
-                let items = match category {
-                    "entities" => ext["entities"].clone(),
-                    "edges" => ext["edges"].clone(),
-                    _ => serde_json::Value::Null,
-                };
-                let items = if items.is_null() {
-                    serde_json::json!([])
-                } else {
-                    items
-                };
-                ok(serde_json::json!({ "category": category, "items": items }))
-            }
-            other => WasmCallResult::Trap(WasmTrapInfo {
-                kind: "guest_error".to_string(),
-                message: format!("unknown export '{other}'"),
-                export_name: other.to_string(),
-            }),
-        }
-    }
+                let mut c = ContributionsBuilder::new(meta);
+                for category in ["entities", "edges"] {
+                    if !spec[category].is_null() {
+                        c.raw_category(category, spec[category].clone());
+                    }
+                }
+                c
+            })
+        })
 }
 
 /// Load a project configuring `extensions` (in order) from `runtime`.
-fn load(runtime: &KindExtensions, extensions: &[&str]) -> Environment {
+fn load(runtime: &InProcessRuntime, extensions: &[&str]) -> Environment {
     let dir = TempDir::new().unwrap();
     let config = serde_json::json!({
         "name": "p", "version": "0.1.0", "extensions": extensions
@@ -96,8 +62,8 @@ fn w021(env: &Environment) -> Vec<Diagnostic> {
 
 /// `@test/tasks`: a `task` whose `owner` is a `person` over `owned_by`,
 /// with `person` declared by its peer `@test/people`.
-fn tasks_and_people() -> KindExtensions {
-    KindExtensions(vec![
+fn tasks_and_people() -> InProcessRuntime {
+    kind_extensions(vec![
         serde_json::json!({
             "name": "@test/people",
             "entities": [{ "name": "person" }]
@@ -127,7 +93,7 @@ fn a_target_kind_another_extension_registers_resolves() {
 
     assert!(env.registries.kinds.contains("person"));
     let owner = env.registries.fields.get("task", "owner").unwrap();
-    assert_eq!(owner.target_kind.as_deref(), Some("person"));
+    assert_eq!(owner.declared.target_kind.as_deref(), Some("person"));
     assert!(w021(&env).is_empty(), "{:?}", w021(&env));
 }
 
@@ -141,7 +107,7 @@ fn an_edge_label_the_extension_declares_resolves() {
     let env = load(&tasks_and_people(), &["@test/people", "@test/tasks"]);
 
     let owned_by = env.registries.edges.get("owned_by").unwrap();
-    assert_eq!(owned_by.target_kind.as_deref(), Some("person"));
+    assert_eq!(owned_by.declared.target_kind.as_deref(), Some("person"));
     assert!(w021(&env).is_empty(), "{:?}", w021(&env));
 }
 
@@ -152,7 +118,7 @@ fn an_edge_label_the_extension_declares_resolves() {
     verify = "unresolved target_kind produces warning"
 )]
 fn an_unresolved_target_kind_is_w021() {
-    let runtime = KindExtensions(vec![serde_json::json!({
+    let runtime = kind_extensions(vec![serde_json::json!({
         "name": "@test/tasks",
         "entities": [{
             "name": "task",
@@ -182,7 +148,7 @@ fn an_unresolved_target_kind_is_w021() {
     verify = "unresolved edge label produces warning"
 )]
 fn an_unresolved_edge_label_is_w021() {
-    let runtime = KindExtensions(vec![serde_json::json!({
+    let runtime = kind_extensions(vec![serde_json::json!({
         "name": "@test/tasks",
         "entities": [
             {
@@ -217,7 +183,7 @@ fn an_unresolved_edge_label_is_w021() {
     verify = "cross-validation uses no domain-specific logic"
 )]
 fn a_domain_the_host_does_not_know_cross_validates_cleanly() {
-    let runtime = KindExtensions(vec![serde_json::json!({
+    let runtime = kind_extensions(vec![serde_json::json!({
         "name": "@custom/cooking",
         "entities": [
             {
@@ -247,7 +213,7 @@ fn a_domain_the_host_does_not_know_cross_validates_cleanly() {
     verify = "Validate Registered Entity Fields: field cross-validation holds for the declared obligations"
 )]
 fn field_cross_validation_holds_on_load() {
-    let runtime = KindExtensions(vec![
+    let runtime = kind_extensions(vec![
         serde_json::json!({
             "name": "@test/people",
             "entities": [{ "name": "person" }]
@@ -309,7 +275,7 @@ fn field_cross_validation_holds_on_load() {
     verify = "population completes before validation"
 )]
 fn population_completes_before_any_validation() {
-    let runtime = KindExtensions(vec![
+    let runtime = kind_extensions(vec![
         serde_json::json!({
             "name": "@test/tasks",
             "peers": ["@test/people"],
@@ -343,9 +309,9 @@ fn population_completes_before_any_validation() {
     let loaded: Vec<&str> = project
         .env
         .registries
-        .manifests
+        .declarations()
         .iter()
-        .map(|m| m.name.as_str())
+        .map(|d| d.name())
         .collect();
     assert_eq!(loaded, ["@test/tasks", "@test/people"], "load order");
     let diagnostics = project.diagnostics();

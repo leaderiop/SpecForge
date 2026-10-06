@@ -2,7 +2,7 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 
 use specforge_common::Severity;
-use specforge_registry::ManifestV2;
+use specforge_protocol_types::ExtensionDeclaration;
 use specforge_registry_client::auth;
 use specforge_registry_client::registry_client::{
     RegistryClient, RegistryError, RegistryResponse, RegistrySearchResult, RetryPolicy,
@@ -91,7 +91,7 @@ impl RegistryClient for MockRegistryClient {
     fn publish(
         &self,
         _package: &[u8],
-        _manifest: &ManifestV2,
+        _declaration: &ExtensionDeclaration,
         _manifest_json: &str,
         _signature: Option<&str>,
         _registry: &RegistryConfig,
@@ -156,15 +156,17 @@ fn test_credential_bearer(token: &str) -> RegistryCredential {
     }
 }
 
-fn minimal_manifest() -> ManifestV2 {
-    serde_json::from_str(
-        r#"{
+fn minimal_manifest() -> ExtensionDeclaration {
+    serde_json::from_value(serde_json::json!({
+        "handshake": {
+            "protocol_version": "1.0.0",
             "name": "@test/ext",
             "version": "1.0.0",
-            "manifestVersion": 2,
-            "wasmPath": "ext.wasm"
-        }"#,
-    )
+            "contribution_flags": {},
+            "peer_dependencies": [],
+            "sandbox_policy": null
+        }
+    }))
     .unwrap()
 }
 

@@ -1,0 +1,34 @@
+---
+source: crates/specforge-project/tests/registry_build_snapshot.rs
+expression: "digest(&load(&runtime, &[name]))"
+---
+{
+  "absent_reference_targets": {},
+  "bidirectional_pairs": [],
+  "body_parser_kinds": [],
+  "check_passes": [],
+  "edges": {},
+  "ext_short": {
+    "@specforge/cargo-test": "cargo-test"
+  },
+  "extension_info": [
+    [
+      "@specforge/cargo-test",
+      "1.0.0"
+    ]
+  ],
+  "fields": {},
+  "kinds": {},
+  "load_diagnostics": [
+    {
+      "code": "E027",
+      "message": "extension '@specforge/cargo-test' requires peer dependency '@specforge/testing' ^1.0 which is not installed"
+    }
+  ],
+  "manifest_surfaces": [],
+  "registry_diagnostics": [],
+  "rules": [],
+  "single_reference_fields": [],
+  "surface_diagnostics": [],
+  "surfaces": []
+}

@@ -29,7 +29,8 @@ use crate::schema_cache::SchemaCache;
 #[derive(Clone, Copy)]
 pub struct ProjectView<'a> {
     pub graph: &'a Graph,
-    /// Kinds, fields, edges, rules, manifests and extension info.
+    /// Kinds, fields, edges, rules, the extension declarations and their
+    /// ordered passes.
     pub registries: &'a RegistryBuild,
     pub root: Option<&'a Path>,
     /// The memo of the recorded report and the coverage, owned by whoever
@@ -103,7 +104,10 @@ impl<'a> ProjectView<'a> {
             &registries.kinds,
             &registries.edges,
             &registries.fields,
-            &registries.extension_info,
+            &registries
+                .extension_info()
+                .map(|(name, version)| (name.to_string(), version.to_string()))
+                .collect::<Vec<_>>(),
         )
     }
 

@@ -18,6 +18,7 @@ use specforge_graph::Graph;
 use specforge_project::coverage::TestReport;
 use specforge_project::coverage::{self, ReportError};
 use specforge_project::passes::{self, AnalysisContext};
+use specforge_registry::DeclaredPass;
 use specforge_wasm::runtime::WasmRuntime;
 
 use crate::OpError;
@@ -205,10 +206,11 @@ impl std::fmt::Display for AnalyzeError {
 
 impl std::error::Error for AnalyzeError {}
 
-/// Run the selected passes over `view`.
+/// Run the selected passes over `view`; the extension passes in `runtime`,
+/// when there is one (a rootless analysis has none and runs none).
 pub fn analyze(
     view: &ProjectView,
-    runtime: &dyn WasmRuntime,
+    runtime: Option<&dyn WasmRuntime>,
     options: &AnalyzeOptions,
 ) -> Result<AnalyzeOutcome, AnalyzeError> {
     analyze_via(view, runtime, options, &crate::prove::run_prove_with)
@@ -219,11 +221,11 @@ type ProveFn<'a> = &'a dyn Fn(&AnalysisContext, &ProveOptions) -> crate::prove::
 
 fn analyze_via(
     view: &ProjectView,
-    runtime: &dyn WasmRuntime,
+    runtime: Option<&dyn WasmRuntime>,
     options: &AnalyzeOptions,
     prove: ProveFn,
 ) -> Result<AnalyzeOutcome, AnalyzeError> {
-    let selection = select(view, runtime, &options.pass)?;
+    let selection = select(view, &options.pass)?;
     let report = read_report(view, &options.report)?;
     if options.min.is_some() && report.is_none() {
         return Err(AnalyzeError::MinNeedsTestResults);
@@ -269,23 +271,20 @@ fn analyze_via(
             });
         }
     }
-    if view.root.is_some() {
+    if view.root.is_some()
+        && let Some(runtime) = runtime
+    {
         // Declared `after` constraints order a single extension's passes;
         // across extensions they are advisory.
         passes_run.extend(
-            passes::run_extension_passes(
-                &registries.manifests,
-                &input,
-                runtime,
-                &selection.extension,
-            )
-            .into_iter()
-            .map(|r| PassOutcome {
-                name: r.name,
-                description: "extension compiler pass".to_string(),
-                findings: r.findings,
-                summary: r.summary,
-            }),
+            passes::run_extension_passes(&registries.passes, &input, runtime, &selection.extension)
+                .into_iter()
+                .map(|r| PassOutcome {
+                    name: r.name,
+                    description: "extension compiler pass".to_string(),
+                    findings: r.findings,
+                    summary: r.summary,
+                }),
         );
     }
     if let Some(r) = proved {
@@ -342,11 +341,7 @@ struct Selection {
     extension: String,
 }
 
-fn select(
-    view: &ProjectView,
-    runtime: &dyn WasmRuntime,
-    requested: &str,
-) -> Result<Selection, AnalyzeError> {
+fn select(view: &ProjectView, requested: &str) -> Result<Selection, AnalyzeError> {
     let one = |builtins: Vec<&'static str>, extension: &str| Selection {
         builtins,
         extension: extension.to_string(),
@@ -361,7 +356,7 @@ fn select(
     if let Some(name) = PASS_NAMES.iter().find(|n| **n == requested) {
         return Ok(one(vec![name], requested));
     }
-    let declared = declared_pass_names(view, runtime);
+    let declared = declared_pass_names(view);
     if declared.iter().any(|n| n == requested) {
         return Ok(one(Vec::new(), requested));
     }
@@ -374,21 +369,16 @@ fn select(
     })
 }
 
-/// `<extension>:<pass>` of every analyze-phase pass the manifests declare.
-fn declared_pass_names(view: &ProjectView, runtime: &dyn WasmRuntime) -> Vec<String> {
+/// `<extension>:<pass>` of every analyze-phase pass the extensions declare.
+fn declared_pass_names(view: &ProjectView) -> Vec<String> {
     if view.root.is_none() {
         return Vec::new();
     }
     view.registries
-        .manifests
+        .passes
         .iter()
-        .flat_map(|m| {
-            passes::declared_passes(runtime, &m.name)
-                .into_iter()
-                .filter(|p| !passes::is_check_phase(p))
-                .map(|p| format!("{}:{}", m.name, p.name))
-                .collect::<Vec<_>>()
-        })
+        .filter(|p| !p.is_check_phase())
+        .map(DeclaredPass::full_name)
         .collect()
 }
 
@@ -408,53 +398,38 @@ fn read_report(
 mod tests {
     use super::*;
     use serde_json::{Value, json};
+    use specforge_extension_sdk::prelude::*;
     use specforge_test_macros::test as specforge_test;
     use specforge_wasm::runtime::{WasmCallResult, WasmTrapInfo};
-    use std::path::Path;
+    use specforge_wasm::testing::InProcessRuntime;
     use std::sync::Mutex;
 
     const EXT: &str = "@t/x";
 
-    /// An extension declaring `scan` (warns W900) and `hidden` (check
-    /// phase), recording the `proved_claims` its passes receive.
-    struct Fake {
-        proved_seen: Mutex<Vec<Value>>,
+    /// `@t/x`, declaring `scan` (warns W900) and `hidden` (check phase);
+    /// the runtime records the input every pass receives.
+    fn scanning_extension() -> InProcessRuntime {
+        InProcessRuntime::new().with(|| {
+            let mut c = ContributionsBuilder::new(ExtensionMeta::new(EXT, "1.0.0"));
+            c.pass("scan", |p| {
+                p.run(|_: &PassInput| vec![PassDiagnostic::warning("W900", "scanned")]);
+            });
+            c.pass("hidden", |p| {
+                p.phase("check")
+                    .run(|_: &PassInput| Vec::<PassDiagnostic>::new());
+            });
+            c
+        })
     }
 
-    impl Fake {
-        fn new() -> Self {
-            Self {
-                proved_seen: Mutex::new(Vec::new()),
-            }
-        }
-    }
-
-    impl WasmRuntime for Fake {
-        fn load_module(&self, _: &Path) -> Result<(), String> {
-            Ok(())
-        }
-
-        fn call_export(&self, _ext: &str, export: &str, input: &[u8]) -> WasmCallResult {
-            let ok = |v: Value| WasmCallResult::Ok(v.to_string().into_bytes());
-            match export {
-                "__describe" => ok(json!({"category": "passes", "items": [
-                    {"name": "scan"}, {"name": "hidden", "phase": "check"}
-                ]})),
-                "__pass_scan" => {
-                    let input: Value = serde_json::from_slice(input).unwrap();
-                    self.proved_seen
-                        .lock()
-                        .unwrap()
-                        .push(input["proved_claims"].clone());
-                    ok(json!([{"code": "W900", "severity": "Warning", "message": "scanned"}]))
-                }
-                _ => WasmCallResult::Trap(WasmTrapInfo {
-                    kind: "export_not_found".into(),
-                    message: export.into(),
-                    export_name: export.into(),
-                }),
-            }
-        }
+    /// The `proved_claims` each `scan` call received (`null` when absent).
+    fn proved_seen(runtime: &InProcessRuntime) -> Vec<Value> {
+        runtime
+            .calls()
+            .into_iter()
+            .filter(|c| c.export == "__pass_scan")
+            .map(|c| c.input.get("proved_claims").cloned().unwrap_or(Value::Null))
+            .collect()
     }
 
     struct Project {
@@ -464,20 +439,30 @@ mod tests {
         dir: tempfile::TempDir,
     }
 
+    /// `name`, a pass of `extension` in `phase`.
+    fn declared(extension: &str, name: &str, phase: Option<&str>) -> DeclaredPass {
+        DeclaredPass {
+            extension: extension.to_string(),
+            pass: specforge_protocol_types::CompilerPassDescriptor {
+                name: name.to_string(),
+                phase: phase.map(str::to_string),
+                ..Default::default()
+            },
+        }
+    }
+
     impl Project {
         fn new() -> Self {
             let dir = tempfile::TempDir::new().unwrap();
             std::fs::write(dir.path().join("specforge.json"), "{}").unwrap();
-            let manifest = serde_json::from_value(json!({
-                "name": EXT, "version": "1.0.0", "manifestVersion": 2, "wasmPath": ""
-            }))
-            .unwrap();
+            let mut registries = specforge_registry::RegistryBuild::default();
+            registries.passes = vec![
+                declared(EXT, "scan", None),
+                declared(EXT, "hidden", Some("check")),
+            ];
             Self {
                 graph: Graph::new(),
-                registries: specforge_registry::RegistryBuild {
-                    manifests: vec![manifest],
-                    ..Default::default()
-                },
+                registries,
                 recorded: coverage::RecordedCoverage::default(),
                 dir,
             }
@@ -493,7 +478,7 @@ mod tests {
         }
 
         fn run(&self, options: &AnalyzeOptions) -> Result<AnalyzeOutcome, AnalyzeError> {
-            analyze(&self.view(), &Fake::new(), options)
+            analyze(&self.view(), Some(&scanning_extension()), options)
         }
     }
 
@@ -547,6 +532,43 @@ mod tests {
         );
     }
 
+    #[specforge_test(
+        behavior = "call_extension_exports",
+        verify = "an analyze pass that traps is reported as an E028 finding of that pass"
+    )]
+    fn an_analyze_pass_that_traps_is_an_e028_finding_and_the_analysis_fails() {
+        let project = Project::new();
+        for answer in [
+            WasmCallResult::Trap(WasmTrapInfo {
+                kind: "call_failed".into(),
+                message: "unreachable: the pass panicked".into(),
+                export_name: "__pass_scan".into(),
+            }),
+            WasmCallResult::Ok(b"not diagnostics".to_vec()),
+        ] {
+            let runtime = InProcessRuntime::new().answer_raw(EXT, "__pass_scan", answer);
+            let outcome =
+                analyze(&project.view(), Some(&runtime), &AnalyzeOptions::default()).unwrap();
+            assert!(!outcome.ok, "a failed pass fails the analysis");
+            let scan = outcome
+                .passes
+                .iter()
+                .find(|p| p.name == "@t/x:scan")
+                .expect("the failed pass has its report");
+            assert_eq!(scan.findings.len(), 1, "{:?}", scan.findings);
+            assert_eq!(scan.findings[0].code, "E028");
+            assert_eq!(scan.findings[0].severity, Severity::Error);
+            assert!(
+                scan.findings[0]
+                    .message
+                    .starts_with("compiler pass __pass_scan() of '@t/x' "),
+                "{}",
+                scan.findings[0].message
+            );
+            assert_eq!(scan.summary["failed"], true);
+        }
+    }
+
     #[test]
     fn a_declared_extension_pass_runs_alone_by_its_full_name() {
         let outcome = Project::new().run(&pass("@t/x:scan")).unwrap();
@@ -580,7 +602,12 @@ mod tests {
         let project = Project::new();
         let mut view = project.view();
         view.root = None;
-        let outcome = analyze(&view, &Fake::new(), &AnalyzeOptions::default()).unwrap();
+        let outcome = analyze(
+            &view,
+            Some(&scanning_extension()),
+            &AnalyzeOptions::default(),
+        )
+        .unwrap();
         assert_eq!(names(&outcome), vec!["contracts"]);
     }
 
@@ -640,10 +667,10 @@ mod tests {
         };
         // The view rooted at the sub-path reads its root and nothing above.
         assert_eq!(
-            analyze(&view, &Fake::new(), &min).unwrap_err(),
+            analyze(&view, Some(&scanning_extension()), &min).unwrap_err(),
             AnalyzeError::MinNeedsTestResults
         );
-        assert!(analyze(&project.view(), &Fake::new(), &min).is_ok());
+        assert!(analyze(&project.view(), Some(&scanning_extension()), &min).is_ok());
     }
 
     #[test]
@@ -674,64 +701,54 @@ mod tests {
     #[test]
     fn prove_runs_last_and_tells_the_passes_it_ran() {
         let project = Project::new();
-        let fake = Fake::new();
-        analyze(&project.view(), &fake, &AnalyzeOptions::default()).unwrap();
-        assert_eq!(*fake.proved_seen.lock().unwrap(), vec![Value::Null]);
+        let fake = scanning_extension();
+        analyze(&project.view(), Some(&fake), &AnalyzeOptions::default()).unwrap();
+        assert_eq!(proved_seen(&fake), vec![Value::Null]);
 
-        let fake = Fake::new();
+        let fake = scanning_extension();
         let options = AnalyzeOptions {
             prove: Some(ProveOptions::default()),
             ..Default::default()
         };
-        let outcome = analyze(&project.view(), &fake, &options).unwrap();
+        let outcome = analyze(&project.view(), Some(&fake), &options).unwrap();
         assert_eq!(names(&outcome), vec!["contracts", "@t/x:scan", "prove"]);
-        assert_eq!(*fake.proved_seen.lock().unwrap(), vec![json!([])]);
+        assert_eq!(proved_seen(&fake), vec![json!([])]);
     }
 
     /// A `@specforge/testing` whose `coverage` pass answers `summary`.
-    struct Coverage {
-        summary: Value,
-    }
-
-    impl WasmRuntime for Coverage {
-        fn load_module(&self, _: &Path) -> Result<(), String> {
-            Ok(())
-        }
-
-        fn call_export(&self, _ext: &str, export: &str, _: &[u8]) -> WasmCallResult {
-            let ok = |v: Value| WasmCallResult::Ok(v.to_string().into_bytes());
-            match export {
-                "__describe" => ok(json!({"category": "passes", "items": [{"name": "coverage"}]})),
-                "__pass_coverage" => ok(json!({"diagnostics": [], "summary": self.summary})),
-                _ => WasmCallResult::Trap(WasmTrapInfo {
-                    kind: "export_not_found".into(),
-                    message: export.into(),
-                    export_name: export.into(),
-                }),
-            }
-        }
+    fn coverage_answering(summary: Value) -> InProcessRuntime {
+        InProcessRuntime::new().with(move || {
+            let summary = summary.clone();
+            let mut c =
+                ContributionsBuilder::new(ExtensionMeta::new("@specforge/testing", "1.0.0"));
+            c.pass("coverage", |p| {
+                p.run(move |_: &PassInput| PassOutput {
+                    diagnostics: Vec::new(),
+                    summary: summary.as_object().cloned().unwrap_or_default(),
+                });
+            });
+            c
+        })
     }
 
     /// A project with a (blank) recorded report, gated at `min`, whose
     /// testing extension reports `proven` of `total`.
     fn gate_of(pass_name: &str, min: Option<f64>, summary: Value) -> Gate {
         let mut project = Project::new();
-        project.registries.manifests = vec![
-            serde_json::from_value(json!({
-                "name": "@specforge/testing", "version": "1.0.0",
-                "manifestVersion": 2, "wasmPath": ""
-            }))
-            .unwrap(),
-        ];
+        project.registries.passes = vec![declared("@specforge/testing", "coverage", None)];
         std::fs::write(project.dir.path().join("specforge-report.json"), "{}").unwrap();
         let options = AnalyzeOptions {
             pass: pass_name.to_string(),
             min,
             ..Default::default()
         };
-        analyze(&project.view(), &Coverage { summary }, &options)
-            .unwrap()
-            .gate
+        analyze(
+            &project.view(),
+            Some(&coverage_answering(summary)),
+            &options,
+        )
+        .unwrap()
+        .gate
     }
 
     fn tally(proven: usize, total: usize) -> Value {
@@ -790,7 +807,7 @@ mod tests {
     )]
     fn a_failed_gate_leaves_ok_and_the_reports_alone() {
         let mut project = Project::new();
-        project.registries.manifests.clear();
+        project.registries.passes.clear();
         std::fs::write(project.dir.path().join("specforge-report.json"), "{}").unwrap();
         let outcome = project
             .run(&AnalyzeOptions {
@@ -847,7 +864,7 @@ mod tests {
     #[test]
     fn the_z3_timeout_reaches_the_prove_step_and_its_claims_reach_coverage() {
         let project = Project::new();
-        let fake = Fake::new();
+        let fake = scanning_extension();
         let seen = Mutex::new(None);
         let prove = |ctx: &AnalysisContext, o: &ProveOptions| {
             *seen.lock().unwrap() = Some(o.z3_timeout);
@@ -855,30 +872,36 @@ mod tests {
             r.proved_claim_ids = vec!["claim_a".to_string()];
             r
         };
-        analyze_via(&project.view(), &fake, &prove_options(7), &prove).unwrap();
+        analyze_via(&project.view(), Some(&fake), &prove_options(7), &prove).unwrap();
         assert_eq!(
             *seen.lock().unwrap(),
             Some(std::time::Duration::from_secs(7))
         );
-        assert_eq!(*fake.proved_seen.lock().unwrap(), vec![json!(["claim_a"])]);
+        assert_eq!(proved_seen(&fake), vec![json!(["claim_a"])]);
     }
 
     #[test]
     fn prove_with_z3_missing_is_a_last_w098_report_with_empty_proved_claims() {
         let project = Project::new();
-        let fake = Fake::new();
+        let fake = scanning_extension();
         let prove =
             |ctx: &AnalysisContext, _: &ProveOptions| crate::prove::analyze_with(ctx, &NoZ3);
         let mut options = prove_options(1);
-        let lenient = analyze_via(&project.view(), &fake, &options, &prove).unwrap();
+        let lenient = analyze_via(&project.view(), Some(&fake), &options, &prove).unwrap();
         assert_eq!(names(&lenient).last().copied(), Some("prove"));
         let report = lenient.passes.last().unwrap();
         assert!(report.findings.iter().any(|f| f.code == "W098"));
         assert!(lenient.ok);
-        assert_eq!(*fake.proved_seen.lock().unwrap(), vec![json!([])]);
+        assert_eq!(proved_seen(&fake), vec![json!([])]);
 
         options.strict = true;
-        let strict = analyze_via(&project.view(), &Fake::new(), &options, &prove).unwrap();
+        let strict = analyze_via(
+            &project.view(),
+            Some(&scanning_extension()),
+            &options,
+            &prove,
+        )
+        .unwrap();
         assert!(!strict.ok, "strict promotes the prove report too");
     }
 

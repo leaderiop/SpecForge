@@ -120,7 +120,11 @@ impl Environment {
     /// `classify_project_changes`). Built-in extensions are compiled into
     /// the binary and have no module on disk.
     pub fn inputs(&self) -> EnvironmentInputs {
-        environment_inputs(&self.root, &self.config, !self.check_passes.is_empty())
+        environment_inputs(
+            &self.root,
+            &self.config,
+            self.registries.check_passes().next().is_some(),
+        )
     }
 
     /// The check inputs of this environment over `graph`, as the checks
@@ -157,7 +161,7 @@ impl Environment {
             .registries
             .fields
             .iter()
-            .filter(|(_, _, entry)| entry.file_reference)
+            .filter(|(_, _, entry)| entry.declared.file_reference)
             .map(|(_, field, _)| field)
             .collect();
         if fields.is_empty() {

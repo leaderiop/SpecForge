@@ -1,0 +1,40 @@
+{
+  "category": "entities",
+  "items": [
+    {
+      "description": "A friendly greeting",
+      "dot_color": null,
+      "dot_fillcolor": null,
+      "dot_shape": null,
+      "fields": [
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "enum_values": [
+            "warm",
+            "formal"
+          ],
+          "field_type": "enum",
+          "file_reference": false,
+          "inverse_of": null,
+          "name": "style",
+          "required": true,
+          "target_kind": null
+        }
+      ],
+      "has_body_parser": false,
+      "incremental": null,
+      "inference_guide": null,
+      "keyword": null,
+      "lsp_icon": null,
+      "name": "greeting",
+      "open_fields": false,
+      "semantic_token": null,
+      "singleton": false,
+      "supports_verify": false,
+      "testable": false,
+      "verify_kinds": []
+    }
+  ]
+}

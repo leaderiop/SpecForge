@@ -26,6 +26,7 @@ pub mod model;
 pub mod navigate;
 pub mod plan;
 pub mod prove;
+pub mod publish;
 pub mod registry;
 pub mod rename;
 pub mod scan;

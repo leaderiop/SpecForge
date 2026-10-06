@@ -42,6 +42,7 @@ mod parity;
 mod pipeline;
 mod product_commands;
 mod product_rules;
+mod publish;
 mod query;
 mod read_views;
 mod registry;

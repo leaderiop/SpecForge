@@ -1,14 +1,17 @@
 // Wasm component extension runtime types
 //
-// Extension manifests use ManifestV2 from types/zero-entity-core.spec.
+// Extension declarations use ExtensionDeclaration from types/zero-entity-core.spec.
 // This file contains supporting types for the Wasm runtime: dependencies,
 // host function bindings, sandbox policies, caching, enhancements, and queries.
 
 use "types/core"
 
 type PeerDependency {
-  extension string
-  version   string
+  name     string
+  // A semver range the installed version must satisfy
+  version  string
+  // An optional peer that is not installed is fine
+  optional boolean @optional
   verify unit "PeerDependency schema is valid"
 }
 
@@ -41,45 +44,7 @@ type SandboxPolicy {
   verify unit "SandboxPolicy schema is valid"
 }
 
-// trapped state removed — extensions that trap are immediately unloaded
-type ExtensionLifecycleState = discovered
-  | loading
-  | initialized
-  | validating
-  | exporting
-  | unloaded
-  | failed
-
 // ── Entity Enhancement Types ─────────────────────────────────
-
-type FieldEnhancement {
-  target_entity string  @readonly
-  field_name    string  @readonly
-  field_type    EnhancedFieldType
-  required      boolean @optional
-  description   string  @optional
-  verify unit "FieldEnhancement schema is valid"
-}
-
-type EnhancedFieldType = string_type
-  | integer_type
-  | bool_type
-  | enum_type
-  | string_list_type
-  | reference_type
-  | reference_list_type
-
-type EnumFieldType {
-  values string[]
-  verify unit "EnumFieldType schema is valid"
-}
-
-type ReferenceFieldType {
-  // Maps to EdgeType.label when building graph edges
-  edge_label  string
-  target_kind string @optional
-  verify unit "ReferenceFieldType schema is valid"
-}
 
 type DynamicEdgeType {
   label            string  @readonly
@@ -87,30 +52,6 @@ type DynamicEdgeType {
   soft             boolean @optional
   verify unit "DynamicEdgeType schema is valid"
 }
-
-type EnhancementConflict {
-  entity_kind      string @readonly
-  field_name       string @readonly
-  first_extension  string @readonly
-  second_extension string @readonly
-  resolution       ConflictResolution
-  verify unit "EnhancementConflict schema is valid"
-}
-
-type ConflictResolution = unresolved | explicit_override | load_order | namespaced
-
-// v1: error only. priority and namespace policies are deferred to a future phase.
-type EnhancementPolicy = error
-
-// ── Query Extension Types ───────────────────────────────────
-
-type QueryExtension {
-  kind     QueryFileKind @readonly
-  patterns string
-  verify unit "QueryExtension schema is valid"
-}
-
-type QueryFileKind = highlights | folds | indents | injections
 
 // ── Extension Lifecycle Types ─────────────────────────────────
 
@@ -158,39 +99,21 @@ type LockFile {
 
 // ── Collector Contribution Types ────────────────────────────
 
-type CollectorContribution {
+type CollectorDescriptor {
   name          string              @readonly
   input_formats string[]
   auto_detect   CollectorAutoDetect @optional
   export        string
   run           string[]            @optional
   report        string              @optional
-  verify unit "CollectorContribution schema is valid"
+  capture       string              @optional
+  verify unit "CollectorDescriptor schema is valid"
 }
 
 type CollectorAutoDetect {
   file_patterns string[]
   env_vars      string[] @optional
   verify unit "CollectorAutoDetect schema is valid"
-}
-
-type CollectorReport {
-  entity_results CollectorEntityResult[]
-  verify unit "CollectorReport schema is valid"
-}
-
-type CollectorEntityResult {
-  entity_id    string
-  test_results CollectorTestResult[]
-  verify unit "CollectorEntityResult schema is valid"
-}
-
-type CollectorTestResult {
-  name        string
-  status      CollectorTestStatus
-  verify      string @optional
-  duration_ms float  @optional
-  verify unit "CollectorTestResult schema is valid"
 }
 
 type CollectorTestStatus = passed | failed | skipped
@@ -206,13 +129,178 @@ type ExtensionSpecifier "Parsed Extension Specifier" {
   verify unit "Parsed Extension Specifier conforms to schema"
 }
 
-type CollectorDispatchInput {
-  reports CollectorReportFile[]
-  verify unit "CollectorDispatchInput schema is valid"
+// ── Extension Call Payloads ─────────────────────────────────
+// What the host sends each export it calls on a loaded extension, and
+// what the export answers: one specforge_protocol_types type each, shared
+// by the host and the SDK (ADR 0013). An optional field the host leaves
+// unset is absent from the wire, never null.
+
+// What a collect__<name> export receives: the runner's report files and,
+// when the collector captures it, the command's standard output.
+type CollectInput {
+  reports CollectReportFile[]
+  stdout  string @optional
+  verify unit "CollectInput schema is valid"
 }
 
-type CollectorReportFile {
+type CollectReportFile {
   path    string
   content string
-  verify unit "CollectorReportFile schema is valid"
+  verify unit "CollectReportFile schema is valid"
+}
+
+// What a collect__<name> export answers: tests grouped by the entity each
+// proves, and the tests the report links to none (the host links them by
+// naming convention).
+type CollectOutput {
+  entity_results CollectEntityResult[]
+  unlinked       CollectUnlinkedTest[] @optional
+  verify unit "CollectOutput schema is valid"
+}
+
+type CollectEntityResult {
+  entity_id    string
+  test_results CollectTestResult[]
+  verify unit "CollectEntityResult schema is valid"
+}
+
+type CollectTestResult {
+  name        string
+  status      CollectorTestStatus
+  verify      string @optional
+  duration_ms float  @optional
+  verify unit "CollectTestResult schema is valid"
+}
+
+type CollectUnlinkedTest {
+  name   string
+  // The name's path segments, the test's own name last.
+  path   string[]
+  status CollectorTestStatus
+  verify unit "CollectUnlinkedTest schema is valid"
+}
+
+// What a __pass_<name> export receives: the entity snapshot, the resolved
+// references, and the recorded test results, the claims the prove pass
+// entailed and (check-phase passes) the previous build's statuses when the
+// host has them.
+type PassInput {
+  entities      PassEntity[]
+  edges         PassEdge[]
+  // The normalized specforge-report.json: per entity id, its tests.
+  test_results  object   @optional
+  proved_claims string[] @optional
+  // The build cache's statuses: per entity id, its kind and status.
+  previous      object   @optional
+  verify unit "PassInput schema is valid"
+}
+
+// One entity of the snapshot. testable: its kind's flag; exempt: it owes
+// no obligations of its own (ADR 0004, D2-b), decided by the host from the
+// registries.
+type PassEntity {
+  id                  string
+  kind                string
+  // Its fields, stringified, by name.
+  fields              object
+  incoming_edge_count integer
+  outgoing_edge_count integer
+  span                SourceSpan @optional
+  testable            bool
+  exempt              bool
+  verify_kinds        string[]
+  verify_texts        string[]
+  verify unit "PassEntity schema is valid"
+}
+
+type PassEdge {
+  source string
+  target string
+  label  string
+  verify unit "PassEdge schema is valid"
+}
+
+// A diagnostic a pass reports. Naming an entity and carrying no span, it
+// gets that entity's span from the host.
+type PassDiagnostic {
+  code       string
+  severity   Severity
+  message    string
+  span       SourceSpan @optional
+  suggestion string     @optional
+  entity     string     @optional
+  verify unit "PassDiagnostic schema is valid"
+}
+
+// What a pass answers: its diagnostics bare (an array), or with a summary
+// whose keys join the host's report of the pass (an object).
+type PassOutput {
+  diagnostics PassDiagnostic[]
+  summary     object @optional
+  verify unit "PassOutput schema is valid"
+}
+
+// What a custom rule's wasm_function receives for one entity: the entity,
+// the resolution of its references, the declared types and the host's
+// primitive types.
+type ValidatorContext {
+  entity         object
+  referenced     object[]
+  declared_types string[]
+  primitives     string[]
+  verify unit "ValidatorContext schema is valid"
+}
+
+// {"verdict": "pass"} or {"verdict": "fail", "field"?, "value"?}.
+type ValidatorVerdict {
+  verdict ValidatorVerdictKind
+  field   string @optional
+  value   string @optional
+  verify unit "ValidatorVerdict schema is valid"
+}
+
+type ValidatorVerdictKind = pass | fail
+
+// What an analyzer's scan export receives: one source file.
+type ScanRequest {
+  file_path string
+  content   string
+  verify unit "ScanRequest schema is valid"
+}
+
+// The public items the scan found.
+type ScanResponse {
+  items    ScannedItem[]
+  language string @optional
+  verify unit "ScanResponse schema is valid"
+}
+
+type ScannedItem {
+  name       string
+  item_kind  string
+  line       integer
+  visibility string @optional
+  signature  string @optional
+  verify unit "ScannedItem schema is valid"
+}
+
+// What an MCP resource's export receives, and answers.
+type McpResourceRequest {
+  uri string
+  verify unit "McpResourceRequest schema is valid"
+}
+
+type McpResourceContent {
+  content   string
+  mime_type string
+  verify unit "McpResourceContent schema is valid"
+}
+
+// What the migration hook receives after specforge migrate rewrote the
+// project's files. Its answer is not read.
+type MigrationInput {
+  from  string
+  to    string
+  files string[]
+  verify unit "MigrationInput schema is valid"
 }

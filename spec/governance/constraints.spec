@@ -176,8 +176,6 @@ constraint editor_integration_quality "Editor Integration Quality" {
     provide_code_folding_queries,
     provide_indentation_queries,
     parse_all_block_types,
-    provide_extension_query_extensions,
-    compose_query_files_from_extensions,
   ]
   protects    [multi_error_collection]
   verify integration "all query files load in Tree-sitter editors"
@@ -232,7 +230,7 @@ constraint extension_validation_correctness "Extension Validation Correctness" {
     validation engine executes ValidationRulePattern entries from extension
     manifests without knowledge of domain-specific entity types
   """
-  constrains  [execute_validation_pattern, call_extension_validators, validate_extension_testability]
+  constrains  [execute_validation_pattern, validate_extension_testability]
   protects    [reference_resolution_completeness]
   verify unit "extension checks activate only when extension is installed"
   verify unit "uninstalled extension rules do not fire"
@@ -330,10 +328,10 @@ constraint extension_system_integrity "Extension System Integrity" {
     validate_ref_target_format,
     validate_provider_kinds,
     load_wasm_module,
+    call_extension_exports,
     initialize_wasm_extension,
     enforce_wasm_sandbox,
     validate_extension_peer_dependencies,
-    call_extension_validators,
     provide_host_function_query_graph,
     provide_host_function_emit_diagnostic,
     provide_host_function_add_graph_node,
@@ -342,27 +340,17 @@ constraint extension_system_integrity "Extension System Integrity" {
     topological_sort_extensions,
     load_extension_manifest,
     register_entity_enhancements,
-    detect_enhancement_conflicts,
-    resolve_enhancement_conflicts,
     run_doctor_check,
     scaffold_wasm_extension_project,
     build_wasm_extension,
     validate_wasm_extension_locally,
     publish_wasm_extension,
-    reject_reserved_entity_kind,
-    detect_entity_kind_collision,
     upgrade_wasm_extension,
     validate_extension_manifest,
-    handle_wasm_trap,
-    discover_extensions,
     parse_extension_specifier,
     resolve_extension_source,
     write_lock_file,
     read_lock_file,
-    verify_wasm_integrity,
-    dispatch_contribution_exports,
-    validate_contribution_exports,
-    toggle_extension_contributions,
   ]
   protects    [spec_root_singleton, reference_resolution_completeness, wasm_sandbox_integrity]
   verify integration "extension operations never corrupt state or crash"
@@ -412,7 +400,6 @@ constraint wasm_sandbox_enforcement "Wasm Sandbox Enforcement" {
     enforce_wasm_sandbox,
     provide_host_function_emit_file,
     provide_host_function_http_get,
-    call_extension_validators,
     configure_sandbox_policy,
     enforce_per_call_site_permissions,
   ]

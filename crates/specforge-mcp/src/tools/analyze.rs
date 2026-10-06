@@ -3,8 +3,9 @@ use std::path::PathBuf;
 
 use crate::args::lenient;
 use crate::target::Call;
-use crate::tool::{ErrorCode, Handled, McpError, ToolOutcome};
+use crate::tool::{Handled, ToolOutcome};
 use specforge_ops::analyze::{AnalyzeError, AnalyzeOptions, ReportSource, analyze};
+use specforge_wasm::runtime::WasmRuntime;
 
 #[derive(Debug, Deserialize)]
 pub struct Args {
@@ -46,13 +47,10 @@ pub fn call(call: &mut Call<'_>, args: Args) -> Handled {
         min: None,
         prove: None,
     };
-    let Some(runtime) = project.runtime else {
-        return Err(Box::new(McpError::new(
-            ErrorCode::InternalError,
-            "the project has no extension runtime",
-        )));
-    };
-    Ok(match analyze(&view, runtime.as_ref(), &options) {
+    // A project built in memory may have no runtime: then no extension
+    // pass runs (plan 04 D13).
+    let runtime: Option<&dyn WasmRuntime> = project.runtime.map(|runtime| runtime.as_ref() as _);
+    Ok(match analyze(&view, runtime, &options) {
         Ok(outcome) => ToolOutcome::ok(outcome.to_json()),
         Err(e @ AnalyzeError::UnknownPass { .. }) => {
             ToolOutcome::invalid_input("pass", e.to_string())

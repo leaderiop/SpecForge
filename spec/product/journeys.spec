@@ -471,7 +471,7 @@ journey get_syntax_highlighting_without_lsp "Get Syntax Highlighting Without LSP
   channels [ide]
   priority medium
   tags     ["developer", "ide"]
-  features [editor_query_files, extension_query_contributions]
+  features [editor_query_files]
   flow     """
     1. Developer installs tree-sitter-specforge grammar in their editor
     2. Editor loads highlights.scm, folds.scm, and indents.scm

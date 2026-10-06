@@ -20,15 +20,15 @@ pub use specforge_protocol_types::{CheckKind, ConstraintKind, FieldType};
 
 pub use specforge_protocol_types::{
     ContributionFlags, EdgeTypeDescriptor, EntityEnhancementDescriptor, EntityKindDescriptor,
-    FeatureFlagDescriptor, FieldConstraintDescriptor, FieldDescriptor, HandshakeResponse,
-    PeerDependency, ProtocolError, SandboxPolicy, ValidationRuleDescriptor, ValidationSeverity,
-    ValidatorContext, ValidatorEntity, ValidatorField, ValidatorMethod, ValidatorParam,
-    ValidatorRef, ValidatorVerdict,
+    ExtensionDeclaration, FeatureFlagDescriptor, FieldConstraintDescriptor, FieldDescriptor,
+    HandshakeResponse, PeerDependency, ProtocolError, SandboxPolicy, ValidationRuleDescriptor,
+    ValidationSeverity, ValidatorContext, ValidatorEntity, ValidatorField, ValidatorMethod,
+    ValidatorParam, ValidatorRef, ValidatorVerdict,
 };
 
 use specforge_protocol_types::{
-    AutoDetectConfig, CollectorDescriptor, CompilerPassDescriptor, DescribeRequest,
-    DescribeResponse,
+    AnalyzerDescriptor, AutoDetectConfig, CollectorDescriptor, CompilerPassDescriptor,
+    DECLARED_CATEGORIES, DescribeRequest, DescribeResponse, SUPPORTED_CATEGORIES,
 };
 
 use std::collections::BTreeMap;
@@ -43,6 +43,10 @@ pub mod testing;
 /// their handlers.
 pub mod surface;
 
+/// Operational contributions (passes, collectors, custom rules, scanners,
+/// the migration hook) declared with their handlers.
+mod operations;
+
 pub use surface::{
     ArgBuilder, CommandBuilder, CommandCall, McpResourceBuilder, McpToolBuilder, SandboxBuilder,
 };
@@ -52,7 +56,16 @@ pub use surface::{
 pub struct ExtensionMeta {
     pub name: String,
     pub version: String,
+    /// The short name routing the extension's commands and tools
+    /// (`specforge <short> <command>`, `specforge.<short>.<id>`), lowercase
+    /// kebab case; the name's last segment when absent. On the wire as
+    /// `ext_short`.
     pub short: Option<String>,
+    /// One line saying what the extension is for (package registries show
+    /// it).
+    pub description: Option<String>,
+    /// Search keywords for package registries.
+    pub keywords: Vec<String>,
     pub peer_dependencies: Vec<PeerDependency>,
     pub sandbox_policy: Option<SandboxPolicy>,
     /// The starter `.spec` file `specforge init` writes for a project that
@@ -81,22 +94,19 @@ pub trait Contributions {
     fn contribute(c: &mut ContributionsBuilder);
 }
 
-/// Accumulates everything an extension contributes, then serializes to the
-/// wire format on demand. Contribution flags are **derived** from what was
-/// actually contributed, so they cannot drift from the content.
+/// Accumulates everything an extension contributes: its
+/// [`ExtensionDeclaration`] ([`ContributionsBuilder::declaration`]), which
+/// the guest serves on the wire, plus the handlers of its declared
+/// surfaces. Contribution flags are **derived** from what was actually
+/// contributed, so they cannot drift from the content.
 #[derive(Default)]
 pub struct ContributionsBuilder {
     pub meta: ExtensionMeta,
-    entity_kinds: Vec<EntityKindDescriptor>,
-    edge_types: Vec<EdgeTypeDescriptor>,
-    fields: Vec<FieldDescriptor>,
-    shared_fields: Vec<FieldDescriptor>,
-    enhancements: Vec<EntityEnhancementDescriptor>,
-    validation_rules: Vec<ValidationRuleDescriptor>,
-    passes: Vec<CompilerPassDescriptor>,
-    collectors: Vec<CollectorDescriptor>,
-    feature_flags: Vec<FeatureFlagDescriptor>,
+    /// The declared categories (the handshake is derived from `meta` when
+    /// the declaration is built, the surfaces from `surfaces`).
+    decl: ExtensionDeclaration,
     surfaces: surface::Surfaces,
+    operations: operations::Operations,
     raw: BTreeMap<String, serde_json::Value>,
 }
 
@@ -112,7 +122,7 @@ impl ContributionsBuilder {
     pub fn kind(&mut self, name: &str, f: impl FnOnce(&mut KindBuilder)) -> &mut Self {
         let mut b = KindBuilder::new(name);
         f(&mut b);
-        self.entity_kinds.push(b.0);
+        self.decl.entities.push(b.0);
         self
     }
 
@@ -120,7 +130,7 @@ impl ContributionsBuilder {
     pub fn edge(&mut self, label: &str, f: impl FnOnce(&mut EdgeBuilder)) -> &mut Self {
         let mut b = EdgeBuilder::new(label);
         f(&mut b);
-        self.edge_types.push(b.0);
+        self.decl.edges.push(b.0);
         self
     }
 
@@ -128,7 +138,7 @@ impl ContributionsBuilder {
     pub fn shared_field(&mut self, name: &str, f: impl FnOnce(&mut FieldBuilder)) -> &mut Self {
         let mut b = FieldBuilder::new(name);
         f(&mut b);
-        self.shared_fields.push(b.0);
+        self.decl.shared_fields.push(b.0);
         self
     }
 
@@ -142,34 +152,104 @@ impl ContributionsBuilder {
     ) -> &mut Self {
         let mut b = EnhancementBuilder::new(target_kind, source_extension);
         f(&mut b);
-        self.enhancements.push(b.0);
+        self.decl.enhancements.push(b.0);
         self
     }
 
-    /// Contribute a declarative validation rule.
+    /// Contribute a validation rule. A declarative rule names its check; a
+    /// `custom` one is decided by its handler ([`RuleBuilder::validate`]),
+    /// at the export its `wasm_function` names (`validate__<code>`, the
+    /// code lowercased, unless set).
+    ///
+    /// # Panics
+    ///
+    /// When a `custom` rule declares no handler, or a rule with a handler
+    /// is not `custom`.
     pub fn rule(&mut self, code: &str, f: impl FnOnce(&mut RuleBuilder)) -> &mut Self {
         let mut b = RuleBuilder::new(code);
         f(&mut b);
-        self.validation_rules.push(b.0);
+        let custom = b.descriptor.check == CheckKind::Custom.as_str();
+        match (custom, b.validate) {
+            (true, Some(validate)) => {
+                let export = b
+                    .descriptor
+                    .wasm_function
+                    .get_or_insert_with(|| format!("validate__{}", code.to_lowercase()))
+                    .clone();
+                self.add_operation(export, format!("custom rule '{code}'"), validate);
+            }
+            (true, None) => {
+                panic!("custom rule '{code}' declares no handler: decide it with `r.validate(...)`")
+            }
+            (false, Some(_)) => {
+                panic!("rule '{code}' has a validate handler, but its check is not custom")
+            }
+            (false, None) => {}
+        }
+        self.decl.validation_rules.push(b.descriptor);
         self
     }
 
-    /// Contribute a compiler pass.
+    /// Contribute a compiler pass, run by its handler ([`PassBuilder::run`])
+    /// at the export `__pass_<name>`.
+    ///
+    /// # Panics
+    ///
+    /// When the pass declares no handler.
     pub fn pass(&mut self, name: &str, f: impl FnOnce(&mut PassBuilder)) -> &mut Self {
         let mut b = PassBuilder::new(name);
         f(&mut b);
-        self.passes.push(b.0);
+        let Some(run) = b.run else {
+            panic!("pass '{name}' declares no handler: run it with `p.run(...)`");
+        };
+        self.add_operation(format!("__pass_{name}"), format!("pass '{name}'"), run);
+        self.decl.passes.push(b.descriptor);
         self
     }
 
-    /// Contribute a test-result collector. Its export is `collect__<name>`
-    /// with `-` mapped to `_`; dispatch it to a function taking a
-    /// [`CollectInput`] and returning a [`CollectOutput`].
+    /// Contribute a test-result collector, answered by its handler
+    /// ([`CollectorBuilder::collect`]: a [`CollectInput`] in, a
+    /// [`CollectOutput`] out) at the export `collect__<name>`, `-` mapped
+    /// to `_`.
+    ///
+    /// # Panics
+    ///
+    /// When the collector declares no handler.
     pub fn collector(&mut self, name: &str, f: impl FnOnce(&mut CollectorBuilder)) -> &mut Self {
         let mut b = CollectorBuilder::new(name);
         f(&mut b);
-        self.collectors.push(b.0);
+        let Some(collect) = b.collect else {
+            panic!("collector '{name}' declares no handler: answer it with `k.collect(...)`");
+        };
+        self.add_operation(
+            b.descriptor.export.clone(),
+            format!("collector '{name}'"),
+            collect,
+        );
+        self.decl.collectors.push(b.descriptor);
         self
+    }
+
+    /// Route the operation export `export` (declared by `what`) to `wire`.
+    ///
+    /// # Panics
+    ///
+    /// When a declared surface or operation already answers `export`.
+    fn add_operation(&mut self, export: String, what: String, wire: operations::Wire) {
+        if let Some(owner) = self.surfaces.owner(&export) {
+            panic!("{what}'s export {export} is already '{owner}''s");
+        }
+        self.operations.add(export, what, wire);
+    }
+
+    /// Panics when a declared operation answers the export of a surface
+    /// just declared.
+    fn assert_surfaces_free(&self) {
+        for (export, name) in self.surfaces.exports() {
+            if let Some(owner) = self.operations.owner(export) {
+                panic!("'{name}''s export {export} is already {owner}'s");
+            }
+        }
     }
 
     /// Name the exports of the commands declared after it
@@ -187,6 +267,7 @@ impl ContributionsBuilder {
     /// declaration ([`CommandCall`]). Panics without a handler.
     pub fn command(&mut self, id: &str, f: impl FnOnce(&mut CommandBuilder)) -> &mut Self {
         self.surfaces.add_command(id, f);
+        self.assert_surfaces_free();
         self
     }
 
@@ -194,6 +275,7 @@ impl ContributionsBuilder {
     /// export `mcp__<name>` (`.` and `-` as `_`).
     pub fn mcp_tool(&mut self, name: &str, f: impl FnOnce(&mut McpToolBuilder)) -> &mut Self {
         self.surfaces.add_tool(name, f);
+        self.assert_surfaces_free();
         self
     }
 
@@ -205,6 +287,7 @@ impl ContributionsBuilder {
         f: impl FnOnce(&mut McpResourceBuilder),
     ) -> &mut Self {
         self.surfaces.add_resource(name, f);
+        self.assert_surfaces_free();
         self
     }
 
@@ -214,12 +297,40 @@ impl ContributionsBuilder {
         self.surfaces.call_command(export, input)
     }
 
-    /// The wire answer of a declared surface's export (a command, an MCP
-    /// tool or an MCP resource); `None` when no declared surface has it.
-    /// The generated guest routes every export but `__handshake` and
-    /// `__describe` here first.
+    /// The wire answer of a declared export: a surface's (a command, an
+    /// MCP tool or an MCP resource) or an operation's (a pass, a collector,
+    /// a custom rule, a scanner, the migration hook); `None` when no
+    /// declaration has it. The generated guest routes every export but
+    /// `__handshake` and `__describe` here first.
     pub fn dispatch_export(&self, export: &str, input: &[u8]) -> Option<Result<Vec<u8>, String>> {
-        self.surfaces.dispatch(export, input)
+        self.surfaces
+            .dispatch(export, input)
+            .or_else(|| self.operations.dispatch(export, input))
+    }
+
+    /// Contribute a language analyzer: `specforge infer` scans the files
+    /// with these extensions through its scanner ([`AnalyzerBuilder::scan`])
+    /// at the export `scan__<language>` unless set otherwise. Its
+    /// `classify__<language>` and `map__<language>` exports are declared
+    /// too; the host does not call them, so they are the guest's `handler`'s
+    /// to answer, if anything.
+    ///
+    /// # Panics
+    ///
+    /// When the analyzer declares no scanner.
+    pub fn analyzer(&mut self, language: &str, f: impl FnOnce(&mut AnalyzerBuilder)) -> &mut Self {
+        let mut b = AnalyzerBuilder::new(language);
+        f(&mut b);
+        let Some(scan) = b.scan else {
+            panic!("analyzer '{language}' declares no scanner: scan with `a.scan(...)`");
+        };
+        self.add_operation(
+            b.descriptor.scan_export.clone(),
+            format!("analyzer '{language}'"),
+            scan,
+        );
+        self.decl.analyzers.push(b.descriptor);
+        self
     }
 
     /// Contribute a feature flag.
@@ -229,7 +340,7 @@ impl ContributionsBuilder {
         default_enabled: bool,
         description: &str,
     ) -> &mut Self {
-        self.feature_flags.push(FeatureFlagDescriptor {
+        self.decl.feature_flags.push(FeatureFlagDescriptor {
             name: name.to_string(),
             description: (!description.is_empty()).then(|| description.to_string()),
             default_enabled,
@@ -252,100 +363,141 @@ impl ContributionsBuilder {
         self
     }
 
-    /// Name the export `specforge migrate` calls, after it migrates the
-    /// project's `.spec` files, so the extension can migrate its own data.
-    /// The extension must export a function by that name.
+    /// Contribute the hook `specforge migrate` calls after it migrates the
+    /// project's `.spec` files, so the extension can migrate its own data:
+    /// `handler` receives a [`MigrationInput`] at the export `export`. Its
+    /// answer is not read beyond success or failure.
+    ///
+    /// # Panics
+    ///
+    /// When a declared surface or operation already answers `export`.
+    pub fn migration_hook_handler(
+        &mut self,
+        export: &str,
+        handler: impl Fn(&MigrationInput) -> Result<(), String> + 'static,
+    ) -> &mut Self {
+        self.meta.migration_hook = Some(export.to_string());
+        self.add_operation(
+            export.to_string(),
+            "the migration hook".to_string(),
+            operations::wire("migration hook", handler),
+        );
+        self
+    }
+
+    /// Name the export `specforge migrate` calls without declaring its
+    /// handler: the guest's `handler` must answer it. For an extension not
+    /// written with the builders (as [`ContributionsBuilder::raw_category`]);
+    /// declare the hook with [`ContributionsBuilder::migration_hook_handler`].
+    #[deprecated(note = "declare the hook with its handler: `migration_hook_handler`")]
     pub fn migration_hook(&mut self, export: &str) -> &mut Self {
         self.meta.migration_hook = Some(export.to_string());
         self
     }
 
-    /// Escape hatch for categories the SDK does not model yet. `items` is the
-    /// raw JSON array the host receives for `category`.
+    /// Escape hatch for an extension not written with the builders (ADR
+    /// 0011): `items` is the raw JSON array the host receives for
+    /// `category`, served as given. A declared category's items must parse
+    /// as its descriptors: [`ContributionsBuilder::declaration`] panics
+    /// naming the category when they do not, so the extension fails when it
+    /// is built, not when a host loads it. Keys the descriptors do not
+    /// define are ignored by the host and reported (W138).
     pub fn raw_category(&mut self, category: &str, items: serde_json::Value) -> &mut Self {
         self.raw.insert(category.to_string(), items);
         self
     }
 
-    fn flags(&self) -> ContributionFlags {
-        let mut f = ContributionFlags::default();
+    /// The contribution flags the handshake carries: derived from the
+    /// declaration's content, plus each raw category served (a raw
+    /// `entities` contributes entities exactly as much as the builders do)
+    /// and the flags only a raw category can raise (`providers`, the
+    /// reserved ones).
+    fn flags(&self, declaration: &ExtensionDeclaration) -> ContributionFlags {
         let has = |cat: &str| self.raw.get(cat).is_some_and(|v| !v.is_null());
-        // Raw categories count toward their flags too — an extension serving
-        // `entities` via raw_category contributes entities exactly as much as
-        // one that used the typed builders (formal's migration proved this
-        // gap: its describes are static data, not builder calls).
-        f.entities = has("entities")
-            || has("edges")
-            || has("fields")
-            || has("shared_fields")
-            || has("enhancements")
-            || !self.entity_kinds.is_empty()
-            || !self.edge_types.is_empty()
-            || !self.fields.is_empty()
-            || !self.shared_fields.is_empty()
-            || !self.enhancements.is_empty();
-        f.validators = has("validation_rules") || !self.validation_rules.is_empty();
-        f.renderers = has("renderers");
-        f.prompts = has("prompts");
-        f.parsers = has("parsers");
-        f.grammars = has("grammars");
-        f.body_parsers = has("body_parsers");
-        f.analyzers = has("analyzers");
-        f.collectors = has("collectors") || !self.collectors.is_empty();
-        f.providers = has("providers");
-        f
+        let derived = declaration.contribution_flags();
+        ContributionFlags {
+            entities: derived.entities
+                || [
+                    "entities",
+                    "edges",
+                    "fields",
+                    "shared_fields",
+                    "enhancements",
+                ]
+                .iter()
+                .any(|cat| has(cat)),
+            validators: derived.validators || has("validation_rules"),
+            renderers: has("renderers"),
+            providers: has("providers"),
+            collectors: derived.collectors || has("collectors"),
+            prompts: has("prompts"),
+            parsers: has("parsers"),
+            grammars: has("grammars"),
+            body_parsers: has("body_parsers"),
+            analyzers: derived.analyzers || has("analyzers"),
+        }
     }
 
-    fn handshake_response(&self) -> HandshakeResponse {
-        HandshakeResponse {
+    /// Everything this extension declares, as the guest serves it and the
+    /// host loads it: the handshake (from [`ExtensionMeta`], flags derived),
+    /// every category the builders contributed, the declared surfaces, and
+    /// each raw category in place of its builders'.
+    ///
+    /// # Panics
+    ///
+    /// When a raw category's items do not parse as its descriptors, naming
+    /// the category: a build-time error of the extension.
+    pub fn declaration(&self) -> ExtensionDeclaration {
+        let mut declaration = self.decl.clone();
+        declaration.surfaces = self.surfaces.descriptor();
+        for (category, items) in &self.raw {
+            if DECLARED_CATEGORIES.contains(&category.as_str()) {
+                apply_raw(&mut declaration, category, items);
+            }
+        }
+        declaration.handshake = HandshakeResponse {
             protocol_version: specforge_protocol_types::PROTOCOL_VERSION.to_string(),
             name: self.meta.name.clone(),
             version: self.meta.version.clone(),
-            contribution_flags: self.flags(),
+            contribution_flags: ContributionFlags::default(),
             peer_dependencies: self.meta.peer_dependencies.clone(),
             sandbox_policy: self.meta.sandbox_policy.clone(),
             starter_template: self.meta.starter_template.clone(),
-            theme_color: self.meta.theme_color.clone(),
             migration_hook: self.meta.migration_hook.clone(),
-        }
+            theme_color: self.meta.theme_color.clone(),
+            ext_short: self.meta.short.clone(),
+            description: self.meta.description.clone(),
+            keywords: self.meta.keywords.clone(),
+        };
+        declaration.handshake.contribution_flags = self.flags(&declaration);
+        declaration
     }
 
     /// The `__handshake` wire payload (pretty JSON, matching the format of the
     /// existing builtin extensions).
     pub fn handshake_json(&self) -> String {
-        serde_json::to_string_pretty(&self.handshake_response())
-            .expect("handshake serialization cannot fail")
+        self.declaration().handshake_json()
     }
 
     /// The `__describe` wire payload for `category`, or `None` when the
-    /// category is not one of the protocol's supported categories.
+    /// category is not one of the protocol's supported categories: a raw
+    /// category as given, else the declaration's items (`fields` derived
+    /// from the kinds, the reserved categories empty).
     pub fn describe_response_json(&self, category: &str) -> Option<String> {
-        use specforge_protocol_types::SUPPORTED_CATEGORIES;
         if !SUPPORTED_CATEGORIES.contains(&category) {
             return None;
         }
-        let items = if let Some(raw) = self.raw.get(category) {
-            raw.clone()
-        } else {
-            match category {
-                "entities" => serde_json::to_value(&self.entity_kinds).ok()?,
-                "edges" => serde_json::to_value(&self.edge_types).ok()?,
-                "fields" => serde_json::to_value(&self.fields).ok()?,
-                "shared_fields" => serde_json::to_value(&self.shared_fields).ok()?,
-                "enhancements" => serde_json::to_value(&self.enhancements).ok()?,
-                "validation_rules" => serde_json::to_value(&self.validation_rules).ok()?,
-                "passes" => serde_json::to_value(&self.passes).ok()?,
-                "collectors" => serde_json::to_value(&self.collectors).ok()?,
-                "feature_flags" => serde_json::to_value(&self.feature_flags).ok()?,
-                "surfaces" => self.surfaces.describe_items(),
-                _ => serde_json::Value::Array(vec![]),
-            }
-        };
-        let resp = DescribeResponse {
-            category: category.to_string(),
-            items,
-        };
-        Some(serde_json::to_string_pretty(&resp).expect("describe serialization cannot fail"))
+        let declaration = self.declaration();
+        match self.raw.get(category) {
+            Some(raw) => Some(
+                DescribeResponse {
+                    category: category.to_string(),
+                    items: raw.clone(),
+                }
+                .wire_json(),
+            ),
+            None => declaration.describe_json(category),
+        }
     }
 
     /// Full dispatch for the generated `__describe` export: parses the host's
@@ -358,6 +510,33 @@ impl ContributionsBuilder {
             Some(body) => Ok(body.into_bytes()),
             None => Err(format!("unsupported category: {}", request.category)),
         }
+    }
+}
+
+/// Put a raw category's items in `declaration`, in place of the builders'.
+fn apply_raw(declaration: &mut ExtensionDeclaration, category: &str, items: &serde_json::Value) {
+    fn parse<T: serde::de::DeserializeOwned>(category: &str, items: &serde_json::Value) -> Vec<T> {
+        <Vec<T> as serde::Deserialize>::deserialize(items).unwrap_or_else(|e| {
+            panic!("raw category '{category}' does not parse as its descriptors: {e}")
+        })
+    }
+    match category {
+        "entities" => declaration.entities = parse(category, items),
+        "edges" => declaration.edges = parse(category, items),
+        "shared_fields" => declaration.shared_fields = parse(category, items),
+        "enhancements" => declaration.enhancements = parse(category, items),
+        "validation_rules" => declaration.validation_rules = parse(category, items),
+        "surfaces" => {
+            declaration.surfaces = parse(category, items)
+                .into_iter()
+                .next()
+                .unwrap_or_default()
+        }
+        "collectors" => declaration.collectors = parse(category, items),
+        "analyzers" => declaration.analyzers = parse(category, items),
+        "passes" => declaration.passes = parse(category, items),
+        "feature_flags" => declaration.feature_flags = parse(category, items),
+        _ => {}
     }
 }
 
@@ -396,6 +575,13 @@ impl KindBuilder {
     }
     pub fn open_fields(&mut self, o: bool) -> &mut Self {
         self.0.open_fields = o;
+        self
+    }
+    /// The kind's body carries syntax the extension parses, not the core
+    /// grammar: the host does not report the core grammar's parse errors
+    /// inside its entities.
+    pub fn has_body_parser(&mut self) -> &mut Self {
+        self.0.has_body_parser = true;
         self
     }
     /// Reference fields that target this kind are contract obligations of
@@ -513,6 +699,13 @@ impl FieldBuilder {
         self.0.default_value = Some(v.to_string());
         self
     }
+    /// The host fills this reference field's edges from type names the
+    /// entity writes elsewhere: `"type_expressions"` (its field types) or
+    /// `"method_signatures"` (its method parameter and return types).
+    pub fn derived_from(&mut self, source: &str) -> &mut Self {
+        self.0.derived_from = Some(source.to_string());
+        self
+    }
     pub fn file_reference(&mut self) -> &mut Self {
         self.0.file_reference = true;
         self
@@ -594,54 +787,73 @@ impl EnhancementBuilder {
     }
 }
 
-/// Builder for [`ValidationRuleDescriptor`].
-pub struct RuleBuilder(ValidationRuleDescriptor);
+/// Builder for [`ValidationRuleDescriptor`], with a `custom` rule's
+/// handler.
+pub struct RuleBuilder {
+    descriptor: ValidationRuleDescriptor,
+    validate: Option<operations::Wire>,
+}
 impl RuleBuilder {
     fn new(code: &str) -> Self {
-        Self(ValidationRuleDescriptor {
-            code: code.to_string(),
-            severity: ValidationSeverity::Warning,
-            message_template: String::new(),
-            check: String::new(),
-            target_kind: None,
-            edge_type: None,
-            field: None,
-            constraint: None,
-            wasm_function: None,
-        })
+        Self {
+            descriptor: ValidationRuleDescriptor {
+                code: code.to_string(),
+                severity: ValidationSeverity::Warning,
+                message_template: String::new(),
+                check: String::new(),
+                target_kind: None,
+                edge_type: None,
+                field: None,
+                constraint: None,
+                wasm_function: None,
+            },
+            validate: None,
+        }
+    }
+    /// Decide a `custom` rule: `handler` receives one entity's
+    /// [`ValidatorContext`] and answers its [`ValidatorVerdict`].
+    pub fn validate(
+        &mut self,
+        handler: impl Fn(&ValidatorContext) -> ValidatorVerdict + 'static,
+    ) -> &mut Self {
+        self.validate = Some(operations::wire(
+            "validator",
+            move |context: &ValidatorContext| Ok::<_, String>(handler(context)),
+        ));
+        self
     }
     pub fn check(&mut self, kind: CheckKind) -> &mut Self {
-        self.0.check = kind.as_str().to_string();
+        self.descriptor.check = kind.as_str().to_string();
         self
     }
     pub fn target_kind(&mut self, k: &str) -> &mut Self {
-        self.0.target_kind = Some(k.to_string());
+        self.descriptor.target_kind = Some(k.to_string());
         self
     }
     pub fn edge_type(&mut self, e: &str) -> &mut Self {
-        self.0.edge_type = Some(e.to_string());
+        self.descriptor.edge_type = Some(e.to_string());
         self
     }
     pub fn field(&mut self, f: &str) -> &mut Self {
-        self.0.field = Some(f.to_string());
+        self.descriptor.field = Some(f.to_string());
         self
     }
     pub fn severity(&mut self, s: ValidationSeverity) -> &mut Self {
-        self.0.severity = s;
+        self.descriptor.severity = s;
         self
     }
     pub fn message_template(&mut self, m: &str) -> &mut Self {
-        self.0.message_template = m.to_string();
+        self.descriptor.message_template = m.to_string();
         self
     }
     pub fn wasm_function(&mut self, f: &str) -> &mut Self {
-        self.0.wasm_function = Some(f.to_string());
+        self.descriptor.wasm_function = Some(f.to_string());
         self
     }
     pub fn constraint(&mut self, f: impl FnOnce(&mut FieldConstraintBuilder)) -> &mut Self {
         let mut b = FieldConstraintBuilder::default();
         f(&mut b);
-        self.0.constraint = Some(b.0);
+        self.descriptor.constraint = Some(b.0);
         self
     }
 }
@@ -672,23 +884,41 @@ impl FieldConstraintBuilder {
     }
 }
 
-/// Builder for [`CompilerPassDescriptor`].
-pub struct PassBuilder(CompilerPassDescriptor);
+/// Builder for [`CompilerPassDescriptor`], with the pass's handler.
+pub struct PassBuilder {
+    descriptor: CompilerPassDescriptor,
+    run: Option<operations::Wire>,
+}
 impl PassBuilder {
     fn new(name: &str) -> Self {
-        Self(CompilerPassDescriptor {
-            name: name.to_string(),
-            after: None,
-            before: None,
-            phase: None,
-        })
+        Self {
+            descriptor: CompilerPassDescriptor {
+                name: name.to_string(),
+                after: None,
+                before: None,
+                phase: None,
+            },
+            run: None,
+        }
+    }
+    /// What the pass does: `handler` receives the [`PassInput`] snapshot
+    /// and answers its diagnostics, bare (`Vec<PassDiagnostic>`) or with a
+    /// summary ([`PassOutput`]).
+    pub fn run<R: Into<PassAnswer>>(
+        &mut self,
+        handler: impl Fn(&PassInput) -> R + 'static,
+    ) -> &mut Self {
+        self.run = Some(operations::wire("pass", move |input: &PassInput| {
+            Ok::<PassAnswer, String>(handler(input).into())
+        }));
+        self
     }
     pub fn after(&mut self, p: &str) -> &mut Self {
-        self.0.after = Some(p.to_string());
+        self.descriptor.after = Some(p.to_string());
         self
     }
     pub fn before(&mut self, p: &str) -> &mut Self {
-        self.0.before = Some(p.to_string());
+        self.descriptor.before = Some(p.to_string());
         self
     }
     /// The phase the pass runs in. `"check"` runs it with every compile
@@ -696,36 +926,111 @@ impl PassBuilder {
     /// its diagnostics joining the compile's; any other phase, or none,
     /// runs it only under `specforge analyze`.
     pub fn phase(&mut self, p: &str) -> &mut Self {
-        self.0.phase = Some(p.to_string());
+        self.descriptor.phase = Some(p.to_string());
         self
     }
 }
 
-/// Builder for [`CollectorDescriptor`].
-pub struct CollectorBuilder(CollectorDescriptor);
+/// Builder for [`AnalyzerDescriptor`], with its scanner.
+pub struct AnalyzerBuilder {
+    descriptor: AnalyzerDescriptor,
+    scan: Option<operations::Wire>,
+}
+impl AnalyzerBuilder {
+    fn new(language: &str) -> Self {
+        Self {
+            descriptor: AnalyzerDescriptor {
+                language: language.to_string(),
+                file_extensions: Vec::new(),
+                excluded_dirs: Vec::new(),
+                scan_export: format!("scan__{language}"),
+                classify_export: format!("classify__{language}"),
+                map_export: format!("map__{language}"),
+                description: None,
+            },
+            scan: None,
+        }
+    }
+    /// The scanner: `handler` receives one source file ([`ScanRequest`])
+    /// and answers the public items it found ([`ScanResponse`]).
+    pub fn scan(&mut self, handler: impl Fn(&ScanRequest) -> ScanResponse + 'static) -> &mut Self {
+        self.scan = Some(operations::wire("scan", move |request: &ScanRequest| {
+            Ok::<_, String>(handler(request))
+        }));
+        self
+    }
+    /// The file extensions it scans, with their dot (`.rs`).
+    pub fn file_extensions(&mut self, extensions: &[&str]) -> &mut Self {
+        self.descriptor.file_extensions = extensions.iter().map(|e| e.to_string()).collect();
+        self
+    }
+    /// Directories it never scans (`target`, `node_modules`).
+    pub fn excluded_dirs(&mut self, dirs: &[&str]) -> &mut Self {
+        self.descriptor.excluded_dirs = dirs.iter().map(|d| d.to_string()).collect();
+        self
+    }
+    pub fn scan_export(&mut self, export: &str) -> &mut Self {
+        self.descriptor.scan_export = export.to_string();
+        self
+    }
+    pub fn classify_export(&mut self, export: &str) -> &mut Self {
+        self.descriptor.classify_export = export.to_string();
+        self
+    }
+    pub fn map_export(&mut self, export: &str) -> &mut Self {
+        self.descriptor.map_export = export.to_string();
+        self
+    }
+    pub fn description(&mut self, d: &str) -> &mut Self {
+        self.descriptor.description = Some(d.to_string());
+        self
+    }
+}
+
+/// Builder for [`CollectorDescriptor`], with the collector's handler.
+pub struct CollectorBuilder {
+    descriptor: CollectorDescriptor,
+    collect: Option<operations::Wire>,
+}
 impl CollectorBuilder {
     fn new(name: &str) -> Self {
-        Self(CollectorDescriptor {
-            name: name.to_string(),
-            input_formats: Vec::new(),
-            export: format!("collect__{}", name.replace('-', "_")),
-            auto_detect: None,
-            run: Vec::new(),
-            report: None,
-            capture: None,
-        })
+        Self {
+            descriptor: CollectorDescriptor {
+                name: name.to_string(),
+                input_formats: Vec::new(),
+                export: format!("collect__{}", name.replace('-', "_")),
+                auto_detect: None,
+                run: Vec::new(),
+                report: None,
+                capture: None,
+            },
+            collect: None,
+        }
+    }
+    /// What the collector does: `handler` receives the report files
+    /// ([`CollectInput`]) and answers the results ([`CollectOutput`]), or
+    /// why it could not read them.
+    pub fn collect(
+        &mut self,
+        handler: impl Fn(&CollectInput) -> Result<CollectOutput, String> + 'static,
+    ) -> &mut Self {
+        self.collect = Some(operations::wire("collect", handler));
+        self
     }
     /// A report format the collector reads (informational).
     pub fn input_format(&mut self, format: &str) -> &mut Self {
-        self.0.input_formats.push(format.to_string());
+        self.descriptor.input_formats.push(format.to_string());
         self
     }
     /// Project-root files whose presence selects this collector.
     pub fn detect_files(&mut self, patterns: &[&str]) -> &mut Self {
-        let detect = self.0.auto_detect.get_or_insert_with(|| AutoDetectConfig {
-            file_patterns: Vec::new(),
-            env_vars: Vec::new(),
-        });
+        let detect = self
+            .descriptor
+            .auto_detect
+            .get_or_insert_with(|| AutoDetectConfig {
+                file_patterns: Vec::new(),
+                env_vars: Vec::new(),
+            });
         detect
             .file_patterns
             .extend(patterns.iter().map(|p| p.to_string()));
@@ -734,19 +1039,19 @@ impl CollectorBuilder {
     /// The command the host runs, with consent. `{report}` in any argument
     /// expands to the absolute report path.
     pub fn run(&mut self, argv: &[&str]) -> &mut Self {
-        self.0.run = argv.iter().map(|a| a.to_string()).collect();
+        self.descriptor.run = argv.iter().map(|a| a.to_string()).collect();
         self
     }
     /// Report file or directory the runner writes, relative to the project
     /// root. A directory is read as every `*.json` file directly inside it.
     pub fn report(&mut self, path: &str) -> &mut Self {
-        self.0.report = Some(path.to_string());
+        self.descriptor.report = Some(path.to_string());
         self
     }
     /// Keep the command's standard output and pass it to the export as
     /// `CollectInput::stdout`, for runners whose results only appear there.
     pub fn capture_stdout(&mut self) -> &mut Self {
-        self.0.capture = Some("stdout".to_string());
+        self.descriptor.capture = Some("stdout".to_string());
         self
     }
 }
@@ -756,8 +1061,61 @@ pub fn handshake_json(b: &ContributionsBuilder) -> String {
     b.handshake_json()
 }
 
+/// The `handler` of a [`component_guest!`]: the answer to an export no
+/// declaration answers, `None` for a name it does not implement.
+pub type ExportHandler = fn(&str, &[u8]) -> Option<Result<Vec<u8>, String>>;
+
+/// A guest's answer to the host's `call(name, export, input)`: the body of
+/// [`component_guest!`]'s `call`, as a function, so an in-process host
+/// (`specforge_wasm::testing::InProcessRuntime`) routes an extension
+/// exactly as its component does.
+///
+/// - `__handshake` and `__describe` are served from `build`'s declaration;
+/// - a declared surface's export is answered by its declared handler
+///   ([`ContributionsBuilder::dispatch_export`]);
+/// - any other export goes to `handler`, which returns `None` for names it
+///   does not implement: the answer is then the error
+///   `unknown export '<name>'`, exactly like a missing export.
+pub fn guest_call(
+    build: &ContributionsBuilder,
+    handler: ExportHandler,
+    export: &str,
+    input: &[u8],
+) -> Result<Vec<u8>, String> {
+    match export {
+        "__handshake" => Ok(build.handshake_json().into_bytes()),
+        "__describe" => build.describe_dispatch(input),
+        other => match build.dispatch_export(other, input) {
+            Some(result) => result,
+            None => match handler(other, input) {
+                Some(result) => result,
+                None => Err(format!("unknown export '{other}'")),
+            },
+        },
+    }
+}
+
+/// The answer of an export the guest's `handler` serves (one no builder
+/// declares with its handler: an analyzer's `classify__`/`map__`, or an
+/// export of a category given with [`ContributionsBuilder::raw_category`]):
+/// `input` decoded as `I`, `handler`'s answer encoded. An input that is not
+/// an `I` is the guest's error, naming the export.
+pub fn answer_export<I, O>(
+    export: &str,
+    input: &[u8],
+    handler: impl FnOnce(&I) -> O,
+) -> Result<Vec<u8>, String>
+where
+    I: serde::de::DeserializeOwned,
+    O: serde::Serialize,
+{
+    let input: I =
+        serde_json::from_slice(input).map_err(|e| format!("invalid {export} input: {e}"))?;
+    serde_json::to_vec(&handler(&input)).map_err(|e| format!("{export} answer did not encode: {e}"))
+}
+
 /// The `handler` of a [`component_guest!`] that names none: no export
-/// beyond the protocol's and the declared surfaces'.
+/// beyond the protocol's and the declared surfaces' and operations'.
 pub fn no_other_exports(_export: &str, _input: &[u8]) -> Option<Result<Vec<u8>, String>> {
     None
 }
@@ -772,16 +1130,17 @@ pub use specforge_extension_sdk_macros::compiler_pass;
 
 pub mod prelude {
     pub use crate::{
+        AnalyzerBuilder, CheckKind, ConstraintKind, Contributions, ContributionsBuilder,
+        EdgeBuilder, EnhancementBuilder, ExtensionMeta, FieldBuilder, FieldConstraintBuilder,
+        FieldType, KindBuilder, MigrationInput, PassAnswer, PassBuildCache, PassBuilder,
+        PassCachedStatus, PassDiagnostic, PassEdge, PassEntity, PassEntityResults, PassInput,
+        PassOutput, PassSeverity, PassSpan, PassTestResult, PassTestResults, RuleBuilder,
+        ScanRequest, ScanResponse, ScannedItem,
+    };
+    pub use crate::{
         ArgBuilder, CommandBuilder, CommandCall, CommandError, CommandFormat, CommandGraph,
         CommandInput, CommandOutput, GraphEdge, GraphNode, McpResourceBuilder, McpToolBuilder,
         SandboxBuilder,
-    };
-    pub use crate::{
-        CheckKind, ConstraintKind, Contributions, ContributionsBuilder, EdgeBuilder,
-        EnhancementBuilder, ExtensionMeta, FieldBuilder, FieldConstraintBuilder, FieldType,
-        KindBuilder, PassBuildCache, PassBuilder, PassCachedStatus, PassDiagnostic, PassEdge,
-        PassEntity, PassEntityResults, PassInput, PassOutput, PassSeverity, PassSpan,
-        PassTestResult, PassTestResults, RuleBuilder,
     };
     pub use crate::{
         CollectEntityResult, CollectInput, CollectOutput, CollectReportFile, CollectTestResult,
@@ -804,7 +1163,15 @@ mod raw_category_flag_tests {
     fn raw_categories_raise_their_flags() {
         let mut b = ContributionsBuilder::new(ExtensionMeta::new("@acme/formal", "1.0.0"));
         b.raw_category("entities", serde_json::json!([{ "name": "Property" }]));
-        b.raw_category("validation_rules", serde_json::json!([{ "code": "F100" }]));
+        b.raw_category(
+            "validation_rules",
+            serde_json::json!([{
+                "code": "F100",
+                "severity": "warning",
+                "message_template": "m",
+                "check": "custom"
+            }]),
+        );
 
         let handshake = b.handshake_json();
         let value: serde_json::Value = serde_json::from_str(&handshake).unwrap();
@@ -825,10 +1192,10 @@ mod raw_category_flag_tests {
     #[test]
     fn a_collector_can_capture_stdout() {
         let mut k = CollectorBuilder::new("cargo-test");
-        let plain = serde_json::to_value(&k.0).unwrap();
+        let plain = serde_json::to_value(&k.descriptor).unwrap();
         assert!(plain.get("capture").is_none());
         k.capture_stdout();
-        let captured = serde_json::to_value(&k.0).unwrap();
+        let captured = serde_json::to_value(&k.descriptor).unwrap();
         assert_eq!(captured["capture"], serde_json::json!("stdout"));
     }
 
@@ -852,184 +1219,28 @@ mod raw_category_flag_tests {
         let without: serde_json::Value = serde_json::from_str(&b.handshake_json()).unwrap();
         assert!(without.get("migration_hook").is_none(), "{without}");
 
-        b.migration_hook("migrate_acme");
+        b.migration_hook_handler("migrate_acme", |_| Ok(()));
         let with: serde_json::Value = serde_json::from_str(&b.handshake_json()).unwrap();
         assert_eq!(with["migration_hook"], serde_json::json!("migrate_acme"));
     }
 }
 
-// ── Compiler pass ABI (v1) ─────────────────────────────────────────────────
-// A compiler pass is a `__pass_<name>` wasm export that receives a snapshot
-// of the compiled project's entities and returns host Diagnostics. The
-// `#[compiler_pass]` attribute (specforge-extension-sdk-macros) wraps a
-// plain function with that export; these types are its parameter and return
-// vocabulary.
-
-/// One entity in the snapshot handed to a compiler pass. Mirrors the host's
-/// `ValidationEntity` (id, kind, stringified fields, edge counts).
-#[derive(Debug, Clone, Default, serde::Deserialize)]
-pub struct PassEntity {
-    pub id: String,
-    pub kind: String,
-    #[serde(default)]
-    pub fields: std::collections::BTreeMap<String, String>,
-    #[serde(default)]
-    pub incoming_edge_count: usize,
-    #[serde(default)]
-    pub outgoing_edge_count: usize,
-    #[serde(default)]
-    pub span: Option<PassSpan>,
-    /// Whether the entity's kind is testable (its kind registry entry's
-    /// `testable` flag), so coverage counts it.
-    #[serde(default)]
-    pub testable: bool,
-    /// One entry per `verify` statement, in order: its kind, or `""` for a
-    /// bare `verify "..."`. Empty when the entity declares no obligations.
-    #[serde(default)]
-    pub verify_kinds: Vec<String>,
-    /// The obligations' texts, parallel to `verify_kinds`.
-    #[serde(default)]
-    pub verify_texts: Vec<String>,
-}
-
-/// One resolved reference in the snapshot (label = edge label, e.g.
-/// "produces", "consumes", "BehaviorRequiresInvariant").
-#[derive(Debug, Clone, serde::Deserialize)]
-pub struct PassEdge {
-    pub source: String,
-    pub target: String,
-    pub label: String,
-}
-
-/// The `__pass_<name>` export input.
-#[derive(Debug, Clone, Default, serde::Deserialize)]
-pub struct PassInput {
-    pub entities: Vec<PassEntity>,
-    /// Resolved references between snapshot entities. Serde default keeps
-    /// passes written against the entities-only ABI compatible.
-    #[serde(default)]
-    pub edges: Vec<PassEdge>,
-    /// Recorded test results (the normalized `specforge-report.json`), when
-    /// the host has them.
-    #[serde(default)]
-    pub test_results: Option<PassTestResults>,
-    /// Entity ids whose formal claims the prove pass entailed; `None` when
-    /// the prove pass did not run.
-    #[serde(default)]
-    pub proved_claims: Option<Vec<String>>,
-    /// The build cache (`specforge-cache.json`, written by `specforge check
-    /// --cache`): the statuses of the build that wrote it. Check-phase
-    /// passes only; `None` without the file (a first build), when it is
-    /// invalid (the host warns W144), and for analyze passes.
-    #[serde(default)]
-    pub previous: Option<PassBuildCache>,
-}
-
-/// The previous build's statuses, handed to check-phase passes.
-#[derive(Debug, Clone, Default, serde::Deserialize)]
-pub struct PassBuildCache {
-    /// Per entity id: its kind and status in that build. Entities without
-    /// a `status` field are absent.
-    #[serde(default)]
-    pub statuses: std::collections::BTreeMap<String, PassCachedStatus>,
-}
-
-/// One entity's kind and status in the previous build.
-#[derive(Debug, Clone, serde::Deserialize)]
-pub struct PassCachedStatus {
-    pub kind: String,
-    pub status: String,
-}
-
-/// Normalized test results handed to a pass: per entity id, the recorded tests.
-#[derive(Debug, Clone, Default, serde::Deserialize)]
-pub struct PassTestResults {
-    #[serde(default)]
-    pub runner: Option<String>,
-    #[serde(default)]
-    pub results: std::collections::BTreeMap<String, PassEntityResults>,
-}
-
-/// The tests recorded for one entity.
-#[derive(Debug, Clone, Default, serde::Deserialize)]
-pub struct PassEntityResults {
-    #[serde(default)]
-    pub tests: Vec<PassTestResult>,
-}
-
-/// One recorded test. `status` is `"pass"` for a passing test.
-#[derive(Debug, Clone, serde::Deserialize)]
-pub struct PassTestResult {
-    #[serde(default)]
-    pub name: Option<String>,
-    pub status: String,
-    /// The obligation the test proves, when it names one.
-    #[serde(default)]
-    pub verify: Option<String>,
-}
-
-/// What the host passes to a `collect__<name>` export: the runner's report
-/// files, read from the declared report location, and the command's
-/// standard output when the collector captures it.
-#[derive(Debug, Clone, Default, serde::Deserialize, serde::Serialize)]
-pub struct CollectInput {
-    #[serde(default)]
-    pub reports: Vec<CollectReportFile>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub stdout: Option<String>,
-}
-
-/// One report file: its path relative to the project root, and its text.
-#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
-pub struct CollectReportFile {
-    pub path: String,
-    pub content: String,
-}
-
-/// What a `collect__<name>` export returns: test results grouped by the
-/// entity each test proves, and the tests the report doesn't link to any
-/// entity, which the host links by naming convention when it can.
-#[derive(Debug, Clone, Default, serde::Deserialize, serde::Serialize)]
-pub struct CollectOutput {
-    pub entity_results: Vec<CollectEntityResult>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub unlinked: Vec<CollectUnlinkedTest>,
-}
-
-/// A test the report doesn't link to an entity: its name, the name split
-/// into its path segments (`["tests", "add_item", "rejects_a_duplicate"]`,
-/// the test's own name last), and `passed`, `failed` or `skipped`.
-#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
-pub struct CollectUnlinkedTest {
-    pub name: String,
-    pub path: Vec<String>,
-    pub status: String,
-}
-
-#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
-pub struct CollectEntityResult {
-    pub entity_id: String,
-    pub test_results: Vec<CollectTestResult>,
-}
-
-/// One test. `status` is `passed`, `failed` or `skipped`; `verify` names
-/// the obligation the test proves, when the test says so.
-#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
-pub struct CollectTestResult {
-    pub name: String,
-    pub status: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub verify: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub duration_ms: Option<f64>,
-}
-
-// ── Surface command ABI (v1) ───────────────────────────────────────────────
+// ── Operational payloads ───────────────────────────────────────────────────
+// What the host sends each export it calls and what the export answers are
+// the protocol's types (`specforge_protocol_types::calls`, ADR 0013), the
+// same definitions the host decodes and encodes, re-exported here under the
+// names extension authors use.
+//
+// A compiler pass is a `__pass_<name>` export that receives a snapshot of
+// the compiled project's entities ([`PassInput`]) and answers diagnostics,
+// bare or with a summary ([`PassAnswer`]). A collector is a
+// `collect__<name>` export ([`CollectInput`] in, [`CollectOutput`] out).
+//
 // A CLI command an extension contributes ([`ContributionsBuilder::command`],
-// declared with its handler; see [`surface`]) is a `cmd__<name>` export. The host
-// parses the command line against the command's declared args, compiles the
-// project and calls the export with a [`CommandInput`]: the args, the
-// project root, the compiled graph in the graph export's shape
+// declared with its handler; see [`surface`]) is a `cmd__<name>` export. The
+// host parses the command line against the command's declared args,
+// compiles the project and calls the export with a [`CommandInput`]: the
+// args, the project root, the compiled graph in the graph export's shape
 // (`specforge export --format graph` without the schema), the format the
 // caller asked for and the host's date. The export answers with a
 // [`CommandOutput`]. The same export serves the MCP tool the command is
@@ -1043,45 +1254,18 @@ pub struct CollectTestResult {
 // one [`CommandError`] to stderr and nothing to stdout
 // ([`CommandOutput::error`]).
 
-/// The output a command is asked for: `human` (the CLI default) or `json`
-/// (always, over MCP).
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
-#[serde(rename_all = "lowercase")]
-pub enum CommandFormat {
-    #[default]
-    Human,
-    Json,
-}
+pub use specforge_protocol_types::{
+    CollectEntityResult, CollectInput, CollectOutput, CollectReportFile, CollectTestResult,
+    CollectUnlinkedTest, CommandError, CommandFormat, CommandOutput, GraphEdge, GraphNode,
+    GraphWire, McpResourceContent, McpResourceRequest, MigrationInput, PassAnswer, PassBuildCache,
+    PassCachedStatus, PassDiagnostic, PassEdge, PassEntity, PassEntityResults, PassInput,
+    PassOutput, PassSeverity, PassSpan, PassTestResult, PassTestResults, ScanRequest, ScanResponse,
+    ScannedItem,
+};
 
-/// What a `cmd__<name>` export receives.
-#[derive(Debug, Clone, Default, serde::Deserialize, serde::Serialize)]
-pub struct CommandInput {
-    /// The declared args the caller set, by name: strings (string, path and
-    /// enum args), integers and booleans. An arg the caller left out is
-    /// absent unless the host applied its declared default.
-    #[serde(default)]
-    pub args: serde_json::Map<String, serde_json::Value>,
-    /// The project root.
-    #[serde(default)]
-    pub cwd: String,
-    /// The compiled project's graph.
-    #[serde(default)]
-    pub graph: CommandGraph,
-    /// The format the caller asked for (the host's `--format`).
-    #[serde(default)]
-    pub format: CommandFormat,
-    /// The host's date when the command was called, UTC, `YYYY-MM-DD`;
-    /// empty when the host passed none.
-    #[serde(default)]
-    pub today: String,
-}
-
-impl CommandInput {
-    /// Whether the caller asked for `json`.
-    pub fn is_json(&self) -> bool {
-        self.format == CommandFormat::Json
-    }
-}
+/// What a `cmd__<name>` export receives, its graph indexed for lookups
+/// ([`CommandGraph`]).
+pub type CommandInput = specforge_protocol_types::CommandInput<CommandGraph>;
 
 /// The compiled graph a command reads: its entities sorted by id, its
 /// resolved references sorted by (source, target, label).
@@ -1093,14 +1277,6 @@ pub struct CommandGraph {
     by_id: std::collections::HashMap<String, usize>,
     from: std::collections::HashMap<String, Vec<usize>>,
     to: std::collections::HashMap<String, Vec<usize>>,
-}
-
-#[derive(serde::Serialize, serde::Deserialize)]
-struct GraphWire {
-    #[serde(default)]
-    nodes: Vec<GraphNode>,
-    #[serde(default)]
-    edges: Vec<GraphEdge>,
 }
 
 impl From<GraphWire> for CommandGraph {
@@ -1178,139 +1354,8 @@ impl CommandGraph {
     }
 }
 
-/// One entity of a [`CommandGraph`]: fields as the graph export writes them
-/// (text as strings, lists as arrays).
-#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
-pub struct GraphNode {
-    pub id: String,
-    pub kind: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub title: Option<String>,
-    #[serde(default)]
-    pub fields: std::collections::BTreeMap<String, serde_json::Value>,
-}
-
-impl GraphNode {
-    /// A text field's value (a string or an identifier); `None` when the
-    /// field is absent or holds a list, a number or a block.
-    pub fn text(&self, field: &str) -> Option<&str> {
-        self.fields.get(field).and_then(|v| v.as_str())
-    }
-
-    /// Whether the entity sets `field`, whatever its value.
-    pub fn has_field(&self, field: &str) -> bool {
-        self.fields.contains_key(field)
-    }
-
-    /// A list field's string items, in declaration order; empty when the
-    /// field is absent or not a list.
-    pub fn list(&self, field: &str) -> Vec<&str> {
-        self.fields
-            .get(field)
-            .and_then(|v| v.as_array())
-            .map(|items| items.iter().filter_map(|i| i.as_str()).collect())
-            .unwrap_or_default()
-    }
-}
-
-/// One resolved reference of a [`CommandGraph`]; `label` is the field it
-/// was declared in.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct GraphEdge {
-    pub source: String,
-    pub target: String,
-    pub label: String,
-}
-
-/// What a `cmd__<name>` export returns: the exit code the CLI exits with
-/// (nonzero fails the MCP call), and the text for stdout and stderr.
-#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub struct CommandOutput {
-    pub exit_code: i32,
-    #[serde(default)]
-    pub stdout: String,
-    #[serde(default)]
-    pub stderr: String,
-}
-
-impl CommandOutput {
-    /// Success, printing `stdout`.
-    pub fn ok(stdout: impl Into<String>) -> Self {
-        CommandOutput {
-            exit_code: 0,
-            stdout: stdout.into(),
-            stderr: String::new(),
-        }
-    }
-
-    /// Failure with exit code 1, printing `stderr`.
-    pub fn fail(stderr: impl Into<String>) -> Self {
-        CommandOutput {
-            exit_code: 1,
-            stdout: String::new(),
-            stderr: stderr.into(),
-        }
-    }
-
-    /// A command that cannot answer: `error` on stderr, nothing on stdout,
-    /// exit code `exit_code`. Under `json` the error object
-    /// (`{code, message, entity_id?, suggestion?}`); under `human` the line
-    /// `error: <message>`, then `did you mean '<id>'?` when there is a
-    /// suggestion.
-    pub fn error(format: CommandFormat, error: &CommandError, exit_code: i32) -> Self {
-        let stderr = match format {
-            CommandFormat::Json => {
-                let mut out =
-                    serde_json::to_string(error).expect("command error serialization cannot fail");
-                out.push('\n');
-                out
-            }
-            CommandFormat::Human => {
-                let mut out = format!("error: {}\n", error.message);
-                if let Some(suggestion) = &error.suggestion {
-                    out.push_str(&format!("did you mean '{suggestion}'?\n"));
-                }
-                out
-            }
-        };
-        CommandOutput {
-            exit_code,
-            stdout: String::new(),
-            stderr,
-        }
-    }
-
-    /// The wire bytes the export returns.
-    pub fn to_bytes(&self) -> Vec<u8> {
-        serde_json::to_vec(self).expect("command output serialization cannot fail")
-    }
-}
-
-/// Why a command could not answer, as it writes it under `json`: a code
-/// (`ENTITY_NOT_FOUND`, `INVALID_INPUT`, ...), a message, and the entity it
-/// was asked about and the nearest id of the same kind, when there are.
-#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub struct CommandError {
-    pub code: String,
-    pub message: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub entity_id: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub suggestion: Option<String>,
-}
-
-impl CommandError {
-    pub fn new(code: impl Into<String>, message: impl Into<String>) -> Self {
-        CommandError {
-            code: code.into(),
-            message: message.into(),
-            ..Default::default()
-        }
-    }
-}
-
 #[cfg(test)]
-mod command_abi_tests {
+mod command_graph_tests {
     use super::*;
 
     #[test]
@@ -1342,142 +1387,18 @@ mod command_abi_tests {
     }
 
     #[test]
-    fn a_command_input_carries_the_format_and_the_date() {
-        let bare: CommandInput = serde_json::from_value(serde_json::json!({})).unwrap();
-        assert_eq!(bare.format, CommandFormat::Human);
-        assert!(!bare.is_json());
-        assert_eq!(bare.today, "");
-        let input: CommandInput =
-            serde_json::from_value(serde_json::json!({"format": "json", "today": "2026-10-03"}))
-                .unwrap();
-        assert!(input.is_json());
-        assert_eq!(input.today, "2026-10-03");
-    }
-
-    #[test]
-    fn a_command_error_is_an_object_under_json_and_a_line_under_human() {
-        let error = CommandError {
-            entity_id: Some("m2".into()),
-            suggestion: Some("m1".into()),
-            ..CommandError::new("ENTITY_NOT_FOUND", "milestone 'm2' not found")
+    fn a_command_input_is_built_by_its_fields() {
+        // The alias of the protocol's generic input builds and defaults as
+        // the SDK's own struct did.
+        let input = CommandInput {
+            args: serde_json::Map::new(),
+            cwd: "/p".to_string(),
+            graph: CommandGraph::default(),
+            format: CommandFormat::Json,
+            today: String::new(),
         };
-        let json = CommandOutput::error(CommandFormat::Json, &error, 1);
-        assert_eq!((json.exit_code, json.stdout.as_str()), (1, ""));
-        assert_eq!(
-            serde_json::from_str::<serde_json::Value>(&json.stderr).unwrap(),
-            serde_json::json!({"code": "ENTITY_NOT_FOUND", "message": "milestone 'm2' not found",
-                "entity_id": "m2", "suggestion": "m1"})
-        );
-        let human = CommandOutput::error(CommandFormat::Human, &error, 1);
-        assert_eq!(
-            human.stderr,
-            "error: milestone 'm2' not found\ndid you mean 'm1'?\n"
-        );
-        let plain = CommandOutput::error(
-            CommandFormat::Human,
-            &CommandError::new("INVALID_INPUT", "bad"),
-            2,
-        );
-        assert_eq!(
-            (plain.exit_code, plain.stderr.as_str()),
-            (2, "error: bad\n")
-        );
-    }
-
-    #[test]
-    fn a_command_output_is_the_wire_shape_the_host_reads() {
-        let out: serde_json::Value =
-            serde_json::from_slice(&CommandOutput::fail("nope\n").to_bytes()).unwrap();
-        assert_eq!(
-            out,
-            serde_json::json!({"exit_code": 1, "stdout": "", "stderr": "nope\n"})
-        );
-    }
-}
-
-/// A pass result carrying a summary beside its diagnostics. A pass may return
-/// either this or a bare `Vec<PassDiagnostic>`; the host merges `summary`
-/// into the pass report.
-#[derive(Debug, Clone, serde::Serialize)]
-pub struct PassOutput {
-    pub diagnostics: Vec<PassDiagnostic>,
-    pub summary: serde_json::Value,
-}
-
-/// Severity mirror of the host diagnostic enum. Serializes to the same wire
-/// strings ("Error" / "Warning" / "Info").
-#[derive(Debug, Clone, Copy, serde::Serialize)]
-pub enum PassSeverity {
-    Error,
-    Warning,
-    Info,
-}
-
-/// Source location attached to a pass diagnostic. Field names mirror the
-/// host's `SourceSpan`.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct PassSpan {
-    pub file: String,
-    pub start_line: usize,
-    pub start_col: usize,
-    pub end_line: usize,
-    pub end_col: usize,
-}
-
-/// A diagnostic returned by a compiler pass. Serializes into the host's
-/// `Diagnostic` wire shape.
-#[derive(Debug, Clone, serde::Serialize)]
-pub struct PassDiagnostic {
-    pub code: String,
-    pub severity: PassSeverity,
-    pub message: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub span: Option<PassSpan>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub suggestion: Option<String>,
-    /// The id of the entity the diagnostic is about. With no span of its
-    /// own, the host attaches that entity's.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub entity: Option<String>,
-}
-
-impl PassDiagnostic {
-    /// A diagnostic with a code, severity, and message; attach a span or
-    /// suggestion with [`Self::with_span`] / [`Self::with_suggestion`].
-    pub fn new(
-        code: impl Into<String>,
-        severity: PassSeverity,
-        message: impl Into<String>,
-    ) -> Self {
-        Self {
-            code: code.into(),
-            severity,
-            message: message.into(),
-            span: None,
-            suggestion: None,
-            entity: None,
-        }
-    }
-
-    /// Convenience constructor for warnings (the common pass finding).
-    pub fn warning(code: impl Into<String>, message: impl Into<String>) -> Self {
-        Self::new(code, PassSeverity::Warning, message)
-    }
-
-    pub fn with_span(mut self, span: PassSpan) -> Self {
-        self.span = Some(span);
-        self
-    }
-
-    pub fn with_suggestion(mut self, suggestion: impl Into<String>) -> Self {
-        self.suggestion = Some(suggestion.into());
-        self
-    }
-
-    /// Name the entity the diagnostic is about (see [`Self::entity`]).
-    pub fn with_entity(mut self, id: impl Into<String>) -> Self {
-        self.entity = Some(id.into());
-        self
+        assert!(input.is_json());
+        assert!(!CommandInput::default().is_json());
     }
 }
 
@@ -1535,19 +1456,7 @@ world bridge {
                 export_name: String,
                 input: Vec<u8>,
             ) -> Result<Vec<u8>, String> {
-                let build = $build();
-                match export_name.as_str() {
-                    "__handshake" => Ok(::specforge_extension_sdk::handshake_json(&build)
-                        .into_bytes()),
-                    "__describe" => build.describe_dispatch(&input),
-                    other => match build.dispatch_export(other, &input) {
-                        Some(result) => result,
-                        None => match $handler(other, &input) {
-                            Some(result) => result,
-                            None => Err(format!("unknown export '{other}'")),
-                        },
-                    },
-                }
+                ::specforge_extension_sdk::guest_call(&$build(), $handler, &export_name, &input)
             }
         }
 

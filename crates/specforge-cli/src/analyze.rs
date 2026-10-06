@@ -39,7 +39,7 @@ pub fn run(
         min,
         prove: prove.then(ProveOptions::default),
     };
-    let outcome = match analyze(&ProjectView::of(&project), &runtime, &options) {
+    let outcome = match analyze(&ProjectView::of(&project), Some(&runtime), &options) {
         Ok(outcome) => outcome,
         // E045, with its code and what to do about it.
         Err(AnalyzeError::UnusableReport(e)) => {

@@ -74,7 +74,7 @@ port ProductRegistrationPort {
   method registerFieldDefinitions() -> Result<void, RegistrationError>
   method registerValidationRules() -> Result<void, RegistrationError>
   requires {
-    manifest_valid "ManifestV2 has been parsed and schema-validated"
+    manifest_valid "ExtensionDeclaration has been parsed and schema-validated"
   }
   ensures {
     nine_kinds   "KindRegistry contains exactly 9 product entity kinds"
@@ -86,8 +86,8 @@ port ProductRegistrationPort {
 port KindRegistryPort {
   direction outbound
   category  "spi/compiler-core"
-  method registerKind(kind: ManifestEntityKind) -> Result<void, RegistrationError>
-  method lookupKind(name: string) -> Result<ManifestEntityKind, ProductQueryError>
+  method registerKind(kind: EntityKindDescriptor) -> Result<void, RegistrationError>
+  method lookupKind(name: string) -> Result<EntityKindDescriptor, ProductQueryError>
   method hasKind(name: string) -> Result<boolean, never>
   verify unit "KindRegistryPort"
 }
@@ -95,16 +95,16 @@ port KindRegistryPort {
 port FieldRegistryPort {
   direction outbound
   category  "spi/compiler-core"
-  method registerField(kindName: string, field: ManifestField) -> Result<void, RegistrationError>
-  method lookupFields(kindName: string) -> Result<ManifestField[], ProductQueryError>
+  method registerField(kindName: string, field: FieldDescriptor) -> Result<void, RegistrationError>
+  method lookupFields(kindName: string) -> Result<FieldDescriptor[], ProductQueryError>
   verify unit "FieldRegistryPort"
 }
 
 port EdgeTypeRegistryPort {
   direction outbound
   category  "spi/compiler-core"
-  method registerEdgeType(edge: ManifestEdgeType) -> Result<void, RegistrationError>
-  method lookupEdgesForKind(kindName: string) -> Result<ManifestEdgeType[], ProductQueryError>
+  method registerEdgeType(edge: EdgeTypeDescriptor) -> Result<void, RegistrationError>
+  method lookupEdgesForKind(kindName: string) -> Result<EdgeTypeDescriptor[], ProductQueryError>
   verify unit "EdgeTypeRegistryPort"
 }
 

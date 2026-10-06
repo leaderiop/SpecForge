@@ -1,29 +1,29 @@
 use specforge_common::{Diagnostic, Severity};
-use specforge_registry::ManifestV2;
+use specforge_protocol_types::ExtensionDeclaration;
 
 /// Sort extensions in topological order based on peer dependencies.
 /// Extensions with no dependencies come first.
 /// Ties are broken by extension name for determinism.
 pub fn topological_sort_extensions(
-    manifests: &[ManifestV2],
+    declarations: &[ExtensionDeclaration],
 ) -> Result<Vec<String>, Vec<Diagnostic>> {
     use std::collections::{BTreeSet, HashMap};
 
     // Build adjacency: name -> set of dependencies (peers that are also installed)
     let installed: std::collections::HashSet<&str> =
-        manifests.iter().map(|m| m.name.as_str()).collect();
+        declarations.iter().map(|d| d.name()).collect();
     let mut in_degree: HashMap<&str, usize> = HashMap::new();
     let mut dependents: HashMap<&str, Vec<&str>> = HashMap::new();
 
-    for m in manifests {
-        in_degree.entry(m.name.as_str()).or_insert(0);
-        for peer in &m.peer_dependencies {
+    for d in declarations {
+        in_degree.entry(d.name()).or_insert(0);
+        for peer in d.peers() {
             if installed.contains(peer.name.as_str()) {
-                *in_degree.entry(m.name.as_str()).or_insert(0) += 1;
+                *in_degree.entry(d.name()).or_insert(0) += 1;
                 dependents
                     .entry(peer.name.as_str())
                     .or_default()
-                    .push(m.name.as_str());
+                    .push(d.name());
             }
         }
     }
@@ -35,7 +35,7 @@ pub fn topological_sort_extensions(
         .map(|(&name, _)| name)
         .collect();
 
-    let mut order = Vec::with_capacity(manifests.len());
+    let mut order = Vec::with_capacity(declarations.len());
 
     while let Some(name) = queue.iter().next().copied() {
         queue.remove(name);
@@ -52,7 +52,7 @@ pub fn topological_sort_extensions(
         }
     }
 
-    if order.len() != manifests.len() {
+    if order.len() != declarations.len() {
         // Cycle detected — find the extensions involved
         let in_cycle: Vec<String> = in_degree
             .iter()
@@ -78,7 +78,27 @@ pub fn topological_sort_extensions(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_helpers::make_manifest;
+    use specforge_protocol_types::{HandshakeResponse, PeerDependency};
+
+    /// A declaration of `name` (version 1.0.0) whose only content is `peers`.
+    fn make_manifest(name: &str, peers: &[(&str, &str)]) -> ExtensionDeclaration {
+        ExtensionDeclaration {
+            handshake: HandshakeResponse {
+                name: name.to_string(),
+                version: "1.0.0".to_string(),
+                peer_dependencies: peers
+                    .iter()
+                    .map(|(n, v)| PeerDependency {
+                        name: n.to_string(),
+                        version: v.to_string(),
+                        optional: false,
+                    })
+                    .collect(),
+                ..HandshakeResponse::default()
+            },
+            ..ExtensionDeclaration::default()
+        }
+    }
 
     // B:topological_sort_extensions — verify unit "extensions sorted in dependency order"
     #[test]

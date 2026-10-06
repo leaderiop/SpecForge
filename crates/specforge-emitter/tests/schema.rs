@@ -44,22 +44,12 @@ fn node(id: &str, kind: &str, title: Option<&str>) -> Node {
 fn make_kind_entry(name: &str, ext: &str, testable: bool) -> KindRegistryEntry {
     KindRegistryEntry {
         kind_name: name.to_string(),
-        description: None,
         source_extension: ext.to_string(),
         testable,
-        singleton: false,
         supports_verify: testable,
         allowed_verify_kinds: vec![],
-        has_body_parser: false,
-        semantic_token: None,
-        lsp_icon: None,
-        dot_shape: None,
-        dot_color: None,
-        dot_fillcolor: None,
-        open_fields: false,
-        contract_target: false,
-        declares_types: false,
         lifecycle_field: None,
+        ..Default::default()
     }
 }
 
@@ -70,14 +60,13 @@ fn make_edge_entry(
     tgt: Option<&str>,
 ) -> EdgeRegistryEntry {
     EdgeRegistryEntry {
-        label: label.to_string(),
-        description: None,
-        source_kind: src.map(|s| s.to_string()),
-        target_kind: tgt.map(|s| s.to_string()),
         source_extension: ext.to_string(),
-        edge_style: None,
-        edge_color: None,
-        edge_arrowhead: None,
+        declared: specforge_registry::EdgeTypeDescriptor {
+            label: label.to_string(),
+            source_kind: src.map(|s| s.to_string()),
+            target_kind: tgt.map(|s| s.to_string()),
+            ..Default::default()
+        },
     }
 }
 
@@ -89,20 +78,14 @@ fn make_field_entry(
 ) -> FieldRegistryEntry {
     FieldRegistryEntry {
         kind_name: kind.to_string(),
-        field_name: field.to_string(),
-        description: None,
         field_type: ft,
         source_extension: "@specforge/software".to_string(),
-        edge: None,
-        target_kind: None,
-        file_reference: false,
-        required,
-        inverse_of: None,
-        normative: false,
-        exempts_obligations: false,
-        headline: false,
-        derived_from: None,
         proof_role: None,
+        declared: specforge_registry::FieldDescriptor {
+            name: field.to_string(),
+            required,
+            ..Default::default()
+        },
     }
 }
 
@@ -1627,7 +1610,12 @@ fn generate_schema_contract() {
     // ensures: all_edges_in_schema
     assert_eq!(schema.edge_types.len(), edges.len());
     for (_, entry) in edges.iter() {
-        assert!(schema.edge_types.iter().any(|e| e.label == entry.label));
+        assert!(
+            schema
+                .edge_types
+                .iter()
+                .any(|e| e.label == entry.declared.label)
+        );
     }
 }
 
@@ -2029,10 +2017,10 @@ fn published_context_schema_admits_declared_headline_and_normative_fields() {
     let mut fields = FieldRegistry::new();
     // A headline field named neither `contract` nor `status`.
     let mut stage = make_field_entry("task", "stage", ManifestFieldType::String, false);
-    stage.headline = true;
+    stage.declared.headline = true;
     fields.register(stage);
     let mut goal = make_field_entry("task", "goal", ManifestFieldType::String, false);
-    goal.normative = true;
+    goal.declared.normative = true;
     fields.register(goal);
 
     let mut task = node("ship", "task", Some("Ship it"));

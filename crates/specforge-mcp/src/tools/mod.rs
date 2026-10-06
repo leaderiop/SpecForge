@@ -157,11 +157,14 @@ fn extension_error(diag: &specforge_common::Diagnostic) -> ToolOutcome {
 fn command_id(state: &McpState, entry: &SurfaceRegistryEntry) -> String {
     state
         .registries()
-        .manifest_surfaces
-        .iter()
-        .filter(|(extension, _)| *extension == entry.extension_name)
-        .flat_map(|(_, surfaces)| &surfaces.commands)
-        .find(|command| command.export == entry.export_name)
+        .declaration(&entry.extension_name)
+        .and_then(|declaration| {
+            declaration
+                .surfaces
+                .commands
+                .iter()
+                .find(|command| command.export == entry.export_name)
+        })
         .map_or_else(|| entry.contribution_name.clone(), |c| c.id.clone())
 }
 
@@ -172,9 +175,9 @@ fn command_id(state: &McpState, entry: &SurfaceRegistryEntry) -> String {
 /// Otherwise its stdout, then its stderr when it wrote any; a nonzero exit
 /// code fails the call.
 fn command_tool_result(
-    outcome: Result<specforge_wasm::CommandOutput, specforge_common::Diagnostic>,
+    outcome: Result<specforge_protocol_types::CommandOutput, specforge_wasm::CallError>,
 ) -> ToolOutcome {
-    let object = |bytes: &[u8]| match serde_json::from_slice::<Value>(bytes) {
+    let object = |text: &str| match serde_json::from_str::<Value>(text) {
         Ok(object @ Value::Object(_)) => Some(object),
         _ => None,
     };
@@ -193,13 +196,14 @@ fn command_tool_result(
             {
                 return ToolOutcome::failed(error);
             }
-            let mut blocks = vec![String::from_utf8_lossy(&output.stdout).into_owned()];
+            let failed = output.exit_code != 0;
+            let mut blocks = vec![output.stdout];
             if !output.stderr.is_empty() {
-                blocks.push(String::from_utf8_lossy(&output.stderr).into_owned());
+                blocks.push(output.stderr);
             }
-            ToolOutcome::texts(blocks, output.exit_code != 0)
+            ToolOutcome::texts(blocks, failed)
         }
-        Err(diag) => extension_error(&diag),
+        Err(error) => extension_error(&error.diagnostic()),
     }
 }
 
@@ -450,13 +454,11 @@ fn extension_tool(
             dispatched.map(|event| ("surface_command_dispatched", event)),
         );
     }
-    let input = serde_json::to_vec(&arguments).unwrap_or_default();
     let started = std::time::Instant::now();
-    let result = match specforge_wasm::dispatch_surface_mcp_tool(
+    let result = match specforge_wasm::ExtensionCalls::new(runtime.as_ref()).call_mcp_tool(
         &entry.extension_name,
         &entry.export_name,
-        &input,
-        runtime.as_ref(),
+        &arguments,
     ) {
         Ok(value) => match declared.and_then(|t| t.output_schema.as_ref()) {
             // An output the tool's own schema refuses is never served as
@@ -480,8 +482,8 @@ fn extension_tool(
             }
             None => ToolOutcome::ok(value),
         },
-        // A trap is the tool's error, and no dispatch is recorded.
-        Err(diag) => return (extension_error(&diag), None),
+        // A failed call is the tool's error, and no dispatch is recorded.
+        Err(error) => return (extension_error(&error.diagnostic()), None),
     };
     // A tool whose export returned is a dispatched tool; it succeeded when
     // its output is the tool's result.

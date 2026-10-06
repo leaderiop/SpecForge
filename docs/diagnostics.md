@@ -250,33 +250,6 @@ Owner: core
 Level: error
 ```
 
-## E017
-
-```
-E017: Entity enhancement conflict
-
-Two installed extensions both declare an entity-enhancement field with the same
-name on the same target entity kind, and no explicit override resolves it.
-Rename one extension's field, or add an override for that kind/field in
-`specforge.json`.
-
-Owner: core
-Level: error
-```
-
-## E018
-
-```
-E018: Grammar contribution conflict
-
-Two extensions both contribute a tree-sitter grammar for the same entity kind.
-Only one extension may own an entity kind's grammar — uninstall one of the
-conflicting extensions or set a grammar conflict policy in the compiler config.
-
-Owner: core
-Level: error
-```
-
 ## E019
 
 ```
@@ -291,20 +264,6 @@ Owner: core
 Level: error
 ```
 
-## E020
-
-```
-E020: Missing Wasm export
-
-An extension's manifest declares a contribution (validator, renderer, parser,
-collector, grammar, or surface command/tool) whose required Wasm export function
-isn't present in the compiled module. Add the matching `#[export_name = "..."]`
-export to the extension's Wasm binary.
-
-Owner: core
-Level: error
-```
-
 ## E022
 
 ```
@@ -313,19 +272,6 @@ E022: Reference targets wrong kind
 A reference field is declared to only accept entities of a specific kind, but
 the target ID resolves to an entity of a different kind. Point the field at an
 entity of the expected kind.
-
-Owner: core
-Level: error
-```
-
-## E023
-
-```
-E023: Entity kind conflicts with keyword
-
-An extension declares an entity kind keyword that collides with a structural DSL
-keyword (`spec`, `ref`, `use`, `define`). Choose a different keyword for the
-entity kind.
 
 Owner: core
 Level: error
@@ -389,13 +335,20 @@ Level: error
 ```
 E028: Extension load or execution failure
 
-An extension's Wasm module failed somewhere in its lifecycle — the binary is
-missing or unreadable, failed to load, trapped while running
-`initialize`/`validate`/a check-phase compiler pass/a collector/body
-parser/surface command/MCP tool or resource, returned output that isn't valid
-JSON, a grammar cache path couldn't be written, or the extension's declared host
-API version isn't supported. Check the extension's logs or report the trap to
-its author, and confirm the extension is installed and up to date.
+An extension failed somewhere in its lifecycle: its binary is missing,
+unreadable or does not load as a component; its handshake or one of its describe
+categories failed or does not parse, so its declaration cannot be read
+(`specforge add` and `specforge publish` refuse such a binary); or a call the
+host makes on the loaded extension failed. The host calls ten exports: the
+handshake and describe, a command, an MCP tool, an MCP resource, a compiler
+pass, a collector, a custom validator, a scanner and the migration hook. Each
+call fails when the export traps (its time or fuel included), when the extension
+does not route it, or when it answers output that is not the protocol type the
+operation owes; the message names the operation, the export and the extension
+(`command cmd__x() of '@acme/x' trapped: ...`). What the failure costs is the
+operation's: a check pass's is the compile's error, an analyze pass's a finding
+of that pass, a scanner's makes `infer` approximate. Report the failure to the
+extension's author, and confirm the extension is installed and up to date.
 
 Owner: core
 Level: error
@@ -404,14 +357,16 @@ Level: error
 ## E030
 
 ```
-E030: Invalid extension manifest
+E030: Invalid extension declaration
 
-An extension's manifest is unreadable, isn't valid JSON, or fails schema
-validation — a wrong `manifestVersion`, a missing `name`/`version`/`wasmPath`,
-an empty grammar/body-parser/analyzer contribution field, or a sandbox policy
-that allowlists a code file extension for output. `specforge publish` reports it
-for a `manifest.json` that doesn't parse. Fix the manifest according to the
-reported detail.
+An extension's declaration (its handshake and describe answers) can't be used as
+declared: its name or version is empty, its `ext_short` isn't lowercase kebab
+case (`[a-z][a-z0-9-]*`; it names the extension's CLI subcommand and MCP tool
+prefix), or an analyzer has no language, no file extensions or an empty export
+name. The registry build reports it on every load, and `specforge publish`
+refuses such a binary before any network call. Fix the declaration in the
+extension's source (with the SDK: `#[extension(name, version, short)]` and the
+builders) and rebuild it.
 
 Owner: core
 Level: error
@@ -461,19 +416,6 @@ Owner: core
 Level: error
 ```
 
-## E035
-
-```
-E035: Reserved or invalid entity kind name
-
-An extension-declared entity kind name is a reserved structural keyword, doesn't
-match the identifier pattern `[a-z][a-z0-9_]{1,59}`, or is already reserved by
-another installed extension. Choose a different, valid entity kind name.
-
-Owner: core
-Level: error
-```
-
 ## E039
 
 ```
@@ -490,13 +432,14 @@ Level: error
 ## E040
 
 ```
-E040: Missing extension project file
+E040: Extension project not found or not built
 
-`specforge extension build`, `extension validate` or `publish` was run against a
-directory that's missing its `Cargo.toml` or `manifest.json`, or (`publish`) the
-Wasm binary the manifest's `wasmPath` names, or one of those files couldn't be
-read. Run the command from a scaffolded extension project, build the binary, or
-create the missing file.
+`specforge extension build`, `extension validate` or `publish` found no
+extension to work on: the directory has no `Cargo.toml`, the build (`cargo build
+--release --target wasm32-wasip2`) failed, no built component is in
+`target/wasm32-wasip2/release/` (or several are, and none is the crate's), or
+the `.wasm` file couldn't be read. Build the extension, fix the build error the
+message quotes, or name the component to use.
 
 Owner: core
 Level: error
@@ -1949,19 +1892,6 @@ Owner: core
 Level: warning
 ```
 
-## W028
-
-```
-W028: Extension memory ceiling exceeded
-
-The combined `max_memory_mb` declared across all installed extensions' sandbox
-policies exceeds the configured total memory ceiling. Reduce `max_memory_mb` in
-one or more extension sandbox policies.
-
-Owner: core
-Level: warning
-```
-
 ## W029
 
 ```
@@ -2436,19 +2366,6 @@ Owner: core
 Level: warning
 ```
 
-## W114
-
-```
-W114: Integrity check skipped
-
-A Wasm extension's integrity check was bypassed because the `--skip-verify` flag
-was passed. Remove `--skip-verify` to re-enable hash verification of the
-extension's `.wasm` binary.
-
-Owner: core
-Level: warning
-```
-
 ## W115
 
 ```
@@ -2458,34 +2375,6 @@ A collector reported tests for an entity ID that no spec declares (usually a
 renamed entity or a typo in the test's annotation), or its
 `total`/`passed`/`failed`/`skipped` stats are inconsistent. `specforge collect`
 drops those results; fix the test annotation so it names a declared entity.
-
-Owner: core
-Level: warning
-```
-
-## W116
-
-```
-W116: Extension discovery failure
-
-While scanning an extensions directory, a `manifest.json` could not be read or
-read directory itself failed, or a manifest failed to parse as valid JSON
-matching the manifest schema. Fix the directory permissions or correct the
-malformed `manifest.json`; discovery skips the broken entry and continues with
-the rest.
-
-Owner: core
-Level: warning
-```
-
-## W117
-
-```
-W117: Invalid query extension pattern
-
-An extension's tree-sitter query extension pattern (for `highlights`, `locals`,
-or `injections`) is empty or contains null bytes. Provide a non-empty query
-pattern with no null bytes; the invalid pattern is skipped rather than loaded.
 
 Owner: core
 Level: warning
@@ -2625,12 +2514,14 @@ Level: warning
 ## W138
 
 ```
-W138: Unknown manifest field
+W138: Unknown describe key
 
-An extension's manifest.json has a top-level field the v2 manifest schema
-doesn't define, so SpecForge ignores it. It is usually a misspelling
-(`entityKnds` for `entityKinds`) that leaves the extension without what the
-field was meant to declare. Fix the spelling or remove the field.
+An item of an extension's describe answer has a key the extension protocol
+doesn't define, so the host ignores it. It's usually a misspelling in a
+hand-written (`raw_category`) item, `testabel` for `testable`, which leaves the
+item without what the key was meant to declare; or the extension was built with
+a newer SDK than this host. The message names the extension, the category, the
+item and the key. Fix the spelling, or update SpecForge.
 
 Owner: core
 Level: warning
@@ -2724,6 +2615,20 @@ Owner: core
 Level: warning
 ```
 
+## W145
+
+```
+W145: Pass order constraints form a cycle
+
+An extension's compiler passes declare `after`/`before` constraints that form a
+cycle, so no order satisfies them all. The registry build reports it, naming the
+passes in the cycle, and runs that extension's passes in the order it declares
+them. Remove the constraint that closes the cycle.
+
+Owner: core
+Level: warning
+```
+
 ## W146
 
 ```
@@ -2745,7 +2650,12 @@ These codes are no longer emitted, and are never reused for another meaning.
 
 | Code | Replaced by |
 |------|-------------|
+| E017 | (nothing) |
+| E018 | (nothing) |
+| E020 | (nothing) |
+| E023 | (nothing) |
 | E029 | (nothing) |
+| E035 | (nothing) |
 | E037 | (nothing) |
 | E038 | (nothing) |
 | E047 | [W139](#w139) |
@@ -2754,8 +2664,12 @@ These codes are no longer emitted, and are never reused for another meaning.
 | W024 | (nothing) |
 | W025 | (nothing) |
 | W026 | (nothing) |
+| W028 | (nothing) |
 | W063 | (nothing) |
 | W099 | (nothing) |
 | W111 | (nothing) |
+| W114 | (nothing) |
+| W116 | (nothing) |
+| W117 | (nothing) |
 | W120 | (nothing) |
 | W122 | (nothing) |

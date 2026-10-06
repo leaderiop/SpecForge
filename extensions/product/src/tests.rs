@@ -121,8 +121,9 @@ fn a_closed_enum_is_the_one_its_validation_rule_checks() {
     // against (W077, W078, ...) is the enum its list filters and sorts by,
     // and the `one_of` its list's filter arg declares, value for value and
     // in order; `family`'s (I062, an info) is open.
-    let rules: serde_json::Value =
-        serde_json::from_slice(crate::DESCRIBE_VALIDATION_RULES).unwrap();
+    let rules = serde_json::json!({
+        "items": crate::specforge_extension_build().declaration().validation_rules,
+    });
     let kinds = [
         &FEATURES,
         &JOURNEYS,

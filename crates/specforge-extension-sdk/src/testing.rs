@@ -13,6 +13,11 @@ impl MockHost {
         Self(builder)
     }
 
+    /// Everything this extension declares, as a host loads it.
+    pub fn declaration(&self) -> specforge_protocol_types::ExtensionDeclaration {
+        self.0.declaration()
+    }
+
     /// The handshake wire JSON this extension will report.
     pub fn handshake_json(&self) -> String {
         self.0.handshake_json()

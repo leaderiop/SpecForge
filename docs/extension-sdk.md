@@ -6,8 +6,8 @@
 > Guests are **wasip2 components** (target `wasm32-wasip2`, wit-bindgen 0.30) and
 > export the `specforge:bridge` world: `call(name, export-name, input) ->
 > result<list<u8>, string>` dispatches `__handshake` / `__describe` from the
-> `ContributionsBuilder` and forwards every other export name to the guest's
-> handler. Host functions (the old `HostApi`) were removed with the extism
+> `ContributionsBuilder`, every declared surface and operation to the handler
+> declared with it, and any other export name to the guest's `handler`. Host functions (the old `HostApi`) were removed with the extism
 > runtime; a typed component host-import surface is future work. The design
 > reference below predates the cutover; where it mentions `wasm32-unknown-unknown`,
 > extism, or `plugin_fn`, read `wasm32-wasip2`, the component engine, and
@@ -83,7 +83,7 @@ The output `.wasm` file is what the host loads at runtime.
 
 ## Authoring Experience
 
-The SDK uses attribute macros to generate all protocol exports from declarative Rust code. You describe what your extension contributes; the SDK generates the `__handshake`, `__describe`, and all `cmd__*` / `validate__*` / `mcp__*` / `parse__*` / `collect__*` exports.
+The SDK uses attribute macros to generate all protocol exports from declarative Rust code. You describe what your extension contributes; the SDK generates the `__handshake`, `__describe`, and all `cmd__*` / `mcp__*` / `__pass_*` / `collect__*` / `validate__*` / `scan__*` exports, each routed to the handler declared with it.
 
 ### Complete Example
 
@@ -96,12 +96,7 @@ use specforge_extension_sdk::prelude::*;
     name = "@specforge/software",
     version = "1.0.0",
     short = "software",
-    host_api = "1.0.0",
-    incremental = true,
-    query_scope = "all",
-    starter = "templates/behavior.spec",
-    migration = "migrate_v1_to_v2",
-    reserved_keywords = ["spec", "ref"],
+    description = "Software design: behaviors, invariants, events, types and ports",
 )]
 #[sandbox(max_memory_mb = 256, max_execution_ms = 5000, network = false, filesystem = false)]
 #[peer_dependency("@specforge/product", version = "^1.0")]
@@ -270,15 +265,13 @@ mod software {
 
     // ── Compiler Passes ───────────────────────────────────────────
 
-    // Compiler passes run after the built-in resolve phase. The `after`
-    // attribute declares ordering constraints (advisory in the v1 host:
-    // passes run in declaration order during `specforge analyze`). The
-    // attribute generates a `__pass_<name>` wasm export that receives an
-    // entity snapshot (the host's ValidationEntity shape) and returns
-    // host Diagnostics. Direct graph access and the host-query functions
-    // arrive with the v2 pass ABI.
+    // Compiler passes run after the built-in resolve phase, in the order
+    // their after/before constraints give. A pass is declared with its
+    // handler, `c.pass("condition_check", |p| { p.after("resolve")
+    // .run(pass_condition_check); })`: the SDK routes `__pass_<name>` to
+    // it, decoding the PassInput snapshot and encoding the diagnostics
+    // (see [Compiler passes](#compiler-passes)).
 
-    #[compiler_pass(name = "condition_check", after = "resolve")]
     fn pass_condition_check(input: &PassInput) -> Vec<PassDiagnostic> {
         PassDiagnostic::warning(
             "W096",
@@ -307,14 +300,11 @@ The `#[extension]` macro is the root declaration. It generates the `__handshake`
 | Attribute | Required | Description |
 |-----------|----------|-------------|
 | `name` | yes | Scoped package name (e.g., `@specforge/software`) |
-| `version` | yes | Semantic version (e.g., `1.0.0`) |
-| `short` | yes | Short name used in CLI subcommands (e.g., `software`) |
-| `host_api` | yes | Required host API version (e.g., `1.0.0`) |
-| `incremental` | no | Default incremental mode for entity kinds (default: `false`) |
-| `query_scope` | no | Graph query scope (`all` or `own`, default: `own`) |
-| `starter` | no | Path to starter template file |
-| `migration` | no | Wasm export name for migration hook |
-| `reserved_keywords` | no | Keywords reserved from entity kind names |
+| `version` | no | Semantic version (default: the crate's `CARGO_PKG_VERSION`) |
+| `short` | no | The name the extension's commands are routed by: `specforge <short> <command>` on the CLI, `specforge.<short>.<id>` over MCP. Lowercase kebab case (`[a-z][a-z0-9-]*`), checked at compile time; absent, the name's last segment (`@specforge/software` is `software`). On the wire, the handshake's `ext_short`. |
+| `description` | no | One line a package registry shows for the extension (the handshake's `description`) |
+
+Everything else the handshake carries is set on the builder: `ContributionsBuilder::starter_template`, `migration_hook` and `theme_color`, and `ExtensionMeta`'s `peer_dependencies`, `sandbox_policy` and `keywords`. The declaration the builder builds (`ContributionsBuilder::declaration`) is exactly what the host loads and what `specforge publish` uploads (ADR 0012).
 
 The `#[sandbox]` macro sets the extension-level sandbox policy:
 
@@ -346,12 +336,13 @@ Every macro maps to a protocol category. The SDK generates the appropriate Wasm 
 | `#[shared_field]` | Extension-wide field | `fields` |
 | `#[enhance]` | Entity enhancement | `enhancements` |
 | `#[validation_rule]` | Declarative validation rule | `validation_rules` |
-| `#[validator]` | Custom Wasm validator + `validate__*` export | `validation_rules` |
+| `c.rule(...)` with `r.validate(...)` (builder) | Custom rule + `validate__*` export | `validation_rules` |
 | `#[cli_command]` | `cmd__*` export | `surfaces` |
 | `#[mcp_tool]` | `mcp__*` export | `surfaces` |
 | `#[mcp_resource]` | `mcp__*` export | `surfaces` |
-| `c.collector(...)` (builder) | declared command + `collect__*` export | `collectors` |
-| `#[compiler_pass]` | Pass descriptor | `passes` |
+| `c.collector(...)` with `k.collect(...)` (builder) | declared command + `collect__*` export | `collectors` |
+| `c.pass(...)` with `p.run(...)` (builder) | Pass descriptor + `__pass_*` export | `passes` |
+| `c.analyzer(...)` with `a.scan(...)` (builder) | Analyzer descriptor + `scan__*` export | `analyzers` |
 | `#[feature_flag]` | Flag descriptor | `feature_flags` |
 | `#[sandbox]` | Sandbox policy | handshake |
 | `#[sandbox_override]` | Per-surface sandbox | `surfaces` |
@@ -432,18 +423,28 @@ Declares a rule the host evaluates without calling the extension.
 | `edge_type` | depends | Edge type to check (for edge-based checks) |
 | `message` | yes | Message template with `{id}`, `{kind}`, `{value}`, `{allowed}` placeholders |
 
-### #[validator]
+### Custom rules
 
-Declares a custom Wasm-backed validator. The SDK generates a `validate__*` export.
+A `check: "custom"` rule is declared with the function that decides it
+([ADR 0013](adr/0013-typed-extension-calls.md)). The SDK routes the rule's
+`wasm_function` export (`validate__<code lowercased>` unless set) to it,
+decoding the protocol's `ValidatorContext` and encoding its
+`ValidatorVerdict`:
 
 ```rust
-#[validator(code = "W009", severity = "warning",
-        message = "{kind} '{id}' has verify kind '{value}' not in allowed set {allowed}")]
-fn validate_verify_kind_allowlist(context: ValidatorContext) -> ValidatorVerdict {
-    // Inspect context.entity, context.referenced, context.declared_types;
-    // return ValidatorVerdict::Pass or ValidatorVerdict::Fail { field, value }.
-}
+c.rule("W009", |r| {
+    r.check(CheckKind::Custom)
+        .target_kind("behavior")
+        .message_template("{kind} '{id}' has verify kind '{value}' not in allowed set")
+        .validate(|context: &ValidatorContext| {
+            // Inspect context.entity, context.referenced, context.declared_types.
+            ValidatorVerdict::Pass
+        });
+});
 ```
+
+A custom rule without `validate` panics when the extension is built, so a rule
+that would never fire cannot ship.
 
 ### #[cli_command]
 
@@ -487,7 +488,8 @@ c.collector("cargo-test", |k| {
         .detect_files(&["Cargo.toml"])            // project-root files that select it
         .run(&["cargo", "test", "--workspace"])  // `{report}` expands to the report path
         .report("target/specforge")               // file or directory, inside the project
-        .capture_stdout();                        // also pass the command's stdout
+        .capture_stdout()                         // also pass the command's stdout
+        .collect(|input: &CollectInput| Ok(collect(input))); // the handler
 });
 ```
 
@@ -495,39 +497,69 @@ c.collector("cargo-test", |k| {
 the user approves it once for the project, with `SPECFORGE_REPORT` set to
 the absolute report path. It then reads the report (the file, or every
 `*.json` file directly inside the directory) and calls the extension's
-`collect__<name>` export (`-` becomes `_`), which the guest's dispatch
-handler routes to a pure function from [`CollectInput`] to
-[`CollectOutput`]: test results grouped by entity, with `status` `passed`,
+`collect__<name>` export (`-` becomes `_`), which the SDK routes to the
+handler declared with `k.collect`, a pure function from [`CollectInput`] to
+[`CollectOutput`] (or the reason it could not read the report): test results
+grouped by entity, with `status` `passed`,
 `failed` or `skipped`, plus the tests the report doesn't link
 (`unlinked`), which the host links by naming convention when it can. With `capture_stdout()`, the command's output still
 reaches the user's terminal, and the host also keeps it (in
 `<name>.stdout.txt` inside a report directory) and passes it as
 `CollectInput::stdout`. The guest never runs anything itself.
 
-### #[compiler_pass]
+### Compiler passes
 
-Declares a compiler pass that runs after the built-in resolve phase.
+A pass is declared in `contribute` with `c.pass(name, |p| ...)`, whose
+builder sets `after`, `before` and `phase`, and with the function that runs
+it, `p.run(...)`: it receives the [`PassInput`] snapshot and answers its
+diagnostics, bare (`Vec<PassDiagnostic>`) or with a summary
+([`PassOutput`], whose `summary` keys join the pass's report). The SDK routes
+the `__pass_<name>` export to it. A pass without `run` panics when the
+extension is built.
 
-| Attribute | Required | Description |
-|-----------|----------|-------------|
-| `name` | yes | Pass name (must be unique across all extensions) |
-| `after` | yes | Pass or phase this pass runs after (`resolve` or another pass name) |
+```rust
+c.pass("coverage", |p| {
+    p.after("resolve").phase("check").run(|input: &PassInput| {
+        input.entities.iter()
+            .filter(|e| e.testable && !e.exempt && e.verify_texts.is_empty())
+            .map(|e| PassDiagnostic::warning("A001", format!("{} declares nothing", e.id))
+                .with_entity(&e.id))
+            .collect::<Vec<_>>()
+    });
+});
+```
 
-The attribute generates the `__pass_<name>` export; the pass is declared in
-`contribute` with `c.pass(name, |p| ...)`, whose builder sets `after`,
-`before` and `phase`. A pass declared with `p.phase("check")` runs with every
+`#[compiler_pass]` is deprecated: the function it wraps is already the
+handler `p.run` takes; the attribute still generates the
+`specforge_dispatch_pass_<name>` helper for a guest that routes the export
+through `component_guest!`'s `handler`. A pass declared with `p.phase("check")` runs with every
 compile (`specforge check`, watch, the LSP and MCP), after the graph checks:
 its diagnostics are the compile's, with the codes and severities it returns,
 and `specforge check` exits 1 on its errors. Check passes run in their
 after/before order; a trap or malformed answer is E028. Any other phase, or
 none, runs the pass only under `specforge analyze`, which skips check passes.
 
-A pass receives `PassInput`: `entities`, `edges`, `test_results` and
-`proved_claims` (always absent for a check pass), and `previous`: when
+A pass receives `PassInput`: `entities` (each with its fields, edge counts,
+span, `testable`, and `exempt`: it owes no obligations of its own, decided by
+the host), `edges`, `test_results` and `proved_claims` (always absent for a
+check pass), and `previous`: when
 `specforge-cache.json` exists, the statuses of the build that wrote it
 (`previous.statuses["<id>"].kind` / `.status`), else `None`. Give a
 diagnostic the entity it is about with `PassDiagnostic::with_entity(id)`: with
 no span of its own, the host attaches that entity's.
+
+### Scanners and the migration hook
+
+An analyzer is declared with its scanner, `a.scan(...)`, from a
+[`ScanRequest`] (one source file) to a [`ScanResponse`] (its public items),
+at its `scan_export` (`scan__<language>`). Its `classify__`/`map__` exports
+are declared too but the host does not call them; a guest that serves them
+anyway answers them from its `handler`, decoding with `answer_export`.
+
+The hook `specforge migrate` calls after it migrates the project's files is
+declared with its handler, `c.migration_hook_handler(export, |input:
+&MigrationInput| ...)`: it receives the format versions and the migrated
+files; its `Err` fails the migration, which is rolled back.
 
 ### #[feature_flag]
 
@@ -622,6 +654,24 @@ mod tests {
         assert!(entities.iter().any(|e| e.keyword == "behavior"));
     }
 }
+```
+
+A host-side test (a test of the host, or of how a host reads an extension)
+serves the extension in process: `specforge_wasm::testing::InProcessRuntime`
+(feature `testing`) runs an SDK `ContributionsBuilder` through the guest's
+own routing (`guest_call`, what `component_guest!` calls), so a test declares
+the extension with the same builders, loads it with `load_declaration` and
+calls it with `ExtensionCalls` exactly as the host calls a component.
+Answers no SDK guest gives (a trap, bytes that do not parse) are given with
+`answer_raw`. It runs the guest unsandboxed, in the host process; sandbox
+and deadline behaviour is only proven through the component runtime.
+
+```rust
+use specforge_wasm::testing::InProcessRuntime;
+use specforge_wasm::protocol::load_declaration;
+
+let runtime = InProcessRuntime::new().with(my_extension_build);
+let declaration = load_declaration(&runtime, "@acme/widgets").unwrap().declaration;
 ```
 
 ### Install

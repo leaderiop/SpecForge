@@ -369,38 +369,24 @@ fn a_loaded_extension_means_no_i002() {
     assert!(!codes(&diagnostics).contains(&"I002"), "{diagnostics:?}");
 }
 
-/// Provider extensions, in process: each handshakes with `providers: true`
-/// and contributes nothing else. No builtin contributes providers.
-struct ProviderExtensions(&'static [&'static str]);
-
-impl specforge_wasm::WasmRuntime for ProviderExtensions {
-    fn load_module(&self, _: &Path) -> Result<(), String> {
-        Ok(())
-    }
-
-    fn call_export(
-        &self,
-        extension: &str,
-        export: &str,
-        _: &[u8],
-    ) -> specforge_wasm::WasmCallResult {
-        if export == "__handshake" && self.0.contains(&extension) {
-            let handshake = serde_json::json!({
-                "protocol_version": "1.0.0",
-                "name": extension,
-                "version": "1.0.0",
-                "contribution_flags": { "providers": true },
-                "peer_dependencies": [],
-                "sandbox_policy": null
-            });
-            return specforge_wasm::WasmCallResult::Ok(handshake.to_string().into_bytes());
-        }
-        specforge_wasm::WasmCallResult::Trap(specforge_wasm::WasmTrapInfo {
-            kind: "missing".to_string(),
-            message: format!("no {export} on {extension}"),
-            export_name: export.to_string(),
-        })
-    }
+/// Provider extensions, in process: each contributes providers (a raw
+/// `providers` category, which raises the handshake flag) and nothing
+/// else. No builtin contributes providers.
+fn provider_extensions(
+    names: &'static [&'static str],
+) -> specforge_wasm::testing::InProcessRuntime {
+    names.iter().fold(
+        specforge_wasm::testing::InProcessRuntime::new(),
+        |runtime, name| {
+            runtime.with(move || {
+                let mut b = specforge_extension_sdk::ContributionsBuilder::new(
+                    specforge_extension_sdk::ExtensionMeta::new(name, "1.0.0"),
+                );
+                b.raw_category("providers", serde_json::json!([]));
+                b
+            })
+        },
+    )
 }
 
 /// The compile's diagnostics, without the W012 every unreferenced ref
@@ -409,7 +395,7 @@ fn compile_with_providers(
     root: &Path,
     extensions: &'static [&'static str],
 ) -> Vec<specforge_common::Diagnostic> {
-    CompiledProject::compile(root, Some(&ProviderExtensions(extensions)))
+    CompiledProject::compile(root, Some(&provider_extensions(extensions)))
         .diagnostics()
         .into_iter()
         .filter(|d| d.code != "W012")
@@ -504,4 +490,285 @@ fn source_texts_are_what_was_compiled() {
     assert_eq!(texts["a.spec"], compiled_text);
     assert_eq!(texts["sub/b.spec"], "// b\n");
     assert_eq!(texts.len(), 2, "{texts:?}");
+}
+
+/// Characterization (plan 03 T0): the order `Environment::diagnostics()`
+/// reports a missing extension's load failure, the loaded extensions'
+/// declaration diagnostics and the registry build's. The registry build
+/// owning declaration validation changes it (ADR 0012).
+#[test]
+fn environment_diagnostics_come_in_load_order() {
+    let dir = project(
+        serde_json::json!({
+            "name": "p", "version": "0.1.0",
+            "extensions": ["@specforge/formal", "@acme/missing", "@specforge/product"]
+        }),
+        &[],
+    );
+    let runtime = specforge_component::project_runtime(dir.path());
+    let env = specforge_project::Environment::load(dir.path(), Some(&runtime));
+    let codes: Vec<&str> = env.diagnostics().map(|d| d.code.as_str()).collect();
+    // The missing extension's load failure, formal's missing peer, then the
+    // registry build's: formal's enhancements of software's kinds.
+    assert_eq!(
+        codes,
+        ["E028", "E027", "I004", "I004", "I004"],
+        "{:#?}",
+        env.diagnostics().collect::<Vec<_>>()
+    );
+}
+
+mod declared_in_process {
+    //! Extensions declared with the SDK and served in process: what they
+    //! declare is what the environment loads.
+
+    use super::project;
+    use specforge_extension_sdk::prelude::*;
+    use specforge_project::Environment;
+    use specforge_registry::SurfaceType;
+    use specforge_wasm::testing::InProcessRuntime;
+
+    fn reports() -> ContributionsBuilder {
+        let mut meta = ExtensionMeta::new("@acme/reports", "0.1.0");
+        meta.short = Some("rep".to_string());
+        let mut b = ContributionsBuilder::new(meta);
+        b.kind("report", |k| {
+            k.description("A report");
+        });
+        b.command("list", |c| {
+            c.title("List")
+                .description("List reports")
+                .handler(|_| CommandOutput {
+                    exit_code: 0,
+                    stdout: String::new(),
+                    stderr: String::new(),
+                });
+        });
+        b
+    }
+
+    fn commands_only() -> ContributionsBuilder {
+        let mut b = ContributionsBuilder::new(ExtensionMeta::new("@acme/cmds", "0.1.0"));
+        b.command("hello", |c| {
+            c.title("Hello")
+                .description("Say hello")
+                .handler(|_| CommandOutput {
+                    exit_code: 0,
+                    stdout: "hi".to_string(),
+                    stderr: String::new(),
+                });
+        });
+        b
+    }
+
+    fn load(extensions: &[&str], runtime: &InProcessRuntime) -> Environment {
+        let dir = project(
+            serde_json::json!({ "name": "p", "version": "0.1.0", "extensions": extensions }),
+            &[],
+        );
+        Environment::load(dir.path(), Some(runtime))
+    }
+
+    #[specforge_test_macros::test(
+        behavior = "load_extension_declaration",
+        verify = "an extension that only declares commands registers its commands"
+    )]
+    fn a_commands_only_extension_registers_its_commands() {
+        let runtime = InProcessRuntime::new().with(commands_only);
+        let env = load(&["@acme/cmds"], &runtime);
+        let registered: Vec<(&SurfaceType, &str)> = env
+            .registries
+            .surfaces
+            .iter()
+            .map(|s| (&s.surface_type, s.contribution_name.as_str()))
+            .collect();
+        assert!(
+            registered.contains(&(&SurfaceType::Command, "hello")),
+            "{registered:?}"
+        );
+        let errors: Vec<_> = env
+            .diagnostics()
+            .filter(|d| d.severity == specforge_common::Severity::Error)
+            .collect();
+        assert!(errors.is_empty(), "{errors:?}");
+    }
+
+    #[specforge_test_macros::test(
+        behavior = "load_extension_declaration",
+        verify = "the declared short name reaches the registry build"
+    )]
+    fn the_declared_short_name_reaches_the_registry_build() {
+        let runtime = InProcessRuntime::new().with(reports);
+        let env = load(&["@acme/reports"], &runtime);
+        let declaration = env.registries.declaration("@acme/reports").expect("loaded");
+        assert_eq!(declaration.short(), "rep");
+    }
+
+    #[specforge_test_macros::test(
+        behavior = "validate_manifest_v2_schema",
+        verify = "an unsupported protocol major version fails the load"
+    )]
+    fn an_unsupported_protocol_major_fails_the_load() {
+        let handshake = serde_json::to_vec(&specforge_protocol_types::HandshakeResponse {
+            protocol_version: "2.0.0".to_string(),
+            name: "@acme/reports".to_string(),
+            version: "0.1.0".to_string(),
+            ..Default::default()
+        })
+        .unwrap();
+        let runtime = InProcessRuntime::new().with(reports).answer_raw(
+            "@acme/reports",
+            "__handshake",
+            specforge_wasm::WasmCallResult::Ok(handshake),
+        );
+        let env = load(&["@acme/reports"], &runtime);
+        assert!(env.registries.declaration("@acme/reports").is_none());
+        assert!(!env.registries.kinds.contains("report"));
+        let e028: Vec<_> = env.diagnostics().filter(|d| d.code == "E028").collect();
+        assert_eq!(e028.len(), 1, "{e028:?}");
+        assert!(e028[0].message.contains("@acme/reports"), "{e028:?}");
+        assert!(e028[0].message.contains("2.0.0"), "{e028:?}");
+    }
+
+    #[specforge_test_macros::test(
+        behavior = "validate_manifest_v2_schema",
+        verify = "an unknown describe key produces a warning"
+    )]
+    fn an_unknown_describe_key_produces_a_warning() {
+        let typo = || {
+            let mut b = ContributionsBuilder::new(ExtensionMeta::new("@acme/typo", "0.1.0"));
+            b.raw_category(
+                "entities",
+                serde_json::json!([{ "name": "memo", "testabel": true }]),
+            );
+            b
+        };
+        let runtime = InProcessRuntime::new().with(typo);
+        let env = load(&["@acme/typo"], &runtime);
+        // The extension still loads, without the key it misspelled.
+        assert!(env.registries.kinds.contains("memo"));
+        let warnings: Vec<_> = env
+            .diagnostics()
+            .filter(|d| d.severity == specforge_common::Severity::Warning)
+            .collect();
+        assert_eq!(warnings.len(), 1, "{warnings:?}");
+        assert_eq!(warnings[0].code, "W138");
+        assert!(warnings[0].message.contains("'testabel'"), "{warnings:?}");
+    }
+}
+
+mod passes_of_the_declaration {
+    //! The passes an environment runs are the ones its one declaration load
+    //! read: nothing describes `passes` again, and a passes answer that does
+    //! not parse fails the extension's load.
+
+    use super::project;
+    use specforge_extension_sdk::prelude::*;
+    use specforge_project::{CompiledProject, Environment};
+    use specforge_wasm::WasmCallResult;
+    use specforge_wasm::testing::InProcessRuntime;
+
+    fn audit() -> ContributionsBuilder {
+        let mut b = ContributionsBuilder::new(ExtensionMeta::new("@acme/audit", "0.1.0"));
+        b.pass("audit", |p| {
+            p.phase("check")
+                .run(|_: &PassInput| Vec::<PassDiagnostic>::new());
+        });
+        b
+    }
+
+    /// The audit extension, whose `passes` answer is `items` instead of
+    /// what it declares (no SDK guest can answer a description that does
+    /// not parse, so it is given raw).
+    fn malformed_passes(items: serde_json::Value) -> InProcessRuntime {
+        let answer = serde_json::json!({ "category": "passes", "items": items });
+        InProcessRuntime::new().with(audit).answer_raw_to(
+            "@acme/audit",
+            "__describe",
+            serde_json::json!({ "category": "passes" }),
+            WasmCallResult::Ok(answer.to_string().into_bytes()),
+        )
+    }
+
+    #[specforge_test_macros::test(
+        behavior = "build_registries_from_declarations",
+        verify = "a passes description that does not parse fails the extension's load"
+    )]
+    fn a_passes_description_that_does_not_parse_fails_the_load() {
+        let runtime = malformed_passes(serde_json::json!([{ "nam": "x" }]));
+        let dir = project(
+            serde_json::json!({ "name": "p", "version": "0.1.0", "extensions": ["@acme/audit"] }),
+            &[],
+        );
+        let env = Environment::load(dir.path(), Some(&runtime));
+        let e028: Vec<&str> = env
+            .diagnostics()
+            .filter(|d| d.code == "E028")
+            .map(|d| d.message.as_str())
+            .collect();
+        assert_eq!(e028.len(), 1, "{e028:?}");
+        assert!(
+            e028[0].contains("describe 'passes' failed")
+                && e028[0].contains("missing field `name`"),
+            "{}",
+            e028[0]
+        );
+        assert_eq!(env.registries.check_passes().count(), 0);
+    }
+
+    /// One environment load describes each category of each extension
+    /// once; compiling with it runs the check passes it read, describing
+    /// nothing again.
+    #[test]
+    fn an_environment_describes_each_category_once() {
+        let runtime = InProcessRuntime::new().with(audit);
+        let dir = project(
+            serde_json::json!({ "name": "p", "version": "0.1.0", "extensions": ["@acme/audit"] }),
+            &[("a.spec", "spec p \"P\" {\n}\n")],
+        );
+        let compiled = CompiledProject::compile(dir.path(), Some(&runtime));
+        let calls: Vec<String> = runtime
+            .calls()
+            .iter()
+            .map(|c| match c.input["category"].as_str() {
+                Some(category) => format!("{}:{category}", c.export),
+                None => c.export.clone(),
+            })
+            .collect();
+        let describes = calls.iter().filter(|c| c.starts_with("__describe")).count();
+        assert_eq!(
+            describes,
+            specforge_protocol_types::DECLARED_CATEGORIES.len(),
+            "{calls:?}"
+        );
+        assert_eq!(calls.iter().filter(|c| *c == "__handshake").count(), 1);
+        assert_eq!(calls.last().map(String::as_str), Some("__pass_audit"));
+        assert!(
+            compiled.diagnostics().iter().all(|d| d.code != "E028"),
+            "{:?}",
+            compiled.diagnostics()
+        );
+    }
+
+    fn no_version() -> ContributionsBuilder {
+        ContributionsBuilder::new(ExtensionMeta::new("@acme/noversion", ""))
+    }
+
+    /// The runtime's load failures (E028) come before the declarations'
+    /// own diagnostics (E030), whatever the load order (ADR 0012): they
+    /// used to interleave extension by extension.
+    #[test]
+    fn load_failures_come_before_declaration_diagnostics() {
+        let runtime = InProcessRuntime::new().with(no_version);
+        let dir = project(
+            serde_json::json!({
+                "name": "p", "version": "0.1.0",
+                "extensions": ["@acme/noversion", "@acme/missing"]
+            }),
+            &[],
+        );
+        let env = Environment::load(dir.path(), Some(&runtime));
+        let codes: Vec<&str> = env.diagnostics().map(|d| d.code.as_str()).collect();
+        assert_eq!(codes, ["E028", "E030"], "{codes:?}");
+    }
 }

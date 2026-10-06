@@ -13,10 +13,10 @@ use specforge_emitter::model::{
     filter_fields,
 };
 use specforge_emitter::outline::{
-    DependencyDepth, OutlineDetail, OutlineFormat, OutlineIntermediate_from_manifests,
+    DependencyDepth, OutlineDetail, OutlineFormat, OutlineIntermediate_from_declarations,
     OutlineOptions,
 };
-use specforge_registry::ManifestV2;
+use specforge_protocol_types::ExtensionDeclaration;
 
 use crate::OpError;
 use crate::view::ProjectView;
@@ -31,17 +31,17 @@ pub struct ModelOutcome {
 
 /// The logical data model of the view's extensions, as `options` asks.
 pub fn model(view: &ProjectView, options: &ModelOptions) -> ModelOutcome {
-    render_schema(&view.schema(), &view.registries.manifests, options)
+    render_schema(&view.schema(), view.registries.declarations(), options)
 }
 
-/// The model of `schema`, themed by `manifests`: what [`model`] renders
+/// The model of `schema`, themed by `declarations`: what [`model`] renders
 /// for a view, for any Graph Protocol schema.
 pub fn render_schema(
     schema: &GraphProtocolSchema,
-    manifests: &[ManifestV2],
+    declarations: &[ExtensionDeclaration],
     options: &ModelOptions,
 ) -> ModelOutcome {
-    let model = ModelIntermediate_from_schema(schema).with_theme_colors(manifests);
+    let model = ModelIntermediate_from_schema(schema).with_theme_colors(declarations);
     let warnings = model
         .warnings
         .iter()
@@ -58,7 +58,7 @@ pub fn render_schema(
 /// The architecture of the view's extensions (dependencies, enhancements,
 /// contributions), as `options` asks.
 pub fn outline(view: &ProjectView, options: &OutlineOptions) -> String {
-    let outline = OutlineIntermediate_from_manifests(&view.registries.manifests);
+    let outline = OutlineIntermediate_from_declarations(view.registries.declarations());
     specforge_emitter::outline::render(&outline, options)
 }
 

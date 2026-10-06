@@ -4,51 +4,18 @@
 // - B:load_provider_configurations
 // - B:register_provider_schemes
 
-use specforge_registry::{
-    ExtensionContributions, ManifestV2, ProviderConfig, load_provider_configurations,
-    register_provider_schemes,
-};
+use specforge_extension_sdk::{ContributionsBuilder, ExtensionMeta};
+use specforge_protocol_types::ExtensionDeclaration;
+use specforge_registry::{ProviderConfig, load_provider_configurations, register_provider_schemes};
 
-fn default_manifest() -> ManifestV2 {
-    ManifestV2 {
-        name: String::new(),
-        version: String::new(),
-        manifest_version: 2,
-        wasm_path: String::new(),
-        contributes: Default::default(),
-        entity_kinds: vec![],
-        edge_types: vec![],
-        fields: vec![],
-        validation_rules: vec![],
-        verify_kinds: vec![],
-        reserved_keywords: vec![],
-        peer_dependencies: vec![],
-        sandbox_policy: None,
-        incremental: None,
-        migration_hook: None,
-        host_api_version: None,
-        entity_enhancements: vec![],
-        starter_template: None,
-        theme_color: None,
-        ext_short: None,
-        query_scope: None,
-        collector_contributions: vec![],
-        analyzer_contributions: vec![],
-        surfaces: None,
+/// The declaration of the extension `name`, contributing providers when
+/// `providers` (a raw `providers` category raises the handshake's flag).
+fn make_declaration(name: &str, providers: bool) -> ExtensionDeclaration {
+    let mut c = ContributionsBuilder::new(ExtensionMeta::new(name, "1.0.0"));
+    if providers {
+        c.raw_category("providers", serde_json::json!([]));
     }
-}
-
-fn make_manifest(name: &str, providers: bool) -> ManifestV2 {
-    ManifestV2 {
-        name: name.to_string(),
-        version: "1.0.0".to_string(),
-        wasm_path: "extension.wasm".to_string(),
-        contributes: ExtensionContributions {
-            providers,
-            ..Default::default()
-        },
-        ..default_manifest()
-    }
+    c.declaration()
 }
 
 // ============================================================================
@@ -174,10 +141,7 @@ fn test_load_providers_contract() {
 fn test_register_schemes_from_manifest() {
     let providers = vec![provider("github", "gh", "@specforge/github")];
 
-    let manifests = vec![(
-        "@specforge/github".to_string(),
-        make_manifest("@specforge/github", true),
-    )];
+    let manifests = vec![make_declaration("@specforge/github", true)];
 
     let (registry, diags) = register_provider_schemes(&providers, &manifests);
     assert!(diags.is_empty());
@@ -196,8 +160,8 @@ fn test_register_schemes_duplicate_produces_e057() {
     ];
 
     let manifests = vec![
-        ("@ext/a".to_string(), make_manifest("@ext/a", true)),
-        ("@ext/b".to_string(), make_manifest("@ext/b", true)),
+        make_declaration("@ext/a", true),
+        make_declaration("@ext/b", true),
     ];
 
     let (_, diags) = register_provider_schemes(&providers, &manifests);
@@ -213,8 +177,8 @@ fn test_register_schemes_duplicate_produces_e057() {
 fn test_register_schemes_no_manifest_warns() {
     let providers = vec![provider("github", "gh", "@specforge/github")];
 
-    // No manifests contribute providers
-    let manifests: Vec<(String, ManifestV2)> = vec![];
+    // No declarations contribute providers
+    let manifests: Vec<ExtensionDeclaration> = vec![];
 
     let (_, diags) = register_provider_schemes(&providers, &manifests);
     assert!(
@@ -228,7 +192,7 @@ fn test_register_schemes_no_manifest_warns() {
 #[test]
 fn test_register_schemes_contract() {
     let providers = vec![provider("github", "gh", "@ext/gh")];
-    let manifests = vec![("@ext/gh".to_string(), make_manifest("@ext/gh", true))];
+    let manifests = vec![make_declaration("@ext/gh", true)];
 
     // ensures: registered correctly
     let (registry, diags) = register_provider_schemes(&providers, &manifests);
@@ -236,8 +200,7 @@ fn test_register_schemes_contract() {
     assert!(registry.find_by_scheme("gh").is_some());
 
     // ensures: non-contributing extension not matched
-    let manifests_no_provider =
-        vec![("@ext/other".to_string(), make_manifest("@ext/other", false))];
+    let manifests_no_provider = vec![make_declaration("@ext/other", false)];
     let (registry, _) = register_provider_schemes(&providers, &manifests_no_provider);
     assert!(registry.entries.is_empty());
 }
@@ -251,11 +214,8 @@ fn test_register_schemes_contract() {
 fn test_provider_scheme_isolation_each_registered_to_owner() {
     // Two extensions, each contributing providers
     let manifests = vec![
-        (
-            "@ext/github".to_string(),
-            make_manifest("@ext/github", true),
-        ),
-        ("@ext/jira".to_string(), make_manifest("@ext/jira", true)),
+        make_declaration("@ext/github", true),
+        make_declaration("@ext/jira", true),
     ];
 
     // Two provider configs, each with a distinct scheme matching one extension

@@ -1,14 +1,20 @@
-//! Golden round-trip: the SDK's wire output must match, byte-for-byte in
-//! content (order-insensitive objects), what the host accepts from the
-//! hand-written builtin extensions. This is the pin behind "typed descriptors
+//! Golden round-trip: the SDK's wire output must match, byte for byte, what
+//! the builtin extensions answer. This is the pin behind "typed descriptors
 //! shared wire-exact with the host" (wayfinder map #1, ticket #2).
 
 use specforge_extension_sdk::{
-    ContributionsBuilder, ExtensionMeta, PeerDependency, SandboxPolicy, prelude::*,
+    ContributionsBuilder, ExtensionDeclaration, ExtensionMeta, HandshakeResponse, PeerDependency,
+    SandboxPolicy, prelude::*,
 };
+use specforge_protocol_types::SUPPORTED_CATEGORIES;
 
 fn software_builder() -> ContributionsBuilder {
     let mut meta = ExtensionMeta::new("@specforge/software", "1.0.0");
+    meta.description = Some(
+        "Software design: behaviors, invariants, events, types and ports, and the checks that \
+         keep them consistent"
+            .to_string(),
+    );
     meta.peer_dependencies = vec![PeerDependency {
         name: "@specforge/product".to_string(),
         version: "^1.0".to_string(),
@@ -73,73 +79,92 @@ fn software_builder() -> ContributionsBuilder {
     b
 }
 
-#[test]
-fn handshake_matches_builtin_wire_format() {
-    let golden: serde_json::Value = serde_json::from_str(include_str!(
-        "../../../extensions/software/src/handshake.json"
-    ))
-    .unwrap();
-    let built: serde_json::Value =
-        serde_json::from_str(&software_builder().handshake_json()).unwrap();
-    assert_eq!(
-        built, golden,
-        "SDK handshake diverged from the builtin wire format"
-    );
+/// The pinned wire declarations of every builtin and the greet fixture
+/// (`crates/specforge-component/tests/declarations/`, generated from the
+/// vendored blobs by `xtask snapshot-builtins`).
+const PINNED: &[&str] = &[
+    "product",
+    "software",
+    "governance",
+    "formal",
+    "testing",
+    "cargo-test",
+    "vitest",
+    "rust",
+    "typescript",
+    "greet",
+];
+
+fn pinned(dir: &str, file: &str) -> String {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../specforge-component/tests/declarations")
+        .join(dir)
+        .join(file);
+    std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()))
 }
 
-#[test]
-fn entities_describe_matches_builtin_wire_format() {
-    let golden: serde_json::Value = serde_json::from_str(include_str!(
-        "../../../extensions/software/src/describe_entities.json"
-    ))
-    .unwrap();
-
-    // The SDK slice contributes only the `behavior` kind; the builtin also
-    // ships 5 more kinds. Compare the first item of the builtin against the
-    // SDK's full items array.
-    let built: serde_json::Value = serde_json::from_str(
-        &software_builder()
-            .describe_response_json("entities")
-            .unwrap(),
+/// A pinned declaration, loaded as a host loads it.
+fn load_pinned(dir: &str) -> ExtensionDeclaration {
+    let handshake: HandshakeResponse =
+        serde_json::from_str(&pinned(dir, "handshake.json")).unwrap();
+    ExtensionDeclaration::from_wire(
+        handshake,
+        |category| {
+            Ok(serde_json::from_str(&pinned(dir, &format!("describe_{category}.json"))).unwrap())
+        },
+        |key| panic!("{dir}: unknown key {key:?}"),
     )
-    .unwrap();
-    assert_eq!(built["category"], "entities");
-    // The builtin behavior kind carries 13 fields; the SDK slice models the
-    // first 4. Pin kind identity plus the fully-mirrored contract/invariants
-    // fields.
-    assert_eq!(built["items"][0]["name"], golden["items"][0]["name"]);
-    assert_eq!(
-        built["items"][0]["description"],
-        golden["items"][0]["description"]
-    );
-    assert_eq!(
-        built["items"][0]["dot_shape"],
-        golden["items"][0]["dot_shape"]
-    );
-    assert_eq!(
-        built["items"][0]["fields"][0], golden["items"][0]["fields"][0],
-        "contract field drifted"
-    );
-    assert_eq!(
-        built["items"][0]["fields"][1], golden["items"][0]["fields"][1],
-        "invariants field drifted"
-    );
+    .unwrap_or_else(|e| panic!("{dir}: {e}"))
 }
 
+/// Every builtin's whole declaration goes through the typed descriptors
+/// and back to the same bytes: the SDK's wire format is the builtins'.
 #[test]
-fn validation_rules_describe_matches_builtin_wire_format() {
-    let golden: serde_json::Value = serde_json::from_str(include_str!(
-        "../../../extensions/software/src/describe_validation_rules.json"
-    ))
-    .unwrap();
-    let built: serde_json::Value = serde_json::from_str(
-        &software_builder()
-            .describe_response_json("validation_rules")
-            .unwrap(),
-    )
-    .unwrap();
-    assert_eq!(built["category"], "validation_rules");
-    assert_eq!(built["items"][0], golden["items"][0], "W001 rule drifted");
+fn every_pinned_declaration_round_trips_byte_for_byte() {
+    for dir in PINNED {
+        let declaration = load_pinned(dir);
+        assert_eq!(
+            declaration.handshake_json(),
+            pinned(dir, "handshake.json"),
+            "{dir}: handshake"
+        );
+        for category in SUPPORTED_CATEGORIES {
+            assert_eq!(
+                declaration.describe_json(category).unwrap(),
+                pinned(dir, &format!("describe_{category}.json")),
+                "{dir}: describe {category}"
+            );
+        }
+    }
+}
+
+/// What the SDK builders declare is exactly what the builtin declares for
+/// the same contributions.
+#[test]
+fn the_builders_declare_what_the_builtin_declares() {
+    let built = software_builder().declaration();
+    let software = load_pinned("software");
+    assert_eq!(built.handshake, software.handshake, "handshake");
+    let behavior = &built.entities[0];
+    let builtin = software
+        .entities
+        .iter()
+        .find(|k| k.name == behavior.name)
+        .expect("software declares Behavior");
+    assert_eq!(behavior.description, builtin.description);
+    assert_eq!(behavior.dot_shape, builtin.dot_shape);
+    for field in &behavior.fields {
+        let declared = builtin
+            .fields
+            .iter()
+            .find(|f| f.name == field.name)
+            .unwrap_or_else(|| panic!("software declares {}", field.name));
+        assert_eq!(field, declared, "field {}", field.name);
+    }
+    assert_eq!(
+        built.validation_rules[0], software.validation_rules[0],
+        "W001 rule"
+    );
 }
 
 #[test]

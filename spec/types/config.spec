@@ -9,32 +9,30 @@ use "types/zero-entity-core"
 //     → ProviderConfig { scheme, alias (from positional string), extension, settings }
 
 type CompilerConfig {
-  schema                string            @optional
+  schema               string           @optional
   // Serialized as "$schema" in JSON ($ prefix is a JSON convention)
-  name                  string            @readonly
-  version               string            @readonly
-  spec_root             string            @optional
+  name                 string           @readonly
+  version              string           @readonly
+  spec_root            string           @optional
   // Path substrings (not globs), relative to the spec root: a .spec file
   // whose path contains one is not compiled on any surface.
-  exclude               string[]          @optional
-  strict                boolean           @optional
-  namespace             string            @optional
-  display_prefix        string            @optional
-  extensions            string[]
-  providers             ProviderConfig[]  @optional
+  exclude              string[]         @optional
+  strict               boolean          @optional
+  namespace            string           @optional
+  display_prefix       string           @optional
+  extensions           string[]
+  providers            ProviderConfig[] @optional
   // Coverage configuration is owned by @specforge/coverage extension.
   // At runtime this is a FieldMap deserialized into the extension's CoverageConfig type.
-  coverage              FieldMap          @optional
-  enhancement_policy    EnhancementPolicy @optional
-  enhancement_overrides FieldMap          @optional
+  coverage             FieldMap         @optional
   // The only source of registries: SpecForge ships none (E063 without one).
-  registries            RegistryConfig[]  @optional
+  registries           RegistryConfig[] @optional
   // federation config is extension-provided (see @specforge/federation extension)
-  watch_debounce_ms     integer           @optional
+  watch_debounce_ms    integer          @optional
   // Graph Protocol schema version compatibility range for agent negotiation.
   // Defaults to current major range (e.g., 1.0.0..1.x.x). See ADR graph_protocol_version_management.
-  supported_schema_min  SchemaVersion     @optional
-  supported_schema_max  SchemaVersion     @optional
+  supported_schema_min SchemaVersion    @optional
+  supported_schema_max SchemaVersion    @optional
   verify unit "CompilerConfig schema is valid"
 }
 
@@ -167,7 +165,3 @@ type BundledExtensionEntry {
   priority    u32      @optional
   verify unit "BundledExtensionEntry schema is valid"
 }
-
-// ExtensionManifest is an alias for ManifestV2 (defined in types/zero-entity-core).
-// Used in the CompilerApi.add() return type to represent a resolved extension.
-type ExtensionManifest = ManifestV2

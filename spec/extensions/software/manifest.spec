@@ -6,19 +6,19 @@ use "types/zero-entity-core"
 behavior se_declare_manifest "Declare @specforge/software Manifest" {
   features [se_core_entity_kinds]
   category command
-  types    [ManifestV2, ManifestEntityKind, ManifestEdgeType]
+  types    [ExtensionDeclaration, EntityKindDescriptor, EdgeTypeDescriptor]
   contract """
-    The @specforge/software extension MUST declare a v2 manifest with name
-    "@specforge/software", manifestVersion 2. The manifest MUST declare
+    The @specforge/software extension MUST declare itself with name
+    "@specforge/software". Its declaration MUST declare
     exactly 6 entity kinds (behavior, invariant, feature, event, type,
     port), 9 edge types (References, Implements, Produces, Consumes,
     UsesType, UsesPort, Enforces, Imports, LinksTo), and all associated
-    validation rules. The wasmPath MUST point to the compiled Wasm module.
+    validation rules. The compiled Wasm component MUST serve it.
   """
   requires {
-    valid_manifest_version "manifestVersion == 2"
-    valid_extension_name   "name == '@specforge/software'"
-    wasm_module_exists     "wasmPath points to a compiled Wasm binary"
+    supported_protocol   "the handshake's protocol major version is the host's"
+    valid_extension_name "name == '@specforge/software'"
+    wasm_module_exists   "the declaration is read from the compiled Wasm component"
   }
   ensures {
     six_entity_kinds      "entityKinds.length == 6"
@@ -31,7 +31,7 @@ behavior se_declare_manifest "Declare @specforge/software Manifest" {
   verify unit "manifest name is @specforge/software"
   verify unit "manifest declares exactly 6 entity kinds"
   verify unit "manifest declares exactly 9 edge types"
-  verify unit "manifest version is 2"
+  verify unit "the handshake's protocol major is the host's"
   verify unit "contributes declares entities and validators"
   verify unit "the only peer is @specforge/product, and it is optional"
 }

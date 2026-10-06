@@ -11,7 +11,7 @@ use specforge_project::{InputRole, ProjectSession, SharedRuntime, UpdateKind};
 use specforge_test::prelude::*;
 use tempfile::TempDir;
 
-use crate::check_passes::{PassesExtension, SPEC, project as passes_project, write_cache};
+use crate::check_passes::{SPEC, passes_extension, project as passes_project, write_cache};
 
 fn write(root: &Path, path: &str, text: &str) {
     let path = root.join(path);
@@ -161,7 +161,7 @@ fn an_unloaded_wasm_changes_nothing() {
 fn the_build_cache_reruns_the_checks_only() {
     let dir = passes_project(SPEC);
     let root = dir.path();
-    let ext = Arc::new(PassesExtension::new());
+    let ext = Arc::new(passes_extension());
     let mut session =
         ProjectSession::open_with_runtime(root, Some(Arc::clone(&ext) as SharedRuntime));
     let cache = root.join(specforge_project::BUILD_CACHE_FILE);
@@ -201,7 +201,7 @@ fn the_build_cache_reruns_the_checks_only() {
 fn a_referenced_file_reruns_the_checks() {
     let dir = passes_project("gadget doc \"Doc\" {\n  docs [\"docs/guide.md\"]\n}\n");
     let root = dir.path();
-    let ext = Arc::new(PassesExtension::new());
+    let ext = Arc::new(passes_extension());
     let mut session =
         ProjectSession::open_with_runtime(root, Some(Arc::clone(&ext) as SharedRuntime));
     let e016 = |session: &ProjectSession| {

@@ -24,7 +24,7 @@ pub fn call(call: &mut Call<'_>, _args: crate::args::NoArgs) -> ToolOutcome {
     };
     match specforge_ops::infer::gaps(
         project.root,
-        &project.env.registries.manifests,
+        project.env.registries.declarations(),
         project.graph,
         runtime.as_ref(),
     ) {

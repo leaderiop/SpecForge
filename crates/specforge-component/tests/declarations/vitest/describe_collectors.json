@@ -1,0 +1,28 @@
+{
+  "category": "collectors",
+  "items": [
+    {
+      "auto_detect": {
+        "env_vars": [],
+        "file_patterns": [
+          "vitest.config.*",
+          "vitest.workspace.*"
+        ]
+      },
+      "export": "collect__vitest",
+      "input_formats": [
+        "vitest-json"
+      ],
+      "name": "vitest",
+      "run": [
+        "npx",
+        "--no",
+        "vitest",
+        "run",
+        "--reporter=default",
+        "--reporter=json",
+        "--outputFile.json={report}"
+      ]
+    }
+  ]
+}

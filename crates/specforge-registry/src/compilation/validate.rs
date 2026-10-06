@@ -1,10 +1,11 @@
-use crate::ManifestV2;
 #[cfg(test)]
 use crate::{EdgeRegistry, FieldRegistry, KindRegistry};
-use specforge_common::{Diagnostic, DiagnosticData, Severity};
+use specforge_common::{Diagnostic, Severity};
+use specforge_protocol_types::{ExtensionDeclaration, ValidationRuleDescriptor};
 
 /// Cross-validate registered entity fields: check target_kind and edge label references
-/// resolve to registered entries. Test-only: `validate_manifest` reports W021 on load.
+/// resolve to registered entries. Test-only: the registry build reports W021 on load
+/// (`declaration::consistency`).
 #[cfg(test)]
 pub fn validate_registered_entity_fields(
     field_reg: &FieldRegistry,
@@ -15,7 +16,7 @@ pub fn validate_registered_entity_fields(
 
     for (kind_name, field_name, entry) in field_reg.iter() {
         // Validate target_kind references
-        if let Some(target) = &entry.target_kind
+        if let Some(target) = &entry.declared.target_kind
             && !kind_reg.contains(target)
         {
             diagnostics.push(Diagnostic {
@@ -32,7 +33,7 @@ pub fn validate_registered_entity_fields(
         }
 
         // Validate edge label references
-        if let Some(edge) = &entry.edge
+        if let Some(edge) = &entry.declared.edge
             && !edge_reg.contains(edge)
         {
             diagnostics.push(Diagnostic {
@@ -54,62 +55,27 @@ pub fn validate_registered_entity_fields(
     diagnostics
 }
 
-/// Detect duplicate entity kinds across extensions during registration.
-/// This is called during populate_registries, but exposed separately for testing.
-pub fn detect_duplicate_entity_kinds(manifests: &[ManifestV2]) -> Vec<Diagnostic> {
-    let mut diagnostics = Vec::new();
-    let mut seen: std::collections::HashMap<String, String> = std::collections::HashMap::new();
-
-    for manifest in manifests {
-        for kind in &manifest.entity_kinds {
-            if let Some(first_ext) = seen.get(&kind.keyword) {
-                diagnostics.push(Diagnostic {
-                    code: "E026".to_string(),
-                    severity: Severity::Error,
-                    message: format!(
-                        "entity kind '{}' registered by '{}' conflicts with '{}' (first registration wins)",
-                        kind.keyword, manifest.name, first_ext
-                    ),
-                    span: None,
-                    suggestion: None,
-                    data: Some(Box::new(DiagnosticData::ShadowedKeyword {
-                        keyword: kind.keyword.clone(),
-                    })),
-                });
-            } else {
-                seen.insert(kind.keyword.clone(), manifest.name.clone());
-            }
-        }
-    }
-
-    diagnostics
-}
-
-/// Validate peer dependencies against installed extensions: a required
-/// peer must be installed (E027), and every installed peer, optional or
-/// not, must satisfy its range (E027; W062 for malformed semver). An
-/// optional peer that is not installed is fine.
-pub fn validate_peer_dependencies(manifests: &[ManifestV2]) -> Vec<Diagnostic> {
-    manifests
+/// E027/W062 for every declaration's peers, against the loaded ones.
+pub(crate) fn peer_dependencies(declarations: &[ExtensionDeclaration]) -> Vec<Diagnostic> {
+    declarations
         .iter()
-        .flat_map(|manifest| validate_peer_dependencies_of(manifest, manifests))
+        .flat_map(|declaration| peer_dependencies_of(declaration, declarations))
         .collect()
 }
 
-/// [`validate_peer_dependencies`] for the peers `manifest` declares, against
-/// the `installed` extensions (`manifest` itself may be among them).
-pub fn validate_peer_dependencies_of(
-    manifest: &ManifestV2,
-    installed: &[ManifestV2],
+/// The peer diagnostics of `declaration` against the `installed` ones
+/// (`declaration` itself may be among them).
+pub(crate) fn peer_dependencies_of(
+    declaration: &ExtensionDeclaration,
+    installed: &[ExtensionDeclaration],
 ) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
+    let name = declaration.name();
 
-    let installed: std::collections::HashMap<&str, &str> = installed
-        .iter()
-        .map(|m| (m.name.as_str(), m.version.as_str()))
-        .collect();
+    let installed: std::collections::HashMap<&str, &str> =
+        installed.iter().map(|d| (d.name(), d.version())).collect();
 
-    for peer in &manifest.peer_dependencies {
+    for peer in declaration.peers() {
         match installed.get(peer.name.as_str()) {
             None if peer.optional => {}
             None => {
@@ -118,7 +84,7 @@ pub fn validate_peer_dependencies_of(
                     severity: Severity::Error,
                     message: format!(
                         "extension '{}' requires peer dependency '{}' {} which is not installed",
-                        manifest.name, peer.name, peer.version
+                        name, peer.name, peer.version
                     ),
                     span: None,
                     suggestion: Some(format!("install it with: specforge add {}", peer.name)),
@@ -136,7 +102,7 @@ pub fn validate_peer_dependencies_of(
                         severity: Severity::Warning,
                         message: format!(
                             "extension '{}' declares peer dependency '{}' with malformed semver range '{}'",
-                            manifest.name, peer.name, peer.version
+                            name, peer.name, peer.version
                         ),
                         span: None,
                         suggestion: Some("use a valid semver range like ^1.0.0, ~1.2.0, or >=1.0.0".to_string()),
@@ -160,7 +126,7 @@ pub fn validate_peer_dependencies_of(
                         severity: Severity::Error,
                         message: format!(
                             "extension '{}' requires peer dependency '{}' {} but version {} is installed",
-                            manifest.name, peer.name, peer.version, installed_version
+                            name, peer.name, peer.version, installed_version
                         ),
                         span: None,
                         suggestion: None,
@@ -205,7 +171,10 @@ pub(crate) fn validate_extension_testability(kind_reg: &crate::KindRegistry) -> 
                     entry.kind_name, entry.source_extension
                 ),
                 span: None,
-                suggestion: Some("set supportsVerify: true in the manifest".to_string()),
+                suggestion: Some(
+                    "declare the kind with supports_verify (KindBuilder::supports_verify)"
+                        .to_string(),
+                ),
                 data: None,
             });
         }
@@ -216,25 +185,28 @@ pub(crate) fn validate_extension_testability(kind_reg: &crate::KindRegistry) -> 
     diagnostics
 }
 
-/// Register validation rules from manifests. Returns aggregated rules + diagnostics.
-pub fn register_validation_rules(
-    manifests: &[ManifestV2],
-) -> (Vec<crate::ManifestValidationRule>, Vec<Diagnostic>) {
+/// Every declared validation rule, sorted by code, and W023 for a code a
+/// later extension declares again.
+pub(crate) fn register_validation_rules(
+    declarations: &[ExtensionDeclaration],
+) -> (Vec<ValidationRuleDescriptor>, Vec<Diagnostic>) {
     let mut all_rules = Vec::new();
     let mut diagnostics = Vec::new();
     let mut seen_codes: std::collections::HashMap<String, String> =
         std::collections::HashMap::new();
 
-    for manifest in manifests {
-        for rule in &manifest.validation_rules {
+    for declaration in declarations {
+        for rule in &declaration.validation_rules {
             if let Some(first_ext) = seen_codes.get(&rule.code) {
-                if *first_ext != manifest.name {
+                if first_ext != declaration.name() {
                     diagnostics.push(Diagnostic {
                         code: "W023".to_string(),
                         severity: Severity::Warning,
                         message: format!(
                             "validation rule code '{}' from '{}' duplicates code from '{}'",
-                            rule.code, manifest.name, first_ext
+                            rule.code,
+                            declaration.name(),
+                            first_ext
                         ),
                         span: None,
                         suggestion: None,
@@ -242,7 +214,7 @@ pub fn register_validation_rules(
                     });
                 }
             } else {
-                seen_codes.insert(rule.code.clone(), manifest.name.clone());
+                seen_codes.insert(rule.code.clone(), declaration.name().to_string());
             }
             all_rules.push(rule.clone());
         }
@@ -257,38 +229,75 @@ pub fn register_validation_rules(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{ManifestV2, populate_registries};
+    use crate::compilation::populate::populate;
+    use crate::compilation::tests::support::{declare, kind_collisions, peer};
+    use specforge_extension_sdk::prelude::*;
 
-    fn software_manifest() -> ManifestV2 {
-        serde_json::from_str(
-            r#"{
-                "name": "@specforge/software",
-                "version": "1.0.0",
-                "manifestVersion": 2,
-                "wasmPath": "software.wasm",
-                "entityKinds": [
-                    {
-                        "name": "Behavior",
-                        "keyword": "behavior",
-                        "testable": true,
-                        "supportsVerify": true,
-                        "fields": [
-                            { "name": "invariants", "fieldType": "reference_list", "edge": "enforces", "targetKind": "invariant" }
-                        ]
-                    },
-                    {
-                        "name": "Invariant",
-                        "keyword": "invariant",
-                        "testable": true,
-                        "supportsVerify": true
-                    }
-                ],
-                "edgeTypes": [
-                    { "label": "enforces", "sourceKind": "behavior", "targetKind": "invariant" }
-                ]
-            }"#,
-        )
-        .unwrap()
+    fn software_manifest() -> ExtensionDeclaration {
+        declare("@specforge/software", |c| {
+            c.kind("Behavior", |k| {
+                k.keyword("behavior").testable(true).supports_verify(true);
+                k.field("invariants", |f| {
+                    f.field_type(FieldType::ReferenceList)
+                        .edge("enforces")
+                        .target_kind("invariant");
+                });
+            });
+            c.kind("Invariant", |k| {
+                k.keyword("invariant").testable(true).supports_verify(true);
+            });
+            c.edge("enforces", |e| {
+                e.source_kind("behavior").target_kind("invariant");
+            });
+        })
+    }
+
+    /// The extension `name` at `version`, declaring nothing.
+    fn installed(name: &str, version: &str) -> ExtensionDeclaration {
+        ContributionsBuilder::new(ExtensionMeta::new(name, version)).declaration()
+    }
+
+    /// `@specforge/product` 1.0.0, requiring `peer_name` in `range`.
+    fn product_requiring(peer_name: &str, range: &str) -> ExtensionDeclaration {
+        let mut c = ContributionsBuilder::new(ExtensionMeta::new("@specforge/product", "1.0.0"));
+        c.meta.peer_dependencies.push(peer(peer_name, range));
+        c.declaration()
+    }
+
+    /// An extension `name` declaring the one kind `kind_name` (`keyword`).
+    fn declaring_kind(name: &str, kind_name: &str, keyword: &str) -> ExtensionDeclaration {
+        declare(name, |c| {
+            c.kind(kind_name, |k| {
+                k.keyword(keyword);
+            });
+        })
+    }
+
+    /// An extension `name` declaring one kind with these testable and
+    /// supports_verify flags.
+    fn flagged_kind(
+        name: &str,
+        kind_name: &str,
+        keyword: &str,
+        testable: bool,
+        supports_verify: bool,
+    ) -> ExtensionDeclaration {
+        declare(name, |c| {
+            c.kind(kind_name, |k| {
+                k.keyword(keyword)
+                    .testable(testable)
+                    .supports_verify(supports_verify);
+            });
+        })
+    }
+
+    /// A warning rule `code` with `check`, its message `template`.
+    fn rule(c: &mut ContributionsBuilder, code: &str, template: &str, check: CheckKind) {
+        c.rule(code, |r| {
+            r.check(check)
+                .severity(ValidationSeverity::Warning)
+                .message_template(template);
+        });
     }
 
     // -- B:validate_registered_entity_fields --
@@ -297,7 +306,7 @@ mod tests {
     // B:register_validation_rules_from_manifest — verify unit "target_kind reference validated against KindRegistry after registries_populated"
     #[test]
     fn test_target_kind_reference_resolves_to_registered_kind() {
-        let (kind_reg, field_reg, edge_reg, _) = populate_registries(&[software_manifest()]);
+        let (kind_reg, field_reg, edge_reg, _) = populate(&[software_manifest()]);
         let diags = validate_registered_entity_fields(&field_reg, &kind_reg, &edge_reg);
         assert!(
             !diags.iter().any(|d| d.message.contains("target_kind")),
@@ -310,7 +319,7 @@ mod tests {
     // B:register_validation_rules_from_manifest — verify unit "edge_type reference validated against edge type set after registries_populated"
     #[test]
     fn test_edge_label_resolves_to_registered_edge_type() {
-        let (kind_reg, field_reg, edge_reg, _) = populate_registries(&[software_manifest()]);
+        let (kind_reg, field_reg, edge_reg, _) = populate(&[software_manifest()]);
         let diags = validate_registered_entity_fields(&field_reg, &kind_reg, &edge_reg);
         assert!(
             !diags.iter().any(|d| d.message.contains("edge label")),
@@ -323,25 +332,15 @@ mod tests {
     // B:register_validation_rules_from_manifest — verify unit "invalid reference produces warning not error"
     #[test]
     fn test_unresolved_target_kind_produces_warning() {
-        let manifest: ManifestV2 = serde_json::from_str(
-            r#"{
-                "name": "@test/ext",
-                "version": "1.0.0",
-                "manifestVersion": 2,
-                "wasmPath": "x.wasm",
-                "entityKinds": [
-                    {
-                        "name": "Task",
-                        "keyword": "task",
-                        "fields": [
-                            { "name": "owner", "fieldType": "reference", "targetKind": "person" }
-                        ]
-                    }
-                ]
-            }"#,
-        )
-        .unwrap();
-        let (kind_reg, field_reg, edge_reg, _) = populate_registries(&[manifest]);
+        let declaration = declare("@test/ext", |c| {
+            c.kind("Task", |k| {
+                k.keyword("task");
+                k.field("owner", |f| {
+                    f.field_type(FieldType::Reference).target_kind("person");
+                });
+            });
+        });
+        let (kind_reg, field_reg, edge_reg, _) = populate(&[declaration]);
         let diags = validate_registered_entity_fields(&field_reg, &kind_reg, &edge_reg);
         assert!(
             diags
@@ -355,25 +354,15 @@ mod tests {
     // B:validate_registered_entity_fields — verify unit "unresolved edge label produces warning"
     #[test]
     fn test_unresolved_edge_label_produces_warning() {
-        let manifest: ManifestV2 = serde_json::from_str(
-            r#"{
-                "name": "@test/ext",
-                "version": "1.0.0",
-                "manifestVersion": 2,
-                "wasmPath": "x.wasm",
-                "entityKinds": [
-                    {
-                        "name": "Task",
-                        "keyword": "task",
-                        "fields": [
-                            { "name": "owner", "fieldType": "reference", "edge": "owns" }
-                        ]
-                    }
-                ]
-            }"#,
-        )
-        .unwrap();
-        let (kind_reg, field_reg, edge_reg, _) = populate_registries(&[manifest]);
+        let declaration = declare("@test/ext", |c| {
+            c.kind("Task", |k| {
+                k.keyword("task");
+                k.field("owner", |f| {
+                    f.field_type(FieldType::Reference).edge("owns");
+                });
+            });
+        });
+        let (kind_reg, field_reg, edge_reg, _) = populate(&[declaration]);
         let _diags = validate_registered_entity_fields(&field_reg, &kind_reg, &edge_reg);
         // "owns" was auto-created as an implicit edge during populate, so it resolves
         assert!(
@@ -386,34 +375,23 @@ mod tests {
     #[test]
     fn test_cross_validation_uses_no_domain_specific_logic() {
         // Custom domain: entirely made-up entity kinds, field types, edges
-        let manifest: ManifestV2 = serde_json::from_str(
-            r#"{
-                "name": "@custom/cooking",
-                "version": "1.0.0",
-                "manifestVersion": 2,
-                "wasmPath": "cooking.wasm",
-                "entityKinds": [
-                    {
-                        "name": "Recipe",
-                        "keyword": "recipe",
-                        "testable": true,
-                        "supportsVerify": true,
-                        "fields": [
-                            { "name": "ingredients", "fieldType": "reference_list", "edge": "uses", "targetKind": "ingredient" }
-                        ]
-                    },
-                    {
-                        "name": "Ingredient",
-                        "keyword": "ingredient"
-                    }
-                ],
-                "edgeTypes": [
-                    { "label": "uses", "sourceKind": "recipe", "targetKind": "ingredient" }
-                ]
-            }"#,
-        )
-        .unwrap();
-        let (kind_reg, field_reg, edge_reg, pop_diags) = populate_registries(&[manifest]);
+        let declaration = declare("@custom/cooking", |c| {
+            c.kind("Recipe", |k| {
+                k.keyword("recipe").testable(true).supports_verify(true);
+                k.field("ingredients", |f| {
+                    f.field_type(FieldType::ReferenceList)
+                        .edge("uses")
+                        .target_kind("ingredient");
+                });
+            });
+            c.kind("Ingredient", |k| {
+                k.keyword("ingredient");
+            });
+            c.edge("uses", |e| {
+                e.source_kind("recipe").target_kind("ingredient");
+            });
+        });
+        let (kind_reg, field_reg, edge_reg, pop_diags) = populate(&[declaration]);
         assert!(pop_diags.is_empty());
         let diags = validate_registered_entity_fields(&field_reg, &kind_reg, &edge_reg);
         assert!(
@@ -429,19 +407,8 @@ mod tests {
     #[test]
     fn test_duplicate_kind_from_two_extensions_produces_e026() {
         let m1 = software_manifest();
-        let m2: ManifestV2 = serde_json::from_str(
-            r#"{
-                "name": "@other/ext",
-                "version": "1.0.0",
-                "manifestVersion": 2,
-                "wasmPath": "other.wasm",
-                "entityKinds": [
-                    { "name": "Behavior", "keyword": "behavior" }
-                ]
-            }"#,
-        )
-        .unwrap();
-        let diags = detect_duplicate_entity_kinds(&[m1, m2]);
+        let m2 = declaring_kind("@other/ext", "Behavior", "behavior");
+        let diags = kind_collisions(&[m1, m2]);
         assert!(
             diags
                 .iter()
@@ -455,19 +422,8 @@ mod tests {
     #[test]
     fn test_first_extension_in_topological_order_owns_the_kind() {
         let m1 = software_manifest();
-        let m2: ManifestV2 = serde_json::from_str(
-            r#"{
-                "name": "@other/ext",
-                "version": "1.0.0",
-                "manifestVersion": 2,
-                "wasmPath": "other.wasm",
-                "entityKinds": [
-                    { "name": "Behavior", "keyword": "behavior" }
-                ]
-            }"#,
-        )
-        .unwrap();
-        let (kind_reg, _, _, _) = populate_registries(&[m1, m2]);
+        let m2 = declaring_kind("@other/ext", "Behavior", "behavior");
+        let (kind_reg, _, _, _) = populate(&[m1, m2]);
         let behavior = kind_reg.get("behavior").unwrap();
         assert_eq!(behavior.source_extension, "@specforge/software");
     }
@@ -475,7 +431,7 @@ mod tests {
     // B:detect_duplicate_entity_kinds — verify unit "single extension registering a kind produces no diagnostic"
     #[test]
     fn test_single_extension_registering_a_kind_produces_no_diagnostic() {
-        let diags = detect_duplicate_entity_kinds(&[software_manifest()]);
+        let diags = kind_collisions(&[software_manifest()]);
         assert!(diags.is_empty());
     }
 
@@ -485,19 +441,8 @@ mod tests {
     #[test]
     fn test_satisfied_peer_dependency_passes_validation() {
         let m1 = software_manifest();
-        let m2: ManifestV2 = serde_json::from_str(
-            r#"{
-                "name": "@specforge/product",
-                "version": "1.0.0",
-                "manifestVersion": 2,
-                "wasmPath": "product.wasm",
-                "peerDependencies": [
-                    { "name": "@specforge/software", "version": ">=1.0.0" }
-                ]
-            }"#,
-        )
-        .unwrap();
-        let diags = validate_peer_dependencies(&[m1, m2]);
+        let m2 = product_requiring("@specforge/software", ">=1.0.0");
+        let diags = peer_dependencies(&[m1, m2]);
         assert!(
             diags.is_empty(),
             "expected no diagnostics, got: {:?}",
@@ -508,19 +453,8 @@ mod tests {
     // B:validate_peer_dependencies — verify unit "missing peer dependency produces hard error"
     #[test]
     fn test_missing_peer_dependency_produces_hard_error() {
-        let m: ManifestV2 = serde_json::from_str(
-            r#"{
-                "name": "@specforge/product",
-                "version": "1.0.0",
-                "manifestVersion": 2,
-                "wasmPath": "product.wasm",
-                "peerDependencies": [
-                    { "name": "@specforge/software", "version": ">=1.0.0" }
-                ]
-            }"#,
-        )
-        .unwrap();
-        let diags = validate_peer_dependencies(&[m]);
+        let m = product_requiring("@specforge/software", ">=1.0.0");
+        let diags = peer_dependencies(&[m]);
         assert!(
             diags
                 .iter()
@@ -533,28 +467,9 @@ mod tests {
     // B:validate_peer_dependencies — verify unit "incompatible version produces hard error with required range"
     #[test]
     fn test_incompatible_version_produces_hard_error() {
-        let m1: ManifestV2 = serde_json::from_str(
-            r#"{
-                "name": "@specforge/software",
-                "version": "0.5.0",
-                "manifestVersion": 2,
-                "wasmPath": "software.wasm"
-            }"#,
-        )
-        .unwrap();
-        let m2: ManifestV2 = serde_json::from_str(
-            r#"{
-                "name": "@specforge/product",
-                "version": "1.0.0",
-                "manifestVersion": 2,
-                "wasmPath": "product.wasm",
-                "peerDependencies": [
-                    { "name": "@specforge/software", "version": ">=1.0.0" }
-                ]
-            }"#,
-        )
-        .unwrap();
-        let diags = validate_peer_dependencies(&[m1, m2]);
+        let m1 = installed("@specforge/software", "0.5.0");
+        let m2 = product_requiring("@specforge/software", ">=1.0.0");
+        let diags = peer_dependencies(&[m1, m2]);
         assert!(
             diags.iter().any(|d| d.code == "E027"
                 && d.message.contains(">=1.0.0")
@@ -569,19 +484,8 @@ mod tests {
     // B:validate_extension_testability — verify unit "testable kind without supportsVerify produces W017"
     #[test]
     fn test_testable_kind_without_supports_verify_produces_w017() {
-        let manifest: ManifestV2 = serde_json::from_str(
-            r#"{
-                "name": "@test/ext",
-                "version": "1.0.0",
-                "manifestVersion": 2,
-                "wasmPath": "x.wasm",
-                "entityKinds": [
-                    { "name": "Thing", "keyword": "thing", "testable": true, "supportsVerify": false }
-                ]
-            }"#,
-        )
-        .unwrap();
-        let (kind_reg, _, _, _) = populate_registries(&[manifest]);
+        let declaration = flagged_kind("@test/ext", "Thing", "thing", true, false);
+        let (kind_reg, _, _, _) = populate(&[declaration]);
         let diags = validate_extension_testability(&kind_reg);
         assert!(
             diags
@@ -595,7 +499,7 @@ mod tests {
     // B:validate_extension_testability — verify unit "testable kind with supportsVerify=true passes"
     #[test]
     fn test_testable_kind_with_supports_verify_passes() {
-        let (kind_reg, _, _, _) = populate_registries(&[software_manifest()]);
+        let (kind_reg, _, _, _) = populate(&[software_manifest()]);
         let diags = validate_extension_testability(&kind_reg);
         // behavior has both testable=true and supportsVerify=true
         assert!(
@@ -608,19 +512,8 @@ mod tests {
     // B:validate_extension_testability — verify unit "a kind that accepts verify statements but is not testable produces no diagnostic"
     #[test]
     fn test_kind_with_supports_verify_but_not_testable_is_not_reported() {
-        let manifest: ManifestV2 = serde_json::from_str(
-            r#"{
-                "name": "@test/ext",
-                "version": "1.0.0",
-                "manifestVersion": 2,
-                "wasmPath": "x.wasm",
-                "entityKinds": [
-                    { "name": "Note", "keyword": "note", "testable": false, "supportsVerify": true }
-                ]
-            }"#,
-        )
-        .unwrap();
-        let (kind_reg, _, _, _) = populate_registries(&[manifest]);
+        let declaration = flagged_kind("@test/ext", "Note", "note", false, true);
+        let (kind_reg, _, _, _) = populate(&[declaration]);
         let diags = validate_extension_testability(&kind_reg);
         assert!(diags.is_empty(), "{diags:?}");
     }
@@ -628,19 +521,8 @@ mod tests {
     // B:validate_extension_testability — verify unit "consistent testable and supportsVerify flags produce no diagnostic"
     #[test]
     fn test_consistent_flags_produce_no_diagnostic() {
-        let manifest: ManifestV2 = serde_json::from_str(
-            r#"{
-                "name": "@test/ext",
-                "version": "1.0.0",
-                "manifestVersion": 2,
-                "wasmPath": "x.wasm",
-                "entityKinds": [
-                    { "name": "Thing", "keyword": "thing", "testable": false, "supportsVerify": false }
-                ]
-            }"#,
-        )
-        .unwrap();
-        let (kind_reg, _, _, _) = populate_registries(&[manifest]);
+        let declaration = flagged_kind("@test/ext", "Thing", "thing", false, false);
+        let (kind_reg, _, _, _) = populate(&[declaration]);
         let diags = validate_extension_testability(&kind_reg);
         assert!(
             diags.is_empty(),
@@ -654,25 +536,15 @@ mod tests {
     // B:register_validation_rules_from_manifest — verify unit "validation rule registered from manifest"
     #[test]
     fn test_validation_rule_registered_from_manifest() {
-        let manifest: ManifestV2 = serde_json::from_str(
-            r#"{
-                "name": "@test/ext",
-                "version": "1.0.0",
-                "manifestVersion": 2,
-                "wasmPath": "x.wasm",
-                "validationRules": [
-                    {
-                        "code": "W100",
-                        "severity": "warning",
-                        "messageTemplate": "orphan {kind} '{id}'",
-                        "check": "no_incoming_edges",
-                        "targetKind": "behavior"
-                    }
-                ]
-            }"#,
-        )
-        .unwrap();
-        let (rules, diags) = register_validation_rules(&[manifest]);
+        let declaration = declare("@test/ext", |c| {
+            c.rule("W100", |r| {
+                r.check(CheckKind::NoIncomingEdges)
+                    .severity(ValidationSeverity::Warning)
+                    .message_template("orphan {kind} '{id}'")
+                    .target_kind("behavior");
+            });
+        });
+        let (rules, diags) = register_validation_rules(&[declaration]);
         assert!(diags.is_empty());
         assert_eq!(rules.len(), 1);
         assert_eq!(rules[0].code, "W100");
@@ -684,25 +556,15 @@ mod tests {
     fn test_target_kind_validation_deferred_to_post_registration() {
         // register_validation_rules does not validate target_kind — that's
         // done by validate_registered_entity_fields after all registries populated
-        let manifest: ManifestV2 = serde_json::from_str(
-            r#"{
-                "name": "@test/ext",
-                "version": "1.0.0",
-                "manifestVersion": 2,
-                "wasmPath": "x.wasm",
-                "validationRules": [
-                    {
-                        "code": "W100",
-                        "severity": "warning",
-                        "messageTemplate": "test",
-                        "check": "no_incoming_edges",
-                        "targetKind": "nonexistent_kind"
-                    }
-                ]
-            }"#,
-        )
-        .unwrap();
-        let (rules, diags) = register_validation_rules(&[manifest]);
+        let declaration = declare("@test/ext", |c| {
+            c.rule("W100", |r| {
+                r.check(CheckKind::NoIncomingEdges)
+                    .severity(ValidationSeverity::Warning)
+                    .message_template("test")
+                    .target_kind("nonexistent_kind");
+            });
+        });
+        let (rules, diags) = register_validation_rules(&[declaration]);
         assert!(
             diags.is_empty(),
             "rule registration should not validate target_kind"
@@ -714,31 +576,13 @@ mod tests {
     // B:register_extension_validation_rules — verify unit "rules from multiple extensions are collected"
     #[test]
     fn test_rules_sorted_by_code_for_deterministic_order() {
-        let m1: ManifestV2 = serde_json::from_str(
-            r#"{
-                "name": "@ext/a",
-                "version": "1.0.0",
-                "manifestVersion": 2,
-                "wasmPath": "a.wasm",
-                "validationRules": [
-                    { "code": "W300", "severity": "warning", "messageTemplate": "third", "check": "no_incoming_edges" },
-                    { "code": "W100", "severity": "warning", "messageTemplate": "first", "check": "no_incoming_edges" }
-                ]
-            }"#,
-        )
-        .unwrap();
-        let m2: ManifestV2 = serde_json::from_str(
-            r#"{
-                "name": "@ext/b",
-                "version": "1.0.0",
-                "manifestVersion": 2,
-                "wasmPath": "b.wasm",
-                "validationRules": [
-                    { "code": "W200", "severity": "warning", "messageTemplate": "second", "check": "no_outgoing_edges" }
-                ]
-            }"#,
-        )
-        .unwrap();
+        let m1 = declare("@ext/a", |c| {
+            rule(c, "W300", "third", CheckKind::NoIncomingEdges);
+            rule(c, "W100", "first", CheckKind::NoIncomingEdges);
+        });
+        let m2 = declare("@ext/b", |c| {
+            rule(c, "W200", "second", CheckKind::NoOutgoingEdges);
+        });
         let (rules, _) = register_validation_rules(&[m1, m2]);
         let codes: Vec<&str> = rules.iter().map(|r| r.code.as_str()).collect();
         assert_eq!(codes, vec!["W100", "W200", "W300"]);
@@ -747,30 +591,12 @@ mod tests {
     // B:register_extension_validation_rules — verify unit "duplicate codes across extensions produce warning"
     #[test]
     fn test_duplicate_codes_across_extensions_produce_warning() {
-        let m1: ManifestV2 = serde_json::from_str(
-            r#"{
-                "name": "@ext/a",
-                "version": "1.0.0",
-                "manifestVersion": 2,
-                "wasmPath": "a.wasm",
-                "validationRules": [
-                    { "code": "W100", "severity": "warning", "messageTemplate": "a", "check": "no_incoming_edges" }
-                ]
-            }"#,
-        )
-        .unwrap();
-        let m2: ManifestV2 = serde_json::from_str(
-            r#"{
-                "name": "@ext/b",
-                "version": "1.0.0",
-                "manifestVersion": 2,
-                "wasmPath": "b.wasm",
-                "validationRules": [
-                    { "code": "W100", "severity": "warning", "messageTemplate": "b", "check": "no_incoming_edges" }
-                ]
-            }"#,
-        )
-        .unwrap();
+        let m1 = declare("@ext/a", |c| {
+            rule(c, "W100", "a", CheckKind::NoIncomingEdges);
+        });
+        let m2 = declare("@ext/b", |c| {
+            rule(c, "W100", "b", CheckKind::NoIncomingEdges);
+        });
         let (_, diags) = register_validation_rules(&[m1, m2]);
         assert!(
             diags
@@ -785,19 +611,21 @@ mod tests {
     #[test]
     fn test_validate_registered_entity_fields_contract() {
         // requires: all registries populated
-        let (kind_reg, field_reg, edge_reg, _) = populate_registries(&[software_manifest()]);
+        let (kind_reg, field_reg, edge_reg, _) = populate(&[software_manifest()]);
         let diags = validate_registered_entity_fields(&field_reg, &kind_reg, &edge_reg);
         // ensures: valid references produce no warnings
         assert!(diags.is_empty());
         // ensures: unresolved references produce W021
-        let bad_manifest: ManifestV2 = serde_json::from_str(
-            r#"{"name":"@t/e","version":"1.0.0","manifestVersion":2,"wasmPath":"x.wasm",
-                "entityKinds":[{"name":"A","keyword":"a","fields":[
-                    {"name":"f","fieldType":"reference","targetKind":"nonexistent"}
-                ]}]}"#,
-        )
-        .unwrap();
-        let (kr, fr, er, _) = populate_registries(&[bad_manifest]);
+        let bad_manifest = declare("@t/e", |c| {
+            c.kind("A", |k| {
+                k.keyword("a");
+                k.field("f", |f| {
+                    f.field_type(FieldType::Reference)
+                        .target_kind("nonexistent");
+                });
+            });
+        });
+        let (kr, fr, er, _) = populate(&[bad_manifest]);
         let bad_diags = validate_registered_entity_fields(&fr, &kr, &er);
         assert!(bad_diags.iter().any(|d| d.code == "W021"));
     }
@@ -807,15 +635,11 @@ mod tests {
     fn test_detect_duplicate_entity_kinds_contract() {
         // requires: manifests parsed
         // ensures: no duplicates → no diagnostics
-        let diags = detect_duplicate_entity_kinds(&[software_manifest()]);
+        let diags = kind_collisions(&[software_manifest()]);
         assert!(diags.is_empty());
         // ensures: duplicate → E026 with both extension names
-        let m2: ManifestV2 = serde_json::from_str(
-            r#"{"name":"@other/ext","version":"1.0.0","manifestVersion":2,"wasmPath":"o.wasm",
-                "entityKinds":[{"name":"Behavior","keyword":"behavior"}]}"#,
-        )
-        .unwrap();
-        let dup_diags = detect_duplicate_entity_kinds(&[software_manifest(), m2]);
+        let m2 = declaring_kind("@other/ext", "Behavior", "behavior");
+        let dup_diags = kind_collisions(&[software_manifest(), m2]);
         assert!(dup_diags.iter().any(|d| d.code == "E026"));
     }
 
@@ -825,17 +649,11 @@ mod tests {
         // requires: manifests loaded
         // ensures: satisfied deps → no error
         let m1 = software_manifest();
-        let m2: ManifestV2 = serde_json::from_str(
-            r#"{"name":"@specforge/product","version":"1.0.0","manifestVersion":2,"wasmPath":"p.wasm",
-                "peerDependencies":[{"name":"@specforge/software","version":">=1.0.0"}]}"#,
-        ).unwrap();
-        assert!(validate_peer_dependencies(&[m1, m2]).is_empty());
+        let m2 = product_requiring("@specforge/software", ">=1.0.0");
+        assert!(peer_dependencies(&[m1, m2]).is_empty());
         // ensures: missing dep → E027
-        let m3: ManifestV2 = serde_json::from_str(
-            r#"{"name":"@specforge/product","version":"1.0.0","manifestVersion":2,"wasmPath":"p.wasm",
-                "peerDependencies":[{"name":"@specforge/missing","version":">=1.0.0"}]}"#,
-        ).unwrap();
-        let diags = validate_peer_dependencies(&[m3]);
+        let m3 = product_requiring("@specforge/missing", ">=1.0.0");
+        let diags = peer_dependencies(&[m3]);
         assert!(diags.iter().any(|d| d.code == "E027"));
     }
 
@@ -843,16 +661,13 @@ mod tests {
     #[test]
     fn test_validate_extension_testability_contract() {
         // requires: KindRegistry populated
-        let (kind_reg, _, _, _) = populate_registries(&[software_manifest()]);
+        let (kind_reg, _, _, _) = populate(&[software_manifest()]);
         // ensures: consistent flags → no diagnostics
         let diags = validate_extension_testability(&kind_reg);
         assert!(diags.is_empty());
         // ensures: testable without supportsVerify → W017
-        let bad: ManifestV2 = serde_json::from_str(
-            r#"{"name":"@t/e","version":"1.0.0","manifestVersion":2,"wasmPath":"x.wasm",
-                "entityKinds":[{"name":"X","keyword":"x","testable":true,"supportsVerify":false}]}"#,
-        ).unwrap();
-        let (bad_kr, _, _, _) = populate_registries(&[bad]);
+        let bad = flagged_kind("@t/e", "X", "x", true, false);
+        let (bad_kr, _, _, _) = populate(&[bad]);
         let bad_diags = validate_extension_testability(&bad_kr);
         assert!(bad_diags.iter().any(|d| d.code == "W017"));
     }
@@ -862,12 +677,9 @@ mod tests {
     #[test]
     fn test_register_validation_rules_contract() {
         // requires: manifests parsed
-        let m: ManifestV2 = serde_json::from_str(
-            r#"{"name":"@t/e","version":"1.0.0","manifestVersion":2,"wasmPath":"x.wasm",
-                "validationRules":[
-                    {"code":"W100","severity":"warning","messageTemplate":"test","check":"no_incoming_edges"}
-                ]}"#,
-        ).unwrap();
+        let m = declare("@t/e", |c| {
+            rule(c, "W100", "test", CheckKind::NoIncomingEdges);
+        });
         let (rules, diags) = register_validation_rules(&[m]);
         // ensures: rules registered
         assert_eq!(rules.len(), 1);
@@ -881,28 +693,9 @@ mod tests {
     // B:validate_peer_dependencies — verify unit "caret range ^1.0.0 matches 1.x.x"
     #[test]
     fn test_caret_range_matches() {
-        let m1: ManifestV2 = serde_json::from_str(
-            r#"{
-                "name": "@specforge/software",
-                "version": "1.2.3",
-                "manifestVersion": 2,
-                "wasmPath": "software.wasm"
-            }"#,
-        )
-        .unwrap();
-        let m2: ManifestV2 = serde_json::from_str(
-            r#"{
-                "name": "@specforge/product",
-                "version": "1.0.0",
-                "manifestVersion": 2,
-                "wasmPath": "product.wasm",
-                "peerDependencies": [
-                    { "name": "@specforge/software", "version": "^1.0.0" }
-                ]
-            }"#,
-        )
-        .unwrap();
-        let diags = validate_peer_dependencies(&[m1, m2]);
+        let m1 = installed("@specforge/software", "1.2.3");
+        let m2 = product_requiring("@specforge/software", "^1.0.0");
+        let diags = peer_dependencies(&[m1, m2]);
         assert!(
             diags.is_empty(),
             "^1.0.0 should match 1.2.3, got: {:?}",
@@ -913,28 +706,9 @@ mod tests {
     // B:validate_peer_dependencies — verify unit "caret range ^1.0.0 rejects 2.0.0"
     #[test]
     fn test_caret_range_rejects_major_bump() {
-        let m1: ManifestV2 = serde_json::from_str(
-            r#"{
-                "name": "@specforge/software",
-                "version": "2.0.0",
-                "manifestVersion": 2,
-                "wasmPath": "software.wasm"
-            }"#,
-        )
-        .unwrap();
-        let m2: ManifestV2 = serde_json::from_str(
-            r#"{
-                "name": "@specforge/product",
-                "version": "1.0.0",
-                "manifestVersion": 2,
-                "wasmPath": "product.wasm",
-                "peerDependencies": [
-                    { "name": "@specforge/software", "version": "^1.0.0" }
-                ]
-            }"#,
-        )
-        .unwrap();
-        let diags = validate_peer_dependencies(&[m1, m2]);
+        let m1 = installed("@specforge/software", "2.0.0");
+        let m2 = product_requiring("@specforge/software", "^1.0.0");
+        let diags = peer_dependencies(&[m1, m2]);
         assert!(
             diags.iter().any(|d| d.code == "E027"),
             "^1.0.0 should reject 2.0.0, got: {:?}",
@@ -945,28 +719,9 @@ mod tests {
     // B:validate_peer_dependencies — verify unit "tilde range ~1.2.0 matches 1.2.x"
     #[test]
     fn test_tilde_range_matches() {
-        let m1: ManifestV2 = serde_json::from_str(
-            r#"{
-                "name": "@specforge/software",
-                "version": "1.2.5",
-                "manifestVersion": 2,
-                "wasmPath": "software.wasm"
-            }"#,
-        )
-        .unwrap();
-        let m2: ManifestV2 = serde_json::from_str(
-            r#"{
-                "name": "@specforge/product",
-                "version": "1.0.0",
-                "manifestVersion": 2,
-                "wasmPath": "product.wasm",
-                "peerDependencies": [
-                    { "name": "@specforge/software", "version": "~1.2.0" }
-                ]
-            }"#,
-        )
-        .unwrap();
-        let diags = validate_peer_dependencies(&[m1, m2]);
+        let m1 = installed("@specforge/software", "1.2.5");
+        let m2 = product_requiring("@specforge/software", "~1.2.0");
+        let diags = peer_dependencies(&[m1, m2]);
         assert!(
             diags.is_empty(),
             "~1.2.0 should match 1.2.5, got: {:?}",
@@ -977,28 +732,9 @@ mod tests {
     // B:validate_peer_dependencies — verify unit "tilde range ~1.2.0 rejects 1.3.0"
     #[test]
     fn test_tilde_range_rejects_minor_bump() {
-        let m1: ManifestV2 = serde_json::from_str(
-            r#"{
-                "name": "@specforge/software",
-                "version": "1.3.0",
-                "manifestVersion": 2,
-                "wasmPath": "software.wasm"
-            }"#,
-        )
-        .unwrap();
-        let m2: ManifestV2 = serde_json::from_str(
-            r#"{
-                "name": "@specforge/product",
-                "version": "1.0.0",
-                "manifestVersion": 2,
-                "wasmPath": "product.wasm",
-                "peerDependencies": [
-                    { "name": "@specforge/software", "version": "~1.2.0" }
-                ]
-            }"#,
-        )
-        .unwrap();
-        let diags = validate_peer_dependencies(&[m1, m2]);
+        let m1 = installed("@specforge/software", "1.3.0");
+        let m2 = product_requiring("@specforge/software", "~1.2.0");
+        let diags = peer_dependencies(&[m1, m2]);
         assert!(
             diags.iter().any(|d| d.code == "E027"),
             "~1.2.0 should reject 1.3.0, got: {:?}",
@@ -1009,28 +745,9 @@ mod tests {
     // B:validate_peer_dependencies — verify unit "malformed semver range in peer dep produces W062"
     #[test]
     fn test_malformed_semver_range_produces_warning() {
-        let m1: ManifestV2 = serde_json::from_str(
-            r#"{
-                "name": "@specforge/software",
-                "version": "1.0.0",
-                "manifestVersion": 2,
-                "wasmPath": "software.wasm"
-            }"#,
-        )
-        .unwrap();
-        let m2: ManifestV2 = serde_json::from_str(
-            r#"{
-                "name": "@specforge/product",
-                "version": "1.0.0",
-                "manifestVersion": 2,
-                "wasmPath": "product.wasm",
-                "peerDependencies": [
-                    { "name": "@specforge/software", "version": "not-a-version" }
-                ]
-            }"#,
-        )
-        .unwrap();
-        let diags = validate_peer_dependencies(&[m1, m2]);
+        let m1 = installed("@specforge/software", "1.0.0");
+        let m2 = product_requiring("@specforge/software", "not-a-version");
+        let diags = peer_dependencies(&[m1, m2]);
         assert!(
             diags
                 .iter()
@@ -1043,28 +760,9 @@ mod tests {
     // B:validate_peer_dependencies — verify unit "malformed installed version produces W062"
     #[test]
     fn test_malformed_installed_version_produces_warning() {
-        let m1: ManifestV2 = serde_json::from_str(
-            r#"{
-                "name": "@specforge/software",
-                "version": "bad-version",
-                "manifestVersion": 2,
-                "wasmPath": "software.wasm"
-            }"#,
-        )
-        .unwrap();
-        let m2: ManifestV2 = serde_json::from_str(
-            r#"{
-                "name": "@specforge/product",
-                "version": "1.0.0",
-                "manifestVersion": 2,
-                "wasmPath": "product.wasm",
-                "peerDependencies": [
-                    { "name": "@specforge/software", "version": "^1.0.0" }
-                ]
-            }"#,
-        )
-        .unwrap();
-        let diags = validate_peer_dependencies(&[m1, m2]);
+        let m1 = installed("@specforge/software", "bad-version");
+        let m2 = product_requiring("@specforge/software", "^1.0.0");
+        let diags = peer_dependencies(&[m1, m2]);
         assert!(
             diags
                 .iter()
@@ -1077,28 +775,9 @@ mod tests {
     // B:validate_peer_dependencies — verify unit "exact version match works"
     #[test]
     fn test_exact_version_match() {
-        let m1: ManifestV2 = serde_json::from_str(
-            r#"{
-                "name": "@specforge/software",
-                "version": "1.0.0",
-                "manifestVersion": 2,
-                "wasmPath": "software.wasm"
-            }"#,
-        )
-        .unwrap();
-        let m2: ManifestV2 = serde_json::from_str(
-            r#"{
-                "name": "@specforge/product",
-                "version": "1.0.0",
-                "manifestVersion": 2,
-                "wasmPath": "product.wasm",
-                "peerDependencies": [
-                    { "name": "@specforge/software", "version": "1.0.0" }
-                ]
-            }"#,
-        )
-        .unwrap();
-        let diags = validate_peer_dependencies(&[m1, m2]);
+        let m1 = installed("@specforge/software", "1.0.0");
+        let m2 = product_requiring("@specforge/software", "1.0.0");
+        let diags = peer_dependencies(&[m1, m2]);
         assert!(
             diags.is_empty(),
             "exact 1.0.0 should match 1.0.0, got: {:?}",

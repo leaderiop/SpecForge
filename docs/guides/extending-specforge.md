@@ -135,11 +135,13 @@ specforge_extension_sdk::component_guest!(build = specforge_extension_build);
 ```
 
 The `#[extension]` attribute generates `specforge_extension_build()`;
-`component_guest!` serves the protocol and the commands you declare
-([A command](#a-command)). Exports you answer by hand (analyzer scans,
-validators, passes) go to a `handler = dispatch` function that returns
-`None` for names it does not know. `specforge new --extension` scaffolds all
-of this for you.
+`component_guest!` serves the protocol and every export you declare with its
+handler: commands ([A command](#a-command)), MCP tools and resources,
+compiler passes (`p.run`), collectors (`k.collect`), custom rules
+(`r.validate`), scanners (`a.scan`) and the migration hook. The SDK decodes
+each export's input and encodes its answer, as the protocol's types
+(`docs/extension-protocol.md`, "Operate"). `specforge new --extension`
+scaffolds all of this for you.
 
 Three things happened:
 
@@ -210,15 +212,11 @@ is what makes contract analysis possible.
 ## Your first compiler pass
 
 A compiler pass runs during `specforge analyze`, receives a snapshot of the
-resolved project, and returns diagnostics. The `#[compiler_pass]` attribute
-generates the Wasm export; you write a plain function:
+resolved project, and returns diagnostics. You write a plain function:
 
 ```rust
-use specforge_extension_sdk::{
-    compiler_pass, PassDiagnostic, PassEntity, PassInput,
-};
+use specforge_extension_sdk::{PassDiagnostic, PassEntity, PassInput};
 
-#[compiler_pass(name = "condition_check", after = "resolve")]
 fn pass_condition_check(input: &PassInput) -> Vec<PassDiagnostic> {
     let mut findings = Vec::new();
     for entity in &input.entities {
@@ -253,11 +251,12 @@ fn non_empty(entity: &PassEntity, field: &str) -> bool {
 }
 ```
 
-Declare the pass so the host knows it exists:
+Declare the pass with it, so the host knows it exists and the SDK routes its
+`__pass_condition_check` export to it:
 
 ```rust
 c.pass("condition_check", |p| {
-    p.after("resolve");
+    p.after("resolve").run(pass_condition_check);
 });
 ```
 

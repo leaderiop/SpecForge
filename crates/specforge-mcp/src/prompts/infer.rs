@@ -3,6 +3,7 @@
 
 use serde::Deserialize;
 use serde_json::{Value, json};
+use specforge_protocol_types::{EntityKindDescriptor, ExtensionDeclaration, FieldDescriptor};
 use std::collections::HashMap;
 
 use specforge_common::inference::anchors::{AnchorManifest, load_anchor_manifest};
@@ -167,10 +168,10 @@ fn get_overview(project: &Inferring<'_>) -> Rendered {
     }
 
     let mut kinds_info: Vec<Value> = Vec::new();
-    for manifest in &project.registries().manifests {
-        for kind in &manifest.entity_kinds {
-            let keyword = kind.keyword.to_lowercase();
-            let guide = build_guide_for_kind(&keyword, manifest, &project.config().inference);
+    for declaration in project.registries().declarations() {
+        for kind in &declaration.entities {
+            let keyword = keyword(kind).to_lowercase();
+            let guide = build_guide_for_kind(&keyword, declaration, &project.config().inference);
             let fields: Vec<String> = kind
                 .fields
                 .iter()
@@ -185,7 +186,7 @@ fn get_overview(project: &Inferring<'_>) -> Rendered {
 
             kinds_info.push(json!({
                 "kind": keyword,
-                "extension": manifest.name,
+                "extension": declaration.name(),
                 "description": kind.description,
                 "fields": fields,
                 "inference_guide": guide,
@@ -196,7 +197,7 @@ fn get_overview(project: &Inferring<'_>) -> Rendered {
     let global_conventions = project.config().inference.global.as_deref().unwrap_or("");
 
     let result = json!({
-        "installed_extensions": project.registries().extension_info.iter().map(|(name, _)| name.clone()).collect::<Vec<_>>(),
+        "installed_extensions": project.registries().extension_info().map(|(name, _)| name.to_string()).collect::<Vec<_>>(),
         "existing_entities": kind_counts,
         "kinds": kinds_info,
         "project_conventions": global_conventions,
@@ -216,12 +217,12 @@ fn get_overview(project: &Inferring<'_>) -> Rendered {
 fn get_kind_scoped(project: &Inferring<'_>, kind_name: &str) -> PromptOutcome {
     let matched_kind = project
         .registries()
-        .manifests
+        .declarations()
         .iter()
-        .flat_map(|m| m.entity_kinds.iter().map(move |k| (m, k)))
-        .find(|(_, k)| k.keyword.to_lowercase() == kind_name);
+        .flat_map(|d| d.entities.iter().map(move |k| (d, k)))
+        .find(|(_, k)| keyword(k).to_lowercase() == kind_name);
 
-    let Some((manifest, kind_def)) = matched_kind else {
+    let Some((declaration, kind_def)) = matched_kind else {
         return Err(Box::new(unknown_kind(project, kind_name)));
     };
 
@@ -233,7 +234,7 @@ fn get_kind_scoped(project: &Inferring<'_>, kind_name: &str) -> PromptOutcome {
         .map(|n| n.id.raw.to_string())
         .collect();
 
-    let guide = build_guide_for_kind(kind_name, manifest, &project.config().inference);
+    let guide = build_guide_for_kind(kind_name, declaration, &project.config().inference);
     let fields: Vec<Value> = kind_def
         .fields
         .iter()
@@ -271,10 +272,10 @@ fn get_kind_scoped(project: &Inferring<'_>, kind_name: &str) -> PromptOutcome {
 fn unknown_kind(project: &Inferring<'_>, kind_name: &str) -> McpError {
     let installed: Vec<String> = project
         .registries()
-        .manifests
+        .declarations()
         .iter()
-        .flat_map(|m| m.entity_kinds.iter())
-        .map(|k| k.keyword.to_lowercase())
+        .flat_map(|d| d.entities.iter())
+        .map(|k| keyword(k).to_lowercase())
         .collect();
     let mut error =
         specforge_ops::OpError::new("unknown_kind", format!("unknown entity kind '{kind_name}'"));
@@ -304,10 +305,10 @@ fn get_file_scoped(project: &Inferring<'_>, file_path: &str) -> PromptOutcome {
     let match_mode = file_match_name(found.mode);
 
     let mut kinds_info: Vec<Value> = Vec::new();
-    for manifest in &project.registries().manifests {
-        for kind in &manifest.entity_kinds {
-            let keyword = kind.keyword.to_lowercase();
-            let guide = build_guide_for_kind(&keyword, manifest, &project.config().inference);
+    for declaration in project.registries().declarations() {
+        for kind in &declaration.entities {
+            let keyword = keyword(kind).to_lowercase();
+            let guide = build_guide_for_kind(&keyword, declaration, &project.config().inference);
             kinds_info.push(json!({
                 "kind": keyword,
                 "inference_guide": guide,
@@ -348,7 +349,7 @@ fn get_plan(
     let (summary, unanalyzed, stale) = match project_root {
         Some(root) => {
             let progress =
-                specforge_ops::infer::progress_or_fresh(root, &project.registries().manifests);
+                specforge_ops::infer::progress_or_fresh(root, project.registries().declarations());
             (progress.summary, progress.unanalyzed, progress.stale)
         }
         None => {
@@ -363,11 +364,11 @@ fn get_plan(
 
     let kind_priorities: Vec<Value> = project
         .registries()
-        .manifests
+        .declarations()
         .iter()
-        .flat_map(|m| m.entity_kinds.iter().map(move |k| (m, k)))
-        .map(|(m, k)| {
-            let keyword = k.keyword.to_lowercase();
+        .flat_map(|d| d.entities.iter().map(move |k| (d, k)))
+        .map(|(d, k)| {
+            let keyword = keyword(k).to_lowercase();
             let existing_count = project
                 .graph()
                 .nodes()
@@ -376,7 +377,7 @@ fn get_plan(
                 .count();
             json!({
                 "kind": keyword,
-                "extension": m.name,
+                "extension": d.name(),
                 "existing_count": existing_count,
             })
         })
@@ -437,10 +438,10 @@ fn get_workflow(project: &Inferring<'_>) -> Rendered {
 
     let installed_kinds: Vec<String> = project
         .registries()
-        .manifests
+        .declarations()
         .iter()
-        .flat_map(|m| m.entity_kinds.iter())
-        .map(|k| k.keyword.to_lowercase())
+        .flat_map(|d| d.entities.iter())
+        .map(|k| keyword(k).to_lowercase())
         .collect();
 
     let result = json!({
@@ -482,15 +483,20 @@ If a file has no identifiable entities, still mark it as analyzed with an empty 
     rendered(workflow, result)
 }
 
+/// The keyword a kind is written with: its declared keyword, else its name.
+fn keyword(kind: &EntityKindDescriptor) -> &str {
+    kind.keyword.as_deref().unwrap_or(&kind.name)
+}
+
 fn build_guide_for_kind(
     kind_name: &str,
-    manifest: &specforge_registry::ManifestV2,
+    declaration: &ExtensionDeclaration,
     inference_config: &specforge_common::InferenceConfig,
 ) -> String {
-    let extension_guide = manifest
-        .entity_kinds
+    let extension_guide = declaration
+        .entities
         .iter()
-        .find(|k| k.keyword.to_lowercase() == kind_name)
+        .find(|k| keyword(k).to_lowercase() == kind_name)
         .and_then(|k| k.inference_guide.as_deref())
         .unwrap_or("");
 
@@ -508,10 +514,9 @@ fn build_guide_for_kind(
     }
 }
 
-fn build_example_for_kind(kind_name: &str, fields: &[specforge_registry::ManifestField]) -> String {
-    let required_fields: Vec<&specforge_registry::ManifestField> =
-        fields.iter().filter(|f| f.required).collect();
-    let optional_fields: Vec<&specforge_registry::ManifestField> =
+fn build_example_for_kind(kind_name: &str, fields: &[FieldDescriptor]) -> String {
+    let required_fields: Vec<&FieldDescriptor> = fields.iter().filter(|f| f.required).collect();
+    let optional_fields: Vec<&FieldDescriptor> =
         fields.iter().filter(|f| !f.required).take(3).collect();
 
     let mut lines = vec![format!(

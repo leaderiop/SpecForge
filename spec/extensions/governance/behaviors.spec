@@ -7,14 +7,14 @@ use "types/zero-entity-core"
 behavior ge_register_entity_kinds "Register Governance Entity Kinds" {
   category   command
   invariants [ge_manifest_three_entity_kinds]
-  types      [ManifestEntityKind, GovernanceDecision, GovernanceConstraint, GovernanceFailureMode]
+  types      [EntityKindDescriptor, GovernanceDecision, GovernanceConstraint, GovernanceFailureMode]
   contract   """
     The @specforge/governance extension MUST register 3 entity kinds with
     full metadata in the KindRegistry. All three are declarative records:
     testable=false, supportsVerify=false.
   """
   requires {
-    manifest_loaded    "ManifestV2 is parsed and schema-validated"
+    manifest_loaded    "ExtensionDeclaration is parsed and schema-validated"
     no_duplicate_kinds "KindRegistry has no entries with names matching this extension's kinds"
   }
   ensures {
@@ -32,7 +32,7 @@ behavior ge_register_entity_kinds "Register Governance Entity Kinds" {
 behavior ge_register_edge_types "Register Governance Edge Types" {
   invariants [ge_manifest_four_edge_types]
   category   command
-  types      [ManifestEdgeType]
+  types      [EdgeTypeDescriptor]
   contract   """
     The @specforge/governance extension MUST register 4 edge types that
     model relationships between governance entities and invariants/behaviors.
@@ -57,8 +57,8 @@ behavior ge_register_edge_types "Register Governance Edge Types" {
 behavior ge_register_field_definitions "Register Governance Field Definitions" {
   category command
   types    [
-    ManifestField,
-    ManifestEntityKind,
+    FieldDescriptor,
+    EntityKindDescriptor,
     ConstraintCategory,
     ConstraintPriority,
     DecisionStatus,

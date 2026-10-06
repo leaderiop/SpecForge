@@ -53,7 +53,7 @@ behavior link_derived_references "Link Derived References" {
   features   [graph_construction]
   invariants [zero_domain_knowledge_core]
   category   command
-  types      [Graph, Edge, ManifestField, FieldRegistryEntry, DerivedReferenceSource]
+  types      [Graph, Edge, FieldDescriptor, FieldRegistryEntry, DerivedReferenceSource]
   produces   [] // part of the graph build: its edges surface through graph_built
   requires {
     fields_registered "the field registry holds every loaded extension's fields"

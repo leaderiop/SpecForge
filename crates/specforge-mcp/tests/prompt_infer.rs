@@ -6,9 +6,10 @@ use std::sync::Arc;
 
 use serde_json::{Value, json};
 use specforge_common::{InferenceConfig, ProjectConfig, SourceSpan, Sym};
+use specforge_extension_sdk::prelude::*;
 use specforge_graph::{EntityId, EntityKind, FieldMap, Node};
 use specforge_mcp::McpServer;
-use specforge_registry::{ManifestEntityKind, ManifestField, ManifestV2};
+use specforge_protocol_types::{AnalyzerDescriptor, ExtensionDeclaration};
 use specforge_test::prelude::*;
 
 /// The infer prompt's reply for `arguments`.
@@ -35,19 +36,17 @@ fn make_state_with_kind(kind_name: &str, guide: Option<&str>) -> McpServer {
     );
     serve(
         &mut server,
-        vec![test_manifest(kind_name, guide)],
+        vec![test_declaration(kind_name, guide)],
         ProjectConfig::default(),
     );
     server
 }
 
-/// Serve the test extension's `manifests` with `config`, over the graph
-/// already served.
-fn serve(server: &mut McpServer, manifests: Vec<ManifestV2>, config: ProjectConfig) {
+/// Serve the test extension's `declarations` with `config`, over the
+/// graph already served.
+fn serve(server: &mut McpServer, declarations: Vec<ExtensionDeclaration>, config: ProjectConfig) {
     let state = server.state_mut();
-    let mut env = specforge_project::Environment::empty();
-    env.registries.manifests = manifests;
-    env.registries.extension_info = vec![("@specforge/test".to_string(), "1.0.0".to_string())];
+    let mut env = specforge_project::Environment::from_declarations(declarations);
     env.config = config;
     let graph = state.graph().clone();
     state.serve_session(specforge_project::ProjectSession::from_graph(
@@ -80,17 +79,13 @@ fn make_node(id: &str, kind: &str, file: &str) -> Node {
 /// an extension that analyzes `.rs` files.
 fn plan_state_with_sources(count: usize) -> (McpServer, tempfile::TempDir) {
     let mut server = make_state_with_kind("behavior", Some("guide text"));
-    let mut manifest = test_manifest("behavior", Some("guide text"));
-    manifest.analyzer_contributions = vec![specforge_registry::AnalyzerContribution {
+    let mut declaration = test_declaration("behavior", Some("guide text"));
+    declaration.analyzers = vec![AnalyzerDescriptor {
         language: "rust".to_string(),
         file_extensions: vec![".rs".to_string()],
-        excluded_dirs: vec![],
-        scan_export: String::new(),
-        classify_export: String::new(),
-        map_export: String::new(),
-        description: None,
+        ..Default::default()
     }];
-    serve(&mut server, vec![manifest], ProjectConfig::default());
+    serve(&mut server, vec![declaration], ProjectConfig::default());
     let dir = tempfile::TempDir::new().unwrap();
     let src = dir.path().join("src");
     std::fs::create_dir_all(&src).unwrap();
@@ -105,70 +100,18 @@ fn plan_payload(server: &mut McpServer, arguments: Value) -> Value {
     payload(&infer(server, arguments))
 }
 
-fn test_manifest(kind_name: &str, guide: Option<&str>) -> ManifestV2 {
-    ManifestV2 {
-        name: "@specforge/test".to_string(),
-        version: "1.0.0".to_string(),
-        manifest_version: 2,
-        wasm_path: String::new(),
-        contributes: Default::default(),
-        entity_kinds: vec![ManifestEntityKind {
-            name: kind_name.to_string(),
-            keyword: kind_name.to_string(),
-            description: Some(format!("A test {} entity", kind_name)),
-            testable: false,
-            singleton: false,
-            supports_verify: false,
-            allowed_verify_kinds: vec![],
-            semantic_token: None,
-            lsp_icon: None,
-            dot_shape: None,
-            dot_color: None,
-            dot_fillcolor: None,
-            fields: vec![ManifestField {
-                name: "description".to_string(),
-                field_type: "string".to_string(),
-                required: false,
-                description: Some("A description".to_string()),
-                edge: None,
-                target_kind: None,
-                file_reference: false,
-                default_value: None,
-                enum_values: vec![],
-                inverse_of: None,
-                normative: false,
-                exempts_obligations: false,
-                headline: false,
-                derived_from: None,
-                proof_role: None,
-            }],
-            incremental: None,
-            has_body_parser: false,
-            open_fields: false,
-            contract_target: false,
-            declares_types: false,
-            lifecycle_field: None,
-            inference_guide: guide.map(|s| s.to_string()),
-        }],
-        edge_types: vec![],
-        validation_rules: vec![],
-        verify_kinds: vec![],
-        fields: vec![],
-        incremental: None,
-        reserved_keywords: vec![],
-        migration_hook: None,
-        peer_dependencies: vec![],
-        sandbox_policy: None,
-        host_api_version: None,
-        entity_enhancements: vec![],
-        starter_template: None,
-        theme_color: None,
-        ext_short: None,
-        query_scope: None,
-        collector_contributions: vec![],
-        analyzer_contributions: vec![],
-        surfaces: None,
-    }
+fn test_declaration(kind_name: &str, guide: Option<&str>) -> ExtensionDeclaration {
+    let mut c = ContributionsBuilder::new(ExtensionMeta::new("@specforge/test", "1.0.0"));
+    c.kind(kind_name, |k| {
+        k.description(&format!("A test {} entity", kind_name));
+        if let Some(guide) = guide {
+            k.inference_guide(guide);
+        }
+        k.field("description", |f| {
+            f.field_type(FieldType::String).description("A description");
+        });
+    });
+    c.declaration()
 }
 
 #[test]
@@ -206,8 +149,11 @@ fn overview_appends_project_override() {
         },
         ..Default::default()
     };
-    let manifests = vec![test_manifest("behavior", Some("Look for public functions"))];
-    serve(&mut state, manifests, config);
+    let declarations = vec![test_declaration(
+        "behavior",
+        Some("Look for public functions"),
+    )];
+    serve(&mut state, declarations, config);
     let resp = infer(&mut state, json!({}));
     let content: Value = payload(&resp);
     let guide = content["kinds"][0]["inference_guide"].as_str().unwrap();

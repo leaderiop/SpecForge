@@ -14,7 +14,7 @@ print_stdout = "deny"
 serde_json = { workspace = true }
 specforge-common = { workspace = true }
 specforge-ops = { workspace = true }
-specforge-registry = { workspace = true }
+specforge-protocol-types = { path = "../specforge-protocol-types" }
 specforge-registry-client = { path = "../specforge-registry-client" }
 
 [dev-dependencies]

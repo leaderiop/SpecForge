@@ -4,14 +4,13 @@
 
 use specforge_common::{Diagnostic, Severity, load_project_config};
 use specforge_graph::{Graph, GraphConfig, build_graph};
+use specforge_protocol_types::ExtensionDeclaration;
 use specforge_registry::{
-    EdgeRegistry, FieldRegistry, KindRegistry, ManifestV2, RegistryBuild, SurfaceContributions,
-    SurfaceRegistryEntry,
+    DeclaredPass, EdgeRegistry, FieldRegistry, KindRegistry, RegistryBuild, SurfaceRegistryEntry,
     compilation::{
         EntityView, detect_identifier_length_violations, detect_mistyped_references,
         detect_reserved_entity_ids, detect_unknown_entity_fields, detect_unknown_entity_kinds,
     },
-    validate_manifest, validate_manifest_consistency_with_peers, validate_peer_dependencies,
     validation_engine::{ValidationEntity, ValidationRulePattern, execute_pattern},
 };
 use specforge_resolver::{ResolvedProject, resolve_project};
@@ -35,10 +34,10 @@ pub struct CompilationContext {
     pub extension_rules: Vec<(ValidationRulePattern, String)>,
     pub extension_info: Vec<(String, String)>,
     pub surface_entries: Vec<SurfaceRegistryEntry>,
-    /// Raw surface contributions from manifests (needed for MCP descriptor generation).
-    pub manifest_surfaces: Vec<(String, SurfaceContributions)>,
-    /// Raw extension manifests (needed for outline rendering).
-    pub manifests: Vec<ManifestV2>,
+    /// The loaded declarations, in load order.
+    pub declarations: Vec<ExtensionDeclaration>,
+    /// The extensions' passes, in the order they run.
+    pub passes: Vec<DeclaredPass>,
     pub spec_root: std::path::PathBuf,
 }
 
@@ -86,7 +85,7 @@ pub fn check_graph(graph: &Graph, checks: &GraphChecks) -> Vec<Diagnostic> {
     // hardening-plan D2).
     let file_ref_fields: Vec<String> = field_reg
         .iter()
-        .filter(|(_, _, entry)| entry.file_reference)
+        .filter(|(_, _, entry)| entry.declared.file_reference)
         .map(|(_, field_name, _)| field_name.to_string())
         .collect::<std::collections::BTreeSet<_>>()
         .into_iter()
@@ -122,7 +121,13 @@ pub fn check_graph(graph: &Graph, checks: &GraphChecks) -> Vec<Diagnostic> {
     // Edge label mapping (manifest label -> field name used in graph).
     let edge_label_to_field: HashMap<String, String> = field_reg
         .iter()
-        .filter_map(|(_, field, entry)| entry.edge.clone().map(|edge| (edge, field.to_string())))
+        .filter_map(|(_, field, entry)| {
+            entry
+                .declared
+                .edge
+                .clone()
+                .map(|edge| (edge, field.to_string()))
+        })
         .collect();
 
     // Extension validation rules (declarative + custom via wasm).
@@ -192,8 +197,8 @@ pub fn compile_simple(path: &Path) -> CompilationContext {
         extension_rules: Vec::new(),
         extension_info: Vec::new(),
         surface_entries: Vec::new(),
-        manifest_surfaces: Vec::new(),
-        manifests: Vec::new(),
+        declarations: Vec::new(),
+        passes: Vec::new(),
         spec_root,
     }
 }
@@ -216,27 +221,30 @@ fn normalize_extension_name(ext_spec: &str) -> String {
     format!("@specforge/{}", last)
 }
 
-/// Load extensions via the protocol path only (no manifest.json).
-/// Each extension name is resolved through the runtime's __handshake/__describe exports.
+/// Load the declarations of `extensions` (as `specforge.json` lists them)
+/// through `runtime`, in that order: one [`load_declaration`] each. An
+/// extension that does not load is E028 (or the runtime's own reason, E033,
+/// when it knows one) and is left out. `diagnostics` receives those runtime
+/// failures in load order, then the W138s of the declarations that loaded.
+/// What the declarations themselves are worth (E030, W021, E027, W145) is
+/// the registry build's to say.
+///
+/// [`load_declaration`]: specforge_wasm::protocol::load_declaration
 pub fn load_extensions(
     extensions: &[String],
     runtime: &dyn WasmRuntime,
     diagnostics: &mut Vec<Diagnostic>,
-) -> Vec<ManifestV2> {
-    use specforge_wasm::protocol::{
-        ProtocolHost, load_protocol_extension as proto_load, protocol_extension_to_manifest,
-    };
+) -> Vec<ExtensionDeclaration> {
+    use specforge_wasm::protocol::load_declaration;
 
-    let host = ProtocolHost::new(runtime);
-    let mut manifests = Vec::new();
-
+    let mut declarations = Vec::new();
+    let mut warnings = Vec::new();
     for ext_spec in extensions {
         let ext_name = normalize_extension_name(ext_spec);
-        match proto_load(&host, &ext_name) {
-            Ok(proto_ext) => {
-                let manifest = protocol_extension_to_manifest(&proto_ext);
-                diagnostics.extend(validate_manifest(&manifest));
-                manifests.push(manifest);
+        match load_declaration(runtime, &ext_name) {
+            Ok(loaded) => {
+                warnings.extend(loaded.warnings);
+                declarations.push(loaded.declaration);
             }
             // Why the runtime could not load it (a missing or tampered
             // installed binary), when it knows.
@@ -255,20 +263,8 @@ pub fn load_extensions(
             }
         }
     }
-
-    // Once every extension is in, so a kind is checked against what its
-    // peers declare and a non-peer's kind is caught.
-    for manifest in &manifests {
-        diagnostics.extend(validate_manifest_consistency_with_peers(
-            manifest, &manifests,
-        ));
-    }
-    // Every required peer is loaded, and every loaded peer is in range
-    // (E027). The extension still registers: an error here fails the
-    // check without turning each of its entities into an E024.
-    diagnostics.extend(validate_peer_dependencies(&manifests));
-
-    manifests
+    diagnostics.extend(warnings);
+    declarations
 }
 
 /// Convert all graph nodes into `ValidationEntity` structs for the validation engine.
@@ -545,19 +541,7 @@ impl<'a> WasmCustomRules<'a> {
 }
 
 impl<'a> specforge_registry::validation_engine::WasmValidationRuntime for WasmCustomRules<'a> {
-    fn call_custom_validator(
-        &self,
-        wasm_function: &str,
-        entity_id: &str,
-        _entity_kind: &str,
-    ) -> Result<bool, String> {
-        // Detailed verdicts carry the information; the bool form is unused.
-        let _ = wasm_function;
-        let _ = entity_id;
-        Err("use call_custom_validator_detailed".to_string())
-    }
-
-    fn call_custom_validator_detailed(
+    fn custom_verdict(
         &self,
         wasm_function: &str,
         entity_id: &str,
@@ -572,40 +556,27 @@ impl<'a> specforge_registry::validation_engine::WasmValidationRuntime for WasmCu
 
         let context = self.build_context(entity_id)?;
         call_validator(self.runtime, self.extension, wasm_function, &context)
+            .map_err(|error| error.to_string())
     }
 }
 
-/// Call `extension`'s `wasm_function` export with `context` and read its
-/// verdict.
+/// Call `extension`'s `wasm_function` on `context` and read its verdict
+/// (the protocol's `ValidatorVerdict`). Err: the call failed (E028).
 fn call_validator(
     runtime: &dyn WasmRuntime,
     extension: &str,
     wasm_function: &str,
     context: &specforge_protocol_types::ValidatorContext,
-) -> Result<specforge_registry::validation_engine::CustomVerdict, String> {
+) -> Result<specforge_registry::validation_engine::CustomVerdict, specforge_wasm::CallError> {
+    use specforge_protocol_types::ValidatorVerdict;
     use specforge_registry::validation_engine::CustomVerdict;
-    use specforge_wasm::runtime::WasmCallResult;
 
-    let input = serde_json::to_vec(context)
-        .map_err(|e| format!("cannot serialize validator context: {e}"))?;
-    match runtime.call_export(extension, wasm_function, &input) {
-        WasmCallResult::Ok(output) => {
-            let verdict: specforge_protocol_types::ValidatorVerdict =
-                serde_json::from_slice(&output).map_err(|e| {
-                    format!("custom validator '{wasm_function}' returned malformed verdict: {e}")
-                })?;
-            Ok(match verdict {
-                specforge_protocol_types::ValidatorVerdict::Pass => CustomVerdict::Pass,
-                specforge_protocol_types::ValidatorVerdict::Fail { field, value } => {
-                    CustomVerdict::Fail { field, value }
-                }
-            })
-        }
-        WasmCallResult::Trap(trap) => Err(format!(
-            "custom validator '{}' did not execute: {} — {}",
-            wasm_function, trap.kind, trap.message
-        )),
-    }
+    let verdict =
+        specforge_wasm::ExtensionCalls::new(runtime).validate(extension, wasm_function, context)?;
+    Ok(match verdict {
+        ValidatorVerdict::Pass => CustomVerdict::Pass,
+        ValidatorVerdict::Fail { field, value } => CustomVerdict::Fail { field, value },
+    })
 }
 
 /// Resolve each `check: "custom"` rule's `wasm_function` against the
@@ -640,12 +611,12 @@ pub fn probe_custom_rules(
             declared_types: Vec::new(),
             primitives: PRIMITIVE_TYPES.iter().map(|s| s.to_string()).collect(),
         };
-        if let Err(reason) = call_validator(runtime, extension, wasm_function, &context) {
+        if let Err(error) = call_validator(runtime, extension, wasm_function, &context) {
             diagnostics.push(Diagnostic {
                 code: "W112".to_string(),
                 severity: Severity::Warning,
                 message: format!(
-                    "extension '{extension}': rule '{}': wasm_function '{wasm_function}' could not be resolved ({reason}) — the rule will not fire",
+                    "extension '{extension}': rule '{}': wasm_function '{wasm_function}' could not be resolved ({error}) — the rule will not fire",
                     pattern.code
                 ),
                 span: None,
@@ -668,7 +639,7 @@ pub fn declared_type_ids(graph: &Graph, kinds: &KindRegistry) -> Vec<String> {
         .filter(|n| {
             kinds
                 .get(n.kind.raw.as_str())
-                .is_some_and(|kind| kind.declares_types)
+                .is_some_and(|kind| kind.declared.declares_types)
         })
         .map(|n| n.id.raw.to_string())
         .collect()

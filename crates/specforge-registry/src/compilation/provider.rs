@@ -1,5 +1,5 @@
-use crate::ManifestV2;
 use specforge_common::{Diagnostic, Severity};
+use specforge_protocol_types::ExtensionDeclaration;
 
 /// One entry of the `providers` array in specforge.json (ADR 0004 D3-c):
 /// the scheme it serves, its alias, the extension that implements it, and
@@ -139,27 +139,24 @@ impl ProviderStatus {
 /// status alongside, in declaration order.
 pub fn register_provider_schemes(
     providers: &[ProviderConfig],
-    manifests: &[(String, ManifestV2)],
+    declarations: &[ExtensionDeclaration],
 ) -> (ProviderSchemeRegistry, Vec<Diagnostic>) {
-    let (registry, _, diagnostics) = register_provider_schemes_with_status(providers, manifests);
+    let (registry, _, diagnostics) = register_provider_schemes_with_status(providers, declarations);
     (registry, diagnostics)
 }
 
 /// [`register_provider_schemes`], with each provider's status.
 pub fn register_provider_schemes_with_status(
     providers: &[ProviderConfig],
-    manifests: &[(String, ManifestV2)],
+    declarations: &[ExtensionDeclaration],
 ) -> (ProviderSchemeRegistry, Vec<ProviderStatus>, Vec<Diagnostic>) {
     let mut registry = ProviderSchemeRegistry::default();
     let mut statuses = Vec::with_capacity(providers.len());
     let mut diagnostics = Vec::new();
 
     for provider in providers {
-        let manifest = manifests
-            .iter()
-            .find(|(name, _)| *name == provider.extension)
-            .map(|(_, m)| m);
-        let status = match manifest {
+        let declaration = declarations.iter().find(|d| d.name() == provider.extension);
+        let status = match declaration {
             None => {
                 diagnostics.push(provider_warning(
                     format!(
@@ -170,7 +167,7 @@ pub fn register_provider_schemes_with_status(
                 ));
                 ProviderStatus::ExtensionNotLoaded
             }
-            Some(m) if !m.contributes.providers => {
+            Some(d) if !d.contribution_flags().providers => {
                 diagnostics.push(provider_warning(
                     format!(
                         "provider '{}' names extension '{}', which contributes no providers",

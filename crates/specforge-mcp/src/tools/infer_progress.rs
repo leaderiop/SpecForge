@@ -16,7 +16,7 @@ pub fn call(call: &mut Call<'_>, _args: crate::args::NoArgs) -> ToolOutcome {
             "message": "No project root available"
         }));
     };
-    match specforge_ops::infer::progress(project.root, &project.env.registries.manifests) {
+    match specforge_ops::infer::progress(project.root, project.env.registries.declarations()) {
         Ok(progress) => ToolOutcome::ok(progress.to_json()),
         Err(error) => crate::operations::op_error(error).into(),
     }

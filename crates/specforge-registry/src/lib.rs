@@ -1,6 +1,5 @@
 // Module groups
 pub mod compilation;
-mod manifest;
 mod registries;
 
 #[cfg(test)]
@@ -18,31 +17,28 @@ pub use registries::{
 
 // --- Extension vocabulary (shared with the SDK through the protocol types) ---
 pub use specforge_protocol_types::{CheckKind, ConstraintKind, FieldType};
+// --- What a registry entry embeds: the descriptor its extension declared ---
+pub use specforge_protocol_types::{EdgeTypeDescriptor, EntityKindDescriptor, FieldDescriptor};
 
-// --- Manifest types ---
-pub use manifest::surface::{
-    CommandArg, CommandArgType, CommandContribution, McpResourceContribution, McpToolContribution,
-    SurfaceContributions, SurfaceRegistryEntry, SurfaceSandboxOverride, SurfaceType,
-    refuse_malformed_tool_schemas, register_surface_contributions,
-};
-pub use manifest::types::{
-    AnalyzerContribution, CollectorAutoDetect, CollectorContribution, ExtensionContributions,
-    FieldConstraint, FieldEnhancement, ManifestEdgeType, ManifestEntityKind, ManifestField,
-    ManifestV2, ManifestValidationRule, PeerDependency, SandboxPolicy, unknown_manifest_fields,
-    validate_manifest, validate_manifest_consistency, validate_manifest_consistency_with_peers,
+// --- What an extension declares, as the registry build reads it (ADR 0012) ---
+pub use specforge_protocol_types::PeerDependency;
+
+// --- The surfaces registry ---
+pub use surface::{
+    CommandArgType, SurfaceRegistryEntry, SurfaceType, refuse_malformed_tool_schemas,
+    register_surface_contributions,
 };
 
 // --- Registry compilation (plan 05): one build, and the graph checks ---
 pub use compilation::{
-    EntityView, ProviderConfig, ProviderSchemeRegistry, ProviderStatus, RegistryBuild,
-    SchemeRegistryEntry, build_registries, detect_identifier_length_violations,
+    CHECK_PHASE, DeclaredPass, EntityView, ProviderConfig, ProviderSchemeRegistry, ProviderStatus,
+    RegistryBuild, SchemeRegistryEntry, build_registries, detect_identifier_length_violations,
     detect_mistyped_references, detect_reserved_entity_ids, detect_unknown_entity_fields,
-    detect_unknown_entity_kinds, load_provider_configurations, populate_registries,
-    register_provider_schemes, register_provider_schemes_with_status, validate_peer_dependencies,
-    validate_peer_dependencies_of,
+    detect_unknown_entity_kinds, load_provider_configurations, register_provider_schemes,
+    register_provider_schemes_with_status,
 };
 
 // Module paths external code names directly
 // (`specforge_registry::validation_engine::`, `specforge_registry::surface::`).
 pub use compilation::validation_engine;
-pub use manifest::surface;
+pub mod surface;

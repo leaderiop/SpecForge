@@ -305,7 +305,7 @@ fn trace_expectations_come_from_the_registries() {
     let (mut fields, kinds) = crate::trace_support::registries();
     let mut parent =
         crate::trace_support::reference("behavior", "parent", "behavior", "@t/formal", None);
-    parent.required = true;
+    parent.declared.required = true;
     fields.register(parent);
     let expected = TraceExpectations::from_registries(&fields, &kinds);
     let parent = expected

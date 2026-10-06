@@ -6,52 +6,7 @@ use "types/wasm"
 
 // ── Query Extension Events ───────────────────────────────────
 
-event query_extensions_loaded "Query Extensions Loaded" {
-  channel "wasm.query_extensions_loaded"
-  payload {
-    extensionName    string
-    queryFileKind    string
-    patternCount     integer
-    validationPassed boolean
-  }
-  verify integration "emits query_extensions_loaded with extension identity and pattern count"
-  verify integration "consumer compose_query_files_from_extensions receives event"
-}
-
-event query_files_composed "Query Files Composed" {
-  channel "wasm.query_files_composed"
-  payload {
-    queryFileKind     string
-    extensionCount    integer
-    totalPatternSize  integer
-    compositionTimeMs integer
-  }
-  verify integration "emits query_files_composed with correct extensionCount and totalPatternSize"
-}
-
 // ── Entity Kind Conflict Events ─────────────────────────────
-
-event entity_kind_conflict_detected "Entity Kind Conflict Detected" {
-  channel "wasm.entity_kind_conflict_detected"
-  // Payload corresponds to EntityKindConflict (types/zero-entity-core.spec)
-  payload {
-    kindName        string
-    firstExtension  string
-    secondExtension string
-    conflictType    string
-  }
-  verify integration "emits entity_kind_conflict_detected with both extension identities"
-}
-
-event reserved_entity_kind_rejected "Reserved Entity Kind Rejected" {
-  channel "wasm.reserved_entity_kind_rejected"
-  payload {
-    kindName      string
-    extensionName string
-    reservedBy    string
-  }
-  verify integration "emits reserved_entity_kind_rejected with kind name and reserving party"
-}
 
 event extension_specifier_parsed "Extension Specifier Parsed" {
   channel "wasm.extension_specifier_parsed"
@@ -82,17 +37,6 @@ event lock_file_read "Lock File Read" {
     allEntriesMatched boolean
   }
   verify integration "emits lock_file_read with correct extensionCount and match status"
-  verify integration "consumer verify_wasm_integrity receives event after lock file read"
-}
-
-event wasm_integrity_check_failed "Wasm Integrity Check Failed" {
-  channel "wasm.integrity_check_failed"
-  payload {
-    extensionName string
-    expectedHash  string
-    actualHash    string
-  }
-  verify integration "emits wasm_integrity_check_failed with expected and actual hashes"
 }
 
 // ── Manifest Loading Events ──────────────────────────────────
@@ -123,61 +67,7 @@ event enhancement_registered "Enhancement Registered" {
   verify integration "emits enhancement_registered with correct field details"
 }
 
-event enhancement_conflict_detected "Enhancement Conflict Detected" {
-  channel "wasm.enhancement_conflict_detected"
-  payload {
-    entityKind      string
-    fieldName       string
-    firstExtension  string
-    secondExtension string
-    resolution      string
-  }
-  verify integration "emits enhancement_conflict_detected with both extension identities"
-  verify integration "consumer resolve_enhancement_conflicts receives event"
-}
-
-event enhancement_conflict_resolved "Enhancement Conflict Resolved" {
-  channel "wasm.enhancement_conflict_resolved"
-  payload {
-    entityKind       string
-    fieldName        string
-    winningExtension string
-    resolution       string
-  }
-  verify integration "emits enhancement_conflict_resolved with winning extension and resolution strategy"
-}
-
 // ── Contribution Lifecycle Events ──────────────────────────
-
-event contribution_exports_dispatched "Contribution Exports Dispatched" {
-  channel "wasm.contribution_exports_dispatched"
-  payload {
-    extensionName    string
-    contributionType string
-    exportName       string
-    durationMs       integer
-  }
-  verify integration "emits contribution_exports_dispatched with correct contributionType and exportName"
-}
-
-event contribution_exports_validated "Contribution Exports Validated" {
-  channel "wasm.contribution_exports_validated"
-  payload {
-    extensionName    string
-    validatedExports integer
-  }
-  verify integration "emits contribution_exports_validated after all declared exports verified"
-}
-
-event contribution_export_validation_failed "Contribution Export Validation Failed" {
-  channel "wasm.contribution_export_validation_failed"
-  payload {
-    extensionName         string
-    missingExports        string[]
-    declaredContributions string[]
-  }
-  verify integration "emits contribution_export_validation_failed with missing export names"
-}
 
 event contribution_permission_denied "Contribution Permission Denied" {
   channel "wasm.contribution_permission_denied"
@@ -190,31 +80,11 @@ event contribution_permission_denied "Contribution Permission Denied" {
   verify integration "emits contribution_permission_denied with correct callSite and hostFunction"
 }
 
-event contribution_toggled "Contribution Toggled" {
-  channel "wasm.contribution_toggled"
-  payload {
-    extensionName    string
-    contributionType string
-    enabled          boolean
-  }
-  verify integration "emits contribution_toggled with correct enabled state"
-}
-
 // ── Discovery Events ──────────────────────────────────────
 // Terminal events (consumers []) are intentionally leaf events for
 // observability, audit trails, and CLI output. Not every event requires
 // a behavioral consumer — these events serve as integration points for
 // external tooling, logging, and traceability.
-
-event extensions_discovered "Extensions Discovered" {
-  channel "wasm.extensions_discovered"
-  payload {
-    source          string
-    extensionCount  integer
-    matchedVersions integer
-  }
-  verify integration "emits extensions_discovered with correct source and extensionCount"
-}
 
 // ── Collector Events ────────────────────────────────────────
 
@@ -252,22 +122,10 @@ event collector_report_ingested "Collector Report Ingested" {
     outputPath      string
   }
   // After collector report ingestion, the graph has new coverage metadata.
-  // Consumers should re-export or refresh graph outputs to reflect updated
-  // traceability and coverage data.
   verify integration "emits collector_report_ingested with correct entry counts"
-  verify integration "consumer dispatch_contribution_exports re-renders outputs after ingestion"
 }
 
 // ── Lock File & Source Resolution Events (additional) ─────────
-
-event lock_file_refreshed "Lock File Refreshed" {
-  channel "wasm.lock"
-  payload {
-    lockFilePath string
-    entryCount   integer
-  }
-  verify integration "emits lock_file_refreshed with correct lockFilePath and entryCount"
-}
 
 event extension_source_resolved "Extension Source Resolved" {
   channel "wasm.source_resolved"

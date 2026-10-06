@@ -18,7 +18,7 @@ feature pe_core_entity_kinds "Product Entity Kind Registration" {
     typed field definitions with edge mappings, and declarative validation
     rules. All 20 edge types produce traversable graph edges — no
     reference field is left unwired. Registration follows the zero-entity
-    core protocol defined in ManifestV2. Feature is a domain-neutral hub:
+    core protocol defined in ExtensionDeclaration. Feature is a domain-neutral hub:
     any extension's entities can reference features via their own fields
     and peer dependencies. Persona and channel are first-class entity
     kinds referenced by journeys via JourneyTargetsPersona and JourneyUsesChannel

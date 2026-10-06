@@ -228,7 +228,7 @@ pub fn detect_unknown_entity_fields(
         };
 
         // Skip entities with open_fields — any field name is valid (e.g., type struct fields, port methods)
-        if entry.open_fields {
+        if entry.declared.open_fields {
             continue;
         }
 
@@ -295,7 +295,7 @@ pub fn detect_mistyped_references(
         for &(field_name, ref target_ids) in &entity.references {
             // Look up the field's target_kind constraint
             let expected_kind = match field_reg.get(entity_kind, field_name) {
-                Some(entry) => match &entry.target_kind {
+                Some(entry) => match &entry.declared.target_kind {
                     Some(tk) => tk.as_str(),
                     None => continue, // No constraint — any kind is valid
                 },
@@ -332,7 +332,7 @@ pub fn detect_mistyped_references(
 pub fn generate_required_field_rules(field_registry: &FieldRegistry) -> Vec<ValidationRulePattern> {
     let mut rules: Vec<ValidationRulePattern> = field_registry
         .iter()
-        .filter(|(_, _, entry)| entry.required)
+        .filter(|(_, _, entry)| entry.declared.required)
         .map(|(kind, field, _)| ValidationRulePattern {
             code: "E006".to_string(),
             severity: Severity::Error,
@@ -357,31 +357,24 @@ pub fn generate_required_field_rules(field_registry: &FieldRegistry) -> Vec<Vali
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{ManifestV2, populate_registries};
+    use crate::compilation::populate::populate;
+    use crate::compilation::tests::support::{declare, extension, peer};
     use specforge_common::Sym;
+    use specforge_extension_sdk::prelude::*;
+    use specforge_protocol_types::ExtensionDeclaration;
 
-    fn software_manifest() -> ManifestV2 {
-        serde_json::from_str(
-            r#"{
-                "name": "@specforge/software",
-                "version": "1.0.0",
-                "manifestVersion": 2,
-                "wasmPath": "software.wasm",
-                "entityKinds": [
-                    {
-                        "name": "Behavior",
-                        "keyword": "behavior",
-                        "testable": true,
-                        "supportsVerify": true,
-                        "fields": [
-                            { "name": "contract", "fieldType": "block" },
-                            { "name": "invariants", "fieldType": "reference_list" }
-                        ]
-                    }
-                ]
-            }"#,
-        )
-        .unwrap()
+    fn software() -> ExtensionDeclaration {
+        declare("@specforge/software", |c| {
+            c.kind("Behavior", |k| {
+                k.keyword("behavior").testable(true).supports_verify(true);
+                k.field("contract", |f| {
+                    f.field_type(FieldType::Block);
+                });
+                k.field("invariants", |f| {
+                    f.field_type(FieldType::ReferenceList);
+                });
+            });
+        })
     }
 
     fn span(file: &str) -> SourceSpan {
@@ -565,7 +558,7 @@ mod tests {
     // B:two_phase_validate_semantic — verify unit "known keyword passes semantic validation"
     #[test]
     fn test_known_keyword_passes_semantic_validation() {
-        let (kind_reg, _, _, _) = populate_registries(&[software_manifest()]);
+        let (kind_reg, _, _, _) = populate(&[software()]);
         let entities = vec![EntityView::new(
             "behavior",
             "my_beh",
@@ -578,7 +571,7 @@ mod tests {
     // B:two_phase_validate_semantic — verify unit "unknown keyword produces E024"
     #[test]
     fn test_unknown_keyword_produces_e024() {
-        let (kind_reg, _, _, _) = populate_registries(&[software_manifest()]);
+        let (kind_reg, _, _, _) = populate(&[software()]);
         let entities = vec![EntityView::new(
             "xyzzy",
             "my_xyz",
@@ -595,7 +588,7 @@ mod tests {
     // B:two_phase_validate_semantic — verify unit "field validation uses FieldRegistry"
     #[test]
     fn test_field_validation_uses_field_registry() {
-        let (kind_reg, field_reg, _, _) = populate_registries(&[software_manifest()]);
+        let (kind_reg, field_reg, _, _) = populate(&[software()]);
         let entities = vec![
             EntityView::new("behavior", "my_beh", pinned(span("test.spec")))
                 .with_fields(&["contract", "unknown_field"]),
@@ -624,7 +617,7 @@ mod tests {
         // "behavior" is unknown because registry is empty
         assert!(diags.iter().any(|d| d.code == "E024"));
         // With populated registry, it passes
-        let (kind_reg, _, _, _) = populate_registries(&[software_manifest()]);
+        let (kind_reg, _, _, _) = populate(&[software()]);
         let diags2 = detect_unknown_entity_kinds(&entities, &kind_reg, None);
         assert!(diags2.is_empty());
     }
@@ -632,7 +625,7 @@ mod tests {
     // B:two_phase_validate_semantic — verify contract "requires/ensures consistency for semantic validation"
     #[test]
     fn test_two_phase_validate_semantic_contract() {
-        let (kind_reg, field_reg, _, _) = populate_registries(&[software_manifest()]);
+        let (kind_reg, field_reg, _, _) = populate(&[software()]);
         // ensures: all blocks checked — known passes, unknown diagnosed
         let entities = vec![
             EntityView::new("behavior", "b1", pinned(span("a.spec"))),
@@ -732,7 +725,7 @@ mod tests {
     // B:detect_unknown_entity_kinds — verify unit "unregistered keyword produces E024"
     #[test]
     fn test_unregistered_keyword_produces_e024() {
-        let (kind_reg, _, _, _) = populate_registries(&[software_manifest()]);
+        let (kind_reg, _, _, _) = populate(&[software()]);
         let entities = vec![EntityView::new(
             "unknown_thing",
             "u1",
@@ -746,7 +739,7 @@ mod tests {
     // B:detect_unknown_entity_kinds — verify unit "E024 includes keyword name and source span"
     #[test]
     fn test_e024_includes_keyword_and_span() {
-        let (kind_reg, _, _, _) = populate_registries(&[software_manifest()]);
+        let (kind_reg, _, _, _) = populate(&[software()]);
         let s = SourceSpan {
             file: Sym::new("my/file.spec"),
             start_line: 42,
@@ -764,7 +757,7 @@ mod tests {
     // B:detect_unknown_entity_kinds — verify unit "registered keyword does not produce E024"
     #[test]
     fn test_registered_keyword_no_e024() {
-        let (kind_reg, _, _, _) = populate_registries(&[software_manifest()]);
+        let (kind_reg, _, _, _) = populate(&[software()]);
         let entities = vec![EntityView::new("behavior", "b1", pinned(span("test.spec")))];
         let diags = detect_unknown_entity_kinds(&entities, &kind_reg, None);
         assert!(diags.is_empty());
@@ -787,7 +780,7 @@ mod tests {
     // B:detect_unknown_entity_kinds — verify contract "requires/ensures consistency for unknown entity kind detection"
     #[test]
     fn test_detect_unknown_entity_kinds_contract() {
-        let (kind_reg, _, _, _) = populate_registries(&[software_manifest()]);
+        let (kind_reg, _, _, _) = populate(&[software()]);
         // ensures: unknown → E024
         let unknown = vec![EntityView::new("xyzzy", "x1", pinned(span("t.spec")))];
         let d1 = detect_unknown_entity_kinds(&unknown, &kind_reg, None);
@@ -803,7 +796,7 @@ mod tests {
     // B:detect_unknown_entity_fields — verify unit "unregistered field name produces W020"
     #[test]
     fn test_unregistered_field_name_produces_w020() {
-        let (kind_reg, field_reg, _, _) = populate_registries(&[software_manifest()]);
+        let (kind_reg, field_reg, _, _) = populate(&[software()]);
         let entities = vec![
             EntityView::new("behavior", "b1", pinned(span("test.spec")))
                 .with_fields(&["unknown_field"]),
@@ -819,7 +812,7 @@ mod tests {
     // B:detect_unknown_entity_fields — verify unit "W020 includes field name, entity kind, and source span"
     #[test]
     fn test_w020_includes_field_kind_span() {
-        let (kind_reg, field_reg, _, _) = populate_registries(&[software_manifest()]);
+        let (kind_reg, field_reg, _, _) = populate(&[software()]);
         let s = SourceSpan {
             file: Sym::new("my/file.spec"),
             start_line: 10,
@@ -838,7 +831,7 @@ mod tests {
     // B:detect_unknown_entity_fields — verify unit "registered field name does not produce W020"
     #[test]
     fn test_registered_field_name_no_w020() {
-        let (kind_reg, field_reg, _, _) = populate_registries(&[software_manifest()]);
+        let (kind_reg, field_reg, _, _) = populate(&[software()]);
         let entities = vec![
             EntityView::new("behavior", "b1", pinned(span("test.spec")))
                 .with_fields(&["contract", "invariants"]),
@@ -850,7 +843,7 @@ mod tests {
     // B:detect_unknown_entity_fields — verify unit "structural fields (title, verify) not checked against FieldRegistry"
     #[test]
     fn test_structural_fields_not_checked() {
-        let (kind_reg, field_reg, _, _) = populate_registries(&[software_manifest()]);
+        let (kind_reg, field_reg, _, _) = populate(&[software()]);
         let entities = vec![
             EntityView::new("behavior", "b1", pinned(span("test.spec")))
                 .with_fields(&["title", "verify"]),
@@ -862,7 +855,7 @@ mod tests {
     // B:detect_unknown_entity_fields — verify unit "field validation skipped when entity kind is unregistered"
     #[test]
     fn test_field_validation_skipped_for_unregistered_kind() {
-        let (kind_reg, field_reg, _, _) = populate_registries(&[software_manifest()]);
+        let (kind_reg, field_reg, _, _) = populate(&[software()]);
         let entities = vec![
             EntityView::new("xyzzy", "x1", pinned(span("test.spec"))).with_fields(&["any_field"]),
         ];
@@ -876,7 +869,7 @@ mod tests {
     // B:detect_unknown_entity_fields — verify contract "requires/ensures consistency for unknown field detection"
     #[test]
     fn test_detect_unknown_entity_fields_contract() {
-        let (kind_reg, field_reg, _, _) = populate_registries(&[software_manifest()]);
+        let (kind_reg, field_reg, _, _) = populate(&[software()]);
         // ensures: unknown field → W020
         let e1 =
             vec![EntityView::new("behavior", "b1", pinned(span("t.spec"))).with_fields(&["bad"])];
@@ -901,7 +894,7 @@ mod tests {
     // B:detect_reserved_entity_ids — verify unit "entity ID equal to an extension keyword produces E013"
     #[test]
     fn test_reserved_entity_id_produces_e013() {
-        let (kind_reg, _, _, _) = populate_registries(&[software_manifest()]);
+        let (kind_reg, _, _, _) = populate(&[software()]);
         let entities = vec![EntityView::new(
             "behavior",
             "behavior",
@@ -933,7 +926,7 @@ mod tests {
     // B:detect_reserved_entity_ids — verify unit "normal identifiers produce no E013"
     #[test]
     fn test_normal_ids_pass_reserved_check() {
-        let (kind_reg, _, _, _) = populate_registries(&[software_manifest()]);
+        let (kind_reg, _, _, _) = populate(&[software()]);
         let entities = vec![
             EntityView::new("behavior", "login_flow", pinned(span("t.spec"))),
             EntityView::new("spec", "my_project", pinned(span("t.spec"))),
@@ -1039,65 +1032,46 @@ mod tests {
 
     // -- B:detect_mistyped_references (W022) --
 
-    fn two_extension_manifests() -> (ManifestV2, ManifestV2) {
-        let software: ManifestV2 = serde_json::from_str(
-            r#"{
-                "name": "@specforge/software",
-                "version": "1.0.0",
-                "manifestVersion": 2,
-                "wasmPath": "software.wasm",
-                "entityKinds": [
-                    {
-                        "name": "Behavior",
-                        "keyword": "behavior",
-                        "testable": true,
-                        "supportsVerify": true,
-                        "fields": [
-                            { "name": "invariants", "fieldType": "reference_list", "targetKind": "invariant" },
-                            { "name": "features", "fieldType": "reference_list", "targetKind": "feature" },
-                            { "name": "refs", "fieldType": "reference_list" }
-                        ]
-                    },
-                    {
-                        "name": "Invariant",
-                        "keyword": "invariant",
-                        "testable": true,
-                        "supportsVerify": true
-                    }
-                ]
-            }"#,
-        )
-        .unwrap();
-        let product: ManifestV2 = serde_json::from_str(
-            r#"{
-                "name": "@specforge/product",
-                "version": "1.0.0",
-                "manifestVersion": 2,
-                "wasmPath": "product.wasm",
-                "entityKinds": [
-                    {
-                        "name": "Feature",
-                        "keyword": "feature",
-                        "testable": false,
-                        "fields": [
-                            { "name": "behaviors", "fieldType": "reference_list", "targetKind": "behavior" }
-                        ]
-                    }
-                ],
-                "peerDependencies": [
-                    { "name": "@specforge/software", "version": ">=1.0.0" }
-                ]
-            }"#,
-        )
-        .unwrap();
-        (software, product)
+    fn two_extension_declarations() -> (ExtensionDeclaration, ExtensionDeclaration) {
+        let software = declare("@specforge/software", |c| {
+            c.kind("Behavior", |k| {
+                k.keyword("behavior").testable(true).supports_verify(true);
+                k.field("invariants", |f| {
+                    f.field_type(FieldType::ReferenceList)
+                        .target_kind("invariant");
+                });
+                k.field("features", |f| {
+                    f.field_type(FieldType::ReferenceList)
+                        .target_kind("feature");
+                });
+                k.field("refs", |f| {
+                    f.field_type(FieldType::ReferenceList);
+                });
+            });
+            c.kind("Invariant", |k| {
+                k.keyword("invariant").testable(true).supports_verify(true);
+            });
+        });
+        let mut product = extension("@specforge/product");
+        product
+            .meta
+            .peer_dependencies
+            .push(peer("@specforge/software", ">=1.0.0"));
+        product.kind("Feature", |k| {
+            k.keyword("feature").testable(false);
+            k.field("behaviors", |f| {
+                f.field_type(FieldType::ReferenceList)
+                    .target_kind("behavior");
+            });
+        });
+        (software, product.declaration())
     }
 
     // verify unit "reference to correct kind produces no diagnostic"
     #[test]
     fn test_correct_kind_reference_no_diagnostic() {
-        let (sw, prod) = two_extension_manifests();
-        let (kind_reg, field_reg, _, _) = populate_registries(&[sw, prod]);
+        let (sw, prod) = two_extension_declarations();
+        let (kind_reg, field_reg, _, _) = populate(&[sw, prod]);
         let s = span("test.spec");
         let entities = vec![
             EntityView::new("behavior", "b1", &s).with_reference("invariants", &["inv1"]),
@@ -1114,8 +1088,8 @@ mod tests {
     // verify unit "reference to wrong kind produces E022"
     #[test]
     fn test_wrong_kind_reference_produces_e022() {
-        let (sw, prod) = two_extension_manifests();
-        let (kind_reg, field_reg, _, _) = populate_registries(&[sw, prod]);
+        let (sw, prod) = two_extension_declarations();
+        let (kind_reg, field_reg, _, _) = populate(&[sw, prod]);
         let s = span("test.spec");
         // Put a behavior ID in the "features" field which expects feature
         let entities = vec![
@@ -1133,8 +1107,8 @@ mod tests {
     // verify unit "field with no target_kind constraint produces no diagnostic"
     #[test]
     fn test_no_target_kind_constraint_no_diagnostic() {
-        let (sw, prod) = two_extension_manifests();
-        let (kind_reg, field_reg, _, _) = populate_registries(&[sw, prod]);
+        let (sw, prod) = two_extension_declarations();
+        let (kind_reg, field_reg, _, _) = populate(&[sw, prod]);
         let s = span("test.spec");
         // "refs" field has no target_kind
         let entities = vec![
@@ -1151,8 +1125,8 @@ mod tests {
     // verify unit "reference to nonexistent entity skipped (E001 handles it)"
     #[test]
     fn test_nonexistent_target_skipped() {
-        let (sw, prod) = two_extension_manifests();
-        let (kind_reg, field_reg, _, _) = populate_registries(&[sw, prod]);
+        let (sw, prod) = two_extension_declarations();
+        let (kind_reg, field_reg, _, _) = populate(&[sw, prod]);
         let s = span("test.spec");
         // No entity has the target's ID.
         let entities = vec![
@@ -1168,8 +1142,8 @@ mod tests {
     // verify unit "unregistered entity kind skipped"
     #[test]
     fn test_unregistered_entity_kind_skipped() {
-        let (sw, prod) = two_extension_manifests();
-        let (kind_reg, field_reg, _, _) = populate_registries(&[sw, prod]);
+        let (sw, prod) = two_extension_declarations();
+        let (kind_reg, field_reg, _, _) = populate(&[sw, prod]);
         let s = span("test.spec");
         let entities = vec![
             EntityView::new("unknown_kind", "u1", &s).with_reference("features", &["x"]),
@@ -1182,8 +1156,8 @@ mod tests {
     // verify unit "multiple wrong-kind references produce multiple E022"
     #[test]
     fn test_multiple_wrong_kind_refs_produce_multiple_e022() {
-        let (sw, prod) = two_extension_manifests();
-        let (kind_reg, field_reg, _, _) = populate_registries(&[sw, prod]);
+        let (sw, prod) = two_extension_declarations();
+        let (kind_reg, field_reg, _, _) = populate(&[sw, prod]);
         let s = span("test.spec");
         // Two behavior IDs in "features" field (expects feature)
         let entities = vec![
@@ -1199,8 +1173,8 @@ mod tests {
     // verify unit "cross-extension typed reference validated"
     #[test]
     fn test_cross_extension_typed_reference_validated() {
-        let (sw, prod) = two_extension_manifests();
-        let (kind_reg, field_reg, _, _) = populate_registries(&[sw, prod]);
+        let (sw, prod) = two_extension_declarations();
+        let (kind_reg, field_reg, _, _) = populate(&[sw, prod]);
         let s = span("test.spec");
         // feature.behaviors should accept behavior — correct cross-extension ref
         let entities = vec![
@@ -1214,8 +1188,8 @@ mod tests {
     // verify contract "E022 message includes target id, field name, actual kind, expected kind"
     #[test]
     fn test_e022_message_includes_all_details() {
-        let (sw, prod) = two_extension_manifests();
-        let (kind_reg, field_reg, _, _) = populate_registries(&[sw, prod]);
+        let (sw, prod) = two_extension_declarations();
+        let (kind_reg, field_reg, _, _) = populate(&[sw, prod]);
         let s = span("test.spec");
         // Put invariant in "features" field (expects feature)
         let entities = vec![
@@ -1240,54 +1214,35 @@ mod tests {
         let mut reg = FieldRegistry::new();
         reg.register(FieldRegistryEntry {
             kind_name: "behavior".into(),
-            field_name: "contract".into(),
-            description: None,
             field_type: ManifestFieldType::String,
             source_extension: "@specforge/software".into(),
-            edge: None,
-            target_kind: None,
-            file_reference: false,
-            required: true,
-            inverse_of: None,
-            normative: false,
-            exempts_obligations: false,
-            headline: false,
-            derived_from: None,
             proof_role: None,
+            declared: specforge_protocol_types::FieldDescriptor {
+                name: "contract".into(),
+                required: true,
+                ..Default::default()
+            },
         });
         reg.register(FieldRegistryEntry {
             kind_name: "behavior".into(),
-            field_name: "category".into(),
-            description: None,
             field_type: ManifestFieldType::String,
             source_extension: "@specforge/software".into(),
-            edge: None,
-            target_kind: None,
-            file_reference: false,
-            required: false,
-            inverse_of: None,
-            normative: false,
-            exempts_obligations: false,
-            headline: false,
-            derived_from: None,
             proof_role: None,
+            declared: specforge_protocol_types::FieldDescriptor {
+                name: "category".into(),
+                ..Default::default()
+            },
         });
         reg.register(FieldRegistryEntry {
             kind_name: "invariant".into(),
-            field_name: "guarantee".into(),
-            description: None,
             field_type: ManifestFieldType::String,
             source_extension: "@specforge/software".into(),
-            edge: None,
-            target_kind: None,
-            file_reference: false,
-            required: true,
-            inverse_of: None,
-            normative: false,
-            exempts_obligations: false,
-            headline: false,
-            derived_from: None,
             proof_role: None,
+            declared: specforge_protocol_types::FieldDescriptor {
+                name: "guarantee".into(),
+                required: true,
+                ..Default::default()
+            },
         });
 
         let rules = generate_required_field_rules(&reg);

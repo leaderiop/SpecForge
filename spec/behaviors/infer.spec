@@ -244,7 +244,10 @@ behavior provide_mcp_infer_gaps_tool "Provide MCP Infer Gaps Tool" {
     as approximate. Cross-references matched items with entities in the
     compiled graph via the inference manifest's source_index. Returns an
     InferenceGapReport with per-directory breakdowns including structured
-    InferenceGap items (name, item_kind, file, line).
+    InferenceGap items (name, item_kind, file, line). A scanner that fails
+    on a file (it traps, or answers what is not a scan response) is
+    reported in scan_failures (the file and its E028), never counted as a
+    file without public items, and makes the report approximate.
     Items in test files, build scripts, and standard trait impls are excluded.
   """
   verify unit "scans Rust files for pub items via regex"

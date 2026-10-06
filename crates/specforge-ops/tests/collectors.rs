@@ -1,11 +1,10 @@
 //! The runner extensions' collectors, read through the protocol from
 //! their real Wasm blobs and dispatched by the host's collect flow.
 
-use specforge_ops::collect::{ReportFile, collectors, dispatch};
-use specforge_registry::ManifestV2;
-use specforge_wasm::protocol::{
-    ProtocolHost, load_protocol_extension, protocol_extension_to_manifest,
-};
+use specforge_ops::collect::{collectors, dispatch};
+use specforge_protocol_types::CollectReportFile;
+use specforge_protocol_types::ExtensionDeclaration;
+use specforge_wasm::protocol::load_declaration;
 
 /// A Wasm runtime for a temp project enabling `ext_names`.
 fn wasm_runtime_for(ext_names: &[&str]) -> specforge_component::ComponentRuntime {
@@ -19,12 +18,10 @@ fn wasm_runtime_for(ext_names: &[&str]) -> specforge_component::ComponentRuntime
     specforge_component::project_runtime(dir.path())
 }
 
-/// An extension's manifest, loaded through the protocol.
-fn load_via_protocol(ext_name: &str) -> ManifestV2 {
+/// An extension's declaration, loaded through the protocol.
+fn load_via_protocol(ext_name: &str) -> ExtensionDeclaration {
     let runtime = wasm_runtime_for(&[ext_name]);
-    let host = ProtocolHost::new(&runtime);
-    let proto_ext = load_protocol_extension(&host, ext_name).unwrap();
-    protocol_extension_to_manifest(&proto_ext)
+    load_declaration(&runtime, ext_name).unwrap().declaration
 }
 
 #[specforge_test_macros::test(
@@ -35,7 +32,7 @@ fn vitest_declares_its_collector() {
     let manifest = load_via_protocol("@specforge/vitest");
     assert!(
         manifest
-            .peer_dependencies
+            .peers()
             .iter()
             .any(|p| p.name == "@specforge/testing" && !p.optional),
         "testing is a required peer"
@@ -59,7 +56,7 @@ fn cargo_test_declares_its_collector() {
     let manifest = load_via_protocol("@specforge/cargo-test");
     assert!(
         manifest
-            .peer_dependencies
+            .peers()
             .iter()
             .any(|p| p.name == "@specforge/testing" && !p.optional),
         "testing is a required peer"
@@ -88,7 +85,7 @@ fn cargo_test_reports_plain_tests_as_unlinked() {
     let manifest = load_via_protocol("@specforge/cargo-test");
     let collector = &collectors(std::slice::from_ref(&manifest))[0];
     let stdout = include_str!("../../../extensions/cargo-test/tests/fixtures/libtest-stdout.txt");
-    let report = ReportFile {
+    let report = CollectReportFile {
         path: "target/specforge/shop_lib.json".into(),
         content: r#"{"entries":[{"entity_id":"cart","test_name":"panics",
             "module_path":"shop_lib::tests","file":"src/lib.rs","status":"pass"}]}"#

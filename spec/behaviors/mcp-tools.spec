@@ -678,7 +678,10 @@ behavior provide_mcp_analyze_tool "Provide MCP Analyze Tool" {
     or parsed, the project's own or the one `test_results` names, MUST be an
     isError result carrying an McpError, as the CLI exits 2 on it. The result MUST list each pass with its
     findings and summary, plus an `ok` flag that is false when any finding
-    is an error. The tool does not run the prove pass, so extension passes
+    is an error. An extension pass that traps or answers what does not
+    parse is one E028 finding of that pass (its summary marks it
+    `failed`), so the analysis is not ok. The tool does not run the prove
+    pass, so extension passes
     MUST receive no proved claims, as `specforge analyze` without --prove.
     The tool runs through the shared analyze operation of specforge-ops, the
     one the CLI runs: a `pass` that is not `all`, `coverage`, `contracts` or a

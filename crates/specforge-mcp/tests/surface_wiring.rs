@@ -734,15 +734,15 @@ fn a_command_the_cli_refuses_is_no_tool() {
     );
     // The rule the CLI refuses a command line by is the one MCP promotes by.
     let refused = |arg: &str| {
-        specforge_ops::command::refusal(&specforge_registry::CommandContribution {
+        specforge_ops::command::refusal(&specforge_protocol_types::CommandDescriptor {
             id: "x".into(),
             title: "x".into(),
             description: String::new(),
             category: None,
             export: "cmd__x".into(),
-            args: vec![specforge_registry::CommandArg {
+            args: vec![specforge_protocol_types::CommandArgDescriptor {
                 name: arg.into(),
-                arg_type: specforge_registry::CommandArgType::String,
+                arg_type: specforge_protocol_types::CommandArgType::String,
                 required: false,
                 default_value: None,
                 description: None,
@@ -1056,7 +1056,7 @@ fn an_extension_tool_export_gets_its_arguments_as_json() {
     verify = "Wasm trap returned as structured MCP error"
 )]
 fn a_trapping_extension_tool_is_a_structured_error() {
-    // No output for mcp__check: the export traps.
+    // No output for mcp__check: the guest routes no such export.
     let (mut server, ext, _dir) = fake_extension::initialized(FakeExtension::new());
     let resp = call_tool(&mut server, "specforge.cmds.check", json!({}));
     let error = crate::tool_errors::mcp_error(&resp);
@@ -1066,7 +1066,7 @@ fn a_trapping_extension_tool_is_a_structured_error() {
         error["message"]
             .as_str()
             .unwrap()
-            .starts_with("MCP tool mcp__check() trapped: export_not_found"),
+            .starts_with("MCP tool mcp__check() of '@test/cmds' trapped: guest_error: unknown export 'mcp__check'"),
         "{error}"
     );
     assert_eq!(error["tool"], "specforge.cmds.check", "{error}");
@@ -1146,7 +1146,7 @@ fn an_extension_resource_export_gets_the_uri() {
     verify = "Wasm trap returned as structured MCP error"
 )]
 fn a_trapping_extension_resource_is_a_structured_error() {
-    // No output for mcp__summary: the export traps.
+    // No output for mcp__summary: the guest routes no such export.
     let (mut server, _ext, _dir) = fake_extension::initialized(FakeExtension::new());
     let resp = read_resource(&mut server, SUMMARY);
     let error = resp["error"]
@@ -1157,13 +1157,38 @@ fn a_trapping_extension_resource_is_a_structured_error() {
     assert_eq!(keys, ["code", "message"], "{resp}");
     assert_eq!(error["code"], -32602, "{resp}");
     assert!(
-        error["message"]
-            .as_str()
-            .unwrap()
-            .starts_with("E028: MCP resource mcp__summary() trapped: export_not_found"),
+        error["message"].as_str().unwrap().starts_with(
+            "E028: MCP resource mcp__summary() of '@test/cmds' trapped: guest_error: unknown export 'mcp__summary'"
+        ),
         "{resp}"
     );
     assert!(call(&mut server, "ping", json!({}))["result"].is_object());
+}
+
+#[specforge_test(
+    behavior = "dispatch_surface_mcp_resource",
+    verify = "a resource whose answer is not its content and mime type is a structured MCP error"
+)]
+fn a_resource_answering_no_content_is_a_structured_error() {
+    for answer in [
+        json!("oops"),
+        json!({"text": "t"}),
+        json!({"content": "c"}),
+        json!([1, 2]),
+    ] {
+        let (mut server, _ext, _dir) = fake_extension::initialized(
+            FakeExtension::new().with_output("mcp__summary", answer.clone()),
+        );
+        let resp = read_resource(&mut server, SUMMARY);
+        assert!(resp["result"].is_null(), "{answer}: {resp}");
+        assert_eq!(resp["error"]["code"], -32602, "{resp}");
+        assert!(
+            resp["error"]["message"].as_str().unwrap().starts_with(
+                "E028: MCP resource mcp__summary() of '@test/cmds' answered output that is not a McpResourceContent: "
+            ),
+            "{resp}"
+        );
+    }
 }
 
 #[specforge_test(

@@ -1,17 +1,18 @@
-//! A stand-in Wasm runtime hosting one extension, `@test/cmds`, that speaks
-//! the extension protocol (`__handshake`, `__describe`) and contributes
-//! surfaces: two CLI commands (`report`, `check`), an explicit MCP tool
-//! named `specforge.cmds.check` (the name `check` would be auto-promoted
-//! to), and one MCP resource. Every other export call is recorded and
-//! answered from the configured outputs, so a test sees which export a tool
-//! call reached and with what input.
+//! One extension, `@test/cmds`, served in process (`InProcessRuntime`): it
+//! declares, as given (`raw_category`), surfaces — two CLI commands
+//! (`report`, `check`), an explicit MCP tool named `specforge.cmds.check`
+//! (the name `check` would be auto-promoted to), and one MCP resource —
+//! and any compiler passes a test adds. Every export call is recorded; an
+//! export answers its configured output, else the guest's own "unknown
+//! export" error, so a test sees which export a tool call reached and with
+//! what input.
 
 use serde_json::{Value, json};
+use specforge_extension_sdk::{ContributionsBuilder, ExtensionMeta};
 use specforge_mcp::McpServer;
-use specforge_wasm::runtime::{WasmCallResult, WasmRuntime, WasmTrapInfo};
-use std::collections::HashMap;
-use std::path::Path;
-use std::sync::{Arc, Mutex};
+use specforge_wasm::runtime::{WasmCallResult, WasmRuntime};
+use specforge_wasm::testing::InProcessRuntime;
+use std::sync::{Arc, OnceLock};
 
 pub const EXT: &str = "@test/cmds";
 
@@ -19,31 +20,30 @@ pub const EXT: &str = "@test/cmds";
 pub type Call = (String, String, Value);
 
 pub struct FakeExtension {
-    outputs: HashMap<String, Vec<u8>>,
-    /// Exports whose call panics, as a broken host function would.
+    outputs: Vec<(String, Vec<u8>)>,
+    /// Exports whose call panics in the runtime, as a broken host function
+    /// would.
     panics: Vec<String>,
-    calls: Mutex<Vec<Call>>,
     /// The compiler passes `@test/cmds` declares (`__describe passes`).
     passes: Value,
     /// Commands declared beside `report` and `check`.
     commands: Vec<Value>,
-    /// How many times an environment loaded the extension (`__handshake`).
-    handshakes: std::sync::atomic::AtomicUsize,
+    /// The runtime serving it, made on first use.
+    runtime: OnceLock<Arc<InProcessRuntime>>,
 }
 
 impl FakeExtension {
     pub fn new() -> Self {
         Self {
-            outputs: HashMap::new(),
+            outputs: Vec::new(),
             panics: Vec::new(),
-            calls: Mutex::new(Vec::new()),
             passes: json!([]),
             commands: Vec::new(),
-            handshakes: std::sync::atomic::AtomicUsize::new(0),
+            runtime: OnceLock::new(),
         }
     }
 
-    /// Also declare `command` (a `CommandContribution`).
+    /// Also declare `command` (a `CommandDescriptor`).
     pub fn with_command(mut self, command: Value) -> Self {
         self.commands.push(command);
         self
@@ -59,24 +59,63 @@ impl FakeExtension {
     /// Answer calls to `export` with `output`.
     pub fn with_output(mut self, export: &str, output: Value) -> Self {
         self.outputs
-            .insert(export.into(), serde_json::to_vec(&output).unwrap());
+            .push((export.into(), serde_json::to_vec(&output).unwrap()));
         self
     }
 
-    /// Make calls to `export` panic.
+    /// Make calls to `export` panic in the runtime.
     pub fn with_panic(mut self, export: &str) -> Self {
         self.panics.push(export.into());
         self
     }
 
-    /// How many times an environment loaded the extension so far.
+    /// How many times an environment loaded the extension so far
+    /// (`__handshake` calls).
     pub fn handshakes(&self) -> usize {
-        self.handshakes.load(std::sync::atomic::Ordering::SeqCst)
+        self.runtime()
+            .calls()
+            .iter()
+            .filter(|c| c.export == "__handshake")
+            .count()
+    }
+
+    /// The runtime serving `@test/cmds` as configured.
+    pub fn runtime(&self) -> Arc<InProcessRuntime> {
+        Arc::clone(self.runtime.get_or_init(|| Arc::new(self.serve())))
+    }
+
+    fn serve(&self) -> InProcessRuntime {
+        let mut surfaces = Self::surfaces();
+        surfaces["commands"]
+            .as_array_mut()
+            .unwrap()
+            .extend(self.commands.iter().cloned());
+        let passes = self.passes.clone();
+        let mut runtime = InProcessRuntime::new().with(move || {
+            let mut c = ContributionsBuilder::new(ExtensionMeta::new(EXT, "0.1.0"));
+            c.raw_category("surfaces", json!([surfaces.clone()]));
+            if passes.as_array().is_some_and(|p| !p.is_empty()) {
+                c.raw_category("passes", passes.clone());
+            }
+            c
+        });
+        for (export, output) in &self.outputs {
+            runtime = runtime.answer_raw(EXT, export, WasmCallResult::Ok(output.clone()));
+        }
+        for export in &self.panics {
+            runtime = runtime.fault(EXT, export);
+        }
+        runtime
     }
 
     /// Every non-protocol export call so far, oldest first.
     pub fn calls(&self) -> Vec<Call> {
-        self.calls.lock().unwrap().clone()
+        self.runtime()
+            .calls()
+            .into_iter()
+            .filter(|c| c.export != "__handshake" && c.export != "__describe")
+            .map(|c| (c.extension, c.export, c.input))
+            .collect()
     }
 
     /// The surfaces `@test/cmds` declares.
@@ -124,73 +163,6 @@ impl FakeExtension {
     }
 }
 
-impl WasmRuntime for FakeExtension {
-    fn load_module(&self, _wasm_path: &Path) -> Result<(), String> {
-        Ok(())
-    }
-
-    fn call_export(&self, extension_name: &str, export_name: &str, input: &[u8]) -> WasmCallResult {
-        if extension_name != EXT {
-            return trap("extension_not_found", export_name);
-        }
-        match export_name {
-            "__handshake" => {
-                self.handshakes
-                    .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-                ok(json!({
-                "protocol_version": "1.0.0",
-                "name": EXT,
-                "version": "0.1.0",
-                "contribution_flags": {"entities": true},
-                "peer_dependencies": [],
-                "sandbox_policy": null,
-                }))
-            }
-            "__describe" => {
-                let request: Value = serde_json::from_slice(input).unwrap();
-                let category = request["category"].as_str().unwrap().to_string();
-                let items = match category.as_str() {
-                    "surfaces" => {
-                        let mut surfaces = Self::surfaces();
-                        let commands = surfaces["commands"].as_array_mut().unwrap();
-                        commands.extend(self.commands.iter().cloned());
-                        json!([surfaces])
-                    }
-                    "passes" => self.passes.clone(),
-                    _ => json!([]),
-                };
-                ok(json!({"category": category, "items": items}))
-            }
-            export if self.panics.iter().any(|p| p == export) => {
-                panic!("{export} panicked")
-            }
-            export => {
-                let input = serde_json::from_slice(input).unwrap_or(Value::Null);
-                self.calls
-                    .lock()
-                    .unwrap()
-                    .push((extension_name.into(), export.into(), input));
-                match self.outputs.get(export) {
-                    Some(output) => WasmCallResult::Ok(output.clone()),
-                    None => trap("export_not_found", export),
-                }
-            }
-        }
-    }
-}
-
-fn ok(value: Value) -> WasmCallResult {
-    WasmCallResult::Ok(serde_json::to_vec(&value).unwrap())
-}
-
-fn trap(kind: &str, export: &str) -> WasmCallResult {
-    WasmCallResult::Trap(WasmTrapInfo {
-        kind: kind.into(),
-        message: format!("{kind}: {export}"),
-        export_name: export.into(),
-    })
-}
-
 /// A project on disk that enables `@test/cmds`, with one spec file.
 pub fn project() -> tempfile::TempDir {
     let dir = tempfile::TempDir::new().unwrap();
@@ -206,7 +178,7 @@ pub fn project() -> tempfile::TempDir {
 /// A server whose extensions run in `ext`; not yet initialized.
 pub fn server_with(ext: &Arc<FakeExtension>) -> McpServer {
     let mut server = McpServer::new();
-    server.state_mut().extension_runtime = Some(Arc::clone(ext) as Arc<dyn WasmRuntime>);
+    server.state_mut().extension_runtime = Some(ext.runtime() as Arc<dyn WasmRuntime>);
     server
 }
 

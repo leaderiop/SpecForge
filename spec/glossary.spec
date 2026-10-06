@@ -22,7 +22,6 @@ term t_spec_file "spec file" {
     t_sandbox_policy,
     t_wasm_trap,
     t_fuel_metering,
-    t_enhancement_policy,
     t_structured_conditions,
     t_coverage_tracking_item,
     t_event_graph_linting,
@@ -473,17 +472,6 @@ term t_content_addressed_cache "content-addressed cache" {
     inside wasmtime.
   """
   see_also   [t_wasm, t_compile_cache]
-}
-
-term t_enhancement_policy "enhancement policy" {
-  definition """
-    The strategy for resolving conflicts when two extensions register the
-    same field name for the same entity kind. Three policies: error
-    (default, hard error on conflict), priority (first extension wins,
-    warning emitted), namespace (conflicting fields prefixed with
-    extension name). Configured in specforge.json.
-  """
-  aliases    ["conflict policy"]
 }
 
 // ── @specforge/formal Terms ──────────────────────────────────

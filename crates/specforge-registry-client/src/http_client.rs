@@ -8,7 +8,7 @@ use super::registry_client::{
     RegistryClient, RegistryError, RegistryResponse, RegistrySearchResult,
 };
 use super::registry_config::{AuthMethod, RegistryConfig, RegistryCredential};
-use specforge_registry::ManifestV2;
+use specforge_protocol_types::ExtensionDeclaration;
 
 #[derive(Deserialize)]
 struct PackageVersionResponse {
@@ -298,15 +298,15 @@ impl RegistryClient for HttpRegistryClient {
     fn publish(
         &self,
         package: &[u8],
-        manifest: &ManifestV2,
+        declaration: &ExtensionDeclaration,
         manifest_json: &str,
         signature: Option<&str>,
         registry: &RegistryConfig,
         credential: Option<&RegistryCredential>,
     ) -> Result<String, RegistryError> {
         let base = Self::base_url(registry);
-        let encoded = Self::encode_package_name(&manifest.name);
-        let url = format!("{}/packages/{}/{}", base, encoded, manifest.version);
+        let encoded = Self::encode_package_name(declaration.name());
+        let url = format!("{}/packages/{}/{}", base, encoded, declaration.version());
 
         // Build the multipart body manually: reqwest's blocking multipart
         // wrapper can fail with a body error on large wasm parts, while an
@@ -375,8 +375,8 @@ impl RegistryClient for HttpRegistryClient {
                 guidance: "you don't have publish permission for this scope".to_string(),
             }),
             409 => Err(RegistryError::DuplicateVersion {
-                name: manifest.name.clone(),
-                version: manifest.version.clone(),
+                name: declaration.name().to_string(),
+                version: declaration.version().to_string(),
             }),
             status => {
                 let msg = resp

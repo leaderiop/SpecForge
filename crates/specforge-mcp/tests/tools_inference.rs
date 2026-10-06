@@ -1,6 +1,7 @@
 use serde_json::{Value, json};
+use specforge_extension_sdk::ExtensionDeclaration;
+use specforge_extension_sdk::prelude::*;
 use specforge_mcp::McpServer;
-use specforge_registry::ManifestV2;
 use specforge_test::prelude::*;
 use tempfile::TempDir;
 
@@ -10,83 +11,41 @@ fn init_server(project_dir: &std::path::Path) -> McpServer {
     server.handle_message(&req.to_string());
     crate::support::serve_in_memory_at(server.state_mut(), project_dir);
     server.state_mut().edit_environment(|env| {
-        env.registries.manifests = vec![rust_manifest(), typescript_manifest()];
+        let built = specforge_project::Environment::from_declarations(vec![
+            rust_declaration(),
+            typescript_declaration(),
+        ]);
+        env.registries = built.registries;
     });
     server
 }
 
-fn rust_manifest() -> ManifestV2 {
-    ManifestV2 {
-        name: "@specforge/rust".into(),
-        version: "1.0.0".into(),
-        manifest_version: 2,
-        wasm_path: String::new(),
-        contributes: specforge_registry::ExtensionContributions::default(),
-        entity_kinds: vec![],
-        edge_types: vec![],
-        validation_rules: vec![],
-        verify_kinds: vec![],
-        fields: vec![],
-        incremental: None,
-        reserved_keywords: vec![],
-        migration_hook: None,
-        peer_dependencies: vec![],
-        sandbox_policy: None,
-        host_api_version: None,
-        entity_enhancements: vec![],
-        starter_template: None,
-        theme_color: None,
-        ext_short: None,
-        query_scope: None,
-        collector_contributions: vec![],
-        analyzer_contributions: vec![specforge_registry::AnalyzerContribution {
-            language: "rust".into(),
-            file_extensions: vec![".rs".into()],
-            excluded_dirs: vec!["target".into()],
-            scan_export: "scan__rust".into(),
-            classify_export: "classify__rust".into(),
-            map_export: "map__rust".into(),
-            description: None,
-        }],
-        surfaces: None,
-    }
+/// The rust analyzer, declared as the builtin declares it.
+fn rust_declaration() -> ExtensionDeclaration {
+    let mut c = ContributionsBuilder::new(ExtensionMeta::new("@specforge/rust", "1.0.0"));
+    c.analyzer("rust", |a| {
+        a.file_extensions(&[".rs"])
+            .excluded_dirs(&["target"])
+            .scan(|_| ScanResponse {
+                items: Vec::new(),
+                language: None,
+            });
+    });
+    c.declaration()
 }
 
-fn typescript_manifest() -> ManifestV2 {
-    ManifestV2 {
-        name: "@specforge/typescript".into(),
-        version: "1.0.0".into(),
-        manifest_version: 2,
-        wasm_path: String::new(),
-        contributes: specforge_registry::ExtensionContributions::default(),
-        entity_kinds: vec![],
-        edge_types: vec![],
-        validation_rules: vec![],
-        verify_kinds: vec![],
-        fields: vec![],
-        incremental: None,
-        reserved_keywords: vec![],
-        migration_hook: None,
-        peer_dependencies: vec![],
-        sandbox_policy: None,
-        host_api_version: None,
-        entity_enhancements: vec![],
-        starter_template: None,
-        theme_color: None,
-        ext_short: None,
-        query_scope: None,
-        collector_contributions: vec![],
-        analyzer_contributions: vec![specforge_registry::AnalyzerContribution {
-            language: "typescript".into(),
-            file_extensions: vec![".ts".into(), ".tsx".into(), ".js".into(), ".jsx".into()],
-            excluded_dirs: vec!["node_modules".into(), "dist".into()],
-            scan_export: "scan__typescript".into(),
-            classify_export: "classify__typescript".into(),
-            map_export: "map__typescript".into(),
-            description: None,
-        }],
-        surfaces: None,
-    }
+/// The typescript analyzer, declared as the builtin declares it.
+fn typescript_declaration() -> ExtensionDeclaration {
+    let mut c = ContributionsBuilder::new(ExtensionMeta::new("@specforge/typescript", "1.0.0"));
+    c.analyzer("typescript", |a| {
+        a.file_extensions(&[".ts", ".tsx", ".js", ".jsx"])
+            .excluded_dirs(&["node_modules", "dist"])
+            .scan(|_| ScanResponse {
+                items: Vec::new(),
+                language: None,
+            });
+    });
+    c.declaration()
 }
 
 fn call_tool(server: &mut McpServer, tool_name: &str, args: Value) -> Value {

@@ -1,6 +1,6 @@
-use crate::ManifestValidationRule;
 use specforge_common::{Diagnostic, Severity};
 use specforge_protocol_types::ConstraintKind;
+use specforge_protocol_types::{ValidationRuleDescriptor, ValidationSeverity};
 
 /// Parsed and validated rule pattern, ready for execution.
 #[derive(Debug, Clone)]
@@ -53,50 +53,19 @@ pub enum CustomVerdict {
     },
 }
 
-/// A stub trait for Wasm validation dispatch. Real implementation in specforge-wasm.
+/// The verdict of a custom rule's `wasm_function` on one entity: the
+/// project's compile implements it over the extension that declared the
+/// rule (`ExtensionCalls::validate`, ADR 0013).
 pub trait WasmValidationRuntime {
-    fn call_custom_validator(
+    /// The function's verdict on the entity. Err: it could not give one
+    /// (the call failed); the entity is skipped, as the rule's probe
+    /// already reported the function (W112).
+    fn custom_verdict(
         &self,
         wasm_function: &str,
         entity_id: &str,
         entity_kind: &str,
-    ) -> Result<bool, String>;
-
-    /// Rich verdict variant: implementations that can localize the
-    /// violation override this; the default delegates to the bool form.
-    fn call_custom_validator_detailed(
-        &self,
-        wasm_function: &str,
-        entity_id: &str,
-        entity_kind: &str,
-    ) -> Result<CustomVerdict, String> {
-        Ok(
-            match self.call_custom_validator(wasm_function, entity_id, entity_kind)? {
-                true => CustomVerdict::Pass,
-                false => CustomVerdict::Fail {
-                    field: None,
-                    value: None,
-                },
-            },
-        )
-    }
-}
-
-/// No-op Wasm runtime stub for when Wasm is not available.
-pub struct StubWasmRuntime;
-
-impl WasmValidationRuntime for StubWasmRuntime {
-    fn call_custom_validator(
-        &self,
-        wasm_function: &str,
-        _entity_id: &str,
-        _entity_kind: &str,
-    ) -> Result<bool, String> {
-        Err(format!(
-            "Wasm runtime not available — cannot call '{}'",
-            wasm_function
-        ))
-    }
+    ) -> Result<CustomVerdict, String>;
 }
 
 /// C6-12: diagnostic for a structurally impossible rule — one whose check
@@ -117,12 +86,12 @@ fn unexecutable_rule(extension_name: &str, rule_code: &str, why: &str) -> Diagno
     }
 }
 
-/// Parse a ManifestValidationRule into a ValidationRulePattern.
+/// Parse a declared validation rule into a ValidationRulePattern.
 /// Returns Ok(pattern) or Err(diagnostic) when the rule is unrecognized or
 /// structurally cannot fire (missing field/constraint, empty values — W112).
 #[allow(clippy::result_large_err)]
 pub(crate) fn parse_rule_pattern(
-    rule: &ManifestValidationRule,
+    rule: &ValidationRuleDescriptor,
     extension_name: &str,
 ) -> Result<ValidationRulePattern, Diagnostic> {
     let Some(check) = ValidationPatternKind::parse(&rule.check) else {
@@ -139,11 +108,10 @@ pub(crate) fn parse_rule_pattern(
         });
     };
 
-    let severity = match rule.severity.as_str() {
-        "error" => Severity::Error,
-        "warning" => Severity::Warning,
-        "info" => Severity::Info,
-        _ => Severity::Warning,
+    let severity = match rule.severity {
+        ValidationSeverity::Error => Severity::Error,
+        ValidationSeverity::Warning => Severity::Warning,
+        ValidationSeverity::Info => Severity::Info,
     };
 
     // C6-12: structural validation. A rule missing the field or constraint
@@ -306,12 +274,12 @@ pub(crate) fn resolve_edge_rules(
                 .edge_type
                 .as_deref()
                 .and_then(|label| edges.get(label))
-                .and_then(|edge| edge.target_kind.clone()),
+                .and_then(|edge| edge.declared.target_kind.clone()),
             ValidationPatternKind::NoIncomingEdges => pattern
                 .edge_type
                 .as_deref()
                 .and_then(|label| edges.get(label))
-                .and_then(|edge| edge.source_kind.clone()),
+                .and_then(|edge| edge.declared.source_kind.clone()),
             _ => None,
         };
         let Some(peer) = peer else {
@@ -325,19 +293,19 @@ pub(crate) fn resolve_edge_rules(
     });
 }
 
-/// Parse all rules from manifests into validated patterns, paired with the
-/// extension that declared each one.
+/// Parse every declared rule into a validated pattern, paired with the
+/// extension that declared it.
 ///
 /// The origin is required to dispatch `check: "custom"` rules: the
 /// `wasm_function` is an export of THAT extension's module, so the host must
 /// know which runtime entry to call (WASM-only migration, Phase 5).
 pub(crate) fn parse_all_rule_patterns(
-    manifests: &[(String, Vec<ManifestValidationRule>)], // (ext_name, rules)
+    declared: &[(String, Vec<ValidationRuleDescriptor>)], // (ext_name, rules)
 ) -> (Vec<(ValidationRulePattern, String)>, Vec<Diagnostic>) {
     let mut patterns: Vec<(ValidationRulePattern, String)> = Vec::new();
     let mut diagnostics = Vec::new();
 
-    for (ext_name, rules) in manifests {
+    for (ext_name, rules) in declared {
         for rule in rules {
             match parse_rule_pattern(rule, ext_name) {
                 Ok(pattern) => patterns.push((pattern, ext_name.clone())),
@@ -579,7 +547,7 @@ pub fn execute_pattern(
             }
             ValidationPatternKind::Custom => {
                 if let (Some(func), Some(rt)) = (&pattern.wasm_function, wasm) {
-                    match rt.call_custom_validator_detailed(func, &entity.id, &entity.kind) {
+                    match rt.custom_verdict(func, &entity.id, &entity.kind) {
                         Ok(CustomVerdict::Pass) => false,
                         Ok(CustomVerdict::Fail { field, value }) => {
                             violation_field = field;
@@ -648,8 +616,16 @@ pub fn execute_pattern(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ManifestValidationRule;
     use specforge_common::Sym;
+    use specforge_protocol_types::FieldConstraintDescriptor;
+
+    /// A custom rule's failing verdict, with no field or value to name.
+    fn failed() -> CustomVerdict {
+        CustomVerdict::Fail {
+            field: None,
+            value: None,
+        }
+    }
 
     fn span() -> specforge_common::SourceSpan {
         specforge_common::SourceSpan {
@@ -661,10 +637,10 @@ mod tests {
         }
     }
 
-    fn make_rule(code: &str, check: &str) -> ManifestValidationRule {
-        ManifestValidationRule {
+    fn make_rule(code: &str, check: &str) -> ValidationRuleDescriptor {
+        ValidationRuleDescriptor {
             code: code.to_string(),
-            severity: "warning".to_string(),
+            severity: ValidationSeverity::Warning,
             message_template: "orphan {kind} '{id}'".to_string(),
             check: check.to_string(),
             target_kind: Some("behavior".to_string()),
@@ -833,9 +809,9 @@ mod tests {
     #[test]
     fn test_all_required_fields_validated() {
         // A valid rule must have code, severity, messageTemplate, check
-        let rule = ManifestValidationRule {
+        let rule = ValidationRuleDescriptor {
             code: "W100".to_string(),
-            severity: "error".to_string(),
+            severity: ValidationSeverity::Error,
             message_template: "test {id}".to_string(),
             check: "no_incoming_edges".to_string(),
             target_kind: None,
@@ -925,15 +901,15 @@ mod tests {
     // B:execute_validation_pattern — verify unit "field_value_constraint rejects invalid field value"
     #[test]
     fn test_field_value_constraint_rejects_invalid() {
-        let rule = ManifestValidationRule {
+        let rule = ValidationRuleDescriptor {
             code: "W103".to_string(),
-            severity: "warning".to_string(),
+            severity: ValidationSeverity::Warning,
             message_template: "{kind} '{id}' has invalid {field}='{value}'".to_string(),
             check: "field_value_constraint".to_string(),
             target_kind: Some("behavior".to_string()),
             edge_type: None,
             field: Some("status".to_string()),
-            constraint: Some(crate::FieldConstraint {
+            constraint: Some(FieldConstraintDescriptor {
                 kind: "one_of".to_string(),
                 pattern: None,
                 values: vec![
@@ -960,15 +936,15 @@ mod tests {
     // B:execute_validation_pattern — verify unit "matches constraint accepts a value satisfying the regex"
     #[test]
     fn test_matches_constraint_accepts_valid_semver() {
-        let rule = ManifestValidationRule {
+        let rule = ValidationRuleDescriptor {
             code: "W093".to_string(),
-            severity: "warning".to_string(),
+            severity: ValidationSeverity::Warning,
             message_template: "{kind} '{id}' has invalid {field}".to_string(),
             check: "field_value_constraint".to_string(),
             target_kind: Some("release".to_string()),
             edge_type: None,
             field: Some("version".to_string()),
-            constraint: Some(crate::FieldConstraint {
+            constraint: Some(FieldConstraintDescriptor {
                 kind: "matches".to_string(),
                 pattern: Some(r"^\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?(\+[a-zA-Z0-9.]+)?$".to_string()),
                 values: vec![],
@@ -991,15 +967,15 @@ mod tests {
     // B:execute_validation_pattern — verify unit "matches constraint flags a value violating the regex"
     #[test]
     fn test_matches_constraint_flags_invalid_semver() {
-        let rule = ManifestValidationRule {
+        let rule = ValidationRuleDescriptor {
             code: "W093".to_string(),
-            severity: "warning".to_string(),
+            severity: ValidationSeverity::Warning,
             message_template: "{kind} '{id}' has invalid {field}".to_string(),
             check: "field_value_constraint".to_string(),
             target_kind: Some("release".to_string()),
             edge_type: None,
             field: Some("version".to_string()),
-            constraint: Some(crate::FieldConstraint {
+            constraint: Some(FieldConstraintDescriptor {
                 kind: "matches".to_string(),
                 pattern: Some(r"^\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?(\+[a-zA-Z0-9.]+)?$".to_string()),
                 values: vec![],
@@ -1019,15 +995,15 @@ mod tests {
     // C14: the matches regex compiles once at parse time and applies to every entity.
     #[test]
     fn test_matches_constraint_compiles_once_and_checks_all_entities() {
-        let rule = ManifestValidationRule {
+        let rule = ValidationRuleDescriptor {
             code: "W094".to_string(),
-            severity: "warning".to_string(),
+            severity: ValidationSeverity::Warning,
             message_template: "{kind} '{id}' has invalid {field}='{value}'".to_string(),
             check: "field_value_constraint".to_string(),
             target_kind: Some("release".to_string()),
             edge_type: None,
             field: Some("version".to_string()),
-            constraint: Some(crate::FieldConstraint {
+            constraint: Some(FieldConstraintDescriptor {
                 kind: "matches".to_string(),
                 pattern: Some(r"^v\d+$".to_string()),
                 values: vec![],
@@ -1063,15 +1039,15 @@ mod tests {
     // C14: a malformed regex is rejected at load time with a diagnostic and never executes.
     #[test]
     fn test_invalid_regex_pattern_fails_at_load_and_matches_nothing() {
-        let rule = ManifestValidationRule {
+        let rule = ValidationRuleDescriptor {
             code: "W095".to_string(),
-            severity: "warning".to_string(),
+            severity: ValidationSeverity::Warning,
             message_template: "{kind} '{id}' has invalid {field}".to_string(),
             check: "field_value_constraint".to_string(),
             target_kind: Some("release".to_string()),
             edge_type: None,
             field: Some("version".to_string()),
-            constraint: Some(crate::FieldConstraint {
+            constraint: Some(FieldConstraintDescriptor {
                 kind: "matches".to_string(),
                 pattern: Some(r"(unclosed".to_string()),
                 values: vec![],
@@ -1092,8 +1068,8 @@ mod tests {
             err.message
         );
 
-        let manifests = vec![("@test".to_string(), vec![rule.clone()])];
-        let (patterns, diags) = parse_all_rule_patterns(&manifests);
+        let declared = vec![("@test".to_string(), vec![rule.clone()])];
+        let (patterns, diags) = parse_all_rule_patterns(&declared);
         assert!(
             patterns.is_empty(),
             "the invalid rule must not reach execution"
@@ -1105,15 +1081,15 @@ mod tests {
     // C6-12: a one_of constraint with no values misconfigures the allowlist.
     #[test]
     fn test_empty_one_of_values_rejected_at_parse() {
-        let rule = ManifestValidationRule {
+        let rule = ValidationRuleDescriptor {
             code: "W103".to_string(),
-            severity: "warning".to_string(),
+            severity: ValidationSeverity::Warning,
             message_template: "{kind} '{id}' has invalid {field}='{value}'".to_string(),
             check: "field_value_constraint".to_string(),
             target_kind: Some("behavior".to_string()),
             edge_type: None,
             field: Some("status".to_string()),
-            constraint: Some(crate::FieldConstraint {
+            constraint: Some(FieldConstraintDescriptor {
                 kind: "one_of".to_string(),
                 pattern: None,
                 values: vec![],
@@ -1126,8 +1102,8 @@ mod tests {
         assert!(err.message.contains("W103"), "{}", err.message);
         assert!(err.message.contains("one_of"), "{}", err.message);
 
-        let manifests = vec![("@test".to_string(), vec![rule])];
-        let (patterns, diags) = parse_all_rule_patterns(&manifests);
+        let declared = vec![("@test".to_string(), vec![rule])];
+        let (patterns, diags) = parse_all_rule_patterns(&declared);
         assert!(
             patterns.is_empty(),
             "the misconfigured rule must not reach execution"
@@ -1149,15 +1125,15 @@ mod tests {
     // C6-12: a matches constraint without a pattern can never check anything.
     #[test]
     fn test_matches_without_pattern_rejected_at_parse() {
-        let rule = ManifestValidationRule {
+        let rule = ValidationRuleDescriptor {
             code: "W105".to_string(),
-            severity: "warning".to_string(),
+            severity: ValidationSeverity::Warning,
             message_template: "{kind} '{id}' has invalid {field}".to_string(),
             check: "field_value_constraint".to_string(),
             target_kind: Some("release".to_string()),
             edge_type: None,
             field: Some("version".to_string()),
-            constraint: Some(crate::FieldConstraint {
+            constraint: Some(FieldConstraintDescriptor {
                 kind: "matches".to_string(),
                 pattern: None,
                 values: vec![],
@@ -1176,15 +1152,15 @@ mod tests {
     // C6-12: an unrecognized constraint kind never matches — reject loudly.
     #[test]
     fn test_unknown_constraint_kind_rejected_at_parse() {
-        let rule = ManifestValidationRule {
+        let rule = ValidationRuleDescriptor {
             code: "W106".to_string(),
-            severity: "warning".to_string(),
+            severity: ValidationSeverity::Warning,
             message_template: "{kind} '{id}' has invalid {field}".to_string(),
             check: "field_value_constraint".to_string(),
             target_kind: Some("behavior".to_string()),
             edge_type: None,
             field: Some("status".to_string()),
-            constraint: Some(crate::FieldConstraint {
+            constraint: Some(FieldConstraintDescriptor {
                 kind: "equals".to_string(),
                 pattern: None,
                 values: vec!["active".to_string()],
@@ -1203,15 +1179,15 @@ mod tests {
     // C6-12: a conditional rule with no condition values can never trigger.
     #[test]
     fn test_conditional_field_required_empty_condition_values_rejected() {
-        let rule = ManifestValidationRule {
+        let rule = ValidationRuleDescriptor {
             code: "I059".to_string(),
-            severity: "info".to_string(),
+            severity: ValidationSeverity::Info,
             message_template: "feature '{id}' has status 'deferred' but no reason".to_string(),
             check: "conditional_field_required".to_string(),
             target_kind: Some("feature".to_string()),
             edge_type: None,
             field: Some("reason".to_string()),
-            constraint: Some(crate::FieldConstraint {
+            constraint: Some(FieldConstraintDescriptor {
                 kind: "when_field_equals".to_string(),
                 pattern: Some("status".to_string()),
                 values: vec![],
@@ -1230,15 +1206,15 @@ mod tests {
     // B:execute_validation_pattern — verify unit "matches constraint anchors the full value (not a substring)"
     #[test]
     fn test_matches_constraint_anchors_full_value() {
-        let rule = ManifestValidationRule {
+        let rule = ValidationRuleDescriptor {
             code: "W093".to_string(),
-            severity: "warning".to_string(),
+            severity: ValidationSeverity::Warning,
             message_template: "{kind} '{id}' has invalid {field}".to_string(),
             check: "field_value_constraint".to_string(),
             target_kind: Some("release".to_string()),
             edge_type: None,
             field: Some("version".to_string()),
-            constraint: Some(crate::FieldConstraint {
+            constraint: Some(FieldConstraintDescriptor {
                 kind: "matches".to_string(),
                 pattern: Some(r"^\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?(\+[a-zA-Z0-9.]+)?$".to_string()),
                 values: vec![],
@@ -1275,9 +1251,9 @@ mod tests {
     // B:execute_validation_pattern — verify unit "file_exists reports missing file-reference field targets"
     #[test]
     fn test_file_exists_reports_missing() {
-        let rule = ManifestValidationRule {
+        let rule = ValidationRuleDescriptor {
             code: "E101".to_string(),
-            severity: "error".to_string(),
+            severity: ValidationSeverity::Error,
             message_template: "{kind} '{id}' references missing file".to_string(),
             check: "file_exists".to_string(),
             target_kind: Some("behavior".to_string()),
@@ -1302,25 +1278,25 @@ mod tests {
     // B:execute_validation_pattern — verify unit "custom pattern dispatches to registered Wasm function"
     #[test]
     fn test_custom_pattern_dispatches_to_wasm() {
-        struct MockRuntime;
-        impl WasmValidationRuntime for MockRuntime {
-            fn call_custom_validator(
+        struct NamingValidator;
+        impl WasmValidationRuntime for NamingValidator {
+            fn custom_verdict(
                 &self,
                 func: &str,
                 id: &str,
                 _kind: &str,
-            ) -> Result<bool, String> {
+            ) -> Result<CustomVerdict, String> {
                 if func == "validate_naming" && id == "bad_name" {
-                    Ok(false) // fails
+                    Ok(failed()) // fails
                 } else {
-                    Ok(true) // passes
+                    Ok(CustomVerdict::Pass) // passes
                 }
             }
         }
 
-        let rule = ManifestValidationRule {
+        let rule = ValidationRuleDescriptor {
             code: "E200".to_string(),
-            severity: "error".to_string(),
+            severity: ValidationSeverity::Error,
             message_template: "{kind} '{id}' fails custom validation".to_string(),
             check: "custom".to_string(),
             target_kind: Some("behavior".to_string()),
@@ -1335,7 +1311,7 @@ mod tests {
             make_entity("bad_name", "behavior", 1, 0),
             make_entity("good_name", "behavior", 1, 0),
         ];
-        let diags = execute_pattern(&pattern, &entities, Some(&MockRuntime));
+        let diags = execute_pattern(&pattern, &entities, Some(&NamingValidator));
         assert_eq!(diags.len(), 1);
         assert!(diags[0].message.contains("bad_name"));
     }
@@ -1343,9 +1319,9 @@ mod tests {
     // B:execute_validation_pattern — verify unit "pattern violation produces diagnostic with configured code and severity"
     #[test]
     fn test_violation_produces_configured_diagnostic() {
-        let rule = ManifestValidationRule {
+        let rule = ValidationRuleDescriptor {
             code: "E999".to_string(),
-            severity: "error".to_string(),
+            severity: ValidationSeverity::Error,
             message_template: "orphan {kind} '{id}'".to_string(),
             check: "no_incoming_edges".to_string(),
             target_kind: Some("behavior".to_string()),
@@ -1411,9 +1387,9 @@ mod tests {
     // B:emit_diagnostic_from_pattern — verify unit "diagnostic code matches pattern code"
     #[test]
     fn test_diagnostic_code_matches_pattern() {
-        let rule = ManifestValidationRule {
+        let rule = ValidationRuleDescriptor {
             code: "E999".to_string(),
-            severity: "error".to_string(),
+            severity: ValidationSeverity::Error,
             message_template: "test".to_string(),
             check: "no_incoming_edges".to_string(),
             target_kind: Some("behavior".to_string()),
@@ -1430,14 +1406,14 @@ mod tests {
     // B:emit_diagnostic_from_pattern — verify unit "diagnostic severity matches pattern severity"
     #[test]
     fn test_diagnostic_severity_matches_pattern() {
-        for (sev_str, expected) in &[
-            ("error", Severity::Error),
-            ("warning", Severity::Warning),
-            ("info", Severity::Info),
+        for (sev_str, severity, expected) in [
+            ("error", ValidationSeverity::Error, Severity::Error),
+            ("warning", ValidationSeverity::Warning, Severity::Warning),
+            ("info", ValidationSeverity::Info, Severity::Info),
         ] {
-            let rule = ManifestValidationRule {
+            let rule = ValidationRuleDescriptor {
                 code: "X001".to_string(),
-                severity: sev_str.to_string(),
+                severity,
                 message_template: "test".to_string(),
                 check: "no_incoming_edges".to_string(),
                 target_kind: Some("behavior".to_string()),
@@ -1449,7 +1425,7 @@ mod tests {
             let pattern = parse_rule_pattern(&rule, "@test").unwrap();
             let diags = execute_pattern(&pattern, &[make_entity("b1", "behavior", 0, 0)], None);
             assert_eq!(
-                diags[0].severity, *expected,
+                diags[0].severity, expected,
                 "severity mismatch for {}",
                 sev_str
             );
@@ -1565,9 +1541,9 @@ mod tests {
     // B:register_custom_validation_patterns — verify unit "custom pattern registered with wasm_function reference"
     #[test]
     fn test_custom_pattern_registered_with_wasm_function() {
-        let rule = ManifestValidationRule {
+        let rule = ValidationRuleDescriptor {
             code: "E200".to_string(),
-            severity: "error".to_string(),
+            severity: ValidationSeverity::Error,
             message_template: "custom fail".to_string(),
             check: "custom".to_string(),
             target_kind: Some("behavior".to_string()),
@@ -1596,13 +1572,17 @@ mod tests {
     fn test_custom_pattern_dispatched_during_validation() {
         struct FailRuntime;
         impl WasmValidationRuntime for FailRuntime {
-            fn call_custom_validator(
+            fn custom_verdict(
                 &self,
                 _func: &str,
                 id: &str,
                 _kind: &str,
-            ) -> Result<bool, String> {
-                Ok(id != "bad") // "bad" fails
+            ) -> Result<CustomVerdict, String> {
+                Ok(if id == "bad" {
+                    failed()
+                } else {
+                    CustomVerdict::Pass
+                }) // "bad" fails
             }
         }
         let pattern = ValidationRulePattern {
@@ -1631,13 +1611,13 @@ mod tests {
     fn test_custom_pattern_failure_emits_diagnostic() {
         struct AlwaysFail;
         impl WasmValidationRuntime for AlwaysFail {
-            fn call_custom_validator(
+            fn custom_verdict(
                 &self,
                 _func: &str,
                 _id: &str,
                 _kind: &str,
-            ) -> Result<bool, String> {
-                Ok(false)
+            ) -> Result<CustomVerdict, String> {
+                Ok(failed())
             }
         }
         let pattern = ValidationRulePattern {
@@ -1666,14 +1646,14 @@ mod tests {
     // RED: parses "conditional_field_required" check kind
     #[test]
     fn test_parses_conditional_field_required() {
-        let rule = ManifestValidationRule {
+        let rule = ValidationRuleDescriptor {
             code: "I059".to_string(),
-            severity: "info".to_string(),
+            severity: ValidationSeverity::Info,
             message_template: "feature '{id}' has status 'deferred' but no reason".to_string(),
             check: "conditional_field_required".to_string(),
             target_kind: Some("feature".to_string()),
             field: Some("reason".to_string()),
-            constraint: Some(crate::FieldConstraint {
+            constraint: Some(FieldConstraintDescriptor {
                 kind: "when_field_equals".to_string(),
                 pattern: Some("status".to_string()),
                 values: vec!["deferred".to_string()],
@@ -1704,14 +1684,14 @@ mod tests {
     // RED: conditional_field_required fires when condition met and field missing
     #[test]
     fn test_conditional_field_required_fires_when_condition_met_field_missing() {
-        let rule = ManifestValidationRule {
+        let rule = ValidationRuleDescriptor {
             code: "I059".to_string(),
-            severity: "info".to_string(),
+            severity: ValidationSeverity::Info,
             message_template: "feature '{id}' has status 'deferred' but no reason".to_string(),
             check: "conditional_field_required".to_string(),
             target_kind: Some("feature".to_string()),
             field: Some("reason".to_string()),
-            constraint: Some(crate::FieldConstraint {
+            constraint: Some(FieldConstraintDescriptor {
                 kind: "when_field_equals".to_string(),
                 pattern: Some("status".to_string()),
                 values: vec!["deferred".to_string()],
@@ -1736,14 +1716,14 @@ mod tests {
     // RED: conditional_field_required does NOT fire when condition not met
     #[test]
     fn test_conditional_field_required_silent_when_condition_not_met() {
-        let rule = ManifestValidationRule {
+        let rule = ValidationRuleDescriptor {
             code: "I059".to_string(),
-            severity: "info".to_string(),
+            severity: ValidationSeverity::Info,
             message_template: "feature '{id}' has status 'deferred' but no reason".to_string(),
             check: "conditional_field_required".to_string(),
             target_kind: Some("feature".to_string()),
             field: Some("reason".to_string()),
-            constraint: Some(crate::FieldConstraint {
+            constraint: Some(FieldConstraintDescriptor {
                 kind: "when_field_equals".to_string(),
                 pattern: Some("status".to_string()),
                 values: vec!["deferred".to_string()],
@@ -1769,14 +1749,14 @@ mod tests {
     // RED: conditional_field_required does NOT fire when required field present
     #[test]
     fn test_conditional_field_required_silent_when_field_present() {
-        let rule = ManifestValidationRule {
+        let rule = ValidationRuleDescriptor {
             code: "I059".to_string(),
-            severity: "info".to_string(),
+            severity: ValidationSeverity::Info,
             message_template: "feature '{id}' has status 'deferred' but no reason".to_string(),
             check: "conditional_field_required".to_string(),
             target_kind: Some("feature".to_string()),
             field: Some("reason".to_string()),
-            constraint: Some(crate::FieldConstraint {
+            constraint: Some(FieldConstraintDescriptor {
                 kind: "when_field_equals".to_string(),
                 pattern: Some("status".to_string()),
                 values: vec!["deferred".to_string()],
@@ -1805,14 +1785,14 @@ mod tests {
     // RED: conditional_field_required does NOT fire when condition field absent
     #[test]
     fn test_conditional_field_required_silent_when_condition_field_absent() {
-        let rule = ManifestValidationRule {
+        let rule = ValidationRuleDescriptor {
             code: "I059".to_string(),
-            severity: "info".to_string(),
+            severity: ValidationSeverity::Info,
             message_template: "feature '{id}' has status 'deferred' but no reason".to_string(),
             check: "conditional_field_required".to_string(),
             target_kind: Some("feature".to_string()),
             field: Some("reason".to_string()),
-            constraint: Some(crate::FieldConstraint {
+            constraint: Some(FieldConstraintDescriptor {
                 kind: "when_field_equals".to_string(),
                 pattern: Some("status".to_string()),
                 values: vec!["deferred".to_string()],
@@ -1837,7 +1817,7 @@ mod tests {
     #[test]
     fn test_parses_missing_required_field() {
         let mut rule = make_rule("E006", "missing_required_field");
-        rule.severity = "error".to_string();
+        rule.severity = ValidationSeverity::Error;
         rule.field = Some("contract".to_string());
         rule.message_template = "behavior '{id}' is missing required field 'contract'".to_string();
         let pattern = parse_rule_pattern(&rule, "@specforge/software").unwrap();
@@ -1849,7 +1829,7 @@ mod tests {
     #[test]
     fn test_missing_required_field_fires_when_absent() {
         let mut rule = make_rule("E006", "missing_required_field");
-        rule.severity = "error".to_string();
+        rule.severity = ValidationSeverity::Error;
         rule.field = Some("contract".to_string());
         rule.message_template = "behavior '{id}' is missing required field 'contract'".to_string();
         let pattern = parse_rule_pattern(&rule, "@specforge/software").unwrap();
@@ -1866,7 +1846,7 @@ mod tests {
     #[test]
     fn test_missing_required_field_silent_when_present() {
         let mut rule = make_rule("E006", "missing_required_field");
-        rule.severity = "error".to_string();
+        rule.severity = ValidationSeverity::Error;
         rule.field = Some("contract".to_string());
         rule.message_template = "behavior '{id}' is missing required field 'contract'".to_string();
         let pattern = parse_rule_pattern(&rule, "@specforge/software").unwrap();
@@ -1882,7 +1862,7 @@ mod tests {
     #[test]
     fn test_missing_required_field_only_targets_matching_kind() {
         let mut rule = make_rule("E006", "missing_required_field");
-        rule.severity = "error".to_string();
+        rule.severity = ValidationSeverity::Error;
         rule.field = Some("contract".to_string());
         rule.message_template = "behavior '{id}' is missing required field 'contract'".to_string();
         let pattern = parse_rule_pattern(&rule, "@specforge/software").unwrap();

@@ -1,7 +1,6 @@
 use crate::OutputFormat;
 use serde_json::json;
 use specforge_common::Diagnostic;
-use specforge_registry::ManifestV2;
 use specforge_registry_client::{
     AuthMethod, CredentialStore, HttpRegistryClient, RegistryConfig, RegistryCredential,
     credentials::{credentials_path, read_credentials},
@@ -9,57 +8,42 @@ use specforge_registry_client::{
 };
 use std::path::Path;
 
-pub fn run(path: &Path, format: OutputFormat) -> i32 {
-    // Load manifest
-    let manifest_path = path.join("manifest.json");
-    if !manifest_path.exists() {
-        format.print_error("no manifest.json found in current directory", "E040");
-        return 1;
-    }
-
-    let manifest_content = match std::fs::read_to_string(&manifest_path) {
-        Ok(c) => c,
-        Err(e) => {
-            format.print_error(&format!("failed to read manifest.json: {}", e), "E040");
+/// Publish the extension at `extension` (a `.wasm` component or its crate
+/// directory) to a registry `project`'s `specforge.json` configures. The
+/// package's manifest is the declaration read from the binary (ADR 0012):
+/// a binary whose declaration has errors is refused before any network
+/// call.
+pub fn run(extension: &Path, project: &Path, format: OutputFormat) -> i32 {
+    let binary = match specforge_ops::publish::binary_at(extension) {
+        Ok(binary) => binary,
+        Err(error) => {
+            format.print_op_error(&error);
             return 1;
         }
     };
-
-    // A misspelled field would otherwise vanish silently at parse time.
-    if let Ok(raw) = serde_json::from_str::<serde_json::Value>(&manifest_content) {
-        for warning in specforge_registry::unknown_manifest_fields(&raw) {
-            eprintln!("warning[{}]: {}", warning.code, warning.message);
-        }
-    }
-
-    let manifest: ManifestV2 = match serde_json::from_str(&manifest_content) {
-        Ok(m) => m,
-        Err(e) => {
-            format.print_error(&format!("invalid manifest.json: {}", e), "E030");
-            return 1;
-        }
-    };
-
-    // Load wasm binary
-    let wasm_path = path.join(&manifest.wasm_path);
-    if !wasm_path.exists() {
-        format.print_error(
-            &format!("wasm binary not found at '{}'", wasm_path.display()),
-            "E040",
-        );
-        return 1;
-    }
-
-    let wasm_bytes = match std::fs::read(&wasm_path) {
+    let wasm_bytes = match std::fs::read(&binary) {
         Ok(b) => b,
         Err(e) => {
-            format.print_error(&format!("failed to read wasm binary: {}", e), "E040");
+            format.print_error(
+                &format!("failed to read {}: {}", binary.display(), e),
+                "E040",
+            );
             return 1;
         }
     };
+    let prepared = match specforge_ops::publish::prepare(wasm_bytes) {
+        Ok(prepared) => prepared,
+        Err(error) => {
+            format.print_op_error(&error);
+            return 1;
+        }
+    };
+    format.eprint_diagnostics(&prepared.diagnostics);
+    let declaration = &prepared.declaration;
+    let wasm_bytes = &prepared.wasm;
 
     // No registry configured: fail before any network call (ADR 0004 N1).
-    let registries = match specforge_ops_registry::configured(path, "publish") {
+    let registries = match specforge_ops_registry::configured(project, "publish") {
         Ok(configured) => {
             format.eprint_diagnostics(&configured.diagnostics);
             configured.registries
@@ -70,7 +54,7 @@ pub fn run(path: &Path, format: OutputFormat) -> i32 {
         }
     };
 
-    let registry = match find_registry_for_specifier(&manifest.name, &registries) {
+    let registry = match find_registry_for_specifier(declaration.name(), &registries) {
         Some(r) => r,
         None => {
             format.print_error("no registry configured for this package scope", "R-OPS-001");
@@ -98,8 +82,8 @@ pub fn run(path: &Path, format: OutputFormat) -> i32 {
     // Publish
     let client = HttpRegistryClient::new();
     match publish_to_registry(
-        &wasm_bytes,
-        &manifest,
+        wasm_bytes,
+        declaration,
         registry,
         credential.as_ref(),
         &client,
@@ -112,8 +96,8 @@ pub fn run(path: &Path, format: OutputFormat) -> i32 {
                 OutputFormat::Json => {
                     let output = json!({
                         "action": "publish",
-                        "name": manifest.name,
-                        "version": manifest.version,
+                        "name": declaration.name(),
+                        "version": declaration.version(),
                         "url": url,
                         "size_bytes": wasm_bytes.len(),
                         "key_id": key_id,
@@ -126,7 +110,11 @@ pub fn run(path: &Path, format: OutputFormat) -> i32 {
                     if key_created {
                         println!("generated publisher signing key {}", key_id);
                     }
-                    println!("published {} v{}", manifest.name, manifest.version);
+                    println!(
+                        "published {} v{}",
+                        declaration.name(),
+                        declaration.version()
+                    );
                     println!("  url: {}", url);
                     println!("  size: {} bytes", wasm_bytes.len());
                     println!("  signed by key: {}", key_id);

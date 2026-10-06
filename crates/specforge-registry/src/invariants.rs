@@ -2,7 +2,9 @@
 mod tests {
     use crate::compilation::register_validation_rules;
     use crate::*;
-    use specforge_common::SourceSpan;
+    use specforge_common::{Diagnostic, SourceSpan};
+    use specforge_extension_sdk::prelude::*;
+    use specforge_protocol_types::ExtensionDeclaration;
 
     fn dummy_span() -> SourceSpan {
         SourceSpan {
@@ -14,58 +16,30 @@ mod tests {
         }
     }
 
-    fn make_manifest(name: &str) -> ManifestV2 {
-        ManifestV2 {
-            name: name.to_string(),
-            version: "1.0.0".to_string(),
-            manifest_version: 2,
-            wasm_path: format!("{}.wasm", name),
-            contributes: ExtensionContributions::default(),
-            entity_kinds: vec![],
-            edge_types: vec![],
-            validation_rules: vec![],
-            verify_kinds: vec![],
-            fields: vec![],
-            incremental: None,
-            reserved_keywords: vec![],
-            migration_hook: None,
-            peer_dependencies: vec![],
-            sandbox_policy: None,
-            host_api_version: None,
-            entity_enhancements: vec![],
-            starter_template: None,
-            theme_color: None,
-            ext_short: None,
-            query_scope: None,
-            collector_contributions: vec![],
-            analyzer_contributions: vec![],
-            surfaces: None,
-        }
+    fn make_extension(name: &str) -> ContributionsBuilder {
+        ContributionsBuilder::new(ExtensionMeta::new(name, "1.0.0"))
     }
 
-    fn make_kind(keyword: &str, testable: bool) -> ManifestEntityKind {
-        ManifestEntityKind {
-            name: keyword.to_string(),
-            keyword: keyword.to_string(),
-            description: None,
-            testable,
-            singleton: false,
-            supports_verify: testable,
-            allowed_verify_kinds: vec![],
-            semantic_token: None,
-            lsp_icon: None,
-            dot_shape: None,
-            dot_color: None,
-            dot_fillcolor: None,
-            fields: vec![],
-            incremental: None,
-            has_body_parser: false,
-            open_fields: false,
-            contract_target: false,
-            declares_types: false,
-            lifecycle_field: None,
-            inference_guide: None,
-        }
+    fn make_kind(c: &mut ContributionsBuilder, keyword: &str, testable: bool) {
+        c.kind(keyword, |k| {
+            k.keyword(keyword)
+                .testable(testable)
+                .supports_verify(testable);
+        });
+    }
+
+    /// The three registries `declarations` populate, and the diagnostics
+    /// of populating them.
+    fn populate(
+        declarations: &[ExtensionDeclaration],
+    ) -> (KindRegistry, FieldRegistry, EdgeRegistry, Vec<Diagnostic>) {
+        let build = build_registries(declarations.to_vec());
+        (
+            build.kinds,
+            build.fields,
+            build.edges,
+            build.registry_diagnostics,
+        )
     }
 
     // -- I:zero_domain_knowledge_core --
@@ -73,7 +47,7 @@ mod tests {
     // I:zero_domain_knowledge_core — verify property "core with zero extensions installed has zero entity kinds in KindRegistry"
     #[test]
     fn test_core_with_zero_extensions_has_zero_entity_kinds() {
-        let (kind_reg, field_reg, edge_reg, diags) = populate_registries(&[]);
+        let (kind_reg, field_reg, edge_reg, diags) = populate(&[]);
         assert_eq!(kind_reg.len(), 0);
         assert_eq!(field_reg.len(), 0);
         assert_eq!(edge_reg.len(), 0);
@@ -89,21 +63,17 @@ mod tests {
     fn test_no_validation_diagnostic_references_post_registration_kind() {
         // Populate registries first (Phase 1), then validate (Phase 2).
         // All kinds referenced in validation must exist in the registry at validation time.
-        let mut m = make_manifest("@specforge/software");
-        m.entity_kinds.push(make_kind("behavior", true));
-        m.validation_rules.push(ManifestValidationRule {
-            code: "V001".to_string(),
-            severity: "error".to_string(),
-            message_template: "Behavior {id} has no incoming edges".to_string(),
-            check: "no_incoming_edges".to_string(),
-            target_kind: Some("behavior".to_string()),
-            edge_type: None,
-            field: None,
-            constraint: None,
-            wasm_function: None,
+        let mut c = make_extension("@specforge/software");
+        make_kind(&mut c, "behavior", true);
+        c.rule("V001", |r| {
+            r.severity(ValidationSeverity::Error)
+                .message_template("Behavior {id} has no incoming edges")
+                .check(CheckKind::NoIncomingEdges)
+                .target_kind("behavior");
         });
+        let m = c.declaration();
 
-        let (kind_reg, _, _, _) = populate_registries(&[m.clone()]);
+        let (kind_reg, _, _, _) = populate(std::slice::from_ref(&m));
         // Kind exists in registry before we validate
         assert!(kind_reg.contains("behavior"));
 
@@ -123,10 +93,11 @@ mod tests {
     // I:registry_population_before_validation — verify unit "adding an extension that defines kind X makes X available in the validation phase"
     #[test]
     fn test_adding_extension_makes_kind_available_in_validation() {
-        let mut m = make_manifest("@specforge/software");
-        m.entity_kinds.push(make_kind("behavior", true));
+        let mut c = make_extension("@specforge/software");
+        make_kind(&mut c, "behavior", true);
+        let m = c.declaration();
 
-        let (kind_reg, _, _, _) = populate_registries(&[m]);
+        let (kind_reg, _, _, _) = populate(&[m]);
         assert!(kind_reg.contains("behavior"));
         // Kind is now available for validation queries
         assert!(kind_reg.get("behavior").unwrap().testable);
@@ -137,30 +108,17 @@ mod tests {
     // I:declarative_validation_determinism — verify property "same extensions and sources produce identical diagnostics across 100 runs"
     #[test]
     fn test_same_extensions_produce_identical_diagnostics_across_runs() {
-        let mut m = make_manifest("@specforge/software");
-        m.entity_kinds.push(make_kind("behavior", true));
-        m.entity_kinds.push(make_kind("feature", false));
-        m.fields.push(ManifestField {
-            name: "contract".to_string(),
-            field_type: "block".to_string(),
-            description: None,
-            edge: None,
-            target_kind: None,
-            file_reference: false,
-            required: false,
-            default_value: None,
-            enum_values: vec![],
-            inverse_of: None,
-            normative: false,
-            exempts_obligations: false,
-            headline: false,
-            derived_from: None,
-            proof_role: None,
+        let mut c = make_extension("@specforge/software");
+        make_kind(&mut c, "behavior", true);
+        make_kind(&mut c, "feature", false);
+        c.shared_field("contract", |f| {
+            f.field_type(FieldType::Block);
         });
+        let m = c.declaration();
 
         let mut baseline_codes: Option<Vec<String>> = None;
         for _ in 0..100 {
-            let (_, _, _, diags) = populate_registries(&[m.clone()]);
+            let (_, _, _, diags) = populate(std::slice::from_ref(&m));
             let codes: Vec<String> = diags.iter().map(|d| d.code.clone()).collect();
             match &baseline_codes {
                 None => baseline_codes = Some(codes),
@@ -172,17 +130,19 @@ mod tests {
     // I:declarative_validation_determinism — verify unit "diagnostic ordering is deterministic regardless of extension load order"
     #[test]
     fn test_diagnostic_ordering_deterministic_regardless_of_load_order() {
-        let mut m1 = make_manifest("@ext/aaa");
-        m1.entity_kinds.push(make_kind("alpha", true));
+        let mut c1 = make_extension("@ext/aaa");
+        make_kind(&mut c1, "alpha", true);
+        let m1 = c1.declaration();
 
-        let mut m2 = make_manifest("@ext/zzz");
-        m2.entity_kinds.push(make_kind("beta", false));
-        m2.entity_kinds.push(make_kind("alpha", false)); // duplicate
+        let mut c2 = make_extension("@ext/zzz");
+        make_kind(&mut c2, "beta", false);
+        make_kind(&mut c2, "alpha", false); // duplicate
+        let m2 = c2.declaration();
 
         // Same input order, multiple runs — must produce identical diagnostics
         let mut baseline: Option<Vec<String>> = None;
         for _ in 0..10 {
-            let (_, _, _, diags) = populate_registries(&[m1.clone(), m2.clone()]);
+            let (_, _, _, diags) = populate(&[m1.clone(), m2.clone()]);
             let codes: Vec<String> = diags
                 .iter()
                 .map(|d| format!("{}:{}", d.code, d.message))
@@ -201,9 +161,10 @@ mod tests {
     // I:testable_entity_classification — verify unit "entity kind with testable=true in manifest accepts verify statements"
     #[test]
     fn test_entity_kind_with_testable_true_accepts_verify() {
-        let mut m = make_manifest("@specforge/software");
-        m.entity_kinds.push(make_kind("behavior", true));
-        let (kind_reg, _, _, _) = populate_registries(&[m]);
+        let mut c = make_extension("@specforge/software");
+        make_kind(&mut c, "behavior", true);
+        let m = c.declaration();
+        let (kind_reg, _, _, _) = populate(&[m]);
         let entry = kind_reg.get("behavior").unwrap();
         assert!(entry.testable);
         assert!(entry.supports_verify);
@@ -212,10 +173,11 @@ mod tests {
     // I:testable_entity_classification — verify unit "testable=true entity counts toward coverage"
     #[test]
     fn test_testable_true_entity_counts_toward_coverage() {
-        let mut m = make_manifest("@specforge/software");
-        m.entity_kinds.push(make_kind("behavior", true));
-        m.entity_kinds.push(make_kind("feature", false));
-        let (kind_reg, _, _, _) = populate_registries(&[m]);
+        let mut c = make_extension("@specforge/software");
+        make_kind(&mut c, "behavior", true);
+        make_kind(&mut c, "feature", false);
+        let m = c.declaration();
+        let (kind_reg, _, _, _) = populate(&[m]);
 
         let testable_count = kind_reg.iter().filter(|(_, e)| e.testable).count();
         assert_eq!(testable_count, 1);
@@ -225,9 +187,10 @@ mod tests {
     // I:testable_entity_classification — verify unit "testable=false entity excluded from coverage"
     #[test]
     fn test_testable_false_entity_excluded_from_coverage() {
-        let mut m = make_manifest("@specforge/software");
-        m.entity_kinds.push(make_kind("feature", false));
-        let (kind_reg, _, _, _) = populate_registries(&[m]);
+        let mut c = make_extension("@specforge/software");
+        make_kind(&mut c, "feature", false);
+        let m = c.declaration();
+        let (kind_reg, _, _, _) = populate(&[m]);
         assert!(!kind_reg.get("feature").unwrap().testable);
     }
 
@@ -240,12 +203,14 @@ mod tests {
         assert!(kind_reg.get("anything").is_none());
 
         // Even after populate, testability comes only from manifest
-        let mut m = make_manifest("@specforge/software");
-        let mut kind = make_kind("behavior", false);
-        kind.testable = false; // explicitly false
-        kind.supports_verify = false;
-        m.entity_kinds.push(kind);
-        let (kind_reg2, _, _, _) = populate_registries(&[m]);
+        let mut c = make_extension("@specforge/software");
+        c.kind("behavior", |k| {
+            k.keyword("behavior")
+                .testable(false) // explicitly false
+                .supports_verify(false);
+        });
+        let m = c.declaration();
+        let (kind_reg2, _, _, _) = populate(&[m]);
         assert!(!kind_reg2.get("behavior").unwrap().testable);
     }
 
@@ -257,13 +222,14 @@ mod tests {
         // The pipeline ordering is: parse → load manifests → populate registries → validate
         // We verify this by running each step sequentially and confirming each depends on the previous.
 
-        // Step 1: Manifests (simulating post-parse)
-        let mut m = make_manifest("@specforge/software");
-        m.entity_kinds.push(make_kind("behavior", true));
-        m.entity_kinds.push(make_kind("feature", false));
+        // Step 1: Declarations (simulating post-parse)
+        let mut c = make_extension("@specforge/software");
+        make_kind(&mut c, "behavior", true);
+        make_kind(&mut c, "feature", false);
+        let m = c.declaration();
 
         // Step 2: Populate registries
-        let (kind_reg, field_reg, edge_reg, _) = populate_registries(&[m.clone()]);
+        let (kind_reg, field_reg, edge_reg, _) = populate(std::slice::from_ref(&m));
         assert!(kind_reg.contains("behavior"));
         assert!(kind_reg.contains("feature"));
 

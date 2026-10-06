@@ -80,7 +80,7 @@ impl LspState {
         let mut kinds: Vec<(&String, Option<&String>)> = self
             .kind_registry()
             .iter()
-            .map(|(keyword, entry)| (keyword, entry.semantic_token.as_ref()))
+            .map(|(keyword, entry)| (keyword, entry.declared.semantic_token.as_ref()))
             .collect();
         kinds.sort();
         kinds.hash(&mut hasher);
