@@ -48,8 +48,8 @@ feature hover_and_autocomplete "Hover and Autocomplete" {
     keywords manually is slow and error-prone.
   """
   solution """
-    LSP hover shows entity title, first string field summary, and
-    reference count. Autocomplete suggests matching entity IDs with titles when
+    LSP hover shows entity title, headline summary, coverage, reference
+    counts and the diagnostics about the entity. Autocomplete suggests matching entity IDs with titles when
     typing in reference lists, valid field names inside entity blocks,
     and entity keywords at the file top level.
   """
