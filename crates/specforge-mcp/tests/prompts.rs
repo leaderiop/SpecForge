@@ -1,117 +1,48 @@
 use crate::support::*;
 use serde_json::{Value, json};
-use specforge_common::SourceSpan;
-use specforge_graph::{Edge, Graph, Node};
 use specforge_mcp::McpServer;
-use specforge_parser::{EntityId, EntityKind, FieldMap, FieldValue, VerifyStatement};
 use specforge_test::prelude::*;
 
-fn test_server() -> McpServer {
-    let mut server = McpServer::new();
-    let req = json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{}});
-    server.handle_message(&req.to_string());
+/// test.spec: `alpha`, a behavior with a contract and one obligation.
+const ALPHA: &str = "behavior alpha \"Alpha Behavior\" {\n    contract \"The system MUST do alpha\"\n    verify unit \"test alpha\"\n}\n";
 
-    let state = server.state_mut();
-    let mut graph = Graph::new();
+/// features.spec: `beta` on lines 10–12, the feature that has `alpha`.
+const BETA: &str = "\n\n\n\n\n\n\n\n\nfeature beta \"Beta Feature\" {\n    behaviors [alpha]\n}\n";
 
-    let mut fields_a = FieldMap::new();
-    fields_a.push(
-        "contract".into(),
-        FieldValue::String("The system MUST do alpha".into()),
-    );
-    fields_a.push(
-        "verify".into(),
-        FieldValue::VerifyList(vec![VerifyStatement {
-            kind: "unit".into(),
-            description: "test alpha".into(),
-        }]),
-    );
+/// inv.spec: `gamma_orphan`, an invariant with no edge and no obligation.
+const GAMMA: &str = "invariant gamma_orphan \"Gamma\" {\n}\n";
 
-    graph.add_node(Node {
-        id: EntityId {
-            raw: "alpha".into(),
-        },
-        kind: EntityKind {
-            raw: "behavior".into(),
-        },
-        title: Some("Alpha Behavior".into()),
-        fields: fields_a,
-        source_span: SourceSpan {
-            file: "test.spec".into(),
-            start_line: 1,
-            start_col: 0,
-            end_line: 5,
-            end_col: 0,
-        },
-        methods: Vec::new(),
-    });
-    graph.add_node(Node {
-        id: EntityId { raw: "beta".into() },
-        kind: EntityKind {
-            raw: "feature".into(),
-        },
-        title: Some("Beta Feature".into()),
-        fields: FieldMap::new(),
-        source_span: SourceSpan {
-            file: "features.spec".into(),
-            start_line: 10,
-            start_col: 0,
-            end_line: 15,
-            end_col: 0,
-        },
-        methods: Vec::new(),
-    });
-    graph.add_node(Node {
-        id: EntityId {
-            raw: "gamma_orphan".into(),
-        },
-        kind: EntityKind {
-            raw: "invariant".into(),
-        },
-        title: Some("Gamma".into()),
-        fields: FieldMap::new(),
-        source_span: SourceSpan {
-            file: "inv.spec".into(),
-            start_line: 1,
-            start_col: 0,
-            end_line: 3,
-            end_col: 0,
-        },
-        methods: Vec::new(),
-    });
-    graph.add_edge(Edge {
-        source: "beta".into(),
-        target: "alpha".into(),
-        label: "behaviors".into(),
-    });
-    state.serve_graph(graph, Vec::new());
-    state.edit_environment(|env| {
-        env.registries.kinds.register(kind_entry("behavior", true));
-    });
-    state.edit_environment(|env| {
-        env.registries.kinds.register(kind_entry("invariant", true));
-    });
-    state.edit_environment(|env| {
-        env.registries.kinds.register(kind_entry("feature", false));
-    });
-    // As @specforge/software does: behaviors and invariants must declare
-    // obligations, so one that declares none counts toward coverage.
-    crate::support::obligate(&mut server, "behavior");
-    crate::support::obligate(&mut server, "invariant");
-
-    server
+/// The project the prompts read, before a test's own files.
+fn project() -> TestProject {
+    TestProject::new()
+        .file("test.spec", ALPHA)
+        .file("features.spec", BETA)
+        .file("inv.spec", GAMMA)
 }
 
-fn kind_entry(kind: &str, testable: bool) -> specforge_registry::KindRegistryEntry {
-    specforge_registry::KindRegistryEntry {
-        kind_name: kind.into(),
-        source_extension: "@test/ext".into(),
-        testable,
-        supports_verify: testable,
-        allowed_verify_kinds: Vec::new(),
-        lifecycle_field: None,
-        ..Default::default()
-    }
+/// `@test/ext` with the software kinds, as @specforge/testing obligates
+/// them: behaviors and invariants must declare obligations, so one that
+/// declares none counts toward coverage.
+fn extension() -> TestExtension {
+    TestExtension::software()
+        .obligating("behavior")
+        .obligating("invariant")
+}
+
+fn test_server() -> Served {
+    project().serve(&[extension()])
+}
+
+/// [`project`] with `delta`, a second behavior like `alpha` that `beta`
+/// also has: alpha <- beta -> delta, so delta is two hops from alpha.
+fn server_with_delta() -> Served {
+    project()
+        .file(
+            "features.spec",
+            &BETA.replace("behaviors [alpha]", "behaviors [alpha, delta]"),
+        )
+        .file("delta.spec", &ALPHA.replace("alpha", "delta"))
+        .serve(&[extension()])
 }
 
 // --- specforge://prompts/context ---
@@ -275,22 +206,8 @@ fn review_prompt_detects_orphans() {
     verify = "depth parameter controls neighbor traversal depth"
 )]
 fn review_depth_bounds_the_neighborhood() {
-    let mut server = test_server();
     // alpha <- beta -> delta: delta is two hops from alpha.
-    let mut delta = server.state().graph().node("alpha").unwrap().clone();
-    delta.id = EntityId {
-        raw: "delta".into(),
-    };
-    server.state_mut().edit_graph(|graph| {
-        graph.add_node(delta);
-    });
-    server.state_mut().edit_graph(|graph| {
-        graph.add_edge(Edge {
-            source: "beta".into(),
-            target: "delta".into(),
-            label: "behaviors".into(),
-        });
-    });
+    let mut server = server_with_delta();
 
     let default = review(&mut server, json!({"entity_id": "alpha"}));
     assert_eq!(reviewed_ids(&default), ["alpha"], "depth defaults to 1");
@@ -312,12 +229,10 @@ fn review_depth_bounds_the_neighborhood() {
     verify = "review prompt returns empty findings when no testable entities exist"
 )]
 fn review_of_a_graph_without_testable_entities_is_empty() {
-    let mut server = test_server();
-    // Only beta, a feature with no verify and no edges, is left.
-    server.state_mut().edit_graph(|graph| {
-        graph.remove_node("alpha");
-        graph.remove_node("gamma_orphan");
-    });
+    // Only beta, a feature with no verify and no edges.
+    let mut server = TestProject::new()
+        .file("features.spec", "feature beta \"Beta Feature\" {\n}\n")
+        .serve(&[extension()]);
 
     let parsed = review(&mut server, json!({}));
 
@@ -371,14 +286,12 @@ fn trace_unverified_is_counted_and_not_proven() {
     assert_eq!(t["affected_entities"], json!(["alpha", "beta"]));
     assert_eq!(t["unverified_entities"], json!(["alpha"]));
 
-    // A recorded test proving alpha's obligation: nothing is unverified.
-    let project = tempfile::tempdir().unwrap();
-    std::fs::write(
-        project.path().join("specforge-report.json"),
+    // A recorded test proving alpha's obligation, written since: nothing
+    // is unverified.
+    server.write(
+        "specforge-report.json",
         r#"{"results":{"alpha":{"tests":[{"name":"t","verify":"test alpha","status":"pass"}]}}}"#,
-    )
-    .unwrap();
-    crate::support::serve_in_memory_at(server.state_mut(), project.path());
+    );
     let t = trace_plan(&mut server, json!({"entries": [{"entity_id": "beta"}]}));
     assert_eq!(t["unverified_entities"], json!([]), "{t}");
 }
@@ -388,17 +301,17 @@ fn trace_unverified_is_counted_and_not_proven() {
     verify = "response returns identified gaps with gap context"
 )]
 fn trace_entity_mode_reports_the_chains_missing_links() {
-    let mut server = test_server();
     // A behavior is expected to reference an invariant: alpha does not.
-    crate::support::declare_reference(&mut server, "behavior", "invariants", "invariant");
-    // A dangling edge elsewhere is no gap of alpha's chain.
-    server.state_mut().edit_graph(|graph| {
-        graph.add_edge(Edge {
-            source: "gamma_orphan".into(),
-            target: "nowhere".into(),
-            label: "refines".into(),
-        });
-    });
+    // A dangling reference elsewhere (gamma_orphan `refines [nowhere]`) is
+    // no gap of alpha's chain, whether or not the compile reports it.
+    let mut server = project()
+        .file(
+            "inv.spec",
+            "invariant gamma_orphan \"Gamma\" {\n    refines [nowhere]\n}\n",
+        )
+        .serve(&[extension()
+            .reference("behavior", "invariants", "invariant")
+            .reference("invariant", "refines", "invariant")]);
     let resp = get_prompt(
         &mut server,
         "specforge://prompts/trace",
@@ -416,12 +329,11 @@ fn trace_entity_mode_reports_the_chains_missing_links() {
         "{gap}"
     );
     // The same missing link the trace tool reports.
-    let req = json!({"jsonrpc": "2.0", "id": 1, "method": "tools/call",
-        "params": {"name": "specforge.trace", "arguments": {"entity_id": "alpha"}}});
-    let tool: Value =
-        serde_json::from_str(&server.handle_message(&req.to_string()).unwrap()).unwrap();
-    let document: Value =
-        serde_json::from_str(tool["result"]["content"][0]["text"].as_str().unwrap()).unwrap();
+    let document = tool(
+        &mut server,
+        "specforge.trace",
+        json!({"entity_id": "alpha"}),
+    );
     assert_eq!(
         document["missing"].as_array().map(Vec::len),
         Some(1),
@@ -682,41 +594,16 @@ fn prompt_not_initialized() {
     assert!(resp["error"].is_object());
 }
 
-fn span() -> SourceSpan {
-    SourceSpan {
-        file: "test.spec".into(),
-        start_line: 1,
-        start_col: 0,
-        end_line: 5,
-        end_col: 0,
-    }
-}
-
 // B:provide_mcp_context_prompt — verify unit "context prompt works with zero extensions installed"
 #[specforge_test(
     behavior = "provide_mcp_context_prompt",
     verify = "context prompt works with zero extensions installed"
 )]
 fn context_zero_extensions() {
-    let mut server = McpServer::new();
-    let req = json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{}});
-    server.handle_message(&req.to_string());
-
-    let state = server.state_mut();
-    let mut graph = Graph::new();
-    graph.add_node(Node {
-        id: EntityId {
-            raw: "minimal".into(),
-        },
-        kind: EntityKind {
-            raw: "behavior".into(),
-        },
-        title: Some("Minimal".into()),
-        fields: FieldMap::new(),
-        source_span: span(),
-        methods: Vec::new(),
-    });
-    state.serve_graph(graph, Vec::new());
+    // A project that enables no extension: `behavior` is no declared kind.
+    let mut server = TestProject::new()
+        .file("test.spec", "behavior minimal \"Minimal\" {\n}\n")
+        .serve(&[]);
 
     let resp = get_prompt(
         &mut server,
@@ -786,8 +673,7 @@ fn explore_high_connectivity() {
     verify = "response includes contract and related entities"
 )]
 fn context_includes_contract() {
-    let mut server = test_server();
-    crate::support::declare_headline_fields(&mut server, "behavior");
+    let mut server = project().serve(&[extension().headline("behavior")]);
     let resp = get_prompt(
         &mut server,
         "specforge://prompts/context",
@@ -804,32 +690,12 @@ fn context_includes_contract() {
     verify = "context includes every field, like an invariant's guarantee"
 )]
 fn context_includes_every_field() {
-    let mut server = test_server();
-    let mut fields = FieldMap::new();
-    fields.push(
-        "guarantee".into(),
-        FieldValue::String("Ids MUST be unique".into()),
-    );
-    server.state_mut().edit_graph(|graph| {
-        graph.add_node(Node {
-            id: EntityId {
-                raw: "unique_ids".into(),
-            },
-            kind: EntityKind {
-                raw: "invariant".into(),
-            },
-            title: None,
-            fields,
-            source_span: SourceSpan {
-                file: "t.spec".into(),
-                start_line: 1,
-                start_col: 1,
-                end_line: 3,
-                end_col: 2,
-            },
-            methods: Vec::new(),
-        });
-    });
+    let mut server = project()
+        .file(
+            "t.spec",
+            "invariant unique_ids \"Unique ids\" {\n    guarantee \"Ids MUST be unique\"\n}\n",
+        )
+        .serve(&[extension()]);
     let resp = get_prompt(
         &mut server,
         "specforge://prompts/context",
@@ -847,14 +713,12 @@ fn context_includes_every_field() {
     verify = "review coverage matches specforge.coverage obligation by obligation"
 )]
 fn review_coverage_matches_the_coverage_tool() {
-    let mut server = test_server();
-    let project = tempfile::tempdir().unwrap();
-    std::fs::write(
-        project.path().join("specforge-report.json"),
-        r#"{"results":{"alpha":{"tests":[{"name":"t","verify":"test alpha","status":"pass"}]}}}"#,
-    )
-    .unwrap();
-    crate::support::serve_in_memory_at(server.state_mut(), project.path());
+    let mut server = project()
+        .file(
+            "specforge-report.json",
+            r#"{"results":{"alpha":{"tests":[{"name":"t","verify":"test alpha","status":"pass"}]}}}"#,
+        )
+        .serve(&[extension()]);
     let resp = get_prompt(
         &mut server,
         "specforge://prompts/review",
@@ -892,9 +756,7 @@ fn full_arguments(prompt: &str) -> Value {
 
 /// Each listed prompt and its listed arguments, `(name, required)`.
 fn listed_prompts(server: &mut McpServer) -> Vec<(String, Vec<(String, bool)>)> {
-    let req = json!({"jsonrpc": "2.0", "id": 1, "method": "prompts/list", "params": {}});
-    let resp: Value =
-        serde_json::from_str(&server.handle_message(&req.to_string()).unwrap()).unwrap();
+    let resp = call(server, "prompts/list", json!({}));
     resp["result"]["prompts"]
         .as_array()
         .unwrap()
@@ -1057,10 +919,7 @@ fn prompt_arguments_must_be_an_object() {
         );
     }
     // Absent or null arguments are none.
-    let req = json!({"jsonrpc": "2.0", "id": 1, "method": "prompts/get",
-        "params": {"name": "specforge://prompts/explore", "arguments": null}});
-    let resp: Value =
-        serde_json::from_str(&server.handle_message(&req.to_string()).unwrap()).unwrap();
+    let resp = get_prompt(&mut server, "specforge://prompts/explore", Value::Null);
     assert!(resp["error"].is_null(), "{resp}");
 }
 
@@ -1069,20 +928,8 @@ fn prompt_arguments_must_be_an_object() {
     verify = "a numeric prompt argument is read from a string, as MCP sends it"
 )]
 fn review_reads_depth_from_a_string() {
-    let mut server = test_server();
     // alpha <- beta -> delta: delta, testable, is two hops from alpha.
-    let mut delta = server.state().graph().node("alpha").unwrap().clone();
-    delta.id = EntityId {
-        raw: "delta".into(),
-    };
-    server.state_mut().edit_graph(|graph| {
-        graph.add_node(delta);
-        graph.add_edge(Edge {
-            source: "beta".into(),
-            target: "delta".into(),
-            label: "behaviors".into(),
-        });
-    });
+    let mut server = server_with_delta();
     let as_number = review(&mut server, json!({"entity_id": "alpha", "depth": 2}));
     let as_string = review(&mut server, json!({"entity_id": "alpha", "depth": "2"}));
     assert_eq!(as_string, as_number);
@@ -1152,16 +999,7 @@ fn every_prompt_renders_an_instruction_then_a_json_payload() {
         let arguments = scope.map_or_else(|| json!({}), |scope| json!({"scope": scope}));
         cases.push(("specforge://prompts/infer", arguments));
     }
-    // Infer's kind scope needs the kind's extension.
-    server.state_mut().edit_environment(|env| {
-        // The declarations, beside the registries the test built by hand.
-        let mut registries = specforge_registry::build_registries(vec![behavior_declaration()]);
-        std::mem::swap(&mut registries.kinds, &mut env.registries.kinds);
-        std::mem::swap(&mut registries.fields, &mut env.registries.fields);
-        std::mem::swap(&mut registries.edges, &mut env.registries.edges);
-        std::mem::swap(&mut registries.rules, &mut env.registries.rules);
-        env.registries = registries;
-    });
+    // Infer's kind scope reads the kind's extension: @test/ext, served.
     let listed: Vec<String> = listed_prompts(&mut server)
         .into_iter()
         .map(|(name, _)| name)
@@ -1190,40 +1028,27 @@ fn every_prompt_renders_an_instruction_then_a_json_payload() {
     assert_eq!(listed.len(), 5, "every core prompt is covered: {listed:?}");
 }
 
-/// A declaration of `behavior`, as `@specforge/software` makes.
-fn behavior_declaration() -> specforge_protocol_types::ExtensionDeclaration {
-    use specforge_extension_sdk::prelude::*;
-    let mut c = ContributionsBuilder::new(ExtensionMeta::new("@test/ext", "1.0.0"));
-    c.kind("behavior", |k| {
-        k.keyword("behavior");
-    });
-    c.declaration()
-}
-
 // --- explore and review share Graph::reach ---
 
-/// A chain `a - b - c - d` of testable behaviors.
-fn chain_server() -> McpServer {
-    let mut server = test_server();
-    let template = server.state().graph().node("alpha").unwrap().clone();
-    let mut graph = Graph::new();
-    for id in ["a", "b", "c", "d"] {
-        let mut node = template.clone();
-        node.id = EntityId { raw: id.into() };
-        graph.add_node(node);
-    }
-    for (source, target) in [("a", "b"), ("b", "c"), ("c", "d")] {
-        graph.add_edge(Edge {
-            source: source.into(),
-            target: target.into(),
-            label: "next".into(),
-        });
-    }
-    server.state_mut().serve_graph(graph, Vec::new());
-    server.state_mut().edit_environment(|env| {
-        env.registries.kinds.register(kind_entry("behavior", true));
-    });
-    server
+/// A chain `a - b - c - d` of testable behaviors, each like `alpha`, each
+/// naming the next in its `next` reference list.
+fn chain_server() -> Served {
+    let chain: String = [("a", Some("b")), ("b", Some("c")), ("c", Some("d")), ("d", None)]
+        .iter()
+        .map(|(id, next)| {
+            let next = next.map_or_else(String::new, |next| format!("    next [{next}]\n"));
+            format!(
+                "behavior {id} \"Alpha Behavior\" {{\n    contract \"The system MUST do alpha\"\n    verify unit \"test alpha\"\n{next}}}\n"
+            )
+        })
+        .collect();
+    TestProject::new()
+        .file("chain.spec", &chain)
+        .serve(&[TestExtension::new()
+            .kind("behavior", true)
+            .string_field("behavior", "contract")
+            .reference("behavior", "next", "behavior")
+            .obligating("behavior")])
 }
 
 const EXPLORE: &str = "specforge://prompts/explore";
