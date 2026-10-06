@@ -5,7 +5,8 @@
 //! with no entity named it lists exactly the entities stats counts as
 //! testable, so its rows and stats' numbers cannot disagree.
 
-use specforge_project::coverage::{ReportError, Standing, Status, Summary, Verdict};
+use specforge_project::coverage::{ReportError, Status, Summary, Verdict};
+use specforge_project::snapshot::{EntityRecord, Standing};
 
 use crate::options::{Choice, OptionTable};
 use crate::view::ProjectView;
@@ -29,16 +30,17 @@ pub struct CoverageRow {
     /// Its kind is testable.
     pub testable: bool,
     /// A testable-kind entity that owes no obligations and declares none
-    /// (W004 exempts it): it does not count toward coverage.
+    /// (W004 exempts it): it does not count toward coverage
+    /// (`Standing::exempt`).
     pub exempt: bool,
     pub verdict: Verdict,
 }
 
 impl CoverageRow {
-    fn of(entity_id: &str, standing: &Standing, verdict: &Verdict) -> Self {
+    fn of(record: &EntityRecord, standing: &Standing, verdict: &Verdict) -> Self {
         CoverageRow {
-            entity_id: entity_id.to_string(),
-            kind: standing.kind.clone(),
+            entity_id: record.id.clone(),
+            kind: record.kind.clone(),
             testable: standing.testable,
             exempt: standing.exempt(),
             verdict: verdict.clone(),
@@ -81,13 +83,19 @@ pub struct CoverageOutcome {
 pub fn coverage(view: &ProjectView, query: &CoverageQuery) -> Result<CoverageOutcome, ReportError> {
     let coverage = view.coverage()?;
     let rows = coverage
-        .standings
+        .entities()
         .iter()
-        .filter(|(id, standing)| match query.entity_id {
-            Some(entity_id) => *id == entity_id,
-            None => standing.counts && query.kind.is_none_or(|kind| standing.kind == kind),
+        .filter(|(record, standing)| match query.entity_id {
+            Some(entity_id) => record.id == entity_id,
+            None => standing.counts() && query.kind.is_none_or(|kind| record.kind == kind),
         })
-        .filter_map(|(id, standing)| Some(CoverageRow::of(id, standing, coverage.verdict(id)?)))
+        .filter_map(|(record, standing)| {
+            Some(CoverageRow::of(
+                record,
+                standing,
+                coverage.verdict(&record.id)?,
+            ))
+        })
         .filter(|row| query.status.is_none_or(|status| row.status() == status))
         .collect();
     Ok(CoverageOutcome {
@@ -100,9 +108,10 @@ pub fn coverage(view: &ProjectView, query: &CoverageQuery) -> Result<CoverageOut
 pub fn row(view: &ProjectView, entity_id: &str) -> Result<Option<CoverageRow>, ReportError> {
     let coverage = view.coverage()?;
     Ok(coverage
-        .standing(entity_id)
+        .entities()
+        .get(entity_id)
         .zip(coverage.verdict(entity_id))
-        .map(|(standing, verdict)| CoverageRow::of(entity_id, standing, verdict)))
+        .map(|((record, standing), verdict)| CoverageRow::of(record, standing, verdict)))
 }
 
 /// `specforge.coverage`'s `status_filter`: a coverage status as the

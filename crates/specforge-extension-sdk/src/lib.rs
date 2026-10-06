@@ -1,5 +1,6 @@
 //! Plugin-side SDK for authoring [SpecForge](https://github.com/leaderiop/SpecForge)
-//! extensions against the handshake/describe protocol (v1.0.0).
+//! extensions against the handshake/describe protocol, at the version
+//! [`PROTOCOL_VERSION`](specforge_protocol_types::PROTOCOL_VERSION) names.
 //!
 //! Wire types come from `specforge-protocol-types` — the same definitions the
 //! host (`specforge-wasm`) uses — so the protocol cannot drift between the two

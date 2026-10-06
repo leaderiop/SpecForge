@@ -271,7 +271,7 @@ fn a_pass_without_the_check_phase_runs_only_under_analyze() {
         graph: &compiled.graph,
         kind_registry: &registries.kinds,
         field_registry: &registries.fields,
-        rules: &registries.rules,
+        entities: compiled.entities(),
         project_root: Some(dir.path()),
         test_results: None,
         proved_claims: None,
@@ -549,7 +549,10 @@ fn a_pass_finding_with_a_core_code_passes_through() {
         summary: Default::default(),
     };
 
-    let findings = specforge_project::passes::pass_findings(output, &specforge_graph::Graph::new());
+    let findings = specforge_project::passes::pass_findings(
+        output,
+        &specforge_project::snapshot::EntitySnapshot::default(),
+    );
 
     assert_eq!(
         findings,

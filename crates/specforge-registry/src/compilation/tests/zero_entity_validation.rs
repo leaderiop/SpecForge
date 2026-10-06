@@ -12,18 +12,19 @@ use specforge_common::{Severity, SourceSpan, Sym};
 use specforge_extension_sdk::prelude::*;
 use specforge_protocol_types::{FieldConstraintDescriptor, ValidationRuleDescriptor};
 use specforge_registry::RegistryBuild;
-use specforge_registry::compilation::EntityView;
 use specforge_registry::compilation::tests::support::{registries, software};
+use specforge_registry::entity::{Direction, EntityRecord, RuleInput};
 use specforge_registry::validation_engine::{
-    CustomVerdict, ValidationEntity, ValidationPatternKind, ValidationRulePattern,
-    WasmValidationRuntime, execute_pattern, interpolate_template, parse_all_rule_patterns,
-    parse_rule_pattern, resolve_edge_rules,
+    CustomVerdict, ValidationPatternKind, ValidationRulePattern, WasmValidationRuntime,
+    execute_pattern, interpolate_template, parse_all_rule_patterns, parse_rule_pattern,
+    resolve_edge_rules,
 };
 use specforge_registry::{
     EdgeRegistry, EdgeRegistryEntry, FieldRegistryEntry, KindRegistry, KindRegistryEntry,
     ManifestFieldType,
 };
 use specforge_test_macros::test as specforge_test;
+use std::path::Path;
 
 // ============================================================================
 // Helpers
@@ -58,20 +59,20 @@ fn make_rule(code: &str, check: &str) -> ValidationRuleDescriptor {
     }
 }
 
-fn make_entity(id: &str, kind: &str, incoming: usize, outgoing: usize) -> ValidationEntity {
-    ValidationEntity {
-        id: id.to_string(),
-        kind: kind.to_string(),
-        fields: std::collections::HashMap::new(),
-        incoming_edge_count: incoming,
-        outgoing_edge_count: outgoing,
-        span: span(),
-        verify_kinds: Vec::new(),
-        verify_texts: Vec::new(),
-        outgoing_kinds: Default::default(),
-        incoming_kinds: Default::default(),
-        obligation_exempt: false,
+/// The rules' input over `entities`, with no edges and no spec root.
+fn rules_over(entities: &[EntityRecord]) -> RuleInput<'_> {
+    RuleInput {
+        entities,
+        edges: &[],
+        spec_root: Path::new(""),
     }
+}
+
+fn make_entity(id: &str, kind: &str, incoming: usize, outgoing: usize) -> EntityRecord {
+    let mut entity = EntityRecord::new(kind, id, &span());
+    entity.incoming.total = incoming;
+    entity.outgoing.total = outgoing;
+    entity
 }
 
 // ============================================================================
@@ -231,7 +232,7 @@ fn no_incoming_edges_detects_orphan_entities() {
         make_entity("b1", "behavior", 0, 2), // orphan
         make_entity("b2", "behavior", 1, 0), // not orphan
     ];
-    let diags = execute_pattern(&pattern, &entities, None);
+    let diags = execute_pattern(&pattern, &rules_over(&entities), None);
     assert_eq!(diags.len(), 1);
     assert!(diags[0].message.contains("b1"));
 }
@@ -268,10 +269,8 @@ fn an_edge_rule_counts_only_its_edge_type() {
     rule.message_template = "behavior '{id}' does not implement any feature".to_string();
 
     // b1 references an event but no feature; b2 implements a feature.
-    let mut b1 = make_entity("b1", "behavior", 0, 1);
-    b1.outgoing_kinds.insert("event".to_string(), 1);
-    let mut b2 = make_entity("b2", "behavior", 0, 1);
-    b2.outgoing_kinds.insert("feature".to_string(), 1);
+    let b1 = make_entity("b1", "behavior", 0, 0).with_edges(Direction::Outgoing, "event", 1);
+    let b2 = make_entity("b2", "behavior", 0, 0).with_edges(Direction::Outgoing, "feature", 1);
     let entities = vec![b1, b2];
 
     let mut kinds = KindRegistry::new();
@@ -279,7 +278,7 @@ fn an_edge_rule_counts_only_its_edge_type() {
     kinds.register(kind("feature"));
     let (mut patterns, _) = parse_all_rule_patterns(&[("@test".to_string(), vec![rule.clone()])]);
     resolve_edge_rules(&mut patterns, &edges, &kinds);
-    let diags = execute_pattern(&patterns[0].0, &entities, None);
+    let diags = execute_pattern(&patterns[0].0, &rules_over(&entities), None);
     assert_eq!(diags.len(), 1, "{diags:?}");
     assert!(diags[0].message.contains("b1"));
 
@@ -303,7 +302,7 @@ fn no_outgoing_edges_detects_entities_with_zero_outgoing_edges() {
         make_entity("b1", "behavior", 1, 0), // leaf
         make_entity("b2", "behavior", 1, 3), // not leaf
     ];
-    let diags = execute_pattern(&pattern, &entities, None);
+    let diags = execute_pattern(&pattern, &rules_over(&entities), None);
     assert_eq!(diags.len(), 1);
     assert!(diags[0].message.contains("b1"));
 }
@@ -320,10 +319,9 @@ fn missing_field_when_flag_set_detects_missing_field() {
 
     let e1 = make_entity("b1", "behavior", 1, 0); // no contract field
     let mut e2 = make_entity("b2", "behavior", 1, 0);
-    e2.fields
-        .insert("contract".to_string(), "some text".to_string());
+    e2 = e2.with_field("contract", "some text");
 
-    let diags = execute_pattern(&pattern, &[e1, e2], None);
+    let diags = execute_pattern(&pattern, &rules_over(&[e1, e2]), None);
     assert_eq!(diags.len(), 1);
     assert!(diags[0].message.contains("b1"));
 }
@@ -355,12 +353,11 @@ fn field_value_constraint_rejects_invalid_field_value() {
     let pattern = parse_rule_pattern(&rule, "@test").unwrap();
 
     let mut e1 = make_entity("b1", "behavior", 1, 0);
-    e1.fields
-        .insert("status".to_string(), "invalid_status".to_string());
+    e1 = e1.with_field("status", "invalid_status");
     let mut e2 = make_entity("b2", "behavior", 1, 0);
-    e2.fields.insert("status".to_string(), "active".to_string());
+    e2 = e2.with_field("status", "active");
 
-    let diags = execute_pattern(&pattern, &[e1, e2], None);
+    let diags = execute_pattern(&pattern, &rules_over(&[e1, e2]), None);
     assert_eq!(diags.len(), 1);
     assert!(diags[0].message.contains("b1"));
 }
@@ -372,7 +369,11 @@ fn cycle_detection_finds_cycles_in_edge_type() {
     let rule = make_rule("E100", "cycle_detection");
     let pattern = parse_rule_pattern(&rule, "@test").unwrap();
     assert_eq!(pattern.check, ValidationPatternKind::CycleDetection);
-    let diags = execute_pattern(&pattern, &[make_entity("b1", "behavior", 1, 1)], None);
+    let diags = execute_pattern(
+        &pattern,
+        &rules_over(&[make_entity("b1", "behavior", 1, 1)]),
+        None,
+    );
     assert!(
         diags.is_empty(),
         "cycle detection deferred to graph-aware caller"
@@ -396,16 +397,42 @@ fn file_exists_reports_missing_file_reference_field_targets() {
         wasm_function: None,
     };
     let pattern = parse_rule_pattern(&rule, "@test").unwrap();
+    let root = tempfile::tempdir().unwrap();
+    std::fs::create_dir(root.path().join("features")).unwrap();
+    std::fs::write(root.path().join("features/login.feature"), "").unwrap();
+    let naming = |id: &str, path: &str| {
+        let mut entity = make_entity(id, "behavior", 1, 0);
+        entity = entity.with_field("gherkin", path);
+        entity
+    };
+    let present = root.path().join("features/login.feature");
+    let entities = [
+        naming("b1", "features/login.feature"),
+        naming("b2", "features/logout.feature"),
+        naming("b3", "/nonexistent/file.feature"),
+        naming("b4", present.to_str().unwrap()),
+    ];
 
-    let mut entity = make_entity("b1", "behavior", 1, 0);
-    entity.fields.insert(
-        "gherkin".to_string(),
-        "/nonexistent/file.feature".to_string(),
+    // Relative paths are the spec root's; absolute ones are checked as
+    // written.
+    let diags = execute_pattern(
+        &pattern,
+        &RuleInput {
+            entities: &entities,
+            edges: &[],
+            spec_root: root.path(),
+        },
+        None,
     );
-
-    let diags = execute_pattern(&pattern, &[entity], None);
-    assert_eq!(diags.len(), 1);
-    assert_eq!(diags[0].code, "E101");
+    let reported: Vec<&str> = diags.iter().map(|d| d.message.as_str()).collect();
+    assert_eq!(
+        reported,
+        [
+            "behavior 'b2' references missing file",
+            "behavior 'b3' references missing file",
+        ]
+    );
+    assert!(diags.iter().all(|d| d.code == "E101"));
 }
 
 #[specforge_test(
@@ -446,7 +473,7 @@ fn custom_pattern_dispatches_to_registered_wasm_function() {
         make_entity("bad_name", "behavior", 1, 0),
         make_entity("good_name", "behavior", 1, 0),
     ];
-    let diags = execute_pattern(&pattern, &entities, Some(&NamingValidator));
+    let diags = execute_pattern(&pattern, &rules_over(&entities), Some(&NamingValidator));
     assert_eq!(diags.len(), 1);
     assert!(diags[0].message.contains("bad_name"));
 }
@@ -469,7 +496,7 @@ fn pattern_violation_produces_diagnostic_with_configured_code_and_severity() {
     };
     let pattern = parse_rule_pattern(&rule, "@test").unwrap();
     let entities = vec![make_entity("b1", "behavior", 0, 1)];
-    let diags = execute_pattern(&pattern, &entities, None);
+    let diags = execute_pattern(&pattern, &rules_over(&entities), None);
     assert_eq!(diags[0].code, "E999");
     assert_eq!(diags[0].severity, Severity::Error);
 }
@@ -487,7 +514,7 @@ fn execute_validation_pattern_contract() {
         make_entity("b2", "behavior", 2, 0),
         make_entity("f1", "feature", 0, 0), // different kind, skipped
     ];
-    let diags = execute_pattern(&pattern, &entities, None);
+    let diags = execute_pattern(&pattern, &rules_over(&entities), None);
     // Only behavior with 0 incoming edges diagnosed
     assert_eq!(diags.len(), 1);
     assert!(diags[0].message.contains("b1"));
@@ -546,7 +573,11 @@ fn diagnostic_code_matches_pattern_code() {
         wasm_function: None,
     };
     let pattern = parse_rule_pattern(&rule, "@test").unwrap();
-    let diags = execute_pattern(&pattern, &[make_entity("b1", "behavior", 0, 0)], None);
+    let diags = execute_pattern(
+        &pattern,
+        &rules_over(&[make_entity("b1", "behavior", 0, 0)]),
+        None,
+    );
     assert_eq!(diags[0].code, "E999");
 }
 
@@ -572,7 +603,11 @@ fn diagnostic_severity_matches_pattern_severity() {
             wasm_function: None,
         };
         let pattern = parse_rule_pattern(&rule, "@test").unwrap();
-        let diags = execute_pattern(&pattern, &[make_entity("b1", "behavior", 0, 0)], None);
+        let diags = execute_pattern(
+            &pattern,
+            &rules_over(&[make_entity("b1", "behavior", 0, 0)]),
+            None,
+        );
         assert_eq!(
             diags[0].severity, *expected,
             "severity mismatch for {:?}",
@@ -593,7 +628,11 @@ fn emit_diagnostic_from_pattern_contract() {
     // ensures: code and severity match
     let rule = make_rule("W100", "no_incoming_edges");
     let pattern = parse_rule_pattern(&rule, "@test").unwrap();
-    let diags = execute_pattern(&pattern, &[make_entity("b1", "behavior", 0, 0)], None);
+    let diags = execute_pattern(
+        &pattern,
+        &rules_over(&[make_entity("b1", "behavior", 0, 0)]),
+        None,
+    );
     assert_eq!(diags[0].code, "W100");
     assert_eq!(diags[0].severity, Severity::Warning);
 }
@@ -640,7 +679,7 @@ fn custom_pattern_dispatched_to_wasm_runtime_during_validation() {
         make_entity("bad", "behavior", 1, 0),
         make_entity("good", "behavior", 1, 0),
     ];
-    let diags = execute_pattern(&pattern, &entities, Some(&FailRuntime));
+    let diags = execute_pattern(&pattern, &rules_over(&entities), Some(&FailRuntime));
     assert_eq!(diags.len(), 1);
     assert!(diags[0].message.contains("bad"));
 }
@@ -675,7 +714,7 @@ fn custom_pattern_failure_emits_configured_diagnostic() {
     };
     let diags = execute_pattern(
         &pattern,
-        &[make_entity("b1", "behavior", 1, 0)],
+        &rules_over(&[make_entity("b1", "behavior", 1, 0)]),
         Some(&AlwaysFail),
     );
     assert_eq!(diags[0].code, "E201");
@@ -697,7 +736,7 @@ fn unregistered_field_name_produces_w020() {
         ..
     } = registries(&[software()]);
     let entities =
-        vec![EntityView::new("behavior", "b1", pinned(span())).with_fields(&["unknown_field"])];
+        vec![EntityRecord::new("behavior", "b1", pinned(span())).with_fields(&["unknown_field"])];
     let diags = specforge_registry::compilation::detect_unknown_entity_fields(
         &entities, &kind_reg, &field_reg,
     );
@@ -725,7 +764,7 @@ fn w020_includes_field_name_entity_kind_and_source_span() {
         end_line: 5,
         end_col: 20,
     };
-    let entities = vec![EntityView::new("behavior", "b1", &s).with_fields(&["bogus_field"])];
+    let entities = vec![EntityRecord::new("behavior", "b1", &s).with_fields(&["bogus_field"])];
     let diags = specforge_registry::compilation::detect_unknown_entity_fields(
         &entities, &kind_reg, &field_reg,
     );
@@ -755,8 +794,8 @@ fn expression_is_checked_like_any_other_field() {
     // software's invariant and behavior declare no `expression`; without an
     // extension that declares it (formal enhances invariant), it is W020.
     let entities = vec![
-        EntityView::new("invariant", "i1", pinned(span())).with_fields(&["expression"]),
-        EntityView::new("behavior", "b1", pinned(span())).with_fields(&["expression"]),
+        EntityRecord::new("invariant", "i1", pinned(span())).with_fields(&["expression"]),
+        EntityRecord::new("behavior", "b1", pinned(span())).with_fields(&["expression"]),
     ];
     let diags = specforge_registry::compilation::detect_unknown_entity_fields(
         &entities, &kind_reg, &field_reg,
@@ -801,7 +840,7 @@ fn registered_field_name_does_not_produce_w020() {
         ..
     } = registries(&[software()]);
     let entities =
-        vec![EntityView::new("behavior", "b1", pinned(span())).with_fields(&["contract"])];
+        vec![EntityRecord::new("behavior", "b1", pinned(span())).with_fields(&["contract"])];
     let diags = specforge_registry::compilation::detect_unknown_entity_fields(
         &entities, &kind_reg, &field_reg,
     );
@@ -819,7 +858,7 @@ fn structural_fields_not_checked_against_field_registry() {
         ..
     } = registries(&[software()]);
     let entities =
-        vec![EntityView::new("behavior", "b1", pinned(span())).with_fields(&["title", "verify"])];
+        vec![EntityRecord::new("behavior", "b1", pinned(span())).with_fields(&["title", "verify"])];
     let diags = specforge_registry::compilation::detect_unknown_entity_fields(
         &entities, &kind_reg, &field_reg,
     );
@@ -838,7 +877,7 @@ fn verify_on_non_testable_kind_produces_w020() {
     } = registries(&[software()]);
     kind_reg.get_mut("behavior").unwrap().supports_verify = false;
     let entities =
-        vec![EntityView::new("behavior", "b1", pinned(span())).with_fields(&["title", "verify"])];
+        vec![EntityRecord::new("behavior", "b1", pinned(span())).with_fields(&["title", "verify"])];
     let diags = specforge_registry::compilation::detect_unknown_entity_fields(
         &entities, &kind_reg, &field_reg,
     );
@@ -864,7 +903,7 @@ fn field_validation_skipped_when_entity_kind_is_unregistered() {
         ..
     } = registries(&[software()]);
     let entities = vec![
-        EntityView::new("nonexistent_kind", "x1", pinned(span())).with_fields(&["some_field"]),
+        EntityRecord::new("nonexistent_kind", "x1", pinned(span())).with_fields(&["some_field"]),
     ];
     let diags = specforge_registry::compilation::detect_unknown_entity_fields(
         &entities, &kind_reg, &field_reg,
@@ -887,20 +926,20 @@ fn detect_unknown_entity_fields_contract() {
     } = registries(&[software()]);
     // ensures: unknown field → W020
     let e1 =
-        vec![EntityView::new("behavior", "b1", pinned(span())).with_fields(&["unknown_field"])];
+        vec![EntityRecord::new("behavior", "b1", pinned(span())).with_fields(&["unknown_field"])];
     assert!(
         specforge_registry::compilation::detect_unknown_entity_fields(&e1, &kind_reg, &field_reg)
             .iter()
             .any(|d| d.code == "W020")
     );
     // ensures: registered field → no W020
-    let e2 = vec![EntityView::new("behavior", "b2", pinned(span())).with_fields(&["contract"])];
+    let e2 = vec![EntityRecord::new("behavior", "b2", pinned(span())).with_fields(&["contract"])];
     assert!(
         specforge_registry::compilation::detect_unknown_entity_fields(&e2, &kind_reg, &field_reg)
             .is_empty()
     );
     // ensures: unregistered kind → skipped
-    let e3 = vec![EntityView::new("unknown_kind", "x", pinned(span())).with_fields(&["field"])];
+    let e3 = vec![EntityRecord::new("unknown_kind", "x", pinned(span())).with_fields(&["field"])];
     assert!(
         specforge_registry::compilation::detect_unknown_entity_fields(&e3, &kind_reg, &field_reg)
             .is_empty()
@@ -926,13 +965,16 @@ fn a_rule_for_an_unloaded_kind_reports_nothing() {
         make_entity("b1", "behavior", 0, 0),
         make_entity("b2", "behavior", 0, 0),
     ];
-    assert!(execute_pattern(&patterns[0].0, &orphans, None).is_empty());
+    assert!(execute_pattern(&patterns[0].0, &rules_over(&orphans), None).is_empty());
 
     // The same rule on a loaded kind does fire: it is inert, not broken.
     let mut rule = make_rule("W100", "no_incoming_edges");
     rule.target_kind = Some("behavior".to_string());
     let (patterns, _) = parse_all_rule_patterns(&[("@test".to_string(), vec![rule])]);
-    assert_eq!(execute_pattern(&patterns[0].0, &orphans, None).len(), 2);
+    assert_eq!(
+        execute_pattern(&patterns[0].0, &rules_over(&orphans), None).len(),
+        2
+    );
 }
 
 /// A custom rule's failing verdict, with no field or value to name.

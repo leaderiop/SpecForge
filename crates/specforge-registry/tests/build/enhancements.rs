@@ -5,7 +5,7 @@
 use specforge_common::Severity;
 use specforge_extension_sdk::prelude::*;
 use specforge_protocol_types::ExtensionDeclaration;
-use specforge_registry::compilation::EntityView;
+use specforge_registry::entity::EntityRecord;
 use specforge_registry::{ManifestFieldType, detect_unknown_entity_fields};
 use specforge_test_macros::test as spec;
 
@@ -246,7 +246,7 @@ fn enhancement_registration_holds() {
     // already accept an enhanced field on a parsed entity (no W020).
     let unknown = detect_unknown_entity_fields(
         &[
-            EntityView::new("behavior", "b1", span("main.spec")).with_fields(&[
+            EntityRecord::new("behavior", "b1", span("main.spec")).with_fields(&[
                 "owner",
                 "string_note",
                 "reference_note",
@@ -258,7 +258,7 @@ fn enhancement_registration_holds() {
     assert!(unknown.is_empty(), "{unknown:?}");
     // A field nobody declares is still W020.
     let unknown = detect_unknown_entity_fields(
-        &[EntityView::new("behavior", "b2", span("main.spec")).with_fields(&["nobody"])],
+        &[EntityRecord::new("behavior", "b2", span("main.spec")).with_fields(&["nobody"])],
         &build.kinds,
         &build.fields,
     );

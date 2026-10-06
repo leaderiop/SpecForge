@@ -4,7 +4,7 @@
 //! indexes those suggestions come from.
 
 use specforge_common::{SourceSpan, Sym};
-use specforge_registry::compilation::EntityView;
+use specforge_registry::entity::EntityRecord;
 use specforge_registry::{KindRegistry, detect_unknown_entity_fields};
 use specforge_test_macros::test as spec;
 
@@ -16,7 +16,7 @@ use crate::support::{build, software, span};
 )]
 fn detect_unknown_kinds_e024() {
     let build = build([software()]);
-    let entities = vec![EntityView::new("unknown_thing", "u1", span("test.spec"))];
+    let entities = vec![EntityRecord::new("unknown_thing", "u1", span("test.spec"))];
     let diags =
         specforge_registry::compilation::detect_unknown_entity_kinds(&entities, &build.kinds, None);
     assert_eq!(diags.len(), 1);
@@ -36,7 +36,7 @@ fn detect_unknown_kinds_e024_includes_info() {
         end_line: 42,
         end_col: 10,
     };
-    let entities = vec![EntityView::new("unknown_thing", "u1", &s)];
+    let entities = vec![EntityRecord::new("unknown_thing", "u1", &s)];
     let diags =
         specforge_registry::compilation::detect_unknown_entity_kinds(&entities, &build.kinds, None);
     assert!(diags[0].message.contains("unknown_thing"));
@@ -50,7 +50,7 @@ fn detect_unknown_kinds_e024_includes_info() {
 )]
 fn detect_unknown_kinds_registered_no_e024() {
     let build = build([software()]);
-    let entities = vec![EntityView::new("behavior", "b1", span("test.spec"))];
+    let entities = vec![EntityRecord::new("behavior", "b1", span("test.spec"))];
     let diags =
         specforge_registry::compilation::detect_unknown_entity_kinds(&entities, &build.kinds, None);
     assert!(diags.is_empty());
@@ -62,7 +62,7 @@ fn detect_unknown_kinds_registered_no_e024() {
 )]
 fn detect_unknown_kinds_define_not_checked() {
     let kind_reg = KindRegistry::new();
-    let entities = vec![EntityView::new("define", "my_define", span("test.spec"))];
+    let entities = vec![EntityRecord::new("define", "my_define", span("test.spec"))];
     let diags =
         specforge_registry::compilation::detect_unknown_entity_kinds(&entities, &kind_reg, None);
     assert!(diags.is_empty());
@@ -74,11 +74,11 @@ fn detect_unknown_kinds_define_not_checked() {
 )]
 fn detect_unknown_kinds_contract() {
     let build = build([software()]);
-    let unknown = vec![EntityView::new("xyzzy", "x1", span("t.spec"))];
+    let unknown = vec![EntityRecord::new("xyzzy", "x1", span("t.spec"))];
     let d1 =
         specforge_registry::compilation::detect_unknown_entity_kinds(&unknown, &build.kinds, None);
     assert!(d1.iter().any(|d| d.code == "E024"));
-    let known = vec![EntityView::new("behavior", "b1", span("t.spec"))];
+    let known = vec![EntityRecord::new("behavior", "b1", span("t.spec"))];
     let d2 =
         specforge_registry::compilation::detect_unknown_entity_kinds(&known, &build.kinds, None);
     assert!(d2.is_empty());
@@ -93,7 +93,7 @@ fn suggest_missing_ext_known_keyword() {
     let mut entries = std::collections::HashMap::new();
     entries.insert("behavior".to_string(), "@specforge/software".to_string());
     let index = specforge_registry::compilation::KeywordExtensionIndex::from_entries(entries);
-    let entities = vec![EntityView::new("behavior", "b1", span("test.spec"))];
+    let entities = vec![EntityRecord::new("behavior", "b1", span("test.spec"))];
     let diags = specforge_registry::compilation::detect_unknown_entity_kinds(
         &entities,
         &kind_reg,
@@ -115,7 +115,7 @@ fn suggest_missing_ext_known_keyword() {
 fn suggest_missing_ext_unknown_keyword() {
     let kind_reg = KindRegistry::new();
     let index = specforge_registry::compilation::KeywordExtensionIndex::new();
-    let entities = vec![EntityView::new("xyzzy", "x1", span("test.spec"))];
+    let entities = vec![EntityRecord::new("xyzzy", "x1", span("test.spec"))];
     let diags = specforge_registry::compilation::detect_unknown_entity_kinds(
         &entities,
         &kind_reg,
@@ -172,7 +172,7 @@ fn bundled_keyword_index_maps_every_builtin_keyword() {
 
     // Without an index argument, E024 uses the bundled one.
     let diags = specforge_registry::compilation::detect_unknown_entity_kinds(
-        &[EntityView::new("feature", "f1", span("test.spec"))],
+        &[EntityRecord::new("feature", "f1", span("test.spec"))],
         &KindRegistry::new(),
         None,
     );
@@ -227,7 +227,7 @@ fn bundled_field_index_maps_every_builtin_enhancement_field() {
     // W020 for such a field names the extension, as E024 does for a kind.
     let build = build([software()]);
     let diags = detect_unknown_entity_fields(
-        &[EntityView::new("invariant", "i1", span("test.spec"))
+        &[EntityRecord::new("invariant", "i1", span("test.spec"))
             .with_fields(&["expression", "bogus"])],
         &build.kinds,
         &build.fields,
@@ -248,7 +248,7 @@ fn bundled_field_index_maps_every_builtin_enhancement_field() {
 fn malformed_keyword_index_falls_back_to_search() {
     let index = specforge_registry::compilation::KeywordExtensionIndex::from_json("{not json");
     let diags = specforge_registry::compilation::detect_unknown_entity_kinds(
-        &[EntityView::new("feature", "f1", span("test.spec"))],
+        &[EntityRecord::new("feature", "f1", span("test.spec"))],
         &KindRegistry::new(),
         Some(&index),
     );
@@ -271,7 +271,7 @@ fn suggest_missing_ext_contract() {
     let mut entries = std::collections::HashMap::new();
     entries.insert("behavior".to_string(), "@specforge/software".to_string());
     let index = specforge_registry::compilation::KeywordExtensionIndex::from_entries(entries);
-    let e1 = vec![EntityView::new("behavior", "b1", span("test.spec"))];
+    let e1 = vec![EntityRecord::new("behavior", "b1", span("test.spec"))];
     let d1 =
         specforge_registry::compilation::detect_unknown_entity_kinds(&e1, &kind_reg, Some(&index));
     assert!(
@@ -281,7 +281,7 @@ fn suggest_missing_ext_contract() {
             .unwrap()
             .contains("@specforge/software")
     );
-    let e2 = vec![EntityView::new("xyzzy", "x1", span("test.spec"))];
+    let e2 = vec![EntityRecord::new("xyzzy", "x1", span("test.spec"))];
     let d2 =
         specforge_registry::compilation::detect_unknown_entity_kinds(&e2, &kind_reg, Some(&index));
     assert!(

@@ -2,16 +2,17 @@
 //! come from: core validation, the registry checks, the extensions'
 //! declarative rules and their Wasm `check: "custom"` rules.
 
+use crate::snapshot::EntitySnapshot;
 use specforge_common::{Diagnostic, ExtensionEntry, Severity};
 use specforge_graph::{Graph, GraphConfig};
 use specforge_protocol_types::ExtensionDeclaration;
 use specforge_registry::{
-    FieldRegistry, KindRegistry, RegistryBuild,
+    RegistryBuild,
     compilation::{
-        EntityView, detect_identifier_length_violations, detect_mistyped_references,
+        detect_identifier_length_violations, detect_mistyped_references,
         detect_reserved_entity_ids, detect_unknown_entity_fields, detect_unknown_entity_kinds,
     },
-    validation_engine::{ValidationEntity, ValidationRulePattern, execute_pattern},
+    validation_engine::{ValidationRulePattern, execute_pattern},
 };
 use specforge_validator::{ValidatorConfig, validate_with_config};
 use specforge_wasm::WasmRuntime;
@@ -33,14 +34,17 @@ pub fn graph_config(build: &RegistryBuild) -> GraphConfig {
     }
 }
 
-/// What a project's registries and extension rules need to check a built
-/// graph.
+/// What the checks on a built graph read: the project's registry build,
+/// the graph's entity snapshot (ADR 0019) and the runtime its custom rules
+/// call.
 pub struct GraphChecks<'a> {
+    /// Where core validation's file references resolve.
     pub spec_root: &'a Path,
-    pub kind_registry: &'a KindRegistry,
-    pub field_registry: &'a FieldRegistry,
-    /// Validation rules with their owning extension.
-    pub rules: &'a [(ValidationRulePattern, String)],
+    /// Kinds and fields (the registry checks, E061, core validation's file
+    /// references) and the extensions' rules with their owners.
+    pub registries: &'a RegistryBuild,
+    /// The graph's entities as every check after the build reads them.
+    pub entities: &'a EntitySnapshot,
     pub runtime: Option<&'a dyn WasmRuntime>,
 }
 
@@ -48,14 +52,12 @@ pub struct GraphChecks<'a> {
 /// fields and identifiers, mistyped references (E022), field value types
 /// (E061) and the extensions'
 /// validation rules. `specforge check` runs them once; watch after every
-/// rebuild, so both report the same diagnostics.
+/// rebuild, so both report the same diagnostics. The registry checks and
+/// the rules read `checks.entities`, the snapshot of `graph`.
 pub fn check_graph(graph: &Graph, checks: &GraphChecks) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
-    let spec_root = checks.spec_root.to_path_buf();
-    let kind_reg = checks.kind_registry;
-    let field_reg = checks.field_registry;
-    let patterns = checks.rules;
-    let runtime = checks.runtime;
+    let kind_reg = &checks.registries.kinds;
+    let field_reg = &checks.registries.fields;
 
     // Core validation (with file reference fields from registries).
     // BTreeSet: the field list must be ordered, not HashSet-random (R-6 /
@@ -68,7 +70,7 @@ pub fn check_graph(graph: &Graph, checks: &GraphChecks) -> Vec<Diagnostic> {
         .into_iter()
         .collect();
     let validator_config = ValidatorConfig {
-        spec_root: spec_root.clone(),
+        spec_root: checks.spec_root.to_path_buf(),
         file_reference_fields: file_ref_fields,
     };
     let validation_diags = validate_with_config(graph, &validator_config);
@@ -76,18 +78,18 @@ pub fn check_graph(graph: &Graph, checks: &GraphChecks) -> Vec<Diagnostic> {
 
     // Unknown kinds, identifiers and fields, against the registries.
     if !kind_reg.is_empty() {
-        let views = entity_views(graph);
-        diagnostics.extend(detect_unknown_entity_kinds(&views, kind_reg, None));
+        let records = checks.entities.records();
+        diagnostics.extend(detect_unknown_entity_kinds(records, kind_reg, None));
 
         // E013 / E014: the documented identifier contract, now enforced —
         // reserved words and the 2-60 length bound from entity-model.md.
-        diagnostics.extend(detect_reserved_entity_ids(&views, kind_reg));
-        diagnostics.extend(detect_identifier_length_violations(&views));
+        diagnostics.extend(detect_reserved_entity_ids(records, kind_reg));
+        diagnostics.extend(detect_identifier_length_violations(records));
 
-        diagnostics.extend(detect_unknown_entity_fields(&views, kind_reg, field_reg));
+        diagnostics.extend(detect_unknown_entity_fields(records, kind_reg, field_reg));
 
         // Reference fields against their target_kind constraints (E022).
-        diagnostics.extend(detect_mistyped_references(&views, field_reg, kind_reg));
+        diagnostics.extend(detect_mistyped_references(records, field_reg, kind_reg));
 
         // Values that can't be their field's declared type (E061).
         diagnostics.extend(crate::field_types::check_field_value_types(
@@ -109,41 +111,15 @@ pub fn check_graph(graph: &Graph, checks: &GraphChecks) -> Vec<Diagnostic> {
 
     // Extension validation rules (declarative + custom via wasm).
     let extension_diags = run_extension_validation(
-        patterns,
+        &checks.registries.rules,
         graph,
-        kind_reg,
-        field_reg,
-        runtime,
+        checks.entities,
+        checks.runtime,
         &edge_label_to_field,
     );
     diagnostics.extend(extension_diags);
 
     diagnostics
-}
-
-/// Every node of the graph as the registry checks see it.
-fn entity_views(graph: &Graph) -> Vec<EntityView<'_>> {
-    graph
-        .nodes()
-        .iter()
-        .map(|n| EntityView {
-            kind: n.kind.raw.as_str(),
-            id: n.id.raw.as_str(),
-            span: &n.source_span,
-            fields: n.fields.entries().iter().map(|e| e.key.as_str()).collect(),
-            references: n
-                .fields
-                .entries()
-                .iter()
-                .filter_map(|e| match &e.value {
-                    specforge_parser::FieldValue::ReferenceList(refs) => {
-                        Some((e.key.as_str(), refs.iter().map(|r| r.id.as_str()).collect()))
-                    }
-                    _ => None,
-                })
-                .collect(),
-        })
-        .collect()
 }
 
 /// What one `specforge.json` `extensions` entry enables, as the runtime
@@ -244,277 +220,24 @@ pub fn load_extensions(
     declarations
 }
 
-/// Convert all graph nodes into `ValidationEntity` structs for the validation engine.
-/// Shared by CLI (`compile.rs`) and LSP (`backend.rs`).
-///
-/// `field_registry` decides which entities owe no obligations
-/// ([`ValidationEntity::obligation_exempt`], see
-/// [`crate::coverage::obligation_exempt`]).
-pub fn build_validation_entities(
-    graph: &Graph,
-    field_registry: &FieldRegistry,
-) -> Vec<ValidationEntity> {
-    // Sorted by id: rule diagnostics must emit in a stable order
-    // (R-6 / hardening-plan D1 class).
-    let mut nodes: Vec<_> = graph.nodes();
-    nodes.sort_by_key(|n| n.id.raw);
-    nodes
-        .into_iter()
-        .map(|node| {
-            let incoming_edges = graph.edges_to(node.id.raw.as_str());
-            let outgoing_edges = graph.edges_from(node.id.raw.as_str());
-            let (incoming, outgoing) = (incoming_edges.len(), outgoing_edges.len());
-            let by_kind = |ids: &mut dyn Iterator<Item = &str>| {
-                let mut counts = std::collections::BTreeMap::new();
-                for kind in ids
-                    .filter_map(|id| graph.node(id))
-                    .map(|n| n.kind.raw.to_string())
-                {
-                    *counts.entry(kind).or_insert(0) += 1;
-                }
-                counts
-            };
-            let incoming_kinds = by_kind(&mut incoming_edges.iter().map(|e| e.source.as_str()));
-            let outgoing_kinds = by_kind(&mut outgoing_edges.iter().map(|e| e.target.as_str()));
-
-            let mut fields = HashMap::new();
-            let mut verify_kinds: Vec<String> = Vec::new();
-            let mut verify_texts: Vec<String> = Vec::new();
-            for entry in node.fields.entries() {
-                match &entry.value {
-                    specforge_parser::FieldValue::String(s) => {
-                        fields.insert(entry.key.to_string(), s.clone());
-                    }
-                    specforge_parser::FieldValue::Identifier(s) => {
-                        fields.insert(entry.key.to_string(), s.clone());
-                    }
-                    specforge_parser::FieldValue::StringList(list) => {
-                        fields.insert(entry.key.to_string(), list.join(", "));
-                    }
-                    specforge_parser::FieldValue::ReferenceList(refs) => {
-                        fields.insert(
-                            entry.key.to_string(),
-                            refs.iter()
-                                .map(|r| r.as_str())
-                                .collect::<Vec<_>>()
-                                .join(", "),
-                        );
-                    }
-                    specforge_parser::FieldValue::Integer(n) => {
-                        fields.insert(entry.key.to_string(), n.to_string());
-                    }
-                    specforge_parser::FieldValue::Boolean(b) => {
-                        fields.insert(entry.key.to_string(), b.to_string());
-                    }
-                    specforge_parser::FieldValue::Date(d) => {
-                        fields.insert(entry.key.to_string(), d.clone());
-                    }
-                    specforge_parser::FieldValue::VerifyList(stmts) => {
-                        if !stmts.is_empty() {
-                            let descriptions: Vec<&str> =
-                                stmts.iter().map(|s| s.description.as_str()).collect();
-                            fields.insert(entry.key.to_string(), descriptions.join("; "));
-                            verify_kinds = stmts.iter().map(|s| s.kind.clone()).collect();
-                            verify_texts = stmts.iter().map(|s| s.description.clone()).collect();
-                        }
-                    }
-                    specforge_parser::FieldValue::VariantList(variants) if !variants.is_empty() => {
-                        fields.insert(entry.key.to_string(), variants.join(" | "));
-                    }
-                    specforge_parser::FieldValue::Block(block) => {
-                        // Contract blocks (requires/ensures/maintains): surface
-                        // the clause item names so extension passes can see the
-                        // block's presence and contents.
-                        let items: Vec<String> =
-                            block.entries().iter().map(|e| e.key.to_string()).collect();
-                        if !items.is_empty() {
-                            fields.insert(entry.key.to_string(), items.join(", "));
-                        }
-                    }
-                    _ => {}
-                }
-            }
-
-            ValidationEntity {
-                id: node.id.raw.to_string(),
-                kind: node.kind.raw.to_string(),
-                fields,
-                incoming_edge_count: incoming,
-                outgoing_edge_count: outgoing,
-                span: node.source_span.clone(),
-                verify_kinds,
-                verify_texts,
-                outgoing_kinds,
-                incoming_kinds,
-                obligation_exempt: crate::coverage::obligation_exempt(node, field_registry),
-            }
-        })
-        .collect()
-}
-
 /// Wasm dispatch for extensions' `check: "custom"` rules.
 ///
 /// The `wasm_function` names in manifests are contracts: each names an
-/// export on THAT extension's module. Per call the host builds a
-/// [`ValidatorContext`] snapshot (entity + resolved reference targets +
-/// declared type ids + primitive list) and hands it to the guest, which
+/// export on THAT extension's module. Per call the host hands the guest the
+/// entity's [`ValidatorContext`] from the snapshot
+/// ([`EntitySnapshot::validator_context`]: the entity, its resolved
+/// references, the declared type ids and the primitive list), and the guest
 /// answers with a [`ValidatorVerdict`] — the wasm mirror of the host's
 /// `CustomVerdict` (WASM-only migration, Phase 5; closes C10).
+///
+/// [`ValidatorContext`]: specforge_protocol_types::ValidatorContext
+/// [`ValidatorVerdict`]: specforge_protocol_types::ValidatorVerdict
 pub struct WasmCustomRules<'a> {
     pub runtime: &'a dyn WasmRuntime,
     /// Extension whose module owns the `wasm_function` export.
     pub extension: &'a str,
-    pub graph: &'a Graph,
-    /// The ids of the graph's entities whose kind declares types
-    /// (`declares_types`), sent as `context.declared_types`.
-    pub declared_types: &'a [String],
-}
-
-/// Type names accepted by E004 without a declared `type` entity. Sent to
-/// the guest as `context.primitives`; the guest may also carry its own
-/// embedded copy. `number`, `integer`, `boolean` and `timestamp` are the
-/// portable primitives docs/entities/type.md documents; `never` marks an
-/// impossible error channel (docs/entities/port.md).
-const PRIMITIVE_TYPES: &[&str] = &[
-    "string",
-    "void",
-    "bool",
-    "i8",
-    "i16",
-    "i32",
-    "i64",
-    "u8",
-    "u16",
-    "u32",
-    "u64",
-    "f32",
-    "f64",
-    "usize",
-    "isize",
-    "any",
-    "number",
-    "integer",
-    "boolean",
-    "timestamp",
-    "never",
-    // stdlib containers: their type arguments are checked recursively
-    "Result",
-    "Option",
-    "Vec",
-    "Box",
-    "Arc",
-    "Rc",
-    "HashMap",
-    "HashSet",
-    "BTreeMap",
-    "BTreeSet",
-    "String",
-];
-
-/// Stringify a field value the way [`build_validation_entities`] does:
-/// scalars as strings, reference lists as the declared IDs (comma-joined).
-fn stringify_field_value(value: &specforge_parser::FieldValue) -> serde_json::Value {
-    use specforge_parser::FieldValue;
-    match value {
-        FieldValue::String(s) => serde_json::Value::String(s.clone()),
-        FieldValue::Identifier(s) => serde_json::Value::String(s.clone()),
-        FieldValue::StringList(list) => serde_json::Value::String(list.join(", ")),
-        FieldValue::ReferenceList(refs) => serde_json::Value::String(
-            refs.iter()
-                .map(|r| r.as_str())
-                .collect::<Vec<_>>()
-                .join(", "),
-        ),
-        FieldValue::Integer(n) => serde_json::Value::String(n.to_string()),
-        FieldValue::Boolean(b) => serde_json::Value::String(b.to_string()),
-        FieldValue::Date(d) => serde_json::Value::String(d.clone()),
-        FieldValue::VerifyList(stmts) => {
-            let descriptions: Vec<&str> = stmts.iter().map(|s| s.description.as_str()).collect();
-            serde_json::Value::String(descriptions.join("; "))
-        }
-        FieldValue::Block(block) => {
-            // Contract blocks: surface the clause item names (same as
-            // build_validation_entities).
-            let items: Vec<String> = block.entries().iter().map(|e| e.key.to_string()).collect();
-            serde_json::Value::String(items.join(", "))
-        }
-        _ => serde_json::Value::Null,
-    }
-}
-
-impl<'a> WasmCustomRules<'a> {
-    /// Build the per-call context snapshot for one entity.
-    fn build_context(
-        &self,
-        entity_id: &str,
-    ) -> Result<specforge_protocol_types::ValidatorContext, String> {
-        use specforge_protocol_types::{
-            ValidatorContext, ValidatorEntity, ValidatorField, ValidatorMethod, ValidatorRef,
-        };
-
-        let node = self
-            .graph
-            .node(entity_id)
-            .ok_or_else(|| format!("unknown entity '{entity_id}'"))?;
-
-        let mut referenced: Vec<ValidatorRef> = Vec::new();
-        let mut seen_refs: std::collections::HashSet<String> = std::collections::HashSet::new();
-        for entry in node.fields.entries() {
-            if let specforge_parser::FieldValue::ReferenceList(refs) = &entry.value {
-                for r in refs {
-                    if seen_refs.insert(r.id.clone()) {
-                        referenced.push(ValidatorRef {
-                            id: r.id.clone(),
-                            kind: self
-                                .graph
-                                .node(&r.id)
-                                .map(|target| target.kind.raw.to_string()),
-                        });
-                    }
-                }
-            }
-        }
-
-        Ok(ValidatorContext {
-            entity: ValidatorEntity {
-                id: node.id.raw.to_string(),
-                kind: node.kind.raw.to_string(),
-                fields: node
-                    .fields
-                    .entries()
-                    .iter()
-                    .map(|entry| ValidatorField {
-                        key: entry.key.to_string(),
-                        value: stringify_field_value(&entry.value),
-                        annotations: entry
-                            .annotations
-                            .iter()
-                            .map(|a| a.name.to_string())
-                            .collect(),
-                    })
-                    .collect(),
-                methods: node
-                    .methods
-                    .iter()
-                    .map(|m| ValidatorMethod {
-                        name: m.name.clone(),
-                        params: m
-                            .params
-                            .iter()
-                            .map(|p| specforge_protocol_types::ValidatorParam {
-                                name: p.name.clone(),
-                                ty: p.ty.clone(),
-                            })
-                            .collect(),
-                        returns: m.returns.clone(),
-                    })
-                    .collect(),
-            },
-            referenced,
-            declared_types: self.declared_types.to_vec(),
-            primitives: PRIMITIVE_TYPES.iter().map(|s| s.to_string()).collect(),
-        })
-    }
+    /// The graph's entities, as the guest receives each one.
+    pub entities: &'a EntitySnapshot,
 }
 
 impl<'a> specforge_registry::validation_engine::WasmValidationRuntime for WasmCustomRules<'a> {
@@ -531,7 +254,10 @@ impl<'a> specforge_registry::validation_engine::WasmValidationRuntime for WasmCu
             );
         }
 
-        let context = self.build_context(entity_id)?;
+        let context = self
+            .entities
+            .validator_context(entity_id)
+            .ok_or_else(|| format!("unknown entity '{entity_id}'"))?;
         call_validator(self.runtime, self.extension, wasm_function, &context)
             .map_err(|error| error.to_string())
     }
@@ -577,17 +303,8 @@ pub fn probe_custom_rules(
         let Some(wasm_function) = pattern.wasm_function.as_deref() else {
             continue;
         };
-        let context = specforge_protocol_types::ValidatorContext {
-            entity: specforge_protocol_types::ValidatorEntity {
-                id: "__probe__".to_string(),
-                kind: pattern.target_kind.clone().unwrap_or_default(),
-                fields: Vec::new(),
-                methods: Vec::new(),
-            },
-            referenced: Vec::new(),
-            declared_types: Vec::new(),
-            primitives: PRIMITIVE_TYPES.iter().map(|s| s.to_string()).collect(),
-        };
+        let context =
+            EntitySnapshot::probe_context(pattern.target_kind.as_deref().unwrap_or_default());
         if let Err(error) = call_validator(runtime, extension, wasm_function, &context) {
             diagnostics.push(Diagnostic {
                 code: "W112".to_string(),
@@ -607,26 +324,10 @@ pub fn probe_custom_rules(
     diagnostics
 }
 
-/// The ids of `graph`'s entities whose kind an extension declares
-/// `declares_types` (`@specforge/software`'s `type`), in graph order.
-pub fn declared_type_ids(graph: &Graph, kinds: &KindRegistry) -> Vec<String> {
-    graph
-        .nodes()
-        .iter()
-        .filter(|n| {
-            kinds
-                .get(n.kind.raw.as_str())
-                .is_some_and(|kind| kind.declared.declares_types)
-        })
-        .map(|n| n.id.raw.to_string())
-        .collect()
-}
-
 fn run_extension_validation(
     patterns: &[(ValidationRulePattern, String)],
     graph: &Graph,
-    kinds: &KindRegistry,
-    fields: &FieldRegistry,
+    entities: &EntitySnapshot,
     runtime: Option<&dyn WasmRuntime>,
     edge_label_to_field: &HashMap<String, String>,
 ) -> Vec<Diagnostic> {
@@ -634,8 +335,7 @@ fn run_extension_validation(
         return Vec::new();
     }
 
-    let entities = build_validation_entities(graph, fields);
-    let declared_types = declared_type_ids(graph, kinds);
+    let input = entities.rule_input();
 
     if std::env::var("SPECFORGE_DEBUG_RULES").is_ok() {
         for (p, ext) in patterns {
@@ -662,12 +362,11 @@ fn run_extension_validation(
             let verdicts = runtime.map(|runtime| WasmCustomRules {
                 runtime,
                 extension,
-                graph,
-                declared_types: &declared_types,
+                entities,
             });
             let diags = execute_pattern(
                 pattern,
-                &entities,
+                &input,
                 verdicts.as_ref().map(|v| {
                     v as &dyn specforge_registry::validation_engine::WasmValidationRuntime
                 }),

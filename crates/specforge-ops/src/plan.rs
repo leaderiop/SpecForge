@@ -156,14 +156,15 @@ fn validate(view: &ProjectView, entries: &[Value], coverage: &ProjectCoverage) -
     let plan_id_set: HashSet<String> = plan_ids.iter().cloned().collect();
 
     // Testable entities that declare obligations, missing from the plan.
-    for (id, standing) in &coverage.standings {
+    for (record, standing) in coverage.entities().iter() {
+        let id = &record.id;
         let obliged = coverage
             .verdict(id)
             .is_some_and(|verdict| verdict.obligations > 0);
         if standing.testable && obliged && !plan_id_set.contains(id.as_str()) {
             let message = format!(
                 "testable entity '{id}' ({}) is not covered by the plan",
-                standing.kind
+                record.kind
             );
             gaps.push(PlanGap {
                 source: PLAN.to_string(),
