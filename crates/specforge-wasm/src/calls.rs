@@ -22,7 +22,7 @@ use std::marker::PhantomData;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use serde_json::Value;
-use specforge_common::{Diagnostic, DiagnosticData, Severity, SourceSpan, Sym};
+use specforge_common::{Diagnostic, DiagnosticData, Severity, SourceSpan, Sym, codes};
 use specforge_protocol_types::{
     CollectInput, CollectOutput, CommandInput, CommandOutput, DescribeRequest, DescribeResponse,
     HandshakeRequest, HandshakeResponse, McpResourceContent, McpResourceRequest, MigrationInput,
@@ -132,7 +132,7 @@ impl CallError {
     /// what went wrong, with the suggestion to report it to the extension's
     /// author.
     pub fn diagnostic(&self) -> Diagnostic {
-        Diagnostic::error("E028", self.to_string()).with_suggestion(format!(
+        Diagnostic::new(codes::E028, self.to_string()).with_suggestion(format!(
             "report the failure to the author of '{}', or check it is installed and up to date",
             self.extension
         ))

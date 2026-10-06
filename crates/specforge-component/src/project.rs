@@ -7,7 +7,7 @@
 //! paths from `specforge.json`, with identical semantics everywhere.
 
 use crate::{ComponentRuntime, builtins};
-use specforge_common::ExtensionEntry;
+use specforge_common::{ExtensionEntry, codes};
 use std::path::{Path, PathBuf};
 
 /// Build the Wasm runtime for a project.
@@ -80,14 +80,12 @@ fn load_file(
         unreachable!("load_file is given file entries");
     };
     let file = entry.file(root).expect("a file entry names a file");
-    let refused = |message: String, suggestion: String| specforge_common::Diagnostic {
-        code: "E028".to_string(),
-        severity: specforge_common::Severity::Error,
-        message: format!("extension entry '{key}' in specforge.json: {message}"),
-        span: None,
-        suggestion: Some(suggestion),
-        data: None,
-        origin: None,
+    let refused = |message: String, suggestion: String| {
+        specforge_common::Diagnostic::new(
+            codes::E028,
+            format!("extension entry '{key}' in specforge.json: {message}"),
+        )
+        .with_suggestion(suggestion)
     };
     if !file.is_file() {
         return Err(refused(
@@ -149,17 +147,11 @@ fn load_installed(
     lock: Option<&specforge_wasm::LockFile>,
 ) -> Result<(), specforge_common::Diagnostic> {
     let Some(entry) = lock.and_then(|lock| lock.entries.iter().find(|e| e.name == name)) else {
-        return Err(specforge_common::Diagnostic {
-            code: "E028".to_string(),
-            severity: specforge_common::Severity::Error,
-            message: format!(
-                "extension '{name}' is enabled in specforge.json but not installed (no specforge.lock entry)"
-            ),
-            span: None,
-            suggestion: Some(format!("install it with: specforge add {name}")),
-            data: None,
-            origin: None,
-        });
+        return Err(specforge_common::Diagnostic::new(
+            codes::E028,
+            format!("extension '{name}' is enabled in specforge.json but not installed (no specforge.lock entry)"),
+        )
+        .with_suggestion(format!("install it with: specforge add {name}")));
     };
     let wasm = specforge_wasm::installed_wasm_path(&root.join(".specforge/extensions"), name);
     specforge_wasm::load_wasm_module(name, &wasm, runtime, Some(&entry.wasm_hash))

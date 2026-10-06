@@ -4,7 +4,7 @@
 
 use crate::{OpError, OpErrorKind};
 use semver::{Version, VersionReq};
-use specforge_common::{Diagnostic, Severity};
+use specforge_common::{Diagnostic, codes};
 use specforge_registry::PeerDependency;
 use specforge_wasm::{LockFile, collect_peer_requirers};
 
@@ -40,9 +40,9 @@ pub fn check_diamonds(
         let published = versions(&peer.name)?;
         return match unify_diamond(&peer.name, &published, &requirers)
         {
-            Ok(unified) => Err(OpError::new(
+            Ok(unified) => Err(OpError::coded(
                 OpErrorKind::Conflict,
-                "R-RES-006",
+                codes::R_RES_006,
                 format!(
                     "version diamond: '{package}' requires peer '{}' {} but {} is locked; {} {unified} would satisfy every requirer",
                     peer.name, peer.version, locked.version, peer.name
@@ -69,17 +69,15 @@ fn unify_diamond(
 ) -> Result<String, Diagnostic> {
     let mut reqs = Vec::with_capacity(requirers.len());
     for (requirer, range) in requirers {
-        let req = VersionReq::parse(range).map_err(|e| Diagnostic {
-            code: "R-RES-003".to_string(),
-            severity: Severity::Error,
-            message: format!(
-                "'{}' declares an invalid version range '{}' for peer '{}': {}",
-                requirer, range, name, e
-            ),
-            span: None,
-            suggestion: Some("use semver syntax: ^1.0, ~2.3, >=1.0.0 <2.0.0".to_string()),
-            data: None,
-            origin: None,
+        let req = VersionReq::parse(range).map_err(|e| {
+            Diagnostic::new(
+                codes::R_RES_003,
+                format!(
+                    "'{}' declares an invalid version range '{}' for peer '{}': {}",
+                    requirer, range, name, e
+                ),
+            )
+            .with_suggestion("use semver syntax: ^1.0, ~2.3, >=1.0.0 <2.0.0".to_string())
         })?;
         reqs.push((requirer.as_str(), range.as_str(), req));
     }
@@ -101,22 +99,19 @@ fn unify_diamond(
             .map(|(requirer, range, _)| format!("{} wants {} {}", requirer, name, range))
             .collect::<Vec<_>>()
             .join("; ");
-        Diagnostic {
-            code: "R-RES-005".to_string(),
-            severity: Severity::Error,
-            message: format!(
+        Diagnostic::new(
+            codes::R_RES_005,
+            format!(
                 "version diamond for '{}': no single version satisfies every requirer ({}). Available: {}",
                 name,
                 wanted,
                 versions.join(", ")
             ),
-            span: None,
-            suggestion: Some(
-                "no version unifies these ranges; upgrade the requirer with the narrowest range or pin a compatible peer version manually".to_string(),
-            ),
-            data: None,
-            origin: None,
-        }
+        )
+        .with_suggestion(
+            "no version unifies these ranges; upgrade the requirer with the narrowest range or pin a compatible peer version manually"
+                .to_string(),
+        )
     })
 }
 
@@ -224,7 +219,7 @@ mod tests {
             &lock("^1.0"),
             "@acme/app",
             &[peer("@acme/base", "^2.0")],
-            &|_| Err(OpError::diagnostic("E063", "no registry")),
+            &|_| Err(OpError::diagnostic(codes::E063, "no registry")),
         )
         .unwrap_err();
         assert_eq!(err.code, "E063");

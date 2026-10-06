@@ -1,4 +1,4 @@
-use specforge_common::Diagnostic;
+use specforge_common::{Diagnostic, codes};
 use std::path::{Path, PathBuf};
 
 /// Formatter configuration, loaded from `.specforgefmt.toml` or defaults.
@@ -46,7 +46,7 @@ pub fn load_config(file_dir: &Path, project_root: &Path) -> (FormatConfig, Vec<D
 /// be read or parsed, and every invalid value, is a W141 naming the file;
 /// what is invalid falls back to its default.
 pub fn read_config_file(path: &Path) -> (FormatConfig, Vec<Diagnostic>) {
-    let invalid = |message: String| Diagnostic::warning("W141", message);
+    let invalid = |message: String| Diagnostic::new(codes::W141, message);
     let content = match std::fs::read_to_string(path) {
         Ok(content) => content,
         Err(e) => {

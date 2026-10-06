@@ -2,7 +2,7 @@
 //! the project view, as MCP inspect, the context prompt and the LSP hover
 //! render them (ADR 0015, section "Inspect").
 
-use specforge_common::{Diagnostic, DiagnosticData, SourceSpan, Sym};
+use specforge_common::{Diagnostic, DiagnosticData, Severity, SourceSpan, Sym};
 use specforge_ops::inspect::{Standing, inspect};
 use specforge_ops::navigate::{NOT_FOUND, Reference};
 use specforge_ops::view::ProjectView;
@@ -145,11 +145,20 @@ fn diagnostics_are_those_about_the_entity() {
         entity: entity.into(),
     };
     let reported = vec![
-        Diagnostic::warning("W003", "a finding").with_span(span("main.spec", 4, 8)),
-        Diagnostic::warning("W100", "a finding").with_span(span("main.spec", 2, 2)),
-        Diagnostic::warning("W101", "a finding").with_data(subject("task")),
-        Diagnostic::warning("W102", "a finding").with_data(subject("task_id_uniqueness")),
-        Diagnostic::warning("W103", "task is everywhere"),
+        Diagnostic::untyped("W003", Severity::Warning, "a finding").with_span(span(
+            "main.spec",
+            4,
+            8,
+        )),
+        Diagnostic::untyped("W100", Severity::Warning, "a finding").with_span(span(
+            "main.spec",
+            2,
+            2,
+        )),
+        Diagnostic::untyped("W101", Severity::Warning, "a finding").with_data(subject("task")),
+        Diagnostic::untyped("W102", Severity::Warning, "a finding")
+            .with_data(subject("task_id_uniqueness")),
+        Diagnostic::untyped("W103", Severity::Warning, "task is everywhere"),
     ];
     let view = project.view().reporting(&reported);
     let codes = |id: &str| -> Vec<String> {

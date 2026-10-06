@@ -16,6 +16,7 @@ wit-bindgen = "0.30"
 # The runtime contract and the SDK-declared greet served in process.
 specforge-extension-sdk = { path = "../specforge-extension-sdk" }
 specforge-protocol-types = { path = "../specforge-protocol-types" }
+specforge-diagnostics = { path = "../specforge-diagnostics" }
 specforge-wasm = { workspace = true, features = ["testing"] }
 tempfile = { workspace = true }
 wat = "=1.261.0"

@@ -168,15 +168,7 @@ fn graph_notification_format() {
 #[test]
 fn diagnostics_delta_detects_added() {
     let old: Vec<Diagnostic> = vec![];
-    let new = vec![Diagnostic {
-        code: "E001".into(),
-        severity: Severity::Error,
-        message: "test error".into(),
-        span: None,
-        suggestion: None,
-        data: None,
-        origin: None,
-    }];
+    let new = vec![Diagnostic::new(specforge_common::codes::E001, "test error")];
 
     let delta = compute_diagnostics_delta(&old, &new);
     assert_eq!(delta.added.len(), 1);
@@ -185,15 +177,7 @@ fn diagnostics_delta_detects_added() {
 
 #[test]
 fn diagnostics_delta_detects_removed() {
-    let old = vec![Diagnostic {
-        code: "E001".into(),
-        severity: Severity::Error,
-        message: "test error".into(),
-        span: None,
-        suggestion: None,
-        data: None,
-        origin: None,
-    }];
+    let old = vec![Diagnostic::new(specforge_common::codes::E001, "test error")];
     let new: Vec<Diagnostic> = vec![];
 
     let delta = compute_diagnostics_delta(&old, &new);
@@ -208,15 +192,11 @@ fn diagnostics_delta_detects_removed() {
 )]
 fn diagnostics_notification_format() {
     let old: Vec<Diagnostic> = vec![];
-    let new = vec![Diagnostic {
-        code: "W001".into(),
-        severity: Severity::Warning,
-        message: "test warning".into(),
-        span: None,
-        suggestion: None,
-        data: None,
-        origin: None,
-    }];
+    let new = vec![Diagnostic::untyped(
+        "W001",
+        Severity::Warning,
+        "test warning",
+    )];
 
     let delta = compute_diagnostics_delta(&old, &new);
     let notification = format_diagnostics_notification(&delta);
@@ -269,15 +249,7 @@ fn no_notification_when_graph_unchanged() {
     verify = "no notification when diagnostics are unchanged"
 )]
 fn diagnostics_no_notification_when_unchanged() {
-    let diags = vec![Diagnostic {
-        code: "E001".into(),
-        severity: Severity::Error,
-        message: "test error".into(),
-        span: None,
-        suggestion: None,
-        data: None,
-        origin: None,
-    }];
+    let diags = vec![Diagnostic::new(specforge_common::codes::E001, "test error")];
 
     let delta = compute_diagnostics_delta(&diags, &diags);
     assert!(delta.added.is_empty());

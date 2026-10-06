@@ -6,7 +6,7 @@
 
 use std::path::Path;
 
-use specforge_common::truncate_diagnostics;
+use specforge_common::{codes, truncate_diagnostics};
 use specforge_ops::analyze::{
     AnalyzeError, AnalyzeOptions, Gate, ProveOptions, ReportSource, analyze,
 };
@@ -58,11 +58,13 @@ pub fn run(
     for orphan in &outcome.orphans {
         match &orphan.near {
             Some(near) => eprintln!(
-                "W097: test record references unknown entity '{}' (did you mean '{near}'?)",
+                "{}: test record references unknown entity '{}' (did you mean '{near}'?)",
+                codes::W097,
                 orphan.entity_id
             ),
             None => eprintln!(
-                "W097: test record references unknown entity '{}'",
+                "{}: test record references unknown entity '{}'",
+                codes::W097,
                 orphan.entity_id
             ),
         }
@@ -122,7 +124,8 @@ pub fn run(
         Gate::NotRequested | Gate::Met => {}
         Gate::NoCoveragePass => {
             eprintln!(
-                "error[E068]: --min requires the coverage pass (pass=coverage or all) from @specforge/testing — enable it with `specforge add @specforge/testing`"
+                "error[{}]: --min requires the coverage pass (pass=coverage or all) from @specforge/testing — enable it with `specforge add @specforge/testing`",
+                codes::E068
             );
             return 2;
         }
@@ -139,7 +142,8 @@ pub fn run(
             total,
         } => {
             eprintln!(
-                "error[E048]: proof coverage {pct:.1}% is below the required minimum {min:.1}% ({proven}/{total} testable entities proven)"
+                "error[{}]: proof coverage {pct:.1}% is below the required minimum {min:.1}% ({proven}/{total} testable entities proven)",
+                codes::E048
             );
             return 1;
         }

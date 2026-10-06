@@ -6,7 +6,7 @@
 //! (ADR 0010). The CLI and MCP, whose `add` and `update` do, build an
 //! [`HttpRegistry`] and pass it in.
 
-use specforge_common::Diagnostic;
+use specforge_common::{Code, Diagnostic, codes};
 use specforge_ops::config::CONFIG_FILE;
 use specforge_ops::extension::Trust;
 use specforge_ops::registry::{
@@ -32,7 +32,7 @@ pub struct Configured {
 }
 
 /// The diagnostic for a registry configuration that can't be read.
-const INVALID_CONFIG: &str = "E067";
+const INVALID_CONFIG: Code = codes::E067;
 
 /// The registries the project at `root` configures.
 ///
@@ -48,17 +48,20 @@ pub fn configured(root: &Path, operation: &str) -> Result<Configured, OpError> {
     if registries.is_empty() {
         let unreadable: Vec<&str> = diagnostics
             .iter()
-            .filter(|d| d.code == INVALID_CONFIG)
+            .filter(|d| d.is(INVALID_CONFIG))
             .map(|d| d.message.as_str())
             .collect();
         if unreadable.is_empty() {
             return Err(no_registry(operation));
         }
-        return Err(
-            OpError::new(OpErrorKind::SchemaMismatch, INVALID_CONFIG, unreadable.join("; ")).with_suggestion(
-                "fix the \"registries\" entries in specforge.json: each needs an \"alias\" and a \"url\"",
-            ),
-        );
+        return Err(OpError::coded(
+            OpErrorKind::SchemaMismatch,
+            INVALID_CONFIG,
+            unreadable.join("; "),
+        )
+        .with_suggestion(
+            "fix the \"registries\" entries in specforge.json: each needs an \"alias\" and a \"url\"",
+        ));
     }
     Ok(Configured {
         registries,
@@ -139,7 +142,7 @@ impl Registry for HttpRegistry {
         // package (or another version) would be verified, pinned and
         // installed in place of the one asked for.
         if response.name != name || response.version != version {
-            return Err(OpError::new(
+            return Err(OpError::coded(
                 OpErrorKind::SchemaMismatch,
                 METADATA_MISMATCH,
                 format!(
@@ -163,7 +166,7 @@ impl Registry for HttpRegistry {
         // package pins no key.
         let declaration = read_declaration(name, version, &response.manifest)?;
         if declaration.name() != name || declaration.version() != version {
-            return Err(OpError::new(
+            return Err(OpError::coded(
                 OpErrorKind::SchemaMismatch,
                 METADATA_MISMATCH,
                 format!(
@@ -220,7 +223,7 @@ fn read_declaration(
     manifest: &str,
 ) -> Result<ExtensionDeclaration, OpError> {
     let unreadable = |why: String| {
-        OpError::new(
+        OpError::coded(
             OpErrorKind::SchemaMismatch,
             UNREADABLE_MANIFEST,
             format!("the manifest of {name}@{version} can't be read: {why}"),
@@ -254,11 +257,11 @@ mod tests {
         let registry = HttpRegistry::for_project(dir.path(), "update");
         assert!(registry.diagnostics().is_empty());
         let error = registry.versions("@sdk/greet").unwrap_err();
-        assert_eq!(error.code, specforge_ops::registry::NO_REGISTRY);
+        assert!(error.is(specforge_ops::registry::NO_REGISTRY), "{error:?}");
         assert!(error.message.contains("`update`"), "{error:?}");
         let error = registry
             .fetch("@sdk/greet", "0.1.0", false, Trust::Refuse)
             .unwrap_err();
-        assert_eq!(error.code, specforge_ops::registry::NO_REGISTRY);
+        assert!(error.is(specforge_ops::registry::NO_REGISTRY), "{error:?}");
     }
 }

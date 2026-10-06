@@ -78,8 +78,8 @@ pub fn truncate_diagnostics(diagnostics: &mut Vec<Diagnostic>) {
     if diagnostics.len() > MAX_DIAGNOSTICS {
         let total = diagnostics.len();
         diagnostics.truncate(MAX_DIAGNOSTICS);
-        diagnostics.push(Diagnostic::info(
-            "I999",
+        diagnostics.push(Diagnostic::new(
+            crate::codes::I999,
             format!(
                 "showing first {} of {} diagnostics — fix these and rerun",
                 MAX_DIAGNOSTICS, total

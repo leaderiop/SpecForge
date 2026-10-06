@@ -1,5 +1,5 @@
 use crate::{FileScope, ReexportDeclaration, ResolvedFile, ResolvedProject};
-use specforge_common::{Diagnostic, DiagnosticData, Severity, find_close_match};
+use specforge_common::{Diagnostic, DiagnosticData, codes, find_close_match};
 use specforge_parser::{SpecFile, parse};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::path::{Component, Path, PathBuf};
@@ -44,15 +44,10 @@ pub fn resolve_project_with_config(spec_root: &Path, config: &ResolveConfig) -> 
         let source = match std::fs::read_to_string(&path) {
             Ok(s) => s,
             Err(e) => {
-                diagnostics.push(Diagnostic {
-                    code: "E025".to_string(),
-                    severity: Severity::Error,
-                    message: format!("cannot read file: {}", e),
-                    span: None,
-                    suggestion: None,
-                    data: None,
-                    origin: None,
-                });
+                diagnostics.push(Diagnostic::new(
+                    codes::E025,
+                    format!("cannot read file: {}", e),
+                ));
                 continue;
             }
         };
@@ -162,33 +157,30 @@ pub fn resolve_parsed(
                     deps.push(target_rel);
                 }
                 Target::ExtensionStub { scope, name } => {
-                    diagnostics.push(Diagnostic {
-                        code: "I004".to_string(),
-                        severity: Severity::Info,
-                        message: format!(
-                            "extension import @{}/{} — extension not installed",
-                            scope, name
-                        ),
-                        span: Some(import.span.clone()),
-                        suggestion: None,
-                        data: None,
-                        origin: None,
-                    });
+                    diagnostics.push(
+                        Diagnostic::new(
+                            codes::I004,
+                            format!(
+                                "extension import @{}/{} — extension not installed",
+                                scope, name
+                            ),
+                        )
+                        .with_span(import.span.clone()),
+                    );
                 }
                 Target::NotFound => {
                     let close = find_close_match(import.path.as_str(), candidates.iter().copied());
-                    diagnostics.push(Diagnostic {
-                        code: "E025".to_string(),
-                        severity: Severity::Error,
-                        message: format!("import target not found: {}", import.path),
-                        span: Some(import.span.clone()),
-                        suggestion: close.map(|m| format!("did you mean '{}'?", m)),
-                        data: Some(Box::new(DiagnosticData::UnresolvedImport {
-                            path: import.path.to_string(),
-                            did_you_mean: close.map(str::to_string),
-                        })),
-                        origin: None,
+                    let mut diagnostic = Diagnostic::new(
+                        codes::E025,
+                        format!("import target not found: {}", import.path),
+                    )
+                    .with_span(import.span.clone())
+                    .with_data(DiagnosticData::UnresolvedImport {
+                        path: import.path.to_string(),
+                        did_you_mean: close.map(str::to_string),
                     });
+                    diagnostic.suggestion = close.map(|m| format!("did you mean '{}'?", m));
+                    diagnostics.push(diagnostic);
                 }
             }
         }
@@ -199,15 +191,15 @@ pub fn resolve_parsed(
     // Import cycles: each named from its smallest path, in sorted order.
     let cycles = detect_cycles(&import_graph);
     for cycle in &cycles {
-        diagnostics.push(Diagnostic {
-            code: "W113".to_string(),
-            severity: Severity::Warning,
-            message: format!("circular import detected: {}", cycle.join(" -> ")),
-            span: None,
-            suggestion: Some("break the cycle by removing one of the `use` imports or extracting shared entities into a separate file".to_string()),
-            data: None,
-            origin: None,
-        });
+        diagnostics.push(
+            Diagnostic::new(
+                codes::W113,
+                format!("circular import detected: {}", cycle.join(" -> ")),
+            )
+            .with_suggestion(
+                "break the cycle by removing one of the `use` imports or extracting shared entities into a separate file".to_string(),
+            ),
+        );
     }
 
     // File scopes (declared + re-exported entities per file), computed in
@@ -567,18 +559,16 @@ fn compute_file_scopes(
                             let export_name = binding.alias.as_ref().unwrap_or(&binding.name);
                             additional_exports.insert(export_name.clone());
                         } else {
-                            diagnostics.push(Diagnostic {
-                                code: "W027".to_string(),
-                                severity: Severity::Warning,
-                                message: format!(
-                                    "selective re-export '{}' not found in target '{}'",
-                                    binding.name, reexport.target_path
-                                ),
-                                span: Some(reexport.span.clone()),
-                                suggestion: None,
-                                data: None,
-                                origin: None,
-                            });
+                            diagnostics.push(
+                                Diagnostic::new(
+                                    codes::W027,
+                                    format!(
+                                        "selective re-export '{}' not found in target '{}'",
+                                        binding.name, reexport.target_path
+                                    ),
+                                )
+                                .with_span(reexport.span.clone()),
+                            );
                         }
                     }
                 }

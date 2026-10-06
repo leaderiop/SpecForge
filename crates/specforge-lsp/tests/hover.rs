@@ -2,7 +2,7 @@
 //! by the inspect read view (`specforge_ops::inspect`) and rendered as the
 //! backend renders them; a field's help; the diagnostics under the cursor.
 
-use specforge_common::{SourceSpan, Sym};
+use specforge_common::{Severity, SourceSpan, Sym};
 use specforge_graph::{Edge, Graph, Node};
 use specforge_lsp::LineIndex;
 use specforge_ops::view::ProjectView;
@@ -481,14 +481,18 @@ fn hover_lists_the_diagnostics_not_already_shown() {
     g.add_edge(edge("alpha", "beta", "depends_on"));
     g.add_edge(edge("beta", "alpha", "depends_on"));
     // Spanless: about the entities its data names.
-    let cycle = Diagnostic::warning("W061", "reference cycle detected: alpha -> beta -> alpha")
-        .with_data(DiagnosticData::ReferenceCycle {
-            path: vec!["alpha".into(), "beta".into(), "alpha".into()],
-        });
-    let third_party =
-        Diagnostic::warning("X900", "acme says no").with_data(DiagnosticData::Subject {
+    let cycle = Diagnostic::new(
+        specforge_common::codes::W061,
+        "reference cycle detected: alpha -> beta -> alpha",
+    )
+    .with_data(DiagnosticData::ReferenceCycle {
+        path: vec!["alpha".into(), "beta".into(), "alpha".into()],
+    });
+    let third_party = Diagnostic::untyped("X900", Severity::Warning, "acme says no").with_data(
+        DiagnosticData::Subject {
             entity: "beta".into(),
-        });
+        },
+    );
     let reported = vec![cycle.clone(), third_party];
     let env = Environment::empty();
     let recorded = RecordedCoverage::default();
@@ -606,21 +610,14 @@ fn diagnostic_at(
     start: usize,
     end: usize,
 ) -> specforge_common::Diagnostic {
-    specforge_common::Diagnostic {
-        code: code.into(),
-        severity: specforge_common::Severity::Error,
-        message: message.into(),
-        span: Some(SourceSpan {
+    specforge_common::Diagnostic::untyped(code, specforge_common::Severity::Error, message)
+        .with_span(SourceSpan {
             file: Sym::new("test.spec"),
             start_line: line,
             start_col: start,
             end_line: line,
             end_col: end,
-        }),
-        suggestion: None,
-        data: None,
-        origin: None,
-    }
+        })
 }
 
 /// The cursor section of the hover at `position`: the published

@@ -246,6 +246,7 @@ pub fn check(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use specforge_common::codes;
     use specforge_graph::Graph;
     use specforge_project::CompiledProject;
     use specforge_project::coverage::RecordedCoverage;
@@ -458,7 +459,7 @@ mod tests {
         let env = specforge_project::Environment::with_registries(RegistryBuild::default());
         let recorded = RecordedCoverage::default();
         let view = ProjectView::new(&graph, &env, None, &recorded);
-        let reported = vec![Diagnostic::warning("W002", "unused")];
+        let reported = vec![Diagnostic::untyped("W002", Severity::Warning, "unused")];
 
         for options in [
             CheckOptions {
@@ -552,12 +553,12 @@ mod tests {
     #[test]
     fn counts_of_mixed() {
         let diagnostics = [
-            Diagnostic::error("E003", "a"),
-            Diagnostic::warning("W003", "b"),
-            Diagnostic::warning("W004", "c"),
-            Diagnostic::info("I067", "d"),
-            Diagnostic::info("I068", "e"),
-            Diagnostic::info("I080", "f"),
+            Diagnostic::new(codes::E003, "a"),
+            Diagnostic::untyped("W003", Severity::Warning, "b"),
+            Diagnostic::untyped("W004", Severity::Warning, "c"),
+            Diagnostic::untyped("I067", Severity::Info, "d"),
+            Diagnostic::untyped("I068", Severity::Info, "e"),
+            Diagnostic::untyped("I080", Severity::Info, "f"),
         ];
         assert_eq!(
             Counts::of(&diagnostics),

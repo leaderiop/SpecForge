@@ -70,15 +70,10 @@ async fn did_close_removes_document() {
 const LOGIN: &str = "behavior login \"Login\" {\n  invariants [session_limit]\n}\n";
 
 fn e003() -> specforge_common::Diagnostic {
-    specforge_common::Diagnostic {
-        code: "E003".into(),
-        suggestion: None,
-        message: "unresolved reference 'session_limit' in entity 'login'".into(),
-        severity: specforge_common::Severity::Error,
-        span: None,
-        data: None,
-        origin: None,
-    }
+    specforge_common::Diagnostic::new(
+        specforge_common::codes::E003,
+        "unresolved reference 'session_limit' in entity 'login'",
+    )
 }
 
 #[test]

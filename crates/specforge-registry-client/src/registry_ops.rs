@@ -3,7 +3,7 @@
 use std::collections::HashSet;
 
 use sha2::{Digest, Sha256};
-use specforge_common::{Diagnostic, Severity};
+use specforge_common::{Diagnostic, codes};
 
 use super::registry_client::{
     RegistryClient, RegistryError, RegistryResponse, RegistrySearchResult,
@@ -27,19 +27,15 @@ pub fn resolve_from_registry(
     registries: &[RegistryConfig],
     client: &dyn RegistryClient,
 ) -> Result<RegistryResponse, Diagnostic> {
-    let registry = find_registry_for_specifier(specifier, registries).ok_or_else(|| Diagnostic {
-        code: "R-OPS-001".to_string(),
-        severity: Severity::Error,
-        message: format!(
-            "No registry found for specifier '{specifier}'. No scope match and no default registry configured."
-        ),
-        span: None,
-        suggestion: Some(
+    let registry = find_registry_for_specifier(specifier, registries).ok_or_else(|| {
+        Diagnostic::new(
+            codes::R_OPS_001,
+            format!("No registry found for specifier '{specifier}'. No scope match and no default registry configured."),
+        )
+        .with_suggestion(
             "Configure a default registry or add a scope-filtered registry matching this package."
                 .to_string(),
-        ),
-        data: None,
-        origin: None,
+        )
     })?;
 
     client.fetch(specifier, registry).map_err(|e| {
@@ -113,14 +109,11 @@ pub fn publish_to_registry(
     force: bool,
     signing: Option<&crate::SigningKey>,
 ) -> Result<String, Diagnostic> {
-    let manifest_json = serde_json::to_string(declaration).map_err(|e| Diagnostic {
-        code: "R-OPS-003".to_string(),
-        severity: specforge_common::Severity::Error,
-        message: format!("failed to serialize the declaration: {}", e),
-        span: None,
-        suggestion: None,
-        data: None,
-        origin: None,
+    let manifest_json = serde_json::to_string(declaration).map_err(|e| {
+        Diagnostic::new(
+            codes::R_OPS_003,
+            format!("failed to serialize the declaration: {}", e),
+        )
     })?;
 
     // Sign when a key is provided: the payload binds the exact uploaded
@@ -174,20 +167,14 @@ pub fn verify_registry_integrity(data: &[u8], expected_sha256: &str) -> Result<(
     if actual == expected_sha256 {
         Ok(())
     } else {
-        Err(Diagnostic {
-            code: "R-OPS-002".to_string(),
-            severity: Severity::Error,
-            message: format!(
-                "SHA256 integrity check failed. Expected '{expected_sha256}', got '{actual}'."
-            ),
-            span: None,
-            suggestion: Some(
-                "The downloaded package may be corrupted or tampered with. Try downloading again."
-                    .to_string(),
-            ),
-            data: None,
-            origin: None,
-        })
+        Err(Diagnostic::new(
+            codes::R_OPS_002,
+            format!("SHA256 integrity check failed. Expected '{expected_sha256}', got '{actual}'."),
+        )
+        .with_suggestion(
+            "The downloaded package may be corrupted or tampered with. Try downloading again."
+                .to_string(),
+        ))
     }
 }
 
@@ -215,37 +202,31 @@ pub fn verify_package_signature(
         return Ok(TrustCheck::Unsigned);
     }
 
-    let code = "R-TRUST-002";
+    let code = codes::R_TRUST_002;
     let signature: crate::PackageSignature =
-        serde_json::from_str(&response.signature).map_err(|e| Diagnostic {
-            code: code.to_string(),
-            severity: Severity::Error,
-            message: format!(
-                "unparseable package signature for '{}': {}",
-                response.name, e
-            ),
-            span: None,
-            suggestion: Some("refuse this package; the registry response is malformed".to_string()),
-            data: None,
-            origin: None,
+        serde_json::from_str(&response.signature).map_err(|e| {
+            Diagnostic::new(
+                code,
+                format!(
+                    "unparseable package signature for '{}': {}",
+                    response.name, e
+                ),
+            )
+            .with_suggestion("refuse this package; the registry response is malformed".to_string())
         })?;
 
     // Cross-check the server-extracted key id against the signature object:
     // a mismatch means registry metadata was edited independently of the
     // signature (or is stale).
     if !response.key_id.is_empty() && response.key_id != signature.key_id {
-        return Err(Diagnostic {
-            code: "R-TRUST-004".to_string(),
-            severity: Severity::Error,
-            message: format!(
+        return Err(Diagnostic::new(
+            codes::R_TRUST_004,
+            format!(
                 "metadata inconsistency for '{}': registry says key '{}' but signature carries '{}'",
                 response.name, response.key_id, signature.key_id
             ),
-            span: None,
-            suggestion: Some("refuse this package and verify the registry".to_string()),
-            data: None,
-            origin: None,
-        });
+        )
+        .with_suggestion("refuse this package and verify the registry".to_string()));
     }
 
     let manifest_sha256 = hex_sha256(response.manifest.as_bytes());
@@ -257,19 +238,17 @@ pub fn verify_package_signature(
         &manifest_sha256,
         &signature,
     )
-    .map_err(|message| Diagnostic {
-        code: code.to_string(),
-        severity: Severity::Error,
-        message: format!(
-            "signature verification failed for '{}': {}",
-            response.name, message
-        ),
-        span: None,
-        suggestion: Some(
+    .map_err(|message| {
+        Diagnostic::new(
+            code,
+            format!(
+                "signature verification failed for '{}': {}",
+                response.name, message
+            ),
+        )
+        .with_suggestion(
             "the package does not match its publisher signature; do not install it".to_string(),
-        ),
-        data: None,
-        origin: None,
+        )
     })?;
 
     Ok(TrustCheck::Verified {

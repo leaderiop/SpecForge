@@ -1,4 +1,4 @@
-use specforge_common::{Diagnostic, DiagnosticData, SourceSpan, Sym, find_close_match};
+use specforge_common::{Diagnostic, DiagnosticData, SourceSpan, Sym, codes, find_close_match};
 use specforge_parser::{EntityId, EntityKind, FieldMap, FieldValue};
 use std::collections::{BTreeMap, HashMap, HashSet};
 
@@ -164,8 +164,8 @@ impl Graph {
             .flatten()
             .collect();
 
-            return Some(Diagnostic::warning(
-                "W011",
+            return Some(Diagnostic::new(
+                codes::W011,
                 format!(
                     "edge '{}' --[{}]--> '{}': node(s) not found: {}",
                     edge.source.as_str(),
@@ -428,8 +428,8 @@ impl Graph {
                                 entry.key.as_str().to_string(),
                             )) {
                                 diagnostics.push(
-                                    Diagnostic::info(
-                                        "I004",
+                                    Diagnostic::new(
+                                        codes::I004,
                                         format!(
                                             "reference '{}' in field '{}' of '{}' targets kind '{}', which no enabled extension provides",
                                             target_id, entry.key, node_id, target_kind
@@ -445,8 +445,8 @@ impl Graph {
                                     target_id,
                                     entity_ids.iter().map(|s| s.as_str()),
                                 );
-                                let mut diag = Diagnostic::error(
-                                    "E003",
+                                let mut diag = Diagnostic::new(
+                                    codes::E003,
                                     format!(
                                         "unresolved reference '{}' in entity '{}'",
                                         target_id, node_id

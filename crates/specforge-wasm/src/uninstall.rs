@@ -1,5 +1,5 @@
 use crate::lock_file::LockFile;
-use specforge_common::{Diagnostic, Severity};
+use specforge_common::{Diagnostic, codes};
 use std::path::Path;
 
 /// Uninstall `name`: remove it from `lock`, then delete its directory under
@@ -25,19 +25,15 @@ pub fn uninstall_extension(
         if let Some(entry) = entry {
             lock.entries.push(entry);
         }
-        return Err(Diagnostic {
-            code: "E032".to_string(),
-            severity: Severity::Error,
-            message: format!(
+        return Err(Diagnostic::new(
+            codes::E032,
+            format!(
                 "failed to remove extension directory '{}': {}",
                 ext_dir.display(),
                 e
             ),
-            span: None,
-            suggestion: Some(format!("manually remove '{}'", ext_dir.display())),
-            data: None,
-            origin: None,
-        });
+        )
+        .with_suggestion(format!("manually remove '{}'", ext_dir.display())));
     }
 
     Ok(())

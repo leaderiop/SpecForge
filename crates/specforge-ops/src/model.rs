@@ -4,7 +4,7 @@
 //! 0015). Each enumerated argument is an option table here (ADR 0027), so
 //! both surfaces list, accept, default and refuse the same names.
 
-use specforge_common::Diagnostic;
+use specforge_common::{Diagnostic, codes};
 use specforge_emitter::GraphProtocolSchema;
 use specforge_emitter::model::{ModelIntermediate_from_schema, filter_entities, filter_fields};
 use specforge_emitter::outline::OutlineIntermediate_from_declarations;
@@ -43,7 +43,7 @@ pub fn render_schema(
     let warnings = model
         .warnings
         .iter()
-        .map(|warning| Diagnostic::warning("W146", format!("model: {warning}")))
+        .map(|warning| Diagnostic::new(codes::W146, format!("model: {warning}")))
         .collect();
     let model = filter_entities(&model, options);
     let model = filter_fields(&model, options.fields);

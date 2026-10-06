@@ -1,4 +1,4 @@
-use specforge_common::{SourceSpan, Sym};
+use specforge_common::{Severity, SourceSpan, Sym};
 use specforge_graph::{Edge, Graph, Node};
 use specforge_parser::{EntityId, EntityKind, FieldMap, FieldValue, VerifyStatement};
 use specforge_test::prelude::*;
@@ -167,24 +167,8 @@ fn stats_coverage_zero_when_no_testable_entities() {
 fn stats_includes_diagnostic_summary() {
     let graph = Graph::new();
     let diagnostics = vec![
-        specforge_common::Diagnostic {
-            code: "E001".to_string(),
-            severity: specforge_common::Severity::Error,
-            message: "bad ref".to_string(),
-            span: None,
-            suggestion: None,
-            data: None,
-            origin: None,
-        },
-        specforge_common::Diagnostic {
-            code: "W012".to_string(),
-            severity: specforge_common::Severity::Warning,
-            message: "orphan".to_string(),
-            span: None,
-            suggestion: None,
-            data: None,
-            origin: None,
-        },
+        specforge_common::Diagnostic::new(specforge_common::codes::E001, "bad ref".to_string()),
+        specforge_common::Diagnostic::new(specforge_common::codes::W012, "orphan".to_string()),
     ];
     let stats = crate::view_support::stats_of(&graph, &[], &diagnostics);
     assert_eq!(stats.error_count, 1);
@@ -302,8 +286,8 @@ fn stats_today_through_the_registries() {
         crate::view_support::registries(&["behavior"], &[]),
     );
     let diagnostics = vec![
-        specforge_common::Diagnostic::error("E001", "err"),
-        specforge_common::Diagnostic::warning("W002", "warn"),
+        specforge_common::Diagnostic::new(specforge_common::codes::E001, "err"),
+        specforge_common::Diagnostic::untyped("W002", Severity::Warning, "warn"),
     ];
     let stats = specforge_ops::stats::stats(&project.view().reporting(&diagnostics)).unwrap();
     assert_eq!(debug_body(&stats), STATS_TODAY);

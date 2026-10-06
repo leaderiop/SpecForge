@@ -1,5 +1,5 @@
 use crate::ValidatorConfig;
-use specforge_common::{Diagnostic, find_close_match};
+use specforge_common::{Diagnostic, codes, find_close_match};
 use specforge_graph::Graph;
 use specforge_parser::FieldValue;
 use std::path::Path;
@@ -20,8 +20,8 @@ pub fn validate_file_references(
                     let full_path = config.spec_root.join(path);
                     if !full_path.exists() {
                         let suggestion = suggest_similar_file(path, &config.spec_root);
-                        let mut diag = Diagnostic::error(
-                            "E016",
+                        let mut diag = Diagnostic::new(
+                            codes::E016,
                             format!(
                                 "file reference '{}' in entity '{}' does not exist",
                                 path, node.id.raw

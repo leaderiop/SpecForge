@@ -1,6 +1,6 @@
 use crate::entity::EntityRecord;
 use crate::{FieldRegistry, KindRegistry};
-use specforge_common::{Diagnostic, DiagnosticData, Severity};
+use specforge_common::{Diagnostic, DiagnosticData, codes};
 use std::collections::HashMap;
 
 /// A keyword-to-extension index for suggesting missing extensions.
@@ -80,18 +80,16 @@ pub fn detect_unknown_entity_kinds(
             }
         });
 
-        diagnostics.push(Diagnostic {
-            code: "E024".to_string(),
-            severity: Severity::Error,
-            message: format!(
+        let mut diagnostic = Diagnostic::new(
+            codes::E024,
+            format!(
                 "unknown entity kind '{}' for entity '{}' at {}",
                 keyword, id, span.file
             ),
-            span: Some(span.clone()),
-            suggestion,
-            data: None,
-            origin: None,
-        });
+        )
+        .with_span(span.clone());
+        diagnostic.suggestion = suggestion;
+        diagnostics.push(diagnostic);
     }
 
     diagnostics
@@ -125,22 +123,22 @@ pub fn detect_reserved_entity_ids(
         if !reserved.contains(id) {
             continue;
         }
-        diagnostics.push(Diagnostic {
-            code: "E013".to_string(),
-            severity: Severity::Error,
-            message: format!(
-                "entity ID '{}' collides with a reserved keyword at {}",
-                id, span.file
-            ),
-            span: Some(span.clone()),
-            suggestion: Some(format!(
+        diagnostics.push(
+            Diagnostic::new(
+                codes::E013,
+                format!(
+                    "entity ID '{}' collides with a reserved keyword at {}",
+                    id, span.file
+                ),
+            )
+            .with_span(span.clone())
+            .with_suggestion(format!(
                 "rename the entity (e.g. `{id}_rule`, `{id}_spec`) — reserved words cannot be identifiers"
-            )),
-            data: Some(Box::new(DiagnosticData::ShadowedKeyword {
+            ))
+            .with_data(DiagnosticData::ShadowedKeyword {
                 keyword: id.to_string(),
-            })),
-            origin: None,
-        });
+            }),
+        );
     }
     diagnostics
 }
@@ -155,20 +153,19 @@ pub fn detect_identifier_length_violations(entities: &[EntityRecord]) -> Vec<Dia
         if (2..=60).contains(&len) {
             continue;
         }
-        diagnostics.push(Diagnostic {
-            code: "E014".to_string(),
-            severity: Severity::Error,
-            message: format!(
-                "entity ID '{}' violates the identifier length contract (2-60 chars, got {len}) at {}",
-                id, span.file
-            ),
-            span: Some(span.clone()),
-            suggestion: Some(
+        diagnostics.push(
+            Diagnostic::new(
+                codes::E014,
+                format!(
+                    "entity ID '{}' violates the identifier length contract (2-60 chars, got {len}) at {}",
+                    id, span.file
+                ),
+            )
+            .with_span(span.clone())
+            .with_suggestion(
                 "pick a descriptive identifier between 2 and 60 characters".to_string(),
             ),
-            data: None,
-            origin: None,
-        });
+        );
     }
     diagnostics
 }
@@ -221,18 +218,16 @@ pub fn detect_unknown_entity_fields(
                         )
                     })
             };
-            diagnostics.push(Diagnostic {
-                code: "W020".to_string(),
-                severity: Severity::Warning,
-                message: format!(
+            let mut diagnostic = Diagnostic::new(
+                codes::W020,
+                format!(
                     "unrecognized field '{}' on entity '{}' of kind '{}' at {}",
                     field_name, id, kind, span.file
                 ),
-                span: Some(span.clone()),
-                suggestion,
-                data: None,
-                origin: None,
-            });
+            )
+            .with_span(span.clone());
+            diagnostic.suggestion = suggestion;
+            diagnostics.push(diagnostic);
         }
     }
 
@@ -279,18 +274,21 @@ pub fn detect_mistyped_references(
                 if let Some(&actual_kind) = node_kind_index.get(target_id.as_str())
                     && actual_kind != expected_kind
                 {
-                    diagnostics.push(Diagnostic {
-                        code: "E022".to_string(),
-                        severity: Severity::Error,
-                        message: format!(
-                            "reference '{}' in field '{}' of {} '{}' targets a {}, but this field expects {}",
-                            target_id, field_name, entity_kind, entity_id, actual_kind, expected_kind
-                        ),
-                        span: Some(span.clone()),
-                        suggestion: None,
-                        data: None,
-                        origin: None,
-                    });
+                    diagnostics.push(
+                        Diagnostic::new(
+                            codes::E022,
+                            format!(
+                                "reference '{}' in field '{}' of {} '{}' targets a {}, but this field expects {}",
+                                target_id,
+                                field_name,
+                                entity_kind,
+                                entity_id,
+                                actual_kind,
+                                expected_kind
+                            ),
+                        )
+                        .with_span(span.clone()),
+                    );
                 }
             }
         }

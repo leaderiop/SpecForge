@@ -609,7 +609,7 @@ fn the_referencing_filter_keeps_the_entities_that_reference_the_target() {
 
 // ── Attribution: which entities a diagnostic is about ──────────────────
 
-use specforge_common::{Diagnostic, DiagnosticData, Sym};
+use specforge_common::{Diagnostic, DiagnosticData, Severity, Sym};
 use specforge_ops::navigate::{is_about, subjects};
 
 fn ids(nodes: &[&specforge_graph::Node]) -> Vec<String> {
@@ -636,23 +636,23 @@ fn a_diagnostic_is_about_what_its_data_names() {
         )],
     );
     let graph = &p.project.graph;
-    let cycle = Diagnostic::warning("W061", "reference cycle detected").with_data(
-        DiagnosticData::ReferenceCycle {
+    let cycle = Diagnostic::new(specforge_common::codes::W061, "reference cycle detected")
+        .with_data(DiagnosticData::ReferenceCycle {
             path: vec!["beta".into(), "alpha".into(), "beta".into()],
-        },
-    );
+        });
     assert_eq!(ids(&subjects(graph, &cycle)), ["beta", "alpha"]);
     // Data wins over the span.
-    let named = Diagnostic::warning("W900", "x")
+    let named = Diagnostic::untyped("W900", Severity::Warning, "x")
         .with_span(span("a.spec", (1, 1), (3, 2)))
         .with_data(DiagnosticData::Subject {
             entity: "beta".into(),
         });
     assert_eq!(ids(&subjects(graph, &named)), ["beta"]);
     // A name the graph lacks attributes nothing, unless the span does.
-    let ghost = Diagnostic::warning("W900", "x").with_data(DiagnosticData::Subject {
-        entity: "ghost".into(),
-    });
+    let ghost =
+        Diagnostic::untyped("W900", Severity::Warning, "x").with_data(DiagnosticData::Subject {
+            entity: "ghost".into(),
+        });
     assert!(subjects(graph, &ghost).is_empty());
     let ghost_inside = ghost.clone().with_span(span("a.spec", (2, 3), (2, 10)));
     assert_eq!(ids(&subjects(graph, &ghost_inside)), ["alpha"]);
@@ -671,13 +671,22 @@ fn a_spanned_diagnostic_is_about_the_innermost_block_holding_it_by_column() {
     let alpha = &graph.node("alpha").unwrap().source_span;
     let beta = &graph.node("beta").unwrap().source_span;
     assert_eq!(alpha.start_line, beta.start_line, "one line, two blocks");
-    let at =
-        |col| Diagnostic::warning("W900", "x").with_span(span("a.spec", (1, col), (1, col + 1)));
+    let at = |col| {
+        Diagnostic::untyped("W900", Severity::Warning, "x").with_span(span(
+            "a.spec",
+            (1, col),
+            (1, col + 1),
+        ))
+    };
     assert_eq!(ids(&subjects(graph, &at(alpha.start_col + 2))), ["alpha"]);
     assert_eq!(ids(&subjects(graph, &at(beta.start_col + 2))), ["beta"]);
     // Between the blocks, and in another file: nobody's.
     assert!(subjects(graph, &at(alpha.end_col)).is_empty());
-    let elsewhere = Diagnostic::warning("W900", "x").with_span(span("b.spec", (1, 1), (1, 2)));
+    let elsewhere = Diagnostic::untyped("W900", Severity::Warning, "x").with_span(span(
+        "b.spec",
+        (1, 1),
+        (1, 2),
+    ));
     assert!(subjects(graph, &elsewhere).is_empty());
 }
 
@@ -685,7 +694,11 @@ fn a_spanned_diagnostic_is_about_the_innermost_block_holding_it_by_column() {
 fn the_message_is_never_read() {
     let p = nav();
     let graph = &p.project.graph;
-    let quoting = Diagnostic::warning("W900", "invariant 'session_limit' is spanless");
+    let quoting = Diagnostic::untyped(
+        "W900",
+        Severity::Warning,
+        "invariant 'session_limit' is spanless",
+    );
     assert!(subjects(graph, &quoting).is_empty());
     assert!(!is_about(graph, &quoting, "session_limit"));
     // E003 is about the entity holding the unresolved reference.
@@ -1221,8 +1234,11 @@ fn the_stub_is_a_bare_block() {
 /// An E003 at `span` whose message says nothing a parser could use: only
 /// its data names the reference.
 fn reworded_e003(span: SourceSpan, data: Option<DiagnosticData>) -> Diagnostic {
-    let mut diagnostic =
-        Diagnostic::error("E003", "this wording is not a contract").with_span(span);
+    let mut diagnostic = Diagnostic::new(
+        specforge_common::codes::E003,
+        "this wording is not a contract",
+    )
+    .with_span(span);
     diagnostic.data = data.map(Box::new);
     diagnostic
 }

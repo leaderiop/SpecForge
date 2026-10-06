@@ -33,6 +33,7 @@ mod watch;
 use clap::builder::{PossibleValuesParser, TypedValueParser};
 use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
 use clap_complete::Shell;
+use specforge_common::{Code, Diagnostic};
 use std::path::{Path, PathBuf};
 
 #[derive(Parser)]
@@ -83,10 +84,17 @@ impl OutputFormat {
     }
 
     /// Report a failure with diagnostic `code`, as [`Self::print_op_error`].
-    fn print_error(self, message: &str, code: &str) {
-        self.print_op_error(&specforge_ops::OpError::diagnostic(
-            code.to_string(),
-            message,
+    fn print_error(self, message: &str, code: Code) {
+        self.print_op_error(&specforge_ops::OpError::diagnostic(code, message));
+    }
+
+    /// Report a diagnostic that stopped the command, under the code it
+    /// carries as text (an extension's, or a registry's).
+    fn print_diagnostic(self, diagnostic: &Diagnostic) {
+        self.print_op_error(&specforge_ops::OpError::new(
+            specforge_ops::OpErrorKind::of_diagnostic(&diagnostic.code),
+            diagnostic.code.clone(),
+            diagnostic.message.clone(),
         ));
     }
 

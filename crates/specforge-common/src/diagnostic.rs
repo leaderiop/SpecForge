@@ -24,7 +24,21 @@ impl Severity {
 
 /// A compiler message. Built from a code ([`Diagnostic::new`],
 /// [`Diagnostic::graded`]), or, where a code arrives as text,
-/// [`Diagnostic::untyped`].
+/// [`Diagnostic::untyped`]; never as a struct literal outside this crate
+/// (`#[non_exhaustive]`), so no site chooses a severity for a core code.
+///
+/// ```compile_fail,E0639
+/// let d = specforge_common::Diagnostic {
+///     code: "W112".into(),
+///     severity: specforge_common::Severity::Error,
+///     message: String::new(),
+///     span: None,
+///     suggestion: None,
+///     data: None,
+///     origin: None,
+/// };
+/// ```
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Diagnostic {
     pub code: String,
@@ -199,42 +213,6 @@ impl Diagnostic {
     /// Whether this diagnostic is of `code`.
     pub fn is(&self, code: Code) -> bool {
         code.matches(&self.code)
-    }
-
-    pub fn error(code: impl Into<String>, message: impl Into<String>) -> Self {
-        Self {
-            code: code.into(),
-            severity: Severity::Error,
-            message: message.into(),
-            span: None,
-            suggestion: None,
-            data: None,
-            origin: None,
-        }
-    }
-
-    pub fn warning(code: impl Into<String>, message: impl Into<String>) -> Self {
-        Self {
-            code: code.into(),
-            severity: Severity::Warning,
-            message: message.into(),
-            span: None,
-            suggestion: None,
-            data: None,
-            origin: None,
-        }
-    }
-
-    pub fn info(code: impl Into<String>, message: impl Into<String>) -> Self {
-        Self {
-            code: code.into(),
-            severity: Severity::Info,
-            message: message.into(),
-            span: None,
-            suggestion: None,
-            data: None,
-            origin: None,
-        }
     }
 
     pub fn with_span(mut self, span: SourceSpan) -> Self {

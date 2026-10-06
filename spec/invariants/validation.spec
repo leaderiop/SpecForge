@@ -45,8 +45,8 @@ invariant diagnostic_code_uniqueness "Diagnostic Code Uniqueness" {
     client's R### and R-<AREA>-###) MUST have exactly one meaning, one
     owner (core or one extension) and one level, all stated once in the
     diagnostic catalog. Several rules of the owning extension MAY share
-    a code (one per target kind). A diagnostic the host builds from a
-    core code's constant has the code's level; only a diagnostic policy
+    a code (one per target kind). The host builds a diagnostic only from
+    a core code's constant, at the code's level; only a diagnostic policy
     changes a severity afterwards. A code an extension reports MUST be
     its own catalogued code at its catalogued level, or a code in
     E900-E998, W900-W998 or I900-I998 whose prefix states its level;

@@ -6,10 +6,11 @@ This page is generated from the catalog table in `crates/specforge-diagnostics/s
 the single registry of diagnostic codes; `specforge explain <CODE>` prints the
 same text. Every code emitted by the compiler, the CLI, or a first-party
 extension has exactly one entry, and each entry names its owner: `core` for the
-compiler and CLI, or the `@specforge/<name>` extension that emits it. The same
-table generates a typed constant for every core code
-(`specforge_diagnostics::codes`). A test fails when an emitted code is missing
-here, is attributed to the wrong owner, or is listed but never emitted.
+compiler and CLI, or the `@specforge/<name>` extension that emits it. The
+compiler and CLI name each code through a typed constant generated from this
+table (`specforge_diagnostics::codes`), and a test fails when a code an
+extension emits is missing here, belongs to another owner, or when a listed
+code is never emitted.
 
 Codes follow the pattern `E###` (error), `W###` (warning) and `I###` (info);
 `A###` codes are `specforge analyze` findings, whose severity the pass sets.

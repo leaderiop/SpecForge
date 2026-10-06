@@ -3,6 +3,7 @@
 use super::{Origin, builtin_name, check_diamonds, extensions_dir, lock_path};
 use crate::registry::Registry;
 use crate::{OpError, OpErrorKind, Writes};
+use specforge_common::codes;
 use specforge_protocol_types::ExtensionDeclaration;
 use specforge_wasm::{
     ExtensionSpecifier, install_extension, parse_extension_specifier, read_lock_file,
@@ -152,7 +153,7 @@ pub fn add(req: &AddRequest, registry: &dyn Registry) -> Result<Added, OpError> 
             add_from_registry(req, registry, name, range, &mut writes)
         }
         Source::Git { url } => Err(OpError::diagnostic(
-            "E064",
+            codes::E064,
             format!("git source '{url}' not yet supported"),
         )),
     }?;
@@ -212,7 +213,7 @@ fn config_error(e: OpError) -> OpError {
         Some(hint) => format!("{} — {hint}", e.message),
         None => e.message.clone(),
     };
-    OpError::diagnostic("E032", message)
+    OpError::diagnostic(codes::E032, message)
 }
 
 fn add_local(req: &AddRequest, path: &Path, writes: &mut Writes) -> Result<AddOutcome, OpError> {
@@ -222,7 +223,7 @@ fn add_local(req: &AddRequest, path: &Path, writes: &mut Writes) -> Result<AddOu
         } else {
             format!("file not found: {}", path.display())
         };
-        OpError::diagnostic("E054", message)
+        OpError::diagnostic(codes::E054, message)
     })?;
     let declared = Declared::of(&wasm)?;
     let origin = Origin::Installed {
@@ -322,7 +323,7 @@ pub(super) fn fetch_checked(
     let declared = Declared::of(&package.wasm)?;
     if declared.name() != package.name || declared.version() != package.version {
         return Err(OpError::diagnostic(
-            "E028",
+            codes::E028,
             format!(
                 "registry package {}@{} declares itself {}@{}",
                 package.name,
@@ -333,7 +334,7 @@ pub(super) fn fetch_checked(
         ));
     }
     if let Some(category) = first_difference(&package.declaration, &declared.declaration) {
-        return Err(OpError::new(
+        return Err(OpError::coded(
             OpErrorKind::SchemaMismatch,
             crate::registry::METADATA_MISMATCH,
             format!(
@@ -352,7 +353,7 @@ pub(super) fn fetch_checked(
 pub fn declared(path: &Path) -> Result<(String, String), OpError> {
     let wasm = std::fs::read(path).map_err(|e| {
         OpError::diagnostic(
-            "E054",
+            codes::E054,
             if path.exists() {
                 format!("cannot read {}: {e}", path.display())
             } else {
@@ -389,8 +390,11 @@ impl Declared {
         const CANDIDATE: &str = "__candidate";
         let runtime = specforge_component::ComponentRuntime::new();
         let invalid = |why: String| {
-            OpError::diagnostic("E028", format!("not a loadable SpecForge extension: {why}"))
-                .with_suggestion("build it with specforge-extension-sdk for wasm32-wasip2")
+            OpError::diagnostic(
+                codes::E028,
+                format!("not a loadable SpecForge extension: {why}"),
+            )
+            .with_suggestion("build it with specforge-extension-sdk for wasm32-wasip2")
         };
         runtime
             .load_module_bytes(CANDIDATE, wasm)

@@ -1,4 +1,4 @@
-use specforge_common::Diagnostic;
+use specforge_common::{Diagnostic, codes};
 use specforge_graph::{FieldValue, Graph};
 
 /// Resolver integrity: a reference to an entity that exists must have become
@@ -21,8 +21,8 @@ pub fn detect_dangling_references(graph: &Graph, diagnostics: &mut Vec<Diagnosti
                     .any(|e| e.target == target.id.as_str() && e.label == entry.key);
                 if !linked {
                     diagnostics.push(
-                        Diagnostic::error(
-                            "E060",
+                        Diagnostic::new(
+                            codes::E060,
                             format!(
                                 "reference '{}' in field '{}' of '{}' resolved but has no graph edge",
                                 target.id, entry.key, source

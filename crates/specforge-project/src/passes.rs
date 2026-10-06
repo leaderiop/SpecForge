@@ -6,7 +6,7 @@
 //! `specforge analyze` (`specforge_ops::analyze`). Findings are standard host
 //! diagnostics.
 
-use specforge_common::Diagnostic;
+use specforge_common::{Diagnostic, codes};
 use specforge_diagnostics::{Level, check_extension_code};
 use specforge_graph::Graph;
 use specforge_protocol_types::{PassInput, PassOutput, PassSeverity, PassTestResults};
@@ -112,8 +112,8 @@ fn code_misuse(extension: &str, pass: &str, output: &PassOutput) -> Vec<Diagnost
             continue;
         }
         diagnostics.push(
-            Diagnostic::warning(
-                "W150",
+            Diagnostic::new(
+                codes::W150,
                 format!(
                     "extension '{extension}' pass '{pass}' reported '{}': {misuse}",
                     finding.code

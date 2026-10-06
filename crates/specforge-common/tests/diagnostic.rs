@@ -29,6 +29,36 @@ fn diagnostic_new_takes_the_catalogued_level() {
     }
 }
 
+/// The severity of a diagnostic built from a code is the level the catalog
+/// gives that code, read back from the catalog and not from the constant.
+/// (A struct literal that chose another severity no longer compiles: see the
+/// `compile_fail` example on [`Diagnostic`].)
+#[specforge_test(
+    invariant = "diagnostic_code_uniqueness",
+    verify = "a host diagnostic's severity is its code's catalogued level"
+)]
+fn diagnostic_severity_comes_from_the_code() {
+    use specforge_diagnostics::Level;
+    for code in [
+        codes::W112,
+        codes::W150,
+        codes::E003,
+        codes::E069,
+        codes::I202,
+        codes::R001,
+        codes::R_RES_005,
+    ] {
+        let entry = specforge_diagnostics::lookup(code.id()).expect("a constant is catalogued");
+        let catalogued = match entry.level {
+            Level::Error => Severity::Error,
+            Level::Warning => Severity::Warning,
+            Level::Info => Severity::Info,
+            Level::SetByPass => unreachable!("{code} is a Code, not a GradedCode"),
+        };
+        assert_eq!(Diagnostic::new(code, "m").severity, catalogued, "{code}");
+    }
+}
+
 #[test]
 fn graded_takes_the_pass_severity() {
     for severity in [Severity::Error, Severity::Warning, Severity::Info] {
@@ -43,7 +73,7 @@ fn untyped_keeps_the_code_and_severity_it_is_given() {
     let diagnostic = Diagnostic::untyped("W950", Severity::Warning, "from an extension");
     assert_eq!(
         diagnostic,
-        Diagnostic::warning("W950", "from an extension"),
+        Diagnostic::untyped("W950", Severity::Warning, "from an extension"),
         "the same diagnostic the level constructors build"
     );
 }

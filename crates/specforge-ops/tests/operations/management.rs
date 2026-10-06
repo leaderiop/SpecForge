@@ -51,8 +51,8 @@ fn project() -> Project {
 fn management_operations_read_the_project_from_their_view() {
     // project_compiled: the view is what a compile supplied.
     let project = project();
-    let e028 = [Diagnostic::error(
-        "E028",
+    let e028 = [Diagnostic::new(
+        specforge_common::codes::E028,
         "extension '@acme/missing' is not installed",
     )];
     let view = project.view().reporting(&e028);

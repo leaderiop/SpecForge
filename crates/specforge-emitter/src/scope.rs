@@ -1,3 +1,4 @@
+use specforge_diagnostics::codes;
 use specforge_graph::Graph;
 
 use crate::error::EmitterError;
@@ -5,7 +6,8 @@ use crate::error::EmitterError;
 fn resolve_scope(graph: &Graph, scope: &str) -> Result<Graph, EmitterError> {
     graph.subgraph(scope).ok_or_else(|| {
         EmitterError::EntityNotFound(format!(
-            "E003: unresolved scope entity '{}' — entity not found in graph",
+            "{}: unresolved scope entity '{}' — entity not found in graph",
+            codes::E003,
             scope
         ))
     })

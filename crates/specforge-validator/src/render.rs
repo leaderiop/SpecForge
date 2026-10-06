@@ -151,6 +151,7 @@ fn line_col_to_byte_range(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use specforge_common::codes;
 
     #[test]
     fn line_col_to_byte_range_unix_newlines() {
@@ -218,15 +219,7 @@ mod tests {
         let mut sources = HashMap::new();
         sources.insert("zzz.spec".to_string(), "content z\n".to_string());
         sources.insert("aaa.spec".to_string(), "content a\n".to_string());
-        let diag = Diagnostic {
-            code: "W001".to_string(),
-            severity: Severity::Warning,
-            message: "spanless".to_string(),
-            span: None,
-            suggestion: None,
-            data: None,
-            origin: None,
-        };
+        let diag = Diagnostic::untyped("W001", Severity::Warning, "spanless".to_string());
         let out1 = render_diagnostics(std::slice::from_ref(&diag), &sources);
         let out2 = render_diagnostics(&[diag], &sources);
         assert_eq!(out1, out2);
@@ -241,21 +234,15 @@ mod tests {
     fn render_past_eof_span_does_not_panic() {
         let mut sources = HashMap::new();
         sources.insert("t.spec".to_string(), "abc\n".to_string());
-        let diag = Diagnostic {
-            code: "E001".to_string(),
-            severity: Severity::Error,
-            message: "beyond eof".to_string(),
-            span: Some(specforge_common::SourceSpan {
+        let diag = Diagnostic::new(codes::E001, "beyond eof".to_string()).with_span(
+            specforge_common::SourceSpan {
                 file: "t.spec".into(),
                 start_line: 999,
                 start_col: 1,
                 end_line: 999,
                 end_col: 10,
-            }),
-            suggestion: None,
-            data: None,
-            origin: None,
-        };
+            },
+        );
         let out = render_diagnostics(&[diag], &sources);
         assert!(out.contains("beyond eof"));
     }

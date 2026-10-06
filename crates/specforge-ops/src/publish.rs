@@ -5,13 +5,13 @@
 
 use std::path::{Path, PathBuf};
 
-use specforge_common::{Diagnostic, Severity};
+use specforge_common::{Code, Diagnostic, Severity, codes};
 use specforge_protocol_types::ExtensionDeclaration;
 
 use crate::{OpError, OpErrorKind};
 
 /// The diagnostic for an extension that can't be found or read.
-const UNREADABLE: &str = "E040";
+const UNREADABLE: Code = codes::E040;
 
 /// A binary ready to publish, with the declaration it is published as.
 #[derive(Debug, Clone)]
@@ -33,7 +33,7 @@ pub fn binary_at(path: &Path) -> Result<PathBuf, OpError> {
         if path.is_file() {
             return Ok(path.to_path_buf());
         }
-        return Err(OpError::new(
+        return Err(OpError::coded(
             OpErrorKind::PreconditionFailed,
             UNREADABLE,
             format!("no extension binary at {}", path.display()),
@@ -42,7 +42,7 @@ pub fn binary_at(path: &Path) -> Result<PathBuf, OpError> {
     }
     let release = path.join("target/wasm32-wasip2/release");
     let not_built = || {
-        OpError::new(
+        OpError::coded(
             OpErrorKind::PreconditionFailed,
             UNREADABLE,
             format!(
@@ -67,7 +67,7 @@ pub fn binary_at(path: &Path) -> Result<PathBuf, OpError> {
     match built.len() {
         0 => Err(not_built()),
         1 => Ok(built.remove(0)),
-        _ => Err(OpError::new(
+        _ => Err(OpError::coded(
             OpErrorKind::PreconditionFailed,
             UNREADABLE,
             format!(
@@ -111,8 +111,11 @@ pub fn declare(wasm: &[u8]) -> Result<(ExtensionDeclaration, Vec<Diagnostic>), O
     const CANDIDATE: &str = "__candidate";
     let runtime = specforge_component::ComponentRuntime::new();
     let invalid = |why: String| {
-        OpError::diagnostic("E028", format!("not a loadable SpecForge extension: {why}"))
-            .with_suggestion("build it with specforge-extension-sdk for wasm32-wasip2")
+        OpError::diagnostic(
+            codes::E028,
+            format!("not a loadable SpecForge extension: {why}"),
+        )
+        .with_suggestion("build it with specforge-extension-sdk for wasm32-wasip2")
     };
     runtime
         .load_module_bytes(CANDIDATE, wasm)
@@ -148,7 +151,7 @@ fn diagnostics_of(
         .chain(build.declaration_diagnostics)
         .chain(build.registry_diagnostics)
         .chain(build.surface_diagnostics)
-        .filter(|d| d.code != "E027")
+        .filter(|d| !d.is(codes::E027))
         .collect()
 }
 
@@ -179,7 +182,8 @@ fn refuse_errors(
         .iter()
         .map(|d| format!("{}: {}", d.code, d.message))
         .collect();
-    Err(OpError::diagnostic(
+    Err(OpError::new(
+        OpErrorKind::of_diagnostic(&first.code),
         first.code.clone(),
         format!(
             "{}@{} can't be published: its declaration has errors ({})",

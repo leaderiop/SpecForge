@@ -385,6 +385,7 @@ pub(crate) mod testing {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use specforge_common::{Severity, codes};
     use specforge_test_macros::test as specforge_test;
 
     #[specforge_test(
@@ -475,12 +476,12 @@ mod tests {
         let recorded = RecordedCoverage::default();
         let bare = ProjectView::new(&graph, &env, None, &recorded);
         assert!(bare.reported().is_empty());
-        let warning = [Diagnostic::warning("W002", "unused")];
+        let warning = [Diagnostic::untyped("W002", Severity::Warning, "unused")];
         let listed = bare.reporting(&warning);
         assert_eq!(codes(&listed.reported()), ["W002"]);
 
         // What the surface adds comes after, whatever the view reports.
-        let i017 = [Diagnostic::info("I017", "not auto-promoted")];
+        let i017 = [Diagnostic::new(codes::I017, "not auto-promoted")];
         assert_eq!(
             codes(&listed.also_reporting(&i017).reported()),
             ["W002", "I017"]

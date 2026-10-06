@@ -349,21 +349,18 @@ fn diagnostic_renders_multiline_span() {
     use specforge_validator::render_diagnostics;
     use std::collections::HashMap;
 
-    let diag = specforge_validator::Diagnostic {
-        code: "E099".to_string(),
-        severity: Severity::Error,
-        message: "test multi-line error".to_string(),
-        span: Some(specforge_validator::SourceSpan {
-            file: specforge_common::Sym::new("test.spec"),
-            start_line: 2,
-            start_col: 1,
-            end_line: 4,
-            end_col: 2,
-        }),
-        suggestion: None,
-        data: None,
-        origin: None,
-    };
+    let diag = specforge_validator::Diagnostic::untyped(
+        "E099",
+        Severity::Error,
+        "test multi-line error".to_string(),
+    )
+    .with_span(specforge_validator::SourceSpan {
+        file: specforge_common::Sym::new("test.spec"),
+        start_line: 2,
+        start_col: 1,
+        end_line: 4,
+        end_col: 2,
+    });
 
     let source = "line 1\nbehavior alpha \"A\" {\n  contract \"first\"\n}\nline 5\n";
     let sources: HashMap<String, String> = vec![("test.spec".to_string(), source.to_string())]
@@ -399,21 +396,19 @@ fn render_one(
     (start_line, start_col): (usize, usize),
     (end_line, end_col): (usize, usize),
 ) -> String {
-    let diag = Diagnostic {
-        code: "A015".to_string(),
-        severity: Severity::Warning,
-        message: "entity 'b' has unproven obligations".to_string(),
-        span: Some(SourceSpan {
-            file: specforge_common::Sym::new("t.spec"),
-            start_line,
-            start_col,
-            end_line,
-            end_col,
-        }),
-        suggestion: Some("link a test".to_string()),
-        data: None,
-        origin: None,
-    };
+    let diag = Diagnostic::untyped(
+        "A015",
+        Severity::Warning,
+        "entity 'b' has unproven obligations".to_string(),
+    )
+    .with_span(SourceSpan {
+        file: specforge_common::Sym::new("t.spec"),
+        start_line,
+        start_col,
+        end_line,
+        end_col,
+    })
+    .with_suggestion("link a test".to_string());
     let sources = std::collections::HashMap::from([("t.spec".to_string(), source.to_string())]);
     specforge_validator::render_diagnostics(&[diag], &sources)
 }
@@ -474,20 +469,14 @@ fn diagnostic_lines_have_no_trailing_whitespace() {
 )]
 fn diagnostics_are_separated_by_a_blank_line() {
     let one = render_one("a\n", (1, 1), (1, 2));
-    let diag = |code: &str| Diagnostic {
-        code: code.to_string(),
-        severity: Severity::Warning,
-        message: "m".to_string(),
-        span: Some(SourceSpan {
+    let diag = |code: &str| {
+        Diagnostic::untyped(code, Severity::Warning, "m").with_span(SourceSpan {
             file: specforge_common::Sym::new("t.spec"),
             start_line: 1,
             start_col: 1,
             end_line: 1,
             end_col: 2,
-        }),
-        suggestion: None,
-        data: None,
-        origin: None,
+        })
     };
     let sources = std::collections::HashMap::from([("t.spec".to_string(), "a\n".to_string())]);
     let output = specforge_validator::render_diagnostics(&[diag("A001"), diag("A002")], &sources);
@@ -509,42 +498,13 @@ fn summary_shows_correct_counts() {
     use specforge_validator::diagnostic_summary;
 
     let diagnostics = vec![
-        specforge_validator::Diagnostic {
-            code: "E001".to_string(),
-            severity: Severity::Error,
-            message: "error 1".to_string(),
-            span: None,
-            suggestion: None,
-            data: None,
-            origin: None,
-        },
-        specforge_validator::Diagnostic {
-            code: "W012".to_string(),
-            severity: Severity::Warning,
-            message: "warning 1".to_string(),
-            span: None,
-            suggestion: None,
-            data: None,
-            origin: None,
-        },
-        specforge_validator::Diagnostic {
-            code: "E002".to_string(),
-            severity: Severity::Error,
-            message: "error 2".to_string(),
-            span: None,
-            suggestion: None,
-            data: None,
-            origin: None,
-        },
-        specforge_validator::Diagnostic {
-            code: "I004".to_string(),
-            severity: Severity::Info,
-            message: "info 1".to_string(),
-            span: None,
-            suggestion: None,
-            data: None,
-            origin: None,
-        },
+        specforge_validator::Diagnostic::new(specforge_common::codes::E001, "error 1".to_string()),
+        specforge_validator::Diagnostic::new(
+            specforge_common::codes::W012,
+            "warning 1".to_string(),
+        ),
+        specforge_validator::Diagnostic::new(specforge_common::codes::E002, "error 2".to_string()),
+        specforge_validator::Diagnostic::new(specforge_common::codes::I004, "info 1".to_string()),
     ];
 
     let summary = diagnostic_summary(&diagnostics);
@@ -608,15 +568,10 @@ fn summary_clean_project() {
 fn summary_red_when_errors_exist() {
     use specforge_validator::diagnostic_summary;
 
-    let diagnostics = vec![Diagnostic {
-        code: "E001".to_string(),
-        severity: Severity::Error,
-        message: "test error".to_string(),
-        span: None,
-        suggestion: None,
-        data: None,
-        origin: None,
-    }];
+    let diagnostics = vec![Diagnostic::new(
+        specforge_common::codes::E001,
+        "test error".to_string(),
+    )];
     let summary = diagnostic_summary(&diagnostics);
 
     // ANSI red escape: \x1b[31m
@@ -743,21 +698,17 @@ fn diagnostic_format_contract_consistency() {
 
     // Requires: valid SourceSpan referencing accessible source
     // Ensures: output includes file:line:col header, context snippet, caret marker
-    let diag = Diagnostic {
-        code: "E001".to_string(),
-        severity: Severity::Error,
-        message: "unresolved reference".to_string(),
-        span: Some(SourceSpan {
-            file: specforge_common::Sym::new("test.spec"),
-            start_line: 2,
-            start_col: 20,
-            end_line: 2,
-            end_col: 31,
-        }),
-        suggestion: None,
-        data: None,
-        origin: None,
-    };
+    let diag = Diagnostic::new(
+        specforge_common::codes::E001,
+        "unresolved reference".to_string(),
+    )
+    .with_span(SourceSpan {
+        file: specforge_common::Sym::new("test.spec"),
+        start_line: 2,
+        start_col: 20,
+        end_line: 2,
+        end_col: 31,
+    });
 
     let source = "line 1\nfeature gamma \"G\" { behaviors [nonexistent] }\nline 3\n";
     let sources: HashMap<String, String> = vec![("test.spec".to_string(), source.to_string())]
@@ -803,42 +754,10 @@ fn summary_contract_consistency() {
     // Requires: validation has completed
     // Ensures: counts match actual diagnostics exactly
     let diagnostics = vec![
-        Diagnostic {
-            code: "E001".to_string(),
-            severity: Severity::Error,
-            message: "e".to_string(),
-            span: None,
-            suggestion: None,
-            data: None,
-            origin: None,
-        },
-        Diagnostic {
-            code: "E002".to_string(),
-            severity: Severity::Error,
-            message: "e".to_string(),
-            span: None,
-            suggestion: None,
-            data: None,
-            origin: None,
-        },
-        Diagnostic {
-            code: "E003".to_string(),
-            severity: Severity::Error,
-            message: "e".to_string(),
-            span: None,
-            suggestion: None,
-            data: None,
-            origin: None,
-        },
-        Diagnostic {
-            code: "W012".to_string(),
-            severity: Severity::Warning,
-            message: "w".to_string(),
-            span: None,
-            suggestion: None,
-            data: None,
-            origin: None,
-        },
+        Diagnostic::new(specforge_common::codes::E001, "e".to_string()),
+        Diagnostic::new(specforge_common::codes::E002, "e".to_string()),
+        Diagnostic::new(specforge_common::codes::E003, "e".to_string()),
+        Diagnostic::new(specforge_common::codes::W012, "w".to_string()),
     ];
     let summary = diagnostic_summary(&diagnostics);
 

@@ -122,10 +122,8 @@ fn place_at_subjects<F: Fn(&str) -> Option<String>>(
             .map(|d| d.name)
             .unwrap_or_else(|_| node.source_span.clone())
     };
-    let placed = specforge_common::Diagnostic {
-        span: Some(name(first)),
-        ..diagnostic.clone()
-    };
+    let mut placed = diagnostic.clone();
+    placed.span = Some(name(first));
     let related = others
         .iter()
         .map(|node| DiagnosticRelatedInformation {
@@ -144,9 +142,6 @@ fn docs_href(code: &str, origin: Option<&str>) -> Option<Url> {
         .and_then(|entry| specforge_diagnostics::docs_href(entry.code))
         .and_then(|href| Url::parse(&href).ok())
 }
-
-/// The code of a define block (ADR 0005): the block registers nothing.
-const DEFINE_BLOCK: &str = "W143";
 
 /// A diagnostic as the client receives it; `range_of` converts its span.
 pub(crate) fn diagnostic_to_lsp(
@@ -173,9 +168,11 @@ pub(crate) fn diagnostic_to_lsp(
             Some(suggestion) => format!("{}\n\nsuggestion: {suggestion}", diag.message),
             None => diag.message.clone(),
         },
-        // A define block is inert code: editors fade it (as for inactive
-        // code) instead of only underlining it.
-        tags: (diag.code == DEFINE_BLOCK).then(|| vec![DiagnosticTag::UNNECESSARY]),
+        // A define block (W143, ADR 0005) is inert code: editors fade it
+        // (as for inactive code) instead of only underlining it.
+        tags: diag
+            .is(specforge_common::codes::W143)
+            .then(|| vec![DiagnosticTag::UNNECESSARY]),
         // The typed payload, as the diagnostics JSON presents it: a client
         // echoes it back in a code-action request's context.
         data: diag
@@ -191,7 +188,11 @@ mod docs_link_tests {
     use super::*;
 
     fn href(code: &str) -> Option<String> {
-        let diag = specforge_common::Diagnostic::error(code, "message");
+        let diag = specforge_common::Diagnostic::untyped(
+            code,
+            specforge_common::Severity::Error,
+            "message",
+        );
         diagnostic_to_lsp(&diag, |_| Range::default())
             .code_description
             .map(|d| d.href.to_string())

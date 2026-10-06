@@ -16,6 +16,7 @@ path = "tests/main.rs"
 specforge-graph = { path = "../specforge-graph" }
 specforge-registry = { workspace = true }
 specforge-protocol-types = { path = "../specforge-protocol-types" }
+specforge-diagnostics = { path = "../specforge-diagnostics" }
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true

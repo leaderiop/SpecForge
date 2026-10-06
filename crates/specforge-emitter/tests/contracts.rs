@@ -472,21 +472,17 @@ fn deterministic_contract_same_input_identical_output() {
     verify = "Present Diagnostics as JSON: JSON diagnostic presentation holds — diagnostics_collected, one_shape_everywhere, location_both_ways"
 )]
 fn diagnostic_json_contract_complete_fields() {
-    let diags = vec![Diagnostic {
-        code: "E001".into(),
-        severity: Severity::Error,
-        message: "unresolved".into(),
-        span: Some(SourceSpan {
-            file: "test.spec".into(),
-            start_line: 5,
-            start_col: 10,
-            end_line: 5,
-            end_col: 20,
-        }),
-        suggestion: Some("did you mean 'foo'?".into()),
-        data: None,
-        origin: None,
-    }];
+    let diags = vec![
+        Diagnostic::new(specforge_common::codes::E001, "unresolved")
+            .with_span(SourceSpan {
+                file: "test.spec".into(),
+                start_line: 5,
+                start_col: 10,
+                end_line: 5,
+                end_col: 20,
+            })
+            .with_suggestion("did you mean 'foo'?"),
+    ];
 
     let json = specforge_common::serialize_diagnostics(&diags);
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
@@ -507,24 +503,8 @@ fn diagnostic_json_contract_complete_fields() {
 )]
 fn diagnostic_json_array() {
     let diags = vec![
-        Diagnostic {
-            code: "E001".into(),
-            severity: Severity::Error,
-            message: "err".into(),
-            span: None,
-            suggestion: None,
-            data: None,
-            origin: None,
-        },
-        Diagnostic {
-            code: "W001".into(),
-            severity: Severity::Warning,
-            message: "warn".into(),
-            span: None,
-            suggestion: None,
-            data: None,
-            origin: None,
-        },
+        Diagnostic::new(specforge_common::codes::E001, "err"),
+        Diagnostic::untyped("W001", Severity::Warning, "warn"),
     ];
     let json = specforge_common::serialize_diagnostics(&diags);
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
@@ -537,21 +517,15 @@ fn diagnostic_json_array() {
     verify = "each diagnostic carries code, severity, message, file, line and column"
 )]
 fn diagnostic_json_all_fields() {
-    let diags = vec![Diagnostic {
-        code: "E042".into(),
-        severity: Severity::Error,
-        message: "test msg".into(),
-        span: Some(SourceSpan {
+    let diags = vec![
+        Diagnostic::untyped("E042", Severity::Error, "test msg").with_span(SourceSpan {
             file: "a.spec".into(),
             start_line: 3,
             start_col: 7,
             end_line: 3,
             end_col: 15,
         }),
-        suggestion: None,
-        data: None,
-        origin: None,
-    }];
+    ];
     let json = specforge_common::serialize_diagnostics(&diags);
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
     let e = &parsed[0];
@@ -568,15 +542,10 @@ fn diagnostic_json_all_fields() {
     verify = "the presented JSON is valid and parseable"
 )]
 fn diagnostic_json_valid_parseable() {
-    let diags = vec![Diagnostic {
-        code: "E001".into(),
-        severity: Severity::Error,
-        message: "msg with \"quotes\"".into(),
-        span: None,
-        suggestion: None,
-        data: None,
-        origin: None,
-    }];
+    let diags = vec![Diagnostic::new(
+        specforge_common::codes::E001,
+        "msg with \"quotes\"",
+    )];
     let json = specforge_common::serialize_diagnostics(&diags);
     let result: Result<serde_json::Value, _> = serde_json::from_str(&json);
     assert!(result.is_ok(), "output must be valid JSON");
@@ -584,15 +553,7 @@ fn diagnostic_json_valid_parseable() {
 
 #[test]
 fn diagnostic_exit_code_unaffected_by_format() {
-    let diags = vec![Diagnostic {
-        code: "E001".into(),
-        severity: Severity::Error,
-        message: "err".into(),
-        span: None,
-        suggestion: None,
-        data: None,
-        origin: None,
-    }];
+    let diags = vec![Diagnostic::new(specforge_common::codes::E001, "err")];
     // Exit code should be based on severity regardless of format
     let exit = specforge_common::compute_exit_code(&diags);
     assert_eq!(exit, 1, "errors should produce exit 1 regardless of format");
@@ -606,15 +567,10 @@ fn diagnostic_exit_code_unaffected_by_format() {
     verify = "suggestion is included when available"
 )]
 fn diagnostic_suggestion_included() {
-    let diags = vec![Diagnostic {
-        code: "E001".into(),
-        severity: Severity::Error,
-        message: "unresolved".into(),
-        span: None,
-        suggestion: Some("did you mean 'bar'?".into()),
-        data: None,
-        origin: None,
-    }];
+    let diags = vec![
+        Diagnostic::new(specforge_common::codes::E001, "unresolved")
+            .with_suggestion("did you mean 'bar'?"),
+    ];
     let json = specforge_common::serialize_diagnostics(&diags);
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
     assert_eq!(parsed[0]["suggestion"], "did you mean 'bar'?");

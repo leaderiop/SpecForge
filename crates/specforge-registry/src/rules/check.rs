@@ -6,7 +6,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
 
 use specforge_common::cycles::{CycleOptions, find_cycles};
-use specforge_common::{CustomRuleFailure, Diagnostic, DiagnosticData};
+use specforge_common::{CustomRuleFailure, Diagnostic, DiagnosticData, codes};
 
 use super::verdicts::{CustomCall, CustomVerdicts, Subject, Verdict, VerdictError};
 use super::{Origin, Rule};
@@ -159,8 +159,8 @@ fn not_checked(
     } else {
         ("entities", "they were")
     };
-    Diagnostic::warning(
-        "W148",
+    Diagnostic::new(
+        codes::W148,
         format!(
             "extension '{extension}': rule '{}': wasm_function '{function}' failed on {} {entities} ('{}': {}) — {they} not checked",
             rule.code,
@@ -382,8 +382,8 @@ pub(super) fn probe(rule: &Rule, verdicts: &dyn CustomVerdicts) -> Option<Diagno
     match verdicts.verdict(call) {
         Ok(_) | Err(VerdictError::Unavailable) => None,
         Err(VerdictError::Failed(error)) => Some(
-            Diagnostic::warning(
-                "W112",
+            Diagnostic::new(
+                codes::W112,
                 format!(
                     "extension '{extension}': rule '{}': wasm_function '{function}' could not be resolved ({error}) — the rule will not fire",
                     rule.code

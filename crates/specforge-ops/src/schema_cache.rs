@@ -8,7 +8,7 @@
 use std::io;
 use std::path::{Path, PathBuf};
 
-use specforge_common::{Diagnostic, Severity};
+use specforge_common::{Diagnostic, codes};
 use specforge_emitter::{
     GraphProtocolSchema, SchemaCacheEntry, SchemaMigration, compute_schema_version, content_hash,
     diff_schemas_optional,
@@ -129,19 +129,17 @@ fn detect_breaking(
         Ok(Some(entry)) => Some(entry.schema),
         Ok(None) => {
             if output_dir_has_exports {
-                diagnostics.push(Diagnostic {
-                    code: "I016".to_string(),
-                    severity: Severity::Info,
-                    message: "Schema cache not found; breaking change detection skipped. \
+                diagnostics.push(
+                    Diagnostic::new(
+                        codes::I016,
+                        "Schema cache not found; breaking change detection skipped. \
                               Prior exports exist but .specforge/schema-cache.json is missing."
-                        .to_string(),
-                    span: None,
-                    suggestion: Some(
+                            .to_string(),
+                    )
+                    .with_suggestion(
                         "Run a full compilation to regenerate the schema cache.".to_string(),
                     ),
-                    data: None,
-                    origin: None,
-                });
+                );
             }
             None
         }
@@ -150,19 +148,17 @@ fn detect_breaking(
 
     let migration = diff_schemas_optional(cached.as_ref(), current);
     for change in migration.changes.iter().filter(|c| c.is_breaking()) {
-        diagnostics.push(Diagnostic {
-            code: "W053".to_string(),
-            severity: Severity::Warning,
-            message: format!("breaking schema change since the last export: {change}"),
-            span: None,
-            suggestion: Some(
+        diagnostics.push(
+            Diagnostic::new(
+                codes::W053,
+                format!("breaking schema change since the last export: {change}"),
+            )
+            .with_suggestion(
                 "Agents and tools that read the previous export may not accept this one: \
                  update them, or keep the extension versions that produced the old schema."
                     .to_string(),
             ),
-            data: None,
-            origin: None,
-        });
+        );
     }
     (migration, diagnostics)
 }
