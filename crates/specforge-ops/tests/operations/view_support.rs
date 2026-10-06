@@ -8,6 +8,7 @@ use specforge_ops::plan::PlanOutcome;
 use specforge_ops::stats::{Stats, StatsRequest};
 use specforge_ops::trace::{Target, TraceChain};
 use specforge_ops::view::ProjectView;
+use specforge_project::Environment;
 use specforge_project::coverage::RecordedCoverage;
 use specforge_registry::validation_engine::{ValidationPatternKind, ValidationRulePattern};
 use specforge_registry::{FieldRegistryEntry, KindRegistryEntry, ManifestFieldType, RegistryBuild};
@@ -76,11 +77,12 @@ pub fn registries(obligated: &[&str], free: &[&str]) -> RegistryBuild {
     build
 }
 
-/// A project on disk: its graph, registries and coverage memo.
+/// A project on disk: its graph, the environment it was compiled in (the
+/// default config and `registries`) and its coverage memo.
 pub struct Project {
     pub dir: TempDir,
     pub graph: Graph,
-    pub registries: RegistryBuild,
+    pub env: Environment,
     pub recorded: RecordedCoverage,
 }
 
@@ -96,7 +98,7 @@ impl Project {
         Project {
             dir: TempDir::new().unwrap(),
             graph,
-            registries,
+            env: Environment::with_registries(registries),
             recorded: RecordedCoverage::default(),
         }
     }
@@ -104,7 +106,7 @@ impl Project {
     pub fn view(&self) -> ProjectView<'_> {
         ProjectView::new(
             &self.graph,
-            &self.registries,
+            &self.env,
             Some(self.dir.path()),
             &self.recorded,
         )

@@ -420,6 +420,38 @@ behavior list_configured_providers "List Configured Providers" {
   verify contract "List Configured Providers: provider listing holds — scheme_registry_ready, all_providers_listed, schemes_and_kinds_included, aliases_shown_separately, output_deterministic"
 }
 
+// The management operations are operations over the project view, as the
+// read views are (ADR 0015, "Management operations").
+behavior management_operations_over_the_project_view "Management Operations over the Project View" {
+  features   [extension_management, mcp_project_management_tools]
+  invariants [diagnostic_determinism, zero_domain_knowledge_core]
+  category   command
+  types      [ExtensionDeclaration, Diagnostic]
+  ports      [CompilerApi, McpProtocol, FileSystem]
+  requires {
+    project_compiled "A compiled project or a project session supplies the project view"
+  }
+  ensures {
+    one_project_read "Each operation reads the config, the enabled entries, the loaded declarations and the reported diagnostics of the compile behind its view, never specforge.json again"
+    root_for_disk    "Whatever an operation reads or writes on disk is at the view's root; without a root it refuses with no_project, except the listings and doctor"
+  }
+  contract   """
+    The extensions listing, the providers listing, doctor, remove,
+    collect, and inference progress and gaps MUST each be one operation
+    over the project view and a request, shared by the CLI and MCP; a
+    surface builds the view from the project it holds, maps its arguments
+    and renders the outcome. An operation MUST read the project's config,
+    what each specforge.json entry enabled, the loaded declarations and
+    what the surface reports for the project from the view, never by
+    reading specforge.json again. specforge.lock, the installed binaries,
+    the source files and the recorded test report MUST be read and written
+    at the view's root. Without a root, remove, collect and inference
+    progress and gaps MUST refuse with no_project; the listings list what
+    the view enabled and loaded, and doctor skips the installation checks.
+  """
+  verify unit "an operation that reads or writes the project on disk refuses a view without a root"
+}
+
 // Called imperatively by validate_provider_refs (which consumes provider_schemes_registered).
 // Depends on SchemeRegistryEntry data populated during provider registration.
 behavior validate_ref_target_format "Validate Ref Target Format" {

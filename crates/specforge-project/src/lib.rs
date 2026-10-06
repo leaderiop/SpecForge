@@ -108,6 +108,16 @@ impl Environment {
         }
     }
 
+    /// An environment of exactly `registries` and no project: the default
+    /// config, nothing enabled, no spec root (tests, a graph built in
+    /// memory).
+    pub fn with_registries(registries: RegistryBuild) -> Self {
+        Environment {
+            registries,
+            ..Environment::empty()
+        }
+    }
+
     /// Read the project's config and load its extensions through `runtime`
     /// (none without one), then build the registries from them.
     pub fn load(root: &Path, runtime: Option<&dyn WasmRuntime>) -> Self {

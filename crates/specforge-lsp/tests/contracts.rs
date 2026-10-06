@@ -767,13 +767,12 @@ fn code_action_create_entity_stub_contract() {
     let diagnostics = state.session().unwrap().diagnostics();
     let recorded = specforge_project::coverage::RecordedCoverage::default();
     let fixes_with = |target_kind: Option<&str>| {
-        let registries = {
+        let env = specforge_project::Environment::with_registries({
             let mut build = specforge_registry::RegistryBuild::default();
             build.fields = invariants_field(target_kind);
             build
-        };
-        let view =
-            specforge_ops::view::ProjectView::new(state.graph(), &registries, None, &recorded);
+        });
+        let view = specforge_ops::view::ProjectView::new(state.graph(), &env, None, &recorded);
         let nav = specforge_ops::navigate::Navigator::new(view, |_: &str| Some(text.to_string()));
         nav.fixes(&diagnostics, &specforge_ops::navigate::FixQuery::default())
     };
@@ -847,13 +846,13 @@ fn code_actions_for_missing_verify_contract() {
     // Ensures: quickfix code action with verify stub targeting the .spec file
     let text = "\n\n\n\nbehavior my_behavior \"B\" {\n  contract \"c\"\n}\n";
     let state = buffers(&[("/p/a.spec", text)]);
-    let registries = {
+    let env = specforge_project::Environment::with_registries({
         let mut build = specforge_registry::RegistryBuild::default();
         build.kinds = verifiable(&["behavior"], &[]);
         build
-    };
+    });
     let recorded = specforge_project::coverage::RecordedCoverage::default();
-    let view = specforge_ops::view::ProjectView::new(state.graph(), &registries, None, &recorded);
+    let view = specforge_ops::view::ProjectView::new(state.graph(), &env, None, &recorded);
     let nav = specforge_ops::navigate::Navigator::new(view, |_: &str| Some(text.to_string()));
     let fixes = nav.fixes(&[], &specforge_ops::navigate::FixQuery::default());
 

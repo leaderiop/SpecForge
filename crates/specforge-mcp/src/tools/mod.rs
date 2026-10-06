@@ -62,15 +62,6 @@ pub(crate) fn span_json(span: &specforge_common::SourceSpan) -> Value {
     })
 }
 
-/// What the server reports for the project the call reads: its project's
-/// diagnostics, else (no project) the served session's.
-pub(crate) fn reported(call: &Call<'_>) -> Vec<specforge_common::Diagnostic> {
-    match call.project() {
-        Ok(project) => project.diagnostics(),
-        Err(_) => call.state.diagnostics(),
-    }
-}
-
 /// An I020 report for each kind in a `kinds` filter that no registered
 /// extension defines and no entity has, in the order given, with a
 /// `did you mean` suggestion when a known kind is close. The filter still

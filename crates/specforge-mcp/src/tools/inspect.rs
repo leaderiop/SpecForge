@@ -89,7 +89,9 @@ pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
 
     // The diagnostics about the entity: those its data names it in, else
     // those inside its block (ADR 0016); never by reading the message.
-    let entity_diagnostics: Vec<Value> = super::reported(call)
+    let entity_diagnostics: Vec<Value> = call
+        .view()
+        .reported()
         .iter()
         .filter(|d| specforge_ops::navigate::is_about(view.graph, d, entity_id))
         .map(|d| {

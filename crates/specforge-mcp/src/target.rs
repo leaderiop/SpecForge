@@ -16,8 +16,7 @@ use serde_json::Value;
 use specforge_common::{Diagnostic, find_project_root};
 use specforge_graph::Graph;
 use specforge_ops::view::ProjectView;
-use specforge_project::coverage::RecordedCoverage;
-use specforge_project::{CompiledProject, Environment, Origin, ProjectSession, SharedRuntime};
+use specforge_project::{CompiledProject, Environment, Origin, SharedRuntime};
 
 use crate::state::McpState;
 use crate::tool::{ErrorCode, McpError};
@@ -124,16 +123,6 @@ fn project_runtime(root: &Path) -> SharedRuntime {
     Arc::new(specforge_component::project_runtime(root))
 }
 
-/// What a project's diagnostics are read from.
-#[derive(Clone, Copy)]
-enum Reported<'a> {
-    /// The served session, then the contributions of its extensions MCP
-    /// does not serve under their names (I017).
-    Session(&'a ProjectSession, &'a [Diagnostic]),
-    /// A one-shot compile.
-    Compiled(&'a CompiledProject),
-}
-
 /// What every handler reads, from either adapter: the served session or a
 /// project compiled for the call.
 pub struct ProjectRef<'a> {
@@ -148,36 +137,26 @@ pub struct ProjectRef<'a> {
     /// served in memory; the one-shot compile's for another project), so
     /// an extension call never finds none (ADR 0017).
     pub runtime: &'a SharedRuntime,
-    /// Its recorded test report and coverage, memoized by its owner: the
-    /// served session, or the project compiled for this call.
-    recorded: &'a RecordedCoverage,
-    reported: Reported<'a>,
+    /// The project view, built once for the call: rooted at the project
+    /// root, reporting what the server reports for the project.
+    view: ProjectView<'a>,
 }
 
 impl<'a> ProjectRef<'a> {
-    /// What every read operation over this project reads, rooted at the
-    /// project root: the one way MCP builds a project view.
-    pub fn view(&self) -> ProjectView<'a> {
-        ProjectView::new(
-            self.graph,
-            &self.env.registries,
-            Some(self.root),
-            self.recorded,
-        )
-    }
-
-    /// Everything the server reports for this project: what `specforge
+    /// What every operation over this project reads, rooted at the project
+    /// root: the one way MCP builds a project view. Its recorded test
+    /// report and coverage are memoized by its owner (the served session,
+    /// or the project compiled for this call); it reports what `specforge
     /// check` reports, then, for the served project, the contributions of
     /// its extensions MCP does not serve under their names (I017).
+    pub fn view(&self) -> ProjectView<'a> {
+        self.view
+    }
+
+    /// Everything the server reports for this project
+    /// ([`ProjectView::reported`]).
     pub fn diagnostics(&self) -> Vec<Diagnostic> {
-        match self.reported {
-            Reported::Session(session, surfaces) => {
-                let mut diagnostics = session.diagnostics();
-                diagnostics.extend(surfaces.iter().cloned());
-                diagnostics
-            }
-            Reported::Compiled(project) => project.diagnostics(),
-        }
+        self.view.reported()
     }
 }
 
@@ -278,8 +257,8 @@ impl<'s> Call<'s> {
                     env: session.environment(),
                     graph: session.graph(),
                     runtime,
-                    recorded: session.recorded(),
-                    reported: Reported::Session(session, self.state.surfaces().diagnostics()),
+                    view: ProjectView::of_session(session, Some(root))
+                        .also_reporting(self.state.surfaces().diagnostics()),
                 })
             }
             CallTarget::Other(other) => Ok(ProjectRef {
@@ -288,8 +267,8 @@ impl<'s> Call<'s> {
                 env: &other.project.env,
                 graph: &other.project.graph,
                 runtime: &other.runtime,
-                recorded: other.project.recorded(),
-                reported: Reported::Compiled(&other.project),
+                // Rooted where it was compiled: `other.root`.
+                view: ProjectView::of(&other.project),
             }),
             CallTarget::New(_) | CallTarget::Unscoped | CallTarget::NoProject => Err(no_project()),
         }
@@ -302,12 +281,14 @@ impl<'s> Call<'s> {
     /// The project view of what the call reads: its project's
     /// ([`ProjectRef::view`]), else, with no project, the served session's
     /// graph without a root (a graph built in memory with no project, or
-    /// none): no recorded report, no schema cache. For a read view that
-    /// answers without a project.
+    /// none): no recorded report, no schema cache; it reports what the
+    /// server reports for the served session ([`McpState::diagnostics`]).
+    /// For a read view that answers without a project.
     pub fn view(&self) -> ProjectView<'_> {
         match self.project() {
             Ok(project) => project.view(),
-            Err(_) => ProjectView::of_session(self.state.session(), None),
+            Err(_) => ProjectView::of_session(self.state.session(), None)
+                .also_reporting(self.state.surfaces().diagnostics()),
         }
     }
 

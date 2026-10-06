@@ -434,7 +434,7 @@ mod tests {
 
     struct Project {
         graph: Graph,
-        registries: specforge_registry::RegistryBuild,
+        env: specforge_project::Environment,
         recorded: coverage::RecordedCoverage,
         dir: tempfile::TempDir,
     }
@@ -462,7 +462,7 @@ mod tests {
             ];
             Self {
                 graph: Graph::new(),
-                registries,
+                env: specforge_project::Environment::with_registries(registries),
                 recorded: coverage::RecordedCoverage::default(),
                 dir,
             }
@@ -471,7 +471,7 @@ mod tests {
         fn view(&self) -> ProjectView<'_> {
             ProjectView::new(
                 &self.graph,
-                &self.registries,
+                &self.env,
                 Some(self.dir.path()),
                 &self.recorded,
             )
@@ -735,7 +735,7 @@ mod tests {
     /// testing extension reports `proven` of `total`.
     fn gate_of(pass_name: &str, min: Option<f64>, summary: Value) -> Gate {
         let mut project = Project::new();
-        project.registries.passes = vec![declared("@specforge/testing", "coverage", None)];
+        project.env.registries.passes = vec![declared("@specforge/testing", "coverage", None)];
         std::fs::write(project.dir.path().join("specforge-report.json"), "{}").unwrap();
         let options = AnalyzeOptions {
             pass: pass_name.to_string(),
@@ -807,7 +807,7 @@ mod tests {
     )]
     fn a_failed_gate_leaves_ok_and_the_reports_alone() {
         let mut project = Project::new();
-        project.registries.passes.clear();
+        project.env.registries.passes.clear();
         std::fs::write(project.dir.path().join("specforge-report.json"), "{}").unwrap();
         let outcome = project
             .run(&AnalyzeOptions {
