@@ -1,4 +1,5 @@
-//! Environments the tests share.
+//! The in-memory writers the tests used before `TestProject` (plan 10):
+//! moved verbatim from `tests/support.rs`, deleted once no test calls them.
 
 use specforge_mcp::McpServer;
 use specforge_registry::{FieldRegistryEntry, ManifestFieldType};
@@ -120,12 +121,4 @@ pub fn report_also(
     diagnostic: specforge_common::Diagnostic,
 ) {
     state.edit_environment(|env| env.registries.surface_diagnostics.push(diagnostic));
-}
-
-/// The core tools as `tools/list` describes them, in listing order.
-pub fn core_tools() -> Vec<specforge_mcp::types::McpToolDescriptor> {
-    specforge_mcp::tools::CORE_TOOLS
-        .iter()
-        .map(specforge_mcp::tool::ToolSpec::descriptor)
-        .collect()
 }
