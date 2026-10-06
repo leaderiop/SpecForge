@@ -361,13 +361,16 @@ const REFS: &str = concat!(
     "}\n",
 );
 
-// Flipped by 06-T1.
-#[test]
-fn pin_a_ref_definition_is_its_block() {
+#[specforge_test(
+    behavior = "go_to_definition",
+    verify = "the definition's selection is the entity's name token"
+)]
+fn a_refs_definition_selects_its_scheme_id() {
+    // A scheme ref ID is one token (the grammar's `scheme_ref_id`).
     let p = compile(SOFTWARE, &[("main.spec", REFS)]);
     let definition = p.navigator().definition("gh.issue:42").unwrap();
-    assert_eq!(definition.precision, Precision::Entity);
-    assert_eq!(at(&definition.name), "main.spec 1:1-1:31");
+    assert_eq!(definition.precision, Precision::Token);
+    assert_eq!(at(&definition.name), "main.spec 1:5-1:16");
 }
 
 #[test]

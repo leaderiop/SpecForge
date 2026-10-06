@@ -8,7 +8,7 @@ use specforge_common::{Diagnostic, DiagnosticData, SourceSpan, Sym};
 use specforge_graph::Node;
 use specforge_registry::validation_engine::ValidationPatternKind;
 
-use super::text::{SourceText, TokenKind};
+use super::text::SourceText;
 use super::{Navigator, is_about, overlaps};
 
 /// One edit: `span`'s text becomes `new_text` (an empty span inserts).
@@ -316,7 +316,7 @@ fn closing_brace(text: &SourceText, block: &SourceSpan) -> Option<(SourceSpan, b
         .tokens(block)
         .into_iter()
         .rev()
-        .find(|t| t.kind == TokenKind::Punct('}'))?;
+        .find(|t| t.is_punct('}'))?;
     let span = text.span(block.file, brace.start, brace.end);
     let line_start = text.offset(span.start_line, 1)?;
     let alone = text

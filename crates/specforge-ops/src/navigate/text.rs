@@ -1,8 +1,9 @@
 //! A spec file's text, addressed in `SourceSpan` positions (1-based lines,
-//! 1-based byte columns, end exclusive), and the lexing navigation needs:
-//! the identifier tokens of a range, outside strings and comments.
+//! 1-based byte columns, end exclusive), and the lexemes of a range, read
+//! by the language's one lexer (`specforge_parser::lex`, ADR 0023).
 
 use specforge_common::{SourceSpan, Sym};
+use specforge_parser::lex::{Lexeme, lex};
 
 /// A file's text and where each of its lines starts.
 #[derive(Debug)]
@@ -95,127 +96,31 @@ impl SourceText {
             .is_some_and(|range| self.text.get(range) == Some(word))
     }
 
-    /// The identifier tokens of `span`, outside strings and comments, as
-    /// byte ranges of the file.
-    pub(crate) fn tokens(&self, span: &SourceSpan) -> Vec<Token> {
+    /// The lexemes of `span` (`specforge_parser::lex`: names, numbers,
+    /// strings, comments, punctuation), as byte ranges of the file.
+    pub(crate) fn tokens(&self, span: &SourceSpan) -> Vec<Lexeme> {
         let Some(range) = self.range(span) else {
             return Vec::new();
         };
         lex(&self.text[range.clone()])
             .into_iter()
-            .map(|t| Token {
-                start: t.start + range.start,
-                end: t.end + range.start,
-                kind: t.kind,
+            .map(|l| Lexeme {
+                start: l.start + range.start,
+                end: l.end + range.start,
+                kind: l.kind,
             })
             .collect()
     }
 
-    /// The text of `token`.
-    pub(crate) fn token_text(&self, token: &Token) -> &str {
-        &self.text[token.start..token.end]
+    /// The text of `lexeme`.
+    pub(crate) fn token_text(&self, lexeme: &Lexeme) -> &str {
+        lexeme.text(&self.text)
     }
-}
-
-/// What a lexeme is: an identifier (letters, digits, `_`), or one
-/// punctuation character.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum TokenKind {
-    Ident,
-    Punct(char),
-}
-
-/// One lexeme, as a byte range.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct Token {
-    pub(crate) start: usize,
-    pub(crate) end: usize,
-    pub(crate) kind: TokenKind,
-}
-
-/// A byte that continues an identifier: what the grammar's identifiers are
-/// made of, and any non-ASCII byte, so a token never splits a word.
-fn is_word(byte: u8) -> bool {
-    byte.is_ascii_alphanumeric() || byte == b'_' || byte >= 0x80
-}
-
-/// The lexemes of `text`: identifiers and punctuation, skipping
-/// whitespace, `"…"` strings (with `\` escapes), `"""…"""` strings and `//`
-/// comments to the end of the line. Text that starts inside a string is
-/// read as code: callers lex from an entity, field value or method start.
-pub(crate) fn lex(text: &str) -> Vec<Token> {
-    let bytes = text.as_bytes();
-    let find = |from: usize, needle: &[u8]| {
-        bytes[from.min(bytes.len())..]
-            .windows(needle.len())
-            .position(|w| w == needle)
-            .map(|at| from + at)
-    };
-    let mut tokens = Vec::new();
-    let mut i = 0;
-    while i < bytes.len() {
-        let byte = bytes[i];
-        if byte.is_ascii_whitespace() {
-            i += 1;
-        } else if bytes[i..].starts_with(b"\"\"\"") {
-            i = find(i + 3, b"\"\"\"").map_or(bytes.len(), |end| end + 3);
-        } else if byte == b'"' {
-            i += 1;
-            while i < bytes.len() && bytes[i] != b'"' && bytes[i] != b'\n' {
-                i += if bytes[i] == b'\\' { 2 } else { 1 };
-            }
-            i = (i + 1).min(bytes.len());
-        } else if bytes[i..].starts_with(b"//") {
-            i = find(i, b"\n").unwrap_or(bytes.len());
-        } else if is_word(byte) {
-            let start = i;
-            while i < bytes.len() && is_word(bytes[i]) {
-                i += 1;
-            }
-            tokens.push(Token {
-                start,
-                end: i,
-                kind: TokenKind::Ident,
-            });
-        } else {
-            // Every non-ASCII byte is a word byte: punctuation is ASCII.
-            tokens.push(Token {
-                start: i,
-                end: i + 1,
-                kind: TokenKind::Punct(char::from(byte)),
-            });
-            i += 1;
-        }
-    }
-    tokens
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    fn idents(text: &str) -> Vec<&str> {
-        lex(text)
-            .into_iter()
-            .filter(|t| t.kind == TokenKind::Ident)
-            .map(|t| &text[t.start..t.end])
-            .collect()
-    }
-
-    #[test]
-    fn strings_and_comments_hold_no_tokens() {
-        let text =
-            "behavior a \"a b\" { // a c\n  x [a] \"\"\"a\n\"q\" a\"\"\" y \"esc \\\" a\" z\n}";
-        assert_eq!(idents(text), ["behavior", "a", "x", "a", "y", "z"]);
-    }
-
-    #[test]
-    fn a_word_is_never_split() {
-        assert_eq!(
-            idents("x_sesion_limit é→a sesion"),
-            ["x_sesion_limit", "é→a", "sesion"]
-        );
-    }
 
     #[test]
     fn positions_are_one_based_byte_columns() {

@@ -92,15 +92,28 @@ async fn items(client: &mut LspClient, uri: &str, line: u32, character: u32) -> 
     resp["result"].as_array().cloned().unwrap_or_default()
 }
 
-// Flipped by 06-T1.
+#[spec(
+    behavior = "prepare_rename",
+    verify = "prepare rename on entity ID returns token range"
+)]
 #[tokio::test]
-async fn pin_prepare_rename_refuses_a_ref_declaration() {
+async fn prepare_rename_answers_a_ref_id() {
     let (mut client, uri, _dir) = open("main.spec", MAIN).await;
     let resp = client.rename_range_at(&uri, 0, 7).await;
-    assert!(resp["result"].is_null(), "{resp}");
+    let range = &resp["result"];
+    assert_eq!(
+        (
+            range["start"]["line"].as_u64(),
+            range["start"]["character"].as_u64(),
+            range["end"]["line"].as_u64(),
+            range["end"]["character"].as_u64()
+        ),
+        (Some(0), Some(4), Some(0), Some(15)),
+        "{resp}"
+    );
 }
 
-// Flipped by 06-T1.
+// Flipped by 06-T3 (R1: hover still names another entity here).
 #[tokio::test]
 async fn pin_definition_on_a_ref_item_selects_its_block() {
     let (mut client, uri, _dir) = open("main.spec", MAIN).await;
@@ -108,7 +121,7 @@ async fn pin_definition_on_a_ref_item_selects_its_block() {
     let start = &resp["result"]["range"]["start"];
     assert_eq!(
         (start["line"].as_u64(), start["character"].as_u64()),
-        (Some(0), Some(0)),
+        (Some(0), Some(4)),
         "{resp}"
     );
 }
@@ -122,12 +135,20 @@ async fn pin_hover_on_a_ref_item_names_another_entity() {
     assert!(!value.contains("`gh.issue:42`"), "{value}");
 }
 
-// Flipped by 06-T3.
+// Flipped by 06-T3. Since 06-T1 the definition from a ref's own ID stays
+// on it (its name is one token); hover still reads the middle word.
 #[tokio::test]
-async fn pin_definition_on_a_ref_declaration_leaves_it() {
+async fn pin_hover_on_a_ref_declaration_names_another_entity() {
     let (mut client, uri, _dir) = open("main.spec", MAIN).await;
     let resp = client.goto_definition(&uri, 0, 7).await;
-    assert_eq!(resp["result"]["range"]["start"]["line"], 2, "{resp}");
+    let start = &resp["result"]["range"]["start"];
+    assert_eq!(
+        (start["line"].as_u64(), start["character"].as_u64()),
+        (Some(0), Some(4)),
+        "{resp}"
+    );
+    let value = hover_text(&mut client, &uri, (0, 7)).await;
+    assert!(value.contains("`issue`"), "{value}");
 }
 
 // Flipped by 06-T3.

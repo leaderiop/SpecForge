@@ -6,9 +6,10 @@ use specforge_common::{SourceSpan, Sym};
 use specforge_graph::{DerivedFrom, Edge, Node};
 use specforge_parser::FieldValue;
 
-use super::text::{SourceText, Token, TokenKind};
+use super::text::SourceText;
 use super::{Navigator, contains};
 use crate::OpError;
+use specforge_parser::lex::Lexeme;
 
 /// Where an entity is declared: its whole block, and its name token.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -316,12 +317,12 @@ impl<F: Fn(&str) -> Option<String>> Navigator<'_, F> {
                     let tokens = text.tokens(&method.span);
                     let open = tokens
                         .iter()
-                        .position(|t| t.kind == TokenKind::Punct('('))
+                        .position(|t| t.is_punct('('))
                         .unwrap_or(tokens.len());
                     spans.extend(
                         tokens[open..]
                             .iter()
-                            .filter(|t| t.kind == TokenKind::Ident && text.token_text(t) == target)
+                            .filter(|t| t.is_name() && text.token_text(t) == target)
                             .map(|t| text.span(method.span.file, t.start, t.end)),
                     );
                 }
@@ -364,7 +365,7 @@ fn written_references(holder: &Node, edge: &Edge) -> Vec<SourceSpan> {
 fn tokens_named(text: &SourceText, span: &SourceSpan, word: &str) -> Vec<SourceSpan> {
     text.tokens(span)
         .into_iter()
-        .filter(|t| t.kind == TokenKind::Ident && text.token_text(t) == word)
+        .filter(|t| t.is_name() && text.token_text(t) == word)
         .map(|t| text.span(span.file, t.start, t.end))
         .collect()
 }
@@ -372,11 +373,11 @@ fn tokens_named(text: &SourceText, span: &SourceSpan, word: &str) -> Vec<SourceS
 /// The entity's name in its declaration: the first token spelling `id` on
 /// the block's first line after the kind keyword.
 fn declaration_name(text: &SourceText, block: &SourceSpan, id: &str) -> Option<SourceSpan> {
-    let tokens: Vec<Token> = text.tokens(block);
+    let tokens: Vec<Lexeme> = text.tokens(block);
     let first_line = block.start_line;
     tokens
         .iter()
-        .filter(|t| t.kind == TokenKind::Ident)
+        .filter(|t| t.is_name())
         .skip(1)
         .take_while(|t| text.position(t.start).0 == first_line)
         .find(|t| text.token_text(t) == id)
