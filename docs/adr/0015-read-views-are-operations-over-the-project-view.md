@@ -35,8 +35,9 @@ The operations, each one function over the view returning a typed outcome:
 `stats::stats` (`Stats`), `coverage::{coverage, row}` (`CoverageOutcome`, `CoverageRow`),
 `trace::trace` (`TraceOutcome`, which serializes as the document `specforge trace` writes),
 `plan::check` (`PlanOutcome`), `schema::schema` (`SchemaOutcome`), `export::export`,
-`model::{model, outline}` (`ModelOutcome`). The CLI and MCP map arguments in and render the
-outcome; MCP has one coverage-row presenter (`tools::coverage::row_json`) and one gap presenter
+`model::{model, outline}` (`ModelOutcome`), `inspect::inspect` (`EntityFacts`, section "Inspect").
+The CLI and MCP map arguments in and render the outcome, and the LSP hover renders inspect's; MCP
+has one coverage-row presenter (`tools::coverage::row_json`) and one gap presenter
 (`tools::trace::gap_json`).
 
 ## Decisions
@@ -200,3 +201,42 @@ runtime)`. `stats::stats(&view)` reads `reported()` (D7 amended). The CLI compil
 
 An operation that needs a project the view cannot describe (two projects, or the build cache), or
 a management operation that must run without a compile.
+
+## Inspect
+
+*(Added 2026-10, architecture plan 07.)*
+
+MCP `specforge.inspect` and the LSP hover answered "what is this entity" from two sources: inspect
+from navigate's references, the coverage row, the headline statement and the diagnostics' data;
+hover from raw graph edges and the kind registry entry. Of 27 commits to inspect, the one that
+touched hover renamed a heading by hand (61f38250). Hover showed no coverage and none of the entity's
+diagnostics unless they were under the cursor, and nothing held its `testable` badge to inspect's
+field (ADR 0004 D2-d, which the spec states "as hover shows it"). A third copy, the MCP context
+prompt, read the same headline, edges and obligations.
+
+- **I1. Inspect is a read view**: `specforge_ops::inspect::inspect(view, entity_id) ->
+  Result<EntityFacts, OpError>`. `EntityFacts` borrows the node and its kind's registry entry and
+  carries the headline statement, the standing (testable, obligated, exempt), the obligations, the
+  references (`navigate::References`, one per edge, in edge order, with the peer's kind and the
+  field), the coverage (`Result<EntityCoverage, ReportError>`) and the diagnostics the view reports
+  about it (`navigate::is_about`). MCP inspect, the context prompt and the hover only render it.
+- **I2. A reference list without spans** is navigate's (`References::of`), selected by the same
+  `reference_edges` as `Navigator::references`. Inspect reads no spec file.
+- **I3. The standing does not depend on the recorded report**, and the coverage carries the report's
+  error instead of failing the view: MCP still fails `inspect` on E045 (ADR 0004 D2-e), and the hover
+  shows the error on its Coverage line.
+- **I4. The hover is editor-neutral markdown**: no raw `lsp_icon` word (a SymbolKind name, which
+  document symbols use); the VS Code client adds its codicons (for a kind it does not know, the
+  codicon of the SymbolKind the server reports for the entity's workspace symbol) and finds the
+  entity header on any line.
+- **I5. Additive MCP fields**: `exempt` (the coverage row's meaning), `obligated` and `source_extension`;
+  `references` and `reference_count` stay deprecated aliases, now derived from the same reference
+  list.
+
+Consequences: hover gains the headline as a summary, a Coverage line and the entity's diagnostics not
+already shown, and a long non-ASCII field value no longer crashes the server. A parity test holds
+hover and inspect to the same facts on every fixture entity. The reported diagnostics are the
+view's (section "Management operations"): MCP's view reports its call target's, the LSP's reports
+what it published (`ProjectView::reporting`), so the hover's dedupe against the cursor's
+diagnostics compares the same copies. While the LSP's session is out for an update, the hover says
+coverage is unavailable rather than reading a stand-in view with no root.

@@ -52,8 +52,12 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   target (`ProjectRef::view`: the project session with its I017 notices, or another project
   compiled for one call); the LSP from its session (`ProjectView::of_session`) (ADR 0015).
 - **Read view**: an operation that only reads the project view: stats, trace, the coverage view, the
-  model and outline diagrams, the versioned schema. Each returns a typed outcome; the CLI and MCP
-  only render it.
+  model and outline diagrams, the versioned schema, and inspect. Each returns a typed outcome; the
+  CLI, MCP and the LSP only render it.
+- **Entity facts**: what inspect returns for one entity: its node and kind entry, headline
+  statement, standing (testable, obligated, exempt), obligations, references in both directions,
+  coverage, and the reported diagnostics about it (`specforge_ops::inspect::EntityFacts`). MCP
+  `specforge.inspect` renders it as JSON and the LSP hover as markdown, so the two cannot disagree.
 - **Management operation**: an operation about a project's setup and tooling rather than its
   graph: the extensions and providers listings, doctor, remove, collect, inference progress and
   gaps. Like a read view it takes the project view and a request and returns a typed outcome; unlike
