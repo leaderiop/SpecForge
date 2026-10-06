@@ -1,4 +1,4 @@
-use specforge_common::{Diagnostic, Severity};
+use specforge_common::{Diagnostic, codes};
 use specforge_protocol_types::ExtensionDeclaration;
 
 /// E027/W062 for every declaration's peers, against the loaded ones.
@@ -25,18 +25,16 @@ fn peer_dependencies_of(
         match installed.get(peer.name.as_str()) {
             None if peer.optional => {}
             None => {
-                diagnostics.push(Diagnostic {
-                    code: "E027".to_string(),
-                    severity: Severity::Error,
-                    message: format!(
-                        "extension '{}' requires peer dependency '{}' {} which is not installed",
-                        name, peer.name, peer.version
-                    ),
-                    span: None,
-                    suggestion: Some(format!("install it with: specforge add {}", peer.name)),
-                    data: None,
-                    origin: None,
-                });
+                diagnostics.push(
+                    Diagnostic::new(
+                        codes::E027,
+                        format!(
+                            "extension '{}' requires peer dependency '{}' {} which is not installed",
+                            name, peer.name, peer.version
+                        ),
+                    )
+                    .with_suggestion(format!("install it with: specforge add {}", peer.name)),
+                );
             }
             Some(installed_version) => {
                 // Validate that both the required range and installed version are parseable semver
@@ -44,44 +42,37 @@ fn peer_dependencies_of(
                 let ver_parse = semver::Version::parse(installed_version);
 
                 if req_parse.is_err() {
-                    diagnostics.push(Diagnostic {
-                        code: "W062".to_string(),
-                        severity: Severity::Warning,
-                        message: format!(
-                            "extension '{}' declares peer dependency '{}' with malformed semver range '{}'",
-                            name, peer.name, peer.version
+                    diagnostics.push(
+                        Diagnostic::new(
+                            codes::W062,
+                            format!(
+                                "extension '{}' declares peer dependency '{}' with malformed semver range '{}'",
+                                name, peer.name, peer.version
+                            ),
+                        )
+                        .with_suggestion(
+                            "use a valid semver range like ^1.0.0, ~1.2.0, or >=1.0.0".to_string(),
                         ),
-                        span: None,
-                        suggestion: Some("use a valid semver range like ^1.0.0, ~1.2.0, or >=1.0.0".to_string()),
-                        data: None,
-                        origin: None,
-                    });
+                    );
                 } else if ver_parse.is_err() {
-                    diagnostics.push(Diagnostic {
-                        code: "W062".to_string(),
-                        severity: Severity::Warning,
-                        message: format!(
-                            "extension '{}' has malformed version '{}' (not valid semver)",
-                            peer.name, installed_version
-                        ),
-                        span: None,
-                        suggestion: Some("use a valid semver version like 1.0.0".to_string()),
-                        data: None,
-                        origin: None,
-                    });
+                    diagnostics.push(
+                        Diagnostic::new(
+                            codes::W062,
+                            format!(
+                                "extension '{}' has malformed version '{}' (not valid semver)",
+                                peer.name, installed_version
+                            ),
+                        )
+                        .with_suggestion("use a valid semver version like 1.0.0".to_string()),
+                    );
                 } else if !version_satisfies(installed_version, &peer.version) {
-                    diagnostics.push(Diagnostic {
-                        code: "E027".to_string(),
-                        severity: Severity::Error,
-                        message: format!(
+                    diagnostics.push(Diagnostic::new(
+                        codes::E027,
+                        format!(
                             "extension '{}' requires peer dependency '{}' {} but version {} is installed",
                             name, peer.name, peer.version, installed_version
                         ),
-                        span: None,
-                        suggestion: None,
-                        data: None,
-                        origin: None,
-                    });
+                    ));
                 }
             }
         }
@@ -113,21 +104,19 @@ pub(crate) fn validate_extension_testability(kind_reg: &crate::KindRegistry) -> 
 
     for (_, entry) in kind_reg.iter() {
         if entry.testable && !entry.supports_verify {
-            diagnostics.push(Diagnostic {
-                code: "W017".to_string(),
-                severity: Severity::Warning,
-                message: format!(
-                    "entity kind '{}' from '{}' is testable but does not support verify statements",
-                    entry.kind_name, entry.source_extension
-                ),
-                span: None,
-                suggestion: Some(
+            diagnostics.push(
+                Diagnostic::new(
+                    codes::W017,
+                    format!(
+                        "entity kind '{}' from '{}' is testable but does not support verify statements",
+                        entry.kind_name, entry.source_extension
+                    ),
+                )
+                .with_suggestion(
                     "declare the kind with supports_verify (KindBuilder::supports_verify)"
                         .to_string(),
                 ),
-                data: None,
-                origin: None,
-            });
+            );
         }
     }
 

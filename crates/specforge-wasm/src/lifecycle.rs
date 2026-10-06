@@ -1,6 +1,6 @@
 use crate::integrity::hex_sha256;
 use crate::runtime::WasmRuntime;
-use specforge_common::{Diagnostic, Severity};
+use specforge_common::{Diagnostic, codes};
 use std::path::Path;
 
 /// Load a Wasm component from `wasm_path` under `extension_name`.
@@ -17,38 +17,31 @@ pub fn load_wasm_module(
 ) -> Result<(), Diagnostic> {
     // Check if the .wasm binary exists
     if !wasm_path.exists() {
-        return Err(Diagnostic {
-            code: "E028".to_string(),
-            severity: Severity::Error,
-            message: format!(
+        return Err(Diagnostic::new(
+            codes::E028,
+            format!(
                 "extension '{}': .wasm binary not found at '{}'",
                 extension_name,
                 wasm_path.display()
             ),
-            span: None,
-            suggestion: Some(format!(
-                "install the extension with: specforge add {}",
-                extension_name
-            )),
-            data: None,
-            origin: None,
-        });
+        )
+        .with_suggestion(format!(
+            "install the extension with: specforge add {}",
+            extension_name
+        )));
     }
 
     // The binary's content hash, checked against the lockfile pin.
-    let bytes = std::fs::read(wasm_path).map_err(|e| Diagnostic {
-        code: "E028".to_string(),
-        severity: Severity::Error,
-        message: format!(
-            "extension '{}': cannot read .wasm binary at '{}': {}",
-            extension_name,
-            wasm_path.display(),
-            e
-        ),
-        span: None,
-        suggestion: None,
-        data: None,
-        origin: None,
+    let bytes = std::fs::read(wasm_path).map_err(|e| {
+        Diagnostic::new(
+            codes::E028,
+            format!(
+                "extension '{}': cannot read .wasm binary at '{}': {}",
+                extension_name,
+                wasm_path.display(),
+                e
+            ),
+        )
     })?;
     let wasm_hash = hex_sha256(&bytes);
 
@@ -57,36 +50,29 @@ pub fn load_wasm_module(
     // tampered with or corrupted after install. Refuse before touching the
     // runtime (this also denies a tampered binary a cache-hit load path).
     if let Some(expected) = expected_hash.filter(|h| !h.is_empty() && h != &wasm_hash) {
-        return Err(Diagnostic {
-            code: "E033".to_string(),
-            severity: Severity::Error,
-            message: format!(
+        return Err(Diagnostic::new(
+            codes::E033,
+            format!(
                 "integrity mismatch for '{}': lockfile records hash {} but the installed binary is {}",
                 extension_name, expected, wasm_hash
             ),
-            span: None,
-            suggestion: Some(format!(
-                "the installed binary changed after install — re-install it: specforge remove \"{0}\" && specforge add \"{0}\"",
-                extension_name
-            )),
-            data: None,
-            origin: None,
-        });
+        )
+        .with_suggestion(format!(
+            "the installed binary changed after install — re-install it: specforge remove \"{0}\" && specforge add \"{0}\"",
+            extension_name
+        )));
     }
 
     runtime
         .load_module_named(extension_name, wasm_path)
-        .map_err(|e| Diagnostic {
-            code: "E028".to_string(),
-            severity: Severity::Error,
-            message: format!(
-                "extension '{}': failed to load Wasm module: {}",
-                extension_name, e
-            ),
-            span: None,
-            suggestion: None,
-            data: None,
-            origin: None,
+        .map_err(|e| {
+            Diagnostic::new(
+                codes::E028,
+                format!(
+                    "extension '{}': failed to load Wasm module: {}",
+                    extension_name, e
+                ),
+            )
         })
 }
 
@@ -94,6 +80,7 @@ pub fn load_wasm_module(
 mod tests {
     use super::*;
     use crate::testing::InProcessRuntime;
+    use specforge_common::Severity;
     use specforge_extension_sdk::{ContributionsBuilder, ExtensionMeta};
     use std::io::Write;
     use tempfile::TempDir;

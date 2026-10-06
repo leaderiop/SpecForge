@@ -3,7 +3,7 @@
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use specforge_common::{Diagnostic, discover_spec_files, load_project_config};
+use specforge_common::{Diagnostic, codes, discover_spec_files, load_project_config};
 use specforge_graph::{Graph, build_graph_with_config};
 use specforge_parser::SpecFile;
 use specforge_resolver::resolve_parsed;
@@ -210,7 +210,7 @@ impl ProjectSession {
                     .build
                     .file_diagnostics(path)
                     .iter()
-                    .any(|d| d.code == "E001") =>
+                    .any(|d| d.is(codes::E001)) =>
             {
                 Vec::new()
             }

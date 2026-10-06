@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use specforge_common::{Diagnostic, Severity};
+use specforge_common::{Diagnostic, codes};
 use std::path::Path;
 
 /// The lock file format for extension resolution.
@@ -45,14 +45,8 @@ impl LockFile {
 
 /// Write a lock file to disk as JSON.
 pub fn write_lock_file(lock: &LockFile, path: &Path) -> Result<(), Diagnostic> {
-    let json = serde_json::to_string_pretty(lock).map_err(|e| Diagnostic {
-        code: "E033".to_string(),
-        severity: Severity::Error,
-        message: format!("failed to serialize lock file: {}", e),
-        span: None,
-        suggestion: None,
-        data: None,
-        origin: None,
+    let json = serde_json::to_string_pretty(lock).map_err(|e| {
+        Diagnostic::new(codes::E033, format!("failed to serialize lock file: {}", e))
     })?;
 
     // Write a sibling file, then rename it over the lock: a write that
@@ -64,40 +58,30 @@ pub fn write_lock_file(lock: &LockFile, path: &Path) -> Result<(), Diagnostic> {
         .and_then(|()| std::fs::rename(&temp, path))
         .map_err(|e| {
             let _ = std::fs::remove_file(&temp);
-            Diagnostic {
-                code: "E033".to_string(),
-                severity: Severity::Error,
-                message: format!("failed to write lock file at '{}': {}", path.display(), e),
-                span: None,
-                suggestion: None,
-                data: None,
-                origin: None,
-            }
+            Diagnostic::new(
+                codes::E033,
+                format!("failed to write lock file at '{}': {}", path.display(), e),
+            )
         })
 }
 
 /// Read a lock file from disk.
 pub fn read_lock_file(path: &Path) -> Result<LockFile, Diagnostic> {
-    let content = std::fs::read_to_string(path).map_err(|e| Diagnostic {
-        code: "E033".to_string(),
-        severity: Severity::Error,
-        message: format!("failed to read lock file at '{}': {}", path.display(), e),
-        span: None,
-        suggestion: None,
-        data: None,
-        origin: None,
+    let content = std::fs::read_to_string(path).map_err(|e| {
+        Diagnostic::new(
+            codes::E033,
+            format!("failed to read lock file at '{}': {}", path.display(), e),
+        )
     })?;
 
-    serde_json::from_str::<LockFile>(&content).map_err(|e| Diagnostic {
-        code: "E033".to_string(),
-        severity: Severity::Error,
-        message: format!("corrupt lock file at '{}': {}", path.display(), e),
-        span: None,
-        suggestion: Some(
+    serde_json::from_str::<LockFile>(&content).map_err(|e| {
+        Diagnostic::new(
+            codes::E033,
+            format!("corrupt lock file at '{}': {}", path.display(), e),
+        )
+        .with_suggestion(
             "delete the lock file and run `specforge install` to regenerate".to_string(),
-        ),
-        data: None,
-        origin: None,
+        )
     })
 }
 

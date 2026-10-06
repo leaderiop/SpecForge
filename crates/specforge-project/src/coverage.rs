@@ -8,7 +8,7 @@
 
 use crate::snapshot::{EntitySnapshot, Standing};
 use serde::Deserialize;
-use specforge_common::Diagnostic;
+use specforge_common::{Diagnostic, codes};
 use specforge_graph::Graph;
 use specforge_registry::RegistryBuild;
 use std::collections::BTreeMap;
@@ -104,7 +104,7 @@ impl ReportError {
 
     /// The error as a diagnostic (E045, an invalid test report).
     pub fn diagnostic(&self) -> Diagnostic {
-        Diagnostic::error("E045", self.to_string()).with_suggestion(
+        Diagnostic::new(codes::E045, self.to_string()).with_suggestion(
             "run `specforge collect` again to rewrite the report, or fix or remove the file",
         )
     }

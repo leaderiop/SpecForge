@@ -1,6 +1,6 @@
 use crate::integrity::hex_sha256;
 use crate::lock_file::{LockFile, LockFileEntry};
-use specforge_common::{Diagnostic, Severity};
+use specforge_common::{Diagnostic, codes};
 use std::path::{Path, PathBuf};
 
 /// Result of an install operation.
@@ -27,18 +27,14 @@ pub fn install_extension(
     // 1. Verify SHA256
     let actual_hash = hex_sha256(wasm_bytes);
     if actual_hash != expected_sha256 {
-        return Err(Diagnostic {
-            code: "E032".to_string(),
-            severity: Severity::Error,
-            message: format!(
+        return Err(Diagnostic::new(
+            codes::E032,
+            format!(
                 "integrity check failed for '{}': expected {}, got {}",
                 name, expected_sha256, actual_hash
             ),
-            span: None,
-            suggestion: Some("re-download the extension or verify the source".to_string()),
-            data: None,
-            origin: None,
-        });
+        )
+        .with_suggestion("re-download the extension or verify the source".to_string()));
     }
 
     // 2. Atomic placement: write to temp dir, then rename
@@ -48,28 +44,20 @@ pub fn install_extension(
     // Clean up any leftover temp dir
     let _ = std::fs::remove_dir_all(&temp_dir);
 
-    std::fs::create_dir_all(&temp_dir).map_err(|e| Diagnostic {
-        code: "E032".to_string(),
-        severity: Severity::Error,
-        message: format!("failed to create temp directory for '{}': {}", name, e),
-        span: None,
-        suggestion: None,
-        data: None,
-        origin: None,
+    std::fs::create_dir_all(&temp_dir).map_err(|e| {
+        Diagnostic::new(
+            codes::E032,
+            format!("failed to create temp directory for '{}': {}", name, e),
+        )
     })?;
 
     let temp_wasm_path = temp_dir.join("extension.wasm");
     if let Err(e) = std::fs::write(&temp_wasm_path, wasm_bytes) {
         let _ = rollback_install(&temp_dir);
-        return Err(Diagnostic {
-            code: "E032".to_string(),
-            severity: Severity::Error,
-            message: format!("failed to write .wasm binary for '{}': {}", name, e),
-            span: None,
-            suggestion: None,
-            data: None,
-            origin: None,
-        });
+        return Err(Diagnostic::new(
+            codes::E032,
+            format!("failed to write .wasm binary for '{}': {}", name, e),
+        ));
     }
 
     // Remove existing ext_dir if present (upgrade case)
@@ -83,15 +71,10 @@ pub fn install_extension(
     // Rename temp dir to final location (atomic on same filesystem)
     if let Err(e) = std::fs::rename(&temp_dir, &ext_dir) {
         let _ = rollback_install(&temp_dir);
-        return Err(Diagnostic {
-            code: "E032".to_string(),
-            severity: Severity::Error,
-            message: format!("failed to finalize installation of '{}': {}", name, e),
-            span: None,
-            suggestion: None,
-            data: None,
-            origin: None,
-        });
+        return Err(Diagnostic::new(
+            codes::E032,
+            format!("failed to finalize installation of '{}': {}", name, e),
+        ));
     }
 
     // 3. Update lock file
@@ -124,19 +107,17 @@ fn rollback_install(ext_dir: &Path) -> Vec<Diagnostic> {
     if ext_dir.exists()
         && let Err(e) = std::fs::remove_dir_all(ext_dir)
     {
-        diagnostics.push(Diagnostic {
-            code: "W119".to_string(),
-            severity: Severity::Warning,
-            message: format!(
-                "failed to clean up partial install at '{}': {}",
-                ext_dir.display(),
-                e
-            ),
-            span: None,
-            suggestion: Some(format!("manually remove '{}'", ext_dir.display())),
-            data: None,
-            origin: None,
-        });
+        diagnostics.push(
+            Diagnostic::new(
+                codes::W119,
+                format!(
+                    "failed to clean up partial install at '{}': {}",
+                    ext_dir.display(),
+                    e
+                ),
+            )
+            .with_suggestion(format!("manually remove '{}'", ext_dir.display())),
+        );
     }
     diagnostics
 }

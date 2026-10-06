@@ -1,4 +1,4 @@
-use specforge_common::{Diagnostic, Severity};
+use specforge_common::{Diagnostic, codes};
 use specforge_protocol_types::ExtensionDeclaration;
 
 /// One entry of the `providers` array in specforge.json (ADR 0004 D3-c):
@@ -35,15 +35,7 @@ impl ProviderSchemeRegistry {
 }
 
 fn provider_warning(message: String, suggestion: &str) -> Diagnostic {
-    Diagnostic {
-        code: "W118".to_string(),
-        severity: Severity::Warning,
-        message,
-        span: None,
-        suggestion: Some(suggestion.to_string()),
-        data: None,
-        origin: None,
-    }
+    Diagnostic::new(codes::W118, message).with_suggestion(suggestion.to_string())
 }
 
 /// Parse the specforge.json `providers` array, in declaration order: each
@@ -180,24 +172,20 @@ pub fn register_provider_schemes_with_status(
             }
             Some(_) => match registry.find_by_scheme(&provider.scheme) {
                 Some(first) => {
-                    diagnostics.push(Diagnostic {
-                        code: "E057".to_string(),
-                        severity: Severity::Error,
-                        message: format!(
-                            "scheme '{}' of provider '{}' ({}) is already registered by provider '{}' ({})",
-                            provider.scheme,
-                            provider.alias,
-                            provider.extension,
-                            first.provider_name,
-                            first.extension_name
-                        ),
-                        span: None,
-                        suggestion: Some(
-                            "give each provider instance its own scheme".to_string(),
-                        ),
-                        data: None,
-                        origin: None,
-                    });
+                    diagnostics.push(
+                        Diagnostic::new(
+                            codes::E057,
+                            format!(
+                                "scheme '{}' of provider '{}' ({}) is already registered by provider '{}' ({})",
+                                provider.scheme,
+                                provider.alias,
+                                provider.extension,
+                                first.provider_name,
+                                first.extension_name
+                            ),
+                        )
+                        .with_suggestion("give each provider instance its own scheme".to_string()),
+                    );
                     ProviderStatus::SchemeTaken
                 }
                 None => {

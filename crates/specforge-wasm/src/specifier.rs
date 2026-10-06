@@ -1,6 +1,6 @@
 //! Where an extension to add comes from, as `specforge add` is given it.
 
-use specforge_common::{Diagnostic, Severity};
+use specforge_common::{Diagnostic, codes};
 use std::path::PathBuf;
 
 /// Parsed extension specifier from a project configuration.
@@ -21,15 +21,12 @@ pub fn parse_extension_specifier(input: &str) -> Result<ExtensionSpecifier, Diag
     let input = input.trim();
 
     if input.is_empty() {
-        return Err(Diagnostic {
-            code: "E054".to_string(),
-            severity: Severity::Error,
-            message: "empty extension specifier".to_string(),
-            span: None,
-            suggestion: Some("provide a specifier like '@scope/name@1.0.0', './local/path', or 'git+https://...'".to_string()),
-            data: None,
-            origin: None,
-        });
+        return Err(
+            Diagnostic::new(codes::E054, "empty extension specifier".to_string()).with_suggestion(
+                "provide a specifier like '@scope/name@1.0.0', './local/path', or 'git+https://...'"
+                    .to_string(),
+            ),
+        );
     }
 
     // Git specifier
@@ -67,17 +64,13 @@ pub fn parse_extension_specifier(input: &str) -> Result<ExtensionSpecifier, Diag
         }
     }
 
-    Err(Diagnostic {
-        code: "E054".to_string(),
-        severity: Severity::Error,
-        message: format!("invalid extension specifier: '{}'", input),
-        span: None,
-        suggestion: Some(
-            "use format: 'name@version', './local/path', or 'git+https://...'".to_string(),
-        ),
-        data: None,
-        origin: None,
-    })
+    Err(Diagnostic::new(
+        codes::E054,
+        format!("invalid extension specifier: '{}'", input),
+    )
+    .with_suggestion(
+        "use format: 'name@version', './local/path', or 'git+https://...'".to_string(),
+    ))
 }
 
 #[cfg(test)]

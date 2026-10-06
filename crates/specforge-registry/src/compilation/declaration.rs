@@ -6,7 +6,7 @@
 
 use std::collections::{HashMap, HashSet, VecDeque};
 
-use specforge_common::{Diagnostic, Severity};
+use specforge_common::{Diagnostic, codes};
 use specforge_protocol_types::{
     CompilerPassDescriptor, ExtensionDeclaration, FieldDescriptor, FieldType, is_valid_short,
 };
@@ -14,15 +14,7 @@ use specforge_protocol_types::{
 use super::populate::keyword;
 
 fn e030(message: String) -> Diagnostic {
-    Diagnostic {
-        code: "E030".to_string(),
-        severity: Severity::Error,
-        message,
-        span: None,
-        suggestion: None,
-        data: None,
-        origin: None,
-    }
+    Diagnostic::new(codes::E030, message)
 }
 
 /// E030: a declaration the host cannot use as declared: an empty name or
@@ -41,14 +33,14 @@ pub(crate) fn shape(declaration: &ExtensionDeclaration) -> Vec<Diagnostic> {
     if let Some(short) = &declaration.handshake.ext_short
         && !is_valid_short(short)
     {
-        diagnostics.push(Diagnostic {
-            suggestion: Some(
-                "declare a short name like `reports` or `my-tools` ([a-z][a-z0-9-]*)".to_string(),
-            ),
-            ..e030(format!(
+        diagnostics.push(
+            e030(format!(
                 "extension '{name}': ext_short '{short}' is not lowercase kebab case"
             ))
-        });
+            .with_suggestion(
+                "declare a short name like `reports` or `my-tools` ([a-z][a-z0-9-]*)".to_string(),
+            ),
+        );
     }
     for analyzer in &declaration.analyzers {
         if analyzer.language.is_empty() {
@@ -155,15 +147,7 @@ pub(crate) fn consistency(
             None => "not declared by this extension".to_string(),
         })
     };
-    let warn = |message: String| Diagnostic {
-        code: "W021".to_string(),
-        severity: Severity::Warning,
-        message,
-        span: None,
-        suggestion: None,
-        data: None,
-        origin: None,
-    };
+    let warn = |message: String| Diagnostic::new(codes::W021, message);
 
     for kind in &declaration.entities {
         let kind_keyword = keyword(kind);
@@ -334,10 +318,9 @@ pub(crate) fn order_passes(
         .filter(|i| !order.contains(i))
         .map(|i| passes[i].name.as_str())
         .collect();
-    let warning = Diagnostic {
-        code: "W145".to_string(),
-        severity: Severity::Warning,
-        message: format!(
+    let warning = Diagnostic::new(
+        codes::W145,
+        format!(
             "extension '{extension}': the order constraints of passes {} form a cycle; its passes run in declaration order",
             cyclic
                 .iter()
@@ -345,12 +328,7 @@ pub(crate) fn order_passes(
                 .collect::<Vec<_>>()
                 .join(", ")
         ),
-        span: None,
-        suggestion: Some(
-            "remove the `after`/`before` constraint that closes the cycle".to_string(),
-        ),
-        data: None,
-        origin: None,
-    };
+    )
+    .with_suggestion("remove the `after`/`before` constraint that closes the cycle".to_string());
     (passes.to_vec(), Some(warning))
 }

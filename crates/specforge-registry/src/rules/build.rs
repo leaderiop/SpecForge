@@ -5,7 +5,7 @@
 
 use std::collections::{BTreeSet, HashMap, HashSet};
 
-use specforge_common::{Diagnostic, Severity};
+use specforge_common::{Diagnostic, Severity, codes};
 use specforge_diagnostics::{Level, check_extension_code};
 use specforge_protocol_types::{
     CheckKind, ConstraintKind, ExtensionDeclaration, ValidationRuleDescriptor, ValidationSeverity,
@@ -69,8 +69,8 @@ fn code_misuse(
         return None;
     }
     Some(
-        Diagnostic::warning(
-            "W150",
+        Diagnostic::new(
+            codes::W150,
             format!(
                 "extension '{extension}': rule '{}' uses {misuse}",
                 descriptor.code
@@ -86,8 +86,8 @@ fn code_misuse(
 /// W112 for `extension`'s rule `code`: it cannot work as declared (`why`),
 /// so it is not registered.
 fn cannot_fire(extension: &str, code: &str, why: &str) -> Diagnostic {
-    Diagnostic::warning(
-        "W112",
+    Diagnostic::new(
+        codes::W112,
         format!(
             "extension '{extension}': rule '{code}': {why} — the rule can never fire and was not registered"
         ),
@@ -105,8 +105,8 @@ fn ignore_unread(descriptor: &ValidationRuleDescriptor, rule: &mut Rule) -> Vec<
     let check = rule.check_kind;
     let head = format!("extension '{}': rule '{}'", rule.origin.name(), rule.code);
     let unread = |property: &str| {
-        Diagnostic::warning(
-            "W147",
+        Diagnostic::new(
+            codes::W147,
             format!(
                 "{head}: {property} is not read by check '{check}' — the rule was registered without it"
             ),
@@ -152,11 +152,9 @@ fn ignore_unread(descriptor: &ValidationRuleDescriptor, rule: &mut Rule) -> Vec<
             .as_ref()
             .map(|c| c.kind.as_str())
             .unwrap_or_default();
-        diagnostics.push(Diagnostic::warning(
-            "W147",
-            format!(
-                "{head}: constraint kind '{written}' is not read by check '{check}' (it reads {expected}) — read as {expected}"
-            ),
+        diagnostics.push(Diagnostic::new(
+            codes::W147,
+            format!("{head}: constraint kind '{written}' is not read by check '{check}' (it reads {expected}) — read as {expected}"),
         ));
         constraint.kind = Some(expected);
     }
@@ -186,8 +184,8 @@ fn ignore_unread(descriptor: &ValidationRuleDescriptor, rule: &mut Rule) -> Vec<
 fn shape(descriptor: &ValidationRuleDescriptor, extension: &str) -> Result<Rule, Diagnostic> {
     let r = descriptor;
     let Some(check_kind) = CheckKind::parse(&r.check) else {
-        return Err(Diagnostic::warning(
-            "W112",
+        return Err(Diagnostic::new(
+            codes::W112,
             format!(
                 "extension '{extension}': unrecognized validation pattern kind '{}'",
                 r.check
@@ -245,8 +243,8 @@ fn shape(descriptor: &ValidationRuleDescriptor, extension: &str) -> Result<Rule,
                     match regex::Regex::new(pattern) {
                         Ok(regex) => ValueConstraint::Matches(regex),
                         Err(err) => {
-                            return Err(Diagnostic::warning(
-                                "W112",
+                            return Err(Diagnostic::new(
+                                codes::W112,
                                 format!(
                                     "extension '{extension}': rule '{}': invalid regex pattern '{pattern}': {err}",
                                     r.code
@@ -447,8 +445,8 @@ fn required_field_rules(registries: Registries<'_>) -> Vec<Rule> {
     required
         .into_iter()
         .map(|(kind, field)| Rule {
-            code: "E006".to_string(),
-            severity: Severity::Error,
+            code: codes::E006.id().to_string(),
+            severity: Severity::of(codes::E006),
             template: format!("{kind} '{{id}}' is missing required field '{field}'"),
             target: Some(kind),
             message_field: Some(field.clone()),
@@ -477,8 +475,8 @@ fn duplicate_codes(declarations: &[ExtensionDeclaration]) -> Vec<Diagnostic> {
                     first.insert(&rule.code, declaration.name());
                 }
                 Some(owner) if *owner != declaration.name() => {
-                    diagnostics.push(Diagnostic::warning(
-                        "W023",
+                    diagnostics.push(Diagnostic::new(
+                        codes::W023,
                         format!(
                             "validation rule code '{}' from '{}' duplicates code from '{}'",
                             rule.code,

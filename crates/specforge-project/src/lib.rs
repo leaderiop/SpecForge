@@ -39,7 +39,7 @@ use compile::{GraphChecks, check_graph, load_extensions};
 use coverage::RecordedCoverage;
 use snapshot::EntitySnapshot;
 use specforge_common::{
-    ConfigProblem, Diagnostic, ProjectConfig, Severity, is_discovered, read_project_config,
+    ConfigProblem, Diagnostic, ProjectConfig, codes, is_discovered, read_project_config,
 };
 use specforge_graph::{Graph, GraphConfig, build_graph_with_config};
 use specforge_parser::SpecFile;
@@ -297,17 +297,10 @@ fn config_problem_diagnostic(problem: &ConfigProblem) -> Diagnostic {
     } else {
         format!("specforge.json: {problem}; it is ignored")
     };
-    Diagnostic {
-        code: "E069".to_string(),
-        severity: Severity::Error,
-        message,
-        span: None,
-        suggestion: Some(
-            "fix specforge.json; `specforge explain E069` says what it must be".to_string(),
-        ),
-        data: None,
-        origin: None,
-    }
+    Diagnostic::new(codes::E069, message).with_suggestion(format!(
+        "fix specforge.json; `specforge explain {}` says what it must be",
+        codes::E069
+    ))
 }
 
 /// I002: no extension loaded, so the compile checks structure only (no
@@ -318,7 +311,7 @@ fn structural_only_notice(configured: &[String], problems: &[ConfigProblem]) -> 
     let (message, suggestion) = if problems.iter().any(ConfigProblem::loads_nothing) {
         (
             "specforge.json could not be read — operating in structural-only mode".to_string(),
-            "fix specforge.json (E069 above)".to_string(),
+            format!("fix specforge.json ({} above)", codes::E069),
         )
     } else if configured.is_empty() {
         (
@@ -335,15 +328,7 @@ fn structural_only_notice(configured: &[String], problems: &[ConfigProblem]) -> 
             "fix the extension load errors above (`specforge doctor` checks the setup)".to_string(),
         )
     };
-    Diagnostic {
-        code: "I002".to_string(),
-        severity: Severity::Info,
-        message,
-        span: None,
-        suggestion: Some(suggestion),
-        data: None,
-        origin: None,
-    }
+    Diagnostic::new(codes::I002, message).with_suggestion(suggestion)
 }
 
 /// The resolved files a graph is built from, in path order.

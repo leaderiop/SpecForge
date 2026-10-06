@@ -2,7 +2,7 @@ use crate::{
     EdgeRegistry, EdgeRegistryEntry, FieldRegistry, FieldRegistryEntry, KindRegistry,
     KindRegistryEntry, ManifestFieldType, ProofRole,
 };
-use specforge_common::{Diagnostic, DiagnosticData, Severity};
+use specforge_common::{Diagnostic, DiagnosticData, codes};
 use specforge_protocol_types::{
     EntityEnhancementDescriptor, EntityKindDescriptor, ExtensionDeclaration, FieldDescriptor,
 };
@@ -74,18 +74,13 @@ fn apply_entity_enhancements(
             if owner_absent {
                 continue;
             }
-            diagnostics.push(Diagnostic {
-                code: "I004".to_string(),
-                severity: Severity::Info,
-                message: format!(
+            diagnostics.push(Diagnostic::new(
+                codes::I004,
+                format!(
                     "extension '{}': entity enhancement targets unknown kind '{}' (extension may not be installed)",
                     ext_name, enhancement.target_kind
                 ),
-                span: None,
-                suggestion: None,
-                data: None,
-                origin: None,
-            });
+            ));
             continue;
         }
 
@@ -135,22 +130,20 @@ fn register_entity_kinds(
         };
         if let Some(existing) = registry.register(entry) {
             // Duplicate — first extension wins (already registered), emit E026
-            diagnostics.push(Diagnostic {
-                code: "E026".to_string(),
-                severity: Severity::Error,
-                message: format!(
-                    "entity kind '{}' registered by '{}' conflicts with '{}' (first registration wins)",
-                    keyword,
-                    declaration.name(),
-                    existing.source_extension
-                ),
-                span: None,
-                suggestion: None,
-                data: Some(Box::new(DiagnosticData::ShadowedKeyword {
+            diagnostics.push(
+                Diagnostic::new(
+                    codes::E026,
+                    format!(
+                        "entity kind '{}' registered by '{}' conflicts with '{}' (first registration wins)",
+                        keyword,
+                        declaration.name(),
+                        existing.source_extension
+                    ),
+                )
+                .with_data(DiagnosticData::ShadowedKeyword {
                     keyword: keyword.to_string(),
-                })),
-                origin: None,
-            });
+                }),
+            );
             // Restore the first registration (it wins)
             registry.register(existing);
         }
@@ -200,18 +193,13 @@ fn register_single_field(
         Some(ManifestFieldType::Enum(_)) => ManifestFieldType::Enum(field.enum_values.clone()),
         Some(ft) => ft,
         None => {
-            diagnostics.push(Diagnostic {
-                code: "W019".to_string(),
-                severity: Severity::Warning,
-                message: format!(
+            diagnostics.push(Diagnostic::new(
+                codes::W019,
+                format!(
                     "extension '{}': unknown field type '{}' for field '{}' on kind '{}'",
                     source_extension, field.field_type, field.name, kind_name
                 ),
-                span: None,
-                suggestion: None,
-                data: None,
-                origin: None,
-            });
+            ));
             return;
         }
     };
@@ -242,20 +230,15 @@ fn lifecycle_field(
     if declared {
         return Some(name.clone());
     }
-    diagnostics.push(Diagnostic {
-        code: "W021".to_string(),
-        severity: Severity::Warning,
-        message: format!(
+    diagnostics.push(Diagnostic::new(
+        codes::W021,
+        format!(
             "extension '{}': kind '{}' declares lifecycle_field '{}', which is not one of its fields",
             declaration.name(),
             keyword(kind),
             name
         ),
-        span: None,
-        suggestion: None,
-        data: None,
-        origin: None,
-    });
+    ));
     None
 }
 
@@ -270,18 +253,13 @@ fn proof_role(
     let name = field.proof_role.as_deref()?;
     let role = ProofRole::parse(name);
     if role.is_none() {
-        diagnostics.push(Diagnostic {
-            code: "W021".to_string(),
-            severity: Severity::Warning,
-            message: format!(
+        diagnostics.push(Diagnostic::new(
+            codes::W021,
+            format!(
                 "extension '{}': field '{}' on kind '{}' declares proof_role '{}': expected 'bound' or 'claim'",
                 source_extension, field.name, kind_name, name
             ),
-            span: None,
-            suggestion: None,
-            data: None,
-            origin: None,
-        });
+        ));
     }
     role
 }
@@ -302,21 +280,16 @@ fn register_edge_types(
             declared: edge.clone(),
         };
         if let Some(existing) = registry.register(entry) {
-            diagnostics.push(Diagnostic {
-                code: "W018".to_string(),
-                severity: Severity::Warning,
-                message: format!(
+            diagnostics.push(Diagnostic::new(
+                codes::W018,
+                format!(
                     "edge type '{}' from '{}' duplicates '{}' from '{}' (first wins)",
                     edge.label,
                     declaration.name(),
                     existing.declared.label,
                     existing.source_extension
                 ),
-                span: None,
-                suggestion: None,
-                data: None,
-                origin: None,
-            });
+            ));
             // Restore first registration
             registry.register(existing);
         }

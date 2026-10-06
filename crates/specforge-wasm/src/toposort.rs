@@ -1,4 +1,4 @@
-use specforge_common::{Diagnostic, Severity};
+use specforge_common::{Diagnostic, codes};
 use specforge_protocol_types::ExtensionDeclaration;
 
 /// Sort extensions in topological order based on peer dependencies.
@@ -32,18 +32,16 @@ pub fn topological_sort_extensions(
     }
 
     if let Err(in_cycle) = kahn(&installed, &required) {
-        return Err(vec![Diagnostic {
-            code: "E027".to_string(),
-            severity: Severity::Error,
-            message: format!(
-                "cycle detected in peer dependencies: {}",
-                in_cycle.join(", ")
-            ),
-            span: None,
-            suggestion: Some("remove or break the circular dependency".to_string()),
-            data: None,
-            origin: None,
-        }]);
+        return Err(vec![
+            Diagnostic::new(
+                codes::E027,
+                format!(
+                    "cycle detected in peer dependencies: {}",
+                    in_cycle.join(", ")
+                ),
+            )
+            .with_suggestion("remove or break the circular dependency".to_string()),
+        ]);
     }
 
     // Optional edges, in (dependent, peer) name order: kept unless the
@@ -125,6 +123,7 @@ fn kahn(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use specforge_common::Severity;
     use specforge_protocol_types::{HandshakeResponse, PeerDependency};
 
     /// A declaration of `name` (version 1.0.0) whose only content is `peers`.

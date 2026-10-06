@@ -4,7 +4,7 @@
 
 use crate::snapshot::EntitySnapshot;
 use crate::verdicts::WasmVerdicts;
-use specforge_common::{Diagnostic, ExtensionEntry, Severity};
+use specforge_common::{Diagnostic, ExtensionEntry, codes};
 use specforge_graph::{Graph, GraphConfig};
 use specforge_protocol_types::ExtensionDeclaration;
 use specforge_registry::{
@@ -197,15 +197,10 @@ pub fn load_extensions(
                 diagnostics.push(failure);
             }
             Err(e) => {
-                diagnostics.push(Diagnostic {
-                    code: "E028".to_string(),
-                    severity: Severity::Error,
-                    message: format!("extension '{}': protocol loading failed: {}", ext_name, e),
-                    span: None,
-                    suggestion: None,
-                    data: None,
-                    origin: None,
-                });
+                diagnostics.push(Diagnostic::new(
+                    codes::E028,
+                    format!("extension '{}': protocol loading failed: {}", ext_name, e),
+                ));
             }
         }
     }
