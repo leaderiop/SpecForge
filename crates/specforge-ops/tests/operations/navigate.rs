@@ -737,6 +737,39 @@ fn a_verify_stub_is_offered_for_an_entity_without_obligations() {
     assert_eq!(stubs[0].subject, Some(Sym::new("first")));
 }
 
+#[test]
+fn pin_a_union_type_gets_a_verify_stub_attributed_to_w004() {
+    // pin (01-T0): today's behaviour; flipped by 01-T4
+    let p = compile(
+        TESTING,
+        &[(
+            "t.spec",
+            "type Status = open | done\n\ntype Plain \"Plain\" {\n  id string\n}\n",
+        )],
+    );
+    let stubs: Vec<(String, Option<String>)> = fixes_of(&p, &FixQuery::default())
+        .into_iter()
+        .filter(|f| f.source == FixSource::AddVerifyStub)
+        .map(|f| (f.subject.unwrap().to_string(), f.diagnostic_code))
+        .collect();
+    assert_eq!(
+        stubs,
+        [
+            ("Status".to_string(), Some("W004".to_string())),
+            ("Plain".to_string(), Some("W004".to_string())),
+        ]
+    );
+    let w004: Vec<String> = p
+        .project
+        .diagnostics()
+        .into_iter()
+        .filter(|d| d.code == "W004")
+        .map(|d| d.message)
+        .collect();
+    assert_eq!(w004.len(), 1, "{w004:?}");
+    assert!(w004[0].contains("'Plain'"), "{w004:?}");
+}
+
 #[specforge_test(
     behavior = "code_actions_for_missing_verify",
     verify = "generated verify stubs added to entity block in .spec file"
