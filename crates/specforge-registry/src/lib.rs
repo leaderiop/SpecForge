@@ -2,6 +2,7 @@
 pub mod compilation;
 pub mod entity;
 mod registries;
+pub mod rules;
 
 #[cfg(test)]
 mod invariants;
