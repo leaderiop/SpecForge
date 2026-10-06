@@ -508,19 +508,37 @@ fn an_uncatalogued_diagnostic_hover_shows_code_and_message() {
     );
 }
 
-// -- characterization (architecture plan 07, T0) ------------------------------
+// -- field values -------------------------------------------------------------
 
-/// Pins today's crash: a field value longer than 120 bytes whose byte 120
-/// falls inside a character panics the hover. T1 flips it.
-#[test]
-#[should_panic(expected = "is not a char boundary")]
-fn a_field_cut_inside_a_character_panics_today() {
+/// The `contract` line of the hover of a behavior whose contract is `value`.
+fn contract_line(value: &str) -> String {
     use specforge_parser::FieldValue;
     let mut g = Graph::new();
     let mut long = node("long_one", "behavior", Some("Long"));
-    let value = format!("{}é{}", "a".repeat(119), "b".repeat(20));
     long.fields
-        .push(Sym::new("contract"), FieldValue::String(value));
+        .push(Sym::new("contract"), FieldValue::String(value.to_string()));
     g.add_node(long);
-    let _ = specforge_lsp::hover_info(&g, "long_one");
+    let text = specforge_lsp::hover_info(&g, "long_one").unwrap();
+    text.lines()
+        .find(|l| l.starts_with("- `contract`"))
+        .unwrap_or_else(|| panic!("no contract line:\n{text}"))
+        .to_string()
+}
+
+#[spec(
+    behavior = "provide_extension_entity_hover",
+    verify = "a long field value is cut at a character boundary"
+)]
+fn a_long_field_is_cut_at_a_character_boundary() {
+    let value = format!("{}é{}", "a".repeat(119), "b".repeat(20));
+    assert_eq!(
+        contract_line(&value),
+        format!("- `contract` = \"{}…\"", "a".repeat(119))
+    );
+    // ASCII is cut at 120 bytes, as before.
+    let ascii = "x".repeat(200);
+    assert_eq!(
+        contract_line(&ascii),
+        format!("- `contract` = \"{}…\"", "x".repeat(120))
+    );
 }

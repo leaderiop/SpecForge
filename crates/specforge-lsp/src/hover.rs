@@ -215,8 +215,10 @@ pub fn hover_field_info(
 fn format_field_value(fv: &FieldValue) -> String {
     match fv {
         FieldValue::String(s) => {
+            // At most 120 bytes, cut at the last character boundary at or
+            // before byte 120: a cut inside a character would panic.
             let truncated = if s.len() > 120 {
-                format!("{}…", &s[..120])
+                format!("{}…", &s[..s.floor_char_boundary(120)])
             } else {
                 s.clone()
             };

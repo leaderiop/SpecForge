@@ -97,6 +97,7 @@ behavior provide_extension_entity_hover "Provide Extension Entity Hover" {
   verify unit "hover content formatted as markdown"
   verify unit "hover shows first string field as summary"
   verify unit "hover shows reference count from graph"
+  verify unit "a long field value is cut at a character boundary"
   verify contract "Provide Extension Entity Hover: extension entity hover holds — kind_registry_populated, hover_content_from_registry, source_extension_shown"
 }
 
