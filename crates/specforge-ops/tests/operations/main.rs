@@ -8,6 +8,7 @@ mod errors;
 mod extension_calls;
 mod model;
 mod navigate;
+mod options;
 mod plan;
 mod scan;
 mod schema_cache;

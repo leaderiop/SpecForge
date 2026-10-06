@@ -789,7 +789,7 @@ pub(crate) fn render_op(call: &mut Call<'_>, args: RenderArgs) -> ToolOutcome {
     // "json" is the full graph export: Graph Protocol 2.0 with the schema,
     // as `specforge export --format graph` writes it.
     let request = specforge_ops::export::Request {
-        format: format.parse().ok(),
+        format: specforge_ops::export::FORMAT.parse(format).ok(),
         scope: args.scope.as_deref(),
         ..specforge_ops::export::Request::default()
     };

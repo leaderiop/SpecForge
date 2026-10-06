@@ -9,9 +9,9 @@ default: cli=graph mcp=graph = json
 graph                        cli=0   mcp=ok
 context                      cli=0   mcp=ok
 brief                        cli=0   mcp=ok
-dot                          cli=0   mcp=refused: invalid_input: Unknown format: dot
+dot                          cli=0   mcp=refused: invalid_input: Unknown format: dot. Expected: graph, context, brief
 json                         cli=2   mcp=ok
-yaml                         cli=2   mcp=refused: invalid_input: Unknown format: yaml
+yaml                         cli=2   mcp=refused: invalid_input: Unknown format: yaml. Expected: graph, context, brief
 
 ## schema publish format
 cli -h: --format <FORMAT> Export format the published schema should describe [default: graph] [possible values: graph, context, brief]
@@ -53,7 +53,7 @@ some                         cli=2   mcp=refused: invalid_input: Unknown fields:
 ## outline format
 cli -h: --format <FORMAT> Output format: markdown (default), mermaid, dot, json [default: markdown] [possible values: markdown, mermaid, dot, json]
 mcp schema: enum ["markdown","mermaid","dot","json"] default null
-default: cli=markdown mcp=json
+default: cli=markdown mcp=markdown
 markdown                     cli=0   mcp=ok
 mermaid                      cli=0   mcp=ok
 dot                          cli=0   mcp=ok
@@ -71,7 +71,7 @@ all                          cli=0   mcp=ok
 ## outline deps
 cli -h: --deps <DEPS> Dependency visibility: direct (declared only), effective (direct + used transitive), full (all transitive) [default: direct] [possible values: direct, effective, full]
 mcp schema: enum ["direct","effective","full"] default null
-default: cli=direct = effective mcp=direct = effective = full
+default: cli=direct = effective mcp=direct = effective
 direct                       cli=0   mcp=ok
 effective                    cli=0   mcp=ok
 full                         cli=0   mcp=ok

@@ -481,6 +481,15 @@ fn cli_and_mcp_outline_render_the_same_text() {
         assert_eq!(run.code, Some(0), "{args:?}: {}", run.stderr);
         assert_eq!(run.stdout, text, "{args:?}");
     }
+
+    // With no arguments both surfaces take the tables' defaults (ADR 0027 D3).
+    let defaults = mcp_texts(
+        root,
+        &[json!({"name": "specforge.outline_extensions", "arguments": {}})],
+    );
+    let run = cli(&["outline", s(root)]);
+    assert_eq!(run.code, Some(0), "{}", run.stderr);
+    assert_eq!(run.stdout, defaults[0], "outline with no arguments");
 }
 
 /// `rv1` with a `specforge-report.json` that does not parse.

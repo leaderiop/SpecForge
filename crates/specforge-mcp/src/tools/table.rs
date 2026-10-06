@@ -355,7 +355,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
                     "format": {
                         "type": "string",
                         "enum": ["markdown", "mermaid", "dot", "json"],
-                        "description": "Output format (default: json). JSON recommended for programmatic consumption."
+                        "description": "Output format (default: markdown); json is meant for programs"
                     },
                     "fields": {
                         "type": "string",
