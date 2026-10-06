@@ -16,7 +16,7 @@
     "crates/specforge-protocol-types/src/command_args.rs": "720eb3f296673ff5e937a8cd6731918d3e85304102f26dfe81579a6693dc87d0",
     "crates/specforge-protocol-types/src/declaration.rs": "6a4061ad20fe44986ba3816e9a148c46e3dc4b6222cb5196b7434acbb09706e4",
     "crates/specforge-protocol-types/src/lib.rs": "35ba97b008e686a3d47a766702a7d2ff5b696d80fe04ab51a1a2196c291a5857",
-    "crates/specforge-protocol-types/src/vocabulary.rs": "5ac29ff84aee649bd56a873d2fae8941e0c1beb6c6255aa98631a3a650c2247d",
+    "crates/specforge-protocol-types/src/vocabulary.rs": "a13cab32d8bba84e58348d212ffbde027f1bbe36ed7e07712b531232ba5827f0",
     "extensions/product/Cargo.lock": "5ed487736b195d99319616277df2ff637e0f0f174756ad9d376ac91196793184",
     "extensions/product/Cargo.toml": "75e34d130b2413e918692c4948a976f1463726099f478fce1fd81ebdcb0b0710",
     "extensions/product/src/commands.rs": "a212ff5597be7755b47e9a37a01bf2a927907919e2f3a6e59059647b22cb5958",

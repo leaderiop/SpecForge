@@ -181,6 +181,28 @@ boundaries, and are the right tool for per-field shape checks. When a check
 needs the *relationships between* entities rather than the shape of one entity,
 that is a compiler pass (Act IV).
 
+The host checks each rule's shape when your extension loads (and in
+`specforge extension validate` / `publish`), against the table in
+[the protocol reference](../extension-protocol.md#category-validation_rules):
+
+- **W112** — the rule cannot work as declared and is not registered: an unknown
+  `check`, or a `field`, constraint, `edge_type` or `wasm_function` its check
+  requires and lacks (a `cycle_detection` rule needs an `edge_type`, a
+  `verify_kind_allowlist` rule a constraint with values), an empty values list,
+  a regex that does not compile, a rule reading `verify` statements on a kind
+  that accepts none, or a `custom` function that cannot answer the load probe.
+- **W147** — the rule sets a property its check does not read (an `edge_type`
+  on a field check, a `constraint` on an edge check, a `wasm_function` on a
+  declarative check, a constraint kind, `pattern` or `values` its check does not
+  read). It is registered without it, so remove the property or pick the check
+  that reads it.
+- **W021** — the rule's `target_kind` or `edge_type` is neither your
+  extension's nor a declared peer's; declare the peer (optional if your
+  extension works without it).
+- **W148** — at check time, a `custom` rule's function failed on some entities
+  (a trap, or an answer that is not a verdict), so they were not checked. One
+  per rule per check; its data lists every entity with its error.
+
 ---
 
 # Act IV — Contracts and compiler passes
