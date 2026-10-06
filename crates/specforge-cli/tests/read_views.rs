@@ -539,6 +539,46 @@ fn cli_and_mcp_schema_kind_are_one_document() {
     );
 }
 
+#[specforge_test_macros::test(
+    behavior = "serve_schema_resource",
+    verify = "--no-edges and --validation-rules select what include_edges and include_validation_rules select"
+)]
+fn cli_and_mcp_schema_requests_agree() {
+    let tmp = rv1();
+    let root = tmp.path();
+    let cases: [(&[&str], Value); 3] = [
+        (&["--no-edges"], json!({"include_edges": false})),
+        (
+            &["--validation-rules"],
+            json!({"include_validation_rules": true}),
+        ),
+        (
+            &["--kind", "behavior", "--validation-rules", "--no-edges"],
+            json!({"kind": "behavior", "include_validation_rules": true, "include_edges": false}),
+        ),
+    ];
+    let calls: Vec<Value> = cases
+        .iter()
+        .map(|(_, arguments)| json!({"name": "specforge.schema", "arguments": arguments}))
+        .collect();
+    for ((flags, arguments), answered) in cases.iter().zip(mcp_calls(root, &calls)) {
+        let mut args = vec!["schema", s(root)];
+        args.extend(*flags);
+        let printed = cli_json(&args);
+        assert_eq!(printed, answered, "{flags:?} vs {arguments}");
+        assert_eq!(
+            printed.get("edge_types").is_some(),
+            !flags.contains(&"--no-edges"),
+            "{flags:?}"
+        );
+        assert_eq!(
+            printed.get("validation_rules").is_some(),
+            flags.contains(&"--validation-rules"),
+            "{flags:?}"
+        );
+    }
+}
+
 /// `rv1` with a `specforge-report.json` that does not parse.
 fn rv1_with_a_malformed_report() -> TempDir {
     let tmp = rv1();

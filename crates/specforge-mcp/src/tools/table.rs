@@ -281,8 +281,8 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
                 "type": "object",
                 "properties": {
                     "kind": { "type": "string", "description": "Filter schema to a specific entity kind" },
-                    "include_edges": { "type": "boolean", "description": "Include edge type definitions", "default": true },
-                    "include_validation_rules": { "type": "boolean", "description": "Include the validation rules loaded extensions declare", "default": false }
+                    "include_edges": { "type": "boolean", "description": "Include edge type definitions", "default": specforge_ops::schema::SchemaRequest::default().edges },
+                    "include_validation_rules": { "type": "boolean", "description": "Include the validation rules loaded extensions declare", "default": specforge_ops::schema::SchemaRequest::default().validation_rules }
                 }
             })
         },

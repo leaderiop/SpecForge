@@ -210,6 +210,14 @@ enum Commands {
         #[arg(long, conflicts_with = "publish")]
         kind: Option<String>,
 
+        /// Leave the edge types out
+        #[arg(long, conflicts_with = "publish")]
+        no_edges: bool,
+
+        /// Add the validation rules the loaded extensions declare
+        #[arg(long, conflicts_with = "publish")]
+        validation_rules: bool,
+
         /// Publish as standalone JSON Schema (draft 2020-12)
         #[arg(long)]
         publish: bool,
@@ -769,13 +777,16 @@ fn main() {
         Commands::Schema {
             path,
             kind,
+            no_edges,
+            validation_rules,
             publish,
             format,
         } => export::run_schema(
             &path,
             &specforge_ops::schema::SchemaRequest {
                 kind: kind.as_deref(),
-                ..specforge_ops::schema::SchemaRequest::default()
+                edges: !no_edges,
+                validation_rules,
             },
             publish.then_some(format),
         ),

@@ -22,10 +22,14 @@ pub struct Args {
 /// `kind`, naming the closest); `include_edges: false` drops `edge_types`;
 /// `include_validation_rules` adds the rules the loaded extensions declare.
 pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
+    // An absent boolean is the request's default, as on the CLI.
+    let default = SchemaRequest::default();
     let request = SchemaRequest {
         kind: args.kind.as_deref(),
-        edges: args.include_edges.unwrap_or(true),
-        validation_rules: args.include_validation_rules.unwrap_or(false),
+        edges: args.include_edges.unwrap_or(default.edges),
+        validation_rules: args
+            .include_validation_rules
+            .unwrap_or(default.validation_rules),
     };
     match specforge_ops::schema::schema(&call.view(), &request) {
         Ok(outcome) => {

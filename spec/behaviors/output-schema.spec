@@ -170,7 +170,10 @@ behavior serve_schema_resource "Serve Schema Resource" {
     GraphProtocolSchema as JSON to stdout. An optional --kind filter MUST
     restrict the schema to that entity kind and the edge types that can
     start or end at it: the document the specforge.schema tool returns for
-    the same kind. In MCP server mode,
+    the same kind. --no-edges MUST leave the edge types out and
+    --validation-rules MUST add the validation rules the loaded extensions
+    declare, as include_edges and include_validation_rules do on the tool.
+    In MCP server mode,
     the schema MUST be available as the specforge://schema resource for
     agent introspection. The schema MUST always reflect the current
     compilation state.
@@ -179,6 +182,7 @@ behavior serve_schema_resource "Serve Schema Resource" {
   verify unit "--kind filter restricts to single entity kind"
   verify unit "MCP resource specforge://schema returns schema"
   verify unit "schema reflects current compilation state"
+  verify unit "--no-edges and --validation-rules select what include_edges and include_validation_rules select"
   verify contract "Serve Schema Resource: schema resource serving holds — validation_complete_fired, full_schema_output, kind_filter_supported, mcp_resource_available"
   verify unit "missing kind error"
 }
