@@ -2456,3 +2456,53 @@ behavior mix_si "Mix String Int" {
         other => panic!("expected MixedList, got: {:?}", other),
     }
 }
+
+#[specforge_test(
+    behavior = "recover_from_syntax_errors",
+    verify = "recovery resumes at every top-level form the grammar reads, a union block included"
+)]
+fn a_block_after_an_unclosed_string_survives_in_every_top_level_form() {
+    let source = "behavior a \"A\" {\n  contract \"oops\n}\n\ntype status = \"open\" | \"closed\"\n\nbehavior b \"B\" {\n  contract \"fine\"\n}\n";
+    let result = parse(source, "test.spec");
+    let ids: Vec<&str> = result.entities.iter().map(|e| e.id.raw.as_str()).collect();
+    assert!(
+        ids.contains(&"status") && ids.contains(&"b"),
+        "entities: {ids:?}, errors: {:?}",
+        result.errors
+    );
+    assert_eq!(result.errors.len(), 1, "errors: {:?}", result.errors);
+    assert!(
+        result.errors[0]
+            .message
+            .contains("before the block on line 5"),
+        "{}",
+        result.errors[0].message
+    );
+}
+
+#[specforge_test(
+    behavior = "recover_from_syntax_errors",
+    verify = "a backslash before a line break leaves a string unclosed, as the grammar reads it"
+)]
+fn a_backslash_before_a_line_break_leaves_the_string_unclosed() {
+    let source = "behavior a \"A\" {\n  contract \"line one \\\n  line two\"\n}\n\nbehavior b \"B\" {\n  contract \"fine\"\n}\n";
+    let result = parse(source, "test.spec");
+    assert!(
+        result.entities.iter().any(|e| e.id.raw == "b"),
+        "entities: {:?}, errors: {:?}",
+        result.entities,
+        result.errors
+    );
+    assert_eq!(result.errors.len(), 1, "errors: {:?}", result.errors);
+    let error = &result.errors[0];
+    assert_eq!(
+        (error.span.start_line, error.span.start_col),
+        (2, 12),
+        "{error:?}"
+    );
+    assert!(
+        error.message.contains("unclosed string"),
+        "{}",
+        error.message
+    );
+}

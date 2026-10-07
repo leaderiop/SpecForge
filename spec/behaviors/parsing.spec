@@ -56,6 +56,11 @@ behavior recover_from_syntax_errors "Recover From Syntax Errors" {
     and continue parsing subsequent blocks. The parser MUST collect all
     parse errors with source locations. Syntactically valid blocks
     after an error MUST still appear in the AST.
+    A string left unclosed is ended before the next line that starts a
+    top-level form of the grammar (an import, a spec, ref, define, union or
+    entity block); the text is read through the lexer (lex_spec_text), so a
+    backslash before a line break leaves a string unclosed, as the grammar
+    reads it.
   """
   requires {
     error_recovery_enabled "SourceParser is initialized with error-recovery mode enabled"
@@ -68,6 +73,8 @@ behavior recover_from_syntax_errors "Recover From Syntax Errors" {
   verify unit "parser collects multiple errors from one file"
   verify unit "valid blocks after syntax error are still parsed"
   verify unit "a closed multi-line string that contains a block-like line stays whole"
+  verify unit "recovery resumes at every top-level form the grammar reads, a union block included"
+  verify unit "a backslash before a line break leaves a string unclosed, as the grammar reads it"
   verify unit "completely invalid syntax produces error with location"
   verify unit "missing opening brace produces a parse error"
   verify contract "Recover From Syntax Errors: syntax error recovery holds — error_recovery_enabled, valid_utf8_input, valid_blocks_preserved, errors_collected"
@@ -103,6 +110,7 @@ behavior parse_all_block_types "Parse All Block Types" {
     zero_domain_knowledge_core,
     source_span_completeness,
     string_interning_consistency,
+    cst_vocabulary_grammar_consistency,
   ]
   category   command
   types      [
@@ -323,16 +331,21 @@ behavior lex_spec_text "Lex Spec Text" {
     valid_utf8_input "Input buffer is valid UTF-8"
   }
   ensures {
-    lexemes_match_grammar "every identifier, scheme ref ID, number, string and comment the grammar reads is one lexeme with the same bytes"
-    half_typed_text_lexes "text the grammar rejects still lexes, an unclosed regular string ending at its line's end"
+    lexemes_match_grammar  "every identifier, scheme ref ID, number, string and comment the grammar reads is one lexeme with the same bytes"
+    strings_as_the_grammar "a string spanning lines is one lexeme, as the grammar reads it; one the grammar would not close is marked unclosed"
+    half_typed_text_lexes  "text the grammar rejects still lexes, an unclosed regular string ending at its line's end"
   }
   contract   """
     The lexer MUST read a .spec text, complete or half-typed, into the
     lexemes the grammar tokenizes: identifiers, scheme ref IDs (one lexeme),
-    numbers, strings, comments and punctuation, without a parse. Navigation
-    and the LSP read text through it and through no scanner of their own
-    (ADR 0023). A regular string ends at its line's end, so an unclosed
-    quote never swallows the rest of a document being typed. The expression
+    numbers, strings, comments and punctuation, without a parse.
+    Navigation, the LSP, the parser's recovery from unclosed strings and
+    the formatter read text through it and through no scanner of their own
+    (ADR 0023, ADR 0038). A string is read as the grammar reads it, across
+    lines; a regular string the grammar would not close (no closing quote,
+    a backslash before a line break, or a closing quote that runs straight
+    into text) ends at its line's end and is marked unclosed, so an
+    unclosed quote never swallows the rest of a document being typed. The expression
     tokenizer of the prove pass (parse_expression) reads a sub-language with
     lexical rules of its own and is not built on the lexer; it MUST cut the
     expressions of the repository's spec into the same tokens (the
@@ -341,6 +354,7 @@ behavior lex_spec_text "Lex Spec Text" {
   verify unit "the lexer agrees with the grammar on every spec file of the repository"
   verify unit "the expression tokenizer, the lexer and the grammar agree on every expression of the repository's spec"
   verify unit "a scheme ref ID is one lexeme"
+  verify unit "a string spanning lines is one lexeme, and one the grammar would not close ends at its line's end"
   verify unit "strings and comments are lexemes of their own and hold no others"
 }
 

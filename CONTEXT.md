@@ -247,6 +247,13 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   project was compiled from (`ProjectSession::source_text`), not in the buffer typed since nor the disk
   now. The LSP converts spans to UTF-16 ranges through that text's line index (a file the compile holds
   no text of has no range), MCP renders them as JSON (ADR 0016, ADR 0023).
+- **Lexeme**: one token of a `.spec` text as the language's one lexer reads it without a parse
+  (`specforge_parser::lex`): an identifier, a scheme ref ID (one lexeme), a number, a string (read as
+  the grammar reads it, across lines; one the grammar would not close is marked unclosed and, if a
+  `"…"`, ended at its line's end), a comment or a punctuation character. Navigation, the LSP's
+  document, the parser's recovery from unclosed strings and the formatter read text through it; a test
+  holds it to the grammar on the repository's spec. The prove pass's expression tokenizer is the one
+  other reader (ADR 0023, ADR 0038).
 - **Cursor**: what the LSP knows about a position in an open document, read from the document's lexemes
   (`specforge_parser::lex`) and their block structure, never from the graph: the word under it, whether
   it is in code, a string or a comment, the entity block, field and reference list around it, and the

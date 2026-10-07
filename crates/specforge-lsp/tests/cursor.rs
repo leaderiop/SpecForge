@@ -98,6 +98,23 @@ fn place_tells_code_from_strings_and_comments() {
 }
 
 #[test]
+fn a_multi_line_string_is_a_string_on_every_line() {
+    let text = concat!(
+        "behavior login \"Log in\" {\n",
+        "  contract \"first line\n",
+        "  second line mentions login and ends\"\n",
+        "}\n",
+        "\n",
+        "behavior logout \"Log out\" {\n",
+        "  contract \"x\"\n",
+        "}\n",
+    );
+    let doc = doc(text);
+    let (line, character) = find(text, "mentions", 0, 2);
+    assert_eq!(at(&doc, line, character).place(), Place::String);
+}
+
+#[test]
 fn the_entity_and_field_around_a_cursor() {
     let text = concat!(
         "behavior login \"Login\" {\n",

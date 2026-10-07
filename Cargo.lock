@@ -2963,6 +2963,7 @@ dependencies = [
  "tokio",
  "tower-lsp",
  "tree-sitter",
+ "tree-sitter-specforge",
 ]
 
 [[package]]
@@ -3759,6 +3760,8 @@ name = "tree-sitter-specforge"
 version = "0.1.0"
 dependencies = [
  "cc",
+ "specforge-test",
+ "specforge-test-macros",
  "tree-sitter",
  "tree-sitter-language",
 ]

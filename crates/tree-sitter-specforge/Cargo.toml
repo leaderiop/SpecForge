@@ -11,6 +11,8 @@ tree-sitter-language = { workspace = true }
 
 [dev-dependencies]
 tree-sitter = { workspace = true }
+specforge-test = { workspace = true }
+specforge-test-macros = { workspace = true }
 
 [build-dependencies]
 cc = "1"

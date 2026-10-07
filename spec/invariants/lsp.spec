@@ -90,7 +90,7 @@ invariant cursor_names_one_entity "One Entity Under the Cursor" {
     else an identifier at a reference position (an entity header's name, a
     value or list item in the entity's own body of a field not typed as
     enum, boolean, integer, string, string list or block, a use binding's
-    imported name) that names an entity. A word in a string or a comment, a kind keyword, a field name
+    imported name) that names an entity. A word in a string (one spanning lines included) or a comment, a kind keyword, a field name
     and a value of a non-reference field name no entity; a scheme ref ID
     (gh.issue:42) is one token. The structure around the
     cursor is read from the document's text, never from the graph, which

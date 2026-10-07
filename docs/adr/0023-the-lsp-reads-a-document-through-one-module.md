@@ -20,9 +20,11 @@ completion code that tests proved was not the code production ran.
 **D1. One lexer, in the parser crate.** `specforge_parser::lex` reads identifiers, scheme ref IDs (one
 lexeme), numbers, strings, comments and punctuation, without a parse, so half-typed text lexes. A test
 checks it against tree-sitter on every spec file of the repository. Navigation's `SourceText` and the
-LSP's document read text through it; neither scans text itself. A regular string ends at its line's end
-(the grammar lets it run on; the repository has none), so an unclosed quote never swallows a document
-being typed. The lexer mirrors the grammar by hand (one deliberate divergence, above), and the parser
+LSP's document read text through it; neither scans text itself. A string is read as the grammar reads it,
+across lines; a regular string the grammar would not close (no closing quote, a `\` before a line
+break, or a closing quote that runs straight into text) ends at its line's end, so an unclosed quote
+never swallows a document being typed (amended by ADR 0038). The lexer mirrors the grammar by hand
+(one deliberate divergence, the unclosed string above), and the parser
 crate's third reader of the language, `expr::tokenize` (the expression sub-language the prove pass
 reads: lowercase identifiers, alphabetic units, `<=`/`==`/`!=` as one token, character columns, errors),
 is not built on it: a tokenizer over these lexemes would re-read each lexeme character by character to
