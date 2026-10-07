@@ -9,6 +9,7 @@
 use crate::OutputFormat;
 use serde_json::json;
 use specforge_common::codes;
+use specforge_protocol_types::PackageName;
 use std::path::{Path, PathBuf};
 
 pub fn run(name: &str, extension: bool, path: &Path, format: OutputFormat) -> i32 {
@@ -20,8 +21,8 @@ pub fn run(name: &str, extension: bool, path: &Path, format: OutputFormat) -> i3
         return 1;
     }
 
-    if let Err(message) = validate_name(name) {
-        format.print_error(&message, codes::E065);
+    if let Err(why) = PackageName::parse(name) {
+        format.print_error(&why.to_string(), codes::E065);
         return 1;
     }
 
@@ -63,19 +64,6 @@ pub fn run(name: &str, extension: bool, path: &Path, format: OutputFormat) -> i3
         }
     }
     0
-}
-
-/// Validate an extension name: `@scope/name` (npm-style) or `name`.
-fn validate_name(name: &str) -> Result<(), String> {
-    if name.trim().is_empty() {
-        return Err("extension name must not be empty".to_string());
-    }
-    if let Some(rest) = name.strip_prefix('@')
-        && (!rest.contains('/') || rest.starts_with('/') || rest.ends_with('/'))
-    {
-        return Err(format!("scoped name '{}' must look like @scope/name", name));
-    }
-    Ok(())
 }
 
 /// The crate- and directory-safe name: the last path segment, sanitized.
@@ -254,12 +242,17 @@ mod tests {
         assert_eq!(crate_name("@x/4th-kind"), "ext-4th-kind");
     }
 
-    #[test]
-    fn scoped_names_require_a_slash() {
-        assert!(validate_name("@justscope").is_err());
-        assert!(validate_name("@ok/name").is_ok());
-        assert!(validate_name("unscoped").is_ok());
-        assert!(validate_name("   ").is_err());
+    #[specforge_test_macros::test(
+        behavior = "scaffold_wasm_extension_project",
+        verify = "the scaffold's extension name is a package name"
+    )]
+    fn the_scaffolds_extension_name_is_a_package_name() {
+        for ok in ["@ok/name", "unscoped"] {
+            assert!(PackageName::parse(ok).is_ok(), "{ok}");
+        }
+        for refused in ["@justscope", "   ", "Bad", "@a/../b"] {
+            assert!(PackageName::parse(refused).is_err(), "{refused}");
+        }
     }
 
     #[test]

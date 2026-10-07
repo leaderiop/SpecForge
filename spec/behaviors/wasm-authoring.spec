@@ -41,6 +41,7 @@ behavior scaffold_wasm_extension_project "Scaffold Wasm Extension Project" {
   verify unit "specforge extension init rejects when directory already exists"
   verify unit "specforge extension init --format=json outputs structured JSON"
   verify unit "specforge extension init uses default name when --name not provided"
+  verify unit "the scaffold's extension name is a package name"
   verify contract "Scaffold Wasm Extension Project: Wasm extension scaffolding holds — filesystem_available, declaration_created, skeleton_exports_created, build_target_configured, extension_project_scaffolded_emitted"
 }
 
@@ -148,5 +149,6 @@ behavior publish_wasm_extension "Publish Wasm Extension" {
   verify unit "publish uploads the .wasm binary and the declaration derived from it"
   verify unit "the declaration read from the component is validated before publish"
   verify unit "publish failure reported as ExtensionError"
+  verify unit "publish refuses a declaration whose name or version is not publishable before it uploads"
   verify contract "Publish Wasm Extension: Wasm extension publishing holds — wasm_binary_available, declaration_valid, registry_available, bundle_published, publish_failures_diagnosed, extension_published_emitted"
 }
