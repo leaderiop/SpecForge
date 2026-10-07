@@ -30,6 +30,7 @@ mod extensions;
 #[allow(dead_code)]
 mod fake_registry;
 mod field_types;
+mod formal_diagnostics;
 #[allow(deprecated)]
 mod format;
 mod format_corpus;

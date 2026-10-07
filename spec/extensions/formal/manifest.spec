@@ -2,7 +2,7 @@
 //
 // @specforge/formal contributes 5 entity kinds (property, axiom, protocol,
 // refinement, process) and 8 edge types. It enhances @specforge/software
-// entity kinds via entity_enhancements and contributes 4 compiler passes,
+// entity kinds via entity_enhancements and contributes 5 compiler passes,
 // 3 feature flags, and 4 verify kinds. Conditions are inline fields
 // (requires/ensures/maintains) that reference invariants, not standalone
 // entities. Formal analysis warnings require warning_level=strict.
@@ -81,14 +81,28 @@ behavior fa_declare_manifest "Declare @specforge/formal Manifest" {
     role, so an invariant can state a machine-checkable claim.
 
     Compiler passes: condition_check, layering_verify, event_graph_analyze,
-    coverage_tracking (with proper dependency ordering).
+    coverage_tracking (with proper dependency ordering), which run under
+    specforge analyze, and analysis_available, the one check-phase pass,
+    which runs with every compile (I015). What each analyze pass reports:
+    - condition_check: W096, W039, I011, W040
+    - layering_verify: E031, E041, W030, W031, W110
+    - event_graph_analyze: E034, E042, W029, W032, W033, W034, I009
+    - coverage_tracking: W035, I008, I014
+
+    Validation rules (declarative, run in every check): W123 orphan
+    property, W124 empty property description, W125 invalid
+    property_type, W126 orphan axiom, W127 empty axiom description, W128
+    orphan protocol, W129 empty protocol description, W131 orphan
+    refinement, W132 empty refinement description, W133 refinement
+    without invariant_deltas (a custom rule), W134 orphan process, W135
+    empty process description, W136 empty process alphabet.
 
     Verify kinds contributed: contract, refinement, deadlock_free, liveness.
 
     Feature flags: conditions (default true, no deps), layering (default
     true, requires conditions), concurrency (default true, no deps).
 
-    Warning level requirement: all formal warnings (W029-W040, W058, W096, W110, W123-W136, W144)
+    Warning level requirement: all formal warnings (W029-W035, W039, W040, W096, W110, W123-W129, W131-W136)
     require warning_level=strict. This prevents overwhelming new users.
 
     Safety-critical scope: @specforge/formal is intended for projects
@@ -114,8 +128,9 @@ behavior fa_declare_manifest "Declare @specforge/formal Manifest" {
     refinement_chain_edge    "RefinementChainsToRefinement: source=refinement, target=refinement"
     participates_in_edge     "EventParticipatesInProcess: source=event, target=process"
     process_composition_edge "ProcessComposesProcess: source=process, target=process"
-    four_passes              "passes contains condition_check, layering_verify, event_graph_analyze, coverage_tracking"
+    five_passes              "passes contains condition_check, layering_verify, event_graph_analyze, coverage_tracking, and the check-phase analysis_available"
     pass_ordering            "layering_verify depends_on condition_check; event_graph_analyze depends_on layering_verify; coverage_tracking depends_on event_graph_analyze"
+    validation_rules         "validation_rules contains W123, W124, W125, W126, W127, W128, W129, W131, W132, W133, W134, W135, W136"
     three_feature_flags      "feature_flags contains conditions, layering, concurrency"
     flag_dependencies        "layering requires conditions"
     inline_condition_fields  "requires/ensures/maintains fields accept inline blocks producing ConditionEntry nodes"
@@ -140,7 +155,8 @@ behavior fa_declare_manifest "Declare @specforge/formal Manifest" {
   verify unit "RefinementChainsToRefinement edge: refinement -> refinement"
   verify unit "EventParticipatesInProcess edge: event -> process"
   verify unit "ProcessComposesProcess edge: process -> process"
-  verify unit "manifest declares 4 passes in dependency order"
+  verify unit "manifest declares 5 passes in dependency order"
+  verify unit "manifest declares the 13 formal validation rules"
   verify unit "manifest declares 3 feature flags"
   verify unit "layering flag requires conditions flag"
   verify unit "inline requires/ensures/maintains fields produce ConditionEntry nodes"

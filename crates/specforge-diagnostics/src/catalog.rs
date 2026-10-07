@@ -169,6 +169,9 @@ catalog! {
     E033: Error core,
         "Lock file error",
         "`specforge.lock` couldn't be serialized, written, read, or parsed, or the hash it records for an installed extension no longer matches the binary on disk; `specforge update` reports it when there is no lock file to update. Delete the lock file and reinstall extensions, reinstall the specific extension whose binary changed, or run `specforge add` first.";
+    E034: Error formal,
+        "Unmitigated event cycle",
+        "`specforge analyze`'s `event_graph_analyze` pass found a cycle in the event flow graph (a behavior `produces` an event another behavior `consumes`, and so on back to the first) through two or more behaviors, and no behavior or event in it declares `sync`. The message gives one cycle path. Declare a `sync` constraint (a timeout, barrier or delivery bound) on one of its members, or break the cycle. The analysis is structural: a declared `sync` counts as the mitigation, what it says is not checked.";
     E039: Error core,
         "Duplicate surface contribution",
         "Two extensions register the same CLI surface command ID, the same MCP tool name, or the same MCP resource name. Rename one extension's contribution so the identifier is unique across installed extensions.";
@@ -259,9 +262,24 @@ catalog! {
     I007: Info core,
         "Older format version detected",
         "The `.spec` file's declared format version is older than the compiler's current format version. Run `specforge migrate` to upgrade the file to the current format.";
+    I008: Info formal,
+        "Coverage item proven by tests",
+        "`specforge analyze`'s `coverage_tracking` pass found a coverage item (an invariant or a testable entity) whose every `verify` obligation a passing recorded test names, under @specforge/testing's coverage rule. The message names those tests. An item proven only by an entailed claim is not reported. Nothing to do.";
+    I009: Info formal,
+        "No unmitigated event cycle",
+        "`specforge analyze`'s `event_graph_analyze` pass found no unmitigated cycle in the event flow graph: no cycle through two or more behaviors (E034) and no behavior re-producing an event it consumes (W032), unless a member declares `sync`. Reported once, when behaviors produce or consume events. The analysis is structural; cycles that depend on runtime conditions are not analyzed. Nothing to do.";
     I010: Info product,
         "Unreferenced term",
         "A `term` entity has no edges at all, meaning nothing links to or from it via `see_also` or similar references. Link the term from a relevant entity, or remove it if it's unused.";
+    I011: Info formal,
+        "Ensures without requires",
+        "`specforge analyze`'s `condition_check` pass found a `behavior` that declares an `ensures` clause but no `requires` clause, so it guarantees its postconditions for every input. Add a `requires` clause naming what callers must establish first, or leave it out if the behavior accepts every input.";
+    I014: Info formal,
+        "Specification depth",
+        "`specforge analyze`'s `coverage_tracking` pass reports a `behavior`'s specification depth, a ladder in which each level holds the one below it: `prose` (no edges), `entity_graph` (edges, no requires or ensures), `conditions` (level 2: requires or ensures), `invariants` (level 3: also names invariants in `maintains` or `invariants`) and `proofs` (level 4: also proven under @specforge/testing's coverage rule). A behavior at level 2 or deeper is reported with the step to the next level. When more than five behaviors sit at `prose` or `entity_graph`, one more I014 suggests adding requires/ensures to the critical ones.";
+    I015: Info formal,
+        "Formal analysis available",
+        "Behaviors in the project declare `requires` or `ensures`, which the formal passes of `specforge analyze` (condition_check, layering_verify, event_graph_analyze, coverage_tracking) check. Reported once per compile by @specforge/formal's `analysis_available` pass. Run `specforge analyze`.";
     I016: Info core,
         "Schema cache missing",
         "Prior exports exist but `.specforge/schema-cache.json` is missing, so breaking-change detection was skipped for this compilation. Run a full compilation to regenerate the schema cache.";
@@ -526,9 +544,24 @@ catalog! {
     W031: Warning formal,
         "Refinement chain too deep",
         "A behavior sits in a refinement chain deeper than the maximum allowed depth of 4 layers. Split the refinement chain, or collapse intermediate abstraction layers.";
+    W032: Warning formal,
+        "Unmitigated retry cycle",
+        "`specforge analyze`'s `event_graph_analyze` pass found a `behavior` that consumes an event and produces the same event again, and neither the behavior nor the event declares `sync`, so nothing bounds the retries. Declare a `sync` constraint (a timeout or backoff) on the event or the behavior.";
+    W033: Warning formal,
+        "Asymmetric port connectivity",
+        "`specforge analyze`'s `event_graph_analyze` pass found a `port` that two or more behaviors use (`ports`) where the most-referenced of them has more than three times the incoming edges of the least-referenced, a behavior nothing references counting as one. This is a structural hint that one consumer dominates the port's access, not a fairness check. Review how the behaviors share the port.";
+    W034: Warning formal,
+        "Unbounded event channel",
+        "`specforge analyze`'s `event_graph_analyze` pass found an `event` that a behavior produces and that declares no `sync` constraint, so nothing bounds how many of its messages can accumulate. Declare `sync` on the event: a timeout, a buffer limit or its delivery semantics.";
     W035: Warning formal,
         "Undischarged coverage items",
         "One or more coverage items (invariants and testable entities) are not proven under @specforge/testing's coverage rule: some obligation has no passing recorded test that names it, and no entailed formal claim discharges it. Link a test to each obligation by its text and run `specforge collect`; `specforge analyze coverage` lists what is unproven (A001, A015).";
+    W039: Warning formal,
+        "Repeated precondition",
+        "`specforge analyze`'s `condition_check` pass found a `behavior` whose `requires` names the same condition more than once. The repeat states nothing its first occurrence does not, so it is redundant. Remove it. Conditions are names and prose, so a precondition implied by a different one is not detected.";
+    W040: Warning formal,
+        "Invariant without expression",
+        "`specforge analyze`'s `condition_check` pass found an `invariant` whose `guarantee` has no `expression`: the guarantee is prose only, so `specforge analyze --prove` has no claim to check. Add an `expression` stating the guarantee as a machine-checkable claim, or keep it prose and prove it with tests.";
     W041: Warning product,
         "Orphan feature",
         "A `feature` entity has no incoming edges, meaning no `journey`, `milestone`, or `module` references it. Link it from at least one referencing entity, or remove it if it is no longer needed.";
@@ -640,21 +673,42 @@ catalog! {
     W123: Warning formal,
         "Orphan property",
         "A `property` entity is not referenced by any `behavior`, so it may be unused. Reference the property from a behavior's `verify` block, or remove it if it is no longer needed.";
+    W124: Warning formal,
+        "Empty property description",
+        "A `property` entity writes a `description` that is empty or only whitespace, which makes the temporal assertion opaque to readers and agents. Write the description, or remove the field. A property that writes no description is not reported.";
     W125: Warning formal,
         "Invalid property type",
         "A `property` entity's `property_type` field is not one of the recognized values (`safety`, `liveness`, `fairness`). Set `property_type` to one of these values.";
     W126: Warning formal,
         "Orphan axiom",
         "An `axiom` entity is not referenced by any other entity, so it may be unused. Reference the axiom from a relevant entity, or remove it if it is no longer needed.";
+    W127: Warning formal,
+        "Empty axiom description",
+        "An `axiom` entity writes a `description` that is empty or only whitespace, which leaves the assumption unexplained. Write the description, or remove the field. An axiom that writes no description is not reported.";
     W128: Warning formal,
         "Orphan protocol",
         "A `protocol` entity is not referenced by any `event`, so it may be unused. Reference the protocol from an event, or remove it if it is no longer needed.";
+    W129: Warning formal,
+        "Empty protocol description",
+        "A `protocol` entity writes a `description` that is empty or only whitespace, which makes the synchronization contract opaque. Write the description, or remove the field. A protocol that writes no description is not reported.";
     W131: Warning formal,
         "Orphan refinement",
         "A `refinement` entity is not referenced by anything, so it may be orphaned. Reference the refinement from the entity it refines, or remove it if it is no longer needed.";
+    W132: Warning formal,
+        "Empty refinement description",
+        "A `refinement` entity writes a `description` that is empty or only whitespace, which makes the abstract-to-concrete mapping opaque. Write the description, or remove the field. A refinement that writes no description is not reported.";
+    W133: Warning formal,
+        "Refinement without invariant deltas",
+        "A `refinement` entity declares no `invariant_deltas` (the field is absent or an empty list), so it records no change between its abstract and concrete behaviors. List the invariants the refinement adds or relaxes in `invariant_deltas`.";
     W134: Warning formal,
         "Orphan process",
         "A `process` entity is not referenced by any other entity, so it may be unused. Reference the process from a relevant entity, or remove it if it is no longer needed.";
+    W135: Warning formal,
+        "Empty process description",
+        "A `process` entity writes a `description` that is empty or only whitespace, which makes the communicating process opaque. Write the description, or remove the field. A process that writes no description is not reported.";
+    W136: Warning formal,
+        "Empty process alphabet",
+        "A `process` entity writes an empty `alphabet` (`[]`), so it declares no events it can engage in. List the events in its alphabet. An absent `alphabet` is E006, since the field is required.";
     W137: Warning core,
         "Ambiguous convention mapping",
         "`specforge collect` links a test that no annotation links by its name: `entity_id__obligation_slug`, or a module named after an entity. This test's name splits at more than one `__` into a declared entity ID (entity IDs aren't meant to contain `__`), so it isn't linked. Rename the test or the entity, or link the test explicitly (`#[specforge_test]`).";

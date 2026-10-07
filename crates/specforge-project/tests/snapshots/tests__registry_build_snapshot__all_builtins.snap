@@ -22,6 +22,10 @@ expression: "digest(&load(&runtime, &all))"
     {
       "extension": "@specforge/product",
       "name": "lifecycle"
+    },
+    {
+      "extension": "@specforge/formal",
+      "name": "analysis_available"
     }
   ],
   "edges": {
@@ -7536,6 +7540,23 @@ expression: "digest(&load(&runtime, &all))"
     },
     {
       "check": "field_value_constraint",
+      "code": "W124",
+      "constraint": {
+        "kind": "matches",
+        "pattern": "\\S",
+        "values": []
+      },
+      "edge_peer_kind": null,
+      "edge_type": null,
+      "field": "description",
+      "message_template": "property '{id}' has empty description",
+      "owner": "@specforge/formal",
+      "severity": "Warning",
+      "target_kind": "property",
+      "wasm_function": null
+    },
+    {
+      "check": "field_value_constraint",
       "code": "W125",
       "constraint": {
         "kind": "one_of",
@@ -7569,6 +7590,23 @@ expression: "digest(&load(&runtime, &all))"
       "wasm_function": null
     },
     {
+      "check": "field_value_constraint",
+      "code": "W127",
+      "constraint": {
+        "kind": "matches",
+        "pattern": "\\S",
+        "values": []
+      },
+      "edge_peer_kind": null,
+      "edge_type": null,
+      "field": "description",
+      "message_template": "axiom '{id}' has empty description",
+      "owner": "@specforge/formal",
+      "severity": "Warning",
+      "target_kind": "axiom",
+      "wasm_function": null
+    },
+    {
       "check": "no_incoming_edges",
       "code": "W128",
       "constraint": null,
@@ -7576,6 +7614,23 @@ expression: "digest(&load(&runtime, &all))"
       "edge_type": null,
       "field": null,
       "message_template": "protocol '{id}' is not referenced by any event — it may be unused",
+      "owner": "@specforge/formal",
+      "severity": "Warning",
+      "target_kind": "protocol",
+      "wasm_function": null
+    },
+    {
+      "check": "field_value_constraint",
+      "code": "W129",
+      "constraint": {
+        "kind": "matches",
+        "pattern": "\\S",
+        "values": []
+      },
+      "edge_peer_kind": null,
+      "edge_type": null,
+      "field": "description",
+      "message_template": "protocol '{id}' has empty description",
       "owner": "@specforge/formal",
       "severity": "Warning",
       "target_kind": "protocol",
@@ -7595,6 +7650,36 @@ expression: "digest(&load(&runtime, &all))"
       "wasm_function": null
     },
     {
+      "check": "field_value_constraint",
+      "code": "W132",
+      "constraint": {
+        "kind": "matches",
+        "pattern": "\\S",
+        "values": []
+      },
+      "edge_peer_kind": null,
+      "edge_type": null,
+      "field": "description",
+      "message_template": "refinement '{id}' has empty description",
+      "owner": "@specforge/formal",
+      "severity": "Warning",
+      "target_kind": "refinement",
+      "wasm_function": null
+    },
+    {
+      "check": "custom",
+      "code": "W133",
+      "constraint": null,
+      "edge_peer_kind": null,
+      "edge_type": null,
+      "field": null,
+      "message_template": "refinement '{id}' declares no invariant_deltas",
+      "owner": "@specforge/formal",
+      "severity": "Warning",
+      "target_kind": "refinement",
+      "wasm_function": "validate__refinement_deltas"
+    },
+    {
       "check": "no_incoming_edges",
       "code": "W134",
       "constraint": null,
@@ -7602,6 +7687,40 @@ expression: "digest(&load(&runtime, &all))"
       "edge_type": null,
       "field": null,
       "message_template": "process '{id}' is not referenced by any entity — it may be unused",
+      "owner": "@specforge/formal",
+      "severity": "Warning",
+      "target_kind": "process",
+      "wasm_function": null
+    },
+    {
+      "check": "field_value_constraint",
+      "code": "W135",
+      "constraint": {
+        "kind": "matches",
+        "pattern": "\\S",
+        "values": []
+      },
+      "edge_peer_kind": null,
+      "edge_type": null,
+      "field": "description",
+      "message_template": "process '{id}' has empty description",
+      "owner": "@specforge/formal",
+      "severity": "Warning",
+      "target_kind": "process",
+      "wasm_function": null
+    },
+    {
+      "check": "field_value_constraint",
+      "code": "W136",
+      "constraint": {
+        "kind": "matches",
+        "pattern": "\\S",
+        "values": []
+      },
+      "edge_peer_kind": null,
+      "edge_type": null,
+      "field": "alphabet",
+      "message_template": "process '{id}' has no alphabet (no events declared)",
       "owner": "@specforge/formal",
       "severity": "Warning",
       "target_kind": "process",

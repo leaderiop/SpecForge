@@ -2,7 +2,7 @@
 //
 // Moved from @specforge/software formal-concurrency.spec per 10-expert panel.
 // Terminology: "CSP Event Flow Analysis" -> "Event Graph Linting"
-// E034: now checks for mitigations before firing (sync.timeout, @idempotent, circuit_breaker)
+// E034: a cycle is mitigated when a member declares sync (ADR 0040)
 // W032: "Livelock Risk" -> "Unmitigated Retry Cycle"
 // W033: "Starvation Risk" -> "Asymmetric Connectivity Warning"
 // All behavior IDs renamed se_ -> fa_
@@ -71,44 +71,32 @@ behavior fa_detect_unmitigated_cycles "E034: Detect Unmitigated Cycles" {
   category query
   types    [SyncBlock]
   contract """
-    Detect circular event dependencies using Tarjan's SCC algorithm
-    on the event-behavior bipartite graph. Before firing E034, check
-    for mitigations: sync.timeout on any event in the cycle,
-    @idempotent annotation, or circuit_breaker pattern. Mitigated
-    cycles pass silently. Only bare, unmitigated cycles produce E034.
+    Detect event cycles with Tarjan's strongly connected components over
+    the event flow graph: a behavior leads to each event it produces, and
+    an event to each behavior that consumes it. A component that holds
+    two or more behaviors is a cycle. It is mitigated, and passes
+    silently, when any behavior or event in it declares a non-empty sync:
+    the one mitigation the data model carries (what the sync says is not
+    checked). An unmitigated cycle produces one E034 error naming a cycle
+    path and suggesting a sync on one of its members. A behavior that
+    re-produces an event it consumes, with no other behavior in the
+    cycle, is W032 instead. Runs in the event_graph_analyze pass
+    (specforge analyze).
   """
   requires {
     bipartite_graph_built "event-behavior bipartite graph is constructed"
   }
   ensures {
-    unmitigated_detected "unmitigated circular dependency produces E034 error"
-    mitigated_passes     "cycle with sync.timeout, @idempotent, or circuit_breaker passes silently"
+    unmitigated_detected "a cycle through two or more behaviors with no sync on any member produces E034 error"
+    mitigated_passes     "a cycle with a non-empty sync on any behavior or event in it passes silently"
     non_cycle_passes     "non-circular event dependency produces no diagnostic"
-    cycle_path_shown     "E034 includes full cycle path and lists missing mitigations"
+    cycle_path_shown     "E034 names a cycle path and suggests declaring sync on one of its members"
   }
   features [fa_event_graph_linting]
   verify unit "unmitigated circular event dependency detected as E034"
-  verify unit "cycle with sync.timeout passes silently"
-  verify unit "cycle with @idempotent annotation passes silently"
+  verify unit "cycle with a sync on one member passes silently"
   verify unit "non-circular event dependency passes"
-  verify unit "E034 includes full cycle path and missing mitigations"
-}
-
-behavior fa_detect_payload_type_mismatch "E060: Payload Type Mismatch" {
-  category query
-  contract """
-    Verify that event producers and consumers agree on payload type.
-  """
-  requires {
-    payload_declared "event has a payload type reference"
-  }
-  ensures {
-    matching_passes "matching producer/consumer payload types produce no diagnostic"
-    mismatch_error  "mismatching payload types produce E060 error"
-  }
-  features [fa_event_graph_linting]
-  verify unit "matching producer/consumer payload types pass"
-  verify unit "mismatching payload types produce E060"
+  verify unit "E034 names a cycle path and suggests sync on a member"
 }
 
 behavior fa_detect_unmatched_producers "W029: Unmatched Producers" {
@@ -134,30 +122,35 @@ behavior fa_detect_unbounded_channel "W034: Unbounded Channel Buffer" {
   category query
   types    [SyncBlock]
   contract """
-    Detect events with no sync timeout or buffer limit, which may
-    accumulate unbounded messages under load.
+    Detect events that a behavior produces and that declare no sync
+    constraint: with no timeout, buffer limit or delivery bound declared,
+    nothing bounds how many of the event's messages accumulate under
+    load. An event nothing produces carries no messages and is not
+    reported. Any non-empty sync counts as a bound; what it says is not
+    checked.
   """
   ensures {
-    unbounded_detected "event channel with no timeout and no buffer limit produces W034"
-    bounded_passes     "event channel with timeout or buffer limit produces no diagnostic"
+    unbounded_detected "a produced event that declares no sync produces W034"
+    bounded_passes     "a produced event that declares a sync produces no diagnostic"
   }
   features [fa_event_graph_linting]
-  verify unit "event channel with no sync timeout produces W034"
-  verify unit "event channel with sync timeout passes"
+  verify unit "event channel with no sync produces W034"
+  verify unit "event channel with a sync passes"
 }
 
 behavior fa_detect_asymmetric_connectivity "W033: Asymmetric Connectivity Warning" {
   category query
   contract """
     Detect ports with structural patterns that suggest unbalanced
-    access: multiple consumers sharing a port where one consumer has
-    significantly more incoming edges. This is a structural complexity
-    hint, not a formal fairness guarantee. Detection criteria: port
-    has >1 consumer AND consumer edge-count ratio exceeds 3:1.
+    access: two or more behaviors use the port (their ports field names
+    it) and the most-referenced of them has more than three times the
+    incoming edges of the least-referenced, a behavior nothing
+    references counting as one. This is a structural complexity hint,
+    not a formal fairness guarantee.
   """
   ensures {
-    asymmetric_detected "port with structurally unbalanced access pattern produces W033"
-    balanced_passes     "port with balanced access or single consumer passes"
+    asymmetric_detected "port whose users' incoming edge counts differ by more than 3:1 produces W033"
+    balanced_passes     "port with balanced users or a single user passes"
     suggestion          "W033 includes suggestion to review access patterns"
   }
   features [fa_event_graph_linting]
@@ -169,14 +162,15 @@ behavior fa_detect_unmitigated_retry_cycle "W032: Unmitigated Retry Cycle" {
   category query
   types    [SyncBlock]
   contract """
-    Detect event chains where a consumer re-triggers the same event
-    without backoff or termination. A cycle in the event-behavior
-    graph where no event has a sync block with timeout.
+    Detect a behavior that consumes an event and produces the same event
+    again, re-triggering itself, when neither the behavior nor the event
+    declares a sync constraint (a timeout or backoff) bounding the
+    retries.
   """
   ensures {
-    retrigger_detected "cycle without timeout in any sync block produces W032 warning"
-    backoff_passes     "cycle with at least one timeout/backoff produces no diagnostic"
-    suggestion         "W032 includes suggestion to add timeout to sync block"
+    retrigger_detected "a behavior producing an event it consumes, with no sync on either, produces W032 warning"
+    backoff_passes     "a sync on the behavior or the event produces no diagnostic"
+    suggestion         "W032 includes suggestion to declare a sync (timeout or backoff) on the event or the behavior"
   }
   features [fa_event_graph_linting]
   verify unit "re-triggering without backoff detected as W032"
@@ -190,8 +184,6 @@ behavior fa_event_graph_analyze_pass "Event Graph Analyze Compiler Pass" {
   contract """
     The event_graph_analyze compiler pass performs full event flow
     analysis over the event-behavior graph after layering_verify.
-    Includes protocol ordering validation for events with
-    FollowsProtocol edges.
   """
   requires {
     layering_verify_done "layering_verify pass has completed"
@@ -199,28 +191,23 @@ behavior fa_event_graph_analyze_pass "Event Graph Analyze Compiler Pass" {
     timeout_configured   "analysis timeout set from --timeout flag (default: 30s)"
   }
   ensures {
-    bipartite_delegated       "event-behavior bipartite graph construction delegated to fa_build_event_bipartite_graph"
-    cycle_checked             "Tarjan SCC unmitigated cycle detection runs (E034)"
-    channel_checked           "payload type compatibility checked (E060)"
-    unmatched_checked         "unmatched producers detected (W029)"
-    retry_cycle_checked       "unmitigated retry cycles detected (W032)"
-    connectivity_checked      "asymmetric connectivity on ports detected (W033)"
-    buffer_checked            "unbounded channel buffers detected (W034)"
-    protocol_ordering         "protocol ordering validation: protocol ordering must be consistent with event graph topology"
-    protocol_sync_consistency "protocol entity ordering must match event sync block constraints when both exist"
-    timeout_handled           "barrier timeout expiry sets timed_out=true on EventGraphAnalysisReport and emits warning with incomplete sub-analysis count"
-    partial_results           "completed sub-analyses included in report; only incomplete ones omitted on timeout"
-    timeout_configurable      "barrier timeout uses configured value, not hardcoded 30s"
-    process_integrated        "process entities integrated into bipartite graph when present"
-    process_deadlock          "process-level deadlock detection runs on parallel-composed processes"
+    bipartite_delegated  "event-behavior bipartite graph construction delegated to fa_build_event_bipartite_graph"
+    cycle_checked        "Tarjan SCC unmitigated cycle detection runs (E034)"
+    unmatched_checked    "unmatched producers detected (W029)"
+    retry_cycle_checked  "unmitigated retry cycles detected (W032)"
+    connectivity_checked "asymmetric connectivity on ports detected (W033)"
+    buffer_checked       "unbounded channel buffers detected (W034)"
+    cycle_free_noted     "an event graph with flow edges and no unmitigated cycle is noted once (I009)"
+    composition_checked  "process composition cycles detected (E042)"
+    timeout_handled      "barrier timeout expiry sets timed_out=true on EventGraphAnalysisReport and emits warning with incomplete sub-analysis count"
+    partial_results      "completed sub-analyses included in report; only incomplete ones omitted on timeout"
+    timeout_configurable "barrier timeout uses configured value, not hardcoded 30s"
+    process_integrated   "process entities integrated into bipartite graph when present"
   }
   features [fa_event_graph_linting]
   verify unit "bipartite graph construction delegated to fa_build_event_bipartite_graph"
   verify unit "unmitigated cycle detection runs on SCC"
-  verify unit "payload type check runs on all events"
   verify unit "pass runs after layering_verify"
-  verify unit "protocol ordering validation runs on events with FollowsProtocol edges"
-  verify unit "protocol-sync block consistency checked"
   verify unit "barrier timeout sets timed_out=true and emits warning"
   verify unit "partial results included on timeout"
   verify unit "configured timeout overrides default 30s"
@@ -255,8 +242,7 @@ behavior fa_integrate_process_with_event_graph "Integrate Process Entities into 
   contract   """
     Incorporate process-level information into the event-behavior
     bipartite graph. Process alphabet membership implies event
-    participation. Composition operators inform deadlock analysis.
-    Events with both a sync block AND a process field are valid
+    participation. Events with both a sync block AND a process field are valid
     (dual-mode).
   """
   requires {
@@ -266,38 +252,10 @@ behavior fa_integrate_process_with_event_graph "Integrate Process Entities into 
   ensures {
     process_integrated             "process entities integrated into bipartite graph"
     alphabet_implies_participation "process alphabet membership implies event participation edges"
-    composition_informs_analysis   "composition operators inform deadlock analysis heuristics"
     dual_mode_valid                "events with both sync block and process field are valid"
   }
   features   [fa_process_modeling]
   verify unit "process entities integrated into bipartite graph"
   verify unit "alphabet membership creates participation edges"
-  verify unit "composition operators inform deadlock analysis"
   verify unit "events with both sync block and process field are valid"
-}
-
-behavior fa_detect_process_deadlock "Process-Level Deadlock Detection" {
-  category query
-  types    [FormalProcess, CompositionOperator]
-  contract """
-    Detect deadlocks between parallel-composed processes via alphabet
-    overlap analysis. Two processes composed in parallel whose alphabets
-    share events but lack synchronization may deadlock. Sequential
-    composition is inherently safe. Extends E034 diagnostics with
-    process-level context.
-  """
-  requires {
-    process_integrated "process entities integrated into event graph"
-  }
-  ensures {
-    parallel_overlap_checked "parallel-composed processes with overlapping alphabets checked for deadlock"
-    sequential_safe          "sequential composition is inherently safe — no deadlock check needed"
-    extends_e034             "process-level deadlock extends E034 with process context"
-    isolated_safe            "processes with disjoint alphabets pass silently"
-  }
-  features [fa_process_modeling]
-  verify unit "parallel processes with overlapping alphabets flagged for deadlock"
-  verify unit "sequential composition passes without deadlock check"
-  verify unit "process deadlock extends E034 with process context"
-  verify unit "processes with disjoint alphabets pass silently"
 }

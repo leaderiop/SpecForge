@@ -420,6 +420,51 @@ fn formal_expressions_declare_their_proof_roles() {
 }
 
 #[specforge_test_macros::test(
+    behavior = "fa_declare_manifest",
+    verify = "manifest declares the 13 formal validation rules"
+)]
+fn formal_declares_its_validation_rules() {
+    let manifest = load_via_protocol("@specforge/formal");
+    let mut codes: Vec<&str> = manifest
+        .validation_rules
+        .iter()
+        .map(|r| r.code.as_str())
+        .collect();
+    codes.sort_unstable();
+    assert_eq!(
+        codes,
+        [
+            "W123", "W124", "W125", "W126", "W127", "W128", "W129", "W131", "W132", "W133", "W134",
+            "W135", "W136"
+        ]
+    );
+}
+
+#[specforge_test_macros::test(
+    behavior = "fa_declare_manifest",
+    verify = "manifest declares 5 passes in dependency order"
+)]
+fn formal_declares_four_analyze_passes_and_one_check_pass() {
+    let manifest = load_via_protocol("@specforge/formal");
+    let mut passes: Vec<(&str, Option<&str>, Option<&str>)> = manifest
+        .passes
+        .iter()
+        .map(|p| (p.name.as_str(), p.after.as_deref(), p.phase.as_deref()))
+        .collect();
+    passes.sort_unstable();
+    assert_eq!(
+        passes,
+        [
+            ("analysis_available", Some("resolve"), Some("check")),
+            ("condition_check", Some("resolve"), None),
+            ("coverage_tracking", Some("event_graph_analyze"), None),
+            ("event_graph_analyze", Some("layering_verify"), None),
+            ("layering_verify", Some("condition_check"), None),
+        ]
+    );
+}
+
+#[specforge_test_macros::test(
     behavior = "pe_declare_manifest",
     verify = "the six lifecycle kinds declare status as their lifecycle field"
 )]

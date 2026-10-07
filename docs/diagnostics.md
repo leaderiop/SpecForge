@@ -423,6 +423,23 @@ Owner: core
 Level: error
 ```
 
+## E034
+
+```
+E034: Unmitigated event cycle
+
+`specforge analyze`'s `event_graph_analyze` pass found a cycle in the event flow
+graph (a behavior `produces` an event another behavior `consumes`, and so on
+back to the first) through two or more behaviors, and no behavior or event in it
+declares `sync`. The message gives one cycle path. Declare a `sync` constraint
+(a timeout, barrier or delivery bound) on one of its members, or break the
+cycle. The analysis is structural: a declared `sync` counts as the mitigation,
+what it says is not checked.
+
+Owner: @specforge/formal
+Level: error
+```
+
 ## E039
 
 ```
@@ -866,6 +883,37 @@ Owner: core
 Level: info
 ```
 
+## I008
+
+```
+I008: Coverage item proven by tests
+
+`specforge analyze`'s `coverage_tracking` pass found a coverage item (an
+invariant or a testable entity) whose every `verify` obligation a passing
+recorded test names, under @specforge/testing's coverage rule. The message names
+those tests. An item proven only by an entailed claim is not reported. Nothing
+to do.
+
+Owner: @specforge/formal
+Level: info
+```
+
+## I009
+
+```
+I009: No unmitigated event cycle
+
+`specforge analyze`'s `event_graph_analyze` pass found no unmitigated cycle in
+the event flow graph: no cycle through two or more behaviors (E034) and no
+behavior re-producing an event it consumes (W032), unless a member declares
+`sync`. Reported once, when behaviors produce or consume events. The analysis is
+structural; cycles that depend on runtime conditions are not analyzed. Nothing
+to do.
+
+Owner: @specforge/formal
+Level: info
+```
+
 ## I010
 
 ```
@@ -876,6 +924,53 @@ A `term` entity has no edges at all, meaning nothing links to or from it via
 remove it if it's unused.
 
 Owner: @specforge/product
+Level: info
+```
+
+## I011
+
+```
+I011: Ensures without requires
+
+`specforge analyze`'s `condition_check` pass found a `behavior` that declares an
+`ensures` clause but no `requires` clause, so it guarantees its postconditions
+for every input. Add a `requires` clause naming what callers must establish
+first, or leave it out if the behavior accepts every input.
+
+Owner: @specforge/formal
+Level: info
+```
+
+## I014
+
+```
+I014: Specification depth
+
+`specforge analyze`'s `coverage_tracking` pass reports a `behavior`'s
+specification depth, a ladder in which each level holds the one below it:
+`prose` (no edges), `entity_graph` (edges, no requires or ensures), `conditions`
+(level 2: requires or ensures), `invariants` (level 3: also names invariants in
+`maintains` or `invariants`) and `proofs` (level 4: also proven under
+@specforge/testing's coverage rule). A behavior at level 2 or deeper is reported
+with the step to the next level. When more than five behaviors sit at `prose` or
+`entity_graph`, one more I014 suggests adding requires/ensures to the critical
+ones.
+
+Owner: @specforge/formal
+Level: info
+```
+
+## I015
+
+```
+I015: Formal analysis available
+
+Behaviors in the project declare `requires` or `ensures`, which the formal
+passes of `specforge analyze` (condition_check, layering_verify,
+event_graph_analyze, coverage_tracking) check. Reported once per compile by
+@specforge/formal's `analysis_available` pass. Run `specforge analyze`.
+
+Owner: @specforge/formal
 Level: info
 ```
 
@@ -2028,6 +2123,49 @@ Owner: @specforge/formal
 Level: warning
 ```
 
+## W032
+
+```
+W032: Unmitigated retry cycle
+
+`specforge analyze`'s `event_graph_analyze` pass found a `behavior` that
+consumes an event and produces the same event again, and neither the behavior
+nor the event declares `sync`, so nothing bounds the retries. Declare a `sync`
+constraint (a timeout or backoff) on the event or the behavior.
+
+Owner: @specforge/formal
+Level: warning
+```
+
+## W033
+
+```
+W033: Asymmetric port connectivity
+
+`specforge analyze`'s `event_graph_analyze` pass found a `port` that two or more
+behaviors use (`ports`) where the most-referenced of them has more than three
+times the incoming edges of the least-referenced, a behavior nothing references
+counting as one. This is a structural hint that one consumer dominates the
+port's access, not a fairness check. Review how the behaviors share the port.
+
+Owner: @specforge/formal
+Level: warning
+```
+
+## W034
+
+```
+W034: Unbounded event channel
+
+`specforge analyze`'s `event_graph_analyze` pass found an `event` that a
+behavior produces and that declares no `sync` constraint, so nothing bounds how
+many of its messages can accumulate. Declare `sync` on the event: a timeout, a
+buffer limit or its delivery semantics.
+
+Owner: @specforge/formal
+Level: warning
+```
+
 ## W035
 
 ```
@@ -2038,6 +2176,35 @@ under @specforge/testing's coverage rule: some obligation has no passing
 recorded test that names it, and no entailed formal claim discharges it. Link a
 test to each obligation by its text and run `specforge collect`; `specforge
 analyze coverage` lists what is unproven (A001, A015).
+
+Owner: @specforge/formal
+Level: warning
+```
+
+## W039
+
+```
+W039: Repeated precondition
+
+`specforge analyze`'s `condition_check` pass found a `behavior` whose `requires`
+names the same condition more than once. The repeat states nothing its first
+occurrence does not, so it is redundant. Remove it. Conditions are names and
+prose, so a precondition implied by a different one is not detected.
+
+Owner: @specforge/formal
+Level: warning
+```
+
+## W040
+
+```
+W040: Invariant without expression
+
+`specforge analyze`'s `condition_check` pass found an `invariant` whose
+`guarantee` has no `expression`: the guarantee is prose only, so `specforge
+analyze --prove` has no claim to check. Add an `expression` stating the
+guarantee as a machine-checkable claim, or keep it prose and prove it with
+tests.
 
 Owner: @specforge/formal
 Level: warning
@@ -2532,6 +2699,20 @@ Owner: @specforge/formal
 Level: warning
 ```
 
+## W124
+
+```
+W124: Empty property description
+
+A `property` entity writes a `description` that is empty or only whitespace,
+which makes the temporal assertion opaque to readers and agents. Write the
+description, or remove the field. A property that writes no description is not
+reported.
+
+Owner: @specforge/formal
+Level: warning
+```
+
 ## W125
 
 ```
@@ -2557,6 +2738,19 @@ Owner: @specforge/formal
 Level: warning
 ```
 
+## W127
+
+```
+W127: Empty axiom description
+
+An `axiom` entity writes a `description` that is empty or only whitespace, which
+leaves the assumption unexplained. Write the description, or remove the field.
+An axiom that writes no description is not reported.
+
+Owner: @specforge/formal
+Level: warning
+```
+
 ## W128
 
 ```
@@ -2564,6 +2758,19 @@ W128: Orphan protocol
 
 A `protocol` entity is not referenced by any `event`, so it may be unused.
 Reference the protocol from an event, or remove it if it is no longer needed.
+
+Owner: @specforge/formal
+Level: warning
+```
+
+## W129
+
+```
+W129: Empty protocol description
+
+A `protocol` entity writes a `description` that is empty or only whitespace,
+which makes the synchronization contract opaque. Write the description, or
+remove the field. A protocol that writes no description is not reported.
 
 Owner: @specforge/formal
 Level: warning
@@ -2582,6 +2789,33 @@ Owner: @specforge/formal
 Level: warning
 ```
 
+## W132
+
+```
+W132: Empty refinement description
+
+A `refinement` entity writes a `description` that is empty or only whitespace,
+which makes the abstract-to-concrete mapping opaque. Write the description, or
+remove the field. A refinement that writes no description is not reported.
+
+Owner: @specforge/formal
+Level: warning
+```
+
+## W133
+
+```
+W133: Refinement without invariant deltas
+
+A `refinement` entity declares no `invariant_deltas` (the field is absent or an
+empty list), so it records no change between its abstract and concrete
+behaviors. List the invariants the refinement adds or relaxes in
+`invariant_deltas`.
+
+Owner: @specforge/formal
+Level: warning
+```
+
 ## W134
 
 ```
@@ -2590,6 +2824,32 @@ W134: Orphan process
 A `process` entity is not referenced by any other entity, so it may be unused.
 Reference the process from a relevant entity, or remove it if it is no longer
 needed.
+
+Owner: @specforge/formal
+Level: warning
+```
+
+## W135
+
+```
+W135: Empty process description
+
+A `process` entity writes a `description` that is empty or only whitespace,
+which makes the communicating process opaque. Write the description, or remove
+the field. A process that writes no description is not reported.
+
+Owner: @specforge/formal
+Level: warning
+```
+
+## W136
+
+```
+W136: Empty process alphabet
+
+A `process` entity writes an empty `alphabet` (`[]`), so it declares no events
+it can engage in. List the events in its alphabet. An absent `alphabet` is E006,
+since the field is required.
 
 Owner: @specforge/formal
 Level: warning

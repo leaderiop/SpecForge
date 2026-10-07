@@ -30,16 +30,16 @@ event fa_event_graph_analysis_complete "Event Graph Analysis Complete" {
   sync {
     barrier [
       fa_detect_unmitigated_cycles,
-      fa_detect_payload_type_mismatch,
       fa_detect_unmatched_producers,
       fa_detect_unmitigated_retry_cycle,
-      fa_detect_process_deadlock,
+      fa_detect_asymmetric_connectivity,
+      fa_detect_unbounded_channel,
     ]
     timeout 30
     s       "all event flow sub-analyses must complete within configured timeout (default: 30s)"
   }
   verify integration "event emitted after event graph analyze pass completes"
-  verify integration "payload contains cycle count, retry cycle risks, and process deadlock results"
+  verify integration "payload contains cycle count and retry cycle risks"
   verify deadlock_free "no circular dependency between event flow sub-analyses"
 }
 

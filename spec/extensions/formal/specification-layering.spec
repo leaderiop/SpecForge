@@ -3,7 +3,8 @@
 // Moved from @specforge/software formal-refinement.spec per 10-expert panel.
 // Terminology: "B-Method Refinement" -> "Specification Layering"
 // All behavior IDs renamed se_ -> fa_
-// E033 downgraded to W058 (structural coverage check, not semantic verification)
+// E033 was downgraded to W058, then trimmed: a feature's requirements are prose,
+// so no structural check can tell whether a behavior satisfies them (ADR 0040)
 
 use "extensions/formal/invariants"
 use "extensions/formal/types"
@@ -107,12 +108,10 @@ behavior fa_layering_verify_pass "Layering Verify Compiler Pass" {
     completeness_checked "every abstract has at least one concrete refinement"
     postconditions_held  "refined behaviors maintain the abstract's postconditions"
     dag_verified         "layering DAG has no cycles"
-    w058_on_mismatch     "behavior not satisfying feature requirements produces W058 (structural coverage check, not semantic verification)"
     incomplete_warned    "incomplete layering chain produces W030 (via completeness check)"
   }
   features [fa_specification_layering]
   verify unit "complete layering chain passes"
-  verify unit "behavior not satisfying feature produces W058"
   verify unit "incomplete chain produces W030"
   verify unit "pass runs after condition_check pass"
 }
