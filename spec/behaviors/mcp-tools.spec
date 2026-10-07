@@ -373,7 +373,9 @@ behavior provide_mcp_coverage_tool "Provide MCP Coverage Tool" {
     linked evidence count, and evidence status from specforge-report.json if available.
     A specforge-report.json that exists but cannot be read or parsed MUST be
     an error, an isError result carrying an McpError, as the CLI refuses it;
-    it is never read as a project with no recorded tests.
+    it is never read as a project with no recorded tests. A report the
+    system refuses to read is permission_denied, on this tool and every tool
+    that reads it.
     When no filters are provided, the tool MUST return coverage for every
     entity that counts toward coverage: an entity of a kind the extension
     manifests declare testable, less the entities W004 exempts that
@@ -385,6 +387,7 @@ behavior provide_mcp_coverage_tool "Provide MCP Coverage Tool" {
     naming the closest status.
   """
   verify unit "specforge.coverage returns coverage for all testable entities"
+  verify unit "a report the OS refuses to read is a permission_denied error on every tool that reads it"
   verify unit "with no filters the rows are the entities that count toward coverage"
   verify unit "an exempt entity named by entity_id is returned with exempt true"
   verify unit "an unknown status_filter is an invalid-input error naming the closest status"
@@ -692,7 +695,8 @@ behavior provide_mcp_analyze_tool "Provide MCP Analyze Tool" {
     project's own specforge-report.json when one exists, as the CLI does,
     so proof coverage never silently drops. A test report that cannot be read
     or parsed, the project's own or the one `test_results` names, MUST be an
-    isError result carrying an McpError, as the CLI exits 2 on it. The result MUST list each pass with its
+    isError result carrying an McpError, as the CLI exits 2 on it. A
+    test_results file that does not exist is file_not_found. The result MUST list each pass with its
     findings and summary, plus an `ok` flag that is false when any finding
     is an error. An extension pass that traps or answers what does not
     parse is one E028 finding of that pass (its summary marks it
@@ -711,6 +715,7 @@ behavior provide_mcp_analyze_tool "Provide MCP Analyze Tool" {
   """
   verify unit "analyze reads the project's specforge-report.json by default"
   verify unit "a malformed test report is an error result"
+  verify unit "a test_results file that does not exist is a file_not_found error"
   verify unit "extension passes receive no proved claims, as specforge analyze without --prove"
   verify unit "an unknown or undeclared pass is an invalid-input error listing the available passes"
   verify unit "strict promotes warnings and clears ok"

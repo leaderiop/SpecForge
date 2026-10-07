@@ -8,6 +8,7 @@
 use crate::support::*;
 use crate::tool_errors::mcp_error;
 use serde_json::{Value, json};
+use specforge_test::prelude::*;
 
 const MAIN: &str = concat!(
     "behavior alpha \"Alpha\" {\n",
@@ -53,13 +54,9 @@ fn refusal(served: &mut Served, tool: &str, arguments: Value) -> (String, String
     )
 }
 
-#[test]
-fn an_unparsable_report_refuses_every_view() {
-    let mut served = served();
-    report(&served, "{");
-    let plan = json!({"entries": [{"entity_id": "alpha"}]});
-
-    let tools = [
+/// Every tool that reads the recorded report, with arguments that reach it.
+fn report_readers() -> Vec<(&'static str, Value)> {
+    vec![
         ("specforge.stats", json!({})),
         ("specforge.coverage", json!({})),
         ("specforge.inspect", json!({"entity_id": "alpha"})),
@@ -67,9 +64,20 @@ fn an_unparsable_report_refuses_every_view() {
             "specforge.query",
             json!({"entity_id": "alpha", "include_coverage": true}),
         ),
-        ("specforge.trace", json!({"plan": plan})),
-    ];
-    for (tool, arguments) in tools {
+        (
+            "specforge.trace",
+            json!({"plan": {"entries": [{"entity_id": "alpha"}]}}),
+        ),
+        ("specforge.analyze", json!({})),
+    ]
+}
+
+#[test]
+fn an_unparsable_report_refuses_every_view() {
+    let mut served = served();
+    report(&served, "{");
+
+    for (tool, arguments) in report_readers() {
         let (code, diagnostic) = refusal(&mut served, tool, arguments);
         assert_eq!(
             (code.as_str(), diagnostic.as_str()),
@@ -96,22 +104,31 @@ fn an_unparsable_report_refuses_every_view() {
 }
 
 #[cfg(unix)]
-#[test]
-fn a_locked_report_is_two_kinds() {
+#[specforge_test(
+    behavior = "provide_mcp_coverage_tool",
+    verify = "a report the OS refuses to read is a permission_denied error on every tool that reads it"
+)]
+fn a_locked_report_is_permission_denied_on_every_tool() {
     let mut served = served();
     if !lock(&served) {
         return;
     }
 
-    let (stats, _) = refusal(&mut served, "specforge.stats", json!({}));
-    let (analyze, _) = refusal(&mut served, "specforge.analyze", json!({}));
-
-    assert_eq!(stats, "internal_error");
-    assert_eq!(analyze, "schema_mismatch");
+    for (tool, arguments) in report_readers() {
+        let (code, diagnostic) = refusal(&mut served, tool, arguments);
+        assert_eq!(
+            (code.as_str(), diagnostic.as_str()),
+            ("permission_denied", "E045"),
+            "{tool}"
+        );
+    }
 }
 
-#[test]
-fn a_missing_named_report_is_a_schema_mismatch() {
+#[specforge_test(
+    behavior = "provide_mcp_analyze_tool",
+    verify = "a test_results file that does not exist is a file_not_found error"
+)]
+fn a_missing_named_report_is_file_not_found() {
     let mut served = served();
     let missing = served.root().join("none.json");
 
@@ -123,7 +140,7 @@ fn a_missing_named_report_is_a_schema_mismatch() {
 
     assert_eq!(
         (code.as_str(), diagnostic.as_str()),
-        ("schema_mismatch", "E045")
+        ("file_not_found", "E045")
     );
 }
 

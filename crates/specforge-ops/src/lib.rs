@@ -31,6 +31,7 @@ pub mod prove;
 pub mod publish;
 pub mod registry;
 pub mod rename;
+mod report;
 pub mod scan;
 pub mod schema;
 pub mod schema_cache;
@@ -47,7 +48,7 @@ use std::borrow::Cow;
 
 /// What kind of failure an operation reports: the closed set every surface
 /// maps its own codes from (MCP's `ErrorCode`), decided where the failure is
-/// raised (ADR 0024 D15). [`OpError::code`] stays what the CLI prints
+/// raised (ADR 0024 D7). [`OpError::code`] stays what the CLI prints
 /// (`error[E027]`, `error[invalid_input]`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OpErrorKind {
@@ -137,7 +138,12 @@ impl OpErrorKind {
     /// The kind of a failed file operation: `PermissionDenied` when the OS
     /// refused, `FileNotFound` for `NotFound`, else `Internal`.
     pub fn of_io(error: &std::io::Error) -> Self {
-        match error.kind() {
+        Self::of_io_kind(error.kind())
+    }
+
+    /// [`Self::of_io`] for the kind of an error already taken apart.
+    pub fn of_io_kind(kind: std::io::ErrorKind) -> Self {
+        match kind {
             std::io::ErrorKind::PermissionDenied => Self::PermissionDenied,
             std::io::ErrorKind::NotFound => Self::FileNotFound,
             _ => Self::Internal,

@@ -5,9 +5,10 @@
 
 use specforge_common::Diagnostic;
 use specforge_graph::Graph;
-use specforge_project::coverage::{ReportError, Summary};
+use specforge_project::coverage::Summary;
 use std::collections::{BTreeMap, HashSet};
 
+use crate::OpError;
 use crate::check::Counts;
 use crate::view::ProjectView;
 
@@ -46,7 +47,7 @@ pub struct Stats {
 /// surface reports for the project ([`ProjectView::reported`]: the CLI what
 /// `specforge check` reports, MCP that plus its surface registration
 /// notices). A recorded report that cannot be read is the error.
-pub fn stats(view: &ProjectView) -> Result<Stats, ReportError> {
+pub fn stats(view: &ProjectView) -> Result<Stats, OpError> {
     let coverage = view.coverage()?;
     Ok(tally(view.graph(), &coverage.summary, &view.reported()))
 }

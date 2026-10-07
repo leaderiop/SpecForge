@@ -235,7 +235,7 @@ impl ErrorCode {
 }
 
 /// The code an operation's failure kind is reported as: total, one arm per
-/// kind (ADR 0024 D15).
+/// kind (ADR 0024 D7).
 impl From<OpErrorKind> for ErrorCode {
     fn from(kind: OpErrorKind) -> Self {
         match kind {

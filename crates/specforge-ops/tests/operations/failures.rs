@@ -1,12 +1,13 @@
-//! Pins of how operations fail and judge today (plan 02, ticket T0): an
-//! unusable test report, a format run's verdict inputs, the project a
-//! migration compiles. Plain tests: they pin today's behaviour, bugs
-//! included; the ticket that changes a pinned fact flips its pin.
+//! How operations fail and judge (plan 02, ADR 0029): an unusable test
+//! report is one `OpError` on every view, a format run's verdict inputs,
+//! the project a migration compiles. The unlinked tests were pinned before
+//! ops decided any of it; the ticket that changed a pinned fact flipped it.
 
 use crate::view_support::{Project, registries};
-use specforge_ops::OpErrorKind;
 use specforge_ops::analyze::{AnalyzeError, AnalyzeOptions, ReportSource, analyze};
 use specforge_ops::format::{Mode, Request, run};
+use specforge_ops::{OpError, OpErrorKind};
+use specforge_test::prelude::*;
 use std::path::Path;
 
 const SOURCE: &str = "behavior b \"B\" {\n  verify unit \"it works\"\n}\n";
@@ -40,49 +41,105 @@ fn plan() -> serde_json::Value {
     serde_json::json!({"entries": []})
 }
 
-#[test]
-fn an_unparsable_report_fails_every_view() {
-    let project = project();
-    write_report(&project, "{");
+/// What every view that reads the recorded report answers for it.
+fn every_view(project: &Project) -> Vec<(&'static str, OpError)> {
     let view = project.view();
+    vec![
+        ("test_report", view.test_report().unwrap_err()),
+        ("stats", specforge_ops::stats::stats(&view).unwrap_err()),
+        (
+            "coverage",
+            specforge_ops::coverage::coverage(&view, &Default::default()).unwrap_err(),
+        ),
+        ("row", specforge_ops::coverage::row(&view, "b").unwrap_err()),
+        (
+            "plan",
+            match specforge_ops::plan::check(&view, &plan()).unwrap_err() {
+                specforge_ops::plan::PlanError::Report(error) => error,
+                other => panic!("expected the report's failure: {other:?}"),
+            },
+        ),
+        (
+            "inspect",
+            specforge_ops::inspect::inspect(&view, "b")
+                .unwrap()
+                .coverage
+                .unwrap_err(),
+        ),
+        (
+            "analyze",
+            match analyze(&view, None, &AnalyzeOptions::default()).unwrap_err() {
+                AnalyzeError::UnusableReport(error) => error,
+                other => panic!("expected the report's failure: {other:?}"),
+            },
+        ),
+    ]
+}
 
-    let stats = specforge_ops::stats::stats(&view).unwrap_err().to_string();
-    let coverage = specforge_ops::coverage::coverage(&view, &Default::default())
-        .unwrap_err()
-        .to_string();
-    let row = specforge_ops::coverage::row(&view, "b")
-        .unwrap_err()
-        .to_string();
-    let plan = specforge_ops::plan::check(&view, &plan())
-        .unwrap_err()
-        .to_string();
-    let inspect = specforge_ops::inspect::inspect(&view, "b").unwrap();
-    let inspect = inspect.coverage.unwrap_err().to_string();
+#[specforge_test(
+    behavior = "read_views_over_the_project_view",
+    verify = "an unusable report is the same failure, of the kind the operation decides, on every view"
+)]
+fn an_unusable_report_is_one_failure_on_every_view() {
+    let malformed = project();
+    write_report(&malformed, "{");
+    let directory = project();
+    report_is_a_directory(&directory);
+    let mut cases = vec![
+        (malformed, OpErrorKind::SchemaMismatch),
+        (directory, OpErrorKind::Internal),
+    ];
+    #[cfg(unix)]
+    {
+        let locked = project();
+        if lock_report(&locked) {
+            cases.push((locked, OpErrorKind::PermissionDenied));
+        }
+    }
 
-    for message in [stats, coverage, row, plan, inspect] {
-        assert!(message.starts_with("invalid test results"), "{message}");
+    for (project, kind) in cases {
+        let views = every_view(&project);
+        let (_, first) = &views[0];
+        assert_eq!((first.kind, first.code.as_ref()), (kind, "E045"));
+        for (view, error) in &views {
+            assert_eq!(error, first, "{view} fails as every other view does");
+        }
     }
 }
 
 #[test]
-fn an_unreadable_report_is_unreadable() {
+fn an_unparsable_report_fails_every_view() {
+    let project = project();
+    write_report(&project, "{");
+
+    for (view, error) in every_view(&project) {
+        assert_eq!(error.kind, OpErrorKind::SchemaMismatch, "{view}");
+        assert_eq!(error.code, "E045", "{view}");
+        assert!(
+            error.message.starts_with("invalid test results"),
+            "{view}: {}",
+            error.message
+        );
+    }
+}
+
+#[test]
+fn an_unreadable_report_is_internal() {
     let project = project();
     report_is_a_directory(&project);
 
     let error = project.view().test_report().unwrap_err();
 
-    assert!(
-        matches!(
-            error,
-            specforge_project::coverage::ReportError::Unreadable { missing: false, .. }
-        ),
-        "{error:?}"
+    assert_eq!(
+        (error.kind, error.code.as_ref()),
+        (OpErrorKind::Internal, "E045")
     );
+    assert!(error.message.starts_with("cannot read test results"));
 }
 
 #[cfg(unix)]
 #[test]
-fn a_locked_report_is_unreadable() {
+fn a_locked_report_is_permission_denied() {
     let project = project();
     if !lock_report(&project) {
         return;
@@ -90,17 +147,14 @@ fn a_locked_report_is_unreadable() {
 
     let error = project.view().test_report().unwrap_err();
 
-    assert!(
-        matches!(
-            error,
-            specforge_project::coverage::ReportError::Unreadable { missing: false, .. }
-        ),
-        "{error:?}"
+    assert_eq!(
+        (error.kind, error.code.as_ref()),
+        (OpErrorKind::PermissionDenied, "E045")
     );
 }
 
 #[test]
-fn analyze_calls_a_missing_named_report_a_schema_mismatch() {
+fn analyze_calls_a_missing_named_report_file_not_found() {
     let project = project();
     let options = AnalyzeOptions {
         report: ReportSource::File(project.dir.path().join("none.json")),
@@ -112,19 +166,20 @@ fn analyze_calls_a_missing_named_report_a_schema_mismatch() {
     let AnalyzeError::UnusableReport(error) = error else {
         panic!("expected an unusable report: {error:?}");
     };
-    assert_eq!(error.kind, OpErrorKind::SchemaMismatch);
+    assert_eq!(error.kind, OpErrorKind::FileNotFound);
     assert_eq!(error.code, "E045");
 }
 
 #[test]
-fn plan_calls_every_report_failure_a_schema_mismatch() {
+fn plan_gives_a_report_failure_the_report_s_kind() {
     let project = project();
     report_is_a_directory(&project);
     let report = project.view().test_report().unwrap_err();
 
-    let error = specforge_ops::OpError::from(specforge_ops::plan::PlanError::Report(report));
+    let error = OpError::from(specforge_ops::plan::PlanError::Report(report.clone()));
 
-    assert_eq!(error.kind, OpErrorKind::SchemaMismatch);
+    assert_eq!(error, report);
+    assert_eq!(error.kind, OpErrorKind::Internal);
 }
 
 #[test]
