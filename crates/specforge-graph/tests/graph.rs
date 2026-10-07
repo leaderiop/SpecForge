@@ -623,11 +623,24 @@ fn setup_project(files: &[(&str, &str)]) -> tempfile::TempDir {
     dir
 }
 
-/// The project at `dir`, resolved and built into a graph.
+/// The `.spec` files under `dir`, read and parsed as a compile reads them.
+fn parse_dir(dir: &std::path::Path) -> Vec<specforge_graph::SpecFile> {
+    specforge_common::discover_spec_files(dir, &[])
+        .into_iter()
+        .map(|path| {
+            let key = path
+                .strip_prefix(dir)
+                .unwrap()
+                .to_string_lossy()
+                .into_owned();
+            specforge_parser::parse(&std::fs::read_to_string(&path).unwrap(), &key)
+        })
+        .collect()
+}
+
+/// The project at `dir`, read and built into a graph.
 fn resolve_and_build(dir: &std::path::Path) -> (Graph, Vec<specforge_common::Diagnostic>) {
-    let resolved = specforge_resolver::resolve_project(dir);
-    let spec_files: Vec<_> = resolved.files.iter().map(|f| f.spec_file.clone()).collect();
-    specforge_graph::build_graph(&spec_files)
+    specforge_graph::build_graph(&parse_dir(dir))
 }
 
 // The E003 span covers the unresolved identifier token itself, not the
@@ -762,7 +775,6 @@ fn same_id_different_kind_across_files_warns_w060() {
 )]
 fn end_to_end_resolve_and_build() {
     use specforge_graph::build_graph;
-    use specforge_resolver::resolve_project;
 
     let dir = setup_project(&[
         ("types.spec", r#"behavior alpha "A" { contract "first" }"#),
@@ -772,23 +784,7 @@ fn end_to_end_resolve_and_build() {
         ),
     ]);
 
-    let resolved = resolve_project(dir.path());
-    assert!(
-        resolved
-            .diagnostics
-            .iter()
-            .all(|d| d.severity != specforge_graph::Severity::Error),
-        "resolve errors: {:?}",
-        resolved.diagnostics
-    );
-
-    let spec_files: Vec<_> = resolved
-        .files
-        .iter()
-        .map(|f| &f.spec_file)
-        .cloned()
-        .collect();
-    let (graph, diagnostics) = build_graph(&spec_files);
+    let (graph, diagnostics) = build_graph(&parse_dir(dir.path()));
 
     assert!(
         diagnostics
@@ -808,7 +804,6 @@ fn end_to_end_resolve_and_build() {
 )]
 fn end_to_end_with_errors() {
     use specforge_graph::build_graph;
-    use specforge_resolver::resolve_project;
 
     let dir = setup_project(&[(
         "main.spec",
@@ -818,14 +813,7 @@ feature gamma "G" { behaviors [alpha, nonexistent] }
 "#,
     )]);
 
-    let resolved = resolve_project(dir.path());
-    let spec_files: Vec<_> = resolved
-        .files
-        .iter()
-        .map(|f| &f.spec_file)
-        .cloned()
-        .collect();
-    let (graph, diagnostics) = build_graph(&spec_files);
+    let (graph, diagnostics) = build_graph(&parse_dir(dir.path()));
 
     assert_eq!(graph.node_count(), 2);
     assert_eq!(graph.edge_count(), 1, "only valid ref becomes edge");
@@ -1684,4 +1672,26 @@ fn reach_from_an_unknown_root_is_none() {
     assert!(graph.reach("nope", Some(1)).is_none());
     assert!(graph.subgraph("nope").is_none());
     assert!(graph.subgraph_depth("nope", 2).is_none());
+}
+
+// === first declaration wins, in path order ===
+
+#[specforge_test(
+    behavior = "detect_duplicate_entity_ids",
+    verify = "duplicate ID across files produces E002"
+)]
+fn a_duplicate_goes_to_the_first_file_in_path_order() {
+    use specforge_graph::build_graph;
+    use specforge_parser::parse;
+
+    let source = "behavior dup \"Dup\" { contract \"x\" }\n";
+    let (graph, diagnostics) = build_graph(&[parse(source, "b.spec"), parse(source, "a.spec")]);
+
+    assert_eq!(
+        graph.node("dup").unwrap().source_span.file.as_str(),
+        "a.spec"
+    );
+    let e002: Vec<_> = diagnostics.iter().filter(|d| d.code == "E002").collect();
+    assert_eq!(e002.len(), 1);
+    assert_eq!(e002[0].span.as_ref().unwrap().file.as_str(), "b.spec");
 }

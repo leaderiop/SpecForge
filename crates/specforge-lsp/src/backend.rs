@@ -267,6 +267,10 @@ impl Backend {
             let mut touched: Vec<String> = Vec::new();
             let mut environment = false;
             let mut inputs_changed = false;
+            // Every session verifies its updates in a debug build (ADR
+            // 0032): a rebuild that differs from a cold build is reported
+            // below.
+            let mut divergences: Vec<String> = Vec::new();
             match (&change, changes) {
                 (Change::Open(_), _) => {
                     if let Some(loaded) = opening {
@@ -277,6 +281,7 @@ impl Backend {
                 }
                 (Change::Apply(_), Some(changes)) => {
                     if let Some(update) = session.apply(&changes) {
+                        divergences.extend(update.verification.and_then(std::result::Result::err));
                         environment = update.kind == UpdateKind::Environment;
                         inputs_changed |= update.inputs_changed;
                         touched.extend(update.rebuilt_files);
@@ -300,16 +305,28 @@ impl Backend {
                     text: Some(text),
                 };
                 let update = session.update_with(buffer, mode);
+                divergences.extend(update.verification.and_then(std::result::Result::err));
                 inputs_changed |= update.inputs_changed;
                 touched.extend(update.rebuilt_files);
                 touched.push(key);
             }
-            (session, touched, environment, inputs_changed)
+            (session, touched, environment, inputs_changed, divergences)
         })
         .await;
 
         match joined {
-            Ok((session, touched, environment, inputs_changed)) => {
+            Ok((session, touched, environment, inputs_changed, divergences)) => {
+                for divergence in &divergences {
+                    client
+                        .log_message(
+                            MessageType::ERROR,
+                            format!(
+                                "an incremental rebuild diverged from a cold build: {divergence}"
+                            ),
+                        )
+                        .await;
+                }
+                debug_assert!(divergences.is_empty(), "{divergences:?}");
                 let touched: Vec<Url> = {
                     let mut st = state.write().await;
                     st.set_session(session);
@@ -944,12 +961,7 @@ impl LanguageServer for Backend {
                     return Ok(None);
                 }
                 // The imported file, from its first line: no text needed.
-                let span = goto_import_definition(
-                    &path,
-                    &file,
-                    state.spec_root(),
-                    &state.environment().resolve_config(),
-                );
+                let span = goto_import_definition(&path, &file, state.spec_root());
                 Ok(span.map(|s| {
                     GotoDefinitionResponse::Scalar(Location {
                         uri: uri_of(&state, s.file.as_str()),

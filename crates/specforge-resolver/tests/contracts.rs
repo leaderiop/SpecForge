@@ -1,8 +1,25 @@
-use specforge_common::{DiagnosticData, Severity};
-use specforge_resolver::resolve_project;
+use specforge_common::{Diagnostic, DiagnosticData, Severity};
+use specforge_parser::{SpecFile, parse};
+use specforge_resolver::resolve_imports;
 use specforge_test_macros::test as specforge_test;
 use std::fs;
+use std::path::Path;
 use tempfile::TempDir;
+
+/// The import diagnostics of the project under `root`, read and parsed as a
+/// compile reads it.
+fn resolve_dir(root: &Path) -> Vec<Diagnostic> {
+    let parsed: Vec<(String, SpecFile)> = specforge_common::discover_spec_files(root, &[])
+        .into_iter()
+        .map(|p| {
+            let key = p.strip_prefix(root).unwrap().to_string_lossy().into_owned();
+            let spec = parse(&fs::read_to_string(&p).unwrap(), &key);
+            (key, spec)
+        })
+        .collect();
+    let files: Vec<(&str, &SpecFile)> = parsed.iter().map(|(k, f)| (k.as_str(), f)).collect();
+    resolve_imports(root, &files, &|p: &Path| p.is_file())
+}
 
 fn setup_project(files: &[(&str, &str)]) -> TempDir {
     let dir = TempDir::new().unwrap();
@@ -33,30 +50,36 @@ fn resolve_use_imports_contract() {
         ),
     ]);
 
-    let result = resolve_project(dir.path());
-    let file = |path: &str| {
-        result
-            .files
-            .iter()
-            .find(|f| f.path == path)
-            .unwrap_or_else(|| panic!("{path} not resolved"))
-    };
+    let diagnostics = resolve_dir(dir.path());
 
-    // imports_resolved + dependency_graph_built: main.spec's edges are the
-    // two files it imports, and the leaves import nothing.
-    let mut targets = file("main.spec").import_targets.clone();
-    targets.sort();
-    assert_eq!(targets, ["models/user.spec", "types.spec"]);
-    assert!(file("types.spec").import_targets.is_empty());
-    assert!(file("models/user.spec").import_targets.is_empty());
-    // Imports come before the file that uses them.
-    let position = |path: &str| result.files.iter().position(|f| f.path == path).unwrap();
-    assert!(position("types.spec") < position("main.spec"));
-    assert!(position("models/user.spec") < position("main.spec"));
+    // imports_resolved + dependency_graph_built: `use "types"` and
+    // `use "models/user"` resolve (no E025 for them), and the files they
+    // name are the targets of the import graph: a file importing main.spec
+    // back closes the cycle main.spec -> models/user.spec.
+    assert!(
+        !diagnostics.iter().any(
+            |d| d.code == "E025" && (d.message.contains("types") || d.message.contains("user"))
+        ),
+        "{diagnostics:?}"
+    );
+    fs::write(
+        dir.path().join("models/user.spec"),
+        "use \"main\"\nbehavior gamma \"G\" { contract \"g\" }",
+    )
+    .unwrap();
+    let cyclic = resolve_dir(dir.path());
+    let w113: Vec<&str> = cyclic
+        .iter()
+        .filter(|d| d.code == "W113")
+        .map(|d| d.message.as_str())
+        .collect();
+    assert_eq!(
+        w113,
+        ["circular import detected: main.spec -> models/user.spec"]
+    );
 
     // missing_files_diagnosed: the one missing import, and nothing else.
-    let errors: Vec<_> = result
-        .diagnostics
+    let errors: Vec<_> = diagnostics
         .iter()
         .filter(|d| d.severity == Severity::Error)
         .collect();
@@ -94,13 +117,9 @@ fn detect_import_cycles_contract() {
         ("b.spec", "use \"a\"\nbehavior beta \"B\" { }"),
     ]);
 
-    let result = resolve_project(dir.path());
+    let diagnostics = resolve_dir(dir.path());
 
-    let cycle_warnings: Vec<_> = result
-        .diagnostics
-        .iter()
-        .filter(|d| d.code == "W113")
-        .collect();
+    let cycle_warnings: Vec<_> = diagnostics.iter().filter(|d| d.code == "W113").collect();
     assert!(
         !cycle_warnings.is_empty(),
         "circular imports must produce W113"
@@ -110,11 +129,5 @@ fn detect_import_cycles_contract() {
             .iter()
             .all(|d| d.severity == Severity::Warning),
         "import cycles must be warnings, not errors"
-    );
-
-    // Files should still be resolved despite the cycle
-    assert!(
-        !result.files.is_empty(),
-        "files must still be resolved despite cycle"
     );
 }

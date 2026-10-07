@@ -72,12 +72,8 @@ fn the_context_view_keeps_the_spec_root_and_the_resolved_files() {
     let compiled = compile(dir.path());
 
     assert_eq!(compiled.env.spec_root, dir.path().join("spec"));
-    let files: Vec<&str> = compiled
-        .resolved
-        .files
-        .iter()
-        .map(|f| f.path.as_str())
-        .collect();
+    let mut files: Vec<String> = compiled.source_texts().into_keys().collect();
+    files.sort();
     assert_eq!(files, ["a.spec"]);
 }
 
@@ -488,7 +484,7 @@ fn source_texts_are_what_was_compiled() {
     let compiled = CompiledProject::compile(dir.path(), None);
     fs::write(dir.path().join("a.spec"), "// rewritten\n").unwrap();
 
-    let texts = compiled.resolved.source_texts();
+    let texts = compiled.source_texts();
     assert_eq!(texts["a.spec"], compiled_text);
     assert_eq!(texts["sub/b.spec"], "// b\n");
     assert_eq!(texts.len(), 2, "{texts:?}");
@@ -895,4 +891,46 @@ fn a_non_string_extension_entry_is_e069_and_the_others_load() {
         compiled.env.registries.kinds.get("feature").is_some(),
         "product loaded: its kinds are registered"
     );
+}
+
+/// A `.spec` file discovery finds and that cannot be read is E025 naming
+/// its path, and is left out of the graph.
+#[specforge_test(
+    behavior = "resolve_use_imports",
+    verify = "a source that cannot be read produces E025 naming it"
+)]
+fn an_unreadable_source_is_e025_naming_it() {
+    let dir = project(
+        serde_json::json!({
+            "name": "p", "version": "0.1.0", "extensions": ["@specforge/software"]
+        }),
+        &[("a.spec", "term alpha \"Alpha\" {\n}\n")],
+    );
+    fs::write(
+        dir.path().join("bad.spec"),
+        b"term beta \"B\xff\xfe\" {\n}\n",
+    )
+    .unwrap();
+
+    let compiled = compile(dir.path());
+
+    let e025: Vec<_> = compiled
+        .diagnostics()
+        .into_iter()
+        .filter(|d| d.code == "E025")
+        .collect();
+    assert_eq!(e025.len(), 1, "{e025:?}");
+    assert_eq!(
+        e025[0].message,
+        "cannot read bad.spec: stream did not contain valid UTF-8"
+    );
+    assert!(e025[0].span.is_none());
+    let ids: Vec<_> = compiled
+        .graph
+        .nodes()
+        .iter()
+        .map(|n| n.id.raw.to_string())
+        .collect();
+    assert_eq!(ids, ["alpha"]);
+    assert_eq!(compiled.source_texts().len(), 1);
 }
