@@ -8,6 +8,7 @@ mod present;
 mod project;
 mod slug;
 mod span;
+pub mod structural;
 pub mod suggest;
 
 pub use diagnostic::{CustomRuleFailure, Diagnostic, DiagnosticData, DiagnosticsExt, Severity};

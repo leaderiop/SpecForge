@@ -2,6 +2,7 @@
 //! the project view's registries and graph (ADR 0023). Where the cursor is
 //! is the document module's to say.
 
+use specforge_common::structural;
 use specforge_ops::navigate::{EntityQuery, MatchScope, find_entities};
 use specforge_ops::view::ProjectView;
 use specforge_registry::{FieldRegistry, FieldType};
@@ -11,10 +12,6 @@ use tower_lsp::lsp_types::{
 };
 
 use crate::document::{CompletionSite, WordEdit};
-
-/// The kind a ref entity has: the only entities a string list names (a
-/// scheme ref ID written in any list is linked to its ref).
-const REF_KIND: &str = "ref";
 
 /// The completion items of `site`. Each carries an edit over the word
 /// under the cursor (`edit`): an insert-and-replace edit when the client
@@ -76,8 +73,9 @@ pub fn items(
                     entity_ids(view, prefix, target)
                 }
                 // A string list's items are strings; the refs a scheme ref
-                // ID names are linked from any list.
-                Some(FieldType::StringList) => entity_ids(view, prefix, Some(REF_KIND)),
+                // ID names are linked from any list (the only entities a
+                // string list names).
+                Some(FieldType::StringList) => entity_ids(view, prefix, Some(structural::REF)),
                 Some(_) => Vec::new(),
             }
         }
@@ -121,7 +119,7 @@ fn starts_with(label: &str, prefix: &str) -> bool {
 fn keywords(prefix: &str, view: &ProjectView) -> Vec<CompletionItem> {
     let kinds = &view.registries().kinds;
     let mut keywords: Vec<String> = kinds.keywords().cloned().collect();
-    keywords.push("use".into());
+    keywords.push(structural::USE.into());
     keywords.sort();
     keywords.dedup();
     keywords

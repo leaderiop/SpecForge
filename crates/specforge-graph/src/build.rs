@@ -1,5 +1,5 @@
 use crate::{Graph, Node};
-use specforge_common::{Diagnostic, Sym, codes};
+use specforge_common::{Diagnostic, Sym, codes, structural};
 use specforge_parser::{FieldValue, SpecFile};
 use std::collections::{HashMap, HashSet};
 
@@ -71,7 +71,7 @@ pub fn node_from_entity(entity: &specforge_parser::Entity) -> Node {
 /// grammar still parses them so they can be reported (W143); they never
 /// become graph nodes, on a cold build or an incremental one.
 pub fn is_define_block(entity: &specforge_parser::Entity) -> bool {
-    entity.kind.raw == "define"
+    entity.kind.raw == structural::DEFINE
 }
 
 /// W143: a define block, which declares nothing.
@@ -180,7 +180,7 @@ where
     if !config.known_provider_schemes.is_empty() {
         for spec_file in spec_files.clone() {
             for entity in &spec_file.entities {
-                if entity.kind.raw == "ref"
+                if entity.kind.raw == structural::REF
                     && let Some(FieldValue::String(scheme)) = entity.fields.get("scheme")
                     && !config.known_provider_schemes.contains(scheme)
                 {

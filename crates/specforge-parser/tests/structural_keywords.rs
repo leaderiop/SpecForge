@@ -51,3 +51,20 @@ fn a_define_block_parses_without_extensions() {
     assert_eq!(parsed.entities[0].kind.raw, "define");
     assert_eq!(parsed.entities[0].id.raw, "user_story");
 }
+
+/// The parser writes the kinds from the one constant the registry, the
+/// graph and the LSP read (a plain test: the obligation it would carry is
+/// linked above).
+#[test]
+fn the_parser_produces_the_structural_kinds() {
+    use specforge_common::structural;
+
+    let parsed = specforge_parser::parse("spec \"s\" {}\nref gh.issue:1 \"r\"\n", "test.spec");
+    assert!(parsed.errors.is_empty(), "{:?}", parsed.errors);
+    let kinds: Vec<&str> = parsed
+        .entities
+        .iter()
+        .map(|e| e.kind.raw.as_str())
+        .collect();
+    assert_eq!(kinds, [structural::SPEC, structural::REF]);
+}

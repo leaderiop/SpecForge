@@ -1,6 +1,6 @@
 use crate::entity::EntityRecord;
 use crate::{FieldRegistry, KindRegistry};
-use specforge_common::{Diagnostic, DiagnosticData, codes};
+use specforge_common::{Diagnostic, DiagnosticData, codes, structural};
 use std::collections::HashMap;
 
 /// A keyword-to-extension index for suggesting missing extensions.
@@ -56,12 +56,11 @@ pub fn detect_unknown_entity_kinds(
     kind_reg: &KindRegistry,
     index: Option<&KeywordExtensionIndex>,
 ) -> Vec<Diagnostic> {
-    let structural = ["spec", "ref", "use", "define"];
     let mut diagnostics = Vec::new();
 
     for entity in entities {
         let (keyword, id, span) = (entity.kind.as_str(), entity.id.as_str(), &entity.span);
-        if structural.contains(&keyword) {
+        if structural::is_structural(keyword) {
             continue;
         }
         if kind_reg.contains(keyword) {
@@ -100,10 +99,8 @@ pub fn detect_unknown_entity_kinds(
 /// An ID equal to a keyword makes `refs [behavior]`-style entries ambiguous
 /// with the block introducer itself.
 pub fn reserved_entity_id_words(kind_reg: &KindRegistry) -> std::collections::BTreeSet<String> {
-    let mut reserved: std::collections::BTreeSet<String> = ["spec", "ref", "use", "define"]
-        .iter()
-        .map(|s| s.to_string())
-        .collect();
+    let mut reserved: std::collections::BTreeSet<String> =
+        structural::KEYWORDS.iter().map(|s| s.to_string()).collect();
     for kw in kind_reg.keywords() {
         reserved.insert(kw.to_string());
     }
