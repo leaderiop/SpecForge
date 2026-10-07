@@ -186,9 +186,17 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   migration hook — over the `WasmRuntime` port. Its input and answer are protocol types
   (`specforge_protocol_types`) the SDK shares; every failure is one `CallError`, E028, naming the
   operation, the export and the extension (`specforge_wasm::calls::ExtensionCalls`, ADR 0013).
+- **Sandbox**: what the host holds an extension to. It is granted no capability (no preopened
+  directory, environment, arguments, stdin, socket or name lookup), and it is held to two limits its
+  handshake's `sandbox_policy` may declare, each at most the host's ceiling (30 000 ms per call,
+  512 MB of linear memory) and the ceiling when undeclared; every call also gets the whole fuel
+  budget. Reading the handshake applies them; the component runtime enforces them, and a call that
+  crosses one traps with the limit's kind (E028). What a declaration asks for that the host does not
+  give is W153 (`specforge_wasm::sandbox`, ADR 0037).
 - **In-process runtime**: the test adapter of the `WasmRuntime` port that runs an SDK-declared
   extension in the host process through the guest's own routing (`guest_call`), unsandboxed
-  (`specforge_wasm::testing::InProcessRuntime`). Host tests declare their extensions with it; the
+  (it records the limits the host applies and enforces none;
+  `specforge_wasm::testing::InProcessRuntime`). Host tests declare their extensions with it; the
   component runtime is the production adapter, and both keep one contract
   (`assert_runtime_contract`). MCP's tests serve every project from a temporary directory through
   it (`tests/support`): no test writes a registry, a graph or a diagnostic into a server (ADR 0025).

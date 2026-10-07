@@ -105,7 +105,7 @@ fn load_file(
         )
     })?;
     let declared = match specforge_wasm::ExtensionCalls::new(runtime).handshake(key) {
-        Ok(handshake) => handshake.name,
+        Ok(handshake) => handshake.response.name,
         Err(error) => {
             runtime.unload(key);
             return Err(refused(

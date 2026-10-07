@@ -125,8 +125,8 @@ pub struct HandshakeRequest {
 /// `sandbox_policy` is a documented exception: serde treats `Option<T>`
 /// fields as implicitly optional, so absence and explicit `null` both
 /// deserialize to `None`. That default is fail-safe, not silent — `None`
-/// means the plugin declares no limits and the host substitutes its own
-/// deny-by-default policy (`specforge-wasm::sandbox::default_sandbox_policy`).
+/// means the plugin declares no limits and the host holds it to its own
+/// ceiling (`specforge-wasm::sandbox::Limits::CEILING`).
 /// All builtin fixtures and every SDK-built extension serialize all six
 /// fields (`ContributionsBuilder::handshake_json` never elides them).
 ///

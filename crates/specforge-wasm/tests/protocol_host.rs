@@ -9,7 +9,7 @@ use specforge_extension_sdk::prelude::*;
 use specforge_protocol_types::{HandshakeResponse, PROTOCOL_VERSION, ProtocolError};
 use specforge_wasm::protocol::{Loaded, load_declaration};
 use specforge_wasm::testing::InProcessRuntime;
-use specforge_wasm::{WasmCallResult, WasmTrapInfo};
+use specforge_wasm::{Limits, WasmCallResult, WasmTrapInfo};
 
 /// `name`, declaring a testable `behavior` kind, an `Implements` edge and
 /// a `W001` rule.
@@ -62,9 +62,12 @@ fn handshake_returns_parsed_response() {
     assert!(resp.contribution_flags.validators);
 }
 
-// ── Handshake applies the plugin's declared execution budget (C7-10) ──
+// ── Handshake applies the extension's sandbox: its limits (C7-10, ADR 0037) ──
 
-#[test]
+#[specforge_test_macros::test(
+    behavior = "configure_sandbox_policy",
+    verify = "a declared limit below the ceiling is applied as declared"
+)]
 fn handshake_applies_declared_max_execution_ms() {
     let runtime = InProcessRuntime::new().with(|| {
         let mut meta = ExtensionMeta::new("@specforge/software", "1.0.0");
@@ -76,16 +79,28 @@ fn handshake_applies_declared_max_execution_ms() {
     });
     load_declaration(&runtime, "@specforge/software").unwrap();
     assert_eq!(
-        runtime.deadlines(),
-        vec![("@specforge/software".to_string(), 5000)]
+        runtime.limits(),
+        vec![(
+            "@specforge/software".to_string(),
+            Limits {
+                execution_ms: 5000,
+                memory_mb: 512
+            }
+        )]
     );
 }
 
-#[test]
-fn handshake_without_execution_budget_sets_no_deadline() {
+#[specforge_test_macros::test(
+    behavior = "configure_sandbox_policy",
+    verify = "an extension declaring no sandbox policy runs under the host's ceiling"
+)]
+fn an_extension_declaring_no_policy_runs_under_the_ceiling() {
     let runtime = InProcessRuntime::new().with(declaring("@specforge/formal"));
     load_declaration(&runtime, "@specforge/formal").unwrap();
-    assert!(runtime.deadlines().is_empty());
+    assert_eq!(
+        runtime.limits(),
+        vec![("@specforge/formal".to_string(), Limits::CEILING)]
+    );
 }
 
 /// Pin of today: an extension declaring what the host never grants (a

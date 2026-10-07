@@ -16,7 +16,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 use specforge_wasm::runtime::{WasmCallResult, WasmRuntime, WasmTrapInfo};
-use specforge_wasm::sandbox::default_sandbox_policy;
+use specforge_wasm::sandbox::Limits;
 use wasmtime::component::{Component, Linker};
 use wasmtime::{Cache, CacheConfig, Config, Engine, Store};
 use wasmtime_wasi::{WasiCtx, WasiCtxView, WasiView};
@@ -50,10 +50,10 @@ impl WasiView for HostState {
 struct PluginInstance {
     store: Store<HostState>,
     bindings: Bridge,
-    /// Wall-clock budget for each call into this plugin, in milliseconds.
-    /// Enforced with wasmtime epoch interruption; `set_epoch_deadline` is
-    /// refreshed from this value before every `call`.
-    deadline_ms: u64,
+    /// What each call into this plugin is held to. The wall-clock budget
+    /// is enforced with wasmtime epoch interruption; `set_epoch_deadline`
+    /// is refreshed from it before every `call`.
+    limits: Limits,
     /// What the instance was made from, to make a fresh one after a trap:
     /// a component instance that trapped cannot be entered again.
     component: Component,
@@ -132,9 +132,6 @@ pub struct ComponentRuntime {
     /// still serialize (audit C7-10).
     plugins: Mutex<HashMap<String, Arc<Mutex<PluginInstance>>>>,
     fuel: u64,
-    /// Ceiling for per-call wall-clock budgets: a plugin's declared
-    /// `max_execution_ms` is clamped to this.
-    default_deadline_ms: u64,
     /// Drives epoch interruption; must outlive every `Store`.
     _ticker: EpochTicker,
     /// Why an extension the project enables failed to load (a missing or
@@ -187,17 +184,11 @@ impl ComponentRuntime {
             );
         }
         let engine = Engine::new(&config).expect("engine initializes");
-        let default_deadline_ms = u64::from(
-            default_sandbox_policy()
-                .max_execution_ms
-                .unwrap_or(u32::MAX),
-        );
         Self {
             _ticker: EpochTicker::spawn(engine.clone()),
             engine,
             plugins: Mutex::new(HashMap::new()),
             fuel: DEFAULT_FUEL_LIMIT,
-            default_deadline_ms,
             load_failures: Mutex::new(HashMap::new()),
             file_entries: Mutex::new(HashMap::new()),
         }
@@ -300,14 +291,14 @@ impl ComponentRuntime {
         component: Component,
         fuel: u64,
     ) -> Result<(), String> {
-        let (store, bindings) = self.fresh_instance(name, &component, fuel)?;
+        let (store, bindings) = self.fresh_instance(name, &component, fuel, Limits::CEILING)?;
         let mut plugins = self.plugins.lock().map_err(|e| e.to_string())?;
         plugins.insert(
             name.to_string(),
             Arc::new(Mutex::new(PluginInstance {
                 store,
                 bindings,
-                deadline_ms: self.default_deadline_ms,
+                limits: Limits::CEILING,
                 component,
                 fuel,
             })),
@@ -315,13 +306,14 @@ impl ComponentRuntime {
         Ok(())
     }
 
-    /// A new instance of `component`, with `fuel` and the default
-    /// wall-clock budget armed.
+    /// A new instance of `component`, with `fuel` and `limits`' wall-clock
+    /// budget armed.
     fn fresh_instance(
         &self,
         name: &str,
         component: &Component,
         fuel: u64,
+        limits: Limits,
     ) -> Result<(Store<HostState>, Bridge), String> {
         let mut linker: Linker<HostState> = Linker::new(&self.engine);
         wasmtime_wasi::p2::add_to_linker_sync(&mut linker)
@@ -334,31 +326,13 @@ impl ComponentRuntime {
             .set_fuel(fuel)
             .map_err(|e| format!("failed to set fuel for {name}: {e}"))?;
         // With epoch interruption enabled, stores start with a deadline of
-        // zero ticks and would trap immediately — arm the plugin's default
+        // zero ticks and would trap immediately — arm the plugin's
         // wall-clock budget before any guest code can run.
-        store.set_epoch_deadline(ms_to_ticks(self.default_deadline_ms));
+        store.set_epoch_deadline(ms_to_ticks(u64::from(limits.execution_ms)));
 
         let bindings = Bridge::instantiate(&mut store, component, &linker)
             .map_err(|e| format!("failed to instantiate component {name}: {e}"))?;
         Ok((store, bindings))
-    }
-
-    /// Applies a plugin-declared wall-clock budget (its handshake
-    /// `sandbox_policy.max_execution_ms`) to the named extension's
-    /// subsequent calls. The budget is clamped to the host's
-    /// deny-by-default ceiling: a plugin may tighten its own deadline but
-    /// never extend it past the host default.
-    pub fn set_execution_deadline_ms(&self, name: &str, max_execution_ms: u64) {
-        let effective = self.default_deadline_ms.min(max_execution_ms);
-        let plugins = match self.plugins.lock() {
-            Ok(p) => p,
-            Err(_) => return,
-        };
-        if let Some(plugin) = plugins.get(name)
-            && let Ok(mut plugin) = plugin.lock()
-        {
-            plugin.deadline_ms = effective;
-        }
     }
 
     /// Call the bridge `call` export; returns the raw JSON wire bytes.
@@ -402,11 +376,11 @@ impl ComponentRuntime {
         let PluginInstance {
             store,
             bindings,
-            deadline_ms,
+            limits,
             component,
             fuel,
         } = &mut *instance;
-        store.set_epoch_deadline(ms_to_ticks(*deadline_ms));
+        store.set_epoch_deadline(ms_to_ticks(u64::from(limits.execution_ms)));
         match bindings.call_call(&mut *store, name, export, input) {
             Ok(Ok(bytes)) => WasmCallResult::Ok(bytes),
             Ok(Err(message)) => WasmCallResult::Trap(WasmTrapInfo {
@@ -427,7 +401,7 @@ impl ComponentRuntime {
                 // panics in one call must not take the extension down for
                 // the rest of the process (an MCP session).
                 if let Ok((fresh_store, fresh_bindings)) =
-                    self.fresh_instance(name, component, *fuel)
+                    self.fresh_instance(name, component, *fuel, *limits)
                 {
                     *store = fresh_store;
                     *bindings = fresh_bindings;
@@ -470,6 +444,17 @@ impl WasmRuntime for ComponentRuntime {
 
     fn load_module_named(&self, extension_name: &str, wasm_path: &Path) -> Result<(), String> {
         ComponentRuntime::load_module_as(self, extension_name, wasm_path)
+    }
+
+    fn apply_limits(&self, extension_name: &str, limits: Limits) {
+        let Ok(plugins) = self.plugins.lock() else {
+            return;
+        };
+        if let Some(plugin) = plugins.get(extension_name)
+            && let Ok(mut plugin) = plugin.lock()
+        {
+            plugin.limits = limits;
+        }
     }
 
     fn load_failure(&self, extension_name: &str) -> Option<specforge_common::Diagnostic> {

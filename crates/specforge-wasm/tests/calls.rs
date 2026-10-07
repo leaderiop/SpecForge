@@ -295,7 +295,7 @@ fn every_call_decodes_the_protocol_type() {
     let runtime = runtime();
     let calls = ExtensionCalls::new(&runtime);
 
-    let handshake = calls.handshake(EXT).unwrap();
+    let handshake = calls.handshake(EXT).unwrap().response;
     assert_eq!(handshake, extension().declaration().handshake);
     let describe = calls.describe(EXT, "entities").unwrap();
     assert_eq!(describe.category, "entities");
@@ -645,7 +645,10 @@ fn unknown_fields_are_ignored_and_absent_optional_fields_default() {
         "__handshake",
         r#"{"protocol_version":"1.0.0","name":"@calls/x","version":"1.0.0","contribution_flags":{},"peer_dependencies":[],"newer":1}"#,
     );
-    let handshake = ExtensionCalls::new(&runtime).handshake(EXT).unwrap();
+    let handshake = ExtensionCalls::new(&runtime)
+        .handshake(EXT)
+        .unwrap()
+        .response;
     assert_eq!(handshake.sandbox_policy, None);
     assert_eq!(handshake.starter_template, None);
 }

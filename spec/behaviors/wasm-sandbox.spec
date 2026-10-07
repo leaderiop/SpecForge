@@ -1,5 +1,4 @@
-// Wasm sandbox enforcement, compile cache, session runtime reuse,
-// error recovery, and sandbox configuration
+// Wasm sandbox enforcement and configuration, compile cache, session runtime reuse
 
 use "events/wasm-sandbox"
 use "invariants/wasm"
@@ -119,49 +118,49 @@ behavior reuse_session_runtime "Reuse Session Runtime" {
 // compile_wasm_component_with_cache and the wasm_compile_cache_integrity
 // invariant.
 
-// V2: .yaml/.yml removed from the default filesystem allowlist. Extensions
-// that need to emit YAML output MUST explicitly declare .yaml or .yml in
-// their manifest's allowed_output_extensions field. This prevents accidental
-// config-file generation by extensions that do not intend it.
 behavior configure_sandbox_policy "Configure Sandbox Policy" {
   features   [wasm_extension_runtime]
   invariants [wasm_sandbox_integrity]
   category   command
   types      [SandboxPolicy, ExtensionDeclaration]
-  ports      [FileSystem]
+  ports      [WasmRuntime]
   requires {
-    manifest_available "extension manifest with optional sandbox policy is loaded"
-    config_available   "specforge.json with optional project-level overrides is available"
+    handshake_read "the extension's handshake answered, with its sandbox_policy as sent (absent or null when it declares none)"
   }
   ensures {
-    sandbox_policy_configured_emitted "sandbox_policy_configured event is emitted with the merged policy"
-    most_restrictive_wins             "numeric policies use minimum value across default, manifest, and config override"
-    list_intersection_applied         "list policies use intersection of all sources"
-    memory_ceiling_enforced           "total memory across all extensions does not exceed 256MB"
-    code_extensions_blocked           "manifest-level allowed_output_extensions with code file extensions produce E030"
+    limits_held_to_ceiling      "each declared limit (max_execution_ms, max_memory_mb) is applied as declared, held to the host's ceiling of 30000 ms and 512 MB; an undeclared limit is the ceiling"
+    above_ceiling_warned        "a declared limit above the ceiling is W153, naming the limit and the ceiling it is held to"
+    capabilities_never_granted  "a sandbox_policy key other than the two limits whose value asks for something, and a surface's sandbox override, is W153: the host grants no capability"
+    limits_applied_at_handshake "the limits hold every call after the handshake is read, on every path that loads an extension's declaration"
   }
   contract   """
-    The sandbox policy for each extension MUST be computed by merging three
-    layers: (1) built-in defaults, (2) per-extension manifest sandbox policy,
-    (3) project-level specforge.json overrides. The merged policy MUST NOT
-    exceed 256MB total memory across all extensions. Overrides that would
-    exceed system limits MUST produce a warning diagnostic.
-    Numeric policies follow most-restrictive-wins: max_memory_mb and
-    max_execution_ms use the minimum value across default, manifest,
-    and config override. List policies (allowed_domains, allowed_paths)
-    use the intersection of all sources. The final total memory across
-    all extensions MUST NOT exceed 256MB.
-    Manifest-level allowed_output_extensions MUST NOT include code file
-    extensions (.rs, .py, .js, .ts, .go, .java, .c, .cpp, .rb, .swift,
-    .kt). The system MUST reject manifest policies that attempt to add
-    blacklisted extensions with an E030 diagnostic.
+    When the host reads an extension's handshake it MUST compute the
+    extension's limits from the handshake's sandbox_policy and apply them
+    to the extension's later calls (the WasmRuntime port's apply_limits;
+    the component runtime enforces them, enforce_wasm_sandbox). The policy
+    declares limits only (ADR 0037): max_execution_ms, a call's wall-clock
+    budget, and max_memory_mb, the instance's linear memory. A declared
+    limit is applied as declared, never above the host's ceiling (30000 ms,
+    512 MB), which is also the limit of an extension that declares none:
+    an extension may tighten its sandbox, never widen it. A declared limit
+    above the ceiling MUST be W153. The host grants a component no
+    capability, so a sandbox_policy key other than the two limits whose
+    value asks for something (true, a non-zero number, a non-empty string,
+    list or object: network_access, file_system_access, allowed_domains,
+    allowed_paths and allowed_output_extensions from a guest built before
+    ADR 0037, or a misspelled limit) and a surface's sandbox override MUST
+    be W153 and grant nothing; a key whose value asks for nothing is not
+    reported. The warnings are load warnings: check, the LSP and MCP
+    report them with the environment's diagnostics, and specforge publish
+    and specforge extension validate show them to the extension's author.
+    No project-level override exists: the ceiling bounds every extension.
   """
-  produces   [sandbox_policy_configured]
-  verify unit "built-in defaults applied when no override"
-  verify unit "manifest policy overrides defaults"
-  verify unit "specforge.json overrides manifest policy"
-  verify unit "total memory exceeding 256MB produces warning"
-  verify unit "manifest with code file extension (.rs, .js, .ts) in allowed_output_extensions produces E030"
-  verify unit "manifest with non-code extension (.json, .csv, .md) in allowed_output_extensions passes"
-  verify contract "Configure Sandbox Policy: sandbox policy configuration holds — manifest_available, config_available, sandbox_policy_configured_emitted, most_restrictive_wins, list_intersection_applied, memory_ceiling_enforced, code_extensions_blocked"
+  produces   []
+  verify unit "an extension declaring no sandbox policy runs under the host's ceiling"
+  verify unit "a declared limit below the ceiling is applied as declared"
+  verify unit "a declared limit above the ceiling is held to it, with W153"
+  verify unit "a sandbox_policy key that asks for a capability is W153"
+  verify unit "a sandbox_policy key that asks for nothing is not reported"
+  verify unit "a surface's sandbox override is W153"
+  verify contract "Configure Sandbox Policy: sandbox policy configuration holds — handshake_read, limits_held_to_ceiling, above_ceiling_warned, capabilities_never_granted, limits_applied_at_handshake"
 }
