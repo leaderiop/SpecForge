@@ -3,23 +3,21 @@
 //! it, as the tool table's do.
 
 use super::{context, explore, infer, review, trace};
-use crate::prompt::{PromptArgs, PromptSpec};
+use crate::prompt::PromptSpec;
 use crate::target::TargetSpec;
 
-/// The Prompt spec of the prompt `$module` renders: its listing derived
-/// from `$module::Args`, its renderer reading them (refused when they
-/// don't parse).
+/// The Prompt spec of the prompt `$module` renders: its listing and its
+/// renderer's reading both derived from `$module::Args` (refused when they
+/// don't read).
 macro_rules! prompt {
     ($name:literal, $description:literal, $module:ident) => {
         PromptSpec {
             name: $name,
             description: $description,
-            arguments: crate::prompt::arguments::<$module::Args>,
-            fields: crate::args::fields::<$module::Args>,
-            descriptions: <$module::Args as PromptArgs>::DESCRIPTIONS,
+            arguments: <$module::Args as crate::args::Arguments>::declared,
             target: TargetSpec::SERVED,
             render: |call, arguments| {
-                $module::render(call, crate::args::parse_args::<$module::Args>(arguments)?)
+                $module::render(call, crate::args::read::<$module::Args>(&arguments)?)
             },
         }
     };

@@ -1,7 +1,6 @@
 //! `specforge://prompts/infer`: guidance for inferring spec entities from
 //! code, by scope.
 
-use serde::Deserialize;
 use serde_json::{Value, json};
 use specforge_protocol_types::{EntityKindDescriptor, ExtensionDeclaration, FieldDescriptor};
 use std::collections::HashMap;
@@ -9,7 +8,8 @@ use std::collections::HashMap;
 use specforge_common::inference::anchors::{AnchorManifest, load_anchor_manifest};
 use specforge_ops::navigate::anchors_of_file;
 
-use crate::prompt::{PromptArgs, PromptOutcome, Rendered};
+use crate::args::Arguments;
+use crate::prompt::{PromptOutcome, Rendered};
 use crate::target::Call;
 use crate::tool::{ErrorCode, McpError};
 use crate::tools::find_spec_for_source::{anchor_json, file_match_name};
@@ -18,31 +18,16 @@ use specforge_ops::view::ProjectView;
 /// Maximum number of files listed per page in the plan prompt (C9-08).
 const MAX_LISTED_FILES: usize = 50;
 
-#[derive(Debug, Deserialize)]
+/// `specforge://prompts/infer`'s arguments.
+#[derive(Debug, Arguments)]
 pub struct Args {
-    #[serde(default)]
+    /// Scope: omit for overview, 'kind:{name}' for focused guide, 'file:{path}' for file deduplication
     scope: Option<String>,
-    #[serde(default)]
+    /// Directory where generated .spec files are written (scope "plan")
     target_spec_directory: Option<String>,
-    #[serde(default, deserialize_with = "crate::args::count")]
+    /// Offset into the plan's unanalyzed/stale file lists for paging (scope "plan")
+    #[arg(default = 0)]
     cursor: usize,
-}
-
-impl PromptArgs for Args {
-    const DESCRIPTIONS: &'static [(&'static str, &'static str)] = &[
-        (
-            "scope",
-            "Scope: omit for overview, 'kind:{name}' for focused guide, 'file:{path}' for file deduplication",
-        ),
-        (
-            "target_spec_directory",
-            "Directory where generated .spec files are written (scope \"plan\")",
-        ),
-        (
-            "cursor",
-            "Offset into the plan's unanalyzed/stale file lists for paging (scope \"plan\")",
-        ),
-    ];
 }
 
 /// What the prompt is about: the `scope` argument read.

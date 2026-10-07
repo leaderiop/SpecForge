@@ -18,6 +18,6 @@ stats | {"use_cached":true} | refused invalid_input argument=use_cached: unknown
 stats | {"path":"<served root>"} | ok | wrote []
 doctor | {"use_cached":"true"} | ok | wrote []
 infer_session | {} | refused invalid_input argument=action: Missing required parameter: action | wrote []
-prompt context | {"entity_id":42} | refused -32602 argument=-: Invalid arguments: invalid type: integer `42`, expected a string
-prompt review | {"depth":"two","entity_id":"alpha"} | refused -32602 argument=-: Invalid arguments: invalid count "two", expected a non-negative integer
+prompt context | {"entity_id":42} | refused -32602 argument=entity_id: entity_id must be a string, got 42
+prompt review | {"depth":"two","entity_id":"alpha"} | refused -32602 argument=depth: depth must be a non-negative integer, got 'two'
 prompt context | {"bogus":"x","entity_id":"alpha"} | refused -32602 argument=bogus: unknown argument 'bogus'

@@ -451,6 +451,110 @@ fn the_derived_schema_is_the_hand_written_one() {
     }
 }
 
+#[specforge_test(
+    behavior = "read_mcp_arguments_as_declared",
+    verify = "a prompt reads its arguments by the same rule its listing states"
+)]
+fn a_prompt_reads_its_arguments_by_the_listed_rule() {
+    // alpha <- beta <- gamma: depth 1 from alpha reaches beta, depth 2 gamma.
+    let mut served = TestProject::new()
+        .enabling(&["@specforge/software", "@specforge/testing"])
+        .file(
+            "main.spec",
+            concat!(
+                "behavior alpha \"Alpha\" {\n  contract \"a\"\n  verify unit \"a\"\n}\n",
+                "behavior beta \"Beta\" {\n  refines [alpha]\n  contract \"b\"\n  verify unit \"b\"\n}\n",
+                "behavior gamma \"Gamma\" {\n  refines [beta]\n  contract \"c\"\n  verify unit \"c\"\n}\n",
+            ),
+        )
+        .serve_components();
+    let summary = |served: &mut Served, depth: Value| -> usize {
+        let reply = get_prompt(
+            served,
+            "specforge://prompts/review",
+            json!({"entity_id": "alpha", "depth": depth}),
+        );
+        prompt_payload(&reply)["coverage_summary"]
+            .as_array()
+            .map_or(0, Vec::len)
+    };
+    assert_eq!(summary(&mut served, json!("2")), 3, "a count from a string");
+    assert_eq!(summary(&mut served, json!(2)), 3);
+    assert_eq!(summary(&mut served, json!(1)), 2);
+
+    // A value of the wrong type is -32602 naming the argument.
+    for (prompt, arguments, argument, message) in [
+        (
+            "context",
+            json!({"entity_id": 42}),
+            "entity_id",
+            "entity_id must be a string, got 42",
+        ),
+        (
+            "infer",
+            json!({"scope": "plan", "cursor": "-1"}),
+            "cursor",
+            "cursor must be a non-negative integer, got -1",
+        ),
+        (
+            "explore",
+            json!({"depth": "x"}),
+            "depth",
+            "depth must be a non-negative integer, got 'x'",
+        ),
+    ] {
+        let reply = get_prompt(
+            &mut served,
+            &format!("specforge://prompts/{prompt}"),
+            arguments,
+        );
+        assert_eq!(reply["error"]["code"], -32602, "{prompt}: {reply}");
+        assert_eq!(reply["error"]["message"], message, "{prompt}");
+        assert_eq!(reply["error"]["data"]["argument"], argument, "{prompt}");
+    }
+}
+
+#[specforge_test(
+    behavior = "read_mcp_arguments_as_declared",
+    verify = "a boolean or count sent as a string is read as one, as an extension command reads it; any other value of the wrong type is refused naming the argument"
+)]
+fn a_target_argument_is_read_by_its_type() {
+    // use_cached "true" is the last compile: an extension enabled since,
+    // which is not installed, is not reported until a fresh call.
+    let mut served = served();
+    served.write(
+        "specforge.json",
+        r#"{"name":"t","version":"0.1.0","extensions":["@specforge/software","@acme/missing"]}"#,
+    );
+    let load_failures = |served: &mut Served, arguments: Value| -> Vec<Value> {
+        tool("specforge.doctor", served, arguments)["load_failures"]
+            .as_array()
+            .cloned()
+            .unwrap_or_default()
+    };
+    let cached = load_failures(&mut served, json!({"use_cached": "true"}));
+    assert!(cached.is_empty(), "{cached:?}");
+    let fresh = load_failures(&mut served, json!({}));
+    assert!(fresh.iter().any(|f| f["code"] == "E028"), "{fresh:?}");
+
+    // A path that is not a string is refused, not ignored.
+    let error = refused("specforge.validate", json!({"path": 42}));
+    assert_eq!(error["code"], "invalid_input");
+    assert_eq!(error["argument"], "path");
+    assert_eq!(error["message"], "path must be a string, got 42");
+    let error = refused("specforge.doctor", json!({"use_cached": "yes"}));
+    assert_eq!(error["argument"], "use_cached");
+    assert_eq!(
+        error["message"],
+        "use_cached must be true or false, got 'yes'"
+    );
+}
+
+/// `tools/call` of `name`, the reply's JSON.
+fn tool(name: &str, served: &mut Served, arguments: Value) -> Value {
+    crate::support::tool(served, name, arguments)
+}
+
 // --- the derive, over probe structs ---
 
 mod derived {

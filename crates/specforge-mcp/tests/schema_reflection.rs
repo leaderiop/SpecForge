@@ -49,9 +49,10 @@ fn each_core_tool_schema_advertises_exactly_what_its_handler_reads() {
     verify = "each core prompt lists exactly the arguments its handler reads"
 )]
 fn each_core_prompt_lists_exactly_the_arguments_its_handler_reads() {
+    let mut served = crate::support::TestProject::new().serve_components();
     let mut drift = Vec::new();
     for prompt in specforge_mcp::prompts::CORE_PROMPTS {
-        let read: Vec<&str> = (prompt.fields)().to_vec();
+        let declared = (prompt.arguments)();
         let listed: Vec<String> = prompt
             .descriptor()
             .arguments
@@ -59,27 +60,49 @@ fn each_core_prompt_lists_exactly_the_arguments_its_handler_reads() {
             .into_iter()
             .map(|a| a.name)
             .collect();
+        let read: Vec<&str> = declared.iter().map(|argument| argument.name).collect();
         if listed != read {
             drift.push(format!("{}: lists {listed:?}, reads {read:?}", prompt.name));
         }
-        let described: BTreeSet<&str> = prompt.descriptions.iter().map(|(f, _)| *f).collect();
-        let read: BTreeSet<&str> = read.into_iter().collect();
-        if described != read {
-            drift.push(format!(
-                "{}: describes {described:?}, reads {read:?}",
-                prompt.name
-            ));
-        }
-        if prompt.descriptions.iter().any(|(_, text)| text.is_empty()) {
+        if declared
+            .iter()
+            .any(|argument| argument.description.is_empty())
+        {
             drift.push(format!("{}: an argument has no description", prompt.name));
+        }
+        // A listed required argument is one the prompt cannot render
+        // without: a request with only the others is refused naming it.
+        let required: Vec<&str> = declared
+            .iter()
+            .filter(|argument| argument.required)
+            .map(|argument| argument.name)
+            .collect();
+        for missing in &required {
+            let others: serde_json::Map<String, serde_json::Value> = required
+                .iter()
+                .filter(|name| *name != missing)
+                .map(|name| (name.to_string(), serde_json::json!("x")))
+                .collect();
+            let reply = crate::support::get_prompt(
+                &mut served,
+                prompt.name,
+                serde_json::Value::Object(others),
+            );
+            let error = &reply["error"];
+            if error["code"] != -32602
+                || error["message"] != format!("Missing required parameter: {missing}")
+                || error["data"]["argument"] != *missing
+            {
+                drift.push(format!("{}: without {missing}: {reply}", prompt.name));
+            }
         }
     }
     assert!(drift.is_empty(), "prompt argument drift: {drift:#?}");
     assert!(
         specforge_mcp::prompts::CORE_PROMPTS
             .iter()
-            .all(|p| !(p.fields)().is_empty()),
-        "the field tracer sees every prompt's Args"
+            .all(|p| !(p.arguments)().is_empty()),
+        "every prompt declares its arguments"
     );
 }
 
