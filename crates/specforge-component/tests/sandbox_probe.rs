@@ -7,108 +7,14 @@
 //! reports what it got. The probe runs through the component runtime the
 //! host runs every extension in, called as the host dispatches each surface.
 
+mod probe_support;
+
+use probe_support::{
+    ALL, Bait, PROBE, command_input, declared_surfaces, granted_nothing, probe_runtime,
+};
 use serde_json::{Value, json};
-use specforge_component::ComponentRuntime;
-use specforge_protocol_types::{CommandInput, RawGraph};
 use specforge_test_macros::test as specforge_test;
 use specforge_wasm::ExtensionCalls;
-use specforge_wasm::runtime::{WasmCallResult, WasmRuntime};
-use std::net::TcpListener;
-use std::path::Path;
-
-const PROBE: &str = "@test/probe";
-
-fn probe_runtime() -> ComponentRuntime {
-    let path =
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/sandbox-probe/probe.wasm");
-    let blob = std::fs::read(path).expect("vendored sandbox probe blob");
-    let runtime = ComponentRuntime::new();
-    runtime
-        .load_module_bytes(PROBE, &blob)
-        .expect("the probe instantiates");
-    runtime
-}
-
-/// The surfaces the probe declares, as it describes them.
-fn declared_surfaces(runtime: &ComponentRuntime) -> Value {
-    match runtime.call_export(PROBE, "__describe", br#"{"category":"surfaces"}"#) {
-        WasmCallResult::Ok(bytes) => {
-            let envelope: Value = serde_json::from_slice(&bytes).unwrap();
-            envelope["items"][0].clone()
-        }
-        WasmCallResult::Trap(trap) => panic!("describe trapped: {trap:?}"),
-    }
-}
-
-/// A directory holding `secret.txt` and a port with a listener behind it:
-/// what the probe is told about and must not reach.
-struct Bait {
-    dir: tempfile::TempDir,
-    listener: TcpListener,
-}
-
-impl Bait {
-    fn new() -> Self {
-        let dir = tempfile::TempDir::new().unwrap();
-        std::fs::write(dir.path().join("secret.txt"), "secret").unwrap();
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-        listener.set_nonblocking(true).unwrap();
-        Bait { dir, listener }
-    }
-
-    fn dir(&self) -> String {
-        self.dir.path().display().to_string()
-    }
-
-    fn port(&self) -> u16 {
-        self.listener.local_addr().unwrap().port()
-    }
-
-    /// Nothing reached the bait: no file was written and no connection
-    /// arrived.
-    fn untouched(&self) {
-        assert!(
-            !self.dir.path().join("probe.txt").exists(),
-            "the probe wrote a file"
-        );
-        assert_eq!(
-            self.listener.accept().map(|_| ()).unwrap_err().kind(),
-            std::io::ErrorKind::WouldBlock,
-            "the probe connected"
-        );
-    }
-}
-
-/// `report` says no capability was granted: every attempt failed, and the
-/// environment, arguments and stdin were empty.
-fn granted_nothing(report: &Value, attempts: &[&str]) {
-    for attempt in attempts {
-        assert_eq!(report[attempt]["granted"], false, "{attempt}: {report}");
-    }
-    assert_eq!(report["env_vars"], 0, "{report}");
-    assert_eq!(report["args"], 0, "{report}");
-    assert_eq!(report["stdin_bytes"], 0, "{report}");
-}
-
-/// The probe command's input: the bait's port as its arg, the bait's
-/// directory as the project root, an empty graph.
-fn command_input(bait: &Bait) -> CommandInput<RawGraph> {
-    CommandInput {
-        args: json!({"port": bait.port()}).as_object().unwrap().clone(),
-        cwd: bait.dir(),
-        graph: RawGraph::new(r#"{"nodes":[],"edges":[]}"#.to_string()).unwrap(),
-        ..CommandInput::default()
-    }
-}
-
-const ALL: &[&str] = &[
-    "read_root",
-    "read_dir",
-    "read_file",
-    "write_file",
-    "connect",
-    "resolve",
-];
 
 #[specforge_test(
     behavior = "dispatch_surface_command",
@@ -234,4 +140,41 @@ fn no_override_expands_the_ceiling() {
 #[specforge_test(port = "WasmRuntime", verify = "WasmRuntime contract is satisfied")]
 fn the_component_runtime_keeps_the_runtime_contract() {
     specforge_wasm::testing::assert_runtime_contract(&probe_runtime(), PROBE, "cmd__trap");
+}
+
+/// Whatever the export is and whatever it is told about, the host's
+/// context holds: the probe tries the root, a directory and a port the test
+/// offers it, and reaches none of them.
+#[specforge_test(
+    behavior = "enforce_wasm_sandbox",
+    verify = "an export reaches no directory: the root and a directory it is told about can be neither listed, read nor written"
+)]
+#[specforge_test(
+    behavior = "enforce_wasm_sandbox",
+    verify = "an export reaches no network: it can neither connect to a listening port nor resolve a name"
+)]
+#[specforge_test(
+    constraint = "wasm_sandbox_enforcement",
+    verify = "direct filesystem access from Wasm is blocked"
+)]
+#[specforge_test(
+    constraint = "wasm_sandbox_enforcement",
+    verify = "direct network access from Wasm is blocked"
+)]
+#[specforge_test(
+    constraint = "wasm_sandbox_enforcement",
+    verify = "an extension that tries every capability a component can reach is granted none"
+)]
+fn an_export_reaches_no_file_and_no_socket() {
+    let runtime = probe_runtime();
+    let bait = Bait::new();
+    let report = ExtensionCalls::new(&runtime)
+        .call_mcp_tool(
+            PROBE,
+            "mcp__probe_tool",
+            &json!({"dir": bait.dir(), "port": bait.port()}),
+        )
+        .expect("the probe answers");
+    granted_nothing(&report, ALL);
+    bait.untouched();
 }

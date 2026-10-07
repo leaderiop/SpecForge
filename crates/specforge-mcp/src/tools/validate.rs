@@ -1,17 +1,18 @@
-use serde::Deserialize;
-
-use crate::args::{lenient, strings};
+use crate::args::Arguments;
 use crate::target::Call;
 use crate::tool::{Handled, ToolOutcome};
 use specforge_ops::check::{CheckError, CheckOptions, check, parse_lint_profiles, parse_severity};
 
-#[derive(Debug, Deserialize)]
+/// `specforge.validate`'s arguments.
+#[derive(Debug, Arguments)]
 pub struct Args {
-    #[serde(default, deserialize_with = "lenient")]
+    /// Only report diagnostics of this severity, after strict promotion (case-insensitive). The verdict in _meta["specforge/check"] still counts everything reported
+    #[arg(names = specforge_ops::check::SEVERITY_NAMES)]
     severity_filter: Option<String>,
-    #[serde(default, deserialize_with = "lenient")]
-    strict: Option<bool>,
-    #[serde(default, deserialize_with = "strings")]
+    /// Promote warnings to errors, before severity_filter applies
+    strict: bool,
+    /// Extra lint profiles, as `specforge check --lint` takes (inferred: I200/I202 from specforge-infer.json; pedantic is the default and adds nothing)
+    #[arg(names = specforge_project::LINT_PROFILE_NAMES)]
     lint: Vec<String>,
 }
 
@@ -37,7 +38,7 @@ pub fn call(call: &mut Call<'_>, args: Args) -> Handled {
     };
     let project = call.project()?;
     let options = CheckOptions {
-        strict: args.strict.unwrap_or(false),
+        strict: args.strict,
         lint_profiles,
         severity,
         record_cache: false,

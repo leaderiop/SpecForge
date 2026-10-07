@@ -13,6 +13,7 @@ use std::time::{Duration, Instant};
 
 use specforge_component::ComponentRuntime;
 use specforge_test_macros::test as specforge_test;
+use specforge_wasm::Limits;
 use specforge_wasm::runtime::{WasmCallResult, WasmRuntime};
 
 /// A component exporting the `specforge:bridge` `call` func whose body is an
@@ -79,7 +80,13 @@ fn execution_deadline_traps_long_running_export() {
     runtime
         .load_module_bytes("@spin", &spin_component_bytes())
         .expect("spin component instantiates");
-    runtime.set_execution_deadline_ms("@spin", 50);
+    runtime.apply_limits(
+        "@spin",
+        Limits {
+            execution_ms: 50,
+            ..Limits::CEILING
+        },
+    );
 
     let start = Instant::now();
     let result = runtime.call_export("@spin", "__handshake", b"");
@@ -105,7 +112,13 @@ fn zero_deadline_traps_without_ticking() {
     runtime
         .load_module_bytes("@spin", &spin_component_bytes())
         .expect("spin component instantiates");
-    runtime.set_execution_deadline_ms("@spin", 0);
+    runtime.apply_limits(
+        "@spin",
+        Limits {
+            execution_ms: 0,
+            ..Limits::CEILING
+        },
+    );
 
     // 0 ms -> 0 ticks: the deadline is already met, so the trap fires at the
     // guest's first epoch checkpoint without waiting for the ticker.
@@ -128,7 +141,13 @@ fn deadline_is_scoped_to_one_extension() {
     runtime
         .load_module_bytes("@sdk/greet", &greet_wasm_bytes())
         .expect("greet component instantiates");
-    runtime.set_execution_deadline_ms("@spin", 0);
+    runtime.apply_limits(
+        "@spin",
+        Limits {
+            execution_ms: 0,
+            ..Limits::CEILING
+        },
+    );
 
     // The zeroed deadline binds only @spin; @sdk/greet keeps its default
     // budget and still answers.
@@ -153,7 +172,13 @@ fn different_extensions_run_concurrently() {
         .expect("greet component instantiates");
     // Long enough that the slow call is definitely still executing while the
     // fast extension is served.
-    runtime.set_execution_deadline_ms("@spin", 800);
+    runtime.apply_limits(
+        "@spin",
+        Limits {
+            execution_ms: 800,
+            ..Limits::CEILING
+        },
+    );
 
     let slow = {
         let runtime = Arc::clone(&runtime);

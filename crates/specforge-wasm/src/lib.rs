@@ -13,7 +13,9 @@ pub mod testing;
 mod toposort;
 mod uninstall;
 
-pub use calls::{CallError, CallFailure, Encoded, ExtensionCalls, Operation, pass_diagnostics};
+pub use calls::{
+    CallError, CallFailure, Encoded, ExtensionCalls, Handshake, Operation, pass_diagnostics,
+};
 pub use install::{InstallResult, install_extension, installed_wasm_path};
 pub use integrity::hex_sha256;
 pub use lifecycle::load_wasm_module;
@@ -22,6 +24,6 @@ pub use lock_file::{
     read_lock_file, run_doctor_check, write_lock_file,
 };
 pub use runtime::{WasmCallResult, WasmRuntime, WasmTrapInfo};
-pub use sandbox::default_sandbox_policy;
+pub use sandbox::{Limits, Sandbox};
 pub use toposort::topological_sort_extensions;
 pub use uninstall::uninstall_extension;

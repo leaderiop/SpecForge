@@ -117,6 +117,20 @@ impl TargetSpec {
         }
     }
 
+    /// Every name the target reads from a call, listed or not: `path` for
+    /// every reach but `Unscoped` (a `Served` entry accepts its own
+    /// project's root and refuses another's,
+    /// [`TargetError::OtherProjectRefused`]), and `use_cached` for
+    /// `FreshUnlessCached`. [`Self::fields`] stays the listed ones.
+    pub fn accepted(self) -> &'static [&'static str] {
+        match (self.reach != Reach::Unscoped, self.takes_use_cached()) {
+            (true, true) => &["path", "use_cached"],
+            (true, false) => &["path"],
+            (false, true) => &["use_cached"],
+            (false, false) => &[],
+        }
+    }
+
     /// The names [`Self::properties`] declares, for the schema drift test.
     pub fn fields(self) -> &'static [&'static str] {
         match (self.takes_path(), self.takes_use_cached()) {
@@ -245,6 +259,13 @@ pub enum TargetError {
     /// `init` was called without the `path` it creates: `invalid_input`
     /// "Missing required parameter: path" on argument `path`.
     PathRequired,
+    /// `path` or `use_cached` is not of its type (a string, a boolean):
+    /// `invalid_input` on that argument, as every argument of the wrong
+    /// type is refused.
+    InvalidArgument {
+        argument: &'static str,
+        message: String,
+    },
 }
 
 impl From<TargetError> for McpError {
@@ -263,6 +284,9 @@ impl From<TargetError> for McpError {
             TargetError::PathRequired => {
                 McpError::new(ErrorCode::InvalidInput, "Missing required parameter: path")
                     .with_argument("path")
+            }
+            TargetError::InvalidArgument { argument, message } => {
+                McpError::new(ErrorCode::InvalidInput, message).with_argument(argument)
             }
             TargetError::InsideServed { dir, served } => McpError::new(
                 ErrorCode::Conflict,
@@ -500,9 +524,16 @@ pub fn resolve(
     spec: TargetSpec,
     arguments: &Value,
 ) -> Result<CallTarget, TargetError> {
-    let path = arguments.get("path").and_then(Value::as_str);
-    let cached = spec.freshness == Freshness::FreshUnlessCached
-        && arguments.get("use_cached").and_then(Value::as_bool) == Some(true);
+    // The target's own arguments, read by their type as every argument
+    // is (ADR 0033 D4): a `path` that is not a string and a `use_cached`
+    // that is not a boolean are refused.
+    let path = match spec.reach {
+        Reach::Unscoped => None,
+        _ => argument::<String>(arguments, "path")?,
+    };
+    let path = path.as_deref();
+    let cached =
+        spec.takes_use_cached() && argument::<bool>(arguments, "use_cached")?.unwrap_or(false);
     let served = |state: &mut McpState| {
         if state.project_root().is_none() {
             return CallTarget::NoProject(spec.reach);
@@ -549,6 +580,25 @@ pub fn resolve(
                 root,
                 state.extension_runtime.as_ref(),
             ))))
+        }
+    }
+}
+
+/// The target argument `name` of the call, read as `T`: none when absent
+/// or `null`.
+fn argument<T: crate::args::Arg>(
+    arguments: &Value,
+    name: &'static str,
+) -> Result<Option<T>, TargetError> {
+    match arguments.get(name) {
+        None | Some(Value::Null) => Ok(None),
+        Some(value) => {
+            T::read(name, value)
+                .map(Some)
+                .map_err(|message| TargetError::InvalidArgument {
+                    argument: name,
+                    message,
+                })
         }
     }
 }

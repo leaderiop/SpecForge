@@ -5,11 +5,14 @@
 use serde_json::{Value, json};
 use specforge_ops::inspect::{EntityCoverage, EntityFacts, obligation_text};
 
+use crate::args::Arguments;
 use crate::target::Call;
 use crate::tool::ToolOutcome;
 
-#[derive(Debug, serde::Deserialize)]
+/// `specforge.inspect`'s arguments.
+#[derive(Debug, Arguments)]
 pub struct Args {
+    /// Entity ID to inspect
     entity_id: String,
 }
 

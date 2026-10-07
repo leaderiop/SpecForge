@@ -197,10 +197,13 @@ invariant dry_run_side_effect_freedom "Dry-Run Side-Effect Freedom" {
     reachable from a dry-run context writes to the filesystem, it is a P0
     bug. This applies to specforge migrate --dry-run, specforge format --check,
     specforge format --diff, and any future commands that support dry-run mode.
+    Over MCP a preview flag is read by its type: dry_run, check or diff sent as
+    the string "true" is a preview.
   """
   risk      high
   verify unit "--dry-run produces output without modifying files"
   verify unit "--check produces output without modifying files"
+  verify unit "an MCP dry run, check or diff asked for with the string true writes nothing"
   verify property "no file write operations occur during dry-run execution"
 }
 

@@ -53,8 +53,11 @@ behavior provide_mcp_format_tool "Provide MCP Format Tool" {
   contract   """
     In MCP server mode, the system MUST register a specforge.format tool that
     accepts paths?[] (optional file paths, defaults to all), check? (optional
-    boolean, report only without modifying), and diff? (optional boolean, return
-    diffs). The tool MUST format spec files according to the canonical style.
+    boolean, report only without modifying), diff? (optional boolean, return
+    diffs) and write? (optional boolean: given, it decides; absent, the call
+    writes unless check or diff is set). Its input schema MUST state no
+    default for write, since write has none of its own. The tool MUST format
+    spec files according to the canonical style.
     In check mode, the tool MUST NOT modify files. In diff mode, the tool MUST
     return FormatDiff entries for each changed file. The tool MUST run the
     same format operation as specforge format. A file that cannot be read or
@@ -77,6 +80,7 @@ behavior provide_mcp_format_tool "Provide MCP Format Tool" {
   verify unit "a file that does not exist fails the call as file_not_found, naming it"
   verify unit "a file with a region left unformatted is not reported clean, and its W142 is returned"
   verify unit "format configuration diagnostics are returned in the result"
+  verify unit "the format tool advertises no default for write, and check or diff without write writes nothing"
   verify contract "Provide MCP Format Tool: MCP format tool holds — filesystem_available, files_formatted, check_mode_readonly, mutation_completed_emitted, tool_invoked_emitted"
 }
 

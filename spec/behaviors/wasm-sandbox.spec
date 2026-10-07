@@ -1,7 +1,5 @@
-// Wasm sandbox enforcement, compile cache, session runtime reuse,
-// error recovery, and sandbox configuration
+// Wasm sandbox enforcement and configuration, compile cache, session runtime reuse
 
-use "events/wasm-sandbox"
 use "invariants/wasm"
 use "ports/outbound"
 use "types/config"
@@ -12,37 +10,46 @@ behavior enforce_wasm_sandbox "Enforce Wasm Sandbox" {
   features   [wasm_extension_runtime]
   invariants [wasm_sandbox_integrity, extension_isolation]
   category   command
-  types      [SandboxPolicy, ExtensionError]
+  types      [SandboxPolicy, ExtensionError, WasmTrapInfo]
   ports      [WasmRuntime]
   requires {
-    sandbox_policy_configured "sandbox policy has been computed for the extension via configure_sandbox_policy"
+    sandbox_policy_configured "the extension's limits have been computed from its handshake via configure_sandbox_policy"
     wasm_runtime_available    "WasmRuntime port is available for enforcement"
   }
   ensures {
-    memory_limit_enforced   "memory limits are enforced via runtime's linear memory cap"
-    execution_time_enforced "execution time limits are enforced: wall-clock by epoch interruption, instructions by fuel metering"
+    no_capability_granted   "a component is granted no capability: no preopened directory, environment, arguments or stdin, no socket and no name lookup, whatever its declaration asks for"
+    memory_limit_enforced   "the instance's linear memory cannot grow past the extension's memory limit; a growth past it traps the call (memory_limit_exceeded)"
+    execution_time_enforced "each call is held to the extension's wall-clock limit by epoch interruption (deadline_exceeded) and to the host's fuel budget, given whole to every call (fuel_exhausted)"
     deadline_never_early    "a call is never interrupted before its max_execution_ms budget has elapsed"
-    violations_trapped      "sandbox violations trap the extension and emit a diagnostic"
+    violations_trapped      "a call that crosses a limit traps and fails with E028 naming the limit's kind; the extension's next call gets a fresh instance under the same limits"
   }
   contract   """
-    The runtime MUST enforce the sandbox policy for each extension: memory
-    limits via the runtime's linear memory cap, execution time limits via
-    epoch interruption (wall-clock max_execution_ms, checked by a background
-    ticker every 10 ms) and fuel metering (a deterministic instruction
-    budget), filesystem restrictions via host function validation,
-    and network restrictions via domain allowlists. Violations MUST
-    trap the extension and emit a diagnostic. The wall-clock deadline MUST
-    never interrupt a call before its budget has elapsed, whatever the
-    ticker's phase when the call starts, and SHOULD overshoot it by no more
-    than two ticks plus scheduling delay.
+    The component runtime MUST grant a component no capability: its WASI
+    context preopens no directory and passes no environment, arguments or
+    stdin; stdout and stderr are discarded; TCP, UDP and name lookup are
+    refused. Clocks and randomness are WASI's own. This holds for every
+    export of the instance, whatever the extension's declaration asks for
+    (ADR 0037). The runtime MUST hold every call to the extension's limits
+    (configure_sandbox_policy): its linear memory cannot grow past
+    max_memory_mb, a growth past it trapping the call
+    (memory_limit_exceeded); its wall-clock time is bounded by epoch
+    interruption (max_execution_ms, checked by a background ticker every
+    10 ms; deadline_exceeded) and its instructions by fuel metering, the
+    host's whole fuel budget given to every call (fuel_exhausted). The
+    wall-clock deadline MUST never interrupt a call before its budget has
+    elapsed, whatever the ticker's phase when the call starts, and SHOULD
+    overshoot it by no more than two ticks plus scheduling delay. A call
+    that crosses a limit fails with E028, its message naming the limit;
+    the extension's next call gets a fresh instance under the same limits.
   """
-  produces   [wasm_sandbox_violation]
+  produces   []
   verify unit "memory limit enforced via linear memory cap"
-  verify unit "execution time limit enforced via fuel metering"
+  verify unit "every call gets the whole fuel budget, and a call that spends it traps as fuel_exhausted"
   verify unit "the execution deadline never interrupts a call before its budget"
-  verify unit "filesystem restriction enforced"
-  verify unit "network restriction enforced"
-  verify contract "Enforce Wasm Sandbox: Wasm sandbox enforcement holds — sandbox_policy_configured, wasm_runtime_available, memory_limit_enforced, execution_time_enforced, deadline_never_early, violations_trapped"
+  verify unit "an export reaches no directory: the root and a directory it is told about can be neither listed, read nor written"
+  verify unit "an export reaches no network: it can neither connect to a listening port nor resolve a name"
+  verify unit "a call that crosses a limit traps with the limit's kind, and the next call gets a fresh instance under the same limits"
+  verify contract "Enforce Wasm Sandbox: Wasm sandbox enforcement holds — sandbox_policy_configured, wasm_runtime_available, no_capability_granted, memory_limit_enforced, execution_time_enforced, deadline_never_early, violations_trapped"
 }
 
 behavior compile_wasm_component_with_cache "Compile Wasm Component With Cache" {
@@ -119,49 +126,49 @@ behavior reuse_session_runtime "Reuse Session Runtime" {
 // compile_wasm_component_with_cache and the wasm_compile_cache_integrity
 // invariant.
 
-// V2: .yaml/.yml removed from the default filesystem allowlist. Extensions
-// that need to emit YAML output MUST explicitly declare .yaml or .yml in
-// their manifest's allowed_output_extensions field. This prevents accidental
-// config-file generation by extensions that do not intend it.
 behavior configure_sandbox_policy "Configure Sandbox Policy" {
   features   [wasm_extension_runtime]
   invariants [wasm_sandbox_integrity]
   category   command
   types      [SandboxPolicy, ExtensionDeclaration]
-  ports      [FileSystem]
+  ports      [WasmRuntime]
   requires {
-    manifest_available "extension manifest with optional sandbox policy is loaded"
-    config_available   "specforge.json with optional project-level overrides is available"
+    handshake_read "the extension's handshake answered, with its sandbox_policy as sent (absent or null when it declares none)"
   }
   ensures {
-    sandbox_policy_configured_emitted "sandbox_policy_configured event is emitted with the merged policy"
-    most_restrictive_wins             "numeric policies use minimum value across default, manifest, and config override"
-    list_intersection_applied         "list policies use intersection of all sources"
-    memory_ceiling_enforced           "total memory across all extensions does not exceed 256MB"
-    code_extensions_blocked           "manifest-level allowed_output_extensions with code file extensions produce E030"
+    limits_held_to_ceiling      "each declared limit (max_execution_ms, max_memory_mb) is applied as declared, held to the host's ceiling of 30000 ms and 512 MB; an undeclared limit is the ceiling"
+    above_ceiling_warned        "a declared limit above the ceiling is W153, naming the limit and the ceiling it is held to"
+    capabilities_never_granted  "a sandbox_policy key other than the two limits whose value asks for something, and a surface's sandbox override, is W153: the host grants no capability"
+    limits_applied_at_handshake "the limits hold every call after the handshake is read, on every path that loads an extension's declaration"
   }
   contract   """
-    The sandbox policy for each extension MUST be computed by merging three
-    layers: (1) built-in defaults, (2) per-extension manifest sandbox policy,
-    (3) project-level specforge.json overrides. The merged policy MUST NOT
-    exceed 256MB total memory across all extensions. Overrides that would
-    exceed system limits MUST produce a warning diagnostic.
-    Numeric policies follow most-restrictive-wins: max_memory_mb and
-    max_execution_ms use the minimum value across default, manifest,
-    and config override. List policies (allowed_domains, allowed_paths)
-    use the intersection of all sources. The final total memory across
-    all extensions MUST NOT exceed 256MB.
-    Manifest-level allowed_output_extensions MUST NOT include code file
-    extensions (.rs, .py, .js, .ts, .go, .java, .c, .cpp, .rb, .swift,
-    .kt). The system MUST reject manifest policies that attempt to add
-    blacklisted extensions with an E030 diagnostic.
+    When the host reads an extension's handshake it MUST compute the
+    extension's limits from the handshake's sandbox_policy and apply them
+    to the extension's later calls (the WasmRuntime port's apply_limits;
+    the component runtime enforces them, enforce_wasm_sandbox). The policy
+    declares limits only (ADR 0037): max_execution_ms, a call's wall-clock
+    budget, and max_memory_mb, the instance's linear memory. A declared
+    limit is applied as declared, never above the host's ceiling (30000 ms,
+    512 MB), which is also the limit of an extension that declares none:
+    an extension may tighten its sandbox, never widen it. A declared limit
+    above the ceiling MUST be W153. The host grants a component no
+    capability, so a sandbox_policy key other than the two limits whose
+    value asks for something (true, a non-zero number, a non-empty string,
+    list or object: network_access, file_system_access, allowed_domains,
+    allowed_paths and allowed_output_extensions from a guest built before
+    ADR 0037, or a misspelled limit) and a surface's sandbox override MUST
+    be W153 and grant nothing; a key whose value asks for nothing is not
+    reported. The warnings are load warnings: check, the LSP and MCP
+    report them with the environment's diagnostics, and specforge publish
+    and specforge extension validate show them to the extension's author.
+    No project-level override exists: the ceiling bounds every extension.
   """
-  produces   [sandbox_policy_configured]
-  verify unit "built-in defaults applied when no override"
-  verify unit "manifest policy overrides defaults"
-  verify unit "specforge.json overrides manifest policy"
-  verify unit "total memory exceeding 256MB produces warning"
-  verify unit "manifest with code file extension (.rs, .js, .ts) in allowed_output_extensions produces E030"
-  verify unit "manifest with non-code extension (.json, .csv, .md) in allowed_output_extensions passes"
-  verify contract "Configure Sandbox Policy: sandbox policy configuration holds — manifest_available, config_available, sandbox_policy_configured_emitted, most_restrictive_wins, list_intersection_applied, memory_ceiling_enforced, code_extensions_blocked"
+  produces   []
+  verify unit "an extension declaring no sandbox policy runs under the host's ceiling"
+  verify unit "a declared limit below the ceiling is applied as declared"
+  verify unit "a declared limit above the ceiling is held to it, with W153"
+  verify unit "a sandbox_policy key that asks for a capability is W153"
+  verify unit "a sandbox_policy key that asks for nothing is not reported"
+  verify unit "a surface's sandbox override is W153"
+  verify contract "Configure Sandbox Policy: sandbox policy configuration holds — handshake_read, limits_held_to_ceiling, above_ceiling_warned, capabilities_never_granted, limits_applied_at_handshake"
 }

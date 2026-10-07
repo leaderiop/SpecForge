@@ -3,38 +3,25 @@
 
 use std::collections::HashSet;
 
-use serde::Deserialize;
 use serde_json::{Value, json};
 use specforge_ops::coverage::{CoverageQuery, CoverageRow, coverage};
 
-use crate::prompt::{PromptArgs, PromptOutcome, Rendered};
+use crate::args::Arguments;
+use crate::prompt::{PromptOutcome, Rendered};
 use crate::target::Call;
 use crate::tool::entity_not_found;
 use crate::tools::coverage::{report_mcp_error, row_json};
 
-#[derive(Debug, Deserialize)]
+/// `specforge://prompts/review`'s arguments.
+#[derive(Debug, Arguments)]
 pub struct Args {
-    #[serde(default)]
+    /// Entity ID to review (optional, reviews all if omitted)
     entity_id: Option<String>,
-    #[serde(default = "one", deserialize_with = "crate::args::count")]
+    // MCP prompt arguments have no `default` field, so the description
+    // says it (ADR 0033 D9).
+    /// Neighbor hops around entity_id to include (default 1)
+    #[arg(default = 1)]
     depth: usize,
-}
-
-fn one() -> usize {
-    1
-}
-
-impl PromptArgs for Args {
-    const DESCRIPTIONS: &'static [(&'static str, &'static str)] = &[
-        (
-            "entity_id",
-            "Entity ID to review (optional, reviews all if omitted)",
-        ),
-        (
-            "depth",
-            "Neighbor hops around entity_id to include (default 1)",
-        ),
-    ];
 }
 
 pub fn render(call: &Call<'_>, args: Args) -> PromptOutcome {

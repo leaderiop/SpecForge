@@ -2,11 +2,14 @@ use serde_json::{Value, json};
 
 use specforge_common::inference::anchors;
 
+use crate::args::Arguments;
 use crate::target::Call;
 use crate::tool::{Handled, ToolOutcome};
 
-#[derive(Debug, serde::Deserialize)]
+/// `specforge.find_implementation`'s arguments.
+#[derive(Debug, Arguments)]
 pub struct Args {
+    /// Entity ID to find implementations for
     entity_id: String,
 }
 

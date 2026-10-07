@@ -6,8 +6,8 @@
 //! component.
 //!
 //! It is a test adapter: the "guest" runs in the host process, with no
-//! sandbox, no fuel and no deadline. Sandbox obligations stay proven only
-//! through the component runtime.
+//! sandbox, no fuel and no deadline (it records the limits the host applies).
+//! Sandbox obligations stay proven only through the component runtime.
 
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -17,6 +17,7 @@ use specforge_common::Diagnostic;
 use specforge_extension_sdk::{ContributionsBuilder, ExportHandler, guest_call, no_other_exports};
 
 use crate::runtime::{WasmCallResult, WasmRuntime, WasmTrapInfo};
+use crate::sandbox::Limits;
 
 /// What builds an extension's contributions, per call (as its guest does).
 type Build = Arc<dyn Fn() -> ContributionsBuilder + Send + Sync>;
@@ -42,7 +43,7 @@ pub struct InProcessRuntime {
     load_failures: BTreeMap<String, Diagnostic>,
     faults: Vec<(String, String)>,
     calls: Mutex<Vec<RecordedCall>>,
-    deadlines: Mutex<Vec<(String, u64)>>,
+    limits: Mutex<Vec<(String, Limits)>>,
 }
 
 impl InProcessRuntime {
@@ -144,10 +145,10 @@ impl InProcessRuntime {
         self.calls.lock().expect("calls lock").clear();
     }
 
-    /// Every wall-clock budget the host applied (`(extension, ms)`), in
-    /// order. The in-process runtime records them; it enforces none.
-    pub fn deadlines(&self) -> Vec<(String, u64)> {
-        self.deadlines.lock().expect("deadlines lock").clone()
+    /// Every limit the host applied (`(extension, limits)`), in order. The
+    /// in-process runtime records them; it enforces none.
+    pub fn limits(&self) -> Vec<(String, Limits)> {
+        self.limits.lock().expect("limits lock").clone()
     }
 }
 
@@ -177,11 +178,11 @@ impl WasmRuntime for InProcessRuntime {
         }
     }
 
-    fn set_execution_deadline_ms(&self, extension: &str, max_execution_ms: u64) {
-        self.deadlines
+    fn apply_limits(&self, extension: &str, limits: Limits) {
+        self.limits
             .lock()
-            .expect("deadlines lock")
-            .push((extension.to_string(), max_execution_ms));
+            .expect("limits lock")
+            .push((extension.to_string(), limits));
     }
 
     fn load_failure(&self, extension: &str) -> Option<Diagnostic> {

@@ -349,13 +349,14 @@ describe categories failed or does not parse, so its declaration cannot be read
 host makes on the loaded extension failed. The host calls ten exports: the
 handshake and describe, a command, an MCP tool, an MCP resource, a compiler
 pass, a collector, a custom validator, a scanner and the migration hook. Each
-call fails when the export traps (its time or fuel included), when the extension
-does not route it, or when it answers output that is not the protocol type the
-operation owes; the message names the operation, the export and the extension
-(`command cmd__x() of '@acme/x' trapped: ...`). What the failure costs is the
-operation's: a check pass's is the compile's error, an analyze pass's a finding
-of that pass, a scanner's makes `infer` approximate. Report the failure to the
-extension's author, and confirm the extension is installed and up to date.
+call fails when the export traps (a limit of its sandbox included: its time, its
+fuel or its memory, the trap naming which), when the extension does not route
+it, or when it answers output that is not the protocol type the operation owes;
+the message names the operation, the export and the extension (`command cmd__x()
+of '@acme/x' trapped: ...`). What the failure costs is the operation's: a check
+pass's is the compile's error, an analyze pass's a finding of that pass, a
+scanner's makes `infer` approximate. Report the failure to the extension's
+author, and confirm the extension is installed and up to date.
 
 Owner: core
 Level: error
@@ -3077,6 +3078,27 @@ level. The rule still runs and the finding is still reported, with the code as
 given, so its title and docs link may describe another diagnostic. Renumber it
 in the extension's range (a third-party extension) or catalogue it (a
 first-party one).
+
+Owner: core
+Level: warning
+```
+
+## W153
+
+```
+W153: Sandbox declaration not honoured
+
+An extension's declaration asks its sandbox for something the host does not
+give, so the extension runs without it. A component is granted no capability,
+whatever it declares: no directory, environment, arguments, stdin, socket or
+name lookup (ADR 0037). So a `sandbox_policy` key other than `max_execution_ms`
+and `max_memory_mb` that asks for something (`network_access: true`, a non-empty
+`allowed_paths`, a misspelled limit), and a surface's `sandbox` override, grant
+nothing. A declared limit above the host's ceiling (30000 ms per call, 512 MB of
+linear memory) is held to the ceiling. The message names the extension and the
+key. Remove the key, or lower the limit. An extension that needs a file's
+content gets it in its input (an analyzer is handed each file); one that needs
+the network can't run in SpecForge.
 
 Owner: core
 Level: warning

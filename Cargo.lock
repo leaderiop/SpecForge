@@ -2983,6 +2983,7 @@ dependencies = [
  "specforge-extension-sdk",
  "specforge-formatter",
  "specforge-graph",
+ "specforge-mcp-macros",
  "specforge-migrate",
  "specforge-ops",
  "specforge-ops-registry",
@@ -2994,6 +2995,15 @@ dependencies = [
  "specforge-test-macros",
  "specforge-wasm",
  "tempfile",
+]
+
+[[package]]
+name = "specforge-mcp-macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.117",
 ]
 
 [[package]]
