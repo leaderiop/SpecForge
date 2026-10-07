@@ -1,6 +1,6 @@
 {
   "artifact": "specforge_ext_governance.wasm",
-  "artifact_sha256": "b2dedf1f5b4297f3f82e4f6f30fb1b537e1801052f918b6a649aae6e95b41315",
+  "artifact_sha256": "eddda07ce3517fc322aed51ba3ce99f397a6027af2948c7fc1b413cba5dd1de3",
   "built_with": "rustc 1.98.1 (48a229cea 2026-09-01)",
   "inputs": {
     "Cargo.toml#workspace-inherited": "f445cf417114d7d1896a3fbd9d2348d9bedf3ac7c437748f18f7bfda2217efc2",
@@ -15,8 +15,8 @@
     "crates/specforge-protocol-types/src/calls.rs": "32e49e04bfa52256f261063c20624232b4a3da64d927d24b9f265d1c8f306267",
     "crates/specforge-protocol-types/src/command_args.rs": "720eb3f296673ff5e937a8cd6731918d3e85304102f26dfe81579a6693dc87d0",
     "crates/specforge-protocol-types/src/declaration.rs": "6a4061ad20fe44986ba3816e9a148c46e3dc4b6222cb5196b7434acbb09706e4",
-    "crates/specforge-protocol-types/src/lib.rs": "c9820bb30a72ade665db87898c493f5ea015a2cd49789b645413b432f7911624",
-    "crates/specforge-protocol-types/src/vocabulary.rs": "a13cab32d8bba84e58348d212ffbde027f1bbe36ed7e07712b531232ba5827f0",
+    "crates/specforge-protocol-types/src/lib.rs": "4ce1f84f1c0ed2f6df68bce43d3e1ab91072d789c2a7cbcd9c41c8bd9b07f55e",
+    "crates/specforge-protocol-types/src/vocabulary.rs": "d263e43cc26e081293bff2de954a703a3005c7030236e4449228c3f70287c1e0",
     "extensions/governance/Cargo.lock": "24e8f2a965d77ce5e22221ff2849143cd6641da9bc7780702b6535f7d037ae24",
     "extensions/governance/Cargo.toml": "2188aac6764037fe913d0f9a518b8c861abf9754c1bd76dcc70e16d9fd31939f",
     "extensions/governance/src/declaration.rs": "4fea39c49c0c9004ff6fe23d3b111274e5858d92e335694b4b14a8c304e8c891",
