@@ -1,12 +1,12 @@
 //! The files the LSP asks its client to watch (`workspace/
-//! didChangeWatchedFiles`), derived from the project session: every file
-//! the project is built from (`lsp_extension_reload_consistency`). What a
-//! reported change means is the session's to say
-//! (`ProjectSession::changes`); this only makes sure the client reports it.
+//! didChangeWatchedFiles`), derived from the project session's inputs: every
+//! file the project is built from (`lsp_extension_reload_consistency`). What
+//! a reported change means is the session's to say
+//! (`SessionInputs::changes`); this only makes sure the client reports it.
 
 use std::path::Path;
 
-use specforge_project::{Origin, ProjectSession};
+use specforge_project::{SessionInputs, Watched};
 use tower_lsp::lsp_types::{
     FileSystemWatcher, GlobPattern, OneOf, RelativePattern, Url, WatchKind,
 };
@@ -23,21 +23,17 @@ pub fn default_watchers() -> Vec<FileSystemWatcher> {
         .collect()
 }
 
-/// The watchers that cover every file `session` is built from: the `.spec`
-/// files under its spec root, its config and lock, the build cache its
-/// check passes read, the module of each extension it loads, and each file
-/// a `file_reference` field names. With `relative_patterns` (the client
-/// declared `relativePatternSupport`) each is a pattern relative to its
-/// directory; otherwise an absolute glob. A session not opened from disk
-/// gets [`default_watchers`].
-pub fn file_watchers(session: &ProjectSession, relative_patterns: bool) -> Vec<FileSystemWatcher> {
-    let (Origin::Disk, Some(root), Some(spec_root)) =
-        (session.origin(), session.root(), session.spec_root())
-    else {
+/// The watchers that cover every file a session is built from, read from
+/// its `inputs`: the `.spec` files under its spec root, its config and
+/// lock, the module of each extension it loads, the build cache its check
+/// passes read, and each file the checks read. With `relative_patterns`
+/// (the client declared `relativePatternSupport`) each is a pattern
+/// relative to its directory; otherwise an absolute glob. Detached inputs
+/// get [`default_watchers`].
+pub fn file_watchers(inputs: &SessionInputs, relative_patterns: bool) -> Vec<FileSystemWatcher> {
+    if inputs.root().is_none() {
         return default_watchers();
-    };
-    let env = session.environment();
-    let inputs = env.inputs();
+    }
     let pattern = |base: &Path, glob: &str| -> Option<FileSystemWatcher> {
         let pattern = if relative_patterns {
             GlobPattern::Relative(RelativePattern {
@@ -49,23 +45,15 @@ pub fn file_watchers(session: &ProjectSession, relative_patterns: bool) -> Vec<F
         };
         Some(watcher(pattern))
     };
-    let file = |path: &Path| -> Option<FileSystemWatcher> {
-        pattern(path.parent()?, &path.file_name()?.to_string_lossy())
-    };
-    let mut watchers: Vec<FileSystemWatcher> = Vec::new();
-    watchers.extend(pattern(spec_root, "**/*.spec"));
-    watchers.extend(file(&root.join("specforge.json")));
-    watchers.extend(file(&inputs.lock));
-    let references = env.named_files(session.graph(), session.entities());
-    for path in inputs
-        .modules
+    inputs
+        .watched()
         .iter()
-        .chain(&inputs.check_inputs)
-        .chain(&references)
-    {
-        watchers.extend(file(path));
-    }
-    watchers
+        .filter_map(|watched| match watched {
+            Watched::Sources(dir) => pattern(dir, "**/*.spec"),
+            Watched::File(path) => pattern(path.parent()?, &path.file_name()?.to_string_lossy()),
+            Watched::Listing(dir) => pattern(dir, "*"),
+        })
+        .collect()
 }
 
 fn watcher(glob_pattern: GlobPattern) -> FileSystemWatcher {

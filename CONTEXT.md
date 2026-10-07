@@ -9,20 +9,32 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   default config (for the unusable file or key), with each reason kept (`config_problems`) and
   reported as the error E069. It also holds what `specforge.lock` held when it was read
   (`lock`: absent, read, or unreadable), once, for every operation over the project. A session
+  reads `specforge.json` once per load and builds its extension runtime and its environment from
+  that read, after stamping every environment input (ADR 0030). It
   opens in two steps (`ProjectSession::begin_open`, then `OpeningProject::finish`), so an editor
   answers what needs only the environment (keyword completion) while the sources are still being
   read.
 - **Compiled project**: an environment plus the resolved sources and the built graph. Its
   diagnostics are, by definition, what `specforge check` reports under the default policy
   (`specforge_project::CompiledProject`).
-- **Project session**: a long-lived compiled project that knows what it is built from (its
-  sources, its **environment inputs** — `specforge.json`, `specforge.lock`, the extension modules it
-  loaded — and its check inputs, `specforge-cache.json` and the files `file_reference` fields name).
-  It classifies any changed path, applies changes as an update, an environment reload or a re-check,
-  and can bring itself up to date with disk without a watcher (`ensure_fresh`). Watch, the LSP and
-  MCP each hold one (`specforge_project::ProjectSession`; MCP's is always opened from disk, ADR
-  0025); watch and the LSP feed it watcher events, MCP asks it to be fresh before every request that
-  reads the project (ADR 0014).
+- **Project session**: a long-lived compiled project that knows what it is built from: its sources
+  and its **session inputs**. It classifies any changed path through them, applies changes as an
+  update, an environment reload or a re-check, and can bring itself up to date with disk without a
+  watcher (`ensure_fresh`). A session is opened from disk or detached (no project: what the LSP
+  holds with no workspace folder and MCP while nothing is served). Watch, the LSP and MCP each hold
+  one (`specforge_project::ProjectSession`; MCP's served one is always opened from disk, ADR 0025);
+  watch and the LSP feed it watcher events and follow every update that changes its inputs
+  (`Update::inputs_changed`), MCP asks it to be fresh before every request that reads the project
+  (ADR 0014, ADR 0030).
+- **Session inputs**: everything a project session depends on besides its sources' text: where its
+  sources are discovered (the spec root and `exclude`), its **environment inputs**
+  (`specforge.json`, `specforge.lock`, the extension modules it loaded) and its **check inputs**
+  (`specforge-cache.json` when check-phase passes read it, each file a `file_reference` field or a
+  `file_exists` rule names, and the directory of each such file that is missing). One value per
+  environment load, renewed each time the checks run (`specforge_project::SessionInputs`,
+  `ProjectSession::inputs`). What a changed path is, which directories watch watches, which files
+  the LSP asks its client to report and what the session stamps for freshness are all read from it;
+  a detached session's inputs are empty (ADR 0030).
 - **Call target**: the project one MCP call acts on, resolved from the call's optional `path` and its
   tool spec's target (reach and freshness) before the handler runs: the served session (brought up to
   date unless `use_cached`), another project compiled for that call only, or the directory `init`

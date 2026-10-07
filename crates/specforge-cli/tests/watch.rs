@@ -566,3 +566,157 @@ fn watch_follows_a_moved_spec_root() {
     );
     assert_eq!(event["added_nodes"], 1, "{event}");
 }
+
+/// A project whose `gadget` kind (the vendored docref extension) has a
+/// `docs` field naming files, with `spec/a.spec` holding `spec`. The
+/// extension is a `.wasm` entry copied into `ext/`.
+fn docref_project(spec: &str) -> TempDir {
+    let project = TempDir::new().unwrap();
+    let root = project.path();
+    fs::create_dir_all(root.join("spec")).unwrap();
+    fs::create_dir_all(root.join("ext")).unwrap();
+    fs::write(
+        root.join("specforge.json"),
+        r#"{"name":"p","version":"0.1.0","spec_root":"spec","extensions":["@specforge/software","@sdk/docref=ext/docref.wasm"]}"#,
+    )
+    .unwrap();
+    fs::copy(
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../fixtures/docref-extension/docref.wasm"),
+        root.join("ext/docref.wasm"),
+    )
+    .unwrap();
+    fs::write(root.join("spec/a.spec"), spec).unwrap();
+    project
+}
+
+/// A `gadget` whose `docs` names `reference`.
+fn gadget_naming(reference: &str) -> String {
+    format!("gadget gadget_one \"G\" {{\n  docs [\"{reference}\"]\n}}\n")
+}
+
+/// How `spec/a.spec` of a `docref_project` spells a file in `outside/<rest>`,
+/// a sibling temp directory: from `spec/`, two levels up is their parent.
+fn outside_reference(outside: &TempDir, rest: &str) -> String {
+    let name = outside.path().file_name().unwrap().to_string_lossy();
+    format!("../../{name}/{rest}")
+}
+
+/// The diagnostic codes an event reports.
+fn codes(event: &serde_json::Value) -> Vec<String> {
+    event["diagnostics"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|d| d["code"].as_str().unwrap().to_string())
+        .collect()
+}
+
+#[specforge_test(
+    behavior = "classify_project_changes",
+    verify = "a file a file_reference field names re-runs the checks"
+)]
+fn watch_rechecks_when_a_referenced_file_outside_the_root_appears() {
+    let outside = TempDir::new().unwrap();
+    fs::create_dir_all(outside.path().join("shared")).unwrap();
+    let project = docref_project(&gadget_naming(&outside_reference(
+        &outside,
+        "shared/guide.md",
+    )));
+
+    let (rx, child) = spawn_watch(&project);
+    let ready = wait_for_line(&rx, "\"event\":\"ready\"", Duration::from_secs(60))
+        .expect("watch never reported ready");
+    let ready: serde_json::Value = serde_json::from_str(&ready).unwrap();
+    assert!(codes(&ready).contains(&"E016".to_string()), "{ready}");
+    settle(&rx);
+
+    fs::write(outside.path().join("shared/guide.md"), "# guide\n").unwrap();
+    let event = next_event(&rx, Duration::from_secs(20));
+    drop(child);
+    let event = event.expect("no event after the referenced file appeared");
+    assert_eq!(event["event"], "rechecked", "{event}");
+    assert!(!codes(&event).contains(&"E016".to_string()), "{event}");
+    let changed = event["changed"].as_array().unwrap();
+    assert_eq!(changed.len(), 1, "{event}");
+    assert!(
+        changed[0].as_str().unwrap().ends_with("shared/guide.md"),
+        "{event}"
+    );
+}
+
+#[specforge_test(
+    behavior = "watch_file_system_for_changes",
+    verify = "after an edit names a file outside the watched directories, a change to it is seen"
+)]
+fn watch_follows_a_file_an_edit_names_outside_its_roots() {
+    let outside = TempDir::new().unwrap();
+    fs::create_dir_all(outside.path().join("shared")).unwrap();
+    let project = docref_project("gadget gadget_one \"G\" {\n}\n");
+
+    let (rx, child) = spawn_watch(&project);
+    let ready = wait_for_line(&rx, "\"event\":\"ready\"", Duration::from_secs(60))
+        .expect("watch never reported ready");
+    let ready: serde_json::Value = serde_json::from_str(&ready).unwrap();
+    assert!(!codes(&ready).contains(&"E016".to_string()), "{ready}");
+    settle(&rx);
+
+    fs::write(
+        project.path().join("spec/a.spec"),
+        gadget_naming(&outside_reference(&outside, "shared/guide.md")),
+    )
+    .unwrap();
+    let edited = next_event(&rx, Duration::from_secs(20)).expect("no rebuild after the edit");
+    assert_eq!(edited["event"], "rebuilt", "{edited}");
+    assert!(codes(&edited).contains(&"E016".to_string()), "{edited}");
+    settle(&rx);
+
+    fs::write(outside.path().join("shared/guide.md"), "# guide\n").unwrap();
+    let event = next_event(&rx, Duration::from_secs(20));
+    drop(child);
+    let event = event.expect("no event after the file the edit named appeared");
+    assert_eq!(event["event"], "rechecked", "{event}");
+    assert_eq!(event["errors"], 0, "{event}");
+    assert!(!codes(&event).contains(&"E016".to_string()), "{event}");
+    let changed = event["changed"].as_array().unwrap();
+    assert_eq!(changed.len(), 1, "{event}");
+    assert!(
+        changed[0].as_str().unwrap().ends_with("shared/guide.md"),
+        "{event}"
+    );
+}
+
+#[specforge_test(
+    behavior = "watch_file_system_for_changes",
+    verify = "a file the checks read is seen when it is created in a directory that did not exist"
+)]
+fn watch_sees_a_referenced_file_created_in_a_new_directory() {
+    let outside = TempDir::new().unwrap();
+    let project = docref_project(&gadget_naming(&outside_reference(
+        &outside,
+        "nodir/guide.md",
+    )));
+
+    let (rx, child) = spawn_watch(&project);
+    let ready = wait_for_line(&rx, "\"event\":\"ready\"", Duration::from_secs(60))
+        .expect("watch never reported ready");
+    let ready: serde_json::Value = serde_json::from_str(&ready).unwrap();
+    assert!(codes(&ready).contains(&"E016".to_string()), "{ready}");
+    settle(&rx);
+
+    fs::create_dir_all(outside.path().join("nodir")).unwrap();
+    fs::write(outside.path().join("nodir/guide.md"), "# guide\n").unwrap();
+
+    // The directory's creation is a check input's change; the file may be
+    // seen with it or after the watcher moved into the new directory. The
+    // last event clears E016.
+    let mut last =
+        next_event(&rx, Duration::from_secs(20)).expect("no event for the new directory");
+    while let Some(next) = next_event(&rx, Duration::from_secs(3)) {
+        last = next;
+    }
+    drop(child);
+    assert_eq!(last["event"], "rechecked", "{last}");
+    assert_eq!(last["errors"], 0, "{last}");
+    assert!(!codes(&last).contains(&"E016".to_string()), "{last}");
+}

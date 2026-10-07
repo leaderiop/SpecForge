@@ -10,8 +10,9 @@
 //!   the built graph. Its [`CompiledProject::diagnostics`] are, by
 //!   definition, what `specforge check` reports;
 //! - a [`ProjectSession`] is a long-lived compiled project that knows what
-//!   it is built from: it classifies any changed path ([`InputRole`]) and
-//!   applies changes as an update, an environment reload or a re-check
+//!   it is built from: its inputs ([`SessionInputs`], `ProjectSession::inputs`)
+//!   say what a changed path is ([`InputRole`]), and it applies changes as
+//!   an update, an environment reload or a re-check
 //!   (watch, the LSP and MCP each hold one). After any sequence of updates
 //!   its diagnostics are the set a fresh compile reports.
 
@@ -39,7 +40,7 @@ use compile::{GraphChecks, check_graph, load_extensions};
 use coverage::RecordedCoverage;
 use snapshot::EntitySnapshot;
 use specforge_common::{
-    ConfigProblem, Diagnostic, ProjectConfig, codes, is_discovered, read_project_config,
+    ConfigProblem, ConfigRead, Diagnostic, ProjectConfig, codes, is_discovered, read_project_config,
 };
 use specforge_graph::{Graph, GraphConfig, build_graph_with_config};
 use specforge_parser::SpecFile;
@@ -53,11 +54,13 @@ use specforge_wasm::{LockState, WasmRuntime};
 pub use build_cache::{BUILD_CACHE_FILE, BUILD_CACHE_FORMAT, BuildCache, CachedStatus};
 pub use compile::EnabledExtension;
 pub use delta::{EdgeChange, GraphDelta, ModifiedNodeChange, NodeChange, compute_graph_delta};
-pub use inputs::{Changes, EnvironmentInputs, InputRole, Origin, UpdateKind, source_key};
+pub use inputs::{Changes, InputRole, SessionInputs, UpdateKind, WatchRoot, Watched, source_key};
 pub use policy::{
     DiagnosticPolicy, LINT_PROFILE_NAMES, LintProfile, UnknownLintProfile, apply_policy,
 };
-pub use session::{CheckMode, OpeningProject, ProjectSession, SharedRuntime, SourceChange, Update};
+pub use session::{
+    CheckMode, OpeningProject, ProjectSession, RuntimeSource, SharedRuntime, SourceChange, Update,
+};
 
 /// Everything derived from `specforge.json` and the loaded extensions,
 /// before any `.spec` file is read.
@@ -77,7 +80,7 @@ pub struct Environment {
     /// What `specforge.lock` held when the environment was read (absent,
     /// read, or unreadable with its problem): one read per environment,
     /// which every operation over the project reads instead of the disk.
-    /// A changed lock reloads the environment ([`EnvironmentInputs`]).
+    /// A changed lock reloads the environment ([`SessionInputs`]).
     pub lock: LockState,
     /// What each `specforge.json` `extensions` entry enables, in order, as
     /// the runtime loaded it (a `.wasm` file entry by the name its
@@ -142,7 +145,12 @@ impl Environment {
     /// Read the project's config and load its extensions through `runtime`
     /// (none without one), then build the registries from them.
     pub fn load(root: &Path, runtime: Option<&dyn WasmRuntime>) -> Self {
-        let read = read_project_config(root);
+        Self::from_read(root, read_project_config(root), runtime)
+    }
+
+    /// The environment of the config `read` (the one read of
+    /// `specforge.json`), its extensions loaded through `runtime`.
+    pub fn from_read(root: &Path, read: ConfigRead, runtime: Option<&dyn WasmRuntime>) -> Self {
         let config = read.config;
         let enabled = config
             .extensions

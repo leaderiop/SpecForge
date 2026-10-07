@@ -30,8 +30,13 @@ behavior watch_file_system_for_changes "Watch File System for Changes" {
     under the spec root for changes using the OS file watching API.
     File creation, modification, and deletion MUST each trigger
     recompilation of affected files. Changed paths are classified by the
-    project session (classify_project_changes); after an environment
-    reload the watcher follows the session's new watch roots.
+    project session (classify_project_changes). After any update that
+    changes the session's inputs (an environment reload, an edit that names
+    a file the checks read) the watcher follows the session's watch roots
+    and brings the session up to date with what was written meanwhile
+    (bring_session_up_to_date); it does so once at start, before it reports
+    ready. A missing directory on the way to an input is watched from its
+    nearest existing ancestor.
   """
   verify unit "file modification triggers recompilation"
   verify unit "file creation triggers recompilation"
@@ -41,6 +46,8 @@ behavior watch_file_system_for_changes "Watch File System for Changes" {
   verify integration "a specforge.lock change reloads the environment"
   verify integration "a .wasm file no extension loads changes nothing"
   verify integration "after spec_root changes, files under the new spec root are watched"
+  verify integration "after an edit names a file outside the watched directories, a change to it is seen"
+  verify integration "a file the checks read is seen when it is created in a directory that did not exist"
 }
 
 behavior classify_project_changes "Classify Project Changes" {
@@ -57,8 +64,16 @@ behavior classify_project_changes "Classify Project Changes" {
     environment changes; specforge-cache.json, which check-phase passes
     read, and every file a file_reference field or a file_exists rule
     names, which the checks look for, are check-input changes; any other
-    path changes nothing.
-    Watch, the LSP and MCP MUST classify through the session.
+    path changes nothing. A detached session (no project) has no inputs:
+    a .spec path is a source keyed by itself and nothing else is an input.
+    Watch, the LSP and MCP MUST classify through the session. What a
+    changed path is, which directories watch watches, which files the LSP
+    asks its client to report and what the session stamps MUST all derive
+    from one set of session inputs, renewed when the environment loads and
+    each time the checks run. Watch's watch roots and the LSP's watchers
+    MUST cover every path the session classifies as an input (the LSP
+    spelling each under the project root as opened), and MUST follow every
+    update that changes the inputs.
   """
   verify unit "a discovered .spec file is a source change keyed relative to the spec root"
   verify unit "specforge.json, specforge.lock and a loaded extension module are environment changes"
@@ -67,6 +82,12 @@ behavior classify_project_changes "Classify Project Changes" {
   verify unit "a file a file_reference field names re-runs the checks"
   verify unit "a file a file_exists rule names re-runs the checks"
   verify unit "an excluded or undiscovered .spec file changes nothing"
+  verify unit "a detached session classifies a .spec buffer as a source and nothing else as an input"
+  verify unit "a session's watch roots cover every input it classifies"
+  verify unit "the LSP's watchers cover every input the session classifies"
+  verify integration "the LSP watches a missing referenced file and its directory, spelled under the project root"
+  verify unit "an update that names a new file the checks read changes the session's inputs"
+  verify integration "the LSP's watchers follow an edit that names a new file the checks read"
 }
 
 behavior bring_session_up_to_date "Bring a Session Up to Date with Disk" {
@@ -83,13 +104,18 @@ behavior bring_session_up_to_date "Bring a Session Up to Date with Disk" {
     applies exactly those changes: sources by an update, environment
     inputs by an environment reload, check inputs by re-running the
     checks. Afterwards its graph and diagnostics MUST be those a fresh
-    compile of the files on disk produces.
+    compile of the files on disk produces. specforge.json MUST be read
+    once per environment load, the extension runtime and the environment
+    both built from that read, and every input MUST be stamped before
+    anything reads it, the extension runtime included, so a file written
+    while the session loads is seen next time.
   """
   verify unit "an up-to-date session reports no change and re-parses nothing"
   verify unit "edits, creations and deletions since the last build are applied as one update"
   verify unit "a file rewritten within the timestamp granularity of the last build is still seen"
   verify unit "a specforge.lock change reloads the environment"
   verify unit "after bringing itself up to date a session matches a fresh compile"
+  verify unit "a specforge.json or module written while the extension runtime loads is seen next time"
 }
 
 behavior invalidate_changed_files "Invalidate Changed Files" {

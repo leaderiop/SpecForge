@@ -137,6 +137,15 @@ impl FieldRegistry {
         })
     }
 
+    /// The names of the fields declared `file_reference`, sorted and
+    /// unique: the fields whose values the checks read as files (E016).
+    pub fn file_reference_fields(&self) -> std::collections::BTreeSet<&str> {
+        self.iter()
+            .filter(|(_, _, entry)| entry.declared.file_reference)
+            .map(|(_, field, _)| field)
+            .collect()
+    }
+
     /// Reference fields whose target kind `kinds` doesn't declare, as
     /// (kind, field) -> target kind: the kind's extension isn't enabled
     /// (e.g. software's `behavior.features` without @specforge/product).
@@ -229,6 +238,31 @@ mod tests {
         assert!(registry.fields_for_kind("behavior").is_empty());
         // ensures: iter yields nothing
         assert_eq!(registry.iter().count(), 0);
+    }
+
+    #[test]
+    fn file_reference_fields_are_the_declared_ones_sorted_once() {
+        let mut registry = FieldRegistry::new();
+        for (kind, field, file_reference) in [
+            ("gadget", "notes", true),
+            ("gadget", "docs", true),
+            ("gizmo", "docs", true),
+            ("gizmo", "title_text", false),
+        ] {
+            registry.register(FieldRegistryEntry {
+                kind_name: kind.to_string(),
+                field_type: ManifestFieldType::StringList,
+                source_extension: "@test/files".to_string(),
+                proof_role: None,
+                declared: specforge_protocol_types::FieldDescriptor {
+                    name: field.to_string(),
+                    file_reference,
+                    ..Default::default()
+                },
+            });
+        }
+        let names: Vec<&str> = registry.file_reference_fields().into_iter().collect();
+        assert_eq!(names, ["docs", "notes"]);
     }
 
     // Zero-allocation lookup: get() and contains() accept &str without String allocation

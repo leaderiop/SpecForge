@@ -1,10 +1,10 @@
 //! A long-lived compiled project: what watch, the LSP and MCP hold.
 
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::{Arc, OnceLock};
 
-use specforge_common::{Diagnostic, codes, discover_spec_files, load_project_config};
+use specforge_common::{Diagnostic, ProjectConfig, codes, read_project_config};
 use specforge_graph::{Graph, build_graph_with_config};
 use specforge_parser::SpecFile;
 use specforge_resolver::resolve_parsed;
@@ -14,13 +14,46 @@ use crate::coverage::RecordedCoverage;
 use crate::delta::{GraphDelta, compute_graph_delta};
 use crate::freshness::DiskSnapshot;
 use crate::incremental::IncrementalBuild;
-use crate::inputs::{Changes, InputRole, Origin, UpdateKind, canonical, environment_inputs};
+use crate::inputs::{Changes, SessionInputs, UpdateKind, named_files};
 use crate::snapshot::EntitySnapshot;
 use crate::{Environment, sources_in_path_order};
 
 /// The runtime a session runs its project's extensions in (every
 /// [`WasmRuntime`] is `Send + Sync`).
 pub type SharedRuntime = Arc<dyn WasmRuntime>;
+
+/// Builds the runtime of the project at a root from the config read there.
+pub type BuildRuntime = Arc<dyn Fn(&Path, &ProjectConfig) -> SharedRuntime + Send + Sync>;
+
+/// How a session gets the runtime its project's extensions run in.
+#[derive(Clone)]
+pub enum RuntimeSource {
+    /// Built for each environment load from the config that load read,
+    /// after every environment input is stamped: the project's own
+    /// component runtime ([`RuntimeSource::project`]), or a test's.
+    Build(BuildRuntime),
+    /// The same runtime for every load (none: no extension loads).
+    Fixed(Option<SharedRuntime>),
+}
+
+impl RuntimeSource {
+    /// `specforge_component::project_runtime_with`: the builtins the config
+    /// enables, the installed extensions from the lock, the `.wasm` file
+    /// entries.
+    pub fn project() -> Self {
+        RuntimeSource::Build(Arc::new(|root, config| {
+            Arc::new(specforge_component::project_runtime_with(root, config))
+        }))
+    }
+
+    /// The runtime of the environment load at `root` with `config`.
+    fn runtime_for(&self, root: &Path, config: &ProjectConfig) -> Option<SharedRuntime> {
+        match self {
+            RuntimeSource::Build(build) => Some(build(root, config)),
+            RuntimeSource::Fixed(runtime) => runtime.clone(),
+        }
+    }
+}
 
 /// What changed in a session's sources.
 pub enum SourceChange<'a> {
@@ -51,6 +84,10 @@ pub enum CheckMode<'a> {
 pub struct Update {
     /// What was applied: sources, the checks alone, or the environment.
     pub kind: UpdateKind,
+    /// The session's inputs changed: a file the checks read was named or
+    /// dropped, or the environment loaded again with other inputs. What an
+    /// adapter watches must follow [`ProjectSession::inputs`] (ADR 0030).
+    pub inputs_changed: bool,
     pub delta: GraphDelta,
     /// The files re-parsed or dropped: exactly the changed ones (sorted).
     pub rebuilt_files: Vec<String>,
@@ -77,18 +114,18 @@ pub struct ProjectSession {
     /// from while the session itself is busy.
     env: Arc<Environment>,
     runtime: Option<SharedRuntime>,
-    /// The session built its runtime, so a reload builds a fresh one (the
-    /// extensions' `.wasm` files may have changed).
-    owns_runtime: bool,
+    /// Where each environment load gets its runtime: a built one is fresh
+    /// for every load (the extensions' `.wasm` files may have changed).
+    source: RuntimeSource,
     build: IncrementalBuild,
     import_diagnostics: Vec<Diagnostic>,
     check_diagnostics: Vec<Diagnostic>,
     verify_incremental: bool,
-    /// Where the project comes from. With [`Origin::None`] (an editor with
-    /// no workspace folder) files are buffers keyed by absolute path, with
-    /// no spec root to resolve their imports against and no environment to
+    /// What the session depends on (ADR 0030). Detached (an editor with no
+    /// workspace folder), files are buffers keyed by absolute path, with no
+    /// spec root to resolve their imports against and no environment to
     /// reload.
-    origin: Origin,
+    inputs: SessionInputs,
     /// What the session last built from, as it was when read: what
     /// [`Self::stale`] compares with disk.
     snapshot: DiskSnapshot,
@@ -107,8 +144,10 @@ pub struct ProjectSession {
 pub struct OpeningProject {
     env: Arc<Environment>,
     runtime: Option<SharedRuntime>,
-    /// The session built its runtime, so a reload builds a fresh one.
-    owns_runtime: bool,
+    /// Where each environment load gets its runtime.
+    source: RuntimeSource,
+    /// What the loaded environment depends on.
+    inputs: SessionInputs,
     /// Stamped for the environment; the sources are stamped by `finish`.
     snapshot: DiskSnapshot,
 }
@@ -124,8 +163,7 @@ impl OpeningProject {
     /// [`ProjectSession::open`] returns.
     pub fn finish(self) -> ProjectSession {
         let mut snapshot = self.snapshot;
-        let discovered = discover_spec_files(&self.env.spec_root, &self.env.config.exclude);
-        snapshot.stamp_all_sources(&self.env.spec_root, &discovered);
+        snapshot.stamp_all_sources(&self.inputs, &self.inputs.discover());
         let resolved = self.env.resolve();
         let (paths, specs): (Vec<String>, Vec<SpecFile>) =
             sources_in_path_order(&resolved).into_iter().unzip();
@@ -150,16 +188,16 @@ impl OpeningProject {
         let mut session = ProjectSession {
             env: self.env,
             runtime: self.runtime,
-            owns_runtime: self.owns_runtime,
+            source: self.source,
             build,
             import_diagnostics: resolved.diagnostics,
             check_diagnostics: Vec::new(),
             verify_incremental: false,
-            origin: Origin::Disk,
+            inputs: self.inputs,
             snapshot,
             recorded: OnceLock::new(),
         };
-        session.check_diagnostics = session.checked();
+        session.check_diagnostics = session.checked().0;
         session
     }
 }
@@ -171,27 +209,33 @@ impl ProjectSession {
         ProjectSession {
             env: Arc::new(Environment::empty()),
             runtime: None,
-            owns_runtime: false,
+            source: RuntimeSource::Fixed(None),
             build: IncrementalBuild::empty(),
             import_diagnostics: Vec::new(),
             check_diagnostics: Vec::new(),
             verify_incremental: false,
-            origin: Origin::None,
+            inputs: SessionInputs::detached(),
             snapshot: DiskSnapshot::default(),
             recorded: OnceLock::new(),
         }
     }
 
     /// Open the project at `root`, running its extensions in the project's
-    /// own runtime.
+    /// own runtime ([`RuntimeSource::project`]).
     pub fn open(root: &Path) -> Self {
-        Self::begin_open(root).finish()
+        Self::open_from(root, RuntimeSource::project())
     }
 
     /// Open the project at `root` with `runtime` (none: no extension
     /// loads). A reload keeps using the same runtime.
     pub fn open_with_runtime(root: &Path, runtime: Option<SharedRuntime>) -> Self {
-        Self::begin_open_with_runtime(root, runtime).finish()
+        Self::open_from(root, RuntimeSource::Fixed(runtime))
+    }
+
+    /// Open the project at `root`, each environment load getting its
+    /// runtime from `source`.
+    pub fn open_from(root: &Path, source: RuntimeSource) -> Self {
+        Self::begin_open_from(root, source).finish()
     }
 
     /// The first half of [`Self::open`]: the environment loaded (config,
@@ -200,24 +244,27 @@ impl ProjectSession {
     /// served from [`OpeningProject::environment`] while
     /// [`OpeningProject::finish`] reads and builds the sources.
     pub fn begin_open(root: &Path) -> OpeningProject {
-        let mut opening = Self::begin_open_with_runtime(root, Some(project_runtime(root)));
-        opening.owns_runtime = true;
-        opening
+        Self::begin_open_from(root, RuntimeSource::project())
     }
 
-    /// [`Self::begin_open`] with `runtime` (none: no extension loads).
-    pub fn begin_open_with_runtime(root: &Path, runtime: Option<SharedRuntime>) -> OpeningProject {
-        // Everything is stamped before it is read (crate::freshness): the
-        // config first, then what it names, then the sources.
+    /// [`Self::begin_open`] with the runtime `source` gives.
+    pub fn begin_open_from(root: &Path, source: RuntimeSource) -> OpeningProject {
+        // Everything is stamped before anything reads it (crate::freshness):
+        // the config before its one read, the lock and the modules before
+        // the runtime and the environment read them, the sources by `finish`.
         let mut snapshot = DiskSnapshot::default();
-        snapshot.stamp_environment(&root.join("specforge.json"), || {
-            let inputs = environment_inputs(root, &load_project_config(root), false);
-            std::iter::once(inputs.lock).chain(inputs.modules).collect()
-        });
+        snapshot.stamp_config(&root.join("specforge.json"));
+        let read = read_project_config(root);
+        let inputs = SessionInputs::opened(root, &read.config);
+        snapshot.stamp_environment(&inputs);
+        let runtime = source.runtime_for(root, &read.config);
+        let env = Environment::from_read(root, read, runtime.as_deref());
+        let inputs = inputs.with_check_passes(env.registries.check_passes().next().is_some());
         OpeningProject {
-            env: Arc::new(Environment::load(root, runtime.as_deref())),
+            env: Arc::new(env),
             runtime,
-            owns_runtime: false,
+            source,
+            inputs,
             snapshot,
         }
     }
@@ -246,9 +293,7 @@ impl ProjectSession {
                     .cloned()
                     .collect();
                 // Stamped before they are read again (crate::freshness).
-                if self.origin == Origin::Disk {
-                    self.snapshot.stamp_sources(&self.env.spec_root, &keys);
-                }
+                self.snapshot.stamp_sources(&self.inputs, &keys);
                 keys.into_iter()
                     .map(|path| {
                         let text = std::fs::read_to_string(self.env.spec_root.join(&path)).ok();
@@ -264,7 +309,7 @@ impl ProjectSession {
         let result = self.build.rebuild(changes);
         self.recorded = OnceLock::new();
         self.import_diagnostics = self.resolve_imports();
-        self.check_diagnostics = match mode {
+        let (check_diagnostics, inputs_changed) = match mode {
             CheckMode::SyntaxOnlyIfParseErrorsIn(path)
                 if self
                     .build
@@ -272,12 +317,14 @@ impl ProjectSession {
                     .iter()
                     .any(|d| d.is(codes::E001)) =>
             {
-                Vec::new()
+                (Vec::new(), false)
             }
             _ => self.checked(),
         };
+        self.check_diagnostics = check_diagnostics;
         Update {
             kind: UpdateKind::Sources,
+            inputs_changed,
             delta: result.delta,
             rebuilt_files: result.rebuilt_files,
             changed_diagnostic_files: result.changed_diagnostic_files,
@@ -289,10 +336,11 @@ impl ProjectSession {
     /// `specforge.json` or an extension changed: load the environment again
     /// and rebuild from the sources on disk.
     pub fn reload_environment(&mut self) -> Update {
-        if self.origin != Origin::Disk {
+        if self.inputs.root().is_none() {
             // Nothing on disk to load again.
             return Update {
                 kind: UpdateKind::Environment,
+                inputs_changed: false,
                 delta: GraphDelta::default(),
                 rebuilt_files: Vec::new(),
                 changed_diagnostic_files: Vec::new(),
@@ -301,13 +349,7 @@ impl ProjectSession {
             };
         }
         let root = self.env.root.clone();
-        let runtime = if self.owns_runtime {
-            Some(project_runtime(&root))
-        } else {
-            self.runtime.clone()
-        };
-        let mut next = Self::open_with_runtime(&root, runtime);
-        next.owns_runtime = self.owns_runtime;
+        let mut next = Self::open_from(&root, self.source.clone());
         next.set_verify_incremental(self.verify_incremental);
         let previous = std::mem::replace(self, next);
         self.replaced(&previous)
@@ -318,6 +360,7 @@ impl ProjectSession {
     pub fn replaced(&self, previous: &ProjectSession) -> Update {
         Update {
             kind: UpdateKind::Environment,
+            inputs_changed: previous.inputs != self.inputs,
             delta: compute_graph_delta(previous.graph(), self.graph()),
             rebuilt_files: self
                 .build
@@ -364,21 +407,21 @@ impl ProjectSession {
         self.build.source_texts()
     }
 
-    /// Where the project comes from: disk, or nowhere.
-    pub fn origin(&self) -> Origin {
-        self.origin
+    /// What the session depends on now (ADR 0030): what a changed path is,
+    /// which directories to watch, which files to report.
+    pub fn inputs(&self) -> &SessionInputs {
+        &self.inputs
     }
 
-    /// The project root: `None` with no project ([`Origin::None`]).
+    /// The project root: `None` with no project (detached).
     pub fn root(&self) -> Option<&Path> {
-        let root = self.env.root.as_path();
-        (self.origin != Origin::None && !root.as_os_str().is_empty()).then_some(root)
+        self.inputs.root()
     }
 
     /// Where `.spec` files are keyed from: `None` unless the project was
     /// opened from disk.
     pub fn spec_root(&self) -> Option<&Path> {
-        (self.origin == Origin::Disk).then_some(self.env.spec_root.as_path())
+        self.inputs.spec_root()
     }
 
     /// A `.spec` path's key in this session: relative to the spec root
@@ -387,88 +430,20 @@ impl ProjectSession {
         self.env.source_key(path)
     }
 
-    /// What `path` (absolute, or relative to the working directory) is to
-    /// this session (behavior `classify_project_changes`). With no project,
-    /// a `.spec` file is a buffer source keyed by its path.
-    pub fn classify(&self, path: &Path) -> InputRole {
-        match self.origin {
-            Origin::None => {
-                if path.extension().is_some_and(|ext| ext == "spec") {
-                    InputRole::Source(self.source_key(path))
-                } else {
-                    InputRole::Unrelated
-                }
-            }
-            Origin::Disk => self.classify_on_disk(&self.classifier(), path),
-        }
-    }
-
-    /// What a batch of changed paths means to this session.
-    pub fn changes<'p>(&self, paths: impl IntoIterator<Item = &'p Path>) -> Changes {
-        Changes::from_roles(self.classify_all(paths))
-    }
-
-    /// Each of `paths` [classified](Self::classify), in order, the inputs
-    /// compared against computed once.
-    pub fn classify_all<'p>(&self, paths: impl IntoIterator<Item = &'p Path>) -> Vec<InputRole> {
-        match self.origin {
-            Origin::Disk => {
-                let classifier = self.classifier();
-                paths
-                    .into_iter()
-                    .map(|path| self.classify_on_disk(&classifier, path))
-                    .collect()
-            }
-            _ => paths.into_iter().map(|path| self.classify(path)).collect(),
-        }
-    }
-
     /// Apply `changes`: the environment first (a reload rebuilds
     /// everything), else the sources (an update re-runs every check), else
     /// the checks alone. `None` when there is nothing to apply: `changes` is
     /// empty.
     pub fn apply(&mut self, changes: &Changes) -> Option<Update> {
-        if changes.environment && self.origin == Origin::Disk {
+        if changes.environment && self.inputs.root().is_some() {
             Some(self.reload_environment())
         } else if !changes.sources.is_empty() {
             Some(self.update(SourceChange::Disk(&changes.sources)))
-        } else if changes.check_inputs && self.origin == Origin::Disk {
+        } else if changes.check_inputs && self.inputs.root().is_some() {
             Some(self.recheck())
         } else {
             None
         }
-    }
-
-    /// The directories a file watcher must watch to see every change this
-    /// session is built from: the root, the spec root when it is outside
-    /// the root, and the directory of every input outside both (canonical,
-    /// existing, none inside another). Empty unless opened from disk.
-    pub fn watch_roots(&self) -> Vec<PathBuf> {
-        if self.origin != Origin::Disk {
-            return Vec::new();
-        }
-        let inputs = self.env.inputs();
-        let references = self.env.named_files(self.graph(), self.entities());
-        let candidates = [canonical(&self.env.root), canonical(&self.env.spec_root)]
-            .into_iter()
-            .chain(
-                inputs
-                    .modules
-                    .iter()
-                    .chain(&inputs.check_inputs)
-                    .chain(&references)
-                    .filter_map(|path| path.parent().map(canonical)),
-            )
-            .filter(|dir| dir.is_dir());
-        let mut roots: Vec<PathBuf> = Vec::new();
-        for dir in candidates {
-            if roots.iter().any(|root| dir.starts_with(root)) {
-                continue;
-            }
-            roots.retain(|root| !root.starts_with(&dir));
-            roots.push(dir);
-        }
-        roots
     }
 
     /// What changed on disk since the session last built (behavior
@@ -476,11 +451,7 @@ impl ProjectSession {
     /// those it read, and every environment and check input against what
     /// it read. A session that was not opened from disk reports nothing.
     pub fn stale(&self) -> Changes {
-        if self.origin != Origin::Disk {
-            return Changes::default();
-        }
-        let discovered = discover_spec_files(&self.env.spec_root, &self.env.config.exclude);
-        self.snapshot.changes(&self.env.spec_root, &discovered)
+        self.snapshot.changes(&self.inputs)
     }
 
     /// Bring the session up to date with disk, without a watcher: apply
@@ -546,61 +517,17 @@ impl ProjectSession {
     /// project takes every buffer: it has no spec root to discover files
     /// under.
     fn excludes(&self, path: &str) -> bool {
-        self.origin == Origin::Disk && self.env.excludes(path)
-    }
-
-    /// What paths are compared against to classify them, for a project
-    /// on disk: computed once per batch.
-    fn classifier(&self) -> Classifier {
-        let inputs = self.env.inputs();
-        let references = self.env.named_files(self.graph(), self.entities());
-        Classifier {
-            spec_root: canonical(&self.env.spec_root),
-            environment: inputs.environment_paths().map(canonical).collect(),
-            checks: inputs
-                .check_inputs
-                .iter()
-                .chain(&references)
-                .map(|path| canonical(path))
-                .collect(),
-            // A missing referenced file's suggestion names a similar file
-            // in its directory: a file created or deleted there changes it.
-            suggestion_dirs: references
-                .iter()
-                .filter(|path| !path.exists())
-                .filter_map(|path| path.parent().map(canonical))
-                .collect(),
-        }
-    }
-
-    /// [`Self::classify`] for a project on disk, against `classifier`.
-    fn classify_on_disk(&self, classifier: &Classifier, path: &Path) -> InputRole {
-        let path = canonical(path);
-        if classifier.environment.contains(&path) {
-            return InputRole::Environment;
-        }
-        if let Ok(relative) = path.strip_prefix(&classifier.spec_root) {
-            let key = relative.to_string_lossy().into_owned();
-            if !self.env.excludes(&key) {
-                return InputRole::Source(key);
-            }
-        }
-        if classifier.checks.contains(&path)
-            || path
-                .parent()
-                .is_some_and(|dir| classifier.suggestion_dirs.contains(dir))
-        {
-            return InputRole::CheckInput;
-        }
-        InputRole::Unrelated
+        self.inputs.excludes(path)
     }
 
     /// Run every check again on the current graph: a check input changed.
     fn recheck(&mut self) -> Update {
         self.recorded = OnceLock::new();
-        self.check_diagnostics = self.checked();
+        let (check_diagnostics, inputs_changed) = self.checked();
+        self.check_diagnostics = check_diagnostics;
         Update {
             kind: UpdateKind::Checks,
+            inputs_changed,
             delta: GraphDelta::default(),
             rebuilt_files: Vec::new(),
             changed_diagnostic_files: Vec::new(),
@@ -610,7 +537,7 @@ impl ProjectSession {
     }
 
     fn resolve_imports(&self) -> Vec<Diagnostic> {
-        if self.origin != Origin::Disk {
+        if self.inputs.root().is_none() {
             return Vec::new();
         }
         resolve_parsed(
@@ -639,26 +566,18 @@ impl ProjectSession {
 
     /// Every check on the current graph, over a snapshot of it taken now,
     /// the check inputs (which the snapshot's `file_exists` rules add to)
-    /// stamped first.
-    fn checked(&mut self) -> Vec<Diagnostic> {
+    /// stamped first; also whether the session's inputs changed.
+    fn checked(&mut self) -> (Vec<Diagnostic>, bool) {
         let entities = self.snapshot_now();
-        if self.origin == Origin::Disk {
-            let inputs = self.env.check_inputs(self.build.graph(), &entities);
-            self.snapshot.stamp_checks(inputs);
+        let mut changed = false;
+        if self.inputs.root().is_some() {
+            let next =
+                self.inputs
+                    .with_named(named_files(&self.env, self.build.graph(), &entities));
+            changed = next != self.inputs;
+            self.inputs = next;
+            self.snapshot.stamp_checks(&self.inputs);
         }
-        self.check_over(entities)
+        (self.check_over(entities), changed)
     }
-}
-
-/// What changed paths are compared against: canonical paths of the
-/// session's inputs (see [`ProjectSession::classify`]).
-struct Classifier {
-    spec_root: PathBuf,
-    environment: std::collections::BTreeSet<PathBuf>,
-    checks: std::collections::BTreeSet<PathBuf>,
-    suggestion_dirs: std::collections::BTreeSet<PathBuf>,
-}
-
-fn project_runtime(root: &Path) -> SharedRuntime {
-    Arc::new(specforge_component::project_runtime(root))
 }
