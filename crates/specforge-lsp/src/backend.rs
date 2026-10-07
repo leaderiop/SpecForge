@@ -274,7 +274,7 @@ impl Backend {
                 let mode = if typing {
                     // The syntax-only fast path (C4-07): no checks while
                     // the edited file does not parse.
-                    CheckMode::SyntaxOnlyIfParseErrorsIn(&key)
+                    CheckMode::SyntaxOnlyIfParseErrorsIn(&[key.as_str()])
                 } else {
                     CheckMode::Full
                 };

@@ -4,7 +4,7 @@ use std::path::Path;
 
 use specforge_common::Diagnostic;
 use specforge_graph::Graph;
-use specforge_project::{CompiledProject, ProjectSession, SourceChange, UpdateKind};
+use specforge_project::{CheckMode, CompiledProject, ProjectSession, SourceChange, UpdateKind};
 use specforge_test::prelude::*;
 use tempfile::TempDir;
 
@@ -849,6 +849,104 @@ fn the_session_keeps_the_text_each_file_was_built_from() {
     assert!(kept.contains_key("a.spec"), "a kept copy does not change");
 }
 
+/// The editor applied an edit to two files at once (a rename): one update,
+/// one run of the checks, and never the diagnostics of a half-applied edit.
+#[specforge_test(
+    behavior = "invalidate_changed_files",
+    verify = "several editor buffers changed at once are one update"
+)]
+fn several_buffers_are_one_update() {
+    let dir = project(
+        CONFIG,
+        &[
+            ("a.spec", &behavior("alpha", "")),
+            ("b.spec", &behavior("beta", "  invariants [alpha]\n")),
+        ],
+    );
+    let root = dir.path();
+    let mut session = ProjectSession::open(root);
+    session.set_verify_incremental(true);
+
+    let buffers = [
+        ("a.spec".to_string(), behavior("omega", "")),
+        (
+            "b.spec".to_string(),
+            behavior("beta", "  invariants [omega]\n"),
+        ),
+    ];
+    let update = session.update_with(SourceChange::Buffers(&buffers), CheckMode::Full);
+    assert_eq!(update.rebuilt_files, ["a.spec", "b.spec"]);
+    assert_eq!(update.verification, Some(Ok(())));
+    assert!(
+        !update.diagnostics.iter().any(|d| d.code == "E003"),
+        "no state in which beta names a missing alpha: {:?}",
+        update.diagnostics
+    );
+    // The disk does not hold the buffers; once it does, a fresh compile of
+    // it is what the session reports (codes and spans).
+    for (path, text) in &buffers {
+        write(root, path, text);
+    }
+    assert_matches_a_fresh_compile(&session, root);
+
+    // Files discovery would not find are ignored.
+    let ignored = [("notes.txt".to_string(), "x".to_string())];
+    let update = session.update(SourceChange::Buffers(&ignored));
+    assert!(update.rebuilt_files.is_empty());
+    assert_matches_a_fresh_compile(&session, root);
+}
+
+#[specforge_test(
+    behavior = "invalidate_changed_files",
+    verify = "the typing fast path skips the checks while any edited buffer does not parse"
+)]
+fn a_parse_error_in_any_edited_buffer_skips_the_checks() {
+    let dir = project(
+        CONFIG,
+        &[
+            ("a.spec", &behavior("alpha", "")),
+            ("b.spec", &behavior("beta", "")),
+        ],
+    );
+    let mut session = ProjectSession::open(dir.path());
+    let buffers = [
+        ("a.spec".to_string(), behavior("alpha", "")),
+        (
+            "b.spec".to_string(),
+            "behavior beta \"B\" {\n  contract \"\n".to_string(),
+        ),
+    ];
+    let keys = ["a.spec", "b.spec"];
+    let full = session.update_with(SourceChange::Buffers(&buffers), CheckMode::Full);
+
+    let fast = session.update_with(
+        SourceChange::Buffers(&buffers),
+        CheckMode::SyntaxOnlyIfParseErrorsIn(&keys),
+    );
+    let codes: Vec<&str> = fast.diagnostics.iter().map(|d| d.code.as_str()).collect();
+    assert!(
+        codes.contains(&"E001"),
+        "the parse error is reported: {codes:?}"
+    );
+    assert!(
+        fast.diagnostics.len() < full.diagnostics.len(),
+        "the checks are skipped: {} against {}",
+        fast.diagnostics.len(),
+        full.diagnostics.len()
+    );
+
+    // Every edited buffer parses: the checks run.
+    let parses = [
+        ("a.spec".to_string(), behavior("alpha", "")),
+        ("b.spec".to_string(), behavior("beta", "")),
+    ];
+    let update = session.update_with(
+        SourceChange::Buffers(&parses),
+        CheckMode::SyntaxOnlyIfParseErrorsIn(&keys),
+    );
+    assert!(!update.diagnostics.iter().any(|d| d.code == "E001"));
+}
+
 #[specforge_test(
     behavior = "rebuild_affected_subgraph",
     verify = "debug --verify-incremental performs cold rebuild comparison"
@@ -1679,8 +1777,6 @@ fn a_sessions_snapshot_follows_every_update() {
     verify = "a session's snapshot follows every update"
 )]
 fn an_update_that_skips_the_checks_still_scores_its_own_graph() {
-    use specforge_project::CheckMode;
-
     let dir = project(
         CONFIG,
         &[(
@@ -1699,7 +1795,7 @@ fn an_update_that_skips_the_checks_still_scores_its_own_graph() {
     write(root, "b.spec", "behavior b \"B\" {\n  contract \"\n");
     session.update_with(
         SourceChange::Disk(&changed(&["b.spec"])),
-        CheckMode::SyntaxOnlyIfParseErrorsIn("b.spec"),
+        CheckMode::SyntaxOnlyIfParseErrorsIn(&["b.spec"]),
     );
     let entities = session.entities();
     assert!(!std::ptr::eq(entities, &*before), "a fresh memo per update");
