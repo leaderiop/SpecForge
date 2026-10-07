@@ -1029,3 +1029,57 @@ fn the_cli_runs_a_pass_an_extension_declares() {
     let message = mcp[0]["isError"]["message"].as_str().unwrap();
     assert_eq!(available_passes(message), available_passes(&stderr));
 }
+
+#[specforge_test_macros::test(
+    behavior = "fa_detect_unmatched_producers",
+    verify = "an event participating in a process counts as used and produces no W029"
+)]
+fn an_event_in_a_process_is_used_and_not_w029() {
+    let dir = TempDir::new().unwrap();
+    fs::write(
+        dir.path().join("specforge.json"),
+        r#"{"extensions": ["@specforge/formal", "@specforge/software"]}"#,
+    )
+    .unwrap();
+    fs::write(
+        dir.path().join("main.spec"),
+        concat!(
+            "event tick \"Tick\" {\n",
+            "  title \"Tick\"\n",
+            "  channel \"sys.tick\"\n",
+            "  participates_in [clock]\n",
+            "}\n",
+            "\n",
+            "process clock \"Clock\" {\n",
+            "  alphabet [\"tick\"]\n",
+            "  states [\"idle\"]\n",
+            "  initial_state \"idle\"\n",
+            "}\n",
+            "\n",
+            "behavior ticker \"Ticker\" {\n",
+            "  title \"Ticker\"\n",
+            "  produces [tick]\n",
+            "  verify unit \"emits tick\"\n",
+            "}\n",
+        ),
+    )
+    .unwrap();
+    let output = specforge_cmd()
+        .args(["analyze", "--path", dir.path().to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    let doc: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    let report = doc["passes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|p| p["pass"] == "@specforge/formal:event_graph_analyze")
+        .expect("event_graph_analyze pass must be dispatched");
+    let w029 = report["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|f| f["code"] == "W029")
+        .count();
+    assert_eq!(w029, 0, "participation is usage: {report}");
+}

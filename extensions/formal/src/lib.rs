@@ -466,11 +466,12 @@ fn pass_event_graph_analyze(input: &PassInput) -> Vec<PassDiagnostic> {
     let mut process_edges: std::collections::BTreeMap<&str, std::collections::BTreeSet<&str>> =
         std::collections::BTreeMap::new();
     for edge in &input.edges {
-        // The graph labels these edges with the FIELD name (sub_processes /
-        // processes); the edge-type names (ProcessComposesProcess /
-        // EventParticipatesInProcess) match when hosts send type labels.
+        // The host labels these edges with the FIELD name (an event's
+        // participates_in, a process's sub_processes); the edge-type names
+        // (EventParticipatesInProcess / ProcessComposesProcess) are accepted
+        // too.
         match edge.label.as_str() {
-            "EventParticipatesInProcess" | "processes" => {
+            "EventParticipatesInProcess" | "participates_in" => {
                 *consumed.entry(edge.source.as_str()).or_default() += 1;
             }
             "ProcessComposesProcess" | "sub_processes" => {

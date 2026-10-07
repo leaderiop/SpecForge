@@ -120,12 +120,14 @@ behavior fa_detect_unmatched_producers "W029: Unmatched Producers" {
     consumers are all valid patterns.
   """
   ensures {
-    matched_passes   "event with producers and consumers produces no diagnostic"
-    unmatched_warned "event with no consumers produces W029 warning"
+    matched_passes     "event with producers and consumers produces no diagnostic"
+    unmatched_warned   "event with no consumers produces W029 warning"
+    participation_used "an event that participates in a process (participates_in) is used by it and produces no W029"
   }
   features [fa_event_graph_linting]
   verify unit "event with producers and consumers passes"
   verify unit "event with no consumers produces W029"
+  verify unit "an event participating in a process counts as used and produces no W029"
 }
 
 behavior fa_detect_unbounded_channel "W034: Unbounded Channel Buffer" {

@@ -1,6 +1,6 @@
 {
   "artifact": "specforge_ext_formal.wasm",
-  "artifact_sha256": "23591a419f34d0e979a43314cbad221eec5a528ce6493736f9a48df987cfd7dd",
+  "artifact_sha256": "b9bd0da072a9c70b51eaa7f58b00bccc24d8333a7484034916fa67a34620b177",
   "built_with": "rustc 1.98.1 (48a229cea 2026-09-01)",
   "inputs": {
     "Cargo.toml#workspace-inherited": "f445cf417114d7d1896a3fbd9d2348d9bedf3ac7c437748f18f7bfda2217efc2",
@@ -22,6 +22,6 @@
     "extensions/formal/Cargo.lock": "57014bca1969d002fb0a5f1d2539f597a9704e195f4d9f08f552b8bc488c7dfc",
     "extensions/formal/Cargo.toml": "a0733bbdd4c9783c214e14ee14cbf996188006f05dca61ca7779627a6d3982dc",
     "extensions/formal/src/declaration.rs": "7c1aa4d1a3888f11fbdced395b35fe24ac45293fa0f0d4124deef1a1b97952d8",
-    "extensions/formal/src/lib.rs": "d876c7716f60d8baa4290d3227f5f4713089e8b972167656d59f8f0c91272a5a"
+    "extensions/formal/src/lib.rs": "004a453ccffce63adf77c0f5bb36fc373934ed06bee4759a6b8bd4814fad0956"
   }
 }
