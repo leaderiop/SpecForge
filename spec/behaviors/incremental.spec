@@ -57,8 +57,15 @@ behavior classify_project_changes "Classify Project Changes" {
     environment changes; specforge-cache.json, which check-phase passes
     read, and every file a file_reference field or a file_exists rule
     names, which the checks look for, are check-input changes; any other
-    path changes nothing.
-    Watch, the LSP and MCP MUST classify through the session.
+    path changes nothing. A detached session (no project) has no inputs:
+    a .spec path is a source keyed by itself and nothing else is an input.
+    Watch, the LSP and MCP MUST classify through the session. What a
+    changed path is, which directories watch watches, which files the LSP
+    asks its client to report and what the session stamps MUST all derive
+    from one set of session inputs, renewed when the environment loads and
+    each time the checks run. Watch's watch roots and the LSP's watchers
+    MUST cover every path the session classifies as an input (the LSP
+    spelling each under the project root as opened).
   """
   verify unit "a discovered .spec file is a source change keyed relative to the spec root"
   verify unit "specforge.json, specforge.lock and a loaded extension module are environment changes"
@@ -69,6 +76,8 @@ behavior classify_project_changes "Classify Project Changes" {
   verify unit "an excluded or undiscovered .spec file changes nothing"
   verify unit "a detached session classifies a .spec buffer as a source and nothing else as an input"
   verify unit "a session's watch roots cover every input it classifies"
+  verify unit "the LSP's watchers cover every input the session classifies"
+  verify integration "the LSP watches a missing referenced file and its directory, spelled under the project root"
 }
 
 behavior bring_session_up_to_date "Bring a Session Up to Date with Disk" {

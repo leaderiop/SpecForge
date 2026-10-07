@@ -132,10 +132,24 @@ struct OnDisk {
     canonical: Canonical,
 }
 
+impl OnDisk {
+    /// `path` canonical, re-spelled from the root as it was opened when it
+    /// lies under it.
+    fn respell(&self, path: &Path) -> PathBuf {
+        let path = canonical(path);
+        match path.strip_prefix(&self.canonical.root) {
+            Ok(relative) if relative.as_os_str().is_empty() => self.root.clone(),
+            Ok(relative) => self.root.join(relative),
+            Err(_) => path,
+        }
+    }
+}
+
 /// The canonical forms a changed path is compared with, taken when the
 /// value is made.
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct Canonical {
+    root: PathBuf,
     spec_root: PathBuf,
     environment: BTreeSet<PathBuf>,
     checks: BTreeSet<PathBuf>,
@@ -262,20 +276,29 @@ impl SessionInputs {
     }
 
     /// What an editor client must report: the spec root's `.spec` files,
-    /// then the config, the lock, each module, the build cache and each
-    /// named file. Empty when detached.
+    /// then the config, the lock, each module, the build cache, each named
+    /// file and each missing named file's directory. Each path is canonical
+    /// (as the checks read it, `..` resolved), re-spelled from the root as
+    /// the session was opened when it lies under it (the spelling the
+    /// editor gave), absolute otherwise. Empty when detached.
     pub fn watched(&self) -> Vec<Watched> {
         let Some(disk) = self.disk() else {
             return Vec::new();
         };
-        std::iter::once(Watched::Sources(disk.spec_root.clone()))
+        let spelled = |path: &Path| disk.respell(path);
+        std::iter::once(Watched::Sources(spelled(&disk.spec_root)))
             .chain(
                 [&disk.config, &disk.lock]
                     .into_iter()
                     .chain(&disk.modules)
                     .chain(&disk.build_cache)
                     .chain(&disk.named)
-                    .map(|path| Watched::File(path.clone())),
+                    .map(|path| Watched::File(spelled(path))),
+            )
+            .chain(
+                disk.listings
+                    .iter()
+                    .map(|dir| Watched::Listing(spelled(dir))),
             )
             .collect()
     }
@@ -395,6 +418,7 @@ impl SessionInputs {
     /// The value for `disk`, its canonical forms taken now.
     fn on_disk(mut disk: OnDisk) -> Self {
         disk.canonical = Canonical {
+            root: canonical(&disk.root),
             spec_root: canonical(&disk.spec_root),
             environment: [&disk.config, &disk.lock]
                 .into_iter()
@@ -420,6 +444,7 @@ impl SessionInputs {
 impl Canonical {
     fn empty() -> Self {
         Canonical {
+            root: PathBuf::new(),
             spec_root: PathBuf::new(),
             environment: BTreeSet::new(),
             checks: BTreeSet::new(),
@@ -597,5 +622,57 @@ mod tests {
             InputRole::Unrelated
         );
         assert_eq!(inputs.with_named(vec!["/x/y".into()]), inputs);
+    }
+
+    #[test]
+    fn watched_paths_are_spelled_from_the_root_as_opened() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let root = dir.path();
+        std::fs::create_dir_all(root.join("spec")).unwrap();
+        std::fs::create_dir_all(root.join("docs")).unwrap();
+        let config = ProjectConfig {
+            spec_root: Some("spec".to_string()),
+            extensions: vec!["@acme/local=ext/local.wasm".to_string()],
+            ..ProjectConfig::default()
+        };
+        // Named as the checks join them: through `spec/..`.
+        let inputs = SessionInputs::opened(root, &config)
+            .with_named(vec![root.join("spec/../docs/guide.md")]);
+
+        assert_eq!(
+            inputs.watched(),
+            vec![
+                Watched::Sources(root.join("spec")),
+                Watched::File(root.join("specforge.json")),
+                Watched::File(root.join("specforge.lock")),
+                Watched::File(root.join("ext/local.wasm")),
+                Watched::File(root.join("docs/guide.md")),
+                Watched::Listing(root.join("docs")),
+            ]
+        );
+    }
+
+    #[test]
+    fn a_watched_path_outside_the_root_is_canonical() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let root = dir.path().join("proj");
+        std::fs::create_dir_all(&root).unwrap();
+        let outside = dir.path().join("outside");
+        std::fs::create_dir_all(&outside).unwrap();
+        let inputs = SessionInputs::opened(&root, &ProjectConfig::default())
+            .with_named(vec![root.join("../outside/guide.md")]);
+
+        let canonical_outside = std::fs::canonicalize(&outside).unwrap();
+        let watched = inputs.watched();
+        assert!(
+            watched.contains(&Watched::File(canonical_outside.join("guide.md"))),
+            "{watched:?}"
+        );
+        assert!(
+            watched.contains(&Watched::Listing(canonical_outside.clone())),
+            "{watched:?}"
+        );
+        // The root itself is spelled as opened.
+        assert_eq!(watched[0], Watched::Sources(root));
     }
 }

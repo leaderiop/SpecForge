@@ -692,27 +692,32 @@ async fn e2e_watchers_stay_put_after_an_edit_names_a_file() {
     assert!(third.is_none(), "the watchers followed the edit: {third:?}");
 }
 
-// Pin (plan 03, bug L3): a referenced file is watched under the spelling the
-// checks join it with, `spec/../docs/guide.md`. T4 flips it.
+#[spec(
+    behavior = "classify_project_changes",
+    verify = "the LSP watches a missing referenced file and its directory, spelled under the project root"
+)]
 #[tokio::test]
-async fn e2e_a_referenced_file_is_watched_as_joined() {
+async fn e2e_a_referenced_file_is_watched_under_its_root() {
     let dir = crate::session::docref_project(NAMES_GUIDE);
     let root = dir.path().to_str().unwrap();
     let mut client = Session::launch(Some(root), json!({})).await.0;
     let globs = registrations_after_open(&mut client).await;
     assert!(
-        globs.contains(&format!("{root}/spec/../docs/guide.md")),
+        globs.contains(&format!("{root}/docs/guide.md")),
         "{globs:?}"
     );
+    assert!(!globs.iter().any(|g| g.contains("/../")), "{globs:?}");
 }
 
-// Pin (plan 03, bug L2): the directory of a missing referenced file is not
-// watched, though a file created there changes the E016 suggestion. T4 flips it.
+#[spec(
+    behavior = "classify_project_changes",
+    verify = "the LSP watches a missing referenced file and its directory, spelled under the project root"
+)]
 #[tokio::test]
-async fn e2e_no_watcher_covers_a_missing_files_directory() {
+async fn e2e_a_missing_files_directory_is_watched() {
     let dir = crate::session::docref_project(NAMES_GUIDE);
     let root = dir.path().to_str().unwrap();
     let mut client = Session::launch(Some(root), json!({})).await.0;
     let globs = registrations_after_open(&mut client).await;
-    assert!(!globs.iter().any(|g| g.ends_with("docs/*")), "{globs:?}");
+    assert!(globs.contains(&format!("{root}/docs/*")), "{globs:?}");
 }

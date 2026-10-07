@@ -407,11 +407,31 @@ fn file_watchers_follow_what_the_session_is_built_from() {
     );
 }
 
-/// Pin (plan 03, bugs L2 and L3): every input the session classifies has an
-/// absolute watcher glob equal to its path as the checks join it, except a
-/// file in a missing file's directory, which has none. T4 flips it: every
-/// input is matched by a glob, spelled under the root.
-#[test]
+/// Whether `glob` (`**` any depth, `*` one path segment, else literal)
+/// matches `path`.
+fn glob_matches(glob: &str, path: &str) -> bool {
+    fn go(glob: &[&str], path: &[&str]) -> bool {
+        match glob.split_first() {
+            None => path.is_empty(),
+            Some((&"**", rest)) => (0..=path.len()).any(|skipped| go(rest, &path[skipped..])),
+            Some((segment, rest)) => path.split_first().is_some_and(|(first, tail)| {
+                (*segment == "*" || segment == first) && go(rest, tail)
+            }),
+        }
+    }
+    go(
+        &glob.split('/').collect::<Vec<_>>(),
+        &path.split('/').collect::<Vec<_>>(),
+    )
+}
+
+/// Every input the session classifies, a file created beside a missing
+/// referenced file included, is matched by a watcher glob, spelled under
+/// the project root (or canonical outside it).
+#[spec(
+    behavior = "classify_project_changes",
+    verify = "the LSP's watchers cover every input the session classifies"
+)]
 fn the_watchers_cover_what_the_session_classifies() {
     use specforge_project::{InputRole, ProjectSession};
     use tower_lsp::lsp_types::GlobPattern;
@@ -454,36 +474,41 @@ fn the_watchers_cover_what_the_session_classifies() {
         })
         .collect();
     let spec_root = root.join("spec");
-    let inputs = [
-        root.join("specforge.json"),
-        root.join("specforge.lock"),
-        root.join("ext/docref.wasm"),
-        module,
-        spec_root.join(&reference),
-        spec_root.join("missing/sub.md"),
+    let canonical_outside = std::fs::canonicalize(outside.path()).unwrap();
+    // The inputs as the watchers spell them: under the root as opened,
+    // canonical outside it.
+    let spelled = [
+        (root.join("specforge.json"), root.join("specforge.json")),
+        (root.join("specforge.lock"), root.join("specforge.lock")),
+        (root.join("ext/docref.wasm"), root.join("ext/docref.wasm")),
+        (module.clone(), module),
+        (
+            spec_root.join(&reference),
+            canonical_outside.join("guide.md"),
+        ),
+        (
+            spec_root.join("missing/sub.md"),
+            spec_root.join("missing/sub.md"),
+        ),
+        // A file created beside a missing referenced file changes E016's
+        // suggestion.
+        (
+            spec_root.join("missing/x.md"),
+            spec_root.join("missing/x.md"),
+        ),
     ];
-    for path in &inputs {
+    for (input, watched) in &spelled {
         assert_ne!(
-            session.inputs().classify(path),
+            session.inputs().classify(input),
             InputRole::Unrelated,
             "{}",
-            path.display()
+            input.display()
         );
+        let watched = watched.display().to_string();
         assert!(
-            globs.contains(&path.display().to_string()),
-            "{} not in {globs:?}",
-            path.display()
+            globs.iter().any(|glob| glob_matches(glob, &watched)),
+            "{watched} is matched by none of {globs:?}"
         );
     }
-
-    // A file created beside a missing referenced file changes E016's
-    // suggestion: the session classifies it, and no glob reports it.
-    let sibling = spec_root.join("missing/x.md");
-    assert_eq!(session.inputs().classify(&sibling), InputRole::CheckInput);
-    assert!(
-        !globs
-            .iter()
-            .any(|g| g.contains("/missing/") && !g.ends_with("/missing/sub.md")),
-        "{globs:?}"
-    );
+    assert!(!globs.iter().any(|g| g.contains("/../")), "{globs:?}");
 }
