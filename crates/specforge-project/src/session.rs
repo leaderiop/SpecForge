@@ -5,13 +5,12 @@ use std::path::Path;
 use std::sync::{Arc, OnceLock};
 
 use specforge_common::{Diagnostic, ProjectConfig, codes, read_project_config};
-use specforge_graph::{Graph, build_graph_with_config};
+use specforge_graph::{Graph, GraphDelta, build_graph_with_config, compute_graph_delta};
 use specforge_parser::SpecFile;
 use specforge_resolver::resolve_parsed;
 use specforge_wasm::WasmRuntime;
 
 use crate::coverage::RecordedCoverage;
-use crate::delta::{GraphDelta, compute_graph_delta};
 use crate::freshness::DiskSnapshot;
 use crate::incremental::IncrementalBuild;
 use crate::inputs::{Changes, SessionInputs, UpdateKind, named_files};

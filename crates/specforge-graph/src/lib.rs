@@ -1,6 +1,10 @@
 mod build;
 mod coerce;
 pub use coerce::FieldCoercion;
+mod delta;
+pub use delta::{EdgeChange, GraphDelta, ModifiedNodeChange, NodeChange, compute_graph_delta};
+#[doc(hidden)]
+pub use delta::{EdgeKey, diff, edge_keys};
 mod derive;
 pub use derive::{DerivedFrom, DerivedReference};
 mod graph;

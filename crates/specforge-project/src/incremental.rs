@@ -13,10 +13,10 @@ use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::sync::Arc;
 
 use specforge_common::{Diagnostic, Sym};
-use specforge_graph::{Graph, GraphConfig, Node, build_graph_with_config};
+use specforge_graph::{Graph, GraphConfig, GraphDelta, Node, build_graph_with_config};
 use specforge_parser::{SpecFile, parse_incremental};
 
-use crate::delta::{self, GraphDelta};
+use specforge_graph as delta;
 
 /// What one rebuild did.
 pub(crate) struct Rebuild {

@@ -20,7 +20,6 @@ mod build_cache;
 mod check_passes;
 pub mod compile;
 pub mod coverage;
-mod delta;
 pub mod field_types;
 mod freshness;
 mod incremental;
@@ -53,13 +52,15 @@ use specforge_wasm::{LockState, WasmRuntime};
 
 pub use build_cache::{BUILD_CACHE_FILE, BUILD_CACHE_FORMAT, BuildCache, CachedStatus};
 pub use compile::EnabledExtension;
-pub use delta::{EdgeChange, GraphDelta, ModifiedNodeChange, NodeChange, compute_graph_delta};
 pub use inputs::{Changes, InputRole, SessionInputs, UpdateKind, WatchRoot, Watched, source_key};
 pub use policy::{
     DiagnosticPolicy, LINT_PROFILE_NAMES, LintProfile, UnknownLintProfile, apply_policy,
 };
 pub use session::{
     CheckMode, OpeningProject, ProjectSession, RuntimeSource, SharedRuntime, SourceChange, Update,
+};
+pub use specforge_graph::{
+    EdgeChange, GraphDelta, ModifiedNodeChange, NodeChange, compute_graph_delta,
 };
 
 /// Everything derived from `specforge.json` and the loaded extensions,

@@ -3,10 +3,10 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use crate::{Graph, Node};
 use serde::Serialize;
 use serde_json::Value;
 use specforge_common::Sym;
-use specforge_graph::{Graph, Node};
 
 /// What changed between two graphs. Node lists are sorted by ID, edge
 /// lists by (source, target, label). Source positions are ignored: an
@@ -119,9 +119,11 @@ impl GraphDelta {
 }
 
 /// An edge as (source, target, label).
-pub(crate) type EdgeKey = (Sym, Sym, Sym);
+#[doc(hidden)]
+pub type EdgeKey = (Sym, Sym, Sym);
 
-pub(crate) fn edge_keys(graph: &Graph) -> BTreeSet<EdgeKey> {
+#[doc(hidden)]
+pub fn edge_keys(graph: &Graph) -> BTreeSet<EdgeKey> {
     graph
         .edges()
         .iter()
@@ -145,7 +147,8 @@ pub fn compute_graph_delta(old: &Graph, new: &Graph) -> GraphDelta {
 /// `ids` may have been replaced: `old_nodes` holds what the old graph had
 /// under those IDs and `old_edges` all its edges. Every other node is
 /// unchanged, so it can only be modified through its outgoing edges.
-pub(crate) fn diff(
+#[doc(hidden)]
+pub fn diff(
     ids: &BTreeSet<Sym>,
     old_nodes: &BTreeMap<Sym, &Node>,
     old_edges: &BTreeSet<EdgeKey>,
