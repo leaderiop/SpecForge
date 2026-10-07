@@ -27,7 +27,8 @@ Two modules now own these questions (architecture plan 01).
 built in are **environment inputs**; `specforge-cache.json` (when check-phase passes read it) and the
 files `file_reference` fields name are **check inputs**; anything else changes nothing. `apply`
 runs the one rebuild a batch needs: an environment reload, an update of the changed sources, or a
-re-check. `watch_roots` names the directories a watcher must watch. It can also bring itself up to
+re-check. Its inputs name the directories a watcher must watch (`inputs().watch_roots()`, ADR 0030).
+It can also bring itself up to
 date without any watcher: `stale` compares what it last read (size and modification time, stamped
 before each read) with disk, and `ensure_fresh` applies exactly that.
 
@@ -62,9 +63,10 @@ before each read) with disk, and `ensure_fresh` applies exactly that.
   even outside the root; builtin blobs are in the binary. A `.wasm` no extension loads changes
   nothing. Check inputs re-run the checks without re-parsing.
 - **D9. One classifier for watch, the LSP and MCP.** The watcher reports whole paths; watch re-arms
-  its watchers from `watch_roots` after a reload that moved them (and catches up with
-  `ensure_fresh`); the LSP classifies inside the update, while it holds the session, and registers
-  its `didChangeWatchedFiles` watchers from the session, again after a reload that changed them.
+  its watchers from `inputs().watch_roots()` after any update that changes the session's inputs, not
+  only a reload (and catches up with `ensure_fresh`); the LSP classifies inside the update, while it
+  holds the session, and registers its `didChangeWatchedFiles` watchers from the session's inputs,
+  again after any update that changed them (amended by ADR 0030).
 - **D10. No public root.** `McpState::project_root()` is the session's root. MCP serves only a
   project opened from disk (amended by ADR 0025). An `initialize` root that does not exist serves
   nothing.
