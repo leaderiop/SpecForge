@@ -79,6 +79,9 @@ enum Change {
 struct Recompiled {
     /// The environment was loaded again (or the project opened).
     environment: bool,
+    /// The session's inputs changed (`Update::inputs_changed`): what the
+    /// client is asked to watch must follow them.
+    inputs_changed: bool,
 }
 
 impl Backend {
@@ -88,6 +91,7 @@ impl Backend {
         let updates = Arc::new(Mutex::new(()));
         let tokens_refresh_support = Arc::new(AtomicBool::new(false));
         let watched = Arc::new(Mutex::new(Vec::new()));
+        let relative_patterns = Arc::new(AtomicBool::new(false));
 
         // Serialized latest-wins reparse worker (C4-03). Exits when the
         // Backend (and its sender) is dropped.
@@ -95,6 +99,8 @@ impl Backend {
         let worker_client = client.clone();
         let worker_updates = Arc::clone(&updates);
         let worker_refresh_support = Arc::clone(&tokens_refresh_support);
+        let worker_watched = Arc::clone(&watched);
+        let worker_relative_patterns = Arc::clone(&relative_patterns);
         tokio::spawn(async move {
             while let Some(first) = update_rx.recv().await {
                 // Coalesce everything already queued, then hold off until
@@ -108,13 +114,24 @@ impl Backend {
                 pending.sort();
                 pending.dedup();
                 for uri in pending {
-                    Self::recompile(
+                    let recompiled = Self::recompile(
                         &worker_state,
                         &worker_client,
                         &worker_updates,
                         Change::Buffer(uri),
                     )
                     .await;
+                    // An edit that names a file the checks read moves what
+                    // the client must watch (ADR 0030).
+                    if recompiled.is_some_and(|r| r.inputs_changed) {
+                        Self::sync_watchers(
+                            &worker_state,
+                            &worker_client,
+                            &worker_watched,
+                            worker_relative_patterns.load(Ordering::Relaxed),
+                        )
+                        .await;
+                    }
                 }
                 Self::refresh_semantic_tokens_if_stale(
                     &worker_state,
@@ -133,7 +150,7 @@ impl Backend {
             updates,
             tokens_refresh_support,
             watched,
-            relative_patterns: Arc::new(AtomicBool::new(false)),
+            relative_patterns,
             definition_links: Arc::new(AtomicBool::new(false)),
             hierarchical_symbols: Arc::new(AtomicBool::new(false)),
             insert_replace: Arc::new(AtomicBool::new(false)),
@@ -249,16 +266,19 @@ impl Backend {
             let mut session = session;
             let mut touched: Vec<String> = Vec::new();
             let mut environment = false;
+            let mut inputs_changed = false;
             match (&change, changes) {
                 (Change::Open(_), _) => {
                     if let Some(loaded) = opening {
                         session = loaded.finish();
                     }
                     environment = true;
+                    inputs_changed = true;
                 }
                 (Change::Apply(_), Some(changes)) => {
                     if let Some(update) = session.apply(&changes) {
                         environment = update.kind == UpdateKind::Environment;
+                        inputs_changed |= update.inputs_changed;
                         touched.extend(update.rebuilt_files);
                     }
                     touched.extend(changes.sources);
@@ -279,15 +299,17 @@ impl Backend {
                     path: &key,
                     text: Some(text),
                 };
-                touched.extend(session.update_with(buffer, mode).rebuilt_files);
+                let update = session.update_with(buffer, mode);
+                inputs_changed |= update.inputs_changed;
+                touched.extend(update.rebuilt_files);
                 touched.push(key);
             }
-            (session, touched, environment)
+            (session, touched, environment, inputs_changed)
         })
         .await;
 
         match joined {
-            Ok((session, touched, environment)) => {
+            Ok((session, touched, environment, inputs_changed)) => {
                 let touched: Vec<Url> = {
                     let mut st = state.write().await;
                     st.set_session(session);
@@ -297,7 +319,10 @@ impl Backend {
                         .collect()
                 };
                 Self::publish(state, client, edited, touched).await;
-                Some(Recompiled { environment })
+                Some(Recompiled {
+                    environment,
+                    inputs_changed,
+                })
             }
             Err(e) => {
                 Self::lose_session(state, client, e).await;
@@ -709,13 +734,22 @@ impl LanguageServer for Backend {
             }
         }
 
-        Self::recompile(
+        let recompiled = Self::recompile(
             &self.state,
             &self.client,
             &self.updates,
             Change::Buffer(uri),
         )
         .await;
+        if recompiled.is_some_and(|r| r.inputs_changed) {
+            Self::sync_watchers(
+                &self.state,
+                &self.client,
+                &self.watched,
+                self.relative_patterns.load(Ordering::Relaxed),
+            )
+            .await;
+        }
         Self::refresh_semantic_tokens_if_stale(
             &self.state,
             &self.client,
@@ -778,7 +812,9 @@ impl LanguageServer for Backend {
             )
             .await
         };
-        if recompiled.is_some_and(|r| r.environment) {
+        let (environment, inputs_changed) =
+            recompiled.map_or((false, false), |r| (r.environment, r.inputs_changed));
+        if environment {
             // The environment loaded again (hardening-plan H4 / R-5): the
             // spec root re-indexed, everything republished, and the
             // watchers follow what the project is now built from.
@@ -791,6 +827,10 @@ impl LanguageServer for Backend {
                     ),
                 )
                 .await;
+        }
+        // The watchers follow what the project is now built from: after a
+        // reload, and after any update that changed its inputs.
+        if environment || inputs_changed {
             Self::sync_watchers(
                 &self.state,
                 &self.client,

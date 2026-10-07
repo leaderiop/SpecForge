@@ -654,10 +654,12 @@ async fn registrations_after_open(client: &mut Session) -> Vec<String> {
 /// `docs/guide.md` under the root), which does not exist.
 const NAMES_GUIDE: &str = "gadget gadget_one \"G\" {\n  docs [\"../docs/guide.md\"]\n}\n";
 
-// Pin (plan 03, bug L1): an edit that names a file the checks read does not
-// move the watchers; the third registration never comes. T5 flips it.
+#[spec(
+    behavior = "classify_project_changes",
+    verify = "the LSP's watchers follow an edit that names a new file the checks read"
+)]
 #[tokio::test]
-async fn e2e_watchers_stay_put_after_an_edit_names_a_file() {
+async fn e2e_watchers_follow_an_edit_that_names_a_file() {
     let dir = crate::session::docref_project("gadget gadget_one \"G\" {\n}\n");
     let root = dir.path().to_str().unwrap();
     let mut client = Session::launch(Some(root), json!({})).await.0;
@@ -667,29 +669,55 @@ async fn e2e_watchers_stay_put_after_an_edit_names_a_file() {
         "{globs:?}"
     );
 
-    let uri = uri_of(&dir.path().join("spec/a.spec"));
+    let a = dir.path().join("spec/a.spec");
+    let uri = uri_of(&a);
     client
         .did_open(&uri, "specforge", "gadget gadget_one \"G\" {\n}\n")
         .await;
     client
         .did_change(&uri, 2, vec![json!({"text": NAMES_GUIDE})])
         .await;
-    let published = client
-        .notification("textDocument/publishDiagnostics", |p| {
-            p["uri"] == uri.as_str()
-                && codes(p["diagnostics"].as_array().unwrap()).contains(&"E016")
-        })
-        .await;
-    assert!(published.is_some(), "the edit never reported E016");
 
+    // The edit names a file the checks read: the watchers are asked for
+    // again, and now cover it.
     let third = client
         .notification_within(
             "client/registerCapability",
-            std::time::Duration::from_secs(3),
+            std::time::Duration::from_secs(5),
             |_| true,
         )
+        .await
+        .expect("the watchers did not follow the edit");
+    let globs = registered_globs(&json!({"params": third}));
+    assert!(
+        globs.contains(&format!("{root}/docs/guide.md")),
+        "{globs:?}"
+    );
+
+    // The file appears; the client reports it, and E016 goes.
+    std::fs::write(dir.path().join("docs/guide.md"), "# guide\n").unwrap();
+    client
+        .notify(
+            "workspace/didChangeWatchedFiles",
+            json!({"changes": [{"uri": uri_of(&dir.path().join("docs/guide.md")), "type": 1}]}),
+        )
         .await;
-    assert!(third.is_none(), "the watchers followed the edit: {third:?}");
+    // Anything published before the file was reported is dropped (the first
+    // wait clears what was kept), so only what follows it counts.
+    let mut cleared = false;
+    while let Some(message) = client
+        .wait_for_notification("textDocument/publishDiagnostics", 10_000)
+        .await
+    {
+        let params = &message["params"];
+        if params["uri"] == uri.as_str()
+            && !codes(params["diagnostics"].as_array().unwrap()).contains(&"E016")
+        {
+            cleared = true;
+            break;
+        }
+    }
+    assert!(cleared, "E016 stayed after the file appeared");
 }
 
 #[spec(

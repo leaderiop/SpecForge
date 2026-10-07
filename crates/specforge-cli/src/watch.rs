@@ -105,25 +105,33 @@ pub fn run(path: &Path, json: bool, verify_incremental: bool) -> i32 {
             continue;
         };
         report(&session, &update, &changed, json);
-        if update.kind != UpdateKind::Environment {
-            continue;
-        }
-        // The reload may have moved the spec root or loaded modules from
-        // elsewhere: follow the session's inputs, then catch up on what was
-        // written while no watcher covered it.
-        let now = session.inputs().watch_roots();
-        if now == roots {
-            continue;
-        }
-        match arm(path, &now, &tx) {
-            Ok(rearmed) => {
-                watchers = rearmed;
-                roots = now;
+        // An edit that names a file the checks read, or a reload that moved
+        // the spec root or loaded modules from elsewhere: follow the
+        // session's inputs, then catch up on what was written while no
+        // watcher covered it (ADR 0030).
+        let mut inputs_changed = update.inputs_changed;
+        while inputs_changed {
+            let now = session.inputs().watch_roots();
+            if now == roots {
+                break;
             }
-            Err(e) => eprintln!("warning: {e}"),
-        }
-        if let Some(update) = session.ensure_fresh() {
-            report(&session, &update, &update.rebuilt_files, json);
+            match arm(path, &now, &tx) {
+                Ok(rearmed) => {
+                    watchers = rearmed;
+                    roots = now;
+                }
+                Err(e) => {
+                    eprintln!("warning: {e}");
+                    break;
+                }
+            }
+            inputs_changed = match session.ensure_fresh() {
+                Some(update) => {
+                    report(&session, &update, &update.rebuilt_files, json);
+                    update.inputs_changed
+                }
+                None => false,
+            };
         }
     }
     drop(watchers);

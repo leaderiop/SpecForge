@@ -30,8 +30,12 @@ behavior watch_file_system_for_changes "Watch File System for Changes" {
     under the spec root for changes using the OS file watching API.
     File creation, modification, and deletion MUST each trigger
     recompilation of affected files. Changed paths are classified by the
-    project session (classify_project_changes); after an environment
-    reload the watcher follows the session's new watch roots.
+    project session (classify_project_changes). After any update that
+    changes the session's inputs (an environment reload, an edit that names
+    a file the checks read) the watcher follows the session's watch roots
+    and brings the session up to date with what was written meanwhile
+    (bring_session_up_to_date); it does so once at start, before it reports
+    ready.
   """
   verify unit "file modification triggers recompilation"
   verify unit "file creation triggers recompilation"
@@ -41,6 +45,7 @@ behavior watch_file_system_for_changes "Watch File System for Changes" {
   verify integration "a specforge.lock change reloads the environment"
   verify integration "a .wasm file no extension loads changes nothing"
   verify integration "after spec_root changes, files under the new spec root are watched"
+  verify integration "after an edit names a file outside the watched directories, a change to it is seen"
 }
 
 behavior classify_project_changes "Classify Project Changes" {
@@ -65,7 +70,8 @@ behavior classify_project_changes "Classify Project Changes" {
     from one set of session inputs, renewed when the environment loads and
     each time the checks run. Watch's watch roots and the LSP's watchers
     MUST cover every path the session classifies as an input (the LSP
-    spelling each under the project root as opened).
+    spelling each under the project root as opened), and MUST follow every
+    update that changes the inputs.
   """
   verify unit "a discovered .spec file is a source change keyed relative to the spec root"
   verify unit "specforge.json, specforge.lock and a loaded extension module are environment changes"
@@ -78,6 +84,8 @@ behavior classify_project_changes "Classify Project Changes" {
   verify unit "a session's watch roots cover every input it classifies"
   verify unit "the LSP's watchers cover every input the session classifies"
   verify integration "the LSP watches a missing referenced file and its directory, spelled under the project root"
+  verify unit "an update that names a new file the checks read changes the session's inputs"
+  verify integration "the LSP's watchers follow an edit that names a new file the checks read"
 }
 
 behavior bring_session_up_to_date "Bring a Session Up to Date with Disk" {

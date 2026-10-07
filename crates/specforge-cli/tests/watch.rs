@@ -645,10 +645,11 @@ fn watch_rechecks_when_a_referenced_file_outside_the_root_appears() {
     );
 }
 
-// Pin (plan 03, bug 3.1): an edit that names a file outside the watched
-// directories is not followed; creating the file raises no event. T5 flips it.
-#[test]
-fn watch_misses_a_file_an_edit_names_outside_its_roots() {
+#[specforge_test(
+    behavior = "watch_file_system_for_changes",
+    verify = "after an edit names a file outside the watched directories, a change to it is seen"
+)]
+fn watch_follows_a_file_an_edit_names_outside_its_roots() {
     let outside = TempDir::new().unwrap();
     fs::create_dir_all(outside.path().join("shared")).unwrap();
     let project = docref_project("gadget gadget_one \"G\" {\n}\n");
@@ -671,9 +672,18 @@ fn watch_misses_a_file_an_edit_names_outside_its_roots() {
     settle(&rx);
 
     fs::write(outside.path().join("shared/guide.md"), "# guide\n").unwrap();
-    let event = next_event(&rx, Duration::from_secs(5));
+    let event = next_event(&rx, Duration::from_secs(20));
     drop(child);
-    assert!(event.is_none(), "watch followed the new input: {event:?}");
+    let event = event.expect("no event after the file the edit named appeared");
+    assert_eq!(event["event"], "rechecked", "{event}");
+    assert_eq!(event["errors"], 0, "{event}");
+    assert!(!codes(&event).contains(&"E016".to_string()), "{event}");
+    let changed = event["changed"].as_array().unwrap();
+    assert_eq!(changed.len(), 1, "{event}");
+    assert!(
+        changed[0].as_str().unwrap().ends_with("shared/guide.md"),
+        "{event}"
+    );
 }
 
 // Pin (plan 03, bug 3.2): a referenced file whose directory does not exist

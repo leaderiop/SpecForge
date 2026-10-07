@@ -84,6 +84,10 @@ pub enum CheckMode<'a> {
 pub struct Update {
     /// What was applied: sources, the checks alone, or the environment.
     pub kind: UpdateKind,
+    /// The session's inputs changed: a file the checks read was named or
+    /// dropped, or the environment loaded again with other inputs. What an
+    /// adapter watches must follow [`ProjectSession::inputs`] (ADR 0030).
+    pub inputs_changed: bool,
     pub delta: GraphDelta,
     /// The files re-parsed or dropped: exactly the changed ones (sorted).
     pub rebuilt_files: Vec<String>,
@@ -193,7 +197,7 @@ impl OpeningProject {
             snapshot,
             recorded: OnceLock::new(),
         };
-        session.check_diagnostics = session.checked();
+        session.check_diagnostics = session.checked().0;
         session
     }
 }
@@ -305,7 +309,7 @@ impl ProjectSession {
         let result = self.build.rebuild(changes);
         self.recorded = OnceLock::new();
         self.import_diagnostics = self.resolve_imports();
-        self.check_diagnostics = match mode {
+        let (check_diagnostics, inputs_changed) = match mode {
             CheckMode::SyntaxOnlyIfParseErrorsIn(path)
                 if self
                     .build
@@ -313,12 +317,14 @@ impl ProjectSession {
                     .iter()
                     .any(|d| d.is(codes::E001)) =>
             {
-                Vec::new()
+                (Vec::new(), false)
             }
             _ => self.checked(),
         };
+        self.check_diagnostics = check_diagnostics;
         Update {
             kind: UpdateKind::Sources,
+            inputs_changed,
             delta: result.delta,
             rebuilt_files: result.rebuilt_files,
             changed_diagnostic_files: result.changed_diagnostic_files,
@@ -334,6 +340,7 @@ impl ProjectSession {
             // Nothing on disk to load again.
             return Update {
                 kind: UpdateKind::Environment,
+                inputs_changed: false,
                 delta: GraphDelta::default(),
                 rebuilt_files: Vec::new(),
                 changed_diagnostic_files: Vec::new(),
@@ -353,6 +360,7 @@ impl ProjectSession {
     pub fn replaced(&self, previous: &ProjectSession) -> Update {
         Update {
             kind: UpdateKind::Environment,
+            inputs_changed: previous.inputs != self.inputs,
             delta: compute_graph_delta(previous.graph(), self.graph()),
             rebuilt_files: self
                 .build
@@ -515,9 +523,11 @@ impl ProjectSession {
     /// Run every check again on the current graph: a check input changed.
     fn recheck(&mut self) -> Update {
         self.recorded = OnceLock::new();
-        self.check_diagnostics = self.checked();
+        let (check_diagnostics, inputs_changed) = self.checked();
+        self.check_diagnostics = check_diagnostics;
         Update {
             kind: UpdateKind::Checks,
+            inputs_changed,
             delta: GraphDelta::default(),
             rebuilt_files: Vec::new(),
             changed_diagnostic_files: Vec::new(),
@@ -556,15 +566,18 @@ impl ProjectSession {
 
     /// Every check on the current graph, over a snapshot of it taken now,
     /// the check inputs (which the snapshot's `file_exists` rules add to)
-    /// stamped first.
-    fn checked(&mut self) -> Vec<Diagnostic> {
+    /// stamped first; also whether the session's inputs changed.
+    fn checked(&mut self) -> (Vec<Diagnostic>, bool) {
         let entities = self.snapshot_now();
+        let mut changed = false;
         if self.inputs.root().is_some() {
-            self.inputs =
+            let next =
                 self.inputs
                     .with_named(named_files(&self.env, self.build.graph(), &entities));
+            changed = next != self.inputs;
+            self.inputs = next;
             self.snapshot.stamp_checks(&self.inputs);
         }
-        self.check_over(entities)
+        (self.check_over(entities), changed)
     }
 }

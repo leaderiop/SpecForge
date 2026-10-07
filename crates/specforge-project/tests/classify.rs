@@ -236,6 +236,57 @@ fn a_referenced_file_reruns_the_checks() {
     assert_eq!(e016(&session), 0, "{:?}", session.diagnostics());
 }
 
+#[specforge_test(
+    behavior = "classify_project_changes",
+    verify = "an update that names a new file the checks read changes the session's inputs"
+)]
+fn an_update_that_names_a_new_file_changes_the_inputs() {
+    use specforge_project::{Changes, SourceChange};
+
+    let dir = passes_project("gadget doc \"Doc\" {\n}\n");
+    let root = dir.path();
+    let ext = Arc::new(passes_extension());
+    let mut session =
+        ProjectSession::open_with_runtime(root, Some(Arc::clone(&ext) as SharedRuntime));
+    let before = session.inputs().clone();
+
+    // An edit that names a file: the inputs gain it.
+    let named = "gadget doc \"Doc\" {\n  docs [\"new.md\"]\n}\n";
+    write(root, "a.spec", named);
+    let keys = ["a.spec".to_string()];
+    let update = session.update(SourceChange::Disk(&keys));
+    assert!(update.inputs_changed);
+    assert_ne!(*session.inputs(), before);
+    assert!(
+        session
+            .inputs()
+            .watched()
+            .contains(&Watched::File(root.join("new.md")))
+    );
+
+    // The same update again, and a re-check of nothing renamed: no change.
+    assert!(!session.update(SourceChange::Disk(&keys)).inputs_changed);
+    let recheck = session
+        .apply(&Changes {
+            check_inputs: true,
+            ..Changes::default()
+        })
+        .unwrap();
+    assert!(!recheck.inputs_changed);
+
+    // A reload with the same config reads the same files: same inputs.
+    assert!(!session.reload_environment().inputs_changed);
+
+    // A reload that moves the spec root changes them.
+    fs::write(
+        root.join("specforge.json"),
+        json!({"name": "p", "version": "0.1.0", "extensions": ["@test/passes"], "spec_root": "other"})
+            .to_string(),
+    )
+    .unwrap();
+    assert!(session.reload_environment().inputs_changed);
+}
+
 /// An extension whose `note` kind's `doc` (a string) and `docs` (a list)
 /// a `file_exists` rule `F001` reads.
 fn file_rule_extension() -> specforge_wasm::testing::InProcessRuntime {
