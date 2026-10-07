@@ -60,15 +60,12 @@ pub fn check_graph(graph: &Graph, checks: &GraphChecks) -> Vec<Diagnostic> {
     let kind_reg = &checks.registries.kinds;
     let field_reg = &checks.registries.fields;
 
-    // Core validation (with file reference fields from registries).
-    // BTreeSet: the field list must be ordered, not HashSet-random (R-6 /
-    // hardening-plan D2).
+    // Core validation (with file reference fields from registries), in
+    // field-name order.
     let file_ref_fields: Vec<String> = field_reg
-        .iter()
-        .filter(|(_, _, entry)| entry.declared.file_reference)
-        .map(|(_, field_name, _)| field_name.to_string())
-        .collect::<std::collections::BTreeSet<_>>()
+        .file_reference_fields()
         .into_iter()
+        .map(str::to_string)
         .collect();
     let validator_config = ValidatorConfig {
         spec_root: checks.spec_root.to_path_buf(),

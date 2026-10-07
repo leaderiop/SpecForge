@@ -268,13 +268,13 @@ When the target kind's extension is not installed, the compiler emits `I004` ins
 ## Field Type Vocabulary (C2-08)
 
 Extensions declare fields with one of eight typed vocabularies
-(`ManifestFieldType` in the field registry). Author-facing meaning:
+(`specforge_protocol_types::FieldType`; every output names a type as below, ADR 0034). Author-facing meaning:
 
 | Type | Value shape | Reference semantics |
 |------|-------------|---------------------|
 | `string` | free text | none |
 | `integer` | whole number | none |
-| `boolean` | true/false | none |
+| `bool` | true/false | none |
 | `enum` | one of the declared enum values | none |
 | `string_list` | list of strings | none |
 | `reference` | a single entity id | MUST resolve to a declared entity (E003) |

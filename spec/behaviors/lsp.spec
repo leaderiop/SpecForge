@@ -242,13 +242,15 @@ behavior hover_information "Hover Information" {
     and the diagnostics about the entity.
     This behavior is responsible only for dispatching the hover request
     and returning the formatted result. The hover content MUST be
-    formatted as markdown. Field help (the field's declared type and
+    formatted as markdown. Field help (the field's declared type, named
+    as E061 names it — an enum field with its declared values — and its
     description) answers when the cursor is on a field's name in an
     entity's own body, nowhere else.
   """
   verify unit "hover delegates to provide_extension_entity_hover"
   verify unit "hover returns markdown-formatted content"
   verify unit "field help answers only on a field's name"
+  verify unit "field help names a field's type as E061 does, an enum's declared values included"
   verify contract "Hover Information: hover information holds — graph_available, kind_registry_available, hover_delegated, markdown_produced"
 }
 

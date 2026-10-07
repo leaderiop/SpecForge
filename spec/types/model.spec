@@ -19,24 +19,15 @@ type ModelOptions {
   verify unit "ModelOptions schema is valid"
 }
 
-type ModelFieldType = "string"
-  | "integer"
-  | "boolean"
-  | "enum"
-  | "string_list"
-  | "reference"
-  | "reference_list"
-  | "block"
-
 type ModelField {
-  name           string         @readonly
-  field_type     ModelFieldType @readonly
-  required       boolean        @readonly
-  description    string         @readonly @optional
-  default_value  string         @readonly @optional
-  enum_values    string[]       @readonly @optional
-  is_primary_key boolean        @readonly
-  references     string         @readonly @optional // target entity name
+  name           string    @readonly
+  field_type     FieldType @readonly
+  required       boolean   @readonly
+  description    string    @readonly @optional
+  default_value  string    @readonly @optional
+  enum_values    string[]  @readonly @optional
+  is_primary_key boolean   @readonly
+  references     string    @readonly @optional // target entity name
   verify unit "ModelField schema is valid"
 }
 

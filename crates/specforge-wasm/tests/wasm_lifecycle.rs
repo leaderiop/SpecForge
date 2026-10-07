@@ -188,7 +188,7 @@ fn load_refuses_binary_that_differs_from_lockfile_hash() {
     let wasm_bytes = b"\0asm-original";
     let mut lock = LockFile::new();
     install_extension(
-        "@test/ext",
+        &specforge_protocol_types::PackageName::parse("@test/ext").unwrap(),
         "1.0.0",
         wasm_bytes,
         &specforge_wasm::hex_sha256(wasm_bytes),
@@ -238,4 +238,48 @@ fn load_with_empty_or_absent_hash_does_not_fail() {
 
     // No hash context at all (local dev load): unchanged behavior.
     load_wasm_module("@test/local", &wasm_path, &runtime, None).unwrap();
+}
+
+// B:install_wasm_extension — verify unit "an extension is installed under the extensions directory of its project, by its package name"
+#[test]
+fn relative_path_is_what_install_joins() {
+    use specforge_protocol_types::PackageName;
+    use specforge_wasm::{install_extension, installed_wasm_path, uninstall_extension};
+
+    let dir = TempDir::new().unwrap();
+    let extensions_dir = dir.path().join("extensions");
+    std::fs::create_dir_all(&extensions_dir).unwrap();
+    let name = PackageName::parse("@acme/tool").unwrap();
+    let wasm = b"\0asm-tool";
+    let mut lock = LockFile::new();
+
+    install_extension(
+        &name,
+        "1.0.0",
+        wasm,
+        &specforge_wasm::hex_sha256(wasm),
+        &extensions_dir,
+        &mut lock,
+        None,
+        Vec::new(),
+    )
+    .unwrap();
+
+    let installed = extensions_dir
+        .join("@acme")
+        .join("tool")
+        .join("extension.wasm");
+    assert_eq!(installed_wasm_path(&extensions_dir, &name), installed);
+    assert!(installed.is_file());
+    // Nothing is written outside the extensions directory.
+    let outside: Vec<_> = std::fs::read_dir(dir.path())
+        .unwrap()
+        .flatten()
+        .map(|e| e.file_name())
+        .collect();
+    assert_eq!(outside, ["extensions"]);
+
+    uninstall_extension(&name, &extensions_dir, &mut lock).unwrap();
+    assert!(!installed.exists());
+    assert!(lock.entries.is_empty());
 }

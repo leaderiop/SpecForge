@@ -26,11 +26,9 @@ pub struct Args {
     depth: Option<usize>,
 }
 
-/// `specforge.model`: the model operation over the served project; its
-/// W146 warnings are the result's diagnostics.
+/// `specforge.model`: the model operation over the served project.
 pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
-    let outcome = model::model(&call.view(), &options(args));
-    ToolOutcome::text(outcome.rendered).with_diagnostics(outcome.warnings)
+    ToolOutcome::text(model::model(&call.view(), &options(args)))
 }
 
 /// The model options the arguments name; an absent enumerated one is its

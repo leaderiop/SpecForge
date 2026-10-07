@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 use std::fmt::Write;
 
-use super::{Cardinality, GroupBy, ModelFieldType, ModelIntermediate, ModelOptions};
+use super::{Cardinality, GroupBy, ModelIntermediate, ModelOptions};
+use specforge_registry::FieldType;
 
 pub fn render_dbml(model: &ModelIntermediate, options: &ModelOptions) -> String {
     let mut out = String::new();
@@ -85,8 +86,7 @@ fn render_flat(model: &ModelIntermediate, pk: &HashMap<&str, &str>, out: &mut St
 
 fn render_enums(entity: &super::ModelEntity, out: &mut String) {
     for field in &entity.fields {
-        let has_enum_values =
-            field.field_type == ModelFieldType::Enum && field.enum_values.is_some();
+        let has_enum_values = field.field_type == FieldType::Enum && field.enum_values.is_some();
         if has_enum_values {
             writeln!(out).unwrap();
             writeln!(out, "Enum {}_{} {{", entity.name, field.name).unwrap();
@@ -112,7 +112,7 @@ fn render_table(entity: &super::ModelEntity, pk: &HashMap<&str, &str>, out: &mut
     }
 
     for field in &entity.fields {
-        let type_str = if field.field_type == ModelFieldType::Enum {
+        let type_str = if field.field_type == FieldType::Enum {
             format!("{}_{}", entity.name, field.name)
         } else {
             dbml_type(field.field_type).to_string()
@@ -161,15 +161,15 @@ fn render_table(entity: &super::ModelEntity, pk: &HashMap<&str, &str>, out: &mut
 /// Real DBML column types instead of the previous all-`string` erasure (C13-10).
 /// Lists have no native DBML column type and render as JSON-carrying `text`;
 /// structured `block` fields render as `json`.
-fn dbml_type(ft: ModelFieldType) -> &'static str {
+fn dbml_type(ft: FieldType) -> &'static str {
     match ft {
-        ModelFieldType::String | ModelFieldType::Reference => "varchar",
-        ModelFieldType::Integer => "integer",
-        ModelFieldType::Boolean => "boolean",
-        ModelFieldType::StringList | ModelFieldType::ReferenceList => "text",
-        ModelFieldType::Block => "json",
+        FieldType::String | FieldType::Reference => "varchar",
+        FieldType::Integer => "integer",
+        FieldType::Bool => "boolean",
+        FieldType::StringList | FieldType::ReferenceList => "text",
+        FieldType::Block => "json",
         // Enum fields render as the custom `Enum {entity}_{field}` type instead.
-        ModelFieldType::Enum => "varchar",
+        FieldType::Enum => "varchar",
     }
 }
 

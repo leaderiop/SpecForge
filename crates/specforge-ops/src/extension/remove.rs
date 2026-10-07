@@ -7,6 +7,7 @@ use specforge_common::{ExtensionEntry, codes};
 use specforge_graph::Graph;
 use specforge_project::EnabledExtension;
 use specforge_protocol_types::ExtensionDeclaration;
+use specforge_protocol_types::PackageName;
 use specforge_registry::KindRegistry;
 use specforge_wasm::{LockFile, LockState, uninstall_extension, write_lock_file};
 use std::path::Path;
@@ -157,6 +158,11 @@ pub fn remove(view: &ProjectView, req: &RemoveRequest) -> Result<RemoveOutcome, 
         .with_data(serde_json::json!({ "extension": req.name })));
     }
 
+    // What is deleted below is a directory named by this argument: it must
+    // be a package name (E072), before anything is read or removed.
+    let package = PackageName::parse(req.name)
+        .map_err(|why| OpError::from(specforge_common::package::invalid(&why)))?;
+
     let lock = req.lock.file();
     let locked = req.lock.entries().iter().find(|e| e.name == req.name);
 
@@ -215,9 +221,9 @@ pub fn remove(view: &ProjectView, req: &RemoveRequest) -> Result<RemoveOutcome, 
     }
     if let (Origin::Installed { .. }, Some(mut lock)) = (&outcome.origin, lock.cloned()) {
         // Dependents are checked above, over the loaded declarations and the lock.
-        let dir = extensions_dir(req.root).join(req.name);
+        let dir = extensions_dir(req.root).join(package.relative_path());
         let installed = files_in(&dir);
-        uninstall_extension(req.name, &extensions_dir(req.root), &mut lock)
+        uninstall_extension(&package, &extensions_dir(req.root), &mut lock)
             .map_err(|e| OpError::from(e).with_writes(writes.clone()))?;
         for file in installed {
             writes.record(file);

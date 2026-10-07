@@ -361,7 +361,7 @@ fn file_watchers_follow_what_the_session_is_built_from() {
     let session = specforge_project::ProjectSession::open_with_runtime(dir.path(), None);
     let root = dir.path().to_string_lossy().into_owned();
 
-    let absolute: Vec<String> = specforge_lsp::watchers::file_watchers(&session, false)
+    let absolute: Vec<String> = specforge_lsp::watchers::file_watchers(session.inputs(), false)
         .into_iter()
         .map(|w| match w.glob_pattern {
             GlobPattern::String(glob) => glob,
@@ -379,7 +379,7 @@ fn file_watchers_follow_what_the_session_is_built_from() {
     );
 
     let relative: Vec<(std::path::PathBuf, String)> =
-        specforge_lsp::watchers::file_watchers(&session, true)
+        specforge_lsp::watchers::file_watchers(session.inputs(), true)
             .into_iter()
             .map(|w| match w.glob_pattern {
                 GlobPattern::Relative(pattern) => {
@@ -402,7 +402,113 @@ fn file_watchers_follow_what_the_session_is_built_from() {
 
     let detached = specforge_project::ProjectSession::detached();
     assert_eq!(
-        specforge_lsp::watchers::file_watchers(&detached, true),
+        specforge_lsp::watchers::file_watchers(detached.inputs(), true),
         specforge_lsp::watchers::default_watchers()
     );
+}
+
+/// Whether `glob` (`**` any depth, `*` one path segment, else literal)
+/// matches `path`.
+fn glob_matches(glob: &str, path: &str) -> bool {
+    fn go(glob: &[&str], path: &[&str]) -> bool {
+        match glob.split_first() {
+            None => path.is_empty(),
+            Some((&"**", rest)) => (0..=path.len()).any(|skipped| go(rest, &path[skipped..])),
+            Some((segment, rest)) => path.split_first().is_some_and(|(first, tail)| {
+                (*segment == "*" || segment == first) && go(rest, tail)
+            }),
+        }
+    }
+    go(
+        &glob.split('/').collect::<Vec<_>>(),
+        &path.split('/').collect::<Vec<_>>(),
+    )
+}
+
+/// Every input the session classifies, a file created beside a missing
+/// referenced file included, is matched by a watcher glob, spelled under
+/// the project root (or canonical outside it).
+#[spec(
+    behavior = "classify_project_changes",
+    verify = "the LSP's watchers cover every input the session classifies"
+)]
+fn the_watchers_cover_what_the_session_classifies() {
+    use specforge_project::{InputRole, ProjectSession};
+    use tower_lsp::lsp_types::GlobPattern;
+
+    let outside = tempfile::TempDir::new().unwrap();
+    let far = tempfile::TempDir::new().unwrap();
+    let module_dir = std::fs::canonicalize(far.path()).unwrap().join("mods");
+    std::fs::create_dir_all(&module_dir).unwrap();
+    let module = module_dir.join("ext.wasm");
+    // From `spec/`, two levels up is the parent of the root: the sibling
+    // temp directory `outside`.
+    let outside_name = outside.path().file_name().unwrap().to_string_lossy();
+    let reference = format!("../../{outside_name}/guide.md");
+    let dir = crate::session::docref_project(&format!(
+        "gadget gadget_one \"G\" {{\n  docs [\"{reference}\", \"missing/sub.md\"]\n}}\n"
+    ));
+    let root = dir.path();
+    std::fs::write(
+        root.join("specforge.json"),
+        serde_json::json!({
+            "name": "p",
+            "version": "0.1.0",
+            "spec_root": "spec",
+            "extensions": [
+                "@specforge/software",
+                "@sdk/docref=ext/docref.wasm",
+                format!("@acme/far={}", module.display()),
+            ],
+        })
+        .to_string(),
+    )
+    .unwrap();
+    let session = ProjectSession::open(root);
+
+    let globs: Vec<String> = specforge_lsp::watchers::file_watchers(session.inputs(), false)
+        .into_iter()
+        .map(|w| match w.glob_pattern {
+            GlobPattern::String(glob) => glob,
+            other => panic!("expected an absolute glob, got {other:?}"),
+        })
+        .collect();
+    let spec_root = root.join("spec");
+    let canonical_outside = std::fs::canonicalize(outside.path()).unwrap();
+    // The inputs as the watchers spell them: under the root as opened,
+    // canonical outside it.
+    let spelled = [
+        (root.join("specforge.json"), root.join("specforge.json")),
+        (root.join("specforge.lock"), root.join("specforge.lock")),
+        (root.join("ext/docref.wasm"), root.join("ext/docref.wasm")),
+        (module.clone(), module),
+        (
+            spec_root.join(&reference),
+            canonical_outside.join("guide.md"),
+        ),
+        (
+            spec_root.join("missing/sub.md"),
+            spec_root.join("missing/sub.md"),
+        ),
+        // A file created beside a missing referenced file changes E016's
+        // suggestion.
+        (
+            spec_root.join("missing/x.md"),
+            spec_root.join("missing/x.md"),
+        ),
+    ];
+    for (input, watched) in &spelled {
+        assert_ne!(
+            session.inputs().classify(input),
+            InputRole::Unrelated,
+            "{}",
+            input.display()
+        );
+        let watched = watched.display().to_string();
+        assert!(
+            globs.iter().any(|glob| glob_matches(glob, &watched)),
+            "{watched} is matched by none of {globs:?}"
+        );
+    }
+    assert!(!globs.iter().any(|g| g.contains("/../")), "{globs:?}");
 }

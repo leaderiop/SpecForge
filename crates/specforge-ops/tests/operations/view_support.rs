@@ -14,7 +14,7 @@ use specforge_protocol_types::{
     ExtensionDeclaration, ValidationRuleDescriptor, ValidationSeverity,
 };
 use specforge_registry::rules::{Registries, Rules};
-use specforge_registry::{FieldRegistryEntry, KindRegistryEntry, ManifestFieldType, RegistryBuild};
+use specforge_registry::{FieldRegistryEntry, KindRegistryEntry, RegistryBuild};
 use tempfile::TempDir;
 
 /// A kind `@t/soft` declares.
@@ -47,17 +47,17 @@ pub fn obligations_rule(kind: &str) -> ValidationRuleDescriptor {
 /// A boolean `kind.field` that, set, exempts the entity from obligations
 /// (as `@specforge/formal` declares `abstract`).
 pub fn exempting_field(kind: &str, field: &str) -> FieldRegistryEntry {
-    FieldRegistryEntry {
-        kind_name: kind.to_string(),
-        field_type: ManifestFieldType::Bool,
-        source_extension: "@t/formal".into(),
-        proof_role: None,
-        declared: specforge_registry::FieldDescriptor {
+    FieldRegistryEntry::new(
+        kind,
+        "@t/formal",
+        specforge_registry::FieldDescriptor {
             name: field.to_string(),
+            field_type: "bool".to_string(),
             exempts_obligations: true,
             ..Default::default()
         },
-    }
+    )
+    .unwrap()
 }
 
 /// Registries whose `obligated` kinds are testable and must declare

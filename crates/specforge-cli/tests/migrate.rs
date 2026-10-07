@@ -1,6 +1,7 @@
 use assert_cmd::Command;
 use predicates::prelude::*;
 use specforge_common::Sym;
+use specforge_protocol_types::FieldType;
 use specforge_test_macros::test as specforge_test;
 use std::fs;
 use tempfile::TempDir;
@@ -987,7 +988,7 @@ fn non_breaking_schema_change_no_w053() {
             dot_color: None,
             fields: vec![SchemaField {
                 name: "new_field".to_string(),
-                field_type: "string".to_string(),
+                field_type: FieldType::String,
                 required: false,
                 enum_values: None,
                 edge: None,
@@ -1783,7 +1784,7 @@ fn snapshot_includes_all_schema_components() {
             dot_color: None,
             fields: vec![SchemaField {
                 name: "contract".to_string(),
-                field_type: "string".to_string(),
+                field_type: FieldType::String,
                 required: true,
                 enum_values: None,
                 edge: None,
@@ -1851,13 +1852,13 @@ fn snapshot_includes_all_schema_components() {
         .iter()
         .find(|f| f.name == "contract")
         .expect("behavior.contract field in snapshot");
-    assert_eq!(contract.field_type, "string");
+    assert_eq!(contract.field_type, FieldType::String);
     let invariants = behavior
         .fields
         .iter()
         .find(|f| f.name == "invariants")
         .expect("behavior.invariants field in snapshot");
-    assert_eq!(invariants.field_type, "reference_list");
+    assert_eq!(invariants.field_type, FieldType::ReferenceList);
     // Edge types
     assert!(
         snapshot
@@ -2090,7 +2091,7 @@ fn removed_required_field_is_breaking() {
             dot_color: None,
             fields: vec![SchemaField {
                 name: "contract".to_string(),
-                field_type: "string".to_string(),
+                field_type: FieldType::String,
                 required: true,
                 enum_values: None,
                 edge: None,
@@ -2145,7 +2146,7 @@ fn changed_field_type_is_breaking() {
             dot_color: None,
             fields: vec![SchemaField {
                 name: "contract".to_string(),
-                field_type: "string".to_string(),
+                field_type: FieldType::String,
                 required: true,
                 enum_values: None,
                 edge: None,
@@ -2168,7 +2169,7 @@ fn changed_field_type_is_breaking() {
             dot_color: None,
             fields: vec![SchemaField {
                 name: "contract".to_string(),
-                field_type: "string_list".to_string(), // type changed
+                field_type: FieldType::StringList, // type changed
                 required: true,
                 enum_values: None,
                 edge: None,
@@ -2223,7 +2224,7 @@ fn added_optional_field_not_breaking() {
             dot_color: None,
             fields: vec![SchemaField {
                 name: "description".to_string(),
-                field_type: "string".to_string(),
+                field_type: FieldType::String,
                 required: false, // optional
                 enum_values: None,
                 edge: None,

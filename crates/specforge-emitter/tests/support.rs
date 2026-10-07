@@ -1,6 +1,6 @@
 //! Registries the export tests share.
 
-use specforge_registry::{FieldRegistry, FieldRegistryEntry, ManifestFieldType};
+use specforge_registry::{FieldRegistry, FieldRegistryEntry};
 
 /// A field registry in which each of `kinds` declares `contract` and
 /// `status` as headline fields, as `@specforge/software` declares them on
@@ -11,18 +11,20 @@ pub fn headline_registry(kinds: &[&str]) -> FieldRegistry {
         .iter()
         .flat_map(|kind| ["contract", "status"].map(|field| (*kind, field)))
     {
-        registry.register(FieldRegistryEntry {
-            kind_name: kind.to_string(),
-            field_type: ManifestFieldType::String,
-            source_extension: "@test/ext".to_string(),
-            proof_role: None,
-            declared: specforge_registry::FieldDescriptor {
-                name: field.to_string(),
-                normative: field == "contract",
-                headline: true,
-                ..Default::default()
-            },
-        });
+        registry.register(
+            FieldRegistryEntry::new(
+                kind,
+                "@test/ext",
+                specforge_registry::FieldDescriptor {
+                    name: field.to_string(),
+                    field_type: "string".to_string(),
+                    normative: field == "contract",
+                    headline: true,
+                    ..Default::default()
+                },
+            )
+            .unwrap(),
+        );
     }
     registry
 }

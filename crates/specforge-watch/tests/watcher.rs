@@ -185,3 +185,34 @@ fn watch_contract_consistency() {
     let event = wait_for_event(&rx, Duration::from_secs(2)).expect("readme.txt reported");
     assert!(event.iter().any(|p| p.ends_with("readme.txt")), "{event:?}");
 }
+
+// ── a shallow watcher ─────────────────────────────────────────
+
+/// The nearest existing ancestor of a missing directory is watched for its
+/// own entries only: the next directory on the way is reported, what is
+/// below an existing one is not.
+#[test]
+fn a_shallow_watcher_reports_its_own_entries_only() {
+    let dir = TempDir::new().unwrap();
+    fs::create_dir_all(dir.path().join("sub")).unwrap();
+    let (tx, rx) = mpsc::channel();
+    let _watcher =
+        SpecWatcher::shallow(dir.path(), tx, specforge_watch::DEFAULT_DEBOUNCE_WINDOW).unwrap();
+    // macOS can deliver events for the directory's own creation late.
+    std::thread::sleep(Duration::from_millis(1000));
+    while wait_for_event(&rx, Duration::from_millis(300)).is_some() {}
+
+    // Below an entry: not reported.
+    fs::write(dir.path().join("sub/deep.md"), "deep").unwrap();
+    let below = wait_for_event(&rx, Duration::from_millis(800));
+    assert!(
+        below.is_none(),
+        "a change below the directory was reported: {below:?}"
+    );
+
+    // Its own entry: reported, whole.
+    fs::write(dir.path().join("own.md"), "own").unwrap();
+    let events = wait_for_event(&rx, Duration::from_secs(5)).expect("its own entry is reported");
+    let expected = fs::canonicalize(dir.path()).unwrap().join("own.md");
+    assert!(events.contains(&expected), "{events:?}");
+}

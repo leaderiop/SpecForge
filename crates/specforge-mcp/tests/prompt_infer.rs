@@ -122,6 +122,55 @@ fn kind_scope_includes_example() {
     assert!(example.contains("behavior example_behavior"));
 }
 
+#[specforge_test(
+    behavior = "provide_infer_kind_scope",
+    verify = "kind scope lists every field registered on the kind, its type by name"
+)]
+fn kind_scope_lists_every_registered_field() {
+    let extension = test_extension("behavior", None).declaring(|c| {
+        c.shared_field("tags", |f| {
+            f.field_type(FieldType::StringList);
+        });
+    });
+    let mut state = TestProject::new().serve(&[extension]);
+    let resp = infer(&mut state, json!({"scope": "kind:behavior"}));
+    let content: Value = prompt_payload(&resp);
+    // `tags` is the extension's shared field, registered on `behavior`;
+    // fields come in name order, typed by their protocol names.
+    let fields: Vec<(&str, &str)> = content["fields"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|f| (f["name"].as_str().unwrap(), f["type"].as_str().unwrap()))
+        .collect();
+    assert_eq!(fields, [("description", "string"), ("tags", "string_list")]);
+}
+
+#[specforge_test(
+    behavior = "provide_infer_kind_scope",
+    verify = "kind scope's example writes each optional field the way its type is written"
+)]
+fn kind_scope_example_writes_each_field_by_its_type() {
+    let extension = test_extension("behavior", None).declaring(|c| {
+        c.shared_field("tags", |f| {
+            f.field_type(FieldType::StringList);
+        });
+        c.shared_field("refs_to", |f| {
+            f.field_type(FieldType::ReferenceList)
+                .target_kind("behavior");
+        });
+    });
+    let mut state = TestProject::new().serve(&[extension]);
+    let resp = infer(&mut state, json!({"scope": "kind:behavior"}));
+    let content: Value = prompt_payload(&resp);
+    let example = content["example"].as_str().unwrap();
+    assert!(example.contains("  refs_to [ref_1, ref_2]"), "{example}");
+    assert!(
+        example.contains("  tags [\"item1\", \"item2\"]"),
+        "{example}"
+    );
+}
+
 #[test]
 fn kind_scope_is_case_insensitive() {
     let mut state = state_with_my_behavior();

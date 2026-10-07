@@ -262,7 +262,7 @@ pub fn detect_mistyped_references(
         for (field_name, target_ids) in &entity.references {
             // Look up the field's target_kind constraint
             let expected_kind = match field_reg.get(entity_kind, field_name) {
-                Some(entry) => match &entry.declared.target_kind {
+                Some(entry) => match &entry.declared().target_kind {
                     Some(tk) => tk.as_str(),
                     None => continue, // No constraint — any kind is valid
                 },

@@ -523,7 +523,7 @@ fn completion_keeps_the_fields_target_kind() {
         .registries
         .fields
         .get("behavior", "invariants")
-        .and_then(|f| f.declared.target_kind.clone())
+        .and_then(|f| f.declared().target_kind.clone())
         .expect("@specforge/software's invariants field targets a kind");
     let kinds = [target.as_str()];
     let query = EntityQuery {
@@ -717,8 +717,7 @@ fn the_message_is_never_read() {
 use specforge_ops::navigate::{Fix, FixKind, FixQuery, FixSource, TextEdit};
 use specforge_project::coverage::RecordedCoverage;
 use specforge_registry::{
-    FieldRegistry, FieldRegistryEntry, KindRegistry, KindRegistryEntry, ManifestFieldType,
-    RegistryBuild,
+    FieldRegistry, FieldRegistryEntry, KindRegistry, KindRegistryEntry, RegistryBuild,
 };
 
 /// `text` with `edits` (spans of it) applied.
@@ -1144,17 +1143,19 @@ fn the_stub_kind_is_the_fields_target_kind() {
 /// `behavior.invariants` as a reference list targeting `target_kind`.
 fn invariants_field(target_kind: Option<&str>) -> FieldRegistry {
     let mut fields = FieldRegistry::new();
-    fields.register(FieldRegistryEntry {
-        kind_name: "behavior".into(),
-        field_type: ManifestFieldType::ReferenceList,
-        source_extension: "@test/ext".into(),
-        proof_role: None,
-        declared: specforge_registry::FieldDescriptor {
-            name: "invariants".into(),
-            target_kind: target_kind.map(str::to_string),
-            ..Default::default()
-        },
-    });
+    fields.register(
+        FieldRegistryEntry::new(
+            "behavior",
+            "@test/ext",
+            specforge_registry::FieldDescriptor {
+                name: "invariants".into(),
+                field_type: "reference_list".to_string(),
+                target_kind: target_kind.map(str::to_string),
+                ..Default::default()
+            },
+        )
+        .unwrap(),
+    );
     fields
 }
 

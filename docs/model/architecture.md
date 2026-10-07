@@ -80,24 +80,13 @@ pub struct ModelEntity {
 
 pub struct ModelField {
     pub name: String,
-    pub field_type: ModelFieldType,
+    pub field_type: FieldType,  // the protocol's FieldType (ADR 0034)
     pub required: bool,
     pub description: Option<String>,
     pub default_value: Option<String>,
     pub enum_values: Option<Vec<String>>,
     pub is_primary_key: bool,
     pub references: Option<String>,  // target entity name for reference fields
-}
-
-pub enum ModelFieldType {
-    String,
-    Integer,
-    Boolean,
-    Enum,
-    StringList,
-    Reference,
-    ReferenceList,
-    Block,
 }
 
 pub struct ModelRelationship {
