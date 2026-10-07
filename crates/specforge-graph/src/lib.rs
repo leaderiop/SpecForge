@@ -9,7 +9,6 @@ mod obligations;
 // without linking the graph); re-exported here unchanged.
 pub use obligations::obligations;
 pub use specforge_common::cycles::{CycleOptions, find_cycles};
-pub mod rename;
 
 pub use build::{
     GraphConfig, build_graph, build_graph_with_config, entity_pass, is_define_block,

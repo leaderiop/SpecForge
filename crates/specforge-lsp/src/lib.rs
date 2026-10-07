@@ -16,7 +16,6 @@ pub use document::{
 };
 pub use hover::hover_field_info;
 pub use navigation::{goto_import_definition, navigator};
-pub use specforge_graph::rename::RenameEdit;
 pub use state::LspState;
 
 /// Quiet window the reparse worker waits for before recompiling: the one
