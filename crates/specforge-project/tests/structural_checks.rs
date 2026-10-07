@@ -165,15 +165,15 @@ fn ghost_rules() -> InProcessRuntime {
     })
 }
 
-/// ADR 0020 D5 says a rule for an undeclared kind is inert; today it fires
-/// on that keyword's entities (T10 flips this to `["E024"]`).
+/// ADR 0020 D5: a rule for an undeclared kind is inert. It does not fire on
+/// that keyword's entities, which are E024.
 #[test]
-fn a_rule_fires_on_entities_of_an_undeclared_target_kind() {
+fn a_rule_is_inert_for_an_undeclared_target_kind() {
     let dir = project(&["@test/ghost-rules"], "ghost g1 { }\n");
 
     let found = reported(&ghost_rules(), &dir, &["E024", "W901"]);
 
-    assert_eq!(codes_of(&found), ["E024", "W901"], "{found:#?}");
+    assert_eq!(codes_of(&found), ["E024"], "{found:#?}");
 }
 
 /// `doc` has file-reference fields (`paths`, `guide`); `note` has a field

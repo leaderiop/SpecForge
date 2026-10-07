@@ -3996,29 +3996,6 @@ expression: "digest(&load(&runtime, &[name]))"
     },
     {
       "check": "field_value_constraint",
-      "code": "W078",
-      "constraint": {
-        "kind": "one_of",
-        "pattern": null,
-        "values": [
-          "critical",
-          "high",
-          "medium",
-          "low"
-        ]
-      },
-      "edge_peer_kind": null,
-      "edge_type": null,
-      "field": "priority",
-      "message_template": "{kind} '{id}' has invalid priority '{value}' — expected one of: critical, high, medium, low",
-      "owner": "@specforge/product",
-      "severity": "Warning",
-      "target_extension": "@specforge/governance",
-      "target_kind": "constraint",
-      "wasm_function": null
-    },
-    {
-      "check": "field_value_constraint",
       "code": "W079",
       "constraint": {
         "kind": "one_of",

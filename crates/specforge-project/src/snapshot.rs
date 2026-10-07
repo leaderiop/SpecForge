@@ -928,11 +928,12 @@ mod tests {
 
     /// The ids W004 reports on `source` (rules on `behavior` and `type`).
     fn w004_ids(source: &str, fields: FieldRegistry) -> Vec<String> {
-        let registries = build(
-            KindRegistry::new(),
-            fields,
-            vec![w004("behavior"), w004("type")],
-        );
+        // A rule for a kind nobody declares is inert (ADR 0020 D5): declare
+        // the two the rules target.
+        let mut kinds = KindRegistry::new();
+        kinds.register(kind("behavior", true, true));
+        kinds.register(kind("type", true, true));
+        let registries = build(kinds, fields, vec![w004("behavior"), w004("type")]);
         let snapshot = snapshot(source, &registries);
         let mut ids: Vec<String> = registries
             .rules
