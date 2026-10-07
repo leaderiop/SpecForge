@@ -57,11 +57,10 @@ impl RegistryBuild {
     /// field names (E016) and every file a `file_exists` rule reads. A
     /// project session's check inputs.
     pub fn files(&self, input: &RuleInput<'_>) -> Vec<PathBuf> {
-        let names = files::reference_fields(&self.fields);
         let mut paths: Vec<PathBuf> = input
             .entities
             .iter()
-            .flat_map(|record| files::paths(record, &names))
+            .flat_map(|record| files::paths(record, &self.fields))
             .map(|path| input.spec_root.join(path))
             .collect();
         paths.extend(self.rules.files(input));

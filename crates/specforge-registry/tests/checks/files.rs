@@ -235,3 +235,78 @@ fn the_files_the_checks_read_are_one_set() {
         .collect();
     assert_eq!(files, expected);
 }
+
+/// `doc` has file-reference fields (`paths`, a list; `guide`, a single
+/// path); `note` has a `paths` that is no file reference.
+fn docs_and_notes() -> ExtensionDeclaration {
+    declare("@test/docs", |c| {
+        c.kind("Doc", |k| {
+            k.keyword("doc");
+            k.field("paths", |f| {
+                f.field_type(FieldType::StringList).file_reference();
+            });
+            k.field("guide", |f| {
+                f.field_type(FieldType::String).file_reference();
+            });
+        });
+        c.kind("Note", |k| {
+            k.keyword("note");
+            k.field("paths", |f| {
+                f.field_type(FieldType::StringList);
+            });
+        });
+    })
+}
+
+fn files_and_errors(records: &[EntityRecord]) -> (Vec<PathBuf>, Vec<Diagnostic>) {
+    let build = build([docs_and_notes()]);
+    let root = std::path::Path::new("/nonexistent/spec");
+    let input = RuleInput {
+        entities: records,
+        edges: &[],
+        spec_root: root,
+    };
+    let diags = build.check(&input, &NoVerdicts);
+    (
+        build.files(&input),
+        coded_in(&diags, "E016").into_iter().cloned().collect(),
+    )
+}
+
+#[spec(
+    behavior = "validate_file_reference_paths",
+    verify = "a field another kind declares as a file reference is not one on this kind"
+)]
+fn a_field_named_like_another_kinds_file_reference_is_not_one() {
+    let (files, errors) = files_and_errors(&[
+        EntityRecord::new("doc", "d1", span("main.spec")).with_list("paths", &["missing.md"]),
+        EntityRecord::new("note", "n1", span("main.spec")).with_list("paths", &["alpha", "beta"]),
+    ]);
+
+    assert_eq!(errors.len(), 1, "{errors:?}");
+    assert!(errors[0].message.contains("'missing.md'"), "{errors:?}");
+    assert_eq!(
+        files,
+        [std::path::Path::new("/nonexistent/spec").join("missing.md")],
+        "the note's tags are not watched"
+    );
+}
+
+#[spec(
+    behavior = "validate_file_reference_paths",
+    verify = "a single path on a file-reference field is checked like a one-item list"
+)]
+fn a_single_path_is_checked() {
+    let (files, errors) = files_and_errors(&[
+        EntityRecord::new("doc", "d1", span("main.spec")).with_field("guide", "missing.md"),
+        // An empty single value names no file.
+        EntityRecord::new("doc", "d2", span("main.spec")).with_field("guide", ""),
+    ]);
+
+    assert_eq!(errors.len(), 1, "{errors:?}");
+    assert!(errors[0].message.contains("'missing.md'"), "{errors:?}");
+    assert_eq!(
+        files,
+        [std::path::Path::new("/nonexistent/spec").join("missing.md")]
+    );
+}

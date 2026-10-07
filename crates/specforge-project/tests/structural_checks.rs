@@ -197,25 +197,31 @@ fn docs() -> InProcessRuntime {
     })
 }
 
-/// `note.paths` is not a file reference, but a field of that name is one on
-/// `doc`, so E016 checks the note's tags (T8 flips this: no E016).
-#[test]
-fn a_field_named_like_another_kinds_file_reference_is_checked() {
+/// `note.paths` is no file reference: a field of that name is one on `doc`
+/// only (a file reference is one on the kinds that declare it).
+#[specforge_test(
+    behavior = "validate_file_reference_paths",
+    verify = "a field another kind declares as a file reference is not one on this kind"
+)]
+fn a_field_named_like_another_kinds_file_reference_is_not_checked() {
     let dir = project(&["@test/docs"], "note n1 { paths [\"alpha\"] }\n");
 
     let found = reported(&docs(), &dir, &["E016"]);
 
-    assert_eq!(found.len(), 1, "{found:#?}");
-    assert!(found[0][1].contains("'alpha'"), "{found:#?}");
+    assert!(found.is_empty(), "{found:#?}");
 }
 
-/// A single path on a `string` file-reference field is never checked (T8
-/// flips this: one E016 naming `missing.md`).
-#[test]
-fn a_single_path_on_a_file_reference_field_is_not_checked() {
+/// A single path on a `string` file-reference field is checked like a
+/// one-item list.
+#[specforge_test(
+    behavior = "validate_file_reference_paths",
+    verify = "a single path on a file-reference field is checked like a one-item list"
+)]
+fn a_single_path_on_a_file_reference_field_is_checked() {
     let dir = project(&["@test/docs"], "doc d1 { guide \"missing.md\" }\n");
 
     let found = reported(&docs(), &dir, &["E016"]);
 
-    assert!(found.is_empty(), "{found:#?}");
+    assert_eq!(found.len(), 1, "{found:#?}");
+    assert!(found[0][1].contains("'missing.md'"), "{found:#?}");
 }
