@@ -213,6 +213,7 @@ behavior read_mcp_arguments_as_declared "Read MCP Arguments as Declared" {
   verify unit "a listing is derived from the typed arguments: each argument's type, description, default, enumerated values and whether it is required"
   verify unit "an absent or null argument reads as the default the listing advertises, and a missing required one is refused naming it"
   verify unit "a boolean or count sent as a string is read as one, as an extension command reads it; any other value of the wrong type is refused naming the argument"
+  verify unit "an argument neither the tool nor its target declares is refused naming it, with the declared one it is close to"
 }
 
 behavior list_mcp_prompts "List MCP Prompts" {

@@ -234,6 +234,69 @@ fn format_states_the_write_rule_not_a_default() {
     );
 }
 
+#[specforge_test(
+    behavior = "read_mcp_arguments_as_declared",
+    verify = "an argument neither the tool nor its target declares is refused naming it, with the declared one it is close to"
+)]
+fn an_undeclared_argument_is_refused_naming_it() {
+    use crate::tool_errors::mcp_error;
+
+    let mut served = served();
+    let root = served.root().to_path_buf();
+
+    let reply = call_tool(
+        &mut served,
+        "specforge.export",
+        json!({"format": "brief", "scop": "alpha"}),
+    );
+    let error = mcp_error(&reply);
+    assert_eq!(error["code"], "invalid_input");
+    assert_eq!(error["argument"], "scop");
+    assert_eq!(error["message"], "unknown argument 'scop'");
+    assert_eq!(error["data"]["suggestion"], "did you mean 'scope'?");
+
+    // The target's names are its own: use_cached only where the target reads it.
+    let reply = call_tool(&mut served, "specforge.stats", json!({"use_cached": true}));
+    assert_eq!(mcp_error(&reply)["argument"], "use_cached");
+    let reply = call_tool(&mut served, "specforge.doctor", json!({"use_cached": true}));
+    assert_eq!(reply["result"]["isError"], false, "{reply}");
+    // A Served entry accepts its own project's root, though it lists no path.
+    let own = root.to_str().expect("a UTF-8 root");
+    let reply = call_tool(&mut served, "specforge.stats", json!({"path": own}));
+    assert_eq!(reply["result"]["isError"], false, "{reply}");
+
+    // A refused mutation is a failed one: it writes nothing.
+    let before = files_under(&root);
+    let reply = call_tool(
+        &mut served,
+        "specforge.rename",
+        json!({"entity_id": "alpha", "new_name": "gamma", "extra": "x"}),
+    );
+    assert_eq!(mcp_error(&reply)["argument"], "extra");
+    assert_eq!(
+        changed_files(&root, &before, &files_under(&root)),
+        Vec::<PathBuf>::new()
+    );
+
+    // A prompt refuses it as invalid params, naming the argument.
+    let reply = get_prompt(
+        &mut served,
+        "specforge://prompts/context",
+        json!({"entity_id": "alpha", "bogus": "x"}),
+    );
+    assert_eq!(reply["error"]["code"], -32602, "{reply}");
+    assert_eq!(reply["error"]["data"]["argument"], "bogus");
+
+    // Every core input schema says so.
+    for tool in core_tools() {
+        assert_eq!(
+            tool.input_schema["additionalProperties"], false,
+            "{}",
+            tool.name
+        );
+    }
+}
+
 // --- the derive, over probe structs ---
 
 mod derived {

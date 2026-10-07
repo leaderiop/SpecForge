@@ -132,6 +132,8 @@ impl ToolSpec {
         if let Some(properties) = schema.get_mut("properties").and_then(Value::as_object_mut) {
             properties.extend(self.target.properties());
         }
+        // A name the tool does not declare is refused (`Self::undeclared`).
+        schema["additionalProperties"] = Value::Bool(false);
         let required = self.target.required();
         if !required.is_empty() {
             let listed = schema
@@ -152,6 +154,17 @@ impl ToolSpec {
             .chain(self.target.fields())
             .copied()
             .collect()
+    }
+
+    /// The refusal of a call that sends a name neither the tool nor its
+    /// target declares ([`crate::args::unknown_argument`]).
+    pub fn undeclared(&self, arguments: &Value) -> Option<McpError> {
+        let known: Vec<&str> = (self.fields)()
+            .iter()
+            .chain(self.target.accepted())
+            .copied()
+            .collect();
+        crate::args::unknown_argument(arguments, &known)
     }
 
     /// The tool as `tools/list` describes it.

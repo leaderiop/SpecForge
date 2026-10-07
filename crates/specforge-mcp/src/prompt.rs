@@ -53,6 +53,17 @@ pub struct PromptSpec {
 }
 
 impl PromptSpec {
+    /// The refusal of a request that sends a name neither the prompt nor
+    /// its target declares ([`crate::args::unknown_argument`]).
+    pub fn undeclared(&self, arguments: &Value) -> Option<McpError> {
+        let known: Vec<&str> = (self.fields)()
+            .iter()
+            .chain(self.target.accepted())
+            .copied()
+            .collect();
+        crate::args::unknown_argument(arguments, &known)
+    }
+
     /// The prompt as `prompts/list` describes it.
     pub fn descriptor(&self) -> McpPromptDescriptor {
         McpPromptDescriptor {

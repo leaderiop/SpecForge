@@ -246,6 +246,13 @@ impl Surface for Tools {
         found: &Found<&'static ToolSpec, ToolEntry>,
         invocation: &Invocation,
     ) -> Ran<ToolOutcome> {
+        // A name the tool and its target do not declare is refused, before
+        // anything is read (a refused mutation is a failed one).
+        if let Found::Core(spec) = found
+            && let Some(error) = spec.undeclared(&invocation.arguments)
+        {
+            return Self::refused(found, error);
+        }
         let arguments = invocation.arguments.clone();
         match found {
             // A mutation says what it wrote; `mutation::refresh` brings the

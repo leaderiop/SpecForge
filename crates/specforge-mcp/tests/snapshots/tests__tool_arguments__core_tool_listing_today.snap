@@ -7,6 +7,7 @@ expression: listing
     "name": "specforge.query",
     "description": "Query the graph at multiple resolutions",
     "inputSchema": {
+      "additionalProperties": false,
       "properties": {
         "depth": {
           "default": 1,
@@ -78,6 +79,7 @@ expression: listing
     "name": "specforge.validate",
     "description": "Recompile and validate the spec project",
     "inputSchema": {
+      "additionalProperties": false,
       "properties": {
         "lint": {
           "description": "Extra lint profiles, as `specforge check --lint` takes (inferred: I200/I202 from specforge-infer.json; pedantic is the default and adds nothing)",
@@ -128,6 +130,7 @@ expression: listing
     "name": "specforge.analyze",
     "description": "Run analysis passes (coverage: proof obligations and discharge funnel; contracts: clause symmetry) over the compiled project",
     "inputSchema": {
+      "additionalProperties": false,
       "properties": {
         "pass": {
           "default": "all",
@@ -183,6 +186,7 @@ expression: listing
     "name": "specforge.export",
     "description": "Export the graph in various formats",
     "inputSchema": {
+      "additionalProperties": false,
       "properties": {
         "format": {
           "default": "graph",
@@ -225,6 +229,7 @@ expression: listing
     "name": "specforge.trace",
     "description": "Show traceability chain for an entity, or check an agent plan for gaps (entity_id or plan)",
     "inputSchema": {
+      "additionalProperties": false,
       "properties": {
         "entity_id": {
           "description": "Entity ID to trace",
@@ -333,6 +338,7 @@ expression: listing
     "name": "specforge.search",
     "description": "Find entities by id, title or string field text, ranked as the LSP ranks them (exact, prefix, substring, field text, then fuzzy)",
     "inputSchema": {
+      "additionalProperties": false,
       "properties": {
         "field": {
           "description": "Only search a specific field",
@@ -379,6 +385,7 @@ expression: listing
     "name": "specforge.explain",
     "description": "Explain a diagnostic code: its title, owner, level, what triggers it and how to fix it, and its docs link",
     "inputSchema": {
+      "additionalProperties": false,
       "properties": {
         "code": {
           "description": "A diagnostic code, any case",
@@ -463,6 +470,7 @@ expression: listing
     "name": "specforge.schema",
     "description": "Get the GraphProtocolSchema: entity kinds with their typed fields, edge types and the loaded extensions",
     "inputSchema": {
+      "additionalProperties": false,
       "properties": {
         "include_edges": {
           "default": true,
@@ -517,6 +525,7 @@ expression: listing
     "name": "specforge.model",
     "description": "Render the logical data model (entity kinds, fields, relationships)",
     "inputSchema": {
+      "additionalProperties": false,
       "properties": {
         "depth": {
           "description": "Maximum depth from root kind (requires root)",
@@ -582,6 +591,7 @@ expression: listing
     "name": "specforge.outline_extensions",
     "description": "Renders the extension architecture hierarchy — how extensions relate via dependencies, enhancements, and cross-extension edges. Shows entity kinds, edge types, validation rules, and surface contributions per extension. Use this to understand the project's extension topology before making structural changes.",
     "inputSchema": {
+      "additionalProperties": false,
       "properties": {
         "deps": {
           "default": "direct",
@@ -628,6 +638,7 @@ expression: listing
     "name": "specforge.coverage",
     "description": "Get coverage status per entity",
     "inputSchema": {
+      "additionalProperties": false,
       "properties": {
         "entity_id": {
           "description": "Filter to specific entity",
@@ -660,6 +671,7 @@ expression: listing
     "name": "specforge.stats",
     "description": "Get project statistics",
     "inputSchema": {
+      "additionalProperties": false,
       "properties": {},
       "type": "object"
     },
@@ -711,6 +723,7 @@ expression: listing
     "name": "specforge.list",
     "description": "List entities sorted by id, optionally filtered by kind and field values, and paged",
     "inputSchema": {
+      "additionalProperties": false,
       "properties": {
         "kind": {
           "description": "Filter by entity kind (e.g. 'feature', 'behavior')",
@@ -745,6 +758,7 @@ expression: listing
     "name": "specforge.inspect",
     "description": "Get full detail for a specific entity",
     "inputSchema": {
+      "additionalProperties": false,
       "properties": {
         "entity_id": {
           "description": "Entity ID to inspect",
@@ -859,6 +873,7 @@ expression: listing
     "name": "specforge.find_definition",
     "description": "Find the source location of an entity definition",
     "inputSchema": {
+      "additionalProperties": false,
       "properties": {
         "entity_id": {
           "description": "Entity ID",
@@ -920,6 +935,7 @@ expression: listing
     "name": "specforge.find_references",
     "description": "Find the references to an entity: each place another entity's field names it, as the identifier token (what an IDE's find-references shows)",
     "inputSchema": {
+      "additionalProperties": false,
       "properties": {
         "direction": {
           "default": "incoming",
@@ -1018,6 +1034,7 @@ expression: listing
     "name": "specforge.outline",
     "description": "Get entity outline for a file",
     "inputSchema": {
+      "additionalProperties": false,
       "properties": {
         "file": {
           "description": "File path",
@@ -1040,6 +1057,7 @@ expression: listing
     "name": "specforge.suggest_fixes",
     "description": "The fixes the LSP offers as code actions for the project's diagnostics and entities, each with its edits",
     "inputSchema": {
+      "additionalProperties": false,
       "properties": {
         "diagnostic_code": {
           "description": "Only diagnostics with this code, e.g. W001",
@@ -1067,6 +1085,7 @@ expression: listing
     "name": "specforge.format",
     "description": "Format spec files",
     "inputSchema": {
+      "additionalProperties": false,
       "properties": {
         "check": {
           "default": false,
@@ -1146,6 +1165,7 @@ expression: listing
     "name": "specforge.rename",
     "description": "Rename an entity across all files",
     "inputSchema": {
+      "additionalProperties": false,
       "properties": {
         "dry_run": {
           "default": false,
@@ -1220,6 +1240,7 @@ expression: listing
     "name": "specforge.init",
     "description": "Initialize a new SpecForge project",
     "inputSchema": {
+      "additionalProperties": false,
       "properties": {
         "extensions": {
           "description": "Builtin extensions to enable (e.g. @specforge/software) and local .wasm files to install",
@@ -1298,6 +1319,7 @@ expression: listing
     "name": "specforge.add_extension",
     "description": "Install an extension",
     "inputSchema": {
+      "additionalProperties": false,
       "properties": {
         "allow_unsigned": {
           "default": false,
@@ -1394,6 +1416,7 @@ expression: listing
     "name": "specforge.remove_extension",
     "description": "Remove an installed extension",
     "inputSchema": {
+      "additionalProperties": false,
       "properties": {
         "dry_run": {
           "default": false,
@@ -1467,6 +1490,7 @@ expression: listing
     "name": "specforge.migrate",
     "description": "Run migration pipeline",
     "inputSchema": {
+      "additionalProperties": false,
       "properties": {
         "dry_run": {
           "default": false,
@@ -1562,6 +1586,7 @@ expression: listing
     "name": "specforge.extensions",
     "description": "List installed extensions",
     "inputSchema": {
+      "additionalProperties": false,
       "properties": {},
       "type": "object"
     },
@@ -1595,6 +1620,7 @@ expression: listing
     "name": "specforge.providers",
     "description": "List configured providers",
     "inputSchema": {
+      "additionalProperties": false,
       "properties": {},
       "type": "object"
     },
@@ -1628,6 +1654,7 @@ expression: listing
     "name": "specforge.doctor",
     "description": "Run health checks",
     "inputSchema": {
+      "additionalProperties": false,
       "properties": {
         "use_cached": {
           "default": false,
@@ -1693,6 +1720,7 @@ expression: listing
     "name": "specforge.collect",
     "description": "Record which entities the project's tests prove, from the test runner's report (runs the runner only with run: true and prior approval)",
     "inputSchema": {
+      "additionalProperties": false,
       "properties": {
         "path": {
           "description": "Project root path (uses initialized root if omitted)",
@@ -1794,6 +1822,7 @@ expression: listing
     "name": "specforge.render",
     "description": "Render output in a specified format",
     "inputSchema": {
+      "additionalProperties": false,
       "properties": {
         "format": {
           "description": "Renderer to use: graph (also json): every entity with its fields, file and line (Graph Protocol); context: headline and normative fields and verify, for an agent; brief: id, kind and title; dot: Graphviz",
@@ -1851,6 +1880,7 @@ expression: listing
     "name": "specforge.infer_progress",
     "description": "Check inference progress: summary of analyzed vs unanalyzed source files, stale entries, and entity counts",
     "inputSchema": {
+      "additionalProperties": false,
       "properties": {},
       "type": "object"
     },
@@ -1891,6 +1921,7 @@ expression: listing
     "name": "specforge.infer_gaps",
     "description": "Analyze inference gaps: public Rust items not yet covered by spec entities (approximate)",
     "inputSchema": {
+      "additionalProperties": false,
       "properties": {},
       "type": "object"
     },
@@ -1942,6 +1973,7 @@ expression: listing
     "name": "specforge.infer_session",
     "description": "Manage inference sessions: start a new session, mark files as analyzed, or end a session",
     "inputSchema": {
+      "additionalProperties": false,
       "properties": {
         "action": {
           "description": "Session action to perform",
@@ -2032,6 +2064,7 @@ expression: listing
     "name": "specforge.find_implementation",
     "description": "Find source code locations that implement a specforge entity",
     "inputSchema": {
+      "additionalProperties": false,
       "properties": {
         "entity_id": {
           "description": "Entity ID to find implementations for",
@@ -2073,6 +2106,7 @@ expression: listing
     "name": "specforge.find_spec_for_source",
     "description": "Find specforge entities anchored to a source file",
     "inputSchema": {
+      "additionalProperties": false,
       "properties": {
         "file_path": {
           "description": "Path of the source file, relative to the project root (a directory lists the files under it; a trailing part of a path matches it)",

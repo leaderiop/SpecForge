@@ -463,6 +463,12 @@ pub fn undeclared(
         .map(|argument| argument.name)
         .chain(target.accepted().iter().copied())
         .collect();
+    unknown_argument(arguments, &known)
+}
+
+/// [`undeclared`] over the names `known`: the refusal of the first name in
+/// `arguments` that is not one of them.
+pub(crate) fn unknown_argument(arguments: &Value, known: &[&str]) -> Option<McpError> {
     let name = arguments
         .as_object()?
         .keys()

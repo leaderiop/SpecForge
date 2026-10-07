@@ -76,6 +76,9 @@ impl Surface for Prompts {
         invocation: &Invocation,
     ) -> Ran<PromptOutcome> {
         let spec = found.core_entry();
+        if let Some(error) = spec.undeclared(&invocation.arguments) {
+            return Ran::of(Err(Box::new(error)));
+        }
         Ran::of((spec.render)(call, invocation.arguments.clone()))
     }
 
