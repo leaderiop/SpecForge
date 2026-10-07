@@ -22,7 +22,7 @@ use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
 
-use crate::inputs::Changes;
+use crate::inputs::{Changes, SessionInputs};
 
 /// Coarse filesystems record modification times to the second (some to
 /// two); an entry modified this close to when it was stamped is racy.
@@ -116,16 +116,19 @@ impl DiskSnapshot {
     /// Stamp the other environment inputs (the lock and each extension
     /// module), before the extension runtime and the environment read
     /// them.
-    pub(crate) fn stamp_environment(&mut self, files: impl IntoIterator<Item = PathBuf>) {
-        for path in files {
-            let entry = Entry::stamp(&path);
-            self.environment.insert(path, entry);
+    pub(crate) fn stamp_environment(&mut self, inputs: &SessionInputs) {
+        for path in inputs.environment_files() {
+            let entry = Entry::stamp(path);
+            self.environment.insert(path.to_path_buf(), entry);
         }
     }
 
-    /// Stamp every source `discovered` under `spec_root`, before the
+    /// Stamp every source `discovered` under the spec root, before the
     /// sources are read.
-    pub(crate) fn stamp_all_sources(&mut self, spec_root: &Path, discovered: &[PathBuf]) {
+    pub(crate) fn stamp_all_sources(&mut self, inputs: &SessionInputs, discovered: &[PathBuf]) {
+        let Some(spec_root) = inputs.spec_root() else {
+            return;
+        };
         self.sources = discovered
             .iter()
             .filter_map(|path| {
@@ -138,7 +141,10 @@ impl DiskSnapshot {
     /// Stamp the sources `keys` names, before they are read again: the
     /// others keep what they recorded, so a change to one of them that
     /// this rebuild does not read is still seen next time.
-    pub(crate) fn stamp_sources(&mut self, spec_root: &Path, keys: &[String]) {
+    pub(crate) fn stamp_sources(&mut self, inputs: &SessionInputs, keys: &[String]) {
+        let Some(spec_root) = inputs.spec_root() else {
+            return;
+        };
         for key in keys {
             match Entry::stamp(&spec_root.join(key)) {
                 Some(entry) => self.sources.insert(key.clone(), entry),
@@ -148,23 +154,23 @@ impl DiskSnapshot {
     }
 
     /// Stamp every check input, before the checks read them.
-    pub(crate) fn stamp_checks(&mut self, inputs: Vec<PathBuf>) {
+    pub(crate) fn stamp_checks(&mut self, inputs: &SessionInputs) {
         self.checks = inputs
-            .into_iter()
-            .map(|path| {
-                let entry = Entry::stamp(&path);
-                (path, entry)
-            })
+            .check_files()
+            .map(|path| (path.to_path_buf(), Entry::stamp(path)))
             .collect();
     }
 
-    /// What changed on disk since: the sources discovery finds now
-    /// (`discovered`, under `spec_root`) against those recorded, and every
-    /// recorded input.
-    pub(crate) fn changes(&self, spec_root: &Path, discovered: &[PathBuf]) -> Changes {
+    /// What changed on disk since: the sources `inputs` discovers now
+    /// against those recorded, and every recorded input.
+    pub(crate) fn changes(&self, inputs: &SessionInputs) -> Changes {
+        let Some(spec_root) = inputs.spec_root() else {
+            return Changes::default();
+        };
+        let discovered = inputs.discover();
         let mut changes = Changes::default();
         let mut seen = std::collections::BTreeSet::new();
-        for path in discovered {
+        for path in &discovered {
             let key = key(spec_root, path);
             if !unchanged(path, self.sources.get(&key)) {
                 changes.sources.push(key.clone());

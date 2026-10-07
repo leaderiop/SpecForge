@@ -10,7 +10,7 @@ use std::path::{Path, PathBuf};
 use std::sync::mpsc;
 
 use specforge_ops::check::Counts;
-use specforge_project::{Changes, InputRole, ProjectSession, Update, UpdateKind};
+use specforge_project::{Changes, InputRole, ProjectSession, Update, UpdateKind, WatchRoot};
 use specforge_watch::SpecWatcher;
 
 pub fn run(path: &Path, json: bool, verify_incremental: bool) -> i32 {
@@ -24,7 +24,7 @@ pub fn run(path: &Path, json: bool, verify_incremental: bool) -> i32 {
     // seeing "ready" must never race a watcher that does not exist yet.
     // One watcher per directory the session is built from.
     let (tx, rx) = mpsc::channel::<Vec<PathBuf>>();
-    let mut roots = session.watch_roots();
+    let mut roots = session.inputs().watch_roots();
     let mut watchers = match arm(path, &roots, &tx) {
         Ok(watchers) => watchers,
         Err(e) => {
@@ -37,7 +37,7 @@ pub fn run(path: &Path, json: bool, verify_incremental: bool) -> i32 {
     // before `ready` (ADR 0030): the session follows the disk it saw when
     // the watchers were armed.
     while session.ensure_fresh().is_some() {
-        let now = session.watch_roots();
+        let now = session.inputs().watch_roots();
         if now == roots {
             break;
         }
@@ -93,7 +93,10 @@ pub fn run(path: &Path, json: bool, verify_incremental: bool) -> i32 {
     // input re-runs the checks; anything else changes nothing.
     let debug = std::env::var("SPECFORGE_WATCH_DEBUG").is_ok();
     for batch in &rx {
-        let roles = session.classify_all(batch.iter().map(PathBuf::as_path));
+        let roles: Vec<InputRole> = batch
+            .iter()
+            .map(|path| session.inputs().classify(path))
+            .collect();
         if debug {
             eprintln!("[watch] batch: {batch:?} -> {roles:?}");
         }
@@ -108,7 +111,7 @@ pub fn run(path: &Path, json: bool, verify_incremental: bool) -> i32 {
         // The reload may have moved the spec root or loaded modules from
         // elsewhere: follow the session's inputs, then catch up on what was
         // written while no watcher covered it.
-        let now = session.watch_roots();
+        let now = session.inputs().watch_roots();
         if now == roots {
             continue;
         }
@@ -131,7 +134,7 @@ pub fn run(path: &Path, json: bool, verify_incremental: bool) -> i32 {
 /// One watcher per directory in `roots`, each sending its batches to `tx`.
 fn arm(
     path: &Path,
-    roots: &[PathBuf],
+    roots: &[WatchRoot],
     tx: &mpsc::Sender<Vec<PathBuf>>,
 ) -> Result<Vec<SpecWatcher>, String> {
     if roots.is_empty() {
@@ -142,7 +145,13 @@ fn arm(
     }
     roots
         .iter()
-        .map(|root| SpecWatcher::new(root, tx.clone(), specforge_watch::DEFAULT_DEBOUNCE_WINDOW))
+        .map(|root| {
+            SpecWatcher::new(
+                &root.dir,
+                tx.clone(),
+                specforge_watch::DEFAULT_DEBOUNCE_WINDOW,
+            )
+        })
         .collect()
 }
 

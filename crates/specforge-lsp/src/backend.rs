@@ -184,7 +184,9 @@ impl Backend {
             // What changed files are, to the session as it is now (a
             // reload queued before this one may have changed the answer).
             let changes = match &change {
-                Change::Apply(paths) => Some(session.changes(paths.iter().map(PathBuf::as_path))),
+                Change::Apply(paths) => {
+                    Some(session.inputs().changes(paths.iter().map(PathBuf::as_path)))
+                }
                 _ => None,
             };
             if changes
@@ -334,7 +336,9 @@ impl Backend {
         let wanted = {
             let st = state.read().await;
             match st.session() {
-                Some(session) => crate::watchers::file_watchers(session, relative_patterns),
+                Some(session) => {
+                    crate::watchers::file_watchers(session.inputs(), relative_patterns)
+                }
                 None => return,
             }
         };

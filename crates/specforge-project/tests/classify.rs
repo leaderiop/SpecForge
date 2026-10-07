@@ -7,7 +7,7 @@ use std::path::Path;
 use std::sync::Arc;
 
 use serde_json::json;
-use specforge_project::{InputRole, ProjectSession, SharedRuntime, UpdateKind};
+use specforge_project::{InputRole, ProjectSession, SharedRuntime, UpdateKind, WatchRoot, Watched};
 use specforge_test::prelude::*;
 use tempfile::TempDir;
 
@@ -51,21 +51,23 @@ fn a_discovered_spec_file_is_a_source_keyed_from_the_spec_root() {
     let canonical_root = fs::canonicalize(root).unwrap();
 
     assert_eq!(
-        session.classify(&root.join("spec/a.spec")),
+        session.inputs().classify(&root.join("spec/a.spec")),
         source("a.spec")
     );
     assert_eq!(
-        session.classify(&root.join("spec/sub/b.spec")),
+        session.inputs().classify(&root.join("spec/sub/b.spec")),
         source("sub/b.spec")
     );
     // The same file however the directory is spelled (a symlinked temp dir).
     assert_eq!(
-        session.classify(&canonical_root.join("spec/a.spec")),
+        session
+            .inputs()
+            .classify(&canonical_root.join("spec/a.spec")),
         source("a.spec")
     );
     // A deleted (or not yet written) file is keyed the same way.
     assert_eq!(
-        session.classify(&root.join("spec/gone.spec")),
+        session.inputs().classify(&root.join("spec/gone.spec")),
         source("gone.spec")
     );
     assert_eq!(
@@ -74,7 +76,7 @@ fn a_discovered_spec_file_is_a_source_keyed_from_the_spec_root() {
     );
     // A .spec file outside the spec root is not a source of the project.
     assert_eq!(
-        session.classify(&root.join("outside.spec")),
+        session.inputs().classify(&root.join("outside.spec")),
         InputRole::Unrelated
     );
 
@@ -85,7 +87,7 @@ fn a_discovered_spec_file_is_a_source_keyed_from_the_spec_root() {
         canonical_root.join("spec/a.spec"),
         root.join("notes.txt"),
     ];
-    let changes = session.changes(paths.iter().map(|p| p.as_path()));
+    let changes = session.inputs().changes(paths.iter().map(|p| p.as_path()));
     assert_eq!(changes.sources, vec!["a.spec", "sub/b.spec"]);
     assert!(!changes.environment && !changes.check_inputs);
 }
@@ -105,15 +107,15 @@ fn config_lock_and_loaded_modules_are_environment_inputs() {
     );
     let root = dir.path();
 
-    let inputs = session.environment().inputs();
-    assert_eq!(inputs.config, root.join("specforge.json"));
-    assert_eq!(inputs.lock, root.join("specforge.lock"));
     // A builtin has no module on disk; a local entry and an installed one do.
     assert_eq!(
-        inputs.modules,
+        session.inputs().watched(),
         vec![
-            root.join("ext/local.wasm"),
-            root.join(".specforge/extensions/@acme/installed/extension.wasm"),
+            Watched::Sources(root.to_path_buf()),
+            Watched::File(root.join("specforge.json")),
+            Watched::File(root.join("specforge.lock")),
+            Watched::File(root.join("ext/local.wasm")),
+            Watched::File(root.join(".specforge/extensions/@acme/installed/extension.wasm")),
         ]
     );
     for path in [
@@ -123,12 +125,14 @@ fn config_lock_and_loaded_modules_are_environment_inputs() {
         ".specforge/extensions/@acme/installed/extension.wasm",
     ] {
         assert_eq!(
-            session.classify(&root.join(path)),
+            session.inputs().classify(&root.join(path)),
             InputRole::Environment,
             "{path}"
         );
     }
-    let changes = session.changes([root.join("specforge.lock").as_path()]);
+    let changes = session
+        .inputs()
+        .changes([root.join("specforge.lock").as_path()]);
     assert!(changes.environment && changes.sources.is_empty());
 }
 
@@ -145,12 +149,14 @@ fn an_unloaded_wasm_changes_nothing() {
 
     for path in ["target/x.wasm", "ext/other.wasm", "plugin.wasm"] {
         assert_eq!(
-            session.classify(&root.join(path)),
+            session.inputs().classify(&root.join(path)),
             InputRole::Unrelated,
             "{path}"
         );
     }
-    let changes = session.changes([root.join("target/x.wasm").as_path()]);
+    let changes = session
+        .inputs()
+        .changes([root.join("target/x.wasm").as_path()]);
     assert!(changes.is_empty());
 }
 
@@ -165,16 +171,18 @@ fn the_build_cache_reruns_the_checks_only() {
     let mut session =
         ProjectSession::open_with_runtime(root, Some(Arc::clone(&ext) as SharedRuntime));
     let cache = root.join(specforge_project::BUILD_CACHE_FILE);
-    assert_eq!(
-        session.environment().inputs().check_inputs,
-        vec![cache.clone()]
+    assert!(
+        session
+            .inputs()
+            .watched()
+            .contains(&Watched::File(cache.clone()))
     );
     assert!(session.diagnostics().iter().all(|d| d.code != "W144"));
 
     // An invalid cache: the check passes report W144 when they read it.
     write_cache(&dir, "{ not json");
-    assert_eq!(session.classify(&cache), InputRole::CheckInput);
-    let changes = session.changes([cache.as_path()]);
+    assert_eq!(session.inputs().classify(&cache), InputRole::CheckInput);
+    let changes = session.inputs().changes([cache.as_path()]);
     assert!(changes.check_inputs && !changes.environment && changes.sources.is_empty());
 
     let update = session.apply(&changes).expect("a check input changed");
@@ -190,8 +198,13 @@ fn the_build_cache_reruns_the_checks_only() {
     // Without a check pass, the cache is no input at all.
     let (plain, session) = open(json!({"name": "c", "version": "0.1.0"}), &[("a.spec", "")]);
     let cache = plain.path().join(specforge_project::BUILD_CACHE_FILE);
-    assert!(session.environment().inputs().check_inputs.is_empty());
-    assert_eq!(session.classify(&cache), InputRole::Unrelated);
+    assert!(
+        !session
+            .inputs()
+            .watched()
+            .contains(&Watched::File(cache.clone()))
+    );
+    assert_eq!(session.inputs().classify(&cache), InputRole::Unrelated);
 }
 
 #[specforge_test(
@@ -215,9 +228,9 @@ fn a_referenced_file_reruns_the_checks() {
 
     write(root, "docs/guide.md", "# Guide\n");
     let guide = root.join("docs/guide.md");
-    assert_eq!(session.classify(&guide), InputRole::CheckInput);
+    assert_eq!(session.inputs().classify(&guide), InputRole::CheckInput);
     let update = session
-        .apply(&session.changes([guide.as_path()]))
+        .apply(&session.inputs().changes([guide.as_path()]))
         .expect("a referenced file changed");
     assert_eq!(update.kind, UpdateKind::Checks);
     assert_eq!(e016(&session), 0, "{:?}", session.diagnostics());
@@ -286,9 +299,9 @@ fn a_file_a_file_exists_rule_names_reruns_the_checks() {
     // A file named by a scalar field, under the spec root.
     write(root, "spec/guide.md", "# Guide\n");
     let guide = root.join("spec/guide.md");
-    assert_eq!(session.classify(&guide), InputRole::CheckInput);
+    assert_eq!(session.inputs().classify(&guide), InputRole::CheckInput);
     let update = session
-        .apply(&session.changes([guide.as_path()]))
+        .apply(&session.inputs().changes([guide.as_path()]))
         .expect("a file a file_exists rule names changed");
     assert_eq!(update.kind, UpdateKind::Checks);
     assert_eq!(missing(&session), ["note 'n': missing 'more/one.md'"]);
@@ -296,8 +309,10 @@ fn a_file_a_file_exists_rule_names_reruns_the_checks() {
     // An item of a list field, in a directory that did not exist.
     write(root, "spec/more/one.md", "# One\n");
     let one = root.join("spec/more/one.md");
-    assert_eq!(session.classify(&one), InputRole::CheckInput);
-    session.apply(&session.changes([one.as_path()])).unwrap();
+    assert_eq!(session.inputs().classify(&one), InputRole::CheckInput);
+    session
+        .apply(&session.inputs().changes([one.as_path()]))
+        .unwrap();
     assert!(missing(&session).is_empty(), "{:?}", session.diagnostics());
 }
 
@@ -320,7 +335,7 @@ fn excluded_and_undiscovered_spec_files_change_nothing() {
         "outside/w.spec",
     ] {
         assert_eq!(
-            session.classify(&root.join(path)),
+            session.inputs().classify(&root.join(path)),
             InputRole::Unrelated,
             "{path}"
         );
@@ -328,6 +343,7 @@ fn excluded_and_undiscovered_spec_files_change_nothing() {
     let paths = [root.join("spec/drafts/x.spec"), root.join("spec/notes.md")];
     assert!(
         session
+            .inputs()
             .changes(paths.iter().map(|p| p.as_path()))
             .is_empty()
     );
@@ -351,7 +367,19 @@ fn watch_roots_cover_every_input() {
         &[("spec/a.spec", "")],
     );
     let root = fs::canonicalize(dir.path()).unwrap();
-    assert_eq!(session.watch_roots(), vec![root, module_dir]);
+    assert_eq!(
+        session.inputs().watch_roots(),
+        vec![
+            WatchRoot {
+                dir: root,
+                recursive: true
+            },
+            WatchRoot {
+                dir: module_dir,
+                recursive: true
+            },
+        ]
+    );
 }
 
 /// A session with no project has no inputs: a `.spec` path is a buffer
@@ -364,17 +392,17 @@ fn a_detached_session_takes_spec_buffers_only() {
     let mut session = ProjectSession::detached();
 
     assert_eq!(
-        session.classify(Path::new("/x/a.spec")),
+        session.inputs().classify(Path::new("/x/a.spec")),
         source("/x/a.spec")
     );
     for path in ["/x/specforge.json", "/x/specforge.lock", "/x/n.md"] {
         assert_eq!(
-            session.classify(Path::new(path)),
+            session.inputs().classify(Path::new(path)),
             InputRole::Unrelated,
             "{path}"
         );
     }
-    assert!(session.watch_roots().is_empty());
+    assert!(session.inputs().watch_roots().is_empty());
     assert!(session.stale().is_empty());
     let environment = specforge_project::Changes {
         environment: true,
@@ -456,7 +484,12 @@ fn every_input_lies_under_a_watch_root() {
     let root = layout.project.path();
     let ext = Arc::new(passes_extension());
     let session = ProjectSession::open_with_runtime(root, Some(ext as SharedRuntime));
-    let roots = session.watch_roots();
+    let roots: Vec<_> = session
+        .inputs()
+        .watch_roots()
+        .into_iter()
+        .map(|root| root.dir)
+        .collect();
 
     let inputs = [
         (root.join("specforge.json"), InputRole::Environment),
@@ -472,7 +505,7 @@ fn every_input_lies_under_a_watch_root() {
         (layout.missing_x.clone(), InputRole::CheckInput),
     ];
     for (path, role) in inputs {
-        assert_eq!(session.classify(&path), role, "{}", path.display());
+        assert_eq!(session.inputs().classify(&path), role, "{}", path.display());
         let canonical = fs::canonicalize(path.parent().unwrap())
             .map(|dir| dir.join(path.file_name().unwrap()))
             // The directory does not exist: its nearest existing ancestor.

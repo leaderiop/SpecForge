@@ -527,7 +527,7 @@ fn a_wasm_file_entry_loads_in_a_session_and_reloads_with_its_file() {
         assert!(!codes.iter().any(|c| c == code), "{code}: {codes:?}");
     }
     assert_eq!(
-        session.classify(&root.join("ext/greet.wasm")),
+        session.inputs().classify(&root.join("ext/greet.wasm")),
         specforge_project::InputRole::Environment
     );
 

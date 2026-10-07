@@ -361,7 +361,7 @@ fn file_watchers_follow_what_the_session_is_built_from() {
     let session = specforge_project::ProjectSession::open_with_runtime(dir.path(), None);
     let root = dir.path().to_string_lossy().into_owned();
 
-    let absolute: Vec<String> = specforge_lsp::watchers::file_watchers(&session, false)
+    let absolute: Vec<String> = specforge_lsp::watchers::file_watchers(session.inputs(), false)
         .into_iter()
         .map(|w| match w.glob_pattern {
             GlobPattern::String(glob) => glob,
@@ -379,7 +379,7 @@ fn file_watchers_follow_what_the_session_is_built_from() {
     );
 
     let relative: Vec<(std::path::PathBuf, String)> =
-        specforge_lsp::watchers::file_watchers(&session, true)
+        specforge_lsp::watchers::file_watchers(session.inputs(), true)
             .into_iter()
             .map(|w| match w.glob_pattern {
                 GlobPattern::Relative(pattern) => {
@@ -402,7 +402,7 @@ fn file_watchers_follow_what_the_session_is_built_from() {
 
     let detached = specforge_project::ProjectSession::detached();
     assert_eq!(
-        specforge_lsp::watchers::file_watchers(&detached, true),
+        specforge_lsp::watchers::file_watchers(detached.inputs(), true),
         specforge_lsp::watchers::default_watchers()
     );
 }
@@ -446,7 +446,7 @@ fn the_watchers_cover_what_the_session_classifies() {
     .unwrap();
     let session = ProjectSession::open(root);
 
-    let globs: Vec<String> = specforge_lsp::watchers::file_watchers(&session, false)
+    let globs: Vec<String> = specforge_lsp::watchers::file_watchers(session.inputs(), false)
         .into_iter()
         .map(|w| match w.glob_pattern {
             GlobPattern::String(glob) => glob,
@@ -464,7 +464,7 @@ fn the_watchers_cover_what_the_session_classifies() {
     ];
     for path in &inputs {
         assert_ne!(
-            session.classify(path),
+            session.inputs().classify(path),
             InputRole::Unrelated,
             "{}",
             path.display()
@@ -479,7 +479,7 @@ fn the_watchers_cover_what_the_session_classifies() {
     // A file created beside a missing referenced file changes E016's
     // suggestion: the session classifies it, and no glob reports it.
     let sibling = spec_root.join("missing/x.md");
-    assert_eq!(session.classify(&sibling), InputRole::CheckInput);
+    assert_eq!(session.inputs().classify(&sibling), InputRole::CheckInput);
     assert!(
         !globs
             .iter()

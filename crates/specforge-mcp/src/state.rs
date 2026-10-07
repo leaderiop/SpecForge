@@ -1,6 +1,6 @@
 use specforge_common::{Diagnostic, ProjectConfig};
 use specforge_graph::Graph;
-use specforge_project::{Origin, ProjectSession, SharedRuntime, Update, UpdateKind};
+use specforge_project::{ProjectSession, SharedRuntime, Update, UpdateKind};
 use specforge_registry::RegistryBuild;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -32,8 +32,8 @@ pub struct McpState {
     pub listens: Vec<Listen>,
     /// The served project: its root, environment (config, spec root,
     /// registries, rules, manifests, surfaces), graph, diagnostics and
-    /// extension runtime: always opened from disk ([`Origin::Disk`], ADR
-    /// 0025). With no project ([`Origin::None`]) while none is served.
+    /// extension runtime: always opened from disk (ADR 0025). Detached
+    /// while none is served.
     session: ProjectSession,
     /// How many times the served project changed: every update applied to
     /// it and every replacement bumps it ([`Self::session_generation`]).
@@ -225,10 +225,9 @@ impl McpState {
         // The served session reloads when it is the project on disk at
         // `root`; any other root is opened.
         let canonical = |p: &Path| std::fs::canonicalize(p).unwrap_or_else(|_| p.to_path_buf());
-        let reloads = self.session.origin() == Origin::Disk
-            && self
-                .project_root()
-                .is_some_and(|served| canonical(served) == canonical(root));
+        let reloads = self
+            .project_root()
+            .is_some_and(|served| canonical(served) == canonical(root));
         let update = if reloads {
             self.session.reload_environment()
         } else {
