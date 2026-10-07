@@ -259,19 +259,19 @@ impl Surface for Tools {
             // target up to date with it (inside the call), `mutation::report`
             // names its events and the files in its reply.
             Found::Core(ToolSpec {
-                handler: Handler::Mutation(handler),
+                handler: Handler::Mutation { run, .. },
                 ..
             }) => {
-                let mut mutated = handler(call, arguments);
+                let mut mutated = run(call, arguments);
                 let root = mutation::refresh(call, &mut mutated);
                 let (outcome, events) =
                     mutation::report(&invocation.name, root.as_deref(), mutated);
                 Ran { outcome, events }
             }
             Found::Core(ToolSpec {
-                handler: Handler::Tool(handler),
+                handler: Handler::Tool { run, .. },
                 ..
-            }) => Ran::of(handler(call, arguments)),
+            }) => Ran::of(run(call, arguments)),
             Found::Extension(entry) => {
                 let (outcome, dispatched) = extension_tool(call, entry, arguments);
                 Ran {
@@ -288,7 +288,7 @@ impl Surface for Tools {
     fn refused(found: &Found<&'static ToolSpec, ToolEntry>, error: McpError) -> Ran<ToolOutcome> {
         match found {
             // A refused mutation is a failed one: it wrote nothing, and says so.
-            Found::Core(spec) if matches!(spec.handler, Handler::Mutation(_)) => {
+            Found::Core(spec) if matches!(spec.handler, Handler::Mutation { .. }) => {
                 let (outcome, events) = mutation::report(spec.name, None, Mutated::refused(error));
                 Ran { outcome, events }
             }

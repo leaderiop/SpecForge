@@ -196,7 +196,7 @@ fn core_tool_annotations_follow_what_each_tool_does() {
     for spec in specforge_mcp::tools::CORE_TOOLS {
         // One definition: a mutation is exactly a tool with a mutation
         // handler (it says what it wrote), and it writes.
-        let mutation = matches!(spec.handler, Handler::Mutation(_));
+        let mutation = matches!(spec.handler, Handler::Mutation { .. });
         assert_eq!(
             mutation,
             spec.category == Category::Mutation,

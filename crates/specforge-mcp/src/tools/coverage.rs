@@ -1,7 +1,8 @@
 use serde_json::{Value, json};
 use specforge_ops::coverage::{CoverageQuery, CoverageRow, STATUS};
-use specforge_project::coverage::ReportError;
+use specforge_project::coverage::{ReportError, Status};
 
+use crate::args::Arguments;
 use crate::target::Call;
 use crate::tool::{ErrorCode, McpError, ToolOutcome};
 
@@ -42,14 +43,16 @@ pub(crate) fn row_json(row: &CoverageRow) -> Value {
     })
 }
 
-#[derive(Debug, serde::Deserialize)]
+/// `specforge.coverage`'s arguments.
+#[derive(Debug, Arguments)]
 pub struct Args {
-    #[serde(default, deserialize_with = "crate::args::lenient")]
+    /// Filter to specific entity
     entity_id: Option<String>,
-    #[serde(default, deserialize_with = "crate::args::lenient")]
+    /// Filter by entity kind
     kind: Option<String>,
-    #[serde(default, deserialize_with = "crate::args::lenient")]
-    status_filter: Option<String>,
+    /// Only entities with this coverage status
+    #[arg(choice = specforge_ops::coverage::STATUS)]
+    status_filter: Option<Status>,
 }
 
 /// `specforge.coverage`: the coverage view of the served project (its
@@ -57,16 +60,10 @@ pub struct Args {
 /// so none). With no filter, the entities that count toward
 /// coverage, the ones stats counts as testable.
 pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
-    let status =
-        match crate::args::optional_choice(&STATUS, "status_filter", args.status_filter.as_deref())
-        {
-            Ok(status) => status,
-            Err(refused) => return refused,
-        };
     let query = CoverageQuery {
         entity_id: args.entity_id.as_deref(),
         kind: args.kind.as_deref(),
-        status,
+        status: args.status_filter,
     };
     match specforge_ops::coverage::coverage(&call.view(), &query) {
         Ok(outcome) => ToolOutcome::ok(Value::Array(outcome.rows.iter().map(row_json).collect())),

@@ -22,7 +22,7 @@ use specforge_protocol_types::command_args::normalize_arg;
 use specforge_protocol_types::{CommandArgDescriptor, CommandArgType};
 
 use crate::target::TargetSpec;
-use crate::tool::{ErrorCode, McpError, ToolOutcome};
+use crate::tool::{ErrorCode, McpError};
 
 pub use specforge_mcp_macros::Arguments;
 
@@ -510,20 +510,12 @@ pub fn input_schema(declared: &[Argument], target: TargetSpec) -> Value {
 }
 
 /// The arguments of a tool that takes none.
-#[derive(Debug, Default, Deserialize, Arguments)]
+#[derive(Debug, Default, Arguments)]
 pub struct NoArgs {}
 
-/// `arguments` (an object; the dispatcher refuses any other) read as `A`.
-/// A failure is invalid input, an `isError` result (ADR 0004 D4-a): a
-/// missing required argument says `Missing required parameter: <name>`
-/// and names it; anything else serde rejects says why.
-pub fn parse<A: DeserializeOwned>(arguments: Value) -> Result<A, ToolOutcome> {
-    parse_args(arguments).map_err(ToolOutcome::Refused)
-}
-
-/// [`parse`], the refusal as the `McpError` itself (boxed, as
-/// [`ToolOutcome::Refused`] holds it): what a prompt answers with, a
-/// JSON-RPC error carrying it (prompts have no `isError`).
+/// `arguments` read as `A` by serde, the refusal as the `McpError` itself
+/// (boxed): what a prompt answers with, a JSON-RPC error carrying it
+/// (prompts have no `isError`).
 pub fn parse_args<A: DeserializeOwned>(arguments: Value) -> Result<A, Box<McpError>> {
     serde_json::from_value(arguments).map_err(|error| Box::new(refusal(&error)))
 }
@@ -703,14 +695,6 @@ impl<'de> Deserializer<'de> for FieldTracer {
     }
 }
 
-/// An optional argument of the wrong type reads as absent, as the handlers
-/// have always read one.
-pub fn lenient<'de, D: Deserializer<'de>, T: DeserializeOwned>(
-    deserializer: D,
-) -> Result<Option<T>, D::Error> {
-    Ok(serde_json::from_value(Value::deserialize(deserializer)?).ok())
-}
-
 /// An enumerated argument's input schema (ADR 0027): `type` string, `enum`
 /// every name the table accepts (listed names, then aliases, so a
 /// validating client may send an alias), `default` the table's (none for a
@@ -762,58 +746,6 @@ pub fn names_schema(names: &[&str], description: &str) -> Value {
     })
 }
 
-/// An enumerated argument as a handler reads it: absent is the table's
-/// default; an unknown name is the table's refusal, `invalid_input` on
-/// `key` (ADR 0027).
-///
-/// # Panics
-/// When the table has no default: a filter is read with
-/// [`optional_choice`].
-pub fn choice<T: Copy + PartialEq>(
-    table: &OptionTable<T>,
-    key: &str,
-    name: Option<&str>,
-) -> Result<T, ToolOutcome> {
-    table
-        .parse_or_default(name)
-        .map_err(|error| refused(error, key))
-}
-
-/// [`choice`] of a table without a default (a filter): absent is none.
-pub fn optional_choice<T: Copy + PartialEq>(
-    table: &OptionTable<T>,
-    key: &str,
-    name: Option<&str>,
-) -> Result<Option<T>, ToolOutcome> {
-    table
-        .parse_optional(name)
-        .map_err(|error| refused(error, key))
-}
-
-/// A table's refusal as the tool's `invalid_input` result on `key`.
-fn refused(error: specforge_ops::OpError, key: &str) -> ToolOutcome {
-    crate::tool::McpError::from(error).with_argument(key).into()
-}
-
-/// A list of strings, its other items skipped; anything but a list reads
-/// as none.
-pub fn strings<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Vec<String>, D::Error> {
-    Ok(some_strings(deserializer)?.unwrap_or_default())
-}
-
-/// [`strings`], keeping whether a list was given at all.
-pub fn some_strings<'de, D: Deserializer<'de>>(
-    deserializer: D,
-) -> Result<Option<Vec<String>>, D::Error> {
-    let value = Value::deserialize(deserializer)?;
-    Ok(value.as_array().map(|items| {
-        items
-            .iter()
-            .filter_map(|item| item.as_str().map(String::from))
-            .collect()
-    }))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -831,7 +763,6 @@ mod tests {
     #[test]
     fn required_names_each_field_the_struct_cannot_read_without() {
         assert_eq!(required::<Probe>(), ["first", "second"]);
-        assert!(required::<NoArgs>().is_empty());
     }
 
     #[derive(Debug, Deserialize)]

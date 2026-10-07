@@ -297,6 +297,160 @@ fn an_undeclared_argument_is_refused_naming_it() {
     }
 }
 
+/// The reply of a successful call of `tool`, parsed.
+fn answer(tool: &str, arguments: Value) -> Value {
+    let mut served = served();
+    let reply = call_tool(&mut served, tool, arguments);
+    assert_eq!(reply["result"]["isError"], false, "{tool}: {reply}");
+    tool_json(&reply)
+}
+
+/// The refusal of a call of `tool`: its `McpError`.
+fn refused(tool: &str, arguments: Value) -> Value {
+    let mut served = served();
+    let reply = call_tool(&mut served, tool, arguments);
+    crate::tool_errors::mcp_error(&reply)
+}
+
+#[specforge_test(
+    behavior = "read_mcp_arguments_as_declared",
+    verify = "a boolean or count sent as a string is read as one, as an extension command reads it; any other value of the wrong type is refused naming the argument"
+)]
+fn a_core_tool_reads_a_value_by_its_type() {
+    // A count sent as a string is that count: depth "0" is the entity alone.
+    let query = answer(
+        "specforge.query",
+        json!({"entity_id": "alpha", "depth": "0", "format": "brief"}),
+    );
+    assert_eq!(query["nodes"].as_array().map(Vec::len), Some(1), "{query}");
+    let deeper = answer(
+        "specforge.query",
+        json!({"entity_id": "alpha", "depth": 1, "format": "brief"}),
+    );
+    assert_eq!(
+        deeper["nodes"].as_array().map(Vec::len),
+        Some(2),
+        "{deeper}"
+    );
+
+    // search and list read a limit the same way.
+    let found = answer("specforge.search", json!({"query": "a", "limit": "1"}));
+    assert_eq!(found.as_array().map(Vec::len), Some(1), "{found}");
+    let listed = answer("specforge.list", json!({"limit": "1"}));
+    assert_eq!(listed.as_array().map(Vec::len), Some(1), "{listed}");
+
+    // Anything else of the wrong type is refused naming the argument.
+    let error = refused("specforge.validate", json!({"strict": "yes"}));
+    assert_eq!(error["code"], "invalid_input");
+    assert_eq!(error["argument"], "strict");
+    assert_eq!(error["message"], "strict must be true or false, got 'yes'");
+    let error = refused(
+        "specforge.query",
+        json!({"entity_id": "alpha", "kinds": "behavior"}),
+    );
+    assert_eq!(error["argument"], "kinds");
+    assert_eq!(
+        error["message"],
+        "kinds must be a list of strings, got 'behavior'"
+    );
+    let error = refused("specforge.search", json!({"query": "a", "limit": -1}));
+    assert_eq!(error["argument"], "limit");
+    let error = refused("specforge.infer_session", json!({}));
+    assert_eq!(error["argument"], "action");
+    assert_eq!(error["message"], "Missing required parameter: action");
+}
+
+#[specforge_test(
+    invariant = "dry_run_side_effect_freedom",
+    verify = "an MCP dry run, check or diff asked for with the string true writes nothing"
+)]
+fn a_preview_asked_for_with_a_string_writes_nothing() {
+    for (tool, arguments) in [
+        ("specforge.format", json!({"check": "true"})),
+        ("specforge.format", json!({"diff": "true"})),
+        (
+            "specforge.rename",
+            json!({"entity_id": "alpha", "new_name": "gamma", "dry_run": "true"}),
+        ),
+        (
+            "specforge.remove_extension",
+            json!({"name": "@specforge/software", "dry_run": "true"}),
+        ),
+        ("specforge.migrate", json!({"dry_run": "true"})),
+    ] {
+        let mut served = served();
+        let root = served.root().to_path_buf();
+        let before = files_under(&root);
+        let reply = call_tool(&mut served, tool, arguments.clone());
+        assert_eq!(
+            changed_files(&root, &before, &files_under(&root)),
+            Vec::<PathBuf>::new(),
+            "{tool} {arguments}: {reply}"
+        );
+        // It answered as the preview it was asked for.
+        let result = tool_json(&reply);
+        let previewed =
+            result["check_only"] == true || result["dry_run"] == true || result["diffs"].is_array();
+        assert!(previewed, "{tool} {arguments}: {result}");
+    }
+}
+
+/// A derived schema equals the hand-written one still in `table.rs`, apart
+/// from the changes ADR 0033 makes when the hand-written one goes (the
+/// listing diff of the commit that deletes it): booleans state `default:
+/// false`, counts `minimum: 0`, three descriptions lose a default their
+/// schema states, and a lint profile list's items carry no description.
+fn written_as_derived(tool: &str, schema: &mut Value) {
+    let boolean_default = |schema: &mut Value, names: &[&str]| {
+        for name in names {
+            schema["properties"][*name]["default"] = Value::Bool(false);
+        }
+    };
+    let count_minimum = |schema: &mut Value, names: &[&str]| {
+        for name in names {
+            schema["properties"][*name]["minimum"] = json!(0);
+        }
+    };
+    match tool {
+        "specforge.analyze" => boolean_default(schema, &["strict"]),
+        "specforge.export" => {
+            boolean_default(schema, &["with_schema", "no_schema"]);
+            count_minimum(schema, &["max_tokens"]);
+        }
+        "specforge.query" => {
+            count_minimum(schema, &["depth"]);
+            schema["properties"]["depth"]["description"] = json!("Number of hops");
+        }
+        "specforge.search" => {
+            count_minimum(schema, &["limit"]);
+            schema["properties"]["limit"]["description"] = json!("Max results");
+        }
+        "specforge.model" => count_minimum(schema, &["depth"]),
+        "specforge.collect" => {
+            boolean_default(schema, &["run"]);
+            schema["properties"]["run"]["description"] = json!(
+                "Run the test command first; it must have been approved with `specforge collect` in a terminal (otherwise the existing report is parsed)"
+            );
+        }
+        "specforge.validate" => {
+            if let Some(items) = schema["properties"]["lint"]["items"].as_object_mut() {
+                items.remove("description");
+            }
+        }
+        _ => {}
+    }
+}
+
+#[test]
+fn the_derived_schema_is_the_hand_written_one() {
+    for tool in specforge_mcp::tools::CORE_TOOLS {
+        let mut written = tool.input_schema();
+        written_as_derived(tool.name, &mut written);
+        let derived = specforge_mcp::args::input_schema(&tool.arguments(), tool.target);
+        assert_eq!(derived, written, "{}", tool.name);
+    }
+}
+
 // --- the derive, over probe structs ---
 
 mod derived {

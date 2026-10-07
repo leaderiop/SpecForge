@@ -1,11 +1,14 @@
 use serde_json::{Value, json};
 use specforge_ops::navigate::{OutlineEntry, outline};
 
+use crate::args::Arguments;
 use crate::target::Call;
 use crate::tool::{Handled, ToolOutcome, file_not_found};
 
-#[derive(Debug, serde::Deserialize)]
+/// `specforge.outline`'s arguments.
+#[derive(Debug, Arguments)]
 pub struct Args {
+    /// File path
     file: String,
 }
 

@@ -4,9 +4,9 @@
 //! agents end up calling hidden params or sending ignored ones; this test
 //! fails on either direction.
 //!
-//! Each core tool reads its arguments into one `Args` struct (plan 04 T4).
-//! A serde field tracer recovers the struct's field names, the arguments
-//! the handler can read, without calling it.
+//! Each core tool reads its arguments into one `Args` struct that derives
+//! `Arguments` (ADR 0033), which lists the arguments the handler can read
+//! without calling it.
 
 use specforge_test::prelude::*;
 use std::collections::{BTreeMap, BTreeSet};
@@ -85,13 +85,21 @@ fn each_core_prompt_lists_exactly_the_arguments_its_handler_reads() {
 
 #[test]
 fn the_field_tracer_sees_each_args_struct() {
-    let query = specforge_mcp::tools::core_tool("specforge.query").unwrap();
-    let fields: BTreeSet<&str> = (query.fields)().iter().copied().collect();
+    let names = |tool: &str| -> BTreeSet<&'static str> {
+        specforge_mcp::tools::core_tool(tool)
+            .unwrap()
+            .arguments()
+            .iter()
+            .map(|argument| argument.name)
+            .collect()
+    };
     let expected: BTreeSet<&str> =
         ["entity_id", "depth", "kinds", "format", "include_coverage"].into();
-    assert_eq!(fields, expected);
-    let stats = specforge_mcp::tools::core_tool("specforge.stats").unwrap();
-    assert!((stats.fields)().is_empty(), "stats takes no arguments");
+    assert_eq!(names("specforge.query"), expected);
+    assert!(
+        names("specforge.stats").is_empty(),
+        "stats takes no arguments"
+    );
 }
 
 /// Advertised property names per tool, extracted from the core tool table.

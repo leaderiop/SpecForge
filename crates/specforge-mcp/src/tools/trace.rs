@@ -1,19 +1,19 @@
-use serde::Deserialize;
 use serde_json::{Value, json};
 use specforge_ops::plan::PlanError;
 use specforge_ops::trace::{Gap, Target};
 use specforge_ops::view::ProjectView;
 
-use crate::args::lenient;
+use crate::args::{AgentPlan, Arguments};
 use crate::target::Call;
 use crate::tool::ToolOutcome;
 
-#[derive(Debug, Deserialize)]
+/// `specforge.trace`'s arguments.
+#[derive(Debug, Arguments)]
 pub struct Args {
-    #[serde(default, deserialize_with = "lenient")]
+    /// Entity ID to trace
     entity_id: Option<String>,
-    #[serde(default)]
-    plan: Option<Value>,
+    /// An agent plan, {"entries": [{"entity_id": ...}]}, to check for gaps against the graph instead of tracing one entity
+    plan: Option<AgentPlan>,
 }
 
 /// `specforge.trace`: the trace operation over the served project. An
@@ -22,7 +22,7 @@ pub struct Args {
 pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
     let view = call.view();
     if let Some(plan) = &args.plan {
-        return plan_gaps(&view, plan);
+        return plan_gaps(&view, &plan.0);
     }
     let Some(entity_id) = args.entity_id.as_deref() else {
         return ToolOutcome::invalid_input(

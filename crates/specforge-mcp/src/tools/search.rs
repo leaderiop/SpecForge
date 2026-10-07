@@ -1,26 +1,28 @@
-use serde::Deserialize;
 use serde_json::{Value, json};
 use specforge_ops::navigate::{EntityQuery, MatchScope, MatchedOn, find_entities, snippet};
 
-use crate::args::{lenient, strings};
+use crate::args::Arguments;
 use crate::target::Call;
 use crate::tool::ToolOutcome;
 
 /// Characters of a matched field's text shown on each side of the match.
 const SNIPPET_WIDTH: usize = 40;
 
-#[derive(Debug, Deserialize)]
+/// `specforge.search`'s arguments.
+#[derive(Debug, Arguments)]
 pub struct Args {
+    /// Search query
     query: String,
-    #[serde(default, deserialize_with = "strings")]
+    /// Filter by kinds
     kinds: Vec<String>,
-    #[serde(default, deserialize_with = "lenient")]
-    limit: Option<u64>,
-    #[serde(default, deserialize_with = "lenient")]
+    /// Max results
+    #[arg(default = 20)]
+    limit: usize,
+    /// Only search a specific field
     field: Option<String>,
-    #[serde(default, deserialize_with = "lenient")]
+    /// Exact field value filter (with field)
     value: Option<String>,
-    #[serde(default, deserialize_with = "lenient")]
+    /// Only entities that reference this entity ID (combined with the other filters)
     references: Option<String>,
 }
 
@@ -39,7 +41,7 @@ pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
         kinds: &kinds,
         field_contains: args.field.as_deref().zip(args.value.as_deref()),
         referencing: args.references.as_deref(),
-        limit: Some(args.limit.unwrap_or(20) as usize),
+        limit: Some(args.limit),
     };
     let results: Vec<Value> = find_entities(view.graph(), &query)
         .iter()

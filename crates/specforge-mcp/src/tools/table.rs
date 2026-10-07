@@ -6,7 +6,7 @@
 use serde_json::{Value, json};
 
 use super::*;
-use crate::args::{NoArgs, choice_schema, fields, names_schema, required_choice_schema};
+use crate::args::{NoArgs, choice_schema, names_schema, required_choice_schema};
 use crate::operations;
 use crate::target::{Freshness, Reach, TargetSpec};
 use crate::tool::{Access, Category, Handler, ToolSpec};
@@ -16,12 +16,13 @@ use specforge_ops::{export as ops_export, model as ops_model};
 /// It returns an outcome, or `Handled` to use `?`.
 macro_rules! typed {
     ($handler:path, $args:ty) => {
-        Handler::Tool(
-            |call, arguments| match crate::args::parse::<$args>(arguments) {
+        Handler::Tool {
+            arguments: <$args as crate::args::Arguments>::declared,
+            run: |call, arguments| match crate::args::read::<$args>(&arguments) {
                 Ok(args) => crate::tool::IntoOutcome::into_outcome($handler(call, args)),
-                Err(refused) => refused,
+                Err(refused) => crate::tool::ToolOutcome::Refused(refused),
             },
-        )
+        }
     };
 }
 
@@ -30,12 +31,15 @@ macro_rules! typed {
 /// a preview). It returns `Mutated`, or `MutationHandled` to use `?`.
 macro_rules! mutation {
     ($handler:path, $args:ty) => {
-        Handler::Mutation(
-            |call, arguments| match crate::args::parse::<$args>(arguments) {
+        Handler::Mutation {
+            arguments: <$args as crate::args::Arguments>::declared,
+            run: |call, arguments| match crate::args::read::<$args>(&arguments) {
                 Ok(args) => crate::mutation::IntoMutated::into_mutated($handler(call, args)),
-                Err(refused) => crate::mutation::Mutated::refused(refused),
+                Err(refused) => {
+                    crate::mutation::Mutated::refused(crate::tool::ToolOutcome::Refused(refused))
+                }
             },
-        )
+        }
     };
 }
 
@@ -74,7 +78,6 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             || json!({ "type": "object", "properties": { "nodes": { "type": "array" }, "edges": { "type": "array" }, "schema_version": { "type": "string" }, "format_version": { "type": "string" } }, "required": ["nodes", "edges"] }),
         ),
         target: TargetSpec::SERVED,
-        fields: fields::<query::Args>,
         handler: typed!(query::call, query::Args),
     },
     ToolSpec {
@@ -94,7 +97,6 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         },
         output: None,
         target: TargetSpec::new(Reach::AnyProject, Freshness::FreshUnlessCached),
-        fields: fields::<validate::Args>,
         handler: typed!(validate::call, validate::Args),
     },
     ToolSpec {
@@ -116,7 +118,6 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             || json!({ "type": "object", "properties": { "ok": { "type": "boolean" }, "passes": { "type": "array" }, "orphans": { "type": "array" } }, "required": ["ok", "passes"] }),
         ),
         target: TargetSpec::new(Reach::AnyProject, Freshness::FreshUnlessCached),
-        fields: fields::<analyze::Args>,
         handler: typed!(analyze::call, analyze::Args),
     },
     ToolSpec {
@@ -138,7 +139,6 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         },
         output: None,
         target: TargetSpec::SERVED,
-        fields: fields::<export::Args>,
         handler: typed!(export::call, export::Args),
     },
     ToolSpec {
@@ -197,7 +197,6 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             })
         }),
         target: TargetSpec::SERVED,
-        fields: fields::<trace::Args>,
         handler: typed!(trace::call, trace::Args),
     },
     ToolSpec {
@@ -221,7 +220,6 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         },
         output: None,
         target: TargetSpec::SERVED,
-        fields: fields::<search::Args>,
         handler: typed!(search::call, search::Args),
     },
     ToolSpec {
@@ -267,7 +265,6 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             })
         }),
         target: TargetSpec::UNSCOPED,
-        fields: fields::<explain::Args>,
         handler: typed!(explain::call, explain::Args),
     },
     ToolSpec {
@@ -289,7 +286,6 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             || json!({ "type": "object", "properties": { "schema_version": { "type": "object" }, "extensions": { "type": "array" }, "entity_kinds": { "type": "array" }, "edge_types": { "type": "array" }, "validation_rules": { "type": "array" } }, "required": ["schema_version", "extensions", "entity_kinds"] }),
         ),
         target: TargetSpec::SERVED,
-        fields: fields::<schema::Args>,
         handler: typed!(schema::call, schema::Args),
     },
     ToolSpec {
@@ -326,7 +322,6 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         },
         output: None,
         target: TargetSpec::SERVED,
-        fields: fields::<model::Args>,
         handler: typed!(model::call, model::Args),
     },
     ToolSpec {
@@ -346,7 +341,6 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         },
         output: None,
         target: TargetSpec::SERVED,
-        fields: fields::<outline_extensions::Args>,
         handler: typed!(outline_extensions::call, outline_extensions::Args),
     },
     ToolSpec {
@@ -366,7 +360,6 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         },
         output: None,
         target: TargetSpec::SERVED,
-        fields: fields::<coverage::Args>,
         handler: typed!(coverage::call, coverage::Args),
     },
     ToolSpec {
@@ -384,7 +377,6 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             || json!({ "type": "object", "properties": { "entity_counts": { "type": "array" }, "declared_pct": { "type": "number" }, "proof_pct": { "type": ["number", "null"] }, "coverage_pct": { "type": "number" }, "edge_count": { "type": "integer" }, "orphan_count": { "type": "integer" }, "diagnostic_summary": { "type": "object" } }, "required": ["entity_counts", "declared_pct", "proof_pct", "edge_count", "orphan_count", "diagnostic_summary"] }),
         ),
         target: TargetSpec::SERVED,
-        fields: fields::<NoArgs>,
         handler: typed!(stats::call, NoArgs),
     },
     ToolSpec {
@@ -409,7 +401,6 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         },
         output: None,
         target: TargetSpec::SERVED,
-        fields: fields::<list::Args>,
         handler: typed!(list::call, list::Args),
     },
     ToolSpec {
@@ -430,7 +421,6 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             || json!({ "type": "object", "properties": { "entity_id": { "type": "string" }, "kind": { "type": "string" }, "title": { "type": ["string", "null"] }, "testable": { "type": "boolean" }, "declared": { "type": "boolean" }, "exempt": { "type": "boolean" }, "obligated": { "type": "boolean" }, "source_extension": { "type": ["string", "null"] }, "reference_count": { "type": "integer" }, "source_span": { "type": "object" }, "contract": { "type": ["string", "null"] }, "fields": { "type": "object" }, "verify_declarations": { "type": ["array", "null"] }, "referenced_by": { "type": "array", "items": { "type": "string" } }, "refers_to": { "type": "array", "items": { "type": "string" } }, "references": { "type": "array" }, "coverage_status": { "type": "string" }, "diagnostics": { "type": "array" } }, "required": ["entity_id", "kind", "testable", "declared", "exempt", "obligated", "source_span", "fields", "referenced_by", "refers_to", "references", "coverage_status", "diagnostics"] }),
         ),
         target: TargetSpec::SERVED,
-        fields: fields::<inspect::Args>,
         handler: typed!(inspect::call, inspect::Args),
     },
     ToolSpec {
@@ -451,7 +441,6 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             || json!({ "type": "object", "properties": { "entity_id": { "type": "string" }, "file_path": { "type": "string" }, "line": { "type": "integer" }, "column": { "type": "integer" }, "source_span": { "type": "object" }, "name_span": { "type": "object" }, "precision": { "type": "string", "enum": ["token", "entity"] } }, "required": ["entity_id", "file_path", "line", "column", "source_span", "name_span", "precision"] }),
         ),
         target: TargetSpec::SERVED,
-        fields: fields::<find_definition::Args>,
         handler: typed!(find_definition::call, find_definition::Args),
     },
     ToolSpec {
@@ -496,7 +485,6 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             })
         }),
         target: TargetSpec::SERVED,
-        fields: fields::<find_references::Args>,
         handler: typed!(find_references::call, find_references::Args),
     },
     ToolSpec {
@@ -515,7 +503,6 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         },
         output: None,
         target: TargetSpec::SERVED,
-        fields: fields::<outline::Args>,
         handler: typed!(outline::call, outline::Args),
     },
     ToolSpec {
@@ -535,7 +522,6 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         },
         output: None,
         target: TargetSpec::SERVED,
-        fields: fields::<suggest_fixes::Args>,
         handler: typed!(suggest_fixes::call, suggest_fixes::Args),
     },
     ToolSpec {
@@ -564,7 +550,6 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             )
         }),
         target: TargetSpec::new(Reach::WritesAnyProject, Freshness::Fresh),
-        fields: fields::<operations::FormatArgs>,
         handler: mutation!(operations::format_op, operations::FormatArgs),
     },
     ToolSpec {
@@ -593,7 +578,6 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             )
         }),
         target: TargetSpec::new(Reach::WritesAnyProject, Freshness::Fresh),
-        fields: fields::<operations::RenameArgs>,
         handler: mutation!(operations::rename_op, operations::RenameArgs),
     },
     ToolSpec {
@@ -621,7 +605,6 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             )
         }),
         target: TargetSpec::new(Reach::NewProject, Freshness::Fresh),
-        fields: fields::<operations::InitArgs>,
         handler: mutation!(operations::init_op, operations::InitArgs),
     },
     ToolSpec {
@@ -650,7 +633,6 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             )
         }),
         target: TargetSpec::new(Reach::WritesAnyProject, Freshness::Fresh),
-        fields: fields::<operations::AddArgs>,
         handler: mutation!(operations::add_extension, operations::AddArgs),
     },
     ToolSpec {
@@ -679,7 +661,6 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             )
         }),
         target: TargetSpec::new(Reach::WritesAnyProject, Freshness::Fresh),
-        fields: fields::<operations::RemoveArgs>,
         handler: mutation!(operations::remove_extension_op, operations::RemoveArgs),
     },
     ToolSpec {
@@ -707,7 +688,6 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             )
         }),
         target: TargetSpec::new(Reach::WritesAnyProject, Freshness::Fresh),
-        fields: fields::<operations::MigrateArgs>,
         handler: mutation!(operations::migrate_op, operations::MigrateArgs),
     },
     ToolSpec {
@@ -720,7 +700,6 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             || json!({ "type": "object", "properties": { "extensions": { "type": "array" }, "lock_file_entries": { "type": "array" }, "entity_kinds_in_graph": { "type": "array" } }, "required": ["extensions", "lock_file_entries", "entity_kinds_in_graph"] }),
         ),
         target: TargetSpec::SERVED,
-        fields: fields::<NoArgs>,
         handler: typed!(operations::extensions_op, NoArgs),
     },
     ToolSpec {
@@ -733,7 +712,6 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             || json!({ "type": "object", "properties": { "providers": { "type": "array" }, "count": { "type": "integer" }, "diagnostics": { "type": "array" } }, "required": ["providers", "count", "diagnostics"] }),
         ),
         target: TargetSpec::SERVED,
-        fields: fields::<NoArgs>,
         handler: typed!(operations::providers_op, NoArgs),
     },
     ToolSpec {
@@ -751,8 +729,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             || json!({ "type": "object", "properties": { "extensions_ok": { "type": "boolean" }, "conflicts": { "type": "array" }, "cache_status": { "type": "string" }, "findings": { "type": "array" }, "installed_count": { "type": "integer" }, "extensions": { "type": "array" }, "enhancements": { "type": "object" }, "shadowed": { "type": "array" }, "load_failures": { "type": "array" }, "issues": { "type": "array" }, "z3_available": { "type": "boolean" } }, "required": ["extensions_ok", "conflicts", "installed_count", "issues", "load_failures"] }),
         ),
         target: TargetSpec::new(Reach::Served, Freshness::FreshUnlessCached),
-        fields: fields::<operations::DoctorArgs>,
-        handler: typed!(operations::doctor_op, operations::DoctorArgs),
+        handler: typed!(operations::doctor_op, NoArgs),
     },
     ToolSpec {
         name: "specforge.collect",
@@ -803,7 +780,6 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             })
         }),
         target: TargetSpec::new(Reach::AnyProject, Freshness::Fresh),
-        fields: fields::<operations::CollectArgs>,
         handler: typed!(operations::collect_op, operations::CollectArgs),
     },
     ToolSpec {
@@ -830,7 +806,6 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             || json!({ "type": "object", "properties": { "format": { "type": "string" }, "output": { "type": "string" }, "output_files": { "type": "array" } }, "required": ["format", "output_files"] }),
         ),
         target: TargetSpec::SERVED,
-        fields: fields::<operations::RenderArgs>,
         handler: typed!(operations::render_op, operations::RenderArgs),
     },
     ToolSpec {
@@ -848,7 +823,6 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             || json!({ "type": "object", "properties": { "summary": { "type": "object" }, "unanalyzed": { "type": "array" }, "stale": { "type": "array" }, "deleted": { "type": "array" }, "message": { "type": "string" } }, "required": ["summary", "unanalyzed", "stale", "deleted"] }),
         ),
         target: TargetSpec::SERVED,
-        fields: fields::<NoArgs>,
         handler: typed!(infer_progress::call, NoArgs),
     },
     ToolSpec {
@@ -866,7 +840,6 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             || json!({ "type": "object", "properties": { "total_pub_items": { "type": "integer" }, "covered_items": { "type": "integer" }, "gap_count": { "type": "integer" }, "approximate": { "type": "boolean" }, "scanners_used": { "type": "array" }, "scan_failures": { "type": "array" }, "by_directory": { "type": "array" }, "gaps": { "type": "array" }, "message": { "type": "string" } }, "required": ["total_pub_items", "covered_items", "approximate"] }),
         ),
         target: TargetSpec::SERVED,
-        fields: fields::<NoArgs>,
         handler: typed!(infer_gaps::call, NoArgs),
     },
     ToolSpec {
@@ -924,7 +897,6 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             )
         }),
         target: TargetSpec::SERVED,
-        fields: fields::<infer_session::Args>,
         handler: mutation!(infer_session::call, infer_session::Args),
     },
     ToolSpec {
@@ -948,7 +920,6 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             || json!({ "type": "object", "properties": { "entity_id": { "type": "string" }, "implementations": { "type": "array" }, "count": { "type": "integer" } }, "required": ["entity_id", "implementations", "count"] }),
         ),
         target: TargetSpec::SERVED,
-        fields: fields::<find_implementation::Args>,
         handler: typed!(find_implementation::call, find_implementation::Args),
     },
     ToolSpec {
@@ -972,7 +943,6 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             || json!({ "type": "object", "properties": { "file_path": { "type": "string" }, "match_mode": { "type": "string", "enum": ["exact", "directory", "suffix_path", "none"] }, "entities": { "type": "array" }, "count": { "type": "integer" } }, "required": ["file_path", "match_mode", "entities", "count"] }),
         ),
         target: TargetSpec::SERVED,
-        fields: fields::<find_spec_for_source::Args>,
         handler: typed!(find_spec_for_source::call, find_spec_for_source::Args),
     },
 ];
@@ -989,7 +959,7 @@ mod tests {
         for tool in CORE_TOOLS {
             if tool.target.reach == Reach::WritesAnyProject {
                 assert!(
-                    matches!(tool.handler, crate::tool::Handler::Mutation(_)),
+                    matches!(tool.handler, crate::tool::Handler::Mutation { .. }),
                     "{}",
                     tool.name
                 );

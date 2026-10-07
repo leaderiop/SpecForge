@@ -1,16 +1,18 @@
 use serde_json::{Value, json};
 use specforge_ops::navigate::{Fix, FixQuery};
 
+use crate::args::Arguments;
 use crate::target::Call;
 use crate::tool::{Handled, ToolOutcome};
 
-#[derive(Debug, serde::Deserialize)]
+/// `specforge.suggest_fixes`'s arguments.
+#[derive(Debug, Arguments)]
 pub struct Args {
-    #[serde(default, deserialize_with = "crate::args::lenient")]
+    /// Entity ID (optional, all if omitted)
     entity_id: Option<String>,
-    #[serde(default, deserialize_with = "crate::args::lenient")]
+    /// Only diagnostics in this spec file
     file_path: Option<String>,
-    #[serde(default, deserialize_with = "crate::args::lenient")]
+    /// Only diagnostics with this code, e.g. W001
     diagnostic_code: Option<String>,
 }
 
