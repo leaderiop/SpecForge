@@ -406,3 +406,84 @@ fn file_watchers_follow_what_the_session_is_built_from() {
         specforge_lsp::watchers::default_watchers()
     );
 }
+
+/// Pin (plan 03, bugs L2 and L3): every input the session classifies has an
+/// absolute watcher glob equal to its path as the checks join it, except a
+/// file in a missing file's directory, which has none. T4 flips it: every
+/// input is matched by a glob, spelled under the root.
+#[test]
+fn the_watchers_cover_what_the_session_classifies() {
+    use specforge_project::{InputRole, ProjectSession};
+    use tower_lsp::lsp_types::GlobPattern;
+
+    let outside = tempfile::TempDir::new().unwrap();
+    let far = tempfile::TempDir::new().unwrap();
+    let module_dir = std::fs::canonicalize(far.path()).unwrap().join("mods");
+    std::fs::create_dir_all(&module_dir).unwrap();
+    let module = module_dir.join("ext.wasm");
+    // From `spec/`, two levels up is the parent of the root: the sibling
+    // temp directory `outside`.
+    let outside_name = outside.path().file_name().unwrap().to_string_lossy();
+    let reference = format!("../../{outside_name}/guide.md");
+    let dir = crate::session::docref_project(&format!(
+        "gadget gadget_one \"G\" {{\n  docs [\"{reference}\", \"missing/sub.md\"]\n}}\n"
+    ));
+    let root = dir.path();
+    std::fs::write(
+        root.join("specforge.json"),
+        serde_json::json!({
+            "name": "p",
+            "version": "0.1.0",
+            "spec_root": "spec",
+            "extensions": [
+                "@specforge/software",
+                "@sdk/docref=ext/docref.wasm",
+                format!("@acme/far={}", module.display()),
+            ],
+        })
+        .to_string(),
+    )
+    .unwrap();
+    let session = ProjectSession::open(root);
+
+    let globs: Vec<String> = specforge_lsp::watchers::file_watchers(&session, false)
+        .into_iter()
+        .map(|w| match w.glob_pattern {
+            GlobPattern::String(glob) => glob,
+            other => panic!("expected an absolute glob, got {other:?}"),
+        })
+        .collect();
+    let spec_root = root.join("spec");
+    let inputs = [
+        root.join("specforge.json"),
+        root.join("specforge.lock"),
+        root.join("ext/docref.wasm"),
+        module,
+        spec_root.join(&reference),
+        spec_root.join("missing/sub.md"),
+    ];
+    for path in &inputs {
+        assert_ne!(
+            session.classify(path),
+            InputRole::Unrelated,
+            "{}",
+            path.display()
+        );
+        assert!(
+            globs.contains(&path.display().to_string()),
+            "{} not in {globs:?}",
+            path.display()
+        );
+    }
+
+    // A file created beside a missing referenced file changes E016's
+    // suggestion: the session classifies it, and no glob reports it.
+    let sibling = spec_root.join("missing/x.md");
+    assert_eq!(session.classify(&sibling), InputRole::CheckInput);
+    assert!(
+        !globs
+            .iter()
+            .any(|g| g.contains("/missing/") && !g.ends_with("/missing/sub.md")),
+        "{globs:?}"
+    );
+}

@@ -353,3 +353,140 @@ fn watch_roots_cover_every_input() {
     let root = fs::canonicalize(dir.path()).unwrap();
     assert_eq!(session.watch_roots(), vec![root, module_dir]);
 }
+
+/// A session with no project has no inputs: a `.spec` path is a buffer
+/// source keyed by itself, and nothing else is anything.
+#[specforge_test(
+    behavior = "classify_project_changes",
+    verify = "a detached session classifies a .spec buffer as a source and nothing else as an input"
+)]
+fn a_detached_session_takes_spec_buffers_only() {
+    let mut session = ProjectSession::detached();
+
+    assert_eq!(
+        session.classify(Path::new("/x/a.spec")),
+        source("/x/a.spec")
+    );
+    for path in ["/x/specforge.json", "/x/specforge.lock", "/x/n.md"] {
+        assert_eq!(
+            session.classify(Path::new(path)),
+            InputRole::Unrelated,
+            "{path}"
+        );
+    }
+    assert!(session.watch_roots().is_empty());
+    assert!(session.stale().is_empty());
+    let environment = specforge_project::Changes {
+        environment: true,
+        ..Default::default()
+    };
+    assert!(session.apply(&environment).is_none());
+
+    let update = session.reload_environment();
+    assert_eq!(update.kind, UpdateKind::Environment);
+    assert!(update.delta.is_empty());
+    assert!(update.rebuilt_files.is_empty());
+}
+
+/// A project whose `specforge.json` names a module in another temp
+/// directory, and whose one `gadget` (the in-process passes extension, so
+/// build-cache and file-reference inputs both exist) names `docs`. The
+/// paths of every input the session classifies, as a test spells them:
+/// config, lock, module, build cache, then each of `docs` resolved against
+/// the root (the spec root), and a sibling of the last in its directory.
+struct InputsLayout {
+    project: TempDir,
+    _outside: TempDir,
+    _far: TempDir,
+    /// The module in `_far`, and the directory it lies in.
+    module: std::path::PathBuf,
+    /// A file that exists in an existing directory outside the root.
+    out_guide: std::path::PathBuf,
+    /// A file in a directory under the root that does not exist.
+    missing_sub: std::path::PathBuf,
+    /// Another file in that missing directory.
+    missing_x: std::path::PathBuf,
+}
+
+fn inputs_layout() -> InputsLayout {
+    let outside = TempDir::new().unwrap();
+    let far = TempDir::new().unwrap();
+    let module_dir = fs::canonicalize(far.path()).unwrap().join("mods");
+    fs::create_dir_all(&module_dir).unwrap();
+    let module = module_dir.join("ext.wasm");
+    let outside_name = outside.path().file_name().unwrap().to_string_lossy();
+    let project = passes_project("");
+    fs::write(
+        project.path().join("specforge.json"),
+        json!({
+            "name": "p",
+            "version": "0.1.0",
+            "extensions": ["@test/passes", format!("@acme/far={}", module.display())],
+        })
+        .to_string(),
+    )
+    .unwrap();
+    write(
+        project.path(),
+        "a.spec",
+        &format!(
+            "gadget doc \"Doc\" {{\n  docs [\"../{outside_name}/guide.md\", \"missing/sub.md\"]\n}}\n"
+        ),
+    );
+    let root = project.path();
+    InputsLayout {
+        out_guide: root.join(format!("../{outside_name}/guide.md")),
+        missing_sub: root.join("missing/sub.md"),
+        missing_x: root.join("missing/x.md"),
+        project,
+        _outside: outside,
+        _far: far,
+        module,
+    }
+}
+
+/// Every input the session classifies lies under a directory a watcher
+/// watches (plan 03 pin: today's behaviour, which holds).
+#[specforge_test(
+    behavior = "classify_project_changes",
+    verify = "a session's watch roots cover every input it classifies"
+)]
+fn every_input_lies_under_a_watch_root() {
+    let layout = inputs_layout();
+    let root = layout.project.path();
+    let ext = Arc::new(passes_extension());
+    let session = ProjectSession::open_with_runtime(root, Some(ext as SharedRuntime));
+    let roots = session.watch_roots();
+
+    let inputs = [
+        (root.join("specforge.json"), InputRole::Environment),
+        (root.join("specforge.lock"), InputRole::Environment),
+        (layout.module.clone(), InputRole::Environment),
+        (
+            root.join(specforge_project::BUILD_CACHE_FILE),
+            InputRole::CheckInput,
+        ),
+        (layout.out_guide.clone(), InputRole::CheckInput),
+        (layout.missing_sub.clone(), InputRole::CheckInput),
+        // A file in a missing file's directory changes the E016 suggestion.
+        (layout.missing_x.clone(), InputRole::CheckInput),
+    ];
+    for (path, role) in inputs {
+        assert_eq!(session.classify(&path), role, "{}", path.display());
+        let canonical = fs::canonicalize(path.parent().unwrap())
+            .map(|dir| dir.join(path.file_name().unwrap()))
+            // The directory does not exist: its nearest existing ancestor.
+            .unwrap_or_else(|_| {
+                let mut dir = path.parent().unwrap();
+                while !dir.exists() {
+                    dir = dir.parent().unwrap();
+                }
+                fs::canonicalize(dir).unwrap()
+            });
+        assert!(
+            roots.iter().any(|watched| canonical.starts_with(watched)),
+            "{} is under no watch root of {roots:?}",
+            path.display()
+        );
+    }
+}

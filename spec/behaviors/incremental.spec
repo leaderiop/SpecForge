@@ -67,6 +67,8 @@ behavior classify_project_changes "Classify Project Changes" {
   verify unit "a file a file_reference field names re-runs the checks"
   verify unit "a file a file_exists rule names re-runs the checks"
   verify unit "an excluded or undiscovered .spec file changes nothing"
+  verify unit "a detached session classifies a .spec buffer as a source and nothing else as an input"
+  verify unit "a session's watch roots cover every input it classifies"
 }
 
 behavior bring_session_up_to_date "Bring a Session Up to Date with Disk" {

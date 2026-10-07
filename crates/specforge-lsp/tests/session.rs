@@ -33,6 +33,32 @@ pub fn uri_of(path: &Path) -> String {
         .to_string()
 }
 
+/// A project of the vendored docref extension (`fixtures/docref-extension`:
+/// a `gadget` kind whose `docs` field names files, `@sdk/docref=ext/docref.wasm`
+/// beside `@specforge/software`): spec root `spec/`, `spec/a.spec` holding
+/// `spec`, and an empty `docs/` beside it.
+pub fn docref_project(spec: &str) -> tempfile::TempDir {
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+    for sub in ["spec", "ext", "docs"] {
+        std::fs::create_dir_all(root.join(sub)).unwrap();
+    }
+    let config = json!({
+        "name": "p",
+        "version": "0.1.0",
+        "spec_root": "spec",
+        "extensions": ["@specforge/software", "@sdk/docref=ext/docref.wasm"],
+    });
+    std::fs::write(root.join("specforge.json"), config.to_string()).unwrap();
+    std::fs::copy(
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/docref-extension/docref.wasm"),
+        root.join("ext/docref.wasm"),
+    )
+    .unwrap();
+    std::fs::write(root.join("spec/a.spec"), spec).unwrap();
+    dir
+}
+
 /// The codes of `diagnostics`.
 pub fn codes(diagnostics: &[Value]) -> Vec<&str> {
     diagnostics

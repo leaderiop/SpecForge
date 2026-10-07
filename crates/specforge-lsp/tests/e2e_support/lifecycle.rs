@@ -635,3 +635,84 @@ async fn e2e_registered_watchers_cover_the_environment_inputs() {
     // A .wasm no extension loads is not watched.
     assert!(!globs.iter().any(|g| g == "**/*.wasm"), "{globs:?}");
 }
+
+/// The globs of the two watcher registrations a server makes once the
+/// project is open: the static watchers, then the ones it is built from.
+async fn registrations_after_open(client: &mut Session) -> Vec<String> {
+    let mut globs = Vec::new();
+    for _ in 0..2 {
+        let registration = client
+            .wait_for_notification("client/registerCapability", 10_000)
+            .await
+            .expect("a watcher registration");
+        globs = registered_globs(&registration);
+    }
+    globs
+}
+
+/// A gadget of the docref project naming `../docs/guide.md` (from `spec/`:
+/// `docs/guide.md` under the root), which does not exist.
+const NAMES_GUIDE: &str = "gadget gadget_one \"G\" {\n  docs [\"../docs/guide.md\"]\n}\n";
+
+// Pin (plan 03, bug L1): an edit that names a file the checks read does not
+// move the watchers; the third registration never comes. T5 flips it.
+#[tokio::test]
+async fn e2e_watchers_stay_put_after_an_edit_names_a_file() {
+    let dir = crate::session::docref_project("gadget gadget_one \"G\" {\n}\n");
+    let root = dir.path().to_str().unwrap();
+    let mut client = Session::launch(Some(root), json!({})).await.0;
+    let globs = registrations_after_open(&mut client).await;
+    assert!(
+        !globs.iter().any(|g| g.ends_with("docs/guide.md")),
+        "{globs:?}"
+    );
+
+    let uri = uri_of(&dir.path().join("spec/a.spec"));
+    client
+        .did_open(&uri, "specforge", "gadget gadget_one \"G\" {\n}\n")
+        .await;
+    client
+        .did_change(&uri, 2, vec![json!({"text": NAMES_GUIDE})])
+        .await;
+    let published = client
+        .notification("textDocument/publishDiagnostics", |p| {
+            p["uri"] == uri.as_str()
+                && codes(p["diagnostics"].as_array().unwrap()).contains(&"E016")
+        })
+        .await;
+    assert!(published.is_some(), "the edit never reported E016");
+
+    let third = client
+        .notification_within(
+            "client/registerCapability",
+            std::time::Duration::from_secs(3),
+            |_| true,
+        )
+        .await;
+    assert!(third.is_none(), "the watchers followed the edit: {third:?}");
+}
+
+// Pin (plan 03, bug L3): a referenced file is watched under the spelling the
+// checks join it with, `spec/../docs/guide.md`. T4 flips it.
+#[tokio::test]
+async fn e2e_a_referenced_file_is_watched_as_joined() {
+    let dir = crate::session::docref_project(NAMES_GUIDE);
+    let root = dir.path().to_str().unwrap();
+    let mut client = Session::launch(Some(root), json!({})).await.0;
+    let globs = registrations_after_open(&mut client).await;
+    assert!(
+        globs.contains(&format!("{root}/spec/../docs/guide.md")),
+        "{globs:?}"
+    );
+}
+
+// Pin (plan 03, bug L2): the directory of a missing referenced file is not
+// watched, though a file created there changes the E016 suggestion. T4 flips it.
+#[tokio::test]
+async fn e2e_no_watcher_covers_a_missing_files_directory() {
+    let dir = crate::session::docref_project(NAMES_GUIDE);
+    let root = dir.path().to_str().unwrap();
+    let mut client = Session::launch(Some(root), json!({})).await.0;
+    let globs = registrations_after_open(&mut client).await;
+    assert!(!globs.iter().any(|g| g.ends_with("docs/*")), "{globs:?}");
+}
