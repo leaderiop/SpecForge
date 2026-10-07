@@ -30,6 +30,7 @@ impl RegistryBuild {
     /// 3. unless [`Self::structural_only`]: E024 unknown kind, E013
     ///    reserved ID, E014 identifier length, W020 unknown field, E022
     ///    reference to the wrong kind, E061 value not of its declared type;
+    ///    when structural-only with extensions loaded, one W151 instead;
     /// 4. the rule set ([`crate::rules::Rules::check`]), asking `verdicts`
     ///    for `custom` rules.
     ///
@@ -40,7 +41,10 @@ impl RegistryBuild {
         let entities = input.entities;
         let mut diagnostics = refs::unreferenced(entities); // W012
         diagnostics.extend(files::missing(entities, &self.fields, input.spec_root)); // E016
-        if !self.structural_only() {
+        if self.structural_only() {
+            // W151: extensions are loaded but none declares a kind.
+            diagnostics.extend(kinds::unchecked(entities, !self.declarations().is_empty()));
+        } else {
             diagnostics.extend(kinds::unknown(entities, &self.kinds)); // E024
             diagnostics.extend(identifiers::reserved(entities, &self.kinds)); // E013
             diagnostics.extend(identifiers::length(entities)); // E014
@@ -71,7 +75,8 @@ impl RegistryBuild {
 
     /// No loaded extension declares an entity kind: the checks that read
     /// kinds, fields and identifiers do not run. With no extension loaded
-    /// the environment says so (I002).
+    /// the environment says so (I002); with some loaded, `check` reports
+    /// W151 for the entities it leaves unchecked.
     pub fn structural_only(&self) -> bool {
         self.kinds.is_empty()
     }

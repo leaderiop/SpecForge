@@ -120,9 +120,8 @@ fn kindless() -> InProcessRuntime {
 }
 
 /// Extensions that load but declare no kind switch the kind, field and
-/// identifier checks off with no notice: no E024 for `wibble`, no E014 for
-/// the one-character `w`, no W151 or I002 either (T9 replaces the silence
-/// with W151).
+/// identifier checks off; one W151 says so, naming the entities nobody
+/// checks (no E024 for `wibble`, no E014 for the short ID, no I002).
 #[test]
 fn kindless_extensions_leave_entities_unchecked() {
     let dir = project(&["@test/kindless"], "wibble w { }\nthing ab { }\n");
@@ -135,7 +134,11 @@ fn kindless_extensions_leave_entities_unchecked() {
         ],
     );
 
-    assert!(found.is_empty(), "{found:#?}");
+    assert_eq!(codes_of(&found), ["W151"], "{found:#?}");
+    assert_eq!(
+        found[0][1],
+        "the loaded extensions declare no entity kind: 2 entities (kinds: thing, wibble) are not checked against kinds, fields or identifiers"
+    );
 }
 
 /// A rule targeting a kind `@test/absent` would declare, and nobody loaded.

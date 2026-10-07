@@ -236,7 +236,7 @@ fn two_phase_validate_semantic_contract() {
 }
 
 /// With no entity kind registered, E024, E013, E014, W020, E022 and E061 do
-/// not run; W012 and the rules still do. (E016 needs a declared kind to hold
+/// not run; W012 and the rules still do (and W151 says what is unchecked). (E016 needs a declared kind to hold
 /// its `file_reference` field.)
 #[spec(
     behavior = "check_entities_in_one_order",
@@ -259,7 +259,7 @@ fn a_build_with_no_kind_checks_no_kind() {
     let codes: Vec<&str> = diags.iter().map(|d| d.code.as_str()).collect();
     assert_eq!(codes, ["W012"], "{diags:?}");
 
-    // One declaration with a rule and no kind: only the rule reports.
+    // One declaration with a rule and no kind: the rule and the notice report.
     let kindless = declare("@test/kindless", |c| {
         c.rule("W902", |r| {
             r.check(CheckKind::NoIncomingEdges)
@@ -271,5 +271,84 @@ fn a_build_with_no_kind_checks_no_kind() {
     assert!(build.structural_only());
     let diags = check(&build, &with_ref);
     let codes: Vec<&str> = diags.iter().map(|d| d.code.as_str()).collect();
-    assert_eq!(codes, ["W012", "W902", "W902", "W902"], "{diags:?}");
+    // W012, then the one notice that the kinds are unchecked (W151), then
+    // the rule.
+    assert_eq!(codes, ["W012", "W151", "W902", "W902", "W902"], "{diags:?}");
+}
+
+#[spec(
+    behavior = "check_entities_in_one_order",
+    verify = "extensions that load but declare no entity kind report one W151 naming the unchecked entities"
+)]
+fn kindless_extensions_report_one_w151() {
+    let kindless = build([declare("@test/kindless", |_| {})]);
+    assert!(kindless.structural_only());
+
+    // Two non-structural entities: one W151 naming how many and which kinds.
+    let diags = check(
+        &kindless,
+        &[
+            EntityRecord::new("wibble", "wb", span("t.spec")),
+            EntityRecord::new("behavior", "b1", span("t.spec")),
+            EntityRecord::new("wibble", "wb2", span("t.spec")),
+            EntityRecord::new("spec", "s", span("t.spec")),
+        ],
+    );
+    let w151 = coded_in(&diags, "W151");
+    assert_eq!(diags.len(), 1, "{diags:?}");
+    assert_eq!(
+        w151[0].message,
+        "the loaded extensions declare no entity kind: 3 entities (kinds: behavior, wibble) are not checked against kinds, fields or identifiers"
+    );
+    assert_eq!(
+        w151[0].suggestion.as_deref(),
+        Some("install it with: specforge add @specforge/software")
+    );
+    assert!(w151[0].span.is_none(), "it is about the project");
+
+    // One entity: singular; a kind no builtin declares: search for it.
+    let one = check(
+        &kindless,
+        &[EntityRecord::new("xyzzy", "x1", span("t.spec"))],
+    );
+    assert_eq!(
+        one[0].message,
+        "the loaded extensions declare no entity kind: 1 entity (kinds: xyzzy) is not checked against kinds, fields or identifiers"
+    );
+    assert_eq!(
+        one[0].suggestion.as_deref(),
+        Some("enable the extension that declares them; search with: specforge search xyzzy")
+    );
+
+    // Seven kinds: five named, then "…".
+    let many: Vec<EntityRecord> = ["k1", "k2", "k3", "k4", "k5", "k6", "k7"]
+        .iter()
+        .map(|kind| EntityRecord::new(kind, &format!("{kind}_e"), span("t.spec")))
+        .collect();
+    let diags = check(&kindless, &many);
+    assert!(
+        diags[0]
+            .message
+            .contains("7 entities (kinds: k1, k2, k3, k4, k5, …)"),
+        "{diags:?}"
+    );
+
+    // Only structural entities, or none: nothing is left unchecked.
+    let structural = [
+        EntityRecord::new("ref", "gh.issue:1", span("t.spec")).with_edges(
+            specforge_registry::entity::Direction::Incoming,
+            "spec",
+            1,
+        ),
+        EntityRecord::new("spec", "s", span("t.spec")),
+    ];
+    assert!(check(&kindless, &structural).is_empty());
+    assert!(check(&kindless, &[]).is_empty());
+
+    // No extension loaded: I002 says so, not W151.
+    let none = check(
+        &build([]),
+        &[EntityRecord::new("wibble", "wb", span("t.spec"))],
+    );
+    assert!(none.is_empty(), "{none:?}");
 }

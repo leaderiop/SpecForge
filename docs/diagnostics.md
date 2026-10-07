@@ -3054,6 +3054,23 @@ Owner: core
 Level: warning
 ```
 
+## W151
+
+```
+W151: Entity kinds left unchecked
+
+Extensions are loaded, but none of them declares an entity kind, so the
+entities' kinds, fields and identifiers are not checked: no E024 for an unknown
+kind, no W020, E013, E014, E022 or E061. The warning names how many entities
+that leaves unchecked and their kinds. Enable the extension that declares those
+kinds (the suggestion names it when it is a builtin), or remove the entities. A
+project with no extension at all is structural-only on purpose and gets I002
+instead.
+
+Owner: core
+Level: warning
+```
+
 ## W153
 
 ```
