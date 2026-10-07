@@ -456,12 +456,8 @@ fn excluded_files_stay_out_of_the_compile_and_the_session() {
     let root = dir.path();
     let runtime = specforge_component::project_runtime(root);
     let compiled = CompiledProject::compile(root, Some(&runtime));
-    let files: Vec<&str> = compiled
-        .resolved
-        .files
-        .iter()
-        .map(|f| f.path.as_str())
-        .collect();
+    let mut files: Vec<String> = compiled.source_texts().into_keys().collect();
+    files.sort();
     assert_eq!(files, ["main.spec"]);
     assert!(
         !compiled.diagnostics().iter().any(|d| d.code == "E002"),
@@ -1866,24 +1862,48 @@ fn e025_messages(diagnostics: &[Diagnostic]) -> Vec<String> {
         .collect()
 }
 
-#[test]
+#[specforge_test(
+    behavior = "resolve_imports_on_update",
+    verify = "an unreadable source stays E025 after an update of another file"
+)]
 fn an_unreadable_source_is_reported_after_an_update_of_another_file() {
     let dir = project_with_an_unreadable_source();
     let root = dir.path();
     let runtime = specforge_component::project_runtime(root);
+    let message = "cannot read bad.spec: stream did not contain valid UTF-8";
     let mut session = ProjectSession::open(root);
-    assert_eq!(
-        e025_messages(&session.diagnostics()),
-        ["cannot read file: stream did not contain valid UTF-8"]
-    );
+    assert_eq!(e025_messages(&session.diagnostics()), [message]);
 
     write(root, "a.spec", &behavior("alpha", "  invariants []\n"));
     session.update(SourceChange::Disk(&changed(&["a.spec"])));
 
-    // PIN (07-T4): an update drops the unreadable source's E025.
-    assert!(e025_messages(&session.diagnostics()).is_empty());
+    assert_eq!(e025_messages(&session.diagnostics()), [message]);
     let fresh = CompiledProject::compile(root, Some(&runtime));
-    assert_eq!(e025_messages(&fresh.diagnostics()).len(), 1);
+    assert_eq!(e025_messages(&fresh.diagnostics()), [message]);
+    assert_matches_a_fresh_compile(&session, root);
+}
+
+#[test]
+fn a_source_that_becomes_readable_joins_the_build() {
+    let dir = project_with_an_unreadable_source();
+    let root = dir.path();
+    let mut session = ProjectSession::open(root);
+    assert!(session.graph().node("beta").is_none());
+
+    write(root, "bad.spec", "term beta \"B\" {\n}\n");
+    let update = session.update(SourceChange::Disk(&changed(&["bad.spec"])));
+
+    assert_eq!(update.rebuilt_files, ["bad.spec"]);
+    assert!(session.graph().node("beta").is_some());
+    assert!(e025_messages(&session.diagnostics()).is_empty());
+    assert_matches_a_fresh_compile(&session, root);
+
+    // And unreadable again: out of the graph, reported once more.
+    fs::write(root.join("bad.spec"), b"term beta \"B\xff\" {\n}\n").unwrap();
+    session.update(SourceChange::Disk(&changed(&["bad.spec"])));
+    assert!(session.graph().node("beta").is_none());
+    assert_eq!(e025_messages(&session.diagnostics()).len(), 1);
+    assert_matches_a_fresh_compile(&session, root);
 }
 
 /// `b.spec`: `behavior dup`; `c.spec`: `invariant dup`; `d.spec`:

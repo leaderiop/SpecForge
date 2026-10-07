@@ -31,7 +31,10 @@ behavior resolve_use_imports "Resolve Use Imports" {
     appended implicitly; a path that already ends in .spec names the same
     file. Missing files MUST produce an E025 diagnostic. A target above
     the spec root does not resolve, whichever step of the cascade
-    (relative, @alias, bare path) names it: E025.
+    (relative, @alias, bare path) names it: E025. A .spec file discovery
+    finds that cannot be read (not UTF-8, no permission) MUST produce an
+    E025 naming its path, in a compile and after every update, and is
+    left out of the graph.
     The resolver MUST build the file dependency graph from imports.
     A .spec file whose path relative to the spec root contains one of the
     exclude entries of specforge.json MUST NOT be compiled, on every
@@ -50,6 +53,7 @@ behavior resolve_use_imports "Resolve Use Imports" {
   verify unit "resolve extension import path"
   verify unit "symlink pointing outside spec_root is rejected"
   verify unit "files matching an exclude entry are not compiled"
+  verify unit "a source that cannot be read produces E025 naming it"
 }
 
 // No consumes — called inline during use import resolution

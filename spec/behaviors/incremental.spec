@@ -313,7 +313,8 @@ behavior resolve_imports_on_update "Resolve Imports on Every Update" {
     After every update, the system MUST resolve the use imports of every
     file again, over the cached parses (no file is re-read or re-parsed
     for it), so the import diagnostics (E025, I004, W113, W027) are the
-    ones a full rebuild reports. The import graph is rebuilt rather than
+    ones a full rebuild reports. A source that could not be read stays
+    E025 until it is readable or gone. The import graph is rebuilt rather than
     patched: an added or removed import, an import target created or
     deleted, and a cycle closed or broken anywhere are all seen on the
     update that causes them. References resolve across the project
@@ -323,6 +324,7 @@ behavior resolve_imports_on_update "Resolve Imports on Every Update" {
   verify unit "a removed use import no longer reports"
   verify unit "cycle detection re-runs after an update"
   verify unit "import diagnostics after an update match a full rebuild"
+  verify unit "an unreadable source stays E025 after an update of another file"
   verify contract "Resolve Imports on Every Update: import resolution after each update holds — subgraph_invalidated_fired, import_dag_updated_emitted, cycle_detection_rerun"
 }
 

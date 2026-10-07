@@ -21,6 +21,11 @@ fn wasm_runtime_for(ext_names: &[&str]) -> specforge_component::ComponentRuntime
 /// Helper: write spec files to a temp dir and compile them with no extension
 /// loaded (structure only).
 fn compile_specs(files: &[(&str, &str)]) -> specforge_project::CompiledProject {
+    compile_specs_in(files).1
+}
+
+/// [`compile_specs`], keeping the directory the files were written to.
+fn compile_specs_in(files: &[(&str, &str)]) -> (TempDir, specforge_project::CompiledProject) {
     let dir = TempDir::new().unwrap();
     for (name, content) in files {
         let path = dir.path().join(name);
@@ -29,7 +34,8 @@ fn compile_specs(files: &[(&str, &str)]) -> specforge_project::CompiledProject {
         }
         fs::write(&path, content).unwrap();
     }
-    specforge_project::CompiledProject::compile(dir.path(), None)
+    let compiled = specforge_project::CompiledProject::compile(dir.path(), None);
+    (dir, compiled)
 }
 
 /// Helper: compile with the builtin runtime for the given extensions (full pipeline).
@@ -296,7 +302,7 @@ fn single_entity_roundtrip() {
     verify = "resolve use path to file on disk"
 )]
 fn multi_file_with_imports() {
-    let ctx = compile_specs(&[
+    let (dir, ctx) = compile_specs_in(&[
         (
             "types.spec",
             r#"type user_id "User ID" {
@@ -329,13 +335,16 @@ behavior login "User Login" {
 
     // `use "types"` resolved to the file types.spec (extension appended,
     // path relative to the spec root), and only that.
-    let behaviors = ctx
-        .resolved
-        .files
-        .iter()
-        .find(|f| f.path.ends_with("behaviors.spec"))
-        .expect("behaviors.spec resolved");
-    assert_eq!(behaviors.import_targets, vec!["types.spec".to_string()]);
+    assert_eq!(
+        specforge_resolver::resolve_import(
+            dir.path(),
+            "behaviors.spec",
+            "types",
+            &Default::default()
+        )
+        .as_deref(),
+        Some("types.spec")
+    );
     // The import's types edge links the two files' entities.
     assert!(
         ctx.graph

@@ -22,32 +22,35 @@ pub mod compile;
 pub mod coverage;
 pub mod field_types;
 mod freshness;
-mod incremental;
 mod inputs;
 pub mod passes;
 mod policy;
 mod session;
 pub mod snapshot;
+mod sources;
 pub mod verdicts;
 
 use std::sync::Arc;
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
+
+use sources::SourceCache;
 
 use compile::{GraphChecks, check_graph, load_extensions};
 use coverage::RecordedCoverage;
 use snapshot::EntitySnapshot;
 use specforge_common::{
-    ConfigProblem, ConfigRead, Diagnostic, ProjectConfig, codes, is_discovered, read_project_config,
+    ConfigProblem, ConfigRead, Diagnostic, ProjectConfig, codes, discover_spec_files,
+    is_discovered, read_project_config,
 };
-use specforge_graph::{Graph, GraphConfig, build_graph_with_config};
+use specforge_graph::{Graph, GraphBuild, GraphConfig};
 use specforge_parser::SpecFile;
 use specforge_protocol_types::ExtensionDeclaration;
 use specforge_registry::{
     RegistryBuild, build_registries, load_provider_configurations, register_provider_schemes,
 };
-use specforge_resolver::{ResolveConfig, ResolvedProject, resolve_project_with_config};
+use specforge_resolver::{ResolveConfig, resolve_parsed};
 use specforge_wasm::{LockState, WasmRuntime};
 
 pub use build_cache::{BUILD_CACHE_FILE, BUILD_CACHE_FORMAT, BuildCache, CachedStatus};
@@ -280,17 +283,66 @@ impl Environment {
         !is_discovered(relative, &self.config.exclude)
     }
 
-    /// Discover, parse and resolve the project's `.spec` files.
-    pub fn resolve(&self) -> ResolvedProject {
-        resolve_project_with_config(&self.spec_root, &self.resolve_config())
+    /// The project sources discovery finds now (`exclude` and the skipped
+    /// directories applied).
+    pub fn discover(&self) -> Vec<PathBuf> {
+        discover_spec_files(&self.spec_root, &self.config.exclude)
+    }
+
+    /// Read and parse `discovered`, build their graph and resolve their
+    /// imports: the one cold build every compile, session open and
+    /// extension-command graph starts from (ADR 0032).
+    pub(crate) fn build_sources(&self, discovered: &[PathBuf]) -> SourceBuild {
+        let (sources, files) = SourceCache::read_all(&self.spec_root, discovered);
+        let graph = GraphBuild::of(files, self.graph_config());
+        let imports = self.import_diagnostics(&sources, &graph);
+        SourceBuild {
+            sources,
+            graph,
+            imports,
+        }
+    }
+
+    /// The import diagnostics of what `sources` and `graph` hold: E025 for
+    /// each source that could not be read, then the resolver's (E025,
+    /// I004, W113, W027). The same function after a cold read and after
+    /// every update.
+    pub(crate) fn import_diagnostics(
+        &self,
+        sources: &SourceCache,
+        graph: &GraphBuild,
+    ) -> Vec<Diagnostic> {
+        let files: Vec<(&str, &SpecFile)> = graph.files().collect();
+        sources
+            .unreadable()
+            .cloned()
+            .chain(
+                resolve_parsed(
+                    &self.spec_root,
+                    &files,
+                    &ResolveConfig::default(),
+                    &|path: &Path| path.is_file(),
+                )
+                .diagnostics,
+            )
+            .collect()
     }
 
     /// The graph of the project's sources, as a compile builds it, without
     /// the checks a compile then runs on it: what a query over the project
     /// reads (an extension command, ADR 0008).
     pub fn build_graph(&self) -> Graph {
-        build_graph_with_config(&source_files(&self.resolve()), &self.graph_config()).0
+        self.build_sources(&self.discover()).graph.into_parts().0
     }
+}
+
+/// What a compile builds from the sources on disk (ADR 0032).
+pub(crate) struct SourceBuild {
+    pub sources: SourceCache,
+    pub graph: GraphBuild,
+    /// E025 for the unreadable sources, then the resolver's (E025, I004,
+    /// W113, W027).
+    pub imports: Vec<Diagnostic>,
 }
 
 /// Register the `providers` specforge.json configures against the loaded
@@ -355,31 +407,14 @@ fn structural_only_notice(configured: &[String], problems: &[ConfigProblem]) -> 
     Diagnostic::new(codes::I002, message).with_suggestion(suggestion)
 }
 
-/// The resolved files a graph is built from, in path order.
-fn source_files(resolved: &ResolvedProject) -> Vec<SpecFile> {
-    sources_in_path_order(resolved)
-        .into_iter()
-        .map(|(_, spec_file)| spec_file)
-        .collect()
-}
-
-/// The resolved files as the graph is built from them: in path order, the
-/// order an incremental rebuild applies first-writer-wins in too.
-fn sources_in_path_order(resolved: &ResolvedProject) -> Vec<(String, SpecFile)> {
-    let mut sources: Vec<(String, SpecFile)> = resolved
-        .files
-        .iter()
-        .map(|f| (f.path.clone(), f.spec_file.clone()))
-        .collect();
-    sources.sort_by(|a, b| a.0.cmp(&b.0));
-    sources
-}
-
-/// A one-shot compile: an environment, the resolved sources and the graph
+/// A one-shot compile: an environment, the sources it read and the graph
 /// built from them. What `specforge check` and every CLI command use.
 pub struct CompiledProject {
     pub env: Environment,
-    pub resolved: ResolvedProject,
+    /// The text of every source, as read.
+    sources: SourceCache,
+    /// E025 for the unreadable sources, then the resolver's diagnostics.
+    import_diagnostics: Vec<Diagnostic>,
     pub graph: Graph,
     /// What building the graph reported (parse errors, duplicates,
     /// unresolved references, reference cycles).
@@ -400,20 +435,35 @@ impl CompiledProject {
     /// Without a runtime no extension is loaded.
     pub fn compile(root: &Path, runtime: Option<&dyn WasmRuntime>) -> Self {
         let env = Environment::load(root, runtime);
-        let resolved = env.resolve();
-        let (graph, graph_diagnostics) =
-            build_graph_with_config(&source_files(&resolved), &env.graph_config());
+        let SourceBuild {
+            sources,
+            graph,
+            imports,
+        } = env.build_sources(&env.discover());
+        let (graph, graph_diagnostics) = graph.into_parts();
         let entities = Arc::new(env.entity_snapshot(&graph));
         let check_diagnostics = env.run_checks(&graph, &entities, runtime);
         CompiledProject {
             env,
-            resolved,
+            sources,
+            import_diagnostics: imports,
             graph,
             graph_diagnostics,
             check_diagnostics,
             recorded: RecordedCoverage::of(Arc::clone(&entities)),
             entities,
         }
+    }
+
+    /// Each source's text, by its path relative to the spec root: exactly
+    /// what was parsed, for quoting in rendered diagnostics without
+    /// reading the disk again.
+    pub fn source_texts(&self) -> HashMap<String, String> {
+        self.sources
+            .texts()
+            .into_iter()
+            .map(|(path, text)| (path, text.to_string()))
+            .collect()
     }
 
     /// The graph's entity snapshot, the one its checks read.
@@ -427,7 +477,7 @@ impl CompiledProject {
     pub fn diagnostics(&self) -> Vec<Diagnostic> {
         self.env
             .diagnostics()
-            .chain(&self.resolved.diagnostics)
+            .chain(&self.import_diagnostics)
             .chain(&self.graph_diagnostics)
             .chain(&self.check_diagnostics)
             .chain(self.env.surface_diagnostics())
