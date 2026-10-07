@@ -129,7 +129,21 @@ struct OnDisk {
     named: Vec<PathBuf>,
     /// The directories of `named` that were missing when the checks ran.
     listings: Vec<PathBuf>,
+    /// Directories on the way to an input's missing directory outside the
+    /// root, from their nearest existing ancestor.
+    pending: Vec<Pending>,
     canonical: Canonical,
+}
+
+/// An input whose directory does not exist yet, outside the root: what
+/// creating the next directory on the way to it is.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct Pending {
+    /// The nearest existing ancestor of the missing directory (canonical).
+    ancestor: PathBuf,
+    /// The missing directory (canonical, as far as it can be).
+    toward: PathBuf,
+    role: InputRole,
 }
 
 impl OnDisk {
@@ -231,6 +245,14 @@ impl SessionInputs {
         {
             return InputRole::CheckInput;
         }
+        // A directory created on the way to an input's missing directory.
+        for pending in &disk.pending {
+            if path.parent() == Some(pending.ancestor.as_path())
+                && pending.toward.starts_with(&path)
+            {
+                return pending.role.clone();
+            }
+        }
         InputRole::Unrelated
     }
 
@@ -241,9 +263,10 @@ impl SessionInputs {
 
     /// The directories a file watcher must watch to see a change to any
     /// input: the root, the spec root when it is outside the root, and the
-    /// directory of every input outside both (canonical, existing, none
-    /// inside another). Empty when detached or when the root does not
-    /// exist.
+    /// directory of every input outside both, recursively (canonical, none
+    /// inside another); for an input directory outside the root that does
+    /// not exist, its nearest existing ancestor, for its own entries only.
+    /// Empty when detached or when the root does not exist.
     pub fn watch_roots(&self) -> Vec<WatchRoot> {
         let Some(disk) = self.disk() else {
             return Vec::new();
@@ -266,13 +289,28 @@ impl SessionInputs {
             roots.retain(|root| !root.starts_with(&dir));
             roots.push(dir);
         }
-        roots
-            .into_iter()
+        let mut watch_roots: Vec<WatchRoot> = roots
+            .iter()
             .map(|dir| WatchRoot {
-                dir,
+                dir: dir.clone(),
                 recursive: true,
             })
-            .collect()
+            .collect();
+        // An input's missing directory outside the root is watched from its
+        // nearest existing ancestor, for that ancestor's own entries only.
+        if !roots.is_empty() {
+            for pending in &disk.pending {
+                let covered = roots.iter().any(|root| pending.ancestor.starts_with(root));
+                let watch = WatchRoot {
+                    dir: pending.ancestor.clone(),
+                    recursive: false,
+                };
+                if !covered && !watch_roots.contains(&watch) {
+                    watch_roots.push(watch);
+                }
+            }
+        }
+        watch_roots
     }
 
     /// What an editor client must report: the spec root's `.spec` files,
@@ -343,6 +381,7 @@ impl SessionInputs {
             build_cache: None,
             named: Vec::new(),
             listings: Vec::new(),
+            pending: Vec::new(),
             canonical: Canonical::empty(),
         })
     }
@@ -435,9 +474,58 @@ impl SessionInputs {
             // in its directory: a file created or deleted there changes it.
             listings: disk.listings.iter().map(|dir| canonical(dir)).collect(),
         };
+        disk.pending = disk.pending_directories();
         SessionInputs {
             place: Place::Disk(Box::new(disk)),
         }
+    }
+}
+
+impl OnDisk {
+    /// The missing directories of the inputs outside the root, each with
+    /// its nearest existing ancestor. A root that does not exist has none.
+    fn pending_directories(&self) -> Vec<Pending> {
+        if !self.canonical.root.is_dir() {
+            return Vec::new();
+        }
+        let toward = |dir: &Path, role: &InputRole| -> Option<Pending> {
+            let toward = canonical(dir);
+            if toward.is_dir() || toward.starts_with(&self.canonical.root) {
+                return None;
+            }
+            let mut ancestor = toward.parent()?;
+            while !ancestor.is_dir() {
+                ancestor = ancestor.parent()?;
+            }
+            Some(Pending {
+                ancestor: ancestor.to_path_buf(),
+                toward,
+                role: role.clone(),
+            })
+        };
+        let environment = InputRole::Environment;
+        let check = InputRole::CheckInput;
+        let mut pending: Vec<Pending> = Vec::new();
+        let candidates = std::iter::once((self.spec_root.as_path(), &environment))
+            .chain(
+                self.modules
+                    .iter()
+                    .filter_map(|module| Some((module.parent()?, &environment))),
+            )
+            .chain(
+                self.build_cache
+                    .iter()
+                    .chain(&self.named)
+                    .filter_map(|file| Some((file.parent()?, &check))),
+            );
+        for (dir, role) in candidates {
+            if let Some(next) = toward(dir, role)
+                && !pending.contains(&next)
+            {
+                pending.push(next);
+            }
+        }
+        pending
     }
 }
 
@@ -674,5 +762,61 @@ mod tests {
         );
         // The root itself is spelled as opened.
         assert_eq!(watched[0], Watched::Sources(root));
+    }
+
+    #[test]
+    fn a_module_in_a_missing_directory_is_pending_as_an_environment_input() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let root = dir.path().join("proj");
+        std::fs::create_dir_all(&root).unwrap();
+        let far = dir.path().join("far");
+        std::fs::create_dir_all(&far).unwrap();
+        let module = far.join("deep/mods/ext.wasm");
+        let inputs = SessionInputs::opened(
+            &root,
+            &config(&[&format!("@acme/far={}", module.display())]),
+        );
+        let far = std::fs::canonicalize(&far).unwrap();
+
+        // The nearest existing ancestor is watched for its own entries.
+        assert!(
+            inputs.watch_roots().contains(&WatchRoot {
+                dir: far.clone(),
+                recursive: false
+            }),
+            "{:?}",
+            inputs.watch_roots()
+        );
+        // A directory created on the way is the module's change; one
+        // beside it is nothing.
+        assert_eq!(inputs.classify(&far.join("deep")), InputRole::Environment);
+        assert_eq!(inputs.classify(&far.join("other")), InputRole::Unrelated);
+        // Below the first directory on the way is not this ancestor's.
+        assert_eq!(
+            inputs.classify(&far.join("deep/mods")),
+            InputRole::Unrelated
+        );
+        // Once the directory exists, it is watched whole.
+        std::fs::create_dir_all(far.join("deep/mods")).unwrap();
+        let inputs = SessionInputs::opened(
+            &root,
+            &config(&[&format!("@acme/far={}", module.display())]),
+        );
+        assert!(
+            inputs.watch_roots().contains(&WatchRoot {
+                dir: far.join("deep/mods"),
+                recursive: true
+            }),
+            "{:?}",
+            inputs.watch_roots()
+        );
+    }
+
+    #[test]
+    fn a_missing_root_has_no_watch_roots() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let inputs = SessionInputs::opened(&dir.path().join("nope"), &config(&[]));
+        assert!(inputs.watch_roots().is_empty());
+        assert_eq!(inputs.classify(dir.path()), InputRole::Unrelated);
     }
 }

@@ -154,7 +154,12 @@ fn arm(
     roots
         .iter()
         .map(|root| {
-            SpecWatcher::new(
+            let watch = if root.recursive {
+                SpecWatcher::new
+            } else {
+                SpecWatcher::shallow
+            };
+            watch(
                 &root.dir,
                 tx.clone(),
                 specforge_watch::DEFAULT_DEBOUNCE_WINDOW,

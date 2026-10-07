@@ -35,7 +35,8 @@ behavior watch_file_system_for_changes "Watch File System for Changes" {
     a file the checks read) the watcher follows the session's watch roots
     and brings the session up to date with what was written meanwhile
     (bring_session_up_to_date); it does so once at start, before it reports
-    ready.
+    ready. A missing directory on the way to an input is watched from its
+    nearest existing ancestor.
   """
   verify unit "file modification triggers recompilation"
   verify unit "file creation triggers recompilation"
@@ -46,6 +47,7 @@ behavior watch_file_system_for_changes "Watch File System for Changes" {
   verify integration "a .wasm file no extension loads changes nothing"
   verify integration "after spec_root changes, files under the new spec root are watched"
   verify integration "after an edit names a file outside the watched directories, a change to it is seen"
+  verify integration "a file the checks read is seen when it is created in a directory that did not exist"
 }
 
 behavior classify_project_changes "Classify Project Changes" {

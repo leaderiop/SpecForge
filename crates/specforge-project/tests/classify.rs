@@ -477,10 +477,14 @@ struct InputsLayout {
     project: TempDir,
     _outside: TempDir,
     _far: TempDir,
+    elsewhere: TempDir,
     /// The module in `_far`, and the directory it lies in.
     module: std::path::PathBuf,
     /// A file that exists in an existing directory outside the root.
     out_guide: std::path::PathBuf,
+    /// A file in a directory outside the root that does not exist, in a
+    /// directory (`elsewhere`) nothing else is in.
+    far_guide: std::path::PathBuf,
     /// A file in a directory under the root that does not exist.
     missing_sub: std::path::PathBuf,
     /// Another file in that missing directory.
@@ -490,10 +494,12 @@ struct InputsLayout {
 fn inputs_layout() -> InputsLayout {
     let outside = TempDir::new().unwrap();
     let far = TempDir::new().unwrap();
+    let elsewhere = TempDir::new().unwrap();
     let module_dir = fs::canonicalize(far.path()).unwrap().join("mods");
     fs::create_dir_all(&module_dir).unwrap();
     let module = module_dir.join("ext.wasm");
     let outside_name = outside.path().file_name().unwrap().to_string_lossy();
+    let elsewhere_name = elsewhere.path().file_name().unwrap().to_string_lossy();
     let project = passes_project("");
     fs::write(
         project.path().join("specforge.json"),
@@ -509,17 +515,19 @@ fn inputs_layout() -> InputsLayout {
         project.path(),
         "a.spec",
         &format!(
-            "gadget doc \"Doc\" {{\n  docs [\"../{outside_name}/guide.md\", \"missing/sub.md\"]\n}}\n"
+            "gadget doc \"Doc\" {{\n  docs [\"../{outside_name}/guide.md\", \"missing/sub.md\", \"../{elsewhere_name}/far/deep/guide.md\"]\n}}\n"
         ),
     );
     let root = project.path();
     InputsLayout {
         out_guide: root.join(format!("../{outside_name}/guide.md")),
+        far_guide: root.join(format!("../{elsewhere_name}/far/deep/guide.md")),
         missing_sub: root.join("missing/sub.md"),
         missing_x: root.join("missing/x.md"),
         project,
         _outside: outside,
         _far: far,
+        elsewhere,
         module,
     }
 }
@@ -552,6 +560,7 @@ fn every_input_lies_under_a_watch_root() {
         ),
         (layout.out_guide.clone(), InputRole::CheckInput),
         (layout.missing_sub.clone(), InputRole::CheckInput),
+        (layout.far_guide.clone(), InputRole::CheckInput),
         // A file in a missing file's directory changes the E016 suggestion.
         (layout.missing_x.clone(), InputRole::CheckInput),
     ];
@@ -573,4 +582,20 @@ fn every_input_lies_under_a_watch_root() {
             path.display()
         );
     }
+
+    // The missing directory outside the root is watched from its nearest
+    // existing ancestor, for that ancestor's own entries, and the first
+    // directory created on the way to it is the input's change.
+    let elsewhere = fs::canonicalize(layout.elsewhere.path()).unwrap();
+    assert!(
+        session.inputs().watch_roots().contains(&WatchRoot {
+            dir: elsewhere.clone(),
+            recursive: false
+        }),
+        "{roots:?}"
+    );
+    assert_eq!(
+        session.inputs().classify(&elsewhere.join("far")),
+        InputRole::CheckInput
+    );
 }

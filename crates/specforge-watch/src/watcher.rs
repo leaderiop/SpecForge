@@ -5,7 +5,8 @@ use std::time::Duration;
 
 use crate::debounce::Debouncer;
 
-/// Watches one directory, recursively, and sends debounced batches of the
+/// Watches one directory, recursively ([`Self::new`]) or only its own
+/// entries ([`Self::shallow`]), and sends debounced batches of the
 /// paths created, modified or removed under it: absolute, sorted, each
 /// once per batch. What a path means to the project (a source, an
 /// environment input, nothing) is the project session's to say
@@ -22,6 +23,26 @@ impl SpecWatcher {
         root: &Path,
         sender: mpsc::Sender<Vec<PathBuf>>,
         debounce_window: Duration,
+    ) -> Result<Self, String> {
+        Self::watching(root, sender, debounce_window, RecursiveMode::Recursive)
+    }
+
+    /// [`Self::new`] for `dir`'s own entries only, not what is below them:
+    /// the nearest existing ancestor of a directory that does not exist
+    /// yet, which reports the creation of the next directory on the way.
+    pub fn shallow(
+        dir: &Path,
+        sender: mpsc::Sender<Vec<PathBuf>>,
+        debounce_window: Duration,
+    ) -> Result<Self, String> {
+        Self::watching(dir, sender, debounce_window, RecursiveMode::NonRecursive)
+    }
+
+    fn watching(
+        root: &Path,
+        sender: mpsc::Sender<Vec<PathBuf>>,
+        debounce_window: Duration,
+        mode: RecursiveMode,
     ) -> Result<Self, String> {
         // Canonicalize so notify's reported paths are compared with the
         // root as notify spells it, even when the caller passes a symlinked
@@ -65,7 +86,7 @@ impl SpecWatcher {
         });
 
         let mut w = watcher;
-        w.watch(&root_path, RecursiveMode::Recursive)
+        w.watch(&root_path, mode)
             .map_err(|e| format!("failed to watch directory: {}", e))?;
 
         Ok(Self { _watcher: w })

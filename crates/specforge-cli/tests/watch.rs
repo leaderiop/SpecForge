@@ -686,10 +686,11 @@ fn watch_follows_a_file_an_edit_names_outside_its_roots() {
     );
 }
 
-// Pin (plan 03, bug 3.2): a referenced file whose directory does not exist
-// yet is never seen. T6 flips it.
-#[test]
-fn watch_misses_a_referenced_file_in_a_missing_directory() {
+#[specforge_test(
+    behavior = "watch_file_system_for_changes",
+    verify = "a file the checks read is seen when it is created in a directory that did not exist"
+)]
+fn watch_sees_a_referenced_file_created_in_a_new_directory() {
     let outside = TempDir::new().unwrap();
     let project = docref_project(&gadget_naming(&outside_reference(
         &outside,
@@ -705,7 +706,17 @@ fn watch_misses_a_referenced_file_in_a_missing_directory() {
 
     fs::create_dir_all(outside.path().join("nodir")).unwrap();
     fs::write(outside.path().join("nodir/guide.md"), "# guide\n").unwrap();
-    let event = next_event(&rx, Duration::from_secs(5));
+
+    // The directory's creation is a check input's change; the file may be
+    // seen with it or after the watcher moved into the new directory. The
+    // last event clears E016.
+    let mut last =
+        next_event(&rx, Duration::from_secs(20)).expect("no event for the new directory");
+    while let Some(next) = next_event(&rx, Duration::from_secs(3)) {
+        last = next;
+    }
     drop(child);
-    assert!(event.is_none(), "watch saw the new directory: {event:?}");
+    assert_eq!(last["event"], "rechecked", "{last}");
+    assert_eq!(last["errors"], 0, "{last}");
+    assert!(!codes(&last).contains(&"E016".to_string()), "{last}");
 }
