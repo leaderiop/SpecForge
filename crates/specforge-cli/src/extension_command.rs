@@ -146,9 +146,8 @@ pub fn run(argv: &[String], builtins: &[String]) -> i32 {
     let recorded = specforge_project::coverage::RecordedCoverage::over(&graph, &env);
     let view = specforge_ops::view::ProjectView::new(&graph, &env, Some(&cwd), &recorded);
     let context = CommandContext {
-        format,
-        today: chrono::Utc::now().format("%Y-%m-%d").to_string(),
         evidence: specforge_ops::command::evidence(&view),
+        ..CommandContext::now(format)
     };
     dispatch(
         &runtime,

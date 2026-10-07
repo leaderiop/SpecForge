@@ -342,14 +342,27 @@ impl ExtensionCommands {
 }
 
 /// What the host passes a command beside its args: the format the caller
-/// asked for, the host's date when it was called (UTC, `YYYY-MM-DD`),
-/// computed by the caller so a test can pin it, and what the project's
-/// recorded tests prove ([`evidence`]).
+/// asked for, the host's date when it was called (UTC, `YYYY-MM-DD`; a test
+/// that pins it sets `today`), and what the project's recorded tests prove
+/// ([`evidence`]).
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct CommandContext {
     pub format: CommandFormat,
     pub today: String,
     pub evidence: CommandEvidence,
+}
+
+impl CommandContext {
+    /// The context of a command called now, in `format`: today's date in
+    /// UTC (`YYYY-MM-DD`), the one clock every surface reads, and no
+    /// evidence until the caller sets it.
+    pub fn now(format: CommandFormat) -> Self {
+        Self {
+            format,
+            today: chrono::Utc::now().format("%Y-%m-%d").to_string(),
+            evidence: CommandEvidence::default(),
+        }
+    }
 }
 
 /// What the view's recorded test report proves, as a command's input
@@ -842,6 +855,17 @@ mod tests {
             (out.exit_code, out.stdout.as_str(), out.stderr.as_str()),
             (3, "out\n", "err\n")
         );
+    }
+
+    #[test]
+    fn now_carries_todays_utc_date() {
+        let context = CommandContext::now(CommandFormat::Json);
+
+        assert_eq!(context.format, CommandFormat::Json);
+        let parsed = chrono::NaiveDate::parse_from_str(&context.today, "%Y-%m-%d")
+            .unwrap_or_else(|e| panic!("{:?} is no %Y-%m-%d date: {e}", context.today));
+        assert_eq!(parsed, chrono::Utc::now().date_naive());
+        assert_eq!(context.evidence, CommandEvidence::default());
     }
 
     #[specforge_test(
