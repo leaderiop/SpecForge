@@ -815,6 +815,65 @@ mod tests {
         assert!(finding_codes(&report).is_empty(), "{:?}", report.findings);
     }
 
+    /// A project with `@sdk/greet` installed from the vendored blob, whose
+    /// module was then replaced by other bytes.
+    fn project_with_a_changed_greet() -> tempfile::TempDir {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            dir.path().join("specforge.json"),
+            r#"{"name": "p", "version": "0.1.0", "extensions": []}"#,
+        )
+        .unwrap();
+        let blob = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../fixtures/greet-extension/greet.wasm");
+        crate::extension::add(
+            &crate::extension::AddRequest {
+                root: dir.path(),
+                source: crate::extension::Source::Local(blob),
+                allow_unsigned: false,
+                trust: crate::extension::Trust::Refuse,
+                dry_run: false,
+            },
+            &crate::registry::Unconfigured("add"),
+        )
+        .unwrap();
+        let module = dir
+            .path()
+            .join(".specforge/extensions/@sdk/greet/extension.wasm");
+        let mut bytes = std::fs::read(&module).unwrap();
+        bytes.extend_from_slice(b"changed after install");
+        std::fs::write(module, bytes).unwrap();
+        dir
+    }
+
+    #[test]
+    fn doctor_reports_a_changed_binary_twice() {
+        let dir = project_with_a_changed_greet();
+        let runtime = specforge_component::project_runtime(dir.path());
+        let compiled = specforge_project::CompiledProject::compile(dir.path(), Some(&runtime));
+
+        let report = diagnose_with(&ProjectView::of(&compiled), true);
+
+        let about_greet: Vec<(&str, &str)> = report
+            .findings
+            .iter()
+            .filter(|f| f.check.contains("@sdk/greet"))
+            .map(|f| (f.code.as_str(), f.remediation.as_str()))
+            .collect();
+        assert_eq!(about_greet.len(), 2, "{:?}", report.findings);
+        let stale = about_greet.iter().find(|(code, _)| *code == "stale_hash");
+        assert!(
+            stale.unwrap().1.starts_with("run `specforge add ")
+                && stale.unwrap().1.ends_with(".wasm` to reinstall it"),
+            "{stale:?}"
+        );
+        let e033 = about_greet.iter().find(|(code, _)| *code == "E033");
+        assert!(
+            e033.unwrap().1.contains("specforge add \"@sdk/greet\""),
+            "{e033:?}"
+        );
+    }
+
     #[specforge_test(
         behavior = "provide_mcp_doctor_tool",
         verify = "specforge.doctor reports an unusable specforge.json (E069) as a finding"

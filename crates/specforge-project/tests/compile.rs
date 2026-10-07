@@ -934,3 +934,80 @@ fn an_unreadable_source_is_e025_naming_it() {
     assert_eq!(ids, ["alpha"]);
     assert_eq!(compiled.source_texts().len(), 1);
 }
+
+/// `@sdk/greet` installed by hand under `root`: its module, and a lock
+/// entry pinning `hash` (the module's own when `None`).
+fn install_greet(root: &Path, hash: Option<&str>) {
+    let blob =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/greet-extension/greet.wasm");
+    let bytes = fs::read(blob).unwrap();
+    let module = root.join(".specforge/extensions/@sdk/greet/extension.wasm");
+    fs::create_dir_all(module.parent().unwrap()).unwrap();
+    fs::write(&module, &bytes).unwrap();
+    let lock = specforge_wasm::LockFile {
+        lockfile_version: 1,
+        entries: vec![specforge_wasm::LockFileEntry {
+            name: "@sdk/greet".into(),
+            version: "0.1.0".into(),
+            source: "registry".into(),
+            wasm_hash: hash.map_or_else(|| specforge_wasm::hex_sha256(&bytes), str::to_string),
+            key_id: None,
+            peer_dependencies: Vec::new(),
+        }],
+    };
+    specforge_wasm::write_lock_file(&lock, &specforge_wasm::lock_path(root)).unwrap();
+}
+
+/// A lock that cannot be read blames each installed extension for having
+/// no lock entry, and reports the lock's own problem nowhere.
+#[test]
+fn an_unreadable_lock_fails_each_installed_extension_as_not_installed() {
+    let dir = project(
+        serde_json::json!({"name": "p", "version": "0.1.0", "extensions": ["@sdk/greet"]}),
+        &[],
+    );
+    install_greet(dir.path(), None);
+    fs::write(specforge_wasm::lock_path(dir.path()), "not valid json {{{").unwrap();
+    let runtime = specforge_component::project_runtime(dir.path());
+
+    let env = specforge_project::Environment::load(dir.path(), Some(&runtime));
+
+    let diagnostics: Vec<&specforge_common::Diagnostic> = env.diagnostics().collect();
+    let not_installed: Vec<&str> = diagnostics
+        .iter()
+        .filter(|d| d.code == "E028" && d.message.contains("@sdk/greet"))
+        .map(|d| d.message.as_str())
+        .collect();
+    assert_eq!(not_installed.len(), 1, "{diagnostics:?}");
+    assert!(not_installed[0].contains("no specforge.lock entry"));
+    assert!(
+        diagnostics.iter().all(|d| d.code != "E033"),
+        "{diagnostics:?}"
+    );
+}
+
+/// A lock entry that pins no hash loads its extension, and says nothing.
+#[test]
+fn an_unpinned_lock_entry_loads_without_a_warning() {
+    let dir = project(
+        serde_json::json!({"name": "p", "version": "0.1.0", "extensions": ["@sdk/greet"]}),
+        &[],
+    );
+    install_greet(dir.path(), Some(""));
+    let runtime = specforge_component::project_runtime(dir.path());
+
+    let env = specforge_project::Environment::load(dir.path(), Some(&runtime));
+
+    let named: Vec<&specforge_common::Diagnostic> = env
+        .diagnostics()
+        .filter(|d| d.message.contains("@sdk/greet"))
+        .collect();
+    assert!(named.is_empty(), "{named:?}");
+    assert!(
+        env.registries
+            .declarations()
+            .iter()
+            .any(|d| d.name() == "@sdk/greet"),
+        "its declaration loaded"
+    );
+}

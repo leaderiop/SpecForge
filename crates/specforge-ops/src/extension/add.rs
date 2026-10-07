@@ -704,6 +704,45 @@ mod tests {
         }
     }
 
+    /// `@sdk/greet` 0.1.0 as the build vendors it.
+    fn greet_wasm() -> PathBuf {
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/greet-extension/greet.wasm")
+    }
+
+    #[test]
+    fn add_reports_a_changed_binary_as_already_present() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            dir.path().join("specforge.json"),
+            r#"{"name": "p", "version": "0.1.0", "extensions": []}"#,
+        )
+        .unwrap();
+        let request = AddRequest {
+            root: dir.path(),
+            source: Source::Local(greet_wasm()),
+            allow_unsigned: false,
+            trust: Trust::Refuse,
+            dry_run: false,
+        };
+        let unconfigured = crate::registry::Unconfigured("add");
+        add(&request, &unconfigured).unwrap();
+        let module = dir
+            .path()
+            .join(".specforge/extensions/@sdk/greet/extension.wasm");
+        let mut changed = std::fs::read(&module).unwrap();
+        changed.extend_from_slice(b"changed after install");
+        std::fs::write(&module, &changed).unwrap();
+
+        let added = add(&request, &unconfigured).unwrap();
+
+        assert!(
+            matches!(added.outcome, AddOutcome::AlreadyPresent { .. }),
+            "{:?}",
+            added.outcome
+        );
+        assert_eq!(std::fs::read(&module).unwrap(), changed);
+    }
+
     #[test]
     fn a_missing_config_is_config_not_found_with_the_hint_to_init() {
         let dir = tempfile::tempdir().unwrap();
