@@ -88,6 +88,32 @@ fn handshake_without_execution_budget_sets_no_deadline() {
     assert!(runtime.deadlines().is_empty());
 }
 
+/// Pin of today: an extension declaring what the host never grants (a
+/// network, a path, a surface's file write) loads without a warning.
+/// ADR 0037 makes each of them a W153.
+#[test]
+fn pin_a_declaration_asking_for_capabilities_loads_without_warning() {
+    let runtime = InProcessRuntime::new().with(|| {
+        let mut meta = ExtensionMeta::new("@acme/asks", "1.0.0");
+        meta.sandbox_policy = Some(SandboxPolicy {
+            network_access: Some(true),
+            allowed_paths: vec!["/etc".into()],
+            ..Default::default()
+        });
+        let mut c = ContributionsBuilder::new(meta);
+        c.command("x", |cmd| {
+            cmd.title("X")
+                .sandbox(|s| {
+                    s.fs_write();
+                })
+                .handler(|_| CommandOutput::default());
+        });
+        c
+    });
+    let loaded = load_declaration(&runtime, "@acme/asks").unwrap();
+    assert!(loaded.warnings.is_empty(), "{:?}", loaded.warnings);
+}
+
 // ── Handshake error handling ──
 
 #[test]
