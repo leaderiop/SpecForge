@@ -26,15 +26,6 @@ pub fn run(
 ) -> i32 {
     let (project, _runtime) = pipeline::compile_project(path);
     let view = ProjectView::of(&project);
-    let cache = view.schema_cache().expect("a compiled project has a root");
-    let generated = view.versioned_schema();
-
-    // The export goes to stdout: there is no output directory holding
-    // earlier exports, and `.specforge/` holds extensions and the watch
-    // snapshot too, so nothing here shows the project was exported before.
-    for diagnostic in &cache.breaking_changes(&generated) {
-        eprintln!("{}", render_plain(diagnostic));
-    }
 
     let request = export::Request {
         format: Some(format),
@@ -44,16 +35,23 @@ pub fn run(
         schema_version,
         ..export::Request::default()
     };
-    let output = match export::export(&view, &request) {
+    // The export goes to stdout: there is no output directory holding
+    // earlier exports, and `.specforge/` holds extensions and the watch
+    // snapshot too, so nothing here shows the project was exported before.
+    let recorded = export::export_recorded(&view, &request);
+    for diagnostic in &recorded.breaking {
+        eprintln!("{}", render_plain(diagnostic));
+    }
+    let output = match recorded.export {
         Ok(output) => output,
         Err(error) => return Refusal::of(OutputFormat::Human).report(&error),
     };
     println!("{}", output);
 
-    if let Err(e) = cache.record(&generated) {
+    if let export::CacheWrite::WriteFailed { dir, error } = &recorded.cache {
         eprintln!(
-            "warning: could not write the schema cache in {}: {e}",
-            cache.dir().display()
+            "warning: could not write the schema cache in {}: {error}",
+            dir.display()
         );
     }
     0
