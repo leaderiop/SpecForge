@@ -32,7 +32,7 @@ pub use calls::*;
 pub use declaration::{
     DECLARED_CATEGORIES, ExtensionDeclaration, UnknownKey, default_short, is_valid_short,
 };
-pub use vocabulary::{CheckKind, ConstraintKind, FieldType};
+pub use vocabulary::{CheckKind, ConstraintKind, FieldType, ProofRole};
 
 /// Protocol version for the extension wire format (semver). The host loads
 /// every guest of its major version. The minor moves when a payload's

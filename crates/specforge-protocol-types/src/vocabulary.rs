@@ -77,7 +77,10 @@ macro_rules! vocabulary {
 }
 
 vocabulary! {
-    /// How the host reads a field's value.
+    /// How the host reads a field's value. Its name ([`FieldType::as_str`])
+    /// is the one every output writes: the declaration, the Graph Protocol
+    /// schema and exports, the published JSON Schema, the model, the hover
+    /// and E061 (ADR 0034). The older spellings are read, never written.
     FieldType {
         /// A quoted string.
         String = "string",
@@ -107,6 +110,34 @@ vocabulary! {
         "reference_list_type" => ReferenceList,
         "block_type" => Block,
     }
+}
+
+impl FieldType {
+    /// A value of this type names entities, one edge per id (`reference`,
+    /// `reference_list`).
+    pub fn is_reference(self) -> bool {
+        matches!(self, FieldType::Reference | FieldType::ReferenceList)
+    }
+
+    /// A value of this type is a list (`string_list`, `reference_list`); a
+    /// single value written on such a field is read as a one-item list.
+    pub fn is_list(self) -> bool {
+        matches!(self, FieldType::StringList | FieldType::ReferenceList)
+    }
+}
+
+vocabulary! {
+    /// What the prove pass reads a field as (ADR 0009). On the wire
+    /// `FieldDescriptor::proof_role` stays a string, so an unknown role
+    /// costs the field its role (W021), not the describe payload.
+    ProofRole {
+        /// A fact the solver assumes; the bounds must be consistent (E046).
+        Bound = "bound",
+        /// A statement that must follow from the bounds (W139 when it does
+        /// not).
+        Claim = "claim",
+    }
+    aliases {}
 }
 
 vocabulary! {
@@ -201,6 +232,12 @@ mod tests {
             assert_eq!(json, format!("\"{}\"", t.as_str()));
             assert_eq!(serde_json::from_str::<FieldType>(&json).unwrap(), *t);
         }
+        for r in ProofRole::ALL {
+            assert_eq!(ProofRole::parse(r.as_str()), Some(*r));
+            let json = serde_json::to_string(r).unwrap();
+            assert_eq!(serde_json::from_str::<ProofRole>(&json).unwrap(), *r);
+        }
+        assert_eq!(ProofRole::parse("assumed"), None);
         for c in CheckKind::ALL {
             assert_eq!(CheckKind::parse(c.as_str()), Some(*c));
             let json = serde_json::to_string(c).unwrap();
@@ -210,6 +247,22 @@ mod tests {
             assert_eq!(ConstraintKind::parse(k.as_str()), Some(*k));
             let json = serde_json::to_string(k).unwrap();
             assert_eq!(serde_json::from_str::<ConstraintKind>(&json).unwrap(), *k);
+        }
+    }
+
+    #[test]
+    fn reference_and_list_types() {
+        for t in FieldType::ALL {
+            assert_eq!(
+                t.is_reference(),
+                matches!(t, FieldType::Reference | FieldType::ReferenceList),
+                "{t}"
+            );
+            assert_eq!(
+                t.is_list(),
+                matches!(t, FieldType::StringList | FieldType::ReferenceList),
+                "{t}"
+            );
         }
     }
 

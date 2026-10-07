@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use specforge_protocol_types::FieldDescriptor;
+use specforge_protocol_types::{FieldDescriptor, ProofRole};
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub enum ManifestFieldType {
@@ -51,26 +51,6 @@ pub struct FieldRegistryEntry {
     pub proof_role: Option<ProofRole>,
     /// The field as its extension declared it.
     pub declared: FieldDescriptor,
-}
-
-/// A field's role in the prove pass, declared by its extension.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ProofRole {
-    /// A fact the solver assumes; the bounds must be consistent (E046).
-    Bound,
-    /// A statement that must follow from the bounds (W139 when it does not).
-    Claim,
-}
-
-impl ProofRole {
-    /// The role a manifest names (`bound` or `claim`); None for any other.
-    pub fn parse(name: &str) -> Option<Self> {
-        match name {
-            "bound" => Some(Self::Bound),
-            "claim" => Some(Self::Claim),
-            _ => None,
-        }
-    }
 }
 
 #[derive(Debug, Default)]
