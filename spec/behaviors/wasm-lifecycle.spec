@@ -190,6 +190,7 @@ behavior install_wasm_extension "Install Wasm Extension" {
   verify unit "places binary atomically via temp dir"
   verify unit "updates specforge.json with extension entry"
   verify unit "rolls back on download failure"
+  verify unit "an extension is installed under the extensions directory of its project, by its package name"
   verify performance "single extension install completes within 30 seconds on commodity hardware"
   verify contract "Install Wasm Extension: Wasm extension installation holds — extension_source_available, filesystem_available, extension_install_completed_emitted, integrity_verified, atomic_install_enforced, config_updated"
 }

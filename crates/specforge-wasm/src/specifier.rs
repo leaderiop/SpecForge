@@ -134,6 +134,61 @@ mod tests {
         );
     }
 
+    /// What P1 makes of every input of plan 12's table (§2.2) today: the
+    /// module goes with T2.
+    #[specforge_test_macros::test(
+        behavior = "parse_extension_specifier",
+        verify = "each add argument reads as one extension source"
+    )]
+    fn parse_extension_specifier_reads_each_input_as_today() {
+        fn registry(name: &str, version: &str) -> Result<ExtensionSpecifier, String> {
+            Ok(ExtensionSpecifier::Registry {
+                name: name.into(),
+                version: version.into(),
+            })
+        }
+        let cases: Vec<(&str, Result<ExtensionSpecifier, String>)> = vec![
+            ("@acme/tool", Err("E054".into())), // I1: P1 refuses a name with no version
+            ("@acme/tool@", Err("E054".into())), // I2
+            ("@acme/tool@1.2.0", registry("@acme/tool", "1.2.0")), // I3
+            ("@acme/tool@^1.2", registry("@acme/tool", "^1.2")), // I4
+            ("@acme/tool@1.x", registry("@acme/tool", "1.x")), // I5
+            ("@acme/tool@1.2", registry("@acme/tool", "1.2")), // I6
+            ("@acme/tool@1.0.0/x", registry("@acme/tool", "1.0.0/x")), // I7
+            ("@acme/tool@1.0.0?x=1", registry("@acme/tool", "1.0.0?x=1")), // I8
+            ("foo@/bar", registry("foo", "/bar")), // I9
+            ("tool@1.0.0", registry("tool", "1.0.0")), // I10
+            ("tool", Err("E054".into())),       // I11
+            ("@acme/..", Err("E054".into())),   // I12
+            ("@acme/aa/bb", Err("E054".into())), // I13
+            ("@acme/a/b", Err("E054".into())),  // I14
+            ("@a/x", Err("E054".into())),       // I15
+            ("@acme/T ool", Err("E054".into())), // I16
+            ("Acme@1", registry("Acme", "1")),  // I17
+            ("@acme/tool@latest", registry("@acme/tool", "latest")), // I18
+            ("@acme/tool@*", registry("@acme/tool", "*")), // I18
+            ("@acme/tool@>=1, <2", registry("@acme/tool", ">=1, <2")), // I19
+            ("@acme/tool@^bogus", registry("@acme/tool", "^bogus")), // I20
+            (
+                "@acme/tool@2.0.0+build.1",
+                registry("@acme/tool", "2.0.0+build.1"),
+            ), // I21
+            ("@scope", Err("E054".into())),     // I22
+            (
+                "git+https://h/r#v",
+                Ok(ExtensionSpecifier::Git {
+                    url: "https://h/r".into(),
+                    rev: Some("v".into()),
+                }),
+            ), // I25
+            (" @acme/tool@1.2.0 ", registry("@acme/tool", "1.2.0")), // I26
+        ];
+        for (input, want) in cases {
+            let got = parse_extension_specifier(input).map_err(|d| d.code.to_string());
+            assert_eq!(got, want, "{input:?}");
+        }
+    }
+
     // B:parse_extension_specifier — verify unit "rejects invalid specifier"
     #[test]
     fn test_rejects_invalid_specifier() {

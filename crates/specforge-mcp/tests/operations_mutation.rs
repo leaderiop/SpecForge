@@ -1422,6 +1422,32 @@ fn add_extension_invalid_specifier() {
     assert!(msg.contains("no-at-sign"), "{msg}");
 }
 
+/// `specforge.add_extension` reads its argument as `specforge add` does
+/// (plan 12 §2.2, R2): the same inputs reach the registry port, which this
+/// server has none behind (E063), and the same ones are refused (E054). T2
+/// flips I9 and I12.
+#[specforge_test(
+    behavior = "parse_extension_specifier",
+    verify = "each add argument reads as one extension source"
+)]
+fn add_extension_reads_specifiers_as_add_does() {
+    let mut server = test_server();
+    for (specifier, code) in [
+        ("@acme/tool@1.x", "E063"), // I5
+        ("foo@/bar", "E063"),       // I9 (bug)
+        ("@acme/..", "E063"),       // I12 (bug)
+        ("@a/x", "E054"),           // I15 (bug: one-character parts)
+    ] {
+        let resp = call_tool(
+            &mut server,
+            "specforge.add_extension",
+            json!({"specifier": specifier}),
+        );
+        let error = crate::tool_errors::mcp_error(&resp);
+        assert_eq!(error["diagnostic"]["code"], code, "{specifier}: {resp}");
+    }
+}
+
 #[test]
 fn migrate_dry_run() {
     let mut server = test_server();

@@ -582,3 +582,66 @@ async fn description_and_keywords_come_from_the_declaration() {
         assert_eq!(hit["description"], "Reports over the graph");
     }
 }
+
+/// The code a publish of `name` at `version` (unsigned, a valid manifest
+/// of another name) is answered with: the name and version checks come
+/// first, so `INVALID_NAME` and `INVALID_VERSION` are theirs.
+async fn publish_code(name: &str, version: &str) -> String {
+    let dir = tempfile::tempdir().unwrap();
+    let state = app_state(dir.path(), 100);
+    let raw = auth::create_token(&state.database, None, "pub", Some(90), false);
+    let response = app(state)
+        .oneshot(put_request(
+            &raw,
+            name,
+            version,
+            multipart_body(VALID_MANIFEST, WASM, None),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(
+        response.status(),
+        StatusCode::BAD_REQUEST,
+        "{name}@{version}"
+    );
+    let body = json_of(response).await;
+    body["error"]["code"].as_str().unwrap().to_string()
+}
+
+/// What `publish_package` makes of a name and a version today (plan 12 §3
+/// R5); T7 flips the rows marked `bug`.
+#[specforge_test_macros::test(
+    behavior = "publish_to_registry",
+    verify = "the registry refuses a name or version that is not a package name or version"
+)]
+#[tokio::test]
+async fn publish_checks_names_and_versions_today() {
+    // Past the name check: the signature is the next refusal.
+    for name in [
+        "@acme%2F..",      // bug: installs as the extensions directory itself
+        "@acme%2FT%20ool", // bug: uppercase and a space
+        "@acme%2Ftool@",   // bug
+        "@a%2Fx",
+    ] {
+        assert_eq!(
+            publish_code(name, "1.0.0").await,
+            "UNSIGNED_PACKAGE",
+            "{name}"
+        );
+    }
+    for name in ["tool", "@scope", "@a%2Fb%2Fc"] {
+        assert_eq!(publish_code(name, "1.0.0").await, "INVALID_NAME", "{name}");
+    }
+    for version in ["1.x", "1.2"] {
+        assert_eq!(
+            publish_code("@test%2Fsigned-ext", version).await,
+            "INVALID_VERSION",
+            "{version}"
+        );
+    }
+    // Build metadata is a version.
+    assert_ne!(
+        publish_code("@test%2Fsigned-ext", "2.0.0+build.1").await,
+        "INVALID_VERSION"
+    );
+}

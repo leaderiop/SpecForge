@@ -1098,6 +1098,117 @@ fn add_rejects_invalid_specifier() {
     assert!(!dir.path().join("specforge.lock").exists());
 }
 
+/// Which inputs `specforge add` takes for a registry package today (plan 12
+/// §2.2): E063 is the registry port reached with no registry configured,
+/// E054 is the argument refused. The rows marked `bug` are flipped by T2.
+#[specforge_test(
+    behavior = "parse_extension_specifier",
+    verify = "each add argument reads as one extension source"
+)]
+fn add_reaches_the_registry_for_these_inputs_today() {
+    let dir = TempDir::new().unwrap();
+    let config = r#"{"name":"t","version":"0.1.0","extensions":[]}"#;
+    fs::write(dir.path().join("specforge.json"), config).unwrap();
+
+    let cases: &[(&str, &str)] = &[
+        ("@acme/tool", "E063"),               // I1
+        ("@acme/tool@", "E054"),              // I2
+        ("@acme/tool@1.2.0", "E063"),         // I3
+        ("@acme/tool@^1.2", "E063"),          // I4
+        ("@acme/tool@1.x", "E063"),           // I5
+        ("@acme/tool@1.2", "E063"),           // I6
+        ("@acme/tool@1.0.0/x", "E063"),       // I7 (bug)
+        ("@acme/tool@1.0.0?x=1", "E063"),     // I8 (bug)
+        ("foo@/bar", "E063"),                 // I9 (bug)
+        ("tool@1.0.0", "E063"),               // I10 (bug)
+        ("tool", "E054"),                     // I11
+        ("@acme/..", "E063"),                 // I12 (bug)
+        ("@acme/aa/bb", "E063"),              // I13 (bug)
+        ("@acme/a/b", "E054"),                // I14
+        ("@a/x", "E054"),                     // I15 (bug: one-character parts)
+        ("@acme/T ool", "E063"),              // I16 (bug)
+        ("Acme@1", "E063"),                   // I17 (bug)
+        ("@acme/tool@latest", "E063"),        // I18
+        ("@acme/tool@*", "E063"),             // I18
+        ("@acme/tool@>=1, <2", "E063"),       // I19
+        ("@acme/tool@^bogus", "E063"),        // I20 (bug)
+        ("@acme/tool@2.0.0+build.1", "E063"), // I21
+        ("@scope", "E054"),                   // I22
+    ];
+    for (input, code) in cases {
+        let output = specforge_cmd()
+            .args(["add", input, "--path"])
+            .arg(dir.path())
+            .args(["--format", "json"])
+            .output()
+            .unwrap();
+        assert_eq!(output.status.code(), Some(1), "{input}: {output:?}");
+        let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+        assert_eq!(json["code"], *code, "{input}: {json}");
+    }
+    assert_eq!(
+        fs::read_to_string(dir.path().join("specforge.json")).unwrap(),
+        config
+    );
+}
+
+/// Plan 12 §3 R3: a module whose declared name is `../../../x` is installed
+/// beside the project, and `remove` deletes what is there. The module is
+/// the greet blob with its name (`@sdk/greet`, 10 bytes) replaced by a
+/// path of the same length. T5 flips this: E072, nothing written, nothing
+/// deleted.
+#[specforge_test(
+    behavior = "install_wasm_extension",
+    verify = "an extension is installed under the extensions directory of its project, by its package name"
+)]
+fn a_declared_name_outside_the_extensions_dir_installs_there_today() {
+    let root = TempDir::new().unwrap();
+    let project = root.path().join("a/b/proj");
+    fs::create_dir_all(&project).unwrap();
+    fs::write(
+        project.join("specforge.json"),
+        r#"{"name":"t","version":"0.1.0","extensions":[]}"#,
+    )
+    .unwrap();
+
+    let (from, to) = (b"@sdk/greet".as_slice(), b"../../../x".as_slice());
+    let mut wasm = crate::registry::greet_wasm();
+    let mut replaced = 0;
+    let mut at = 0;
+    while at + from.len() <= wasm.len() {
+        if &wasm[at..at + from.len()] == from {
+            wasm[at..at + from.len()].copy_from_slice(to);
+            replaced += 1;
+            at += from.len();
+        } else {
+            at += 1;
+        }
+    }
+    assert!(replaced > 0, "the blob names itself");
+    let module = root.path().join("evil.wasm");
+    fs::write(&module, wasm).unwrap();
+
+    specforge_cmd()
+        .arg("add")
+        .arg(&module)
+        .arg("--path")
+        .arg(&project)
+        .assert()
+        .success();
+    // bug: installed beside the project, outside `.specforge/extensions`.
+    let outside = root.path().join("a/b/x");
+    assert!(outside.join("extension.wasm").exists());
+    fs::write(outside.join("other.txt"), "keep").unwrap();
+
+    specforge_cmd()
+        .args(["remove", "../../../x", "--path"])
+        .arg(&project)
+        .assert()
+        .success();
+    // bug: `remove` deleted the whole directory, a user file included.
+    assert!(!outside.join("other.txt").exists());
+}
+
 #[specforge_test(
     behavior = "parse_extension_specifier",
     verify = "./path parsed as local source"

@@ -595,6 +595,7 @@ behavior resolve_registry_source "Resolve Registry Source" {
   verify unit "network error produces ExtensionError with retry guidance"
   verify unit "successful query returns RegistryResponse"
   verify integration "unreachable scope-specific registry falls back to next scope"
+  verify unit "a fetch requests the name and version it was given, from the registry it was given"
   verify contract "Resolve Registry Source: registry source resolution holds — registries_configured_fired, registry_client_available, scope_routed, default_fallback_used, network_error_diagnosed, registry_resolved_emitted"
 }
 
@@ -683,6 +684,7 @@ behavior publish_to_registry "Publish to Registry" {
   verify unit "duplicate version rejected without --force"
   verify unit "successful publish returns registry URL"
   verify unit "unauthenticated publish produces ExtensionError"
+  verify unit "the registry refuses a name or version that is not a package name or version"
   verify contract "Publish to Registry: registry publishing holds — declaration_valid, wasm_binary_available, registry_client_available, credentials_available, sha256_computed, duplicate_version_rejected, registry_url_returned, published_event_emitted"
 }
 

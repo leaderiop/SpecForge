@@ -535,6 +535,14 @@ mod tests {
                     path: "ext/greet.wasm",
                 },
             ),
+            // Plan 12 §2.2, as P4 reads them today.
+            ("@acme/tool@", Named("@acme/tool")), // I2
+            // bug: the whole string is the name, which can never be installed (T6)
+            ("@acme/tool@1.0.0/x", Named("@acme/tool@1.0.0/x")), // I7
+            ("foo@/bar", Named("foo@/bar")),                     // I9 (T6)
+            // bug: a name that is no package name is a named entry (T6)
+            ("@acme/..", Named("@acme/..")),                   // I12
+            ("../../../outside1", Named("../../../outside1")), // I23
         ];
         for (entry, expected) in cases {
             assert_eq!(ExtensionEntry::parse(entry), expected, "{entry}");

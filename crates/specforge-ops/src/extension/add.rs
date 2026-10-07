@@ -578,6 +578,69 @@ mod tests {
         assert_eq!(parse("@acme/").unwrap_err().code, "E054");
     }
 
+    /// Pins what `parse` makes of every input of plan 12's table (§2.2) today.
+    /// A row marked `bug` is flipped by plan 12's T2 in the same commit.
+    #[specforge_test(
+        behavior = "parse_extension_specifier",
+        verify = "each add argument reads as one extension source"
+    )]
+    fn parse_reads_each_input_as_today() {
+        fn registry(name: &str, range: &str) -> Result<Source, String> {
+            Ok(Source::Registry {
+                name: name.into(),
+                range: range.into(),
+            })
+        }
+        let cases: Vec<(&str, Result<Source, String>)> = vec![
+            ("@acme/tool", registry("@acme/tool", "latest")), // I1
+            ("@acme/tool@", Err("E054".into())),              // I2
+            ("@acme/tool@1.2.0", registry("@acme/tool", "1.2.0")), // I3
+            ("@acme/tool@^1.2", registry("@acme/tool", "^1.2")), // I4
+            // bug: a requirement is fetched as one exact version (§3 R1)
+            ("@acme/tool@1.x", registry("@acme/tool", "1.x")), // I5
+            ("@acme/tool@1.2", registry("@acme/tool", "1.2")), // I6
+            // bug: text that is no version reaches the request URL
+            ("@acme/tool@1.0.0/x", registry("@acme/tool", "1.0.0/x")), // I7
+            ("@acme/tool@1.0.0?x=1", registry("@acme/tool", "1.0.0?x=1")), // I8
+            // bug: `foo` at `/bar`, which the client reads as `foo@/bar` at latest
+            ("foo@/bar", registry("foo", "/bar")), // I9
+            // bug: an unscoped name no registry can hold
+            ("tool@1.0.0", registry("tool", "1.0.0")), // I10
+            ("tool", Err("E054".into())),              // I11
+            ("@acme/..", registry("@acme/..", "latest")), // I12 (bug)
+            ("@acme/aa/bb", registry("@acme/aa/bb", "latest")), // I13 (bug)
+            ("@acme/a/b", Err("E054".into())),         // I14
+            ("@a/x", Err("E054".into())),              // I15 (bug: one-character parts)
+            ("@acme/T ool", registry("@acme/T ool", "latest")), // I16 (bug)
+            ("Acme@1", registry("Acme", "1")),         // I17 (bug)
+            ("@acme/tool@latest", registry("@acme/tool", "latest")), // I18
+            ("@acme/tool@*", registry("@acme/tool", "*")), // I18
+            ("@acme/tool@>=1, <2", registry("@acme/tool", ">=1, <2")), // I19
+            // bug: the requirement is only diagnosed after the registry was asked
+            ("@acme/tool@^bogus", registry("@acme/tool", "^bogus")), // I20
+            (
+                "@acme/tool@2.0.0+build.1",
+                registry("@acme/tool", "2.0.0+build.1"),
+            ), // I21
+            ("@scope", Err("E054".into())),                          // I22
+            (
+                "@specforge/software",
+                Ok(Source::Builtin("@specforge/software")),
+            ), // I24
+            (
+                "git+https://h/r#v",
+                Ok(Source::Git {
+                    url: "https://h/r".into(),
+                }),
+            ), // I25
+            (" @acme/tool ", registry("@acme/tool", "latest")),      // I26
+        ];
+        for (input, want) in cases {
+            let got = parse(input).map_err(|error| error.code.to_string());
+            assert_eq!(got, want, "{input:?}");
+        }
+    }
+
     #[specforge_test(
         behavior = "management_operations_over_the_project_view",
         verify = "add, update and remove refuse an unusable specforge.json with one refusal, before they write"

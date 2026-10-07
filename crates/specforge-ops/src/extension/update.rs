@@ -471,6 +471,22 @@ mod tests {
         }
     }
 
+    /// Plan 12 §3 R6: this fake resolves `latest` to the highest release,
+    /// where production's resolver (the registry client's `pick_highest`)
+    /// answers the pre-release. The fake's resolver goes with plan 12's T3.
+    #[specforge_test(
+        behavior = "upgrade_wasm_extension",
+        verify = "checks source for newer version"
+    )]
+    fn the_fake_resolves_latest_to_the_highest_release() {
+        let registry = FakeRegistry::new().publish("@acme/tool", &["1.4.0", "2.0.0-beta.1"]);
+
+        assert_eq!(
+            registry.resolve_version("@acme/tool", "latest").unwrap(),
+            "1.4.0"
+        );
+    }
+
     fn entry(name: &str, version: &str, source: &str, peers: &[(&str, &str)]) -> LockFileEntry {
         LockFileEntry {
             name: name.to_string(),

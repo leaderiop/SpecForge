@@ -712,6 +712,7 @@ behavior parse_extension_specifier "Parse Extension Specifier" {
   verify unit "./path parsed as local source"
   verify unit "git:url#ref parsed as git source"
   verify unit "invalid specifier produces ExtensionError"
+  verify unit "each add argument reads as one extension source"
   verify contract "Parse Extension Specifier: extension specifier parsing holds — specifier_string_provided, extension_specifier_parsed_emitted, invalid_specifier_diagnosed"
 }
 
