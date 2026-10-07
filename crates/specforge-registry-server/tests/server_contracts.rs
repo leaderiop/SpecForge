@@ -608,28 +608,28 @@ async fn publish_code(name: &str, version: &str) -> String {
     body["error"]["code"].as_str().unwrap().to_string()
 }
 
-/// What `publish_package` makes of a name and a version today (plan 12 §3
-/// R5); T7 flips the rows marked `bug`.
+/// What `publish_package` makes of a name and a version (plan 12 §3 R5): a
+/// name the package module refuses never reaches the signature check.
 #[specforge_test_macros::test(
     behavior = "publish_to_registry",
     verify = "the registry refuses a name or version that is not a package name or version"
 )]
 #[tokio::test]
-async fn publish_checks_names_and_versions_today() {
+async fn publish_refuses_what_is_not_a_package() {
     // Past the name check: the signature is the next refusal.
+    assert_eq!(
+        publish_code("@a%2Fx", "1.0.0").await,
+        "UNSIGNED_PACKAGE",
+        "@a/x"
+    );
     for name in [
-        "@acme%2F..",      // bug: installs as the extensions directory itself
-        "@acme%2FT%20ool", // bug: uppercase and a space
-        "@acme%2Ftool@",   // bug
-        "@a%2Fx",
+        "@acme%2F..",
+        "@acme%2FT%20ool",
+        "@acme%2Ftool@",
+        "tool",
+        "@scope",
+        "@a%2Fb%2Fc",
     ] {
-        assert_eq!(
-            publish_code(name, "1.0.0").await,
-            "UNSIGNED_PACKAGE",
-            "{name}"
-        );
-    }
-    for name in ["tool", "@scope", "@a%2Fb%2Fc"] {
         assert_eq!(publish_code(name, "1.0.0").await, "INVALID_NAME", "{name}");
     }
     for version in ["1.x", "1.2"] {
@@ -644,4 +644,25 @@ async fn publish_checks_names_and_versions_today() {
         publish_code("@test%2Fsigned-ext", "2.0.0+build.1").await,
         "INVALID_VERSION"
     );
+}
+
+#[specforge_test_macros::test(
+    behavior = "publish_to_registry",
+    verify = "the registry refuses a name or version that is not a package name or version"
+)]
+#[tokio::test]
+async fn a_read_of_a_name_that_is_not_one_is_not_found() {
+    let dir = tempfile::tempdir().unwrap();
+    let state = app_state(dir.path(), 100);
+    for uri in [
+        "/v1/packages/@acme%2F..",
+        "/v1/packages/@acme%2F../1.0.0",
+        "/v1/packages/@acme%2F../1.0.0/download",
+    ] {
+        let response = app_clone(&state)
+            .oneshot(Request::builder().uri(uri).body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::NOT_FOUND, "{uri}");
+    }
 }
