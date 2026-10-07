@@ -336,13 +336,7 @@ behavior login "User Login" {
     // `use "types"` resolved to the file types.spec (extension appended,
     // path relative to the spec root), and only that.
     assert_eq!(
-        specforge_resolver::resolve_import(
-            dir.path(),
-            "behaviors.spec",
-            "types",
-            &Default::default()
-        )
-        .as_deref(),
+        specforge_resolver::resolve_import(dir.path(), "behaviors.spec", "types").as_deref(),
         Some("types.spec")
     );
     // The import's types edge links the two files' entities.

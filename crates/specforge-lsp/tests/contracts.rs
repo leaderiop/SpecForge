@@ -628,10 +628,8 @@ fn goto_import_definition_contract() {
     )
     .unwrap();
 
-    let config = specforge_resolver::ResolveConfig::default();
-    let goto = |import: &str| {
-        specforge_lsp::goto_import_definition(import, "main.spec", tmp.path(), &config)
-    };
+    let goto =
+        |import: &str| specforge_lsp::goto_import_definition(import, "main.spec", tmp.path());
 
     let result = goto("behaviors/auth");
     let loc = result.expect("valid import path must resolve");

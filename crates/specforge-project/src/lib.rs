@@ -50,7 +50,7 @@ use specforge_protocol_types::ExtensionDeclaration;
 use specforge_registry::{
     RegistryBuild, build_registries, load_provider_configurations, register_provider_schemes,
 };
-use specforge_resolver::{ResolveConfig, resolve_parsed};
+use specforge_resolver::resolve_imports;
 use specforge_wasm::{LockState, WasmRuntime};
 
 pub use build_cache::{BUILD_CACHE_FILE, BUILD_CACHE_FORMAT, BuildCache, CachedStatus};
@@ -266,15 +266,6 @@ impl Environment {
         &self.registries.surface_diagnostics
     }
 
-    /// How imports resolve and which files are discovered: the config's
-    /// `exclude` entries apply, relative to the spec root.
-    pub fn resolve_config(&self) -> ResolveConfig {
-        ResolveConfig {
-            exclude: self.config.exclude.clone(),
-            ..ResolveConfig::default()
-        }
-    }
-
     /// Whether a file (its path relative to the spec root) is left out of
     /// the project, as discovery leaves it out: not a `.spec` file, under a
     /// skipped directory (`target`, `node_modules`, ...) or matched by an
@@ -316,15 +307,9 @@ impl Environment {
         sources
             .unreadable()
             .cloned()
-            .chain(
-                resolve_parsed(
-                    &self.spec_root,
-                    &files,
-                    &ResolveConfig::default(),
-                    &|path: &Path| path.is_file(),
-                )
-                .diagnostics,
-            )
+            .chain(resolve_imports(&self.spec_root, &files, &|path: &Path| {
+                path.is_file()
+            }))
             .collect()
     }
 

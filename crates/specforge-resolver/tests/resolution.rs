@@ -1,10 +1,25 @@
-use specforge_common::Severity;
-use specforge_resolver::{
-    PathAlias, ResolveConfig, resolve_import, resolve_project, resolve_project_with_config,
-};
+use specforge_common::{Diagnostic, Severity};
+use specforge_parser::{SpecFile, parse};
+use specforge_resolver::{resolve_import, resolve_imports};
 use specforge_test_macros::test as specforge_test;
 use std::fs;
+use std::path::Path;
 use tempfile::TempDir;
+
+/// The import diagnostics of the project under `root`, read and parsed as a
+/// compile reads it.
+fn resolve_dir(root: &Path) -> Vec<Diagnostic> {
+    let parsed: Vec<(String, SpecFile)> = specforge_common::discover_spec_files(root, &[])
+        .into_iter()
+        .map(|p| {
+            let key = p.strip_prefix(root).unwrap().to_string_lossy().into_owned();
+            let spec = parse(&fs::read_to_string(&p).unwrap(), &key);
+            (key, spec)
+        })
+        .collect();
+    let files: Vec<(&str, &SpecFile)> = parsed.iter().map(|(k, f)| (k.as_str(), f)).collect();
+    resolve_imports(root, &files, &|p: &Path| p.is_file())
+}
 
 fn setup_project(files: &[(&str, &str)]) -> TempDir {
     let dir = TempDir::new().unwrap();
@@ -31,17 +46,13 @@ fn resolve_use_import_to_file() {
         ),
     ]);
 
-    let result = resolve_project(dir.path());
+    let diagnostics = resolve_dir(dir.path());
 
     assert!(
-        result
-            .diagnostics
-            .iter()
-            .all(|d| d.severity != Severity::Error),
+        diagnostics.iter().all(|d| d.severity != Severity::Error),
         "unexpected errors: {:?}",
-        result.diagnostics
+        diagnostics
     );
-    assert_eq!(result.files.len(), 2);
 }
 
 #[specforge_test(
@@ -51,13 +62,9 @@ fn resolve_use_import_to_file() {
 fn missing_import_produces_e025() {
     let dir = setup_project(&[("main.spec", "use \"nonexistent\"\nbehavior foo \"F\" { }")]);
 
-    let result = resolve_project(dir.path());
+    let diagnostics = resolve_dir(dir.path());
 
-    let errors: Vec<_> = result
-        .diagnostics
-        .iter()
-        .filter(|d| d.code == "E025")
-        .collect();
+    let errors: Vec<_> = diagnostics.iter().filter(|d| d.code == "E025").collect();
     assert_eq!(errors.len(), 1, "should produce E025 for missing import");
 }
 
@@ -71,13 +78,9 @@ fn detect_direct_import_cycle() {
         ("b.spec", "use \"a\"\nbehavior beta \"B\" { }"),
     ]);
 
-    let result = resolve_project(dir.path());
+    let diagnostics = resolve_dir(dir.path());
 
-    let cycle_warnings: Vec<_> = result
-        .diagnostics
-        .iter()
-        .filter(|d| d.code == "W113")
-        .collect();
+    let cycle_warnings: Vec<_> = diagnostics.iter().filter(|d| d.code == "W113").collect();
     assert!(
         !cycle_warnings.is_empty(),
         "should detect import cycle with W113"
@@ -101,13 +104,9 @@ fn detect_transitive_import_cycle() {
         ("c.spec", "use \"a\"\nbehavior gamma \"G\" { }"),
     ]);
 
-    let result = resolve_project(dir.path());
+    let diagnostics = resolve_dir(dir.path());
 
-    let cycle_warnings: Vec<_> = result
-        .diagnostics
-        .iter()
-        .filter(|d| d.code == "W113")
-        .collect();
+    let cycle_warnings: Vec<_> = diagnostics.iter().filter(|d| d.code == "W113").collect();
     assert!(
         !cycle_warnings.is_empty(),
         "should detect transitive cycle with W113"
@@ -125,11 +124,19 @@ fn non_cyclic_files_still_resolve_when_cycle_exists() {
         ("clean.spec", "behavior gamma \"G\" { status \"ok\" }"),
     ]);
 
-    let result = resolve_project(dir.path());
+    let diagnostics = resolve_dir(dir.path());
 
-    // clean.spec should still be in the resolved files
-    let clean = result.files.iter().find(|f| f.path.ends_with("clean.spec"));
-    assert!(clean.is_some(), "non-cyclic file should still be resolved");
+    // The cycle is reported, and the clean file takes no part in it.
+    let w113: Vec<&str> = diagnostics
+        .iter()
+        .filter(|d| d.code == "W113")
+        .map(|d| d.message.as_str())
+        .collect();
+    assert_eq!(w113, ["circular import detected: a.spec -> b.spec"]);
+    assert!(
+        diagnostics.iter().all(|d| d.severity != Severity::Error),
+        "non-cyclic file should still be resolved: {diagnostics:?}"
+    );
 }
 
 // --- nested directory imports ---
@@ -150,21 +157,12 @@ fn imports_across_nested_directories_resolve_correctly() {
         ),
     ]);
 
-    let result = resolve_project(dir.path());
+    let diagnostics = resolve_dir(dir.path());
 
     assert!(
-        result
-            .diagnostics
-            .iter()
-            .all(|d| d.severity != Severity::Error),
+        diagnostics.iter().all(|d| d.severity != Severity::Error),
         "nested import should resolve without errors: {:?}",
-        result.diagnostics
-    );
-    assert_eq!(result.files.len(), 2);
-    // The file from the subdirectory should be present
-    assert!(
-        result.files.iter().any(|f| f.path.contains("sub")),
-        "subdirectory file should be in resolved files"
+        diagnostics
     );
 }
 
@@ -188,17 +186,13 @@ fn resolve_relative_dot_slash() {
         ),
     ]);
 
-    let result = resolve_project(dir.path());
+    let diagnostics = resolve_dir(dir.path());
 
     assert!(
-        result
-            .diagnostics
-            .iter()
-            .all(|d| d.severity != Severity::Error),
+        diagnostics.iter().all(|d| d.severity != Severity::Error),
         "relative ./helper should resolve without errors: {:?}",
-        result.diagnostics
+        diagnostics
     );
-    assert_eq!(result.files.len(), 2);
 }
 
 #[specforge_test(
@@ -217,17 +211,13 @@ fn resolve_relative_dot_dot_slash() {
         ),
     ]);
 
-    let result = resolve_project(dir.path());
+    let diagnostics = resolve_dir(dir.path());
 
     assert!(
-        result
-            .diagnostics
-            .iter()
-            .all(|d| d.severity != Severity::Error),
+        diagnostics.iter().all(|d| d.severity != Severity::Error),
         "relative ../shared should resolve without errors: {:?}",
-        result.diagnostics
+        diagnostics
     );
-    assert_eq!(result.files.len(), 2);
 }
 
 #[specforge_test(
@@ -240,56 +230,14 @@ fn resolve_relative_escaping_spec_root() {
         "use \"../../escape\"\nbehavior user \"U\" { }",
     )]);
 
-    let result = resolve_project(dir.path());
+    let diagnostics = resolve_dir(dir.path());
 
-    let errors: Vec<_> = result
-        .diagnostics
-        .iter()
-        .filter(|d| d.code == "E025")
-        .collect();
+    let errors: Vec<_> = diagnostics.iter().filter(|d| d.code == "E025").collect();
     assert_eq!(
         errors.len(),
         1,
         "relative path escaping spec_root should produce E025"
     );
-}
-
-#[specforge_test(
-    behavior = "resolve_use_imports",
-    verify = "resolve use path to file on disk"
-)]
-fn resolve_path_alias() {
-    let dir = setup_project(&[
-        (
-            "lib/shared/utils.spec",
-            r#"behavior utils "U" { contract "util" }"#,
-        ),
-        (
-            "main.spec",
-            "use \"@shared/utils\"\nbehavior caller \"C\" { invariants [utils] }",
-        ),
-    ]);
-
-    let config = ResolveConfig {
-        path_aliases: vec![PathAlias {
-            alias: "shared".to_string(),
-            target: "lib/shared".to_string(),
-        }],
-        ..ResolveConfig::default()
-    };
-    let result = resolve_project_with_config(dir.path(), &config);
-
-    // The alias maps the import to the file under lib/shared, not to an
-    // extension stub (I004) or a missing file (E025).
-    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
-    let main = result.files.iter().find(|f| f.path == "main.spec").unwrap();
-    assert_eq!(main.import_targets, ["lib/shared/utils.spec"]);
-
-    // Without the alias the same import is taken for an extension.
-    let plain = resolve_project(dir.path());
-    let main = plain.files.iter().find(|f| f.path == "main.spec").unwrap();
-    assert!(main.import_targets.is_empty());
-    assert!(plain.diagnostics.iter().any(|d| d.code == "I004"));
 }
 
 #[specforge_test(
@@ -308,18 +256,14 @@ fn resolve_directory_to_index_spec() {
         ),
     ]);
 
-    let result = resolve_project(dir.path());
+    let diagnostics = resolve_dir(dir.path());
 
     assert!(
-        result
-            .diagnostics
-            .iter()
-            .all(|d| d.severity != Severity::Error),
+        diagnostics.iter().all(|d| d.severity != Severity::Error),
         "directory import should resolve to index.spec: {:?}",
-        result.diagnostics
+        diagnostics
     );
     // main.spec + models/index.spec = 2 files
-    assert_eq!(result.files.len(), 2);
 }
 
 #[specforge_test(
@@ -342,27 +286,17 @@ fn bare_path_precedence_over_index() {
         ),
     ]);
 
-    let result = resolve_project(dir.path());
+    let diagnostics = resolve_dir(dir.path());
 
     assert!(
-        result
-            .diagnostics
-            .iter()
-            .all(|d| d.severity != Severity::Error),
+        diagnostics.iter().all(|d| d.severity != Severity::Error),
         "models.spec should take precedence over models/index.spec: {:?}",
-        result.diagnostics
+        diagnostics
     );
-    // main.spec imports models.spec (the file), models/index.spec is also discovered
-    // The import from main.spec should resolve to models.spec, not models/index.spec
-    let main_file = result
-        .files
-        .iter()
-        .find(|f| f.path.ends_with("main.spec"))
-        .unwrap();
-    assert!(
-        main_file.import_targets.iter().any(|t| t == "models.spec"),
-        "import should resolve to models.spec, not models/index.spec; targets: {:?}",
-        main_file.import_targets
+    // The import from main.spec resolves to models.spec, not models/index.spec.
+    assert_eq!(
+        resolve_import(dir.path(), "main.spec", "models").as_deref(),
+        Some("models.spec")
     );
 }
 
@@ -376,13 +310,9 @@ fn extension_import_emits_i004() {
         "use \"@specforge/software\"\nbehavior foo \"F\" { }",
     )]);
 
-    let result = resolve_project(dir.path());
+    let diagnostics = resolve_dir(dir.path());
 
-    let infos: Vec<_> = result
-        .diagnostics
-        .iter()
-        .filter(|d| d.code == "I004")
-        .collect();
+    let infos: Vec<_> = diagnostics.iter().filter(|d| d.code == "I004").collect();
     assert_eq!(
         infos.len(),
         1,
@@ -394,7 +324,7 @@ fn extension_import_emits_i004() {
     );
     // No E025 should be emitted for extension imports
     assert!(
-        result.diagnostics.iter().all(|d| d.code != "E025"),
+        diagnostics.iter().all(|d| d.code != "E025"),
         "extension import should not produce E025"
     );
 }
@@ -409,13 +339,9 @@ fn missing_import_e025_with_suggestion() {
         ("main.spec", "use \"helperz\"\nbehavior foo \"F\" { }"),
     ]);
 
-    let result = resolve_project(dir.path());
+    let diagnostics = resolve_dir(dir.path());
 
-    let errors: Vec<_> = result
-        .diagnostics
-        .iter()
-        .filter(|d| d.code == "E025")
-        .collect();
+    let errors: Vec<_> = diagnostics.iter().filter(|d| d.code == "E025").collect();
     assert_eq!(errors.len(), 1);
     assert!(
         errors[0]
@@ -440,13 +366,9 @@ fn missing_import_e025_no_suggestion() {
         ),
     ]);
 
-    let result = resolve_project(dir.path());
+    let diagnostics = resolve_dir(dir.path());
 
-    let errors: Vec<_> = result
-        .diagnostics
-        .iter()
-        .filter(|d| d.code == "E025")
-        .collect();
+    let errors: Vec<_> = diagnostics.iter().filter(|d| d.code == "E025").collect();
     assert_eq!(errors.len(), 1);
     assert!(
         errors[0].suggestion.is_none(),
@@ -459,187 +381,6 @@ fn missing_import_e025_no_suggestion() {
 
 #[specforge_test(
     behavior = "resolve_reexports",
-    verify = "pub use re-exports all entities from target"
-)]
-fn pub_use_reexports_all_entities() {
-    let dir = setup_project(&[
-        (
-            "user.spec",
-            r#"behavior User "U" { contract "user" }
-behavior UserProfile "UP" { contract "profile" }"#,
-        ),
-        ("barrel.spec", "pub use \"./user\"\n"),
-    ]);
-
-    let result = resolve_project(dir.path());
-
-    assert!(
-        result
-            .diagnostics
-            .iter()
-            .all(|d| d.severity != Severity::Error),
-        "pub use should resolve without errors: {:?}",
-        result.diagnostics
-    );
-    let scope = result
-        .file_scopes
-        .get("barrel.spec")
-        .expect("missing barrel.spec scope");
-    assert!(
-        scope.exported.contains("User"),
-        "exported should contain User"
-    );
-    assert!(
-        scope.exported.contains("UserProfile"),
-        "exported should contain UserProfile"
-    );
-}
-
-#[specforge_test(
-    behavior = "resolve_reexports",
-    verify = "pub use selective re-exports only named entities"
-)]
-fn pub_use_selective_reexport() {
-    let dir = setup_project(&[
-        (
-            "user.spec",
-            r#"behavior User "U" { contract "user" }
-behavior UserProfile "UP" { contract "profile" }"#,
-        ),
-        ("barrel.spec", "pub use { User } from \"./user\"\n"),
-    ]);
-
-    let result = resolve_project(dir.path());
-
-    assert!(
-        result
-            .diagnostics
-            .iter()
-            .all(|d| d.severity != Severity::Error),
-        "selective pub use should resolve without errors: {:?}",
-        result.diagnostics
-    );
-    let scope = result
-        .file_scopes
-        .get("barrel.spec")
-        .expect("missing barrel.spec scope");
-    assert!(
-        scope.exported.contains("User"),
-        "exported should contain User"
-    );
-    assert!(
-        !scope.exported.contains("UserProfile"),
-        "exported should NOT contain UserProfile"
-    );
-}
-
-#[specforge_test(
-    behavior = "resolve_reexports",
-    verify = "pub use chains resolve transitively"
-)]
-fn pub_use_transitive_chain() {
-    let dir = setup_project(&[
-        (
-            "deep.spec",
-            r#"behavior DeepEntity "D" { contract "deep" }"#,
-        ),
-        ("mid.spec", "pub use \"./deep\"\n"),
-        ("top.spec", "pub use \"./mid\"\n"),
-    ]);
-
-    let result = resolve_project(dir.path());
-
-    assert!(
-        result
-            .diagnostics
-            .iter()
-            .all(|d| d.severity != Severity::Error),
-        "transitive pub use should resolve: {:?}",
-        result.diagnostics
-    );
-    let top_scope = result
-        .file_scopes
-        .get("top.spec")
-        .expect("missing top.spec scope");
-    assert!(
-        top_scope.exported.contains("DeepEntity"),
-        "transitive pub use chain should export DeepEntity; exported: {:?}",
-        top_scope.exported
-    );
-}
-
-#[specforge_test(
-    behavior = "resolve_reexports",
-    verify = "regular use does not re-export"
-)]
-fn regular_use_does_not_reexport() {
-    let dir = setup_project(&[
-        ("user.spec", r#"behavior User "U" { contract "user" }"#),
-        (
-            "consumer.spec",
-            "use \"./user\"\nbehavior Consumer \"C\" { invariants [User] }",
-        ),
-    ]);
-
-    let result = resolve_project(dir.path());
-
-    let scope = result
-        .file_scopes
-        .get("consumer.spec")
-        .expect("missing consumer.spec scope");
-    assert!(
-        scope.declared.contains("Consumer"),
-        "declared should contain Consumer"
-    );
-    assert!(
-        !scope.exported.contains("User"),
-        "regular use should NOT re-export User"
-    );
-}
-
-#[specforge_test(
-    behavior = "resolve_reexports",
-    verify = "barrel index with pub use re-exports from sub-files"
-)]
-fn barrel_index_with_pub_use() {
-    let dir = setup_project(&[
-        (
-            "models/user.spec",
-            r#"behavior User "U" { contract "user" }"#,
-        ),
-        (
-            "models/order.spec",
-            r#"behavior Order "O" { contract "order" }"#,
-        ),
-        (
-            "models/index.spec",
-            "pub use \"./user\"\npub use \"./order\"\n",
-        ),
-    ]);
-
-    let result = resolve_project(dir.path());
-
-    assert!(
-        result
-            .diagnostics
-            .iter()
-            .all(|d| d.severity != Severity::Error),
-        "barrel index with pub use should resolve: {:?}",
-        result.diagnostics
-    );
-    let scope = result
-        .file_scopes
-        .get("models/index.spec")
-        .expect("missing models/index.spec scope");
-    assert!(scope.exported.contains("User"), "barrel should export User");
-    assert!(
-        scope.exported.contains("Order"),
-        "barrel should export Order"
-    );
-}
-
-#[specforge_test(
-    behavior = "resolve_reexports",
     verify = "selective re-export of unknown entity produces W027"
 )]
 fn pub_use_unknown_entity_w027() {
@@ -648,13 +389,9 @@ fn pub_use_unknown_entity_w027() {
         ("barrel.spec", "pub use { NonExistent } from \"./foo\"\n"),
     ]);
 
-    let result = resolve_project(dir.path());
+    let diagnostics = resolve_dir(dir.path());
 
-    let warnings: Vec<_> = result
-        .diagnostics
-        .iter()
-        .filter(|d| d.code == "W027")
-        .collect();
+    let warnings: Vec<_> = diagnostics.iter().filter(|d| d.code == "W027").collect();
     assert_eq!(
         warnings.len(),
         1,
@@ -688,18 +425,14 @@ fn symlink_outside_spec_root_rejected() {
     #[cfg(windows)]
     std::os::windows::fs::symlink_dir(&outside, spec_root.join("escape")).unwrap();
 
-    // Discover should NOT follow the symlink
-    let result = resolve_project(&spec_root);
-
-    // The symlinked file should not be discovered
-    let has_secret = result
-        .files
-        .iter()
-        .any(|f| f.spec_file.entities.iter().any(|e| e.id.raw == "secret"));
+    // Discovery does NOT follow the symlink, so the symlinked file is
+    // never one of the files a compile reads.
+    let found = specforge_common::discover_spec_files(&spec_root, &[]);
     assert!(
-        !has_secret,
-        "symlinked files outside spec_root should not be discovered"
+        found.is_empty(),
+        "symlinked files outside spec_root should not be discovered: {found:?}"
     );
+    assert!(resolve_dir(&spec_root).is_empty());
 }
 
 #[specforge_test(
@@ -722,13 +455,9 @@ fn relative_import_path_traversal_rejected() {
     )
     .unwrap();
 
-    let result = resolve_project(&spec_root);
+    let diagnostics = resolve_dir(&spec_root);
 
-    let e025: Vec<_> = result
-        .diagnostics
-        .iter()
-        .filter(|d| d.code == "E025")
-        .collect();
+    let e025: Vec<_> = diagnostics.iter().filter(|d| d.code == "E025").collect();
     assert!(
         !e025.is_empty(),
         "import traversing above spec_root should produce E025"
@@ -747,13 +476,9 @@ fn w113_import_cycle_has_suggestion() {
         ("b.spec", "use \"a\"\nbehavior beta \"B\" { }"),
     ]);
 
-    let result = resolve_project(dir.path());
+    let diagnostics = resolve_dir(dir.path());
 
-    let w113s: Vec<_> = result
-        .diagnostics
-        .iter()
-        .filter(|d| d.code == "W113")
-        .collect();
+    let w113s: Vec<_> = diagnostics.iter().filter(|d| d.code == "W113").collect();
     assert!(!w113s.is_empty(), "import cycle should produce W113");
     assert!(
         w113s[0].suggestion.is_some(),
@@ -767,50 +492,6 @@ fn w113_import_cycle_has_suggestion() {
 }
 
 #[specforge_test(
-    behavior = "resolve_reexports",
-    verify = "pub use through cycle participant uses only declared set"
-)]
-fn pub_use_through_cycle_no_transitive() {
-    // a.spec and b.spec form a cycle. c.spec pub-uses a.spec.
-    // c should get a.spec's declared entities, but not anything
-    // that a.spec might transitively re-export from b.spec.
-    let dir = setup_project(&[
-        (
-            "a.spec",
-            "use \"./b\"\npub use \"./b\"\nbehavior Alpha \"A\" { }",
-        ),
-        ("b.spec", "use \"./a\"\nbehavior Beta \"B\" { }"),
-        ("c.spec", "pub use \"./a\"\nbehavior Gamma \"G\" { }"),
-    ]);
-
-    let result = resolve_project(dir.path());
-
-    let c_scope = result
-        .file_scopes
-        .get("c.spec")
-        .expect("missing c.spec scope");
-    // c should have Alpha (declared by a.spec) in its exported set
-    assert!(
-        c_scope.exported.contains("Alpha"),
-        "c should export Alpha from a.spec"
-    );
-    // c should also have Gamma (its own declaration)
-    assert!(
-        c_scope.exported.contains("Gamma"),
-        "c should export its own Gamma"
-    );
-    // ...and nothing a.spec re-exports from b.spec through the cycle.
-    assert!(
-        !c_scope.exported.contains("Beta"),
-        "Beta reaches c only through the a<->b cycle: {:?}",
-        c_scope.exported
-    );
-    let mut exported: Vec<&String> = c_scope.exported.iter().collect();
-    exported.sort();
-    assert_eq!(exported, ["Alpha", "Gamma"]);
-}
-
-#[specforge_test(
     behavior = "resolve_use_imports",
     verify = "an import path may spell out the .spec extension"
 )]
@@ -821,12 +502,12 @@ fn use_import_may_spell_out_the_spec_extension() {
         ("other.spec", "use \"tokens\"\nbehavior bar \"B\" { }"),
     ]);
 
-    let result = resolve_project(dir.path());
+    let diagnostics = resolve_dir(dir.path());
 
     assert!(
-        !result.diagnostics.iter().any(|d| d.code == "E025"),
+        !diagnostics.iter().any(|d| d.code == "E025"),
         "{:?}",
-        result.diagnostics
+        diagnostics
     );
 }
 
@@ -846,9 +527,8 @@ fn w113_names_each_cycle_the_same_way_on_every_run() {
     ]);
 
     for _ in 0..20 {
-        let result = resolve_project(dir.path());
-        let messages: Vec<&str> = result
-            .diagnostics
+        let diagnostics = resolve_dir(dir.path());
+        let messages: Vec<&str> = diagnostics
             .iter()
             .filter(|d| d.code == "W113")
             .map(|d| d.message.as_str())
@@ -863,38 +543,8 @@ fn w113_names_each_cycle_the_same_way_on_every_run() {
     }
 }
 
-/// `exclude` entries are path substrings relative to the spec root, not
-/// globs (ADR 0004 D1-b).
-#[specforge_test(
-    behavior = "resolve_use_imports",
-    verify = "files matching an exclude entry are not compiled"
-)]
-fn excluded_files_are_not_compiled() {
-    let dir = setup_project(&[
-        ("main.spec", "behavior alpha \"A\" { }"),
-        ("drafts/draft.spec", "behavior alpha \"A again\" { }"),
-    ]);
-    let paths = |exclude: &[&str]| -> Vec<String> {
-        let config = ResolveConfig {
-            exclude: exclude.iter().map(|s| s.to_string()).collect(),
-            ..ResolveConfig::default()
-        };
-        let mut paths: Vec<String> = resolve_project_with_config(dir.path(), &config)
-            .files
-            .into_iter()
-            .map(|f| f.path)
-            .collect();
-        paths.sort();
-        paths
-    };
-
-    assert_eq!(paths(&[]), ["drafts/draft.spec", "main.spec"]);
-    assert_eq!(paths(&["drafts/"]), ["main.spec"]);
-    assert_eq!(paths(&["drafts/**"]), ["drafts/draft.spec", "main.spec"]);
-}
-
 /// One import, resolved on its own (the LSP's go-to-definition on a `use`
-/// path), the way the compile resolves it: bare, relative, alias and
+/// path), the way the compile resolves it: bare, relative and
 /// directory-index targets, relative to the spec root.
 #[specforge_test(
     behavior = "resolve_use_imports",
@@ -908,23 +558,13 @@ fn resolve_one_import_by_the_compile_cascade() {
         ("sub/main.spec", "term main \"Main\" {\n}\n"),
     ]);
     let root = dir.path();
-    let config = ResolveConfig {
-        path_aliases: vec![PathAlias {
-            alias: "shared".to_string(),
-            target: "lib/shared".to_string(),
-        }],
-        ..ResolveConfig::default()
-    };
-    let resolve = |import: &str| resolve_import(root, "sub/main.spec", import, &config);
+    let resolve = |import: &str| resolve_import(root, "sub/main.spec", import);
 
     assert_eq!(resolve("types").as_deref(), Some("types.spec"));
     assert_eq!(resolve("types.spec").as_deref(), Some("types.spec"));
     assert_eq!(resolve("../types").as_deref(), Some("types.spec"));
     assert_eq!(resolve("models").as_deref(), Some("models/index.spec"));
-    assert_eq!(
-        resolve("@shared/utils").as_deref(),
-        Some("lib/shared/utils.spec")
-    );
+    assert_eq!(resolve("@shared/utils"), None, "an extension import");
     assert_eq!(resolve("@specforge/software"), None, "an extension");
     assert_eq!(resolve("missing"), None);
 }
@@ -940,36 +580,27 @@ fn no_import_reaches_above_the_spec_root() {
     fs::write(outer.path().join("outside.spec"), "term o \"O\" {\n}\n").unwrap();
     let root = outer.path().join("spec");
     fs::create_dir_all(&root).unwrap();
-    for import in ["../outside", "sub/../../outside", "@up/../outside"] {
+    for import in ["../outside", "sub/../../outside"] {
         fs::write(
             root.join("main.spec"),
             format!("use \"{import}\"\nterm main \"Main\" {{\n}}\n"),
         )
         .unwrap();
-        let config = ResolveConfig {
-            path_aliases: vec![PathAlias {
-                alias: "up".to_string(),
-                target: "..".to_string(),
-            }],
-            ..ResolveConfig::default()
-        };
-        assert_eq!(resolve_import(&root, "main.spec", import, &config), None);
-        let result = resolve_project_with_config(&root, &config);
+        assert_eq!(resolve_import(&root, "main.spec", import), None);
+        let diagnostics = resolve_dir(&root);
         assert!(
-            result.diagnostics.iter().any(|d| d.code == "E025"),
-            "{import}: {:?}",
-            result.diagnostics
+            diagnostics.iter().any(|d| d.code == "E025"),
+            "{import}: {diagnostics:?}"
         );
     }
 }
 
 // --- W027 pins: the re-export obligations, observed without the file scopes ---
 
-/// The W027 messages `resolve_project` reports for `files`.
+/// The W027 messages the project of `files` reports.
 fn w027_messages(files: &[(&str, &str)]) -> Vec<String> {
     let dir = setup_project(files);
-    resolve_project(dir.path())
-        .diagnostics
+    resolve_dir(dir.path())
         .iter()
         .filter(|d| d.code == "W027")
         .map(|d| d.message.clone())

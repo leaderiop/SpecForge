@@ -944,12 +944,7 @@ impl LanguageServer for Backend {
                     return Ok(None);
                 }
                 // The imported file, from its first line: no text needed.
-                let span = goto_import_definition(
-                    &path,
-                    &file,
-                    state.spec_root(),
-                    &state.environment().resolve_config(),
-                );
+                let span = goto_import_definition(&path, &file, state.spec_root());
                 Ok(span.map(|s| {
                     GotoDefinitionResponse::Scalar(Location {
                         uri: uri_of(&state, s.file.as_str()),
