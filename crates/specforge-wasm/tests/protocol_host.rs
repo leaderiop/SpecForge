@@ -103,19 +103,66 @@ fn an_extension_declaring_no_policy_runs_under_the_ceiling() {
     );
 }
 
-/// Pin of today: an extension declaring what the host never grants (a
-/// network, a path, a surface's file write) loads without a warning.
-/// ADR 0037 makes each of them a W153.
-#[test]
-fn pin_a_declaration_asking_for_capabilities_loads_without_warning() {
+#[specforge_test_macros::test(
+    behavior = "configure_sandbox_policy",
+    verify = "Configure Sandbox Policy: sandbox policy configuration holds — handshake_read, limits_held_to_ceiling, above_ceiling_warned, capabilities_never_granted, limits_applied_at_handshake"
+)]
+#[specforge_test_macros::test(
+    behavior = "configure_sandbox_policy",
+    verify = "a sandbox_policy key that asks for a capability is W153"
+)]
+fn a_sandbox_policy_key_that_asks_for_a_capability_is_w153() {
     let runtime = InProcessRuntime::new().with(|| {
         let mut meta = ExtensionMeta::new("@acme/asks", "1.0.0");
         meta.sandbox_policy = Some(SandboxPolicy {
+            max_memory_mb: Some(64),
+            max_execution_ms: Some(60_000),
             network_access: Some(true),
             allowed_paths: vec!["/etc".into()],
             ..Default::default()
         });
-        let mut c = ContributionsBuilder::new(meta);
+        ContributionsBuilder::new(meta)
+    });
+    let loaded = load_declaration(&runtime, "@acme/asks").unwrap();
+
+    // One W153 per key, and no W138: the handshake is not a describe item.
+    let keys: Vec<&str> = loaded
+        .warnings
+        .iter()
+        .map(|warning| {
+            assert_eq!(warning.code, "W153", "{warning:?}");
+            ["allowed_paths", "max_execution_ms", "network_access"]
+                .into_iter()
+                .find(|key| warning.message.contains(&format!("sandbox_policy.{key} ")))
+                .unwrap_or_else(|| panic!("a key not declared: {}", warning.message))
+        })
+        .collect();
+    assert_eq!(
+        keys,
+        ["allowed_paths", "max_execution_ms", "network_access"]
+    );
+
+    // The limits were applied at the handshake: the declared one as
+    // declared, the one above the ceiling held to it.
+    assert_eq!(
+        runtime.limits(),
+        vec![(
+            "@acme/asks".to_string(),
+            Limits {
+                execution_ms: 30_000,
+                memory_mb: 64
+            }
+        )]
+    );
+}
+
+/// Pin of today: a surface's sandbox override, which grants nothing, loads
+/// without a warning. ADR 0037 makes it a W153 when the `sandbox` key
+/// becomes an unknown describe key (the protocol trim).
+#[test]
+fn pin_a_surface_sandbox_override_loads_without_warning() {
+    let runtime = InProcessRuntime::new().with(|| {
+        let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/asks", "1.0.0"));
         c.command("x", |cmd| {
             cmd.title("X")
                 .sandbox(|s| {

@@ -156,9 +156,9 @@ impl EnabledExtension {
 /// says (an extension two entries enable is read once). An extension that
 /// does not load is E028 (or the runtime's own reason, E028/E033, when it
 /// knows one) and is left out. `diagnostics` receives those runtime
-/// failures in load order, then the W138s of the declarations that loaded.
-/// What the declarations themselves are worth (E030, W021, E027, W145) is
-/// the registry build's to say.
+/// failures in load order, then the load warnings (W153, W138) of the
+/// declarations that loaded. What the declarations themselves are worth
+/// (E030, W021, E027, W145) is the registry build's to say.
 ///
 /// [`load_declaration`]: specforge_wasm::protocol::load_declaration
 pub fn load_extensions(

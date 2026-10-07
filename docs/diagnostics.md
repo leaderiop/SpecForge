@@ -3057,6 +3057,27 @@ Owner: core
 Level: warning
 ```
 
+## W153
+
+```
+W153: Sandbox declaration not honoured
+
+An extension's declaration asks its sandbox for something the host does not
+give, so the extension runs without it. A component is granted no capability,
+whatever it declares: no directory, environment, arguments, stdin, socket or
+name lookup (ADR 0037). So a `sandbox_policy` key other than `max_execution_ms`
+and `max_memory_mb` that asks for something (`network_access: true`, a non-empty
+`allowed_paths`, a misspelled limit), and a surface's `sandbox` override, grant
+nothing. A declared limit above the host's ceiling (30000 ms per call, 512 MB of
+linear memory) is held to the ceiling. The message names the extension and the
+key. Remove the key, or lower the limit. An extension that needs a file's
+content gets it in its input (an analyzer is handed each file); one that needs
+the network can't run in SpecForge.
+
+Owner: core
+Level: warning
+```
+
 ## W154
 
 ```

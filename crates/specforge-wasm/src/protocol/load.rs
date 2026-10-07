@@ -20,8 +20,9 @@ use crate::runtime::WasmRuntime;
 #[derive(Debug, Clone)]
 pub struct Loaded {
     pub declaration: ExtensionDeclaration,
-    /// W138: describe item keys the protocol does not define, in the order
-    /// the categories were read.
+    /// W153 (what its sandbox declaration asks for that the host does not
+    /// honour), then W138 (describe item keys the protocol does not
+    /// define), in the order the handshake and the categories were read.
     pub warnings: Vec<Diagnostic>,
 }
 

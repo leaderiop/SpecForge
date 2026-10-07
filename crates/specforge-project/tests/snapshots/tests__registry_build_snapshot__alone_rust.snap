@@ -19,7 +19,12 @@ expression: "digest(&load(&runtime, &[name]))"
   ],
   "fields": {},
   "kinds": {},
-  "load_diagnostics": [],
+  "load_diagnostics": [
+    {
+      "code": "W153",
+      "message": "extension '@specforge/rust': sandbox_policy.file_system_access asks for a capability the host never grants; it is ignored"
+    }
+  ],
   "manifest_surfaces": [],
   "registry_diagnostics": [],
   "rules": [],
