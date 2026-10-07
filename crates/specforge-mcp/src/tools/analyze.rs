@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-
 use crate::args::Arguments;
 use crate::target::Call;
 use crate::tool::{Handled, McpError, ToolOutcome};
@@ -35,7 +33,9 @@ pub fn call(call: &mut Call<'_>, args: Args) -> Handled {
         pass: args.pass,
         strict: args.strict,
         report: match args.test_results {
-            Some(named) => ReportSource::File(PathBuf::from(named)),
+            // A relative path names a file under the call's project, as the
+            // paths of `specforge.format` do; an absolute one is itself.
+            Some(named) => ReportSource::File(project.root.join(named)),
             None => ReportSource::Recorded,
         },
         min: None,

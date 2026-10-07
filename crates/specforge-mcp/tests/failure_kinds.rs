@@ -144,8 +144,11 @@ fn a_missing_named_report_is_file_not_found() {
     );
 }
 
-#[test]
-fn a_relative_test_results_is_read_from_the_server_cwd() {
+#[specforge_test(
+    behavior = "provide_mcp_analyze_tool",
+    verify = "a relative test_results names a file under the project's root"
+)]
+fn a_relative_test_results_is_under_the_project_root() {
     let mut served = served();
     served.write("r.json", r#"{"results":{}}"#);
 
@@ -156,7 +159,7 @@ fn a_relative_test_results_is_read_from_the_server_cwd() {
     );
 
     // The test process's cwd is the crate directory, not the project.
-    assert_eq!(response["result"]["isError"], true, "{response}");
+    assert_ne!(response["result"]["isError"], true, "{response}");
 }
 
 #[test]
