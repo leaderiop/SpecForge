@@ -115,6 +115,19 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   exact text, or a formal claim discharges it. Who owes obligations is the entity's standing.
 - **Unverified**: an entity that counts toward coverage and is not proven
   (its standing counts and its verdict is not proven; `ProjectCoverage::is_unverified`).
+- **Delivery evidence**: what the recorded test report proves of a feature, beside the `status`
+  its author declares (a claim): the behaviors that implement it (name it in `features`), how many
+  the coverage rule counts proven, their obligations and failing tests. A feature is **proven** when
+  at least one behavior implements it and every one is proven. The host passes each entity's score
+  to an extension command (`CommandInput.evidence`: none, unreadable, or recorded;
+  `specforge_ops::command::evidence`); `@specforge/product` aggregates it per feature
+  (`milestone-completion`'s `proven_count`) and its `delivery_evidence` pass reports a done feature
+  that is not proven (I071). Status stays the input of every status query (ADR 0039).
+- **Lifecycle consistency**: what the product kinds' statuses claim across entities, checked by
+  `@specforge/product`'s `lifecycle` pass with every compile: a completed milestone with a feature
+  neither done nor deprecated (W154), a done feature depending on an unfinished one (I063), a
+  milestone due before its dependency (I064), a shipped deliverable tracking an incomplete milestone
+  (I065). Its declarative rules check one entity at a time (ADR 0039).
 - **Missing link**: an expected edge, from the registries, that a traced entity lacks
   (`MissingLink`). The only gap a trace reports.
 - **Plan gap**: how an agent plan falls short of the graph: an unresolved entry, a missing entry for

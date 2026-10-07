@@ -238,9 +238,9 @@ behavior surface_milestone_completion "Surface: Milestone Completion" {
   """
   ensures {
     delegates         "delegates to pe_query_milestone_completion with the provided milestone id"
-    json_output       "stdout is a valid MilestoneCompletionPayload JSON: milestone_id, total_features, done_count, completion_ratio, done_features"
+    json_output       "stdout is a valid MilestoneCompletionPayload JSON: milestone_id, total_features, done_count, completion_ratio, done_features, evidence, and with recorded evidence proven_count, proven_ratio, proven_features and feature_evidence"
     not_found_error   "missing milestone returns ProductSurfaceError with suggestion and exit code 1"
-    human_format      "under --format human, stdout shows milestone_id, done/total and the ratio as a percentage"
+    human_format      "under --format human, stdout shows milestone_id, done/total and the ratio as a percentage, the proven share (or why there is none) and each feature's status and evidence"
     exit_zero_success "exit code 0 when query succeeds"
     exit_one_error    "exit code 1 when the entity is not found"
   }
@@ -248,6 +248,7 @@ behavior surface_milestone_completion "Surface: Milestone Completion" {
   verify unit "milestone-completion returns MilestoneCompletionPayload JSON"
   verify unit "missing milestone ID returns error with suggestion"
   verify unit "human format shows ratio as percentage"
+  verify unit "human format shows the proven share and each feature's evidence beside its status"
   verify unit "exit code 0 on success, 1 on error"
 }
 

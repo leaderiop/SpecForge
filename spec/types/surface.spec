@@ -81,12 +81,34 @@ type CommandArgType = string_arg | path_arg | bool_arg | enum_arg | integer_arg
 // host's date at the call, UTC. The export reads no files and no clock:
 // the same call serves the CLI and MCP (ADR 0011).
 type CommandInput {
-  args   FieldMap
-  cwd    string
-  graph  Graph
-  format CommandFormat
-  today  string
+  args     FieldMap
+  cwd      string
+  graph    Graph
+  format   CommandFormat
+  today    string
+  evidence CommandEvidence @optional
   verify unit "CommandInput schema is valid"
+}
+
+// What a command's input says the project's recorded test report proves
+// (ADR 0039): absent without a report; `unreadable` with the reason when
+// the report cannot be used; else, per entity that counts toward
+// coverage, its obligations, the ones a passing test names and its
+// failing tests, scored by the coverage rule `specforge stats` reports.
+type CommandEvidence {
+  state    EvidenceState
+  entities EntityEvidence[] @optional
+  reason   string           @optional
+  verify unit "a command input without evidence leaves the field off the wire, and evidence is tagged by its state"
+}
+
+type EvidenceState = none | recorded | unreadable
+
+type EntityEvidence {
+  obligations integer
+  proven      integer
+  failing     integer @optional
+  verify unit "an entity is proven when it declares an obligation, every one is proven and no test fails"
 }
 
 // human: the extension's layout for a reader (a table with a header row

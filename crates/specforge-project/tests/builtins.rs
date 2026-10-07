@@ -529,3 +529,23 @@ fn product_alone_is_clean_and_names_governance_for_w078() {
         both.declaration_diagnostics
     );
 }
+
+#[specforge_test_macros::test(
+    behavior = "pe_declare_manifest",
+    verify = "passes declares lifecycle in the check phase and delivery_evidence under analyze"
+)]
+fn product_declares_its_lifecycle_passes() {
+    let manifest = load_via_protocol("@specforge/product");
+    let passes: Vec<(&str, Option<&str>, Option<&str>)> = manifest
+        .passes
+        .iter()
+        .map(|p| (p.name.as_str(), p.after.as_deref(), p.phase.as_deref()))
+        .collect();
+    assert_eq!(
+        passes,
+        [
+            ("lifecycle", Some("resolve"), Some("check")),
+            ("delivery_evidence", Some("resolve"), None),
+        ]
+    );
+}

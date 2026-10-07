@@ -293,9 +293,31 @@ type MilestoneCompletionPayload {
   milestone_id     EntityId
   total_features   integer
   done_count       integer
-  completion_ratio float      @optional
-  done_features    EntityId[] @optional
+  completion_ratio float             @optional
+  done_features    EntityId[]        @optional
+  // Whether the command's input carried recorded evidence, and what it
+  // proves of the milestone's features, beside the declared count (ADR 0039).
+  evidence         EvidenceState     @optional
+  proven_count     integer           @optional
+  proven_ratio     float             @optional
+  proven_features  EntityId[]        @optional
+  feature_evidence FeatureEvidence[] @optional
   verify property "MilestoneCompletionPayload"
+}
+
+// What the recorded tests prove of one feature: the behaviors that name
+// it in their features field, how many the coverage rule counts proven,
+// their obligations and failing tests. Proven when at least one behavior
+// implements it and every one is proven.
+type FeatureEvidence {
+  feature_id         EntityId
+  behaviors          integer
+  proven_behaviors   integer
+  obligations        integer
+  proven_obligations integer
+  failing            integer
+  proven             boolean
+  verify unit "a feature is proven when at least one behavior implements it and every one is proven"
 }
 
 type DeliverableTraceabilityPayload {

@@ -510,7 +510,8 @@ fn an_extension_command_prints_what_its_export_returns() {
     assert_eq!(output.status.code(), Some(0));
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
-        "Milestone: m1 (planned)\nCompletion: 50% (1/2 features done)\n  f1 [proposed]\n  f2 [done]\n"
+        "Milestone: m1 (planned)\nCompletion: 50% (1/2 features done)\n\
+         Evidence:   none recorded (run `specforge collect`)\n  f1 [proposed]\n  f2 [done]\n"
     );
     assert!(output.stderr.is_empty(), "{output:?}");
 
@@ -935,4 +936,191 @@ fn check_reports_no_overdue_milestone() {
     // Infos are always reported, so an I058 would be among them.
     assert!(output.status.code().is_some_and(|c| c <= 1), "{all}");
     assert!(!all.contains("I058"), "{all}");
+}
+
+#[specforge_test(
+    behavior = "dispatch_surface_command",
+    verify = "the CommandInput carries what the recorded tests prove, per entity that counts toward coverage"
+)]
+fn milestone_completion_reads_the_projects_recorded_tests() {
+    let dir = TempDir::new().unwrap();
+    fs::write(
+        dir.path().join("specforge.json"),
+        serde_json::json!({"name": "p", "version": "0.1.0",
+            "extensions": ["@specforge/product", "@specforge/software", "@specforge/testing"]})
+        .to_string(),
+    )
+    .unwrap();
+    fs::write(
+        dir.path().join("main.spec"),
+        r#"feature f1 "One" {
+  status done
+}
+
+feature f2 "Two" {
+  status done
+}
+
+milestone m1 "M" {
+  status completed
+  features [f1, f2]
+  exit_criteria ["done"]
+}
+
+behavior b1 "B1" {
+  features [f1]
+  verify unit "b1 works"
+}
+
+behavior b2 "B2" {
+  features [f2]
+  verify unit "b2 works"
+  verify unit "b2 still works"
+}
+"#,
+    )
+    .unwrap();
+    fs::write(
+        dir.path().join("specforge-report.json"),
+        serde_json::json!({"runner": "fixture", "results": {
+            "b1": {"tests": [{"name": "t1", "status": "pass", "verify": "b1 works"}]},
+            "b2": {"tests": [{"name": "t2", "status": "pass", "verify": "b2 works"}]},
+        }})
+        .to_string(),
+    )
+    .unwrap();
+    let path = dir.path().to_str().unwrap();
+    let output = cargo_bin_cmd!("specforge")
+        .args([
+            "product",
+            "milestone-completion",
+            "m1",
+            "--format",
+            "json",
+            "--path",
+            path,
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(0), "{output:?}");
+    let mc: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(mc["done_count"], 2);
+    assert_eq!(mc["proven_features"], serde_json::json!(["f1"]), "{mc}");
+    assert_eq!(mc["feature_evidence"][1]["proven_obligations"], 1);
+}
+
+/// A project enabling product, software and testing, whose `f_proven` is
+/// implemented by a proven behavior, `f_half` by one with an unproven
+/// obligation and `f_alone` by none; all three are done.
+fn evidence_project(report: bool) -> TempDir {
+    let dir = TempDir::new().unwrap();
+    fs::write(
+        dir.path().join("specforge.json"),
+        serde_json::json!({"name": "p", "version": "0.1.0",
+            "extensions": ["@specforge/product", "@specforge/software", "@specforge/testing"]})
+        .to_string(),
+    )
+    .unwrap();
+    fs::write(
+        dir.path().join("main.spec"),
+        r#"feature f_proven "Proven" {
+  status done
+}
+
+feature f_half "Half" {
+  status done
+}
+
+feature f_alone "Alone" {
+  status done
+}
+
+behavior b_proven "Proven" {
+  features [f_proven]
+  verify unit "works"
+}
+
+behavior b_half "Half" {
+  features [f_half]
+  verify unit "works"
+  verify unit "still works"
+}
+"#,
+    )
+    .unwrap();
+    if report {
+        fs::write(
+            dir.path().join("specforge-report.json"),
+            serde_json::json!({"runner": "fixture", "results": {
+                "b_proven": {"tests": [{"name": "t1", "status": "pass", "verify": "works"}]},
+                "b_half": {"tests": [{"name": "t2", "status": "pass", "verify": "works"}]},
+            }})
+            .to_string(),
+        )
+        .unwrap();
+    }
+    dir
+}
+
+fn delivery_evidence(dir: &TempDir) -> serde_json::Value {
+    let output = cargo_bin_cmd!("specforge")
+        .args([
+            "analyze",
+            "@specforge/product:delivery_evidence",
+            "--json",
+            "--path",
+            dir.path().to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    serde_json::from_slice(&output.stdout).unwrap_or_else(|e| panic!("{e}: {output:?}"))
+}
+
+#[specforge_test(
+    behavior = "detect_done_feature_without_evidence",
+    verify = "done feature with an unproven implementing behavior produces I071"
+)]
+#[specforge_test(
+    behavior = "detect_done_feature_without_evidence",
+    verify = "done feature whose implementing behaviors are all proven suppresses I071"
+)]
+fn delivery_evidence_reports_done_features_the_recorded_tests_do_not_prove() {
+    let report = delivery_evidence(&evidence_project(true));
+    let pass = &report["passes"][0];
+    let mut findings: Vec<(String, String)> = pass["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|f| {
+            (
+                f["code"].as_str().unwrap().to_string(),
+                f["message"].as_str().unwrap().to_string(),
+            )
+        })
+        .collect();
+    findings.sort();
+    assert_eq!(
+        findings,
+        [
+            (
+                "I071".to_string(),
+                "feature 'f_alone' is done but no behavior implements it, so no recorded test can prove it".to_string()
+            ),
+            (
+                "I071".to_string(),
+                "feature 'f_half' is done but the recorded tests prove 0 of the 1 behaviors implementing it (1/2 obligations)".to_string()
+            ),
+        ],
+        "{report}"
+    );
+}
+
+#[specforge_test(
+    behavior = "detect_done_feature_without_evidence",
+    verify = "without recorded test results delivery_evidence reports nothing"
+)]
+fn delivery_evidence_without_a_report_reports_nothing() {
+    let report = delivery_evidence(&evidence_project(false));
+    let pass = &report["passes"][0];
+    assert_eq!(pass["findings"], serde_json::json!([]), "{report}");
 }

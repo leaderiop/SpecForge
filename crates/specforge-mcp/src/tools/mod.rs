@@ -378,6 +378,7 @@ fn extension_tool(
                 project.runtime.as_ref(),
                 project.graph(),
                 project.root,
+                specforge_ops::command::evidence(&project.view()),
                 command,
                 &args,
             )
@@ -468,12 +469,14 @@ fn command_adapter(
     runtime: &dyn specforge_wasm::runtime::WasmRuntime,
     graph: &specforge_graph::Graph,
     root: &std::path::Path,
+    evidence: specforge_protocol_types::CommandEvidence,
     command: &specforge_ops::command::ExtensionCommand,
     args: &serde_json::Map<String, Value>,
 ) -> (ToolOutcome, Dispatched) {
     let context = specforge_ops::command::CommandContext {
         format: specforge_ops::command::CommandFormat::Json,
         today: chrono::Utc::now().format("%Y-%m-%d").to_string(),
+        evidence,
     };
     let started = std::time::Instant::now();
     let outcome =

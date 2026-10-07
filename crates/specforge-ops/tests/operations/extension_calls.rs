@@ -111,6 +111,7 @@ fn the_command_input() {
         &CommandContext {
             format: CommandFormat::Json,
             today: "2026-10-03".into(),
+            ..CommandContext::default()
         },
     );
     golden("command.input.json", &serde_json::to_value(&input).unwrap());
@@ -297,4 +298,74 @@ fn the_migration_hook_input_and_any_answer() {
             "migration hook migrate__x() of '{EXT}' trapped: k: m"
         )]
     );
+}
+
+mod evidence {
+    use crate::view_support::{Project, registries};
+    use specforge_ops::command::{CommandEvidence, evidence};
+    use specforge_protocol_types::EntityEvidence;
+    use specforge_test_macros::test as specforge_test;
+
+    const SOURCE: &str = "behavior proven \"Proven\" {\n  verify unit \"a\"\n  verify unit \"b\"\n}\n\
+                          behavior half \"Half\" {\n  verify unit \"a\"\n  verify unit \"b\"\n}\n";
+
+    #[specforge_test(
+        behavior = "dispatch_surface_command",
+        verify = "the CommandInput carries what the recorded tests prove, per entity that counts toward coverage"
+    )]
+    fn the_input_carries_each_counted_entitys_proof() {
+        let project = Project::new(SOURCE, registries(&["behavior"], &[]));
+        let pass = |verify: &str| serde_json::json!({"status": "pass", "verify": verify});
+        std::fs::write(
+            project.dir.path().join("specforge-report.json"),
+            serde_json::json!({"runner": "fixture", "results": {
+                "proven": {"tests": [pass("a"), pass("b")]},
+                "half": {"tests": [pass("a")]},
+            }})
+            .to_string(),
+        )
+        .unwrap();
+        let CommandEvidence::Recorded { entities } = evidence(&project.view()) else {
+            panic!("a recorded report is evidence");
+        };
+        assert_eq!(
+            entities.get("proven"),
+            Some(&EntityEvidence {
+                obligations: 2,
+                proven: 2,
+                failing: 0
+            })
+        );
+        assert!(entities["proven"].is_proven());
+        assert_eq!(
+            entities.get("half"),
+            Some(&EntityEvidence {
+                obligations: 2,
+                proven: 1,
+                failing: 0
+            })
+        );
+        assert!(!entities["half"].is_proven());
+        assert_eq!(entities.len(), 2, "only what counts toward coverage");
+    }
+
+    #[specforge_test(
+        behavior = "dispatch_surface_command",
+        verify = "a command's input says when the recorded test report cannot be read, and carries no evidence without one"
+    )]
+    fn no_report_is_no_evidence_and_a_broken_one_says_why() {
+        let project = Project::new(SOURCE, registries(&["behavior"], &[]));
+        assert_eq!(evidence(&project.view()), CommandEvidence::None);
+        std::fs::write(
+            project.dir.path().join("specforge-report.json"),
+            "{not json",
+        )
+        .unwrap();
+        let CommandEvidence::Unreadable { reason } = evidence(&project.view()) else {
+            panic!("a broken report is unreadable evidence");
+        };
+        assert!(reason.contains("invalid test results"), "{reason}");
+        let wire = serde_json::to_value(CommandEvidence::Unreadable { reason }).unwrap();
+        assert_eq!(wire["state"], "unreadable");
+    }
 }

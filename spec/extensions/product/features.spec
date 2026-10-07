@@ -191,6 +191,15 @@ feature pe_validation_suite "Product Validation Suite" {
     effort (I081); releases without deliverables or milestones (I082,
     I083); recalled releases without reason (I089).
     Each rule uses the declarative pattern engine.
+
+    What spans entities is checked by the extension's passes. The
+    lifecycle pass runs with every compile: a completed milestone that
+    delivers a feature neither done nor deprecated (W154), a done
+    feature that depends on one not done (I063), a milestone due before
+    a milestone it depends on (I064), a shipped deliverable tracked by a
+    milestone not completed (I065). Under specforge analyze, which reads
+    the recorded test report, the delivery_evidence pass reports a done
+    feature the recorded tests do not prove (I071, ADR 0039).
   """
 }
 

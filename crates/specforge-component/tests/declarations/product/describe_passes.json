@@ -1,4 +1,17 @@
 {
   "category": "passes",
-  "items": []
+  "items": [
+    {
+      "after": "resolve",
+      "before": null,
+      "name": "lifecycle",
+      "phase": "check"
+    },
+    {
+      "after": "resolve",
+      "before": null,
+      "name": "delivery_evidence",
+      "phase": null
+    }
+  ]
 }

@@ -200,11 +200,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "specforge-coverage"
+version = "0.1.0"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "specforge-ext-product"
 version = "1.0.0"
 dependencies = [
  "serde",
  "serde_json",
+ "specforge-coverage",
  "specforge-extension-sdk",
  "wit-bindgen",
 ]

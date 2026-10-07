@@ -1077,6 +1077,48 @@ Owner: @specforge/product
 Level: info
 ```
 
+## I063
+
+```
+I063: Done feature depends on an unfinished feature
+
+A `feature` has `status: done` but a feature its `depends_on` names is not done.
+Reported once per such dependency, by the `lifecycle` pass of
+@specforge/product. Finish the dependency (or mark it done), or set the feature
+back to `in_progress`.
+
+Owner: @specforge/product
+Level: info
+```
+
+## I064
+
+```
+I064: Milestone due before its dependency
+
+A `milestone`'s `target_date` is earlier than that of a milestone its
+`depends_on` names: it cannot realistically complete before what it waits on.
+Reported once per such pair; a milestone or dependency without a `YYYY-MM-DD`
+date is not compared. Move the date, or drop the dependency.
+
+Owner: @specforge/product
+Level: info
+```
+
+## I065
+
+```
+I065: Shipped deliverable tracks an incomplete milestone
+
+A `deliverable` has `status: shipped` but a milestone its `milestones` names is
+not `completed`. Reported once per such milestone, by the `lifecycle` pass of
+@specforge/product. Complete the milestone, or set the deliverable back to
+`in_progress`.
+
+Owner: @specforge/product
+Level: info
+```
+
 ## I066
 
 ```
@@ -1135,6 +1177,23 @@ I070: Deprecated channel missing reason
 
 A `channel` has `status: deprecated` but no `reason` field explaining why. Add a
 `reason` field documenting why it was deprecated.
+
+Owner: @specforge/product
+Level: info
+```
+
+## I071
+
+```
+I071: Done feature the recorded tests do not prove
+
+A `feature` has `status: done` but the project's recorded test report
+(`specforge collect`) does not prove it: no behavior implements it (names it in
+`features`), or not every implementing behavior is proven (an obligation no
+passing test names, or a failing test). A feature's status is a claim and its
+evidence is derived (ADR 0039). Reported by the `delivery_evidence` pass under
+`specforge analyze`, only when a report is recorded. Link tests to the unproven
+obligations, or name the feature in the behaviors that deliver it.
 
 Owner: @specforge/product
 Level: info
@@ -2734,6 +2793,21 @@ in the extension's range (a third-party extension) or catalogue it (a
 first-party one).
 
 Owner: core
+Level: warning
+```
+
+## W154
+
+```
+W154: Completed milestone delivers an unfinished feature
+
+A `milestone` has `status: completed` but a feature its `features` names is
+neither `done` nor `deprecated`, so the milestone's completion claims what its
+features do not. Reported once per such feature, by the `lifecycle` pass of
+@specforge/product. Mark the feature done if it was delivered; otherwise move it
+out of the milestone or set the milestone back to `in_progress`.
+
+Owner: @specforge/product
 Level: warning
 ```
 

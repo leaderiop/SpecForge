@@ -18,7 +18,12 @@ expression: "digest(&load(&runtime, &all))"
     "port",
     "type"
   ],
-  "check_passes": [],
+  "check_passes": [
+    {
+      "extension": "@specforge/product",
+      "name": "lifecycle"
+    }
+  ],
   "edges": {
     "AxiomAssumesInvariant": {
       "description": "Axiom assumes an invariant as foundational truth",
@@ -5416,7 +5421,7 @@ expression: "digest(&load(&runtime, &all))"
               }
             ],
             "category": "query",
-            "description": "How many of a milestone's features are done: the count, the ratio in [0, 1] and their ids.",
+            "description": "How many of a milestone's features are done: the count, the ratio in [0, 1] and their ids; beside it, how many the project's recorded tests prove (each feature's implementing behaviors, after `specforge collect`).",
             "export": "cmd__product_milestone_completion",
             "id": "milestone_completion",
             "sandbox": null,

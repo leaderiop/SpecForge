@@ -1149,9 +1149,9 @@ pub mod prelude {
         ScanRequest, ScanResponse, ScannedItem,
     };
     pub use crate::{
-        ArgBuilder, CommandBuilder, CommandCall, CommandError, CommandFormat, CommandGraph,
-        CommandInput, CommandOutput, GraphEdge, GraphNode, McpResourceBuilder, McpToolBuilder,
-        SandboxBuilder,
+        ArgBuilder, CommandBuilder, CommandCall, CommandError, CommandEvidence, CommandFormat,
+        CommandGraph, CommandInput, CommandOutput, EntityEvidence, GraphEdge, GraphNode,
+        McpResourceBuilder, McpToolBuilder, SandboxBuilder,
     };
     pub use crate::{
         CollectEntityResult, CollectInput, CollectOutput, CollectReportFile, CollectTestResult,
@@ -1267,11 +1267,11 @@ mod raw_category_flag_tests {
 
 pub use specforge_protocol_types::{
     CollectEntityResult, CollectInput, CollectOutput, CollectReportFile, CollectTestResult,
-    CollectUnlinkedTest, CommandError, CommandFormat, CommandOutput, GraphEdge, GraphNode,
-    GraphWire, McpResourceContent, McpResourceRequest, MigrationInput, PassAnswer, PassBuildCache,
-    PassCachedStatus, PassDiagnostic, PassEdge, PassEntity, PassEntityResults, PassInput,
-    PassOutput, PassSeverity, PassSpan, PassTestResult, PassTestResults, ScanRequest, ScanResponse,
-    ScannedItem,
+    CollectUnlinkedTest, CommandError, CommandEvidence, CommandFormat, CommandOutput,
+    EntityEvidence, GraphEdge, GraphNode, GraphWire, McpResourceContent, McpResourceRequest,
+    MigrationInput, PassAnswer, PassBuildCache, PassCachedStatus, PassDiagnostic, PassEdge,
+    PassEntity, PassEntityResults, PassInput, PassOutput, PassSeverity, PassSpan, PassTestResult,
+    PassTestResults, ScanRequest, ScanResponse, ScannedItem,
 };
 
 /// What a `cmd__<name>` export receives, its graph indexed for lookups
@@ -1407,6 +1407,7 @@ mod command_graph_tests {
             graph: CommandGraph::default(),
             format: CommandFormat::Json,
             today: String::new(),
+            evidence: Default::default(),
         };
         assert!(input.is_json());
         assert!(!CommandInput::default().is_json());

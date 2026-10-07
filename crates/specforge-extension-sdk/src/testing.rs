@@ -88,6 +88,7 @@ pub fn call_every_command(
                 graph: graph.clone(),
                 format: CommandFormat::Json,
                 today: today.to_string(),
+                evidence: Default::default(),
             };
             let output = b
                 .call_command(&command.export, &input)

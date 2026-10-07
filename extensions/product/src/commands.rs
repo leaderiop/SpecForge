@@ -129,7 +129,9 @@ pub fn declare(c: &mut ContributionsBuilder) {
         cmd.title("Show milestone completion progress")
             .description(
                 "How many of a milestone's features are done: the count, the \
-            ratio in [0, 1] and their ids.",
+            ratio in [0, 1] and their ids; beside it, how many the project's \
+            recorded tests prove (each feature's implementing behaviors, \
+            after `specforge collect`).",
             )
             .category("query");
         entity_arg(cmd, "milestone");
@@ -137,7 +139,10 @@ pub fn declare(c: &mut ContributionsBuilder) {
             lookup(
                 call,
                 "milestone",
-                queries::milestone_completion,
+                |graph, id| {
+                    queries::milestone_completion(graph, id)
+                        .map(|r| r.with_evidence(graph, call.evidence()))
+                },
                 |r, out| {
                     let _ = writeln!(
                         out,
@@ -152,9 +157,51 @@ pub fn declare(c: &mut ContributionsBuilder) {
                         r.done_count,
                         r.total_features
                     );
+                    match (&r.proven_count, &r.proven_ratio) {
+                        (Some(count), Some(ratio)) => {
+                            let _ = writeln!(
+                                out,
+                                "Evidence:   {:.0}% ({count}/{} features proven by recorded tests)",
+                                ratio * 100.0,
+                                r.total_features
+                            );
+                        }
+                        _ => {
+                            let state = r.evidence.as_ref().map_or_else(
+                                || "none recorded".to_string(),
+                                |e| e.describe(),
+                            );
+                            let _ = writeln!(out, "Evidence:   {state}");
+                        }
+                    }
+                    let evidence = r.feature_evidence.as_deref().unwrap_or_default();
                     for f in &r.features {
-                        let _ =
-                            writeln!(out, "  {} [{}]", f.id, f.status.as_deref().unwrap_or("-"));
+                        let status = f.status.as_deref().unwrap_or("-");
+                        match evidence.iter().find(|e| e.feature_id == f.id) {
+                            Some(e) if e.behaviors == 0 => {
+                                let _ = writeln!(out, "  {} [{status}] no implementing behavior", f.id);
+                            }
+                            Some(e) => {
+                                let _ = writeln!(
+                                    out,
+                                    "  {} [{status}] {} {}/{} behaviors proven ({}/{} obligations{})",
+                                    f.id,
+                                    if e.proven { "proven" } else { "unproven" },
+                                    e.proven_behaviors,
+                                    e.behaviors,
+                                    e.proven_obligations,
+                                    e.obligations,
+                                    if e.failing > 0 {
+                                        format!(", {} failing", e.failing)
+                                    } else {
+                                        String::new()
+                                    }
+                                );
+                            }
+                            None => {
+                                let _ = writeln!(out, "  {} [{status}]", f.id);
+                            }
+                        }
                     }
                 },
             )
