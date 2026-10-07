@@ -18,7 +18,7 @@ use specforge_registry::{FieldRegistry, KindRegistry, RegistryBuild};
 
 pub use specforge_registry::entity::{
     Direction, EdgeCounts, EdgeRecord, EntityRecord, Exemption, FieldRecord, MethodRecord,
-    ObligationRecord, ParamRecord, RuleInput,
+    ObligationRecord, ParamRecord, RuleInput, ValueShape,
 };
 
 /// Every entity of one built graph, read with the registry build it was
@@ -463,6 +463,8 @@ fn record(
                     .map(|a| a.name.to_string())
                     .collect(),
                 items: field_items(&entry.value),
+                shape: field_shape(&entry.value),
+                value_span: entry.value_span.clone(),
             })
             .collect(),
         references: entries
@@ -581,6 +583,26 @@ pub fn field_text(value: &FieldValue) -> String {
     }
 }
 
+/// What `value` was written as: one shape per `FieldValue` variant, with no
+/// `_` arm, so a new variant does not compile until it has one.
+pub fn field_shape(value: &FieldValue) -> ValueShape {
+    match value {
+        FieldValue::String(_) => ValueShape::String,
+        FieldValue::Identifier(_) => ValueShape::Identifier,
+        FieldValue::Date(_) => ValueShape::Date,
+        FieldValue::Integer(_) => ValueShape::Integer,
+        FieldValue::Boolean(_) => ValueShape::Boolean,
+        FieldValue::StringList(_) => ValueShape::Strings,
+        FieldValue::ReferenceList(_) => ValueShape::References,
+        FieldValue::MixedList(_) => ValueShape::Mixed,
+        FieldValue::VariantList(_) => ValueShape::Variants,
+        FieldValue::TypeUnion(_) => ValueShape::TypeUnion,
+        FieldValue::Block(_) => ValueShape::Block,
+        FieldValue::VerifyList(_) => ValueShape::Verify,
+        FieldValue::Expression(_) => ValueShape::Expression,
+    }
+}
+
 /// A list-shaped value's items, unjoined, each as its text: the list's
 /// strings or ids, a variant list's or type union's members, a mixed
 /// list's items' texts, each expression's display form, each verify
@@ -649,6 +671,79 @@ mod tests {
                 (e.key.to_string(), variant, field_text(&e.value))
             })
             .collect()
+    }
+
+    #[specforge_test(
+        behavior = "snapshot_entities_once",
+        verify = "every written field keeps its value shape and value span beside its text"
+    )]
+    fn field_shape_of_every_variant() {
+        let source = r#"item x "X" {
+  title "a title"
+  owner alice
+  due 2026-10-06
+  count 42
+  active true
+  labels ["a, b", "c"]
+  needs [y, z]
+  values [low, high]
+  shape string | string[]
+  mix [1, true, two]
+  metric expr { latency < 10ms, load > 5 }
+  ensures {
+    done "it is done"
+  }
+  verify unit "x works"
+}
+"#;
+        let (graph, _) = specforge_graph::build_graph(&[specforge_parser::parse(source, "t.spec")]);
+        let snapshot = EntitySnapshot::of(&graph, &RegistryBuild::default(), Path::new("."));
+        let record = snapshot.records().iter().find(|r| r.id == "x").unwrap();
+        let shapes: Vec<(&str, ValueShape)> = record
+            .fields
+            .iter()
+            .map(|f| (f.key.as_str(), f.shape))
+            .collect();
+        assert_eq!(
+            shapes,
+            [
+                ("title", ValueShape::String),
+                ("owner", ValueShape::Identifier),
+                ("due", ValueShape::Date),
+                ("count", ValueShape::Integer),
+                ("active", ValueShape::Boolean),
+                ("labels", ValueShape::Strings),
+                ("needs", ValueShape::References),
+                ("values", ValueShape::Variants),
+                ("shape", ValueShape::TypeUnion),
+                ("mix", ValueShape::Mixed),
+                ("metric", ValueShape::Expression),
+                ("ensures", ValueShape::Block),
+                ("verify", ValueShape::Verify),
+            ]
+        );
+        for shape in [
+            ValueShape::Strings,
+            ValueShape::References,
+            ValueShape::Mixed,
+        ] {
+            assert!(shape.is_list());
+        }
+        assert!(!ValueShape::Block.is_list() && !ValueShape::Verify.is_list());
+
+        // Each value carries the span it is written at: its own line.
+        let lines: Vec<(&str, Option<usize>)> = record
+            .fields
+            .iter()
+            .map(|f| (f.key.as_str(), f.value_span.as_ref().map(|s| s.start_line)))
+            .collect();
+        for (key, line) in [("title", 2), ("count", 5), ("labels", 7), ("needs", 8)] {
+            assert_eq!(
+                lines.iter().find(|(k, _)| *k == key).map(|(_, l)| *l),
+                Some(Some(line)),
+                "{key}: {lines:?}"
+            );
+        }
     }
 
     #[specforge_test(

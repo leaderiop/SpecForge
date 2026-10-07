@@ -30,7 +30,7 @@ pub use surface::{
 // --- What the checks after the graph build read about an entity (ADR 0019) ---
 pub use entity::{
     Direction, EdgeCounts, EdgeRecord, EntityRecord, Exemption, FieldRecord, MethodRecord,
-    ObligationRecord, ParamRecord, RuleInput,
+    ObligationRecord, ParamRecord, RuleInput, ValueShape,
 };
 
 // --- Registry compilation (plan 05): one build, and the graph checks ---
