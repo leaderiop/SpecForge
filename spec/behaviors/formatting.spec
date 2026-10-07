@@ -73,11 +73,17 @@ behavior preserve_comments "Preserve Comments During Formatting" {
     block kind (spec, define, ref and entity blocks). A comment's text is
     kept as written — `///`, `//!` and indentation after `//` included —
     except that `//text` gains one space.
+    A statement the formatter rebuilds on one line (an import, an inline
+    ref, a union block, a field, a verify statement, a method) that holds a
+    comment between its tokens is kept as written instead, its first line
+    at the body's indentation, so no comment is dropped and none swallows
+    the code after it.
   """
   verify unit "leading comment attaches to following node"
   verify unit "trailing comment attaches to preceding node on same line"
   verify unit "section header comment attaches to next block group"
   verify unit "standalone comment block between blocks is preserved"
+  verify unit "a statement holding a comment between its tokens is kept as written"
   verify property "no comments are lost after formatting"
   verify contract "Preserve Comments During Formatting: comment preservation holds — cst_available, all_comments_attached, no_comments_lost"
 }

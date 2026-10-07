@@ -1,5 +1,6 @@
 use crate::config::FormatConfig;
 use specforge_common::{Diagnostic, SourceSpan, Sym, codes};
+use specforge_parser::lex::lex;
 use tree_sitter::{Node, Parser};
 use tree_sitter_specforge::{field, kind};
 
@@ -385,10 +386,10 @@ fn format_tree(
             while i < items.len() && Item::of(items[i]) == Item::Import {
                 let import = items[i];
                 last_end = import.end_position().row;
-                if overlaps(import, error_regions) {
+                if overlaps(import, error_regions) || holds_comment(import) {
                     run.push(verbatim(import, &source_lines).join("\n"));
                 } else {
-                    run.push(collapse_whitespace(node_text(import, source)));
+                    run.push(one_line(import, source));
                 }
                 i += 1;
             }
@@ -462,38 +463,44 @@ fn verbatim(node: Node, source_lines: &[&str]) -> Vec<String> {
         .collect()
 }
 
-/// Collapse runs of whitespace outside string literals to one space.
-fn collapse_whitespace(text: &str) -> String {
+/// Whether a comment sits between `node`'s tokens, outside the values the
+/// formatter keeps comments in by itself (a nested block's members, a
+/// list kept as written).
+fn holds_comment(node: Node) -> bool {
+    let mut cursor = node.walk();
+    let children: Vec<Node> = node.children(&mut cursor).collect();
+    children.into_iter().any(|child| match child.kind() {
+        kind::COMMENT => true,
+        kind::NESTED_BLOCK | kind::LIST => false,
+        _ => holds_comment(child),
+    })
+}
+
+/// `node`'s text on one line: its lexemes (`specforge_parser::lex`), one
+/// space where whitespace separated two. `node` holds no comment
+/// (`holds_comment`); a string stays as written.
+fn one_line(node: Node, source: &str) -> String {
+    let text = node_text(node, source);
     let mut out = String::with_capacity(text.len());
-    let mut in_string = false;
-    let mut escaped = false;
-    let mut pending_space = false;
-    for c in text.trim().chars() {
-        if in_string {
-            out.push(c);
-            if escaped {
-                escaped = false;
-            } else if c == '\\' {
-                escaped = true;
-            } else if c == '"' {
-                in_string = false;
-            }
-            continue;
-        }
-        if c.is_whitespace() {
-            pending_space = true;
-            continue;
-        }
-        if pending_space && !out.is_empty() {
+    let mut previous_end = None;
+    for lexeme in lex(text) {
+        if previous_end.is_some_and(|end| end < lexeme.start) {
             out.push(' ');
         }
-        pending_space = false;
-        if c == '"' {
-            in_string = true;
-        }
-        out.push(c);
+        out.push_str(lexeme.text(text));
+        previous_end = Some(lexeme.end);
     }
     out
+}
+
+/// `node`'s text as written: the first line from the node's start, the
+/// rest with their own indentation, trailing whitespace trimmed.
+fn as_written(node: Node, source: &str) -> Vec<String> {
+    let mut lines = node_text(node, source).lines();
+    let first = lines.next().unwrap_or("").trim().to_string();
+    std::iter::once(first)
+        .chain(lines.map(|l| l.trim_end().to_string()))
+        .collect()
 }
 
 /// A comment's text: trailing whitespace trimmed, and a space inserted in
@@ -552,6 +559,7 @@ fn format_block(node: Node, source: &str, config: &FormatConfig) -> Vec<String> 
                 None => vec![node_text(node, source).trim_end().to_string()],
             };
         }
+        kind::REF_INLINE if holds_comment(node) => return as_written(node, source),
         kind::REF_INLINE => return vec![format!("ref {} {}", text(field::ID), text(field::TITLE))],
         kind::UNION_BLOCK => return format_union_block(node, source, config),
         _ => {
@@ -577,14 +585,14 @@ fn format_union_block(node: Node, source: &str, config: &FormatConfig) -> Vec<St
     let Some(variants) = node.child_by_field_name(field::VARIANTS) else {
         return vec![node_text(node, source).trim_end().to_string()];
     };
-    let mut cursor = variants.walk();
-    let children: Vec<Node> = variants.children(&mut cursor).collect();
-    if children.iter().any(|c| c.kind() == kind::COMMENT) {
+    if holds_comment(node) {
         return node_text(node, source)
             .lines()
             .map(|l| l.trim_end().to_string())
             .collect();
     }
+    let mut cursor = variants.walk();
+    let children: Vec<Node> = variants.children(&mut cursor).collect();
     let parts: Vec<&str> = children
         .iter()
         .filter(|c| c.kind() != "|")
@@ -617,6 +625,9 @@ enum Member {
     },
     Line(String),
     Comment(String),
+    /// A statement holding a comment between its tokens, kept as written:
+    /// its first line at the body's indentation, the rest as they are.
+    Written(Vec<String>),
 }
 
 /// Format the members of a block body (fields, verify statements, methods
@@ -638,6 +649,11 @@ fn format_body(
         let (start, end) = (child.start_position().row, child.end_position().row);
         let member = match child.kind() {
             _ if child.is_error() => Member::Line(node_text(*child, source).trim().to_string()),
+            kind::FIELD | kind::VERIFY_STATEMENT | kind::METHOD_STATEMENT
+                if holds_comment(*child) =>
+            {
+                Member::Written(as_written(*child, source))
+            }
             kind::FIELD => field_member(*child, source, config, depth),
             kind::VERIFY_STATEMENT => Member::Line(verify_line(*child, source)),
             kind::METHOD_STATEMENT => Member::Line(method_line(*child, source)),
@@ -726,6 +742,10 @@ fn format_body(
                 }
             }
             Member::Line(text) | Member::Comment(text) => lines.push(format!("{indent}{text}")),
+            Member::Written(written) => {
+                lines.push(format!("{indent}{}", written[0]));
+                lines.extend(written[1..].iter().cloned());
+            }
         }
         prev_end = Some(end);
     }
@@ -740,7 +760,7 @@ fn field_member(node: Node, source: &str, config: &FormatConfig, depth: usize) -
     let annotations: Vec<String> = node
         .children(&mut cursor)
         .filter(|c| c.kind() == kind::ANNOTATION)
-        .map(|c| collapse_whitespace(node_text(c, source)))
+        .map(|c| one_line(c, source))
         .collect();
     let Some(value) = node.child_by_field_name(field::VALUE) else {
         return Member::Line(node_text(node, source).trim().to_string());
@@ -798,7 +818,7 @@ fn list_value(
     let items: Vec<String> = children
         .iter()
         .filter(|c| !matches!(c.kind(), "[" | "]" | ","))
-        .map(|c| collapse_whitespace(node_text(*c, source)))
+        .map(|c| one_line(*c, source))
         .collect();
     let one_line = format!("[{}]", items.join(", "));
     let indent = config.indent_str();
@@ -847,13 +867,13 @@ fn method_line(node: Node, source: &str) -> String {
             };
             let ty = p
                 .child_by_field_name(field::TYPE)
-                .map(|n| collapse_whitespace(node_text(n, source)))
+                .map(|n| one_line(n, source))
                 .unwrap_or_default();
             let mut param_cursor = p.walk();
             let anns: Vec<String> = p
                 .children(&mut param_cursor)
                 .filter(|c| c.kind() == kind::ANNOTATION)
-                .map(|c| collapse_whitespace(node_text(c, source)))
+                .map(|c| one_line(c, source))
                 .collect();
             let mut text = format!("{pname}{optional}: {ty}");
             for ann in anns {
@@ -866,7 +886,7 @@ fn method_line(node: Node, source: &str) -> String {
     let mut line = format!("method {name}({})", params.join(", "));
     if let Some(returns) = node.child_by_field_name(field::RETURNS) {
         line.push_str(" -> ");
-        line.push_str(&collapse_whitespace(node_text(returns, source)));
+        line.push_str(&one_line(returns, source));
     }
     line
 }
@@ -2704,26 +2724,32 @@ mod emitter_tests {
         "}\n",
     );
 
-    // Pin: flipped by plan 15 T6.
-    #[test]
-    fn a_comment_between_a_statements_tokens_is_lost_today() {
-        let out = format_source(COMMENTS_IN_STATEMENTS, &FormatConfig::default()).formatted;
-        assert_eq!(
-            out,
-            concat!(
-                "use { x, // the x y } from \"./x.spec\"\n",
-                "\n",
-                "ref gh.issue:42 \"Support\"\n",
-                "\n",
-                "type t = open | closed\n",
-                "\n",
-                "port p \"P\" {\n",
-                "  contract \"c\"\n",
-                "  verify unit \"v\"\n",
-                "  tags     x @deprecated // why \"old\"\n",
-                "  method f(a: A, b: B) -> C\n",
-                "}\n",
-            )
+    #[specforge_test_macros::test(
+        behavior = "preserve_comments",
+        verify = "a statement holding a comment between its tokens is kept as written"
+    )]
+    #[specforge_test_macros::test(
+        invariant = "comment_preservation",
+        verify = "every comment in input appears in formatted output"
+    )]
+    fn a_statement_holding_a_comment_is_kept_as_written() {
+        assert_eq!(fmt(COMMENTS_IN_STATEMENTS), COMMENTS_IN_STATEMENTS);
+        let result = format_source(COMMENTS_IN_STATEMENTS, &FormatConfig::default());
+        assert!(
+            specforge_parser::parse(&result.formatted, "c.spec")
+                .errors
+                .is_empty(),
+            "the output must still parse"
         );
+    }
+
+    #[test]
+    fn one_line_collapses_whitespace_between_lexemes() {
+        assert_eq!(
+            fmt("use  {  A ,B }  from \"x\"\n"),
+            "use { A ,B } from \"x\"\n"
+        );
+        let out = fmt("port p \"P\" {\n  tags x @since   \"a  b\"\n}\n");
+        assert!(out.contains("@since \"a  b\""), "{out}");
     }
 }

@@ -330,9 +330,9 @@ behavior lex_spec_text "Lex Spec Text" {
     valid_utf8_input "Input buffer is valid UTF-8"
   }
   ensures {
-    lexemes_match_grammar "every identifier, scheme ref ID, number, string and comment the grammar reads is one lexeme with the same bytes"
+    lexemes_match_grammar  "every identifier, scheme ref ID, number, string and comment the grammar reads is one lexeme with the same bytes"
     strings_as_the_grammar "a string spanning lines is one lexeme, as the grammar reads it; one the grammar would not close is marked unclosed"
-    half_typed_text_lexes "text the grammar rejects still lexes, an unclosed regular string ending at its line's end"
+    half_typed_text_lexes  "text the grammar rejects still lexes, an unclosed regular string ending at its line's end"
   }
   contract   """
     The lexer MUST read a .spec text, complete or half-typed, into the
