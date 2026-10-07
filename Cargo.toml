@@ -22,6 +22,7 @@ members = [
     "crates/specforge-wasm",
     "crates/specforge-lsp",
     "crates/specforge-mcp",
+    "crates/specforge-mcp-macros",
     "crates/specforge-migrate",
     "crates/specforge-ops",
     "crates/specforge-ops-registry",
@@ -44,6 +45,7 @@ specforge-formatter = { path = "crates/specforge-formatter" }
 specforge-parser = { path = "crates/specforge-parser" }
 specforge-registry = { path = "crates/specforge-registry" }
 specforge-mcp = { path = "crates/specforge-mcp" }
+specforge-mcp-macros = { path = "crates/specforge-mcp-macros" }
 specforge-migrate = { path = "crates/specforge-migrate" }
 specforge-ops = { path = "crates/specforge-ops" }
 specforge-project = { path = "crates/specforge-project" }

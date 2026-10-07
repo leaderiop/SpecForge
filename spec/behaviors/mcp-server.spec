@@ -173,6 +173,48 @@ behavior list_mcp_tools "List MCP Tools" {
   verify unit "every listed extension tool is the one dispatched under its name, listed once"
 }
 
+// A tool's or prompt's arguments are one typed definition (ADR 0033): its
+// listing and its reading derive from it, by one argument rule.
+behavior read_mcp_arguments_as_declared "Read MCP Arguments as Declared" {
+  features   [mcp_core_tools, mcp_prompts]
+  invariants [mcp_structured_error_responses, dry_run_side_effect_freedom]
+  category   query
+  types      [McpToolDescriptor, McpPromptArgument, McpError]
+  ports      [McpProtocol]
+  requires {
+    arguments_declared "Each core tool and prompt reads its arguments into one typed definition"
+  }
+  ensures {
+    listing_is_the_reading "The input schema or prompt listing states each argument's type, description, default, enumerated values and whether it is required, as the reading applies them"
+    absent_is_the_default  "An absent or null argument reads as the default its listing states; a missing required one is refused naming it"
+    value_read_by_type     "A value is read by its declared type, a boolean or count also from a string holding one, as extension command tools read them; any other value is invalid input naming the argument"
+    undeclared_refused     "An argument neither the entry nor its call target declares is invalid input naming it, with the declared argument it is close to"
+  }
+  contract   """
+    Every core MCP tool and prompt MUST read its call's arguments into one
+    typed definition from which its listing is derived: a tool's inputSchema
+    (each property's type, description, default, enum, minimum and whether
+    it is required, then its target's path and use_cached, with no other
+    property allowed) and a prompt's listed arguments (name, description,
+    required). An absent or null argument MUST read as the default the
+    listing states, an option as none, a list as empty; a required argument
+    that is absent MUST be refused as "Missing required parameter: <name>".
+    A value MUST be read by its declared type: a boolean is true or false or
+    the string "true" or "false", a count a non-negative integer or a string
+    holding one, a string a string, a list a list of strings; an enumerated
+    argument by its option table (name_enumerated_options_once). Any other
+    value MUST be refused as invalid input naming the argument, with the
+    wording extension command tools use. An argument that neither the entry
+    nor its call target declares MUST be refused as invalid input naming it,
+    with the closest declared name as a suggestion. An argument whose
+    default depends on others (specforge.format's write) MUST state no
+    default; its description states the rule.
+  """
+  verify unit "a listing is derived from the typed arguments: each argument's type, description, default, enumerated values and whether it is required"
+  verify unit "an absent or null argument reads as the default the listing advertises, and a missing required one is refused naming it"
+  verify unit "a boolean or count sent as a string is read as one, as an extension command reads it; any other value of the wrong type is refused naming the argument"
+}
+
 behavior list_mcp_prompts "List MCP Prompts" {
   features   [mcp_discovery]
   invariants [mcp_structured_error_responses, mcp_tool_idempotency]

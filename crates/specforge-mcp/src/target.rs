@@ -117,6 +117,20 @@ impl TargetSpec {
         }
     }
 
+    /// Every name the target reads from a call, listed or not: `path` for
+    /// every reach but `Unscoped` (a `Served` entry accepts its own
+    /// project's root and refuses another's,
+    /// [`TargetError::OtherProjectRefused`]), and `use_cached` for
+    /// `FreshUnlessCached`. [`Self::fields`] stays the listed ones.
+    pub fn accepted(self) -> &'static [&'static str] {
+        match (self.reach != Reach::Unscoped, self.takes_use_cached()) {
+            (true, true) => &["path", "use_cached"],
+            (true, false) => &["path"],
+            (false, true) => &["use_cached"],
+            (false, false) => &[],
+        }
+    }
+
     /// The names [`Self::properties`] declares, for the schema drift test.
     pub fn fields(self) -> &'static [&'static str] {
         match (self.takes_path(), self.takes_use_cached()) {
