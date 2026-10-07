@@ -352,10 +352,14 @@ behavior prepare_rename "Prepare Rename" {
     renameable token (entity ID in a declaration or reference). The
     response MUST include the range of the token to be renamed. If
     the cursor is not on a renameable token, the response MUST indicate
-    that rename is not available at that position.
+    that rename is not available at that position. While the document is
+    not the text the project was compiled from, prepareRename MUST be
+    refused as ContentModified (-32801): a range in the compiled text is not
+    a range in the buffer.
   """
   verify unit "prepare rename on entity ID returns token range"
   verify unit "prepare rename on non-renameable token returns not available"
+  verify unit "prepare rename over a buffer typed since the compile is refused as content modified"
   verify contract "Prepare Rename: prepare rename holds — graph_available, token_range_returned, non_renameable_rejected"
 }
 
@@ -393,12 +397,14 @@ behavior rename_entity_id "Rename Entity ID" {
     is not a reference and is not edited. The edits are positions in the
     text the project was compiled from: a rename over a file whose text (an
     open buffer, else the file on disk) is no longer that text MUST be
-    refused as ContentModified (-32801), never applied from stale positions.
+    refused as ContentModified (-32801), never applied from stale positions;
+    so is a rename asked from a document typed since the compile.
   """
   verify unit "rename updates declaration and all references"
   verify unit "rename leaves strings, comments and verify texts alone"
   verify unit "rename is atomic — all or nothing"
   verify unit "rename is refused as content modified when a file it edits changed since the compile"
+  verify unit "rename from a buffer typed since the compile is refused as content modified"
   verify unit "rename across multiple files"
   verify unit "rename rejects new name that duplicates existing entity ID"
   verify unit "rename to an illegal entity ID is refused with why"

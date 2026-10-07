@@ -2,7 +2,7 @@
 //! (`specforge_lsp::answers`): no client, no debounce, no stdio.
 
 use specforge_lsp::{ClientSupport, LspState, answers};
-use specforge_project::ProjectSession;
+use specforge_project::{ProjectSession, SourceChange};
 use specforge_test_macros::test as spec;
 use tempfile::TempDir;
 use tower_lsp::lsp_types::{
@@ -11,6 +11,12 @@ use tower_lsp::lsp_types::{
     TextDocumentClientCapabilities, Url,
 };
 
+/// The text the project is compiled from, and the buffer after a line is
+/// inserted at the top (typed, not yet compiled): `beta` is on line 2 of the
+/// buffer and on line 1 of the compile.
+const STALE_COMPILED: &str = "type alpha \"A\" {}\ntype beta \"B\" {}\ntype gamma \"C\" {}\n";
+const STALE_TYPED: &str =
+    "type delta \"D\" {}\ntype alpha \"A\" {}\ntype beta \"B\" {}\ntype gamma \"C\" {}\n";
 const LINKED: &str = "type token \"T\" {}\nbehavior login \"L\" {\n  types [token]\n}\n";
 
 /// A state serving the project at `dir` (one file, `main.spec`, holding
@@ -105,4 +111,136 @@ fn client_support_reads_what_the_client_declared() {
     };
     assert_eq!(location.uri, uri);
     assert_eq!(range(location.range), (0, 5, 0, 10));
+}
+
+/// A state serving `STALE_COMPILED` with `main.spec` open and then typed in
+/// (`STALE_TYPED`): the stale window, before the compile.
+fn typed_since_the_compile(dir: &TempDir) -> (LspState, Url) {
+    let (mut state, uri) = serving(dir, STALE_COMPILED);
+    state.apply_change(uri.as_str(), None, STALE_TYPED);
+    (state, uri)
+}
+
+/// The compile catches up with the buffer.
+fn compile(state: &mut LspState) {
+    state
+        .session_mut()
+        .expect("held")
+        .update(SourceChange::Buffer {
+            path: "main.spec",
+            text: Some(STALE_TYPED),
+        });
+}
+
+fn quad(r: tower_lsp::lsp_types::Range) -> (u32, u32, u32, u32) {
+    (r.start.line, r.start.character, r.end.line, r.end.character)
+}
+
+#[spec(
+    invariant = "cursor_names_one_entity",
+    verify = "a cursor in a buffer typed since the compile names what its own word names, never the compiled text's token at its position"
+)]
+fn a_stale_cursor_names_its_own_word() {
+    let dir = TempDir::new().unwrap();
+    let (mut state, uri) = typed_since_the_compile(&dir);
+    state.set_client(ClientSupport {
+        definition_links: true,
+        ..ClientSupport::default()
+    });
+    let on_beta = Position::new(2, 6);
+    let on_alpha = Position::new(1, 6);
+    let hover_at = |state: &LspState, position| {
+        let hover = answers::hover(state, &uri, position).expect("a hover");
+        match hover.contents {
+            tower_lsp::lsp_types::HoverContents::Markup(markup) => markup.value,
+            other => panic!("{other:?}"),
+        }
+    };
+
+    // The token under the cursor is `beta`; the compiled text has `gamma`
+    // at that position.
+    let stale_hover = hover_at(&state, on_beta);
+    assert!(
+        stale_hover.starts_with("**type** `beta` \u{2014} B"),
+        "{stale_hover}"
+    );
+    assert!(
+        hover_at(&state, on_alpha).starts_with("**type** `alpha` \u{2014} A"),
+        "the buffer's alpha is one line below the compile's"
+    );
+    let Some(GotoDefinitionResponse::Link(links)) = answers::definition(&state, &uri, on_beta)
+    else {
+        panic!("a link");
+    };
+    assert_eq!(
+        links[0].origin_selection_range.map(quad),
+        Some((2, 5, 2, 9))
+    );
+    // Locations stay positions in the compiled text (ADR 0023 D3).
+    assert_eq!(quad(links[0].target_range), (1, 0, 1, 16));
+    assert_eq!(quad(links[0].target_selection_range), (1, 5, 1, 9));
+    let references = answers::references(&state, &uri, on_beta, true).expect("its declaration");
+    assert_eq!(references.len(), 1);
+    assert_eq!(quad(references[0].range), (1, 5, 1, 9));
+
+    // The compile catches up: the same entity is named, now placed where
+    // the buffer has it.
+    compile(&mut state);
+    assert_eq!(hover_at(&state, on_beta), stale_hover);
+    let Some(GotoDefinitionResponse::Link(links)) = answers::definition(&state, &uri, on_beta)
+    else {
+        panic!("a link");
+    };
+    assert_eq!(
+        links[0].origin_selection_range.map(quad),
+        Some((2, 5, 2, 9))
+    );
+    assert_eq!(quad(links[0].target_selection_range), (2, 5, 2, 9));
+}
+
+fn content_modified<T: std::fmt::Debug>(result: tower_lsp::jsonrpc::Result<T>) {
+    let error = result.expect_err("refused");
+    assert_eq!(
+        error.code,
+        tower_lsp::jsonrpc::ErrorCode::ServerError(-32801),
+        "{error:?}"
+    );
+}
+
+#[spec(
+    behavior = "prepare_rename",
+    verify = "prepare rename over a buffer typed since the compile is refused as content modified"
+)]
+fn prepare_rename_waits_for_the_compile_of_its_document() {
+    let dir = TempDir::new().unwrap();
+    let (mut state, uri) = typed_since_the_compile(&dir);
+    content_modified(answers::prepare_rename(&state, &uri, Position::new(2, 6)));
+
+    compile(&mut state);
+    let Ok(Some(tower_lsp::lsp_types::PrepareRenameResponse::Range(range))) =
+        answers::prepare_rename(&state, &uri, Position::new(2, 6))
+    else {
+        panic!("a range once compiled");
+    };
+    assert_eq!(quad(range), (2, 5, 2, 9));
+}
+
+#[spec(
+    behavior = "rename_entity_id",
+    verify = "rename from a buffer typed since the compile is refused as content modified"
+)]
+fn rename_waits_for_the_compile_of_its_document() {
+    let dir = TempDir::new().unwrap();
+    let (mut state, uri) = typed_since_the_compile(&dir);
+    // The entity has no occurrence in any other file, yet the rename is
+    // refused: its edits are positions in a text the editor no longer has.
+    content_modified(answers::rename(&state, &uri, Position::new(2, 6), "bravo"));
+
+    compile(&mut state);
+    let edit = answers::rename(&state, &uri, Position::new(2, 6), "bravo")
+        .expect("planned")
+        .expect("an edit");
+    let edits = &edit.changes.unwrap()[&uri];
+    assert_eq!(edits.len(), 1);
+    assert_eq!(quad(edits[0].range), (2, 5, 2, 9));
 }

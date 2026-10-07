@@ -94,11 +94,15 @@ invariant cursor_names_one_entity "One Entity Under the Cursor" {
     and a value of a non-reference field name no entity; a scheme ref ID
     (gh.issue:42) is one token. The structure around the
     cursor is read from the document's text, never from the graph, which
-    lags the text while the user types (ADR 0023).
+    lags the text while the user types (ADR 0023). While the document is not
+    the text the project was compiled from (an edit waits for its compile),
+    the token is never looked up by its position in the compiled text: the
+    cursor names what its own word names at a reference position.
   """
   risk      medium
   verify unit "hover and go-to-definition resolve the same entity on every token of a document"
   verify unit "a word in a string or comment names no entity"
   verify unit "a scheme ref ID under the cursor names its ref"
   verify unit "a value of a field typed as no reference names no entity"
+  verify unit "a cursor in a buffer typed since the compile names what its own word names, never the compiled text's token at its position"
 }

@@ -11,12 +11,12 @@ use specforge_resolver::resolve_import;
 use std::collections::HashMap;
 use std::path::Path;
 use tower_lsp::lsp_types::{
-    CodeAction, CodeActionKind, DocumentSymbol, DocumentSymbolResponse, Location, Range,
+    CodeAction, CodeActionKind, DocumentSymbol, DocumentSymbolResponse, Location, Position, Range,
     SymbolInformation, SymbolKind, TextEdit, Url, WorkspaceEdit,
 };
 
 use crate::LspState;
-use crate::document::LineIndex;
+use crate::document::{LineIndex, Target};
 use crate::uri::{file_path_to_uri, uri_to_file_path};
 use std::cell::RefCell;
 use std::sync::Arc;
@@ -109,6 +109,20 @@ impl<'s> Compiled<'s> {
             uri: self.uri(span.file.as_str()),
             range: self.range(span)?,
         })
+    }
+
+    /// What the cursor at `position` of the open document `uri` names (ADR
+    /// 0023 D5). Navigation is asked about the position only while the
+    /// document is the compiled text; while it is stale, the cursor names
+    /// what its own word names ([`crate::Cursor::named`], D7).
+    pub(crate) fn target(&self, uri: &Url, position: Position) -> Option<Target> {
+        let cursor = self.state.document(uri.as_str())?.at(position)?;
+        let file = self.key(uri);
+        if self.is_stale(&file) {
+            cursor.named(&self.state.view())
+        } else {
+            cursor.target(&self.navigator(), &file)
+        }
     }
 
     /// Whether the text the editor has for session file `file` (its open

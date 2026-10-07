@@ -5,17 +5,9 @@
 
 use crate::session::{Session, codes, uri_of};
 use serde_json::{Value, json};
-use specforge_lsp::{LspState, Target, navigator};
-use specforge_project::ProjectSession;
 use std::time::Duration;
 use tempfile::TempDir;
-use tower_lsp::lsp_types::{Position, Url};
 
-/// The text the project is compiled from, and the buffer after a line is
-/// inserted at the top (typed, not yet compiled).
-const STALE_COMPILED: &str = "type alpha \"A\" {}\ntype beta \"B\" {}\ntype gamma \"C\" {}\n";
-const STALE_TYPED: &str =
-    "type delta \"D\" {}\ntype alpha \"A\" {}\ntype beta \"B\" {}\ntype gamma \"C\" {}\n";
 const A_ALPHA: &str = "type alpha \"A\" {}\n";
 const A_OMEGA: &str = "type omega \"O\" {}\n";
 const B_USES_ALPHA: &str = "behavior user \"U\" {\n  types [alpha]\n}\n";
@@ -36,10 +28,6 @@ fn project(files: &[(&str, &str)]) -> TempDir {
         std::fs::write(dir.path().join(name), text).unwrap();
     }
     dir
-}
-
-fn url_of(dir: &TempDir, file: &str) -> Url {
-    Url::from_file_path(dir.path().join(file)).unwrap()
 }
 
 /// Read and drop every diagnostics publication until none arrives for a
@@ -85,43 +73,6 @@ async fn symbols(client: &mut Session, query: &str) -> Vec<String> {
 
 fn whole(text: &str) -> Vec<Value> {
     vec![json!({"text": text})]
-}
-
-#[test]
-fn pin_a_stale_cursor_names_the_compiled_token_at_its_position() {
-    let dir = project(&[("a.spec", STALE_COMPILED)]);
-    let mut state = LspState::new();
-    state.set_session(ProjectSession::open(dir.path()));
-    let uri = url_of(&dir, "a.spec");
-    state.open_document(uri.as_str(), STALE_COMPILED);
-    state.apply_change(uri.as_str(), None, STALE_TYPED);
-
-    // The buffer's `beta` is at 2:6; the compiled text has `gamma` there.
-    let doc = state.document(uri.as_str()).unwrap();
-    let cursor = doc.at(Position::new(2, 6)).unwrap();
-    let nav = navigator(&state);
-    let target = cursor.target(&nav, "a.spec");
-    assert!(
-        matches!(
-            &target,
-            Some(Target::Entity { id, origin })
-                if id.as_str() == "gamma"
-                    && (origin.start.line, origin.start.character) == (2, 5)
-                    && (origin.end.line, origin.end.character) == (2, 10)
-        ),
-        "{target:?}"
-    );
-    let occurrence = cursor.occurrence(&nav, "a.spec").unwrap();
-    assert_eq!(occurrence.target.as_str(), "gamma");
-    assert_eq!(
-        (
-            occurrence.span.start_line,
-            occurrence.span.start_col,
-            occurrence.span.end_line,
-            occurrence.span.end_col
-        ),
-        (3, 6, 3, 11)
-    );
 }
 
 #[tokio::test]

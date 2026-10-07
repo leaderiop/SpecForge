@@ -76,10 +76,9 @@ fn content_modified(file: &str) -> Error {
 }
 
 /// The entity the cursor at `position` of the open document `uri` names
-/// ([`crate::Cursor::target`]): what references and rename act on.
+/// ([`Compiled::target`]): what references and rename act on.
 fn entity_under_cursor(compiled: &Compiled, uri: &Url, position: Position) -> Option<Sym> {
-    let cursor = compiled.state().document(uri.as_str())?.at(position)?;
-    match cursor.target(&compiled.navigator(), &compiled.key(uri))? {
+    match compiled.target(uri, position)? {
         Target::Entity { id, .. } => Some(id),
         _ => None,
     }
@@ -93,29 +92,25 @@ fn entity_under_cursor(compiled: &Compiled, uri: &Url, position: Position) -> Op
 /// joined by a rule. `None` for a document that is not open or a position
 /// with neither.
 pub fn hover(state: &LspState, uri: &Url, position: Position) -> Option<Hover> {
-    let doc = state.document(uri.as_str())?;
+    state.document(uri.as_str())?;
     let compiled = Compiled::new(state);
-    let file = compiled.key(uri);
     let shown = compiled
-        .index_of(&file)
+        .index_of(&compiled.key(uri))
         .map(|index| hover::diagnostics_at(state.diagnostics(uri.as_str()), &index, position))
         .unwrap_or_default();
     let published: Vec<specforge_common::Diagnostic> =
         state.published_diagnostics().cloned().collect();
-    let nav = compiled.navigator();
-    let about = doc
-        .at(position)
-        .and_then(|cursor| match cursor.target(&nav, &file)? {
-            Target::Entity { id, .. } => {
-                specforge_ops::inspect::inspect(&state.view().reporting(&published), id.as_str())
-                    .ok()
-                    .map(|facts| hover::entity(&facts, &shown, state.rebuilding()))
-            }
-            Target::Field { kind, field } => {
-                hover::hover_field_info(&field, &kind, state.field_registry())
-            }
-            Target::Import { .. } => None,
-        });
+    let about = match compiled.target(uri, position) {
+        Some(Target::Entity { id, .. }) => {
+            specforge_ops::inspect::inspect(&state.view().reporting(&published), id.as_str())
+                .ok()
+                .map(|facts| hover::entity(&facts, &shown, state.rebuilding()))
+        }
+        Some(Target::Field { kind, field }) => {
+            hover::hover_field_info(&field, &kind, state.field_registry())
+        }
+        Some(Target::Import { .. }) | None => None,
+    };
     let value = match (hover::diagnostics(&shown), about) {
         (Some(diagnostics), Some(about)) => format!("{diagnostics}{}{about}", hover::SECTION),
         (diagnostics, about) => diagnostics.or(about)?,
@@ -150,24 +145,21 @@ pub fn definition(
     uri: &Url,
     position: Position,
 ) -> Option<GotoDefinitionResponse> {
-    let cursor = state.document(uri.as_str())?.at(position)?;
     let compiled = Compiled::new(state);
-    let nav = compiled.navigator();
-    let file = compiled.key(uri);
-    match cursor.target(&nav, &file) {
+    match compiled.target(uri, position) {
         Some(Target::Import { path }) => {
             if state.spec_root().as_os_str().is_empty() {
                 return None;
             }
             // The imported file, from its first line: no text needed.
-            let span = goto_import_definition(&path, &file, state.spec_root())?;
+            let span = goto_import_definition(&path, &compiled.key(uri), state.spec_root())?;
             Some(GotoDefinitionResponse::Scalar(Location {
                 uri: compiled.uri(span.file.as_str()),
                 range: Range::default(),
             }))
         }
         Some(Target::Entity { id, origin }) => {
-            let definition = nav.definition(id.as_str()).ok()?;
+            let definition = compiled.navigator().definition(id.as_str()).ok()?;
             // A definition whose file's text is unknown is not answered
             // (no range of it is honest).
             if state.client().definition_links {
@@ -218,6 +210,8 @@ pub fn references(
 }
 
 /// The range of the declaration or reference token under the cursor.
+/// Refused as `ContentModified` (-32801) while the document is not the
+/// compiled text (ADR 0023 D7).
 pub fn prepare_rename(
     state: &LspState,
     uri: &Url,
@@ -229,10 +223,16 @@ pub fn prepare_rename(
     else {
         return Ok(None);
     };
+    let compiled = Compiled::new(state);
+    let file = compiled.key(uri);
+    // Any range it gives is a position in a text the editor no longer has
+    // while the document is typed in (ADR 0023 D7).
+    if compiled.is_stale(&file) {
+        return Err(content_modified(&file));
+    }
     // The token as written under the cursor, declaration or reference;
     // nothing else renames.
-    let compiled = Compiled::new(state);
-    let occurrence = cursor.occurrence(&compiled.navigator(), &compiled.key(uri));
+    let occurrence = cursor.occurrence(&compiled.navigator(), &file);
     Ok(occurrence
         .and_then(|o| compiled.range(&o.span))
         .map(PrepareRenameResponse::Range))
@@ -241,8 +241,8 @@ pub fn prepare_rename(
 /// The shared rename plan (`specforge_ops::rename::plan`) as one workspace
 /// edit, all or nothing: `None` when the cursor names no entity;
 /// `invalid_params` with the plan's reason when it is refused, or when an
-/// edit's file has no compiled text; `ContentModified` when a file it edits
-/// is not the compiled text.
+/// edit's file has no compiled text; `ContentModified` when the document or a
+/// file it edits is not the compiled text.
 pub fn rename(
     state: &LspState,
     uri: &Url,
@@ -250,6 +250,11 @@ pub fn rename(
     new_name: &str,
 ) -> tower_lsp::jsonrpc::Result<Option<WorkspaceEdit>> {
     let compiled = Compiled::new(state);
+    // The edits come from the compile: asked from a document typed in since,
+    // the rename waits for it, whatever the cursor names (ADR 0023 D7).
+    if state.document(uri.as_str()).is_some() && compiled.is_stale(&compiled.key(uri)) {
+        return Err(content_modified(&compiled.key(uri)));
+    }
     let Some(id) = entity_under_cursor(&compiled, uri, position) else {
         return Ok(None);
     };
