@@ -9,7 +9,10 @@
 //! - `Files`:   every file under the project after the operation, except
 //!   `specforge.json`;
 //! - `Config`:  `specforge.json` after the operation, parsed;
-//! - `Check`:   what a fresh `specforge check` reports afterwards.
+//! - `Check`:   what a fresh `specforge check` reports afterwards;
+//! - `Verdict`: whether the run passed: the CLI's exit code against the
+//!   `ok` MCP returns (in the payload, or `_meta["specforge/check"]` for
+//!   validate). Skipped where MCP returns none (ADR 0029).
 //!
 //! Today's differences are listed in [`EXPECTED_DIVERGENCES`]. A scenario
 //! fails when an aspect differs without a row, and also when a row's aspect
@@ -29,13 +32,15 @@ enum Aspect {
     Files,
     Config,
     Check,
+    Verdict,
 }
 
-const ASPECTS: [Aspect; 4] = [
+const ASPECTS: [Aspect; 5] = [
     Aspect::Outcome,
     Aspect::Files,
     Aspect::Config,
     Aspect::Check,
+    Aspect::Verdict,
 ];
 
 /// Where the CLI and MCP behave differently today, and why. Later steps of
@@ -154,6 +159,16 @@ fn project_at_old_format(root: &Path) {
     std::fs::write(
         root.join("spec/old.spec"),
         "// specforge-format: 0.1\nbehavior old_one \"Old\" {\n  category \"core\"\n  contract \"The system MUST work\"\n}\n",
+    )
+    .unwrap();
+}
+
+/// A project with a file whose format version no migration reaches.
+fn project_with_failing_migration(root: &Path) {
+    project(root);
+    std::fs::write(
+        root.join("spec/bad.spec"),
+        "// specforge-format: 99.0\nbehavior bad_one \"Bad\" {\n  category \"core\"\n  contract \"The system MUST work\"\n}\n",
     )
     .unwrap();
 }
@@ -287,6 +302,13 @@ const SCENARIOS: &[Scenario] = &[
         mcp_rooted: true,
     },
     Scenario {
+        name: "format_preview",
+        setup: project_unformatted,
+        cli: |root| args(&["format", "--diff", "--path", &s(root)]),
+        mcp: |root| ("specforge.format", json!({"path": s(root), "diff": true})),
+        mcp_rooted: true,
+    },
+    Scenario {
         name: "format_check",
         setup: project_unformatted,
         cli: |root| args(&["format", "--check", "--path", &s(root)]),
@@ -296,6 +318,13 @@ const SCENARIOS: &[Scenario] = &[
     Scenario {
         name: "migrate",
         setup: project_at_old_format,
+        cli: |root| args(&["migrate", "--path", &s(root), "--format", "json"]),
+        mcp: |root| ("specforge.migrate", json!({"path": s(root)})),
+        mcp_rooted: true,
+    },
+    Scenario {
+        name: "migrate_failing",
+        setup: project_with_failing_migration,
         cli: |root| args(&["migrate", "--path", &s(root), "--format", "json"]),
         mcp: |root| ("specforge.migrate", json!({"path": s(root)})),
         mcp_rooted: true,
@@ -342,6 +371,9 @@ const SCENARIOS: &[Scenario] = &[
 /// What one surface did to a project.
 struct Observed {
     ok: bool,
+    /// Whether the run passed, where the surface says (the CLI always: its
+    /// exit code; MCP when it returns `ok`).
+    verdict: Option<bool>,
     payload: Value,
     files: BTreeMap<String, String>,
     config: Value,
@@ -355,7 +387,11 @@ fn cli() -> Command {
     cmd
 }
 
-fn run_cli(scenario: &Scenario, root: &Path) -> (bool, Value) {
+/// What a surface answered: whether the call succeeded, its payload and
+/// its verdict, where it has one.
+type Run = (bool, Value, Option<bool>);
+
+fn run_cli(scenario: &Scenario, root: &Path) -> Run {
     let out = cli()
         .args((scenario.cli)(root))
         .current_dir(root)
@@ -363,10 +399,10 @@ fn run_cli(scenario: &Scenario, root: &Path) -> (bool, Value) {
         .unwrap();
     let stdout = String::from_utf8_lossy(&out.stdout).to_string();
     let payload = serde_json::from_str(&stdout).unwrap_or(Value::String(stdout));
-    (out.status.success(), payload)
+    (out.status.success(), payload, Some(out.status.success()))
 }
 
-fn run_mcp(scenario: &Scenario, root: &Path) -> (bool, Value) {
+fn run_mcp(scenario: &Scenario, root: &Path) -> Run {
     let mut server = if scenario.mcp_rooted {
         McpServer::with_project_root(root.to_path_buf())
     } else {
@@ -382,12 +418,18 @@ fn run_mcp(scenario: &Scenario, root: &Path) -> (bool, Value) {
     let resp: Value = serde_json::from_str(&server.handle_message(&req.to_string()).unwrap())
         .expect("the server answers JSON");
     if let Some(error) = resp.get("error") {
-        return (false, json!({"error": error}));
+        return (false, json!({"error": error}), None);
     }
     let result = &resp["result"];
     let text = result["content"][0]["text"].as_str().unwrap_or_default();
     let payload = serde_json::from_str(text).unwrap_or(Value::String(text.to_string()));
-    (result["isError"] != true, payload)
+    // The verdict: `ok` in the payload (format, migrate, analyze), in a
+    // failed call's data (a migration that failed), or validate's `_meta`.
+    let verdict = payload["ok"]
+        .as_bool()
+        .or_else(|| payload["data"]["ok"].as_bool())
+        .or_else(|| result["_meta"]["specforge/check"]["ok"].as_bool());
+    (result["isError"] != true, payload, verdict)
 }
 
 /// Every file under `root` but `specforge.json`, by relative path. Binary
@@ -457,18 +499,15 @@ fn check(root: &Path) -> Value {
     json!({"ok": out.status.success(), "diagnostics": codes})
 }
 
-fn observe(
-    scenario: &Scenario,
-    root: &Path,
-    run: fn(&Scenario, &Path) -> (bool, Value),
-) -> Observed {
+fn observe(scenario: &Scenario, root: &Path, run: fn(&Scenario, &Path) -> Run) -> Observed {
     (scenario.setup)(root);
-    let (ok, payload) = run(scenario, root);
+    let (ok, payload, verdict) = run(scenario, root);
     let files = files_under(root);
     let config = read_config(root);
     let check = check(root);
     Observed {
         ok,
+        verdict,
         payload,
         files,
         config,
@@ -563,6 +602,8 @@ fn differs(aspect: Aspect, cli: &Observed, mcp: &Observed) -> bool {
         Aspect::Files => cli.files != mcp.files,
         Aspect::Config => cli.config != mcp.config,
         Aspect::Check => cli.check != mcp.check,
+        // Only where both surfaces say.
+        Aspect::Verdict => matches!((cli.verdict, mcp.verdict), (Some(c), Some(m)) if c != m),
     }
 }
 
@@ -663,6 +704,54 @@ fn parity_format() {
 #[test]
 fn parity_format_check() {
     parity("format_check");
+}
+
+#[test]
+fn parity_format_preview() {
+    parity("format_preview");
+}
+
+#[test]
+fn parity_migrate_failing() {
+    parity("migrate_failing");
+}
+
+/// The CLI's exit code and MCP's `ok` are one verdict for every operation
+/// that judges: no `Verdict` divergence is expected, and each judging
+/// scenario must actually have compared one.
+#[specforge_test_macros::test(
+    behavior = "report_command_outcome",
+    verify = "the CLI's exit code and MCP's ok agree for check, analyze, format and migrate"
+)]
+fn verdicts_agree() {
+    assert!(
+        EXPECTED_DIVERGENCES
+            .iter()
+            .all(|(_, aspect, _)| *aspect != Aspect::Verdict),
+        "a verdict divergence is a bug, not a difference to list"
+    );
+    for name in [
+        "check",
+        "check_failing",
+        "analyze",
+        "format",
+        "format_check",
+        "format_preview",
+        "migrate",
+        "migrate_failing",
+    ] {
+        let scenario = SCENARIOS.iter().find(|s| s.name == name).unwrap();
+        let (cli_dir, mcp_dir) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+        let cli_obs = observe(scenario, cli_dir.path(), run_cli);
+        let mcp_obs = observe(scenario, mcp_dir.path(), run_mcp);
+        assert!(
+            cli_obs.verdict.is_some() && mcp_obs.verdict.is_some(),
+            "{name}: both surfaces say whether the run passed (cli {:?}, mcp {:?})",
+            cli_obs.verdict,
+            mcp_obs.verdict
+        );
+        assert_eq!(cli_obs.verdict, mcp_obs.verdict, "{name}");
+    }
 }
 
 #[test]
