@@ -352,6 +352,9 @@ behavior detect_breaking_schema_changes "Detect Breaking Schema Changes" {
     the project has been exported before (output directory contains prior
     exports), the system SHOULD emit an I016 info diagnostic indicating the
     schema cache was not found and breaking change detection was skipped.
+    A field type is compared as the type, not its spelling: a cache an
+    older host wrote with an accepted older name (`boolean`) reads as the
+    same type, so it is no change.
   """
   verify unit "removed entity kind detected as breaking"
   verify unit "added optional field detected as non-breaking"
@@ -368,6 +371,7 @@ behavior detect_breaking_schema_changes "Detect Breaking Schema Changes" {
   verify contract "Detect Breaking Schema Changes: breaking schema change detection holds — schema_generated_fired, filesystem_available, breaking_changes_classified, nonbreaking_changes_classified, migration_record_emitted, schema_breaking_change_detected_emitted"
   verify unit "identical schemas no changes"
   verify unit "removed field is breaking"
+  verify unit "a cache an older host wrote reads its field types unchanged"
 }
 
 behavior compute_schema_version "Compute Schema Version" {

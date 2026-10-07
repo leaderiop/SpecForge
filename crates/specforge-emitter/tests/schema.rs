@@ -1976,3 +1976,66 @@ fn published_context_schema_admits_declared_headline_and_normative_fields() {
         );
     }
 }
+
+/// `urgent` (bool), `priority` (enum low/high) and `owner` (string,
+/// default "nobody"), declared by `@t/x` on `ticket` and read through the
+/// registry build.
+fn ticket_registries() -> specforge_registry::RegistryBuild {
+    use specforge_protocol_types::{EntityKindDescriptor, ExtensionDeclaration, FieldDescriptor};
+    let field = |name: &str, field_type: &str| FieldDescriptor {
+        name: name.to_string(),
+        field_type: field_type.to_string(),
+        ..Default::default()
+    };
+    let mut declaration = ExtensionDeclaration::default();
+    declaration.handshake.name = "@t/x".to_string();
+    declaration.entities = vec![EntityKindDescriptor {
+        name: "ticket".to_string(),
+        keyword: Some("ticket".to_string()),
+        fields: vec![
+            field("urgent", "bool"),
+            FieldDescriptor {
+                enum_values: vec!["low".to_string(), "high".to_string()],
+                ..field("priority", "enum")
+            },
+            FieldDescriptor {
+                default_value: Some("nobody".to_string()),
+                ..field("owner", "string")
+            },
+        ],
+        ..Default::default()
+    }];
+    specforge_registry::build_registries(vec![declaration])
+}
+
+// Pin (plan 09 T0): flipped by T4 (the default) and T5 (the names).
+#[test]
+fn schema_names_a_declared_field_as_today() {
+    let build = ticket_registries();
+    let schema = generate_schema(&build.kinds, &build.edges, &build.fields, &[]);
+    let ticket = schema
+        .entity_kinds
+        .iter()
+        .find(|k| k.name == "ticket")
+        .unwrap();
+    let field = |name: &str| ticket.fields.iter().find(|f| f.name == name).unwrap();
+
+    assert_eq!(field("urgent").field_type, "boolean");
+    assert_eq!(
+        field("priority").enum_values,
+        Some(vec!["low".to_string(), "high".to_string()])
+    );
+    // The bug: the declared default is dropped.
+    assert_eq!(field("owner").default_value, None);
+
+    let published: serde_json::Value =
+        serde_json::from_str(&publish_json_schema_format(&schema, EmitFormat::Json).unwrap())
+            .unwrap();
+    let compact = published.to_string();
+    assert!(
+        compact.contains(
+            r#""field_type":{"enum":["string","integer","boolean","enum","string_list","reference","reference_list","block"]}"#
+        ),
+        "{compact}"
+    );
+}

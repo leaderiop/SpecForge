@@ -67,3 +67,46 @@ fn model_warnings_are_w146() {
     let built = model(&project.view(), &options);
     assert!(built.warnings.is_empty(), "{:?}", built.warnings);
 }
+
+// Pin (plan 09 T0): flipped by T5, which names the type as declared.
+#[test]
+fn the_model_names_a_bool_field_boolean() {
+    // As `@specforge/formal` declares `abstract`, through the registry build
+    // (the model groups kinds by the extensions that declared them).
+    let mut declaration = specforge_protocol_types::ExtensionDeclaration::default();
+    declaration.handshake.name = "@t/formal".to_string();
+    declaration.entities = vec![specforge_protocol_types::EntityKindDescriptor {
+        name: "behavior".to_string(),
+        keyword: Some("behavior".to_string()),
+        fields: vec![specforge_protocol_types::FieldDescriptor {
+            name: "abstract".to_string(),
+            field_type: "bool".to_string(),
+            ..Default::default()
+        }],
+        ..Default::default()
+    }];
+    let project = Project::new("", specforge_registry::build_registries(vec![declaration]));
+    let rendered = |format| {
+        let options = ModelOptions {
+            format,
+            fields: FieldLevel::All,
+            ..ModelOptions::default()
+        };
+        model(&project.view(), &options).rendered
+    };
+
+    let markdown = rendered(ModelFormat::Markdown);
+    assert!(markdown.contains("| abstract | boolean |"), "{markdown}");
+    assert!(rendered(ModelFormat::Mermaid).contains("boolean abstract"));
+    assert!(rendered(ModelFormat::Dbml).contains("abstract boolean"));
+    let json: serde_json::Value =
+        serde_json::from_str(&rendered(ModelFormat::Json)).expect("the json model parses");
+    let abstract_field = json["entities"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .flat_map(|e| e["fields"].as_array().into_iter().flatten())
+        .find(|f| f["name"] == "abstract")
+        .expect("abstract is a field of the model");
+    assert_eq!(abstract_field["field_type"], "boolean");
+}

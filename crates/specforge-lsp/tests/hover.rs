@@ -605,6 +605,30 @@ fn field_hover_unknown_kind_returns_none() {
     assert!(specforge_lsp::hover_field_info("contract", "unknown_kind", &reg).is_none());
 }
 
+// Pin (plan 09 T0): flipped by T6, which gives an enum its declared values.
+#[test]
+fn field_hover_names_a_bool_and_an_enum_type() {
+    let reg = registries("@t/x", |c| {
+        c.kind("ticket", |k| {
+            k.field("urgent", |f| {
+                f.field_type(FieldType::Bool);
+            });
+            k.field("priority", |f| {
+                f.field_type(FieldType::Enum).enum_values(&["low", "high"]);
+            });
+        });
+    })
+    .fields;
+
+    let urgent = specforge_lsp::hover_field_info("urgent", "ticket", &reg).unwrap();
+    assert!(urgent.starts_with("**`urgent`** : bool"), "{urgent}");
+    let priority = specforge_lsp::hover_field_info("priority", "ticket", &reg).unwrap();
+    assert!(
+        priority.starts_with("**`priority`** : enum  \n"),
+        "{priority}"
+    );
+}
+
 fn diagnostic_at(
     code: &str,
     message: &str,

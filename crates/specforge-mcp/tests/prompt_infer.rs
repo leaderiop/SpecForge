@@ -122,6 +122,27 @@ fn kind_scope_includes_example() {
     assert!(example.contains("behavior example_behavior"));
 }
 
+// Pin (plan 09 T0): flipped by T7. `tags` is registered on `behavior`
+// (the extension's shared field) and the prompt leaves it out.
+#[test]
+fn kind_scope_lists_only_the_kinds_declared_fields() {
+    let extension = test_extension("behavior", None).declaring(|c| {
+        c.shared_field("tags", |f| {
+            f.field_type(FieldType::StringList);
+        });
+    });
+    let mut state = TestProject::new().serve(&[extension]);
+    let resp = infer(&mut state, json!({"scope": "kind:behavior"}));
+    let content: Value = prompt_payload(&resp);
+    let names: Vec<&str> = content["fields"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|f| f["name"].as_str().unwrap())
+        .collect();
+    assert_eq!(names, ["description"]);
+}
+
 #[test]
 fn kind_scope_is_case_insensitive() {
     let mut state = state_with_my_behavior();
