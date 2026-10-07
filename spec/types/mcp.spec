@@ -36,6 +36,8 @@ type McpError "MCP Structured Error Response" {
   code       McpErrorCode
   message    string
   entity_id  string     @optional
+  /// The project file the failure is about (file_not_found).
+  file       string     @optional
   tool       string     @optional
   /// The prompt that refused, for a prompts/get answered with an error.
   prompt     string     @optional
