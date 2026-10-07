@@ -93,7 +93,8 @@ pub enum CallFailure {
     NotLoaded,
     /// The export did not answer: it trapped, the guest returned an error
     /// (`guest_error`, which an export the guest does not route is too), or
-    /// its time ran out (`deadline_exceeded`).
+    /// it crossed a limit of its sandbox: its time (`deadline_exceeded`), its
+    /// fuel (`fuel_exhausted`) or its memory (`memory_limit_exceeded`).
     Trapped { kind: String, message: String },
     /// The export answered, but not the protocol type it owes.
     Malformed {

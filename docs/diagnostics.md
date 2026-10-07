@@ -349,13 +349,14 @@ describe categories failed or does not parse, so its declaration cannot be read
 host makes on the loaded extension failed. The host calls ten exports: the
 handshake and describe, a command, an MCP tool, an MCP resource, a compiler
 pass, a collector, a custom validator, a scanner and the migration hook. Each
-call fails when the export traps (its time or fuel included), when the extension
-does not route it, or when it answers output that is not the protocol type the
-operation owes; the message names the operation, the export and the extension
-(`command cmd__x() of '@acme/x' trapped: ...`). What the failure costs is the
-operation's: a check pass's is the compile's error, an analyze pass's a finding
-of that pass, a scanner's makes `infer` approximate. Report the failure to the
-extension's author, and confirm the extension is installed and up to date.
+call fails when the export traps (a limit of its sandbox included: its time, its
+fuel or its memory, the trap naming which), when the extension does not route
+it, or when it answers output that is not the protocol type the operation owes;
+the message names the operation, the export and the extension (`command cmd__x()
+of '@acme/x' trapped: ...`). What the failure costs is the operation's: a check
+pass's is the compile's error, an analyze pass's a finding of that pass, a
+scanner's makes `infer` approximate. Report the failure to the extension's
+author, and confirm the extension is installed and up to date.
 
 Owner: core
 Level: error

@@ -1,6 +1,5 @@
 // Wasm sandbox enforcement and configuration, compile cache, session runtime reuse
 
-use "events/wasm-sandbox"
 use "invariants/wasm"
 use "ports/outbound"
 use "types/config"
@@ -11,37 +10,46 @@ behavior enforce_wasm_sandbox "Enforce Wasm Sandbox" {
   features   [wasm_extension_runtime]
   invariants [wasm_sandbox_integrity, extension_isolation]
   category   command
-  types      [SandboxPolicy, ExtensionError]
+  types      [SandboxPolicy, ExtensionError, WasmTrapInfo]
   ports      [WasmRuntime]
   requires {
-    sandbox_policy_configured "sandbox policy has been computed for the extension via configure_sandbox_policy"
+    sandbox_policy_configured "the extension's limits have been computed from its handshake via configure_sandbox_policy"
     wasm_runtime_available    "WasmRuntime port is available for enforcement"
   }
   ensures {
-    memory_limit_enforced   "memory limits are enforced via runtime's linear memory cap"
-    execution_time_enforced "execution time limits are enforced: wall-clock by epoch interruption, instructions by fuel metering"
+    no_capability_granted   "a component is granted no capability: no preopened directory, environment, arguments or stdin, no socket and no name lookup, whatever its declaration asks for"
+    memory_limit_enforced   "the instance's linear memory cannot grow past the extension's memory limit; a growth past it traps the call (memory_limit_exceeded)"
+    execution_time_enforced "each call is held to the extension's wall-clock limit by epoch interruption (deadline_exceeded) and to the host's fuel budget, given whole to every call (fuel_exhausted)"
     deadline_never_early    "a call is never interrupted before its max_execution_ms budget has elapsed"
-    violations_trapped      "sandbox violations trap the extension and emit a diagnostic"
+    violations_trapped      "a call that crosses a limit traps and fails with E028 naming the limit's kind; the extension's next call gets a fresh instance under the same limits"
   }
   contract   """
-    The runtime MUST enforce the sandbox policy for each extension: memory
-    limits via the runtime's linear memory cap, execution time limits via
-    epoch interruption (wall-clock max_execution_ms, checked by a background
-    ticker every 10 ms) and fuel metering (a deterministic instruction
-    budget), filesystem restrictions via host function validation,
-    and network restrictions via domain allowlists. Violations MUST
-    trap the extension and emit a diagnostic. The wall-clock deadline MUST
-    never interrupt a call before its budget has elapsed, whatever the
-    ticker's phase when the call starts, and SHOULD overshoot it by no more
-    than two ticks plus scheduling delay.
+    The component runtime MUST grant a component no capability: its WASI
+    context preopens no directory and passes no environment, arguments or
+    stdin; stdout and stderr are discarded; TCP, UDP and name lookup are
+    refused. Clocks and randomness are WASI's own. This holds for every
+    export of the instance, whatever the extension's declaration asks for
+    (ADR 0037). The runtime MUST hold every call to the extension's limits
+    (configure_sandbox_policy): its linear memory cannot grow past
+    max_memory_mb, a growth past it trapping the call
+    (memory_limit_exceeded); its wall-clock time is bounded by epoch
+    interruption (max_execution_ms, checked by a background ticker every
+    10 ms; deadline_exceeded) and its instructions by fuel metering, the
+    host's whole fuel budget given to every call (fuel_exhausted). The
+    wall-clock deadline MUST never interrupt a call before its budget has
+    elapsed, whatever the ticker's phase when the call starts, and SHOULD
+    overshoot it by no more than two ticks plus scheduling delay. A call
+    that crosses a limit fails with E028, its message naming the limit;
+    the extension's next call gets a fresh instance under the same limits.
   """
-  produces   [wasm_sandbox_violation]
+  produces   []
   verify unit "memory limit enforced via linear memory cap"
-  verify unit "execution time limit enforced via fuel metering"
+  verify unit "every call gets the whole fuel budget, and a call that spends it traps as fuel_exhausted"
   verify unit "the execution deadline never interrupts a call before its budget"
-  verify unit "filesystem restriction enforced"
-  verify unit "network restriction enforced"
-  verify contract "Enforce Wasm Sandbox: Wasm sandbox enforcement holds — sandbox_policy_configured, wasm_runtime_available, memory_limit_enforced, execution_time_enforced, deadline_never_early, violations_trapped"
+  verify unit "an export reaches no directory: the root and a directory it is told about can be neither listed, read nor written"
+  verify unit "an export reaches no network: it can neither connect to a listening port nor resolve a name"
+  verify unit "a call that crosses a limit traps with the limit's kind, and the next call gets a fresh instance under the same limits"
+  verify contract "Enforce Wasm Sandbox: Wasm sandbox enforcement holds — sandbox_policy_configured, wasm_runtime_available, no_capability_granted, memory_limit_enforced, execution_time_enforced, deadline_never_early, violations_trapped"
 }
 
 behavior compile_wasm_component_with_cache "Compile Wasm Component With Cache" {

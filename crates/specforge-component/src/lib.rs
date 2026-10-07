@@ -31,12 +31,71 @@ pub mod project;
 
 pub use project::project_runtime;
 
-/// Per-process WASI context for guest components. Builtins are pure-compute,
-/// but wasip2 targets import `wasi:io/poll` from std, so the linker always
-/// provides it.
+/// Per-instance state: the WASI context (no capability) and the memory
+/// ceiling the limiter enforces. Builtins are pure-compute, but wasip2
+/// targets import `wasi:io/poll` from std, so the linker always provides it.
 struct HostState {
     table: wasmtime_wasi::ResourceTable,
     wasi: WasiCtx,
+    memory: MemoryCeiling,
+}
+
+/// Refuses any linear-memory growth past `bytes`, trapping the call;
+/// records the refusal so the call's trap is named `memory_limit_exceeded`
+/// whatever way wasmtime wraps the error (ADR 0037).
+struct MemoryCeiling {
+    bytes: usize,
+    refused: Option<usize>,
+}
+
+impl MemoryCeiling {
+    fn of(limits: Limits) -> Self {
+        MemoryCeiling {
+            bytes: (limits.memory_mb as usize) << 20,
+            refused: None,
+        }
+    }
+}
+
+impl wasmtime::ResourceLimiter for MemoryCeiling {
+    fn memory_growing(
+        &mut self,
+        _current: usize,
+        desired: usize,
+        maximum: Option<usize>,
+    ) -> wasmtime::Result<bool> {
+        if desired > self.bytes {
+            self.refused = Some(desired);
+            wasmtime::bail!(
+                "memory limit exceeded: {desired} bytes asked, {} MiB allowed",
+                self.bytes >> 20
+            );
+        }
+        Ok(maximum.is_none_or(|max| desired <= max))
+    }
+
+    fn table_growing(
+        &mut self,
+        _current: usize,
+        desired: usize,
+        maximum: Option<usize>,
+    ) -> wasmtime::Result<bool> {
+        Ok(maximum.is_none_or(|max| desired <= max))
+    }
+}
+
+/// The capabilities a guest gets: none. No preopened directory,
+/// environment, arguments or stdin (closed); stdout and stderr discarded;
+/// TCP, UDP and name lookup refused (every socket address is denied by
+/// default as well). Clocks and randomness are WASI's own (wasip2 std needs
+/// them). Spelled out so that a future wasmtime default that allows
+/// something cannot grant it silently (ADR 0037).
+fn no_capabilities() -> WasiCtx {
+    WasiCtx::builder()
+        .allow_tcp(false)
+        .allow_udp(false)
+        .allow_ip_name_lookup(false)
+        .build()
 }
 
 impl WasiView for HostState {
@@ -60,7 +119,8 @@ struct PluginInstance {
     fuel: u64,
 }
 
-/// Deterministic per-call instruction budget, shared by every surface.
+/// Deterministic instruction budget, given whole to every call (refilled
+/// before each), shared by every surface.
 pub const DEFAULT_FUEL_LIMIT: u64 = 30_000 * 20_000_000;
 
 /// Granularity of the epoch ticker: a plugin's `max_execution_ms` deadline is
@@ -306,8 +366,8 @@ impl ComponentRuntime {
         Ok(())
     }
 
-    /// A new instance of `component`, with `fuel` and `limits`' wall-clock
-    /// budget armed.
+    /// A new instance of `component`, with `fuel`, `limits`' memory ceiling
+    /// and its wall-clock budget armed.
     fn fresh_instance(
         &self,
         name: &str,
@@ -320,8 +380,15 @@ impl ComponentRuntime {
             .map_err(|e| format!("failed to add WASI to linker: {e}"))?;
 
         let table = wasmtime_wasi::ResourceTable::new();
-        let wasi = wasmtime_wasi::WasiCtx::builder().build();
-        let mut store = Store::new(&self.engine, HostState { table, wasi });
+        let mut store = Store::new(
+            &self.engine,
+            HostState {
+                table,
+                wasi: no_capabilities(),
+                memory: MemoryCeiling::of(limits),
+            },
+        );
+        store.limiter(|state| &mut state.memory);
         store
             .set_fuel(fuel)
             .map_err(|e| format!("failed to set fuel for {name}: {e}"))?;
@@ -380,6 +447,16 @@ impl ComponentRuntime {
             component,
             fuel,
         } = &mut *instance;
+        // Every call gets the whole fuel budget and the whole wall-clock
+        // budget: a long session never spends one call's allowance on the
+        // next.
+        if let Err(e) = store.set_fuel(*fuel) {
+            return WasmCallResult::Trap(WasmTrapInfo {
+                kind: "call_failed".to_string(),
+                message: format!("failed to set fuel for {name}: {e}"),
+                export_name: export.to_string(),
+            });
+        }
         store.set_epoch_deadline(ms_to_ticks(u64::from(limits.execution_ms)));
         match bindings.call_call(&mut *store, name, export, input) {
             Ok(Ok(bytes)) => WasmCallResult::Ok(bytes),
@@ -389,17 +466,30 @@ impl ComponentRuntime {
                 export_name: export.to_string(),
             }),
             Err(e) => {
-                // Epoch-deadline expiry surfaces as `Trap::Interrupt`; map it
-                // to a distinct kind so callers can tell a wall-clock
-                // timeout apart from other call failures.
-                let deadline_hit = matches!(
-                    e.downcast_ref::<wasmtime::Trap>(),
-                    Some(wasmtime::Trap::Interrupt)
-                );
+                // What stopped the call is read before the instance is
+                // replaced: a limit of the sandbox is named, any other
+                // fault keeps wasmtime's message.
+                let memory_refused = store.data_mut().memory.refused.take();
+                let kind = trap_kind(&e, memory_refused);
+                let message = match kind {
+                    "memory_limit_exceeded" => format!(
+                        "grew past its {} MB memory limit (sandbox_policy.max_memory_mb)",
+                        limits.memory_mb
+                    ),
+                    "fuel_exhausted" => {
+                        format!("spent its fuel budget ({fuel} instructions) in one call")
+                    }
+                    "deadline_exceeded" => format!(
+                        "ran past its {} ms execution limit (sandbox_policy.max_execution_ms)",
+                        limits.execution_ms
+                    ),
+                    _ => e.to_string(),
+                };
                 // An instance that trapped cannot be entered again: the
-                // extension's next call gets a fresh one, as a guest that
-                // panics in one call must not take the extension down for
-                // the rest of the process (an MCP session).
+                // extension's next call gets a fresh one under the same
+                // limits, as a guest that panics in one call must not take
+                // the extension down for the rest of the process (an MCP
+                // session).
                 if let Ok((fresh_store, fresh_bindings)) =
                     self.fresh_instance(name, component, *fuel, *limits)
                 {
@@ -407,17 +497,24 @@ impl ComponentRuntime {
                     *bindings = fresh_bindings;
                 }
                 WasmCallResult::Trap(WasmTrapInfo {
-                    kind: if deadline_hit {
-                        "deadline_exceeded"
-                    } else {
-                        "call_failed"
-                    }
-                    .to_string(),
-                    message: e.to_string(),
+                    kind: kind.to_string(),
+                    message,
                     export_name: export.to_string(),
                 })
             }
         }
+    }
+}
+
+/// What stopped a call: a limit the sandbox holds it to, or another fault.
+fn trap_kind(error: &wasmtime::Error, memory_refused: Option<usize>) -> &'static str {
+    if memory_refused.is_some() {
+        return "memory_limit_exceeded";
+    }
+    match error.downcast_ref::<wasmtime::Trap>() {
+        Some(wasmtime::Trap::Interrupt) => "deadline_exceeded",
+        Some(wasmtime::Trap::OutOfFuel) => "fuel_exhausted",
+        _ => "call_failed",
     }
 }
 
@@ -454,6 +551,7 @@ impl WasmRuntime for ComponentRuntime {
             && let Ok(mut plugin) = plugin.lock()
         {
             plugin.limits = limits;
+            plugin.store.data_mut().memory.bytes = MemoryCeiling::of(limits).bytes;
         }
     }
 

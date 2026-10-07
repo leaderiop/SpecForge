@@ -5,13 +5,57 @@
 //! each call spins a counted loop, grows linear memory, and answers a
 //! fixed string.
 
-use specforge_component::ComponentRuntime;
-use specforge_wasm::ExtensionCalls;
-use specforge_wasm::runtime::{WasmCallResult, WasmRuntime};
+mod probe_support;
 
-/// A handshake declaring a memory limit of 1 MB, the answer of every export
-/// of the growing guest.
-const DECLARES_ONE_MB: &str = r#"{"protocol_version":"1.0.0","name":"@repro/grow","version":"0.1.0","contribution_flags":{},"peer_dependencies":[],"sandbox_policy":{"max_memory_mb":1}}"#;
+use std::time::{Duration, Instant};
+
+use probe_support::{ALL, Bait, PROBE, granted_nothing, probe_runtime};
+use serde_json::json;
+use specforge_component::ComponentRuntime;
+use specforge_protocol_types::{CommandInput, RawGraph};
+use specforge_test_macros::test as specforge_test;
+use specforge_wasm::runtime::{WasmCallResult, WasmRuntime};
+use specforge_wasm::{ExtensionCalls, Limits};
+
+/// The handshake of `@repro/grow` declaring a memory limit of `mb` MB: the
+/// answer of every export of the growing guest.
+fn declares_memory_limit(mb: u32) -> String {
+    format!(
+        r#"{{"protocol_version":"1.0.0","name":"@repro/grow","version":"0.1.0","contribution_flags":{{}},"peer_dependencies":[],"sandbox_policy":{{"max_memory_mb":{mb}}}}}"#
+    )
+}
+
+/// The handshake of `@repro/grow` declaring no sandbox policy.
+const DECLARES_NOTHING: &str = r#"{"protocol_version":"1.0.0","name":"@repro/grow","version":"0.1.0","contribution_flags":{},"peer_dependencies":[]}"#;
+
+/// A runtime serving `@repro/grow`, a guest growing by `pages` per call,
+/// whose handshake has been read (so its limits apply).
+fn grower(pages: u32, handshake: &str) -> ComponentRuntime {
+    let runtime = ComponentRuntime::new();
+    runtime
+        .load_module_bytes("@repro/grow", &bridge_component(pages, 0, false, handshake))
+        .expect("the growing guest instantiates");
+    ExtensionCalls::new(&runtime)
+        .handshake("@repro/grow")
+        .expect("the handshake answers");
+    runtime
+}
+
+/// A command input over an empty graph, for a call through
+/// `ExtensionCalls::run_command`.
+fn empty_command_input() -> CommandInput<RawGraph> {
+    CommandInput {
+        graph: RawGraph::new(r#"{"nodes":[],"edges":[]}"#.to_string()).unwrap(),
+        ..CommandInput::default()
+    }
+}
+
+fn trap_message(result: &WasmCallResult) -> &str {
+    match result {
+        WasmCallResult::Trap(trap) => &trap.message,
+        WasmCallResult::Ok(_) => panic!("expected a trap, got Ok"),
+    }
+}
 
 /// A `specforge:bridge` component whose every export (its `call` func, the
 /// canonical-ABI signature `(name, export-name, input) -> result<list<u8>,
@@ -99,39 +143,179 @@ fn trap_kind(result: &WasmCallResult) -> &str {
     }
 }
 
-/// Pin of today: nothing reads `max_memory_mb`. An extension declaring 1 MB
-/// grows by 128 MiB per call, and every call answers.
-#[test]
-fn pin_a_declared_memory_limit_is_not_enforced() {
-    let runtime = ComponentRuntime::new();
-    runtime
-        .load_module_bytes(
-            "@repro/grow",
-            &bridge_component(2048, 0, false, DECLARES_ONE_MB),
-        )
-        .expect("the growing guest instantiates");
-    ExtensionCalls::new(&runtime)
-        .handshake("@repro/grow")
-        .expect("the handshake answers");
-    for _ in 0..2 {
+#[specforge_test(
+    behavior = "enforce_wasm_sandbox",
+    verify = "memory limit enforced via linear memory cap"
+)]
+#[specforge_test(
+    constraint = "wasm_memory_limit",
+    verify = "an extension growing past its memory limit traps"
+)]
+#[specforge_test(
+    invariant = "wasm_sandbox_integrity",
+    verify = "sandbox violation traps the extension and emits a diagnostic"
+)]
+#[specforge_test(
+    failure_mode = "wasm_memory_exhaustion",
+    verify = "Wasm Memory Exhaustion failure mode is handled"
+)]
+fn an_extension_growing_past_its_memory_limit_traps() {
+    // The handshake runs under the ceiling (its limits are not known yet);
+    // the 32 MB it declares then binds every later growth.
+    let runtime = grower(1024, &declares_memory_limit(32));
+    for call in 1..=2 {
         let result = runtime.call_export("@repro/grow", "anything", b"{}");
-        assert!(answered(&result), "growth past 1 MB answers: {result:?}");
+        assert_eq!(
+            trap_kind(&result),
+            "memory_limit_exceeded",
+            "call {call}: {result:?}"
+        );
+        assert!(
+            trap_message(&result).contains("32 MB"),
+            "the trap names the limit: {}",
+            trap_message(&result)
+        );
     }
+
+    let error = ExtensionCalls::new(&runtime)
+        .run_command("@repro/grow", "cmd__grow", &empty_command_input())
+        .expect_err("the command's growth traps");
+    assert_eq!(error.diagnostic().code, "E028");
+    assert!(
+        error.to_string().contains("memory_limit_exceeded"),
+        "{error}"
+    );
 }
 
-/// Pin of today: the fuel budget is set when the instance is made, so the
-/// calls of one instance share it. A budget of 1,000,000 serves two calls
-/// of 50,000 iterations and the third traps, anonymously.
-#[test]
-fn pin_fuel_is_spent_across_calls() {
+#[specforge_test(
+    constraint = "wasm_memory_limit",
+    verify = "an extension declaring no memory limit is held to the 512 MB ceiling"
+)]
+fn an_extension_declaring_no_memory_limit_is_held_to_the_ceiling() {
+    // 128 MiB per call: the handshake, call 1 and call 2 reach 128, 256 and
+    // 384 MiB; call 3 would pass 512 MiB.
+    let runtime = grower(2048, DECLARES_NOTHING);
+    for call in 1..=2 {
+        let result = runtime.call_export("@repro/grow", "anything", b"{}");
+        assert!(answered(&result), "call {call} answers: {result:?}");
+    }
+    let third = runtime.call_export("@repro/grow", "anything", b"{}");
+    assert_eq!(trap_kind(&third), "memory_limit_exceeded", "{third:?}");
+    assert!(trap_message(&third).contains("512 MB"), "{third:?}");
+}
+
+#[specforge_test(
+    behavior = "enforce_wasm_sandbox",
+    verify = "every call gets the whole fuel budget, and a call that spends it traps as fuel_exhausted"
+)]
+fn every_call_gets_the_whole_fuel_budget() {
+    // Each call spends about a third of the budget, so a budget shared by
+    // the instance's calls would run out on the third.
     let runtime = ComponentRuntime::new().with_fuel_limit(1_000_000);
     runtime
         .load_module_bytes("@repro/spin", &bridge_component(0, 50_000, false, "{}"))
         .expect("the spinning guest instantiates");
-    for call in 1..=2 {
+    for call in 1..=10 {
         let result = runtime.call_export("@repro/spin", "anything", b"{}");
         assert!(answered(&result), "call {call} answers: {result:?}");
     }
-    let third = runtime.call_export("@repro/spin", "anything", b"{}");
-    assert_eq!(trap_kind(&third), "call_failed");
+
+    // One call that spends more than the whole budget traps, naming it.
+    let runtime = ComponentRuntime::new().with_fuel_limit(1_000_000);
+    runtime
+        .load_module_bytes("@repro/spin", &bridge_component(0, 400_000, false, "{}"))
+        .expect("the spinning guest instantiates");
+    let result = runtime.call_export("@repro/spin", "anything", b"{}");
+    assert_eq!(trap_kind(&result), "fuel_exhausted", "{result:?}");
+    assert!(
+        trap_message(&result).contains("1000000"),
+        "the trap names the budget: {}",
+        trap_message(&result)
+    );
+}
+
+#[specforge_test(
+    behavior = "enforce_wasm_sandbox",
+    verify = "a call that crosses a limit traps with the limit's kind, and the next call gets a fresh instance under the same limits"
+)]
+fn a_limit_trap_names_its_limit() {
+    let runtime = ComponentRuntime::new();
+    runtime
+        .load_module_bytes("@repro/spin", &bridge_component(0, u32::MAX, false, "{}"))
+        .expect("the spinning guest instantiates");
+    runtime.apply_limits(
+        "@repro/spin",
+        Limits {
+            execution_ms: 50,
+            ..Limits::CEILING
+        },
+    );
+    for call in 1..=2 {
+        let result = runtime.call_export("@repro/spin", "anything", b"{}");
+        assert_eq!(
+            trap_kind(&result),
+            "deadline_exceeded",
+            "call {call}: {result:?}"
+        );
+        assert!(
+            trap_message(&result).contains("50 ms"),
+            "the trap names the limit: {}",
+            trap_message(&result)
+        );
+    }
+}
+
+/// The sandbox contract end to end: nothing is granted, and the three
+/// limits trap.
+#[specforge_test(
+    behavior = "enforce_wasm_sandbox",
+    verify = "Enforce Wasm Sandbox: Wasm sandbox enforcement holds — sandbox_policy_configured, wasm_runtime_available, no_capability_granted, memory_limit_enforced, execution_time_enforced, deadline_never_early, violations_trapped"
+)]
+fn the_sandbox_contract_holds() {
+    // no_capability_granted: the probe is told about a directory and a port.
+    let probe = probe_runtime();
+    let bait = Bait::new();
+    let report = ExtensionCalls::new(&probe)
+        .call_mcp_tool(
+            PROBE,
+            "mcp__probe_tool",
+            &json!({"dir": bait.dir(), "port": bait.port()}),
+        )
+        .expect("the probe answers");
+    granted_nothing(&report, ALL);
+    bait.untouched();
+
+    // memory_limit_enforced, violations_trapped
+    let runtime = grower(1024, &declares_memory_limit(32));
+    let result = runtime.call_export("@repro/grow", "anything", b"{}");
+    assert_eq!(trap_kind(&result), "memory_limit_exceeded", "{result:?}");
+
+    // execution_time_enforced: the instruction budget
+    let runtime = ComponentRuntime::new().with_fuel_limit(1_000_000);
+    runtime
+        .load_module_bytes("@repro/spin", &bridge_component(0, 400_000, false, "{}"))
+        .unwrap();
+    let result = runtime.call_export("@repro/spin", "anything", b"{}");
+    assert_eq!(trap_kind(&result), "fuel_exhausted", "{result:?}");
+
+    // execution_time_enforced, deadline_never_early: the wall clock
+    let runtime = ComponentRuntime::new();
+    runtime
+        .load_module_bytes("@repro/spin", &bridge_component(0, u32::MAX, false, "{}"))
+        .unwrap();
+    runtime.apply_limits(
+        "@repro/spin",
+        Limits {
+            execution_ms: 50,
+            ..Limits::CEILING
+        },
+    );
+    let start = Instant::now();
+    let result = runtime.call_export("@repro/spin", "anything", b"{}");
+    let elapsed = start.elapsed();
+    assert_eq!(trap_kind(&result), "deadline_exceeded", "{result:?}");
+    assert!(
+        elapsed >= Duration::from_millis(50),
+        "trapped before the budget elapsed: {elapsed:?}"
+    );
 }
