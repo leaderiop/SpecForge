@@ -13,6 +13,7 @@ use crate::extension::Trust;
 use crate::{OpError, OpErrorKind};
 use specforge_common::{Code, codes};
 use specforge_protocol_types::ExtensionDeclaration;
+use specforge_protocol_types::package::{PackageName, Version};
 
 /// The diagnostic a registry operation reports when no registry is
 /// configured.
@@ -46,8 +47,8 @@ pub fn no_registry(operation: &str) -> OpError {
 /// trust policy the caller gave.
 #[derive(Debug, Clone)]
 pub struct Package {
-    pub name: String,
-    pub version: String,
+    pub name: PackageName,
+    pub version: Version,
     pub wasm: Vec<u8>,
     pub sha256: String,
     /// The declaration published with it (its manifest): the diamond gate
@@ -60,11 +61,13 @@ pub struct Package {
 }
 
 /// The registry port the extension operations use: an HTTP adapter in
-/// production, an in-memory fake in tests.
+/// production, an in-memory fake in tests. It lists a package's versions
+/// and fetches one; it does not resolve a requirement (ADR 0036): ops
+/// does, with [`crate::extension::resolve`].
 pub trait Registry {
-    /// The version `range` (`latest`, `*`, `^1.2`, `~1`, `>=1`) resolves to;
-    /// an exact version is returned as it is.
-    fn resolve_version(&self, name: &str, range: &str) -> Result<String, OpError>;
+    /// Every version `name` publishes (unparseable ones dropped);
+    /// R-RES-001 when the registry has no such package.
+    fn versions(&self, name: &PackageName) -> Result<Vec<Version>, OpError>;
     /// `name@version`, downloaded and integrity-checked, its publisher
     /// signature checked under the TOFU pin policy: a package with none is
     /// refused unless `allow_unsigned`; a changed key is decided by `trust`.
@@ -72,25 +75,11 @@ pub trait Registry {
     /// can't be read, is refused.
     fn fetch(
         &self,
-        name: &str,
-        version: &str,
+        name: &PackageName,
+        version: &Version,
         allow_unsigned: bool,
         trust: Trust,
     ) -> Result<Package, OpError>;
-    /// Every version the registry publishes for `name`.
-    fn versions(&self, name: &str) -> Result<Vec<String>, OpError>;
-}
-
-/// Whether `range` needs resolving against the registry's versions (an
-/// exact version doesn't).
-pub fn is_range(range: &str) -> bool {
-    range == "latest"
-        || range == "*"
-        || range.starts_with('^')
-        || range.starts_with('~')
-        || range.starts_with('>')
-        || range.starts_with('<')
-        || range.starts_with('=')
 }
 
 /// No registry: every call fails with E063 naming `operation`. What an
@@ -99,15 +88,11 @@ pub fn is_range(range: &str) -> bool {
 pub struct Unconfigured(pub &'static str);
 
 impl Registry for Unconfigured {
-    fn resolve_version(&self, _: &str, _: &str) -> Result<String, OpError> {
+    fn versions(&self, _: &PackageName) -> Result<Vec<Version>, OpError> {
         Err(no_registry(self.0))
     }
 
-    fn fetch(&self, _: &str, _: &str, _: bool, _: Trust) -> Result<Package, OpError> {
-        Err(no_registry(self.0))
-    }
-
-    fn versions(&self, _: &str) -> Result<Vec<String>, OpError> {
+    fn fetch(&self, _: &PackageName, _: &Version, _: bool, _: Trust) -> Result<Package, OpError> {
         Err(no_registry(self.0))
     }
 }

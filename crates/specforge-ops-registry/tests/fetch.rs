@@ -9,6 +9,8 @@ use sha2::{Digest, Sha256};
 use specforge_ops::extension::Trust;
 use specforge_ops::registry::Registry;
 use specforge_ops_registry::HttpRegistry;
+use specforge_protocol_types::PackageName;
+use specforge_protocol_types::package::Version;
 use specforge_registry_client::{KnownKeys, SigningKey, load_known_keys_at, save_known_keys_at};
 use specforge_test_macros::test as specforge_test;
 use std::io::{BufRead, BufReader, Write};
@@ -161,7 +163,12 @@ impl Project {
         allow_unsigned: bool,
         trust: Trust,
     ) -> Result<specforge_ops::registry::Package, specforge_ops::OpError> {
-        self.registry().fetch(NAME, VERSION, allow_unsigned, trust)
+        self.registry().fetch(
+            &PackageName::parse(NAME).unwrap(),
+            &Version::parse(VERSION).unwrap(),
+            allow_unsigned,
+            trust,
+        )
     }
 
     fn pinned(&self) -> Option<String> {
@@ -322,8 +329,8 @@ fn a_correctly_signed_package_is_accepted_and_its_key_pinned() {
     let project = Project::on(Served::signed(&key));
 
     let package = project.fetch(false, Trust::Refuse).unwrap();
-    assert_eq!(package.name, NAME);
-    assert_eq!(package.version, VERSION);
+    assert_eq!(package.name.as_str(), NAME);
+    assert_eq!(package.version.to_string(), VERSION);
     assert_eq!(package.wasm, WASM);
     assert_eq!(package.sha256, sha256(WASM));
     assert_eq!(package.key_id, Some(key.key_id()));

@@ -2,12 +2,12 @@
 //! recorded by an in-process server that answers 404 to everything but one
 //! package's version list.
 //!
-//! Plan 12 §3 R1, R4 and R6 as they are today; T3 and T4 flip the rows that
-//! encode a bug.
+//! Plan 12 §3 R1, R4 and R6; T4 flips the registry choice.
 
-use specforge_ops::extension::Trust;
+use specforge_ops::extension::{Trust, resolve};
 use specforge_ops::registry::Registry;
 use specforge_ops_registry::HttpRegistry;
+use specforge_protocol_types::package::{PackageName, PackageRef, Version};
 use specforge_test_macros::test as specforge_test;
 use std::io::{BufRead, BufReader, Write};
 use std::net::TcpListener;
@@ -85,53 +85,53 @@ fn default_registry(url: &str) -> String {
     format!(r#"{{"alias":"main","url":"{url}","default_registry":true}}"#)
 }
 
+fn name(text: &str) -> PackageName {
+    PackageName::parse(text).unwrap()
+}
+
 #[specforge_test(
     behavior = "resolve_registry_source",
     verify = "a fetch requests the name and version it was given, from the registry it was given"
 )]
-fn the_adapter_requests_these_paths_today() {
+fn the_adapter_requests_these_paths() {
     let served = Recording::serving(&["1.4.0", "2.0.0-beta.1"]);
     let dir = project_with(&default_registry(&served.url));
     let registry = HttpRegistry::for_project(dir.path(), "add");
 
-    // bug (§3 R1): a version that is no version reaches the URL as it is.
-    let _ = registry.fetch("@acme/tool", "1.0.0/x", true, Trust::Refuse);
-    assert_eq!(
-        served.requests(),
-        ["/v1/packages/@acme%2Ftool/1.0.0/x"],
-        "the version is not escaped"
-    );
+    // The registry is asked for the versions, and ops picks among them:
+    // `1.x`, `1.2` and `latest` are no longer fetched as versions (§3 R1,
+    // R6).
+    for (reference, want) in [
+        ("@acme/tool@1.x", "1.4.0"),
+        ("@acme/tool@1.2", "1.4.0"),
+        ("@acme/tool", "1.4.0"),
+        ("@acme/tool@>=2.0.0-beta.1", "2.0.0-beta.1"),
+    ] {
+        let version = resolve(&registry, &PackageRef::parse(reference).unwrap()).unwrap();
+        assert_eq!(version.to_string(), want, "{reference}");
+        assert_eq!(
+            served.requests().last().map(String::as_str),
+            Some("/v1/packages/@acme%2Ftool"),
+            "{reference}"
+        );
+    }
 
-    // bug (§3 R1): ops asked for `foo` at `/bar`; the client asks for the
-    // package `foo@/bar` at `latest`.
-    let _ = registry.fetch("foo", "/bar", true, Trust::Refuse);
-    assert_eq!(
-        served.requests()[1..],
-        ["/v1/packages/foo@%2Fbar/latest"],
-        "the client reads the string again"
-    );
-
-    // bug (§3 R1): a requirement that is not an operator-led range is an
-    // exact version: it is returned as it is, and nothing is requested.
+    // An exact version asks the registry for nothing.
     let before = served.requests().len();
-    assert_eq!(
-        registry.resolve_version("@acme/tool", "1.x").unwrap(),
-        "1.x"
-    );
-    assert_eq!(
-        registry.resolve_version("@acme/tool", "1.2").unwrap(),
-        "1.2"
-    );
+    let exact = resolve(&registry, &PackageRef::parse("@acme/tool@9.9.9").unwrap()).unwrap();
+    assert_eq!(exact.to_string(), "9.9.9");
     assert_eq!(served.requests().len(), before);
 
-    // bug (§3 R6): `latest` is the highest version, a pre-release included.
-    assert_eq!(
-        registry.resolve_version("@acme/tool", "latest").unwrap(),
-        "2.0.0-beta.1"
+    // A fetch requests the name and the version it was given.
+    let _ = registry.fetch(
+        &name("@acme/tool"),
+        &Version::new(1, 0, 0),
+        true,
+        Trust::Refuse,
     );
     assert_eq!(
         served.requests().last().map(String::as_str),
-        Some("/v1/packages/@acme%2Ftool")
+        Some("/v1/packages/@acme%2Ftool/1.0.0")
     );
 }
 
@@ -147,14 +147,19 @@ fn the_registry_is_chosen_twice_today() {
     let registry = HttpRegistry::for_project(dir.path(), "add");
 
     assert_eq!(
-        registry.resolve_version("@acme/tool", "latest").unwrap(),
-        "1.0.0"
+        registry.versions(&name("@acme/tool")).unwrap(),
+        [Version::new(1, 0, 0)]
     );
     assert_eq!(served.requests(), ["/v1/packages/@acme%2Ftool"]);
 
     // bug (§3 R4): the download is refused without a request.
     let error = registry
-        .fetch("@acme/tool", "1.0.0", true, Trust::Refuse)
+        .fetch(
+            &name("@acme/tool"),
+            &Version::new(1, 0, 0),
+            true,
+            Trust::Refuse,
+        )
         .unwrap_err();
     assert_eq!(error.code, "R-OPS-001", "{error:?}");
     assert_eq!(served.requests().len(), 1, "no request for the download");

@@ -4,8 +4,8 @@ use super::{Origin, builtin_name, check_diamonds, extensions_dir, lock_path};
 use crate::registry::Registry;
 use crate::{OpError, OpErrorKind, Writes};
 use specforge_common::codes;
-use specforge_protocol_types::package::SpecifierError;
-use specforge_protocol_types::{ExtensionDeclaration, PackageRef};
+use specforge_protocol_types::package::{SpecifierError, Version};
+use specforge_protocol_types::{ExtensionDeclaration, PackageName, PackageRef};
 use specforge_wasm::{LockState, install_extension, write_lock_file};
 use std::path::{Path, PathBuf};
 
@@ -264,27 +264,27 @@ fn add_from_registry(
     writes: &mut Writes,
 ) -> Result<AddOutcome, OpError> {
     let name = package.name.as_str();
-    let version = registry.resolve_version(name, &package.requirement.to_string())?;
+    let version = super::resolve(registry, package)?;
     let origin = Origin::Installed {
         source: "registry".to_string(),
     };
     let mut lock = LockState::at(req.root).file().cloned().unwrap_or_default();
     if let Some(present) = already_present(req.root, &lock, name, |e| {
-        e.version == version && e.source == "registry"
+        e.version == version.to_string() && e.source == "registry"
     }) {
         return Ok(present);
     }
     if req.dry_run {
         return Ok(AddOutcome::Planned {
             name: name.to_string(),
-            version: Some(version),
+            version: Some(version.to_string()),
             origin,
         });
     }
     let checked = fetch_checked(
         registry,
         &lock,
-        name,
+        &package.name,
         &version,
         req.allow_unsigned,
         req.trust,
@@ -313,8 +313,8 @@ pub(super) struct Checked {
 pub(super) fn fetch_checked(
     registry: &dyn Registry,
     lock: &specforge_wasm::LockFile,
-    name: &str,
-    version: &str,
+    name: &PackageName,
+    version: &Version,
     allow_unsigned: bool,
     trust: Trust,
 ) -> Result<Checked, OpError> {
@@ -326,11 +326,15 @@ pub(super) fn fetch_checked(
     // before anything is loaded (ADR 0001); the binary must then be the
     // package it claims to be, and declare exactly what was published
     // (ADR 0012).
-    check_diamonds(lock, &package.name, package.declaration.peers(), &|peer| {
-        registry.versions(peer)
-    })?;
+    check_diamonds(
+        lock,
+        package.name.as_str(),
+        package.declaration.peers(),
+        &super::published_versions(registry),
+    )?;
     let declared = Declared::of(&package.wasm)?;
-    if declared.name() != package.name || declared.version() != package.version {
+    if declared.name() != package.name.as_str() || declared.version() != package.version.to_string()
+    {
         return Err(OpError::diagnostic(
             codes::E028,
             format!(

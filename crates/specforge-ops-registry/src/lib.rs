@@ -10,13 +10,14 @@ use specforge_common::{Code, Diagnostic, codes};
 use specforge_ops::config::CONFIG_FILE;
 use specforge_ops::extension::Trust;
 use specforge_ops::registry::{
-    METADATA_MISMATCH, Package, Registry, UNREADABLE_MANIFEST, is_range, no_registry,
+    METADATA_MISMATCH, Package, Registry, UNREADABLE_MANIFEST, no_registry,
 };
 use specforge_ops::{OpError, OpErrorKind};
-use specforge_protocol_types::ExtensionDeclaration;
+use specforge_protocol_types::package::Version;
+use specforge_protocol_types::{ExtensionDeclaration, PackageName};
 use specforge_registry_client::{
-    HttpRegistryClient, RegistryConfig, find_registry_for_specifier, parse_registries_from_config,
-    resolve_from_registry, resolve_version, verify_registry_integrity,
+    HttpRegistryClient, RegistryConfig, RegistryError, find_registry_for_specifier,
+    parse_registries_from_config, resolve_from_registry, verify_registry_integrity,
 };
 use std::path::{Path, PathBuf};
 
@@ -118,22 +119,14 @@ impl HttpRegistry {
 }
 
 impl Registry for HttpRegistry {
-    fn resolve_version(&self, name: &str, range: &str) -> Result<String, OpError> {
-        if !is_range(range) {
-            return Ok(range.to_string());
-        }
-        let (_, registry) = self.registry_for(name)?;
-        resolve_version(name, range, &self.client, registry).map_err(OpError::from)
-    }
-
     fn fetch(
         &self,
-        name: &str,
-        version: &str,
+        name: &PackageName,
+        version: &Version,
         allow_unsigned: bool,
         trust: Trust,
     ) -> Result<Package, OpError> {
-        let (registries, _) = self.registry_for(name)?;
+        let (registries, _) = self.registry_for(name.as_str())?;
         let response =
             resolve_from_registry(&format!("{name}@{version}"), registries, &self.client)
                 .map_err(OpError::from)?;
@@ -141,7 +134,7 @@ impl Registry for HttpRegistry {
         // with, and the pin is keyed by that name: an answer for another
         // package (or another version) would be verified, pinned and
         // installed in place of the one asked for.
-        if response.name != name || response.version != version {
+        if response.name != name.as_str() || response.version != version.to_string() {
             return Err(OpError::coded(
                 OpErrorKind::SchemaMismatch,
                 METADATA_MISMATCH,
@@ -165,7 +158,7 @@ impl Registry for HttpRegistry {
         // installed as this one. Checked before the signature, so a refused
         // package pins no key.
         let declaration = read_declaration(name, version, &response.manifest)?;
-        if declaration.name() != name || declaration.version() != version {
+        if declaration.name() != name.as_str() || declaration.version() != version.to_string() {
             return Err(OpError::coded(
                 OpErrorKind::SchemaMismatch,
                 METADATA_MISMATCH,
@@ -196,8 +189,8 @@ impl Registry for HttpRegistry {
         .map_err(OpError::from)?;
 
         Ok(Package {
-            name: response.name,
-            version: response.version,
+            name: name.clone(),
+            version: version.clone(),
             sha256: response.sha256,
             wasm,
             declaration,
@@ -205,11 +198,26 @@ impl Registry for HttpRegistry {
         })
     }
 
-    fn versions(&self, name: &str) -> Result<Vec<String>, OpError> {
-        let (_, registry) = self.registry_for(name)?;
-        self.client
-            .fetch_versions(name, registry)
-            .map_err(|e| OpError::from(e.to_diagnostic()))
+    fn versions(&self, name: &PackageName) -> Result<Vec<Version>, OpError> {
+        let (_, registry) = self.registry_for(name.as_str())?;
+        let published = self
+            .client
+            .fetch_versions(name.as_str(), registry)
+            .map_err(|error| match error {
+                RegistryError::NotFound { .. } => Diagnostic::new(
+                    codes::R_RES_001,
+                    format!(
+                        "package '{name}' not found in registry '{}'",
+                        registry.alias
+                    ),
+                )
+                .with_suggestion("check the package name and registry configuration".to_string()),
+                other => other.to_diagnostic(),
+            })?;
+        Ok(published
+            .iter()
+            .filter_map(|text| Version::parse(text).ok())
+            .collect())
     }
 }
 
@@ -218,8 +226,8 @@ impl Registry for HttpRegistry {
 /// `manifestVersion`) can't be read as one: it is refused with the
 /// suggestion to re-publish the package.
 fn read_declaration(
-    name: &str,
-    version: &str,
+    name: &PackageName,
+    version: &Version,
     manifest: &str,
 ) -> Result<ExtensionDeclaration, OpError> {
     let unreadable = |why: String| {
@@ -256,11 +264,12 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let registry = HttpRegistry::for_project(dir.path(), "update");
         assert!(registry.diagnostics().is_empty());
-        let error = registry.versions("@sdk/greet").unwrap_err();
+        let sdk = PackageName::parse("@sdk/greet").unwrap();
+        let error = registry.versions(&sdk).unwrap_err();
         assert!(error.is(specforge_ops::registry::NO_REGISTRY), "{error:?}");
         assert!(error.message.contains("`update`"), "{error:?}");
         let error = registry
-            .fetch("@sdk/greet", "0.1.0", false, Trust::Refuse)
+            .fetch(&sdk, &Version::new(0, 1, 0), false, Trust::Refuse)
             .unwrap_err();
         assert!(error.is(specforge_ops::registry::NO_REGISTRY), "{error:?}");
     }
