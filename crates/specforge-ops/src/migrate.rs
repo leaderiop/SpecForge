@@ -151,7 +151,9 @@ pub fn run_with_hooks(
     runtime: Option<&dyn WasmRuntime>,
     hooks: &mut dyn FnMut(&[ExtensionDeclaration], &MigrationInput) -> HookRun,
 ) -> Outcome {
-    let root = request.root;
+    // The project the path is in (else the path itself): the one the files
+    // are migrated in and the one the hooks and the checks compile.
+    let root = &specforge_common::project_root_of(request.root);
     let target = &request.target;
     let preview = migrate_project(root, target, true, true);
     let from = preview

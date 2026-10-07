@@ -21,6 +21,15 @@ pub fn find_project_root(start: &Path) -> Option<PathBuf> {
     }
 }
 
+/// The project `path` is in: its nearest enclosing project
+/// ([`find_project_root`], `path` included), else `path` itself. The one
+/// rule for what format, migrate and an MCP call's `path` act on, so a
+/// directory that is no project is its own root and gets the default
+/// configuration.
+pub fn project_root_of(path: &Path) -> PathBuf {
+    find_project_root(path).unwrap_or_else(|| path.to_path_buf())
+}
+
 /// What one `specforge.json` `extensions` entry enables: the one reading
 /// of an entry that the runtime loading extensions, the environment
 /// reading their declarations, the freshness inputs and the extension
@@ -453,6 +462,26 @@ pub fn validate_project_name(name: &str) -> Result<(), &'static str> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn project_root_of_is_the_nearest_project_else_the_path() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let root = dir.path().canonicalize().unwrap();
+        let inner = root.join("project/spec/deep");
+        std::fs::create_dir_all(&inner).unwrap();
+        std::fs::write(root.join("project/specforge.json"), "{}").unwrap();
+        let loose = root.join("loose");
+        std::fs::create_dir_all(&loose).unwrap();
+
+        // Inside a project: its root, from the root and from below it.
+        assert_eq!(project_root_of(&root.join("project")), root.join("project"));
+        assert_eq!(project_root_of(&inner), root.join("project"));
+        // Outside any project: the directory itself.
+        assert_eq!(project_root_of(&loose), loose);
+        // A path that does not exist is itself.
+        let missing = root.join("nowhere");
+        assert_eq!(project_root_of(&missing), missing);
+    }
 
     #[test]
     fn spec_root_in_defaults_to_the_root() {

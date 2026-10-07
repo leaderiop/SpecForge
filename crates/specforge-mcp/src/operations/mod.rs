@@ -13,7 +13,7 @@
 use serde_json::{Value, json};
 use std::path::{Path, PathBuf};
 
-use specforge_common::{codes, find_project_root};
+use specforge_common::{codes, project_root_of};
 
 use crate::args::{Arguments, NoArgs};
 use crate::mutation::{Mutated, MutationEvent, MutationHandled, Written};
@@ -65,14 +65,10 @@ pub(crate) fn format_op(call: &mut Call<'_>, args: FormatArgs) -> MutationHandle
     let preview = !mode.writes();
 
     // The project the call formats: the served one, or the one `path`
-    // names; its config decides what is formatted.
-    let root = call.project()?.root.to_path_buf();
-    let Some(project_root) = find_project_root(&root) else {
-        return Ok(Mutated::refused_unless_preview(
-            preview,
-            ToolOutcome::no_project(format!("no specforge project found at {}", root.display())),
-        ));
-    };
+    // names (a directory that is no project is its own root, formatted with
+    // the defaults, as `specforge format` formats it); its config decides
+    // what is formatted.
+    let project_root = project_root_of(call.project()?.root);
 
     // The run `specforge format` makes. Relative paths name files under
     // the project root.
@@ -497,12 +493,6 @@ pub(crate) fn migrate_op(call: &mut Call<'_>, args: MigrateArgs) -> MutationHand
         Err(error) => return Ok(Mutated::refused_after(dry_run, error)),
     };
 
-    if !path.join("specforge.json").is_file() {
-        return Ok(Mutated::refused_unless_preview(
-            dry_run,
-            ToolOutcome::no_project("no specforge.json found in the project root"),
-        ));
-    }
     let runtime = project.runtime;
     // The migration `specforge migrate` runs, hooks and rollback included.
     let request = specforge_ops::migrate::Request {

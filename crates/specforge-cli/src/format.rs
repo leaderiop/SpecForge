@@ -16,7 +16,7 @@ use std::path::{Path, PathBuf};
 /// - 1 under `--check` when a file would change;
 /// - 0 otherwise.
 pub fn run(path: &Path, check: bool, diff: bool, stdin: bool, explicit_paths: &[String]) -> i32 {
-    let project_root = format::project_root(path);
+    let project_root = specforge_common::project_root_of(path);
     if stdin {
         return run_stdin(&project_root, path);
     }

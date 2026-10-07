@@ -236,35 +236,70 @@ fn loose(text: &str, name: &str) -> tempfile::TempDir {
     dir
 }
 
-#[test]
-fn format_refuses_a_directory_that_is_no_project() {
+#[specforge_test(
+    behavior = "provide_mcp_format_tool",
+    verify = "a directory that is no project is formatted with the defaults, as specforge format formats it"
+)]
+fn a_directory_that_is_no_project_is_formatted_with_the_defaults() {
     let mut served = served();
     let dir = loose(MESSY, "a.spec");
 
-    let response = call_tool(
+    let result = tool(
         &mut served,
         "specforge.format",
         json!({"path": dir.path().to_str().unwrap(), "check": true}),
     );
 
-    assert_eq!(mcp_error(&response)["code"], "precondition_failed");
+    assert_eq!(result["ok"], false, "{result}");
+    let changed = result["changed_files"].as_array().unwrap();
+    assert!(
+        changed.len() == 1 && changed[0].as_str().unwrap().ends_with("a.spec"),
+        "{result}"
+    );
+    // Nothing was written by a check.
+    assert_eq!(
+        std::fs::read_to_string(dir.path().join("a.spec")).unwrap(),
+        MESSY
+    );
+
+    // A write formats it.
+    let written = tool(
+        &mut served,
+        "specforge.format",
+        json!({"path": dir.path().to_str().unwrap()}),
+    );
+    assert_eq!(written["ok"], true, "{written}");
+    assert_ne!(
+        std::fs::read_to_string(dir.path().join("a.spec")).unwrap(),
+        MESSY
+    );
 }
 
-#[test]
-fn migrate_refuses_a_directory_that_is_no_project() {
+#[specforge_test(
+    behavior = "provide_mcp_migrate_tool",
+    verify = "a directory that is no project is migrated as specforge migrate migrates it"
+)]
+fn a_directory_that_is_no_project_is_migrated() {
     let mut served = served();
     let dir = loose(
         "// specforge-format: 0.1\nbehavior old_one \"Old\" {\n}\n",
         "old.spec",
     );
 
-    let response = call_tool(
+    let result = tool(
         &mut served,
         "specforge.migrate",
         json!({"path": dir.path().to_str().unwrap(), "dry_run": true}),
     );
 
-    assert_eq!(mcp_error(&response)["code"], "precondition_failed");
+    assert_eq!(result["ok"], true, "{result}");
+    assert_eq!(result["files_migrated"], 1, "{result}");
+    assert!(
+        result["results"][0]["file_path"]
+            .as_str()
+            .is_some_and(|path| path.ends_with("old.spec")),
+        "{result}"
+    );
 }
 
 #[test]

@@ -477,11 +477,6 @@ impl Outcome {
     }
 }
 
-/// The project root `path` is in, else `path` itself.
-pub fn project_root(path: &Path) -> PathBuf {
-    specforge_common::find_project_root(path).unwrap_or_else(|| path.to_path_buf())
-}
-
 /// The files a run from `root` over `paths` formats, de-duplicated, in
 /// discovery order (ADR 0021 D3):
 ///

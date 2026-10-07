@@ -182,8 +182,11 @@ fn plan_gives_a_report_failure_the_report_s_kind() {
     assert_eq!(error.kind, OpErrorKind::Internal);
 }
 
-#[test]
-fn migrate_compiles_the_path_it_was_given() {
+#[specforge_test(
+    behavior = "invoke_extension_migration_hooks",
+    verify = "hooks run for the project a sub-path is in"
+)]
+fn hooks_run_for_the_project_a_sub_path_is_in() {
     use specforge_extension_sdk::{ContributionsBuilder, ExtensionMeta};
     use specforge_migrate::CURRENT_FORMAT_VERSION;
     use specforge_ops::migrate::{Request, run_with_hooks};
@@ -234,7 +237,7 @@ fn migrate_compiles_the_path_it_was_given() {
     let from_the_sub_path = declared(&root.join("spec"));
     let from_the_project = declared(root);
 
-    assert!(from_the_sub_path.is_empty(), "{from_the_sub_path:?}");
+    assert_eq!(from_the_sub_path, ["@t/x"]);
     assert_eq!(from_the_project, ["@t/x"]);
 }
 

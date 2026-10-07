@@ -12,7 +12,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use serde_json::Value;
-use specforge_common::{Diagnostic, find_project_root};
+use specforge_common::{Diagnostic, project_root_of};
 use specforge_graph::Graph;
 use specforge_ops::view::ProjectView;
 use specforge_project::{CompiledProject, SharedRuntime};
@@ -608,7 +608,7 @@ fn argument<T: crate::args::Arg>(
 fn project_at(path: &Path) -> Result<PathBuf, TargetError> {
     let canonical =
         std::fs::canonicalize(path).map_err(|_| TargetError::PathNotFound(path.to_path_buf()))?;
-    Ok(find_project_root(&canonical).unwrap_or(canonical))
+    Ok(project_root_of(&canonical))
 }
 
 /// `path` made absolute and canonical as far as it exists (a directory

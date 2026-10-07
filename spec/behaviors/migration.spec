@@ -416,7 +416,9 @@ behavior invoke_extension_migration_hooks "Invoke Extension Migration Hooks" {
     before post-migration validation. The hook's input is a JSON object
     `{"from", "to", "files"}`: the format version the project is migrated
     from and to, and the paths of the files the core migration rewrote, so
-    the hook knows which data to transform.
+    the hook knows which data to transform. The hooks are those of the
+    project the path is in, so a migration started from a sub-path runs the
+    same hooks.
 
     Migration hook lifecycle: core migration runs first (transforming .spec
     file syntax), then extension hooks run (transforming extension-specific
@@ -458,6 +460,7 @@ behavior invoke_extension_migration_hooks "Invoke Extension Migration Hooks" {
   verify unit "the nine builtin extensions' hooks run in dependency order with no failure"
   verify unit "hook that traps collects WasmTrapInfo and continues"
   verify unit "hooks invoked in deterministic extension load order"
+  verify unit "hooks run for the project a sub-path is in"
   verify unit "extension in failed lifecycle state has hook skipped"
   verify unit "hook exceeding timeout treated as trap"
   verify unit "validation runs once after both core and extension hooks complete"
