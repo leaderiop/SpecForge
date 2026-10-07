@@ -17,3 +17,4 @@ mod registry_fields;
 mod registry_order;
 mod rules;
 mod session;
+mod structural_checks;

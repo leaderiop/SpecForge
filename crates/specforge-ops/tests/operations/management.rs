@@ -136,3 +136,51 @@ fn management_operations_read_the_project_from_their_view() {
         "nothing was written"
     );
 }
+
+/// The providers listing reports what the environment registered when the
+/// project compiled: its entries, and the W118 the registration reported
+/// (architecture plan 04, T0; the registration moves, this stays).
+#[test]
+fn the_providers_listing_reports_what_the_environment_registered() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let config = serde_json::json!({
+        "name": "p", "version": "0.1.0", "extensions": [],
+        "providers": [
+            {"alias": "a", "extension": "@acme/x"},
+            {"scheme": "gh", "alias": "b", "extension": "@acme/absent"},
+        ],
+    });
+    std::fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
+    let compiled = specforge_project::CompiledProject::compile(dir.path(), None);
+
+    let listing = extension::providers(&ProjectView::of(&compiled));
+
+    let entries: Vec<(&str, &str, &str, &str)> = listing
+        .providers
+        .iter()
+        .map(|p| {
+            (
+                p.scheme.as_str(),
+                p.alias.as_str(),
+                p.extension.as_str(),
+                p.status.as_str(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        entries,
+        [("gh", "b", "@acme/absent", "extension_not_loaded")]
+    );
+    let w118 = |diagnostics: &[Diagnostic]| -> Vec<(String, String)> {
+        diagnostics
+            .iter()
+            .filter(|d| d.code == "W118")
+            .map(|d| (d.code.clone(), d.message.clone()))
+            .collect()
+    };
+    assert_eq!(w118(&listing.diagnostics).len(), 2, "{listing:?}");
+    assert_eq!(
+        w118(&listing.diagnostics),
+        w118(&compiled.env.setup_diagnostics)
+    );
+}
