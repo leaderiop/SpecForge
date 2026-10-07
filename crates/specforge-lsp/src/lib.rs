@@ -6,6 +6,7 @@ pub mod hover;
 mod navigation;
 pub mod publish;
 mod state;
+mod uri;
 pub mod watchers;
 
 pub use capabilities::{ServerCapabilities, ServerInfo, server_capabilities, server_info};

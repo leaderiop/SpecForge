@@ -216,24 +216,6 @@ impl LspState {
         }
     }
 
-    /// Whether the text the editor has for session file `key` (its open
-    /// buffer, else the file on disk) is the text the project was compiled
-    /// from. False when the editor has typed since (the compile is still to
-    /// come), when a closed file changed or went away on disk (the watcher's
-    /// event is still to come), and when the compile holds no text of the
-    /// file. An edit computed from the compile applies only when it holds.
-    pub fn is_compiled(&self, key: &str) -> bool {
-        let Some(compiled) = self.compiled_text(key) else {
-            return false;
-        };
-        let path = self.file_path(key);
-        let uri = crate::backend::file_path_to_uri(&path.to_string_lossy());
-        match self.document(uri.as_str()) {
-            Some(doc) => doc.text() == &*compiled,
-            None => std::fs::read_to_string(path).is_ok_and(|disk| disk == *compiled),
-        }
-    }
-
     /// The project's environment: config, spec root, registries, rules.
     pub fn environment(&self) -> &Environment {
         match &self.project {

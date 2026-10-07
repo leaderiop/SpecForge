@@ -11,10 +11,10 @@ use specforge_project::{CheckMode, ProjectSession, SourceChange, UpdateKind};
 
 use crate::document::{LineIndex, Target};
 use crate::navigation::{
-    Ranges, fix_to_code_action, navigator, outline_to_document_symbols, symbol_kind_from_entity,
-    uri_of,
+    Compiled, fix_to_code_action, navigator, outline_to_document_symbols, symbol_kind_from_entity,
 };
 use crate::publish::{Publication, diagnostic_to_lsp};
+use crate::uri::{file_path_to_uri, uri_to_file_path};
 use crate::{LspState, goto_import_definition, hover_field_info, server_capabilities, server_info};
 use specforge_common::{SourceSpan, Sym};
 use specforge_ops::navigate::{
@@ -451,31 +451,14 @@ fn content_modified(file: &str) -> tower_lsp::jsonrpc::Error {
     }
 }
 
-/// The session file key of a document.
-fn key_of(state: &LspState, uri: &Url) -> String {
-    state.source_key(&uri_to_file_path(uri))
-}
-
 /// The entity the cursor at `position` of the open document `uri` names
 /// ([`crate::Cursor::target`]): what references and rename act on.
 fn entity_under_cursor(state: &LspState, uri: &Url, position: Position) -> Option<Sym> {
     let cursor = state.document(uri.as_str())?.at(position)?;
-    match cursor.target(&navigator(state), &key_of(state, uri))? {
+    match cursor.target(&navigator(state), &Compiled::new(state).key(uri))? {
         Target::Entity { id, .. } => Some(id),
         _ => None,
     }
-}
-
-pub fn file_path_to_uri(path: &str) -> Url {
-    Url::from_file_path(path).unwrap_or_else(|_| {
-        Url::parse(&format!("file://{path}")).unwrap_or_else(|_| Url::parse("file:///").unwrap())
-    })
-}
-
-pub fn uri_to_file_path(uri: &Url) -> String {
-    uri.to_file_path()
-        .map(|p| p.to_string_lossy().to_string())
-        .unwrap_or_else(|_| uri.to_string())
 }
 
 /// Formatter edits (0-based lines, byte columns of the formatted
@@ -879,8 +862,8 @@ impl LanguageServer for Backend {
         // A diagnostic under the cursor comes first: what it means and how
         // to fix it, from the catalogue.
         // Published ranges are positions in the compiled text.
-        let shown = Ranges::new(&state)
-            .index_of(&key_of(&state, &uri))
+        let shown = Compiled::new(&state)
+            .index_of(&Compiled::new(&state).key(&uri))
             .map(|index| crate::hover::diagnostics_at(state.diagnostics(uri.as_str()), &index, pos))
             .unwrap_or_default();
         let diagnostic_md = crate::hover::diagnostics(&shown);
@@ -902,7 +885,7 @@ impl LanguageServer for Backend {
         let published: Vec<specforge_common::Diagnostic> =
             state.published_diagnostics().cloned().collect();
         let nav = navigator(&state);
-        let file = key_of(&state, &uri);
+        let file = Compiled::new(&state).key(&uri);
         let info = doc
             .at(pos)
             .and_then(|cursor| match cursor.target(&nav, &file)? {
@@ -952,9 +935,9 @@ impl LanguageServer for Backend {
         let Some(cursor) = state.document(uri.as_str()).and_then(|doc| doc.at(pos)) else {
             return Ok(None);
         };
-        let ranges = Ranges::new(&state);
+        let ranges = Compiled::new(&state);
         let nav = navigator(&state);
-        let file = key_of(&state, &uri);
+        let file = Compiled::new(&state).key(&uri);
         match cursor.target(&nav, &file) {
             Some(Target::Import { path }) => {
                 if state.spec_root().as_os_str().is_empty() {
@@ -964,7 +947,7 @@ impl LanguageServer for Backend {
                 let span = goto_import_definition(&path, &file, state.spec_root());
                 Ok(span.map(|s| {
                     GotoDefinitionResponse::Scalar(Location {
-                        uri: uri_of(&state, s.file.as_str()),
+                        uri: Compiled::new(&state).uri(s.file.as_str()),
                         range: Range::default(),
                     })
                 }))
@@ -984,7 +967,7 @@ impl LanguageServer for Backend {
                     };
                     return Ok(Some(GotoDefinitionResponse::Link(vec![LocationLink {
                         origin_selection_range: Some(origin),
-                        target_uri: uri_of(&state, definition.block.file.as_str()),
+                        target_uri: Compiled::new(&state).uri(definition.block.file.as_str()),
                         target_range,
                         target_selection_range,
                     }])));
@@ -1004,7 +987,7 @@ impl LanguageServer for Backend {
         let pos = params.text_document_position.position;
 
         let state = self.state.read().await;
-        let ranges = Ranges::new(&state);
+        let ranges = Compiled::new(&state);
         let Some(id) = entity_under_cursor(&state, &uri, pos) else {
             return Ok(None);
         };
@@ -1040,8 +1023,8 @@ impl LanguageServer for Backend {
 
         // The token as written under the cursor, declaration or
         // reference; nothing else renames.
-        let ranges = Ranges::new(&state);
-        let occurrence = cursor.occurrence(&navigator(&state), &key_of(&state, &uri));
+        let ranges = Compiled::new(&state);
+        let occurrence = cursor.occurrence(&navigator(&state), &Compiled::new(&state).key(&uri));
         Ok(occurrence
             .and_then(|o| ranges.range(&o.span))
             .map(PrepareRenameResponse::Range))
@@ -1053,7 +1036,7 @@ impl LanguageServer for Backend {
         let new_name = params.new_name;
 
         let state = self.state.read().await;
-        let ranges = Ranges::new(&state);
+        let ranges = Compiled::new(&state);
         let Some(id) = entity_under_cursor(&state, &uri, pos) else {
             return Ok(None);
         };
@@ -1078,7 +1061,7 @@ impl LanguageServer for Backend {
             if ranges.is_stale(&edit.file) {
                 return Err(content_modified(&edit.file));
             }
-            let file_uri = uri_of(&state, &edit.file);
+            let file_uri = Compiled::new(&state).uri(&edit.file);
             // A 1-based line and byte columns of the file's text.
             let span = SourceSpan {
                 file: Sym::new(&edit.file),
@@ -1114,8 +1097,8 @@ impl LanguageServer for Backend {
     async fn code_action(&self, params: CodeActionParams) -> Result<Option<CodeActionResponse>> {
         let uri = params.text_document.uri;
         let state = self.state.read().await;
-        let file = key_of(&state, &uri);
-        let ranges = Ranges::new(&state);
+        let file = Compiled::new(&state).key(&uri);
+        let ranges = Compiled::new(&state);
         // The request's range is the editor's own: positions in its buffer.
         let within = state
             .document(uri.as_str())
@@ -1147,13 +1130,13 @@ impl LanguageServer for Backend {
         let uri = params.text_document.uri;
 
         let state = self.state.read().await;
-        let entries = outline(&navigator(&state), &key_of(&state, &uri));
+        let entries = outline(&navigator(&state), &Compiled::new(&state).key(&uri));
         if entries.is_empty() {
             return Ok(None);
         }
         let hierarchical = self.hierarchical_symbols.load(Ordering::Relaxed);
         Ok(Some(outline_to_document_symbols(
-            &Ranges::new(&state),
+            &Compiled::new(&state),
             entries,
             hierarchical,
         )))
@@ -1173,7 +1156,7 @@ impl LanguageServer for Backend {
         }
 
         let kind_reg = state.kind_registry();
-        let ranges = Ranges::new(&state);
+        let ranges = Compiled::new(&state);
         #[allow(deprecated)]
         let lsp_symbols: Vec<SymbolInformation> = found
             .into_iter()
@@ -1260,7 +1243,7 @@ impl Backend {
                     // place.
                     // The compile's are positions in the text it compiled, the
                     // formatter's in the document it formatted.
-                    let ranges = Ranges::new(&state);
+                    let ranges = Compiled::new(&state);
                     let lsp_diags: Vec<Diagnostic> =
                         state
                             .diagnostics(uri.as_str())
