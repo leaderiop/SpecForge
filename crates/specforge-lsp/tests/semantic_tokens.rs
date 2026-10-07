@@ -7,6 +7,7 @@ use specforge_parser::{EntityId, EntityKind, FieldMap};
 use specforge_project::coverage::RecordedCoverage;
 use specforge_registry::{KindRegistry, RegistryBuild};
 use specforge_test_macros::test as spec;
+use tree_sitter_specforge::{field, kind};
 
 use crate::registries::registries;
 
@@ -706,24 +707,24 @@ fn tokens_agree_with_the_grammar() {
             )
         };
         for node in nodes {
-            if within(node, &["define_block"]) {
+            if within(node, &[kind::DEFINE_BLOCK]) {
                 continue;
             }
             match node.kind() {
-                "entity_block" => {
-                    let kind = node.child_by_field_name("kind").unwrap();
+                kind::ENTITY_BLOCK => {
+                    let kind = node.child_by_field_name(field::KIND).unwrap();
                     assert_eq!(
                         token_at(kind).map(|t| t.0),
                         Some("type"),
                         "{}",
                         where_(kind)
                     );
-                    let name = node.child_by_field_name("name").unwrap();
+                    let name = node.child_by_field_name(field::NAME).unwrap();
                     let token = token_at(name).unwrap_or_else(|| panic!("{}", where_(name)));
                     assert_ne!(token.1 & MOD_DECLARATION, 0, "{}", where_(name));
                 }
-                "field" => {
-                    let key = node.child_by_field_name("key").unwrap();
+                kind::FIELD => {
+                    let key = node.child_by_field_name(field::KEY).unwrap();
                     assert_eq!(
                         token_at(key).map(|t| t.0),
                         Some("property"),
@@ -731,8 +732,8 @@ fn tokens_agree_with_the_grammar() {
                         where_(key)
                     );
                 }
-                "string" | "triple_quoted_string" | "comment" => {
-                    let expected = if node.kind() == "comment" {
+                kind::STRING | kind::TRIPLE_QUOTED_STRING | kind::COMMENT => {
+                    let expected = if node.kind() == kind::COMMENT {
                         "comment"
                     } else {
                         "string"
@@ -752,9 +753,9 @@ fn tokens_agree_with_the_grammar() {
                         from = line_end + 1;
                     }
                 }
-                "identifier" | "scheme_ref_id"
-                    if node.parent().is_some_and(|p| p.kind() == "list")
-                        && !within(node, &["nested_block"]) =>
+                kind::IDENTIFIER | kind::SCHEME_REF_ID
+                    if node.parent().is_some_and(|p| p.kind() == kind::LIST)
+                        && !within(node, &[kind::NESTED_BLOCK]) =>
                 {
                     let token = token_at(node).unwrap_or_else(|| panic!("{}", where_(node)));
                     assert_ne!(token.1 & MOD_REFERENCE, 0, "{}", where_(node));

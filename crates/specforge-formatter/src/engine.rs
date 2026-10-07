@@ -1,6 +1,7 @@
 use crate::config::FormatConfig;
 use specforge_common::{Diagnostic, SourceSpan, Sym, codes};
 use tree_sitter::{Node, Parser};
+use tree_sitter_specforge::{field, kind};
 
 /// Result of formatting a source string.
 #[derive(Debug, Clone)]
@@ -426,8 +427,8 @@ enum Item {
 impl Item {
     fn of(node: Node) -> Self {
         match node.kind() {
-            "use_import" | "pub_use_import" => Item::Import,
-            "comment" => Item::Comment,
+            kind::USE_IMPORT | kind::PUB_USE_IMPORT => Item::Import,
+            kind::COMMENT => Item::Comment,
             _ => Item::Block,
         }
     }
@@ -524,25 +525,25 @@ fn normalize_comment(line: &str) -> String {
 
 /// Format one top-level block.
 fn format_block(node: Node, source: &str, config: &FormatConfig) -> Vec<String> {
-    let text = |field: &str| {
-        node.child_by_field_name(field)
+    let text = |name: &str| {
+        node.child_by_field_name(name)
             .map(|n| node_text(n, source).to_string())
             .unwrap_or_default()
     };
     let header = match node.kind() {
-        "entity_block" => match node.child_by_field_name("title") {
+        kind::ENTITY_BLOCK => match node.child_by_field_name(field::TITLE) {
             Some(title) => format!(
                 "{} {} {}",
-                text("kind"),
-                text("name"),
+                text(field::KIND),
+                text(field::NAME),
                 node_text(title, source)
             ),
-            None => format!("{} {}", text("kind"), text("name")),
+            None => format!("{} {}", text(field::KIND), text(field::NAME)),
         },
-        "spec_block" => format!("spec {}", text("name")),
-        "define_block" => format!("define {}", text("name")),
-        "ref_full" => format!("ref {} {}", text("id"), text("title")),
-        "ref_block" => {
+        kind::SPEC_BLOCK => format!("spec {}", text(field::NAME)),
+        kind::DEFINE_BLOCK => format!("define {}", text(field::NAME)),
+        kind::REF_FULL => format!("ref {} {}", text(field::ID), text(field::TITLE)),
+        kind::REF_BLOCK => {
             // ref_block wraps ref_inline / ref_full.
             let mut cursor = node.walk();
             let inner = node.named_children(&mut cursor).next();
@@ -551,8 +552,8 @@ fn format_block(node: Node, source: &str, config: &FormatConfig) -> Vec<String> 
                 None => vec![node_text(node, source).trim_end().to_string()],
             };
         }
-        "ref_inline" => return vec![format!("ref {} {}", text("id"), text("title"))],
-        "union_block" => return format_union_block(node, source, config),
+        kind::REF_INLINE => return vec![format!("ref {} {}", text(field::ID), text(field::TITLE))],
+        kind::UNION_BLOCK => return format_union_block(node, source, config),
         _ => {
             return node_text(node, source)
                 .lines()
@@ -568,17 +569,17 @@ fn format_block(node: Node, source: &str, config: &FormatConfig) -> Vec<String> 
 
 /// `kind name = a | b | c`, one variant per line when it doesn't fit.
 fn format_union_block(node: Node, source: &str, config: &FormatConfig) -> Vec<String> {
-    let text = |field: &str| {
-        node.child_by_field_name(field)
+    let text = |name: &str| {
+        node.child_by_field_name(name)
             .map(|n| node_text(n, source).to_string())
             .unwrap_or_default()
     };
-    let Some(variants) = node.child_by_field_name("variants") else {
+    let Some(variants) = node.child_by_field_name(field::VARIANTS) else {
         return vec![node_text(node, source).trim_end().to_string()];
     };
     let mut cursor = variants.walk();
     let children: Vec<Node> = variants.children(&mut cursor).collect();
-    if children.iter().any(|c| c.kind() == "comment") {
+    if children.iter().any(|c| c.kind() == kind::COMMENT) {
         return node_text(node, source)
             .lines()
             .map(|l| l.trim_end().to_string())
@@ -589,7 +590,7 @@ fn format_union_block(node: Node, source: &str, config: &FormatConfig) -> Vec<St
         .filter(|c| c.kind() != "|")
         .map(|c| node_text(*c, source))
         .collect();
-    let head = format!("{} {} = ", text("kind"), text("name"));
+    let head = format!("{} {} = ", text(field::KIND), text(field::NAME));
     let one_line = format!("{head}{}", parts.join(" | "));
     if one_line.len() <= config.max_width || parts.len() < 2 {
         return vec![one_line];
@@ -636,11 +637,11 @@ fn format_body(
     for child in &children {
         let (start, end) = (child.start_position().row, child.end_position().row);
         let member = match child.kind() {
-            "field" => field_member(*child, source, config, depth),
-            "verify_statement" => Member::Line(verify_line(*child, source)),
-            "method_statement" => Member::Line(method_line(*child, source)),
-            "comment" => Member::Comment(comment_text(*child, source)),
-            "ERROR" => Member::Line(node_text(*child, source).trim().to_string()),
+            _ if child.is_error() => Member::Line(node_text(*child, source).trim().to_string()),
+            kind::FIELD => field_member(*child, source, config, depth),
+            kind::VERIFY_STATEMENT => Member::Line(verify_line(*child, source)),
+            kind::METHOD_STATEMENT => Member::Line(method_line(*child, source)),
+            kind::COMMENT => Member::Comment(comment_text(*child, source)),
             _ => continue,
         };
         members.push((member, start, end));
@@ -732,20 +733,20 @@ fn format_body(
 
 fn field_member(node: Node, source: &str, config: &FormatConfig, depth: usize) -> Member {
     let key = node
-        .child_by_field_name("key")
+        .child_by_field_name(field::KEY)
         .map(|n| node_text(n, source).to_string())
         .unwrap_or_default();
     let mut cursor = node.walk();
     let annotations: Vec<String> = node
         .children(&mut cursor)
-        .filter(|c| c.kind() == "annotation")
+        .filter(|c| c.kind() == kind::ANNOTATION)
         .map(|c| collapse_whitespace(node_text(c, source)))
         .collect();
-    let Some(value) = node.child_by_field_name("value") else {
+    let Some(value) = node.child_by_field_name(field::VALUE) else {
         return Member::Line(node_text(node, source).trim().to_string());
     };
     match value.kind() {
-        "nested_block" => {
+        kind::NESTED_BLOCK => {
             let mut body = Vec::new();
             format_body(value, source, config, depth + 1, &mut body);
             Member::Nested {
@@ -754,7 +755,7 @@ fn field_member(node: Node, source: &str, config: &FormatConfig, depth: usize) -
                 annotations,
             }
         }
-        "list" => Member::Field {
+        kind::LIST => Member::Field {
             value: list_value(value, source, config, depth, key.len()),
             key,
             annotations,
@@ -788,7 +789,7 @@ fn list_value(
 ) -> Vec<String> {
     let mut cursor = node.walk();
     let children: Vec<Node> = node.children(&mut cursor).collect();
-    if children.iter().any(|c| c.kind() == "comment") {
+    if children.iter().any(|c| c.kind() == kind::COMMENT) {
         return node_text(node, source)
             .lines()
             .map(|l| l.trim_end().to_string())
@@ -815,10 +816,10 @@ fn list_value(
 /// `verify [kind] "description"`, single-spaced.
 fn verify_line(node: Node, source: &str) -> String {
     let desc = node
-        .child_by_field_name("description")
+        .child_by_field_name(field::DESCRIPTION)
         .map(|n| node_text(n, source))
         .unwrap_or("\"\"");
-    match node.child_by_field_name("kind") {
+    match node.child_by_field_name(field::KIND) {
         Some(kind) => format!("verify {} {desc}", node_text(kind, source)),
         None => format!("verify {desc}"),
     }
@@ -827,31 +828,31 @@ fn verify_line(node: Node, source: &str) -> String {
 /// `method name(a: T, b?: U @ann) -> R`, rebuilt from its parts.
 fn method_line(node: Node, source: &str) -> String {
     let name = node
-        .child_by_field_name("name")
+        .child_by_field_name(field::NAME)
         .map(|n| node_text(n, source))
         .unwrap_or("");
     let mut cursor = node.walk();
     let params: Vec<String> = node
         .children(&mut cursor)
-        .filter(|c| c.kind() == "parameter")
+        .filter(|c| c.kind() == kind::PARAMETER)
         .map(|p| {
             let pname = p
-                .child_by_field_name("name")
+                .child_by_field_name(field::NAME)
                 .map(|n| node_text(n, source))
                 .unwrap_or("");
-            let optional = if p.child_by_field_name("optional").is_some() {
+            let optional = if p.child_by_field_name(field::OPTIONAL).is_some() {
                 "?"
             } else {
                 ""
             };
             let ty = p
-                .child_by_field_name("type")
+                .child_by_field_name(field::TYPE)
                 .map(|n| collapse_whitespace(node_text(n, source)))
                 .unwrap_or_default();
             let mut param_cursor = p.walk();
             let anns: Vec<String> = p
                 .children(&mut param_cursor)
-                .filter(|c| c.kind() == "annotation")
+                .filter(|c| c.kind() == kind::ANNOTATION)
                 .map(|c| collapse_whitespace(node_text(c, source)))
                 .collect();
             let mut text = format!("{pname}{optional}: {ty}");
@@ -863,7 +864,7 @@ fn method_line(node: Node, source: &str) -> String {
         })
         .collect();
     let mut line = format!("method {name}({})", params.join(", "));
-    if let Some(returns) = node.child_by_field_name("returns") {
+    if let Some(returns) = node.child_by_field_name(field::RETURNS) {
         line.push_str(" -> ");
         line.push_str(&collapse_whitespace(node_text(returns, source)));
     }
