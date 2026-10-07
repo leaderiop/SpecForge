@@ -736,9 +736,6 @@ catalog! {
     W145: Warning core,
         "Pass order constraints form a cycle",
         "An extension's compiler passes declare `after`/`before` constraints that form a cycle, so no order satisfies them all. The registry build reports it, naming the passes in the cycle, and runs that extension's passes in the order it declares them. Remove the constraint that closes the cycle.";
-    W146: Warning core,
-        "Unknown field type in the model",
-        "`specforge model` (and MCP `specforge.model`) met a field type in the Graph Protocol schema that the model does not know, and rendered the field as a string. A schema built from the loaded extensions only carries known types, so this comes from a schema built some other way. Fix the schema's `field_type`, or add the type to the model.";
     W147: Warning core,
         "Validation rule property ignored",
         "An extension-declared validation rule sets a property its check does not read — an `edge_type` on a field check, a `constraint` on an edge check, a `wasm_function` on a declarative check, a constraint kind, `pattern` or `values` its check does not read. The rule is registered without it, so it does not do what its author meant. Remove the property, or use the check that reads it (`conditional_field_required` reads `constraint.pattern` as the condition field's name, `field_value_constraint` with `matches` as a regex).";

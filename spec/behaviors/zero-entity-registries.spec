@@ -407,13 +407,7 @@ behavior registry_build_fields "Registry Build Registers Fields" {
   features   [dynamic_entity_registration]
   invariants [zero_domain_knowledge_core, registry_population_before_validation]
   category   command
-  types      [
-    ExtensionDeclaration,
-    FieldDescriptor,
-    FieldRegistryEntry,
-    ManifestFieldType,
-    RegistryBuild,
-  ]
+  types      [ExtensionDeclaration, FieldDescriptor, FieldRegistryEntry, FieldType, RegistryBuild]
   requires {
     declarations_in_load_order "The loaded declarations are given in load order, dependencies first"
   }

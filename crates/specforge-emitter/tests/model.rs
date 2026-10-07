@@ -1,6 +1,7 @@
 use insta::assert_snapshot;
 use specforge_emitter::model::*;
 use specforge_emitter::schema::*;
+use specforge_registry::FieldType;
 
 // =========================================================================
 // Tracer bullet: types + Display impls
@@ -12,18 +13,6 @@ fn cardinality_display_strings() {
     assert_eq!(Cardinality::OneToMany.to_string(), "1:N");
     assert_eq!(Cardinality::ManyToOne.to_string(), "N:1");
     assert_eq!(Cardinality::ManyToMany.to_string(), "N:M");
-}
-
-#[test]
-fn model_field_type_display_strings() {
-    assert_eq!(ModelFieldType::String.to_string(), "string");
-    assert_eq!(ModelFieldType::Integer.to_string(), "integer");
-    assert_eq!(ModelFieldType::Boolean.to_string(), "boolean");
-    assert_eq!(ModelFieldType::Enum.to_string(), "enum");
-    assert_eq!(ModelFieldType::StringList.to_string(), "string_list");
-    assert_eq!(ModelFieldType::Reference.to_string(), "reference");
-    assert_eq!(ModelFieldType::ReferenceList.to_string(), "reference_list");
-    assert_eq!(ModelFieldType::Block.to_string(), "block");
 }
 
 #[test]
@@ -86,7 +75,7 @@ fn single_entity_kind_maps_to_model_entity_with_id() {
     assert!(!entity.fields.is_empty());
     let id_field = &entity.fields[0];
     assert_eq!(id_field.name, "id");
-    assert_eq!(id_field.field_type, ModelFieldType::String);
+    assert_eq!(id_field.field_type, FieldType::String);
     assert!(id_field.required);
     assert!(id_field.is_primary_key);
 }
@@ -111,7 +100,7 @@ fn entity_fields_mapped_from_schema() {
             fields: vec![
                 SchemaField {
                     name: "status".to_string(),
-                    field_type: "enum".to_string(),
+                    field_type: FieldType::Enum,
                     required: true,
                     enum_values: Some(vec!["draft".to_string(), "approved".to_string()]),
                     edge: None,
@@ -122,7 +111,7 @@ fn entity_fields_mapped_from_schema() {
                 },
                 SchemaField {
                     name: "features".to_string(),
-                    field_type: "reference_list".to_string(),
+                    field_type: FieldType::ReferenceList,
                     required: false,
                     enum_values: None,
                     edge: Some("BehaviorImplementsFeature".to_string()),
@@ -149,7 +138,7 @@ fn entity_fields_mapped_from_schema() {
     // Status field
     let status = &entity.fields[1];
     assert_eq!(status.name, "status");
-    assert_eq!(status.field_type, ModelFieldType::Enum);
+    assert_eq!(status.field_type, FieldType::Enum);
     assert!(status.required);
     assert_eq!(
         status.enum_values,
@@ -161,7 +150,7 @@ fn entity_fields_mapped_from_schema() {
     // Features field (reference_list -> has references)
     let features = &entity.fields[2];
     assert_eq!(features.name, "features");
-    assert_eq!(features.field_type, ModelFieldType::ReferenceList);
+    assert_eq!(features.field_type, FieldType::ReferenceList);
     assert!(!features.required);
     assert_eq!(features.references, Some("feature".to_string()));
 }
@@ -186,7 +175,7 @@ fn edge_type_maps_to_relationship() {
                 dot_color: None,
                 fields: vec![SchemaField {
                     name: "features".to_string(),
-                    field_type: "reference_list".to_string(),
+                    field_type: FieldType::ReferenceList,
                     required: false,
                     enum_values: None,
                     edge: Some("BehaviorImplementsFeature".to_string()),
@@ -322,7 +311,7 @@ fn reference_field_infers_many_to_one() {
                 dot_color: None,
                 fields: vec![SchemaField {
                     name: "parent".to_string(),
-                    field_type: "reference".to_string(),
+                    field_type: FieldType::Reference,
                     required: false,
                     enum_values: None,
                     edge: Some("BelongsTo".to_string()),
@@ -443,7 +432,7 @@ fn reference_singular_field_infers_many_to_one_for_term_module() {
                 dot_color: None,
                 fields: vec![SchemaField {
                     name: "module".to_string(),
-                    field_type: "reference".to_string(),
+                    field_type: FieldType::Reference,
                     required: false,
                     enum_values: None,
                     edge: Some("TermBelongsToModule".to_string()),
@@ -514,7 +503,7 @@ fn multi_extension_schema() -> GraphProtocolSchema {
                 fields: vec![
                     SchemaField {
                         name: "contract".to_string(),
-                        field_type: "string".to_string(),
+                        field_type: FieldType::String,
                         required: true,
                         enum_values: None,
                         edge: None,
@@ -525,7 +514,7 @@ fn multi_extension_schema() -> GraphProtocolSchema {
                     },
                     SchemaField {
                         name: "features".to_string(),
-                        field_type: "reference_list".to_string(),
+                        field_type: FieldType::ReferenceList,
                         required: false,
                         enum_values: None,
                         edge: Some("BehaviorImplementsFeature".to_string()),
@@ -550,7 +539,7 @@ fn multi_extension_schema() -> GraphProtocolSchema {
                 dot_color: None,
                 fields: vec![SchemaField {
                     name: "priority".to_string(),
-                    field_type: "enum".to_string(),
+                    field_type: FieldType::Enum,
                     required: false,
                     enum_values: Some(vec!["low".into(), "medium".into(), "high".into()]),
                     edge: None,
@@ -968,53 +957,6 @@ fn render_dbml_empty() {
     assert_snapshot!(output);
 }
 
-// C13-09: an unknown field type string falls back to string AND warns.
-#[test]
-fn unknown_field_type_warns_and_falls_back_to_string() {
-    let schema = GraphProtocolSchema {
-        schema_version: SchemaVersion::new(1, 0, 0),
-        extensions: vec![SchemaExtensionInfo {
-            name: "@specforge/software".to_string(),
-            version: "1.0.0".to_string(),
-        }],
-        entity_kinds: vec![SchemaEntityKind {
-            name: "behavior".to_string(),
-            source_extension: "@specforge/software".to_string(),
-            testable: true,
-            dot_color: None,
-            fields: vec![SchemaField {
-                name: "sneaky".to_string(),
-                field_type: "stirng".to_string(),
-                required: false,
-                enum_values: None,
-                edge: None,
-                target_kind: None,
-                description: None,
-                default_value: None,
-                source_extension: "@specforge/software".to_string(),
-            }],
-        }],
-        edge_types: vec![],
-    };
-
-    let model = ModelIntermediate_from_schema(&schema);
-
-    let sneaky = model.entities[0]
-        .fields
-        .iter()
-        .find(|f| f.name == "sneaky")
-        .unwrap();
-    assert_eq!(sneaky.field_type, ModelFieldType::String, "safe fallback");
-    assert!(
-        model
-            .warnings
-            .iter()
-            .any(|w| w.contains("stirng") && w.contains("sneaky")),
-        "warning names the bad type and field: {:?}",
-        model.warnings
-    );
-}
-
 // C13-03: registry-declared dot_color wins over the extension palette.
 #[test]
 fn declared_dot_color_reaches_model_dot() {
@@ -1080,7 +1022,7 @@ fn dbml_maps_real_types_and_cardinality_operators() {
                 fields: vec![
                     SchemaField {
                         name: "count".to_string(),
-                        field_type: "integer".to_string(),
+                        field_type: FieldType::Integer,
                         required: false,
                         enum_values: None,
                         edge: None,
@@ -1091,7 +1033,7 @@ fn dbml_maps_real_types_and_cardinality_operators() {
                     },
                     SchemaField {
                         name: "flag".to_string(),
-                        field_type: "boolean".to_string(),
+                        field_type: FieldType::Bool,
                         required: false,
                         enum_values: None,
                         edge: None,
@@ -1102,7 +1044,7 @@ fn dbml_maps_real_types_and_cardinality_operators() {
                     },
                     SchemaField {
                         name: "tags".to_string(),
-                        field_type: "string_list".to_string(),
+                        field_type: FieldType::StringList,
                         required: false,
                         enum_values: None,
                         edge: None,
@@ -1113,7 +1055,7 @@ fn dbml_maps_real_types_and_cardinality_operators() {
                     },
                     SchemaField {
                         name: "body".to_string(),
-                        field_type: "block".to_string(),
+                        field_type: FieldType::Block,
                         required: false,
                         enum_values: None,
                         edge: None,
@@ -1124,7 +1066,7 @@ fn dbml_maps_real_types_and_cardinality_operators() {
                     },
                     SchemaField {
                         name: "features".to_string(),
-                        field_type: "reference_list".to_string(),
+                        field_type: FieldType::ReferenceList,
                         required: false,
                         enum_values: None,
                         edge: Some("BehaviorImplementsFeature".to_string()),

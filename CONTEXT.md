@@ -68,6 +68,13 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   (ADR 0019): scalars as written; lists of strings or references and mixed lists joined by `", "`;
   variant lists and type unions by `" | "`; expressions by `", "`; verify statements by `"; "`; a
   block's keys by `", "`. An empty value is `""`. Every written field has one, and none is null.
+- **Field type**: how the host reads a field's value, one of eight names an extension declares:
+  `string`, `integer`, `bool`, `enum` (its values are the declaration's `enum_values`), `string_list`,
+  `reference`, `reference_list`, `block` (`specforge_protocol_types::FieldType`). The registry build
+  reads a declared type once, into the field's registry entry (`FieldRegistryEntry::new`, the only way
+  to make one); every output names it by that one name — the schema and exports, the published JSON
+  Schema, the model, the hover and E061 (ADR 0034). The older spellings (`_type` suffixes, `boolean`)
+  are read, never written; any other name is W019.
 - **Standing**: how the obligation rule sees an entity (`specforge_project::snapshot::Standing`):
   - whether its kind is testable;
   - which `no_verify_statements` rule requires its kind to declare obligations (a rule without a

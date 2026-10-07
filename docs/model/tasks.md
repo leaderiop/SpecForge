@@ -8,15 +8,13 @@
 
 Create the `model` module with the core types:
 - `ModelIntermediate`, `ModelEntity`, `ModelField`, `ModelRelationship`, `ModelExtension`
-- `ModelFieldType`, `Cardinality`, `ModelFormat`, `GroupBy`, `FieldLevel`
+- `Cardinality`, `ModelFormat`, `GroupBy`, `FieldLevel` (a field's type is the protocol's `FieldType`, ADR 0034)
 - `ModelOptions` struct
 - Derive `Debug`, `Clone`, `Serialize`, `Deserialize` on all types
 - `impl Display for Cardinality` producing `"1:1"`, `"1:N"`, `"N:1"`, `"N:M"`
-- `impl Display for ModelFieldType` producing lowercase strings
 
 **Tests:**
 - Cardinality display strings
-- ModelFieldType display strings
 - ModelOptions default values
 
 ### Task 1.2: Build ModelIntermediate from GraphProtocolSchema
@@ -162,7 +160,7 @@ Extension color palette:
 Implement `pub fn render_json(model: &ModelIntermediate, options: &ModelOptions) -> String`:
 - Serialize ModelIntermediate to JSON via serde
 - Custom serialization for Cardinality (as "1:1", "1:N", etc.)
-- Custom serialization for ModelFieldType (as lowercase strings)
+- A field's type serializes as its `FieldType` name
 - Skip None values with `skip_serializing_if`
 
 **Tests:**

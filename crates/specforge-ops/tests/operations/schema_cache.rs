@@ -3,6 +3,7 @@ use specforge_emitter::{
     SchemaField, SchemaMigrationChange, SchemaVersion, compute_schema_version, diff_schemas,
 };
 use specforge_ops::schema_cache::SchemaCache;
+use specforge_protocol_types::FieldType;
 use specforge_test::prelude::*;
 
 fn sample_schema() -> GraphProtocolSchema {
@@ -20,7 +21,7 @@ fn sample_schema() -> GraphProtocolSchema {
                 dot_color: None,
                 fields: vec![SchemaField {
                     name: "contract".to_string(),
-                    field_type: "string".to_string(),
+                    field_type: FieldType::String,
                     required: false,
                     enum_values: None,
                     edge: None,

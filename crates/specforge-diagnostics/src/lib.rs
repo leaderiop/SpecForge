@@ -208,6 +208,7 @@ pub const RETIRED: &[(&str, Option<&str>)] = &[
     ("W117", None),
     ("W120", None),
     ("W122", None),
+    ("W146", None),
 ];
 
 /// Look up a retired code (case-insensitive): `Some(replacement)`.
@@ -389,7 +390,7 @@ mod tests {
         );
         assert_eq!(
             CATALOG.iter().filter(|e| e.owner == "core").count(),
-            117,
+            116,
             "every core entry has a constant; extensions' entries have none"
         );
     }

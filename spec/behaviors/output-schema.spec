@@ -54,11 +54,17 @@ behavior generate_schema_from_registries "Generate Schema From Registries" {
     regenerated on each compilation cycle — "once per compilation" means
     once per compile cycle, not once for the lifetime of the process. The
     cache MUST be invalidated at the start of each new compilation cycle.
+    Each SchemaField is its registered field's declaration: its type is
+    the field type the extension declares, named as the extension
+    protocol names it (string, integer, bool, enum, string_list,
+    reference, reference_list, block), an enum field carries its declared
+    values, and a declared default value is carried.
   """
   verify unit "schema includes all registered entity kinds"
   verify unit "schema includes all registered edge types"
   verify unit "schema fields match FieldRegistry entries"
   verify unit "a field's declared default value reaches the schema"
+  verify unit "a field's type is named in the schema as its extension declares it"
   verify unit "schema generated once per compilation and cached"
   verify unit "zero extensions produces valid empty schema"
   verify contract "Generate Schema From Registries: schema generation from registries holds — registries_populated_fired, all_kinds_in_schema, all_edges_in_schema, schema_cached, schema_generated_emitted"
@@ -463,6 +469,7 @@ behavior publish_schema_specification "Publish Schema Specification" {
   verify unit "published schema describes all edge types"
   verify unit "third-party validator can use published schema"
   verify unit "published schema validates known-good export"
+  verify unit "the published schema lists the field types the host reads"
   verify unit "published schema requires the Graph Protocol top-level properties"
   verify unit "published context schema admits declared headline and normative fields"
   verify unit "--kind with --publish, and --format without it, are refused"

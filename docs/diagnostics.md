@@ -2989,21 +2989,6 @@ Owner: core
 Level: warning
 ```
 
-## W146
-
-```
-W146: Unknown field type in the model
-
-`specforge model` (and MCP `specforge.model`) met a field type in the Graph
-Protocol schema that the model does not know, and rendered the field as a
-string. A schema built from the loaded extensions only carries known types, so
-this comes from a schema built some other way. Fix the schema's `field_type`, or
-add the type to the model.
-
-Owner: core
-Level: warning
-```
-
 ## W147
 
 ```
@@ -3122,3 +3107,4 @@ These codes are no longer emitted, and are never reused for another meaning.
 | W117 | (nothing) |
 | W120 | (nothing) |
 | W122 | (nothing) |
+| W146 | (nothing) |

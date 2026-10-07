@@ -1,8 +1,7 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 
 use super::{
-    FieldLevel, ModelEntity, ModelExtension, ModelFieldType, ModelIntermediate, ModelOptions,
-    ModelRelationship,
+    FieldLevel, ModelEntity, ModelExtension, ModelIntermediate, ModelOptions, ModelRelationship,
 };
 
 pub fn filter_entities(model: &ModelIntermediate, options: &ModelOptions) -> ModelIntermediate {
@@ -76,7 +75,6 @@ pub fn filter_entities(model: &ModelIntermediate, options: &ModelOptions) -> Mod
         entities,
         relationships,
         edge_type_owners,
-        warnings: model.warnings.clone(),
     }
 }
 
@@ -157,14 +155,7 @@ pub fn filter_fields(model: &ModelIntermediate, level: FieldLevel) -> ModelInter
                 FieldLevel::Keys => entity
                     .fields
                     .iter()
-                    .filter(|f| {
-                        f.is_primary_key
-                            || f.required
-                            || matches!(
-                                f.field_type,
-                                ModelFieldType::Reference | ModelFieldType::ReferenceList
-                            )
-                    })
+                    .filter(|f| f.is_primary_key || f.required || f.field_type.is_reference())
                     .cloned()
                     .collect(),
                 FieldLevel::All => entity.fields.clone(),
@@ -186,6 +177,5 @@ pub fn filter_fields(model: &ModelIntermediate, level: FieldLevel) -> ModelInter
         entities,
         relationships: model.relationships.clone(),
         edge_type_owners: model.edge_type_owners.clone(),
-        warnings: model.warnings.clone(),
     }
 }

@@ -132,7 +132,7 @@ fn sample_schema() -> GraphProtocolSchema {
                 dot_color: None,
                 fields: vec![SchemaField {
                     name: "contract".to_string(),
-                    field_type: "string".to_string(),
+                    field_type: FieldType::String,
                     required: false,
                     enum_values: None,
                     edge: None,
@@ -361,11 +361,14 @@ fn generate_schema_field_type_mapping() {
     assert_eq!(kind.fields.len(), 5);
 
     let find_field = |name: &str| kind.fields.iter().find(|f| f.name == name).unwrap();
-    assert_eq!(find_field("contract").field_type, "string");
-    assert_eq!(find_field("priority").field_type, "integer");
-    assert_eq!(find_field("active").field_type, "boolean");
-    assert_eq!(find_field("invariants").field_type, "reference_list");
-    assert_eq!(find_field("status").field_type, "enum");
+    assert_eq!(find_field("contract").field_type, FieldType::String);
+    assert_eq!(find_field("priority").field_type, FieldType::Integer);
+    assert_eq!(find_field("active").field_type, FieldType::Bool);
+    assert_eq!(
+        find_field("invariants").field_type,
+        FieldType::ReferenceList
+    );
+    assert_eq!(find_field("status").field_type, FieldType::Enum);
     assert_eq!(
         find_field("status").enum_values,
         Some(vec!["draft".to_string(), "done".to_string()])
@@ -554,7 +557,7 @@ fn diff_added_optional_field_non_breaking() {
     let mut new = sample_schema();
     new.entity_kinds[0].fields.push(SchemaField {
         name: "description".to_string(),
-        field_type: "string".to_string(),
+        field_type: FieldType::String,
         required: false,
         enum_values: None,
         edge: None,
@@ -579,7 +582,7 @@ fn diff_added_required_field_is_breaking() {
     let mut new = sample_schema();
     new.entity_kinds[0].fields.push(SchemaField {
         name: "severity".to_string(),
-        field_type: "string".to_string(),
+        field_type: FieldType::String,
         required: true,
         enum_values: None,
         edge: None,
@@ -900,7 +903,7 @@ fn publish_json_schema_edge_labels_in_enum() {
     let mut schema = sample_schema();
     schema.entity_kinds[0].fields.push(SchemaField {
         name: "features".to_string(),
-        field_type: "reference_list".to_string(),
+        field_type: FieldType::ReferenceList,
         required: false,
         enum_values: None,
         edge: Some("implements".to_string()),
@@ -1219,7 +1222,7 @@ fn diff_multiple_field_changes() {
     new.entity_kinds[0].fields.clear();
     new.entity_kinds[0].fields.push(SchemaField {
         name: "description".to_string(),
-        field_type: "string".to_string(),
+        field_type: FieldType::String,
         required: false,
         enum_values: None,
         edge: None,
@@ -1618,7 +1621,7 @@ fn detect_breaking_contract() {
     let mut new_nonbreaking = sample_schema();
     new_nonbreaking.entity_kinds[0].fields.push(SchemaField {
         name: "notes".to_string(),
-        field_type: "string".to_string(),
+        field_type: FieldType::String,
         required: false,
         enum_values: None,
         edge: None,
@@ -2025,9 +2028,11 @@ fn ticket_registries() -> specforge_registry::RegistryBuild {
     specforge_registry::build_registries(vec![declaration])
 }
 
-// Pin (plan 09 T0): flipped by T5 (the names).
-#[test]
-fn schema_names_a_declared_field_as_today() {
+#[specforge_test(
+    behavior = "generate_schema_from_registries",
+    verify = "a field's type is named in the schema as its extension declares it"
+)]
+fn a_field_type_is_named_in_the_schema_as_declared() {
     let build = ticket_registries();
     let schema = generate_schema(&build.kinds, &build.edges, &build.fields, &[]);
     let ticket = schema
@@ -2037,22 +2042,43 @@ fn schema_names_a_declared_field_as_today() {
         .unwrap();
     let field = |name: &str| ticket.fields.iter().find(|f| f.name == name).unwrap();
 
-    assert_eq!(field("urgent").field_type, "boolean");
+    assert_eq!(field("urgent").field_type, FieldType::Bool);
     assert_eq!(
         field("priority").enum_values,
         Some(vec!["low".to_string(), "high".to_string()])
     );
+    let written = serde_json::to_string(&schema).unwrap();
+    assert!(written.contains(r#""field_type":"bool""#), "{written}");
+    assert!(!written.contains("boolean"), "{written}");
+}
 
+#[specforge_test(
+    behavior = "publish_schema_specification",
+    verify = "the published schema lists the field types the host reads"
+)]
+fn the_published_schema_lists_the_field_types_the_host_reads() {
+    let build = ticket_registries();
+    let schema = generate_schema(&build.kinds, &build.edges, &build.fields, &[]);
     let published: serde_json::Value =
         serde_json::from_str(&publish_json_schema_format(&schema, EmitFormat::Json).unwrap())
             .unwrap();
     let compact = published.to_string();
-    assert!(
-        compact.contains(
-            r#""field_type":{"enum":["string","integer","boolean","enum","string_list","reference","reference_list","block"]}"#
-        ),
-        "{compact}"
+    let names: Vec<&str> = FieldType::ALL.iter().map(|t| t.as_str()).collect();
+    assert_eq!(
+        names,
+        [
+            "string",
+            "integer",
+            "bool",
+            "enum",
+            "string_list",
+            "reference",
+            "reference_list",
+            "block"
+        ]
     );
+    let expected = format!(r#""field_type":{{"enum":{}}}"#, serde_json::json!(names));
+    assert!(compact.contains(&expected), "{compact}");
 }
 
 #[specforge_test(
