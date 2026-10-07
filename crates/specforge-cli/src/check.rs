@@ -58,7 +58,7 @@ fn run_in(
         OutputFormat::Human => {
             let color = crate::color::stderr();
             if !shown.is_empty() {
-                let sources = compiled.resolved.source_texts();
+                let sources = compiled.source_texts();
                 let rendered = render_diagnostics_colored(&shown, &sources, color);
                 eprint!("{}", rendered);
             }

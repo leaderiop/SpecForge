@@ -1,6 +1,6 @@
 {
   "artifact": "specforge_ext_cargo_test.wasm",
-  "artifact_sha256": "edfb63fd1e60d636702dfd95d0436dcf78468413a0fda920ffd55292010778dd",
+  "artifact_sha256": "faa7a59a4a7f75d763b8408b3416e2c0bdb88dfa04772fba3cc03e804b8d4b40",
   "built_with": "rustc 1.98.1 (48a229cea 2026-09-01)",
   "inputs": {
     "Cargo.toml#workspace-inherited": "f445cf417114d7d1896a3fbd9d2348d9bedf3ac7c437748f18f7bfda2217efc2",
@@ -11,13 +11,14 @@
     "crates/specforge-extension-sdk/src/operations.rs": "43e4cbb15c54819419c05aee1f9e42d73e71a3ab949e00b616d2e96b64d9e8d8",
     "crates/specforge-extension-sdk/src/surface.rs": "8bd13566e2dc699c86ea97e292ee22e890e8a7eda35525c6e7b0b821e3d5951e",
     "crates/specforge-extension-sdk/src/testing.rs": "d16ef30bebb062d0776505bf4b368e217ad1242fb96ac45e8c0608417ccc5326",
-    "crates/specforge-protocol-types/Cargo.toml": "627567aea56e0aea4ff700b0f38548d6a1079db3ee333f6a7f4dcdbed449ba76",
+    "crates/specforge-protocol-types/Cargo.toml": "3b0e1ff6d22035b8b284dc9b2c8245e6305c6b2608c7fbd07a4a2bd09a8814a5",
     "crates/specforge-protocol-types/src/calls.rs": "32e49e04bfa52256f261063c20624232b4a3da64d927d24b9f265d1c8f306267",
     "crates/specforge-protocol-types/src/command_args.rs": "720eb3f296673ff5e937a8cd6731918d3e85304102f26dfe81579a6693dc87d0",
-    "crates/specforge-protocol-types/src/declaration.rs": "6a4061ad20fe44986ba3816e9a148c46e3dc4b6222cb5196b7434acbb09706e4",
-    "crates/specforge-protocol-types/src/lib.rs": "4ce1f84f1c0ed2f6df68bce43d3e1ab91072d789c2a7cbcd9c41c8bd9b07f55e",
+    "crates/specforge-protocol-types/src/declaration.rs": "6cd774f511d40646755c3e9abe78e621e7a895b86eba1b90277ae0e0a9a87f78",
+    "crates/specforge-protocol-types/src/lib.rs": "a4821380bf355af4d4b910124981cb8e10eab7db47c86943a64687e4c5d631dd",
+    "crates/specforge-protocol-types/src/package.rs": "f21617f58480b909609a79986ac2ed8a928e87b7e8e2914419d08143e9c2ea25",
     "crates/specforge-protocol-types/src/vocabulary.rs": "d263e43cc26e081293bff2de954a703a3005c7030236e4449228c3f70287c1e0",
-    "extensions/cargo-test/Cargo.lock": "385174ae983645db0e44d43b6b46bcd9322af16f6fff28d6477911ee2b4ce85a",
+    "extensions/cargo-test/Cargo.lock": "52abe11eb30de26dc0558fb3c6af05ff74e2ae34c387d5610715ba4035f38d1c",
     "extensions/cargo-test/Cargo.toml": "5ce2d984c18226d2d8cf446439b4e89ddafadf80d40bca2051a86a780d9de10e",
     "extensions/cargo-test/src/lib.rs": "c3c1337da7d909b2132b9fba064ea8b64c3586e6b6cc1a2f7dbb4f25ba294aa0"
   }

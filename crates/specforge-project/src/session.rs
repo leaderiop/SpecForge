@@ -5,18 +5,17 @@ use std::path::Path;
 use std::sync::{Arc, OnceLock};
 
 use specforge_common::{Diagnostic, ProjectConfig, codes, read_project_config};
-use specforge_graph::{Graph, build_graph_with_config};
-use specforge_parser::SpecFile;
-use specforge_resolver::resolve_parsed;
+use specforge_graph::{
+    FileChange, Graph, GraphBuild, GraphConfig, GraphDelta, compute_graph_delta,
+};
 use specforge_wasm::WasmRuntime;
 
 use crate::coverage::RecordedCoverage;
-use crate::delta::{GraphDelta, compute_graph_delta};
 use crate::freshness::DiskSnapshot;
-use crate::incremental::IncrementalBuild;
 use crate::inputs::{Changes, SessionInputs, UpdateKind, named_files};
 use crate::snapshot::EntitySnapshot;
-use crate::{Environment, sources_in_path_order};
+use crate::sources::{self, Read, SourceCache};
+use crate::{Environment, SourceBuild};
 
 /// The runtime a session runs its project's extensions in (every
 /// [`WasmRuntime`] is `Send + Sync`).
@@ -58,7 +57,8 @@ impl RuntimeSource {
 /// What changed in a session's sources.
 pub enum SourceChange<'a> {
     /// Files changed, created or deleted on disk, by path relative to the
-    /// spec root. A file that can no longer be read was deleted.
+    /// spec root. A file that is gone was deleted; one that is there and
+    /// cannot be read is E025 and leaves the graph.
     Disk(&'a [String]),
     /// An editor buffer is the truth for one file (`None`: it is gone).
     Buffer {
@@ -103,8 +103,8 @@ pub struct Update {
 /// A compiled project that accepts source changes and environment reloads.
 ///
 /// It is seeded by one cold build, then kept current incrementally: only
-/// the changed files are re-parsed and the graph is patched with them
-/// ([`crate::incremental`]), the imports of every cached parse are
+/// the changed files are re-read and re-parsed and the graph build applies
+/// them whole ([`specforge_graph::GraphBuild`]), the imports of every parse are
 /// resolved again (E025, I004, W113, W027), and the graph checks re-run on
 /// the patched graph. After any sequence of updates,
 /// [`ProjectSession::diagnostics`] is the set
@@ -117,7 +117,11 @@ pub struct ProjectSession {
     /// Where each environment load gets its runtime: a built one is fresh
     /// for every load (the extensions' `.wasm` files may have changed).
     source: RuntimeSource,
-    build: IncrementalBuild,
+    /// The text of every source as read, the retained trees and the
+    /// sources that could not be read.
+    sources: SourceCache,
+    /// The graph of the sources and what building it reported (ADR 0032).
+    graph: GraphBuild,
     import_diagnostics: Vec<Diagnostic>,
     check_diagnostics: Vec<Diagnostic>,
     verify_incremental: bool,
@@ -163,36 +167,25 @@ impl OpeningProject {
     /// [`ProjectSession::open`] returns.
     pub fn finish(self) -> ProjectSession {
         let mut snapshot = self.snapshot;
-        snapshot.stamp_all_sources(&self.inputs, &self.inputs.discover());
-        let resolved = self.env.resolve();
-        let (paths, specs): (Vec<String>, Vec<SpecFile>) =
-            sources_in_path_order(&resolved).into_iter().unzip();
-        let graph_config = self.env.graph_config();
-        // The one cold build seeds the incremental one.
-        let (graph, graph_diagnostics) = build_graph_with_config(&specs, &graph_config);
-        let files: Vec<(String, SpecFile)> = paths.into_iter().zip(specs).collect();
-        // The text each file was parsed from (the resolver kept it).
-        let sources: HashMap<String, Arc<str>> = resolved
-            .files
-            .iter()
-            .map(|file| (file.path.clone(), Arc::from(file.source.as_str())))
-            .collect();
-        let build = IncrementalBuild::from_cold_build(
-            files,
+        let discovered = self.inputs.discover();
+        snapshot.stamp_all_sources(&self.inputs, &discovered);
+        // What was stamped is exactly what is read.
+        let SourceBuild {
             sources,
-            graph,
-            &graph_diagnostics,
-            graph_config,
-        );
+            mut graph,
+            imports,
+        } = self.env.build_sources(&discovered);
+        graph.set_verify(cfg!(debug_assertions));
 
         let mut session = ProjectSession {
             env: self.env,
             runtime: self.runtime,
             source: self.source,
-            build,
-            import_diagnostics: resolved.diagnostics,
+            sources,
+            graph,
+            import_diagnostics: imports,
             check_diagnostics: Vec::new(),
-            verify_incremental: false,
+            verify_incremental: cfg!(debug_assertions),
             inputs: self.inputs,
             snapshot,
             recorded: OnceLock::new(),
@@ -210,10 +203,15 @@ impl ProjectSession {
             env: Arc::new(Environment::empty()),
             runtime: None,
             source: RuntimeSource::Fixed(None),
-            build: IncrementalBuild::empty(),
+            sources: SourceCache::empty(),
+            graph: {
+                let mut graph = GraphBuild::new(GraphConfig::default());
+                graph.set_verify(cfg!(debug_assertions));
+                graph
+            },
             import_diagnostics: Vec::new(),
             check_diagnostics: Vec::new(),
-            verify_incremental: false,
+            verify_incremental: cfg!(debug_assertions),
             inputs: SessionInputs::detached(),
             snapshot: DiskSnapshot::default(),
             recorded: OnceLock::new(),
@@ -269,11 +267,12 @@ impl ProjectSession {
         }
     }
 
-    /// Compare every update's graph with a cold rebuild (costly: a debug
-    /// build of watch does it always).
+    /// Compare every update's graph with a cold rebuild (costly). A debug
+    /// build verifies every session by default; this turns it on in release
+    /// (watch's `--verify-incremental`) or off.
     pub fn set_verify_incremental(&mut self, enabled: bool) {
         self.verify_incremental = enabled;
-        self.build.set_verify(enabled);
+        self.graph.set_verify(enabled);
     }
 
     /// Apply a change to the project's sources, then run every check.
@@ -285,7 +284,7 @@ impl ProjectSession {
 
     /// [`Self::update`], running the checks `mode` asks for.
     pub fn update_with(&mut self, change: SourceChange<'_>, mode: CheckMode<'_>) -> Update {
-        let changes: Vec<(String, Option<String>)> = match change {
+        let changes: Vec<FileChange> = match change {
             SourceChange::Disk(paths) => {
                 let keys: Vec<String> = paths
                     .iter()
@@ -294,25 +293,26 @@ impl ProjectSession {
                     .collect();
                 // Stamped before they are read again (crate::freshness).
                 self.snapshot.stamp_sources(&self.inputs, &keys);
-                keys.into_iter()
+                keys.iter()
                     .map(|path| {
-                        let text = std::fs::read_to_string(self.env.spec_root.join(&path)).ok();
-                        (path, text)
+                        self.sources
+                            .change(path, sources::read(&self.env.spec_root, path))
                     })
                     .collect()
             }
             SourceChange::Buffer { path, .. } if self.excludes(path) => Vec::new(),
-            SourceChange::Buffer { path, text } => {
-                vec![(path.to_string(), text.map(str::to_string))]
-            }
+            SourceChange::Buffer { path, text } => vec![self.sources.change(
+                path,
+                text.map_or(Read::Gone, |text| Read::Text(text.to_string())),
+            )],
         };
-        let result = self.build.rebuild(changes);
+        let applied = self.graph.apply(changes);
         self.recorded = OnceLock::new();
         self.import_diagnostics = self.resolve_imports();
         let (check_diagnostics, inputs_changed) = match mode {
             CheckMode::SyntaxOnlyIfParseErrorsIn(path)
                 if self
-                    .build
+                    .graph
                     .file_diagnostics(path)
                     .iter()
                     .any(|d| d.is(codes::E001)) =>
@@ -325,11 +325,11 @@ impl ProjectSession {
         Update {
             kind: UpdateKind::Sources,
             inputs_changed,
-            delta: result.delta,
-            rebuilt_files: result.rebuilt_files,
-            changed_diagnostic_files: result.changed_diagnostic_files,
+            delta: applied.delta,
+            rebuilt_files: applied.files,
+            changed_diagnostic_files: applied.changed_diagnostic_files,
             diagnostics: self.diagnostics(),
-            verification: result.verification,
+            verification: applied.verification,
         }
     }
 
@@ -363,12 +363,11 @@ impl ProjectSession {
             inputs_changed: previous.inputs != self.inputs,
             delta: compute_graph_delta(previous.graph(), self.graph()),
             rebuilt_files: self
-                .build
-                .parsed_files()
-                .into_iter()
+                .graph
+                .files()
                 .map(|(path, _)| path.to_string())
                 .collect(),
-            changed_diagnostic_files: self.build.diagnostic_files(),
+            changed_diagnostic_files: self.graph.diagnostic_files(),
             diagnostics: self.diagnostics(),
             verification: None,
         }
@@ -382,14 +381,14 @@ impl ProjectSession {
             .diagnostics()
             .chain(&self.import_diagnostics)
             .cloned()
-            .chain(self.build.diagnostics())
+            .chain(self.graph.diagnostics().iter().cloned())
             .chain(self.check_diagnostics.iter().cloned())
             .chain(self.env.surface_diagnostics().iter().cloned())
             .collect()
     }
 
     pub fn graph(&self) -> &Graph {
-        self.build.graph()
+        self.graph.graph()
     }
 
     /// The text the session's current build parsed `path` (relative to the
@@ -398,13 +397,13 @@ impl ProjectSession {
     /// a diagnostic is a position in this text, not in the file on disk or
     /// the buffer now. `None` for a file the session does not hold.
     pub fn source_text(&self, path: &str) -> Option<Arc<str>> {
-        self.build.source_text(path).cloned()
+        self.sources.text(path).cloned()
     }
 
     /// [`Self::source_text`] of every file, shared rather than copied: what
     /// a reader keeps while the session is out for an update.
     pub fn source_texts(&self) -> HashMap<String, Arc<str>> {
-        self.build.source_texts()
+        self.sources.texts()
     }
 
     /// What the session depends on now (ADR 0030): what a changed path is,
@@ -471,7 +470,7 @@ impl ProjectSession {
     /// against it, memoized until the next update or reload.
     pub fn recorded(&self) -> &RecordedCoverage {
         self.recorded
-            .get_or_init(|| RecordedCoverage::over(self.build.graph(), &self.env))
+            .get_or_init(|| RecordedCoverage::over(self.graph.graph(), &self.env))
     }
 
     /// The current graph's entity snapshot (ADR 0019): the one its last
@@ -495,22 +494,22 @@ impl ProjectSession {
     /// The graph build's diagnostics: duplicates, unresolved references,
     /// reference cycles, parse errors (no import's, no check's).
     pub fn graph_diagnostics(&self) -> Vec<Diagnostic> {
-        self.build.diagnostics()
+        self.graph.diagnostics().to_vec()
     }
 
     /// The graph build's diagnostics in one file (relative to the spec root).
     pub fn file_diagnostics(&self, path: &str) -> &[Diagnostic] {
-        self.build.file_diagnostics(path)
+        self.graph.file_diagnostics(path)
     }
 
     /// Every file with graph-build diagnostics (sorted).
     pub fn diagnostic_files(&self) -> Vec<String> {
-        self.build.diagnostic_files()
+        self.graph.diagnostic_files()
     }
 
     /// How many `.spec` files the project has.
     pub fn file_count(&self) -> usize {
-        self.build.parsed_files().len()
+        self.graph.files().len()
     }
 
     /// Whether a changed file is outside the project. A session with no
@@ -540,18 +539,12 @@ impl ProjectSession {
         if self.inputs.root().is_none() {
             return Vec::new();
         }
-        resolve_parsed(
-            &self.env.spec_root,
-            &self.build.parsed_files(),
-            &self.env.resolve_config(),
-            &|path: &Path| path.is_file(),
-        )
-        .diagnostics
+        self.env.import_diagnostics(&self.sources, &self.graph)
     }
 
     /// A snapshot of the current graph, taken now (ADR 0019).
     fn snapshot_now(&self) -> Arc<EntitySnapshot> {
-        Arc::new(self.env.entity_snapshot(self.build.graph()))
+        Arc::new(self.env.entity_snapshot(self.graph.graph()))
     }
 
     /// Run every check on the current graph over `entities`, its snapshot:
@@ -559,7 +552,7 @@ impl ProjectSession {
     fn check_over(&mut self, entities: Arc<EntitySnapshot>) -> Vec<Diagnostic> {
         let diagnostics =
             self.env
-                .run_checks(self.build.graph(), &entities, self.runtime.as_deref());
+                .run_checks(self.graph.graph(), &entities, self.runtime.as_deref());
         self.recorded = OnceLock::from(RecordedCoverage::of(entities));
         diagnostics
     }
@@ -573,7 +566,7 @@ impl ProjectSession {
         if self.inputs.root().is_some() {
             let next =
                 self.inputs
-                    .with_named(named_files(&self.env, self.build.graph(), &entities));
+                    .with_named(named_files(&self.env, self.graph.graph(), &entities));
             changed = next != self.inputs;
             self.inputs = next;
             self.snapshot.stamp_checks(&self.inputs);

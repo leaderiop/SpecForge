@@ -188,10 +188,12 @@ behavior rebuild_affected_subgraph "Rebuild Affected Subgraph" {
     declaration in path order, as in a cold build) and re-link references
     over the whole graph. The result MUST be identical to a full cold
     rebuild — identical means same node set, same edge set, same field
-    values, same diagnostic set (order-independent comparison). With
-    --verify-incremental, and always in a debug build, each rebuild is
-    compared with a full cold rebuild of the same sources, and its delta
-    is checked by validate_delta_correctness. The
+    values, same diagnostic set. With --verify-incremental, and always in
+    a debug build (watch, the LSP and MCP alike), each rebuild is compared
+    with a full cold build of the same parses: its nodes, edges and
+    graph-build diagnostics, in order. Its delta is checked by
+    validate_delta_correctness. The cold build and the rebuild are one
+    graph build (ADR 0032): a cold build applies every file at once. The
     rebuild MUST operate on generic entity nodes — it MUST NOT contain
     logic specific to any entity kind. All kind-specific validation is
     deferred to the extension validation phase after the subgraph is
@@ -201,6 +203,7 @@ behavior rebuild_affected_subgraph "Rebuild Affected Subgraph" {
   verify unit "new nodes are added"
   verify property "incremental rebuild equals cold rebuild"
   verify unit "debug --verify-incremental performs cold rebuild comparison"
+  verify unit "a rebuild whose diagnostics differ from a cold build is reported"
   verify contract "Rebuild Affected Subgraph: affected subgraph rebuild holds — subgraph_invalidated, import_dag_updated, graph_reflects_reparse, stale_removed, new_added, rebuild_event_fired, unaffected_subgraph_intact"
 }
 
@@ -310,7 +313,8 @@ behavior resolve_imports_on_update "Resolve Imports on Every Update" {
     After every update, the system MUST resolve the use imports of every
     file again, over the cached parses (no file is re-read or re-parsed
     for it), so the import diagnostics (E025, I004, W113, W027) are the
-    ones a full rebuild reports. The import graph is rebuilt rather than
+    ones a full rebuild reports. A source that could not be read stays
+    E025 until it is readable or gone. The import graph is rebuilt rather than
     patched: an added or removed import, an import target created or
     deleted, and a cycle closed or broken anywhere are all seen on the
     update that causes them. References resolve across the project
@@ -320,6 +324,7 @@ behavior resolve_imports_on_update "Resolve Imports on Every Update" {
   verify unit "a removed use import no longer reports"
   verify unit "cycle detection re-runs after an update"
   verify unit "import diagnostics after an update match a full rebuild"
+  verify unit "an unreadable source stays E025 after an update of another file"
   verify contract "Resolve Imports on Every Update: import resolution after each update holds — subgraph_invalidated_fired, import_dag_updated_emitted, cycle_detection_rerun"
 }
 
@@ -466,8 +471,11 @@ behavior validate_delta_correctness "Validate Delta Correctness" {
     or edges: a node ID or edge mismatch between the applied delta and
     the new graph, or a modified node missing from either graph.
 
-    Debug mode is activated by the compiler's debug build configuration or the
-    --verify-incremental CLI flag. The CLI flag enables delta validation
+    Debug mode is activated by the compiler's debug build configuration,
+    in every project session (watch, the LSP and MCP), or by watch's
+    --verify-incremental CLI flag. A divergence is reported with the
+    rebuild: watch prints it, the LSP logs it, and a debug build of the
+    LSP or MCP stops on it. The CLI flag enables delta validation
     in release builds for CI use. This check MUST be disabled in release
     builds (without --verify-incremental) to avoid performance overhead.
   """
@@ -475,6 +483,7 @@ behavior validate_delta_correctness "Validate Delta Correctness" {
   verify unit "a discrepancy is reported with a message naming what differs"
   verify unit "check disabled in release builds"
   verify integration "a debug build checks each rebuild without the flag"
+  verify unit "the LSP and MCP check each rebuild in a debug build"
   verify unit "a rebuild that passes the check is reported as passed"
   verify contract "Validate Delta Correctness: delta correctness validation holds — graph_delta_available, debug_mode_active, delta_verified, validation_event_emitted"
 }

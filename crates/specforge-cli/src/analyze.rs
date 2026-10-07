@@ -79,7 +79,7 @@ pub fn run(
         // noisy first run stays readable; JSON output is never truncated.
         let color = crate::color::stdout();
         // The text each file was compiled from, to quote in snippets.
-        let sources = project.resolved.source_texts();
+        let sources = project.source_texts();
         for report in reports {
             println!("analyze/{} — {}", report.name, report.description);
             if report.findings.is_empty() {
