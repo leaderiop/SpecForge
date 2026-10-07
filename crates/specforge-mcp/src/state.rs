@@ -231,14 +231,10 @@ impl McpState {
         let update = if reloads {
             self.session.reload_environment()
         } else {
-            let mut next = match &self.extension_runtime {
+            let next = match &self.extension_runtime {
                 Some(runtime) => ProjectSession::open_with_runtime(root, Some(Arc::clone(runtime))),
                 None => ProjectSession::open(root),
             };
-            // Every update of a served project is checked against a cold
-            // rebuild in a debug build (ADR 0006): MCP's tests check every
-            // one.
-            next.set_verify_incremental(cfg!(debug_assertions));
             let previous = std::mem::replace(&mut self.session, next);
             self.session.replaced(&previous)
         };

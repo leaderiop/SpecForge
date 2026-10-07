@@ -512,3 +512,30 @@ fn the_watchers_cover_what_the_session_classifies() {
     }
     assert!(!globs.iter().any(|g| g.contains("/../")), "{globs:?}");
 }
+
+// -- validate_delta_correctness -----------------------------------------------
+
+/// The session the LSP holds verifies each rebuild against a cold build in a
+/// debug build, with no flag set (ADR 0032).
+#[cfg(debug_assertions)]
+#[spec(
+    behavior = "validate_delta_correctness",
+    verify = "the LSP and MCP check each rebuild in a debug build"
+)]
+fn a_debug_build_of_the_lsp_verifies_each_rebuild() {
+    let mut state = specforge_lsp::LspState::new();
+    let limit = "invariant session_limit \"Limit\" {\n}\n";
+    for (path, text) in [
+        ("/p/login.spec", LOGIN),
+        ("/p/limit.spec", limit),
+        ("/p/limit.spec", "invariant session_cap \"Cap\" {\n}\n"),
+    ] {
+        let update = state.session_mut().expect("no update is running").update(
+            specforge_project::SourceChange::Buffer {
+                path,
+                text: Some(text),
+            },
+        );
+        assert_eq!(update.verification, Some(Ok(())), "after {path}");
+    }
+}

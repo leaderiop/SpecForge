@@ -50,12 +50,7 @@ fn source_span_zero_saturates() {
 
 /// Go to the target of `use "<import>"` in `main.spec` under `spec_root`.
 fn goto_import(spec_root: &std::path::Path, import: &str) -> Option<specforge_common::SourceSpan> {
-    specforge_lsp::goto_import_definition(
-        import,
-        "main.spec",
-        spec_root,
-        &specforge_resolver::ResolveConfig::default(),
-    )
+    specforge_lsp::goto_import_definition(import, "main.spec", spec_root)
 }
 
 /// The resolver's cascade, not a hand-built `{root}/{import}.spec`: a
@@ -70,9 +65,8 @@ fn goto_import_resolves_relative_and_index_targets() {
     fs::create_dir_all(tmp.path().join("sub")).unwrap();
     fs::write(tmp.path().join("models/index.spec"), "term m \"M\" {}\n").unwrap();
     fs::write(tmp.path().join("types.spec"), "term t \"T\" {}\n").unwrap();
-    let config = specforge_resolver::ResolveConfig::default();
     let goto = |import: &str| {
-        specforge_lsp::goto_import_definition(import, "sub/main.spec", tmp.path(), &config)
+        specforge_lsp::goto_import_definition(import, "sub/main.spec", tmp.path())
             .map(|s| s.file.to_string())
     };
     assert_eq!(goto("../types").as_deref(), Some("types.spec"));

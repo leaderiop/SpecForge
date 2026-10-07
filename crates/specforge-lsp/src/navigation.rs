@@ -7,7 +7,7 @@
 use specforge_common::{SourceSpan, Sym};
 use specforge_ops::navigate::{Fix, FixKind, Navigator, OutlineEntry};
 use specforge_registry::KindRegistry;
-use specforge_resolver::{ResolveConfig, resolve_import};
+use specforge_resolver::resolve_import;
 use std::collections::HashMap;
 use std::path::Path;
 use tower_lsp::lsp_types::{
@@ -229,15 +229,14 @@ pub(crate) fn outline_to_document_symbols(
 
 /// The file a `use` import path in `importing_file` (relative to
 /// `spec_root`) names, resolved as the compile resolves it (relative,
-/// `@alias`, bare, `index.spec`, never above the spec root): its first
+/// bare, `index.spec`, never above the spec root): its first
 /// line, keyed relative to the spec root. `None` when it names no file.
 pub fn goto_import_definition(
     import_path: &str,
     importing_file: &str,
     spec_root: &Path,
-    config: &ResolveConfig,
 ) -> Option<SourceSpan> {
-    let target = resolve_import(spec_root, importing_file, import_path, config)?;
+    let target = resolve_import(spec_root, importing_file, import_path)?;
     Some(SourceSpan {
         file: Sym::new(&target),
         start_line: 0,

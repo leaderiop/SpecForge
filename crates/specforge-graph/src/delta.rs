@@ -3,10 +3,10 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use crate::{Graph, Node};
 use serde::Serialize;
 use serde_json::Value;
 use specforge_common::Sym;
-use specforge_graph::{Graph, Node};
 
 /// What changed between two graphs. Node lists are sorted by ID, edge
 /// lists by (source, target, label). Source positions are ignored: an

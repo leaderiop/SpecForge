@@ -2794,7 +2794,6 @@ dependencies = [
  "specforge-registry",
  "specforge-registry-client",
  "specforge-registry-server",
- "specforge-resolver",
  "specforge-test",
  "specforge-test-macros",
  "specforge-wasm",
@@ -2933,7 +2932,6 @@ dependencies = [
  "serde_json",
  "specforge-common",
  "specforge-parser",
- "specforge-resolver",
  "specforge-test",
  "specforge-test-macros",
  "tempfile",
@@ -3194,9 +3192,7 @@ dependencies = [
  "specforge-parser",
  "specforge-test",
  "specforge-test-macros",
- "specforge-validator",
  "tempfile",
- "walkdir",
 ]
 
 [[package]]

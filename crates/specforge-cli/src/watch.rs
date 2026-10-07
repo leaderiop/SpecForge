@@ -14,11 +14,12 @@ use specforge_project::{Changes, InputRole, ProjectSession, Update, UpdateKind, 
 use specforge_watch::SpecWatcher;
 
 pub fn run(path: &Path, json: bool, verify_incremental: bool) -> i32 {
-    // A debug build of the compiler checks every rebuild; a release build
+    // A debug build checks every rebuild (ProjectSession); a release build
     // only when asked (the check costs a cold rebuild per change).
-    let verify_incremental = verify_incremental || cfg!(debug_assertions);
     let mut session = ProjectSession::open(path);
-    session.set_verify_incremental(verify_incremental);
+    if verify_incremental {
+        session.set_verify_incremental(true);
+    }
 
     // Start watching before announcing readiness: a client that writes on
     // seeing "ready" must never race a watcher that does not exist yet.
