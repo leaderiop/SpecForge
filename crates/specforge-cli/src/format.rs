@@ -2,6 +2,7 @@ use crate::outcome::{Exit, Refusal};
 use specforge_common::Diagnostic;
 use specforge_formatter::unified_diff;
 use specforge_ops::format::{self, Mode, Request};
+use specforge_ops::{OpError, OpErrorKind};
 use std::io::{self, Read as IoRead, Write as IoWrite};
 use std::path::{Path, PathBuf};
 
@@ -85,8 +86,11 @@ fn print_diagnostic(d: &Diagnostic) {
 fn run_stdin(root: &Path, dir: &Path) -> i32 {
     let mut input = String::new();
     if let Err(e) = io::stdin().read_to_string(&mut input) {
-        eprintln!("error: failed to read stdin: {e}");
-        return 1;
+        return Refusal::of(crate::OutputFormat::Human).report(&OpError::new(
+            OpErrorKind::of_io(&e),
+            "file_unreadable",
+            format!("failed to read stdin: {e}"),
+        ));
     }
 
     let place = format::Place::InProject { root, dir };

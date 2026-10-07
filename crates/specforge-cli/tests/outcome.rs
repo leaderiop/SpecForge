@@ -1,10 +1,11 @@
 //! How a core command ends (plan 02, ADR 0029): what it prints when its
 //! operation refuses, and the exit code of its verdict.
 //!
-//! `refusals_today` and `verdicts_today` were taken before the renderer:
-//! the table records every refusal shape as the binary wrote it, bugs
-//! included. The ticket that changes a row re-blesses the snapshot, so its
-//! diff shows each user-visible change.
+//! `refusals_after` is the table of every refusal as the binary writes it
+//! (it was taken before the renderer as `refusals_today`, bugs included);
+//! the ticket that changes a row re-blesses the snapshot, so its diff shows
+//! each user-visible change. `verdicts` pins the exit codes of the
+//! commands that judge.
 
 use std::io::Write;
 use std::path::Path;
@@ -77,8 +78,11 @@ fn row(label: &str, args: &[&str], run: &Run) -> String {
     )
 }
 
-#[test]
-fn refusals_today() {
+#[specforge_test_macros::test(
+    behavior = "report_command_outcome",
+    verify = "Report a Command's Outcome: command outcome holds — operation_ran, one_refusal_shape, one_exit_table, surfaces_agree"
+)]
+fn refusals_after() {
     let mut table = String::new();
     let mut add = |label: &str, dir: &Path, args: &[&str]| {
         let run = run_in(dir, args, None);
@@ -122,7 +126,7 @@ fn refusals_today() {
         &["add", "@specforge/nope", "--format", "json"],
     );
 
-    insta::assert_snapshot!("refusals_today", table);
+    insta::assert_snapshot!("refusals_after", table);
 }
 
 const MESSY: &str =
@@ -131,7 +135,7 @@ const MESSY: &str =
 const REGION: &str = "behavior broken \"Broken\" {\n  @@@ ]]\n}\n";
 
 #[test]
-fn verdicts_today() {
+fn verdicts() {
     let exit = |dir: &Path, args: &[&str]| run_in(dir, args, None).code;
 
     let messy = rv1(None);
@@ -181,4 +185,91 @@ fn verdicts_today() {
     ] {
         assert_eq!(got, expected, "{what}");
     }
+}
+
+/// The refusals that print the error document under JSON output, with the
+/// code each carries: stdout holds one document, stderr nothing.
+#[specforge_test_macros::test(
+    behavior = "report_command_outcome",
+    verify = "stats, trace, analyze, migrate and init refuse with the error document under --format json"
+)]
+fn json_refusals_are_the_error_document() {
+    let broken = rv1(Some("{"));
+    let project = rv1(None);
+    let empty = TempDir::new().unwrap();
+    let rows: [(&Path, &[&str], &str); 5] = [
+        (broken.path(), &["stats", "--format", "json"], "E045"),
+        (
+            project.path(),
+            &["trace", "nope", "--format", "json"],
+            "E003",
+        ),
+        (broken.path(), &["analyze", "--json"], "E045"),
+        (
+            project.path(),
+            &["migrate", "--target-version", "9.9", "--format", "json"],
+            "E019",
+        ),
+        (
+            empty.path(),
+            &["init", "--name", "a", "--format", "json"],
+            "invalid_name",
+        ),
+    ];
+    for (dir, args, code) in rows {
+        let run = run_in(dir, args, None);
+        let document: serde_json::Value = serde_json::from_str(&run.stdout)
+            .unwrap_or_else(|e| panic!("{args:?}: stdout is no document ({e}): {}", run.stdout));
+        assert_eq!(document["code"], code, "{args:?}: {document}");
+        assert!(document["error"].is_string(), "{args:?}: {document}");
+        assert_eq!(run.stderr, "", "{args:?}: nothing on stderr");
+    }
+}
+
+/// `stats` and `analyze` measure: a refusal means they could not judge the
+/// project, exit 2; every other command's refusal is exit 1.
+#[specforge_test_macros::test(
+    behavior = "report_command_outcome",
+    verify = "a passed run exits 0, a failed verdict or a refusal 1, a refusal of a measuring command 2"
+)]
+fn measuring_commands_exit_two_on_refusal() {
+    let broken = rv1(Some("{"));
+    let project = rv1(None);
+
+    for args in [&["stats"][..], &["analyze"], &["analyze", "nope"]] {
+        let dir = if args == ["analyze", "nope"] {
+            &project
+        } else {
+            &broken
+        };
+        assert_eq!(run_in(dir.path(), args, None).code, 2, "{args:?}");
+    }
+    for args in [&["trace", "nope"][..], &["schema", "--kind", "behavor"]] {
+        assert_eq!(run_in(project.path(), args, None).code, 1, "{args:?}");
+    }
+    assert_eq!(run_in(project.path(), &["stats"], None).code, 0);
+}
+
+#[specforge_test_macros::test(
+    behavior = "report_command_outcome",
+    verify = "a command run outside any project refuses with no_project"
+)]
+fn collect_outside_a_project_is_no_project() {
+    let loose = TempDir::new().unwrap();
+
+    let run = run_in(
+        loose.path(),
+        &["collect", "--path", ".", "--format", "json"],
+        None,
+    );
+
+    assert_eq!(run.code, 1);
+    let document: serde_json::Value = serde_json::from_str(&run.stdout).unwrap();
+    assert_eq!(document["code"], "no_project", "{document}");
+    let human = run_in(loose.path(), &["collect", "--path", "."], None);
+    assert!(
+        human.stderr.starts_with("error[no_project]:"),
+        "{}",
+        human.stderr
+    );
 }

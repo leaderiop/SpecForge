@@ -7,12 +7,13 @@
 use std::path::Path;
 
 use specforge_common::{codes, truncate_diagnostics};
-use specforge_ops::analyze::{
-    AnalyzeError, AnalyzeOptions, Gate, ProveOptions, ReportSource, analyze,
-};
+use specforge_ops::OpError;
+use specforge_ops::analyze::{AnalyzeOptions, Gate, ProveOptions, ReportSource, analyze};
 use specforge_ops::view::ProjectView;
 use specforge_validator::{diagnostic_summary_detailed, render_diagnostics_colored};
 
+use crate::OutputFormat;
+use crate::outcome::Refusal;
 use crate::pipeline;
 
 pub fn run(
@@ -40,17 +41,16 @@ pub fn run(
         min,
         prove: prove.then(ProveOptions::default),
     };
+    // A refusal is the error document under `--json`, the lines on stderr
+    // otherwise; analyze measures, so it cannot judge the project either way.
+    let format = if json {
+        OutputFormat::Json
+    } else {
+        OutputFormat::Human
+    };
     let outcome = match analyze(&ProjectView::of(&project), Some(&runtime), &options) {
         Ok(outcome) => outcome,
-        // E045, with its code and what to do about it.
-        Err(AnalyzeError::UnusableReport(e)) => {
-            eprintln!("{}", crate::export::render_op_error(&e));
-            return 2;
-        }
-        Err(e) => {
-            eprintln!("error: {e}");
-            return 2;
-        }
+        Err(error) => return Refusal::measuring(format).report(&OpError::from(error)),
     };
     // D3: orphaned test records, on stderr before the reports. Exact
     // matching is preserved; the warning only surfaces what was silently

@@ -1,5 +1,5 @@
 use crate::OutputFormat;
-use crate::outcome::Exit;
+use crate::outcome::{Exit, Refusal};
 use specforge_migrate::{MigrationStatus, MigrationSummary, RollbackSummary};
 use specforge_ops::migrate::{self, Request};
 use std::path::Path;
@@ -25,13 +25,7 @@ pub fn run(
 
     let target = match migrate::parse_target(target_version) {
         Ok(target) => target,
-        Err(error) => {
-            eprintln!("{}: {}", error.code, error.message);
-            if let Some(suggestion) = &error.suggestion {
-                eprintln!("  help: {suggestion}");
-            }
-            return 1;
-        }
+        Err(error) => return Refusal::of(format).report(&error),
     };
 
     // The shared migration: migrate, run the extensions' hooks, then check

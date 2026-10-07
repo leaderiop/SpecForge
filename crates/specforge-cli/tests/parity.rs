@@ -1113,11 +1113,18 @@ fn analyze_bad_pass_uses_each_surfaces_channel() {
     let dir = tempfile::tempdir().unwrap();
     analyze_project(dir.path());
 
-    // CLI: clap's closed enum refuses it, exit 2, on stderr.
+    // CLI: the operation refuses it, exit 2; under --json the error document
+    // is on stdout and nothing is on stderr.
     let (code, stdout, stderr) = cli_analyze(dir.path(), &["nonsense"]);
     assert_eq!(code, Some(2));
-    assert_eq!(stdout, Value::Null, "nothing on stdout");
-    assert!(stderr.contains("'nonsense'"), "{stderr}");
+    assert_eq!(stdout["code"], "unknown_pass", "{stdout}");
+    assert!(
+        stdout["error"]
+            .as_str()
+            .is_some_and(|e| e.contains("'nonsense'")),
+        "{stdout}"
+    );
+    assert_eq!(stderr, "", "nothing on stderr");
 
     // MCP: an invalid_input error naming the pass.
     let (refused, error) = mcp_analyze(dir.path(), json!({"pass": "nonsense"}));

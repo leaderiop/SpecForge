@@ -13,10 +13,10 @@
 
 use crate::OutputFormat;
 use crate::outcome::Refusal;
-use specforge_common::{codes, find_project_root};
-use specforge_ops::OpError;
+use specforge_common::find_project_root;
 use specforge_ops::collect::{self, Collector, Consent, Mode, Request, RunnerOutput};
 use specforge_ops::view::ProjectView;
+use specforge_ops::{OpError, OpErrorKind};
 use std::io::{BufRead, IsTerminal, Write};
 use std::path::{Path, PathBuf};
 
@@ -29,8 +29,11 @@ pub struct Options<'a> {
 
 pub fn run(path: &Path, options: &Options, format: OutputFormat) -> i32 {
     let Some(root) = find_project_root(path) else {
-        let msg = "no specforge project found (missing specforge.json or specforge.spec)";
-        return Refusal::of(format).report(&OpError::diagnostic(codes::E045, msg));
+        return Refusal::of(format).report(&OpError::new(
+            OpErrorKind::PreconditionFailed,
+            "no_project",
+            "no specforge project found (missing specforge.json or specforge.spec)",
+        ));
     };
 
     let (project, runtime) = crate::pipeline::compile_project(&root);

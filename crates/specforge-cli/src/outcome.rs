@@ -67,13 +67,6 @@ impl<'a> Refusal<'a> {
 
     /// A measuring command's refusal (`stats`, `analyze`):
     /// [`Exit::Unjudged`].
-    #[cfg_attr(
-        not(test),
-        expect(
-            dead_code,
-            reason = "stats and analyze refuse through it from the next ticket"
-        )
-    )]
     pub(crate) fn measuring(format: OutputFormat) -> Self {
         Self {
             exit: Exit::Unjudged,

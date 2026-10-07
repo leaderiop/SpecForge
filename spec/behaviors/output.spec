@@ -374,6 +374,10 @@ behavior report_command_outcome "Report a Command's Outcome" {
   verify unit "an operation's refusal is error[CODE]: message, its hint and the files it left written, on stderr"
   verify unit "under --format json a refusal is the error document on stdout and nothing on stderr"
   verify unit "a passed run exits 0, a failed verdict or a refusal 1, a refusal of a measuring command 2"
+  verify unit "stats, trace, analyze, migrate and init refuse with the error document under --format json"
+  verify unit "a command run outside any project refuses with no_project"
+  verify integration "the CLI's exit code and MCP's ok agree for check, analyze, format and migrate"
+  verify contract "Report a Command's Outcome: command outcome holds — operation_ran, one_refusal_shape, one_exit_table, surfaces_agree"
 }
 
 behavior serialize_traceability_data "Serialize Traceability Data" {

@@ -4,6 +4,8 @@ use specforge_ops::schema::SchemaRequest;
 use specforge_ops::view::ProjectView;
 use std::path::Path;
 
+use crate::OutputFormat;
+use crate::outcome::Refusal;
 use crate::pipeline;
 
 /// Export the project compiled at `path` to stdout. Before it writes, the
@@ -44,16 +46,7 @@ pub fn run(
     };
     let output = match export::export(&view, &request) {
         Ok(output) => output,
-        Err(err) => {
-            // A diagnostic's code leads its message, as `specforge export`
-            // has always said it (`E062: the token budget …`).
-            if err.code.starts_with(|c: char| c.is_ascii_uppercase()) {
-                eprintln!("{}: {}", err.code, err.message);
-            } else {
-                eprintln!("{}", err.message);
-            }
-            return 1;
-        }
+        Err(error) => return Refusal::of(OutputFormat::Human).report(&error),
     };
     println!("{}", output);
 
@@ -81,20 +74,6 @@ pub(crate) fn render_plain(diagnostic: &specforge_common::Diagnostic) -> String 
     text
 }
 
-/// An operation's failure as `error[CODE]: message`, with its suggestion
-/// on a `= help:` line.
-pub(crate) fn render_op_error(error: &specforge_ops::OpError) -> String {
-    let mut diagnostic = specforge_common::Diagnostic::untyped(
-        error.code.as_ref(),
-        specforge_common::Severity::Error,
-        &error.message,
-    );
-    if let Some(suggestion) = &error.suggestion {
-        diagnostic = diagnostic.with_suggestion(suggestion);
-    }
-    render_plain(&diagnostic)
-}
-
 /// `specforge schema`: the schema operation over the project compiled at
 /// `path`, versioned as the next export would be (the cache is only read):
 /// the document `specforge.schema` returns for the same request, pretty
@@ -113,12 +92,6 @@ pub fn run_schema(path: &Path, request: &SchemaRequest, publish: Option<export::
             println!("{text}");
             0
         }
-        Err(error) => {
-            eprintln!("{}", error.message);
-            if let Some(suggestion) = &error.suggestion {
-                eprintln!("  = help: {suggestion}");
-            }
-            1
-        }
+        Err(error) => Refusal::of(OutputFormat::Human).report(&error),
     }
 }
