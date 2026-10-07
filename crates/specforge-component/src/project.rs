@@ -153,7 +153,9 @@ fn load_installed(
         )
         .with_suggestion(format!("install it with: specforge add {name}")));
     };
-    let wasm = specforge_wasm::installed_wasm_path(&root.join(".specforge/extensions"), name);
+    let package = specforge_protocol_types::PackageName::parse(name)
+        .map_err(|why| specforge_common::package::invalid(&why))?;
+    let wasm = specforge_wasm::installed_wasm_path(&root.join(".specforge/extensions"), &package);
     specforge_wasm::load_wasm_module(name, &wasm, runtime, Some(&entry.wasm_hash))
 }
 

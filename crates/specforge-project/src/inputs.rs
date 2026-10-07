@@ -9,6 +9,7 @@
 //! Watch, the LSP and MCP all ask the session what a changed path means,
 //! so "a change" has one meaning.
 
+use specforge_protocol_types::PackageName;
 use std::path::{Path, PathBuf};
 
 use specforge_common::{ExtensionEntry, ProjectConfig};
@@ -224,9 +225,10 @@ pub(crate) fn environment_inputs(
             // resolves it.
             file @ ExtensionEntry::File { .. } => file.file(root),
             ExtensionEntry::Named(name) if specforge_component::builtins::is_builtin(name) => None,
-            ExtensionEntry::Named(name) => {
-                Some(specforge_wasm::installed_wasm_path(&installed, name))
-            }
+            // A name that is no package name has no module to read.
+            ExtensionEntry::Named(name) => PackageName::parse(name)
+                .ok()
+                .map(|name| specforge_wasm::installed_wasm_path(&installed, &name)),
         })
         .collect();
     EnvironmentInputs {

@@ -235,6 +235,7 @@ fn add_local(req: &AddRequest, path: &Path, writes: &mut Writes) -> Result<AddOu
         OpError::diagnostic(codes::E054, message)
     })?;
     let declared = Declared::of(&wasm)?;
+    let package = declared.package()?;
     let origin = Origin::Installed {
         source: format!("local:{}", shown_path(req.root, path)),
     };
@@ -247,7 +248,7 @@ fn add_local(req: &AddRequest, path: &Path, writes: &mut Writes) -> Result<AddOu
     }
     let sha256 = specforge_wasm::hex_sha256(&wasm);
     let mut lock = LockState::at(req.root).file().cloned().unwrap_or_default();
-    if let Some(present) = already_present(req.root, &lock, declared.name(), |e| {
+    if let Some(present) = already_present(req.root, &lock, &package, |e| {
         e.wasm_hash == sha256 && e.source.starts_with("local:")
     }) {
         return Ok(present);
@@ -269,7 +270,7 @@ fn add_from_registry(
         source: "registry".to_string(),
     };
     let mut lock = LockState::at(req.root).file().cloned().unwrap_or_default();
-    if let Some(present) = already_present(req.root, &lock, name, |e| {
+    if let Some(present) = already_present(req.root, &lock, &package.name, |e| {
         e.version == version.to_string() && e.source == "registry"
     }) {
         return Ok(present);
@@ -393,6 +394,14 @@ impl Declared {
         self.declaration.version()
     }
 
+    /// The declared name as the package name the extension installs under:
+    /// E072 when it is none, before anything is written (ADR 0036).
+    pub(super) fn package(&self) -> Result<PackageName, OpError> {
+        self.declaration
+            .package_name()
+            .map_err(|why| OpError::from(specforge_common::package::invalid(&why)))
+    }
+
     pub(super) fn peers(&self) -> &[specforge_registry::PeerDependency] {
         self.declaration.peers()
     }
@@ -454,15 +463,18 @@ fn first_difference(
 fn already_present(
     root: &Path,
     lock: &specforge_wasm::LockFile,
-    name: &str,
+    name: &PackageName,
     same: impl Fn(&specforge_wasm::LockFileEntry) -> bool,
 ) -> Option<AddOutcome> {
-    let entry = lock.entries.iter().find(|e| e.name == name && same(e))?;
+    let entry = lock
+        .entries
+        .iter()
+        .find(|e| e.name == name.as_str() && same(e))?;
     let installed = specforge_wasm::installed_wasm_path(&extensions_dir(root), name).is_file();
     let enabled = specforge_common::load_project_config(root)
         .extensions
         .iter()
-        .any(|e| specforge_common::extension_entry_name(e) == name);
+        .any(|e| specforge_common::extension_entry_name(e) == name.as_str());
     (installed && enabled).then(|| AddOutcome::AlreadyPresent {
         name: name.to_string(),
         version: entry.version.clone(),
@@ -487,7 +499,8 @@ fn install(
     origin: &Origin,
     writes: &mut Writes,
 ) -> Result<AddOutcome, OpError> {
-    let module = specforge_wasm::installed_wasm_path(&extensions_dir(root), declared.name());
+    let package = declared.package()?;
+    let module = specforge_wasm::installed_wasm_path(&extensions_dir(root), &package);
     let module_before = std::fs::read(&module).ok();
     let result = place(
         root,
@@ -526,8 +539,9 @@ pub(super) fn place(
     key_id: Option<&str>,
     origin: &Origin,
 ) -> Result<specforge_wasm::InstallResult, OpError> {
+    let package = declared.package()?;
     let result = install_extension(
-        declared.name(),
+        &package,
         declared.version(),
         wasm,
         sha256,

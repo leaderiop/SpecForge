@@ -1154,16 +1154,16 @@ fn add_refuses_what_is_not_a_package_before_the_registry() {
     );
 }
 
-/// Plan 12 §3 R3: a module whose declared name is `../../../x` is installed
-/// beside the project, and `remove` deletes what is there. The module is
+/// Plan 12 §3 R3: a module whose declared name is `../../../x` is refused
+/// (E072) with nothing written, and `remove ../../../x` is refused with
+/// nothing deleted, even when a lock entry carries that name. The module is
 /// the greet blob with its name (`@sdk/greet`, 10 bytes) replaced by a
-/// path of the same length. T5 flips this: E072, nothing written, nothing
-/// deleted.
+/// path of the same length.
 #[specforge_test(
     behavior = "install_wasm_extension",
     verify = "an extension is installed under the extensions directory of its project, by its package name"
 )]
-fn a_declared_name_outside_the_extensions_dir_installs_there_today() {
+fn a_module_whose_declared_name_is_not_a_package_name_is_refused() {
     let root = TempDir::new().unwrap();
     let project = root.path().join("a/b/proj");
     fs::create_dir_all(&project).unwrap();
@@ -1190,25 +1190,54 @@ fn a_declared_name_outside_the_extensions_dir_installs_there_today() {
     let module = root.path().join("evil.wasm");
     fs::write(&module, wasm).unwrap();
 
-    specforge_cmd()
+    let outside = root.path().join("a/b/x");
+    fs::create_dir_all(&outside).unwrap();
+    fs::write(outside.join("other.txt"), "keep").unwrap();
+    let before = crate::written::files_under(root.path());
+    let config_before = fs::read_to_string(project.join("specforge.json")).unwrap();
+
+    let output = specforge_cmd()
         .arg("add")
         .arg(&module)
         .arg("--path")
         .arg(&project)
-        .assert()
-        .success();
-    // bug: installed beside the project, outside `.specforge/extensions`.
-    let outside = root.path().join("a/b/x");
-    assert!(outside.join("extension.wasm").exists());
-    fs::write(outside.join("other.txt"), "keep").unwrap();
+        .args(["--format", "json"])
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(1), "{output:?}");
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(json["code"], "E072", "{json}");
+    assert!(
+        json["error"].as_str().unwrap().contains("'../../../x'"),
+        "{json}"
+    );
+    // Nothing was written: not the module, not the lock, not the config.
+    assert_eq!(crate::written::files_under(root.path()), before);
+    assert_eq!(
+        fs::read_to_string(project.join("specforge.json")).unwrap(),
+        config_before
+    );
 
-    specforge_cmd()
-        .args(["remove", "../../../x", "--path"])
-        .arg(&project)
-        .assert()
-        .success();
-    // bug: `remove` deleted the whole directory, a user file included.
-    assert!(!outside.join("other.txt").exists());
+    // `remove` of that name is refused too, whether or not a lock names it.
+    for lock in [false, true] {
+        if lock {
+            write_lock_file(&project, &[("../../../x", "1.0.0", "registry")]);
+        }
+        let output = specforge_cmd()
+            .args(["remove", "../../../x", "--path"])
+            .arg(&project)
+            .args(["--format", "json"])
+            .output()
+            .unwrap();
+        assert_eq!(output.status.code(), Some(1), "lock={lock}: {output:?}");
+        let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+        assert_eq!(json["code"], "E072", "lock={lock}: {json}");
+        assert_eq!(
+            fs::read_to_string(outside.join("other.txt")).unwrap(),
+            "keep"
+        );
+    }
+    assert!(outside.is_dir());
 }
 
 #[specforge_test(
