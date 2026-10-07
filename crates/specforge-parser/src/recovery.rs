@@ -500,7 +500,7 @@ mod tests {
             let root = tree.root_node();
             let mut cursor = root.walk();
             for node in root.named_children(&mut cursor) {
-                if node.kind() == "comment" {
+                if node.kind() == tree_sitter_specforge::kind::COMMENT {
                     continue;
                 }
                 let line = src.lines().nth(node.start_position().row).unwrap();

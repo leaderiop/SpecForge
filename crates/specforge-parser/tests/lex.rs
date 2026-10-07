@@ -5,6 +5,7 @@ use specforge_parser::lex::{Lexeme, LexemeKind, lex};
 use specforge_parser::parse_incremental;
 use specforge_test_macros::test as specforge_test;
 use std::path::{Path, PathBuf};
+use tree_sitter_specforge::kind;
 
 /// The `.spec` files under `dir`, recursively.
 fn spec_files(dir: &Path, out: &mut Vec<PathBuf>) {
@@ -25,11 +26,11 @@ fn spec_files(dir: &Path, out: &mut Vec<PathBuf>) {
 /// lexer reads whole.
 fn kind_of(node: &str) -> Option<LexemeKind> {
     Some(match node {
-        "identifier" => LexemeKind::Ident,
-        "scheme_ref_id" => LexemeKind::RefId,
-        "string" | "triple_quoted_string" => LexemeKind::Str,
-        "comment" => LexemeKind::Comment,
-        "integer" => LexemeKind::Number,
+        kind::IDENTIFIER => LexemeKind::Ident,
+        kind::SCHEME_REF_ID => LexemeKind::RefId,
+        kind::STRING | kind::TRIPLE_QUOTED_STRING => LexemeKind::Str,
+        kind::COMMENT => LexemeKind::Comment,
+        kind::INTEGER => LexemeKind::Number,
         _ => return None,
     })
 }

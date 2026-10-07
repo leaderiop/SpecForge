@@ -3,6 +3,7 @@ use crate::expr::{CmpOp, Expr, ExprSpan, SpannedExpr};
 use crate::recovery;
 use specforge_common::{SourceSpan, Sym};
 use tree_sitter::{Node, Parser};
+use tree_sitter_specforge::{field, kind};
 
 /// Process escape sequences in a string literal (after quote stripping).
 fn unescape(s: &str) -> String {
@@ -253,15 +254,15 @@ impl<'a> ParseContext<'a> {
         let mut cursor = root.walk();
         for child in root.children(&mut cursor) {
             match child.kind() {
-                "entity_block" => self.parse_entity_block(child),
-                "spec_block" => self.parse_spec_block(child),
-                "ref_block" => self.parse_ref_block(child),
-                "define_block" => self.parse_define_block(child),
-                "union_block" => self.parse_union_block(child),
-                "use_import" => self.parse_use_import(child, false),
-                "pub_use_import" => self.parse_use_import(child, true),
-                "comment" => {}
-                "ERROR" => self.push_error_node(child),
+                _ if child.is_error() => self.push_error_node(child),
+                kind::ENTITY_BLOCK => self.parse_entity_block(child),
+                kind::SPEC_BLOCK => self.parse_spec_block(child),
+                kind::REF_BLOCK => self.parse_ref_block(child),
+                kind::DEFINE_BLOCK => self.parse_define_block(child),
+                kind::UNION_BLOCK => self.parse_union_block(child),
+                kind::USE_IMPORT => self.parse_use_import(child, false),
+                kind::PUB_USE_IMPORT => self.parse_use_import(child, true),
+                kind::COMMENT => {}
                 _ => {}
             }
         }
@@ -410,14 +411,16 @@ impl<'a> ParseContext<'a> {
 
     fn parse_entity_block(&mut self, node: Node) {
         let kind = node
-            .child_by_field_name("kind")
+            .child_by_field_name(field::KIND)
             .map(|n| Sym::new(self.text(n)))
             .unwrap_or_else(|| Sym::new(""));
         let name = node
-            .child_by_field_name("name")
+            .child_by_field_name(field::NAME)
             .map(|n| Sym::new(self.text(n)))
             .unwrap_or_else(|| Sym::new(""));
-        let title = node.child_by_field_name("title").map(|n| self.unquote(n));
+        let title = node
+            .child_by_field_name(field::TITLE)
+            .map(|n| self.unquote(n));
 
         let raw_body = self.extract_brace_body(node);
         let (fields, verify, methods) = self.parse_block_body(node);
@@ -439,7 +442,7 @@ impl<'a> ParseContext<'a> {
 
     fn parse_spec_block(&mut self, node: Node) {
         let name = node
-            .child_by_field_name("name")
+            .child_by_field_name(field::NAME)
             .map(|n| self.unquote(n))
             .unwrap_or_default();
 
@@ -471,10 +474,12 @@ impl<'a> ParseContext<'a> {
             return;
         };
         let id_text = inner
-            .child_by_field_name("id")
+            .child_by_field_name(field::ID)
             .map(|n| self.text(n))
             .unwrap_or_default();
-        let title = inner.child_by_field_name("title").map(|n| self.unquote(n));
+        let title = inner
+            .child_by_field_name(field::TITLE)
+            .map(|n| self.unquote(n));
 
         let mut fields = FieldMap::new();
         if let Some((scheme, kind, identifier)) = parse_ref_id(id_text) {
@@ -483,7 +488,7 @@ impl<'a> ParseContext<'a> {
             fields.push(Sym::new("identifier"), FieldValue::String(identifier));
         }
 
-        if inner.kind() == "ref_full" {
+        if inner.kind() == kind::REF_FULL {
             let (body_fields, _, _) = self.parse_block_body(inner);
             for entry in body_fields.entries() {
                 fields.push_entry(entry.clone());
@@ -507,22 +512,24 @@ impl<'a> ParseContext<'a> {
 
     fn parse_union_block(&mut self, node: Node) {
         let kind = node
-            .child_by_field_name("kind")
+            .child_by_field_name(field::KIND)
             .map(|n| Sym::new(self.text(n)))
             .unwrap_or_else(|| Sym::new(""));
         let name = node
-            .child_by_field_name("name")
+            .child_by_field_name(field::NAME)
             .map(|n| Sym::new(self.text(n)))
             .unwrap_or_else(|| Sym::new(""));
 
         let mut variants = Vec::new();
-        if let Some(variants_node) = node.child_by_field_name("variants") {
+        if let Some(variants_node) = node.child_by_field_name(field::VARIANTS) {
             let mut cursor = variants_node.walk();
             for child in variants_node.children(&mut cursor) {
                 match child.kind() {
-                    "identifier" => variants.push(self.text(child).to_string()),
-                    "string" => variants.push(self.unquote(child)),
-                    "integer" | "negative_integer" => variants.push(self.text(child).to_string()),
+                    kind::IDENTIFIER => variants.push(self.text(child).to_string()),
+                    kind::STRING => variants.push(self.unquote(child)),
+                    kind::INTEGER | kind::NEGATIVE_INTEGER => {
+                        variants.push(self.text(child).to_string())
+                    }
                     _ => {}
                 }
             }
@@ -547,7 +554,7 @@ impl<'a> ParseContext<'a> {
 
     fn parse_define_block(&mut self, node: Node) {
         let name = node
-            .child_by_field_name("name")
+            .child_by_field_name(field::NAME)
             .map(|n| Sym::new(self.text(n)))
             .unwrap_or_else(|| Sym::new(""));
 
@@ -573,30 +580,30 @@ impl<'a> ParseContext<'a> {
 
     fn parse_use_import(&mut self, node: Node, is_pub: bool) {
         let path = node
-            .child_by_field_name("path")
+            .child_by_field_name(field::PATH)
             .map(|n| Sym::new(&self.unquote(n)))
             .unwrap_or_else(|| Sym::new(""));
 
         let (kind, bindings, namespace) =
-            if let Some(bindings_node) = node.child_by_field_name("bindings") {
+            if let Some(bindings_node) = node.child_by_field_name(field::BINDINGS) {
                 let mut bs = Vec::new();
                 let mut cursor = bindings_node.walk();
                 for child in bindings_node.children(&mut cursor) {
-                    if child.kind() == "import_binding" {
+                    if child.kind() == kind::IMPORT_BINDING {
                         let name = child
                             .child(0)
                             .map(|n| self.text(n).to_string())
                             .unwrap_or_default();
                         let alias = child
-                            .child_by_field_name("alias")
+                            .child_by_field_name(field::ALIAS)
                             .map(|n| self.text(n).to_string());
                         bs.push(ImportBinding { name, alias });
                     }
                 }
                 (ImportKind::Selective, Some(bs), None)
-            } else if let Some(ns_node) = node.child_by_field_name("namespace") {
+            } else if let Some(ns_node) = node.child_by_field_name(field::NAMESPACE) {
                 let alias = ns_node
-                    .child_by_field_name("alias")
+                    .child_by_field_name(field::ALIAS)
                     .map(|n| self.text(n).to_string())
                     .unwrap_or_default();
                 (ImportKind::Namespace, None, Some(alias))
@@ -625,18 +632,18 @@ impl<'a> ParseContext<'a> {
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
             match child.kind() {
-                "field" => {
+                _ if child.is_error() => self.push_error_node(child),
+                kind::FIELD => {
                     if let Some(entry) = self.parse_field(child) {
                         fields.push_entry(entry);
                     }
                 }
-                "verify_statement" => {
+                kind::VERIFY_STATEMENT => {
                     if let Some(stmt) = self.parse_verify_statement(child) {
                         verify.push(stmt);
                     }
                 }
-                "method_statement" => methods.push(self.parse_method_statement(child)),
-                "ERROR" => self.push_error_node(child),
+                kind::METHOD_STATEMENT => methods.push(self.parse_method_statement(child)),
                 _ => {}
             }
         }
@@ -645,8 +652,8 @@ impl<'a> ParseContext<'a> {
     }
 
     fn parse_field(&mut self, node: Node) -> Option<FieldEntry> {
-        let key = node.child_by_field_name("key")?;
-        let value = node.child_by_field_name("value")?;
+        let key = node.child_by_field_name(field::KEY)?;
+        let value = node.child_by_field_name(field::VALUE)?;
         // Tree-sitter may recover from a syntax error deep inside a value
         // (e.g. a dangling operator in an expression group); surface it.
         if let Some(broken) = find_error_descendant(value) {
@@ -671,7 +678,7 @@ impl<'a> ParseContext<'a> {
         let mut annotations = Vec::new();
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
-            if child.kind() == "annotation" {
+            if child.kind() == kind::ANNOTATION {
                 annotations.push(self.parse_annotation(child));
             }
         }
@@ -711,7 +718,7 @@ impl<'a> ParseContext<'a> {
         let value = {
             let mut cursor = node.walk();
             node.children(&mut cursor)
-                .find(|c| c.kind() == "string")
+                .find(|c| c.kind() == kind::STRING)
                 .map(|n| self.unquote(n))
         };
 
@@ -720,9 +727,9 @@ impl<'a> ParseContext<'a> {
 
     fn parse_value(&mut self, node: Node) -> FieldValue {
         match node.kind() {
-            "string" => FieldValue::String(self.unquote(node)),
-            "triple_quoted_string" => FieldValue::String(self.parse_triple_quoted(node)),
-            "integer" | "negative_integer" => {
+            kind::STRING => FieldValue::String(self.unquote(node)),
+            kind::TRIPLE_QUOTED_STRING => FieldValue::String(self.parse_triple_quoted(node)),
+            kind::INTEGER | kind::NEGATIVE_INTEGER => {
                 let text = self.text(node);
                 match text.parse::<i64>() {
                     Ok(val) => FieldValue::Integer(val),
@@ -740,14 +747,14 @@ impl<'a> ParseContext<'a> {
                     }
                 }
             }
-            "boolean" => FieldValue::Boolean(self.text(node) == "true"),
-            "date_literal" => FieldValue::Date(self.text(node).to_string()),
-            "identifier" => FieldValue::Identifier(self.text(node).to_string()),
-            "array_type" => FieldValue::Identifier(self.text(node).to_string()),
-            "expr_group" => FieldValue::Expression(self.parse_expr_group(node)),
-            "type_union" => FieldValue::TypeUnion(self.parse_type_union(node)),
-            "list" => self.parse_list(node),
-            "nested_block" => self.parse_nested_block(node),
+            kind::BOOLEAN => FieldValue::Boolean(self.text(node) == "true"),
+            kind::DATE_LITERAL => FieldValue::Date(self.text(node).to_string()),
+            kind::IDENTIFIER => FieldValue::Identifier(self.text(node).to_string()),
+            kind::ARRAY_TYPE => FieldValue::Identifier(self.text(node).to_string()),
+            kind::EXPR_GROUP => FieldValue::Expression(self.parse_expr_group(node)),
+            kind::TYPE_UNION => FieldValue::TypeUnion(self.parse_type_union(node)),
+            kind::LIST => self.parse_list(node),
+            kind::NESTED_BLOCK => self.parse_nested_block(node),
             _ => FieldValue::String(self.text(node).to_string()),
         }
     }
@@ -774,7 +781,7 @@ impl<'a> ParseContext<'a> {
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
             match child.kind() {
-                "identifier" => {
+                kind::IDENTIFIER => {
                     let text = self.text(child).to_string();
                     let span = self.span(child);
                     // Detect boolean literals that tree-sitter parses
@@ -789,21 +796,21 @@ impl<'a> ParseContext<'a> {
                     flat_items.push(text);
                     item_spans.push(span);
                 }
-                "string" => {
+                kind::STRING => {
                     let text = self.unquote(child);
                     has_string = true;
                     typed_items.push(FieldValue::String(text.clone()));
                     flat_items.push(text);
                     item_spans.push(self.span(child));
                 }
-                "scheme_ref_id" => {
+                kind::SCHEME_REF_ID => {
                     let text = self.text(child).to_string();
                     has_identifier = true;
                     typed_items.push(FieldValue::Identifier(text.clone()));
                     flat_items.push(text);
                     item_spans.push(self.span(child));
                 }
-                "integer" => {
+                kind::INTEGER => {
                     let text = self.text(child);
                     has_integer = true;
                     let val = text.parse::<i64>().unwrap_or(0);
@@ -811,7 +818,7 @@ impl<'a> ParseContext<'a> {
                     flat_items.push(text.to_string());
                     item_spans.push(self.span(child));
                 }
-                "boolean" => {
+                kind::BOOLEAN => {
                     let text = self.text(child);
                     has_boolean = true;
                     typed_items.push(FieldValue::Boolean(text == "true"));
@@ -860,7 +867,7 @@ impl<'a> ParseContext<'a> {
         let mut fields = FieldMap::new();
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
-            if child.kind() == "field"
+            if child.kind() == kind::FIELD
                 && let Some(entry) = self.parse_field(child)
             {
                 fields.push_entry(entry);
@@ -871,37 +878,37 @@ impl<'a> ParseContext<'a> {
 
     fn parse_method_statement(&self, node: Node) -> MethodDecl {
         let name = node
-            .child_by_field_name("name")
+            .child_by_field_name(field::NAME)
             .map(|n| self.text(n).to_string())
             .unwrap_or_default();
         let returns = node
-            .child_by_field_name("returns")
+            .child_by_field_name(field::RETURNS)
             .map(|n| self.text(n).trim().to_string());
         let mut params = Vec::new();
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
-            if child.kind() != "parameter" {
+            if child.kind() != kind::PARAMETER {
                 continue;
             }
             let pname = child
-                .child_by_field_name("name")
+                .child_by_field_name(field::NAME)
                 .map(|n| self.text(n).to_string())
                 .unwrap_or_default();
             let pty = child
-                .child_by_field_name("type")
+                .child_by_field_name(field::TYPE)
                 .map(|n| self.text(n).trim().to_string())
                 .unwrap_or_default();
             let mut annotations = Vec::new();
             let mut param_cursor = child.walk();
             for part in child.children(&mut param_cursor) {
-                if part.kind() == "annotation" {
+                if part.kind() == kind::ANNOTATION {
                     annotations.push(self.parse_annotation(part));
                 }
             }
             params.push(Parameter {
                 name: pname,
                 ty: pty,
-                optional: child.child_by_field_name("optional").is_some(),
+                optional: child.child_by_field_name(field::OPTIONAL).is_some(),
                 annotations,
             });
         }
@@ -914,9 +921,9 @@ impl<'a> ParseContext<'a> {
     }
 
     fn parse_verify_statement(&self, node: Node) -> Option<VerifyStatement> {
-        let desc = node.child_by_field_name("description")?;
+        let desc = node.child_by_field_name(field::DESCRIPTION)?;
         let kind = node
-            .child_by_field_name("kind")
+            .child_by_field_name(field::KIND)
             .map(|n| self.text(n).to_string())
             .unwrap_or_default();
         Some(VerifyStatement {
@@ -929,7 +936,7 @@ impl<'a> ParseContext<'a> {
     fn parse_expr_group(&self, node: Node<'a>) -> Vec<SpannedExpr> {
         let mut cursor = node.walk();
         node.children(&mut cursor)
-            .filter(|c| c.kind() == "expr_or")
+            .filter(|c| c.kind() == kind::EXPR_OR)
             .map(|c| self.convert_expr(c))
             .collect()
     }
@@ -940,8 +947,12 @@ impl<'a> ParseContext<'a> {
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
             match child.kind() {
-                "identifier" | "array_type" | "type_generic" | "unit_type" | "function_type"
-                | "string" => {
+                kind::IDENTIFIER
+                | kind::ARRAY_TYPE
+                | kind::TYPE_GENERIC
+                | kind::UNIT_TYPE
+                | kind::FUNCTION_TYPE
+                | kind::STRING => {
                     types.push(self.text(child).trim().to_string());
                 }
                 _ => {}
@@ -966,8 +977,8 @@ impl<'a> ParseContext<'a> {
     fn convert_expr(&self, node: Node<'a>) -> SpannedExpr {
         let span = self.expr_span(node);
         match node.kind() {
-            "expr_or" | "expr_and" => {
-                let is_or = node.kind() == "expr_or";
+            kind::EXPR_OR | kind::EXPR_AND => {
+                let is_or = node.kind() == kind::EXPR_OR;
                 let mut cursor = node.walk();
                 let mut parts = node
                     .children(&mut cursor)
@@ -985,14 +996,14 @@ impl<'a> ParseContext<'a> {
                 }
                 acc
             }
-            "expr_cmp" => {
+            kind::EXPR_CMP => {
                 let mut lhs: Option<SpannedExpr> = None;
                 let mut op: Option<CmpOp> = None;
                 let mut rhs: Option<SpannedExpr> = None;
                 let mut cursor = node.walk();
                 for child in node.children(&mut cursor) {
                     match child.kind() {
-                        "expr_add" => {
+                        kind::EXPR_ADD => {
                             if lhs.is_none() {
                                 lhs = Some(self.convert_expr(child));
                             } else {
@@ -1017,13 +1028,13 @@ impl<'a> ParseContext<'a> {
                     _ => fallback_var(span),
                 }
             }
-            "expr_add" => {
+            kind::EXPR_ADD => {
                 let mut acc: Option<SpannedExpr> = None;
                 let mut pending_sub = false;
                 let mut cursor = node.walk();
                 for child in node.children(&mut cursor) {
                     match child.kind() {
-                        "expr_atom" => {
+                        kind::EXPR_ATOM => {
                             let operand = self.convert_expr(child);
                             match acc.take() {
                                 None => acc = Some(operand),
@@ -1045,7 +1056,7 @@ impl<'a> ParseContext<'a> {
                 }
                 acc.unwrap_or_else(|| fallback_var(span))
             }
-            "expr_atom" => {
+            kind::EXPR_ATOM => {
                 let mut cursor = node.walk();
                 let children: Vec<Node<'a>> = node.children(&mut cursor).collect();
                 let prefix = children.iter().find_map(|c| match c.kind() {
@@ -1055,11 +1066,11 @@ impl<'a> ParseContext<'a> {
                 let operand = children.iter().find(|c| {
                     matches!(
                         c.kind(),
-                        "number_with_unit" | "identifier" | "expr_or" | "expr_atom"
+                        kind::NUMBER_WITH_UNIT | kind::IDENTIFIER | kind::EXPR_OR | kind::EXPR_ATOM
                     )
                 });
                 let inner = match operand {
-                    Some(c) if c.kind() == "number_with_unit" => {
+                    Some(c) if c.kind() == kind::NUMBER_WITH_UNIT => {
                         let text = self.text(*c);
                         let unit_start = text.trim_end_matches(char::is_alphabetic).len();
                         let value = text[..unit_start].parse::<f64>().unwrap_or(0.0);
@@ -1068,7 +1079,7 @@ impl<'a> ParseContext<'a> {
                             span,
                         }
                     }
-                    Some(c) if c.kind() == "identifier" => SpannedExpr {
+                    Some(c) if c.kind() == kind::IDENTIFIER => SpannedExpr {
                         expr: Expr::Var(self.text(*c).to_string()),
                         span,
                     },
