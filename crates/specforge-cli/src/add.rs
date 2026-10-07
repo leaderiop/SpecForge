@@ -21,7 +21,7 @@ pub fn run(
     };
     let registry = HttpRegistry::for_project(path, "add");
     // Only a registry package reads the registry configuration.
-    if matches!(source, Source::Registry { .. }) {
+    if matches!(source, Source::Registry(_)) {
         format.eprint_diagnostics(registry.diagnostics());
     }
     let request = AddRequest {

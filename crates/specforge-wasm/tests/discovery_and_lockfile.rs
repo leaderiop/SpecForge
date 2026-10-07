@@ -1,73 +1,11 @@
-// Extension specifiers, the lock file and doctor checks.
+// The lock file and doctor checks.
 
 use specforge_wasm::{
-    DoctorStatus, ExtensionSpecifier, LockFile, LockFileEntry, parse_extension_specifier,
-    read_lock_file, run_doctor_check, write_lock_file,
+    DoctorStatus, LockFile, LockFileEntry, read_lock_file, run_doctor_check, write_lock_file,
 };
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use tempfile::TempDir;
-
-// ============================================================
-// B:parse_extension_specifier
-// ============================================================
-
-// B:parse_extension_specifier — verify integration "parses @scope/name@version registry specifier"
-#[test]
-fn parse_registry_specifier() {
-    let spec = parse_extension_specifier("@specforge/software@1.0.0").unwrap();
-    assert_eq!(
-        spec,
-        ExtensionSpecifier::Registry {
-            name: "@specforge/software".to_string(),
-            version: "1.0.0".to_string(),
-        }
-    );
-}
-
-// B:parse_extension_specifier — verify integration "parses ./local/path specifier"
-#[test]
-fn parse_local_specifier() {
-    let spec = parse_extension_specifier("./local/path").unwrap();
-    assert_eq!(
-        spec,
-        ExtensionSpecifier::Local {
-            path: PathBuf::from("./local/path"),
-        }
-    );
-}
-
-// B:parse_extension_specifier — verify integration "parses git+https with optional #rev"
-#[test]
-fn parse_git_specifier_with_rev() {
-    let spec = parse_extension_specifier("git+https://github.com/org/ext#v2.0.0").unwrap();
-    assert_eq!(
-        spec,
-        ExtensionSpecifier::Git {
-            url: "https://github.com/org/ext".to_string(),
-            rev: Some("v2.0.0".to_string()),
-        }
-    );
-
-    let no_rev = parse_extension_specifier("git+https://github.com/org/ext").unwrap();
-    assert_eq!(
-        no_rev,
-        ExtensionSpecifier::Git {
-            url: "https://github.com/org/ext".to_string(),
-            rev: None,
-        }
-    );
-}
-
-// B:parse_extension_specifier — verify integration "empty/invalid input produces E032"
-#[test]
-fn parse_invalid_specifier_e054() {
-    let err = parse_extension_specifier("").unwrap_err();
-    assert_eq!(err.code, "E054");
-
-    let err = parse_extension_specifier("just-a-name").unwrap_err();
-    assert_eq!(err.code, "E054");
-}
 
 // ============================================================
 // B:write_lock_file + B:read_lock_file

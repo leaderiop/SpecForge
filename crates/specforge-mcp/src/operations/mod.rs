@@ -328,7 +328,7 @@ pub(crate) fn add_extension(call: &mut Call<'_>, args: AddArgs) -> MutationHandl
     // What reading the registry configuration reported (E067, W140,
     // I003), as `specforge add` shows it: only a registry package reads it.
     let reported = match &source {
-        Source::Registry { .. } => registry.diagnostics().to_vec(),
+        Source::Registry(_) => registry.diagnostics().to_vec(),
         _ => Vec::new(),
     };
     // The shared operation `specforge add` runs. An agent can't be asked,

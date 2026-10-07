@@ -752,10 +752,9 @@ mod tests {
         super::super::add(
             &super::super::AddRequest {
                 root,
-                source: super::super::Source::Registry {
-                    name: "@sdk/greet".to_string(),
-                    range: "0.1.0".to_string(),
-                },
+                source: super::super::Source::Registry(
+                    specforge_protocol_types::PackageRef::parse("@sdk/greet@0.1.0").unwrap(),
+                ),
                 allow_unsigned: true,
                 trust: Trust::Refuse,
                 dry_run: false,

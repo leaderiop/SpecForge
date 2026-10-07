@@ -8,7 +8,6 @@ mod lock_file;
 pub mod protocol;
 pub mod runtime;
 pub mod sandbox;
-mod specifier;
 #[cfg(feature = "testing")]
 pub mod testing;
 mod toposort;
@@ -24,6 +23,5 @@ pub use lock_file::{
 };
 pub use runtime::{WasmCallResult, WasmRuntime, WasmTrapInfo};
 pub use sandbox::default_sandbox_policy;
-pub use specifier::{ExtensionSpecifier, parse_extension_specifier};
 pub use toposort::topological_sort_extensions;
 pub use uninstall::uninstall_extension;

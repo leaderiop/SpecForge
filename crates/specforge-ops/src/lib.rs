@@ -83,7 +83,7 @@ pub enum OpErrorKind {
 
 impl OpErrorKind {
     /// The kind of a failure reported as diagnostic `code`: the one table
-    /// (E003 entity, E019/E054/E062/E064 and a registry's R-RES-004 input,
+    /// (E003 entity, E019/E054/E062/E064/E072 and a registry's R-RES-003/R-RES-004 input,
     /// R-RES-001 extension, E027 and R-RES-006 conflict, E045/E067 and a
     /// registry's R-TRUST-004/R-OPS-004 schema, E058/E063 precondition,
     /// E059 permission, R004 timeout, else internal). MCP's
@@ -95,6 +95,8 @@ impl OpErrorKind {
             (codes::E054, OpErrorKind::InvalidInput),
             (codes::E062, OpErrorKind::InvalidInput),
             (codes::E064, OpErrorKind::InvalidInput),
+            (codes::E072, OpErrorKind::InvalidInput),
+            (codes::R_RES_003, OpErrorKind::InvalidInput),
             (codes::R_RES_004, OpErrorKind::InvalidInput),
             (codes::R_RES_001, OpErrorKind::ExtensionNotFound),
             (codes::E027, OpErrorKind::Conflict),
@@ -268,7 +270,9 @@ mod tests {
             (codes::E062, OpErrorKind::InvalidInput),
             (codes::E063, OpErrorKind::PreconditionFailed),
             (codes::E067, OpErrorKind::SchemaMismatch),
+            (codes::E072, OpErrorKind::InvalidInput),
             (codes::R_RES_001, OpErrorKind::ExtensionNotFound),
+            (codes::R_RES_003, OpErrorKind::InvalidInput),
             (codes::R_RES_004, OpErrorKind::InvalidInput),
             (codes::R_RES_006, OpErrorKind::Conflict),
             (codes::R_TRUST_004, OpErrorKind::SchemaMismatch),

@@ -1071,9 +1071,11 @@ fn add_rejects_invalid_specifier() {
         assert_eq!(output.status.code(), Some(1));
         let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
         assert_eq!(json["code"], "E054", "{json}");
-        assert_eq!(
-            json["error"],
-            format!("invalid extension specifier: '{specifier}'")
+        let message = json["error"].as_str().unwrap();
+        assert!(
+            message.starts_with("invalid extension specifier: ")
+                && message.contains(&format!("'{specifier}'")),
+            "{message}"
         );
     }
 
@@ -1084,10 +1086,10 @@ fn add_rejects_invalid_specifier() {
         .assert()
         .code(1)
         .stderr(predicates::str::contains(
-            "error[E054]: invalid extension specifier: 'not-valid'",
+            "error[E054]: invalid extension specifier: 'not-valid' is not a registry package name",
         ))
         .stderr(predicates::str::contains(
-            "use format: 'name@version', './local/path', or 'git+https://...'",
+            "use a builtin's name, './local/path.wasm', 'git+https://...', or '@scope/name[@version]'",
         ));
 
     // Nothing was installed.
@@ -1098,42 +1100,42 @@ fn add_rejects_invalid_specifier() {
     assert!(!dir.path().join("specforge.lock").exists());
 }
 
-/// Which inputs `specforge add` takes for a registry package today (plan 12
-/// §2.2): E063 is the registry port reached with no registry configured,
-/// E054 is the argument refused. The rows marked `bug` are flipped by T2.
+/// Which inputs `specforge add` takes for a registry package (plan 12 §2.2):
+/// E063 is the registry port reached with no registry configured, E054 and
+/// R-RES-003 are the argument refused before any registry is asked.
 #[specforge_test(
     behavior = "parse_extension_specifier",
     verify = "each add argument reads as one extension source"
 )]
-fn add_reaches_the_registry_for_these_inputs_today() {
+fn add_refuses_what_is_not_a_package_before_the_registry() {
     let dir = TempDir::new().unwrap();
     let config = r#"{"name":"t","version":"0.1.0","extensions":[]}"#;
     fs::write(dir.path().join("specforge.json"), config).unwrap();
 
     let cases: &[(&str, &str)] = &[
-        ("@acme/tool", "E063"),               // I1
-        ("@acme/tool@", "E054"),              // I2
-        ("@acme/tool@1.2.0", "E063"),         // I3
-        ("@acme/tool@^1.2", "E063"),          // I4
-        ("@acme/tool@1.x", "E063"),           // I5
-        ("@acme/tool@1.2", "E063"),           // I6
-        ("@acme/tool@1.0.0/x", "E063"),       // I7 (bug)
-        ("@acme/tool@1.0.0?x=1", "E063"),     // I8 (bug)
-        ("foo@/bar", "E063"),                 // I9 (bug)
-        ("tool@1.0.0", "E063"),               // I10 (bug)
-        ("tool", "E054"),                     // I11
-        ("@acme/..", "E063"),                 // I12 (bug)
-        ("@acme/aa/bb", "E063"),              // I13 (bug)
-        ("@acme/a/b", "E054"),                // I14
-        ("@a/x", "E054"),                     // I15 (bug: one-character parts)
-        ("@acme/T ool", "E063"),              // I16 (bug)
-        ("Acme@1", "E063"),                   // I17 (bug)
-        ("@acme/tool@latest", "E063"),        // I18
-        ("@acme/tool@*", "E063"),             // I18
-        ("@acme/tool@>=1, <2", "E063"),       // I19
-        ("@acme/tool@^bogus", "E063"),        // I20 (bug)
-        ("@acme/tool@2.0.0+build.1", "E063"), // I21
-        ("@scope", "E054"),                   // I22
+        ("@acme/tool", "E063"),                // I1
+        ("@acme/tool@", "E054"),               // I2
+        ("@acme/tool@1.2.0", "E063"),          // I3
+        ("@acme/tool@^1.2", "E063"),           // I4
+        ("@acme/tool@1.x", "E063"),            // I5
+        ("@acme/tool@1.2", "E063"),            // I6
+        ("@acme/tool@1.0.0/x", "R-RES-003"),   // I7
+        ("@acme/tool@1.0.0?x=1", "R-RES-003"), // I8
+        ("foo@/bar", "E054"),                  // I9
+        ("tool@1.0.0", "E054"),                // I10
+        ("tool", "E054"),                      // I11
+        ("@acme/..", "E054"),                  // I12
+        ("@acme/aa/bb", "E054"),               // I13
+        ("@acme/a/b", "E054"),                 // I14
+        ("@a/x", "E063"),                      // I15
+        ("@acme/T ool", "E054"),               // I16
+        ("Acme@1", "E054"),                    // I17
+        ("@acme/tool@latest", "E063"),         // I18
+        ("@acme/tool@*", "E063"),              // I18
+        ("@acme/tool@>=1, <2", "E063"),        // I19
+        ("@acme/tool@^bogus", "R-RES-003"),    // I20
+        ("@acme/tool@2.0.0+build.1", "E063"),  // I21
+        ("@scope", "E054"),                    // I22
     ];
     for (input, code) in cases {
         let output = specforge_cmd()
