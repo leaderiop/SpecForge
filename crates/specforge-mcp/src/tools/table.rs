@@ -554,7 +554,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
                     "paths": { "type": "array", "items": { "type": "string" }, "description": "Files or directories to format, relative to the project root (defaults to every spec file)" },
                     "check": { "type": "boolean", "description": "Check only, don't modify", "default": false },
                     "diff": { "type": "boolean", "description": "Return a before/after diff for each file that would change, without modifying it", "default": false },
-                    "write": { "type": "boolean", "description": "Write formatted output (defaults to false in check or diff mode)", "default": true }
+                    "write": { "type": "boolean", "description": "Write formatted output (defaults to false in check or diff mode)" }
                 }
             })
         },

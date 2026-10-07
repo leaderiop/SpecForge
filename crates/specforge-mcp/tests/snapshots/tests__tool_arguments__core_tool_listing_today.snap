@@ -1090,7 +1090,6 @@ expression: listing
           "type": "array"
         },
         "write": {
-          "default": true,
           "description": "Write formatted output (defaults to false in check or diff mode)",
           "type": "boolean"
         }

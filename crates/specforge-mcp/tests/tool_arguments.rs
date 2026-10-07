@@ -9,6 +9,7 @@
 
 use crate::support::*;
 use serde_json::{Value, json};
+use specforge_test::prelude::*;
 use std::path::{Path, PathBuf};
 
 #[test]
@@ -199,4 +200,36 @@ fn argument_reading_today() {
         prompt_row("context", json!({"entity_id": "alpha", "bogus": "x"})),
     ];
     insta::assert_snapshot!(rows.join("\n"));
+}
+
+fn format_changes(arguments: Value) -> Vec<PathBuf> {
+    let mut served = served();
+    let root = served.root().to_path_buf();
+    let before = files_under(&root);
+    let reply = call_tool(&mut served, "specforge.format", arguments);
+    assert_eq!(reply["result"]["isError"], false, "{reply}");
+    changed_files(&root, &before, &files_under(&root))
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_format_tool",
+    verify = "the format tool advertises no default for write, and check or diff without write writes nothing"
+)]
+fn format_states_the_write_rule_not_a_default() {
+    let format = core_tools()
+        .into_iter()
+        .find(|tool| tool.name == "specforge.format")
+        .expect("the format tool");
+    let write = &format.input_schema["properties"]["write"];
+    assert_eq!(write["type"], "boolean");
+    assert!(write.get("default").is_none(), "{write}");
+
+    let none: Vec<PathBuf> = Vec::new();
+    assert_eq!(format_changes(json!({"check": true})), none);
+    assert_eq!(format_changes(json!({"diff": true})), none);
+    assert_eq!(
+        format_changes(json!({})),
+        [PathBuf::from("main.spec")],
+        "an absent write writes"
+    );
 }
