@@ -176,13 +176,7 @@ impl Environment {
     /// against the spec root: the checks report one that does not exist
     /// (E016), suggesting a similar file in its directory.
     pub fn referenced_files(&self, graph: &specforge_graph::Graph) -> Vec<PathBuf> {
-        let fields: std::collections::BTreeSet<&str> = self
-            .registries
-            .fields
-            .iter()
-            .filter(|(_, _, entry)| entry.declared.file_reference)
-            .map(|(_, field, _)| field)
-            .collect();
+        let fields = self.registries.fields.file_reference_fields();
         if fields.is_empty() {
             return Vec::new();
         }
