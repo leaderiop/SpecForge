@@ -39,7 +39,7 @@ pub fn project_runtime_with(path: &Path, config: &ProjectConfig) -> ComponentRun
         .expect("failed to load builtin extensions");
 
     // Installed extensions load from the lock file (ADR 0004 D3-b).
-    let lock = specforge_wasm::LockState::at(path);
+    let installed = specforge_installed::Installed::at(path);
     for ext in &config.extensions {
         let ExtensionEntry::Named(name) = ExtensionEntry::parse(ext) else {
             continue;
@@ -47,7 +47,7 @@ pub fn project_runtime_with(path: &Path, config: &ProjectConfig) -> ComponentRun
         if builtins::is_builtin(name) {
             continue;
         }
-        if let Err(diagnostic) = load_installed(&runtime, path, name, lock.file()) {
+        if let Err(diagnostic) = load_installed(&runtime, &installed, name) {
             runtime.record_load_failure(name, diagnostic);
         }
     }
@@ -147,11 +147,10 @@ fn load_file(
 /// installs it.
 fn load_installed(
     runtime: &ComponentRuntime,
-    root: &Path,
+    installed: &specforge_installed::Installed,
     name: &str,
-    lock: Option<&specforge_wasm::LockFile>,
 ) -> Result<(), specforge_common::Diagnostic> {
-    let Some(entry) = lock.and_then(|lock| lock.entries.iter().find(|e| e.name == name)) else {
+    let Some(entry) = installed.lock().entries().iter().find(|e| e.name == name) else {
         return Err(specforge_common::Diagnostic::new(
             codes::E028,
             format!("extension '{name}' is enabled in specforge.json but not installed (no specforge.lock entry)"),
@@ -160,8 +159,8 @@ fn load_installed(
     };
     let package = specforge_protocol_types::PackageName::parse(name)
         .map_err(|why| specforge_common::package::invalid(&why))?;
-    let wasm = specforge_wasm::installed_wasm_path(&root.join(".specforge/extensions"), &package);
-    specforge_wasm::load_wasm_module(name, &wasm, runtime, Some(&entry.wasm_hash))
+    let wasm = installed.module_path(&package);
+    specforge_installed::legacy::load_wasm_module(name, &wasm, runtime, Some(&entry.wasm_hash))
 }
 
 /// Per-user Wasmtime compilation cache directory.

@@ -281,7 +281,7 @@ mod tests {
     fn the_listing_reads_the_lock_the_compile_read_not_the_disk() {
         let fixture = Fixture::new().lock(&[("@acme/locked", "1.0.0", "registry")]);
         // The file changed after the compile read it.
-        std::fs::remove_file(specforge_wasm::lock_path(fixture.dir.path())).unwrap();
+        std::fs::remove_file(specforge_installed::lock_path(fixture.dir.path())).unwrap();
 
         let listing = list(&fixture.view());
 

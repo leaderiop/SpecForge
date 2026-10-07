@@ -394,7 +394,7 @@ fn a_peer_recorded_at_a_non_semver_version_is_remedied_by_reinstalling_it() {
         std::fs::create_dir_all(&installed).unwrap();
         std::fs::write(installed.join("extension.wasm"), wasm).unwrap();
     }
-    let hash = specforge_wasm::hex_sha256(wasm);
+    let hash = specforge_installed::hex_sha256(wasm);
     let lock = json!({
         "lockfile_version": 1,
         "entries": [

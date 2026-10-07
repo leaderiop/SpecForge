@@ -11,17 +11,17 @@
 //! means, which directories to watch and what to report, so "a change"
 //! has one meaning.
 
-use specforge_protocol_types::PackageName;
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
-use specforge_common::{ExtensionEntry, ProjectConfig, discover_spec_files, is_discovered};
+use specforge_common::{ProjectConfig, discover_spec_files, is_discovered};
 use specforge_graph::Graph;
 use specforge_parser::FieldValue;
 
-use crate::Environment;
 use crate::build_cache::BUILD_CACHE_FILE;
 use crate::snapshot::EntitySnapshot;
+use crate::{Environment, builtins};
+use specforge_installed::Installed;
 
 /// What a changed path is to a project session.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -356,29 +356,16 @@ impl SessionInputs {
     /// from, before it is: config, lock, the module of every enabled
     /// extension that is not built in, the spec root and `exclude`.
     pub(crate) fn opened(root: &Path, config: &ProjectConfig) -> Self {
-        let installed = root.join(".specforge").join("extensions");
-        let modules = config
-            .extensions
-            .iter()
-            .filter_map(|entry| match ExtensionEntry::parse(entry) {
-                // Relative to the root, as
-                // `specforge_component::project_runtime_with` resolves it.
-                file @ ExtensionEntry::File { .. } => file.file(root),
-                ExtensionEntry::Named(name) if specforge_component::builtins::is_builtin(name) => {
-                    None
-                }
-                // A name that is no package name has no module to read.
-                ExtensionEntry::Named(name) => PackageName::parse(name)
-                    .ok()
-                    .map(|name| specforge_wasm::installed_wasm_path(&installed, &name)),
-            })
-            .collect();
+        // The paths, before anything is read: `Installed::at` reads the lock
+        // once the session has stamped it.
+        let installed = Installed::unread(root);
+        let modules = installed.modules(&config.extensions, &builtins());
         Self::on_disk(OnDisk {
             root: root.to_path_buf(),
             spec_root: config.spec_root_in(root),
             exclude: config.exclude.clone(),
             config: root.join("specforge.json"),
-            lock: specforge_wasm::lock_path(root),
+            lock: installed.lock_path(),
             modules,
             build_cache: None,
             named: Vec::new(),

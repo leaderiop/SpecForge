@@ -42,7 +42,7 @@ fn project() -> Project {
     )
     .unwrap();
     // The compile read the lock as it is at this root.
-    project.env.lock = specforge_wasm::LockState::at(root);
+    project.env.installed = specforge_installed::Installed::at(root);
     project
 }
 

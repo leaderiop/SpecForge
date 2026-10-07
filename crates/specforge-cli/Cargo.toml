@@ -42,6 +42,7 @@ specforge-parser = { workspace = true }
 specforge-emitter = { path = "../specforge-emitter" }
 specforge-validator = { path = "../specforge-validator" }
 specforge-wasm = { workspace = true }
+specforge-installed = { workspace = true }
 specforge-component = { workspace = true }
 specforge-mcp = { workspace = true }
 specforge-ops = { workspace = true }

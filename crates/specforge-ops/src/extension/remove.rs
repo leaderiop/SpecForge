@@ -1,15 +1,16 @@
 //! `specforge remove` and `specforge.remove_extension`.
 
-use super::{NOT_FOUND, Origin, builtin_name, extensions_dir, lock_path};
+use super::{NOT_FOUND, Origin, builtin_name};
 use crate::view::ProjectView;
 use crate::{OpError, OpErrorKind, Writes};
 use specforge_common::{ExtensionEntry, codes};
 use specforge_graph::Graph;
+use specforge_installed::legacy::uninstall_extension;
+use specforge_installed::{Installed, LockFile, LockState, write_lock_file};
 use specforge_project::EnabledExtension;
 use specforge_protocol_types::ExtensionDeclaration;
 use specforge_protocol_types::PackageName;
 use specforge_registry::KindRegistry;
-use specforge_wasm::{LockFile, LockState, uninstall_extension, write_lock_file};
 use std::path::Path;
 
 /// What to remove from the project the view was compiled from.
@@ -34,8 +35,8 @@ struct Removing<'a> {
     loaded: &'a [ExtensionDeclaration],
     kinds: &'a KindRegistry,
     graph: &'a Graph,
-    /// What `specforge.lock` held when the compile read it.
-    lock: &'a LockState,
+    /// The project's installed extensions, as the compile read them.
+    installed: &'a Installed,
 }
 
 /// What a removal did (or, on a dry run, would do).
@@ -94,7 +95,7 @@ pub fn remove(view: &ProjectView, req: &RemoveRequest) -> Result<RemoveOutcome, 
         loaded: view.registries().declarations(),
         kinds: &view.registries().kinds,
         graph: view.graph(),
-        lock: view.lock(),
+        installed: view.installed(),
     };
     // The `.wasm` file entries `name` names, and whether a named entry
     // (legacy `name@version` duplicates included) enables it too.
@@ -163,8 +164,13 @@ pub fn remove(view: &ProjectView, req: &RemoveRequest) -> Result<RemoveOutcome, 
     let package = PackageName::parse(req.name)
         .map_err(|why| OpError::from(specforge_common::package::invalid(&why)))?;
 
-    let lock = req.lock.file();
-    let locked = req.lock.entries().iter().find(|e| e.name == req.name);
+    let lock = req.installed.lock().file();
+    let locked = req
+        .installed
+        .lock()
+        .entries()
+        .iter()
+        .find(|e| e.name == req.name);
 
     let (version, origin) = match (locked, builtin_name(req.name)) {
         (Some(entry), _) => (
@@ -186,7 +192,7 @@ pub fn remove(view: &ProjectView, req: &RemoveRequest) -> Result<RemoveOutcome, 
             (loaded.map(|d| d.version().to_string()), Origin::Builtin)
         }
         (None, None) => {
-            let why = match req.lock {
+            let why = match req.installed.lock() {
                 LockState::Absent => Some("no lock file found"),
                 LockState::Unreadable(problem) => Some(problem.message.as_str()),
                 LockState::Read(_) => None,
@@ -221,16 +227,16 @@ pub fn remove(view: &ProjectView, req: &RemoveRequest) -> Result<RemoveOutcome, 
     }
     if let (Origin::Installed { .. }, Some(mut lock)) = (&outcome.origin, lock.cloned()) {
         // Dependents are checked above, over the loaded declarations and the lock.
-        let dir = extensions_dir(req.root).join(package.relative_path());
+        let dir = req.installed.package_dir(&package);
         let installed = files_in(&dir);
-        uninstall_extension(&package, &extensions_dir(req.root), &mut lock)
+        uninstall_extension(&package, req.installed, &mut lock)
             .map_err(|e| OpError::from(e).with_writes(writes.clone()))?;
         for file in installed {
             writes.record(file);
         }
-        write_lock_file(&lock, &lock_path(req.root))
+        write_lock_file(&lock, &req.installed.lock_path())
             .map_err(|e| OpError::from(e).with_writes(writes.clone()))?;
-        writes.record(lock_path(req.root));
+        writes.record(req.installed.lock_path());
     }
     Ok(outcome)
 }
@@ -261,7 +267,7 @@ fn files_in(dir: &Path) -> Vec<std::path::PathBuf> {
 fn remove_file(req: &Removing, file: &EnabledExtension) -> Result<RemoveOutcome, OpError> {
     let declaration = req.loaded.iter().find(|d| d.name() == file.name);
     if declaration.is_some() {
-        refuse_if_required(req, &file.name, req.lock.file())?;
+        refuse_if_required(req, &file.name, req.installed.lock().file())?;
     }
     let (orphan_warnings, orphaned) = orphans(req.graph, req.kinds, &file.name);
     let mut outcome = RemoveOutcome {
@@ -390,6 +396,11 @@ mod tests {
         files
     }
 
+    /// Where the installed extension `name` lives under `root`.
+    fn package_dir(root: &Path, name: &str) -> PathBuf {
+        Installed::unread(root).package_dir(&PackageName::parse(name).unwrap())
+    }
+
     /// The text of the file at `path`.
     fn text(path: PathBuf) -> String {
         String::from_utf8(std::fs::read(path).unwrap()).unwrap()
@@ -410,7 +421,7 @@ mod tests {
     /// `name` installed at the fixture's root: a lock entry and a binary.
     fn installed(fixture: Fixture, name: &str) -> Fixture {
         let fixture = fixture.lock(&[(name, "1.0.0", "registry")]);
-        let dir = extensions_dir(fixture.dir.path()).join(name);
+        let dir = package_dir(fixture.dir.path(), name);
         std::fs::create_dir_all(&dir).unwrap();
         std::fs::write(dir.join("extension.wasm"), b"\0asm").unwrap();
         fixture
@@ -609,8 +620,8 @@ mod tests {
         // Writable: all three go.
         let outcome = remove(&fixture.view(), &removing("@acme/x")).unwrap();
         assert!(matches!(outcome.origin, Origin::Installed { .. }));
-        assert!(!extensions_dir(fixture.dir.path()).join("@acme/x").exists());
-        let lock = text(lock_path(fixture.dir.path()));
+        assert!(!package_dir(fixture.dir.path(), "@acme/x").exists());
+        let lock = text(specforge_installed::lock_path(fixture.dir.path()));
         assert!(!lock.contains("@acme/x"), "{lock}");
     }
 
@@ -623,13 +634,17 @@ mod tests {
         write_config(&fixture, r#"{"extensions": ["@acme/x"]}"#);
         // The file changed after the compile read it: the removal is the
         // compile's, and writes the lock back whole.
-        std::fs::write(lock_path(fixture.dir.path()), "not valid json {{{").unwrap();
+        std::fs::write(
+            specforge_installed::lock_path(fixture.dir.path()),
+            "not valid json {{{",
+        )
+        .unwrap();
 
         let outcome = remove(&fixture.view(), &removing("@acme/x")).unwrap();
 
         assert!(matches!(outcome.origin, Origin::Installed { .. }));
-        assert!(!extensions_dir(fixture.dir.path()).join("@acme/x").exists());
-        let lock = text(lock_path(fixture.dir.path()));
+        assert!(!package_dir(fixture.dir.path(), "@acme/x").exists());
+        let lock = text(specforge_installed::lock_path(fixture.dir.path()));
         assert!(lock.contains("lockfile_version"), "{lock}");
         assert!(!lock.contains("@acme/x"), "{lock}");
     }
@@ -638,14 +653,21 @@ mod tests {
     fn an_unreadable_lock_is_why_nothing_is_installed() {
         let mut fixture = Fixture::new();
         write_config(&fixture, r#"{"extensions": []}"#);
-        std::fs::write(lock_path(fixture.dir.path()), "not valid json {{{").unwrap();
-        fixture.env.lock = LockState::at(fixture.dir.path());
+        std::fs::write(
+            specforge_installed::lock_path(fixture.dir.path()),
+            "not valid json {{{",
+        )
+        .unwrap();
+        fixture.env.installed = Installed::at(fixture.dir.path());
 
         let refused = remove(&fixture.view(), &removing("@acme/x")).unwrap_err();
 
         assert_eq!(refused.code, NOT_FOUND);
         assert!(refused.message.contains("corrupt lock file"), "{refused:?}");
         // Nothing was written: the corrupt file is as it was.
-        assert_eq!(text(lock_path(fixture.dir.path())), "not valid json {{{");
+        assert_eq!(
+            text(specforge_installed::lock_path(fixture.dir.path())),
+            "not valid json {{{"
+        );
     }
 }

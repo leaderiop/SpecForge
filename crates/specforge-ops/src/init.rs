@@ -208,7 +208,7 @@ pub fn apply(dir: &Path, plan: &Plan) -> Result<Outcome, OpError> {
         // Leave the directory as it was.
         let _ = std::fs::remove_file(dir.join(crate::config::CONFIG_FILE));
         let _ = std::fs::remove_file(dir.join(STARTER_FILE));
-        let _ = std::fs::remove_file(specforge_wasm::lock_path(dir));
+        let _ = std::fs::remove_file(specforge_installed::lock_path(dir));
         let _ = std::fs::remove_dir_all(dir.join(".specforge"));
         match &gitignore_before {
             Some(text) => {

@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use specforge_common::{Diagnostic, codes};
-use std::path::{Path, PathBuf};
+use std::path::Path;
+
+use crate::layout::lock_path;
 
 /// The lock file format for extension resolution.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -41,6 +43,32 @@ impl LockFile {
     pub fn new() -> Self {
         Self::default()
     }
+
+    /// Every requirer (name, range) declaring a peer dependency on
+    /// `peer_name` across all locked entries, plus one optional extra
+    /// requirer: the package currently being installed, which may not be in
+    /// the lock yet. Used to unify a version diamond (C8-07) before it is
+    /// silently locked.
+    pub fn requirers_of(
+        &self,
+        peer_name: &str,
+        extra: Option<(&str, &str)>,
+    ) -> Vec<(String, String)> {
+        let mut requirers: Vec<(String, String)> = self
+            .entries
+            .iter()
+            .flat_map(|e| {
+                e.peer_dependencies
+                    .iter()
+                    .filter(|p| p.name == peer_name)
+                    .map(move |p| (e.name.clone(), p.version.clone()))
+            })
+            .collect();
+        if let Some((name, range)) = extra {
+            requirers.push((name.to_string(), range.to_string()));
+        }
+        requirers
+    }
 }
 
 /// Write a lock file to disk as JSON.
@@ -63,16 +91,6 @@ pub fn write_lock_file(lock: &LockFile, path: &Path) -> Result<(), Diagnostic> {
                 format!("failed to write lock file at '{}': {}", path.display(), e),
             )
         })
-}
-
-/// The lock file's name at a project root.
-pub const LOCK_FILE: &str = "specforge.lock";
-
-/// `specforge.lock` at the project root: the one definition of where the
-/// lock lives, for the environment's read, the extension loader and the
-/// management operations.
-pub fn lock_path(root: &Path) -> PathBuf {
-    root.join(LOCK_FILE)
 }
 
 /// Read a lock file from disk.
@@ -121,7 +139,7 @@ pub enum LockState {
 impl LockState {
     /// Read the lock at the project root `root` ([`lock_path`]). A file
     /// that does not exist is [`Self::Absent`], not a problem.
-    pub fn at(root: &Path) -> LockState {
+    pub(crate) fn at(root: &Path) -> LockState {
         let path = lock_path(root);
         match std::fs::read_to_string(&path) {
             Ok(content) => match parse_lock_file(&path, &content) {
@@ -155,122 +173,9 @@ impl LockState {
     }
 }
 
-/// Doctor check result for a single extension.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum DoctorStatus {
-    Healthy,
-    MissingBinary {
-        name: String,
-    },
-    StaleHash {
-        name: String,
-        expected: String,
-        actual: String,
-    },
-    /// `name` requires `peer` at the range `required`; `installed` is the
-    /// version the lock records for the peer (`None`: not installed). A
-    /// recorded version that isn't semver, or a range that doesn't parse,
-    /// can't be compared, so it is a mismatch too.
-    PeerMismatch {
-        name: String,
-        peer: String,
-        required: String,
-        installed: Option<String>,
-    },
-}
-
-/// Run a health check on installed extensions.
-/// Checks: binary exists, hash matches lock file, peer dependencies satisfied.
-pub fn run_doctor_check(
-    lock: &LockFile,
-    extensions_dir: &Path,
-    compute_hash: impl Fn(&Path) -> Option<String>,
-    installed_versions: &std::collections::HashMap<String, String>,
-) -> Vec<DoctorStatus> {
-    let mut results = Vec::new();
-
-    for entry in &lock.entries {
-        let wasm_path = extensions_dir.join(&entry.name).join("extension.wasm");
-
-        // Check binary exists
-        if !wasm_path.exists() {
-            results.push(DoctorStatus::MissingBinary {
-                name: entry.name.clone(),
-            });
-            continue;
-        }
-
-        // Check hash matches
-        if let Some(actual_hash) = compute_hash(&wasm_path)
-            && actual_hash != entry.wasm_hash
-        {
-            results.push(DoctorStatus::StaleHash {
-                name: entry.name.clone(),
-                expected: entry.wasm_hash.clone(),
-                actual: actual_hash,
-            });
-        }
-    }
-
-    // C8-05: real peer-dependency verification. Each entry's recorded peers
-    // must be present among the installed versions and satisfy the declared
-    // semver requirement. Optional peers that are absent are fine.
-    for entry in &lock.entries {
-        for peer in &entry.peer_dependencies {
-            let installed = installed_versions.get(&peer.name);
-            let satisfied = match installed {
-                None => peer.optional,
-                Some(version) => match (
-                    semver::VersionReq::parse(&peer.version),
-                    semver::Version::parse(version),
-                ) {
-                    (Ok(req), Ok(v)) => req.matches(&v),
-                    _ => false,
-                },
-            };
-            if !satisfied {
-                results.push(DoctorStatus::PeerMismatch {
-                    name: entry.name.clone(),
-                    peer: peer.name.clone(),
-                    required: peer.version.clone(),
-                    installed: installed.cloned(),
-                });
-            }
-        }
-    }
-
-    results
-}
-
-/// Collect every requirer (name, range) declaring a peer dependency on
-/// `peer_name` across all locked entries, plus one optional extra requirer —
-/// the package currently being installed, which may not be in `lock` yet.
-/// Used to unify a version diamond (C8-07) before it is silently locked.
-pub fn collect_peer_requirers(
-    lock: &LockFile,
-    peer_name: &str,
-    extra: Option<(&str, &str)>,
-) -> Vec<(String, String)> {
-    let mut requirers: Vec<(String, String)> = lock
-        .entries
-        .iter()
-        .flat_map(|e| {
-            e.peer_dependencies
-                .iter()
-                .filter(|p| p.name == peer_name)
-                .map(move |p| (e.name.clone(), p.version.clone()))
-        })
-        .collect();
-    if let Some((name, range)) = extra {
-        requirers.push((name.to_string(), range.to_string()));
-    }
-    requirers
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::HashMap;
     use tempfile::TempDir;
 
     // -- write_lock_file + read_lock_file --
@@ -370,100 +275,6 @@ mod tests {
         assert!(err.message.contains("failed to read lock file"));
     }
 
-    // -- run_doctor_check --
-
-    // B:run_doctor_check — verify unit "detects missing binary"
-    #[test]
-    fn test_doctor_detects_missing_binary() {
-        let dir = TempDir::new().unwrap();
-        let lock = LockFile {
-            lockfile_version: 1,
-            entries: vec![LockFileEntry {
-                name: "missing-ext".to_string(),
-                version: "1.0.0".to_string(),
-                source: "registry".to_string(),
-                wasm_hash: "abc".to_string(),
-                key_id: None,
-                peer_dependencies: Vec::new(),
-            }],
-        };
-
-        let results = run_doctor_check(&lock, dir.path(), |_| None, &HashMap::new());
-        assert_eq!(results.len(), 1);
-        assert_eq!(
-            results[0],
-            DoctorStatus::MissingBinary {
-                name: "missing-ext".to_string()
-            }
-        );
-    }
-
-    // B:run_doctor_check — verify unit "detects stale hash"
-    #[test]
-    fn test_doctor_detects_stale_hash() {
-        let dir = TempDir::new().unwrap();
-        let ext_dir = dir.path().join("my-ext");
-        std::fs::create_dir(&ext_dir).unwrap();
-        std::fs::write(ext_dir.join("extension.wasm"), b"wasm content").unwrap();
-
-        let lock = LockFile {
-            lockfile_version: 1,
-            entries: vec![LockFileEntry {
-                name: "my-ext".to_string(),
-                version: "1.0.0".to_string(),
-                source: "registry".to_string(),
-                wasm_hash: "expected_hash".to_string(),
-                key_id: None,
-                peer_dependencies: Vec::new(),
-            }],
-        };
-
-        let results = run_doctor_check(
-            &lock,
-            dir.path(),
-            |_| Some("actual_different_hash".to_string()),
-            &HashMap::new(),
-        );
-        assert!(
-            results
-                .iter()
-                .any(|r| matches!(r, DoctorStatus::StaleHash { .. }))
-        );
-    }
-
-    // B:run_doctor_check — verify unit "reports healthy when all checks pass"
-    #[test]
-    fn test_doctor_reports_healthy() {
-        let dir = TempDir::new().unwrap();
-        let ext_dir = dir.path().join("good-ext");
-        std::fs::create_dir(&ext_dir).unwrap();
-        std::fs::write(ext_dir.join("extension.wasm"), b"wasm").unwrap();
-
-        let lock = LockFile {
-            lockfile_version: 1,
-            entries: vec![LockFileEntry {
-                name: "good-ext".to_string(),
-                version: "1.0.0".to_string(),
-                source: "registry".to_string(),
-                wasm_hash: "correct_hash".to_string(),
-                key_id: None,
-                peer_dependencies: Vec::new(),
-            }],
-        };
-
-        let installed: HashMap<String, String> = [("good-ext".to_string(), "1.0.0".to_string())]
-            .into_iter()
-            .collect();
-
-        let results = run_doctor_check(
-            &lock,
-            dir.path(),
-            |_| Some("correct_hash".to_string()),
-            &installed,
-        );
-        assert!(results.is_empty(), "expected no issues, got: {:?}", results);
-    }
-
     // -- LockState --
 
     #[test]
@@ -502,12 +313,8 @@ mod tests {
             Path::new("/p").join("specforge.lock")
         );
     }
-}
 
-// C8-05 acceptance: doctor verifies recorded peers across OTHER entries.
-#[cfg(test)]
-mod peer_check_tests {
-    use super::*;
+    // C8-07: a diamond is unified over every requirer of a peer.
 
     fn entry(name: &str, peers: Vec<specforge_protocol_types::PeerDependency>) -> LockFileEntry {
         LockFileEntry {
@@ -529,62 +336,7 @@ mod peer_check_tests {
     }
 
     #[test]
-    fn satisfied_peer_is_clean() {
-        let lock = LockFile {
-            entries: vec![
-                entry("@a/ext", vec![peer("@b/lib", "^2.0.0")]),
-                entry("@b/lib", vec![]),
-            ],
-            ..Default::default()
-        };
-        let installed = std::collections::HashMap::from([
-            ("@a/ext".to_string(), "1.0.0".to_string()),
-            ("@b/lib".to_string(), "2.1.0".to_string()),
-        ]);
-        let results = run_doctor_check(&lock, Path::new("/nonexistent"), |_| None, &installed);
-        assert!(
-            !results
-                .iter()
-                .any(|s| matches!(s, DoctorStatus::PeerMismatch { .. })),
-            "satisfied peer must be clean: {results:?}"
-        );
-    }
-
-    #[test]
-    fn unsatisfied_peer_reports_the_peer_not_self() {
-        let lock = LockFile {
-            entries: vec![
-                entry("@a/ext", vec![peer("@b/lib", "^2.0.0")]),
-                entry("@b/lib", vec![]),
-            ],
-            ..Default::default()
-        };
-        let installed = std::collections::HashMap::from([
-            ("@a/ext".to_string(), "1.0.0".to_string()),
-            ("@b/lib".to_string(), "1.0.0".to_string()),
-        ]);
-        let results = run_doctor_check(&lock, Path::new("/nonexistent"), |_| None, &installed);
-        let mismatches: Vec<&DoctorStatus> = results
-            .iter()
-            .filter(|s| matches!(s, DoctorStatus::PeerMismatch { .. }))
-            .collect();
-        assert_eq!(mismatches.len(), 1, "one mismatch: {results:?}");
-        if let DoctorStatus::PeerMismatch {
-            name,
-            peer,
-            required,
-            installed,
-        } = mismatches[0]
-        {
-            assert_eq!(name, "@a/ext");
-            assert_eq!(peer, "@b/lib", "names the actual peer (not self)");
-            assert_eq!(required, "^2.0.0");
-            assert_eq!(installed.as_deref(), Some("1.0.0"));
-        }
-    }
-
-    #[test]
-    fn collect_peer_requirers_gathers_every_locked_entry_wanting_the_peer() {
+    fn requirers_of_gathers_every_locked_entry_wanting_the_peer() {
         let lock = LockFile {
             entries: vec![
                 entry("@a/ext", vec![peer("@shared/lib", "^1.0.0")]),
@@ -594,40 +346,21 @@ mod peer_check_tests {
             ..Default::default()
         };
 
-        let requirers = collect_peer_requirers(&lock, "@shared/lib", None);
+        let requirers = lock.requirers_of("@shared/lib", None);
         assert_eq!(requirers.len(), 2);
         assert!(requirers.contains(&("@a/ext".to_string(), "^1.0.0".to_string())));
         assert!(requirers.contains(&("@b/ext".to_string(), "^2.0.0".to_string())));
     }
 
     #[test]
-    fn collect_peer_requirers_includes_the_extra_in_flight_requirer() {
+    fn requirers_of_includes_the_extra_in_flight_requirer() {
         let lock = LockFile {
             entries: vec![entry("@a/ext", vec![peer("@shared/lib", "^1.0.0")])],
             ..Default::default()
         };
 
-        let requirers = collect_peer_requirers(&lock, "@shared/lib", Some(("@c/ext", "^3.0.0")));
+        let requirers = lock.requirers_of("@shared/lib", Some(("@c/ext", "^3.0.0")));
         assert_eq!(requirers.len(), 2);
         assert!(requirers.contains(&("@c/ext".to_string(), "^3.0.0".to_string())));
-    }
-
-    #[test]
-    fn missing_optional_peer_is_clean() {
-        let mut peers = vec![peer("@b/lib", "^2.0.0")];
-        peers[0].optional = true;
-        let lock = LockFile {
-            entries: vec![entry("@a/ext", peers)],
-            ..Default::default()
-        };
-        let installed =
-            std::collections::HashMap::from([("@a/ext".to_string(), "1.0.0".to_string())]);
-        let results = run_doctor_check(&lock, Path::new("/nonexistent"), |_| None, &installed);
-        assert!(
-            !results
-                .iter()
-                .any(|s| matches!(s, DoctorStatus::PeerMismatch { .. })),
-            "missing optional peer is fine: {results:?}"
-        );
     }
 }

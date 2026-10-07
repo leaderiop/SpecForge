@@ -25,6 +25,7 @@ specforge-project = { workspace = true }
 specforge-protocol-types = { path = "../specforge-protocol-types" }
 specforge-registry = { workspace = true }
 specforge-wasm = { workspace = true }
+specforge-installed = { workspace = true }
 chrono = "0.4.41"
 semver = { workspace = true }
 strsim = { workspace = true }

@@ -45,13 +45,14 @@ use specforge_common::{
     is_discovered, read_project_config,
 };
 use specforge_graph::{Graph, GraphBuild, GraphConfig};
+use specforge_installed::{Builtins, Installed};
 use specforge_parser::SpecFile;
 use specforge_protocol_types::ExtensionDeclaration;
 use specforge_registry::{
     RegistryBuild, build_registries, load_provider_configurations, register_provider_schemes,
 };
 use specforge_resolver::resolve_imports;
-use specforge_wasm::{LockState, WasmRuntime};
+use specforge_wasm::WasmRuntime;
 
 pub use build_cache::{BUILD_CACHE_FILE, BUILD_CACHE_FORMAT, BuildCache, CachedStatus};
 pub use compile::EnabledExtension;
@@ -65,6 +66,11 @@ pub use session::{
 pub use specforge_graph::{
     EdgeChange, GraphDelta, ModifiedNodeChange, NodeChange, compute_graph_delta,
 };
+
+/// The builtin extensions this host embeds.
+pub(crate) fn builtins() -> Builtins<'static> {
+    Builtins(specforge_component::builtins::BUILTIN_EXTENSIONS)
+}
 
 /// Everything derived from `specforge.json` and the loaded extensions,
 /// before any `.spec` file is read.
@@ -81,11 +87,12 @@ pub struct Environment {
     /// [`Self::from_declarations`] and [`Self::with_registries`] (no file
     /// was read).
     pub config_found: bool,
-    /// What `specforge.lock` held when the environment was read (absent,
-    /// read, or unreadable with its problem): one read per environment,
-    /// which every operation over the project reads instead of the disk.
-    /// A changed lock reloads the environment ([`SessionInputs`]).
-    pub lock: LockState,
+    /// The project's installed extensions: what `specforge.lock` held when
+    /// the environment was read (absent, read, or unreadable with its
+    /// problem), once per environment, which every operation over the
+    /// project reads instead of the disk. A changed lock reloads the
+    /// environment ([`SessionInputs`]).
+    pub installed: Installed,
     /// What each `specforge.json` `extensions` entry enables, in order, as
     /// the runtime loaded it (a `.wasm` file entry by the name its
     /// component declares).
@@ -116,7 +123,7 @@ impl Environment {
             config: ProjectConfig::default(),
             config_problems: Vec::new(),
             config_found: false,
-            lock: LockState::Absent,
+            installed: Installed::none(),
             enabled: Vec::new(),
             spec_root: PathBuf::new(),
             registries: RegistryBuild::default(),
@@ -190,7 +197,7 @@ impl Environment {
             config,
             config_problems: read.problems,
             config_found: read.found,
-            lock: LockState::at(root),
+            installed: Installed::at(root),
             enabled,
             spec_root,
             registries,

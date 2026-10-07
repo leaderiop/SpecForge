@@ -1,9 +1,9 @@
 // The lock file and doctor checks.
 
-use specforge_wasm::{
-    DoctorStatus, LockFile, LockFileEntry, read_lock_file, run_doctor_check, write_lock_file,
+use specforge_installed::{
+    Health, Installed, LockFile, LockFileEntry, LockState, read_lock_file, write_lock_file,
 };
-use std::collections::HashMap;
+use specforge_protocol_types::PackageName;
 use std::path::Path;
 use tempfile::TempDir;
 
@@ -67,26 +67,44 @@ fn lock_file_missing_e033() {
 // B:run_doctor_check
 // ============================================================
 
+fn entry(name: &str, hash: &str) -> LockFileEntry {
+    LockFileEntry {
+        name: name.to_string(),
+        version: "1.0.0".to_string(),
+        source: "registry".to_string(),
+        wasm_hash: hash.to_string(),
+        key_id: None,
+        peer_dependencies: Vec::new(),
+    }
+}
+
+fn installed(dir: &TempDir, entry: LockFileEntry) -> Installed {
+    Installed::with_lock(
+        dir.path(),
+        LockState::Read(LockFile {
+            lockfile_version: 1,
+            entries: vec![entry],
+        }),
+    )
+}
+
+fn place(installed: &Installed, name: &str, bytes: &[u8]) {
+    let path = installed.module_path(&PackageName::parse(name).unwrap());
+    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+    std::fs::write(path, bytes).unwrap();
+}
+
 // B:run_doctor_check — verify integration "missing binary detected"
 #[test]
 fn doctor_missing_binary() {
     let dir = TempDir::new().unwrap();
-    let lock = LockFile {
-        lockfile_version: 1,
-        entries: vec![LockFileEntry {
-            name: "missing-ext".to_string(),
-            version: "1.0.0".to_string(),
-            source: "registry".to_string(),
-            wasm_hash: "abc".to_string(),
-            key_id: None,
-            peer_dependencies: Vec::new(),
-        }],
-    };
-    let results = run_doctor_check(&lock, dir.path(), |_| None, &HashMap::new());
+    let installed = installed(&dir, entry("missing-ext", "abc"));
+
     assert!(
-        results
+        installed
+            .health()
             .iter()
-            .any(|r| matches!(r, DoctorStatus::MissingBinary { name } if name == "missing-ext"))
+            .any(|r| matches!(r, Health::MissingModule { name } if name == "missing-ext"))
     );
 }
 
@@ -94,31 +112,14 @@ fn doctor_missing_binary() {
 #[test]
 fn doctor_stale_hash() {
     let dir = TempDir::new().unwrap();
-    let ext_dir = dir.path().join("my-ext");
-    std::fs::create_dir(&ext_dir).unwrap();
-    std::fs::write(ext_dir.join("extension.wasm"), b"content").unwrap();
+    let installed = installed(&dir, entry("my-ext", "expected_hash"));
+    place(&installed, "my-ext", b"content");
 
-    let lock = LockFile {
-        lockfile_version: 1,
-        entries: vec![LockFileEntry {
-            name: "my-ext".to_string(),
-            version: "1.0.0".to_string(),
-            source: "registry".to_string(),
-            wasm_hash: "expected_hash".to_string(),
-            key_id: None,
-            peer_dependencies: Vec::new(),
-        }],
-    };
-    let results = run_doctor_check(
-        &lock,
-        dir.path(),
-        |_| Some("different_hash".to_string()),
-        &HashMap::new(),
-    );
     assert!(
-        results
+        installed
+            .health()
             .iter()
-            .any(|r| matches!(r, DoctorStatus::StaleHash { .. }))
+            .any(|r| matches!(r, Health::Changed { .. }))
     );
 }
 
@@ -126,29 +127,12 @@ fn doctor_stale_hash() {
 #[test]
 fn doctor_all_healthy() {
     let dir = TempDir::new().unwrap();
-    let ext_dir = dir.path().join("good-ext");
-    std::fs::create_dir(&ext_dir).unwrap();
-    std::fs::write(ext_dir.join("extension.wasm"), b"wasm").unwrap();
-
-    let lock = LockFile {
-        lockfile_version: 1,
-        entries: vec![LockFileEntry {
-            name: "good-ext".to_string(),
-            version: "1.0.0".to_string(),
-            source: "registry".to_string(),
-            wasm_hash: "correct".to_string(),
-            key_id: None,
-            peer_dependencies: Vec::new(),
-        }],
-    };
-    let installed: HashMap<String, String> = [("good-ext".to_string(), "1.0.0".to_string())]
-        .into_iter()
-        .collect();
-    let results = run_doctor_check(
-        &lock,
-        dir.path(),
-        |_| Some("correct".to_string()),
-        &installed,
+    let installed = installed(
+        &dir,
+        entry("good-ext", &specforge_installed::hex_sha256(b"wasm")),
     );
+    place(&installed, "good-ext", b"wasm");
+
+    let results = installed.health();
     assert!(results.is_empty(), "expected healthy, got: {:?}", results);
 }

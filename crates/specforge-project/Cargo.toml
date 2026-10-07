@@ -27,6 +27,7 @@ specforge-registry = { workspace = true }
 specforge-resolver = { path = "../specforge-resolver" }
 specforge-validator = { path = "../specforge-validator" }
 specforge-wasm = { workspace = true }
+specforge-installed = { workspace = true }
 tree-sitter = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

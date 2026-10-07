@@ -1,0 +1,199 @@
+//! A project's installed extensions: where they live
+//! (`.specforge/extensions/<name>/extension.wasm`), what pins them
+//! (`specforge.lock`), how a project's `extensions` entries load into a
+//! runtime, and how installing, updating and removing them changes all of
+//! it at once or not at all (ADR 0028).
+
+#![allow(clippy::result_large_err)]
+
+mod health;
+mod layout;
+pub mod legacy;
+mod load;
+mod lock;
+mod module;
+
+use std::path::{Path, PathBuf};
+
+use specforge_common::ExtensionEntry;
+use specforge_protocol_types::PackageName;
+
+pub use health::Health;
+pub use layout::{LOCK_FILE, lock_path};
+pub use load::Builtins;
+pub use lock::{LockFile, LockFileEntry, LockState, read_lock_file, write_lock_file};
+pub use module::{Module, hex_sha256};
+
+/// A project's installed extensions: its root and what `specforge.lock`
+/// held when it was read, once. Every rule about installed extensions is
+/// a method of this value; nothing else derives their paths.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Installed {
+    root: PathBuf,
+    lock: LockState,
+}
+
+impl Installed {
+    /// The installed extensions of the project at `root`: `specforge.lock`
+    /// read once (absent, read, or unreadable with its E033).
+    pub fn at(root: &Path) -> Installed {
+        Installed {
+            root: root.to_path_buf(),
+            lock: LockState::at(root),
+        }
+    }
+
+    /// No project (a graph built in memory): no root, no lock.
+    pub const fn none() -> Installed {
+        Installed {
+            root: PathBuf::new(),
+            lock: LockState::Absent,
+        }
+    }
+
+    /// The installed extensions at `root` as `lock` says (a lock read
+    /// elsewhere, a test's fixture).
+    pub fn with_lock(root: &Path, lock: LockState) -> Installed {
+        Installed {
+            root: root.to_path_buf(),
+            lock,
+        }
+    }
+
+    /// The layout of the installed extensions at `root`, the lock not read
+    /// (absent): what the paths a session depends on are derived from
+    /// before anything is read.
+    pub fn unread(root: &Path) -> Installed {
+        Installed::with_lock(root, LockState::Absent)
+    }
+
+    pub fn root(&self) -> &Path {
+        &self.root
+    }
+
+    pub fn lock(&self) -> &LockState {
+        &self.lock
+    }
+
+    /// `<root>/specforge.lock`.
+    pub fn lock_path(&self) -> PathBuf {
+        layout::lock_path(&self.root)
+    }
+
+    /// `<root>/.specforge/extensions/<name>/extension.wasm`: whatever the
+    /// name, a package name is a safe relative path (ADR 0036).
+    pub fn module_path(&self, name: &PackageName) -> PathBuf {
+        self.package_dir(name).join(layout::MODULE_FILE)
+    }
+
+    /// `<root>/.specforge/extensions/<name>`: the directory an installed
+    /// extension lives in.
+    pub fn package_dir(&self, name: &PackageName) -> PathBuf {
+        self.extensions_dir().join(name.relative_path())
+    }
+
+    /// `<root>/.specforge/extensions`.
+    pub(crate) fn extensions_dir(&self) -> PathBuf {
+        layout::extensions_dir(&self.root)
+    }
+
+    /// The module each of `entries` (specforge.json's `extensions`) loads
+    /// from, in entry order: an installed extension's [`Self::module_path`],
+    /// a `.wasm` file entry's file (relative to the root); none for a
+    /// builtin or for a name that is no package name. The paths whose
+    /// change reloads an environment (plan 03).
+    pub fn modules(&self, entries: &[String], builtins: &Builtins) -> Vec<PathBuf> {
+        entries
+            .iter()
+            .filter_map(|entry| match ExtensionEntry::parse(entry) {
+                file @ ExtensionEntry::File { .. } => file.file(&self.root),
+                ExtensionEntry::Named(name) if builtins.contains(name) => None,
+                ExtensionEntry::Named(name) => PackageName::parse(name)
+                    .ok()
+                    .map(|name| self.module_path(&name)),
+            })
+            .collect()
+    }
+
+    /// The command that reinstalls `name` as its lock entry records it:
+    /// `specforge add <path>` for a local install, `specforge add
+    /// <name>@<version>` for a registry one (the name alone when the
+    /// version is not semver).
+    pub fn reinstall(&self, name: &str) -> String {
+        let entry = self.lock.entries().iter().find(|e| e.name == name);
+        let specifier = match entry {
+            Some(e) if e.source.starts_with("local:") => e.source["local:".len()..].to_string(),
+            Some(e) if semver::Version::parse(&e.version).is_ok() => {
+                format!("{name}@{}", e.version)
+            }
+            _ => name.to_string(),
+        };
+        format!("specforge add {specifier}")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn one_rule_names_every_installed_path() {
+        let installed = Installed::with_lock(Path::new("/p"), LockState::Absent);
+        let builtins = Builtins(&[("@specforge/product", b"\0asm")]);
+        let tool = PackageName::parse("@acme/tool").unwrap();
+
+        assert_eq!(installed.lock_path(), Path::new("/p/specforge.lock"));
+        assert_eq!(
+            installed.module_path(&tool),
+            Path::new("/p/.specforge/extensions/@acme/tool/extension.wasm")
+        );
+        let entries: Vec<String> = [
+            "@specforge/product",
+            "@acme/tool",
+            "tools/greet.wasm",
+            "../../outside",
+        ]
+        .map(String::from)
+        .to_vec();
+        assert_eq!(
+            installed.modules(&entries, &builtins),
+            [
+                PathBuf::from("/p/.specforge/extensions/@acme/tool/extension.wasm"),
+                PathBuf::from("/p/tools/greet.wasm"),
+            ],
+            "a builtin has no module and a name that is no package has none either"
+        );
+    }
+
+    #[test]
+    fn a_reinstall_command_is_the_one_the_lock_entry_calls_for() {
+        let entry = |name: &str, version: &str, source: &str| LockFileEntry {
+            name: name.to_string(),
+            version: version.to_string(),
+            source: source.to_string(),
+            wasm_hash: "hash".to_string(),
+            key_id: None,
+            peer_dependencies: Vec::new(),
+        };
+        let lock = LockFile {
+            entries: vec![
+                entry("@a/local", "1.0.0", "local:ext/a.wasm"),
+                entry("@a/registry", "2.1.0", "registry"),
+                entry("@a/loose", "latest", "registry"),
+            ],
+            ..Default::default()
+        };
+        let installed = Installed::with_lock(Path::new("/p"), LockState::Read(lock));
+
+        assert_eq!(installed.reinstall("@a/local"), "specforge add ext/a.wasm");
+        assert_eq!(
+            installed.reinstall("@a/registry"),
+            "specforge add @a/registry@2.1.0"
+        );
+        assert_eq!(installed.reinstall("@a/loose"), "specforge add @a/loose");
+        assert_eq!(
+            installed.reinstall("@a/unlocked"),
+            "specforge add @a/unlocked"
+        );
+    }
+}

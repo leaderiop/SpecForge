@@ -1,12 +1,13 @@
 //! `specforge add` and `specforge.add_extension`.
 
-use super::{Origin, builtin_name, check_diamonds, extensions_dir, lock_path};
+use super::{Origin, builtin_name, check_diamonds};
 use crate::registry::Registry;
 use crate::{OpError, OpErrorKind, Writes};
 use specforge_common::codes;
+use specforge_installed::legacy::{InstallResult, install_extension};
+use specforge_installed::{Installed, write_lock_file};
 use specforge_protocol_types::package::{SpecifierError, Version};
 use specforge_protocol_types::{ExtensionDeclaration, PackageName, PackageRef};
-use specforge_wasm::{LockState, install_extension, write_lock_file};
 use std::path::{Path, PathBuf};
 
 /// Where an extension to add comes from.
@@ -246,15 +247,16 @@ fn add_local(req: &AddRequest, path: &Path, writes: &mut Writes) -> Result<AddOu
             origin,
         });
     }
-    let sha256 = specforge_wasm::hex_sha256(&wasm);
-    let mut lock = LockState::at(req.root).file().cloned().unwrap_or_default();
-    if let Some(present) = already_present(req.root, &lock, &package, |e| {
+    let sha256 = specforge_installed::hex_sha256(&wasm);
+    let installed = Installed::at(req.root);
+    let mut lock = installed.lock().file().cloned().unwrap_or_default();
+    if let Some(present) = already_present(&installed, &package, |e| {
         e.wasm_hash == sha256 && e.source.starts_with("local:")
     }) {
         return Ok(present);
     }
     install(
-        req.root, &mut lock, &declared, &wasm, &sha256, None, &origin, writes,
+        &installed, &mut lock, &declared, &wasm, &sha256, None, &origin, writes,
     )
 }
 
@@ -269,8 +271,9 @@ fn add_from_registry(
     let origin = Origin::Installed {
         source: "registry".to_string(),
     };
-    let mut lock = LockState::at(req.root).file().cloned().unwrap_or_default();
-    if let Some(present) = already_present(req.root, &lock, &package.name, |e| {
+    let installed = Installed::at(req.root);
+    let mut lock = installed.lock().file().cloned().unwrap_or_default();
+    if let Some(present) = already_present(&installed, &package.name, |e| {
         e.version == version.to_string() && e.source == "registry"
     }) {
         return Ok(present);
@@ -291,7 +294,7 @@ fn add_from_registry(
         req.trust,
     )?;
     install(
-        req.root,
+        &installed,
         &mut lock,
         &checked.declared,
         &checked.package.wasm,
@@ -313,7 +316,7 @@ pub(super) struct Checked {
 
 pub(super) fn fetch_checked(
     registry: &dyn Registry,
-    lock: &specforge_wasm::LockFile,
+    lock: &specforge_installed::LockFile,
     name: &PackageName,
     version: &Version,
     allow_unsigned: bool,
@@ -461,21 +464,21 @@ fn first_difference(
 /// `AlreadyPresent` when the lock holds `name` as `same` accepts, its
 /// binary is in place and `specforge.json` enables it.
 fn already_present(
-    root: &Path,
-    lock: &specforge_wasm::LockFile,
+    installed: &Installed,
     name: &PackageName,
-    same: impl Fn(&specforge_wasm::LockFileEntry) -> bool,
+    same: impl Fn(&specforge_installed::LockFileEntry) -> bool,
 ) -> Option<AddOutcome> {
-    let entry = lock
-        .entries
+    let entry = installed
+        .lock()
+        .entries()
         .iter()
         .find(|e| e.name == name.as_str() && same(e))?;
-    let installed = specforge_wasm::installed_wasm_path(&extensions_dir(root), name).is_file();
-    let enabled = specforge_common::load_project_config(root)
+    let in_place = installed.module_path(name).is_file();
+    let enabled = specforge_common::load_project_config(installed.root())
         .extensions
         .iter()
         .any(|e| specforge_common::extension_entry_name(e) == name.as_str());
-    (installed && enabled).then(|| AddOutcome::AlreadyPresent {
+    (in_place && enabled).then(|| AddOutcome::AlreadyPresent {
         name: name.to_string(),
         version: entry.version.clone(),
     })
@@ -490,8 +493,8 @@ fn already_present(
     reason = "the install's inputs, each read once; `writes` is the outcome's"
 )]
 fn install(
-    root: &Path,
-    lock: &mut specforge_wasm::LockFile,
+    installed: &Installed,
+    lock: &mut specforge_installed::LockFile,
     declared: &Declared,
     wasm: &[u8],
     sha256: &str,
@@ -499,11 +502,12 @@ fn install(
     origin: &Origin,
     writes: &mut Writes,
 ) -> Result<AddOutcome, OpError> {
+    let root = installed.root();
     let package = declared.package()?;
-    let module = specforge_wasm::installed_wasm_path(&extensions_dir(root), &package);
+    let module = installed.module_path(&package);
     let module_before = std::fs::read(&module).ok();
     let result = place(
-        root,
+        installed,
         lock,
         declared,
         wasm,
@@ -512,7 +516,7 @@ fn install(
         origin,
     )?;
     writes.record_if(module_before.as_deref() != Some(wasm), module);
-    let lock_file = lock_path(root);
+    let lock_file = installed.lock_path();
     let lock_before = std::fs::read(&lock_file).ok();
     write_lock_file(lock, &lock_file).map_err(|e| OpError::from(e).with_writes(writes.clone()))?;
     writes.record_if(std::fs::read(&lock_file).ok() != lock_before, lock_file);
@@ -531,21 +535,21 @@ fn install(
 /// Place the binary under `.specforge/extensions/` and record it in `lock`
 /// (in memory) as `origin`, with its declared version and peers.
 pub(super) fn place(
-    root: &Path,
-    lock: &mut specforge_wasm::LockFile,
+    installed: &Installed,
+    lock: &mut specforge_installed::LockFile,
     declared: &Declared,
     wasm: &[u8],
     sha256: &str,
     key_id: Option<&str>,
     origin: &Origin,
-) -> Result<specforge_wasm::InstallResult, OpError> {
+) -> Result<InstallResult, OpError> {
     let package = declared.package()?;
     let result = install_extension(
         &package,
         declared.version(),
         wasm,
         sha256,
-        &extensions_dir(root),
+        installed,
         lock,
         key_id,
         declared.peers().to_vec(),

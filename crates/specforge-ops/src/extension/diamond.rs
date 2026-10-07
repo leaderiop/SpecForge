@@ -5,8 +5,8 @@
 use crate::{OpError, OpErrorKind};
 use semver::{Version, VersionReq};
 use specforge_common::{Diagnostic, codes};
+use specforge_installed::LockFile;
 use specforge_registry::PeerDependency;
-use specforge_wasm::{LockFile, collect_peer_requirers};
 
 /// Check that installing `package` (declaring `peers`) leaves every locked
 /// peer satisfied. A locked peer outside a declared range is refused:
@@ -36,7 +36,7 @@ pub fn check_diamonds(
             continue;
         }
 
-        let requirers = collect_peer_requirers(lock, &peer.name, Some((package, &peer.version)));
+        let requirers = lock.requirers_of(&peer.name, Some((package, &peer.version)));
         let published = versions(&peer.name)?;
         return match unify_diamond(&peer.name, &published, &requirers)
         {
@@ -118,8 +118,8 @@ fn unify_diamond(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use specforge_installed::LockFileEntry;
     use specforge_test_macros::test as specforge_test;
-    use specforge_wasm::LockFileEntry;
 
     fn peer(name: &str, range: &str) -> PeerDependency {
         PeerDependency {

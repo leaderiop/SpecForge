@@ -15,12 +15,11 @@
 
 use serde::Serialize;
 use specforge_common::{Code, Diagnostic, DiagnosticData, Severity, codes};
-use specforge_wasm::{DoctorStatus, run_doctor_check};
-use std::collections::{BTreeMap, HashMap};
+use specforge_installed::Health;
+use std::collections::BTreeMap;
 
 use crate::extension::Origin;
 use crate::view::ProjectView;
-use std::path::Path;
 
 /// Diagnostic codes that mean two contributions collide.
 pub const CONFLICT_CODES: [Code; 3] = [codes::E026, codes::E057, codes::W018];
@@ -289,43 +288,12 @@ pub fn diagnose_with(view: &ProjectView, z3_available: bool) -> DoctorReport {
     }
 
     // Installed binaries against the lock file.
-    let installed_versions: HashMap<String, String> = lock_entries
-        .iter()
-        .map(|e| (e.name.clone(), e.version.clone()))
-        .collect();
-    let compute_hash = |wasm_path: &Path| -> Option<String> {
-        let bytes = std::fs::read(wasm_path).ok()?;
-        Some(specforge_wasm::hex_sha256(&bytes))
-    };
-    let statuses = lock
-        .zip(view.root())
-        .map(|(l, root)| {
-            run_doctor_check(
-                l,
-                &root.join(".specforge").join("extensions"),
-                compute_hash,
-                &installed_versions,
-            )
-        })
-        .unwrap_or_default();
-    // A local install reinstalls from its path; a registry one at the
-    // version it is locked at, when that is a version a registry can serve.
-    let reinstall = |name: &str| {
-        let entry = lock_entries.iter().find(|e| e.name == name);
-        let specifier = match entry {
-            Some(e) if e.source.starts_with("local:") => e.source["local:".len()..].to_string(),
-            Some(e) if semver::Version::parse(&e.version).is_ok() => {
-                format!("{name}@{}", e.version)
-            }
-            _ => name.to_string(),
-        };
-        format!("run `specforge add {specifier}` to reinstall it")
-    };
+    let installed = view.installed();
+    let reinstall = |name: &str| format!("run `{}` to reinstall it", installed.reinstall(name));
     let mut issues = Vec::new();
-    for status in statuses {
+    for status in installed.health() {
         let (issue, finding) = match status {
-            DoctorStatus::Healthy => continue,
-            DoctorStatus::MissingBinary { name } => (
+            Health::MissingModule { name } => (
                 BinaryIssue::MissingBinary { name: name.clone() },
                 Finding {
                     check: format!("extension {name}"),
@@ -334,9 +302,9 @@ pub fn diagnose_with(view: &ProjectView, z3_available: bool) -> DoctorReport {
                     remediation: reinstall(&name),
                 },
             ),
-            DoctorStatus::StaleHash {
+            Health::Changed {
                 name,
-                expected,
+                locked: expected,
                 actual,
             } => (
                 BinaryIssue::StaleHash {
@@ -351,7 +319,7 @@ pub fn diagnose_with(view: &ProjectView, z3_available: bool) -> DoctorReport {
                     remediation: reinstall(&name),
                 },
             ),
-            DoctorStatus::PeerMismatch {
+            Health::PeerMismatch {
                 name,
                 peer,
                 required,

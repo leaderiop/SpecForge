@@ -10,13 +10,13 @@
 //! a change to the project.)
 
 use super::add::{Checked, fetch_checked, place};
-use super::{Origin, Trust, check_diamonds, extensions_dir, lock_path, published_versions};
+use super::{Origin, Trust, check_diamonds, published_versions};
 use crate::registry::{NO_REGISTRY, Registry};
 use crate::{OpError, OpErrorKind};
 use specforge_common::{Code, codes};
+use specforge_installed::{Installed, LockFile, LockState, write_lock_file};
 use specforge_protocol_types::PackageName;
 use specforge_protocol_types::package::VersionRequirement;
-use specforge_wasm::{LockFile, LockState, installed_wasm_path, write_lock_file};
 use std::path::Path;
 
 /// The code `update` reports when the project has no lock file.
@@ -142,9 +142,10 @@ pub fn update(req: &UpdateRequest, registry: &dyn Registry) -> Result<UpdateOutc
     // A project whose specforge.json cannot be used is refused before
     // anything is read or written, as `add` and `remove` refuse it.
     crate::config::usable(req.root)?;
-    let lock_file = lock_path(req.root);
-    let lock = match LockState::at(req.root) {
-        LockState::Read(lock) => lock,
+    let installed = Installed::at(req.root);
+    let lock_file = installed.lock_path();
+    let lock = match installed.lock() {
+        LockState::Read(lock) => lock.clone(),
         LockState::Absent => {
             return Err(OpError::coded(
                 OpErrorKind::PreconditionFailed,
@@ -238,12 +239,12 @@ pub fn update(req: &UpdateRequest, registry: &dyn Registry) -> Result<UpdateOutc
     let mut failure = None;
     for (name, checked) in &planned {
         let package = &checked.package.name;
-        let previous = std::fs::read(installed_wasm_path(&extensions_dir(req.root), package)).ok();
+        let previous = std::fs::read(installed.module_path(package)).ok();
         // Recorded before placing: a placement that fails part-way may
         // already have removed the previous binary.
         placed.push((package.clone(), previous));
         if let Err(error) = place(
-            req.root,
+            &installed,
             &mut lock,
             &checked.declared,
             &checked.package.wasm,
@@ -261,7 +262,7 @@ pub fn update(req: &UpdateRequest, registry: &dyn Registry) -> Result<UpdateOutc
         failure = Some((planned[0].0.clone(), OpError::from(diagnostic)));
     }
     if let Some((name, error)) = failure {
-        restore(req.root, &placed);
+        restore(&installed, &placed);
         if let Some(e) = outcome.extensions.iter_mut().find(|e| e.name == name) {
             e.status = UpdateStatus::Failed(error);
         }
@@ -334,9 +335,9 @@ fn broken_dependents(
 }
 
 /// Put back the binaries an aborted update replaced.
-fn restore(root: &Path, placed: &[(PackageName, Option<Vec<u8>>)]) {
+fn restore(installed: &Installed, placed: &[(PackageName, Option<Vec<u8>>)]) {
     for (name, previous) in placed {
-        let path = installed_wasm_path(&extensions_dir(root), name);
+        let path = installed.module_path(name);
         match previous {
             Some(bytes) => {
                 if let Some(dir) = path.parent() {
@@ -346,7 +347,9 @@ fn restore(root: &Path, placed: &[(PackageName, Option<Vec<u8>>)]) {
             }
             // It had no binary before: take the new one away.
             None => {
-                let _ = std::fs::remove_dir_all(extensions_dir(root).join(name.relative_path()));
+                if let Some(dir) = path.parent() {
+                    let _ = std::fs::remove_dir_all(dir);
+                }
             }
         }
     }
@@ -356,16 +359,16 @@ fn restore(root: &Path, placed: &[(PackageName, Option<Vec<u8>>)]) {
 mod tests {
     use super::*;
     use crate::registry::Package;
+    use specforge_installed::{LockFileEntry, hex_sha256, lock_path};
     use specforge_protocol_types::package::Version;
     use specforge_protocol_types::{ExtensionDeclaration, PackageName};
     use specforge_registry::PeerDependency;
     use specforge_test_macros::test as specforge_test;
-    use specforge_wasm::{LockFileEntry, hex_sha256};
     use std::cell::RefCell;
 
     /// Where the module of extension `name` is installed under `root`.
     fn installed(root: &Path, name: &str) -> std::path::PathBuf {
-        installed_wasm_path(&extensions_dir(root), &PackageName::parse(name).unwrap())
+        Installed::unread(root).module_path(&PackageName::parse(name).unwrap())
     }
 
     /// `@sdk/greet` 0.1.0, a real extension binary.
@@ -547,7 +550,7 @@ mod tests {
                 skipped_count: 0,
             }
         );
-        let lock = specforge_wasm::read_lock_file(&lock_path(dir.path())).unwrap();
+        let lock = specforge_installed::read_lock_file(&lock_path(dir.path())).unwrap();
         assert_eq!(lock.entries[0].version, "0.1.0");
         assert_eq!(lock.entries[0].wasm_hash, hex_sha256(&greet()));
         assert_eq!(lock.entries[0].source, "registry");
@@ -577,7 +580,7 @@ mod tests {
             }
         );
         assert_eq!(
-            specforge_wasm::read_lock_file(&lock_path(dir.path()))
+            specforge_installed::read_lock_file(&lock_path(dir.path()))
                 .unwrap()
                 .entries[0]
                 .version,

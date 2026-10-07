@@ -836,28 +836,33 @@ fn an_unusable_config_is_e069_then_i002_naming_it() {
 /// unreadable with its E033 problem (and no extension is locked).
 #[test]
 fn the_environment_reads_the_lock_once_at_its_root() {
-    use specforge_wasm::{LockFile, LockState};
+    use specforge_installed::{LockFile, LockState};
     let dir = TempDir::new().unwrap();
     fs::write(dir.path().join("specforge.json"), "{}").unwrap();
     let runtime = specforge_component::project_runtime(dir.path());
     let load = || specforge_project::Environment::load(dir.path(), Some(&runtime));
 
-    assert_eq!(load().lock, LockState::Absent);
+    assert_eq!(load().installed.lock(), &LockState::Absent);
 
     let lock = LockFile::default();
-    specforge_wasm::write_lock_file(&lock, &specforge_wasm::lock_path(dir.path())).unwrap();
-    assert_eq!(load().lock, LockState::Read(lock));
+    specforge_installed::write_lock_file(&lock, &specforge_installed::lock_path(dir.path()))
+        .unwrap();
+    assert_eq!(load().installed.lock(), &LockState::Read(lock));
 
     // What changed on disk after the load is not what the environment holds.
     let env = load();
-    fs::write(specforge_wasm::lock_path(dir.path()), "not valid json {{{").unwrap();
-    assert!(matches!(env.lock, LockState::Read(_)));
+    fs::write(
+        specforge_installed::lock_path(dir.path()),
+        "not valid json {{{",
+    )
+    .unwrap();
+    assert!(matches!(env.installed.lock(), LockState::Read(_)));
     let reloaded = load();
     assert_eq!(
-        reloaded.lock.problem().map(|p| p.code.as_str()),
+        reloaded.installed.lock().problem().map(|p| p.code.as_str()),
         Some("E033")
     );
-    assert!(reloaded.lock.entries().is_empty());
+    assert!(reloaded.installed.lock().entries().is_empty());
 }
 
 /// A non-string `extensions` item is one E069 (it is ignored); the other
@@ -944,18 +949,18 @@ fn install_greet(root: &Path, hash: Option<&str>) {
     let module = root.join(".specforge/extensions/@sdk/greet/extension.wasm");
     fs::create_dir_all(module.parent().unwrap()).unwrap();
     fs::write(&module, &bytes).unwrap();
-    let lock = specforge_wasm::LockFile {
+    let lock = specforge_installed::LockFile {
         lockfile_version: 1,
-        entries: vec![specforge_wasm::LockFileEntry {
+        entries: vec![specforge_installed::LockFileEntry {
             name: "@sdk/greet".into(),
             version: "0.1.0".into(),
             source: "registry".into(),
-            wasm_hash: hash.map_or_else(|| specforge_wasm::hex_sha256(&bytes), str::to_string),
+            wasm_hash: hash.map_or_else(|| specforge_installed::hex_sha256(&bytes), str::to_string),
             key_id: None,
             peer_dependencies: Vec::new(),
         }],
     };
-    specforge_wasm::write_lock_file(&lock, &specforge_wasm::lock_path(root)).unwrap();
+    specforge_installed::write_lock_file(&lock, &specforge_installed::lock_path(root)).unwrap();
 }
 
 /// A lock that cannot be read blames each installed extension for having
@@ -967,7 +972,11 @@ fn an_unreadable_lock_fails_each_installed_extension_as_not_installed() {
         &[],
     );
     install_greet(dir.path(), None);
-    fs::write(specforge_wasm::lock_path(dir.path()), "not valid json {{{").unwrap();
+    fs::write(
+        specforge_installed::lock_path(dir.path()),
+        "not valid json {{{",
+    )
+    .unwrap();
     let runtime = specforge_component::project_runtime(dir.path());
 
     let env = specforge_project::Environment::load(dir.path(), Some(&runtime));
