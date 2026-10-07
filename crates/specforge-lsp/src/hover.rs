@@ -300,7 +300,7 @@ pub fn hover_field_info(
 ) -> Option<String> {
     let entry = field_registry.get(entity_kind, field_name)?;
 
-    let type_str = entry.field_type().as_str();
+    let type_str = entry.type_label();
 
     // First line: field name + type, with optional target kind on same line
     let first_line = if let Some(ref target) = entry.declared().target_kind {
