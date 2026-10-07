@@ -9,7 +9,7 @@ use "types/errors"
 use "types/wasm"
 
 behavior enforce_wasm_sandbox "Enforce Wasm Sandbox" {
-  features   [wasm_host_function_api]
+  features   [wasm_extension_runtime]
   invariants [wasm_sandbox_integrity, extension_isolation]
   category   command
   types      [SandboxPolicy, ExtensionError]
@@ -124,7 +124,7 @@ behavior reuse_session_runtime "Reuse Session Runtime" {
 // their manifest's allowed_output_extensions field. This prevents accidental
 // config-file generation by extensions that do not intend it.
 behavior configure_sandbox_policy "Configure Sandbox Policy" {
-  features   [wasm_host_function_api]
+  features   [wasm_extension_runtime]
   invariants [wasm_sandbox_integrity]
   category   command
   types      [SandboxPolicy, ExtensionDeclaration]

@@ -8,6 +8,7 @@ use "behaviors/wasm-lifecycle"
 use "behaviors/wasm-sandbox"
 
 feature wasm_extension_runtime "Wasm Extension Runtime" {
+  status   done
   problem  """
     Extensions need a unified runtime that works across all platforms
     without requiring specific language runtimes (Node.js, Python, JVM)
@@ -46,10 +47,17 @@ feature wasm_host_function_api "Wasm Host Function API" {
     behavior's events. Debug-level tracing of individual host function
     calls is available via the sandbox fuel metering counters reported in
     extension lifecycle diagnostics.
+    Status: planned (milestone wasm_host_functions). The component
+    runtime's bridge world imports none of these functions today; the
+    Extism runtime registered three (emit_diagnostic, query_graph,
+    read_file) until the component cutover removed it. The sandbox that
+    exists (execution deadline, fuel, a WASI context that grants nothing)
+    belongs to wasm_extension_runtime.
   """
 }
 
 feature wasm_performance_optimization "Wasm Performance Optimization" {
+  status   done
   problem  """
     Cold-loading .wasm binaries on every compilation is too slow for CLI
     and unacceptable for interactive LSP/MCP contexts. Extensions need
@@ -66,6 +74,7 @@ feature wasm_performance_optimization "Wasm Performance Optimization" {
 }
 
 feature wasm_extension_authoring "Wasm Extension Authoring" {
+  status   done
   problem  """
     Extension authors need a streamlined workflow to create, test, and
     publish Wasm extensions. Without tooling, authors must manually
@@ -82,6 +91,7 @@ feature wasm_extension_authoring "Wasm Extension Authoring" {
 }
 
 feature entity_enhancement "Entity Enhancement" {
+  status   done
   // Bridge: depends on validate_extension_manifest (contribution_based_extensions feature)
   // for manifest schema validation before enhancement registration proceeds.
   problem  """
@@ -104,6 +114,7 @@ feature entity_enhancement "Entity Enhancement" {
 }
 
 feature entity_kind_conflict_prevention "Entity Kind Conflict Prevention" {
+  status   done
   problem  """
     Wasm extensions register new entity kinds when they load, and two
     extensions can declare the same kind name.
@@ -117,6 +128,7 @@ feature entity_kind_conflict_prevention "Entity Kind Conflict Prevention" {
 }
 
 feature wasm_extension_installation "Wasm Extension Installation" {
+  status   done
   problem  """
     Extensions need a reliable install/uninstall/upgrade workflow that
     resolves from multiple sources (registry, local, git) and maintains
@@ -131,6 +143,7 @@ feature wasm_extension_installation "Wasm Extension Installation" {
 }
 
 feature wasm_lock_management "Wasm Lock Management" {
+  status   done
   problem  """
     Reproducible builds require pinning exact extension versions with
     integrity verification. Without a lock file, different environments
@@ -145,6 +158,7 @@ feature wasm_lock_management "Wasm Lock Management" {
 }
 
 feature wasm_extension_maintenance "Wasm Extension Maintenance" {
+  status   done
   problem  """
     Extension ecosystems need discovery, cache management, and bulk
     update capabilities. Without these, users must manage extensions
@@ -160,6 +174,7 @@ feature wasm_extension_maintenance "Wasm Extension Maintenance" {
 }
 
 feature contribution_based_extensions "Contribution-Based Extensions" {
+  status   done
   problem  """
     Extensions need a structured way to declare what they contribute
     (entities, validators, renderers, providers, parsers, collectors,
@@ -182,7 +197,8 @@ feature contribution_based_extensions "Contribution-Based Extensions" {
     command, an MCP tool or resource, a compiler pass, a collector, a
     custom validator, a scanner and the migration hook, each with the
     protocol's input and answer types and every failure E028. Per-call-site
-    permissions enforce least-privilege for each contribution export. This
+    permissions for host functions belong to the planned
+    wasm_host_function_api feature: no export can call the host yet. This
     feature owns the compile-time contributions (entities, validators,
     renderers, providers, parsers, grammars, body_parsers). Test result collection (collectors) is owned by the
     test_result_collection feature. Surface contributions (CLI commands,
@@ -200,6 +216,7 @@ feature contribution_based_extensions "Contribution-Based Extensions" {
 }
 
 feature test_result_collection "Test Result Collection" {
+  status   done
   problem  """
     Coverage needs to know which entities the project's tests prove, but
     every test runner has its own command and report format. Wiring them
@@ -221,6 +238,7 @@ feature test_result_collection "Test Result Collection" {
 }
 
 feature surface_contributions "Surface Contributions" {
+  status   done
   problem  """
     Extensions can extend the compilation pipeline (entities, validators,
     renderers, providers, collectors, grammars, body_parsers) but cannot

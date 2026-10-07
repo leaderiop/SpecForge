@@ -12,6 +12,7 @@ use "behaviors/zero-entity-registries"
 use "behaviors/zero-entity-validation"
 
 feature reference_resolution "Reference Resolution" {
+  status   done
   problem  """
     .spec files reference entities across multiple files via use imports
     and reference lists. Broken imports, circular dependencies, and
@@ -26,6 +27,7 @@ feature reference_resolution "Reference Resolution" {
 }
 
 feature graph_construction "Graph Construction" {
+  status   done
   problem  """
     After resolution, entities and their resolved references must be
     assembled into an in-memory typed entity graph for validation,
@@ -39,6 +41,7 @@ feature graph_construction "Graph Construction" {
 }
 
 feature structural_validation "Structural Validation" {
+  status   done
   problem  """
     The compiled graph may contain structural inconsistencies: dangling
     references, duplicate IDs, orphan structural nodes, and missing
@@ -58,6 +61,7 @@ feature structural_validation "Structural Validation" {
 }
 
 feature diagnostic_reporting "Diagnostic Reporting" {
+  status   done
   // JSON output path for agent consumption (P3)
   // Note: print_diagnostics_structured and export_diagnostics_as_json also
   // appear in features/output.spec::ci_integration. This is intentional:
@@ -94,6 +98,7 @@ feature diagnostic_reporting "Diagnostic Reporting" {
 // appear in multiple features when it serves multiple user-facing
 // capabilities.
 feature zero_entity_validation "Zero-Entity Validation" {
+  status   done
   problem  """
     Without extension-aware validation, entity keywords and field names
     from uninstalled or misconfigured extensions go undetected, producing

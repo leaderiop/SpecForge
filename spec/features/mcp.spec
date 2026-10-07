@@ -6,6 +6,7 @@ use "behaviors/mcp-server"
 use "behaviors/mcp-tools"
 
 feature mcp_resource_exposure "MCP Resource Exposure" {
+  status   done
   problem  """
     AI agents using MCP need resource-based access to the spec graph, schema,
     and diagnostics without invoking CLI commands. Without MCP resources, agents
@@ -20,6 +21,7 @@ feature mcp_resource_exposure "MCP Resource Exposure" {
 }
 
 feature mcp_core_tools "MCP Core Tools" {
+  status   done
   problem  """
     Agents need to invoke core spec operations (query subgraphs, trigger validation,
     export formats, search entities, inspect schema, check coverage) through MCP.
@@ -37,6 +39,7 @@ feature mcp_core_tools "MCP Core Tools" {
 }
 
 feature mcp_navigation_tools "MCP Navigation Tools" {
+  status   done
   problem  """
     Agents need LSP-equivalent navigation capabilities — inspecting entities, finding
     definitions and references, browsing file outlines, and getting fix suggestions —
@@ -52,6 +55,7 @@ feature mcp_navigation_tools "MCP Navigation Tools" {
 }
 
 feature mcp_mutation_tools "MCP Mutation Tools" {
+  status   done
   problem  """
     Agents that author or maintain spec projects need to format files, rename
     entities, initialize projects, manage extensions, and run migrations — all
@@ -70,6 +74,7 @@ feature mcp_mutation_tools "MCP Mutation Tools" {
 }
 
 feature mcp_project_management_tools "MCP Project Management Tools" {
+  status   done
   problem  """
     Agents managing spec projects need to list extensions, check providers,
     diagnose issues, collect test results, and render outputs — operations
@@ -95,6 +100,7 @@ feature mcp_project_management_tools "MCP Project Management Tools" {
 }
 
 feature mcp_delta_notifications "MCP Delta Notifications" {
+  status   done
   problem  """
     Agents consuming the spec graph via MCP have no way to know when the graph
     or diagnostics change. Without change notifications, agents must poll for
@@ -110,6 +116,7 @@ feature mcp_delta_notifications "MCP Delta Notifications" {
 }
 
 feature mcp_prompts "MCP Prompts" {
+  status   done
   problem  """
     Agents need guided workflows for common spec tasks — implementing an entity,
     reviewing test coverage, tracing a plan, or exploring the graph. Raw tool
@@ -126,6 +133,7 @@ feature mcp_prompts "MCP Prompts" {
 }
 
 feature mcp_protocol_compliance "MCP Protocol Compliance" {
+  status   done
   problem  """
     The MCP server implements SpecForge-specific tools and resources but does not
     model standard JSON-RPC 2.0 / MCP protocol edge cases: malformed requests,
@@ -144,6 +152,7 @@ feature mcp_protocol_compliance "MCP Protocol Compliance" {
 }
 
 feature mcp_lifecycle "MCP Lifecycle" {
+  status   done
   problem  """
     The MCP server must manage its full lifecycle — initialization of the
     compiler, extension loading, tool/resource/prompt registration, and clean
@@ -163,6 +172,7 @@ feature mcp_lifecycle "MCP Lifecycle" {
 }
 
 feature mcp_discovery "MCP Discovery" {
+  status   done
   problem  """
     Agents connecting to the MCP server have no way to discover which tools,
     resources, and prompts are available. Because extensions dynamically

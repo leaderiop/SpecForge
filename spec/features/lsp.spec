@@ -4,6 +4,7 @@ use "behaviors/lsp"
 use "behaviors/zero-entity-lsp"
 
 feature lsp_lifecycle "LSP Lifecycle" {
+  status   done
   problem  """
     The LSP server must properly initialize with capabilities that
     reflect installed extensions, manage document lifecycle (open/close),
@@ -23,6 +24,7 @@ feature lsp_lifecycle "LSP Lifecycle" {
 }
 
 feature go_to_definition_and_references "Go-to-Definition and References" {
+  status   done
   problem  """
     Navigating between entity declarations and their references across
     multiple .spec files is tedious without IDE support. Users must
@@ -36,6 +38,7 @@ feature go_to_definition_and_references "Go-to-Definition and References" {
 }
 
 feature hover_and_autocomplete "Hover and Autocomplete" {
+  status   done
   // Owned here (behaviors/lsp.spec):
   //   hover_information, autocomplete_entity_ids, complete_keywords
   // Bridge from extension_driven_lsp (features/zero-entity-core.spec):
@@ -56,6 +59,7 @@ feature hover_and_autocomplete "Hover and Autocomplete" {
 }
 
 feature rename_refactoring "Rename Refactoring" {
+  status   done
   problem  """
     Renaming an entity ID requires updating every file that references
     it. Manual find-and-replace is risky — missed references become
@@ -68,6 +72,7 @@ feature rename_refactoring "Rename Refactoring" {
 }
 
 feature live_diagnostics "Live Diagnostics" {
+  status   done
   problem  """
     Users need immediate feedback as they type, not after saving.
     Waiting for a manual specforge check breaks the flow. Full document
@@ -81,6 +86,7 @@ feature live_diagnostics "Live Diagnostics" {
 }
 
 feature semantic_tokens "Semantic Tokens" {
+  status   done
   // Owned here (behaviors/lsp.spec):
   //   provide_semantic_tokens
   // Bridge references from zero-entity-core (behaviors/zero-entity-lsp.spec):
@@ -101,6 +107,7 @@ feature semantic_tokens "Semantic Tokens" {
 }
 
 feature code_actions "Code Actions" {
+  status   done
   // Bridge: code_actions_for_missing_verify, code_action_create_entity_stub,
   //   code_action_replace_unresolved
   //   (owned by extension_driven_code_actions in features/zero-entity-core.spec)
@@ -120,6 +127,7 @@ feature code_actions "Code Actions" {
 }
 
 feature outline_and_symbol_search "Outline and Symbol Search" {
+  status   done
   // Owned here (behaviors/lsp.spec):
   //   outline_view, workspace_symbol_search
   // Bridge references from zero-entity-core (behaviors/zero-entity-lsp.spec):

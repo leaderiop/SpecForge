@@ -272,6 +272,7 @@ feature pe_migration_strategy "Extension Migration Strategy" {
 }
 
 feature pe_planning_insights "Advanced Planning Insights" {
+  status   done
   problem  """
     Product managers and agents cannot answer key planning questions
     without manual graph traversal: which features are unscheduled,
@@ -375,6 +376,7 @@ feature pe_temporal_planning "Temporal Planning" {
 }
 
 feature pe_external_blockers "External Blocker Tracking" {
+  status   done
   problem  """
     Blocked milestones only reference internal dependencies (depends_on).
     External factors (regulatory, third-party APIs, hiring) that block

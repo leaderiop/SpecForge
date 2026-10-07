@@ -9,6 +9,7 @@
 // Phase dependency DAG (enforced via depends_on fields):
 // H1: P1 > P2 > P3 > P4 > P5, P4 > P6 > P7, P4 > P8
 // H2: P8 > P9 > P10 > P11, P4 > P12 > P13, P11 > P14
+// Planned: P10 > P15, P11 > P16, P11 > P17
 
 use "extensions/compliance/features"
 use "extensions/embeddings/features"
@@ -253,7 +254,7 @@ milestone zero_entity_core "Phase 9: Zero-Entity Core Architecture" {
 }
 
 milestone wasm_runtime "Phase 10: Wasm Extension Runtime" {
-  description   "Wasm component runtime with compile caching, sandbox enforcement, host function API, peer dependency validation, and surface contribution dispatch."
+  description   "Wasm component runtime with compile caching, sandbox enforcement, peer dependency validation, and surface contribution dispatch. The host-function import surface is not part of it: it is planned as Phase 15 (wasm_host_functions)."
   status        completed
   start_date    "2026-01-15"
   target_date   "2026-02-01"
@@ -262,7 +263,6 @@ milestone wasm_runtime "Phase 10: Wasm Extension Runtime" {
   depends_on    [zero_entity_core]
   features      [
     wasm_extension_runtime,
-    wasm_host_function_api,
     wasm_performance_optimization,
     entity_kind_conflict_prevention,
     provider_based_ref_validation,
@@ -272,13 +272,11 @@ milestone wasm_runtime "Phase 10: Wasm Extension Runtime" {
     product_surface_access,
     product_health_metric,
     product_impact_and_whatif,
-    product_graph_diff,
   ]
   modules       [specforge_wasm, specforge_provider_gh]
   tags          ["h2", "runtime"]
   exit_criteria [
     "Wasm extensions load, initialize, and validate without errors",
-    "All 8 host functions work correctly (query, diagnostic, node, edge, file, http)",
     "Compile-cache hits load extensions in <50ms",
     "Sandbox enforcement blocks unauthorized filesystem and network access",
     "Peer dependency validation catches missing or incompatible extensions",
@@ -286,7 +284,6 @@ milestone wasm_runtime "Phase 10: Wasm Extension Runtime" {
     "Entity kind conflicts between extensions detected and reported",
     "Provider-based ref validation catches malformed identifiers",
     "Contribution-based dispatch routes to correct exports per contribution type",
-    "Per-call-site permissions enforce least-privilege for each export",
     "Surface contributions registered from manifest surfaces field",
     "CLI commands auto-promoted to MCP tools with matching schemas",
   ]
@@ -312,11 +309,6 @@ milestone extension_ecosystem "Phase 11: Extension Ecosystem" {
     extension_body_parsing,
     pe_planning_insights,
     pe_external_blockers,
-    fa_progressive_warnings,
-    compliance_reporting,
-    compliance_validation,
-    entity_embedding_search,
-    markdown_documentation_generation,
   ]
   modules       [
     specforge_package_formal,
@@ -334,9 +326,9 @@ milestone extension_ecosystem "Phase 11: Extension Ecosystem" {
     "specforge.lock pins exact versions with SHA256 integrity hashes",
     "Extension authoring: init > build > test > publish works e2e",
     "Collectors produce specforge-report.json from test frameworks",
-    "Registry search/publish works with npm, OCI, and GitHub sources",
+    "Registry search, resolve and publish work over the SpecForge HTTP package registry",
     "specforge doctor reports conflicts, cache health, and extension status",
-    "Private registry authentication with token refresh and retry",
+    "Private registry authentication: login stores a registry token in the OS keyring, logout removes it",
     "Surface commands dispatched via cmd__{id} Wasm exports with sandbox enforcement",
     "Surface MCP tools/resources dispatched via mcp__{name} Wasm exports",
   ]
@@ -434,5 +426,55 @@ milestone migration "Phase 14: Migration" {
     "Post-migration validation confirms graph structural equivalence",
     "Rollback restores original files on migration failure",
     "Extension migration hooks invoked in topological order",
+  ]
+}
+
+milestone wasm_host_functions "Phase 15: Wasm Host Functions" {
+  description   "The host-import surface extensions call into: graph queries, diagnostic emission, graph node and edge registration, scoped file reads, non-code file output and allowlisted HTTP, each granted per contribution call site. Planned: the component runtime's bridge world imports nothing today (its one export is call), so an extension reaches the host only through the typed extension calls."
+  status        planned
+  owner         "specforge-team"
+  contributors  ["specforge-team"]
+  depends_on    [wasm_runtime]
+  features      [wasm_host_function_api]
+  modules       [specforge_wasm]
+  tags          ["h2", "runtime"]
+  exit_criteria [
+    "The bridge world imports the seven host functions (query_graph, emit_diagnostic, add_graph_node, add_graph_edge, read_file, emit_file, http_get) and an SDK guest calls each",
+    "Per-call-site permissions enforce least-privilege for each contribution export",
+    "An unauthorized host call is rejected and reported, without failing the compile",
+  ]
+}
+
+milestone extension_catalog "Phase 16: Compliance, Embeddings and Markdown Extensions" {
+  description   "The first-party extensions specified beside the builtins and not built yet: @specforge/compliance (its entity kinds, validation and reporting), @specforge/embeddings (entity embedding search) and @specforge/markdown-renderer (documentation generation). Their specs are under spec/extensions/; no extension source exists."
+  status        planned
+  owner         "specforge-team"
+  contributors  ["specforge-team"]
+  depends_on    [extension_ecosystem]
+  features      [
+    ce_core_entity_kinds,
+    compliance_validation,
+    compliance_reporting,
+    entity_embedding_search,
+    markdown_documentation_generation,
+  ]
+  tags          ["h2", "ecosystem"]
+  exit_criteria [
+    "Each extension builds as a wasip2 component, is vendored as a builtin or installable, and declares its kinds and rules",
+    "Every feature listed here is done and proven by recorded tests",
+  ]
+}
+
+milestone ms_followups "Phase 17: Product Graph Diff and Progressive Formal Warnings" {
+  description   "Two features once listed in completed milestones that were never built: comparing product graph snapshots between builds (product_graph_diff) and the formal extension's warning levels (fa_progressive_warnings)."
+  status        planned
+  owner         "specforge-team"
+  contributors  ["specforge-team"]
+  depends_on    [extension_ecosystem]
+  features      [product_graph_diff, fa_progressive_warnings]
+  tags          ["h2"]
+  exit_criteria [
+    "A product command compares two recorded graph snapshots and reports structural and status changes",
+    "warning_level (onboarding, standard, strict) in specforge.json gates the formal warnings",
   ]
 }

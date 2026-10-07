@@ -18,6 +18,7 @@ use "invariants/extensions"
 // (add_extension_to_existing_project behavior). specforge remove and specforge extensions
 // are managed here. See also features/wasm.spec for install/uninstall lifecycle.
 feature extension_management "Extension Management" {
+  status   done
   problem  """
     The core compiler has zero built-in entity types. Teams need to
     install extensions that provide the entity kinds they use, and the
@@ -37,6 +38,7 @@ feature extension_management "Extension Management" {
 }
 
 feature provider_based_ref_validation "Provider-Based Ref Validation" {
+  status   done
   problem  """
     External references with custom schemes need pluggable validation —
     typos in reference identifiers should be caught at compile time, not
@@ -53,6 +55,7 @@ feature provider_based_ref_validation "Provider-Based Ref Validation" {
 }
 
 feature extension_registry "Extension Registry" {
+  status   done
   // Cross-feature: registry_api_openness invariant also references
   // publish_schema_specification from features/output.spec — the open registry
   // API schema is part of the Graph Protocol publishing surface.
@@ -83,6 +86,7 @@ feature extension_registry "Extension Registry" {
 }
 
 feature registry_authentication "Registry Authentication" {
+  status   done
   problem  """
     Extension registries may require authentication for private or enterprise
     extensions. There is no mechanism to configure credentials, authenticate

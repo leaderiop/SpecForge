@@ -308,7 +308,7 @@ behavior read_build_cache "Read the Build Cache" {
 }
 
 behavior enforce_per_call_site_permissions "Enforce Per-Call-Site Permissions" {
-  features   [contribution_based_extensions]
+  features   [wasm_host_function_api]
   invariants [wasm_sandbox_integrity]
   category   command
   types      [ExtensionDeclaration, SandboxPolicy]
