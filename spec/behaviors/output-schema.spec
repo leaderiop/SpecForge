@@ -54,10 +54,17 @@ behavior generate_schema_from_registries "Generate Schema From Registries" {
     regenerated on each compilation cycle — "once per compilation" means
     once per compile cycle, not once for the lifetime of the process. The
     cache MUST be invalidated at the start of each new compilation cycle.
+    Each SchemaField is its registered field's declaration: its type is
+    the field type the extension declares, named as the extension
+    protocol names it (string, integer, bool, enum, string_list,
+    reference, reference_list, block), an enum field carries its declared
+    values, and a declared default value is carried.
   """
   verify unit "schema includes all registered entity kinds"
   verify unit "schema includes all registered edge types"
   verify unit "schema fields match FieldRegistry entries"
+  verify unit "a field's declared default value reaches the schema"
+  verify unit "a field's type is named in the schema as its extension declares it"
   verify unit "schema generated once per compilation and cached"
   verify unit "zero extensions produces valid empty schema"
   verify contract "Generate Schema From Registries: schema generation from registries holds — registries_populated_fired, all_kinds_in_schema, all_edges_in_schema, schema_cached, schema_generated_emitted"
@@ -352,6 +359,9 @@ behavior detect_breaking_schema_changes "Detect Breaking Schema Changes" {
     the project has been exported before (output directory contains prior
     exports), the system SHOULD emit an I016 info diagnostic indicating the
     schema cache was not found and breaking change detection was skipped.
+    A field type is compared as the type, not its spelling: a cache an
+    older host wrote with an accepted older name (`boolean`) reads as the
+    same type, so it is no change.
   """
   verify unit "removed entity kind detected as breaking"
   verify unit "added optional field detected as non-breaking"
@@ -368,6 +378,7 @@ behavior detect_breaking_schema_changes "Detect Breaking Schema Changes" {
   verify contract "Detect Breaking Schema Changes: breaking schema change detection holds — schema_generated_fired, filesystem_available, breaking_changes_classified, nonbreaking_changes_classified, migration_record_emitted, schema_breaking_change_detected_emitted"
   verify unit "identical schemas no changes"
   verify unit "removed field is breaking"
+  verify unit "a cache an older host wrote reads its field types unchanged"
 }
 
 behavior compute_schema_version "Compute Schema Version" {
@@ -458,6 +469,7 @@ behavior publish_schema_specification "Publish Schema Specification" {
   verify unit "published schema describes all edge types"
   verify unit "third-party validator can use published schema"
   verify unit "published schema validates known-good export"
+  verify unit "the published schema lists the field types the host reads"
   verify unit "published schema requires the Graph Protocol top-level properties"
   verify unit "published context schema admits declared headline and normative fields"
   verify unit "--kind with --publish, and --format without it, are refused"

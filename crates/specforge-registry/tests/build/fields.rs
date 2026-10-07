@@ -3,9 +3,10 @@
 //! the protocol's field types.
 
 use specforge_common::Severity;
-use specforge_extension_sdk::prelude::*;
 use specforge_protocol_types::ExtensionDeclaration;
-use specforge_registry::{ManifestFieldType, ProofRole};
+use specforge_registry::{
+    FieldDescriptor, FieldRegistryEntry, FieldType, ProofRole, UnknownFieldType,
+};
 use specforge_test_macros::test as spec;
 
 use crate::support::{build, coded, declare, diagnostics, software};
@@ -39,7 +40,7 @@ fn every_kinds_fields_and_shared_fields_are_registered() {
             .fields
             .get("behavior", "contract")
             .unwrap()
-            .source_extension,
+            .source_extension(),
         "@specforge/software"
     );
     // `invariant` declares no field.
@@ -47,8 +48,8 @@ fn every_kinds_fields_and_shared_fields_are_registered() {
     // A shared field reaches every kind of its extension, and only those.
     for kind in ["task", "epic"] {
         let owner = build.fields.get(kind, "owner").expect(kind);
-        assert_eq!(owner.kind_name, kind);
-        assert_eq!(owner.source_extension, "@test/ext");
+        assert_eq!(owner.kind_name(), kind);
+        assert_eq!(owner.source_extension(), "@test/ext");
     }
     assert!(!build.fields.contains("behavior", "owner"));
     assert!(build.fields.contains("task", "estimate"));
@@ -60,23 +61,10 @@ fn every_kinds_fields_and_shared_fields_are_registered() {
     verify = "each field type and its _type alias register as that type"
 )]
 fn each_field_type_and_its_alias_registers_as_that_type() {
-    let types = [
-        (FieldType::String, ManifestFieldType::String),
-        (FieldType::Integer, ManifestFieldType::Integer),
-        (FieldType::Bool, ManifestFieldType::Bool),
-        (
-            FieldType::Enum,
-            ManifestFieldType::Enum(vec!["draft".to_string(), "done".to_string()]),
-        ),
-        (FieldType::StringList, ManifestFieldType::StringList),
-        (FieldType::Reference, ManifestFieldType::Reference),
-        (FieldType::ReferenceList, ManifestFieldType::ReferenceList),
-        (FieldType::Block, ManifestFieldType::Block),
-    ];
     let mut declaration = declare("@test/ext", |c| {
         c.kind("Thing", |k| {
             k.keyword("thing");
-            for (field_type, _) in &types {
+            for field_type in FieldType::ALL {
                 for name in [
                     field_type.as_str().to_string(),
                     format!("{}_alias", field_type.as_str()),
@@ -104,11 +92,12 @@ fn each_field_type_and_its_alias_registers_as_that_type() {
         "{:?}",
         diagnostics(&build)
     );
-    for (field_type, expected) in &types {
+    for field_type in FieldType::ALL {
         let name = field_type.as_str();
         for field in [name.to_string(), format!("{name}_alias")] {
             let entry = build.fields.get("thing", &field).expect(&field);
-            assert_eq!(&entry.field_type, expected, "{field}");
+            assert_eq!(entry.field_type(), *field_type, "{field}");
+            assert_eq!(entry.declared().field_type, name, "{field}");
         }
     }
     // An enum keeps its declared values, and its descriptor keeps them too.
@@ -117,7 +106,7 @@ fn each_field_type_and_its_alias_registers_as_that_type() {
             .fields
             .get("thing", "enum_alias")
             .unwrap()
-            .declared
+            .declared()
             .enum_values,
         ["draft", "done"]
     );
@@ -167,6 +156,66 @@ fn a_field_of_an_undefined_type_is_w019_and_not_registered() {
 
 #[spec(
     behavior = "registry_build_fields",
+    verify = "a registry entry is built only from a descriptor whose type the host reads"
+)]
+fn an_entry_is_built_only_from_a_type_the_host_reads() {
+    let described = |field_type: &str| FieldDescriptor {
+        name: "level".into(),
+        field_type: field_type.into(),
+        ..Default::default()
+    };
+
+    assert_eq!(
+        FieldRegistryEntry::new("thing", "@t/x", described("prose")),
+        Err(UnknownFieldType("prose".into()))
+    );
+
+    let unknown_role = FieldDescriptor {
+        proof_role: Some("assumed".into()),
+        ..described("string")
+    };
+    let entry = FieldRegistryEntry::new("thing", "@t/x", unknown_role).unwrap();
+    assert_eq!(entry.proof_role(), None);
+
+    let level = FieldDescriptor {
+        enum_values: vec!["low".into(), "high".into()],
+        ..described("enum")
+    };
+    let entry = FieldRegistryEntry::new("thing", "@t/x", level).unwrap();
+    assert_eq!(entry.field_type(), FieldType::Enum);
+    assert_eq!(entry.enum_values(), ["low", "high"]);
+    assert_eq!(entry.type_label(), "enum (low, high)");
+
+    // A string field declaring enum values has no enum values.
+    let not_an_enum = FieldDescriptor {
+        enum_values: vec!["low".into()],
+        ..described("string")
+    };
+    let entry = FieldRegistryEntry::new("thing", "@t/x", not_an_enum).unwrap();
+    assert_eq!(entry.field_type(), FieldType::String);
+    assert!(entry.enum_values().is_empty());
+    assert_eq!(entry.type_label(), "string");
+}
+
+#[spec(
+    behavior = "registry_build_fields",
+    verify = "a registry entry names its type canonically, whatever spelling was declared"
+)]
+fn an_entry_names_its_type_canonically() {
+    for spelling in ["boolean", "bool_type", "bool"] {
+        let declared = FieldDescriptor {
+            name: "urgent".into(),
+            field_type: spelling.into(),
+            ..Default::default()
+        };
+        let entry = FieldRegistryEntry::new("thing", "@t/x", declared).unwrap();
+        assert_eq!(entry.declared().field_type, "bool", "{spelling}");
+        assert_eq!(entry.field_type(), FieldType::Bool, "{spelling}");
+    }
+}
+
+#[spec(
+    behavior = "registry_build_fields",
     verify = "a field's normative flag reaches its registry entry"
 )]
 fn a_fields_normative_flag_reaches_its_entry() {
@@ -181,7 +230,14 @@ fn a_fields_normative_flag_reaches_its_entry() {
             });
         });
     })]);
-    let normative = |field: &str| build.fields.get("rule", field).unwrap().declared.normative;
+    let normative = |field: &str| {
+        build
+            .fields
+            .get("rule", field)
+            .unwrap()
+            .declared()
+            .normative
+    };
     assert!(normative("guarantee"));
     assert!(!normative("description"));
 }
@@ -221,7 +277,7 @@ fn a_fields_proof_role_reaches_its_entry() {
     let build = build([roles_extension("bound", "claim"), other]);
     assert!(diagnostics(&build).is_empty(), "{:?}", diagnostics(&build));
 
-    let role = |field: &str| build.fields.get("rule", field).unwrap().proof_role;
+    let role = |field: &str| build.fields.get("rule", field).unwrap().proof_role();
     assert_eq!(role("limit"), Some(ProofRole::Bound));
     assert_eq!(role("goal"), Some(ProofRole::Claim));
     assert_eq!(role("description"), None);
@@ -231,7 +287,7 @@ fn a_fields_proof_role_reaches_its_entry() {
             .fields
             .get("rule", "expression")
             .unwrap()
-            .source_extension,
+            .source_extension(),
         "@test/ext",
         "an enhancement field is the kind's through its owner"
     );
@@ -259,10 +315,10 @@ fn a_proof_role_other_than_bound_or_claim_is_refused() {
     );
     // The field is registered; it has no role.
     let limit = build.fields.get("rule", "limit").unwrap();
-    assert_eq!(limit.proof_role, None);
-    assert_eq!(limit.declared.proof_role.as_deref(), Some("assumed"));
+    assert_eq!(limit.proof_role(), None);
+    assert_eq!(limit.declared().proof_role.as_deref(), Some("assumed"));
     assert_eq!(
-        build.fields.get("rule", "goal").unwrap().proof_role,
+        build.fields.get("rule", "goal").unwrap().proof_role(),
         Some(ProofRole::Claim)
     );
 }
@@ -293,13 +349,13 @@ fn field_registration_holds() {
 
     // fields_registered: every declared field, embedding its descriptor.
     let contract = build.fields.get("behavior", "contract").unwrap();
-    assert_eq!(contract.field_type, ManifestFieldType::Block);
-    assert_eq!(contract.declared.name, "contract");
+    assert_eq!(contract.field_type(), FieldType::Block);
+    assert_eq!(contract.declared().name, "contract");
     let invariants = build.fields.get("behavior", "invariants").unwrap();
-    assert_eq!(invariants.field_type, ManifestFieldType::ReferenceList);
-    assert_eq!(invariants.declared.edge.as_deref(), Some("enforces"));
+    assert_eq!(invariants.field_type(), FieldType::ReferenceList);
+    assert_eq!(invariants.declared().edge.as_deref(), Some("enforces"));
     assert_eq!(
-        invariants.declared.target_kind.as_deref(),
+        invariants.declared().target_kind.as_deref(),
         Some("invariant")
     );
 
@@ -311,10 +367,10 @@ fn field_registration_holds() {
 
     // roles_checked: the bad role is W021 and the field has none.
     assert_eq!(
-        build.fields.get("task", "bound").unwrap().proof_role,
+        build.fields.get("task", "bound").unwrap().proof_role(),
         Some(ProofRole::Bound)
     );
-    assert_eq!(build.fields.get("task", "odd").unwrap().proof_role, None);
+    assert_eq!(build.fields.get("task", "odd").unwrap().proof_role(), None);
     let w021 = coded(&build, "W021");
     assert_eq!(w021.len(), 1);
     assert!(w021[0].message.contains("proof_role 'maybe'"));

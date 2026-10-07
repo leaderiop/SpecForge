@@ -10,6 +10,7 @@ mod mermaid;
 use std::fmt;
 
 use serde::{Deserialize, Serialize};
+use specforge_registry::FieldType;
 
 // ---------------------------------------------------------------------------
 // Enums
@@ -66,57 +67,6 @@ impl fmt::Display for Cardinality {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum ModelFieldType {
-    String,
-    Integer,
-    Boolean,
-    Enum,
-    #[serde(rename = "string_list")]
-    StringList,
-    Reference,
-    #[serde(rename = "reference_list")]
-    ReferenceList,
-    Block,
-}
-
-impl fmt::Display for ModelFieldType {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            ModelFieldType::String => write!(f, "string"),
-            ModelFieldType::Integer => write!(f, "integer"),
-            ModelFieldType::Boolean => write!(f, "boolean"),
-            ModelFieldType::Enum => write!(f, "enum"),
-            ModelFieldType::StringList => write!(f, "string_list"),
-            ModelFieldType::Reference => write!(f, "reference"),
-            ModelFieldType::ReferenceList => write!(f, "reference_list"),
-            ModelFieldType::Block => write!(f, "block"),
-        }
-    }
-}
-
-impl ModelFieldType {
-    /// Maps a manifest field type to the model IR. Unknown type strings fall
-    /// back to [`ModelFieldType::String`] and emit a warning describing the
-    /// fallback (C13-09) so a typo cannot silently corrupt every diagram.
-    pub fn from_schema_str(s: &str, warnings: &mut Vec<String>) -> Self {
-        match s {
-            "string" => Self::String,
-            "integer" => Self::Integer,
-            "boolean" => Self::Boolean,
-            "enum" => Self::Enum,
-            "string_list" => Self::StringList,
-            "reference" => Self::Reference,
-            "reference_list" => Self::ReferenceList,
-            "block" => Self::Block,
-            other => {
-                warnings.push(format!("unknown field type '{other}'; rendering as string"));
-                Self::String
-            }
-        }
-    }
-}
 // Options
 // ---------------------------------------------------------------------------
 
@@ -145,10 +95,6 @@ pub struct ModelIntermediate {
     /// extension edge counts after filtering. Not serialized to output.
     #[serde(skip)]
     pub edge_type_owners: Vec<(String, String)>,
-    /// Non-fatal build warnings, e.g. unknown field types that fell back to
-    /// string (C13-09). Not serialized to output; surfaced on stderr by the CLI.
-    #[serde(skip)]
-    pub warnings: Vec<String>,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 
@@ -170,7 +116,7 @@ pub struct ModelEntity {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModelField {
     pub name: String,
-    pub field_type: ModelFieldType,
+    pub field_type: FieldType,
     pub required: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,

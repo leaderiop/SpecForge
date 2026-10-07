@@ -76,10 +76,7 @@ fn derived_from_problem(field: &FieldDescriptor, source: &str) -> Option<&'stati
     if !matches!(source, "type_expressions" | "method_signatures") {
         return Some("expected 'type_expressions' or 'method_signatures'");
     }
-    let reference = matches!(
-        FieldType::parse(&field.field_type),
-        Some(FieldType::Reference | FieldType::ReferenceList)
-    );
+    let reference = FieldType::parse(&field.field_type).is_some_and(FieldType::is_reference);
     if !reference || field.target_kind.is_none() {
         return Some("only a reference field with a target_kind derives edges");
     }

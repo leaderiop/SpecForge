@@ -9,8 +9,8 @@ use specforge_emitter::{
 use specforge_graph::{Edge, FieldValue, Graph, Node};
 use specforge_parser::{EntityId, EntityKind, FieldMap};
 use specforge_registry::{
-    EdgeRegistry, EdgeRegistryEntry, FieldRegistry, FieldRegistryEntry, KindRegistry,
-    KindRegistryEntry, ManifestFieldType,
+    EdgeRegistry, EdgeRegistryEntry, FieldRegistry, FieldRegistryEntry, FieldType, KindRegistry,
+    KindRegistryEntry,
 };
 use specforge_test::prelude::*;
 
@@ -85,23 +85,36 @@ fn make_edge_entry(
     }
 }
 
-fn make_field_entry(
-    kind: &str,
-    field: &str,
-    ft: ManifestFieldType,
-    required: bool,
-) -> FieldRegistryEntry {
-    FieldRegistryEntry {
-        kind_name: kind.to_string(),
-        field_type: ft,
-        source_extension: "@specforge/software".to_string(),
-        proof_role: None,
-        declared: specforge_registry::FieldDescriptor {
+fn make_field_entry(kind: &str, field: &str, ft: FieldType, required: bool) -> FieldRegistryEntry {
+    FieldRegistryEntry::new(
+        kind,
+        "@specforge/software",
+        specforge_registry::FieldDescriptor {
             name: field.to_string(),
+            field_type: ft.as_str().to_string(),
             required,
             ..Default::default()
         },
-    }
+    )
+    .unwrap()
+}
+
+fn make_enum_entry(kind: &str, field: &str, values: &[&str], required: bool) -> FieldRegistryEntry {
+    let mut declared = make_field_entry(kind, field, FieldType::Enum, required)
+        .declared()
+        .clone();
+    declared.enum_values = values.iter().map(|v| v.to_string()).collect();
+    FieldRegistryEntry::new(kind, "@specforge/software", declared).unwrap()
+}
+
+/// `entry` with its declaration changed by `change`.
+fn amended(
+    entry: FieldRegistryEntry,
+    change: impl FnOnce(&mut specforge_registry::FieldDescriptor),
+) -> FieldRegistryEntry {
+    let mut declared = entry.declared().clone();
+    change(&mut declared);
+    FieldRegistryEntry::new(entry.kind_name(), entry.source_extension(), declared).unwrap()
 }
 
 fn sample_schema() -> GraphProtocolSchema {
@@ -119,7 +132,7 @@ fn sample_schema() -> GraphProtocolSchema {
                 dot_color: None,
                 fields: vec![SchemaField {
                     name: "contract".to_string(),
-                    field_type: "string".to_string(),
+                    field_type: FieldType::String,
                     required: false,
                     enum_values: None,
                     edge: None,
@@ -245,13 +258,13 @@ fn generate_schema_includes_kinds_edges_fields() {
     fields.register(make_field_entry(
         "behavior",
         "contract",
-        ManifestFieldType::String,
+        FieldType::String,
         false,
     ));
-    fields.register(make_field_entry(
+    fields.register(make_enum_entry(
         "behavior",
         "status",
-        ManifestFieldType::Enum(vec!["draft".into(), "done".into()]),
+        &["draft", "done"],
         false,
     ));
 
@@ -314,31 +327,31 @@ fn generate_schema_field_type_mapping() {
     fields.register(make_field_entry(
         "behavior",
         "contract",
-        ManifestFieldType::String,
+        FieldType::String,
         false,
     ));
     fields.register(make_field_entry(
         "behavior",
         "priority",
-        ManifestFieldType::Integer,
+        FieldType::Integer,
         false,
     ));
     fields.register(make_field_entry(
         "behavior",
         "active",
-        ManifestFieldType::Bool,
+        FieldType::Bool,
         false,
     ));
     fields.register(make_field_entry(
         "behavior",
         "invariants",
-        ManifestFieldType::ReferenceList,
+        FieldType::ReferenceList,
         false,
     ));
-    fields.register(make_field_entry(
+    fields.register(make_enum_entry(
         "behavior",
         "status",
-        ManifestFieldType::Enum(vec!["draft".into(), "done".into()]),
+        &["draft", "done"],
         false,
     ));
 
@@ -348,11 +361,14 @@ fn generate_schema_field_type_mapping() {
     assert_eq!(kind.fields.len(), 5);
 
     let find_field = |name: &str| kind.fields.iter().find(|f| f.name == name).unwrap();
-    assert_eq!(find_field("contract").field_type, "string");
-    assert_eq!(find_field("priority").field_type, "integer");
-    assert_eq!(find_field("active").field_type, "boolean");
-    assert_eq!(find_field("invariants").field_type, "reference_list");
-    assert_eq!(find_field("status").field_type, "enum");
+    assert_eq!(find_field("contract").field_type, FieldType::String);
+    assert_eq!(find_field("priority").field_type, FieldType::Integer);
+    assert_eq!(find_field("active").field_type, FieldType::Bool);
+    assert_eq!(
+        find_field("invariants").field_type,
+        FieldType::ReferenceList
+    );
+    assert_eq!(find_field("status").field_type, FieldType::Enum);
     assert_eq!(
         find_field("status").enum_values,
         Some(vec!["draft".to_string(), "done".to_string()])
@@ -541,7 +557,7 @@ fn diff_added_optional_field_non_breaking() {
     let mut new = sample_schema();
     new.entity_kinds[0].fields.push(SchemaField {
         name: "description".to_string(),
-        field_type: "string".to_string(),
+        field_type: FieldType::String,
         required: false,
         enum_values: None,
         edge: None,
@@ -566,7 +582,7 @@ fn diff_added_required_field_is_breaking() {
     let mut new = sample_schema();
     new.entity_kinds[0].fields.push(SchemaField {
         name: "severity".to_string(),
-        field_type: "string".to_string(),
+        field_type: FieldType::String,
         required: true,
         enum_values: None,
         edge: None,
@@ -887,7 +903,7 @@ fn publish_json_schema_edge_labels_in_enum() {
     let mut schema = sample_schema();
     schema.entity_kinds[0].fields.push(SchemaField {
         name: "features".to_string(),
-        field_type: "reference_list".to_string(),
+        field_type: FieldType::ReferenceList,
         required: false,
         enum_values: None,
         edge: Some("implements".to_string()),
@@ -983,7 +999,7 @@ fn full_pipeline_registries_to_schema_to_embed() {
     fields.register(make_field_entry(
         "behavior",
         "contract",
-        ManifestFieldType::String,
+        FieldType::String,
         false,
     ));
 
@@ -1206,7 +1222,7 @@ fn diff_multiple_field_changes() {
     new.entity_kinds[0].fields.clear();
     new.entity_kinds[0].fields.push(SchemaField {
         name: "description".to_string(),
-        field_type: "string".to_string(),
+        field_type: FieldType::String,
         required: false,
         enum_values: None,
         edge: None,
@@ -1322,7 +1338,7 @@ fn schema_generated_deterministically_for_caching() {
     fields.register(make_field_entry(
         "behavior",
         "contract",
-        ManifestFieldType::String,
+        FieldType::String,
         false,
     ));
 
@@ -1522,7 +1538,7 @@ fn generate_schema_contract() {
     fields.register(make_field_entry(
         "behavior",
         "contract",
-        ManifestFieldType::String,
+        FieldType::String,
         false,
     ));
 
@@ -1605,7 +1621,7 @@ fn detect_breaking_contract() {
     let mut new_nonbreaking = sample_schema();
     new_nonbreaking.entity_kinds[0].fields.push(SchemaField {
         name: "notes".to_string(),
-        field_type: "string".to_string(),
+        field_type: FieldType::String,
         required: false,
         enum_values: None,
         edge: None,
@@ -1924,11 +1940,15 @@ fn published_schema_constrains_fields_per_kind() {
 fn published_context_schema_admits_declared_headline_and_normative_fields() {
     let mut fields = FieldRegistry::new();
     // A headline field named neither `contract` nor `status`.
-    let mut stage = make_field_entry("task", "stage", ManifestFieldType::String, false);
-    stage.declared.headline = true;
+    let stage = amended(
+        make_field_entry("task", "stage", FieldType::String, false),
+        |d| d.headline = true,
+    );
     fields.register(stage);
-    let mut goal = make_field_entry("task", "goal", ManifestFieldType::String, false);
-    goal.declared.normative = true;
+    let goal = amended(
+        make_field_entry("task", "goal", FieldType::String, false),
+        |d| d.normative = true,
+    );
     fields.register(goal);
 
     let mut task = node("ship", "task", Some("Ship it"));
@@ -1975,4 +1995,123 @@ fn published_context_schema_admits_declared_headline_and_normative_fields() {
             "context node key '{key}' is neither declared nor a string: {value}"
         );
     }
+}
+
+/// `urgent` (bool), `priority` (enum low/high) and `owner` (string,
+/// default "nobody"), declared by `@t/x` on `ticket` and read through the
+/// registry build.
+fn ticket_registries() -> specforge_registry::RegistryBuild {
+    use specforge_protocol_types::{EntityKindDescriptor, ExtensionDeclaration, FieldDescriptor};
+    let field = |name: &str, field_type: &str| FieldDescriptor {
+        name: name.to_string(),
+        field_type: field_type.to_string(),
+        ..Default::default()
+    };
+    let mut declaration = ExtensionDeclaration::default();
+    declaration.handshake.name = "@t/x".to_string();
+    declaration.entities = vec![EntityKindDescriptor {
+        name: "ticket".to_string(),
+        keyword: Some("ticket".to_string()),
+        fields: vec![
+            field("urgent", "bool"),
+            FieldDescriptor {
+                enum_values: vec!["low".to_string(), "high".to_string()],
+                ..field("priority", "enum")
+            },
+            FieldDescriptor {
+                default_value: Some("nobody".to_string()),
+                ..field("owner", "string")
+            },
+        ],
+        ..Default::default()
+    }];
+    specforge_registry::build_registries(vec![declaration])
+}
+
+#[specforge_test(
+    behavior = "generate_schema_from_registries",
+    verify = "a field's type is named in the schema as its extension declares it"
+)]
+fn a_field_type_is_named_in_the_schema_as_declared() {
+    let build = ticket_registries();
+    let schema = generate_schema(&build.kinds, &build.edges, &build.fields, &[]);
+    let ticket = schema
+        .entity_kinds
+        .iter()
+        .find(|k| k.name == "ticket")
+        .unwrap();
+    let field = |name: &str| ticket.fields.iter().find(|f| f.name == name).unwrap();
+
+    assert_eq!(field("urgent").field_type, FieldType::Bool);
+    assert_eq!(
+        field("priority").enum_values,
+        Some(vec!["low".to_string(), "high".to_string()])
+    );
+    let written = serde_json::to_string(&schema).unwrap();
+    assert!(written.contains(r#""field_type":"bool""#), "{written}");
+    assert!(!written.contains("boolean"), "{written}");
+}
+
+#[specforge_test(
+    behavior = "publish_schema_specification",
+    verify = "the published schema lists the field types the host reads"
+)]
+fn the_published_schema_lists_the_field_types_the_host_reads() {
+    let build = ticket_registries();
+    let schema = generate_schema(&build.kinds, &build.edges, &build.fields, &[]);
+    let published: serde_json::Value =
+        serde_json::from_str(&publish_json_schema_format(&schema, EmitFormat::Json).unwrap())
+            .unwrap();
+    let compact = published.to_string();
+    let names: Vec<&str> = FieldType::ALL.iter().map(|t| t.as_str()).collect();
+    assert_eq!(
+        names,
+        [
+            "string",
+            "integer",
+            "bool",
+            "enum",
+            "string_list",
+            "reference",
+            "reference_list",
+            "block"
+        ]
+    );
+    let expected = format!(r#""field_type":{{"enum":{}}}"#, serde_json::json!(names));
+    assert!(compact.contains(&expected), "{compact}");
+}
+
+#[specforge_test(
+    behavior = "generate_schema_from_registries",
+    verify = "a field's declared default value reaches the schema"
+)]
+fn the_schema_carries_a_declared_default_value() {
+    let build = ticket_registries();
+    let schema = generate_schema(&build.kinds, &build.edges, &build.fields, &[]);
+    let ticket = schema
+        .entity_kinds
+        .iter()
+        .find(|k| k.name == "ticket")
+        .unwrap();
+    let field = |name: &str| ticket.fields.iter().find(|f| f.name == name).unwrap();
+    assert_eq!(field("owner").default_value.as_deref(), Some("nobody"));
+    assert_eq!(field("urgent").default_value, None);
+
+    // The model built from the schema shows it.
+    let model = specforge_emitter::model::render(
+        &specforge_emitter::model::ModelIntermediate_from_schema(&schema),
+        &specforge_emitter::model::ModelOptions {
+            format: specforge_emitter::model::ModelFormat::Json,
+            fields: specforge_emitter::model::FieldLevel::All,
+            ..Default::default()
+        },
+    );
+    let model: serde_json::Value = serde_json::from_str(&model).unwrap();
+    let owner = model["entities"][0]["fields"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|f| f["name"] == "owner")
+        .expect("owner is a field of the model");
+    assert_eq!(owner["default_value"], "nobody");
 }

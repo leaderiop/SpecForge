@@ -407,7 +407,7 @@ fn resolve(mut rule: Rule, registries: Registries<'_>) -> Result<Option<Rule>, D
     let writing: Vec<String> = registries
         .fields
         .iter()
-        .filter(|(_, _, entry)| entry.declared.edge.as_deref() == Some(&edge_type))
+        .filter(|(_, _, entry)| entry.declared().edge.as_deref() == Some(&edge_type))
         .map(|(_, field, _)| field.to_string())
         .collect::<BTreeSet<_>>()
         .into_iter()
@@ -438,7 +438,7 @@ fn required_field_rules(registries: Registries<'_>) -> Vec<Rule> {
     let mut required: Vec<(String, String)> = registries
         .fields
         .iter()
-        .filter(|(_, _, entry)| entry.declared.required)
+        .filter(|(_, _, entry)| entry.declared().required)
         .map(|(kind, field, _)| (kind.to_string(), field.to_string()))
         .collect();
     required.sort();

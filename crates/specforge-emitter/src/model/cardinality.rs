@@ -1,4 +1,5 @@
-use super::{Cardinality, ModelEntity, ModelFieldType};
+use super::{Cardinality, ModelEntity};
+use specforge_registry::FieldType;
 
 /// Infer cardinality for an edge by examining the source and target
 /// entities' fields carrying `edge_label` (C5-06).
@@ -25,12 +26,12 @@ pub fn infer_cardinality(
 
     if let Some(field) = source_field {
         let cardinality = match field.field_type {
-            ModelFieldType::Reference => {
+            FieldType::Reference => {
                 let target_has_back_ref = target_entity.is_some_and(|t| {
                     t.fields.iter().any(|f| {
                         !f.is_primary_key
                             && f.edge_label.as_deref() == Some(edge_label)
-                            && f.field_type == ModelFieldType::Reference
+                            && f.field_type == FieldType::Reference
                     })
                 });
                 if target_has_back_ref {
@@ -52,7 +53,7 @@ pub fn infer_cardinality(
             .find(|f| !f.is_primary_key && f.edge_label.as_deref() == Some(edge_label))
     });
     match target_inverse.map(|f| f.field_type) {
-        Some(ModelFieldType::Reference) => Some((Cardinality::OneToMany, None)),
+        Some(FieldType::Reference) => Some((Cardinality::OneToMany, None)),
         _ => None,
     }
 }
@@ -77,9 +78,9 @@ mod tests {
         ModelField {
             name: name.to_string(),
             field_type: if list {
-                ModelFieldType::ReferenceList
+                FieldType::ReferenceList
             } else {
-                ModelFieldType::Reference
+                FieldType::Reference
             },
             required: false,
             description: None,

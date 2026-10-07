@@ -10,11 +10,11 @@ mod invariants;
 // --- Core registries ---
 pub use registries::{
     EdgeRegistry, EdgeRegistryEntry, FieldRegistry, FieldRegistryEntry, KindRegistry,
-    KindRegistryEntry, ManifestFieldType, ProofRole,
+    KindRegistryEntry, UnknownFieldType,
 };
 
 // --- Extension vocabulary (shared with the SDK through the protocol types) ---
-pub use specforge_protocol_types::{CheckKind, ConstraintKind, FieldType};
+pub use specforge_protocol_types::{CheckKind, ConstraintKind, FieldType, ProofRole};
 // --- What a registry entry embeds: the descriptor its extension declared ---
 pub use specforge_protocol_types::{EdgeTypeDescriptor, EntityKindDescriptor, FieldDescriptor};
 
