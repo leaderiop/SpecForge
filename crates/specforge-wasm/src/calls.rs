@@ -31,6 +31,7 @@ use specforge_protocol_types::{
 };
 
 use crate::runtime::{WasmCallResult, WasmRuntime};
+use crate::sandbox::Sandbox;
 
 /// The operation a call performs.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -92,7 +93,8 @@ pub enum CallFailure {
     NotLoaded,
     /// The export did not answer: it trapped, the guest returned an error
     /// (`guest_error`, which an export the guest does not route is too), or
-    /// its time ran out (`deadline_exceeded`).
+    /// it crossed a limit of its sandbox: its time (`deadline_exceeded`), its
+    /// fuel (`fuel_exhausted`) or its memory (`memory_limit_exceeded`).
     Trapped { kind: String, message: String },
     /// The export answered, but not the protocol type it owes.
     Malformed {
@@ -176,6 +178,14 @@ impl<T> Encoded<T> {
     }
 }
 
+/// An extension's handshake, and the sandbox reading it placed the
+/// extension in.
+#[derive(Debug, Clone)]
+pub struct Handshake {
+    pub response: HandshakeResponse,
+    pub sandbox: Sandbox,
+}
+
 /// The operations on loaded extensions, over a runtime; see the module
 /// docs.
 #[derive(Clone, Copy)]
@@ -202,30 +212,31 @@ impl<'r> ExtensionCalls<'r> {
             })
     }
 
-    /// `__handshake`: the extension's identity and what it declares. The
-    /// wall-clock budget it declares (`sandbox_policy.max_execution_ms`)
-    /// gates its later calls.
-    pub fn handshake(&self, extension: &str) -> Result<HandshakeResponse, CallError> {
+    /// `__handshake`: the extension's identity and what it declares.
+    /// Reading it places the extension in its sandbox: its limits hold
+    /// every later call ([`WasmRuntime::apply_limits`]), the ceiling when it
+    /// declares none.
+    pub fn handshake(&self, extension: &str) -> Result<Handshake, CallError> {
         let request = HandshakeRequest {
             host_version: PROTOCOL_VERSION.to_string(),
             supported_categories: SUPPORTED_CATEGORIES.iter().map(|s| s.to_string()).collect(),
         };
-        let response: HandshakeResponse = self.call_typed(
-            Operation::Handshake,
+        let export = "__handshake";
+        let operation = Operation::Handshake;
+        let bytes = encode(operation, extension, export, &request)?;
+        let answer = self.call_raw(operation, extension, export, &bytes)?;
+        let response: HandshakeResponse =
+            decode(operation, extension, export, &answer, "HandshakeResponse")?;
+        // The same bytes read as a value cannot fail once the typed decode
+        // succeeded: the sandbox reads the policy as sent.
+        let wire: Value = serde_json::from_slice(&answer).expect("a decoded handshake is JSON");
+        let sandbox = Sandbox::of(
             extension,
-            "__handshake",
-            &request,
-            "HandshakeResponse",
-        )?;
-        if let Some(ms) = response
-            .sandbox_policy
-            .as_ref()
-            .and_then(|policy| policy.max_execution_ms)
-        {
-            self.runtime
-                .set_execution_deadline_ms(extension, u64::from(ms));
-        }
-        Ok(response)
+            wire.get("sandbox_policy")
+                .filter(|policy| !policy.is_null()),
+        );
+        self.runtime.apply_limits(extension, sandbox.limits);
+        Ok(Handshake { response, sandbox })
     }
 
     /// `__describe` of `category`.
@@ -392,17 +403,7 @@ impl<'r> ExtensionCalls<'r> {
         expected: &'static str,
     ) -> Result<O, CallError> {
         let answer = self.call_raw(operation, extension, export, bytes)?;
-        serde_json::from_slice(&answer).map_err(|e| {
-            CallError::new(
-                operation,
-                extension,
-                export,
-                CallFailure::Malformed {
-                    expected,
-                    reason: e.to_string(),
-                },
-            )
-        })
+        decode(operation, extension, export, &answer, expected)
     }
 
     fn call_raw(
@@ -427,6 +428,27 @@ impl<'r> ExtensionCalls<'r> {
             }
         }
     }
+}
+
+/// Decode an export's `answer` as the protocol type `expected` names.
+fn decode<O: DeserializeOwned>(
+    operation: Operation,
+    extension: &str,
+    export: &str,
+    answer: &[u8],
+    expected: &'static str,
+) -> Result<O, CallError> {
+    serde_json::from_slice(answer).map_err(|e| {
+        CallError::new(
+            operation,
+            extension,
+            export,
+            CallFailure::Malformed {
+                expected,
+                reason: e.to_string(),
+            },
+        )
+    })
 }
 
 fn encode<T: Serialize>(

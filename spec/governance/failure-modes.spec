@@ -175,6 +175,25 @@ failure_mode wasm_extension_crash "Wasm Extension Crash" {
   verify unit "Wasm Extension Crash failure mode is handled"
 }
 
+failure_mode wasm_memory_exhaustion "Wasm Memory Exhaustion" {
+  threatens_features [wasm_extension_runtime]
+  invariant          wasm_sandbox_integrity
+  severity           high
+  occurrence         occasional
+  detection          moderate
+  rpn                54
+  cause              "An extension grows its linear memory without bound (a leak across calls of a long session, or a hostile guest), up to the 4 GiB a wasm32 instance can address"
+  effect             "The host process (CLI, LSP, MCP server) takes gigabytes of memory, slowing or killing the developer's session"
+  mitigation         "The runtime's memory limiter holds each instance to its declared max_memory_mb, at most 512 MB; a growth past it traps the call (memory_limit_exceeded, E028) and the extension's next call gets a fresh instance"
+  post_mitigation {
+    severity   medium
+    occurrence rare
+    detection  certain
+    rpn        6
+  }
+  verify unit "Wasm Memory Exhaustion failure mode is handled"
+}
+
 failure_mode wasm_host_function_timeout "Wasm Host Function Timeout" {
   invariant  wasm_sandbox_integrity
   severity   medium
@@ -256,7 +275,7 @@ failure_mode manifest_schema_mismatch "Manifest Schema Mismatch" {
   rpn                30
   cause              "Extension built against an outdated manifest schema — field names and semantics differ between versions"
   effect             "Manifest fields misinterpreted — entity registrations wrong, peer dependencies ignored, sandbox policy defaults applied instead of declared values"
-  mitigation         "the handshake's protocol version is checked at load time: another major version fails the extension's load (E028); describe keys the protocol does not define produce W138"
+  mitigation         "the handshake's protocol version is checked at load time: another major version fails the extension's load (E028); describe keys the protocol does not define produce W138; a sandbox declaration the host does not honour produces W153"
   post_mitigation {
     severity   medium
     occurrence rare

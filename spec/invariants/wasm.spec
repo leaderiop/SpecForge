@@ -3,9 +3,10 @@
 invariant wasm_sandbox_integrity "Wasm Sandbox Integrity" {
   guarantee """
     Wasm extensions MUST NOT escape the Wasm sandbox. An extension MUST NOT
-    access the host filesystem, network, or memory outside its linear
-    memory region unless explicitly permitted by the sandbox policy.
-    Any sandbox violation MUST trap the extension and emit a diagnostic.
+    access the host filesystem, network, environment, or memory outside its
+    linear memory region; no sandbox policy permits it, since a policy
+    declares limits only (ADR 0037). Any call that crosses a limit of its
+    sandbox MUST trap the extension and emit a diagnostic (E028).
   """
   risk      high
   verify property "no extension can read or write outside its sandbox boundaries"

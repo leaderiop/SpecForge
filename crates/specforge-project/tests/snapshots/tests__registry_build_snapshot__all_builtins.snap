@@ -4728,7 +4728,16 @@ expression: "digest(&load(&runtime, &all))"
       "testable": true
     }
   },
-  "load_diagnostics": [],
+  "load_diagnostics": [
+    {
+      "code": "W153",
+      "message": "extension '@specforge/rust': sandbox_policy.file_system_access asks for a capability the host never grants; it is ignored"
+    },
+    {
+      "code": "W153",
+      "message": "extension '@specforge/typescript': sandbox_policy.file_system_access asks for a capability the host never grants; it is ignored"
+    }
+  ],
   "manifest_surfaces": [
     {
       "extension": "@specforge/product",

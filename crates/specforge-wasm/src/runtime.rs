@@ -1,5 +1,7 @@
 use std::path::Path;
 
+use crate::sandbox::Limits;
+
 /// Result of calling a Wasm export function.
 #[derive(Debug, Clone)]
 pub enum WasmCallResult {
@@ -27,11 +29,11 @@ pub trait WasmRuntime: Send + Sync {
     /// Call an export function on a loaded module.
     fn call_export(&self, extension_name: &str, export_name: &str, input: &[u8]) -> WasmCallResult;
 
-    /// Applies an extension's declared wall-clock budget (its handshake
-    /// `sandbox_policy.max_execution_ms`) to its subsequent calls.
-    /// Runtimes that cannot enforce wall-clock limits (mocks, test doubles)
-    /// ignore this (audit C7-10).
-    fn set_execution_deadline_ms(&self, _extension_name: &str, _max_execution_ms: u64) {}
+    /// Hold `extension_name`'s later calls to `limits` (its handshake's
+    /// sandbox, ADR 0037): the component runtime enforces them, the
+    /// in-process runtime records them (its guest runs in the host process
+    /// and is held to nothing). An extension that is not loaded is ignored.
+    fn apply_limits(&self, extension_name: &str, limits: Limits);
 
     /// Load a .wasm component binary under `extension_name`, the name its
     /// exports are then called by. Runtimes that key modules by path
