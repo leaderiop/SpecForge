@@ -56,6 +56,11 @@ behavior recover_from_syntax_errors "Recover From Syntax Errors" {
     and continue parsing subsequent blocks. The parser MUST collect all
     parse errors with source locations. Syntactically valid blocks
     after an error MUST still appear in the AST.
+    A string left unclosed is ended before the next line that starts a
+    top-level form of the grammar (an import, a spec, ref, define, union or
+    entity block); the text is read through the lexer (lex_spec_text), so a
+    backslash before a line break leaves a string unclosed, as the grammar
+    reads it.
   """
   requires {
     error_recovery_enabled "SourceParser is initialized with error-recovery mode enabled"
@@ -68,6 +73,8 @@ behavior recover_from_syntax_errors "Recover From Syntax Errors" {
   verify unit "parser collects multiple errors from one file"
   verify unit "valid blocks after syntax error are still parsed"
   verify unit "a closed multi-line string that contains a block-like line stays whole"
+  verify unit "recovery resumes at every top-level form the grammar reads, a union block included"
+  verify unit "a backslash before a line break leaves a string unclosed, as the grammar reads it"
   verify unit "completely invalid syntax produces error with location"
   verify unit "missing opening brace produces a parse error"
   verify contract "Recover From Syntax Errors: syntax error recovery holds — error_recovery_enabled, valid_utf8_input, valid_blocks_preserved, errors_collected"

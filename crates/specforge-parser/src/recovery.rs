@@ -4,13 +4,20 @@
 //! to the end of the file, or pair with the next string's opening quote and
 //! shift every later pairing, swallowing the blocks after it. The string
 //! that was never closed is ended just before the next line that starts a
-//! top-level block, and parsing resumes there.
+//! top-level form of the grammar, and parsing resumes there.
 //!
-//! The scan runs only on files the grammar already rejected, and only acts
-//! on a string left open at the end of the file or a multi-line string
-//! whose closing quote runs straight into text (the shifted pairing): a
-//! properly closed multi-line string whose content looks like a block start
-//! is never split.
+//! The text is read through the language's one lexer (`crate::lex`), whose
+//! strings are the grammar's: the culprit is the first string it reads as
+//! unclosed (no closing quote, a `\` before a line break, or a multi-line
+//! pairing whose closing quote runs into text), or a multi-line `"""…"""`
+//! whose closing quotes run into text. The scan runs only on files the
+//! grammar already rejected; a properly closed multi-line string whose
+//! content looks like a block start is never split. A test holds the resume
+//! lines to the top-level forms the grammar reads in the repository's spec.
+
+use crate::lex::{self, LexemeKind, lex};
+
+const TRIPLE: &str = "\"\"\"";
 
 /// A string the recovery ends early.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -24,44 +31,14 @@ pub(crate) struct UnclosedString {
     pub end: usize,
 }
 
-/// One string literal as the grammar's tokens would lex it.
-struct StringToken {
-    open: usize,
-    delim: &'static str,
-    /// Byte offset of the closing delimiter; `None` when unclosed at EOF.
-    close: Option<usize>,
-    /// Indentation of the top-level line the string sits under.
-    top_indent: usize,
-}
-
 /// Find the strings to end early, in source order. Empty when no string
 /// was left unclosed.
 pub(crate) fn unclosed_strings(source: &str) -> Vec<UnclosedString> {
-    let bytes = source.as_bytes();
     let mut found = Vec::new();
     let mut pos = 0;
-    loop {
-        let tokens = lex_strings(source, pos);
-        // An unclosed regular string pairs with the next string's opening
-        // quote, which shifts every later pairing: the first multi-line
-        // "string" whose closing quote runs straight into text
-        // (`"Broken {...behavior b "B`) is the one never closed. Failing
-        // that, the string left open at the end of the file.
-        let shifted = tokens.iter().find(|t| {
-            t.close.is_some_and(|close| {
-                bytes[t.open..close].contains(&b'\n')
-                    && runs_into_text(bytes, close + t.delim.len())
-            })
-        });
-        let Some(culprit) = shifted.or(tokens.last().filter(|t| t.close.is_none())) else {
-            break;
-        };
-        let end = next_block_start(source, culprit).unwrap_or(source.len());
-        found.push(UnclosedString {
-            open: culprit.open,
-            delim: culprit.delim,
-            end,
-        });
+    while let Some((open, delim, top_indent)) = culprit(source, pos) {
+        let end = next_block_start(source, open + delim.len(), top_indent).unwrap_or(source.len());
+        found.push(UnclosedString { open, delim, end });
         if end == source.len() {
             break;
         }
@@ -70,272 +47,103 @@ pub(crate) fn unclosed_strings(source: &str) -> Vec<UnclosedString> {
     found
 }
 
-/// Whether the byte after a closing delimiter continues a token, which a
-/// real closing quote never does: the grammar follows a string with
-/// whitespace, a bracket, `,`, `|`, a comment, or the end of the file.
-fn runs_into_text(bytes: &[u8], after: usize) -> bool {
-    bytes.get(after).is_some_and(|&c| {
-        !(c.is_ascii_whitespace()
-            || matches!(
-                c,
-                b'{' | b'}' | b'[' | b']' | b'(' | b')' | b',' | b'|' | b'/'
-            ))
-    })
-}
-
-/// Lex `source[start..]` for string literals, skipping comments and
-/// scheme-ref IDs (whose `//` is not a comment). `start` is a line start
-/// at brace depth 0.
-fn lex_strings(source: &str, start: usize) -> Vec<StringToken> {
-    let bytes = source.as_bytes();
-    let mut tokens = Vec::new();
+/// The first string of `source[from..]` the grammar does not close, as (the
+/// opening quote's offset in `source`, its delimiter, the indentation of the
+/// top-level line it sits under). `from` is a line start at brace depth 0.
+fn culprit(source: &str, from: usize) -> Option<(usize, &'static str, usize)> {
+    let text = &source[from..];
     let mut depth = 0usize;
     let mut top_indent = 0usize;
-    let mut line_start = start;
-    let mut line_has_token = false;
-    let mut i = start;
-    while i < bytes.len() {
-        let b = bytes[i];
-        if b == b'\n' {
-            line_start = i + 1;
-            line_has_token = false;
-            i += 1;
-            continue;
+    let mut previous_end: Option<usize> = None;
+    for lexeme in lex(text) {
+        let first_on_line = previous_end.is_none_or(|end| text[end..lexeme.start].contains('\n'));
+        if first_on_line && depth == 0 && lexeme.kind != LexemeKind::Comment {
+            let line_start = text[..lexeme.start].rfind('\n').map_or(0, |nl| nl + 1);
+            top_indent = lexeme.start - line_start;
         }
-        if b == b' ' || b == b'\t' || b == b'\r' {
-            i += 1;
-            continue;
-        }
-        if !line_has_token {
-            line_has_token = true;
-            if depth == 0 && !bytes[i..].starts_with(b"//") {
-                top_indent = i - line_start;
+        match lexeme.kind {
+            LexemeKind::Punct('{') => depth += 1,
+            LexemeKind::Punct('}') => depth = depth.saturating_sub(1),
+            LexemeKind::Str { closed } => {
+                let string = lexeme.text(text);
+                let delim = if string.starts_with(TRIPLE) {
+                    TRIPLE
+                } else {
+                    "\""
+                };
+                // An unclosed `"""` pairs with the next one's opening quotes:
+                // the multi-line "string" whose closing quotes run straight
+                // into text is the one never closed.
+                let shifted = closed
+                    && delim == TRIPLE
+                    && string.contains('\n')
+                    && lex::runs_into_text(text, lexeme.end);
+                if !closed || shifted {
+                    return Some((from + lexeme.start, delim, top_indent));
+                }
             }
+            _ => {}
         }
-        if bytes[i..].starts_with(b"//") {
-            i = memchr(b'\n', bytes, i).unwrap_or(bytes.len());
-        } else if bytes[i..].starts_with(b"\"\"\"") {
-            let close = find(bytes, i + 3, b"\"\"\"");
-            tokens.push(StringToken {
-                open: i,
-                delim: "\"\"\"",
-                close,
-                top_indent,
-            });
-            let Some(close) = close else { break };
-            (line_start, line_has_token) = after_string(bytes, i, close, line_start);
-            i = close + 3;
-        } else if b == b'"' {
-            let close = regular_close(bytes, i + 1);
-            tokens.push(StringToken {
-                open: i,
-                delim: "\"",
-                close,
-                top_indent,
-            });
-            let Some(close) = close else { break };
-            (line_start, line_has_token) = after_string(bytes, i, close, line_start);
-            i = close + 1;
-        } else if b == b'{' {
-            depth += 1;
-            i += 1;
-        } else if b == b'}' {
-            depth = depth.saturating_sub(1);
-            i += 1;
-        } else if is_ident_start(b) {
-            i = skip_word(bytes, i);
-        } else {
-            i += 1;
-        }
-    }
-    tokens
-}
-
-/// Line bookkeeping after a string spanning `open..close`.
-fn after_string(bytes: &[u8], open: usize, close: usize, line_start: usize) -> (usize, bool) {
-    match bytes[open..close].iter().rposition(|&c| c == b'\n') {
-        Some(nl) => (open + nl + 1, true),
-        None => (line_start, true),
-    }
-}
-
-/// Skip an identifier, or a whole scheme-ref ID (`scheme.kind:rest`).
-fn skip_word(bytes: &[u8], start: usize) -> usize {
-    let ident_end = |from: usize| {
-        let mut j = from;
-        while j < bytes.len() && is_ident_char(bytes[j]) {
-            j += 1;
-        }
-        j
-    };
-    let end = ident_end(start);
-    if bytes.get(end) == Some(&b'.') && bytes.get(end + 1).is_some_and(|&c| is_ident_start(c)) {
-        let kind_end = ident_end(end + 1);
-        if bytes.get(kind_end) == Some(&b':') {
-            let mut j = kind_end + 1;
-            while j < bytes.len() && !is_ref_stop(bytes[j]) {
-                j += 1;
-            }
-            if j > kind_end + 1 {
-                return j;
-            }
-        }
-    }
-    end
-}
-
-/// The closing quote of a regular string whose content starts at `from`.
-fn regular_close(bytes: &[u8], from: usize) -> Option<usize> {
-    let mut j = from;
-    while j < bytes.len() {
-        match bytes[j] {
-            b'\\' => j += 2,
-            b'"' => return Some(j),
-            _ => j += 1,
-        }
+        previous_end = Some(lexeme.end);
     }
     None
 }
 
-/// The first line after the string's opening that starts a top-level block.
-fn next_block_start(source: &str, t: &StringToken) -> Option<usize> {
-    let bytes = source.as_bytes();
-    let mut i = t.open + t.delim.len();
-    while let Some(nl) = memchr(b'\n', bytes, i) {
-        let line = nl + 1;
-        if line >= bytes.len() {
+/// The first line after `from` that starts a top-level form at indentation
+/// no deeper than `max_indent`.
+fn next_block_start(source: &str, from: usize, max_indent: usize) -> Option<usize> {
+    let mut at = from;
+    while let Some(nl) = source[at..].find('\n') {
+        let line = at + nl + 1;
+        if line >= source.len() {
             return None;
         }
-        let line_end = memchr(b'\n', bytes, line).unwrap_or(bytes.len());
-        if is_block_start(&source[line..line_end], t.top_indent) {
+        let line_end = source[line..]
+            .find('\n')
+            .map_or(source.len(), |nl| line + nl);
+        if is_block_start(&source[line..line_end], max_indent) {
             return Some(line);
         }
-        i = line;
+        at = line;
     }
     None
 }
 
-/// Whether `line` opens a top-level block at indentation no deeper than
-/// `max_indent`: `keyword id ["Title"] {`, `spec "Title" {`,
-/// `define name {`, `ref scheme.kind:id "Title"`, or a `use` import.
+/// Whether `line` opens a top-level form of the grammar (a child of
+/// `source_file`) at indentation no deeper than `max_indent`: `use …`,
+/// `pub use …`, `spec "Title" {`, `ref scheme.kind:id "Title"`,
+/// `kind name ["Title"] {` (a define block too) or `kind name =` (a union).
 fn is_block_start(line: &str, max_indent: usize) -> bool {
-    let rest = line.trim_start_matches([' ', '\t']);
-    if line.len() - rest.len() > max_indent {
+    let indent = line.len() - line.trim_start_matches([' ', '\t']).len();
+    if indent > max_indent {
         return false;
     }
-    let mut cur = Cursor(rest);
-    let Some(keyword) = cur.ident() else {
-        return false;
+    let lexemes = lex(line);
+    let kind = |i: usize| lexemes.get(i).map(|l| l.kind);
+    let word = |i: usize| {
+        lexemes
+            .get(i)
+            .filter(|l| l.kind == LexemeKind::Ident)
+            .map(|l| l.text(line))
     };
-    match keyword {
-        "use" => cur.ws() && cur.starts_import(),
-        "pub" => cur.ws() && cur.ident() == Some("use") && cur.ws() && cur.starts_import(),
-        "spec" => cur.ws() && cur.string() && cur.brace(),
-        "ref" => cur.ws() && cur.scheme_ref() && cur.ws() && cur.string(),
-        _ => {
-            if !(cur.ws() && cur.ident().is_some()) {
-                return false;
-            }
-            let before_title = cur.0;
-            if !(cur.ws() && cur.string()) {
-                cur.0 = before_title;
-            }
-            cur.brace()
-        }
+    // A header's title: a `"…"` closed on this line.
+    let title = |i: usize| {
+        lexemes.get(i).is_some_and(|l| {
+            l.kind == LexemeKind::Str { closed: true } && !l.text(line).starts_with(TRIPLE)
+        })
+    };
+    let punct = |i: usize, c: char| kind(i) == Some(LexemeKind::Punct(c));
+    // An import's target: a path, bindings or `* as`.
+    let import =
+        |i: usize| kind(i).is_some_and(LexemeKind::is_str) || punct(i, '{') || punct(i, '*');
+    match word(0) {
+        Some("use") => import(1),
+        Some("pub") => word(1) == Some("use") && import(2),
+        Some("spec") => title(1) && punct(2, '{'),
+        Some("ref") => kind(1) == Some(LexemeKind::RefId) && title(2),
+        Some(_) if word(1).is_some() => punct(if title(2) { 3 } else { 2 }, '{') || punct(2, '='),
+        _ => false,
     }
-}
-
-/// A forward-only scanner over one line.
-struct Cursor<'a>(&'a str);
-
-impl<'a> Cursor<'a> {
-    /// Consume at least one space or tab.
-    fn ws(&mut self) -> bool {
-        let rest = self.0.trim_start_matches([' ', '\t']);
-        let moved = rest.len() < self.0.len();
-        self.0 = rest;
-        moved
-    }
-
-    fn ident(&mut self) -> Option<&'a str> {
-        let bytes = self.0.as_bytes();
-        if !bytes.first().is_some_and(|&c| is_ident_start(c)) {
-            return None;
-        }
-        let end = bytes
-            .iter()
-            .position(|&c| !is_ident_char(c))
-            .unwrap_or(bytes.len());
-        let (word, rest) = self.0.split_at(end);
-        self.0 = rest;
-        Some(word)
-    }
-
-    /// A string literal closed on this line.
-    fn string(&mut self) -> bool {
-        let bytes = self.0.as_bytes();
-        if bytes.first() != Some(&b'"') {
-            return false;
-        }
-        match regular_close(bytes, 1) {
-            Some(close) => {
-                self.0 = &self.0[close + 1..];
-                true
-            }
-            None => false,
-        }
-    }
-
-    fn scheme_ref(&mut self) -> bool {
-        let bytes = self.0.as_bytes();
-        if !bytes.first().is_some_and(|&c| is_ident_start(c)) {
-            return false;
-        }
-        let end = skip_word(bytes, 0);
-        let is_ref = self.0[..end].contains(':');
-        self.0 = &self.0[end..];
-        is_ref
-    }
-
-    /// Optional spaces, then `{`.
-    fn brace(&mut self) -> bool {
-        self.ws();
-        self.0.starts_with('{')
-    }
-
-    /// The start of an import's target: a path, bindings or `* as`.
-    fn starts_import(&self) -> bool {
-        self.0.starts_with(['"', '{', '*'])
-    }
-}
-
-fn is_ident_start(c: u8) -> bool {
-    c.is_ascii_alphabetic() || c == b'_'
-}
-
-fn is_ident_char(c: u8) -> bool {
-    c.is_ascii_alphanumeric() || c == b'_'
-}
-
-/// Characters that end a scheme-ref ID (the grammar's `[^\s"{}()\[\],]+`).
-fn is_ref_stop(c: u8) -> bool {
-    c.is_ascii_whitespace() || matches!(c, b'"' | b'{' | b'}' | b'(' | b')' | b'[' | b']' | b',')
-}
-
-fn memchr(needle: u8, bytes: &[u8], from: usize) -> Option<usize> {
-    bytes
-        .get(from..)?
-        .iter()
-        .position(|&c| c == needle)
-        .map(|p| from + p)
-}
-
-fn find(bytes: &[u8], from: usize, needle: &[u8]) -> Option<usize> {
-    bytes
-        .get(from..)?
-        .windows(needle.len())
-        .position(|w| w == needle)
-        .map(|p| from + p)
 }
 
 #[cfg(test)]
@@ -413,27 +221,38 @@ mod tests {
     /// none running into text. Recovery never fires on a valid file anyway
     /// (it waits for a grammar error), but its blame rule relies on this.
     #[test]
-    fn the_lexer_agrees_with_the_grammar_on_the_corpora() {
-        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    fn no_string_of_the_corpora_runs_into_text() {
         let mut files = Vec::new();
-        for corpus in ["spec", "integrations/rust/spec", "examples"] {
-            collect_specs(&root.join(corpus), &mut files);
+        for corpus in CORPORA {
+            collect_specs(&root().join(corpus), &mut files);
         }
         assert!(files.len() > 20, "found only {} corpus files", files.len());
         for file in files {
             let src = std::fs::read_to_string(&file).unwrap();
-            for t in lex_strings(&src, 0) {
-                let close = t.close.unwrap_or_else(|| {
-                    panic!("{}: string at byte {} unclosed", file.display(), t.open)
-                });
+            for lexeme in lex(&src) {
+                let LexemeKind::Str { closed } = lexeme.kind else {
+                    continue;
+                };
                 assert!(
-                    !runs_into_text(src.as_bytes(), close + t.delim.len()),
+                    closed,
+                    "{}: string at byte {} unclosed",
+                    file.display(),
+                    lexeme.start
+                );
+                assert!(
+                    !lex::runs_into_text(&src, lexeme.end),
                     "{}: string at byte {} runs into text",
                     file.display(),
-                    t.open
+                    lexeme.start
                 );
             }
         }
+    }
+
+    const CORPORA: [&str; 3] = ["spec", "integrations/rust/spec", "examples"];
+
+    fn root() -> std::path::PathBuf {
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
     }
 
     fn collect_specs(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {
@@ -476,6 +295,9 @@ mod tests {
         assert!(!is_block_start("the quick brown fox", 0));
         assert!(!is_block_start("status done", 0));
         assert!(!is_block_start("behavior b \"B", 0));
+        assert!(is_block_start("type status = \"a\" | \"b\"", 0));
+        assert!(is_block_start("type t =", 0));
+        assert!(is_block_start("use\"./a.spec\"", 0));
     }
 
     #[test]
@@ -484,14 +306,18 @@ mod tests {
         assert!(unclosed_strings(src).is_empty());
     }
 
-    // Pin: flipped by plan 15 T5.
-    #[test]
-    fn the_corpora_s_unions_are_no_resume_points_today() {
-        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    #[specforge_test_macros::test(
+        behavior = "recover_from_syntax_errors",
+        verify = "recovery resumes at every top-level form the grammar reads, a union block included"
+    )]
+    fn every_top_level_form_of_the_corpora_is_a_resume_point() {
         let mut files = Vec::new();
-        for corpus in ["spec", "integrations/rust/spec", "examples"] {
-            collect_specs(&root.join(corpus), &mut files);
+        for corpus in CORPORA {
+            collect_specs(&root().join(corpus), &mut files);
         }
+        files.push(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/lexemes.spec"),
+        );
         let mut missed = std::collections::BTreeSet::new();
         for file in files {
             let src = std::fs::read_to_string(&file).unwrap();
@@ -511,10 +337,10 @@ mod tests {
                     file.display()
                 );
                 if !is_block_start(line, column) {
-                    missed.insert(node.kind());
+                    missed.insert(format!("{}: {}", node.kind(), line));
                 }
             }
         }
-        assert_eq!(missed, std::collections::BTreeSet::from(["union_block"]));
+        assert!(missed.is_empty(), "not resume points: {missed:#?}");
     }
 }
