@@ -61,7 +61,6 @@ fn detect_unknown_kinds_define_not_checked() {
     let entities = vec![
         EntityRecord::new("define", "my_define", span("test.spec")),
         EntityRecord::new("spec", "my_spec", span("test.spec")),
-        EntityRecord::new("ref", "gh.issue:1", span("test.spec")),
     ];
     let diags = check(&build([software()]), &entities);
     assert!(coded_in(&diags, "E024").is_empty(), "{diags:?}");
@@ -237,8 +236,8 @@ fn two_phase_validate_semantic_contract() {
 }
 
 /// With no entity kind registered, E024, E013, E014, W020, E022 and E061 do
-/// not run; the rules still do. (W012 and E016, the other checks the gate
-/// leaves running, are pinned in `refs` and `files`.)
+/// not run; W012 and the rules still do. (E016 needs a declared kind to hold
+/// its `file_reference` field.)
 #[spec(
     behavior = "check_entities_in_one_order",
     verify = "with no entity kind registered, E024, E013, E014, W020, E022 and E061 do not run, and W012, E016 and the rules still do"
@@ -250,6 +249,15 @@ fn a_build_with_no_kind_checks_no_kind() {
     ];
     // Nothing declared: nothing reported.
     assert!(check(&build([]), &records).is_empty());
+    // A ref nobody references is still W012.
+    let with_ref = [
+        records.clone(),
+        vec![EntityRecord::new("ref", "gh.issue:1", span("t.spec"))],
+    ]
+    .concat();
+    let diags = check(&build([]), &with_ref);
+    let codes: Vec<&str> = diags.iter().map(|d| d.code.as_str()).collect();
+    assert_eq!(codes, ["W012"], "{diags:?}");
 
     // One declaration with a rule and no kind: only the rule reports.
     let kindless = declare("@test/kindless", |c| {
@@ -261,7 +269,7 @@ fn a_build_with_no_kind_checks_no_kind() {
     });
     let build = build([kindless]);
     assert!(build.structural_only());
-    let diags = check(&build, &records);
+    let diags = check(&build, &with_ref);
     let codes: Vec<&str> = diags.iter().map(|d| d.code.as_str()).collect();
-    assert_eq!(codes, ["W902", "W902"], "{diags:?}");
+    assert_eq!(codes, ["W012", "W902", "W902", "W902"], "{diags:?}");
 }

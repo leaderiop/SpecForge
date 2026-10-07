@@ -20,6 +20,9 @@ fn shapes() -> ExtensionDeclaration {
             k.field("parts", |f| {
                 f.field_type(FieldType::ReferenceList).target_kind("gadget");
             });
+            k.field("docs", |f| {
+                f.field_type(FieldType::StringList).file_reference();
+            });
         });
         c.kind("Widget", |k| {
             k.keyword("widget");
@@ -41,6 +44,8 @@ fn the_checks_run_in_one_order() {
     let s = span("a.spec");
     // One record per check, written in an order that is not the checks'.
     let records = vec![
+        EntityRecord::new("ref", "gh.issue:1", s),
+        EntityRecord::new("gadget", "g_docs", s).with_list("docs", &["no_such_file_04.md"]),
         EntityRecord::new("gadget", "g_size", s).with_value("size", ValueShape::String, "big"),
         EntityRecord::new("gadget", "g_parts", s).with_reference("parts", &["w_one"]),
         EntityRecord::new("widget", "w_one", s),
@@ -55,7 +60,9 @@ fn the_checks_run_in_one_order() {
     let codes: Vec<&str> = diags.iter().map(|d| d.code.as_str()).collect();
     assert_eq!(
         codes,
-        ["E024", "E013", "E014", "W020", "E022", "E061", "W900"],
+        [
+            "W012", "E016", "E024", "E013", "E014", "W020", "E022", "E061", "W900"
+        ],
         "{diags:?}"
     );
 }

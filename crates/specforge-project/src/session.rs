@@ -14,7 +14,7 @@ use crate::coverage::RecordedCoverage;
 use crate::delta::{GraphDelta, compute_graph_delta};
 use crate::freshness::DiskSnapshot;
 use crate::incremental::IncrementalBuild;
-use crate::inputs::{Changes, SessionInputs, UpdateKind, named_files};
+use crate::inputs::{Changes, SessionInputs, UpdateKind};
 use crate::snapshot::EntitySnapshot;
 use crate::{Environment, sources_in_path_order};
 
@@ -571,9 +571,9 @@ impl ProjectSession {
         let entities = self.snapshot_now();
         let mut changed = false;
         if self.inputs.root().is_some() {
-            let next =
-                self.inputs
-                    .with_named(named_files(&self.env, self.build.graph(), &entities));
+            let next = self
+                .inputs
+                .with_named(self.env.registries.files(&entities.rule_input()));
             changed = next != self.inputs;
             self.inputs = next;
             self.snapshot.stamp_checks(&self.inputs);
