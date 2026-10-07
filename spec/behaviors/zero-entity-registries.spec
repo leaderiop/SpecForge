@@ -407,13 +407,7 @@ behavior registry_build_fields "Registry Build Registers Fields" {
   features   [dynamic_entity_registration]
   invariants [zero_domain_knowledge_core, registry_population_before_validation]
   category   command
-  types      [
-    ExtensionDeclaration,
-    FieldDescriptor,
-    FieldRegistryEntry,
-    ManifestFieldType,
-    RegistryBuild,
-  ]
+  types      [ExtensionDeclaration, FieldDescriptor, FieldRegistryEntry, FieldType, RegistryBuild]
   requires {
     declarations_in_load_order "The loaded declarations are given in load order, dependencies first"
   }
@@ -429,7 +423,7 @@ behavior registry_build_fields "Registry Build Registers Fields" {
     default value, enum values, description, required, edge, target kind)
     and naming the declaring extension. A field type is one of string,
     integer, bool, enum, string_list, reference, reference_list and block,
-    each also accepted with a `_type` suffix; any other type MUST produce a
+    each also accepted with a `_type` suffix (and bool as boolean); any other type MUST produce a
     W019 warning and the field is not registered. A field's normative flag
     MUST be kept so exports tell what an entity promises from prose without
     core knowing any field's name. A field's proof_role (bound or claim)
@@ -437,6 +431,10 @@ behavior registry_build_fields "Registry Build Registers Fields" {
     field name; any other role value MUST be refused with W021 and the
     field registered without a role. `verify` is not a field type and the
     entity title is not a field: both are grammar.
+    A field's registry entry is built from its descriptor alone and only
+    through that build's one constructor: its type, enum values and proof
+    role are read from the descriptor, and the descriptor it embeds names
+    the type canonically.
   """
   verify unit "every kind's declared fields and its extension's shared fields are registered for that kind"
   verify unit "each field type and its _type alias register as that type"
@@ -445,6 +443,8 @@ behavior registry_build_fields "Registry Build Registers Fields" {
   verify unit "a field's proof_role reaches the field registry"
   verify unit "a proof_role other than bound or claim is refused"
   verify unit "a field's declared descriptor reaches its registry entry whole"
+  verify unit "a registry entry is built only from a descriptor whose type the host reads"
+  verify unit "a registry entry names its type canonically, whatever spelling was declared"
   verify contract "Registry Build Registers Fields: field registration holds — declarations_in_load_order, fields_registered, types_parsed, roles_checked"
 }
 

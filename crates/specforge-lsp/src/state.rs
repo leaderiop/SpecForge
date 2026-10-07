@@ -102,7 +102,7 @@ impl LspState {
         let mut fields: Vec<(&str, &str, String)> = self
             .field_registry()
             .iter()
-            .map(|(kind, field, entry)| (kind, field, format!("{:?}", entry.field_type)))
+            .map(|(kind, field, entry)| (kind, field, format!("{:?}", entry.field_type())))
             .collect();
         fields.sort();
         fields.hash(&mut hasher);

@@ -2,19 +2,14 @@ use std::collections::HashMap;
 
 use super::cardinality::infer_cardinality;
 use super::{
-    Cardinality, ModelEntity, ModelExtension, ModelField, ModelFieldType, ModelIntermediate,
-    ModelRelationship,
+    Cardinality, ModelEntity, ModelExtension, ModelField, ModelIntermediate, ModelRelationship,
 };
 use crate::schema::{GraphProtocolSchema, SchemaEdgeType, SchemaEntityKind};
+use specforge_registry::FieldType;
 
 #[allow(non_snake_case)]
 pub fn ModelIntermediate_from_schema(schema: &GraphProtocolSchema) -> ModelIntermediate {
-    let mut warnings = Vec::new();
-    let entities: Vec<ModelEntity> = schema
-        .entity_kinds
-        .iter()
-        .map(|kind| build_entity(kind, &mut warnings))
-        .collect();
+    let entities: Vec<ModelEntity> = schema.entity_kinds.iter().map(build_entity).collect();
 
     let entity_map: HashMap<&str, &ModelEntity> =
         entities.iter().map(|e| (e.name.as_str(), e)).collect();
@@ -39,14 +34,13 @@ pub fn ModelIntermediate_from_schema(schema: &GraphProtocolSchema) -> ModelInter
         entities,
         relationships,
         edge_type_owners,
-        warnings,
     }
 }
 
-fn build_entity(kind: &SchemaEntityKind, warnings: &mut Vec<String>) -> ModelEntity {
+fn build_entity(kind: &SchemaEntityKind) -> ModelEntity {
     let mut fields = vec![ModelField {
         name: "id".to_string(),
-        field_type: ModelFieldType::String,
+        field_type: FieldType::String,
         required: true,
         description: None,
         default_value: None,
@@ -61,11 +55,7 @@ fn build_entity(kind: &SchemaEntityKind, warnings: &mut Vec<String>) -> ModelEnt
     let mut enhancing_extensions: Vec<String> = Vec::new();
 
     for sf in &kind.fields {
-        let mut field_warnings = Vec::new();
-        let field_type = ModelFieldType::from_schema_str(&sf.field_type, &mut field_warnings);
-        for w in field_warnings {
-            warnings.push(format!("{} field '{}': {}", kind.name, sf.name, w));
-        }
+        let field_type = sf.field_type;
         let references = sf.target_kind.clone();
 
         // Determine contribution info: "EdgeLabel -> target_kind"

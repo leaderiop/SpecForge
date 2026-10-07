@@ -303,10 +303,14 @@ fn trace_expectations_come_from_the_registries() {
 
     // A required reference is expected wherever it comes from.
     let (mut fields, kinds) = crate::trace_support::registries();
-    let mut parent =
-        crate::trace_support::reference("behavior", "parent", "behavior", "@t/formal", None);
-    parent.declared.required = true;
-    fields.register(parent);
+    let mut declared =
+        crate::trace_support::reference("behavior", "parent", "behavior", "@t/formal", None)
+            .declared()
+            .clone();
+    declared.required = true;
+    fields.register(
+        specforge_registry::FieldRegistryEntry::new("behavior", "@t/formal", declared).unwrap(),
+    );
     let expected = TraceExpectations::from_registries(&fields, &kinds);
     let parent = expected
         .for_kind("behavior")

@@ -207,7 +207,9 @@ Field types (`specforge_protocol_types::FieldType`): `string`, `integer`,
 `bool`, `enum` (values in `enum_values`), `string_list`, `reference`,
 `reference_list`, `block`. The host also reads the `_type`-suffixed
 spellings (`string_type`, ...) and `boolean`; an unknown type drops the
-field with W019.
+field with W019. Every host output names a field type by these names — the
+Graph Protocol schema and exports, the published JSON Schema, the model,
+hover and E061; the older spellings are read, never written (ADR 0034).
 
 ### Category: edges
 

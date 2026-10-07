@@ -90,9 +90,12 @@ has one coverage-row presenter (`tools::coverage::row_json`) and one gap present
   (architecture plan 2026-10-06 12, D4): `specforge schema --kind` prints the operation's outcome, the
   document `specforge.schema` returns (the kind and the edge types that touch it), and `--publish`
   goes through `ops::schema::json_schema`; `--kind` cannot be combined with `--publish`.
-- **D9. Model warnings are W146 on both surfaces**: CLI stderr `warning[W146]: model: …`, MCP the
+- ~~**D9. Model warnings are W146 on both surfaces**: CLI stderr `warning[W146]: model: …`, MCP the
   tool result's diagnostics. A registry-built schema only carries known field types, but the model
-  accepts any Graph Protocol schema, and a catalogued code reaches `explain` and the docs.
+  accepts any Graph Protocol schema, and a catalogued code reaches `explain` and the docs.~~
+  Superseded by [ADR 0034](0034-one-field-type-read-from-the-declaration.md) D5: the schema's field type
+  is typed, so no schema carries a type the model cannot name; W146 is retired and `model` returns the
+  rendered text.
 - **D10. Only `specforge export` records the schema cache**, at the view's root (D1). MCP only
   reads it.
 - **D11. Trace errors are typed**: `TraceError::EntityNotFound { entity_id, near }` replaces the
@@ -107,7 +110,7 @@ has one coverage-row presenter (`tools::coverage::row_json`) and one gap present
 - MCP clients see: `specforge.coverage {}` and `status_filter: uncovered` without union types,
   abstract entities and governance entities that declare nothing; an `exempt` field on every row;
   no `gaps` on an entity trace; an error for an unknown schema kind or coverage status; W146 in
-  model results.
+  model results (retired by ADR 0034).
 - Sub-path invocations change (D1); the R1/R2 reproductions of plan 02 are tests.
 - No ADR conflicts: D3 extends ADR 0004 D2-b, D4 is consistent with D2-a, D6 mirrors D1-c, and ADR
   0004 is silent on roots (27c48e54 had already chosen the view's own root for MCP).

@@ -12,7 +12,7 @@ use specforge_common::Diagnostic;
 use specforge_component::ComponentRuntime;
 use specforge_component::builtins::BUILTIN_EXTENSIONS;
 use specforge_project::Environment;
-use specforge_protocol_types::{SurfaceDescriptor, SurfaceSandboxOverride};
+use specforge_protocol_types::{FieldType, SurfaceDescriptor, SurfaceSandboxOverride};
 use tempfile::TempDir;
 
 fn runtime() -> ComponentRuntime {
@@ -126,21 +126,24 @@ fn digest(env: &Environment) -> Value {
             (
                 format!("{kind}.{field}"),
                 json!({
-                    "kind_name": f.kind_name,
-                    "field_name": f.declared.name,
-                    "description": f.declared.description,
-                    "field_type": format!("{:?}", f.field_type),
-                    "source_extension": f.source_extension,
-                    "edge": f.declared.edge,
-                    "target_kind": f.declared.target_kind,
-                    "file_reference": f.declared.file_reference,
-                    "required": f.declared.required,
-                    "inverse_of": f.declared.inverse_of,
-                    "normative": f.declared.normative,
-                    "exempts_obligations": f.declared.exempts_obligations,
-                    "headline": f.declared.headline,
-                    "derived_from": f.declared.derived_from,
-                    "proof_role": f.proof_role.map(|p| format!("{p:?}")),
+                    "kind_name": f.kind_name(),
+                    "field_name": f.declared().name,
+                    "description": f.declared().description,
+                    "field_type": match f.field_type() {
+                        FieldType::Enum => format!("Enum({:?})", f.enum_values()),
+                        t => format!("{t:?}"),
+                    },
+                    "source_extension": f.source_extension(),
+                    "edge": f.declared().edge,
+                    "target_kind": f.declared().target_kind,
+                    "file_reference": f.declared().file_reference,
+                    "required": f.declared().required,
+                    "inverse_of": f.declared().inverse_of,
+                    "normative": f.declared().normative,
+                    "exempts_obligations": f.declared().exempts_obligations,
+                    "headline": f.declared().headline,
+                    "derived_from": f.declared().derived_from,
+                    "proof_role": f.proof_role().map(|p| format!("{p:?}")),
                 }),
             )
         })

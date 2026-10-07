@@ -531,7 +531,7 @@ fn exemption(node: &Node, kinds: &KindRegistry, fields: &FieldRegistry) -> Optio
         is_set(&entry.value)
             && fields
                 .get(kind, entry.key.as_str())
-                .is_some_and(|f| f.declared.exempts_obligations)
+                .is_some_and(|f| f.declared().exempts_obligations)
     });
     if let Some(entry) = flag {
         return Some(Exemption::Flag {
@@ -774,17 +774,19 @@ mod tests {
     /// `abstract` flag (as @specforge/formal does).
     fn abstract_behaviors() -> FieldRegistry {
         let mut fields = FieldRegistry::new();
-        fields.register(specforge_registry::FieldRegistryEntry {
-            kind_name: "behavior".into(),
-            field_type: specforge_registry::ManifestFieldType::Bool,
-            source_extension: "@test/formal".into(),
-            proof_role: None,
-            declared: specforge_protocol_types::FieldDescriptor {
-                name: "abstract".into(),
-                exempts_obligations: true,
-                ..Default::default()
-            },
-        });
+        fields.register(
+            specforge_registry::FieldRegistryEntry::new(
+                "behavior",
+                "@test/formal",
+                specforge_protocol_types::FieldDescriptor {
+                    name: "abstract".into(),
+                    field_type: "bool".into(),
+                    exempts_obligations: true,
+                    ..Default::default()
+                },
+            )
+            .unwrap(),
+        );
         fields
     }
 

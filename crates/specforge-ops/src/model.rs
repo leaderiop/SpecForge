@@ -4,11 +4,8 @@
 //! 0015). Each enumerated argument is an option table here (ADR 0027), so
 //! both surfaces list, accept, default and refuse the same names.
 
-use specforge_common::{Diagnostic, codes};
-use specforge_emitter::GraphProtocolSchema;
 use specforge_emitter::model::{ModelIntermediate_from_schema, filter_entities, filter_fields};
 use specforge_emitter::outline::OutlineIntermediate_from_declarations;
-use specforge_protocol_types::ExtensionDeclaration;
 
 // The value types, so surfaces name ops rather than the emitter.
 pub use specforge_emitter::model::{FieldLevel, GroupBy, ModelFormat, ModelOptions};
@@ -19,38 +16,13 @@ pub use specforge_emitter::outline::{
 use crate::options::{Choice, OptionTable};
 use crate::view::ProjectView;
 
-/// A rendered model diagram and what rendering it reported.
-#[derive(Debug, Clone, PartialEq)]
-pub struct ModelOutcome {
-    pub rendered: String,
-    /// W146: a field type the model does not know, rendered as a string.
-    pub warnings: Vec<Diagnostic>,
-}
-
 /// The logical data model of the view's extensions, as `options` asks.
-pub fn model(view: &ProjectView, options: &ModelOptions) -> ModelOutcome {
-    render_schema(&view.schema(), view.registries().declarations(), options)
-}
-
-/// The model of `schema`, themed by `declarations`: what [`model`] renders
-/// for a view, for any Graph Protocol schema.
-pub fn render_schema(
-    schema: &GraphProtocolSchema,
-    declarations: &[ExtensionDeclaration],
-    options: &ModelOptions,
-) -> ModelOutcome {
-    let model = ModelIntermediate_from_schema(schema).with_theme_colors(declarations);
-    let warnings = model
-        .warnings
-        .iter()
-        .map(|warning| Diagnostic::new(codes::W146, format!("model: {warning}")))
-        .collect();
+pub fn model(view: &ProjectView, options: &ModelOptions) -> String {
+    let model = ModelIntermediate_from_schema(&view.schema())
+        .with_theme_colors(view.registries().declarations());
     let model = filter_entities(&model, options);
     let model = filter_fields(&model, options.fields);
-    ModelOutcome {
-        rendered: specforge_emitter::model::render(&model, options),
-        warnings,
-    }
+    specforge_emitter::model::render(&model, options)
 }
 
 /// The architecture of the view's extensions (dependencies, enhancements,

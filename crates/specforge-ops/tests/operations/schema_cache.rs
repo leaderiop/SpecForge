@@ -3,6 +3,7 @@ use specforge_emitter::{
     SchemaField, SchemaMigrationChange, SchemaVersion, compute_schema_version, diff_schemas,
 };
 use specforge_ops::schema_cache::SchemaCache;
+use specforge_protocol_types::FieldType;
 use specforge_test::prelude::*;
 
 fn sample_schema() -> GraphProtocolSchema {
@@ -20,7 +21,7 @@ fn sample_schema() -> GraphProtocolSchema {
                 dot_color: None,
                 fields: vec![SchemaField {
                     name: "contract".to_string(),
-                    field_type: "string".to_string(),
+                    field_type: FieldType::String,
                     required: false,
                     enum_values: None,
                     edge: None,
@@ -330,4 +331,58 @@ fn the_view_versions_against_its_root_cache() {
     // Without a root there is no cache.
     let rootless = ProjectView::new(&graph, &env, None, &recorded);
     assert!(rootless.schema_cache().is_none());
+}
+
+/// What `360bd587` wrote for a kind `ticket` with one bool field `urgent`:
+/// the older host named the type `boolean`.
+const CACHE_AN_OLDER_HOST_WROTE: &str = r#"{
+  "schema": {
+    "schema_version": { "major": 1, "minor": 0, "patch": 0 },
+    "extensions": [],
+    "entity_kinds": [{
+      "name": "ticket", "source_extension": "@t/x", "testable": false,
+      "fields": [{ "name": "urgent", "field_type": "boolean", "required": false, "source_extension": "@t/x" }]
+    }],
+    "edge_types": []
+  },
+  "content_hash": "0"
+}"#;
+
+#[specforge_test(
+    behavior = "detect_breaking_schema_changes",
+    verify = "a cache an older host wrote reads its field types unchanged"
+)]
+fn a_cache_an_older_host_wrote_reads_its_bool_field_unchanged() {
+    use specforge_protocol_types::{EntityKindDescriptor, ExtensionDeclaration, FieldDescriptor};
+
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join("schema-cache.json"),
+        CACHE_AN_OLDER_HOST_WROTE,
+    )
+    .unwrap();
+
+    let mut declaration = ExtensionDeclaration::default();
+    declaration.handshake.name = "@t/x".to_string();
+    declaration.entities = vec![EntityKindDescriptor {
+        name: "ticket".to_string(),
+        keyword: Some("ticket".to_string()),
+        fields: vec![FieldDescriptor {
+            name: "urgent".to_string(),
+            field_type: "bool".to_string(),
+            ..Default::default()
+        }],
+        ..Default::default()
+    }];
+    let build = specforge_registry::build_registries(vec![declaration]);
+    let mut current =
+        specforge_emitter::generate_schema(&build.kinds, &build.edges, &build.fields, &[]);
+
+    let cache = SchemaCache::in_dir(dir.path());
+    let (migration, diagnostics) = cache.detect_breaking(&current, true);
+    assert!(migration.changes.is_empty(), "{:?}", migration.changes);
+    assert!(diagnostics.is_empty(), "{diagnostics:?}");
+
+    cache.version(&mut current);
+    assert_eq!(current.schema_version, SchemaVersion::new(1, 0, 0));
 }

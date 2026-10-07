@@ -71,9 +71,9 @@ fn an_edge_label_the_extension_declares_passes() {
     let build = build([software(), product()]);
     assert!(diagnostics(&build).is_empty(), "{:?}", diagnostics(&build));
     let invariants = build.fields.get("behavior", "invariants").unwrap();
-    assert_eq!(invariants.declared.edge.as_deref(), Some("enforces"));
+    assert_eq!(invariants.declared().edge.as_deref(), Some("enforces"));
     let behaviors = build.fields.get("feature", "behaviors").unwrap();
-    assert_eq!(behaviors.declared.edge.as_deref(), Some("composes"));
+    assert_eq!(behaviors.declared().edge.as_deref(), Some("composes"));
 }
 
 #[spec(

@@ -1,6 +1,6 @@
 use crate::{
     EdgeRegistry, EdgeRegistryEntry, FieldRegistry, FieldRegistryEntry, KindRegistry,
-    KindRegistryEntry, ManifestFieldType, ProofRole,
+    KindRegistryEntry, UnknownFieldType,
 };
 use specforge_common::{Diagnostic, DiagnosticData, codes};
 use specforge_protocol_types::{
@@ -188,29 +188,30 @@ fn register_single_field(
     source_extension: &str,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
-    let field_type = match parse_field_type(&field.field_type) {
-        // An enum's values come with the field, not its type name.
-        Some(ManifestFieldType::Enum(_)) => ManifestFieldType::Enum(field.enum_values.clone()),
-        Some(ft) => ft,
-        None => {
-            diagnostics.push(Diagnostic::new(
-                codes::W019,
-                format!(
-                    "extension '{}': unknown field type '{}' for field '{}' on kind '{}'",
-                    source_extension, field.field_type, field.name, kind_name
-                ),
-            ));
-            return;
+    match FieldRegistryEntry::new(kind_name, source_extension, field.clone()) {
+        Ok(entry) => {
+            // W021 comes before the entry is registered.
+            if let Some(role) = field.proof_role.as_deref()
+                && entry.proof_role().is_none()
+            {
+                diagnostics.push(Diagnostic::new(
+                    codes::W021,
+                    format!(
+                        "extension '{}': field '{}' on kind '{}' declares proof_role '{}': expected 'bound' or 'claim'",
+                        source_extension, field.name, kind_name, role
+                    ),
+                ));
+            }
+            registry.register(entry);
         }
-    };
-
-    registry.register(FieldRegistryEntry {
-        kind_name: kind_name.to_string(),
-        source_extension: source_extension.to_string(),
-        field_type,
-        proof_role: proof_role(kind_name, field, source_extension, diagnostics),
-        declared: field.clone(),
-    });
+        Err(UnknownFieldType(name)) => diagnostics.push(Diagnostic::new(
+            codes::W019,
+            format!(
+                "extension '{}': unknown field type '{}' for field '{}' on kind '{}'",
+                source_extension, name, field.name, kind_name
+            ),
+        )),
+    }
 }
 
 /// The field `kind` declares as its lifecycle field, when it declares one
@@ -240,32 +241,6 @@ fn lifecycle_field(
         ),
     ));
     None
-}
-
-/// The prove-pass role `field` declares, when it names one; any value but
-/// `bound` or `claim` is refused (W021).
-fn proof_role(
-    kind_name: &str,
-    field: &FieldDescriptor,
-    source_extension: &str,
-    diagnostics: &mut Vec<Diagnostic>,
-) -> Option<ProofRole> {
-    let name = field.proof_role.as_deref()?;
-    let role = ProofRole::parse(name);
-    if role.is_none() {
-        diagnostics.push(Diagnostic::new(
-            codes::W021,
-            format!(
-                "extension '{}': field '{}' on kind '{}' declares proof_role '{}': expected 'bound' or 'claim'",
-                source_extension, field.name, kind_name, name
-            ),
-        ));
-    }
-    role
-}
-
-fn parse_field_type(s: &str) -> Option<ManifestFieldType> {
-    specforge_protocol_types::FieldType::parse(s).map(ManifestFieldType::from)
 }
 
 /// Register a declaration's explicit edge types.
