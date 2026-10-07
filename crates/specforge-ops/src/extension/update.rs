@@ -231,16 +231,17 @@ pub fn update(req: &UpdateRequest, registry: &dyn Registry) -> Result<UpdateOutc
     // Apply: place every binary, then write the lock once. Any failure
     // puts the previous binaries back and leaves the lock as it was.
     let mut lock = lock;
-    let mut placed: Vec<(String, Option<Vec<u8>>)> = Vec::new();
+    let mut placed: Vec<(PackageName, Option<Vec<u8>>)> = Vec::new();
     let origin = Origin::Installed {
         source: "registry".to_string(),
     };
     let mut failure = None;
     for (name, checked) in &planned {
-        let previous = std::fs::read(installed_wasm_path(&extensions_dir(req.root), name)).ok();
+        let package = &checked.package.name;
+        let previous = std::fs::read(installed_wasm_path(&extensions_dir(req.root), package)).ok();
         // Recorded before placing: a placement that fails part-way may
         // already have removed the previous binary.
-        placed.push((name.clone(), previous));
+        placed.push((package.clone(), previous));
         if let Err(error) = place(
             req.root,
             &mut lock,
@@ -333,7 +334,7 @@ fn broken_dependents(
 }
 
 /// Put back the binaries an aborted update replaced.
-fn restore(root: &Path, placed: &[(String, Option<Vec<u8>>)]) {
+fn restore(root: &Path, placed: &[(PackageName, Option<Vec<u8>>)]) {
     for (name, previous) in placed {
         let path = installed_wasm_path(&extensions_dir(root), name);
         match previous {
@@ -345,7 +346,7 @@ fn restore(root: &Path, placed: &[(String, Option<Vec<u8>>)]) {
             }
             // It had no binary before: take the new one away.
             None => {
-                let _ = std::fs::remove_dir_all(extensions_dir(root).join(name));
+                let _ = std::fs::remove_dir_all(extensions_dir(root).join(name.relative_path()));
             }
         }
     }
@@ -361,6 +362,11 @@ mod tests {
     use specforge_test_macros::test as specforge_test;
     use specforge_wasm::{LockFileEntry, hex_sha256};
     use std::cell::RefCell;
+
+    /// Where the module of extension `name` is installed under `root`.
+    fn installed(root: &Path, name: &str) -> std::path::PathBuf {
+        installed_wasm_path(&extensions_dir(root), &PackageName::parse(name).unwrap())
+    }
 
     /// `@sdk/greet` 0.1.0, a real extension binary.
     fn greet() -> Vec<u8> {
@@ -485,7 +491,7 @@ mod tests {
     fn project(entries: Vec<LockFileEntry>) -> tempfile::TempDir {
         let dir = tempfile::tempdir().unwrap();
         for e in &entries {
-            let path = installed_wasm_path(&extensions_dir(dir.path()), &e.name);
+            let path = installed(dir.path(), &e.name);
             std::fs::create_dir_all(path.parent().unwrap()).unwrap();
             std::fs::write(path, b"old").unwrap();
         }
@@ -545,7 +551,7 @@ mod tests {
         assert_eq!(lock.entries[0].version, "0.1.0");
         assert_eq!(lock.entries[0].wasm_hash, hex_sha256(&greet()));
         assert_eq!(lock.entries[0].source, "registry");
-        let installed = installed_wasm_path(&extensions_dir(dir.path()), "@sdk/greet");
+        let installed = installed(dir.path(), "@sdk/greet");
         assert_eq!(std::fs::read(installed).unwrap(), greet());
     }
 
@@ -614,7 +620,7 @@ mod tests {
             }
         );
         assert_eq!(std::fs::read(lock_path(dir.path())).unwrap(), lock_before);
-        let installed = installed_wasm_path(&extensions_dir(dir.path()), "@sdk/greet");
+        let installed = installed(dir.path(), "@sdk/greet");
         assert_eq!(std::fs::read(installed).unwrap(), b"old");
     }
 
@@ -678,7 +684,7 @@ mod tests {
         let (_, error) = outcome.failures().next().unwrap();
         assert_eq!(error.code, "E033", "{error:?}");
         assert_eq!(std::fs::read(lock_path(dir.path())).unwrap(), lock_before);
-        let installed = installed_wasm_path(&extensions_dir(dir.path()), "@sdk/greet");
+        let installed = installed(dir.path(), "@sdk/greet");
         assert_eq!(std::fs::read(installed).unwrap(), b"old");
     }
 
@@ -782,7 +788,7 @@ mod tests {
             assert!(err.is(crate::registry::METADATA_MISMATCH), "{err:?}");
             assert!(err.message.contains("@sdk/greet@0.1.0"), "{err:?}");
             assert!(
-                !installed_wasm_path(&extensions_dir(dir.path()), "@sdk/greet").exists(),
+                !installed(dir.path(), "@sdk/greet").exists(),
                 "nothing is installed"
             );
         }

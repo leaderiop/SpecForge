@@ -1,6 +1,7 @@
 use crate::integrity::hex_sha256;
 use crate::lock_file::{LockFile, LockFileEntry};
 use specforge_common::{Diagnostic, codes};
+use specforge_protocol_types::PackageName;
 use std::path::{Path, PathBuf};
 
 /// Result of an install operation.
@@ -15,7 +16,7 @@ pub struct InstallResult {
 /// Steps: verify SHA256 -> place binary (atomic via temp dir) -> update lock file.
 #[allow(clippy::too_many_arguments)]
 pub fn install_extension(
-    name: &str,
+    name: &PackageName,
     version: &str,
     wasm_bytes: &[u8],
     expected_sha256: &str,
@@ -38,7 +39,7 @@ pub fn install_extension(
     }
 
     // 2. Atomic placement: write to temp dir, then rename
-    let ext_dir = extensions_dir.join(name);
+    let ext_dir = extensions_dir.join(name.relative_path());
     let temp_dir = extensions_dir.join(format!(".{}.tmp", name));
 
     // Clean up any leftover temp dir
@@ -78,7 +79,7 @@ pub fn install_extension(
     }
 
     // 3. Update lock file
-    if let Some(existing) = lock.entries.iter_mut().find(|e| e.name == name) {
+    if let Some(existing) = lock.entries.iter_mut().find(|e| e.name == name.as_str()) {
         existing.version = version.to_string();
         existing.wasm_hash = actual_hash.clone();
         existing.source = "registry".to_string();
@@ -122,7 +123,10 @@ fn rollback_install(ext_dir: &Path) -> Vec<Diagnostic> {
     diagnostics
 }
 
-/// Get the wasm path for an installed extension.
-pub fn installed_wasm_path(extensions_dir: &Path, name: &str) -> PathBuf {
-    extensions_dir.join(name).join("extension.wasm")
+/// Get the wasm path for an installed extension: under `extensions_dir`,
+/// whatever the name (a `PackageName` is a safe relative path, ADR 0036).
+pub fn installed_wasm_path(extensions_dir: &Path, name: &PackageName) -> PathBuf {
+    extensions_dir
+        .join(name.relative_path())
+        .join("extension.wasm")
 }
