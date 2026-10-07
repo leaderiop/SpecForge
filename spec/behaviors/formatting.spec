@@ -252,6 +252,7 @@ behavior apply_format_rules "Apply Format Rules" {
     format_rule_determinism,
     format_rule_priority,
     formatting_semantic_preservation,
+    cst_vocabulary_grammar_consistency,
   ]
   types      [
     FormatConfig,

@@ -110,6 +110,7 @@ behavior parse_all_block_types "Parse All Block Types" {
     zero_domain_knowledge_core,
     source_span_completeness,
     string_interning_consistency,
+    cst_vocabulary_grammar_consistency,
   ]
   category   command
   types      [
