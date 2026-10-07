@@ -390,7 +390,7 @@ pub fn generate_schema(
                     edge: f.declared().edge.clone(),
                     target_kind: f.declared().target_kind.clone(),
                     description: f.declared().description.clone(),
-                    default_value: None,
+                    default_value: f.declared().default_value.clone(),
                     source_extension: f.source_extension().to_string(),
                 })
                 .collect();

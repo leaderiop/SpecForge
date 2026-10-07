@@ -58,6 +58,7 @@ behavior generate_schema_from_registries "Generate Schema From Registries" {
   verify unit "schema includes all registered entity kinds"
   verify unit "schema includes all registered edge types"
   verify unit "schema fields match FieldRegistry entries"
+  verify unit "a field's declared default value reaches the schema"
   verify unit "schema generated once per compilation and cached"
   verify unit "zero extensions produces valid empty schema"
   verify contract "Generate Schema From Registries: schema generation from registries holds — registries_populated_fired, all_kinds_in_schema, all_edges_in_schema, schema_cached, schema_generated_emitted"

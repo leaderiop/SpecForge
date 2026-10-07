@@ -2025,7 +2025,7 @@ fn ticket_registries() -> specforge_registry::RegistryBuild {
     specforge_registry::build_registries(vec![declaration])
 }
 
-// Pin (plan 09 T0): flipped by T4 (the default) and T5 (the names).
+// Pin (plan 09 T0): flipped by T5 (the names).
 #[test]
 fn schema_names_a_declared_field_as_today() {
     let build = ticket_registries();
@@ -2042,8 +2042,6 @@ fn schema_names_a_declared_field_as_today() {
         field("priority").enum_values,
         Some(vec!["low".to_string(), "high".to_string()])
     );
-    // The bug: the declared default is dropped.
-    assert_eq!(field("owner").default_value, None);
 
     let published: serde_json::Value =
         serde_json::from_str(&publish_json_schema_format(&schema, EmitFormat::Json).unwrap())
@@ -2055,4 +2053,39 @@ fn schema_names_a_declared_field_as_today() {
         ),
         "{compact}"
     );
+}
+
+#[specforge_test(
+    behavior = "generate_schema_from_registries",
+    verify = "a field's declared default value reaches the schema"
+)]
+fn the_schema_carries_a_declared_default_value() {
+    let build = ticket_registries();
+    let schema = generate_schema(&build.kinds, &build.edges, &build.fields, &[]);
+    let ticket = schema
+        .entity_kinds
+        .iter()
+        .find(|k| k.name == "ticket")
+        .unwrap();
+    let field = |name: &str| ticket.fields.iter().find(|f| f.name == name).unwrap();
+    assert_eq!(field("owner").default_value.as_deref(), Some("nobody"));
+    assert_eq!(field("urgent").default_value, None);
+
+    // The model built from the schema shows it.
+    let model = specforge_emitter::model::render(
+        &specforge_emitter::model::ModelIntermediate_from_schema(&schema),
+        &specforge_emitter::model::ModelOptions {
+            format: specforge_emitter::model::ModelFormat::Json,
+            fields: specforge_emitter::model::FieldLevel::All,
+            ..Default::default()
+        },
+    );
+    let model: serde_json::Value = serde_json::from_str(&model).unwrap();
+    let owner = model["entities"][0]["fields"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|f| f["name"] == "owner")
+        .expect("owner is a field of the model");
+    assert_eq!(owner["default_value"], "nobody");
 }
