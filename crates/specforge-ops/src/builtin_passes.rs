@@ -36,7 +36,7 @@ pub fn pass_contracts(ctx: &AnalysisContext) -> (Vec<Finding>, serde_json::Value
     let mut contract_fields: HashMap<&str, Vec<&str>> = HashMap::new();
     for (kind, field, entry) in ctx.field_registry.iter() {
         if !matches!(
-            entry.field_type,
+            entry.field_type(),
             ManifestFieldType::Reference | ManifestFieldType::ReferenceList
         ) {
             continue;
@@ -45,7 +45,7 @@ pub fn pass_contracts(ctx: &AnalysisContext) -> (Vec<Finding>, serde_json::Value
         // `contract_target`, e.g. invariants and formal properties) is a
         // contract obligation.
         if entry
-            .declared
+            .declared()
             .target_kind
             .as_deref()
             .and_then(|t| ctx.kind_registry.get(t))

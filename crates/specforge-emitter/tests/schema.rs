@@ -9,8 +9,8 @@ use specforge_emitter::{
 use specforge_graph::{Edge, FieldValue, Graph, Node};
 use specforge_parser::{EntityId, EntityKind, FieldMap};
 use specforge_registry::{
-    EdgeRegistry, EdgeRegistryEntry, FieldRegistry, FieldRegistryEntry, KindRegistry,
-    KindRegistryEntry, ManifestFieldType,
+    EdgeRegistry, EdgeRegistryEntry, FieldRegistry, FieldRegistryEntry, FieldType, KindRegistry,
+    KindRegistryEntry,
 };
 use specforge_test::prelude::*;
 
@@ -85,23 +85,36 @@ fn make_edge_entry(
     }
 }
 
-fn make_field_entry(
-    kind: &str,
-    field: &str,
-    ft: ManifestFieldType,
-    required: bool,
-) -> FieldRegistryEntry {
-    FieldRegistryEntry {
-        kind_name: kind.to_string(),
-        field_type: ft,
-        source_extension: "@specforge/software".to_string(),
-        proof_role: None,
-        declared: specforge_registry::FieldDescriptor {
+fn make_field_entry(kind: &str, field: &str, ft: FieldType, required: bool) -> FieldRegistryEntry {
+    FieldRegistryEntry::new(
+        kind,
+        "@specforge/software",
+        specforge_registry::FieldDescriptor {
             name: field.to_string(),
+            field_type: ft.as_str().to_string(),
             required,
             ..Default::default()
         },
-    }
+    )
+    .unwrap()
+}
+
+fn make_enum_entry(kind: &str, field: &str, values: &[&str], required: bool) -> FieldRegistryEntry {
+    let mut declared = make_field_entry(kind, field, FieldType::Enum, required)
+        .declared()
+        .clone();
+    declared.enum_values = values.iter().map(|v| v.to_string()).collect();
+    FieldRegistryEntry::new(kind, "@specforge/software", declared).unwrap()
+}
+
+/// `entry` with its declaration changed by `change`.
+fn amended(
+    entry: FieldRegistryEntry,
+    change: impl FnOnce(&mut specforge_registry::FieldDescriptor),
+) -> FieldRegistryEntry {
+    let mut declared = entry.declared().clone();
+    change(&mut declared);
+    FieldRegistryEntry::new(entry.kind_name(), entry.source_extension(), declared).unwrap()
 }
 
 fn sample_schema() -> GraphProtocolSchema {
@@ -245,13 +258,13 @@ fn generate_schema_includes_kinds_edges_fields() {
     fields.register(make_field_entry(
         "behavior",
         "contract",
-        ManifestFieldType::String,
+        FieldType::String,
         false,
     ));
-    fields.register(make_field_entry(
+    fields.register(make_enum_entry(
         "behavior",
         "status",
-        ManifestFieldType::Enum(vec!["draft".into(), "done".into()]),
+        &["draft", "done"],
         false,
     ));
 
@@ -314,31 +327,31 @@ fn generate_schema_field_type_mapping() {
     fields.register(make_field_entry(
         "behavior",
         "contract",
-        ManifestFieldType::String,
+        FieldType::String,
         false,
     ));
     fields.register(make_field_entry(
         "behavior",
         "priority",
-        ManifestFieldType::Integer,
+        FieldType::Integer,
         false,
     ));
     fields.register(make_field_entry(
         "behavior",
         "active",
-        ManifestFieldType::Bool,
+        FieldType::Bool,
         false,
     ));
     fields.register(make_field_entry(
         "behavior",
         "invariants",
-        ManifestFieldType::ReferenceList,
+        FieldType::ReferenceList,
         false,
     ));
-    fields.register(make_field_entry(
+    fields.register(make_enum_entry(
         "behavior",
         "status",
-        ManifestFieldType::Enum(vec!["draft".into(), "done".into()]),
+        &["draft", "done"],
         false,
     ));
 
@@ -983,7 +996,7 @@ fn full_pipeline_registries_to_schema_to_embed() {
     fields.register(make_field_entry(
         "behavior",
         "contract",
-        ManifestFieldType::String,
+        FieldType::String,
         false,
     ));
 
@@ -1322,7 +1335,7 @@ fn schema_generated_deterministically_for_caching() {
     fields.register(make_field_entry(
         "behavior",
         "contract",
-        ManifestFieldType::String,
+        FieldType::String,
         false,
     ));
 
@@ -1522,7 +1535,7 @@ fn generate_schema_contract() {
     fields.register(make_field_entry(
         "behavior",
         "contract",
-        ManifestFieldType::String,
+        FieldType::String,
         false,
     ));
 
@@ -1924,11 +1937,15 @@ fn published_schema_constrains_fields_per_kind() {
 fn published_context_schema_admits_declared_headline_and_normative_fields() {
     let mut fields = FieldRegistry::new();
     // A headline field named neither `contract` nor `status`.
-    let mut stage = make_field_entry("task", "stage", ManifestFieldType::String, false);
-    stage.declared.headline = true;
+    let stage = amended(
+        make_field_entry("task", "stage", FieldType::String, false),
+        |d| d.headline = true,
+    );
     fields.register(stage);
-    let mut goal = make_field_entry("task", "goal", ManifestFieldType::String, false);
-    goal.declared.normative = true;
+    let goal = amended(
+        make_field_entry("task", "goal", FieldType::String, false),
+        |d| d.normative = true,
+    );
     fields.register(goal);
 
     let mut task = node("ship", "task", Some("Ship it"));

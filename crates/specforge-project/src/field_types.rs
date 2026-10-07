@@ -18,7 +18,7 @@ pub fn field_coercions(field_reg: &FieldRegistry) -> HashMap<(String, String), F
     field_reg
         .iter()
         .filter_map(|(kind, field, entry)| {
-            let coercion = match entry.field_type {
+            let coercion = match entry.field_type() {
                 ManifestFieldType::StringList | ManifestFieldType::ReferenceList => {
                     FieldCoercion::List
                 }
@@ -42,7 +42,7 @@ pub fn derived_references(field_reg: &FieldRegistry) -> Vec<DerivedReference> {
         .iter()
         .filter(|(_, _, entry)| {
             matches!(
-                entry.field_type,
+                entry.field_type(),
                 ManifestFieldType::Reference | ManifestFieldType::ReferenceList
             )
         })
@@ -50,8 +50,8 @@ pub fn derived_references(field_reg: &FieldRegistry) -> Vec<DerivedReference> {
             Some(DerivedReference {
                 source_kind: kind.to_string(),
                 field: field.to_string(),
-                target_kind: entry.declared.target_kind.clone()?,
-                from: DerivedFrom::parse(entry.declared.derived_from.as_deref()?)?,
+                target_kind: entry.declared().target_kind.clone()?,
+                from: DerivedFrom::parse(entry.declared().derived_from.as_deref()?)?,
             })
         })
         .collect();
@@ -78,7 +78,7 @@ pub fn check_field_value_types(
             let Some(declared) = field_reg.get(kind, entry.key.as_str()) else {
                 continue;
             };
-            let Some(mismatch) = mismatch(&declared.field_type, &entry.value) else {
+            let Some(mismatch) = mismatch(declared.field_type(), &entry.value) else {
                 continue;
             };
             let mut diagnostic = Diagnostic::new(
@@ -88,7 +88,7 @@ pub fn check_field_value_types(
                     entry.key,
                     kind,
                     node.id.raw,
-                    type_name(&declared.field_type),
+                    type_name(declared.field_type()),
                     mismatch.given
                 ),
             )

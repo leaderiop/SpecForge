@@ -1,8 +1,7 @@
 //! Registries for trace tests: what two made-up extensions declare.
 
 use specforge_registry::{
-    FieldRegistry, FieldRegistryEntry, KindRegistry, KindRegistryEntry, ManifestFieldType,
-    RegistryBuild,
+    FieldRegistry, FieldRegistryEntry, KindRegistry, KindRegistryEntry, RegistryBuild,
 };
 
 fn kind(name: &str, extension: &str) -> KindRegistryEntry {
@@ -25,19 +24,19 @@ pub fn reference(
     extension: &str,
     inverse_of: Option<&str>,
 ) -> FieldRegistryEntry {
-    FieldRegistryEntry {
-        kind_name: kind.to_string(),
-        field_type: ManifestFieldType::ReferenceList,
-        source_extension: extension.to_string(),
-        proof_role: None,
-        declared: specforge_registry::FieldDescriptor {
+    FieldRegistryEntry::new(
+        kind,
+        extension,
+        specforge_registry::FieldDescriptor {
             name: name.to_string(),
+            field_type: "reference_list".to_string(),
             edge: Some(format!("{kind}_{name}")),
             target_kind: Some(target.to_string()),
             inverse_of: inverse_of.map(str::to_string),
             ..Default::default()
         },
-    }
+    )
+    .unwrap()
 }
 
 /// `@t/soft` declares behavior and invariant, `@t/prod` declares feature,
@@ -82,9 +81,12 @@ pub fn registries() -> (FieldRegistry, KindRegistry) {
         "@t/formal",
         None,
     ));
-    let mut contract = reference("behavior", "contract", "invariant", "@t/soft", None);
-    contract.field_type = ManifestFieldType::String;
-    fields.register(contract);
+    // `contract` is a reference-shaped field of the string type.
+    let mut declared = reference("behavior", "contract", "invariant", "@t/soft", None)
+        .declared()
+        .clone();
+    declared.field_type = "string".to_string();
+    fields.register(FieldRegistryEntry::new("behavior", "@t/soft", declared).unwrap());
     fields.register(reference(
         "feature",
         "behaviors",

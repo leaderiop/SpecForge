@@ -384,17 +384,20 @@ fn expression_is_checked_like_any_other_field() {
 
     // Declared on a kind, it is a field of that kind like any other.
     let mut field_reg = field_reg;
-    field_reg.register(specforge_registry::FieldRegistryEntry {
-        kind_name: "invariant".to_string(),
-        field_type: specforge_registry::ManifestFieldType::String,
-        source_extension: "@specforge/formal".to_string(),
-        proof_role: Some(specforge_registry::ProofRole::Claim),
-        declared: specforge_protocol_types::FieldDescriptor {
-            name: "expression".to_string(),
-            normative: true,
-            ..Default::default()
-        },
-    });
+    field_reg.register(
+        specforge_registry::FieldRegistryEntry::new(
+            "invariant",
+            "@specforge/formal",
+            specforge_protocol_types::FieldDescriptor {
+                name: "expression".to_string(),
+                field_type: "string".to_string(),
+                normative: true,
+                proof_role: Some("claim".to_string()),
+                ..Default::default()
+            },
+        )
+        .unwrap(),
+    );
     let diags = specforge_registry::compilation::detect_unknown_entity_fields(
         &entities, &kind_reg, &field_reg,
     );

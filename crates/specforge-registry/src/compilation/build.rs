@@ -185,7 +185,7 @@ pub fn build_registries(mut declarations: Vec<ExtensionDeclaration>) -> Registry
     } else {
         fields
             .iter()
-            .filter(|(_, _, entry)| entry.field_type == ManifestFieldType::Reference)
+            .filter(|(_, _, entry)| *entry.field_type() == ManifestFieldType::Reference)
             .map(|(kind, field, _)| (kind.to_string(), field.to_string()))
             .collect()
     };

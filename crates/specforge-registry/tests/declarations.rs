@@ -255,15 +255,15 @@ fn a_declared_default_value_reaches_the_field_registry() {
     let build = build_registries(vec![c.declaration()]);
 
     let status = build.fields.get("ticket", "status").expect("registered");
-    assert_eq!(status.declared.default_value.as_deref(), Some("open"));
-    assert_eq!(status.declared.enum_values, ["open", "closed"]);
+    assert_eq!(status.declared().default_value.as_deref(), Some("open"));
+    assert_eq!(status.declared().enum_values, ["open", "closed"]);
     assert_eq!(
-        status.declared.description.as_deref(),
+        status.declared().description.as_deref(),
         Some("Where the ticket stands")
     );
     let summary = build.fields.get("ticket", "summary").expect("registered");
-    assert_eq!(summary.declared.description, None);
-    assert_eq!(summary.declared.default_value, None);
+    assert_eq!(summary.declared().description, None);
+    assert_eq!(summary.declared().default_value, None);
     let ticket = build.kinds.get("ticket").expect("registered");
     assert_eq!(ticket.declared.incremental, Some(true));
     assert_eq!(

@@ -340,7 +340,7 @@ impl Syntax {
 /// references), so a string list's unquoted items are references too; its
 /// strings are strings.
 pub(crate) fn may_reference(fields: &FieldRegistry, kind: &str, field: &str, item: bool) -> bool {
-    match fields.get(kind, field).map(|entry| &entry.field_type) {
+    match fields.get(kind, field).map(|entry| entry.field_type()) {
         None | Some(ManifestFieldType::Reference | ManifestFieldType::ReferenceList) => true,
         Some(ManifestFieldType::StringList) => item,
         Some(_) => false,

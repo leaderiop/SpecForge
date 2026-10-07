@@ -31,14 +31,14 @@ pub fn items(
         CompletionSite::Keywords { prefix } => keywords(prefix, view),
         CompletionSite::Fields { kind, prefix } => {
             let mut fields = registries.fields.fields_for_kind(kind);
-            fields.sort_by(|a, b| a.declared.name.cmp(&b.declared.name));
+            fields.sort_by(|a, b| a.declared().name.cmp(&b.declared().name));
             fields
                 .into_iter()
-                .filter(|field| starts_with(&field.declared.name, prefix))
+                .filter(|field| starts_with(&field.declared().name, prefix))
                 .map(|field| CompletionItem {
-                    label: field.declared.name.clone(),
+                    label: field.declared().name.clone(),
                     kind: Some(CompletionItemKind::FIELD),
-                    detail: field.declared.description.clone(),
+                    detail: field.declared().description.clone(),
                     insert_text: Some(field_snippet(field, 1)),
                     insert_text_format: Some(InsertTextFormat::SNIPPET),
                     ..Default::default()
@@ -69,10 +69,10 @@ pub fn items(
             prefix,
         } => {
             let entry = registries.fields.get(kind, field);
-            match entry.map(|e| &e.field_type) {
+            match entry.map(|e| e.field_type()) {
                 // A reference list, or a field the registry does not type.
                 None | Some(ManifestFieldType::ReferenceList) => {
-                    let target = entry.and_then(|e| e.declared.target_kind.as_deref());
+                    let target = entry.and_then(|e| e.declared().target_kind.as_deref());
                     entity_ids(view, prefix, target)
                 }
                 // A string list's items are strings; the refs a scheme ref
@@ -165,12 +165,12 @@ fn value(
     let constant = |label: &str, item_kind| CompletionItem {
         label: label.to_string(),
         kind: Some(item_kind),
-        detail: entry.declared.description.clone(),
+        detail: entry.declared().description.clone(),
         ..Default::default()
     };
-    match &entry.field_type {
+    match entry.field_type() {
         ManifestFieldType::Reference => {
-            entity_ids(view, prefix, entry.declared.target_kind.as_deref())
+            entity_ids(view, prefix, entry.declared().target_kind.as_deref())
         }
         ManifestFieldType::Enum(values) => values
             .iter()
@@ -220,8 +220,8 @@ fn entity_ids(view: &ProjectView, prefix: &str, kind: Option<&str>) -> Vec<Compl
 /// Insert text for `field` as snippet placeholder `n`: a reference list
 /// scaffolds its brackets, a string its quotes.
 pub fn field_snippet(field: &specforge_registry::FieldRegistryEntry, n: usize) -> String {
-    let name = &field.declared.name;
-    match field.field_type {
+    let name = &field.declared().name;
+    match field.field_type() {
         ManifestFieldType::ReferenceList | ManifestFieldType::StringList => {
             format!("{name} [${n}]")
         }
@@ -236,9 +236,9 @@ pub fn keyword_snippet(kind: &str, field_registry: &FieldRegistry) -> String {
     let mut required: Vec<_> = field_registry
         .fields_for_kind(kind)
         .into_iter()
-        .filter(|f| f.declared.required)
+        .filter(|f| f.declared().required)
         .collect();
-    required.sort_by(|a, b| a.declared.name.cmp(&b.declared.name));
+    required.sort_by(|a, b| a.declared().name.cmp(&b.declared().name));
     let mut snippet = format!("{kind} ${{1:id}} \"${{2:Title}}\" {{\n");
     for (i, field) in required.iter().enumerate() {
         snippet.push_str(&format!("  {}\n", field_snippet(field, i + 3)));

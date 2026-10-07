@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use specforge_protocol_types::{FieldDescriptor, ProofRole};
+use specforge_protocol_types::{FieldDescriptor, FieldType, ProofRole};
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub enum ManifestFieldType {
@@ -17,9 +17,9 @@ pub enum ManifestFieldType {
 
 /// An enum field's values come with the field, not its type name, so the
 /// conversion leaves them empty.
-impl From<specforge_protocol_types::FieldType> for ManifestFieldType {
-    fn from(t: specforge_protocol_types::FieldType) -> Self {
-        use specforge_protocol_types::FieldType as T;
+impl From<FieldType> for ManifestFieldType {
+    fn from(t: FieldType) -> Self {
+        use FieldType as T;
         match t {
             T::String => Self::String,
             T::Integer => Self::Integer,
@@ -33,24 +33,87 @@ impl From<specforge_protocol_types::FieldType> for ManifestFieldType {
     }
 }
 
-/// One registered field of one kind: what its extension declared, and
-/// what the registry build resolved of it. Everything else is read from
-/// `declared` (`entry.declared.name`, `entry.declared.edge`,
-/// `entry.declared.default_value`, ...).
-#[derive(Debug, Clone, Default)]
+/// A declared field type this host does not read. The registry build
+/// reports it as W019 and registers nothing.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UnknownFieldType(pub String);
+
+/// One registered field of one kind: the descriptor its extension declared,
+/// the kind it is registered on and the extension it is the kind's through
+/// (its own, or the owner an enhancement names).
+///
+/// [`FieldRegistryEntry::new`] is the only way to make one, so an entry's
+/// type, enum values and proof role are always its declaration's, read once.
+/// There is no second copy to disagree with.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FieldRegistryEntry {
-    pub kind_name: String,
-    /// The extension the field is the kind's through: its own, or the
-    /// owner an enhancement names.
-    pub source_extension: String,
-    /// The declared type, parsed (W019 when unknown, and not registered);
-    /// an enum's values are the declared `enum_values`.
-    pub field_type: ManifestFieldType,
-    /// What the prove pass reads the field as, when anything (ADR 0009, A):
-    /// the declared role, parsed (W021 when unknown).
-    pub proof_role: Option<ProofRole>,
-    /// The field as its extension declared it.
-    pub declared: FieldDescriptor,
+    kind_name: String,
+    source_extension: String,
+    field_type: ManifestFieldType,
+    proof_role: Option<ProofRole>,
+    declared: FieldDescriptor,
+}
+
+impl FieldRegistryEntry {
+    /// `declared`, registered on `kind_name` through `source_extension`.
+    ///
+    /// The declared type must be a name the host reads (canonical or an
+    /// accepted older spelling), else `Err` (W019 at the registry build). The
+    /// entry's descriptor names the type canonically (`"boolean"` becomes
+    /// `"bool"`), so every reader of `declared()` sees the one name. A
+    /// `proof_role` that is not `bound` or `claim` is read as none; the
+    /// registry build reports it (W021).
+    pub fn new(
+        kind_name: &str,
+        source_extension: &str,
+        mut declared: FieldDescriptor,
+    ) -> Result<Self, UnknownFieldType> {
+        let parsed = FieldType::parse(&declared.field_type)
+            .ok_or_else(|| UnknownFieldType(declared.field_type.clone()))?;
+        declared.field_type = parsed.as_str().to_string();
+        let field_type = match ManifestFieldType::from(parsed) {
+            ManifestFieldType::Enum(_) => ManifestFieldType::Enum(declared.enum_values.clone()),
+            other => other,
+        };
+        let proof_role = declared.proof_role.as_deref().and_then(ProofRole::parse);
+        Ok(Self {
+            kind_name: kind_name.to_string(),
+            source_extension: source_extension.to_string(),
+            field_type,
+            proof_role,
+            declared,
+        })
+    }
+
+    /// The kind the field is registered on.
+    pub fn kind_name(&self) -> &str {
+        &self.kind_name
+    }
+
+    /// The field's name, as declared.
+    pub fn name(&self) -> &str {
+        &self.declared.name
+    }
+
+    /// The extension the field is the kind's through.
+    pub fn source_extension(&self) -> &str {
+        &self.source_extension
+    }
+
+    /// How the host reads the field's value.
+    pub fn field_type(&self) -> &ManifestFieldType {
+        &self.field_type
+    }
+
+    /// What the prove pass reads the field as, when it declares a known role.
+    pub fn proof_role(&self) -> Option<ProofRole> {
+        self.proof_role
+    }
+
+    /// The field as its extension declared it (its type named canonically).
+    pub fn declared(&self) -> &FieldDescriptor {
+        &self.declared
+    }
 }
 
 #[derive(Debug, Default)]
@@ -95,11 +158,14 @@ impl FieldRegistry {
     }
 
     pub fn register(&mut self, entry: FieldRegistryEntry) {
-        let kind_map = self.entries.entry(entry.kind_name.clone()).or_default();
-        if !kind_map.contains_key(&entry.declared.name) {
+        let kind_map = self
+            .entries
+            .entry(entry.kind_name().to_string())
+            .or_default();
+        if !kind_map.contains_key(entry.name()) {
             self.count += 1;
         }
-        kind_map.insert(entry.declared.name.clone(), entry);
+        kind_map.insert(entry.name().to_string(), entry);
     }
 
     pub fn fields_for_kind(&self, kind_name: &str) -> Vec<&FieldRegistryEntry> {
@@ -126,7 +192,7 @@ impl FieldRegistry {
     ) -> HashMap<(String, String), String> {
         self.iter()
             .filter_map(|(kind, field, entry)| {
-                let target = entry.declared.target_kind.as_ref()?;
+                let target = entry.declared().target_kind.as_ref()?;
                 (!kinds.contains(target))
                     .then(|| ((kind.to_string(), field.to_string()), target.clone()))
             })
@@ -137,7 +203,7 @@ impl FieldRegistry {
         let mut pairs = Vec::new();
         let mut seen = std::collections::HashSet::new();
         for (_kind, field_name, entry) in self.iter() {
-            if let Some(ref inverse) = entry.declared.inverse_of {
+            if let Some(ref inverse) = entry.declared().inverse_of {
                 let a = field_name.to_string();
                 let b = inverse.clone();
                 let key = if a < b {
@@ -157,6 +223,21 @@ impl FieldRegistry {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// `kind.name` of the declared type `field_type`, registered through
+    /// `@specforge/software`.
+    fn entry(kind: &str, name: &str, field_type: FieldType) -> FieldRegistryEntry {
+        FieldRegistryEntry::new(
+            kind,
+            "@specforge/software",
+            FieldDescriptor {
+                name: name.to_string(),
+                field_type: field_type.as_str().to_string(),
+                ..Default::default()
+            },
+        )
+        .unwrap()
+    }
 
     // B:boot_empty_field_registry — verify unit "FieldRegistry::new() has zero entries"
     #[test]
@@ -182,16 +263,7 @@ mod tests {
         // Even after registering fields for a kind, "title" should not appear
         // as a registered field — it lives in the AST, not the FieldRegistry.
         let mut registry = FieldRegistry::new();
-        registry.register(FieldRegistryEntry {
-            kind_name: "behavior".to_string(),
-            field_type: ManifestFieldType::Block,
-            source_extension: "@specforge/software".to_string(),
-            proof_role: None,
-            declared: specforge_protocol_types::FieldDescriptor {
-                name: "contract".to_string(),
-                ..Default::default()
-            },
-        });
+        registry.register(entry("behavior", "contract", FieldType::Block));
         assert!(registry.get("behavior", "title").is_none());
     }
 
@@ -215,16 +287,7 @@ mod tests {
     #[test]
     fn test_get_and_contains_accept_str_refs() {
         let mut registry = FieldRegistry::new();
-        registry.register(FieldRegistryEntry {
-            kind_name: "behavior".to_string(),
-            field_type: ManifestFieldType::String,
-            source_extension: "@specforge/software".to_string(),
-            proof_role: None,
-            declared: specforge_protocol_types::FieldDescriptor {
-                name: "contract".to_string(),
-                ..Default::default()
-            },
-        });
+        registry.register(entry("behavior", "contract", FieldType::String));
 
         // These calls should not allocate — they take &str and use HashMap<String,_>::get(&str)
         let kind: &str = "behavior";
@@ -239,45 +302,20 @@ mod tests {
     #[test]
     fn test_len_tracks_unique_entries() {
         let mut registry = FieldRegistry::new();
-        let entry = FieldRegistryEntry {
-            kind_name: "behavior".to_string(),
-            field_type: ManifestFieldType::String,
-            source_extension: "@specforge/software".to_string(),
-            proof_role: None,
-            declared: specforge_protocol_types::FieldDescriptor {
-                name: "contract".to_string(),
-                ..Default::default()
-            },
-        };
-        registry.register(entry.clone());
+        registry.register(entry("behavior", "contract", FieldType::String));
         assert_eq!(registry.len(), 1);
 
         // Re-registering the same (kind, field) should not increase count
-        let entry2 = FieldRegistryEntry {
-            kind_name: "behavior".to_string(),
-            field_type: ManifestFieldType::Block,
-            source_extension: "@specforge/software".to_string(),
-            proof_role: None,
-            declared: specforge_protocol_types::FieldDescriptor {
-                name: "contract".to_string(),
-                description: Some("updated".to_string()),
-                ..Default::default()
-            },
-        };
-        registry.register(entry2);
+        let mut updated = entry("behavior", "contract", FieldType::Block)
+            .declared()
+            .clone();
+        updated.description = Some("updated".to_string());
+        registry
+            .register(FieldRegistryEntry::new("behavior", "@specforge/software", updated).unwrap());
         assert_eq!(registry.len(), 1);
 
         // Different field, same kind
-        registry.register(FieldRegistryEntry {
-            kind_name: "behavior".to_string(),
-            field_type: ManifestFieldType::String,
-            source_extension: "@specforge/software".to_string(),
-            proof_role: None,
-            declared: specforge_protocol_types::FieldDescriptor {
-                name: "status".to_string(),
-                ..Default::default()
-            },
-        });
+        registry.register(entry("behavior", "status", FieldType::String));
         assert_eq!(registry.len(), 2);
     }
 
@@ -285,26 +323,8 @@ mod tests {
     #[test]
     fn test_iter_yields_all_entries() {
         let mut registry = FieldRegistry::new();
-        registry.register(FieldRegistryEntry {
-            kind_name: "behavior".to_string(),
-            field_type: ManifestFieldType::String,
-            source_extension: "@specforge/software".to_string(),
-            proof_role: None,
-            declared: specforge_protocol_types::FieldDescriptor {
-                name: "contract".to_string(),
-                ..Default::default()
-            },
-        });
-        registry.register(FieldRegistryEntry {
-            kind_name: "event".to_string(),
-            field_type: ManifestFieldType::Block,
-            source_extension: "@specforge/software".to_string(),
-            proof_role: None,
-            declared: specforge_protocol_types::FieldDescriptor {
-                name: "payload".to_string(),
-                ..Default::default()
-            },
-        });
+        registry.register(entry("behavior", "contract", FieldType::String));
+        registry.register(entry("event", "payload", FieldType::Block));
 
         let items: Vec<_> = registry.iter().collect();
         assert_eq!(items.len(), 2);
@@ -319,5 +339,26 @@ mod tests {
                 .iter()
                 .any(|(k, f, _)| *k == "event" && *f == "payload")
         );
+    }
+
+    #[test]
+    fn an_entry_reads_its_type_and_role_from_its_declaration() {
+        let declared = FieldDescriptor {
+            name: "level".to_string(),
+            field_type: "enum_type".to_string(),
+            enum_values: vec!["low".to_string(), "high".to_string()],
+            proof_role: Some("assumed".to_string()),
+            ..Default::default()
+        };
+        let entry = FieldRegistryEntry::new("ticket", "@t/x", declared).unwrap();
+        assert_eq!(
+            entry.field_type(),
+            &ManifestFieldType::Enum(vec!["low".to_string(), "high".to_string()])
+        );
+        assert_eq!(entry.declared().field_type, "enum");
+        assert_eq!(entry.proof_role(), None);
+        assert_eq!(entry.kind_name(), "ticket");
+        assert_eq!(entry.name(), "level");
+        assert_eq!(entry.source_extension(), "@t/x");
     }
 }

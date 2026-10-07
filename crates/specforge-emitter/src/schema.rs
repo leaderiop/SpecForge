@@ -389,15 +389,15 @@ pub fn generate_schema(
                 .fields_for_kind(&entry.kind_name)
                 .into_iter()
                 .map(|f| SchemaField {
-                    name: f.declared.name.clone(),
-                    field_type: map_field_type(&f.field_type),
-                    required: f.declared.required,
-                    enum_values: enum_values(&f.field_type),
-                    edge: f.declared.edge.clone(),
-                    target_kind: f.declared.target_kind.clone(),
-                    description: f.declared.description.clone(),
+                    name: f.declared().name.clone(),
+                    field_type: map_field_type(f.field_type()),
+                    required: f.declared().required,
+                    enum_values: enum_values(f.field_type()),
+                    edge: f.declared().edge.clone(),
+                    target_kind: f.declared().target_kind.clone(),
+                    description: f.declared().description.clone(),
                     default_value: None,
-                    source_extension: f.source_extension.clone(),
+                    source_extension: f.source_extension().to_string(),
                 })
                 .collect();
             kind_fields.sort_by(|a, b| a.name.cmp(&b.name));
@@ -436,12 +436,12 @@ pub fn generate_schema(
 
         for (_, kind_entry) in kinds.iter() {
             for field in fields.fields_for_kind(&kind_entry.kind_name) {
-                if field.declared.edge.as_deref() == Some(&edge_type.label) {
+                if field.declared().edge.as_deref() == Some(&edge_type.label) {
                     if !sources.contains(&kind_entry.kind_name) {
                         sources.push(kind_entry.kind_name.clone());
                     }
                     if let Some(tk) = field
-                        .declared
+                        .declared()
                         .target_kind
                         .as_ref()
                         .filter(|tk| !targets.contains(tk))

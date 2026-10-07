@@ -180,7 +180,7 @@ impl Environment {
             .registries
             .fields
             .iter()
-            .filter(|(_, _, entry)| entry.declared.file_reference)
+            .filter(|(_, _, entry)| entry.declared().file_reference)
             .map(|(_, field, _)| field)
             .collect();
         if fields.is_empty() {

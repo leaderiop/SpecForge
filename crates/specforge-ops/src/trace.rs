@@ -105,31 +105,31 @@ impl TraceExpectations {
     pub fn from_registries(fields: &FieldRegistry, kinds: &KindRegistry) -> Self {
         let mut expectations = Self::new();
         for (kind, field, entry) in fields.iter() {
-            let Some(target) = entry.declared.target_kind.as_deref() else {
+            let Some(target) = entry.declared().target_kind.as_deref() else {
                 continue;
             };
             let is_reference = matches!(
-                entry.field_type,
+                entry.field_type(),
                 ManifestFieldType::Reference | ManifestFieldType::ReferenceList
             );
             let own_field = kinds
                 .get(kind)
-                .is_some_and(|k| k.source_extension == entry.source_extension);
+                .is_some_and(|k| k.source_extension == entry.source_extension());
             if !is_reference
                 || !kinds.contains(target)
-                || !(own_field || entry.declared.required)
-                || (target == kind && !entry.declared.required)
+                || !(own_field || entry.declared().required)
+                || (target == kind && !entry.declared().required)
             {
                 continue;
             }
             let mut inverse_labels: Vec<String> =
-                entry.declared.inverse_of.iter().cloned().collect();
+                entry.declared().inverse_of.iter().cloned().collect();
             inverse_labels.extend(
                 fields
                     .fields_for_kind(target)
                     .into_iter()
-                    .filter(|other| other.declared.inverse_of.as_deref() == Some(field))
-                    .map(|other| other.declared.name.clone()),
+                    .filter(|other| other.declared().inverse_of.as_deref() == Some(field))
+                    .map(|other| other.declared().name.clone()),
             );
             inverse_labels.sort();
             inverse_labels.dedup();
@@ -137,9 +137,9 @@ impl TraceExpectations {
                 kind,
                 ExpectedEdge {
                     label: field.to_string(),
-                    edge_type: entry.declared.edge.clone(),
+                    edge_type: entry.declared().edge.clone(),
                     target_kind: target.to_string(),
-                    required: entry.declared.required,
+                    required: entry.declared().required,
                     inverse_labels,
                 },
             );
