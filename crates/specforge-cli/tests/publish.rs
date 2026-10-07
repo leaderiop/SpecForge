@@ -105,7 +105,11 @@ fn publish_stores_the_declaration_the_binary_declares() {
 
     // The stored manifest is exactly greet's declaration.
     let served = HttpRegistryClient::new()
-        .fetch("@sdk/greet@0.1.0", &registry.config())
+        .fetch(
+            &specforge_protocol_types::PackageName::parse("@sdk/greet").unwrap(),
+            &specforge_protocol_types::package::Version::new(0, 1, 0),
+            &registry.config(),
+        )
         .unwrap();
     let stored: specforge_protocol_types::ExtensionDeclaration =
         serde_json::from_str(&served.manifest).unwrap();

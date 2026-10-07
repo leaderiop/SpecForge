@@ -1,7 +1,8 @@
 use parking_lot::Mutex;
 
 use specforge_common::Severity;
-use specforge_protocol_types::ExtensionDeclaration;
+use specforge_protocol_types::package::Version;
+use specforge_protocol_types::{ExtensionDeclaration, PackageName};
 use specforge_registry_client::registry_ops::{
     publish_to_registry, resolve_from_registry, search_registries, verify_registry_integrity,
 };
@@ -69,7 +70,8 @@ impl MockRegistryClient {
 impl RegistryClient for MockRegistryClient {
     fn fetch(
         &self,
-        _specifier: &str,
+        name: &PackageName,
+        version: &Version,
         registry: &RegistryConfig,
     ) -> Result<RegistryResponse, RegistryError> {
         let results = self.fetch_results.lock();
@@ -79,7 +81,7 @@ impl RegistryClient for MockRegistryClient {
             }
         }
         Err(RegistryError::NotFound {
-            specifier: _specifier.to_string(),
+            specifier: format!("{name}@{version}"),
         })
     }
 
@@ -189,33 +191,28 @@ fn make_search_result(name: &str, version: &str, desc: &str) -> RegistrySearchRe
 // Tests: resolve_from_registry
 // ---------------------------------------------------------------------------
 
-// B:resolve_registry_source — verify unit "scope-prefixed specifier → matching registry"
+// B:resolve_registry_source — verify unit "a fetch requests the name and version it was given, from the registry it was given"
 #[test]
-fn resolve_scope_prefixed_specifier_matches_registry() {
-    let registries = vec![scoped_registry("private", "@myco"), default_registry()];
+fn resolve_fetches_from_the_registry_it_is_given() {
+    let registry = scoped_registry("private", "@myco");
     let client = MockRegistryClient::new()
         .with_fetch_for("private", Ok(make_response("@myco/analytics", "2.0.0")));
 
-    let resp = resolve_from_registry("@myco/analytics@2.0.0", &registries, &client).unwrap();
+    let resp = resolve_from_registry(
+        &PackageName::parse("@myco/analytics").unwrap(),
+        &Version::new(2, 0, 0),
+        &registry,
+        &client,
+    )
+    .unwrap();
     assert_eq!(resp.name, "@myco/analytics");
     assert_eq!(resp.version, "2.0.0");
-}
-
-// B:resolve_registry_source — verify unit "no scope match → default registry fallback"
-#[test]
-fn resolve_falls_back_to_default_registry() {
-    let registries = vec![scoped_registry("private", "@myco"), default_registry()];
-    let client = MockRegistryClient::new()
-        .with_fetch_for("default", Ok(make_response("@specforge/software", "1.0.0")));
-
-    let resp = resolve_from_registry("@specforge/software@1.0.0", &registries, &client).unwrap();
-    assert_eq!(resp.name, "@specforge/software");
 }
 
 // B:resolve_registry_source — verify unit "network error → ExtensionError with retry guidance"
 #[test]
 fn resolve_network_error_produces_diagnostic_with_retry_guidance() {
-    let registries = vec![default_registry()];
+    let registry = default_registry();
     let client = MockRegistryClient::new().with_fetch_for(
         "default",
         Err(RegistryError::NetworkError {
@@ -223,21 +220,16 @@ fn resolve_network_error_produces_diagnostic_with_retry_guidance() {
         }),
     );
 
-    let err = resolve_from_registry("@specforge/software", &registries, &client).unwrap_err();
+    let err = resolve_from_registry(
+        &PackageName::parse("@specforge/software").unwrap(),
+        &Version::new(1, 0, 0),
+        &registry,
+        &client,
+    )
+    .unwrap_err();
     assert_eq!(err.severity, Severity::Error);
     assert!(err.message.contains("connection refused"));
     assert!(err.suggestion.as_ref().unwrap().contains("retry"));
-}
-
-// B:resolve_registry_source — verify unit "no registries → error diagnostic"
-#[test]
-fn resolve_no_registries_produces_error() {
-    let registries: Vec<RegistryConfig> = vec![];
-    let client = MockRegistryClient::new();
-
-    let err = resolve_from_registry("@specforge/software", &registries, &client).unwrap_err();
-    assert_eq!(err.severity, Severity::Error);
-    assert!(err.message.contains("No registry found"));
 }
 
 // ---------------------------------------------------------------------------

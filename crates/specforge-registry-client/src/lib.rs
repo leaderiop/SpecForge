@@ -13,7 +13,6 @@ pub mod http_client;
 pub mod registry_client;
 pub mod registry_config;
 pub mod registry_ops;
-pub mod resolver;
 pub mod secrets;
 pub mod signing;
 pub mod trust;
@@ -29,14 +28,12 @@ pub use registry_client::{
     RegistryClient, RegistryError, RegistryResponse, RegistrySearchResult, RetryPolicy,
 };
 pub use registry_config::{
-    AuthMethod, RegistryConfig, RegistryCredential, find_registry_for_specifier,
-    parse_registries_from_config,
+    AuthMethod, RegistryConfig, RegistryCredential, find_registry_for, parse_registries_from_config,
 };
 pub use registry_ops::{
     TrustCheck, publish_to_registry, resolve_from_registry, search_registries,
     verify_package_signature, verify_registry_integrity,
 };
-pub use resolver::resolve_version;
 pub use signing::{
     PackageSignature, SigningKey, load_or_create_signing_key, signing_key_path, verify_signature,
 };

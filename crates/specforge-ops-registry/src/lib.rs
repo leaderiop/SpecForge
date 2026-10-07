@@ -16,7 +16,7 @@ use specforge_ops::{OpError, OpErrorKind};
 use specforge_protocol_types::package::Version;
 use specforge_protocol_types::{ExtensionDeclaration, PackageName};
 use specforge_registry_client::{
-    HttpRegistryClient, RegistryConfig, RegistryError, find_registry_for_specifier,
+    HttpRegistryClient, RegistryConfig, RegistryError, find_registry_for,
     parse_registries_from_config, resolve_from_registry, verify_registry_integrity,
 };
 use std::path::{Path, PathBuf};
@@ -109,12 +109,13 @@ impl HttpRegistry {
         }
     }
 
-    fn registry_for(&self, name: &str) -> Result<(&[RegistryConfig], &RegistryConfig), OpError> {
+    /// The one registry that serves `name`: made once per call, and the
+    /// client fetches from it without choosing again.
+    fn registry_for(&self, name: &PackageName) -> Result<&RegistryConfig, OpError> {
         let registries = &self.registries.as_ref().map_err(Clone::clone)?.registries;
-        let registry = find_registry_for_specifier(name, registries)
+        find_registry_for(name, registries)
             .or_else(|| registries.first())
-            .ok_or_else(|| no_registry("add"))?;
-        Ok((registries, registry))
+            .ok_or_else(|| no_registry("add"))
     }
 }
 
@@ -126,10 +127,9 @@ impl Registry for HttpRegistry {
         allow_unsigned: bool,
         trust: Trust,
     ) -> Result<Package, OpError> {
-        let (registries, _) = self.registry_for(name.as_str())?;
+        let registry = self.registry_for(name)?;
         let response =
-            resolve_from_registry(&format!("{name}@{version}"), registries, &self.client)
-                .map_err(OpError::from)?;
+            resolve_from_registry(name, version, registry, &self.client).map_err(OpError::from)?;
         // The signature covers the name and version the registry answers
         // with, and the pin is keyed by that name: an answer for another
         // package (or another version) would be verified, pinned and
@@ -199,21 +199,23 @@ impl Registry for HttpRegistry {
     }
 
     fn versions(&self, name: &PackageName) -> Result<Vec<Version>, OpError> {
-        let (_, registry) = self.registry_for(name.as_str())?;
-        let published = self
-            .client
-            .fetch_versions(name.as_str(), registry)
-            .map_err(|error| match error {
-                RegistryError::NotFound { .. } => Diagnostic::new(
-                    codes::R_RES_001,
-                    format!(
-                        "package '{name}' not found in registry '{}'",
-                        registry.alias
+        let registry = self.registry_for(name)?;
+        let published =
+            self.client
+                .fetch_versions(name, registry)
+                .map_err(|error| match error {
+                    RegistryError::NotFound { .. } => Diagnostic::new(
+                        codes::R_RES_001,
+                        format!(
+                            "package '{name}' not found in registry '{}'",
+                            registry.alias
+                        ),
+                    )
+                    .with_suggestion(
+                        "check the package name and registry configuration".to_string(),
                     ),
-                )
-                .with_suggestion("check the package name and registry configuration".to_string()),
-                other => other.to_diagnostic(),
-            })?;
+                    other => other.to_diagnostic(),
+                })?;
         Ok(published
             .iter()
             .filter_map(|text| Version::parse(text).ok())

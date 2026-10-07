@@ -2,7 +2,7 @@
 //! recorded by an in-process server that answers 404 to everything but one
 //! package's version list.
 //!
-//! Plan 12 §3 R1, R4 and R6; T4 flips the registry choice.
+//! Plan 12 §3 R1, R4 and R6.
 
 use specforge_ops::extension::{Trust, resolve};
 use specforge_ops::registry::Registry;
@@ -122,7 +122,8 @@ fn the_adapter_requests_these_paths() {
     assert_eq!(exact.to_string(), "9.9.9");
     assert_eq!(served.requests().len(), before);
 
-    // A fetch requests the name and the version it was given.
+    // A fetch requests the name and the version it was given: a version
+    // cannot carry a `/` or a `?` into the URL, and `2.0.0+build.1` is one.
     let _ = registry.fetch(
         &name("@acme/tool"),
         &Version::new(1, 0, 0),
@@ -133,15 +134,21 @@ fn the_adapter_requests_these_paths() {
         served.requests().last().map(String::as_str),
         Some("/v1/packages/@acme%2Ftool/1.0.0")
     );
+    let build = "2.0.0+build.1".parse().unwrap();
+    let _ = registry.fetch(&name("@acme/tool"), &build, true, Trust::Refuse);
+    assert_eq!(
+        served.requests().last().map(String::as_str),
+        Some("/v1/packages/@acme%2Ftool/2.0.0+build.1")
+    );
 }
 
 #[specforge_test(
     behavior = "resolve_registry_source",
     verify = "a fetch requests the name and version it was given, from the registry it was given"
 )]
-fn the_registry_is_chosen_twice_today() {
+fn the_registry_is_chosen_once() {
     // One registry with no default and no scope filter: the adapter falls
-    // back to the first entry, the client does not.
+    // back to the first entry, and the client fetches from it (§3 R4).
     let served = Recording::serving(&["1.0.0"]);
     let dir = project_with(&format!(r#"{{"alias":"main","url":"{}"}}"#, served.url));
     let registry = HttpRegistry::for_project(dir.path(), "add");
@@ -152,7 +159,7 @@ fn the_registry_is_chosen_twice_today() {
     );
     assert_eq!(served.requests(), ["/v1/packages/@acme%2Ftool"]);
 
-    // bug (§3 R4): the download is refused without a request.
+    // The download goes to the same registry: a request, answered 404.
     let error = registry
         .fetch(
             &name("@acme/tool"),
@@ -161,6 +168,12 @@ fn the_registry_is_chosen_twice_today() {
             Trust::Refuse,
         )
         .unwrap_err();
-    assert_eq!(error.code, "R-OPS-001", "{error:?}");
-    assert_eq!(served.requests().len(), 1, "no request for the download");
+    assert_eq!(error.code, "R006", "{error:?}");
+    assert_eq!(
+        served.requests(),
+        [
+            "/v1/packages/@acme%2Ftool",
+            "/v1/packages/@acme%2Ftool/1.0.0"
+        ]
+    );
 }

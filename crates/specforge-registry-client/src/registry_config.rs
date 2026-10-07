@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use specforge_common::{Diagnostic, codes};
+use specforge_protocol_types::PackageName;
 use std::path::PathBuf;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -114,27 +115,20 @@ pub fn parse_registries_from_config(config_json: &str) -> (Vec<RegistryConfig>, 
     (registries, diagnostics)
 }
 
-/// Finds the registry matching a given specifier.
+/// Finds the registry that serves `name`.
 ///
-/// If the specifier starts with `@scope/`, looks for a registry whose
-/// `scope_filter` matches that scope. Falls back to the first registry
-/// with `default_registry: true`.
-pub fn find_registry_for_specifier<'a>(
-    specifier: &str,
+/// For a scoped name, a registry whose `scope_filter` is its scope;
+/// otherwise the first registry with `default_registry: true`.
+pub fn find_registry_for<'a>(
+    name: &PackageName,
     registries: &'a [RegistryConfig],
 ) -> Option<&'a RegistryConfig> {
-    // Extract scope from specifier (e.g., "@specforge" from "@specforge/software")
-    if let Some(slash_pos) = specifier.find('/') {
-        let scope = &specifier[..slash_pos];
-        // Look for a registry with a matching scope_filter
-        if let Some(reg) = registries
+    if let Some(scope) = name.scope()
+        && let Some(registry) = registries
             .iter()
-            .find(|r| r.scope_filter.as_deref().is_some_and(|sf| sf == scope))
-        {
-            return Some(reg);
-        }
+            .find(|r| r.scope_filter.as_deref() == Some(scope))
+    {
+        return Some(registry);
     }
-
-    // Fall back to default registry
     registries.iter().find(|r| r.default_registry)
 }

@@ -4,7 +4,7 @@ use specforge_common::{Diagnostic, codes};
 use specforge_registry_client::{
     AuthMethod, CredentialStore, HttpRegistryClient, RegistryConfig, RegistryCredential,
     credentials::{credentials_path, read_credentials},
-    find_registry_for_specifier, load_or_create_signing_key, publish_to_registry,
+    find_registry_for, load_or_create_signing_key, publish_to_registry,
 };
 use std::path::Path;
 
@@ -54,7 +54,14 @@ pub fn run(extension: &Path, project: &Path, format: OutputFormat) -> i32 {
         }
     };
 
-    let registry = match find_registry_for_specifier(declaration.name(), &registries) {
+    let package = match declaration.package_name() {
+        Ok(package) => package,
+        Err(why) => {
+            format.print_diagnostic(&specforge_common::package::invalid(&why));
+            return 1;
+        }
+    };
+    let registry = match find_registry_for(&package, &registries) {
         Some(r) => r,
         None => {
             format.print_error(

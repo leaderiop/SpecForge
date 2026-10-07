@@ -2,7 +2,8 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 
 use specforge_common::Severity;
-use specforge_protocol_types::ExtensionDeclaration;
+use specforge_protocol_types::package::Version;
+use specforge_protocol_types::{ExtensionDeclaration, PackageName};
 use specforge_registry_client::auth;
 use specforge_registry_client::registry_client::{
     RegistryClient, RegistryError, RegistryResponse, RegistrySearchResult, RetryPolicy,
@@ -62,7 +63,8 @@ impl MockRegistryClient {
 impl RegistryClient for MockRegistryClient {
     fn fetch(
         &self,
-        _specifier: &str,
+        _name: &PackageName,
+        _version: &Version,
         _registry: &RegistryConfig,
     ) -> Result<RegistryResponse, RegistryError> {
         self.fetch_result
@@ -188,7 +190,11 @@ fn mock_client_fetch() {
     }));
 
     let resp = client
-        .fetch("@specforge/software@1.0.0", &test_registry())
+        .fetch(
+            &PackageName::parse("@specforge/software").unwrap(),
+            &Version::new(1, 0, 0),
+            &test_registry(),
+        )
         .unwrap();
     assert_eq!(resp.name, "@specforge/software");
     assert_eq!(resp.version, "1.0.0");
