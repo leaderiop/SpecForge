@@ -230,6 +230,16 @@ fn triple_quoted_strings_classified() {
     );
 }
 
+// Pin: flipped by plan 15 T4.
+#[test]
+fn a_multi_line_strings_later_line_is_read_as_fields_today() {
+    let tokens = tokens_of(
+        "behavior login \"Log in\" {\n  contract \"first line\n  second line mentions login and ends\"\n}\n\nbehavior logout \"Log out\" {\n  contract \"x\"\n}\n",
+        kinds(&[]),
+    );
+    assert_eq!(token(&tokens, "mentions").token_type, "property");
+}
+
 #[spec(
     behavior = "provide_semantic_tokens",
     verify = "entity ID declarations carry the declaration modifier"

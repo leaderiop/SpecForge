@@ -483,4 +483,38 @@ mod tests {
         let src = "ref web.page:https://x.io \"T\"\nbehavior a \"A\" {\n}\n";
         assert!(unclosed_strings(src).is_empty());
     }
+
+    // Pin: flipped by plan 15 T5.
+    #[test]
+    fn the_corpora_s_unions_are_no_resume_points_today() {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let mut files = Vec::new();
+        for corpus in ["spec", "integrations/rust/spec", "examples"] {
+            collect_specs(&root.join(corpus), &mut files);
+        }
+        let mut missed = std::collections::BTreeSet::new();
+        for file in files {
+            let src = std::fs::read_to_string(&file).unwrap();
+            let (_, tree) = crate::parse_incremental(&src, &file.to_string_lossy(), None);
+            let tree = tree.unwrap();
+            let root = tree.root_node();
+            let mut cursor = root.walk();
+            for node in root.named_children(&mut cursor) {
+                if node.kind() == "comment" {
+                    continue;
+                }
+                let line = src.lines().nth(node.start_position().row).unwrap();
+                let column = node.start_position().column;
+                assert!(
+                    line[..column].trim().is_empty(),
+                    "{}: two forms on one line",
+                    file.display()
+                );
+                if !is_block_start(line, column) {
+                    missed.insert(node.kind());
+                }
+            }
+        }
+        assert_eq!(missed, std::collections::BTreeSet::from(["union_block"]));
+    }
 }

@@ -2456,3 +2456,40 @@ behavior mix_si "Mix String Int" {
         other => panic!("expected MixedList, got: {:?}", other),
     }
 }
+
+// Pin: flipped by plan 15 T5.
+#[test]
+fn a_union_after_an_unclosed_string_is_lost_today() {
+    let source = "behavior a \"A\" {\n  contract \"oops\n}\n\ntype status = \"open\" | \"closed\"\n\nbehavior b \"B\" {\n  contract \"fine\"\n}\n";
+    let result = parse(source, "test.spec");
+    let ids: Vec<&str> = result.entities.iter().map(|e| e.id.raw.as_str()).collect();
+    assert_eq!(ids, ["a", "b"], "errors: {:?}", result.errors);
+    assert_eq!(result.errors.len(), 1, "errors: {:?}", result.errors);
+    assert!(
+        result.errors[0]
+            .message
+            .contains("before the block on line 7"),
+        "{}",
+        result.errors[0].message
+    );
+}
+
+// Pin: flipped by plan 15 T5.
+#[test]
+fn a_backslash_before_a_line_break_loses_the_file_today() {
+    let source = "behavior a \"A\" {\n  contract \"line one \\\n  line two\"\n}\n\nbehavior b \"B\" {\n  contract \"fine\"\n}\n";
+    let result = parse(source, "test.spec");
+    assert!(
+        result.entities.is_empty(),
+        "entities: {:?}",
+        result.entities
+    );
+    assert!(
+        result
+            .errors
+            .iter()
+            .all(|e| !e.message.contains("unclosed")),
+        "errors: {:?}",
+        result.errors
+    );
+}

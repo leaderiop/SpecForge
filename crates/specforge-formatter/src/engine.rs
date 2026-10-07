@@ -2677,4 +2677,52 @@ mod emitter_tests {
         );
         assert_eq!(fmt("type k = a|b\n"), "type k = a | b\n");
     }
+
+    /// Comments written between a statement's tokens.
+    const COMMENTS_IN_STATEMENTS: &str = concat!(
+        "use {\n",
+        "  x, // the x\n",
+        "  y\n",
+        "} from \"./x.spec\"\n",
+        "\n",
+        "ref gh.issue:42 // the issue\n",
+        "  \"Support\"\n",
+        "\n",
+        "type t = // the variants\n",
+        "  open | closed\n",
+        "\n",
+        "port p \"P\" {\n",
+        "  contract // the contract\n",
+        "    \"c\"\n",
+        "  verify // the kind follows\n",
+        "    unit \"v\"\n",
+        "  tags x @deprecated // why\n",
+        "    \"old\"\n",
+        "  method f(a: A, // the a\n",
+        "    b: B) -> C\n",
+        "}\n",
+    );
+
+    // Pin: flipped by plan 15 T6.
+    #[test]
+    fn a_comment_between_a_statements_tokens_is_lost_today() {
+        let out = format_source(COMMENTS_IN_STATEMENTS, &FormatConfig::default()).formatted;
+        assert_eq!(
+            out,
+            concat!(
+                "use { x, // the x y } from \"./x.spec\"\n",
+                "\n",
+                "ref gh.issue:42 \"Support\"\n",
+                "\n",
+                "type t = open | closed\n",
+                "\n",
+                "port p \"P\" {\n",
+                "  contract \"c\"\n",
+                "  verify unit \"v\"\n",
+                "  tags     x @deprecated // why \"old\"\n",
+                "  method f(a: A, b: B) -> C\n",
+                "}\n",
+            )
+        );
+    }
 }

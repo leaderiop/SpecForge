@@ -214,3 +214,17 @@ fn an_unclosed_string_ends_at_its_lines_end() {
         "an unclosed triple-quoted string runs to the end"
     );
 }
+
+// Pin: flipped by plan 15 T4.
+#[test]
+fn a_string_spanning_lines_ends_at_its_first_lines_end_today() {
+    assert_eq!(
+        lexemes("d \"a\nb\" c"),
+        [
+            (LexemeKind::Ident, "d"),
+            (LexemeKind::Str, "\"a"),
+            (LexemeKind::Ident, "b"),
+            (LexemeKind::Str, "\" c"),
+        ]
+    );
+}
