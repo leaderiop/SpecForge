@@ -14,8 +14,8 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   opens in two steps (`ProjectSession::begin_open`, then `OpeningProject::finish`), so an editor
   answers what needs only the environment (keyword completion) while the sources are still being
   read.
-- **Compiled project**: an environment plus the resolved sources and the built graph. Its
-  diagnostics are, by definition, what `specforge check` reports under the default policy
+- **Compiled project**: an environment plus the sources it read, their graph build and import diagnostics.
+  Its diagnostics are, by definition, what `specforge check` reports under the default policy
   (`specforge_project::CompiledProject`).
 - **Project session**: a long-lived compiled project that knows what it is built from: its sources
   and its **session inputs**. It classifies any changed path through them, applies changes as an
@@ -39,12 +39,19 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   tool spec's target (reach and freshness) before the handler runs: the served session (brought up to
   date unless `use_cached`), another project compiled for that call only, or the directory `init`
   creates (`specforge_mcp::target::CallTarget`). Handlers read it as a `ProjectRef` (ADR 0014).
-- **Update**: one change applied to a project session. It re-parses exactly the changed files (an
-  importer parses the same, since references resolve without `use`), patches the graph, resolves
-  every file's imports again and re-runs the checks (`specforge_project::Update`, ADR 0006).
+- **Update**: one change applied to a project session. It re-reads and re-parses exactly the changed files (an
+  importer parses the same, since references resolve without `use`), applies them to the session's graph
+  build, resolves every file's imports again and re-runs the checks (`specforge_project::Update`, ADR 0006,
+  ADR 0032).
 - **Graph delta**: what an update or a reload changed in the graph: added, removed and modified
   nodes (source positions ignored) and edges. Watch prints it and MCP notifies it
-  (`specforge_project::GraphDelta`).
+  (`specforge_graph::GraphDelta`, re-exported as `specforge_project::GraphDelta`). A graph build computes it.
+- **Graph build**: the graph of a set of parsed `.spec` files and what building it reported (parse errors,
+  duplicates, define blocks, unknown ref schemes, unresolved references, reference cycles), kept current one
+  whole file at a time (`specforge_graph::GraphBuild`). Files are taken in path order; each entity ID is the
+  node of its first declaration that is not a `define` block. A compile applies every file at once; a session
+  applies each update's files to its own, and is then exactly the build of the same files at once; with
+  verification on (every debug build) each update is checked against that (ADR 0032).
 - **Extension declaration**: everything one extension declares — its handshake and every describe
   category — as the protocol types (`specforge_protocol_types::ExtensionDeclaration`). The SDK
   builds it, the guest serves it, the host loads it once, the Registry build reads it, a package
@@ -175,6 +182,8 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Project sources**: the `.spec` files under the spec root (`spec_root`, else the project root) that
   discovery keeps — no skipped directory, no `exclude` entry. What a compile reads, and what format
   and migrate rewrite (`specforge_common::ProjectConfig::spec_files`).
+  A discovered source that can't be read (not UTF-8, no permission) is E025 naming it and stays out of the
+  graph, in a compile and after every update alike.
 - **Format configuration**: how one `.spec` document is laid out: inside a project, the nearest
   `.specforgefmt.toml` from the document's directory up to its own project root, else the defaults;
   outside any project, the editor's tab settings. `specforge format`, MCP `specforge.format` and the
