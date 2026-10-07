@@ -8,7 +8,8 @@ use super::registry_client::{
     RegistryClient, RegistryError, RegistryResponse, RegistrySearchResult,
 };
 use super::registry_config::{AuthMethod, RegistryConfig, RegistryCredential};
-use specforge_protocol_types::ExtensionDeclaration;
+use specforge_protocol_types::package::Version;
+use specforge_protocol_types::{ExtensionDeclaration, PackageName};
 
 #[derive(Deserialize)]
 struct PackageVersionResponse {
@@ -100,19 +101,14 @@ impl HttpRegistryClient {
         }
     }
 
-    fn encode_package_name(name: &str) -> String {
-        name.replace('/', "%2F")
-    }
-
     /// Fetch all available versions for a package.
     pub fn fetch_versions(
         &self,
-        name: &str,
+        name: &PackageName,
         registry: &RegistryConfig,
     ) -> Result<Vec<String>, RegistryError> {
         let base = Self::base_url(registry);
-        let encoded = Self::encode_package_name(name);
-        let url = format!("{}/packages/{}", base, encoded);
+        let url = format!("{}/packages/{}", base, name.url_segment());
 
         let resp = self.client.get(&url).send().map_err(|e| {
             if e.is_timeout() {
@@ -189,13 +185,12 @@ impl Default for HttpRegistryClient {
 impl RegistryClient for HttpRegistryClient {
     fn fetch(
         &self,
-        specifier: &str,
+        name: &PackageName,
+        version: &Version,
         registry: &RegistryConfig,
     ) -> Result<RegistryResponse, RegistryError> {
-        let (name, version) = parse_specifier(specifier);
         let base = Self::base_url(registry);
-        let encoded = Self::encode_package_name(&name);
-        let url = format!("{}/packages/{}/{}", base, encoded, version);
+        let url = format!("{}/packages/{}/{}", base, name.url_segment(), version);
 
         let resp = self.client.get(&url).send().map_err(|e| {
             if e.is_timeout() {
@@ -231,7 +226,7 @@ impl RegistryClient for HttpRegistryClient {
                 })
             }
             404 => Err(RegistryError::NotFound {
-                specifier: specifier.to_string(),
+                specifier: format!("{name}@{version}"),
             }),
             401 => Err(RegistryError::Unauthorized {
                 guidance: "token expired or invalid".to_string(),
@@ -305,8 +300,16 @@ impl RegistryClient for HttpRegistryClient {
         credential: Option<&RegistryCredential>,
     ) -> Result<String, RegistryError> {
         let base = Self::base_url(registry);
-        let encoded = Self::encode_package_name(declaration.name());
-        let url = format!("{}/packages/{}/{}", base, encoded, declaration.version());
+        let name = declaration
+            .package_name()
+            .map_err(|why| RegistryError::InvalidPackage {
+                message: why.to_string(),
+            })?;
+        let version =
+            Version::parse(declaration.version()).map_err(|why| RegistryError::InvalidPackage {
+                message: format!("'{}' is not a SemVer version: {why}", declaration.version()),
+            })?;
+        let url = format!("{}/packages/{}/{}", base, name.url_segment(), version);
 
         // Build the multipart body manually: reqwest's blocking multipart
         // wrapper can fail with a body error on large wasm parts, while an
@@ -438,22 +441,6 @@ impl RegistryClient for HttpRegistryClient {
     }
 }
 
-/// Parse a specifier like `@scope/name@1.0.0` into (name, version).
-/// If no version is given, defaults to "latest".
-pub fn parse_specifier(specifier: &str) -> (String, String) {
-    if let Some(at_pos) = specifier.rfind('@')
-        && at_pos > 0
-        && !specifier[..at_pos].is_empty()
-    {
-        let name = &specifier[..at_pos];
-        let version = &specifier[at_pos + 1..];
-        if !version.is_empty() && !version.starts_with('/') {
-            return (name.to_string(), version.to_string());
-        }
-    }
-    (specifier.to_string(), "latest".to_string())
-}
-
 /// Build the URL query string for a search request.
 ///
 /// Uses `application/x-www-form-urlencoded` encoding so reserved characters
@@ -505,35 +492,6 @@ fn parse_retry_after_ms(header: Option<&str>, now: SystemTime) -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn parse_specifier_with_version() {
-        let (name, version) = parse_specifier("@specforge/product@1.0.0");
-        assert_eq!(name, "@specforge/product");
-        assert_eq!(version, "1.0.0");
-    }
-
-    #[test]
-    fn parse_specifier_without_version() {
-        let (name, version) = parse_specifier("@specforge/product");
-        assert_eq!(name, "@specforge/product");
-        assert_eq!(version, "latest");
-    }
-
-    #[test]
-    fn parse_specifier_with_range() {
-        let (name, version) = parse_specifier("@specforge/product@^1.0");
-        assert_eq!(name, "@specforge/product");
-        assert_eq!(version, "^1.0");
-    }
-
-    #[test]
-    fn encode_scoped_name() {
-        assert_eq!(
-            HttpRegistryClient::encode_package_name("@specforge/product"),
-            "@specforge%2Fproduct"
-        );
-    }
 
     #[test]
     fn search_query_encodes_reserved_characters() {

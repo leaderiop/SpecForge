@@ -81,9 +81,23 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Package registry client**: what talks to a package registry: search, resolve and publish over
   HTTP, credentials in the OS keyring, publisher trust and package signing
   (`specforge-registry-client`). Not the Registry build, which is pure and needs none of it.
-  Operations reach it only through the `Registry` port; its adapter (`specforge-ops-registry`)
+  Operations reach it only through the `Registry` port, which takes a package name and a
+  version (ADR 0036); its adapter (`specforge-ops-registry`)
   is linked by the CLI and MCP, never the LSP (ADR 0010). Publish derives the stored declaration
   from the binary; `add` checks the binary declares what was published (ADR 0012).
+- **Package name**: what an extension package is called, `@scope/name` (a registry holds only
+  these) or `name` alone (a local module); each part `a-z 0-9 . _ -`, starting with a letter or
+  digit, so it is always a relative path inside the directory it is joined to and one URL segment
+  (`specforge_protocol_types::PackageName`, ADR 0036). A declaration's `name` is checked as one where
+  `add` installs and `publish` uploads it; a `specforge.json` entry and a lock entry are read as one.
+- **Version requirement**: which version of a package is asked for: `latest` (the highest release,
+  a pre-release only when there is none), one full version, or a SemVer requirement read as Cargo
+  reads one (`VersionRequirement`); `pick` is the one rule that chooses among published versions,
+  run by ops for `add` and `update`. The `Registry` port lists versions and fetches one; it does not
+  resolve.
+- **Extension specifier**: the `add` argument (also `specforge.add_extension`'s and
+  `init --extensions`'): a builtin's name, a local path, a `git+` URL, or a package reference
+  `@scope/name[@requirement]` (`PackageRef`), read once by `specforge_ops::extension::parse`.
 - **Project view**: the compiled project as one surface sees it, borrowed: the graph, the
   environment it was compiled in (config, what each `extensions` entry enabled, the registry build:
   kinds, fields, edges, rules, the extension declarations and their ordered passes), the root it was

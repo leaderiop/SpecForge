@@ -105,7 +105,11 @@ fn publish_stores_the_declaration_the_binary_declares() {
 
     // The stored manifest is exactly greet's declaration.
     let served = HttpRegistryClient::new()
-        .fetch("@sdk/greet@0.1.0", &registry.config())
+        .fetch(
+            &specforge_protocol_types::PackageName::parse("@sdk/greet").unwrap(),
+            &specforge_protocol_types::package::Version::new(0, 1, 0),
+            &registry.config(),
+        )
         .unwrap();
     let stored: specforge_protocol_types::ExtensionDeclaration =
         serde_json::from_str(&served.manifest).unwrap();
@@ -121,4 +125,69 @@ fn publish_stores_the_declaration_the_binary_declares() {
         stored.handshake.description.as_deref(),
         Some("Friendly greetings")
     );
+}
+
+/// The greet blob with its declared name (`@sdk/greet`, 10 bytes) replaced
+/// by another name of the same length.
+fn greet_named(name: &str) -> Vec<u8> {
+    let (from, to) = (b"@sdk/greet".as_slice(), name.as_bytes());
+    assert_eq!(from.len(), to.len());
+    let mut wasm = greet_wasm();
+    let mut at = 0;
+    while at + from.len() <= wasm.len() {
+        if &wasm[at..at + from.len()] == from {
+            wasm[at..at + from.len()].copy_from_slice(to);
+            at += from.len();
+        } else {
+            at += 1;
+        }
+    }
+    wasm
+}
+
+#[specforge_test(
+    behavior = "publish_wasm_extension",
+    verify = "publish refuses a declaration whose name or version is not publishable before it uploads"
+)]
+fn publish_refuses_an_unscoped_or_unversioned_declaration_offline() {
+    let project = TempDir::new().unwrap();
+    // A registry nothing listens on: any request would fail differently.
+    std::fs::write(
+        project.path().join("specforge.json"),
+        serde_json::json!({
+            "name": "p", "version": "0.1.0",
+            "registries": [{ "alias": "local", "url": "http://127.0.0.1:1/v1", "default_registry": true }]
+        })
+        .to_string(),
+    )
+    .unwrap();
+    let home = TempDir::new().unwrap();
+
+    // `greet-ext1` is a package name, but not a scoped one; `Greet-ext1`
+    // is none.
+    for (name, why) in [
+        ("greet-ext1", "registry packages are named @scope/name"),
+        ("Greet-ext1", "starts with a lowercase letter or digit"),
+    ] {
+        let wasm = project.path().join("ext.wasm");
+        std::fs::write(&wasm, greet_named(name)).unwrap();
+        let output = std::process::Command::new(assert_cmd::cargo_bin!("specforge"))
+            .arg("publish")
+            .arg(&wasm)
+            .arg("--path")
+            .arg(project.path())
+            .args(["--format", "json"])
+            .env("HOME", home.path())
+            .env("SPECFORGE_REGISTRY_TOKEN", "t")
+            .output()
+            .unwrap();
+        assert_eq!(output.status.code(), Some(1), "{name}: {output:?}");
+        let text = format!(
+            "{}{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert!(text.contains("E072"), "{name}: {text}");
+        assert!(text.contains(why), "{name}: {text}");
+    }
 }

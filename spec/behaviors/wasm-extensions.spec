@@ -692,7 +692,7 @@ behavior parse_extension_specifier "Parse Extension Specifier" {
   features   [wasm_extension_installation]
   invariants [registry_integrity]
   category   command
-  types      [ExtensionSpecifier, ExtensionSource, ExtensionError]
+  types      [ExtensionSpecifier, ExtensionSource, ExtensionError, PackageName, VersionRequirement]
   requires {
     specifier_string_provided "a raw extension specifier string is provided for parsing"
   }
@@ -701,17 +701,24 @@ behavior parse_extension_specifier "Parse Extension Specifier" {
     invalid_specifier_diagnosed        "invalid specifiers produce ExtensionError diagnostic with expected format"
   }
   contract   """
-    The system MUST parse extension specifier strings into structured
-    source descriptors. Supported formats: "@scope/name@version" for
-    registry extensions, "./path" for local extensions, and "git:url#ref"
-    for git-sourced extensions. Invalid specifiers MUST produce a
-    ExtensionError diagnostic with the expected format.
+    The system MUST read an add argument once into one source: a builtin's
+    name, a local path (ending in .wasm, or starting with ./, ../ or /), a
+    git+ URL, or a package reference @scope/name[@requirement], where the
+    name is a PackageName and the requirement a VersionRequirement (latest
+    when absent). An argument that is none of these MUST be refused with
+    E054 before any registry is asked; a requirement that is not one MUST be
+    refused with R-RES-003 before any registry is asked. No other code may
+    split name@requirement.
   """
   produces   [extension_specifier_parsed]
   verify unit "@scope/name@version parsed as registry source"
   verify unit "./path parsed as local source"
   verify unit "git:url#ref parsed as git source"
   verify unit "invalid specifier produces ExtensionError"
+  verify unit "each add argument reads as one extension source"
+  verify unit "a package name is @scope/name or a local name, and always a relative path inside its directory"
+  verify unit "a package name crosses a registry URL as one segment"
+  verify unit "a version requirement is latest, one version or a SemVer requirement"
   verify contract "Parse Extension Specifier: extension specifier parsing holds — specifier_string_provided, extension_specifier_parsed_emitted, invalid_specifier_diagnosed"
 }
 

@@ -4,10 +4,9 @@ use super::{Origin, builtin_name, check_diamonds, extensions_dir, lock_path};
 use crate::registry::Registry;
 use crate::{OpError, OpErrorKind, Writes};
 use specforge_common::codes;
-use specforge_protocol_types::ExtensionDeclaration;
-use specforge_wasm::{
-    ExtensionSpecifier, LockState, install_extension, parse_extension_specifier, write_lock_file,
-};
+use specforge_protocol_types::package::{SpecifierError, Version};
+use specforge_protocol_types::{ExtensionDeclaration, PackageName, PackageRef};
+use specforge_wasm::{LockState, install_extension, write_lock_file};
 use std::path::{Path, PathBuf};
 
 /// Where an extension to add comes from.
@@ -17,43 +16,62 @@ pub enum Source {
     Builtin(&'static str),
     /// A `.wasm` file on disk.
     Local(PathBuf),
-    /// A registry package; `range` is `latest` when none was given.
-    Registry { name: String, range: String },
+    /// A registry package and the version asked for (`latest` when none).
+    Registry(PackageRef),
     /// A git repository (not supported yet: E064).
     Git { url: String },
 }
 
-/// Parse an `add` specifier: a builtin name, a `.wasm` path (or any
-/// `./`, `../` or `/` path), `@scope/name[@range]`, `name@range`, or
-/// `git+<url>`. Anything else is E054.
+/// Read an `add` argument once (ADR 0036): a builtin name, a `.wasm` path
+/// (or any `./`, `../` or `/` path), a `git+<url>`, or a package reference
+/// `@scope/name[@requirement]`. Anything else is E054; a requirement that
+/// is none is R-RES-003. No registry is asked for either.
 pub fn parse(specifier: &str) -> Result<Source, OpError> {
     let specifier = specifier.trim();
+    if specifier.is_empty() {
+        return Err(
+            OpError::diagnostic(codes::E054, "empty extension specifier")
+                .with_suggestion(SPECIFIER_FORMS),
+        );
+    }
     if let Some(builtin) = builtin_name(specifier) {
         return Ok(Source::Builtin(builtin));
     }
-    if specifier.ends_with(".wasm") {
-        return Ok(Source::Local(PathBuf::from(specifier)));
-    }
-    // `@scope/name` with no version resolves to the latest.
-    if specifier.starts_with('@')
-        && specifier.contains('/')
-        && !specifier[1..].contains('@')
-        && specifier
-            .split('/')
-            .all(|part| part.len() > 1 || part == "@")
-    {
-        return Ok(Source::Registry {
-            name: specifier.to_string(),
-            range: "latest".to_string(),
+    if let Some(url) = specifier.strip_prefix("git+") {
+        // A `#rev` names a revision; a git source is not installable yet.
+        let url = url.rfind('#').map_or(url, |hash| &url[..hash]);
+        return Ok(Source::Git {
+            url: url.to_string(),
         });
     }
-    match parse_extension_specifier(specifier).map_err(OpError::from)? {
-        ExtensionSpecifier::Local { path } => Ok(Source::Local(path)),
-        ExtensionSpecifier::Registry { name, version } => Ok(Source::Registry {
-            name,
-            range: version,
-        }),
-        ExtensionSpecifier::Git { url, .. } => Ok(Source::Git { url }),
+    if specifier.ends_with(".wasm")
+        || ["./", "../", "/"]
+            .iter()
+            .any(|prefix| specifier.starts_with(prefix))
+    {
+        return Ok(Source::Local(PathBuf::from(specifier)));
+    }
+    Ok(Source::Registry(PackageRef::parse(specifier)?))
+}
+
+/// What an `add` argument may be, as the suggestion of E054.
+const SPECIFIER_FORMS: &str =
+    "use a builtin's name, './local/path.wasm', 'git+https://...', or '@scope/name[@version]'";
+
+/// E054 for a package reference that is not one, R-RES-003 for a
+/// requirement that is none.
+impl From<SpecifierError> for OpError {
+    fn from(error: SpecifierError) -> Self {
+        match error {
+            SpecifierError::Requirement(_) => {
+                OpError::diagnostic(codes::R_RES_003, error.to_string()).with_suggestion(
+                    "use a version such as 1.2.0, a requirement such as ^1.0, ~2.3, 1.x or \
+                     >=1.0.0, <2.0.0, or latest",
+                )
+            }
+            _ => OpError::diagnostic(codes::E054, format!("invalid extension specifier: {error}"))
+                .with_suggestion(SPECIFIER_FORMS),
+        }
     }
 }
 
@@ -149,9 +167,7 @@ pub fn add(req: &AddRequest, registry: &dyn Registry) -> Result<Added, OpError> 
     let outcome = match &req.source {
         Source::Builtin(name) => add_builtin(req, &config, name, &mut writes),
         Source::Local(path) => add_local(req, path, &mut writes),
-        Source::Registry { name, range } => {
-            add_from_registry(req, registry, name, range, &mut writes)
-        }
+        Source::Registry(package) => add_from_registry(req, registry, package, &mut writes),
         Source::Git { url } => Err(OpError::diagnostic(
             codes::E064,
             format!("git source '{url}' not yet supported"),
@@ -244,31 +260,31 @@ fn add_local(req: &AddRequest, path: &Path, writes: &mut Writes) -> Result<AddOu
 fn add_from_registry(
     req: &AddRequest,
     registry: &dyn Registry,
-    name: &str,
-    range: &str,
+    package: &PackageRef,
     writes: &mut Writes,
 ) -> Result<AddOutcome, OpError> {
-    let version = registry.resolve_version(name, range)?;
+    let name = package.name.as_str();
+    let version = super::resolve(registry, package)?;
     let origin = Origin::Installed {
         source: "registry".to_string(),
     };
     let mut lock = LockState::at(req.root).file().cloned().unwrap_or_default();
     if let Some(present) = already_present(req.root, &lock, name, |e| {
-        e.version == version && e.source == "registry"
+        e.version == version.to_string() && e.source == "registry"
     }) {
         return Ok(present);
     }
     if req.dry_run {
         return Ok(AddOutcome::Planned {
             name: name.to_string(),
-            version: Some(version),
+            version: Some(version.to_string()),
             origin,
         });
     }
     let checked = fetch_checked(
         registry,
         &lock,
-        name,
+        &package.name,
         &version,
         req.allow_unsigned,
         req.trust,
@@ -297,8 +313,8 @@ pub(super) struct Checked {
 pub(super) fn fetch_checked(
     registry: &dyn Registry,
     lock: &specforge_wasm::LockFile,
-    name: &str,
-    version: &str,
+    name: &PackageName,
+    version: &Version,
     allow_unsigned: bool,
     trust: Trust,
 ) -> Result<Checked, OpError> {
@@ -310,11 +326,15 @@ pub(super) fn fetch_checked(
     // before anything is loaded (ADR 0001); the binary must then be the
     // package it claims to be, and declare exactly what was published
     // (ADR 0012).
-    check_diamonds(lock, &package.name, package.declaration.peers(), &|peer| {
-        registry.versions(peer)
-    })?;
+    check_diamonds(
+        lock,
+        package.name.as_str(),
+        package.declaration.peers(),
+        &super::published_versions(registry),
+    )?;
     let declared = Declared::of(&package.wasm)?;
-    if declared.name() != package.name || declared.version() != package.version {
+    if declared.name() != package.name.as_str() || declared.version() != package.version.to_string()
+    {
         return Err(OpError::diagnostic(
             codes::E028,
             format!(
@@ -562,10 +582,9 @@ mod tests {
         );
         assert_eq!(
             parse("@acme/tool@^1.2"),
-            Ok(Source::Registry {
-                name: "@acme/tool".into(),
-                range: "^1.2".into()
-            })
+            Ok(Source::Registry(
+                PackageRef::parse("@acme/tool@^1.2").unwrap()
+            ))
         );
         assert_eq!(
             parse("git+https://example.com/x.git"),
@@ -576,6 +595,62 @@ mod tests {
         assert_eq!(parse("").unwrap_err().code, "E054");
         assert_eq!(parse("not-scoped").unwrap_err().code, "E054");
         assert_eq!(parse("@acme/").unwrap_err().code, "E054");
+    }
+
+    /// What `parse` makes of every input of plan 12's table (§2.2): a
+    /// package reference, or the code of the refusal. Nothing reaches a
+    /// registry that is not a scoped package name with a requirement.
+    #[specforge_test(
+        behavior = "parse_extension_specifier",
+        verify = "each add argument reads as one extension source"
+    )]
+    fn parse_reads_each_input() {
+        fn registry(reference: &str) -> Result<Source, String> {
+            Ok(Source::Registry(PackageRef::parse(reference).unwrap()))
+        }
+        let cases: Vec<(&str, Result<Source, String>)> = vec![
+            ("@acme/tool", registry("@acme/tool")),                 // I1
+            ("@acme/tool@", Err("E054".into())),                    // I2
+            ("@acme/tool@1.2.0", registry("@acme/tool@1.2.0")),     // I3
+            ("@acme/tool@^1.2", registry("@acme/tool@^1.2")),       // I4
+            ("@acme/tool@1.x", registry("@acme/tool@1.x")),         // I5
+            ("@acme/tool@1.2", registry("@acme/tool@1.2")),         // I6
+            ("@acme/tool@1.0.0/x", Err("R-RES-003".into())),        // I7
+            ("@acme/tool@1.0.0?x=1", Err("R-RES-003".into())),      // I8
+            ("foo@/bar", Err("E054".into())),                       // I9
+            ("tool@1.0.0", Err("E054".into())),                     // I10
+            ("tool", Err("E054".into())),                           // I11
+            ("@acme/..", Err("E054".into())),                       // I12
+            ("@acme/aa/bb", Err("E054".into())),                    // I13
+            ("@acme/a/b", Err("E054".into())),                      // I14
+            ("@a/x", registry("@a/x")),                             // I15
+            ("@acme/T ool", Err("E054".into())),                    // I16
+            ("Acme@1", Err("E054".into())),                         // I17
+            ("@acme/tool@latest", registry("@acme/tool")),          // I18
+            ("@acme/tool@*", registry("@acme/tool")),               // I18
+            ("@acme/tool@>=1, <2", registry("@acme/tool@>=1, <2")), // I19
+            ("@acme/tool@^bogus", Err("R-RES-003".into())),         // I20
+            (
+                "@acme/tool@2.0.0+build.1",
+                registry("@acme/tool@2.0.0+build.1"),
+            ), // I21
+            ("@scope", Err("E054".into())),                         // I22
+            (
+                "@specforge/software",
+                Ok(Source::Builtin("@specforge/software")),
+            ), // I24
+            (
+                "git+https://h/r#v",
+                Ok(Source::Git {
+                    url: "https://h/r".into(),
+                }),
+            ), // I25
+            (" @acme/tool ", registry("@acme/tool")),               // I26
+        ];
+        for (input, want) in cases {
+            let got = parse(input).map_err(|error| error.code.to_string());
+            assert_eq!(got, want, "{input:?}");
+        }
     }
 
     #[specforge_test(
@@ -596,10 +671,7 @@ mod tests {
                 Source::Builtin("@specforge/product"),
                 // A file that is not there: the config is refused first.
                 Source::Local(dir.path().join("missing.wasm")),
-                Source::Registry {
-                    name: "@acme/tool".into(),
-                    range: "latest".into(),
-                },
+                Source::Registry(PackageRef::parse("@acme/tool").unwrap()),
             ] {
                 for dry_run in [false, true] {
                     let request = AddRequest {

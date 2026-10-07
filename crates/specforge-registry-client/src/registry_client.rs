@@ -1,7 +1,8 @@
 use specforge_common::{Diagnostic, codes};
 
 use super::registry_config::{RegistryConfig, RegistryCredential};
-use specforge_protocol_types::ExtensionDeclaration;
+use specforge_protocol_types::package::Version;
+use specforge_protocol_types::{ExtensionDeclaration, PackageName};
 
 /// Response from fetching an extension package from a registry.
 #[derive(Debug, Clone)]
@@ -29,13 +30,33 @@ pub struct RegistrySearchResult {
 /// Errors that can occur during registry operations.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RegistryError {
-    Unauthorized { guidance: String },
-    Forbidden { guidance: String },
-    RateLimited { retry_after_ms: u64 },
-    Timeout { url: String },
-    NetworkError { message: String },
-    NotFound { specifier: String },
-    DuplicateVersion { name: String, version: String },
+    Unauthorized {
+        guidance: String,
+    },
+    Forbidden {
+        guidance: String,
+    },
+    RateLimited {
+        retry_after_ms: u64,
+    },
+    Timeout {
+        url: String,
+    },
+    NetworkError {
+        message: String,
+    },
+    NotFound {
+        specifier: String,
+    },
+    DuplicateVersion {
+        name: String,
+        version: String,
+    },
+    /// The declaration to publish names no package: its name or version is
+    /// not one (E072).
+    InvalidPackage {
+        message: String,
+    },
 }
 
 impl RegistryError {
@@ -77,6 +98,9 @@ impl RegistryError {
                 format!("Version {version} already exists for package {name}."),
             )
             .with_suggestion("Bump the version number before publishing.".to_string()),
+            RegistryError::InvalidPackage { message } => {
+                specforge_common::package::invalid(message)
+            }
         }
     }
 }
@@ -92,10 +116,11 @@ impl From<RegistryError> for Diagnostic {
 /// Implementations handle the transport layer (HTTP, file system, etc.)
 /// for fetching, searching, publishing, and authenticating with registries.
 pub trait RegistryClient: Send + Sync {
-    /// Fetch a specific extension package from the registry.
+    /// Fetch `name` at `version` from `registry`, the one the caller chose.
     fn fetch(
         &self,
-        specifier: &str,
+        name: &PackageName,
+        version: &Version,
         registry: &RegistryConfig,
     ) -> Result<RegistryResponse, RegistryError>;
 

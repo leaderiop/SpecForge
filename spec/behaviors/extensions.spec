@@ -121,6 +121,7 @@ behavior load_extension_declaration "Load Extension Declaration" {
   verify unit "a describe item key the protocol does not define produces W138"
   verify unit "the fields category is every kind's fields, concatenated"
   verify unit "an absent short is the name's last segment"
+  verify unit "a declaration's default short name is its package name's base"
   verify unit "the SDK's short name reaches the handshake as ext_short"
   verify unit "a short name that is not lowercase kebab case is refused when the extension is built"
   verify unit "a raw category that does not parse panics when the extension is built"
@@ -595,6 +596,7 @@ behavior resolve_registry_source "Resolve Registry Source" {
   verify unit "network error produces ExtensionError with retry guidance"
   verify unit "successful query returns RegistryResponse"
   verify integration "unreachable scope-specific registry falls back to next scope"
+  verify unit "a fetch requests the name and version it was given, from the registry it was given"
   verify contract "Resolve Registry Source: registry source resolution holds — registries_configured_fired, registry_client_available, scope_routed, default_fallback_used, network_error_diagnosed, registry_resolved_emitted"
 }
 
@@ -683,6 +685,7 @@ behavior publish_to_registry "Publish to Registry" {
   verify unit "duplicate version rejected without --force"
   verify unit "successful publish returns registry URL"
   verify unit "unauthenticated publish produces ExtensionError"
+  verify unit "the registry refuses a name or version that is not a package name or version"
   verify contract "Publish to Registry: registry publishing holds — declaration_valid, wasm_binary_available, registry_client_available, credentials_available, sha256_computed, duplicate_version_rejected, registry_url_returned, published_event_emitted"
 }
 

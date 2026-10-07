@@ -240,8 +240,9 @@ behavior add_extension_to_existing_project "Add Extension to Existing Project" {
     When specforge add <extension-specifier> is invoked on an existing project,
     the system MUST add the extension to the extensions list in specforge.json.
     The extension specifier MUST accept @scope/name@version syntax; version
-    resolution is delegated to parse_extension_specifier from the wasm
-    behaviors. If no version is specified, the system MUST resolve to the
+    resolution is delegated to parse_extension_specifier
+    (specforge_ops::extension::parse over the package module).
+    If no version is specified, the system MUST resolve to the
     latest compatible version.
     An installed extension MUST be enabled by its bare name; specforge.lock
     records the version the extension itself declares (its handshake), with

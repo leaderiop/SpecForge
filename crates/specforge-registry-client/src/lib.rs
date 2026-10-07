@@ -2,9 +2,10 @@
 //! over HTTP (search, resolve, publish), registry credentials in the OS
 //! keyring, publisher trust (TOFU key pinning) and ed25519 package signing.
 //!
-//! It is separate from the Registry build (`specforge-registry`), which is
-//! pure: manifests in, kind/field/edge registries and rules out. This crate
-//! depends on it only for the manifest types it publishes and resolves.
+//! It is not the Registry build (`specforge-registry`), which is pure and
+//! which this crate does not depend on. It reads the extension declaration
+//! and the package name from `specforge-protocol-types` and diagnostics from
+//! `specforge-common`.
 
 pub mod auth;
 pub mod credential_health;
@@ -13,7 +14,6 @@ pub mod http_client;
 pub mod registry_client;
 pub mod registry_config;
 pub mod registry_ops;
-pub mod resolver;
 pub mod secrets;
 pub mod signing;
 pub mod trust;
@@ -29,14 +29,12 @@ pub use registry_client::{
     RegistryClient, RegistryError, RegistryResponse, RegistrySearchResult, RetryPolicy,
 };
 pub use registry_config::{
-    AuthMethod, RegistryConfig, RegistryCredential, find_registry_for_specifier,
-    parse_registries_from_config,
+    AuthMethod, RegistryConfig, RegistryCredential, find_registry_for, parse_registries_from_config,
 };
 pub use registry_ops::{
     TrustCheck, publish_to_registry, resolve_from_registry, search_registries,
     verify_package_signature, verify_registry_integrity,
 };
-pub use resolver::resolve_version;
 pub use signing::{
     PackageSignature, SigningKey, load_or_create_signing_key, signing_key_path, verify_signature,
 };

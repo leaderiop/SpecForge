@@ -10,10 +10,12 @@
 //! a change to the project.)
 
 use super::add::{Checked, fetch_checked, place};
-use super::{Origin, Trust, check_diamonds, extensions_dir, lock_path};
+use super::{Origin, Trust, check_diamonds, extensions_dir, lock_path, published_versions};
 use crate::registry::{NO_REGISTRY, Registry};
 use crate::{OpError, OpErrorKind};
 use specforge_common::{Code, codes};
+use specforge_protocol_types::PackageName;
+use specforge_protocol_types::package::VersionRequirement;
 use specforge_wasm::{LockFile, LockState, installed_wasm_path, write_lock_file};
 use std::path::Path;
 
@@ -275,14 +277,16 @@ fn plan_one(
     name: &str,
     current: &str,
 ) -> Result<Option<Checked>, OpError> {
+    let package = PackageName::parse(name)
+        .map_err(|why| OpError::from(specforge_common::package::invalid(&why)))?;
     // Within the caret range of the locked version unless --major: a new
     // major version is a breaking change the user opts into.
-    let range = match semver::Version::parse(current) {
-        Ok(_) if !req.major => format!("^{current}"),
-        _ => "*".to_string(),
+    let requirement = match semver::Version::parse(current) {
+        Ok(current) if !req.major => VersionRequirement::compatible_with(&current),
+        _ => VersionRequirement::Latest,
     };
-    let latest = registry.resolve_version(name, &range)?;
-    if latest == current {
+    let latest = super::resolve_requirement(registry, &package, &requirement)?;
+    if latest.to_string() == current {
         return Ok(None);
     }
     // The package's own locked peers are the ones it replaces.
@@ -291,7 +295,7 @@ fn plan_one(
     fetch_checked(
         registry,
         &others,
-        name,
+        &package,
         &latest,
         req.allow_unsigned,
         req.trust,
@@ -315,11 +319,12 @@ fn broken_dependents(
             if !planned.iter().any(|(name, _)| *name == peer.name) {
                 continue;
             }
-            if let Err(error) =
-                check_diamonds(staged, &entry.name, std::slice::from_ref(peer), &|p| {
-                    registry.versions(p)
-                })
-            {
+            if let Err(error) = check_diamonds(
+                staged,
+                &entry.name,
+                std::slice::from_ref(peer),
+                &published_versions(registry),
+            ) {
                 broken.push((entry.name.clone(), (peer.name.clone(), error)));
             }
         }
@@ -350,7 +355,8 @@ fn restore(root: &Path, placed: &[(String, Option<Vec<u8>>)]) {
 mod tests {
     use super::*;
     use crate::registry::Package;
-    use specforge_protocol_types::ExtensionDeclaration;
+    use specforge_protocol_types::package::Version;
+    use specforge_protocol_types::{ExtensionDeclaration, PackageName};
     use specforge_registry::PeerDependency;
     use specforge_test_macros::test as specforge_test;
     use specforge_wasm::{LockFileEntry, hex_sha256};
@@ -372,7 +378,8 @@ mod tests {
         /// The declaration published with a package, when it isn't the one
         /// its binary declares.
         declared: Vec<(&'static str, &'static str, ExtensionDeclaration)>,
-        ranges: RefCell<Vec<String>>,
+        /// The packages whose versions were listed, in order.
+        listed: RefCell<Vec<String>>,
     }
 
     /// What `wasm` declares, as `publish` would upload it.
@@ -388,7 +395,7 @@ mod tests {
                 published: Vec::new(),
                 served: Vec::new(),
                 declared: Vec::new(),
-                ranges: RefCell::new(Vec::new()),
+                listed: RefCell::new(Vec::new()),
             }
         }
         fn publish(mut self, name: &'static str, versions: &[&'static str]) -> Self {
@@ -413,31 +420,15 @@ mod tests {
     }
 
     impl Registry for FakeRegistry {
-        fn resolve_version(&self, name: &str, range: &str) -> Result<String, OpError> {
-            self.ranges.borrow_mut().push(range.to_string());
-            let req = match range {
-                "*" | "latest" => semver::VersionReq::STAR,
-                r => semver::VersionReq::parse(r).unwrap(),
-            };
-            self.versions(name)?
-                .iter()
-                .filter_map(|v| semver::Version::parse(v).ok())
-                .filter(|v| req.matches(v))
-                .max()
-                .map(|v| v.to_string())
-                .ok_or_else(|| {
-                    OpError::diagnostic(codes::R_RES_004, format!("no {name} matches {range}"))
-                })
-        }
-
         /// Serves unsigned packages; the tests allow them.
         fn fetch(
             &self,
-            name: &str,
-            version: &str,
+            name: &PackageName,
+            version: &Version,
             _allow_unsigned: bool,
             _trust: Trust,
         ) -> Result<Package, OpError> {
+            let (name, version) = (name.as_str(), version.to_string());
             let (_, _, wasm) = self
                 .served
                 .iter()
@@ -452,8 +443,8 @@ mod tests {
                 .map(|(_, _, d)| d.clone())
                 .unwrap_or_else(|| declaration_of(wasm));
             Ok(Package {
-                name: name.to_string(),
-                version: version.to_string(),
+                name: PackageName::parse(name).unwrap(),
+                version: Version::parse(&version).unwrap(),
                 wasm: wasm.clone(),
                 sha256: hex_sha256(wasm),
                 declaration,
@@ -461,12 +452,13 @@ mod tests {
             })
         }
 
-        fn versions(&self, name: &str) -> Result<Vec<String>, OpError> {
+        fn versions(&self, name: &PackageName) -> Result<Vec<Version>, OpError> {
+            self.listed.borrow_mut().push(name.to_string());
             Ok(self
                 .published
                 .iter()
-                .find(|(n, _)| *n == name)
-                .map(|(_, v)| v.iter().map(|v| v.to_string()).collect())
+                .find(|(n, _)| *n == name.as_str())
+                .map(|(_, v)| v.iter().map(|v| Version::parse(v).unwrap()).collect())
                 .unwrap_or_default())
         }
     }
@@ -570,7 +562,8 @@ mod tests {
 
         let outcome = update(&request(dir.path(), false), &registry).unwrap();
 
-        assert_eq!(registry.ranges.borrow().as_slice(), ["^0.0.9"]);
+        // Asked for what ^0.0.9 admits: 0.1.0 is not it.
+        assert_eq!(registry.listed.borrow().as_slice(), ["@sdk/greet"]);
         assert_eq!(
             status_of(&outcome, "@sdk/greet"),
             &UpdateStatus::UpToDate {
@@ -696,7 +689,7 @@ mod tests {
 
         let outcome = update(&request(dir.path(), true), &registry).unwrap();
 
-        assert!(registry.ranges.borrow().is_empty());
+        assert!(registry.listed.borrow().is_empty());
         assert!(!outcome.registry_used);
         assert_eq!(
             status_of(&outcome, "@sdk/greet"),
@@ -736,10 +729,9 @@ mod tests {
         super::super::add(
             &super::super::AddRequest {
                 root,
-                source: super::super::Source::Registry {
-                    name: "@sdk/greet".to_string(),
-                    range: "0.1.0".to_string(),
-                },
+                source: super::super::Source::Registry(
+                    specforge_protocol_types::PackageRef::parse("@sdk/greet@0.1.0").unwrap(),
+                ),
                 allow_unsigned: true,
                 trust: Trust::Refuse,
                 dry_run: false,

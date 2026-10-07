@@ -27,11 +27,11 @@ use serde::{Deserialize, Serialize, de::DeserializeOwned};
 pub mod calls;
 pub mod command_args;
 mod declaration;
+pub mod package;
 mod vocabulary;
 pub use calls::*;
-pub use declaration::{
-    DECLARED_CATEGORIES, ExtensionDeclaration, UnknownKey, default_short, is_valid_short,
-};
+pub use declaration::{DECLARED_CATEGORIES, ExtensionDeclaration, UnknownKey, is_valid_short};
+pub use package::{PackageName, PackageRef, VersionRequirement};
 pub use vocabulary::{CheckKind, ConstraintKind, FieldType};
 
 /// Protocol version for the extension wire format (semver). The host loads

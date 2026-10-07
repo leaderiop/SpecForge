@@ -190,6 +190,7 @@ behavior install_wasm_extension "Install Wasm Extension" {
   verify unit "places binary atomically via temp dir"
   verify unit "updates specforge.json with extension entry"
   verify unit "rolls back on download failure"
+  verify unit "an extension is installed under the extensions directory of its project, by its package name"
   verify performance "single extension install completes within 30 seconds on commodity hardware"
   verify contract "Install Wasm Extension: Wasm extension installation holds — extension_source_available, filesystem_available, extension_install_completed_emitted, integrity_verified, atomic_install_enforced, config_updated"
 }
@@ -225,6 +226,7 @@ behavior upgrade_wasm_extension "Upgrade Wasm Extension" {
   verify unit "validates peer dependency compatibility"
   verify unit "replaces binary and records new lock hash"
   verify unit "rejects breaking peer change without --force"
+  verify unit "one rule picks the version a requirement asks for"
   verify contract "Upgrade Wasm Extension: Wasm extension upgrade holds — extension_installed, source_available, extension_upgrade_completed_emitted, binary_replaced, peer_compatibility_enforced"
 }
 

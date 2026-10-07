@@ -271,7 +271,7 @@ fn extensions_of(specifiers: &[String]) -> Result<(Vec<String>, Vec<PathBuf>), O
                 installs.push(path);
                 name
             }
-            Source::Registry { .. } | Source::Git { .. } => {
+            Source::Registry(_) | Source::Git { .. } => {
                 let builtins: Vec<&str> = specforge_component::builtins::BUILTIN_EXTENSIONS
                     .iter()
                     .map(|(name, _)| *name)

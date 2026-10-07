@@ -5,6 +5,7 @@
 pub mod auth;
 pub mod db;
 pub mod handlers;
+mod publish;
 pub mod rate;
 pub mod state;
 pub mod storage;

@@ -7,11 +7,13 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use specforge_protocol_types::PackageName;
 use std::path::PathBuf;
 use std::sync::Arc;
 
 use crate::auth;
 use crate::db::PackageVersion;
+use crate::publish::publish_target;
 use crate::state::AppState;
 use crate::storage::LocalStorage;
 
@@ -102,7 +104,7 @@ async fn get_package_versions(
     State(state): State<Arc<AppState>>,
     Path(name): Path<String>,
 ) -> Result<(StatusCode, Json<serde_json::Value>), ApiError> {
-    let name = decode_name(&name);
+    let name = read_name(&name)?.to_string();
     let versions = {
         let st = state.clone();
         let name = name.clone();
@@ -134,7 +136,8 @@ async fn get_package_version(
     State(state): State<Arc<AppState>>,
     Path((name, version)): Path<(String, String)>,
 ) -> Result<(StatusCode, Json<serde_json::Value>), ApiError> {
-    let name = decode_name(&name);
+    let package = read_name(&name)?;
+    let name = package.to_string();
 
     let pkg = {
         let st = state.clone();
@@ -152,7 +155,7 @@ async fn get_package_version(
 
     // Relative to the API base: clients compose this with their configured
     // registry URL, which already carries the /v1 prefix.
-    let wasm_url = format!("/packages/{}/{}/download", encode_name(&name), version);
+    let wasm_url = format!("/packages/{}/{}/download", package.url_segment(), version);
     let keywords: Vec<String> = if pkg.keywords.is_empty() {
         vec![]
     } else {
@@ -185,7 +188,7 @@ async fn download_package(
     State(state): State<Arc<AppState>>,
     Path((name, version)): Path<(String, String)>,
 ) -> Result<Response, ApiError> {
-    let name = decode_name(&name);
+    let name = read_name(&name)?.to_string();
 
     // Storage reads are blocking file I/O: run them on the blocking pool.
     let storage_state = Arc::clone(&state);
@@ -280,6 +283,7 @@ async fn search_packages(
 /// hand-built `(StatusCode, Json)` tuples that mutating handlers used to
 /// copy-paste. Serialization is infallible — the body is built with `json!`,
 /// never `serde_json::to_value(...).unwrap()`.
+#[derive(Debug)]
 pub struct ApiError {
     pub status: StatusCode,
     pub code: String,
@@ -451,7 +455,10 @@ impl FromRequestParts<Arc<AppState>> for AdminToken {
 }
 
 /// Publish/yank authorization: the token must cover the package's scope.
-fn require_publish_scope(record: &crate::db::TokenRecord, name: &str) -> Result<(), ApiError> {
+fn require_publish_scope(
+    record: &crate::db::TokenRecord,
+    name: &PackageName,
+) -> Result<(), ApiError> {
     if auth::token_has_scope(record, name) {
         Ok(())
     } else {
@@ -469,30 +476,8 @@ async fn publish_package(
     mut multipart: Multipart,
 ) -> Result<(StatusCode, Json<serde_json::Value>), ApiError> {
     let token_record = token.record;
-    let name = decode_name(&name);
-
-    // Package names must be scoped (`@scope/name`) with exactly one `/`
-    // and no percent-signs: the storage layout percent-encodes the name,
-    // so unencoded `%` or missing scope could collide with other packages.
-    let name_ok = name.starts_with('@')
-        && name.matches('/').count() == 1
-        && !name.contains('%')
-        && !name[1..].split('/').any(|seg| seg.is_empty());
-    if !name_ok {
-        return Err(ApiError::bad_request(
-            "INVALID_NAME",
-            format!("'{name}' is not a valid scoped package name (expected @scope/name)"),
-        ));
-    }
-
-    // C8-03: non-semver versions poison search ordering and resolver
-    // matching downstream — reject them at the door.
-    if semver::Version::parse(&version).is_err() {
-        return Err(ApiError::bad_request(
-            "INVALID_VERSION",
-            format!("'{version}' is not a valid SemVer version (MAJOR.MINOR.PATCH)"),
-        ));
-    }
+    let (package, version) = publish_target(&name, &version)?;
+    let (name, version) = (package.to_string(), version.to_string());
 
     // Rate limit: per token and per client IP (fixed window). Retry-After
     // rides both on the JSON body and the response header.
@@ -500,7 +485,7 @@ async fn publish_package(
         return Err(ApiError::rate_limited(limited.retry_after));
     }
 
-    require_publish_scope(&token_record, &name)?;
+    require_publish_scope(&token_record, &package)?;
 
     // Check if version already exists
     let duplicate = {
@@ -542,7 +527,10 @@ async fn publish_package(
     }
 
     // --- Namespace ownership (spec #21, T6): first claim wins ---
-    let scope = package_scope(&name);
+    let scope = package
+        .scope()
+        .expect("publish_target refuses unscoped names")
+        .to_string();
     let account_id = account_id_for(&token_record.token_hash);
     let claimed_now = {
         let claim = {
@@ -800,7 +788,8 @@ async fn yank_package(
     headers: HeaderMap,
 ) -> Result<(StatusCode, Json<serde_json::Value>), ApiError> {
     let token_record = token.record;
-    let name = decode_name(&name);
+    let package = read_name(&name)?;
+    let name = package.to_string();
 
     // Rate limit: per token and per client IP (fixed window). Retry-After
     // rides both on the JSON body and the response header.
@@ -808,7 +797,7 @@ async fn yank_package(
         return Err(ApiError::rate_limited(limited.retry_after));
     }
 
-    require_publish_scope(&token_record, &name)?;
+    require_publish_scope(&token_record, &package)?;
 
     let yanked = {
         let st = state.clone();
@@ -945,19 +934,6 @@ async fn admin_revoke_token(
     )
 }
 
-/// The namespace a package name publishes into: `@scope/name` claims
-/// `@scope`; unscoped names claim their full name.
-fn package_scope(name: &str) -> String {
-    if let Some(rest) = name.strip_prefix('@') {
-        match rest.split_once('/') {
-            Some((scope, _)) => format!("@{}", scope),
-            None => name.to_string(),
-        }
-    } else {
-        name.to_string()
-    }
-}
-
 /// Registry-assigned publisher identity: deterministic per issuing token.
 fn account_id_for(token_hash: &str) -> String {
     let mut hasher = Sha256::new();
@@ -965,12 +941,11 @@ fn account_id_for(token_hash: &str) -> String {
     format!("acct_{}", &hex::encode(hasher.finalize())[..8])
 }
 
-fn decode_name(encoded: &str) -> String {
-    encoded.replace("%2F", "/").replace("%2f", "/")
-}
-
-fn encode_name(name: &str) -> String {
-    name.replace('/', "%2F")
+/// The package a read or a yank names, from its URL segment. A name that
+/// is not one cannot have been published, so it is not found.
+fn read_name(segment: &str) -> Result<PackageName, ApiError> {
+    PackageName::from_url_segment(segment)
+        .map_err(|_| ApiError::not_found(format!("package '{segment}' not found")))
 }
 
 /// Fixed-window publish rate limit, keyed per token and per client IP.

@@ -4,7 +4,7 @@ use specforge_common::{Diagnostic, codes};
 use specforge_registry_client::{
     AuthMethod, CredentialStore, HttpRegistryClient, RegistryConfig, RegistryCredential,
     credentials::{credentials_path, read_credentials},
-    find_registry_for_specifier, load_or_create_signing_key, publish_to_registry,
+    find_registry_for, load_or_create_signing_key, publish_to_registry,
 };
 use std::path::Path;
 
@@ -42,6 +42,29 @@ pub fn run(extension: &Path, project: &Path, format: OutputFormat) -> i32 {
     let declaration = &prepared.declaration;
     let wasm_bytes = &prepared.wasm;
 
+    // What is uploaded is a registry package: a scoped name and a full
+    // version. Refused before any registry is chosen or asked (E072).
+    let package = match declaration.package_name() {
+        Ok(package) if package.scope().is_some() => package,
+        Ok(package) => {
+            format.print_diagnostic(&specforge_common::package::invalid(&format_args!(
+                "'{package}' is not a registry package name: registry packages are named @scope/name"
+            )));
+            return 1;
+        }
+        Err(why) => {
+            format.print_diagnostic(&specforge_common::package::invalid(&why));
+            return 1;
+        }
+    };
+    if let Err(why) = specforge_protocol_types::package::Version::parse(declaration.version()) {
+        format.print_diagnostic(&specforge_common::package::invalid(&format_args!(
+            "'{}' is not a SemVer version: {why}",
+            declaration.version()
+        )));
+        return 1;
+    }
+
     // No registry configured: fail before any network call (ADR 0004 N1).
     let registries = match specforge_ops_registry::configured(project, "publish") {
         Ok(configured) => {
@@ -54,7 +77,7 @@ pub fn run(extension: &Path, project: &Path, format: OutputFormat) -> i32 {
         }
     };
 
-    let registry = match find_registry_for_specifier(declaration.name(), &registries) {
+    let registry = match find_registry_for(&package, &registries) {
         Some(r) => r,
         None => {
             format.print_error(
