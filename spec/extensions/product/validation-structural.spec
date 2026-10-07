@@ -426,21 +426,21 @@ behavior detect_tag_namespace_collision "Detect Tag Namespace Collision" {
     The @specforge/product extension SHOULD detect when the same tag
     string is used on entities of different kinds with potentially
     different semantic meaning. When a tag appears on 3 or more entity
-    kinds, it SHOULD produce an I071 info diagnostic suggesting the
+    kinds, it SHOULD produce an I084 info diagnostic suggesting the
     tag may benefit from kind-specific prefixes (e.g., "core-module"
     vs "core-feature"). This is informational only — cross-kind tags
     are valid and often intentional for cross-cutting categorization.
   """
   ensures {
-    fires_three_or_more_kinds     "tag on entities of 3+ different kinds produces I071"
-    suppresses_two_or_fewer_kinds "tag on entities of 1-2 kinds suppresses I071"
-    identifies_kinds              "I071 lists which entity kinds share the tag"
-    suggestion_includes_prefixes  "I071 suggests kind-specific prefixes"
+    fires_three_or_more_kinds     "tag on entities of 3+ different kinds produces I084"
+    suppresses_two_or_fewer_kinds "tag on entities of 1-2 kinds suppresses I084"
+    identifies_kinds              "I084 lists which entity kinds share the tag"
+    suggestion_includes_prefixes  "I084 suggests kind-specific prefixes"
   }
   features [pe_validation_suite]
-  verify unit "tag on features and modules only suppresses I071"
-  verify unit "tag on features, modules, and milestones produces I071"
-  verify unit "I071 identifies the entity kinds sharing the tag"
+  verify unit "tag on features and modules only suppresses I084"
+  verify unit "tag on features, modules, and milestones produces I084"
+  verify unit "I084 identifies the entity kinds sharing the tag"
 }
 
 behavior detect_term_asymmetric_see_also "Detect Term Asymmetric See-Also Links" {

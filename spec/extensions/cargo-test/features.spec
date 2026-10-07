@@ -3,6 +3,7 @@
 use "extensions/cargo-test/behaviors"
 
 feature ct_cargo_test_collection "cargo test Collection" {
+  status   done
   problem  """
     Rust tests prove entities through the `specforge-test` attribute, but
     getting their results into coverage meant running `cargo test` in

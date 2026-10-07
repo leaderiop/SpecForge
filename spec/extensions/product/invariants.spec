@@ -259,11 +259,11 @@ invariant pe_tags_per_entity_kind "Tags Per Entity Kind" {
 
 invariant tag_cross_kind_awareness "Tag Cross-Kind Awareness" {
   guarantee """
-    Tags used on entities of 3 or more different kinds produce I071
+    Tags used on entities of 3 or more different kinds produce I084
     info diagnostics suggesting kind-specific prefixes.
   """
   risk      low
-  verify unit "cross-kind tag on 3+ kinds produces I071"
+  verify unit "cross-kind tag on 3+ kinds produces I084"
 }
 
 invariant term_alias_uniqueness "Term Alias Uniqueness" {

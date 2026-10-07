@@ -135,6 +135,7 @@ feature product_impact_and_whatif "Impact Analysis and What-If" {
 }
 
 feature product_graph_diff "Graph Diff and Comparison" {
+  status       accepted
   problem      """
     No way to compare the product graph over time between builds or
     sprints.

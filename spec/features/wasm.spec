@@ -24,6 +24,7 @@ feature wasm_extension_runtime "Wasm Extension Runtime" {
 }
 
 feature wasm_host_function_api "Wasm Host Function API" {
+  status   accepted
   problem  """
     Extensions need controlled access to compiler internals (graph queries,
     diagnostic emission, entity registration) and external resources (file

@@ -622,8 +622,10 @@ constraint product_cross_extension_integration_correctness "Cross-Extension Inte
     (no foreign edges followed), (2) entity_enhancements from software MUST
     add fields to product entity kinds without affecting query behavior,
     (3) the BehaviorImplementsFeature edge MUST be traversable by software queries but
-    invisible to product queries. The 20-edge-type allowlist MUST be the
-    sole enforcement mechanism.
+    invisible to product status results; delivery evidence alone reads it,
+    in fields that are absent without recorded evidence (ADR 0039). The
+    20-edge-type allowlist MUST be the sole enforcement mechanism for
+    status results.
   """
   constrains  [pe_cross_extension_integration]
   verify integration "product queries identical with and without software extension"

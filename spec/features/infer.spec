@@ -4,6 +4,7 @@ use "behaviors/infer"
 use "types/infer"
 
 feature infer_progress_tracking "Inference Progress Tracking" {
+  status   in_progress
   problem  """
     When an AI agent infers specs from a codebase, there is no way to track
     which source files have been analyzed, which entities were produced, or
@@ -19,11 +20,11 @@ feature infer_progress_tracking "Inference Progress Tracking" {
     read the manifest on startup and skip already-analyzed files. The manifest
     supports multiple source_roots for workspace projects.
   """
-  status   proposed
   priority high
 }
 
 feature infer_plan_mode "Inference Plan Mode" {
+  status   in_progress
   problem  """
     Agents starting inference on a new codebase don't know the optimal order
     for entity kinds. Inferring events before types leads to broken references.
@@ -37,11 +38,11 @@ feature infer_plan_mode "Inference Plan Mode" {
     target_spec_directory hint; scope=workflow returns the step-by-step
     agent protocol with tool names and retry patterns.
   """
-  status   proposed
   priority high
 }
 
 feature infer_gap_analysis "Inference Gap Analysis" {
+  status   in_progress
   problem  """
     After partial inference, there is no way to measure how much of the
     codebase has been covered by specs. Developers and agents cannot identify
@@ -56,11 +57,11 @@ feature infer_gap_analysis "Inference Gap Analysis" {
     and line. The CLI surfaces this via specforge infer-status --gaps-detail.
     Real language-specific detection deferred to extension surface commands.
   """
-  status   proposed
   priority medium
 }
 
 feature infer_quality_diagnostics "Inference Quality Diagnostics" {
+  status   in_progress
   problem  """
     AI-inferred specs may become stale when source code changes, or may have
     been generated in large batches without human review. Without provenance-
@@ -74,6 +75,5 @@ feature infer_quality_diagnostics "Inference Quality Diagnostics" {
     threshold configurable via inference.density_threshold). These fire only
     when specforge-infer.json exists and the lint profile is active.
   """
-  status   proposed
   priority low
 }

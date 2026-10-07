@@ -4,6 +4,7 @@
 // Behaviors are resolved globally — use imports not needed for reference resolution.
 
 feature pe_core_entity_kinds "Product Entity Kind Registration" {
+  status   done
   problem  """
     The @specforge/product extension must register 9 entity kinds with
     full metadata, 20 edge types, field definitions, and validation rules.
@@ -29,6 +30,7 @@ feature pe_core_entity_kinds "Product Entity Kind Registration" {
 }
 
 feature pe_query_dependency_analysis "Product Dependency Analysis Queries" {
+  status   done
   problem  """
     Product entities form dependency chains (FeatureDependsOn, ModuleDependsOn,
     MilestoneDependsOn) but there is no way to compute topological ordering,
@@ -47,6 +49,7 @@ feature pe_query_dependency_analysis "Product Dependency Analysis Queries" {
 }
 
 feature pe_query_traceability "Product Traceability Queries" {
+  status   done
   problem  """
     Product entities are richly connected across kinds — features belong to
     milestones and deliverables, journeys reference personas and channels,
@@ -76,6 +79,7 @@ feature pe_query_traceability "Product Traceability Queries" {
 }
 
 feature pe_query_coverage_analysis "Product Coverage Analysis Queries" {
+  status   done
   problem  """
     Product entities should form a well-connected graph, but there is no way
     to measure how well entities are connected: which features lack milestone
@@ -95,6 +99,7 @@ feature pe_query_coverage_analysis "Product Coverage Analysis Queries" {
 }
 
 feature pe_query_lifecycle_metrics "Product Lifecycle Metrics Queries" {
+  status   done
   problem  """
     Product managers need to track progress and health across milestones,
     deliverables, and the overall product graph: completion ratios, timeline
@@ -118,6 +123,7 @@ feature pe_query_lifecycle_metrics "Product Lifecycle Metrics Queries" {
 }
 
 feature pe_surface_contributions "Product Surface Contributions" {
+  status   done
   problem  """
     The @specforge/product extension has query behaviors and validation rules
     but no declared CLI commands or MCP tools to expose them to users and agents.
@@ -152,6 +158,7 @@ feature pe_surface_contributions "Product Surface Contributions" {
 }
 
 feature pe_validation_suite "Product Validation Suite" {
+  status   in_progress
   problem  """
     Without domain-specific validation rules, the compiler cannot detect
     product-level quality issues: orphan journeys, dependency cycles,
@@ -204,6 +211,7 @@ feature pe_validation_suite "Product Validation Suite" {
 }
 
 feature pe_graph_rendering "Product Graph Rendering" {
+  status   in_progress
   problem  """
     Product entities are registered in the KindRegistry and appear in the
     entity graph, but there is no specification for how they render in the
@@ -227,6 +235,7 @@ feature pe_graph_rendering "Product Graph Rendering" {
 }
 
 feature pe_cross_extension_cooperation "Cross-Extension Cooperation" {
+  status   in_progress
   problem  """
     @specforge/product declares no peer_dependencies and operates standalone,
     but @specforge/software declares a peer_dependency on product and
@@ -246,6 +255,7 @@ feature pe_cross_extension_cooperation "Cross-Extension Cooperation" {
 }
 
 feature pe_partial_graph_queries "Partial Graph Query Behavior" {
+  status   done
   problem  """
     When the entity graph contains validation errors (e.g., orphan entities,
     broken references), the behavior of product queries is unspecified.
@@ -263,6 +273,7 @@ feature pe_partial_graph_queries "Partial Graph Query Behavior" {
 }
 
 feature pe_migration_strategy "Extension Migration Strategy" {
+  status   in_progress
   problem  """
     The v1 manifest declares migration_hook=null (no prior version), but
     there is no specification for what happens when the product extension
@@ -303,6 +314,7 @@ feature pe_planning_insights "Advanced Planning Insights" {
 }
 
 feature pe_chain_validation "End-to-End Chain Validation" {
+  status   proposed
   problem  """
     Existing validation checks journey-module gaps (I049) and milestone-
     module gaps (I051) independently, but no check validates the full
@@ -326,6 +338,7 @@ feature pe_chain_validation "End-to-End Chain Validation" {
 // ---------------------------------------------------------------------------
 
 feature pe_ownership_tracking "Ownership Tracking" {
+  status   in_progress
   problem  """
     Product entities have no concept of who is responsible. Product managers
     cannot answer "what features does Alice own?" or "which milestones have
@@ -340,6 +353,7 @@ feature pe_ownership_tracking "Ownership Tracking" {
 }
 
 feature pe_effort_estimation "Effort Estimation" {
+  status   done
   problem  """
     Milestone completion is feature-count-based: 3/5 done = 60%. But a
     trivial feature and a month-long epic both count as 1. This makes
@@ -355,6 +369,7 @@ feature pe_effort_estimation "Effort Estimation" {
 }
 
 feature pe_release_coordination "Release Coordination" {
+  status   in_progress
   problem  """
     Deliverables have individual versions and statuses, but multiple
     deliverables often ship together. There is no way to answer "what
@@ -371,6 +386,7 @@ feature pe_release_coordination "Release Coordination" {
 }
 
 feature pe_temporal_planning "Temporal Planning" {
+  status   done
   problem  """
     Milestones have only target_date — no start date. Duration cannot be
     computed, and milestone dependency ordering cannot validate temporal
@@ -399,6 +415,7 @@ feature pe_external_blockers "External Blocker Tracking" {
 }
 
 feature pe_journey_flow_validation "Journey Flow Validation" {
+  status   proposed
   problem  """
     Journey flow steps are free-text with no structural validation.
     Steps may reference features via [brackets] but there is no check

@@ -995,9 +995,9 @@ decision pe_tag_cross_kind_awareness "Tag Cross-Kind Awareness" {
     across entity kinds.
   """
   decision     """
-    Add I071 to detect tags used on entities of 3 or more different
+    Add I084 to detect tags used on entities of 3 or more different
     kinds. The threshold of 3 avoids noise for common cross-cutting tags
-    used on 2 kinds (e.g., "mvp" on features and milestones). I071 is
+    used on 2 kinds (e.g., "mvp" on features and milestones). I084 is
     info-level — cross-kind tags are valid and often intentional for
     cross-cutting categorization. The diagnostic suggests kind-specific
     prefixes (e.g., "core-module", "core-feature") as an opt-in
@@ -1006,7 +1006,7 @@ decision pe_tag_cross_kind_awareness "Tag Cross-Kind Awareness" {
   consequences [
     "Users get awareness of potentially ambiguous cross-kind tags",
     "Threshold of 3 avoids noise for common 2-kind cross-cutting tags",
-    "I071 is info-level — informs but does not block",
+    "I084 is info-level — informs but does not block",
     "Prefix suggestion is opt-in convention, not enforced",
     "No namespacing added — keeps tag model simple per pe_tag_semantics",
   ]

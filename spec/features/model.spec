@@ -3,6 +3,7 @@
 use "behaviors/model"
 
 feature logical_data_model "Logical Data Model Visualization" {
+  status   done
   problem  """
     Users and AI agents have no way to visualize the schema-level structure
     of a SpecForge project — which entity kinds exist, what fields they have,
@@ -27,6 +28,7 @@ feature logical_data_model "Logical Data Model Visualization" {
 }
 
 feature model_multi_format "Multi-Format Model Output" {
+  status   done
   problem  """
     Different consumers need different output formats: terminals need
     readable text, GitHub needs Mermaid, Graphviz users need DOT, ERD
@@ -43,6 +45,7 @@ feature model_multi_format "Multi-Format Model Output" {
 }
 
 feature model_filtering "Model Filtering and Scoping" {
+  status   done
   problem  """
     With 23+ entity kinds across 4 extensions, the full model is noisy.
     Users need to focus on specific extensions, entity kinds, or
@@ -59,6 +62,7 @@ feature model_filtering "Model Filtering and Scoping" {
 }
 
 feature model_agent_access "Model Access for AI Agents" {
+  status   done
   problem  """
     AI agents consuming spec graphs need to understand the schema structure
     to make correct first-attempt modifications. The raw GraphProtocolSchema

@@ -6,6 +6,7 @@
 use "extensions/markdown-renderer/behaviors"
 
 feature markdown_documentation_generation "Markdown Documentation Generation" {
+  status   accepted
   problem  """
     Stakeholders who don't work with .spec files need readable
     documentation. Generated docs must stay in sync with the spec

@@ -23,6 +23,11 @@ because its declarative rules check one entity at a time.
   the `behavior` entities whose `features` field names it. A feature is proven when at least one
   behavior implements it and the coverage rule counts every one proven (ADR 0004 D2-a: at least
   one obligation, every one named by a passing test, no failing test). No implementer, no proof.
+- **D2a. Evidence is the one product reader of a foreign edge.** Product's queries traverse only its
+  20 edge types (`pe_cross_extension_query_boundary`). Delivery evidence reads
+  `BehaviorImplementsFeature` (software's `features` field on a behavior), because the implementers are
+  what the tests prove; its fields are additive and absent without recorded evidence, and every
+  status result stays identical with and without @specforge/software. The boundary's contract says so.
 - **D3. The host scores, the extension aggregates.** The host knows no product kind (zero-entity
   core), so it passes a command each entity's score: `CommandInput.evidence` is `none` without a
   report, `unreadable` with the reason when the report cannot be used, else

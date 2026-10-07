@@ -12,6 +12,7 @@ use "extensions/formal/structured-conditions"
 use "extensions/formal/validation-rules"
 
 feature fa_structured_conditions "Structured Conditions" {
+  status   in_progress
   problem  """
     Behavior contract fields are free-form prose. Preconditions and
     postconditions are mixed together in a single text block. There is
@@ -45,6 +46,7 @@ feature fa_structured_conditions "Structured Conditions" {
 }
 
 feature fa_specification_layering "Specification Layering" {
+  status   in_progress
   problem  """
     There is no way to express that a behavior is an abstract
     specification refined by concrete implementations. The existing
@@ -72,6 +74,7 @@ feature fa_specification_layering "Specification Layering" {
 }
 
 feature fa_event_graph_linting "Event Graph Linting" {
+  status   in_progress
   problem  """
     Event entities declare producers but the compiler performs no
     event flow analysis. Circular event dependencies, payload type
@@ -100,6 +103,7 @@ feature fa_event_graph_linting "Event Graph Linting" {
 }
 
 feature fa_coverage_tracking "Coverage Tracking" {
+  status   in_progress
   problem  """
     There is no way to know whether formal properties (conditions,
     invariants, layering chains) are verified by existing tests.
@@ -120,6 +124,7 @@ feature fa_coverage_tracking "Coverage Tracking" {
 }
 
 feature fa_analyze_commands "Formal Analysis CLI Commands" {
+  status   in_progress
   problem  """
     Formal analysis results are only available as part of the full
     compilation pipeline. There is no way to run specific analyses
@@ -135,6 +140,7 @@ feature fa_analyze_commands "Formal Analysis CLI Commands" {
 }
 
 feature fa_graph_annotations "Graph Annotations" {
+  status   proposed
   problem  """
     Analysis results are emitted as diagnostics but not attached to
     the entity graph. Agents cannot query per-node analysis results
@@ -152,6 +158,7 @@ feature fa_graph_annotations "Graph Annotations" {
 }
 
 feature fa_temporal_properties "Temporal Properties" {
+  status   in_progress
   problem  """
     There is no way to declare temporal/behavioral assertions (safety,
     liveness, fairness) as first-class entities. Such properties are
@@ -170,6 +177,7 @@ feature fa_temporal_properties "Temporal Properties" {
 }
 
 feature fa_axiom_foundations "Axiom Foundations" {
+  status   in_progress
   problem  """
     Conditions implicitly depend on assumptions that are never stated.
     For example, a condition "database is available" rests on the
@@ -186,6 +194,7 @@ feature fa_axiom_foundations "Axiom Foundations" {
 }
 
 feature fa_protocol_contracts "Protocol Contracts" {
+  status   in_progress
   problem  """
     Synchronization constraints are declared as inline sync blocks on
     individual events. When multiple events share the same sync
@@ -204,6 +213,7 @@ feature fa_protocol_contracts "Protocol Contracts" {
 }
 
 feature fa_refinement_layering "Refinement Entities" {
+  status   in_progress
   problem  """
     Specification layering is expressed only through field annotations
     (abstract/refines) on behaviors. The abstract-to-concrete mapping has
@@ -221,6 +231,7 @@ feature fa_refinement_layering "Refinement Entities" {
 }
 
 feature fa_process_modeling "Process Modeling" {
+  status   in_progress
   problem  """
     Event graph linting operates at the event-behavior bipartite graph
     level but has no concept of communicating processes. Events participate
@@ -238,6 +249,7 @@ feature fa_process_modeling "Process Modeling" {
 }
 
 feature fa_progressive_warnings "Progressive Warning Levels" {
+  status   accepted
   problem  """
     All formal analysis warnings (W029-W040, W058, W096, W110, W123-W136, W144) fire at the same level.
     New users are overwhelmed by formal analysis warnings they cannot

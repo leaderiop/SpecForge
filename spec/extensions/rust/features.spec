@@ -3,6 +3,7 @@
 use "extensions/rust/behaviors"
 
 feature rust_test_collection "Rust Test Collection" {
+  status   done
   problem  """
     Rust test frameworks (cargo test, nextest) produce results in various
     formats, but none links a test to the spec entity it proves, so
@@ -18,6 +19,7 @@ feature rust_test_collection "Rust Test Collection" {
 }
 
 feature rust_proc_macro_annotation "Rust Proc Macro Annotation" {
+  status   done
   problem  """
     Naming conventions alone are fragile and can break when test functions
     are renamed. Developers need explicit, compiler-checked linkage from

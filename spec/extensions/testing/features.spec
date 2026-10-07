@@ -3,6 +3,7 @@
 use "extensions/testing/behaviors"
 
 feature te_test_vocabulary "Runner-Agnostic Test Vocabulary" {
+  status   done
   problem  """
     Test concepts were spread across core and @specforge/software:
     testability flags on software's kinds, W004/W009 in its rules, and
@@ -20,6 +21,7 @@ feature te_test_vocabulary "Runner-Agnostic Test Vocabulary" {
 }
 
 feature te_coverage_analysis "Coverage Analysis" {
+  status   done
   problem  """
     Knowing that a behavior declares verify obligations is not enough:
     teams need to see which obligations are backed by passing tests,
