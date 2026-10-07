@@ -260,6 +260,25 @@ behavior provide_mcp_infer_gaps_tool "Provide MCP Infer Gaps Tool" {
 // MCP Prompt Enhancements
 // ---------------------------------------------------------------------------
 
+behavior provide_infer_kind_scope "Provide Infer Prompt Kind Scope" {
+  features [infer_plan_mode]
+  category mcp
+  ensures {
+    fields_registered "every field registered on the kind is listed: its own, its extension's shared fields and other extensions' enhancement fields"
+    types_named       "each field's type is named as the extension protocol names it"
+  }
+  contract """
+    When specforge://prompts/infer is invoked with scope=kind:<name>, list
+    the kind's existing entity IDs, its inference guide, an example entity
+    and every field the registry build registered on the kind, sorted by
+    name, each with its type (string, integer, bool, enum, string_list,
+    reference, reference_list, block), whether it is required and its
+    description. A field the registry build refused (W019) is not listed.
+  """
+  verify unit "kind scope lists every field registered on the kind, its type by name"
+  verify unit "kind scope's example writes each optional field the way its type is written"
+}
+
 behavior provide_infer_plan_scope "Provide Infer Prompt Plan Scope" {
   features [infer_plan_mode]
   types    [InferencePlan, InferencePlanPhase]

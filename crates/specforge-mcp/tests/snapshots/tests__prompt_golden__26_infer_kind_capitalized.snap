@@ -7,7 +7,7 @@ expression: "shape(&reply, dir.path())"
   "instruction": "You are inferring 'behavior' entities from this codebase. Use the guide below. Do not duplicate the existing entity IDs listed.",
   "layout": "turns",
   "payload": {
-    "example": "behavior example_behavior \"Example Title\" {\n  contract \"...\"\n  invariants [ref_1, ref_2]\n  types [ref_1, ref_2]\n  ports [ref_1, ref_2]\n}",
+    "example": "behavior example_behavior \"Example Title\" {\n  contract \"...\"\n  category \"...\"\n  consumes [ref_1, ref_2]\n  description \"...\"\n}",
     "existing_entity_ids": [
       "alpha",
       "beta",
@@ -15,20 +15,44 @@ expression: "shape(&reply, dir.path())"
     ],
     "fields": [
       {
+        "description": "Classification tag for agent task routing",
+        "name": "category",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "description": "Events this behavior reacts to",
+        "name": "consumes",
+        "required": false,
+        "type": "reference_list"
+      },
+      {
         "description": "The behavioral contract this behavior guarantees",
         "name": "contract",
         "required": true,
         "type": "string"
       },
       {
-        "description": "Invariants this behavior enforces",
-        "name": "invariants",
+        "description": "Human-readable summary of this behavior",
+        "name": "description",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "description": "Diagnostic message for validation tooling",
+        "name": "diagnostic",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "description": "Product features this behavior implements",
+        "name": "features",
         "required": false,
         "type": "reference_list"
       },
       {
-        "description": "Type definitions used by this behavior",
-        "name": "types",
+        "description": "Invariants this behavior enforces",
+        "name": "invariants",
         "required": false,
         "type": "reference_list"
       },
@@ -45,36 +69,6 @@ expression: "shape(&reply, dir.path())"
         "type": "reference_list"
       },
       {
-        "description": "Events this behavior reacts to",
-        "name": "consumes",
-        "required": false,
-        "type": "reference_list"
-      },
-      {
-        "description": "Classification tag for agent task routing",
-        "name": "category",
-        "required": false,
-        "type": "string"
-      },
-      {
-        "description": "Product features this behavior implements",
-        "name": "features",
-        "required": false,
-        "type": "reference_list"
-      },
-      {
-        "description": "Human-readable summary of this behavior",
-        "name": "description",
-        "required": false,
-        "type": "string"
-      },
-      {
-        "description": "Current lifecycle status of this behavior",
-        "name": "status",
-        "required": false,
-        "type": "string"
-      },
-      {
         "description": "External references such as issue or document URIs",
         "name": "refs",
         "required": false,
@@ -87,10 +81,16 @@ expression: "shape(&reply, dir.path())"
         "type": "string"
       },
       {
-        "description": "Diagnostic message for validation tooling",
-        "name": "diagnostic",
+        "description": "Current lifecycle status of this behavior",
+        "name": "status",
         "required": false,
         "type": "string"
+      },
+      {
+        "description": "Type definitions used by this behavior",
+        "name": "types",
+        "required": false,
+        "type": "reference_list"
       }
     ],
     "inference_guide": "[guide]",

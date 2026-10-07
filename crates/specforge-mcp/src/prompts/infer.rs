@@ -3,7 +3,8 @@
 
 use serde::Deserialize;
 use serde_json::{Value, json};
-use specforge_protocol_types::{EntityKindDescriptor, ExtensionDeclaration, FieldDescriptor};
+use specforge_protocol_types::{EntityKindDescriptor, ExtensionDeclaration};
+use specforge_registry::{FieldRegistryEntry, FieldType};
 use std::collections::HashMap;
 
 use specforge_common::inference::anchors::{AnchorManifest, load_anchor_manifest};
@@ -216,19 +217,26 @@ fn get_kind_scoped(project: &ProjectView, kind_name: &str) -> PromptOutcome {
         .collect();
 
     let guide = build_guide_for_kind(kind_name, declaration, &project.env().config.inference);
-    let fields: Vec<Value> = kind_def
+    // Every field the registry build registered on the kind (its own, its
+    // extension's shared fields and other extensions' enhancement fields),
+    // by name: the registry's map has no declaration order.
+    let mut registered = project
+        .registries()
         .fields
+        .fields_for_kind(keyword(kind_def));
+    registered.sort_by(|a, b| a.name().cmp(b.name()));
+    let fields: Vec<Value> = registered
         .iter()
         .map(|f| {
             json!({
-                "name": f.name,
-                "type": f.field_type,
-                "required": f.required,
-                "description": f.description,
+                "name": f.name(),
+                "type": f.field_type().as_str(),
+                "required": f.declared().required,
+                "description": f.declared().description,
             })
         })
         .collect();
-    let example = build_example_for_kind(kind_name, &kind_def.fields);
+    let example = build_example_for_kind(kind_name, &registered);
 
     let result = json!({
         "kind": kind_name,
@@ -488,10 +496,14 @@ fn build_guide_for_kind(
     }
 }
 
-fn build_example_for_kind(kind_name: &str, fields: &[FieldDescriptor]) -> String {
-    let required_fields: Vec<&FieldDescriptor> = fields.iter().filter(|f| f.required).collect();
-    let optional_fields: Vec<&FieldDescriptor> =
-        fields.iter().filter(|f| !f.required).take(3).collect();
+fn build_example_for_kind(kind_name: &str, fields: &[&FieldRegistryEntry]) -> String {
+    let required_fields: Vec<&&FieldRegistryEntry> =
+        fields.iter().filter(|f| f.declared().required).collect();
+    let optional_fields: Vec<&&FieldRegistryEntry> = fields
+        .iter()
+        .filter(|f| !f.declared().required)
+        .take(3)
+        .collect();
 
     let mut lines = vec![format!(
         "{} example_{} \"Example Title\" {{",
@@ -499,20 +511,14 @@ fn build_example_for_kind(kind_name: &str, fields: &[FieldDescriptor]) -> String
     )];
 
     for f in &required_fields {
-        lines.push(format!("  {} \"...\"", f.name));
+        lines.push(format!("  {} \"...\"", f.name()));
     }
     for f in &optional_fields {
-        match specforge_registry::FieldType::parse(&f.field_type) {
-            Some(specforge_registry::FieldType::ReferenceList) => {
-                lines.push(format!("  {} [ref_1, ref_2]", f.name))
-            }
-            Some(specforge_registry::FieldType::StringList) => {
-                lines.push(format!("  {} [\"item1\", \"item2\"]", f.name))
-            }
-            Some(specforge_registry::FieldType::Reference) => {
-                lines.push(format!("  {} ref_id", f.name))
-            }
-            _ => lines.push(format!("  {} \"...\"", f.name)),
+        match f.field_type() {
+            FieldType::ReferenceList => lines.push(format!("  {} [ref_1, ref_2]", f.name())),
+            FieldType::StringList => lines.push(format!("  {} [\"item1\", \"item2\"]", f.name())),
+            FieldType::Reference => lines.push(format!("  {} ref_id", f.name())),
+            _ => lines.push(format!("  {} \"...\"", f.name())),
         }
     }
 
