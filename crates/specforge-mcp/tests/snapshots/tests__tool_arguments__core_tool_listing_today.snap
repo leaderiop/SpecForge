@@ -11,7 +11,8 @@ expression: listing
       "properties": {
         "depth": {
           "default": 1,
-          "description": "Number of hops (default 1)",
+          "description": "Number of hops",
+          "minimum": 0,
           "type": "integer"
         },
         "entity_id": {
@@ -84,7 +85,6 @@ expression: listing
         "lint": {
           "description": "Extra lint profiles, as `specforge check --lint` takes (inferred: I200/I202 from specforge-infer.json; pedantic is the default and adds nothing)",
           "items": {
-            "description": "A lint profile",
             "enum": [
               "inferred",
               "pedantic"
@@ -142,6 +142,7 @@ expression: listing
           "type": "string"
         },
         "strict": {
+          "default": false,
           "description": "Promote warnings to errors",
           "type": "boolean"
         },
@@ -201,9 +202,11 @@ expression: listing
         },
         "max_tokens": {
           "description": "Optional token budget; truncates the export to the most central entities that fit",
+          "minimum": 0,
           "type": "integer"
         },
         "no_schema": {
+          "default": false,
           "description": "Leave the schema out of a graph export (Graph Protocol 1.0)",
           "type": "boolean"
         },
@@ -212,6 +215,7 @@ expression: listing
           "type": "string"
         },
         "with_schema": {
+          "default": false,
           "description": "Embed the Graph Protocol schema in a context, brief or budgeted graph export (a full graph export embeds it already); under max_tokens it counts toward the budget",
           "type": "boolean"
         }
@@ -353,7 +357,8 @@ expression: listing
         },
         "limit": {
           "default": 20,
-          "description": "Max results (default 20)",
+          "description": "Max results",
+          "minimum": 0,
           "type": "integer"
         },
         "query": {
@@ -529,6 +534,7 @@ expression: listing
       "properties": {
         "depth": {
           "description": "Maximum depth from root kind (requires root)",
+          "minimum": 0,
           "type": "integer"
         },
         "extension": {
@@ -1727,7 +1733,8 @@ expression: listing
           "type": "string"
         },
         "run": {
-          "description": "Run the test command first; it must have been approved with `specforge collect` in a terminal (default false: parse the existing report)",
+          "default": false,
+          "description": "Run the test command first; it must have been approved with `specforge collect` in a terminal (otherwise the existing report is parsed)",
           "type": "boolean"
         },
         "runner": {

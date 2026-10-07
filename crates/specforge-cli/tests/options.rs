@@ -241,8 +241,8 @@ fn advertised(tool: &str, argument: &str) -> String {
         .iter()
         .find(|spec| spec.name == tool)
         .unwrap_or_else(|| panic!("no tool {tool}"));
-    let property = (spec.schema)()["properties"][argument].clone();
-    let required = (spec.schema)()["required"]
+    let property = spec.input_schema()["properties"][argument].clone();
+    let required = spec.input_schema()["required"]
         .as_array()
         .is_some_and(|names| names.iter().any(|name| name == argument));
     format!(

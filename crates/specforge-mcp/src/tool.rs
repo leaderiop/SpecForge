@@ -116,7 +116,6 @@ pub struct ToolSpec {
     pub category: Category,
     /// What it does to its environment: the listing's annotations.
     pub access: Access,
-    pub schema: fn() -> Value,
     /// The schema its `structuredContent` conforms to: for a tool whose
     /// result is a JSON object.
     pub output: Option<fn() -> Value>,
@@ -129,25 +128,10 @@ pub struct ToolSpec {
 }
 
 impl ToolSpec {
-    /// The input schema `tools/list` lists: [`Self::schema`] with the
-    /// target's properties merged in and its required arguments added.
+    /// The input schema `tools/list` lists: the handler's arguments, then
+    /// the target's, and no other property ([`crate::args::input_schema`]).
     pub fn input_schema(&self) -> Value {
-        let mut schema = (self.schema)();
-        if let Some(properties) = schema.get_mut("properties").and_then(Value::as_object_mut) {
-            properties.extend(self.target.properties());
-        }
-        // A name the tool does not declare is refused (`Self::undeclared`).
-        schema["additionalProperties"] = Value::Bool(false);
-        let required = self.target.required();
-        if !required.is_empty() {
-            let listed = schema
-                .as_object_mut()
-                .map(|schema| schema.entry("required").or_insert_with(|| json!([])));
-            if let Some(Value::Array(listed)) = listed {
-                listed.extend(required.iter().map(|name| Value::from(*name)));
-            }
-        }
-        schema
+        crate::args::input_schema(&self.arguments(), self.target)
     }
 
     /// The handler's declared arguments, in field order.

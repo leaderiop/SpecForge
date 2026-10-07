@@ -147,8 +147,10 @@ behavior list_mcp_tools "List MCP Tools" {
     and auto-promoted CLI commands MUST be included alongside core tools.
     The list MUST be complete and reflect the current set of loaded
     extensions. Every core tool it lists MUST be callable: a call never
-    fails as an unknown tool or operation. Each core tool's inputSchema MUST advertise exactly the
-    arguments its handler reads. Each listed tool's category is its role,
+    fails as an unknown tool or operation. Each core tool's inputSchema MUST be derived from the
+    typed arguments its handler reads (read_mcp_arguments_as_declared):
+    exactly those arguments and its target's listed ones, with no other
+    property allowed. Each listed tool's category is its role,
     one of McpToolCategory, and its source says where it comes from: core,
     or the contributing extension's name. An extension tool is listed once,
     whatever category it declares, however often the project recompiles,

@@ -1,11 +1,10 @@
 //! How a core tool's arguments are listed and read (plan 08, ADR 0033).
 //!
-//! The first two tests pin today's behaviour, bugs included: the core
-//! tools' listing as a client receives it, and what a call answers (and
-//! writes) for each way of sending an argument. They are unlinked
-//! characterisation tests; the ticket that changes a line of either
-//! snapshot re-blesses it in its own commit, so the diff shows the
-//! user-visible change.
+//! The first two tests are snapshots of the core tools' listing, byte for
+//! byte as a client receives it, and of what a call answers (and writes)
+//! for each way of sending an argument. They were taken before the
+//! derivation, bugs included; the commit that changes a line of either
+//! re-blesses it, so the snapshot history shows each user-visible change.
 
 use crate::support::*;
 use serde_json::{Value, json};
@@ -395,62 +394,6 @@ fn a_preview_asked_for_with_a_string_writes_nothing() {
     }
 }
 
-/// A derived schema equals the hand-written one still in `table.rs`, apart
-/// from the changes ADR 0033 makes when the hand-written one goes (the
-/// listing diff of the commit that deletes it): booleans state `default:
-/// false`, counts `minimum: 0`, three descriptions lose a default their
-/// schema states, and a lint profile list's items carry no description.
-fn written_as_derived(tool: &str, schema: &mut Value) {
-    let boolean_default = |schema: &mut Value, names: &[&str]| {
-        for name in names {
-            schema["properties"][*name]["default"] = Value::Bool(false);
-        }
-    };
-    let count_minimum = |schema: &mut Value, names: &[&str]| {
-        for name in names {
-            schema["properties"][*name]["minimum"] = json!(0);
-        }
-    };
-    match tool {
-        "specforge.analyze" => boolean_default(schema, &["strict"]),
-        "specforge.export" => {
-            boolean_default(schema, &["with_schema", "no_schema"]);
-            count_minimum(schema, &["max_tokens"]);
-        }
-        "specforge.query" => {
-            count_minimum(schema, &["depth"]);
-            schema["properties"]["depth"]["description"] = json!("Number of hops");
-        }
-        "specforge.search" => {
-            count_minimum(schema, &["limit"]);
-            schema["properties"]["limit"]["description"] = json!("Max results");
-        }
-        "specforge.model" => count_minimum(schema, &["depth"]),
-        "specforge.collect" => {
-            boolean_default(schema, &["run"]);
-            schema["properties"]["run"]["description"] = json!(
-                "Run the test command first; it must have been approved with `specforge collect` in a terminal (otherwise the existing report is parsed)"
-            );
-        }
-        "specforge.validate" => {
-            if let Some(items) = schema["properties"]["lint"]["items"].as_object_mut() {
-                items.remove("description");
-            }
-        }
-        _ => {}
-    }
-}
-
-#[test]
-fn the_derived_schema_is_the_hand_written_one() {
-    for tool in specforge_mcp::tools::CORE_TOOLS {
-        let mut written = tool.input_schema();
-        written_as_derived(tool.name, &mut written);
-        let derived = specforge_mcp::args::input_schema(&tool.arguments(), tool.target);
-        assert_eq!(derived, written, "{}", tool.name);
-    }
-}
-
 #[specforge_test(
     behavior = "read_mcp_arguments_as_declared",
     verify = "a prompt reads its arguments by the same rule its listing states"
@@ -553,6 +496,51 @@ fn a_target_argument_is_read_by_its_type() {
 /// `tools/call` of `name`, the reply's JSON.
 fn tool(name: &str, served: &mut Served, arguments: Value) -> Value {
     crate::support::tool(served, name, arguments)
+}
+
+#[specforge_test(
+    behavior = "read_mcp_arguments_as_declared",
+    verify = "a listing is derived from the typed arguments: each argument's type, description, default, enumerated values and whether it is required"
+)]
+fn every_core_tool_lists_its_typed_arguments() {
+    for tool in specforge_mcp::tools::CORE_TOOLS {
+        let schema = tool.input_schema();
+        let properties = schema["properties"].as_object().expect("properties");
+        for argument in tool.arguments() {
+            let name = format!("{}.{}", tool.name, argument.name);
+            let property = &properties[argument.name];
+            assert_eq!(property, &argument.schema, "{name}");
+            // Its description is the field's doc comment (an enumerated
+            // argument's goes on to name each choice).
+            let text = property["description"].as_str().expect(&name);
+            assert!(text.starts_with(argument.description), "{name}: {text}");
+            // Its type is its Rust type's: a flag states its default,
+            // a count `minimum: 0`; a required argument has no default.
+            match property["type"].as_str() {
+                // An optional flag (format's write) states no default.
+                Some("boolean") if name == "specforge.format.write" => {
+                    assert!(property.get("default").is_none(), "{name}")
+                }
+                Some("boolean") => assert!(property["default"].is_boolean(), "{name}"),
+                Some("integer") => assert_eq!(property["minimum"], 0, "{name}"),
+                Some("string" | "array" | "object") => {}
+                other => panic!("{name}: type {other:?}"),
+            }
+            if argument.required {
+                assert!(property.get("default").is_none(), "{name}");
+            }
+        }
+        // Nothing is listed that no field declares, but the target's own.
+        let declared: Vec<&str> = tool.arguments().iter().map(|a| a.name).collect();
+        for listed in properties.keys() {
+            assert!(
+                declared.contains(&listed.as_str())
+                    || tool.target.fields().contains(&listed.as_str()),
+                "{}: lists {listed}",
+                tool.name
+            );
+        }
+    }
 }
 
 // --- the derive, over probe structs ---
