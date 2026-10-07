@@ -433,7 +433,7 @@ impl Walk<'_> {
         };
         if !matches!(
             next.kind,
-            LexemeKind::Ident | LexemeKind::RefId | LexemeKind::Str
+            LexemeKind::Ident | LexemeKind::RefId | LexemeKind::Str { .. }
         ) || self.newline_between(lexeme.end, next.start)
         {
             return false;
@@ -586,7 +586,7 @@ impl Walk<'_> {
                     self.state = Expect::HeaderTitle(header);
                     true
                 }
-                LexemeKind::Str => {
+                LexemeKind::Str { .. } => {
                     // `spec "Name" {`: a title and no name.
                     self.set(i, Role::Title);
                     self.syntax.header_of[i] = Some(header);
@@ -600,7 +600,7 @@ impl Walk<'_> {
                 _ => false,
             },
             Expect::HeaderTitle(header) => match kind {
-                LexemeKind::Str => {
+                LexemeKind::Str { .. } => {
                     self.set(i, Role::Title);
                     self.syntax.header_of[i] = Some(header);
                     self.state = Expect::HeaderOpen(header);
@@ -652,7 +652,7 @@ impl Walk<'_> {
                     self.state = Expect::VerifyDesc;
                     true
                 }
-                LexemeKind::Str => {
+                LexemeKind::Str { .. } => {
                     self.set(i, Role::Value);
                     self.state = Expect::AfterValue(Ctx {
                         key: None,
@@ -720,7 +720,7 @@ impl Walk<'_> {
                 false
             }
             Expect::AnnotationArg(ctx) => {
-                if kind == LexemeKind::Str {
+                if kind.is_str() {
                     self.value_part(i, ctx, Role::Other, Expect::AfterValue(ctx));
                     return true;
                 }
@@ -793,7 +793,7 @@ impl Walk<'_> {
     ) -> bool {
         let next = match (step, kind, word, punct) {
             (UseStep::Pub, _, Some("use"), _) => Some((Role::Keyword, Some(UseStep::Start))),
-            (UseStep::Start | UseStep::Path, LexemeKind::Str, _, _) => {
+            (UseStep::Start | UseStep::Path, LexemeKind::Str { .. }, _, _) => {
                 self.syntax.imports[import as usize].path = Some(i as u32);
                 Some((Role::ImportPath, None))
             }
@@ -875,7 +875,7 @@ impl Walk<'_> {
         punct: Option<char>,
     ) -> bool {
         match (kind, word, punct) {
-            (LexemeKind::Str, _, _) => {
+            (LexemeKind::Str { .. }, _, _) => {
                 self.value_part(i, ctx, ctx.atoms, Expect::AfterValue(ctx));
             }
             (_, Some("expr"), _) if self.next_on_line(i).is_some_and(|next| next.is_punct('{')) => {
@@ -971,7 +971,7 @@ impl Walk<'_> {
                         Expect::List,
                         LexemeKind::Ident
                         | LexemeKind::RefId
-                        | LexemeKind::Str
+                        | LexemeKind::Str { .. }
                         | LexemeKind::Number,
                     ) => Role::Item,
                     (Expect::Expr, LexemeKind::Number) => Role::Value,
@@ -990,14 +990,14 @@ impl Walk<'_> {
             return true;
         };
         match next.kind {
-            LexemeKind::Str => true,
+            LexemeKind::Str { .. } => true,
             LexemeKind::Ident => {
                 let at = self.syntax.lexemes[i + 1..]
                     .iter()
                     .position(|l| l.start == next.start)
                     .map_or(i + 1, |p| i + 1 + p);
                 self.next_on_line(at)
-                    .is_none_or(|after| after.kind == LexemeKind::Str)
+                    .is_none_or(|after| after.kind.is_str())
             }
             _ => false,
         }

@@ -97,9 +97,8 @@ fn place_tells_code_from_strings_and_comments() {
     assert_eq!(place(find(text, "}", 0, 0)), Place::Code);
 }
 
-// Pin: flipped by plan 15 T4.
 #[test]
-fn a_word_on_a_later_line_of_a_multi_line_string_is_code_today() {
+fn a_multi_line_string_is_a_string_on_every_line() {
     let text = concat!(
         "behavior login \"Log in\" {\n",
         "  contract \"first line\n",
@@ -112,7 +111,7 @@ fn a_word_on_a_later_line_of_a_multi_line_string_is_code_today() {
     );
     let doc = doc(text);
     let (line, character) = find(text, "mentions", 0, 2);
-    assert_eq!(at(&doc, line, character).place(), Place::Code);
+    assert_eq!(at(&doc, line, character).place(), Place::String);
 }
 
 #[test]

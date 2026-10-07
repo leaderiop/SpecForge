@@ -181,15 +181,18 @@ const MULTI: &str = concat!(
     "}\n",
 );
 
-// Pin: flipped by plan 15 T4.
+#[spec(
+    invariant = "cursor_names_one_entity",
+    verify = "a word in a string or comment names no entity"
+)]
 #[tokio::test]
-async fn a_word_in_a_multi_line_string_names_an_entity_today() {
+async fn words_in_a_multi_line_string_name_no_entity() {
     let (mut client, uri, _dir) = open("multi.spec", MULTI).await;
     let at = pos(MULTI, "issue and", 0, 1);
     let value = hover_text(&mut client, &uri, at).await;
-    assert_eq!(entity_in(&value), Some("issue"), "{value}");
+    assert!(!names_an_entity(&value), "{value}");
     let resp = client.goto_definition(&uri, at.0, at.1).await;
-    assert!(!resp["result"].is_null(), "{resp}");
+    assert!(resp["result"].is_null(), "{resp}");
 }
 
 #[spec(

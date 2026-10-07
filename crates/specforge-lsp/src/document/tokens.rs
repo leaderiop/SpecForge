@@ -88,7 +88,7 @@ fn classify(
     let role = syntax.roles[i];
     match lexeme.kind {
         LexemeKind::Comment => return Some(("comment", 0)),
-        LexemeKind::Str => return Some(("string", 0)),
+        LexemeKind::Str { .. } => return Some(("string", 0)),
         LexemeKind::Number if matches!(role, Role::Value | Role::Item) => {
             return Some(("number", 0));
         }

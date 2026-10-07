@@ -324,15 +324,20 @@ behavior lex_spec_text "Lex Spec Text" {
   }
   ensures {
     lexemes_match_grammar "every identifier, scheme ref ID, number, string and comment the grammar reads is one lexeme with the same bytes"
+    strings_as_the_grammar "a string spanning lines is one lexeme, as the grammar reads it; one the grammar would not close is marked unclosed"
     half_typed_text_lexes "text the grammar rejects still lexes, an unclosed regular string ending at its line's end"
   }
   contract   """
     The lexer MUST read a .spec text, complete or half-typed, into the
     lexemes the grammar tokenizes: identifiers, scheme ref IDs (one lexeme),
-    numbers, strings, comments and punctuation, without a parse. Navigation
-    and the LSP read text through it and through no scanner of their own
-    (ADR 0023). A regular string ends at its line's end, so an unclosed
-    quote never swallows the rest of a document being typed. The expression
+    numbers, strings, comments and punctuation, without a parse.
+    Navigation, the LSP, the parser's recovery from unclosed strings and
+    the formatter read text through it and through no scanner of their own
+    (ADR 0023, ADR 0038). A string is read as the grammar reads it, across
+    lines; a regular string the grammar would not close (no closing quote,
+    a backslash before a line break, or a closing quote that runs straight
+    into text) ends at its line's end and is marked unclosed, so an
+    unclosed quote never swallows the rest of a document being typed. The expression
     tokenizer of the prove pass (parse_expression) reads a sub-language with
     lexical rules of its own and is not built on the lexer; it MUST cut the
     expressions of the repository's spec into the same tokens (the
@@ -341,6 +346,7 @@ behavior lex_spec_text "Lex Spec Text" {
   verify unit "the lexer agrees with the grammar on every spec file of the repository"
   verify unit "the expression tokenizer, the lexer and the grammar agree on every expression of the repository's spec"
   verify unit "a scheme ref ID is one lexeme"
+  verify unit "a string spanning lines is one lexeme, and one the grammar would not close ends at its line's end"
   verify unit "strings and comments are lexemes of their own and hold no others"
 }
 

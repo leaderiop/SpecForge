@@ -164,7 +164,7 @@ impl<'d> Cursor<'d> {
             last += 1;
         }
         let (start, end) = (lexemes[first].start, lexemes[last].end);
-        if first < last && partial_ref_id(&self.text[start..end]) {
+        if first < last && specforge_parser::lex::is_ref_id_prefix(&self.text[start..end]) {
             return Some((start, end));
         }
         whole
@@ -273,9 +273,7 @@ impl<'d> Cursor<'d> {
         }
         match lexeme.kind {
             LexemeKind::Comment => Place::Comment,
-            LexemeKind::Str if self.offset < lexeme.end || !closed(lexeme.text(self.text)) => {
-                Place::String
-            }
+            LexemeKind::Str { closed } if self.offset < lexeme.end || !closed => Place::String,
             _ => Place::Code,
         }
     }
@@ -453,48 +451,4 @@ impl<'d> Cursor<'d> {
         }
         None
     }
-}
-
-/// Whether `text` is a scheme ref ID being typed: `scheme`, `scheme.`,
-/// `scheme.kind`, `scheme.kind:` or `scheme.kind:id` (the grammar's
-/// `scheme_ref_id`, cut short).
-fn partial_ref_id(text: &str) -> bool {
-    let ident = |part: &str| {
-        let mut bytes = part.bytes();
-        bytes
-            .next()
-            .is_some_and(|b| b.is_ascii_alphabetic() || b == b'_')
-            && bytes.all(|b| b.is_ascii_alphanumeric() || b == b'_')
-    };
-    let Some((scheme, rest)) = text.split_once('.') else {
-        return ident(text);
-    };
-    if !ident(scheme) {
-        return false;
-    }
-    match rest.split_once(':') {
-        None => rest.is_empty() || ident(rest),
-        Some((kind, id)) => {
-            ident(kind)
-                && id.bytes().all(|b| {
-                    !b.is_ascii_whitespace()
-                        && !matches!(b, b'"' | b'{' | b'}' | b'(' | b')' | b'[' | b']' | b',')
-                })
-        }
-    }
-}
-
-/// Whether a string lexeme is closed: it ends with its own quotes.
-fn closed(string: &str) -> bool {
-    if let Some(body) = string.strip_prefix("\"\"\"") {
-        return body.ends_with("\"\"\"");
-    }
-    let Some(body) = string.strip_prefix('"') else {
-        return false;
-    };
-    let Some(inner) = body.strip_suffix('"') else {
-        return false;
-    };
-    // An escaped quote does not close it: count the backslashes before it.
-    inner.bytes().rev().take_while(|b| *b == b'\\').count() % 2 == 0
 }

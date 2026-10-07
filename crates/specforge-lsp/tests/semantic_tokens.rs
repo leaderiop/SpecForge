@@ -231,14 +231,26 @@ fn triple_quoted_strings_classified() {
     );
 }
 
-// Pin: flipped by plan 15 T4.
-#[test]
-fn a_multi_line_strings_later_line_is_read_as_fields_today() {
+#[spec(
+    behavior = "provide_semantic_tokens",
+    verify = "a string spanning lines is one string, holding no other token"
+)]
+fn a_multi_line_string_is_one_string_token_per_line() {
     let tokens = tokens_of(
         "behavior login \"Log in\" {\n  contract \"first line\n  second line mentions login and ends\"\n}\n\nbehavior logout \"Log out\" {\n  contract \"x\"\n}\n",
         kinds(&[]),
     );
-    assert_eq!(token(&tokens, "mentions").token_type, "property");
+    assert!(
+        tokens.iter().all(|t| t.text != "mentions"),
+        "a word inside the string is a token: {tokens:?}"
+    );
+    let second = token(&tokens, "  second line mentions login and ends\"");
+    assert_eq!(
+        (second.line, second.col, second.token_type),
+        (2, 0, "string")
+    );
+    let first = token(&tokens, "\"first line");
+    assert_eq!((first.line, first.col, first.token_type), (1, 11, "string"));
 }
 
 #[spec(
