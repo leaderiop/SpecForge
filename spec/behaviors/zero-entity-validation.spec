@@ -229,7 +229,11 @@ behavior snapshot_entities_once "Snapshot the Entities Once per Compile" {
     joined by "; "; a block its keys joined by ", ". An empty list or
     block is written and its text is empty. No written field is left
     out and no value is null. A name written twice has the last one's
-    value.
+    value. Beside its text, every written field keeps its value shape
+    (a quoted string, a bare word, a date, an integer, a boolean, a list
+    of strings, of references, mixed or of variants, a type union, a
+    block, verify statements, an expression) and the span of its value,
+    for the host's own checks; neither crosses the protocol.
 
     Standing: an entity's kind is testable when its extension says so.
     It owes obligations of its own when a no_verify_statements rule
@@ -249,6 +253,65 @@ behavior snapshot_entities_once "Snapshot the Entities Once per Compile" {
   verify unit "a kind that accepts no verify statements owes no obligations, whatever rule applies to it"
   verify unit "the checks, the check passes and the coverage of one compile read one snapshot"
   verify unit "a session's snapshot follows every update"
+  verify unit "every written field keeps its value shape and value span beside its text"
+}
+
+// -- Entity Checks -----------------------------------------------------------
+
+behavior check_entities_in_one_order "Check the Entities in One Order" {
+  features   [structural_validation, zero_entity_validation]
+  invariants [
+    diagnostic_determinism,
+    validation_pipeline_ordering,
+    registry_population_before_validation,
+    zero_domain_knowledge_core,
+  ]
+  category   validation
+  types      [RegistryBuild, Diagnostic]
+  consumes   [registries_populated]
+  requires {
+    snapshot_taken "the entity snapshot of the built graph is taken with the registry build it was built with"
+  }
+  ensures {
+    one_order      "the structural checks and the rule set run in one fixed order, the same on every surface"
+    one_gate       "with no entity kind registered, the checks that read kinds, fields and identifiers do not run"
+    gate_announced "extensions that load but declare no entity kind leave one W151 naming the entities nobody checks"
+    one_file_set   "the files the checks read are one set: those file_reference fields name and those file_exists rules read"
+  }
+  contract   """
+    After the entity snapshot is taken, the registry build MUST run every
+    check over its records, in this order: unreferenced refs (W012),
+    missing referenced files (E016), unknown kinds (E024), reserved
+    entity IDs (E013), the identifier length contract (E014), unknown
+    fields (W020), references to an entity of the wrong kind (E022),
+    field values that cannot be their declared type (E061), then the
+    rule set. Check, watch, the LSP and MCP MUST report them in this
+    order, and no check reads a graph node.
+
+    When no loaded extension declares an entity kind, the project is
+    structural-only: E024, E013, E014, W020, E022 and E061 MUST NOT run,
+    while W012, E016 and the rules still do. With no extension loaded,
+    I002 says so. With extensions loaded that declare no kind, one
+    W151 MUST name how many entities, and of which kinds, are left
+    unchecked, instead of nothing.
+
+    An entity ID equal to a structural keyword (spec, ref, use, define)
+    or to a registered kind's keyword is E013. An ID shorter than 2 or
+    longer than 60 characters is E014. A reference whose field declares a
+    target kind, naming an existing entity of another kind, is E022.
+
+    The files the checks read, those a file_reference field names and
+    those a file_exists rule reads, resolved against the spec root, are
+    the session's check inputs.
+  """
+  verify unit "the structural checks run in one order: W012, E016, E024, E013, E014, W020, E022, E061, then the rule set"
+  verify unit "with no entity kind registered, E024, E013, E014, W020, E022 and E061 do not run, and W012, E016 and the rules still do"
+  verify unit "extensions that load but declare no entity kind report one W151 naming the unchecked entities"
+  verify unit "an entity ID equal to a structural keyword or a registered kind's keyword is E013"
+  verify unit "an entity ID shorter than 2 or longer than 60 characters is E014"
+  verify unit "a reference to an existing entity of another kind than its field's target kind is E022"
+  verify unit "the files the checks read are those file_reference fields name and those file_exists rules read"
+  verify integration "a compile reports the structural checks in the order the registry build runs them"
 }
 
 // -- Field Validation --------------------------------------------------------
@@ -331,7 +394,9 @@ behavior check_field_value_types "Check Field Value Types" {
     values on an enum field (suggesting the closest declared value), or
     a list on a field declared as a single value. Fields no extension
     registers keep their parsed value (W020 reports them). The check MUST
-    run wherever the registry checks run: check, watch and the LSP.
+    run wherever the registry checks run: check, watch and the LSP. It
+    reads each field's value shape and value span from the entity
+    snapshot, never a graph node.
   """
   verify unit "a single string on a string_list field becomes a one-item list"
   verify unit "a single reference on a reference_list field becomes a one-item list"
