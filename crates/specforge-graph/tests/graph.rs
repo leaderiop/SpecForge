@@ -1688,8 +1688,10 @@ fn reach_from_an_unknown_root_is_none() {
 
 // === first declaration wins, in path order ===
 
-// PIN (07-T3): the cold build takes files in the slice's order.
-#[test]
+#[specforge_test(
+    behavior = "detect_duplicate_entity_ids",
+    verify = "duplicate ID across files produces E002"
+)]
 fn a_duplicate_goes_to_the_first_file_in_path_order() {
     use specforge_graph::build_graph;
     use specforge_parser::parse;
@@ -1699,9 +1701,9 @@ fn a_duplicate_goes_to_the_first_file_in_path_order() {
 
     assert_eq!(
         graph.node("dup").unwrap().source_span.file.as_str(),
-        "b.spec"
+        "a.spec"
     );
     let e002: Vec<_> = diagnostics.iter().filter(|d| d.code == "E002").collect();
     assert_eq!(e002.len(), 1);
-    assert_eq!(e002[0].span.as_ref().unwrap().file.as_str(), "a.spec");
+    assert_eq!(e002[0].span.as_ref().unwrap().file.as_str(), "b.spec");
 }

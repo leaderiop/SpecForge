@@ -188,10 +188,12 @@ behavior rebuild_affected_subgraph "Rebuild Affected Subgraph" {
     declaration in path order, as in a cold build) and re-link references
     over the whole graph. The result MUST be identical to a full cold
     rebuild — identical means same node set, same edge set, same field
-    values, same diagnostic set (order-independent comparison). With
-    --verify-incremental, and always in a debug build, each rebuild is
-    compared with a full cold rebuild of the same sources, and its delta
-    is checked by validate_delta_correctness. The
+    values, same diagnostic set. With --verify-incremental, and always in
+    a debug build (watch, the LSP and MCP alike), each rebuild is compared
+    with a full cold build of the same parses: its nodes, edges and
+    graph-build diagnostics, in order. Its delta is checked by
+    validate_delta_correctness. The cold build and the rebuild are one
+    graph build (ADR 0032): a cold build applies every file at once. The
     rebuild MUST operate on generic entity nodes — it MUST NOT contain
     logic specific to any entity kind. All kind-specific validation is
     deferred to the extension validation phase after the subgraph is
@@ -201,6 +203,7 @@ behavior rebuild_affected_subgraph "Rebuild Affected Subgraph" {
   verify unit "new nodes are added"
   verify property "incremental rebuild equals cold rebuild"
   verify unit "debug --verify-incremental performs cold rebuild comparison"
+  verify unit "a rebuild whose diagnostics differ from a cold build is reported"
   verify contract "Rebuild Affected Subgraph: affected subgraph rebuild holds — subgraph_invalidated, import_dag_updated, graph_reflects_reparse, stale_removed, new_added, rebuild_event_fired, unaffected_subgraph_intact"
 }
 

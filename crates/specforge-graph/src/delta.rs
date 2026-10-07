@@ -119,11 +119,9 @@ impl GraphDelta {
 }
 
 /// An edge as (source, target, label).
-#[doc(hidden)]
-pub type EdgeKey = (Sym, Sym, Sym);
+pub(crate) type EdgeKey = (Sym, Sym, Sym);
 
-#[doc(hidden)]
-pub fn edge_keys(graph: &Graph) -> BTreeSet<EdgeKey> {
+pub(crate) fn edge_keys(graph: &Graph) -> BTreeSet<EdgeKey> {
     graph
         .edges()
         .iter()
@@ -147,8 +145,7 @@ pub fn compute_graph_delta(old: &Graph, new: &Graph) -> GraphDelta {
 /// `ids` may have been replaced: `old_nodes` holds what the old graph had
 /// under those IDs and `old_edges` all its edges. Every other node is
 /// unchanged, so it can only be modified through its outgoing edges.
-#[doc(hidden)]
-pub fn diff(
+pub(crate) fn diff(
     ids: &BTreeSet<Sym>,
     old_nodes: &BTreeMap<Sym, &Node>,
     old_edges: &BTreeSet<EdgeKey>,

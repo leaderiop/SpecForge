@@ -1967,11 +1967,12 @@ fn the_session_reports_graph_diagnostics_in_build_order() {
     let session = ProjectSession::open(root);
 
     assert_eq!(codes(&compiled.graph_diagnostics), ["E002", "E003"]);
-    // PIN (07-T3): a session sorts them by file.
-    assert_eq!(codes(&session.graph_diagnostics()), ["E003", "E002"]);
+    // Build order, the order `specforge check` lists them in (ADR 0032).
+    assert_eq!(codes(&session.graph_diagnostics()), ["E002", "E003"]);
     assert_eq!(
-        diagnostic_set(&compiled.graph_diagnostics),
-        diagnostic_set(&session.graph_diagnostics())
+        compiled.graph_diagnostics,
+        session.graph_diagnostics(),
+        "the same sequence"
     );
 }
 

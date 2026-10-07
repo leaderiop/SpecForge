@@ -3,8 +3,6 @@ mod coerce;
 pub use coerce::FieldCoercion;
 mod delta;
 pub use delta::{EdgeChange, GraphDelta, ModifiedNodeChange, NodeChange, compute_graph_delta};
-#[doc(hidden)]
-pub use delta::{EdgeKey, diff, edge_keys};
 mod derive;
 pub use derive::{DerivedFrom, DerivedReference};
 mod graph;
@@ -15,8 +13,7 @@ pub use obligations::obligations;
 pub use specforge_common::cycles::{CycleOptions, find_cycles};
 
 pub use build::{
-    GraphConfig, build_graph, build_graph_with_config, entity_pass, is_define_block,
-    link_and_diagnose, node_from_entity,
+    Applied, FileChange, GraphBuild, GraphConfig, build_graph, build_graph_with_config,
 };
 pub use graph::{Edge, Graph, Node, Reached};
 pub use specforge_common::{Diagnostic, Severity, SourceSpan};

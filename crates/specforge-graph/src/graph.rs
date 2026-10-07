@@ -101,33 +101,10 @@ impl Graph {
         }
     }
 
-    /// Remove every node contributed by `file` (matched by
-    /// `source_span.file`) and, in one sweep, every edge incident to a
-    /// removed node. This is the red-green update primitive (C4-01): the
-    /// incremental pipeline strips a changed file's live contribution and
-    /// re-adds its re-parsed entities without rebuilding the whole graph.
-    pub fn remove_entities_of_file(&mut self, file: Sym) {
-        let removed: HashSet<Sym> = self
-            .nodes
-            .values()
-            .filter(|n| n.source_span.file == file)
-            .map(|n| n.id.raw)
-            .collect();
-        if removed.is_empty() {
-            return;
-        }
+    /// Remove every node `file` contributed; the build re-links every edge
+    /// afterwards.
+    pub(crate) fn remove_entities_of_file(&mut self, file: Sym) {
         self.nodes.retain(|_, n| n.source_span.file != file);
-        let old_edges = std::mem::take(&mut self.edges);
-        self.source_index.clear();
-        self.target_index.clear();
-        for edge in old_edges {
-            if !removed.contains(&edge.source) && !removed.contains(&edge.target) {
-                let idx = self.edges.len();
-                self.source_index.entry(edge.source).or_default().push(idx);
-                self.target_index.entry(edge.target).or_default().push(idx);
-                self.edges.push(edge);
-            }
-        }
     }
 
     /// Insert an edge. Idempotent on the (source, target, label) triple —

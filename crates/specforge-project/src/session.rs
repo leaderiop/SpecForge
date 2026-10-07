@@ -5,7 +5,7 @@ use std::path::Path;
 use std::sync::{Arc, OnceLock};
 
 use specforge_common::{Diagnostic, ProjectConfig, codes, read_project_config};
-use specforge_graph::{Graph, GraphDelta, build_graph_with_config, compute_graph_delta};
+use specforge_graph::{Graph, GraphBuild, GraphDelta, compute_graph_delta};
 use specforge_parser::SpecFile;
 use specforge_resolver::resolve_parsed;
 use specforge_wasm::WasmRuntime;
@@ -164,25 +164,19 @@ impl OpeningProject {
         let mut snapshot = self.snapshot;
         snapshot.stamp_all_sources(&self.inputs, &self.inputs.discover());
         let resolved = self.env.resolve();
-        let (paths, specs): (Vec<String>, Vec<SpecFile>) =
-            sources_in_path_order(&resolved).into_iter().unzip();
-        let graph_config = self.env.graph_config();
+        let specs: Vec<SpecFile> = sources_in_path_order(&resolved)
+            .into_iter()
+            .map(|(_, spec)| spec)
+            .collect();
         // The one cold build seeds the incremental one.
-        let (graph, graph_diagnostics) = build_graph_with_config(&specs, &graph_config);
-        let files: Vec<(String, SpecFile)> = paths.into_iter().zip(specs).collect();
+        let build = GraphBuild::of(specs, self.env.graph_config());
         // The text each file was parsed from (the resolver kept it).
         let sources: HashMap<String, Arc<str>> = resolved
             .files
             .iter()
             .map(|file| (file.path.clone(), Arc::from(file.source.as_str())))
             .collect();
-        let build = IncrementalBuild::from_cold_build(
-            files,
-            sources,
-            graph,
-            &graph_diagnostics,
-            graph_config,
-        );
+        let build = IncrementalBuild::from_cold_build(sources, build);
 
         let mut session = ProjectSession {
             env: self.env,
