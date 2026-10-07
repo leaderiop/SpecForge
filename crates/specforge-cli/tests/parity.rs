@@ -58,6 +58,13 @@ const EXPECTED_DIVERGENCES: &[(&str, Aspect, &str)] = &[
         Aspect::Outcome,
         "MCP validate finding errors is a successful call (ADR 0004 D4-a); the CLI exits 1",
     ),
+    // format --check: a file that would change fails `specforge format
+    // --check` (exit 1); over MCP it is a successful call (ADR 0004 D4-a).
+    (
+        "format_check",
+        Aspect::Outcome,
+        "a format check that finds a change is a successful MCP call (ADR 0004 D4-a); the CLI exits 1",
+    ),
     // The build cache is opt-in and the CLI's: validate never writes it.
     (
         "check_cache",
@@ -277,6 +284,13 @@ const SCENARIOS: &[Scenario] = &[
         setup: project_unformatted,
         cli: |root| args(&["format", "--path", &s(root)]),
         mcp: |root| ("specforge.format", json!({"path": s(root)})),
+        mcp_rooted: true,
+    },
+    Scenario {
+        name: "format_check",
+        setup: project_unformatted,
+        cli: |root| args(&["format", "--check", "--path", &s(root)]),
+        mcp: |root| ("specforge.format", json!({"path": s(root), "check": true})),
         mcp_rooted: true,
     },
     Scenario {
@@ -644,6 +658,11 @@ fn parity_doctor() {
 #[test]
 fn parity_format() {
     parity("format");
+}
+
+#[test]
+fn parity_format_check() {
+    parity("format_check");
 }
 
 #[test]
