@@ -12,7 +12,7 @@
 use crate::options::{Choice, OptionTable};
 use crate::view::ProjectView;
 use crate::{OpError, OpErrorKind};
-use specforge_common::{Code, Diagnostic, codes};
+use specforge_common::Diagnostic;
 use specforge_emitter::{
     EmitFormat, EmitOptions, EmitterError, GraphProtocolSchema, SchemaVersion, emit,
 };
@@ -152,7 +152,7 @@ pub fn export(view: &ProjectView, request: &Request) -> Result<String, OpError> 
         kind_registry: Some(&view.registries().kinds),
         field_registry: Some(&view.registries().fields),
     };
-    emit(view.graph(), &options).map_err(|error| failure(error, request.scope))
+    emit(view.graph(), &options).map_err(failure)
 }
 
 /// What `specforge export` did: the export, the schema's breaking changes
@@ -207,42 +207,22 @@ pub fn export_recorded(view: &ProjectView, request: &Request) -> RecordedExport 
     }
 }
 
-/// The emitter's failure as the operation's: what kind it is is decided by
-/// the variant, and a diagnostic code its message leads with (`E003`,
-/// `E062`) is the failure's code, not text of its message.
-fn failure(error: EmitterError, scope: Option<&str>) -> OpError {
-    match error {
-        EmitterError::EntityNotFound(message) => {
-            let error = OpError::coded(
-                OpErrorKind::EntityNotFound,
-                codes::E003,
-                without_code(&message, codes::E003),
-            );
-            match scope {
-                Some(scope) => error.with_entity(scope),
-                None => error,
-            }
-        }
-        EmitterError::Other(message) | EmitterError::InvalidScope(message) => {
-            if let Some(rest) = message.strip_prefix(&format!("{}: ", codes::E062)) {
-                OpError::coded(OpErrorKind::InvalidInput, codes::E062, rest)
-            } else {
-                OpError::new(OpErrorKind::InvalidInput, "export_failed", message)
-            }
-        }
-        EmitterError::SerializationError(message) => {
-            OpError::new(OpErrorKind::Internal, "export_failed", message)
-        }
+/// The emitter's failure as the operation's: the kind by variant, the code
+/// the variant's ([`EmitterError::code`]); nothing is read from the message.
+fn failure(error: EmitterError) -> OpError {
+    let kind = match &error {
+        EmitterError::ScopeNotFound { .. } => OpErrorKind::EntityNotFound,
+        EmitterError::BudgetTooSmall { .. } => OpErrorKind::InvalidInput,
+        EmitterError::Serialization(_) => OpErrorKind::Internal,
+    };
+    let failed = match error.code() {
+        Some(code) => OpError::coded(kind, code, error.to_string()),
+        None => OpError::new(kind, "export_failed", error.to_string()),
+    };
+    match &error {
+        EmitterError::ScopeNotFound { entity_id } => failed.with_entity(entity_id),
+        _ => failed,
     }
-}
-
-/// `message` without the `"{code}: "` it leads with.
-fn without_code(message: &str, code: Code) -> String {
-    message
-        .strip_prefix(code.id())
-        .and_then(|rest| rest.strip_prefix(": "))
-        .unwrap_or(message)
-        .to_string()
 }
 
 /// `schema`, at `requested` when one is asked for: the same major as the
@@ -263,13 +243,8 @@ fn negotiated(
     })?;
     let max = schema.schema_version.clone();
     let min = SchemaVersion::new(max.major, 0, 0);
-    specforge_emitter::negotiate_version(&requested, &min, &max).map_err(|e| {
-        OpError::coded(
-            OpErrorKind::Conflict,
-            codes::E027,
-            without_code(&e.to_string(), codes::E027),
-        )
-    })?;
+    specforge_emitter::negotiate_version(&requested, &min, &max)
+        .map_err(|e| OpError::coded(OpErrorKind::Conflict, e.code(), e.reason))?;
     schema.schema_version = requested;
     Ok(schema)
 }
@@ -330,19 +305,6 @@ mod tests {
             "{}",
             error.message
         );
-    }
-
-    #[test]
-    fn a_message_loses_the_code_it_leads_with() {
-        assert_eq!(
-            without_code("E003: no such entity", codes::E003),
-            "no such entity"
-        );
-        assert_eq!(
-            without_code("no such entity", codes::E003),
-            "no such entity"
-        );
-        assert_eq!(without_code("E0031: odd", codes::E003), "E0031: odd");
     }
 
     #[test]

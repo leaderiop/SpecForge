@@ -792,6 +792,7 @@ behavior export_agent_graph_format "Export Agent Graph Format" {
   verify unit "graph format includes all fields and metadata"
   verify unit "scoped export returns only reachable subgraph"
   verify unit "non-existent scope entity produces E003 and exit code 1"
+  verify unit "an export failure carries its code as a constant, never in its message"
   verify unit "output conforms to Graph Protocol schema"
   verify unit "output includes schema_version field"
   verify integration "structural-only graph exports valid JSON with raw keyword strings as entity kinds"

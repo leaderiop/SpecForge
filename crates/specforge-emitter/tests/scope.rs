@@ -93,11 +93,7 @@ fn scoped_export_on_nonexistent_entity_returns_error() {
     assert!(result.is_err());
 
     let err = result.unwrap_err();
-    assert!(
-        err.to_string().contains("E003"),
-        "error should contain E003: {}",
-        err
-    );
+    assert_eq!(err.code(), Some(specforge_diagnostics::codes::E003));
 }
 
 // B:export_agent_graph_format — verify unit "non-existent scope entity produces E003 and exit code 1"
@@ -119,10 +115,10 @@ fn graph_scoped_export_on_nonexistent_entity_returns_e001() {
         .unwrap_err();
         assert_eq!(
             err.to_string(),
-            format!("E003: unresolved scope entity '{scope}' — entity not found in graph")
+            format!("unresolved entity '{scope}' — not found in graph")
         );
-        // The exit code `specforge export` returns for this error.
-        assert_eq!(err.exit_code(), 1);
+        // The failure is the catalogued E003; its message carries no code.
+        assert_eq!(err.code(), Some(specforge_diagnostics::codes::E003));
     }
     // An existing scope is not an error.
     assert!(specforge_emitter::scope::emit_json_scoped(&graph, "a").is_ok());

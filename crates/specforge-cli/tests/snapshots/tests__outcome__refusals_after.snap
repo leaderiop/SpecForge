@@ -73,7 +73,7 @@ C9 | specforge export --scope nope
 exit 1
 -- stdout:
 -- stderr:
-error[E003]: unresolved scope entity 'nope' — entity not found in graph
+error[E003]: unresolved entity 'nope' — not found in graph
 
 C10 | specforge init --name a --format json
 exit 1

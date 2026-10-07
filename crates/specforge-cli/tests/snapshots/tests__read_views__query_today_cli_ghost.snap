@@ -5,4 +5,4 @@ expression: text
 exit: Some(1)
 stdout:
 stderr:
-E003: unresolved scope entity 'logn' — entity not found in graph
+unresolved entity 'logn' — not found in graph

@@ -256,7 +256,7 @@ fn context_contract_includes_contracts_and_verify_omits_prose() {
     assert_eq!(node_ids(&scoped), vec!["a", "b", "c"]);
     assert_eq!(scoped["edges"].as_array().unwrap().len(), 2);
 
-    // invalid_scope_diagnosed: E003 naming the entity, exit code 1 — through
+    // invalid_scope_diagnosed: E003 naming the entity — through
     // the call `specforge export --format context --scope` makes.
     let err = specforge_emitter::emit(
         &graph,
@@ -269,9 +269,9 @@ fn context_contract_includes_contracts_and_verify_omits_prose() {
     .unwrap_err();
     assert_eq!(
         err.to_string(),
-        "E003: unresolved scope entity 'ghost' — entity not found in graph"
+        "unresolved entity 'ghost' — not found in graph"
     );
-    assert_eq!(err.exit_code(), 1);
+    assert_eq!(err.code(), Some(specforge_diagnostics::codes::E003));
 }
 
 // === export_agent_graph_format contract ===
@@ -322,7 +322,7 @@ fn graph_format_contract_finalized_graph_produces_full_output() {
     assert_eq!(node_ids(&scoped), vec!["a", "b", "c"]);
     assert_eq!(scoped["edges"].as_array().unwrap().len(), 2);
 
-    // invalid_scope_diagnosed: E003 naming the entity, exit code 1 — through
+    // invalid_scope_diagnosed: E003 naming the entity — through
     // the call `specforge export --format graph --scope` makes.
     let err = specforge_emitter::emit(
         &graph,
@@ -334,9 +334,9 @@ fn graph_format_contract_finalized_graph_produces_full_output() {
     .unwrap_err();
     assert_eq!(
         err.to_string(),
-        "E003: unresolved scope entity 'ghost' — entity not found in graph"
+        "unresolved entity 'ghost' — not found in graph"
     );
-    assert_eq!(err.exit_code(), 1);
+    assert_eq!(err.code(), Some(specforge_diagnostics::codes::E003));
 }
 
 // === query_graph_multi_resolution contract ===

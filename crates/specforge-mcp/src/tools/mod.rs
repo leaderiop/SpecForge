@@ -106,13 +106,16 @@ pub(crate) fn unknown_kind_diagnostics(
 /// its `E003` in `diagnostic`, never only in the message text.
 fn emitter_error(error: specforge_emitter::EmitterError, entity_id: &str) -> ToolOutcome {
     use specforge_emitter::EmitterError;
+    use specforge_ops::{OpError, OpErrorKind};
     let mcp_error = match &error {
-        EmitterError::EntityNotFound(_) => crate::tool::entity_not_found(entity_id),
-        EmitterError::SerializationError(message) => {
+        EmitterError::ScopeNotFound { .. } => crate::tool::entity_not_found(entity_id),
+        EmitterError::BudgetTooSmall { reason } => McpError::from(OpError::coded(
+            OpErrorKind::InvalidInput,
+            codes::E062,
+            reason.as_str(),
+        )),
+        EmitterError::Serialization(message) => {
             McpError::new(ErrorCode::InternalError, message.as_str())
-        }
-        EmitterError::InvalidScope(message) | EmitterError::Other(message) => {
-            McpError::from_coded_message(ErrorCode::InvalidInput, message)
         }
     };
     mcp_error.into()

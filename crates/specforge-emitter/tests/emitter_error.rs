@@ -1,5 +1,10 @@
+//! The emitter's failures are typed: each variant carries what its message
+//! names, `code()` is the catalogued diagnostic it is, and the message
+//! carries no code (plan 05 T1, ADR 0015 "Query" Q4).
+
 use specforge_common::{SourceSpan, Sym};
-use specforge_emitter::EmitterError;
+use specforge_diagnostics::codes;
+use specforge_emitter::{EmitOptions, EmitterError};
 use specforge_graph::{Edge, Graph, Node};
 use specforge_parser::{EntityId, EntityKind, FieldMap};
 
@@ -38,78 +43,78 @@ fn build_graph() -> Graph {
     graph
 }
 
-// M2: query for non-existent entity returns EmitterError::EntityNotFound
+// A scoped emit of a non-existent entity is ScopeNotFound, whose code is E003.
 #[test]
-fn query_nonexistent_returns_entity_not_found() {
+fn emit_nonexistent_scope_is_scope_not_found() {
     let graph = build_graph();
-    let result = specforge_emitter::query(&graph, "nonexistent", 1, &[]);
-    let err = result.unwrap_err();
-    assert!(
-        matches!(err, EmitterError::EntityNotFound(_)),
-        "expected EntityNotFound, got: {:?}",
-        err
+    let err = specforge_emitter::emit(
+        &graph,
+        &EmitOptions {
+            scope: Some("nonexistent"),
+            depth: Some(1),
+            ..Default::default()
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        err,
+        EmitterError::ScopeNotFound {
+            entity_id: "nonexistent".to_string()
+        }
     );
-    // Display still includes human-readable message
-    let msg = format!("{}", err);
-    assert!(
-        msg.contains("E003"),
-        "error message should contain E003: {}",
-        msg
-    );
+    assert_eq!(err.code(), Some(codes::E003));
 }
 
-// M2: scoped emit for non-existent entity returns EmitterError::EntityNotFound
 #[test]
-fn emit_scoped_nonexistent_returns_entity_not_found() {
+fn emit_scoped_nonexistent_returns_scope_not_found() {
     let graph = build_graph();
-    let result = specforge_emitter::scope::emit_json_scoped(&graph, "nonexistent");
-    let err = result.unwrap_err();
+    let err = specforge_emitter::scope::emit_json_scoped(&graph, "nonexistent").unwrap_err();
     assert!(
-        matches!(err, EmitterError::EntityNotFound(_)),
-        "expected EntityNotFound, got: {:?}",
-        err
+        matches!(err, EmitterError::ScopeNotFound { .. }),
+        "expected ScopeNotFound, got: {err:?}"
     );
 }
 
-// M2: EmitterError implements Display for backwards compatibility
-#[test]
-fn emitter_error_display_works() {
-    let err = EmitterError::EntityNotFound("entity 'foo' not found".to_string());
-    assert_eq!(format!("{}", err), "entity 'foo' not found");
+#[specforge_test_macros::test(
+    behavior = "export_agent_graph_format",
+    verify = "an export failure carries its code as a constant, never in its message"
+)]
+fn a_failure_carries_its_code_and_its_message_has_none() {
+    let err = EmitterError::ScopeNotFound {
+        entity_id: "foo".to_string(),
+    };
+    assert_eq!(err.code(), Some(codes::E003));
+    assert_eq!(
+        err.to_string(),
+        "unresolved entity 'foo' — not found in graph"
+    );
 
-    let err = EmitterError::SerializationError("bad data".to_string());
-    assert_eq!(format!("{}", err), "bad data");
+    let err = EmitterError::BudgetTooSmall {
+        reason: "the budget of 5 cannot hold an export".to_string(),
+    };
+    assert_eq!(err.code(), Some(codes::E062));
+    assert_eq!(err.to_string(), "the budget of 5 cannot hold an export");
 
-    let err = EmitterError::InvalidScope("bad scope".to_string());
-    assert_eq!(format!("{}", err), "bad scope");
-
-    let err = EmitterError::Other("something else".to_string());
-    assert_eq!(format!("{}", err), "something else");
+    let err = EmitterError::Serialization("bad data".to_string());
+    assert_eq!(err.code(), None);
+    assert_eq!(err.to_string(), "bad data");
 }
 
-// M2: EmitterError implements std::error::Error
 #[test]
 fn emitter_error_implements_std_error() {
-    let err = EmitterError::EntityNotFound("test".to_string());
+    let err = EmitterError::Serialization("test".to_string());
     let _: &dyn std::error::Error = &err;
 }
 
-// M2: budget strategy error returns EmitterError::Other
+// The "error" budget strategy fails with a budget too small for the export.
 #[test]
-fn budget_strategy_error_returns_other() {
+fn budget_strategy_error_is_budget_too_small() {
     let graph = build_graph();
-    // Use extremely small budget to force error
-    let result = specforge_emitter::budget::emit_json_with_budget_strategy(&graph, 1, "error");
-    // Budget may or may not exceed with 2 nodes, so just verify the API compiles
-    // and returns the right type
-    match result {
-        Ok(_) => {} // within budget is fine
-        Err(err) => {
-            assert!(
-                matches!(err, EmitterError::Other(_)),
-                "expected Other variant for budget error, got: {:?}",
-                err
-            );
-        }
-    }
+    let err = specforge_emitter::budget::emit_json_with_budget_strategy(&graph, 1, "error")
+        .expect_err("a budget of one token cannot hold two entities");
+    assert!(
+        matches!(err, EmitterError::BudgetTooSmall { .. }),
+        "expected BudgetTooSmall, got: {err:?}"
+    );
+    assert_eq!(err.code(), Some(codes::E062));
 }
