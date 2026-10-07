@@ -9,6 +9,7 @@ use serde_json::json;
 use specforge_common::Diagnostic;
 use specforge_extension_sdk::prelude::*;
 use specforge_project::CompiledProject;
+use specforge_test::prelude::*;
 use specforge_wasm::testing::InProcessRuntime;
 use tempfile::TempDir;
 
@@ -91,7 +92,10 @@ const ORDER: [&str; 9] = [
 /// Every structural check reports, then the extension's rule: the order is
 /// W012, E016, E024, E013, E014, W020, E022, E061, then the rules. It must
 /// stay byte-identical while the checks move (plan 04, T0..T12).
-#[test]
+#[specforge_test(
+    behavior = "check_entities_in_one_order",
+    verify = "a compile reports the structural checks in the order the registry build runs them"
+)]
 fn structural_checks_report_in_one_order() {
     let dir = project(&["@test/shapes"], ONE_OF_EACH);
 

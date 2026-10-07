@@ -36,7 +36,7 @@ use std::sync::Arc;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
-use compile::{GraphChecks, check_graph, load_extensions};
+use compile::load_extensions;
 use coverage::RecordedCoverage;
 use snapshot::EntitySnapshot;
 use specforge_common::{
@@ -47,9 +47,11 @@ use specforge_parser::SpecFile;
 use specforge_protocol_types::ExtensionDeclaration;
 use specforge_registry::{
     RegistryBuild, build_registries, load_provider_configurations, register_provider_schemes,
+    rules::{CustomVerdicts, NoVerdicts},
 };
 use specforge_resolver::{ResolveConfig, ResolvedProject, resolve_project_with_config};
 use specforge_wasm::{LockState, WasmRuntime};
+use verdicts::WasmVerdicts;
 
 pub use build_cache::{BUILD_CACHE_FILE, BUILD_CACHE_FORMAT, BuildCache, CachedStatus};
 pub use compile::EnabledExtension;
@@ -212,24 +214,10 @@ impl Environment {
         EntitySnapshot::of(graph, &self.registries, &self.spec_root)
     }
 
-    /// What the checks on a built graph need from this environment, with
-    /// the graph's entity snapshot.
-    pub fn checks<'a>(
-        &'a self,
-        entities: &'a EntitySnapshot,
-        runtime: Option<&'a dyn WasmRuntime>,
-    ) -> GraphChecks<'a> {
-        GraphChecks {
-            spec_root: &self.spec_root,
-            registries: &self.registries,
-            entities,
-            runtime,
-        }
-    }
-
     /// Every check a compile runs on a built graph, over its entity
-    /// snapshot `entities`: the graph checks (core validation, the
-    /// registry checks, the extensions' rules), then the check-phase
+    /// snapshot `entities`: core validation, then the registry build's
+    /// checks (the structural checks and the extensions' rules, in the
+    /// order [`RegistryBuild::check`] runs them), then the check-phase
     /// passes.
     pub fn run_checks(
         &self,
@@ -237,7 +225,27 @@ impl Environment {
         entities: &EntitySnapshot,
         runtime: Option<&dyn WasmRuntime>,
     ) -> Vec<Diagnostic> {
-        let mut diagnostics = check_graph(graph, &self.checks(entities, runtime));
+        let mut diagnostics = specforge_validator::validate_with_config(
+            graph,
+            &specforge_validator::ValidatorConfig {
+                spec_root: self.spec_root.clone(),
+                file_reference_fields: self
+                    .registries
+                    .fields
+                    .file_reference_fields()
+                    .into_iter()
+                    .map(str::to_string)
+                    .collect(),
+            },
+        );
+        let verdicts: Box<dyn CustomVerdicts + '_> = match runtime {
+            Some(runtime) => Box::new(WasmVerdicts::new(runtime, entities)),
+            None => Box::new(NoVerdicts),
+        };
+        diagnostics.extend(
+            self.registries
+                .check(&entities.rule_input(), verdicts.as_ref()),
+        );
         if let Some(runtime) = runtime {
             diagnostics.extend(check_passes::run(self, graph, entities, runtime));
         }

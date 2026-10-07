@@ -2,9 +2,13 @@
 //! and the one way they reach the registries: `build`, which is
 //! `build_registries`. No test names a step.
 
+use std::path::Path;
+
 use specforge_common::{Diagnostic, SourceSpan, Sym};
 use specforge_extension_sdk::prelude::*;
 use specforge_protocol_types::ExtensionDeclaration;
+use specforge_registry::entity::{EntityRecord, RuleInput};
+use specforge_registry::rules::NoVerdicts;
 use specforge_registry::{RegistryBuild, build_registries};
 
 /// A builder for the extension `name`, version 1.0.0.
@@ -105,6 +109,24 @@ pub fn product() -> ExtensionDeclaration {
 /// The registry build of `declarations`, in this load order.
 pub fn build(declarations: impl IntoIterator<Item = ExtensionDeclaration>) -> RegistryBuild {
     build_registries(declarations.into_iter().collect())
+}
+
+/// Every check of `build` over `records` (no edges, spec root `.`, no
+/// custom verdicts): what `RegistryBuild::check` reports, in its order.
+pub fn check(build: &RegistryBuild, records: &[EntityRecord]) -> Vec<Diagnostic> {
+    build.check(
+        &RuleInput {
+            entities: records,
+            edges: &[],
+            spec_root: Path::new("."),
+        },
+        &NoVerdicts,
+    )
+}
+
+/// The diagnostics in `diagnostics` with `code`, in that order.
+pub fn coded_in<'a>(diagnostics: &'a [Diagnostic], code: &str) -> Vec<&'a Diagnostic> {
+    diagnostics.iter().filter(|d| d.code == code).collect()
 }
 
 /// Every diagnostic the build reports, in the order `check` reports them:

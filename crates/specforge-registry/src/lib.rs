@@ -1,4 +1,5 @@
 // Module groups
+mod checks;
 pub mod compilation;
 pub mod entity;
 mod registries;
@@ -36,10 +37,8 @@ pub use entity::{
 // --- Registry compilation (plan 05): one build, and the graph checks ---
 pub use compilation::{
     CHECK_PHASE, DeclaredPass, ProviderConfig, ProviderSchemeRegistry, ProviderStatus,
-    RegistryBuild, SchemeRegistryEntry, build_registries, detect_identifier_length_violations,
-    detect_mistyped_references, detect_reserved_entity_ids, detect_unknown_entity_fields,
-    detect_unknown_entity_kinds, load_provider_configurations, register_provider_schemes,
-    register_provider_schemes_with_status,
+    RegistryBuild, SchemeRegistryEntry, build_registries, load_provider_configurations,
+    register_provider_schemes, register_provider_schemes_with_status,
 };
 
 // Module paths external code names directly (`specforge_registry::surface::`).

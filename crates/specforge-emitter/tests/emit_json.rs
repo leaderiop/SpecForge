@@ -234,3 +234,74 @@ fn json_includes_source_location() {
     assert_eq!(node["file"], "behaviors/core.spec");
     assert_eq!(node["line"], 10);
 }
+
+// -- A graph built with no extension still exports (moved from the
+// registry's detection tests).
+
+#[specforge_test(
+    behavior = "graceful_degradation_without_extensions",
+    verify = "structural parsing works without extensions"
+)]
+fn structural_parsing_works_without_extensions() {
+    let source = "behavior my_beh \"Title\" {\n  contract \"test\"\n}\n";
+    let parsed = specforge_parser::parse(source, "test.spec");
+    assert_eq!(parsed.entities.len(), 1);
+}
+
+#[specforge_test(
+    behavior = "graceful_degradation_without_extensions",
+    verify = "graph built with generic nodes"
+)]
+fn the_graph_is_built_with_generic_nodes() {
+    let source = "behavior my_beh \"Title\" {\n  contract \"test\"\n}\n";
+    let parsed = specforge_parser::parse(source, "test.spec");
+    let (graph, _) = specforge_graph::build_graph(&[parsed]);
+    assert_eq!(graph.node_count(), 1);
+    assert_eq!(graph.node("my_beh").unwrap().kind.raw, "behavior");
+}
+
+#[specforge_test(
+    behavior = "graceful_degradation_without_extensions",
+    verify = "specforge export produces valid JSON from structural-only graph"
+)]
+fn export_is_valid_json_for_a_structural_only_graph() {
+    let source = "thing my_thing \"A Thing\" {\n  data \"hello\"\n}\n";
+    let parsed = specforge_parser::parse(source, "test.spec");
+    let (graph, _) = specforge_graph::build_graph(&[parsed]);
+    let json = specforge_emitter::json::emit_json(&graph);
+    let value: serde_json::Value = serde_json::from_str(&json).unwrap();
+    assert!(value.is_object());
+}
+
+#[specforge_test(
+    behavior = "graceful_degradation_without_extensions",
+    verify = "generic entity nodes appear as nodes in exported graph"
+)]
+fn generic_nodes_appear_in_the_exported_graph() {
+    let source = "thing my_thing \"A Thing\" {\n  data \"hello\"\n}\n";
+    let parsed = specforge_parser::parse(source, "test.spec");
+    let (graph, _) = specforge_graph::build_graph(&[parsed]);
+    let json = specforge_emitter::json::emit_json(&graph);
+    let value: serde_json::Value = serde_json::from_str(&json).unwrap();
+    let nodes = value["nodes"].as_array().unwrap();
+    assert!(nodes.iter().any(|n| n["id"] == "my_thing"));
+}
+
+#[specforge_test(
+    behavior = "graceful_degradation_without_extensions",
+    verify = "references between generic entities produce edges"
+)]
+fn references_between_generic_entities_produce_edges() {
+    let source = "thing a \"A\" {\n  refs [b]\n}\nthing b \"B\" {\n  data \"ok\"\n}\n";
+    let parsed = specforge_parser::parse(source, "test.spec");
+    let (graph, _) = specforge_graph::build_graph(&[parsed]);
+    let json = specforge_emitter::json::emit_json(&graph);
+    let value: serde_json::Value = serde_json::from_str(&json).unwrap();
+    let edges = value["edges"].as_array().unwrap();
+    assert!(
+        edges
+            .iter()
+            .any(|e| e["source"] == "a" && e["target"] == "b"),
+        "expected edge from a to b, got: {edges:?}"
+    );
+}
