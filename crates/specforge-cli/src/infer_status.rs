@@ -4,6 +4,7 @@
 //! by directory and `--gaps-detail` the `specforge.infer_gaps` report.
 
 use crate::OutputFormat;
+use crate::outcome::Refusal;
 use serde_json::json;
 use specforge_common::inference::MANIFEST_FILENAME;
 use specforge_ops::infer::{self, Gaps, Progress};
@@ -22,16 +23,14 @@ pub fn run(
     let progress = match infer::progress(&view) {
         Ok(progress) => progress,
         Err(error) => {
-            format.print_op_error(&error);
-            return 1;
+            return Refusal::of(format).report(&error);
         }
     };
     let gaps = if show_gaps_detail {
         match infer::gaps(&view, &runtime) {
             Ok(gaps) => Some(gaps),
             Err(error) => {
-                format.print_op_error(&error);
-                return 1;
+                return Refusal::of(format).report(&error);
             }
         }
     } else {

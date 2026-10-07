@@ -340,6 +340,42 @@ behavior exit_code_reflects_diagnostic_severity "Exit Code Reflects Diagnostic S
   verify contract "Exit Code Reflects Diagnostic Severity: exit code severity mapping holds — validation_complete_fired, exit_zero_on_clean, exit_one_on_errors, strict_mode_enforced"
 }
 
+behavior report_command_outcome "Report a Command's Outcome" {
+  features   [ci_integration]
+  invariants [diagnostic_determinism, zero_domain_knowledge_core]
+  category   command
+  types      [DiagnosticBag]
+  ports      [CompilerApi]
+  requires {
+    operation_ran "the command's operation returned its outcome or refused"
+  }
+  ensures {
+    one_refusal_shape "a refusal is error[CODE]: message with its hint, or the error document under --format json"
+    one_exit_table    "the exit code is the run's verdict, the refusal, or that the command could not judge"
+    surfaces_agree    "the CLI's exit code and MCP's ok are one verdict"
+  }
+  contract   """
+    Every core command MUST end in one of three ways. Its run passed:
+    exit 0. Its run's verdict failed (check found an error, format --check
+    a file that would change, migrate failed or rolled back, analyze an
+    error finding or a gate below its minimum) or its operation refused:
+    exit 1. The command could not judge the project, because the command
+    line was refused or a measuring command (stats, analyze) cannot read
+    what it measures against: exit 2. A refusal MUST be printed on stderr
+    as error[CODE]: message, then "  hint: " and the suggestion when there
+    is one, then "  wrote: " and each file the failed operation left
+    written; under --format json (analyze: --json) it MUST instead be the
+    error document {error, code, suggestion} (and files_written when files
+    were left written) on stdout, with nothing on stderr. A command run
+    outside any project where it needs one MUST refuse with no_project.
+    The verdict is the operation's: the CLI's exit code and the ok MCP
+    returns for check, analyze, format and migrate MUST agree.
+  """
+  verify unit "an operation's refusal is error[CODE]: message, its hint and the files it left written, on stderr"
+  verify unit "under --format json a refusal is the error document on stdout and nothing on stderr"
+  verify unit "a passed run exits 0, a failed verdict or a refusal 1, a refusal of a measuring command 2"
+}
+
 behavior serialize_traceability_data "Serialize Traceability Data" {
   features   [traceability_serialization]
   invariants [graph_traversal_integrity, diagnostic_determinism, zero_domain_knowledge_core]

@@ -12,6 +12,7 @@
 //! was approved before) and presents the outcome.
 
 use crate::OutputFormat;
+use crate::outcome::Refusal;
 use specforge_common::{codes, find_project_root};
 use specforge_ops::OpError;
 use specforge_ops::collect::{self, Collector, Consent, Mode, Request, RunnerOutput};
@@ -29,8 +30,7 @@ pub struct Options<'a> {
 pub fn run(path: &Path, options: &Options, format: OutputFormat) -> i32 {
     let Some(root) = find_project_root(path) else {
         let msg = "no specforge project found (missing specforge.json or specforge.spec)";
-        format.print_op_error(&OpError::diagnostic(codes::E045, msg));
-        return 1;
+        return Refusal::of(format).report(&OpError::diagnostic(codes::E045, msg));
     };
 
     let (project, runtime) = crate::pipeline::compile_project(&root);
@@ -75,8 +75,7 @@ pub fn run(path: &Path, options: &Options, format: OutputFormat) -> i32 {
     let outcome = match collect::collect(&ProjectView::of(&project), &runtime, request) {
         Ok(outcome) => outcome,
         Err(e) => {
-            format.print_op_error(&e);
-            return 1;
+            return Refusal::of(format).report(&e);
         }
     };
     for why in &outcome.unsaved_approvals {

@@ -1,4 +1,5 @@
 use crate::OutputFormat;
+use crate::outcome::Exit;
 use specforge_migrate::{MigrationStatus, MigrationSummary, RollbackSummary};
 use specforge_ops::migrate::{self, Request};
 use std::path::Path;
@@ -19,7 +20,7 @@ pub fn run(
             &migrate::restored(&summary).names_under(path),
             format,
         );
-        return if summary.failed_count > 0 { 1 } else { 0 };
+        return Exit::of_verdict(summary.failed_count == 0).code();
     }
 
     let target = match migrate::parse_target(target_version) {
@@ -48,7 +49,7 @@ pub fn run(
     print_migration(&outcome.summary, written.as_deref(), format, dry_run);
 
     if outcome.summary.failed_count > 0 {
-        return 1;
+        return Exit::Failed.code();
     }
     for failure in &outcome.hook_failures {
         eprintln!("migration hook failure: {failure}");
@@ -66,10 +67,10 @@ pub fn run(
         } else {
             eprintln!("files restored from backups");
         }
-        return 1;
+        return Exit::Failed.code();
     }
 
-    0
+    Exit::Passed.code()
 }
 
 /// The JSON of `document` with `files_written`, when given.

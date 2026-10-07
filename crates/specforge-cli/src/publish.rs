@@ -1,4 +1,5 @@
 use crate::OutputFormat;
+use crate::outcome::Refusal;
 use serde_json::json;
 use specforge_common::{Diagnostic, codes};
 use specforge_registry_client::{
@@ -17,25 +18,22 @@ pub fn run(extension: &Path, project: &Path, format: OutputFormat) -> i32 {
     let binary = match specforge_ops::publish::binary_at(extension) {
         Ok(binary) => binary,
         Err(error) => {
-            format.print_op_error(&error);
-            return 1;
+            return Refusal::of(format).report(&error);
         }
     };
     let wasm_bytes = match std::fs::read(&binary) {
         Ok(b) => b,
         Err(e) => {
-            format.print_error(
-                &format!("failed to read {}: {}", binary.display(), e),
+            return Refusal::of(format).coded(
                 codes::E040,
+                format!("failed to read {}: {}", binary.display(), e),
             );
-            return 1;
         }
     };
     let prepared = match specforge_ops::publish::prepare(wasm_bytes) {
         Ok(prepared) => prepared,
         Err(error) => {
-            format.print_op_error(&error);
-            return 1;
+            return Refusal::of(format).report(&error);
         }
     };
     format.eprint_diagnostics(&prepared.diagnostics);
@@ -47,22 +45,21 @@ pub fn run(extension: &Path, project: &Path, format: OutputFormat) -> i32 {
     let package = match declaration.package_name() {
         Ok(package) if package.scope().is_some() => package,
         Ok(package) => {
-            format.print_diagnostic(&specforge_common::package::invalid(&format_args!(
-                "'{package}' is not a registry package name: registry packages are named @scope/name"
-            )));
-            return 1;
+            return Refusal::of(format).diagnostic(&specforge_common::package::invalid(
+                &format_args!(
+                    "'{package}' is not a registry package name: registry packages are named @scope/name"
+                ),
+            ));
         }
         Err(why) => {
-            format.print_diagnostic(&specforge_common::package::invalid(&why));
-            return 1;
+            return Refusal::of(format).diagnostic(&specforge_common::package::invalid(&why));
         }
     };
     if let Err(why) = specforge_protocol_types::package::Version::parse(declaration.version()) {
-        format.print_diagnostic(&specforge_common::package::invalid(&format_args!(
+        return Refusal::of(format).diagnostic(&specforge_common::package::invalid(&format_args!(
             "'{}' is not a SemVer version: {why}",
             declaration.version()
         )));
-        return 1;
     }
 
     // No registry configured: fail before any network call (ADR 0004 N1).
@@ -72,27 +69,24 @@ pub fn run(extension: &Path, project: &Path, format: OutputFormat) -> i32 {
             configured.registries
         }
         Err(error) => {
-            format.print_op_error(&error);
-            return 1;
+            return Refusal::of(format).report(&error);
         }
     };
 
     let registry = match find_registry_for(&package, &registries) {
         Some(r) => r,
         None => {
-            format.print_error(
-                "no registry configured for this package scope",
+            return Refusal::of(format).coded(
                 codes::R_OPS_001,
+                "no registry configured for this package scope",
             );
-            return 1;
         }
     };
     // Load publish credential: SPECFORGE_REGISTRY_TOKEN overrides stored credentials.
     let credential = match load_credential(registry) {
         Ok(credential) => credential,
         Err(diag) => {
-            format.print_diagnostic(&diag);
-            return 1;
+            return Refusal::of(format).diagnostic(&diag);
         }
     };
 
@@ -100,12 +94,11 @@ pub fn run(extension: &Path, project: &Path, format: OutputFormat) -> i32 {
     let (signing_key, key_created) = match load_or_create_signing_key() {
         Ok(pair) => pair,
         Err(message) => {
-            format.print_op_error(&specforge_ops::OpError::new(
+            return Refusal::of(format).report(&specforge_ops::OpError::new(
                 specforge_ops::OpErrorKind::Internal,
                 "SIGNING_KEY_ERROR",
                 message,
             ));
-            return 1;
         }
     };
 
@@ -152,10 +145,7 @@ pub fn run(extension: &Path, project: &Path, format: OutputFormat) -> i32 {
             }
             0
         }
-        Err(diag) => {
-            format.print_diagnostic(&diag);
-            1
-        }
+        Err(diag) => Refusal::of(format).diagnostic(&diag),
     }
 }
 

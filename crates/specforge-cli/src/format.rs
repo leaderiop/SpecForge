@@ -1,3 +1,4 @@
+use crate::outcome::{Exit, Refusal};
 use specforge_common::Diagnostic;
 use specforge_formatter::unified_diff;
 use specforge_ops::format::{self, Mode, Request};
@@ -35,7 +36,7 @@ pub fn run(path: &Path, check: bool, diff: bool, stdin: bool, explicit_paths: &[
     // A failed file is reported as every operation's failure is
     // (`error[CODE]: …`), its code and kind the OS-given ones.
     for failure in &outcome.failures {
-        crate::OutputFormat::Human.print_op_error(&failure.to_op_error());
+        Refusal::of(crate::OutputFormat::Human).report(&failure.to_op_error());
     }
 
     for change in &outcome.changes {
@@ -58,11 +59,10 @@ pub fn run(path: &Path, check: bool, diff: bool, stdin: bool, explicit_paths: &[
         );
     }
 
-    if !outcome.succeeded() || !outcome.complete() || (check && !outcome.changes.is_empty()) {
-        1
-    } else {
-        0
-    }
+    Exit::of_verdict(
+        outcome.succeeded() && outcome.complete() && !(check && !outcome.changes.is_empty()),
+    )
+    .code()
 }
 
 /// A diagnostic on stderr: `<file>: <message>` when it names a file, the

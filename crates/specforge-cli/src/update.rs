@@ -1,4 +1,5 @@
 use crate::OutputFormat;
+use crate::outcome::Refusal;
 use serde_json::json;
 use specforge_ops::extension::{self, Trust, UpdateRequest};
 use specforge_ops_registry::HttpRegistry;
@@ -30,8 +31,7 @@ pub fn run(
     let outcome = match extension::update(&request, &registry) {
         Ok(outcome) => outcome,
         Err(error) => {
-            format.print_op_error(&error);
-            return 1;
+            return Refusal::of(format).report(&error);
         }
     };
     if outcome.registry_used {
@@ -48,7 +48,7 @@ pub fn run(
             .collect();
         match format {
             OutputFormat::Json => {
-                let mut output = OutputFormat::op_error_json(first, None);
+                let mut output = crate::outcome::error_document(first, None);
                 output["failed"] = json!(failed);
                 output["updated"] = json!([]);
                 output["batch_update_completed"] = completed;
