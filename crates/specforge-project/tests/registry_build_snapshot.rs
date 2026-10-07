@@ -12,7 +12,7 @@ use specforge_common::Diagnostic;
 use specforge_component::ComponentRuntime;
 use specforge_component::builtins::BUILTIN_EXTENSIONS;
 use specforge_project::Environment;
-use specforge_protocol_types::{SurfaceDescriptor, SurfaceSandboxOverride};
+use specforge_protocol_types::{FieldType, SurfaceDescriptor, SurfaceSandboxOverride};
 use tempfile::TempDir;
 
 fn runtime() -> ComponentRuntime {
@@ -129,7 +129,10 @@ fn digest(env: &Environment) -> Value {
                     "kind_name": f.kind_name(),
                     "field_name": f.declared().name,
                     "description": f.declared().description,
-                    "field_type": format!("{:?}", f.field_type()),
+                    "field_type": match f.field_type() {
+                        FieldType::Enum => format!("Enum({:?})", f.enum_values()),
+                        t => format!("{t:?}"),
+                    },
                     "source_extension": f.source_extension(),
                     "edge": f.declared().edge,
                     "target_kind": f.declared().target_kind,

@@ -18,7 +18,7 @@ use super::populate::{keyword, populate};
 use super::validate::{peer_dependencies, validate_extension_testability};
 use crate::rules::{Registries, Rules};
 use crate::{
-    EdgeRegistry, FieldRegistry, KindRegistry, ManifestFieldType, SurfaceRegistryEntry,
+    EdgeRegistry, FieldRegistry, FieldType, KindRegistry, SurfaceRegistryEntry,
     refuse_malformed_tool_schemas, register_surface_contributions,
 };
 
@@ -185,7 +185,7 @@ pub fn build_registries(mut declarations: Vec<ExtensionDeclaration>) -> Registry
     } else {
         fields
             .iter()
-            .filter(|(_, _, entry)| *entry.field_type() == ManifestFieldType::Reference)
+            .filter(|(_, _, entry)| entry.field_type() == FieldType::Reference)
             .map(|(kind, field, _)| (kind.to_string(), field.to_string()))
             .collect()
     };

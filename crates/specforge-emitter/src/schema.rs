@@ -9,7 +9,7 @@ use serde_json::Value;
 use sha2::{Digest, Sha256};
 use specforge_diagnostics::codes;
 use specforge_graph::Graph;
-use specforge_registry::{EdgeRegistry, FieldRegistry, KindRegistry, ManifestFieldType};
+use specforge_registry::{EdgeRegistry, FieldRegistry, FieldType, KindRegistry};
 
 use crate::error::EmitterError;
 
@@ -348,23 +348,16 @@ pub(crate) enum SchemaAttachment {
 // Slice 2: Generate Schema from Registries
 // ---------------------------------------------------------------------------
 
-fn map_field_type(ft: &ManifestFieldType) -> String {
+fn map_field_type(ft: FieldType) -> String {
     match ft {
-        ManifestFieldType::String => "string".to_string(),
-        ManifestFieldType::Integer => "integer".to_string(),
-        ManifestFieldType::Bool => "boolean".to_string(),
-        ManifestFieldType::Enum(_) => "enum".to_string(),
-        ManifestFieldType::StringList => "string_list".to_string(),
-        ManifestFieldType::Reference => "reference".to_string(),
-        ManifestFieldType::ReferenceList => "reference_list".to_string(),
-        ManifestFieldType::Block => "block".to_string(),
-    }
-}
-
-fn enum_values(ft: &ManifestFieldType) -> Option<Vec<String>> {
-    match ft {
-        ManifestFieldType::Enum(values) => Some(values.clone()),
-        _ => None,
+        FieldType::String => "string".to_string(),
+        FieldType::Integer => "integer".to_string(),
+        FieldType::Bool => "boolean".to_string(),
+        FieldType::Enum => "enum".to_string(),
+        FieldType::StringList => "string_list".to_string(),
+        FieldType::Reference => "reference".to_string(),
+        FieldType::ReferenceList => "reference_list".to_string(),
+        FieldType::Block => "block".to_string(),
     }
 }
 
@@ -392,7 +385,8 @@ pub fn generate_schema(
                     name: f.declared().name.clone(),
                     field_type: map_field_type(f.field_type()),
                     required: f.declared().required,
-                    enum_values: enum_values(f.field_type()),
+                    enum_values: (f.field_type() == FieldType::Enum)
+                        .then(|| f.enum_values().to_vec()),
                     edge: f.declared().edge.clone(),
                     target_kind: f.declared().target_kind.clone(),
                     description: f.declared().description.clone(),

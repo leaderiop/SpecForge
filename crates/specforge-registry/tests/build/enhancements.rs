@@ -3,10 +3,9 @@
 //! after every declaration's own kinds and fields.
 
 use specforge_common::Severity;
-use specforge_extension_sdk::prelude::*;
 use specforge_protocol_types::ExtensionDeclaration;
 use specforge_registry::entity::EntityRecord;
-use specforge_registry::{ManifestFieldType, detect_unknown_entity_fields};
+use specforge_registry::{FieldType, detect_unknown_entity_fields};
 use specforge_test_macros::test as spec;
 
 use crate::support::{build, coded, declare, diagnostics, software, span};
@@ -41,7 +40,7 @@ fn an_enhancement_registers_its_fields_on_the_target_kind() {
     assert!(diagnostics(&build).is_empty(), "{:?}", diagnostics(&build));
     let field = build.fields.get("behavior", "coverage_threshold").unwrap();
     assert_eq!(field.kind_name(), "behavior");
-    assert_eq!(field.field_type(), &ManifestFieldType::String);
+    assert_eq!(field.field_type(), FieldType::String);
     assert_eq!(
         field.source_extension(),
         "@specforge/software",
@@ -165,7 +164,7 @@ fn an_enhancement_field_never_overwrites_a_kind_field() {
     ]);
     assert!(diagnostics(&build).is_empty(), "{:?}", diagnostics(&build));
     let contract = build.fields.get("behavior", "contract").unwrap();
-    assert_eq!(contract.field_type(), &ManifestFieldType::Block);
+    assert_eq!(contract.field_type(), FieldType::Block);
     assert_eq!(contract.source_extension(), "@specforge/software");
 }
 
@@ -195,13 +194,13 @@ fn enhancements_register_in_load_order() {
     let a_first = build([software(), a.clone(), b.clone()]);
     let owner = a_first.fields.get("behavior", "owner").unwrap();
     assert_eq!(owner.source_extension(), "@test/a");
-    assert_eq!(owner.field_type(), &ManifestFieldType::String);
+    assert_eq!(owner.field_type(), FieldType::String);
 
     // The load order decides which `owner` wins.
     let b_first = build([software(), b.clone(), a.clone()]);
     let owner = b_first.fields.get("behavior", "owner").unwrap();
     assert_eq!(owner.source_extension(), "@test/b");
-    assert_eq!(owner.field_type(), &ManifestFieldType::Reference);
+    assert_eq!(owner.field_type(), FieldType::Reference);
 
     // The same order always gives the same result.
     for _ in 0..3 {
@@ -239,7 +238,7 @@ fn enhancement_registration_holds() {
     let owner = build.fields.get("behavior", "owner").unwrap();
     assert_eq!(owner.kind_name(), "behavior");
     assert_eq!(owner.source_extension(), "@test/a");
-    assert_eq!(owner.field_type(), &ManifestFieldType::String);
+    assert_eq!(owner.field_type(), FieldType::String);
     let note = build.fields.get("behavior", "reference_note").unwrap();
     assert_eq!(note.source_extension(), "@test/b");
 

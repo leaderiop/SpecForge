@@ -2,37 +2,6 @@ use std::collections::HashMap;
 
 use specforge_protocol_types::{FieldDescriptor, FieldType, ProofRole};
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub enum ManifestFieldType {
-    #[default]
-    String,
-    Integer,
-    Bool,
-    Enum(Vec<String>),
-    StringList,
-    Reference,
-    ReferenceList,
-    Block,
-}
-
-/// An enum field's values come with the field, not its type name, so the
-/// conversion leaves them empty.
-impl From<FieldType> for ManifestFieldType {
-    fn from(t: FieldType) -> Self {
-        use FieldType as T;
-        match t {
-            T::String => Self::String,
-            T::Integer => Self::Integer,
-            T::Bool => Self::Bool,
-            T::Enum => Self::Enum(Vec::new()),
-            T::StringList => Self::StringList,
-            T::Reference => Self::Reference,
-            T::ReferenceList => Self::ReferenceList,
-            T::Block => Self::Block,
-        }
-    }
-}
-
 /// A declared field type this host does not read. The registry build
 /// reports it as W019 and registers nothing.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -49,7 +18,7 @@ pub struct UnknownFieldType(pub String);
 pub struct FieldRegistryEntry {
     kind_name: String,
     source_extension: String,
-    field_type: ManifestFieldType,
+    field_type: FieldType,
     proof_role: Option<ProofRole>,
     declared: FieldDescriptor,
 }
@@ -68,13 +37,9 @@ impl FieldRegistryEntry {
         source_extension: &str,
         mut declared: FieldDescriptor,
     ) -> Result<Self, UnknownFieldType> {
-        let parsed = FieldType::parse(&declared.field_type)
+        let field_type = FieldType::parse(&declared.field_type)
             .ok_or_else(|| UnknownFieldType(declared.field_type.clone()))?;
-        declared.field_type = parsed.as_str().to_string();
-        let field_type = match ManifestFieldType::from(parsed) {
-            ManifestFieldType::Enum(_) => ManifestFieldType::Enum(declared.enum_values.clone()),
-            other => other,
-        };
+        declared.field_type = field_type.as_str().to_string();
         let proof_role = declared.proof_role.as_deref().and_then(ProofRole::parse);
         Ok(Self {
             kind_name: kind_name.to_string(),
@@ -101,8 +66,26 @@ impl FieldRegistryEntry {
     }
 
     /// How the host reads the field's value.
-    pub fn field_type(&self) -> &ManifestFieldType {
-        &self.field_type
+    pub fn field_type(&self) -> FieldType {
+        self.field_type
+    }
+
+    /// The values an enum field accepts, as declared; empty for any other
+    /// type (and for an enum that declares none).
+    pub fn enum_values(&self) -> &[String] {
+        match self.field_type {
+            FieldType::Enum => &self.declared.enum_values,
+            _ => &[],
+        }
+    }
+
+    /// The type as messages and hover name it: the type's name, followed by
+    /// an enum's declared values: `enum (low, medium, high)`.
+    pub fn type_label(&self) -> String {
+        match self.enum_values() {
+            [] => self.field_type.as_str().to_string(),
+            values => format!("{} ({})", self.field_type.as_str(), values.join(", ")),
+        }
     }
 
     /// What the prove pass reads the field as, when it declares a known role.
@@ -351,10 +334,9 @@ mod tests {
             ..Default::default()
         };
         let entry = FieldRegistryEntry::new("ticket", "@t/x", declared).unwrap();
-        assert_eq!(
-            entry.field_type(),
-            &ManifestFieldType::Enum(vec!["low".to_string(), "high".to_string()])
-        );
+        assert_eq!(entry.field_type(), FieldType::Enum);
+        assert_eq!(entry.enum_values(), ["low", "high"]);
+        assert_eq!(entry.type_label(), "enum (low, high)");
         assert_eq!(entry.declared().field_type, "enum");
         assert_eq!(entry.proof_role(), None);
         assert_eq!(entry.kind_name(), "ticket");

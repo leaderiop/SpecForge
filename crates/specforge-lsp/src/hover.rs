@@ -300,7 +300,7 @@ pub fn hover_field_info(
 ) -> Option<String> {
     let entry = field_registry.get(entity_kind, field_name)?;
 
-    let type_str = format_field_type(entry.field_type());
+    let type_str = entry.field_type().as_str();
 
     // First line: field name + type, with optional target kind on same line
     let first_line = if let Some(ref target) = entry.declared().target_kind {
@@ -402,18 +402,5 @@ fn format_field_value(fv: &FieldValue) -> String {
                 format!("{}; … +{}", items[..3].join("; "), items.len() - 3)
             }
         }
-    }
-}
-
-fn format_field_type(ft: &specforge_registry::ManifestFieldType) -> &'static str {
-    match ft {
-        specforge_registry::ManifestFieldType::String => "string",
-        specforge_registry::ManifestFieldType::Integer => "integer",
-        specforge_registry::ManifestFieldType::Bool => "bool",
-        specforge_registry::ManifestFieldType::Enum(_) => "enum",
-        specforge_registry::ManifestFieldType::StringList => "string_list",
-        specforge_registry::ManifestFieldType::Reference => "reference",
-        specforge_registry::ManifestFieldType::ReferenceList => "reference_list",
-        specforge_registry::ManifestFieldType::Block => "block",
     }
 }

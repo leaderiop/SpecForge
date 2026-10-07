@@ -6,7 +6,7 @@ use serde::ser::SerializeStruct;
 use serde::{Serialize, Serializer};
 use specforge_common::codes;
 use specforge_graph::Graph;
-use specforge_registry::{FieldRegistry, KindRegistry, ManifestFieldType};
+use specforge_registry::{FieldRegistry, KindRegistry};
 use std::collections::{BTreeMap, BTreeSet, HashSet, VecDeque};
 
 use specforge_emitter::SCHEMA_VERSION;
@@ -108,10 +108,7 @@ impl TraceExpectations {
             let Some(target) = entry.declared().target_kind.as_deref() else {
                 continue;
             };
-            let is_reference = matches!(
-                entry.field_type(),
-                ManifestFieldType::Reference | ManifestFieldType::ReferenceList
-            );
+            let is_reference = entry.field_type().is_reference();
             let own_field = kinds
                 .get(kind)
                 .is_some_and(|k| k.source_extension == entry.source_extension());

@@ -7,7 +7,6 @@ use std::collections::HashMap;
 use specforge_common::{Diagnostic, Severity, codes};
 use specforge_parser::FieldValue;
 use specforge_project::passes::{AnalysisContext, Finding};
-use specforge_registry::ManifestFieldType;
 
 /// Result of one analysis pass.
 pub struct PassReport {
@@ -35,10 +34,7 @@ pub const COVERAGE_PASS: &str = "@specforge/testing:coverage";
 pub fn pass_contracts(ctx: &AnalysisContext) -> (Vec<Finding>, serde_json::Value) {
     let mut contract_fields: HashMap<&str, Vec<&str>> = HashMap::new();
     for (kind, field, entry) in ctx.field_registry.iter() {
-        if !matches!(
-            entry.field_type(),
-            ManifestFieldType::Reference | ManifestFieldType::ReferenceList
-        ) {
+        if !entry.field_type().is_reference() {
             continue;
         }
         // A reference to a contract kind (an extension declares which:

@@ -3,10 +3,9 @@
 //! the protocol's field types.
 
 use specforge_common::Severity;
-use specforge_extension_sdk::prelude::*;
 use specforge_protocol_types::ExtensionDeclaration;
 use specforge_registry::{
-    FieldDescriptor, FieldRegistryEntry, ManifestFieldType, ProofRole, UnknownFieldType,
+    FieldDescriptor, FieldRegistryEntry, FieldType, ProofRole, UnknownFieldType,
 };
 use specforge_test_macros::test as spec;
 
@@ -62,23 +61,10 @@ fn every_kinds_fields_and_shared_fields_are_registered() {
     verify = "each field type and its _type alias register as that type"
 )]
 fn each_field_type_and_its_alias_registers_as_that_type() {
-    let types = [
-        (FieldType::String, ManifestFieldType::String),
-        (FieldType::Integer, ManifestFieldType::Integer),
-        (FieldType::Bool, ManifestFieldType::Bool),
-        (
-            FieldType::Enum,
-            ManifestFieldType::Enum(vec!["draft".to_string(), "done".to_string()]),
-        ),
-        (FieldType::StringList, ManifestFieldType::StringList),
-        (FieldType::Reference, ManifestFieldType::Reference),
-        (FieldType::ReferenceList, ManifestFieldType::ReferenceList),
-        (FieldType::Block, ManifestFieldType::Block),
-    ];
     let mut declaration = declare("@test/ext", |c| {
         c.kind("Thing", |k| {
             k.keyword("thing");
-            for (field_type, _) in &types {
+            for field_type in FieldType::ALL {
                 for name in [
                     field_type.as_str().to_string(),
                     format!("{}_alias", field_type.as_str()),
@@ -106,11 +92,11 @@ fn each_field_type_and_its_alias_registers_as_that_type() {
         "{:?}",
         diagnostics(&build)
     );
-    for (field_type, expected) in &types {
+    for field_type in FieldType::ALL {
         let name = field_type.as_str();
         for field in [name.to_string(), format!("{name}_alias")] {
             let entry = build.fields.get("thing", &field).expect(&field);
-            assert_eq!(entry.field_type(), expected, "{field}");
+            assert_eq!(entry.field_type(), *field_type, "{field}");
             assert_eq!(entry.declared().field_type, name, "{field}");
         }
     }
@@ -196,18 +182,19 @@ fn an_entry_is_built_only_from_a_type_the_host_reads() {
         ..described("enum")
     };
     let entry = FieldRegistryEntry::new("thing", "@t/x", level).unwrap();
-    assert_eq!(
-        entry.field_type(),
-        &ManifestFieldType::Enum(vec!["low".into(), "high".into()])
-    );
+    assert_eq!(entry.field_type(), FieldType::Enum);
+    assert_eq!(entry.enum_values(), ["low", "high"]);
+    assert_eq!(entry.type_label(), "enum (low, high)");
 
-    // A string field declaring enum values keeps no values on its type.
+    // A string field declaring enum values has no enum values.
     let not_an_enum = FieldDescriptor {
         enum_values: vec!["low".into()],
         ..described("string")
     };
     let entry = FieldRegistryEntry::new("thing", "@t/x", not_an_enum).unwrap();
-    assert_eq!(entry.field_type(), &ManifestFieldType::String);
+    assert_eq!(entry.field_type(), FieldType::String);
+    assert!(entry.enum_values().is_empty());
+    assert_eq!(entry.type_label(), "string");
 }
 
 #[spec(
@@ -223,7 +210,7 @@ fn an_entry_names_its_type_canonically() {
         };
         let entry = FieldRegistryEntry::new("thing", "@t/x", declared).unwrap();
         assert_eq!(entry.declared().field_type, "bool", "{spelling}");
-        assert_eq!(entry.field_type(), &ManifestFieldType::Bool, "{spelling}");
+        assert_eq!(entry.field_type(), FieldType::Bool, "{spelling}");
     }
 }
 
@@ -362,10 +349,10 @@ fn field_registration_holds() {
 
     // fields_registered: every declared field, embedding its descriptor.
     let contract = build.fields.get("behavior", "contract").unwrap();
-    assert_eq!(contract.field_type(), &ManifestFieldType::Block);
+    assert_eq!(contract.field_type(), FieldType::Block);
     assert_eq!(contract.declared().name, "contract");
     let invariants = build.fields.get("behavior", "invariants").unwrap();
-    assert_eq!(invariants.field_type(), &ManifestFieldType::ReferenceList);
+    assert_eq!(invariants.field_type(), FieldType::ReferenceList);
     assert_eq!(invariants.declared().edge.as_deref(), Some("enforces"));
     assert_eq!(
         invariants.declared().target_kind.as_deref(),

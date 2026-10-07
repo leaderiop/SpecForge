@@ -4,7 +4,7 @@
 
 use specforge_ops::navigate::{EntityQuery, MatchScope, find_entities};
 use specforge_ops::view::ProjectView;
-use specforge_registry::{FieldRegistry, ManifestFieldType};
+use specforge_registry::{FieldRegistry, FieldType};
 use tower_lsp::lsp_types::{
     CompletionItem, CompletionItemKind, CompletionTextEdit, InsertReplaceEdit, InsertTextFormat,
     TextEdit,
@@ -71,13 +71,13 @@ pub fn items(
             let entry = registries.fields.get(kind, field);
             match entry.map(|e| e.field_type()) {
                 // A reference list, or a field the registry does not type.
-                None | Some(ManifestFieldType::ReferenceList) => {
+                None | Some(FieldType::ReferenceList) => {
                     let target = entry.and_then(|e| e.declared().target_kind.as_deref());
                     entity_ids(view, prefix, target)
                 }
                 // A string list's items are strings; the refs a scheme ref
                 // ID names are linked from any list.
-                Some(ManifestFieldType::StringList) => entity_ids(view, prefix, Some(REF_KIND)),
+                Some(FieldType::StringList) => entity_ids(view, prefix, Some(REF_KIND)),
                 Some(_) => Vec::new(),
             }
         }
@@ -169,15 +169,14 @@ fn value(
         ..Default::default()
     };
     match entry.field_type() {
-        ManifestFieldType::Reference => {
-            entity_ids(view, prefix, entry.declared().target_kind.as_deref())
-        }
-        ManifestFieldType::Enum(values) => values
+        FieldType::Reference => entity_ids(view, prefix, entry.declared().target_kind.as_deref()),
+        FieldType::Enum => entry
+            .enum_values()
             .iter()
             .filter(|value| starts_with(value, prefix))
             .map(|value| constant(value, CompletionItemKind::ENUM_MEMBER))
             .collect(),
-        ManifestFieldType::Bool => ["true", "false"]
+        FieldType::Bool => ["true", "false"]
             .into_iter()
             .filter(|value| starts_with(value, prefix))
             .map(|value| constant(value, CompletionItemKind::KEYWORD))
@@ -222,11 +221,9 @@ fn entity_ids(view: &ProjectView, prefix: &str, kind: Option<&str>) -> Vec<Compl
 pub fn field_snippet(field: &specforge_registry::FieldRegistryEntry, n: usize) -> String {
     let name = &field.declared().name;
     match field.field_type() {
-        ManifestFieldType::ReferenceList | ManifestFieldType::StringList => {
-            format!("{name} [${n}]")
-        }
-        ManifestFieldType::String => format!("{name} \"${n}\""),
-        ManifestFieldType::Block => format!("{name} {{\n    ${n}\n  }}"),
+        t if t.is_list() => format!("{name} [${n}]"),
+        FieldType::String => format!("{name} \"${n}\""),
+        FieldType::Block => format!("{name} {{\n    ${n}\n  }}"),
         _ => format!("{name} ${n}"),
     }
 }

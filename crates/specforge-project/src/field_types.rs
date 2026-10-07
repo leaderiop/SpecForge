@@ -9,7 +9,7 @@
 use specforge_common::{Diagnostic, codes, find_close_match};
 use specforge_graph::{DerivedFrom, DerivedReference, FieldCoercion, Graph};
 use specforge_parser::FieldValue;
-use specforge_registry::{FieldRegistry, KindRegistry, ManifestFieldType};
+use specforge_registry::{FieldRegistry, FieldRegistryEntry, FieldType, KindRegistry};
 use std::collections::HashMap;
 
 /// How each registered field's value is coerced, keyed by (kind, field),
@@ -19,13 +19,12 @@ pub fn field_coercions(field_reg: &FieldRegistry) -> HashMap<(String, String), F
         .iter()
         .filter_map(|(kind, field, entry)| {
             let coercion = match entry.field_type() {
-                ManifestFieldType::StringList | ManifestFieldType::ReferenceList => {
-                    FieldCoercion::List
-                }
-                ManifestFieldType::Integer => FieldCoercion::Integer,
-                ManifestFieldType::Bool => FieldCoercion::Bool,
-                ManifestFieldType::String | ManifestFieldType::Enum(_) => FieldCoercion::Text,
-                ManifestFieldType::Reference | ManifestFieldType::Block => return None,
+                t if t.is_list() => FieldCoercion::List,
+                FieldType::Integer => FieldCoercion::Integer,
+                FieldType::Bool => FieldCoercion::Bool,
+                FieldType::String | FieldType::Enum => FieldCoercion::Text,
+                // A single reference or a block is read as written.
+                _ => return None,
             };
             Some(((kind.to_string(), field.to_string()), coercion))
         })
@@ -40,12 +39,7 @@ pub fn field_coercions(field_reg: &FieldRegistry) -> HashMap<(String, String), F
 pub fn derived_references(field_reg: &FieldRegistry) -> Vec<DerivedReference> {
     let mut derived: Vec<DerivedReference> = field_reg
         .iter()
-        .filter(|(_, _, entry)| {
-            matches!(
-                entry.field_type(),
-                ManifestFieldType::Reference | ManifestFieldType::ReferenceList
-            )
-        })
+        .filter(|(_, _, entry)| entry.field_type().is_reference())
         .filter_map(|(kind, field, entry)| {
             Some(DerivedReference {
                 source_kind: kind.to_string(),
@@ -78,7 +72,7 @@ pub fn check_field_value_types(
             let Some(declared) = field_reg.get(kind, entry.key.as_str()) else {
                 continue;
             };
-            let Some(mismatch) = mismatch(declared.field_type(), &entry.value) else {
+            let Some(mismatch) = mismatch(declared, &entry.value) else {
                 continue;
             };
             let mut diagnostic = Diagnostic::new(
@@ -88,7 +82,7 @@ pub fn check_field_value_types(
                     entry.key,
                     kind,
                     node.id.raw,
-                    type_name(declared.field_type()),
+                    declared.type_label(),
                     mismatch.given
                 ),
             )
@@ -110,7 +104,7 @@ struct Mismatch {
     suggestion: Option<String>,
 }
 
-fn mismatch(declared: &ManifestFieldType, value: &FieldValue) -> Option<Mismatch> {
+fn mismatch(declared: &FieldRegistryEntry, value: &FieldValue) -> Option<Mismatch> {
     let wrong = |suggestion: Option<String>| {
         Some(Mismatch {
             given: describe(value),
@@ -124,45 +118,32 @@ fn mismatch(declared: &ManifestFieldType, value: &FieldValue) -> Option<Mismatch
             | FieldValue::MixedList(_)
             | FieldValue::VariantList(_)
     );
-    match declared {
-        ManifestFieldType::Integer => match value {
+    match declared.field_type() {
+        FieldType::Integer => match value {
             FieldValue::Integer(_) => None,
             _ => wrong(None),
         },
-        ManifestFieldType::Bool => match value {
+        FieldType::Bool => match value {
             FieldValue::Boolean(_) => None,
             _ => wrong(Some("use true or false".to_string())),
         },
-        ManifestFieldType::Enum(values) if !values.is_empty() => match value {
-            FieldValue::String(s) | FieldValue::Identifier(s) if values.contains(s) => None,
-            FieldValue::String(s) | FieldValue::Identifier(s) => wrong(Some(
-                match find_close_match(s, values.iter().map(String::as_str)) {
-                    Some(close) => format!("did you mean '{close}'?"),
-                    None => format!("use one of: {}", values.join(", ")),
-                },
-            )),
-            _ => wrong(Some(format!("use one of: {}", values.join(", ")))),
-        },
-        ManifestFieldType::String | ManifestFieldType::Enum(_) | ManifestFieldType::Reference
-            if is_list =>
-        {
+        FieldType::Enum if !declared.enum_values().is_empty() => {
+            let values = declared.enum_values();
+            match value {
+                FieldValue::String(s) | FieldValue::Identifier(s) if values.contains(s) => None,
+                FieldValue::String(s) | FieldValue::Identifier(s) => wrong(Some(
+                    match find_close_match(s, values.iter().map(String::as_str)) {
+                        Some(close) => format!("did you mean '{close}'?"),
+                        None => format!("use one of: {}", values.join(", ")),
+                    },
+                )),
+                _ => wrong(Some(format!("use one of: {}", values.join(", ")))),
+            }
+        }
+        FieldType::String | FieldType::Enum | FieldType::Reference if is_list => {
             wrong(Some("give a single value, not a list".to_string()))
         }
         _ => None,
-    }
-}
-
-fn type_name(field_type: &ManifestFieldType) -> String {
-    match field_type {
-        ManifestFieldType::String => "string".to_string(),
-        ManifestFieldType::Integer => "integer".to_string(),
-        ManifestFieldType::Bool => "bool".to_string(),
-        ManifestFieldType::Enum(values) if values.is_empty() => "enum".to_string(),
-        ManifestFieldType::Enum(values) => format!("enum ({})", values.join(", ")),
-        ManifestFieldType::StringList => "string_list".to_string(),
-        ManifestFieldType::Reference => "reference".to_string(),
-        ManifestFieldType::ReferenceList => "reference_list".to_string(),
-        ManifestFieldType::Block => "block".to_string(),
     }
 }
 

@@ -5,7 +5,7 @@
 //! structure; the registries are consulted by the readers.
 
 use specforge_parser::lex::{Lexeme, LexemeKind, lex};
-use specforge_registry::{FieldRegistry, ManifestFieldType};
+use specforge_registry::{FieldRegistry, FieldType};
 
 /// What a lexeme is in its statement.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -341,8 +341,8 @@ impl Syntax {
 /// strings are strings.
 pub(crate) fn may_reference(fields: &FieldRegistry, kind: &str, field: &str, item: bool) -> bool {
     match fields.get(kind, field).map(|entry| entry.field_type()) {
-        None | Some(ManifestFieldType::Reference | ManifestFieldType::ReferenceList) => true,
-        Some(ManifestFieldType::StringList) => item,
+        None | Some(FieldType::Reference | FieldType::ReferenceList) => true,
+        Some(FieldType::StringList) => item,
         Some(_) => false,
     }
 }

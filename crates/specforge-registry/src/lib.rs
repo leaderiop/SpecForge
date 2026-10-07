@@ -10,7 +10,7 @@ mod invariants;
 // --- Core registries ---
 pub use registries::{
     EdgeRegistry, EdgeRegistryEntry, FieldRegistry, FieldRegistryEntry, KindRegistry,
-    KindRegistryEntry, ManifestFieldType, UnknownFieldType,
+    KindRegistryEntry, UnknownFieldType,
 };
 
 // --- Extension vocabulary (shared with the SDK through the protocol types) ---
