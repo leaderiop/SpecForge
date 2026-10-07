@@ -1,3 +1,4 @@
+use crate::answers::ClientSupport;
 use crate::document::Document;
 use specforge_common::Diagnostic;
 use specforge_graph::Graph;
@@ -25,6 +26,8 @@ pub struct LspState {
     /// The format configurations the editor was told override its settings
     /// (once per session and configuration, ADR 0021 D1).
     format_notices: HashSet<String>,
+    /// What the client declared at initialize that shapes an answer.
+    client: ClientSupport,
 }
 
 /// The session, or what readers see while it is out for an update.
@@ -66,9 +69,27 @@ impl LspState {
             last_token_signature: 0,
             shutdown: false,
             format_notices: HashSet::new(),
+            client: ClientSupport::default(),
         };
         state.last_token_signature = state.token_signature();
         state
+    }
+
+    /// What the client declared that shapes an answer.
+    pub fn client(&self) -> ClientSupport {
+        self.client
+    }
+
+    /// Record what the client declared at initialize.
+    pub fn set_client(&mut self, client: ClientSupport) {
+        self.client = client;
+    }
+
+    /// Whether the session is out for an update: readers see its last
+    /// complete graph and cannot read what only a session holds (the
+    /// recorded coverage).
+    pub fn rebuilding(&self) -> bool {
+        matches!(self.project, Project::Out(_))
     }
 
     /// Record that the editor is told `configuration` overrides its

@@ -1,3 +1,4 @@
+pub mod answers;
 pub mod backend;
 mod capabilities;
 pub mod completion;
@@ -9,6 +10,7 @@ mod state;
 mod uri;
 pub mod watchers;
 
+pub use answers::ClientSupport;
 pub use capabilities::{ServerCapabilities, ServerInfo, server_capabilities, server_info};
 pub use completion::{field_snippet, keyword_snippet};
 pub use document::{

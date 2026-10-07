@@ -171,6 +171,7 @@ behavior go_to_definition "Go-to-Definition" {
   verify unit "source spans convert from 1-based to 0-based for LSP"
   verify unit "the definition's selection is the entity's name token"
   verify unit "a use binding's imported name goes to the entity it names"
+  verify unit "a definition is a location link for a client that declares linkSupport, else a location at the name"
   verify contract "Go-to-Definition: go-to-definition holds — graph_available, declaration_site_returned"
 }
 

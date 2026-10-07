@@ -9,17 +9,11 @@ use tower_lsp::{Client, LanguageServer};
 
 use specforge_project::{CheckMode, ProjectSession, SourceChange, UpdateKind};
 
-use crate::document::{LineIndex, Target};
-use crate::navigation::{
-    Compiled, fix_to_code_action, navigator, outline_to_document_symbols, symbol_kind_from_entity,
-};
+use crate::document::LineIndex;
+use crate::navigation::Compiled;
 use crate::publish::{Publication, diagnostic_to_lsp};
 use crate::uri::{file_path_to_uri, uri_to_file_path};
-use crate::{LspState, goto_import_definition, hover_field_info, server_capabilities, server_info};
-use specforge_common::{SourceSpan, Sym};
-use specforge_ops::navigate::{
-    Direction, EntityQuery, FixQuery, MatchScope, ReferenceQuery, find_entities, outline,
-};
+use crate::{ClientSupport, LspState, answers, server_capabilities, server_info};
 
 use specforge_ops::format;
 
@@ -46,19 +40,6 @@ pub struct Backend {
     /// Whether the client declared
     /// `workspace.didChangeWatchedFiles.relativePatternSupport`.
     relative_patterns: Arc<AtomicBool>,
-    /// Whether the client declared `textDocument.definition.linkSupport`:
-    /// then a definition is a `LocationLink` (the block, its name
-    /// selected), else a `Location` at the name.
-    definition_links: Arc<AtomicBool>,
-    /// Whether the client declared
-    /// `textDocument.documentSymbol.hierarchicalDocumentSymbolSupport`:
-    /// then the outline is nested `DocumentSymbol`s, else flat.
-    hierarchical_symbols: Arc<AtomicBool>,
-    /// Whether the client declared
-    /// `textDocument.completion.completionItem.insertReplaceSupport`: then
-    /// a completion item's edit inserts over the word's start to the cursor
-    /// and replaces the whole word, else it is a plain edit.
-    insert_replace: Arc<AtomicBool>,
 }
 
 /// A change the project session is asked to apply.
@@ -151,9 +132,6 @@ impl Backend {
             tokens_refresh_support,
             watched,
             relative_patterns,
-            definition_links: Arc::new(AtomicBool::new(false)),
-            hierarchical_symbols: Arc::new(AtomicBool::new(false)),
-            insert_replace: Arc::new(AtomicBool::new(false)),
         }
     }
 
@@ -440,27 +418,6 @@ impl Backend {
     }
 }
 
-/// A request refused because the editor's buffer is not the text the
-/// project was compiled from (LSP's `ContentModified`, -32801): the answer
-/// would be computed on a text the editor no longer has.
-fn content_modified(file: &str) -> tower_lsp::jsonrpc::Error {
-    tower_lsp::jsonrpc::Error {
-        code: tower_lsp::jsonrpc::ErrorCode::ServerError(-32801),
-        message: format!("{file} changed since the project was compiled; try again").into(),
-        data: None,
-    }
-}
-
-/// The entity the cursor at `position` of the open document `uri` names
-/// ([`crate::Cursor::target`]): what references and rename act on.
-fn entity_under_cursor(state: &LspState, uri: &Url, position: Position) -> Option<Sym> {
-    let cursor = state.document(uri.as_str())?.at(position)?;
-    match cursor.target(&navigator(state), &Compiled::new(state).key(uri))? {
-        Target::Entity { id, .. } => Some(id),
-        _ => None,
-    }
-}
-
 /// Formatter edits (0-based lines, byte columns of the formatted
 /// document) as LSP edits.
 fn formatter_edits_to_lsp(
@@ -500,33 +457,10 @@ impl LanguageServer for Backend {
             .unwrap_or(false);
         self.relative_patterns
             .store(relative_patterns, Ordering::Relaxed);
-        let definition_links = params
-            .capabilities
-            .text_document
-            .as_ref()
-            .and_then(|t| t.definition.as_ref())
-            .and_then(|d| d.link_support)
-            .unwrap_or(false);
-        self.definition_links
-            .store(definition_links, Ordering::Relaxed);
-        let hierarchical_symbols = params
-            .capabilities
-            .text_document
-            .as_ref()
-            .and_then(|t| t.document_symbol.as_ref())
-            .and_then(|d| d.hierarchical_document_symbol_support)
-            .unwrap_or(false);
-        self.hierarchical_symbols
-            .store(hierarchical_symbols, Ordering::Relaxed);
-        let insert_replace = params
-            .capabilities
-            .text_document
-            .as_ref()
-            .and_then(|t| t.completion.as_ref())
-            .and_then(|c| c.completion_item.as_ref())
-            .and_then(|i| i.insert_replace_support)
-            .unwrap_or(false);
-        self.insert_replace.store(insert_replace, Ordering::Relaxed);
+        self.state
+            .write()
+            .await
+            .set_client(ClientSupport::of(&params.capabilities));
         let root = params
             .root_uri
             .as_ref()
@@ -851,346 +785,102 @@ impl LanguageServer for Backend {
     }
 
     async fn hover(&self, params: HoverParams) -> Result<Option<Hover>> {
-        let uri = params.text_document_position_params.text_document.uri;
-        let pos = params.text_document_position_params.position;
-
-        let state = self.state.read().await;
-        let Some(doc) = state.document(uri.as_str()) else {
-            return Ok(None);
-        };
-
-        // A diagnostic under the cursor comes first: what it means and how
-        // to fix it, from the catalogue.
-        // Published ranges are positions in the compiled text.
-        let shown = Compiled::new(&state)
-            .index_of(&Compiled::new(&state).key(&uri))
-            .map(|index| crate::hover::diagnostics_at(state.diagnostics(uri.as_str()), &index, pos))
-            .unwrap_or_default();
-        let diagnostic_md = crate::hover::diagnostics(&shown);
-        let markdown = |md: String| {
-            Some(Hover {
-                contents: HoverContents::Markup(MarkupContent {
-                    kind: MarkupKind::Markdown,
-                    value: md,
-                }),
-                range: None,
-            })
-        };
-
-        // What the cursor names: the entity's facts (the inspect read view,
-        // reporting what was published), or a field's help.
-        // While the session is out for an update, the view is a stand-in
-        // that cannot read the recorded report.
-        let rebuilding = state.session().is_none();
-        let published: Vec<specforge_common::Diagnostic> =
-            state.published_diagnostics().cloned().collect();
-        let nav = navigator(&state);
-        let file = Compiled::new(&state).key(&uri);
-        let info = doc
-            .at(pos)
-            .and_then(|cursor| match cursor.target(&nav, &file)? {
-                Target::Entity { id, .. } => specforge_ops::inspect::inspect(
-                    &state.view().reporting(&published),
-                    id.as_str(),
-                )
-                .ok()
-                .map(|facts| crate::hover::entity(&facts, &shown, rebuilding)),
-                Target::Field { kind, field } => {
-                    hover_field_info(&field, &kind, state.field_registry())
-                }
-                Target::Import { .. } => None,
-            });
-        let combined = match (diagnostic_md, info) {
-            (Some(diag), Some(entity)) => Some(format!("{diag}\n\n---\n\n{entity}")),
-            (diag, entity) => diag.or(entity),
-        };
-        Ok(combined.and_then(markdown))
+        let at = params.text_document_position_params;
+        Ok(answers::hover(
+            &*self.state.read().await,
+            &at.text_document.uri,
+            at.position,
+        ))
     }
 
     async fn completion(&self, params: CompletionParams) -> Result<Option<CompletionResponse>> {
-        let uri = params.text_document_position.text_document.uri;
-        let pos = params.text_document_position.position;
-
-        let state = self.state.read().await;
-        let Some(cursor) = state.document(uri.as_str()).and_then(|doc| doc.at(pos)) else {
-            return Ok(None);
-        };
-        let items = crate::completion::items(
-            &cursor.completion(),
-            &cursor.word_edit(),
-            self.insert_replace.load(Ordering::Relaxed),
-            &state.view(),
-        );
-        Ok(Some(CompletionResponse::Array(items)))
+        let at = params.text_document_position;
+        Ok(answers::completion(
+            &*self.state.read().await,
+            &at.text_document.uri,
+            at.position,
+        ))
     }
 
     async fn goto_definition(
         &self,
         params: GotoDefinitionParams,
     ) -> Result<Option<GotoDefinitionResponse>> {
-        let uri = params.text_document_position_params.text_document.uri;
-        let pos = params.text_document_position_params.position;
-
-        let state = self.state.read().await;
-        let Some(cursor) = state.document(uri.as_str()).and_then(|doc| doc.at(pos)) else {
-            return Ok(None);
-        };
-        let ranges = Compiled::new(&state);
-        let nav = navigator(&state);
-        let file = Compiled::new(&state).key(&uri);
-        match cursor.target(&nav, &file) {
-            Some(Target::Import { path }) => {
-                if state.spec_root().as_os_str().is_empty() {
-                    return Ok(None);
-                }
-                // The imported file, from its first line: no text needed.
-                let span = goto_import_definition(&path, &file, state.spec_root());
-                Ok(span.map(|s| {
-                    GotoDefinitionResponse::Scalar(Location {
-                        uri: Compiled::new(&state).uri(s.file.as_str()),
-                        range: Range::default(),
-                    })
-                }))
-            }
-            Some(Target::Entity { id, origin }) => {
-                let Ok(definition) = nav.definition(id.as_str()) else {
-                    return Ok(None);
-                };
-                // A definition whose file's text is unknown is not answered
-                // (no range of it is honest).
-                if self.definition_links.load(Ordering::Relaxed) {
-                    let (Some(target_range), Some(target_selection_range)) = (
-                        ranges.range(&definition.block),
-                        ranges.range(&definition.name),
-                    ) else {
-                        return Ok(None);
-                    };
-                    return Ok(Some(GotoDefinitionResponse::Link(vec![LocationLink {
-                        origin_selection_range: Some(origin),
-                        target_uri: Compiled::new(&state).uri(definition.block.file.as_str()),
-                        target_range,
-                        target_selection_range,
-                    }])));
-                }
-                Ok(ranges
-                    .location(&definition.name)
-                    .map(GotoDefinitionResponse::Scalar))
-            }
-            _ => Ok(None),
-        }
+        let at = params.text_document_position_params;
+        Ok(answers::definition(
+            &*self.state.read().await,
+            &at.text_document.uri,
+            at.position,
+        ))
     }
 
-    /// The references to the entity under the cursor: incoming, its
-    /// declaration only when the request includes it (ADR 0016).
     async fn references(&self, params: ReferenceParams) -> Result<Option<Vec<Location>>> {
-        let uri = params.text_document_position.text_document.uri;
-        let pos = params.text_document_position.position;
-
-        let state = self.state.read().await;
-        let ranges = Compiled::new(&state);
-        let Some(id) = entity_under_cursor(&state, &uri, pos) else {
-            return Ok(None);
-        };
-        let query = ReferenceQuery {
-            direction: Direction::Incoming,
-            include_declaration: params.context.include_declaration,
-        };
-        let refs = navigator(&state)
-            .references(id.as_str(), query)
-            .unwrap_or_default();
-        if refs.is_empty() {
-            return Ok(None);
-        }
-        // An occurrence whose file's text is unknown is left out.
-        let locations: Vec<Location> = refs
-            .iter()
-            .filter_map(|o| ranges.location(&o.span))
-            .collect();
-        Ok((!locations.is_empty()).then_some(locations))
+        let at = params.text_document_position;
+        Ok(answers::references(
+            &*self.state.read().await,
+            &at.text_document.uri,
+            at.position,
+            params.context.include_declaration,
+        ))
     }
 
     async fn prepare_rename(
         &self,
         params: TextDocumentPositionParams,
     ) -> Result<Option<PrepareRenameResponse>> {
-        let uri = params.text_document.uri;
-        let pos = params.position;
-
-        let state = self.state.read().await;
-        let Some(cursor) = state.document(uri.as_str()).and_then(|doc| doc.at(pos)) else {
-            return Ok(None);
-        };
-
-        // The token as written under the cursor, declaration or
-        // reference; nothing else renames.
-        let ranges = Compiled::new(&state);
-        let occurrence = cursor.occurrence(&navigator(&state), &Compiled::new(&state).key(&uri));
-        Ok(occurrence
-            .and_then(|o| ranges.range(&o.span))
-            .map(PrepareRenameResponse::Range))
+        answers::prepare_rename(
+            &*self.state.read().await,
+            &params.text_document.uri,
+            params.position,
+        )
     }
 
     async fn rename(&self, params: RenameParams) -> Result<Option<WorkspaceEdit>> {
-        let uri = params.text_document_position.text_document.uri;
-        let pos = params.text_document_position.position;
-        let new_name = params.new_name;
-
-        let state = self.state.read().await;
-        let ranges = Compiled::new(&state);
-        let Some(id) = entity_under_cursor(&state, &uri, pos) else {
-            return Ok(None);
-        };
-
-        // The declaration's name and every reference's token, read from
-        // the open buffer, else disk, planned by the shared rename (the MCP
-        // tool's rules). A rename is all or nothing: one that cannot be
-        // done whole is refused with why.
-        let edits = match specforge_ops::rename::plan(&navigator(&state), id.as_str(), &new_name) {
-            Ok(plan) => plan.edits,
-            Err(e) if e.kind == specforge_ops::OpErrorKind::EntityNotFound => return Ok(None),
-            Err(e) => return Err(tower_lsp::jsonrpc::Error::invalid_params(e.message)),
-        };
-
-        let mut changes: std::collections::HashMap<Url, Vec<TextEdit>> =
-            std::collections::HashMap::new();
-        for edit in edits {
-            // The edits are positions in the compiled text, and apply to
-            // the editor's buffer: a buffer typed in since the compile is
-            // not that text, so the rename waits for the compile (LSP's
-            // ContentModified).
-            if ranges.is_stale(&edit.file) {
-                return Err(content_modified(&edit.file));
-            }
-            let file_uri = Compiled::new(&state).uri(&edit.file);
-            // A 1-based line and byte columns of the file's text.
-            let span = SourceSpan {
-                file: Sym::new(&edit.file),
-                start_line: edit.line,
-                start_col: edit.start_col + 1,
-                end_line: edit.line,
-                end_col: edit.end_col + 1,
-            };
-            // A rename is all or nothing: an edit that cannot be placed
-            // refuses it.
-            let Some(range) = ranges.range(&span) else {
-                return Err(tower_lsp::jsonrpc::Error::invalid_params(format!(
-                    "cannot rename: the text of {} is not known",
-                    edit.file
-                )));
-            };
-            changes.entry(file_uri).or_default().push(TextEdit {
-                range,
-                new_text: new_name.clone(),
-            });
-        }
-
-        Ok(Some(WorkspaceEdit {
-            changes: Some(changes),
-            ..Default::default()
-        }))
+        let at = params.text_document_position;
+        answers::rename(
+            &*self.state.read().await,
+            &at.text_document.uri,
+            at.position,
+            &params.new_name,
+        )
     }
 
-    /// The fixes for what the request's range covers: the diagnostics
-    /// published for the document whose span overlaps it, and the
-    /// entities there missing verify statements (ADR 0016: the fixes MCP
-    /// suggest_fixes returns for the same diagnostics).
     async fn code_action(&self, params: CodeActionParams) -> Result<Option<CodeActionResponse>> {
-        let uri = params.text_document.uri;
-        let state = self.state.read().await;
-        let file = Compiled::new(&state).key(&uri);
-        let ranges = Compiled::new(&state);
-        // The request's range is the editor's own: positions in its buffer.
-        let within = state
-            .document(uri.as_str())
-            .map(|doc| doc.index().span(Sym::new(&file), params.range));
-        let query = FixQuery {
-            file: Some(&file),
-            within: within.as_ref(),
-            ..FixQuery::default()
-        };
-        let fixes = navigator(&state).fixes(state.diagnostics(uri.as_str()), &query);
-        // A fix that cannot be placed whole (see `fix_to_code_action`) is
-        // not offered.
-        let actions: Vec<CodeActionOrCommand> = fixes
-            .into_iter()
-            .filter_map(|fix| fix_to_code_action(&ranges, fix))
-            .map(CodeActionOrCommand::CodeAction)
-            .collect();
-        Ok((!actions.is_empty()).then_some(actions))
+        Ok(answers::code_actions(
+            &*self.state.read().await,
+            &params.text_document.uri,
+            params.range,
+        ))
     }
 
-    /// The document's outline (`specforge_ops::navigate::outline`, what MCP
-    /// outline returns): nested symbols, methods as children, each
-    /// selecting its name, for a client that declared
-    /// hierarchicalDocumentSymbolSupport; flat otherwise.
     async fn document_symbol(
         &self,
         params: DocumentSymbolParams,
     ) -> Result<Option<DocumentSymbolResponse>> {
-        let uri = params.text_document.uri;
-
-        let state = self.state.read().await;
-        let entries = outline(&navigator(&state), &Compiled::new(&state).key(&uri));
-        if entries.is_empty() {
-            return Ok(None);
-        }
-        let hierarchical = self.hierarchical_symbols.load(Ordering::Relaxed);
-        Ok(Some(outline_to_document_symbols(
-            &Compiled::new(&state),
-            entries,
-            hierarchical,
-        )))
+        Ok(answers::document_symbols(
+            &*self.state.read().await,
+            &params.text_document.uri,
+        ))
     }
 
     async fn symbol(
         &self,
         params: WorkspaceSymbolParams,
     ) -> Result<Option<Vec<SymbolInformation>>> {
-        let state = self.state.read().await;
-        // The shared ranking over ids and titles: what MCP search and
-        // completion rank alike.
-        let query = EntityQuery::new(&params.query, MatchScope::Names);
-        let found = find_entities(state.graph(), &query);
-        if found.is_empty() {
-            return Ok(None);
-        }
-
-        let kind_reg = state.kind_registry();
-        let ranges = Compiled::new(&state);
-        #[allow(deprecated)]
-        let lsp_symbols: Vec<SymbolInformation> = found
-            .into_iter()
-            .filter_map(|m| {
-                Some(SymbolInformation {
-                    // Graph byte columns convert to UTF-16 against the text
-                    // the graph was compiled from; an entity whose file's
-                    // text is unknown is left out.
-                    location: ranges.location(&m.node.source_span)?,
-                    name: m.node.id.raw.to_string(),
-                    kind: symbol_kind_from_entity(m.node.kind.raw.as_str(), kind_reg),
-                    tags: None,
-                    deprecated: None,
-                    container_name: Some(m.node.kind.raw.to_string()),
-                })
-            })
-            .collect();
-
-        Ok((!lsp_symbols.is_empty()).then_some(lsp_symbols))
+        Ok(answers::workspace_symbols(
+            &*self.state.read().await,
+            &params.query,
+        ))
     }
 
     async fn semantic_tokens_full(
         &self,
         params: SemanticTokensParams,
     ) -> Result<Option<SemanticTokensResult>> {
-        let uri = params.text_document.uri;
-        let state = self.state.read().await;
-        let Some(doc) = state.document(uri.as_str()) else {
-            return Ok(None);
-        };
-        Ok(Some(SemanticTokensResult::Tokens(SemanticTokens {
-            result_id: None,
-            data: doc.semantic_tokens(&state.view()),
-        })))
+        Ok(answers::semantic_tokens(
+            &*self.state.read().await,
+            &params.text_document.uri,
+        ))
     }
 
     async fn formatting(&self, params: DocumentFormattingParams) -> Result<Option<Vec<TextEdit>>> {
