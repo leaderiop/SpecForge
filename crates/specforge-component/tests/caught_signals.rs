@@ -18,6 +18,8 @@
 #[cfg(target_os = "macos")]
 const TEST: &str = "runtime_survives_sigchld_with_a_handler";
 
+// Off macOS nothing follows the `--list` branch, so its `return` is needless.
+#[cfg_attr(not(target_os = "macos"), allow(clippy::needless_return))]
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     if args.iter().any(|a| a == "--list") {
