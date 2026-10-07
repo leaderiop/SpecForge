@@ -481,7 +481,7 @@ expression: product
   },
   {
     "category": "core",
-    "description": "How many of a milestone's features are done: the count, the ratio in [0, 1] and their ids.",
+    "description": "How many of a milestone's features are done: the count, the ratio in [0, 1] and their ids; beside it, how many the project's recorded tests prove (each feature's implementing behaviors, after `specforge collect`).",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {

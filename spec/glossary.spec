@@ -100,13 +100,15 @@ term t_emitter "emitter" {
 
 term t_diagnostic "diagnostic" {
   definition """
-    A compiler message with a severity (error, warning, info), a validation
-    code, source location, and human-readable message. Styled like rustc
-    output. Each code has exactly one meaning and one owner (core or a
-    single extension); the canonical registry is the `specforge explain`
-    catalog, rendered to docs/diagnostics.md and enforced by tests against
-    every emitting source. Third-party extensions use E900-E998,
-    W900-W998, I900-I998 (I999 is core).
+    A compiler message with a severity (error, warning, info), a
+    diagnostic code, source location, and human-readable message.
+    Styled like rustc output. Each code has exactly one meaning, one
+    owner (core or a single extension) and one level, stated once in the
+    diagnostic catalog (`specforge explain`, rendered to
+    docs/diagnostics.md), which also gives every core code a typed
+    constant. Codes an extension reports are checked where they enter
+    the host. Third-party extensions use E900-E998, W900-W998,
+    I900-I998 (I999 is core), at the level the prefix states.
   """
   aliases    ["compiler diagnostic", "validation message"]
 }

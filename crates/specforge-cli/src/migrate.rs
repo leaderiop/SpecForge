@@ -14,7 +14,11 @@ pub fn run(
     // Handle rollback mode
     if rollback {
         let summary = migrate::rollback(path);
-        print_rollback(&summary, format);
+        print_rollback(
+            &summary,
+            &migrate::restored(&summary).names_under(path),
+            format,
+        );
         return if summary.failed_count > 0 { 1 } else { 0 };
     }
 
@@ -39,7 +43,9 @@ pub fn run(
         no_backup,
     };
     let outcome = migrate::run(&request, Some(&runtime));
-    print_migration(&outcome.summary, format, dry_run);
+    // Each migrated file and each backup (none for a dry run).
+    let written = (!dry_run).then(|| outcome.writes.names_under(path));
+    print_migration(&outcome.summary, written.as_deref(), format, dry_run);
 
     if outcome.summary.failed_count > 0 {
         return 1;
@@ -66,11 +72,20 @@ pub fn run(
     0
 }
 
-fn print_rollback(summary: &RollbackSummary, format: OutputFormat) {
+/// The JSON of `document` with `files_written`, when given.
+fn with_files_written(document: impl serde::Serialize, files_written: Option<&[String]>) -> String {
+    let mut json = serde_json::to_value(document).unwrap_or_default();
+    if let (Some(files), Some(object)) = (files_written, json.as_object_mut()) {
+        object.insert("files_written".to_string(), serde_json::json!(files));
+    }
+    serde_json::to_string_pretty(&json).unwrap_or_default()
+}
+
+/// The restore; its JSON lists each file restored in `files_written`.
+fn print_rollback(summary: &RollbackSummary, files_written: &[String], format: OutputFormat) {
     match format {
         OutputFormat::Json => {
-            let json = serde_json::to_string_pretty(summary).unwrap_or_default();
-            println!("{json}");
+            println!("{}", with_files_written(summary, Some(files_written)));
         }
         OutputFormat::Human => {
             for w in &summary.warnings {
@@ -98,11 +113,17 @@ fn print_rollback(summary: &RollbackSummary, format: OutputFormat) {
     }
 }
 
-fn print_migration(summary: &MigrationSummary, format: OutputFormat, dry_run: bool) {
+/// The migration; its JSON lists each migrated file and each backup in
+/// `files_written` (absent from a dry run).
+fn print_migration(
+    summary: &MigrationSummary,
+    files_written: Option<&[String]>,
+    format: OutputFormat,
+    dry_run: bool,
+) {
     match format {
         OutputFormat::Json => {
-            let json = serde_json::to_string_pretty(summary).unwrap_or_default();
-            println!("{json}");
+            println!("{}", with_files_written(summary, files_written));
         }
         OutputFormat::Human => {
             if dry_run {

@@ -34,6 +34,9 @@ expression: mcp_snap
     ],
     "check_only": false,
     "diagnostics": [],
+    "files_written": [
+      "spec/messy.spec"
+    ],
     "total_checked": 2
   }
 }

@@ -1,5 +1,5 @@
 use semver::{Version, VersionReq};
-use specforge_common::{Diagnostic, Severity};
+use specforge_common::{Diagnostic, codes};
 
 use super::http_client::HttpRegistryClient;
 use super::registry_client::RegistryError;
@@ -16,42 +16,34 @@ pub fn resolve_version(
     registry: &RegistryConfig,
 ) -> Result<String, Diagnostic> {
     let versions = client.fetch_versions(name, registry).map_err(|e| match e {
-        RegistryError::NotFound { .. } => Diagnostic {
-            code: "R-RES-001".to_string(),
-            severity: Severity::Error,
-            message: format!(
+        RegistryError::NotFound { .. } => Diagnostic::new(
+            codes::R_RES_001,
+            format!(
                 "package '{}' not found in registry '{}'",
                 name, registry.alias
             ),
-            span: None,
-            suggestion: Some("check the package name and registry configuration".to_string()),
-            data: None,
-        },
+        )
+        .with_suggestion("check the package name and registry configuration".to_string()),
         other => other.to_diagnostic(),
     })?;
 
     if versions.is_empty() {
-        return Err(Diagnostic {
-            code: "R-RES-002".to_string(),
-            severity: Severity::Error,
-            message: format!("no versions published for '{}'", name),
-            span: None,
-            suggestion: None,
-            data: None,
-        });
+        return Err(Diagnostic::new(
+            codes::R_RES_002,
+            format!("no versions published for '{}'", name),
+        ));
     }
 
     if range == "latest" || range == "*" {
         return pick_highest(&versions, name);
     }
 
-    let req = VersionReq::parse(range).map_err(|e| Diagnostic {
-        code: "R-RES-003".to_string(),
-        severity: Severity::Error,
-        message: format!("invalid version range '{}': {}", range, e),
-        span: None,
-        suggestion: Some("use semver syntax: ^1.0, ~2.3, >=1.0.0 <2.0.0".to_string()),
-        data: None,
+    let req = VersionReq::parse(range).map_err(|e| {
+        Diagnostic::new(
+            codes::R_RES_003,
+            format!("invalid version range '{}': {}", range, e),
+        )
+        .with_suggestion("use semver syntax: ^1.0, ~2.3, >=1.0.0 <2.0.0".to_string())
     })?;
 
     let mut matching: Vec<Version> = versions
@@ -62,24 +54,18 @@ pub fn resolve_version(
 
     matching.sort();
 
-    matching
-        .last()
-        .map(|v| v.to_string())
-        .ok_or_else(|| Diagnostic {
-            code: "R-RES-004".to_string(),
-            severity: Severity::Error,
-            message: format!(
+    matching.last().map(|v| v.to_string()).ok_or_else(|| {
+        Diagnostic::new(
+            codes::R_RES_004,
+            format!(
                 "no version of '{}' satisfies range '{}'. Available: {}",
                 name,
                 range,
                 versions.join(", ")
             ),
-            span: None,
-            suggestion: Some(
-                "try a different version range or check available versions".to_string(),
-            ),
-            data: None,
-        })
+        )
+        .with_suggestion("try a different version range or check available versions".to_string())
+    })
 }
 
 fn pick_highest(versions: &[String], name: &str) -> Result<String, Diagnostic> {
@@ -90,17 +76,12 @@ fn pick_highest(versions: &[String], name: &str) -> Result<String, Diagnostic> {
 
     parsed.sort();
 
-    parsed
-        .last()
-        .map(|v| v.to_string())
-        .ok_or_else(|| Diagnostic {
-            code: "R-RES-002".to_string(),
-            severity: Severity::Error,
-            message: format!("no valid semver versions found for '{}'", name),
-            span: None,
-            suggestion: None,
-            data: None,
-        })
+    parsed.last().map(|v| v.to_string()).ok_or_else(|| {
+        Diagnostic::new(
+            codes::R_RES_002,
+            format!("no valid semver versions found for '{}'", name),
+        )
+    })
 }
 
 #[cfg(test)]

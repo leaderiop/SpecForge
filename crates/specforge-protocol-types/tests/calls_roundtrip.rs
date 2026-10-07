@@ -212,3 +212,70 @@ fn a_pass_answers_bare_diagnostics_or_diagnostics_with_a_summary() {
     let error = serde_json::from_value::<PassAnswer>(json!("x")).unwrap_err();
     assert!(error.to_string().contains("expected an array"), "{error}");
 }
+
+mod evidence {
+    use serde_json::json;
+    use specforge_protocol_types::{CommandEvidence, CommandInput, EntityEvidence, GraphWire};
+    use specforge_test_macros::test as specforge_test;
+
+    #[specforge_test(
+        type = "CommandEvidence",
+        verify = "a command input without evidence leaves the field off the wire, and evidence is tagged by its state"
+    )]
+    fn evidence_is_absent_or_tagged_by_its_state() {
+        let input = CommandInput::<GraphWire>::default();
+        let wire = serde_json::to_value(&input).unwrap();
+        assert!(wire.get("evidence").is_none(), "{wire}");
+        let back: CommandInput<GraphWire> = serde_json::from_value(wire).unwrap();
+        assert_eq!(back.evidence, CommandEvidence::None);
+
+        let recorded = CommandEvidence::Recorded {
+            entities: [(
+                "b".to_string(),
+                EntityEvidence {
+                    obligations: 2,
+                    proven: 1,
+                    failing: 0,
+                },
+            )]
+            .into_iter()
+            .collect(),
+        };
+        assert_eq!(
+            serde_json::to_value(&recorded).unwrap(),
+            json!({"state": "recorded", "entities": {"b": {"obligations": 2, "proven": 1, "failing": 0}}})
+        );
+        let unreadable: CommandEvidence =
+            serde_json::from_value(json!({"state": "unreadable", "reason": "why"})).unwrap();
+        assert_eq!(
+            unreadable,
+            CommandEvidence::Unreadable {
+                reason: "why".into()
+            }
+        );
+        assert!(unreadable.entities().is_none());
+        // An older host's input (no field) and a peer's unknown fields decode.
+        let older: CommandInput<GraphWire> =
+            serde_json::from_value(json!({"args": {}, "cwd": "/p", "later": 1})).unwrap();
+        assert!(older.evidence.is_none());
+    }
+
+    #[specforge_test(
+        type = "EntityEvidence",
+        verify = "an entity is proven when it declares an obligation, every one is proven and no test fails"
+    )]
+    fn an_entity_is_proven_only_when_every_obligation_is() {
+        let e = |obligations, proven, failing| EntityEvidence {
+            obligations,
+            proven,
+            failing,
+        };
+        assert!(e(2, 2, 0).is_proven());
+        assert!(!e(2, 1, 0).is_proven(), "one unproven obligation");
+        assert!(!e(1, 1, 1).is_proven(), "a failing test");
+        assert!(!e(0, 0, 0).is_proven(), "nothing to prove is not proof");
+        let decoded: EntityEvidence =
+            serde_json::from_value(json!({"obligations": 1, "proven": 1})).unwrap();
+        assert_eq!(decoded.failing, 0, "failing defaults to none");
+    }
+}

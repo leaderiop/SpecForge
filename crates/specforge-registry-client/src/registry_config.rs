@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use specforge_common::{Diagnostic, Severity};
+use specforge_common::{Diagnostic, codes};
 use std::path::PathBuf;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -36,14 +36,13 @@ pub fn parse_registries_from_config(config_json: &str) -> (Vec<RegistryConfig>, 
     let parsed: serde_json::Value = match serde_json::from_str(config_json) {
         Ok(v) => v,
         Err(e) => {
-            diagnostics.push(Diagnostic {
-                code: "E067".to_string(),
-                severity: Severity::Error,
-                message: format!("Failed to parse registry config JSON: {e}"),
-                span: None,
-                suggestion: Some("Ensure the configuration is valid JSON.".to_string()),
-                data: None,
-            });
+            diagnostics.push(
+                Diagnostic::new(
+                    codes::E067,
+                    format!("Failed to parse registry config JSON: {e}"),
+                )
+                .with_suggestion("Ensure the configuration is valid JSON.".to_string()),
+            );
             return (Vec::new(), diagnostics);
         }
     };
@@ -51,14 +50,13 @@ pub fn parse_registries_from_config(config_json: &str) -> (Vec<RegistryConfig>, 
     let registries_value = match parsed.get("registries") {
         Some(v) => v,
         None => {
-            diagnostics.push(Diagnostic {
-                code: "I003".to_string(),
-                severity: Severity::Info,
-                message: "No registries configured and no default registry set.".to_string(),
-                span: None,
-                suggestion: Some("Add a \"registries\" array to your configuration.".to_string()),
-                data: None,
-            });
+            diagnostics.push(
+                Diagnostic::new(
+                    codes::I003,
+                    "No registries configured and no default registry set.".to_string(),
+                )
+                .with_suggestion("Add a \"registries\" array to your configuration.".to_string()),
+            );
             return (Vec::new(), diagnostics);
         }
     };
@@ -66,14 +64,10 @@ pub fn parse_registries_from_config(config_json: &str) -> (Vec<RegistryConfig>, 
     let registries_array = match registries_value.as_array() {
         Some(arr) => arr,
         None => {
-            diagnostics.push(Diagnostic {
-                code: "E067".to_string(),
-                severity: Severity::Error,
-                message: "\"registries\" must be a JSON array.".to_string(),
-                span: None,
-                suggestion: None,
-                data: None,
-            });
+            diagnostics.push(Diagnostic::new(
+                codes::E067,
+                "\"registries\" must be a JSON array.".to_string(),
+            ));
             return (Vec::new(), diagnostics);
         }
     };
@@ -85,45 +79,36 @@ pub fn parse_registries_from_config(config_json: &str) -> (Vec<RegistryConfig>, 
         match serde_json::from_value::<RegistryConfig>(entry.clone()) {
             Ok(reg) => {
                 if !seen_aliases.insert(reg.alias.clone()) {
-                    diagnostics.push(Diagnostic {
-                        code: "W140".to_string(),
-                        severity: Severity::Warning,
-                        message: format!(
-                            "Duplicate registry alias \"{}\" at index {i}.",
-                            reg.alias
-                        ),
-                        span: None,
-                        suggestion: Some("Use unique aliases for each registry.".to_string()),
-                        data: None,
-                    });
+                    diagnostics.push(
+                        Diagnostic::new(
+                            codes::W140,
+                            format!("Duplicate registry alias \"{}\" at index {i}.", reg.alias),
+                        )
+                        .with_suggestion("Use unique aliases for each registry.".to_string()),
+                    );
                 }
                 registries.push(reg);
             }
             Err(e) => {
-                diagnostics.push(Diagnostic {
-                    code: "E067".to_string(),
-                    severity: Severity::Error,
-                    message: format!("Failed to parse registry entry at index {i}: {e}"),
-                    span: None,
-                    suggestion: None,
-                    data: None,
-                });
+                diagnostics.push(Diagnostic::new(
+                    codes::E067,
+                    format!("Failed to parse registry entry at index {i}: {e}"),
+                ));
             }
         }
     }
 
     let has_default = registries.iter().any(|r| r.default_registry);
     if registries.is_empty() || !has_default {
-        diagnostics.push(Diagnostic {
-            code: "I003".to_string(),
-            severity: Severity::Info,
-            message: "No registries configured and no default registry set.".to_string(),
-            span: None,
-            suggestion: Some(
+        diagnostics.push(
+            Diagnostic::new(
+                codes::I003,
+                "No registries configured and no default registry set.".to_string(),
+            )
+            .with_suggestion(
                 "Set \"default_registry\": true on one of your registries.".to_string(),
             ),
-            data: None,
-        });
+        );
     }
 
     (registries, diagnostics)

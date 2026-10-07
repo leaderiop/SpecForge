@@ -7,6 +7,7 @@ use std::str::FromStr;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
+use specforge_diagnostics::codes;
 use specforge_graph::Graph;
 use specforge_registry::{EdgeRegistry, FieldRegistry, KindRegistry, ManifestFieldType};
 
@@ -304,7 +305,7 @@ pub struct SchemaVersionError {
 
 impl fmt::Display for SchemaVersionError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "E027: {}", self.reason)
+        write!(f, "{}: {}", codes::E027, self.reason)
     }
 }
 
@@ -508,13 +509,6 @@ struct JsonNodeV2 {
     fields: BTreeMap<String, Value>,
 }
 
-pub fn emit_json_with_schema(
-    graph: &Graph,
-    schema: &GraphProtocolSchema,
-) -> Result<String, EmitterError> {
-    emit_json_attached(graph, schema, SchemaAttachment::Embedded)
-}
-
 pub(crate) fn emit_json_attached(
     graph: &Graph,
     schema: &GraphProtocolSchema,
@@ -573,13 +567,6 @@ struct ContextNodeV2 {
     fields: std::collections::BTreeMap<String, Value>,
 }
 
-pub fn emit_context_with_schema(
-    graph: &Graph,
-    schema: &GraphProtocolSchema,
-) -> Result<String, EmitterError> {
-    emit_context_attached(graph, schema, SchemaAttachment::Embedded, None)
-}
-
 pub(crate) fn emit_context_attached(
     graph: &Graph,
     schema: &GraphProtocolSchema,
@@ -634,13 +621,6 @@ struct BriefNodeV2 {
     kind: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     title: Option<String>,
-}
-
-pub fn emit_brief_with_schema(
-    graph: &Graph,
-    schema: &GraphProtocolSchema,
-) -> Result<String, EmitterError> {
-    emit_brief_attached(graph, schema, SchemaAttachment::Embedded)
 }
 
 pub(crate) fn emit_brief_attached(
@@ -895,80 +875,6 @@ pub fn content_hash(schema: &GraphProtocolSchema) -> String {
 // ---------------------------------------------------------------------------
 // Slice 6b: Version Negotiation — default to latest
 // ---------------------------------------------------------------------------
-
-// ---------------------------------------------------------------------------
-// Slice 3b: Scoped V2 Exports
-// ---------------------------------------------------------------------------
-
-/// Scoped exports name their schema by URL + content hash instead of
-/// embedding the full document (C6-07): a scoped payload should not carry
-/// the whole schema in every letter.
-pub fn emit_json_scoped_with_schema(
-    graph: &Graph,
-    scope: &str,
-    schema: &GraphProtocolSchema,
-) -> Result<String, EmitterError> {
-    let sub = graph.subgraph(scope).ok_or_else(|| {
-        EmitterError::EntityNotFound(format!(
-            "E003: unresolved scope entity '{}' — entity not found in graph",
-            scope
-        ))
-    })?;
-    emit_json_attached(&sub, schema, SchemaAttachment::Referenced)
-}
-
-pub fn emit_context_scoped_with_schema(
-    graph: &Graph,
-    scope: &str,
-    schema: &GraphProtocolSchema,
-) -> Result<String, EmitterError> {
-    let sub = graph.subgraph(scope).ok_or_else(|| {
-        EmitterError::EntityNotFound(format!(
-            "E003: unresolved scope entity '{}' — entity not found in graph",
-            scope
-        ))
-    })?;
-    emit_context_attached(&sub, schema, SchemaAttachment::Referenced, None)
-}
-
-pub fn emit_brief_scoped_with_schema(
-    graph: &Graph,
-    scope: &str,
-    schema: &GraphProtocolSchema,
-) -> Result<String, EmitterError> {
-    let sub = graph.subgraph(scope).ok_or_else(|| {
-        EmitterError::EntityNotFound(format!(
-            "E003: unresolved scope entity '{}' — entity not found in graph",
-            scope
-        ))
-    })?;
-    emit_brief_attached(&sub, schema, SchemaAttachment::Referenced)
-}
-
-// ---------------------------------------------------------------------------
-// Slice 8: Serve Schema
-// ---------------------------------------------------------------------------
-
-pub fn emit_schema(schema: &GraphProtocolSchema) -> Result<String, EmitterError> {
-    serde_json::to_string_pretty(schema)
-        .map_err(|e| EmitterError::SerializationError(e.to_string()))
-}
-
-pub fn emit_schema_for_kind(
-    schema: &GraphProtocolSchema,
-    kind: &str,
-) -> Result<String, EmitterError> {
-    schema
-        .entity_kinds
-        .iter()
-        .find(|k| k.name == kind)
-        .map(|k| {
-            serde_json::to_string_pretty(k)
-                .map_err(|e| EmitterError::SerializationError(e.to_string()))
-        })
-        .transpose()?
-        .ok_or_else(|| EmitterError::EntityNotFound(format!("unknown entity kind: '{}'", kind)))
-}
 
 // ---------------------------------------------------------------------------
 // Slice 9: Publish JSON Schema

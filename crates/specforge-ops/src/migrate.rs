@@ -6,7 +6,7 @@
 //! hook fails, or the graph's structure changed, the migrated files are
 //! restored from their backups.
 
-use specforge_common::{Diagnostic, Severity};
+use specforge_common::{Diagnostic, Severity, codes};
 use specforge_migrate::{
     CURRENT_FORMAT_VERSION, FormatVersion, MAX_SUPPORTED_VERSION, MIN_SUPPORTED_VERSION,
     MigrationSummary, RollbackSummary, check_schema_compatibility, compare_graphs, migrate_project,
@@ -17,7 +17,7 @@ use specforge_protocol_types::ExtensionDeclaration;
 use specforge_wasm::WasmRuntime;
 use std::path::Path;
 
-use crate::OpError;
+use crate::{OpError, Writes};
 
 /// The format version to migrate to: `raw`, checked, else the current one.
 /// A version that doesn't parse, or one newer than this build supports, is
@@ -30,16 +30,17 @@ pub fn parse_target(raw: Option<&str>) -> Result<FormatVersion, OpError> {
         "Use a format version between {MIN_SUPPORTED_VERSION} and {MAX_SUPPORTED_VERSION}."
     );
     match raw.parse::<FormatVersion>() {
-        Ok(version) if version > MAX_SUPPORTED_VERSION => Err(OpError::new(
-            "E019",
+        Ok(version) if version > MAX_SUPPORTED_VERSION => Err(OpError::diagnostic(
+            codes::E019,
             format!("unsupported target version {raw} (max supported: {MAX_SUPPORTED_VERSION})"),
         )
         .with_suggestion(supported)),
         Ok(version) => Ok(version),
-        Err(e) => Err(
-            OpError::new("E019", format!("invalid target version '{raw}': {e}"))
-                .with_suggestion(supported),
-        ),
+        Err(e) => Err(OpError::diagnostic(
+            codes::E019,
+            format!("invalid target version '{raw}': {e}"),
+        )
+        .with_suggestion(supported)),
     }
 }
 
@@ -79,6 +80,10 @@ pub struct Outcome {
     pub post_diagnostics: Vec<Diagnostic>,
     /// The restore, when the migration was rolled back.
     pub rollback: Option<RollbackSummary>,
+    /// The files the run left changed: each migrated file and each backup;
+    /// after a rollback, the backups (the migrated files hold their old
+    /// text again). Nothing for a dry run or with nothing pending.
+    pub writes: Writes,
 }
 
 impl Outcome {
@@ -147,6 +152,7 @@ pub fn run_with_hooks(
         structural_differences: Vec::new(),
         post_diagnostics: Vec::new(),
         rollback: None,
+        writes: Writes::none(),
     };
     if !pending || request.dry_run {
         return outcome;
@@ -158,6 +164,7 @@ pub fn run_with_hooks(
 
     outcome.summary = migrate_project(root, target, false, request.no_backup);
     outcome.applied = true;
+    outcome.writes = summary_writes(&outcome.summary);
     if outcome.summary.failed_count > 0 {
         return outcome;
     }
@@ -178,7 +185,7 @@ pub fn run_with_hooks(
     outcome.hooks_invoked = invoked;
     outcome.hook_failures = failures;
     if !outcome.hook_failures.is_empty() {
-        outcome.rollback = Some(run_rollback(root));
+        roll_back(root, &mut outcome);
         return outcome;
     }
 
@@ -189,9 +196,55 @@ pub fn run_with_hooks(
     outcome.structural_differences = compare_graphs(&pre.graph, &post.graph);
     outcome.post_diagnostics = post.diagnostics();
     if !outcome.structural_differences.is_empty() {
-        outcome.rollback = Some(run_rollback(root));
+        roll_back(root, &mut outcome);
     }
     outcome
+}
+
+/// What `migrate_project` wrote: each file it migrated and each backup
+/// it made.
+fn summary_writes(summary: &MigrationSummary) -> Writes {
+    let migrated = summary
+        .results
+        .iter()
+        .filter(|r| r.status == specforge_migrate::MigrationStatus::Migrated)
+        .map(|r| r.file_path.as_str());
+    let backups = summary.backups.iter().map(|b| b.backup_path.as_str());
+    migrated.chain(backups).collect()
+}
+
+/// Restore the project's files from their backups after a failed check: a
+/// file this run migrated holds its old text again and is forgotten; any
+/// other file a backup restored was rewritten, and is recorded.
+fn roll_back(root: &Path, outcome: &mut Outcome) {
+    let summary = run_rollback(root);
+    for restored in summary
+        .results
+        .iter()
+        .filter(|r| r.status == specforge_migrate::MigrationStatus::Restored)
+    {
+        let path = Path::new(&restored.file_path);
+        let migrated_here = outcome.summary.results.iter().any(|r| {
+            r.status == specforge_migrate::MigrationStatus::Migrated
+                && r.file_path == restored.file_path
+        });
+        if migrated_here {
+            outcome.writes.forget(path);
+        } else {
+            outcome.writes.record(path);
+        }
+    }
+    outcome.rollback = Some(summary);
+}
+
+/// What a rollback rewrote: each file it restored from its backup.
+pub fn restored(summary: &RollbackSummary) -> Writes {
+    summary
+        .results
+        .iter()
+        .filter(|r| r.status == specforge_migrate::MigrationStatus::Restored)
+        .map(|r| r.file_path.as_str())
+        .collect()
 }
 
 /// Restore every migrated file from its `.bak` backup.
@@ -373,6 +426,46 @@ mod tests {
         assert_eq!(parse_target(None).unwrap(), CURRENT_FORMAT_VERSION);
     }
 
+    #[specforge_test(
+        behavior = "migrate_spec_files_in_place",
+        verify = "only the project's sources are migrated: under spec_root, without excluded files"
+    )]
+    fn migrate_reads_the_project_sources() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let root = dir.path();
+        std::fs::write(
+            root.join("specforge.json"),
+            r#"{"spec_root": "specs", "exclude": ["drafts"]}"#,
+        )
+        .unwrap();
+        for file in [
+            "specs/a.spec",
+            "specs/drafts/d.spec",
+            "spec/old.spec",
+            "fixtures/fx.spec",
+        ] {
+            std::fs::create_dir_all(root.join(file).parent().unwrap()).unwrap();
+            std::fs::write(root.join(file), OLD).unwrap();
+        }
+
+        let summary = migrate_project(root, &CURRENT_FORMAT_VERSION, true, true);
+
+        let visited: Vec<&str> = summary
+            .results
+            .iter()
+            .map(|r| r.file_path.as_str())
+            .collect();
+        assert_eq!(visited.len(), 1, "{visited:?}");
+        assert!(visited[0].ends_with("specs/a.spec"), "{visited:?}");
+        // Rollback looks at the same files (none has a backup: a dry run).
+        let rollback = rollback(root);
+        assert_eq!(rollback.skipped_count, 1, "{rollback:?}");
+        assert!(
+            rollback.results[0].file_path.ends_with("specs/a.spec"),
+            "{rollback:?}"
+        );
+    }
+
     /// `@acme/x`, served in process, declaring its migration hook
     /// `migrate_acme` with its handler, or no hook; the runtime records
     /// every export the host calls.
@@ -500,6 +593,43 @@ mod tests {
             runtime.calls()[0].input,
             serde_json::json!({"from": "0.9", "to": "1.0", "files": ["old.spec"]})
         );
+    }
+
+    #[specforge_test(
+        behavior = "invoke_extension_migration_hooks",
+        verify = "the nine builtin extensions' hooks run in dependency order with no failure"
+    )]
+    fn the_builtin_extensions_hooks_run_without_a_dependency_failure() {
+        // Every builtin loaded together, as a project enabling all of them
+        // does: the peer graph (optional peers included) must sort, or the
+        // hooks never run and a migration rolls back.
+        let names: Vec<&str> = specforge_component::builtins::BUILTIN_EXTENSIONS
+            .iter()
+            .map(|(name, _)| *name)
+            .collect();
+        assert_eq!(names.len(), 9);
+        let dir = tempfile::TempDir::new().unwrap();
+        let config = serde_json::json!({"name": "p", "version": "0.1.0", "extensions": names});
+        std::fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
+        let runtime = specforge_component::project_runtime(dir.path());
+        let declarations: Vec<ExtensionDeclaration> = names
+            .iter()
+            .map(|name| {
+                specforge_wasm::protocol::load_declaration(&runtime, name)
+                    .unwrap()
+                    .declaration
+            })
+            .collect();
+        let input = MigrationInput {
+            from: "0.9".into(),
+            to: "1.0".into(),
+            files: Vec::new(),
+        };
+
+        let (_, failures) = invoke_hooks(&declarations, &runtime, &input);
+
+        assert!(failures.is_empty(), "{failures:?}");
+        assert!(specforge_wasm::topological_sort_extensions(&declarations).is_ok());
     }
 
     #[specforge_test(

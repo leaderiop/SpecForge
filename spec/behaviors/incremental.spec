@@ -55,8 +55,9 @@ behavior classify_project_changes "Classify Project Changes" {
     specforge.lock and every extension module the environment loaded (an
     installed extension's extension.wasm, a local .wasm entry) are
     environment changes; specforge-cache.json, which check-phase passes
-    read, and every file a file_reference field names, which the checks
-    look for, are check-input changes; any other path changes nothing.
+    read, and every file a file_reference field or a file_exists rule
+    names, which the checks look for, are check-input changes; any other
+    path changes nothing.
     Watch, the LSP and MCP MUST classify through the session.
   """
   verify unit "a discovered .spec file is a source change keyed relative to the spec root"
@@ -64,6 +65,7 @@ behavior classify_project_changes "Classify Project Changes" {
   verify unit "a .wasm file no extension loads changes nothing"
   verify unit "specforge-cache.json re-runs the checks without re-parsing"
   verify unit "a file a file_reference field names re-runs the checks"
+  verify unit "a file a file_exists rule names re-runs the checks"
   verify unit "an excluded or undiscovered .spec file changes nothing"
 }
 
@@ -81,15 +83,13 @@ behavior bring_session_up_to_date "Bring a Session Up to Date with Disk" {
     applies exactly those changes: sources by an update, environment
     inputs by an environment reload, check inputs by re-running the
     checks. Afterwards its graph and diagnostics MUST be those a fresh
-    compile of the files on disk produces. A session built in memory is
-    never changed by disk.
+    compile of the files on disk produces.
   """
   verify unit "an up-to-date session reports no change and re-parses nothing"
   verify unit "edits, creations and deletions since the last build are applied as one update"
   verify unit "a file rewritten within the timestamp granularity of the last build is still seen"
   verify unit "a specforge.lock change reloads the environment"
   verify unit "after bringing itself up to date a session matches a fresh compile"
-  verify unit "a session built in memory is never changed by disk"
 }
 
 behavior invalidate_changed_files "Invalidate Changed Files" {

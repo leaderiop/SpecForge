@@ -1,0 +1,46 @@
+---
+source: crates/specforge-cli/tests/inspect_views.rs
+expression: "normalized(result, root)"
+---
+{
+  "contract": null,
+  "coverage_status": "covered",
+  "declared": true,
+  "diagnostics": [
+    {
+      "code": "W002",
+      "message": "type 'Payload' is not referenced by any behavior, port, or type",
+      "severity": "Warning",
+      "suggestion": null
+    }
+  ],
+  "entity_id": "Payload",
+  "exempt": false,
+  "fields": {
+    "verify": [
+      {
+        "description": "Payload schema is valid",
+        "kind": "unit"
+      }
+    ]
+  },
+  "kind": "type",
+  "obligated": true,
+  "reference_count": 0,
+  "referenced_by": [],
+  "references": [],
+  "refers_to": [],
+  "source_extension": "@specforge/software",
+  "source_span": {
+    "end_col": 2,
+    "end_line": 21,
+    "file": "main.spec",
+    "start_col": 1,
+    "start_line": 18
+  },
+  "testable": true,
+  "title": "Payload",
+  "verify_declarations": [
+    "unit Payload schema is valid"
+  ]
+}

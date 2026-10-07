@@ -1,4 +1,5 @@
 use serde_json::{Map, Value, json};
+use specforge_graph::Graph;
 
 use crate::target::Call;
 use crate::tool::ToolOutcome;
@@ -24,11 +25,29 @@ pub struct Args {
 /// free: any kind, any field (an extension's own list commands, such as
 /// `specforge.product.features`, render their kinds their way).
 pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
-    let state = &*call.state;
     let kind = args.kind.as_deref().filter(|k| !k.is_empty());
     let wanted = args.where_fields.unwrap_or_default();
-    let entities: Vec<Value> = state
-        .graph()
+    let entities = entities(
+        call.view().graph(),
+        kind,
+        &wanted,
+        args.offset.unwrap_or(0),
+        args.limit.unwrap_or(usize::MAX),
+    );
+    ToolOutcome::ok(Value::Array(entities))
+}
+
+/// The rows [`call`] answers and `specforge://entities/{kind}` reads: the
+/// graph's entities of `kind` (all of them without one) whose fields hold
+/// what `wanted` asks, sorted by id, then paged by `offset` and `limit`.
+pub(crate) fn entities(
+    graph: &Graph,
+    kind: Option<&str>,
+    wanted: &Map<String, Value>,
+    offset: usize,
+    limit: usize,
+) -> Vec<Value> {
+    graph
         .nodes()
         .into_iter()
         .filter(|n| kind.is_none_or(|k| n.kind.raw.as_str() == k))
@@ -41,8 +60,8 @@ pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
                     .is_some_and(|e| &specforge_emitter::field_value_to_json(&e.value) == value)
             })
         })
-        .skip(args.offset.unwrap_or(0))
-        .take(args.limit.unwrap_or(usize::MAX))
+        .skip(offset)
+        .take(limit)
         .map(|n| {
             json!({
                 "id": n.id.raw.as_str(),
@@ -50,7 +69,5 @@ pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
                 "title": n.title.as_deref().unwrap_or(""),
             })
         })
-        .collect();
-
-    ToolOutcome::ok(Value::Array(entities))
+        .collect()
 }

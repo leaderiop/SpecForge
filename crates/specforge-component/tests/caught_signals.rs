@@ -9,11 +9,47 @@
 //! exit: with Mach ports it aborts within a few hundred exits.
 //!
 //! `harness = false`: the handler must be process-wide, and the abort only
-//! reproduced reliably with this binary's main thread owning the layout.
+//! reproduced reliably with this binary's main thread owning the layout. The
+//! binary still answers the libtest list protocol nextest asks first
+//! (`--list --format terse`, then `--exact <name>`), so it lists its one test
+//! instead of running it while nextest only wants the list.
 
+/// The one test this binary runs, as libtest would name it.
+#[cfg(target_os = "macos")]
+const TEST: &str = "runtime_survives_sigchld_with_a_handler";
+
+// Off macOS nothing follows the `--list` branch, so its `return` is needless.
+#[cfg_attr(not(target_os = "macos"), allow(clippy::needless_return))]
 fn main() {
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    if args.iter().any(|a| a == "--list") {
+        // Ignored tests: none. Everything else: the one test, on macOS.
+        #[cfg(target_os = "macos")]
+        if !args.iter().any(|a| a == "--ignored") {
+            println!("{TEST}: test");
+        }
+        return;
+    }
     #[cfg(target_os = "macos")]
-    runtime_survives_sigchld_with_a_handler();
+    if selected(&args) {
+        runtime_survives_sigchld_with_a_handler();
+    }
+}
+
+/// Whether the command line selects the test: no filter, or a filter that
+/// matches it (exactly under `--exact`, as a substring otherwise).
+#[cfg(target_os = "macos")]
+fn selected(args: &[String]) -> bool {
+    let exact = args.iter().any(|a| a == "--exact");
+    let filters: Vec<&String> = args.iter().filter(|a| !a.starts_with("--")).collect();
+    filters.is_empty()
+        || filters.iter().any(|f| {
+            if exact {
+                f.as_str() == TEST
+            } else {
+                TEST.contains(f.as_str())
+            }
+        })
 }
 
 #[cfg(target_os = "macos")]
@@ -55,5 +91,5 @@ fn runtime_survives_sigchld_with_a_handler() {
     for worker in workers {
         worker.join().unwrap();
     }
-    println!("runtime_survives_sigchld_with_a_handler ... ok");
+    println!("{TEST} ... ok");
 }

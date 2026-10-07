@@ -2,26 +2,13 @@
 //! (architecture plan 01): a call's optional `path` and its tool's target
 //! decide it before the handler runs.
 
+use crate::support::*;
 use serde_json::{Value, json};
 use specforge_mcp::McpServer;
 use specforge_test::prelude::*;
 use std::fs;
 use std::path::{Path, PathBuf};
 use tempfile::TempDir;
-
-fn call(server: &mut McpServer, method: &str, params: Value) -> Value {
-    let req = json!({"jsonrpc": "2.0", "id": 1, "method": method, "params": params});
-    let resp = server.handle_message(&req.to_string()).unwrap();
-    serde_json::from_str(&resp).unwrap()
-}
-
-fn call_tool(server: &mut McpServer, name: &str, arguments: Value) -> Value {
-    call(
-        server,
-        "tools/call",
-        json!({"name": name, "arguments": arguments}),
-    )
-}
 
 fn initialize(server: &mut McpServer, root: &Path) {
     let resp = call(
@@ -56,14 +43,6 @@ fn write_config(root: &Path, extensions: &[&str]) {
 
 fn canonical(path: &Path) -> PathBuf {
     fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf())
-}
-
-/// The text of a tool result's first block.
-fn tool_text(resp: &Value) -> String {
-    resp["result"]["content"][0]["text"]
-        .as_str()
-        .unwrap_or_else(|| panic!("no text block: {resp}"))
-        .to_string()
 }
 
 /// The diagnostic codes a `specforge.validate` result reports.
@@ -253,26 +232,12 @@ fn doctor_use_cached_reports_the_last_compile() {
 
 #[test]
 fn extension_tool_without_a_project_is_refused() {
-    use crate::fake_extension::{self, FakeExtension};
-
     // Serving nothing, no extension tool is listed: a call names an
     // unknown tool.
     let mut server = serving_nothing();
     assert!(server.state().surfaces().tools().is_empty());
     let resp = call_tool(&mut server, "specforge.cmds.check", json!({}));
     assert_eq!(resp["error"]["code"], -32602, "{resp}");
-
-    // A project's extension tools stay listed when the server goes on to
-    // serve a graph built in memory with no root: a call has no project to
-    // run in.
-    let (mut server, ext, _dir) = fake_extension::initialized(FakeExtension::new());
-    server
-        .state_mut()
-        .serve_in_memory_at(None, specforge_graph::Graph::new(), Vec::new());
-    let resp = call_tool(&mut server, "specforge.cmds.check", json!({}));
-    let error = crate::tool_errors::mcp_error(&resp);
-    assert_eq!(error["code"], "precondition_failed", "{error}");
-    assert!(ext.calls().is_empty(), "{:?}", ext.calls());
 }
 
 fn tool_names(server: &mut McpServer) -> Vec<String> {
@@ -468,7 +433,7 @@ fn a_path_while_nothing_is_served_serves_it_for_every_tool() {
     covered.sort_unstable();
     let mut with_path: Vec<&str> = specforge_mcp::tools::CORE_TOOLS
         .iter()
-        .filter(|tool| (tool.schema)()["properties"].get("path").is_some())
+        .filter(|tool| tool.input_schema()["properties"].get("path").is_some())
         .map(|tool| tool.name)
         .collect();
     with_path.sort_unstable();
@@ -764,6 +729,103 @@ fn outline_finds_an_empty_file_under_the_spec_root() {
     );
     let error = crate::tool_errors::mcp_error(&resp);
     assert_eq!(error["code"], "file_not_found", "{error}");
+}
+
+/// With nothing served no file is a project's: outline refuses as no project
+/// (`precondition_failed`, naming the file), whatever the server's working
+/// directory holds. Nextest runs this binary in the package root, where
+/// `Cargo.toml` exists.
+#[specforge_test(
+    behavior = "provide_mcp_outline_tool",
+    verify = "with no project served, outline is the no-project refusal"
+)]
+fn outline_with_nothing_served_is_no_project() {
+    assert!(
+        Path::new("Cargo.toml").is_file(),
+        "run from the package root"
+    );
+    let mut server = serving_nothing();
+
+    for file in ["Cargo.toml", "absent.spec"] {
+        let resp = call_tool(&mut server, "specforge.outline", json!({"file": file}));
+        assert_eq!(resp["result"]["isError"], true, "{file}: {resp}");
+        let error = crate::tool_errors::mcp_error(&resp);
+        assert_eq!(error["code"], "precondition_failed", "{file}: {error}");
+        assert!(error["argument"].is_null(), "{file}: {error}");
+        let message = error["message"].as_str().unwrap();
+        assert!(
+            message.starts_with(&format!(
+                "no project is served, so '{file}' is no project's file"
+            )),
+            "{file}: {message}"
+        );
+    }
+}
+
+/// With nothing served, a read that names a file or an entity is the
+/// no-project refusal, in a tool, a prompt and a resource; a read of the
+/// whole project answers over the empty session.
+#[specforge_test(
+    invariant = "mcp_served_project_consistency",
+    verify = "with no project served, a read naming a file or an entity is the no-project refusal, an aggregate read answers over the empty session"
+)]
+fn a_read_naming_something_with_nothing_served_is_no_project() {
+    let mut server = serving_nothing();
+
+    for (tool, arguments) in [
+        ("specforge.inspect", json!({"entity_id": "x"})),
+        ("specforge.find_definition", json!({"entity_id": "x"})),
+        ("specforge.export", json!({"scope": "x"})),
+    ] {
+        let resp = call_tool(&mut server, tool, arguments);
+        let error = crate::tool_errors::mcp_error(&resp);
+        assert_eq!(error["code"], "precondition_failed", "{tool}: {error}");
+        assert_eq!(error["tool"], tool, "{error}");
+        assert!(error["argument"].is_null(), "{tool}: {error}");
+    }
+    // The entity it was asked about stays in the refusal.
+    let resp = call_tool(&mut server, "specforge.inspect", json!({"entity_id": "x"}));
+    let error = crate::tool_errors::mcp_error(&resp);
+    assert_eq!(error["entity_id"], "x", "{error}");
+    assert!(
+        error["message"]
+            .as_str()
+            .unwrap()
+            .starts_with("no project is served, so entity 'x' is in no project"),
+        "{error}"
+    );
+
+    // A prompt: an internal error (-32603), the refusal as its data.
+    let resp = get_prompt(
+        &mut server,
+        "specforge://prompts/context",
+        json!({"entity_id": "x"}),
+    );
+    assert_eq!(resp["error"]["code"], -32603, "{resp}");
+    assert_eq!(
+        resp["error"]["data"]["code"], "precondition_failed",
+        "{resp}"
+    );
+
+    // A resource that names an entity.
+    let resp = read_resource(&mut server, "specforge://graph/x");
+    assert_eq!(resp["error"]["code"], -32603, "{resp}");
+    assert_eq!(
+        resp["error"]["data"]["code"], "precondition_failed",
+        "{resp}"
+    );
+    assert_eq!(resp["error"]["data"]["entity_id"], "x", "{resp}");
+
+    // The aggregates answer over the empty session.
+    for (tool, arguments) in [
+        ("specforge.list", json!({})),
+        ("specforge.stats", json!({})),
+    ] {
+        let resp = call_tool(&mut server, tool, arguments);
+        assert_eq!(resp["result"]["isError"], false, "{tool}: {resp}");
+    }
+    let resp = read_resource(&mut server, "specforge://graph");
+    assert!(resp["error"].is_null(), "{resp}");
 }
 
 #[specforge_test(

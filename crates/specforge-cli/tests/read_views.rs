@@ -336,6 +336,26 @@ fn schema_today() {
         "cli_publish_context",
         &cli_json(&["schema", s(root), "--publish", "--format", "context"]),
     );
+    for (name, args) in [
+        (
+            "cli_publish_kind_behavior",
+            ["schema", s(root), "--publish", "--kind", "behavior"].as_slice(),
+        ),
+        (
+            "cli_format_without_publish",
+            ["schema", s(root), "--format", "brief"].as_slice(),
+        ),
+    ] {
+        let refused = cli(args);
+        insta::assert_snapshot!(
+            format!("schema_rv1_{name}"),
+            format!(
+                "exit: {:?}\nstderr:\n{}",
+                refused.code,
+                normalized_text(&refused.stderr, root)
+            )
+        );
+    }
     let nosuch = cli(&["schema", s(root), "--kind", "nosuch"]);
     insta::assert_snapshot!(
         "schema_rv1_cli_kind_nosuch",
@@ -472,6 +492,90 @@ fn cli_and_mcp_outline_render_the_same_text() {
         let run = cli(&args);
         assert_eq!(run.code, Some(0), "{args:?}: {}", run.stderr);
         assert_eq!(run.stdout, text, "{args:?}");
+    }
+
+    // With no arguments both surfaces take the tables' defaults (ADR 0027 D3).
+    let defaults = mcp_texts(
+        root,
+        &[json!({"name": "specforge.outline_extensions", "arguments": {}})],
+    );
+    let run = cli(&["outline", s(root)]);
+    assert_eq!(run.code, Some(0), "{}", run.stderr);
+    assert_eq!(run.stdout, defaults[0], "outline with no arguments");
+}
+
+#[specforge_test_macros::test(
+    behavior = "read_views_over_the_project_view",
+    verify = "specforge schema --kind and specforge.schema with a kind return the same document"
+)]
+fn cli_and_mcp_schema_kind_are_one_document() {
+    let tmp = rv1();
+    let root = tmp.path();
+    let mcp = mcp_calls(
+        root,
+        &[json!({"name": "specforge.schema", "arguments": {"kind": "behavior"}})],
+    );
+    let answered = cli_json(&["schema", s(root), "--kind", "behavior"]);
+    assert_eq!(answered, mcp[0]);
+    assert_eq!(
+        answered["entity_kinds"][0]["name"], "behavior",
+        "{answered}"
+    );
+    assert!(
+        answered["edge_types"]
+            .as_array()
+            .is_some_and(|edges| !edges.is_empty()),
+        "the edge types that touch the kind: {answered}"
+    );
+
+    // Unfiltered, the CLI prints the schema itself, in its own key order.
+    let printed = cli(&["schema", s(root)]);
+    assert_eq!(printed.code, Some(0), "{}", printed.stderr);
+    let schema: specforge_emitter::GraphProtocolSchema =
+        serde_json::from_str(&printed.stdout).unwrap();
+    assert_eq!(
+        printed.stdout.trim_end(),
+        serde_json::to_string_pretty(&schema).unwrap()
+    );
+}
+
+#[specforge_test_macros::test(
+    behavior = "serve_schema_resource",
+    verify = "--no-edges and --validation-rules select what include_edges and include_validation_rules select"
+)]
+fn cli_and_mcp_schema_requests_agree() {
+    let tmp = rv1();
+    let root = tmp.path();
+    let cases: [(&[&str], Value); 3] = [
+        (&["--no-edges"], json!({"include_edges": false})),
+        (
+            &["--validation-rules"],
+            json!({"include_validation_rules": true}),
+        ),
+        (
+            &["--kind", "behavior", "--validation-rules", "--no-edges"],
+            json!({"kind": "behavior", "include_validation_rules": true, "include_edges": false}),
+        ),
+    ];
+    let calls: Vec<Value> = cases
+        .iter()
+        .map(|(_, arguments)| json!({"name": "specforge.schema", "arguments": arguments}))
+        .collect();
+    for ((flags, arguments), answered) in cases.iter().zip(mcp_calls(root, &calls)) {
+        let mut args = vec!["schema", s(root)];
+        args.extend(*flags);
+        let printed = cli_json(&args);
+        assert_eq!(printed, answered, "{flags:?} vs {arguments}");
+        assert_eq!(
+            printed.get("edge_types").is_some(),
+            !flags.contains(&"--no-edges"),
+            "{flags:?}"
+        );
+        assert_eq!(
+            printed.get("validation_rules").is_some(),
+            flags.contains(&"--validation-rules"),
+            "{flags:?}"
+        );
     }
 }
 

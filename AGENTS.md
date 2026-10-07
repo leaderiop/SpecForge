@@ -2,10 +2,13 @@
 
 ## Agent skills
 
-Matt Pocock engineering skills are installed at `.agents/skills/` (project scope):
+Matt Pocock engineering skills are installed at `~/.agents/skills/` (user scope, not in this repo):
 `to-spec`, `implement-spec`, `to-tickets`, `triage`, `grill-me`, `grilling`, `grill-with-docs`,
 `domain-modeling`, `wayfinder`, `tdd`, `code-review`, `improve-codebase-architecture`,
 `diagnosing-bugs`, `handoff`, `pr`, `retro`, and others.
+
+Project skills (the `.spec` DSL authoring skills `specforge-*`, coding standards `global-*`,
+architecture and diagram skills) live in `.claude/skills/`.
 
 Configuration (created by `/setup-matt-pocock-skills`):
 

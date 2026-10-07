@@ -80,6 +80,63 @@ pub struct CommandInput<G = GraphWire> {
     /// (`specforge export --format graph` without the schema).
     #[serde(default)]
     pub graph: G,
+    /// What the project's recorded test report (`specforge-report.json`)
+    /// proves, per entity, as the host's coverage rule scores it; absent
+    /// (`none`) when no report is recorded or the host sends none.
+    #[serde(default, skip_serializing_if = "CommandEvidence::is_none")]
+    pub evidence: CommandEvidence,
+}
+
+/// What a command's input says the recorded tests prove. On the wire an
+/// object tagged by `state`: `{"state":"recorded","entities":{...}}`,
+/// `{"state":"unreadable","reason":"..."}`; `none` is the field's absence.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "state", rename_all = "snake_case")]
+pub enum CommandEvidence {
+    /// No test report is recorded (or the host is older than the field).
+    #[default]
+    None,
+    /// The recorded report, scored: one entry per entity that counts toward
+    /// coverage (ADR 0004 D2-b), keyed by id.
+    Recorded {
+        entities: BTreeMap<String, EntityEvidence>,
+    },
+    /// A report is recorded and could not be read; `reason` says why.
+    Unreadable { reason: String },
+}
+
+impl CommandEvidence {
+    /// Whether the input carries no evidence state at all.
+    pub fn is_none(&self) -> bool {
+        matches!(self, CommandEvidence::None)
+    }
+
+    /// The scored entities, when a report was recorded and read.
+    pub fn entities(&self) -> Option<&BTreeMap<String, EntityEvidence>> {
+        match self {
+            CommandEvidence::Recorded { entities } => Some(entities),
+            _ => None,
+        }
+    }
+}
+
+/// One entity's proof, as the coverage rule scores it: the obligations it
+/// declares, how many a passing test names, and how many of its recorded
+/// tests fail.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EntityEvidence {
+    pub obligations: usize,
+    pub proven: usize,
+    #[serde(default)]
+    pub failing: usize,
+}
+
+impl EntityEvidence {
+    /// The coverage rule's "proven" (ADR 0004 D2-a): at least one
+    /// obligation, every one proven, no failing test.
+    pub fn is_proven(&self) -> bool {
+        self.obligations > 0 && self.proven == self.obligations && self.failing == 0
+    }
 }
 
 impl<G> CommandInput<G> {
@@ -299,12 +356,17 @@ pub struct PassInput {
 }
 
 /// One entity in the snapshot handed to a compiler pass: its id, kind,
-/// stringified fields, edge counts and span, and how the coverage rule sees
-/// it.
+/// field texts, edge counts and span, and how the coverage rule sees it.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PassEntity {
     pub id: String,
     pub kind: String,
+    /// Every field the entity writes, by name, as its field text (ADR 0019,
+    /// protocol 1.1.0): scalars as written; lists of strings or references
+    /// and mixed lists joined by `", "`; variant lists and type unions by
+    /// `" | "`; expressions by `", "`; verify statements by `"; "`; a
+    /// block's keys by `", "`. A written empty list or block is `""`, never
+    /// absent. A name written twice keeps its last text.
     #[serde(default)]
     pub fields: BTreeMap<String, String>,
     #[serde(default)]
@@ -317,9 +379,10 @@ pub struct PassEntity {
     /// `testable` flag), so coverage counts it.
     #[serde(default)]
     pub testable: bool,
-    /// The entity owes no obligations of its own (ADR 0004, D2-b): its kind
-    /// need not declare any, or it sets a field that exempts it. Decided by
-    /// the host from the registries.
+    /// The entity owes no obligations of its own (ADR 0004, D2-b): no
+    /// `no_verify_statements` rule applies to its kind, or a union body or
+    /// a field that exempts it does. Decided by the host's one obligation
+    /// rule (ADR 0019).
     #[serde(default)]
     pub exempt: bool,
     /// One entry per `verify` statement, in order: its kind, or `""` for a

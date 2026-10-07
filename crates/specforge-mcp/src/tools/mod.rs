@@ -10,7 +10,7 @@ mod infer_gaps;
 mod infer_progress;
 mod infer_session;
 mod inspect;
-mod list;
+pub(crate) mod list;
 mod model;
 mod outline;
 mod outline_extensions;
@@ -24,29 +24,28 @@ pub(crate) mod trace;
 mod validate;
 
 use serde_json::{Value, json};
+use specforge_common::codes;
 
-use crate::protocol::{JsonRpcResponse, error_codes};
+use crate::mutation::{self, Mutated};
+use crate::protocol::JsonRpcResponse;
 use crate::state::McpState;
+use crate::surface_call::{Event, Found, Invocation, Ran, Surface};
 use crate::surface_table::{ToolEntry, ToolKind};
-use crate::target::{self, Call, CallTarget, Reach, TargetSpec};
-use crate::tool::{Effect, ErrorCode, McpError, ToolOutcome, ToolSpec, envelope};
+use crate::target::{Call, TargetSpec};
+use crate::tool::{ErrorCode, Handler, McpError, ToolOutcome, ToolSpec, envelope};
 pub use table::CORE_TOOLS;
 
 /// The navigator over what the call reads (`specforge_ops::navigate`):
-/// its project's view, else the served graph without a root, each file's
-/// text read from disk under the spec root (a graph built in memory with
-/// no project names its files as given). The navigation tools render its
-/// answers as JSON and nothing else (ADR 0016).
+/// its project's view, else the empty session's graph without a root, each
+/// file's text read from disk under the spec root (with no project, no
+/// file is read). The navigation tools render its answers as JSON and
+/// nothing else (ADR 0016).
 pub(crate) fn navigator<'c>(
     call: &'c Call<'_>,
 ) -> specforge_ops::navigate::Navigator<'c, impl Fn(&str) -> Option<String> + 'c> {
     let spec_root = call.spec_root().map(std::path::Path::to_path_buf);
     specforge_ops::navigate::Navigator::new(call.view(), move |file| {
-        let path = match &spec_root {
-            Some(root) => root.join(file),
-            None => std::path::PathBuf::from(file),
-        };
-        std::fs::read_to_string(path).ok()
+        std::fs::read_to_string(spec_root.as_ref()?.join(file)).ok()
     })
 }
 
@@ -62,31 +61,21 @@ pub(crate) fn span_json(span: &specforge_common::SourceSpan) -> Value {
     })
 }
 
-/// What the server reports for the project the call reads: its project's
-/// diagnostics, else (no project) the served session's.
-pub(crate) fn reported(call: &Call<'_>) -> Vec<specforge_common::Diagnostic> {
-    match call.project() {
-        Ok(project) => project.diagnostics(),
-        Err(_) => call.state.diagnostics(),
-    }
-}
-
 /// An I020 report for each kind in a `kinds` filter that no registered
 /// extension defines and no entity has, in the order given, with a
 /// `did you mean` suggestion when a known kind is close. The filter still
 /// drops them: they match no entity.
 pub(crate) fn unknown_kind_diagnostics(
-    state: &McpState,
+    view: &specforge_ops::view::ProjectView<'_>,
     kinds: &[&str],
 ) -> Vec<specforge_common::Diagnostic> {
-    let mut known: Vec<&str> = state
+    let mut known: Vec<&str> = view
         .registries()
         .kinds
         .keywords()
         .map(String::as_str)
         .chain(
-            state
-                .graph()
+            view.graph()
                 .nodes()
                 .into_iter()
                 .map(|n| n.kind.raw.as_str()),
@@ -103,7 +92,7 @@ pub(crate) fn unknown_kind_diagnostics(
         }
         reported.push(kind);
         let mut diag =
-            specforge_common::Diagnostic::info("I020", format!("unknown entity kind '{kind}'"));
+            specforge_common::Diagnostic::new(codes::I020, format!("unknown entity kind '{kind}'"));
         if let Some(close) = specforge_common::find_close_match(kind, known.iter().copied()) {
             diag = diag.with_suggestion(format!("did you mean '{close}'?"));
         }
@@ -196,141 +185,145 @@ pub fn core_tool(name: &str) -> Option<&'static ToolSpec> {
     CORE_TOOLS.iter().find(|t| t.name == name)
 }
 
-pub fn handle_tool_call(state: &mut McpState, params: Value, id: Option<Value>) -> JsonRpcResponse {
-    if !state.is_initialized() {
-        return JsonRpcResponse::error(id, error_codes::INVALID_REQUEST, "Server not initialized");
+/// `tools/call`: the core tool table, then the extension surface table (ADR
+/// 0017 D7). The request pipeline's tools adapter
+/// ([`crate::surface_call`]).
+pub(crate) struct Tools;
+
+impl Surface for Tools {
+    const NAMED_BY: &'static str = "name";
+    const TAKES_ARGUMENTS: bool = true;
+    const EXTENDED: bool = true;
+    // MCP spec (tools/call): an unrecognized tool is an Invalid params
+    // protocol error, as its "Unknown tool" example shows.
+    const UNKNOWN: &'static str = "Unknown tool";
+
+    type Core = &'static ToolSpec;
+    type Extension = ToolEntry;
+    type Outcome = ToolOutcome;
+
+    fn core(name: &str) -> Option<&'static ToolSpec> {
+        core_tool(name)
     }
 
-    // A request that fails CallToolRequest's own schema is malformed: a
-    // protocol error (ADR 0004 D4-a).
-    let name = match params.get("name").and_then(|v| v.as_str()) {
-        Some(n) => n,
-        None => {
-            return JsonRpcResponse::error(
-                id,
-                error_codes::INVALID_PARAMS,
-                "Missing required parameter: name",
-            );
-        }
-    };
-    let arguments = match params.get("arguments") {
-        None | Some(Value::Null) => Value::Object(Default::default()),
-        Some(object @ Value::Object(_)) => object.clone(),
-        Some(_) => {
-            return JsonRpcResponse::error(
-                id,
-                error_codes::INVALID_PARAMS,
-                "Invalid params: arguments must be an object",
-            );
-        }
-    };
+    fn extension(state: &McpState, name: &str) -> Option<ToolEntry> {
+        state.surfaces().tool(name).cloned()
+    }
 
-    // So is an unknown or disabled tool: it is not an invocation.
-    let spec = core_tool(name);
-    let extension = match spec {
-        Some(_) => None,
-        None => match state.surfaces().tool(name) {
-            Some(entry) => Some(entry.clone()),
-            None => {
-                // MCP spec (tools/call): an unrecognized tool is an Invalid
-                // params protocol error, as its "Unknown tool" example shows.
-                return JsonRpcResponse::error(
-                    id,
-                    error_codes::INVALID_PARAMS,
-                    format!("Unknown tool: {name}"),
-                );
+    fn target(found: &Found<&'static ToolSpec, ToolEntry>) -> TargetSpec {
+        match found {
+            Found::Core(spec) => spec.target,
+            Found::Extension(_) => TargetSpec::SERVED,
+        }
+    }
+
+    fn invoked(
+        found: &Found<&'static ToolSpec, ToolEntry>,
+        invocation: &Invocation,
+    ) -> Option<Event> {
+        // The category it is listed with: no second lookup.
+        let category = match found {
+            Found::Core(spec) => spec.category.as_str(),
+            Found::Extension(entry) => entry.category.as_str(),
+        };
+        let mut event = json!({
+            "toolName": invocation.name,
+            "category": category,
+            "params": invocation.arguments.to_string(),
+        });
+        if let Some(entity_id) = invocation
+            .arguments
+            .get("entity_id")
+            .and_then(Value::as_str)
+        {
+            event["entityId"] = Value::from(entity_id);
+        }
+        Some(("mcp_tool_invoked".to_string(), event))
+    }
+
+    fn run(
+        call: &mut Call<'_>,
+        found: &Found<&'static ToolSpec, ToolEntry>,
+        invocation: &Invocation,
+    ) -> Ran<ToolOutcome> {
+        let arguments = invocation.arguments.clone();
+        match found {
+            // A mutation says what it wrote; `mutation::refresh` brings the
+            // target up to date with it (inside the call), `mutation::report`
+            // names its events and the files in its reply.
+            Found::Core(ToolSpec {
+                handler: Handler::Mutation(handler),
+                ..
+            }) => {
+                let mut mutated = handler(call, arguments);
+                let root = mutation::refresh(call, &mut mutated);
+                let (outcome, events) =
+                    mutation::report(&invocation.name, root.as_deref(), mutated);
+                Ran { outcome, events }
             }
-        },
-    };
-
-    // The category it is listed with: no second lookup.
-    let category = match (spec, &extension) {
-        (Some(spec), _) => spec.category.as_str(),
-        (None, Some(entry)) => entry.category.as_str(),
-        (None, None) => unreachable!("an unknown tool was refused above"),
-    };
-    let mut event = json!({
-        "toolName": name,
-        "category": category,
-        "params": arguments.to_string(),
-    });
-    if let Some(entity_id) = arguments.get("entity_id").and_then(Value::as_str) {
-        event["entityId"] = Value::from(entity_id);
-    }
-    state.push_event("mcp_tool_invoked", event);
-
-    let mutation = spec
-        .and_then(|spec| spec.mutation)
-        .filter(|mutation| (mutation.writes)(&arguments));
-
-    // The project the call acts on, resolved (and brought up to date)
-    // before the handler runs: handlers never pick a root or reload.
-    let target_spec = spec.map_or(TargetSpec::SERVED, |spec| spec.target);
-    let mut outcome = match target::resolve(state, target_spec, &arguments) {
-        Err(refused) => ToolOutcome::from(McpError::from(refused)),
-        Ok(target) => {
-            let mut call = Call::new(state, target);
-            let outcome = match (spec, &extension) {
-                (Some(spec), _) => (spec.call)(&mut call, arguments),
-                (None, Some(entry)) => {
-                    let (outcome, dispatched) = extension_tool(&mut call, entry, arguments);
-                    if let Some((event, params)) = dispatched {
-                        call.state.push_event(event, params);
-                    }
-                    outcome
-                }
-                (None, None) => unreachable!("an unknown tool was refused above"),
-            };
-            // A mutation that wrote the served project's files leaves the
-            // server serving what is on disk: brought up to date (exactly
-            // what changed), or, for a project built in memory, the project
-            // on disk at its root, when the tool writes project files.
-            // Another project was the call's alone; the served one is
-            // untouched.
-            if mutation.is_some()
-                && outcome.succeeded()
-                && !call.has_written()
-                && matches!(call.target(), CallTarget::Served)
-            {
-                if target_spec.reach == Reach::WritesAnyProject {
-                    call.wrote();
-                } else {
-                    call.state.ensure_fresh();
+            Found::Core(ToolSpec {
+                handler: Handler::Tool(handler),
+                ..
+            }) => Ran::of(handler(call, arguments)),
+            Found::Extension(entry) => {
+                let (outcome, dispatched) = extension_tool(call, entry, arguments);
+                Ran {
+                    outcome,
+                    events: dispatched
+                        .map(|(name, params)| (name.to_string(), params))
+                        .into_iter()
+                        .collect(),
                 }
             }
-            outcome
         }
     }
-    .from_tool(name);
-    for (event, params) in outcome.take_events() {
-        state.push_event(event, params);
+
+    fn refused(found: &Found<&'static ToolSpec, ToolEntry>, error: McpError) -> Ran<ToolOutcome> {
+        match found {
+            // A refused mutation is a failed one: it wrote nothing, and says so.
+            Found::Core(spec) if matches!(spec.handler, Handler::Mutation(_)) => {
+                let (outcome, events) = mutation::report(spec.name, None, Mutated::refused(error));
+                Ran { outcome, events }
+            }
+            _ => Ran::of(error.into()),
+        }
     }
 
-    if let Some(mutation) = mutation {
-        // Every call that meant to write reports what its structured
-        // result says it changed: nothing, when it failed.
-        let effect = outcome
-            .success_payload()
-            .map_or_else(Effect::default, |payload| (mutation.effect)(payload));
-        state.push_event(
-            "mcp_mutation_completed",
-            json!({
-                "toolName": name,
-                "files_changed": effect.files_changed,
-                "entities_affected": effect.entities_affected,
-                "success": outcome.succeeded(),
-            }),
-        );
+    fn refusal_mut(outcome: &mut ToolOutcome) -> Option<&mut McpError> {
+        match outcome {
+            ToolOutcome::Refused(error) => Some(error),
+            ToolOutcome::Done { .. } => None,
+        }
     }
 
-    // A tool with an outputSchema: a core one, or an extension's that
-    // declares one.
-    let typed = match (spec, &extension) {
-        (Some(spec), _) => spec.output.is_some(),
-        (None, Some(entry)) => entry.output_schema().is_some(),
-        (None, None) => false,
-    };
-    envelope(outcome, id, state.sends_structured_content(), typed)
+    fn completed(
+        _: &Found<&'static ToolSpec, ToolEntry>,
+        _: &Invocation,
+        _: &ToolOutcome,
+    ) -> Option<Event> {
+        None
+    }
+
+    fn envelope(
+        state: &McpState,
+        found: &Found<&'static ToolSpec, ToolEntry>,
+        invocation: &Invocation,
+        outcome: ToolOutcome,
+        id: Option<Value>,
+    ) -> JsonRpcResponse {
+        // A tool with an outputSchema: a core one, or an extension's that
+        // declares one.
+        let typed = match found {
+            Found::Core(spec) => spec.output.is_some(),
+            Found::Extension(entry) => entry.output_schema().is_some(),
+        };
+        envelope(
+            outcome.from_tool(&invocation.name),
+            id,
+            state.sends_structured_content(),
+            typed,
+        )
+    }
 }
 
 /// A dispatch event: its name and payload.
@@ -383,8 +376,9 @@ fn extension_tool(
             };
             command_adapter(
                 project.runtime.as_ref(),
-                project.graph,
+                project.graph(),
                 project.root,
+                specforge_ops::command::evidence(&project.view()),
                 command,
                 &args,
             )
@@ -475,12 +469,14 @@ fn command_adapter(
     runtime: &dyn specforge_wasm::runtime::WasmRuntime,
     graph: &specforge_graph::Graph,
     root: &std::path::Path,
+    evidence: specforge_protocol_types::CommandEvidence,
     command: &specforge_ops::command::ExtensionCommand,
     args: &serde_json::Map<String, Value>,
 ) -> (ToolOutcome, Dispatched) {
     let context = specforge_ops::command::CommandContext {
         format: specforge_ops::command::CommandFormat::Json,
         today: chrono::Utc::now().format("%Y-%m-%d").to_string(),
+        evidence,
     };
     let started = std::time::Instant::now();
     let outcome =

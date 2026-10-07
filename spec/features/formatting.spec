@@ -16,6 +16,7 @@ use "types/core"
 use "types/formatting"
 
 feature code_formatting "Code Formatting" {
+  status   done
   problem  """
     .spec files accumulate inconsistent formatting over time — varying indentation,
     trailing whitespace, ragged alignment, and unsorted imports. This creates noisy
@@ -32,6 +33,7 @@ feature code_formatting "Code Formatting" {
 }
 
 feature lsp_formatting "LSP Formatting" {
+  status   done
   problem  """
     Developers must manually format .spec files or rely on CLI commands after editing.
     Without textDocument/formatting support in the LSP server, format-on-save is not

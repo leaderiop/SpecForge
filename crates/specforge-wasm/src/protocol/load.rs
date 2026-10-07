@@ -6,7 +6,7 @@
 //! [`DECLARED_CATEGORIES`], whatever its contribution flags say. Nothing
 //! describes a category again outside this load.
 
-use specforge_common::{Diagnostic, Severity};
+use specforge_common::{Diagnostic, codes};
 #[cfg(doc)]
 use specforge_protocol_types::DECLARED_CATEGORIES;
 use specforge_protocol_types::{
@@ -99,19 +99,16 @@ fn unknown_key(extension: &str, key: UnknownKey) -> Diagnostic {
         item,
         key,
     } = key;
-    Diagnostic {
-        code: "W138".to_string(),
-        severity: Severity::Warning,
-        message: format!(
+    Diagnostic::new(
+        codes::W138,
+        format!(
             "extension '{extension}': describe '{category}' item '{item}' has the key '{key}', \
              which the protocol does not define; it is ignored"
         ),
-        span: None,
-        suggestion: Some(
-            "check the key's spelling against the protocol's descriptors \
+    )
+    .with_suggestion(
+        "check the key's spelling against the protocol's descriptors \
              (docs/extension-protocol.md), or update specforge if the extension needs a newer host"
-                .to_string(),
-        ),
-        data: None,
-    }
+            .to_string(),
+    )
 }

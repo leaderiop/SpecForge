@@ -1,6 +1,11 @@
 use crate::OutputFormat;
 use serde_json::json;
-use specforge_ops::doctor::{BinaryIssue, DoctorReport, FindingStatus, diagnose};
+use specforge_common::codes;
+use specforge_ops::doctor::{
+    BinaryIssue, CONFIG_CODES, CONFIG_MISSING, DoctorReport, FindingStatus, LOCK_UNREADABLE,
+    diagnose,
+};
+use specforge_ops::view::ProjectView;
 use specforge_registry_client::credential_health::{
     CredentialHealth, CredentialLevel, user_credential_health,
 };
@@ -10,8 +15,8 @@ use std::path::Path;
 /// their enhancements, conflicts, shadowed keywords, installed binaries)
 /// plus registry credential health. Exit 1 on any error-level finding.
 pub fn run(path: &Path, format: OutputFormat) -> i32 {
-    let ctx = crate::pipeline::compile(path);
-    let report = diagnose(path, &ctx.declarations, &ctx.diagnostics);
+    let (project, _runtime) = crate::pipeline::compile_project(path);
+    let report = diagnose(&ProjectView::of(&project));
     let credentials = user_credential_health();
     let healthy = !report.has_errors();
 
@@ -43,6 +48,44 @@ fn render_human(report: &DoctorReport, credentials: &CredentialHealth) -> String
         () => { out.push('\n') };
         ($($arg:tt)*) => {{ out.push_str(&format!($($arg)*)); out.push('\n'); }};
     }
+    // The config itself, when doctor has something to say about it (E069,
+    // or no specforge.json at the root).
+    let config: Vec<_> = report
+        .findings
+        .iter()
+        .filter(|f| {
+            CONFIG_CODES.iter().any(|code| code.matches(&f.code)) || f.code == CONFIG_MISSING
+        })
+        .collect();
+    if !config.is_empty() {
+        line!("Configuration:");
+        for finding in config {
+            let tag = match finding.status {
+                FindingStatus::Error => "ERROR",
+                FindingStatus::Warn => "WARN",
+                FindingStatus::Ok => "ok",
+            };
+            line!("  [{tag}] [{}] {}", finding.code, finding.check);
+            line!("    fix: {}", finding.remediation);
+        }
+        line!();
+    }
+
+    // The lock file, when it exists and cannot be read (E033).
+    let lock: Vec<_> = report
+        .findings
+        .iter()
+        .filter(|f| f.code == LOCK_UNREADABLE)
+        .collect();
+    if !lock.is_empty() {
+        line!("Lock file:");
+        for finding in lock {
+            line!("  [ERROR] [{}] {}", finding.code, finding.check);
+            line!("    fix: {}", finding.remediation);
+        }
+        line!();
+    }
+
     line!("Extensions ({}):", report.extensions.len());
     if report.extensions.is_empty() {
         line!("  none enabled");
@@ -151,7 +194,10 @@ fn render_human(report: &DoctorReport, credentials: &CredentialHealth) -> String
     }
     if !report.z3_available {
         line!();
-        line!("[WARN] z3 not on PATH — `specforge analyze --prove` skips SMT checks (W098)");
+        line!(
+            "[WARN] z3 not on PATH — `specforge analyze --prove` skips SMT checks ({})",
+            codes::W098
+        );
     }
 
     let errors = report
@@ -198,14 +244,9 @@ mod tests {
         message: &str,
         suggestion: Option<&str>,
     ) -> Diagnostic {
-        Diagnostic {
-            code: code.into(),
-            severity,
-            message: message.into(),
-            span: None,
-            suggestion: suggestion.map(String::from),
-            data: None,
-        }
+        let mut diagnostic = Diagnostic::untyped(code, severity, message);
+        diagnostic.suggestion = suggestion.map(String::from);
+        diagnostic
     }
 
     // No shipped builtin set produces an extension conflict (all nine
@@ -233,7 +274,12 @@ mod tests {
             conflict("W001", Severity::Warning, "an unrelated warning", None),
         ];
 
-        let report = specforge_ops::doctor::diagnose_with(dir.path(), &[], &diagnostics, true);
+        let graph = specforge_graph::Graph::new();
+        let env = specforge_project::Environment::with_registries(Default::default());
+        let recorded = specforge_project::coverage::RecordedCoverage::over(&graph, &env);
+        let view =
+            ProjectView::new(&graph, &env, Some(dir.path()), &recorded).reporting(&diagnostics);
+        let report = specforge_ops::doctor::diagnose_with(&view, true);
 
         let codes: Vec<&str> = report.conflicts.iter().map(|c| c.code.as_str()).collect();
         assert_eq!(codes, ["E026", "W018"]);

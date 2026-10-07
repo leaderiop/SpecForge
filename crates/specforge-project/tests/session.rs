@@ -556,35 +556,6 @@ fn a_wasm_file_entry_loads_in_a_session_and_reloads_with_its_file() {
     );
 }
 
-/// A session over a graph built in memory serves that graph and the
-/// diagnostics given for it, in its environment, with nothing to reload.
-#[test]
-fn a_session_from_a_graph_serves_it_as_given() {
-    let dir = project(CONFIG, &[("a.spec", "term alpha \"Alpha\" {\n}\n")]);
-    let compiled = CompiledProject::compile(dir.path(), None);
-    let built = compiled.graph.clone();
-    let warning = Diagnostic::warning("W001", "given");
-
-    let mut session = ProjectSession::from_graph(
-        std::sync::Arc::new(specforge_project::Environment::empty()),
-        built,
-        vec![warning.clone()],
-    );
-
-    assert_eq!(session.origin(), specforge_project::Origin::InMemory);
-    assert_eq!(
-        graph_contents(session.graph()),
-        graph_contents(&compiled.graph)
-    );
-    assert_eq!(session.diagnostics(), vec![warning.clone()]);
-    let update = session.reload_environment();
-    assert!(
-        update.delta.added_nodes.is_empty() && update.delta.removed_nodes.is_empty(),
-        "nothing on disk to reload"
-    );
-    assert_eq!(session.diagnostics(), vec![warning]);
-}
-
 fn behavior(id: &str, extra: &str) -> String {
     format!(
         "behavior {id} \"{id}\" {{\n  category command\n  contract \"The system MUST {id}\"\n{extra}}}\n"
@@ -842,6 +813,44 @@ fn buffer_edits_leave_what_a_fresh_compile_builds() {
     });
     assert_eq!(ids(&update.delta.removed_nodes), ["beta"]);
     assert_matches_a_fresh_compile(&session, root);
+}
+
+/// A span of the graph is a position in the text the build parsed, which
+/// the session keeps: the file as read by the cold build, the buffer as
+/// given by an update (whatever the disk says now), gone with the file.
+#[test]
+fn the_session_keeps_the_text_each_file_was_built_from() {
+    let dir = three_files();
+    let root = dir.path();
+    let mut session = ProjectSession::open(root);
+    let on_disk = fs::read_to_string(root.join("a.spec")).unwrap();
+    assert_eq!(session.source_text("a.spec").as_deref(), Some(&*on_disk));
+    assert_eq!(session.source_text("nope.spec"), None);
+    assert_eq!(session.source_texts().len(), session.file_count());
+
+    // A buffer the disk does not hold yet: the build, and so the text, is
+    // the buffer's.
+    let buffer = behavior("beta", "  invariants [alpha]\n");
+    session.update(SourceChange::Buffer {
+        path: "a.spec",
+        text: Some(&buffer),
+    });
+    assert_eq!(session.source_text("a.spec").as_deref(), Some(&*buffer));
+    assert_eq!(
+        fs::read_to_string(root.join("a.spec")).unwrap(),
+        on_disk,
+        "the disk is untouched"
+    );
+    // The copy a reader keeps while the session is out for an update.
+    let kept = session.source_texts();
+    assert_eq!(kept.get("a.spec").map(|t| &**t), Some(&*buffer));
+
+    session.update(SourceChange::Buffer {
+        path: "a.spec",
+        text: None,
+    });
+    assert_eq!(session.source_text("a.spec"), None);
+    assert!(kept.contains_key("a.spec"), "a kept copy does not change");
 }
 
 #[specforge_test(
@@ -1517,38 +1526,6 @@ fn a_lock_change_reloads_the_environment() {
     assert_matches_a_fresh_compile(&session, root);
 }
 
-#[specforge_test(
-    behavior = "bring_session_up_to_date",
-    verify = "a session built in memory is never changed by disk"
-)]
-fn an_in_memory_session_ignores_disk() {
-    let dir = project(CONFIG, &[("a.spec", "behavior alpha \"A\" {\n}\n")]);
-    let root = dir.path();
-    let runtime = specforge_component::project_runtime(root);
-    let compiled = CompiledProject::compile(root, Some(&runtime));
-    let built = compiled.graph.clone();
-    let mut session = ProjectSession::from_graph(
-        std::sync::Arc::new(compiled.env),
-        built,
-        compiled.graph_diagnostics,
-    );
-    let before = graph_contents(session.graph());
-
-    write(root, "a.spec", "behavior omega \"Omega\" {\n}\n");
-    write(root, "b.spec", "behavior beta \"B\" {\n}\n");
-    fs::write(
-        root.join("specforge.json"),
-        r#"{"name":"s","version":"0.1.0"}"#,
-    )
-    .unwrap();
-
-    assert!(session.stale().is_empty());
-    assert!(session.ensure_fresh().is_none());
-    let changes = session.changes([root.join("a.spec").as_path()]);
-    assert!(session.apply(&changes).is_none());
-    assert_eq!(graph_contents(session.graph()), before);
-}
-
 /// How long bringing an unchanged project of 1 000 files up to date takes
 /// (plan 01 T2 records it; run with `--ignored --nocapture`).
 #[test]
@@ -1585,7 +1562,6 @@ fn measure_ensure_fresh_on_a_thousand_files() {
     verify = "coverage is computed once per compile and report content, and again after the report changes"
 )]
 fn an_update_starts_a_fresh_coverage_memo() {
-    use specforge_project::coverage::CoverageRegistries;
     let dir = project(
         CONFIG,
         &[(
@@ -1595,20 +1571,10 @@ fn an_update_starts_a_fresh_coverage_memo() {
     );
     let root = dir.path();
     let mut session = ProjectSession::open(root);
-    let coverage = |session: &ProjectSession| {
-        session
-            .recorded()
-            .at(
-                Some(root),
-                session.graph(),
-                CoverageRegistries::of(&session.environment().registries),
-            )
-            .unwrap()
-            .coverage
-    };
+    let coverage = |session: &ProjectSession| session.recorded().at(Some(root)).unwrap().coverage;
     let first = coverage(&session);
     assert!(std::sync::Arc::ptr_eq(&first, &coverage(&session)));
-    assert!(first.standing("a").unwrap().counts);
+    assert!(first.standing("a").unwrap().counts());
 
     // A source update: the memo scores the new graph.
     write(
@@ -1629,4 +1595,124 @@ fn an_update_starts_a_fresh_coverage_memo() {
     );
     assert!(session.ensure_fresh().is_some());
     assert!(coverage(&session).standing("c").is_some());
+}
+
+/// `item` (testable, accepts verify), `P300` obliging it, and a check pass
+/// `echo` that reports nothing, so its inputs are read from the runtime.
+fn obliging_items() -> specforge_extension_sdk::prelude::ContributionsBuilder {
+    use specforge_extension_sdk::prelude::*;
+    let mut c = ContributionsBuilder::new(ExtensionMeta::new("@pin/items", "0.1.0"));
+    c.kind("item", |k| {
+        k.testable(true).supports_verify(true).open_fields(true);
+    });
+    c.rule("P300", |r| {
+        r.check(CheckKind::NoVerifyStatements)
+            .target_kind("item")
+            .field("verify")
+            .message_template("{kind} '{id}' declares no verify obligations");
+    });
+    c.pass("echo", |p| {
+        p.phase("check")
+            .run(|_: &PassInput| Vec::<PassDiagnostic>::new());
+    });
+    c
+}
+
+#[specforge_test(
+    behavior = "snapshot_entities_once",
+    verify = "a session's snapshot follows every update"
+)]
+fn a_sessions_snapshot_follows_every_update() {
+    use specforge_wasm::testing::InProcessRuntime;
+    use std::sync::Arc;
+
+    let dir = project(
+        r#"{"name":"s","version":"0.1.0","extensions":["@pin/items"]}"#,
+        &[("a.spec", "item gizmo \"Gizmo\" {\n}\n")],
+    );
+    let root = dir.path();
+    let runtime = Arc::new(InProcessRuntime::new().with(obliging_items));
+    let mut session = ProjectSession::open_with_runtime(root, Some(runtime.clone()));
+    let last_pass_input = || {
+        runtime
+            .calls()
+            .into_iter()
+            .rev()
+            .find(|c| c.export == "__pass_echo")
+            .expect("the echo pass ran")
+            .input
+    };
+    let standing = session.entities().standing("gizmo").unwrap().clone();
+    assert_eq!(standing.declared, 0);
+    assert_eq!(standing.reported_by(), Some("P300"));
+    assert_eq!(
+        last_pass_input()["entities"][0]["verify_texts"],
+        serde_json::json!([])
+    );
+
+    // The update adds an obligation: the snapshot, the coverage and the
+    // check pass all see it.
+    write(
+        root,
+        "a.spec",
+        "item gizmo \"Gizmo\" {\n  verify unit \"x\"\n}\n",
+    );
+    session.update(SourceChange::Disk(&changed(&["a.spec"])));
+    let standing = session.entities().standing("gizmo").unwrap();
+    assert_eq!(standing.declared, 1);
+    assert!(standing.counts() && standing.reported_by().is_none());
+    let coverage = session.recorded().at(Some(root)).unwrap().coverage;
+    assert!(std::ptr::eq(session.entities(), coverage.entities()));
+    assert_eq!(coverage.verdict("gizmo").unwrap().obligations, 1);
+    assert_eq!(coverage.summary.testable_total, 1);
+    assert_eq!(
+        last_pass_input()["entities"][0]["verify_texts"],
+        serde_json::json!(["x"])
+    );
+    assert!(
+        !session.diagnostics().iter().any(|d| d.code == "P300"),
+        "the rule read the same snapshot"
+    );
+}
+
+#[specforge_test(
+    behavior = "snapshot_entities_once",
+    verify = "a session's snapshot follows every update"
+)]
+fn an_update_that_skips_the_checks_still_scores_its_own_graph() {
+    use specforge_project::CheckMode;
+
+    let dir = project(
+        CONFIG,
+        &[(
+            "a.spec",
+            "behavior a \"A\" {\n  contract \"The system MUST a\"\n}\n",
+        )],
+    );
+    let root = dir.path();
+    let mut session = ProjectSession::open(root);
+    let before = std::sync::Arc::clone(session.recorded().entities());
+    assert!(session.entities().kind_of("a").is_some());
+
+    // The file now has a parse error: the checks are skipped, and nothing
+    // seeded the memo. What the session scores is still its own graph's
+    // snapshot, taken once, in its environment (the spec root included).
+    write(root, "b.spec", "behavior b \"B\" {\n  contract \"\n");
+    session.update_with(
+        SourceChange::Disk(&changed(&["b.spec"])),
+        CheckMode::SyntaxOnlyIfParseErrorsIn("b.spec"),
+    );
+    let entities = session.entities();
+    assert!(!std::ptr::eq(entities, &*before), "a fresh memo per update");
+    assert_eq!(entities.spec_root(), session.environment().spec_root);
+    assert!(std::ptr::eq(entities, session.entities()), "taken once");
+    for node in session.graph().nodes() {
+        assert!(
+            entities.standing(node.id.raw.as_str()).is_some(),
+            "{} is scored",
+            node.id.raw
+        );
+    }
+    let coverage = session.recorded().at(Some(root)).unwrap().coverage;
+    assert!(std::ptr::eq(entities, coverage.entities()));
 }

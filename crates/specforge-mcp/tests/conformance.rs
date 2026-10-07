@@ -3,37 +3,16 @@
 //! through the real router; a listed name with no handler fails here
 //! instead of reaching an agent as "Unknown tool" or "Unknown operation".
 
+use crate::support::*;
 use serde_json::{Value, json};
-use specforge_mcp::McpServer;
 use specforge_test::prelude::*;
-
-fn call(server: &mut McpServer, method: &str, params: Value) -> Value {
-    let req = json!({"jsonrpc": "2.0", "id": 1, "method": method, "params": params});
-    let resp = server.handle_message(&req.to_string()).unwrap();
-    serde_json::from_str(&resp).unwrap()
-}
 
 /// A server initialized over a throwaway project holding behavior `alpha`.
 /// Tools that write only ever touch this directory.
-fn server_over_scratch_project() -> (McpServer, tempfile::TempDir) {
-    let dir = tempfile::TempDir::new().unwrap();
-    std::fs::write(
-        dir.path().join("specforge.json"),
-        json!({"name": "t", "version": "0.1.0", "extensions": []}).to_string(),
-    )
-    .unwrap();
-    std::fs::write(
-        dir.path().join("test.spec"),
-        "behavior alpha \"Alpha\" {\n}\n",
-    )
-    .unwrap();
-    let mut server = McpServer::new();
-    call(
-        &mut server,
-        "initialize",
-        json!({"projectRoot": dir.path().to_string_lossy()}),
-    );
-    (server, dir)
+fn server_over_scratch_project() -> Served {
+    TestProject::new()
+        .file("test.spec", "behavior alpha \"Alpha\" {\n}\n")
+        .serve_components()
 }
 
 /// Why a response says the name it was sent to is unknown, if it does:
@@ -50,7 +29,7 @@ fn unknown_name_error(resp: &Value) -> Option<String> {
     verify = "every listed core tool dispatches to its handler"
 )]
 fn every_listed_core_tool_dispatches_to_its_handler() {
-    let (mut server, _dir) = server_over_scratch_project();
+    let mut server = server_over_scratch_project();
     let tools = crate::support::core_tools();
     assert!(tools.len() >= 15, "the core tool surface is listed");
 
@@ -84,7 +63,7 @@ fn every_listed_core_tool_dispatches_to_its_handler() {
     verify = "every listed core prompt resolves to a handler"
 )]
 fn every_listed_core_prompt_resolves_to_a_handler() {
-    let (mut server, _dir) = server_over_scratch_project();
+    let mut server = server_over_scratch_project();
     let listed = call(&mut server, "prompts/list", json!({}));
     let prompts = listed["result"]["prompts"].as_array().cloned().unwrap();
     assert!(prompts.len() >= 5, "the core prompts are listed: {listed}");
@@ -112,7 +91,7 @@ fn every_listed_core_prompt_resolves_to_a_handler() {
     verify = "every listed core resource is readable"
 )]
 fn every_listed_core_resource_is_readable() {
-    let (mut server, _dir) = server_over_scratch_project();
+    let mut server = server_over_scratch_project();
     // Plain resources, then the templated ones.
     let listed = call(&mut server, "resources/list", json!({}));
     let templates = call(&mut server, "resources/templates/list", json!({}));
@@ -158,10 +137,13 @@ fn every_listed_core_resource_is_readable() {
 
 /// `tools/list` of a server over the fake extension `@test/cmds`, which
 /// contributes an explicit tool and two auto-promoted commands.
-fn tools_with_an_extension() -> (McpServer, Vec<Value>) {
-    let ext = crate::fake_extension::FakeExtension::new();
-    let (mut server, _ext, dir) = crate::fake_extension::initialized(ext);
-    std::mem::forget(dir); // the server keeps serving it
+fn tools_with_an_extension() -> (Served, Vec<Value>) {
+    use crate::fake_extension::{EXT, FakeExtension};
+    let ext = FakeExtension::new();
+    let mut server = TestProject::new()
+        .enabling(&[EXT])
+        .file("main.spec", "")
+        .serve_in(ext.runtime());
     let listed = call(&mut server, "tools/list", json!({}));
     let tools = listed["result"]["tools"].as_array().cloned().unwrap();
     (server, tools)
@@ -209,18 +191,19 @@ fn every_listed_tool_has_a_spec_category_and_a_source() {
     verify = "core tools are annotated: read-only tools readOnlyHint, writing tools how they write"
 )]
 fn core_tool_annotations_follow_what_each_tool_does() {
-    use specforge_mcp::tool::{Access, Category};
+    use specforge_mcp::tool::{Access, Category, Handler};
     let (_server, tools) = tools_with_an_extension();
     for spec in specforge_mcp::tools::CORE_TOOLS {
         // One definition: a mutation is exactly a tool with a mutation
-        // effect, and it writes.
+        // handler (it says what it wrote), and it writes.
+        let mutation = matches!(spec.handler, Handler::Mutation(_));
         assert_eq!(
-            spec.mutation.is_some(),
+            mutation,
             spec.category == Category::Mutation,
             "{}",
             spec.name
         );
-        if spec.mutation.is_some() {
+        if mutation {
             assert_ne!(spec.access, Access::ReadOnly, "{}", spec.name);
         }
         let listed = tools.iter().find(|t| t["name"] == spec.name).unwrap();

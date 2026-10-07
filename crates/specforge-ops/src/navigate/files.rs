@@ -8,7 +8,6 @@ use specforge_common::{SourceSpan, Sym};
 use specforge_graph::Node;
 
 use super::Navigator;
-use super::text::TokenKind;
 
 /// How a query path matches a file.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -125,7 +124,7 @@ pub fn outline<F: Fn(&str) -> Option<String>>(
     nav: &Navigator<'_, F>,
     file: &str,
 ) -> Vec<OutlineEntry> {
-    let graph = nav.view.graph;
+    let graph = nav.view.graph();
     let mut nodes: Vec<&Node> = graph
         .nodes()
         .into_iter()
@@ -186,7 +185,7 @@ impl<F: Fn(&str) -> Option<String>> Navigator<'_, F> {
             .and_then(|text| {
                 text.tokens(span)
                     .into_iter()
-                    .filter(|t| t.kind == TokenKind::Ident)
+                    .filter(|t| t.is_name())
                     .nth(1)
                     .filter(|t| text.token_text(t) == name)
                     .map(|t| text.span(span.file, t.start, t.end))

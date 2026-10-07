@@ -1,6 +1,9 @@
-use serde_json::Value;
+//! `specforge.inspect`: one entity's facts (`specforge_ops::inspect`), as
+//! JSON. The tool renders the read view; it reads no edge, coverage row or
+//! attribution itself (ADR 0015, section "Inspect").
 
-use specforge_ops::navigate::Direction;
+use serde_json::{Value, json};
+use specforge_ops::inspect::{EntityCoverage, EntityFacts, obligation_text};
 
 use crate::target::Call;
 use crate::tool::ToolOutcome;
@@ -12,121 +15,65 @@ pub struct Args {
 
 pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
     let view = call.view();
-    let entity_id = args.entity_id.as_str();
-
-    let node = match view.graph.node(entity_id) {
-        Some(n) => n,
-        None => {
-            return crate::tool::entity_not_found(entity_id).into();
-        }
+    let Ok(facts) = specforge_ops::inspect::inspect(&view, &args.entity_id) else {
+        return crate::tool::entity_not_found(&args.entity_id).into();
     };
-
-    // References split by direction (ADR 0016): the entities that
-    // reference this one, and those it refers to. `references` (both,
-    // unlabeled) and `reference_count` stay as deprecated aliases.
-    let nav = super::navigator(call);
-    let ids = |direction| -> Vec<String> {
-        let query = specforge_ops::navigate::ReferenceQuery {
-            direction,
-            include_declaration: false,
-        };
-        let occurrences = nav.references(entity_id, query).unwrap_or_default();
-        let ids: std::collections::BTreeSet<String> = occurrences
-            .iter()
-            .map(|o| match direction {
-                Direction::Outgoing => o.target.to_string(),
-                _ => o.holder.to_string(),
-            })
-            .collect();
-        ids.into_iter().collect()
+    // A recorded report that cannot be read fails the call (ADR 0004 D2-e).
+    let coverage = match &facts.coverage {
+        Ok(coverage) => coverage,
+        Err(error) => return super::coverage::report_error_result(error),
     };
-    let referenced_by = ids(Direction::Incoming);
-    let refers_to = ids(Direction::Outgoing);
-    let reference_count =
-        view.graph.edges_to(entity_id).len() + view.graph.edges_from(entity_id).len();
-    let references: Vec<String> = view
-        .graph
-        .edges_to(entity_id)
+    ToolOutcome::ok(result_json(&facts, coverage))
+}
+
+/// `McpInspectResult`: the one presenter of an entity's facts as JSON.
+fn result_json(facts: &EntityFacts, coverage: &EntityCoverage) -> Value {
+    let node = facts.node;
+    let refs = &facts.references;
+    // Deprecated aliases (ADR 0016): both directions, unlabeled, in edge
+    // order, one per reference.
+    let references: Vec<&str> = refs
+        .incoming
         .iter()
-        .map(|e| e.source.to_string())
-        .chain(
-            view.graph
-                .edges_from(entity_id)
-                .iter()
-                .map(|e| e.target.to_string()),
-        )
+        .chain(&refs.outgoing)
+        .map(|r| r.peer.as_str())
         .collect();
-
-    // The statement the extension declares (headline and normative): a
-    // behavior's `contract`; `null` for a kind that declares none.
-    let contract = specforge_emitter::context::headline_statement(node, &view.registries.fields);
-
-    // The entity's row of the coverage view: whether its kind counts toward
-    // coverage, as hover, the schema and the outline say (ADR 0004, D2-d);
-    // whether the entity itself declares obligations; and the status
-    // `specforge.coverage` reports for it.
-    let row = match specforge_ops::coverage::row(&view, entity_id) {
-        Ok(row) => row,
-        Err(error) => return super::coverage::report_error_result(&error),
-    };
-    let obligations = specforge_graph::obligations(node);
-    let declared = row
-        .as_ref()
-        .map_or(!obligations.is_empty(), |row| row.declared());
-    let testable = row.as_ref().is_some_and(|row| row.testable);
-    let coverage_status = specforge_ops::coverage::status_name(
-        row.as_ref()
-            .map_or(specforge_project::coverage::Status::Uncovered, |row| {
-                row.status()
-            }),
-    );
-    let verify_declarations: Option<Vec<String>> = declared.then(|| {
-        obligations
-            .iter()
-            .map(|s| format!("{} {}", s.kind, s.description))
-            .collect()
-    });
-
-    // The diagnostics about the entity: those its data names it in, else
-    // those inside its block (ADR 0016); never by reading the message.
-    let entity_diagnostics: Vec<Value> = super::reported(call)
-        .iter()
-        .filter(|d| specforge_ops::navigate::is_about(view.graph, d, entity_id))
-        .map(|d| {
-            serde_json::json!({
-                "code": d.code,
-                "severity": format!("{:?}", d.severity),
-                "message": d.message,
-                "suggestion": d.suggestion
-            })
-        })
-        .collect();
-
-    let result = serde_json::json!({
+    let declared = coverage.declared();
+    json!({
         "entity_id": node.id.raw,
         "kind": node.kind.raw,
         "title": node.title,
-        "testable": testable,
+        // Its kind's testability, the standing the hover shows (ADR 0004
+        // D2-d); whether it declares obligations; its coverage status.
+        "testable": facts.standing.testable,
         "declared": declared,
-        "reference_count": reference_count,
-        "source_span": {
-            "file": node.source_span.file,
-            "start_line": node.source_span.start_line,
-            "start_col": node.source_span.start_col,
-            "end_line": node.source_span.end_line,
-            "end_col": node.source_span.end_col,
-        },
-        "contract": contract,
+        // It does not count toward coverage (the coverage row's `exempt`),
+        // and whether its kind must declare obligations: why it is exempt.
+        "exempt": facts.standing.exempt(),
+        "obligated": facts.standing.obligated(),
+        // The extension that declares its kind; `null` when none does.
+        "source_extension": facts.kind.map(|kind| kind.source_extension.as_str()),
+        "reference_count": references.len(),
+        "source_span": super::span_json(&node.source_span),
+        // The statement the extension declares (headline and normative):
+        // a behavior's `contract`; `null` for a kind that declares none.
+        "contract": facts.headline,
         // Every field, whatever the kind names its text: an invariant's
         // `guarantee`, a decision's `rationale`, a feature's `description`.
         "fields": specforge_emitter::field_map_to_json(&node.fields),
-        "verify_declarations": verify_declarations,
-        "referenced_by": referenced_by,
-        "refers_to": refers_to,
+        "verify_declarations": declared
+            .then(|| facts.obligations.iter().map(obligation_text).collect::<Vec<_>>()),
+        "referenced_by": refs.referenced_by(),
+        "refers_to": refs.refers_to(),
         "references": references,
-        "coverage_status": coverage_status,
-        "diagnostics": entity_diagnostics
-    });
-
-    ToolOutcome::ok(result)
+        "coverage_status": specforge_ops::coverage::STATUS.name_of(coverage.status()),
+        // The diagnostics about the entity: those its data names it in,
+        // else those inside its block (ADR 0016); never by its message.
+        "diagnostics": facts.diagnostics.iter().map(|d| json!({
+            "code": d.code,
+            "severity": format!("{:?}", d.severity),
+            "message": d.message,
+            "suggestion": d.suggestion
+        })).collect::<Vec<_>>(),
+    })
 }

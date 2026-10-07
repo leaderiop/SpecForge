@@ -7,12 +7,12 @@
 
 use crate::OutputFormat;
 use serde_json::json;
-use specforge_common::{Diagnostic, Severity};
+use specforge_common::{Code, Diagnostic, Severity, codes};
 use std::path::Path;
 
 /// The diagnostic for an extension project that isn't there or isn't
 /// built.
-const NOT_BUILT: &str = "E040";
+const NOT_BUILT: Code = codes::E040;
 
 pub fn run_init(path: &Path, name: Option<&str>, format: OutputFormat) -> i32 {
     let ext_name = name.unwrap_or("my-extension");
@@ -26,12 +26,12 @@ pub fn run_init(path: &Path, name: Option<&str>, format: OutputFormat) -> i32 {
     if ext_dir.exists() {
         format.print_error(
             &format!("directory '{}' already exists", ext_dir.display()),
-            "E065",
+            codes::E065,
         );
         return 1;
     }
     if let Err(message) = crate::new::scaffold(&ext_dir, &declared) {
-        format.print_error(&message, "E066");
+        format.print_error(&message, codes::E066);
         return 1;
     }
 

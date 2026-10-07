@@ -1,9 +1,10 @@
 //! A long-lived compiled project: what watch, the LSP and MCP hold.
 
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
-use specforge_common::{Diagnostic, discover_spec_files, load_project_config};
+use specforge_common::{Diagnostic, codes, discover_spec_files, load_project_config};
 use specforge_graph::{Graph, build_graph_with_config};
 use specforge_parser::SpecFile;
 use specforge_resolver::resolve_parsed;
@@ -14,6 +15,7 @@ use crate::delta::{GraphDelta, compute_graph_delta};
 use crate::freshness::DiskSnapshot;
 use crate::incremental::IncrementalBuild;
 use crate::inputs::{Changes, InputRole, Origin, UpdateKind, canonical, environment_inputs};
+use crate::snapshot::EntitySnapshot;
 use crate::{Environment, sources_in_path_order};
 
 /// The runtime a session runs its project's extensions in (every
@@ -85,14 +87,81 @@ pub struct ProjectSession {
     /// Where the project comes from. With [`Origin::None`] (an editor with
     /// no workspace folder) files are buffers keyed by absolute path, with
     /// no spec root to resolve their imports against and no environment to
-    /// reload; with [`Origin::InMemory`] the graph was built by the host.
+    /// reload.
     origin: Origin,
     /// What the session last built from, as it was when read: what
     /// [`Self::stale`] compares with disk.
     snapshot: DiskSnapshot,
-    /// The recorded test report and the coverage of the current graph
-    /// against it: a fresh memo after every update and reload.
-    recorded: RecordedCoverage,
+    /// The current graph's entity snapshot, the recorded test report and
+    /// the coverage of the graph against it: a fresh memo after every update
+    /// and reload. A check seeds it with the snapshot it read; after an
+    /// update that skipped the checks it is made over the graph on first use
+    /// ([`Self::recorded`], the one place).
+    recorded: OnceLock<RecordedCoverage>,
+}
+
+/// A project whose environment is loaded and whose sources are not read yet
+/// ([`ProjectSession::begin_open`]). Its environment is shared, so a reader
+/// can serve what needs only it (an editor's keyword completion) while
+/// [`Self::finish`] reads and builds the sources.
+pub struct OpeningProject {
+    env: Arc<Environment>,
+    runtime: Option<SharedRuntime>,
+    /// The session built its runtime, so a reload builds a fresh one.
+    owns_runtime: bool,
+    /// Stamped for the environment; the sources are stamped by `finish`.
+    snapshot: DiskSnapshot,
+}
+
+impl OpeningProject {
+    /// The loaded environment: what the finished session will have, until
+    /// the environment is loaded again.
+    pub fn environment(&self) -> &Arc<Environment> {
+        &self.env
+    }
+
+    /// Read every source, build the graph and run the checks: the session
+    /// [`ProjectSession::open`] returns.
+    pub fn finish(self) -> ProjectSession {
+        let mut snapshot = self.snapshot;
+        let discovered = discover_spec_files(&self.env.spec_root, &self.env.config.exclude);
+        snapshot.stamp_all_sources(&self.env.spec_root, &discovered);
+        let resolved = self.env.resolve();
+        let (paths, specs): (Vec<String>, Vec<SpecFile>) =
+            sources_in_path_order(&resolved).into_iter().unzip();
+        let graph_config = self.env.graph_config();
+        // The one cold build seeds the incremental one.
+        let (graph, graph_diagnostics) = build_graph_with_config(&specs, &graph_config);
+        let files: Vec<(String, SpecFile)> = paths.into_iter().zip(specs).collect();
+        // The text each file was parsed from (the resolver kept it).
+        let sources: HashMap<String, Arc<str>> = resolved
+            .files
+            .iter()
+            .map(|file| (file.path.clone(), Arc::from(file.source.as_str())))
+            .collect();
+        let build = IncrementalBuild::from_cold_build(
+            files,
+            sources,
+            graph,
+            &graph_diagnostics,
+            graph_config,
+        );
+
+        let mut session = ProjectSession {
+            env: self.env,
+            runtime: self.runtime,
+            owns_runtime: self.owns_runtime,
+            build,
+            import_diagnostics: resolved.diagnostics,
+            check_diagnostics: Vec::new(),
+            verify_incremental: false,
+            origin: Origin::Disk,
+            snapshot,
+            recorded: OnceLock::new(),
+        };
+        session.check_diagnostics = session.checked();
+        session
+    }
 }
 
 impl ProjectSession {
@@ -109,52 +178,35 @@ impl ProjectSession {
             verify_incremental: false,
             origin: Origin::None,
             snapshot: DiskSnapshot::default(),
-            recorded: RecordedCoverage::default(),
-        }
-    }
-
-    /// A session serving `graph`, built in memory rather than from
-    /// sources, in `env`: a host that assembles its graph itself (and a
-    /// test) serves one. It has no file and runs no extension; it reports
-    /// the environment's diagnostics and `graph_diagnostics` as its graph
-    /// build's. It has nothing on disk to reload ([`Origin::InMemory`]); its
-    /// root is the environment's.
-    pub fn from_graph(
-        env: Arc<Environment>,
-        graph: Graph,
-        graph_diagnostics: Vec<Diagnostic>,
-    ) -> Self {
-        let graph_config = env.graph_config();
-        ProjectSession {
-            env,
-            runtime: None,
-            owns_runtime: false,
-            build: IncrementalBuild::from_cold_build(
-                Vec::new(),
-                graph,
-                &graph_diagnostics,
-                graph_config,
-            ),
-            import_diagnostics: Vec::new(),
-            check_diagnostics: Vec::new(),
-            verify_incremental: false,
-            origin: Origin::InMemory,
-            snapshot: DiskSnapshot::default(),
-            recorded: RecordedCoverage::default(),
+            recorded: OnceLock::new(),
         }
     }
 
     /// Open the project at `root`, running its extensions in the project's
     /// own runtime.
     pub fn open(root: &Path) -> Self {
-        let mut session = Self::open_with_runtime(root, Some(project_runtime(root)));
-        session.owns_runtime = true;
-        session
+        Self::begin_open(root).finish()
     }
 
     /// Open the project at `root` with `runtime` (none: no extension
     /// loads). A reload keeps using the same runtime.
     pub fn open_with_runtime(root: &Path, runtime: Option<SharedRuntime>) -> Self {
+        Self::begin_open_with_runtime(root, runtime).finish()
+    }
+
+    /// The first half of [`Self::open`]: the environment loaded (config,
+    /// extensions, registries), no `.spec` file read. What needs only the
+    /// environment (the kinds and fields a keyword completion offers) is
+    /// served from [`OpeningProject::environment`] while
+    /// [`OpeningProject::finish`] reads and builds the sources.
+    pub fn begin_open(root: &Path) -> OpeningProject {
+        let mut opening = Self::begin_open_with_runtime(root, Some(project_runtime(root)));
+        opening.owns_runtime = true;
+        opening
+    }
+
+    /// [`Self::begin_open`] with `runtime` (none: no extension loads).
+    pub fn begin_open_with_runtime(root: &Path, runtime: Option<SharedRuntime>) -> OpeningProject {
         // Everything is stamped before it is read (crate::freshness): the
         // config first, then what it names, then the sources.
         let mut snapshot = DiskSnapshot::default();
@@ -162,33 +214,12 @@ impl ProjectSession {
             let inputs = environment_inputs(root, &load_project_config(root), false);
             std::iter::once(inputs.lock).chain(inputs.modules).collect()
         });
-        let env = Environment::load(root, runtime.as_deref());
-        let discovered = discover_spec_files(&env.spec_root, &env.config.exclude);
-        snapshot.stamp_all_sources(&env.spec_root, &discovered);
-        let resolved = env.resolve();
-        let (paths, specs): (Vec<String>, Vec<SpecFile>) =
-            sources_in_path_order(&resolved).into_iter().unzip();
-        let graph_config = env.graph_config();
-        // The one cold build seeds the incremental one.
-        let (graph, graph_diagnostics) = build_graph_with_config(&specs, &graph_config);
-        let files: Vec<(String, SpecFile)> = paths.into_iter().zip(specs).collect();
-        let build =
-            IncrementalBuild::from_cold_build(files, graph, &graph_diagnostics, graph_config);
-
-        let mut session = ProjectSession {
-            env: Arc::new(env),
+        OpeningProject {
+            env: Arc::new(Environment::load(root, runtime.as_deref())),
             runtime,
             owns_runtime: false,
-            build,
-            import_diagnostics: resolved.diagnostics,
-            check_diagnostics: Vec::new(),
-            verify_incremental: false,
-            origin: Origin::Disk,
             snapshot,
-            recorded: RecordedCoverage::default(),
-        };
-        session.check_diagnostics = session.checked();
-        session
+        }
     }
 
     /// Compare every update's graph with a cold rebuild (costly: a debug
@@ -231,7 +262,7 @@ impl ProjectSession {
             }
         };
         let result = self.build.rebuild(changes);
-        self.recorded = RecordedCoverage::default();
+        self.recorded = OnceLock::new();
         self.import_diagnostics = self.resolve_imports();
         self.check_diagnostics = match mode {
             CheckMode::SyntaxOnlyIfParseErrorsIn(path)
@@ -239,7 +270,7 @@ impl ProjectSession {
                     .build
                     .file_diagnostics(path)
                     .iter()
-                    .any(|d| d.code == "E001") =>
+                    .any(|d| d.is(codes::E001)) =>
             {
                 Vec::new()
             }
@@ -318,13 +349,27 @@ impl ProjectSession {
         self.build.graph()
     }
 
-    /// Where the project comes from: disk, memory, or nowhere.
+    /// The text the session's current build parsed `path` (relative to the
+    /// spec root) from: the file as it was read, or the buffer as it was
+    /// given, at the last update that touched it. A span of the graph or of
+    /// a diagnostic is a position in this text, not in the file on disk or
+    /// the buffer now. `None` for a file the session does not hold.
+    pub fn source_text(&self, path: &str) -> Option<Arc<str>> {
+        self.build.source_text(path).cloned()
+    }
+
+    /// [`Self::source_text`] of every file, shared rather than copied: what
+    /// a reader keeps while the session is out for an update.
+    pub fn source_texts(&self) -> HashMap<String, Arc<str>> {
+        self.build.source_texts()
+    }
+
+    /// Where the project comes from: disk, or nowhere.
     pub fn origin(&self) -> Origin {
         self.origin
     }
 
-    /// The project root: `None` with no project ([`Origin::None`], or a
-    /// session built in memory with no root).
+    /// The project root: `None` with no project ([`Origin::None`]).
     pub fn root(&self) -> Option<&Path> {
         let root = self.env.root.as_path();
         (self.origin != Origin::None && !root.as_os_str().is_empty()).then_some(root)
@@ -343,12 +388,10 @@ impl ProjectSession {
     }
 
     /// What `path` (absolute, or relative to the working directory) is to
-    /// this session (behavior `classify_project_changes`). A session built
-    /// in memory is never changed by disk; with no project, a `.spec` file
-    /// is a buffer source keyed by its path.
+    /// this session (behavior `classify_project_changes`). With no project,
+    /// a `.spec` file is a buffer source keyed by its path.
     pub fn classify(&self, path: &Path) -> InputRole {
         match self.origin {
-            Origin::InMemory => InputRole::Unrelated,
             Origin::None => {
                 if path.extension().is_some_and(|ext| ext == "spec") {
                     InputRole::Source(self.source_key(path))
@@ -383,18 +426,16 @@ impl ProjectSession {
     /// Apply `changes`: the environment first (a reload rebuilds
     /// everything), else the sources (an update re-runs every check), else
     /// the checks alone. `None` when there is nothing to apply: `changes` is
-    /// empty, or the session was built in memory.
+    /// empty.
     pub fn apply(&mut self, changes: &Changes) -> Option<Update> {
-        match self.origin {
-            Origin::InMemory => None,
-            _ if changes.environment && self.origin == Origin::Disk => {
-                Some(self.reload_environment())
-            }
-            _ if !changes.sources.is_empty() => {
-                Some(self.update(SourceChange::Disk(&changes.sources)))
-            }
-            _ if changes.check_inputs && self.origin == Origin::Disk => Some(self.recheck()),
-            _ => None,
+        if changes.environment && self.origin == Origin::Disk {
+            Some(self.reload_environment())
+        } else if !changes.sources.is_empty() {
+            Some(self.update(SourceChange::Disk(&changes.sources)))
+        } else if changes.check_inputs && self.origin == Origin::Disk {
+            Some(self.recheck())
+        } else {
+            None
         }
     }
 
@@ -407,7 +448,7 @@ impl ProjectSession {
             return Vec::new();
         }
         let inputs = self.env.inputs();
-        let references = self.env.referenced_files(self.graph());
+        let references = self.env.named_files(self.graph(), self.entities());
         let candidates = [canonical(&self.env.root), canonical(&self.env.spec_root)]
             .into_iter()
             .chain(
@@ -458,7 +499,15 @@ impl ProjectSession {
     /// The recorded test report and the coverage of the current graph
     /// against it, memoized until the next update or reload.
     pub fn recorded(&self) -> &RecordedCoverage {
-        &self.recorded
+        self.recorded
+            .get_or_init(|| RecordedCoverage::over(self.build.graph(), &self.env))
+    }
+
+    /// The current graph's entity snapshot (ADR 0019): the one its last
+    /// check read, or, when the last update skipped the checks, one taken
+    /// on first use.
+    pub fn entities(&self) -> &EntitySnapshot {
+        self.recorded().entities()
     }
 
     /// The environment, shared: it stays valid after the session reloads.
@@ -504,7 +553,7 @@ impl ProjectSession {
     /// on disk: computed once per batch.
     fn classifier(&self) -> Classifier {
         let inputs = self.env.inputs();
-        let references = self.env.referenced_files(self.graph());
+        let references = self.env.named_files(self.graph(), self.entities());
         Classifier {
             spec_root: canonical(&self.env.spec_root),
             environment: inputs.environment_paths().map(canonical).collect(),
@@ -548,7 +597,7 @@ impl ProjectSession {
 
     /// Run every check again on the current graph: a check input changed.
     fn recheck(&mut self) -> Update {
-        self.recorded = RecordedCoverage::default();
+        self.recorded = OnceLock::new();
         self.check_diagnostics = self.checked();
         Update {
             kind: UpdateKind::Checks,
@@ -573,18 +622,31 @@ impl ProjectSession {
         .diagnostics
     }
 
-    fn check(&self) -> Vec<Diagnostic> {
-        self.env
-            .run_checks(self.build.graph(), self.runtime.as_deref())
+    /// A snapshot of the current graph, taken now (ADR 0019).
+    fn snapshot_now(&self) -> Arc<EntitySnapshot> {
+        Arc::new(self.env.entity_snapshot(self.build.graph()))
     }
 
-    /// [`Self::check`], the check inputs stamped first.
+    /// Run every check on the current graph over `entities`, its snapshot:
+    /// the coverage memo starts again from that snapshot.
+    fn check_over(&mut self, entities: Arc<EntitySnapshot>) -> Vec<Diagnostic> {
+        let diagnostics =
+            self.env
+                .run_checks(self.build.graph(), &entities, self.runtime.as_deref());
+        self.recorded = OnceLock::from(RecordedCoverage::of(entities));
+        diagnostics
+    }
+
+    /// Every check on the current graph, over a snapshot of it taken now,
+    /// the check inputs (which the snapshot's `file_exists` rules add to)
+    /// stamped first.
     fn checked(&mut self) -> Vec<Diagnostic> {
+        let entities = self.snapshot_now();
         if self.origin == Origin::Disk {
-            let inputs = self.env.check_inputs(self.build.graph());
+            let inputs = self.env.check_inputs(self.build.graph(), &entities);
             self.snapshot.stamp_checks(inputs);
         }
-        self.check()
+        self.check_over(entities)
     }
 }
 

@@ -78,24 +78,6 @@ failure_mode event_graph_analysis_timeout "Event Graph Analysis Timeout" {
   verify unit "Event Graph Analysis Timeout failure mode is handled"
 }
 
-failure_mode protocol_ordering_false_positive "Protocol Ordering False Positive" {
-  invariant  fa_condition_consistency
-  severity   medium
-  occurrence occasional
-  detection  moderate
-  rpn        45
-  cause      "Protocol ordering validation flags a valid event sequence as conflicting because the topological sort of the event graph does not match the protocol's declared ordering — even though both orderings are valid linearizations of the same partial order"
-  effect     "Developer receives spurious W130 warnings on valid protocol configurations, loses trust in protocol validation, and removes ordering declarations"
-  mitigation "Ordering validation uses partial order comparison (not linear equality) — protocol ordering is treated as a constraint set, not a total order; any topologically valid linearization passes; integration tests with known-valid partial orders"
-  post_mitigation {
-    severity   medium
-    occurrence unlikely
-    detection  likely
-    rpn        20
-  }
-  verify unit "Protocol Ordering False Positive failure mode is handled"
-}
-
 failure_mode axiom_circularity_risk "Axiom Circularity Risk" {
   invariant  fa_condition_consistency
   severity   high
@@ -140,7 +122,7 @@ failure_mode refinement_delta_drift "Refinement Condition Delta Drift" {
   rpn        72
   cause      "Refinement entity's condition delta becomes stale when abstract/concrete behavior conditions are modified"
   effect     "Agent receives incorrect condition delta context; generated code may not preserve abstract guarantees"
-  mitigation "W133 detects refinements without deltas; layering_verify cross-checks delta against actual behavior conditions"
+  mitigation "W133 reports a refinement that declares no invariant_deltas, so a mapping without a recorded delta is visible in every check"
   post_mitigation {
     severity   high
     occurrence unlikely
@@ -158,7 +140,7 @@ failure_mode process_alphabet_incomplete "Process Alphabet Incomplete" {
   rpn        45
   cause      "Process alphabet does not include all events that participate — events added to system but not to process"
   effect     "Event graph analysis misses cross-process interactions; deadlock detection has blind spots"
-  mitigation "W136 detects empty alphabets; bipartite graph cross-references actual event edges against declared alphabets"
+  mitigation "W136 reports a process whose alphabet is empty (an absent alphabet is E006), so a process disconnected from the event graph is visible in every check"
   post_mitigation {
     severity   medium
     occurrence unlikely

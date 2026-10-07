@@ -116,6 +116,31 @@ pub struct ProjectConfig {
     pub raw: Option<serde_json::Value>,
 }
 
+impl ProjectConfig {
+    /// Where this project's `.spec` files are discovered: `spec_root`, relative
+    /// to `root`, or `root` itself when unset.
+    pub fn spec_root_in(&self, root: &Path) -> PathBuf {
+        match &self.spec_root {
+            Some(spec_root) => root.join(spec_root),
+            None => root.to_path_buf(),
+        }
+    }
+
+    /// The project's sources: every `.spec` file under the spec root that
+    /// discovery keeps (no skipped directory, no `exclude` entry), sorted —
+    /// the files a compile reads, and what format and migrate rewrite.
+    pub fn spec_files(&self, root: &Path) -> Vec<PathBuf> {
+        crate::discover_spec_files(&self.spec_root_in(root), &self.exclude)
+    }
+
+    /// Whether `path`, a `.spec` file under `spec_root`, is left out by an
+    /// `exclude` entry or a skipped directory (false outside `spec_root`).
+    pub fn excludes(&self, spec_root: &Path, path: &Path) -> bool {
+        path.strip_prefix(spec_root)
+            .is_ok_and(|relative| !crate::is_discovered(&relative.to_string_lossy(), &self.exclude))
+    }
+}
+
 /// Project-level inference hints that override/append to extension defaults.
 #[derive(Debug, Clone, Default)]
 pub struct InferenceConfig {
@@ -124,61 +149,258 @@ pub struct InferenceConfig {
     pub density_threshold: Option<f64>,
 }
 
-/// Load project configuration from specforge.json in the given directory.
-/// Returns a default config if the file doesn't exist.
-pub fn load_project_config(project_root: &Path) -> ProjectConfig {
-    let config_path = project_root.join("specforge.json");
-    let content = match std::fs::read_to_string(&config_path) {
-        Ok(c) => c,
-        Err(_) => return ProjectConfig::default(),
+/// One way the project's `specforge.json` is not used as written. Its
+/// `Display` is the reason E069 names; for the problems that block an edit
+/// ([`Self::blocks_edits`]) it is also the message `specforge add` and
+/// `specforge remove` refuse with (`config_invalid`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ConfigProblem {
+    /// There, but not readable (permissions, not UTF-8, a directory).
+    Unreadable { path: PathBuf, error: String },
+    /// Not JSON (serde's line and column in `error`).
+    NotJson { path: PathBuf, error: String },
+    /// JSON, but not an object.
+    NotAnObject { path: PathBuf },
+    /// A key the config defines has the wrong JSON type (`name`,
+    /// `version`, `spec_root`: a string; `extensions`, `exclude`: an
+    /// array). That key's default is used; every other key is kept.
+    WrongType {
+        path: PathBuf,
+        key: &'static str,
+        expected: &'static str,
+    },
+    /// An item of `extensions` or `exclude` that is not a string. The item
+    /// is ignored; the other items are kept.
+    ItemNotAString {
+        path: PathBuf,
+        key: &'static str,
+        index: usize,
+        json: String,
+    },
+}
+
+impl ConfigProblem {
+    /// Nothing in the file could be used, or its `extensions` list could
+    /// not: the compile loads no extension because of it.
+    pub fn loads_nothing(&self) -> bool {
+        match self {
+            ConfigProblem::Unreadable { .. }
+            | ConfigProblem::NotJson { .. }
+            | ConfigProblem::NotAnObject { .. } => true,
+            ConfigProblem::WrongType { key, .. } => *key == "extensions",
+            ConfigProblem::ItemNotAString { .. } => false,
+        }
+    }
+
+    /// The file cannot be edited as an `extensions` list: `specforge add`
+    /// and `specforge remove` refuse (`config_invalid`). The same set as
+    /// [`Self::loads_nothing`]: an edit goes around a mistyped key or a
+    /// non-string item.
+    pub fn blocks_edits(&self) -> bool {
+        self.loads_nothing()
+    }
+}
+
+impl std::fmt::Display for ConfigProblem {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ConfigProblem::Unreadable { path, error } => {
+                write!(f, "failed to read {}: {error}", path.display())
+            }
+            ConfigProblem::NotJson { path, error } => {
+                write!(f, "{} is not valid JSON: {error}", path.display())
+            }
+            ConfigProblem::NotAnObject { path } => {
+                write!(f, "{} must be a JSON object", path.display())
+            }
+            ConfigProblem::WrongType {
+                path,
+                key,
+                expected,
+            } => write!(f, "\"{key}\" in {} must be {expected}", path.display()),
+            ConfigProblem::ItemNotAString {
+                path,
+                key,
+                index,
+                json,
+            } => write!(
+                f,
+                "\"{key}\"[{index}] in {} must be a string, found {json}",
+                path.display()
+            ),
+        }
+    }
+}
+
+/// What reading `specforge.json` at a root gave: the config (the default
+/// where a problem made a key or the whole file unusable), every problem in
+/// file order, and whether the file exists at all.
+#[derive(Debug, Clone, Default)]
+pub struct ConfigRead {
+    pub config: ProjectConfig,
+    pub problems: Vec<ConfigProblem>,
+    /// `specforge.json` exists at the root (readable or not). No file is no
+    /// problem: a project with the default config.
+    pub found: bool,
+}
+
+/// Read `specforge.json` in `project_root`: the config it gives, and every
+/// way it is not used as written ([`ConfigProblem`]), in file order. A
+/// missing file is the default config with no problem.
+pub fn read_project_config(project_root: &Path) -> ConfigRead {
+    let path = project_root.join("specforge.json");
+    let unusable = |problem: ConfigProblem| ConfigRead {
+        config: ProjectConfig::default(),
+        problems: vec![problem],
+        found: true,
+    };
+    let content = match std::fs::read_to_string(&path) {
+        Ok(content) => content,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return ConfigRead::default(),
+        Err(e) => {
+            return unusable(ConfigProblem::Unreadable {
+                path,
+                error: e.to_string(),
+            });
+        }
     };
     let value: serde_json::Value = match serde_json::from_str(&content) {
-        Ok(v) => v,
-        Err(_) => return ProjectConfig::default(),
+        Ok(value) => value,
+        Err(e) => {
+            return unusable(ConfigProblem::NotJson {
+                path,
+                error: e.to_string(),
+            });
+        }
+    };
+    let Some(object) = value.as_object() else {
+        return unusable(ConfigProblem::NotAnObject { path });
     };
 
-    let name = value
-        .get("name")
-        .and_then(|v| v.as_str())
-        .map(|s| s.to_string());
-    let version = value
-        .get("version")
-        .and_then(|v| v.as_str())
-        .map(|s| s.to_string());
-    let spec_root = value
-        .get("spec_root")
-        .and_then(|v| v.as_str())
-        .map(|s| s.to_string());
-    let extensions = value
-        .get("extensions")
-        .and_then(|v| v.as_array())
-        .map(|arr| {
-            arr.iter()
-                .filter_map(|v| v.as_str().map(|s| s.to_string()))
-                .collect()
-        })
-        .unwrap_or_default();
-    let exclude = value
-        .get("exclude")
-        .and_then(|v| v.as_array())
-        .map(|arr| {
-            arr.iter()
-                .filter_map(|v| v.as_str().map(|s| s.to_string()))
-                .collect()
-        })
-        .unwrap_or_default();
-
-    let inference = parse_inference_config(&value);
-
-    ProjectConfig {
-        name,
-        version,
-        spec_root,
-        extensions,
-        exclude,
-        inference,
-        raw: Some(value),
+    let mut problems = Vec::new();
+    let mut config = ProjectConfig::default();
+    // The keys in the order the file writes them, so the problems are
+    // reported in file order.
+    for key in keys_in_file_order(&content) {
+        let Some(item) = object.get(&key) else {
+            continue;
+        };
+        match key.as_str() {
+            "name" => config.name = string_key(&path, "name", item, &mut problems),
+            "version" => config.version = string_key(&path, "version", item, &mut problems),
+            "spec_root" => config.spec_root = string_key(&path, "spec_root", item, &mut problems),
+            "extensions" => config.extensions = list_key(&path, "extensions", item, &mut problems),
+            "exclude" => config.exclude = list_key(&path, "exclude", item, &mut problems),
+            _ => {}
+        }
     }
+    config.inference = parse_inference_config(&value);
+    config.raw = Some(value);
+    ConfigRead {
+        config,
+        problems,
+        found: true,
+    }
+}
+
+/// Load project configuration from specforge.json in the given directory:
+/// [`read_project_config`]'s config, the problems dropped (a best-effort
+/// read: the default for whatever is unusable). Returns a default config if
+/// the file doesn't exist.
+pub fn load_project_config(project_root: &Path) -> ProjectConfig {
+    read_project_config(project_root).config
+}
+
+/// A key whose value must be a string: `None`, and a problem, otherwise.
+fn string_key(
+    path: &Path,
+    key: &'static str,
+    value: &serde_json::Value,
+    problems: &mut Vec<ConfigProblem>,
+) -> Option<String> {
+    match value.as_str() {
+        Some(text) => Some(text.to_string()),
+        None => {
+            problems.push(ConfigProblem::WrongType {
+                path: path.to_path_buf(),
+                key,
+                expected: "a string",
+            });
+            None
+        }
+    }
+}
+
+/// A key whose value must be an array of strings: its strings, with one
+/// problem per item that is not one; empty, and a problem, when it is not
+/// an array.
+fn list_key(
+    path: &Path,
+    key: &'static str,
+    value: &serde_json::Value,
+    problems: &mut Vec<ConfigProblem>,
+) -> Vec<String> {
+    let Some(items) = value.as_array() else {
+        problems.push(ConfigProblem::WrongType {
+            path: path.to_path_buf(),
+            key,
+            expected: "an array",
+        });
+        return Vec::new();
+    };
+    items
+        .iter()
+        .enumerate()
+        .filter_map(|(index, item)| match item.as_str() {
+            Some(text) => Some(text.to_string()),
+            None => {
+                problems.push(ConfigProblem::ItemNotAString {
+                    path: path.to_path_buf(),
+                    key,
+                    index,
+                    json: item.to_string(),
+                });
+                None
+            }
+        })
+        .collect()
+}
+
+/// The top-level keys of the JSON object `content`, in the order it writes
+/// them (each once, at its first occurrence). Empty when it is not an
+/// object.
+fn keys_in_file_order(content: &str) -> Vec<String> {
+    struct Keys(Vec<String>);
+
+    impl<'de> serde::Deserialize<'de> for Keys {
+        fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+            struct Visitor;
+            impl<'de> serde::de::Visitor<'de> for Visitor {
+                type Value = Keys;
+                fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                    f.write_str("a JSON object")
+                }
+                fn visit_map<A: serde::de::MapAccess<'de>>(
+                    self,
+                    mut map: A,
+                ) -> Result<Keys, A::Error> {
+                    let mut keys: Vec<String> = Vec::new();
+                    while let Some(key) = map.next_key::<String>()? {
+                        map.next_value::<serde::de::IgnoredAny>()?;
+                        if !keys.contains(&key) {
+                            keys.push(key);
+                        }
+                    }
+                    Ok(Keys(keys))
+                }
+            }
+            deserializer.deserialize_map(Visitor)
+        }
+    }
+
+    serde_json::from_str::<Keys>(content)
+        .map(|keys| keys.0)
+        .unwrap_or_default()
 }
 
 fn parse_inference_config(value: &serde_json::Value) -> InferenceConfig {
@@ -231,6 +453,52 @@ pub fn validate_project_name(name: &str) -> Result<(), &'static str> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn spec_root_in_defaults_to_the_root() {
+        let root = Path::new("/p");
+        let unset = ProjectConfig::default();
+        let set = ProjectConfig {
+            spec_root: Some("specs".into()),
+            ..ProjectConfig::default()
+        };
+
+        assert_eq!(unset.spec_root_in(root), root);
+        assert_eq!(set.spec_root_in(root), root.join("specs"));
+    }
+
+    #[test]
+    fn spec_files_keep_only_the_sources() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let root = dir.path();
+        for file in [
+            "specs/a.spec",
+            "specs/sub/b.spec",
+            "specs/drafts/d.spec",
+            "specs/target/t.spec",
+            "specs/notes.md",
+            "fixtures/fx.spec",
+        ] {
+            std::fs::create_dir_all(root.join(file).parent().unwrap()).unwrap();
+            std::fs::write(root.join(file), "").unwrap();
+        }
+        let config = ProjectConfig {
+            spec_root: Some("specs".into()),
+            exclude: vec!["drafts".into()],
+            ..ProjectConfig::default()
+        };
+        let spec_root = config.spec_root_in(root);
+
+        assert_eq!(
+            config.spec_files(root),
+            [root.join("specs/a.spec"), root.join("specs/sub/b.spec")]
+        );
+        assert!(config.excludes(&spec_root, &root.join("specs/drafts/d.spec")));
+        assert!(config.excludes(&spec_root, &root.join("specs/target/t.spec")));
+        assert!(!config.excludes(&spec_root, &root.join("specs/a.spec")));
+        // Outside the spec root nothing is excluded: it is no source at all.
+        assert!(!config.excludes(&spec_root, &root.join("fixtures/fx.spec")));
+    }
 
     #[test]
     fn an_entry_names_an_extension_or_a_wasm_file() {
@@ -290,5 +558,206 @@ mod tests {
         );
 
         assert_eq!(ExtensionEntry::parse("@acme/foo@1.0.0").file(root), None);
+    }
+
+    /// `specforge.json` in a fresh temp directory, written as `text`.
+    fn config_dir(text: &[u8]) -> tempfile::TempDir {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("specforge.json"), text).unwrap();
+        dir
+    }
+
+    #[test]
+    fn a_missing_config_is_the_default_with_no_problem() {
+        let dir = tempfile::tempdir().unwrap();
+        let read = read_project_config(dir.path());
+        assert!(!read.found);
+        assert!(read.problems.is_empty());
+        assert!(read.config.raw.is_none());
+        assert!(read.config.extensions.is_empty());
+    }
+
+    #[specforge_test_macros::test(
+        behavior = "load_extension_manifests",
+        verify = "E069 names why specforge.json can't be used"
+    )]
+    fn an_unparsable_config_names_the_line_and_column() {
+        let dir = config_dir(br#"{ "extensions": ["@specforge/product",  }"#);
+        let path = dir.path().join("specforge.json");
+
+        let read = read_project_config(dir.path());
+
+        assert!(read.found);
+        assert!(read.config.extensions.is_empty());
+        assert!(read.config.raw.is_none());
+        let [problem] = read.problems.as_slice() else {
+            panic!("{:?}", read.problems);
+        };
+        assert!(
+            matches!(problem, ConfigProblem::NotJson { .. }),
+            "{problem:?}"
+        );
+        assert_eq!(
+            problem.to_string(),
+            format!(
+                "{} is not valid JSON: expected value at line 1 column 41",
+                path.display()
+            )
+        );
+        assert!(problem.loads_nothing() && problem.blocks_edits());
+
+        // Not readable (not UTF-8): the file is there, and nothing in it is used.
+        let dir = config_dir(&[0xff, 0xfe, 0x7b]);
+        let read = read_project_config(dir.path());
+        assert!(read.found);
+        let [problem] = read.problems.as_slice() else {
+            panic!("{:?}", read.problems);
+        };
+        assert!(
+            matches!(problem, ConfigProblem::Unreadable { .. }),
+            "{problem:?}"
+        );
+        assert!(
+            problem.to_string().starts_with(&format!(
+                "failed to read {}: ",
+                dir.path().join("specforge.json").display()
+            )),
+            "{problem}"
+        );
+        assert!(problem.loads_nothing());
+    }
+
+    #[test]
+    fn a_config_that_is_not_an_object_is_a_problem() {
+        let dir = config_dir(b"[1,2]");
+        let read = read_project_config(dir.path());
+        assert_eq!(
+            read.problems,
+            [ConfigProblem::NotAnObject {
+                path: dir.path().join("specforge.json")
+            }]
+        );
+        assert_eq!(
+            read.problems[0].to_string(),
+            format!(
+                "{} must be a JSON object",
+                dir.path().join("specforge.json").display()
+            )
+        );
+        assert!(read.config.raw.is_none());
+        assert!(read.problems[0].loads_nothing());
+    }
+
+    #[test]
+    fn a_non_array_extensions_keeps_the_other_keys() {
+        let dir = config_dir(br#"{"name":"p","spec_root":"spec","extensions":"x"}"#);
+        let read = read_project_config(dir.path());
+        assert_eq!(
+            read.problems,
+            [ConfigProblem::WrongType {
+                path: dir.path().join("specforge.json"),
+                key: "extensions",
+                expected: "an array",
+            }]
+        );
+        assert!(read.problems[0].loads_nothing());
+        assert!(read.problems[0].blocks_edits());
+        assert_eq!(
+            read.problems[0].to_string(),
+            format!(
+                "\"extensions\" in {} must be an array",
+                dir.path().join("specforge.json").display()
+            )
+        );
+        assert_eq!(read.config.spec_root.as_deref(), Some("spec"));
+        assert_eq!(read.config.name.as_deref(), Some("p"));
+        assert!(read.config.extensions.is_empty());
+    }
+
+    #[specforge_test_macros::test(
+        behavior = "load_extension_manifests",
+        verify = "E069 names a mistyped key or a non-string item, and the rest of specforge.json is used"
+    )]
+    fn a_mistyped_key_is_a_problem_and_its_default_is_used() {
+        let dir =
+            config_dir(br#"{"spec_root": 5, "extensions": [], "name": "p", "version": null}"#);
+        let path = dir.path().join("specforge.json");
+
+        let read = read_project_config(dir.path());
+
+        // In file order.
+        assert_eq!(
+            read.problems,
+            [
+                ConfigProblem::WrongType {
+                    path: path.clone(),
+                    key: "spec_root",
+                    expected: "a string",
+                },
+                ConfigProblem::WrongType {
+                    path: path.clone(),
+                    key: "version",
+                    expected: "a string",
+                },
+            ]
+        );
+        assert!(read.problems.iter().all(|p| !p.loads_nothing()));
+        assert!(read.problems.iter().all(|p| !p.blocks_edits()));
+        assert_eq!(read.config.spec_root, None);
+        assert_eq!(read.config.version, None);
+        assert_eq!(read.config.name.as_deref(), Some("p"));
+    }
+
+    #[specforge_test_macros::test(
+        behavior = "load_extension_manifests",
+        verify = "E069 names a mistyped key or a non-string item, and the rest of specforge.json is used"
+    )]
+    fn a_non_string_item_is_a_problem_and_the_others_are_kept() {
+        let dir =
+            config_dir(br#"{"extensions": ["@specforge/product", 42], "exclude": ["a", {}]}"#);
+        let path = dir.path().join("specforge.json");
+
+        let read = read_project_config(dir.path());
+
+        assert_eq!(
+            read.problems,
+            [
+                ConfigProblem::ItemNotAString {
+                    path: path.clone(),
+                    key: "extensions",
+                    index: 1,
+                    json: "42".into(),
+                },
+                ConfigProblem::ItemNotAString {
+                    path: path.clone(),
+                    key: "exclude",
+                    index: 1,
+                    json: "{}".into(),
+                },
+            ]
+        );
+        assert_eq!(
+            read.problems[0].to_string(),
+            format!(
+                "\"extensions\"[1] in {} must be a string, found 42",
+                path.display()
+            )
+        );
+        assert!(read.problems.iter().all(|p| !p.blocks_edits()));
+        assert_eq!(read.config.extensions, ["@specforge/product"]);
+        assert_eq!(read.config.exclude, ["a"]);
+        assert_eq!(
+            load_project_config(dir.path()).extensions,
+            ["@specforge/product"]
+        );
+    }
+
+    #[test]
+    fn keys_are_read_in_the_order_the_file_writes_them() {
+        assert_eq!(
+            keys_in_file_order(r#"{"z": 1, "a": {"nested": 2}, "m": [], "a": 3}"#),
+            ["z", "a", "m"]
+        );
+        assert!(keys_in_file_order("[1]").is_empty());
     }
 }

@@ -3,6 +3,7 @@
 use "extensions/federation/behaviors"
 
 feature cross_project_references "Cross-Project References" {
+  status   proposed
   problem  """
     Large organizations split specifications across multiple projects (e.g.,
     platform, services, infrastructure). There is no mechanism to reference
@@ -19,6 +20,7 @@ feature cross_project_references "Cross-Project References" {
 }
 
 feature federated_graph_export "Federated Graph Export" {
+  status   proposed
   problem  """
     Even with cross-project references resolved, there is no way to export
     a unified view of the federated graph spanning multiple projects. Agents

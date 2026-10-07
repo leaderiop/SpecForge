@@ -16,7 +16,7 @@ use crate::{
 use std::io::Write;
 use std::path::Path;
 
-use specforge_common::Diagnostic;
+use specforge_common::{Diagnostic, codes};
 
 /// Outcome of the trust flow: the key id to record in the lockfile (if any).
 #[derive(Debug)]
@@ -37,13 +37,10 @@ pub fn check_and_pin(
     format: &str,
     known_keys_path_override: Option<&Path>,
 ) -> Result<TrustOutcome, Diagnostic> {
-    let unsigned = |message: String, suggestion: Option<String>| Diagnostic {
-        code: "R-TRUST-001".to_string(),
-        severity: specforge_common::Severity::Error,
-        message,
-        span: None,
-        suggestion,
-        data: None,
+    let unsigned = |message: String, suggestion: Option<String>| {
+        let mut diagnostic = Diagnostic::new(codes::R_TRUST_001, message);
+        diagnostic.suggestion = suggestion;
+        diagnostic
     };
 
     match verify_package_signature(response, wasm_bytes)? {
@@ -71,19 +68,16 @@ pub fn check_and_pin(
 
             // Config-level revocation wins over everything.
             if known.is_denied(&key_id) {
-                return Err(Diagnostic {
-                    code: "R-TRUST-005".to_string(),
-                    severity: specforge_common::Severity::Error,
-                    message: format!(
+                return Err(Diagnostic::new(
+                    codes::R_TRUST_005,
+                    format!(
                         "publisher key '{}' for '{}' is denied in your known-keys config",
                         key_id, name
                     ),
-                    span: None,
-                    suggestion: Some(
-                        "remove the key from denied_keys only if you trust it again".to_string(),
-                    ),
-                    data: None,
-                });
+                )
+                .with_suggestion(
+                    "remove the key from denied_keys only if you trust it again".to_string(),
+                ));
             }
 
             // Own the pin so the mutable re-pin below doesn't conflict with
@@ -109,20 +103,17 @@ pub fn check_and_pin(
                     let accepted =
                         trusted || assume_yes || prompt_accept(name, &pinned, &key_id, format);
                     if !accepted {
-                        return Err(Diagnostic {
-                            code: "R-TRUST-003".to_string(),
-                            severity: specforge_common::Severity::Error,
-                            message: format!(
+                        return Err(Diagnostic::new(
+                            codes::R_TRUST_003,
+                            format!(
                                 "key change rejected for '{}': pinned '{}' but package is signed '{}'",
                                 name, pinned, key_id
                             ),
-                            span: None,
-                            suggestion: Some(format!(
-                                "if you trust the new key, re-run with --yes (or add '{}' to trusted_keys)",
-                                key_id
-                            )),
-                            data: None,
-                        });
+                        )
+                        .with_suggestion(format!(
+                            "if you trust the new key, re-run with --yes (or add '{}' to trusted_keys)",
+                            key_id
+                        )));
                     }
                     known.pin(name, &key_id);
                     save(&known, known_keys_path_override)?;
@@ -143,13 +134,9 @@ fn save(known: &KnownKeys, override_path: Option<&Path>) -> Result<(), Diagnosti
         Some(p) => save_known_keys_at(p, known),
         None => save_known_keys(known),
     };
-    result.map_err(|message| Diagnostic {
-        code: "R-TRUST-006".to_string(),
-        severity: specforge_common::Severity::Error,
-        message,
-        span: None,
-        suggestion: Some("check permissions on the file".to_string()),
-        data: None,
+    result.map_err(|message| {
+        Diagnostic::new(codes::R_TRUST_006, message)
+            .with_suggestion("check permissions on the file".to_string())
     })
 }
 

@@ -2,7 +2,7 @@ use serde_json::{Value, json};
 use specforge_ops::navigate::{OutlineEntry, outline};
 
 use crate::target::Call;
-use crate::tool::{ErrorCode, Handled, McpError, ToolOutcome};
+use crate::tool::{Handled, ToolOutcome, file_not_found};
 
 #[derive(Debug, serde::Deserialize)]
 pub struct Args {
@@ -17,18 +17,14 @@ pub fn call(call: &mut Call<'_>, args: Args) -> Handled {
     let file = args.file.as_str();
     let entries = outline(&super::navigator(call), file);
     // A file the graph has no entity from is either empty or not there:
-    // under the project's spec root (a graph built in memory with no
-    // project names files as given).
-    let on_disk = match call.spec_root() {
-        Some(spec_root) => spec_root.join(file).exists(),
-        None => std::path::Path::new(file).exists(),
-    };
+    // under the project's spec root. With nothing served no file is the
+    // project's (the dispatcher makes the refusal the no-project one,
+    // ADR 0025).
+    let on_disk = call
+        .spec_root()
+        .is_some_and(|spec_root| spec_root.join(file).exists());
     if entries.is_empty() && !on_disk {
-        return Err(
-            McpError::new(ErrorCode::FileNotFound, format!("File not found: {file}"))
-                .with_argument("file")
-                .into(),
-        );
+        return Err(file_not_found(file).into());
     }
     Ok(ToolOutcome::ok(Value::Array(
         entries.iter().map(entry).collect(),

@@ -27,10 +27,13 @@ specforge-registry = { workspace = true }
 specforge-wasm = { workspace = true }
 semver = { workspace = true }
 strsim = { workspace = true }
+walkdir = { workspace = true }
 
 [dev-dependencies]
 # Extensions declared with the SDK, served in process.
 specforge-extension-sdk = { path = "../specforge-extension-sdk" }
+# One diagnostic of each kind the host builds, for the diagnostics JSON pin.
+specforge-registry-client = { path = "../specforge-registry-client" }
 specforge-wasm = { workspace = true, features = ["testing"] }
 specforge-test = { workspace = true }
 specforge-test-macros = { workspace = true }

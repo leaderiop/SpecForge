@@ -16,11 +16,13 @@
 //! exist, their args and what they print are the extension's (ADR 0008).
 //! The host owns `--format` (ADR 0011), and normalizes the args (ADR 0017).
 
+use crate::view::ProjectView;
 use serde_json::{Map, Value, json};
 use specforge_graph::Graph;
 use specforge_protocol_types::command_args::{self, ArgError, normalize_arg, option_name};
 use specforge_protocol_types::{
-    CommandArgDescriptor, CommandArgType, CommandDescriptor, CommandInput, CommandOutput, RawGraph,
+    CommandArgDescriptor, CommandArgType, CommandDescriptor, CommandInput, CommandOutput,
+    EntityEvidence, RawGraph,
 };
 use specforge_registry::RegistryBuild;
 use specforge_wasm::runtime::WasmRuntime;
@@ -31,6 +33,9 @@ use std::path::Path;
 /// (always, over MCP). The host's, not the command's: no command declares
 /// an arg named `format` (ADR 0011).
 pub use specforge_protocol_types::CommandFormat;
+
+/// What a command's input says the recorded tests prove ([`evidence`]).
+pub use specforge_protocol_types::CommandEvidence;
 
 /// Why the host refuses a command: its arg declarations break the one arg
 /// rule ([`command_args::refusal`]). A refused command is on neither
@@ -337,12 +342,48 @@ impl ExtensionCommands {
 }
 
 /// What the host passes a command beside its args: the format the caller
-/// asked for, and the host's date when it was called (UTC, `YYYY-MM-DD`),
-/// computed by the caller so a test can pin it.
+/// asked for, the host's date when it was called (UTC, `YYYY-MM-DD`),
+/// computed by the caller so a test can pin it, and what the project's
+/// recorded tests prove ([`evidence`]).
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct CommandContext {
     pub format: CommandFormat,
     pub today: String,
+    pub evidence: CommandEvidence,
+}
+
+/// What the view's recorded test report proves, as a command's input
+/// carries it: `none` without a report, `unreadable` (with why) when the
+/// report is there and cannot be used, else every entity that counts toward
+/// coverage (its standing, ADR 0004 D2-b) scored by the one coverage rule
+/// (`ProjectView::coverage`, the numbers `specforge stats` reports).
+pub fn evidence(view: &ProjectView<'_>) -> CommandEvidence {
+    let recorded = match view.recorded() {
+        Ok(recorded) => recorded,
+        Err(error) => {
+            return CommandEvidence::Unreadable {
+                reason: error.to_string(),
+            };
+        }
+    };
+    if recorded.report.is_none() {
+        return CommandEvidence::None;
+    }
+    let entities = view
+        .entities()
+        .iter()
+        .filter(|(_, standing)| standing.counts())
+        .map(|(record, _)| {
+            let verdict = recorded.coverage.verdict(&record.id);
+            let evidence = EntityEvidence {
+                obligations: verdict.map_or(0, |v| v.obligations),
+                proven: verdict.map_or(0, |v| v.proven),
+                failing: verdict.map_or(0, |v| v.failing),
+            };
+            (record.id.clone(), evidence)
+        })
+        .collect();
+    CommandEvidence::Recorded { entities }
 }
 
 /// What a `cmd__` export receives: the args, the project root, the format
@@ -361,6 +402,7 @@ pub fn command_input(
         today: context.today.clone(),
         graph: RawGraph::new(specforge_emitter::json::emit_json(graph))
             .expect("the graph export is one JSON value"),
+        evidence: context.evidence.clone(),
     }
 }
 
@@ -812,6 +854,7 @@ mod tests {
             let context = CommandContext {
                 format,
                 today: "2026-10-03".into(),
+                ..CommandContext::default()
             };
             run_command(
                 &runtime,
@@ -938,6 +981,7 @@ mod tests {
         let json = CommandContext {
             format: CommandFormat::Json,
             today: "2026-10-03".into(),
+            ..CommandContext::default()
         };
         let out = run_command(
             &runtime,

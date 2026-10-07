@@ -15,12 +15,20 @@ behavior pe_query_milestone_completion "Query Milestone Completion" {
     The @specforge/product extension MUST compute the completion ratio
     for a milestone by counting features with status=done vs total features
     in the milestone. completion_ratio = done_count / total_features.
+    A feature's status is a claim; its evidence is derived (ADR 0039):
+    when the command's input carries the recorded test evidence, the
+    completion also counts the features the recorded tests prove — a
+    feature is proven when at least one behavior names it in its
+    features field and the coverage rule counts every such behavior
+    proven.
   """
   ensures {
     ratio_computed    "completion_ratio is done_count / total_features, finite float in [0.0, 1.0]"
     empty_milestone   "milestone with zero features returns completion_ratio 0.0"
     status_based      "completion is based on feature status field, not cross-extension edges"
     no_division_error "milestone with zero features does not produce division-by-zero"
+    evidence_beside   "with recorded evidence in the command's input, the completion also reports how many features the recorded tests prove (proven_count, proven_ratio, proven_features) and each feature's evidence, and done_count stays the status count"
+    evidence_absent   "without recorded evidence the completion says so (evidence state none, or unreadable with the reason) and reports no proven count"
   }
   features [pe_query_lifecycle_metrics]
   verify unit "milestone with all features status=done returns ratio 1.0"
@@ -28,6 +36,8 @@ behavior pe_query_milestone_completion "Query Milestone Completion" {
   verify unit "empty milestone returns ratio 0.0 with zero features"
   verify unit "milestone with mix of done and non-done features returns partial ratio"
   verify unit "milestone completion is deterministic across repeated queries"
+  verify unit "a milestone's completion reports the features the recorded tests prove beside the done ones"
+  verify unit "without a recorded report the completion says no evidence is recorded, and an unreadable one says why"
 }
 
 behavior pe_query_deliverable_traceability "Query Deliverable Traceability" {

@@ -1,6 +1,7 @@
 use crate::OutputFormat;
 use serde_json::json;
-use specforge_ops::extension::{self, ExtensionEntry};
+use specforge_ops::extension;
+use specforge_ops::view::ProjectView;
 use std::path::Path;
 
 /// `specforge extensions`: every extension the project enables, has
@@ -8,18 +9,11 @@ use std::path::Path;
 /// registered and how many of the project's entities use them.
 pub fn run(path: &Path, format: OutputFormat) -> i32 {
     let (project, _runtime) = crate::pipeline::compile_project(path);
-    let env = &project.env;
-    let entries = extension::list(
-        path,
-        &env.enabled,
-        env.registries.declarations(),
-        &env.registries.kinds,
-        &project.graph,
-    );
+    let entries = extension::list(&ProjectView::of(&project)).extensions;
 
     match format {
         OutputFormat::Json => {
-            let items: Vec<serde_json::Value> = entries.iter().map(entry_json).collect();
+            let items: Vec<serde_json::Value> = entries.iter().map(|e| e.to_json()).collect();
             let output = json!({
                 "extensions": items,
                 "count": items.len(),
@@ -69,16 +63,4 @@ pub fn run(path: &Path, format: OutputFormat) -> i32 {
     }
 
     0
-}
-
-fn entry_json(entry: &ExtensionEntry) -> serde_json::Value {
-    json!({
-        "name": entry.name,
-        "version": entry.version,
-        "source": entry.origin.source(),
-        "status": entry.status.as_str(),
-        "entity_kinds": entry.entity_kinds,
-        "entity_count": entry.entity_count,
-        "validation_rules": entry.validation_rules,
-    })
 }

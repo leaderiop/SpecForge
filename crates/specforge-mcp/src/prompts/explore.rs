@@ -62,7 +62,7 @@ fn relationship_paths(graph: &Graph, reached: &[Reached], kind: Option<&str>) ->
 }
 
 pub fn render(call: &Call<'_>, args: Args) -> PromptOutcome {
-    let graph = call.view().graph;
+    let graph = call.view().graph();
     let entity_filter = args.entity_id.as_deref();
     let kind_filter = args.kind.as_deref();
     // The entities reached from entity_id, as review's neighbourhood is.

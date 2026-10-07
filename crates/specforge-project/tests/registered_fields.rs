@@ -1,6 +1,8 @@
-//! The cross-validation of the extensions' fields against the kinds and
-//! edge types they register, as the real load does it: W021 from the
-//! manifest consistency check once every configured extension is in.
+//! The registry build's declaration consistency check, as the real load
+//! reports it: W021 for a field's reference no loaded peer resolves, once
+//! every configured extension is in, among the environment's diagnostics.
+//! `specforge-registry/tests/build/consistency.rs` proves the rule through
+//! `build_registries`; these prove the load reports what the build found.
 
 use std::fs;
 
@@ -85,8 +87,8 @@ fn tasks_and_people() -> InProcessRuntime {
 
 /// A field's `target_kind` naming a kind its peer registers is accepted.
 #[specforge_test(
-    behavior = "validate_registered_entity_fields",
-    verify = "target_kind reference resolves to registered kind"
+    behavior = "registry_build_declaration_consistency",
+    verify = "a target_kind the extension or a loaded peer declares passes"
 )]
 fn a_target_kind_another_extension_registers_resolves() {
     let env = load(&tasks_and_people(), &["@test/people", "@test/tasks"]);
@@ -100,8 +102,8 @@ fn a_target_kind_another_extension_registers_resolves() {
 /// A field's edge label naming an edge type the extension declares is
 /// accepted.
 #[specforge_test(
-    behavior = "validate_registered_entity_fields",
-    verify = "edge label resolves to registered edge type"
+    behavior = "registry_build_declaration_consistency",
+    verify = "an edge label the extension declares an edge type for passes"
 )]
 fn an_edge_label_the_extension_declares_resolves() {
     let env = load(&tasks_and_people(), &["@test/people", "@test/tasks"]);
@@ -114,8 +116,8 @@ fn an_edge_label_the_extension_declares_resolves() {
 /// A `target_kind` no loaded extension declares is a W021 warning naming
 /// the field, the kind and the reference; the extension still registers.
 #[specforge_test(
-    behavior = "validate_registered_entity_fields",
-    verify = "unresolved target_kind produces warning"
+    behavior = "registry_build_declaration_consistency",
+    verify = "a target_kind no loaded extension declares is a W021 warning"
 )]
 fn an_unresolved_target_kind_is_w021() {
     let runtime = kind_extensions(vec![serde_json::json!({
@@ -144,8 +146,8 @@ fn an_unresolved_target_kind_is_w021() {
 /// An edge label no edge type of the extension declares is a W021 warning
 /// naming the field and the label.
 #[specforge_test(
-    behavior = "validate_registered_entity_fields",
-    verify = "unresolved edge label produces warning"
+    behavior = "registry_build_declaration_consistency",
+    verify = "an edge label the extension declares no edge type for is a W021 warning"
 )]
 fn an_unresolved_edge_label_is_w021() {
     let runtime = kind_extensions(vec![serde_json::json!({
@@ -179,7 +181,7 @@ fn an_unresolved_edge_label_is_w021() {
 /// A domain the host knows nothing of (cooking) cross-validates by
 /// structure alone: its references resolve, so nothing is reported.
 #[specforge_test(
-    behavior = "validate_registered_entity_fields",
+    behavior = "registry_build_declaration_consistency",
     verify = "cross-validation uses no domain-specific logic"
 )]
 fn a_domain_the_host_does_not_know_cross_validates_cleanly() {
@@ -209,8 +211,8 @@ fn a_domain_the_host_does_not_know_cross_validates_cleanly() {
 /// ones are warnings only: the extension still loads its kinds, so the
 /// user's compile is not failed by an extension's authoring error.
 #[specforge_test(
-    behavior = "validate_registered_entity_fields",
-    verify = "Validate Registered Entity Fields: field cross-validation holds for the declared obligations"
+    behavior = "registry_build_declaration_consistency",
+    verify = "a declaration's W021 does not fail the compile, and its kinds still register"
 )]
 fn field_cross_validation_holds_on_load() {
     let runtime = kind_extensions(vec![
@@ -271,8 +273,8 @@ fn field_cross_validation_holds_on_load() {
 /// (E024). A real compile reports neither and resolves `owner` to `p1`, so
 /// every kind was registered before the first check.
 #[specforge_test(
-    behavior = "populate_kind_registry_from_extensions",
-    verify = "population completes before validation"
+    behavior = "build_registries_from_declarations",
+    verify = "every loaded declaration is registered before a compile checks anything"
 )]
 fn population_completes_before_any_validation() {
     let runtime = kind_extensions(vec![

@@ -669,7 +669,10 @@ fn rules(c: &mut ContributionsBuilder) {
         r.check(CheckKind::FieldValueConstraint)
             .severity(ValidationSeverity::Warning)
             .message_template("{kind} '{id}' has invalid priority '{value}' — expected one of: critical, high, medium, low")
+            // `constraint` is governance's kind: product works without
+            // governance, so it names the extension instead of peering on it.
             .target_kind("constraint")
+            .target_extension("@specforge/governance")
             .field("priority");
         r.constraint(|fc| {
             fc.kind(ConstraintKind::OneOf)

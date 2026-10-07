@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
-use specforge_common::{Diagnostic, Severity};
-use std::path::Path;
+use specforge_common::{Diagnostic, codes};
+use std::path::{Path, PathBuf};
 
 /// The lock file format for extension resolution.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -45,13 +45,8 @@ impl LockFile {
 
 /// Write a lock file to disk as JSON.
 pub fn write_lock_file(lock: &LockFile, path: &Path) -> Result<(), Diagnostic> {
-    let json = serde_json::to_string_pretty(lock).map_err(|e| Diagnostic {
-        code: "E033".to_string(),
-        severity: Severity::Error,
-        message: format!("failed to serialize lock file: {}", e),
-        span: None,
-        suggestion: None,
-        data: None,
+    let json = serde_json::to_string_pretty(lock).map_err(|e| {
+        Diagnostic::new(codes::E033, format!("failed to serialize lock file: {}", e))
     })?;
 
     // Write a sibling file, then rename it over the lock: a write that
@@ -63,38 +58,101 @@ pub fn write_lock_file(lock: &LockFile, path: &Path) -> Result<(), Diagnostic> {
         .and_then(|()| std::fs::rename(&temp, path))
         .map_err(|e| {
             let _ = std::fs::remove_file(&temp);
-            Diagnostic {
-                code: "E033".to_string(),
-                severity: Severity::Error,
-                message: format!("failed to write lock file at '{}': {}", path.display(), e),
-                span: None,
-                suggestion: None,
-                data: None,
-            }
+            Diagnostic::new(
+                codes::E033,
+                format!("failed to write lock file at '{}': {}", path.display(), e),
+            )
         })
+}
+
+/// The lock file's name at a project root.
+pub const LOCK_FILE: &str = "specforge.lock";
+
+/// `specforge.lock` at the project root: the one definition of where the
+/// lock lives, for the environment's read, the extension loader and the
+/// management operations.
+pub fn lock_path(root: &Path) -> PathBuf {
+    root.join(LOCK_FILE)
 }
 
 /// Read a lock file from disk.
 pub fn read_lock_file(path: &Path) -> Result<LockFile, Diagnostic> {
-    let content = std::fs::read_to_string(path).map_err(|e| Diagnostic {
-        code: "E033".to_string(),
-        severity: Severity::Error,
-        message: format!("failed to read lock file at '{}': {}", path.display(), e),
-        span: None,
-        suggestion: None,
-        data: None,
-    })?;
+    let content = std::fs::read_to_string(path).map_err(|e| unreadable(path, &e))?;
+    parse_lock_file(path, &content)
+}
 
-    serde_json::from_str::<LockFile>(&content).map_err(|e| Diagnostic {
-        code: "E033".to_string(),
-        severity: Severity::Error,
-        message: format!("corrupt lock file at '{}': {}", path.display(), e),
-        span: None,
-        suggestion: Some(
-            "delete the lock file and run `specforge install` to regenerate".to_string(),
+fn unreadable(path: &Path, error: &std::io::Error) -> Diagnostic {
+    Diagnostic::new(
+        codes::E033,
+        format!(
+            "failed to read lock file at '{}': {}",
+            path.display(),
+            error
         ),
-        data: None,
+    )
+}
+
+fn parse_lock_file(path: &Path, content: &str) -> Result<LockFile, Diagnostic> {
+    serde_json::from_str::<LockFile>(content).map_err(|e| {
+        Diagnostic::new(
+            codes::E033,
+            format!("corrupt lock file at '{}': {}", path.display(), e),
+        )
+        .with_suggestion(
+            "delete the lock file and run `specforge install` to regenerate".to_string(),
+        )
     })
+}
+
+/// What `<root>/specforge.lock` held when it was read: the typed result of
+/// the one read an environment takes, so every operation over the project
+/// sees the same lock and the same problem with it.
+#[derive(Debug, Clone, PartialEq)]
+pub enum LockState {
+    /// No lock file: nothing is installed from a registry or a path.
+    Absent,
+    /// The lock file, as written.
+    Read(LockFile),
+    /// A lock file that could not be read or is corrupt (E033). Nothing
+    /// is known to be locked.
+    Unreadable(Diagnostic),
+}
+
+impl LockState {
+    /// Read the lock at the project root `root` ([`lock_path`]). A file
+    /// that does not exist is [`Self::Absent`], not a problem.
+    pub fn at(root: &Path) -> LockState {
+        let path = lock_path(root);
+        match std::fs::read_to_string(&path) {
+            Ok(content) => match parse_lock_file(&path, &content) {
+                Ok(lock) => LockState::Read(lock),
+                Err(problem) => LockState::Unreadable(problem),
+            },
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => LockState::Absent,
+            Err(e) => LockState::Unreadable(unreadable(&path, &e)),
+        }
+    }
+
+    /// The lock, when there is a readable one.
+    pub fn file(&self) -> Option<&LockFile> {
+        match self {
+            LockState::Read(lock) => Some(lock),
+            LockState::Absent | LockState::Unreadable(_) => None,
+        }
+    }
+
+    /// Its entries (none without a readable lock).
+    pub fn entries(&self) -> &[LockFileEntry] {
+        self.file().map_or(&[], |lock| lock.entries.as_slice())
+    }
+
+    /// Why there is a lock file that cannot be used.
+    pub fn problem(&self) -> Option<&Diagnostic> {
+        match self {
+            LockState::Unreadable(problem) => Some(problem),
+            LockState::Absent | LockState::Read(_) => None,
+        }
+    }
 }
 
 /// Doctor check result for a single extension.
@@ -404,6 +462,45 @@ mod tests {
             &installed,
         );
         assert!(results.is_empty(), "expected no issues, got: {:?}", results);
+    }
+
+    // -- LockState --
+
+    #[test]
+    fn a_lock_state_tells_absent_read_and_unreadable_apart() {
+        let dir = TempDir::new().unwrap();
+        assert_eq!(LockState::at(dir.path()), LockState::Absent);
+        assert!(LockState::at(dir.path()).entries().is_empty());
+        assert!(LockState::at(dir.path()).problem().is_none());
+
+        let lock = LockFile::default();
+        write_lock_file(&lock, &lock_path(dir.path())).unwrap();
+        let state = LockState::at(dir.path());
+        assert_eq!(state, LockState::Read(lock));
+        assert!(state.file().is_some() && state.problem().is_none());
+
+        std::fs::write(lock_path(dir.path()), "not valid json {{{").unwrap();
+        let state = LockState::at(dir.path());
+        let problem = state.problem().expect("a corrupt lock is a problem");
+        assert_eq!(problem.code, "E033");
+        assert!(problem.message.contains("corrupt lock file"));
+        assert!(state.file().is_none() && state.entries().is_empty());
+
+        // A lock path that is a directory cannot be read either.
+        std::fs::remove_file(lock_path(dir.path())).unwrap();
+        std::fs::create_dir(lock_path(dir.path())).unwrap();
+        assert_eq!(
+            LockState::at(dir.path()).problem().map(|p| p.code.as_str()),
+            Some("E033")
+        );
+    }
+
+    #[test]
+    fn the_lock_lives_at_the_project_root() {
+        assert_eq!(
+            lock_path(Path::new("/p")),
+            Path::new("/p").join("specforge.lock")
+        );
     }
 }
 

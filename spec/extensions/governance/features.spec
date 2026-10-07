@@ -3,6 +3,7 @@
 use "extensions/governance/behaviors"
 
 feature ge_core_entity_kinds "Governance Entity Kind Registration" {
+  status   done
   problem  """
     The @specforge/governance extension must register 3 entity kinds with
     full metadata, 4 edge types, field definitions, and validation rules.
@@ -20,6 +21,7 @@ feature ge_core_entity_kinds "Governance Entity Kind Registration" {
 }
 
 feature ge_validation_suite "Governance Validation Suite" {
+  status   proposed
   problem  """
     Without domain-specific validation rules, the compiler cannot detect
     governance-level quality issues: incorrect RPN arithmetic, unmitigated

@@ -47,7 +47,7 @@ fn build_and_check(source: &str) -> (Graph, Vec<Diagnostic>) {
     let build = build_registries(vec![ticket_manifest()]);
     let pop_diags = &build.registry_diagnostics;
     assert!(pop_diags.is_empty(), "{pop_diags:?}");
-    let (kind_reg, field_reg) = (&build.kinds, &build.fields);
+    let field_reg = &build.fields;
     let parsed = specforge_parser::parse(source, "main.spec");
     assert!(parsed.errors.is_empty(), "{:?}", parsed.errors);
     let config = GraphConfig {
@@ -55,13 +55,14 @@ fn build_and_check(source: &str) -> (Graph, Vec<Diagnostic>) {
         ..GraphConfig::default()
     };
     let (graph, mut diags) = build_graph_with_config(&[parsed], &config);
+    let spec_root = std::path::Path::new(".");
+    let entities = specforge_project::snapshot::EntitySnapshot::of(&graph, &build, spec_root);
     diags.extend(check_graph(
         &graph,
         &GraphChecks {
-            spec_root: std::path::Path::new("."),
-            kind_registry: kind_reg,
-            field_registry: field_reg,
-            rules: &[],
+            spec_root,
+            registries: &build,
+            entities: &entities,
             runtime: None,
         },
     ));

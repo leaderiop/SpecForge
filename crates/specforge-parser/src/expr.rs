@@ -863,4 +863,147 @@ mod tests {
         let e = parse_ok("1.5s");
         assert_eq!(e.expr, Expr::Num(1.5, "s".to_string()));
     }
+
+    // ── agreement with the language's other readers ────────────────────────
+    //
+    // `.spec` text is read three ways: tree-sitter's grammar (an `expr { }`
+    // group becomes a `SpannedExpr` in parse.rs), `crate::lex` (the editor's
+    // lexer, ADR 0023) and `tokenize` (the prove pass's reader of expressions
+    // in prose). `tokenize` is not built on `lex`: see the module doc of
+    // `crate::lex`. This pins the three on the repository's own spec.
+
+    use crate::lex::{LexemeKind, lex};
+    use crate::{FieldValue, parse};
+
+    /// The `.spec` files under `dir`, recursively.
+    fn spec_files(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {
+        let Ok(entries) = std::fs::read_dir(dir) else {
+            return;
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                spec_files(&path, out);
+            } else if path.extension().is_some_and(|e| e == "spec") {
+                out.push(path);
+            }
+        }
+    }
+
+    /// The byte offset of 1-based (`line`, `col`) in `text`.
+    fn offset(text: &str, line: usize, col: usize) -> usize {
+        let start: usize = text
+            .split_inclusive('\n')
+            .take(line - 1)
+            .map(str::len)
+            .sum();
+        start + col - 1
+    }
+
+    /// Byte ranges, start to end.
+    type Ranges = Vec<(usize, usize)>;
+
+    /// The byte ranges of `tokenize`'s tokens of `text`, and of `lex`'s
+    /// lexemes with the two-character operators joined: the expression
+    /// language's tokens are `lex`'s, but for those operators.
+    fn token_ranges(text: &str) -> (Ranges, Ranges) {
+        let tokens: Vec<(usize, usize)> = tokenize(text)
+            .unwrap_or_else(|e| panic!("tokenize '{text}': {e}"))
+            .iter()
+            .map(|t| {
+                (
+                    offset(text, t.start_line, t.start_col),
+                    offset(text, t.end_line, t.end_col),
+                )
+            })
+            .collect();
+        let mut lexemes: Vec<(usize, usize)> = Vec::new();
+        let mut previous: Option<(usize, usize, LexemeKind)> = None;
+        for lexeme in lex(text) {
+            let joins = |first: char| {
+                previous.is_some_and(|(_, end, kind)| {
+                    end == lexeme.start
+                        && kind == LexemeKind::Punct(first)
+                        && lexeme.kind == LexemeKind::Punct('=')
+                })
+            };
+            if ['<', '>', '=', '!'].into_iter().any(joins) {
+                let last = lexemes.last_mut().expect("the operator's first character");
+                last.1 = lexeme.end;
+                previous = None;
+            } else {
+                lexemes.push((lexeme.start, lexeme.end));
+                previous = Some((lexeme.start, lexeme.end, lexeme.kind));
+            }
+        }
+        (tokens, lexemes)
+    }
+
+    #[specforge_test_macros::test(
+        behavior = "lex_spec_text",
+        verify = "the expression tokenizer, the lexer and the grammar agree on every expression of the repository's spec"
+    )]
+    fn the_tokenizer_agrees_with_the_lexer_and_the_grammar_on_the_corpus() {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let mut files = Vec::new();
+        for dir in ["spec", "extensions", "examples", "integrations/rust/spec"] {
+            spec_files(&root.join(dir), &mut files);
+        }
+        assert!(files.len() > 150, "found only {} spec files", files.len());
+        // The forms of the language, with the corpus's few groups to spare.
+        for source in [
+            "a < 10 and b > 5",
+            "peak_memory + cache_size <= 64MB",
+            "not (retries == 0 or timeout > 30s)",
+            "retries != 0 or retries = 1",
+            "latency >= 1.5s",
+            "temp > -5",
+        ] {
+            let (tokens, lexemes) = token_ranges(source);
+            assert_eq!(tokens, lexemes, "'{source}'");
+        }
+        let (mut groups, mut lines) = (0, 0);
+        for path in &files {
+            let text = std::fs::read_to_string(path).unwrap();
+            let file = parse(&text, &path.to_string_lossy());
+            for entity in &file.entities {
+                for entry in entity.fields.entries() {
+                    match &entry.value {
+                        // `expr { … }`: what the grammar read is what
+                        // `parse_expression` reads from the same text, and
+                        // `tokenize` and `lex` cut that text alike.
+                        FieldValue::Expression(conjuncts) => {
+                            for conjunct in conjuncts {
+                                let span = conjunct.span;
+                                let from = offset(&text, span.start_line, span.start_col);
+                                let to = offset(&text, span.end_line, span.end_col);
+                                let source = &text[from..to];
+                                let at = format!("{}: '{source}'", path.display());
+                                let (tokens, lexemes) = token_ranges(source);
+                                assert_eq!(tokens, lexemes, "{at}");
+                                let read = parse_expression(source)
+                                    .unwrap_or_else(|e| panic!("{at}: {e}"));
+                                // Spans are relative to the text read, so the
+                                // expressions are compared as written back.
+                                assert_eq!(read.to_string(), conjunct.to_string(), "{at}");
+                                groups += 1;
+                            }
+                        }
+                        // A prose field the prove pass reads line by line:
+                        // every line it accepts is cut as `lex` cuts it.
+                        FieldValue::String(prose) => {
+                            for line in prose.lines().filter(|l| parse_expression(l).is_ok()) {
+                                let (tokens, lexemes) = token_ranges(line);
+                                assert_eq!(tokens, lexemes, "{}: '{line}'", path.display());
+                                lines += 1;
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        }
+        assert!(groups > 0, "no expression group in the corpus");
+        eprintln!("checked {groups} expression conjuncts and {lines} prose lines");
+    }
 }

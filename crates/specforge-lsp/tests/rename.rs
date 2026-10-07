@@ -56,7 +56,7 @@ fn rename_updates_all_sites() {
 )]
 #[tokio::test]
 async fn rename_is_atomic() {
-    use crate::contracts::wire::{Session, uri_of};
+    use crate::session::{Session, uri_of};
     use serde_json::json;
 
     let dir = tempfile::TempDir::new().unwrap();
@@ -97,6 +97,45 @@ async fn rename_is_atomic() {
     std::fs::remove_file(&limit).unwrap();
     let nothing = session.request("textDocument/rename", rename).await;
     assert!(nothing["result"].is_null(), "{nothing}");
+    // Said as the protocol's ContentModified: what the edit would apply to
+    // is not what the project was compiled from.
+    assert_eq!(nothing["error"]["code"], -32801, "{nothing}");
+}
+
+/// The edits of a rename are positions in the text the project was compiled
+/// from, and apply to the text the editor has: a file whose text changed
+/// since the compile (here, on disk, with no change event yet) is not
+/// renamed from stale positions.
+#[spec(
+    behavior = "rename_entity_id",
+    verify = "rename is refused as content modified when a file it edits changed since the compile"
+)]
+#[tokio::test]
+async fn rename_waits_for_the_compile_of_a_changed_file() {
+    use crate::session::{Session, uri_of};
+    use serde_json::json;
+
+    let dir = tempfile::TempDir::new().unwrap();
+    let limit = dir.path().join("limit.spec");
+    let login = dir.path().join("login.spec");
+    let login_text = "behavior login \"Login\" {\n  invariants [session_limit]\n}\n";
+    std::fs::write(&limit, "invariant session_limit \"Limit\" {\n}\n").unwrap();
+    std::fs::write(&login, login_text).unwrap();
+    let (mut session, _) = Session::start(Some(dir.path())).await;
+    let login_uri = uri_of(&login);
+    session.open(&login_uri, login_text).await;
+    session.diagnostics(&login_uri).await;
+    let rename = json!({
+        "textDocument": {"uri": login_uri},
+        "position": {"line": 1, "character": 16},
+        "newName": "session_cap",
+    });
+
+    // A line added above the declaration, as another tool would.
+    std::fs::write(&limit, "// moved\ninvariant session_limit \"Limit\" {\n}\n").unwrap();
+    let refused = session.request("textDocument/rename", rename).await;
+    assert!(refused["result"].is_null(), "{refused}");
+    assert_eq!(refused["error"]["code"], -32801, "{refused}");
 }
 
 /// The new name follows the shared entity-ID rule: the editor gets an
@@ -107,7 +146,7 @@ async fn rename_is_atomic() {
 )]
 #[tokio::test]
 async fn rename_to_an_illegal_id_is_refused_with_why() {
-    use crate::contracts::wire::{Session, uri_of};
+    use crate::session::{Session, uri_of};
     use serde_json::json;
 
     let dir = tempfile::TempDir::new().unwrap();

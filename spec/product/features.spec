@@ -7,6 +7,7 @@
 use "extensions/product/features"
 
 feature product_entity_registration "Product Entity Registration" {
+  status       done
   problem      """
     The compiler has no knowledge of product planning concepts until
     @specforge/product registers its entity kinds, edge types, field
@@ -31,6 +32,7 @@ feature product_entity_registration "Product Entity Registration" {
 }
 
 feature product_graph_queries "Product Graph Queries" {
+  status       done
   problem      """
     Product entities form a rich graph but there is no way to query it
     for planning insights: milestone completion, deliverable traceability,
@@ -48,6 +50,7 @@ feature product_graph_queries "Product Graph Queries" {
 }
 
 feature product_surface_access "Product Surface Access" {
+  status       done
   problem      """
     Product queries and validation have no CLI commands or MCP tools
     to expose them to users and agents.
@@ -70,6 +73,7 @@ feature product_surface_access "Product Surface Access" {
 }
 
 feature product_validation "Product Validation Rules" {
+  status       done
   problem      """
     Without domain-specific validation, the compiler cannot detect
     product-level quality issues like orphan entities, dependency
@@ -94,6 +98,7 @@ feature product_validation "Product Validation Rules" {
 }
 
 feature product_health_metric "Product Health Metric" {
+  status       done
   problem      """
     Individual queries return focused metrics but there is no single
     composite metric for overall product health.
@@ -114,6 +119,7 @@ feature product_health_metric "Product Health Metric" {
 }
 
 feature product_impact_and_whatif "Impact Analysis and What-If" {
+  status       done
   problem      """
     Product managers cannot assess transitive impact of deferring or
     completing a feature without mentally tracing dependency chains.
@@ -129,6 +135,7 @@ feature product_impact_and_whatif "Impact Analysis and What-If" {
 }
 
 feature product_graph_diff "Graph Diff and Comparison" {
+  status       accepted
   problem      """
     No way to compare the product graph over time between builds or
     sprints.
@@ -144,6 +151,7 @@ feature product_graph_diff "Graph Diff and Comparison" {
 }
 
 feature product_graph_rendering "Product Graph Rendering" {
+  status       done
   problem      """
     Product entities have no specification for how they appear in the
     Graph Protocol JSON output produced by specforge export.

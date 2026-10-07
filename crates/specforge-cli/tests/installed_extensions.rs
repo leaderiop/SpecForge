@@ -714,3 +714,92 @@ fn removing_a_wasm_file_no_entry_names_is_not_found() {
         json!(["@specforge/software", "greet.wasm"])
     );
 }
+
+// ── plan 05 pins: the management operations before they take the project view ──
+
+// R1 (plan 05): doctor names a `.wasm` file entry by its file, as the
+// extensions listing does (it called it "builtin" before 05-T4).
+#[specforge_test(
+    behavior = "run_doctor_check",
+    verify = "doctor gives each extension the source the extensions listing gives it"
+)]
+fn doctor_lists_a_wasm_file_entry_with_its_file_source() {
+    let dir = greet_file_project();
+    enable(dir.path(), json!(["@specforge/software", "greet.wasm"]));
+
+    let (_, report) = doctor(dir.path());
+
+    let greet = report["extensions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|e| e["name"] == "@sdk/greet")
+        .unwrap_or_else(|| panic!("@sdk/greet not listed: {report}"));
+    assert_eq!(greet["source"], "file:greet.wasm", "{report}");
+
+    let out = specforge()
+        .args(["extensions", "--format", "json", "--path"])
+        .arg(dir.path())
+        .output()
+        .unwrap();
+    let listed: Value = serde_json::from_slice(&out.stdout).unwrap();
+    for extension in report["extensions"].as_array().unwrap() {
+        let entry = listed["extensions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|e| e["name"] == extension["name"])
+            .unwrap_or_else(|| panic!("{} not listed: {listed}", extension["name"]));
+        assert_eq!(entry["source"], extension["source"], "{extension}");
+    }
+}
+
+// R2 (plan 05): a removal with an unreadable specforge.json refuses before
+// it writes anything (it used to uninstall the binary and empty the lock
+// first). Fixed, the same removal finishes cleanly.
+#[specforge_test(
+    behavior = "remove_extension",
+    verify = "a removal with an unreadable specforge.json is config_invalid and changes nothing"
+)]
+fn a_removal_with_an_unreadable_config_changes_nothing() {
+    let dir = greeting_project();
+    add_local_greet(dir.path());
+    let binary = dir
+        .path()
+        .join(".specforge/extensions/@sdk/greet/extension.wasm");
+    assert!(binary.is_file(), "{}", binary.display());
+    let broken = r#"{ "extensions": ["@sdk/greet",  }"#;
+    std::fs::write(dir.path().join("specforge.json"), broken).unwrap();
+    let lock_before = std::fs::read(dir.path().join("specforge.lock")).unwrap();
+    let binary_before = std::fs::read(&binary).unwrap();
+
+    let (ok, output) = remove(dir.path(), "@sdk/greet", &[]);
+
+    assert!(!ok, "{output}");
+    assert_eq!(output["code"], "config_invalid", "{output}");
+    assert!(
+        output["error"]
+            .as_str()
+            .unwrap()
+            .contains("is not valid JSON: expected value at line 1 column"),
+        "{output}"
+    );
+    assert_eq!(
+        std::fs::read(dir.path().join("specforge.lock")).unwrap(),
+        lock_before
+    );
+    assert_eq!(std::fs::read(&binary).unwrap(), binary_before);
+    assert_eq!(
+        std::fs::read_to_string(dir.path().join("specforge.json")).unwrap(),
+        broken
+    );
+
+    // The config fixed, remove finishes: specforge.json, lock and binary.
+    enable(dir.path(), json!(["@specforge/software", "@sdk/greet"]));
+    let (ok, output) = remove(dir.path(), "@sdk/greet", &[]);
+    assert!(ok, "{output}");
+    assert_eq!(enabled(dir.path()), json!(["@specforge/software"]));
+    let lock = std::fs::read_to_string(dir.path().join("specforge.lock")).unwrap();
+    assert!(!lock.contains("@sdk/greet"), "{lock}");
+    assert!(!dir.path().join(".specforge/extensions/@sdk/greet").exists());
+}

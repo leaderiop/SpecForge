@@ -1,5 +1,6 @@
 //! Plugin-side SDK for authoring [SpecForge](https://github.com/leaderiop/SpecForge)
-//! extensions against the handshake/describe protocol (v1.0.0).
+//! extensions against the handshake/describe protocol, at the version
+//! [`PROTOCOL_VERSION`](specforge_protocol_types::PROTOCOL_VERSION) names.
 //!
 //! Wire types come from `specforge-protocol-types` — the same definitions the
 //! host (`specforge-wasm`) uses — so the protocol cannot drift between the two
@@ -806,6 +807,7 @@ impl RuleBuilder {
                 field: None,
                 constraint: None,
                 wasm_function: None,
+                target_extension: None,
             },
             validate: None,
         }
@@ -848,6 +850,15 @@ impl RuleBuilder {
     }
     pub fn wasm_function(&mut self, f: &str) -> &mut Self {
         self.descriptor.wasm_function = Some(f.to_string());
+        self
+    }
+    /// The extension whose kind or edge type this rule names, when it is
+    /// neither this extension nor one of its declared peers (a rule on a
+    /// kind of an extension this one works without, so no peer dependency
+    /// is declared). While `extension` is not loaded the rule is inert, and
+    /// costs the host no W021.
+    pub fn target_extension(&mut self, extension: &str) -> &mut Self {
+        self.descriptor.target_extension = Some(extension.to_string());
         self
     }
     pub fn constraint(&mut self, f: impl FnOnce(&mut FieldConstraintBuilder)) -> &mut Self {
@@ -1138,9 +1149,9 @@ pub mod prelude {
         ScanRequest, ScanResponse, ScannedItem,
     };
     pub use crate::{
-        ArgBuilder, CommandBuilder, CommandCall, CommandError, CommandFormat, CommandGraph,
-        CommandInput, CommandOutput, GraphEdge, GraphNode, McpResourceBuilder, McpToolBuilder,
-        SandboxBuilder,
+        ArgBuilder, CommandBuilder, CommandCall, CommandError, CommandEvidence, CommandFormat,
+        CommandGraph, CommandInput, CommandOutput, EntityEvidence, GraphEdge, GraphNode,
+        McpResourceBuilder, McpToolBuilder, SandboxBuilder,
     };
     pub use crate::{
         CollectEntityResult, CollectInput, CollectOutput, CollectReportFile, CollectTestResult,
@@ -1256,11 +1267,11 @@ mod raw_category_flag_tests {
 
 pub use specforge_protocol_types::{
     CollectEntityResult, CollectInput, CollectOutput, CollectReportFile, CollectTestResult,
-    CollectUnlinkedTest, CommandError, CommandFormat, CommandOutput, GraphEdge, GraphNode,
-    GraphWire, McpResourceContent, McpResourceRequest, MigrationInput, PassAnswer, PassBuildCache,
-    PassCachedStatus, PassDiagnostic, PassEdge, PassEntity, PassEntityResults, PassInput,
-    PassOutput, PassSeverity, PassSpan, PassTestResult, PassTestResults, ScanRequest, ScanResponse,
-    ScannedItem,
+    CollectUnlinkedTest, CommandError, CommandEvidence, CommandFormat, CommandOutput,
+    EntityEvidence, GraphEdge, GraphNode, GraphWire, McpResourceContent, McpResourceRequest,
+    MigrationInput, PassAnswer, PassBuildCache, PassCachedStatus, PassDiagnostic, PassEdge,
+    PassEntity, PassEntityResults, PassInput, PassOutput, PassSeverity, PassSpan, PassTestResult,
+    PassTestResults, ScanRequest, ScanResponse, ScannedItem,
 };
 
 /// What a `cmd__<name>` export receives, its graph indexed for lookups
@@ -1396,6 +1407,7 @@ mod command_graph_tests {
             graph: CommandGraph::default(),
             format: CommandFormat::Json,
             today: String::new(),
+            evidence: Default::default(),
         };
         assert!(input.is_json());
         assert!(!CommandInput::default().is_json());

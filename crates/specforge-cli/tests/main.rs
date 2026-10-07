@@ -30,15 +30,18 @@ mod extensions;
 #[allow(dead_code)]
 mod fake_registry;
 mod field_types;
+mod formal_diagnostics;
 #[allow(deprecated)]
 mod format;
 mod format_corpus;
 mod init;
+mod inspect_views;
 mod installed_extensions;
 mod mcp_add;
 #[allow(deprecated)]
 mod migrate;
 mod navigation_parity;
+mod options;
 mod parity;
 mod pipeline;
 mod product_commands;
@@ -53,3 +56,4 @@ mod surface_parity;
 mod trace;
 mod watch;
 mod watch_reload;
+mod written;

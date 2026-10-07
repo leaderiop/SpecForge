@@ -1,6 +1,7 @@
 // @specforge/compliance extension features
 
 feature ce_core_entity_kinds "Compliance Entity Kind Registration" {
+  status   accepted
   problem  """
     The @specforge/compliance extension must register 4 entity kinds,
     4 edge types, field definitions, and validation rules. Without this
@@ -18,6 +19,7 @@ feature ce_core_entity_kinds "Compliance Entity Kind Registration" {
 }
 
 feature compliance_validation "Compliance Validation" {
+  status   accepted
   problem  """
     Regulatory compliance specifications (SOC 2, HIPAA, GDPR, ISO 27001)
     require traceability from regulations through controls to evidence.
@@ -35,6 +37,7 @@ feature compliance_validation "Compliance Validation" {
 }
 
 feature compliance_reporting "Compliance Reporting" {
+  status   accepted
   problem  """
     Compliance auditors need a visual traceability matrix mapping regulations
     to controls with maturity status and evidence coverage. Producing this

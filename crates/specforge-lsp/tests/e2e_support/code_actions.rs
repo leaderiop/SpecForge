@@ -3,7 +3,7 @@ use super::*;
 #[tokio::test]
 async fn e2e_code_action_missing_verify() {
     let text = "behavior foo \"Foo\" {\n  contract \"test\"\n}\n";
-    let (mut client, uri, _dir) = start_server_with_extensions(
+    let (mut client, uri, _dir) = Session::with_extensions(
         &["@specforge/software", "@specforge/testing"],
         "test.spec",
         text,
@@ -42,7 +42,7 @@ async fn e2e_code_action_missing_verify() {
 #[tokio::test]
 async fn e2e_code_action_quickfix_kind() {
     let text = "behavior foo \"Foo\" {\n  contract \"test\"\n}\n";
-    let (mut client, uri, _dir) = start_server_with_extensions(
+    let (mut client, uri, _dir) = Session::with_extensions(
         &["@specforge/software", "@specforge/testing"],
         "test.spec",
         text,
@@ -61,7 +61,7 @@ async fn e2e_code_action_quickfix_kind() {
 #[tokio::test]
 async fn e2e_code_action_verify_stub_format() {
     let text = "behavior foo \"Foo\" {\n  contract \"test\"\n}\n";
-    let (mut client, uri, _dir) = start_server_with_extensions(
+    let (mut client, uri, _dir) = Session::with_extensions(
         &["@specforge/software", "@specforge/testing"],
         "test.spec",
         text,
@@ -96,7 +96,7 @@ async fn e2e_code_action_verify_stub_format() {
 #[tokio::test]
 async fn e2e_no_code_action_when_verify_exists() {
     let text = "behavior bar \"Bar\" {\n  contract \"test\"\n  verify unit \"bar test\"\n}\n";
-    let (mut client, uri, _dir) = start_server_with_extensions(
+    let (mut client, uri, _dir) = Session::with_extensions(
         &["@specforge/software", "@specforge/testing"],
         "test.spec",
         text,
@@ -132,7 +132,7 @@ const MISSPELLED: &str = "invariant token_unique \"T\" {\n  guarantee \"g\"\n}\n
 )]
 #[tokio::test]
 async fn e2e_did_you_mean_quickfix_from_the_published_diagnostic() {
-    let (mut client, uri, _dir) = start_server_with_extensions(
+    let (mut client, uri, _dir) = Session::with_extensions(
         &["@specforge/software", "@specforge/testing"],
         "auth.spec",
         MISSPELLED,
@@ -164,7 +164,7 @@ async fn e2e_did_you_mean_quickfix_from_the_published_diagnostic() {
 const DANGLING: &str =
     "behavior login \"L\" {\n  invariants [session_limit]\n  verify unit \"y\"\n}\n";
 
-async fn stub_action(uri: &str, client: &mut LspClient) -> Value {
+async fn stub_action(uri: &str, client: &mut Session) -> Value {
     let resp = client.code_action(uri, 0, 0, 4, 0).await;
     resp["result"]
         .as_array()
@@ -181,7 +181,7 @@ async fn stub_action(uri: &str, client: &mut LspClient) -> Value {
 )]
 #[tokio::test]
 async fn e2e_stub_offered_for_a_dangling_reference() {
-    let (mut client, uri, _dir) = start_server_with_extensions(
+    let (mut client, uri, _dir) = Session::with_extensions(
         &["@specforge/software", "@specforge/testing"],
         "auth.spec",
         DANGLING,
@@ -197,7 +197,7 @@ async fn e2e_stub_offered_for_a_dangling_reference() {
 )]
 #[tokio::test]
 async fn e2e_stub_kind_comes_from_the_enclosing_field() {
-    let (mut client, uri, _dir) = start_server_with_extensions(
+    let (mut client, uri, _dir) = Session::with_extensions(
         &["@specforge/software", "@specforge/testing"],
         "auth.spec",
         DANGLING,
@@ -221,7 +221,7 @@ async fn e2e_stub_kind_comes_from_the_enclosing_field() {
 )]
 #[tokio::test]
 async fn e2e_stub_is_appended_to_the_file() {
-    let (mut client, uri, _dir) = start_server_with_extensions(
+    let (mut client, uri, _dir) = Session::with_extensions(
         &["@specforge/software", "@specforge/testing"],
         "auth.spec",
         DANGLING,

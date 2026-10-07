@@ -1,93 +1,103 @@
-use specforge_graph::Graph;
-use specforge_parser::FieldValue;
-use specforge_registry::{FieldRegistry, KindRegistry};
-use std::collections::BTreeMap;
+//! The hover's markdown: the diagnostics under the cursor, an entity's
+//! facts (the inspect read view, `specforge_ops::inspect`) and a field's
+//! help. Rendering only: the facts come from the read view, so the hover
+//! and MCP `specforge.inspect` cannot disagree (ADR 0015, "Inspect").
 
-/// Markdown for the published diagnostics whose range holds the position
-/// (`line` and `character` zero-based, UTF-16): each code with the
-/// catalogue's title, the message, the catalogue's explanation and the
-/// docs link; a code the catalogue doesn't have shows its code and message
-/// only. `None` when no diagnostic covers the position.
-pub fn diagnostic_hover(
-    diagnostics: &[specforge_common::Diagnostic],
-    content: &str,
-    line: u32,
-    character: u32,
-) -> Option<String> {
-    let at = (line, character);
-    let sections: Vec<String> = diagnostics
+use crate::document::LineIndex;
+use specforge_common::Diagnostic;
+use specforge_ops::inspect::EntityFacts;
+use specforge_parser::FieldValue;
+use specforge_registry::FieldRegistry;
+use std::collections::BTreeMap;
+use tower_lsp::lsp_types::Position;
+
+/// The published diagnostics whose range (in the document `index`
+/// indexes) holds `position`, in published order.
+pub fn diagnostics_at<'d>(
+    published: &'d [Diagnostic],
+    index: &LineIndex,
+    position: Position,
+) -> Vec<&'d Diagnostic> {
+    let at = (position.line, position.character);
+    published
         .iter()
         .filter(|diag| {
             diag.span.as_ref().is_some_and(|span| {
-                let range = crate::source_span_to_lsp_range_with_text(span, content);
-                (range.start_line, range.start_col) <= at && at <= (range.end_line, range.end_col)
+                let range = index.range(span);
+                (range.start.line, range.start.character) <= at
+                    && at <= (range.end.line, range.end.character)
             })
         })
-        .map(|diag| match specforge_diagnostics::lookup(&diag.code) {
-            Some(entry) => {
-                let mut section = format!(
-                    "**{}** · {}\n\n{}\n\n{}",
-                    entry.code, entry.title, diag.message, entry.explanation
-                );
-                if let Some(href) = specforge_diagnostics::docs_href(entry.code) {
-                    section.push_str(&format!("\n\n[Documentation]({href})"));
+        .collect()
+}
+
+/// Markdown for the diagnostics `shown` under the cursor
+/// ([`diagnostics_at`]): each code with the catalogue's title, the message,
+/// the catalogue's explanation and the docs link; a code the catalogue
+/// doesn't have shows its code and message only. `None` when none is.
+pub fn diagnostics(shown: &[&Diagnostic]) -> Option<String> {
+    let sections: Vec<String> = shown
+        .iter()
+        .map(
+            |diag| match specforge_diagnostics::describes(&diag.code, diag.origin()) {
+                Some(entry) => {
+                    let mut section = format!(
+                        "**{}** · {}\n\n{}\n\n{}",
+                        entry.code, entry.title, diag.message, entry.explanation
+                    );
+                    if let Some(href) = specforge_diagnostics::docs_href(entry.code) {
+                        section.push_str(&format!("\n\n[Documentation]({href})"));
+                    }
+                    section
                 }
-                section
-            }
-            None => format!("**{}**\n\n{}", diag.code, diag.message),
-        })
+                // An extension's own uncatalogued code, or one it may not use
+                // (W150): no catalogue entry describes it.
+                None => match diag.origin() {
+                    Some(extension) => format!(
+                        "**{}** · reported by '{extension}'\n\n{}",
+                        diag.code, diag.message
+                    ),
+                    None => format!("**{}**\n\n{}", diag.code, diag.message),
+                },
+            },
+        )
         .collect();
     (!sections.is_empty()).then(|| sections.join("\n\n---\n\n"))
 }
 
-/// Returns markdown-formatted hover content for an entity.
-///
-/// Shows:
-/// - Entity kind, ID, and title
-/// - Extension source (from KindRegistry, if available)
-/// - **Refers to** (outgoing edges): grouped by field label, listing target IDs
-/// - **Referenced by** (incoming edges): grouped by "source_kind via label", listing source IDs
-/// - **Fields**: actual field values from the entity
-pub fn hover_info(graph: &Graph, entity_id: &str) -> Option<String> {
-    hover_info_with_registries(graph, entity_id, None, None)
-}
-
-/// Hover with optional registry metadata.
-pub fn hover_info_with_registries(
-    graph: &Graph,
-    entity_id: &str,
-    kind_registry: Option<&KindRegistry>,
-    _field_registry: Option<&FieldRegistry>,
-) -> Option<String> {
-    let node = graph.node(entity_id)?;
-
+/// Markdown for an entity's facts:
+/// - its kind, ID and title; its kind's description, declaring extension
+///   and badges (`testable` is the standing inspect reports); the
+///   statement its extension declares headline, quoted whole;
+/// - **Coverage**: its coverage, or why it does not count, or that the
+///   recorded report cannot be read; while the project rebuilds
+///   (`rebuilding`), that coverage is unavailable. None for an entity of a
+///   kind that is not testable and that declares no obligations;
+/// - **Refers to**: its references, grouped by field;
+/// - **Referenced by**: the references to it, grouped by the referencing
+///   kind and field;
+/// - **Fields**: its field values but the headline;
+/// - **Diagnostics**: the diagnostics about it that are not among those
+///   `shown` for the cursor, each code linked to its catalogue entry.
+pub fn entity(facts: &EntityFacts, shown: &[&Diagnostic], rebuilding: bool) -> String {
+    let node = facts.node;
     let title = node
         .title
         .as_deref()
         .map(|t| format!(" — {t}"))
         .unwrap_or_default();
 
-    // Section 1: Header + description + extension badges
-    // C4-11: the registry's lsp_icon is authoritative for the client — the
-    // vscode extension only falls back to its static map when the server
-    // did not prepend one.
-    let icon = kind_registry
-        .and_then(|reg| reg.get(node.kind.raw.as_str()))
-        .and_then(|entry| entry.declared.lsp_icon.clone())
-        .map(|i| format!("{i} "))
-        .unwrap_or_default();
-
-    let mut header_section = format!("{icon}**{}** `{}`{}", node.kind.raw, node.id.raw, title);
-
-    if let Some(kind_reg) = kind_registry
-        && let Some(entry) = kind_reg.get(node.kind.raw.as_str())
-    {
+    // Section 1: Header + description + extension badges. The header
+    // carries no editor markup: the icon a kind declares (a SymbolKind name)
+    // reaches editors through document and workspace symbols, and a client
+    // adds its own icon (ADR 0015, I4).
+    let mut header_section = format!("**{}** `{}`{}", node.kind.raw, node.id.raw, title);
+    if let Some(entry) = facts.kind {
         if let Some(ref desc) = entry.declared.description {
             header_section.push_str(&format!("\n\n{}", desc));
         }
-
         let mut ext_line = format!("*{}*", entry.source_extension);
-        if entry.testable {
+        if facts.standing.testable {
             ext_line.push_str(" · `testable`");
         }
         if entry.supports_verify {
@@ -98,74 +108,188 @@ pub fn hover_info_with_registries(
         }
         header_section.push_str(&format!("\n{}", ext_line));
     }
+    if let Some(headline) = facts.headline {
+        header_section.push_str(&format!("\n\n{}", quoted(headline)));
+    }
 
     let mut sections: Vec<String> = vec![header_section];
 
-    // Section 2: Outgoing edges (Refers to)
-    let outgoing = graph.edges_from(entity_id);
+    // Section 2: its coverage
+    if let Some(line) = coverage_line(facts, rebuilding) {
+        sections.push(format!("**Coverage** · {line}"));
+    }
+
+    // Section 3: its references (Refers to), by field
+    let outgoing = &facts.references.outgoing;
     if !outgoing.is_empty() {
-        let mut by_label: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
-        for edge in &outgoing {
-            by_label
-                .entry(edge.label.as_str())
+        let mut by_field: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
+        for reference in outgoing {
+            by_field
+                .entry(reference.field.as_str())
                 .or_default()
-                .push(edge.target.as_str());
+                .push(reference.peer.as_str());
         }
-        let total_count = outgoing.len();
-        let mut section = format!("**Refers to** *({})*", total_count);
-        for (label, targets) in &by_label {
-            let ids: Vec<&str> = targets.to_vec();
-            section.push_str(&format!("\n- `{}` → {}", label, ids.join(", ")));
+        let mut section = format!("**Refers to** *({})*", outgoing.len());
+        for (field, targets) in &by_field {
+            section.push_str(&format!("\n- `{}` → {}", field, targets.join(", ")));
         }
         sections.push(section);
     }
 
-    // Section 3: Incoming edges (Referenced by)
-    let incoming = graph.edges_to(entity_id);
+    // Section 4: the references to it (Referenced by), by kind and field
+    let incoming = &facts.references.incoming;
     if !incoming.is_empty() {
-        let mut by_kind_label: BTreeMap<(String, &str), Vec<&str>> = BTreeMap::new();
-        for edge in &incoming {
-            let source_kind = graph
-                .node(edge.source.as_str())
-                .map(|n| n.kind.raw.to_string())
-                .unwrap_or_else(|| "unknown".to_string());
-            by_kind_label
-                .entry((source_kind, edge.label.as_str()))
+        let mut by_kind_field: BTreeMap<(&str, &str), Vec<&str>> = BTreeMap::new();
+        for reference in incoming {
+            let kind = reference.peer_kind.map_or("unknown", |k| k.as_str());
+            by_kind_field
+                .entry((kind, reference.field.as_str()))
                 .or_default()
-                .push(edge.source.as_str());
+                .push(reference.peer.as_str());
         }
-        let total_count = incoming.len();
-        let mut section = format!("**Referenced by** *({})*", total_count);
-        for ((kind, label), sources) in &by_kind_label {
-            let ids: Vec<&str> = sources.to_vec();
-            section.push_str(&format!("\n- {} via `{}`: {}", kind, label, ids.join(", ")));
-        }
-        sections.push(section);
-    }
-
-    // Section 4: Fields
-    let field_entries = node.fields.entries();
-    if !field_entries.is_empty() {
-        let mut has_fields = false;
-        let mut section = String::from("**Fields**");
-        for entry in field_entries {
-            let key = entry.key.as_str();
-            if key == "title" {
-                continue;
-            }
-            has_fields = true;
+        let mut section = format!("**Referenced by** *({})*", incoming.len());
+        for ((kind, field), sources) in &by_kind_field {
             section.push_str(&format!(
-                "\n- `{}` = {}",
-                key,
-                format_field_value(&entry.value)
+                "\n- {} via `{}`: {}",
+                kind,
+                field,
+                sources.join(", ")
             ));
         }
-        if has_fields {
-            sections.push(section);
-        }
+        sections.push(section);
     }
 
-    Some(sections.join("\n\n---\n\n"))
+    // Section 5: Fields, but the headline, which the summary quotes
+    let fields: Vec<String> = node
+        .fields
+        .entries()
+        .iter()
+        .filter(|entry| entry.key.as_str() != "title")
+        .filter(|entry| !is_headline(&entry.value, facts.headline))
+        .map(|entry| format!("- `{}` = {}", entry.key, format_field_value(&entry.value)))
+        .collect();
+    if !fields.is_empty() {
+        sections.push(format!("**Fields**\n{}", fields.join("\n")));
+    }
+
+    // Section 6: the diagnostics about it the cursor's do not already show
+    let listed: Vec<String> = facts
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| !shown.contains(diagnostic))
+        .map(|diagnostic| {
+            let described = specforge_diagnostics::describes(&diagnostic.code, diagnostic.origin());
+            let code =
+                match described.and_then(|entry| specforge_diagnostics::docs_href(entry.code)) {
+                    Some(href) => format!("[**{}**]({href})", diagnostic.code),
+                    None => format!("**{}**", diagnostic.code),
+                };
+            format!("- {code} {}", diagnostic.message)
+        })
+        .collect();
+    if !listed.is_empty() {
+        sections.push(format!(
+            "**Diagnostics** *({})*\n{}",
+            listed.len(),
+            listed.join("\n")
+        ));
+    }
+
+    sections.join("\n\n---\n\n")
+}
+
+/// Whether `value` is the headline statement: the very string the read
+/// view borrowed from the node, not merely an equal one.
+fn is_headline(value: &FieldValue, headline: Option<&str>) -> bool {
+    match (value, headline) {
+        (FieldValue::String(s), Some(headline)) => std::ptr::eq(s.as_str(), headline),
+        _ => false,
+    }
+}
+
+/// `text` as a markdown quote, whole: its blank edge lines trimmed, its
+/// common leading whitespace removed, every line prefixed `> `.
+fn quoted(text: &str) -> String {
+    let lines: Vec<&str> = text.lines().collect();
+    let first = lines.iter().position(|l| !l.trim().is_empty());
+    let last = lines.iter().rposition(|l| !l.trim().is_empty());
+    let (Some(first), Some(last)) = (first, last) else {
+        return ">".to_string();
+    };
+    let lines = &lines[first..=last];
+    let indent = lines
+        .iter()
+        .filter(|l| !l.trim().is_empty())
+        .map(|l| l.len() - l.trim_start().len())
+        .min()
+        .unwrap_or(0);
+    lines
+        .iter()
+        .map(|l| {
+            let line = l.get(indent..).unwrap_or_else(|| l.trim_start()).trim_end();
+            if line.is_empty() {
+                ">".to_string()
+            } else {
+                format!("> {line}")
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// The Coverage line after `**Coverage** · `: as `specforge.inspect`
+/// reports the entity's coverage. `None` for an entity whose kind is not
+/// testable and that declares no obligations.
+fn coverage_line(facts: &EntityFacts, rebuilding: bool) -> Option<String> {
+    let standing = facts.standing;
+    let declares = match &facts.coverage {
+        Ok(coverage) => coverage.declared(),
+        Err(_) => !facts.obligations.is_empty(),
+    };
+    if !standing.testable && !declares {
+        return None;
+    }
+    // The stand-in view has no root: it cannot read the recorded report,
+    // and saying there is none would be false (panel D12).
+    if rebuilding {
+        return Some("unavailable while the project rebuilds".to_string());
+    }
+    if standing.exempt() {
+        return Some(if standing.obligated() {
+            "exempt: it owes none (a union or an exempting field)".to_string()
+        } else {
+            "exempt: its kind need not declare obligations".to_string()
+        });
+    }
+    let coverage = match &facts.coverage {
+        Ok(coverage) => coverage,
+        Err(error) => {
+            return Some(format!(
+                "the recorded test report cannot be read ({}): {error}",
+                specforge_common::codes::E045
+            ));
+        }
+    };
+    let verdict = &coverage.verdict;
+    let mut line = format!(
+        "`{}` · {}/{} obligations proven",
+        specforge_ops::coverage::STATUS.name_of(coverage.status()),
+        verdict.proven,
+        verdict.obligations
+    );
+    if coverage.recorded {
+        let plural = if verdict.tests == 1 { "" } else { "s" };
+        line.push_str(&format!(" · {} test{plural}", verdict.tests));
+        if verdict.failing > 0 {
+            line.push_str(&format!(" · {} failing", verdict.failing));
+        }
+    } else {
+        line.push_str(" · no test report recorded");
+    }
+    if !standing.testable {
+        line.push_str(" · its kind is not testable, so it does not count");
+    }
+    Some(line)
 }
 
 /// Returns markdown-formatted hover content for a field name within an entity block.
@@ -213,8 +337,10 @@ pub fn hover_field_info(
 fn format_field_value(fv: &FieldValue) -> String {
     match fv {
         FieldValue::String(s) => {
+            // At most 120 bytes, cut at the last character boundary at or
+            // before byte 120: a cut inside a character would panic.
             let truncated = if s.len() > 120 {
-                format!("{}…", &s[..120])
+                format!("{}…", &s[..s.floor_char_boundary(120)])
             } else {
                 s.clone()
             };

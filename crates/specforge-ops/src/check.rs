@@ -16,8 +16,8 @@ use serde_json::{Value, json};
 use specforge_common::{Diagnostic, Severity};
 use specforge_project::{BuildCache, DiagnosticPolicy, LINT_PROFILE_NAMES, LintProfile};
 
-use crate::OpError;
 use crate::view::ProjectView;
+use crate::{OpError, OpErrorKind};
 
 /// What to report and record. `Default` is a plain `specforge check`.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -164,11 +164,11 @@ impl std::error::Error for CheckError {}
 /// closest valid name as its suggestion; a missing root is `no_project`.
 impl From<CheckError> for OpError {
     fn from(error: CheckError) -> Self {
-        let code = match error {
-            CheckError::NoProjectRoot => "no_project",
-            _ => "invalid_input",
+        let (kind, code) = match error {
+            CheckError::NoProjectRoot => (OpErrorKind::PreconditionFailed, "no_project"),
+            _ => (OpErrorKind::InvalidInput, "invalid_input"),
         };
-        let op_error = OpError::new(code, error.to_string());
+        let op_error = OpError::new(kind, code, error.to_string());
         match error.suggestion() {
             Some(suggestion) => op_error.with_suggestion(suggestion),
             None => op_error,
@@ -216,7 +216,7 @@ pub fn check(
     options: &CheckOptions,
 ) -> Result<CheckOutcome, CheckError> {
     let needs_root = options.record_cache || !options.lint_profiles.is_empty();
-    let root = match view.root {
+    let root = match view.root() {
         Some(root) => root,
         None if needs_root => return Err(CheckError::NoProjectRoot),
         None => Path::new(""),
@@ -230,7 +230,7 @@ pub fn check(
     let cache = match (options.record_cache, counts.errors == 0) {
         (false, _) => CacheRecord::NotRequested,
         (true, false) => CacheRecord::NotWritten,
-        (true, true) => match BuildCache::of(view.graph, &view.registries.kinds).write(root) {
+        (true, true) => match BuildCache::of(view.graph(), &view.registries().kinds).write(root) {
             Ok(()) => CacheRecord::Written,
             Err(e) => CacheRecord::WriteFailed(e.to_string()),
         },
@@ -246,6 +246,7 @@ pub fn check(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use specforge_common::codes;
     use specforge_graph::Graph;
     use specforge_project::CompiledProject;
     use specforge_project::coverage::RecordedCoverage;
@@ -455,10 +456,10 @@ mod tests {
     #[test]
     fn no_root_with_cache_or_lint_is_refused() {
         let graph = Graph::new();
-        let registries = RegistryBuild::default();
-        let recorded = RecordedCoverage::default();
-        let view = ProjectView::new(&graph, &registries, None, &recorded);
-        let reported = vec![Diagnostic::warning("W002", "unused")];
+        let env = specforge_project::Environment::with_registries(RegistryBuild::default());
+        let recorded = RecordedCoverage::over(&graph, &env);
+        let view = ProjectView::new(&graph, &env, None, &recorded);
+        let reported = vec![Diagnostic::untyped("W002", Severity::Warning, "unused")];
 
         for options in [
             CheckOptions {
@@ -552,12 +553,12 @@ mod tests {
     #[test]
     fn counts_of_mixed() {
         let diagnostics = [
-            Diagnostic::error("E003", "a"),
-            Diagnostic::warning("W003", "b"),
-            Diagnostic::warning("W004", "c"),
-            Diagnostic::info("I067", "d"),
-            Diagnostic::info("I068", "e"),
-            Diagnostic::info("I080", "f"),
+            Diagnostic::new(codes::E003, "a"),
+            Diagnostic::untyped("W003", Severity::Warning, "b"),
+            Diagnostic::untyped("W004", Severity::Warning, "c"),
+            Diagnostic::untyped("I067", Severity::Info, "d"),
+            Diagnostic::untyped("I068", Severity::Info, "e"),
+            Diagnostic::untyped("I080", Severity::Info, "f"),
         ];
         assert_eq!(
             Counts::of(&diagnostics),

@@ -29,6 +29,7 @@ serde_json = { workspace = true }
 
 [dev-dependencies]
 specforge-component = { path = "../specforge-component" }
+specforge-extension-sdk = { path = "../specforge-extension-sdk" }
 specforge-wasm = { path = "../specforge-wasm" }
 specforge-test = { workspace = true }
 specforge-test-macros = { workspace = true }

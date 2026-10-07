@@ -115,3 +115,67 @@ fn cargo_test_reports_plain_tests_as_unlinked() {
         ["tests", "add_item", "rejects_a_duplicate_item"]
     );
 }
+
+#[specforge_test_macros::test(
+    behavior = "management_operations_over_the_project_view",
+    verify = "collect maps test results to the entities of its view"
+)]
+fn collect_maps_results_to_the_views_entities() {
+    use specforge_ops::collect::{Consent, Mode, Request, collect};
+    use specforge_ops::view::ProjectView;
+
+    let runtime = wasm_runtime_for(&["@specforge/testing", "@specforge/cargo-test"]);
+    let env = specforge_project::Environment::from_declarations(vec![load_via_protocol(
+        "@specforge/cargo-test",
+    )]);
+    let (graph, _) = specforge_graph::build_graph(&[specforge_parser::parse(
+        "behavior a \"A\" {\n}\n",
+        "main.spec",
+    )]);
+    let dir = tempfile::TempDir::new().unwrap();
+    let report = dir.path().join("target/specforge/shop.json");
+    std::fs::create_dir_all(report.parent().unwrap()).unwrap();
+    std::fs::write(
+        &report,
+        r#"{"entries":[
+            {"entity_id":"a","test_name":"proves_a","module_path":"shop::tests","file":"src/lib.rs","status":"pass"},
+            {"entity_id":"zz","test_name":"proves_zz","module_path":"shop::tests","file":"src/lib.rs","status":"pass"}
+        ]}"#,
+    )
+    .unwrap();
+    let recorded = specforge_project::coverage::RecordedCoverage::over(&graph, &env);
+    let view = ProjectView::new(&graph, &env, Some(dir.path()), &recorded);
+
+    let reports = [report];
+    let outcome = collect(
+        &view,
+        &runtime,
+        Request {
+            runner: Some("cargo-test"),
+            mode: Mode::Reports(&reports),
+            consent: Consent::Approved,
+            announce: &mut |_, _| panic!("nothing runs when reading reports"),
+        },
+    )
+    .unwrap();
+
+    // Written at the view's root, with the view's entity only.
+    assert_eq!(outcome.report, dir.path().join("specforge-report.json"));
+    let written: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(&outcome.report).unwrap()).unwrap();
+    let results: Vec<&str> = written["results"]
+        .as_object()
+        .unwrap()
+        .keys()
+        .map(String::as_str)
+        .collect();
+    assert_eq!(results, ["a"], "{written}");
+    let w115: Vec<&str> = outcome
+        .diagnostics
+        .iter()
+        .filter(|d| d.code == "W115")
+        .map(|d| d.message.as_str())
+        .collect();
+    assert_eq!(w115.len(), 1, "{:?}", outcome.diagnostics);
+    assert!(w115[0].contains("'zz'"), "{}", w115[0]);
+}

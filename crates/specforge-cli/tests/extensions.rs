@@ -1661,3 +1661,364 @@ fn extensions_list_each_extensions_kinds_and_entities() {
         "{text}"
     );
 }
+
+// ===============================================================
+// Plan 05 pins: the management operations before they take the
+// project view
+// ===============================================================
+
+#[specforge_test(
+    behavior = "remove_extension",
+    verify = "a removal with an unreadable specforge.json is config_invalid and changes nothing"
+)]
+fn removing_a_builtin_with_an_unreadable_config_is_config_invalid() {
+    let dir = TempDir::new().unwrap();
+    let config = r#"{ "extensions": ["@specforge/product",  }"#;
+    fs::write(dir.path().join("specforge.json"), config).unwrap();
+
+    let output = specforge_cmd()
+        .args(["remove", "@specforge/product", "--format", "json", "--path"])
+        .arg(dir.path())
+        .output()
+        .unwrap();
+
+    assert_eq!(output.status.code(), Some(1), "{output:?}");
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(json["code"], "config_invalid", "{json}");
+    assert_eq!(
+        fs::read_to_string(dir.path().join("specforge.json")).unwrap(),
+        config
+    );
+}
+
+// One refusal for an unusable specforge.json: add, update and remove all
+// answer config_invalid with the reason E069 gives, and change nothing.
+#[specforge_test(
+    behavior = "management_operations_over_the_project_view",
+    verify = "add, update and remove refuse an unusable specforge.json with one refusal, before they write"
+)]
+fn add_update_and_remove_refuse_an_unusable_config_alike() {
+    for config in UNUSABLE_CONFIGS {
+        let dir = TempDir::new().unwrap();
+        fs::write(dir.path().join("specforge.json"), config).unwrap();
+        // A lock, so `update` has something it could touch.
+        fs::write(
+            dir.path().join("specforge.lock"),
+            r#"{"lockfile_version":1,"entries":[{"name":"@acme/x","version":"1.0.0","source":"registry","wasm_hash":"h"}]}"#,
+        )
+        .unwrap();
+        let before = crate::written::files_under(dir.path());
+        // What the compile reports as E069 for it.
+        let check = specforge_cmd()
+            .args(["check", "--format", "json"])
+            .arg(dir.path())
+            .output()
+            .unwrap();
+        let found: Vec<serde_json::Value> = serde_json::from_slice(&check.stdout).unwrap();
+        let reason = found[0]["message"].as_str().unwrap().to_string();
+
+        let mut refusals = Vec::new();
+        for args in [
+            vec!["add", "@specforge/product"],
+            vec!["update"],
+            vec!["remove", "@acme/x"],
+        ] {
+            let output = specforge_cmd()
+                .args(&args)
+                .args(["--format", "json", "--path"])
+                .arg(dir.path())
+                .output()
+                .unwrap();
+
+            assert_eq!(
+                output.status.code(),
+                Some(1),
+                "{config}: {args:?}: {output:?}"
+            );
+            let json: serde_json::Value = serde_json::from_slice(&output.stdout)
+                .unwrap_or_else(|e| panic!("{args:?}: not JSON ({e}): {output:?}"));
+            assert_eq!(json["code"], "config_invalid", "{config}: {args:?}: {json}");
+            assert!(
+                reason.contains(json["error"].as_str().unwrap()),
+                "{config}: {args:?}: E069 says `{reason}`, the refusal `{json}`"
+            );
+            assert_eq!(
+                crate::written::files_under(dir.path()),
+                before,
+                "{config}: {args:?} wrote"
+            );
+            refusals.push(json);
+        }
+        assert!(
+            refusals.windows(2).all(|pair| pair[0] == pair[1]),
+            "{refusals:?}"
+        );
+    }
+}
+
+#[specforge_test(
+    behavior = "list_installed_extensions",
+    verify = "list includes entity counts and entity types"
+)]
+fn a_legacy_entry_that_did_not_load_is_listed_with_its_written_version() {
+    let dir = TempDir::new().unwrap();
+    write_config_with_extensions(dir.path(), &["@specforge/product", "@acme/missing@1.2.0"]);
+
+    let output = specforge_cmd()
+        .args(["extensions", "--format", "json", "--path"])
+        .arg(dir.path())
+        .output()
+        .unwrap();
+
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    let missing = json["extensions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|e| e["name"] == "@acme/missing")
+        .unwrap_or_else(|| panic!("@acme/missing not listed: {json}"));
+    assert_eq!(missing["version"], "1.2.0", "{missing}");
+    assert_eq!(missing["status"], "not_loaded", "{missing}");
+    assert_eq!(missing["source"], "unknown", "{missing}");
+}
+
+/// Doctor's findings, without the z3 probe's (it depends on PATH).
+fn project_findings(report: &serde_json::Value) -> Vec<serde_json::Value> {
+    report["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|f| f["code"] != "z3_missing")
+        .cloned()
+        .collect()
+}
+
+// Panel D5 (plan 05): a directory without specforge.json is a valid
+// default project, but doctor says so, as a warning.
+#[specforge_test(
+    behavior = "run_doctor_check",
+    verify = "doctor in a directory without specforge.json reports config_missing as a warning"
+)]
+fn doctor_without_specforge_json_says_so() {
+    let dir = TempDir::new().unwrap();
+
+    let (report, code) = doctor_json(dir.path());
+
+    assert_eq!(code, 0, "{report}");
+    assert_eq!(report["status"], "healthy", "{report}");
+    assert_eq!(report["extensions"], serde_json::json!([]), "{report}");
+    assert_eq!(report["extensions_checked"], 0, "{report}");
+    let findings = project_findings(&report);
+    let codes: Vec<(&str, &str)> = findings
+        .iter()
+        .map(|f| (f["code"].as_str().unwrap(), f["status"].as_str().unwrap()))
+        .collect();
+    assert_eq!(codes, [("config_missing", "warn")], "{report}");
+
+    let (human, code) = doctor_human(dir.path());
+    assert_eq!(code, 0, "{human}");
+    assert!(
+        human.contains("[WARN] [config_missing] specforge.json at "),
+        "{human}"
+    );
+    assert!(human.contains("No issues found."), "{human}");
+}
+
+// A specforge.lock that is there and cannot be read: the environment read
+// it once, and doctor reports it as an error finding naming E033.
+#[specforge_test(
+    behavior = "run_doctor_check",
+    verify = "a lock file that cannot be read is an error finding naming E033"
+)]
+fn doctor_reports_a_corrupt_lock_as_an_error_finding() {
+    let dir = TempDir::new().unwrap();
+    fs::write(
+        dir.path().join("specforge.json"),
+        r#"{"name":"t","version":"0.1.0","extensions":[]}"#,
+    )
+    .unwrap();
+    fs::write(dir.path().join("specforge.lock"), "not valid json {{{").unwrap();
+
+    let (report, code) = doctor_json(dir.path());
+
+    assert_eq!(code, 1, "{report}");
+    let findings = project_findings(&report);
+    assert_eq!(findings.len(), 1, "{report}");
+    assert_eq!(findings[0]["code"], "lock_unreadable", "{report}");
+    assert_eq!(findings[0]["status"], "error", "{report}");
+    assert!(
+        findings[0]["check"]
+            .as_str()
+            .unwrap()
+            .contains("corrupt lock file at"),
+        "{report}"
+    );
+    assert_eq!(report["extensions_checked"], 0, "{report}");
+
+    let (human, code) = doctor_human(dir.path());
+    assert_eq!(code, 1, "{human}");
+    assert!(
+        human.contains("[ERROR] [lock_unreadable] corrupt lock file at"),
+        "{human}"
+    );
+    assert!(human.contains("[E033]"), "{human}");
+}
+
+/// `specforge.json` texts that are there and can't be used: not JSON, not
+/// an object, an `extensions` value that is not an array.
+const UNUSABLE_CONFIGS: [&str; 3] = [
+    r#"{ "extensions": ["@specforge/product",  }"#,
+    "[1,2]",
+    r#"{"extensions": "@specforge/product"}"#,
+];
+
+// R3 (plan 05): a specforge.json that is there and can't be used fails
+// check with E069 (an error), then an I002 that names the file. It used to
+// compile silently as "no extensions configured".
+#[specforge_test(
+    behavior = "load_extension_manifests",
+    verify = "a specforge.json that is there and can't be used produces E069 first and an I002 that names it"
+)]
+fn an_unusable_config_fails_check_with_e069() {
+    for config in UNUSABLE_CONFIGS {
+        let dir = TempDir::new().unwrap();
+        fs::write(dir.path().join("specforge.json"), config).unwrap();
+        fs::write(dir.path().join("main.spec"), "feature f \"F\" {\n}\n").unwrap();
+
+        for strict in [false, true] {
+            let mut command = specforge_cmd();
+            command.args(["check", "--format", "json"]).arg(dir.path());
+            if strict {
+                command.arg("--strict");
+            }
+            let output = command.output().unwrap();
+
+            assert_eq!(output.status.code(), Some(1), "{config}: {output:?}");
+            let found: Vec<serde_json::Value> = serde_json::from_slice(&output.stdout).unwrap();
+            let codes: Vec<&str> = found.iter().map(|d| d["code"].as_str().unwrap()).collect();
+            assert_eq!(codes, ["E069", "I002"], "{config}: {found:?}");
+            assert_eq!(found[0]["severity"], "Error", "{config}");
+            let message = found[0]["message"].as_str().unwrap();
+            assert!(
+                message.starts_with("specforge.json can't be used: ")
+                    && message.ends_with("; no extension is loaded"),
+                "{config}: {message}"
+            );
+            assert_eq!(
+                found[1]["message"],
+                "specforge.json could not be read — operating in structural-only mode",
+                "{config}"
+            );
+        }
+    }
+
+    // The JSON error names its line and column.
+    let dir = TempDir::new().unwrap();
+    fs::write(dir.path().join("specforge.json"), UNUSABLE_CONFIGS[0]).unwrap();
+    let output = specforge_cmd()
+        .args(["check", "--format", "json"])
+        .arg(dir.path())
+        .output()
+        .unwrap();
+    let found: Vec<serde_json::Value> = serde_json::from_slice(&output.stdout).unwrap();
+    assert!(
+        found[0]["message"]
+            .as_str()
+            .unwrap()
+            .contains("is not valid JSON: expected value at line 1 column 41"),
+        "{found:?}"
+    );
+}
+
+use crate::written::{changed_since, files_under, files_written};
+
+/// `specforge <args> --path <dir> --format json`: its JSON output.
+fn json_of(args: &[&str], dir: &std::path::Path) -> serde_json::Value {
+    let output = specforge_cmd()
+        .args(args)
+        .arg("--path")
+        .arg(dir)
+        .args(["--format", "json"])
+        .output()
+        .unwrap();
+    assert!(output.status.success(), "{args:?}: {output:?}");
+    serde_json::from_slice(&output.stdout).unwrap()
+}
+
+/// A project enabling nothing, and the greet blob beside it (outside it).
+fn empty_project() -> (TempDir, TempDir, String) {
+    let dir = TempDir::new().unwrap();
+    fs::write(
+        dir.path().join("specforge.json"),
+        r#"{"name":"t","version":"0.1.0","extensions":[]}"#,
+    )
+    .unwrap();
+    let blobs = TempDir::new().unwrap();
+    let wasm = blobs.path().join("greet.wasm");
+    fs::write(&wasm, crate::registry::greet_wasm()).unwrap();
+    let wasm = wasm.to_str().unwrap().to_string();
+    (dir, blobs, wasm)
+}
+
+#[specforge_test(
+    behavior = "add_extension_to_existing_project",
+    verify = "add --format json lists the files it wrote in files_written"
+)]
+fn add_json_lists_the_files_it_wrote() {
+    let (dir, _blobs, wasm) = empty_project();
+    let root = dir.path();
+
+    let before = files_under(root);
+    let builtin = json_of(&["add", "@specforge/product"], root);
+    assert_eq!(files_written(&builtin), ["specforge.json"]);
+    assert_eq!(changed_since(root, &before), files_written(&builtin));
+
+    let before = files_under(root);
+    let installed = json_of(&["add", &wasm], root);
+    assert_eq!(
+        files_written(&installed),
+        [
+            ".specforge/extensions/@sdk/greet/extension.wasm",
+            "specforge.json",
+            "specforge.lock"
+        ]
+    );
+    assert_eq!(changed_since(root, &before), files_written(&installed));
+
+    // Already there: nothing written.
+    let before = files_under(root);
+    let again = json_of(&["add", &wasm], root);
+    assert_eq!(again["already_present"], true, "{again}");
+    assert_eq!(files_written(&again), Vec::<String>::new());
+    assert_eq!(changed_since(root, &before), Vec::<String>::new());
+    let enabled = json_of(&["add", "@specforge/product"], root);
+    assert_eq!(files_written(&enabled), Vec::<String>::new());
+}
+
+#[specforge_test(
+    behavior = "remove_extension",
+    verify = "remove --format json lists the files it wrote in files_written"
+)]
+fn remove_json_lists_the_files_it_wrote() {
+    let (dir, _blobs, wasm) = empty_project();
+    let root = dir.path();
+    json_of(&["add", "@specforge/product"], root);
+    json_of(&["add", &wasm], root);
+
+    let before = files_under(root);
+    let installed = json_of(&["remove", "@sdk/greet"], root);
+    assert_eq!(
+        files_written(&installed),
+        [
+            ".specforge/extensions/@sdk/greet/extension.wasm",
+            "specforge.json",
+            "specforge.lock"
+        ]
+    );
+    assert_eq!(changed_since(root, &before), files_written(&installed));
+
+    let before = files_under(root);
+    let builtin = json_of(&["remove", "@specforge/product"], root);
+    assert_eq!(files_written(&builtin), ["specforge.json"]);
+    assert_eq!(changed_since(root, &before), files_written(&builtin));
+}

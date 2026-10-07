@@ -1,103 +1,51 @@
+use crate::support::*;
 use serde_json::{Value, json};
-use specforge_common::SourceSpan;
-use specforge_graph::{Edge, Graph, Node};
+use specforge_extension_sdk::prelude::{PassDiagnostic, PassSeverity, PassSpan};
 use specforge_mcp::McpServer;
-use specforge_parser::{EntityId, EntityKind, FieldMap, FieldValue, VerifyStatement};
 use specforge_test::prelude::*;
 
-fn span() -> SourceSpan {
-    SourceSpan {
+/// `alpha`, a behavior with a contract and one obligation (test.spec).
+const ALPHA: &str = "behavior alpha \"Alpha Behavior\" {\n    contract \"The system MUST do alpha\"\n    verify unit \"does alpha correctly\"\n}\n";
+
+/// `beta`, a feature of `alpha` (features.spec).
+const BETA: &str = "feature beta \"Beta Feature\" {\n    behaviors [alpha]\n}\n";
+
+/// `alpha` and the feature `beta` it belongs to, on disk.
+fn project() -> TestProject {
+    TestProject::new()
+        .file("test.spec", ALPHA)
+        .file("features.spec", BETA)
+}
+
+/// `@test/ext` with the software kinds, `behavior`'s contract a headline
+/// field the context export lifts.
+fn extension() -> TestExtension {
+    TestExtension::software().headline("behavior")
+}
+
+fn test_server() -> Served {
+    project().serve(&[extension()])
+}
+
+/// Adds `gamma`, an invariant with no edges, outside every entity's
+/// subgraph: written to disk, served by the next request.
+fn add_unconnected_gamma(server: &Served) {
+    server.write("gamma.spec", "invariant gamma \"Gamma\" {\n}\n");
+}
+
+/// A feature whose `behaviors` names `ghost`, which no entity declares: the
+/// compile reports E003 at its line 2.
+const BROKEN: &str = "feature broken \"Broken\" {\n    behaviors [ghost]\n}\n";
+
+/// `diagnostic` at test.spec line 1 (alpha), as a pass reports it.
+fn at_alpha(diagnostic: PassDiagnostic) -> PassDiagnostic {
+    diagnostic.with_span(PassSpan {
         file: "test.spec".into(),
         start_line: 1,
-        start_col: 0,
-        end_line: 5,
-        end_col: 0,
-    }
-}
-
-fn test_server() -> McpServer {
-    let mut server = McpServer::new();
-
-    // Initialize
-    let req = json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{}});
-    server.handle_message(&req.to_string());
-
-    // Inject test graph
-    let state = server.state_mut();
-    let mut graph = Graph::new();
-
-    let mut fields_a = FieldMap::new();
-    fields_a.push(
-        "contract".into(),
-        FieldValue::String("The system MUST do alpha".into()),
-    );
-    let verify_stmts = vec![VerifyStatement {
-        kind: "unit".into(),
-        description: "does alpha correctly".into(),
-    }];
-    fields_a.push("verify".into(), FieldValue::VerifyList(verify_stmts));
-
-    graph.add_node(Node {
-        id: EntityId {
-            raw: "alpha".into(),
-        },
-        kind: EntityKind {
-            raw: "behavior".into(),
-        },
-        title: Some("Alpha Behavior".into()),
-        fields: fields_a,
-        source_span: span(),
-        methods: Vec::new(),
-    });
-    graph.add_node(Node {
-        id: EntityId { raw: "beta".into() },
-        kind: EntityKind {
-            raw: "feature".into(),
-        },
-        title: Some("Beta Feature".into()),
-        fields: FieldMap::new(),
-        source_span: SourceSpan {
-            file: "features.spec".into(),
-            start_line: 10,
-            start_col: 0,
-            end_line: 15,
-            end_col: 0,
-        },
-        methods: Vec::new(),
-    });
-    graph.add_edge(Edge {
-        source: "beta".into(),
-        target: "alpha".into(),
-        label: "behaviors".into(),
-    });
-
-    state.serve_graph(graph, Vec::new());
-
-    server
-}
-
-fn call(server: &mut McpServer, method: &str, params: Value) -> Value {
-    let req = json!({"jsonrpc":"2.0","id":1,"method":method,"params":params});
-    let resp = server.handle_message(&req.to_string()).unwrap();
-    serde_json::from_str(&resp).unwrap()
-}
-
-/// Adds `gamma`, a node with no edges, outside every entity's subgraph.
-fn add_unconnected_gamma(server: &mut McpServer) {
-    server.state_mut().edit_graph(|graph| {
-        graph.add_node(Node {
-            id: EntityId {
-                raw: "gamma".into(),
-            },
-            kind: EntityKind {
-                raw: "invariant".into(),
-            },
-            title: Some("Gamma".into()),
-            fields: FieldMap::new(),
-            source_span: span(),
-            methods: Vec::new(),
-        });
-    });
+        start_col: 1,
+        end_line: 1,
+        end_col: 10,
+    })
 }
 
 fn node_ids(parsed: &Value) -> Vec<&str> {
@@ -109,17 +57,6 @@ fn node_ids(parsed: &Value) -> Vec<&str> {
         .collect();
     ids.sort_unstable();
     ids
-}
-
-fn read_resource(server: &mut McpServer, uri: &str) -> Value {
-    call(server, "resources/read", json!({"uri": uri}))
-}
-
-fn resource_text(resp: &Value) -> String {
-    resp["result"]["contents"][0]["text"]
-        .as_str()
-        .unwrap()
-        .to_string()
 }
 
 // B:expose_graph_as_mcp_resource — verify unit "returns full graph as JSON"
@@ -166,25 +103,16 @@ fn graph_resource_has_mime_type() {
     assert_eq!(alpha["fields"]["contract"], "The system MUST do alpha");
 }
 
-/// A project on disk using `extensions`, compiled into `server` through
-/// `specforge.validate`.
-fn validate_project(server: &mut McpServer, dir: &std::path::Path, extensions: &[&str]) {
-    std::fs::write(
-        dir.join("specforge.json"),
-        json!({"name": "t", "version": "0.1.0", "extensions": extensions}).to_string(),
-    )
-    .unwrap();
-    std::fs::write(
-        dir.join("main.spec"),
-        "behavior act \"Act\" {\n  contract \"MUST act\"\n}\n",
-    )
-    .unwrap();
-    let resp = call(
-        server,
-        "tools/call",
-        json!({"name": "specforge.validate", "arguments": {"path": dir.to_str().unwrap()}}),
-    );
-    assert!(resp["error"].is_null(), "{resp}");
+/// A project on disk using the builtin `extensions`, served with the
+/// project's own component runtime.
+fn builtin_project(extensions: &[&str]) -> Served {
+    TestProject::new()
+        .enabling(extensions)
+        .file(
+            "main.spec",
+            "behavior act \"Act\" {\n  contract \"MUST act\"\n}\n",
+        )
+        .serve_components()
 }
 
 fn kind_names(schema: &Value) -> Vec<&str> {
@@ -201,9 +129,7 @@ fn kind_names(schema: &Value) -> Vec<&str> {
     verify = "specforge://schema resource returns GraphProtocolSchema JSON"
 )]
 fn schema_resource_returns_the_graph_protocol_schema() {
-    let dir = tempfile::tempdir().unwrap();
-    let mut server = test_server();
-    validate_project(&mut server, dir.path(), &["@specforge/software"]);
+    let mut server = builtin_project(&["@specforge/software"]);
 
     let schema: Value = serde_json::from_str(&resource_text(&read_resource(
         &mut server,
@@ -239,7 +165,6 @@ fn schema_resource_returns_the_graph_protocol_schema() {
 )]
 fn context_resource_returns_context_graph() {
     let mut server = test_server();
-    crate::support::declare_headline_fields(&mut server, "behavior");
     let resp = read_resource(&mut server, "specforge://context");
     let text = resource_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();
@@ -299,36 +224,24 @@ fn brief_resource_returns_brief_graph() {
     verify = "specforge://diagnostics resource returns current DiagnosticBag as JSON"
 )]
 fn diagnostics_resource_returns_array() {
-    let mut server = test_server();
-    let diagnostic = |code: &str, severity, message: &str| specforge_common::Diagnostic {
-        code: code.into(),
-        severity,
-        message: message.into(),
-        span: Some(span()),
-        suggestion: None,
-        data: None,
-    };
-    crate::support::report(
-        server.state_mut(),
-        vec![
-            diagnostic(
-                "E003",
-                specforge_common::Severity::Error,
-                "unresolved reference",
-            ),
-            diagnostic("W001", specforge_common::Severity::Warning, "orphan entity"),
-        ],
-    );
+    // E003: a real unresolved reference; W901: a check-phase pass's
+    // finding, reported after the graph checks.
+    let mut server = project().file("broken.spec", BROKEN).serve(&[
+        extension().reporting(at_alpha(PassDiagnostic::warning("W901", "orphan entity")))
+    ]);
     let resp = read_resource(&mut server, "specforge://diagnostics");
     let text = resource_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();
     let diags = parsed.as_array().unwrap();
     assert_eq!(diags.len(), 2, "{parsed}");
     assert_eq!(diags[0]["code"], "E003");
-    assert_eq!(diags[0]["message"], "unresolved reference");
-    assert_eq!(diags[1]["code"], "W001");
+    assert_eq!(diags[0]["message"], UNRESOLVED_GHOST);
+    assert_eq!(diags[1]["code"], "W901");
     assert_eq!(diags[1]["message"], "orphan entity");
 }
+
+/// What the compile reports for [`BROKEN`]'s reference to `ghost`.
+const UNRESOLVED_GHOST: &str = "unresolved reference 'ghost' in entity 'broken'";
 
 // B:expose_entity_as_mcp_resource — verify unit "returns entity subgraph"
 #[specforge_test(
@@ -337,7 +250,7 @@ fn diagnostics_resource_returns_array() {
 )]
 fn entity_resource_returns_subgraph() {
     let mut server = test_server();
-    add_unconnected_gamma(&mut server);
+    add_unconnected_gamma(&server);
     let resp = read_resource(&mut server, "specforge://graph/alpha");
     let text = resource_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();
@@ -369,8 +282,16 @@ fn entity_resource_returns_subgraph() {
 fn entity_resource_error_for_unknown() {
     let mut server = test_server();
     let resp = read_resource(&mut server, "specforge://graph/nonexistent");
-    assert_eq!(resp["error"]["code"], -32602);
-    assert_eq!(resp["error"]["message"], "Entity not found: nonexistent");
+    // Not found, as a handshake session says it (MCP 2025-11-25).
+    assert_eq!(resp["error"]["code"], -32002);
+    assert_eq!(
+        resp["error"]["message"],
+        "unresolved scope entity 'nonexistent' — entity not found in graph"
+    );
+    let data = &resp["error"]["data"];
+    assert_eq!(data["code"], "entity_not_found", "{resp}");
+    assert_eq!(data["entity_id"], "nonexistent", "{resp}");
+    assert_eq!(data["uri"], "specforge://graph/nonexistent", "{resp}");
     // Told apart from a malformed ID.
     let malformed = read_resource(&mut server, "specforge://graph/!@#$");
     assert_ne!(malformed["error"]["message"], resp["error"]["message"]);
@@ -447,21 +368,8 @@ fn graph_refreshes_after_recompilation() {
     let parsed1: Value = serde_json::from_str(&text1).unwrap();
     let count1 = parsed1["nodes"].as_array().unwrap().len();
 
-    // Add a new node to simulate recompilation
-    server.state_mut().edit_graph(|graph| {
-        graph.add_node(Node {
-            id: EntityId {
-                raw: "delta".into(),
-            },
-            kind: EntityKind {
-                raw: "behavior".into(),
-            },
-            title: Some("Delta Behavior".into()),
-            fields: FieldMap::new(),
-            source_span: span(),
-            methods: Vec::new(),
-        });
-    });
+    // A new entity written to disk: the next read recompiles.
+    server.write("delta.spec", "behavior delta \"Delta Behavior\" {\n}\n");
 
     let resp2 = read_resource(&mut server, "specforge://graph");
     let text2 = resource_text(&resp2);
@@ -475,20 +383,20 @@ fn graph_refreshes_after_recompilation() {
     verify = "schema updates when extensions change"
 )]
 fn schema_updates_when_extensions_change() {
-    let dir = tempfile::tempdir().unwrap();
-    let mut server = test_server();
-    validate_project(&mut server, dir.path(), &["@specforge/software"]);
+    let mut server = builtin_project(&["@specforge/software"]);
     let read = |server: &mut McpServer| -> Value {
         serde_json::from_str(&resource_text(&read_resource(server, "specforge://schema"))).unwrap()
     };
     let before = read(&mut server);
     assert!(!kind_names(&before).contains(&"feature"), "{before}");
 
-    // Adding @specforge/product brings its kinds and its extension entry.
-    validate_project(
-        &mut server,
-        dir.path(),
-        &["@specforge/software", "@specforge/product"],
+    // Enabling @specforge/product on disk brings its kinds and its
+    // extension entry: the next read reloads the environment.
+    server.write(
+        "specforge.json",
+        &json!({"name": "t", "version": "0.1.0",
+            "extensions": ["@specforge/software", "@specforge/product"]})
+        .to_string(),
     );
     let after = read(&mut server);
     assert!(kind_names(&after).contains(&"feature"), "{after}");
@@ -513,20 +421,7 @@ fn context_refreshes_after_recompilation() {
     let parsed1: Value = serde_json::from_str(&text1).unwrap();
     let count1 = parsed1["nodes"].as_array().unwrap().len();
 
-    server.state_mut().edit_graph(|graph| {
-        graph.add_node(Node {
-            id: EntityId {
-                raw: "delta".into(),
-            },
-            kind: EntityKind {
-                raw: "behavior".into(),
-            },
-            title: Some("Delta Behavior".into()),
-            fields: FieldMap::new(),
-            source_span: span(),
-            methods: Vec::new(),
-        });
-    });
+    server.write("delta.spec", "behavior delta \"Delta Behavior\" {\n}\n");
 
     let resp2 = read_resource(&mut server, "specforge://context");
     let text2 = resource_text(&resp2);
@@ -547,20 +442,7 @@ fn brief_refreshes_after_recompilation() {
     let parsed1: Value = serde_json::from_str(&text1).unwrap();
     let count1 = parsed1["nodes"].as_array().unwrap().len();
 
-    server.state_mut().edit_graph(|graph| {
-        graph.add_node(Node {
-            id: EntityId {
-                raw: "delta".into(),
-            },
-            kind: EntityKind {
-                raw: "behavior".into(),
-            },
-            title: Some("Delta Behavior".into()),
-            fields: FieldMap::new(),
-            source_span: span(),
-            methods: Vec::new(),
-        });
-    });
+    server.write("delta.spec", "behavior delta \"Delta Behavior\" {\n}\n");
 
     let resp2 = read_resource(&mut server, "specforge://brief");
     let text2 = resource_text(&resp2);
@@ -581,30 +463,23 @@ fn diagnostics_updates_after_recompilation() {
     let parsed1: Value = serde_json::from_str(&text1).unwrap();
     let count1 = parsed1.as_array().unwrap().len();
 
-    // Add a diagnostic to state
-    crate::support::report_also(
-        server.state_mut(),
-        specforge_common::Diagnostic {
-            code: "V001".into(),
-            severity: specforge_common::Severity::Error,
-            message: "test diagnostic".into(),
-            span: Some(SourceSpan {
-                file: "test.spec".into(),
-                start_line: 1,
-                start_col: 0,
-                end_line: 1,
-                end_col: 10,
-            }),
-            suggestion: None,
-            data: None,
-        },
-    );
+    // A dangling reference written to disk: the next read recompiles and
+    // reports E003.
+    server.write("broken.spec", BROKEN);
 
     let resp2 = read_resource(&mut server, "specforge://diagnostics");
     let text2 = resource_text(&resp2);
     let parsed2: Value = serde_json::from_str(&text2).unwrap();
     let count2 = parsed2.as_array().unwrap().len();
     assert_eq!(count2, count1 + 1);
+    assert!(
+        parsed2
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|d| d["code"] == "E003" && d["message"] == UNRESOLVED_GHOST),
+        "{parsed2}"
+    );
 }
 
 // B:expose_diagnostics_as_mcp_resource — verify unit "each diagnostic includes severity, code, message, file, span"
@@ -613,25 +488,8 @@ fn diagnostics_updates_after_recompilation() {
     verify = "each diagnostic includes severity, code, message, file, and span"
 )]
 fn diagnostics_fields_present() {
-    let mut server = test_server();
-
-    crate::support::report_also(
-        server.state_mut(),
-        specforge_common::Diagnostic {
-            code: "V001".into(),
-            severity: specforge_common::Severity::Error,
-            message: "test error".into(),
-            span: Some(SourceSpan {
-                file: "test.spec".into(),
-                start_line: 1,
-                start_col: 0,
-                end_line: 1,
-                end_col: 10,
-            }),
-            suggestion: None,
-            data: None,
-        },
-    );
+    // E003 at broken.spec line 2.
+    let mut server = project().file("broken.spec", BROKEN).serve(&[extension()]);
 
     let resp = read_resource(&mut server, "specforge://diagnostics");
     let text = resource_text(&resp);
@@ -682,21 +540,11 @@ fn entity_refreshes_after_recompilation() {
         .unwrap()
         .to_string();
 
-    // Replace alpha with a new title
-    server.state_mut().edit_graph(|graph| {
-        graph.add_node(Node {
-            id: EntityId {
-                raw: "alpha".into(),
-            },
-            kind: EntityKind {
-                raw: "behavior".into(),
-            },
-            title: Some("Alpha Revised".into()),
-            fields: FieldMap::new(),
-            source_span: span(),
-            methods: Vec::new(),
-        });
-    });
+    // alpha retitled on disk.
+    server.write(
+        "test.spec",
+        &ALPHA.replace("Alpha Behavior", "Alpha Revised"),
+    );
 
     let resp2 = read_resource(&mut server, "specforge://graph/alpha");
     let text2 = resource_text(&resp2);
@@ -723,14 +571,14 @@ fn entity_refreshes_after_recompilation() {
 )]
 fn graph_resource_root_scopes_with_schema_ref() {
     let mut server = test_server();
-    add_unconnected_gamma(&mut server);
+    add_unconnected_gamma(&server);
     let unscoped: Value = serde_json::from_str(&resource_text(&read_resource(
         &mut server,
         "specforge://graph",
     )))
     .unwrap();
     assert_eq!(node_ids(&unscoped), vec!["alpha", "beta", "gamma"]);
-    let resp = read_resource(&mut server, "specforge://graph?root=alpha");
+    let resp = read_resource(&mut server, "specforge://graph?scope=alpha");
     let text = resource_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();
     let ids: Vec<&str> = parsed["nodes"]
@@ -785,14 +633,43 @@ fn graph_resource_max_tokens_budgets() {
     // fails with E062 when not even the empty envelope fits, as
     // `specforge export --max-tokens` does (ADR 0004 D3-a).
     let resp = read_resource(&mut server, "specforge://graph?max_tokens=1");
-    let message = resp["error"]["message"].as_str().unwrap_or_default();
-    assert!(message.starts_with("E062"), "{resp}");
+    assert_eq!(resp["error"]["code"], -32602, "{resp}");
+    assert_eq!(resp["error"]["data"]["code"], "invalid_input", "{resp}");
+    assert_eq!(
+        resp["error"]["data"]["diagnostic"]["code"], "E062",
+        "{resp}"
+    );
 
     let resp = read_resource(&mut server, "specforge://graph?max_tokens=200");
     let text = resource_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();
     assert!(parsed.get("schema").is_none(), "{parsed}");
     assert!(specforge_emitter::estimate_tokens(&text) <= 200, "{text}");
+}
+
+// `root` is what the resource has always read: it stays an alias of `scope`.
+#[specforge_test(
+    behavior = "serve_graph_resource",
+    verify = "root is accepted as an alias of the scope query parameter"
+)]
+fn root_is_an_alias_of_scope() {
+    let mut server = test_server();
+    add_unconnected_gamma(&server);
+    let by_scope = read_resource(&mut server, "specforge://graph?scope=alpha");
+    let by_root = read_resource(&mut server, "specforge://graph?root=alpha");
+    assert_eq!(resource_text(&by_root), resource_text(&by_scope));
+    let parsed: Value = serde_json::from_str(&resource_text(&by_root)).unwrap();
+    assert_eq!(node_ids(&parsed), vec!["alpha", "beta"]);
+    // The context and brief resources read it the same way.
+    for resource in ["context", "brief"] {
+        let by_scope = read_resource(&mut server, &format!("specforge://{resource}?scope=alpha"));
+        let by_root = read_resource(&mut server, &format!("specforge://{resource}?root=alpha"));
+        assert_eq!(
+            resource_text(&by_root),
+            resource_text(&by_scope),
+            "{resource}"
+        );
+    }
 }
 
 // B:expose_context_as_mcp_resource — verify unit "context entity template scopes to the subgraph"
@@ -802,7 +679,7 @@ fn graph_resource_max_tokens_budgets() {
 )]
 fn context_entity_template_scopes() {
     let mut server = test_server();
-    add_unconnected_gamma(&mut server);
+    add_unconnected_gamma(&server);
     let resp = read_resource(&mut server, "specforge://context/alpha");
     let text = resource_text(&resp);
     assert_eq!(
@@ -872,27 +749,25 @@ fn context_entity_template_registered() {
     verify = "each catalogued diagnostic in the resource carries its title"
 )]
 fn diagnostics_resource_gives_catalogued_codes_their_title() {
-    let mut server = test_server();
-    let diagnostic = |code: &str| specforge_common::Diagnostic {
-        code: code.into(),
-        severity: specforge_common::Severity::Warning,
-        message: "m".into(),
-        span: None,
-        suggestion: None,
-        data: None,
-    };
-    // W008 is catalogued; W901 is a third-party extension's.
-    crate::support::report(
-        server.state_mut(),
-        vec![diagnostic("W008"), diagnostic("W901")],
-    );
+    // E003 is catalogued and the host's own; W901 is a third-party
+    // extension's check-phase pass finding, which names its extension and
+    // has no catalogue entry.
+    let mut server = project()
+        .file("broken.spec", BROKEN)
+        .serve(&[extension().reporting(at_alpha(PassDiagnostic::new(
+            "W901",
+            PassSeverity::Warning,
+            "m",
+        )))]);
     let bag: Value = serde_json::from_str(&resource_text(&read_resource(
         &mut server,
         "specforge://diagnostics",
     )))
     .unwrap();
-    assert_eq!(bag[0]["code"], "W008");
-    assert_eq!(bag[0]["title"], "Unimplemented feature");
+    assert_eq!(bag[0]["code"], "E003");
+    assert_eq!(bag[0]["title"], "Unresolved reference");
+    assert!(bag[0].get("origin").is_none(), "{bag}");
     assert_eq!(bag[1]["code"], "W901");
     assert_eq!(bag[1]["title"], Value::Null, "{bag}");
+    assert_eq!(bag[1]["origin"], "@test/ext", "{bag}");
 }

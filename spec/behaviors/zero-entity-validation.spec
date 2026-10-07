@@ -13,7 +13,7 @@ use "types/zero-entity-core"
 
 // -- Declarative Validation --------------------------------------------------
 
-// No consumes — synchronous helper called by register_validation_rules_from_manifest
+// No consumes — synchronous helper the registry build runs (registry_build_rules)
 behavior parse_validation_rule_pattern "Parse Validation Rule Pattern" {
   features   [declarative_validation_rules]
   invariants [zero_domain_knowledge_core, declarative_validation_determinism]
@@ -25,21 +25,37 @@ behavior parse_validation_rule_pattern "Parse Validation Rule Pattern" {
   ensures {
     patterns_parsed     "Each validationRules entry parsed into a well-formed ValidationRulePattern"
     unrecognized_warned "Unrecognized pattern kinds produce warning diagnostics with extension name"
+    ignored_warned      "Properties a check does not read produce W147; the rule is registered without them"
   }
   contract   """
-    When the compiler reads a extension manifest's validationRules array,
-    it MUST parse each entry into a ValidationRulePattern. The check
-    field MUST be one of the recognized pattern kinds: no_incoming_edges,
-    no_outgoing_edges, missing_field_when_flag_set, field_value_constraint,
-    cycle_detection, file_exists. Unrecognized pattern kinds MUST produce
-    a warning diagnostic with the extension name and invalid kind.
+    When the registry build reads an extension declaration's validation
+    rules, it MUST turn each into a typed rule whose check carries exactly
+    what that check reads. The check MUST be one of the extension
+    vocabulary's kinds: no_incoming_edges, no_outgoing_edges, no_edges,
+    missing_field_when_flag_set, missing_required_field,
+    conditional_field_required, field_value_constraint, cycle_detection,
+    file_exists, verify_kind_allowlist, no_verify_statements, custom.
+    A rule that cannot work as declared — an unrecognized check, a field,
+    constraint, edge type or wasm_function its check requires and lacks, an
+    empty values list, a regex that does not compile — or a rule that reads
+    verify statements on a declared kind that accepts none — MUST produce
+    W112 with the extension name and MUST NOT be registered. A property its
+    check does not read (an edge_type on a field check, a constraint on an
+    edge check, a wasm_function on a declarative check, a constraint kind
+    or a pattern or values its check does not read) MUST produce W147, and
+    the rule MUST be registered without it.
   """
   verify unit "parses no_incoming_edges pattern from manifest"
   verify unit "parses missing_field_when_flag_set pattern from manifest"
   verify unit "unrecognized pattern kind produces warning"
   verify unit "all required fields validated on each rule"
   verify unit "parses field_value_constraint pattern from manifest"
-  verify contract "Parse Validation Rule Pattern: validation rule parsing holds — manifest_rules_available, patterns_parsed, unrecognized_warned"
+  verify unit "a cycle_detection rule without an edge_type produces W112 and is not registered"
+  verify unit "a verify_kind_allowlist rule without values produces W112 and is not registered"
+  verify unit "a rule that reads verify statements on a kind that accepts none produces W112 and is not registered"
+  verify unit "a property its check does not read produces W147 and the rule is registered without it"
+  verify unit "a conditional_field_required constraint of another kind produces W147 and is read as when_field_equals"
+  verify contract "Parse Validation Rule Pattern: validation rule parsing holds — manifest_rules_available, patterns_parsed, unrecognized_warned, ignored_warned"
 }
 
 behavior execute_validation_pattern "Execute Validation Pattern" {
@@ -69,9 +85,13 @@ behavior execute_validation_pattern "Execute Validation Pattern" {
     entities whose kind has the specified flag set to true have the specified field. field_value_constraint MUST
     check that a named field on entities of the target kind satisfies a
     value predicate (non-empty, matches regex, or is one of an allowed set).
-    cycle_detection MUST check for cycles among the specified edge type.
+    cycle_detection MUST report each entity of the target kind (every
+    entity when no target kind is set) that sits on a cycle of the edge
+    type's edges, following every field that writes that edge type.
     file_exists MUST check that file-reference fields point to existing
-    files. custom MUST dispatch to the Wasm function registered by
+    files, a relative path resolved against the spec root (never the
+    working directory). A list field's items are each a path. A rule without a target kind applies to entities
+    of every kind. custom MUST dispatch to the Wasm function registered by
     register_custom_validation_patterns. Each pattern violation MUST
     produce a diagnostic with the configured code and severity.
   """
@@ -81,7 +101,12 @@ behavior execute_validation_pattern "Execute Validation Pattern" {
   verify unit "missing_field_when_flag_set detects missing specified field on flagged entity"
   verify unit "field_value_constraint rejects invalid field value"
   verify unit "cycle_detection finds cycles in edge type"
+  verify unit "a cycle_detection rule without a target_kind reports every entity on a cycle of its edge type"
+  verify unit "cycle_detection follows every field that writes its edge type"
+  verify unit "the builtin extensions' rules register with no W112, W147 or W021"
   verify unit "file_exists reports missing file-reference field targets"
+  verify unit "file_exists resolves a relative path against the spec root, never the working directory"
+  verify unit "file_exists checks each item of a list field as its own path"
   verify unit "custom pattern dispatches to registered Wasm function"
   verify unit "pattern violation produces diagnostic with configured code and severity"
   verify contract "Execute Validation Pattern: declarative validation holds — all_entities_matched, violations_diagnosed, deterministic_order"
@@ -115,51 +140,11 @@ behavior emit_diagnostic_from_pattern "Emit Diagnostic From Pattern" {
   verify contract "Emit Diagnostic From Pattern: pattern diagnostic emission holds — violation_detected, pattern_configured, diagnostic_emitted, template_interpolated"
 }
 
-behavior register_extension_validation_rules "Register Extension Validation Rules" {
-  features   [declarative_validation_rules]
-  invariants [
-    zero_domain_knowledge_core,
-    declarative_validation_determinism,
-    registry_population_before_validation,
-  ]
-  category   command
-  types      [ValidationRulePattern, ExtensionDeclaration]
-  consumes   [extension_manifests_loaded]
-  requires {
-    extension_manifests_loaded_fired "extension_manifests_loaded event has fired, confirming all manifests are parsed and accessible"
-    individual_rules_parsed          "Per-extension validation rules already parsed by register_validation_rules_from_manifest"
-  }
-  ensures {
-    unified_rule_set_produced    "Single validation rule set aggregated from all installed extensions"
-    deterministic_order_enforced "Rules sorted by code for deterministic execution order"
-    duplicate_codes_warned       "Duplicate diagnostic codes across extensions produce warnings"
-  }
-  contract   """
-    During extension loading, the compiler MUST collect all validationRules
-    from all installed extensions into a single validation rule set. This
-    behavior operates at the cross-extension level — it aggregates rules
-    already parsed by register_validation_rules_from_manifest into the
-    final rule set used by execute_validation_pattern. Duplicate diagnostic
-    codes across extensions MUST produce a warning listing both extensions.
-    Rules MUST be sorted by code for deterministic execution order.
-    Collection MUST complete before any declarative validation begins.
-    The rule set MUST also contain a generated E006 rule for every
-    field registered as required, so required fields are enforced without
-    each extension declaring its own rule.
-  """
-  verify unit "rules from multiple extensions are collected"
-  verify unit "duplicate codes across extensions produce warning"
-  verify unit "rules sorted by code for deterministic order"
-  verify unit "extensions produce E006 rules for required fields"
-  verify unit "E006 covers all required fields from builtin extensions"
-  verify contract "Register Extension Validation Rules: cross-extension rule aggregation holds — extension_manifests_loaded_fired, individual_rules_parsed, unified_rule_set_produced, deterministic_order_enforced, duplicate_codes_warned"
-}
-
 behavior register_custom_validation_patterns "Register Custom Validation Patterns" {
   features   [declarative_validation_rules]
   invariants [zero_domain_knowledge_core, declarative_validation_determinism]
   category   command
-  types      [ValidationRulePattern, CustomValidationPattern, ExtensionDeclaration]
+  types      [ValidationRulePattern, CustomCall, ExtensionDeclaration]
   refs       [provide_host_function_query_graph]
   ports      [WasmRuntime]
   consumes   [extension_manifests_loaded]
@@ -192,8 +177,10 @@ behavior register_custom_validation_patterns "Register Custom Validation Pattern
     time: when the extensions load, each custom rule's wasm_function is
     called once on an entity of the rule's target kind that declares
     nothing, and a call that does not answer with a verdict is reported.
-    The rule stays registered; dispatch then skips an entity whose call
-    fails without reporting it again. A custom rule that names no
+    The rule stays registered. During validation, the entities whose call
+    fails are not checked; they MUST be reported once per rule per check
+    as W148, naming how many failed and the first one with its error, and
+    carrying every failed entity with its error as the diagnostic's data. A custom rule that names no
     wasm_function MUST produce W112 and MUST NOT be registered.
   """
   verify unit "custom pattern registered with wasm_function reference"
@@ -202,7 +189,66 @@ behavior register_custom_validation_patterns "Register Custom Validation Pattern
   verify unit "custom pattern dispatched to Wasm runtime during validation"
   verify unit "custom pattern failure emits configured diagnostic"
   verify unit "a custom validator's verdict is read as the protocol's ValidatorVerdict, and a failure is reported once as W112"
+  verify unit "a custom rule whose function fails on entities produces one W148 per check naming how many were not checked"
   verify contract "Register Custom Validation Patterns: custom validation pattern registration holds — extension_manifests_loaded_fired, wasm_runtime_available, custom_patterns_registered, wasm_functions_resolved"
+}
+
+behavior snapshot_entities_once "Snapshot the Entities Once per Compile" {
+  features   [declarative_validation_rules]
+  invariants [
+    zero_domain_knowledge_core,
+    declarative_validation_determinism,
+    testable_entity_classification,
+  ]
+  category   command
+  types      [PassEntity, ValidatorContext, Diagnostic]
+  consumes   [graph_built]
+  requires {
+    graph_and_registries "the graph is built and the registry build it was built with is available"
+  }
+  ensures {
+    one_text_per_field "every field an entity writes has one text, the same for every reader"
+    one_standing       "every entity has one standing: its kind testable or not, owing obligations or not, counting toward coverage or not"
+    built_once         "the checks, the check passes and the coverage of one compile read one snapshot"
+  }
+  contract   """
+    After the graph is built, the compiler MUST take one snapshot of its
+    entities, read with the registry build. Every check after the build
+    (the registry checks, the extensions' declarative and custom rules,
+    the check-phase passes) and the coverage of that compile MUST read
+    it. A session MUST take a new one with every update.
+
+    Field text: every field an entity writes has exactly one text, which
+    declarative rules match, custom validators receive as the field's
+    value (always a string) and compiler passes receive in `fields`. A
+    string, identifier or date is its text as written; an integer or a
+    boolean its literal; a list of strings or references its items
+    joined by ", "; a variant list or a type union its members joined by
+    " | "; a mixed list its items' texts joined by ", "; an expression
+    group its expressions joined by ", "; verify statements their texts
+    joined by "; "; a block its keys joined by ", ". An empty list or
+    block is written and its text is empty. No written field is left
+    out and no value is null. A name written twice has the last one's
+    value.
+
+    Standing: an entity's kind is testable when its extension says so.
+    It owes obligations of its own when a no_verify_statements rule
+    applies to its kind (a rule without a target kind applies to every
+    kind) and neither a union body, nor a set field whose registry entry
+    exempts obligations, nor its kind accepting no verify statements
+    exempts it. It counts toward coverage when its
+    kind is testable and it owes obligations or declares some. The
+    rules, the pass input's `exempt` (it owes none), the coverage rule,
+    stats and the verify-stub fix all read this one standing.
+  """
+  verify unit "every field an entity writes has one text, the same for declarative rules, custom validators and compiler passes"
+  verify unit "a variant list or type union is its members joined by ' | ', a mixed list or expression group its items joined by ', '"
+  verify unit "an empty list or block is written, with empty text, never left out or null"
+  verify unit "an entity owes obligations when a no_verify_statements rule applies to its kind and neither a union body nor an exempting flag exempts it"
+  verify unit "a rule without a target kind applies to every kind, for the rule, the standing and the verify stub alike"
+  verify unit "a kind that accepts no verify statements owes no obligations, whatever rule applies to it"
+  verify unit "the checks, the check passes and the coverage of one compile read one snapshot"
+  verify unit "a session's snapshot follows every update"
 }
 
 // -- Field Validation --------------------------------------------------------
@@ -294,110 +340,4 @@ behavior check_field_value_types "Check Field Value Types" {
   verify unit "an enum value suggests the closest declared value"
   verify unit "an export with a coerced string_list validates against the published schema"
   verify contract "Check Field Value Types: declared field types hold — registries_populated_fired, single_values_listed, mismatches_diagnosed, undeclared_untouched"
-}
-
-// Registry-level collision detection during manifest loading: inter-extension
-// kind collisions (E026).
-behavior detect_duplicate_entity_kinds "Detect Duplicate Entity Kinds" {
-  features   [entity_kind_conflict_prevention]
-  invariants [zero_domain_knowledge_core, registry_population_before_validation]
-  category   validation
-  types      [ExtensionDeclaration, EntityKindDescriptor, KindRegistryEntry, Diagnostic]
-  requires {
-    manifests_loading "Extension manifests are being loaded and entity kinds are being registered into KindRegistry"
-  }
-  ensures {
-    collisions_detected "E026 diagnostic emitted when two extensions register the same entity kind keyword"
-    first_wins_enforced "First extension in topological order owns the kind on collision"
-  }
-  contract   """
-    When two extensions register the same entity kind keyword, the compiler
-    MUST detect the collision during registry population. The first extension
-    in topological order MUST own the kind. The second registration MUST
-    produce an E026 diagnostic naming both extensions.
-  """
-  verify unit "duplicate kind from two extensions produces E026"
-  verify unit "first extension in topological order owns the kind"
-  verify unit "single extension registering a kind produces no diagnostic"
-  verify contract "Detect Duplicate Entity Kinds: duplicate entity kind detection holds — manifests_loading, collisions_detected, first_wins_enforced"
-}
-
-behavior validate_peer_dependencies "Validate Peer Dependencies" {
-  features   [wasm_extension_runtime]
-  invariants [zero_domain_knowledge_core, registry_population_before_validation]
-  category   validation
-  types      [ExtensionDeclaration, PeerDependency, ExtensionError]
-  produces   [extension_loading_failed]
-  requires {
-    manifests_available "All declared extension manifests have been loaded and their peer_dependencies fields are accessible"
-  }
-  ensures {
-    dependencies_validated "Every peer dependency checked against installed extensions for semver compatibility"
-    unsatisfied_blocked    "Unsatisfied peer dependencies produce hard error diagnostics that fail the check"
-    loading_failed_emitted "extension_loading_failed event emitted for extensions with unmet dependencies"
-  }
-  contract   """
-    During extension loading, once every extension is loaded, the compiler
-    MUST validate that every required peer dependency declared in an
-    extension's manifest is satisfied by an installed extension at a
-    compatible semver version. An optional peer that is not installed is
-    not an error; an optional peer that is installed MUST satisfy its
-    range. Unsatisfied peer dependencies MUST produce a hard error
-    diagnostic (E027) naming the missing extension and required version
-    range, which fails the check. The extension's kinds are still
-    registered, so its entities are checked rather than each reported as
-    an unknown kind (E024).
-  """
-  verify unit "satisfied peer dependency passes validation"
-  verify unit "missing peer dependency produces hard error"
-  verify unit "incompatible version produces hard error with required range"
-  verify unit "missing optional peer dependency passes validation"
-  verify unit "installed optional peer outside its range produces hard error"
-  verify integration "specforge check reports a missing required peer dependency"
-  verify contract "Validate Peer Dependencies: peer dependency validation holds — manifests_available, dependencies_validated, unsatisfied_blocked, loading_failed_emitted"
-}
-
-// Moved from behaviors/validation.spec — belongs with zero-entity core validation
-behavior validate_extension_testability "Validate Extension Testability" {
-  features   [extension_manifest]
-  invariants [testable_entity_classification, zero_domain_knowledge_core]
-  category   validation
-  types      [Diagnostic, KindRegistryEntry]
-  consumes   [registries_populated]
-  requires {
-    registries_populated_fired "registries_populated event has fired, confirming all entity kinds are registered with their flags"
-  }
-  ensures {
-    flag_consistency_checked     "Every KindRegistryEntry's testable and supportsVerify flags checked for consistency"
-    advisory_diagnostics_emitted "W017 emitted for a testable kind that can't declare obligations"
-  }
-  contract   """
-    This behavior checks boolean flag consistency generically across all
-    extension-declared entity kinds. The validator MUST detect inconsistencies
-    between an extension manifest's testable and supportsVerify flags
-    for each entity kind.
-
-    An entity kind marked testable=true MUST have supportsVerify=true.
-    If not, the validator MUST produce a W017 warning — testability
-    requires a mechanism for declaring test intent.
-
-    An entity kind with supportsVerify=true but testable=false is a
-    deliberate combination (a formal property accepts verify statements
-    without counting toward coverage) and produces no diagnostic.
-
-    These checks compare boolean flags from the same KindRegistry entry —
-    the core does not interpret what "testable" means semantically, it only
-    checks that the flags are not contradictory. This is a post-registration
-    manifest lint pass, not a domain-semantic check. It runs after
-    register_entity_kinds_from_manifest completes (during the
-    registries_populated → validation_complete window): the registry
-    build runs it, so check, the LSP, watch and MCP all report W017. The
-    diagnostic is advisory — it does not block compilation.
-  """
-  verify unit "testable kind without supportsVerify produces W017"
-  verify unit "testable kind with supportsVerify=true passes"
-  verify unit "a kind that accepts verify statements but is not testable produces no diagnostic"
-  verify unit "the registry build reports W017 for a testable kind without supportsVerify"
-  verify unit "consistent testable and supportsVerify flags produce no diagnostic"
-  verify contract "Validate Extension Testability: extension testability validation holds — registries_populated_fired, flag_consistency_checked, advisory_diagnostics_emitted"
 }

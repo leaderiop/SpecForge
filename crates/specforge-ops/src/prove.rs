@@ -31,7 +31,7 @@
 
 use std::process::Command;
 
-use specforge_common::{Diagnostic, SourceSpan, Sym};
+use specforge_common::{Diagnostic, SourceSpan, Sym, codes};
 use specforge_parser::{Expr, SpannedExpr, parse_expression};
 use specforge_project::passes::AnalysisContext;
 use specforge_registry::ProofRole;
@@ -521,8 +521,8 @@ pub(crate) fn analyze_with(ctx: &AnalysisContext, solver: &dyn Solver) -> ProveR
     let mut solver_timed_out = false;
     if !solver_available {
         findings.push(
-            Diagnostic::warning(
-                "W098",
+            Diagnostic::new(
+                codes::W098,
                 "SMT solver 'z3' not found on PATH; formal entailment and consistency checks were skipped"
                     .to_string(),
             )
@@ -567,8 +567,8 @@ pub(crate) fn analyze_with(ctx: &AnalysisContext, solver: &dyn Solver) -> ProveR
                             .collect();
                         let core = parse_unsat_core(&stdout);
                         let first_idx = core.first().and_then(|name| names.get(name)).copied();
-                        let mut diagnostic = Diagnostic::error(
-                            "E046",
+                        let mut diagnostic = Diagnostic::new(
+                            codes::E046,
                             format!("contradictory bounds: {}", cited.join("; ")),
                         )
                         .with_suggestion("relax or correct the listed bounds");
@@ -579,8 +579,8 @@ pub(crate) fn analyze_with(ctx: &AnalysisContext, solver: &dyn Solver) -> ProveR
                     }
                     "sat" => satisfiable = true,
                     _ => {
-                        findings.push(Diagnostic::info(
-                            "I098",
+                        findings.push(Diagnostic::new(
+                            codes::I098,
                             "the solver could not decide the combined bounds".to_string(),
                         ));
                     }
@@ -637,22 +637,20 @@ pub(crate) fn analyze_with(ctx: &AnalysisContext, solver: &dyn Solver) -> ProveR
                             )
                         };
                         findings.push(
-                            Diagnostic::warning(
-                                "W139",
+                            Diagnostic::new(
+                                codes::W139,
                                 format!(
                                     "claim `{}` of {} is not entailed by the declared bounds ({evidence})",
                                     claim.text, claim.id
                                 ),
                             )
                             .with_span(claim.span.clone())
-                            .with_suggestion(
-                                "strengthen the declared bounds or weaken the claim",
-                            ),
+                            .with_suggestion("strengthen the declared bounds or weaken the claim"),
                         );
                     }
                     _ => {
-                        findings.push(Diagnostic::info(
-                            "I098",
+                        findings.push(Diagnostic::new(
+                            codes::I098,
                             format!(
                                 "the solver could not decide whether the declared bounds entail `{}`",
                                 claim.text
@@ -666,8 +664,8 @@ pub(crate) fn analyze_with(ctx: &AnalysisContext, solver: &dyn Solver) -> ProveR
 
     if solver_timed_out {
         findings.push(
-            Diagnostic::warning(
-                "W098",
+            Diagnostic::new(
+                codes::W098,
                 "the SMT solver timed out; some formal checks were skipped".to_string(),
             )
             .with_suggestion("simplify the declared bounds or claims, or raise the z3 timeout"),
@@ -675,8 +673,8 @@ pub(crate) fn analyze_with(ctx: &AnalysisContext, solver: &dyn Solver) -> ProveR
     }
     if solver_runtime_failure {
         findings.push(
-            Diagnostic::warning(
-                "W098",
+            Diagnostic::new(
+                codes::W098,
                 "the SMT solver could not be executed; some formal checks were skipped".to_string(),
             )
             .with_suggestion("verify the z3 installation is executable"),
@@ -784,7 +782,7 @@ mod tests {
             graph,
             kind_registry: &kind_registry,
             field_registry: &field_registry,
-            rules: &[],
+            entities: &specforge_project::snapshot::EntitySnapshot::default(),
             project_root: Some(Path::new(".")),
             test_results: None,
             proved_claims: Some(&empty_proved),
@@ -1068,7 +1066,7 @@ mod tests {
             graph,
             kind_registry: &kind_registry,
             field_registry: &field_registry,
-            rules: &[],
+            entities: &specforge_project::snapshot::EntitySnapshot::default(),
             project_root: Some(Path::new(".")),
             test_results: None,
             proved_claims: Some(&empty_proved),

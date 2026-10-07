@@ -43,8 +43,8 @@
 //! command does not declare.
 
 use crate::{
-    CommandError, CommandFormat, CommandGraph, CommandInput, CommandOutput, McpResourceContent,
-    McpResourceRequest,
+    CommandError, CommandEvidence, CommandFormat, CommandGraph, CommandInput, CommandOutput,
+    McpResourceContent, McpResourceRequest,
 };
 use serde_json::Value;
 use specforge_protocol_types::command_args::{self, normalize_args};
@@ -692,6 +692,13 @@ impl<'a> CommandCall<'a> {
     /// The project root.
     pub fn cwd(&self) -> &'a str {
         &self.input.cwd
+    }
+
+    /// What the project's recorded test report proves, per entity that
+    /// counts toward coverage, as the host scores it; `none` without a
+    /// report (or from a host older than the field).
+    pub fn evidence(&self) -> &'a CommandEvidence {
+        &self.input.evidence
     }
 
     /// Whether the declared arg `name` has a value: the caller's, or its

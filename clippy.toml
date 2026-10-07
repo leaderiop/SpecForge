@@ -1,8 +1,8 @@
-# `specforge_common::Diagnostic` (128 bytes) is the error type of ~40
-# `Result`s across the workspace, returned whole for the surfaces to
-# present. The default threshold (128) flags exactly it; 129 admits it and
-# nothing larger, so a Diagnostic that grows, or any bigger error, still
-# trips `result_large_err`. Shrinking it instead would mean narrowing
-# `SourceSpan`'s usize coordinates or retyping its public string fields —
-# workspace-wide churn for no measurable gain.
-large-error-threshold = 129
+# `specforge_common::Diagnostic` (152 bytes: 128 plus the `origin` string)
+# is the error type of ~40 `Result`s across the workspace, returned whole
+# for the surfaces to present. The default threshold (128) flags it; 153
+# admits it and nothing larger, so a Diagnostic that grows, or any bigger
+# error, still trips `result_large_err`. Shrinking it instead would mean
+# narrowing `SourceSpan`'s usize coordinates or retyping its public string
+# fields — workspace-wide churn for no measurable gain.
+large-error-threshold = 153

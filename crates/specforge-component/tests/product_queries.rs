@@ -79,8 +79,23 @@ fn runtime() -> ComponentRuntime {
 
 /// Run `cmd__product_<id>` with `args` over `g` in `format`.
 fn run_in(runtime: &ComponentRuntime, id: &str, args: Value, g: &G, format: &str) -> Out {
-    let input = json!({"args": args, "cwd": "/p", "format": format, "today": "2026-10-03",
+    run_with(runtime, id, args, g, format, None)
+}
+
+/// [`run_in`], with `evidence` as the input's recorded-test evidence.
+fn run_with(
+    runtime: &ComponentRuntime,
+    id: &str,
+    args: Value,
+    g: &G,
+    format: &str,
+    evidence: Option<Value>,
+) -> Out {
+    let mut input = json!({"args": args, "cwd": "/p", "format": format, "today": "2026-10-03",
         "graph": g.graph()});
+    if let Some(evidence) = evidence {
+        input["evidence"] = evidence;
+    }
     let export = format!("cmd__product_{id}");
     let WasmCallResult::Ok(bytes) =
         runtime.call_export(PRODUCT, &export, input.to_string().as_bytes())
@@ -191,7 +206,7 @@ fn an_empty_milestone_is_at_zero_without_dividing_by_zero() {
     assert_eq!(
         mc,
         json!({"milestone_id": "ms3", "total_features": 0, "done_count": 0,
-            "completion_ratio": 0.0, "done_features": []})
+            "completion_ratio": 0.0, "done_features": [], "evidence": {"state": "none"}})
     );
 }
 
@@ -246,11 +261,112 @@ fn milestone_completion_answers_its_payload() {
             "completion_ratio",
             "done_count",
             "done_features",
+            "evidence",
             "milestone_id",
             "total_features"
         ]
     );
     assert_eq!(mc["milestone_id"], "ms1");
+}
+
+/// `plan()` with behaviors implementing its features: `b1` implements `f1`
+/// and `f2`, `b2` implements `f2`; journeys naming features implement none.
+fn implemented() -> G {
+    plan()
+        .n("b1", "behavior")
+        .n("b2", "behavior")
+        .edge("b1", "f1", "features")
+        .edge("b1", "f2", "features")
+        .edge("b2", "f2", "features")
+}
+
+/// Recorded evidence: `b1` proven (2/2), `b2` with one of two obligations.
+fn recorded() -> Value {
+    json!({"state": "recorded", "entities": {
+        "b1": {"obligations": 2, "proven": 2, "failing": 0},
+        "b2": {"obligations": 2, "proven": 1, "failing": 0},
+    }})
+}
+
+#[specforge_test(
+    behavior = "pe_query_milestone_completion",
+    verify = "a milestone's completion reports the features the recorded tests prove beside the done ones"
+)]
+#[specforge_test(
+    type = "FeatureEvidence",
+    verify = "a feature is proven when at least one behavior implements it and every one is proven"
+)]
+fn milestone_completion_reports_what_the_recorded_tests_prove() {
+    let out = run_with(
+        &runtime(),
+        "milestone_completion",
+        json!({"milestone": "ms1"}),
+        &implemented(),
+        "json",
+        Some(recorded()),
+    );
+    let mc = out.json();
+    assert_eq!(mc["done_count"], 1, "the declared count is the status's");
+    assert_eq!(mc["evidence"], json!({"state": "recorded"}));
+    assert_eq!(mc["proven_count"], 1);
+    assert_eq!(mc["proven_ratio"], 0.5);
+    assert_eq!(mc["proven_features"], json!(["f1"]));
+    assert_eq!(
+        mc["feature_evidence"][1],
+        json!({"feature_id": "f2", "behaviors": 2, "proven_behaviors": 1,
+            "obligations": 4, "proven_obligations": 3, "failing": 0, "proven": false})
+    );
+}
+
+#[specforge_test(
+    behavior = "surface_milestone_completion",
+    verify = "human format shows the proven share and each feature's evidence beside its status"
+)]
+fn milestone_completion_shows_the_evidence_of_each_feature() {
+    let out = run_with(
+        &runtime(),
+        "milestone_completion",
+        json!({"milestone": "ms1"}),
+        &implemented(),
+        "human",
+        Some(recorded()),
+    );
+    assert_eq!(
+        out.stdout,
+        "Milestone: ms1 (active)\nCompletion: 50% (1/2 features done)\n\
+         Evidence:   50% (1/2 features proven by recorded tests)\n\
+         \x20 f1 [done] proven 1/1 behaviors proven (2/2 obligations)\n\
+         \x20 f2 [in_progress] unproven 1/2 behaviors proven (3/4 obligations)\n"
+    );
+}
+
+#[specforge_test(
+    behavior = "pe_query_milestone_completion",
+    verify = "without a recorded report the completion says no evidence is recorded, and an unreadable one says why"
+)]
+fn milestone_completion_without_evidence_says_so() {
+    let none = json_of(
+        "milestone_completion",
+        json!({"milestone": "ms1"}),
+        &implemented(),
+    );
+    assert_eq!(none["evidence"], json!({"state": "none"}));
+    assert!(none.get("proven_count").is_none());
+    let unreadable = run_with(
+        &runtime(),
+        "milestone_completion",
+        json!({"milestone": "ms1"}),
+        &implemented(),
+        "human",
+        Some(json!({"state": "unreadable", "reason": "invalid test results x"})),
+    );
+    assert!(
+        unreadable
+            .stdout
+            .contains("Evidence:   unreadable: invalid test results x\n"),
+        "{}",
+        unreadable.stdout
+    );
 }
 
 #[specforge_test(
@@ -279,7 +395,8 @@ fn milestone_completion_shows_a_percentage() {
     let out = human_of("milestone_completion", json!({"milestone": "ms1"}), &plan());
     assert_eq!(
         out,
-        "Milestone: ms1 (active)\nCompletion: 50% (1/2 features done)\n  f1 [done]\n  f2 [in_progress]\n"
+        "Milestone: ms1 (active)\nCompletion: 50% (1/2 features done)\n\
+         Evidence:   none recorded (run `specforge collect`)\n  f1 [done]\n  f2 [in_progress]\n"
     );
 }
 

@@ -42,6 +42,13 @@ impl Contributions for Formal {
         c.pass("layering_verify", |p| {
             p.after("condition_check").run(pass_layering_verify);
         });
+        // The one check-phase pass: it runs with every compile, the four
+        // above only under `specforge analyze`.
+        c.pass("analysis_available", |p| {
+            p.after("resolve")
+                .phase("check")
+                .run(pass_analysis_available);
+        });
 
         declaration::declare(c);
     }
@@ -52,39 +59,135 @@ impl Contributions for Formal {
 // protocol's PassInput snapshot and answers its diagnostics (ADR 0013).
 
 /// condition_check (Meyer's Design by Contract, RES-25 part I): a behavior
-/// that obligates its callers (requires) must provide a benefit (ensures).
+/// that obligates its callers (requires) must provide a benefit (ensures),
+/// W096; a requires that names one condition twice repeats itself, W039; a
+/// behavior that ensures without requiring anything is noted, I011;
+/// an invariant whose guarantee has no machine-checkable `expression` is
+/// prose only, W040.
 fn pass_condition_check(input: &PassInput) -> Vec<PassDiagnostic> {
     let mut findings = Vec::new();
     for entity in &input.entities {
-        if entity.kind != "behavior" {
-            continue;
-        }
-        let has_requires = non_empty(entity, "requires");
-        let has_ensures = non_empty(entity, "ensures");
-        if has_requires && !has_ensures {
-            findings.push(
-                PassDiagnostic::warning(
-                    "W096",
-                    format!("behavior '{}' declares requires but no ensures", entity.id),
-                )
-                .with_suggestion(
-                    "add an ensures clause: a caller's obligation must buy a guarantee",
-                ),
-            );
+        match entity.kind.as_str() {
+            BEHAVIOR_KIND => {
+                let has_requires = non_empty(entity, "requires");
+                let has_ensures = non_empty(entity, "ensures");
+                if has_requires && !has_ensures {
+                    findings.push(
+                        PassDiagnostic::warning(
+                            "W096",
+                            format!("behavior '{}' declares requires but no ensures", entity.id),
+                        )
+                        .with_suggestion(
+                            "add an ensures clause: a caller's obligation must buy a guarantee",
+                        ),
+                    );
+                }
+                for name in repeated_names(entity, "requires") {
+                    findings.push(
+                        PassDiagnostic::warning(
+                            "W039",
+                            format!(
+                                "behavior '{}' requires '{name}' more than once (the repeat is redundant)",
+                                entity.id
+                            ),
+                        )
+                        .with_entity(&entity.id)
+                        .with_suggestion(format!("remove the repeated '{name}' condition")),
+                    );
+                }
+                if has_ensures && !has_requires {
+                    findings.push(
+                        PassDiagnostic::new(
+                            "I011",
+                            PassSeverity::Info,
+                            format!("behavior '{}' declares ensures but no requires", entity.id),
+                        )
+                        .with_entity(&entity.id)
+                        .with_suggestion(
+                            "add a requires clause naming what callers must establish first, or leave it out if the behavior accepts every input",
+                        ),
+                    );
+                }
+            }
+            INVARIANT_KIND
+                if non_empty(entity, "guarantee") && !non_empty(entity, "expression") =>
+            {
+                findings.push(
+                    PassDiagnostic::warning(
+                        "W040",
+                        format!(
+                            "invariant '{}' states its guarantee in prose only (no expression)",
+                            entity.id
+                        ),
+                    )
+                    .with_entity(&entity.id)
+                    .with_suggestion(
+                        "add an `expression` stating the guarantee as a claim `specforge analyze --prove` can check",
+                    ),
+                );
+            }
+            _ => {}
         }
     }
     findings
 }
 
-/// coverage_tracking (RES-25 part I, W035): one aggregated warning per run
+/// The names `field` (a block's keys or a list's items, joined by `", "`)
+/// lists more than once, sorted.
+fn repeated_names<'a>(entity: &'a PassEntity, field: &str) -> Vec<&'a str> {
+    let mut seen = std::collections::BTreeSet::new();
+    let mut repeated = std::collections::BTreeSet::new();
+    for name in entity
+        .fields
+        .get(field)
+        .into_iter()
+        .flat_map(|text| text.split(','))
+        .map(str::trim)
+        .filter(|name| !name.is_empty())
+    {
+        if !seen.insert(name) {
+            repeated.insert(name);
+        }
+    }
+    repeated.into_iter().collect()
+}
+
+/// analysis_available (check phase): one note per compile, when behaviors
+/// declare requires or ensures, that `specforge analyze` runs the formal
+/// passes over them (I015).
+fn pass_analysis_available(input: &PassInput) -> Vec<PassDiagnostic> {
+    let conditioned = input
+        .entities
+        .iter()
+        .filter(|e| {
+            e.kind == BEHAVIOR_KIND && (non_empty(e, "requires") || non_empty(e, "ensures"))
+        })
+        .count();
+    if conditioned == 0 {
+        return Vec::new();
+    }
+    vec![PassDiagnostic::new(
+        "I015",
+        PassSeverity::Info,
+        format!("{conditioned} behavior(s) declare requires/ensures; `specforge analyze` checks them"),
+    )
+    .with_suggestion(
+        "run `specforge analyze` for the formal passes (condition_check, layering_verify, event_graph_analyze, coverage_tracking)",
+    )]
+}
+
+/// coverage_tracking (RES-25 part I): one aggregated warning per run
 /// listing the coverage items the coverage rule does not hold proven, the
-/// undischarged set of the discharge funnel. Items are invariants and the
-/// entities that count toward coverage (entities W004 exempts that declare
-/// nothing are not items). "Proven" is @specforge/testing's rule
-/// (`specforge-coverage`, ADR 0004 D2-f) over the recorded test results and
-/// the entailed claims in the pass input, so W035 never disagrees with
-/// `specforge analyze coverage`. Whether an entity is exempt is the host's
-/// call, read from the snapshot (`PassEntity::exempt`).
+/// undischarged set of the discharge funnel (W035); one note per item whose
+/// every obligation a passing recorded test names, naming those tests
+/// (I008); and each behavior's specification depth (I014, see
+/// [`depth_findings`]). Items are invariants and the entities that count
+/// toward coverage (entities W004 exempts that declare nothing are not
+/// items). "Proven" is @specforge/testing's rule (`specforge-coverage`, ADR
+/// 0004 D2-f) over the recorded test results and the entailed claims in the
+/// pass input, so W035 never disagrees with `specforge analyze coverage`.
+/// Whether an entity is exempt is the host's call, read from the snapshot
+/// (`PassEntity::exempt`).
 fn pass_coverage_tracking(input: &PassInput) -> Vec<PassDiagnostic> {
     let proved: std::collections::BTreeSet<&str> = input
         .proved_claims
@@ -92,62 +195,217 @@ fn pass_coverage_tracking(input: &PassInput) -> Vec<PassDiagnostic> {
         .flatten()
         .map(String::as_str)
         .collect();
-    let undischarged: Vec<&str> = input
-        .entities
-        .iter()
-        .filter(|e| {
-            let entity = coverage::Entity {
-                id: e.id.clone(),
-                kind: e.kind.clone(),
-                testable: e.testable || e.kind == INVARIANT_KIND,
-                exempt: e.exempt,
-                verify_kinds: e.verify_kinds.clone(),
-                verify_texts: e.verify_texts.clone(),
-                ..Default::default()
-            };
-            if !entity.counts_toward_coverage() {
-                return false;
-            }
-            let tests: Vec<coverage::RecordedTest> = input
-                .test_results
-                .as_ref()
-                .and_then(|r| r.results.get(&e.id))
-                .map(|recorded| {
-                    recorded
-                        .tests
-                        .iter()
-                        .map(|t| coverage::RecordedTest {
-                            name: t.name.clone(),
-                            status: t.status.clone(),
-                            verify: t.verify.clone(),
-                        })
-                        .collect()
+    let mut undischarged: Vec<&str> = Vec::new();
+    let mut findings = Vec::new();
+    let mut proven: std::collections::BTreeSet<&str> = std::collections::BTreeSet::new();
+    for e in &input.entities {
+        let entity = coverage::Entity {
+            id: e.id.clone(),
+            kind: e.kind.clone(),
+            testable: e.testable || e.kind == INVARIANT_KIND,
+            exempt: e.exempt,
+            verify_kinds: e.verify_kinds.clone(),
+            verify_texts: e.verify_texts.clone(),
+            ..Default::default()
+        };
+        if !entity.counts_toward_coverage() {
+            continue;
+        }
+        let tests = recorded_tests(input, &e.id);
+        if coverage::Verdict::of(&entity, &tests, proved.contains(e.id.as_str())).is_proven() {
+            proven.insert(e.id.as_str());
+        } else {
+            undischarged.push(e.id.as_str());
+        }
+        // I008: proven by tests alone, not by an entailed claim.
+        if coverage::Verdict::of(&entity, &tests, false).is_proven() {
+            let mut names: Vec<&str> = tests
+                .iter()
+                .filter(|t| t.passed())
+                .filter(|t| {
+                    t.verify
+                        .as_ref()
+                        .is_some_and(|v| e.verify_texts.contains(v))
                 })
-                .unwrap_or_default();
-            !coverage::Verdict::of(&entity, &tests, proved.contains(e.id.as_str())).is_proven()
-        })
-        .map(|e| e.id.as_str())
-        .collect();
-
-    if undischarged.is_empty() {
-        return Vec::new();
+                .map(|t| t.name.as_deref().unwrap_or("(unnamed)"))
+                .collect();
+            names.sort_unstable();
+            names.dedup();
+            findings.push(
+                PassDiagnostic::new(
+                    "I008",
+                    PassSeverity::Info,
+                    format!(
+                        "{} '{}': all {} obligation(s) proven by recorded test(s): {}",
+                        e.kind,
+                        e.id,
+                        entity.obligations(),
+                        preview(&names)
+                    ),
+                )
+                .with_entity(&e.id),
+            );
+        }
     }
+    findings.extend(depth_findings(input, &proven));
 
+    if !undischarged.is_empty() {
+        let message = format!(
+            "{} coverage item(s) are not proven by a recorded test or an entailed claim: {}",
+            undischarged.len(),
+            preview(&undischarged)
+        );
+        findings.push(PassDiagnostic::warning("W035", message).with_suggestion(
+            "link a test to each obligation by its text (`verify = \"...\"`) and run `specforge collect`; `specforge analyze coverage` lists what is unproven (A001, A015)",
+        ));
+    }
+    findings
+}
+
+/// The first ten of `items`, joined, with how many more there are.
+fn preview(items: &[&str]) -> String {
     const PREVIEW: usize = 10;
-    let listed: Vec<&str> = undischarged.iter().take(PREVIEW).copied().collect();
-    let rest = undischarged.len().saturating_sub(PREVIEW);
-    let mut message = format!(
-        "{} coverage item(s) are not proven by a recorded test or an entailed claim",
-        undischarged.len()
-    );
-    message.push_str(&format!(": {}", listed.join(", ")));
+    let mut text = items
+        .iter()
+        .take(PREVIEW)
+        .copied()
+        .collect::<Vec<_>>()
+        .join(", ");
+    let rest = items.len().saturating_sub(PREVIEW);
     if rest > 0 {
-        message.push_str(&format!(" … and {rest} more"));
+        text.push_str(&format!(" … and {rest} more"));
+    }
+    text
+}
+
+/// The recorded tests for entity `id`, as the coverage rule reads them.
+fn recorded_tests(input: &PassInput, id: &str) -> Vec<coverage::RecordedTest> {
+    input
+        .test_results
+        .as_ref()
+        .and_then(|r| r.results.get(id))
+        .map(|recorded| {
+            recorded
+                .tests
+                .iter()
+                .map(|t| coverage::RecordedTest {
+                    name: t.name.clone(),
+                    status: t.status.clone(),
+                    verify: t.verify.clone(),
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// A behavior's specification depth (`SpecificationDepthLevel`), a ladder:
+/// each level holds the one below it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+enum Depth {
+    /// No edge in or out: the behavior is prose.
+    Prose,
+    /// It is connected in the graph, but declares no requires or ensures.
+    EntityGraph,
+    /// It declares requires or ensures.
+    Conditions,
+    /// Conditions, and it names invariants (`maintains` or `invariants`).
+    Invariants,
+    /// Invariants, and the coverage rule holds it proven.
+    Proofs,
+}
+
+impl Depth {
+    fn of(entity: &PassEntity, proven: bool) -> Self {
+        if !(non_empty(entity, "requires") || non_empty(entity, "ensures")) {
+            return if entity.incoming_edge_count + entity.outgoing_edge_count == 0 {
+                Depth::Prose
+            } else {
+                Depth::EntityGraph
+            };
+        }
+        if !(non_empty(entity, "maintains") || non_empty(entity, "invariants")) {
+            return Depth::Conditions;
+        }
+        if proven {
+            Depth::Proofs
+        } else {
+            Depth::Invariants
+        }
     }
 
-    vec![PassDiagnostic::warning("W035", message).with_suggestion(
-        "link a test to each obligation by its text (`verify = \"...\"`) and run `specforge collect`; `specforge analyze coverage` lists what is unproven (A001, A015)",
-    )]
+    fn name(self) -> &'static str {
+        match self {
+            Depth::Prose => "prose",
+            Depth::EntityGraph => "entity_graph",
+            Depth::Conditions => "conditions",
+            Depth::Invariants => "invariants",
+            Depth::Proofs => "proofs",
+        }
+    }
+
+    /// What reaches the next level, from a level that is reported.
+    fn next_step(self) -> Option<&'static str> {
+        match self {
+            Depth::Conditions => Some(
+                "name the invariants it keeps (`maintains` or `invariants`) to reach level 3 (invariants)",
+            ),
+            Depth::Invariants => Some(
+                "prove every obligation with a recorded test (`specforge collect`) to reach level 4 (proofs)",
+            ),
+            _ => None,
+        }
+    }
+}
+
+/// More behaviors than this below `conditions` earn the adoption note.
+const ADOPTION_THRESHOLD: usize = 5;
+
+/// I014: each behavior at `conditions` or deeper, with its level and the
+/// step to the next; and, when more than [`ADOPTION_THRESHOLD`] behaviors
+/// sit at `prose` or `entity_graph`, one note suggesting requires/ensures.
+fn depth_findings(
+    input: &PassInput,
+    proven: &std::collections::BTreeSet<&str>,
+) -> Vec<PassDiagnostic> {
+    let mut findings = Vec::new();
+    let mut shallow = 0usize;
+    for entity in input.entities.iter().filter(|e| e.kind == BEHAVIOR_KIND) {
+        let depth = Depth::of(entity, proven.contains(entity.id.as_str()));
+        if depth < Depth::Conditions {
+            shallow += 1;
+            continue;
+        }
+        let mut finding = PassDiagnostic::new(
+            "I014",
+            PassSeverity::Info,
+            format!(
+                "behavior '{}' is at specification depth '{}' (level {} of 4)",
+                entity.id,
+                depth.name(),
+                depth as usize
+            ),
+        )
+        .with_entity(&entity.id);
+        if let Some(step) = depth.next_step() {
+            finding = finding.with_suggestion(step);
+        }
+        findings.push(finding);
+    }
+    if shallow > ADOPTION_THRESHOLD {
+        findings.push(
+            PassDiagnostic::new(
+                "I014",
+                PassSeverity::Info,
+                format!(
+                    "{shallow} behavior(s) are at specification depth 'prose' or 'entity_graph' (no requires or ensures)"
+                ),
+            )
+            .with_suggestion(
+                "add requires/ensures to the critical behaviors to reach level 2 (conditions)",
+            ),
+        );
+    }
+    findings
 }
 
 /// The kind whose entities are coverage items whatever their kind's
@@ -466,11 +724,12 @@ fn pass_event_graph_analyze(input: &PassInput) -> Vec<PassDiagnostic> {
     let mut process_edges: std::collections::BTreeMap<&str, std::collections::BTreeSet<&str>> =
         std::collections::BTreeMap::new();
     for edge in &input.edges {
-        // The graph labels these edges with the FIELD name (sub_processes /
-        // processes); the edge-type names (ProcessComposesProcess /
-        // EventParticipatesInProcess) match when hosts send type labels.
+        // The host labels these edges with the FIELD name (an event's
+        // participates_in, a process's sub_processes); the edge-type names
+        // (EventParticipatesInProcess / ProcessComposesProcess) are accepted
+        // too.
         match edge.label.as_str() {
-            "EventParticipatesInProcess" | "processes" => {
+            "EventParticipatesInProcess" | "participates_in" => {
                 *consumed.entry(edge.source.as_str()).or_default() += 1;
             }
             "ProcessComposesProcess" | "sub_processes" => {
@@ -600,9 +859,308 @@ fn pass_event_graph_analyze(input: &PassInput) -> Vec<PassDiagnostic> {
             ),
         );
     }
+    findings.extend(event_flow_findings(input, &by_id));
+    findings.extend(port_connectivity_findings(input, &by_id));
     // Deterministic order: produced-events came from a HashMap (hardening-plan
     // D4 / R-6).
     findings.sort_by(|a, b| a.code.cmp(&b.code).then_with(|| a.message.cmp(&b.message)));
+    findings
+}
+
+const EVENT_KIND: &str = "event";
+const PORT_KIND: &str = "port";
+/// The constraints a behavior or event declares on its synchronization
+/// (formal's `sync` enhancement): the one mitigation the data carries.
+const SYNC_FIELD: &str = "sync";
+
+/// The event flow graph: behavior -> event for each `produces`, event ->
+/// behavior for each `consumes` (the behavior reacts to the event).
+#[derive(Default)]
+struct EventFlow<'a> {
+    next: std::collections::BTreeMap<&'a str, std::collections::BTreeSet<&'a str>>,
+    /// behavior -> the events it produces / consumes.
+    produces: std::collections::BTreeMap<&'a str, std::collections::BTreeSet<&'a str>>,
+    consumes: std::collections::BTreeMap<&'a str, std::collections::BTreeSet<&'a str>>,
+}
+
+impl<'a> EventFlow<'a> {
+    fn of(input: &'a PassInput, by_id: &std::collections::HashMap<&str, &PassEntity>) -> Self {
+        let kind = |id: &str| by_id.get(id).map(|e| e.kind.as_str());
+        let mut flow = EventFlow::default();
+        for edge in &input.edges {
+            let (behavior, event) = (edge.source.as_str(), edge.target.as_str());
+            if kind(behavior) != Some(BEHAVIOR_KIND) || kind(event) != Some(EVENT_KIND) {
+                continue;
+            }
+            match edge.label.as_str() {
+                "produces" => {
+                    flow.next.entry(behavior).or_default().insert(event);
+                    flow.produces.entry(behavior).or_default().insert(event);
+                }
+                "consumes" => {
+                    flow.next.entry(event).or_default().insert(behavior);
+                    flow.consumes.entry(behavior).or_default().insert(event);
+                }
+                _ => {}
+            }
+        }
+        flow
+    }
+
+    fn nodes(&self) -> std::collections::BTreeSet<&'a str> {
+        self.next
+            .iter()
+            .flat_map(|(from, to)| std::iter::once(*from).chain(to.iter().copied()))
+            .collect()
+    }
+
+    /// The strongly connected components (Tarjan), each sorted, in a
+    /// deterministic order.
+    fn components(&self) -> Vec<Vec<&'a str>> {
+        struct Tarjan<'g, 'a> {
+            flow: &'g EventFlow<'a>,
+            index: std::collections::HashMap<&'a str, usize>,
+            low: std::collections::HashMap<&'a str, usize>,
+            stack: Vec<&'a str>,
+            on_stack: std::collections::HashSet<&'a str>,
+            components: Vec<Vec<&'a str>>,
+        }
+        impl<'a> Tarjan<'_, 'a> {
+            fn visit(&mut self, node: &'a str) {
+                let n = self.index.len();
+                self.index.insert(node, n);
+                self.low.insert(node, n);
+                self.stack.push(node);
+                self.on_stack.insert(node);
+                let flow = self.flow;
+                for &next in flow.next.get(node).into_iter().flatten() {
+                    if !self.index.contains_key(next) {
+                        self.visit(next);
+                        let low = self.low[node].min(self.low[next]);
+                        self.low.insert(node, low);
+                    } else if self.on_stack.contains(next) {
+                        let low = self.low[node].min(self.index[next]);
+                        self.low.insert(node, low);
+                    }
+                }
+                if self.low[node] == self.index[node] {
+                    let mut component = Vec::new();
+                    while let Some(member) = self.stack.pop() {
+                        self.on_stack.remove(member);
+                        component.push(member);
+                        if member == node {
+                            break;
+                        }
+                    }
+                    component.sort_unstable();
+                    self.components.push(component);
+                }
+            }
+        }
+        let mut tarjan = Tarjan {
+            flow: self,
+            index: Default::default(),
+            low: Default::default(),
+            stack: Vec::new(),
+            on_stack: Default::default(),
+            components: Vec::new(),
+        };
+        for node in self.nodes() {
+            if !tarjan.index.contains_key(node) {
+                tarjan.visit(node);
+            }
+        }
+        tarjan.components
+    }
+
+    /// A shortest cycle from `start` back to itself inside `component`.
+    fn cycle_through(&self, start: &'a str, component: &[&'a str]) -> Vec<&'a str> {
+        let inside: std::collections::HashSet<&str> = component.iter().copied().collect();
+        let mut parent: std::collections::HashMap<&'a str, &'a str> = Default::default();
+        let mut queue = std::collections::VecDeque::from([start]);
+        while let Some(node) = queue.pop_front() {
+            for &next in self.next.get(node).into_iter().flatten() {
+                if !inside.contains(next) {
+                    continue;
+                }
+                if next == start {
+                    let mut path = vec![start, node];
+                    let mut at = node;
+                    while at != start {
+                        at = parent[at];
+                        path.push(at);
+                    }
+                    path.reverse();
+                    return path;
+                }
+                if next != start && !parent.contains_key(next) {
+                    parent.insert(next, node);
+                    queue.push_back(next);
+                }
+            }
+        }
+        vec![start]
+    }
+}
+
+/// Event flow (RES-25 part I, structural only): an event cycle through two
+/// or more behaviors with no `sync` on any member (E034); a behavior that
+/// consumes an event it also produces, with no `sync` on either (W032); a
+/// produced event that declares no `sync`, so nothing bounds its channel
+/// (W034); and, when the graph has flow edges and neither cycle is found,
+/// one I009.
+fn event_flow_findings(
+    input: &PassInput,
+    by_id: &std::collections::HashMap<&str, &PassEntity>,
+) -> Vec<PassDiagnostic> {
+    let flow = EventFlow::of(input, by_id);
+    let synced = |id: &str| by_id.get(id).is_some_and(|e| non_empty(e, SYNC_FIELD));
+    let is_behavior = |id: &str| by_id.get(id).is_some_and(|e| e.kind == BEHAVIOR_KIND);
+    let mut findings = Vec::new();
+
+    let mut cycles = 0usize;
+    for component in flow.components() {
+        let behaviors: Vec<&str> = component
+            .iter()
+            .copied()
+            .filter(|id| is_behavior(id))
+            .collect();
+        if behaviors.len() < 2 || component.iter().any(|id| synced(id)) {
+            continue;
+        }
+        cycles += 1;
+        let path = flow.cycle_through(behaviors[0], &component);
+        findings.push(
+            PassDiagnostic::new(
+                "E034",
+                PassSeverity::Error,
+                format!(
+                    "unmitigated event cycle: {} (no behavior or event in it declares sync)",
+                    path.join(" -> ")
+                ),
+            )
+            .with_entity(behaviors[0])
+            .with_suggestion(format!(
+                "declare `sync` (a timeout, barrier or delivery bound) on one of {}, or break the cycle",
+                component.join(", ")
+            )),
+        );
+    }
+
+    for (&behavior, produced) in &flow.produces {
+        let Some(consumed) = flow.consumes.get(behavior) else {
+            continue;
+        };
+        for &event in produced.intersection(consumed) {
+            if synced(behavior) || synced(event) {
+                continue;
+            }
+            cycles += 1;
+            findings.push(
+                PassDiagnostic::warning(
+                    "W032",
+                    format!(
+                        "behavior '{behavior}' consumes event '{event}' and produces it again, with no sync on either (an unmitigated retry cycle)"
+                    ),
+                )
+                .with_entity(behavior)
+                .with_suggestion(format!(
+                    "declare `sync` (a timeout or backoff) on '{event}' or '{behavior}'"
+                )),
+            );
+        }
+    }
+
+    let produced: std::collections::BTreeSet<&str> =
+        flow.produces.values().flatten().copied().collect();
+    for &event in produced.iter().filter(|&&e| !synced(e)) {
+        findings.push(
+            PassDiagnostic::warning(
+                "W034",
+                format!("event '{event}' is produced but declares no sync, so nothing bounds its channel"),
+            )
+            .with_entity(event)
+            .with_suggestion("declare `sync` on the event: a timeout, a buffer limit or its delivery semantics"),
+        );
+    }
+
+    if cycles == 0 && !flow.next.is_empty() {
+        let nodes = flow.nodes();
+        let behaviors = nodes.iter().filter(|id| is_behavior(id)).count();
+        findings.push(PassDiagnostic::new(
+            "I009",
+            PassSeverity::Info,
+            format!(
+                "no unmitigated cycle in the event graph ({behaviors} behavior(s), {} event(s)); structural only, runtime conditions are not analyzed",
+                nodes.len() - behaviors
+            ),
+        ));
+    }
+    findings
+}
+
+/// The edge-count ratio beyond which a port's access is unbalanced (W033).
+const CONNECTIVITY_RATIO: usize = 3;
+
+/// W033 (a structural hint, not a fairness guarantee): a port that two or
+/// more behaviors use (`ports`) where the most-referenced of them has more
+/// than three times the incoming edges of the least-referenced, a behavior
+/// nothing references counting as one.
+fn port_connectivity_findings(
+    input: &PassInput,
+    by_id: &std::collections::HashMap<&str, &PassEntity>,
+) -> Vec<PassDiagnostic> {
+    let kind = |id: &str| by_id.get(id).map(|e| e.kind.as_str());
+    let mut users: std::collections::BTreeMap<&str, std::collections::BTreeSet<&str>> =
+        Default::default();
+    for edge in input.edges.iter().filter(|e| e.label == "ports") {
+        if kind(&edge.source) == Some(BEHAVIOR_KIND) && kind(&edge.target) == Some(PORT_KIND) {
+            users
+                .entry(edge.target.as_str())
+                .or_default()
+                .insert(edge.source.as_str());
+        }
+    }
+    let mut findings = Vec::new();
+    for (port, behaviors) in users.iter().filter(|(_, b)| b.len() > 1) {
+        let incoming = |id: &&str| by_id[*id].incoming_edge_count;
+        // Ties keep the first id, so the pair named is deterministic.
+        let most = behaviors
+            .iter()
+            .copied()
+            .fold(None::<&str>, |best, id| match best {
+                Some(b) if incoming(&b) >= incoming(&id) => Some(b),
+                _ => Some(id),
+            });
+        let least = behaviors
+            .iter()
+            .copied()
+            .fold(None::<&str>, |best, id| match best {
+                Some(b) if incoming(&b) <= incoming(&id) => Some(b),
+                _ => Some(id),
+            });
+        let (Some(most), Some(least)) = (most, least) else {
+            continue;
+        };
+        let (high, low) = (incoming(&most), incoming(&least));
+        // A behavior nothing references counts as one edge, so the ratio is
+        // never one over zero.
+        if high > CONNECTIVITY_RATIO * low.max(1) {
+            findings.push(
+                PassDiagnostic::warning(
+                    "W033",
+                    format!(
+                        "port '{port}' is used by {} behaviors with unbalanced connectivity: '{most}' has {high} incoming edge(s), '{least}' {low} (more than {CONNECTIVITY_RATIO}:1)",
+                        behaviors.len()
+                    ),
+                )
+                .with_entity(*port)
+                .with_suggestion(
+                    "review how the behaviors share the port: a structural hint that one consumer dominates its access, not a fairness check",
+                ),
+            );
+        }
+    }
     findings
 }
 
@@ -709,7 +1267,10 @@ mod pass_tests {
         let rules = specforge_extension_build().declaration().validation_rules;
 
         let codes: Vec<&str> = rules.iter().map(|r| r.code.as_str()).collect();
-        for expected in ["W125", "W123", "W126", "W128", "W131", "W134"] {
+        for expected in [
+            "W125", "W123", "W126", "W128", "W131", "W134", "W124", "W127", "W129", "W132", "W135",
+            "W136", "W133",
+        ] {
             assert!(
                 codes.contains(&expected),
                 "formal rule {expected} is not declared: {codes:?}"
@@ -951,7 +1512,10 @@ mod pass_tests {
             ],
             ..Default::default()
         };
-        let findings = pass_event_graph_analyze(&input);
+        let findings: Vec<PassDiagnostic> = pass_event_graph_analyze(&input)
+            .into_iter()
+            .filter(|f| f.code == "W029")
+            .collect();
         assert_eq!(codes(&findings), vec!["W029"]);
         assert!(findings[0].message.contains("tick"));
         assert!(
@@ -990,7 +1554,18 @@ mod coverage_tracking_tests {
                 "feat1": {"tests": [{"name": "u", "status": "pass"}]}
             }}
         }));
-        let findings = pass_coverage_tracking(&input);
+        let all = pass_coverage_tracking(&input);
+        let i008: Vec<&str> = all
+            .iter()
+            .filter(|f| f.code == "I008")
+            .map(|f| f.message.as_str())
+            .collect();
+        assert_eq!(
+            i008,
+            ["behavior 'b1': all 1 obligation(s) proven by recorded test(s): t"],
+            "the proven behavior names its test"
+        );
+        let findings: Vec<&PassDiagnostic> = all.iter().filter(|f| f.code == "W035").collect();
         assert_eq!(findings.len(), 1, "one aggregated W035");
         assert!(matches!(findings[0].severity, PassSeverity::Warning));
         assert_eq!(
@@ -1151,5 +1726,397 @@ mod process_tests {
         let findings = pass_layering_verify(&input);
         let e041 = findings.iter().filter(|f| f.code == "E041").count();
         assert_eq!(e041, 1, "parallel edges yield one cycle diagnostic");
+    }
+}
+
+// -- ADR 0040: the formal diagnostics the specs name --
+
+#[cfg(test)]
+mod formal_diagnostics_tests {
+    use super::*;
+    use specforge_extension_sdk::PassEdge;
+
+    fn entity(id: &str, kind: &str, fields: &[(&str, &str)]) -> PassEntity {
+        PassEntity {
+            id: id.to_string(),
+            kind: kind.to_string(),
+            fields: fields
+                .iter()
+                .map(|(k, v)| (k.to_string(), v.to_string()))
+                .collect(),
+            ..Default::default()
+        }
+    }
+
+    fn edge(source: &str, target: &str, label: &str) -> PassEdge {
+        PassEdge {
+            source: source.to_string(),
+            target: target.to_string(),
+            label: label.to_string(),
+        }
+    }
+
+    fn of_code<'a>(findings: &'a [PassDiagnostic], code: &str) -> Vec<&'a str> {
+        findings
+            .iter()
+            .filter(|f| f.code == code)
+            .map(|f| f.message.as_str())
+            .collect()
+    }
+
+    /// a produces e1, b consumes e1 and produces e2, a consumes e2.
+    fn two_behavior_cycle(sync_on: Option<&str>) -> PassInput {
+        let field = |id: &str| -> Vec<(&str, &str)> {
+            if sync_on == Some(id) {
+                vec![("sync", "timeout 5s")]
+            } else {
+                vec![]
+            }
+        };
+        PassInput {
+            entities: vec![
+                entity("a", "behavior", &field("a")),
+                entity("b", "behavior", &field("b")),
+                entity("e1", "event", &field("e1")),
+                entity("e2", "event", &field("e2")),
+            ],
+            edges: vec![
+                edge("a", "e1", "produces"),
+                edge("b", "e1", "consumes"),
+                edge("b", "e2", "produces"),
+                edge("a", "e2", "consumes"),
+            ],
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn an_unmitigated_cycle_is_e034_with_its_path() {
+        let findings = pass_event_graph_analyze(&two_behavior_cycle(None));
+        assert_eq!(
+            of_code(&findings, "E034"),
+            ["unmitigated event cycle: a -> e1 -> b -> e2 -> a (no behavior or event in it declares sync)"]
+        );
+        assert!(of_code(&findings, "I009").is_empty(), "{findings:?}");
+        let e034 = findings.iter().find(|f| f.code == "E034").unwrap();
+        assert!(matches!(e034.severity, PassSeverity::Error));
+        assert!(e034
+            .suggestion
+            .as_deref()
+            .unwrap()
+            .contains("declare `sync`"));
+    }
+
+    #[test]
+    fn sync_on_any_member_mitigates_the_cycle() {
+        for member in ["a", "e2"] {
+            let findings = pass_event_graph_analyze(&two_behavior_cycle(Some(member)));
+            assert!(
+                of_code(&findings, "E034").is_empty(),
+                "{member}: {findings:?}"
+            );
+            assert_eq!(
+                of_code(&findings, "I009").len(),
+                1,
+                "{member}: {findings:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_chain_is_no_cycle_and_earns_i009() {
+        let input = PassInput {
+            entities: vec![
+                entity("a", "behavior", &[]),
+                entity("b", "behavior", &[]),
+                entity("e", "event", &[("sync", "timeout 1s")]),
+            ],
+            edges: vec![edge("a", "e", "produces"), edge("b", "e", "consumes")],
+            ..Default::default()
+        };
+        let findings = pass_event_graph_analyze(&input);
+        assert_eq!(
+            codes(&findings),
+            ["I009"],
+            "a chain with a bounded event: {findings:?}"
+        );
+    }
+
+    fn codes(findings: &[PassDiagnostic]) -> Vec<&str> {
+        findings.iter().map(|f| f.code.as_str()).collect()
+    }
+
+    #[test]
+    fn a_behavior_re_producing_what_it_consumes_is_w032_unless_synced() {
+        let retry = |sync: &[(&str, &str)]| PassInput {
+            entities: vec![entity("r", "behavior", sync), entity("job", "event", &[])],
+            edges: vec![edge("r", "job", "consumes"), edge("r", "job", "produces")],
+            ..Default::default()
+        };
+        let findings = pass_event_graph_analyze(&retry(&[]));
+        assert_eq!(
+            of_code(&findings, "W032"),
+            ["behavior 'r' consumes event 'job' and produces it again, with no sync on either (an unmitigated retry cycle)"]
+        );
+        assert!(
+            of_code(&findings, "E034").is_empty(),
+            "one behavior is a retry, not E034"
+        );
+        assert!(of_code(&findings, "I009").is_empty());
+        let synced = pass_event_graph_analyze(&retry(&[("sync", "backoff 2s")]));
+        assert!(of_code(&synced, "W032").is_empty(), "{synced:?}");
+    }
+
+    #[test]
+    fn a_produced_event_without_sync_is_w034() {
+        let input = PassInput {
+            entities: vec![
+                entity("p", "behavior", &[]),
+                entity("open", "event", &[]),
+                entity("bounded", "event", &[("sync", "timeout 1s")]),
+                entity("idle", "event", &[]),
+            ],
+            edges: vec![
+                edge("p", "open", "produces"),
+                edge("p", "bounded", "produces"),
+            ],
+            ..Default::default()
+        };
+        let findings = pass_event_graph_analyze(&input);
+        assert_eq!(
+            of_code(&findings, "W034"),
+            ["event 'open' is produced but declares no sync, so nothing bounds its channel"]
+        );
+    }
+
+    fn port_input(incoming: &[(&str, usize)]) -> PassInput {
+        let mut entities = vec![entity("store", "port", &[])];
+        let mut edges = Vec::new();
+        for (id, count) in incoming {
+            let mut b = entity(id, "behavior", &[]);
+            b.incoming_edge_count = *count;
+            entities.push(b);
+            edges.push(edge(id, "store", "ports"));
+        }
+        PassInput {
+            entities,
+            edges,
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn a_port_with_unbalanced_users_is_w033() {
+        let findings = pass_event_graph_analyze(&port_input(&[("hot", 7), ("cold", 2)]));
+        assert_eq!(
+            of_code(&findings, "W033"),
+            ["port 'store' is used by 2 behaviors with unbalanced connectivity: 'hot' has 7 incoming edge(s), 'cold' 2 (more than 3:1)"]
+        );
+        let w033 = findings.iter().find(|f| f.code == "W033").unwrap();
+        assert!(w033.suggestion.as_deref().unwrap().contains("review"));
+    }
+
+    #[test]
+    fn a_balanced_or_single_use_port_passes() {
+        for incoming in [
+            &[("a", 3), ("b", 1)][..],
+            &[("a", 3), ("b", 0)][..],
+            &[("only", 9)][..],
+        ] {
+            let findings = pass_event_graph_analyze(&port_input(incoming));
+            assert!(
+                of_code(&findings, "W033").is_empty(),
+                "{incoming:?}: {findings:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn ensures_without_requires_is_i011_and_prose_invariants_are_w040() {
+        let input = PassInput {
+            entities: vec![
+                entity("guaranteeing", "behavior", &[("ensures", "done")]),
+                entity(
+                    "contracted",
+                    "behavior",
+                    &[("requires", "ready"), ("ensures", "done")],
+                ),
+                entity("prose", "invariant", &[("guarantee", "ids are unique")]),
+                entity(
+                    "formal",
+                    "invariant",
+                    &[
+                        ("guarantee", "ids are unique"),
+                        ("expression", "count(ids) == count(distinct(ids))"),
+                    ],
+                ),
+            ],
+            ..Default::default()
+        };
+        let findings = pass_condition_check(&input);
+        assert_eq!(
+            of_code(&findings, "I011"),
+            ["behavior 'guaranteeing' declares ensures but no requires"]
+        );
+        assert_eq!(
+            of_code(&findings, "W040"),
+            ["invariant 'prose' states its guarantee in prose only (no expression)"]
+        );
+        assert!(of_code(&findings, "W096").is_empty());
+    }
+
+    #[test]
+    fn a_requires_naming_a_condition_twice_is_w039() {
+        let input = PassInput {
+            entities: vec![
+                entity(
+                    "twice",
+                    "behavior",
+                    &[("requires", "ready, open, ready"), ("ensures", "done")],
+                ),
+                entity(
+                    "once",
+                    "behavior",
+                    &[("requires", "ready, open"), ("ensures", "done")],
+                ),
+            ],
+            ..Default::default()
+        };
+        let findings = pass_condition_check(&input);
+        assert_eq!(
+            of_code(&findings, "W039"),
+            ["behavior 'twice' requires 'ready' more than once (the repeat is redundant)"]
+        );
+    }
+
+    fn depth_input(proven: bool) -> PassInput {
+        let mut connected = entity("connected", "behavior", &[]);
+        connected.outgoing_edge_count = 1;
+        let mut entities = vec![
+            entity("bare", "behavior", &[]),
+            connected,
+            entity("conditioned", "behavior", &[("ensures", "done")]),
+            entity(
+                "kept",
+                "behavior",
+                &[("ensures", "done"), ("maintains", "unique_ids")],
+            ),
+        ];
+        entities[3].testable = true;
+        entities[3].verify_kinds = vec!["unit".into()];
+        entities[3].verify_texts = vec!["works".into()];
+        let results = if proven {
+            serde_json::json!({"results": {"kept": {"tests": [{"name": "t", "status": "pass", "verify": "works"}]}}})
+        } else {
+            serde_json::json!({"results": {}})
+        };
+        PassInput {
+            entities,
+            test_results: Some(serde_json::from_value(results).unwrap()),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn specification_depth_is_reported_from_level_two() {
+        let findings = pass_coverage_tracking(&depth_input(false));
+        assert_eq!(
+            of_code(&findings, "I014"),
+            [
+                "behavior 'conditioned' is at specification depth 'conditions' (level 2 of 4)",
+                "behavior 'kept' is at specification depth 'invariants' (level 3 of 4)",
+            ]
+        );
+        let proven = pass_coverage_tracking(&depth_input(true));
+        assert!(
+            of_code(&proven, "I014")
+                .contains(&"behavior 'kept' is at specification depth 'proofs' (level 4 of 4)"),
+            "{proven:?}"
+        );
+    }
+
+    #[test]
+    fn many_shallow_behaviors_earn_the_adoption_note() {
+        let mut input = depth_input(false);
+        for i in 0..5 {
+            input
+                .entities
+                .push(entity(&format!("prose{i}"), "behavior", &[]));
+        }
+        let findings = pass_coverage_tracking(&input);
+        let notes: Vec<&PassDiagnostic> = findings
+            .iter()
+            .filter(|f| f.code == "I014" && f.entity.is_none())
+            .collect();
+        assert_eq!(notes.len(), 1, "{findings:?}");
+        assert_eq!(
+            notes[0].message,
+            "7 behavior(s) are at specification depth 'prose' or 'entity_graph' (no requires or ensures)"
+        );
+        assert!(notes[0]
+            .suggestion
+            .as_deref()
+            .unwrap()
+            .contains("requires/ensures"));
+        let few = pass_coverage_tracking(&depth_input(false));
+        assert!(few
+            .iter()
+            .all(|f| !(f.code == "I014" && f.entity.is_none())));
+    }
+
+    #[test]
+    fn conditioned_behaviors_earn_one_i015() {
+        let input = PassInput {
+            entities: vec![
+                entity("a", "behavior", &[("requires", "ready")]),
+                entity("b", "behavior", &[("ensures", "done")]),
+                entity("c", "behavior", &[]),
+            ],
+            ..Default::default()
+        };
+        let findings = pass_analysis_available(&input);
+        assert_eq!(
+            of_code(&findings, "I015"),
+            ["2 behavior(s) declare requires/ensures; `specforge analyze` checks them"]
+        );
+        let none = PassInput {
+            entities: vec![entity("c", "behavior", &[])],
+            ..Default::default()
+        };
+        assert!(pass_analysis_available(&none).is_empty());
+    }
+
+    #[test]
+    fn a_refinement_without_invariant_deltas_fails_w133() {
+        use specforge_extension_sdk::{
+            ValidatorContext, ValidatorEntity, ValidatorField, ValidatorVerdict,
+        };
+        let context = |fields: Vec<(&str, &str)>| ValidatorContext {
+            entity: ValidatorEntity {
+                id: "r".into(),
+                kind: "refinement".into(),
+                fields: fields
+                    .into_iter()
+                    .map(|(k, v)| ValidatorField {
+                        key: k.into(),
+                        value: serde_json::Value::String(v.into()),
+                        annotations: Vec::new(),
+                    })
+                    .collect(),
+                methods: Vec::new(),
+            },
+            referenced: Vec::new(),
+            declared_types: Vec::new(),
+            primitives: Vec::new(),
+        };
+        let fails = |fields| {
+            matches!(
+                declaration::refinement_declares_deltas(&context(fields)),
+                ValidatorVerdict::Fail { .. }
+            )
+        };
+        assert!(fails(vec![]), "absent");
+        assert!(fails(vec![("invariant_deltas", "")]), "written empty");
+        assert!(!fails(vec![("invariant_deltas", "adds retry_bound")]));
     }
 }

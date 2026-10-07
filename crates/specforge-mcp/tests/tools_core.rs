@@ -1,118 +1,55 @@
+use crate::support::*;
 use serde_json::{Value, json};
-use specforge_common::SourceSpan;
-use specforge_graph::{Edge, Graph, Node};
+use specforge_extension_sdk::prelude::{PassDiagnostic, PassSeverity};
 use specforge_mcp::McpServer;
-use specforge_parser::{EntityId, EntityKind, FieldMap, FieldValue, SpannedRef, VerifyStatement};
 use specforge_test::prelude::*;
 
-fn span() -> SourceSpan {
-    SourceSpan {
-        file: "test.spec".into(),
-        start_line: 1,
-        start_col: 0,
-        end_line: 5,
-        end_col: 0,
-    }
+/// The project the core tools read: `alpha`, a behavior with a contract
+/// and one obligation; `beta_feature`, the feature that has it; and
+/// `gamma_orphan`, an invariant with no edge and no obligation.
+const SOURCES: &[(&str, &str)] = &[
+    (
+        "test.spec",
+        "behavior alpha \"Alpha Behavior\" {\n    contract \"The system MUST do alpha\"\n    verify unit \"does alpha correctly\"\n}\n",
+    ),
+    (
+        "features.spec",
+        "feature beta_feature \"Beta Feature\" {\n    behaviors [alpha]\n}\n",
+    ),
+    (
+        "invariants.spec",
+        "invariant gamma_orphan \"Gamma Orphan\" {\n}\n",
+    ),
+];
+
+/// [`SOURCES`] on disk, before a test's own files.
+fn project() -> TestProject {
+    SOURCES
+        .iter()
+        .fold(TestProject::new(), |project, (path, text)| {
+            project.file(path, text)
+        })
 }
 
-fn test_server() -> McpServer {
+/// `@test/ext` with the software kinds, as @specforge/testing obligates
+/// them: a testable behavior or invariant must declare obligations (W004),
+/// so its entities count toward coverage.
+fn extension() -> TestExtension {
+    TestExtension::software()
+        .obligating("behavior")
+        .obligating("invariant")
+}
+
+fn test_server() -> Served {
+    project().serve(&[extension()])
+}
+
+/// A server that serves no project: initialize names none. A call that
+/// names a project by `path` is then served that project.
+fn serving_nothing() -> McpServer {
     let mut server = McpServer::new();
-    let req = json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{}});
-    server.handle_message(&req.to_string());
-
-    let state = server.state_mut();
-    let mut graph = Graph::new();
-
-    let mut fields_a = FieldMap::new();
-    fields_a.push(
-        "contract".into(),
-        FieldValue::String("The system MUST do alpha".into()),
-    );
-    let verify_stmts = vec![VerifyStatement {
-        kind: "unit".into(),
-        description: "does alpha correctly".into(),
-    }];
-    fields_a.push("verify".into(), FieldValue::VerifyList(verify_stmts));
-
-    graph.add_node(Node {
-        id: EntityId {
-            raw: "alpha".into(),
-        },
-        kind: EntityKind {
-            raw: "behavior".into(),
-        },
-        title: Some("Alpha Behavior".into()),
-        fields: fields_a,
-        source_span: span(),
-        methods: Vec::new(),
-    });
-
-    let mut fields_b = FieldMap::new();
-    fields_b.push(
-        "behaviors".into(),
-        FieldValue::ReferenceList(vec![SpannedRef {
-            id: "alpha".into(),
-            span: span(),
-        }]),
-    );
-    graph.add_node(Node {
-        id: EntityId {
-            raw: "beta_feature".into(),
-        },
-        kind: EntityKind {
-            raw: "feature".into(),
-        },
-        title: Some("Beta Feature".into()),
-        fields: fields_b,
-        source_span: SourceSpan {
-            file: "features.spec".into(),
-            start_line: 10,
-            start_col: 0,
-            end_line: 15,
-            end_col: 0,
-        },
-        methods: Vec::new(),
-    });
-
-    graph.add_node(Node {
-        id: EntityId {
-            raw: "gamma_orphan".into(),
-        },
-        kind: EntityKind {
-            raw: "invariant".into(),
-        },
-        title: Some("Gamma Orphan".into()),
-        fields: FieldMap::new(),
-        source_span: SourceSpan {
-            file: "invariants.spec".into(),
-            start_line: 1,
-            start_col: 0,
-            end_line: 3,
-            end_col: 0,
-        },
-        methods: Vec::new(),
-    });
-
-    graph.add_edge(Edge {
-        source: "beta_feature".into(),
-        target: "alpha".into(),
-        label: "behaviors".into(),
-    });
-    state.serve_graph(graph, Vec::new());
-    for (kind, testable) in [("behavior", true), ("invariant", true), ("feature", false)] {
-        state.edit_environment(|env| {
-            env.registries.kinds.register(kind_entry(kind, testable));
-            // As @specforge/testing does: a testable software kind must
-            // declare obligations (W004), so its entities count toward
-            // coverage.
-            if testable {
-                env.registries
-                    .rules
-                    .push(crate::support::obligations_rule(kind));
-            }
-        });
-    }
-
+    let reply = call(&mut server, "initialize", json!({}));
+    assert!(reply["error"].is_null(), "{reply}");
     server
 }
 
@@ -135,27 +72,107 @@ fn inspect_testable_is_the_kinds_and_declared_is_the_entitys() {
     assert_eq!(inspect("beta_feature"), (json!(false), json!(false)));
 }
 
-/// A kind as an extension registers it; only `testable` matters here.
-fn kind_entry(kind: &str, testable: bool) -> specforge_registry::KindRegistryEntry {
-    specforge_registry::KindRegistryEntry {
-        kind_name: kind.into(),
-        source_extension: "@test/ext".into(),
-        testable,
-        supports_verify: testable,
-        allowed_verify_kinds: Vec::new(),
-        lifecycle_field: None,
-        ..Default::default()
-    }
+/// [`test_server`] with a testable kind no rule obligates (`constraint`),
+/// a union of one (`type`), and an entity of a kind no extension declares.
+fn standings_server() -> Served {
+    project()
+        .file(
+            "standings.spec",
+            "constraint free_one \"Free\" {\n}\ntype Choice = yes | no\ngizmo thing \"Thing\" {\n}\n",
+        )
+        .serve(&[extension().kind("constraint", true).kind("type", true)])
 }
 
-fn call_tool(server: &mut McpServer, tool_name: &str, args: Value) -> Value {
-    let req = json!({
-        "jsonrpc": "2.0", "id": 1,
-        "method": "tools/call",
-        "params": { "name": tool_name, "arguments": args }
-    });
-    let resp = server.handle_message(&req.to_string()).unwrap();
-    serde_json::from_str(&resp).unwrap()
+const STANDING_IDS: [&str; 6] = [
+    "alpha",
+    "beta_feature",
+    "gamma_orphan",
+    "free_one",
+    "Choice",
+    "thing",
+];
+
+fn inspected(server: &mut McpServer, id: &str) -> Value {
+    let resp = call_tool(server, "specforge.inspect", json!({"entity_id": id}));
+    tool_json(&resp)
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_inspect_tool",
+    verify = "exempt says the entity does not count toward coverage, as specforge.coverage's row says"
+)]
+fn inspect_exempt_is_the_coverage_rows() {
+    let mut server = standings_server();
+    let mut exempt = Vec::new();
+    for id in STANDING_IDS {
+        let inspect = inspected(&mut server, id);
+        let resp = call_tool(&mut server, "specforge.coverage", json!({"entity_id": id}));
+        let rows = tool_json(&resp);
+        let row = &rows.as_array().unwrap_or_else(|| panic!("{rows}"))[0];
+        assert_eq!(inspect["exempt"], row["exempt"], "{id}");
+        exempt.push((id, inspect["exempt"].as_bool().unwrap()));
+    }
+    assert_eq!(
+        exempt,
+        [
+            ("alpha", false),
+            ("beta_feature", false),
+            ("gamma_orphan", false),
+            ("free_one", true),
+            ("Choice", true),
+            ("thing", false),
+        ]
+    );
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_inspect_tool",
+    verify = "obligated says whether the entity's kind must declare obligations"
+)]
+fn inspect_obligated_follows_the_rule_set() {
+    let mut server = standings_server();
+    // W004 targets behavior and invariant.
+    assert_eq!(inspected(&mut server, "alpha")["obligated"], json!(true));
+    assert_eq!(
+        inspected(&mut server, "gamma_orphan")["obligated"],
+        json!(true)
+    );
+    // A union of a kind no rule obligates: exempt, and why.
+    let choice = inspected(&mut server, "Choice");
+    assert_eq!(
+        (&choice["exempt"], &choice["obligated"]),
+        (&json!(true), &json!(false))
+    );
+    assert_eq!(
+        inspected(&mut server, "free_one")["obligated"],
+        json!(false)
+    );
+    assert_eq!(
+        inspected(&mut server, "beta_feature")["obligated"],
+        json!(false)
+    );
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_inspect_tool",
+    verify = "source_extension names the extension that declares the entity's kind"
+)]
+fn inspect_names_the_declaring_extension() {
+    let mut server = standings_server();
+    for id in ["alpha", "beta_feature", "free_one", "Choice"] {
+        assert_eq!(
+            inspected(&mut server, id)["source_extension"],
+            json!("@test/ext"),
+            "{id}"
+        );
+    }
+    // A kind no loaded extension declares.
+    let thing = inspected(&mut server, "thing");
+    assert!(thing["source_extension"].is_null(), "{thing}");
+    assert!(
+        thing.as_object().unwrap().contains_key("source_extension"),
+        "always present"
+    );
 }
 
 /// The node ids of a graph-shaped payload, sorted.
@@ -177,13 +194,6 @@ fn node<'a>(parsed: &'a Value, id: &str) -> &'a Value {
         .iter()
         .find(|n| n["id"] == id)
         .unwrap_or_else(|| panic!("no {id} in {parsed}"))
-}
-
-fn tool_text(resp: &Value) -> String {
-    resp["result"]["content"][0]["text"]
-        .as_str()
-        .unwrap()
-        .to_string()
 }
 
 // --- specforge.query ---
@@ -311,8 +321,7 @@ fn export_graph_format() {
     verify = "all three formats (context, brief, graph) supported"
 )]
 fn export_context_format() {
-    let mut server = test_server();
-    crate::support::declare_headline_fields(&mut server, "behavior");
+    let mut server = project().serve(&[extension().headline("behavior")]);
     let resp = call_tool(
         &mut server,
         "specforge.export",
@@ -507,7 +516,8 @@ fn search_missing_query() {
 // --- specforge.schema ---
 
 /// A server that compiled `project_with_errors_and_warnings` (which loads
-/// `@specforge/software`), and its `specforge.schema` reply for `args`.
+/// `@specforge/software`), and its `specforge.schema` reply for `args`:
+/// serving nothing, the server is served the project `validate` names.
 fn compiled_schema(server: &mut McpServer, project: &tempfile::TempDir, args: Value) -> Value {
     call_tool(
         server,
@@ -531,7 +541,7 @@ fn names(list: &Value, key: &str) -> Vec<String> {
 )]
 fn schema_tool_returns_the_graph_protocol_schema() {
     let project = project_with_errors_and_warnings();
-    let mut server = test_server();
+    let mut server = serving_nothing();
     let schema = compiled_schema(&mut server, &project, json!({}));
 
     assert_eq!(
@@ -577,7 +587,7 @@ fn schema_tool_returns_the_graph_protocol_schema() {
 )]
 fn schema_tool_kind_filter() {
     let project = project_with_errors_and_warnings();
-    let mut server = test_server();
+    let mut server = serving_nothing();
     let schema = compiled_schema(&mut server, &project, json!({"kind": "invariant"}));
     assert_eq!(names(&schema["entity_kinds"], "name"), ["invariant"]);
     // The edge types that can end at an invariant, and the open ones.
@@ -654,45 +664,21 @@ fn coverage_alpha_uncovered_without_tests() {
 
 /// The server with a behavior `two` declaring obligations "a" and "b", and
 /// a `specforge-report.json` recording `tests` (verify text, status) for it.
-/// The tempdir must outlive the server's use of the report.
-fn server_with_report(tests: &[(&str, &str)]) -> (McpServer, tempfile::TempDir) {
-    let mut server = test_server();
-    let mut fields = FieldMap::new();
-    fields.push(
-        "verify".into(),
-        FieldValue::VerifyList(
-            ["a", "b"]
-                .map(|text| VerifyStatement {
-                    kind: "unit".into(),
-                    description: text.into(),
-                })
-                .to_vec(),
-        ),
-    );
-    server.state_mut().edit_graph(|graph| {
-        graph.add_node(Node {
-            id: EntityId { raw: "two".into() },
-            kind: EntityKind {
-                raw: "behavior".into(),
-            },
-            title: None,
-            fields,
-            source_span: span(),
-            methods: Vec::new(),
-        });
-    });
+fn server_with_report(tests: &[(&str, &str)]) -> Served {
     let tests: Vec<Value> = tests
         .iter()
         .map(|(verify, status)| json!({"name": verify, "verify": verify, "status": status}))
         .collect();
-    let project = tempfile::tempdir().unwrap();
-    std::fs::write(
-        project.path().join("specforge-report.json"),
-        json!({"results": {"two": {"tests": tests}}}).to_string(),
-    )
-    .unwrap();
-    crate::support::serve_in_memory_at(server.state_mut(), project.path());
-    (server, project)
+    project()
+        .file(
+            "two.spec",
+            "behavior two \"Two\" {\n    verify unit \"a\"\n    verify unit \"b\"\n}\n",
+        )
+        .file(
+            "specforge-report.json",
+            &json!({"results": {"two": {"tests": tests}}}).to_string(),
+        )
+        .serve(&[extension()])
 }
 
 /// `specforge.coverage`'s result for `two`.
@@ -707,14 +693,14 @@ fn coverage_of_two(server: &mut McpServer) -> Value {
     verify = "an entity with an unproven obligation is partial, not covered"
 )]
 fn coverage_with_an_unproven_obligation_is_partial() {
-    let (mut server, _project) = server_with_report(&[("a", "pass")]);
+    let mut server = server_with_report(&[("a", "pass")]);
     let two = coverage_of_two(&mut server);
     assert_eq!(two["status"], "partial", "{two}");
     assert_eq!(two["obligations"], 2);
     assert_eq!(two["proven"], 1);
     assert_eq!(two["unproven"], json!(["b"]));
 
-    let (mut server, _project) = server_with_report(&[("a", "pass"), ("b", "pass")]);
+    let mut server = server_with_report(&[("a", "pass"), ("b", "pass")]);
     let two = coverage_of_two(&mut server);
     assert_eq!(two["status"], "covered", "{two}");
     assert_eq!(two["unproven"], json!([]));
@@ -726,13 +712,13 @@ fn coverage_with_an_unproven_obligation_is_partial() {
 )]
 fn coverage_with_a_failing_test_is_partial() {
     // Both obligations are proven, but a third test fails (A014).
-    let (mut server, _project) = server_with_report(&[("a", "pass"), ("b", "pass"), ("a", "fail")]);
+    let mut server = server_with_report(&[("a", "pass"), ("b", "pass"), ("a", "fail")]);
     let two = coverage_of_two(&mut server);
     assert_eq!(two["status"], "partial", "{two}");
     assert_eq!(two["proven"], 2);
 
     // A failing test proves nothing, even when it names an obligation.
-    let (mut server, _project) = server_with_report(&[("a", "fail")]);
+    let mut server = server_with_report(&[("a", "fail")]);
     let two = coverage_of_two(&mut server);
     assert_eq!(two["status"], "partial", "{two}");
     assert_eq!(two["unproven"], json!(["a", "b"]));
@@ -745,30 +731,12 @@ fn coverage_with_a_failing_test_is_partial() {
 fn coverage_sees_statements_behind_a_verify_field() {
     // A struct member named `verify` comes before the entity's statement,
     // as in `type Payload { verify string @optional; verify unit "..." }`.
-    let mut server = test_server();
-    let mut fields = FieldMap::new();
-    fields.push("verify".into(), FieldValue::Identifier("string".into()));
-    fields.push(
-        "verify".into(),
-        FieldValue::VerifyList(vec![VerifyStatement {
-            kind: "unit".into(),
-            description: "payload is valid".into(),
-        }]),
-    );
-    server.state_mut().edit_graph(|graph| {
-        graph.add_node(Node {
-            id: EntityId {
-                raw: "payload".into(),
-            },
-            kind: EntityKind {
-                raw: "behavior".into(),
-            },
-            title: None,
-            fields,
-            source_span: span(),
-            methods: Vec::new(),
-        });
-    });
+    let mut server = project()
+        .file(
+            "payload.spec",
+            "behavior payload \"Payload\" {\n    verify string @optional\n    verify unit \"payload is valid\"\n}\n",
+        )
+        .serve(&[extension()]);
 
     let resp = call_tool(
         &mut server,
@@ -823,7 +791,7 @@ fn analyze_reads_the_project_report_by_default() {
     )
     .unwrap();
 
-    let mut server = test_server();
+    let mut server = serving_nothing();
     let resp = call_tool(
         &mut server,
         "specforge.analyze",
@@ -865,7 +833,7 @@ fn analyze_returns_orphans_only_when_records_are_orphaned() {
     .unwrap();
     std::fs::write(root.join("app.spec"), "behavior widget \"Widget\" {\n}\n").unwrap();
     let report = root.join("specforge-report.json");
-    let mut server = test_server();
+    let mut server = serving_nothing();
     let mut run = |strict: bool| -> Value {
         let resp = call_tool(
             &mut server,
@@ -900,13 +868,10 @@ fn mcp_error(resp: &Value) -> Value {
 )]
 fn coverage_refuses_a_malformed_report() {
     let mut server = test_server();
-    let project = tempfile::tempdir().unwrap();
-    std::fs::write(
-        project.path().join("specforge-report.json"),
+    server.write(
+        "specforge-report.json",
         r#"{"results": {"alpha": {"tests": ["#,
-    )
-    .unwrap();
-    crate::support::serve_in_memory_at(server.state_mut(), project.path());
+    );
 
     let error = mcp_error(&call_tool(&mut server, "specforge.coverage", json!({})));
     assert_eq!(error["code"], "schema_mismatch", "{error}");
@@ -920,7 +885,7 @@ fn coverage_refuses_a_malformed_report() {
     assert_eq!(error["diagnostic"]["code"], "E045", "{error}");
 
     // Without a report, nothing is recorded: not an error.
-    std::fs::remove_file(project.path().join("specforge-report.json")).unwrap();
+    server.remove("specforge-report.json");
     let resp = call_tool(&mut server, "specforge.coverage", json!({}));
     assert_ne!(resp["result"]["isError"], true, "{resp}");
 }
@@ -944,7 +909,7 @@ fn analyze_refuses_a_malformed_report() {
     .unwrap();
     std::fs::write(root.join("specforge-report.json"), "{not json").unwrap();
 
-    let mut server = test_server();
+    let mut server = serving_nothing();
     // The project's own report.
     let error = mcp_error(&call_tool(
         &mut server,
@@ -1133,21 +1098,8 @@ fn stats_returns_statistics() {
         ]
     );
 
-    // Another behavior shows up in its kind's count.
-    server.state_mut().edit_graph(|graph| {
-        graph.add_node(Node {
-            id: EntityId {
-                raw: "delta".into(),
-            },
-            kind: EntityKind {
-                raw: "behavior".into(),
-            },
-            title: None,
-            fields: FieldMap::new(),
-            source_span: span(),
-            methods: Vec::new(),
-        });
-    });
+    // Another behavior, written to disk, shows up in its kind's count.
+    server.write("delta.spec", "behavior delta \"Delta\" {\n}\n");
     let parsed: Value = serde_json::from_str(&tool_text(&call_tool(
         &mut server,
         "specforge.stats",
@@ -1209,12 +1161,13 @@ fn unknown_tool_returns_error() {
 )]
 fn validate_returns_all_diagnostics() {
     let project = project_with_errors_and_warnings();
-    let mut server = test_server();
-    assert!(server.state().graph().node("alpha").is_some());
+    let mut server = serving_nothing();
+    assert_eq!(server.state().project_root(), None);
+    assert_eq!(server.state().graph().node_count(), 0);
     assert!(server.state().diagnostics().is_empty());
 
-    // The project the path names, while no project on disk is served: the
-    // call compiles and serves it.
+    // The project the path names, while no project is served: the call
+    // compiles and serves it.
     let resp = call_tool(
         &mut server,
         "specforge.validate",
@@ -1222,12 +1175,13 @@ fn validate_returns_all_diagnostics() {
     );
     let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
 
-    // The project was compiled: its entities replaced the injected graph,
+    // The project was compiled and is served: its entities are the graph,
     // and its diagnostics are the ones returned.
+    assert!(server.state().project_root().is_some());
     let graph = &server.state().graph();
     assert!(graph.node("lonely").is_some());
     assert!(graph.node("act").is_some());
-    assert!(graph.node("alpha").is_none(), "the old graph remains");
+    assert_eq!(graph.node_count(), 2, "only the project's entities");
     let codes: Vec<&str> = parsed
         .as_array()
         .unwrap()
@@ -1257,7 +1211,7 @@ fn project_with_errors_and_warnings() -> tempfile::TempDir {
 
 /// `specforge.validate`'s diagnostics as (code, severity).
 fn validate(args: Value) -> Vec<(String, String)> {
-    let mut server = test_server();
+    let mut server = serving_nothing();
     let resp = call_tool(&mut server, "specforge.validate", args);
     let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
     parsed
@@ -1309,7 +1263,7 @@ fn validate_strict_promotes_warnings_to_errors() {
 /// whole response.
 fn validate_response(path: &str, mut args: Value) -> Value {
     args["path"] = json!(path);
-    let mut server = test_server();
+    let mut server = serving_nothing();
     call_tool(&mut server, "specforge.validate", args)
 }
 
@@ -1427,7 +1381,7 @@ fn validate_verdict_in_meta_counts_everything_reported() {
 )]
 fn validate_use_cached_false() {
     let project = project_with_errors_and_warnings();
-    let mut server = test_server();
+    let mut server = serving_nothing();
     // The first call serves the project its path names.
     let first = codes_of(&call_tool(
         &mut server,
@@ -1489,7 +1443,7 @@ fn trace_plan_gap_analysis() {
          behavior act_two \"Two\" {\n  verify unit \"y\"\n}\n",
     )
     .unwrap();
-    let mut server = test_server();
+    let mut server = serving_nothing();
     call_tool(
         &mut server,
         "specforge.validate",
@@ -1589,7 +1543,7 @@ fn search_empty_query_returns_all() {
 )]
 fn schema_include_edges_false_omits_edges() {
     let project = project_with_errors_and_warnings();
-    let mut server = test_server();
+    let mut server = serving_nothing();
     let full = compiled_schema(&mut server, &project, json!({}));
     assert_eq!(
         full["edge_types"].as_array().unwrap().len(),
@@ -1608,7 +1562,7 @@ fn schema_include_edges_false_omits_edges() {
 )]
 fn schema_include_validation_rules_lists_extension_rules() {
     let project = project_with_errors_and_warnings();
-    let mut server = test_server();
+    let mut server = serving_nothing();
     // Compiling the project loads @specforge/software's manifest.
     call_tool(
         &mut server,
@@ -1660,7 +1614,7 @@ fn coverage_kind_filter() {
 )]
 fn coverage_status_filter_restricts_status() {
     // `two` has one of its two obligations proven; alpha has none.
-    let (mut server, _project) = server_with_report(&[("a", "pass")]);
+    let mut server = server_with_report(&[("a", "pass")]);
     let ids = |server: &mut McpServer, status: &str| {
         let resp = call_tool(
             server,
@@ -1745,28 +1699,11 @@ fn stats_includes_coverage_percentage() {
     // (invariant, none). beta_feature's kind is not testable.
     assert_eq!(coverage(&mut server), 50.0);
 
-    let mut fields = FieldMap::new();
-    fields.push(
-        "verify".into(),
-        FieldValue::VerifyList(vec![VerifyStatement {
-            kind: "unit".into(),
-            description: "gamma holds".into(),
-        }]),
+    // gamma_orphan declares an obligation on disk.
+    server.write(
+        "invariants.spec",
+        "invariant gamma_orphan \"Gamma Orphan\" {\n    verify unit \"gamma holds\"\n}\n",
     );
-    server.state_mut().edit_graph(|graph| {
-        graph.add_node(Node {
-            id: EntityId {
-                raw: "gamma_orphan".into(),
-            },
-            kind: EntityKind {
-                raw: "invariant".into(),
-            },
-            title: Some("Gamma Orphan".into()),
-            fields,
-            source_span: span(),
-            methods: Vec::new(),
-        });
-    });
     assert_eq!(coverage(&mut server), 100.0);
 }
 
@@ -1776,8 +1713,7 @@ fn stats_includes_coverage_percentage() {
     verify = "format parameter changes output serialization"
 )]
 fn query_format_parameter() {
-    let mut server = test_server();
-    crate::support::declare_headline_fields(&mut server, "behavior");
+    let mut server = project().serve(&[extension().headline("behavior")]);
     // context format
     let resp = call_tool(
         &mut server,
@@ -1826,7 +1762,7 @@ fn query_include_coverage() {
     // Declared obligations with no recorded test: as specforge.coverage says.
     assert_eq!(alpha["coverage_status"], "uncovered");
 
-    let (mut server, _project) = server_with_report(&[("a", "pass"), ("b", "pass")]);
+    let mut server = server_with_report(&[("a", "pass"), ("b", "pass")]);
     let resp = call_tool(
         &mut server,
         "specforge.query",
@@ -1901,24 +1837,18 @@ fn search_references_filter() {
     verify = "response includes diagnostic summary by severity"
 )]
 fn stats_diagnostic_summary_severity_counts() {
-    use specforge_common::{Diagnostic, Severity};
-    let mut server = test_server();
-    let diagnostic = |code: &str, severity| Diagnostic {
-        code: code.into(),
-        severity,
-        message: "m".into(),
-        span: Some(span()),
-        suggestion: None,
-        data: None,
-    };
-    crate::support::report(
-        server.state_mut(),
-        vec![
-            diagnostic("E003", Severity::Error),
-            diagnostic("W001", Severity::Warning),
-            diagnostic("W003", Severity::Warning),
-        ],
-    );
+    // One error, a real unresolved reference (E003); two warnings, a
+    // check-phase pass's. Nothing is obligated, so no W004 joins them.
+    let mut server = project()
+        .file(
+            "broken.spec",
+            "feature broken \"Broken\" {\n    behaviors [ghost]\n}\n",
+        )
+        .serve(&[TestExtension::software()
+            .reporting(PassDiagnostic::new("W901", PassSeverity::Warning, "m").with_entity("alpha"))
+            .reporting(
+                PassDiagnostic::new("W902", PassSeverity::Warning, "m").with_entity("gamma_orphan"),
+            )]);
     let resp = call_tool(&mut server, "specforge.stats", json!({}));
     let text = tool_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();
@@ -1935,9 +1865,9 @@ fn stats_diagnostic_summary_severity_counts() {
     verify = "missing links flagged in trace output"
 )]
 fn trace_flags_the_missing_links() {
-    let mut server = test_server();
     // Invariants are expected to name the behaviors that enforce them.
-    crate::support::declare_reference(&mut server, "invariant", "enforced_by", "behavior");
+    let mut server =
+        project().serve(&[extension().reference("invariant", "enforced_by", "behavior")]);
     let resp = call_tool(
         &mut server,
         "specforge.trace",
@@ -1971,7 +1901,7 @@ fn trace_flags_the_missing_links() {
 )]
 fn validate_use_cached_true() {
     let project = project_with_errors_and_warnings();
-    let mut server = test_server();
+    let mut server = serving_nothing();
     // The first call serves the project its path names.
     let first = codes_of(&call_tool(
         &mut server,
@@ -2003,7 +1933,7 @@ fn validate_use_cached_true() {
 )]
 fn validate_updates_graph() {
     let project = project_with_errors_and_warnings();
-    let mut server = test_server();
+    let mut server = serving_nothing();
     let resp = call_tool(
         &mut server,
         "specforge.validate",
@@ -2035,8 +1965,6 @@ fn validate_updates_graph() {
 #[test]
 fn validate_use_cached_false_triggers_fresh() {
     let mut server = test_server();
-    let project_root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
-    crate::support::serve_in_memory_at(server.state_mut(), &project_root);
     // First compile
     let _resp1 = call_tool(&mut server, "specforge.validate", json!({}));
     // Second call with use_cached=false should recompile
@@ -2247,7 +2175,7 @@ fn explain_an_uncatalogued_code_is_invalid_input() {
 )]
 fn validate_gives_each_catalogued_code_its_title() {
     let project = project_with_errors_and_warnings();
-    let mut server = test_server();
+    let mut server = serving_nothing();
     let resp = call_tool(
         &mut server,
         "specforge.validate",

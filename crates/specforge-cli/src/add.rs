@@ -36,18 +36,21 @@ pub fn run(
         dry_run: false,
     };
     match extension::add(&request, &registry) {
-        Ok(outcome) => {
-            present(&outcome, format);
+        Ok(added) => {
+            present(&added.outcome, &added.writes.names_under(path), format);
             0
         }
+        // An install that failed after placing its module names it.
         Err(error) => {
-            format.print_op_error(&error);
+            format.print_op_error_in(&error, Some(path));
             1
         }
     }
 }
 
-fn present(outcome: &AddOutcome, format: OutputFormat) {
+/// The add's outcome; its JSON lists `files_written` (empty when the
+/// extension was already enabled).
+fn present(outcome: &AddOutcome, files_written: &[String], format: OutputFormat) {
     match (outcome, format) {
         (
             AddOutcome::Builtin {
@@ -62,6 +65,7 @@ fn present(outcome: &AddOutcome, format: OutputFormat) {
             "source": "builtin",
             "changed": changed,
             "peers_enabled": peers_enabled,
+            "files_written": files_written,
         })),
         (
             AddOutcome::Builtin {
@@ -95,6 +99,7 @@ fn present(outcome: &AddOutcome, format: OutputFormat) {
                 "name": name,
                 "version": version,
                 "sha256": sha256,
+                "files_written": files_written,
             });
             match origin {
                 Origin::Installed { source } if source != "registry" => {
@@ -130,6 +135,7 @@ fn present(outcome: &AddOutcome, format: OutputFormat) {
             "name": name,
             "version": version,
             "already_present": true,
+            "files_written": files_written,
         })),
         (AddOutcome::AlreadyPresent { name, version }, OutputFormat::Human) => {
             println!("{name} {version} is already installed");

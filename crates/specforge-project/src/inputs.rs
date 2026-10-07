@@ -16,6 +16,7 @@ use specforge_parser::FieldValue;
 
 use crate::Environment;
 use crate::build_cache::BUILD_CACHE_FILE;
+use crate::snapshot::EntitySnapshot;
 
 /// What a changed path is to a project session.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -96,9 +97,6 @@ impl EnvironmentInputs {
 pub enum Origin {
     /// Opened from the project on disk: it can be brought up to date.
     Disk,
-    /// Built in memory ([`crate::ProjectSession::from_graph`]): never
-    /// changed by disk.
-    InMemory,
     /// No project (an editor with no workspace folder): files are buffers
     /// keyed by absolute path.
     None,
@@ -127,12 +125,17 @@ impl Environment {
         )
     }
 
-    /// The check inputs of this environment over `graph`, as the checks
-    /// read them: the build cache when check-phase passes read it, every
-    /// file a `file_reference` field names, and the directory of each one
-    /// that is missing (the E016 suggestion lists it).
-    pub(crate) fn check_inputs(&self, graph: &specforge_graph::Graph) -> Vec<PathBuf> {
-        let references = self.referenced_files(graph);
+    /// The check inputs of this environment over `graph` (and `entities`,
+    /// its snapshot), as the checks read them: the build cache when
+    /// check-phase passes read it, every file a `file_reference` field or a
+    /// `file_exists` rule names, and the directory of each one that is
+    /// missing (the E016 suggestion lists it).
+    pub(crate) fn check_inputs(
+        &self,
+        graph: &specforge_graph::Graph,
+        entities: &EntitySnapshot,
+    ) -> Vec<PathBuf> {
+        let references = self.named_files(graph, entities);
         let mut inputs: Vec<PathBuf> = self.inputs().check_inputs;
         inputs.extend(
             references
@@ -151,6 +154,22 @@ impl Environment {
     /// With no spec root (no project), every key is the path itself.
     pub fn source_key(&self, path: &Path) -> String {
         source_key(&self.spec_root, path)
+    }
+
+    /// The files the checks read on `graph`, resolved against the spec
+    /// root: those its `file_reference` fields name
+    /// ([`Self::referenced_files`]) and those the `file_exists` rules read
+    /// over `entities`, its snapshot (ADR 0020), sorted and unique.
+    pub fn named_files(
+        &self,
+        graph: &specforge_graph::Graph,
+        entities: &EntitySnapshot,
+    ) -> Vec<PathBuf> {
+        let mut files = self.referenced_files(graph);
+        files.extend(self.registries.rules.files(&entities.rule_input()));
+        files.sort();
+        files.dedup();
+        files
     }
 
     /// The files the `file_reference` fields of `graph` name, resolved
@@ -212,7 +231,7 @@ pub(crate) fn environment_inputs(
         .collect();
     EnvironmentInputs {
         config: root.join("specforge.json"),
-        lock: root.join("specforge.lock"),
+        lock: specforge_wasm::lock_path(root),
         modules,
         check_inputs: if check_passes {
             vec![root.join(BUILD_CACHE_FILE)]

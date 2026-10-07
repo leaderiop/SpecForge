@@ -54,7 +54,7 @@ behavior fa_parse_ensures_block "Parse Ensures Block" {
     inline_parsed    "inline ensures block parsed into EnsuresBlock AST node with ordered ConditionEntry list"
     named_conditions "each inline condition has a name (identifier) and description (string)"
     empty_permitted  "empty ensures block produces empty ConditionEntry list"
-    standalone_info  "ensures without requires produces info diagnostic"
+    standalone_info  "ensures without requires produces info diagnostic (I011, condition_check)"
   }
   features [fa_structured_conditions]
   verify unit "inline ensures block with named conditions parsed"
@@ -82,27 +82,29 @@ behavior fa_parse_maintains_block "Parse Maintains Block" {
   verify unit "maintains block on feature produces warning"
 }
 
-behavior fa_validate_condition_consistency "Validate Condition Consistency" {
+behavior fa_validate_condition_consistency "I011: Ensures Without Requires" {
   category   query
   invariants [fa_condition_consistency]
-  types      [RequiresBlock, EnsuresBlock, MaintainsBlock, ConditionEntry]
+  types      [RequiresBlock, EnsuresBlock, ConditionEntry]
   contract   """
-    Cross-check requires, ensures, and maintains blocks for structural
-    consistency of condition names and scopes. This is a heuristic
-    structural check, not formal semantic analysis.
+    Note a behavior whose conditions are one-sided: it declares an
+    ensures block but no requires block (or an empty one), so it
+    guarantees its postconditions for every input. Reported as I011
+    info by the condition_check pass (specforge analyze), with a
+    suggestion to state what callers must establish, or to leave
+    requires out when the behavior accepts every input. Condition names
+    and descriptions are not cross-checked against each other or
+    against the behavior's scope: no sound check over prose exists.
   """
   requires {
     blocks_parsed "requires, ensures, maintains blocks are parsed into AST"
   }
   ensures {
-    scope_checked         "postconditions referencing undefined state produce warning"
-    maintains_consistent  "maintains conditions consistent with requires and ensures"
     missing_requires_info "ensures without requires produces I011 info"
+    both_sides_pass       "a behavior with requires and ensures produces no I011"
   }
   features   [fa_structured_conditions]
   verify unit "consistent requires and ensures passes"
-  verify unit "ensures referencing undefined state produces warning"
-  verify unit "maintains consistent with requires and ensures passes"
   verify unit "ensures without requires produces I011 info"
 }
 
@@ -112,106 +114,72 @@ behavior fa_condition_check_pass "Condition Check Compiler Pass" {
   types      [RequiresBlock, EnsuresBlock, ConditionEntry]
   produces   [fa_condition_check_complete]
   contract   """
-    The condition_check compiler pass validates all behaviors with
-    requires/ensures blocks after graph construction. Note: this
-    performs heuristic structural checks on named conditions, not
-    formal semantic analysis. Satisfiability and reachability checks
-    operate on condition name patterns and scope relationships.
-
-    E030 pattern catalog: X/not_X contradiction, tautological false,
-    empty domain intersection between conditions.
-    E031 pattern catalog: ensures names set inclusion check —
-    refined ensures MUST be superset of abstract ensures names.
+    The condition_check compiler pass (specforge analyze) checks the
+    structure of every behavior's requires/ensures blocks and every
+    invariant's formal content after resolution. It reads which blocks
+    are written, not what their conditions say:
+    - W096: a behavior declares requires but no ensures (a caller's
+      obligation buys no guarantee).
+    - W039: a behavior's requires names a condition more than once.
+    - I011: a behavior declares ensures but no requires.
+    - W040: an invariant states its guarantee with no expression.
+    Layering conditions (E031, named-condition set inclusion) are
+    checked by layering_verify.
   """
   requires {
     graph_constructed "entity graph is fully built"
     conditions_parsed "all requires/ensures blocks are parsed"
   }
   ensures {
-    satisfiability_checked "preconditions checked for structural satisfiability (not always false)"
-    reachability_checked   "postconditions checked for structural reachability from preconditions"
-    invariant_consistency  "conditions cross-checked with referenced invariants"
-    layering_compliance    "refined behaviors checked: no precondition strengthening, no postcondition weakening (named-condition set inclusion, not logical entailment)"
-    e030_on_contradiction  "structurally contradictory precondition produces E030 (patterns: X/not_X, tautological false, empty domain intersection)"
-    e031_on_layering       "layering condition mismatch (named-condition set violation) produces E031 (pattern: ensures names must be superset of abstract ensures names)"
+    one_sided_obligation "a behavior with requires and no ensures produces W096"
+    repeated_condition   "a requires naming a condition twice produces W039"
+    one_sided_guarantee  "a behavior with ensures and no requires produces I011"
+    prose_invariant      "an invariant with a guarantee and no expression produces W040"
   }
   features   [fa_structured_conditions]
-  verify unit "satisfiable precondition passes"
-  verify unit "structurally contradictory precondition produces E030"
-  verify unit "precondition strengthening in layering produces E031"
-  verify unit "postcondition weakening in layering produces E031"
+  verify unit "behavior with requires and no ensures produces W096"
   verify unit "pass runs after graph construction"
-}
-
-behavior fa_detect_unverifiable_condition "W037: Unverifiable Condition" {
-  category query
-  types    [ConditionEntry, RequiresBlock, EnsuresBlock]
-  contract """
-    Detect conditions (in requires or ensures) that cannot
-    be verified because they reference external state, use ambiguous
-    language, or are tautologically trivial.
-  """
-  ensures {
-    unverifiable_warned "condition referencing external state produces W037"
-    verifiable_passes   "condition with clear, checkable predicate passes"
-    suggestion          "W037 includes suggestion for how to make the condition verifiable"
-  }
-  features [fa_structured_conditions]
-  verify unit "condition referencing unknown state produces W037"
-  verify unit "condition with clear predicate passes"
-}
-
-behavior fa_detect_unreachable_postcondition "W038: Unreachable Postcondition" {
-  category query
-  types    [EnsuresBlock, RequiresBlock, ConditionEntry]
-  contract """
-    Detect postconditions that can never be true given the
-    preconditions. A postcondition contradicting a precondition
-    indicates a condition error.
-  """
-  ensures {
-    unreachable_warned "postcondition contradicting precondition produces W038"
-    reachable_passes   "postcondition consistent with preconditions passes"
-    suggestion         "W038 includes suggestion to fix the contradictory condition"
-  }
-  features [fa_structured_conditions]
-  verify unit "contradictory postcondition produces W038"
-  verify unit "consistent postcondition passes"
 }
 
 behavior fa_detect_redundant_precondition "W039: Redundant Precondition" {
   category query
   types    [RequiresBlock, ConditionEntry]
   contract """
-    Detect preconditions that are implied by other preconditions
-    in the same requires block or by the entity's type constraints.
+    Detect a requires block that names the same condition more than
+    once: the repeat states nothing its first occurrence does not.
+    Reported as a W039 warning by the condition_check pass (specforge
+    analyze), one per repeated name. Conditions are names and prose
+    with no semantics for implication, so a precondition implied by a
+    different one, or by the entity's types, is not detected.
   """
   ensures {
-    redundant_warned     "precondition implied by another produces W039"
-    non_redundant_passes "independent precondition passes"
-    suggestion           "W039 includes suggestion to remove the redundant condition"
+    redundant_warned     "a requires naming a condition twice produces W039"
+    non_redundant_passes "a requires naming each condition once passes"
+    suggestion           "W039 includes suggestion to remove the repeated condition"
   }
   features [fa_structured_conditions]
-  verify unit "precondition implied by sibling produces W039"
+  verify unit "precondition repeated in its requires block produces W039"
   verify unit "independent precondition passes"
 }
 
-behavior fa_detect_invariant_without_property "W040: Invariant Without Formal Property" {
+behavior fa_detect_invariant_without_property "W040: Invariant Without Expression" {
   category query
-  types    [MaintainsBlock]
   contract """
-    Detect invariant entities that have a prose guarantee but no
-    structured maintains block. Formal properties enable automated
-    checking; prose-only invariants rely on manual review.
+    Detect invariant entities whose guarantee is prose only: they write
+    a guarantee but no expression, the machine-checkable claim formal
+    adds to invariants (proof role claim). A prose-only invariant relies
+    on review and tests; one with an expression is also checked by
+    specforge analyze --prove. Reported as a W040 warning by the
+    condition_check pass (specforge analyze).
   """
   ensures {
-    prose_only_warned "invariant with guarantee but no maintains block produces W040"
-    formal_passes     "invariant with maintains block passes"
-    suggestion        "W040 includes suggestion to add maintains block for automated checking"
+    prose_only_warned "invariant with a guarantee but no expression produces W040"
+    formal_passes     "invariant with an expression passes"
+    suggestion        "W040 includes suggestion to add an expression for automated checking"
   }
   features [fa_structured_conditions]
   verify unit "invariant with prose-only guarantee produces W040"
-  verify unit "invariant with maintains block passes"
+  verify unit "invariant with an expression passes"
 }
 
 // ── Port Conditions ──────────────────────────────────────────
@@ -230,53 +198,4 @@ behavior fa_parse_port_operation_conditions "Parse Port Operation Conditions" {
   features [fa_structured_conditions]
   verify unit "port operation with requires/ensures parsed"
   verify unit "port operation conditions validated for consistency"
-}
-
-behavior fa_validate_port_behavior_compatibility "W036: Port-Behavior Condition Compatibility" {
-  category query
-  types    [RequiresBlock, EnsuresBlock]
-  contract """
-    Check that port operation conditions are compatible with the
-    conditions of behaviors that use the port.
-  """
-  requires {
-    port_conditions_parsed     "port operation conditions are parsed"
-    behavior_conditions_parsed "behavior requires/ensures blocks are parsed"
-  }
-  ensures {
-    compatible_passes     "compatible port and behavior conditions produce no diagnostic"
-    strict_precond_warned "port precondition stricter than behavior precondition produces W036"
-    weak_postcond_warned  "port postcondition weaker than behavior postcondition produces W036"
-    suggestion            "W036 includes suggestion to align port and behavior conditions"
-  }
-  features [fa_structured_conditions]
-  verify unit "compatible port and behavior conditions pass"
-  verify unit "stricter port precondition produces W036"
-  verify unit "weaker port postcondition produces W036"
-}
-
-// ── Warn on conditions without formal verify ─────────────────
-
-behavior fa_validate_conditions_without_verify "W144: Conditions Without Formal Verify" {
-  category query
-  types    [RequiresBlock, EnsuresBlock]
-  contract """
-    Detect behaviors that have requires/ensures blocks but no verify
-    statement with kind contract or property. Structured conditions
-    without corresponding formal verification are untested specifications.
-  """
-  requires {
-    conditions_parsed "requires/ensures blocks are parsed"
-  }
-  ensures {
-    missing_verify_warned "behavior with conditions but no contract/property verify produces W144"
-    formal_verify_passes  "behavior with conditions and contract or property verify passes"
-    no_conditions_exempt  "behavior without conditions never produces W144"
-    suggestion            "W144 includes suggestion to add verify contract or verify property"
-  }
-  features [fa_structured_conditions]
-  verify unit "behavior with conditions but no contract/property verify produces W144"
-  verify unit "behavior with conditions and contract verify passes"
-  verify unit "behavior with conditions and property verify passes"
-  verify unit "behavior without conditions never produces W144"
 }

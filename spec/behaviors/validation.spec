@@ -207,5 +207,4 @@ behavior validate_file_reference_paths "Validate File Reference Paths" {
   verify contract "Validate File Reference Paths: file reference validation holds — graph_built_fired, filesystem_available, missing_files_diagnosed, existing_files_pass"
 }
 
-// validate_extension_testability moved to behaviors/zero-entity-validation.spec
-// where its feature owner (zero-entity core) lives.
+// W017 (testable kind without verify support) is registry_build_kinds, in behaviors/zero-entity-registries.spec.

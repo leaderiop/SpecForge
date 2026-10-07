@@ -11,13 +11,14 @@
 
 use super::add::{Checked, fetch_checked, place};
 use super::{Origin, Trust, check_diamonds, extensions_dir, lock_path};
-use crate::OpError;
 use crate::registry::{NO_REGISTRY, Registry};
-use specforge_wasm::{LockFile, installed_wasm_path, read_lock_file, write_lock_file};
+use crate::{OpError, OpErrorKind};
+use specforge_common::{Code, codes};
+use specforge_wasm::{LockFile, LockState, installed_wasm_path, write_lock_file};
 use std::path::Path;
 
 /// The code `update` reports when the project has no lock file.
-pub const NO_LOCK: &str = "E033";
+pub const NO_LOCK: Code = codes::E033;
 
 /// What to update, and how.
 #[derive(Debug, Clone)]
@@ -131,13 +132,32 @@ pub struct BatchUpdateCompleted {
 
 /// Update the extensions `req` names in the project at `req.root`.
 ///
-/// Fails outright (nothing asked, nothing written) with E033 when the
+/// Fails outright (nothing asked, nothing written) with `config_invalid`
+/// when `specforge.json` cannot be used, with E033 when the
 /// project has no lock file, and with E063 when a registry install needs a
 /// registry and none is configured.
 pub fn update(req: &UpdateRequest, registry: &dyn Registry) -> Result<UpdateOutcome, OpError> {
+    // A project whose specforge.json cannot be used is refused before
+    // anything is read or written, as `add` and `remove` refuse it.
+    crate::config::usable(req.root)?;
     let lock_file = lock_path(req.root);
-    let lock = read_lock_file(&lock_file)
-        .map_err(|_| OpError::new(NO_LOCK, "no lock file found. Run `specforge add` first."))?;
+    let lock = match LockState::at(req.root) {
+        LockState::Read(lock) => lock,
+        LockState::Absent => {
+            return Err(OpError::coded(
+                OpErrorKind::PreconditionFailed,
+                NO_LOCK,
+                "no lock file found. Run `specforge add` first.",
+            ));
+        }
+        LockState::Unreadable(problem) => {
+            return Err(OpError::coded(
+                OpErrorKind::PreconditionFailed,
+                NO_LOCK,
+                format!("{}. Run `specforge add` first.", problem.message),
+            ));
+        }
+    };
 
     // Plan: resolve and check every newer package against the lock as it
     // will be, before anything is written.
@@ -176,7 +196,7 @@ pub fn update(req: &UpdateRequest, registry: &dyn Registry) -> Result<UpdateOutc
                     planned.push((entry.name.clone(), checked));
                     status
                 }
-                Err(error) if error.code == NO_REGISTRY => return Err(error),
+                Err(error) if error.is(NO_REGISTRY) => return Err(error),
                 Err(error) => UpdateStatus::Failed(error),
             }
         };
@@ -189,10 +209,12 @@ pub fn update(req: &UpdateRequest, registry: &dyn Registry) -> Result<UpdateOutc
     // An update must also leave the extensions that require it satisfied.
     for (dependent, peer) in broken_dependents(&staged, &planned, registry) {
         if let Some(e) = extensions.iter_mut().find(|e| e.name == peer.0) {
-            e.status = UpdateStatus::Failed(OpError::new(
+            let failed = OpError::new(
+                peer.1.kind,
                 peer.1.code.clone(),
                 format!("updating {} breaks {dependent}: {}", peer.0, peer.1.message),
-            ));
+            );
+            e.status = UpdateStatus::Failed(failed);
         }
     }
 
@@ -403,7 +425,9 @@ mod tests {
                 .filter(|v| req.matches(v))
                 .max()
                 .map(|v| v.to_string())
-                .ok_or_else(|| OpError::new("R-RES-004", format!("no {name} matches {range}")))
+                .ok_or_else(|| {
+                    OpError::diagnostic(codes::R_RES_004, format!("no {name} matches {range}"))
+                })
         }
 
         /// Serves unsigned packages; the tests allow them.
@@ -418,7 +442,9 @@ mod tests {
                 .served
                 .iter()
                 .find(|(n, v, _)| *n == name && *v == version)
-                .ok_or_else(|| OpError::new("R-RES-001", format!("{name}@{version} not served")))?;
+                .ok_or_else(|| {
+                    OpError::diagnostic(codes::R_RES_001, format!("{name}@{version} not served"))
+                })?;
             let declaration = self
                 .declared
                 .iter()
@@ -523,7 +549,7 @@ mod tests {
                 skipped_count: 0,
             }
         );
-        let lock = read_lock_file(&lock_path(dir.path())).unwrap();
+        let lock = specforge_wasm::read_lock_file(&lock_path(dir.path())).unwrap();
         assert_eq!(lock.entries[0].version, "0.1.0");
         assert_eq!(lock.entries[0].wasm_hash, hex_sha256(&greet()));
         assert_eq!(lock.entries[0].source, "registry");
@@ -552,7 +578,10 @@ mod tests {
             }
         );
         assert_eq!(
-            read_lock_file(&lock_path(dir.path())).unwrap().entries[0].version,
+            specforge_wasm::read_lock_file(&lock_path(dir.path()))
+                .unwrap()
+                .entries[0]
+                .version,
             "0.0.9"
         );
     }
@@ -681,12 +710,12 @@ mod tests {
     fn no_lock_and_no_registry_fail_outright() {
         let empty = tempfile::tempdir().unwrap();
         let error = update(&request(empty.path(), false), &FakeRegistry::new()).unwrap_err();
-        assert_eq!(error.code, NO_LOCK);
+        assert!(error.is(NO_LOCK), "{error:?}");
 
         let dir = project(vec![entry("@sdk/greet", "0.0.9", "registry", &[])]);
         let unconfigured = crate::registry::Unconfigured("update");
         let error = update(&request(dir.path(), false), &unconfigured).unwrap_err();
-        assert_eq!(error.code, NO_REGISTRY);
+        assert!(error.is(NO_REGISTRY), "{error:?}");
     }
 
     /// A project enabling nothing yet, with `lock` locked.
@@ -717,6 +746,7 @@ mod tests {
             },
             registry,
         )
+        .map(|added| added.outcome)
     }
 
     fn with_peer(
@@ -757,7 +787,7 @@ mod tests {
                 .serve("@sdk/greet", "0.1.0", greet())
                 .declare("@sdk/greet", "0.1.0", published);
             let err = add_greet(dir.path(), &registry).unwrap_err();
-            assert_eq!(err.code, crate::registry::METADATA_MISMATCH, "{err:?}");
+            assert!(err.is(crate::registry::METADATA_MISMATCH), "{err:?}");
             assert!(err.message.contains("@sdk/greet@0.1.0"), "{err:?}");
             assert!(
                 !installed_wasm_path(&extensions_dir(dir.path()), "@sdk/greet").exists(),
@@ -803,8 +833,37 @@ mod tests {
                 with_peer(declaration_of(&greet()), "@acme/x", "^2"),
             );
         let err = add_greet(dir.path(), &registry).unwrap_err();
-        assert_ne!(err.code, crate::registry::METADATA_MISMATCH, "{err:?}");
+        assert!(!err.is(crate::registry::METADATA_MISMATCH), "{err:?}");
         assert!(err.code.starts_with("R-RES"), "{err:?}");
         assert!(err.message.contains("@acme/x"), "{err:?}");
+    }
+
+    #[specforge_test(
+        behavior = "management_operations_over_the_project_view",
+        verify = "add, update and remove refuse an unusable specforge.json with one refusal, before they write"
+    )]
+    fn an_unusable_config_is_refused_before_the_lock_is_read() {
+        use crate::config::testing::{UNUSABLE, files_under};
+
+        for config in UNUSABLE {
+            // With a lock and without one: the config is refused first.
+            for locked in [true, false] {
+                let dir = if locked {
+                    project(vec![entry("@sdk/greet", "0.0.9", "registry", &[])])
+                } else {
+                    tempfile::tempdir().unwrap()
+                };
+                std::fs::write(dir.path().join("specforge.json"), config).unwrap();
+                let before = files_under(dir.path());
+                let read = specforge_common::read_project_config(dir.path());
+                let refused = crate::config::refusal(&read.problems[0]);
+
+                let unconfigured = crate::registry::Unconfigured("update");
+                let error = update(&request(dir.path(), false), &unconfigured).unwrap_err();
+
+                assert_eq!(error, refused, "{config}, locked: {locked}");
+                assert_eq!(files_under(dir.path()), before, "{config}");
+            }
+        }
     }
 }

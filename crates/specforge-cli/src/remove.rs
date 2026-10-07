@@ -1,28 +1,24 @@
 use crate::OutputFormat;
 use serde_json::json;
 use specforge_ops::extension::{self, Origin, RemoveRequest};
+use specforge_ops::view::ProjectView;
 use std::path::Path;
 
-/// `specforge remove`: the shared remove operation over a fresh compile of
-/// the project, whose loaded declarations say which extensions depend on the
-/// one removed.
+/// `specforge remove`: the shared remove operation over the view of a fresh
+/// compile of the project, whose loaded declarations say which extensions
+/// depend on the one removed.
 pub fn run(name: &str, path: &Path, force: bool, format: OutputFormat) -> i32 {
     let (project, _runtime) = crate::pipeline::compile_project(path);
-    let env = &project.env;
     let request = RemoveRequest {
-        root: path,
         name,
         force,
         dry_run: false,
-        enabled: &env.enabled,
-        loaded: env.registries.declarations(),
-        kinds: &env.registries.kinds,
-        graph: &project.graph,
     };
-    let outcome = match extension::remove(&request) {
+    let outcome = match extension::remove(&ProjectView::of(&project), &request) {
         Ok(outcome) => outcome,
+        // A removal that failed after editing specforge.json names it.
         Err(error) => {
-            format.print_op_error(&error);
+            format.print_op_error_in(&error, Some(path));
             return 1;
         }
     };
@@ -32,6 +28,7 @@ pub fn run(name: &str, path: &Path, force: bool, format: OutputFormat) -> i32 {
             let mut output = json!({
                 "removed": outcome.name,
                 "orphan_warnings": outcome.orphan_warnings,
+                "files_written": outcome.writes.names_under(path),
             });
             match &outcome.origin {
                 Origin::Builtin => output["source"] = json!("builtin"),

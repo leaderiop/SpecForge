@@ -12,6 +12,7 @@ path = "tests/main.rs"
 
 [dependencies]
 specforge-common = { workspace = true }
+specforge-diagnostics = { path = "../specforge-diagnostics" }
 specforge-protocol-types = { path = "../specforge-protocol-types" }
 serde = { workspace = true }
 serde_json = { workspace = true }
@@ -26,3 +27,4 @@ specforge-parser = { workspace = true }
 specforge-graph = { path = "../specforge-graph" }
 specforge-emitter = { path = "../specforge-emitter" }
 specforge-extension-sdk = { path = "../specforge-extension-sdk" }
+tempfile = { workspace = true }

@@ -4,6 +4,7 @@
 
 use serde::ser::SerializeStruct;
 use serde::{Serialize, Serializer};
+use specforge_common::codes;
 use specforge_graph::Graph;
 use specforge_registry::{FieldRegistry, KindRegistry, ManifestFieldType};
 use std::collections::{BTreeMap, BTreeSet, HashSet, VecDeque};
@@ -271,7 +272,7 @@ impl From<TraceError> for OpError {
         let message = error.to_string();
         match error {
             TraceError::EntityNotFound { near, .. } => {
-                let op_error = OpError::new("E003", message);
+                let op_error = OpError::diagnostic(codes::E003, message);
                 match near {
                     Some(near) => op_error.with_suggestion(format!("did you mean '{near}'?")),
                     None => op_error,
@@ -286,8 +287,8 @@ impl From<TraceError> for OpError {
 /// flagged as missing.
 pub fn trace(view: &ProjectView, target: Target) -> Result<TraceOutcome, TraceError> {
     let expectations =
-        TraceExpectations::from_registries(&view.registries.fields, &view.registries.kinds);
-    let graph = view.graph;
+        TraceExpectations::from_registries(&view.registries().fields, &view.registries().kinds);
+    let graph = view.graph();
     match target {
         Target::Entity(entity_id) => {
             let chain = chain(graph, entity_id, &expectations).ok_or_else(|| {

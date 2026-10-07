@@ -3,6 +3,7 @@
 use "extensions/vitest/behaviors"
 
 feature vt_vitest_collection "vitest Collection" {
+  status   done
   problem  """
     TypeScript projects tested with vitest had no way to tell SpecForge
     which entity a test proves, so coverage could only count obligations,

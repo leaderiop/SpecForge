@@ -1,11 +1,19 @@
-//! The one writer of `specforge.json`.
+//! The one writer of `specforge.json`, and the one reader for the
+//! operations that run without a compile.
 //!
 //! Every surface that changes the project config goes through here, so the
 //! file always comes out in one style (pretty-printed, trailing newline)
 //! and an extension entry is matched by its exact name, never a prefix.
+//!
+//! `add` and `update` run before or instead of a compile (ADR 0015, M8),
+//! so they read the config themselves, through `read_project_config`, the
+//! function the compile reads it with, and refuse an unusable one with
+//! [`refusal`], the refusal `remove` builds from the compile's problems:
+//! before anything is written, whatever the operation.
 
-use crate::OpError;
+use crate::{OpError, OpErrorKind};
 use serde_json::Value;
+use specforge_common::{ConfigProblem, ConfigRead, read_project_config};
 use std::path::Path;
 
 /// The config file's name, at the project root.
@@ -17,14 +25,60 @@ pub fn entry_name(entry: &str) -> &str {
     specforge_common::extension_entry_name(entry)
 }
 
+/// The refusal for a `specforge.json` that cannot be edited, from the
+/// reason the compile reports as E069 (`problem` is one that
+/// [`blocks_edits`](ConfigProblem::blocks_edits)): code `config_invalid`,
+/// the reason as its message. The one builder: `add`, `update` and
+/// `remove` refuse with it, from the problems they read or the compile's.
+pub fn refusal(problem: &ConfigProblem) -> OpError {
+    OpError::new(
+        OpErrorKind::SchemaMismatch,
+        "config_invalid",
+        problem.to_string(),
+    )
+}
+
+/// What a project's `specforge.json` is, for an operation that runs
+/// without a compile: [`read_project_config`], refusing with [`refusal`]
+/// when it cannot be used. A missing file is not refused (it is the
+/// default config; [`ConfigRead::found`] says so).
+pub fn usable(root: &Path) -> Result<ConfigRead, OpError> {
+    let read = read_project_config(root);
+    match read.problems.iter().find(|problem| problem.blocks_edits()) {
+        Some(problem) => Err(refusal(problem)),
+        None => Ok(read),
+    }
+}
+
+/// [`usable`], and the project must have a `specforge.json`:
+/// `config_not_found`, with the hint to `init`, when it has none.
+pub fn required(root: &Path) -> Result<ConfigRead, OpError> {
+    let read = usable(root)?;
+    if read.found {
+        Ok(read)
+    } else {
+        Err(not_found(root))
+    }
+}
+
+fn not_found(root: &Path) -> OpError {
+    OpError::new(
+        OpErrorKind::FileNotFound,
+        "config_not_found",
+        format!("no {CONFIG_FILE} in {}", root.display()),
+    )
+    .with_suggestion("run `specforge init` first")
+}
+
 /// Write `config` as the project's `specforge.json`: pretty-printed, with
 /// a trailing newline.
 pub fn write(root: &Path, config: &Value) -> Result<(), OpError> {
     let path = root.join(CONFIG_FILE);
     let text = serde_json::to_string_pretty(config)
-        .map_err(|e| OpError::new("config_invalid", e.to_string()))?;
+        .map_err(|e| OpError::new(OpErrorKind::SchemaMismatch, "config_invalid", e.to_string()))?;
     std::fs::write(&path, text + "\n").map_err(|e| {
         OpError::new(
+            OpErrorKind::of_io(&e),
             "config_write_failed",
             format!("failed to write {}: {e}", path.display()),
         )
@@ -38,36 +92,19 @@ pub fn edit_extensions(
     root: &Path,
     edit: impl FnOnce(&mut Vec<Value>) -> bool,
 ) -> Result<bool, OpError> {
-    let path = root.join(CONFIG_FILE);
-    let content = std::fs::read_to_string(&path).map_err(|_| {
-        OpError::new(
-            "config_not_found",
-            format!("no {CONFIG_FILE} in {}", root.display()),
-        )
-        .with_suggestion("run `specforge init` first")
-    })?;
-    let mut config: Value = serde_json::from_str(&content).map_err(|e| {
-        OpError::new(
-            "config_invalid",
-            format!("{} is not valid JSON: {e}", path.display()),
-        )
-    })?;
-    let object = config.as_object_mut().ok_or_else(|| {
-        OpError::new(
-            "config_invalid",
-            format!("{} must be a JSON object", path.display()),
-        )
-    })?;
+    // The file as the compile reads it: what blocks an edit is its E069.
+    let mut config = required(root)?
+        .config
+        .raw
+        .expect("a usable config that was found has its JSON");
+    let object = config
+        .as_object_mut()
+        .expect("a usable config is a JSON object");
     let extensions = object
         .entry("extensions")
         .or_insert_with(|| Value::Array(Vec::new()))
         .as_array_mut()
-        .ok_or_else(|| {
-            OpError::new(
-                "config_invalid",
-                format!("\"extensions\" in {} must be an array", path.display()),
-            )
-        })?;
+        .expect("a usable config's extensions are an array");
 
     let changed = edit(extensions);
     if changed {
@@ -224,5 +261,111 @@ mod tests {
         let dir = project(r#"{"name":"p","extensions":"@acme/foo"}"#);
         let err = add_extension(dir.path(), "@acme/bar", "@acme/bar").unwrap_err();
         assert_eq!(err.code, "config_invalid");
+    }
+
+    // The reason E069 names and the reason an edit refuses with are one
+    // text, so `remove` can refuse from the compile's reason without
+    // reading the file again.
+    #[test]
+    fn an_edit_refuses_with_the_reason_the_compile_reports() {
+        for config in [
+            r#"{ "extensions": ["@specforge/product",  }"#,
+            "[1,2]",
+            r#"{"name":"p","extensions":"@acme/foo"}"#,
+        ] {
+            let dir = project(config);
+            let read = specforge_common::read_project_config(dir.path());
+            let [problem] = read.problems.as_slice() else {
+                panic!("{config}: {:?}", read.problems);
+            };
+            assert!(problem.blocks_edits(), "{config}");
+
+            let err = remove_extension(dir.path(), "@acme/foo").unwrap_err();
+
+            assert_eq!(err.code, "config_invalid", "{config}");
+            assert_eq!(err.message, problem.to_string(), "{config}");
+        }
+
+        // A problem that does not block an edit: the edit goes around it.
+        let dir = project(r#"{"extensions": ["@acme/foo", 42], "spec_root": 5}"#);
+        let read = specforge_common::read_project_config(dir.path());
+        assert_eq!(read.problems.len(), 2, "{:?}", read.problems);
+        assert!(read.problems.iter().all(|p| !p.blocks_edits()));
+        assert!(remove_extension(dir.path(), "@acme/foo").unwrap());
+    }
+
+    #[specforge_test(
+        behavior = "management_operations_over_the_project_view",
+        verify = "add, update and remove refuse an unusable specforge.json with one refusal, before they write"
+    )]
+    fn one_refusal_for_every_unusable_config() {
+        for config in testing::UNUSABLE {
+            let dir = project(config);
+            let read = specforge_common::read_project_config(dir.path());
+            let [problem] = read.problems.as_slice() else {
+                panic!("{config}: {:?}", read.problems);
+            };
+
+            let refused = refusal(problem);
+            assert_eq!(refused.code, "config_invalid", "{config}");
+            assert_eq!(refused.kind, OpErrorKind::SchemaMismatch, "{config}");
+            assert_eq!(refused.message, problem.to_string(), "{config}");
+            // Whoever reads the file themselves gets the same refusal.
+            assert_eq!(usable(dir.path()).unwrap_err(), refused, "{config}");
+            assert_eq!(required(dir.path()).unwrap_err(), refused, "{config}");
+            assert_eq!(
+                add_extension(dir.path(), "@acme/foo", "@acme/foo").unwrap_err(),
+                refused,
+                "{config}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_missing_config_is_usable_but_not_required() {
+        let dir = tempfile::tempdir().unwrap();
+        let read = usable(dir.path()).unwrap();
+        assert!(!read.found && read.problems.is_empty());
+        assert_eq!(required(dir.path()).unwrap_err().code, "config_not_found");
+    }
+
+    #[test]
+    fn a_problem_that_does_not_block_an_edit_is_usable() {
+        let dir = project(r#"{"extensions": ["@acme/foo", 42], "spec_root": 5}"#);
+        let read = required(dir.path()).unwrap();
+        assert_eq!(read.config.extensions, ["@acme/foo"]);
+        assert_eq!(read.problems.len(), 2);
+    }
+}
+
+/// What the tests of the operations that refuse an unusable config share.
+#[cfg(test)]
+pub(crate) mod testing {
+    /// `specforge.json` texts that are there and can't be used: not JSON,
+    /// not an object, an `extensions` value that is not an array.
+    pub const UNUSABLE: [&str; 3] = [
+        r#"{ "extensions": ["@specforge/product",  }"#,
+        "[1,2]",
+        r#"{"extensions": "@specforge/product"}"#,
+    ];
+
+    /// Every file under `root` with its bytes: what a refused operation
+    /// must leave as it was.
+    pub fn files_under(
+        root: &std::path::Path,
+    ) -> std::collections::BTreeMap<std::path::PathBuf, Vec<u8>> {
+        let mut files = std::collections::BTreeMap::new();
+        let mut dirs = vec![root.to_path_buf()];
+        while let Some(dir) = dirs.pop() {
+            for entry in std::fs::read_dir(&dir).unwrap() {
+                let path = entry.unwrap().path();
+                if path.is_dir() {
+                    dirs.push(path);
+                } else {
+                    files.insert(path.clone(), std::fs::read(&path).unwrap());
+                }
+            }
+        }
+        files
     }
 }

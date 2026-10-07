@@ -6,9 +6,12 @@ use specforge_common::{SourceSpan, Sym};
 use specforge_graph::{DerivedFrom, Edge, Node};
 use specforge_parser::FieldValue;
 
-use super::text::{SourceText, Token, TokenKind};
+use super::references::reference_edges;
+use super::text::SourceText;
 use super::{Navigator, contains};
 use crate::OpError;
+use crate::options::{Choice, OptionTable};
+use specforge_parser::lex::Lexeme;
 
 /// Where an entity is declared: its whole block, and its name token.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -33,25 +36,31 @@ pub enum Direction {
     Both,
 }
 
-impl Direction {
-    /// The direction a surface names (`incoming`, `outgoing`, `both`).
-    pub fn parse(name: &str) -> Option<Self> {
-        match name {
-            "incoming" => Some(Self::Incoming),
-            "outgoing" => Some(Self::Outgoing),
-            "both" => Some(Self::Both),
-            _ => None,
-        }
-    }
-
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::Incoming => "incoming",
-            Self::Outgoing => "outgoing",
-            Self::Both => "both",
-        }
-    }
-}
+/// `specforge.find_references`' `direction` (ADR 0027).
+pub const DIRECTION: OptionTable<Direction> = OptionTable {
+    argument: "direction",
+    choices: &[
+        Choice {
+            name: "incoming",
+            aliases: &[],
+            help: "other entities' references to it",
+            value: Direction::Incoming,
+        },
+        Choice {
+            name: "outgoing",
+            aliases: &[],
+            help: "its own references to other entities",
+            value: Direction::Outgoing,
+        },
+        Choice {
+            name: "both",
+            aliases: &[],
+            help: "",
+            value: Direction::Both,
+        },
+    ],
+    default: Some(Direction::Incoming),
+};
 
 /// A references question: which direction, and whether the entity's own
 /// declaration is among the answers.
@@ -162,18 +171,10 @@ impl<F: Fn(&str) -> Option<String>> Navigator<'_, F> {
     /// The occurrences of `id`, sorted by (file, line, column).
     pub fn references(&self, id: &str, query: ReferenceQuery) -> Result<Vec<Occurrence>, OpError> {
         let node = self.node(id)?;
-        let graph = self.view.graph;
-        let mut occurrences = Vec::new();
-        if matches!(query.direction, Direction::Incoming | Direction::Both) {
-            for edge in graph.edges_to(id) {
-                occurrences.extend(self.edge_occurrences(edge));
-            }
-        }
-        if matches!(query.direction, Direction::Outgoing | Direction::Both) {
-            for edge in graph.edges_from(id) {
-                occurrences.extend(self.edge_occurrences(edge));
-            }
-        }
+        let mut occurrences: Vec<Occurrence> =
+            reference_edges(self.view.graph(), id, query.direction)
+                .flat_map(|(holder, edge)| self.edge_occurrences(holder, edge))
+                .collect();
         if query.include_declaration {
             occurrences.push(self.declaration(node));
         }
@@ -198,7 +199,7 @@ impl<F: Fn(&str) -> Option<String>> Navigator<'_, F> {
     /// just past a token's end counts): what prepareRename and a precise
     /// "go to" read. Only tokens as written answer.
     pub fn occurrence_at(&self, file: &str, line: usize, col: usize) -> Option<Occurrence> {
-        let graph = self.view.graph;
+        let graph = self.view.graph();
         let at = SourceSpan {
             file: Sym::new(file),
             start_line: line,
@@ -214,7 +215,7 @@ impl<F: Fn(&str) -> Option<String>> Navigator<'_, F> {
             let declaration = self.declaration(holder);
             let mut candidates = vec![declaration];
             for edge in graph.edges_from(holder.id.raw.as_str()) {
-                candidates.extend(self.edge_occurrences(edge));
+                candidates.extend(self.edge_occurrences(holder, edge));
             }
             let hit = candidates
                 .into_iter()
@@ -232,11 +233,8 @@ impl<F: Fn(&str) -> Option<String>> Navigator<'_, F> {
     /// method signatures). Without any, the target's tokens in the
     /// holder's block. A token the text does not spell, or no token at
     /// all, is one occurrence at the holder's block, with
-    /// [`Precision::Entity`].
-    pub(crate) fn edge_occurrences(&self, edge: &Edge) -> Vec<Occurrence> {
-        let Some(holder) = self.view.graph.node(edge.source.as_str()) else {
-            return Vec::new();
-        };
+    /// [`Precision::Entity`]. `holder` is the edge's source.
+    pub(crate) fn edge_occurrences(&self, holder: &Node, edge: &Edge) -> Vec<Occurrence> {
         let target = edge.target.as_str();
         let block = &holder.source_span;
         let occurrence = |span: SourceSpan, precision: Precision| Occurrence {
@@ -284,7 +282,7 @@ impl<F: Fn(&str) -> Option<String>> Navigator<'_, F> {
     /// the holder's field values written as type syntax, or in its method
     /// signatures (what `link_derived_references` read them from).
     fn derived_references(&self, text: &SourceText, holder: &Node, edge: &Edge) -> Vec<SourceSpan> {
-        let registries = self.view.registries;
+        let registries = self.view.registries();
         let kind = holder.kind.raw.as_str();
         let derived = registries
             .fields
@@ -316,12 +314,12 @@ impl<F: Fn(&str) -> Option<String>> Navigator<'_, F> {
                     let tokens = text.tokens(&method.span);
                     let open = tokens
                         .iter()
-                        .position(|t| t.kind == TokenKind::Punct('('))
+                        .position(|t| t.is_punct('('))
                         .unwrap_or(tokens.len());
                     spans.extend(
                         tokens[open..]
                             .iter()
-                            .filter(|t| t.kind == TokenKind::Ident && text.token_text(t) == target)
+                            .filter(|t| t.is_name() && text.token_text(t) == target)
                             .map(|t| text.span(method.span.file, t.start, t.end)),
                     );
                 }
@@ -364,7 +362,7 @@ fn written_references(holder: &Node, edge: &Edge) -> Vec<SourceSpan> {
 fn tokens_named(text: &SourceText, span: &SourceSpan, word: &str) -> Vec<SourceSpan> {
     text.tokens(span)
         .into_iter()
-        .filter(|t| t.kind == TokenKind::Ident && text.token_text(t) == word)
+        .filter(|t| t.is_name() && text.token_text(t) == word)
         .map(|t| text.span(span.file, t.start, t.end))
         .collect()
 }
@@ -372,11 +370,11 @@ fn tokens_named(text: &SourceText, span: &SourceSpan, word: &str) -> Vec<SourceS
 /// The entity's name in its declaration: the first token spelling `id` on
 /// the block's first line after the kind keyword.
 fn declaration_name(text: &SourceText, block: &SourceSpan, id: &str) -> Option<SourceSpan> {
-    let tokens: Vec<Token> = text.tokens(block);
+    let tokens: Vec<Lexeme> = text.tokens(block);
     let first_line = block.start_line;
     tokens
         .iter()
-        .filter(|t| t.kind == TokenKind::Ident)
+        .filter(|t| t.is_name())
         .skip(1)
         .take_while(|t| text.position(t.start).0 == first_line)
         .find(|t| text.token_text(t) == id)

@@ -15,6 +15,7 @@ mod files;
 mod find;
 mod fixes;
 mod occurrences;
+mod references;
 mod text;
 
 use std::cell::RefCell;
@@ -23,8 +24,8 @@ use std::rc::Rc;
 
 use specforge_common::{SourceSpan, Sym};
 
-use crate::OpError;
 use crate::view::ProjectView;
+use crate::{OpError, OpErrorKind};
 
 pub use attribution::{is_about, subjects};
 pub use files::{
@@ -35,7 +36,10 @@ pub use find::{
     within_fuzzy_threshold,
 };
 pub use fixes::{Fix, FixKind, FixQuery, FixSource, TextEdit};
-pub use occurrences::{Definition, Direction, Occurrence, Precision, ReferenceQuery, Role};
+pub use occurrences::{
+    DIRECTION, Definition, Direction, Occurrence, Precision, ReferenceQuery, Role,
+};
+pub use references::{Reference, References};
 
 use text::SourceText;
 
@@ -78,13 +82,18 @@ impl<'a, F: Fn(&str) -> Option<String>> Navigator<'a, F> {
 
     /// The entity `id`, or [`NOT_FOUND`].
     fn node(&self, id: &str) -> Result<&'a specforge_graph::Node, OpError> {
-        self.view.graph.node(id).ok_or_else(|| not_found(id))
+        self.view.graph().node(id).ok_or_else(|| not_found(id))
     }
 }
 
 /// The error of a question about `id`, which no entity declares.
 pub fn not_found(id: &str) -> OpError {
-    OpError::new(NOT_FOUND, format!("Entity not found: {id}"))
+    OpError::new(
+        OpErrorKind::EntityNotFound,
+        NOT_FOUND,
+        format!("Entity not found: {id}"),
+    )
+    .with_entity(id)
 }
 
 /// Whether span `inner` lies within `outer`: same file, and its start and

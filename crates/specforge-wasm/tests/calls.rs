@@ -213,6 +213,7 @@ fn command_input() -> WireCommandInput<RawGraph> {
         format: typed(&golden["format"]),
         today: golden["today"].as_str().unwrap().to_string(),
         graph: RawGraph::new(golden["graph"].to_string()).unwrap(),
+        evidence: Default::default(),
     }
 }
 
@@ -677,7 +678,9 @@ fn a_pass_answer_is_bare_or_with_a_summary_and_its_diagnostics_are_canonical() {
     // come back E1 then W1, W1 with `a`'s span; an entity the graph does
     // not have gives no span.
     let span_of = |id: &str| (id == "a").then(|| span(7));
-    let diagnostics = pass_diagnostics(bare, span_of);
+    let diagnostics = pass_diagnostics(EXT, bare, span_of);
+    // Each names the extension that reported it.
+    assert!(diagnostics.iter().all(|d| d.origin() == Some(EXT)));
     let shown: Vec<(&str, Severity, Option<usize>, Option<&str>)> = diagnostics
         .iter()
         .map(|d| {
@@ -723,7 +726,7 @@ fn a_pass_answer_is_bare_or_with_a_summary_and_its_diagnostics_are_canonical() {
         ],
         summary: Map::new(),
     };
-    let order: Vec<String> = pass_diagnostics(output, span_of)
+    let order: Vec<String> = pass_diagnostics(EXT, output, span_of)
         .into_iter()
         .map(|d| d.message)
         .collect();

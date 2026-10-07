@@ -1,14 +1,11 @@
-use crate::DocumentBuffer;
+use crate::document::Document;
 use specforge_common::Diagnostic;
 use specforge_graph::Graph;
 use specforge_ops::view::ProjectView;
 use specforge_project::coverage::RecordedCoverage;
 use specforge_project::{Environment, ProjectSession};
-use specforge_registry::{
-    EdgeRegistry, FieldRegistry, KindRegistry, RegistryBuild,
-    validation_engine::ValidationRulePattern,
-};
-use std::collections::HashMap;
+use specforge_registry::{EdgeRegistry, FieldRegistry, KindRegistry, RegistryBuild};
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -16,7 +13,7 @@ use std::sync::Arc;
 /// `specforge watch` holds: environment, graph, per-file parses and
 /// diagnostics), and the diagnostics last published per URI.
 pub struct LspState {
-    documents: HashMap<String, DocumentBuffer>,
+    documents: HashMap<String, Document>,
     diagnostics: HashMap<String, Vec<Diagnostic>>,
     project: Project,
     /// Where diagnostics without a span were last published.
@@ -25,9 +22,9 @@ pub struct LspState {
     /// recompile can tell whether the client's semantic tokens went stale.
     last_token_signature: u64,
     shutdown: bool,
-    /// The recorded-coverage memo of the stand-in graph readers see while
-    /// the session is out for an update (it records nothing: no root).
-    stand_in_recorded: RecordedCoverage,
+    /// The format configurations the editor was told override its settings
+    /// (once per session and configuration, ADR 0021 D1).
+    format_notices: HashSet<String>,
 }
 
 /// The session, or what readers see while it is out for an update.
@@ -36,10 +33,20 @@ enum Project {
     /// The session is being updated off the async runtime: readers keep
     /// its last complete graph and the environment it was built with, so
     /// they never see a half-applied update.
-    Out {
-        graph: Graph,
-        env: Arc<Environment>,
-    },
+    Out(Box<StandIn>),
+}
+
+/// What readers see while the session is out for an update.
+struct StandIn {
+    graph: Graph,
+    env: Arc<Environment>,
+    /// The text the graph's spans are positions in
+    /// ([`ProjectSession::source_texts`]).
+    texts: HashMap<String, Arc<str>>,
+    /// The recorded-coverage memo of this stand-in graph (it records
+    /// nothing: no root), seeded with the snapshot the session held for
+    /// that graph, so no stand-in reads the memo of another.
+    recorded: RecordedCoverage,
 }
 
 impl Default for LspState {
@@ -58,15 +65,23 @@ impl LspState {
             anchor: None,
             last_token_signature: 0,
             shutdown: false,
-            stand_in_recorded: RecordedCoverage::default(),
+            format_notices: HashSet::new(),
         };
         state.last_token_signature = state.token_signature();
         state
     }
 
+    /// Record that the editor is told `configuration` overrides its
+    /// settings: true the first time this session, false after.
+    pub fn first_format_notice(&mut self, configuration: &str) -> bool {
+        self.format_notices.insert(configuration.to_string())
+    }
+
     /// A digest of everything in the graph and registries that semantic
     /// tokens depend on beyond a document's own text: each entity's ID,
-    /// kind and title, and each kind's `semantic_token` classification.
+    /// kind and title, each kind's `semantic_token` classification, and
+    /// each field's declared type (which values are references, enum
+    /// members or booleans).
     /// Spans are left out, so an edit that only moves text (whitespace)
     /// keeps the signature.
     pub fn token_signature(&self) -> u64 {
@@ -84,6 +99,13 @@ impl LspState {
             .collect();
         kinds.sort();
         kinds.hash(&mut hasher);
+        let mut fields: Vec<(&str, &str, String)> = self
+            .field_registry()
+            .iter()
+            .map(|(kind, field, entry)| (kind, field, format!("{:?}", entry.field_type)))
+            .collect();
+        fields.sort();
+        fields.hash(&mut hasher);
         hasher.finish()
     }
 
@@ -102,7 +124,7 @@ impl LspState {
         }
         self.documents.insert(
             uri.to_string(),
-            DocumentBuffer::new(uri.to_string(), content.to_string()),
+            Document::new(uri.to_string(), content.to_string()),
         );
     }
 
@@ -115,11 +137,11 @@ impl LspState {
         self.documents.contains_key(uri)
     }
 
-    pub fn document(&self, uri: &str) -> Option<&DocumentBuffer> {
+    pub fn document(&self, uri: &str) -> Option<&Document> {
         self.documents.get(uri)
     }
 
-    pub fn document_mut(&mut self, uri: &str) -> Option<&mut DocumentBuffer> {
+    pub fn document_mut(&mut self, uri: &str) -> Option<&mut Document> {
         self.documents.get_mut(uri)
     }
 
@@ -129,17 +151,16 @@ impl LspState {
         uris
     }
 
+    /// Apply one content change to an open document: `range` (UTF-16
+    /// positions) replaced by `new_text`, the whole text when `None`.
     pub fn apply_change(
         &mut self,
         uri: &str,
-        start_line: usize,
-        start_col: usize,
-        end_line: usize,
-        end_col: usize,
+        range: Option<tower_lsp::lsp_types::Range>,
         new_text: &str,
     ) {
         if let Some(doc) = self.documents.get_mut(uri) {
-            doc.apply_change(start_line, start_col, end_line, end_col, new_text);
+            doc.apply_change(range, new_text);
         }
     }
 
@@ -152,6 +173,17 @@ impl LspState {
             .get(uri)
             .map(|v| v.as_slice())
             .unwrap_or(&[])
+    }
+
+    /// Every diagnostic last published, URI by URI in URI order, each list
+    /// in published order: the copies the editor shows (a spanless one
+    /// placed at its first subject's name, its data kept), what the hover
+    /// reports about an entity.
+    pub fn published_diagnostics(&self) -> impl Iterator<Item = &Diagnostic> {
+        let mut uris: Vec<&String> = self.diagnostics.keys().collect();
+        uris.sort();
+        uris.into_iter()
+            .flat_map(|uri| self.diagnostics[uri].iter())
     }
 
     /// The URIs diagnostics were last published for.
@@ -167,7 +199,38 @@ impl LspState {
     pub fn graph(&self) -> &Graph {
         match &self.project {
             Project::Held(session) => session.graph(),
-            Project::Out { graph, .. } => graph,
+            Project::Out(stand_in) => &stand_in.graph,
+        }
+    }
+
+    /// The text the project was last compiled from for session file `key`:
+    /// what a span of the graph or of a diagnostic is a position in. It is
+    /// the open buffer as it was when the compile ran, or the file as the
+    /// compile read it; never the buffer now (an edit waiting to be
+    /// compiled moves every position after it) nor the disk now. `None`
+    /// for a file the compile does not hold.
+    pub fn compiled_text(&self, key: &str) -> Option<Arc<str>> {
+        match &self.project {
+            Project::Held(session) => session.source_text(key),
+            Project::Out(stand_in) => stand_in.texts.get(key).cloned(),
+        }
+    }
+
+    /// Whether the text the editor has for session file `key` (its open
+    /// buffer, else the file on disk) is the text the project was compiled
+    /// from. False when the editor has typed since (the compile is still to
+    /// come), when a closed file changed or went away on disk (the watcher's
+    /// event is still to come), and when the compile holds no text of the
+    /// file. An edit computed from the compile applies only when it holds.
+    pub fn is_compiled(&self, key: &str) -> bool {
+        let Some(compiled) = self.compiled_text(key) else {
+            return false;
+        };
+        let path = self.file_path(key);
+        let uri = crate::backend::file_path_to_uri(&path.to_string_lossy());
+        match self.document(uri.as_str()) {
+            Some(doc) => doc.text() == &*compiled,
+            None => std::fs::read_to_string(path).is_ok_and(|disk| disk == *compiled),
         }
     }
 
@@ -175,7 +238,7 @@ impl LspState {
     pub fn environment(&self) -> &Environment {
         match &self.project {
             Project::Held(session) => session.environment(),
-            Project::Out { env, .. } => env,
+            Project::Out(stand_in) => &stand_in.env,
         }
     }
 
@@ -186,8 +249,8 @@ impl LspState {
     pub fn view(&self) -> ProjectView<'_> {
         match &self.project {
             Project::Held(session) => ProjectView::of_session(session, session.root()),
-            Project::Out { graph, env } => {
-                ProjectView::new(graph, &env.registries, None, &self.stand_in_recorded)
+            Project::Out(stand_in) => {
+                ProjectView::new(&stand_in.graph, &stand_in.env, None, &stand_in.recorded)
             }
         }
     }
@@ -196,7 +259,7 @@ impl LspState {
     pub fn session(&self) -> Option<&ProjectSession> {
         match &self.project {
             Project::Held(session) => Some(session),
-            Project::Out { .. } => None,
+            Project::Out(_) => None,
         }
     }
 
@@ -204,7 +267,7 @@ impl LspState {
     pub fn session_mut(&mut self) -> Option<&mut ProjectSession> {
         match &mut self.project {
             Project::Held(session) => Some(session),
-            Project::Out { .. } => None,
+            Project::Out(_) => None,
         }
     }
 
@@ -213,15 +276,34 @@ impl LspState {
     /// environment. `None` when it is already out.
     pub fn take_session(&mut self) -> Option<ProjectSession> {
         let stand_in = match &self.project {
-            Project::Held(session) => Project::Out {
+            Project::Held(session) => Project::Out(Box::new(StandIn {
                 graph: session.graph().clone(),
                 env: session.shared_environment(),
-            },
-            Project::Out { .. } => return None,
+                texts: session.source_texts(),
+                recorded: RecordedCoverage::of(Arc::clone(session.recorded().entities())),
+            })),
+            Project::Out(_) => return None,
         };
         match std::mem::replace(&mut self.project, stand_in) {
             Project::Held(session) => Some(*session),
-            Project::Out { .. } => None,
+            Project::Out(_) => None,
+        }
+    }
+
+    /// While the session is out for a project's first open: let readers see
+    /// its loaded `environment` (no graph yet), so what needs only the
+    /// environment (the kinds a keyword completion offers) is served before
+    /// its sources are read. Nothing when the session is held.
+    pub fn show_environment(&mut self, environment: Arc<Environment>) {
+        if let Project::Out(stand_in) = &mut self.project {
+            let graph = Graph::new();
+            let recorded = RecordedCoverage::over(&graph, &environment);
+            **stand_in = StandIn {
+                graph,
+                env: environment,
+                texts: HashMap::new(),
+                recorded,
+            };
         }
     }
 
@@ -245,13 +327,6 @@ impl LspState {
 
     pub fn edge_registry(&self) -> &EdgeRegistry {
         &self.registries().edges
-    }
-
-    /// Patterns paired with their originating extension ("" for
-    /// host-generated rules); the origin names the module that owns a
-    /// custom rule's `wasm_function` export.
-    pub fn validation_patterns(&self) -> &[(ValidationRulePattern, String)] {
-        &self.registries().rules
     }
 
     /// Everything built from the loaded extensions.
@@ -296,5 +371,22 @@ impl LspState {
 
     pub fn set_anchor(&mut self, uri: Option<String>) {
         self.anchor = uri;
+    }
+
+    /// Keep what `publication` sends: each file's placed diagnostics (code
+    /// actions read them back; an empty list forgets the file), and where
+    /// diagnostics about no entity went, when any did.
+    pub fn record(&mut self, publication: &crate::publish::Publication) {
+        if let Some(anchor) = &publication.anchor {
+            self.anchor = Some(anchor.to_string());
+        }
+        for (uri, file) in &publication.files {
+            if file.placed.is_empty() {
+                self.diagnostics.remove(uri.as_str());
+            } else {
+                self.diagnostics
+                    .insert(uri.to_string(), file.placed.clone());
+            }
+        }
     }
 }

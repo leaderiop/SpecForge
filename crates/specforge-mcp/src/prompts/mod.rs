@@ -1,6 +1,5 @@
-//! The core prompts: the `prompts/get` dispatcher over the Prompt spec
-//! table ([`CORE_PROMPTS`]), the prompt-side twin of
-//! [`crate::tools::handle_tool_call`].
+//! The core prompts: the `prompts/get` adapter of the request pipeline
+//! ([`crate::surface_call`]) over the Prompt spec table ([`CORE_PROMPTS`]).
 
 mod context;
 mod explore;
@@ -11,10 +10,12 @@ mod trace;
 
 use serde_json::{Value, json};
 
-use crate::prompt::{PromptSpec, prompt_envelope};
-use crate::protocol::{JsonRpcResponse, error_codes};
+use crate::prompt::{PromptOutcome, PromptSpec, prompt_envelope};
+use crate::protocol::JsonRpcResponse;
 use crate::state::McpState;
-use crate::target::{self, Call};
+use crate::surface_call::{Event, Found, Invocation, Ran, Surface};
+use crate::target::{Call, TargetSpec};
+use crate::tool::McpError;
 use crate::types::McpPromptDescriptor;
 pub use table::CORE_PROMPTS;
 
@@ -29,56 +30,82 @@ pub fn descriptors() -> Vec<McpPromptDescriptor> {
     CORE_PROMPTS.iter().map(PromptSpec::descriptor).collect()
 }
 
-pub fn handle_prompt_get(
-    state: &mut McpState,
-    params: Value,
-    id: Option<Value>,
-) -> JsonRpcResponse {
-    if !state.is_initialized() {
-        return JsonRpcResponse::error(id, error_codes::INVALID_REQUEST, "Server not initialized");
+/// `prompts/get`: the core prompt table (no extension declares a prompt).
+/// The request pipeline's prompts adapter ([`crate::surface_call`]).
+pub(crate) struct Prompts;
+
+impl Surface for Prompts {
+    const NAMED_BY: &'static str = "name";
+    const TAKES_ARGUMENTS: bool = true;
+    const EXTENDED: bool = false;
+    const UNKNOWN: &'static str = "Unknown prompt";
+
+    type Core = &'static PromptSpec;
+    type Extension = std::convert::Infallible;
+    type Outcome = PromptOutcome;
+
+    fn core(name: &str) -> Option<&'static PromptSpec> {
+        core_prompt(name)
     }
 
-    // A request that fails GetPromptRequest's own schema is malformed: a
-    // protocol error, as for tools/call.
-    let Some(name) = params.get("name").and_then(Value::as_str) else {
-        return JsonRpcResponse::error(
-            id,
-            error_codes::INVALID_PARAMS,
-            "Missing required parameter: name",
-        );
-    };
-    let arguments = match params.get("arguments") {
-        None | Some(Value::Null) => Value::Object(Default::default()),
-        Some(object @ Value::Object(_)) => object.clone(),
-        Some(_) => {
-            return JsonRpcResponse::error(
-                id,
-                error_codes::INVALID_PARAMS,
-                "Invalid params: arguments must be an object",
-            );
-        }
-    };
-    // So is an unknown prompt: it is not an invocation.
-    let Some(spec) = core_prompt(name) else {
-        return JsonRpcResponse::error(
-            id,
-            error_codes::INVALID_PARAMS,
-            format!("Unknown prompt: {name}"),
-        );
-    };
-
-    let mut event = json!({ "promptName": spec.name });
-    for (argument, field) in [("entity_id", "entityId"), ("kind", "kind")] {
-        if let Some(value) = arguments.get(argument).and_then(Value::as_str) {
-            event[field] = Value::from(value);
-        }
+    fn extension(_: &McpState, _: &str) -> Option<std::convert::Infallible> {
+        None
     }
-    state.push_event("mcp_prompt_invoked", event);
 
-    // The project the prompt reads, brought up to date with disk first.
-    let outcome = match target::resolve(state, spec.target, &arguments) {
-        Ok(target) => (spec.render)(&Call::new(state, target), arguments),
-        Err(refused) => Err(Box::new(crate::tool::McpError::from(refused))),
-    };
-    prompt_envelope(outcome, spec, id)
+    fn target(found: &Found<&'static PromptSpec, std::convert::Infallible>) -> TargetSpec {
+        found.core_entry().target
+    }
+
+    fn invoked(
+        found: &Found<&'static PromptSpec, std::convert::Infallible>,
+        invocation: &Invocation,
+    ) -> Option<Event> {
+        let spec = found.core_entry();
+        let mut event = json!({ "promptName": spec.name });
+        for (argument, field) in [("entity_id", "entityId"), ("kind", "kind")] {
+            if let Some(value) = invocation.arguments.get(argument).and_then(Value::as_str) {
+                event[field] = Value::from(value);
+            }
+        }
+        Some(("mcp_prompt_invoked".to_string(), event))
+    }
+
+    fn run(
+        call: &mut Call<'_>,
+        found: &Found<&'static PromptSpec, std::convert::Infallible>,
+        invocation: &Invocation,
+    ) -> Ran<PromptOutcome> {
+        let spec = found.core_entry();
+        Ran::of((spec.render)(call, invocation.arguments.clone()))
+    }
+
+    fn refused(
+        _: &Found<&'static PromptSpec, std::convert::Infallible>,
+        error: McpError,
+    ) -> Ran<PromptOutcome> {
+        Ran::of(Err(Box::new(error)))
+    }
+
+    fn refusal_mut(outcome: &mut PromptOutcome) -> Option<&mut McpError> {
+        outcome.as_mut().err().map(|refusal| &mut **refusal)
+    }
+
+    fn completed(
+        _: &Found<&'static PromptSpec, std::convert::Infallible>,
+        _: &Invocation,
+        _: &PromptOutcome,
+    ) -> Option<Event> {
+        None
+    }
+
+    fn envelope(
+        _: &McpState,
+        found: &Found<&'static PromptSpec, std::convert::Infallible>,
+        _: &Invocation,
+        outcome: PromptOutcome,
+        id: Option<Value>,
+    ) -> JsonRpcResponse {
+        let spec = found.core_entry();
+        prompt_envelope(outcome, spec, id)
+    }
 }

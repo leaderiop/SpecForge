@@ -10,6 +10,7 @@
 //! same sources yields.
 
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+use std::sync::Arc;
 
 use specforge_common::{Diagnostic, Sym};
 use specforge_graph::{Graph, GraphConfig, Node, build_graph_with_config};
@@ -32,9 +33,11 @@ pub(crate) struct Rebuild {
 /// of a project's sources.
 pub(crate) struct IncrementalBuild {
     graph: Graph,
-    /// Source texts, kept so a whole-file replacement can be diffed
-    /// against the previous text to edit the retained tree.
-    sources: HashMap<String, String>,
+    /// The text each cached parse was made from: what a reader resolves a
+    /// span of the graph against (a span is a position in this text), and
+    /// what a whole-file replacement is diffed against to edit the
+    /// retained tree.
+    sources: HashMap<String, Arc<str>>,
     parsed_files: HashMap<String, SpecFile>,
     /// Retained tree-sitter trees, fed back into `parse_incremental` so
     /// keystroke-sized edits reuse unchanged subtrees.
@@ -46,17 +49,18 @@ pub(crate) struct IncrementalBuild {
 }
 
 impl IncrementalBuild {
-    /// Seeded by a cold build of `files`, which produced `graph` and
-    /// `diagnostics`.
+    /// Seeded by a cold build of `files`, parsed from `sources`, which
+    /// produced `graph` and `diagnostics`.
     pub fn from_cold_build(
         files: Vec<(String, SpecFile)>,
+        sources: HashMap<String, Arc<str>>,
         graph: Graph,
         diagnostics: &[Diagnostic],
         graph_config: GraphConfig,
     ) -> Self {
         IncrementalBuild {
             graph,
-            sources: HashMap::new(),
+            sources,
             parsed_files: files.into_iter().collect(),
             trees: HashMap::new(),
             file_diagnostics: partition_by_file(diagnostics),
@@ -66,7 +70,13 @@ impl IncrementalBuild {
     }
 
     pub fn empty() -> Self {
-        Self::from_cold_build(Vec::new(), Graph::new(), &[], GraphConfig::default())
+        Self::from_cold_build(
+            Vec::new(),
+            HashMap::new(),
+            Graph::new(),
+            &[],
+            GraphConfig::default(),
+        )
     }
 
     /// Compare every rebuild with a cold one (costly).
@@ -76,6 +86,17 @@ impl IncrementalBuild {
 
     pub fn graph(&self) -> &Graph {
         &self.graph
+    }
+
+    /// The text `path`'s cached parse was made from.
+    pub fn source_text(&self, path: &str) -> Option<&Arc<str>> {
+        self.sources.get(path)
+    }
+
+    /// Every cached parse's text, by path (the texts are shared, not
+    /// copied).
+    pub fn source_texts(&self) -> HashMap<String, Arc<str>> {
+        self.sources.clone()
     }
 
     pub fn file_diagnostics(&self, path: &str) -> &[Diagnostic] {
@@ -219,7 +240,7 @@ impl IncrementalBuild {
     /// Parse `text` as `path`, reusing the retained tree.
     fn parse(&mut self, path: &str, text: &str) -> SpecFile {
         let old_tree = match (self.trees.get(path), self.sources.get(path)) {
-            (Some(tree), Some(old)) if old != text => {
+            (Some(tree), Some(old)) if &**old != text => {
                 Some(edited_tree_for_replacement(tree, old, text))
             }
             (Some(tree), Some(_)) => Some(tree.clone()),
@@ -230,7 +251,7 @@ impl IncrementalBuild {
             Some(tree) => self.trees.insert(path.to_string(), tree),
             None => self.trees.remove(path),
         };
-        self.sources.insert(path.to_string(), text.to_string());
+        self.sources.insert(path.to_string(), Arc::from(text));
         spec_file
     }
 }
@@ -377,7 +398,11 @@ mod tests {
         let specs: Vec<SpecFile> = parsed.iter().map(|(_, f)| f.clone()).collect();
         let config = GraphConfig::default();
         let (graph, diagnostics) = build_graph_with_config(&specs, &config);
-        IncrementalBuild::from_cold_build(parsed, graph, &diagnostics, config)
+        let sources = files
+            .iter()
+            .map(|(path, text)| (path.to_string(), Arc::from(*text)))
+            .collect();
+        IncrementalBuild::from_cold_build(parsed, sources, graph, &diagnostics, config)
     }
 
     /// A graph that drifted from its sources outside the changed file is

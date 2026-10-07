@@ -6,8 +6,8 @@
 //! comments and verify statements that mentions the ID is not a reference,
 //! and is left alone (ADR 0016).
 
-use crate::OpError;
 use crate::navigate::{Direction, Navigator, Precision, ReferenceQuery};
+use crate::{OpError, OpErrorKind};
 use specforge_graph::rename::{RenameEdit, apply_edits};
 use std::collections::BTreeSet;
 use std::path::Path;
@@ -37,6 +37,7 @@ pub fn validate_id(id: &str) -> Result<(), OpError> {
         return Ok(());
     }
     Err(OpError::new(
+        OpErrorKind::InvalidInput,
         INVALID_ID,
         format!(
             "invalid entity ID '{id}': it must be 2-60 characters, letters, digits and \
@@ -73,18 +74,22 @@ pub fn plan<F: Fn(&str) -> Option<String>>(
     new_id: &str,
 ) -> Result<RenamePlan, OpError> {
     validate_id(new_id)?;
-    let graph = nav.view().graph;
+    let graph = nav.view().graph();
     if graph.node(old_id).is_none() {
         return Err(OpError::new(
+            OpErrorKind::EntityNotFound,
             NOT_FOUND,
             format!("Entity not found: {old_id}"),
-        ));
+        )
+        .with_entity(old_id));
     }
     if graph.node(new_id).is_some() {
         return Err(OpError::new(
+            OpErrorKind::Conflict,
             TAKEN,
             format!("cannot rename '{old_id}': '{new_id}' exists"),
-        ));
+        )
+        .with_entity(old_id));
     }
     let query = ReferenceQuery {
         direction: Direction::Incoming,
@@ -99,6 +104,7 @@ pub fn plan<F: Fn(&str) -> Option<String>>(
     if !unreadable.is_empty() {
         let files: Vec<&str> = unreadable.into_iter().collect();
         return Err(OpError::new(
+            OpErrorKind::Internal,
             UNREADABLE,
             format!("cannot rename '{old_id}': cannot read {}", files.join(", ")),
         ));
@@ -124,13 +130,14 @@ pub fn plan<F: Fn(&str) -> Option<String>>(
 /// Write `plan`'s edits to the files under `spec_root`: every file is
 /// read and edited first, then written; if a write fails, the files
 /// already written, and the one that failed part-way, get their old text
-/// back.
-pub fn apply(plan: &RenamePlan, spec_root: &Path) -> Result<(), OpError> {
+/// back (and nothing is reported written). Returns the files it wrote.
+pub fn apply(plan: &RenamePlan, spec_root: &Path) -> Result<crate::Writes, OpError> {
     let mut changes = Vec::new();
     for file in plan.affected_files() {
         let path = spec_root.join(file);
         let old = std::fs::read_to_string(&path).map_err(|e| {
             OpError::new(
+                OpErrorKind::of_io(&e),
                 UNREADABLE,
                 format!("failed to read {}: {e}", path.display()),
             )
@@ -144,12 +151,17 @@ pub fn apply(plan: &RenamePlan, spec_root: &Path) -> Result<(), OpError> {
                 let _ = std::fs::write(written, old);
             }
             return Err(OpError::new(
+                OpErrorKind::of_io(&e),
                 UNREADABLE,
                 format!("failed to write {}: {e}", path.display()),
             ));
         }
     }
-    Ok(())
+    Ok(changes
+        .into_iter()
+        .filter(|(_, old, new)| old != new)
+        .map(|(path, _, _)| path)
+        .collect())
 }
 
 #[cfg(test)]

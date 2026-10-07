@@ -103,6 +103,16 @@ behavior pe_cross_extension_query_boundary "Cross-Extension Query Boundary" {
     ReleaseDependsOn, PersonaPrioritizesFeature.
     Any traversal using an edge type not in this allowlist is a bug in
     the product extension.
+
+    One deliberate exception (ADR 0039): delivery evidence (the
+    evidence fields of milestone-completion and the delivery_evidence
+    pass) finds a feature's implementers through the behaviors whose
+    features field names it, BehaviorImplementsFeature, because that is
+    what the recorded tests prove. Its fields are additive and absent
+    without recorded evidence; every status result (done_count,
+    completion_ratio and every other query's answer) still traverses only
+    the 20 product edge types and is identical with and without
+    @specforge/software.
   """
   requires {
     graph_ready "product graph is in ready state"
@@ -125,7 +135,7 @@ behavior pe_cross_extension_query_boundary "Cross-Extension Query Boundary" {
     pe_query_coverage_analysis,
     pe_query_lifecycle_metrics,
   ]
-  verify unit "milestone completion ignores BehaviorImplementsFeature edges from software extension"
+  verify unit "milestone completion's status counts ignore BehaviorImplementsFeature edges from software extension"
   verify unit "feature impact does not follow non-product edge types"
   verify unit "query results are identical with and without @specforge/software"
   verify unit "no traversal call uses empty or wildcard edgeType"
@@ -189,7 +199,8 @@ behavior pe_cross_extension_integration "Cross-Extension Integration with Peer E
     edge (behavior->feature) and the entity_enhancement that adds a behaviors
     field to milestone (MilestoneIncludesBehavior edges) MUST
     integrate correctly with product entities. Product queries MUST NOT follow
-    BehaviorImplementsFeature edges (cross-extension isolation), but the BehaviorImplementsFeature edge MUST
+    BehaviorImplementsFeature edges for any status result (cross-extension
+    isolation; delivery evidence is the one reader of it, ADR 0039), but the BehaviorImplementsFeature edge MUST
     be traversable by software extension queries. Entity enhancements from
     peer extensions MUST add fields to product entity kinds without modifying
     the product manifest.
@@ -198,7 +209,7 @@ behavior pe_cross_extension_integration "Cross-Extension Integration with Peer E
     product_registered "all 9 product entity kinds are in KindRegistry"
   }
   ensures {
-    isolation_maintained   "product queries never follow BehaviorImplementsFeature edges"
+    isolation_maintained   "no product status result follows BehaviorImplementsFeature edges; only delivery evidence reads them (ADR 0039)"
     enhancement_visible    "the behaviors field appears on milestone entities when software is installed"
     standalone_works       "product queries work identically without peer extensions"
     implements_traversable "BehaviorImplementsFeature edges are traversable by software extension queries"

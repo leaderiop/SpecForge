@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
-use specforge_common::{Diagnostic, Severity};
+use specforge_common::{Diagnostic, codes};
 
 use super::registry_config::{AuthMethod, RegistryCredential};
 
@@ -59,52 +59,40 @@ impl CredentialStore {
                     .and_then(|e| chrono::DateTime::parse_from_rfc3339(e).ok())
                     .filter(|deadline| chrono::Utc::now() > *deadline)
                 {
-                    return Err(Diagnostic {
-                        code: "R-AUTH-020".to_string(),
-                        severity: Severity::Error,
-                        message: format!(
+                    return Err(Diagnostic::new(
+                        codes::R_AUTH_020,
+                        format!(
                             "stored token for registry '{}' expired at {}",
                             alias, expires_at
                         ),
-                        span: None,
-                        suggestion: Some(format!(
-                            "run: specforge login --registry {} --token <NEW_TOKEN>",
-                            alias
-                        )),
-                        data: None,
-                    });
+                    )
+                    .with_suggestion(format!(
+                        "run: specforge login --registry {} --token <NEW_TOKEN>",
+                        alias
+                    )));
                 }
                 let secret = if *in_keyring {
                     match super::secrets::load_secret(alias) {
                         Ok(Some(secret)) if !secret.is_empty() => secret,
                         Ok(_) => {
-                            return Err(Diagnostic {
-                                code: "R-AUTH-021".to_string(),
-                                severity: Severity::Error,
-                                message: format!(
+                            return Err(Diagnostic::new(
+                                codes::R_AUTH_021,
+                                format!(
                                     "keyring credential for '{}' is unreadable or missing",
                                     alias
                                 ),
-                                span: None,
-                                suggestion: Some(format!(
-                                    "run: specforge login --registry {} --token <NEW_TOKEN>",
-                                    alias
-                                )),
-                                data: None,
-                            });
+                            )
+                            .with_suggestion(format!(
+                                "run: specforge login --registry {} --token <NEW_TOKEN>",
+                                alias
+                            )));
                         }
                         Err(message) => {
-                            return Err(Diagnostic {
-                                code: "R-AUTH-021".to_string(),
-                                severity: Severity::Error,
-                                message,
-                                span: None,
-                                suggestion: Some(format!(
+                            return Err(Diagnostic::new(codes::R_AUTH_021, message)
+                                .with_suggestion(format!(
                                     "run: specforge login --registry {} --token <NEW_TOKEN>",
                                     alias
-                                )),
-                                data: None,
-                            });
+                                )));
                         }
                     }
                 } else {
@@ -183,56 +171,49 @@ pub fn read_credentials(path: &Path) -> Result<CredentialStore, Diagnostic> {
         return Ok(CredentialStore::default());
     }
 
-    let content = std::fs::read_to_string(path).map_err(|e| Diagnostic {
-        code: "R012".to_string(),
-        severity: Severity::Error,
-        message: format!("failed to read credentials file: {}", e),
-        span: None,
-        suggestion: Some(format!("check permissions on '{}'", path.display())),
-        data: None,
+    let content = std::fs::read_to_string(path).map_err(|e| {
+        Diagnostic::new(
+            codes::R012,
+            format!("failed to read credentials file: {}", e),
+        )
+        .with_suggestion(format!("check permissions on '{}'", path.display()))
     })?;
 
-    serde_json::from_str(&content).map_err(|e| Diagnostic {
-        code: "R012".to_string(),
-        severity: Severity::Error,
-        message: format!("invalid credentials file format: {}", e),
-        span: None,
-        suggestion: Some(format!(
+    serde_json::from_str(&content).map_err(|e| {
+        Diagnostic::new(
+            codes::R012,
+            format!("invalid credentials file format: {}", e),
+        )
+        .with_suggestion(format!(
             "delete '{}' and run `specforge login` again",
             path.display()
-        )),
-        data: None,
+        ))
     })
 }
 
 pub fn write_credentials(path: &Path, store: &CredentialStore) -> Result<(), Diagnostic> {
     if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent).map_err(|e| Diagnostic {
-            code: "R013".to_string(),
-            severity: Severity::Error,
-            message: format!("failed to create credentials directory: {}", e),
-            span: None,
-            suggestion: None,
-            data: None,
+        std::fs::create_dir_all(parent).map_err(|e| {
+            Diagnostic::new(
+                codes::R013,
+                format!("failed to create credentials directory: {}", e),
+            )
         })?;
     }
 
-    let json = serde_json::to_string_pretty(store).map_err(|e| Diagnostic {
-        code: "R013".to_string(),
-        severity: Severity::Error,
-        message: format!("failed to serialize credentials: {}", e),
-        span: None,
-        suggestion: None,
-        data: None,
+    let json = serde_json::to_string_pretty(store).map_err(|e| {
+        Diagnostic::new(
+            codes::R013,
+            format!("failed to serialize credentials: {}", e),
+        )
     })?;
 
-    std::fs::write(path, json).map_err(|e| Diagnostic {
-        code: "R013".to_string(),
-        severity: Severity::Error,
-        message: format!("failed to write credentials file: {}", e),
-        span: None,
-        suggestion: Some(format!("check write permissions on '{}'", path.display())),
-        data: None,
+    std::fs::write(path, json).map_err(|e| {
+        Diagnostic::new(
+            codes::R013,
+            format!("failed to write credentials file: {}", e),
+        )
+        .with_suggestion(format!("check write permissions on '{}'", path.display()))
     })?;
     restrict_permissions(path);
     Ok(())

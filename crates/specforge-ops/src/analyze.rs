@@ -41,6 +41,10 @@ pub enum ReportSource {
 
 pub use crate::prove::ProveOptions;
 
+/// The pass name that runs every pass: what an absent pass means on every
+/// surface (`specforge analyze`, `specforge.analyze`).
+pub const EVERY_PASS: &str = "all";
+
 /// What to run. `Default` is a plain `analyze all`.
 #[derive(Debug, Clone)]
 pub struct AnalyzeOptions {
@@ -56,7 +60,7 @@ pub struct AnalyzeOptions {
 impl Default for AnalyzeOptions {
     fn default() -> Self {
         Self {
-            pass: "all".to_string(),
+            pass: EVERY_PASS.to_string(),
             strict: false,
             report: ReportSource::default(),
             min: None,
@@ -231,15 +235,15 @@ fn analyze_via(
         return Err(AnalyzeError::MinNeedsTestResults);
     }
 
-    let orphans = find_orphans(view.graph, report.as_deref());
+    let orphans = find_orphans(view.graph(), report.as_deref());
 
-    let registries = view.registries;
+    let registries = view.registries();
     let base = AnalysisContext {
-        graph: view.graph,
+        graph: view.graph(),
         kind_registry: &registries.kinds,
         field_registry: &registries.fields,
-        rules: &registries.rules,
-        project_root: view.root,
+        entities: view.entities(),
+        project_root: view.root(),
         test_results: report.as_deref(),
         proved_claims: None,
     };
@@ -271,7 +275,7 @@ fn analyze_via(
             });
         }
     }
-    if view.root.is_some()
+    if view.root().is_some()
         && let Some(runtime) = runtime
     {
         // Declared `after` constraints order a single extension's passes;
@@ -346,8 +350,8 @@ fn select(view: &ProjectView, requested: &str) -> Result<Selection, AnalyzeError
         builtins,
         extension: extension.to_string(),
     };
-    if requested == "all" {
-        return Ok(one(PASS_NAMES.to_vec(), "all"));
+    if requested == EVERY_PASS {
+        return Ok(one(PASS_NAMES.to_vec(), EVERY_PASS));
     }
     // Coverage is an extension pass (ADR 0002).
     if requested == "coverage" {
@@ -360,7 +364,7 @@ fn select(view: &ProjectView, requested: &str) -> Result<Selection, AnalyzeError
     if declared.iter().any(|n| n == requested) {
         return Ok(one(Vec::new(), requested));
     }
-    let mut available: Vec<String> = ["all", "coverage"].map(String::from).to_vec();
+    let mut available: Vec<String> = [EVERY_PASS, "coverage"].map(String::from).to_vec();
     available.extend(PASS_NAMES.iter().map(|n| n.to_string()));
     available.extend(declared);
     Err(AnalyzeError::UnknownPass {
@@ -371,10 +375,10 @@ fn select(view: &ProjectView, requested: &str) -> Result<Selection, AnalyzeError
 
 /// `<extension>:<pass>` of every analyze-phase pass the extensions declare.
 fn declared_pass_names(view: &ProjectView) -> Vec<String> {
-    if view.root.is_none() {
+    if view.root().is_none() {
         return Vec::new();
     }
-    view.registries
+    view.registries()
         .passes
         .iter()
         .filter(|p| !p.is_check_phase())
@@ -434,8 +438,8 @@ mod tests {
 
     struct Project {
         graph: Graph,
-        registries: specforge_registry::RegistryBuild,
-        recorded: coverage::RecordedCoverage,
+        env: specforge_project::Environment,
+        recorded: std::sync::OnceLock<coverage::RecordedCoverage>,
         dir: tempfile::TempDir,
     }
 
@@ -462,8 +466,8 @@ mod tests {
             ];
             Self {
                 graph: Graph::new(),
-                registries,
-                recorded: coverage::RecordedCoverage::default(),
+                env: specforge_project::Environment::with_registries(registries),
+                recorded: std::sync::OnceLock::new(),
                 dir,
             }
         }
@@ -471,9 +475,10 @@ mod tests {
         fn view(&self) -> ProjectView<'_> {
             ProjectView::new(
                 &self.graph,
-                &self.registries,
+                &self.env,
                 Some(self.dir.path()),
-                &self.recorded,
+                self.recorded
+                    .get_or_init(|| coverage::RecordedCoverage::over(&self.graph, &self.env)),
             )
         }
 
@@ -600,8 +605,7 @@ mod tests {
     #[test]
     fn extension_passes_are_skipped_without_a_root() {
         let project = Project::new();
-        let mut view = project.view();
-        view.root = None;
+        let view = project.view().rooted_at(None);
         let outcome = analyze(
             &view,
             Some(&scanning_extension()),
@@ -659,8 +663,7 @@ mod tests {
         std::fs::write(project.dir.path().join("specforge-report.json"), "{}").unwrap();
         let sub = project.dir.path().join("sub");
         std::fs::create_dir(&sub).unwrap();
-        let mut view = project.view();
-        view.root = Some(&sub);
+        let view = project.view().rooted_at(Some(&sub));
         let min = AnalyzeOptions {
             min: Some(50.0),
             ..Default::default()
@@ -735,7 +738,7 @@ mod tests {
     /// testing extension reports `proven` of `total`.
     fn gate_of(pass_name: &str, min: Option<f64>, summary: Value) -> Gate {
         let mut project = Project::new();
-        project.registries.passes = vec![declared("@specforge/testing", "coverage", None)];
+        project.env.registries.passes = vec![declared("@specforge/testing", "coverage", None)];
         std::fs::write(project.dir.path().join("specforge-report.json"), "{}").unwrap();
         let options = AnalyzeOptions {
             pass: pass_name.to_string(),
@@ -807,7 +810,7 @@ mod tests {
     )]
     fn a_failed_gate_leaves_ok_and_the_reports_alone() {
         let mut project = Project::new();
-        project.registries.passes.clear();
+        project.env.registries.passes.clear();
         std::fs::write(project.dir.path().join("specforge-report.json"), "{}").unwrap();
         let outcome = project
             .run(&AnalyzeOptions {

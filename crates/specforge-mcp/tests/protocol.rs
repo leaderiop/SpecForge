@@ -1,12 +1,7 @@
+use crate::support::*;
 use serde_json::{Value, json};
 use specforge_mcp::McpServer;
 use specforge_test::prelude::*;
-
-fn call(server: &mut McpServer, method: &str, params: Value) -> Value {
-    let req = json!({"jsonrpc": "2.0", "id": 1, "method": method, "params": params});
-    let resp = server.handle_message(&req.to_string()).unwrap();
-    serde_json::from_str(&resp).unwrap()
-}
 
 fn call_raw(server: &mut McpServer, input: &str) -> Option<String> {
     server.handle_message(input)
@@ -158,8 +153,8 @@ fn missing_tool_name_returns_32602() {
     verify = "error response does not leak internal state"
 )]
 fn error_does_not_leak_internal_state() {
-    let (mut server, project) = server_with_corrupt_inference_manifest();
-    let root = project.path().to_str().unwrap().to_string();
+    let mut server = server_with_corrupt_inference_manifest();
+    let root = server.root().to_str().unwrap().to_string();
     let failing = [
         ("nonexistent_method", json!({})),
         // Internal failure: the inference manifest does not parse.
@@ -173,7 +168,7 @@ fn error_does_not_leak_internal_state() {
         .map(|(method, params)| call(&mut server, method, params))
         .collect();
     // Internal failure: a file read inside the project root fails.
-    std::fs::remove_file(project.path().join("specforge-infer.json")).unwrap();
+    server.remove("specforge-infer.json");
     responses.push(call(
         &mut server,
         "tools/call",
@@ -266,7 +261,7 @@ fn internal_error_code_defined() {
 fn a_tool_that_cannot_read_its_project_file_fails_with_an_mcp_error() {
     // An execution failure inside the tool: the inference manifest does
     // not parse. Before D4-a this was a -32603 the agent could not act on.
-    let (mut server, _project) = server_with_corrupt_inference_manifest();
+    let mut server = server_with_corrupt_inference_manifest();
     let resp = call(
         &mut server,
         "tools/call",
@@ -357,10 +352,8 @@ fn arguments_that_are_not_an_object_are_invalid_params() {
 
 /// An initialized server over a temp project whose inference manifest is
 /// corrupt, so reading it fails inside the server.
-fn server_with_corrupt_inference_manifest() -> (McpServer, tempfile::TempDir) {
-    let project = tempfile::tempdir().unwrap();
-    std::fs::write(project.path().join("specforge-infer.json"), "{ not json").unwrap();
-    let mut server = init_server();
-    crate::support::serve_in_memory_at(server.state_mut(), project.path());
-    (server, project)
+fn server_with_corrupt_inference_manifest() -> Served {
+    TestProject::new()
+        .file("specforge-infer.json", "{ not json")
+        .serve(&[])
 }

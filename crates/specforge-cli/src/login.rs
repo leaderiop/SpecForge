@@ -1,5 +1,6 @@
 use crate::OutputFormat;
 use serde_json::json;
+use specforge_common::codes;
 use specforge_registry_client::{
     AuthMethod, HttpRegistryClient, RegistryCredential,
     credentials::{credentials_path, read_credentials, write_credentials},
@@ -18,7 +19,7 @@ pub fn run(
     let token_value = match token {
         Some(t) => t.to_string(),
         None => {
-            format.print_error("no token provided. Use --token <TOKEN>", "R-LOGIN-001");
+            format.print_error("no token provided. Use --token <TOKEN>", codes::R_LOGIN_001);
             return 1;
         }
     };
@@ -41,7 +42,8 @@ pub fn run(
         .or_else(|| registries.iter().find(|r| r.default_registry))
         .cloned()
     else {
-        let error = specforge_ops::OpError::new(
+        let error = specforge_ops::OpError::coded(
+            specforge_ops::OpErrorKind::PreconditionFailed,
             specforge_ops::registry::NO_REGISTRY,
             format!("no registry '{alias}' configured, and none is the default"),
         )
@@ -63,7 +65,7 @@ pub fn run(
     let expires_at = match validate_credentials(&client, &registry, &credential) {
         Ok(expires_at) => expires_at,
         Err(diag) => {
-            format.print_error(&diag.message, &diag.code);
+            format.print_diagnostic(&diag);
             return 1;
         }
     };
@@ -74,12 +76,12 @@ pub fn run(
     let cred_path = credentials_path();
     let mut store = read_credentials(&cred_path).unwrap_or_default();
     if let Err(message) = store.set_token(alias, token_value, expires_at) {
-        format.print_error(&message, "R-LOGIN-002");
+        format.print_error(&message, codes::R_LOGIN_002);
         return 1;
     }
 
     if let Err(diag) = write_credentials(&cred_path, &store) {
-        format.print_error(&diag.message, &diag.code);
+        format.print_diagnostic(&diag);
         return 1;
     }
 
@@ -124,7 +126,7 @@ pub fn run_logout(registry_alias: Option<&str>, format: OutputFormat) -> i32 {
     }
 
     if let Err(diag) = write_credentials(&cred_path, &store) {
-        format.print_error(&diag.message, &diag.code);
+        format.print_diagnostic(&diag);
         return 1;
     }
 

@@ -88,12 +88,17 @@ behavior fa_emit_coverage_item_covered_info "I008: Coverage Item Covered by Test
   category query
   types    [CoverageTrackingItem]
   contract """
-    When a coverage tracking item transitions to test_covered status,
-    emit I008 info diagnostic confirming which test discharges the
-    item.
+    When the coverage_tracking pass (specforge analyze) finds a coverage
+    item (an invariant or a testable entity) whose every obligation a
+    passing recorded test names, under @specforge/testing's coverage
+    rule, emit an I008 info diagnostic naming the tests that prove it.
+    An item proven only by an entailed formal claim is not reported,
+    and testing's coverage pass reports only what is unproven (A015),
+    so the two never say the same thing.
   """
   ensures {
-    info_emitted "test_covered item emits I008 with test name"
+    info_emitted      "test_covered item emits I008 with test name"
+    claim_only_silent "an item proven only by an entailed claim emits no I008"
   }
   features [fa_coverage_tracking]
   verify unit "coverage item covered by test produces I008"
@@ -102,13 +107,16 @@ behavior fa_emit_coverage_item_covered_info "I008: Coverage Item Covered by Test
 behavior fa_emit_no_structural_cycles_info "I009: No Structural Cycles Detected" {
   category query
   contract """
-    When the event_graph_analyze pass confirms no unmitigated cycles
-    exist in the event graph, emit I009 info diagnostic. Note: this is
+    When the event_graph_analyze pass finds no unmitigated cycle in an
+    event graph that has flow edges (behaviors producing or consuming
+    events): no E034 cycle through two or more behaviors and no W032
+    retry cycle, emit one I009 info diagnostic. Note: this is
     structural analysis only — runtime deadlocks from dynamic conditions
     are not detected.
   """
   ensures {
     info_emitted "cycle-free event graph emits I009"
+    cycle_silent "an event graph with an unmitigated cycle emits no I009"
   }
   features [fa_coverage_tracking]
   verify unit "cycle-free event graph produces I009"
@@ -117,12 +125,16 @@ behavior fa_emit_no_structural_cycles_info "I009: No Structural Cycles Detected"
 behavior fa_emit_formal_analysis_available "I015: Formal Analysis Available" {
   category query
   contract """
-    When the @specforge/formal extension detects behaviors with
-    requires/ensures blocks, emit I015 info suggesting that the user
-    run specforge analyze for deeper formal analysis.
+    When behaviors declare requires or ensures blocks, the
+    @specforge/formal check-phase pass analysis_available emits one I015
+    info per compile (specforge check, watch, the LSP, MCP) suggesting
+    specforge analyze, which runs the formal passes over them. A project
+    whose behaviors declare neither gets no I015.
   """
   ensures {
-    info_emitted "presence of condition blocks emits I015 suggesting specforge analyze"
+    info_emitted     "presence of condition blocks emits I015 suggesting specforge analyze"
+    once_per_compile "a compile emits at most one I015"
+    absent_silent    "behaviors without requires or ensures emit no I015"
   }
   features [fa_coverage_tracking]
   verify unit "behaviors with requires/ensures trigger I015 info"
@@ -134,28 +146,31 @@ behavior fa_detect_specification_depth "I014: Specification Depth Level" {
   category query
   types    [SpecificationDepthLevel, CoverageTrackingItem]
   contract """
-    Compute the per-entity specification depth level using the
-    SpecificationDepthLevel enum and emit I014 info for entities at
-    Level 2 (conditions) or above. Level 4 (proofs) requires
-    test_covered items — heuristic_ok alone is insufficient.
+    Compute each behavior's specification depth level (the
+    SpecificationDepthLevel enum) in the coverage_tracking pass
+    (specforge analyze). The levels are a ladder, each holding the one
+    below it: prose (no edges in or out), entity_graph (edges, but no
+    requires or ensures), conditions (level 2: requires or ensures),
+    invariants (level 3: also names invariants in maintains or
+    invariants), proofs (level 4: also proven under @specforge/testing's
+    coverage rule, by recorded tests or entailed claims). Emit I014 info
+    for each behavior at level 2 or deeper, with the step to the next
+    level.
   """
   requires {
     all_passes_done "condition_check, layering_verify, event_graph_analyze, coverage_tracking passes completed"
   }
   ensures {
-    level_computed       "each entity's depth level computed: prose (no structured data), entity_graph (has edges), conditions (has requires/ensures), invariants (has maintains + invariant refs), proofs (all items test_covered — heuristic_ok alone insufficient)"
-    multi_dimensional    "each entity also assessed on orthogonal dimensions: condition_depth, invariant_coverage, test_evidence"
-    info_emitted         "entity at Level 2+ emits I014 with current level and next-level suggestion"
-    level_zero_silent    "entity at Level 0 (prose) emits no depth diagnostic"
-    level_one_silent     "entity at Level 1 (entity_graph) emits no depth diagnostic"
-    adoption_nudge       "when >5 behaviors are at Level 0-1, I014 includes suggestion to adopt requires/ensures on critical behaviors"
-    auto_discharge_audit "I014 includes count of heuristic_ok items for review"
+    level_computed    "each behavior's depth level computed: prose (no edges), entity_graph (has edges), conditions (has requires/ensures), invariants (also maintains or invariants refs), proofs (also proven by the coverage rule)"
+    info_emitted      "behavior at Level 2+ emits I014 with current level and next-level suggestion"
+    level_zero_silent "behavior at Level 0 (prose) emits no depth diagnostic"
+    level_one_silent  "behavior at Level 1 (entity_graph) emits no depth diagnostic"
+    adoption_nudge    "when >5 behaviors are at Level 0-1, one more I014 suggests adopting requires/ensures on critical behaviors"
   }
   features [fa_coverage_tracking]
   verify unit "entity with requires/ensures computes as Level 2 (conditions)"
   verify unit "entity with maintains and invariant refs computes as Level 3 (invariants)"
-  verify unit "entity with all items test_covered computes as Level 4 (proofs)"
-  verify unit "entity with only heuristic_ok items does NOT reach Level 4"
+  verify unit "entity with all obligations proven computes as Level 4 (proofs)"
   verify unit "entity at Level 2+ emits I014"
   verify unit "entity at Level 0 emits no depth diagnostic"
   verify unit ">5 prose-only behaviors triggers adoption nudge in I014"

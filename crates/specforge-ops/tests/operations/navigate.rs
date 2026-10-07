@@ -4,7 +4,7 @@
 use specforge_common::SourceSpan;
 use specforge_ops::navigate::{Direction, Navigator, Occurrence, Precision, ReferenceQuery, Role};
 use specforge_ops::view::ProjectView;
-use specforge_project::CompiledProject;
+use specforge_project::{CompiledProject, Environment};
 use specforge_test::prelude::*;
 use tempfile::TempDir;
 
@@ -347,6 +347,32 @@ fn strings_comments_and_verify_texts_are_not_occurrences() {
     );
 }
 
+/// A ref and a behavior listing it (plan 06's R1 fixture).
+const REFS: &str = concat!(
+    "ref gh.issue:42 \"Support Wasm\"\n",
+    "\n",
+    "behavior issue \"Issue tracking\" {\n",
+    "  contract \"tracks issues\"\n",
+    "}\n",
+    "\n",
+    "behavior login \"Login\" {\n",
+    "  contract \"see [docs\"\n",
+    "  refs [gh.issue:42]\n",
+    "}\n",
+);
+
+#[specforge_test(
+    behavior = "go_to_definition",
+    verify = "the definition's selection is the entity's name token"
+)]
+fn a_refs_definition_selects_its_scheme_id() {
+    // A scheme ref ID is one token (the grammar's `scheme_ref_id`).
+    let p = compile(SOFTWARE, &[("main.spec", REFS)]);
+    let definition = p.navigator().definition("gh.issue:42").unwrap();
+    assert_eq!(definition.precision, Precision::Token);
+    assert_eq!(at(&definition.name), "main.spec 1:5-1:16");
+}
+
 #[test]
 fn a_stale_text_gives_entity_precision() {
     let p = nav();
@@ -583,7 +609,7 @@ fn the_referencing_filter_keeps_the_entities_that_reference_the_target() {
 
 // ── Attribution: which entities a diagnostic is about ──────────────────
 
-use specforge_common::{Diagnostic, DiagnosticData, Sym};
+use specforge_common::{Diagnostic, DiagnosticData, Severity, Sym};
 use specforge_ops::navigate::{is_about, subjects};
 
 fn ids(nodes: &[&specforge_graph::Node]) -> Vec<String> {
@@ -610,23 +636,23 @@ fn a_diagnostic_is_about_what_its_data_names() {
         )],
     );
     let graph = &p.project.graph;
-    let cycle = Diagnostic::warning("W061", "reference cycle detected").with_data(
-        DiagnosticData::ReferenceCycle {
+    let cycle = Diagnostic::new(specforge_common::codes::W061, "reference cycle detected")
+        .with_data(DiagnosticData::ReferenceCycle {
             path: vec!["beta".into(), "alpha".into(), "beta".into()],
-        },
-    );
+        });
     assert_eq!(ids(&subjects(graph, &cycle)), ["beta", "alpha"]);
     // Data wins over the span.
-    let named = Diagnostic::warning("W900", "x")
+    let named = Diagnostic::untyped("W900", Severity::Warning, "x")
         .with_span(span("a.spec", (1, 1), (3, 2)))
         .with_data(DiagnosticData::Subject {
             entity: "beta".into(),
         });
     assert_eq!(ids(&subjects(graph, &named)), ["beta"]);
     // A name the graph lacks attributes nothing, unless the span does.
-    let ghost = Diagnostic::warning("W900", "x").with_data(DiagnosticData::Subject {
-        entity: "ghost".into(),
-    });
+    let ghost =
+        Diagnostic::untyped("W900", Severity::Warning, "x").with_data(DiagnosticData::Subject {
+            entity: "ghost".into(),
+        });
     assert!(subjects(graph, &ghost).is_empty());
     let ghost_inside = ghost.clone().with_span(span("a.spec", (2, 3), (2, 10)));
     assert_eq!(ids(&subjects(graph, &ghost_inside)), ["alpha"]);
@@ -645,13 +671,22 @@ fn a_spanned_diagnostic_is_about_the_innermost_block_holding_it_by_column() {
     let alpha = &graph.node("alpha").unwrap().source_span;
     let beta = &graph.node("beta").unwrap().source_span;
     assert_eq!(alpha.start_line, beta.start_line, "one line, two blocks");
-    let at =
-        |col| Diagnostic::warning("W900", "x").with_span(span("a.spec", (1, col), (1, col + 1)));
+    let at = |col| {
+        Diagnostic::untyped("W900", Severity::Warning, "x").with_span(span(
+            "a.spec",
+            (1, col),
+            (1, col + 1),
+        ))
+    };
     assert_eq!(ids(&subjects(graph, &at(alpha.start_col + 2))), ["alpha"]);
     assert_eq!(ids(&subjects(graph, &at(beta.start_col + 2))), ["beta"]);
     // Between the blocks, and in another file: nobody's.
     assert!(subjects(graph, &at(alpha.end_col)).is_empty());
-    let elsewhere = Diagnostic::warning("W900", "x").with_span(span("b.spec", (1, 1), (1, 2)));
+    let elsewhere = Diagnostic::untyped("W900", Severity::Warning, "x").with_span(span(
+        "b.spec",
+        (1, 1),
+        (1, 2),
+    ));
     assert!(subjects(graph, &elsewhere).is_empty());
 }
 
@@ -659,7 +694,11 @@ fn a_spanned_diagnostic_is_about_the_innermost_block_holding_it_by_column() {
 fn the_message_is_never_read() {
     let p = nav();
     let graph = &p.project.graph;
-    let quoting = Diagnostic::warning("W900", "invariant 'session_limit' is spanless");
+    let quoting = Diagnostic::untyped(
+        "W900",
+        Severity::Warning,
+        "invariant 'session_limit' is spanless",
+    );
     assert!(subjects(graph, &quoting).is_empty());
     assert!(!is_about(graph, &quoting, "session_limit"));
     // E003 is about the entity holding the unresolved reference.
@@ -737,6 +776,154 @@ fn a_verify_stub_is_offered_for_an_entity_without_obligations() {
     assert_eq!(stubs[0].subject, Some(Sym::new("first")));
 }
 
+/// The verify stubs of `fixes`: each one's subject and the code it fixes.
+fn stubs(fixes: Vec<Fix>) -> Vec<(String, Option<String>)> {
+    fixes
+        .into_iter()
+        .filter(|f| f.source == FixSource::AddVerifyStub)
+        .map(|f| (f.subject.unwrap().to_string(), f.diagnostic_code))
+        .collect()
+}
+
+#[specforge_test(
+    behavior = "code_actions_for_missing_verify",
+    verify = "no verify stub is offered for an entity a union body or an exempting flag exempts"
+)]
+fn no_verify_stub_for_an_entity_its_structure_exempts() {
+    let p = compile(
+        TESTING,
+        &[(
+            "t.spec",
+            "type Status = open | done\n\ntype Plain \"Plain\" {\n  id string\n}\n",
+        )],
+    );
+    // W004 exempts the union, so its stub would fix nothing (and, with no
+    // block to hold it, break the file).
+    assert_eq!(
+        stubs(fixes_of(&p, &FixQuery::default())),
+        [("Plain".to_string(), Some("W004".to_string()))]
+    );
+    let w004: Vec<String> = p
+        .project
+        .diagnostics()
+        .into_iter()
+        .filter(|d| d.code == "W004")
+        .map(|d| d.message)
+        .collect();
+    assert_eq!(w004.len(), 1, "{w004:?}");
+    assert!(w004[0].contains("'Plain'"), "{w004:?}");
+}
+
+#[specforge_test(
+    behavior = "code_actions_for_missing_verify",
+    verify = "a verify stub fixes the diagnostic that reports its entity, or none when nothing reports it"
+)]
+fn a_verify_stub_is_attributed_to_the_rule_that_reports_its_entity() {
+    let extensions = [
+        "@specforge/software",
+        "@specforge/testing",
+        "@specforge/governance",
+    ];
+    let p = compile(
+        &extensions,
+        &[(
+            "a.spec",
+            "behavior first \"First\" {\n  contract \"c\"\n}\n\n\
+             failure_mode crash \"Crash\" {\n  cause \"c\"\n}\n",
+        )],
+    );
+    // `first` is reported (W004); a failure mode is testable but no rule
+    // obliges its kind, so its stub fixes no diagnostic.
+    let reported: Vec<String> = p
+        .project
+        .diagnostics()
+        .into_iter()
+        .filter(|d| d.code == "W004")
+        .map(|d| d.message)
+        .collect();
+    assert_eq!(reported.len(), 1, "{reported:?}");
+    assert_eq!(
+        stubs(fixes_of(&p, &FixQuery::default())),
+        [
+            ("first".to_string(), Some("W004".to_string())),
+            ("crash".to_string(), None),
+        ]
+    );
+}
+
+/// The §3 probe's kinds and one rule: `item` (testable, accepts verify,
+/// `abstract` exempts), `note` (accepts verify), `memo` (accepts none)
+/// and `P300`, an obligation rule with no target kind.
+fn untargeted_rule() -> specforge_extension_sdk::prelude::ContributionsBuilder {
+    use specforge_extension_sdk::prelude::*;
+    let mut c = ContributionsBuilder::new(ExtensionMeta::new("@pin/untargeted", "0.1.0"));
+    c.kind("item", |k| {
+        k.testable(true).supports_verify(true).open_fields(true);
+        k.field("abstract", |f| {
+            f.field_type(FieldType::Bool).exempts_obligations();
+        });
+    });
+    c.kind("note", |k| {
+        k.supports_verify(true).open_fields(true);
+    });
+    c.kind("memo", |k| {
+        k.open_fields(true);
+    });
+    c.rule("P300", |r| {
+        r.check(CheckKind::NoVerifyStatements)
+            .field("verify")
+            .message_template("{kind} '{id}' declares no verify obligations");
+    });
+    c
+}
+
+#[specforge_test(
+    behavior = "snapshot_entities_once",
+    verify = "a rule without a target kind applies to every kind, for the rule, the standing and the verify stub alike"
+)]
+fn an_untargeted_obligation_rule_stubs_every_kind_that_accepts_verify() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join("specforge.json"),
+        serde_json::json!({"name": "p", "extensions": ["@pin/untargeted"]}).to_string(),
+    )
+    .unwrap();
+    std::fs::write(
+        dir.path().join("a.spec"),
+        "item alpha \"Alpha\" {\n  verify unit \"works\"\n}\n\nitem beta \"Beta\" {\n}\n\n\
+         note gamma \"Gamma\" {\n}\n\nitem delta \"Delta\" {\n  abstract true\n}\n\n\
+         memo epsilon \"Epsilon\" {\n}\n",
+    )
+    .unwrap();
+    let runtime = specforge_wasm::testing::InProcessRuntime::new().with(untargeted_rule);
+    let project = CompiledProject::compile(dir.path(), Some(&runtime));
+    let reported: Vec<String> = project
+        .diagnostics()
+        .into_iter()
+        .filter(|d| d.code == "P300")
+        .map(|d| d.message)
+        .collect();
+    assert_eq!(
+        reported,
+        [
+            "item 'beta' declares no verify obligations",
+            "note 'gamma' declares no verify obligations",
+        ]
+    );
+    // The stubs fix exactly what the rule reports: not delta (its flag
+    // exempts it), not epsilon (its kind accepts no verify).
+    let navigator = Navigator::new(ProjectView::of(&project), |file| {
+        std::fs::read_to_string(dir.path().join(file)).ok()
+    });
+    assert_eq!(
+        stubs(navigator.fixes(&project.diagnostics(), &FixQuery::default())),
+        [
+            ("beta".to_string(), Some("P300".to_string())),
+            ("gamma".to_string(), Some("P300".to_string())),
+        ]
+    );
+}
+
 #[specforge_test(
     behavior = "code_actions_for_missing_verify",
     verify = "generated verify stubs added to entity block in .spec file"
@@ -776,12 +963,12 @@ fn the_verify_stub_lands_inside_the_block() {
 /// A view of `p`'s graph with `registries` instead of its extensions'.
 fn with_registries<'a>(
     p: &'a Compiled,
-    registries: &'a RegistryBuild,
+    env: &'a Environment,
     recorded: &'a RecordedCoverage,
 ) -> Navigator<'a, impl Fn(&str) -> Option<String> + 'a> {
     let spec_root = &p.project.env.spec_root;
     Navigator::new(
-        ProjectView::new(&p.project.graph, registries, None, recorded),
+        ProjectView::new(&p.project.graph, env, None, recorded),
         move |file| std::fs::read_to_string(spec_root.join(file)).ok(),
     )
 }
@@ -820,8 +1007,9 @@ fn the_verify_stub_uses_the_kinds_first_allowed_verify_kind() {
         build.kinds = verifiable(&["invariant"], &["property", "unit"]);
         build
     };
-    let recorded = RecordedCoverage::default();
-    let fixes = with_registries(&p, &registries, &recorded).fixes(&[], &FixQuery::default());
+    let env = Environment::with_registries(registries);
+    let recorded = RecordedCoverage::over(&p.project.graph, &env);
+    let fixes = with_registries(&p, &env, &recorded).fixes(&[], &FixQuery::default());
     assert_eq!(
         titles(&fixes),
         ["Add verify stub for unique_ids"],
@@ -977,14 +1165,14 @@ fn invariants_field(target_kind: Option<&str>) -> FieldRegistry {
 fn no_stub_without_a_target_kind() {
     let p = compile(TESTING, &[("auth.spec", DANGLING)]);
     let diagnostics = p.project.diagnostics();
-    let recorded = RecordedCoverage::default();
     let untargeted = {
         let mut build = RegistryBuild::default();
         build.fields = invariants_field(None);
         build
     };
-    let fixes =
-        with_registries(&p, &untargeted, &recorded).fixes(&diagnostics, &FixQuery::default());
+    let env = Environment::with_registries(untargeted);
+    let recorded = RecordedCoverage::over(&p.project.graph, &env);
+    let fixes = with_registries(&p, &env, &recorded).fixes(&diagnostics, &FixQuery::default());
     assert!(
         fixes.iter().all(|f| f.source != FixSource::CreateStub),
         "{:?}",
@@ -995,7 +1183,8 @@ fn no_stub_without_a_target_kind() {
         build.fields = invariants_field(Some("invariant"));
         build
     };
-    let fixes = with_registries(&p, &targeted, &recorded).fixes(&diagnostics, &FixQuery::default());
+    let fixes = with_registries(&p, &Environment::with_registries(targeted), &recorded)
+        .fixes(&diagnostics, &FixQuery::default());
     assert!(fixes.iter().any(|f| f.source == FixSource::CreateStub));
 }
 
@@ -1045,8 +1234,11 @@ fn the_stub_is_a_bare_block() {
 /// An E003 at `span` whose message says nothing a parser could use: only
 /// its data names the reference.
 fn reworded_e003(span: SourceSpan, data: Option<DiagnosticData>) -> Diagnostic {
-    let mut diagnostic =
-        Diagnostic::error("E003", "this wording is not a contract").with_span(span);
+    let mut diagnostic = Diagnostic::new(
+        specforge_common::codes::E003,
+        "this wording is not a contract",
+    )
+    .with_span(span);
     diagnostic.data = data.map(Box::new);
     diagnostic
 }
@@ -1321,4 +1513,124 @@ fn the_outline_shows_kind_id_title_and_name() {
     assert_eq!(save.name, "save");
     assert_eq!(save.signature, "save(item: Item, note?: string) -> Item");
     assert_eq!(at(&save.name_span), "store.spec 7:10-7:14");
+}
+
+// ── The reference list without tokens ───────────────────────────────────
+
+use specforge_ops::navigate::{Reference, References};
+
+const CYCLE: &str = "behavior alpha \"A\" {\n  depends_on [beta]\n}\n\
+                     behavior beta \"B\" {\n  depends_on [alpha]\n}\n";
+
+fn cyc() -> Compiled {
+    compile(SOFTWARE, &[("a.spec", CYCLE)])
+}
+
+/// The distinct ids of the occurrences' holders (incoming) or targets
+/// (outgoing), sorted.
+fn ends(occurrences: &[Occurrence], direction: Direction) -> Vec<String> {
+    let ids: std::collections::BTreeSet<String> = occurrences
+        .iter()
+        .map(|o| match direction {
+            Direction::Outgoing => o.target.to_string(),
+            _ => o.holder.to_string(),
+        })
+        .collect();
+    ids.into_iter().collect()
+}
+
+#[specforge_test(
+    behavior = "find_all_references",
+    verify = "find-refs excludes what the entity itself references"
+)]
+fn references_list_the_same_entities_the_navigator_finds() {
+    for p in [nav(), cyc()] {
+        let navigator = p.navigator();
+        let view = ProjectView::of(&p.project);
+        let mut checked = 0;
+        for node in p.project.graph.nodes() {
+            let id = node.id.raw.as_str();
+            let references = References::of(&view, id);
+            for direction in [Direction::Incoming, Direction::Outgoing] {
+                let query = ReferenceQuery {
+                    direction,
+                    include_declaration: false,
+                };
+                let found = ends(&navigator.references(id, query).unwrap(), direction);
+                let listed = match direction {
+                    Direction::Outgoing => references.refers_to(),
+                    _ => references.referenced_by(),
+                };
+                assert_eq!(listed, found, "{id} {direction:?}");
+                checked += found.len();
+            }
+        }
+        assert!(checked > 0, "the fixture has references");
+    }
+}
+
+#[test]
+fn references_keep_edge_order_peer_kind_and_field() {
+    for p in [nav(), cyc()] {
+        let view = ProjectView::of(&p.project);
+        let graph = &p.project.graph;
+        let kind_of = |id: &str| graph.node(id).map(|n| n.kind.raw);
+        for node in graph.nodes() {
+            let id = node.id.raw.as_str();
+            let references = References::of(&view, id);
+            let incoming: Vec<Reference> = graph
+                .edges_to(id)
+                .iter()
+                .map(|e| Reference {
+                    peer: e.source,
+                    peer_kind: kind_of(e.source.as_str()),
+                    field: e.label,
+                })
+                .collect();
+            let outgoing: Vec<Reference> = graph
+                .edges_from(id)
+                .iter()
+                .map(|e| Reference {
+                    peer: e.target,
+                    peer_kind: kind_of(e.target.as_str()),
+                    field: e.label,
+                })
+                .collect();
+            assert_eq!(references.incoming, incoming, "{id}");
+            assert_eq!(references.outgoing, outgoing, "{id}");
+        }
+    }
+    let cyc = cyc();
+    let alpha = References::of(&ProjectView::of(&cyc.project), "alpha");
+    assert_eq!(alpha.referenced_by(), ["beta"]);
+    assert_eq!(alpha.refers_to(), ["beta"]);
+    assert_eq!(alpha.incoming[0].peer_kind, Some(Sym::new("behavior")));
+    assert_eq!(alpha.incoming[0].field, Sym::new("depends_on"));
+}
+
+#[test]
+fn an_outgoing_reference_to_a_missing_entity_has_no_peer_kind() {
+    let (mut graph, _) = specforge_graph::build_graph(&[specforge_parser::parse(
+        "behavior a \"A\" {\n}\n",
+        "a.spec",
+    )]);
+    graph.add_edge(specforge_graph::Edge {
+        source: "a".into(),
+        target: "ghost".into(),
+        label: "uses".into(),
+    });
+    let env = Environment::empty();
+    let recorded = RecordedCoverage::over(&graph, &env);
+    let view = ProjectView::new(&graph, &env, None, &recorded);
+    let references = References::of(&view, "a");
+    assert_eq!(
+        references.outgoing,
+        [Reference {
+            peer: Sym::new("ghost"),
+            peer_kind: None,
+            field: Sym::new("uses"),
+        }]
+    );
+    assert!(references.incoming.is_empty());
+    assert_eq!(References::of(&view, "ghost"), References::default());
 }

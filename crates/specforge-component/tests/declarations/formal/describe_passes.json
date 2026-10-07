@@ -24,6 +24,12 @@
       "before": null,
       "name": "layering_verify",
       "phase": null
+    },
+    {
+      "after": "resolve",
+      "before": null,
+      "name": "analysis_available",
+      "phase": "check"
     }
   ]
 }

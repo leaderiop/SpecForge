@@ -3,6 +3,7 @@
 //! `crates/specforge-component/tests/declarations/` pins its wire form.
 
 use specforge_extension_sdk::prelude::*;
+use specforge_extension_sdk::{ValidatorContext, ValidatorVerdict};
 
 /// Declare everything this module holds on `c`.
 pub(crate) fn declare(c: &mut ContributionsBuilder) {
@@ -466,4 +467,68 @@ fn rules(c: &mut ContributionsBuilder) {
             .message_template("process '{id}' is not referenced by any entity — it may be unused")
             .target_kind("process");
     });
+    // A written description that is empty or only whitespace (an absent
+    // one is not reported): W124, W127, W129, W132, W135.
+    for (code, kind) in [
+        ("W124", "property"),
+        ("W127", "axiom"),
+        ("W129", "protocol"),
+        ("W132", "refinement"),
+        ("W135", "process"),
+    ] {
+        c.rule(code, |r| {
+            r.check(CheckKind::FieldValueConstraint)
+                .severity(ValidationSeverity::Warning)
+                .message_template(&format!("{kind} '{{id}}' has empty description"))
+                .target_kind(kind)
+                .field("description");
+            r.constraint(|fc| {
+                fc.kind(ConstraintKind::Matches).pattern(NOT_BLANK);
+            });
+        });
+    }
+    // `alphabet` is required (E006 when absent); W136 is the written but
+    // empty one.
+    c.rule("W136", |r| {
+        r.check(CheckKind::FieldValueConstraint)
+            .severity(ValidationSeverity::Warning)
+            .message_template("process '{id}' has no alphabet (no events declared)")
+            .target_kind("process")
+            .field("alphabet");
+        r.constraint(|fc| {
+            fc.kind(ConstraintKind::Matches).pattern(NOT_BLANK);
+        });
+    });
+    c.rule("W133", |r| {
+        r.check(CheckKind::Custom)
+            .severity(ValidationSeverity::Warning)
+            .message_template("refinement '{id}' declares no invariant_deltas")
+            .target_kind("refinement")
+            .wasm_function("validate__refinement_deltas")
+            .validate(refinement_declares_deltas);
+    });
 }
+
+/// A field text with at least one non-whitespace character.
+const NOT_BLANK: &str = r"\S";
+
+/// W133: a refinement must write a non-empty `invariant_deltas` (what the
+/// refinement adds or relaxes); absent and `[]` both fail.
+pub(crate) fn refinement_declares_deltas(context: &ValidatorContext) -> ValidatorVerdict {
+    let written = context
+        .entity
+        .fields
+        .iter()
+        .filter(|f| f.key == INVARIANT_DELTAS_FIELD)
+        .any(|f| f.value.as_str().is_some_and(|v| !v.trim().is_empty()));
+    if written {
+        ValidatorVerdict::Pass
+    } else {
+        ValidatorVerdict::Fail {
+            field: Some(INVARIANT_DELTAS_FIELD.to_string()),
+            value: None,
+        }
+    }
+}
+
+const INVARIANT_DELTAS_FIELD: &str = "invariant_deltas";

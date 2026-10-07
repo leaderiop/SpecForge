@@ -22,6 +22,7 @@ use "behaviors/output-schema"
 // a renderer contribution from the @specforge/markdown-renderer extension.
 
 feature json_and_dot_render "JSON and DOT Render" {
+  status   done
   // render_extension_defined_dot_shapes is owned by extension_driven_visualization
   // in zero-entity-core.spec; serialize_dot_visualization delegates to it.
   problem  """
@@ -39,6 +40,7 @@ feature json_and_dot_render "JSON and DOT Render" {
 // Note: specforge export (--format=context|graph|brief) is defined in product/capabilities.spec as an agent-facing command distinct from specforge render
 
 feature traceability_serialization "Traceability Serialization" {
+  status   done
   problem  """
     Architects and auditors need to trace entities upstream and downstream
     through the graph. Manual traceability matrices are error-prone and
@@ -60,6 +62,7 @@ feature traceability_serialization "Traceability Serialization" {
 }
 
 feature agent_export "Agent-Optimized Export" {
+  status   done
   problem  """
     AI agents need structured, token-efficient context from the spec graph.
     Full JSON export wastes context window. Agents need scoped, multi-resolution
@@ -78,6 +81,7 @@ feature agent_export "Agent-Optimized Export" {
 }
 
 feature ci_integration "CI Integration" {
+  status   done
   problem  """
     CI pipelines need a single command that validates all .spec files,
     exits with an appropriate code, and produces deterministic output
@@ -99,6 +103,7 @@ feature ci_integration "CI Integration" {
 }
 
 feature self_describing_graph_protocol "Self-Describing Graph Protocol" {
+  status   done
   problem  """
     The Graph Protocol JSON export contains nodes and edges but no schema
     describing what entity kinds exist, what fields they have, or what edge
@@ -121,6 +126,7 @@ feature self_describing_graph_protocol "Self-Describing Graph Protocol" {
 }
 
 feature graph_protocol_versioning "Graph Protocol Versioning" {
+  status   done
   problem  """
     The Graph Protocol schema evolves as extensions add entity kinds and edge
     types, but there is no versioning mechanism. Agents consuming the graph

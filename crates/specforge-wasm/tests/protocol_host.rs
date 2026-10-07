@@ -125,13 +125,13 @@ fn handshake_invalid_json_returns_deserialization_error() {
 
 #[test]
 fn compatible_protocol_versions_load() {
-    for version in ["1.0.0", "1.0.1", "1.1.0", "1.9.3"] {
+    for version in ["1.0.0", "1.0.1", "1.1.0", "1.1.7", "1.9.3"] {
         let runtime = InProcessRuntime::new()
             .with(declaring("@test/ext"))
             .answer_raw("@test/ext", "__handshake", raw(&handshake_with(version)));
         assert!(
             load_declaration(&runtime, "@test/ext").is_ok(),
-            "{version} is compatible with the host's 1.0.0"
+            "{version} is compatible with the host's {PROTOCOL_VERSION}"
         );
     }
 }
@@ -150,7 +150,7 @@ fn an_incompatible_protocol_version_fails_the_load() {
                 host_version,
                 extension_version,
             } => {
-                assert_eq!(host_version, "1.0.0");
+                assert_eq!(host_version, PROTOCOL_VERSION);
                 assert_eq!(extension_version, version);
             }
             other => panic!("{version}: expected IncompatibleVersion, got {:?}", other),

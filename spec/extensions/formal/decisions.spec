@@ -120,6 +120,11 @@ decision formal_entity_expansion "Expand Formal Extension to 4 Entity Kinds" {
     Renumber formal diagnostic codes from W042-W044 to W058-W060 to
     resolve collision with @specforge/product. New diagnostic range:
     W058-W068 for the formal extension.
+
+    Later (ADR 0040): the range was not kept. W059-W060 were removed
+    with the condition entity kind, W058 (feature coverage mismatch)
+    was trimmed for want of a sound algorithm, and W060-W062 are core
+    codes now. Formal's entity validation uses W123-W136.
   """
   consequences [
     "property/axiom/protocol are first-class graph nodes — addressable, traversable, queryable",
@@ -128,7 +133,7 @@ decision formal_entity_expansion "Expand Formal Extension to 4 Entity Kinds" {
     "Protocol entities replace duplicated sync blocks — single definition, multiple event references",
     "Axioms generate no coverage tracking items (assumed-true by definition)",
     "Entity budget cap removed — 21 total entity kinds with no artificial limit",
-    "Formal diagnostic codes renumbered to W058-W068 (no collision with product W042-W044)",
+    "Formal diagnostic codes moved off product's W042-W044 (to W058-W068, a range later retired: ADR 0040)",
     "Entity enhancements add assumes to invariant, satisfies to behavior, follows_protocol to event",
   ]
 }
@@ -150,14 +155,15 @@ decision formal_refinement_process_entities "Add Refinement and Process Entity K
     Add refinement and process as entity kinds 4 and 5. Both testable=false,
     supports_verify=false. 4 new edge types: RefinesTo, RefinementChainLink,
     ParticipatesIn, ProcessComposition. 2 new error codes: E041 (refinement
-    chain cycle), E042 (process composition cycle). 6 new warnings: W069-W074.
+    chain cycle), E042 (process composition cycle). 6 new warnings: W069-W074,
+    since renumbered W131-W136 (refinement W131-W133, process W134-W136).
     Entity enhancements: behavior gets refinement field, event gets process field.
     Total: 5 entity kinds, 8 edge types, 23 project entities.
   """
   consequences [
     "Each formal discipline has representative entity kinds",
     "Specification layering is a first-class graph concept",
-    "Process-level deadlock analysis extends event graph linting",
+    "Process-level deadlock analysis was to extend event graph linting (trimmed: shared alphabet events synchronize, ADR 0040)",
     "Dual-mode: new entities coexist with field-based mechanisms",
     "4 new edge types enable new graph traversal patterns",
     "Coverage tracking extended with process_coverage",
@@ -188,8 +194,10 @@ decision formal_terminology_rename "Rename Formal Methods Terminology" {
     - "Deadlock detection" -> "Unmitigated cycle detection"
     - "Livelock risk" -> "Unmitigated retry cycle"
     - "Starvation risk" -> "Asymmetric connectivity warning"
-    - E033 downgraded to W058 (structural check, not semantic verification)
-    - E034 now checks for mitigations before firing
+    - E033 downgraded to W058 (structural check, not semantic verification);
+      W058 was later trimmed (ADR 0040)
+    - E034 now checks for mitigations before firing; the mitigation is a
+      declared sync on a member of the cycle (ADR 0040)
   """
   consequences [
     "Terminology accurately describes capabilities — no overselling",

@@ -141,15 +141,19 @@ pub fn run(argv: &[String], builtins: &[String]) -> i32 {
             return INVALID_INPUT_EXIT;
         }
     };
+    let cwd = std::fs::canonicalize(&root).unwrap_or(root);
+    let graph = env.build_graph();
+    let recorded = specforge_project::coverage::RecordedCoverage::over(&graph, &env);
+    let view = specforge_ops::view::ProjectView::new(&graph, &env, Some(&cwd), &recorded);
     let context = CommandContext {
         format,
         today: chrono::Utc::now().format("%Y-%m-%d").to_string(),
+        evidence: specforge_ops::command::evidence(&view),
     };
-    let cwd = std::fs::canonicalize(&root).unwrap_or(root);
     dispatch(
         &runtime,
         command,
-        &env.build_graph(),
+        &graph,
         &args,
         &cwd,
         &context,
@@ -682,6 +686,7 @@ mod tests {
             let context = CommandContext {
                 format,
                 today: "2026-10-05".into(),
+                ..CommandContext::default()
             };
             let code = dispatch(
                 &runtime,

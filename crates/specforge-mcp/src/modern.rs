@@ -13,6 +13,7 @@ use serde_json::{Value, json};
 use crate::lifecycle::{MODERN_PROTOCOL_VERSIONS, server_info};
 use crate::protocol::{JsonRpcError, JsonRpcResponse, error_codes};
 use crate::state::{Listen, McpState, ServerPhase};
+use crate::subscriptions::{Changes, Watched};
 
 /// The `_meta` key naming the revision a request is made under.
 pub const PROTOCOL_VERSION_META: &str = "io.modelcontextprotocol/protocolVersion";
@@ -163,14 +164,17 @@ fn listen(state: &mut McpState, params: &Value, id: Option<Value>) -> Option<Jso
         ));
     };
     let id = id.expect("a request has an id");
-    let uris: Vec<String> = filter["resourceSubscriptions"]
+    let mut uris: Vec<String> = Vec::new();
+    for uri in filter["resourceSubscriptions"]
         .as_array()
         .into_iter()
         .flatten()
         .filter_map(Value::as_str)
-        .filter(|uri| crate::resources::is_served(state, uri))
-        .map(str::to_string)
-        .collect();
+    {
+        if crate::resources::is_served(state, uri) {
+            uris.push(uri.to_string());
+        }
+    }
     state.notification_outbox.push(json!({
         "jsonrpc": "2.0",
         "method": "notifications/subscriptions/acknowledged",
@@ -208,22 +212,13 @@ pub fn end_listen(state: &mut McpState, request_id: &Value) -> bool {
 }
 
 /// Queue `notifications/resources/updated` on every open stream for each
-/// resource it listens to whose content a recompile changed: the graph's
-/// views when `graph_changed`, the diagnostics when `diagnostics_changed`.
-pub fn enqueue_resource_updates(
-    state: &mut McpState,
-    graph_changed: bool,
-    diagnostics_changed: bool,
-) {
+/// resource it listens to whose content a recompile changed (what
+/// [`Watched::of`] says the resource changes with).
+pub fn enqueue_resource_updates(state: &mut McpState, changes: &Changes) {
     let mut updates = Vec::new();
     for listen in &state.listens {
         for uri in &listen.uris {
-            let changed = if uri == "specforge://diagnostics" {
-                diagnostics_changed
-            } else {
-                graph_changed
-            };
-            if changed {
+            if changes.touched(Watched::of(uri)) {
                 updates.push(json!({
                     "jsonrpc": "2.0",
                     "method": "notifications/resources/updated",

@@ -163,7 +163,7 @@ that create typed edges between entities, and they can carry constraints
 Rules are structural checks the compiler runs on every graph build:
 
 ```rust
-c.rule("G101", |r| {
+c.rule("E901", |r| {
     r.check(CheckKind::FieldValueConstraint);
     r.target_kind("greeting");
     r.field("style");
@@ -176,10 +176,42 @@ c.rule("G101", |r| {
 });
 ```
 
+A rule's code names your extension's diagnostic, so it comes from the range
+third-party extensions own: `E900`-`E998` for an error, `W900`-`W998` for a
+warning, `I900`-`I998` for an info, with the prefix matching the rule's
+severity (`E901` above is an error). A rule that uses a code core or another
+extension owns, or a prefix that contradicts its severity, still runs, and the
+host adds a `W150` warning naming it; under `--strict` that warning fails the
+check.
+
 Rules are declarative patterns — they run in-process, cost nothing at Wasm
 boundaries, and are the right tool for per-field shape checks. When a check
 needs the *relationships between* entities rather than the shape of one entity,
 that is a compiler pass (Act IV).
+
+The host checks each rule's shape when your extension loads (and in
+`specforge extension validate` / `publish`), against the table in
+[the protocol reference](../extension-protocol.md#category-validation_rules):
+
+- **W112** — the rule cannot work as declared and is not registered: an unknown
+  `check`, or a `field`, constraint, `edge_type` or `wasm_function` its check
+  requires and lacks (a `cycle_detection` rule needs an `edge_type`, a
+  `verify_kind_allowlist` rule a constraint with values), an empty values list,
+  a regex that does not compile, a rule reading `verify` statements on a kind
+  that accepts none, or a `custom` function that cannot answer the load probe.
+- **W147** — the rule sets a property its check does not read (an `edge_type`
+  on a field check, a `constraint` on an edge check, a `wasm_function` on a
+  declarative check, a constraint kind, `pattern` or `values` its check does not
+  read). It is registered without it, so remove the property or pick the check
+  that reads it.
+- **W021** — the rule's `target_kind` or `edge_type` is neither your
+  extension's, a declared peer's nor its `target_extension`'s. A rule on
+  another extension's kind that yours works without says so with
+  `r.target_extension("@their/ext")`: while that extension is not loaded the
+  rule is inert and silent; loaded without the kind, it is W021.
+- **W148** — at check time, a `custom` rule's function failed on some entities
+  (a trap, or an answer that is not a verdict), so they were not checked. One
+  per rule per check; its data lists every entity with its error.
 
 ---
 
@@ -272,7 +304,8 @@ Design notes, so your passes age well:
   clocks. This is what makes them testable without a Wasm runtime and safe to
   reorder.
 - **Prefer structural checks.** The v1 pass ABI hands you an entity snapshot
-  (id, kind, stringified fields, edge counts) plus the resolved edge list —
+  (id, kind, [field texts](../extension-sdk.md#field-text), edge counts)
+  plus the resolved edge list —
   checks that reason about *structure* (symmetry, presence, cycles, coverage)
   are its sweet spot. Semantic verification (SMT-backed `analyze --prove`) is
   a separate, future rung of the formality ladder.

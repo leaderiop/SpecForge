@@ -1,76 +1,44 @@
+use crate::support::*;
 use serde_json::{Value, json};
-use specforge_common::SourceSpan;
-use specforge_graph::{Graph, Node};
+use specforge_extension_sdk::prelude::PassDiagnostic;
 use specforge_mcp::McpServer;
-use specforge_parser::{EntityId, EntityKind, FieldMap};
 use specforge_test::prelude::*;
 
-// Leak a per-test temp project: process exits make cleanup unnecessary, and
-// a real project root is required now that ops perform real work.
-fn attach_project(state: &mut specforge_mcp::state::McpState) {
-    let dir = tempfile::TempDir::new().unwrap();
-    let config = json!({"name":"t","version":"0.1.0","extensions":[]});
-    std::fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
-    std::fs::write(
-        dir.path().join("test.spec"),
-        "behavior alpha \"Alpha\" {\n}\nfeature beta \"Beta\" {\n    behaviors [alpha]\n}\n",
-    )
-    .unwrap();
-    let root = dir.path().to_path_buf();
-    std::mem::forget(dir); // outlives the test
-    crate::support::serve_in_memory_at(state, &root);
-}
+/// test.spec: the behavior `alpha` and the feature `beta` that has it.
+const TEST_SPEC: &str =
+    "behavior alpha \"Alpha\" {\n}\nfeature beta \"Beta\" {\n    behaviors [alpha]\n}\n";
 
-fn test_server() -> McpServer {
-    let mut server = McpServer::new();
-    let req = json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{}});
-    server.handle_message(&req.to_string());
-
-    let state = server.state_mut();
-    let mut graph = Graph::new();
-    graph.add_node(Node {
-        id: EntityId {
-            raw: "alpha".into(),
-        },
-        kind: EntityKind {
-            raw: "behavior".into(),
-        },
-        title: Some("Alpha".into()),
-        fields: FieldMap::new(),
-        source_span: SourceSpan {
-            file: "test.spec".into(),
-            start_line: 1,
-            start_col: 0,
-            end_line: 5,
-            end_col: 0,
-        },
-        methods: Vec::new(),
-    });
-    state.serve_graph(graph, Vec::new());
-    attach_project(state);
-    server
+/// A project that enables no extension, served with its own component
+/// runtime: what `specforge mcp <root>` serves over it. A call naming
+/// another project compiles that one with its own runtime too.
+fn test_server() -> Served {
+    TestProject::new()
+        .file("test.spec", TEST_SPEC)
+        .serve_components()
 }
 
 /// A server initialized over a temp project with `config` as its
-/// specforge.json.
-fn server_over(config: Value) -> (McpServer, std::path::PathBuf) {
-    let dir = tempfile::TempDir::new().unwrap();
-    std::fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
-    std::fs::write(
-        dir.path().join("test.spec"),
-        "behavior alpha \"Alpha\" {\n}\n",
-    )
-    .unwrap();
-    let root = dir.path().to_path_buf();
-    std::mem::forget(dir); // outlives the test
-    let mut server = McpServer::new();
-    let req = json!({"jsonrpc": "2.0", "id": 1, "method": "initialize",
-        "params": {"projectRoot": root.to_str().unwrap()}});
-    server.handle_message(&req.to_string());
+/// specforge.json, holding the behavior `alpha`.
+fn server_over(config: Value) -> (Served, std::path::PathBuf) {
+    let enabled: Vec<String> = config["extensions"]
+        .as_array()
+        .map(|list| {
+            list.iter()
+                .map(|e| e.as_str().unwrap().to_string())
+                .collect()
+        })
+        .unwrap_or_default();
+    let enabled: Vec<&str> = enabled.iter().map(String::as_str).collect();
+    let server = TestProject::new()
+        .config(|c| *c = config)
+        .enabling(&enabled)
+        .file("test.spec", "behavior alpha \"Alpha\" {\n}\n")
+        .serve_components();
+    let root = server.root().to_path_buf();
     (server, root)
 }
 
-fn software_project() -> (McpServer, std::path::PathBuf) {
+fn software_project() -> (Served, std::path::PathBuf) {
     server_over(json!({"name": "t", "version": "0.1.0", "extensions": ["@specforge/software"]}))
 }
 
@@ -97,23 +65,6 @@ fn invoked(server: &McpServer, tool: &str) -> bool {
         .events
         .iter()
         .any(|e| e.name == "mcp_tool_invoked" && e.params["toolName"] == tool)
-}
-
-fn call_tool(server: &mut McpServer, tool_name: &str, args: Value) -> Value {
-    let req = json!({
-        "jsonrpc": "2.0", "id": 1,
-        "method": "tools/call",
-        "params": { "name": tool_name, "arguments": args }
-    });
-    let resp = server.handle_message(&req.to_string()).unwrap();
-    serde_json::from_str(&resp).unwrap()
-}
-
-fn tool_text(resp: &Value) -> String {
-    resp["result"]["content"][0]["text"]
-        .as_str()
-        .unwrap()
-        .to_string()
 }
 
 // --- specforge.extensions ---
@@ -191,34 +142,29 @@ fn doctor_returns_report() {
 // --- specforge.collect ---
 
 /// A project whose Rust tests `@specforge/cargo-test` collects, with a
-/// report already written by an earlier `cargo test`.
-fn collect_project() -> std::path::PathBuf {
-    let dir = tempfile::TempDir::new().unwrap();
-    let root = dir.path().to_path_buf();
-    std::mem::forget(dir); // outlives the test
-    let config = json!({
-        "name": "t",
-        "version": "0.1.0",
-        "extensions": ["@specforge/software", "@specforge/testing", "@specforge/cargo-test"]
-    });
-    std::fs::write(root.join("specforge.json"), config.to_string()).unwrap();
-    std::fs::write(
-        root.join("app.spec"),
-        "behavior alpha \"Alpha\" {\n  verify unit \"works\"\n}\n",
-    )
-    .unwrap();
-    std::fs::write(root.join("Cargo.toml"), "").unwrap();
-    std::fs::create_dir_all(root.join("target/specforge")).unwrap();
-    std::fs::write(
-        root.join("target/specforge/t.json"),
-        json!({"entries": [
-            {"entity_id": "alpha", "test_name": "works", "status": "pass"},
-            {"entity_id": "ghost", "test_name": "stale", "status": "pass"}
-        ]})
-        .to_string(),
-    )
-    .unwrap();
-    root
+/// report already written by an earlier `cargo test`: the directory, which
+/// lives as long as the value.
+fn collect_project() -> tempfile::TempDir {
+    TestProject::new()
+        .enabling(&[
+            "@specforge/software",
+            "@specforge/testing",
+            "@specforge/cargo-test",
+        ])
+        .file(
+            "app.spec",
+            "behavior alpha \"Alpha\" {\n  verify unit \"works\"\n}\n",
+        )
+        .file("Cargo.toml", "")
+        .file(
+            "target/specforge/t.json",
+            &json!({"entries": [
+                {"entity_id": "alpha", "test_name": "works", "status": "pass"},
+                {"entity_id": "ghost", "test_name": "stale", "status": "pass"}
+            ]})
+            .to_string(),
+        )
+        .into_dir()
 }
 
 // B:provide_mcp_collect_tool — verify unit "returns collect result"
@@ -228,7 +174,8 @@ fn collect_project() -> std::path::PathBuf {
 )]
 fn collect_returns_result() {
     let mut server = test_server();
-    let root = collect_project();
+    let project = collect_project();
+    let root = project.path();
     let resp = call_tool(
         &mut server,
         "specforge.collect",
@@ -311,9 +258,10 @@ fn collected(root: &std::path::Path) -> Value {
 
 #[specforge_test(type = "McpCollectResult", verify = "McpCollectResult schema is valid")]
 fn collect_result_is_an_mcp_collect_result() {
-    let root = collect_project();
+    let project = collect_project();
+    let root = project.path();
 
-    let result = collected(&root);
+    let result = collected(root);
 
     assert_fields(
         &result,
@@ -326,7 +274,7 @@ fn collect_result_is_an_mcp_collect_result() {
     );
     assert_eq!(
         result["report"],
-        std::fs::canonicalize(&root)
+        std::fs::canonicalize(root)
             .unwrap()
             .join("specforge-report.json")
             .display()
@@ -337,9 +285,10 @@ fn collect_result_is_an_mcp_collect_result() {
 
 #[specforge_test(type = "McpCollectRunner", verify = "McpCollectRunner schema is valid")]
 fn each_collect_runner_is_an_mcp_collect_runner() {
-    let root = collect_project();
+    let project = collect_project();
+    let root = project.path();
 
-    let result = collected(&root);
+    let result = collected(root);
 
     let runner = &result["runners"][0];
     assert_fields(
@@ -367,7 +316,8 @@ fn each_collect_runner_is_an_mcp_collect_runner() {
 )]
 fn collect_refuses_unapproved_command() {
     let mut server = test_server();
-    let root = collect_project();
+    let project = collect_project();
+    let root = project.path();
     // A fresh temp project was never approved, and the server never asks.
     let resp = call_tool(
         &mut server,
@@ -401,7 +351,8 @@ fn collect_without_collector_errors() {
 )]
 fn collect_contract() {
     let mut server = test_server();
-    let root = collect_project();
+    let project = collect_project();
+    let root = project.path();
     let path = root.to_str().unwrap();
     // Delegated to the enabled extension's collector; the report is written.
     let ok = call_tool(&mut server, "specforge.collect", json!({"path": path}));
@@ -557,14 +508,10 @@ fn doctor_contract() {
 
 const GREET: &str = "@sdk/greet";
 
-/// `test_server` with the product blob installed in its project.
-fn server_with_product() -> (McpServer, std::path::PathBuf) {
+/// [`test_server`] with the product blob installed in its project.
+fn server_with_product() -> (Served, std::path::PathBuf) {
     let mut server = test_server();
-    let root = server
-        .state()
-        .project_root()
-        .map(std::path::Path::to_path_buf)
-        .unwrap();
+    let root = server.root().to_path_buf();
     let blob = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../fixtures/greet-extension/greet.wasm");
     let resp = call_tool(
@@ -723,30 +670,13 @@ fn doctor_compiles_afresh_unless_use_cached() {
     verify = "specforge.doctor detects extension conflicts"
 )]
 fn doctor_lists_extension_conflicts_from_the_compile() {
-    let mut server = test_server();
-    // What the compiler reports when two extensions register one kind.
-    crate::support::report_also(
-        server.state_mut(),
-        specforge_common::Diagnostic {
-            code: "E026".into(),
-            severity: specforge_common::Severity::Error,
-            message: "entity kind 'feature' is already registered by '@specforge/product'".into(),
-            span: None,
-            suggestion: None,
-            data: None,
-        },
-    );
-    crate::support::report_also(
-        server.state_mut(),
-        specforge_common::Diagnostic {
-            code: "W001".into(),
-            severity: specforge_common::Severity::Warning,
-            message: "an unrelated warning".into(),
-            span: None,
-            suggestion: None,
-            data: None,
-        },
-    );
+    // Two extensions register one kind, `feature`: the compile reports
+    // E026. And an unrelated warning, a check-phase pass's.
+    let mut server = TestProject::new().file("test.spec", TEST_SPEC).serve(&[
+        TestExtension::software()
+            .reporting(PassDiagnostic::warning("W001", "an unrelated warning")),
+        TestExtension::named("@test/other").kind("feature", false),
+    ]);
 
     // Over those diagnostics, as the last compile's, not a fresh compile.
     let resp = call_tool(&mut server, "specforge.doctor", json!({"use_cached": true}));
@@ -754,11 +684,11 @@ fn doctor_lists_extension_conflicts_from_the_compile() {
 
     let conflicts = report["conflicts"].as_array().unwrap();
     assert_eq!(conflicts.len(), 1, "{report}");
+    // The first registration wins: @test/other's `feature` is refused.
     assert!(
-        conflicts[0]
-            .as_str()
-            .unwrap()
-            .contains("already registered"),
+        conflicts[0].as_str().unwrap().contains(
+            "entity kind 'feature' registered by '@test/other' conflicts with '@test/ext'"
+        ),
         "{report}"
     );
     let finding = report["findings"]
@@ -815,7 +745,8 @@ fn render_uses_the_renderer_the_format_names() {
         &mut server,
         json!({"format": "json", "out_dir": out.path().to_str().unwrap()}),
     );
-    assert_eq!(parsed["format"], "json");
+    // `json` is the graph renderer's alias; the result names the renderer.
+    assert_eq!(parsed["format"], "graph");
     let graph: Value =
         serde_json::from_str(&std::fs::read_to_string(out.path().join("graph.json")).unwrap())
             .unwrap();
@@ -854,14 +785,14 @@ fn render_unknown_format_lists_the_available_renderers() {
 
     let error = crate::tool_errors::mcp_error(&resp);
     assert_eq!(error["code"], "invalid_input", "{error}");
-    let message = error["message"].as_str().unwrap();
-    assert!(
-        message.contains("Unrecognized renderer format: yaml"),
-        "{message}"
+    assert_eq!(error["argument"], "format", "{error}");
+    assert_eq!(
+        error["message"],
+        "Unknown format: yaml. Expected: graph, context, brief, dot"
     );
     assert_eq!(
         error["data"]["available_renderers"],
-        json!(["json", "dot", "context", "brief"]),
+        json!(["graph", "context", "brief", "dot"]),
         "{resp}"
     );
 }

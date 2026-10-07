@@ -4,6 +4,7 @@ use "behaviors/init"
 use "behaviors/mcp-operations"
 
 feature project_initialization "Project Initialization" {
+  status   done
   problem  """
     New users and AI agents need a quick way to scaffold a SpecForge
     project that produces a consumable graph. The correct file structure,

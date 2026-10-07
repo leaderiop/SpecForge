@@ -16,7 +16,7 @@
 //! Tests no rule links are left out silently: plain tests are the norm.
 
 use super::KnownEntities;
-use specforge_common::{Diagnostic, Severity, slug};
+use specforge_common::{Diagnostic, codes, slug};
 use specforge_protocol_types::{CollectEntityResult, CollectTestResult, CollectUnlinkedTest};
 use std::collections::BTreeMap;
 
@@ -45,20 +45,19 @@ pub fn resolve(
             },
             several => {
                 let ids: Vec<&str> = several.iter().map(|(id, _)| *id).collect();
-                diagnostics.push(Diagnostic {
-                    code: "W137".to_string(),
-                    severity: Severity::Warning,
-                    message: format!(
-                        "test '{}' names several entities by convention ({}); it is not linked",
-                        test.name,
-                        ids.join(", ")
-                    ),
-                    span: None,
-                    suggestion: Some(
+                diagnostics.push(
+                    Diagnostic::new(
+                        codes::W137,
+                        format!(
+                            "test '{}' names several entities by convention ({}); it is not linked",
+                            test.name,
+                            ids.join(", ")
+                        ),
+                    )
+                    .with_suggestion(
                         "rename the test, or link it with #[specforge_test]".to_string(),
                     ),
-                    data: None,
-                });
+                );
                 continue;
             }
         };
@@ -93,6 +92,7 @@ fn obligation(texts: &[String], name: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use specforge_common::Severity;
     use specforge_test_macros::test as specforge_test;
 
     fn known() -> KnownEntities {

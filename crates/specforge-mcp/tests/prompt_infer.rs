@@ -1,124 +1,75 @@
 //! The infer prompt over a served environment, through `prompts/get`: its
 //! scopes, guides, plan paging and refusals.
 
-use std::collections::HashMap;
-use std::sync::Arc;
-
+use crate::support::*;
 use serde_json::{Value, json};
-use specforge_common::{InferenceConfig, ProjectConfig, SourceSpan, Sym};
 use specforge_extension_sdk::prelude::*;
-use specforge_graph::{EntityId, EntityKind, FieldMap, Node};
 use specforge_mcp::McpServer;
-use specforge_protocol_types::{AnalyzerDescriptor, ExtensionDeclaration};
 use specforge_test::prelude::*;
 
 /// The infer prompt's reply for `arguments`.
 fn infer(server: &mut McpServer, arguments: Value) -> Value {
-    let request = json!({"jsonrpc": "2.0", "id": 1, "method": "prompts/get",
-        "params": {"name": "specforge://prompts/infer", "arguments": arguments}});
-    serde_json::from_str(&server.handle_message(&request.to_string()).unwrap()).unwrap()
+    get_prompt(server, "specforge://prompts/infer", arguments)
 }
 
-/// The payload of a rendered prompt: its second user message's JSON.
-fn payload(reply: &Value) -> Value {
-    let text = reply["result"]["messages"][1]["content"]["text"]
-        .as_str()
-        .unwrap_or_else(|| panic!("the prompt renders: {reply}"));
-    serde_json::from_str(text).unwrap()
+/// The test extension, `@specforge/test`, declaring `kind_name` with
+/// `guide` and a `description` string field.
+fn test_extension(kind_name: &str, guide: Option<&str>) -> TestExtension {
+    let (kind_name, guide) = (kind_name.to_string(), guide.map(str::to_string));
+    TestExtension::named("@specforge/test").declaring(move |c| {
+        c.kind(&kind_name, |k| {
+            k.description(&format!("A test {kind_name} entity"));
+            if let Some(guide) = &guide {
+                k.inference_guide(guide);
+            }
+            k.field("description", |f| {
+                f.field_type(FieldType::String).description("A description");
+            });
+        });
+    })
 }
 
-/// An initialized server serving the test extension, which declares
-/// `kind_name` with `guide`.
-fn make_state_with_kind(kind_name: &str, guide: Option<&str>) -> McpServer {
-    let mut server = McpServer::new();
-    server.handle_message(
-        &json!({"jsonrpc": "2.0", "id": 0, "method": "initialize", "params": {}}).to_string(),
-    );
-    serve(
-        &mut server,
-        vec![test_declaration(kind_name, guide)],
-        ProjectConfig::default(),
-    );
-    server
+/// An initialized server over an empty project serving the test
+/// extension, which declares `kind_name` with `guide`.
+fn make_state_with_kind(kind_name: &str, guide: Option<&str>) -> Served {
+    TestProject::new().serve(&[test_extension(kind_name, guide)])
 }
 
-/// Serve the test extension's `declarations` with `config`, over the
-/// graph already served.
-fn serve(server: &mut McpServer, declarations: Vec<ExtensionDeclaration>, config: ProjectConfig) {
-    let state = server.state_mut();
-    let mut env = specforge_project::Environment::from_declarations(declarations);
-    env.config = config;
-    let graph = state.graph().clone();
-    state.serve_session(specforge_project::ProjectSession::from_graph(
-        Arc::new(env),
-        graph,
-        Vec::new(),
-    ));
+/// As [`make_state_with_kind`] for `behavior`, the project declaring the
+/// behavior `my_behavior` (test.spec).
+fn state_with_my_behavior() -> Served {
+    TestProject::new()
+        .file("test.spec", "behavior my_behavior {\n}\n")
+        .serve(&[test_extension("behavior", Some("guide text"))])
 }
 
-fn make_node(id: &str, kind: &str, file: &str) -> Node {
-    Node {
-        id: EntityId { raw: Sym::new(id) },
-        kind: EntityKind {
-            raw: Sym::new(kind),
-        },
-        title: None,
-        fields: FieldMap::new(),
-        source_span: SourceSpan {
-            file: Sym::new(file),
-            start_line: 0,
-            start_col: 0,
-            end_line: 0,
-            end_col: 0,
-        },
-        methods: Vec::new(),
-    }
-}
-
-/// A served project rooted at a directory with `count` Rust sources, and
-/// an extension that analyzes `.rs` files.
-fn plan_state_with_sources(count: usize) -> (McpServer, tempfile::TempDir) {
-    let mut server = make_state_with_kind("behavior", Some("guide text"));
-    let mut declaration = test_declaration("behavior", Some("guide text"));
-    declaration.analyzers = vec![AnalyzerDescriptor {
-        language: "rust".to_string(),
-        file_extensions: vec![".rs".to_string()],
-        ..Default::default()
-    }];
-    serve(&mut server, vec![declaration], ProjectConfig::default());
-    let dir = tempfile::TempDir::new().unwrap();
-    let src = dir.path().join("src");
-    std::fs::create_dir_all(&src).unwrap();
-    for i in 0..count {
-        std::fs::write(src.join(format!("mod_{i:02}.rs")), "fn stub() {}\n").unwrap();
-    }
-    crate::support::serve_in_memory_at(server.state_mut(), dir.path());
-    (server, dir)
+/// A served project with `count` Rust sources under `src/`, and an
+/// extension that analyzes `.rs` files.
+fn plan_state_with_sources(count: usize) -> Served {
+    let project = (0..count).fold(TestProject::new(), |project, i| {
+        project.file(&format!("src/mod_{i:02}.rs"), "fn stub() {}\n")
+    });
+    project.serve(&[
+        test_extension("behavior", Some("guide text")).declaring(|c| {
+            c.analyzer("rust", |a| {
+                a.file_extensions(&[".rs"]).scan(|_| ScanResponse {
+                    items: Vec::new(),
+                    language: None,
+                });
+            });
+        }),
+    ])
 }
 
 fn plan_payload(server: &mut McpServer, arguments: Value) -> Value {
-    payload(&infer(server, arguments))
-}
-
-fn test_declaration(kind_name: &str, guide: Option<&str>) -> ExtensionDeclaration {
-    let mut c = ContributionsBuilder::new(ExtensionMeta::new("@specforge/test", "1.0.0"));
-    c.kind(kind_name, |k| {
-        k.description(&format!("A test {} entity", kind_name));
-        if let Some(guide) = guide {
-            k.inference_guide(guide);
-        }
-        k.field("description", |f| {
-            f.field_type(FieldType::String).description("A description");
-        });
-    });
-    c.declaration()
+    prompt_payload(&infer(server, arguments))
 }
 
 #[test]
 fn overview_returns_installed_extensions() {
     let mut state = make_state_with_kind("behavior", Some("Look for public functions"));
     let resp = infer(&mut state, json!({}));
-    let content: Value = payload(&resp);
+    let content: Value = prompt_payload(&resp);
     assert_eq!(content["installed_extensions"][0], "@specforge/test");
 }
 
@@ -126,36 +77,26 @@ fn overview_returns_installed_extensions() {
 fn overview_includes_inference_guide_from_extension() {
     let mut state = make_state_with_kind("behavior", Some("Look for public functions"));
     let resp = infer(&mut state, json!({}));
-    let content: Value = payload(&resp);
+    let content: Value = prompt_payload(&resp);
     let guide = content["kinds"][0]["inference_guide"].as_str().unwrap();
     assert!(guide.contains("Look for public functions"));
 }
 
 #[test]
 fn overview_appends_project_override() {
-    let mut state = make_state_with_kind("behavior", Some("Look for public functions"));
-    let config = ProjectConfig {
-        inference: InferenceConfig {
-            global: Some("This is a Rust project".to_string()),
-            kinds: {
-                let mut m = HashMap::new();
-                m.insert(
-                    "behavior".to_string(),
-                    "In our codebase, behaviors are in use_cases/".to_string(),
-                );
-                m
-            },
-            density_threshold: None,
-        },
-        ..Default::default()
-    };
-    let declarations = vec![test_declaration(
-        "behavior",
-        Some("Look for public functions"),
-    )];
-    serve(&mut state, declarations, config);
+    let mut state = TestProject::new()
+        .config(|c| {
+            c["inference"] = json!({
+                "global": "This is a Rust project",
+                "behavior": "In our codebase, behaviors are in use_cases/",
+            });
+        })
+        .serve(&[test_extension(
+            "behavior",
+            Some("Look for public functions"),
+        )]);
     let resp = infer(&mut state, json!({}));
-    let content: Value = payload(&resp);
+    let content: Value = prompt_payload(&resp);
     let guide = content["kinds"][0]["inference_guide"].as_str().unwrap();
     assert!(guide.contains("Look for public functions"));
     assert!(guide.contains("Project-specific"));
@@ -165,12 +106,9 @@ fn overview_appends_project_override() {
 
 #[test]
 fn kind_scope_returns_existing_ids() {
-    let mut state = make_state_with_kind("behavior", Some("guide text"));
-    state.state_mut().edit_graph(|graph| {
-        graph.add_node(make_node("my_behavior", "behavior", "test.spec"));
-    });
+    let mut state = state_with_my_behavior();
     let resp = infer(&mut state, json!({"scope": "kind:behavior"}));
-    let content: Value = payload(&resp);
+    let content: Value = prompt_payload(&resp);
     let ids = content["existing_entity_ids"].as_array().unwrap();
     assert!(ids.contains(&Value::from("my_behavior")));
 }
@@ -179,19 +117,16 @@ fn kind_scope_returns_existing_ids() {
 fn kind_scope_includes_example() {
     let mut state = make_state_with_kind("behavior", Some("guide text"));
     let resp = infer(&mut state, json!({"scope": "kind:behavior"}));
-    let content: Value = payload(&resp);
+    let content: Value = prompt_payload(&resp);
     let example = content["example"].as_str().unwrap();
     assert!(example.contains("behavior example_behavior"));
 }
 
 #[test]
 fn kind_scope_is_case_insensitive() {
-    let mut state = make_state_with_kind("behavior", Some("guide text"));
-    state.state_mut().edit_graph(|graph| {
-        graph.add_node(make_node("my_behavior", "behavior", "test.spec"));
-    });
+    let mut state = state_with_my_behavior();
     let resp = infer(&mut state, json!({"scope": "kind:Behavior"}));
-    let content: Value = payload(&resp);
+    let content: Value = prompt_payload(&resp);
     let ids = content["existing_entity_ids"].as_array().unwrap();
     assert!(ids.contains(&Value::from("my_behavior")));
 }
@@ -200,7 +135,7 @@ fn kind_scope_is_case_insensitive() {
 fn unknown_scope_prefix_returns_overview() {
     let mut state = make_state_with_kind("behavior", Some("guide text"));
     let resp = infer(&mut state, json!({"scope": "unknown:value"}));
-    let content: Value = payload(&resp);
+    let content: Value = prompt_payload(&resp);
     assert!(content.get("installed_extensions").is_some());
 }
 
@@ -247,19 +182,16 @@ fn empty_file_scope_returns_error() {
 fn overview_with_no_inference_guide() {
     let mut state = make_state_with_kind("behavior", None);
     let resp = infer(&mut state, json!({}));
-    let content: Value = payload(&resp);
+    let content: Value = prompt_payload(&resp);
     let guide = content["kinds"][0]["inference_guide"].as_str().unwrap();
     assert_eq!(guide, "");
 }
 
 #[test]
 fn plan_scope_returns_kind_priorities() {
-    let mut state = make_state_with_kind("behavior", Some("guide text"));
-    state.state_mut().edit_graph(|graph| {
-        graph.add_node(make_node("my_behavior", "behavior", "test.spec"));
-    });
+    let mut state = state_with_my_behavior();
     let resp = infer(&mut state, json!({"scope": "plan"}));
-    let content: Value = payload(&resp);
+    let content: Value = prompt_payload(&resp);
     let priorities = content["plan"]["kind_priorities"].as_array().unwrap();
     assert!(!priorities.is_empty());
     assert_eq!(priorities[0]["kind"], "behavior");
@@ -273,7 +205,7 @@ fn plan_scope_respects_target_directory() {
         &mut state,
         json!({"scope": "plan", "target_spec_directory": "specs/"}),
     );
-    let content: Value = payload(&resp);
+    let content: Value = prompt_payload(&resp);
     assert_eq!(content["plan"]["target_spec_directory"], "specs/");
 }
 
@@ -281,7 +213,7 @@ fn plan_scope_respects_target_directory() {
 fn plan_scope_includes_progress() {
     let mut state = make_state_with_kind("behavior", Some("guide text"));
     let resp = infer(&mut state, json!({"scope": "plan"}));
-    let content: Value = payload(&resp);
+    let content: Value = prompt_payload(&resp);
     assert!(content["plan"]["progress"]["files_total"].is_number());
 }
 
@@ -301,7 +233,7 @@ fn workflow_scope_returns_protocol() {
 fn workflow_scope_lists_tools_and_kinds() {
     let mut state = make_state_with_kind("behavior", Some("guide text"));
     let resp = infer(&mut state, json!({"scope": "workflow"}));
-    let content: Value = payload(&resp);
+    let content: Value = prompt_payload(&resp);
     let tools = content["tools"].as_array().unwrap();
     assert!(tools.contains(&Value::from("specforge.infer_session")));
     assert!(tools.contains(&Value::from("specforge.infer_progress")));
@@ -311,7 +243,7 @@ fn workflow_scope_lists_tools_and_kinds() {
 
 #[test]
 fn plan_scope_caps_file_lists_at_50() {
-    let (mut state, _dir) = plan_state_with_sources(60);
+    let mut state = plan_state_with_sources(60);
     let content = plan_payload(&mut state, json!({"scope": "plan"}));
     let files = content["plan"]["unanalyzed_files"].as_array().unwrap();
     assert_eq!(
@@ -333,7 +265,7 @@ fn plan_scope_caps_file_lists_at_50() {
 
 #[test]
 fn plan_scope_pages_remaining_files_via_cursor() {
-    let (mut state, _dir) = plan_state_with_sources(60);
+    let mut state = plan_state_with_sources(60);
     let content = plan_payload(&mut state, json!({"scope": "plan", "cursor": 50}));
     let files = content["plan"]["unanalyzed_files"].as_array().unwrap();
     assert_eq!(files.len(), 10, "only the remainder is listed");
@@ -345,25 +277,24 @@ fn plan_scope_pages_remaining_files_via_cursor() {
 
 #[test]
 fn file_scope_lists_the_entities_anchored_to_the_file() {
-    let mut state = make_state_with_kind("behavior", Some("guide text"));
-    state.state_mut().edit_graph(|graph| {
-        graph.add_node(make_node("auth_login", "behavior", "auth.spec"));
-    });
-    let dir = tempfile::TempDir::new().unwrap();
-    std::fs::write(
-        dir.path().join("specforge-anchors.json"),
-        json!({"version": 1, "anchors": [
-            {"entity_id": "auth_login", "file": "src/auth.rs", "line": 3,
-             "symbol_name": "login", "item_kind": "fn", "scanner": "manual"},
-            {"entity_id": "cache_get", "file": "src/cache.rs", "line": 1,
-             "symbol_name": "get", "item_kind": "fn", "scanner": "manual"},
-        ]})
-        .to_string(),
-    )
-    .unwrap();
-    crate::support::serve_in_memory_at(state.state_mut(), dir.path());
+    // auth_login (auth.spec) is anchored to src/auth.rs:3; cache_get, which
+    // no spec declares, to src/cache.rs.
+    let mut state = TestProject::new()
+        .file("auth.spec", "behavior auth_login {\n}\n")
+        .file("src/auth.rs", "\n\npub fn login() {}\n")
+        .file(
+            "specforge-anchors.json",
+            &json!({"version": 1, "anchors": [
+                {"entity_id": "auth_login", "file": "src/auth.rs", "line": 3,
+                 "symbol_name": "login", "item_kind": "fn", "scanner": "manual"},
+                {"entity_id": "cache_get", "file": "src/cache.rs", "line": 1,
+                 "symbol_name": "get", "item_kind": "fn", "scanner": "manual"},
+            ]})
+            .to_string(),
+        )
+        .serve(&[test_extension("behavior", Some("guide text"))]);
 
-    let content = payload(&infer(&mut state, json!({"scope": "file:src/auth.rs"})));
+    let content = prompt_payload(&infer(&mut state, json!({"scope": "file:src/auth.rs"})));
     assert_eq!(content["match_mode"], "exact");
     let refs = content["existing_entities_referencing_file"]
         .as_array()
@@ -375,7 +306,7 @@ fn file_scope_lists_the_entities_anchored_to_the_file() {
     assert_eq!(refs[0]["symbol_name"], "login");
 
     // A directory lists the files under it; a substring is no match.
-    let content = payload(&infer(&mut state, json!({"scope": "file:src"})));
+    let content = prompt_payload(&infer(&mut state, json!({"scope": "file:src"})));
     assert_eq!(content["match_mode"], "directory");
     assert_eq!(
         content["existing_entities_referencing_file"]
@@ -383,7 +314,7 @@ fn file_scope_lists_the_entities_anchored_to_the_file() {
             .map(Vec::len),
         Some(2)
     );
-    let content = payload(&infer(&mut state, json!({"scope": "file:e.rs"})));
+    let content = prompt_payload(&infer(&mut state, json!({"scope": "file:e.rs"})));
     assert_eq!(content["match_mode"], "none");
 }
 
@@ -425,14 +356,11 @@ fn anchored_project() -> (McpServer, tempfile::TempDir) {
 
 /// `specforge.find_spec_for_source`'s structured result for `file_path`.
 fn find_spec_for_source(server: &mut McpServer, file_path: &str) -> Value {
-    let request = json!({"jsonrpc": "2.0", "id": 1, "method": "tools/call",
-        "params": {"name": "specforge.find_spec_for_source", "arguments": {"file_path": file_path}}});
-    let reply: Value =
-        serde_json::from_str(&server.handle_message(&request.to_string()).unwrap()).unwrap();
-    let text = reply["result"]["content"][0]["text"]
-        .as_str()
-        .unwrap_or_else(|| panic!("{reply}"));
-    serde_json::from_str(text).unwrap()
+    tool(
+        server,
+        "specforge.find_spec_for_source",
+        json!({"file_path": file_path}),
+    )
 }
 
 fn entity_ids(entities: &Value) -> Vec<String> {
@@ -457,7 +385,7 @@ fn infer_file_scope_agrees_with_find_spec_for_source() {
         "src",
         "login.rs",
     ] {
-        let infer = payload(&infer(
+        let infer = prompt_payload(&infer(
             &mut server,
             json!({"scope": format!("file:{spelling}")}),
         ));
@@ -484,7 +412,7 @@ fn infer_file_scope_lists_nothing_for_an_unanchored_file() {
     let (mut server, _dir) = anchored_project();
     // main.spec declares alpha, but a spec file anchors no source.
     for file in ["src/other.rs", "main.spec", "spec/main.spec"] {
-        let infer = payload(&infer(
+        let infer = prompt_payload(&infer(
             &mut server,
             json!({"scope": format!("file:{file}")}),
         ));

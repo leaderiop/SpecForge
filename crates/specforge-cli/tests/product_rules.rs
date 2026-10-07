@@ -17,9 +17,9 @@ fn product_diagnostics(spec: &str) -> Vec<(String, String)> {
     .unwrap();
     fs::write(dir.path().join("main.spec"), spec).unwrap();
     let runtime = specforge_component::project_runtime(dir.path());
-    let ctx =
-        specforge_project::CompiledProject::compile(dir.path(), Some(&runtime)).into_context();
-    ctx.diagnostics
+    let ctx = specforge_project::CompiledProject::compile(dir.path(), Some(&runtime));
+    let diagnostics = ctx.diagnostics();
+    diagnostics
         .iter()
         .map(|d| (d.code.clone(), d.message.clone()))
         .collect()
@@ -1008,4 +1008,233 @@ feature unsized "Unsized" {
     assert_quiet(&diags, "I081", "sized");
     assert_fires(&diags, "I081", "unsized");
     assert!(reported(&diags, "I081", "unsized")[0].contains("has no effort estimate"));
+}
+
+// ── lifecycle pass (check phase): W154, I063, I064, I065 ───────────────────
+
+#[specforge_test(
+    behavior = "detect_completed_milestone_with_unfinished_features",
+    verify = "completed milestone with an unfinished feature produces W154"
+)]
+#[specforge_test(
+    behavior = "detect_completed_milestone_with_unfinished_features",
+    verify = "completed milestone whose features are done or deprecated suppresses W154"
+)]
+#[specforge_test(
+    behavior = "detect_completed_milestone_with_unfinished_features",
+    verify = "in_progress milestone with unfinished features suppresses W154"
+)]
+fn w154_reports_unfinished_features_of_completed_milestones() {
+    let diags = product_diagnostics(
+        r#"
+feature f_done "Done" {
+  status done
+}
+feature f_gone "Gone" {
+  status deprecated
+}
+feature f_open "Open" {
+  status in_progress
+}
+feature f_bare "Bare" {
+}
+milestone m_claims "Claims" {
+  status completed
+  features [f_done, f_open, f_bare]
+  exit_criteria ["x"]
+}
+milestone m_true "True" {
+  status completed
+  features [f_done, f_gone]
+  exit_criteria ["x"]
+}
+milestone m_open "Open" {
+  status in_progress
+  features [f_open, f_bare]
+}
+"#,
+    );
+    let mut w154: Vec<&str> = diags
+        .iter()
+        .filter(|(c, _)| c == "W154")
+        .map(|(_, m)| m.as_str())
+        .collect();
+    w154.sort_unstable();
+    assert_eq!(
+        w154,
+        [
+            "milestone 'm_claims' is completed but its feature 'f_bare' is proposed",
+            "milestone 'm_claims' is completed but its feature 'f_open' is in_progress",
+        ],
+        "{diags:?}"
+    );
+    assert_quiet(&diags, "W154", "m_true");
+    assert_quiet(&diags, "W154", "m_open");
+}
+
+#[specforge_test(
+    behavior = "detect_done_feature_with_incomplete_deps",
+    verify = "done feature with all done deps suppresses I063"
+)]
+#[specforge_test(
+    behavior = "detect_done_feature_with_incomplete_deps",
+    verify = "done feature with non-done dep produces I063"
+)]
+#[specforge_test(
+    behavior = "detect_done_feature_with_incomplete_deps",
+    verify = "in_progress feature with non-done dep suppresses I063"
+)]
+#[specforge_test(
+    behavior = "detect_done_feature_with_incomplete_deps",
+    verify = "done feature with no deps produces no I063"
+)]
+fn i063_reports_done_features_depending_on_unfinished_ones() {
+    let diags = product_diagnostics(
+        r#"
+feature base_done "Base" {
+  status done
+}
+feature base_open "Open base" {
+  status accepted
+}
+feature on_done "On done" {
+  status done
+  depends_on [base_done]
+}
+feature on_open "On open" {
+  status done
+  depends_on [base_done, base_open]
+}
+feature busy "Busy" {
+  status in_progress
+  depends_on [base_open]
+}
+"#,
+    );
+    assert_fires(&diags, "I063", "on_open");
+    assert!(
+        reported(&diags, "I063", "on_open")[0].contains("'base_open', which is accepted"),
+        "{diags:?}"
+    );
+    assert_quiet(&diags, "I063", "on_done");
+    assert_quiet(&diags, "I063", "busy");
+    assert_quiet(&diags, "I063", "base_done");
+}
+
+#[specforge_test(
+    behavior = "detect_milestone_temporal_inconsistency",
+    verify = "milestone before its dependency produces I064"
+)]
+#[specforge_test(
+    behavior = "detect_milestone_temporal_inconsistency",
+    verify = "milestone after its dependency suppresses I064"
+)]
+#[specforge_test(
+    behavior = "detect_milestone_temporal_inconsistency",
+    verify = "milestone or dependency without target_date produces no I064"
+)]
+fn i064_reports_milestones_due_before_their_dependencies() {
+    let diags = product_diagnostics(
+        r#"
+feature f "F" {
+}
+milestone first "First" {
+  target_date "2026-03-01"
+  features [f]
+}
+milestone early "Early" {
+  target_date "2026-02-01"
+  depends_on [first]
+  features [f]
+}
+milestone later "Later" {
+  target_date "2026-04-01"
+  depends_on [first]
+  features [f]
+}
+milestone undated "Undated" {
+  depends_on [first]
+  features [f]
+}
+milestone on_undated "On undated" {
+  target_date "2026-01-01"
+  depends_on [undated]
+  features [f]
+}
+"#,
+    );
+    assert_fires(&diags, "I064", "early");
+    assert_quiet(&diags, "I064", "later");
+    assert_quiet(&diags, "I064", "undated");
+    assert_quiet(&diags, "I064", "on_undated");
+}
+
+#[specforge_test(
+    constraint = "product_deliverable_lifecycle_correctness",
+    verify = "I065 fires per incomplete milestone in shipped deliverable"
+)]
+#[specforge_test(
+    behavior = "detect_shipped_deliverable_incomplete_milestones",
+    verify = "shipped deliverable with all completed milestones suppresses I065"
+)]
+#[specforge_test(
+    behavior = "detect_shipped_deliverable_incomplete_milestones",
+    verify = "shipped deliverable with non-completed milestone produces I065"
+)]
+#[specforge_test(
+    behavior = "detect_shipped_deliverable_incomplete_milestones",
+    verify = "draft deliverable with non-completed milestone suppresses I065"
+)]
+#[specforge_test(
+    behavior = "detect_shipped_deliverable_incomplete_milestones",
+    verify = "shipped deliverable with no milestones produces no I065"
+)]
+fn i065_reports_shipped_deliverables_with_incomplete_milestones() {
+    let diags = product_diagnostics(&format!(
+        r#"{DELIVERABLE_PEERS}
+feature f "F" {{
+  status done
+}}
+milestone done_m "Done" {{
+  status completed
+  features [f]
+  exit_criteria ["x"]
+}}
+milestone open_m "Open" {{
+  status in_progress
+  features [f]
+}}
+deliverable shipped_ok "OK" {{
+  artifact_type cli
+  status shipped
+  journeys [j1]
+  modules [m1]
+  milestones [done_m]
+}}
+deliverable shipped_early "Early" {{
+  artifact_type cli
+  status shipped
+  journeys [j1]
+  modules [m1]
+  milestones [done_m, open_m]
+}}
+deliverable drafted "Draft" {{
+  artifact_type cli
+  status draft
+  journeys [j1]
+  modules [m1]
+  milestones [open_m]
+}}
+deliverable shipped_bare "Bare" {{
+  artifact_type cli
+  status shipped
+  journeys [j1]
+  modules [m1]
+}}
+"#
+    ));
+    assert_fires(&diags, "I065", "shipped_early");
+    assert_quiet(&diags, "I065", "shipped_ok");
+    assert_quiet(&diags, "I065", "drafted");
+    assert_quiet(&diags, "I065", "shipped_bare");
 }

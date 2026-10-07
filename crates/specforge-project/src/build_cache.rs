@@ -13,7 +13,7 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
-use specforge_common::Diagnostic;
+use specforge_common::{Diagnostic, codes};
 use specforge_graph::Graph;
 use specforge_parser::FieldValue;
 use specforge_registry::KindRegistry;
@@ -140,8 +140,8 @@ impl BuildCache {
 }
 
 fn invalid_cache(problem: &str) -> Diagnostic {
-    Diagnostic::warning(
-        "W144",
+    Diagnostic::new(
+        codes::W144,
         format!("build cache '{BUILD_CACHE_FILE}' {problem}; status history is ignored"),
     )
     .with_suggestion(format!(

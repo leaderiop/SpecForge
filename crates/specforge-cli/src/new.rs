@@ -8,19 +8,20 @@
 
 use crate::OutputFormat;
 use serde_json::json;
+use specforge_common::codes;
 use std::path::{Path, PathBuf};
 
 pub fn run(name: &str, extension: bool, path: &Path, format: OutputFormat) -> i32 {
     if !extension {
         format.print_error(
             "only `--extension` scaffolding is supported right now",
-            "E065",
+            codes::E065,
         );
         return 1;
     }
 
     if let Err(message) = validate_name(name) {
-        format.print_error(&message, "E065");
+        format.print_error(&message, codes::E065);
         return 1;
     }
 
@@ -28,13 +29,13 @@ pub fn run(name: &str, extension: bool, path: &Path, format: OutputFormat) -> i3
     if dir.exists() {
         format.print_error(
             &format!("destination '{}' already exists", dir.display()),
-            "E065",
+            codes::E065,
         );
         return 1;
     }
 
     if let Err(message) = scaffold(&dir, name) {
-        format.print_error(&message, "E066");
+        format.print_error(&message, codes::E066);
         return 1;
     }
 

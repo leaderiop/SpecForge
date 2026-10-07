@@ -1,26 +1,13 @@
 //! The project an MCP server serves is replaced whole, by one install, or
 //! not at all (`mcp_served_project_consistency`, plan 01 P7).
 
+use crate::support::*;
 use serde_json::{Value, json};
 use specforge_mcp::McpServer;
 use specforge_test::prelude::*;
 use std::fs;
 use std::path::Path;
 use tempfile::TempDir;
-
-fn call(server: &mut McpServer, method: &str, params: Value) -> Value {
-    let req = json!({"jsonrpc": "2.0", "id": 1, "method": method, "params": params});
-    let resp = server.handle_message(&req.to_string()).unwrap();
-    serde_json::from_str(&resp).unwrap()
-}
-
-fn call_tool(server: &mut McpServer, name: &str, arguments: Value) -> Value {
-    call(
-        server,
-        "tools/call",
-        json!({"name": name, "arguments": arguments}),
-    )
-}
 
 fn initialize(server: &mut McpServer, root: &Path) {
     let resp = call(

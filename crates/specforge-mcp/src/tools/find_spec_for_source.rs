@@ -51,7 +51,7 @@ pub fn call(call: &mut Call<'_>, args: Args) -> Handled {
     let FileAnchors { mode, anchors } = anchors_of_file(&manifest, file_path);
     let entities: Vec<Value> = anchors
         .iter()
-        .map(|anchor| anchor_json(anchor, project.graph))
+        .map(|anchor| anchor_json(anchor, project.graph()))
         .collect();
 
     Ok(ToolOutcome::ok(json!({

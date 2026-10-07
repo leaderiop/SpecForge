@@ -3,13 +3,14 @@
 
 use serde::Serialize;
 use serde_json::Value;
+use specforge_common::codes;
 use specforge_project::coverage::{ProjectCoverage, ReportError};
 use std::collections::{HashMap, HashSet};
 
 use specforge_emitter::SCHEMA_VERSION;
 
-use crate::OpError;
 use crate::view::ProjectView;
+use crate::{OpError, OpErrorKind};
 
 /// How a plan falls short of the graph.
 #[derive(Debug, Clone, PartialEq)]
@@ -51,7 +52,9 @@ impl std::error::Error for PlanError {}
 impl From<PlanError> for OpError {
     fn from(error: PlanError) -> Self {
         match error {
-            PlanError::NotAPlan(why) => OpError::new("invalid_input", why),
+            PlanError::NotAPlan(why) => {
+                OpError::new(OpErrorKind::InvalidInput, "invalid_input", why)
+            }
             PlanError::Report(error) => error.diagnostic().into(),
         }
     }
@@ -123,7 +126,7 @@ pub fn check(view: &ProjectView, plan: &Value) -> Result<PlanOutcome, PlanError>
 }
 
 fn validate(view: &ProjectView, entries: &[Value], coverage: &ProjectCoverage) -> PlanOutcome {
-    let graph = view.graph;
+    let graph = view.graph();
     let mut errors = Vec::new();
     let mut warnings = Vec::new();
     let mut ordering_violations = Vec::new();
@@ -140,7 +143,8 @@ fn validate(view: &ProjectView, entries: &[Value], coverage: &ProjectCoverage) -
                 validated_entries.push(id.to_string());
             } else {
                 let message = format!(
-                    "E003: unresolved entity '{}' in plan — not found in graph",
+                    "{}: unresolved entity '{}' in plan — not found in graph",
+                    codes::E003,
                     id
                 );
                 gaps.push(PlanGap {
@@ -156,14 +160,15 @@ fn validate(view: &ProjectView, entries: &[Value], coverage: &ProjectCoverage) -
     let plan_id_set: HashSet<String> = plan_ids.iter().cloned().collect();
 
     // Testable entities that declare obligations, missing from the plan.
-    for (id, standing) in &coverage.standings {
+    for (record, standing) in coverage.entities().iter() {
+        let id = &record.id;
         let obliged = coverage
             .verdict(id)
             .is_some_and(|verdict| verdict.obligations > 0);
         if standing.testable && obliged && !plan_id_set.contains(id.as_str()) {
             let message = format!(
                 "testable entity '{id}' ({}) is not covered by the plan",
-                standing.kind
+                record.kind
             );
             gaps.push(PlanGap {
                 source: PLAN.to_string(),

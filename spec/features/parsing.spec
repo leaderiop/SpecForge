@@ -7,6 +7,7 @@ use "behaviors/wasm-lifecycle"
 // collapse_grammar_to_generic_entity_block and two_phase_parse_structural
 
 feature spec_file_parsing "Spec File Parsing" {
+  status   done
   problem  """
     .spec files need to be parsed into structured ASTs that preserve
     source locations for all tokens, supporting any keyword via a
@@ -27,6 +28,7 @@ feature spec_file_parsing "Spec File Parsing" {
 }
 
 feature error_recovery_during_parsing "Error Recovery During Parsing" {
+  status   done
   problem  """
     A single syntax error in one block should not prevent the compiler
     from reporting errors in subsequent blocks. Users need to see all
@@ -40,6 +42,7 @@ feature error_recovery_during_parsing "Error Recovery During Parsing" {
 }
 
 feature editor_query_files "Editor Query Files" {
+  status   done
   problem  """
     Without query files, .spec files appear as plain text in
     editors with structural query support like Neovim, Helix, Zed, and Emacs.
@@ -57,6 +60,7 @@ feature editor_query_files "Editor Query Files" {
 }
 
 feature extension_body_parsing "Extension Body Parsing" {
+  status   done
   problem  """
     Some extensions give their entity kinds body syntax the core grammar
     does not parse (software's type field types and port method

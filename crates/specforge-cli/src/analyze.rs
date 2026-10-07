@@ -6,19 +6,18 @@
 
 use std::path::Path;
 
-use specforge_common::truncate_diagnostics;
+use specforge_common::{codes, truncate_diagnostics};
 use specforge_ops::analyze::{
     AnalyzeError, AnalyzeOptions, Gate, ProveOptions, ReportSource, analyze,
 };
 use specforge_ops::view::ProjectView;
 use specforge_validator::{diagnostic_summary_detailed, render_diagnostics_colored};
 
-use crate::AnalysisPass;
 use crate::pipeline;
 
 pub fn run(
     path: &Path,
-    pass: Option<AnalysisPass>,
+    pass: Option<String>,
     json: bool,
     strict: bool,
     test_results: Option<&Path>,
@@ -33,7 +32,9 @@ pub fn run(
         None => ReportSource::Recorded,
     };
     let options = AnalyzeOptions {
-        pass: pass.unwrap_or(AnalysisPass::All).name().to_string(),
+        // Any name: the passes are the project's, so the operation refuses
+        // one it does not run (exit 2, as clap refuses a flag's value).
+        pass: pass.unwrap_or_else(|| specforge_ops::analyze::EVERY_PASS.to_string()),
         strict,
         report,
         min,
@@ -57,11 +58,13 @@ pub fn run(
     for orphan in &outcome.orphans {
         match &orphan.near {
             Some(near) => eprintln!(
-                "W097: test record references unknown entity '{}' (did you mean '{near}'?)",
+                "{}: test record references unknown entity '{}' (did you mean '{near}'?)",
+                codes::W097,
                 orphan.entity_id
             ),
             None => eprintln!(
-                "W097: test record references unknown entity '{}'",
+                "{}: test record references unknown entity '{}'",
+                codes::W097,
                 orphan.entity_id
             ),
         }
@@ -121,7 +124,8 @@ pub fn run(
         Gate::NotRequested | Gate::Met => {}
         Gate::NoCoveragePass => {
             eprintln!(
-                "error[E068]: --min requires the coverage pass (pass=coverage or all) from @specforge/testing — enable it with `specforge add @specforge/testing`"
+                "error[{}]: --min requires the coverage pass (pass=coverage or all) from @specforge/testing — enable it with `specforge add @specforge/testing`",
+                codes::E068
             );
             return 2;
         }
@@ -138,7 +142,8 @@ pub fn run(
             total,
         } => {
             eprintln!(
-                "error[E048]: proof coverage {pct:.1}% is below the required minimum {min:.1}% ({proven}/{total} testable entities proven)"
+                "error[{}]: proof coverage {pct:.1}% is below the required minimum {min:.1}% ({proven}/{total} testable entities proven)",
+                codes::E048
             );
             return 1;
         }

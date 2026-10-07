@@ -1,7 +1,7 @@
 //! The surfaces registry: which extension owns each declared command, MCP
 //! tool and MCP resource (first registration wins).
 
-use specforge_common::{Diagnostic, Severity};
+use specforge_common::{Diagnostic, codes};
 use specforge_protocol_types::SurfaceDescriptor;
 use std::collections::HashMap;
 
@@ -42,17 +42,16 @@ pub fn refuse_malformed_tool_schemas(
         .map(|(name, _)| name)
         .collect();
         for name in &malformed {
-            diagnostics.push(Diagnostic {
-                code: "E055".to_string(),
-                severity: Severity::Error,
-                message: format!(
-                    "MCP tool '{}' of extension '{}': {} must be a JSON object; the tool is not registered",
-                    tool.name, ext_name, name
-                ),
-                span: None,
-                suggestion: Some("declare the schema as a JSON Schema object".to_string()),
-                data: None,
-            });
+            diagnostics.push(
+                Diagnostic::new(
+                    codes::E055,
+                    format!(
+                        "MCP tool '{}' of extension '{}': {} must be a JSON object; the tool is not registered",
+                        tool.name, ext_name, name
+                    ),
+                )
+                .with_suggestion("declare the schema as a JSON Schema object".to_string()),
+            );
         }
         malformed.is_empty()
     });
@@ -74,17 +73,13 @@ pub fn register_surface_contributions(
     for (ext_name, surfaces) in declared {
         for cmd in &surfaces.commands {
             if let Some(first_ext) = seen_commands.get(&cmd.id) {
-                diagnostics.push(Diagnostic {
-                    code: "E039".to_string(),
-                    severity: Severity::Error,
-                    message: format!(
+                diagnostics.push(Diagnostic::new(
+                    codes::E039,
+                    format!(
                         "duplicate surface command ID '{}': extension '{}' conflicts with '{}'",
                         cmd.id, ext_name, first_ext
                     ),
-                    span: None,
-                    suggestion: None,
-                    data: None,
-                });
+                ));
             } else {
                 seen_commands.insert(cmd.id.clone(), ext_name.clone());
                 entries.push(SurfaceRegistryEntry {
@@ -98,17 +93,13 @@ pub fn register_surface_contributions(
 
         for tool in &surfaces.mcp_tools {
             if let Some(first_ext) = seen_tools.get(&tool.name) {
-                diagnostics.push(Diagnostic {
-                    code: "E039".to_string(),
-                    severity: Severity::Error,
-                    message: format!(
+                diagnostics.push(Diagnostic::new(
+                    codes::E039,
+                    format!(
                         "duplicate MCP tool name '{}': extension '{}' conflicts with '{}'",
                         tool.name, ext_name, first_ext
                     ),
-                    span: None,
-                    suggestion: None,
-                    data: None,
-                });
+                ));
             } else {
                 seen_tools.insert(tool.name.clone(), ext_name.clone());
                 entries.push(SurfaceRegistryEntry {
@@ -122,17 +113,13 @@ pub fn register_surface_contributions(
 
         for resource in &surfaces.mcp_resources {
             if let Some(first_ext) = seen_resources.get(&resource.name) {
-                diagnostics.push(Diagnostic {
-                    code: "E039".to_string(),
-                    severity: Severity::Error,
-                    message: format!(
+                diagnostics.push(Diagnostic::new(
+                    codes::E039,
+                    format!(
                         "duplicate MCP resource name '{}': extension '{}' conflicts with '{}'",
                         resource.name, ext_name, first_ext
                     ),
-                    span: None,
-                    suggestion: None,
-                    data: None,
-                });
+                ));
             } else {
                 seen_resources.insert(resource.name.clone(), ext_name.clone());
                 entries.push(SurfaceRegistryEntry {

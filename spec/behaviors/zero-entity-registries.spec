@@ -1,4 +1,4 @@
-// Zero-entity core — manifest V2, dynamic registries, grammar, bootstrap, visualization, consistency
+// Zero-entity core — the registry build's outcomes, grammar, bootstrap, unknown kinds, visualization
 
 use "events/compilation"
 use "invariants/core"
@@ -11,255 +11,7 @@ use "types/errors"
 use "types/wasm"
 use "types/zero-entity-core"
 
-// -- Extension Manifest V2 ---------------------------------------------------
-
-behavior validate_manifest_v2_schema "Validate Extension Declaration" {
-  features   [extension_manifest]
-  invariants [zero_domain_knowledge_core, registry_population_before_validation]
-  category   validation
-  types      [ExtensionDeclaration, ExtensionError]
-  requires {
-    declaration_loaded "The extension's declaration has been loaded from its handshake and describe answers"
-  }
-  ensures {
-    shape_validated     "The declaration has a name and a version, a declared ext_short is lowercase kebab case, and every analyzer has a language, file extensions and exports"
-    malformed_diagnosed "A declaration the host cannot use produces a hard error diagnostic"
-  }
-  contract   """
-    The registry build MUST validate each declaration: name and version
-    present, a declared ext_short is lowercase kebab case, analyzer
-    contributions have a language, file extensions and exports (E030). The
-    load MUST refuse a handshake whose protocol major version differs from
-    the host's (E028). Unknown describe keys produce W138 at load.
-    Declaration validation MUST complete for all declarations before
-    registry population begins.
-  """
-  verify unit "a valid declaration passes validation"
-  verify unit "missing required field produces hard error"
-  verify integration "an unsupported protocol major version fails the load"
-  verify integration "an unknown describe key produces a warning"
-  verify contract "Validate Extension Declaration: declaration validation holds — declaration_loaded, shape_validated, malformed_diagnosed"
-}
-
-behavior register_entity_kinds_from_manifest "Register Entity Kinds From Manifest" {
-  features   [dynamic_entity_registration]
-  invariants [zero_domain_knowledge_core, registry_population_before_validation]
-  category   command
-  types      [ExtensionDeclaration, EntityKindDescriptor, KindRegistryEntry]
-  consumes   [extension_manifests_loaded]
-  requires {
-    extension_manifests_loaded_fired "extension_manifests_loaded event has fired, confirming all manifests are parsed and accessible"
-  }
-  ensures {
-    kinds_registered          "Every entityKinds entry from the manifest is registered in the KindRegistry with full metadata"
-    source_extension_recorded "Source extension name recorded on each KindRegistryEntry for diagnostics"
-  }
-  contract   """
-    For each entityKinds entry in a extension manifest, the compiler MUST
-    register the kind in the KindRegistry with full metadata: testable flag,
-    singleton flag, supportsVerify flag, semantic token classification,
-    LSP icon for outline, and DOT shape for
-    visualization. The source extension name MUST be recorded for diagnostics
-    and doctor output. A kind's lifecycle_field MUST be recorded when it
-    names one of the kind's own or the extension's shared fields, and
-    refused with a warning (W021) otherwise.
-  """
-  verify unit "entity kind registered with testable flag"
-  verify unit "entity kind registered with singleton flag"
-  verify unit "entity kind registered with LSP metadata"
-  verify unit "source extension recorded in registry entry"
-  // Testability registration (formerly register_testability_from_manifest)
-  verify unit "testable=true entity participates in coverage"
-  verify unit "testable=false entity excluded from coverage"
-  verify unit "no default testability assumed by core"
-  verify unit "a kind's lifecycle_field must name a field it declares"
-  verify contract "Register Entity Kinds From Manifest: entity kind registration holds — extension_manifests_loaded_fired, kinds_registered, source_extension_recorded"
-}
-
-behavior register_edge_types_from_manifest "Register Edge Types From Manifest" {
-  features   [dynamic_entity_registration]
-  invariants [zero_domain_knowledge_core, registry_population_before_validation]
-  category   command
-  types      [ExtensionDeclaration, EdgeTypeDescriptor]
-  consumes   [extension_manifests_loaded]
-  requires {
-    extension_manifests_loaded_fired "extension_manifests_loaded event has fired, confirming all manifests are parsed and accessible"
-  }
-  ensures {
-    edge_types_registered "Every edgeTypes entry and field-to-edge mapping is registered in the edge type set"
-    constraints_recorded  "Source and target kind constraints recorded for each edge type"
-    duplicates_warned     "Duplicate edge labels across extensions produce W-level warnings"
-  }
-  contract   """
-    For each edgeTypes entry in a extension manifest, the compiler MUST
-    register the edge label in the edge type set. The source and target
-    kind constraints MUST be recorded for graph validation. Field-to-edge
-    mappings from FieldDescriptor entries MUST create corresponding edge
-    type registrations.
-
-    Duplicate edge labels across extensions MUST produce a W-level warning
-    including both extension names. Resolution is deterministic:
-    first-registered wins, where registration order follows topological
-    sort of peer dependencies. Extensions without dependency relationships
-    are ordered alphabetically by name. The winning registration's
-    source_kind and target_kind constraints are used for graph validation;
-    the duplicate's constraints are discarded.
-  """
-  verify unit "edge type registered with label and description"
-  verify unit "source/target kind constraints recorded"
-  verify unit "duplicate edge label across extensions produces W-level warning"
-  verify unit "first-registered edge type wins on collision (topological order)"
-  verify unit "field-to-edge mapping creates edge type"
-  verify contract "Register Edge Types From Manifest: edge type registration holds — extension_manifests_loaded_fired, edge_types_registered, constraints_recorded, duplicates_warned"
-}
-
-behavior register_validation_rules_from_manifest "Register Validation Rules From Manifest" {
-  features   [declarative_validation_rules]
-  invariants [
-    zero_domain_knowledge_core,
-    registry_population_before_validation,
-    declarative_validation_determinism,
-  ]
-  category   command
-  types      [ExtensionDeclaration, ValidationRulePattern]
-  consumes   [extension_manifests_loaded]
-  requires {
-    extension_manifests_loaded_fired "extension_manifests_loaded event has fired, confirming all manifests are parsed and accessible"
-  }
-  ensures {
-    rules_registered       "Every validationRules entry is parsed and stored with raw target_kind and edge_type strings"
-    unloaded_targets_inert "A rule whose target kind or edge type no loaded extension declares reports nothing"
-  }
-  contract   """
-    For each validationRules entry in a extension manifest, the compiler
-    MUST parse and register the declarative rule. Registration is a two-step
-    process:
-
-    Step 1 (during registration): Rules are parsed and stored with their
-    raw target_kind and edge_type strings. No cross-reference validation
-    occurs at this point because peer-dependency extensions may not have
-    registered their kinds yet.
-
-    Step 2 (after registries_populated): target_kind and edge_type are
-    resolved against the loaded registries when rules run. A rule whose
-    target kind or edge type no loaded extension declares reports nothing:
-    it belongs to an optional peer that is not installed, so a project
-    without that kind is not held to it. A manifest that references a kind
-    no declared peer provides is the extension author's mistake, reported
-    as W021 when the extensions load.
-  """
-  verify unit "validation rule registered from manifest"
-  verify unit "target_kind validation deferred to post-registration phase"
-  verify unit "a rule targeting a kind no loaded extension declares reports nothing"
-  verify contract "Register Validation Rules From Manifest: validation rule registration holds — extension_manifests_loaded_fired, rules_registered, unloaded_targets_inert"
-}
-
-behavior register_verify_kinds_from_manifest "Register Verify Kinds From Manifest" {
-  features   [extension_manifest]
-  invariants [zero_domain_knowledge_core, registry_population_before_validation]
-  category   validation
-  types      [ExtensionDeclaration, EntityKindDescriptor]
-  consumes   [extension_manifests_loaded]
-  requires {
-    extension_manifests_loaded_fired "extension_manifests_loaded event has fired, confirming all manifests are parsed and accessible"
-  }
-  ensures {
-    verify_kinds_registered "All allowedVerifyKinds from manifest entityKinds are registered per entity kind"
-    no_hardcoded_kinds      "No built-in verify kind names exist — all come from extension manifests"
-  }
-  contract   """
-    When a manifest entityKind has an allowedVerifyKinds field, the compiler
-    MUST register those verify kinds for entities of that kind. Verify kind
-    names MUST NOT be hardcoded (no built-in verify kind names — all come from extension manifests).
-    Extensions MAY define arbitrary verify kinds (e.g., "contract", "smoke",
-    "chaos"). Unknown verify kinds in .spec files MUST produce a warning
-    referencing the entity's extension.
-  """
-  verify unit "custom verify kinds registered from manifest"
-  verify unit "no hardcoded verify kinds in core"
-  verify unit "unknown verify kind in .spec produces W-level diagnostic in Phase 2"
-  verify contract "Register Verify Kinds From Manifest: verify kind registration holds — extension_manifests_loaded_fired, verify_kinds_registered, no_hardcoded_kinds"
-}
-
 // -- Dynamic Entity Registration ---------------------------------------------
-
-behavior boot_empty_kind_registry "Boot Empty Kind Registry" {
-  features   [dynamic_entity_registration]
-  invariants [zero_domain_knowledge_core]
-  category   command
-  types      [KindRegistryEntry]
-  requires {
-    compiler_initializing "Compiler initialization has started and memory is allocated"
-  }
-  ensures {
-    kind_registry_empty       "KindRegistry contains zero entity kind entries"
-    structural_keywords_ready "Parser recognizes only structural keywords (spec, ref, use, define)"
-  }
-  contract   """
-    When the compiler initializes, KindRegistry::new() MUST return an
-    empty registry with zero entity kind entries. Only the structural
-    keywords spec, ref, use, and define MUST be recognized by the
-    parser (these have dedicated grammar rules). No extension-defined
-    entity keywords MUST exist until extensions populate the registry.
-  """
-  verify unit "KindRegistry::new() has zero entries"
-  verify unit "parser recognizes spec keyword without extensions"
-  verify unit "parser recognizes ref keyword without extensions"
-  verify unit "parser recognizes use keyword without extensions"
-  verify unit "parser recognizes define keyword without extensions"
-  verify contract "Boot Empty Kind Registry: empty kind registry boot holds — compiler_initializing, kind_registry_empty, structural_keywords_ready"
-}
-
-behavior boot_empty_field_registry "Boot Empty Field Registry" {
-  features   [dynamic_entity_registration]
-  invariants [zero_domain_knowledge_core]
-  category   command
-  types      [FieldRegistryEntry]
-  requires {
-    compiler_initializing "Compiler initialization has started and memory is allocated"
-  }
-  ensures {
-    field_registry_empty "FieldRegistry contains zero field definitions"
-    no_fields_recognized "No extension-defined field names are recognized before population"
-  }
-  contract   """
-    When the compiler initializes, FieldRegistry::new() MUST return an
-    empty registry with zero field definitions. No extension-defined field
-    names MUST be recognized until extensions populate the registry. The
-    entity title (the string after the entity keyword and ID) is a
-    grammar-level positional element parsed by the generic_entity_block
-    rule — it is NOT a FieldRegistry entry and does not participate in
-    field validation.
-  """
-  verify unit "FieldRegistry::new() has zero entries"
-  verify unit "no field names recognized before extension loading"
-  verify unit "entity title parsed by grammar, not FieldRegistry"
-  verify contract "Boot Empty Field Registry: empty field registry boot holds — compiler_initializing, field_registry_empty, no_fields_recognized"
-}
-
-behavior boot_empty_edge_registry "Boot Empty Edge Registry" {
-  features   [dynamic_entity_registration]
-  invariants [zero_domain_knowledge_core]
-  category   command
-  types      [EdgeTypeDescriptor]
-  requires {
-    compiler_initializing "Compiler initialization has started and memory is allocated"
-  }
-  ensures {
-    edge_registry_empty "Edge type set contains zero registered edge labels"
-    no_edges_recognized "No extension-defined edge types exist before population"
-  }
-  contract   """
-    When the compiler initializes, the edge type set MUST start empty with
-    zero registered edge labels. No extension-defined edge types MUST exist
-    until extensions populate the set. This parallels boot_empty_kind_registry
-    and boot_empty_field_registry — all three registries begin empty and are
-    populated exclusively from extension manifests.
-  """
-  verify unit "edge type set starts with zero entries"
-  verify unit "no edge labels recognized before extension loading"
-  verify contract "Boot Empty Edge Registry: empty edge registry boot holds — compiler_initializing, edge_registry_empty, no_edges_recognized"
-}
 
 behavior report_define_blocks "Report Unsupported Define Blocks" {
   features   [zero_entity_bootstrap]
@@ -282,155 +34,6 @@ behavior report_define_blocks "Report Unsupported Define Blocks" {
   """
   verify unit "a define block produces one W143 and adds no node to the graph"
   verify integration "an incremental rebuild reports a define block as a fresh compile does"
-}
-
-behavior populate_kind_registry_from_extensions "Populate Kind Registry From Extensions" {
-  features   [dynamic_entity_registration]
-  invariants [
-    zero_domain_knowledge_core,
-    registry_population_before_validation,
-    compilation_pipeline_ordering,
-  ]
-  category   command
-  types      [ExtensionDeclaration, EntityKindDescriptor, KindRegistryEntry]
-  produces   [registries_populated]
-  requires {
-    manifests_loaded    "All extension manifests MUST be loaded and their entity_kinds arrays accessible"
-    kind_registry_empty "KindRegistry MUST be in its initial empty state (boot_empty_kind_registry completed)"
-  }
-  ensures {
-    one_entry_per_kind     "KindRegistry contains exactly one entry per unique entity kind declared across all installed extension manifests"
-    registries_event_fired "registries_populated event emitted after all three registries are populated"
-  }
-  maintains {
-    zero_domain_knowledge "No domain-specific logic introduced during population — only structural metadata registered"
-  }
-  contract   """
-    After loading all extension manifests, the compiler MUST populate the
-    KindRegistry by iterating extensions in topological order (peer deps
-    first). For each extension, each entityKinds entry MUST be registered
-    as a KindRegistryEntry. After population, the parser MUST recognize
-    all registered keywords for subsequent files. Population MUST complete
-    before any semantic validation begins.
-  """
-  verify unit "extensions iterated in topological order"
-  verify unit "all entityKinds entries registered"
-  verify unit "registered keywords available to parser"
-  verify unit "population completes before validation"
-  verify integration "two extensions register kinds without collision"
-  verify contract "Populate Kind Registry From Extensions: registry population holds for the declared obligations"
-}
-
-behavior populate_field_registry_from_extensions "Populate Field Registry From Extensions" {
-  features   [dynamic_entity_registration]
-  invariants [zero_domain_knowledge_core, registry_population_before_validation]
-  category   command
-  types      [ExtensionDeclaration, FieldDescriptor, FieldRegistryEntry, ManifestFieldType]
-  consumes   [extension_manifests_loaded]
-  // Orchestrated by populate_kind_registry_from_extensions which fires registries_populated after all three complete.
-  requires {
-    extension_manifests_loaded_fired "extension_manifests_loaded event has fired, confirming all manifests are parsed and accessible"
-    kind_registry_populated          "KindRegistry is already populated so field registrations can reference valid entity kinds"
-  }
-  ensures {
-    fields_registered     "Every EntityKindDescriptor's fields array is registered in the FieldRegistry"
-    field_types_validated "All field type declarations validated against ManifestFieldType variants"
-    fields_populated      "FieldRegistry is fully populated and ready for downstream consumers"
-  }
-  contract   """
-    After populating the KindRegistry, the compiler MUST populate the
-    FieldRegistry from all extension manifests. Each EntityKindDescriptor's
-    fields array MUST be registered as valid field definitions for that
-    entity kind. Field types (string, string[], reference, reference[],
-    block) MUST be validated against ManifestFieldType variants. Invalid
-    field types MUST produce a warning. Note: verify is NOT a field type
-    — it is a grammar-level construct governed by the supports_verify
-    flag on EntityKindDescriptor. A field's normative flag MUST be kept in
-    its registry entry, so exports can tell the text that states what an
-    entity promises from prose without core knowing any field's name.
-    Likewise a field's proof_role (bound or claim) MUST reach its registry
-    entry, so the prove pass reads declared roles and no field name; any
-    other role value MUST be refused with a warning (W021).
-  """
-  verify unit "fields registered per entity kind"
-  verify unit "a field's normative flag reaches its registry entry"
-  verify unit "a field's proof_role reaches the field registry"
-  verify unit "a field's declared default value reaches the field registry"
-  verify unit "a proof_role other than bound or claim is refused"
-  verify unit "field types validated against known types"
-  verify unit "invalid field type produces warning"
-  verify contract "Populate Field Registry From Extensions: field registry population holds — extension_manifests_loaded_fired, kind_registry_populated, fields_registered, field_types_validated, fields_populated"
-}
-
-behavior populate_edge_registry_from_extensions "Populate Edge Registry From Extensions" {
-  features   [dynamic_entity_registration]
-  invariants [zero_domain_knowledge_core, registry_population_before_validation]
-  category   command
-  types      [ExtensionDeclaration, EdgeTypeDescriptor, FieldDescriptor, EdgeRegistryEntry]
-  consumes   [extension_manifests_loaded]
-  // Orchestrated by populate_kind_registry_from_extensions which fires registries_populated after all three complete.
-  requires {
-    extension_manifests_loaded_fired "extension_manifests_loaded event has fired, confirming all manifests are parsed and accessible"
-  }
-  ensures {
-    edge_set_complete "Complete edge type set built from both explicit edgeTypes and implicit field-to-edge mappings"
-    duplicates_warned "Duplicate edge labels produce warnings but are not rejected"
-    edges_populated   "EdgeRegistry is fully populated and ready for downstream consumers"
-  }
-  contract   """
-    The compiler MUST build the complete edge type set from two sources:
-    explicit edgeTypes declarations in manifests, and implicit edge types
-    derived from FieldDescriptor entries with an edge property. Both sources
-    MUST be merged into a single edge type set before graph construction.
-    Duplicate edge labels MUST be warned about but not rejected.
-  """
-  verify unit "explicit edgeTypes merged into edge set"
-  verify unit "implicit edges from field mappings merged"
-  verify unit "duplicate edge labels produce warning"
-  verify contract "Populate Edge Registry From Extensions: edge registry population holds — extension_manifests_loaded_fired, edge_set_complete, duplicates_warned, edges_populated"
-}
-
-behavior validate_registered_entity_fields "Validate Registered Entity Fields" {
-  features   [dynamic_entity_registration]
-  invariants [zero_domain_knowledge_core, registry_population_before_validation]
-  category   validation
-  types      [
-    ExtensionDeclaration,
-    FieldDescriptor,
-    EntityKindDescriptor,
-    EdgeTypeDescriptor,
-    FieldRegistryEntry,
-    KindRegistryEntry,
-  ]
-  consumes   [extension_manifests_loaded]
-  requires {
-    extensions_loaded                "Every configured extension's manifest is loaded, so each one's kinds and edge types are known"
-    extension_manifests_loaded_fired "extension_manifests_loaded event has fired"
-  }
-  ensures {
-    target_kinds_resolved "Every field target_kind reference resolves to a registered kind"
-    unresolved_diagnosed  "Diagnostics emitted for unresolved target_kind references"
-  }
-  maintains {
-    no_domain_logic "Cross-validation uses only structural checks — no domain-specific logic"
-  }
-  contract   """
-    Once every configured extension is loaded, before the registries are
-    built from them, the compiler MUST cross-validate what they will
-    register using only structural checks — no domain-specific logic.
-    target_kind references in fields MUST resolve to entity kinds the
-    extension or a loaded peer declares. Edge labels in field-to-edge
-    mappings MUST resolve to edge types the extension declares. Field type
-    declarations MUST be internally consistent. Validation failures MUST
-    produce warnings (W021, from validate_extension_manifest_consistency)
-    to allow partial loading, not hard errors.
-  """
-  verify unit "target_kind reference resolves to registered kind"
-  verify unit "edge label resolves to registered edge type"
-  verify unit "unresolved target_kind produces warning"
-  verify unit "unresolved edge label produces warning"
-  verify unit "cross-validation uses no domain-specific logic"
-  verify contract "Validate Registered Entity Fields: field cross-validation holds for the declared obligations"
 }
 
 // -- Grammar Consolidation ---------------------------------------------------
@@ -748,48 +351,290 @@ behavior render_extension_defined_edge_styles "Render Extension-Defined Edge Sty
   verify contract "Render Extension-Defined Edge Styles: DOT edge style rendering holds — edge_registry_available, graph_available, styles_applied, edge_colors_applied"
 }
 
-// -- Extension Manifest Consistency ------------------------------------------
+// -- Registry build outcomes -------------------------------------------------
+// The registry build (build_registries_from_declarations) turns the loaded
+// declarations, in load order, into the kind, field and edge registries and
+// the rules. Each behavior below is one outcome of that build that a test can
+// observe: it gives the build declarations and reads the RegistryBuild, never a
+// step.
 
-behavior validate_extension_manifest_consistency "Validate Extension Manifest Consistency" {
-  features   [extension_manifest]
-  invariants [zero_domain_knowledge_core, registry_population_before_validation]
-  category   validation
-  types      [ExtensionDeclaration, EntityKindDescriptor, EdgeTypeDescriptor, FieldDescriptor]
+behavior registry_build_kinds "Registry Build Registers Kinds" {
+  features   [dynamic_entity_registration, entity_kind_conflict_prevention, extension_manifest]
+  invariants [
+    zero_domain_knowledge_core,
+    registry_population_before_validation,
+    testable_entity_classification,
+  ]
+  category   command
+  types      [ExtensionDeclaration, EntityKindDescriptor, KindRegistryEntry, RegistryBuild]
   requires {
-    manifest_parsed         "The extension's declaration has been loaded and its entity kinds, fields, and edge types are accessible"
-    peer_dependencies_known "The loaded peers' declarations are available for cross-declaration reference validation"
+    declarations_in_load_order "The loaded declarations are given in load order, dependencies first"
   }
   ensures {
-    self_consistency_validated "All internal target_kind and edge_type references checked for self-consistency"
-    authoring_errors_diagnosed "Self-contradictory and undeclared cross-extension references produce W021 warnings"
+    kinds_registered "Every declared kind is in the build's KindRegistry under its keyword, embedding its descriptor and naming the extension that declared it"
+    first_wins       "A keyword two extensions declare belongs to the first in load order; the later declaration is E026"
+    flags_consistent "A testable kind that cannot declare obligations is W017; testability and verify kinds come only from declarations"
   }
   contract   """
-    When an extension is loaded, the registry build MUST validate that its
-    declaration is self-consistent: all target_kind references in fields
-    MUST reference entity kinds declared in the same declaration or in a
-    peer dependency. All edge labels in field-to-edge mappings MUST have
-    corresponding edge type declarations. This validation is domain-agnostic
-    — it checks structural consistency of the declaration without knowledge
-    of what the entity kinds or edge types represent.
-
-    Self-contradictory references within the same declaration (target_kind
-    or edge_type that references a name not declared in the declaration itself
-    and not in any peer dependency) MUST produce a W021 warning naming the
-    reference. They are authoring errors in the extension, not in the
-    user's spec, so they MUST NOT fail the user's compile. Cross-extension
-    references to kinds from non-peer extensions produce W021 as well (the
-    kind may exist but the dependency is undeclared).
-
-    A field's `derived_from` MUST name `type_expressions` or
-    `method_signatures` and sit on a reference or reference_list field with
-    a target_kind; any other one derives nothing and produces a W021
-    warning naming the field.
+    The registry build MUST register every kind each declaration declares,
+    under its keyword (else its name), embedding the declared descriptor
+    whole (testable, singleton, supports_verify, verify kinds, semantic
+    token, LSP icon, DOT shape, description) and naming the declaring
+    extension. No kind is testable, and no verify kind is allowed, unless a
+    declaration says so: the host knows no kind and no verify kind. A
+    kind's lifecycle_field MUST name one of its own fields or one of its
+    extension's shared fields; any other one is refused with a W021
+    warning and not recorded. When a later declaration declares a keyword
+    again, the first in load order keeps it and the later one is E026
+    naming both extensions. A kind declared testable that does not support
+    verify statements is W017 (advisory: the kind registers); one that
+    supports verify without being testable (a formal property) is not
+    reported. Load order is the loader's (topological_sort_extensions);
+    the build does not reorder.
   """
-  verify unit "target_kind referencing own manifest kind passes"
-  verify unit "target_kind referencing peer dependency kind passes"
-  verify unit "self-contradictory target_kind produces a W021 warning"
-  verify unit "target_kind referencing non-peer extension kind produces W-level warning"
-  verify unit "self-contradictory edge label produces a W021 warning"
+  verify unit "every declared kind is registered under its keyword, naming the extension that declared it"
+  verify unit "a kind's declared flags and presentation reach its registry entry"
+  verify unit "a kind is testable only when its declaration says so"
+  verify unit "a kind's verify kinds are exactly the ones it declares"
+  verify unit "a kind's lifecycle_field must name a field it declares"
+  verify unit "a keyword a later extension declares again is E026 and the first in load order keeps it"
+  verify unit "a testable kind without verify support is W017"
+  verify unit "a kind that accepts verify statements but is not testable produces no diagnostic"
+  verify contract "Registry Build Registers Kinds: kind registration holds — declarations_in_load_order, kinds_registered, first_wins, flags_consistent"
+}
+
+behavior registry_build_fields "Registry Build Registers Fields" {
+  features   [dynamic_entity_registration]
+  invariants [zero_domain_knowledge_core, registry_population_before_validation]
+  category   command
+  types      [
+    ExtensionDeclaration,
+    FieldDescriptor,
+    FieldRegistryEntry,
+    ManifestFieldType,
+    RegistryBuild,
+  ]
+  requires {
+    declarations_in_load_order "The loaded declarations are given in load order, dependencies first"
+  }
+  ensures {
+    fields_registered "Every kind's declared fields, and its extension's shared fields, are in the build's FieldRegistry for that kind, embedding their descriptor"
+    types_parsed      "Each registered field has one of the protocol's field types; a field of any other type is W019 and not registered"
+    roles_checked     "A field's proof_role is bound or claim; any other value is W021 and the field has no role"
+  }
+  contract   """
+    The registry build MUST register, for every kind a declaration
+    declares, the kind's own fields and the declaring extension's shared
+    fields, each embedding its declared descriptor whole (normative flag,
+    default value, enum values, description, required, edge, target kind)
+    and naming the declaring extension. A field type is one of string,
+    integer, bool, enum, string_list, reference, reference_list and block,
+    each also accepted with a `_type` suffix; any other type MUST produce a
+    W019 warning and the field is not registered. A field's normative flag
+    MUST be kept so exports tell what an entity promises from prose without
+    core knowing any field's name. A field's proof_role (bound or claim)
+    MUST reach its entry so the prove pass reads declared roles and no
+    field name; any other role value MUST be refused with W021 and the
+    field registered without a role. `verify` is not a field type and the
+    entity title is not a field: both are grammar.
+  """
+  verify unit "every kind's declared fields and its extension's shared fields are registered for that kind"
+  verify unit "each field type and its _type alias register as that type"
+  verify unit "a field of a type the protocol does not define is W019 and not registered"
+  verify unit "a field's normative flag reaches its registry entry"
+  verify unit "a field's proof_role reaches the field registry"
+  verify unit "a proof_role other than bound or claim is refused"
+  verify unit "a field's declared descriptor reaches its registry entry whole"
+  verify contract "Registry Build Registers Fields: field registration holds — declarations_in_load_order, fields_registered, types_parsed, roles_checked"
+}
+
+behavior registry_build_edges "Registry Build Registers Edge Types" {
+  features   [dynamic_entity_registration]
+  invariants [zero_domain_knowledge_core, registry_population_before_validation]
+  category   command
+  types      [
+    ExtensionDeclaration,
+    EdgeTypeDescriptor,
+    FieldDescriptor,
+    EdgeRegistryEntry,
+    RegistryBuild,
+  ]
+  requires {
+    declarations_in_load_order "The loaded declarations are given in load order, dependencies first"
+  }
+  ensures {
+    edge_types_registered "Every declared edge type, and every edge label a field maps to without declaring it, is in the build's EdgeRegistry"
+    first_wins            "An edge label two extensions declare belongs to the first in load order; the later declaration is W018 and its constraints are discarded"
+  }
+  contract   """
+    The registry build MUST register every edge type a declaration
+    declares, embedding its descriptor (label, description, source and
+    target kind, style) and naming the declaring extension. An edge label
+    a field maps to that no edge type declares MUST be registered as an
+    edge from the field's kind to its target kind. An edge label declared
+    again by a later extension MUST produce a W018 warning naming both
+    extensions; the first in load order keeps the label and its
+    constraints, which graph validation uses.
+  """
+  verify unit "edge type registered with label and description"
+  verify unit "source/target kind constraints recorded"
+  verify unit "a field's edge label no edge type declares is registered as an edge from the field's kind to its target kind"
+  verify unit "an edge label a later extension declares again is W018 and the first in load order keeps it"
+  verify contract "Registry Build Registers Edge Types: edge type registration holds — declarations_in_load_order, edge_types_registered, first_wins"
+}
+
+behavior registry_build_rules "Registry Build Collects Rules" {
+  features   [declarative_validation_rules]
+  invariants [
+    zero_domain_knowledge_core,
+    declarative_validation_determinism,
+    registry_population_before_validation,
+  ]
+  category   command
+  types      [ExtensionDeclaration, ValidationRulePattern, RegistryBuild]
+  requires {
+    declarations_in_load_order "The loaded declarations are given in load order, dependencies first"
+  }
+  ensures {
+    rules_collected        "Every declared rule that parses is in the build's rules with the extension that declared it, ordered by code"
+    duplicates_warned      "A rule code two extensions declare is W023, and both rules are kept"
+    required_enforced      "Every field registered as required has a host-generated E006 rule"
+    unloaded_targets_inert "A rule whose target kind or edge type no loaded extension declares reports nothing"
+    rule_codes_checked     "A rule whose code its extension may not use is reported (W150) and still registered"
+  }
+  contract   """
+    The registry build MUST collect every extension's validation rules
+    into one rule set, each rule with the extension that declared it
+    (custom rules are dispatched to it), ordered by code; rules sharing a
+    code keep load order. A rule that does not parse is W112
+    (parse_validation_rule_pattern). A code two extensions declare MUST
+    produce a W023 warning naming the code and both extensions; both rules
+    are kept. A rule's target kind and edge type are resolved against the
+    loaded registries: a rule whose target kind or edge type no loaded
+    extension declares reports nothing when rules run, since it belongs to
+    an optional peer that is not installed (an edge rule whose edge type's
+    far-end kind no extension declares is dropped too). An edge type is
+    resolved through the edge registry only, never read as a field name. A
+    rule naming a target kind or an edge type that neither its extension,
+    its loaded peers nor its target_extension declare is the extension
+    author's mistake, reported as W021 when the extensions load, as is a field or edge type that references an
+    undeclared kind (registry_build_declaration_consistency). After the
+    extensions' rules,
+    the rule set MUST contain a host-generated E006 rule, owned by no
+    extension, for every field registered as required.
+
+    Each rule's code is checked against the diagnostic catalog when it
+    is registered: an extension's rule uses its own catalogued code at
+    the catalogued level, or a code in E900-E998, W900-W998 or I900-I998
+    whose prefix states the rule's severity. Any other is reported as
+    W150 naming the extension, the code and why, once per code and
+    severity; the rule is still registered and runs with the code it
+    declares.
+  """
+  verify unit "every declared rule is in the build's rules with the extension that declared it"
+  verify unit "the extensions' rules are ordered by code"
+  verify unit "a rule code two extensions declare is W023 and both rules are kept"
+  verify unit "the build keeps a rule whose target kind no loaded extension declares, and drops one whose edge type no loaded extension declares"
+  verify unit "a rule whose edge type no loaded extension declares reports nothing"
+  verify unit "a rule targeting a kind no loaded extension declares reports nothing"
+  verify unit "extensions produce E006 rules for required fields"
+  verify unit "E006 covers all required fields from builtin extensions"
+  verify unit "a rule whose code the extension may not use is reported (W150) and still registered"
+  verify unit "every builtin rule uses a code its extension owns, at the catalogued level"
+  verify contract "Registry Build Collects Rules: rule collection holds — declarations_in_load_order, rules_collected, duplicates_warned, required_enforced, unloaded_targets_inert, rule_codes_checked"
+}
+
+behavior registry_build_declaration_consistency "Registry Build Checks Declaration Consistency" {
+  features   [extension_manifest, dynamic_entity_registration]
+  invariants [zero_domain_knowledge_core, registry_population_before_validation]
+  category   validation
+  types      [
+    ExtensionDeclaration,
+    EntityKindDescriptor,
+    EdgeTypeDescriptor,
+    FieldDescriptor,
+    RegistryBuild,
+  ]
+  requires {
+    declarations_in_load_order "The loaded declarations are given in load order, dependencies first"
+    peers_loaded               "A declaration's peers are among the loaded declarations, or their kinds are unknown"
+  }
+  ensures {
+    references_resolved        "Every field target_kind names a kind the declaration or a loaded peer declares, and every field edge label an edge type the declaration declares"
+    authoring_errors_diagnosed "Every other reference, and a derived_from the host can't apply, is a W021 warning naming it"
+    compile_not_failed         "W021 never fails the compile: the declaration's kinds still register"
+  }
+  contract   """
+    The registry build MUST check each declaration against the loaded
+    declarations, by structure alone (no domain-specific logic), before it
+    registers anything. A field's target_kind MUST name a kind the
+    declaration or one of its loaded peers declares; a kind only a
+    non-peer extension declares is W021 too, naming that extension (the
+    kind exists but the dependency is undeclared). While a named peer is
+    not loaded its kinds are unknown, so any target is let through. A
+    field's edge label MUST name an edge type the declaration declares. A
+    validation rule's target_kind and edge_type MUST name a kind or edge
+    type the declaration, one of its loaded peers or the rule's
+    target_extension declares: with no target_extension, anything goes
+    while a named peer is not loaded and a kind only a non-peer declares is
+    W021 suggesting target_extension; a target_extension that is not
+    loaded makes that rule alone inert (no W021); one that is loaded
+    without the kind or edge type is W021. A
+    field's derived_from MUST name type_expressions or method_signatures
+    and sit on a reference or reference_list field with a target_kind.
+    Every violation is a W021 warning among the build's declaration
+    diagnostics, after E030 and before E027. These are authoring errors
+    in the extension, not in the user's spec: they never fail the compile,
+    and the declaration's kinds still register.
+  """
+  verify unit "a target_kind the extension or a loaded peer declares passes"
+  verify unit "an edge label the extension declares an edge type for passes"
+  verify unit "a target_kind no loaded extension declares is a W021 warning"
+  verify unit "a target_kind only a non-peer extension declares is a W021 warning naming that extension"
+  verify unit "an edge label the extension declares no edge type for is a W021 warning"
   verify unit "a derived_from the host can't apply produces a W021 warning"
-  verify contract "Validate Extension Manifest Consistency: manifest self-consistency validation holds — manifest_parsed, peer_dependencies_known, self_consistency_validated, authoring_errors_diagnosed"
+  verify unit "a rule's edge type that neither its extension nor its peers declare produces W021"
+  verify unit "a rule's target kind that neither its extension nor its peers declare produces W021"
+  verify unit "a rule's target_extension, loaded, must declare its target kind and edge type; not loaded, the rule is inert and costs no W021"
+  verify unit "cross-validation uses no domain-specific logic"
+  verify integration "a declaration's W021 does not fail the compile, and its kinds still register"
+  verify contract "Registry Build Checks Declaration Consistency: declaration consistency holds — declarations_in_load_order, peers_loaded, references_resolved, authoring_errors_diagnosed, compile_not_failed"
+}
+
+behavior registry_build_peer_dependencies "Registry Build Checks Peer Dependencies" {
+  features   [wasm_extension_runtime]
+  invariants [zero_domain_knowledge_core, registry_population_before_validation]
+  category   validation
+  types      [ExtensionDeclaration, PeerDependency, RegistryBuild]
+  produces   [extension_loading_failed]
+  requires {
+    declarations_in_load_order "The loaded declarations are given in load order, dependencies first"
+  }
+  ensures {
+    peers_checked      "Every declared peer is checked against the loaded declarations' versions as a semver range"
+    unsatisfied_failed "A required peer missing or out of range, or an optional one installed out of range, is E027, which fails the check"
+    malformed_warned   "A peer range or a loaded version that is not semver is W062"
+  }
+  contract   """
+    The registry build MUST check every declaration's peer dependencies
+    against the loaded declarations: a required peer MUST be loaded at a
+    version its range matches, as semver (caret, tilde, comparison and
+    exact versions); an optional peer that is not loaded is fine, one that
+    is loaded MUST match its range. An unsatisfied peer is a hard error
+    (E027) naming the extension, the peer and its range, and the installed
+    version when there is one, which fails the check. A range or an
+    installed version that is not semver is W062. The extension's kinds
+    are still registered, so its entities are checked rather than each
+    reported as an unknown kind (E024).
+  """
+  verify unit "satisfied peer dependency passes validation"
+  verify unit "missing peer dependency produces hard error"
+  verify unit "incompatible version produces hard error with required range"
+  verify unit "missing optional peer dependency passes validation"
+  verify unit "installed optional peer outside its range produces hard error"
+  verify unit "a peer range matches as semver: caret, tilde or exact"
+  verify unit "a malformed peer range or installed version is W062"
+  verify unit "an extension with an unsatisfied peer still registers its kinds"
+  verify integration "specforge check reports a missing required peer dependency"
+  verify contract "Registry Build Checks Peer Dependencies: peer dependency checking holds — declarations_in_load_order, peers_checked, unsatisfied_failed, malformed_warned"
 }

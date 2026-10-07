@@ -10,6 +10,8 @@
 
 mod commands;
 mod declaration;
+mod evidence;
+mod lifecycle;
 mod queries;
 #[cfg(test)]
 mod tests;
@@ -33,6 +35,7 @@ impl Contributions for Product {
 
         declaration::declare(c);
         commands::declare(c);
+        lifecycle::declare(c);
     }
 }
 

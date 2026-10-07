@@ -142,6 +142,9 @@ production `NoRuntime` double.
 
 ## D13. `WasmValidationRuntime` keeps one method
 
+*Superseded by ADR 0020 D3: custom verdicts are one port, `CustomVerdicts::verdict(CustomCall)`,
+with the extension in the call and the probe through the same port.*
+
 The registry's seam for custom rules is `custom_verdict(function, entity, kind) ->
 Result<CustomVerdict, String>`; the boolean form only its default bridged is gone, with the
 unused `StubWasmRuntime`.

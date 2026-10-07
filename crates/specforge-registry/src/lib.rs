@@ -1,13 +1,11 @@
 // Module groups
 pub mod compilation;
+pub mod entity;
 mod registries;
+pub mod rules;
 
 #[cfg(test)]
 mod invariants;
-
-// Tests inside the crate name it as its users do.
-#[cfg(test)]
-extern crate self as specforge_registry;
 
 // --- Core registries ---
 pub use registries::{
@@ -29,16 +27,20 @@ pub use surface::{
     register_surface_contributions,
 };
 
+// --- What the checks after the graph build read about an entity (ADR 0019) ---
+pub use entity::{
+    Direction, EdgeCounts, EdgeRecord, EntityRecord, Exemption, FieldRecord, MethodRecord,
+    ObligationRecord, ParamRecord, RuleInput,
+};
+
 // --- Registry compilation (plan 05): one build, and the graph checks ---
 pub use compilation::{
-    CHECK_PHASE, DeclaredPass, EntityView, ProviderConfig, ProviderSchemeRegistry, ProviderStatus,
+    CHECK_PHASE, DeclaredPass, ProviderConfig, ProviderSchemeRegistry, ProviderStatus,
     RegistryBuild, SchemeRegistryEntry, build_registries, detect_identifier_length_violations,
     detect_mistyped_references, detect_reserved_entity_ids, detect_unknown_entity_fields,
     detect_unknown_entity_kinds, load_provider_configurations, register_provider_schemes,
     register_provider_schemes_with_status,
 };
 
-// Module paths external code names directly
-// (`specforge_registry::validation_engine::`, `specforge_registry::surface::`).
-pub use compilation::validation_engine;
+// Module paths external code names directly (`specforge_registry::surface::`).
 pub mod surface;

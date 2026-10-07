@@ -5,11 +5,15 @@
 use specforge_common::Diagnostic;
 use specforge_graph::Graph;
 use specforge_ops::plan::PlanOutcome;
-use specforge_ops::stats::{Stats, StatsRequest};
+use specforge_ops::stats::Stats;
 use specforge_ops::trace::{Target, TraceChain};
 use specforge_ops::view::ProjectView;
+use specforge_project::Environment;
 use specforge_project::coverage::RecordedCoverage;
-use specforge_registry::validation_engine::{ValidationPatternKind, ValidationRulePattern};
+use specforge_protocol_types::{
+    ExtensionDeclaration, ValidationRuleDescriptor, ValidationSeverity,
+};
+use specforge_registry::rules::{Registries, Rules};
 use specforge_registry::{FieldRegistryEntry, KindRegistryEntry, ManifestFieldType, RegistryBuild};
 use tempfile::TempDir;
 
@@ -26,23 +30,18 @@ pub fn kind(name: &str, testable: bool) -> KindRegistryEntry {
     }
 }
 
-/// The W004 rule requiring `kind`'s entities to declare obligations.
-pub fn obligations_rule(kind: &str) -> (ValidationRulePattern, String) {
-    (
-        ValidationRulePattern {
-            code: "W004".into(),
-            severity: specforge_common::Severity::Warning,
-            message_template: "{kind} '{id}' is testable but declares no verify obligations".into(),
-            check: ValidationPatternKind::NoVerifyStatements,
-            target_kind: Some(kind.to_string()),
-            edge_type: None,
-            edge_peer_kind: None,
-            field: Some("verify".into()),
-            constraint: None,
-            wasm_function: None,
-        },
-        "@t/soft".into(),
-    )
+/// The W004 rule requiring `kind`'s entities to declare obligations, as
+/// `@t/soft` declares it.
+pub fn obligations_rule(kind: &str) -> ValidationRuleDescriptor {
+    ValidationRuleDescriptor {
+        code: "W004".into(),
+        severity: ValidationSeverity::Warning,
+        message_template: "{kind} '{id}' is testable but declares no verify obligations".into(),
+        check: "no_verify_statements".into(),
+        target_kind: Some(kind.to_string()),
+        field: Some("verify".into()),
+        ..Default::default()
+    }
 }
 
 /// A boolean `kind.field` that, set, exempts the entity from obligations
@@ -66,22 +65,38 @@ pub fn exempting_field(kind: &str, field: &str) -> FieldRegistryEntry {
 /// with no such rule (governance kinds).
 pub fn registries(obligated: &[&str], free: &[&str]) -> RegistryBuild {
     let mut build = RegistryBuild::default();
-    for name in obligated {
-        build.kinds.register(kind(name, true));
-        build.rules.push(obligations_rule(name));
-    }
-    for name in free {
+    for name in obligated.iter().chain(free) {
         build.kinds.register(kind(name, true));
     }
+    // The rule set the testing extension's W004 rules make (it owns W004),
+    // through the rules' build.
+    let mut soft = ExtensionDeclaration::default();
+    soft.handshake.name = "@specforge/testing".into();
+    soft.validation_rules = obligated
+        .iter()
+        .map(|name| obligations_rule(name))
+        .collect();
+    let (rules, diagnostics) = Rules::build(
+        &[soft],
+        Registries {
+            kinds: &build.kinds,
+            fields: &build.fields,
+            edges: &build.edges,
+        },
+    );
+    assert!(diagnostics.is_empty(), "{diagnostics:?}");
+    build.rules = rules;
     build
 }
 
-/// A project on disk: its graph, registries and coverage memo.
+/// A project on disk: its graph, the environment it was compiled in (the
+/// default config and `registries`) and its coverage memo.
 pub struct Project {
     pub dir: TempDir,
     pub graph: Graph,
-    pub registries: RegistryBuild,
-    pub recorded: RecordedCoverage,
+    pub env: Environment,
+    /// Made over the graph and environment as they are at the first view.
+    recorded: std::sync::OnceLock<RecordedCoverage>,
 }
 
 impl Project {
@@ -96,17 +111,18 @@ impl Project {
         Project {
             dir: TempDir::new().unwrap(),
             graph,
-            registries,
-            recorded: RecordedCoverage::default(),
+            env: Environment::with_registries(registries),
+            recorded: std::sync::OnceLock::new(),
         }
     }
 
     pub fn view(&self) -> ProjectView<'_> {
         ProjectView::new(
             &self.graph,
-            &self.registries,
+            &self.env,
             Some(self.dir.path()),
-            &self.recorded,
+            self.recorded
+                .get_or_init(|| RecordedCoverage::over(&self.graph, &self.env)),
         )
     }
 
@@ -134,7 +150,7 @@ impl Project {
 /// declare obligations, with no recorded report, reporting `diagnostics`.
 pub fn stats_of(graph: &Graph, testable: &[&str], diagnostics: &[Diagnostic]) -> Stats {
     let project = Project::of_graph(graph.clone(), registries(testable, &[]));
-    specforge_ops::stats::stats(&project.view(), &StatsRequest { diagnostics }).unwrap()
+    specforge_ops::stats::stats(&project.view().reporting(diagnostics)).unwrap()
 }
 
 /// `plan` checked against `graph`, whose `testable` kinds are testable and

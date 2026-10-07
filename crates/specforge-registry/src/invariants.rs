@@ -1,6 +1,5 @@
 #[cfg(test)]
 mod tests {
-    use crate::compilation::register_validation_rules;
     use crate::*;
     use specforge_common::{Diagnostic, SourceSpan};
     use specforge_extension_sdk::prelude::*;
@@ -28,9 +27,9 @@ mod tests {
         });
     }
 
-    /// The three registries `declarations` populate, and the diagnostics
-    /// of populating them.
-    fn populate(
+    /// The three registries of the build of `declarations`, and its
+    /// registry diagnostics.
+    fn registries(
         declarations: &[ExtensionDeclaration],
     ) -> (KindRegistry, FieldRegistry, EdgeRegistry, Vec<Diagnostic>) {
         let build = build_registries(declarations.to_vec());
@@ -47,7 +46,7 @@ mod tests {
     // I:zero_domain_knowledge_core — verify property "core with zero extensions installed has zero entity kinds in KindRegistry"
     #[test]
     fn test_core_with_zero_extensions_has_zero_entity_kinds() {
-        let (kind_reg, field_reg, edge_reg, diags) = populate(&[]);
+        let (kind_reg, field_reg, edge_reg, diags) = registries(&[]);
         assert_eq!(kind_reg.len(), 0);
         assert_eq!(field_reg.len(), 0);
         assert_eq!(edge_reg.len(), 0);
@@ -73,16 +72,16 @@ mod tests {
         });
         let m = c.declaration();
 
-        let (kind_reg, _, _, _) = populate(std::slice::from_ref(&m));
+        let build = build_registries(vec![m]);
         // Kind exists in registry before we validate
-        assert!(kind_reg.contains("behavior"));
+        assert!(build.kinds.contains("behavior"));
 
-        // Validation rules reference the kind
-        let (rules, _) = register_validation_rules(&[m]);
-        for rule in &rules {
-            if let Some(tk) = &rule.target_kind {
+        // The build's rules reference the kind
+        assert!(build.rules.iter().any(|rule| rule.code() == "V001"));
+        for rule in &build.rules {
+            if let Some(tk) = rule.target_kind() {
                 assert!(
-                    kind_reg.contains(tk),
+                    build.kinds.contains(tk),
                     "Validation rule references kind '{}' not in registry",
                     tk
                 );
@@ -97,7 +96,7 @@ mod tests {
         make_kind(&mut c, "behavior", true);
         let m = c.declaration();
 
-        let (kind_reg, _, _, _) = populate(&[m]);
+        let (kind_reg, _, _, _) = registries(&[m]);
         assert!(kind_reg.contains("behavior"));
         // Kind is now available for validation queries
         assert!(kind_reg.get("behavior").unwrap().testable);
@@ -118,7 +117,7 @@ mod tests {
 
         let mut baseline_codes: Option<Vec<String>> = None;
         for _ in 0..100 {
-            let (_, _, _, diags) = populate(std::slice::from_ref(&m));
+            let (_, _, _, diags) = registries(std::slice::from_ref(&m));
             let codes: Vec<String> = diags.iter().map(|d| d.code.clone()).collect();
             match &baseline_codes {
                 None => baseline_codes = Some(codes),
@@ -142,7 +141,7 @@ mod tests {
         // Same input order, multiple runs — must produce identical diagnostics
         let mut baseline: Option<Vec<String>> = None;
         for _ in 0..10 {
-            let (_, _, _, diags) = populate(&[m1.clone(), m2.clone()]);
+            let (_, _, _, diags) = registries(&[m1.clone(), m2.clone()]);
             let codes: Vec<String> = diags
                 .iter()
                 .map(|d| format!("{}:{}", d.code, d.message))
@@ -164,7 +163,7 @@ mod tests {
         let mut c = make_extension("@specforge/software");
         make_kind(&mut c, "behavior", true);
         let m = c.declaration();
-        let (kind_reg, _, _, _) = populate(&[m]);
+        let (kind_reg, _, _, _) = registries(&[m]);
         let entry = kind_reg.get("behavior").unwrap();
         assert!(entry.testable);
         assert!(entry.supports_verify);
@@ -177,7 +176,7 @@ mod tests {
         make_kind(&mut c, "behavior", true);
         make_kind(&mut c, "feature", false);
         let m = c.declaration();
-        let (kind_reg, _, _, _) = populate(&[m]);
+        let (kind_reg, _, _, _) = registries(&[m]);
 
         let testable_count = kind_reg.iter().filter(|(_, e)| e.testable).count();
         assert_eq!(testable_count, 1);
@@ -190,7 +189,7 @@ mod tests {
         let mut c = make_extension("@specforge/software");
         make_kind(&mut c, "feature", false);
         let m = c.declaration();
-        let (kind_reg, _, _, _) = populate(&[m]);
+        let (kind_reg, _, _, _) = registries(&[m]);
         assert!(!kind_reg.get("feature").unwrap().testable);
     }
 
@@ -210,7 +209,7 @@ mod tests {
                 .supports_verify(false);
         });
         let m = c.declaration();
-        let (kind_reg2, _, _, _) = populate(&[m]);
+        let (kind_reg2, _, _, _) = registries(&[m]);
         assert!(!kind_reg2.get("behavior").unwrap().testable);
     }
 
@@ -229,14 +228,14 @@ mod tests {
         let m = c.declaration();
 
         // Step 2: Populate registries
-        let (kind_reg, field_reg, edge_reg, _) = populate(std::slice::from_ref(&m));
+        let (kind_reg, field_reg, edge_reg, _) = registries(std::slice::from_ref(&m));
         assert!(kind_reg.contains("behavior"));
         assert!(kind_reg.contains("feature"));
 
         // Step 3: Validation (after all registries are populated)
         // detect_unknown uses the fully populated registry
         let unknown_diags = compilation::detect_unknown_entity_kinds(
-            &[compilation::EntityView::new(
+            &[crate::entity::EntityRecord::new(
                 "behavior",
                 "b1",
                 &dummy_span(),

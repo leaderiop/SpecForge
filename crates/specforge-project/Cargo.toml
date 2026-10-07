@@ -19,6 +19,7 @@ print_stdout = "deny"
 specforge-common = { workspace = true }
 specforge-component = { workspace = true }
 specforge-coverage = { path = "../specforge-coverage" }
+specforge-diagnostics = { path = "../specforge-diagnostics" }
 specforge-graph = { path = "../specforge-graph" }
 specforge-parser = { workspace = true }
 specforge-protocol-types = { path = "../specforge-protocol-types" }

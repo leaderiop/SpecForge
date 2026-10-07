@@ -3,8 +3,9 @@
 //!
 //! [`build_registries`] owns the order: it checks the declarations
 //! themselves (identity and shape, consistency, peers, pass order), then
-//! populates the registries, parses and scopes the rules, generates the
-//! E006 rules and registers the surfaces. Callers read [`RegistryBuild`].
+//! populates the registries, builds the rule set (the declared rules,
+//! checked and resolved, plus the host's E006 rules; ADR 0020) and
+//! registers the surfaces. Callers read [`RegistryBuild`].
 //! It is pure: no I/O, no runtime.
 
 use std::collections::{HashMap, HashSet};
@@ -13,14 +14,9 @@ use specforge_common::Diagnostic;
 use specforge_protocol_types::{CompilerPassDescriptor, ExtensionDeclaration};
 
 use super::declaration::{consistency, order_passes, shape};
-use super::detection::generate_required_field_rules;
 use super::populate::{keyword, populate};
-use super::validate::{
-    peer_dependencies, register_validation_rules, validate_extension_testability,
-};
-use super::validation_engine::{
-    ValidationRulePattern, parse_all_rule_patterns, resolve_edge_rules,
-};
+use super::validate::{peer_dependencies, validate_extension_testability};
+use crate::rules::{Registries, Rules};
 use crate::{
     EdgeRegistry, FieldRegistry, KindRegistry, ManifestFieldType, SurfaceRegistryEntry,
     refuse_malformed_tool_schemas, register_surface_contributions,
@@ -61,11 +57,10 @@ pub struct RegistryBuild {
     pub kinds: KindRegistry,
     pub fields: FieldRegistry,
     pub edges: EdgeRegistry,
-    /// The extensions' rules (parsed and scoped to their edge types) plus
-    /// the host-generated E006 rules for required fields, each with the
-    /// extension that owns it (empty for host-generated ones) for custom
-    /// rule dispatch.
-    pub rules: Vec<(ValidationRulePattern, String)>,
+    /// The rule set: the extensions' rules (checked and resolved against
+    /// the registries) plus the host-generated E006 rules for required
+    /// fields, each with its origin (ADR 0020).
+    pub rules: Rules,
     /// Kinds whose bodies an extension parses: the core grammar's parse
     /// errors inside them are not reported.
     pub body_parser_kinds: HashSet<String>,
@@ -166,22 +161,18 @@ pub fn build_registries(mut declarations: Vec<ExtensionDeclaration>) -> Registry
     // W017: a testable kind that can't declare obligations.
     registry_diagnostics.extend(validate_extension_testability(&kinds));
 
-    let rule_inputs: Vec<(String, Vec<_>)> = declarations
-        .iter()
-        .map(|d| (d.name().to_string(), d.validation_rules.clone()))
-        .collect();
-    let (mut rules, rule_diagnostics) = parse_all_rule_patterns(&rule_inputs);
-    registry_diagnostics.extend(rule_diagnostics);
-    // W023: two extensions declaring the same rule code.
-    registry_diagnostics.extend(register_validation_rules(&declarations).1);
-    resolve_edge_rules(&mut rules, &edges, &kinds);
-    // Required fields (`required: true`) get host-generated, declarative
-    // E006 rules: originless, so never dispatched to an extension.
-    rules.extend(
-        generate_required_field_rules(&fields)
-            .into_iter()
-            .map(|p| (p, String::new())),
+    // The rule set: W112 for a rule that cannot work as declared, then
+    // W023 for a code two extensions declare; E006 rules for required
+    // fields come after the declared rules.
+    let (rules, rule_diagnostics) = Rules::build(
+        &declarations,
+        Registries {
+            kinds: &kinds,
+            fields: &fields,
+            edges: &edges,
+        },
     );
+    registry_diagnostics.extend(rule_diagnostics);
 
     let body_parser_kinds: HashSet<String> = declarations
         .iter()

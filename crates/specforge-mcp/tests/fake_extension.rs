@@ -11,6 +11,8 @@
 use serde_json::{Value, json};
 use specforge_extension_sdk::{ContributionsBuilder, ExtensionMeta};
 use specforge_mcp::McpServer;
+
+use crate::support::TestProject;
 use specforge_wasm::runtime::{WasmCallResult, WasmRuntime};
 use specforge_wasm::testing::InProcessRuntime;
 use std::sync::{Arc, OnceLock};
@@ -212,14 +214,15 @@ impl FakeExtension {
 
 /// A project on disk that enables `@test/cmds`, with one spec file.
 pub fn project() -> tempfile::TempDir {
-    let dir = tempfile::TempDir::new().unwrap();
-    std::fs::write(
-        dir.path().join("specforge.json"),
-        json!({"name": "cmds", "version": "0.1.0", "extensions": [EXT]}).to_string(),
-    )
-    .unwrap();
-    std::fs::write(dir.path().join("main.spec"), "").unwrap();
-    dir
+    cmds_project().into_dir()
+}
+
+/// [`project`], as the fixture serves it.
+fn cmds_project() -> TestProject {
+    TestProject::new()
+        .config(|c| c["name"] = json!("cmds"))
+        .enabling(&[EXT])
+        .file("main.spec", "")
 }
 
 /// A server whose extensions run in `ext`; not yet initialized.
@@ -232,12 +235,8 @@ pub fn server_with(ext: &Arc<FakeExtension>) -> McpServer {
 /// A server initialized over [`project`] with `ext` as its runtime.
 pub fn initialized(ext: FakeExtension) -> (McpServer, Arc<FakeExtension>, tempfile::TempDir) {
     let ext = Arc::new(ext);
-    let dir = project();
-    let mut server = server_with(&ext);
-    let req = json!({"jsonrpc": "2.0", "id": 1, "method": "initialize",
-        "params": {"projectRoot": dir.path().to_str().unwrap()}});
-    let resp: Value =
-        serde_json::from_str(&server.handle_message(&req.to_string()).unwrap()).unwrap();
-    assert!(resp["error"].is_null(), "{resp}");
+    let (server, dir) = cmds_project()
+        .serve_in(ext.runtime() as Arc<dyn WasmRuntime>)
+        .into_parts();
     (server, ext, dir)
 }

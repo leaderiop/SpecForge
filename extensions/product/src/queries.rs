@@ -5,8 +5,9 @@
 //! host knows none of them; it runs the `cmd__product_*` exports in
 //! `commands.rs`, which render these results.
 
+use crate::evidence::{self, EvidenceState, FeatureEvidence};
 use serde::Serialize;
-use specforge_extension_sdk::prelude::{CommandError, CommandGraph, GraphNode};
+use specforge_extension_sdk::prelude::{CommandError, CommandEvidence, CommandGraph, GraphNode};
 use specforge_extension_sdk::EntityKindDescriptor;
 use std::collections::BTreeMap;
 
@@ -779,11 +780,49 @@ pub struct MilestoneCompletion {
     pub done_count: usize,
     pub completion_ratio: f64,
     pub done_features: Vec<String>,
+    /// Whether the command's input carried recorded test evidence
+    /// ([`MilestoneCompletion::with_evidence`]); absent when not asked.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub evidence: Option<EvidenceState>,
+    /// How many of the features the recorded tests prove, as a count, a
+    /// ratio in [0, 1] and their ids, beside the declared `done_count`
+    /// (ADR 0039); absent without a scored report.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub proven_count: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub proven_ratio: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub proven_features: Option<Vec<String>>,
+    /// Each feature's evidence, in the milestone's order.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub feature_evidence: Option<Vec<FeatureEvidence>>,
     /// The milestone's status and its features, for the human layout.
     #[serde(skip)]
     pub status: Option<String>,
     #[serde(skip)]
     pub features: Vec<FeatureStatus>,
+}
+
+impl MilestoneCompletion {
+    /// The completion with what `evidence` (a command's input) proves of
+    /// its features: their evidence and the proven count, or only the
+    /// evidence state when the input carries no scored report.
+    pub fn with_evidence(mut self, graph: &CommandGraph, evidence: &CommandEvidence) -> Self {
+        let ids: Vec<String> = self.features.iter().map(|f| f.id.clone()).collect();
+        self.evidence = Some(EvidenceState::of(evidence));
+        if let Some(features) = evidence::of_features(graph, &ids, evidence) {
+            let proven: Vec<String> = features
+                .iter()
+                .filter(|f| f.proven)
+                .map(|f| f.feature_id.clone())
+                .collect();
+            self.proven_count = Some(proven.len());
+            self.proven_ratio = Some(ratio(proven.len(), ids.len()));
+            self.proven_features = Some(proven);
+            self.feature_evidence = Some(features);
+        }
+        self
+    }
 }
 
 #[derive(Debug)]
@@ -822,6 +861,11 @@ pub fn milestone_completion(
         done_count: done_features.len(),
         completion_ratio: ratio(done_features.len(), features.len()),
         done_features,
+        evidence: None,
+        proven_count: None,
+        proven_ratio: None,
+        proven_features: None,
+        feature_evidence: None,
         status: text(node, "status"),
         features,
     })

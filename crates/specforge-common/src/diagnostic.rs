@@ -1,4 +1,5 @@
 use crate::SourceSpan;
+use specforge_diagnostics::{Code, GradedCode, Level};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Severity {
@@ -7,9 +8,42 @@ pub enum Severity {
     Info,
 }
 
+impl Severity {
+    /// The severity a diagnostic of `code` has: its catalogued level.
+    pub const fn of(code: Code) -> Severity {
+        match code.level() {
+            Level::Error => Severity::Error,
+            Level::Warning => Severity::Warning,
+            Level::Info => Severity::Info,
+            // `Code::catalogued` refuses it: a pass-graded code is a
+            // `GradedCode`.
+            Level::SetByPass => panic!("a Code never has a level set by its pass"),
+        }
+    }
+}
+
+/// A compiler message. Built from a code ([`Diagnostic::new`],
+/// [`Diagnostic::graded`]), or, where a code arrives as text,
+/// [`Diagnostic::untyped`]; never as a struct literal outside this crate
+/// (`#[non_exhaustive]`), so no site chooses a severity for a core code.
+///
+/// ```compile_fail,E0639
+/// let d = specforge_common::Diagnostic {
+///     code: "W112".into(),
+///     severity: specforge_common::Severity::Error,
+///     message: String::new(),
+///     span: None,
+///     suggestion: None,
+///     data: None,
+///     origin: None,
+/// };
+/// ```
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Diagnostic {
     pub code: String,
+    /// The code's catalogued level when built; a diagnostic policy may
+    /// raise it afterwards (strict promotion), and nothing else changes it.
     pub severity: Severity,
     pub message: String,
     pub span: Option<SourceSpan>,
@@ -21,6 +55,13 @@ pub struct Diagnostic {
     /// the error type of many `Result`s).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub data: Option<Box<DiagnosticData>>,
+    /// The extension that reported this diagnostic (a rule's or a pass's
+    /// declaring extension); `None` for the host's own. Presentation titles
+    /// and explains a code only for its owner (`specforge_diagnostics::describes`),
+    /// so a kept finding whose code the extension may not use (W150) is never
+    /// described as another owner's. Serialized only when set.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub origin: Option<String>,
 }
 
 /// A diagnostic's structured payload: the values its message names, as
@@ -56,12 +97,28 @@ pub enum DiagnosticData {
     /// A diagnostic an extension pass raised about `entity` (the pass named
     /// it), whether or not the graph holds that entity.
     Subject { entity: String },
+    /// W148: the custom rule `rule`'s `function` failed on these entities
+    /// during one check, so they were not checked: every failure, entities
+    /// by id (the message names only how many and the first).
+    CustomRuleFailures {
+        rule: String,
+        function: String,
+        failures: Vec<CustomRuleFailure>,
+    },
+}
+
+/// One entity a custom rule's function failed on, with the call's error.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct CustomRuleFailure {
+    pub entity: String,
+    pub error: String,
 }
 
 impl DiagnosticData {
     /// The entities the payload says the diagnostic is about, each once,
     /// in the payload's order: an unresolved reference's holder, a cycle's
-    /// entities, a pass diagnostic's subject. None for the others.
+    /// entities, a pass diagnostic's subject, the entities a custom rule
+    /// could not check. None for the others.
     /// Navigation attributes a diagnostic from these, never its message.
     pub fn entities(&self) -> Vec<&str> {
         let mut entities: Vec<&str> = Vec::new();
@@ -69,6 +126,9 @@ impl DiagnosticData {
             DiagnosticData::UnresolvedReference { entity, .. }
             | DiagnosticData::Subject { entity } => vec![entity.as_str()],
             DiagnosticData::ReferenceCycle { path } => path.iter().map(String::as_str).collect(),
+            DiagnosticData::CustomRuleFailures { failures, .. } => {
+                failures.iter().map(|f| f.entity.as_str()).collect()
+            }
             DiagnosticData::UnresolvedImport { .. } | DiagnosticData::ShadowedKeyword { .. } => {
                 Vec::new()
             }
@@ -99,37 +159,60 @@ impl std::fmt::Display for Diagnostic {
 }
 
 impl Diagnostic {
-    pub fn error(code: impl Into<String>, message: impl Into<String>) -> Self {
+    /// A diagnostic of a core code, at the code's catalogued level:
+    /// `Diagnostic::new(codes::W112, message)` is a warning.
+    pub fn new(code: Code, message: impl Into<String>) -> Self {
+        Self::untyped(code.id(), Severity::of(code), message)
+    }
+
+    /// An analyze finding (`A###`) at the severity its pass grades it.
+    pub fn graded(code: GradedCode, severity: Severity, message: impl Into<String>) -> Self {
+        Self::untyped(code.id(), severity, message)
+    }
+
+    /// A diagnostic whose code arrives as text: an extension's rule or pass
+    /// code, an `OpError` turned back into a diagnostic, or a test's
+    /// fixture. Host source names its own codes through `codes::*` and
+    /// builds with [`Diagnostic::new`] or [`Diagnostic::graded`] instead.
+    pub fn untyped(
+        code: impl Into<String>,
+        severity: Severity,
+        message: impl Into<String>,
+    ) -> Self {
         Self {
             code: code.into(),
-            severity: Severity::Error,
+            severity,
             message: message.into(),
             span: None,
             suggestion: None,
             data: None,
+            origin: None,
         }
     }
 
-    pub fn warning(code: impl Into<String>, message: impl Into<String>) -> Self {
-        Self {
-            code: code.into(),
-            severity: Severity::Warning,
-            message: message.into(),
-            span: None,
-            suggestion: None,
-            data: None,
-        }
+    /// A diagnostic an extension reported (a rule's or a pass's), as the
+    /// extension gave it: its code and severity are kept, and it names
+    /// `extension` as its origin, so that presentation never describes the
+    /// code as its catalog owner's when the extension may not use it (W150).
+    pub fn from_extension(
+        extension: impl Into<String>,
+        code: impl Into<String>,
+        severity: Severity,
+        message: impl Into<String>,
+    ) -> Self {
+        let mut diagnostic = Self::untyped(code, severity, message);
+        diagnostic.origin = Some(extension.into());
+        diagnostic
     }
 
-    pub fn info(code: impl Into<String>, message: impl Into<String>) -> Self {
-        Self {
-            code: code.into(),
-            severity: Severity::Info,
-            message: message.into(),
-            span: None,
-            suggestion: None,
-            data: None,
-        }
+    /// The extension that reported this diagnostic; `None` for the host's own.
+    pub fn origin(&self) -> Option<&str> {
+        self.origin.as_deref()
+    }
+
+    /// Whether this diagnostic is of `code`.
+    pub fn is(&self, code: Code) -> bool {
+        code.matches(&self.code)
     }
 
     pub fn with_span(mut self, span: SourceSpan) -> Self {

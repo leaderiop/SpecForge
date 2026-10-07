@@ -314,9 +314,10 @@ behavior detect_done_feature_with_incomplete_deps "Detect Done Feature With Inco
   category validation
   types    [Diagnostic, ProductFeature, FeatureStatus]
   contract """
-    The @specforge/product extension SHOULD detect features with
-    status=done that depend on features NOT having status=done via
-    FeatureDependsOn edges. A done feature with incomplete dependencies
+    The @specforge/product extension's lifecycle pass (check phase)
+    MUST detect features with status=done that depend on features NOT
+    having status=done via FeatureDependsOn edges (a feature without a
+    status is proposed). A done feature with incomplete dependencies
     indicates a status inconsistency. Produces an I063 info diagnostic
     per incomplete dependency.
   """
@@ -338,9 +339,11 @@ behavior detect_milestone_temporal_inconsistency "Detect Milestone Temporal Inco
   category validation
   types    [Diagnostic, ProductMilestone, MilestoneStatus]
   contract """
-    The @specforge/product extension SHOULD detect milestones that depend
-    on other milestones (via MilestoneDependsOn) where the dependent
-    milestone has an earlier target_date than its dependency. This suggests
+    The @specforge/product extension's lifecycle pass (check phase)
+    MUST detect milestones that depend on other milestones (via
+    MilestoneDependsOn) where the dependent milestone has an earlier
+    target_date than its dependency; a date not in YYYY-MM-DD shape is
+    not compared. This suggests
     a scheduling inconsistency — a milestone cannot realistically complete
     before its prerequisites. Produces an I064 info diagnostic per
     inconsistent dependency pair.
@@ -362,9 +365,9 @@ behavior detect_shipped_deliverable_incomplete_milestones "Detect Shipped Delive
   invariants [deliverable_lifecycle_consistency]
   types      [Diagnostic, ProductDeliverable, DeliverableStatus, ProductMilestone, MilestoneStatus]
   contract   """
-    The @specforge/product extension SHOULD detect deliverables with
-    status=shipped that contain milestones not having status=completed
-    via DeliverableTrackedByMilestone edges. A shipped deliverable with incomplete
+    The @specforge/product extension's lifecycle pass (check phase)
+    MUST detect deliverables with status=shipped that contain milestones
+    not having status=completed via DeliverableTrackedByMilestone edges. A shipped deliverable with incomplete
     milestones indicates a status inconsistency. Produces an I065 info
     diagnostic per incomplete milestone.
   """
@@ -968,4 +971,59 @@ behavior detect_duplicate_release_version "Detect Duplicate Release Version" {
   verify unit "two releases with same version produce I091"
   verify unit "releases with different versions produce no I091"
   verify unit "releases without version field produce no I091"
+}
+
+behavior detect_completed_milestone_with_unfinished_features "Detect Completed Milestone With Unfinished Features" {
+  category   validation
+  invariants [deliverable_lifecycle_consistency]
+  types      [Diagnostic, ProductMilestone, MilestoneStatus, ProductFeature, FeatureStatus]
+  contract   """
+    The @specforge/product extension's lifecycle pass (check phase, so
+    every compile, watch, the LSP and MCP report it) MUST detect
+    milestones with status=completed whose features field names a
+    feature that is neither done nor deprecated (a feature without a
+    status is proposed). A completed milestone claims what its features
+    do not. Produces a W154 warning per such feature, on the milestone.
+    A deprecated feature is no contradiction: it was delivered, then
+    retired.
+  """
+  ensures {
+    fires_per_unfinished    "each feature of a completed milestone that is neither done nor deprecated produces one W154 on the milestone"
+    suppresses_done         "a completed milestone whose features are all done or deprecated produces no W154"
+    suppresses_not_complete "a milestone that is not completed produces no W154 whatever its features' status"
+    unset_is_proposed       "a feature without a status counts as proposed"
+  }
+  features   [pe_validation_suite]
+  verify unit "completed milestone with an unfinished feature produces W154"
+  verify unit "completed milestone whose features are done or deprecated suppresses W154"
+  verify unit "in_progress milestone with unfinished features suppresses W154"
+}
+
+behavior detect_done_feature_without_evidence "Detect Done Feature Without Evidence" {
+  category validation
+  types    [Diagnostic, ProductFeature, FeatureStatus, FeatureEvidence]
+  contract """
+    Under specforge analyze, with a recorded test report, the
+    @specforge/product extension's delivery_evidence pass MUST report
+    each feature with status=done that the recorded tests do not prove:
+    no behavior names it in its features field, or not every such
+    behavior is proven by the coverage rule (an obligation no passing
+    test names, or a failing test). A feature's status is a claim and
+    its evidence is derived (ADR 0039). Produces an I071 info diagnostic
+    per such feature. Without a recorded report it reports nothing, and
+    its summary says no evidence was recorded. Its summary counts the
+    features, the done ones, the proven ones, the done ones not proven
+    and the proven ones not marked done.
+  """
+  ensures {
+    fires_done_unproven    "a done feature with an unproven implementing behavior, or none, produces I071"
+    suppresses_proven      "a done feature whose implementing behaviors are all proven produces no I071"
+    suppresses_not_done    "a feature that is not done produces no I071"
+    needs_recorded_results "without recorded test results the pass reports nothing"
+    summary_compares       "the pass summary counts features, done, proven, done_unproven and proven_not_done"
+  }
+  features [pe_validation_suite]
+  verify unit "done feature with an unproven implementing behavior produces I071"
+  verify unit "done feature whose implementing behaviors are all proven suppresses I071"
+  verify unit "without recorded test results delivery_evidence reports nothing"
 }

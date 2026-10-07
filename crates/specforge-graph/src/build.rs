@@ -1,5 +1,5 @@
 use crate::{Graph, Node};
-use specforge_common::{Diagnostic, Sym};
+use specforge_common::{Diagnostic, Sym, codes};
 use specforge_parser::{FieldValue, SpecFile};
 use std::collections::{HashMap, HashSet};
 
@@ -76,8 +76,8 @@ pub fn is_define_block(entity: &specforge_parser::Entity) -> bool {
 
 /// W143: a define block, which declares nothing.
 fn define_block_warning(entity: &specforge_parser::Entity) -> Diagnostic {
-    Diagnostic::warning(
-        "W143",
+    Diagnostic::new(
+        codes::W143,
         format!(
             "define blocks are not supported: '{}' is not registered as an entity kind",
             entity.id.raw
@@ -133,8 +133,8 @@ where
             let key = (entity.kind.raw, entity.id.raw);
             if let Some(first) = seen.get(&key) {
                 diagnostics.push(
-                    Diagnostic::error(
-                        "E002",
+                    Diagnostic::new(
+                        codes::E002,
                         format!(
                             "duplicate entity ID '{}' (first declared at {}:{}:{})",
                             entity.id.raw, first.file, first.start_line, first.start_col
@@ -153,8 +153,8 @@ where
             if let Some(&first_kind) = id_to_kind.get(&entity.id.raw) {
                 if first_kind != entity.kind.raw {
                     diagnostics.push(
-                        Diagnostic::warning(
-                            "W060",
+                        Diagnostic::new(
+                            codes::W060,
                             format!(
                                 "entity ID '{}' is used by kind '{}' and kind '{}'; first declaration (kind '{}') is retained",
                                 entity.id.raw, first_kind, entity.kind.raw, first_kind
@@ -185,8 +185,8 @@ where
                     && !config.known_provider_schemes.contains(scheme)
                 {
                     diagnostics.push(
-                        Diagnostic::info(
-                            "I005",
+                        Diagnostic::new(
+                            codes::I005,
                             format!(
                                 "unrecognized ref scheme '{}' in '{}' --- no provider installed for this scheme",
                                 scheme, entity.id.raw
@@ -209,7 +209,7 @@ fn inside_body_parser_entity(
     spec_file: &SpecFile,
     body_parser_kinds: &HashSet<String>,
 ) -> bool {
-    if diagnostic.code != "E001" || body_parser_kinds.is_empty() {
+    if !diagnostic.is(codes::E001) || body_parser_kinds.is_empty() {
         return false;
     }
     let Some(span) = &diagnostic.span else {
@@ -241,8 +241,8 @@ pub fn link_and_diagnose(graph: &mut Graph, config: &GraphConfig) -> Vec<Diagnos
     for cycle in &cycles {
         let path: Vec<String> = cycle.iter().map(|s| s.to_string()).collect();
         diagnostics.push(
-            Diagnostic::warning(
-                "W061",
+            Diagnostic::new(
+                codes::W061,
                 format!("reference cycle detected: {}", path.join(" -> ")),
             )
             .with_suggestion("break the cycle by removing or inverting one reference")

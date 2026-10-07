@@ -9,8 +9,15 @@ invariant mcp_structured_error_responses "MCP Structured Error Responses" {
     ensures agents can programmatically handle errors without parsing
     free-form text. A failed tool call is an isError result whose content is
     an McpError; a diagnostic code behind the failure is in its diagnostic,
-    not only in the message. A failed prompts/get, which has no isError
-    result, is a JSON-RPC error whose data is its McpError.
+    not only in the message. A failed prompts/get or resources/read, which
+    have no isError result, is a JSON-RPC error whose data is its McpError:
+    -32602 when the client can fix it (an argument it named, invalid input,
+    an unknown entity or extension, a conflict), -32603 otherwise. A resource
+    that does not exist (no entry serves the URI, or the entity it names is
+    not in the graph) is -32002 in a handshake session and -32602 in a
+    2026-07-28 request, and its data names the URI as uri. A refusal for a
+    missing project names the path argument only where the entry takes one.
+    An operation's failure kind decides the McpError code.
   """
   risk      medium
   verify unit "error response includes error code and message fields"
@@ -20,7 +27,10 @@ invariant mcp_structured_error_responses "MCP Structured Error Responses" {
   verify unit "a failed tool call is an isError result whose content is an McpError with a code"
   verify unit "a diagnostic code behind a failed tool call is in its McpError diagnostic"
   verify unit "a failed prompts/get carries its McpError as the error's data"
+  verify unit "a failed resources/read carries its McpError as the error's data"
+  verify unit "a no-project refusal names path only for an entry that takes one"
   verify unit "a path that does not exist is a file_not_found error on path"
+  verify unit "an operation's failure kind decides its McpError code, never its code text"
 }
 
 invariant mcp_subscription_cleanup "MCP Subscription Cleanup" {
@@ -59,13 +69,23 @@ invariant mcp_served_project_consistency "MCP Served Project Consistency" {
     extension module. Subscribed clients learn what changed. A call whose
     path names another project acts on that project only, compiled for the
     call, and the server keeps serving its own without reloading it. A call
+    that names a tool, a resource or a prompt looks it up in the project as
+    it is on disk: an extension enabled since the last request is found by
+    the next one, whether the request is a call, a read, a listing or a
+    subscription (one freshness decision, owned by the request pipeline). A call
     whose path names a project while none is served serves that project.
+    With no project served, a read that names a file or an entity is the
+    no-project refusal (precondition_failed), never not-found; a read of the
+    whole project answers over the empty session.
   """
   risk      high
   verify unit "an environment change on disk updates the extension tools listed"
   verify unit "a tool call serves files written since the last call, without watch"
   verify unit "a resource read serves files written since the last call, without watch"
   verify unit "a prompt reads the project as it is on disk"
+  verify unit "an extension tool enabled on disk since the last request is callable by name"
+  verify unit "an extension enabled on disk since the last request is listed by the next listing of every kind"
+  verify unit "a subscription to an extension resource enabled on disk since the last request is accepted"
   verify unit "a mutation on another project does not reload the served one"
   verify unit "a path while no project is served serves that project, for every tool that takes a path"
   verify unit "a path inside the served project names the served project"
@@ -74,6 +94,7 @@ invariant mcp_served_project_consistency "MCP Served Project Consistency" {
   verify unit "analyze notifies subscribers when the diagnostics it compiled changed"
   verify unit "validate with a path to another project leaves the served project in place"
   verify unit "a mutation tool that wrote files leaves the server serving what is on disk"
+  verify unit "with no project served, a read naming a file or an entity is the no-project refusal, an aggregate read answers over the empty session"
 }
 
 invariant mcp_type_schema_versioning "MCP Type Schema Versioning" {

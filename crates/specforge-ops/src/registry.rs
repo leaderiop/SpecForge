@@ -9,22 +9,23 @@
 //! `specforge_ops_registry::HttpRegistry`, which only the surfaces that
 //! reach a registry (the CLI, MCP) link (ADR 0010).
 
-use crate::OpError;
 use crate::extension::Trust;
+use crate::{OpError, OpErrorKind};
+use specforge_common::{Code, codes};
 use specforge_protocol_types::ExtensionDeclaration;
 
 /// The diagnostic a registry operation reports when no registry is
 /// configured.
-pub const NO_REGISTRY: &str = "E063";
+pub const NO_REGISTRY: Code = codes::E063;
 
 /// A registry answered with metadata that doesn't describe the package
 /// asked for: another name or version, or a declaration other than its
 /// binary's.
-pub const METADATA_MISMATCH: &str = "R-TRUST-004";
+pub const METADATA_MISMATCH: Code = codes::R_TRUST_004;
 
 /// The registry served a package whose manifest can't be read as an
 /// extension declaration.
-pub const UNREADABLE_MANIFEST: &str = "R-OPS-004";
+pub const UNREADABLE_MANIFEST: Code = codes::R_OPS_004;
 
 /// How to configure a registry, for E063's suggestion.
 pub const CONFIGURE_HINT: &str = "add a \"registries\" array to specforge.json, e.g. \
@@ -32,11 +33,10 @@ pub const CONFIGURE_HINT: &str = "add a \"registries\" array to specforge.json, 
 
 /// E063 for `operation`.
 pub fn no_registry(operation: &str) -> OpError {
-    OpError::new(
+    OpError::coded(
+        OpErrorKind::PreconditionFailed,
         NO_REGISTRY,
-        format!(
-            "no registry configured: `{operation}` needs one, and SpecForge has no built-in registry"
-        ),
+        format!("no registry configured: `{operation}` needs one, and SpecForge has no built-in registry"),
     )
     .with_suggestion(CONFIGURE_HINT)
 }

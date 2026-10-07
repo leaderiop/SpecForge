@@ -112,7 +112,7 @@ fn rules_include_the_manifest_rules_and_the_required_field_rules() {
     let codes: Vec<(&str, &str)> = build
         .rules
         .iter()
-        .map(|(p, origin)| (p.code.as_str(), origin.as_str()))
+        .map(|rule| (rule.code(), rule.origin().name()))
         .collect();
     // The extension's rule keeps its origin (for custom-rule dispatch);
     // the host-generated E006 rule for `contract` has none.
@@ -178,13 +178,13 @@ fn surface_conflicts_land_in_their_own_bucket() {
 /// Two extensions declaring one rule code: the build warns (W023), after
 /// the rule-parse diagnostics, and keeps both rules.
 #[spec(
-    behavior = "register_extension_validation_rules",
-    verify = "duplicate codes across extensions produce warning"
+    behavior = "registry_build_rules",
+    verify = "a rule code two extensions declare is W023 and both rules are kept"
 )]
 fn a_rule_code_declared_by_two_extensions_warns() {
     let rule = |name: &str| {
         let mut c = extension(name, "1.0.0");
-        c.rule("W100", |r| {
+        c.rule("W900", |r| {
             r.severity(ValidationSeverity::Warning)
                 .message_template("m")
                 .check(CheckKind::NoIncomingEdges);
@@ -201,22 +201,192 @@ fn a_rule_code_declared_by_two_extensions_warns() {
         .collect();
     assert_eq!(codes, ["W023"]);
     let message = &build.registry_diagnostics[0].message;
-    for part in ["'W100'", "'@ext/a'", "'@ext/b'"] {
+    for part in ["'W900'", "'@ext/a'", "'@ext/b'"] {
         assert!(message.contains(part), "{message}");
     }
-    assert_eq!(
-        build.rules.iter().filter(|(r, _)| r.code == "W100").count(),
-        2
-    );
+    assert_eq!(build.rules.iter().filter(|r| r.code() == "W900").count(), 2);
 }
 
-#[test]
-fn no_manifests_build_empty_registries() {
+/// With no extension loaded the host knows no kind, field or edge: every
+/// registry starts empty and stays so.
+#[spec(
+    behavior = "build_registries_from_declarations",
+    verify = "a build of no declarations has empty registries, no rules and no diagnostics"
+)]
+fn no_declarations_build_empty_registries() {
     let build = build_registries(Vec::new());
 
     assert!(build.kinds.is_empty());
+    assert_eq!(build.kinds.len(), 0);
+    assert_eq!(build.kinds.keywords().count(), 0);
+    assert!(build.kinds.get("behavior").is_none());
+    assert!(build.fields.is_empty());
+    assert!(build.fields.get("behavior", "contract").is_none());
+    assert!(build.fields.fields_for_kind("behavior").is_empty());
+    assert!(build.edges.is_empty());
+    assert!(build.edges.get("enforces").is_none());
+    assert_eq!(build.edges.labels().count(), 0);
     assert!(build.rules.is_empty());
+    assert!(build.surfaces.is_empty());
+    assert!(build.passes.is_empty());
+    assert!(build.body_parser_kinds.is_empty());
     assert!(build.single_reference_fields.is_empty());
+    assert!(build.bidirectional_pairs.is_empty());
+    assert!(build.absent_reference_targets.is_empty());
+    assert!(build.declarations().is_empty());
+    assert!(build.declaration_diagnostics.is_empty());
     assert!(build.registry_diagnostics.is_empty());
     assert!(build.surface_diagnostics.is_empty());
+}
+
+/// An extension `name` whose one rule `code` reports at `severity`; the
+/// rule's kind and edge are its own, so nothing else about it warns.
+fn one_rule(name: &str, code: &str, severity: ValidationSeverity) -> ExtensionDeclaration {
+    let mut c = extension(name, "1.0.0");
+    c.kind("Thing", |k| {
+        k.keyword("thing");
+    });
+    c.edge("uses", |e| {
+        e.source_kind("thing").target_kind("thing");
+    });
+    c.rule(code, |r| {
+        r.severity(severity)
+            .message_template("thing '{id}' uses nothing")
+            .check(CheckKind::NoOutgoingEdges)
+            .target_kind("thing")
+            .edge_type("uses");
+    });
+    c.declaration()
+}
+
+/// The rule `code` as registered: its severity and declaring extension.
+fn registered(
+    build: &specforge_registry::RegistryBuild,
+    code: &str,
+) -> Vec<(specforge_common::Severity, String)> {
+    build
+        .rules
+        .iter()
+        .filter(|rule| rule.code() == code)
+        .map(|rule| (rule.severity(), rule.origin().name().to_string()))
+        .collect()
+}
+
+/// A rule whose code its extension may not use is still registered, as
+/// declared, and reported (W150) with the code, why, and the extension.
+#[spec(
+    behavior = "registry_build_rules",
+    verify = "a rule whose code the extension may not use is reported (W150) and still registered"
+)]
+fn a_rule_with_a_code_it_may_not_use_is_reported() {
+    let build = build_registries(vec![one_rule(
+        "@acme/squat",
+        "E001",
+        ValidationSeverity::Info,
+    )]);
+
+    assert_eq!(
+        registered(&build, "E001"),
+        [(specforge_common::Severity::Info, "@acme/squat".to_string())]
+    );
+    let [w150] = build.registry_diagnostics.as_slice() else {
+        panic!("one W150 expected: {:?}", build.registry_diagnostics);
+    };
+    assert_eq!(w150.code, "W150");
+    assert_eq!(w150.severity, specforge_common::Severity::Warning);
+    assert!(w150.message.contains("'@acme/squat'"), "{}", w150.message);
+    assert!(w150.message.contains("rule 'E001'"), "{}", w150.message);
+    assert!(w150.message.contains("core owns"), "{}", w150.message);
+    assert!(w150.message.contains("Parse error"), "{}", w150.message);
+}
+
+/// The same code declared for several target kinds is one W150 per
+/// severity, and every rule is still registered.
+#[spec(
+    behavior = "registry_build_rules",
+    verify = "a rule whose code the extension may not use is reported (W150) and still registered"
+)]
+fn a_misused_code_declared_for_several_kinds_is_reported_once_per_severity() {
+    let mut c = extension("@acme/squat", "1.0.0");
+    for (name, severity) in [
+        ("a", ValidationSeverity::Warning),
+        ("b", ValidationSeverity::Warning),
+        ("c", ValidationSeverity::Error),
+    ] {
+        c.kind(name, |k| {
+            k.keyword(name);
+        });
+        c.rule("W001", |r| {
+            r.severity(severity)
+                .message_template("m")
+                .check(CheckKind::NoEdges)
+                .target_kind(name);
+        });
+    }
+    let build = build_registries(vec![c.declaration()]);
+
+    let w150: Vec<_> = build
+        .registry_diagnostics
+        .iter()
+        .filter(|d| d.code == "W150")
+        .collect();
+    // W001 at Warning (declared twice) and at Error.
+    assert_eq!(w150.len(), 2, "{w150:?}");
+    assert_eq!(registered(&build, "W001").len(), 3);
+}
+
+/// A first-party extension's own catalogued rule at its catalogued level
+/// is not reported; at another level, or uncatalogued, it is.
+#[spec(
+    behavior = "registry_build_rules",
+    verify = "a rule whose code the extension may not use is reported (W150) and still registered"
+)]
+fn a_first_party_rule_is_checked_against_the_catalog() {
+    let own = build_registries(vec![one_rule(
+        "@specforge/product",
+        "W077",
+        ValidationSeverity::Warning,
+    )]);
+    assert!(
+        own.registry_diagnostics.is_empty(),
+        "{:?}",
+        own.registry_diagnostics
+    );
+
+    let wrong_level = build_registries(vec![one_rule(
+        "@specforge/product",
+        "W077",
+        ValidationSeverity::Error,
+    )]);
+    let [w150] = wrong_level.registry_diagnostics.as_slice() else {
+        panic!("one W150 expected: {:?}", wrong_level.registry_diagnostics);
+    };
+    assert_eq!(w150.code, "W150");
+    assert!(w150.message.contains("another level"), "{}", w150.message);
+
+    let uncatalogued = build_registries(vec![one_rule(
+        "@specforge/rust",
+        "W500",
+        ValidationSeverity::Warning,
+    )]);
+    assert_eq!(uncatalogued.registry_diagnostics[0].code, "W150");
+}
+
+#[test]
+fn third_party_rule_codes_in_their_range_register_silently() {
+    let build = build_registries(vec![one_rule(
+        "@acme/x",
+        "W950",
+        ValidationSeverity::Warning,
+    )]);
+
+    assert_eq!(
+        registered(&build, "W950"),
+        [(specforge_common::Severity::Warning, "@acme/x".to_string())]
+    );
+    assert!(
+        build.registry_diagnostics.is_empty(),
+        "{:?}",
+        build.registry_diagnostics
+    );
 }

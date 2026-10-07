@@ -19,8 +19,8 @@ pub use install::{InstallResult, install_extension, installed_wasm_path};
 pub use integrity::hex_sha256;
 pub use lifecycle::load_wasm_module;
 pub use lock_file::{
-    DoctorStatus, LockFile, LockFileEntry, collect_peer_requirers, read_lock_file,
-    run_doctor_check, write_lock_file,
+    DoctorStatus, LOCK_FILE, LockFile, LockFileEntry, LockState, collect_peer_requirers, lock_path,
+    read_lock_file, run_doctor_check, write_lock_file,
 };
 pub use runtime::{WasmCallResult, WasmRuntime, WasmTrapInfo};
 pub use sandbox::default_sandbox_policy;

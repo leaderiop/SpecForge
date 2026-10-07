@@ -1,4 +1,4 @@
-use crate::contracts::wire::{Session, codes};
+use crate::session::{Session, codes};
 use serde_json::json;
 use specforge_test_macros::test as spec;
 
@@ -70,14 +70,10 @@ async fn did_close_removes_document() {
 const LOGIN: &str = "behavior login \"Login\" {\n  invariants [session_limit]\n}\n";
 
 fn e003() -> specforge_common::Diagnostic {
-    specforge_common::Diagnostic {
-        code: "E003".into(),
-        suggestion: None,
-        message: "unresolved reference 'session_limit' in entity 'login'".into(),
-        severity: specforge_common::Severity::Error,
-        span: None,
-        data: None,
-    }
+    specforge_common::Diagnostic::new(
+        specforge_common::codes::E003,
+        "unresolved reference 'session_limit' in entity 'login'",
+    )
 }
 
 #[test]
@@ -103,21 +99,20 @@ fn did_change_applies_edits() {
     let mut state = specforge_lsp::LspState::new();
     state.open_document("file:///a.spec", "hello world\n");
 
-    state.apply_change("file:///a.spec", 0, 6, 0, 11, "rust");
+    state.apply_change(
+        "file:///a.spec",
+        Some(crate::lsp_range(0, 6, 0, 11)),
+        "rust",
+    );
     assert_eq!(
-        state.document("file:///a.spec").unwrap().content(),
+        state.document("file:///a.spec").unwrap().text(),
         "hello rust\n"
     );
 }
 
-// -- validation_patterns -------------------------------------------------------
+// -- the rule set -------------------------------------------------------
 
-fn load_patterns_for(
-    ext_names: &[&str],
-) -> Vec<(
-    specforge_registry::validation_engine::ValidationRulePattern,
-    String,
-)> {
+fn load_patterns_for(ext_names: &[&str]) -> specforge_registry::RegistryBuild {
     let names: Vec<String> = ext_names.iter().map(|s| s.to_string()).collect();
     let runtime = wasm_runtime_for(&names);
     let mut declarations = Vec::new();
@@ -126,7 +121,7 @@ fn load_patterns_for(
             declarations.push(loaded.declaration);
         }
     }
-    specforge_registry::build_registries(declarations).rules
+    specforge_registry::build_registries(declarations)
 }
 
 #[spec(
@@ -136,11 +131,11 @@ fn load_patterns_for(
 fn state_starts_with_empty_registries() {
     let state = specforge_lsp::LspState::new();
     assert!(state.kind_registry().is_empty());
-    assert!(state.validation_patterns().is_empty());
+    assert!(state.registries().rules.is_empty());
 }
 
 #[spec(
-    behavior = "register_extension_validation_rules",
+    behavior = "registry_build_rules",
     verify = "extensions produce E006 rules for required fields"
 )]
 fn extensions_produce_e006_rules() {
@@ -149,12 +144,13 @@ fn extensions_produce_e006_rules() {
         "@specforge/product",
         "@specforge/governance",
         "@specforge/formal",
-    ]);
+    ])
+    .rules;
     assert!(
         !patterns.is_empty(),
         "extensions should produce validation patterns"
     );
-    let e006_count = patterns.iter().filter(|p| p.0.code == "E006").count();
+    let e006_count = patterns.iter().filter(|p| p.code() == "E006").count();
     assert!(
         e006_count > 0,
         "E006 rules should be auto-generated from required fields"
@@ -162,7 +158,7 @@ fn extensions_produce_e006_rules() {
 }
 
 #[spec(
-    behavior = "register_extension_validation_rules",
+    behavior = "registry_build_rules",
     verify = "E006 covers all required fields from builtin extensions"
 )]
 fn e006_covers_all_required_fields() {
@@ -171,44 +167,55 @@ fn e006_covers_all_required_fields() {
         "@specforge/product",
         "@specforge/governance",
         "@specforge/formal",
-    ]);
+    ])
+    .rules;
 
-    let e006_targets: Vec<(&str, &str)> = patterns
+    let e006_targets: Vec<(String, String)> = patterns
         .iter()
-        .filter(|p| p.0.code == "E006")
-        .filter_map(|p| Some((p.0.target_kind.as_deref()?, p.0.field.as_deref()?)))
+        .filter(|p| p.code() == "E006")
+        .filter_map(|p| {
+            Some((
+                p.target_kind()?.to_string(),
+                p.describe()["field"].as_str()?.to_string(),
+            ))
+        })
         .collect();
+    let has = |kind: &str, field: &str| {
+        e006_targets
+            .iter()
+            .any(|(k, f)| k.as_str() == kind && f.as_str() == field)
+    };
 
     // software
-    assert!(e006_targets.contains(&("behavior", "contract")));
-    assert!(e006_targets.contains(&("invariant", "guarantee")));
-    assert!(e006_targets.contains(&("port", "direction")));
+    assert!(has("behavior", "contract"));
+    assert!(has("invariant", "guarantee"));
+    assert!(has("port", "direction"));
     // product
-    assert!(e006_targets.contains(&("feature", "problem")));
-    assert!(e006_targets.contains(&("term", "definition")));
-    assert!(e006_targets.contains(&("release", "version")));
-    assert!(e006_targets.contains(&("journey", "flow")));
-    assert!(e006_targets.contains(&("deliverable", "artifact_type")));
-    assert!(e006_targets.contains(&("persona", "description")));
-    assert!(e006_targets.contains(&("channel", "description")));
+    assert!(has("feature", "problem"));
+    assert!(has("term", "definition"));
+    assert!(has("release", "version"));
+    assert!(has("journey", "flow"));
+    assert!(has("deliverable", "artifact_type"));
+    assert!(has("persona", "description"));
+    assert!(has("channel", "description"));
     // governance
-    assert!(e006_targets.contains(&("decision", "status")));
-    assert!(e006_targets.contains(&("decision", "context")));
-    assert!(e006_targets.contains(&("decision", "decision")));
-    assert!(e006_targets.contains(&("constraint", "description")));
-    assert!(e006_targets.contains(&("failure_mode", "severity")));
-    assert!(e006_targets.contains(&("failure_mode", "cause")));
-    assert!(e006_targets.contains(&("failure_mode", "effect")));
+    assert!(has("decision", "status"));
+    assert!(has("decision", "context"));
+    assert!(has("decision", "decision"));
+    assert!(has("constraint", "description"));
+    assert!(has("failure_mode", "severity"));
+    assert!(has("failure_mode", "cause"));
+    assert!(has("failure_mode", "effect"));
     // formal
-    assert!(e006_targets.contains(&("property", "expression")));
-    assert!(e006_targets.contains(&("property", "property_type")));
-    assert!(e006_targets.contains(&("axiom", "expression")));
-    assert!(e006_targets.contains(&("refinement", "abstract_entity")));
-    assert!(e006_targets.contains(&("refinement", "concrete_entity")));
-    assert!(e006_targets.contains(&("protocol", "alphabet")));
-    assert!(e006_targets.contains(&("protocol", "initial_state")));
-    assert!(e006_targets.contains(&("process", "alphabet")));
-    assert!(e006_targets.contains(&("process", "initial_state")));
+    assert!(has("property", "expression"));
+    assert!(has("property", "property_type"));
+    assert!(has("axiom", "expression"));
+    assert!(has("refinement", "abstract_entity"));
+    assert!(has("refinement", "concrete_entity"));
+    assert!(has("protocol", "alphabet"));
+    assert!(has("protocol", "initial_state"));
+    assert!(has("process", "alphabet"));
+    assert!(has("process", "initial_state"));
 }
 /// Build a Wasm runtime for a temp project listing `ext_names`, mirroring
 /// how a real session loads extensions from specforge.json.

@@ -40,6 +40,9 @@ pub fn run(
         Err(error) => return fail(&error),
     };
 
+    // Every file init wrote: .gitignore when it lacked an entry, the
+    // config, the starter, and each installed module and lock.
+    let written = outcome.writes.names_under(path);
     match format {
         OutputFormat::Json => {
             let output = json!({
@@ -47,6 +50,7 @@ pub fn run(
                 "config_path": outcome.config_path,
                 "spec_file_path": outcome.starter_path,
                 "extensions_installed": outcome.extensions,
+                "files_written": written,
             });
             println!(
                 "{}",
@@ -59,8 +63,9 @@ pub fn run(
                 outcome.name,
                 path.display()
             );
-            println!("  specforge.json");
-            println!("  {}", init::STARTER_FILE);
+            for file in &written {
+                println!("  {file}");
+            }
             if outcome.extensions.is_empty() {
                 println!("\nNo extensions installed. Add one with: specforge add <extension>");
             }

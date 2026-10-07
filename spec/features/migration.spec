@@ -17,6 +17,7 @@ use "invariants/migration"
 use "types/migration"
 
 feature spec_file_migration "Spec File Migration" {
+  status   done
   // MCP: provide_mcp_migrate_tool in features/mcp.spec::mcp_mutation_tools
   problem  """
     As the .spec file format evolves across versions, existing projects

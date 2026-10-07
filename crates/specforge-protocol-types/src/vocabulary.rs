@@ -112,33 +112,54 @@ vocabulary! {
 vocabulary! {
     /// What a declarative validation rule checks, per entity of its
     /// `target_kind` (every entity when unset).
+    ///
+    /// The host's registry build checks each rule's shape (ADR 0020): a rule
+    /// missing what its check requires is W112 and is not registered; a
+    /// property its check does not read is W147 and is dropped. Every
+    /// check's message reads `field` as the default `{field}` and its text
+    /// as the default `{value}`.
     CheckKind {
-        /// No edge points at the entity (only `edge_type` edges when set).
+        /// No edge points at the entity (only `edge_type` edges, from the
+        /// edge type's source kind, when set; an edge type no loaded
+        /// extension declares makes the rule inert).
         NoIncomingEdges = "no_incoming_edges",
-        /// The entity points at nothing (only `edge_type` edges when set).
+        /// The entity points at nothing (only `edge_type` edges, to the edge
+        /// type's target kind, when set).
         NoOutgoingEdges = "no_outgoing_edges",
         /// The entity has no edges in either direction.
         NoEdges = "no_edges",
-        /// The entity lacks `field`; union types are exempt when `field` is
-        /// `verify`.
+        /// The entity lacks `field` (required); an entity that owes no
+        /// `verify` statements is exempt when `field` is `verify`.
         MissingFieldWhenFlagSet = "missing_field_when_flag_set",
-        /// `field`'s value breaks `constraint` (`non_empty`, `one_of`, or
-        /// `matches`).
+        /// `field`'s value (required) breaks `constraint` (required:
+        /// `non_empty`; `one_of` with non-empty `values`; or `matches` with a
+        /// `pattern` that compiles as a regex).
         FieldValueConstraint = "field_value_constraint",
-        /// The entity sits on a cycle of `edge_type` edges.
+        /// The entity sits on a cycle of `edge_type` edges (`edge_type`
+        /// required), following every field that writes that edge type;
+        /// every entity when `target_kind` is unset.
         CycleDetection = "cycle_detection",
-        /// The path in `field` does not exist.
+        /// The path in `field` (required; each item of a list field)
+        /// does not exist, relative to the spec root (plan 01's base, ADR
+        /// 0019).
         FileExists = "file_exists",
-        /// The extension's `wasm_function` decides.
+        /// The extension's `wasm_function` (required) decides; a function
+        /// that cannot answer is W112 at load, W148 at check.
         Custom = "custom",
         /// When the field named by `constraint.pattern` holds one of
-        /// `constraint.values`, `field` must be present and non-empty.
+        /// `constraint.values` (both required; the constraint kind is read
+        /// as `when_field_equals`), `field` (required) must be present and
+        /// non-empty.
         ConditionalFieldRequired = "conditional_field_required",
-        /// The entity lacks `field`.
+        /// The entity lacks `field` (required).
         MissingRequiredField = "missing_required_field",
-        /// A `verify` kind is not in `constraint.values`.
+        /// A `verify` kind is not in `constraint.values` (required,
+        /// non-empty; the constraint kind is read as `one_of`). The target
+        /// kind must accept `verify` statements.
         VerifyKindAllowlist = "verify_kind_allowlist",
-        /// A testable entity declares no `verify` obligations.
+        /// A testable entity declares no `verify` obligations (or does not
+        /// write `field` when it names another obligation field). The
+        /// target kind must accept `verify` statements.
         NoVerifyStatements = "no_verify_statements",
     }
     aliases {

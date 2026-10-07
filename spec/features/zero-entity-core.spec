@@ -8,6 +8,7 @@ use "behaviors/zero-entity-registries"
 use "behaviors/zero-entity-validation"
 
 feature declarative_validation_rules "Declarative Validation Rules" {
+  status   done
   problem  """
     Validation passes are hardcoded functions in the compiler.
     Adding a new validation rule requires modifying Rust source code,
@@ -39,6 +40,7 @@ feature declarative_validation_rules "Declarative Validation Rules" {
 }
 
 feature extension_manifest "Extension Manifest" {
+  status   done
   problem  """
     Extensions need a structured manifest format that carries rich metadata
     for each entity kind: LSP integration (semantic tokens, icons),
@@ -61,6 +63,7 @@ feature extension_manifest "Extension Manifest" {
 }
 
 feature dynamic_entity_registration "Dynamic Entity Registration" {
+  status   done
   problem  """
     Entity types are defined as a closed enum with hardcoded
     variants. Adding a new entity type requires modifying the enum, updating
@@ -79,6 +82,7 @@ feature dynamic_entity_registration "Dynamic Entity Registration" {
 }
 
 feature extension_driven_lsp "Extension-Driven LSP" {
+  status   done
   problem  """
     LSP features for extension-defined entity kinds get generic treatment
     with no keyword completion, no semantic classification, default icons,
@@ -98,6 +102,7 @@ feature extension_driven_lsp "Extension-Driven LSP" {
 }
 
 feature extension_driven_visualization "Extension-Driven Visualization" {
+  status   done
   problem  """
     Graph visualization uses hardcoded shapes and styles for entity nodes.
     Extension-defined entity kinds get generic default rendering with no
@@ -121,6 +126,7 @@ feature extension_driven_visualization "Extension-Driven Visualization" {
 }
 
 feature zero_entity_bootstrap "Zero-Entity Bootstrap" {
+  status   done
   problem  """
     The compiler assumes entity keywords are known at parse time because
     they are hardcoded. With zero built-in entities, the parser cannot
@@ -153,6 +159,7 @@ feature zero_entity_bootstrap "Zero-Entity Bootstrap" {
 // in features/output.spec — same 3 behaviors, consolidated to avoid duplication.
 
 feature extension_driven_code_actions "Extension-Driven Code Actions" {
+  status   done
   // Owned: code_actions_for_missing_verify, code_action_create_entity_stub,
   //   code_action_replace_unresolved
   // Bridge: listed in features/lsp.spec code_actions
@@ -172,6 +179,7 @@ feature extension_driven_code_actions "Extension-Driven Code Actions" {
 }
 
 feature extension_driven_coverage "Extension-Driven Coverage" {
+  status   done
   // Bridge: compute_project_statistics is defined in behaviors/output.spec and
   // also listed in ci_integration (features/output.spec). This feature owns the
   // extension-aware coverage aspect; ci_integration owns the CLI/exit-code aspect.

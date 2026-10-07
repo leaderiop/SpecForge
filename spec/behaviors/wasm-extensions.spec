@@ -128,11 +128,12 @@ behavior call_extension_exports "Call Extension Exports" {
     extension_loaded "the extension is one the project's runtime loaded"
   }
   ensures {
-    one_protocol_type "each operation's input and answer is one specforge_protocol_types type the host and the SDK share"
-    strict_answers    "an answer that does not decode as its protocol type is E028; unknown fields are ignored and absent optional fields take their defaults"
-    one_failure       "a trap, an unrouted export, an extension not loaded or a malformed answer is E028 naming the operation, the export and the extension"
-    no_silent_failure "no operation drops a failure: a pass's is a finding, a scanner's is reported, a command's is the command's error"
-    runtimes_agree    "an SDK-declared extension answers the same through the in-process runtime as through the component runtime"
+    one_protocol_type  "each operation's input and answer is one specforge_protocol_types type the host and the SDK share"
+    strict_answers     "an answer that does not decode as its protocol type is E028; unknown fields are ignored and absent optional fields take their defaults"
+    one_failure        "a trap, an unrouted export, an extension not loaded or a malformed answer is E028 naming the operation, the export and the extension"
+    no_silent_failure  "no operation drops a failure: a pass's is a finding, a scanner's is reported, a command's is the command's error"
+    runtimes_agree     "an SDK-declared extension answers the same through the in-process runtime as through the component runtime"
+    pass_codes_checked "a pass diagnostic whose code its extension may not use is kept and reported (W150)"
   }
   contract   """
     The host performs ten operations on a loaded extension, each one call
@@ -151,6 +152,14 @@ behavior call_extension_exports "Call Extension Exports" {
     pass, a command's its E028 error, a scanner's a reported failure that
     makes the gap report approximate, a collector's the collect error. A
     migration hook's answer is not read.
+
+    A pass diagnostic keeps the code and severity the pass gave it; when
+    the code is not one the extension may use (its own catalogued code
+    at its level, or a third-party code whose prefix states its level),
+    the host adds one W150 per code naming the extension and the pass.
+    Every diagnostic a rule or a pass of an extension produces names that
+    extension as its origin, and a code the extension may not use is not
+    titled or explained as its owner's.
   """
   verify unit "every operational payload is one protocol type the host and the SDK share"
   verify unit "an SDK-declared extension answers the same through the in-process runtime as through the component runtime"
@@ -164,7 +173,9 @@ behavior call_extension_exports "Call Extension Exports" {
   verify unit "an analyze pass that traps is reported as an E028 finding of that pass"
   verify unit "a scanner that traps or answers malformed output is reported, not dropped"
   verify unit "a pass, collector, custom rule, scanner or migration hook is declared with its handler, and its export answers through it"
-  verify contract "Call Extension Exports: extension calls hold — extension_loaded, one_protocol_type, strict_answers, one_failure, no_silent_failure, runtimes_agree"
+  verify unit "a pass diagnostic whose code the extension may not use is reported (W150) and kept"
+  verify unit "a diagnostic an extension reported names its extension, and a code it may not use is not described as its owner's"
+  verify contract "Call Extension Exports: extension calls hold — extension_loaded, one_protocol_type, strict_answers, one_failure, no_silent_failure, runtimes_agree, pass_codes_checked"
 }
 
 // -- Check-Phase Passes and the Build Cache -----
@@ -202,8 +213,9 @@ behavior run_check_phase_passes "Run Check-Phase Passes" {
     statuses of the build cache (read_build_cache). It answers the same
     output: diagnostics, bare or as `{diagnostics, summary}`; the summary
     is ignored. Each diagnostic keeps the code and severity the pass gave
-    it. One with no span that carries `entity: "<id>"` gets the span of
-    that entity. A trap or an answer that does not parse is E028 naming
+    it (W150 beside it when the extension may not use the code). One
+    with no span that carries `entity: "<id>"` gets the span of that
+    entity. A trap or an answer that does not parse is E028 naming
     the pass's export and its extension (call_extension_exports); the
     other passes still run.
 
@@ -296,7 +308,7 @@ behavior read_build_cache "Read the Build Cache" {
 }
 
 behavior enforce_per_call_site_permissions "Enforce Per-Call-Site Permissions" {
-  features   [contribution_based_extensions]
+  features   [wasm_host_function_api]
   invariants [wasm_sandbox_integrity]
   category   command
   types      [ExtensionDeclaration, SandboxPolicy]
@@ -646,8 +658,15 @@ behavior run_doctor_check "Run Doctor Check" {
     and additional checks (shadowed fields, unknown target entities,
     edge label conflicts). An enabled extension that fails to load (E028:
     not installed; E033: its binary no longer matches the lock) MUST be
-    reported as an error. A remediation that names a command MUST name
-    one the user can run as written. A finding whose diagnostic offers no
+    reported as an error. Each listed extension MUST carry the source the
+    extensions listing gives it: builtin, the lock entry's source, or
+    file:<path> for a .wasm file entry of specforge.json. Run in a
+    directory without specforge.json, doctor MUST report a warning finding
+    config_missing naming the directory; the run stays healthy. A
+    specforge.lock that exists but cannot be read (E033) MUST be reported
+    as an error finding. A
+    remediation that names a command MUST name one the user can run as
+    written. A finding whose diagnostic offers no
     suggestion of its own MUST quote the catalogue's explanation of its
     code. The --json flag MUST produce machine-readable JSON
     output for CI integration.
@@ -661,6 +680,9 @@ behavior run_doctor_check "Run Doctor Check" {
   verify unit "doctor reports an extension that fails to load (E028, E033) as an error"
   verify unit "a peer whose installed version doctor cannot compare is remedied with a runnable command"
   verify unit "a finding without its own suggestion quotes the catalogued explanation"
+  verify unit "doctor gives each extension the source the extensions listing gives it"
+  verify unit "doctor in a directory without specforge.json reports config_missing as a warning"
+  verify unit "a lock file that cannot be read is an error finding naming E033"
   verify contract "Run Doctor Check: doctor check holds — enhancement_registered_fired, filesystem_available, doctor_check_completed_emitted, report_produced, json_output_supported"
 }
 

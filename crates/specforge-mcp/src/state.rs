@@ -1,6 +1,6 @@
 use specforge_common::{Diagnostic, ProjectConfig};
 use specforge_graph::Graph;
-use specforge_project::{Environment, Origin, ProjectSession, SharedRuntime, Update, UpdateKind};
+use specforge_project::{Origin, ProjectSession, SharedRuntime, Update, UpdateKind};
 use specforge_registry::RegistryBuild;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -32,8 +32,8 @@ pub struct McpState {
     pub listens: Vec<Listen>,
     /// The served project: its root, environment (config, spec root,
     /// registries, rules, manifests, surfaces), graph, diagnostics and
-    /// extension runtime. With no project ([`Origin::None`]) while none is
-    /// served.
+    /// extension runtime: always opened from disk ([`Origin::Disk`], ADR
+    /// 0025). With no project ([`Origin::None`]) while none is served.
     session: ProjectSession,
     /// How many times the served project changed: every update applied to
     /// it and every replacement bumps it ([`Self::session_generation`]).
@@ -105,8 +105,7 @@ impl McpState {
         &self.session
     }
 
-    /// The served project's root: `None` while no project is served (a
-    /// project built in memory may have one).
+    /// The served project's root: `None` while no project is served.
     pub fn project_root(&self) -> Option<&Path> {
         self.session.root()
     }
@@ -123,19 +122,17 @@ impl McpState {
         self.session.graph()
     }
 
-    /// The served project's environment: config, spec root, registries.
-    pub fn environment(&self) -> &Environment {
-        self.session.environment()
-    }
-
     /// The served project's registries, rules, declarations and surfaces.
+    /// What a call reads goes through its target's view
+    /// ([`crate::target::Call::view`]); this is the served session's, for
+    /// the server itself (the surface table, the lifecycle answers).
     pub fn registries(&self) -> &RegistryBuild {
-        &self.environment().registries
+        &self.session.environment().registries
     }
 
     /// The served project's `specforge.json`.
     pub fn config(&self) -> &ProjectConfig {
-        &self.environment().config
+        &self.session.environment().config
     }
 
     /// Where the served project's `.spec` files live: spans are relative
@@ -180,6 +177,19 @@ impl McpState {
             && self.protocol_version == crate::lifecycle::BATCHING_PROTOCOL_VERSION
     }
 
+    /// The JSON-RPC code of a resource that does not exist, in the revision
+    /// the request in hand speaks: -32002 in a handshake session (MCP
+    /// 2025-03-26 to 2025-11-25, server/resources), -32602 in a 2026-07-28
+    /// request, which says "Invalid Params" and asks clients to accept
+    /// -32002 as earlier revisions used it.
+    pub fn resource_not_found_code(&self) -> i64 {
+        if crate::lifecycle::MODERN_PROTOCOL_VERSIONS.contains(&self.revision()) {
+            crate::protocol::error_codes::INVALID_PARAMS
+        } else {
+            crate::protocol::error_codes::RESOURCE_NOT_FOUND
+        }
+    }
+
     /// Whether tool results carry `structuredContent` (2025-06-18 on).
     pub fn sends_structured_content(&self) -> bool {
         self.revision() >= crate::lifecycle::STRUCTURED_CONTENT_PROTOCOL_VERSION
@@ -208,8 +218,8 @@ impl McpState {
     /// project's declarations, so nothing a previous load contributed
     /// survives, and nothing is listed twice.
     /// Subscribed clients learn what changed. The one place the served
-    /// project is replaced (initialize, adopting a call's path, a call that
-    /// wrote an in-memory project's files).
+    /// project is replaced (initialize, adopting a call's path, the
+    /// directory `init` created).
     pub fn serve(&mut self, root: &Path) {
         let previous_diagnostics = self.diagnostics();
         // The served session reloads when it is the project on disk at
@@ -242,8 +252,7 @@ impl McpState {
     /// reload (its extension tools and resources registered again) for a
     /// changed `specforge.json`, `specforge.lock` or extension module, a
     /// re-check for a changed check input. Subscribed clients learn what
-    /// changed. `None` when nothing did, or the project was built in
-    /// memory.
+    /// changed. `None` when nothing did.
     pub fn ensure_fresh(&mut self) -> Option<&Update> {
         let previous_diagnostics = self.diagnostics();
         let update = self.session.ensure_fresh()?;
@@ -281,63 +290,6 @@ impl McpState {
         }
         crate::notifications::enqueue_compile_notifications(self, &update, previous_diagnostics);
         self.last_update = Some(update);
-    }
-
-    /// Serve `session`, a project built in memory or opened by the host,
-    /// as it is: no surface is registered again and no client notified.
-    pub fn serve_session(&mut self, session: ProjectSession) {
-        self.session = session;
-        self.generation += 1;
-    }
-
-    /// Serve `graph` with `diagnostics` as its graph build's, in the
-    /// served project's environment ([`ProjectSession::from_graph`]).
-    pub fn serve_graph(&mut self, graph: Graph, diagnostics: Vec<Diagnostic>) {
-        let env = self.session.shared_environment();
-        self.serve_session(ProjectSession::from_graph(env, graph, diagnostics));
-    }
-
-    /// Serve `graph`, built in memory, with `diagnostics` as its graph
-    /// build's, in the served project's environment rooted at `root` (its
-    /// spec root the config's, under it): a host that assembles its graph
-    /// itself, or a test. It is never refreshed from disk; a call that
-    /// writes files under `root` serves the project on disk there.
-    pub fn serve_in_memory_at(
-        &mut self,
-        root: Option<PathBuf>,
-        graph: Graph,
-        diagnostics: Vec<Diagnostic>,
-    ) {
-        self.edit_environment(|env| {
-            let root = root.unwrap_or_default();
-            env.spec_root = match (&env.config.spec_root, root.as_os_str().is_empty()) {
-                (Some(spec_root), false) => root.join(spec_root),
-                _ => root.clone(),
-            };
-            env.root = root;
-        });
-        self.serve_graph(graph, diagnostics);
-    }
-
-    /// Serve the served graph as `edit` leaves it, in the same environment
-    /// and with the same graph diagnostics, as an in-memory project.
-    pub fn edit_graph(&mut self, edit: impl FnOnce(&mut Graph)) {
-        let mut graph = self.graph().clone();
-        edit(&mut graph);
-        let diagnostics = self.session.graph_diagnostics();
-        self.serve_graph(graph, diagnostics);
-    }
-
-    /// Serve the served graph in the environment `edit` leaves, as an
-    /// in-memory project with the same graph diagnostics.
-    pub fn edit_environment(&mut self, edit: impl FnOnce(&mut Environment)) {
-        let session = std::mem::replace(&mut self.session, ProjectSession::detached());
-        let graph = session.graph().clone();
-        let diagnostics = session.graph_diagnostics();
-        let mut env = session.shared_environment();
-        drop(session);
-        edit(Arc::get_mut(&mut env).expect("the served environment is shared elsewhere"));
-        self.serve_session(ProjectSession::from_graph(env, graph, diagnostics));
     }
 
     pub fn shutdown(&mut self) {

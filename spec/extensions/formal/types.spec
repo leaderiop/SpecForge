@@ -205,8 +205,9 @@ type CoverageAnalysisResult {
 }
 
 // ── Specification Depth Levels ──────────────────────────────
-// Renamed from FormalityLevel per terminology rename.
-// Level 4 requires test_covered obligations; heuristic_ok alone
-// is insufficient for the highest depth level.
+// Renamed from FormalityLevel per terminology rename. A behavior's level
+// (I014), each holding the one below: prose (no edges), entity_graph
+// (edges), conditions (requires or ensures), invariants (also maintains
+// or invariants refs), proofs (also proven by the coverage rule).
 
 type SpecificationDepthLevel = prose | entity_graph | conditions | invariants | proofs

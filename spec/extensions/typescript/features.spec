@@ -3,6 +3,7 @@
 use "extensions/typescript/behaviors"
 
 feature ts_source_scanning "TypeScript Source Scanning" {
+  status   in_progress
   problem  """
     AI agents working on TypeScript/JavaScript codebases need structured
     knowledge of all exported symbols -- their names, signatures, locations,
@@ -22,6 +23,7 @@ feature ts_source_scanning "TypeScript Source Scanning" {
 }
 
 feature ts_entity_mapping "TypeScript Entity ID Mapping" {
+  status   in_progress
   problem  """
     TypeScript naming conventions (PascalCase classes, camelCase functions,
     SCREAMING_SNAKE constants) don't match specforge's snake_case entity
@@ -36,6 +38,7 @@ feature ts_entity_mapping "TypeScript Entity ID Mapping" {
 }
 
 feature ts_test_collection "TypeScript Test Collection" {
+  status   done
   problem  """
     The TypeScript ecosystem has fragmented test tooling: Jest, Vitest,
     Playwright, Cypress, Mocha, Node.js test runner. Each produces
@@ -54,6 +57,7 @@ feature ts_test_collection "TypeScript Test Collection" {
 }
 
 feature ts_monorepo_support "TypeScript Monorepo Support" {
+  status   proposed
   problem  """
     Large TypeScript projects use monorepo tools (npm/yarn/pnpm workspaces,
     Nx, Turborepo, Lerna, Rush) that split code across packages. Scanning
@@ -69,6 +73,7 @@ feature ts_monorepo_support "TypeScript Monorepo Support" {
 }
 
 feature ts_framework_inference "TypeScript Framework-Aware Inference" {
+  status   in_progress
   problem  """
     Framework conventions (NestJS controllers, Angular services, React
     components) carry strong domain signals about what specforge entity

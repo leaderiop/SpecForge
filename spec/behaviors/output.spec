@@ -195,31 +195,84 @@ behavior read_views_over_the_project_view "Read Views over the Project View" {
   ensures {
     one_report_rule        "The recorded test report and the schema cache are the view root's, never an ancestor's"
     one_coverage_per_state "Coverage is computed once per compile and per recorded report content"
-    surfaces_agree         "The CLI and MCP report the same numbers, chains, schema version and diagrams for one project"
+    surfaces_agree         "The CLI, MCP and the LSP hover report the same numbers, chains, schema version, diagrams and entity facts for one project"
   }
   contract   """
     Stats, trace (one entity or every entity), the coverage view, the
-    model and outline diagrams and the versioned Graph Protocol schema
-    MUST each be one operation over the project view, shared by the CLI
-    and MCP; a surface maps its arguments and renders the outcome. The
+    model and outline diagrams, the versioned Graph Protocol schema and
+    inspect (one entity's facts: its kind, standing, headline, references,
+    coverage and the diagnostics about it) MUST each be one operation over
+    the project view, shared by the surfaces that show them (the CLI, MCP,
+    and for inspect the LSP hover); a surface maps its arguments and renders
+    the outcome. The
     view's root is the root the project was compiled from: its recorded
     test report is <root>/specforge-report.json and its schema cache
     <root>/.specforge/schema-cache.json, and no view looks in an ancestor
     directory. A report that exists but cannot be read is an error on
-    every view (E045). Coverage is computed once per compiled project or
-    session state and per content of the recorded report; a rewritten
-    report is read again. An entity is unverified when it counts toward
-    coverage and is not proven.
+    every view (E045). The view says what its surface reports for the
+    project: what specforge check reports for the compile behind it, then
+    what the surface adds (MCP: I017). Coverage is computed once per
+    compiled project or session state and per content of the recorded
+    report; a rewritten report is read again. An entity is unverified when
+    it counts toward coverage and is not proven.
   """
   verify unit "the recorded test report is read at the view's root, never an ancestor's"
+  verify unit "a view reports what its compile reported, then what its surface adds"
   verify unit "the schema cache is the view root's, never an ancestor's"
   verify unit "coverage is computed once per compile and report content, and again after the report changes"
   verify unit "an entity is unverified when it counts toward coverage and is not proven"
+  verify unit "inspect reports an entity's standing as the coverage view counts it"
+  verify unit "a report that cannot be read is the coverage's error, and the standing still holds"
   verify integration "specforge stats and specforge.stats report the same numbers"
   verify integration "specforge trace and specforge.trace return the same chain for an entity"
   verify integration "specforge schema and specforge.schema carry the same version"
+  verify integration "specforge schema --kind and specforge.schema with a kind return the same document"
   verify integration "specforge outline and specforge.outline_extensions render the same text"
+  verify integration "specforge.inspect and the LSP hover report the same facts for an entity"
   verify contract "Read Views over the Project View: read views hold — project_compiled, one_report_rule, one_coverage_per_state, surfaces_agree"
+}
+
+// An enumerated argument is one option table (ADR 0027): the CLI's possible
+// values and MCP's input schema are built from it, and both parse with it.
+behavior name_enumerated_options_once "Name Enumerated Options Once" {
+  features   [mcp_core_tools, agent_export]
+  invariants [diagnostic_determinism, mcp_structured_error_responses]
+  category   query
+  types      [McpToolDescriptor]
+  ports      [CompilerApi, McpProtocol]
+  requires {
+    option_tables_declared "Each enumerated argument an operation reads is declared once, with its names, aliases, help and default"
+  }
+  ensures {
+    surfaces_list_the_table  "The CLI's possible values and default and the MCP input schema's enum and default are the table's"
+    surfaces_accept_the_same "A name one surface accepts for an argument the other accepts too, as the same value"
+    one_refusal              "An unknown name is refused naming the argument, the expected names and the closest one"
+  }
+  contract   """
+    Every argument an operation takes from a closed set of names (an export
+    format, the model's format, grouping and field level, the outline's
+    format, detail and dependency depth, a render format, a coverage status,
+    a reference direction) MUST be one option table in specforge-ops: its
+    listed names in order, the aliases it also accepts, a one-line help per
+    name, and its default. The CLI's possible values and default and the MCP
+    tool's input-schema enum (listed names, then aliases) and default MUST be
+    built from the table, and both surfaces MUST parse the argument with it.
+    Every surface MUST answer an absent argument with the table's default;
+    no surface declares another. An unknown name MUST be refused as
+    "Unknown <argument>: <name>. Expected: <names>", with the closest name
+    as a suggestion, as the one failure kind invalid_input (a table has no
+    error code of its own); the CLI refuses it before compiling (exit 2), MCP
+    as invalid_input on the argument. Whatever a refusal offers as the
+    available choices (specforge.render's available_renderers) is the list
+    the message names: the table's names, never an alias. A set the project decides (analysis
+    passes, entity kinds) is not a table: the operation checks the name
+    against the project, and both surfaces relay its refusal.
+  """
+  verify unit "a table parses its names and aliases and refuses any other naming the expected names"
+  verify unit "each enumerated MCP argument advertises the table's names and default"
+  verify unit "a refusal's available choices are the names its message lists, an alias never among them"
+  verify integration "the CLI and MCP accept the same names for each enumerated argument"
+  verify integration "the analysis passes the CLI accepts are the project's"
 }
 
 behavior print_diagnostics_structured "Print Diagnostics Structured" {

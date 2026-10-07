@@ -57,16 +57,25 @@ behavior provide_mcp_format_tool "Provide MCP Format Tool" {
     diffs). The tool MUST format spec files according to the canonical style.
     In check mode, the tool MUST NOT modify files. In diff mode, the tool MUST
     return FormatDiff entries for each changed file. The tool MUST run the
-    same format operation as specforge format. A file that cannot be written
-    MUST NOT stop the others from being formatted: the result MUST name it,
-    and the call MUST be reported as failed. Diagnostics from loading the
-    format configuration (.specforgefmt.toml) MUST be returned in the result.
+    same format operation as specforge format. A file that cannot be read or
+    written MUST NOT stop the others from being formatted: the result MUST
+    name it, and the call MUST be reported as failed, with the kind of
+    failure the OS gave (permission_denied for a file it refused, file_not_found
+    for one that does not exist, internal_error for another cause or for
+    failures of different kinds). all_clean MUST be true
+    only when every file was read and is in canonical form; a region left
+    unformatted (W142) MUST be returned among the diagnostics, with its file
+    and line. Diagnostics from loading the format configuration
+    (.specforgefmt.toml) MUST be returned in the result.
   """
   verify unit "specforge.format formats spec files"
   verify unit "check mode reports without modifying files"
   verify unit "diff mode returns FormatDiff entries"
   verify unit "paths filter restricts to specified files"
   verify unit "a file that cannot be written does not stop the others, and the failed call names it"
+  verify unit "a file that cannot be read fails the call, is named, and does not stop the others"
+  verify unit "a file that does not exist fails the call as file_not_found, naming it"
+  verify unit "a file with a region left unformatted is not reported clean, and its W142 is returned"
   verify unit "format configuration diagnostics are returned in the result"
   verify contract "Provide MCP Format Tool: MCP format tool holds — filesystem_available, files_formatted, check_mode_readonly, mutation_completed_emitted, tool_invoked_emitted"
 }
@@ -147,7 +156,7 @@ behavior provide_mcp_init_tool "Provide MCP Init Tool" {
     project_created             "specforge.json and spec directory scaffolded at specified path"
     path_outside_current        "Target path verified to be outside current project's spec_root"
     extensions_validated        "When extensions specified, manifests validated and added to config"
-    project_initialized_emitted "project_initialized event emitted on success"
+    project_initialized_emitted "project_initialized event emitted on success, with the project name, its extension count and the starter file"
     tool_invoked_emitted        "mcp_tool_invoked event emitted"
   }
   contract   """
@@ -177,6 +186,7 @@ behavior provide_mcp_init_tool "Provide MCP Init Tool" {
   verify unit "unknown extension returns error with diagnostic"
   verify unit "version parameter overrides default 0.1.0"
   verify unit "specforge.init result includes the starter file path and installed extensions"
+  verify unit "init without a path is invalid_input on path"
   verify integration "MCP init followed by check produces zero errors"
   verify integration "specforge.init writes the files and config specforge init writes for the same inputs"
   verify contract "Provide MCP Init Tool: MCP init tool holds — filesystem_available, project_created, path_outside_current, extensions_validated, project_initialized_emitted, tool_invoked_emitted"
@@ -217,7 +227,8 @@ behavior provide_mcp_add_extension_tool "Provide MCP Add Extension Tool" {
     extension conflicts with an existing one, the tool MUST return an error.
     If the extension is already installed, the tool MUST return an info
     response indicating the extension is already present without modifying
-    specforge.json. A registry specifier with no registry configured in
+    specforge.json. That call still emits extension_added, with wasDuplicate
+    true; a dry run emits none. A registry specifier with no registry configured in
     specforge.json MUST make no network call and MUST return an E063 error
     whose suggestion names the registries key. The tool MUST run the add
     specforge add runs: a builtin is enabled offline with its required
@@ -406,7 +417,8 @@ behavior provide_mcp_doctor_tool "Provide MCP Doctor Tool" {
     no required parameters. The tool MUST check project health: extension
     conflicts, stale Wasm cache entries, extensions that fail to load (E028,
     E033), missing specforge.json fields, version mismatches, and orphan
-    entities. The response MUST include detected issues and deterministic
+    entities. A specforge.json the server could not use (E069) MUST be a
+    finding. The response MUST include detected issues and deterministic
     resolution steps. Like specforge.validate, the tool MUST bring the
     project up to date with disk before checking it, so it sees edits made
     outside the server; with use_cached (optional boolean, default false) it
@@ -417,6 +429,7 @@ behavior provide_mcp_doctor_tool "Provide MCP Doctor Tool" {
   verify unit "response provides deterministic resolution steps"
   verify unit "specforge.doctor reports an extension that fails to load (E028, E033) as an error"
   verify unit "specforge.doctor compiles the project afresh unless use_cached is set"
+  verify unit "specforge.doctor reports an unusable specforge.json (E069) as a finding"
   verify contract "Provide MCP Doctor Tool: MCP doctor tool holds — compiler_api_available, health_checked, resolution_steps_provided, tool_invoked_emitted"
 }
 
@@ -480,8 +493,10 @@ behavior provide_mcp_render_tool "Provide MCP Render Tool" {
     invoke the matching registered renderer and write output files to out_dir;
     without out_dir it MUST return the rendering inline instead.
     The renderers are the core graph engine's export formats (see P7
-    justification in features/output.spec): json (the full graph, as
-    `specforge export --format graph` writes it), dot, context and brief.
+    justification in features/output.spec), named as `specforge export
+    --format` names them: graph (also accepted as json; the full graph, as
+    `specforge export --format graph` writes it, in graph.json), dot,
+    context and brief. The result's format is the renderer's name.
     Extension renderer contributions are not dispatched by this tool.
     Renderers produce graph diagnostic artifacts: JSON serializations, DOT
     visualizations, traceability matrices, validation summaries. They MUST NOT
@@ -495,5 +510,6 @@ behavior provide_mcp_render_tool "Provide MCP Render Tool" {
   verify unit "specforge.render writes output files to out_dir"
   verify unit "registered renderer invoked for matching format"
   verify unit "unrecognized format returns error listing available renderers"
+  verify unit "graph and its alias json select the full graph renderer"
   verify contract "Provide MCP Render Tool: MCP render tool holds — graph_available, filesystem_available, files_written, files_listed, tool_invoked_emitted"
 }

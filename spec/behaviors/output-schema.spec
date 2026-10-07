@@ -162,13 +162,18 @@ behavior serve_schema_resource "Serve Schema Resource" {
   }
   ensures {
     full_schema_output     "specforge schema outputs the complete GraphProtocolSchema as JSON"
-    kind_filter_supported  "Optional --kind filter restricts output to a single entity kind"
+    kind_filter_supported  "Optional --kind filter restricts the schema to that entity kind and the edge types that can start or end at it"
     mcp_resource_available "In MCP server mode, schema is available as specforge://schema resource"
   }
   contract   """
     When specforge schema is invoked, the system MUST output the
     GraphProtocolSchema as JSON to stdout. An optional --kind filter MUST
-    restrict output to a single entity kind's schema. In MCP server mode,
+    restrict the schema to that entity kind and the edge types that can
+    start or end at it: the document the specforge.schema tool returns for
+    the same kind. --no-edges MUST leave the edge types out and
+    --validation-rules MUST add the validation rules the loaded extensions
+    declare, as include_edges and include_validation_rules do on the tool.
+    In MCP server mode,
     the schema MUST be available as the specforge://schema resource for
     agent introspection. The schema MUST always reflect the current
     compilation state.
@@ -177,6 +182,7 @@ behavior serve_schema_resource "Serve Schema Resource" {
   verify unit "--kind filter restricts to single entity kind"
   verify unit "MCP resource specforge://schema returns schema"
   verify unit "schema reflects current compilation state"
+  verify unit "--no-edges and --validation-rules select what include_edges and include_validation_rules select"
   verify contract "Serve Schema Resource: schema resource serving holds — validation_complete_fired, full_schema_output, kind_filter_supported, mcp_resource_available"
   verify unit "missing kind error"
 }
@@ -222,8 +228,13 @@ behavior serve_graph_resource "Serve Graph Resource via MCP" {
     format (equivalent to specforge export --format=context). The
     specforge://brief resource MUST return the minimal brief format
     (equivalent to specforge export --format=brief). All three resources
-    MUST support a scope query parameter to restrict output to a subgraph
-    rooted at a specific entity (e.g., specforge://context?scope=auth_login).
+    MUST support a scope query parameter (root is accepted as its alias) to
+    restrict output to a subgraph rooted at a specific entity (e.g.,
+    specforge://context?scope=auth_login), with depth, kinds and max_tokens as
+    specforge export takes them. Query keys and values are percent-decoded; an
+    unknown key, a repeated key, scope with root, a scope on a templated URI,
+    or a value that does not parse is refused as invalid input naming the key,
+    never ignored.
     Resources MUST follow the export schema policy through the function
     specforge export uses: specforge://graph embeds the GraphProtocolSchema
     for the full graph, carries a schema_ref when scoped, and leaves the
@@ -240,6 +251,8 @@ behavior serve_graph_resource "Serve Graph Resource via MCP" {
   verify unit "specforge://context returns token-optimized format"
   verify unit "specforge://brief returns minimal format"
   verify unit "scope query parameter restricts to subgraph"
+  verify unit "root is accepted as an alias of the scope query parameter"
+  verify unit "an unknown query key, a repeated key or a malformed value is invalid_input naming the key"
   verify integration "specforge://graph under max_tokens stays within the budget, as the budgeted export does"
   verify unit "resources reflect current compilation state"
   verify unit "compilation failure returns error resource with diagnostic summary"
@@ -435,6 +448,10 @@ behavior publish_schema_specification "Publish Schema Specification" {
     The published schema MUST be usable by any JSON Schema validator to
     validate Graph Protocol exports. The schema MUST include a $schema
     meta-reference identifying the JSON Schema draft version used.
+    The published schema describes the export format --format names
+    (graph, context or brief; json is graph). --format applies only with
+    --publish, and --kind cannot be combined with --publish: either is
+    refused as a usage error (exit 2).
   """
   verify unit "published schema is valid JSON Schema"
   verify unit "published schema describes all registered entity kinds"
@@ -443,6 +460,7 @@ behavior publish_schema_specification "Publish Schema Specification" {
   verify unit "published schema validates known-good export"
   verify unit "published schema requires the Graph Protocol top-level properties"
   verify unit "published context schema admits declared headline and normative fields"
+  verify unit "--kind with --publish, and --format without it, are refused"
   verify contract "Publish Schema Specification: schema specification publication holds — schema_version_computed_fired, validation_complete_fired, valid_json_schema_produced, all_kinds_described, third_party_usable, render_complete_emitted"
   verify unit "description includes version"
 }

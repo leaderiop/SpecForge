@@ -66,10 +66,10 @@ behavior initialize_wasm_extension "Initialize Wasm Extension" {
     initialize() export. The initialize() call allows the extension to
     perform runtime setup (e.g., validating its own configuration).
     Entity kinds, edge types, and validation rules are registered
-    declaratively from the manifest — NOT via host function calls
-    during initialize(). See register_entity_kinds_from_manifest,
-    register_edge_types_from_manifest, and
-    register_validation_rules_from_manifest in behaviors/zero-entity-core.spec.
+    declaratively from the extension's declaration — NOT via host
+    function calls during initialize(). See registry_build_kinds,
+    registry_build_edges and registry_build_rules in
+    behaviors/zero-entity-registries.spec.
 
     TIMING GUARANTEE: Entity kinds, edge types, and validation rules
     MUST be registered into KindRegistry and FieldRegistry BEFORE the
@@ -134,12 +134,18 @@ behavior topological_sort_extensions "Topological Sort Extensions" {
   contract   """
     The compiler MUST compute a topological order over installed extensions
     based on their peer dependencies. Extensions with no dependencies MUST
-    be loaded first. Cycles in peer dependencies MUST produce an error
-    diagnostic. The sort MUST be deterministic — ties broken by extension name.
+    be loaded first. A cycle among required peer dependencies MUST produce
+    an error diagnostic (E027). An optional peer only prefers a load order:
+    extensions MAY name each other as optional peers, so the required
+    edges are sorted first and the optional ones are added in name order,
+    each skipped when it would close a cycle. The sort MUST be
+    deterministic — ties broken by extension name.
   """
   produces   [extensions_sorted]
   verify unit "extensions sorted in dependency order"
   verify unit "cycle in peer dependencies produces error"
+  verify unit "extensions naming each other as optional peers sort without a cycle"
+  verify unit "a cycle among required peers is E027, an optional edge closing a cycle is dropped"
   verify unit "deterministic ordering on ties"
   verify contract "Topological Sort Extensions: topological extension sorting holds — peer_dependencies_validated_fired, extensions_sorted_emitted, sort_deterministic, cycles_diagnosed"
 }
@@ -280,13 +286,14 @@ behavior validate_extension_manifest "Validate Extension Manifest" {
   ensures {
     manifest_validated_emitted "manifest_validated event is emitted on successful validation"
     invalid_manifest_diagnosed "declarations with missing required fields, or a handshake of another protocol major, produce a hard error"
-    schema_validated           "the declaration is validated via validate_manifest_v2_schema"
+    schema_validated           "the declaration is validated by the registry build (build_registries_from_declarations)"
   }
   contract   """
     This is the single entry point for validating what an extension
     declares. The compiler MUST call this behavior once per loaded
     declaration (no sidecar manifest file is read). It delegates to
-    validate_manifest_v2_schema for the declaration's validation. The
+    the registry build (build_registries_from_declarations) for the
+    declaration's validation. The
     entities, if present, MUST be valid entity kind descriptors.
     Declarations missing required fields MUST produce a hard error. A
     handshake whose protocol major version differs from the host's MUST

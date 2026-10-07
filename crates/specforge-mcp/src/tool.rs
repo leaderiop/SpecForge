@@ -1,16 +1,19 @@
 //! What a tool call produced, and the one place that turns it into a
 //! `tools/call` reply.
 //!
-//! Handlers return a [`ToolOutcome`]; [`envelope`] alone builds `content`,
-//! `isError` and `_meta`. The dispatcher reads events and mutation effects
-//! from the typed payload, never from the reply text.
+//! Handlers return a [`ToolOutcome`] (a mutation's handler, a
+//! [`Mutated`](crate::mutation::Mutated) holding one); [`envelope`] alone
+//! builds `content`, `isError` and `_meta`. What a mutation wrote crosses
+//! to the dispatcher typed (ADR 0022), never read back from the reply.
 
 use serde_json::{Value, json};
-use specforge_common::Diagnostic;
+use specforge_common::{Diagnostic, Severity, codes};
 
-use crate::protocol::{JsonRpcResponse, error_codes};
+use crate::mutation::Mutated;
+use crate::protocol::{JsonRpcError, JsonRpcResponse, error_codes};
 use crate::target::{Call, TargetSpec};
 use crate::types::McpToolDescriptor;
+use specforge_ops::{OpError, OpErrorKind};
 
 /// A tool's role: the spec's `McpToolCategory`. Where a tool comes from is
 /// its `source`, a separate field (ADR 0004 D4-b).
@@ -86,29 +89,15 @@ impl Access {
     }
 }
 
-/// What a completed mutation changed.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub struct Effect {
-    pub files_changed: usize,
-    pub entities_affected: usize,
-}
-
-/// How a tool that changes the project reports it.
-#[derive(Debug, Clone, Copy)]
-pub struct MutationSpec {
-    /// Whether a call with these arguments writes (false for a dry run or a
-    /// check).
-    pub writes: fn(&Value) -> bool,
-    /// What a successful call changed, read from its structured payload.
-    pub effect: fn(&Value) -> Effect,
-}
-
-/// Every write call unless it is a `dry_run`.
-pub fn writes_unless_dry_run(args: &Value) -> bool {
-    !args
-        .get("dry_run")
-        .and_then(Value::as_bool)
-        .unwrap_or(false)
+/// How a tool is run: its handler, by role.
+#[derive(Clone, Copy)]
+pub enum Handler {
+    /// Any tool but a mutation: its reply is all there is (collect and
+    /// render write output artifacts, not project sources; spec feature
+    /// `mcp_project_management_tools`).
+    Tool(fn(&mut Call<'_>, Value) -> ToolOutcome),
+    /// A mutation (category `mutation`): its reply and what it wrote.
+    Mutation(fn(&mut Call<'_>, Value) -> Mutated),
 }
 
 /// One core tool: everything the server lists, dispatches and reports
@@ -124,25 +113,53 @@ pub struct ToolSpec {
     /// result is a JSON object.
     pub output: Option<fn() -> Value>,
     /// The fields of the handler's `Args` struct ([`crate::args::fields`]):
-    /// the arguments it reads.
+    /// the arguments it reads, beside the ones its target reads
+    /// ([`Self::reads`]).
     pub fields: fn() -> &'static [&'static str],
-    /// How a mutation reports what it changed: present exactly for the
-    /// `mutation` category.
-    pub mutation: Option<MutationSpec>,
     /// Which project it acts on, and whether that project is brought up
     /// to date first: resolved into the call's target before the handler.
     pub target: TargetSpec,
-    /// The handler, reading its `Args` from the call's `arguments`.
-    pub call: fn(&mut Call<'_>, Value) -> ToolOutcome,
+    /// The handler, reading its `Args` from the call's `arguments`: a
+    /// [`Handler::Mutation`] exactly for the `mutation` category.
+    pub handler: Handler,
 }
 
 impl ToolSpec {
+    /// The input schema `tools/list` lists: [`Self::schema`] with the
+    /// target's properties merged in and its required arguments added.
+    pub fn input_schema(&self) -> Value {
+        let mut schema = (self.schema)();
+        if let Some(properties) = schema.get_mut("properties").and_then(Value::as_object_mut) {
+            properties.extend(self.target.properties());
+        }
+        let required = self.target.required();
+        if !required.is_empty() {
+            let listed = schema
+                .as_object_mut()
+                .map(|schema| schema.entry("required").or_insert_with(|| json!([])));
+            if let Some(Value::Array(listed)) = listed {
+                listed.extend(required.iter().map(|name| Value::from(*name)));
+            }
+        }
+        schema
+    }
+
+    /// Every argument the call reads: the handler's `Args` fields, then the
+    /// target's ([`TargetSpec::fields`]).
+    pub fn reads(&self) -> Vec<&'static str> {
+        (self.fields)()
+            .iter()
+            .chain(self.target.fields())
+            .copied()
+            .collect()
+    }
+
     /// The tool as `tools/list` describes it.
     pub fn descriptor(&self) -> McpToolDescriptor {
         McpToolDescriptor {
             name: self.name.into(),
             description: self.description.into(),
-            input_schema: (self.schema)(),
+            input_schema: self.input_schema(),
             output_schema: self.output.map(|schema| schema()),
             category: Some(self.category.as_str().into()),
             source: Some(CORE_SOURCE.into()),
@@ -207,17 +224,28 @@ impl ErrorCode {
         }
     }
 
-    /// The code a failure reported with diagnostic `code` carries.
+    /// The code a failure reported with diagnostic `code` carries: the
+    /// kind operations give it ([`OpErrorKind::of_diagnostic`]).
     pub fn for_diagnostic(code: &str) -> Self {
-        match code {
-            "E003" => ErrorCode::EntityNotFound,
-            "E019" | "E054" | "E064" => ErrorCode::InvalidInput,
-            "E027" => ErrorCode::Conflict,
-            "E045" => ErrorCode::SchemaMismatch,
-            "E058" | "E063" => ErrorCode::PreconditionFailed,
-            "E059" => ErrorCode::PermissionDenied,
-            "R004" => ErrorCode::Timeout,
-            _ => ErrorCode::InternalError,
+        OpErrorKind::of_diagnostic(code).into()
+    }
+}
+
+/// The code an operation's failure kind is reported as: total, one arm per
+/// kind (ADR 0024 D15).
+impl From<OpErrorKind> for ErrorCode {
+    fn from(kind: OpErrorKind) -> Self {
+        match kind {
+            OpErrorKind::InvalidInput => ErrorCode::InvalidInput,
+            OpErrorKind::EntityNotFound => ErrorCode::EntityNotFound,
+            OpErrorKind::FileNotFound => ErrorCode::FileNotFound,
+            OpErrorKind::ExtensionNotFound => ErrorCode::ExtensionNotFound,
+            OpErrorKind::Conflict => ErrorCode::Conflict,
+            OpErrorKind::SchemaMismatch => ErrorCode::SchemaMismatch,
+            OpErrorKind::PreconditionFailed => ErrorCode::PreconditionFailed,
+            OpErrorKind::PermissionDenied => ErrorCode::PermissionDenied,
+            OpErrorKind::Timeout => ErrorCode::Timeout,
+            OpErrorKind::Internal => ErrorCode::InternalError,
         }
     }
 }
@@ -232,6 +260,9 @@ pub struct McpError {
     pub tool: Option<String>,
     /// The prompt that refused: a `prompts/get` answered with an error.
     pub prompt: Option<String>,
+    /// The URI of the resource whose read failed: a `resources/read`
+    /// answered with an error (the URI read).
+    pub uri: Option<String>,
     pub entity_id: Option<String>,
     pub argument: Option<String>,
     pub diagnostic: Option<Value>,
@@ -248,6 +279,7 @@ impl McpError {
             message: message.into(),
             tool: None,
             prompt: None,
+            uri: None,
             entity_id: None,
             argument: None,
             diagnostic: None,
@@ -270,7 +302,9 @@ impl McpError {
     /// (`"E003: unresolved entity 'x' …"`): the code moves to `diagnostic`.
     pub fn from_coded_message(fallback: ErrorCode, message: &str) -> Self {
         match split_code(message) {
-            Some((code, rest)) => Self::from_diagnostic(&Diagnostic::error(code, rest)),
+            Some((code, rest)) => {
+                Self::from_diagnostic(&Diagnostic::untyped(code, Severity::Error, rest))
+            }
             None => Self::new(fallback, message),
         }
     }
@@ -299,12 +333,41 @@ impl McpError {
         self
     }
 
+    /// The same error with `value` under `key` in its `data` object
+    /// (created when it has none; a `data` that is no object is left as
+    /// it is).
+    pub fn with_data_field(mut self, key: &str, value: Value) -> Self {
+        self.set_data_field(key, value);
+        self
+    }
+
+    fn set_data_field(&mut self, key: &str, value: Value) {
+        if let Value::Object(data) = self.data.get_or_insert_with(|| json!({})) {
+            data.insert(key.to_string(), value);
+        }
+    }
+
+    /// This refusal as the JSON-RPC error of a request that has no `isError`
+    /// result (`prompts/get`, `resources/read`): -32602 when the client can
+    /// fix it (it names an argument the client sent, or
+    /// [`ErrorCode::rpc_code`] marks its code as input), else -32603; its
+    /// data is this McpError (ADR 0004 D4-d, ADR 0024 D5).
+    pub fn into_rpc_error(self) -> JsonRpcError {
+        let code = if self.argument.is_some() {
+            error_codes::INVALID_PARAMS
+        } else {
+            self.code.rpc_code()
+        };
+        JsonRpcError::new(code, self.message.clone()).with_data(self.to_json())
+    }
+
     /// The error as its `isError` result carries it.
     pub fn to_json(&self) -> Value {
         let mut error = json!({ "code": self.code.as_str(), "message": self.message });
         for (key, value) in [
             ("tool", self.tool.clone().map(Value::from)),
             ("prompt", self.prompt.clone().map(Value::from)),
+            ("uri", self.uri.clone().map(Value::from)),
             ("entity_id", self.entity_id.clone().map(Value::from)),
             ("argument", self.argument.clone().map(Value::from)),
             ("diagnostic", self.diagnostic.clone()),
@@ -318,15 +381,56 @@ impl McpError {
     }
 }
 
+/// An operation's failure as an `McpError`: its kind picks the code. A
+/// diagnostic code (`E027`) rides in `diagnostic`, with its suggestion; a
+/// slug's suggestion and the operation's own data ride in `data`; the
+/// entity the failure is about is `entity_id`.
+impl From<OpError> for McpError {
+    fn from(error: OpError) -> Self {
+        let mut mcp_error = McpError::new(error.kind.into(), error.message.clone());
+        let mut data = error.data.map_or_else(|| json!({}), |data| *data);
+        if is_diagnostic_code(&error.code) {
+            let mut diagnostic =
+                Diagnostic::untyped(error.code.as_ref(), Severity::Error, error.message);
+            if let Some(suggestion) = error.suggestion {
+                diagnostic = diagnostic.with_suggestion(suggestion);
+            }
+            mcp_error = mcp_error.with_diagnostic(&diagnostic);
+        } else if let Some(suggestion) = error.suggestion {
+            data["suggestion"] = Value::from(suggestion);
+        }
+        if data.as_object().is_some_and(|d| !d.is_empty()) {
+            mcp_error = mcp_error.with_data(data);
+        }
+        match error.entity {
+            Some(entity) => mcp_error.with_entity(entity),
+            None => mcp_error,
+        }
+    }
+}
+
 /// A question about `entity_id`, which no entity of the graph declares:
 /// `entity_not_found` naming it, its E003 in `diagnostic` (the one refusal
 /// tools and prompts share).
 pub fn entity_not_found(entity_id: &str) -> McpError {
     McpError::from_coded_message(
         ErrorCode::EntityNotFound,
-        &format!("E003: unresolved entity '{entity_id}' — not found in graph"),
+        &format!(
+            "{}: unresolved entity '{entity_id}' — not found in graph",
+            codes::E003
+        ),
     )
     .with_entity(entity_id)
+}
+
+/// What a refusal of a file the project does not hold says before the file's
+/// name ([`file_not_found`]).
+pub(crate) const FILE_NOT_FOUND: &str = "File not found: ";
+
+/// A question about `file`, which the project has no entity from and does
+/// not hold under its spec root: `file_not_found` on argument `file`.
+pub(crate) fn file_not_found(file: &str) -> McpError {
+    McpError::new(ErrorCode::FileNotFound, format!("{FILE_NOT_FOUND}{file}")).with_argument("file")
 }
 
 /// `("E003", "unresolved …")` for `"E003: unresolved …"`: a leading
@@ -361,13 +465,12 @@ pub enum Payload {
 pub enum ToolOutcome {
     /// The tool ran. `is_error` marks a failed run (an `isError` result);
     /// `diagnostics` ride in `_meta.diagnostics` and `meta`'s entries beside
-    /// them in `_meta`; `events` are pushed before the reply goes out.
+    /// them in `_meta`.
     Done {
         payload: Payload,
         is_error: bool,
         diagnostics: Vec<Diagnostic>,
         meta: serde_json::Map<String, Value>,
-        events: Vec<(String, Value)>,
     },
     /// The tool failed: an `isError` result carrying the `McpError` (ADR
     /// 0004 D4-a). The one way a tool reports a failure.
@@ -381,7 +484,6 @@ impl ToolOutcome {
             is_error,
             diagnostics: Vec::new(),
             meta: serde_json::Map::new(),
-            events: Vec::new(),
         }
     }
 
@@ -443,12 +545,26 @@ impl ToolOutcome {
         self
     }
 
-    /// The same outcome with an event to push when it is delivered.
-    pub fn with_event(mut self, name: impl Into<String>, params: Value) -> Self {
-        if let ToolOutcome::Done { events, .. } = &mut self {
-            events.push((name.into(), params));
-        }
+    /// The same outcome with `value` under `key`: in its payload when that
+    /// is a JSON object, in its `McpError`'s `data` when it refused. A
+    /// text payload is left as it is.
+    pub(crate) fn with_field(mut self, key: &str, value: Value) -> Self {
+        self.set_field(key, value);
         self
+    }
+
+    /// [`Self::with_field`], in place.
+    pub(crate) fn set_field(&mut self, key: &str, value: Value) {
+        match self {
+            ToolOutcome::Done {
+                payload: Payload::Json(Value::Object(object)),
+                ..
+            } => {
+                object.insert(key.to_string(), value);
+            }
+            ToolOutcome::Done { .. } => {}
+            ToolOutcome::Refused(error) => error.set_data_field(key, value),
+        }
     }
 
     /// The same outcome, a failure naming `tool` unless it names one.
@@ -461,18 +577,6 @@ impl ToolOutcome {
         self
     }
 
-    /// The structured payload of a successful run.
-    pub fn success_payload(&self) -> Option<&Value> {
-        match self {
-            ToolOutcome::Done {
-                payload: Payload::Json(value),
-                is_error: false,
-                ..
-            } => Some(value),
-            _ => None,
-        }
-    }
-
     /// Whether the tool ran without failing.
     pub fn succeeded(&self) -> bool {
         matches!(
@@ -482,14 +586,6 @@ impl ToolOutcome {
                 ..
             }
         )
-    }
-
-    /// Take the events to push, leaving none.
-    pub fn take_events(&mut self) -> Vec<(String, Value)> {
-        match self {
-            ToolOutcome::Done { events, .. } => std::mem::take(events),
-            ToolOutcome::Refused(_) => Vec::new(),
-        }
     }
 }
 
@@ -508,6 +604,12 @@ pub trait IntoOutcome {
 impl IntoOutcome for ToolOutcome {
     fn into_outcome(self) -> ToolOutcome {
         self
+    }
+}
+
+impl IntoOutcome for McpError {
+    fn into_outcome(self) -> ToolOutcome {
+        self.into()
     }
 }
 
@@ -549,7 +651,6 @@ pub fn envelope(
             is_error,
             diagnostics,
             meta,
-            ..
         } => (payload, is_error, diagnostics, meta),
     };
     let content: Vec<Value> = match &payload {
@@ -599,6 +700,52 @@ mod tests {
     ];
 
     #[test]
+    fn every_operation_kind_has_an_error_code() {
+        for (kind, code) in [
+            (OpErrorKind::InvalidInput, ErrorCode::InvalidInput),
+            (OpErrorKind::EntityNotFound, ErrorCode::EntityNotFound),
+            (OpErrorKind::FileNotFound, ErrorCode::FileNotFound),
+            (OpErrorKind::ExtensionNotFound, ErrorCode::ExtensionNotFound),
+            (OpErrorKind::Conflict, ErrorCode::Conflict),
+            (OpErrorKind::SchemaMismatch, ErrorCode::SchemaMismatch),
+            (
+                OpErrorKind::PreconditionFailed,
+                ErrorCode::PreconditionFailed,
+            ),
+            (OpErrorKind::PermissionDenied, ErrorCode::PermissionDenied),
+            (OpErrorKind::Timeout, ErrorCode::Timeout),
+            (OpErrorKind::Internal, ErrorCode::InternalError),
+        ] {
+            assert_eq!(ErrorCode::from(kind), code, "{kind:?}");
+            // One vocabulary: the name an operation reports a kind under is
+            // the name MCP sends for it.
+            assert_eq!(code.as_str(), kind.as_str(), "{kind:?}");
+        }
+    }
+
+    #[test]
+    fn an_operation_failure_is_an_mcp_error_by_its_kind() {
+        let error: McpError = OpError::new(OpErrorKind::Conflict, "entity_exists", "taken")
+            .with_entity("alpha")
+            .with_suggestion("pick another")
+            .into();
+        let json = error.to_json();
+        assert_eq!(json["code"], "conflict");
+        assert_eq!(json["entity_id"], "alpha");
+        assert_eq!(json["data"]["suggestion"], "pick another");
+        assert!(json.get("diagnostic").is_none(), "{json}");
+
+        let error: McpError = OpError::diagnostic(codes::E062, "the budget is too small")
+            .with_suggestion("raise it")
+            .into();
+        let json = error.to_json();
+        assert_eq!(json["code"], "invalid_input");
+        assert_eq!(json["diagnostic"]["code"], "E062");
+        assert_eq!(json["diagnostic"]["suggestion"], "raise it");
+        assert_eq!(json["message"], "the budget is too small");
+    }
+
+    #[test]
     fn every_error_code_has_a_json_rpc_code() {
         for code in ALL {
             let rpc = code.rpc_code();
@@ -620,6 +767,41 @@ mod tests {
         error.prompt = Some("specforge://prompts/context".into());
         assert_eq!(error.to_json()["prompt"], "specforge://prompts/context");
         assert!(error.to_json().get("tool").is_none());
+    }
+
+    #[test]
+    fn a_resources_refusal_names_the_uri() {
+        let mut error = McpError::new(ErrorCode::InvalidInput, "no");
+        assert!(error.to_json().get("uri").is_none());
+        error.uri = Some("specforge://graph?depth=two".into());
+        assert_eq!(error.to_json()["uri"], "specforge://graph?depth=two");
+        assert!(error.to_json().get("resource").is_none());
+        assert!(error.to_json().get("prompt").is_none());
+    }
+
+    #[test]
+    fn a_refusal_without_is_error_is_invalid_params_when_the_client_can_fix_it() {
+        let rpc = |error: McpError| error.into_rpc_error();
+        // An argument it named, whatever its code.
+        let named = McpError::new(ErrorCode::FileNotFound, "path not found").with_argument("path");
+        let named = rpc(named);
+        assert_eq!(named.code, error_codes::INVALID_PARAMS);
+        assert_eq!(named.data.as_ref().unwrap()["argument"], "path");
+        // A code that is input.
+        assert_eq!(
+            rpc(McpError::new(ErrorCode::EntityNotFound, "no")).code,
+            error_codes::INVALID_PARAMS
+        );
+        // A failure on the server's side, and a missing project (no params
+        // fix it).
+        assert_eq!(
+            rpc(McpError::new(ErrorCode::InternalError, "no")).code,
+            error_codes::INTERNAL_ERROR
+        );
+        assert_eq!(
+            rpc(McpError::new(ErrorCode::PreconditionFailed, "no")).code,
+            error_codes::INTERNAL_ERROR
+        );
     }
 
     #[test]

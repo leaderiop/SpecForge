@@ -35,7 +35,7 @@ fn sdk_greet_extension_passes_protocol() {
     let hs: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
     assert_eq!(hs["name"], "@sdk/greet");
     assert_eq!(hs["version"], "0.1.0");
-    assert_eq!(hs["protocol_version"], "1.0.0");
+    assert_eq!(hs["protocol_version"], "1.1.0");
     assert_eq!(hs["contribution_flags"]["entities"], true);
     assert_eq!(hs["contribution_flags"]["validators"], true);
     assert_eq!(hs["contribution_flags"]["renderers"], false);
@@ -64,7 +64,7 @@ fn sdk_greet_extension_passes_protocol() {
         other => panic!("describe rules failed: {other:?}"),
     };
     let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
-    assert_eq!(v["items"][0]["code"], "G101");
+    assert_eq!(v["items"][0]["code"], "E901");
     assert_eq!(v["items"][0]["severity"], "error");
     assert_eq!(v["items"][0]["check"], "field_value_constraint");
 

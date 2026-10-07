@@ -1,12 +1,12 @@
 //! `specforge add` and `specforge.add_extension`.
 
 use super::{Origin, builtin_name, check_diamonds, extensions_dir, lock_path};
-use crate::OpError;
 use crate::registry::Registry;
+use crate::{OpError, OpErrorKind, Writes};
+use specforge_common::codes;
 use specforge_protocol_types::ExtensionDeclaration;
 use specforge_wasm::{
-    ExtensionSpecifier, install_extension, parse_extension_specifier, read_lock_file,
-    write_lock_file,
+    ExtensionSpecifier, LockState, install_extension, parse_extension_specifier, write_lock_file,
 };
 use std::path::{Path, PathBuf};
 
@@ -109,6 +109,20 @@ pub enum AddOutcome {
     },
 }
 
+/// What an add did, and what it changed on disk.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Added {
+    pub outcome: AddOutcome,
+    /// The files the add changed: `specforge.json` when an entry was added,
+    /// and for an install the module and `specforge.lock` when their bytes
+    /// changed. Nothing for a dry run or an extension already present. A
+    /// trust pin the registry adapter keeps for the user is not one.
+    pub writes: Writes,
+    /// How many extensions `specforge.json` enables after the add (`0`
+    /// without one): `extension_added`'s `totalExtensions`.
+    pub extensions_enabled: usize,
+}
+
 /// Add an extension to the project at `req.root`.
 ///
 /// - A builtin is enabled in `specforge.json`, after the builtins it
@@ -122,23 +136,44 @@ pub enum AddOutcome {
 ///
 /// An installed extension is enabled by its bare name, which the runtime
 /// loads from the lock (ADR 0004 D3-b).
-pub fn add(req: &AddRequest, registry: &dyn Registry) -> Result<AddOutcome, OpError> {
+///
+/// An install that fails after placing its module (the lock or the config
+/// could not be written) leaves it in place and says so in the error's
+/// [`OpError::writes`].
+pub fn add(req: &AddRequest, registry: &dyn Registry) -> Result<Added, OpError> {
     // The project must exist, with a config the writer can edit, before
-    // anything is installed into it.
-    crate::config::edit_extensions(req.root, |_| false).map_err(config_error)?;
-    match &req.source {
-        Source::Builtin(name) => add_builtin(req, name),
-        Source::Local(path) => add_local(req, path),
-        Source::Registry { name, range } => add_from_registry(req, registry, name, range),
-        Source::Git { url } => Err(OpError::new(
-            "E064",
+    // anything is installed into it: the refusal `update` and `remove`
+    // give an unusable specforge.json too (`config_invalid`).
+    let config = crate::config::required(req.root)?.config;
+    let mut writes = Writes::none();
+    let outcome = match &req.source {
+        Source::Builtin(name) => add_builtin(req, &config, name, &mut writes),
+        Source::Local(path) => add_local(req, path, &mut writes),
+        Source::Registry { name, range } => {
+            add_from_registry(req, registry, name, range, &mut writes)
+        }
+        Source::Git { url } => Err(OpError::diagnostic(
+            codes::E064,
             format!("git source '{url}' not yet supported"),
         )),
-    }
+    }?;
+    Ok(Added {
+        outcome,
+        writes,
+        extensions_enabled: specforge_common::read_project_config(req.root)
+            .config
+            .extensions
+            .len(),
+    })
 }
 
-fn add_builtin(req: &AddRequest, name: &'static str) -> Result<AddOutcome, OpError> {
-    let enabled = super::enabled_builtins(req.root);
+fn add_builtin(
+    req: &AddRequest,
+    config: &specforge_common::ProjectConfig,
+    name: &'static str,
+    writes: &mut Writes,
+) -> Result<AddOutcome, OpError> {
+    let enabled = super::enabled_builtins(config);
     if req.dry_run {
         return Ok(AddOutcome::Planned {
             name: name.to_string(),
@@ -155,12 +190,18 @@ fn add_builtin(req: &AddRequest, name: &'static str) -> Result<AddOutcome, OpErr
         super::required_builtin_peers(name)
     };
     let mut peers_enabled = Vec::new();
+    let config = req.root.join(crate::config::CONFIG_FILE);
     for peer in peers {
-        if crate::config::add_extension(req.root, peer, peer).map_err(config_error)? {
+        let added = crate::config::add_extension(req.root, peer, peer)
+            .map_err(|e| e.with_writes(writes.clone()))?;
+        writes.record_if(added, &config);
+        if added {
             peers_enabled.push(peer);
         }
     }
-    let changed = crate::config::add_extension(req.root, name, name).map_err(config_error)?;
+    let changed = crate::config::add_extension(req.root, name, name)
+        .map_err(|e| e.with_writes(writes.clone()))?;
+    writes.record_if(changed, &config);
     Ok(AddOutcome::Builtin {
         name,
         changed,
@@ -168,23 +209,14 @@ fn add_builtin(req: &AddRequest, name: &'static str) -> Result<AddOutcome, OpErr
     })
 }
 
-/// A config the writer can't edit, under the code `add` has always used.
-fn config_error(e: OpError) -> OpError {
-    let message = match &e.suggestion {
-        Some(hint) => format!("{} — {hint}", e.message),
-        None => e.message.clone(),
-    };
-    OpError::new("E032", message)
-}
-
-fn add_local(req: &AddRequest, path: &Path) -> Result<AddOutcome, OpError> {
+fn add_local(req: &AddRequest, path: &Path, writes: &mut Writes) -> Result<AddOutcome, OpError> {
     let wasm = std::fs::read(path).map_err(|e| {
         let message = if path.exists() {
             format!("cannot read {}: {e}", path.display())
         } else {
             format!("file not found: {}", path.display())
         };
-        OpError::new("E054", message)
+        OpError::diagnostic(codes::E054, message)
     })?;
     let declared = Declared::of(&wasm)?;
     let origin = Origin::Installed {
@@ -198,14 +230,14 @@ fn add_local(req: &AddRequest, path: &Path) -> Result<AddOutcome, OpError> {
         });
     }
     let sha256 = specforge_wasm::hex_sha256(&wasm);
-    let mut lock = read_lock_file(&lock_path(req.root)).unwrap_or_default();
+    let mut lock = LockState::at(req.root).file().cloned().unwrap_or_default();
     if let Some(present) = already_present(req.root, &lock, declared.name(), |e| {
         e.wasm_hash == sha256 && e.source.starts_with("local:")
     }) {
         return Ok(present);
     }
     install(
-        req.root, &mut lock, &declared, &wasm, &sha256, None, &origin,
+        req.root, &mut lock, &declared, &wasm, &sha256, None, &origin, writes,
     )
 }
 
@@ -214,12 +246,13 @@ fn add_from_registry(
     registry: &dyn Registry,
     name: &str,
     range: &str,
+    writes: &mut Writes,
 ) -> Result<AddOutcome, OpError> {
     let version = registry.resolve_version(name, range)?;
     let origin = Origin::Installed {
         source: "registry".to_string(),
     };
-    let mut lock = read_lock_file(&lock_path(req.root)).unwrap_or_default();
+    let mut lock = LockState::at(req.root).file().cloned().unwrap_or_default();
     if let Some(present) = already_present(req.root, &lock, name, |e| {
         e.version == version && e.source == "registry"
     }) {
@@ -248,6 +281,7 @@ fn add_from_registry(
         &checked.package.sha256,
         checked.package.key_id,
         &origin,
+        writes,
     )
 }
 
@@ -281,8 +315,8 @@ pub(super) fn fetch_checked(
     })?;
     let declared = Declared::of(&package.wasm)?;
     if declared.name() != package.name || declared.version() != package.version {
-        return Err(OpError::new(
-            "E028",
+        return Err(OpError::diagnostic(
+            codes::E028,
             format!(
                 "registry package {}@{} declares itself {}@{}",
                 package.name,
@@ -293,7 +327,8 @@ pub(super) fn fetch_checked(
         ));
     }
     if let Some(category) = first_difference(&package.declaration, &declared.declaration) {
-        return Err(OpError::new(
+        return Err(OpError::coded(
+            OpErrorKind::SchemaMismatch,
             crate::registry::METADATA_MISMATCH,
             format!(
                 "registry package {}@{} declares another {category} than the binary it serves",
@@ -310,8 +345,8 @@ pub(super) fn fetch_checked(
 /// it.
 pub fn declared(path: &Path) -> Result<(String, String), OpError> {
     let wasm = std::fs::read(path).map_err(|e| {
-        OpError::new(
-            "E054",
+        OpError::diagnostic(
+            codes::E054,
             if path.exists() {
                 format!("cannot read {}: {e}", path.display())
             } else {
@@ -348,8 +383,11 @@ impl Declared {
         const CANDIDATE: &str = "__candidate";
         let runtime = specforge_component::ComponentRuntime::new();
         let invalid = |why: String| {
-            OpError::new("E028", format!("not a loadable SpecForge extension: {why}"))
-                .with_suggestion("build it with specforge-extension-sdk for wasm32-wasip2")
+            OpError::diagnostic(
+                codes::E028,
+                format!("not a loadable SpecForge extension: {why}"),
+            )
+            .with_suggestion("build it with specforge-extension-sdk for wasm32-wasip2")
         };
         runtime
             .load_module_bytes(CANDIDATE, wasm)
@@ -359,6 +397,7 @@ impl Declared {
             .declaration;
         if super::builtin_name(declaration.name()).is_some() {
             return Err(OpError::new(
+                OpErrorKind::Conflict,
                 "extension_conflict",
                 format!(
                     "the extension declares the name of the builtin '{}'",
@@ -411,7 +450,13 @@ fn already_present(
 }
 
 /// Place the binary, lock it as `origin` with its declared version and
-/// peers, and enable it by its bare name.
+/// peers, and enable it by its bare name, recording in `writes` each file
+/// whose bytes changed. A failure after the module is placed returns what
+/// was written with the error.
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the install's inputs, each read once; `writes` is the outcome's"
+)]
 fn install(
     root: &Path,
     lock: &mut specforge_wasm::LockFile,
@@ -420,7 +465,10 @@ fn install(
     sha256: &str,
     key_id: Option<String>,
     origin: &Origin,
+    writes: &mut Writes,
 ) -> Result<AddOutcome, OpError> {
+    let module = specforge_wasm::installed_wasm_path(&extensions_dir(root), declared.name());
+    let module_before = std::fs::read(&module).ok();
     let result = place(
         root,
         lock,
@@ -430,8 +478,14 @@ fn install(
         key_id.as_deref(),
         origin,
     )?;
-    write_lock_file(lock, &lock_path(root)).map_err(OpError::from)?;
-    crate::config::add_extension(root, declared.name(), declared.name()).map_err(config_error)?;
+    writes.record_if(module_before.as_deref() != Some(wasm), module);
+    let lock_file = lock_path(root);
+    let lock_before = std::fs::read(&lock_file).ok();
+    write_lock_file(lock, &lock_file).map_err(|e| OpError::from(e).with_writes(writes.clone()))?;
+    writes.record_if(std::fs::read(&lock_file).ok() != lock_before, lock_file);
+    let enabled = crate::config::add_extension(root, declared.name(), declared.name())
+        .map_err(|e| e.with_writes(writes.clone()))?;
+    writes.record_if(enabled, root.join(crate::config::CONFIG_FILE));
     Ok(AddOutcome::Installed {
         name: result.name,
         version: result.version,
@@ -490,6 +544,7 @@ fn shown_path(root: &Path, path: &Path) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use specforge_test_macros::test as specforge_test;
 
     #[test]
     fn parse_names_each_source() {
@@ -521,5 +576,63 @@ mod tests {
         assert_eq!(parse("").unwrap_err().code, "E054");
         assert_eq!(parse("not-scoped").unwrap_err().code, "E054");
         assert_eq!(parse("@acme/").unwrap_err().code, "E054");
+    }
+
+    #[specforge_test(
+        behavior = "management_operations_over_the_project_view",
+        verify = "add, update and remove refuse an unusable specforge.json with one refusal, before they write"
+    )]
+    fn an_unusable_config_is_refused_before_anything_is_installed() {
+        use crate::config::testing::{UNUSABLE, files_under};
+
+        for config in UNUSABLE {
+            let dir = tempfile::tempdir().unwrap();
+            std::fs::write(dir.path().join("specforge.json"), config).unwrap();
+            let before = files_under(dir.path());
+            let read = specforge_common::read_project_config(dir.path());
+            let refused = crate::config::refusal(&read.problems[0]);
+
+            for source in [
+                Source::Builtin("@specforge/product"),
+                // A file that is not there: the config is refused first.
+                Source::Local(dir.path().join("missing.wasm")),
+                Source::Registry {
+                    name: "@acme/tool".into(),
+                    range: "latest".into(),
+                },
+            ] {
+                for dry_run in [false, true] {
+                    let request = AddRequest {
+                        root: dir.path(),
+                        source: source.clone(),
+                        allow_unsigned: false,
+                        trust: Trust::Refuse,
+                        dry_run,
+                    };
+                    let error = add(&request, &crate::registry::Unconfigured("add")).unwrap_err();
+
+                    assert_eq!(error, refused, "{config}: {source:?}");
+                    assert_eq!(files_under(dir.path()), before, "{config}: {source:?}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn a_missing_config_is_config_not_found_with_the_hint_to_init() {
+        let dir = tempfile::tempdir().unwrap();
+        let request = AddRequest {
+            root: dir.path(),
+            source: Source::Builtin("@specforge/product"),
+            allow_unsigned: false,
+            trust: Trust::Refuse,
+            dry_run: false,
+        };
+
+        let error = add(&request, &crate::registry::Unconfigured("add")).unwrap_err();
+
+        assert_eq!(error.code, "config_not_found");
+        assert!(error.suggestion.unwrap().contains("specforge init"));
+        assert!(!dir.path().join("specforge.json").exists());
     }
 }

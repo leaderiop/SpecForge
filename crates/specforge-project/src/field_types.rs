@@ -6,7 +6,7 @@
 //! one-item list), and [`check_field_value_types`] reports, as E061, the
 //! values that still can't be the declared type.
 
-use specforge_common::{Diagnostic, Severity, find_close_match};
+use specforge_common::{Diagnostic, codes, find_close_match};
 use specforge_graph::{DerivedFrom, DerivedReference, FieldCoercion, Graph};
 use specforge_parser::FieldValue;
 use specforge_registry::{FieldRegistry, KindRegistry, ManifestFieldType};
@@ -81,10 +81,9 @@ pub fn check_field_value_types(
             let Some(mismatch) = mismatch(&declared.field_type, &entry.value) else {
                 continue;
             };
-            diagnostics.push(Diagnostic {
-                code: "E061".to_string(),
-                severity: Severity::Error,
-                message: format!(
+            let mut diagnostic = Diagnostic::new(
+                codes::E061,
+                format!(
                     "field '{}' of {} '{}' is declared {}, but was given {}",
                     entry.key,
                     kind,
@@ -92,15 +91,15 @@ pub fn check_field_value_types(
                     type_name(&declared.field_type),
                     mismatch.given
                 ),
-                span: Some(
-                    entry
-                        .value_span
-                        .clone()
-                        .unwrap_or_else(|| node.source_span.clone()),
-                ),
-                suggestion: mismatch.suggestion,
-                data: None,
-            });
+            )
+            .with_span(
+                entry
+                    .value_span
+                    .clone()
+                    .unwrap_or_else(|| node.source_span.clone()),
+            );
+            diagnostic.suggestion = mismatch.suggestion;
+            diagnostics.push(diagnostic);
         }
     }
     diagnostics

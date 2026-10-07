@@ -1,4 +1,4 @@
-use specforge_common::{Diagnostic, Severity};
+use specforge_common::{Diagnostic, codes};
 
 use super::registry_config::{RegistryConfig, RegistryCredential};
 use specforge_protocol_types::ExtensionDeclaration;
@@ -42,64 +42,41 @@ impl RegistryError {
     /// Convert this error into a `Diagnostic`.
     pub fn to_diagnostic(&self) -> Diagnostic {
         match self {
-            RegistryError::Unauthorized { guidance } => Diagnostic {
-                code: "R001".to_string(),
-                severity: Severity::Error,
-                message: format!("Registry authentication failed: {guidance}"),
-                span: None,
-                suggestion: Some("Run `specforge registry login` to authenticate.".to_string()),
-                data: None,
-            },
-            RegistryError::Forbidden { guidance } => Diagnostic {
-                code: "R002".to_string(),
-                severity: Severity::Error,
-                message: format!("Registry access forbidden: {guidance}"),
-                span: None,
-                suggestion: Some(
-                    "Check your permissions for this registry or package scope.".to_string(),
-                ),
-                data: None,
-            },
-            RegistryError::RateLimited { retry_after_ms } => Diagnostic {
-                code: "R003".to_string(),
-                severity: Severity::Warning,
-                message: format!("Registry rate limited. Retry after {retry_after_ms}ms."),
-                span: None,
-                suggestion: None,
-                data: None,
-            },
-            RegistryError::Timeout { url } => Diagnostic {
-                code: "R004".to_string(),
-                severity: Severity::Error,
-                message: format!("Registry request timed out: {url}"),
-                span: None,
-                suggestion: Some("Check your network connection or try again later.".to_string()),
-                data: None,
-            },
-            RegistryError::NetworkError { message } => Diagnostic {
-                code: "R005".to_string(),
-                severity: Severity::Error,
-                message: format!("Registry network error: {message}"),
-                span: None,
-                suggestion: Some("Check your network connection.".to_string()),
-                data: None,
-            },
-            RegistryError::NotFound { specifier } => Diagnostic {
-                code: "R006".to_string(),
-                severity: Severity::Error,
-                message: format!("Package not found: {specifier}"),
-                span: None,
-                suggestion: Some("Verify the package name and version.".to_string()),
-                data: None,
-            },
-            RegistryError::DuplicateVersion { name, version } => Diagnostic {
-                code: "R007".to_string(),
-                severity: Severity::Error,
-                message: format!("Version {version} already exists for package {name}."),
-                span: None,
-                suggestion: Some("Bump the version number before publishing.".to_string()),
-                data: None,
-            },
+            RegistryError::Unauthorized { guidance } => Diagnostic::new(
+                codes::R001,
+                format!("Registry authentication failed: {guidance}"),
+            )
+            .with_suggestion("Run `specforge registry login` to authenticate.".to_string()),
+            RegistryError::Forbidden { guidance } => Diagnostic::new(
+                codes::R002,
+                format!("Registry access forbidden: {guidance}"),
+            )
+            .with_suggestion(
+                "Check your permissions for this registry or package scope.".to_string(),
+            ),
+            RegistryError::RateLimited { retry_after_ms } => Diagnostic::new(
+                codes::R003,
+                format!("Registry rate limited. Retry after {retry_after_ms}ms."),
+            ),
+            RegistryError::Timeout { url } => {
+                Diagnostic::new(codes::R004, format!("Registry request timed out: {url}"))
+                    .with_suggestion(
+                        "Check your network connection or try again later.".to_string(),
+                    )
+            }
+            RegistryError::NetworkError { message } => {
+                Diagnostic::new(codes::R005, format!("Registry network error: {message}"))
+                    .with_suggestion("Check your network connection.".to_string())
+            }
+            RegistryError::NotFound { specifier } => {
+                Diagnostic::new(codes::R006, format!("Package not found: {specifier}"))
+                    .with_suggestion("Verify the package name and version.".to_string())
+            }
+            RegistryError::DuplicateVersion { name, version } => Diagnostic::new(
+                codes::R007,
+                format!("Version {version} already exists for package {name}."),
+            )
+            .with_suggestion("Bump the version number before publishing.".to_string()),
         }
     }
 }

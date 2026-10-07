@@ -3,6 +3,7 @@
 use "behaviors/validation"
 
 feature se_gherkin_bridge "Gherkin Bridge" {
+  status   done
   problem  """
     Behavior entities need a way to reference Gherkin .feature files for
     BDD traceability. This is a domain-specific concern — not all spec
@@ -20,6 +21,7 @@ feature se_gherkin_bridge "Gherkin Bridge" {
 }
 
 feature se_core_entity_kinds "Core Entity Kind Registration" {
+  status   done
   problem  """
     The @specforge/software extension must register 6 entity kinds with
     full metadata, 9 edge types, field definitions, validation rules,
@@ -36,6 +38,7 @@ feature se_core_entity_kinds "Core Entity Kind Registration" {
 }
 
 feature se_validation_suite "Software Validation Suite" {
+  status   done
   problem  """
     Without domain-specific validation rules, the compiler can only
     perform structural checks. Orphan entities, unverified testables,

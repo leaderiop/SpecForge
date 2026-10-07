@@ -63,7 +63,18 @@ behavior load_extension_manifests "Load Extension Manifests" {
     environment both read an entry by; a name written before = MUST be the
     declared one. A file that does not exist, does not load as a component,
     declares another name than the one written, or declares an extension
-    another entry already loads MUST produce E028 naming the entry. This behavior orchestrates: for each extension, it loads its
+    another entry already loads MUST produce E028 naming the entry. A
+    specforge.json that is there and is not used as written MUST produce
+    the error E069 naming why, one per problem, before any other
+    diagnostic. When the file is not readable, not JSON or not a JSON
+    object, or its extensions value is not an array, the compile loads no
+    extension, and the I002 that follows MUST say that specforge.json
+    could not be read, not that no extensions are configured. A key of the
+    wrong type (name, version or spec_root not a string, exclude not an
+    array) is replaced by its default, and an extensions or exclude item
+    that is not a string is ignored; the rest of the file is used. A
+    missing specforge.json is the default config and produces no E069.
+    This behavior orchestrates: for each extension, it loads its
     binary and reads its declaration once. Once all declarations are loaded
     and the extension_manifests_loaded event is produced, the registry build
     (build_registries_from_declarations) validates them and populates the
@@ -80,6 +91,9 @@ behavior load_extension_manifests "Load Extension Manifests" {
   verify unit "a declaration declares entity types and validations"
   verify integration "two extensions loaded and registries populated without collision"
   verify unit "unloadable extension binary produces diagnostic instead of crash"
+  verify unit "E069 names why specforge.json can't be used"
+  verify unit "E069 names a mistyped key or a non-string item, and the rest of specforge.json is used"
+  verify integration "a specforge.json that is there and can't be used produces E069 first and an I002 that names it"
   verify contract "Load Extension Manifests: extension manifest loading holds — all_files_parsed, extensions_config_available, all_extensions_attempted, loaded_manifests_available, failed_extensions_diagnosed, loaded_event_fired, extension_isolation"
 }
 
@@ -97,7 +111,9 @@ behavior load_extension_declaration "Load Extension Declaration" {
     A category that does not parse MUST fail the extension's load (E028)
     naming the category. A describe item key the protocol does not define
     MUST produce W138. The declaration is read once per environment load;
-    nothing describes a category again outside it.
+    nothing describes a category again outside it. A handshake whose
+    protocol major version differs from the host's MUST fail the
+    extension's load (E028), and none of its categories are read.
   """
   verify integration "every builtin's handshake and describe answers match their pinned snapshot byte for byte"
   verify unit "a declaration round-trips through its wire answers unchanged"
@@ -112,6 +128,7 @@ behavior load_extension_declaration "Load Extension Declaration" {
   verify integration "an extension that only declares commands registers its commands"
   verify integration "an extension that only declares passes has them in its declaration"
   verify integration "the declared short name reaches the registry build"
+  verify integration "an unsupported protocol major version fails the load"
 }
 
 behavior build_registries_from_declarations "Build Registries From Declarations" {
@@ -119,6 +136,7 @@ behavior build_registries_from_declarations "Build Registries From Declarations"
   invariants [zero_domain_knowledge_core, registry_population_before_validation]
   category   validation
   types      [ExtensionDeclaration, RegistryBuild]
+  produces   [registries_populated]
   contract   """
     The registry build MUST take the loaded declarations, in load order,
     and own everything derived from them: identity and shape (E030: an empty
@@ -126,6 +144,13 @@ behavior build_registries_from_declarations "Build Registries From Declarations"
     dependencies (E027), the order of declared passes (W145 when their
     constraints form a cycle, declaration order kept), the kind, field and
     edge registries, the rules and the surfaces. It MUST be pure.
+
+    Its outcomes are stated by registry_build_kinds, registry_build_fields,
+    registry_build_edges, registry_build_rules,
+    registry_build_declaration_consistency and
+    registry_build_peer_dependencies. The build produces
+    registries_populated: nothing reads a registry before every loaded
+    declaration is in it.
   """
   verify integration "the registry build of the builtins matches its pinned snapshot"
   verify unit "a declaration with an empty name or version produces E030"
@@ -134,10 +159,13 @@ behavior build_registries_from_declarations "Build Registries From Declarations"
   verify unit "declared passes are ordered in the registry build"
   verify unit "a pass constraint cycle produces W145 and keeps declaration order"
   verify integration "a passes description that does not parse fails the extension's load"
+  verify unit "a build of no declarations has empty registries, no rules and no diagnostics"
+  verify unit "the declarations' own diagnostics come in a fixed order: E030, W021, E027, W145"
+  verify integration "every loaded declaration is registered before a compile checks anything"
 }
 
 // register_extension_entity_types is a thin delegation wrapper that calls
-// register_entity_kinds_from_manifest (behaviors/zero-entity-core.spec)
+// registry_build_kinds (behaviors/zero-entity-registries.spec)
 // for each loaded extension. The detailed registration semantics — including
 // KindRegistry population, field registry setup, and edge type registration —
 // are defined in the zero-entity-core behaviors.
@@ -160,9 +188,9 @@ behavior register_extension_entity_types "Register Extension Entity Types" {
   }
   contract   """
     After loading manifests, the compiler MUST register each extension's
-    entity types by delegating to register_entity_kinds_from_manifest
-    for kind registration, populate_field_registry_from_extensions for
-    field registration, and populate_edge_registry_from_extensions for
+    entity types by delegating to registry_build_kinds
+    for kind registration, registry_build_fields for
+    field registration, and registry_build_edges for
     edge types. When resolving references, the KindRegistry MUST be
     consulted to determine which extension owns each entity type and
     whether soft resolution applies for cross-extension references.
@@ -173,7 +201,7 @@ behavior register_extension_entity_types "Register Extension Entity Types" {
     MUST include the unresolved kind name and a suggested extension
     when one can be inferred from the kind prefix.
   """
-  verify unit "delegates to register_entity_kinds_from_manifest per extension"
+  verify unit "delegates to registry_build_kinds per extension"
   verify unit "unregistered type triggers soft resolution"
   verify unit "KindRegistry records source extension for each kind"
   verify unit "I004 message includes unresolved kind name and suggested extension"
@@ -327,7 +355,10 @@ behavior remove_extension "Remove Extension" {
     more than one specforge.json entry enables MUST be refused as
     ambiguous (extension_conflict), naming the entries and changing
     nothing; a name no entry, lock entry or builtin matches is
-    extension_not_found.
+    extension_not_found. Every refusal MUST be decided before anything is
+    written, and a specforge.json the compile could not read refuses every
+    removal (config_invalid), changing nothing; specforge.json is written
+    before specforge.lock and the binary.
     Removing an extension that another loaded or installed extension
     requires as a non-optional peer MUST fail with E027 naming the
     dependents, unless --force is given. The CLI and the MCP
@@ -339,7 +370,8 @@ behavior remove_extension "Remove Extension" {
     since the keyword is no longer in the KindRegistry. Reference list
     entries pointing to those entities MUST produce E003 (dangling
     reference). The user MUST either reinstall the extension or remove
-    the affected entity blocks.
+    the affected entity blocks. Its JSON output lists the files it wrote or
+    deleted as files_written.
   """
   verify unit "delegates to uninstall_wasm_extension for lifecycle cleanup"
   verify unit "extension is removed from extensions list"
@@ -347,12 +379,14 @@ behavior remove_extension "Remove Extension" {
   verify unit ".spec files are not modified by removal"
   verify contract "Remove Extension: extension removal holds — extension_installed, filesystem_available, extension_entry_removed, spec_files_unchanged, extension_removed_emitted"
   verify unit "specforge remove for non-existent extension reports error"
+  verify integration "remove --format json lists the files it wrote in files_written"
   verify unit "specforge remove with no lock file reports error"
   verify integration "removing an installed extension drops its specforge.json entry"
   verify integration "removing an extension another installed extension requires fails with E027 unless --force"
   verify integration "a .wasm file entry is removed by the name it declares or by its entry as written, leaving its file in place"
   verify integration "a name more than one specforge.json entry enables is refused as ambiguous, naming the entries"
   verify integration "removing a .wasm file entry another extension requires fails with E027 unless --force"
+  verify integration "a removal with an unreadable specforge.json is config_invalid and changes nothing"
 }
 
 // Read-only query. (produces [] declared below; no event of its own.)
@@ -418,6 +452,52 @@ behavior list_configured_providers "List Configured Providers" {
   verify unit "output order is deterministic"
   verify integration "the CLI and the MCP providers tool list the same entries"
   verify contract "List Configured Providers: provider listing holds — scheme_registry_ready, all_providers_listed, schemes_and_kinds_included, aliases_shown_separately, output_deterministic"
+}
+
+// The management operations are operations over the project view, as the
+// read views are (ADR 0015, "Management operations").
+behavior management_operations_over_the_project_view "Management Operations over the Project View" {
+  features   [extension_management, mcp_project_management_tools]
+  invariants [diagnostic_determinism, zero_domain_knowledge_core]
+  category   command
+  types      [ExtensionDeclaration, Diagnostic]
+  ports      [CompilerApi, McpProtocol, FileSystem]
+  requires {
+    project_compiled "A compiled project or a project session supplies the project view"
+  }
+  ensures {
+    one_project_read "Each operation reads the config, the enabled entries, the lock, the loaded declarations and the reported diagnostics of the compile behind its view, never specforge.json or specforge.lock again"
+    root_for_disk    "Whatever an operation reads or writes on disk is at the view's root; without a root it refuses with no_project, except the listings and doctor"
+  }
+  contract   """
+    The extensions listing, the providers listing, doctor, remove,
+    collect, and inference progress and gaps MUST each be one operation
+    over the project view and a request, shared by the CLI and MCP; a
+    surface builds the view from the project it holds, maps its arguments
+    and renders the outcome. An operation MUST read the project's config,
+    what each specforge.json entry enabled, the specforge.lock the compile
+    read (absent, read, or unreadable with its E033 problem), the loaded
+    declarations and what the surface reports for the project from the
+    view, never by reading specforge.json or specforge.lock again. The
+    installed binaries, the source files and the recorded test report MUST
+    be read and written at the view's root; specforge.lock is written
+    there, at the one path the environment reads it from. Without a root, remove, collect and inference
+    progress and gaps MUST refuse with no_project; the listings list what
+    the view enabled and loaded, and doctor skips the installation checks.
+    add and update run before or instead of a compile, so they read
+    specforge.json themselves, through the function the compile reads it
+    with; add, update and remove MUST refuse a specforge.json the compile
+    reports as E069 and an edit cannot go around, with one refusal
+    (config_invalid, the E069 reason as its message), before they write
+    anything.
+  """
+  verify unit "an operation that reads or writes the project on disk refuses a view without a root"
+  verify unit "the extensions listing reads the config entries from the view, never specforge.json again"
+  verify unit "doctor reads the diagnostics its view reports"
+  verify unit "list, doctor and remove read the lock the compile read, once"
+  verify integration "add, update and remove refuse an unusable specforge.json with one refusal, before they write"
+  verify unit "collect maps test results to the entities of its view"
+  verify contract "Management Operations over the Project View: management operations hold — project_compiled, one_project_read, root_for_disk"
 }
 
 // Called imperatively by validate_provider_refs (which consumes provider_schemes_registered).

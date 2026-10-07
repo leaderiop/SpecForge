@@ -1980,6 +1980,9 @@ fn fnv1a(bytes: &[u8]) -> u64 {
 ///   `--limit`, `--offset` and `--max-hops` args, ADR 0017); nothing else
 ///   changed. The host refuses a negative one on both surfaces before the
 ///   export runs.
+/// - 40920 bytes, `0x3f81_5be7_3dbf_98bc`: `milestone_completion`'s description says it
+///   also reports what the recorded tests prove (ADR 0039); nothing else
+///   changed.
 #[test]
 fn the_surfaces_payload_is_pinned() {
     let payload = crate::specforge_extension_build()
@@ -1987,7 +1990,286 @@ fn the_surfaces_payload_is_pinned() {
         .unwrap();
     assert_eq!(
         (payload.len(), fnv1a(payload.as_bytes())),
-        (40797, 0x8b30_7f56_fa96_83ca),
+        (40920, 0x3f81_5be7_3dbf_98bc),
         "the surfaces payload changed"
     );
+}
+
+// ── lifecycle consistency and delivery evidence (ADR 0039) ────────────────
+
+mod lifecycle_passes {
+    use crate::evidence::FeatureEvidence;
+    use crate::lifecycle::{pass_delivery_evidence, pass_lifecycle};
+    use specforge_extension_sdk::prelude::{
+        EntityEvidence, PassEdge, PassEntity, PassInput, PassTestResult, PassTestResults,
+    };
+
+    fn entity(id: &str, kind: &str, fields: &[(&str, &str)]) -> PassEntity {
+        PassEntity {
+            id: id.into(),
+            kind: kind.into(),
+            fields: fields
+                .iter()
+                .map(|(k, v)| (k.to_string(), v.to_string()))
+                .collect(),
+            ..PassEntity::default()
+        }
+    }
+
+    fn behavior(id: &str, verifies: &[&str]) -> PassEntity {
+        PassEntity {
+            testable: true,
+            verify_kinds: verifies.iter().map(|_| "unit".to_string()).collect(),
+            verify_texts: verifies.iter().map(|v| v.to_string()).collect(),
+            ..entity(id, "behavior", &[])
+        }
+    }
+
+    fn edge(source: &str, target: &str, label: &str) -> PassEdge {
+        PassEdge {
+            source: source.into(),
+            target: target.into(),
+            label: label.into(),
+        }
+    }
+
+    fn codes(input: &PassInput) -> Vec<(String, String)> {
+        pass_lifecycle(input)
+            .into_iter()
+            .map(|d| (d.code, d.entity.unwrap_or_default()))
+            .collect()
+    }
+
+    #[test]
+    fn w154_names_each_unfinished_feature_of_a_completed_milestone() {
+        let input = PassInput {
+            entities: vec![
+                entity("m_done", "milestone", &[("status", "completed")]),
+                entity("m_open", "milestone", &[("status", "in_progress")]),
+                entity("f_done", "feature", &[("status", "done")]),
+                entity("f_gone", "feature", &[("status", "deprecated")]),
+                entity("f_open", "feature", &[("status", "in_progress")]),
+                entity("f_bare", "feature", &[]),
+            ],
+            edges: vec![
+                edge("m_done", "f_done", "features"),
+                edge("m_done", "f_gone", "features"),
+                edge("m_done", "f_open", "features"),
+                edge("m_done", "f_bare", "features"),
+                edge("m_open", "f_open", "features"),
+            ],
+            ..PassInput::default()
+        };
+        let found = pass_lifecycle(&input);
+        let w154: Vec<&str> = found
+            .iter()
+            .filter(|d| d.code == "W154")
+            .map(|d| d.message.as_str())
+            .collect();
+        assert_eq!(
+            w154,
+            [
+                "milestone 'm_done' is completed but its feature 'f_open' is in_progress",
+                "milestone 'm_done' is completed but its feature 'f_bare' is proposed",
+            ]
+        );
+    }
+
+    #[test]
+    fn i063_i064_i065_report_status_contradictions_across_entities() {
+        let input = PassInput {
+            entities: vec![
+                entity("f_done", "feature", &[("status", "done")]),
+                entity("f_dep", "feature", &[("status", "accepted")]),
+                entity("f_ok", "feature", &[("status", "done")]),
+                entity("m_early", "milestone", &[("target_date", "2026-01-01")]),
+                entity("m_late", "milestone", &[("target_date", "2026-03-01")]),
+                entity("m_undated", "milestone", &[]),
+                entity("d_shipped", "deliverable", &[("status", "shipped")]),
+                entity("d_draft", "deliverable", &[]),
+                entity("m_completed", "milestone", &[("status", "completed")]),
+            ],
+            edges: vec![
+                edge("f_done", "f_dep", "depends_on"),
+                edge("f_done", "f_ok", "depends_on"),
+                edge("m_early", "m_late", "depends_on"),
+                edge("m_late", "m_early", "depends_on"),
+                edge("m_early", "m_undated", "depends_on"),
+                edge("d_shipped", "m_late", "milestones"),
+                edge("d_shipped", "m_completed", "milestones"),
+                edge("d_draft", "m_late", "milestones"),
+            ],
+            ..PassInput::default()
+        };
+        assert_eq!(
+            codes(&input),
+            [
+                ("I063".to_string(), "f_done".to_string()),
+                ("I064".to_string(), "m_early".to_string()),
+                ("I065".to_string(), "d_shipped".to_string()),
+            ]
+        );
+    }
+
+    fn evidence_input(test_results: Option<PassTestResults>) -> PassInput {
+        PassInput {
+            entities: vec![
+                entity("f_proven", "feature", &[("status", "done")]),
+                entity("f_half", "feature", &[("status", "done")]),
+                entity("f_alone", "feature", &[("status", "done")]),
+                entity("f_ahead", "feature", &[("status", "in_progress")]),
+                behavior("b1", &["a"]),
+                behavior("b2", &["a", "b"]),
+                behavior("b3", &["a"]),
+            ],
+            edges: vec![
+                edge("b1", "f_proven", "features"),
+                edge("b1", "f_half", "features"),
+                edge("b2", "f_half", "features"),
+                edge("b3", "f_ahead", "features"),
+                // A journey naming a feature does not implement it.
+                edge("j1", "f_alone", "features"),
+            ],
+            test_results,
+            ..PassInput::default()
+        }
+    }
+
+    fn passing(results: &[(&str, &str)]) -> PassTestResults {
+        let mut recorded = PassTestResults {
+            runner: Some("fixture".into()),
+            ..PassTestResults::default()
+        };
+        for (id, verify) in results {
+            recorded
+                .results
+                .entry(id.to_string())
+                .or_default()
+                .tests
+                .push(PassTestResult {
+                    name: Some(format!("{id}_{verify}")),
+                    status: "pass".into(),
+                    verify: Some(verify.to_string()),
+                });
+        }
+        recorded
+    }
+
+    #[test]
+    fn i071_names_done_features_the_recorded_tests_do_not_prove() {
+        let input = evidence_input(Some(passing(&[("b1", "a"), ("b2", "a"), ("b3", "a")])));
+        let out = pass_delivery_evidence(&input);
+        let found: Vec<(&str, &str)> = out
+            .diagnostics
+            .iter()
+            .map(|d| (d.entity.as_deref().unwrap(), d.message.as_str()))
+            .collect();
+        assert_eq!(
+            found,
+            [
+                (
+                    "f_alone",
+                    "feature 'f_alone' is done but no behavior implements it, so no recorded test can prove it"
+                ),
+                (
+                    "f_half",
+                    "feature 'f_half' is done but the recorded tests prove 1 of the 2 behaviors implementing it (2/3 obligations)"
+                ),
+            ]
+        );
+        assert!(out.diagnostics.iter().all(|d| d.code == "I071"));
+        assert_eq!(out.summary["done"], 3);
+        assert_eq!(out.summary["proven"], 2);
+        assert_eq!(out.summary["done_unproven"], 2);
+        assert_eq!(out.summary["proven_not_done"], 1);
+    }
+
+    #[test]
+    fn without_recorded_tests_delivery_evidence_reports_nothing() {
+        let out = pass_delivery_evidence(&evidence_input(None));
+        assert!(out.diagnostics.is_empty());
+        assert_eq!(out.summary["evidence"], "none");
+    }
+
+    #[test]
+    fn a_feature_is_proven_when_every_implementer_is() {
+        let scores = |id: &str| match id {
+            "ok" => Some(EntityEvidence {
+                obligations: 2,
+                proven: 2,
+                failing: 0,
+            }),
+            "failing" => Some(EntityEvidence {
+                obligations: 1,
+                proven: 1,
+                failing: 1,
+            }),
+            _ => None,
+        };
+        let ids = |v: &[&str]| v.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        assert!(FeatureEvidence::of("f", &ids(&["ok"]), scores).proven);
+        assert!(!FeatureEvidence::of("f", &ids(&["ok", "failing"]), scores).proven);
+        assert!(!FeatureEvidence::of("f", &ids(&["ok", "unscored"]), scores).proven);
+        assert!(
+            !FeatureEvidence::of("f", &[], scores).proven,
+            "no implementer, no proof"
+        );
+    }
+}
+
+#[test]
+fn milestone_completion_reports_proven_features_beside_done_ones() {
+    use specforge_extension_sdk::prelude::{CommandEvidence, EntityEvidence};
+    let g = G::default()
+        .node("f1", "feature", &[("status", "done")])
+        .node("f2", "feature", &[("status", "done")])
+        .n("b1", "behavior")
+        .n("b2", "behavior")
+        .node("ms", "milestone", &[("status", "completed")])
+        .edge("ms", "f1", "features")
+        .edge("ms", "f2", "features")
+        .edge("b1", "f1", "features")
+        .edge("b2", "f2", "features")
+        .build();
+    let scored = |b1_proven: usize| CommandEvidence::Recorded {
+        entities: [
+            (
+                "b1".to_string(),
+                EntityEvidence {
+                    obligations: 1,
+                    proven: b1_proven,
+                    failing: 0,
+                },
+            ),
+            (
+                "b2".to_string(),
+                EntityEvidence {
+                    obligations: 1,
+                    proven: 0,
+                    failing: 0,
+                },
+            ),
+        ]
+        .into_iter()
+        .collect(),
+    };
+    let r = milestone_completion(&g, "ms")
+        .unwrap()
+        .with_evidence(&g, &scored(1));
+    assert_eq!(r.done_count, 2, "the declared count is unchanged");
+    assert_eq!(r.proven_count, Some(1));
+    assert_eq!(r.proven_features.as_deref(), Some(&["f1".to_string()][..]));
+    assert_eq!(r.proven_ratio, Some(0.5));
+    let json = serde_json::to_value(&r).unwrap();
+    assert_eq!(json["evidence"]["state"], "recorded");
+    assert_eq!(json["feature_evidence"][1]["proven_obligations"], 0);
+
+    let none = milestone_completion(&g, "ms")
+        .unwrap()
+        .with_evidence(&g, &CommandEvidence::None);
+    let json = serde_json::to_value(&none).unwrap();
+    assert_eq!(json["evidence"]["state"], "none");
+    assert!(json.get("proven_count").is_none());
+    let plain = serde_json::to_value(milestone_completion(&g, "ms").unwrap()).unwrap();
+    assert!(plain.get("evidence").is_none(), "not asked, not reported");
 }

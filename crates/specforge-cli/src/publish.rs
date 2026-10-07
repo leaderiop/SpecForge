@@ -1,6 +1,6 @@
 use crate::OutputFormat;
 use serde_json::json;
-use specforge_common::Diagnostic;
+use specforge_common::{Diagnostic, codes};
 use specforge_registry_client::{
     AuthMethod, CredentialStore, HttpRegistryClient, RegistryConfig, RegistryCredential,
     credentials::{credentials_path, read_credentials},
@@ -26,7 +26,7 @@ pub fn run(extension: &Path, project: &Path, format: OutputFormat) -> i32 {
         Err(e) => {
             format.print_error(
                 &format!("failed to read {}: {}", binary.display(), e),
-                "E040",
+                codes::E040,
             );
             return 1;
         }
@@ -57,7 +57,10 @@ pub fn run(extension: &Path, project: &Path, format: OutputFormat) -> i32 {
     let registry = match find_registry_for_specifier(declaration.name(), &registries) {
         Some(r) => r,
         None => {
-            format.print_error("no registry configured for this package scope", "R-OPS-001");
+            format.print_error(
+                "no registry configured for this package scope",
+                codes::R_OPS_001,
+            );
             return 1;
         }
     };
@@ -65,7 +68,7 @@ pub fn run(extension: &Path, project: &Path, format: OutputFormat) -> i32 {
     let credential = match load_credential(registry) {
         Ok(credential) => credential,
         Err(diag) => {
-            format.print_error(&diag.message, &diag.code);
+            format.print_diagnostic(&diag);
             return 1;
         }
     };
@@ -74,7 +77,11 @@ pub fn run(extension: &Path, project: &Path, format: OutputFormat) -> i32 {
     let (signing_key, key_created) = match load_or_create_signing_key() {
         Ok(pair) => pair,
         Err(message) => {
-            format.print_error(&message, "SIGNING_KEY_ERROR");
+            format.print_op_error(&specforge_ops::OpError::new(
+                specforge_ops::OpErrorKind::Internal,
+                "SIGNING_KEY_ERROR",
+                message,
+            ));
             return 1;
         }
     };
@@ -123,7 +130,7 @@ pub fn run(extension: &Path, project: &Path, format: OutputFormat) -> i32 {
             0
         }
         Err(diag) => {
-            format.print_error(&diag.message, &diag.code);
+            format.print_diagnostic(&diag);
             1
         }
     }

@@ -3,13 +3,12 @@
 //! registers (no W019), and the rules `specforge new --extension` and the
 //! greet fixture write parse (no W112) and fire.
 
-use std::collections::HashMap;
-
 use specforge_common::{SourceSpan, Sym};
 use specforge_extension_sdk::{ContributionsBuilder, ExtensionMeta, prelude::*};
 use specforge_protocol_types::ExtensionDeclaration;
 use specforge_registry::build_registries;
-use specforge_registry::validation_engine::{ValidationEntity, execute_pattern};
+use specforge_registry::entity::{EntityRecord, RuleInput};
+use specforge_registry::rules::NoVerdicts;
 use specforge_wasm::protocol::load_declaration;
 use specforge_wasm::testing::InProcessRuntime;
 
@@ -40,7 +39,7 @@ fn extension() -> ContributionsBuilder {
         r.message_template("thing '{id}' is missing a description");
     });
     // The greet fixture's rule.
-    c.rule("G101", |r| {
+    c.rule("E901", |r| {
         r.check(CheckKind::FieldValueConstraint);
         r.target_kind("thing");
         r.field("style");
@@ -66,28 +65,26 @@ fn loaded(
     loaded.declaration
 }
 
-fn entity(id: &str, fields: &[(&str, &str)]) -> ValidationEntity {
-    ValidationEntity {
-        id: id.to_string(),
-        kind: "thing".to_string(),
-        fields: fields
-            .iter()
-            .map(|(k, v)| (k.to_string(), v.to_string()))
-            .collect::<HashMap<_, _>>(),
-        incoming_edge_count: 0,
-        outgoing_edge_count: 0,
-        span: SourceSpan {
-            file: Sym::new("test.spec"),
-            start_line: 1,
-            start_col: 0,
-            end_line: 1,
-            end_col: 0,
-        },
-        verify_kinds: Vec::new(),
-        verify_texts: Vec::new(),
-        outgoing_kinds: Default::default(),
-        incoming_kinds: Default::default(),
-        obligation_exempt: false,
+fn entity(id: &str, fields: &[(&str, &str)]) -> EntityRecord {
+    let span = SourceSpan {
+        file: Sym::new("test.spec"),
+        start_line: 1,
+        start_col: 0,
+        end_line: 1,
+        end_col: 0,
+    };
+    fields.iter().fold(
+        EntityRecord::new("thing", id, &span),
+        |record, (key, text)| record.with_field(key, text),
+    )
+}
+
+/// The rules' input over `entities`, with no edges and no spec root.
+fn rules_over(entities: &[EntityRecord]) -> RuleInput<'_> {
+    RuleInput {
+        entities,
+        edges: &[],
+        spec_root: std::path::Path::new(""),
     }
 }
 
@@ -108,13 +105,20 @@ fn sdk_vocabulary_round_trips_through_the_registry_build() {
         );
     }
 
-    let rule = |code: &str| {
-        &build
+    for code in ["W900", "E901"] {
+        assert!(
+            build.rules.iter().any(|rule| rule.code() == code),
+            "rule {code} not registered"
+        );
+    }
+    // What the rule `code` reports over `entities`.
+    let fired = |code: &str, entities: &[specforge_registry::entity::EntityRecord]| {
+        build
             .rules
-            .iter()
-            .find(|(p, _)| p.code == code)
-            .unwrap_or_else(|| panic!("rule {code} not registered"))
-            .0
+            .check(&rules_over(entities), &NoVerdicts)
+            .into_iter()
+            .filter(|d| d.code == code)
+            .collect::<Vec<_>>()
     };
     let bare = [entity("bare", &[("style", "loud")])];
     let fine = [entity(
@@ -122,14 +126,14 @@ fn sdk_vocabulary_round_trips_through_the_registry_build() {
         &[("description", "a thing"), ("style", "warm")],
     )];
 
-    let fired = execute_pattern(rule("W900"), &bare, None);
-    assert_eq!(fired.len(), 1, "{fired:?}");
-    assert_eq!(fired[0].message, "thing 'bare' is missing a description");
-    let fired = execute_pattern(rule("G101"), &bare, None);
-    assert_eq!(fired.len(), 1, "{fired:?}");
-    assert_eq!(fired[0].code, "G101");
-    assert!(execute_pattern(rule("W900"), &fine, None).is_empty());
-    assert!(execute_pattern(rule("G101"), &fine, None).is_empty());
+    let w900 = fired("W900", &bare);
+    assert_eq!(w900.len(), 1, "{w900:?}");
+    assert_eq!(w900[0].message, "thing 'bare' is missing a description");
+    let g101 = fired("E901", &bare);
+    assert_eq!(g101.len(), 1, "{g101:?}");
+    assert_eq!(g101[0].code, "E901");
+    assert!(fired("W900", &fine).is_empty());
+    assert!(fired("E901", &fine).is_empty());
 }
 
 /// Rules written by SDK releases before the vocabulary was shared still
@@ -153,8 +157,8 @@ fn older_sdk_check_names_still_load() {
         .filter(|d| d.code == "W019" || d.code == "W112")
         .collect();
     assert!(unread.is_empty(), "host could not read: {unread:?}");
-    assert!(build.rules.iter().any(|(p, _)| p.code == "W900"));
-    assert!(build.rules.iter().any(|(p, _)| p.code == "G101"));
+    assert!(build.rules.iter().any(|rule| rule.code() == "W900"));
+    assert!(build.rules.iter().any(|rule| rule.code() == "E901"));
 }
 
 /// Every constraint kind the SDK can name loads on the check that reads it:
@@ -181,7 +185,9 @@ fn sdk_constraint_kinds_load_for_the_checks_that_read_them() {
     }
     let build = move || {
         let mut c = ContributionsBuilder::new(ExtensionMeta::new("@you/constraints", "0.1.0"));
+        // `thing` accepts verify statements: the allowlist reads them.
         c.kind("thing", |k| {
+            k.supports_verify(true);
             k.field("status", |f| {
                 f.field_type(FieldType::String);
             });
@@ -225,14 +231,14 @@ fn sdk_constraint_kinds_load_for_the_checks_that_read_them() {
     assert!(unread.is_empty(), "host could not read: {unread:?}");
     for (i, (kind, _)) in uses.iter().enumerate() {
         let code = format!("X{i:03}");
-        let (pattern, _) = build
+        let rule = build
             .rules
             .iter()
-            .find(|(p, _)| p.code == code)
+            .find(|rule| rule.code() == code)
             .unwrap_or_else(|| panic!("rule {code} not registered"));
         assert_eq!(
-            pattern.constraint.as_ref().and_then(|c| c.kind),
-            Some(*kind),
+            rule.describe()["constraint"]["kind"],
+            kind.as_str(),
             "rule {code}"
         );
     }

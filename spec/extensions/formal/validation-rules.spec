@@ -1,48 +1,19 @@
 // @specforge/formal validation rules — formal-specific declarative validation patterns
 //
-// W058 (downgraded from E033): behavior not satisfying feature requirements
-// is a structural coverage check, not semantic verification.
+// W058 (feature coverage mismatch, downgraded from E033): trimmed, no
+// sound algorithm (ADR 0040).
 // W059-W060: removed (were condition entity validation, condition entity kind removed)
 // W123-W125: property entity validation
 // W126-W127: axiom entity validation
-// W128-W130: protocol entity validation
+// W128-W129: protocol entity validation (W130, ordering conflict, trimmed: ADR 0040)
 // W131-W133: refinement entity validation
 // W134-W136: process entity validation
+//
+// All of them run in every check: they are declarative rules, not passes.
 
 use "extensions/formal/invariants"
 use "extensions/formal/types"
 use "types/zero-entity-core"
-
-// ── Feature Coverage Validation (W058) ──────────────────────
-
-behavior fa_validate_w058_feature_coverage_mismatch "W058: Feature Coverage Mismatch" {
-  category query
-  types    [RefinementChain]
-  contract """
-    Detect behaviors that claim to implement a feature but whose
-    conditions do not structurally cover the feature's requirements.
-    Downgraded from E033 (error) to W058 (warning) per expert review:
-    this is a structural coverage check, not semantic verification.
-    The check has no implementable algorithm for semantic requirement
-    satisfaction — it can only check structural condition name overlap.
-    Requires warning_level=strict to fire.
-  """
-  requires {
-    layering_chains_built "layering chains are fully constructed"
-    features_resolved     "feature references in behaviors are resolved"
-    strict_warning_level  "warning_level is set to strict"
-  }
-  ensures {
-    covering_passes   "behavior whose conditions structurally cover feature requirements produces no diagnostic"
-    uncovering_warned "behavior not structurally covering feature requirements produces W058 warning"
-    correct_template  "message template is: behavior '{id}' may not satisfy requirements of feature '{feature_id}': {reason} (structural check only)"
-  }
-  features [fa_specification_layering]
-  verify unit "behavior covering feature requirements passes"
-  verify unit "behavior not covering feature requirements produces W058"
-  verify unit "W058 severity is warning (not error)"
-  verify unit "W058 only fires at warning_level=strict"
-}
 
 // W059-W060 removed: condition entity kind no longer exists.
 // Conditions are inline fields, not standalone entities.
@@ -81,6 +52,7 @@ behavior fa_validate_empty_property_description "W124: Empty Property Descriptio
     Detect property entities with an empty or whitespace-only description.
     Properties are temporal assertions — a blank description makes the
     property opaque to agents and reviewers.
+    A property that writes no description is not reported.
   """
   ensures {
     empty_warned     "property with empty description produces W124 warning"
@@ -146,6 +118,7 @@ behavior fa_validate_empty_axiom_description "W127: Empty Axiom Description" {
     Detect axiom entities with an empty or whitespace-only description.
     Axioms are assumed-true foundations — a blank description makes
     the assumption invisible and unjustifiable.
+    A axiom that writes no description is not reported.
   """
   ensures {
     empty_warned     "axiom with empty description produces W127 warning"
@@ -157,7 +130,7 @@ behavior fa_validate_empty_axiom_description "W127: Empty Axiom Description" {
   verify unit "axiom with non-empty description passes"
 }
 
-// ── Protocol Validation (W128-W130) ──────────────────────────
+// ── Protocol Validation (W128-W129) ──────────────────────────
 
 behavior fa_validate_orphan_protocol "W128: Orphan Protocol" {
   category   query
@@ -191,6 +164,7 @@ behavior fa_validate_empty_protocol_description "W129: Empty Protocol Descriptio
     Detect protocol entities with an empty or whitespace-only description.
     Protocols are synchronization contracts — a blank description makes
     the contract opaque to agents and event graph analysis.
+    A protocol that writes no description is not reported.
   """
   ensures {
     empty_warned     "protocol with empty description produces W129 warning"
@@ -200,29 +174,6 @@ behavior fa_validate_empty_protocol_description "W129: Empty Protocol Descriptio
   features [fa_protocol_contracts]
   verify unit "protocol with empty description produces W129"
   verify unit "protocol with non-empty description passes"
-}
-
-behavior fa_validate_protocol_ordering_conflict "W130: Protocol Ordering Conflict" {
-  category query
-  types    [FormalProtocol]
-  contract """
-    Detect protocol entities whose ordering field references event IDs
-    that do not exist in the graph. The ordering field declares the
-    expected sequence of events — if an event in the ordering is not
-    found, the protocol is misconfigured.
-  """
-  requires {
-    graph_built "entity graph is fully constructed with all edges"
-  }
-  ensures {
-    missing_event_warned  "protocol ordering referencing non-existent event produces W130 warning"
-    valid_ordering_passes "protocol ordering with all valid event references produces no diagnostic"
-    correct_template      "message template is: protocol '{id}' ordering references unknown event '{event_id}'"
-  }
-  features [fa_protocol_contracts]
-  verify unit "protocol ordering referencing non-existent event produces W130"
-  verify unit "protocol ordering with all valid events passes"
-  verify unit "protocol with empty ordering passes (no ordering to validate)"
 }
 
 // ── Refinement Validation (W131-W133) ───────────────────────
@@ -261,6 +212,7 @@ behavior fa_validate_empty_refinement_description "W132: Empty Refinement Descri
     Detect refinement entities with an empty or whitespace-only description.
     Refinements capture abstract-to-concrete mappings — a blank description
     makes the mapping opaque to agents and reviewers.
+    A refinement that writes no description is not reported.
   """
   ensures {
     empty_warned     "refinement with empty description produces W132 warning"
@@ -276,23 +228,21 @@ behavior fa_validate_refinement_without_delta "W133: Refinement Without Conditio
   category query
   types    [FormalRefinement, ConditionDelta]
   contract """
-    Detect refinement entities with no conditions field. The conditions
-    field captures what changes between abstract and concrete — without
-    it, the refinement is purely structural with no formal content.
-    Requires warning_level=strict to fire.
+    Detect refinement entities that declare no invariant_deltas: the
+    field is absent or an empty list. The invariant_deltas field records
+    what changes between abstract and concrete (the invariants the
+    refinement adds or relaxes) — without it, the refinement is purely
+    structural with no formal content. A declarative rule: it runs in
+    every check.
   """
-  requires {
-    strict_warning_level "warning_level is set to strict"
-  }
   ensures {
-    missing_warned   "refinement with no conditions field produces W133 warning"
-    present_passes   "refinement with conditions field produces no diagnostic"
-    correct_template "message template is: refinement '{id}' has no condition delta"
+    missing_warned   "refinement with no invariant_deltas produces W133 warning"
+    present_passes   "refinement with a non-empty invariant_deltas produces no diagnostic"
+    correct_template "message template is: refinement '{id}' declares no invariant_deltas"
   }
   features [fa_refinement_layering]
-  verify unit "refinement with no conditions produces W133"
-  verify unit "refinement with conditions passes"
-  verify unit "W133 only fires at warning_level=strict"
+  verify unit "refinement with no invariant_deltas produces W133"
+  verify unit "refinement with invariant_deltas passes"
 }
 
 // ── Refinement Structural Validation (E041) ─────────────────
@@ -352,6 +302,7 @@ behavior fa_validate_empty_process_description "W135: Empty Process Description"
     Detect process entities with an empty or whitespace-only description.
     Processes model communicating sequential processes — a blank description
     makes the process opaque to agents and event graph analysis.
+    A process that writes no description is not reported.
   """
   ensures {
     empty_warned     "process with empty description produces W135 warning"
@@ -367,21 +318,18 @@ behavior fa_validate_process_without_alphabet "W136: Process Without Alphabet" {
   category query
   types    [FormalProcess]
   contract """
-    Detect process entities with an empty or absent alphabet field. The
-    alphabet defines which events the process can engage in — without it,
-    the process is disconnected from the event graph.
-    Requires warning_level=strict to fire.
+    Detect process entities that write an empty alphabet. The alphabet
+    defines which events the process can engage in — without it, the
+    process is disconnected from the event graph. The field is required,
+    so an absent alphabet is E006 (missing required field), not W136. A
+    declarative rule: it runs in every check.
   """
-  requires {
-    strict_warning_level "warning_level is set to strict"
-  }
   ensures {
-    missing_warned   "process with empty or absent alphabet produces W136 warning"
+    missing_warned   "process with an empty alphabet produces W136 warning"
     present_passes   "process with non-empty alphabet produces no diagnostic"
     correct_template "message template is: process '{id}' has no alphabet (no events declared)"
   }
   features [fa_process_modeling]
   verify unit "process with empty alphabet produces W136"
   verify unit "process with non-empty alphabet passes"
-  verify unit "W136 only fires at warning_level=strict"
 }

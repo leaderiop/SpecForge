@@ -297,9 +297,11 @@ fn the_view_versions_against_its_root_cache() {
     let sub = root.join("sub");
     std::fs::create_dir(&sub).unwrap();
     let graph = specforge_graph::Graph::new();
-    let registries = specforge_registry::RegistryBuild::default();
-    let recorded = specforge_project::coverage::RecordedCoverage::default();
-    let view_at = |root| ProjectView::new(&graph, &registries, Some(root), &recorded);
+    let env = specforge_project::Environment::with_registries(
+        specforge_registry::RegistryBuild::default(),
+    );
+    let recorded = specforge_project::coverage::RecordedCoverage::over(&graph, &env);
+    let view_at = |root| ProjectView::new(&graph, &env, Some(root), &recorded);
 
     // The project's cache holds an older schema at 1.2.3 with a kind the
     // project no longer has: a breaking change since.
@@ -326,6 +328,6 @@ fn the_view_versions_against_its_root_cache() {
     );
 
     // Without a root there is no cache.
-    let rootless = ProjectView::new(&graph, &registries, None, &recorded);
+    let rootless = ProjectView::new(&graph, &env, None, &recorded);
     assert!(rootless.schema_cache().is_none());
 }

@@ -1,8 +1,9 @@
 use serde::Deserialize;
 use serde_json::Value;
-use specforge_emitter::{EmitFormat, EmitOptions, emit};
+use specforge_emitter::{EmitOptions, emit};
+use specforge_ops::export::AGENT_FORMAT;
 
-use crate::args::{lenient, strings};
+use crate::args::{choice, lenient, strings};
 use crate::target::Call;
 use crate::tool::ToolOutcome;
 
@@ -21,30 +22,29 @@ pub struct Args {
 
 pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
     let view = call.view();
-    let state = &*call.state;
     let entity_id = args.entity_id.as_str();
     let depth = args.depth.unwrap_or(1) as usize;
-    let format = args.format.as_deref().unwrap_or("graph");
+    // The formats an agent reads; an unknown one is refused, never read as
+    // graph (ADR 0027).
+    let format = match choice(&AGENT_FORMAT, "format", args.format.as_deref()) {
+        Ok(format) => format,
+        Err(refused) => return refused,
+    };
     let include_coverage = args.include_coverage.unwrap_or(false);
 
     let kinds: Vec<&str> = args.kinds.iter().map(String::as_str).collect();
-    let unknown_kinds = super::unknown_kind_diagnostics(state, &kinds);
+    let unknown_kinds = super::unknown_kind_diagnostics(&view, &kinds);
 
-    let fmt = match format {
-        "context" => EmitFormat::Context,
-        "brief" => EmitFormat::Brief,
-        _ => EmitFormat::Json,
-    };
     let query_result = {
         let options = EmitOptions {
-            format: fmt,
+            format: format.emit_format(),
             scope: Some(entity_id),
             depth: Some(depth),
             kind_filter: kinds,
-            field_registry: Some(&state.registries().fields),
+            field_registry: Some(&view.registries().fields),
             ..EmitOptions::default()
         };
-        emit(state.graph(), &options)
+        emit(view.graph(), &options)
     };
 
     match query_result {
@@ -66,7 +66,7 @@ pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
                     let Some(verdict) = coverage.verdict(node_id) else {
                         continue;
                     };
-                    let status = specforge_ops::coverage::status_name(verdict.status());
+                    let status = specforge_ops::coverage::STATUS.name_of(verdict.status());
                     node.as_object_mut()
                         .unwrap()
                         .insert("coverage_status".into(), Value::from(status));
