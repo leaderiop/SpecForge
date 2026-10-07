@@ -56,13 +56,13 @@ impl FormatArgs {
 }
 
 pub(crate) fn format_op(call: &mut Call<'_>, args: FormatArgs) -> MutationHandled {
-    use specforge_ops::format::{self, Mode, Request};
+    use specforge_ops::format::{self, Request};
 
     let diff = args.diff;
     // The one reading of check, diff and write: a run that does not write
     // is a preview.
     let mode = args.mode();
-    let preview = mode != Mode::Write;
+    let preview = !mode.writes();
 
     // The project the call formats: the served one, or the one `path`
     // names; its config decides what is formatted.
@@ -88,8 +88,9 @@ pub(crate) fn format_op(call: &mut Call<'_>, args: FormatArgs) -> MutationHandle
     let mut result = json!({
         "changed_files": changed_files,
         "total_checked": outcome.checked,
+        "ok": outcome.ok(),
         "all_clean": outcome.clean(),
-        "check_only": mode == Mode::Check,
+        "check_only": !mode.writes(),
         "diagnostics": specforge_common::diagnostics_json(&outcome.diagnostics),
     });
     if diff {

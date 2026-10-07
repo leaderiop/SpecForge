@@ -243,23 +243,36 @@ fn format_text<'a>(
 }
 
 /// What the run does with a file whose formatting would change.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Mode {
     /// Rewrite it.
+    #[default]
     Write,
-    /// Report it, without writing.
+    /// Report it without writing; a file that would change fails the run
+    /// (`--check`, MCP `check`).
     Check,
+    /// Report it without writing; a change does not fail the run (`--diff`
+    /// alone, MCP `diff`).
+    Preview,
 }
 
 impl Mode {
-    /// The one reading of the surfaces' flags: check and diff only report,
-    /// unless `write` says otherwise (MCP's `write`; the CLI has none).
+    /// The one reading of the surfaces' flags: `write` decides when given,
+    /// else a run writes unless `check` or `diff`; `check` fails on a
+    /// change, `diff` alone does not.
     pub fn of_flags(check: bool, diff: bool, write: Option<bool>) -> Mode {
         if write.unwrap_or(!check && !diff) {
             Mode::Write
-        } else {
+        } else if check {
             Mode::Check
+        } else {
+            Mode::Preview
         }
+    }
+
+    /// Whether the run writes the formatted text.
+    pub fn writes(self) -> bool {
+        self == Mode::Write
     }
 }
 
@@ -392,6 +405,8 @@ impl std::fmt::Display for Failure {
 
 #[derive(Debug, Clone, Default)]
 pub struct Outcome {
+    /// The mode the run ran in.
+    pub mode: Mode,
     /// Files read and formatted.
     pub checked: usize,
     /// Files whose formatting differs, in discovery order.
@@ -438,6 +453,16 @@ impl Outcome {
     /// No region was left unformatted (no W142).
     pub fn complete(&self) -> bool {
         !self.diagnostics.iter().any(|d| d.is(codes::W142))
+    }
+
+    /// The run's verdict (ADR 0021 D4, ADR 0029): every target was read
+    /// and written, no region was left unformatted (W142), and under
+    /// [`Mode::Check`] no file would change. `specforge format` exits by
+    /// it; MCP `specforge.format` returns it as `ok`.
+    pub fn ok(&self) -> bool {
+        self.succeeded()
+            && self.complete()
+            && !(self.mode == Mode::Check && !self.changes.is_empty())
     }
 
     /// Every target was read and is in canonical form: no change, no
@@ -578,7 +603,10 @@ pub fn run(request: &Request) -> Outcome {
     // `document(Place::File(file), ..)` gives it (no editor: the CLI and
     // MCP have none), and each configuration file is read once.
     let mut configs = Configs::default();
-    let mut outcome = Outcome::default();
+    let mut outcome = Outcome {
+        mode: request.mode,
+        ..Outcome::default()
+    };
     for target in targets(request.root, request.paths) {
         let source = match std::fs::read_to_string(&target) {
             Ok(source) => source,
@@ -606,7 +634,7 @@ pub fn run(request: &Request) -> Outcome {
                     false
                 }
             },
-            Mode::Check => false,
+            Mode::Check | Mode::Preview => false,
         };
         outcome.changes.push(FileChange {
             path: target,
@@ -668,6 +696,27 @@ mod tests {
         assert_eq!(second.checked, 2);
         assert!(second.changes.is_empty());
         assert!(second.clean());
+    }
+
+    #[test]
+    fn ok_fails_only_a_check_on_a_change() {
+        let dir = project();
+        let ok = |mode| run(&request(dir.path(), mode)).ok();
+
+        assert!(!ok(Mode::Check), "a check that finds a change fails");
+        assert!(ok(Mode::Preview), "a preview of a change passes");
+        assert!(ok(Mode::Write), "a write passes, whatever it changed");
+        // Everything is canonical after the write: every mode passes.
+        assert!(ok(Mode::Check) && ok(Mode::Preview));
+
+        // An unformatted region fails every mode.
+        let region = project_with(
+            "{}",
+            &[("spec/a.spec", "behavior a \"A\" {\n  @@@ ]]\n}\n")],
+        );
+        for mode in [Mode::Write, Mode::Check, Mode::Preview] {
+            assert!(!run(&request(region.path(), mode)).ok(), "{mode:?}");
+        }
     }
 
     #[test]
@@ -779,14 +828,14 @@ mod tests {
 
     #[test]
     fn mode_reads_the_flags_once() {
-        use Mode::{Check, Write};
+        use Mode::{Check, Preview, Write};
         let flags = [
             // (check, diff, write) → mode
             ((false, false, None), Write),
             ((true, false, None), Check),
-            ((false, true, None), Check),
+            ((false, true, None), Preview),
             ((true, true, None), Check),
-            ((false, false, Some(false)), Check),
+            ((false, false, Some(false)), Preview),
             ((true, false, Some(true)), Write),
             ((false, true, Some(true)), Write),
             ((false, false, Some(true)), Write),

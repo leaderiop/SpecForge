@@ -162,19 +162,71 @@ fn a_relative_test_results_is_under_the_project_root() {
     assert_ne!(response["result"]["isError"], true, "{response}");
 }
 
-#[test]
-fn format_returns_no_verdict() {
-    let mut check = served();
-    check.write("messy.spec", MESSY);
-    let checked = tool(&mut check, "specforge.format", json!({"check": true}));
-    assert_eq!(checked["all_clean"], false, "{checked}");
-    assert!(checked.get("ok").is_none(), "{checked}");
+/// A region the formatter cannot parse and keeps as written (W142).
+const REGION: &str = "behavior broken \"Broken\" {\n  @@@ ]]\n}\n";
 
-    let mut write = served();
-    write.write("messy.spec", MESSY);
-    let written = tool(&mut write, "specforge.format", json!({}));
-    assert_eq!(written["all_clean"], false, "{written}");
-    assert!(written.get("ok").is_none(), "{written}");
+/// What `specforge.format` answers for `arguments` over a fresh project
+/// holding `text` as `messy.spec`: `(isError, ok, all_clean)`.
+fn format_verdict(text: &str, arguments: Value) -> (bool, Value, Value) {
+    let mut served = served();
+    served.write("messy.spec", text);
+    let response = call_tool(&mut served, "specforge.format", arguments);
+    let failed = response["result"]["isError"] == true;
+    let result = match failed {
+        true => mcp_error(&response)["data"].clone(),
+        false => tool_json(&response),
+    };
+    (failed, result["ok"].clone(), result["all_clean"].clone())
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_format_tool",
+    verify = "ok is the verdict specforge format exits by, in every mode"
+)]
+fn format_ok_is_the_cli_verdict() {
+    // --check over a change: the CLI exits 1.
+    assert_eq!(
+        format_verdict(MESSY, json!({"check": true})),
+        (false, json!(false), json!(false))
+    );
+    // --diff alone over a change: exit 0.
+    assert_eq!(
+        format_verdict(MESSY, json!({"diff": true})),
+        (false, json!(true), json!(false))
+    );
+    // A write of a change: exit 0.
+    assert_eq!(
+        format_verdict(MESSY, json!({})),
+        (false, json!(true), json!(false))
+    );
+    // A clean file under --check: exit 0.
+    let clean = "behavior messy \"Messy\" {\n  contract \"The system MUST work\"\n}\n";
+    assert_eq!(
+        format_verdict(clean, json!({"check": true})),
+        (false, json!(true), json!(true))
+    );
+    // A region left unformatted (W142): exit 1 in every mode.
+    for arguments in [json!({}), json!({"check": true}), json!({"diff": true})] {
+        let (_, ok, clean) = format_verdict(REGION, arguments.clone());
+        assert_eq!((ok, clean), (json!(false), json!(false)), "{arguments}");
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn format_ok_is_false_when_a_file_cannot_be_read() {
+    use std::os::unix::fs::PermissionsExt;
+    let mut served = served();
+    served.write("messy.spec", MESSY);
+    let path = served.root().join("messy.spec");
+    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o000)).unwrap();
+    if std::fs::read(&path).is_ok() {
+        return; // running as root
+    }
+
+    let response = call_tool(&mut served, "specforge.format", json!({}));
+
+    assert_eq!(mcp_error(&response)["data"]["ok"], false, "{response}");
 }
 
 /// A directory with one unformatted `a.spec` and no project config.

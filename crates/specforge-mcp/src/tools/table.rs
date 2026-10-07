@@ -332,7 +332,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         },
         output: Some(|| {
             with_files_written(
-                json!({ "type": "object", "properties": { "changed_files": { "type": "array" }, "total_checked": { "type": "integer" }, "all_clean": { "type": "boolean" }, "check_only": { "type": "boolean" }, "diagnostics": { "type": "array" }, "diffs": { "type": "array" } }, "required": ["changed_files", "total_checked", "all_clean", "check_only", "diagnostics"] }),
+                json!({ "type": "object", "properties": { "changed_files": { "type": "array" }, "total_checked": { "type": "integer" }, "ok": { "type": "boolean" }, "all_clean": { "type": "boolean" }, "check_only": { "type": "boolean" }, "diagnostics": { "type": "array" }, "diffs": { "type": "array" } }, "required": ["changed_files", "total_checked", "ok", "all_clean", "check_only", "diagnostics"] }),
             )
         }),
         target: TargetSpec::new(Reach::WritesAnyProject, Freshness::Fresh),

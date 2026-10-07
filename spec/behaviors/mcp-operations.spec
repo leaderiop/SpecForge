@@ -65,7 +65,10 @@ behavior provide_mcp_format_tool "Provide MCP Format Tool" {
     name it, and the call MUST be reported as failed, with the kind of
     failure the OS gave (permission_denied for a file it refused, file_not_found
     for one that does not exist, internal_error for another cause or for
-    failures of different kinds). all_clean MUST be true
+    failures of different kinds). ok MUST be the verdict specforge format
+    exits by: false when a file could not be read or written or has a region
+    left unformatted, and in check mode when a file would change; true
+    otherwise, also after a write or a diff that found changes. all_clean MUST be true
     only when every file was read and is in canonical form; a region left
     unformatted (W142) MUST be returned among the diagnostics, with its file
     and line. Diagnostics from loading the format configuration
@@ -81,6 +84,7 @@ behavior provide_mcp_format_tool "Provide MCP Format Tool" {
   verify unit "a file with a region left unformatted is not reported clean, and its W142 is returned"
   verify unit "format configuration diagnostics are returned in the result"
   verify unit "the format tool advertises no default for write, and check or diff without write writes nothing"
+  verify unit "ok is the verdict specforge format exits by, in every mode"
   verify contract "Provide MCP Format Tool: MCP format tool holds — filesystem_available, files_formatted, check_mode_readonly, mutation_completed_emitted, tool_invoked_emitted"
 }
 

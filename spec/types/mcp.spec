@@ -299,6 +299,9 @@ type McpInitResult {
 type McpFormatResult {
   changed_files string[]
   total_checked integer
+  /// The verdict specforge format exits by (0 when true): every file read and
+  /// written, no region left unformatted, and under check no file that would change.
+  ok            boolean
   /// True only when every file was read and is in canonical form: no change,
   /// no failure, no region left unformatted.
   all_clean     boolean

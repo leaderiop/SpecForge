@@ -47,7 +47,7 @@ pub fn run(path: &Path, check: bool, diff: bool, stdin: bool, explicit_paths: &[
                 "{}",
                 unified_diff(&shown, &change.before, &change.after).diff_text
             );
-        } else if change.written || mode == Mode::Check {
+        } else if change.written || !mode.writes() {
             println!("{shown}");
         }
     }
@@ -60,10 +60,7 @@ pub fn run(path: &Path, check: bool, diff: bool, stdin: bool, explicit_paths: &[
         );
     }
 
-    Exit::of_verdict(
-        outcome.succeeded() && outcome.complete() && !(check && !outcome.changes.is_empty()),
-    )
-    .code()
+    Exit::of_verdict(outcome.ok()).code()
 }
 
 /// A diagnostic on stderr: `<file>: <message>` when it names a file, the
@@ -103,5 +100,5 @@ fn run_stdin(root: &Path, dir: &Path) -> i32 {
     print!("{}", result.formatted);
     io::stdout().flush().ok();
 
-    if result.complete() { 0 } else { 1 }
+    Exit::of_verdict(result.complete()).code()
 }
