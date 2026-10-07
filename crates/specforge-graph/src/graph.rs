@@ -336,38 +336,23 @@ impl Graph {
             .map(|reached| self.induced(&reached))
     }
 
-    /// Resolve reference fields into graph edges and return E001
+    /// Resolve reference fields into graph edges and return E003 (and I004)
     /// diagnostics for any unresolved references.
     ///
-    /// This is the **single source of truth** for reference resolution.
-    /// Both the CLI (via `build_graph_with_config`) and the LSP call this
-    /// method so that diagnostics are identical.
+    /// The graph build's linking step (`GraphBuild`): the one place
+    /// references resolve, so a compile and every update agree.
     ///
     /// The method clears all existing edges, then iterates every node's
     /// `ReferenceList` fields plus any `Identifier` fields that match
     /// `single_ref_fields` (a set of `(entity_kind, field_name)` pairs
     /// declaring which Identifier fields are single-reference fields).
     /// For each target that exists in the graph an edge is created; for
-    /// each target that does *not* exist an E001 diagnostic is emitted
-    /// (with a fuzzy-match suggestion when possible).
-    pub fn resolve_references(&mut self) -> Vec<Diagnostic> {
-        self.resolve_references_with_singles(&HashSet::new())
-    }
-
-    /// Like [`resolve_references`] but also resolves single-reference
-    /// `Identifier` fields when `(entity_kind, field_name)` is in the set.
-    pub fn resolve_references_with_singles(
-        &mut self,
-        single_ref_fields: &HashSet<(String, String)>,
-    ) -> Vec<Diagnostic> {
-        self.resolve_references_with(single_ref_fields, &HashMap::new())
-    }
-
-    /// Like [`resolve_references_with_singles`], and an unresolved target
-    /// in a field listed in `absent_targets` ((kind, field) -> target kind)
-    /// is an I004 hint: no loaded extension declares that kind, so the
+    /// each target that does *not* exist a diagnostic is emitted (with a
+    /// fuzzy-match suggestion when possible). An unresolved target in a
+    /// field listed in `absent_targets` ((kind, field) -> target kind) is
+    /// an I004 hint: no loaded extension declares that kind, so the
     /// reference can't resolve until its extension is enabled.
-    pub fn resolve_references_with(
+    pub(crate) fn resolve_references_with(
         &mut self,
         single_ref_fields: &HashSet<(String, String)>,
         absent_targets: &HashMap<(String, String), String>,

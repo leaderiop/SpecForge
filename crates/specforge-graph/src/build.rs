@@ -206,7 +206,7 @@ impl GraphBuild {
     }
 
     /// Declare, place, link and report over the files the build holds:
-    /// the one pipeline [`Self::of`] and [`Self::apply`] share. `ids` says
+    /// the one sequence [`Self::of`] and [`Self::apply`] share. `ids` says
     /// which declarations are placed; the graph holds the others already.
     fn rebuild(&mut self, ids: Ids<'_>) {
         let declared = declarations(self.files.values(), &self.config);

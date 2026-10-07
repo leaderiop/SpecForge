@@ -29,7 +29,10 @@ impl Graph {
     /// Coerce every node's registered field values; `coercions` maps
     /// (entity kind, field name) to the declared type's coercion.
     /// Idempotent, so rebuilds may re-run it on already coerced nodes.
-    pub fn coerce_field_values(&mut self, coercions: &HashMap<(String, String), FieldCoercion>) {
+    pub(crate) fn coerce_field_values(
+        &mut self,
+        coercions: &HashMap<(String, String), FieldCoercion>,
+    ) {
         if coercions.is_empty() {
             return;
         }
