@@ -1844,3 +1844,144 @@ fn a_reload_builds_its_runtime_from_the_config_it_read() {
     session.reload_environment();
     assert!(std::sync::Arc::ptr_eq(session.runtime().unwrap(), &fixed));
 }
+
+// --- 07-T0: pins for the graph build and the unreadable source ---
+
+/// `a.spec` and a `bad.spec` that is not UTF-8.
+fn project_with_an_unreadable_source() -> TempDir {
+    let dir = project(CONFIG, &[("a.spec", &behavior("alpha", ""))]);
+    fs::write(
+        dir.path().join("bad.spec"),
+        b"term beta \"B\xff\xfe\" {\n}\n",
+    )
+    .unwrap();
+    dir
+}
+
+fn e025_messages(diagnostics: &[Diagnostic]) -> Vec<String> {
+    diagnostics
+        .iter()
+        .filter(|d| d.code == "E025")
+        .map(|d| d.message.clone())
+        .collect()
+}
+
+#[test]
+fn an_unreadable_source_is_reported_after_an_update_of_another_file() {
+    let dir = project_with_an_unreadable_source();
+    let root = dir.path();
+    let runtime = specforge_component::project_runtime(root);
+    let mut session = ProjectSession::open(root);
+    assert_eq!(
+        e025_messages(&session.diagnostics()),
+        ["cannot read file: stream did not contain valid UTF-8"]
+    );
+
+    write(root, "a.spec", &behavior("alpha", "  invariants []\n"));
+    session.update(SourceChange::Disk(&changed(&["a.spec"])));
+
+    // PIN (07-T4): an update drops the unreadable source's E025.
+    assert!(e025_messages(&session.diagnostics()).is_empty());
+    let fresh = CompiledProject::compile(root, Some(&runtime));
+    assert_eq!(e025_messages(&fresh.diagnostics()).len(), 1);
+}
+
+/// `b.spec`: `behavior dup`; `c.spec`: `invariant dup`; `d.spec`:
+/// `invariant dup` and a define block.
+#[specforge_test(
+    behavior = "rebuild_affected_subgraph",
+    verify = "incremental rebuild equals cold rebuild"
+)]
+fn duplicates_across_files_and_kinds_stay_what_a_fresh_compile_reports() {
+    let invariant = "invariant dup \"Dup\" {\n  contract \"The system MUST dup\"\n}\n";
+    let dir = project(
+        CONFIG,
+        &[
+            ("b.spec", &behavior("dup", "")),
+            ("c.spec", invariant),
+            ("d.spec", &format!("{invariant}define thing {{\n}}\n")),
+        ],
+    );
+    let root = dir.path();
+    let mut session = ProjectSession::open(root);
+    session.set_verify_incremental(true);
+    assert_matches_a_fresh_compile(&session, root);
+
+    // The pinned messages: E002 names the first declaration of the same
+    // kind (c.spec), not the retained node (b.spec).
+    let diagnostics = session.diagnostics();
+    let on = |code: &str, file: &str| {
+        diagnostics
+            .iter()
+            .filter(|d| d.code == code && d.span.as_ref().is_some_and(|s| s.file == file))
+            .map(|d| d.message.clone())
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(
+        on("E002", "d.spec"),
+        ["duplicate entity ID 'dup' (first declared at c.spec:1:1)"]
+    );
+    assert_eq!(
+        on("W060", "c.spec"),
+        [
+            "entity ID 'dup' is used by kind 'behavior' and kind 'invariant'; first declaration (kind 'behavior') is retained"
+        ]
+    );
+
+    let steps: [(&str, Option<String>); 5] = [
+        ("a.spec", Some(behavior("dup", ""))),
+        ("a.spec", None),
+        ("c.spec", Some(behavior("dup", ""))),
+        ("b.spec", None),
+        ("d.spec", Some(invariant.to_string())),
+    ];
+    for (path, text) in steps {
+        match &text {
+            Some(text) => write(root, path, text),
+            None => fs::remove_file(root.join(path)).unwrap(),
+        }
+        let update = session.update(SourceChange::Disk(&changed(&[path])));
+        assert_eq!(update.verification, Some(Ok(())), "after {path}");
+        assert_matches_a_fresh_compile(&session, root);
+    }
+}
+
+#[test]
+fn the_session_reports_graph_diagnostics_in_build_order() {
+    let dir = project(
+        CONFIG,
+        &[
+            ("a.spec", &behavior("alpha", "  invariants [ghost]\n")),
+            (
+                "b.spec",
+                &format!("{}{}", behavior("beta", ""), behavior("beta", "")),
+            ),
+        ],
+    );
+    let root = dir.path();
+    let runtime = specforge_component::project_runtime(root);
+    let codes = |diagnostics: &[Diagnostic]| -> Vec<String> {
+        diagnostics.iter().map(|d| d.code.to_string()).collect()
+    };
+    let compiled = CompiledProject::compile(root, Some(&runtime));
+    let session = ProjectSession::open(root);
+
+    assert_eq!(codes(&compiled.graph_diagnostics), ["E002", "E003"]);
+    // PIN (07-T3): a session sorts them by file.
+    assert_eq!(codes(&session.graph_diagnostics()), ["E003", "E002"]);
+    assert_eq!(
+        diagnostic_set(&compiled.graph_diagnostics),
+        diagnostic_set(&session.graph_diagnostics())
+    );
+}
+
+#[test]
+fn a_session_verifies_its_updates_only_when_asked() {
+    let dir = three_files();
+    let root = dir.path();
+    let mut session = ProjectSession::open(root);
+    write(root, "c.spec", &behavior("renamed", ""));
+    let update = session.update(SourceChange::Disk(&changed(&["c.spec"])));
+    // PIN (07-T6): no verification unless asked, in every build profile.
+    assert_eq!(update.verification, None);
+}

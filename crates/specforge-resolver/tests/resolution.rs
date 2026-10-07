@@ -962,3 +962,130 @@ fn no_import_reaches_above_the_spec_root() {
         );
     }
 }
+
+// --- W027 pins: the re-export obligations, observed without the file scopes ---
+
+/// The W027 messages `resolve_project` reports for `files`.
+fn w027_messages(files: &[(&str, &str)]) -> Vec<String> {
+    let dir = setup_project(files);
+    resolve_project(dir.path())
+        .diagnostics
+        .iter()
+        .filter(|d| d.code == "W027")
+        .map(|d| d.message.clone())
+        .collect()
+}
+
+const USER_AND_PROFILE: &str = "behavior User \"U\" { contract \"user\" }\nbehavior UserProfile \"UP\" { contract \"profile\" }";
+
+#[specforge_test(
+    behavior = "resolve_reexports",
+    verify = "pub use re-exports all entities from target"
+)]
+fn pub_use_reexports_all_entities_w027() {
+    // top names UserProfile through barrel's `pub use "./user"`.
+    let w027 = w027_messages(&[
+        ("user.spec", USER_AND_PROFILE),
+        ("barrel.spec", "pub use \"./user\"\n"),
+        ("top.spec", "pub use { UserProfile } from \"./barrel\"\n"),
+    ]);
+    assert!(w027.is_empty(), "{w027:?}");
+}
+
+#[specforge_test(
+    behavior = "resolve_reexports",
+    verify = "pub use selective re-exports only named entities"
+)]
+fn pub_use_selective_reexport_w027() {
+    let w027 = w027_messages(&[
+        ("user.spec", USER_AND_PROFILE),
+        ("barrel.spec", "pub use { User } from \"./user\"\n"),
+        (
+            "top.spec",
+            "pub use { User, UserProfile } from \"./barrel\"\n",
+        ),
+    ]);
+    assert_eq!(
+        w027,
+        ["selective re-export 'UserProfile' not found in target 'barrel.spec'"]
+    );
+}
+
+#[specforge_test(
+    behavior = "resolve_reexports",
+    verify = "pub use chains resolve transitively"
+)]
+fn pub_use_transitive_chain_w027() {
+    let w027 = w027_messages(&[
+        (
+            "deep.spec",
+            "behavior DeepEntity \"D\" { contract \"deep\" }",
+        ),
+        ("mid.spec", "pub use \"./deep\"\n"),
+        ("top.spec", "pub use \"./mid\"\n"),
+        ("leaf.spec", "pub use { DeepEntity } from \"./top\"\n"),
+    ]);
+    assert!(w027.is_empty(), "{w027:?}");
+}
+
+#[specforge_test(
+    behavior = "resolve_reexports",
+    verify = "regular use does not re-export"
+)]
+fn regular_use_does_not_reexport_w027() {
+    let w027 = w027_messages(&[
+        ("user.spec", "behavior User \"U\" { contract \"user\" }"),
+        (
+            "consumer.spec",
+            "use \"./user\"\nbehavior Consumer \"C\" { invariants [User] }",
+        ),
+        (
+            "leaf.spec",
+            "pub use { User, Consumer } from \"./consumer\"\n",
+        ),
+    ]);
+    assert_eq!(w027.len(), 1, "{w027:?}");
+    assert!(w027[0].contains("'User'"), "{w027:?}");
+}
+
+#[specforge_test(
+    behavior = "resolve_reexports",
+    verify = "barrel index with pub use re-exports from sub-files"
+)]
+fn barrel_index_with_pub_use_w027() {
+    let w027 = w027_messages(&[
+        (
+            "models/user.spec",
+            "behavior User \"U\" { contract \"user\" }",
+        ),
+        (
+            "models/order.spec",
+            "behavior Order \"O\" { contract \"order\" }",
+        ),
+        (
+            "models/index.spec",
+            "pub use \"./user\"\npub use \"./order\"\n",
+        ),
+        ("top.spec", "pub use { User, Order } from \"./models\"\n"),
+    ]);
+    assert!(w027.is_empty(), "{w027:?}");
+}
+
+#[specforge_test(
+    behavior = "resolve_reexports",
+    verify = "pub use through cycle participant uses only declared set"
+)]
+fn pub_use_through_cycle_no_transitive_w027() {
+    // a and b form a cycle; c pub-uses a; d names what c exports.
+    let w027 = w027_messages(&[
+        (
+            "a.spec",
+            "use \"./b\"\npub use \"./b\"\nbehavior Alpha \"A\" { }",
+        ),
+        ("b.spec", "use \"./a\"\nbehavior Beta \"B\" { }"),
+        ("c.spec", "pub use \"./a\"\nbehavior Gamma \"G\" { }"),
+        ("d.spec", "pub use { Alpha, Gamma, Beta } from \"./c\"\n"),
+    ]);
+    assert_eq!(w027.len(), 1, "{w027:?}");
+    assert!(w027[0].contains("'Beta'"), "{w027:?}");
+}

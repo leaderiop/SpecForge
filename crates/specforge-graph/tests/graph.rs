@@ -1685,3 +1685,23 @@ fn reach_from_an_unknown_root_is_none() {
     assert!(graph.subgraph("nope").is_none());
     assert!(graph.subgraph_depth("nope", 2).is_none());
 }
+
+// === first declaration wins, in path order ===
+
+// PIN (07-T3): the cold build takes files in the slice's order.
+#[test]
+fn a_duplicate_goes_to_the_first_file_in_path_order() {
+    use specforge_graph::build_graph;
+    use specforge_parser::parse;
+
+    let source = "behavior dup \"Dup\" { contract \"x\" }\n";
+    let (graph, diagnostics) = build_graph(&[parse(source, "b.spec"), parse(source, "a.spec")]);
+
+    assert_eq!(
+        graph.node("dup").unwrap().source_span.file.as_str(),
+        "b.spec"
+    );
+    let e002: Vec<_> = diagnostics.iter().filter(|d| d.code == "E002").collect();
+    assert_eq!(e002.len(), 1);
+    assert_eq!(e002[0].span.as_ref().unwrap().file.as_str(), "a.spec");
+}
