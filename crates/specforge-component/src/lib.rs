@@ -29,7 +29,7 @@ wasmtime::component::bindgen!({
 pub mod builtins;
 pub mod project;
 
-pub use project::project_runtime;
+pub use project::{project_runtime, project_runtime_with};
 
 /// Per-instance state: the WASI context (no capability) and the memory
 /// ceiling the limiter enforces. Builtins are pure-compute, but wasip2

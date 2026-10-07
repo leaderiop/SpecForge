@@ -39,7 +39,7 @@ use compile::{GraphChecks, check_graph, load_extensions};
 use coverage::RecordedCoverage;
 use snapshot::EntitySnapshot;
 use specforge_common::{
-    ConfigProblem, Diagnostic, ProjectConfig, codes, is_discovered, read_project_config,
+    ConfigProblem, ConfigRead, Diagnostic, ProjectConfig, codes, is_discovered, read_project_config,
 };
 use specforge_graph::{Graph, GraphConfig, build_graph_with_config};
 use specforge_parser::SpecFile;
@@ -57,7 +57,9 @@ pub use inputs::{Changes, EnvironmentInputs, InputRole, Origin, UpdateKind, sour
 pub use policy::{
     DiagnosticPolicy, LINT_PROFILE_NAMES, LintProfile, UnknownLintProfile, apply_policy,
 };
-pub use session::{CheckMode, OpeningProject, ProjectSession, SharedRuntime, SourceChange, Update};
+pub use session::{
+    CheckMode, OpeningProject, ProjectSession, RuntimeSource, SharedRuntime, SourceChange, Update,
+};
 
 /// Everything derived from `specforge.json` and the loaded extensions,
 /// before any `.spec` file is read.
@@ -142,7 +144,12 @@ impl Environment {
     /// Read the project's config and load its extensions through `runtime`
     /// (none without one), then build the registries from them.
     pub fn load(root: &Path, runtime: Option<&dyn WasmRuntime>) -> Self {
-        let read = read_project_config(root);
+        Self::from_read(root, read_project_config(root), runtime)
+    }
+
+    /// The environment of the config `read` (the one read of
+    /// `specforge.json`), its extensions loaded through `runtime`.
+    pub fn from_read(root: &Path, read: ConfigRead, runtime: Option<&dyn WasmRuntime>) -> Self {
         let config = read.config;
         let enabled = config
             .extensions

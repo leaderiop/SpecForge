@@ -4,7 +4,7 @@ use std::path::Path;
 
 use specforge_common::Diagnostic;
 use specforge_graph::Graph;
-use specforge_project::{CompiledProject, ProjectSession, SourceChange};
+use specforge_project::{CompiledProject, ProjectSession, SourceChange, UpdateKind};
 use specforge_test::prelude::*;
 use tempfile::TempDir;
 
@@ -1715,4 +1715,132 @@ fn an_update_that_skips_the_checks_still_scores_its_own_graph() {
     }
     let coverage = session.recorded().at(Some(root)).unwrap().coverage;
     assert!(std::ptr::eq(entities, coverage.entities()));
+}
+
+/// An in-process extension `name` declaring one kind, `kind`.
+fn kind_extension(
+    name: &'static str,
+    kind: &'static str,
+) -> specforge_extension_sdk::prelude::ContributionsBuilder {
+    use specforge_extension_sdk::prelude::*;
+    let mut c = ContributionsBuilder::new(ExtensionMeta::new(name, "0.1.0"));
+    c.kind(kind, |k| {
+        k.description("a kind");
+    });
+    c
+}
+
+/// The runtime of the extensions `config` names (`@test/a`, `@test/b`).
+fn runtime_of(config: &specforge_common::ProjectConfig) -> specforge_project::SharedRuntime {
+    use specforge_wasm::testing::InProcessRuntime;
+    let mut runtime = InProcessRuntime::new();
+    for entry in &config.extensions {
+        match entry.as_str() {
+            "@test/a" => runtime = runtime.with(|| kind_extension("@test/a", "alpha")),
+            "@test/b" => runtime = runtime.with(|| kind_extension("@test/b", "beta")),
+            _ => {}
+        }
+    }
+    std::sync::Arc::new(runtime)
+}
+
+const V1: &str = r#"{"name":"s","version":"0.1.0","extensions":["@test/a"]}"#;
+const V2: &str = r#"{"name":"s","version":"0.1.0","extensions":["@test/a","@test/b"]}"#;
+
+type SeenConfigs = std::sync::Arc<std::sync::Mutex<Vec<Vec<String>>>>;
+
+/// A source whose first build runs `during` (a write while the extension
+/// runtime loads), and which records the extensions of every config it
+/// was called with.
+fn source_writing(
+    during: impl Fn(&Path) + Send + Sync + 'static,
+) -> (specforge_project::RuntimeSource, SeenConfigs) {
+    let seen: SeenConfigs = Default::default();
+    let recorded = std::sync::Arc::clone(&seen);
+    let source = specforge_project::RuntimeSource::Build(std::sync::Arc::new(
+        move |root: &Path, config: &specforge_common::ProjectConfig| {
+            let first = {
+                let mut seen = recorded.lock().unwrap();
+                seen.push(config.extensions.clone());
+                seen.len() == 1
+            };
+            if first {
+                during(root);
+            }
+            runtime_of(config)
+        },
+    ));
+    (source, seen)
+}
+
+#[specforge_test(
+    behavior = "bring_session_up_to_date",
+    verify = "a specforge.json or module written while the extension runtime loads is seen next time"
+)]
+fn a_config_written_while_the_runtime_loads_is_seen_next_time() {
+    let dir = project(V1, &[("a.spec", "")]);
+    let root = dir.path();
+    let (source, seen) = source_writing(|root| fs::write(root.join("specforge.json"), V2).unwrap());
+
+    let mut session = ProjectSession::open_from(root, source);
+
+    // The runtime and the environment were built from the one read (v1),
+    // so the environment asks the runtime for nothing it did not load.
+    assert_eq!(seen.lock().unwrap().clone(), [["@test/a"]]);
+    let e028 = |session: &ProjectSession| session.diagnostics().iter().any(|d| d.code == "E028");
+    assert!(!e028(&session), "{:?}", session.diagnostics());
+    // The write was after the config's stamp: the session is stale.
+    assert!(session.stale().environment);
+
+    let update = session.ensure_fresh().expect("the config changed");
+    assert_eq!(update.kind, UpdateKind::Environment);
+    assert_eq!(seen.lock().unwrap()[1], ["@test/a", "@test/b"]);
+    assert!(!e028(&session), "{:?}", session.diagnostics());
+    let kinds = &session.environment().registries.kinds;
+    assert!(kinds.contains("alpha") && kinds.contains("beta"));
+    assert!(!session.stale().environment);
+}
+
+#[specforge_test(
+    behavior = "bring_session_up_to_date",
+    verify = "a specforge.json or module written while the extension runtime loads is seen next time"
+)]
+fn a_module_rewritten_while_the_runtime_loads_is_seen_next_time() {
+    let dir = project(
+        r#"{"name":"s","version":"0.1.0","extensions":["@acme/local=ext/local.wasm"]}"#,
+        &[("a.spec", ""), ("ext/local.wasm", "version one")],
+    );
+    let root = dir.path();
+    let (source, _) =
+        source_writing(|root| fs::write(root.join("ext/local.wasm"), "version two!").unwrap());
+
+    let mut session = ProjectSession::open_from(root, source);
+
+    assert!(session.stale().environment);
+    let update = session.ensure_fresh().expect("the module changed");
+    assert_eq!(update.kind, UpdateKind::Environment);
+    assert!(!session.stale().environment);
+}
+
+#[test]
+fn a_reload_builds_its_runtime_from_the_config_it_read() {
+    let dir = project(V1, &[("a.spec", "")]);
+    let root = dir.path();
+    let (source, seen) = source_writing(|_| {});
+    let mut session = ProjectSession::open_from(root, source);
+
+    fs::write(root.join("specforge.json"), V2).unwrap();
+    session.reload_environment();
+    fs::write(root.join("specforge.json"), V1).unwrap();
+    session.reload_environment();
+    assert_eq!(
+        seen.lock().unwrap().clone(),
+        [vec!["@test/a"], vec!["@test/a", "@test/b"], vec!["@test/a"]]
+    );
+
+    // A fixed runtime is the same one after a reload.
+    let fixed = runtime_of(&specforge_common::ProjectConfig::default());
+    let mut session = ProjectSession::open_with_runtime(root, Some(fixed.clone()));
+    session.reload_environment();
+    assert!(std::sync::Arc::ptr_eq(session.runtime().unwrap(), &fixed));
 }

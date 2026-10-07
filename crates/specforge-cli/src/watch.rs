@@ -19,8 +19,6 @@ pub fn run(path: &Path, json: bool, verify_incremental: bool) -> i32 {
     let verify_incremental = verify_incremental || cfg!(debug_assertions);
     let mut session = ProjectSession::open(path);
     session.set_verify_incremental(verify_incremental);
-    let spec_root: PathBuf = std::fs::canonicalize(&session.environment().spec_root)
-        .unwrap_or_else(|_| session.environment().spec_root.clone());
 
     // Start watching before announcing readiness: a client that writes on
     // seeing "ready" must never race a watcher that does not exist yet.
@@ -35,6 +33,28 @@ pub fn run(path: &Path, json: bool, verify_incremental: bool) -> i32 {
         }
     };
 
+    // What was written between the open's stamps and the watchers is applied
+    // before `ready` (ADR 0030): the session follows the disk it saw when
+    // the watchers were armed.
+    while session.ensure_fresh().is_some() {
+        let now = session.watch_roots();
+        if now == roots {
+            break;
+        }
+        match arm(path, &now, &tx) {
+            Ok(rearmed) => {
+                watchers = rearmed;
+                roots = now;
+            }
+            Err(e) => {
+                eprintln!("warning: {e}");
+                break;
+            }
+        }
+    }
+
+    let spec_root: PathBuf = std::fs::canonicalize(&session.environment().spec_root)
+        .unwrap_or_else(|_| session.environment().spec_root.clone());
     let diagnostics = session.diagnostics();
     let Counts {
         errors, warnings, ..

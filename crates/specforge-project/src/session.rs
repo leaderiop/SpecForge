@@ -4,7 +4,9 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, OnceLock};
 
-use specforge_common::{Diagnostic, codes, discover_spec_files, load_project_config};
+use specforge_common::{
+    Diagnostic, ProjectConfig, codes, discover_spec_files, read_project_config,
+};
 use specforge_graph::{Graph, build_graph_with_config};
 use specforge_parser::SpecFile;
 use specforge_resolver::resolve_parsed;
@@ -21,6 +23,39 @@ use crate::{Environment, sources_in_path_order};
 /// The runtime a session runs its project's extensions in (every
 /// [`WasmRuntime`] is `Send + Sync`).
 pub type SharedRuntime = Arc<dyn WasmRuntime>;
+
+/// Builds the runtime of the project at a root from the config read there.
+pub type BuildRuntime = Arc<dyn Fn(&Path, &ProjectConfig) -> SharedRuntime + Send + Sync>;
+
+/// How a session gets the runtime its project's extensions run in.
+#[derive(Clone)]
+pub enum RuntimeSource {
+    /// Built for each environment load from the config that load read,
+    /// after every environment input is stamped: the project's own
+    /// component runtime ([`RuntimeSource::project`]), or a test's.
+    Build(BuildRuntime),
+    /// The same runtime for every load (none: no extension loads).
+    Fixed(Option<SharedRuntime>),
+}
+
+impl RuntimeSource {
+    /// `specforge_component::project_runtime_with`: the builtins the config
+    /// enables, the installed extensions from the lock, the `.wasm` file
+    /// entries.
+    pub fn project() -> Self {
+        RuntimeSource::Build(Arc::new(|root, config| {
+            Arc::new(specforge_component::project_runtime_with(root, config))
+        }))
+    }
+
+    /// The runtime of the environment load at `root` with `config`.
+    fn runtime_for(&self, root: &Path, config: &ProjectConfig) -> Option<SharedRuntime> {
+        match self {
+            RuntimeSource::Build(build) => Some(build(root, config)),
+            RuntimeSource::Fixed(runtime) => runtime.clone(),
+        }
+    }
+}
 
 /// What changed in a session's sources.
 pub enum SourceChange<'a> {
@@ -77,9 +112,9 @@ pub struct ProjectSession {
     /// from while the session itself is busy.
     env: Arc<Environment>,
     runtime: Option<SharedRuntime>,
-    /// The session built its runtime, so a reload builds a fresh one (the
-    /// extensions' `.wasm` files may have changed).
-    owns_runtime: bool,
+    /// Where each environment load gets its runtime: a built one is fresh
+    /// for every load (the extensions' `.wasm` files may have changed).
+    source: RuntimeSource,
     build: IncrementalBuild,
     import_diagnostics: Vec<Diagnostic>,
     check_diagnostics: Vec<Diagnostic>,
@@ -107,8 +142,8 @@ pub struct ProjectSession {
 pub struct OpeningProject {
     env: Arc<Environment>,
     runtime: Option<SharedRuntime>,
-    /// The session built its runtime, so a reload builds a fresh one.
-    owns_runtime: bool,
+    /// Where each environment load gets its runtime.
+    source: RuntimeSource,
     /// Stamped for the environment; the sources are stamped by `finish`.
     snapshot: DiskSnapshot,
 }
@@ -150,7 +185,7 @@ impl OpeningProject {
         let mut session = ProjectSession {
             env: self.env,
             runtime: self.runtime,
-            owns_runtime: self.owns_runtime,
+            source: self.source,
             build,
             import_diagnostics: resolved.diagnostics,
             check_diagnostics: Vec::new(),
@@ -171,7 +206,7 @@ impl ProjectSession {
         ProjectSession {
             env: Arc::new(Environment::empty()),
             runtime: None,
-            owns_runtime: false,
+            source: RuntimeSource::Fixed(None),
             build: IncrementalBuild::empty(),
             import_diagnostics: Vec::new(),
             check_diagnostics: Vec::new(),
@@ -183,15 +218,21 @@ impl ProjectSession {
     }
 
     /// Open the project at `root`, running its extensions in the project's
-    /// own runtime.
+    /// own runtime ([`RuntimeSource::project`]).
     pub fn open(root: &Path) -> Self {
-        Self::begin_open(root).finish()
+        Self::open_from(root, RuntimeSource::project())
     }
 
     /// Open the project at `root` with `runtime` (none: no extension
     /// loads). A reload keeps using the same runtime.
     pub fn open_with_runtime(root: &Path, runtime: Option<SharedRuntime>) -> Self {
-        Self::begin_open_with_runtime(root, runtime).finish()
+        Self::open_from(root, RuntimeSource::Fixed(runtime))
+    }
+
+    /// Open the project at `root`, each environment load getting its
+    /// runtime from `source`.
+    pub fn open_from(root: &Path, source: RuntimeSource) -> Self {
+        Self::begin_open_from(root, source).finish()
     }
 
     /// The first half of [`Self::open`]: the environment loaded (config,
@@ -200,24 +241,25 @@ impl ProjectSession {
     /// served from [`OpeningProject::environment`] while
     /// [`OpeningProject::finish`] reads and builds the sources.
     pub fn begin_open(root: &Path) -> OpeningProject {
-        let mut opening = Self::begin_open_with_runtime(root, Some(project_runtime(root)));
-        opening.owns_runtime = true;
-        opening
+        Self::begin_open_from(root, RuntimeSource::project())
     }
 
-    /// [`Self::begin_open`] with `runtime` (none: no extension loads).
-    pub fn begin_open_with_runtime(root: &Path, runtime: Option<SharedRuntime>) -> OpeningProject {
-        // Everything is stamped before it is read (crate::freshness): the
-        // config first, then what it names, then the sources.
+    /// [`Self::begin_open`] with the runtime `source` gives.
+    pub fn begin_open_from(root: &Path, source: RuntimeSource) -> OpeningProject {
+        // Everything is stamped before anything reads it (crate::freshness):
+        // the config before its one read, the lock and the modules before
+        // the runtime and the environment read them, the sources by `finish`.
         let mut snapshot = DiskSnapshot::default();
-        snapshot.stamp_environment(&root.join("specforge.json"), || {
-            let inputs = environment_inputs(root, &load_project_config(root), false);
-            std::iter::once(inputs.lock).chain(inputs.modules).collect()
-        });
+        snapshot.stamp_config(&root.join("specforge.json"));
+        let read = read_project_config(root);
+        let files = environment_inputs(root, &read.config, false);
+        snapshot.stamp_environment(std::iter::once(files.lock).chain(files.modules));
+        let runtime = source.runtime_for(root, &read.config);
+        let env = Environment::from_read(root, read, runtime.as_deref());
         OpeningProject {
-            env: Arc::new(Environment::load(root, runtime.as_deref())),
+            env: Arc::new(env),
             runtime,
-            owns_runtime: false,
+            source,
             snapshot,
         }
     }
@@ -301,13 +343,7 @@ impl ProjectSession {
             };
         }
         let root = self.env.root.clone();
-        let runtime = if self.owns_runtime {
-            Some(project_runtime(&root))
-        } else {
-            self.runtime.clone()
-        };
-        let mut next = Self::open_with_runtime(&root, runtime);
-        next.owns_runtime = self.owns_runtime;
+        let mut next = Self::open_from(&root, self.source.clone());
         next.set_verify_incremental(self.verify_incremental);
         let previous = std::mem::replace(self, next);
         self.replaced(&previous)
@@ -657,8 +693,4 @@ struct Classifier {
     environment: std::collections::BTreeSet<PathBuf>,
     checks: std::collections::BTreeSet<PathBuf>,
     suggestion_dirs: std::collections::BTreeSet<PathBuf>,
-}
-
-fn project_runtime(root: &Path) -> SharedRuntime {
-    Arc::new(specforge_component::project_runtime(root))
 }

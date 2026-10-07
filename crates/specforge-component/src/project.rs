@@ -7,7 +7,7 @@
 //! paths from `specforge.json`, with identical semantics everywhere.
 
 use crate::{ComponentRuntime, builtins};
-use specforge_common::{ExtensionEntry, codes};
+use specforge_common::{ExtensionEntry, ProjectConfig, codes};
 use std::path::{Path, PathBuf};
 
 /// Build the Wasm runtime for a project.
@@ -21,8 +21,13 @@ use std::path::{Path, PathBuf};
 /// declares. What does not load is recorded as a load failure (E028/E033)
 /// the environment reports.
 pub fn project_runtime(path: &Path) -> ComponentRuntime {
-    let config = specforge_common::load_project_config(path);
+    project_runtime_with(path, &specforge_common::load_project_config(path))
+}
 
+/// [`project_runtime`] of the project at `path` with `config`, the config
+/// its caller read: a session reads `specforge.json` once and builds both
+/// its runtime and its environment from that read.
+pub fn project_runtime_with(path: &Path, config: &ProjectConfig) -> ComponentRuntime {
     // The compile cache must be selected at construction — wasmtime reads it
     // when the Engine is built. Builtin loads below populate it on first use.
     let runtime = match user_compile_cache_dir() {

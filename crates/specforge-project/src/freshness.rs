@@ -3,7 +3,9 @@
 //!
 //! Every build records what it read: each source's size and modification
 //! time, the same for each environment input, and for each check input
-//! before the checks run. [`ProjectSession::stale`] compares that record
+//! before the checks run. The config is stamped before its one read, the
+//! lock and the modules before the extension runtime and the environment
+//! read them. [`ProjectSession::stale`] compares that record
 //! with disk. Stamps are taken *before* the read they describe, so a write
 //! that races the read is seen next time rather than lost.
 //!
@@ -102,15 +104,20 @@ pub(crate) struct DiskSnapshot {
 }
 
 impl DiskSnapshot {
-    /// Stamp every environment input, before the environment is loaded:
-    /// the config first, then the other inputs (`rest`), which it names.
-    /// A config rewritten after its stamp is seen next time, whatever the
-    /// rest was read from.
-    pub(crate) fn stamp_environment(&mut self, config: &Path, rest: impl FnOnce() -> Vec<PathBuf>) {
+    /// Stamp `specforge.json`, before its one read: a config rewritten after
+    /// this stamp is seen next time, whatever the rest was read from. Starts
+    /// the environment record again.
+    pub(crate) fn stamp_config(&mut self, config: &Path) {
         self.environment = BTreeMap::new();
         self.environment
             .insert(config.to_path_buf(), Entry::stamp(config));
-        for path in rest() {
+    }
+
+    /// Stamp the other environment inputs (the lock and each extension
+    /// module), before the extension runtime and the environment read
+    /// them.
+    pub(crate) fn stamp_environment(&mut self, files: impl IntoIterator<Item = PathBuf>) {
+        for path in files {
             let entry = Entry::stamp(&path);
             self.environment.insert(path, entry);
         }
