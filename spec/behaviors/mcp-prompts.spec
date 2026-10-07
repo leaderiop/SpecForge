@@ -34,7 +34,9 @@ behavior serve_mcp_prompt "Serve MCP Prompt" {
     Every core prompt is one Prompt spec: prompts/list derives its arguments
     from the typed arguments prompts/get reads, so a listed argument is read
     and a required one is one the prompt cannot render without. MCP sends
-    prompt arguments as strings; a count is read from a string. Arguments
+    prompt arguments as strings; a count is read from a string. An
+    argument the prompt does not declare MUST be refused as invalid input
+    naming it (read_mcp_arguments_as_declared). Arguments
     that are not an object are -32602. A prompt that cannot render (an
     invalid argument, an unknown entity, an unusable project file) answers
     a JSON-RPC error, -32602 for input the client can fix and -32603 for a

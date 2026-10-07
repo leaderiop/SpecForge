@@ -9,6 +9,7 @@
 use serde_json::{Value, json};
 use specforge_common::{Diagnostic, Severity, codes};
 
+use crate::args::Argument;
 use crate::mutation::Mutated;
 use crate::protocol::{JsonRpcError, JsonRpcResponse, error_codes};
 use crate::target::{Call, TargetSpec};
@@ -89,15 +90,22 @@ impl Access {
     }
 }
 
-/// How a tool is run: its handler, by role.
+/// How a tool is run: its handler, by role, and the arguments it reads
+/// ([`crate::args::Arguments::declared`] of its `Args` struct).
 #[derive(Clone, Copy)]
 pub enum Handler {
     /// Any tool but a mutation: its reply is all there is (collect and
     /// render write output artifacts, not project sources; spec feature
     /// `mcp_project_management_tools`).
-    Tool(fn(&mut Call<'_>, Value) -> ToolOutcome),
+    Tool {
+        arguments: fn() -> Vec<Argument>,
+        run: fn(&mut Call<'_>, Value) -> ToolOutcome,
+    },
     /// A mutation (category `mutation`): its reply and what it wrote.
-    Mutation(fn(&mut Call<'_>, Value) -> Mutated),
+    Mutation {
+        arguments: fn() -> Vec<Argument>,
+        run: fn(&mut Call<'_>, Value) -> Mutated,
+    },
 }
 
 /// One core tool: everything the server lists, dispatches and reports
@@ -108,50 +116,45 @@ pub struct ToolSpec {
     pub category: Category,
     /// What it does to its environment: the listing's annotations.
     pub access: Access,
-    pub schema: fn() -> Value,
     /// The schema its `structuredContent` conforms to: for a tool whose
     /// result is a JSON object.
     pub output: Option<fn() -> Value>,
-    /// The fields of the handler's `Args` struct ([`crate::args::fields`]):
-    /// the arguments it reads, beside the ones its target reads
-    /// ([`Self::reads`]).
-    pub fields: fn() -> &'static [&'static str],
     /// Which project it acts on, and whether that project is brought up
     /// to date first: resolved into the call's target before the handler.
     pub target: TargetSpec,
-    /// The handler, reading its `Args` from the call's `arguments`: a
+    /// The handler and its arguments, read from the call's `arguments`: a
     /// [`Handler::Mutation`] exactly for the `mutation` category.
     pub handler: Handler,
 }
 
 impl ToolSpec {
-    /// The input schema `tools/list` lists: [`Self::schema`] with the
-    /// target's properties merged in and its required arguments added.
+    /// The input schema `tools/list` lists: the handler's arguments, then
+    /// the target's, and no other property ([`crate::args::input_schema`]).
     pub fn input_schema(&self) -> Value {
-        let mut schema = (self.schema)();
-        if let Some(properties) = schema.get_mut("properties").and_then(Value::as_object_mut) {
-            properties.extend(self.target.properties());
-        }
-        let required = self.target.required();
-        if !required.is_empty() {
-            let listed = schema
-                .as_object_mut()
-                .map(|schema| schema.entry("required").or_insert_with(|| json!([])));
-            if let Some(Value::Array(listed)) = listed {
-                listed.extend(required.iter().map(|name| Value::from(*name)));
-            }
-        }
-        schema
+        crate::args::input_schema(&self.arguments(), self.target)
     }
 
-    /// Every argument the call reads: the handler's `Args` fields, then the
-    /// target's ([`TargetSpec::fields`]).
+    /// The handler's declared arguments, in field order.
+    pub fn arguments(&self) -> Vec<Argument> {
+        match self.handler {
+            Handler::Tool { arguments, .. } | Handler::Mutation { arguments, .. } => arguments(),
+        }
+    }
+
+    /// Every argument the call reads: the handler's, then the target's
+    /// ([`TargetSpec::fields`]).
     pub fn reads(&self) -> Vec<&'static str> {
-        (self.fields)()
+        self.arguments()
             .iter()
-            .chain(self.target.fields())
-            .copied()
+            .map(|argument| argument.name)
+            .chain(self.target.fields().iter().copied())
             .collect()
+    }
+
+    /// The refusal of a call that sends a name neither the tool nor its
+    /// target declares ([`crate::args::undeclared`]).
+    pub fn undeclared(&self, arguments: &Value) -> Option<McpError> {
+        crate::args::undeclared(arguments, &self.arguments(), self.target)
     }
 
     /// The tool as `tools/list` describes it.

@@ -4,11 +4,14 @@ use specforge_common::inference::anchors::{self, SourceAnchor};
 use specforge_graph::Graph;
 use specforge_ops::navigate::{FileAnchors, FileMatch, anchors_of_file};
 
+use crate::args::Arguments;
 use crate::target::Call;
 use crate::tool::{Handled, ToolOutcome};
 
-#[derive(Debug, serde::Deserialize)]
+/// `specforge.find_spec_for_source`'s arguments.
+#[derive(Debug, Arguments)]
 pub struct Args {
+    /// Path of the source file, relative to the project root (a directory lists the files under it; a trailing part of a path matches it)
     file_path: String,
 }
 

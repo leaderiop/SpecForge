@@ -1,10 +1,13 @@
 use serde_json::json;
 
+use crate::args::Arguments;
 use crate::target::Call;
 use crate::tool::{Handled, ToolOutcome};
 
-#[derive(Debug, serde::Deserialize)]
+/// `specforge.find_definition`'s arguments.
+#[derive(Debug, Arguments)]
 pub struct Args {
+    /// Entity ID
     entity_id: String,
 }
 

@@ -4,12 +4,11 @@
 //! agents end up calling hidden params or sending ignored ones; this test
 //! fails on either direction.
 //!
-//! Each core tool reads its arguments into one `Args` struct (plan 04 T4).
-//! A serde field tracer recovers the struct's field names, the arguments
-//! the handler can read, without calling it.
+//! Each core tool reads its arguments into one `Args` struct that derives
+//! `Arguments` (ADR 0033), from which its input schema is derived.
 
 use specforge_test::prelude::*;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
 #[specforge_test(
     behavior = "list_mcp_tools",
@@ -18,27 +17,44 @@ use std::collections::{BTreeMap, BTreeSet};
 fn each_core_tool_schema_advertises_exactly_what_its_handler_reads() {
     let mut drift = Vec::new();
     for tool in specforge_mcp::tools::CORE_TOOLS {
-        let read: BTreeSet<&str> = tool.reads().into_iter().collect();
         let schema = tool.input_schema();
-        let advertised: BTreeSet<&str> = schema
-            .get("properties")
-            .and_then(|p| p.as_object())
+        let advertised: Vec<&str> = schema["properties"]
+            .as_object()
             .map(|o| o.keys().map(String::as_str).collect())
             .unwrap_or_default();
-        let hidden: Vec<&&str> = read.difference(&advertised).collect();
-        let ignored: Vec<&&str> = advertised.difference(&read).collect();
-        if !hidden.is_empty() || !ignored.is_empty() {
+        let mut expected: Vec<&str> = tool.reads();
+        let mut sorted = advertised.clone();
+        sorted.sort_unstable();
+        expected.sort_unstable();
+        if sorted != expected {
             drift.push(format!(
-                "{}: read but not advertised {hidden:?}; advertised but never read {ignored:?}",
+                "{}: advertises {sorted:?}, reads {expected:?}",
                 tool.name
             ));
         }
-        // A required argument is one the handler cannot do without.
-        for required in schema["required"].as_array().into_iter().flatten() {
-            let required = required.as_str().unwrap_or_default();
-            if !read.contains(required) {
-                drift.push(format!("{}: requires {required}, never read", tool.name));
-            }
+        // What is required is what the handler cannot do without, in
+        // field order, then the target's.
+        let mut required: Vec<&str> = tool
+            .arguments()
+            .iter()
+            .filter(|argument| argument.required)
+            .map(|argument| argument.name)
+            .collect();
+        required.extend(tool.target.required());
+        let listed: Vec<&str> = schema["required"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(|name| name.as_str())
+            .collect();
+        if listed != required {
+            drift.push(format!(
+                "{}: requires {listed:?}, needs {required:?}",
+                tool.name
+            ));
+        }
+        if schema["additionalProperties"] != false {
+            drift.push(format!("{}: allows other properties", tool.name));
         }
     }
     assert!(drift.is_empty(), "schema drift: {drift:#?}");
@@ -49,9 +65,10 @@ fn each_core_tool_schema_advertises_exactly_what_its_handler_reads() {
     verify = "each core prompt lists exactly the arguments its handler reads"
 )]
 fn each_core_prompt_lists_exactly_the_arguments_its_handler_reads() {
+    let mut served = crate::support::TestProject::new().serve_components();
     let mut drift = Vec::new();
     for prompt in specforge_mcp::prompts::CORE_PROMPTS {
-        let read: Vec<&str> = (prompt.fields)().to_vec();
+        let declared = (prompt.arguments)();
         let listed: Vec<String> = prompt
             .descriptor()
             .arguments
@@ -59,39 +76,50 @@ fn each_core_prompt_lists_exactly_the_arguments_its_handler_reads() {
             .into_iter()
             .map(|a| a.name)
             .collect();
+        let read: Vec<&str> = declared.iter().map(|argument| argument.name).collect();
         if listed != read {
             drift.push(format!("{}: lists {listed:?}, reads {read:?}", prompt.name));
         }
-        let described: BTreeSet<&str> = prompt.descriptions.iter().map(|(f, _)| *f).collect();
-        let read: BTreeSet<&str> = read.into_iter().collect();
-        if described != read {
-            drift.push(format!(
-                "{}: describes {described:?}, reads {read:?}",
-                prompt.name
-            ));
-        }
-        if prompt.descriptions.iter().any(|(_, text)| text.is_empty()) {
+        if declared
+            .iter()
+            .any(|argument| argument.description.is_empty())
+        {
             drift.push(format!("{}: an argument has no description", prompt.name));
+        }
+        // A listed required argument is one the prompt cannot render
+        // without: a request with only the others is refused naming it.
+        let required: Vec<&str> = declared
+            .iter()
+            .filter(|argument| argument.required)
+            .map(|argument| argument.name)
+            .collect();
+        for missing in &required {
+            let others: serde_json::Map<String, serde_json::Value> = required
+                .iter()
+                .filter(|name| *name != missing)
+                .map(|name| (name.to_string(), serde_json::json!("x")))
+                .collect();
+            let reply = crate::support::get_prompt(
+                &mut served,
+                prompt.name,
+                serde_json::Value::Object(others),
+            );
+            let error = &reply["error"];
+            if error["code"] != -32602
+                || error["message"] != format!("Missing required parameter: {missing}")
+                || error["data"]["argument"] != *missing
+            {
+                drift.push(format!("{}: without {missing}: {reply}", prompt.name));
+            }
         }
     }
     assert!(drift.is_empty(), "prompt argument drift: {drift:#?}");
     assert!(
         specforge_mcp::prompts::CORE_PROMPTS
             .iter()
-            .all(|p| !(p.fields)().is_empty()),
-        "the field tracer sees every prompt's Args"
+            .all(|p| !(p.arguments)().is_empty()),
+        "every prompt declares its arguments"
     );
-}
-
-#[test]
-fn the_field_tracer_sees_each_args_struct() {
-    let query = specforge_mcp::tools::core_tool("specforge.query").unwrap();
-    let fields: BTreeSet<&str> = (query.fields)().iter().copied().collect();
-    let expected: BTreeSet<&str> =
-        ["entity_id", "depth", "kinds", "format", "include_coverage"].into();
-    assert_eq!(fields, expected);
-    let stats = specforge_mcp::tools::core_tool("specforge.stats").unwrap();
-    assert!((stats.fields)().is_empty(), "stats takes no arguments");
 }
 
 /// Advertised property names per tool, extracted from the core tool table.

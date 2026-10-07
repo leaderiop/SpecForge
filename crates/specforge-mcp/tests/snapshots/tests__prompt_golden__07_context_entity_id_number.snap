@@ -6,10 +6,11 @@ expression: "shape(&reply, dir.path())"
   "error": {
     "code": -32602,
     "data": {
+      "argument": "entity_id",
       "code": "invalid_input",
-      "message": "Invalid arguments: invalid type: integer `42`, expected a string",
+      "message": "entity_id must be a string, got 42",
       "prompt": "specforge://prompts/context"
     },
-    "message": "Invalid arguments: invalid type: integer `42`, expected a string"
+    "message": "entity_id must be a string, got 42"
   }
 }

@@ -203,14 +203,21 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Command format**: the output an extension command is asked for, `human` (the CLI default) or
   `json` (always, over MCP). The host owns the `--format` flag; the extension renders both, since
   only it knows its payloads (ADR 0011).
-- **Tool spec**: the single definition of an MCP tool, from which its descriptor, typed arguments,
-  output schema, annotations, its target (reach and freshness, which declares the `path` and
-  `use_cached` arguments) and its handler, a tool's (a reply)
-  or a mutation's (a reply and its mutation outcome), are derived (`specforge_mcp`'s `ToolSpec`
-  table).
-- **Prompt spec**: the single definition of an MCP prompt, from which its descriptor, typed arguments
-  and reply are derived; it renders over the call target and refuses with an McpError, sent as a
+- **Tool spec**: the single definition of an MCP tool: its name, description, category, access,
+  output schema, target (reach and freshness, which declares the `path` and `use_cached` arguments)
+  and handler, a tool's (a reply) or a mutation's (a reply and its mutation outcome), with the tool
+  arguments it reads. Its descriptor (input schema included), annotations and dispatch derive from
+  it (`specforge_mcp`'s `ToolSpec` table).
+- **Prompt spec**: the single definition of an MCP prompt, from which its descriptor (its tool arguments'
+  names, descriptions and required) and reply are derived; it renders over the call target and refuses with an McpError, sent as a
   JSON-RPC error's data since prompts have no isError (`specforge_mcp`'s `PromptSpec` table).
+- **Tool arguments**: the one typed struct a tool or prompt reads its call's arguments into
+  (`#[derive(Arguments)]`, `specforge_mcp::args`, ADR 0033). Each field is an argument: its name, its
+  doc comment as description, its type (how a value is read, and the JSON type listed), its default,
+  and its option table or name list. The input schema (or the prompt's listed arguments) and the
+  reading both derive from it: absent is the default, a value is read by its type under the arg rule
+  extension commands follow (a boolean or a count may come as a string), and an argument neither it
+  nor the call target declares is refused.
 - **Surface call**: one MCP request that invokes a named tool, resource or prompt (`tools/call`,
   `resources/read`, `prompts/get`), run through one pipeline: read the request, find the entry (the
   core table, then, with the served project brought up to date, the extension surface table), record

@@ -1,32 +1,22 @@
 //! `specforge://prompts/explore`: where to start exploring the graph.
 
-use serde::Deserialize;
 use serde_json::{Value, json};
 use specforge_graph::{Graph, Reached};
 
-use crate::prompt::{PromptArgs, PromptOutcome, Rendered};
+use crate::args::Arguments;
+use crate::prompt::{PromptOutcome, Rendered};
 use crate::target::Call;
 use crate::tool::entity_not_found;
 
-#[derive(Debug, Deserialize)]
+/// `specforge://prompts/explore`'s arguments.
+#[derive(Debug, Arguments)]
 pub struct Args {
-    #[serde(default)]
+    /// Starting entity (optional)
     entity_id: Option<String>,
-    #[serde(default)]
+    /// Filter by entity kind
     kind: Option<String>,
-    #[serde(default, deserialize_with = "crate::args::some_count")]
+    /// Hops from entity_id the exploration reaches (unbounded if omitted)
     depth: Option<usize>,
-}
-
-impl PromptArgs for Args {
-    const DESCRIPTIONS: &'static [(&'static str, &'static str)] = &[
-        ("entity_id", "Starting entity (optional)"),
-        ("kind", "Filter by entity kind"),
-        (
-            "depth",
-            "Hops from entity_id the exploration reaches (unbounded if omitted)",
-        ),
-    ];
 }
 
 /// One `McpRelationshipPath` per entity [`Graph::reach`] reached from

@@ -1,27 +1,19 @@
 //! `specforge://prompts/context`: what implementing one entity needs.
 
-use serde::Deserialize;
 use serde_json::{Value, json};
 
-use crate::prompt::{PromptArgs, PromptOutcome, Rendered};
+use crate::args::{Arguments, EntityIds};
+use crate::prompt::{PromptOutcome, Rendered};
 use crate::target::Call;
 use crate::tool::{ErrorCode, McpError, entity_not_found};
 
-#[derive(Debug, Deserialize)]
+/// `specforge://prompts/context`'s arguments.
+#[derive(Debug, Arguments)]
 pub struct Args {
+    /// Entity ID to get context for
     entity_id: String,
-    #[serde(default, deserialize_with = "crate::args::id_list")]
-    structural_constraints: Vec<String>,
-}
-
-impl PromptArgs for Args {
-    const DESCRIPTIONS: &'static [(&'static str, &'static str)] = &[
-        ("entity_id", "Entity ID to get context for"),
-        (
-            "structural_constraints",
-            "Entity IDs to include as context even when not connected (array or comma-separated)",
-        ),
-    ];
+    /// Entity IDs to include as context even when not connected (array or comma-separated)
+    structural_constraints: EntityIds,
 }
 
 pub fn render(call: &Call<'_>, args: Args) -> PromptOutcome {
@@ -59,7 +51,7 @@ pub fn render(call: &Call<'_>, args: Args) -> PromptOutcome {
     // Structural constraints: entities the caller wants in the context even
     // when no edge connects them to this one.
     let mut constraint_entities: Vec<Value> = Vec::new();
-    for constraint_id in &args.structural_constraints {
+    for constraint_id in &args.structural_constraints.0 {
         let Some(constraint) = graph.node(constraint_id) else {
             return Err(Box::new(
                 McpError::new(
@@ -79,7 +71,7 @@ pub fn render(call: &Call<'_>, args: Args) -> PromptOutcome {
     }
 
     let payload = json!({
-        "structural_constraints": args.structural_constraints,
+        "structural_constraints": args.structural_constraints.0,
         "structural_constraint_entities": constraint_entities,
         "entity_id": entity_id,
         "kind": node.kind.raw,

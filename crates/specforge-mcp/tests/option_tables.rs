@@ -117,7 +117,7 @@ fn every_input_enum_comes_from_a_table_or_a_name_list() {
         );
     }
     for spec in specforge_mcp::tools::CORE_TOOLS {
-        let schema = (spec.schema)();
+        let schema = spec.input_schema();
         let Some(properties) = schema["properties"].as_object() else {
             continue;
         };
@@ -147,7 +147,7 @@ fn property(tool: &str, argument: &str) -> Value {
         .iter()
         .find(|spec| spec.name == tool)
         .unwrap_or_else(|| panic!("no core tool {tool}"));
-    (spec.schema)()["properties"][argument].clone()
+    spec.input_schema()["properties"][argument].clone()
 }
 
 #[specforge_test_macros::test(

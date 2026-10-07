@@ -22,6 +22,7 @@ members = [
     "crates/specforge-wasm",
     "crates/specforge-lsp",
     "crates/specforge-mcp",
+    "crates/specforge-mcp-macros",
     "crates/specforge-migrate",
     "crates/specforge-ops",
     "crates/specforge-ops-registry",

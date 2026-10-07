@@ -4,6 +4,7 @@ use specforge_common::inference::{self, InferenceManifest, SourceFileEntry};
 
 use specforge_ops::Writes;
 
+use crate::args::Arguments;
 use crate::mutation::{Mutated, Written};
 use crate::state::McpState;
 use crate::target::Call;
@@ -19,21 +20,30 @@ pub struct InferenceSession {
     pub status: String,
 }
 
-#[derive(Debug, serde::Deserialize)]
+/// The actions a session takes, in the order the listing states them.
+const ACTIONS: &[&str] = &["start", "mark_analyzed", "end"];
+
+/// The states a session ends in.
+const END_STATUSES: &[&str] = &["completed", "paused"];
+
+/// `specforge.infer_session`'s arguments.
+#[derive(Debug, Arguments)]
 pub struct Args {
-    #[serde(default, deserialize_with = "crate::args::lenient")]
-    action: Option<String>,
-    #[serde(default, deserialize_with = "crate::args::lenient")]
+    /// Session action to perform
+    #[arg(names = ACTIONS)]
+    action: String,
+    /// Agent identifier (for start)
     agent: Option<String>,
-    #[serde(default, deserialize_with = "crate::args::some_strings")]
+    /// Source directories to scan (for start)
     source_roots: Option<Vec<String>>,
-    #[serde(default, deserialize_with = "crate::args::lenient")]
+    /// Relative path to analyzed file (for mark_analyzed)
     source_file: Option<String>,
-    #[serde(default, deserialize_with = "crate::args::strings")]
+    /// Entity IDs produced from the file (for mark_analyzed)
     entities_produced: Vec<String>,
-    #[serde(default, deserialize_with = "crate::args::lenient")]
+    /// Session ID to end (for end)
     session_id: Option<String>,
-    #[serde(default, deserialize_with = "crate::args::lenient")]
+    /// Final status (for end, default: completed)
+    #[arg(names = END_STATUSES)]
     status: Option<String>,
 }
 
@@ -45,15 +55,7 @@ pub fn call(call: &mut Call<'_>, args: Args) -> Mutated {
     };
     let state = &*call.state;
 
-    let action = match args.action.as_deref() {
-        Some(a) => a,
-        None => {
-            return Mutated::refused(ToolOutcome::invalid_input(
-                "action",
-                "Missing required parameter: action (start | mark_analyzed | end)",
-            ));
-        }
-    };
+    let action = args.action.as_str();
 
     match action {
         "start" => handle_start(state, &args, &project_root),
@@ -62,8 +64,9 @@ pub fn call(call: &mut Call<'_>, args: Args) -> Mutated {
         _ => Mutated::refused(ToolOutcome::invalid_input(
             "action",
             format!(
-                "Unknown action: '{}'. Expected: start, mark_analyzed, end",
-                action
+                "Unknown action: '{}'. Expected: {}",
+                action,
+                ACTIONS.join(", ")
             ),
         )),
     }
@@ -189,10 +192,14 @@ fn handle_end(_state: &McpState, args: &Args, project_root: &std::path::Path) ->
 
     let status = args.status.as_deref().unwrap_or("completed").to_string();
 
-    if status != "completed" && status != "paused" {
+    if !END_STATUSES.contains(&status.as_str()) {
         return Mutated::refused(ToolOutcome::invalid_input(
             "status",
-            format!("Invalid status: '{}'. Expected: completed, paused", status),
+            format!(
+                "Invalid status: '{}'. Expected: {}",
+                status,
+                END_STATUSES.join(", ")
+            ),
         ));
     }
 

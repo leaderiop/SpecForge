@@ -1,43 +1,40 @@
-use serde::Deserialize;
 use serde_json::Value;
 use specforge_emitter::{EmitOptions, emit};
-use specforge_ops::export::AGENT_FORMAT;
+use specforge_ops::export::Format;
 
-use crate::args::{choice, lenient, strings};
+use crate::args::Arguments;
 use crate::target::Call;
 use crate::tool::ToolOutcome;
 
-#[derive(Debug, Deserialize)]
+/// `specforge.query`'s arguments.
+#[derive(Debug, Arguments)]
 pub struct Args {
+    /// Entity ID to query
     entity_id: String,
-    #[serde(default, deserialize_with = "lenient")]
-    depth: Option<u64>,
-    #[serde(default, deserialize_with = "strings")]
+    /// Number of hops
+    #[arg(default = 1)]
+    depth: usize,
+    /// Filter by entity kinds
     kinds: Vec<String>,
-    #[serde(default, deserialize_with = "lenient")]
-    format: Option<String>,
-    #[serde(default, deserialize_with = "lenient")]
-    include_coverage: Option<bool>,
+    /// Output detail level
+    #[arg(choice = specforge_ops::export::AGENT_FORMAT)]
+    format: Format,
+    /// Include coverage metadata in the response
+    include_coverage: bool,
 }
 
 pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
     let view = call.view();
     let entity_id = args.entity_id.as_str();
-    let depth = args.depth.unwrap_or(1) as usize;
-    // The formats an agent reads; an unknown one is refused, never read as
-    // graph (ADR 0027).
-    let format = match choice(&AGENT_FORMAT, "format", args.format.as_deref()) {
-        Ok(format) => format,
-        Err(refused) => return refused,
-    };
-    let include_coverage = args.include_coverage.unwrap_or(false);
+    let depth = args.depth;
+    let include_coverage = args.include_coverage;
 
     let kinds: Vec<&str> = args.kinds.iter().map(String::as_str).collect();
     let unknown_kinds = super::unknown_kind_diagnostics(&view, &kinds);
 
     let query_result = {
         let options = EmitOptions {
-            format: format.emit_format(),
+            format: args.format.emit_format(),
             scope: Some(entity_id),
             depth: Some(depth),
             kind_filter: kinds,

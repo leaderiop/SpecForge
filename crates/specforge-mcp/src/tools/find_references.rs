@@ -1,17 +1,20 @@
 use serde_json::{Value, json};
-use specforge_ops::navigate::{DIRECTION, Occurrence, ReferenceQuery};
+use specforge_ops::navigate::{DIRECTION, Direction, Occurrence, ReferenceQuery};
 
-use crate::args::{choice, lenient};
+use crate::args::Arguments;
 use crate::target::Call;
 use crate::tool::{Handled, ToolOutcome};
 
-#[derive(Debug, serde::Deserialize)]
+/// `specforge.find_references`'s arguments.
+#[derive(Debug, Arguments)]
 pub struct Args {
+    /// Entity ID
     entity_id: String,
-    #[serde(default, deserialize_with = "lenient")]
-    direction: Option<String>,
-    #[serde(default, deserialize_with = "lenient")]
-    include_declaration: Option<bool>,
+    /// Which references
+    #[arg(choice = specforge_ops::navigate::DIRECTION)]
+    direction: Direction,
+    /// Also return the entity's own declaration (its name)
+    include_declaration: bool,
 }
 
 /// `specforge.find_references`: each occurrence of the entity's ID, as
@@ -19,13 +22,10 @@ pub struct Args {
 /// declaration only when asked for.
 pub fn call(call: &mut Call<'_>, args: Args) -> Handled {
     let entity_id = args.entity_id.as_str();
-    let direction = match choice(&DIRECTION, "direction", args.direction.as_deref()) {
-        Ok(direction) => direction,
-        Err(refused) => return Ok(refused),
-    };
+    let direction = args.direction;
     let query = ReferenceQuery {
         direction,
-        include_declaration: args.include_declaration.unwrap_or(false),
+        include_declaration: args.include_declaration,
     };
     let occurrences = super::navigator(call)
         .references(entity_id, query)

@@ -1,22 +1,23 @@
-use serde::Deserialize;
-use specforge_ops::export::{self, Schema};
+use specforge_ops::export::{self, Format, Schema};
 
-use crate::args::{choice, lenient};
+use crate::args::Arguments;
 use crate::target::Call;
 use crate::tool::ToolOutcome;
 
-#[derive(Debug, Deserialize)]
+/// `specforge.export`'s arguments.
+#[derive(Debug, Arguments)]
 pub struct Args {
-    #[serde(default, deserialize_with = "lenient")]
-    format: Option<String>,
-    #[serde(default, deserialize_with = "lenient")]
+    /// Export format
+    #[arg(choice = specforge_ops::export::AGENT_FORMAT)]
+    format: Format,
+    /// Scope to entity subgraph
     scope: Option<String>,
-    #[serde(default, deserialize_with = "lenient")]
-    max_tokens: Option<u64>,
-    #[serde(default, deserialize_with = "lenient")]
-    with_schema: Option<bool>,
-    #[serde(default, deserialize_with = "lenient")]
-    no_schema: Option<bool>,
+    /// Optional token budget; truncates the export to the most central entities that fit
+    max_tokens: Option<usize>,
+    /// Embed the Graph Protocol schema in a context, brief or budgeted graph export (a full graph export embeds it already); under max_tokens it counts toward the budget
+    with_schema: bool,
+    /// Leave the schema out of a graph export (Graph Protocol 1.0)
+    no_schema: bool,
 }
 
 /// `specforge.export`: the export `specforge export` writes, through the
@@ -24,19 +25,15 @@ pub struct Args {
 /// `no_schema` are the CLI's `--with-schema` and `--no-schema`.
 pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
     // The tool serves the agent formats; dot is `specforge.render`'s.
-    let format = match choice(&export::AGENT_FORMAT, "format", args.format.as_deref()) {
-        Ok(format) => format,
-        Err(refused) => return refused,
-    };
-    let schema = match (args.no_schema == Some(true), args.with_schema == Some(true)) {
+    let schema = match (args.no_schema, args.with_schema) {
         (true, _) => Schema::Without,
         (_, true) => Schema::With,
         _ => Schema::Default,
     };
     let request = export::Request {
-        format: Some(format),
+        format: Some(args.format),
         scope: args.scope.as_deref(),
-        max_tokens: args.max_tokens.map(|v| v as usize),
+        max_tokens: args.max_tokens,
         schema,
         ..export::Request::default()
     };

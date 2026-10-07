@@ -1,11 +1,14 @@
 use serde_json::{Value, json};
 use specforge_diagnostics::{CodeEntry, docs_href, lookup, retired};
 
+use crate::args::Arguments;
 use crate::target::Call;
 use crate::tool::ToolOutcome;
 
-#[derive(Debug, serde::Deserialize)]
+/// `specforge.explain`'s arguments.
+#[derive(Debug, Arguments)]
 pub struct Args {
+    /// A diagnostic code, any case
     code: String,
 }
 

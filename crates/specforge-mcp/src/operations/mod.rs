@@ -13,10 +13,9 @@
 use serde_json::{Value, json};
 use std::path::{Path, PathBuf};
 
-use serde::Deserialize;
 use specforge_common::{codes, find_project_root};
 
-use crate::args::{lenient, strings};
+use crate::args::{Arguments, NoArgs};
 use crate::mutation::{Mutated, MutationEvent, MutationHandled, Written};
 use crate::target::{Call, CallTarget};
 use crate::tool::{ErrorCode, Handled, McpError, ToolOutcome};
@@ -35,15 +34,16 @@ fn fail(code: ErrorCode, message: impl Into<String>) -> ToolOutcome {
 
 // ── format ──────────────────────────────────────────────────────────────────
 
-#[derive(Debug, Deserialize)]
+/// `specforge.format`'s arguments.
+#[derive(Debug, Arguments)]
 pub struct FormatArgs {
-    #[serde(default, deserialize_with = "strings")]
+    /// Files or directories to format, relative to the project root (defaults to every spec file)
     paths: Vec<String>,
-    #[serde(default, deserialize_with = "lenient")]
-    check: Option<bool>,
-    #[serde(default, deserialize_with = "lenient")]
-    diff: Option<bool>,
-    #[serde(default, deserialize_with = "lenient")]
+    /// Check only, don't modify
+    check: bool,
+    /// Return a before/after diff for each file that would change, without modifying it
+    diff: bool,
+    /// Write formatted output (defaults to false in check or diff mode)
     write: Option<bool>,
 }
 
@@ -51,18 +51,14 @@ impl FormatArgs {
     /// Whether the call writes or only reports: `specforge format`'s one
     /// reading of check, diff and write.
     pub(crate) fn mode(&self) -> specforge_ops::format::Mode {
-        specforge_ops::format::Mode::of_flags(
-            self.check.unwrap_or(false),
-            self.diff.unwrap_or(false),
-            self.write,
-        )
+        specforge_ops::format::Mode::of_flags(self.check, self.diff, self.write)
     }
 }
 
 pub(crate) fn format_op(call: &mut Call<'_>, args: FormatArgs) -> MutationHandled {
     use specforge_ops::format::{self, Mode, Request};
 
-    let diff = args.diff.unwrap_or(false);
+    let diff = args.diff;
     // The one reading of check, diff and write: a run that does not write
     // is a preview.
     let mode = args.mode();
@@ -158,19 +154,22 @@ pub(crate) fn format_op(call: &mut Call<'_>, args: FormatArgs) -> MutationHandle
 
 // ── rename ──────────────────────────────────────────────────────────────────
 
-#[derive(Debug, Deserialize)]
+/// `specforge.rename`'s arguments.
+#[derive(Debug, Arguments)]
 pub struct RenameArgs {
+    /// Current entity ID
     entity_id: String,
+    /// New entity ID
     new_name: String,
-    #[serde(default, deserialize_with = "lenient")]
-    dry_run: Option<bool>,
+    /// Return the rename plan without changing any file
+    dry_run: bool,
 }
 
 pub(crate) fn rename_op(call: &mut Call<'_>, args: RenameArgs) -> MutationHandled {
     use specforge_ops::rename;
     let entity_id = args.entity_id.as_str();
     let new_name = args.new_name.as_str();
-    let dry_run = args.dry_run.unwrap_or(false);
+    let dry_run = args.dry_run;
 
     // Planned on the call's project as it is on disk (the target brought
     // the served project up to date, or compiled the project `path`
@@ -236,13 +235,15 @@ pub(crate) fn rename_op(call: &mut Call<'_>, args: RenameArgs) -> MutationHandle
 
 // ── init ────────────────────────────────────────────────────────────────────
 
-#[derive(Debug, Deserialize)]
+/// `specforge.init`'s arguments.
+#[derive(Debug, Arguments)]
 pub struct InitArgs {
-    #[serde(default, deserialize_with = "lenient")]
+    /// Project name (defaults to the directory name)
     name: Option<String>,
-    #[serde(default, deserialize_with = "lenient")]
-    version: Option<String>,
-    #[serde(default, deserialize_with = "strings")]
+    /// Project version
+    #[arg(default = "0.1.0".to_string())]
+    version: String,
+    /// Builtin extensions to enable (e.g. @specforge/software) and local .wasm files to install
     extensions: Vec<String>,
 }
 
@@ -262,7 +263,7 @@ pub(crate) fn init_op(call: &mut Call<'_>, args: InitArgs) -> Mutated {
     let request = init::Request {
         dir: &path,
         name: args.name.as_deref(),
-        version: args.version.as_deref(),
+        version: Some(args.version.as_str()),
         extensions,
         forbid_inside: served.as_deref(),
     };
@@ -290,13 +291,15 @@ pub(crate) fn init_op(call: &mut Call<'_>, args: InitArgs) -> Mutated {
 
 // ── add / remove ────────────────────────────────────────────────────────────
 
-#[derive(Debug, Deserialize)]
+/// `specforge.add_extension`'s arguments.
+#[derive(Debug, Arguments)]
 pub struct AddArgs {
+    /// Extension specifier
     specifier: String,
-    #[serde(default, deserialize_with = "lenient")]
-    dry_run: Option<bool>,
-    #[serde(default, deserialize_with = "lenient")]
-    allow_unsigned: Option<bool>,
+    /// Preview the install without changing any file
+    dry_run: bool,
+    /// Accept a registry package with no publisher signature (publisher verification skipped)
+    allow_unsigned: bool,
 }
 
 /// `specforge.add_extension`: the shared add, its reply, the files it
@@ -305,8 +308,8 @@ pub struct AddArgs {
 pub(crate) fn add_extension(call: &mut Call<'_>, args: AddArgs) -> MutationHandled {
     use specforge_ops::extension::{self, AddOutcome, AddRequest, Origin, Source, Trust};
 
-    let allow_unsigned = args.allow_unsigned.unwrap_or(false);
-    let dry_run = args.dry_run.unwrap_or(false);
+    let allow_unsigned = args.allow_unsigned;
+    let dry_run = args.dry_run;
 
     // The project the call installs into: the served one, or the one
     // `path` names.
@@ -419,19 +422,21 @@ pub(crate) fn add_extension(call: &mut Call<'_>, args: AddArgs) -> MutationHandl
     ))
 }
 
-#[derive(Debug, Deserialize)]
+/// `specforge.remove_extension`'s arguments.
+#[derive(Debug, Arguments)]
 pub struct RemoveArgs {
+    /// Extension name
     name: String,
-    #[serde(default, deserialize_with = "lenient")]
-    force: Option<bool>,
-    #[serde(default, deserialize_with = "lenient")]
-    dry_run: Option<bool>,
+    /// Force removal
+    force: bool,
+    /// Preview the removal, orphan warnings included, without changing any file
+    dry_run: bool,
 }
 
 pub(crate) fn remove_extension_op(call: &mut Call<'_>, args: RemoveArgs) -> MutationHandled {
     let name = args.name.clone();
-    let force = args.force.unwrap_or(false);
-    let dry_run = args.dry_run.unwrap_or(false);
+    let force = args.force;
+    let dry_run = args.dry_run;
 
     // The shared operation, over the view of the call's project: its
     // dependents and its orphaned entities, the served project's or those
@@ -467,22 +472,23 @@ pub(crate) fn remove_extension_op(call: &mut Call<'_>, args: RemoveArgs) -> Muta
 
 // ── migrate ─────────────────────────────────────────────────────────────────
 
-#[derive(Debug, Deserialize)]
+/// `specforge.migrate`'s arguments.
+#[derive(Debug, Arguments)]
 pub struct MigrateArgs {
-    #[serde(default, deserialize_with = "lenient")]
-    dry_run: Option<bool>,
-    #[serde(default, deserialize_with = "lenient")]
+    /// Return the diffs without changing any file
+    dry_run: bool,
+    /// Format version to migrate to, as MAJOR.MINOR (defaults to the current format version)
     target_version: Option<String>,
-    #[serde(default, deserialize_with = "lenient")]
-    no_backup: Option<bool>,
+    /// Skip the .bak backup of each migrated file
+    no_backup: bool,
 }
 
 pub(crate) fn migrate_op(call: &mut Call<'_>, args: MigrateArgs) -> MutationHandled {
     // The project the call migrates, and the runtime its hooks run in.
     let project = call.project()?;
     let path = project.root;
-    let dry_run = args.dry_run.unwrap_or(false);
-    let no_backup = args.no_backup.unwrap_or(false);
+    let dry_run = args.dry_run;
+    let no_backup = args.no_backup;
     // The format version to migrate to, checked as `specforge migrate
     // --target-version` checks it.
     let target = match specforge_ops::migrate::parse_target(args.target_version.as_deref()) {
@@ -571,7 +577,7 @@ pub(crate) fn migrate_op(call: &mut Call<'_>, args: MigrateArgs) -> MutationHand
 
 // ── extensions ──────────────────────────────────────────────────────────────
 
-pub(crate) fn extensions_op(call: &mut Call<'_>, _args: crate::args::NoArgs) -> Handled {
+pub(crate) fn extensions_op(call: &mut Call<'_>, _args: NoArgs) -> Handled {
     // The shared listing, over the project view: what the project
     // compiled, its lock and the kinds its graph uses.
     let listing = specforge_ops::extension::list(&call.project()?.view());
@@ -590,7 +596,7 @@ pub(crate) fn extensions_op(call: &mut Call<'_>, _args: crate::args::NoArgs) -> 
 
 // ── providers ───────────────────────────────────────────────────────────────
 
-pub(crate) fn providers_op(call: &mut Call<'_>, _args: crate::args::NoArgs) -> Handled {
+pub(crate) fn providers_op(call: &mut Call<'_>, _args: NoArgs) -> Handled {
     // The providers specforge.json configures, as the scheme registry built
     // from the loaded extensions sees them: the listing the CLI prints.
     let listing = specforge_ops::extension::providers(&call.project()?.view());
@@ -599,10 +605,7 @@ pub(crate) fn providers_op(call: &mut Call<'_>, _args: crate::args::NoArgs) -> H
 
 // ── doctor ──────────────────────────────────────────────────────────────────
 
-#[derive(Debug, Deserialize)]
-pub struct DoctorArgs {}
-
-pub(crate) fn doctor_op(call: &mut Call<'_>, _args: DoctorArgs) -> Handled {
+pub(crate) fn doctor_op(call: &mut Call<'_>, _args: NoArgs) -> Handled {
     // The target brought the project up to date with disk unless the
     // caller opted into the last compile (`use_cached`, ADR 0004 D3-d).
     let project = call.project()?;
@@ -627,19 +630,20 @@ pub(crate) fn doctor_op(call: &mut Call<'_>, _args: DoctorArgs) -> Handled {
 
 // ── collect ─────────────────────────────────────────────────────────────────
 
-#[derive(Debug, Deserialize)]
+/// `specforge.collect`'s arguments.
+#[derive(Debug, Arguments)]
 pub struct CollectArgs {
-    #[serde(default, deserialize_with = "lenient")]
+    /// Collector name (e.g. cargo-test); detected from project files if omitted
     runner: Option<String>,
-    #[serde(default, deserialize_with = "lenient")]
-    run: Option<bool>,
+    /// Run the test command first; it must have been approved with `specforge collect` in a terminal (otherwise the existing report is parsed)
+    run: bool,
 }
 
 pub(crate) fn collect_op(call: &mut Call<'_>, args: CollectArgs) -> Handled {
     use specforge_ops::collect::{self, Consent, Mode, Request, RunnerOutput};
 
     let runner = args.runner.as_deref().filter(|r| *r != "auto");
-    let run = args.run.unwrap_or(false);
+    let run = args.run;
 
     // Tests map to the entities on disk now: the target brought the served
     // project up to date, or compiled the project `path` names for this
@@ -677,13 +681,17 @@ pub(crate) fn collect_op(call: &mut Call<'_>, args: CollectArgs) -> Handled {
 
 // ── render ──────────────────────────────────────────────────────────────────
 
-#[derive(Debug, Deserialize)]
+/// `specforge.render`'s arguments.
+#[derive(Debug, Arguments)]
 pub struct RenderArgs {
-    /// Required: a renderer is named, never assumed.
+    // Required: a renderer is named, never assumed. It stays a string so
+    // `render_op` can refuse an unknown one with `available_renderers`.
+    /// Renderer to use
+    #[arg(choice = specforge_ops::export::FORMAT)]
     format: String,
-    #[serde(default, deserialize_with = "lenient")]
+    /// Directory to write the rendering into (returned inline when omitted)
     out_dir: Option<String>,
-    #[serde(default, deserialize_with = "lenient")]
+    /// Scope to entity
     scope: Option<String>,
 }
 
