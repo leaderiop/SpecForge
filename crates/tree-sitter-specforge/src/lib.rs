@@ -1,5 +1,8 @@
 use tree_sitter_language::LanguageFn;
 
+pub mod field;
+pub mod kind;
+
 unsafe extern "C" {
     fn tree_sitter_specforge() -> *const ();
 }

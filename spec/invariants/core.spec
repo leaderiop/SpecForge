@@ -177,6 +177,19 @@ invariant query_file_grammar_consistency "Query File Grammar Consistency" {
   verify integration "indents.scm loads without error against current grammar"
 }
 
+invariant cst_vocabulary_grammar_consistency "CST Vocabulary Grammar Consistency" {
+  guarantee """
+    The node kinds and field names the parser and the formatter read from
+    tree-sitter's concrete syntax tree MUST be named once, by the grammar
+    crate (tree_sitter_specforge::kind and tree_sitter_specforge::field),
+    and MUST be exactly the named node kinds and field names of the
+    current grammar: a grammar change that adds, removes or renames a rule
+    or a field fails a test until the vocabulary follows it (ADR 0038).
+  """
+  risk      medium
+  verify unit "every named node kind and field name of the grammar has one constant, and every constant names one"
+}
+
 invariant dry_run_side_effect_freedom "Dry-Run Side-Effect Freedom" {
   guarantee """
     Any command invoked with --dry-run or --check MUST NOT modify any files

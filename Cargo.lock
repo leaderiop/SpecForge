@@ -3759,6 +3759,8 @@ name = "tree-sitter-specforge"
 version = "0.1.0"
 dependencies = [
  "cc",
+ "specforge-test",
+ "specforge-test-macros",
  "tree-sitter",
  "tree-sitter-language",
 ]
