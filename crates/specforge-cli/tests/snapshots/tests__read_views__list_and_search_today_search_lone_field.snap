@@ -1,0 +1,13 @@
+---
+source: crates/specforge-cli/tests/read_views.rs
+expression: "normalized(result, root).to_string()"
+---
+{
+  "content": [
+    {
+      "text": "[{\"entity_id\":\"login\",\"file_path\":\"main.spec\",\"kind\":\"behavior\",\"line\":1,\"match_field\":\"id\",\"score\":0.9,\"title\":\"Log in\"},{\"entity_id\":\"logout\",\"file_path\":\"main.spec\",\"kind\":\"behavior\",\"line\":7,\"match_field\":\"id\",\"score\":0.9,\"title\":\"Log out\"},{\"entity_id\":\"no_lost_login\",\"file_path\":\"main.spec\",\"kind\":\"property\",\"line\":28,\"match_field\":\"id\",\"score\":0.8,\"title\":\"A login is never lost\"},{\"entity_id\":\"signin\",\"file_path\":\"main.spec\",\"kind\":\"feature\",\"line\":23,\"match_field\":\"solution\",\"match_snippet\":\"Let them log in\",\"score\":0.7,\"title\":\"Sign in\"}]",
+      "type": "text"
+    }
+  ],
+  "isError": false
+}

@@ -791,3 +791,147 @@ fn contract_read_views() {
     assert_eq!(cli(&["export", s(&sub)]).code, Some(0));
     assert_eq!(cached_kinds(root), 5);
 }
+
+/// What a CLI run printed, for a snapshot: its exit code and both streams,
+/// the project's machine-specific path replaced.
+fn run_text(run: &Run, root: &Path) -> String {
+    format!(
+        "exit: {:?}\nstdout:\n{}stderr:\n{}",
+        run.code,
+        normalized_text(&run.stdout, root),
+        normalized_text(&run.stderr, root)
+    )
+}
+
+/// The node ids of a graph-shaped document, in the document's order.
+fn node_ids(document: &str) -> Vec<String> {
+    let value: Value = serde_json::from_str(document).expect("a query prints JSON");
+    value["nodes"]
+        .as_array()
+        .expect("a graph document has nodes")
+        .iter()
+        .map(|n| n["id"].as_str().unwrap().to_string())
+        .collect()
+}
+
+fn mcp_query(arguments: Value) -> Value {
+    json!({"name": "specforge.query", "arguments": arguments})
+}
+
+/// What `specforge query` and `specforge.query` answer on fx1 today
+/// (architecture plan 2026-10 05): two implementations, two documents
+/// (Graph Protocol 1.0 on both tools, 2.0 from the resource), a raw
+/// `E003: ...` line from the CLI, no kind report from the CLI.
+#[test]
+fn query_today() {
+    let tmp = project("fx1");
+    let root = tmp.path();
+    let snap = |name: &str, text: String| {
+        insta::assert_snapshot!(format!("query_today_{name}"), text);
+    };
+
+    let login = cli(&["query", "login", "--path", s(root)]);
+    snap("cli_login", run_text(&login, root));
+    snap(
+        "cli_ghost",
+        run_text(&cli(&["query", "logn", "--path", s(root)]), root),
+    );
+    let filtered = cli(&["query", "login", "--path", s(root), "--kind", "behaviour"]);
+    assert_eq!(filtered.stderr, "", "the CLI reports no unknown kind today");
+    snap(
+        "cli_unknown_kind",
+        format!(
+            "exit: {:?}\nstderr: {:?}\nnodes: {:?}\n",
+            filtered.code,
+            filtered.stderr,
+            node_ids(&filtered.stdout)
+        ),
+    );
+
+    let calls = [
+        mcp_query(json!({"entity_id": "login"})),
+        mcp_query(json!({"entity_id": "login", "kinds": ["behaviour"]})),
+        mcp_query(json!({"entity_id": "logn"})),
+        mcp_query(json!({"entity_id": "login", "include_coverage": true, "format": "brief"})),
+        json!({"method": "resources/read", "params": {"uri": "specforge://graph/login"}}),
+    ];
+    let responses = mcp_responses(root, &calls);
+    for (name, response) in [
+        "mcp_login",
+        "mcp_unknown_kind",
+        "mcp_ghost",
+        "mcp_coverage_brief",
+        "resource_login",
+    ]
+    .iter()
+    .zip(&responses)
+    {
+        snap(name, normalized(&response["result"], root).to_string());
+    }
+}
+
+/// `specforge.list` and `specforge.search` answer today from MCP-only
+/// handlers: list reports no unknown kind, search reports `Behavior` as
+/// I020 and ignores a lone `field`.
+#[test]
+fn list_and_search_today() {
+    let tmp = project("fx1");
+    let root = tmp.path();
+    let calls = [
+        json!({"name": "specforge.list", "arguments": {"kind": "behaviour"}}),
+        json!({"name": "specforge.list", "arguments": {"kind": "behavior", "limit": 1, "offset": 1}}),
+        json!({"name": "specforge.search", "arguments": {"query": "log", "kinds": ["Behavior"]}}),
+        json!({"name": "specforge.search", "arguments": {"query": "log", "field": "title"}}),
+        json!({"name": "specforge.search", "arguments": {"query": "log"}}),
+    ];
+    let responses = mcp_responses(root, &calls);
+    let results: Vec<Value> = responses.iter().map(|r| r["result"].clone()).collect();
+    for (name, result) in [
+        "list_unknown_kind",
+        "list_page",
+        "search_capitalized_kind",
+        "search_lone_field",
+    ]
+    .iter()
+    .zip(&results)
+    {
+        insta::assert_snapshot!(
+            format!("list_and_search_today_{name}"),
+            normalized(result, root).to_string()
+        );
+    }
+    assert_eq!(
+        results[3], results[4],
+        "a lone `field` filters nothing: search ignores it today"
+    );
+}
+
+/// The wordings of "unknown entity kind" and where each carries its
+/// suggestion today: the schema tool's `unknown entity kind: '<k>'` with
+/// `data.suggestion`, the infer prompt's `unknown entity kind '<k>'` with
+/// `data.data.suggestion`, search's I020 notice with `diagnostic.suggestion`.
+#[test]
+fn unknown_kind_wordings_today() {
+    let tmp = rv1();
+    let root = tmp.path();
+    let calls = [
+        json!({"name": "specforge.schema", "arguments": {"kind": "behaviour"}}),
+        json!({"method": "prompts/get", "params": {
+            "name": "specforge://prompts/infer", "arguments": {"scope": "kind:behaviour"}}}),
+        json!({"name": "specforge.search", "arguments": {"query": "", "kinds": ["behaviour"]}}),
+    ];
+    for (name, response) in ["schema", "infer", "search"]
+        .iter()
+        .zip(mcp_responses(root, &calls))
+    {
+        let answer = if response["error"].is_null() {
+            response["result"].clone()
+        } else {
+            response["error"].clone()
+        };
+        insta::assert_snapshot!(
+            format!("unknown_kind_wordings_today_{name}"),
+            normalized(&answer, root).to_string()
+        );
+    }
+}

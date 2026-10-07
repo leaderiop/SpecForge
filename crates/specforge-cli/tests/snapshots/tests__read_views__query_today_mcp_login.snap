@@ -1,0 +1,13 @@
+---
+source: crates/specforge-cli/tests/read_views.rs
+expression: text
+---
+{
+  "content": [
+    {
+      "text": "{\"edges\":[{\"label\":\"features\",\"source\":\"login\",\"target\":\"signin\"}],\"format_version\":\"1.0\",\"nodes\":[{\"fields\":{\"contract\":\"The system MUST let a known user log in\",\"features\":[\"signin\"],\"verify\":[{\"description\":\"a known user logs in\",\"kind\":\"unit\"}]},\"file\":\"main.spec\",\"id\":\"login\",\"kind\":\"behavior\",\"line\":1,\"title\":\"Log in\"},{\"fields\":{\"problem\":\"Users cannot reach their data\",\"solution\":\"Let them log in\"},\"file\":\"main.spec\",\"id\":\"signin\",\"kind\":\"feature\",\"line\":23,\"title\":\"Sign in\"}],\"schema_version\":\"0.1.0\"}",
+      "type": "text"
+    }
+  ],
+  "isError": false
+}

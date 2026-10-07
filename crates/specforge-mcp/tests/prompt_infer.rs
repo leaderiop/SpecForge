@@ -180,6 +180,27 @@ fn kind_scope_is_case_insensitive() {
     assert!(ids.contains(&Value::from("my_behavior")));
 }
 
+/// An extension keyword written with a capital is lowercased by the infer
+/// prompt's lookup (plan 05 R6): the entity of that kind is not listed and
+/// the example is written with a keyword the language refuses (E024).
+/// Flipped when the lookup stops lowercasing.
+#[test]
+fn a_capitalized_keyword_is_listed_lowercased_today() {
+    let mut state = TestProject::new()
+        .file("d.spec", "ADR pick_db {\n}\n")
+        .serve(&[test_extension("ADR", Some("g"))]);
+    let resp = infer(&mut state, json!({"scope": "kind:ADR"}));
+    let content: Value = prompt_payload(&resp);
+    assert_eq!(content["existing_entity_ids"], json!([]), "{content}");
+    assert!(
+        content["example"]
+            .as_str()
+            .unwrap()
+            .starts_with("adr example_adr"),
+        "{content}"
+    );
+}
+
 #[test]
 fn unknown_scope_prefix_returns_overview() {
     let mut state = make_state_with_kind("behavior", Some("guide text"));
