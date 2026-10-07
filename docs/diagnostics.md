@@ -655,20 +655,6 @@ Owner: core
 Level: error
 ```
 
-## E060
-
-```
-E060: Resolved reference without a graph edge
-
-A reference list names an entity that exists, but the resolver never turned the
-reference into a graph edge. That is a SpecForge bug, not a mistake in your
-spec: queries, traces and coverage would miss the relationship. Please report it
-with the spec that triggers it.
-
-Owner: core
-Level: error
-```
-
 ## E061
 
 ```
@@ -3120,6 +3106,7 @@ These codes are no longer emitted, and are never reused for another meaning.
 | E038 | (nothing) |
 | E047 | [W139](#w139) |
 | E053 | (nothing) |
+| E060 | (nothing) |
 | I006 | (nothing) |
 | W024 | (nothing) |
 | W025 | (nothing) |

@@ -3096,7 +3096,6 @@ dependencies = [
  "specforge-resolver",
  "specforge-test",
  "specforge-test-macros",
- "specforge-validator",
  "specforge-wasm",
  "tempfile",
  "tree-sitter",
@@ -3214,18 +3213,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.117",
-]
-
-[[package]]
-name = "specforge-validator"
-version = "0.1.0"
-dependencies = [
- "specforge-common",
- "specforge-graph",
- "specforge-parser",
- "specforge-test",
- "specforge-test-macros",
- "tempfile",
 ]
 
 [[package]]

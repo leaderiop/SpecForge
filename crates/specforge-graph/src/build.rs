@@ -478,6 +478,11 @@ fn link_and_diagnose(graph: &mut Graph, config: &GraphConfig) -> Vec<Diagnostic>
     // not a reference cycle.
     graph.link_derived_references(&config.derived_references, &config.single_reference_fields);
 
+    // The linker's postcondition (E060, retired): every reference to an
+    // existing entity has its edge.
+    #[cfg(debug_assertions)]
+    graph.assert_linked();
+
     ref_diags.extend(diagnostics);
     ref_diags
 }

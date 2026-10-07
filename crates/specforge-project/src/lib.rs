@@ -219,17 +219,16 @@ impl Environment {
     }
 
     /// Every check a compile runs on a built graph, over its entity
-    /// snapshot `entities`: the linker's integrity check, then the registry
-    /// build's checks (the structural checks and the extensions' rules, in
-    /// the order [`RegistryBuild::check`] runs them), then the check-phase
-    /// passes.
+    /// snapshot `entities`: the registry build's checks (the structural
+    /// checks and the extensions' rules, in the order
+    /// [`RegistryBuild::check`] runs them), then the check-phase passes.
     pub fn run_checks(
         &self,
         graph: &Graph,
         entities: &EntitySnapshot,
         runtime: Option<&dyn WasmRuntime>,
     ) -> Vec<Diagnostic> {
-        let mut diagnostics = specforge_validator::validate(graph);
+        let mut diagnostics = Vec::new();
         let verdicts: Box<dyn CustomVerdicts + '_> = match runtime {
             Some(runtime) => Box::new(WasmVerdicts::new(runtime, entities)),
             None => Box::new(NoVerdicts),
