@@ -7,6 +7,7 @@ use specforge_wasm::WasmRuntime;
 use std::path::Path;
 
 use crate::OutputFormat;
+use crate::outcome::Refusal;
 
 pub fn run(
     path: &Path,
@@ -44,10 +45,7 @@ fn run_in(
     let compiled = CompiledProject::compile(path, Some(runtime));
     let outcome = match check(&ProjectView::of(&compiled), compiled.diagnostics(), options) {
         Ok(outcome) => outcome,
-        Err(e) => {
-            eprintln!("error: {e}");
-            return 1;
-        }
+        Err(error) => return Refusal::of(format).report(&error.into()),
     };
     let shown: Vec<Diagnostic> = outcome.shown().into_iter().cloned().collect();
 

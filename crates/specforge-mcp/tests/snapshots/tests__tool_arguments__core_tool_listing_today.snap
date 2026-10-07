@@ -1145,6 +1145,9 @@ expression: listing
           },
           "type": "array"
         },
+        "ok": {
+          "type": "boolean"
+        },
         "total_checked": {
           "type": "integer"
         }
@@ -1152,6 +1155,7 @@ expression: listing
       "required": [
         "changed_files",
         "total_checked",
+        "ok",
         "all_clean",
         "check_only",
         "diagnostics"
@@ -1555,6 +1559,9 @@ expression: listing
         "migrated": {
           "type": "boolean"
         },
+        "ok": {
+          "type": "boolean"
+        },
         "post_migration_errors": {
           "type": "array"
         },
@@ -1572,6 +1579,7 @@ expression: listing
         }
       },
       "required": [
+        "ok",
         "from_version",
         "to_version",
         "migrated",

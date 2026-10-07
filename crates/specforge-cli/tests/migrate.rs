@@ -157,7 +157,7 @@ fn migrate_unknown_target_version_produces_error() {
         .assert()
         .code(1)
         .stderr(predicate::str::contains(
-            "E019: unsupported target version 99.0",
+            "error[E019]: unsupported target version 99.0",
         ))
         .stderr(predicate::str::contains(
             "Use a format version between 1.0 and 1.0.",
@@ -187,7 +187,7 @@ fn migrate_unparseable_target_version_reports_e019() {
         .assert()
         .code(1)
         .stderr(predicate::str::contains(
-            "E019: invalid target version 'not-a-version'",
+            "error[E019]: invalid target version 'not-a-version'",
         ));
 }
 

@@ -9,8 +9,9 @@ use specforge_ops::coverage::{CoverageQuery, CoverageRow, coverage};
 use crate::args::Arguments;
 use crate::prompt::{PromptOutcome, Rendered};
 use crate::target::Call;
+use crate::tool::McpError;
 use crate::tool::entity_not_found;
-use crate::tools::coverage::{report_mcp_error, row_json};
+use crate::tools::coverage::row_json;
 
 /// `specforge://prompts/review`'s arguments.
 #[derive(Debug, Arguments)]
@@ -43,7 +44,7 @@ pub fn render(call: &Call<'_>, args: Args) -> PromptOutcome {
     // as `specforge.coverage` lists them) in scope; an unusable report is
     // the McpError the coverage tool returns.
     let rows: Vec<CoverageRow> = coverage(&view, &CoverageQuery::default())
-        .map_err(|e| report_mcp_error(&e))?
+        .map_err(McpError::from)?
         .rows
         .into_iter()
         .filter(|row| {

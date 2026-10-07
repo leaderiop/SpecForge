@@ -7,6 +7,7 @@
 //! the box. `specforge extension init` writes the same project.
 
 use crate::OutputFormat;
+use crate::outcome::Refusal;
 use serde_json::json;
 use specforge_common::codes;
 use specforge_protocol_types::PackageName;
@@ -14,30 +15,26 @@ use std::path::{Path, PathBuf};
 
 pub fn run(name: &str, extension: bool, path: &Path, format: OutputFormat) -> i32 {
     if !extension {
-        format.print_error(
-            "only `--extension` scaffolding is supported right now",
+        return Refusal::of(format).coded(
             codes::E065,
+            "only `--extension` scaffolding is supported right now",
         );
-        return 1;
     }
 
     if let Err(why) = PackageName::parse(name) {
-        format.print_error(&why.to_string(), codes::E065);
-        return 1;
+        return Refusal::of(format).coded(codes::E065, why.to_string());
     }
 
     let dir = target_dir(path, name);
     if dir.exists() {
-        format.print_error(
-            &format!("destination '{}' already exists", dir.display()),
+        return Refusal::of(format).coded(
             codes::E065,
+            format!("destination '{}' already exists", dir.display()),
         );
-        return 1;
     }
 
     if let Err(message) = scaffold(&dir, name) {
-        format.print_error(&message, codes::E066);
-        return 1;
+        return Refusal::of(format).coded(codes::E066, message);
     }
 
     match format {

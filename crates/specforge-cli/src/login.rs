@@ -1,4 +1,5 @@
 use crate::OutputFormat;
+use crate::outcome::Refusal;
 use serde_json::json;
 use specforge_common::codes;
 use specforge_registry_client::{
@@ -19,8 +20,8 @@ pub fn run(
     let token_value = match token {
         Some(t) => t.to_string(),
         None => {
-            format.print_error("no token provided. Use --token <TOKEN>", codes::R_LOGIN_001);
-            return 1;
+            return Refusal::of(format)
+                .coded(codes::R_LOGIN_001, "no token provided. Use --token <TOKEN>");
         }
     };
 
@@ -32,8 +33,7 @@ pub fn run(
             configured.registries
         }
         Err(error) => {
-            format.print_op_error(&error);
-            return 1;
+            return Refusal::of(format).report(&error);
         }
     };
     let Some(registry) = registries
@@ -51,8 +51,7 @@ pub fn run(
             "pass --registry <alias> naming an entry of specforge.json's \"registries\", \
              or set \"default_registry\": true on one",
         );
-        format.print_op_error(&error);
-        return 1;
+        return Refusal::of(format).report(&error);
     };
 
     // Validate token
@@ -65,8 +64,7 @@ pub fn run(
     let expires_at = match validate_credentials(&client, &registry, &credential) {
         Ok(expires_at) => expires_at,
         Err(diag) => {
-            format.print_diagnostic(&diag);
-            return 1;
+            return Refusal::of(format).diagnostic(&diag);
         }
     };
 
@@ -76,13 +74,11 @@ pub fn run(
     let cred_path = credentials_path();
     let mut store = read_credentials(&cred_path).unwrap_or_default();
     if let Err(message) = store.set_token(alias, token_value, expires_at) {
-        format.print_error(&message, codes::R_LOGIN_002);
-        return 1;
+        return Refusal::of(format).coded(codes::R_LOGIN_002, message);
     }
 
     if let Err(diag) = write_credentials(&cred_path, &store) {
-        format.print_diagnostic(&diag);
-        return 1;
+        return Refusal::of(format).diagnostic(&diag);
     }
 
     match format {
@@ -126,8 +122,7 @@ pub fn run_logout(registry_alias: Option<&str>, format: OutputFormat) -> i32 {
     }
 
     if let Err(diag) = write_credentials(&cred_path, &store) {
-        format.print_diagnostic(&diag);
-        return 1;
+        return Refusal::of(format).diagnostic(&diag);
     }
 
     match format {

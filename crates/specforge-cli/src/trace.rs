@@ -4,6 +4,7 @@ use specforge_ops::trace::Target;
 use specforge_ops::view::ProjectView;
 
 use crate::OutputFormat;
+use crate::outcome::Refusal;
 use crate::pipeline;
 
 /// `specforge trace [entity]`: the trace operation over the project
@@ -15,10 +16,7 @@ pub fn run(path: &Path, entity: Option<&str>, format: OutputFormat) -> i32 {
     let target = entity.map_or(Target::Every, Target::Entity);
     let outcome = match specforge_ops::trace::trace(&ProjectView::of(&project), target) {
         Ok(outcome) => outcome,
-        Err(error) => {
-            eprintln!("{}", crate::export::render_op_error(&error.into()));
-            return 1;
-        }
+        Err(error) => return Refusal::of(format).report(&error.into()),
     };
 
     match format {

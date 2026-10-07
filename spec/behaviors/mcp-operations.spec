@@ -65,7 +65,12 @@ behavior provide_mcp_format_tool "Provide MCP Format Tool" {
     name it, and the call MUST be reported as failed, with the kind of
     failure the OS gave (permission_denied for a file it refused, file_not_found
     for one that does not exist, internal_error for another cause or for
-    failures of different kinds). all_clean MUST be true
+    failures of different kinds). ok MUST be the verdict specforge format
+    exits by: false when a file could not be read or written or has a region
+    left unformatted, and in check mode when a file would change; true
+    otherwise, also after a write or a diff that found changes. A path naming a
+    directory that is no project MUST be formatted as specforge format
+    formats it, with the default configuration. all_clean MUST be true
     only when every file was read and is in canonical form; a region left
     unformatted (W142) MUST be returned among the diagnostics, with its file
     and line. Diagnostics from loading the format configuration
@@ -81,6 +86,8 @@ behavior provide_mcp_format_tool "Provide MCP Format Tool" {
   verify unit "a file with a region left unformatted is not reported clean, and its W142 is returned"
   verify unit "format configuration diagnostics are returned in the result"
   verify unit "the format tool advertises no default for write, and check or diff without write writes nothing"
+  verify unit "ok is the verdict specforge format exits by, in every mode"
+  verify unit "a directory that is no project is formatted with the defaults, as specforge format formats it"
   verify contract "Provide MCP Format Tool: MCP format tool holds — filesystem_available, files_formatted, check_mode_readonly, mutation_completed_emitted, tool_invoked_emitted"
 }
 
@@ -333,7 +340,12 @@ behavior provide_mcp_migrate_tool "Provide MCP Migrate Tool" {
     migration hooks run after the files are migrated, and a migration whose
     hooks fail or whose graph changes structure is rolled back. The result
     MUST report the hooks run, the structural differences found, and
-    whether the migration was rolled back. A project with nothing to
+    whether the migration was rolled back. The result (and a failed call's
+    data) MUST carry ok, the verdict specforge migrate exits by: false when
+    a file failed to migrate or the migration was rolled back. A failed
+    migration is compilation_failed when the migrated project reported
+    errors, else internal_error. A path naming a directory that is no project
+    MUST be migrated as specforge migrate migrates it. A project with nothing to
     migrate MUST be reported as already at the target version, without
     running hooks or validation.
   """
@@ -343,6 +355,8 @@ behavior provide_mcp_migrate_tool "Provide MCP Migrate Tool" {
   verify unit "target_version selects the format version to migrate to"
   verify unit "a malformed or unsupported target_version is refused without modifying files"
   verify unit "the result reports the hooks run, the structural differences and whether the migration was rolled back"
+  verify unit "ok is the verdict specforge migrate exits by, and a failed migration's kind is the operation's"
+  verify unit "a directory that is no project is migrated as specforge migrate migrates it"
   verify contract "Provide MCP Migrate Tool: MCP migrate tool holds — filesystem_available, migrations_applied, post_migration_validated, dry_run_safe, mutation_completed_emitted, tool_invoked_emitted"
 }
 

@@ -2,6 +2,7 @@ mod call_target;
 mod conformance;
 mod contracts;
 mod events;
+mod failure_kinds;
 mod fake_extension;
 mod invariants;
 mod lifecycle;

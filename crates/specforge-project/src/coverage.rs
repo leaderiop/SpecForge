@@ -9,7 +9,6 @@
 use crate::Environment;
 use crate::snapshot::{EntitySnapshot, Standing};
 use serde::Deserialize;
-use specforge_common::{Diagnostic, codes};
 use specforge_graph::Graph;
 use std::collections::BTreeMap;
 use std::hash::{DefaultHasher, Hash, Hasher};
@@ -81,17 +80,19 @@ impl From<&TestReport> for specforge_protocol_types::PassTestResults {
     }
 }
 
-/// Why a test report could not be used.
+/// Why a test report could not be used. It says what happened, not what to
+/// make of it: `specforge_ops` decides the kind of failure it is (ADR 0029).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ReportError {
-    /// The report is there (or was named) but could not be read.
+    /// The report is there (or was named) but could not be read: what the
+    /// OS said.
     Unreadable {
         path: PathBuf,
+        io: std::io::ErrorKind,
         detail: String,
-        /// The named file does not exist.
-        missing: bool,
     },
-    /// The report does not parse as a `specforge-report.json`.
+    /// The report is not a `specforge-report.json`: not UTF-8, or not the
+    /// RES-15 shape.
     Malformed { path: PathBuf, detail: String },
 }
 
@@ -100,13 +101,6 @@ impl ReportError {
         match self {
             ReportError::Unreadable { path, .. } | ReportError::Malformed { path, .. } => path,
         }
-    }
-
-    /// The error as a diagnostic (E045, an invalid test report).
-    pub fn diagnostic(&self) -> Diagnostic {
-        Diagnostic::new(codes::E045, self.to_string()).with_suggestion(
-            "run `specforge collect` again to rewrite the report, or fix or remove the file",
-        )
     }
 }
 
@@ -133,10 +127,11 @@ impl std::error::Error for ReportError {}
 /// error, never read as empty, so coverage cannot silently drop.
 pub fn read_report(root: &Path) -> Result<Option<TestReport>, ReportError> {
     let path = root.join(REPORT_FILE);
-    if !path.exists() {
-        return Ok(None);
+    match std::fs::read(&path) {
+        Ok(bytes) => parse_report(&path, &bytes).map(Some),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(e) => Err(unreadable(&path, &e)),
     }
-    read_report_file(&path).map(Some)
 }
 
 /// A test report at an explicit path (`--test-results`), which must exist.
@@ -148,17 +143,16 @@ pub fn read_report_file(path: &Path) -> Result<TestReport, ReportError> {
 fn unreadable(path: &Path, error: &std::io::Error) -> ReportError {
     ReportError::Unreadable {
         path: path.to_path_buf(),
+        io: error.kind(),
         detail: error.to_string(),
-        missing: error.kind() == std::io::ErrorKind::NotFound,
     }
 }
 
 /// The report `path` holds, from its bytes.
 fn parse_report(path: &Path, bytes: &[u8]) -> Result<TestReport, ReportError> {
-    let raw = std::str::from_utf8(bytes).map_err(|_| ReportError::Unreadable {
+    let raw = std::str::from_utf8(bytes).map_err(|_| ReportError::Malformed {
         path: path.to_path_buf(),
         detail: "stream did not contain valid UTF-8".to_string(),
-        missing: false,
     })?;
     serde_json::from_str(raw).map_err(|e| ReportError::Malformed {
         path: path.to_path_buf(),
