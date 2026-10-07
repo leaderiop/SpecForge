@@ -2,9 +2,10 @@
 //! over HTTP (search, resolve, publish), registry credentials in the OS
 //! keyring, publisher trust (TOFU key pinning) and ed25519 package signing.
 //!
-//! It is separate from the Registry build (`specforge-registry`), which is
-//! pure: manifests in, kind/field/edge registries and rules out. This crate
-//! depends on it only for the manifest types it publishes and resolves.
+//! It is not the Registry build (`specforge-registry`), which is pure and
+//! which this crate does not depend on. It reads the extension declaration
+//! and the package name from `specforge-protocol-types` and diagnostics from
+//! `specforge-common`.
 
 pub mod auth;
 pub mod credential_health;
