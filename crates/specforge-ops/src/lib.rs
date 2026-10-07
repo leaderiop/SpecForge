@@ -69,6 +69,9 @@ pub enum OpErrorKind {
     /// A file the operation reads is not what it should hold: the config,
     /// the lock, a manifest, a test report, a signature's metadata.
     SchemaMismatch,
+    /// The project the operation produced does not compile: a migration
+    /// whose migrated sources report errors.
+    CompilationFailed,
     /// Something the operation needs is not set up: no project, no
     /// registry, no collector, no lock file.
     PreconditionFailed,
@@ -128,6 +131,7 @@ impl OpErrorKind {
             Self::ExtensionNotFound => "extension_not_found",
             Self::Conflict => "conflict",
             Self::SchemaMismatch => "schema_mismatch",
+            Self::CompilationFailed => "compilation_failed",
             Self::PreconditionFailed => "precondition_failed",
             Self::PermissionDenied => "permission_denied",
             Self::Timeout => "timeout",

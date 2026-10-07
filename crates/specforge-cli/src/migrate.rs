@@ -42,8 +42,8 @@ pub fn run(
     let written = (!dry_run).then(|| outcome.writes.names_under(path));
     print_migration(&outcome.summary, written.as_deref(), format, dry_run);
 
-    if outcome.summary.failed_count > 0 {
-        return Exit::Failed.code();
+    if outcome.summary.failed_count != 0 {
+        return Exit::of_verdict(outcome.ok()).code();
     }
     for failure in &outcome.hook_failures {
         eprintln!("migration hook failure: {failure}");
@@ -61,10 +61,9 @@ pub fn run(
         } else {
             eprintln!("files restored from backups");
         }
-        return Exit::Failed.code();
     }
 
-    Exit::Passed.code()
+    Exit::of_verdict(outcome.ok()).code()
 }
 
 /// The JSON of `document` with `files_written`, when given.

@@ -1559,6 +1559,9 @@ expression: listing
         "migrated": {
           "type": "boolean"
         },
+        "ok": {
+          "type": "boolean"
+        },
         "post_migration_errors": {
           "type": "array"
         },
@@ -1576,6 +1579,7 @@ expression: listing
         }
       },
       "required": [
+        "ok",
         "from_version",
         "to_version",
         "migrated",

@@ -280,5 +280,45 @@ fn a_migration_that_fails_is_an_internal_error() {
     assert_eq!(error["code"], "internal_error", "{error}");
     assert_eq!(error["message"], "the migration failed", "{error}");
     assert_eq!(error["data"]["files_failed"], 1, "{error}");
-    assert!(error["data"].get("ok").is_none(), "{error}");
+    assert_eq!(error["data"]["ok"], false, "{error}");
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_migrate_tool",
+    verify = "ok is the verdict specforge migrate exits by, and a failed migration's kind is the operation's"
+)]
+fn migrate_ok_is_the_cli_verdict() {
+    // A migration that applies passes: exit 0.
+    let mut applying = served_with_old();
+    let applied = tool(&mut applying, "specforge.migrate", json!({}));
+    assert_eq!(applied["ok"], true, "{applied}");
+
+    // A dry run of the same passes.
+    let mut preview = served_with_old();
+    let dry = tool(&mut preview, "specforge.migrate", json!({"dry_run": true}));
+    assert_eq!(dry["ok"], true, "{dry}");
+
+    // Nothing to migrate passes.
+    let mut current = served();
+    let nothing = tool(&mut current, "specforge.migrate", json!({}));
+    assert_eq!(nothing["ok"], true, "{nothing}");
+
+    // A file that cannot migrate fails: exit 1, internal_error, ok false.
+    let mut bad = served();
+    bad.write(
+        "bad.spec",
+        "// specforge-format: 99.0\nbehavior bad \"Bad\" {\n}\n",
+    );
+    let error = mcp_error(&call_tool(&mut bad, "specforge.migrate", json!({})));
+    assert_eq!(error["code"], "internal_error", "{error}");
+    assert_eq!(error["data"]["ok"], false, "{error}");
+}
+
+fn served_with_old() -> Served {
+    let served = served();
+    served.write(
+        "old.spec",
+        "// specforge-format: 0.1\nbehavior old_one \"Old\" {\n}\n",
+    );
+    served
 }

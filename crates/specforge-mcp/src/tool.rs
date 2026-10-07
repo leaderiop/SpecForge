@@ -245,6 +245,7 @@ impl From<OpErrorKind> for ErrorCode {
             OpErrorKind::ExtensionNotFound => ErrorCode::ExtensionNotFound,
             OpErrorKind::Conflict => ErrorCode::Conflict,
             OpErrorKind::SchemaMismatch => ErrorCode::SchemaMismatch,
+            OpErrorKind::CompilationFailed => ErrorCode::CompilationFailed,
             OpErrorKind::PreconditionFailed => ErrorCode::PreconditionFailed,
             OpErrorKind::PermissionDenied => ErrorCode::PermissionDenied,
             OpErrorKind::Timeout => ErrorCode::Timeout,

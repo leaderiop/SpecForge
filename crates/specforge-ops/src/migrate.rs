@@ -17,7 +17,7 @@ use specforge_protocol_types::ExtensionDeclaration;
 use specforge_wasm::WasmRuntime;
 use std::path::Path;
 
-use crate::{OpError, Writes};
+use crate::{OpError, OpErrorKind, Writes};
 
 /// The format version to migrate to: `raw`, checked, else the current one.
 /// A version that doesn't parse, or one newer than this build supports, is
@@ -92,9 +92,31 @@ impl Outcome {
         self.applied && self.summary.migrated_count > 0 && self.rollback.is_none()
     }
 
-    /// Whether the run failed: a file failed to migrate, or it rolled back.
-    pub fn failed(&self) -> bool {
-        self.summary.failed_count > 0 || self.rollback.is_some()
+    /// The run's verdict: no file failed to migrate and nothing was rolled
+    /// back. `specforge migrate` exits by it; MCP `specforge.migrate`
+    /// returns it as `ok`.
+    pub fn ok(&self) -> bool {
+        self.summary.failed_count == 0 && self.rollback.is_none()
+    }
+
+    /// Why the run failed, as every operation reports a failure; `None`
+    /// when [`Self::ok`]. Code `migration_failed`; kind `CompilationFailed`
+    /// when the migrated project reported errors before it was rolled
+    /// back, else `Internal`; message "the migrated project does not
+    /// compile" or "the migration failed".
+    pub fn failure(&self) -> Option<OpError> {
+        if self.ok() {
+            return None;
+        }
+        let (kind, message) = if self.post_errors().next().is_some() {
+            (
+                OpErrorKind::CompilationFailed,
+                "the migrated project does not compile",
+            )
+        } else {
+            (OpErrorKind::Internal, "the migration failed")
+        };
+        Some(OpError::new(kind, "migration_failed", message))
     }
 
     /// The errors compiling the migrated project reported.
@@ -364,7 +386,7 @@ mod tests {
         );
         let rollback = outcome.rollback.as_ref().expect("rolled back");
         assert_eq!(rollback.restored_count, 1, "{rollback:?}");
-        assert!(outcome.failed() && !outcome.migrated());
+        assert!(!outcome.ok() && !outcome.migrated());
         assert_eq!(std::fs::read_to_string(&file).unwrap(), OLD);
     }
 
@@ -388,6 +410,68 @@ mod tests {
         assert_eq!(
             std::fs::read_to_string(dir.path().join("old.spec")).unwrap(),
             OLD
+        );
+    }
+
+    #[test]
+    fn a_failed_migration_names_its_kind() {
+        // Applied: nothing failed, no failure.
+        let dir = project();
+        let outcome = run(&request(dir.path()), None);
+        assert!(outcome.ok());
+        assert_eq!(outcome.failure(), None);
+
+        // A file that cannot migrate: the run failed on its own side.
+        let dir = project();
+        std::fs::write(
+            dir.path().join("bad.spec"),
+            "// specforge-format: 99.0\nbehavior bad \"Bad\" {\n}\n",
+        )
+        .unwrap();
+        let outcome = run(&request(dir.path()), None);
+        let failure = outcome.failure().expect("a file failed to migrate");
+        assert!(!outcome.ok());
+        assert_eq!(
+            (
+                failure.kind,
+                failure.code.as_ref(),
+                failure.message.as_str()
+            ),
+            (
+                OpErrorKind::Internal,
+                "migration_failed",
+                "the migration failed"
+            )
+        );
+
+        // A hook that fails: rolled back, the project never compiled again.
+        let dir = project();
+        let outcome = run_with_hooks(&request(dir.path()), None, &mut |_, _| {
+            (
+                Vec::new(),
+                vec!["migration hook 'm' of @acme/x trapped".into()],
+            )
+        });
+        assert!(outcome.rollback.is_some() && !outcome.ok());
+        assert_eq!(outcome.failure().unwrap().kind, OpErrorKind::Internal);
+
+        // A hook that leaves the project not compiling: rolled back with the
+        // errors the migrated project reported.
+        let dir = project();
+        let file = dir.path().join("old.spec");
+        let outcome = run_with_hooks(&request(dir.path()), None, &mut |_, _| {
+            std::fs::write(&file, "behavior {\n").unwrap();
+            (Vec::new(), Vec::new())
+        });
+        assert!(outcome.post_errors().next().is_some(), "{outcome:?}");
+        assert!(outcome.rollback.is_some());
+        let failure = outcome.failure().expect("rolled back");
+        assert_eq!(
+            (failure.kind, failure.message.as_str()),
+            (
+                OpErrorKind::CompilationFailed,
+                "the migrated project does not compile"
+            )
         );
     }
 

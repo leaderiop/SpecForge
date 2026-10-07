@@ -337,7 +337,11 @@ behavior provide_mcp_migrate_tool "Provide MCP Migrate Tool" {
     migration hooks run after the files are migrated, and a migration whose
     hooks fail or whose graph changes structure is rolled back. The result
     MUST report the hooks run, the structural differences found, and
-    whether the migration was rolled back. A project with nothing to
+    whether the migration was rolled back. The result (and a failed call's
+    data) MUST carry ok, the verdict specforge migrate exits by: false when
+    a file failed to migrate or the migration was rolled back. A failed
+    migration is compilation_failed when the migrated project reported
+    errors, else internal_error. A project with nothing to
     migrate MUST be reported as already at the target version, without
     running hooks or validation.
   """
@@ -347,6 +351,7 @@ behavior provide_mcp_migrate_tool "Provide MCP Migrate Tool" {
   verify unit "target_version selects the format version to migrate to"
   verify unit "a malformed or unsupported target_version is refused without modifying files"
   verify unit "the result reports the hooks run, the structural differences and whether the migration was rolled back"
+  verify unit "ok is the verdict specforge migrate exits by, and a failed migration's kind is the operation's"
   verify contract "Provide MCP Migrate Tool: MCP migrate tool holds — filesystem_available, migrations_applied, post_migration_validated, dry_run_safe, mutation_completed_emitted, tool_invoked_emitted"
 }
 

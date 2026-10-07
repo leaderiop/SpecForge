@@ -528,6 +528,7 @@ pub(crate) fn migrate_op(call: &mut Call<'_>, args: MigrateArgs) -> MutationHand
             "dry_run": dry_run,
             "changes": [],
             "message": "project is already at the latest format version",
+            "ok": outcome.ok(),
         });
         return Ok(migration(ok(current), outcome.writes));
     }
@@ -538,6 +539,7 @@ pub(crate) fn migrate_op(call: &mut Call<'_>, args: MigrateArgs) -> MutationHand
         .map(|d| json!({"code": d.code, "message": d.message}))
         .collect();
     let result = json!({
+        "ok": outcome.ok(),
         "from_version": from,
         "to_version": to,
         "migrated": outcome.migrated(),
@@ -560,18 +562,9 @@ pub(crate) fn migrate_op(call: &mut Call<'_>, args: MigrateArgs) -> MutationHand
     // A failed run's report rides in `data`, and what it left written (its
     // backups after a rollback, the files migrated before a failure) is
     // reported.
-    let reply = if outcome.failed() {
-        let (code, message) = if outcome.post_errors().next().is_some() {
-            (
-                ErrorCode::CompilationFailed,
-                "the migrated project does not compile",
-            )
-        } else {
-            (ErrorCode::InternalError, "the migration failed")
-        };
-        McpError::new(code, message).with_data(result).into()
-    } else {
-        ok(result)
+    let reply = match outcome.failure() {
+        Some(failure) => McpError::from(failure).with_data(result).into(),
+        None => ok(result),
     };
     Ok(migration(reply, outcome.writes))
 }
