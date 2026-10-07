@@ -471,8 +471,11 @@ behavior validate_delta_correctness "Validate Delta Correctness" {
     or edges: a node ID or edge mismatch between the applied delta and
     the new graph, or a modified node missing from either graph.
 
-    Debug mode is activated by the compiler's debug build configuration or the
-    --verify-incremental CLI flag. The CLI flag enables delta validation
+    Debug mode is activated by the compiler's debug build configuration,
+    in every project session (watch, the LSP and MCP), or by watch's
+    --verify-incremental CLI flag. A divergence is reported with the
+    rebuild: watch prints it, the LSP logs it, and a debug build of the
+    LSP or MCP stops on it. The CLI flag enables delta validation
     in release builds for CI use. This check MUST be disabled in release
     builds (without --verify-incremental) to avoid performance overhead.
   """
@@ -480,6 +483,7 @@ behavior validate_delta_correctness "Validate Delta Correctness" {
   verify unit "a discrepancy is reported with a message naming what differs"
   verify unit "check disabled in release builds"
   verify integration "a debug build checks each rebuild without the flag"
+  verify unit "the LSP and MCP check each rebuild in a debug build"
   verify unit "a rebuild that passes the check is reported as passed"
   verify contract "Validate Delta Correctness: delta correctness validation holds — graph_delta_available, debug_mode_active, delta_verified, validation_event_emitted"
 }

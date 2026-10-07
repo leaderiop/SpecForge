@@ -857,9 +857,10 @@ fn verify_incremental_compares_each_update_with_a_cold_rebuild() {
     let dir = three_files();
     let root = dir.path();
     let mut session = ProjectSession::open(root);
+    session.set_verify_incremental(false);
     write(root, "c.spec", &behavior("renamed", ""));
     let update = session.update(SourceChange::Disk(&changed(&["c.spec"])));
-    assert_eq!(update.verification, None, "off unless asked for");
+    assert_eq!(update.verification, None, "off when turned off");
 
     session.set_verify_incremental(true);
     write(root, "c.spec", &behavior("delta", ""));
@@ -1026,6 +1027,8 @@ fn the_delta_check_runs_only_when_asked_for() {
     let dir = three_files();
     let root = dir.path();
     let mut session = ProjectSession::open(root);
+    // A release build verifies only when asked (`--verify-incremental`).
+    session.set_verify_incremental(false);
     write(root, "c.spec", &behavior("renamed", ""));
     let update = session.update(SourceChange::Disk(&changed(&["c.spec"])));
     assert_eq!(update.rebuilt_files, ["c.spec"], "the rebuild itself ran");
@@ -1996,13 +1999,27 @@ fn the_session_reports_graph_diagnostics_in_build_order() {
     );
 }
 
-#[test]
-fn a_session_verifies_its_updates_only_when_asked() {
+/// Every session verifies its updates in a debug build, with no flag; a
+/// release build only when asked.
+#[specforge_test(
+    behavior = "validate_delta_correctness",
+    verify = "a debug build checks each rebuild without the flag"
+)]
+fn a_session_verifies_its_updates_in_a_debug_build() {
     let dir = three_files();
     let root = dir.path();
     let mut session = ProjectSession::open(root);
-    write(root, "c.spec", &behavior("renamed", ""));
+    for name in ["renamed", "again"] {
+        write(root, "c.spec", &behavior(name, ""));
+        let update = session.update(SourceChange::Disk(&changed(&["c.spec"])));
+        assert_eq!(update.verification.is_some(), cfg!(debug_assertions));
+        if let Some(verification) = update.verification {
+            assert_eq!(verification, Ok(()));
+        }
+    }
+    // A reloaded session verifies too.
+    session.reload_environment();
+    write(root, "c.spec", &behavior("reloaded", ""));
     let update = session.update(SourceChange::Disk(&changed(&["c.spec"])));
-    // PIN (07-T6): no verification unless asked, in every build profile.
-    assert_eq!(update.verification, None);
+    assert_eq!(update.verification.is_some(), cfg!(debug_assertions));
 }

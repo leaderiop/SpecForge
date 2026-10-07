@@ -172,9 +172,10 @@ impl OpeningProject {
         // What was stamped is exactly what is read.
         let SourceBuild {
             sources,
-            graph,
+            mut graph,
             imports,
         } = self.env.build_sources(&discovered);
+        graph.set_verify(cfg!(debug_assertions));
 
         let mut session = ProjectSession {
             env: self.env,
@@ -184,7 +185,7 @@ impl OpeningProject {
             graph,
             import_diagnostics: imports,
             check_diagnostics: Vec::new(),
-            verify_incremental: false,
+            verify_incremental: cfg!(debug_assertions),
             inputs: self.inputs,
             snapshot,
             recorded: OnceLock::new(),
@@ -203,10 +204,14 @@ impl ProjectSession {
             runtime: None,
             source: RuntimeSource::Fixed(None),
             sources: SourceCache::empty(),
-            graph: GraphBuild::new(GraphConfig::default()),
+            graph: {
+                let mut graph = GraphBuild::new(GraphConfig::default());
+                graph.set_verify(cfg!(debug_assertions));
+                graph
+            },
             import_diagnostics: Vec::new(),
             check_diagnostics: Vec::new(),
-            verify_incremental: false,
+            verify_incremental: cfg!(debug_assertions),
             inputs: SessionInputs::detached(),
             snapshot: DiskSnapshot::default(),
             recorded: OnceLock::new(),
@@ -262,8 +267,9 @@ impl ProjectSession {
         }
     }
 
-    /// Compare every update's graph with a cold rebuild (costly: a debug
-    /// build of watch does it always).
+    /// Compare every update's graph with a cold rebuild (costly). A debug
+    /// build verifies every session by default; this turns it on in release
+    /// (watch's `--verify-incremental`) or off.
     pub fn set_verify_incremental(&mut self, enabled: bool) {
         self.verify_incremental = enabled;
         self.graph.set_verify(enabled);
