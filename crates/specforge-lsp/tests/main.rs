@@ -8,6 +8,7 @@ mod e2e;
 mod hover;
 mod lifecycle;
 mod navigation;
+mod protocol;
 mod publish;
 mod registries;
 mod rename;
