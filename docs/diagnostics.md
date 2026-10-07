@@ -571,10 +571,13 @@ Level: error
 ```
 E054: Invalid extension specifier
 
-The extension identifier passed to install couldn't be parsed — it was empty
-or didn't match `name@version`, a local path, or a `git+https://...` URL — or
-a local install path didn't exist on disk. Use a valid specifier format or check
-the local file path.
+The argument given to `specforge add` (or `specforge.add_extension`, or `init
+--extensions`) isn't a builtin's name, a local path (ending in `.wasm`, or
+starting with `./`, `../` or `/`), a `git+https://...` URL, or a registry
+package `@scope/name` with an optional `@version` or `@requirement`, or a local
+install path didn't exist on disk. A registry package name is lowercase letters,
+digits, `.`, `_` or `-` in two parts that each start with a letter or digit.
+Nothing is asked of any registry.
 
 Owner: core
 Level: error
@@ -806,6 +809,28 @@ is one E069, and `check` fails on it, so a broken config can't pass a CI that
 checks nothing. Fix the file: the message names the JSON error's line and
 column, or the key and the item. A missing `specforge.json` is not this: it is a
 project with the default config (`specforge doctor` says so).
+
+Owner: core
+Level: error
+```
+
+## E072
+
+```
+E072: Invalid package name or version
+
+A name that must be a package name is not one, or a version that must be a
+SemVer version is not one. A package name is `@scope/name` (what a registry
+holds) or `name` alone (a local module); each part is lowercase letters, digits,
+`.`, `_` or `-`, and starts with a letter or digit, so it is always a directory
+inside `.specforge/extensions`. It is checked where a name does not come from
+the `add` argument (that is E054): the name a local module declares when
+`specforge add` installs it, a peer a declaration names, a `specforge.json`
+`extensions` entry (the entry is not loaded), the name `specforge remove` is
+given, and the name and version of the declaration `specforge publish` uploads
+(which must also be scoped and a full version). Nothing is written or deleted.
+Fix the extension's declared name or version (its SDK `name`/`version`) and
+rebuild, or fix the `specforge.json` entry.
 
 Owner: core
 Level: error
@@ -1569,8 +1594,9 @@ Level: error
 ```
 R-RES-003: Invalid version range
 
-The version range isn't valid semver range syntax. Use a range such as `^1.0`,
-`~2.3` or `>=1.0.0 <2.0.0`, or `latest`.
+The version after `@` isn't `latest`, a full version or valid SemVer requirement
+syntax, so no registry was asked. Use a version such as `1.2.0`, a requirement
+such as `^1.0`, `~2.3`, `1.x` or `>=1.0.0, <2.0.0`, or `latest`.
 
 Owner: core
 Level: error

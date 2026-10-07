@@ -8,6 +8,8 @@ repository.workspace = true
 [dependencies]
 # The catalog's title on every diagnostics JSON entry; it has no dependencies.
 specforge-diagnostics = { path = "../specforge-diagnostics" }
+# `package::invalid`: the diagnostic for a name that is no package name.
+specforge-protocol-types = { path = "../specforge-protocol-types" }
 lasso = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

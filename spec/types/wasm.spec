@@ -64,7 +64,7 @@ type ExtensionInstallResult {
   verify unit "ExtensionInstallResult schema is valid"
 }
 
-type ExtensionSource = registry | local | git
+type ExtensionSource = builtin | registry | local | git
 
 type WasmTrapInfo {
   kind           string @readonly
@@ -118,14 +118,35 @@ type CollectorAutoDetect {
 
 type CollectorTestStatus = passed | failed | skipped
 
+// What an extension package is called: @scope/name, or name alone for a local
+// module. Each part is a-z 0-9 . _ - and starts with a letter or digit, so a
+// name is always a relative path inside the directory it is joined to (ADR 0036).
+type PackageName "Package Name" {
+  scope string @optional
+  base  string
+  verify unit "a package name is @scope/name or a local name, and always a relative path inside its directory"
+  verify unit "a package name crosses a registry URL as one segment"
+}
+
+type VersionRequirementKind = latest | exact | range
+
+// Which version of a package is asked for: latest (or *), one full version,
+// or a SemVer requirement read as Cargo reads one (ADR 0036).
+type VersionRequirement "Version Requirement" {
+  kind VersionRequirementKind
+  text string
+  verify unit "a version requirement is latest, one version or a SemVer requirement"
+  verify unit "one rule picks the version a requirement asks for"
+}
+
 type ExtensionSpecifier "Parsed Extension Specifier" {
-  raw     string
-  format  ExtensionSource
-  scope   string @optional
-  name    string
-  version string @optional
-  path    string @optional
-  git_ref string @optional
+  raw         string
+  format      ExtensionSource
+  builtin     string             @optional
+  name        PackageName        @optional
+  requirement VersionRequirement @optional
+  path        string             @optional
+  git_url     string             @optional
   verify unit "Parsed Extension Specifier conforms to schema"
 }
 

@@ -226,6 +226,7 @@ behavior upgrade_wasm_extension "Upgrade Wasm Extension" {
   verify unit "validates peer dependency compatibility"
   verify unit "replaces binary and records new lock hash"
   verify unit "rejects breaking peer change without --force"
+  verify unit "one rule picks the version a requirement asks for"
   verify contract "Upgrade Wasm Extension: Wasm extension upgrade holds — extension_installed, source_available, extension_upgrade_completed_emitted, binary_replaced, peer_compatibility_enforced"
 }
 

@@ -3,6 +3,7 @@ mod diagnostic;
 pub mod discovery;
 pub mod inference;
 mod interner;
+pub mod package;
 mod present;
 mod project;
 mod slug;

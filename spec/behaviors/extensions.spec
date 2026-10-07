@@ -121,6 +121,7 @@ behavior load_extension_declaration "Load Extension Declaration" {
   verify unit "a describe item key the protocol does not define produces W138"
   verify unit "the fields category is every kind's fields, concatenated"
   verify unit "an absent short is the name's last segment"
+  verify unit "a declaration's default short name is its package name's base"
   verify unit "the SDK's short name reaches the handshake as ext_short"
   verify unit "a short name that is not lowercase kebab case is refused when the extension is built"
   verify unit "a raw category that does not parse panics when the extension is built"

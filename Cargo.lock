@@ -2814,6 +2814,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "specforge-diagnostics",
+ "specforge-protocol-types",
  "specforge-test",
  "specforge-test-macros",
  "strsim",
@@ -3097,6 +3098,7 @@ dependencies = [
 name = "specforge-protocol-types"
 version = "0.1.0"
 dependencies = [
+ "semver",
  "serde",
  "serde_json",
  "specforge-test",
