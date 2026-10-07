@@ -1,0 +1,2124 @@
+---
+source: crates/specforge-mcp/tests/tool_arguments.rs
+expression: listing
+---
+[
+  {
+    "name": "specforge.query",
+    "description": "Query the graph at multiple resolutions",
+    "inputSchema": {
+      "properties": {
+        "depth": {
+          "default": 1,
+          "description": "Number of hops (default 1)",
+          "type": "integer"
+        },
+        "entity_id": {
+          "description": "Entity ID to query",
+          "type": "string"
+        },
+        "format": {
+          "default": "graph",
+          "description": "Output detail level: graph (also json): every entity with its fields, file and line (Graph Protocol); context: headline and normative fields and verify, for an agent; brief: id, kind and title",
+          "enum": [
+            "graph",
+            "context",
+            "brief",
+            "json"
+          ],
+          "type": "string"
+        },
+        "include_coverage": {
+          "default": false,
+          "description": "Include coverage metadata in the response",
+          "type": "boolean"
+        },
+        "kinds": {
+          "description": "Filter by entity kinds",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "entity_id"
+      ],
+      "type": "object"
+    },
+    "outputSchema": {
+      "properties": {
+        "edges": {
+          "type": "array"
+        },
+        "format_version": {
+          "type": "string"
+        },
+        "nodes": {
+          "type": "array"
+        },
+        "schema_version": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "nodes",
+        "edges"
+      ],
+      "type": "object"
+    },
+    "category": "core",
+    "source": "core",
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    }
+  },
+  {
+    "name": "specforge.validate",
+    "description": "Recompile and validate the spec project",
+    "inputSchema": {
+      "properties": {
+        "lint": {
+          "description": "Extra lint profiles, as `specforge check --lint` takes (inferred: I200/I202 from specforge-infer.json; pedantic is the default and adds nothing)",
+          "items": {
+            "description": "A lint profile",
+            "enum": [
+              "inferred",
+              "pedantic"
+            ],
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "path": {
+          "description": "Project root path (uses initialized root if omitted)",
+          "type": "string"
+        },
+        "severity_filter": {
+          "description": "Only report diagnostics of this severity, after strict promotion (case-insensitive). The verdict in _meta[\"specforge/check\"] still counts everything reported",
+          "enum": [
+            "error",
+            "warning",
+            "info"
+          ],
+          "type": "string"
+        },
+        "strict": {
+          "default": false,
+          "description": "Promote warnings to errors, before severity_filter applies",
+          "type": "boolean"
+        },
+        "use_cached": {
+          "default": false,
+          "description": "Use the last compile instead of bringing the project up to date with disk; with no project served, the path is compiled anyway",
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "category": "core",
+    "source": "core",
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    }
+  },
+  {
+    "name": "specforge.analyze",
+    "description": "Run analysis passes (coverage: proof obligations and discharge funnel; contracts: clause symmetry) over the compiled project",
+    "inputSchema": {
+      "properties": {
+        "pass": {
+          "default": "all",
+          "description": "Analysis pass to run: all, coverage, contracts, or a pass an extension declares (`<extension>:<pass>`)",
+          "type": "string"
+        },
+        "path": {
+          "description": "Project root path (uses initialized root if omitted)",
+          "type": "string"
+        },
+        "strict": {
+          "description": "Promote warnings to errors",
+          "type": "boolean"
+        },
+        "test_results": {
+          "description": "Path to a specforge-report.json for proof-level verdicts",
+          "type": "string"
+        },
+        "use_cached": {
+          "default": false,
+          "description": "Use the last compile instead of bringing the project up to date with disk; with no project served, the path is compiled anyway",
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "outputSchema": {
+      "properties": {
+        "ok": {
+          "type": "boolean"
+        },
+        "orphans": {
+          "type": "array"
+        },
+        "passes": {
+          "type": "array"
+        }
+      },
+      "required": [
+        "ok",
+        "passes"
+      ],
+      "type": "object"
+    },
+    "category": "core",
+    "source": "core",
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    }
+  },
+  {
+    "name": "specforge.export",
+    "description": "Export the graph in various formats",
+    "inputSchema": {
+      "properties": {
+        "format": {
+          "default": "graph",
+          "description": "Export format: graph (also json): every entity with its fields, file and line (Graph Protocol); context: headline and normative fields and verify, for an agent; brief: id, kind and title",
+          "enum": [
+            "graph",
+            "context",
+            "brief",
+            "json"
+          ],
+          "type": "string"
+        },
+        "max_tokens": {
+          "description": "Optional token budget; truncates the export to the most central entities that fit",
+          "type": "integer"
+        },
+        "no_schema": {
+          "description": "Leave the schema out of a graph export (Graph Protocol 1.0)",
+          "type": "boolean"
+        },
+        "scope": {
+          "description": "Scope to entity subgraph",
+          "type": "string"
+        },
+        "with_schema": {
+          "description": "Embed the Graph Protocol schema in a context, brief or budgeted graph export (a full graph export embeds it already); under max_tokens it counts toward the budget",
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "category": "core",
+    "source": "core",
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    }
+  },
+  {
+    "name": "specforge.trace",
+    "description": "Show traceability chain for an entity, or check an agent plan for gaps (entity_id or plan)",
+    "inputSchema": {
+      "properties": {
+        "entity_id": {
+          "description": "Entity ID to trace",
+          "type": "string"
+        },
+        "plan": {
+          "description": "An agent plan, {\"entries\": [{\"entity_id\": ...}]}, to check for gaps against the graph instead of tracing one entity",
+          "type": "object"
+        }
+      },
+      "type": "object"
+    },
+    "outputSchema": {
+      "oneOf": [
+        {
+          "properties": {
+            "downstream": {
+              "items": {
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "entity_id": {
+              "type": "string"
+            },
+            "entity_kind": {
+              "type": "string"
+            },
+            "missing": {
+              "items": {
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "schema_version": {
+              "type": "string"
+            },
+            "upstream": {
+              "items": {
+                "type": "object"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "schema_version",
+            "entity_id",
+            "entity_kind",
+            "upstream",
+            "downstream",
+            "missing"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "affected_entities": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "gaps": {
+              "items": {
+                "properties": {
+                  "gap_context": {
+                    "type": "string"
+                  },
+                  "missing_link_type": {
+                    "type": "string"
+                  },
+                  "source_entity": {
+                    "type": "string"
+                  },
+                  "target_entity": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "source_entity",
+                  "target_entity",
+                  "missing_link_type"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "affected_entities",
+            "gaps"
+          ],
+          "type": "object"
+        }
+      ],
+      "type": "object"
+    },
+    "category": "core",
+    "source": "core",
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    }
+  },
+  {
+    "name": "specforge.search",
+    "description": "Find entities by id, title or string field text, ranked as the LSP ranks them (exact, prefix, substring, field text, then fuzzy)",
+    "inputSchema": {
+      "properties": {
+        "field": {
+          "description": "Only search a specific field",
+          "type": "string"
+        },
+        "kinds": {
+          "description": "Filter by kinds",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "limit": {
+          "default": 20,
+          "description": "Max results (default 20)",
+          "type": "integer"
+        },
+        "query": {
+          "description": "Search query",
+          "type": "string"
+        },
+        "references": {
+          "description": "Only entities that reference this entity ID (combined with the other filters)",
+          "type": "string"
+        },
+        "value": {
+          "description": "Exact field value filter (with field)",
+          "type": "string"
+        }
+      },
+      "required": [
+        "query"
+      ],
+      "type": "object"
+    },
+    "category": "core",
+    "source": "core",
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    }
+  },
+  {
+    "name": "specforge.explain",
+    "description": "Explain a diagnostic code: its title, owner, level, what triggers it and how to fix it, and its docs link",
+    "inputSchema": {
+      "properties": {
+        "code": {
+          "description": "A diagnostic code, any case",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code"
+      ],
+      "type": "object"
+    },
+    "outputSchema": {
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "docs": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "explanation": {
+          "type": "string"
+        },
+        "level": {
+          "type": "string"
+        },
+        "owner": {
+          "type": "string"
+        },
+        "replaced_by": {
+          "properties": {
+            "code": {
+              "type": "string"
+            },
+            "docs": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "explanation": {
+              "type": "string"
+            },
+            "level": {
+              "type": "string"
+            },
+            "owner": {
+              "type": "string"
+            },
+            "title": {
+              "type": "string"
+            }
+          },
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "retired": {
+          "type": "boolean"
+        },
+        "title": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "retired"
+      ],
+      "type": "object"
+    },
+    "category": "core",
+    "source": "core",
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    }
+  },
+  {
+    "name": "specforge.schema",
+    "description": "Get the GraphProtocolSchema: entity kinds with their typed fields, edge types and the loaded extensions",
+    "inputSchema": {
+      "properties": {
+        "include_edges": {
+          "default": true,
+          "description": "Include edge type definitions",
+          "type": "boolean"
+        },
+        "include_validation_rules": {
+          "default": false,
+          "description": "Include the validation rules loaded extensions declare",
+          "type": "boolean"
+        },
+        "kind": {
+          "description": "Filter schema to a specific entity kind",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "outputSchema": {
+      "properties": {
+        "edge_types": {
+          "type": "array"
+        },
+        "entity_kinds": {
+          "type": "array"
+        },
+        "extensions": {
+          "type": "array"
+        },
+        "schema_version": {
+          "type": "object"
+        },
+        "validation_rules": {
+          "type": "array"
+        }
+      },
+      "required": [
+        "schema_version",
+        "extensions",
+        "entity_kinds"
+      ],
+      "type": "object"
+    },
+    "category": "core",
+    "source": "core",
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    }
+  },
+  {
+    "name": "specforge.model",
+    "description": "Render the logical data model (entity kinds, fields, relationships)",
+    "inputSchema": {
+      "properties": {
+        "depth": {
+          "description": "Maximum depth from root kind (requires root)",
+          "type": "integer"
+        },
+        "extension": {
+          "description": "Filter to a single extension",
+          "type": "string"
+        },
+        "fields": {
+          "default": "keys",
+          "description": "Field detail level: none; keys: key fields; all",
+          "enum": [
+            "none",
+            "keys",
+            "all"
+          ],
+          "type": "string"
+        },
+        "format": {
+          "default": "markdown",
+          "description": "Output format: markdown; mermaid: ER diagram; dot: Graphviz; json; dbml: dbdiagram.io",
+          "enum": [
+            "markdown",
+            "mermaid",
+            "dot",
+            "json",
+            "dbml"
+          ],
+          "type": "string"
+        },
+        "group_by": {
+          "default": "extension",
+          "description": "How to group entities: extension: under a header per extension; none: one flat list",
+          "enum": [
+            "extension",
+            "none"
+          ],
+          "type": "string"
+        },
+        "kinds": {
+          "description": "Filter to specific entity kinds",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "root": {
+          "description": "Root entity kind for depth-scoped output",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "category": "core",
+    "source": "core",
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    }
+  },
+  {
+    "name": "specforge.outline_extensions",
+    "description": "Renders the extension architecture hierarchy — how extensions relate via dependencies, enhancements, and cross-extension edges. Shows entity kinds, edge types, validation rules, and surface contributions per extension. Use this to understand the project's extension topology before making structural changes.",
+    "inputSchema": {
+      "properties": {
+        "deps": {
+          "default": "direct",
+          "description": "Dependency visibility: direct: declared only; effective: direct and used transitive; full: all transitive",
+          "enum": [
+            "direct",
+            "effective",
+            "full"
+          ],
+          "type": "string"
+        },
+        "fields": {
+          "default": "keys",
+          "description": "Detail level: none: counts only; keys: names and rule codes; all: full field attribution",
+          "enum": [
+            "none",
+            "keys",
+            "all"
+          ],
+          "type": "string"
+        },
+        "format": {
+          "default": "markdown",
+          "description": "Output format; json is meant for programs: markdown; mermaid: flowchart; dot: Graphviz; json",
+          "enum": [
+            "markdown",
+            "mermaid",
+            "dot",
+            "json"
+          ],
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "category": "core",
+    "source": "core",
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    }
+  },
+  {
+    "name": "specforge.coverage",
+    "description": "Get coverage status per entity",
+    "inputSchema": {
+      "properties": {
+        "entity_id": {
+          "description": "Filter to specific entity",
+          "type": "string"
+        },
+        "kind": {
+          "description": "Filter by entity kind",
+          "type": "string"
+        },
+        "status_filter": {
+          "description": "Only entities with this coverage status: covered: every obligation proven; partial: some obligations proven; uncovered: none proven",
+          "enum": [
+            "covered",
+            "partial",
+            "uncovered"
+          ],
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "category": "core",
+    "source": "core",
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    }
+  },
+  {
+    "name": "specforge.stats",
+    "description": "Get project statistics",
+    "inputSchema": {
+      "properties": {},
+      "type": "object"
+    },
+    "outputSchema": {
+      "properties": {
+        "coverage_pct": {
+          "type": "number"
+        },
+        "declared_pct": {
+          "type": "number"
+        },
+        "diagnostic_summary": {
+          "type": "object"
+        },
+        "edge_count": {
+          "type": "integer"
+        },
+        "entity_counts": {
+          "type": "array"
+        },
+        "orphan_count": {
+          "type": "integer"
+        },
+        "proof_pct": {
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "entity_counts",
+        "declared_pct",
+        "proof_pct",
+        "edge_count",
+        "orphan_count",
+        "diagnostic_summary"
+      ],
+      "type": "object"
+    },
+    "category": "core",
+    "source": "core",
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    }
+  },
+  {
+    "name": "specforge.list",
+    "description": "List entities sorted by id, optionally filtered by kind and field values, and paged",
+    "inputSchema": {
+      "properties": {
+        "kind": {
+          "description": "Filter by entity kind (e.g. 'feature', 'behavior')",
+          "type": "string"
+        },
+        "limit": {
+          "description": "Return at most this many entities",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "offset": {
+          "description": "Skip this many entities first",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "where": {
+          "additionalProperties": true,
+          "description": "Only entities whose fields hold these values, e.g. {\"status\": \"done\"}",
+          "type": "object"
+        }
+      },
+      "type": "object"
+    },
+    "category": "core",
+    "source": "core",
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    }
+  },
+  {
+    "name": "specforge.inspect",
+    "description": "Get full detail for a specific entity",
+    "inputSchema": {
+      "properties": {
+        "entity_id": {
+          "description": "Entity ID to inspect",
+          "type": "string"
+        }
+      },
+      "required": [
+        "entity_id"
+      ],
+      "type": "object"
+    },
+    "outputSchema": {
+      "properties": {
+        "contract": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "coverage_status": {
+          "type": "string"
+        },
+        "declared": {
+          "type": "boolean"
+        },
+        "diagnostics": {
+          "type": "array"
+        },
+        "entity_id": {
+          "type": "string"
+        },
+        "exempt": {
+          "type": "boolean"
+        },
+        "fields": {
+          "type": "object"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "obligated": {
+          "type": "boolean"
+        },
+        "reference_count": {
+          "type": "integer"
+        },
+        "referenced_by": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "references": {
+          "type": "array"
+        },
+        "refers_to": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "source_extension": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "source_span": {
+          "type": "object"
+        },
+        "testable": {
+          "type": "boolean"
+        },
+        "title": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "verify_declarations": {
+          "type": [
+            "array",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "entity_id",
+        "kind",
+        "testable",
+        "declared",
+        "exempt",
+        "obligated",
+        "source_span",
+        "fields",
+        "referenced_by",
+        "refers_to",
+        "references",
+        "coverage_status",
+        "diagnostics"
+      ],
+      "type": "object"
+    },
+    "category": "navigation",
+    "source": "core",
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    }
+  },
+  {
+    "name": "specforge.find_definition",
+    "description": "Find the source location of an entity definition",
+    "inputSchema": {
+      "properties": {
+        "entity_id": {
+          "description": "Entity ID",
+          "type": "string"
+        }
+      },
+      "required": [
+        "entity_id"
+      ],
+      "type": "object"
+    },
+    "outputSchema": {
+      "properties": {
+        "column": {
+          "type": "integer"
+        },
+        "entity_id": {
+          "type": "string"
+        },
+        "file_path": {
+          "type": "string"
+        },
+        "line": {
+          "type": "integer"
+        },
+        "name_span": {
+          "type": "object"
+        },
+        "precision": {
+          "enum": [
+            "token",
+            "entity"
+          ],
+          "type": "string"
+        },
+        "source_span": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "entity_id",
+        "file_path",
+        "line",
+        "column",
+        "source_span",
+        "name_span",
+        "precision"
+      ],
+      "type": "object"
+    },
+    "category": "navigation",
+    "source": "core",
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    }
+  },
+  {
+    "name": "specforge.find_references",
+    "description": "Find the references to an entity: each place another entity's field names it, as the identifier token (what an IDE's find-references shows)",
+    "inputSchema": {
+      "properties": {
+        "direction": {
+          "default": "incoming",
+          "description": "Which references: incoming: other entities' references to it; outgoing: its own references to other entities; both",
+          "enum": [
+            "incoming",
+            "outgoing",
+            "both"
+          ],
+          "type": "string"
+        },
+        "entity_id": {
+          "description": "Entity ID",
+          "type": "string"
+        },
+        "include_declaration": {
+          "default": false,
+          "description": "Also return the entity's own declaration (its name)",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "entity_id"
+      ],
+      "type": "object"
+    },
+    "outputSchema": {
+      "properties": {
+        "direction": {
+          "type": "string"
+        },
+        "entity_id": {
+          "type": "string"
+        },
+        "locations": {
+          "items": {
+            "properties": {
+              "field": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "precision": {
+                "enum": [
+                  "token",
+                  "entity"
+                ],
+                "type": "string"
+              },
+              "referenced_entity_id": {
+                "type": "string"
+              },
+              "referencing_entity_id": {
+                "type": "string"
+              },
+              "role": {
+                "enum": [
+                  "declaration",
+                  "reference"
+                ],
+                "type": "string"
+              },
+              "source_span": {
+                "type": "object"
+              }
+            },
+            "required": [
+              "referencing_entity_id",
+              "referenced_entity_id",
+              "field",
+              "role",
+              "precision",
+              "source_span"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "entity_id",
+        "direction",
+        "locations"
+      ],
+      "type": "object"
+    },
+    "category": "navigation",
+    "source": "core",
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    }
+  },
+  {
+    "name": "specforge.outline",
+    "description": "Get entity outline for a file",
+    "inputSchema": {
+      "properties": {
+        "file": {
+          "description": "File path",
+          "type": "string"
+        }
+      },
+      "required": [
+        "file"
+      ],
+      "type": "object"
+    },
+    "category": "navigation",
+    "source": "core",
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    }
+  },
+  {
+    "name": "specforge.suggest_fixes",
+    "description": "The fixes the LSP offers as code actions for the project's diagnostics and entities, each with its edits",
+    "inputSchema": {
+      "properties": {
+        "diagnostic_code": {
+          "description": "Only diagnostics with this code, e.g. W001",
+          "type": "string"
+        },
+        "entity_id": {
+          "description": "Entity ID (optional, all if omitted)",
+          "type": "string"
+        },
+        "file_path": {
+          "description": "Only diagnostics in this spec file",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "category": "navigation",
+    "source": "core",
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    }
+  },
+  {
+    "name": "specforge.format",
+    "description": "Format spec files",
+    "inputSchema": {
+      "properties": {
+        "check": {
+          "default": false,
+          "description": "Check only, don't modify",
+          "type": "boolean"
+        },
+        "diff": {
+          "default": false,
+          "description": "Return a before/after diff for each file that would change, without modifying it",
+          "type": "boolean"
+        },
+        "path": {
+          "description": "Project root path (uses initialized root if omitted)",
+          "type": "string"
+        },
+        "paths": {
+          "description": "Files or directories to format, relative to the project root (defaults to every spec file)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "write": {
+          "default": true,
+          "description": "Write formatted output (defaults to false in check or diff mode)",
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "outputSchema": {
+      "properties": {
+        "all_clean": {
+          "type": "boolean"
+        },
+        "changed_files": {
+          "type": "array"
+        },
+        "check_only": {
+          "type": "boolean"
+        },
+        "diagnostics": {
+          "type": "array"
+        },
+        "diffs": {
+          "type": "array"
+        },
+        "files_written": {
+          "description": "The files the call created, rewrote or removed, relative to the project root (absolute outside it); absent from a preview",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "total_checked": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "changed_files",
+        "total_checked",
+        "all_clean",
+        "check_only",
+        "diagnostics"
+      ],
+      "type": "object"
+    },
+    "category": "mutation",
+    "source": "core",
+    "annotations": {
+      "destructiveHint": true,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": false
+    }
+  },
+  {
+    "name": "specforge.rename",
+    "description": "Rename an entity across all files",
+    "inputSchema": {
+      "properties": {
+        "dry_run": {
+          "default": false,
+          "description": "Return the rename plan without changing any file",
+          "type": "boolean"
+        },
+        "entity_id": {
+          "description": "Current entity ID",
+          "type": "string"
+        },
+        "new_name": {
+          "description": "New entity ID",
+          "type": "string"
+        },
+        "path": {
+          "description": "Project root path (uses initialized root if omitted)",
+          "type": "string"
+        }
+      },
+      "required": [
+        "entity_id",
+        "new_name"
+      ],
+      "type": "object"
+    },
+    "outputSchema": {
+      "properties": {
+        "affected_files": {
+          "type": "array"
+        },
+        "diagnostics": {
+          "type": "array"
+        },
+        "dry_run": {
+          "type": "boolean"
+        },
+        "edits": {
+          "type": "array"
+        },
+        "files_written": {
+          "description": "The files the call created, rewrote or removed, relative to the project root (absolute outside it); absent from a preview",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "new_name": {
+          "type": "string"
+        },
+        "old_name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "old_name",
+        "new_name",
+        "affected_files",
+        "edits"
+      ],
+      "type": "object"
+    },
+    "category": "mutation",
+    "source": "core",
+    "annotations": {
+      "destructiveHint": true,
+      "idempotentHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false
+    }
+  },
+  {
+    "name": "specforge.init",
+    "description": "Initialize a new SpecForge project",
+    "inputSchema": {
+      "properties": {
+        "extensions": {
+          "description": "Builtin extensions to enable (e.g. @specforge/software) and local .wasm files to install",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "name": {
+          "description": "Project name (defaults to the directory name)",
+          "type": "string"
+        },
+        "path": {
+          "description": "Directory for the new project, outside the current one",
+          "type": "string"
+        },
+        "version": {
+          "default": "0.1.0",
+          "description": "Project version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "type": "object"
+    },
+    "outputSchema": {
+      "properties": {
+        "config_file": {
+          "type": "string"
+        },
+        "extensions_installed": {
+          "type": "array"
+        },
+        "files_written": {
+          "description": "The files the call created, rewrote or removed, relative to the project root (absolute outside it); absent from a preview",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "name": {
+          "type": "string"
+        },
+        "project_path": {
+          "type": "string"
+        },
+        "starter_file": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "project_path",
+        "config_file",
+        "starter_file",
+        "extensions_installed",
+        "name",
+        "version"
+      ],
+      "type": "object"
+    },
+    "category": "mutation",
+    "source": "core",
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": false
+    }
+  },
+  {
+    "name": "specforge.add_extension",
+    "description": "Install an extension",
+    "inputSchema": {
+      "properties": {
+        "allow_unsigned": {
+          "default": false,
+          "description": "Accept a registry package with no publisher signature (publisher verification skipped)",
+          "type": "boolean"
+        },
+        "dry_run": {
+          "default": false,
+          "description": "Preview the install without changing any file",
+          "type": "boolean"
+        },
+        "path": {
+          "description": "Project root path (uses initialized root if omitted)",
+          "type": "string"
+        },
+        "specifier": {
+          "description": "Extension specifier",
+          "type": "string"
+        }
+      },
+      "required": [
+        "specifier"
+      ],
+      "type": "object"
+    },
+    "outputSchema": {
+      "properties": {
+        "already_present": {
+          "type": "boolean"
+        },
+        "changed": {
+          "type": "boolean"
+        },
+        "dry_run": {
+          "type": "boolean"
+        },
+        "extension": {
+          "type": "string"
+        },
+        "files_written": {
+          "description": "The files the call created, rewrote or removed, relative to the project root (absolute outside it); absent from a preview",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "installed": {
+          "type": "boolean"
+        },
+        "key_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "message": {
+          "type": "string"
+        },
+        "note": {
+          "type": "string"
+        },
+        "peers_enabled": {
+          "type": "array"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "version": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "extension",
+        "installed"
+      ],
+      "type": "object"
+    },
+    "category": "mutation",
+    "source": "core",
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": true,
+      "readOnlyHint": false
+    }
+  },
+  {
+    "name": "specforge.remove_extension",
+    "description": "Remove an installed extension",
+    "inputSchema": {
+      "properties": {
+        "dry_run": {
+          "default": false,
+          "description": "Preview the removal, orphan warnings included, without changing any file",
+          "type": "boolean"
+        },
+        "force": {
+          "default": false,
+          "description": "Force removal",
+          "type": "boolean"
+        },
+        "name": {
+          "description": "Extension name",
+          "type": "string"
+        },
+        "path": {
+          "description": "Project root path (uses initialized root if omitted)",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "type": "object"
+    },
+    "outputSchema": {
+      "properties": {
+        "dry_run": {
+          "type": "boolean"
+        },
+        "files_written": {
+          "description": "The files the call created, rewrote or removed, relative to the project root (absolute outside it); absent from a preview",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "orphan_warnings": {
+          "type": "array"
+        },
+        "removed_extension": {
+          "type": "string"
+        },
+        "success": {
+          "type": "boolean"
+        },
+        "version": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "removed_extension",
+        "success",
+        "orphan_warnings"
+      ],
+      "type": "object"
+    },
+    "category": "mutation",
+    "source": "core",
+    "annotations": {
+      "destructiveHint": true,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": false
+    }
+  },
+  {
+    "name": "specforge.migrate",
+    "description": "Run migration pipeline",
+    "inputSchema": {
+      "properties": {
+        "dry_run": {
+          "default": false,
+          "description": "Return the diffs without changing any file",
+          "type": "boolean"
+        },
+        "no_backup": {
+          "default": false,
+          "description": "Skip the .bak backup of each migrated file",
+          "type": "boolean"
+        },
+        "path": {
+          "description": "Project root path (uses initialized root if omitted)",
+          "type": "string"
+        },
+        "target_version": {
+          "description": "Format version to migrate to, as MAJOR.MINOR (defaults to the current format version)",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "outputSchema": {
+      "properties": {
+        "changes": {
+          "type": "array"
+        },
+        "diffs": {
+          "type": "array"
+        },
+        "dry_run": {
+          "type": "boolean"
+        },
+        "files_failed": {
+          "type": "integer"
+        },
+        "files_migrated": {
+          "type": "integer"
+        },
+        "files_skipped": {
+          "type": "integer"
+        },
+        "files_written": {
+          "description": "The files the call created, rewrote or removed, relative to the project root (absolute outside it); absent from a preview",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "from_version": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "migrated": {
+          "type": "boolean"
+        },
+        "post_migration_errors": {
+          "type": "array"
+        },
+        "post_migration_validated": {
+          "type": "boolean"
+        },
+        "results": {
+          "type": "array"
+        },
+        "rolled_back": {
+          "type": "boolean"
+        },
+        "to_version": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "from_version",
+        "to_version",
+        "migrated",
+        "dry_run"
+      ],
+      "type": "object"
+    },
+    "category": "mutation",
+    "source": "core",
+    "annotations": {
+      "destructiveHint": true,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": false
+    }
+  },
+  {
+    "name": "specforge.extensions",
+    "description": "List installed extensions",
+    "inputSchema": {
+      "properties": {},
+      "type": "object"
+    },
+    "outputSchema": {
+      "properties": {
+        "entity_kinds_in_graph": {
+          "type": "array"
+        },
+        "extensions": {
+          "type": "array"
+        },
+        "lock_file_entries": {
+          "type": "array"
+        }
+      },
+      "required": [
+        "extensions",
+        "lock_file_entries",
+        "entity_kinds_in_graph"
+      ],
+      "type": "object"
+    },
+    "category": "management",
+    "source": "core",
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    }
+  },
+  {
+    "name": "specforge.providers",
+    "description": "List configured providers",
+    "inputSchema": {
+      "properties": {},
+      "type": "object"
+    },
+    "outputSchema": {
+      "properties": {
+        "count": {
+          "type": "integer"
+        },
+        "diagnostics": {
+          "type": "array"
+        },
+        "providers": {
+          "type": "array"
+        }
+      },
+      "required": [
+        "providers",
+        "count",
+        "diagnostics"
+      ],
+      "type": "object"
+    },
+    "category": "management",
+    "source": "core",
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    }
+  },
+  {
+    "name": "specforge.doctor",
+    "description": "Run health checks",
+    "inputSchema": {
+      "properties": {
+        "use_cached": {
+          "default": false,
+          "description": "Use the last compile instead of bringing the project up to date with disk; with no project served, the path is compiled anyway",
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "outputSchema": {
+      "properties": {
+        "cache_status": {
+          "type": "string"
+        },
+        "conflicts": {
+          "type": "array"
+        },
+        "enhancements": {
+          "type": "object"
+        },
+        "extensions": {
+          "type": "array"
+        },
+        "extensions_ok": {
+          "type": "boolean"
+        },
+        "findings": {
+          "type": "array"
+        },
+        "installed_count": {
+          "type": "integer"
+        },
+        "issues": {
+          "type": "array"
+        },
+        "load_failures": {
+          "type": "array"
+        },
+        "shadowed": {
+          "type": "array"
+        },
+        "z3_available": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "extensions_ok",
+        "conflicts",
+        "installed_count",
+        "issues",
+        "load_failures"
+      ],
+      "type": "object"
+    },
+    "category": "management",
+    "source": "core",
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    }
+  },
+  {
+    "name": "specforge.collect",
+    "description": "Record which entities the project's tests prove, from the test runner's report (runs the runner only with run: true and prior approval)",
+    "inputSchema": {
+      "properties": {
+        "path": {
+          "description": "Project root path (uses initialized root if omitted)",
+          "type": "string"
+        },
+        "run": {
+          "description": "Run the test command first; it must have been approved with `specforge collect` in a terminal (default false: parse the existing report)",
+          "type": "boolean"
+        },
+        "runner": {
+          "description": "Collector name (e.g. cargo-test); detected from project files if omitted",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "outputSchema": {
+      "properties": {
+        "diagnostics": {
+          "type": "array"
+        },
+        "report": {
+          "type": "string"
+        },
+        "runners": {
+          "items": {
+            "properties": {
+              "by_convention": {
+                "type": "integer"
+              },
+              "entities": {
+                "type": "integer"
+              },
+              "exit_code": {
+                "type": "integer"
+              },
+              "extension": {
+                "type": "string"
+              },
+              "failed": {
+                "type": "integer"
+              },
+              "files": {
+                "type": "integer"
+              },
+              "name": {
+                "type": "string"
+              },
+              "passed": {
+                "type": "integer"
+              },
+              "ran": {
+                "type": "boolean"
+              },
+              "skipped": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "name",
+              "extension",
+              "ran",
+              "files",
+              "entities",
+              "passed",
+              "failed",
+              "skipped",
+              "by_convention"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "status": {
+          "enum": [
+            "collected"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "status",
+        "runners",
+        "diagnostics",
+        "report"
+      ],
+      "type": "object"
+    },
+    "category": "management",
+    "source": "core",
+    "annotations": {
+      "destructiveHint": true,
+      "idempotentHint": false,
+      "openWorldHint": true,
+      "readOnlyHint": false
+    }
+  },
+  {
+    "name": "specforge.render",
+    "description": "Render output in a specified format",
+    "inputSchema": {
+      "properties": {
+        "format": {
+          "description": "Renderer to use: graph (also json): every entity with its fields, file and line (Graph Protocol); context: headline and normative fields and verify, for an agent; brief: id, kind and title; dot: Graphviz",
+          "enum": [
+            "graph",
+            "context",
+            "brief",
+            "dot",
+            "json"
+          ],
+          "type": "string"
+        },
+        "out_dir": {
+          "description": "Directory to write the rendering into (returned inline when omitted)",
+          "type": "string"
+        },
+        "scope": {
+          "description": "Scope to entity",
+          "type": "string"
+        }
+      },
+      "required": [
+        "format"
+      ],
+      "type": "object"
+    },
+    "outputSchema": {
+      "properties": {
+        "format": {
+          "type": "string"
+        },
+        "output": {
+          "type": "string"
+        },
+        "output_files": {
+          "type": "array"
+        }
+      },
+      "required": [
+        "format",
+        "output_files"
+      ],
+      "type": "object"
+    },
+    "category": "management",
+    "source": "core",
+    "annotations": {
+      "destructiveHint": true,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": false
+    }
+  },
+  {
+    "name": "specforge.infer_progress",
+    "description": "Check inference progress: summary of analyzed vs unanalyzed source files, stale entries, and entity counts",
+    "inputSchema": {
+      "properties": {},
+      "type": "object"
+    },
+    "outputSchema": {
+      "properties": {
+        "deleted": {
+          "type": "array"
+        },
+        "message": {
+          "type": "string"
+        },
+        "stale": {
+          "type": "array"
+        },
+        "summary": {
+          "type": "object"
+        },
+        "unanalyzed": {
+          "type": "array"
+        }
+      },
+      "required": [
+        "summary",
+        "unanalyzed",
+        "stale",
+        "deleted"
+      ],
+      "type": "object"
+    },
+    "category": "core",
+    "source": "core",
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    }
+  },
+  {
+    "name": "specforge.infer_gaps",
+    "description": "Analyze inference gaps: public Rust items not yet covered by spec entities (approximate)",
+    "inputSchema": {
+      "properties": {},
+      "type": "object"
+    },
+    "outputSchema": {
+      "properties": {
+        "approximate": {
+          "type": "boolean"
+        },
+        "by_directory": {
+          "type": "array"
+        },
+        "covered_items": {
+          "type": "integer"
+        },
+        "gap_count": {
+          "type": "integer"
+        },
+        "gaps": {
+          "type": "array"
+        },
+        "message": {
+          "type": "string"
+        },
+        "scan_failures": {
+          "type": "array"
+        },
+        "scanners_used": {
+          "type": "array"
+        },
+        "total_pub_items": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "total_pub_items",
+        "covered_items",
+        "approximate"
+      ],
+      "type": "object"
+    },
+    "category": "core",
+    "source": "core",
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    }
+  },
+  {
+    "name": "specforge.infer_session",
+    "description": "Manage inference sessions: start a new session, mark files as analyzed, or end a session",
+    "inputSchema": {
+      "properties": {
+        "action": {
+          "description": "Session action to perform",
+          "enum": [
+            "start",
+            "mark_analyzed",
+            "end"
+          ],
+          "type": "string"
+        },
+        "agent": {
+          "description": "Agent identifier (for start)",
+          "type": "string"
+        },
+        "entities_produced": {
+          "description": "Entity IDs produced from the file (for mark_analyzed)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "session_id": {
+          "description": "Session ID to end (for end)",
+          "type": "string"
+        },
+        "source_file": {
+          "description": "Relative path to analyzed file (for mark_analyzed)",
+          "type": "string"
+        },
+        "source_roots": {
+          "description": "Source directories to scan (for start)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "status": {
+          "description": "Final status (for end, default: completed)",
+          "enum": [
+            "completed",
+            "paused"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "action"
+      ],
+      "type": "object"
+    },
+    "outputSchema": {
+      "properties": {
+        "entities_produced": {
+          "type": "array"
+        },
+        "files_written": {
+          "description": "The files the call created, rewrote or removed, relative to the project root (absolute outside it); absent from a preview",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "session_id": {
+          "type": "string"
+        },
+        "source_file": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "type": "object"
+    },
+    "category": "mutation",
+    "source": "core",
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false
+    }
+  },
+  {
+    "name": "specforge.find_implementation",
+    "description": "Find source code locations that implement a specforge entity",
+    "inputSchema": {
+      "properties": {
+        "entity_id": {
+          "description": "Entity ID to find implementations for",
+          "type": "string"
+        }
+      },
+      "required": [
+        "entity_id"
+      ],
+      "type": "object"
+    },
+    "outputSchema": {
+      "properties": {
+        "count": {
+          "type": "integer"
+        },
+        "entity_id": {
+          "type": "string"
+        },
+        "implementations": {
+          "type": "array"
+        }
+      },
+      "required": [
+        "entity_id",
+        "implementations",
+        "count"
+      ],
+      "type": "object"
+    },
+    "category": "navigation",
+    "source": "core",
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    }
+  },
+  {
+    "name": "specforge.find_spec_for_source",
+    "description": "Find specforge entities anchored to a source file",
+    "inputSchema": {
+      "properties": {
+        "file_path": {
+          "description": "Path of the source file, relative to the project root (a directory lists the files under it; a trailing part of a path matches it)",
+          "type": "string"
+        }
+      },
+      "required": [
+        "file_path"
+      ],
+      "type": "object"
+    },
+    "outputSchema": {
+      "properties": {
+        "count": {
+          "type": "integer"
+        },
+        "entities": {
+          "type": "array"
+        },
+        "file_path": {
+          "type": "string"
+        },
+        "match_mode": {
+          "enum": [
+            "exact",
+            "directory",
+            "suffix_path",
+            "none"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "file_path",
+        "match_mode",
+        "entities",
+        "count"
+      ],
+      "type": "object"
+    },
+    "category": "navigation",
+    "source": "core",
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    }
+  }
+]

@@ -24,6 +24,7 @@ mod subscriptions;
 mod support;
 mod surface_call;
 mod surface_wiring;
+mod tool_arguments;
 mod tool_errors;
 mod tools_core;
 mod tools_inference;
