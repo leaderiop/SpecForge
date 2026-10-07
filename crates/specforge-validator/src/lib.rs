@@ -1,14 +1,10 @@
 mod dangling;
 mod file_ref;
 mod orphan;
-mod render;
-mod summary;
 
-pub use render::{render_diagnostics, render_diagnostics_colored};
 pub use specforge_common::{Diagnostic, Severity, SourceSpan};
 pub use specforge_graph::Graph;
 use std::path::PathBuf;
-pub use summary::{diagnostic_summary, diagnostic_summary_detailed};
 
 #[derive(Debug, Default)]
 pub struct ValidatorConfig {

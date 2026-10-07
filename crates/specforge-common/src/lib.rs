@@ -24,8 +24,9 @@ pub use inference::{
 };
 pub use interner::Sym;
 pub use present::{
-    DiagnosticJson, MAX_DIAGNOSTICS, compute_exit_code, diagnostics_json, format_diagnostic,
-    serialize_diagnostics, truncate_diagnostics,
+    Counts, DiagnosticJson, MAX_DIAGNOSTICS, compute_exit_code, diagnostic_summary,
+    diagnostics_json, format_diagnostic, render_diagnostics, serialize_diagnostics,
+    truncate_diagnostics,
 };
 pub use project::{
     ConfigProblem, ConfigRead, ExtensionEntry, InferenceConfig, ProjectConfig,

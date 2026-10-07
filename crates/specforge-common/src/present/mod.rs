@@ -1,7 +1,14 @@
 //! Diagnostics as every surface prints them: the one-line text form, the
-//! JSON form (with the catalog's title per code), the output cap and the
-//! exit code. The human, source-annotated rendering is
-//! `specforge_validator::render_diagnostics`.
+//! JSON form (with the catalog's title per code), the output cap, the exit
+//! code, and the human, source-annotated form the CLI prints
+//! ([`render_diagnostics`]) with its summary ([`diagnostic_summary`]) and
+//! the tally they and the exit code share ([`Counts`]).
+
+mod annotated;
+mod summary;
+
+pub use annotated::render_diagnostics;
+pub use summary::{Counts, diagnostic_summary};
 
 use crate::{Diagnostic, DiagnosticData, Severity, SourceSpan};
 use serde::Serialize;
@@ -122,12 +129,5 @@ pub struct DiagnosticJson<'a> {
 /// mode is not a separate rule: `specforge_project::DiagnosticPolicy`
 /// promotes warnings to errors before the exit code is computed.
 pub fn compute_exit_code(diagnostics: &[Diagnostic]) -> i32 {
-    if diagnostics
-        .iter()
-        .any(|d| matches!(d.severity, Severity::Error))
-    {
-        1
-    } else {
-        0
-    }
+    i32::from(Counts::of(diagnostics).errors > 0)
 }

@@ -1,8 +1,7 @@
-use specforge_common::{Diagnostic, Severity};
+use specforge_common::{Diagnostic, Severity, diagnostic_summary, render_diagnostics};
 use specforge_ops::check::{CacheRecord, CheckOptions, check};
 use specforge_ops::view::ProjectView;
 use specforge_project::{CompiledProject, LintProfile};
-use specforge_validator::{diagnostic_summary_detailed, render_diagnostics_colored};
 use specforge_wasm::WasmRuntime;
 use std::path::Path;
 
@@ -61,11 +60,11 @@ fn run_in(
             let color = crate::color::stderr();
             if !shown.is_empty() {
                 let sources = compiled.resolved.source_texts();
-                let rendered = render_diagnostics_colored(&shown, &sources, color);
+                let rendered = render_diagnostics(&shown, &sources, color);
                 eprint!("{}", rendered);
             }
             // The summary counts everything reported, as the verdict does.
-            let summary = diagnostic_summary_detailed(&outcome.reported, color);
+            let summary = diagnostic_summary(&outcome.reported, color);
             eprintln!("{}", with_filter_note(&summary, outcome.severity));
         }
     }

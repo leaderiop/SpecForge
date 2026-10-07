@@ -1,4 +1,6 @@
-use specforge_common::{Diagnostic, DiagnosticData, Severity, SourceSpan, Sym};
+use specforge_common::{
+    Diagnostic, DiagnosticData, Severity, SourceSpan, Sym, diagnostic_summary, render_diagnostics,
+};
 use specforge_test::prelude::*;
 
 fn diag_with_span(
@@ -651,5 +653,395 @@ fn a_squatted_code_is_not_described_as_core() {
         json[2].as_object().unwrap().get("origin").is_none(),
         "a host diagnostic has no origin key: {}",
         json[2]
+    );
+}
+
+// === format_diagnostics_with_source_context (moved from the validator) ===
+
+/// An unresolved reference `nonexistent` in column 39 of line 2, as the
+/// graph's E003 spans it.
+fn unresolved_reference_at_39() -> (
+    Diagnostic,
+    std::collections::HashMap<String, String>,
+    &'static str,
+) {
+    let source = "behavior alpha \"A\" { contract \"first\" }\nfeature gamma \"G\" { behaviors [alpha, nonexistent] }\n";
+    let diagnostic = Diagnostic::new(
+        specforge_common::codes::E003,
+        "unresolved reference 'nonexistent'",
+    )
+    .with_span(SourceSpan {
+        file: Sym::new("main.spec"),
+        start_line: 2,
+        start_col: 39,
+        end_line: 2,
+        end_col: 50,
+    });
+    let sources = std::collections::HashMap::from([("main.spec".to_string(), source.to_string())]);
+    (diagnostic, sources, source)
+}
+
+#[specforge_test(
+    behavior = "format_diagnostics_with_source_context",
+    verify = "diagnostic shows file:line:col"
+)]
+fn diagnostic_shows_file_line_col() {
+    let (diagnostic, sources, _) = unresolved_reference_at_39();
+    let output = render_diagnostics(&[diagnostic], &sources, false);
+
+    // `nonexistent` starts in column 39 of line 2.
+    assert!(output.contains("[E003]"), "{output}");
+    assert!(output.contains("╭─[ main.spec:2:39 ]"), "{output}");
+}
+
+#[specforge_test(
+    behavior = "format_diagnostics_with_source_context",
+    verify = "context snippet highlights offending token"
+)]
+fn diagnostic_shows_source_context() {
+    let (diagnostic, sources, _) = unresolved_reference_at_39();
+    let output = render_diagnostics(&[diagnostic], &sources, false);
+
+    // The offending line is shown, and the row under it underlines exactly
+    // the columns of `nonexistent`: 39 through 49.
+    let lines: Vec<&str> = output.lines().collect();
+    let row = lines
+        .iter()
+        .position(|l| l.ends_with("feature gamma \"G\" { behaviors [alpha, nonexistent] }"))
+        .unwrap_or_else(|| panic!("source line missing:\n{output}"));
+    // Character columns: the margin's box-drawing characters are multi-byte.
+    let code_start = lines[row][..lines[row].find("feature").unwrap()]
+        .chars()
+        .count();
+    let token_start = code_start + "feature gamma \"G\" { behaviors [alpha, ".len();
+    let underline: Vec<(usize, char)> = lines[row + 1]
+        .chars()
+        .enumerate()
+        .filter(|(i, c)| *i >= code_start && !c.is_whitespace())
+        .collect();
+    let marked: Vec<usize> = underline.iter().map(|(i, _)| *i).collect();
+    assert_eq!(
+        marked,
+        (token_start..token_start + "nonexistent".len()).collect::<Vec<_>>(),
+        "{output}"
+    );
+    assert!(
+        underline.iter().all(|(_, c)| matches!(c, '─' | '┬')),
+        "{output}"
+    );
+}
+
+#[specforge_test(
+    behavior = "format_diagnostics_with_source_context",
+    verify = "multi-line span shows full range"
+)]
+fn diagnostic_renders_multiline_span() {
+    use std::collections::HashMap;
+
+    let diag = Diagnostic::untyped("E099", Severity::Error, "test multi-line error".to_string())
+        .with_span(SourceSpan {
+            file: Sym::new("test.spec"),
+            start_line: 2,
+            start_col: 1,
+            end_line: 4,
+            end_col: 2,
+        });
+
+    let source = "line 1\nbehavior alpha \"A\" {\n  contract \"first\"\n}\nline 5\n";
+    let sources: HashMap<String, String> = vec![("test.spec".to_string(), source.to_string())]
+        .into_iter()
+        .collect();
+    let output = render_diagnostics(&[diag], &sources, false);
+
+    // The range opens on line 2, runs through line 3 and closes on line 4's
+    // brace; the lines outside it are not shown.
+    assert!(output.contains("╭─[ test.spec:2:1 ]"), "{output}");
+    let body: Vec<&str> = output
+        .lines()
+        .skip_while(|l| !l.contains("╭─▶"))
+        .take_while(|l| !l.contains("├─▶"))
+        .collect();
+    assert!(
+        body.first()
+            .is_some_and(|l| l.ends_with(" 2 │ ╭─▶ behavior alpha \"A\" {")),
+        "{output}"
+    );
+    assert!(
+        body[1..].iter().all(|l| l.contains('┆')),
+        "line 3 sits inside the range: {output}"
+    );
+    assert!(output.contains(" 4 │ ├─▶ }"), "{output}");
+    assert!(!output.contains("line 1"), "{output}");
+    assert!(!output.contains("line 5"), "{output}");
+}
+
+/// Render one warning spanning `start..end` (line, col) of `source` in `t.spec`.
+fn render_one(
+    source: &str,
+    (start_line, start_col): (usize, usize),
+    (end_line, end_col): (usize, usize),
+) -> String {
+    let diag = Diagnostic::untyped(
+        "A015",
+        Severity::Warning,
+        "entity 'b' has unproven obligations".to_string(),
+    )
+    .with_span(SourceSpan {
+        file: Sym::new("t.spec"),
+        start_line,
+        start_col,
+        end_line,
+        end_col,
+    })
+    .with_suggestion("link a test".to_string());
+    let sources = std::collections::HashMap::from([("t.spec".to_string(), source.to_string())]);
+    render_diagnostics(&[diag], &sources, false)
+}
+
+#[specforge_test(
+    behavior = "format_diagnostics_with_source_context",
+    verify = "a span after a multi-byte character keeps its position"
+)]
+fn diagnostic_after_multibyte_character_keeps_its_position() {
+    // `…` and `é` are one character but three and two bytes.
+    let source = "a \"x … é\" {\n}\n\nb \"y\" {\n  z\n}\n\nc\n";
+    let output = render_one(source, (4, 1), (6, 2));
+    assert!(output.contains("t.spec:4:1 ]"), "{output}");
+    assert!(
+        output.contains("6 │ ├─▶ }"),
+        "the range ends on b's brace: {output}"
+    );
+    assert!(!output.contains(" 7 │"), "{output}");
+}
+
+#[specforge_test(
+    behavior = "format_diagnostics_with_source_context",
+    verify = "the message appears once, in the heading"
+)]
+fn diagnostic_message_appears_once() {
+    let source = "a {\n}\n\nb \"y\"\n";
+    for (start, end) in [((4, 1), (4, 6)), ((1, 1), (2, 2))] {
+        let output = render_one(source, start, end);
+        assert_eq!(
+            output.matches("has unproven obligations").count(),
+            1,
+            "{output}"
+        );
+        assert!(
+            output.starts_with("[A015] Warning: entity 'b' has unproven obligations\n"),
+            "{output}"
+        );
+    }
+}
+
+#[specforge_test(
+    behavior = "format_diagnostics_with_source_context",
+    verify = "no rendered line ends in whitespace"
+)]
+fn diagnostic_lines_have_no_trailing_whitespace() {
+    let source = "a {\n}\n\nb \"y\"\n";
+    for (start, end) in [((4, 1), (4, 6)), ((1, 1), (2, 2))] {
+        let output = render_one(source, start, end);
+        for line in output.lines() {
+            assert_eq!(line, line.trim_end(), "trailing whitespace in:\n{output}");
+        }
+    }
+}
+
+#[specforge_test(
+    behavior = "format_diagnostics_with_source_context",
+    verify = "consecutive diagnostics are separated by a blank line"
+)]
+fn diagnostics_are_separated_by_a_blank_line() {
+    let one = render_one("a\n", (1, 1), (1, 2));
+    let diag = |code: &str| {
+        Diagnostic::untyped(code, Severity::Warning, "m").with_span(SourceSpan {
+            file: Sym::new("t.spec"),
+            start_line: 1,
+            start_col: 1,
+            end_line: 1,
+            end_col: 2,
+        })
+    };
+    let sources = std::collections::HashMap::from([("t.spec".to_string(), "a\n".to_string())]);
+    let output = render_diagnostics(&[diag("A001"), diag("A002")], &sources, false);
+    assert!(output.contains("╯\n\n[A002]"), "{output}");
+    assert!(
+        output.ends_with("╯\n"),
+        "no blank line after the last: {output}"
+    );
+    assert!(one.ends_with("╯\n"), "{one}");
+}
+
+#[specforge_test(
+    behavior = "format_diagnostics_with_source_context",
+    verify = "Format Diagnostics with Source Context: diagnostic source context formatting holds — valid_source_span, header_present, context_snippet_present, caret_marker_present"
+)]
+fn diagnostic_format_contract_consistency() {
+    use std::collections::HashMap;
+
+    // Requires: valid SourceSpan referencing accessible source
+    // Ensures: output includes file:line:col header, context snippet, caret marker
+    let diag = Diagnostic::new(
+        specforge_common::codes::E001,
+        "unresolved reference".to_string(),
+    )
+    .with_span(SourceSpan {
+        file: Sym::new("test.spec"),
+        start_line: 2,
+        start_col: 20,
+        end_line: 2,
+        end_col: 31,
+    });
+
+    let source = "line 1\nfeature gamma \"G\" { behaviors [nonexistent] }\nline 3\n";
+    let sources: HashMap<String, String> = vec![("test.spec".to_string(), source.to_string())]
+        .into_iter()
+        .collect();
+    let output = render_diagnostics(&[diag], &sources, false);
+    let lines: Vec<&str> = output.lines().collect();
+
+    // header_present: the code, then file:line:col.
+    assert_eq!(lines[0], "[E001] Error: unresolved reference", "{output}");
+    assert_eq!(lines[1].trim(), "╭─[ test.spec:2:20 ]", "{output}");
+
+    // context_snippet_present: the offending line, and only it.
+    let row = lines
+        .iter()
+        .position(|l| l.ends_with(" 2 │ feature gamma \"G\" { behaviors [nonexistent] }"))
+        .unwrap_or_else(|| panic!("{output}"));
+    assert!(
+        !output.contains("line 1") && !output.contains("line 3"),
+        "{output}"
+    );
+
+    // caret_marker_present: the row below marks columns 20 through 30.
+    let code_start = lines[row][..lines[row].find("feature").unwrap()]
+        .chars()
+        .count();
+    let marked: Vec<usize> = lines[row + 1]
+        .chars()
+        .enumerate()
+        .filter(|(i, c)| *i >= code_start && !c.is_whitespace())
+        .map(|(i, _)| i - code_start + 1)
+        .collect();
+    assert_eq!(marked, (20..31).collect::<Vec<_>>(), "{output}");
+}
+
+// === aggregate_diagnostic_summary (moved from the validator) ===
+
+#[specforge_test(
+    behavior = "aggregate_diagnostic_summary",
+    verify = "summary shows correct counts"
+)]
+fn summary_shows_correct_counts() {
+    let diagnostics = vec![
+        Diagnostic::new(specforge_common::codes::E001, "error 1".to_string()),
+        Diagnostic::new(specforge_common::codes::W012, "warning 1".to_string()),
+        Diagnostic::new(specforge_common::codes::E002, "error 2".to_string()),
+        Diagnostic::new(specforge_common::codes::I004, "info 1".to_string()),
+    ];
+
+    let summary = diagnostic_summary(&diagnostics, true);
+
+    assert!(
+        summary.contains("2 error"),
+        "should show 2 errors: got '{}'",
+        summary
+    );
+    assert!(
+        summary.contains("1 warning"),
+        "should show 1 warning: got '{}'",
+        summary
+    );
+    assert!(
+        summary.contains("1 info"),
+        "should show 1 info: got '{}'",
+        summary
+    );
+}
+
+#[specforge_test(
+    behavior = "aggregate_diagnostic_summary",
+    verify = "summary matches actual diagnostics"
+)]
+fn summary_clean_project() {
+    // A clean project reports zero of everything, uncoloured, with no
+    // codes listed.
+    assert_eq!(
+        diagnostic_summary(&[], true),
+        "0 errors, 0 warnings, 0 infos"
+    );
+
+    // Planted: two unresolved references and one orphan ref.
+    let diagnostics = vec![
+        Diagnostic::new(specforge_common::codes::E003, "ghost".to_string()),
+        Diagnostic::new(specforge_common::codes::E003, "phantom".to_string()),
+        Diagnostic::new(specforge_common::codes::W012, "orphan".to_string()),
+    ];
+    assert_eq!(
+        diagnostic_summary(&diagnostics, true)
+            .lines()
+            .next()
+            .unwrap(),
+        "\x1b[1;31m2 errors, 1 warning, 0 infos\x1b[0m"
+    );
+    assert_eq!(
+        diagnostic_summary(&diagnostics, false)
+            .lines()
+            .next()
+            .unwrap(),
+        "2 errors, 1 warning, 0 infos"
+    );
+}
+
+#[specforge_test(
+    behavior = "aggregate_diagnostic_summary",
+    verify = "summary is red when errors exist"
+)]
+fn summary_red_when_errors_exist() {
+    let diagnostics = vec![Diagnostic::new(
+        specforge_common::codes::E001,
+        "test error".to_string(),
+    )];
+    let summary = diagnostic_summary(&diagnostics, true);
+
+    // ANSI red escape: \x1b[31m
+    assert!(
+        summary.contains("\x1b[31m") || summary.contains("\x1b[1;31m"),
+        "summary with errors should contain red ANSI escape, got: {:?}",
+        summary
+    );
+}
+
+#[specforge_test(
+    behavior = "aggregate_diagnostic_summary",
+    verify = "Aggregate Diagnostic Summary: diagnostic summary aggregation holds — validation_executed, counts_match"
+)]
+fn summary_contract_consistency() {
+    // Requires: validation has completed
+    // Ensures: counts match actual diagnostics exactly
+    let diagnostics = vec![
+        Diagnostic::new(specforge_common::codes::E001, "e".to_string()),
+        Diagnostic::new(specforge_common::codes::E002, "e".to_string()),
+        Diagnostic::new(specforge_common::codes::E003, "e".to_string()),
+        Diagnostic::new(specforge_common::codes::W012, "w".to_string()),
+    ];
+    let summary = diagnostic_summary(&diagnostics, true);
+
+    assert!(
+        summary.contains("3 error"),
+        "must report exact error count: got '{}'",
+        summary
+    );
+    assert!(
+        summary.contains("1 warning"),
+        "must report exact warning count: got '{}'",
+        summary
+    );
+    assert!(
+        summary.contains("0 info"),
+        "must report exact info count: got '{}'",
+        summary
     );
 }

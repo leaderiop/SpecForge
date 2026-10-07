@@ -2797,7 +2797,6 @@ dependencies = [
  "specforge-resolver",
  "specforge-test",
  "specforge-test-macros",
- "specforge-validator",
  "specforge-wasm",
  "specforge-watch",
  "tempfile",
@@ -2809,6 +2808,7 @@ dependencies = [
 name = "specforge-common"
 version = "0.1.0"
 dependencies = [
+ "ariadne",
  "lasso",
  "serde",
  "serde_json",
@@ -3224,7 +3224,6 @@ dependencies = [
 name = "specforge-validator"
 version = "0.1.0"
 dependencies = [
- "ariadne",
  "specforge-common",
  "specforge-graph",
  "specforge-parser",

@@ -1,21 +1,17 @@
-use specforge_common::{Diagnostic, Severity};
+//! The human, source-annotated rendering of diagnostics (ariadne).
+
+use crate::{Diagnostic, Severity};
 use std::collections::HashMap;
 use std::ops::Range;
 
 type Span = (String, Range<usize>);
 
-/// Render diagnostics to a human-readable string with source context. The
-/// output carries no ANSI escape.
-pub fn render_diagnostics(diagnostics: &[Diagnostic], sources: &HashMap<String, String>) -> String {
-    render_diagnostics_colored(diagnostics, sources, false)
-}
-
-/// Render diagnostics as [`render_diagnostics`] does, colour-coded when
-/// `color` is true: each severity heading is red for an error, yellow for a
-/// warning and blue for an info. With `color` false the output is
-/// byte-identical to [`render_diagnostics`]. The caller decides, since only
-/// it knows whether the text reaches a terminal.
-pub fn render_diagnostics_colored(
+/// Render `diagnostics` with source context: one ariadne report per
+/// diagnostic, a blank line between them, no trailing whitespace. With
+/// `color` each severity heading is coloured (red for an error, yellow for
+/// a warning, blue for an info); without it the text carries no ANSI
+/// escape. Only the caller knows whether it writes to a terminal.
+pub fn render_diagnostics(
     diagnostics: &[Diagnostic],
     sources: &HashMap<String, String>,
     color: bool,
@@ -151,7 +147,7 @@ fn line_col_to_byte_range(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use specforge_common::codes;
+    use crate::codes;
 
     #[test]
     fn line_col_to_byte_range_unix_newlines() {
@@ -220,8 +216,8 @@ mod tests {
         sources.insert("zzz.spec".to_string(), "content z\n".to_string());
         sources.insert("aaa.spec".to_string(), "content a\n".to_string());
         let diag = Diagnostic::untyped("W001", Severity::Warning, "spanless".to_string());
-        let out1 = render_diagnostics(std::slice::from_ref(&diag), &sources);
-        let out2 = render_diagnostics(&[diag], &sources);
+        let out1 = render_diagnostics(std::slice::from_ref(&diag), &sources, false);
+        let out2 = render_diagnostics(&[diag], &sources, false);
         assert_eq!(out1, out2);
         assert!(
             out1.contains("aaa.spec"),
@@ -234,16 +230,15 @@ mod tests {
     fn render_past_eof_span_does_not_panic() {
         let mut sources = HashMap::new();
         sources.insert("t.spec".to_string(), "abc\n".to_string());
-        let diag = Diagnostic::new(codes::E001, "beyond eof".to_string()).with_span(
-            specforge_common::SourceSpan {
+        let diag =
+            Diagnostic::new(codes::E001, "beyond eof".to_string()).with_span(crate::SourceSpan {
                 file: "t.spec".into(),
                 start_line: 999,
                 start_col: 1,
                 end_line: 999,
                 end_col: 10,
-            },
-        );
-        let out = render_diagnostics(&[diag], &sources);
+            });
+        let out = render_diagnostics(&[diag], &sources, false);
         assert!(out.contains("beyond eof"));
     }
 }
