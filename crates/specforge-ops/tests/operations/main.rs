@@ -12,6 +12,7 @@ mod export_cache;
 mod extension_calls;
 mod failures;
 mod infer;
+mod infer_guide;
 mod inspect;
 mod kinds;
 mod management;

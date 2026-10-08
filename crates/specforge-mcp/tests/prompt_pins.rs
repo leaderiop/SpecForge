@@ -112,12 +112,12 @@ fn widget_extension() -> TestExtension {
 }
 
 #[test]
-fn infer_example_writes_required_fields_as_strings_today() {
+fn infer_example_writes_each_field_by_its_type() {
     let mut served = TestProject::new().serve(&[widget_extension()]);
     let scoped = infer(&mut served, json!({"scope": "kind:widget"}));
     assert_eq!(
         scoped["example"],
-        "widget example_widget \"Example Title\" {\n  owner \"...\"\n  steps \"...\"\n  active \"...\"\n}"
+        "widget example_widget \"Example Title\" {\n  owner ref_id\n  steps [\"item1\", \"item2\"]\n  active true\n}"
     );
 }
 
@@ -136,13 +136,15 @@ fn model_root_project() -> Served {
 
 #[test]
 fn infer_names_the_spec_directory_spec_today() {
+    // The overview names the project's spec directory; the plan still
+    // defaults to `spec/` until the plan is a read view.
     let mut served = model_root_project();
     let overview = infer(&mut served, json!({}));
     assert!(
         overview["output_format"]
             .as_str()
             .unwrap()
-            .contains("in the spec/ directory"),
+            .contains("in the model/ directory"),
         "{overview}"
     );
     let plan = infer(&mut served, json!({"scope": "plan"}));

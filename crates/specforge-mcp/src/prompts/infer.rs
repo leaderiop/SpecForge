@@ -2,11 +2,9 @@
 //! code, by scope.
 
 use serde_json::{Value, json};
-use specforge_protocol_types::{EntityKindDescriptor, ExtensionDeclaration};
-use specforge_registry::{FieldRegistryEntry, FieldType};
-use std::collections::HashMap;
+use specforge_protocol_types::EntityKindDescriptor;
 
-use specforge_ops::infer::Progress;
+use specforge_ops::infer::{self, Progress};
 use specforge_ops::navigate::{anchors_of_file, source_anchors};
 
 use crate::args::Arguments;
@@ -118,55 +116,13 @@ fn rendered(instruction: impl Into<String>, payload: Value) -> Rendered {
 }
 
 fn get_overview(project: &ProjectView) -> Rendered {
-    let mut kind_counts: HashMap<String, usize> = HashMap::new();
-    for node in project.graph().nodes() {
-        *kind_counts.entry(node.kind.raw.to_string()).or_default() += 1;
-    }
-
-    let mut kinds_info: Vec<Value> = Vec::new();
-    for declaration in project.registries().declarations() {
-        for kind in &declaration.entities {
-            let keyword = keyword(kind).to_string();
-            let guide =
-                build_guide_for_kind(&keyword, declaration, &project.env().config.inference);
-            let fields: Vec<String> = kind
-                .fields
-                .iter()
-                .map(|f| {
-                    if f.required {
-                        format!("{}*", f.name)
-                    } else {
-                        f.name.clone()
-                    }
-                })
-                .collect();
-
-            kinds_info.push(json!({
-                "kind": keyword,
-                "extension": declaration.name(),
-                "description": kind.description,
-                "fields": fields,
-                "inference_guide": guide,
-            }));
-        }
-    }
-
-    let global_conventions = project
-        .env()
-        .config
-        .inference
-        .global
-        .as_deref()
-        .unwrap_or("");
-
-    let result = json!({
-        "installed_extensions": project.registries().extension_info().map(|(name, _)| name.to_string()).collect::<Vec<_>>(),
-        "existing_entities": kind_counts,
-        "kinds": kinds_info,
-        "project_conventions": global_conventions,
-        "output_format": "Write .spec files in the spec/ directory. Use `keyword entity_id \"Title\" { fields }` syntax. Entity IDs are snake_case identifiers (letters, digits, underscores, 2-60 chars).",
-        "validation": "After writing .spec files, call specforge_validate to check for errors (and specforge_analyze for coverage/contract findings). Fix any errors before proceeding.",
-    });
+    let guide = infer::guide(project);
+    let mut payload = guide.to_json();
+    payload["output_format"] = Value::from(format!(
+        "Write .spec files in the {} directory. Use `keyword entity_id \"Title\" {{ fields }}` syntax. Entity IDs are snake_case identifiers (letters, digits, underscores, 2-60 chars).",
+        guide.spec_directory
+    ));
+    payload["validation"] = Value::from(validation());
 
     let instruction = "You are inferring spec entities from this codebase. \
         Use the inference guides below to identify entities in the code, \
@@ -174,68 +130,26 @@ fn get_overview(project: &ProjectView) -> Rendered {
         Each kind has signals describing what to look for in code. \
         Do not duplicate entities that already exist.";
 
-    rendered(instruction, result)
+    rendered(instruction, payload)
 }
 
 fn get_kind_scoped(project: &ProjectView, kind_name: &str) -> PromptOutcome {
-    project
-        .kinds()
-        .declared(kind_name)
+    let guide = infer::kind_guide(project, kind_name)
         .map_err(|error| Box::new(McpError::from(error).with_argument("scope")))?;
-    let (declaration, kind_def) = project
-        .registries()
-        .declarations()
-        .iter()
-        .flat_map(|d| d.entities.iter().map(move |k| (d, k)))
-        .find(|(_, k)| keyword(k) == kind_name)
-        .expect("a declared kind has its declaration");
-
-    let existing_ids: Vec<String> = project
-        .graph()
-        .nodes()
-        .into_iter()
-        .filter(|n| n.kind.raw == kind_name)
-        .map(|n| n.id.raw.to_string())
-        .collect();
-
-    let guide = build_guide_for_kind(kind_name, declaration, &project.env().config.inference);
-    // Every field the registry build registered on the kind (its own, its
-    // extension's shared fields and other extensions' enhancement fields),
-    // by name: the registry's map has no declaration order.
-    let mut registered = project
-        .registries()
-        .fields
-        .fields_for_kind(keyword(kind_def));
-    registered.sort_by(|a, b| a.name().cmp(b.name()));
-    let fields: Vec<Value> = registered
-        .iter()
-        .map(|f| {
-            json!({
-                "name": f.name(),
-                "type": f.field_type().as_str(),
-                "required": f.declared().required,
-                "description": f.declared().description,
-            })
-        })
-        .collect();
-    let example = build_example_for_kind(kind_name, &registered);
-
-    let result = json!({
-        "kind": kind_name,
-        "existing_entity_ids": existing_ids,
-        "fields": fields,
-        "inference_guide": guide,
-        "example": example,
-        "validation": "After writing .spec files, call specforge_validate to check for errors (and specforge_analyze for coverage/contract findings). Fix any errors before proceeding.",
-    });
+    let mut payload = guide.to_json();
+    payload["validation"] = Value::from(validation());
 
     let instruction = format!(
-        "You are inferring '{}' entities from this codebase. \
-         Use the guide below. Do not duplicate the existing entity IDs listed.",
-        kind_name
+        "You are inferring '{kind_name}' entities from this codebase. \
+         Use the guide below. Do not duplicate the existing entity IDs listed."
     );
 
-    Ok(rendered(instruction, result))
+    Ok(rendered(instruction, payload))
+}
+
+/// What the agent runs after writing `.spec` files.
+fn validation() -> String {
+    "After writing .spec files, call specforge_validate to check for errors (and specforge_analyze for coverage/contract findings). Fix any errors before proceeding.".to_string()
 }
 
 fn get_file_scoped(project: &ProjectView, file_path: &str) -> PromptOutcome {
@@ -252,34 +166,20 @@ fn get_file_scoped(project: &ProjectView, file_path: &str) -> PromptOutcome {
         .collect();
     let match_mode = file_match_name(found.mode);
 
-    let mut kinds_info: Vec<Value> = Vec::new();
-    for declaration in project.registries().declarations() {
-        for kind in &declaration.entities {
-            let keyword = keyword(kind).to_string();
-            let guide =
-                build_guide_for_kind(&keyword, declaration, &project.env().config.inference);
-            kinds_info.push(json!({
-                "kind": keyword,
-                "inference_guide": guide,
-            }));
-        }
-    }
-
-    let global_conventions = project
-        .env()
-        .config
-        .inference
-        .global
-        .as_deref()
-        .unwrap_or("");
+    let guide = infer::guide(project);
+    let kinds_info: Vec<Value> = guide
+        .kinds
+        .iter()
+        .map(|kind| json!({ "kind": kind.keyword, "inference_guide": kind.guide }))
+        .collect();
 
     let result = json!({
         "file": file_path,
         "match_mode": match_mode,
         "existing_entities_referencing_file": referencing_entities,
         "kinds": kinds_info,
-        "project_conventions": global_conventions,
-        "validation": "After writing .spec files, call specforge_validate to check for errors (and specforge_analyze for coverage/contract findings). Fix any errors before proceeding.",
+        "project_conventions": guide.conventions.unwrap_or(""),
+        "validation": validation(),
     });
 
     let instruction = format!(
@@ -432,60 +332,4 @@ If a file has no identifiable entities, still mark it as analyzed with an empty 
 /// The keyword a kind is written with: its declared keyword, else its name.
 fn keyword(kind: &EntityKindDescriptor) -> &str {
     kind.keyword.as_deref().unwrap_or(&kind.name)
-}
-
-fn build_guide_for_kind(
-    kind_name: &str,
-    declaration: &ExtensionDeclaration,
-    inference_config: &specforge_common::InferenceConfig,
-) -> String {
-    let extension_guide = declaration
-        .entities
-        .iter()
-        .find(|k| keyword(k) == kind_name)
-        .and_then(|k| k.inference_guide.as_deref())
-        .unwrap_or("");
-
-    let project_override = inference_config.kinds.get(kind_name);
-
-    match project_override {
-        Some(override_text) if !extension_guide.is_empty() => {
-            format!(
-                "{}\n\n**Project-specific:**\n{}",
-                extension_guide, override_text
-            )
-        }
-        Some(override_text) => override_text.clone(),
-        None => extension_guide.to_string(),
-    }
-}
-
-fn build_example_for_kind(kind_name: &str, fields: &[&FieldRegistryEntry]) -> String {
-    let required_fields: Vec<&&FieldRegistryEntry> =
-        fields.iter().filter(|f| f.declared().required).collect();
-    let optional_fields: Vec<&&FieldRegistryEntry> = fields
-        .iter()
-        .filter(|f| !f.declared().required)
-        .take(3)
-        .collect();
-
-    let mut lines = vec![format!(
-        "{} example_{} \"Example Title\" {{",
-        kind_name, kind_name
-    )];
-
-    for f in &required_fields {
-        lines.push(format!("  {} \"...\"", f.name()));
-    }
-    for f in &optional_fields {
-        match f.field_type() {
-            FieldType::ReferenceList => lines.push(format!("  {} [ref_1, ref_2]", f.name())),
-            FieldType::StringList => lines.push(format!("  {} [\"item1\", \"item2\"]", f.name())),
-            FieldType::Reference => lines.push(format!("  {} ref_id", f.name())),
-            _ => lines.push(format!("  {} \"...\"", f.name())),
-        }
-    }
-
-    lines.push("}".to_string());
-    lines.join("\n")
 }

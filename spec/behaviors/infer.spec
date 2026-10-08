@@ -280,6 +280,46 @@ behavior provide_mcp_infer_gaps_tool "Provide MCP Infer Gaps Tool" {
 // MCP Prompt Enhancements
 // ---------------------------------------------------------------------------
 
+behavior compute_inference_guide "Compute Inference Guide" {
+  features   [infer_plan_mode]
+  invariants [zero_domain_knowledge_core]
+  category   query
+  ensures {
+    guides_merged     "a kind's guide is its extension's, then the project's own for it"
+    fields_listed     "every field registered on the kind, by name, with its type"
+    example_typed     "the example writes each field the way its type is written"
+    project_directory "the spec directory is the project's spec root"
+  }
+  contract """
+    The inference guide (specforge_ops::infer::guide, kind_guide) MUST give,
+    for every kind a loaded extension declares (once, as the extension the
+    kind registry registered it for declares it), in declaration order:
+    its keyword, extension and description; every field the registry
+    build registered on it, sorted by name, with its type, whether it is
+    required and its description; its guide, the extension's
+    inference_guide followed by a blank line, "**Project-specific:**" and
+    the project's own guide for the kind (inference.<kind> in
+    specforge.json), either alone when the other is absent, empty when
+    neither is; an example entity writing its required fields and its
+    first three optional ones, each the way its type is written ("..." for
+    a string, 0, true, the first enum value, ["item1", "item2"], ref_id,
+    [ref_1, ref_2], { } for a block); and its entities, in id order. The
+    project's guide adds the loaded extensions, the entity count of every
+    written kind, the global conventions (inference.global) and the spec
+    directory, the spec root relative to the root. The infer prompt's
+    overview, kind and file scopes, specforge infer-guide and the LSP's
+    keyword completion render it.
+  """
+  verify unit "a kind's guide is its extension's guide, then the project's guide for the kind under Project-specific"
+  verify unit "a kind only the project guides has the project's guide alone, and one nobody guides an empty guide"
+  verify unit "a kind guide lists every field registered on the kind, by name, with its type"
+  verify unit "the example entity writes its required fields and three optional ones, each the way its type is written"
+  verify unit "a kind declared by two extensions is guided by the one that registered it"
+  verify unit "the guide's spec directory is the project's spec root, relative to its root"
+  verify unit "the guide lists each loaded extension, every declared kind in declaration order, and the entities of every written kind"
+  verify integration "every builtin kind's example parses and holds no value of the wrong type"
+}
+
 behavior provide_infer_kind_scope "Provide Infer Prompt Kind Scope" {
   features [infer_plan_mode]
   category mcp
@@ -288,15 +328,14 @@ behavior provide_infer_kind_scope "Provide Infer Prompt Kind Scope" {
     types_named       "each field's type is named as the extension protocol names it"
   }
   contract """
-    When specforge://prompts/infer is invoked with scope=kind:<name>, list
-    the kind's existing entity IDs, its inference guide, an example entity
-    and every field the registry build registered on the kind, sorted by
-    name, each with its type (string, integer, bool, enum, string_list,
-    reference, reference_list, block), whether it is required and its
-    description. A field the registry build refused (W019) is not listed.
+    When specforge://prompts/infer is invoked with scope=kind:<name>, render
+    the kind's guide (compute_inference_guide): its keyword, extension,
+    description, existing entity IDs, fields, guide and example, and the
+    validation step naming the validate and analyze tools. A kind no loaded
+    extension declares is refused on scope as unknown_kind naming the
+    closest declared kind.
   """
-  verify unit "kind scope lists every field registered on the kind, its type by name"
-  verify unit "kind scope's example writes each optional field the way its type is written"
+  verify unit "the kind scope renders the kind's guide; an undeclared kind is refused on scope with the closest declared kind"
 }
 
 behavior provide_infer_plan_scope "Provide Infer Prompt Plan Scope" {
@@ -368,7 +407,8 @@ behavior provide_infer_file_scope "Provide Infer Prompt File Scope" {
     When specforge://prompts/infer is invoked with scope=file:<path>,
     list the entities that belong to that source file under the one
     file rule MCP navigation and the LSP share, with each one's kind,
-    line and symbol, and the kind guides. The list is the one
+    line and symbol, and each kind's guide
+    (compute_inference_guide). The list is the one
     specforge.find_spec_for_source returns for the same path.
   """
   verify unit "file scope lists the entities find_spec_for_source finds for the same file"

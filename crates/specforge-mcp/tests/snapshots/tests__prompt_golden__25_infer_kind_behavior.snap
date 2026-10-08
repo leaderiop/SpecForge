@@ -7,12 +7,14 @@ expression: "shape(&reply, dir.path())"
   "instruction": "You are inferring 'behavior' entities from this codebase. Use the guide below. Do not duplicate the existing entity IDs listed.",
   "layout": "turns",
   "payload": {
+    "description": "A testable unit of system functionality with a defined contract",
     "example": "behavior example_behavior \"Example Title\" {\n  contract \"...\"\n  category \"...\"\n  consumes [ref_1, ref_2]\n  description \"...\"\n}",
     "existing_entity_ids": [
       "alpha",
       "beta",
       "delta"
     ],
+    "extension": "@specforge/software",
     "fields": [
       {
         "description": "Classification tag for agent task routing",

@@ -9,10 +9,14 @@
 //! with the manifest's index; gaps scans those files for public items and
 //! keeps the ones no graph entity names; the lint reports analyzed files
 //! that changed or are over-dense; [`session`] records one step of an
-//! inference session.
+//! inference session. The inference guide (what to look for to infer each
+//! kind's entities, [`guide`] and [`kind_guide`]) is a read view over the
+//! project view that the infer prompt, `specforge infer-guide` and the
+//! LSP's keyword completion render.
 
 mod discovery;
 mod gaps;
+mod guide;
 mod lint;
 mod manifest;
 mod progress;
@@ -20,6 +24,7 @@ mod session;
 
 pub use crate::scan::ScanFailure;
 pub use gaps::{Gaps, SourceItem, directory_of, gaps};
+pub use guide::{InferenceGuide, KindGuide, guide, kind_guide};
 pub use lint::lint;
 pub(crate) use manifest::read_manifest;
 pub use manifest::{
