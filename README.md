@@ -134,6 +134,7 @@ specforge check --cache              # record statuses in specforge-cache.json (
 # Graph access (for agents and humans)
 specforge export --format=context    # token-efficient context for an agent
 specforge query <id> --depth 2       # multi-resolution neighborhood query
+specforge query <id> --format context --include-coverage   # an agent's slice with coverage
 specforge trace <id>                 # traceability chain for an entity
 specforge schema                     # emit the Graph Protocol schema
 specforge model                      # render the logical data model

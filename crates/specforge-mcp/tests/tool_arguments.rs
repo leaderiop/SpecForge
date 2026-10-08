@@ -17,6 +17,29 @@ fn core_tool_listing_today() {
     insta::assert_snapshot!(listing);
 }
 
+/// The defaults of the read views' arguments are the operation's: the query
+/// depth and the search limit that `specforge_ops::query` holds, which the
+/// CLI's `--depth` default reads too (plan 08 T8).
+#[test]
+fn the_read_view_defaults_are_the_operations() {
+    let tools = core_tools();
+    let default_of = |tool: &str, argument: &str| -> Value {
+        let tool = tools
+            .iter()
+            .find(|descriptor| descriptor.name == tool)
+            .unwrap_or_else(|| panic!("no tool {tool}"));
+        tool.input_schema["properties"][argument]["default"].clone()
+    };
+    assert_eq!(
+        default_of("specforge.query", "depth"),
+        json!(specforge_ops::query::DEFAULT_DEPTH)
+    );
+    assert_eq!(
+        default_of("specforge.search", "limit"),
+        json!(specforge_ops::query::DEFAULT_SEARCH_LIMIT)
+    );
+}
+
 /// `main.spec`: `alpha`, misformatted on purpose, and `beta`, which refines it.
 const MAIN: &str = concat!(
     "behavior alpha \"Alpha\" {\n",

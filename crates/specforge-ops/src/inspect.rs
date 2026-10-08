@@ -69,16 +69,18 @@ impl EntityCoverage {
 
 /// The facts of the entity `entity_id`, with the diagnostics the view
 /// reports about it (MCP: its call target's; the LSP: what it published).
-/// An entity the graph lacks is `navigate::NOT_FOUND`.
+/// An entity the graph lacks is `navigate::not_found`.
 pub fn inspect<'v>(view: &ProjectView<'v>, entity_id: &str) -> Result<EntityFacts<'v>, OpError> {
     let graph = view.graph();
-    let node = graph.node(entity_id).ok_or_else(|| not_found(entity_id))?;
+    let node = graph
+        .node(entity_id)
+        .ok_or_else(|| not_found(graph, entity_id))?;
     // The snapshot is built over the same graph: a node it lacks is not one
     // this view can state facts about.
     let standing = view
         .entities()
         .standing(entity_id)
-        .ok_or_else(|| not_found(entity_id))?;
+        .ok_or_else(|| not_found(graph, entity_id))?;
     let coverage = view.recorded().map(|recorded| EntityCoverage {
         verdict: recorded
             .coverage

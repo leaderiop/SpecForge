@@ -91,7 +91,10 @@ fn query_with_kind_filter() {
     }
 }
 
-#[test]
+#[specforge_test_macros::test(
+    behavior = "query_graph_multi_resolution",
+    verify = "a non-existent entity is E003 naming the closest entity"
+)]
 fn query_nonexistent_entity_exits_one() {
     let dir = setup_project(&[("main.spec", SPEC_CONTENT)]);
 
@@ -100,5 +103,17 @@ fn query_nonexistent_entity_exits_one() {
         .arg("--path")
         .arg(dir.path())
         .assert()
-        .code(1);
+        .code(1)
+        .stderr("error[E003]: unresolved entity 'nonexistent' — not found in graph\n");
+
+    // A close id is named.
+    specforge_cmd()
+        .args(["query", "alph"])
+        .arg("--path")
+        .arg(dir.path())
+        .assert()
+        .code(1)
+        .stderr(
+            "error[E003]: unresolved entity 'alph' — not found in graph\n  hint: did you mean 'alpha'?\n",
+        );
 }

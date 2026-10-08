@@ -7,7 +7,7 @@ use std::str::FromStr;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
-use specforge_diagnostics::codes;
+use specforge_diagnostics::{Code, codes};
 use specforge_graph::Graph;
 use specforge_registry::{
     EdgeRegistry, FieldRegistry, FieldRegistryEntry, FieldType, KindRegistry,
@@ -329,6 +329,13 @@ pub struct SchemaVersionError {
     pub reason: String,
 }
 
+impl SchemaVersionError {
+    /// The diagnostic this failure is: E027.
+    pub fn code(&self) -> Code {
+        codes::E027
+    }
+}
+
 impl fmt::Display for SchemaVersionError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}: {}", codes::E027, self.reason)
@@ -533,7 +540,7 @@ pub(crate) fn emit_json_attached(
         edges: sorted_edges(graph),
     };
 
-    serde_json::to_string(&output).map_err(|e| EmitterError::SerializationError(e.to_string()))
+    serde_json::to_string(&output).map_err(|e| EmitterError::Serialization(e.to_string()))
 }
 
 #[derive(Serialize)]
@@ -596,7 +603,7 @@ pub(crate) fn emit_context_attached(
         edges: sorted_edges(graph),
     };
 
-    serde_json::to_string(&output).map_err(|e| EmitterError::SerializationError(e.to_string()))
+    serde_json::to_string(&output).map_err(|e| EmitterError::Serialization(e.to_string()))
 }
 
 #[derive(Serialize)]
@@ -644,7 +651,7 @@ pub(crate) fn emit_brief_attached(
         edges: sorted_edges(graph),
     };
 
-    serde_json::to_string(&output).map_err(|e| EmitterError::SerializationError(e.to_string()))
+    serde_json::to_string(&output).map_err(|e| EmitterError::Serialization(e.to_string()))
 }
 
 // ---------------------------------------------------------------------------
@@ -1179,5 +1186,5 @@ pub fn publish_json_schema_format(
     });
 
     serde_json::to_string_pretty(&json_schema)
-        .map_err(|e| EmitterError::SerializationError(e.to_string()))
+        .map_err(|e| EmitterError::Serialization(e.to_string()))
 }

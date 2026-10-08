@@ -171,7 +171,7 @@ fn an_unknown_kind_is_refused_naming_the_closest() {
     };
     let error = schema(&project.view(), &request).unwrap_err();
     assert_eq!(error.code, "unknown_kind");
-    assert_eq!(error.message, "unknown entity kind: 'behaviour'");
+    assert_eq!(error.message, "unknown entity kind 'behaviour'");
     assert_eq!(
         error.suggestion.as_deref(),
         Some("did you mean 'behavior'?")

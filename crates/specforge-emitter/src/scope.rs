@@ -1,16 +1,13 @@
-use specforge_diagnostics::codes;
 use specforge_graph::Graph;
 
 use crate::error::EmitterError;
 
 fn resolve_scope(graph: &Graph, scope: &str) -> Result<Graph, EmitterError> {
-    graph.subgraph(scope).ok_or_else(|| {
-        EmitterError::EntityNotFound(format!(
-            "{}: unresolved scope entity '{}' — entity not found in graph",
-            codes::E003,
-            scope
-        ))
-    })
+    graph
+        .subgraph(scope)
+        .ok_or_else(|| EmitterError::ScopeNotFound {
+            entity_id: scope.to_string(),
+        })
 }
 
 pub fn emit_json_scoped(graph: &Graph, scope: &str) -> Result<String, EmitterError> {

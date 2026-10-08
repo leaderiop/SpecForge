@@ -157,12 +157,18 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   target (`ProjectRef::view`: the project session with its I017 notices, or another project
   compiled for one call); the LSP from its session (`ProjectView::of_session`) (ADR 0015).
 - **Read view**: an operation that only reads the project view: stats, trace, the coverage view, the
-  model and outline diagrams, the versioned schema, and inspect. Each returns a typed outcome; the
-  CLI, MCP and the LSP only render it.
+  model and outline diagrams, the versioned schema, inspect, and query, list and search (the entities
+  a selection over the view returns, `specforge_ops::query`). Each returns a typed outcome; the CLI,
+  MCP and the LSP only render it.
 - **Entity facts**: what inspect returns for one entity: its node and kind entry, headline
   statement, standing (the snapshot's own, borrowed), obligations, references in both directions,
   coverage, and the reported diagnostics about it (`specforge_ops::inspect::EntityFacts`). MCP
   `specforge.inspect` renders it as JSON and the LSP hover as markdown, so the two cannot disagree.
+- **Known kind**: a kind a loaded extension declares, or that an entity is written with (an
+  undeclared one is E024's). A filter over entities knows both and reports any other kind as I020; an
+  argument that needs a kind's declaration (a schema entry, an inference guide) knows only the
+  declared ones and refuses others with `unknown_kind`. Names are exact; both name the closest kind, a
+  kind equal but for case first (`specforge_ops::view::KnownKinds`, `ProjectView::kinds`).
 - **Configured providers**: the `providers` `specforge.json` lists (scheme, alias, extension,
   settings), registered once per environment against the loaded declarations, each with its
   status (registered, extension not loaded, not a provider, scheme taken) and the W118/E057 the
