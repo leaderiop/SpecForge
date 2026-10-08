@@ -606,17 +606,17 @@ fn finding<'a>(report: &'a Value, code: &str) -> Option<&'a Value> {
 
 #[specforge_test(
     behavior = "provide_mcp_doctor_tool",
-    verify = "specforge.doctor reports an extension that fails to load (E028, E033) as an error"
+    verify = "specforge.doctor reports an extension that fails to load (E028, E070) as an error"
 )]
 fn doctor_reports_an_extension_that_fails_to_load() {
     let (mut server, root) = server_with_product();
 
-    // A binary that no longer matches its lock entry is refused (E033).
+    // A binary that no longer matches its lock entry is refused (E070).
     tamper_with_installed_binary(&root);
     let tampered = doctor(&mut server);
-    let e033 = finding(&tampered, "E033").unwrap_or_else(|| panic!("no E033: {tampered}"));
-    assert_eq!(e033["status"], "error", "{e033}");
-    assert!(e033["check"].as_str().unwrap().contains(GREET), "{e033}");
+    let e070 = finding(&tampered, "E070").unwrap_or_else(|| panic!("no E070: {tampered}"));
+    assert_eq!(e070["status"], "error", "{e070}");
+    assert!(e070["check"].as_str().unwrap().contains(GREET), "{e070}");
     assert_eq!(tampered["extensions_ok"], false, "{tampered}");
 
     // Enabled but not installed at all: no lock entry, nothing for the

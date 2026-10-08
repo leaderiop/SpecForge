@@ -111,8 +111,10 @@ pub enum LoadProblem {
     ModuleMissing { path: PathBuf },
     /// E028: the module can't be read.
     ModuleUnreadable { path: PathBuf, reason: String },
-    /// E033: the module is not the one its lock entry pins.
+    /// E070: the module is not the one its lock entry pins.
     Changed { locked: String, actual: String },
+    /// E070: the module declares another extension than its lock entry.
+    NotItsLockEntry { declared: String },
     /// E028: the bytes are not a component the runtime loads.
     NotAComponent { reason: String },
     /// E028: its declaration can't be read (handshake, describe, protocol
@@ -200,13 +202,23 @@ impl LoadProblem {
                 ),
             ),
             LoadProblem::Changed { locked, actual } => Diagnostic::new(
-                codes::E033,
+                codes::E070,
                 format!(
                     "integrity mismatch for '{name}': lockfile records hash {locked} but the installed binary is {actual}"
                 ),
             )
             .with_suggestion(format!(
                 "the installed binary changed after install — re-install it: {}",
+                installed.reinstall(name)
+            )),
+            LoadProblem::NotItsLockEntry { declared } => Diagnostic::new(
+                codes::E070,
+                format!(
+                    "extension '{name}': the installed binary declares '{declared}', not the extension its lock entry names"
+                ),
+            )
+            .with_suggestion(format!(
+                "re-install it: {}",
                 installed.reinstall(name)
             )),
             LoadProblem::NotAComponent { reason } => Diagnostic::new(
@@ -270,7 +282,8 @@ impl LoadProblem {
             | LoadProblem::LockUnreadable
             | LoadProblem::NotAPackageName { .. }
             | LoadProblem::ModuleMissing { .. }
-            | LoadProblem::Changed { .. } => {
+            | LoadProblem::Changed { .. }
+            | LoadProblem::NotItsLockEntry { .. } => {
                 unreachable!("a file entry is not installed")
             }
         }
@@ -280,6 +293,8 @@ impl LoadProblem {
 /// What one entry that loaded brings.
 struct Done {
     declaration: ExtensionDeclaration,
+    /// What the entry itself reports although it loaded (W149).
+    notices: Vec<Diagnostic>,
     /// W153 and W138, in the order they were read.
     warnings: Vec<Diagnostic>,
 }
@@ -390,6 +405,7 @@ impl Installed {
             match slot {
                 Slot::Skipped => {}
                 Slot::Loaded(done) => {
+                    diagnostics.extend(done.notices);
                     warnings.extend(done.warnings);
                     declarations.push(done.declaration);
                 }
@@ -424,11 +440,28 @@ impl Installed {
             diagnostic: problem.diagnostic(&Subject::Named(name), self),
             problem,
         };
+        let mut notices = Vec::new();
         let module;
+        let installed = builtins.get(name).is_none();
         let bytes = match builtins.get(name) {
             Some(bytes) => bytes,
             None => {
-                module = self.pinned_module(name).map_err(fail)?;
+                let (pinned, unpinned) = self.pinned_module(name).map_err(fail)?;
+                if unpinned {
+                    notices.push(
+                        Diagnostic::new(
+                            codes::W149,
+                            format!(
+                                "extension '{name}': its lock entry pins no hash, so its binary was loaded without being checked"
+                            ),
+                        )
+                        .with_suggestion(format!(
+                            "pin it by installing it again: {}",
+                            self.reinstall(name)
+                        )),
+                    );
+                }
+                module = pinned;
                 module.bytes()
             }
         };
@@ -440,21 +473,31 @@ impl Installed {
                 reason: error.to_string(),
             })
         })?;
+        // An installed binary is the extension its lock entry names.
+        if installed && loaded.declaration.name() != name {
+            runtime.unload(name);
+            return Err(fail(LoadProblem::NotItsLockEntry {
+                declared: loaded.declaration.name().to_string(),
+            }));
+        }
         Ok(Done {
             declaration: loaded.declaration,
+            notices,
             warnings: loaded.warnings,
         })
     }
 
-    /// The module installed as `name`, when its lock entry pins it.
-    fn pinned_module(&self, name: &str) -> Result<Module, LoadProblem> {
+    /// The module installed as `name`, when its lock entry pins it, and
+    /// whether that entry pins no hash.
+    fn pinned_module(&self, name: &str) -> Result<(Module, bool), LoadProblem> {
         let entry = match &self.lock {
             LockState::Read(lock) => lock.entries.iter().find(|e| e.name == name),
             LockState::Absent => None,
             LockState::Unreadable(_) => return Err(LoadProblem::LockUnreadable),
         };
         let entry = entry.ok_or(LoadProblem::NotInstalled)?;
-        self.check_module(entry)
+        let unpinned = entry.wasm_hash.is_empty();
+        self.check_module(entry).map(|module| (module, unpinned))
     }
 
     /// `entry`'s module, read once, when it is the one the entry pins.
@@ -531,6 +574,7 @@ impl Installed {
                 declared,
                 Done {
                     declaration: loaded.declaration,
+                    notices: Vec::new(),
                     warnings: loaded.warnings,
                 },
             )),

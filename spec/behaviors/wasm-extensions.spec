@@ -657,7 +657,7 @@ behavior run_doctor_check "Run Doctor Check" {
     enhancements, any conflicts with actionable resolution suggestions,
     and additional checks (shadowed fields, unknown target entities,
     edge label conflicts). An enabled extension that fails to load (E028:
-    not installed; E033: its binary no longer matches the lock) MUST be
+    not installed; E070: its binary is not the one the lock pins) MUST be
     reported as an error. Each listed extension MUST carry the source the
     extensions listing gives it: builtin, the lock entry's source, or
     file:<path> for a .wasm file entry of specforge.json. Run in a
@@ -677,7 +677,7 @@ behavior run_doctor_check "Run Doctor Check" {
   verify unit "doctor reports conflicts with resolution suggestions"
   verify unit "doctor detects shadowed grammar-level constructs"
   verify unit "doctor --json produces valid JSON output"
-  verify unit "doctor reports an extension that fails to load (E028, E033) as an error"
+  verify unit "doctor reports an extension that fails to load (E028, E070) as an error"
   verify unit "a peer whose installed version doctor cannot compare is remedied with a runnable command"
   verify unit "a finding without its own suggestion quotes the catalogued explanation"
   verify unit "doctor gives each extension the source the extensions listing gives it"

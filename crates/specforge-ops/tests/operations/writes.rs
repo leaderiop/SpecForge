@@ -377,7 +377,7 @@ fn a_failed_add_over_an_install_leaves_a_binary_its_lock_refuses() {
         .filter(|d| d.message.contains("integrity mismatch") && d.message.contains(GREET))
         .map(|d| d.code.as_str())
         .collect();
-    assert_eq!(refused, ["E033"], "{diagnostics:?}");
+    assert_eq!(refused, ["E070"], "{diagnostics:?}");
 }
 
 #[test]

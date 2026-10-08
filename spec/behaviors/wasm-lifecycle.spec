@@ -25,23 +25,25 @@ behavior load_wasm_module "Load Wasm Module" {
   ensures {
     extension_loaded_emitted     "extension_loaded event is emitted on successful module load"
     extension_loaded_via_runtime "the binary is loaded into the runtime engine (component compilation itself is cached by the engine — see compile_wasm_component_with_cache)"
-    tampered_binary_refused      "a binary whose hash no longer matches the specforge.lock pin is refused with E033"
+    tampered_binary_refused      "a binary whose hash no longer matches the specforge.lock pin, or that declares another extension than its lock entry, is refused with E070"
     missing_binary_diagnosed     "missing .wasm binary produces ExtensionError diagnostic"
   }
   contract   """
     When the compiler loads an extension, it MUST read its .wasm binary
     from its installed path once, verify that content's hash against the
-    specforge.lock pin (refusing a mismatch with E033; legacy entries
-    without a hash warn and load), and load those same bytes into the Wasm
-    runtime.
+    specforge.lock pin (refusing a mismatch with E070; a lock entry
+    without a hash, written before pinning, MUST load with the warning
+    W149), and load those same bytes into the Wasm runtime. A loaded
+    binary that declares another extension than its lock entry MUST be
+    refused with E070.
     Component compilation caching is the engine's concern (see
     compile_wasm_component_with_cache). Missing .wasm files MUST produce
     an ExtensionError diagnostic.
   """
   produces   [extension_loaded]
   verify unit "loads .wasm binary from manifest path"
-  verify unit "tampered installed binary refused via E033 lockfile pin"
-  verify unit "legacy lockfile entry without hash loads unchanged"
+  verify unit "tampered installed binary refused via E070 lockfile pin"
+  verify unit "legacy lockfile entry without hash loads with W149"
   verify unit "the hash is checked over the bytes the runtime compiles"
   verify unit "missing .wasm produces ExtensionError"
   verify contract "Load Wasm Module: Wasm module loading holds — manifest_validated_fired, wasm_runtime_available, extension_loaded_emitted, extension_loaded_via_runtime, tampered_binary_refused, missing_binary_diagnosed"

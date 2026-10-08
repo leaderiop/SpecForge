@@ -1008,9 +1008,12 @@ fn an_unreadable_lock_reports_e033_once_then_each_installed_extension() {
     assert!(at("E033") < at("E028"), "the lock comes first");
 }
 
-/// A lock entry that pins no hash loads its extension, and says nothing.
-#[test]
-fn an_unpinned_lock_entry_loads_without_a_warning() {
+/// A lock entry that pins no hash loads its extension, with W149.
+#[specforge_test(
+    behavior = "load_wasm_module",
+    verify = "legacy lockfile entry without hash loads with W149"
+)]
+fn an_unpinned_lock_entry_loads_with_w149() {
     let dir = project(
         serde_json::json!({"name": "p", "version": "0.1.0", "extensions": ["@sdk/greet"]}),
         &[],
@@ -1020,11 +1023,12 @@ fn an_unpinned_lock_entry_loads_without_a_warning() {
 
     let env = specforge_project::Environment::load(dir.path(), Some(&runtime));
 
-    let named: Vec<&specforge_common::Diagnostic> = env
+    let named: Vec<(&str, specforge_common::Severity)> = env
         .diagnostics()
         .filter(|d| d.message.contains("@sdk/greet"))
+        .map(|d| (d.code.as_str(), d.severity))
         .collect();
-    assert!(named.is_empty(), "{named:?}");
+    assert_eq!(named, [("W149", specforge_common::Severity::Warning)]);
     assert!(
         env.registries
             .declarations()

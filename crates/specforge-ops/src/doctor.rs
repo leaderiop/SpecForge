@@ -30,9 +30,9 @@ pub const CONFLICT_CODES: [Code; 3] = [codes::E026, codes::E057, codes::W018];
 pub const SHADOWING_CODES: [Code; 2] = [codes::E013, codes::E026];
 
 /// Codes that mean an enabled extension did not load: E028 (not installed,
-/// or its protocol load failed) and E033 (its installed binary no longer
-/// matches the lock file's hash).
-pub const LOAD_FAILURE_CODES: [Code; 2] = [codes::E028, codes::E033];
+/// or its protocol load failed), E033 (the lock can't be read) and E070 (its
+/// installed binary is not the one the lock pins).
+pub const LOAD_FAILURE_CODES: [Code; 3] = [codes::E028, codes::E033, codes::E070];
 
 /// Codes that mean `specforge.json` is not used as written: E069 (it can't
 /// be read, isn't a JSON object, or has a mistyped key or item).
@@ -837,10 +837,10 @@ mod tests {
             "{stale:?}"
         );
         // The load's remedy is the same command as the binary check's.
-        let e033 = about_greet.iter().find(|(code, _)| *code == "E033");
+        let e070 = about_greet.iter().find(|(code, _)| *code == "E070");
         assert!(
-            e033.unwrap().1.contains("specforge add ") && e033.unwrap().1.ends_with(".wasm"),
-            "{e033:?}"
+            e070.unwrap().1.contains("specforge add ") && e070.unwrap().1.ends_with(".wasm"),
+            "{e070:?}"
         );
     }
 

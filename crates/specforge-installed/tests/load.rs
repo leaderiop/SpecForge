@@ -79,7 +79,7 @@ fn a_changed_module_is_refused_and_not_loaded() {
 
     let loaded = load_with(dir.path(), &entries(&["@acme/a"]), &runtime);
 
-    assert_eq!(codes(&loaded), ["E033"], "{:?}", loaded.diagnostics);
+    assert_eq!(codes(&loaded), ["E070"], "{:?}", loaded.diagnostics);
     assert!(loaded.declarations.is_empty());
     let failure = loaded.enabled[0].failure.as_ref().unwrap();
     assert_eq!(
@@ -349,8 +349,11 @@ fn declarations_come_in_entry_order_once_per_extension() {
     assert!(loaded.enabled.iter().all(|e| e.failure.is_none()));
 }
 
-#[test]
-fn a_lock_entry_pinning_nothing_is_not_judged_by_the_load() {
+#[specforge_test_macros::test(
+    behavior = "load_wasm_module",
+    verify = "legacy lockfile entry without hash loads with W149"
+)]
+fn an_unpinned_entry_loads_with_w149() {
     let dir = TempDir::new().unwrap();
     install(dir.path(), &["@acme/a"]);
     let mut lock = match Installed::at(dir.path()).lock().clone() {
@@ -363,4 +366,46 @@ fn a_lock_entry_pinning_nothing_is_not_judged_by_the_load() {
     let loaded = load_with(dir.path(), &entries(&["@acme/a"]), &runtime());
 
     assert_eq!(loaded.declarations.len(), 1, "{:?}", loaded.diagnostics);
+    assert_eq!(codes(&loaded), ["W149"]);
+    assert!(loaded.diagnostics[0].message.contains("@acme/a"));
+    assert!(
+        loaded.diagnostics[0]
+            .suggestion
+            .as_deref()
+            .unwrap()
+            .contains("specforge add @acme/a@0.0.0-test")
+    );
+    assert!(loaded.enabled[0].failure.is_none(), "it loaded");
+}
+
+#[specforge_test_macros::test(
+    behavior = "load_extension_manifests",
+    verify = "an installed extension loads only when its binary is the one its specforge.lock entry pins"
+)]
+fn a_module_declaring_another_extension_is_e070() {
+    let dir = TempDir::new().unwrap();
+    // The lock names @acme/a; the module installed there is @acme/b's.
+    let b_binary = b"\0asm the binary of b";
+    specforge_installed::testing::install_module(dir.path(), "@acme/a", b_binary);
+    let runtime = InProcessRuntime::new().binary(b_binary, extension("@acme/b"));
+
+    let loaded = load_with(dir.path(), &entries(&["@acme/a"]), &runtime);
+
+    assert_eq!(codes(&loaded), ["E070"], "{:?}", loaded.diagnostics);
+    assert_eq!(
+        loaded.enabled[0].failure.as_ref().unwrap().problem,
+        LoadProblem::NotItsLockEntry {
+            declared: "@acme/b".to_string()
+        }
+    );
+    assert!(loaded.declarations.is_empty());
+    assert!(
+        loaded.diagnostics[0]
+            .message
+            .contains("declares '@acme/b', not the extension its lock entry names"),
+        "{:?}",
+        loaded.diagnostics[0]
+    );
+    // What was refused is not left loaded.
+    assert!(!runtime.unload("@acme/a"));
 }
