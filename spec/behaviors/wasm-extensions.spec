@@ -859,7 +859,10 @@ behavior update_all_extensions "Update All Extensions" {
     file with the new binary hashes. Peer dependency
     conflicts introduced by upgrades MUST be detected and reported before
     applying changes. If any upgrade fails, the system MUST roll back all
-    changes and report the failure. Only registry installs are updated: an
+    changes and report the failure. A write that fails while the checked
+    upgrades are applied is the update's own failure, naming the file it
+    could not write (E032) or the lock (E033); every file is put back, and no
+    extension is reported updated. Only registry installs are updated: an
     extension installed from a local file (source local:<path>) MUST NOT be
     replaced from a registry. When a registry-installed extension is
     to be updated and no registry is configured in specforge.json, update
@@ -874,6 +877,7 @@ behavior update_all_extensions "Update All Extensions" {
   verify unit "lock file records new binary hashes after update"
   verify unit "peer dependency conflicts detected before applying"
   verify unit "failed upgrade rolls back all changes"
+  verify unit "a write that fails while applying fails the update, naming what it could not write, and nothing is applied"
   verify integration "update never replaces a locally installed extension from a registry"
   verify contract "Update All Extensions: batch extension update holds — extensions_installed, registries_reachable, batch_update_completed_emitted, semver_constraints_respected, lock_hashes_refreshed, atomic_rollback_on_failure"
 }

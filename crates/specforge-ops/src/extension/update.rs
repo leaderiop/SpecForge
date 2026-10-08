@@ -54,7 +54,7 @@ pub enum UpdateStatus {
     /// Not a registry install (`source` is the lock's, e.g.
     /// `local:<path>`): a registry never replaces it (ADR 0004 D3-b).
     NotFromRegistry { source: String },
-    /// Its newer version could not be fetched, checked or installed.
+    /// Its newer version could not be fetched or checked.
     Failed(OpError),
 }
 
@@ -139,7 +139,10 @@ pub struct BatchUpdateCompleted {
 /// Fails outright (nothing asked, nothing written) with `config_invalid`
 /// when `specforge.json` cannot be used, with E033 when the
 /// project has no lock file, and with E063 when a registry install needs a
-/// registry and none is configured.
+/// registry and none is configured. Fails with the change's error (E032
+/// naming the package whose binary could not be placed, E033 for the lock)
+/// when applying it fails; everything is put back, and what could not be is
+/// the error's writes.
 pub fn update(req: &UpdateRequest, registry: &dyn Registry) -> Result<UpdateOutcome, OpError> {
     // A project whose specforge.json cannot be used is refused before
     // anything is read or written, as `add` and `remove` refuse it.
@@ -222,7 +225,7 @@ pub fn update(req: &UpdateRequest, registry: &dyn Registry) -> Result<UpdateOutc
         }
     }
 
-    let mut outcome = UpdateOutcome {
+    let outcome = UpdateOutcome {
         extensions,
         registry_used,
     };
@@ -245,16 +248,9 @@ pub fn update(req: &UpdateRequest, registry: &dyn Registry) -> Result<UpdateOutc
             },
         );
     }
-    if let Err(failed) = change.commit() {
-        let error = OpError::from(failed.error).with_writes(Writes::of(failed.left));
-        if let Some(e) = outcome
-            .extensions
-            .iter_mut()
-            .find(|e| e.name == planned[0].0)
-        {
-            e.status = UpdateStatus::Failed(error);
-        }
-    }
+    change
+        .commit()
+        .map_err(|failed| OpError::from(failed.error).with_writes(Writes::of(failed.left)))?;
     Ok(outcome)
 }
 
@@ -643,21 +639,22 @@ mod tests {
             return;
         }
 
-        let outcome = update(&request(dir.path(), true), &registry).unwrap();
+        let result = update(&request(dir.path(), true), &registry);
         std::fs::set_permissions(dir.path(), mode(0o755)).unwrap();
 
-        assert!(!outcome.applied(), "{outcome:?}");
-        let (_, error) = outcome.failures().next().unwrap();
+        let error = result.unwrap_err();
         assert_eq!(error.code, "E033", "{error:?}");
         assert_eq!(std::fs::read(lock_path(dir.path())).unwrap(), lock_before);
         let installed = installed(dir.path(), "@sdk/greet");
         assert_eq!(std::fs::read(installed).unwrap(), b"old");
     }
 
-    // pin (15-T0): today's behaviour; flipped by 15-T9
     #[cfg(unix)]
-    #[test]
-    fn pin_a_failed_commit_is_pinned_on_the_first_planned_update() {
+    #[specforge_test(
+        behavior = "update_all_extensions",
+        verify = "a write that fails while applying fails the update, naming what it could not write, and nothing is applied"
+    )]
+    fn a_write_that_fails_while_applying_fails_the_update() {
         use std::os::unix::fs::PermissionsExt;
         let dir = project(vec![
             entry("@sdk/greet", "0.0.9", "registry", &[]),
@@ -683,13 +680,10 @@ mod tests {
             return;
         }
 
-        let outcome = update(&request(dir.path(), true), &registry).unwrap();
+        let result = update(&request(dir.path(), true), &registry);
         std::fs::set_permissions(&probe_dir, mode(0o755)).unwrap();
 
-        let failures: Vec<(&str, &OpError)> = outcome.failures().collect();
-        assert_eq!(failures.len(), 1, "{outcome:?}");
-        let (name, error) = failures[0];
-        assert_eq!(name, "@sdk/greet");
+        let error = result.unwrap_err();
         assert_eq!(error.code, "E032", "{error:?}");
         assert!(error.message.contains("'@test/probe'"), "{error:?}");
         assert_eq!(std::fs::read(lock_path(dir.path())).unwrap(), lock_before);
