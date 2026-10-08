@@ -411,21 +411,9 @@ impl Declared {
     /// Load `wasm` and read its declaration: a binary that isn't a loadable
     /// extension, or that claims a builtin's name, is refused.
     fn of(wasm: &[u8]) -> Result<Self, OpError> {
-        const CANDIDATE: &str = "__candidate";
         let runtime = specforge_component::ComponentRuntime::new();
-        let invalid = |why: String| {
-            OpError::diagnostic(
-                codes::E028,
-                format!("not a loadable SpecForge extension: {why}"),
-            )
-            .with_suggestion("build it with specforge-extension-sdk for wasm32-wasip2")
-        };
-        runtime
-            .load_module_bytes(CANDIDATE, wasm)
-            .map_err(invalid)?;
-        let declaration = specforge_wasm::protocol::load_declaration(&runtime, CANDIDATE)
-            .map_err(|e| invalid(e.to_string()))?
-            .declaration;
+        let declaration =
+            specforge_installed::declaration_of(&Module::new(wasm.to_vec()), &runtime)?.declaration;
         if super::builtin_name(declaration.name()).is_some() {
             return Err(OpError::new(
                 OpErrorKind::Conflict,

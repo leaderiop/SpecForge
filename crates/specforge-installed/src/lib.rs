@@ -7,6 +7,7 @@
 #![allow(clippy::result_large_err)]
 
 mod change;
+mod declare;
 mod health;
 mod layout;
 mod load;
@@ -21,6 +22,7 @@ use specforge_common::ExtensionEntry;
 use specforge_protocol_types::PackageName;
 
 pub use change::{Change, Committed, Failed, Pin};
+pub use declare::declaration_of;
 pub use health::Health;
 pub use layout::{LOCK_FILE, lock_path};
 pub use load::{Builtins, EnabledExtension, LoadFailure, LoadProblem, Loaded};
