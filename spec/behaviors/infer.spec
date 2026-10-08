@@ -291,7 +291,7 @@ behavior compute_inference_guide "Compute Inference Guide" {
     example_typed     "the example writes each field the way its type is written"
     project_directory "the spec directory is the project's spec root"
   }
-  contract """
+  contract   """
     The inference guide (specforge_ops::infer::guide, kind_guide) MUST give,
     for every kind a loaded extension declares (once, as the extension the
     kind registry registered it for declares it), in declaration order:

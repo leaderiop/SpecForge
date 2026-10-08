@@ -42,7 +42,7 @@ type InferencePlan "Prioritized Inference Work Plan" {
   target_spec_directory string
   progress              InferenceSummary
   cursor                integer
-  next_cursor           integer  @optional
+  next_cursor           integer @optional
   unanalyzed_files      string[]
   unanalyzed_total      integer
   stale_files           string[]
