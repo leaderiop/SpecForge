@@ -599,3 +599,66 @@ fn a_rolled_back_migration_keeps_only_its_backups() {
     assert_eq!(listed(&outcome.writes, root), ["old.spec.bak"]);
     assert_eq!(changed_since(root, &before), ["old.spec.bak"]);
 }
+
+/// The bytes of the embedded builtin `name`.
+fn builtin_bytes(name: &str) -> &'static [u8] {
+    specforge_component::builtins::BUILTIN_EXTENSIONS
+        .iter()
+        .find(|(builtin, _)| *builtin == name)
+        .map(|(_, bytes)| *bytes)
+        .expect("a builtin")
+}
+
+/// Bug pin (flipped by the ticket that fixes it): `init` enables a builtin
+/// without the builtins it requires, so the first `check` fails E027.
+#[test]
+fn init_enables_a_builtin_without_the_builtins_it_requires() {
+    use specforge_ops::init;
+    let scratch = TempDir::new().unwrap();
+    let extensions = vec!["@specforge/formal".to_string()];
+    let request = init::Request {
+        dir: &scratch.path().join("formal"),
+        name: Some("demo"),
+        version: init::DEFAULT_VERSION,
+        extensions: &extensions,
+        forbid_inside: None,
+    };
+
+    let plan = init::plan(&request).unwrap();
+
+    assert_eq!(plan.extensions, ["@specforge/formal"]);
+    assert!(
+        plan.starter.contains("starter spec file"),
+        "{}",
+        plan.starter
+    );
+}
+
+#[test]
+fn init_refuses_a_local_binary_that_claims_a_builtins_name_before_writing() {
+    use specforge_ops::init;
+    let scratch = TempDir::new().unwrap();
+    let wasm = scratch.path().join("product.wasm");
+    std::fs::write(&wasm, builtin_bytes("@specforge/product")).unwrap();
+    let dir = scratch.path().join("never");
+    let extensions = vec![wasm.display().to_string()];
+    let request = init::Request {
+        dir: &dir,
+        name: Some("demo"),
+        version: init::DEFAULT_VERSION,
+        extensions: &extensions,
+        forbid_inside: None,
+    };
+
+    let error = init::plan(&request).unwrap_err();
+
+    assert_eq!(error.code, "extension_not_found");
+    assert_eq!(
+        error.message,
+        format!(
+            "unresolvable extension '{}': the extension declares the name of the builtin '@specforge/product'",
+            wasm.display()
+        )
+    );
+    assert!(!dir.exists());
+}

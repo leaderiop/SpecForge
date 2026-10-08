@@ -150,6 +150,46 @@ fn a_registry_install_loads_through_check() {
     assert!(!codes(&found).contains(&"E024"), "{found:?}");
 }
 
+/// The JSON `specforge add` prints names a local source and no key, and a
+/// registry package's key and no source.
+#[test]
+fn add_json_names_a_local_source_and_a_registry_key() {
+    let dir = greeting_project();
+    std::fs::write(dir.path().join("greet.wasm"), greet_wasm()).unwrap();
+    let out = specforge()
+        .args(["add", "greet.wasm", "--format", "json", "--path"])
+        .arg(dir.path())
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "{out:?}");
+    let local: Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(local["source"], "local:greet.wasm");
+    assert!(local.get("key_id").is_none(), "{local}");
+
+    let registry = FakeRegistry::serve(vec![Package::new("@sdk/greet", "0.1.0", greet_wasm())]);
+    let dir = project_on(&registry);
+    let home = TempDir::new().unwrap();
+    let out = specforge()
+        .args([
+            "add",
+            "@sdk/greet@0.1.0",
+            "--allow-unsigned",
+            "--format",
+            "json",
+            "--path",
+        ])
+        .arg(dir.path())
+        .env("HOME", home.path())
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "{out:?}");
+    let remote: Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(remote["key_id"], Value::Null);
+    assert!(remote.get("key_id").is_some(), "{remote}");
+    assert!(remote.get("source").is_none(), "{remote}");
+}
+
 #[specforge_test(
     behavior = "load_extension_manifests",
     verify = "tampered installed binary refused via lockfile hash pin (E070)"

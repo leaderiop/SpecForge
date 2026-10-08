@@ -721,6 +721,211 @@ mod tests {
         assert!(matches!(again.outcome, AddOutcome::AlreadyPresent { .. }));
     }
 
+    /// A project directory whose `specforge.json` holds `config` verbatim.
+    fn project_with(config: &str) -> tempfile::TempDir {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("specforge.json"), config).unwrap();
+        dir
+    }
+
+    const EMPTY_PROJECT: &str = r#"{"name": "p", "version": "0.1.0", "extensions": []}"#;
+
+    fn local_request<'a>(root: &'a Path, file: &Path) -> AddRequest<'a> {
+        AddRequest {
+            root,
+            source: Source::Local(file.to_path_buf()),
+            allow_unsigned: false,
+            trust: Trust::Refuse,
+            dry_run: false,
+        }
+    }
+
+    fn builtin_request<'a>(root: &'a Path, name: &'static str) -> AddRequest<'a> {
+        AddRequest {
+            root,
+            source: Source::Builtin(name),
+            allow_unsigned: false,
+            trust: Trust::Refuse,
+            dry_run: false,
+        }
+    }
+
+    /// The embedded bytes of the builtin `name`.
+    fn builtin_bytes(name: &str) -> &'static [u8] {
+        specforge_component::builtins::BUILTIN_EXTENSIONS
+            .iter()
+            .find(|(builtin, _)| *builtin == name)
+            .map(|(_, bytes)| *bytes)
+            .expect("a builtin")
+    }
+
+    #[test]
+    fn add_refuses_a_binary_that_claims_a_builtins_name() {
+        use crate::config::testing::files_under;
+        let dir = project_with(EMPTY_PROJECT);
+        let file = tempfile::tempdir().unwrap();
+        let wasm = file.path().join("product.wasm");
+        std::fs::write(&wasm, builtin_bytes("@specforge/product")).unwrap();
+        let before = files_under(dir.path());
+
+        let error = add(
+            &local_request(dir.path(), &wasm),
+            &crate::registry::Unconfigured("add"),
+        )
+        .unwrap_err();
+
+        assert_eq!(error.code, "extension_conflict");
+        assert_eq!(error.kind, OpErrorKind::Conflict);
+        assert_eq!(
+            error.message,
+            "the extension declares the name of the builtin '@specforge/product'"
+        );
+        assert_eq!(
+            error.suggestion.as_deref(),
+            Some("enable the builtin instead: specforge add @specforge/product")
+        );
+        assert_eq!(files_under(dir.path()), before);
+    }
+
+    #[specforge_test(
+        behavior = "add_extension_to_existing_project",
+        verify = "add unresolvable extension rejects with diagnostic"
+    )]
+    fn a_local_file_add_cannot_read_is_e054() {
+        use crate::config::testing::files_under;
+        let dir = project_with(EMPTY_PROJECT);
+        let registry = crate::registry::Unconfigured("add");
+
+        let before = files_under(dir.path());
+        let missing = dir.path().join("missing.wasm");
+        let error = add(&local_request(dir.path(), &missing), &registry).unwrap_err();
+        assert_eq!(error.code, "E054");
+        assert_eq!(
+            error.message,
+            format!("file not found: {}", missing.display())
+        );
+        assert_eq!(files_under(dir.path()), before);
+
+        let scratch = tempfile::tempdir().unwrap();
+        let directory = scratch.path().join("a-directory");
+        std::fs::create_dir(&directory).unwrap();
+        let error = add(&local_request(dir.path(), &directory), &registry).unwrap_err();
+        assert_eq!(error.code, "E054");
+        assert!(
+            error
+                .message
+                .starts_with(&format!("cannot read {}: ", directory.display())),
+            "{}",
+            error.message
+        );
+        assert_eq!(files_under(dir.path()), before);
+    }
+
+    #[test]
+    fn a_local_file_that_is_no_extension_is_e028() {
+        use crate::config::testing::files_under;
+        let dir = project_with(EMPTY_PROJECT);
+        let file = tempfile::tempdir().unwrap();
+        let wasm = file.path().join("junk.wasm");
+        std::fs::write(&wasm, b"not wasm").unwrap();
+        let before = files_under(dir.path());
+
+        let error = add(
+            &local_request(dir.path(), &wasm),
+            &crate::registry::Unconfigured("add"),
+        )
+        .unwrap_err();
+
+        assert_eq!(error.code, "E028");
+        assert!(
+            error
+                .message
+                .starts_with("not a loadable SpecForge extension:"),
+            "{}",
+            error.message
+        );
+        assert!(
+            error
+                .suggestion
+                .as_deref()
+                .unwrap()
+                .contains("specforge-extension-sdk")
+        );
+        assert_eq!(files_under(dir.path()), before);
+    }
+
+    #[specforge_test(
+        behavior = "install_wasm_extension",
+        verify = "an install over an unreadable specforge.lock is refused before anything is written"
+    )]
+    fn an_unreadable_lock_refuses_before_the_local_file_is_read() {
+        let dir = project_with(EMPTY_PROJECT);
+        std::fs::write(dir.path().join("specforge.lock"), "not a lock {{{").unwrap();
+        let missing = dir.path().join("missing.wasm");
+
+        let error = add(
+            &local_request(dir.path(), &missing),
+            &crate::registry::Unconfigured("add"),
+        )
+        .unwrap_err();
+
+        assert_eq!(error.code, "E033");
+        assert_eq!(
+            std::fs::read_to_string(dir.path().join("specforge.lock")).unwrap(),
+            "not a lock {{{"
+        );
+    }
+
+    #[specforge_test(
+        behavior = "add_extension_to_existing_project",
+        verify = "add enables a builtin's required peers but not its optional ones"
+    )]
+    fn a_builtin_is_enabled_after_its_required_builtin_peers() {
+        let dir = project_with(EMPTY_PROJECT);
+
+        let added = add(
+            &builtin_request(dir.path(), "@specforge/cargo-test"),
+            &crate::registry::Unconfigured("add"),
+        )
+        .unwrap();
+
+        assert_eq!(
+            added.outcome,
+            AddOutcome::Builtin {
+                name: "@specforge/cargo-test",
+                changed: true,
+                peers_enabled: vec!["@specforge/testing"],
+            }
+        );
+        assert_eq!(added.writes.names_under(dir.path()), ["specforge.json"]);
+        assert_eq!(
+            specforge_common::read_project_config(dir.path())
+                .config
+                .extensions,
+            ["@specforge/testing", "@specforge/cargo-test"]
+        );
+        assert_eq!(added.extensions_enabled, 2);
+    }
+
+    #[test]
+    fn extensions_enabled_counts_the_string_entries_after_the_add() {
+        let dir =
+            project_with(r#"{"name":"p","version":"0.1.0","extensions":[1,"@specforge/rust"]}"#);
+        let registry = crate::registry::Unconfigured("add");
+        let request = builtin_request(dir.path(), "@specforge/product");
+
+        let added = add(&request, &registry).unwrap();
+        assert_eq!(added.extensions_enabled, 2);
+
+        let again = add(&request, &registry).unwrap();
+        assert!(matches!(
+            again.outcome,
+            AddOutcome::Builtin { changed: false, .. }
+        ));
+        assert!(again.writes.is_empty());
+        assert_eq!(again.extensions_enabled, 2);
+    }
+
     #[test]
     fn a_missing_config_is_config_not_found_with_the_hint_to_init() {
         let dir = tempfile::tempdir().unwrap();
