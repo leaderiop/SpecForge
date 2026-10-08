@@ -1,12 +1,13 @@
 // Inference workflow behaviors — AI agent spec inference from codebases
 //
-// 15 behaviors:
+// 19 behaviors:
 //   - Manifest I/O (3): load, save, compute summary
 //   - Session management (3): start, end, mark analyzed
 //   - Staleness detection (1): detect stale entries
 //   - MCP tools (3): infer_progress, infer_session, infer_gaps
-//   - MCP prompts (2): plan scope, workflow scope
-//   - CLI (1): infer-status command
+//   - Guides (1): compute inference guide
+//   - MCP prompts (4): kind, plan, workflow and file scopes
+//   - CLI (2): infer-status, infer-guide
 //   - Diagnostics (2): I200, I202
 
 use "types/infer"
@@ -455,6 +456,27 @@ behavior provide_infer_status_cli "Provide CLI Infer-Status Command" {
   verify unit "missing manifest shows helpful message"
   verify unit "an unusable manifest is refused with E071"
   verify unit "prints the sessions the manifest records, with their timestamps"
+}
+
+behavior provide_infer_guide_cli "Provide CLI Infer-Guide Command" {
+  features [infer_plan_mode]
+  category cli
+  ensures {
+    overview_printed "without a kind, every declared kind's guide is printed"
+    kind_printed     "with a kind, the kind's guide, fields, existing entities and example are printed"
+    json_format      "--format json prints the infer prompt's guide data"
+  }
+  contract """
+    Register a CLI subcommand 'infer-guide [KIND]' that renders the
+    inference guide (compute_inference_guide) of the project compiled at
+    --path: without KIND every declared kind's guide, the conventions and
+    the spec directory; with KIND that kind's guide. --format json prints
+    the infer prompt's overview or kind-scope data, without the prompt's
+    output_format and validation text. An undeclared KIND is unknown_kind
+    naming the closest declared kind, exit 1.
+  """
+  verify integration "specforge infer-guide --format json is the infer prompt's guide data"
+  verify integration "an undeclared kind is unknown_kind naming the closest declared kind, exit 1"
 }
 
 // ---------------------------------------------------------------------------

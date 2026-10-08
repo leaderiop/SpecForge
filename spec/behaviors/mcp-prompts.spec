@@ -7,7 +7,8 @@
 // (ContributionFlags.prompts stays reserved).
 //
 // 5 behaviors: serve, context, review, trace, explore (infer's scopes are in
-// behaviors/infer.spec)
+// behaviors/infer.spec; the exploration and the review they render are in
+// behaviors/output.spec)
 
 use "events/mcp"
 use "invariants/core"

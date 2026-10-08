@@ -140,6 +140,9 @@ specforge schema                     # emit the Graph Protocol schema
 specforge model                      # render the logical data model
 specforge outline                    # render the extension architecture
 specforge stats                      # project statistics
+specforge explore [<id>]             # starting points, hubs and unconnected entities
+specforge review [<id>]              # coverage gaps around an entity (or the whole project)
+specforge infer-guide [<kind>]       # what to look for in code to write a kind's entities
 
 # Extensions & registry
 specforge extensions                 # list enabled builtins and installed extensions

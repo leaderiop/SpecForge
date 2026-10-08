@@ -367,6 +367,43 @@ behavior review_coverage_gaps "Review Coverage Gaps" {
   verify unit "a recorded report that cannot be read is the review's E045 failure"
 }
 
+behavior provide_explore_cli "Provide CLI Explore Command" {
+  features   [agent_export]
+  invariants [diagnostic_determinism]
+  category   cli
+  types      [Graph, Diagnostic]
+  contract   """
+    specforge explore [ENTITY] [--kind KIND] [--depth N] [--path PATH]
+    [--format human|json] MUST render the exploration (explore_the_graph)
+    of the project compiled at PATH: --format json prints the document the
+    explore prompt's payload is for the same arguments; human output lists
+    the selection's size, the starting points, the most connected entities
+    with their edge counts, the unconnected entities and, with ENTITY, the
+    paths from it. Notices go to stderr. An unknown ENTITY is E003 naming
+    the closest entity, exit 1.
+  """
+  verify integration "specforge explore --format json is the explore prompt's payload for the same arguments"
+  verify integration "an unknown entity is E003 naming the closest entity, exit 1"
+}
+
+behavior provide_review_cli "Provide CLI Review Command" {
+  features   [agent_export, extension_driven_coverage]
+  invariants [diagnostic_determinism]
+  category   cli
+  types      [Graph, Diagnostic]
+  contract   """
+    specforge review [ENTITY] [--depth N] [--path PATH] [--format
+    human|json] MUST render the review (review_coverage_gaps) of the
+    project compiled at PATH: --format json prints the document the review
+    prompt's payload is for the same arguments; human output lists each
+    row (entity, kind, status, proven obligations) and each finding. An
+    unknown ENTITY is E003, exit 1; a recorded report that cannot be read
+    is E045, exit 2.
+  """
+  verify integration "specforge review --format json is the review prompt's payload for the same arguments"
+  verify integration "a recorded report that cannot be read exits 2 with E045"
+}
+
 // An enumerated argument is one option table (ADR 0027): the CLI's possible
 // values and MCP's input schema are built from it, and both parse with it.
 behavior name_enumerated_options_once "Name Enumerated Options Once" {
