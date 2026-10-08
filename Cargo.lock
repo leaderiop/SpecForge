@@ -3178,6 +3178,8 @@ dependencies = [
  "specforge-common",
  "specforge-protocol-types",
  "specforge-registry-wire",
+ "specforge-test",
+ "specforge-test-macros",
  "tempfile",
 ]
 

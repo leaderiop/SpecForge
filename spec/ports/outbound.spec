@@ -5,6 +5,7 @@ use "types/core"
 use "types/diagnostics"
 use "types/errors"
 use "types/wasm"
+use "types/zero-entity-core"
 
 port FileSystem {
   direction outbound
@@ -62,12 +63,14 @@ port WasmRuntime {
 port RegistryClient {
   direction outbound
   category  "io/registry"
-  method fetchExtension(registryUrl: string, name: string) -> Result<PackageMetadata, RegistryError>
-  method fetchVersion(registryUrl: string, name: string, version: string) -> Result<PackageMetadata, RegistryError>
-  method downloadWasm(registryUrl: string, name: string, version: string) -> Result<string, RegistryError>
-  method search(registryUrl: string, query: string) -> Result<SearchResults, RegistryError>
-  method publish(registryUrl: string, name: string, wasmPath: string, manifest: string) -> Result<void, RegistryError>
-  method authenticate(registryUrl: string, credential: RegistryCredential) -> Result<string, RegistryError>
-  method validateCredential(credential: RegistryCredential) -> Result<boolean, RegistryError>
+  // The transport to a package registry (ADR 0044): it chooses no registry
+  // and checks no reply. Its adapters are the HTTP client (production) and
+  // the in-memory client (tests); both keep one contract suite.
+  method versions(name: PackageName, registry: RegistryConfig) -> Result<string[], RegistryError>
+  method metadata(name: PackageName, version: string, registry: RegistryConfig) -> Result<PackageMetadata, RegistryError>
+  method download(wasmUrl: string) -> Result<u8[], RegistryError>
+  method search(query: string, registry: RegistryConfig) -> Result<SearchHit[], RegistryError>
+  method publish(wasm: u8[], declaration: ExtensionDeclaration, manifest: string, signature: string, registry: RegistryConfig, credential: RegistryCredential) -> Result<string, RegistryError>
+  method authenticate(registry: RegistryConfig, credential: RegistryCredential) -> Result<string, RegistryError>
   verify integration "RegistryClient contract is satisfied"
 }

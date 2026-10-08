@@ -16,8 +16,8 @@ use specforge_protocol_types::package::Version;
 use specforge_protocol_types::{ExtensionDeclaration, PackageName};
 use specforge_registry_client::trust_flow::TrustPolicy;
 use specforge_registry_client::{
-    HttpRegistryClient, RegistryConfig, RegistryError, find_registry_for,
-    parse_registries_from_config, resolve_from_registry, verify_registry_integrity,
+    HttpRegistryClient, RegistryClient, RegistryConfig, RegistryError, find_registry_for,
+    parse_registries_from_config, verify_registry_integrity,
 };
 use std::path::{Path, PathBuf};
 
@@ -132,8 +132,10 @@ impl Registry for HttpRegistry {
         trust: Trust,
     ) -> Result<Package, OpError> {
         let registry = self.registry_for(name)?;
-        let response =
-            resolve_from_registry(name, version, registry, &self.client).map_err(OpError::from)?;
+        let response = self
+            .client
+            .metadata(name, version, registry)
+            .map_err(|e| OpError::from(e.to_diagnostic()))?;
         // The signature covers the name and version the registry answers
         // with, and the pin is keyed by that name: an answer for another
         // package (or another version) would be verified, pinned and
@@ -151,7 +153,7 @@ impl Registry for HttpRegistry {
         }
         let wasm = self
             .client
-            .download_wasm(&response.wasm_url)
+            .download(&response.wasm_url)
             .map_err(|e| OpError::from(e.to_diagnostic()))?;
         verify_registry_integrity(&wasm, &response.sha256).map_err(OpError::from)?;
 
@@ -198,22 +200,20 @@ impl Registry for HttpRegistry {
 
     fn versions(&self, name: &PackageName) -> Result<Vec<Version>, OpError> {
         let registry = self.registry_for(name)?;
-        let published =
-            self.client
-                .fetch_versions(name, registry)
-                .map_err(|error| match error {
-                    RegistryError::NotFound { .. } => Diagnostic::new(
-                        codes::R_RES_001,
-                        format!(
-                            "package '{name}' not found in registry '{}'",
-                            registry.alias
-                        ),
-                    )
-                    .with_suggestion(
-                        "check the package name and registry configuration".to_string(),
+        let published = self
+            .client
+            .versions(name, registry)
+            .map_err(|error| match error {
+                RegistryError::NotFound { .. } => Diagnostic::new(
+                    codes::R_RES_001,
+                    format!(
+                        "package '{name}' not found in registry '{}'",
+                        registry.alias
                     ),
-                    other => other.to_diagnostic(),
-                })?;
+                )
+                .with_suggestion("check the package name and registry configuration".to_string()),
+                other => other.to_diagnostic(),
+            })?;
         Ok(published
             .iter()
             .filter_map(|text| Version::parse(text).ok())

@@ -4,7 +4,7 @@ use specforge_common::Severity;
 use specforge_protocol_types::package::Version;
 use specforge_protocol_types::{ExtensionDeclaration, PackageName};
 use specforge_registry_client::registry_ops::{
-    publish_to_registry, resolve_from_registry, search_registries, verify_registry_integrity,
+    publish_to_registry, search_registries, verify_registry_integrity,
 };
 use specforge_registry_client::{
     AuthMethod, RegistryClient, RegistryConfig, RegistryCredential, RegistryError, SigningKey,
@@ -64,7 +64,23 @@ impl MockRegistryClient {
 }
 
 impl RegistryClient for MockRegistryClient {
-    fn fetch(
+    fn versions(
+        &self,
+        name: &PackageName,
+        _registry: &RegistryConfig,
+    ) -> Result<Vec<String>, RegistryError> {
+        Err(RegistryError::NotFound {
+            specifier: name.to_string(),
+        })
+    }
+
+    fn download(&self, wasm_url: &str) -> Result<Vec<u8>, RegistryError> {
+        Err(RegistryError::NotFound {
+            specifier: wasm_url.to_string(),
+        })
+    }
+
+    fn metadata(
         &self,
         name: &PackageName,
         version: &Version,
@@ -182,51 +198,6 @@ fn make_search_result(name: &str, version: &str, desc: &str) -> SearchHit {
         version: version.to_string(),
         description: desc.to_string(),
     }
-}
-
-// ---------------------------------------------------------------------------
-// Tests: resolve_from_registry
-// ---------------------------------------------------------------------------
-
-// B:resolve_registry_source — verify unit "a fetch requests the name and version it was given, from the registry it was given"
-#[test]
-fn resolve_fetches_from_the_registry_it_is_given() {
-    let registry = scoped_registry("private", "@myco");
-    let client = MockRegistryClient::new()
-        .with_fetch_for("private", Ok(make_response("@myco/analytics", "2.0.0")));
-
-    let resp = resolve_from_registry(
-        &PackageName::parse("@myco/analytics").unwrap(),
-        &Version::new(2, 0, 0),
-        &registry,
-        &client,
-    )
-    .unwrap();
-    assert_eq!(resp.name, "@myco/analytics");
-    assert_eq!(resp.version, "2.0.0");
-}
-
-// B:resolve_registry_source — verify unit "network error → ExtensionError with retry guidance"
-#[test]
-fn resolve_network_error_produces_diagnostic_with_retry_guidance() {
-    let registry = default_registry();
-    let client = MockRegistryClient::new().with_fetch_for(
-        "default",
-        Err(RegistryError::NetworkError {
-            message: "connection refused".into(),
-        }),
-    );
-
-    let err = resolve_from_registry(
-        &PackageName::parse("@specforge/software").unwrap(),
-        &Version::new(1, 0, 0),
-        &registry,
-        &client,
-    )
-    .unwrap_err();
-    assert_eq!(err.severity, Severity::Error);
-    assert!(err.message.contains("connection refused"));
-    assert!(err.suggestion.as_ref().unwrap().contains("retry"));
 }
 
 // ---------------------------------------------------------------------------

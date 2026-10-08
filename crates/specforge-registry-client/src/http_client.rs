@@ -56,9 +56,16 @@ impl HttpRegistryClient {
                 }),
         }
     }
+}
 
-    /// Fetch all available versions for a package.
-    pub fn fetch_versions(
+impl Default for HttpRegistryClient {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl RegistryClient for HttpRegistryClient {
+    fn versions(
         &self,
         name: &PackageName,
         registry: &RegistryConfig,
@@ -100,8 +107,7 @@ impl HttpRegistryClient {
         }
     }
 
-    /// Download the raw Wasm bytes for a specific package version.
-    pub fn download_wasm(&self, wasm_url: &str) -> Result<Vec<u8>, RegistryError> {
+    fn download(&self, wasm_url: &str) -> Result<Vec<u8>, RegistryError> {
         let resp = self.client.get(wasm_url).send().map_err(|e| {
             if e.is_timeout() {
                 RegistryError::Timeout {
@@ -129,16 +135,8 @@ impl HttpRegistryClient {
             }),
         }
     }
-}
 
-impl Default for HttpRegistryClient {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl RegistryClient for HttpRegistryClient {
-    fn fetch(
+    fn metadata(
         &self,
         name: &PackageName,
         version: &Version,

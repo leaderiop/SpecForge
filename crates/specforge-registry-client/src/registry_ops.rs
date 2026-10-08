@@ -8,7 +8,7 @@ use specforge_common::{Diagnostic, codes};
 use super::registry_client::{RegistryClient, RegistryError};
 use super::registry_config::{RegistryConfig, RegistryCredential};
 use specforge_protocol_types::package::Version;
-use specforge_protocol_types::{ExtensionDeclaration, PackageName};
+use specforge_protocol_types::ExtensionDeclaration;
 use specforge_registry_wire::{PackageMetadata, SearchHit};
 
 /// Compute the hex-encoded SHA256 digest of the given data.
@@ -16,31 +16,6 @@ fn hex_sha256(data: &[u8]) -> String {
     let mut hasher = Sha256::new();
     hasher.update(data);
     format!("{:x}", hasher.finalize())
-}
-
-/// Fetch `name` at `version` from `registry`, the one registry the caller
-/// chose (the client chooses nothing).
-///
-/// Returns a `Diagnostic` on failure (network error, not found, etc.); a
-/// network error carries retry guidance.
-pub fn resolve_from_registry(
-    name: &PackageName,
-    version: &Version,
-    registry: &RegistryConfig,
-    client: &dyn RegistryClient,
-) -> Result<PackageMetadata, Diagnostic> {
-    client.fetch(name, version, registry).map_err(|e| {
-        let mut diag = e.to_diagnostic();
-        // Append retry guidance for network errors
-        if matches!(
-            e,
-            RegistryError::NetworkError { .. } | RegistryError::Timeout { .. }
-        ) && let Some(ref mut s) = diag.suggestion
-        {
-            s.push_str(" You may retry the operation.");
-        }
-        diag
-    })
 }
 
 /// Search ALL configured registries, dedup by name+version, sort by name.
@@ -134,7 +109,7 @@ pub fn publish_to_registry(
 
     // First, check if the version already exists by trying to fetch it
     if !force {
-        match client.fetch(&name, &version, registry) {
+        match client.metadata(&name, &version, registry) {
             Ok(_) => {
                 return Err(RegistryError::DuplicateVersion {
                     name: declaration.name().to_string(),

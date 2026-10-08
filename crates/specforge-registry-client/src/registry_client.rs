@@ -60,12 +60,12 @@ impl RegistryError {
             RegistryError::Timeout { url } => {
                 Diagnostic::new(codes::R004, format!("Registry request timed out: {url}"))
                     .with_suggestion(
-                        "Check your network connection or try again later.".to_string(),
+                        "Check your network connection or try again later, then retry.".to_string(),
                     )
             }
             RegistryError::NetworkError { message } => {
                 Diagnostic::new(codes::R005, format!("Registry network error: {message}"))
-                    .with_suggestion("Check your network connection.".to_string())
+                    .with_suggestion("Check your network connection, then retry.".to_string())
             }
             RegistryError::NotFound { specifier } => {
                 Diagnostic::new(codes::R006, format!("Package not found: {specifier}"))
@@ -89,20 +89,31 @@ impl From<RegistryError> for Diagnostic {
     }
 }
 
-/// Trait for interacting with extension registries.
-///
-/// Implementations handle the transport layer (HTTP, file system, etc.)
-/// for fetching, searching, publishing, and authenticating with registries.
+/// What talks to a package registry (ADR 0044): the transport, nothing else. It chooses no registry and
+/// checks no reply; the fetch policy over it is `specforge_ops_registry::ConfiguredRegistry`'s. Two adapters:
+/// [`crate::HttpRegistryClient`] and, in tests, `crate::testing::MemoryClient`; both are held to
+/// `crate::testing::assert_client_contract`.
 pub trait RegistryClient: Send + Sync {
-    /// Fetch `name` at `version` from `registry`, the one the caller chose.
-    fn fetch(
+    /// Every version `registry` publishes of `name`, as served (not parsed). `NotFound` when it has no
+    /// such package.
+    fn versions(
+        &self,
+        name: &PackageName,
+        registry: &RegistryConfig,
+    ) -> Result<Vec<String>, RegistryError>;
+
+    /// What `registry` stores for `name@version`, its `wasm_url` absolute. `NotFound` when it has none.
+    fn metadata(
         &self,
         name: &PackageName,
         version: &Version,
         registry: &RegistryConfig,
     ) -> Result<PackageMetadata, RegistryError>;
 
-    /// Search for extensions matching a query string.
+    /// The bytes at `wasm_url` (a [`RegistryClient::metadata`] answer's).
+    fn download(&self, wasm_url: &str) -> Result<Vec<u8>, RegistryError>;
+
+    /// The latest version of each package matching `query`.
     fn search(
         &self,
         query: &str,

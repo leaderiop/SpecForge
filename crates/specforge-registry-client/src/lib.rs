@@ -30,8 +30,8 @@ pub use registry_config::{
     AuthMethod, RegistryConfig, RegistryCredential, find_registry_for, parse_registries_from_config,
 };
 pub use registry_ops::{
-    TrustCheck, publish_to_registry, resolve_from_registry, search_registries,
-    verify_package_signature, verify_registry_integrity,
+    TrustCheck, publish_to_registry, search_registries, verify_package_signature,
+    verify_registry_integrity,
 };
 pub use signing::{
     PackageSignature, SigningKey, load_or_create_signing_key, signing_key_path, verify_signature,

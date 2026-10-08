@@ -60,7 +60,23 @@ impl MockRegistryClient {
 }
 
 impl RegistryClient for MockRegistryClient {
-    fn fetch(
+    fn versions(
+        &self,
+        name: &PackageName,
+        _registry: &RegistryConfig,
+    ) -> Result<Vec<String>, RegistryError> {
+        Err(RegistryError::NotFound {
+            specifier: name.to_string(),
+        })
+    }
+
+    fn download(&self, wasm_url: &str) -> Result<Vec<u8>, RegistryError> {
+        Err(RegistryError::NotFound {
+            specifier: wasm_url.to_string(),
+        })
+    }
+
+    fn metadata(
         &self,
         _name: &PackageName,
         _version: &Version,
@@ -190,7 +206,7 @@ fn mock_client_fetch() {
     }));
 
     let resp = client
-        .fetch(
+        .metadata(
             &PackageName::parse("@specforge/software").unwrap(),
             &Version::new(1, 0, 0),
             &test_registry(),
@@ -514,4 +530,27 @@ fn all_registry_errors_convert_to_diagnostics() {
         let diag: specforge_common::Diagnostic = err.into();
         assert_eq!(&diag.code, expected_code, "wrong code for {expected_code}");
     }
+}
+
+#[specforge_test_macros::test(
+    behavior = "resolve_registry_source",
+    verify = "network error produces ExtensionError with retry guidance"
+)]
+fn a_network_error_suggests_a_retry() {
+    let network = RegistryError::NetworkError {
+        message: "connection refused".into(),
+    }
+    .to_diagnostic();
+    assert_eq!(network.code, "R005");
+    assert_eq!(network.severity, Severity::Error);
+    assert!(network.message.contains("connection refused"));
+    assert!(network.suggestion.as_ref().unwrap().contains("retry"));
+
+    let timeout = RegistryError::Timeout {
+        url: "http://registry.invalid/v1".into(),
+    }
+    .to_diagnostic();
+    assert_eq!(timeout.code, "R004");
+    assert_eq!(timeout.severity, Severity::Error);
+    assert!(timeout.suggestion.as_ref().unwrap().contains("retry"));
 }

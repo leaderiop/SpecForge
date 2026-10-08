@@ -105,7 +105,7 @@ fn publish_stores_the_declaration_the_binary_declares() {
 
     // The stored manifest is exactly greet's declaration.
     let served = HttpRegistryClient::new()
-        .fetch(
+        .metadata(
             &specforge_protocol_types::PackageName::parse("@sdk/greet").unwrap(),
             &specforge_protocol_types::package::Version::new(0, 1, 0),
             &registry.config(),
