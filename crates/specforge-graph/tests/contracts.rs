@@ -1,34 +1,7 @@
-use specforge_common::{DiagnosticData, SourceSpan, Sym};
-use specforge_graph::{Edge, Graph, GraphConfig, Node, build_graph_with_config};
-use specforge_parser::{EntityId, EntityKind, FieldMap, parse};
+use specforge_common::DiagnosticData;
+use specforge_graph::{FileChange, GraphBuild, GraphConfig, build_graph_with_config};
+use specforge_parser::parse;
 use specforge_test_macros::test as specforge_test;
-
-fn make_node(id: &str, kind: &str) -> Node {
-    Node {
-        id: EntityId { raw: Sym::new(id) },
-        kind: EntityKind {
-            raw: Sym::new(kind),
-        },
-        title: Some(id.to_string()),
-        fields: FieldMap::new(),
-        source_span: SourceSpan {
-            file: Sym::new("test.spec"),
-            start_line: 1,
-            start_col: 1,
-            end_line: 1,
-            end_col: 1,
-        },
-        methods: Vec::new(),
-    }
-}
-
-fn make_edge(source: &str, target: &str, label: &str) -> Edge {
-    Edge {
-        source: Sym::new(source),
-        target: Sym::new(target),
-        label: Sym::new(label),
-    }
-}
 
 // B:build_in_memory_graph — verify contract "requires/ensures consistency for in-memory graph construction"
 #[specforge_test(
@@ -127,21 +100,39 @@ feature delta "D" { behaviors [alpha] }
 fn maintain_mutable_graph_contract() {
     // Requires: existing graph with nodes and edges
     // Ensures: add/remove mutations reflect correctly, edges cleaned on node removal
-    let mut graph = Graph::new();
-    graph.add_node(make_node("a", "behavior"));
-    graph.add_node(make_node("b", "feature"));
-    graph.add_edge(make_edge("b", "a", "behaviors"));
+    let mut build = GraphBuild::of(
+        [
+            parse("behavior a \"a\" {\n  contract \"c\"\n}\n", "a.spec"),
+            parse("feature b \"b\" {\n  behaviors [a]\n}\n", "b.spec"),
+        ],
+        GraphConfig::default(),
+    );
+    build.set_verify(true);
 
-    assert_eq!(graph.node_count(), 2);
-    assert_eq!(graph.edge_count(), 1);
+    assert_eq!(build.graph().node_count(), 2);
+    assert_eq!(build.graph().edge_count(), 1);
 
     // Add a new node
-    graph.add_node(make_node("c", "type"));
-    assert_eq!(graph.node_count(), 3, "add_node must increase count");
+    let added = build.apply([FileChange::Parsed(parse(
+        "behavior c \"c\" {\n  contract \"c\"\n}\n",
+        "c.spec",
+    ))]);
+    assert_eq!(added.verification, Some(Ok(())));
+    assert_eq!(
+        build.graph().node_count(),
+        3,
+        "adding a file must add its node"
+    );
 
     // Remove node with edge — edge must be cleaned up
-    graph.remove_node("a");
-    assert_eq!(graph.node_count(), 2, "remove_node must decrease count");
+    let removed = build.apply([FileChange::Removed("a.spec".into())]);
+    assert_eq!(removed.verification, Some(Ok(())));
+    let graph = build.graph();
+    assert_eq!(
+        graph.node_count(),
+        2,
+        "removing a file must remove its node"
+    );
     assert!(
         graph.node("a").is_none(),
         "removed node must not be queryable"

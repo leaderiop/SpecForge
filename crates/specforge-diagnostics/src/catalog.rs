@@ -508,9 +508,6 @@ catalog! {
     W010: Warning software,
         "Unknown field annotation",
         "A `type` field carries an annotation that isn't recognized by the compiler. Remove the annotation or correct its spelling.";
-    W011: Warning core,
-        "Edge references missing node",
-        "An edge was about to be added between two entities, but one or both endpoints don't exist in the graph, so the edge was dropped. Check the referenced entity IDs for typos or missing definitions.";
     W012: Warning core,
         "Unreferenced ref entity",
         "A `ref` entity has no incoming edges, meaning nothing in the project references it. Reference the `ref` from another entity, or remove it if it's unused.";

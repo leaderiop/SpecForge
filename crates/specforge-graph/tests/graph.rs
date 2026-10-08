@@ -1,6 +1,6 @@
 use specforge_common::{SourceSpan, Sym};
-use specforge_graph::{Edge, Graph, Node};
-use specforge_parser::{EntityId, EntityKind, FieldMap};
+use specforge_graph::{Edge, FileChange, Graph, GraphBuild, GraphConfig, Node, SpecFile};
+use specforge_parser::{EntityId, EntityKind, FieldMap, parse};
 use specforge_test_macros::test as specforge_test;
 
 fn make_node(id: &str, kind: &str) -> Node {
@@ -49,38 +49,116 @@ fn graph_edges_connect_existing_nodes() {
 }
 
 // --- maintain_mutable_graph ---
+// The graph changes one whole file at a time: `GraphBuild::apply` strips the
+// changed files' entities and links every edge again, which is what the
+// incremental update runs. Each step is checked against a cold build of the
+// same files.
+
+/// One behavior declaration in a file of its own.
+fn behavior_in(file: &str, id: &str) -> SpecFile {
+    parse(
+        &format!("behavior {id} \"{id}\" {{\n  contract \"c\"\n}}\n"),
+        file,
+    )
+}
+
+/// A feature in `file` listing `behaviors`.
+fn feature_in(file: &str, id: &str, behaviors: &[&str]) -> SpecFile {
+    parse(
+        &format!(
+            "feature {id} \"{id}\" {{\n  behaviors [{}]\n}}\n",
+            behaviors.join(", ")
+        ),
+        file,
+    )
+}
+
+fn verified(files: Vec<SpecFile>) -> GraphBuild {
+    let mut build = GraphBuild::of(files, GraphConfig::default());
+    build.set_verify(true);
+    build
+}
+
+fn edge_triples(graph: &Graph) -> Vec<(String, String, String)> {
+    let mut edges: Vec<_> = graph
+        .edges()
+        .iter()
+        .map(|e| {
+            (
+                e.source.to_string(),
+                e.target.to_string(),
+                e.label.to_string(),
+            )
+        })
+        .collect();
+    edges.sort();
+    edges
+}
 
 #[specforge_test(
     behavior = "maintain_mutable_graph",
     verify = "add and remove nodes from graph"
 )]
-fn remove_node_from_graph() {
-    let mut graph = Graph::new();
-    graph.add_node(make_node("alpha", "behavior"));
-    graph.add_node(make_node("beta", "behavior"));
+fn removing_a_file_removes_its_entities() {
+    let mut build = verified(vec![
+        behavior_in("a.spec", "alpha"),
+        behavior_in("b.spec", "beta"),
+    ]);
 
-    graph.remove_node("alpha");
+    let applied = build.apply([FileChange::Removed("a.spec".into())]);
 
-    assert_eq!(graph.nodes().len(), 1);
-    assert!(graph.node("alpha").is_none());
-    assert!(graph.node("beta").is_some());
+    assert_eq!(applied.verification, Some(Ok(())));
+    assert_eq!(build.graph().nodes().len(), 1);
+    assert!(build.graph().node("alpha").is_none());
+    assert!(build.graph().node("beta").is_some());
 }
 
 #[specforge_test(
     behavior = "maintain_mutable_graph",
     verify = "removing a node removes its edges"
 )]
-fn removing_node_removes_its_edges() {
-    let mut graph = Graph::new();
-    graph.add_node(make_node("feat", "feature"));
-    graph.add_node(make_node("beh", "behavior"));
-    graph.add_edge(make_edge("feat", "beh", "behaviors"));
+fn removing_a_file_removes_the_edges_of_its_entities() {
+    let mut build = verified(vec![
+        feature_in("feat.spec", "feat", &["beh"]),
+        behavior_in("beh.spec", "beh"),
+    ]);
+    assert_eq!(build.graph().edges().len(), 1);
 
-    graph.remove_node("beh");
+    let applied = build.apply([FileChange::Removed("beh.spec".into())]);
 
+    assert_eq!(applied.verification, Some(Ok(())));
     assert!(
-        graph.edges().is_empty(),
+        build.graph().edges().is_empty(),
         "edges to removed node should be gone"
+    );
+}
+
+#[specforge_test(
+    behavior = "maintain_mutable_graph",
+    verify = "removing a node removes its edges"
+)]
+fn edges_to_updated_after_node_removal() {
+    let mut build = verified(vec![
+        behavior_in("a.spec", "a"),
+        behavior_in("b.spec", "b"),
+        feature_in("c.spec", "c", &["a", "b"]),
+    ]);
+    assert_eq!(build.graph().edges_to("a").len(), 1);
+    assert_eq!(build.graph().edges_to("b").len(), 1);
+
+    let applied = build.apply([FileChange::Removed("a.spec".into())]);
+
+    assert_eq!(applied.verification, Some(Ok(())));
+    let graph = build.graph();
+    assert!(
+        graph.edges_to("a").is_empty(),
+        "removed node should have no incoming edges"
+    );
+    assert_eq!(graph.edges_to("b").len(), 1, "b still has incoming edge");
+    assert_eq!(
+        graph.edges_from("c").len(),
+        1,
+        "c should have one edge left"
     );
 }
 
@@ -89,19 +167,34 @@ fn removing_node_removes_its_edges() {
     verify = "graph consistency after batch mutations"
 )]
 fn graph_consistency_after_batch_mutations() {
-    let mut graph = Graph::new();
-    graph.add_node(make_node("a", "behavior"));
-    graph.add_node(make_node("b", "behavior"));
-    graph.add_node(make_node("c", "feature"));
-    graph.add_edge(make_edge("c", "a", "behaviors"));
-    graph.add_edge(make_edge("c", "b", "behaviors"));
+    let mut build = verified(vec![
+        behavior_in("a.spec", "a"),
+        behavior_in("b.spec", "b"),
+        feature_in("c.spec", "c", &["a", "b", "d"]),
+    ]);
 
-    // Remove a, should remove edge c->a but keep c->b
-    graph.remove_node("a");
+    // Remove a (its edge goes, c's dangling d stays unresolved), add d (its
+    // edge appears), remove b.
+    let first = build.apply([FileChange::Removed("a.spec".into())]);
+    let second = build.apply([FileChange::Parsed(behavior_in("d.spec", "d"))]);
+    let third = build.apply([FileChange::Removed("b.spec".into())]);
 
-    assert_eq!(graph.nodes().len(), 2);
-    assert_eq!(graph.edges().len(), 1);
-    assert_eq!(graph.edges()[0].target, "b");
+    for applied in [&first, &second, &third] {
+        assert_eq!(applied.verification, Some(Ok(())));
+    }
+    let graph = build.graph();
+    let ids: Vec<&str> = graph.nodes().iter().map(|n| n.id.raw.as_str()).collect();
+    assert_eq!(ids, ["c", "d"]);
+    assert_eq!(
+        edge_triples(graph),
+        [("c".to_string(), "d".to_string(), "behaviors".to_string())]
+    );
+    for edge in graph.edges() {
+        assert!(graph.node(edge.source.as_str()).is_some(), "{edge:?}");
+        assert!(graph.node(edge.target.as_str()).is_some(), "{edge:?}");
+    }
+    assert_eq!(graph.edges_from("c").len(), 1);
+    assert_eq!(graph.edges_to("d").len(), 1);
 }
 
 // --- subgraph ---
@@ -850,35 +943,6 @@ fn edges_from_returns_correct_edges_after_multiple_adds() {
     assert!(from_a.is_empty(), "a has no outgoing edges");
 }
 
-#[specforge_test(
-    behavior = "maintain_mutable_graph",
-    verify = "removing a node removes its edges"
-)]
-fn edges_to_updated_after_node_removal() {
-    let mut graph = Graph::new();
-    graph.add_node(make_node("a", "behavior"));
-    graph.add_node(make_node("b", "behavior"));
-    graph.add_node(make_node("c", "feature"));
-    graph.add_edge(make_edge("c", "a", "behaviors"));
-    graph.add_edge(make_edge("c", "b", "behaviors"));
-
-    assert_eq!(graph.edges_to("a").len(), 1);
-    assert_eq!(graph.edges_to("b").len(), 1);
-
-    graph.remove_node("a");
-
-    assert!(
-        graph.edges_to("a").is_empty(),
-        "removed node should have no incoming edges"
-    );
-    assert_eq!(graph.edges_to("b").len(), 1, "b still has incoming edge");
-    assert_eq!(
-        graph.edges_from("c").len(),
-        1,
-        "c should have one edge left"
-    );
-}
-
 // === cycle detection ===
 
 #[specforge_test(
@@ -971,25 +1035,6 @@ fn detect_cycles_finds_self_loop() {
 
     let cycles = graph.detect_cycles();
     assert!(!cycles.is_empty(), "self-loop should be detected as cycle");
-}
-
-#[specforge_test(
-    behavior = "build_in_memory_graph",
-    verify = "has_cycles returns boolean"
-)]
-fn has_cycles_boolean_check() {
-    let mut graph = Graph::new();
-    graph.add_node(make_node("a", "behavior"));
-    graph.add_node(make_node("b", "behavior"));
-    graph.add_edge(make_edge("a", "b", "depends_on"));
-
-    assert!(!graph.has_cycles(), "DAG should not have cycles");
-
-    graph.add_edge(make_edge("b", "a", "depends_on"));
-    assert!(
-        graph.has_cycles(),
-        "should detect cycle after adding back-edge"
-    );
 }
 
 // === cycle detection in build_graph ===
@@ -1485,95 +1530,43 @@ fn graph_with_bidirectional_pairs_stores_pairs() {
     );
 }
 
-// --- add_edge_checked: node existence validation ---
+// --- every edge the build adds joins two entities ---
 
 #[specforge_test(
     behavior = "build_in_memory_graph",
     verify = "every edge connects two existing nodes"
 )]
-fn add_edge_checked_rejects_nonexistent_source() {
-    let mut graph = Graph::new();
-    graph.add_node(make_node("alpha", "behavior"));
-    // "ghost" does not exist as a node
-    let diag = graph.add_edge_checked(make_edge("ghost", "alpha", "depends_on"));
-    assert!(
-        diag.is_some(),
-        "add_edge_checked should return a diagnostic when source node doesn't exist"
-    );
-    let d = diag.unwrap();
-    assert_eq!(d.code, "W011");
-    assert!(
-        d.message.contains("ghost"),
-        "diagnostic should mention the missing node ID"
-    );
-    // Edge should NOT be added
-    assert_eq!(
-        graph.edge_count(),
-        0,
-        "edge should not be added when source is missing"
-    );
-}
+fn every_edge_the_build_adds_joins_two_entities() {
+    let (graph, diagnostics) = specforge_graph::build_graph(&[
+        parse(
+            "behavior a \"A\" {\n  contract \"c\"\n}\nfeature f \"F\" {\n  behaviors [a, ghost]\n}\n",
+            "main.spec",
+        ),
+        parse(
+            "feature g \"G\" {\n  behaviors [a, missing]\n}\n",
+            "other.spec",
+        ),
+    ]);
 
-#[specforge_test(
-    behavior = "build_in_memory_graph",
-    verify = "every edge connects two existing nodes"
-)]
-fn add_edge_checked_rejects_nonexistent_target() {
-    let mut graph = Graph::new();
-    graph.add_node(make_node("alpha", "behavior"));
-    let diag = graph.add_edge_checked(make_edge("alpha", "phantom", "depends_on"));
+    // A reference to nothing is E003 and no edge; the others are edges.
+    assert_eq!(graph.edges().len(), 2, "{:?}", graph.edges());
+    for edge in graph.edges() {
+        assert!(graph.node(edge.source.as_str()).is_some(), "{edge:?}");
+        assert!(graph.node(edge.target.as_str()).is_some(), "{edge:?}");
+    }
+    let unresolved: Vec<&str> = diagnostics
+        .iter()
+        .filter(|d| d.code == "E003")
+        .map(|d| d.message.as_str())
+        .collect();
+    assert_eq!(unresolved.len(), 2, "{diagnostics:?}");
     assert!(
-        diag.is_some(),
-        "add_edge_checked should return a diagnostic when target node doesn't exist"
+        unresolved.iter().any(|m| m.contains("ghost")),
+        "{unresolved:?}"
     );
-    let d = diag.unwrap();
-    assert_eq!(d.code, "W011");
     assert!(
-        d.message.contains("phantom"),
-        "diagnostic should mention the missing node ID"
-    );
-    assert_eq!(
-        graph.edge_count(),
-        0,
-        "edge should not be added when target is missing"
-    );
-}
-
-#[specforge_test(
-    behavior = "build_in_memory_graph",
-    verify = "every edge connects two existing nodes"
-)]
-fn add_edge_checked_accepts_valid_edge() {
-    let mut graph = Graph::new();
-    graph.add_node(make_node("alpha", "behavior"));
-    graph.add_node(make_node("beta", "feature"));
-    let diag = graph.add_edge_checked(make_edge("beta", "alpha", "behaviors"));
-    assert!(
-        diag.is_none(),
-        "add_edge_checked should return None when both nodes exist"
-    );
-    assert_eq!(
-        graph.edge_count(),
-        1,
-        "edge should be added when both nodes exist"
-    );
-}
-
-#[specforge_test(
-    behavior = "build_in_memory_graph",
-    verify = "every edge connects two existing nodes"
-)]
-fn add_edge_checked_rejects_both_missing() {
-    let mut graph = Graph::new();
-    let diag = graph.add_edge_checked(make_edge("ghost_a", "ghost_b", "depends_on"));
-    assert!(
-        diag.is_some(),
-        "add_edge_checked should return a diagnostic when both nodes don't exist"
-    );
-    assert_eq!(
-        graph.edge_count(),
-        0,
-        "edge should not be added when both nodes are missing"
+        unresolved.iter().any(|m| m.contains("missing")),
+        "{unresolved:?}"
     );
 }
 
