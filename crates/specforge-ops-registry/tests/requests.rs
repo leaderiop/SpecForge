@@ -142,6 +142,23 @@ fn the_adapter_requests_these_paths() {
     );
 }
 
+// Pins a bug: a name no registry serves is asked of the first entry, which
+// here is scoped to another owner (plan 06 §3 R1). T1 flips it.
+#[test]
+fn the_adapter_asks_a_registry_scoped_to_another_name_today() {
+    let served = Recording::serving(&["1.0.0"]);
+    let dir = project_with(&format!(
+        r#"{{"alias":"acme","url":"{}","scope_filter":"@acme"}}"#,
+        served.url
+    ));
+    let registry = HttpRegistry::for_project(dir.path(), "add");
+
+    let error = registry.versions(&name("@other/x")).unwrap_err();
+
+    assert_eq!(error.code, "R-RES-001", "{error:?}");
+    assert_eq!(served.requests(), ["/v1/packages/@other%2Fx"]);
+}
+
 #[specforge_test(
     behavior = "resolve_registry_source",
     verify = "a fetch requests the name and version it was given, from the registry it was given"
