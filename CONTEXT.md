@@ -355,7 +355,18 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   `specforge.list` and `specforge.validate` read (`specforge_mcp`'s `ResourceSpec` table).
 - **Stateless request**: an MCP request whose `_meta` names its protocol version (MCP 2026-07-28),
   answered on its own without `initialize`; every other request follows the revision `initialize`
-  negotiated (`specforge_mcp::modern`).
+  negotiated (`specforge_mcp::modern`). Every request is served under its revision, which travels
+  with it from the router to the reply (`specforge_mcp::lifecycle::Revision`); the server state
+  keeps only the negotiated one.
+- **Subscription**: a client's interest in one resource the MCP server serves, made with
+  `resources/subscribe` (the handshake revisions) or named by a `subscriptions/listen` stream
+  (2026-07-28). A resource changes with the graph or the environment (the graph views, an
+  extension's resources), with the environment alone (`specforge://schema`) or with the diagnostics
+  (`specforge://diagnostics`). After an update that changed it, each subscription hears
+  `notifications/resources/updated` once, and a handshake subscriber of a graph view or of the
+  diagnostics then hears the delta (`specforge/graphChanged`, `specforge/diagnosticsChanged`).
+  Subscriptions belong to the connection and end with it or at shutdown
+  (`specforge_mcp::subscriptions::Subscriptions`, ADR 0024 D6).
 - **Diagnostic catalog**: the one table of diagnostic codes (`specforge_diagnostics`'s `catalog!`):
   each code's title, owner, level and explanation. It generates `CATALOG`, which `specforge explain`,
   MCP `specforge.explain`, diagnostics JSON titles, doctor and the LSP hover read and from which
