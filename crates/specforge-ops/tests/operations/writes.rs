@@ -234,12 +234,16 @@ fn init_writes_include_gitignore_only_when_it_changed() {
 fn the_starter_states_the_project_version() {
     use specforge_ops::init;
     let scratch = TempDir::new().unwrap();
-    let starter_of = |version: &str| {
+    // The structural starter, and the templates the software and product
+    // builtins contribute (`{version}` in them is the project's version).
+    let starter_of = |extensions: &[String], version: &str| {
         let request = init::Request {
-            dir: &scratch.path().join(version),
+            dir: &scratch
+                .path()
+                .join(format!("{}-{version}", extensions.len())),
             name: Some("demo"),
             version,
-            extensions: &[],
+            extensions,
             forbid_inside: None,
         };
         let plan = init::plan(&request).unwrap();
@@ -247,8 +251,23 @@ fn the_starter_states_the_project_version() {
         plan.starter
     };
 
-    assert!(starter_of("2.3.0").contains("version \"2.3.0\""));
-    assert!(starter_of(init::DEFAULT_VERSION).contains("version \"0.1.0\""));
+    let none: Vec<String> = Vec::new();
+    let software = vec!["@specforge/software".to_string()];
+    let product = vec!["@specforge/product".to_string()];
+    for extensions in [&none, &software, &product] {
+        let given = starter_of(extensions, "2.3.0");
+        assert!(
+            given.contains("version \"2.3.0\""),
+            "{extensions:?}: {given}"
+        );
+        assert!(!given.contains("0.1.0"), "{extensions:?}: {given}");
+        assert!(!given.contains("{version}"), "{extensions:?}: {given}");
+        let default = starter_of(extensions, init::DEFAULT_VERSION);
+        assert!(
+            default.contains("version \"0.1.0\""),
+            "{extensions:?}: {default}"
+        );
+    }
 }
 
 #[test]

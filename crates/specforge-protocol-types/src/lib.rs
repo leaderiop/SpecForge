@@ -135,8 +135,8 @@ pub struct HandshakeRequest {
 ///
 /// `starter_template` is optional metadata: the text of the starter `.spec`
 /// file `specforge init` writes for a project that enables this extension.
-/// `{project}` in it stands for the project's entity id. It is omitted from
-/// the wire when absent, so handshakes of extensions without one are
+/// `{project}` in it stands for the project's entity id and `{version}` for
+/// its version. It is omitted from the wire when absent, so handshakes of extensions without one are
 /// unchanged.
 ///
 /// `migration_hook` is optional too: the name of the export `specforge

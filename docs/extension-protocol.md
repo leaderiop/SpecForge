@@ -76,7 +76,7 @@ The handshake is the first call the host makes after loading a Wasm binary. It e
     { "name": "@specforge/product", "version": "^1.0", "optional": true }
   ],
   "sandbox_policy": { "max_memory_mb": 256, "max_execution_ms": 5000 },
-  "starter_template": "spec \"{project}\" {\n  version \"0.1.0\"\n}\n",
+  "starter_template": "spec \"{project}\" {\n  version \"{version}\"\n}\n",
   "theme_color": "#4a90d9",
   "ext_short": "software",
   "description": "Software design: behaviors, invariants, events, types and ports",
@@ -88,7 +88,7 @@ Peer dependencies order extension loading (peers load first, ties by name) and a
 
 `protocol_version`, `name`, `version`, `contribution_flags`, `peer_dependencies` and `sandbox_policy` are required on the wire (`sandbox_policy` may be `null`: the extension then runs under the host's ceiling; see Sandbox). The others are optional and omitted when absent:
 
-- `starter_template`: the text of the starter `.spec` file `specforge init` writes for a project that enables the extension, `{project}` standing for the project's entity id. When several enabled extensions declare one, `init` uses the first listed in `specforge.json`. SDK: `ContributionsBuilder::starter_template`.
+- `starter_template`: the text of the starter `.spec` file `specforge init` writes for a project that enables the extension, `{project}` standing for the project's entity id and `{version}` for its version. When several enabled extensions declare one, `init` uses the first listed in `specforge.json`. SDK: `ContributionsBuilder::starter_template`.
 - `migration_hook`: the export `specforge migrate` calls after migrating the project's files. SDK: `ContributionsBuilder::migration_hook`.
 - `theme_color`: the hex colour (`#rgb`, `#rrggbb` or `#rrggbbaa`) the `model` and `outline` diagrams draw the extension in; grey otherwise. SDK: `ContributionsBuilder::theme_color`.
 - `ext_short`: the short name that routes the extension's commands, `specforge <ext_short> <command>` on the CLI and `specforge.<ext_short>.<id>` over MCP. Lowercase kebab case (`[a-z][a-z0-9-]*`); a malformed one is E030. Absent, it is the name's last segment (`@specforge/product` is `product`). SDK: `#[extension(short = "...")]`, checked at compile time.

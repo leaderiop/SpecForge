@@ -65,7 +65,8 @@ pub struct ExtensionMeta {
     pub peer_dependencies: Vec<PeerDependency>,
     pub sandbox_policy: Option<SandboxPolicy>,
     /// The starter `.spec` file `specforge init` writes for a project that
-    /// enables this extension; `{project}` stands for the project's id.
+    /// enables this extension; `{project}` stands for the project's id and
+    /// `{version}` for its version.
     pub starter_template: Option<String>,
     /// The export `specforge migrate` calls after migrating the project's
     /// files.
@@ -346,7 +347,8 @@ impl ContributionsBuilder {
 
     /// Contribute the starter `.spec` file `specforge init` writes for a
     /// project that enables this extension. `{project}` in `template` is
-    /// replaced with the project's entity id.
+    /// replaced with the project's entity id and `{version}` with its
+    /// version.
     pub fn starter_template(&mut self, template: &str) -> &mut Self {
         self.meta.starter_template = Some(template.to_string());
         self

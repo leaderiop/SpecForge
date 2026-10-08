@@ -99,7 +99,9 @@ behavior scaffold_starter_spec_file "Scaffold Starter Spec File" {
     are installed. This behavior delivers on Principle 8 (seconds to
     value): the user can run specforge check immediately after init.
     The starter spec's spec block MUST state the project's version, the
-    one specforge.json records. Init MUST write the starter as the
+    one specforge.json records: an extension's template writes it as
+    {version} (as {project} stands for the project id), which init fills
+    in. Init MUST write the starter as the
     formatter writes it, whatever the extensions contribute, so a freshly
     initialised project passes specforge format --check.
   """

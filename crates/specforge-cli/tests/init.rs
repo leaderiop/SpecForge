@@ -1184,7 +1184,8 @@ fn starter_written_for(extensions: &[&str]) -> String {
 }
 
 /// The starter template the builtin `extension` declares in its handshake,
-/// with its `{project}` placeholder filled in for a project named `demo`,
+/// with its `{project}` and `{version}` placeholders filled in for a project
+/// named `demo` at the default version,
 /// as the formatter writes it (init formats the starter it writes).
 fn declared_starter(extension: &str) -> Option<String> {
     let runtime = specforge_component::ComponentRuntime::new();
@@ -1195,7 +1196,9 @@ fn declared_starter(extension: &str) -> Option<String> {
         .handshake
         .starter_template
         .map(|template| {
-            let template = template.replace("{project}", "demo");
+            let template = template
+                .replace("{project}", "demo")
+                .replace("{version}", "0.1.0");
             specforge_formatter::format_source(
                 &template,
                 &specforge_formatter::FormatConfig::default(),

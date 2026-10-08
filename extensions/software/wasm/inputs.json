@@ -1,13 +1,13 @@
 {
   "artifact": "specforge_ext_software.wasm",
-  "artifact_sha256": "f18a0a5953da2ba1cbd8cc912ce51f861ad174593920b936e05ef3c2ee7746db",
+  "artifact_sha256": "464d1b9e899675809c96029217bad281e5de0507038d0c86496a5bd607ebe79a",
   "built_with": "rustc 1.98.1 (48a229cea 2026-09-01)",
   "inputs": {
     "Cargo.toml#workspace-inherited": "f445cf417114d7d1896a3fbd9d2348d9bedf3ac7c437748f18f7bfda2217efc2",
     "crates/specforge-extension-sdk-macros/Cargo.toml": "bfe09b19206691f6683a853136148d8fa2453cfbd575f2b65a560691ddee9c56",
     "crates/specforge-extension-sdk-macros/src/lib.rs": "65539d5bead2c749029c1241c3966c24ee4c1e08261c68798ddca78b8e640478",
     "crates/specforge-extension-sdk/Cargo.toml": "8e2dec08a44d91a963414b569936c150366b0c09f94d81881b43be1003124327",
-    "crates/specforge-extension-sdk/src/lib.rs": "1dcc1505e7121178b3aabb450728622d011e546bec105b507d9c99a87b5efb65",
+    "crates/specforge-extension-sdk/src/lib.rs": "2f587c22557ae9ca40442a4a84ee3fffe8fd34ebefd3476f6d0be25309465ef1",
     "crates/specforge-extension-sdk/src/operations.rs": "5abc571e460dd645044eb5b5c40e505bec76f4ca12600ae1e23a1eb77895c2f4",
     "crates/specforge-extension-sdk/src/surface.rs": "8ac3dc8de9d3c3288fa79f011c1c3c274d63e84b9c79416f134369813031044d",
     "crates/specforge-extension-sdk/src/testing.rs": "d16ef30bebb062d0776505bf4b368e217ad1242fb96ac45e8c0608417ccc5326",
@@ -15,13 +15,13 @@
     "crates/specforge-protocol-types/src/calls.rs": "808bc0ca3269136d8ed925e58c75dfe7d3dec0fbf83c17325a043b81a1bed963",
     "crates/specforge-protocol-types/src/command_args.rs": "720eb3f296673ff5e937a8cd6731918d3e85304102f26dfe81579a6693dc87d0",
     "crates/specforge-protocol-types/src/declaration.rs": "2bc44ade27cdda19f193db3122e6c44ceaad63158c0d51f41f1e0ed36033a659",
-    "crates/specforge-protocol-types/src/lib.rs": "58b74b48e712354f0d2edbc72abeaa8f808f79106ccc6d5d5593981dde449163",
+    "crates/specforge-protocol-types/src/lib.rs": "4886470c9a71c216ad5513acd2c398fd0770af512d4c32c19c84d2900325b7f2",
     "crates/specforge-protocol-types/src/package.rs": "f21617f58480b909609a79986ac2ed8a928e87b7e8e2914419d08143e9c2ea25",
     "crates/specforge-protocol-types/src/vocabulary.rs": "d263e43cc26e081293bff2de954a703a3005c7030236e4449228c3f70287c1e0",
     "extensions/software/Cargo.lock": "c97eaca4e63a08864595ca622341f5a86f4ade1509288e4704d049fcdd99f99b",
     "extensions/software/Cargo.toml": "25b6f5b1dd9abd441077c5331128bb06ba12bc672ee30a7acf050fc623419d6f",
     "extensions/software/src/declaration.rs": "380107a04c87836c7e2b8c713f567aaa5d1db5c7d29e2d2aee26506f6bc29c50",
     "extensions/software/src/lib.rs": "699d2cbcaeedd4a9aeaaebb957a1e30c9d221e6fce5816ee3ead2d3434c7c359",
-    "extensions/software/src/starter.spec": "9daa0df316e7d40f785f1a676b89e8980ec34bd4666010337a5337d7f04bf812"
+    "extensions/software/src/starter.spec": "7ce05f6b65d0cb8d4104cc70f132b719d130f776e12c9b1f128a742e65ef49b7"
   }
 }

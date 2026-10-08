@@ -145,7 +145,9 @@ pub fn plan(req: &Request) -> Result<Plan, OpError> {
     }
 
     let starter = match starter_template(&extensions, &installs) {
-        Some(template) => template.replace("{project}", &spec_id),
+        Some(template) => template
+            .replace("{project}", &spec_id)
+            .replace("{version}", &version),
         None => structural_starter(&spec_id, &version),
     };
     // Whatever the extensions contribute, the file is written as the
