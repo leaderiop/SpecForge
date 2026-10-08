@@ -256,15 +256,15 @@ behavior filter_model "Filter Model by Extension, Kind, or Depth" {
   features   [model_filtering]
   invariants [diagnostic_determinism, zero_domain_knowledge_core]
   category   query
-  types      [ModelIntermediate, ModelOptions]
+  types      [ModelIntermediate, ModelOptions, ModelRoot]
   ports      [CompilerApi]
   requires {
     model_ir_built "ModelIntermediate has been constructed from the schema"
   }
   ensures {
     extension_filter_applied "When --extension is set, only entities from that extension are included"
-    kind_filter_applied      "When --kinds is set, only the listed entity kinds are included"
-    depth_filter_applied     "When --root and --depth are set, only kinds within N hops of root in kind adjacency graph are included"
+    kind_filter_applied      "When --kinds is set, only the listed entity kinds are included; an empty list includes every kind"
+    depth_filter_applied     "When --root is set, only kinds within --depth hops of root in the kind adjacency graph are included"
     edges_pruned             "Relationships where source or target is filtered out are excluded"
     filters_compose          "Multiple filters are applied as intersection"
   }
@@ -281,8 +281,10 @@ behavior filter_model "Filter Model by Extension, Kind, or Depth" {
   verify unit "extension filter includes only matching entities"
   verify unit "extension filter excludes cross-extension edges when both endpoints not included"
   verify unit "kind filter includes only listed kinds"
+  verify unit "an empty kind list selects every kind"
   verify unit "root+depth=0 includes only the root kind"
   verify unit "root+depth=1 includes root and directly connected kinds"
+  verify unit "a depth without a root is refused"
   verify unit "filtered relationships exclude edges with missing endpoints"
   verify unit "multiple filters compose as intersection"
   verify unit "unknown extension name produces empty model"

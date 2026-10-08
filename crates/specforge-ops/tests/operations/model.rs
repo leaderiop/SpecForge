@@ -1,5 +1,5 @@
 use serde_json::Value;
-use specforge_emitter::model::{FieldLevel, ModelFormat, ModelOptions};
+use specforge_emitter::model::{FieldLevel, ModelFormat, ModelOptions, ModelRoot};
 use specforge_ops::model::model;
 use specforge_protocol_types::{
     EdgeTypeDescriptor, EntityKindDescriptor, ExtensionDeclaration, FieldDescriptor,
@@ -151,15 +151,18 @@ fn a_name_the_project_does_not_have_selects_nothing() {
     );
     for options in [
         ModelOptions {
-            root: Some("behaviour".into()),
+            root: Some(ModelRoot {
+                kind: "behaviour".into(),
+                depth: None,
+            }),
             ..ModelOptions::default()
         },
         ModelOptions {
-            extension_filter: Some("soft".into()),
+            extension: Some("soft".into()),
             ..ModelOptions::default()
         },
         ModelOptions {
-            kind_filter: Some(vec!["behaviour".into()]),
+            kinds: vec!["behaviour".into()],
             ..ModelOptions::default()
         },
     ] {
@@ -182,8 +185,11 @@ fn the_model_filters_compose_as_an_intersection() {
         kinds_of(
             &project,
             ModelOptions {
-                root: Some("event".into()),
-                kind_filter: Some(vec!["behavior".into()]),
+                root: Some(ModelRoot {
+                    kind: "event".into(),
+                    depth: None,
+                }),
+                kinds: vec!["behavior".into()],
                 ..ModelOptions::default()
             }
         ),
@@ -193,8 +199,8 @@ fn the_model_filters_compose_as_an_intersection() {
         kinds_of(
             &project,
             ModelOptions {
-                extension_filter: Some("@t/soft".into()),
-                kind_filter: Some(vec!["event".into()]),
+                extension: Some("@t/soft".into()),
+                kinds: vec!["event".into()],
                 ..ModelOptions::default()
             }
         ),
@@ -205,7 +211,7 @@ fn the_model_filters_compose_as_an_intersection() {
         kinds_of(
             &project,
             ModelOptions {
-                extension_filter: Some("@t/test".into()),
+                extension: Some("@t/test".into()),
                 ..ModelOptions::default()
             }
         )
@@ -221,7 +227,7 @@ fn an_extensions_counts_after_a_filter() {
         counts_of(
             &project,
             ModelOptions {
-                kind_filter: Some(vec!["behavior".into()]),
+                kinds: vec!["behavior".into()],
                 ..ModelOptions::default()
             }
         ),
@@ -231,7 +237,7 @@ fn an_extensions_counts_after_a_filter() {
         counts_of(
             &project,
             ModelOptions {
-                extension_filter: Some("@t/test".into()),
+                extension: Some("@t/test".into()),
                 ..ModelOptions::default()
             }
         ),

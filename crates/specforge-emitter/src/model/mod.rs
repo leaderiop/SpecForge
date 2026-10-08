@@ -79,14 +79,29 @@ impl fmt::Display for Cardinality {
 // Options
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone, Default)]
+/// What the model export draws, and how.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ModelOptions {
     pub format: ModelFormat,
+    /// Under a header per extension, or one flat list. JSON lists every
+    /// entity with its extension either way.
     pub group_by: GroupBy,
+    /// Which fields each entity lists.
     pub fields: FieldLevel,
-    pub extension_filter: Option<String>,
-    pub kind_filter: Option<Vec<String>>,
-    pub root: Option<String>,
+    /// Only the kinds this extension declares (`None`: every extension's).
+    pub extension: Option<String>,
+    /// Only these kinds (empty: every kind).
+    pub kinds: Vec<String>,
+    /// Only the kinds near a root kind (`None`: every kind).
+    pub root: Option<ModelRoot>,
+}
+
+/// The kinds within `depth` hops of `kind`, over the model's relationships
+/// in either direction, `kind` included.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ModelRoot {
+    pub kind: String,
+    /// `None`: every kind connected to `kind`.
     pub depth: Option<usize>,
 }
 

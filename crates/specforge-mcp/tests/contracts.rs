@@ -2967,27 +2967,33 @@ fn model_filters_reach_the_model() {
     assert!(every.len() > keys.len());
 }
 
-// P4 - the ticket that retypes the options flips it.
 #[specforge_test(
-    behavior = "expose_model_mcp_tool",
-    verify = "filter parameters are passed through to model options"
+    behavior = "filter_model",
+    verify = "a depth without a root is refused"
 )]
-fn a_model_depth_without_a_root_is_ignored_today() {
+fn a_model_depth_without_a_root_is_refused() {
     let (mut server, _project) = model_server();
+    let resp = call_tool(&mut server, "specforge.model", json!({"depth": 0}));
+    assert_eq!(resp["result"]["isError"], true, "{resp}");
+    let error = tool_json(&resp);
+    assert_eq!(error["code"], "invalid_input");
+    assert_eq!(error["argument"], "root");
     assert_eq!(
-        model_kinds(&mut server, json!({"depth": 0})),
-        model_kinds(&mut server, json!({}))
+        error["message"],
+        "'depth' needs 'root': the kind the depth counts from"
     );
 }
 
-// P5 - the ticket that retypes the options flips it.
 #[specforge_test(
-    behavior = "expose_model_mcp_tool",
-    verify = "filter parameters are passed through to model options"
+    behavior = "filter_model",
+    verify = "an empty kind list selects every kind"
 )]
-fn an_empty_kind_list_selects_no_kind_today() {
+fn an_empty_kind_list_selects_every_kind() {
     let (mut server, _project) = model_server();
-    assert!(model_kinds(&mut server, json!({"kinds": []})).is_empty());
+    assert_eq!(
+        model_kinds(&mut server, json!({"kinds": []})),
+        model_kinds(&mut server, json!({}))
+    );
 }
 
 #[specforge_test(

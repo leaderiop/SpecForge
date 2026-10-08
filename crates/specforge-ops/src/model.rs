@@ -5,7 +5,7 @@
 //! both surfaces list, accept, default and refuse the same names.
 
 // The value types, so surfaces name ops rather than the emitter.
-pub use specforge_emitter::model::{FieldLevel, GroupBy, ModelFormat, ModelOptions};
+pub use specforge_emitter::model::{FieldLevel, GroupBy, ModelFormat, ModelOptions, ModelRoot};
 pub use specforge_emitter::outline::{
     DependencyDepth, OutlineDetail, OutlineFormat, OutlineOptions,
 };

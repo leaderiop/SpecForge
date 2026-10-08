@@ -780,10 +780,9 @@ fn main() {
                 format,
                 group_by,
                 fields,
-                extension_filter: extension,
-                kind_filter: (!kinds.is_empty()).then_some(kinds),
-                root,
-                depth,
+                extension,
+                kinds,
+                root: root.map(|kind| specforge_ops::model::ModelRoot { kind, depth }),
             },
         ),
         Commands::Outline {

@@ -1,6 +1,6 @@
 use insta::assert_snapshot;
 use serde_json::Value;
-use specforge_emitter::model::{FieldLevel, GroupBy, ModelFormat, ModelOptions, export};
+use specforge_emitter::model::{FieldLevel, GroupBy, ModelFormat, ModelOptions, ModelRoot, export};
 use specforge_emitter::schema::*;
 use specforge_protocol_types::{ExtensionDeclaration, HandshakeResponse};
 use specforge_registry::FieldType;
@@ -73,10 +73,9 @@ fn model_options_defaults() {
     assert_eq!(opts.format, ModelFormat::Markdown);
     assert_eq!(opts.group_by, GroupBy::Extension);
     assert_eq!(opts.fields, FieldLevel::Keys);
-    assert!(opts.extension_filter.is_none());
-    assert!(opts.kind_filter.is_none());
+    assert!(opts.extension.is_none());
+    assert!(opts.kinds.is_empty());
     assert!(opts.root.is_none());
-    assert!(opts.depth.is_none());
 }
 
 // =========================================================================
@@ -653,7 +652,7 @@ fn filter_by_extension() {
         &multi_extension_schema(),
         ModelOptions {
             fields: FieldLevel::All,
-            extension_filter: Some("@specforge/software".to_string()),
+            extension: Some("@specforge/software".to_string()),
             ..ModelOptions::default()
         },
     );
@@ -676,7 +675,7 @@ fn filter_by_kinds() {
         &multi_extension_schema(),
         ModelOptions {
             fields: FieldLevel::All,
-            kind_filter: Some(vec!["behavior".to_string(), "feature".to_string()]),
+            kinds: vec!["behavior".to_string(), "feature".to_string()],
             ..ModelOptions::default()
         },
     );
@@ -701,7 +700,7 @@ fn filter_unknown_kind_ignored() {
         &multi_extension_schema(),
         ModelOptions {
             fields: FieldLevel::All,
-            kind_filter: Some(vec!["nonexistent".to_string()]),
+            kinds: vec!["nonexistent".to_string()],
             ..ModelOptions::default()
         },
     );
@@ -722,8 +721,10 @@ fn filter_root_depth_zero() {
         &multi_extension_schema(),
         ModelOptions {
             fields: FieldLevel::All,
-            root: Some("behavior".to_string()),
-            depth: Some(0),
+            root: Some(ModelRoot {
+                kind: "behavior".to_string(),
+                depth: Some(0),
+            }),
             ..ModelOptions::default()
         },
     );
@@ -744,8 +745,10 @@ fn filter_root_depth_one() {
         &multi_extension_schema(),
         ModelOptions {
             fields: FieldLevel::All,
-            root: Some("behavior".to_string()),
-            depth: Some(1),
+            root: Some(ModelRoot {
+                kind: "behavior".to_string(),
+                depth: Some(1),
+            }),
             ..ModelOptions::default()
         },
     );
@@ -768,8 +771,8 @@ fn filter_intersection_extension_and_kind() {
         &multi_extension_schema(),
         ModelOptions {
             fields: FieldLevel::All,
-            extension_filter: Some("@specforge/software".to_string()),
-            kind_filter: Some(vec!["behavior".to_string()]),
+            extension: Some("@specforge/software".to_string()),
+            kinds: vec!["behavior".to_string()],
             ..ModelOptions::default()
         },
     );
@@ -1347,7 +1350,7 @@ fn a_ref_joins_only_columns_the_output_writes() {
     let options = ModelOptions {
         format: ModelFormat::Dbml,
         fields: FieldLevel::All,
-        kind_filter: Some(vec!["behavior".to_string()]),
+        kinds: vec!["behavior".to_string()],
         ..ModelOptions::default()
     };
     let output = exported(&schema, options);
@@ -1395,4 +1398,22 @@ fn an_extensions_declared_theme_color_draws_its_cluster() {
     assert!(!grey.contains("#4a90d9"), "{grey}");
     assert!(themed.contains("#4a90d9"), "software's colour: {themed}");
     assert!(themed.contains("#2ecc71"), "product's colour: {themed}");
+}
+
+#[specforge_test_macros::test(
+    behavior = "filter_model",
+    verify = "an empty kind list selects every kind"
+)]
+fn an_empty_kind_list_selects_every_kind() {
+    let schema = multi_extension_schema();
+    let all = json_of(&schema, ModelOptions::default());
+    let empty = json_of(
+        &schema,
+        ModelOptions {
+            kinds: vec![],
+            ..ModelOptions::default()
+        },
+    );
+    assert_eq!(names(&empty["entities"]), names(&all["entities"]));
+    assert!(!names(&all["entities"]).is_empty());
 }

@@ -9,9 +9,8 @@ impl ModelIntermediate {
     /// `options.kinds`, within `options.root`'s reach. Relationships between
     /// two kept entities stay, and the extensions are recounted.
     pub(super) fn selected(self, options: &ModelOptions) -> Self {
-        let has_filter = options.extension_filter.is_some()
-            || options.kind_filter.is_some()
-            || options.root.is_some();
+        let has_filter =
+            options.extension.is_some() || !options.kinds.is_empty() || options.root.is_some();
 
         // No filter applied: the model as it is.
         if !has_filter {
@@ -21,7 +20,7 @@ impl ModelIntermediate {
         let mut keep: HashSet<&str> = self.entities.iter().map(|e| e.name.as_str()).collect();
 
         // Extension filter
-        if let Some(ref ext) = options.extension_filter {
+        if let Some(ref ext) = options.extension {
             keep.retain(|name| {
                 self.entities
                     .iter()
@@ -30,15 +29,15 @@ impl ModelIntermediate {
         }
 
         // Kind filter
-        if let Some(ref kinds) = options.kind_filter {
-            let kind_set: HashSet<&str> = kinds.iter().map(|s| s.as_str()).collect();
+        if !options.kinds.is_empty() {
+            let kind_set: HashSet<&str> = options.kinds.iter().map(String::as_str).collect();
             keep.retain(|name| kind_set.contains(name));
         }
 
         // Root + depth: BFS on kind-level adjacency graph
         if let Some(ref root) = options.root {
-            let depth = options.depth.unwrap_or(usize::MAX);
-            let reachable = bfs_reachable(root, depth, &self.relationships);
+            let depth = root.depth.unwrap_or(usize::MAX);
+            let reachable = bfs_reachable(&root.kind, depth, &self.relationships);
             keep.retain(|name| reachable.contains(*name));
         }
 
