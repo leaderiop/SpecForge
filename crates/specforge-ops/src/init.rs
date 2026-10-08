@@ -148,6 +148,9 @@ pub fn plan(req: &Request) -> Result<Plan, OpError> {
         Some(template) => template.replace("{project}", &spec_id),
         None => structural_starter(&spec_id, &version),
     };
+    // Whatever the extensions contribute, the file is written as the
+    // formatter writes it, so `specforge format --check` accepts it.
+    let starter = canonical(&starter, req.dir);
     let config = json!({
         "$schema": "https://specforge.dev/schema/specforge.json",
         "name": name,
@@ -325,6 +328,12 @@ fn sanitize_entity_id(name: &str) -> String {
             }
         })
         .collect()
+}
+
+/// `starter`, formatted as the project at `dir` formats its files.
+fn canonical(starter: &str, dir: &Path) -> String {
+    let (config, _) = specforge_formatter::load_config(dir, dir);
+    specforge_formatter::format_source(starter, &config).formatted
 }
 
 fn structural_starter(project_name: &str, version: &str) -> String {

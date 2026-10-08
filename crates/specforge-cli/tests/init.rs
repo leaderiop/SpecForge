@@ -288,6 +288,51 @@ fn init_creates_starter_spec_file() {
     assert!(!content.is_empty(), "starter spec file should not be empty");
 }
 
+#[specforge_test(
+    behavior = "scaffold_starter_spec_file",
+    verify = "a freshly initialised project passes format --check and check"
+)]
+fn a_fresh_project_is_formatted_and_checks_clean() {
+    // No extension, then each builtin, with the peers it declares (init
+    // does not add peers; `check` reports a missing one as E027).
+    let peers = |extension: &str| match extension {
+        "@specforge/formal" => "@specforge/software",
+        "@specforge/cargo-test" | "@specforge/vitest" => "@specforge/testing",
+        _ => "",
+    };
+    let builtins = specforge_component::builtins::BUILTIN_EXTENSIONS
+        .iter()
+        .map(|(name, _)| Some(*name));
+    for extension in std::iter::once(None).chain(builtins) {
+        let dir = TempDir::new().unwrap();
+        let mut init = specforge_cmd();
+        init.args(["init", "--name", "fresh"])
+            .current_dir(dir.path());
+        if let Some(extension) = extension {
+            let peer = peers(extension);
+            init.args(["--extensions", extension]);
+            if !peer.is_empty() {
+                init.args(["--extensions", peer]);
+            }
+        }
+        init.assert().success();
+
+        for command in [&["format", "--check"][..], &["check"][..]] {
+            let run = specforge_cmd()
+                .args(command)
+                .current_dir(dir.path())
+                .output()
+                .unwrap();
+            assert!(
+                run.status.success(),
+                "{command:?} after init with {extension:?}:\n{}{}",
+                String::from_utf8_lossy(&run.stdout),
+                String::from_utf8_lossy(&run.stderr),
+            );
+        }
+    }
+}
+
 #[test]
 fn init_help_states_the_default_version_from_the_constant() {
     let help = specforge_cmd().args(["init", "-h"]).output().unwrap();
@@ -1139,7 +1184,8 @@ fn starter_written_for(extensions: &[&str]) -> String {
 }
 
 /// The starter template the builtin `extension` declares in its handshake,
-/// with its `{project}` placeholder filled in for a project named `demo`.
+/// with its `{project}` placeholder filled in for a project named `demo`,
+/// as the formatter writes it (init formats the starter it writes).
 fn declared_starter(extension: &str) -> Option<String> {
     let runtime = specforge_component::ComponentRuntime::new();
     specforge_component::builtins::load_builtins_for(&runtime, &[extension.to_string()]).unwrap();
@@ -1148,7 +1194,14 @@ fn declared_starter(extension: &str) -> Option<String> {
         .declaration
         .handshake
         .starter_template
-        .map(|template| template.replace("{project}", "demo"))
+        .map(|template| {
+            let template = template.replace("{project}", "demo");
+            specforge_formatter::format_source(
+                &template,
+                &specforge_formatter::FormatConfig::default(),
+            )
+            .formatted
+        })
 }
 
 #[specforge_test(
@@ -1416,7 +1469,7 @@ fn init_software_starter_checks_clean() {
         .assert()
         .success();
     specforge_cmd()
-        .args(["check", "--strict"])
+        .args(["check", "--format", "json"])
         .current_dir(dir.path())
         .assert()
         .success();
