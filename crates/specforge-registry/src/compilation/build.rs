@@ -79,7 +79,7 @@ pub struct RegistryBuild {
     /// load order, each extension's in its after/before order.
     pub passes: Vec<DeclaredPass>,
     /// The declarations' own diagnostics: E030 identity and shape, W021
-    /// self-consistency, the peers' E073 and E027, W145 pass cycles — in that order,
+    /// self-consistency, the peers' E073 and E027 (a cycle's after the declarations'), W145 pass cycles — in that order,
     /// extension by extension within each. Reported before
     /// `registry_diagnostics`.
     pub declaration_diagnostics: Vec<Diagnostic>,

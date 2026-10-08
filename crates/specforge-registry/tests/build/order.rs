@@ -102,7 +102,7 @@ fn first_wins_rules_follow_the_load_order() {
 
 #[spec(
     behavior = "registry_build_load_order",
-    verify = "Registry Build Orders the Extensions: load order holds — declarations_in_entry_order, dependencies_first, entry_order_kept, deterministic"
+    verify = "Registry Build Orders the Extensions: load order holds — declarations_in_entry_order, dependencies_first, entry_order_kept, deterministic, cycles_failed"
 )]
 fn the_load_order_holds() {
     let names = |b: &specforge_registry::RegistryBuild| -> Vec<String> {
@@ -120,8 +120,16 @@ fn the_load_order_holds() {
     // (2) entry_order_kept: no peer between them.
     let unrelated = build([widget("@t/z", vec![]), widget("@t/a", vec![])]);
     assert_eq!(names(&unrelated), ["@t/z", "@t/a"]);
+    // (4) cycles_failed: a required cycle is reported once, its members loading together.
+    let cycle = build([
+        cyclic("@t/cyca", "@t/cycb"),
+        widget("@t/z", vec![]),
+        cyclic("@t/cycb", "@t/cyca"),
+    ]);
+    assert_eq!(names(&cycle), ["@t/cyca", "@t/cycb", "@t/z"]);
+    assert_eq!(codes(&cycle), ["E027"]);
     // (3) deterministic: building from the build's own declarations changes nothing.
-    for built in [&first, &unrelated] {
+    for built in [&first, &unrelated, &cycle] {
         let again = build_registries(built.declarations().to_vec());
         assert_eq!(names(&again), names(built));
         assert_eq!(
@@ -137,9 +145,28 @@ fn the_load_order_holds() {
     }
 }
 
-/// Pinned until T5: no compile reports a cycle among required peers.
-#[test]
-fn pin_a_required_peer_cycle_is_not_reported() {
+#[spec(
+    behavior = "registry_build_load_order",
+    verify = "a cycle among required peers is one E027 naming its extensions"
+)]
+#[spec(
+    failure_mode = "circular_peer_dependency",
+    verify = "Circular Peer Dependency failure mode is handled"
+)]
+fn a_required_cycle_is_one_e027_naming_its_extensions() {
     let build = build([cyclic("@t/cyca", "@t/cycb"), cyclic("@t/cycb", "@t/cyca")]);
-    assert!(codes(&build).is_empty(), "{:?}", codes(&build));
+    assert_eq!(codes(&build), ["E027"]);
+    let e027 = coded(&build, "E027");
+    assert_eq!(
+        e027[0].message,
+        "cycle detected in peer dependencies: @t/cyca, @t/cycb"
+    );
+    assert_eq!(
+        e027[0].suggestion.as_deref(),
+        Some(
+            "make one of these peer dependencies optional, or remove it: required peers that require each other can't load dependencies first"
+        )
+    );
+    // Both extensions still load and register their kinds.
+    assert!(build.kinds.get("alpha").is_some() && build.kinds.get("beta").is_some());
 }

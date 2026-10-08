@@ -142,3 +142,37 @@ fn doctor_reports_the_peer_requirements_check_reports() {
     assert_eq!(report.peers[0].code, "E027");
     assert_eq!(report.peers[0].message, e027[0].message);
 }
+
+#[specforge_test(
+    behavior = "registry_build_load_order",
+    verify = "specforge check reports a cycle among required peers"
+)]
+fn check_reports_a_cycle_among_required_peers() {
+    let dir = project(&["@acme/a", "@acme/b"]);
+    let runtime = InProcessRuntime::new()
+        .with(served("@acme/a", "1.0.0", &[("@acme/b", "^1")]))
+        .with(served("@acme/b", "1.0.0", &[("@acme/a", "^1")]));
+    specforge_installed::testing::install(dir.path(), &["@acme/a", "@acme/b"]);
+
+    let compiled = CompiledProject::compile(dir.path(), Some(&runtime));
+    let all = compiled.diagnostics();
+    let cycles: Vec<_> = all.iter().filter(|d| d.code == "E027").collect();
+    assert_eq!(cycles.len(), 1, "{cycles:?}");
+    assert_eq!(
+        cycles[0].message,
+        "cycle detected in peer dependencies: @acme/a, @acme/b"
+    );
+
+    let outcome = specforge_ops::check::check(
+        &ProjectView::of(&compiled),
+        all.clone(),
+        &specforge_ops::check::CheckOptions::default(),
+    )
+    .unwrap();
+    assert!(!outcome.ok());
+
+    // Doctor lists the same cycle under its peers.
+    let report = diagnose_with(&ProjectView::of(&compiled), true);
+    assert_eq!(report.peers.len(), 1, "{:?}", report.peers);
+    assert_eq!(report.peers[0].message, cycles[0].message);
+}

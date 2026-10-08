@@ -150,17 +150,19 @@ behavior build_registries_from_declarations "Build Registries From Declarations"
   types      [ExtensionDeclaration, RegistryBuild]
   produces   [registries_populated]
   contract   """
-    The registry build MUST take the loaded declarations, in load order,
-    and own everything derived from them: identity and shape (E030: an empty
-    name or version, a malformed ext_short), self-consistency (W021), peer
-    dependencies (E027), the order of declared passes (W145 when their
-    constraints form a cycle, declaration order kept), the kind, field and
-    edge registries, the rules and the surfaces. It MUST be pure.
+    The registry build MUST take the loaded declarations in entry order, put
+    them in load order (registry_build_load_order) and own everything derived
+    from them: identity and shape (E030: an empty name or version, a
+    malformed ext_short), self-consistency (W021), peer requirements (E073,
+    E027, and E027 for a cycle among required peers), the order of declared
+    passes (W145 when their constraints form a cycle, declaration order
+    kept), the kind, field and edge registries, the rules and the surfaces.
+    It MUST be pure.
 
     Its outcomes are stated by registry_build_kinds, registry_build_fields,
     registry_build_edges, registry_build_rules,
-    registry_build_declaration_consistency and
-    registry_build_peer_dependencies. The build produces
+    registry_build_declaration_consistency,
+    registry_build_peer_dependencies and registry_build_load_order. The build produces
     registries_populated: nothing reads a registry before every loaded
     declaration is in it.
   """
@@ -172,7 +174,7 @@ behavior build_registries_from_declarations "Build Registries From Declarations"
   verify unit "a pass constraint cycle produces W145 and keeps declaration order"
   verify integration "a passes description that does not parse fails the extension's load"
   verify unit "a build of no declarations has empty registries, no rules and no diagnostics"
-  verify unit "the declarations' own diagnostics come in a fixed order: E030, W021, E027, W145"
+  verify unit "the declarations' own diagnostics come in a fixed order: E030, W021, the peers' E073 and E027, the cycles' E027, W145"
   verify integration "every loaded declaration is registered before a compile checks anything"
 }
 

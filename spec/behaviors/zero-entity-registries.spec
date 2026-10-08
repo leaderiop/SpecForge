@@ -657,6 +657,7 @@ behavior registry_build_load_order "Registry Build Orders the Extensions" {
     dependencies_first "Each declaration comes after the peers it declares: every required peer, and every optional one unless its edge would close a cycle"
     entry_order_kept   "Otherwise the declarations keep the order they were given in"
     deterministic      "The same declarations in the same order give the same load order, and a load order given again comes back unchanged"
+    cycles_failed      "A cycle among required peers is one E027 naming its extensions, which still load, together and in the order they were given"
   }
   contract   """
     The registry build MUST put the loaded declarations in load order
@@ -667,13 +668,17 @@ behavior registry_build_load_order "Registry Build Orders the Extensions" {
     an extension comes after the peers it declares: every required one,
     and an optional one unless that would close a cycle, the optional
     edges taken in dependent-then-peer name order after the required ones.
-    The order MUST be deterministic and a load order given again MUST come
-    back unchanged (ADR 0041).
+    A cycle among required peers MUST be reported once as E027 naming its
+    extensions; they still load, together, in entry order, after their
+    other peers. The order MUST be deterministic and a load order given
+    again MUST come back unchanged (ADR 0041).
   """
   verify unit "a dependent listed before its peer loads after it"
   verify unit "extensions with no peer between them keep the order they were given in"
   verify unit "extensions naming each other as optional peers load without a cycle"
   verify unit "a load order given again comes back unchanged"
   verify unit "E026, W018, passes and surfaces follow the load order"
-  verify contract "Registry Build Orders the Extensions: load order holds — declarations_in_entry_order, dependencies_first, entry_order_kept, deterministic"
+  verify unit "a cycle among required peers is one E027 naming its extensions"
+  verify integration "specforge check reports a cycle among required peers"
+  verify contract "Registry Build Orders the Extensions: load order holds — declarations_in_entry_order, dependencies_first, entry_order_kept, deterministic, cycles_failed"
 }

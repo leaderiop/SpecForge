@@ -254,9 +254,9 @@ failure_mode circular_peer_dependency "Circular Peer Dependency" {
   occurrence unlikely
   detection  likely
   rpn        24
-  cause      "Extension A declares peer dependency on Extension B, which declares peer dependency on Extension A — circular chain prevents topological sort"
-  effect     "Topological sort fails, all extension functionality blocked — no extension entities, no extension validation, no extension generation"
-  mitigation "Tarjan's cycle detection during topological sort; full cycle path included in diagnostic message; specforge doctor reports cycle with resolution suggestions"
+  cause      "Extension A requires Extension B as a peer, and B requires A (or a longer chain closes back): no load order puts each after its required peers"
+  effect     "Without detection the order silently breaks 'dependencies first', and first-wins registration (E026, W018, enhancements, surfaces) follows whichever was listed first"
+  mitigation "The registry build finds each strongly connected set of required peers and reports it once as E027 naming its extensions, in every compile (check, the LSP, MCP, doctor); the members still load, together, in entry order. Optional peers that would close a cycle are only a preference and are dropped from the order (ADR 0041)"
   post_mitigation {
     severity   high
     occurrence rare

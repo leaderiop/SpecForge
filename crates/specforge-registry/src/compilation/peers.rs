@@ -22,11 +22,18 @@ pub(crate) fn in_load_order(declarations: Vec<ExtensionDeclaration>) -> Vec<Exte
 }
 
 /// The peer diagnostics of `declarations` (load order): each unsatisfied peer (E073, E027),
-/// declaration by declaration.
+/// declaration by declaration, then one E027 per cycle among required peers.
 pub(crate) fn check(declarations: &[ExtensionDeclaration]) -> Vec<Diagnostic> {
-    Peers::of(declarations.iter().map(Member::from))
+    let peers = Peers::of(declarations.iter().map(Member::from));
+    let mut diagnostics: Vec<Diagnostic> = peers
         .unsatisfied()
         .iter()
         .filter_map(|u| specforge_common::peers::of(u.dependent, u.declared, &u.verdict))
-        .collect()
+        .collect();
+    diagnostics.extend(
+        peers
+            .cycles()
+            .map(|cycle| specforge_common::peers::cycle(&cycle)),
+    );
+    diagnostics
 }

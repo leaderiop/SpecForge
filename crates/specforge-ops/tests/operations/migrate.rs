@@ -10,6 +10,7 @@ use specforge_ops::OpErrorKind;
 use specforge_ops::migrate::{MigrationInput, Request, invoke_hooks, parse_target, rollback, run};
 use specforge_parser::CURRENT_FORMAT_VERSION;
 use specforge_protocol_types::{ExtensionDeclaration, FieldType, PeerDependency, SandboxPolicy};
+use specforge_registry::build_registries;
 use specforge_test_macros::test as specforge_test;
 use specforge_wasm::runtime::{WasmCallResult, WasmTrapInfo};
 use specforge_wasm::testing::InProcessRuntime;
@@ -364,7 +365,11 @@ fn a_hook_receives_the_versions_and_the_migrated_files() {
         files: vec!["old.spec".into()],
     };
 
-    invoke_hooks(&[manifest("@acme/a", "migrate_a")], &runtime, &input);
+    invoke_hooks(
+        &build_registries(vec![manifest("@acme/a", "migrate_a")]),
+        &runtime,
+        &input,
+    );
 
     assert_eq!(*seen.lock().unwrap(), [input]);
     assert_eq!(
@@ -402,10 +407,19 @@ fn the_builtin_extensions_hooks_run_without_a_dependency_failure() {
         files: Vec::new(),
     };
 
-    let (_, failures) = invoke_hooks(&declarations, &runtime, &input);
+    let build = build_registries(declarations);
+
+    let (_, failures) = invoke_hooks(&build, &runtime, &input);
 
     assert!(failures.is_empty(), "{failures:?}");
-    assert!(specforge_wasm::topological_sort_extensions(&declarations).is_ok());
+    assert!(
+        !build
+            .declaration_diagnostics
+            .iter()
+            .any(|d| d.code == "E027"),
+        "{:?}",
+        build.declaration_diagnostics
+    );
 }
 
 #[specforge_test(
@@ -414,10 +428,10 @@ fn the_builtin_extensions_hooks_run_without_a_dependency_failure() {
 )]
 fn a_trapping_hook_is_recorded_and_the_next_one_still_runs() {
     let runtime = hooks();
-    let manifests = [
+    let manifests = build_registries(vec![
         manifest("@acme/a", "migrate_a"),
         manifest("@acme/b", "migrate_b"),
-    ];
+    ]);
 
     let input = MigrationInput {
         from: "0.9".into(),
@@ -558,9 +572,11 @@ fn extension(
     }
 }
 
-/// Pinned until T5 (ADR 0041): a cycle among required peers fails the hooks.
-#[test]
-fn pin_a_required_peer_cycle_fails_the_hooks() {
+#[specforge_test(
+    behavior = "invoke_extension_migration_hooks",
+    verify = "hooks invoked in deterministic extension load order"
+)]
+fn a_required_peer_cycle_does_not_stop_the_hooks() {
     let dir = project_enabling(&["@acme/a", "@acme/b"]);
     let runtime = InProcessRuntime::new()
         .with(extension("@acme/a", "migrate_a", &["@acme/b"], |_| Ok(())))
@@ -568,13 +584,26 @@ fn pin_a_required_peer_cycle_fails_the_hooks() {
 
     let outcome = run(&request(dir.path()), Some(&runtime));
 
-    assert_eq!(
-        outcome.hook_failures,
-        ["cycle detected in peer dependencies: @acme/a, @acme/b"]
+    assert!(
+        outcome.hook_failures.is_empty(),
+        "{:?}",
+        outcome.hook_failures
     );
-    assert!(outcome.hooks_invoked.is_empty(), "{outcome:?}");
-    assert!(outcome.rollback.is_some(), "{outcome:?}");
-    assert!(!outcome.ok());
+    assert_eq!(
+        outcome.hooks_invoked,
+        ["@acme/a:migrate_a", "@acme/b:migrate_b"]
+    );
+    assert!(outcome.rollback.is_none(), "{outcome:?}");
+    assert!(outcome.ok());
+    // The cycle is the compile's E027, among the post-migration diagnostics.
+    assert!(
+        outcome
+            .post_diagnostics
+            .iter()
+            .any(|d| d.code == "E027" && d.message.contains("cycle detected in peer dependencies")),
+        "{:?}",
+        outcome.post_diagnostics
+    );
 }
 
 /// A project enabling `extensions`, with one file at the old format version.
@@ -669,7 +698,11 @@ fn an_empty_hook_name_is_skipped_silently() {
         files: Vec::new(),
     };
 
-    let run = invoke_hooks(&[manifest("@acme/a", "")], &runtime, &input);
+    let run = invoke_hooks(
+        &build_registries(vec![manifest("@acme/a", "")]),
+        &runtime,
+        &input,
+    );
 
     assert_eq!(run, (Vec::new(), Vec::new()));
     assert!(runtime.calls().is_empty(), "{:?}", runtime.calls());
