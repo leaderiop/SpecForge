@@ -2359,3 +2359,17 @@ fn validate_gives_each_catalogued_code_its_title() {
     assert_eq!(title("E003"), "Unresolved reference");
     assert_eq!(title("E006"), "Missing required field");
 }
+
+// pin (15-T0): today's behaviour; flipped by 15-T8
+#[test]
+fn pin_analyze_takes_no_min() {
+    let mut server = test_server();
+    let resp = call_tool(
+        &mut server,
+        "specforge.analyze",
+        json!({"pass": "coverage", "min": 50}),
+    );
+    let error = mcp_error(&resp);
+    assert_eq!(error["code"], "invalid_input", "{error}");
+    assert_eq!(error["argument"], "min", "{error}");
+}

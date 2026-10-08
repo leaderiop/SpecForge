@@ -48,7 +48,7 @@ const FORMAT: &str = "format";
 /// command is matched.
 pub fn run(argv: &[String], builtins: &[String]) -> i32 {
     let Some((first, rest)) = argv.split_first() else {
-        return 2;
+        return INVALID_INPUT_EXIT;
     };
     // `product:features` is `product features`.
     let (ext, mut rest) = match first.split_once(':') {
@@ -76,7 +76,7 @@ pub fn run(argv: &[String], builtins: &[String]) -> i32 {
             eprintln!("\n  tip: a similar subcommand exists: '{close}'");
         }
         eprintln!("\nFor more information, try 'specforge --help'.");
-        return 2;
+        return INVALID_INPUT_EXIT;
     }
     let requested = rest.first().and_then(|requested| {
         commands
@@ -91,7 +91,7 @@ pub fn run(argv: &[String], builtins: &[String]) -> i32 {
                 command.extension(),
                 command.cli_name()
             );
-            return 2;
+            return INVALID_INPUT_EXIT;
         }
         // A later extension's command of this name is not routed (D13):
         // say which, so its author can tell why it never runs.
@@ -126,10 +126,10 @@ pub fn run(argv: &[String], builtins: &[String]) -> i32 {
         }
     };
     let Some((name, matches)) = matches.subcommand() else {
-        return 2;
+        return INVALID_INPUT_EXIT;
     };
     let Some(command) = commands.iter().copied().find(|c| c.cli_name() == name) else {
-        return 2;
+        return INVALID_INPUT_EXIT;
     };
 
     let format = format_value(matches);

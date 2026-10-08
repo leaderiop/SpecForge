@@ -27,13 +27,9 @@ pub(crate) fn run(path: &Path, request: &ReviewRequest, format: OutputFormat) ->
             Exit::Passed
         }
         Err(error) if error.kind == OpErrorKind::EntityNotFound => {
-            Refusal::of(format).report(&error);
-            Exit::Failed
+            Refusal::of(format).report(&error)
         }
-        Err(error) => {
-            Refusal::measuring(format).report(&error);
-            Exit::Unjudged
-        }
+        Err(error) => Refusal::measuring(format).report(&error),
     }
 }
 

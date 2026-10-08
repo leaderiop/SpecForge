@@ -64,7 +64,7 @@ fn brief_includes_only_ids_kinds_titles_and_edges() {
         label: Sym::new("behaviors"),
     });
 
-    let json = specforge_emitter::brief::emit_brief(&graph);
+    let json = crate::export(&graph, specforge_emitter::EmitFormat::Brief, None);
     let parsed: serde_json::Value = serde_json::from_str(&json).expect("valid JSON");
 
     let nodes = parsed["nodes"].as_array().unwrap();
@@ -101,7 +101,7 @@ fn brief_is_smaller_than_full_json() {
         "The system MUST do alpha things with lots of verbose prose that makes the output larger.",
     ));
 
-    let brief = specforge_emitter::brief::emit_brief(&graph);
+    let brief = crate::export(&graph, specforge_emitter::EmitFormat::Brief, None);
     let full = specforge_emitter::json::emit_json(&graph);
     assert!(
         brief.len() < full.len(),
@@ -131,7 +131,7 @@ fn brief_conforms_to_graph_protocol_schema() {
         label: Sym::new("behaviors"),
     });
 
-    let json = specforge_emitter::brief::emit_brief(&graph);
+    let json = crate::export(&graph, specforge_emitter::EmitFormat::Brief, None);
     let parsed: serde_json::Value = serde_json::from_str(&json).expect("valid JSON");
 
     // Graph Protocol requires: schema_version, nodes array, edges array
@@ -168,7 +168,7 @@ fn brief_export_contract() {
         label: "behaviors".into(),
     });
 
-    let json = specforge_emitter::brief::emit_brief(&graph);
+    let json = crate::export(&graph, specforge_emitter::EmitFormat::Brief, None);
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
 
     // Minimal representation: IDs, kinds, titles present
@@ -202,13 +202,51 @@ fn brief_schema_version_matches_graph_format() {
     let mut graph = Graph::new();
     graph.add_node(node("x", "behavior", Some("X")));
 
-    let brief: serde_json::Value =
-        serde_json::from_str(&specforge_emitter::brief::emit_brief(&graph)).unwrap();
+    let brief: serde_json::Value = serde_json::from_str(&crate::export(
+        &graph,
+        specforge_emitter::EmitFormat::Brief,
+        None,
+    ))
+    .unwrap();
     let full: serde_json::Value =
         serde_json::from_str(&specforge_emitter::json::emit_json(&graph)).unwrap();
     assert_eq!(brief["schema_version"], "0.1.0", "{brief}");
     assert_eq!(
         brief["schema_version"], full["schema_version"],
         "brief and graph formats must use same schema_version"
+    );
+}
+
+/// Three kinds, an edge between two of them, one with prose.
+fn multi_kind_graph() -> Graph {
+    let mut graph = Graph::new();
+    graph.add_node(node_with_contract(
+        "alpha",
+        "behavior",
+        "Alpha",
+        "The system MUST do alpha things.",
+    ));
+    graph.add_node(node("beta", "feature", Some("Beta")));
+    graph.add_node(node("gamma", "invariant", None));
+    graph.add_edge(Edge {
+        source: Sym::new("beta"),
+        target: Sym::new("alpha"),
+        label: Sym::new("behaviors"),
+    });
+    graph
+}
+
+#[specforge_test(
+    behavior = "export_agent_brief_format",
+    verify = "brief format includes only IDs, kinds, titles, and edges"
+)]
+fn brief_export_of_the_multi_kind_graph() {
+    insta::assert_snapshot!(
+        "brief_export_of_the_multi_kind_graph",
+        crate::export(
+            &multi_kind_graph(),
+            specforge_emitter::EmitFormat::Brief,
+            None
+        )
     );
 }

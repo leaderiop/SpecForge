@@ -16,7 +16,6 @@ specforge-protocol-types = { path = "../specforge-protocol-types" }
 specforge-registry-wire = { path = "../specforge-registry-wire" }
 serde = { workspace = true }
 serde_json = { workspace = true }
-semver = { workspace = true }
 sha2 = { workspace = true }
 reqwest = { workspace = true }
 httpdate = "1"

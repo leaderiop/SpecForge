@@ -1,5 +1,5 @@
 use crate::OutputFormat;
-use crate::outcome::Refusal;
+use crate::outcome::{Exit, Refusal};
 use serde_json::json;
 use specforge_ops::extension::{self, AddOutcome, AddRequest, Origin, Trust};
 use specforge_ops_registry::ConfiguredRegistry;
@@ -12,7 +12,7 @@ pub fn run(
     format: OutputFormat,
     allow_unsigned: bool,
     trust: Trust,
-) -> i32 {
+) -> Exit {
     let source = match extension::parse(specifier) {
         Ok(source) => source,
         Err(error) => {
@@ -34,7 +34,7 @@ pub fn run(
     match added {
         Ok(added) => {
             present(&added.outcome, &added.writes.names_under(path), format);
-            0
+            Exit::Passed
         }
         // An install that failed after placing its module names it.
         Err(error) => Refusal::of(format).at(path).report(&error),

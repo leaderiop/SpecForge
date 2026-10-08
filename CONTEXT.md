@@ -67,8 +67,9 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   nodes (source positions ignored) and edges. Watch prints it and MCP notifies it
   (`specforge_graph::GraphDelta`, re-exported as `specforge_project::GraphDelta`). A graph build computes it.
 - **Debounce rule**: changes that arrive less than 50 ms apart are one batch, due 50 ms after the last
-  of them, each change once. Watch batches file changes and the LSP batches edited documents by the
-  same rule (`specforge_watch::Coalescer`, ADR 0035).
+  of them, each change once. Watch batches the file changes under every directory it watches as one
+  stream, and the LSP batches edited documents, by the same rule (`specforge_watch::Coalescer`,
+  ADR 0035).
 - **Graph build**: the graph of a set of parsed `.spec` files and what building it reported (parse errors,
   duplicates, define blocks, unknown ref schemes, unresolved references, reference cycles), kept current one
   whole file at a time (`specforge_graph::GraphBuild`). Files are taken in path order; each entity ID is the
@@ -231,7 +232,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   (`specforge_ops::infer::{guide, kind_guide, inference_plan}`). Each returns a typed outcome; the CLI,
   MCP (its tools and its prompts) and the LSP only render it.
 - **Entity facts**: what inspect returns for one entity: its node and kind entry, headline
-  statement, standing (the snapshot's own, borrowed), obligations, references in both directions,
+  statement, standing and obligations (the snapshot's own, borrowed), references in both directions,
   coverage, and the reported diagnostics about it (`specforge_ops::inspect::EntityFacts`). MCP
   `specforge.inspect` renders it as JSON and the LSP hover as markdown, so the two cannot disagree.
 - **Known kind**: a kind a loaded extension declares, or that an entity is written with (an

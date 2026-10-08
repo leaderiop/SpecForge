@@ -253,51 +253,10 @@ impl ComponentRuntime {
         }
     }
 
-    /// Register the extension loaded as `from` under `to` instead, without
-    /// compiling or instantiating it again. False when `from` is not loaded.
-    pub fn rename(&self, from: &str, to: &str) -> bool {
-        let Ok(mut plugins) = self.plugins.lock() else {
-            return false;
-        };
-        match plugins.remove(from) {
-            Some(plugin) => {
-                plugins.insert(to.to_string(), plugin);
-                true
-            }
-            None => false,
-        }
-    }
-
     /// Deterministic per-call instruction budget, enforced by the engine.
     pub fn with_fuel_limit(mut self, fuel: u64) -> Self {
         self.fuel = fuel;
         self
-    }
-
-    /// Compile a component from bytes and register it under `name`,
-    /// atomically replacing any existing plugin (hot reload / H1).
-    pub fn load_module_bytes(&self, name: &str, wasm_bytes: &[u8]) -> Result<(), String> {
-        self.load_module_bytes_with_limits(name, wasm_bytes, self.fuel)
-    }
-
-    /// Compile a component from bytes with an explicit fuel budget.
-    pub fn load_module_bytes_with_limits(
-        &self,
-        name: &str,
-        wasm_bytes: &[u8],
-        fuel: u64,
-    ) -> Result<(), String> {
-        let component = Component::from_binary(&self.engine, wasm_bytes)
-            .map_err(|e| format!("failed to compile component {name}: {e}"))?;
-        self.instantiate_with_fuel(name, component, fuel)
-    }
-
-    /// Unload an extension. Returns true when it was loaded.
-    pub fn unload(&self, name: &str) -> bool {
-        match self.plugins.lock() {
-            Ok(mut plugins) => plugins.remove(name).is_some(),
-            Err(_) => false,
-        }
     }
 
     /// Names of the currently loaded extensions, sorted.
@@ -367,9 +326,57 @@ impl ComponentRuntime {
             .map_err(|e| format!("failed to instantiate component {name}: {e}"))?;
         Ok((store, bindings))
     }
+}
+
+/// What stopped a call: a limit the sandbox holds it to, or another fault.
+fn trap_kind(error: &wasmtime::Error, memory_refused: Option<usize>) -> &'static str {
+    if memory_refused.is_some() {
+        return "memory_limit_exceeded";
+    }
+    match error.downcast_ref::<wasmtime::Trap>() {
+        Some(wasmtime::Trap::Interrupt) => "deadline_exceeded",
+        Some(wasmtime::Trap::OutOfFuel) => "fuel_exhausted",
+        _ => "call_failed",
+    }
+}
+
+impl Default for ComponentRuntime {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl WasmRuntime for ComponentRuntime {
+    /// Compile a component from bytes and register it under `name`,
+    /// atomically replacing any existing plugin (hot reload / H1).
+    fn load(&self, name: &str, bytes: &[u8]) -> Result<(), String> {
+        let component = Component::from_binary(&self.engine, bytes)
+            .map_err(|e| format!("failed to compile component {name}: {e}"))?;
+        self.instantiate_with_fuel(name, component, self.fuel)
+    }
+
+    fn rename(&self, from: &str, to: &str) -> bool {
+        let Ok(mut plugins) = self.plugins.lock() else {
+            return false;
+        };
+        match plugins.remove(from) {
+            Some(plugin) => {
+                plugins.insert(to.to_string(), plugin);
+                true
+            }
+            None => false,
+        }
+    }
+
+    fn unload(&self, name: &str) -> bool {
+        match self.plugins.lock() {
+            Ok(mut plugins) => plugins.remove(name).is_some(),
+            Err(_) => false,
+        }
+    }
 
     /// Call the bridge `call` export; returns the raw JSON wire bytes.
-    pub fn call(&self, name: &str, export: &str, input: &[u8]) -> WasmCallResult {
+    fn call_export(&self, name: &str, export: &str, input: &[u8]) -> WasmCallResult {
         // Look up the plugin and release the map lock immediately: holding
         // it across the guest call would serialize every extension behind
         // one mutex (the C7-10 finding). Only the target plugin's own lock
@@ -469,42 +476,6 @@ impl ComponentRuntime {
                 })
             }
         }
-    }
-}
-
-/// What stopped a call: a limit the sandbox holds it to, or another fault.
-fn trap_kind(error: &wasmtime::Error, memory_refused: Option<usize>) -> &'static str {
-    if memory_refused.is_some() {
-        return "memory_limit_exceeded";
-    }
-    match error.downcast_ref::<wasmtime::Trap>() {
-        Some(wasmtime::Trap::Interrupt) => "deadline_exceeded",
-        Some(wasmtime::Trap::OutOfFuel) => "fuel_exhausted",
-        _ => "call_failed",
-    }
-}
-
-impl Default for ComponentRuntime {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl WasmRuntime for ComponentRuntime {
-    fn load(&self, name: &str, bytes: &[u8]) -> Result<(), String> {
-        self.load_module_bytes(name, bytes)
-    }
-
-    fn rename(&self, from: &str, to: &str) -> bool {
-        ComponentRuntime::rename(self, from, to)
-    }
-
-    fn unload(&self, name: &str) -> bool {
-        ComponentRuntime::unload(self, name)
-    }
-
-    fn call_export(&self, extension_name: &str, export_name: &str, input: &[u8]) -> WasmCallResult {
-        self.call(extension_name, export_name, input)
     }
 
     fn apply_limits(&self, extension_name: &str, limits: Limits) {

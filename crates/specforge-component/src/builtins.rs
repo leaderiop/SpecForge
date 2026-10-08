@@ -1,7 +1,7 @@
 #[cfg(feature = "testing")]
-use crate::ComponentRuntime;
-#[cfg(feature = "testing")]
 use specforge_common::ExtensionEntry;
+#[cfg(feature = "testing")]
+use specforge_wasm::WasmRuntime;
 
 static PRODUCT_WASM: &[u8] =
     include_bytes!("../../../extensions/product/wasm/specforge_ext_product.wasm");
@@ -40,13 +40,13 @@ pub const BUILTIN_EXTENSIONS: &[(&str, &[u8])] = &[
 ///
 /// Other entries (installed extensions, `.wasm` files) are skipped.
 #[cfg(feature = "testing")]
-pub fn load_builtins_for(runtime: &ComponentRuntime, requested: &[String]) -> Result<(), String> {
+pub fn load_builtins_for(runtime: &dyn WasmRuntime, requested: &[String]) -> Result<(), String> {
     for (name, wasm_bytes) in BUILTIN_EXTENSIONS {
         if requested
             .iter()
             .any(|entry| ExtensionEntry::parse(entry) == ExtensionEntry::Named(name))
         {
-            runtime.load_module_bytes(name, wasm_bytes)?;
+            runtime.load(name, wasm_bytes)?;
         }
     }
     Ok(())
@@ -55,9 +55,9 @@ pub fn load_builtins_for(runtime: &ComponentRuntime, requested: &[String]) -> Re
 /// Test support: puts all builtin Wasm extensions into a runtime outside the
 /// extension load (`Installed::load`).
 #[cfg(feature = "testing")]
-pub fn load_builtins(runtime: &ComponentRuntime) -> Result<(), String> {
+pub fn load_builtins(runtime: &dyn WasmRuntime) -> Result<(), String> {
     for (name, wasm_bytes) in BUILTIN_EXTENSIONS {
-        runtime.load_module_bytes(name, wasm_bytes)?;
+        runtime.load(name, wasm_bytes)?;
     }
     Ok(())
 }

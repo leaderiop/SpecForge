@@ -13,7 +13,9 @@ use specforge_common::Code;
 use specforge_ops::{OpError, Writes};
 use std::path::Path;
 
-/// The process exit code: one table for every core command.
+/// The process exit code: one table for every core command. A core
+/// command's `run` returns it; `main` alone turns it into a code.
+#[must_use]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Exit {
     /// 0: the command did what it was asked, and its run's verdict, if it
@@ -33,7 +35,16 @@ pub(crate) enum Exit {
 impl Exit {
     /// [`Exit::Passed`] when `ok`, else [`Exit::Failed`].
     pub(crate) const fn of_verdict(ok: bool) -> Self {
-        if ok { Self::Passed } else { Self::Failed }
+        Self::of(specforge_ops::RunVerdict::of(ok))
+    }
+
+    /// The exit of an operation's run verdict.
+    pub(crate) const fn of(verdict: specforge_ops::RunVerdict) -> Self {
+        match verdict {
+            specforge_ops::RunVerdict::Passed => Self::Passed,
+            specforge_ops::RunVerdict::Failed => Self::Failed,
+            specforge_ops::RunVerdict::Unjudged => Self::Unjudged,
+        }
     }
 
     pub(crate) const fn code(self) -> i32 {
@@ -84,8 +95,8 @@ impl<'a> Refusal<'a> {
 
     /// Report `error`: under JSON output the error document on stdout and
     /// nothing on stderr (ADR 0011), under human output [`error_lines`] on
-    /// stderr. Returns the exit code.
-    pub(crate) fn report(self, error: &OpError) -> i32 {
+    /// stderr. Returns the exit.
+    pub(crate) fn report(self, error: &OpError) -> Exit {
         match self.format {
             OutputFormat::Json => {
                 let document = error_document(error, self.root);
@@ -96,12 +107,12 @@ impl<'a> Refusal<'a> {
             }
             OutputFormat::Human => eprint!("{}", error_lines(error, self.root)),
         }
-        self.exit.code()
+        self.exit
     }
 
     /// Report a failure under the catalogued error `code`, as
     /// [`Self::report`].
-    pub(crate) fn coded(self, code: Code, message: impl Into<String>) -> i32 {
+    pub(crate) fn coded(self, code: Code, message: impl Into<String>) -> Exit {
         self.report(&OpError::diagnostic(code, message))
     }
 }
@@ -150,6 +161,7 @@ pub(crate) fn files_written(writes: &Writes, root: Option<&Path>) -> Vec<String>
 mod tests {
     use super::*;
     use specforge_common::codes;
+    use specforge_ops::RunVerdict;
 
     fn failed_after_writing() -> OpError {
         OpError::diagnostic(codes::E032, "failed to write specforge.lock")
@@ -206,8 +218,15 @@ mod tests {
         let error = OpError::diagnostic(codes::E003, "gone");
         // Both formats end the same way; only the stream differs.
         for format in [OutputFormat::Human, OutputFormat::Json] {
-            assert_eq!(Refusal::of(format).report(&error), 1);
-            assert_eq!(Refusal::measuring(format).report(&error), 2);
+            assert_eq!(Refusal::of(format).report(&error).code(), 1);
+            assert_eq!(Refusal::measuring(format).report(&error).code(), 2);
+        }
+        for (verdict, code) in [
+            (RunVerdict::Passed, 0),
+            (RunVerdict::Failed, 1),
+            (RunVerdict::Unjudged, 2),
+        ] {
+            assert_eq!(Exit::of(verdict).code(), code);
         }
     }
 }

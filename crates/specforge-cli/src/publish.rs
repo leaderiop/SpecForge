@@ -26,10 +26,7 @@ pub(crate) fn run(extension: &Path, project: &Path, format: OutputFormat) -> Exi
             present(outcome, format);
             Exit::Passed
         }
-        Err(error) => {
-            Refusal::of(format).report(error);
-            Exit::Failed
-        }
+        Err(error) => Refusal::of(format).report(error),
     }
 }
 

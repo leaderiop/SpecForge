@@ -3,6 +3,7 @@ use serde_json::{Value, json};
 use specforge_extension_sdk::prelude::{CheckKind, PassDiagnostic, PassSpan, ValidationSeverity};
 use specforge_mcp::McpServer;
 use specforge_test::prelude::*;
+use specforge_wasm::WasmRuntime as _;
 use std::path::{Path, PathBuf};
 
 /// test.spec: behavior `alpha` on lines 1–5, contract "MUST work", verify
@@ -1350,7 +1351,7 @@ fn contract_dispatch_surface_command() {
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/sandbox-probe/probe.wasm");
     let runtime = specforge_component::ComponentRuntime::new();
     runtime
-        .load_module_bytes("@test/probe", &std::fs::read(&probe).unwrap())
+        .load("@test/probe", &std::fs::read(&probe).unwrap())
         .unwrap();
     let dir = project_dir(
         json!({"name": "probed", "version": "0.1.0", "extensions": ["@test/probe"]}),

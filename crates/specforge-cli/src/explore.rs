@@ -30,10 +30,7 @@ pub(crate) fn run(path: &Path, request: &ExplorationRequest, format: OutputForma
             }
             Exit::Passed
         }
-        Err(error) => {
-            Refusal::of(format).report(&error);
-            Exit::Failed
-        }
+        Err(error) => Refusal::of(format).report(&error),
     }
 }
 

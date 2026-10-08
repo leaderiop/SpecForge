@@ -74,8 +74,19 @@ impl ViewQuery {
                     }
                     parsed.scope = Some(value);
                 }
-                "depth" => parsed.depth = Some(count(&key, &value)?),
-                "max_tokens" => parsed.max_tokens = Some(count(&key, &value)?),
+                // A count is read as a tool's count argument is (ADR 0033 D2:
+                // a non-negative integer, or a string holding one), with its
+                // wording.
+                "depth" | "max_tokens" => {
+                    let count =
+                        <usize as crate::args::Arg>::read(&key, &serde_json::Value::String(value))
+                            .map_err(|message| refuse(&key, message))?;
+                    if key == "depth" {
+                        parsed.depth = Some(count);
+                    } else {
+                        parsed.max_tokens = Some(count);
+                    }
+                }
                 "kinds" => {
                     let mut kinds = Vec::new();
                     for kind in value.split(',').map(str::trim) {
@@ -119,16 +130,6 @@ impl ViewQuery {
 /// A query the resource cannot read: `invalid_input` naming `key`.
 fn refuse(key: &str, message: String) -> Box<McpError> {
     Box::new(McpError::new(ErrorCode::InvalidInput, message).with_argument(key))
-}
-
-/// A non-negative integer.
-fn count(key: &str, value: &str) -> Result<usize, Box<McpError>> {
-    value.parse::<usize>().map_err(|_| {
-        refuse(
-            key,
-            format!("'{key}' is a non-negative integer, not '{value}'"),
-        )
-    })
 }
 
 /// `text` with its percent-escapes decoded (RFC 3986 §2.1); `what` names it
@@ -220,7 +221,16 @@ fn check_entity_id(entity_id: &str) -> Result<(), Box<McpError>> {
 fn exported(call: &Call<'_>, query: &ViewQuery, format: Format) -> ReadOutcome {
     specforge_ops::export::export(&call.view(), &query.request(format))
         .map(ResourceText::json)
-        .map_err(|error| Box::new(McpError::from(error)))
+        .map_err(|error| {
+            // `depth` without a scope is the query's own mistake: name its key.
+            let names_depth = error.code == specforge_ops::export::DEPTH_WITHOUT_SCOPE;
+            let refusal = McpError::from(error);
+            Box::new(if names_depth {
+                refusal.with_argument("depth")
+            } else {
+                refusal
+            })
+        })
 }
 
 /// `specforge://entities/{kind}`: what `specforge.list {kind}` lists, the

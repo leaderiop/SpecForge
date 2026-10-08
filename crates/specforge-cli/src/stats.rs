@@ -10,7 +10,7 @@ use crate::pipeline;
 /// `path`, its proof percentage read from what `specforge collect` last
 /// recorded there; a report that is there but unusable is an error (exit
 /// 2), as in `analyze`.
-pub fn run(path: &Path, format: OutputFormat) -> i32 {
+pub fn run(path: &Path, format: OutputFormat) -> Exit {
     let (project, _runtime) = pipeline::compile_project(path);
     let stats = match specforge_ops::stats::stats(&ProjectView::of(&project)) {
         Ok(stats) => stats,
@@ -22,7 +22,7 @@ pub fn run(path: &Path, format: OutputFormat) -> i32 {
         OutputFormat::Human => print_human(&stats),
     }
 
-    Exit::Passed.code()
+    Exit::Passed
 }
 
 fn print_human(stats: &Stats) {

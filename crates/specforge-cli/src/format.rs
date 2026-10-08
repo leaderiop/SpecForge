@@ -15,7 +15,7 @@ use std::path::{Path, PathBuf};
 ///   written or printed;
 /// - 1 under `--check` when a file would change;
 /// - 0 otherwise.
-pub fn run(path: &Path, check: bool, diff: bool, stdin: bool, explicit_paths: &[String]) -> i32 {
+pub fn run(path: &Path, check: bool, diff: bool, stdin: bool, explicit_paths: &[String]) -> Exit {
     let project_root = specforge_common::project_root_of(path);
     if stdin {
         return run_stdin(&project_root, path);
@@ -29,15 +29,16 @@ pub fn run(path: &Path, check: bool, diff: bool, stdin: bool, explicit_paths: &[
     });
     if outcome.found_nothing() {
         eprintln!("No .spec files found");
-        return 0;
+        return Exit::Passed;
     }
     for d in &outcome.diagnostics {
         print_diagnostic(d);
     }
     // A failed file is reported as every operation's failure is
     // (`error[CODE]: …`), its code and kind the OS-given ones.
+    // The run's exit is its verdict (`outcome.ok()`), not this report's.
     for failure in &outcome.failures {
-        Refusal::of(crate::OutputFormat::Human).report(&failure.to_op_error());
+        let _ = Refusal::of(crate::OutputFormat::Human).report(&failure.to_op_error());
     }
 
     for change in &outcome.changes {
@@ -60,7 +61,7 @@ pub fn run(path: &Path, check: bool, diff: bool, stdin: bool, explicit_paths: &[
         );
     }
 
-    Exit::of_verdict(outcome.ok()).code()
+    Exit::of_verdict(outcome.ok())
 }
 
 /// A diagnostic on stderr: `<file>: <message>` when it names a file, the
@@ -80,7 +81,7 @@ fn print_diagnostic(d: &Diagnostic) {
 /// stdout: it gets the configuration a file in `dir` would. The formatted
 /// text is printed even when a region was left unformatted; the exit code
 /// is then 1.
-fn run_stdin(root: &Path, dir: &Path) -> i32 {
+fn run_stdin(root: &Path, dir: &Path) -> Exit {
     let mut input = String::new();
     if let Err(e) = io::stdin().read_to_string(&mut input) {
         return Refusal::of(crate::OutputFormat::Human).report(&OpError::new(
@@ -100,5 +101,5 @@ fn run_stdin(root: &Path, dir: &Path) -> i32 {
     print!("{}", result.formatted);
     io::stdout().flush().ok();
 
-    Exit::of_verdict(result.complete()).code()
+    Exit::of_verdict(result.complete())
 }

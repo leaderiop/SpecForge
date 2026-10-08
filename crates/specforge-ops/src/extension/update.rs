@@ -55,7 +55,7 @@ pub enum UpdateStatus {
     /// Not a registry install (`source` is the lock's, e.g.
     /// `local:<path>`): a registry never replaces it (ADR 0004 D3-b).
     NotFromRegistry { source: String },
-    /// Its newer version could not be fetched, checked or installed.
+    /// Its newer version could not be fetched or checked.
     Failed(OpError),
 }
 
@@ -137,7 +137,10 @@ pub struct BatchUpdateCompleted {
 /// Fails outright (nothing asked, nothing written) with `config_invalid`
 /// when `specforge.json` cannot be used, with E033 when the
 /// project has no lock file, and with E063 when a registry install needs a
-/// registry and none is configured.
+/// registry and none is configured. Fails with the change's error (E032
+/// naming the package whose binary could not be placed, E033 for the lock)
+/// when applying it fails; everything is put back, and what could not be is
+/// the error's writes.
 pub fn update(
     req: &UpdateRequest,
     registry: &dyn Registry,
@@ -223,7 +226,7 @@ pub fn update(
         }
     }
 
-    let mut outcome = UpdateOutcome { extensions };
+    let outcome = UpdateOutcome { extensions };
     if !outcome.applied() || planned.is_empty() {
         return Ok(outcome);
     }
@@ -243,16 +246,9 @@ pub fn update(
             },
         );
     }
-    if let Err(failed) = change.commit() {
-        let error = OpError::from(failed.error).with_writes(Writes::of(failed.left));
-        if let Some(e) = outcome
-            .extensions
-            .iter_mut()
-            .find(|e| e.name == planned[0].0)
-        {
-            e.status = UpdateStatus::Failed(error);
-        }
-    }
+    change
+        .commit()
+        .map_err(|failed| OpError::from(failed.error).with_writes(Writes::of(failed.left)))?;
     Ok(outcome)
 }
 
@@ -513,15 +509,57 @@ mod tests {
             return;
         }
 
-        let outcome = update(&request(dir.path(), true), &registry, &runtime()).unwrap();
+        let result = update(&request(dir.path(), true), &registry, &runtime());
         std::fs::set_permissions(dir.path(), mode(0o755)).unwrap();
 
-        assert!(!outcome.applied(), "{outcome:?}");
-        let (_, error) = outcome.failures().next().unwrap();
+        let error = result.unwrap_err();
         assert_eq!(error.code, "E033", "{error:?}");
         assert_eq!(std::fs::read(lock_path(dir.path())).unwrap(), lock_before);
         let installed = installed(dir.path(), "@sdk/greet");
         assert_eq!(std::fs::read(installed).unwrap(), b"old");
+    }
+
+    #[cfg(unix)]
+    #[specforge_test(
+        behavior = "update_all_extensions",
+        verify = "a write that fails while applying fails the update, naming what it could not write, and nothing is applied"
+    )]
+    fn a_write_that_fails_while_applying_fails_the_update() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = project(vec![
+            entry("@sdk/greet", "0.0.9", "registry", &[]),
+            entry("@test/probe", "0.0.9", "registry", &[]),
+        ]);
+        let lock_before = std::fs::read(lock_path(dir.path())).unwrap();
+        let probe = crate::testing::PROBE.to_vec();
+        let registry = MemoryRegistry::new()
+            .serving(greet_published())
+            .serving(Published::new(probe.clone(), declaration_of(&probe)));
+        // The second package's directory cannot take a new file.
+        let probe_dir = dir.path().join(".specforge/extensions/@test");
+        let mode = |m| std::fs::Permissions::from_mode(m);
+        std::fs::set_permissions(&probe_dir, mode(0o555)).unwrap();
+        if std::fs::write(probe_dir.join("probe-check"), b"").is_ok() {
+            // Running as a user permissions don't bind (root): nothing to test.
+            std::fs::set_permissions(&probe_dir, mode(0o755)).unwrap();
+            return;
+        }
+
+        let result = update(&request(dir.path(), true), &registry, &runtime());
+        std::fs::set_permissions(&probe_dir, mode(0o755)).unwrap();
+
+        let error = result.unwrap_err();
+        assert_eq!(error.code, "E032", "{error:?}");
+        assert!(error.message.contains("'@test/probe'"), "{error:?}");
+        assert_eq!(std::fs::read(lock_path(dir.path())).unwrap(), lock_before);
+        assert_eq!(
+            std::fs::read(installed(dir.path(), "@sdk/greet")).unwrap(),
+            b"old"
+        );
+        assert_eq!(
+            std::fs::read(installed(dir.path(), "@test/probe")).unwrap(),
+            b"old"
+        );
     }
 
     #[test]

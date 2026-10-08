@@ -367,7 +367,8 @@ behavior rollback_failed_migration "Rollback Failed Migration" {
     continue with the remaining files — a single restore failure MUST
     NOT block others. After rollback, .bak files MUST be preserved (not
     auto-deleted) so the user can retry or inspect them. The system MUST
-    report the number of files restored, skipped, and failed.
+    report the number of files restored, skipped, and failed. It MUST report
+    each file it restored as written (files_written under --format json).
 
     Note: consumes migration_started for informational context (the backup
     file set created during migration_started), NOT as an execution trigger.
@@ -379,6 +380,7 @@ behavior rollback_failed_migration "Rollback Failed Migration" {
   verify unit "summary reports restored, skipped, and failed counts"
   verify unit "a migration whose graph changes structure is rolled back automatically"
   verify unit "a migration whose extension hook fails is rolled back automatically"
+  verify unit "a rollback reports the files it restored as written"
   verify contract "Rollback Failed Migration: migration rollback holds — migration_started, files_restored, rollback_event_emitted, backup_file_preservation"
 }
 

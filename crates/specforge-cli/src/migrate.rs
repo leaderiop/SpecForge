@@ -1,7 +1,6 @@
 use crate::OutputFormat;
 use crate::outcome::{Exit, Refusal};
-use specforge_migrate::{MigrationStatus, MigrationSummary, RollbackSummary};
-use specforge_ops::migrate::{self, Request};
+use specforge_ops::migrate::{self, MigrationStatus, MigrationSummary, Request, RollbackSummary};
 use std::path::Path;
 
 pub fn run(
@@ -11,16 +10,12 @@ pub fn run(
     rollback: bool,
     target_version: Option<&str>,
     format: OutputFormat,
-) -> i32 {
+) -> Exit {
     // Handle rollback mode
     if rollback {
-        let summary = migrate::rollback(path);
-        print_rollback(
-            &summary,
-            &migrate::restored(&summary).names_under(path),
-            format,
-        );
-        return Exit::of_verdict(summary.failed_count == 0).code();
+        let outcome = migrate::rollback(path);
+        print_rollback(&outcome.summary, &outcome.writes.names_under(path), format);
+        return Exit::of_verdict(outcome.ok());
     }
 
     let target = match migrate::parse_target(target_version) {
@@ -43,7 +38,7 @@ pub fn run(
     print_migration(&outcome.summary, written.as_deref(), format, dry_run);
 
     if outcome.summary.failed_count != 0 {
-        return Exit::of_verdict(outcome.ok()).code();
+        return Exit::of_verdict(outcome.ok());
     }
     for failure in &outcome.hook_failures {
         eprintln!("migration hook failure: {failure}");
@@ -63,7 +58,7 @@ pub fn run(
         }
     }
 
-    Exit::of_verdict(outcome.ok()).code()
+    Exit::of_verdict(outcome.ok())
 }
 
 /// The JSON of `document` with `files_written`, when given.

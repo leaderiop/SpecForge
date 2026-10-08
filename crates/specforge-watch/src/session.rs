@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use specforge_project::{Changes, InputRole, ProjectSession, Update, WatchRoot};
 
-use crate::SpecWatcher;
+use crate::{Debouncer, SpecWatcher};
 
 /// How many times a [`SessionWatch`] follows the session's inputs after one
 /// batch: each round needs the previous round's catch-up to have moved them
@@ -21,25 +21,37 @@ pub trait Watchers {
     fn watch(&mut self, roots: &[WatchRoot]) -> Result<(), String>;
 }
 
-/// The production [`Watchers`]: one [`SpecWatcher`] per root, all sending
-/// debounced batches to one channel.
+/// The production [`Watchers`]: one [`SpecWatcher`] per root, every path
+/// they report debounced as one stream ([`Debouncer`]), so one burst is one
+/// batch however many roots it touches.
 pub struct Notify {
-    sender: mpsc::Sender<Vec<PathBuf>>,
+    paths: mpsc::Sender<PathBuf>,
     live: Vec<SpecWatcher>,
-    window: Duration,
 }
 
 impl Notify {
-    /// Watchers whose batches (each `window` after its last change) arrive
-    /// on the returned receiver.
+    /// Watchers whose batches (each `window` after the last change under
+    /// any root) arrive on the returned receiver.
     pub fn new(window: Duration) -> (Self, mpsc::Receiver<Vec<PathBuf>>) {
-        let (sender, receiver) = mpsc::channel();
-        let notify = Self {
-            sender,
-            live: Vec::new(),
-            window,
-        };
-        (notify, receiver)
+        let (paths, raw) = mpsc::channel::<PathBuf>();
+        let (batches_tx, batches) = mpsc::channel();
+        // Ends when every sender of `raw` (`Notify` and its watchers'
+        // mapping threads) is dropped, or the batches' receiver is.
+        std::thread::spawn(move || {
+            let debouncer = Debouncer::new(window);
+            while let Some(batch) = debouncer.coalesce(&raw) {
+                if batches_tx.send(batch).is_err() {
+                    return;
+                }
+            }
+        });
+        (
+            Self {
+                paths,
+                live: Vec::new(),
+            },
+            batches,
+        )
     }
 }
 
@@ -53,7 +65,7 @@ impl Watchers for Notify {
                 } else {
                     SpecWatcher::shallow
                 };
-                watch(&root.dir, self.sender.clone(), self.window)
+                watch(&root.dir, self.paths.clone())
             })
             .collect::<Result<Vec<_>, _>>()?;
         // The new watchers run; only now do the old ones stop.

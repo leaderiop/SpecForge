@@ -38,7 +38,7 @@ fn main() {
     let runtime = ComponentRuntime::new();
     let mut extensions: Vec<(String, String)> = Vec::new();
     for (name, bytes) in BUILTIN_EXTENSIONS {
-        if let Err(e) = runtime.load_module_bytes(name, bytes) {
+        if let Err(e) = runtime.load(name, bytes) {
             eprintln!("[fail]   {name}: {e}");
             std::process::exit(1);
         }
@@ -47,7 +47,7 @@ fn main() {
     }
     let greet = std::fs::read(root.join(GREET.1))
         .unwrap_or_else(|e| panic!("cannot read {}: {e}", GREET.1));
-    if let Err(e) = runtime.load_module_bytes(GREET.0, &greet) {
+    if let Err(e) = runtime.load(GREET.0, &greet) {
         eprintln!("[fail]   {}: {e}", GREET.0);
         std::process::exit(1);
     }

@@ -22,10 +22,7 @@ pub(crate) fn run(
     path: &Path,
     format: OutputFormat,
 ) -> Exit {
-    let refuse = |error: &OpError| {
-        Refusal::of(format).report(error);
-        Exit::Failed
-    };
+    let refuse = |error: &OpError| Refusal::of(format).report(error);
     let token_value = match token {
         Some(t) => t.to_string(),
         None => {
@@ -95,10 +92,7 @@ pub(crate) fn run(
 /// reading any project; with none given, of the default registry of the
 /// project at `path`.
 pub(crate) fn run_logout(registry_alias: Option<&str>, path: &Path, format: OutputFormat) -> Exit {
-    let refuse = |error: &OpError| {
-        Refusal::of(format).report(error);
-        Exit::Failed
-    };
+    let refuse = |error: &OpError| Refusal::of(format).report(error);
     let alias = match registry_alias {
         Some(alias) => alias.to_string(),
         None => match specforge_ops_registry::configured(path, "logout") {

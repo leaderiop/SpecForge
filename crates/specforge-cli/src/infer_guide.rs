@@ -33,10 +33,7 @@ pub(crate) fn run(path: &Path, kind: Option<&str>, format: OutputFormat) -> Exit
                 }
                 Exit::Passed
             }
-            Err(error) => {
-                Refusal::of(format).report(&error);
-                Exit::Failed
-            }
+            Err(error) => Refusal::of(format).report(&error),
         },
     }
 }

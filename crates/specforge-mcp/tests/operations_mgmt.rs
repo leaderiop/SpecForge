@@ -834,3 +834,70 @@ fn render_contract() {
                 && e.params["category"] == "management")
     );
 }
+
+#[specforge_test(
+    behavior = "provide_mcp_render_tool",
+    verify = "a relative out_dir is written under the call's project root, wherever the server runs"
+)]
+fn a_relative_out_dir_is_written_under_the_project_root() {
+    let mut server = test_server();
+    let root = server.root().to_path_buf();
+    let in_cwd = std::env::current_dir().unwrap().join("rendered");
+    assert!(!in_cwd.exists(), "a stale directory under the cwd");
+
+    let parsed = render(&mut server, json!({"format": "dot", "out_dir": "rendered"}));
+
+    let written = root.join("rendered/graph.dot");
+    assert!(written.exists(), "{parsed}");
+    assert_eq!(
+        parsed["output_files"],
+        json!([written.display().to_string()]),
+        "{parsed}"
+    );
+    assert!(!in_cwd.exists(), "nothing is written under the cwd");
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_render_tool",
+    verify = "a relative out_dir with no project served is invalid input on out_dir"
+)]
+fn a_relative_out_dir_with_nothing_served_is_refused() {
+    let mut server = McpServer::new();
+    let init = call(&mut server, "initialize", json!({}));
+    assert!(init["error"].is_null(), "{init}");
+    let cwd = std::env::current_dir().unwrap();
+
+    let resp = call_tool(
+        &mut server,
+        "specforge.render",
+        json!({"format": "dot", "out_dir": "p15-refused"}),
+    );
+
+    let error = crate::tool_errors::mcp_error(&resp);
+    assert_eq!(error["code"], "invalid_input", "{error}");
+    assert_eq!(error["argument"], "out_dir", "{error}");
+    assert!(!cwd.join("p15-refused").exists());
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_collect_tool",
+    verify = "specforge.collect of a directory that holds no project refuses with no_project"
+)]
+fn collect_of_a_directory_that_is_no_project_is_no_project() {
+    let mut server = test_server();
+    let bare = tempfile::TempDir::new().unwrap();
+    let resp = call_tool(
+        &mut server,
+        "specforge.collect",
+        json!({"path": bare.path().to_str().unwrap()}),
+    );
+    let error = crate::tool_errors::mcp_error(&resp);
+    assert_eq!(error["code"], "precondition_failed", "{error}");
+    assert!(error["diagnostic"].is_null(), "no E058: {error}");
+    assert!(
+        error["message"]
+            .as_str()
+            .is_some_and(|m| m.contains("no specforge project at")),
+        "{error}"
+    );
+}

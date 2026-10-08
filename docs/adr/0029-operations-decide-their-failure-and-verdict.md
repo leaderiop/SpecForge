@@ -64,6 +64,19 @@ nearest project, else the directory itself" on their own.
 - The parity harness compares verdicts: the CLI's exit code and MCP's `ok` cannot disagree for check,
   analyze, format and migrate.
 
+## Amendment (architecture round 5, plan 15)
+
+- **D4a. A core command's `run` returns `Exit`.** `main` alone turns it into a process code; `Refusal::report`
+  returns `Exit`, and `RunVerdict` (`specforge_ops`) is the verdict an operation that can be unjudged returns.
+  Extension commands keep their own code (ADR 0011). The build-cache write failure, the watch start failure
+  and an unknown `explain` code are refusals (`error[CODE]`).
+- **D5a. Collect's precondition is the operation's.** `collect` refuses a root that holds no project
+  (`no_project`, `OpError::no_project`) on both surfaces; the CLI finds the root by D6's rule
+  (`project_root_of`), so MCP answers `no_project` where it answered E058 for a directory that is no project.
+- **D8a. MCP resolves a relative `out_dir` of `specforge.render` against the call's project root** as it does
+  `test_results`; with no project served a relative one is invalid input on `out_dir`. `output_files` lists
+  absolute paths.
+
 ## What would reopen it
 
 A surface that needs a failure kind ops cannot know (a transport failure), or a command whose exit

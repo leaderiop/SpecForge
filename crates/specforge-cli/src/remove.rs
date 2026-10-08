@@ -1,5 +1,5 @@
 use crate::OutputFormat;
-use crate::outcome::Refusal;
+use crate::outcome::{Exit, Refusal};
 use serde_json::json;
 use specforge_ops::extension::{self, Origin, RemoveRequest};
 use specforge_ops::view::ProjectView;
@@ -8,7 +8,7 @@ use std::path::Path;
 /// `specforge remove`: the shared remove operation over the view of a fresh
 /// compile of the project, whose loaded declarations say which extensions
 /// depend on the one removed.
-pub fn run(name: &str, path: &Path, force: bool, format: OutputFormat) -> i32 {
+pub fn run(name: &str, path: &Path, force: bool, format: OutputFormat) -> Exit {
     let (project, _runtime) = crate::pipeline::compile_project(path);
     let request = RemoveRequest {
         name,
@@ -69,5 +69,5 @@ pub fn run(name: &str, path: &Path, force: bool, format: OutputFormat) -> i32 {
             }
         }
     }
-    0
+    Exit::Passed
 }

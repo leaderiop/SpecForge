@@ -7,9 +7,13 @@
 //! restored from their backups.
 
 use specforge_common::{Diagnostic, Severity, codes};
+/// The migration crate's report types, as this operation's interface.
+pub use specforge_migrate::{
+    MigrationBackup, MigrationDiff, MigrationResult, MigrationStatus, MigrationSummary,
+    RollbackSummary,
+};
 use specforge_migrate::{
-    MigrationSummary, RollbackSummary, check_schema_compatibility, compare_graphs, migrate_project,
-    run_rollback,
+    check_schema_compatibility, compare_graphs, migrate_project, run_rollback,
 };
 use specforge_parser::{
     CURRENT_FORMAT_VERSION, FormatVersion, MAX_SUPPORTED_VERSION, MIN_SUPPORTED_VERSION,
@@ -193,7 +197,7 @@ pub fn run(request: &Request, runtime: Option<&dyn WasmRuntime>) -> Outcome {
             .summary
             .results
             .iter()
-            .filter(|r| r.status == specforge_migrate::MigrationStatus::Migrated)
+            .filter(|r| r.status == MigrationStatus::Migrated)
             .map(|r| r.file_path.clone())
             .collect(),
     };
@@ -226,7 +230,7 @@ fn summary_writes(summary: &MigrationSummary) -> Writes {
     let migrated = summary
         .results
         .iter()
-        .filter(|r| r.status == specforge_migrate::MigrationStatus::Migrated)
+        .filter(|r| r.status == MigrationStatus::Migrated)
         .map(|r| r.file_path.as_str());
     let backups = summary.backups.iter().map(|b| b.backup_path.as_str());
     migrated.chain(backups).collect()
@@ -240,13 +244,13 @@ fn roll_back(root: &Path, outcome: &mut Outcome) {
     for restored in summary
         .results
         .iter()
-        .filter(|r| r.status == specforge_migrate::MigrationStatus::Restored)
+        .filter(|r| r.status == MigrationStatus::Restored)
     {
         let path = Path::new(&restored.file_path);
-        let migrated_here = outcome.summary.results.iter().any(|r| {
-            r.status == specforge_migrate::MigrationStatus::Migrated
-                && r.file_path == restored.file_path
-        });
+        let migrated_here =
+            outcome.summary.results.iter().any(|r| {
+                r.status == MigrationStatus::Migrated && r.file_path == restored.file_path
+            });
         if migrated_here {
             outcome.writes.forget(path);
         } else {
@@ -257,18 +261,37 @@ fn roll_back(root: &Path, outcome: &mut Outcome) {
 }
 
 /// What a rollback rewrote: each file it restored from its backup.
-pub fn restored(summary: &RollbackSummary) -> Writes {
+fn restored_writes(summary: &RollbackSummary) -> Writes {
     summary
         .results
         .iter()
-        .filter(|r| r.status == specforge_migrate::MigrationStatus::Restored)
+        .filter(|r| r.status == MigrationStatus::Restored)
         .map(|r| r.file_path.as_str())
         .collect()
 }
 
-/// Restore every migrated file from its `.bak` backup.
-pub fn rollback(root: &Path) -> RollbackSummary {
-    run_rollback(root)
+/// What a rollback did: the restore, and the files it rewrote.
+#[derive(Debug, Clone)]
+pub struct RollbackOutcome {
+    pub summary: RollbackSummary,
+    /// Each file restored from its backup (ADR 0022 D1).
+    pub writes: Writes,
+}
+
+impl RollbackOutcome {
+    /// The run's verdict: no file failed to restore. `specforge migrate
+    /// --rollback` exits by it.
+    pub fn ok(&self) -> bool {
+        self.summary.failed_count == 0
+    }
+}
+
+/// Restore every migrated file of the project `root` is in from its `.bak`
+/// backup.
+pub fn rollback(root: &Path) -> RollbackOutcome {
+    let summary = run_rollback(root);
+    let writes = restored_writes(&summary);
+    RollbackOutcome { summary, writes }
 }
 
 fn schema_of(project: &CompiledProject) -> specforge_emitter::GraphProtocolSchema {

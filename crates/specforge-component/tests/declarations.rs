@@ -45,17 +45,13 @@ fn builtin_declarations_match_their_snapshots() {
     let runtime = ComponentRuntime::new();
     let mut extensions: Vec<(String, String)> = Vec::new();
     for (name, bytes) in BUILTIN_EXTENSIONS {
-        runtime
-            .load_module_bytes(name, bytes)
-            .expect("builtin loads");
+        runtime.load(name, bytes).expect("builtin loads");
         let dir = name.rsplit('/').next().unwrap_or(name).to_string();
         extensions.push((name.to_string(), dir));
     }
     let greet = std::fs::read(root.join("fixtures/greet-extension/greet.wasm"))
         .expect("vendored greet component blob");
-    runtime
-        .load_module_bytes("@sdk/greet", &greet)
-        .expect("greet loads");
+    runtime.load("@sdk/greet", &greet).expect("greet loads");
     extensions.push(("@sdk/greet".to_string(), "greet".to_string()));
 
     let handshake_request = serde_json::to_vec(&serde_json::json!({

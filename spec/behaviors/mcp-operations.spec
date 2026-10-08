@@ -479,13 +479,16 @@ behavior provide_mcp_collect_tool "Provide MCP Collect Tool" {
     reports; with run=true it first runs each runner's declared command,
     but only a command the user already approved for the project with
     `specforge collect` in a terminal, and with its output discarded
-    because the server owns stdio. An unapproved command is an E059 error,
+    because the server owns stdio. A path that holds no project is a
+    no_project refusal, as `specforge collect` refuses it. An unapproved
+    command is an E059 error,
     and a missing collector or report is an error naming its code. The
     result lists each runner's counts, the W115 diagnostics and the path of
     the written specforge-report.json.
   """
   verify unit "specforge.collect parses test results and maps to entities"
   verify unit "specforge.collect refuses to run an unapproved command"
+  verify unit "specforge.collect of a directory that holds no project refuses with no_project"
   verify unit "a project without a collector returns an E058 error"
   verify contract "Provide MCP Collect Tool: MCP collect tool holds — filesystem_available, compiler_api_available, report_emitted, collector_delegated, never_prompts, tool_invoked_emitted"
 }
@@ -511,7 +514,10 @@ behavior provide_mcp_render_tool "Provide MCP Render Tool" {
     accepts format (required, a format string matching a registered renderer),
     out_dir? (output directory path) and scope? (an entity id). The tool MUST
     invoke the matching registered renderer and write output files to out_dir;
-    without out_dir it MUST return the rendering inline instead.
+    without out_dir it MUST return the rendering inline instead. A relative
+    out_dir names a directory under the call's project root, wherever the
+    server runs; with no project served a relative out_dir MUST be refused as
+    invalid input on out_dir. output_files lists the absolute paths written.
     The renderers are the core graph engine's export formats (see P7
     justification in features/output.spec), named as `specforge export
     --format` names them: graph (also accepted as json; the full graph, as
@@ -528,6 +534,8 @@ behavior provide_mcp_render_tool "Provide MCP Render Tool" {
     The response MUST list all files written.
   """
   verify unit "specforge.render writes output files to out_dir"
+  verify unit "a relative out_dir is written under the call's project root, wherever the server runs"
+  verify unit "a relative out_dir with no project served is invalid input on out_dir"
   verify unit "registered renderer invoked for matching format"
   verify unit "unrecognized format returns error listing available renderers"
   verify unit "graph and its alias json select the full graph renderer"

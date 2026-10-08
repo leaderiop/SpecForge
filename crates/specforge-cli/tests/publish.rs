@@ -5,6 +5,7 @@ use crate::registry::{greet_named, greet_wasm};
 use specforge_registry_client::{HttpRegistryClient, RegistryClient, RegistryConfig};
 use specforge_registry_server::testing::LocalRegistry;
 use specforge_test::prelude::*;
+use specforge_wasm::WasmRuntime as _;
 use tempfile::TempDir;
 
 /// How `specforge.json` names `registry`.
@@ -68,9 +69,7 @@ fn publish_stores_the_declaration_the_binary_declares() {
     let stored: specforge_protocol_types::ExtensionDeclaration =
         serde_json::from_str(&served.manifest).unwrap();
     let runtime = specforge_component::ComponentRuntime::new();
-    runtime
-        .load_module_bytes("@sdk/greet", &greet_wasm())
-        .unwrap();
+    runtime.load("@sdk/greet", &greet_wasm()).unwrap();
     let declared = specforge_wasm::protocol::load_declaration(&runtime, "@sdk/greet")
         .unwrap()
         .declaration;

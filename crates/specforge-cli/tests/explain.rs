@@ -47,7 +47,9 @@ fn explain_rejects_an_unknown_code_with_format_hints() {
     );
     let stderr = String::from_utf8(out.stderr).unwrap();
     assert!(
-        stderr.contains("unknown diagnostic code: Z999"),
+        stderr.starts_with(
+            "error[unknown_code]: unknown diagnostic code: Z999\n  hint: codes are E###"
+        ),
         "stderr: {stderr}"
     );
     assert!(
@@ -55,7 +57,7 @@ fn explain_rejects_an_unknown_code_with_format_hints() {
         "the format hint is printed: {stderr}"
     );
     assert!(
-        stderr.contains("E900-E998, W900-W998 and I900-I998 are reserved for third-party"),
+        stderr.contains("E900-E998, W900-W998 and I900-I998 are third-party extensions'"),
         "the third-party range hint is printed: {stderr}"
     );
 }

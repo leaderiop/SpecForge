@@ -1,4 +1,5 @@
 use crate::OutputFormat;
+use crate::outcome::Exit;
 use serde_json::json;
 use specforge_common::codes;
 use specforge_ops::doctor::{
@@ -14,7 +15,7 @@ use std::path::Path;
 /// `specforge doctor`: the shared project health report (extensions and
 /// their enhancements, conflicts, shadowed keywords, installed binaries)
 /// plus registry credential health. Exit 1 on any error-level finding.
-pub fn run(path: &Path, format: OutputFormat) -> i32 {
+pub fn run(path: &Path, format: OutputFormat) -> Exit {
     let (project, _runtime) = crate::pipeline::compile_project(path);
     let report = diagnose(&ProjectView::of(&project));
     let credentials = user_credential_health();
@@ -35,9 +36,9 @@ pub fn run(path: &Path, format: OutputFormat) -> i32 {
     }
 
     if healthy && credentials.failures == 0 {
-        0
+        Exit::Passed
     } else {
-        1
+        Exit::Failed
     }
 }
 

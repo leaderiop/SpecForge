@@ -2164,3 +2164,84 @@ fn remove_json_lists_the_files_it_wrote() {
     assert_eq!(files_written(&builtin), ["specforge.json"]);
     assert_eq!(changed_since(root, &before), files_written(&builtin));
 }
+
+/// `specforge.doctor`'s reply over an in-process MCP server serving `root`.
+fn mcp_doctor_json(root: &std::path::Path) -> serde_json::Value {
+    let mut server = specforge_mcp::McpServer::with_project_root(root.to_path_buf());
+    let init = serde_json::json!({"jsonrpc": "2.0", "id": 0, "method": "initialize", "params": {}});
+    server.handle_message(&init.to_string());
+    let call = serde_json::json!({
+        "jsonrpc": "2.0", "id": 1, "method": "tools/call",
+        "params": {"name": "specforge.doctor", "arguments": {}}
+    });
+    let reply: serde_json::Value =
+        serde_json::from_str(&server.handle_message(&call.to_string()).unwrap()).unwrap();
+    let text = reply["result"]["content"][0]["text"]
+        .as_str()
+        .unwrap_or_else(|| panic!("{reply}"));
+    serde_json::from_str(text).unwrap_or_else(|e| panic!("{e}: {text}"))
+}
+
+/// The sorted keys of a JSON object.
+fn keys_of(value: &serde_json::Value) -> Vec<&str> {
+    let mut keys: Vec<&str> = value
+        .as_object()
+        .unwrap_or_else(|| panic!("not an object: {value}"))
+        .keys()
+        .map(String::as_str)
+        .collect();
+    keys.sort_unstable();
+    keys
+}
+
+// pin (15-T0): today's behaviour; flipped by 15-T14
+#[test]
+fn pin_doctor_json_shapes() {
+    let dir = TempDir::new().unwrap();
+    write_config_with_extensions(dir.path(), &["@specforge/software", "@acme/missing"]);
+
+    let (cli, code) = doctor_json(dir.path());
+    assert_eq!(code, 1, "{cli}");
+    assert_eq!(
+        keys_of(&cli),
+        [
+            "cache_status",
+            "conflicts",
+            "credentials",
+            "credentials_failures",
+            "enhancements",
+            "extensions",
+            "extensions_checked",
+            "findings",
+            "issues",
+            "load_failures",
+            "peers",
+            "shadowed",
+            "status",
+            "z3_available",
+        ],
+        "{cli}"
+    );
+    assert_eq!(cli["load_failures"][0]["binary_issue"], false, "{cli}");
+    assert_eq!(cli["findings"][0]["code"], "E028", "{cli}");
+
+    let mcp = mcp_doctor_json(dir.path());
+    assert_eq!(
+        keys_of(&mcp),
+        [
+            "cache_status",
+            "conflicts",
+            "enhancements",
+            "extensions",
+            "extensions_ok",
+            "findings",
+            "installed_count",
+            "issues",
+            "load_failures",
+            "peers",
+            "shadowed",
+            "z3_available",
+        ],
+        "{mcp}"
+    );
+}

@@ -19,7 +19,6 @@ specforge-component = { path = "../specforge-component" }
 specforge-registry = { workspace = true }
 specforge-formatter = { workspace = true }
 specforge-mcp-macros = { path = "../specforge-mcp-macros" }
-specforge-migrate = { workspace = true }
 specforge-ops = { workspace = true }
 specforge-ops-registry = { path = "../specforge-ops-registry" }
 specforge-project = { workspace = true }

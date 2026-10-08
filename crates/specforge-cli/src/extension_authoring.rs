@@ -6,7 +6,7 @@
 //! extension.
 
 use crate::OutputFormat;
-use crate::outcome::Refusal;
+use crate::outcome::{Exit, Refusal};
 use serde_json::json;
 use specforge_common::{Code, Diagnostic, Severity, codes};
 use std::path::Path;
@@ -15,7 +15,7 @@ use std::path::Path;
 /// built.
 const NOT_BUILT: Code = codes::E040;
 
-pub fn run_init(path: &Path, name: Option<&str>, format: OutputFormat) -> i32 {
+pub fn run_init(path: &Path, name: Option<&str>, format: OutputFormat) -> Exit {
     let ext_name = name.unwrap_or("my-extension");
     let ext_dir = path.join(ext_name.rsplit('/').next().unwrap_or(ext_name));
     let declared = if ext_name.starts_with('@') {
@@ -62,10 +62,10 @@ pub fn run_init(path: &Path, name: Option<&str>, format: OutputFormat) -> i32 {
             );
         }
     }
-    0
+    Exit::Passed
 }
 
-pub fn run_build(path: &Path, format: OutputFormat) -> i32 {
+pub fn run_build(path: &Path, format: OutputFormat) -> Exit {
     if !path.join("Cargo.toml").exists() {
         return Refusal::of(format).coded(
             NOT_BUILT,
@@ -126,10 +126,10 @@ pub fn run_build(path: &Path, format: OutputFormat) -> i32 {
         ),
         OutputFormat::Human => println!("Built {}", binary.display()),
     }
-    0
+    Exit::Passed
 }
 
-pub fn run_validate(path: &Path, format: OutputFormat) -> i32 {
+pub fn run_validate(path: &Path, format: OutputFormat) -> Exit {
     let binary = match specforge_ops::publish::binary_at(path) {
         Ok(binary) => binary,
         Err(error) => {
@@ -188,7 +188,7 @@ pub fn run_validate(path: &Path, format: OutputFormat) -> i32 {
             }
         }
     }
-    if valid { 0 } else { 1 }
+    Exit::of_verdict(valid)
 }
 
 fn level(d: &Diagnostic) -> &'static str {
