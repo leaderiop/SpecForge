@@ -15,29 +15,14 @@ use crate::pipeline;
 /// the version the export carries. After a successful export that schema
 /// replaces the cache, so the next export compares against it. The export
 /// is written whatever the comparison finds.
-pub fn run(
-    path: &Path,
-    format: export::Format,
-    scope: Option<&str>,
-    schema: export::Schema,
-    schema_version: Option<&str>,
-    max_tokens: Option<usize>,
-) -> Exit {
+pub fn run(path: &Path, request: &export::Request) -> Exit {
     let (project, _runtime) = pipeline::compile_project(path);
     let view = ProjectView::of(&project);
 
-    let request = export::Request {
-        format: Some(format),
-        scope,
-        max_tokens,
-        schema,
-        schema_version,
-        ..export::Request::default()
-    };
     // The export goes to stdout: there is no output directory holding
     // earlier exports, and `.specforge/` holds extensions and the watch
     // snapshot too, so nothing here shows the project was exported before.
-    let recorded = export::export_recorded(&view, &request);
+    let recorded = export::export_recorded(&view, request);
     for diagnostic in &recorded.breaking {
         eprintln!("{}", specforge_common::render_plain(diagnostic));
     }

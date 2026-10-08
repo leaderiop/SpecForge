@@ -1270,6 +1270,100 @@ fn analyze_bad_pass_uses_each_surfaces_channel() {
     assert!(text.contains("Unknown analysis pass 'nonsense'"), "{text}");
 }
 
+// ── export: depth and kinds narrow the export the same way ─────────────────
+
+/// A project where `alpha` is in a feature and an invariant: three kinds,
+/// and entities one hop from `alpha`.
+fn export_project(root: &Path) {
+    project(root);
+    std::fs::write(
+        root.join("spec/main.spec"),
+        "behavior alpha \"Alpha\" {\n  category \"core\"\n  contract \"The system MUST work\"\n  invariants [law]\n}\n\
+         invariant law \"Law\" {\n  guarantee \"x\"\n}\n\
+         feature wide \"Wide\" {\n  behaviors [alpha]\n}\n",
+    )
+    .unwrap();
+}
+
+/// `specforge export --format brief` with `extra`, and `specforge.export`
+/// with `arguments` over the same project: the two payloads.
+fn export_both_ways(extra: &[&str], arguments: Value) -> (String, String) {
+    let dir = tempfile::tempdir().unwrap();
+    export_project(dir.path());
+    let out = cli()
+        .args(["export", &s(dir.path()), "--format", "brief"])
+        .args(extra)
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "{out:?}");
+    let cli_text = String::from_utf8_lossy(&out.stdout).trim_end().to_string();
+
+    let mut server = mcp_on(dir.path());
+    let mut arguments = arguments;
+    arguments["format"] = json!("brief");
+    let req = json!({
+        "jsonrpc": "2.0", "id": 2, "method": "tools/call",
+        "params": {"name": "specforge.export", "arguments": arguments}
+    });
+    let resp: Value =
+        serde_json::from_str(&server.handle_message(&req.to_string()).unwrap()).unwrap();
+    assert_ne!(resp["result"]["isError"], true, "{resp}");
+    let mcp_text = resp["result"]["content"][0]["text"]
+        .as_str()
+        .unwrap()
+        .trim_end()
+        .to_string();
+    (cli_text, mcp_text)
+}
+
+#[specforge_test_macros::test(
+    behavior = "export_agent_graph_format",
+    verify = "depth and kinds narrow the export the same way on every surface"
+)]
+fn export_scoped_depth_kinds() {
+    let (cli_text, mcp_text) = export_both_ways(
+        &["--scope", "alpha", "--depth", "1", "--kinds", "invariant"],
+        json!({"scope": "alpha", "depth": 1, "kinds": ["invariant"]}),
+    );
+    assert_eq!(cli_text, mcp_text);
+    assert!(cli_text.contains("alpha"), "{cli_text}");
+    assert!(cli_text.contains("law"), "{cli_text}");
+    assert!(!cli_text.contains("wide"), "kinds narrowed it: {cli_text}");
+
+    // Without the narrowing the feature is in.
+    let (all, _) = export_both_ways(
+        &["--scope", "alpha", "--depth", "1"],
+        json!({
+            "scope": "alpha", "depth": 1
+        }),
+    );
+    assert!(all.contains("wide"), "{all}");
+
+    // The graph resource reads the same options (ADR 0024 D4).
+    let dir = tempfile::tempdir().unwrap();
+    export_project(dir.path());
+    let mut server = mcp_on(dir.path());
+    let resource = mcp_document_text(
+        &mut server,
+        "specforge://brief?scope=alpha&depth=1&kinds=invariant",
+    );
+    assert_eq!(resource.trim_end(), cli_text);
+}
+
+/// The text a resource read answered with.
+fn mcp_document_text(server: &mut McpServer, uri: &str) -> String {
+    let req = json!({
+        "jsonrpc": "2.0", "id": 3, "method": "resources/read", "params": {"uri": uri}
+    });
+    let resp: Value =
+        serde_json::from_str(&server.handle_message(&req.to_string()).unwrap()).unwrap();
+    resp["result"]["contents"][0]["text"]
+        .as_str()
+        .unwrap_or_else(|| panic!("{resp}"))
+        .to_string()
+}
+
 // ── infer: one progress and gap document on both surfaces ───────────────────
 
 /// A Rust project half-way through inference: `src/lib.rs` is indexed and

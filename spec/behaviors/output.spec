@@ -884,7 +884,6 @@ behavior export_agent_context_format "Export Agent Context Format" {
   verify integration "export --format context keeps an invariant's guarantee"
   verify unit "scoped export returns only reachable subgraph"
   verify unit "non-existent scope entity produces E003 and exit code 1"
-  verify unit "depth without a scope is invalid input on every surface"
   verify unit "output conforms to Graph Protocol schema"
   verify unit "output includes schema_version field"
   verify contract "Export Agent Context Format: agent context export holds — validation_complete_fired, token_optimized_output, schema_version_present, scope_enforced, invalid_scope_diagnosed, export_complete_emitted"
@@ -959,14 +958,19 @@ behavior export_agent_graph_format "Export Agent Graph Format" {
     command writes to stdout for agent consumption. An optional --scope parameter
     MUST allow scoping to a subgraph rooted at a specific entity. If --scope
     references a non-existent entity ID, the system MUST emit an E003
-    diagnostic and exit with code 1. The output MUST include a schema_version
-    field identifying the Graph Protocol version. Depth without a scope is
-    invalid input.
+    diagnostic and exit with code 1. --depth (with --scope) limits the hops
+    from it, and --kinds keeps only entities of those kinds, the scoped
+    entity always kept; depth without a scope is invalid input.
+    specforge.export and the graph resources take the same options. The
+    output MUST include a schema_version field identifying the Graph
+    Protocol version.
   """
   verify unit "graph format includes all nodes and edges"
   verify unit "graph format includes all fields and metadata"
   verify unit "scoped export returns only reachable subgraph"
   verify unit "non-existent scope entity produces E003 and exit code 1"
+  verify unit "depth without a scope is invalid input on every surface"
+  verify integration "depth and kinds narrow the export the same way on every surface"
   verify unit "an export failure carries its code as a constant, never in its message"
   verify unit "output conforms to Graph Protocol schema"
   verify unit "output includes schema_version field"

@@ -196,6 +196,11 @@ expression: listing
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
+        "depth": {
+          "description": "With scope, how many hops from the scoped entity to include",
+          "minimum": 0,
+          "type": "integer"
+        },
         "format": {
           "default": "graph",
           "description": "Export format: graph (also json): every entity with its fields, file and line (Graph Protocol); context: headline and normative fields and verify, for an agent; brief: id, kind and title",
@@ -207,6 +212,13 @@ expression: listing
           ],
           "type": "string"
         },
+        "kinds": {
+          "description": "Keep only entities of these kinds; the scoped entity always stays",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
         "max_tokens": {
           "description": "Optional token budget; truncates the export to the most central entities that fit",
           "minimum": 0,
@@ -216,6 +228,10 @@ expression: listing
           "default": false,
           "description": "Leave the schema out of a graph export (Graph Protocol 1.0)",
           "type": "boolean"
+        },
+        "schema_version": {
+          "description": "Request a specific schema version for the export",
+          "type": "string"
         },
         "scope": {
           "description": "Scope to entity subgraph",

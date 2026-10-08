@@ -269,6 +269,60 @@ fn a_budget_too_small_is_invalid_input() {
     );
 }
 
+#[specforge_test(
+    behavior = "provide_mcp_export_tool",
+    verify = "specforge.export takes the options specforge export takes"
+)]
+fn export_takes_a_schema_version() {
+    let mut server = served();
+    // A version of another major is refused as `specforge export
+    // --schema-version` refuses it: the operation's one error.
+    let root = server.root().to_path_buf();
+    let expected = {
+        let runtime = specforge_component::ComponentRuntime::with_user_cache();
+        let project = CompiledProject::compile(&root, Some(&runtime));
+        specforge_ops::export::export(
+            &ProjectView::of(&project),
+            &Request {
+                format: Some(Format::Graph),
+                schema_version: Some("99.0.0"),
+                ..Request::default()
+            },
+        )
+        .unwrap_err()
+    };
+    let reply = call_tool(
+        &mut server,
+        "specforge.export",
+        json!({"format": "graph", "schema_version": "99.0.0"}),
+    );
+    let error = tool_error(&reply);
+    assert_eq!(
+        error["diagnostic"]["code"],
+        expected.code.as_ref(),
+        "{error}"
+    );
+
+    // A version of this major is served at that version.
+    let reply = call_tool(
+        &mut server,
+        "specforge.export",
+        json!({"format": "graph", "schema_version": "1.0.0"}),
+    );
+    let text = reply["result"]["content"][0]["text"].as_str().unwrap();
+    let document: Value = serde_json::from_str(text).unwrap();
+    assert_eq!(document["schema_version"], "1.0.0", "{document}");
+
+    // `depth` needs a `scope`, as on every surface.
+    let reply = call_tool(
+        &mut server,
+        "specforge.export",
+        json!({"format": "graph", "depth": 1}),
+    );
+    let error = tool_error(&reply);
+    assert_eq!(error["code"], "invalid_input", "{error}");
+}
+
 #[test]
 fn a_budget_too_small_for_a_resource_is_invalid_input() {
     let mut server = served();
