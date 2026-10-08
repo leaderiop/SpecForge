@@ -5,7 +5,6 @@
 //! both surfaces list, accept, default and refuse the same names.
 
 use specforge_emitter::model::{ModelIntermediate_from_schema, filter_entities, filter_fields};
-use specforge_emitter::outline::OutlineIntermediate_from_declarations;
 
 // The value types, so surfaces name ops rather than the emitter.
 pub use specforge_emitter::model::{FieldLevel, GroupBy, ModelFormat, ModelOptions};
@@ -28,8 +27,7 @@ pub fn model(view: &ProjectView, options: &ModelOptions) -> String {
 /// The architecture of the view's extensions (dependencies, enhancements,
 /// contributions), as `options` asks.
 pub fn outline(view: &ProjectView, options: &OutlineOptions) -> String {
-    let outline = OutlineIntermediate_from_declarations(view.registries().declarations());
-    specforge_emitter::outline::render(&outline, options)
+    specforge_emitter::outline::export(view.registries().declarations(), options)
 }
 
 /// A choice whose name says what it selects.

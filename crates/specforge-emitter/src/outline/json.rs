@@ -1,6 +1,6 @@
 use super::{OutlineDependency, OutlineDetail, OutlineIntermediate, OutlineOptions};
 
-pub fn render_json(outline: &OutlineIntermediate, options: &OutlineOptions) -> String {
+pub(super) fn render_json(outline: &OutlineIntermediate, options: &OutlineOptions) -> String {
     let dependencies = super::filter_dependencies(&outline.dependencies, options.deps);
     match options.detail {
         OutlineDetail::None => render_summary(outline, &dependencies),
