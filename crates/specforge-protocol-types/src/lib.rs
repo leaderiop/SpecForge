@@ -29,6 +29,7 @@ pub mod calls;
 pub mod command_args;
 mod declaration;
 pub mod package;
+pub mod peers;
 mod vocabulary;
 pub use calls::*;
 pub use declaration::{

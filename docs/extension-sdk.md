@@ -98,7 +98,7 @@ use specforge_extension_sdk::prelude::*;
     short = "software",
     description = "Software design: behaviors, invariants, events, types and ports",
 )]
-#[peer_dependency("@specforge/product", version = "^1.0")]
+// peers: meta.peer_dependencies (see Peer dependencies)
 mod software {
 
     // ── Shared Fields ─────────────────────────────────────────────
@@ -306,11 +306,14 @@ Everything else the handshake carries is set on the builder: `ContributionsBuild
 
 `ExtensionMeta::sandbox_policy` declares the extension's limits, `SandboxPolicy { max_execution_ms, max_memory_mb }`: at most 30000 ms and 512 MB, the ceiling when unset. A component is granted no capability whatever it declares (see Sandbox in the [protocol doc](extension-protocol.md)).
 
-The `#[peer_dependency]` macro declares dependencies on other extensions:
+Peer dependencies go on the extension's meta:
 
 ```rust
-#[peer_dependency("@specforge/product", version = "^1.0")]
-#[peer_dependency("@specforge/governance", version = "^1.0", optional = true)]
+c.meta.peer_dependencies.push(PeerDependency {
+    name: "@specforge/product".to_string(),
+    version: "^1.0".to_string(), // a SemVer requirement; anything else is E073
+    optional: false,
+});
 ```
 
 ## Contribution Surface Reference
@@ -335,7 +338,7 @@ Every macro maps to a protocol category. The SDK generates the appropriate Wasm 
 | `c.pass(...)` with `p.run(...)` (builder) | Pass descriptor + `__pass_*` export | `passes` |
 | `c.analyzer(...)` with `a.scan(...)` (builder) | Analyzer descriptor + `scan__*` export | `analyzers` |
 | `#[feature_flag]` | Flag descriptor | `feature_flags` |
-| `#[peer_dependency]` | Dependency declaration | handshake |
+| `meta.peer_dependencies` | Dependency declaration | handshake |
 | `#[lsp]` | LSP metadata on entity kind | `entities` |
 | `#[dot]` | DOT visualization metadata | `entities` |
 | `cmd.arg(...)` (builder) | Command argument descriptor | `surfaces` |
@@ -728,8 +731,7 @@ Extensions that contribute no entity kinds of their own -- only enhancements to 
     short = "testing",
     host_api = "1.0.0",
 )]
-#[peer_dependency("@specforge/software", version = "^1.0")]
-#[peer_dependency("@specforge/product", version = "^1.0")]
+// peers: meta.peer_dependencies (see Peer dependencies)
 mod software_testing {
 
     // No #[entity_kind] declarations -- enhancement-only extension

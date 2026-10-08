@@ -83,10 +83,11 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Extension load**: turning a project's `extensions` entries into loaded extensions and their
   declarations, once per environment load (`Installed::load`, over the `WasmRuntime` port): a
   builtin from its embedded binary, an installed extension from its pinned module, a `.wasm` file
-  entry from its file under the name it declares. What does not load is a typed `LoadFailure` on its
+  entry from its file under the name it declares. Its declarations come in entry order; the registry
+  build puts them in load order. What does not load is a typed `LoadFailure` on its
   entry with one diagnostic; the runtime keeps none.
-- **Registry build**: the pure result of turning extension declarations into kind, field and
-  edge registries, the rule set, pass order and derived graph inputs, and the diagnostics of those
+- **Registry build**: the pure result of putting extension declarations in load order and turning
+  them into kind, field and edge registries, the rule set, pass order and derived graph inputs, and the diagnostics of those
   declarations (`specforge_registry::build_registries`). It also runs every check over a built
   graph's entity records, in one order behind one gate: the structural checks, then the rule set
   (`RegistryBuild::check`), and says which files those checks read (`RegistryBuild::files`). Its
@@ -165,6 +166,17 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   reads one (`VersionRequirement`); `pick` is the one rule that chooses among published versions,
   run by ops for `add` and `update`. The `Registry` port lists versions and fetches one; it does not
   resolve.
+- **Peer requirement**: what an extension declares it needs from another extension: the peer's name,
+  a SemVer range read as Cargo reads one, and whether the peer may be absent
+  (`specforge_protocol_types::peers::PeerRequirement`). One rule judges it (`peers::verdict`): an
+  unreadable range satisfies nothing (E073); a required peer must be installed; an installed one must
+  be at a version the range accepts (E027 otherwise). The registry build, `doctor`, `add` and `update`
+  read that rule and nothing else (ADR 0041).
+- **Load order**: the order a project's extensions load in, which every first-wins rule and in-order
+  list follows: entry order, except that an extension comes after the peers it declares (required
+  ones always, optional ones unless that would close a cycle). The registry build produces it
+  (`Peers::load_order`); a cycle among required peers is E027 and its extensions load together in
+  entry order (ADR 0041).
 - **Extension specifier**: the `add` argument (also `specforge.add_extension`'s and
   `init --extensions`'): a builtin's name, a local path, a `git+` URL, or a package reference
   `@scope/name[@requirement]` (`PackageRef`), read once by `specforge_ops::extension::parse`.

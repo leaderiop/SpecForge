@@ -325,11 +325,15 @@ Level: error
 ```
 E027: Unsatisfiable peer dependency
 
-An extension's required peer dependency can't be satisfied: it isn't installed,
-the installed version doesn't match the required range, peer dependencies form a
-cycle, an uninstall would remove an extension others still require, or an
-upgrade would break a peer's requirement. Install or upgrade the named peer, or
-use `--force` where the command supports it.
+An extension's peer dependency isn't satisfied: a required peer isn't installed,
+or an installed peer (optional or not) is at a version the range doesn't accept,
+a version that isn't SemVer included; or required peers form a cycle, reported
+once naming its extensions by every compile. `specforge add` and `update` refuse
+an install that would leave a locked peer unsatisfied (from a registry, a
+version diamond is R-RES-005/R-RES-006 instead), and `specforge remove` refuses
+to uninstall an extension others still require. Install or upgrade the named
+peer, make one peer of a cycle optional, or use `--force` where the command
+supports it.
 
 Owner: core
 Level: error
@@ -862,6 +866,24 @@ given, and the name and version of the declaration `specforge publish` uploads
 (which must also be scoped and a full version). Nothing is written or deleted.
 Fix the extension's declared name or version (its SDK `name`/`version`) and
 rebuild, or fix the `specforge.json` entry.
+
+Owner: core
+Level: error
+```
+
+## E073
+
+```
+E073: Unreadable peer requirement
+
+An extension declares a peer dependency whose range is not a SemVer requirement
+as Cargo reads one (`^1.2`, `~1`, `>=1, <2`, `1.x`, `*`, or a bare version such
+as `1.2.0`, which means `^1.2.0`), so no version of the peer can satisfy it,
+whether the peer is installed or not. `specforge check` (and the LSP and MCP)
+and `doctor` report it, `specforge add` and `update` refuse to install or update
+around it, and `specforge publish` refuses to upload it. Fix the range in the
+extension's declaration (its SDK `peer_dependencies`) and rebuild, or install a
+version of the extension that declares one.
 
 Owner: core
 Level: error
