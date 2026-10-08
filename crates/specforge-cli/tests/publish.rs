@@ -243,7 +243,7 @@ fn a_publish_with_no_credential_is_refused_by_the_registry_today() {
 
 #[specforge_test(
     behavior = "publish_to_registry",
-    verify = "duplicate version rejected without --force"
+    verify = "a version already published is refused with R007"
 )]
 fn publishing_a_version_twice_is_refused_with_r007() {
     let registry = LocalRegistry::start();

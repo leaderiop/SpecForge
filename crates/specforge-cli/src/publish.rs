@@ -105,7 +105,6 @@ pub fn run(extension: &Path, project: &Path, format: OutputFormat) -> i32 {
         registry,
         credential.as_ref(),
         &client,
-        false,
         Some(&signing_key),
     ) {
         Ok(url) => {

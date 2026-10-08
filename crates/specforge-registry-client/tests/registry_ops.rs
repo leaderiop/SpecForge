@@ -22,6 +22,7 @@ struct MockRegistryClient {
     publish_result: Mutex<Option<Result<String, RegistryError>>>,
     publish_credentials: Mutex<Vec<Option<RegistryCredential>>>,
     publish_signatures: Mutex<Vec<Option<String>>>,
+    fetches: Mutex<usize>,
 }
 
 impl MockRegistryClient {
@@ -32,6 +33,7 @@ impl MockRegistryClient {
             publish_result: Mutex::new(None),
             publish_credentials: Mutex::new(Vec::new()),
             publish_signatures: Mutex::new(Vec::new()),
+            fetches: Mutex::new(0),
         }
     }
 
@@ -61,6 +63,11 @@ impl MockRegistryClient {
         self.publish_credentials.lock().clone()
     }
 
+    /// How many times `fetch()` was called.
+    fn fetches(&self) -> usize {
+        *self.fetches.lock()
+    }
+
     /// Signature strings seen by each `publish()` call, in order.
     fn publish_signatures(&self) -> Vec<Option<String>> {
         self.publish_signatures.lock().clone()
@@ -74,6 +81,7 @@ impl RegistryClient for MockRegistryClient {
         version: &Version,
         registry: &RegistryConfig,
     ) -> Result<RegistryResponse, RegistryError> {
+        *self.fetches.lock() += 1;
         let results = self.fetch_results.lock();
         for (alias, result) in results.iter() {
             if alias == &registry.alias {
@@ -352,51 +360,40 @@ fn publish_computes_sha256() {
     let package = b"fake-wasm-bytes";
 
     let client = MockRegistryClient::new()
-        // First fetch (existence check) returns NotFound — version doesn't exist
-        .with_fetch_for(
-            "default",
-            Err(RegistryError::NotFound {
-                specifier: "@test/ext@1.0.0".into(),
-            }),
-        )
         .with_publish(Ok("https://r.specforge.dev/@test/ext/1.0.0".into()));
 
-    let url =
-        publish_to_registry(package, &manifest, &registry, None, &client, false, None).unwrap();
+    let url = publish_to_registry(package, &manifest, &registry, None, &client, None).unwrap();
     assert!(url.contains("@test/ext"));
+    assert_eq!(client.fetches(), 0);
 }
 
-// B:publish_to_registry — verify unit "duplicate version rejected without --force"
+// B:publish_to_registry — verify unit "a version already published is refused with R007"
 #[test]
-fn publish_rejects_duplicate_version_without_force() {
+fn a_version_the_registry_holds_is_refused_with_r007() {
     let registry = default_registry();
     let manifest = minimal_manifest();
-    let package = b"fake-wasm-bytes";
 
-    // fetch succeeds = version already exists
-    let client = MockRegistryClient::new()
-        .with_fetch_for("default", Ok(make_response("@test/ext", "1.0.0")));
+    let client = MockRegistryClient::new().with_publish(Err(RegistryError::DuplicateVersion {
+        name: "@test/ext".into(),
+        version: "1.0.0".into(),
+    }));
 
-    let err =
-        publish_to_registry(package, &manifest, &registry, None, &client, false, None).unwrap_err();
+    let err = publish_to_registry(
+        b"fake-wasm-bytes",
+        &manifest,
+        &registry,
+        None,
+        &client,
+        None,
+    )
+    .unwrap_err();
     assert_eq!(err.severity, Severity::Error);
-    assert!(err.message.contains("already exists"));
-}
-
-// B:publish_to_registry — verify unit "duplicate version allowed with --force"
-#[test]
-fn publish_allows_duplicate_version_with_force() {
-    let registry = default_registry();
-    let manifest = minimal_manifest();
-    let package = b"fake-wasm-bytes";
-
-    let client = MockRegistryClient::new()
-        .with_publish(Ok("https://r.specforge.dev/@test/ext/1.0.0".into()));
-
-    // force=true skips the existence check entirely
-    let url =
-        publish_to_registry(package, &manifest, &registry, None, &client, true, None).unwrap();
-    assert!(url.contains("@test/ext"));
+    assert_eq!(err.code, "R007");
+    assert_eq!(
+        client.fetches(),
+        0,
+        "publish asked nothing before it uploaded"
+    );
 }
 
 // B:publish_to_registry — verify unit "successful publish returns registry URL"
@@ -407,18 +404,11 @@ fn publish_returns_registry_url_on_success() {
     let package = b"fake-wasm-bytes";
 
     let expected_url = "https://registry.specforge.dev/@test/ext/1.0.0";
-    let client = MockRegistryClient::new()
-        .with_fetch_for(
-            "default",
-            Err(RegistryError::NotFound {
-                specifier: "@test/ext@1.0.0".into(),
-            }),
-        )
-        .with_publish(Ok(expected_url.to_string()));
+    let client = MockRegistryClient::new().with_publish(Ok(expected_url.to_string()));
 
-    let url =
-        publish_to_registry(package, &manifest, &registry, None, &client, false, None).unwrap();
+    let url = publish_to_registry(package, &manifest, &registry, None, &client, None).unwrap();
     assert_eq!(url, expected_url);
+    assert_eq!(client.fetches(), 0);
 }
 
 // B:publish_to_registry — verify unit "threads credential into client.publish"
@@ -439,7 +429,6 @@ fn publish_threads_credential_to_client() {
         &registry,
         Some(&credential),
         &client,
-        true,
         None,
     )
     .unwrap();
@@ -453,7 +442,6 @@ fn publish_threads_credential_to_client() {
         &registry,
         None,
         &anonymous,
-        true,
         None,
     )
     .unwrap();
@@ -549,7 +537,6 @@ fn publish_signs_package_when_key_provided() {
         &registry,
         None,
         &client,
-        false,
         Some(&key),
     )
     .unwrap();
@@ -577,15 +564,6 @@ fn publish_without_key_sends_no_signature() {
         )
         .with_publish(Ok("https://r.specforge.dev/@test/ext/1.0.0".into()));
 
-    publish_to_registry(
-        b"wasm-bytes",
-        &manifest,
-        &registry,
-        None,
-        &client,
-        false,
-        None,
-    )
-    .unwrap();
+    publish_to_registry(b"wasm-bytes", &manifest, &registry, None, &client, None).unwrap();
     assert_eq!(client.publish_signatures(), vec![None]);
 }

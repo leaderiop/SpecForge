@@ -683,7 +683,7 @@ behavior publish_to_registry "Publish to Registry" {
   }
   ensures {
     sha256_computed            "SHA256 hash of .wasm binary is computed and included in the upload"
-    duplicate_version_rejected "Duplicate version numbers are rejected unless --force is provided"
+    duplicate_version_rejected "A version the registry already holds is refused (R007): a published version is immutable"
     registry_url_returned      "Successful publish returns the registry URL for the published version"
     published_event_emitted    "extension_published_to_registry event fires on successful publish"
   }
@@ -694,8 +694,9 @@ behavior publish_to_registry "Publish to Registry" {
     with the .wasm binary and its SHA256 hash, before any network call
     deciding whether to refuse; the request MUST be authenticated. The
     registry MUST refuse a manifest that is not an extension declaration,
-    and takes the description and keywords it shows from the declaration. Duplicate version numbers MUST be rejected unless --force is
-    provided. Successful publish MUST return the registry URL for the
+    and takes the description and keywords it shows from the declaration. A version the registry
+    already holds MUST be refused (R007): a published version is immutable.
+    Successful publish MUST return the registry URL for the
     published version. With no registry configured, publish MUST make no
     network call and MUST fail with E063, whose suggestion names the
     specforge.json registries key.
@@ -707,7 +708,7 @@ behavior publish_to_registry "Publish to Registry" {
   verify integration "the registry refuses a manifest that is not an extension declaration"
   verify integration "the registry takes a package's description and keywords from its declaration"
   verify unit "SHA256 computed and included in upload"
-  verify unit "duplicate version rejected without --force"
+  verify unit "a version already published is refused with R007"
   verify unit "successful publish returns registry URL"
   verify unit "unauthenticated publish produces ExtensionError"
   verify unit "the registry refuses a name or version that is not a package name or version"
