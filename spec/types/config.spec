@@ -126,6 +126,17 @@ type RegistryErrorBody "Registry Error Body" {
   verify unit "RegistryErrorBody is the JSON of every registry error"
 }
 
+// What the Registry port's fetch hands an operation: a package that passed
+// the fetch policy (specforge_ops::registry::Package; its binary omitted here).
+type RegistryPackage "Registry Package" {
+  name        PackageName
+  version     string
+  sha256      string
+  declaration ExtensionDeclaration
+  key_id      string @optional
+  verify unit "RegistryPackage is what a package that passed the fetch policy hands an operation"
+}
+
 type TrustLevel = verified | community | local | git
 
 // ── Registry Authentication ───────────────────────────────

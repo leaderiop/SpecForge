@@ -3,6 +3,8 @@
 
 mod add;
 mod diamond;
+#[cfg(test)]
+mod fixtures;
 mod list;
 mod remove;
 mod resolve;

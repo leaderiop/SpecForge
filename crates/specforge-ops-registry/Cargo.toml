@@ -19,6 +19,7 @@ specforge-registry-client = { path = "../specforge-registry-client" }
 specforge-registry-wire = { workspace = true }
 
 [dev-dependencies]
+specforge-ops = { workspace = true, features = ["testing"] }
 hex = "0.4.3"
 specforge-registry-client = { path = "../specforge-registry-client", features = ["testing"] }
 specforge-registry-server = { path = "../specforge-registry-server", features = ["testing"] }

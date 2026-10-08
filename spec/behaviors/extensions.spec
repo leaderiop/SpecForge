@@ -759,7 +759,7 @@ behavior check_registry_reply "Check Registry Reply" {
   invariants [registry_reply_binding, registry_integrity]
   category   validation
   types      [PackageMetadata, ExtensionError]
-  ports      [RegistryClient]
+  ports      [RegistryClient, Registry]
   requires {
     reply_received "The registry answered a request for name@version and its download passed the SHA256 check"
   }

@@ -74,3 +74,15 @@ port RegistryClient {
   method authenticate(registry: RegistryConfig, credential: RegistryCredential) -> Result<string, RegistryError>
   verify integration "RegistryClient contract is satisfied"
 }
+
+port Registry {
+  direction outbound
+  category  "io/registry"
+  // What operations reach a package registry through (ADR 0010, 0036,
+  // 0044): it lists a package's versions and fetches one that passed the
+  // fetch policy. Its adapters are the configured registry (production) and
+  // the in-memory registry (tests); both keep one contract suite.
+  method versions(name: PackageName) -> Result<string[], ExtensionError>
+  method fetch(name: PackageName, version: string, allowUnsigned: boolean, trust: string) -> Result<RegistryPackage, ExtensionError>
+  verify integration "Registry contract is satisfied"
+}

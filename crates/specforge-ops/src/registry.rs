@@ -60,10 +60,12 @@ pub struct Package {
     pub key_id: Option<String>,
 }
 
-/// The registry port the extension operations use: an HTTP adapter in
-/// production, an in-memory fake in tests. It lists a package's versions
+/// The registry port the extension operations use. It lists a package's versions
 /// and fetches one; it does not resolve a requirement (ADR 0036): ops
 /// does, with [`crate::extension::resolve`].
+///
+/// Two adapters (ADR 0044): `specforge_ops_registry::ConfiguredRegistry` in production and
+/// [`testing::MemoryRegistry`] in tests, both held to [`testing::assert_registry_contract`].
 pub trait Registry {
     /// Every version `name` publishes (unparseable ones dropped);
     /// R-RES-001 when the registry has no such package.
@@ -81,6 +83,9 @@ pub trait Registry {
         trust: Trust,
     ) -> Result<Package, OpError>;
 }
+
+#[cfg(any(test, feature = "testing"))]
+pub mod testing;
 
 /// No registry: every call fails with E063 naming `operation`. What an
 /// operation that never reaches a registry (`init`, which installs only

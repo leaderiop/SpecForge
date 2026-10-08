@@ -155,7 +155,9 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   (ADR 0036); its adapter, `specforge_ops_registry::ConfiguredRegistry`, reads the project's registries,
   asks the one that serves a name and runs the fetch policy over the `RegistryClient` seam (ADR 0044). It is
   linked by the CLI and MCP, never the LSP (ADR 0010). Publish derives the stored declaration from the
-  binary; `add` checks the binary declares what was published (ADR 0012).
+  binary; `add` checks the binary declares what was published (ADR 0012). Each seam has a second
+  adapter for tests, held with the first to one contract: `MemoryRegistry` beside the port, `MemoryClient`
+  beside the client (`assert_registry_contract`, `assert_client_contract`).
 - **Fetch policy**: what a package passes before an operation sees it: the registry's reply names the
   package and version asked for, the binary hashes to the served SHA-256, the served manifest reads as that
   package's declaration (one from before ADR 0012 is refused), and the publisher signature verifies with a
