@@ -66,6 +66,13 @@ nearest project, else the directory itself" on their own.
 
 ## Amendment (architecture round 5, plan 15)
 
+- **D3a. Analyze's verdict includes its coverage gate; doctor carries one.** `AnalyzeOutcome::verdict()`
+  (`specforge_ops::RunVerdict`: passed, failed, unjudged) folds in the `min` gate: below it fails (E048), a
+  coverage pass that gave no figure leaves the run unjudged (E068), and a minimum the coverage pass will not
+  answer is refused before any pass runs (E068). The analysis document carries `gate`; under `--json` nothing
+  goes to stderr. `specforge.analyze` takes `min`; an unjudged gate there is `ok: false` with
+  `gate.status: "unjudged"`, not an error. `DoctorReport::ok()` is doctor's verdict; `specforge doctor` exits by
+  it and the user's credential health, which only the CLI shows.
 - **D4a. A core command's `run` returns `Exit`.** `main` alone turns it into a process code; `Refusal::report`
   returns `Exit`, and `RunVerdict` (`specforge_ops`) is the verdict an operation that can be unjudged returns.
   Extension commands keep their own code (ADR 0011). The build-cache write failure, the watch start failure

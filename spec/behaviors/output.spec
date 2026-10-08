@@ -530,7 +530,8 @@ behavior report_command_outcome "Report a Command's Outcome" {
     error finding or a gate below its minimum) or its operation refused:
     exit 1. The command could not judge the project, because the command
     line was refused or a measuring command (stats, analyze) cannot read
-    what it measures against: exit 2. A refusal MUST be printed on stderr
+    what it measures against, or analyze's coverage gate has no figure:
+    exit 2. A refusal MUST be printed on stderr
     as error[CODE]: message, then "  hint: " and the suggestion when there
     is one, then "  wrote: " and each file the failed operation left
     written; under --format json (analyze: --json) it MUST instead be the
