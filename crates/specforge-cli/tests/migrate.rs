@@ -241,7 +241,7 @@ fn detect_format_version_from_header() {
 // B2: Missing version defaults to current (no migration needed)
 #[specforge_test(
     behavior = "detect_format_version_mismatch",
-    verify = "missing format version treated as oldest supported"
+    verify = "missing format version treated as the current version"
 )]
 fn missing_version_header_defaults_to_current() {
     let tmp = TempDir::new().unwrap();
@@ -1182,87 +1182,83 @@ fn json_summary_contains_results_and_backups() {
 }
 
 // ===================================================================
-// Phase I: detect_format_version_mismatch — unit tests
+// Phase I: detect_format_version_mismatch — the compile reports it
 // ===================================================================
+
+/// `specforge check --format json` over the project at `root`: the exit code
+/// and the diagnostics it reports.
+fn check_json(root: &std::path::Path) -> (Option<i32>, Vec<serde_json::Value>) {
+    let output = Command::cargo_bin("specforge")
+        .unwrap()
+        .args(["check", "--format", "json"])
+        .arg(root)
+        .output()
+        .unwrap();
+    let diagnostics = serde_json::from_slice(&output.stdout).unwrap_or_else(|e| {
+        panic!(
+            "check printed no JSON ({e}): {}{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        )
+    });
+    (output.status.code(), diagnostics)
+}
+
+fn reported<'a>(diagnostics: &'a [serde_json::Value], code: &str) -> Vec<&'a serde_json::Value> {
+    diagnostics.iter().filter(|d| d["code"] == code).collect()
+}
 
 #[specforge_test(
     behavior = "detect_format_version_mismatch",
     verify = "older format version detected and reported as I007"
 )]
 fn older_format_version_produces_i007() {
-    use specforge_migrate::detect_format_version;
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path();
+    setup_project(root);
+    write_spec(
+        root,
+        "old.spec",
+        "// specforge-format: 0.1\nbehavior foo \"Foo\" {\n  contract \"x\"\n}\n",
+    );
+    write_spec(
+        root,
+        "current.spec",
+        "// specforge-format: 1.0\nbehavior bar \"Bar\" {\n  contract \"x\"\n}\n",
+    );
+    write_spec(
+        root,
+        "bare.spec",
+        "behavior baz \"Baz\" {\n  contract \"x\"\n}\n",
+    );
 
-    let content = "// specforge-format: 0.1\nbehavior foo \"Foo\" {\n  contract \"x\"\n}\n";
-    let (version, diags) = detect_format_version(content);
-    assert_eq!(version.major, 0);
-    assert_eq!(version.minor, 1);
+    let (code, diagnostics) = check_json(root);
+
+    // `check` reports the older file once, on its header line; the current
+    // file and the one with no header report nothing. It is an info: the
+    // project still checks.
+    assert_eq!(code, Some(0), "{diagnostics:?}");
+    let i007 = reported(&diagnostics, "I007");
+    assert_eq!(i007.len(), 1, "{diagnostics:?}");
+    assert_eq!(i007[0]["file"], "spec/old.spec", "{}", i007[0]);
+    assert_eq!(i007[0]["line"], 1, "{}", i007[0]);
+    assert_eq!(i007[0]["severity"], "Info", "{}", i007[0]);
     assert!(
-        diags.iter().any(|d| d.code == "I007"),
-        "older version should emit I007: {diags:?}"
+        i007[0]["message"].as_str().unwrap().contains("0.1"),
+        "{}",
+        i007[0]
     );
-}
+    assert!(reported(&diagnostics, "E019").is_empty(), "{diagnostics:?}");
 
-#[specforge_test(
-    behavior = "detect_format_version_mismatch",
-    verify = "current format version produces no diagnostic"
-)]
-fn current_format_version_no_diagnostic() {
-    use specforge_migrate::detect_format_version;
-
-    let content = "// specforge-format: 1.0\nbehavior foo \"Foo\" {\n  contract \"x\"\n}\n";
-    let (version, diags) = detect_format_version(content);
-    assert_eq!(version.major, 1);
-    assert_eq!(version.minor, 0);
-    assert!(
-        diags.is_empty(),
-        "current version should produce no diagnostic: {diags:?}"
-    );
-}
-
-#[specforge_test(
-    behavior = "detect_format_version_mismatch",
-    verify = "missing format version treated as oldest supported"
-)]
-fn missing_format_version_defaults_to_current() {
-    use specforge_migrate::{CURRENT_FORMAT_VERSION, detect_format_version};
-
-    let content = "behavior foo \"Foo\" {\n  contract \"x\"\n}\n";
-    let (version, diags) = detect_format_version(content);
-    assert_eq!(
-        version, CURRENT_FORMAT_VERSION,
-        "no header → defaults to current"
-    );
-    assert!(diags.is_empty(), "no header → no diagnostic: {diags:?}");
-}
-
-#[specforge_test(
-    behavior = "detect_format_version_mismatch",
-    verify = "header comment format version detected correctly"
-)]
-fn header_comment_detected_correctly() {
-    use specforge_migrate::detect_format_version;
-
-    let content = "// specforge-format: 0.5\nbehavior foo \"Foo\" {\n  contract \"x\"\n}\n";
-    let (version, _) = detect_format_version(content);
-    assert_eq!(version.major, 0);
-    assert_eq!(version.minor, 5);
-}
-
-#[specforge_test(
-    behavior = "detect_format_version_mismatch",
-    verify = "unsupported format version produces E019 with upgrade guidance"
-)]
-fn unsupported_format_version_produces_e015() {
-    use specforge_migrate::detect_format_version;
-
-    let content = "// specforge-format: 99.0\nbehavior foo \"Foo\" {\n  contract \"x\"\n}\n";
-    let (_version, diags) = detect_format_version(content);
-    assert!(
-        diags
-            .iter()
-            .any(|d| d.code == "E019" && d.suggestion.is_some()),
-        "unsupported version should emit E019 with suggestion: {diags:?}"
-    );
+    // Migrating the file clears it: the header is current.
+    Command::cargo_bin("specforge")
+        .unwrap()
+        .args(["migrate", "--path", root.to_str().unwrap()])
+        .assert()
+        .success();
+    let (code, diagnostics) = check_json(root);
+    assert_eq!(code, Some(0), "{diagnostics:?}");
+    assert!(reported(&diagnostics, "I007").is_empty(), "{diagnostics:?}");
 }
 
 #[specforge_test(
@@ -1270,28 +1266,87 @@ fn unsupported_format_version_produces_e015() {
     verify = "Detect Format Version Mismatch: format version detection holds — spec_file_available, version_mismatch_reported, unsupported_version_rejected, parsing_continues"
 )]
 fn detect_format_version_contract() {
-    use specforge_migrate::detect_format_version;
-
-    // Requires: spec file content is accessible (we pass a string)
-    // Ensures: version detected, diagnostics emitted appropriately
-
-    // Valid header → version detected, no errors
-    let (v, d) = detect_format_version("// specforge-format: 1.0\n");
-    assert_eq!(v.major, 1);
-    assert!(d.is_empty());
-
-    // Invalid header → fallback version, error emitted
-    let (v, d) = detect_format_version("// specforge-format: abc\n");
-    assert!(v.major >= 1, "fallback to min supported");
-    assert!(
-        d.iter()
-            .any(|d| d.severity == specforge_common::Severity::Error)
+    // Requires (spec_file_available): .spec files are being compiled.
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path();
+    setup_project(root);
+    write_spec(
+        root,
+        "older.spec",
+        "// specforge-format: 0.9\nbehavior older_one \"Older\" {\n  contract \"x\"\n}\n",
+    );
+    write_spec(
+        root,
+        "newer.spec",
+        "// specforge-format: 9.0\nbehavior newer_one \"Newer\" {\n  contract \"x\"\n}\n",
+    );
+    write_spec(
+        root,
+        "garbled.spec",
+        "// specforge-format: abc\nbehavior garbled_one \"Garbled\" {\n  contract \"x\"\n}\n",
     );
 
-    // No header → current version, no diagnostics
-    let (v, d) = detect_format_version("behavior foo \"Foo\" {}\n");
-    assert_eq!(v.major, 1);
-    assert!(d.is_empty());
+    let (code, diagnostics) = check_json(root);
+
+    // version_mismatch_reported: I007 for the older file.
+    let i007 = reported(&diagnostics, "I007");
+    assert_eq!(i007.len(), 1, "{diagnostics:?}");
+    assert_eq!(i007[0]["file"], "spec/older.spec");
+    // unsupported_version_rejected: E019 with upgrade guidance for the newer
+    // and for the unreadable header, which fails the check.
+    let e019 = reported(&diagnostics, "E019");
+    assert_eq!(e019.len(), 2, "{diagnostics:?}");
+    let newer = e019
+        .iter()
+        .find(|d| d["file"] == "spec/newer.spec")
+        .unwrap();
+    assert_eq!(newer["severity"], "Error");
+    assert!(
+        newer["suggestion"]
+            .as_str()
+            .unwrap()
+            .contains("Use a format version between"),
+        "{newer}"
+    );
+    assert!(e019.iter().any(|d| d["file"] == "spec/garbled.spec"));
+    assert_eq!(code, Some(1), "an unsupported format version fails check");
+
+    // parsing_continues: every file is still in the graph.
+    let export = Command::cargo_bin("specforge")
+        .unwrap()
+        .args(["export", "--format", "graph", "--no-schema"])
+        .arg(root)
+        .output()
+        .unwrap();
+    let graph: serde_json::Value = serde_json::from_slice(&export.stdout).unwrap();
+    let mut ids: Vec<&str> = graph["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|n| n["id"].as_str().unwrap())
+        .collect();
+    ids.sort();
+    assert_eq!(ids, ["garbled_one", "newer_one", "older_one"]);
+}
+
+#[test]
+fn a_file_with_no_header_reports_no_version_diagnostic() {
+    // Almost every file has none (no file of this repository's own specs
+    // carries a header): none is the current version, so nothing to report.
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path();
+    setup_project(root);
+    write_spec(
+        root,
+        "bare.spec",
+        "behavior baz \"Baz\" {\n  contract \"x\"\n}\n",
+    );
+
+    let (code, diagnostics) = check_json(root);
+
+    assert_eq!(code, Some(0), "{diagnostics:?}");
+    assert!(reported(&diagnostics, "I007").is_empty(), "{diagnostics:?}");
+    assert!(reported(&diagnostics, "E019").is_empty(), "{diagnostics:?}");
 }
 
 // ===================================================================

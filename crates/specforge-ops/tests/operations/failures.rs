@@ -188,8 +188,8 @@ fn plan_gives_a_report_failure_the_report_s_kind() {
 )]
 fn hooks_run_for_the_project_a_sub_path_is_in() {
     use specforge_extension_sdk::{ContributionsBuilder, ExtensionMeta};
-    use specforge_migrate::CURRENT_FORMAT_VERSION;
     use specforge_ops::migrate::{Request, run};
+    use specforge_parser::CURRENT_FORMAT_VERSION;
     use specforge_wasm::testing::InProcessRuntime;
 
     let dir = tempfile::tempdir().unwrap();

@@ -3,61 +3,8 @@ use sha2::{Digest, Sha256};
 use specforge_common::{Diagnostic, Severity, codes, load_project_config, project_root_of};
 use specforge_emitter::schema::{GraphProtocolSchema, SchemaMigration, diff_schemas};
 use specforge_formatter::unified_diff;
-use std::fmt;
+use specforge_parser::{FORMAT_HEADER_PREFIX, FormatVersion, detect_format_version};
 use std::path::{Path, PathBuf};
-use std::str::FromStr;
-
-// ---------------------------------------------------------------------------
-// Format Version
-// ---------------------------------------------------------------------------
-
-/// The DSL format version embedded in spec file headers.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize)]
-pub struct FormatVersion {
-    pub major: u32,
-    pub minor: u32,
-}
-
-/// Current format version. All new spec files are at this version.
-pub const CURRENT_FORMAT_VERSION: FormatVersion = FormatVersion { major: 1, minor: 0 };
-
-/// Minimum supported format version for migration.
-pub const MIN_SUPPORTED_VERSION: FormatVersion = FormatVersion { major: 1, minor: 0 };
-
-/// Maximum supported target version.
-pub const MAX_SUPPORTED_VERSION: FormatVersion = FormatVersion { major: 1, minor: 0 };
-
-impl fmt::Display for FormatVersion {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}.{}", self.major, self.minor)
-    }
-}
-
-impl FromStr for FormatVersion {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let parts: Vec<&str> = s.split('.').collect();
-        match parts.len() {
-            1 => {
-                let major = parts[0]
-                    .parse::<u32>()
-                    .map_err(|e| format!("invalid version: {e}"))?;
-                Ok(FormatVersion { major, minor: 0 })
-            }
-            2 => {
-                let major = parts[0]
-                    .parse::<u32>()
-                    .map_err(|e| format!("invalid major: {e}"))?;
-                let minor = parts[1]
-                    .parse::<u32>()
-                    .map_err(|e| format!("invalid minor: {e}"))?;
-                Ok(FormatVersion { major, minor })
-            }
-            _ => Err(format!("expected MAJOR.MINOR, got '{s}'")),
-        }
-    }
-}
 
 // ---------------------------------------------------------------------------
 // Migration Types
@@ -118,67 +65,6 @@ pub struct RollbackSummary {
     pub results: Vec<MigrationResult>,
     /// One warning per file skipped because its `.bak` backup is missing.
     pub warnings: Vec<String>,
-}
-
-// ---------------------------------------------------------------------------
-// Version Detection
-// ---------------------------------------------------------------------------
-
-const FORMAT_HEADER_PREFIX: &str = "// specforge-format: ";
-
-/// Detect the format version from a spec file's content.
-/// Returns the detected version (or default) and any diagnostics.
-pub fn detect_format_version(content: &str) -> (FormatVersion, Vec<Diagnostic>) {
-    let mut diagnostics = Vec::new();
-
-    let first_line = content.lines().find(|l| !l.trim().is_empty());
-
-    if let Some(version_str) = first_line.and_then(|line| line.strip_prefix(FORMAT_HEADER_PREFIX)) {
-        let version_str = version_str.trim();
-        match FormatVersion::from_str(version_str) {
-            Ok(v) => {
-                if v > MAX_SUPPORTED_VERSION {
-                    diagnostics.push(
-                        Diagnostic::new(
-                            codes::E019,
-                            format!(
-                                "unsupported format version {v} (max supported: {MAX_SUPPORTED_VERSION})"
-                            ),
-                        )
-                        .with_suggestion(format!(
-                            "Use a format version between {MIN_SUPPORTED_VERSION} and {MAX_SUPPORTED_VERSION}."
-                        )),
-                    );
-                } else if v < MIN_SUPPORTED_VERSION {
-                    diagnostics.push(
-                        Diagnostic::new(
-                            codes::I007,
-                            format!(
-                                "format version {v} is older than current ({CURRENT_FORMAT_VERSION}); migration available"
-                            ),
-                        )
-                        .with_suggestion("Run `specforge migrate` to upgrade.".to_string()),
-                    );
-                }
-                return (v, diagnostics);
-            }
-            Err(_) => {
-                diagnostics.push(
-                    Diagnostic::new(
-                        codes::E019,
-                        format!("invalid format version header: '{version_str}'"),
-                    )
-                    .with_suggestion(format!(
-                        "Expected `// specforge-format: MAJOR.MINOR` (e.g., `// specforge-format: {CURRENT_FORMAT_VERSION}`)."
-                    )),
-                );
-                return (MIN_SUPPORTED_VERSION, diagnostics);
-            }
-        }
-    }
-
-    // No header found — default to current version (files without headers are current)
-    (CURRENT_FORMAT_VERSION, diagnostics)
 }
 
 // ---------------------------------------------------------------------------
@@ -408,7 +294,7 @@ fn migrate_file(
     };
 
     // Detect version; a header this build can't read fails the file.
-    let (detected_version, diags) = detect_format_version(&content);
+    let (detected_version, diags) = detect_format_version(&content, &path_str);
     if let Some(error) = diags.iter().find(|d| d.severity == Severity::Error) {
         let guidance = error
             .suggestion

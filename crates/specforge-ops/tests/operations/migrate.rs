@@ -5,9 +5,10 @@
 use std::path::Path;
 
 use specforge_extension_sdk::{ContributionsBuilder, ExtensionMeta};
-use specforge_migrate::{CURRENT_FORMAT_VERSION, migrate_project};
+use specforge_migrate::migrate_project;
 use specforge_ops::OpErrorKind;
 use specforge_ops::migrate::{MigrationInput, Request, invoke_hooks, parse_target, rollback, run};
+use specforge_parser::CURRENT_FORMAT_VERSION;
 use specforge_protocol_types::{ExtensionDeclaration, FieldType, PeerDependency, SandboxPolicy};
 use specforge_test_macros::test as specforge_test;
 use specforge_wasm::runtime::{WasmCallResult, WasmTrapInfo};

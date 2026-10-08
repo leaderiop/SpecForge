@@ -1,5 +1,6 @@
 use crate::ast::*;
 use crate::expr::{CmpOp, Expr, ExprSpan, SpannedExpr};
+use crate::format_version::{CURRENT_FORMAT_VERSION, detect_format_version};
 use crate::recovery;
 use specforge_common::{SourceSpan, Sym, structural};
 use tree_sitter::{Node, Parser};
@@ -41,6 +42,19 @@ pub fn parse_incremental(
     file_path: &str,
     old_tree: Option<&tree_sitter::Tree>,
 ) -> (SpecFile, Option<tree_sitter::Tree>) {
+    let (mut file, tree) = parse_syntax(source, file_path, old_tree);
+    // The header is read with the file, so every consumer of a parse (check,
+    // watch, the LSP, MCP) has the version and what it reports.
+    (file.format_version, file.format_diagnostics) = detect_format_version(source, file_path);
+    (file, tree)
+}
+
+/// The file's entities, imports and syntax errors.
+fn parse_syntax(
+    source: &str,
+    file_path: &str,
+    old_tree: Option<&tree_sitter::Tree>,
+) -> (SpecFile, Option<tree_sitter::Tree>) {
     let file_sym = Sym::new(file_path);
     let mut parser = Parser::new();
     if let Err(e) = parser.set_language(&tree_sitter_specforge::LANGUAGE.into()) {
@@ -49,6 +63,8 @@ pub fn parse_incremental(
                 path: file_sym,
                 imports: Vec::new(),
                 entities: Vec::new(),
+                format_version: CURRENT_FORMAT_VERSION,
+                format_diagnostics: Vec::new(),
                 errors: vec![ParseError {
                     message: format!("failed to load specforge grammar: {e}"),
                     span: SourceSpan {
@@ -72,6 +88,8 @@ pub fn parse_incremental(
                 path: file_sym,
                 imports: Vec::new(),
                 entities: Vec::new(),
+                format_version: CURRENT_FORMAT_VERSION,
+                format_diagnostics: Vec::new(),
                 errors: vec![ParseError {
                     message: "tree-sitter parse failed".to_string(),
                     span: SourceSpan {
@@ -111,6 +129,8 @@ pub fn parse_incremental(
             imports: ctx.imports,
             entities: ctx.entities,
             errors: ctx.errors,
+            format_version: CURRENT_FORMAT_VERSION,
+            format_diagnostics: Vec::new(),
         },
         Some(tree),
     )
@@ -129,6 +149,8 @@ fn parse_recovering(
         path: file_sym,
         imports: Vec::new(),
         entities: Vec::new(),
+        format_version: CURRENT_FORMAT_VERSION,
+        format_diagnostics: Vec::new(),
         errors: Vec::new(),
     };
     let mut start = 0;

@@ -387,7 +387,7 @@ const OLD: &str = "// specforge-format: 0.9\nbehavior gamma \"Gamma\" {\n}\n";
 fn migration(root: &Path, dry_run: bool) -> specforge_ops::migrate::Request<'_> {
     specforge_ops::migrate::Request {
         root,
-        target: specforge_migrate::CURRENT_FORMAT_VERSION,
+        target: specforge_parser::CURRENT_FORMAT_VERSION,
         dry_run,
         no_backup: false,
     }

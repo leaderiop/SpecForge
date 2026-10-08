@@ -4,8 +4,10 @@ expression: cli_snap
 ---
 {
   "check": {
-    "diagnostics": [],
-    "ok": true
+    "diagnostics": [
+      "Error E019"
+    ],
+    "ok": false
   },
   "config": {
     "extensions": [

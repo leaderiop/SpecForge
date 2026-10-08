@@ -17,6 +17,13 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Compiled project**: an environment plus the sources it read, their graph build and import diagnostics.
   Its diagnostics are, by definition, what `specforge check` reports under the default policy
   (`specforge_project::CompiledProject`).
+- **Format version**: the `.spec` file format a file was written against, `MAJOR.MINOR`, declared by
+  the `// specforge-format:` header on its first non-blank line; a file with no header is at the
+  current version and reports nothing. The parser reads it with the file
+  (`specforge_parser::detect_format_version`, `SpecFile::format_version`) and the compile reports
+  I007 (older) and E019 (newer, or a header that is not `MAJOR.MINOR`) on the header line, like any
+  parser diagnostic; `specforge migrate` reads the version through the same function. It is
+  distinct from the Graph Protocol's schema version.
 - **Project session**: a long-lived compiled project that knows what it is built from: its sources
   and its **session inputs**. It classifies any changed path through them, applies changes as an
   update, an environment reload or a re-check, and can bring itself up to date with disk without a

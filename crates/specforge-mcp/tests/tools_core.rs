@@ -1288,6 +1288,39 @@ fn validate(args: Value) -> Vec<(String, String)> {
         .collect()
 }
 
+/// The format version header is a compile diagnostic, so the tool shows it
+/// with the rest: I007 for an older file, E019 for a newer one.
+#[test]
+fn validate_reports_the_format_version_headers() {
+    let project = tempfile::tempdir().unwrap();
+    std::fs::write(
+        project.path().join("specforge.json"),
+        r#"{"name":"t","version":"0.1.0","extensions":["@specforge/software"]}"#,
+    )
+    .unwrap();
+    std::fs::write(
+        project.path().join("old.spec"),
+        "// specforge-format: 0.9\nbehavior old_one \"Old\" {\n  verify unit \"x\"\n}\n",
+    )
+    .unwrap();
+    std::fs::write(
+        project.path().join("new.spec"),
+        "// specforge-format: 9.0\nbehavior new_one \"New\" {\n  verify unit \"x\"\n}\n",
+    )
+    .unwrap();
+
+    let found = validate(json!({"path": project.path().to_str().unwrap()}));
+
+    assert!(
+        found.contains(&("I007".to_string(), "Info".to_string())),
+        "{found:?}"
+    );
+    assert!(
+        found.contains(&("E019".to_string(), "Error".to_string())),
+        "{found:?}"
+    );
+}
+
 #[specforge_test(
     behavior = "provide_mcp_validate_tool",
     verify = "severity_filter restricts returned diagnostics"

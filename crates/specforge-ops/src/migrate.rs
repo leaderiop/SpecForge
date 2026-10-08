@@ -8,9 +8,11 @@
 
 use specforge_common::{Diagnostic, Severity, codes};
 use specforge_migrate::{
-    CURRENT_FORMAT_VERSION, FormatVersion, MAX_SUPPORTED_VERSION, MIN_SUPPORTED_VERSION,
     MigrationSummary, RollbackSummary, check_schema_compatibility, compare_graphs, migrate_project,
     run_rollback,
+};
+use specforge_parser::{
+    CURRENT_FORMAT_VERSION, FormatVersion, MAX_SUPPORTED_VERSION, MIN_SUPPORTED_VERSION,
 };
 use specforge_project::CompiledProject;
 use specforge_protocol_types::ExtensionDeclaration;
