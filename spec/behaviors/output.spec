@@ -908,6 +908,11 @@ behavior enforce_token_budget "Enforce Token Budget" {
     TokenBudgetResult records which entities were removed. Centrality is
     degree centrality (count of incoming + outgoing edges); neither the
     strategy nor the metric is configurable.
+
+    The graph, context and brief exports are budgeted alike: each lists the
+    entities it dropped under `token_budget`, keeps no entity when only its
+    envelope and that block fit, and fails with E062 when even those, or an
+    embedded schema (which is never cut short), are over the budget.
   """
   verify unit "output within budget includes all entities"
   verify unit "output exceeding budget truncates low-priority entities"
@@ -920,5 +925,7 @@ behavior enforce_token_budget "Enforce Token Budget" {
   verify integration "a budget smaller than the embedded schema fails with E062 instead of truncating the schema"
   verify integration "a budget below one entity yields the envelope with no entities and the truncation marker"
   verify integration "a budget below the empty envelope fails with E062"
+  verify integration "the context and brief exports honour --max-tokens, listing the dropped entities under token_budget"
+  verify integration "a context or brief export that cannot fit even without entities, or whose embedded schema is over the budget, fails with E062"
   verify contract "Enforce Token Budget: token budget enforcement holds — validation_complete_fired, budget_respected, truncation_metadata_produced, valid_subgraph_after_truncation, token_budget_applied_emitted"
 }

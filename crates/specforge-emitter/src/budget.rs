@@ -160,26 +160,3 @@ pub(crate) fn fit(
     }
     Ok(with_cut(lo)?.0)
 }
-
-/// The sub-graph that fits `max_tokens` when rendered by `render`, dropping
-/// least-connected nodes first, but never the last one: what context and
-/// brief exports are fitted by until they are fitted as [`fit`] fits them.
-pub(crate) fn fit_keeping_one(
-    graph: &Graph,
-    max_tokens: usize,
-    render: impl Fn(&Graph) -> Result<String, EmitterError>,
-) -> Result<Graph, EmitterError> {
-    if estimate_tokens(&render(graph)?) <= max_tokens {
-        return Ok(graph.clone());
-    }
-
-    let mut kept = nodes_by_priority(graph);
-    loop {
-        let filtered = keeping(graph, &kept);
-        let rendered = render(&filtered)?;
-        if estimate_tokens(&rendered) <= max_tokens || kept.len() <= 1 {
-            return Ok(filtered);
-        }
-        kept.remove(0);
-    }
-}

@@ -553,9 +553,105 @@ fn budget_below_one_entity_yields_an_empty_envelope() {
     );
 }
 
+/// `specforge export <dir> --format=<format> <args>`: the exit code, stdout and
+/// stderr.
+fn export_format(dir: &TempDir, format: &str, args: &[&str]) -> (i32, String, String) {
+    let output = specforge_cmd()
+        .args(["export", &format!("--format={format}")])
+        .args(args)
+        .arg(dir.path())
+        .output()
+        .unwrap();
+    (
+        output.status.code().unwrap_or(-1),
+        String::from_utf8_lossy(&output.stdout).into_owned(),
+        String::from_utf8_lossy(&output.stderr).into_owned(),
+    )
+}
+
+#[specforge_test(
+    behavior = "enforce_token_budget",
+    verify = "the context and brief exports honour --max-tokens, listing the dropped entities under token_budget"
+)]
+fn context_and_brief_exports_honour_max_tokens() {
+    let dir = budget_project();
+    for format in ["context", "brief"] {
+        let (code, whole, stderr) = export_format(&dir, format, &[]);
+        assert_eq!(code, 0, "{format}: {stderr}");
+        let cost = specforge_emitter::estimate_tokens(&whole);
+
+        // Half the cost: entities are dropped, and the export says which.
+        let budget = cost / 2;
+        let (code, stdout, stderr) =
+            export_format(&dir, format, &["--max-tokens", &budget.to_string()]);
+        assert_eq!(code, 0, "{format}: {stderr}");
+        let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+        let used = specforge_emitter::estimate_tokens(&stdout);
+        assert!(
+            used <= budget,
+            "{format}: {used} tokens over the {budget} budget"
+        );
+        let meta = &parsed["token_budget"];
+        assert_eq!(meta["strategy"], "prioritize", "{format}: {parsed}");
+        assert_eq!(meta["budget_tokens"], budget, "{format}: {parsed}");
+        let mut all: Vec<&str> = parsed["nodes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|n| n["id"].as_str().unwrap())
+            .chain(
+                meta["truncated_entities"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|v| v.as_str().unwrap()),
+            )
+            .collect();
+        all.sort();
+        assert_eq!(
+            all, NINE,
+            "{format}: kept and dropped are the nine, disjoint"
+        );
+
+        // Exactly the unbudgeted cost: nothing dropped, nothing added.
+        let (code, stdout, stderr) =
+            export_format(&dir, format, &["--max-tokens", &cost.to_string()]);
+        assert_eq!(code, 0, "{format}: {stderr}");
+        assert_eq!(stdout, whole, "{format}");
+        assert!(!stdout.contains("token_budget"), "{format}");
+    }
+}
+
+#[specforge_test(
+    behavior = "enforce_token_budget",
+    verify = "a context or brief export that cannot fit even without entities, or whose embedded schema is over the budget, fails with E062"
+)]
+fn context_and_brief_budgets_too_small_fail_with_e062() {
+    let dir = budget_project();
+    for format in ["context", "brief"] {
+        let (code, stdout, stderr) = export_format(&dir, format, &["--max-tokens", "5"]);
+        assert_eq!(code, 1, "{format}: {stdout}");
+        assert!(
+            stdout.trim().is_empty(),
+            "{format}: no over-budget export: {stdout}"
+        );
+        assert!(stderr.contains("E062"), "{format}: {stderr}");
+
+        let (code, stdout, stderr) =
+            export_format(&dir, format, &["--with-schema", "--max-tokens", "300"]);
+        assert_eq!(code, 1, "{format}: {stdout}");
+        assert!(stdout.trim().is_empty(), "{format}: {stdout}");
+        assert!(stderr.contains("E062"), "{format}: {stderr}");
+        assert!(
+            stderr.contains("embedded schema alone"),
+            "{format}: {stderr}"
+        );
+    }
+}
+
 // ── The export matrix (plan 14, P1) ───────────────────────────────────
 
-/// What one cell of the export matrix does today.
+/// What one cell of the export matrix does.
 #[derive(Debug, PartialEq)]
 enum Expect {
     /// Exit 0, all nine entities, and these top-level keys besides
@@ -565,12 +661,6 @@ enum Expect {
     Truncated { kept: usize, dropped: usize },
     /// Exit 1, no stdout, and this code on stderr.
     Fails(&'static str),
-    /// Exit 0 over the budget: `nodes` entities and no `token_budget` block
-    /// (bug R1/R2, fixed by T6).
-    OverToday { nodes: usize },
-    /// Exit 0, within the budget but with fewer than nine entities and no
-    /// `token_budget` block (bug R1, fixed by T6).
-    FitsWithoutMarkerToday { nodes: usize },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -590,9 +680,9 @@ impl Format {
     }
 }
 
-/// The matrix, today: (format, with a schema, scoped to `f`, budget) and what
+/// The matrix: (format, with a schema, scoped to `f`, budget) and what
 /// the export does. `f` reaches every entity, so scoping selects the same nine.
-fn today(format: Format, schema: bool, scoped: bool, budget: Option<usize>) -> Expect {
+fn expected(format: Format, schema: bool, scoped: bool, budget: Option<usize>) -> Expect {
     const PLAIN: &[&str] = &["schema_version"];
     const V1: &[&str] = &["format_version", "schema_version"];
     const EMBEDDED: &[&str] = &["format_version", "schema", "schema_version"];
@@ -607,16 +697,18 @@ fn today(format: Format, schema: bool, scoped: bool, budget: Option<usize>) -> E
     let embedded = schema && !scoped;
     match (format, budget) {
         (_, None | Some(100_000)) => Expect::Whole { keys },
-        (Format::Graph, Some(5)) => Expect::Fails("E062"),
-        (Format::Graph, Some(_)) if embedded => Expect::Fails("E062"),
-        (Format::Graph, Some(_)) => Expect::Truncated {
+        // Below the empty export, or with an embedded schema over the budget,
+        // every format fails alike.
+        (_, Some(5)) => Expect::Fails("E062"),
+        (_, Some(_)) if embedded => Expect::Fails("E062"),
+        (Format::Graph | Format::Context, Some(_)) => Expect::Truncated {
             kept: 2,
             dropped: 7,
         },
-        (_, Some(5)) => Expect::OverToday { nodes: 1 },
-        (_, Some(_)) if embedded => Expect::OverToday { nodes: 1 },
-        (Format::Context, Some(_)) => Expect::FitsWithoutMarkerToday { nodes: 2 },
-        (Format::Brief, Some(_)) if schema => Expect::FitsWithoutMarkerToday { nodes: 8 },
+        (Format::Brief, Some(_)) if schema => Expect::Truncated {
+            kept: 7,
+            dropped: 2,
+        },
         (Format::Brief, Some(_)) => Expect::Whole { keys },
     }
 }
@@ -656,7 +748,7 @@ fn the_export_matrix() {
                     let code = output.status.code().unwrap_or(-1);
                     let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
                     let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
-                    let expect = today(format, schema, scoped, budget);
+                    let expect = expected(format, schema, scoped, budget);
 
                     if let Expect::Fails(error) = expect {
                         assert_eq!(code, 1, "{cell}: {stdout}");
@@ -715,16 +807,6 @@ fn the_export_matrix() {
                             let mut all: Vec<&str> = ids.iter().chain(&gone).copied().collect();
                             all.sort();
                             assert_eq!(all, NINE, "{cell}: kept and dropped are disjoint");
-                        }
-                        Expect::OverToday { nodes } => {
-                            assert_eq!(ids.len(), nodes, "{cell}");
-                            assert!(object.get("token_budget").is_none(), "{cell}");
-                            assert!(used > budget.unwrap(), "{cell}: {used} tokens fit");
-                        }
-                        Expect::FitsWithoutMarkerToday { nodes } => {
-                            assert_eq!(ids.len(), nodes, "{cell}");
-                            assert!(object.get("token_budget").is_none(), "{cell}");
-                            assert!(used <= budget.unwrap(), "{cell}: {used} tokens");
                         }
                         Expect::Fails(_) => unreachable!(),
                     }

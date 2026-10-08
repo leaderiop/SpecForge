@@ -813,7 +813,8 @@ fn machine_formats_serialize_compact() {
 }
 
 // C1-10: token budget applies to the agent formats (context/brief), not just
-// schemaless JSON. A tight budget must shrink the output to a subgraph.
+// schemaless JSON, and they are fitted as the graph export is: within the
+// budget, with a `token_budget` block naming what was dropped.
 #[test]
 fn budget_truncates_context_and_brief() {
     let graph = build_graph(); // 3 nodes, 2 edges
@@ -830,12 +831,7 @@ fn budget_truncates_context_and_brief() {
             },
         )
         .unwrap();
-        // Far below the full render; the graph export gets just under it,
-        // since it can't shrink past its envelope (E062 below that).
-        let budget = match format {
-            specforge_emitter::EmitFormat::Json => specforge_emitter::estimate_tokens(&full) - 1,
-            _ => 20,
-        };
+        let budget = specforge_emitter::estimate_tokens(&full) / 2;
         let truncated = specforge_emitter::emit(
             &graph,
             &specforge_emitter::EmitOptions {
@@ -846,16 +842,32 @@ fn budget_truncates_context_and_brief() {
         )
         .unwrap();
         assert!(
+            specforge_emitter::estimate_tokens(&truncated) <= budget,
+            "{format:?}: over the budget of {budget}: {truncated}"
+        );
+        assert!(
             truncated.len() < full.len(),
             "{format:?}: budgeted output must be strictly smaller ({} vs {})",
             truncated.len(),
             full.len()
         );
-        // Budgeted output stays valid JSON for the JSON family.
-        if matches!(format, specforge_emitter::EmitFormat::Json) {
-            serde_json::from_str::<serde_json::Value>(&truncated)
-                .expect("budgeted JSON still parses");
-        }
+        let parsed: serde_json::Value =
+            serde_json::from_str(&truncated).expect("budgeted JSON still parses");
+        assert_eq!(
+            parsed["token_budget"]["strategy"], "prioritize",
+            "{format:?}"
+        );
+        assert_eq!(
+            parsed["token_budget"]["budget_tokens"], budget,
+            "{format:?}"
+        );
+        assert!(
+            !parsed["token_budget"]["truncated_entities"]
+                .as_array()
+                .unwrap()
+                .is_empty(),
+            "{format:?}: {truncated}"
+        );
     }
 
     // No budget: unchanged full output.

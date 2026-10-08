@@ -73,7 +73,7 @@ impl Default for EmitOptions<'_> {
 /// `scope` (with `depth`) and `kind_filter` select the subgraph; a scoped
 /// export references the schema instead of embedding it. `format` and `schema`
 /// choose the shape (graph 1.0, or 2.0 with the schema; context and brief, 2.0
-/// when a schema is given). Under `token_budget` the graph export is fitted
+/// when a schema is given). Under `token_budget` every format but DOT is fitted
 /// by `budget::fit`: the whole export when it fits; otherwise the least
 /// central entities are dropped, with their edges, until it fits, and the
 /// export says which in its `token_budget` block. An embedded schema counts
@@ -106,19 +106,12 @@ pub fn emit(graph: &Graph, options: &EmitOptions<'_>) -> Result<String, EmitterE
         schema: options.schema.map(|schema| (schema, attach)),
         fields: options.field_registry,
     };
-    match (options.token_budget, options.format) {
-        (None, _) => shape.render(&selected, None),
-        (Some(max_tokens), EmitFormat::Json) => {
+    match options.token_budget {
+        None => shape.render(&selected, None),
+        Some(max_tokens) => {
             crate::budget::fit(&selected, max_tokens, shape.schema_cost(), |g, budget| {
                 shape.render(g, budget)
             })
-        }
-        // Context and brief truncate to the most central subgraph that fits,
-        // keeping at least one entity, until they are fitted as the graph is.
-        (Some(max_tokens), _) => {
-            let kept =
-                crate::budget::fit_keeping_one(&selected, max_tokens, |g| shape.render(g, None))?;
-            shape.render(&kept, None)
         }
     }
 }

@@ -162,7 +162,7 @@ enum Commands {
 
         /// Token budget for the export: keeps the most central entities that
         /// fit. The schema is left out unless --with-schema is given, and
-        /// then counts toward the budget. A `graph` export lists the dropped
+        /// then counts toward the budget. The export lists the dropped
         /// entities under `token_budget`; below one entity it is the envelope
         /// with no entities, and below even that it fails (E062). Ignored by
         /// `dot`.
