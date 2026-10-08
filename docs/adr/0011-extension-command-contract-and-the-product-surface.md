@@ -252,6 +252,44 @@ link) as depending on it. Fixed here: only a `depends_on` reference is a depende
   optional surface field is absent, not `null`. Raw JSON (`raw_category("surfaces", ..)`)
   still overrides the builder, for an extension not written with it.
 
+## One operation runs a command (amendment, architecture round 5, plan 09)
+
+Both surfaces assembled a run from five public pieces of `specforge_ops::command`
+(`CommandContext`, `CommandContext::now`, `evidence`, `command_input`, `run_command`), in one
+order, and each new input landed in both: the format and the date (11586f35, 0635e435) and the
+evidence (741d474c, ADR 0039). The CLI built its project view by hand with `ProjectView::new`,
+the constructor ADR 0015 keeps for tests and graphs built in memory, over a graph built without
+the checks. And the two sent different roots: the CLI the canonical path, MCP the served root as
+given, so `specforge mcp .` told every command `cwd: "."`.
+
+- **O1. `specforge_ops::command::run(view, command, given, format)` runs a command**: it
+  normalizes the given args by the one arg rule (a refusal is `RunError::Args`, the export not
+  called), takes the project root from the view (`RunError::NoProject` without one), computes the
+  evidence from the view's recorded report, reads the host's date (UTC), renders the view's graph
+  as the graph export and calls the `cmd__` export in the runtime the view's extensions were
+  loaded in; a failed call is `RunError::Call` (E028). `RunError::to_command_error` is the error
+  object a command writes for each failure. Nothing else of the run path is public.
+- **O2. The surfaces read and render.** The CLI builds clap from the derivation, routes, says why
+  a refused or shadowed command does not run, prints the output and exits with its code; a failure
+  goes to stderr in the format asked for (the error object under `json`), exit 2 for refused args,
+  else 1. MCP reads the tool's arguments, shapes the result (the structured object, the `isError`
+  object, or text) and records `surface_command_dispatched` with its duration; refused args are the
+  command's `INVALID_INPUT` object, a failed call the structured MCP error carrying its E028 (ADR
+  0013 D4).
+- **O3. The CLI runs a command over its compiled project.** Having routed on the project's
+  environment, it compiles from that same environment (`CompiledProject::of`): the sources are read
+  and the graph built and checked, as MCP's served session's are, and the view is
+  `ProjectView::of`. This supersedes ADR 0008's "(without the checks a compile runs)": the checks
+  cost about 0.3 s of a 1 s command in a debug build on this repository, for one kind of view on
+  both surfaces; nothing is printed from them.
+- **O4. `cwd` is the project root, absolute and canonical** (symlinks resolved; as given when that
+  fails), on both surfaces. Under MCP it was the served root as given.
+- **O5. A refused command is a routing matter.** No surface routes it (the CLI's command line
+  omits it, MCP's table never promotes it), so `run` does not check it again.
+
+Reopen if a third surface runs commands with an input of its own, or a command needs an input the
+project view cannot give (ADR 0008's trigger).
+
 ## What would reopen this
 
 - A command that must write files, stream, or read beyond the graph and the date (ADR 0008's
