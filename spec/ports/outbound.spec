@@ -62,10 +62,10 @@ port WasmRuntime {
 port RegistryClient {
   direction outbound
   category  "io/registry"
-  method fetchExtension(registryUrl: string, name: string) -> Result<RegistryResponse, RegistryError>
-  method fetchVersion(registryUrl: string, name: string, version: string) -> Result<RegistryResponse, RegistryError>
+  method fetchExtension(registryUrl: string, name: string) -> Result<PackageMetadata, RegistryError>
+  method fetchVersion(registryUrl: string, name: string, version: string) -> Result<PackageMetadata, RegistryError>
   method downloadWasm(registryUrl: string, name: string, version: string) -> Result<string, RegistryError>
-  method search(registryUrl: string, query: string) -> Result<RegistrySearchResult, RegistryError>
+  method search(registryUrl: string, query: string) -> Result<SearchResults, RegistryError>
   method publish(registryUrl: string, name: string, wasmPath: string, manifest: string) -> Result<void, RegistryError>
   method authenticate(registryUrl: string, credential: RegistryCredential) -> Result<string, RegistryError>
   method validateCredential(credential: RegistryCredential) -> Result<boolean, RegistryError>

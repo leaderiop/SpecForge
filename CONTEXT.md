@@ -155,6 +155,11 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   version (ADR 0036); its adapter (`specforge-ops-registry`)
   is linked by the CLI and MCP, never the LSP (ADR 0010). Publish derives the stored declaration
   from the binary; `add` checks the binary declares what was published (ADR 0012).
+- **Package registry contract**: what a package registry and its client exchange over HTTP: the paths, the
+  JSON bodies, the publish form and the error codes, each defined once in `specforge-registry-wire`, which
+  `specforge-registry-server` and `specforge-registry-client` both compile against (ADR 0044). A test
+  reaches a registry through the real server in process or an in-memory client, never through JSON written
+  by hand.
 - **Package name**: what an extension package is called, `@scope/name` (a registry holds only
   these) or `name` alone (a local module); each part `a-z 0-9 . _ -`, starting with a letter or
   digit, so it is always a relative path inside the directory it is joined to and one URL segment

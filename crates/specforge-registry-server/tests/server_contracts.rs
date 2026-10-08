@@ -4,6 +4,10 @@
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use specforge_registry_server::{auth, db::Database, handlers, rate::RateLimiter, state::AppState};
+use specforge_registry_wire::{
+    ErrorBody, PackageMetadata, PublishReceipt, SearchResults, TokenVerified, VersionList, Yanked,
+    form,
+};
 use std::sync::Arc;
 use tower::ServiceExt as _;
 
@@ -32,24 +36,7 @@ fn app_clone(state: &Arc<AppState>) -> axum::Router {
 }
 
 fn multipart_body(manifest: &str, wasm: &[u8], signature: Option<&str>) -> Body {
-    let boundary = "testboundary123";
-    let mut body = Vec::new();
-    let mut part = |name: &str, content_type: &str, bytes: &[u8]| {
-        body.extend_from_slice(format!("--{}\r\n", boundary).as_bytes());
-        body.extend_from_slice(
-            format!("Content-Disposition: form-data; name=\"{}\"\r\n", name).as_bytes(),
-        );
-        body.extend_from_slice(format!("Content-Type: {}\r\n\r\n", content_type).as_bytes());
-        body.extend_from_slice(bytes);
-        body.extend_from_slice(b"\r\n");
-    };
-    part("manifest", "application/json", manifest.as_bytes());
-    part("wasm", "application/wasm", wasm);
-    if let Some(sig) = signature {
-        part("signature", "application/json", sig.as_bytes());
-    }
-    body.extend_from_slice(format!("--{}--\r\n", boundary).as_bytes());
-    Body::from(body)
+    Body::from(form::body("testboundary123", manifest, wasm, signature))
 }
 
 fn put_request(token: &str, name: &str, version: &str, body: Body) -> Request<Body> {
@@ -61,10 +48,7 @@ fn put_request(token: &str, name: &str, version: &str, body: Body) -> Request<Bo
             version
         ))
         .header("authorization", format!("Bearer {}", token))
-        .header(
-            "content-type",
-            "multipart/form-data; boundary=testboundary123".to_string(),
-        )
+        .header("content-type", form::content_type("testboundary123"))
         .body(body)
         .unwrap()
 }
@@ -636,6 +620,12 @@ async fn a_read_of_a_name_that_is_not_one_is_not_found() {
     }
 }
 
+/// `value` reads as a `T` and writes back as the same JSON: the wire type is the body.
+fn round_trips<T: serde::Serialize + serde::de::DeserializeOwned>(value: &serde_json::Value) {
+    let typed: T = serde_json::from_value(value.clone()).unwrap();
+    assert_eq!(&serde_json::to_value(typed).unwrap(), value);
+}
+
 /// The sorted keys of a JSON object.
 fn keys_of(value: &serde_json::Value) -> Vec<String> {
     let mut keys: Vec<String> = value.as_object().unwrap().keys().cloned().collect();
@@ -687,12 +677,14 @@ async fn the_server_answers_in_these_json_shapes() {
         keys_of(&receipt),
         ["key_id", "name", "sha256", "size_bytes", "version"]
     );
+    round_trips::<PublishReceipt>(&receipt);
 
     // the version list.
     let (status, list) = get_json(&router, "/v1/packages/@test%2Fsigned-ext").await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(keys_of(&list), ["name", "versions"]);
     assert_eq!(list["versions"], serde_json::json!(["1.0.0"]));
+    round_trips::<VersionList>(&list);
 
     // one version's metadata.
     let (status, metadata) = get_json(&router, "/v1/packages/@test%2Fsigned-ext/1.0.0").await;
@@ -718,6 +710,7 @@ async fn the_server_answers_in_these_json_shapes() {
         metadata["wasm_url"],
         "/packages/@test%2Fsigned-ext/1.0.0/download"
     );
+    round_trips::<PackageMetadata>(&metadata);
 
     // search.
     let (status, search) = get_json(&router, "/v1/search?q=signed").await;
@@ -726,6 +719,7 @@ async fn the_server_answers_in_these_json_shapes() {
     let hits = search["results"].as_array().unwrap();
     assert_eq!(hits.len(), 1, "{search}");
     assert_eq!(keys_of(&hits[0]), ["description", "name", "version"]);
+    round_trips::<SearchResults>(&search);
 
     // token check.
     let response = router
@@ -741,10 +735,12 @@ async fn the_server_answers_in_these_json_shapes() {
         .await
         .unwrap();
     assert_eq!(response.status(), StatusCode::OK);
+    let verified = json_of(response).await;
     assert_eq!(
-        keys_of(&json_of(response).await),
+        keys_of(&verified),
         ["expires_at", "label", "scope", "valid"]
     );
+    round_trips::<TokenVerified>(&verified);
 
     // an error.
     let (status, missing) = get_json(&router, "/v1/packages/@test%2Fnone").await;
@@ -752,6 +748,7 @@ async fn the_server_answers_in_these_json_shapes() {
     assert_eq!(keys_of(&missing), ["error"]);
     assert_eq!(keys_of(&missing["error"]), ["code", "message"]);
     assert_eq!(missing["error"]["code"], "NOT_FOUND");
+    round_trips::<ErrorBody>(&missing);
 
     // yank.
     let response = router
@@ -767,5 +764,7 @@ async fn the_server_answers_in_these_json_shapes() {
         .await
         .unwrap();
     assert_eq!(response.status(), StatusCode::OK);
-    assert_eq!(json_of(response).await, serde_json::json!({"yanked": true}));
+    let yanked = json_of(response).await;
+    assert_eq!(yanked, serde_json::json!({"yanked": true}));
+    round_trips::<Yanked>(&yanked);
 }
