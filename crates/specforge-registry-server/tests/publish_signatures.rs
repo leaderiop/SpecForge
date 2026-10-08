@@ -149,13 +149,12 @@ async fn signed_publish_round_trips_through_http_boundary() {
     server.abort();
 }
 
-// bug: §3 R1, flipped by T4
 #[specforge_test_macros::test(
     behavior = "retry_registry_request",
     verify = "a rate-limited answer is R003 on every registry call"
 )]
 #[tokio::test]
-async fn a_rate_limited_publish_is_reported_as_a_network_error_today() {
+async fn a_rate_limited_publish_is_r003() {
     let dir = tempfile::tempdir().unwrap();
     let (base_url, server) = spawn_server(dir.path(), 1);
     let raw_token = {
@@ -195,9 +194,9 @@ async fn a_rate_limited_publish_is_reported_as_a_network_error_today() {
 
     outcome.0.expect("the first publish is inside the window");
     let diagnostic = outcome.1.expect_err("the second is rate limited");
-    assert_eq!(diagnostic.code, "R005", "{diagnostic:?}");
+    assert_eq!(diagnostic.code, "R003", "{diagnostic:?}");
     assert!(
-        diagnostic.message.contains("too many publish requests"),
+        diagnostic.message.contains("rate limited"),
         "{diagnostic:?}"
     );
 }

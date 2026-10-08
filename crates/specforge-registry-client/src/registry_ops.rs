@@ -7,8 +7,8 @@ use specforge_common::{Diagnostic, codes};
 
 use super::registry_client::{RegistryClient, RegistryError};
 use super::registry_config::{RegistryConfig, RegistryCredential};
-use specforge_protocol_types::package::Version;
 use specforge_protocol_types::ExtensionDeclaration;
+use specforge_protocol_types::package::Version;
 use specforge_registry_wire::{PackageMetadata, SearchHit};
 
 /// Compute the hex-encoded SHA256 digest of the given data.

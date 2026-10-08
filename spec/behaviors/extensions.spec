@@ -981,6 +981,7 @@ behavior authenticate_registry_request "Authenticate Registry Request" {
   verify unit "403 response produces E-level diagnostic with permission guidance"
   verify unit "unreachable registry with cached extension falls back to cache with I-level diagnostic"
   verify unit "authentication failure (401/403) does not trigger cache fallback"
+  verify unit "every registry call reads an answer's status as one error"
   verify contract "Authenticate Registry Request: registry authentication holds — credential_configured, registry_client_available, token_resolved, auth_header_attached, missing_source_diagnosed, double_401_diagnosed, tokens_never_logged, cache_fallback_on_network_only, authenticated_emitted"
 }
 
