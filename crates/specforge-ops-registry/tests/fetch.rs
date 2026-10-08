@@ -34,7 +34,7 @@ fn sha256(bytes: &[u8]) -> String {
 }
 
 /// What the registry serves for `@acme/tool@1.0.0`.
-struct Served {
+struct Reply {
     name: String,
     /// The metadata's `sha256`.
     sha256: String,
@@ -48,9 +48,9 @@ struct Served {
     wasm_url: String,
 }
 
-impl Served {
+impl Reply {
     fn unsigned() -> Self {
-        Served {
+        Reply {
             name: NAME.to_string(),
             sha256: sha256(WASM),
             wasm: WASM.to_vec(),
@@ -70,7 +70,7 @@ impl Served {
             &sha256(manifest.as_bytes()),
             "2026-10-03T00:00:00+00:00",
         );
-        Served {
+        Reply {
             name: name.to_string(),
             wasm: wasm.to_vec(),
             sha256: sha256(wasm),
@@ -82,7 +82,7 @@ impl Served {
     }
 
     fn signed(key: &SigningKey) -> Self {
-        Served::signed_over(key, NAME, WASM, MANIFEST)
+        Reply::signed_over(key, NAME, WASM, MANIFEST)
     }
 
     /// The reply the client serves for `@acme/tool@1.0.0`, and its binary.
@@ -121,7 +121,7 @@ struct Project {
 }
 
 impl Project {
-    fn on(served: Served) -> Self {
+    fn on(served: Reply) -> Self {
         let client = MemoryClient::new();
         served.store(&client);
         let dir = TempDir::new().unwrap();
@@ -178,9 +178,9 @@ fn pinned_at(path: &Path) -> Option<String> {
 )]
 fn a_download_that_does_not_match_the_registry_sha256_is_refused() {
     let key = SigningKey::generate();
-    let served = Served {
+    let served = Reply {
         wasm: b"\0asm-evil".to_vec(),
-        ..Served::signed(&key)
+        ..Reply::signed(&key)
     };
     let project = Project::on(served);
 
@@ -199,9 +199,9 @@ fn a_download_that_does_not_match_the_registry_sha256_is_refused() {
     verify = "SHA256 mismatch produces hard error and aborts"
 )]
 fn a_registry_sha256_that_does_not_match_the_download_is_refused() {
-    let served = Served {
+    let served = Reply {
         sha256: sha256(b"something else"),
-        ..Served::unsigned()
+        ..Reply::unsigned()
     };
     let project = Project::on(served);
 
@@ -218,10 +218,10 @@ fn a_signature_over_other_bytes_is_refused_even_with_allow_unsigned() {
     // the publisher signed different ones: integrity passes, the signature
     // must not.
     let key = SigningKey::generate();
-    let served = Served {
+    let served = Reply {
         sha256: sha256(b"\0asm-evil"),
         wasm: b"\0asm-evil".to_vec(),
-        ..Served::signed(&key)
+        ..Reply::signed(&key)
     };
     let project = Project::on(served);
 
@@ -236,12 +236,12 @@ fn a_signature_over_other_bytes_is_refused_even_with_allow_unsigned() {
 )]
 fn a_swapped_manifest_breaks_the_signature() {
     let key = SigningKey::generate();
-    let served = Served {
+    let served = Reply {
         manifest: MANIFEST.replace(
             "\"sandbox_policy\":null",
             "\"sandbox_policy\":null,\"theme_color\":\"#000000\"",
         ),
-        ..Served::signed(&key)
+        ..Reply::signed(&key)
     };
     let project = Project::on(served);
 
@@ -254,9 +254,9 @@ fn a_swapped_manifest_breaks_the_signature() {
     verify = "a malformed signature object is refused"
 )]
 fn a_signature_object_that_is_not_json_is_refused() {
-    let served = Served {
+    let served = Reply {
         signature: "not a signature".to_string(),
-        ..Served::unsigned()
+        ..Reply::unsigned()
     };
     let project = Project::on(served);
 
@@ -270,9 +270,9 @@ fn a_signature_object_that_is_not_json_is_refused() {
 )]
 fn a_key_id_the_signature_does_not_carry_is_refused() {
     let key = SigningKey::generate();
-    let served = Served {
+    let served = Reply {
         key_id: SigningKey::generate().key_id(),
-        ..Served::signed(&key)
+        ..Reply::signed(&key)
     };
     let project = Project::on(served);
 
@@ -285,7 +285,7 @@ fn a_key_id_the_signature_does_not_carry_is_refused() {
     verify = "an unsigned package is refused without --allow-unsigned"
 )]
 fn an_unsigned_package_is_refused_without_allow_unsigned() {
-    let project = Project::on(Served::unsigned());
+    let project = Project::on(Reply::unsigned());
 
     let error = project.fetch(false, Trust::AssumeYes).unwrap_err();
     assert_eq!(error.code, "R-TRUST-001", "{error:?}");
@@ -304,7 +304,7 @@ fn an_unsigned_package_is_refused_without_allow_unsigned() {
     verify = "an unsigned package is accepted with --allow-unsigned and pins no key"
 )]
 fn an_unsigned_package_is_accepted_with_allow_unsigned_and_pins_nothing() {
-    let project = Project::on(Served::unsigned());
+    let project = Project::on(Reply::unsigned());
 
     let package = project.fetch(true, Trust::Refuse).unwrap();
     assert_eq!(package.wasm, WASM);
@@ -318,7 +318,7 @@ fn an_unsigned_package_is_accepted_with_allow_unsigned_and_pins_nothing() {
 )]
 fn a_correctly_signed_package_is_accepted_and_its_key_pinned() {
     let key = SigningKey::generate();
-    let project = Project::on(Served::signed(&key));
+    let project = Project::on(Reply::signed(&key));
 
     let package = project.fetch(false, Trust::Refuse).unwrap();
     assert_eq!(package.name.as_str(), NAME);
@@ -341,7 +341,7 @@ fn a_correctly_signed_package_is_accepted_and_its_key_pinned() {
 fn a_package_signed_by_another_key_than_the_pinned_one_is_refused() {
     let pinned = SigningKey::generate();
     let other = SigningKey::generate();
-    let project = Project::on(Served::signed(&other));
+    let project = Project::on(Reply::signed(&other));
     project.pin(&pinned);
 
     let error = project.fetch(false, Trust::Refuse).unwrap_err();
@@ -361,7 +361,7 @@ fn a_package_signed_by_another_key_than_the_pinned_one_is_refused() {
 fn consent_to_a_key_change_re_pins_the_new_key() {
     let pinned = SigningKey::generate();
     let other = SigningKey::generate();
-    let project = Project::on(Served::signed(&other));
+    let project = Project::on(Reply::signed(&other));
     project.pin(&pinned);
 
     let package = project.fetch(false, Trust::AssumeYes).unwrap();
@@ -375,7 +375,7 @@ fn consent_to_a_key_change_re_pins_the_new_key() {
 )]
 fn a_denied_key_is_refused_even_with_consent() {
     let key = SigningKey::generate();
-    let project = Project::on(Served::signed(&key));
+    let project = Project::on(Reply::signed(&key));
     let mut known = KnownKeys::default();
     known.denied_keys.push(key.key_id());
     save_known_keys_at(&project.known_keys(), &known).unwrap();
@@ -393,7 +393,7 @@ fn a_registry_answering_with_another_package_is_refused() {
     // validly signed `@evil/tool` must not get it past the pin.
     let pinned = SigningKey::generate();
     let evil = SigningKey::generate();
-    let project = Project::on(Served::signed_over(&evil, "@evil/tool", WASM, MANIFEST));
+    let project = Project::on(Reply::signed_over(&evil, "@evil/tool", WASM, MANIFEST));
     project.pin(&pinned);
 
     let error = project.fetch(false, Trust::AssumeYes).unwrap_err();
@@ -415,7 +415,7 @@ fn a_registry_answering_with_another_package_is_refused() {
 fn a_correctly_signed_package_carries_the_peers_its_manifest_declares() {
     let key = SigningKey::generate();
     let manifest = r#"{"handshake":{"protocol_version":"1.0.0","name":"@acme/tool","version":"1.0.0","contribution_flags":{},"peer_dependencies":[{"name":"@acme/base","version":"^1.0"}],"sandbox_policy":null}}"#;
-    let project = Project::on(Served::signed_over(&key, NAME, WASM, manifest));
+    let project = Project::on(Reply::signed_over(&key, NAME, WASM, manifest));
 
     let package = project.fetch(false, Trust::Refuse).unwrap();
     let peers = package.declaration.peers();
@@ -433,7 +433,7 @@ fn a_manifest_that_cannot_be_read_is_refused_and_pins_nothing() {
     // wrong. Read as "no peers", it would slip past the diamond gate.
     let key = SigningKey::generate();
     let manifest = r#"{"handshake":{"name":"@acme/tool","peer_dependencies":"not a list"}}"#;
-    let project = Project::on(Served::signed_over(&key, NAME, WASM, manifest));
+    let project = Project::on(Reply::signed_over(&key, NAME, WASM, manifest));
 
     let error = project.fetch(true, Trust::AssumeYes).unwrap_err();
     assert_eq!(error.code, "R-OPS-004", "{error:?}");
@@ -445,9 +445,9 @@ fn a_manifest_that_cannot_be_read_is_refused_and_pins_nothing() {
     verify = "a package served without a manifest is refused"
 )]
 fn a_package_served_without_a_manifest_is_refused() {
-    let served = Served {
+    let served = Reply {
         manifest: String::new(),
-        ..Served::unsigned()
+        ..Reply::unsigned()
     };
     let project = Project::on(served);
 
@@ -463,7 +463,7 @@ fn a_package_served_without_a_manifest_is_refused() {
 fn a_manifest_describing_another_package_is_refused() {
     let key = SigningKey::generate();
     let manifest = r#"{"handshake":{"protocol_version":"1.0.0","name":"@evil/tool","version":"1.0.0","contribution_flags":{},"peer_dependencies":[],"sandbox_policy":null}}"#;
-    let project = Project::on(Served::signed_over(&key, NAME, WASM, manifest));
+    let project = Project::on(Reply::signed_over(&key, NAME, WASM, manifest));
 
     let error = project.fetch(true, Trust::AssumeYes).unwrap_err();
     assert_eq!(error.code, "R-TRUST-004", "{error:?}");
@@ -481,7 +481,7 @@ fn a_package_published_with_a_legacy_manifest_is_refused() {
     let key = SigningKey::generate();
     let legacy =
         r#"{"name":"@acme/tool","version":"1.0.0","manifestVersion":2,"wasmPath":"tool.wasm"}"#;
-    let project = Project::on(Served::signed_over(&key, NAME, WASM, legacy));
+    let project = Project::on(Reply::signed_over(&key, NAME, WASM, legacy));
 
     let error = project.fetch(true, Trust::AssumeYes).unwrap_err();
     assert_eq!(error.code, "R-OPS-004", "{error:?}");
@@ -499,9 +499,9 @@ fn a_download_that_misses_is_refused_and_pins_nothing() {
     // The reply is signed and describes the package, but the binary is
     // not where it says: the policy stops at the download.
     let key = SigningKey::generate();
-    let served = Served {
+    let served = Reply {
         wasm_url: "memory://nowhere".to_string(),
-        ..Served::signed(&key)
+        ..Reply::signed(&key)
     };
     let project = Project::on(served);
 
