@@ -119,7 +119,10 @@ behavior load_extension_declaration "Load Extension Declaration" {
     MUST produce W138. The declaration is read once per environment load;
     nothing describes a category again outside it. A handshake whose
     protocol major version differs from the host's MUST fail the
-    extension's load (E028), and none of its categories are read.
+    extension's load (E028), and none of its categories are read. The
+    loader, not the handshake call, applies the execution budget the
+    handshake declares (sandbox_policy.max_execution_ms) to the
+    extension's later calls.
   """
   verify integration "every builtin's handshake and describe answers match their pinned snapshot byte for byte"
   verify unit "a declaration round-trips through its wire answers unchanged"
@@ -136,6 +139,7 @@ behavior load_extension_declaration "Load Extension Declaration" {
   verify integration "an extension that only declares passes has them in its declaration"
   verify integration "the declared short name reaches the registry build"
   verify integration "an unsupported protocol major version fails the load"
+  verify unit "the loader applies the execution budget its handshake declares, and a handshake call alone applies none"
   verify unit "the SDK's raw category and the host's load parse a category's items through one function"
 }
 

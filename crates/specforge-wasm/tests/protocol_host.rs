@@ -68,7 +68,11 @@ fn handshake_returns_parsed_response() {
     behavior = "configure_sandbox_policy",
     verify = "a declared limit below the ceiling is applied as declared"
 )]
-fn handshake_applies_declared_max_execution_ms() {
+#[specforge_test_macros::test(
+    behavior = "load_extension_declaration",
+    verify = "the loader applies the execution budget its handshake declares, and a handshake call alone applies none"
+)]
+fn the_loader_applies_the_declared_execution_budget() {
     let runtime = InProcessRuntime::new().with(|| {
         let mut meta = ExtensionMeta::new("@specforge/software", "1.0.0");
         meta.sandbox_policy = Some(SandboxPolicy {
@@ -90,9 +94,11 @@ fn handshake_applies_declared_max_execution_ms() {
     );
 }
 
-// pin (16-T0): today's behaviour; flipped by 16-T2
-#[test]
-fn pin_a_handshake_call_applies_the_declared_limits() {
+#[specforge_test_macros::test(
+    behavior = "load_extension_declaration",
+    verify = "the loader applies the execution budget its handshake declares, and a handshake call alone applies none"
+)]
+fn a_handshake_call_applies_no_limits() {
     let runtime = InProcessRuntime::new().with(|| {
         let mut meta = ExtensionMeta::new("@specforge/software", "1.0.0");
         meta.sandbox_policy = Some(SandboxPolicy {
@@ -101,19 +107,12 @@ fn pin_a_handshake_call_applies_the_declared_limits() {
         });
         ContributionsBuilder::new(meta)
     });
-    ExtensionCalls::new(&runtime)
+    let handshake = ExtensionCalls::new(&runtime)
         .handshake("@specforge/software")
         .unwrap();
-    assert_eq!(
-        runtime.limits(),
-        vec![(
-            "@specforge/software".to_string(),
-            Limits {
-                execution_ms: 5000,
-                memory_mb: 512
-            }
-        )]
-    );
+    // It reads what the policy comes to; applying it is the loader's.
+    assert_eq!(handshake.sandbox.limits.execution_ms, 5000);
+    assert!(runtime.limits().is_empty(), "{:?}", runtime.limits());
 }
 
 #[specforge_test_macros::test(

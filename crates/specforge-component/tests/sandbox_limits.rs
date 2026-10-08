@@ -29,15 +29,17 @@ fn declares_memory_limit(mb: u32) -> String {
 const DECLARES_NOTHING: &str = r#"{"protocol_version":"1.0.0","name":"@repro/grow","version":"0.1.0","contribution_flags":{},"peer_dependencies":[]}"#;
 
 /// A runtime serving `@repro/grow`, a guest growing by `pages` per call,
-/// whose handshake has been read (so its limits apply).
+/// whose handshake has been read and its limits applied.
 fn grower(pages: u32, handshake: &str) -> ComponentRuntime {
     let runtime = ComponentRuntime::new();
     runtime
         .load_module_bytes("@repro/grow", &bridge_component(pages, 0, false, handshake))
         .expect("the growing guest instantiates");
-    ExtensionCalls::new(&runtime)
+    let handshake = ExtensionCalls::new(&runtime)
         .handshake("@repro/grow")
         .expect("the handshake answers");
+    // Reading the handshake applies nothing: the loader does, so does this.
+    runtime.apply_limits("@repro/grow", handshake.sandbox.limits);
     runtime
 }
 

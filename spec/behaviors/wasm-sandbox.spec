@@ -139,10 +139,10 @@ behavior configure_sandbox_policy "Configure Sandbox Policy" {
     limits_held_to_ceiling      "each declared limit (max_execution_ms, max_memory_mb) is applied as declared, held to the host's ceiling of 30000 ms and 512 MB; an undeclared limit is the ceiling"
     above_ceiling_warned        "a declared limit above the ceiling is W153, naming the limit and the ceiling it is held to"
     capabilities_never_granted  "a sandbox_policy key other than the two limits whose value asks for something, and a surface's sandbox override, is W153: the host grants no capability"
-    limits_applied_at_handshake "the limits hold every call after the handshake is read, on every path that loads an extension's declaration"
+    limits_applied_at_handshake "the limits hold every call after the handshake is read, on every path that loads an extension's declaration; a handshake call alone applies none"
   }
   contract   """
-    When the host reads an extension's handshake it MUST compute the
+    When the host loads an extension's declaration it MUST compute the
     extension's limits from the handshake's sandbox_policy and apply them
     to the extension's later calls (the WasmRuntime port's apply_limits;
     the component runtime enforces them, enforce_wasm_sandbox). The policy

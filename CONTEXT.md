@@ -305,7 +305,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   directory, environment, arguments, stdin, socket or name lookup), and it is held to two limits its
   handshake's `sandbox_policy` may declare, each at most the host's ceiling (30 000 ms per call,
   512 MB of linear memory) and the ceiling when undeclared; every call also gets the whole fuel
-  budget. Reading the handshake applies them; the component runtime enforces them, and a call that
+  budget. The loader applies them once it has read the handshake; the component runtime enforces them, and a call that
   crosses one traps with the limit's kind (E028). What a declaration asks for that the host does not
   give is W153 (`specforge_wasm::sandbox`, ADR 0037).
 - **In-process runtime**: the test adapter of the `WasmRuntime` port that runs an SDK-declared

@@ -44,6 +44,9 @@ pub fn load_declaration(
         }
     })?;
     check_protocol_version(&response)?;
+    // The limits the extension declares (the ceiling when it declares
+    // none) hold every call after the handshake.
+    runtime.apply_limits(extension, sandbox.limits);
     let mut warnings = sandbox.unhonoured;
     let declaration = ExtensionDeclaration::from_wire(
         response,

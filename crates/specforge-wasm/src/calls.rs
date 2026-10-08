@@ -181,8 +181,8 @@ impl<T> Encoded<T> {
     }
 }
 
-/// An extension's handshake, and the sandbox reading it placed the
-/// extension in.
+/// An extension's handshake, and the sandbox its `sandbox_policy` reads as
+/// (the limits the loader applies, and what the host does not honour).
 #[derive(Debug, Clone)]
 pub struct Handshake {
     pub response: HandshakeResponse,
@@ -212,10 +212,10 @@ impl<'r> ExtensionCalls<'r> {
         }
     }
 
-    /// `__handshake`: the extension's identity and what it declares.
-    /// Reading it places the extension in its sandbox: its limits hold
-    /// every later call ([`WasmRuntime::apply_limits`]), the ceiling when it
-    /// declares none.
+    /// `__handshake`: the extension's identity and what it declares, with the
+    /// sandbox reading its `sandbox_policy` gives. Reading it applies
+    /// nothing; the loader applies the limits
+    /// ([`crate::protocol::load_declaration`]).
     pub fn handshake(&self, extension: &str) -> Result<Handshake, CallError> {
         let request = HandshakeRequest {
             host_version: PROTOCOL_VERSION.to_string(),
@@ -235,7 +235,6 @@ impl<'r> ExtensionCalls<'r> {
             wire.get("sandbox_policy")
                 .filter(|policy| !policy.is_null()),
         );
-        self.runtime.apply_limits(extension, sandbox.limits);
         Ok(Handshake { response, sandbox })
     }
 

@@ -5,10 +5,12 @@
 //! (the component runtime builds that context; `sandbox_probe` proves it).
 //! What an extension declares in its handshake's `sandbox_policy` is limits
 //! only — a call's wall-clock budget and its instance's linear memory — each
-//! held to the host's ceiling. Reading the handshake applies them
-//! ([`ExtensionCalls::handshake`](crate::ExtensionCalls::handshake) through
-//! [`WasmRuntime::apply_limits`](crate::runtime::WasmRuntime::apply_limits));
-//! what the declaration asks for that the host does not honour is W153.
+//! held to the host's ceiling. The loader applies them, once the handshake's
+//! protocol major is checked
+//! ([`load_declaration`](crate::protocol::load_declaration) through
+//! [`WasmRuntime::apply_limits`](crate::runtime::WasmRuntime::apply_limits)); a
+//! [`handshake`](crate::ExtensionCalls::handshake) call on its own applies
+//! none. What the declaration asks for that the host does not honour is W153.
 
 use serde_json::Value;
 use specforge_common::{Diagnostic, codes};
