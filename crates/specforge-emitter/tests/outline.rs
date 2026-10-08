@@ -819,30 +819,40 @@ fn deps_full_shows_everything() {
     );
 }
 
-// P7 - the fix to the JSON outline flips it.
-#[test]
-fn the_json_outline_lists_every_dependency_whatever_deps_today() {
+#[specforge_test_macros::test(
+    behavior = "render_extension_outline",
+    verify = "the dependencies every format shows, json included, are the ones --deps selects"
+)]
+fn the_json_outline_lists_the_dependencies_deps_selects() {
     let outline = OutlineIntermediate_from_declarations(&load_all_manifests());
-    let listed = |deps| {
+    let listed = |deps| -> Vec<String> {
         let options = OutlineOptions {
             format: OutlineFormat::Json,
             detail: OutlineDetail::Keys,
             deps,
         };
         let json: serde_json::Value = serde_json::from_str(&render(&outline, &options)).unwrap();
-        json["dependencies"].as_array().unwrap().len()
+        json["dependencies"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|d| d["kind"].as_str().unwrap().to_string())
+            .collect()
     };
+    let direct = listed(DependencyDepth::Direct);
+    assert!(direct.iter().all(|k| k == "direct"), "{direct:?}");
     assert_eq!(
-        listed(DependencyDepth::Direct),
-        listed(DependencyDepth::Full)
-    );
-    assert_eq!(listed(DependencyDepth::Full), outline.dependencies.len());
-    assert!(
+        direct.len(),
         outline
             .dependencies
             .iter()
-            .any(|d| d.kind == DependencyKind::Transitive)
+            .filter(|d| d.kind == DependencyKind::Direct)
+            .count()
     );
+    assert!(!listed(DependencyDepth::Effective).contains(&"transitive".to_string()));
+    let full = listed(DependencyDepth::Full);
+    assert_eq!(full.len(), outline.dependencies.len());
+    assert!(full.contains(&"transitive".to_string()), "{full:?}");
 }
 
 #[test]
@@ -921,7 +931,7 @@ fn json_dependencies_include_optional_field() {
     let opts = OutlineOptions {
         format: OutlineFormat::Json,
         detail: OutlineDetail::Keys,
-        ..Default::default()
+        deps: DependencyDepth::Full,
     };
     let output = render(&outline, &opts);
     let parsed: serde_json::Value = serde_json::from_str(&output).expect("JSON should be valid");
@@ -1067,4 +1077,55 @@ fn outline_of_the_builtins_in_every_format() {
         };
         insta::assert_snapshot!(format!("outline_builtins_{name}"), render(&outline, &opts));
     }
+}
+
+#[specforge_test_macros::test(
+    behavior = "render_extension_outline",
+    verify = "Render the Extension Outline: outline rendering holds — declarations_loaded, one_card_per_extension, declared_text_contained, deps_selected"
+)]
+fn outline_rendering_contract() {
+    // declarations_loaded: the four builtins load.
+    let manifests = load_all_manifests();
+    assert_eq!(manifests.len(), 4);
+    let outline = OutlineIntermediate_from_declarations(&manifests);
+    let render_as = |outline: &OutlineIntermediate, format, deps| {
+        render(
+            outline,
+            &OutlineOptions {
+                format,
+                detail: OutlineDetail::Keys,
+                deps,
+            },
+        )
+    };
+
+    // one_card_per_extension: the overview has one row per extension.
+    let markdown = render_as(&outline, OutlineFormat::Markdown, DependencyDepth::Direct);
+    for ext in &manifests {
+        let row = format!("| {} | {} |", ext.handshake.name, ext.handshake.version);
+        assert!(markdown.contains(&row), "{row}: {markdown}");
+    }
+
+    // declared_text_contained: a pipe stays in its cell.
+    let quoted = render_as(
+        &quoted("1.0|rc"),
+        OutlineFormat::Markdown,
+        DependencyDepth::Direct,
+    );
+    assert!(quoted.contains("1.0\\|rc"), "{quoted}");
+
+    // deps_selected: Mermaid and JSON under Direct show the same pairs.
+    let mermaid = render_as(&outline, OutlineFormat::Mermaid, DependencyDepth::Direct);
+    let json: serde_json::Value = serde_json::from_str(&render_as(
+        &outline,
+        OutlineFormat::Json,
+        DependencyDepth::Direct,
+    ))
+    .unwrap();
+    let listed = json["dependencies"].as_array().unwrap();
+    let arrows = mermaid
+        .lines()
+        .filter(|l| l.contains("depends on") || l.contains("optional dep"))
+        .count();
+    assert_eq!(listed.len(), arrows, "{mermaid}");
 }

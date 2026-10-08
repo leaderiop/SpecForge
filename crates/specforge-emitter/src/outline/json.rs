@@ -1,10 +1,11 @@
-use super::{OutlineDetail, OutlineIntermediate, OutlineOptions};
+use super::{OutlineDependency, OutlineDetail, OutlineIntermediate, OutlineOptions};
 
 pub fn render_json(outline: &OutlineIntermediate, options: &OutlineOptions) -> String {
+    let dependencies = super::filter_dependencies(&outline.dependencies, options.deps);
     match options.detail {
-        OutlineDetail::None => render_summary(outline),
-        OutlineDetail::Keys => render_keys(outline),
-        OutlineDetail::All => render_all(outline),
+        OutlineDetail::None => render_summary(outline, &dependencies),
+        OutlineDetail::Keys => render_keys(outline, &dependencies),
+        OutlineDetail::All => render_all(outline, &dependencies),
     }
 }
 
@@ -31,7 +32,7 @@ fn build_metadata(outline: &OutlineIntermediate) -> serde_json::Value {
     })
 }
 
-fn render_summary(outline: &OutlineIntermediate) -> String {
+fn render_summary(outline: &OutlineIntermediate, dependencies: &[&OutlineDependency]) -> String {
     let summary: serde_json::Value = serde_json::json!({
         "metadata": build_metadata(outline),
         "extensions": outline.extensions.iter().map(|ext| {
@@ -46,14 +47,14 @@ fn render_summary(outline: &OutlineIntermediate) -> String {
                     .count(),
             })
         }).collect::<Vec<_>>(),
-        "dependencies": outline.dependencies,
+        "dependencies": dependencies,
         "enhancements": outline.enhancements,
         "cross_edges": outline.cross_edges,
     });
     serde_json::to_string_pretty(&summary).unwrap_or_default()
 }
 
-fn render_keys(outline: &OutlineIntermediate) -> String {
+fn render_keys(outline: &OutlineIntermediate, dependencies: &[&OutlineDependency]) -> String {
     let keys: serde_json::Value = serde_json::json!({
         "metadata": build_metadata(outline),
         "extensions": outline.extensions.iter().map(|ext| {
@@ -97,18 +98,18 @@ fn render_keys(outline: &OutlineIntermediate) -> String {
                 "collector_count": ext.collector_count,
             })
         }).collect::<Vec<_>>(),
-        "dependencies": outline.dependencies,
+        "dependencies": dependencies,
         "enhancements": outline.enhancements,
         "cross_edges": outline.cross_edges,
     });
     serde_json::to_string_pretty(&keys).unwrap_or_default()
 }
 
-fn render_all(outline: &OutlineIntermediate) -> String {
+fn render_all(outline: &OutlineIntermediate, dependencies: &[&OutlineDependency]) -> String {
     let all: serde_json::Value = serde_json::json!({
         "metadata": build_metadata(outline),
         "extensions": outline.extensions,
-        "dependencies": outline.dependencies,
+        "dependencies": dependencies,
         "enhancements": outline.enhancements,
         "cross_edges": outline.cross_edges,
     });
