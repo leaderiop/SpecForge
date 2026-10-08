@@ -1431,6 +1431,36 @@ fn anchored(anchors: &[(&str, &str)]) -> specforge_ops::navigate::AnchorManifest
     }
 }
 
+/// An entity's anchors are the manifest's anchors of it, in manifest
+/// order; an entity with none, or a project with no manifest, has none.
+#[specforge_test(
+    behavior = "provide_mcp_find_implementation_tool",
+    verify = "an entity with no anchor has no implementations, and no anchors manifest is none"
+)]
+fn anchors_of_an_entity_are_in_manifest_order() {
+    use specforge_ops::navigate::{anchors_of_entity, source_anchors};
+
+    let manifest = anchored(&[
+        ("alpha", "src/lib.rs"),
+        ("beta", "src/lib.rs"),
+        ("alpha", "src/net.rs"),
+    ]);
+    let files = |entity: &str| -> Vec<String> {
+        anchors_of_entity(&manifest, entity)
+            .iter()
+            .map(|a| a.file.clone())
+            .collect()
+    };
+    assert_eq!(files("alpha"), ["src/lib.rs", "src/net.rs"]);
+    assert!(files("nope").is_empty());
+
+    let project = crate::view_support::Project::new(
+        "behavior a \"A\" {\n}\n",
+        specforge_registry::RegistryBuild::default(),
+    );
+    assert!(source_anchors(&project.view()).unwrap().anchors.is_empty());
+}
+
 #[test]
 fn the_tightest_match_wins() {
     let manifest = anchored(&[

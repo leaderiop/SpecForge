@@ -1,11 +1,14 @@
 //! The source anchors manifest: `<root>/specforge-anchors.json`, which
-//! source item each entity is anchored to.
-
-use std::path::Path;
+//! source item each entity is anchored to (written by inference tooling,
+//! read by navigation).
 
 use serde::{Deserialize, Serialize};
 
-const ANCHORS_FILENAME: &str = "specforge-anchors.json";
+use crate::OpError;
+use crate::view::ProjectView;
+
+/// The source anchors manifest's file, at the project root.
+pub const ANCHORS_FILENAME: &str = "specforge-anchors.json";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AnchorManifest {
@@ -37,16 +40,31 @@ impl Default for AnchorManifest {
     }
 }
 
-pub fn load_anchor_manifest(project_root: &Path) -> Result<AnchorManifest, String> {
-    crate::infer::read_manifest::<AnchorManifest>(project_root, ANCHORS_FILENAME)
-        .map(Option::unwrap_or_default)
-        .map_err(|problem| problem.message())
+/// The anchors manifest of the view's project: empty without a root or
+/// without the file; a refusal when the file cannot be used.
+pub fn source_anchors(view: &ProjectView<'_>) -> Result<AnchorManifest, OpError> {
+    let Some(root) = view.root() else {
+        return Ok(AnchorManifest::default());
+    };
+    Ok(crate::infer::read_manifest::<AnchorManifest>(root, ANCHORS_FILENAME)?.unwrap_or_default())
+}
+
+/// The anchors of `entity_id`, in manifest order.
+pub fn anchors_of_entity<'m>(
+    manifest: &'m AnchorManifest,
+    entity_id: &str,
+) -> Vec<&'m SourceAnchor> {
+    manifest
+        .anchors
+        .iter()
+        .filter(|anchor| anchor.entity_id == entity_id)
+        .collect()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::TempDir;
+    use crate::view::testing::Fixture;
 
     fn sample_anchor(entity: &str, file: &str, line: usize) -> SourceAnchor {
         SourceAnchor {
@@ -82,8 +100,8 @@ mod tests {
     }
 
     #[test]
-    fn load_reads_the_file() {
-        let dir = TempDir::new().unwrap();
+    fn source_anchors_reads_the_file() {
+        let fixture = Fixture::new();
         let m = AnchorManifest {
             anchors: vec![
                 sample_anchor("process_order", "src/orders.rs", 25),
@@ -92,19 +110,50 @@ mod tests {
             ..Default::default()
         };
         std::fs::write(
-            dir.path().join(ANCHORS_FILENAME),
+            fixture.dir.path().join(ANCHORS_FILENAME),
             serde_json::to_string_pretty(&m).unwrap(),
         )
         .unwrap();
 
-        let loaded = load_anchor_manifest(dir.path()).unwrap();
+        let loaded = source_anchors(&fixture.view()).unwrap();
         assert_eq!(loaded.anchors.len(), 2);
     }
 
     #[test]
-    fn load_returns_default_when_missing() {
-        let dir = TempDir::new().unwrap();
-        let m = load_anchor_manifest(dir.path()).unwrap();
-        assert!(m.anchors.is_empty());
+    fn source_anchors_is_empty_without_a_file_or_a_root() {
+        let fixture = Fixture::new();
+        assert!(source_anchors(&fixture.view()).unwrap().anchors.is_empty());
+        assert!(
+            source_anchors(&fixture.rootless_view())
+                .unwrap()
+                .anchors
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn an_unusable_file_is_refused_by_why_not_by_text() {
+        let fixture = Fixture::new();
+        let path = fixture.dir.path().join(ANCHORS_FILENAME);
+        std::fs::write(&path, r#"{"version":1,"anchors":[{"entity_id":"x"}]}"#).unwrap();
+        let invalid = source_anchors(&fixture.view()).unwrap_err();
+        assert_eq!(invalid.kind, crate::OpErrorKind::SchemaMismatch);
+        assert!(
+            invalid
+                .message
+                .starts_with("failed to parse specforge-anchors.json: missing field `file`"),
+            "{}",
+            invalid.message
+        );
+
+        std::fs::remove_file(&path).unwrap();
+        std::fs::create_dir(&path).unwrap();
+        let unreadable = source_anchors(&fixture.view()).unwrap_err();
+        assert_eq!(unreadable.kind, crate::OpErrorKind::Internal);
+        assert!(
+            unreadable
+                .message
+                .starts_with("failed to read specforge-anchors.json")
+        );
     }
 }

@@ -6,7 +6,7 @@ use specforge_protocol_types::{EntityKindDescriptor, ExtensionDeclaration};
 use specforge_registry::{FieldRegistryEntry, FieldType};
 use std::collections::HashMap;
 
-use specforge_ops::navigate::{AnchorManifest, anchors_of_file, load_anchor_manifest};
+use specforge_ops::navigate::{anchors_of_file, source_anchors};
 
 use crate::args::Arguments;
 use crate::prompt::{PromptOutcome, Rendered};
@@ -268,10 +268,7 @@ fn get_file_scoped(project: &ProjectView, file_path: &str) -> PromptOutcome {
     // (specforge_ops::navigate::anchors_of_file) over the anchors manifest,
     // the answer specforge.find_spec_for_source gives (C9-09). With no
     // project there is no manifest.
-    let manifest = match project.root() {
-        Some(root) => load_anchor_manifest(root).map_err(crate::tools::manifest_mcp_error)?,
-        None => AnchorManifest::default(),
-    };
+    let manifest = source_anchors(project).map_err(McpError::from)?;
     let found = anchors_of_file(&manifest, file_path);
     let referencing_entities: Vec<Value> = found
         .anchors

@@ -28,7 +28,9 @@ use specforge_common::{SourceSpan, Sym};
 use crate::view::ProjectView;
 use crate::{OpError, OpErrorKind};
 
-pub use anchors::{AnchorManifest, SourceAnchor, load_anchor_manifest};
+pub use anchors::{
+    ANCHORS_FILENAME, AnchorManifest, SourceAnchor, anchors_of_entity, source_anchors,
+};
 pub use attribution::{is_about, subjects};
 pub use files::{
     FileAnchors, FileMatch, OutlineEntry, OutlineMethod, anchors_of_file, match_file, outline,

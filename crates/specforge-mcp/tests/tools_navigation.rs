@@ -812,8 +812,11 @@ fn server_with_anchors(anchors: &str) -> Served {
 
 /// `find_implementation` lists the anchors of the entity it is asked
 /// about, in manifest order, and nothing for another entity or without a
-/// manifest. T4 links it to `provide_mcp_find_implementation_tool`.
-#[test]
+/// manifest.
+#[specforge_test(
+    behavior = "provide_mcp_find_implementation_tool",
+    verify = "find_implementation lists every anchor of the entity, in manifest order"
+)]
 fn find_implementation_lists_every_anchor_of_the_entity() {
     let mut server = server_with_anchors(
         r#"{"version":1,"anchors":[
