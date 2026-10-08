@@ -66,7 +66,7 @@ pub struct CommandInput<G = GraphWire> {
     /// absent unless the host applied its declared default.
     #[serde(default)]
     pub args: Map<String, Value>,
-    /// The project root.
+    /// The project root, absolute and canonical (the host resolves symlinks).
     #[serde(default)]
     pub cwd: String,
     /// The format the caller asked for (the host's `--format`).

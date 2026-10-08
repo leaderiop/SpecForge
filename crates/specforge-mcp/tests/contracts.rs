@@ -1396,7 +1396,10 @@ fn contract_dispatch_surface_command() {
 
     // args_serialized: the args, the project root and the served graph.
     assert_eq!(out["args"], json!({"port": port}));
-    assert_eq!(out["cwd"], root.display().to_string());
+    assert_eq!(
+        out["cwd"],
+        std::fs::canonicalize(&root).unwrap().display().to_string()
+    );
     assert_eq!(out["nodes"], json!(["t1"]));
 
     // sandbox_restricted: though its declaration asks for every capability,

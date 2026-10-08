@@ -23,11 +23,10 @@
 use crate::OpError;
 use crate::view::ProjectView;
 use serde_json::{Map, Value, json};
-use specforge_graph::Graph;
 use specforge_protocol_types::command_args::{self, ArgError, normalize_arg, option_name};
 use specforge_protocol_types::{
-    CommandArgDescriptor, CommandArgType, CommandDescriptor, CommandError, CommandInput,
-    CommandOutput, EntityEvidence, RawGraph,
+    CommandArgDescriptor, CommandArgType, CommandDescriptor, CommandError, CommandEvidence,
+    CommandInput, CommandOutput, EntityEvidence, RawGraph,
 };
 use specforge_registry::RegistryBuild;
 use specforge_wasm::runtime::WasmRuntime;
@@ -38,9 +37,6 @@ use std::path::{Path, PathBuf};
 /// (always, over MCP). The host's, not the command's: no command declares
 /// an arg named `format` (ADR 0011).
 pub use specforge_protocol_types::CommandFormat;
-
-/// What a command's input says the recorded tests prove ([`evidence`]).
-pub use specforge_protocol_types::CommandEvidence;
 
 /// Why the host refuses a command: its arg declarations break the one arg
 /// rule ([`command_args::refusal`]). A refused command is on neither
@@ -346,36 +342,12 @@ impl ExtensionCommands {
     }
 }
 
-/// What the host passes a command beside its args: the format the caller
-/// asked for, the host's date when it was called (UTC, `YYYY-MM-DD`; a test
-/// that pins it sets `today`), and what the project's recorded tests prove
-/// ([`evidence`]).
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct CommandContext {
-    pub format: CommandFormat,
-    pub today: String,
-    pub evidence: CommandEvidence,
-}
-
-impl CommandContext {
-    /// The context of a command called now, in `format`: today's date in
-    /// UTC (`YYYY-MM-DD`), the one clock every surface reads, and no
-    /// evidence until the caller sets it.
-    pub fn now(format: CommandFormat) -> Self {
-        Self {
-            format,
-            today: today(),
-            evidence: CommandEvidence::default(),
-        }
-    }
-}
-
 /// What the view's recorded test report proves, as a command's input
 /// carries it: `none` without a report, `unreadable` (with why) when the
 /// report is there and cannot be used, else every entity that counts toward
 /// coverage (its standing, ADR 0004 D2-b) scored by the one coverage rule
 /// (`ProjectView::coverage`, the numbers `specforge stats` reports).
-pub fn evidence(view: &ProjectView<'_>) -> CommandEvidence {
+fn evidence(view: &ProjectView<'_>) -> CommandEvidence {
     let recorded = match view.recorded() {
         Ok(recorded) => recorded,
         Err(error) => {
@@ -402,42 +374,6 @@ pub fn evidence(view: &ProjectView<'_>) -> CommandEvidence {
         })
         .collect();
     CommandEvidence::Recorded { entities }
-}
-
-/// What a `cmd__` export receives: the args, the project root, the format
-/// and the date, and `graph` as `specforge_emitter::json::emit_json` renders
-/// it, spliced as rendered rather than parsed back into a value.
-pub fn command_input(
-    graph: &Graph,
-    args: &Map<String, Value>,
-    cwd: &Path,
-    context: &CommandContext,
-) -> CommandInput<RawGraph> {
-    CommandInput {
-        args: args.clone(),
-        cwd: cwd.display().to_string(),
-        format: context.format,
-        today: context.today.clone(),
-        graph: RawGraph::new(specforge_emitter::json::emit_json(graph))
-            .expect("the graph export is one JSON value"),
-        evidence: context.evidence.clone(),
-    }
-}
-
-/// Run `command`'s export with `args` (what [`ExtensionCommand::normalize`]
-/// gave) over `graph`, in `context`. Err: the export did not answer a
-/// `CommandOutput` (it trapped, the guest does not route it, or its answer
-/// is not one): E028.
-pub fn run_command(
-    runtime: &dyn WasmRuntime,
-    command: &ExtensionCommand,
-    graph: &Graph,
-    args: &Map<String, Value>,
-    cwd: &Path,
-    context: &CommandContext,
-) -> Result<CommandOutput, CallError> {
-    let input = command_input(graph, args, cwd, context);
-    ExtensionCalls::new(runtime).run_command(command.extension(), command.export(), &input)
 }
 
 /// Why a command did not answer with its output: what each surface renders
@@ -525,20 +461,18 @@ fn run_on(
 ) -> Result<CommandOutput, RunError> {
     let args = command.normalize(given).map_err(RunError::Args)?;
     let root = view.project_root().map_err(RunError::NoProject)?;
-    let context = CommandContext {
+    let input = CommandInput {
+        args,
+        cwd: canonical(root).display().to_string(),
         format,
         today: today.to_string(),
+        graph: RawGraph::new(specforge_emitter::json::emit_json(view.graph()))
+            .expect("the graph export is one JSON value"),
         evidence: evidence(view),
     };
-    run_command(
-        runtime,
-        command,
-        view.graph(),
-        &args,
-        &canonical(root),
-        &context,
-    )
-    .map_err(RunError::Call)
+    ExtensionCalls::new(runtime)
+        .run_command(command.extension(), command.export(), &input)
+        .map_err(RunError::Call)
 }
 
 /// Today's date in UTC, `YYYY-MM-DD`: the one clock every command reads.
@@ -557,7 +491,7 @@ mod tests {
     use serde_json::json;
     use specforge_common::{SourceSpan, Sym};
     use specforge_extension_sdk::prelude::*;
-    use specforge_graph::Node;
+    use specforge_graph::{Graph, Node};
     use specforge_parser::{EntityId, EntityKind, FieldMap};
     use specforge_test_macros::test as specforge_test;
     use specforge_wasm::runtime::WasmCallResult;
@@ -1412,5 +1346,35 @@ mod tests {
             ["list_all"]
         );
         assert_eq!(commands.of("widgets").count(), 0);
+    }
+
+    #[specforge_test(
+        behavior = "call_extension_exports",
+        verify = "every extension call encodes its input as the protocol type the SDK decodes"
+    )]
+    fn the_command_input_is_the_wire_golden() {
+        let runtime = fake();
+        let fixture = crate::view::testing::Fixture::new();
+        let mut env = fixture.env;
+        env.root = std::path::PathBuf::from("/p");
+        let graph = graph();
+        let recorded = specforge_project::coverage::RecordedCoverage::over(&graph, &env);
+        let view = ProjectView::new(&graph, &env, Some(Path::new("/p")), &recorded);
+        let args = json!({"status": "done", "limit": 2, "all": true});
+        run_on(
+            &view,
+            &runtime,
+            &listing(),
+            args.as_object().unwrap(),
+            CommandFormat::Json,
+            "2026-10-03",
+        )
+        .unwrap();
+
+        let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../specforge-wasm/tests/wire/command.input.json");
+        let expected: Value =
+            serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        assert_eq!(last_input(&runtime), expected, "golden command.input.json");
     }
 }

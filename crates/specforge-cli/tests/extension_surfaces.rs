@@ -286,9 +286,10 @@ fn tool_call(id: u64, name: &str, arguments: Value) -> String {
     )
 }
 
-// Pins today's behaviour: MCP served at `.` tells a command `cwd: "."`.
-// Plan 09 T4 flips it to the canonical root and links it.
-#[test]
+#[specforge_test(
+    behavior = "dispatch_surface_command",
+    verify = "the CLI and MCP send a command's export the same project root, absolute and canonical"
+)]
 fn a_command_is_told_the_project_root_on_each_surface() {
     let dir = probe_project();
     let output = cargo_bin_cmd!("specforge")
@@ -308,7 +309,7 @@ fn a_command_is_told_the_project_root_on_each_surface() {
     let response = find_response(&responses, 1).unwrap();
     let mcp: Value =
         serde_json::from_str(response["result"]["content"][0]["text"].as_str().unwrap()).unwrap();
-    assert_eq!(mcp["cwd"], ".", "{response}");
+    assert_eq!(mcp["cwd"], cli["cwd"], "{response}");
 }
 
 #[specforge_test(

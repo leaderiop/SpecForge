@@ -228,6 +228,7 @@ behavior dispatch_surface_command "Dispatch Surface Command" {
   verify integration "the CLI and MCP send a command's export the same args for the same input, its declared defaults applied by the host"
   verify integration "under --format json a usage error the command line catches is one INVALID_INPUT error object on stderr, exit 2"
   verify integration "over MCP a command is asked for json and its JSON output is the tool's structured content"
+  verify integration "the CLI and MCP send a command's export the same project root, absolute and canonical"
   verify integration "a trapped command is E028 on both surfaces: one error object on the CLI's stderr under json, a structured MCP error over MCP"
   verify integration "the CLI and MCP send a command the same evidence for the same recorded report"
   verify unit "over MCP a failure's JSON error object is an isError result carrying it, and output that is not one object is text"
