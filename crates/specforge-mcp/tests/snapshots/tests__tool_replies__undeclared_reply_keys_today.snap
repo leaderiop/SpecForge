@@ -1,0 +1,71 @@
+---
+source: crates/specforge-mcp/tests/tool_replies.rs
+expression: "lines.join(\"\\n\")"
+---
+specforge.query {"entity_id":"alpha"} $.edges: array without items
+specforge.query {"entity_id":"alpha"} $.nodes: array without items
+specforge.query {"entity_id":"alpha"} $.schema_ref: undeclared
+specforge.query {"entity_id":"alpha","format":"brief"} $.edges: array without items
+specforge.query {"entity_id":"alpha","format":"brief"} $.nodes: array without items
+specforge.query {"entity_id":"alpha","format":"context"} $.edges: array without items
+specforge.query {"entity_id":"alpha","format":"context"} $.nodes: array without items
+specforge.query {"entity_id":"alpha","include_coverage":true} $.edges: array without items
+specforge.query {"entity_id":"alpha","include_coverage":true} $.nodes: array without items
+specforge.query {"entity_id":"alpha","include_coverage":true} $.schema_ref: undeclared
+specforge.analyze {} $.passes: array without items
+specforge.trace {"entity_id":"alpha"} $.missing[]: object without properties
+specforge.trace {"entity_id":"alpha"} $.upstream[]: object without properties
+specforge.schema {"include_validation_rules":true} $.edge_types: array without items
+specforge.schema {"include_validation_rules":true} $.entity_kinds: array without items
+specforge.schema {"include_validation_rules":true} $.extensions: array without items
+specforge.schema {"include_validation_rules":true} $.schema_version: object without properties
+specforge.schema {"include_validation_rules":true} $.validation_rules: array without items
+specforge.stats {} $.diagnostic_summary: object without properties
+specforge.stats {} $.entity_counts: array without items
+specforge.inspect {"entity_id":"alpha"} $.diagnostics: array without items
+specforge.inspect {"entity_id":"alpha"} $.fields: object without properties
+specforge.inspect {"entity_id":"alpha"} $.references: array without items
+specforge.inspect {"entity_id":"alpha"} $.source_span: object without properties
+specforge.inspect {"entity_id":"alpha"} $.verify_declarations: array without items
+specforge.inspect {"entity_id":"untitled_one"} $.diagnostics: array without items
+specforge.inspect {"entity_id":"untitled_one"} $.fields: object without properties
+specforge.inspect {"entity_id":"untitled_one"} $.references: array without items
+specforge.inspect {"entity_id":"untitled_one"} $.source_span: object without properties
+specforge.find_definition {"entity_id":"alpha"} $.name_span: object without properties
+specforge.find_definition {"entity_id":"alpha"} $.source_span: object without properties
+specforge.find_references {"entity_id":"alpha","direction":"both","include_declaration":true} $.locations[].source_span: object without properties
+specforge.extensions {} $.entity_kinds_in_graph: array without items
+specforge.extensions {} $.extensions: array without items
+specforge.extensions {} $.lock_file_entries: array without items
+specforge.providers {} $.diagnostics: array without items
+specforge.providers {} $.providers: array without items
+specforge.doctor {} $.conflicts: array without items
+specforge.doctor {} $.enhancements: object without properties
+specforge.doctor {} $.extensions: array without items
+specforge.doctor {} $.findings: array without items
+specforge.render {"format":"brief"} $.output_files: array without items
+specforge.infer_progress {} $.deleted: array without items
+specforge.infer_progress {} $.sessions: array without items
+specforge.infer_progress {} $.stale: array without items
+specforge.infer_progress {} $.summary: object without properties
+specforge.infer_progress {} $.unanalyzed: array without items
+specforge.infer_gaps {} $.by_directory: array without items
+specforge.infer_gaps {} $.scan_failures: array without items
+specforge.infer_gaps {} $.scanners_used: array without items
+specforge.find_implementation {"entity_id":"alpha"} $.implementations: array without items
+specforge.find_spec_for_source {"file_path":"src/lib.rs"} $.entities: array without items
+specforge.format {"check":true,"diff":true} $.changed_files: array without items
+specforge.format {"check":true,"diff":true} $.diagnostics: array without items
+specforge.format {"check":true,"diff":true} $.diffs: array without items
+specforge.format {} $.changed_files: array without items
+specforge.format {} $.diagnostics: array without items
+specforge.rename {"entity_id":"alpha","new_name":"gamma2","dry_run":true} $.affected_files: array without items
+specforge.rename {"entity_id":"alpha","new_name":"gamma2","dry_run":true} $.edits: array without items
+specforge.rename {"entity_id":"alpha","new_name":"gamma2"} $.affected_files: array without items
+specforge.rename {"entity_id":"alpha","new_name":"gamma2"} $.diagnostics: array without items
+specforge.rename {"entity_id":"alpha","new_name":"gamma2"} $.edits: array without items
+specforge.init {"path":"<elsewhere>/new"} $.extensions_installed: array without items
+specforge.add_extension {"specifier":"@specforge/governance"} $.peers_enabled: array without items
+specforge.migrate {"dry_run":true} $.changes: array without items
+specforge.infer_session {"action":"mark_analyzed","source_file":"src/lib.rs"} $.entities_produced: array without items
+specforge.collect {"path":"<collected>"} $.diagnostics: array without items
