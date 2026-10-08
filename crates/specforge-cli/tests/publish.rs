@@ -172,11 +172,11 @@ fn greet_is_published(registry: &LocalRegistry) -> bool {
         .is_ok()
 }
 
-// Pins a bug: with no credential the signing key is created and the upload
-// is sent unauthenticated into the server's 401 (plan 06 §3 R2, R3). T5
-// flips it.
-#[test]
-fn a_publish_with_no_credential_is_refused_by_the_registry_today() {
+#[specforge_test(
+    behavior = "publish_to_registry",
+    verify = "with no credential for its registry, publish refuses with R001 before any network call and creates no signing key"
+)]
+fn a_publish_with_no_credential_is_refused_before_any_request() {
     let registry = LocalRegistry::start();
     let project = project_publishing_to(&registry);
     let home = TempDir::new().unwrap();
@@ -185,13 +185,22 @@ fn a_publish_with_no_credential_is_refused_by_the_registry_today() {
 
     assert_eq!(output.status.code(), Some(1), "{output:?}");
     let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
-    // The server answers 401 before it reads the body, so a client that is
-    // still sending sees a reset (R005) rather than the 401 (R001).
+    assert_eq!(json["code"], "R001", "{json}");
     assert!(
-        ["R001", "R005"].contains(&json["code"].as_str().unwrap()),
+        json["error"]
+            .as_str()
+            .unwrap()
+            .contains("no credential for registry 'local'"),
         "{json}"
     );
-    assert!(home.path().join(".specforge/signing-key.json").exists());
+    assert!(
+        json["suggestion"]
+            .as_str()
+            .unwrap()
+            .contains("specforge login --registry local"),
+        "{json}"
+    );
+    assert!(!home.path().join(".specforge/signing-key.json").exists());
     assert!(!greet_is_published(&registry));
 }
 
@@ -221,6 +230,7 @@ fn publishing_a_version_twice_is_refused_with_r007() {
             "key_created",
             "key_id",
             "name",
+            "registry",
             "signed",
             "size_bytes",
             "url",
@@ -228,6 +238,7 @@ fn publishing_a_version_twice_is_refused_with_r007() {
         ]
     );
     assert_eq!(published["key_created"], true);
+    assert_eq!(published["registry"], "local");
 
     let second = publish_greet(&project, &home, Some(registry.token()));
     assert_eq!(second.status.code(), Some(1), "{second:?}");

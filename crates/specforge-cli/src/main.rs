@@ -464,8 +464,8 @@ enum Commands {
         #[arg(long, default_value = "human")]
         format: OutputFormat,
     },
-    /// Publish an extension to the registry: its binary, and the declaration
-    /// read from it as the package's manifest
+    /// Publish an extension to the registry that serves its name: its binary,
+    /// and the declaration read from it as the package's manifest
     Publish {
         /// The extension to publish: a .wasm component, or the extension's
         /// crate directory (its target/wasm32-wasip2/release component).
@@ -983,7 +983,7 @@ fn main() {
             extension,
             path,
             format,
-        } => publish::run(extension.as_deref().unwrap_or(&path), &path, format),
+        } => publish::run(extension.as_deref().unwrap_or(&path), &path, format).code(),
         Commands::Search {
             query,
             path,
