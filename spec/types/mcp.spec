@@ -73,14 +73,14 @@ type McpResourceDescriptor {
 }
 
 type McpToolDescriptor {
-  name          string             @readonly
+  name          string          @readonly
   description   string
   input_schema  JsonSchema
-  output_schema JsonSchema         @optional
+  output_schema JsonSchema      @optional
   /// The tool's role, never where it comes from.
-  category      McpToolCategory    @optional
+  category      McpToolCategory @optional
   /// "core" for built-in tools, extension name for contributed tools
-  source        string             @optional
+  source        string          @optional
   /// MCP ToolAnnotations: what the tool does to its environment.
   annotations   McpToolAnnotations
   verify unit "McpToolDescriptor schema is valid"

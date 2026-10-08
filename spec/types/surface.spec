@@ -128,13 +128,13 @@ type CommandOutput {
 // input_schema and output_schema must be JSON objects: a tool with
 // another value is E055 and is not registered.
 type McpToolContribution {
-  name          string          @readonly
+  name          string       @readonly
   description   string
-  category      McpToolGroup    @optional
+  category      McpToolGroup @optional
   // Wasm export name: mcp__{name}, with . and - as _
-  export        string          @readonly
+  export        string       @readonly
   input_schema  JsonSchema
-  output_schema JsonSchema      @optional
+  output_schema JsonSchema   @optional
   verify unit "McpToolContribution schema is valid"
 }
 
