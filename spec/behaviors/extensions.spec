@@ -639,8 +639,12 @@ behavior search_registry "Search Registry" {
     deterministic — sorted by relevance score then extension name.
     With no registry configured, search MUST make no network call and MUST
     fail with E063, whose suggestion names the specforge.json registries key.
+    A specforge.json that is there and can't be used MUST be refused as add
+    refuses it (config_invalid, naming E069), before any network call; so
+    for login and publish.
   """
   verify unit "with no registry configured, search makes no network call and reports how to configure one"
+  verify unit "an unusable specforge.json is refused with the refusal add gives, before any network call"
   verify unit "queries all configured registries"
   verify unit "filters by contribution type"
   verify unit "deduplicates results across registries"
