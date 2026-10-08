@@ -2,7 +2,7 @@
 //! (`specforge_lsp::changes`): the plan and what applying it publishes, with
 //! no client, no debounce and no stdio.
 
-use crate::recorder::{Sent, last_codes, publications};
+use crate::recorder::{Sent, codes, last_codes, publications};
 use crate::served::Served;
 use specforge_lsp::answers;
 use specforge_lsp::changes::{Change, Plan};
@@ -12,6 +12,8 @@ use tower_lsp::lsp_types::{FileChangeType, FileEvent, Url};
 const A_ALPHA: &str = "type alpha \"A\" {}\n";
 const A_OMEGA: &str = "type omega \"O\" {}\n";
 const B_USES_ALPHA: &str = "behavior user \"U\" {\n  types [alpha]\n}\n";
+const A_DANGLING: &str = "behavior login \"Login\" {\n  invariants [session_limit]\n}\n";
+const B_PLAIN: &str = "type other \"O\" {}\n";
 const B_USES_OMEGA: &str = "behavior user \"U\" {\n  types [omega]\n}\n";
 
 /// `a.spec` and `b.spec`, `b` using what `a` declares, both open.
@@ -100,20 +102,40 @@ fn closing_an_unsaved_buffer_reads_its_file_from_disk() {
     behavior = "document_open_close",
     verify = "closing a document compiles its file from disk again, dropping its unsaved edits"
 )]
-fn closing_an_unmodified_buffer_changes_nothing() {
+fn closing_an_unmodified_buffer_publishes_its_file_once() {
     let mut served = two_files();
+    let a = served.uri("a.spec");
     let applied = served.close("a.spec").expect("the close is planned");
     assert!(!applied.changed);
-    assert!(
-        !served
-            .sent()
-            .iter()
-            .any(|sent| matches!(sent, Sent::Published { .. })),
-        "nothing is published"
-    );
+    let sent = served.sent();
+    assert_eq!(publications(&sent, &a), [vec![]], "a.spec has no errors");
     assert_eq!(
         names(answers::workspace_symbols(&served.state(), "alpha")),
         ["alpha"]
+    );
+}
+
+#[spec(
+    behavior = "document_open_close",
+    verify = "closing a project source publishes what the project reports for its file"
+)]
+fn closing_a_clean_source_keeps_its_errors_published() {
+    let mut served = Served::new(&[("a.spec", A_DANGLING), ("b.spec", B_PLAIN)]).open(&["a.spec"]);
+    served.sent();
+    let a = served.uri("a.spec");
+
+    let applied = served.close("a.spec").expect("the close is planned");
+    assert!(!applied.changed, "the disk text is the compiled text");
+    let sent = served.sent();
+    let published = publications(&sent, &a);
+    assert_eq!(published.len(), 1, "published once: {sent:?}");
+    assert_eq!(codes(&published[0]), ["E003"]);
+    assert!(
+        sent.iter().any(|s| matches!(
+            s,
+            Sent::Published { uri, version: None, .. } if *uri == a
+        )),
+        "the file is not open any more: {sent:?}"
     );
 }
 

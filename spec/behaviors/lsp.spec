@@ -91,24 +91,25 @@ behavior document_open_close "Document Open/Close" {
     lsp_initialized_fired "LSP server has been initialized and is ready to receive notifications"
   }
   ensures {
-    document_tracked           "open/close state of the document is correctly reflected in the open document set"
-    file_changed_emitted       "file_changed event is produced on didOpen to trigger initial compilation"
-    closed_diagnostics_cleared "the closed buffer's diagnostics are cleared from the editor"
-    closed_file_from_disk      "a closed project source is compiled from disk again; any other closed file leaves the project"
+    document_tracked      "open/close state of the document is correctly reflected in the open document set"
+    file_changed_emitted  "file_changed event is produced on didOpen to trigger initial compilation"
+    closed_file_published "the closed document's file is published as the project reports it, in place of its buffer's diagnostics"
+    closed_file_from_disk "a closed project source is compiled from disk again; any other closed file leaves the project"
   }
   contract   """
     When the LSP server receives a textDocument/didOpen notification,
     it MUST register the document in its open document set and trigger
     an initial compilation for diagnostics. When the server receives a
     textDocument/didClose notification, it MUST remove the document from
-    its open document set, and the closed buffer's diagnostics MUST be
-    cleared from the editor. The buffer is no longer the truth for its
+    its open document set. The buffer is no longer the truth for its
     file: a project source MUST be compiled from the file on disk again
     (unsaved edits are dropped), and any other file (outside the spec root,
     excluded, or any file when no project is open) MUST leave the project.
-    What the project then reports for the file is published as for any file
-    that is not open. The server MUST track which documents are open to
-    determine the scope of incremental recompilation.
+    The closed document's file MUST then be published once, as the project
+    reports it, in place of the buffer's diagnostics: a project source
+    keeps the errors its file on disk has, and a file that left the project
+    is cleared. The server MUST track which documents are open to determine
+    the scope of incremental recompilation.
   """
   verify unit "didOpen registers document and triggers compilation"
   verify unit "didClose removes document and clears diagnostics"
@@ -116,7 +117,8 @@ behavior document_open_close "Document Open/Close" {
   verify unit "rapid open and close cycles do not corrupt state"
   verify unit "closing a document compiles its file from disk again, dropping its unsaved edits"
   verify unit "closing a document outside a project drops its file from the project"
-  verify contract "Document Open/Close: document open/close holds — lsp_initialized_fired, document_tracked, file_changed_emitted, closed_diagnostics_cleared, closed_file_from_disk"
+  verify unit "closing a project source publishes what the project reports for its file"
+  verify contract "Document Open/Close: document open/close holds — lsp_initialized_fired, document_tracked, file_changed_emitted, closed_file_published, closed_file_from_disk"
 }
 
 // Event consumer chain: didChange -> file_changed -> debounce window ->

@@ -5,6 +5,7 @@
 
 use crate::session::{Session, codes, uri_of};
 use serde_json::{Value, json};
+use specforge_test_macros::test as spec;
 use std::time::Duration;
 use tempfile::TempDir;
 
@@ -251,8 +252,12 @@ async fn closing_a_detached_buffer_drops_it() {
     assert!(symbols(&mut client, "foo").await.is_empty());
 }
 
+#[spec(
+    behavior = "document_open_close",
+    verify = "closing a project source publishes what the project reports for its file"
+)]
 #[tokio::test]
-async fn pin_closing_a_clean_source_with_errors_clears_them() {
+async fn closing_a_clean_source_keeps_its_errors_over_the_protocol() {
     let dir = project(&[("a.spec", A_DANGLING), ("b.spec", B_PLAIN)]);
     let (mut client, _) = Session::start(Some(dir.path())).await;
     let a = uri_of(&dir.path().join("a.spec"));
@@ -261,8 +266,8 @@ async fn pin_closing_a_clean_source_with_errors_clears_them() {
     settle(&mut client).await;
 
     client.close(&a).await;
-    // Encodes the bug: the handler's empty publish is all the editor gets.
-    let cleared = client
+    // The closed file is published as the project reports it: its errors stay.
+    let published = client
         .notification_within(
             "textDocument/publishDiagnostics",
             Duration::from_secs(5),
@@ -270,13 +275,16 @@ async fn pin_closing_a_clean_source_with_errors_clears_them() {
         )
         .await
         .expect("the close publishes");
-    assert_eq!(cleared["diagnostics"], json!([]));
+    assert_eq!(
+        codes(published["diagnostics"].as_array().unwrap()),
+        ["E003"]
+    );
     assert!(
         client
             .wait_for_notification("textDocument/publishDiagnostics", 500)
             .await
             .is_none(),
-        "nothing follows the empty set"
+        "nothing follows"
     );
 }
 

@@ -224,12 +224,8 @@ impl LanguageServer for Backend {
     async fn did_close(&self, params: DidCloseTextDocumentParams) {
         let uri = params.text_document.uri;
         self.state.write().await.close_document(uri.as_str());
-        // The editor keeps a closed document's squiggles until told
-        // otherwise: publish an empty set to clear them.
-        self.client
-            .publish_diagnostics(uri.clone(), Vec::new(), None)
-            .await;
-        // The buffer is no longer the truth for its file (ADR 0023 D9).
+        // The buffer is no longer the truth for its file (ADR 0023 D9): the reaction publishes
+        // the file as the project reports it now (ADR 0043 D7).
         react(&self.reaction, Change::Closed(uri)).await;
     }
 

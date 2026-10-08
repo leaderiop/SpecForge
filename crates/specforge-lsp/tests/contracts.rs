@@ -206,7 +206,7 @@ fn lsp_shutdown_contract() {
 // B:document_open_close — verify contract "requires/ensures consistency for document open/close"
 #[specforge_test(
     behavior = "document_open_close",
-    verify = "Document Open/Close: document open/close holds — lsp_initialized_fired, document_tracked, file_changed_emitted, closed_diagnostics_cleared, closed_file_from_disk"
+    verify = "Document Open/Close: document open/close holds — lsp_initialized_fired, document_tracked, file_changed_emitted, closed_file_published, closed_file_from_disk"
 )]
 #[tokio::test]
 async fn document_open_close_contract() {
@@ -231,17 +231,13 @@ async fn document_open_close_contract() {
     assert!(session.format(uri).await.is_array());
     session.close(uri).await;
 
-    // closed_diagnostics_cleared: closing publishes an empty set, which
-    // clears the editor's squiggles.
+    // closed_file_published: the closed file is published once, as the
+    // project reports it; a file outside a project has no disk text to
+    // return to, so it leaves the project and the editor's squiggles are
+    // cleared (closed_file_from_disk).
     let closed = session.diagnostics(uri).await;
     assert!(closed.is_empty(), "{closed:?}");
     assert!(session.format(uri).await.is_null());
-
-    // closed_file_from_disk: a file outside a project has no disk text to
-    // return to, so the closed file leaves the project; the publication
-    // that follows says it was compiled.
-    let after = session.diagnostics(uri).await;
-    assert!(after.is_empty(), "{after:?}");
     let found = session.workspace_symbol("login").await;
     assert!(found["result"].is_null(), "{found}");
 }
