@@ -1097,7 +1097,7 @@ fn pinned_class(name: &str) -> Class {
         | "specforge.infer_session"
         | "specforge.find_implementation"
         | "specforge.find_spec_for_source" => Class::Refuses { path: false },
-        "specforge.infer_progress" | "specforge.infer_gaps" => Class::Fabricated,
+        "specforge.infer_progress" | "specforge.infer_gaps" => Class::Refuses { path: false },
         "specforge.query"
         | "specforge.trace"
         | "specforge.inspect"
