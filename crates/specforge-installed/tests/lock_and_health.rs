@@ -88,7 +88,7 @@ fn installed(dir: &TempDir, entry: LockFileEntry) -> Installed {
     )
 }
 
-fn place(installed: &Installed, name: &str, bytes: &[u8]) {
+fn put_module(installed: &Installed, name: &str, bytes: &[u8]) {
     let path = installed.module_path(&PackageName::parse(name).unwrap());
     std::fs::create_dir_all(path.parent().unwrap()).unwrap();
     std::fs::write(path, bytes).unwrap();
@@ -113,7 +113,7 @@ fn doctor_missing_binary() {
 fn doctor_stale_hash() {
     let dir = TempDir::new().unwrap();
     let installed = installed(&dir, entry("my-ext", "expected_hash"));
-    place(&installed, "my-ext", b"content");
+    put_module(&installed, "my-ext", b"content");
 
     assert!(
         installed
@@ -131,7 +131,7 @@ fn doctor_all_healthy() {
         &dir,
         entry("good-ext", &specforge_installed::hex_sha256(b"wasm")),
     );
-    place(&installed, "good-ext", b"wasm");
+    put_module(&installed, "good-ext", b"wasm");
 
     let results = installed.health();
     assert!(results.is_empty(), "expected healthy, got: {:?}", results);

@@ -5,8 +5,7 @@ use crate::view::ProjectView;
 use crate::{OpError, OpErrorKind, Writes};
 use specforge_common::{ExtensionEntry, codes};
 use specforge_graph::Graph;
-use specforge_installed::legacy::uninstall_extension;
-use specforge_installed::{Installed, LockFile, LockState, write_lock_file};
+use specforge_installed::{Installed, LockFile, LockState};
 use specforge_project::EnabledExtension;
 use specforge_protocol_types::ExtensionDeclaration;
 use specforge_protocol_types::PackageName;
@@ -71,11 +70,11 @@ pub struct RemoveOutcome {
 /// `specforge.json` the compile could not edit (a problem that
 /// [`blocks_edits`](specforge_common::ConfigProblem::blocks_edits), which
 /// the compile reported as E069) refuses every removal with
-/// `config_invalid`, without reading the file again. `specforge.json` is
-/// written first, then the lock and the binary: a failure between the two
-/// leaves an installed extension that is no longer enabled, which a second
-/// `remove` finishes, and the error names what was written
-/// ([`OpError::writes`]). Without a root: `no_project`.
+/// `config_invalid`, without reading the file again. A removal is all or
+/// nothing: the binary, the lock entry and the `specforge.json` entry go as
+/// one change, and a failure at any step puts every file back (the error's
+/// [`OpError::writes`] names what the rollback could not, normally
+/// nothing). Without a root: `no_project`.
 pub fn remove(view: &ProjectView, req: &RemoveRequest) -> Result<RemoveOutcome, OpError> {
     let root = view.project_root()?;
     if let Some(problem) = view
@@ -217,48 +216,28 @@ pub fn remove(view: &ProjectView, req: &RemoveRequest) -> Result<RemoveOutcome, 
         return Ok(outcome);
     }
 
-    // specforge.json first. A project without specforge.json (an install
-    // only the lock knows) has no entry to drop.
-    let writes = &mut outcome.writes;
-    match crate::config::remove_extension(req.root, req.name) {
-        Ok(dropped) => writes.record_if(dropped, req.root.join(crate::config::CONFIG_FILE)),
-        Err(e) if e.code == "config_not_found" => {}
-        Err(e) => return Err(e),
-    }
-    if let (Origin::Installed { .. }, Some(mut lock)) = (&outcome.origin, lock.cloned()) {
+    // An installed extension: its binary, its lock entry and its
+    // specforge.json entry go as one change, all or nothing. Anything else
+    // (a builtin) is its specforge.json entry alone; a project without
+    // specforge.json (an install only the lock knows) has no entry to drop.
+    let drop_entry = || match crate::config::remove_extension(req.root, req.name) {
+        Err(e) if e.code == "config_not_found" => Ok(false),
+        other => other,
+    };
+    let config_file = req.root.join(crate::config::CONFIG_FILE);
+    if matches!(outcome.origin, Origin::Installed { .. }) && lock.is_some() {
         // Dependents are checked above, over the loaded declarations and the lock.
-        let dir = req.installed.package_dir(&package);
-        let installed = files_in(&dir);
-        uninstall_extension(&package, req.installed, &mut lock)
-            .map_err(|e| OpError::from(e).with_writes(writes.clone()))?;
-        for file in installed {
-            writes.record(file);
-        }
-        write_lock_file(&lock, &req.installed.lock_path())
-            .map_err(|e| OpError::from(e).with_writes(writes.clone()))?;
-        writes.record(req.installed.lock_path());
+        let mut change = req.installed.change().map_err(OpError::from)?;
+        change.uninstall(&package);
+        let committed = change
+            .commit_with(&config_file, drop_entry)
+            .map_err(|failed| failed.error.with_writes(Writes::of(failed.left)))?;
+        outcome.writes = Writes::of(committed.changed);
+    } else {
+        let dropped = drop_entry()?;
+        outcome.writes.record_if(dropped, config_file);
     }
     Ok(outcome)
-}
-
-/// Every file under `dir` (none when it does not exist): what deleting it
-/// deletes.
-fn files_in(dir: &Path) -> Vec<std::path::PathBuf> {
-    let mut files = Vec::new();
-    let mut dirs = vec![dir.to_path_buf()];
-    while let Some(dir) = dirs.pop() {
-        let Ok(entries) = std::fs::read_dir(&dir) else {
-            continue;
-        };
-        for path in entries.flatten().map(|entry| entry.path()) {
-            if path.is_dir() {
-                dirs.push(path);
-            } else {
-                files.push(path);
-            }
-        }
-    }
-    files
 }
 
 /// Remove the `.wasm` file entry `file`: only its `specforge.json` entry

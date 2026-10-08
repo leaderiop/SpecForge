@@ -12,6 +12,11 @@ pub(crate) const EXTENSIONS_DIR: &str = ".specforge/extensions";
 /// An installed extension's binary, under its package directory.
 pub(crate) const MODULE_FILE: &str = "extension.wasm";
 
+/// Under the extensions directory, where a change moves modules while it
+/// commits. A package name cannot start with `.`, so no extension is named
+/// like it.
+pub(crate) const STAGING: &str = ".staging";
+
 /// `specforge.lock` at the project root `root`: the one definition of where
 /// the lock lives.
 pub fn lock_path(root: &Path) -> PathBuf {

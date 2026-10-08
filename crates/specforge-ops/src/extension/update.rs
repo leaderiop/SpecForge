@@ -4,17 +4,18 @@
 //!
 //! An update is all or nothing (`update_all_extensions`): every newer
 //! package is fetched and checked before anything is written, and if one
-//! fails, nothing is applied. A failure while placing the binaries puts
-//! the previous ones back; the lock is written once, last. (A publisher key
+//! fails, nothing is applied. The binaries and the lock are one change
+//! (`specforge_installed::Change`): a failure puts the previous ones back.
+//! (A publisher key
 //! pinned while checking a signature stays pinned: it records trust, not
 //! a change to the project.)
 
-use super::add::{Checked, fetch_checked, place};
-use super::{Origin, Trust, check_diamonds, published_versions};
+use super::add::{Checked, fetch_checked};
+use super::{Trust, check_diamonds, published_versions};
 use crate::registry::{NO_REGISTRY, Registry};
-use crate::{OpError, OpErrorKind};
+use crate::{OpError, OpErrorKind, Writes};
 use specforge_common::{Code, codes};
-use specforge_installed::{Installed, LockFile, LockState, write_lock_file};
+use specforge_installed::{Installed, LockFile, LockState, Module, Pin};
 use specforge_protocol_types::PackageName;
 use specforge_protocol_types::package::VersionRequirement;
 use std::path::Path;
@@ -143,7 +144,6 @@ pub fn update(req: &UpdateRequest, registry: &dyn Registry) -> Result<UpdateOutc
     // anything is read or written, as `add` and `remove` refuse it.
     crate::config::usable(req.root)?;
     let installed = Installed::at(req.root);
-    let lock_file = installed.lock_path();
     let lock = match installed.lock() {
         LockState::Read(lock) => lock.clone(),
         LockState::Absent => {
@@ -229,41 +229,28 @@ pub fn update(req: &UpdateRequest, registry: &dyn Registry) -> Result<UpdateOutc
         return Ok(outcome);
     }
 
-    // Apply: place every binary, then write the lock once. Any failure
-    // puts the previous binaries back and leaves the lock as it was.
-    let mut lock = lock;
-    let mut placed: Vec<(PackageName, Option<Vec<u8>>)> = Vec::new();
-    let origin = Origin::Installed {
-        source: "registry".to_string(),
-    };
-    let mut failure = None;
-    for (name, checked) in &planned {
-        let package = &checked.package.name;
-        let previous = std::fs::read(installed.module_path(package)).ok();
-        // Recorded before placing: a placement that fails part-way may
-        // already have removed the previous binary.
-        placed.push((package.clone(), previous));
-        if let Err(error) = place(
-            &installed,
-            &mut lock,
-            &checked.declared,
-            &checked.package.wasm,
-            &checked.package.sha256,
-            checked.package.key_id.as_deref(),
-            &origin,
-        ) {
-            failure = Some((name.clone(), error));
-            break;
-        }
+    // Apply: one change that places every binary and writes the lock once.
+    // A failure puts the previous binaries and lock back.
+    let mut change = installed.change().map_err(OpError::from)?;
+    for (_, checked) in &planned {
+        change.install(
+            Module::new(checked.package.wasm.clone()),
+            Pin {
+                name: checked.package.name.clone(),
+                version: checked.declared.version().to_string(),
+                source: "registry".to_string(),
+                key_id: checked.package.key_id.clone(),
+                peers: checked.declared.peers().to_vec(),
+            },
+        );
     }
-    if failure.is_none()
-        && let Err(diagnostic) = write_lock_file(&lock, &lock_file)
-    {
-        failure = Some((planned[0].0.clone(), OpError::from(diagnostic)));
-    }
-    if let Some((name, error)) = failure {
-        restore(&installed, &placed);
-        if let Some(e) = outcome.extensions.iter_mut().find(|e| e.name == name) {
+    if let Err(failed) = change.commit() {
+        let error = OpError::from(failed.error).with_writes(Writes::of(failed.left));
+        if let Some(e) = outcome
+            .extensions
+            .iter_mut()
+            .find(|e| e.name == planned[0].0)
+        {
             e.status = UpdateStatus::Failed(error);
         }
     }
@@ -334,32 +321,11 @@ fn broken_dependents(
     broken
 }
 
-/// Put back the binaries an aborted update replaced.
-fn restore(installed: &Installed, placed: &[(PackageName, Option<Vec<u8>>)]) {
-    for (name, previous) in placed {
-        let path = installed.module_path(name);
-        match previous {
-            Some(bytes) => {
-                if let Some(dir) = path.parent() {
-                    let _ = std::fs::create_dir_all(dir);
-                }
-                let _ = std::fs::write(&path, bytes);
-            }
-            // It had no binary before: take the new one away.
-            None => {
-                if let Some(dir) = path.parent() {
-                    let _ = std::fs::remove_dir_all(dir);
-                }
-            }
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::registry::Package;
-    use specforge_installed::{LockFileEntry, hex_sha256, lock_path};
+    use specforge_installed::{LockFileEntry, hex_sha256, lock_path, write_lock_file};
     use specforge_protocol_types::package::Version;
     use specforge_protocol_types::{ExtensionDeclaration, PackageName};
     use specforge_registry::PeerDependency;

@@ -133,7 +133,7 @@ mod tests {
     }
 
     /// `name`'s module on disk under `dir`, holding `bytes`.
-    fn place(installed: &Installed, name: &str, bytes: &[u8]) {
+    fn put_module(installed: &Installed, name: &str, bytes: &[u8]) {
         let path = installed.module_path(&PackageName::parse(name).unwrap());
         std::fs::create_dir_all(path.parent().unwrap()).unwrap();
         std::fs::write(path, bytes).unwrap();
@@ -158,7 +158,7 @@ mod tests {
     fn test_doctor_detects_stale_hash() {
         let dir = TempDir::new().unwrap();
         let installed = installed(&dir, vec![entry("my-ext", "expected_hash", vec![])]);
-        place(&installed, "my-ext", b"wasm content");
+        put_module(&installed, "my-ext", b"wasm content");
 
         let problems = installed.health();
 
@@ -177,7 +177,7 @@ mod tests {
     fn test_doctor_reports_healthy() {
         let dir = TempDir::new().unwrap();
         let installed = installed(&dir, vec![entry("good-ext", &hex_sha256(b"wasm"), vec![])]);
-        place(&installed, "good-ext", b"wasm");
+        put_module(&installed, "good-ext", b"wasm");
 
         assert_eq!(installed.health(), []);
     }

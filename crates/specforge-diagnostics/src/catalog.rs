@@ -165,7 +165,7 @@ catalog! {
         "A behavior that `refines` an `abstract` behavior drops one or more of the abstract behavior's `ensures` conditions. A refinement may only strengthen its abstraction's postconditions, never weaken them — restore or strengthen the missing `ensures` condition(s) in the concrete behavior.";
     E032: Error core,
         "Extension install or uninstall failed",
-        "An install or uninstall step failed: the downloaded `.wasm` binary's SHA-256 hash didn't match the expected value (possible tampering or a bad download), or a filesystem step — creating the temp directory, writing the binary, finalizing the install, or removing the extension directory on uninstall — failed. Re-download the extension or check filesystem permissions.";
+        "An install, update or uninstall step failed: creating the staging directory, writing the binary, or moving it into place or aside. Everything the change wrote was put back; when something couldn't be, the error names it. Check filesystem permissions and retry.";
     E033: Error core,
         "Lock file error",
         "`specforge.lock` couldn't be serialized, written, read, or parsed; `specforge update` reports it when there is no lock file to update. A lock that can't be read loads no installed extension and refuses `add`, `update` and `remove` until it is fixed or deleted (then reinstall the extensions). Delete the lock file and reinstall extensions, or run `specforge add` first.";
@@ -670,9 +670,6 @@ catalog! {
     W118: Warning core,
         "Invalid provider configuration",
         "A `providers` entry in `specforge.json` is missing its `alias`/`name` or `scheme` field, or no installed extension contributes providers to back a configured provider. Add the missing field, or install an extension that contributes the provider.";
-    W119: Warning core,
-        "Partial install cleanup failed",
-        "Rolling back a failed extension install could not remove the partially-created extension directory. Manually delete the leftover extension directory reported in the message.";
     W121: Warning governance,
         "Invalid failure mode detection",
         "A `failure_mode` entity's `detection` or `post_detection` field is not one of the recognized values (`certain`, `likely`, `moderate`, `unlikely`, `undetectable`). Set the field to one of these values.";

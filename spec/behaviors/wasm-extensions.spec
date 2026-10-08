@@ -798,19 +798,20 @@ behavior read_lock_file "Read Lock File" {
   ensures {
     lock_file_read_emitted  "lock_file_read event is emitted after lock file is processed"
     locked_versions_used    "locked versions are used instead of resolving from sources when lock file exists"
-    malformed_lock_graceful "malformed lock files produce warning and fall back to fresh resolution"
+    malformed_lock_reported "a lock file that exists and can't be read is E033: nothing is known to be installed"
   }
   contract   """
-    When a specforge.lock file exists, the system MUST use locked versions
-    instead of resolving from sources. Missing lock entries for declared
-    extensions MUST trigger resolution and lock file update. Malformed lock
-    files MUST produce a warning and fall back to fresh resolution.
+    When a specforge.lock file exists, the system MUST use the versions and
+    hashes it records. A lock file that exists and can't be read or parsed is
+    E033: no installed extension loads from it (each is E028 naming the
+    lock), and add, update and remove refuse to change what is installed
+    until it is fixed or deleted, so it is never silently replaced.
   """
   produces   [lock_file_read]
   verify unit "locked versions used when lock file exists"
   verify unit "missing lock entry triggers resolution"
-  verify unit "malformed lock file produces warning and falls back"
-  verify contract "Read Lock File: lock file reading holds — all_files_parsed_fired, filesystem_available, lock_file_read_emitted, locked_versions_used, malformed_lock_graceful"
+  verify unit "an unreadable lock file is E033 and is never replaced by a change"
+  verify contract "Read Lock File: lock file reading holds — all_files_parsed_fired, filesystem_available, lock_file_read_emitted, locked_versions_used, malformed_lock_reported"
 }
 
 // ── Extension Update ──────────────────────────────────────────

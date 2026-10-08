@@ -88,7 +88,12 @@ pub fn write_lock_file(lock: &LockFile, path: &Path) -> Result<(), Diagnostic> {
             let _ = std::fs::remove_file(&temp);
             Diagnostic::new(
                 codes::E033,
-                format!("failed to write lock file at '{}': {}", path.display(), e),
+                format!(
+                    "failed to write lock file at '{}' (through '{}'): {}",
+                    path.display(),
+                    temp.display(),
+                    e
+                ),
             )
         })
 }

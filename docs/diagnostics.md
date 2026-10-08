@@ -400,11 +400,10 @@ Level: error
 ```
 E032: Extension install or uninstall failed
 
-An install or uninstall step failed: the downloaded `.wasm` binary's SHA-256
-hash didn't match the expected value (possible tampering or a bad download), or
-a filesystem step — creating the temp directory, writing the binary,
-finalizing the install, or removing the extension directory on uninstall —
-failed. Re-download the extension or check filesystem permissions.
+An install, update or uninstall step failed: creating the staging directory,
+writing the binary, or moving it into place or aside. Everything the change
+wrote was put back; when something couldn't be, the error names it. Check
+filesystem permissions and retry.
 
 Owner: core
 Level: error
@@ -2707,19 +2706,6 @@ Owner: core
 Level: warning
 ```
 
-## W119
-
-```
-W119: Partial install cleanup failed
-
-Rolling back a failed extension install could not remove the partially-created
-extension directory. Manually delete the leftover extension directory reported
-in the message.
-
-Owner: core
-Level: warning
-```
-
 ## W121
 
 ```
@@ -3164,6 +3150,7 @@ These codes are no longer emitted, and are never reused for another meaning.
 | W114 | (nothing) |
 | W116 | (nothing) |
 | W117 | (nothing) |
+| W119 | (nothing) |
 | W120 | (nothing) |
 | W122 | (nothing) |
 | W146 | (nothing) |

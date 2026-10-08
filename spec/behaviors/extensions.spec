@@ -364,8 +364,9 @@ behavior remove_extension "Remove Extension" {
     nothing; a name no entry, lock entry or builtin matches is
     extension_not_found. Every refusal MUST be decided before anything is
     written, and a specforge.json the compile could not read refuses every
-    removal (config_invalid), changing nothing; specforge.json is written
-    before specforge.lock and the binary.
+    removal (config_invalid), changing nothing. A removal is all or
+    nothing: a failure at any step leaves specforge.json, specforge.lock
+    and the binary as they were.
     Removing an extension that another loaded or installed extension
     requires as a non-optional peer MUST fail with E027 naming the
     dependents, unless --force is given. The CLI and the MCP
@@ -388,6 +389,7 @@ behavior remove_extension "Remove Extension" {
   verify unit "specforge remove for non-existent extension reports error"
   verify integration "remove --format json lists the files it wrote in files_written"
   verify unit "specforge remove with no lock file reports error"
+  verify unit "a removal that fails changes nothing"
   verify integration "removing an installed extension drops its specforge.json entry"
   verify integration "removing an extension another installed extension requires fails with E027 unless --force"
   verify integration "a .wasm file entry is removed by the name it declares or by its entry as written, leaving its file in place"
