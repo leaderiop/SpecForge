@@ -15,7 +15,7 @@ use super::{Trust, check_diamonds, published_versions};
 use crate::registry::{NO_REGISTRY, Registry};
 use crate::{OpError, OpErrorKind, Writes};
 use specforge_common::{Code, codes};
-use specforge_installed::{Installed, LockFile, LockState, Module, Pin};
+use specforge_installed::{Installed, LockFile, LockSource, LockState, Module, Pin};
 use specforge_protocol_types::PackageName;
 use specforge_protocol_types::package::VersionRequirement;
 use std::path::Path;
@@ -173,9 +173,9 @@ pub fn update(req: &UpdateRequest, registry: &dyn Registry) -> Result<UpdateOutc
         .iter()
         .filter(|e| req.name.is_none_or(|n| e.name.as_str() == n))
     {
-        let status = if entry.source != "registry" {
+        let status = if !entry.source.is_registry() {
             UpdateStatus::NotFromRegistry {
-                source: entry.source.clone(),
+                source: entry.source.to_string(),
             }
         } else {
             registry_used = true;
@@ -238,7 +238,7 @@ pub fn update(req: &UpdateRequest, registry: &dyn Registry) -> Result<UpdateOutc
             Pin {
                 name: checked.package.name.clone(),
                 version: checked.declared.version().to_string(),
-                source: "registry".to_string(),
+                source: LockSource::Registry,
                 key_id: checked.package.key_id.clone(),
                 peers: checked.declared.peers().to_vec(),
             },
@@ -440,7 +440,7 @@ mod tests {
         LockFileEntry {
             name: specforge_protocol_types::PackageName::parse(name).unwrap(),
             version: version.to_string(),
-            source: source.to_string(),
+            source: LockSource::parse(source),
             wasm_hash: hex_sha256(b"old"),
             key_id: None,
             peer_dependencies: peers
@@ -517,7 +517,7 @@ mod tests {
         let lock = specforge_installed::read_lock_file(&lock_path(dir.path())).unwrap();
         assert_eq!(lock.entries[0].version, "0.1.0");
         assert_eq!(lock.entries[0].wasm_hash, hex_sha256(&greet()));
-        assert_eq!(lock.entries[0].source, "registry");
+        assert_eq!(lock.entries[0].source, LockSource::Registry);
         let installed = installed(dir.path(), "@sdk/greet");
         assert_eq!(std::fs::read(installed).unwrap(), greet());
     }

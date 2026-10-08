@@ -79,7 +79,7 @@ impl Origin {
             lock.and_then(|lock| lock.entries.iter().find(|e| e.name.as_str() == name))
         {
             return Origin::Installed {
-                source: entry.source.clone(),
+                source: entry.source.to_string(),
             };
         }
         match builtin_name(name) {

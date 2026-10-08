@@ -37,7 +37,7 @@ fn pin(text: &str) -> Pin {
     Pin {
         name: name(text),
         version: "1.0.0".to_string(),
-        source: "registry".to_string(),
+        source: specforge_installed::LockSource::parse("registry"),
         key_id: None,
         peers: Vec::new(),
     }

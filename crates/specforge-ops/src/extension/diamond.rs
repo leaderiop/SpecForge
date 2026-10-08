@@ -133,7 +133,7 @@ mod tests {
         LockFileEntry {
             name: specforge_protocol_types::PackageName::parse(name).unwrap(),
             version: version.to_string(),
-            source: "registry".to_string(),
+            source: specforge_installed::LockSource::Registry,
             wasm_hash: String::new(),
             key_id: None,
             peer_dependencies: peers,

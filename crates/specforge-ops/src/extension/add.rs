@@ -4,7 +4,7 @@ use super::{Origin, builtin_name, check_diamonds};
 use crate::registry::Registry;
 use crate::{OpError, OpErrorKind, Writes};
 use specforge_common::codes;
-use specforge_installed::{Change, Installed, Module, Pin};
+use specforge_installed::{Change, Installed, LockSource, Module, Pin};
 use specforge_protocol_types::package::{SpecifierError, Version};
 use specforge_protocol_types::{ExtensionDeclaration, PackageName, PackageRef};
 use std::path::{Path, PathBuf};
@@ -252,7 +252,7 @@ fn add_local(req: &AddRequest, path: &Path, writes: &mut Writes) -> Result<AddOu
     }
     let module = Module::new(wasm);
     if let Some(present) = already_present(&installed, &package, |e| {
-        e.wasm_hash == module.digest() && e.source.starts_with("local:")
+        e.wasm_hash == module.digest() && e.source.local_path().is_some()
     }) {
         return Ok(present);
     }
@@ -274,7 +274,7 @@ fn add_from_registry(
         source: "registry".to_string(),
     };
     if let Some(present) = already_present(&installed, &package.name, |e| {
-        e.version == version.to_string() && e.source == "registry"
+        e.version == version.to_string() && e.source.is_registry()
     }) {
         return Ok(present);
     }
@@ -499,7 +499,7 @@ fn install(
         Pin {
             name: package,
             version: declared.version().to_string(),
-            source: origin.source(),
+            source: LockSource::parse(&origin.source()),
             key_id: key_id.clone(),
             peers: declared.peers().to_vec(),
         },

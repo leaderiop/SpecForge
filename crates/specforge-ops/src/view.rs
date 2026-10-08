@@ -382,7 +382,7 @@ pub(crate) mod testing {
                         |(name, version, source)| specforge_installed::LockFileEntry {
                             name: specforge_protocol_types::PackageName::parse(name).unwrap(),
                             version: version.to_string(),
-                            source: source.to_string(),
+                            source: specforge_installed::LockSource::parse(source),
                             wasm_hash: format!("hash-{name}"),
                             key_id: None,
                             peer_dependencies: Vec::new(),

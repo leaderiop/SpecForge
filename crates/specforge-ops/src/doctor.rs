@@ -216,7 +216,7 @@ pub fn diagnose_with(view: &ProjectView, z3_available: bool) -> DoctorReport {
             extensions.push(ExtensionHealth {
                 name: entry.name.to_string(),
                 version: entry.version.clone(),
-                source: entry.source.clone(),
+                source: entry.source.to_string(),
                 enhancement_count: 0,
             });
         }

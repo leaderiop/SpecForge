@@ -175,7 +175,7 @@ pub fn remove(view: &ProjectView, req: &RemoveRequest) -> Result<RemoveOutcome, 
         (Some(entry), _) => (
             Some(entry.version.clone()),
             Origin::Installed {
-                source: entry.source.clone(),
+                source: entry.source.to_string(),
             },
         ),
         (None, Some(builtin)) => {

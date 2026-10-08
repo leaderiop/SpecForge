@@ -20,7 +20,7 @@ pub struct LockFileEntry {
     /// under it (ADR 0036).
     pub name: PackageName,
     pub version: String,
-    pub source: String,
+    pub source: LockSource,
     pub wasm_hash: String,
     /// Publisher key id recorded at install from a signed registry package.
     /// `None` for local installs and for lock files written before signed
@@ -32,6 +32,67 @@ pub struct LockFileEntry {
     /// on deserialize for lock files written before this existed.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub peer_dependencies: Vec<specforge_protocol_types::PeerDependency>,
+}
+
+/// Where a lock entry's binary came from. Serialized as the lock's string:
+/// `registry`, `local:<path>`, or anything else, kept as it was written.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum LockSource {
+    /// Installed from a registry.
+    Registry,
+    /// Installed from a `.wasm` file at this path (as `add` recorded it).
+    Local(String),
+    /// A source this version of SpecForge does not know, kept verbatim.
+    Other(String),
+}
+
+const LOCAL_PREFIX: &str = "local:";
+
+impl LockSource {
+    /// The path of a local install.
+    pub fn local_path(&self) -> Option<&str> {
+        match self {
+            LockSource::Local(path) => Some(path),
+            LockSource::Registry | LockSource::Other(_) => None,
+        }
+    }
+
+    pub fn is_registry(&self) -> bool {
+        matches!(self, LockSource::Registry)
+    }
+
+    /// Read the lock's string.
+    pub fn parse(text: &str) -> LockSource {
+        if text == "registry" {
+            LockSource::Registry
+        } else if let Some(path) = text.strip_prefix(LOCAL_PREFIX) {
+            LockSource::Local(path.to_string())
+        } else {
+            LockSource::Other(text.to_string())
+        }
+    }
+}
+
+impl std::fmt::Display for LockSource {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            LockSource::Registry => f.write_str("registry"),
+            LockSource::Local(path) => write!(f, "{LOCAL_PREFIX}{path}"),
+            LockSource::Other(text) => f.write_str(text),
+        }
+    }
+}
+
+impl Serialize for LockSource {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.collect_str(self)
+    }
+}
+
+impl<'de> Deserialize<'de> for LockSource {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        String::deserialize(deserializer).map(|text| LockSource::parse(&text))
+    }
 }
 
 impl Default for LockFile {
@@ -200,7 +261,7 @@ mod tests {
             entries: vec![LockFileEntry {
                 name: specforge_protocol_types::PackageName::parse("@specforge/software").unwrap(),
                 version: "1.0.0".to_string(),
-                source: "registry".to_string(),
+                source: crate::LockSource::parse("registry"),
                 wasm_hash: "abc123".to_string(),
                 key_id: None,
                 peer_dependencies: Vec::new(),
@@ -243,7 +304,7 @@ mod tests {
                     name: specforge_protocol_types::PackageName::parse("@specforge/software")
                         .unwrap(),
                     version: "1.0.0".to_string(),
-                    source: "registry".to_string(),
+                    source: crate::LockSource::parse("registry"),
                     wasm_hash: "abc123".to_string(),
                     key_id: None,
                     peer_dependencies: Vec::new(),
@@ -252,7 +313,7 @@ mod tests {
                     name: specforge_protocol_types::PackageName::parse("@specforge/governance")
                         .unwrap(),
                     version: "1.0.0".to_string(),
-                    source: "local".to_string(),
+                    source: crate::LockSource::parse("local"),
                     wasm_hash: "def456".to_string(),
                     key_id: None,
                     peer_dependencies: Vec::new(),
@@ -354,6 +415,54 @@ mod tests {
     }
 
     #[test]
+    fn a_source_reads_and_writes_as_the_lock_spells_it() {
+        for (text, source) in [
+            ("registry", LockSource::Registry),
+            ("local:ext/x.wasm", LockSource::Local("ext/x.wasm".into())),
+            ("local:", LockSource::Local(String::new())),
+            (
+                "git+https://h/r",
+                LockSource::Other("git+https://h/r".into()),
+            ),
+            ("local", LockSource::Other("local".into())),
+        ] {
+            assert_eq!(LockSource::parse(text), source, "{text}");
+            assert_eq!(source.to_string(), text);
+            let json = serde_json::to_string(&source).unwrap();
+            assert_eq!(json, format!("\"{text}\""));
+            assert_eq!(serde_json::from_str::<LockSource>(&json).unwrap(), source);
+        }
+        assert_eq!(
+            LockSource::Local("a.wasm".into()).local_path(),
+            Some("a.wasm")
+        );
+        assert!(LockSource::Registry.is_registry());
+
+        // A lock written before sources were typed reads and writes back
+        // byte for byte.
+        let text = r#"{
+  "lockfile_version": 1,
+  "entries": [
+    {
+      "name": "@acme/tool",
+      "version": "1.0.0",
+      "source": "local:ext/tool.wasm",
+      "wasm_hash": "abc"
+    },
+    {
+      "name": "@acme/other",
+      "version": "2.0.0",
+      "source": "registry",
+      "wasm_hash": "def",
+      "key_id": "k"
+    }
+  ]
+}"#;
+        let lock: LockFile = serde_json::from_str(text).unwrap();
+        assert_eq!(serde_json::to_string_pretty(&lock).unwrap(), text);
+    }
+
+    #[test]
     fn the_lock_lives_at_the_project_root() {
         assert_eq!(
             lock_path(Path::new("/p")),
@@ -367,7 +476,7 @@ mod tests {
         LockFileEntry {
             name: specforge_protocol_types::PackageName::parse(name).unwrap(),
             version: "1.0.0".to_string(),
-            source: "registry".to_string(),
+            source: crate::LockSource::parse("registry"),
             wasm_hash: "hash".to_string(),
             key_id: None,
             peer_dependencies: peers,

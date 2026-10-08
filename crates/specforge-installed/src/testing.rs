@@ -54,7 +54,7 @@ pub fn install_module(root: &Path, name: &str, bytes: &[u8]) {
     lock.entries.push(LockFileEntry {
         name: package,
         version: "0.0.0-test".to_string(),
-        source: "registry".to_string(),
+        source: crate::lock::LockSource::Registry,
         wasm_hash: hex_sha256(bytes),
         key_id: None,
         peer_dependencies: Vec::new(),

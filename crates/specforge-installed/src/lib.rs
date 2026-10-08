@@ -24,7 +24,7 @@ pub use change::{Change, Committed, Failed, Pin};
 pub use health::Health;
 pub use layout::{LOCK_FILE, lock_path};
 pub use load::{Builtins, EnabledExtension, LoadFailure, LoadProblem, Loaded};
-pub use lock::{LockFile, LockFileEntry, LockState, read_lock_file, write_lock_file};
+pub use lock::{LockFile, LockFileEntry, LockSource, LockState, read_lock_file, write_lock_file};
 pub use module::{Module, hex_sha256};
 
 /// A project's installed extensions: its root and what `specforge.lock`
@@ -125,11 +125,14 @@ impl Installed {
     pub fn reinstall(&self, name: &str) -> String {
         let entry = self.lock.entries().iter().find(|e| e.name.as_str() == name);
         let specifier = match entry {
-            Some(e) if e.source.starts_with("local:") => e.source["local:".len()..].to_string(),
-            Some(e) if semver::Version::parse(&e.version).is_ok() => {
-                format!("{name}@{}", e.version)
-            }
-            _ => name.to_string(),
+            Some(e) => match e.source.local_path() {
+                Some(path) => path.to_string(),
+                None if semver::Version::parse(&e.version).is_ok() => {
+                    format!("{name}@{}", e.version)
+                }
+                None => name.to_string(),
+            },
+            None => name.to_string(),
         };
         format!("specforge add {specifier}")
     }
@@ -173,7 +176,7 @@ mod tests {
         let entry = |name: &str, version: &str, source: &str| LockFileEntry {
             name: specforge_protocol_types::PackageName::parse(name).unwrap(),
             version: version.to_string(),
-            source: source.to_string(),
+            source: LockSource::parse(source),
             wasm_hash: "hash".to_string(),
             key_id: None,
             peer_dependencies: Vec::new(),

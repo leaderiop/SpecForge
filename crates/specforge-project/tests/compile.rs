@@ -962,7 +962,7 @@ fn install_greet(root: &Path, hash: Option<&str>) {
         entries: vec![specforge_installed::LockFileEntry {
             name: specforge_protocol_types::PackageName::parse("@sdk/greet").unwrap(),
             version: "0.1.0".into(),
-            source: "registry".into(),
+            source: specforge_installed::LockSource::Registry,
             wasm_hash: hash.map_or_else(|| specforge_installed::hex_sha256(&bytes), str::to_string),
             key_id: None,
             peer_dependencies: Vec::new(),

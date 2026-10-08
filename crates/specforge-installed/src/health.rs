@@ -104,7 +104,7 @@ mod tests {
         LockFileEntry {
             name: specforge_protocol_types::PackageName::parse(name).unwrap(),
             version: "1.0.0".to_string(),
-            source: "registry".to_string(),
+            source: crate::LockSource::parse("registry"),
             wasm_hash: hash.to_string(),
             key_id: None,
             peer_dependencies: peers,

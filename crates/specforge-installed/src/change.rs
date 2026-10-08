@@ -15,7 +15,7 @@ use specforge_protocol_types::{PackageName, PeerDependency};
 
 use crate::Installed;
 use crate::layout::{MODULE_FILE, STAGING};
-use crate::lock::{LockFile, LockFileEntry, LockState, write_lock_file};
+use crate::lock::{LockFile, LockFileEntry, LockSource, LockState, write_lock_file};
 use crate::module::Module;
 
 /// What a lock entry records about an install, its hash aside (the module's
@@ -24,8 +24,7 @@ use crate::module::Module;
 pub struct Pin {
     pub name: PackageName,
     pub version: String,
-    /// `registry`, or `local:<path>`.
-    pub source: String,
+    pub source: LockSource,
     pub key_id: Option<String>,
     pub peers: Vec<PeerDependency>,
 }
