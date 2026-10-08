@@ -2792,7 +2792,6 @@ dependencies = [
  "specforge-parser",
  "specforge-project",
  "specforge-protocol-types",
- "specforge-registry",
  "specforge-registry-client",
  "specforge-registry-server",
  "specforge-test",
@@ -2837,7 +2836,6 @@ dependencies = [
  "wasmtime",
  "wasmtime-wasi",
  "wat",
- "wit-bindgen 0.30.0",
 ]
 
 [[package]]
@@ -2964,7 +2962,6 @@ dependencies = [
  "specforge-common",
  "specforge-component",
  "specforge-diagnostics",
- "specforge-emitter",
  "specforge-extension-sdk",
  "specforge-formatter",
  "specforge-graph",
@@ -3143,7 +3140,6 @@ version = "0.1.0"
 dependencies = [
  "insta",
  "regex",
- "serde",
  "serde_json",
  "specforge-common",
  "specforge-diagnostics",
@@ -3170,7 +3166,6 @@ dependencies = [
  "keyring",
  "parking_lot",
  "reqwest",
- "semver",
  "serde",
  "serde_json",
  "sha2",

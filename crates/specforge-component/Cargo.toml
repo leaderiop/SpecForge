@@ -8,13 +8,11 @@ repository.workspace = true
 [dependencies]
 specforge-wasm = { path = "../specforge-wasm" }
 specforge-common = { workspace = true }
-# `PackageName`: an installed module is read from the directory its name is.
-specforge-protocol-types = { path = "../specforge-protocol-types" }
 wasmtime = { version = "49.0.2", features = ["component-model", "cache"] }
 wasmtime-wasi = "49.0.2"
-wit-bindgen = "0.30"
 
 [dev-dependencies]
+specforge-protocol-types = { path = "../specforge-protocol-types" }
 # The runtime contract and the SDK-declared greet served in process.
 specforge-extension-sdk = { path = "../specforge-extension-sdk" }
 specforge-diagnostics = { path = "../specforge-diagnostics" }

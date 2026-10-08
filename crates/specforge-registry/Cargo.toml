@@ -14,7 +14,6 @@ path = "tests/main.rs"
 specforge-common = { workspace = true }
 specforge-diagnostics = { path = "../specforge-diagnostics" }
 specforge-protocol-types = { path = "../specforge-protocol-types" }
-serde = { workspace = true }
 serde_json = { workspace = true }
 regex = { workspace = true }
 

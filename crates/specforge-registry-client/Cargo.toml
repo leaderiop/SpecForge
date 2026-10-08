@@ -15,7 +15,6 @@ specforge-common = { workspace = true }
 specforge-protocol-types = { path = "../specforge-protocol-types" }
 serde = { workspace = true }
 serde_json = { workspace = true }
-semver = { workspace = true }
 sha2 = { workspace = true }
 reqwest = { workspace = true }
 form_urlencoded = "1.2"
