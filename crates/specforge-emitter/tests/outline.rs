@@ -14,16 +14,12 @@ fn load_manifest(name: &str) -> ExtensionDeclaration {
     load_declaration(&runtime, ext_name).unwrap().declaration
 }
 
-/// Build a Wasm runtime for a temp project listing `ext_names`.
+/// A Wasm runtime holding the builtin extensions `ext_names`.
 fn wasm_runtime_for(ext_names: &[&str]) -> specforge_component::ComponentRuntime {
-    let dir = tempfile::TempDir::new().unwrap();
-    let config = serde_json::json!({
-        "name": "test-project",
-        "version": "0.1.0",
-        "extensions": ext_names,
-    });
-    std::fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
-    specforge_component::project_runtime(dir.path())
+    let runtime = specforge_component::ComponentRuntime::new();
+    let names: Vec<String> = ext_names.iter().map(|name| name.to_string()).collect();
+    specforge_component::builtins::load_builtins_for(&runtime, &names).unwrap();
+    runtime
 }
 
 fn load_all_manifests() -> Vec<ExtensionDeclaration> {

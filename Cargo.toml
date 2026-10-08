@@ -19,6 +19,7 @@ members = [
     "crates/specforge-registry",
     "crates/specforge-registry-client",
     "crates/specforge-wasm",
+    "crates/specforge-installed",
     "crates/specforge-lsp",
     "crates/specforge-mcp",
     "crates/specforge-mcp-macros",

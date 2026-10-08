@@ -657,8 +657,10 @@ behavior run_doctor_check "Run Doctor Check" {
     enhancements, any conflicts with actionable resolution suggestions,
     and additional checks (shadowed fields, unknown target entities,
     edge label conflicts). An enabled extension that fails to load (E028:
-    not installed; E033: its binary no longer matches the lock) MUST be
-    reported as an error. Each listed extension MUST carry the source the
+    not installed; E070: its binary is not the one the lock pins) MUST be
+    reported as an error. A missing or changed installed binary MUST be one
+    finding, whose remediation is the command that reinstalls it as its lock
+    entry records it. Each listed extension MUST carry the source the
     extensions listing gives it: builtin, the lock entry's source, or
     file:<path> for a .wasm file entry of specforge.json. Run in a
     directory without specforge.json, doctor MUST report a warning finding
@@ -677,7 +679,8 @@ behavior run_doctor_check "Run Doctor Check" {
   verify unit "doctor reports conflicts with resolution suggestions"
   verify unit "doctor detects shadowed grammar-level constructs"
   verify unit "doctor --json produces valid JSON output"
-  verify unit "doctor reports an extension that fails to load (E028, E033) as an error"
+  verify unit "doctor reports an extension that fails to load (E028, E070) as an error"
+  verify unit "doctor reports a missing or changed installed binary once, with the remedy its load gives"
   verify unit "a peer whose installed version doctor cannot compare is remedied with a runnable command"
   verify unit "a finding without its own suggestion quotes the catalogued explanation"
   verify unit "doctor gives each extension the source the extensions listing gives it"
@@ -798,19 +801,20 @@ behavior read_lock_file "Read Lock File" {
   ensures {
     lock_file_read_emitted  "lock_file_read event is emitted after lock file is processed"
     locked_versions_used    "locked versions are used instead of resolving from sources when lock file exists"
-    malformed_lock_graceful "malformed lock files produce warning and fall back to fresh resolution"
+    malformed_lock_reported "a lock file that exists and can't be read is E033: nothing is known to be installed"
   }
   contract   """
-    When a specforge.lock file exists, the system MUST use locked versions
-    instead of resolving from sources. Missing lock entries for declared
-    extensions MUST trigger resolution and lock file update. Malformed lock
-    files MUST produce a warning and fall back to fresh resolution.
+    When a specforge.lock file exists, the system MUST use the versions and
+    hashes it records. A lock file that exists and can't be read or parsed is
+    E033: no installed extension loads from it (each is E028 naming the
+    lock), and add, update and remove refuse to change what is installed
+    until it is fixed or deleted, so it is never silently replaced.
   """
   produces   [lock_file_read]
   verify unit "locked versions used when lock file exists"
   verify unit "missing lock entry triggers resolution"
-  verify unit "malformed lock file produces warning and falls back"
-  verify contract "Read Lock File: lock file reading holds — all_files_parsed_fired, filesystem_available, lock_file_read_emitted, locked_versions_used, malformed_lock_graceful"
+  verify unit "an unreadable lock file is E033 and is never replaced by a change"
+  verify contract "Read Lock File: lock file reading holds — all_files_parsed_fired, filesystem_available, lock_file_read_emitted, locked_versions_used, malformed_lock_reported"
 }
 
 // ── Extension Update ──────────────────────────────────────────

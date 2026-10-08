@@ -50,12 +50,11 @@ invariant wasm_compile_cache_integrity "Wasm Compile Cache Integrity" {
     runtime engine (wasmtime), selected via SPECFORGE_WASMTIME_CACHE.
     Separately, the integrity of an installed extension binary is enforced
     by the specforge.lock hash pin: a binary that no longer matches its
-    recorded hash MUST be refused at load time (E033).
+    recorded hash MUST be refused at load time (E070).
   """
   risk      medium
   verify property "a cache artifact from different bytes or engine config is never reused"
   verify unit "corrupted cache entry falls back to fresh compilation"
-  verify unit "tampered installed binary refused via lockfile hash pin (E033)"
 }
 
 invariant extension_isolation "Extension Isolation" {

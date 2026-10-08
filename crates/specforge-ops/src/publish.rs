@@ -108,20 +108,9 @@ fn crate_name(cargo_toml: &Path) -> Option<String> {
 /// that isn't a loadable extension is E028. Missing peers (E027) are left
 /// out: they are installed beside the extension, not with it.
 pub fn declare(wasm: &[u8]) -> Result<(ExtensionDeclaration, Vec<Diagnostic>), OpError> {
-    const CANDIDATE: &str = "__candidate";
     let runtime = specforge_component::ComponentRuntime::new();
-    let invalid = |why: String| {
-        OpError::diagnostic(
-            codes::E028,
-            format!("not a loadable SpecForge extension: {why}"),
-        )
-        .with_suggestion("build it with specforge-extension-sdk for wasm32-wasip2")
-    };
-    runtime
-        .load_module_bytes(CANDIDATE, wasm)
-        .map_err(invalid)?;
-    let loaded = specforge_wasm::protocol::load_declaration(&runtime, CANDIDATE)
-        .map_err(|e| invalid(e.to_string()))?;
+    let module = specforge_installed::Module::new(wasm.to_vec());
+    let loaded = specforge_installed::declaration_of(&module, &runtime)?;
     let diagnostics = diagnostics_of(&loaded.declaration, loaded.warnings);
     Ok((loaded.declaration, diagnostics))
 }

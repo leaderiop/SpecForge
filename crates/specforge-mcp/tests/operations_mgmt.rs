@@ -606,17 +606,26 @@ fn finding<'a>(report: &'a Value, code: &str) -> Option<&'a Value> {
 
 #[specforge_test(
     behavior = "provide_mcp_doctor_tool",
-    verify = "specforge.doctor reports an extension that fails to load (E028, E033) as an error"
+    verify = "specforge.doctor reports an extension that fails to load (E028, E070) as an error"
 )]
 fn doctor_reports_an_extension_that_fails_to_load() {
     let (mut server, root) = server_with_product();
 
-    // A binary that no longer matches its lock entry is refused (E033).
+    // A binary that no longer matches its lock entry is refused (E070).
     tamper_with_installed_binary(&root);
     let tampered = doctor(&mut server);
-    let e033 = finding(&tampered, "E033").unwrap_or_else(|| panic!("no E033: {tampered}"));
-    assert_eq!(e033["status"], "error", "{e033}");
-    assert!(e033["check"].as_str().unwrap().contains(GREET), "{e033}");
+    let stale =
+        finding(&tampered, "stale_hash").unwrap_or_else(|| panic!("no finding: {tampered}"));
+    assert_eq!(stale["status"], "error", "{stale}");
+    assert!(stale["check"].as_str().unwrap().contains(GREET), "{stale}");
+    assert!(
+        finding(&tampered, "E070").is_none(),
+        "listed once: {tampered}"
+    );
+    let failures = tampered["load_failures"].as_array().unwrap();
+    assert_eq!(failures.len(), 1, "{tampered}");
+    assert_eq!(failures[0]["code"], "E070", "{tampered}");
+    assert_eq!(failures[0]["binary_issue"], true, "{tampered}");
     assert_eq!(tampered["extensions_ok"], false, "{tampered}");
 
     // Enabled but not installed at all: no lock entry, nothing for the

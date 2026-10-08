@@ -259,6 +259,41 @@ fn search_without_registry_makes_no_network_call() {
 }
 
 #[specforge_test(
+    behavior = "search_registry",
+    verify = "an unusable specforge.json is refused with the refusal add gives, before any network call"
+)]
+fn search_and_login_refuse_an_unusable_config_as_add_does() {
+    let spy = NetSpy::start();
+    let dir = TempDir::new().unwrap();
+    std::fs::write(dir.path().join("specforge.json"), "{ \"extensions\": [").unwrap();
+    let refusal = |args: &[&str]| -> (bool, serde_json::Value) {
+        let output = spy
+            .command(args)
+            .args(["--format", "json", "--path"])
+            .arg(dir.path())
+            .output()
+            .unwrap();
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let json = serde_json::from_str(&stdout).unwrap_or_else(|e| panic!("{e}: {stdout}"));
+        (output.status.success(), json)
+    };
+
+    let (ok, added) = refusal(&["add", "@acme/widget@1.0.0"]);
+    assert!(!ok);
+    assert_eq!(added["code"], "config_invalid", "{added}");
+
+    // (`publish` builds its declaration first; its registry read is the same
+    // `configured`, covered in specforge-ops-registry.)
+    for args in [&["search", "widget"][..], &["login", "--token", "t"]] {
+        let (ok, json) = refusal(args);
+        assert!(!ok, "{args:?}");
+        assert_eq!(json["code"], added["code"], "{args:?}: {json}");
+        assert_eq!(json["message"], added["message"], "{args:?}: {json}");
+    }
+    assert_eq!(spy.hits(), 0, "a command reached the network");
+}
+
+#[specforge_test(
     behavior = "update_all_extensions",
     verify = "with no registry configured, update makes no network call and reports how to configure one"
 )]

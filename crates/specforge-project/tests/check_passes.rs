@@ -136,6 +136,7 @@ pub(crate) fn project(spec: &str) -> TempDir {
     let dir = TempDir::new().unwrap();
     let config = json!({ "name": "p", "version": "0.1.0", "extensions": [EXT] });
     fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
+    specforge_installed::testing::install_configured(dir.path(), &specforge_project::builtins());
     fs::write(dir.path().join("a.spec"), spec).unwrap();
     dir
 }
@@ -518,6 +519,7 @@ fn the_pass_input_carries_each_entitys_exemption() {
     let dir = TempDir::new().unwrap();
     let config = json!({ "name": "p", "version": "0.1.0", "extensions": ["@test/exempt"] });
     fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
+    specforge_installed::testing::install_configured(dir.path(), &specforge_project::builtins());
     fs::write(
         dir.path().join("a.spec"),
         "gadget owes \"Owes\" {\n  verify unit \"it works\"\n}\n\n\

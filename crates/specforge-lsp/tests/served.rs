@@ -77,6 +77,8 @@ impl Served {
         let names: Vec<&str> = self.extensions.iter().map(|(n, _)| n.as_str()).collect();
         let config = serde_json::json!({"name": "t", "version": "0.1.0", "extensions": names});
         std::fs::write(self.dir.path().join("specforge.json"), config.to_string()).unwrap();
+        // What the in-process runtime serves, the project has installed.
+        specforge_installed::testing::install(self.dir.path(), &names);
         self.apply(Change::Open(self.dir.path().to_path_buf()))
             .expect("the project opens");
         let uris: Vec<Url> = files

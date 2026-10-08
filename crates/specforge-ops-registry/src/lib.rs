@@ -7,7 +7,6 @@
 //! [`HttpRegistry`] and pass it in.
 
 use specforge_common::{Code, Diagnostic, codes};
-use specforge_ops::config::CONFIG_FILE;
 use specforge_ops::extension::Trust;
 use specforge_ops::registry::{
     METADATA_MISMATCH, Package, Registry, UNREADABLE_MANIFEST, no_registry,
@@ -15,6 +14,7 @@ use specforge_ops::registry::{
 use specforge_ops::{OpError, OpErrorKind};
 use specforge_protocol_types::package::Version;
 use specforge_protocol_types::{ExtensionDeclaration, PackageName};
+use specforge_registry_client::trust_flow::TrustPolicy;
 use specforge_registry_client::{
     HttpRegistryClient, RegistryConfig, RegistryError, find_registry_for,
     parse_registries_from_config, resolve_from_registry, verify_registry_integrity,
@@ -38,14 +38,19 @@ const INVALID_CONFIG: Code = codes::E067;
 /// The registries the project at `root` configures.
 ///
 /// `operation` names the command for the message (`add`, `search`, ...).
-/// No `specforge.json`, one that can't be read, or one without a
-/// `registries` entry all fail with E063. When `registries` has entries but
-/// none can be read, it fails with E067 naming them.
+/// No `specforge.json`, or one without a `registries` entry, fails with E063;
+/// one that is there and unusable fails as `add` fails (`config_invalid`).
+/// When `registries` has entries but none can be read, it fails with E067
+/// naming them.
 pub fn configured(root: &Path, operation: &str) -> Result<Configured, OpError> {
-    let Ok(content) = std::fs::read_to_string(root.join(CONFIG_FILE)) else {
+    // `specforge.json` is read the way `add`, `update` and `remove` read
+    // it: one that is there and unusable is refused as they refuse it
+    // (`config_invalid`, E069), not as a missing registry.
+    let read = specforge_ops::config::usable(root)?;
+    let Some(raw) = read.config.raw.as_ref().filter(|_| read.found) else {
         return Err(no_registry(operation));
     };
-    let (registries, diagnostics) = parse_registries_from_config(&content);
+    let (registries, diagnostics) = parse_registries_from_config(&raw.to_string());
     if registries.is_empty() {
         let unreadable: Vec<&str> = diagnostics
             .iter()
@@ -113,9 +118,8 @@ impl HttpRegistry {
     /// client fetches from it without choosing again.
     fn registry_for(&self, name: &PackageName) -> Result<&RegistryConfig, OpError> {
         let registries = &self.registries.as_ref().map_err(Clone::clone)?.registries;
-        find_registry_for(name, registries)
-            .or_else(|| registries.first())
-            .ok_or_else(|| no_registry("add"))
+        // `configured` refuses an empty list, so there is always a first.
+        Ok(find_registry_for(name, registries).unwrap_or(&registries[0]))
     }
 }
 
@@ -172,18 +176,12 @@ impl Registry for HttpRegistry {
         }
 
         // Publisher signature and the TOFU pin policy.
-        let (assume_yes, format) = match trust {
-            Trust::Refuse => (false, "json"),
-            Trust::AssumeYes => (true, "human"),
-            Trust::Prompt => (false, "human"),
-        };
         let trusted = specforge_registry_client::trust_flow::check_and_pin(
             &response.name,
             &response,
             &wasm,
             allow_unsigned,
-            assume_yes,
-            format,
+            policy(trust),
             self.known_keys.as_deref(),
         )
         .map_err(OpError::from)?;
@@ -220,6 +218,15 @@ impl Registry for HttpRegistry {
             .iter()
             .filter_map(|text| Version::parse(text).ok())
             .collect())
+    }
+}
+
+/// How the client decides a key change for the way `add` was asked to.
+fn policy(trust: Trust) -> TrustPolicy {
+    match trust {
+        Trust::Refuse => TrustPolicy::Refuse,
+        Trust::AssumeYes => TrustPolicy::AssumeYes,
+        Trust::Prompt => TrustPolicy::Prompt,
     }
 }
 

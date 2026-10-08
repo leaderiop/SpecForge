@@ -1,12 +1,12 @@
 //! `specforge add` and `specforge.add_extension`.
 
-use super::{Origin, builtin_name, check_diamonds, extensions_dir, lock_path};
+use super::{Origin, builtin_name, check_diamonds};
 use crate::registry::Registry;
 use crate::{OpError, OpErrorKind, Writes};
 use specforge_common::codes;
+use specforge_installed::{Change, Installed, LockSource, Module, Pin};
 use specforge_protocol_types::package::{SpecifierError, Version};
 use specforge_protocol_types::{ExtensionDeclaration, PackageName, PackageRef};
-use specforge_wasm::{LockState, install_extension, write_lock_file};
 use std::path::{Path, PathBuf};
 
 /// Where an extension to add comes from.
@@ -155,9 +155,10 @@ pub struct Added {
 /// An installed extension is enabled by its bare name, which the runtime
 /// loads from the lock (ADR 0004 D3-b).
 ///
-/// An install that fails after placing its module (the lock or the config
-/// could not be written) leaves it in place and says so in the error's
-/// [`OpError::writes`].
+/// An install is all or nothing: the module, its lock entry and the
+/// `specforge.json` entry are written as one change, and a failure at any
+/// step puts every file back (the error's [`OpError::writes`] names what the
+/// rollback could not, normally nothing).
 pub fn add(req: &AddRequest, registry: &dyn Registry) -> Result<Added, OpError> {
     // The project must exist, with a config the writer can edit, before
     // anything is installed into it: the refusal `update` and `remove`
@@ -226,6 +227,9 @@ fn add_builtin(
 }
 
 fn add_local(req: &AddRequest, path: &Path, writes: &mut Writes) -> Result<AddOutcome, OpError> {
+    // A specforge.lock that can't be read refuses before anything is read.
+    let installed = Installed::at(req.root);
+    let change = installed.change()?;
     let wasm = std::fs::read(path).map_err(|e| {
         let message = if path.exists() {
             format!("cannot read {}: {e}", path.display())
@@ -246,16 +250,13 @@ fn add_local(req: &AddRequest, path: &Path, writes: &mut Writes) -> Result<AddOu
             origin,
         });
     }
-    let sha256 = specforge_wasm::hex_sha256(&wasm);
-    let mut lock = LockState::at(req.root).file().cloned().unwrap_or_default();
-    if let Some(present) = already_present(req.root, &lock, &package, |e| {
-        e.wasm_hash == sha256 && e.source.starts_with("local:")
+    let module = Module::new(wasm);
+    if let Some(present) = already_present(&installed, &package, |e| {
+        e.wasm_hash == module.digest() && e.source.local_path().is_some()
     }) {
         return Ok(present);
     }
-    install(
-        req.root, &mut lock, &declared, &wasm, &sha256, None, &origin, writes,
-    )
+    install(req.root, change, &declared, module, None, &origin, writes)
 }
 
 fn add_from_registry(
@@ -264,14 +265,16 @@ fn add_from_registry(
     package: &PackageRef,
     writes: &mut Writes,
 ) -> Result<AddOutcome, OpError> {
+    // A specforge.lock that can't be read refuses before a registry is asked.
+    let installed = Installed::at(req.root);
+    let change = installed.change()?;
     let name = package.name.as_str();
     let version = super::resolve(registry, package)?;
     let origin = Origin::Installed {
         source: "registry".to_string(),
     };
-    let mut lock = LockState::at(req.root).file().cloned().unwrap_or_default();
-    if let Some(present) = already_present(req.root, &lock, &package.name, |e| {
-        e.version == version.to_string() && e.source == "registry"
+    if let Some(present) = already_present(&installed, &package.name, |e| {
+        e.version == version.to_string() && e.source.is_registry()
     }) {
         return Ok(present);
     }
@@ -284,7 +287,7 @@ fn add_from_registry(
     }
     let checked = fetch_checked(
         registry,
-        &lock,
+        change.lock(),
         &package.name,
         &version,
         req.allow_unsigned,
@@ -292,10 +295,9 @@ fn add_from_registry(
     )?;
     install(
         req.root,
-        &mut lock,
+        change,
         &checked.declared,
-        &checked.package.wasm,
-        &checked.package.sha256,
+        Module::new(checked.package.wasm),
         checked.package.key_id,
         &origin,
         writes,
@@ -313,7 +315,7 @@ pub(super) struct Checked {
 
 pub(super) fn fetch_checked(
     registry: &dyn Registry,
-    lock: &specforge_wasm::LockFile,
+    lock: &specforge_installed::LockFile,
     name: &PackageName,
     version: &Version,
     allow_unsigned: bool,
@@ -409,21 +411,9 @@ impl Declared {
     /// Load `wasm` and read its declaration: a binary that isn't a loadable
     /// extension, or that claims a builtin's name, is refused.
     fn of(wasm: &[u8]) -> Result<Self, OpError> {
-        const CANDIDATE: &str = "__candidate";
         let runtime = specforge_component::ComponentRuntime::new();
-        let invalid = |why: String| {
-            OpError::diagnostic(
-                codes::E028,
-                format!("not a loadable SpecForge extension: {why}"),
-            )
-            .with_suggestion("build it with specforge-extension-sdk for wasm32-wasip2")
-        };
-        runtime
-            .load_module_bytes(CANDIDATE, wasm)
-            .map_err(invalid)?;
-        let declaration = specforge_wasm::protocol::load_declaration(&runtime, CANDIDATE)
-            .map_err(|e| invalid(e.to_string()))?
-            .declaration;
+        let declaration =
+            specforge_installed::declaration_of(&Module::new(wasm.to_vec()), &runtime)?.declaration;
         if super::builtin_name(declaration.name()).is_some() {
             return Err(OpError::new(
                 OpErrorKind::Conflict,
@@ -459,105 +449,62 @@ fn first_difference(
 }
 
 /// `AlreadyPresent` when the lock holds `name` as `same` accepts, its
-/// binary is in place and `specforge.json` enables it.
+/// binary is in place and is the one the lock pins, and `specforge.json`
+/// enables it. A binary that changed after install is not present: adding
+/// it again reinstalls it.
 fn already_present(
-    root: &Path,
-    lock: &specforge_wasm::LockFile,
+    installed: &Installed,
     name: &PackageName,
-    same: impl Fn(&specforge_wasm::LockFileEntry) -> bool,
+    same: impl Fn(&specforge_installed::LockFileEntry) -> bool,
 ) -> Option<AddOutcome> {
-    let entry = lock
-        .entries
-        .iter()
-        .find(|e| e.name == name.as_str() && same(e))?;
-    let installed = specforge_wasm::installed_wasm_path(&extensions_dir(root), name).is_file();
-    let enabled = specforge_common::load_project_config(root)
+    let entry = installed.verified(name.as_str()).filter(|e| same(e))?;
+    let enabled = specforge_common::load_project_config(installed.root())
         .extensions
         .iter()
         .any(|e| specforge_common::extension_entry_name(e) == name.as_str());
-    (installed && enabled).then(|| AddOutcome::AlreadyPresent {
+    enabled.then(|| AddOutcome::AlreadyPresent {
         name: name.to_string(),
         version: entry.version.clone(),
     })
 }
 
-/// Place the binary, lock it as `origin` with its declared version and
-/// peers, and enable it by its bare name, recording in `writes` each file
-/// whose bytes changed. A failure after the module is placed returns what
-/// was written with the error.
-#[allow(
-    clippy::too_many_arguments,
-    reason = "the install's inputs, each read once; `writes` is the outcome's"
-)]
+/// Install `module` as `declared`: its binary, its lock entry (as `origin`,
+/// with its declared version and peers) and its `specforge.json` entry (its
+/// bare name), as one change that puts everything back when a step fails.
 fn install(
     root: &Path,
-    lock: &mut specforge_wasm::LockFile,
+    mut change: Change<'_>,
     declared: &Declared,
-    wasm: &[u8],
-    sha256: &str,
+    module: Module,
     key_id: Option<String>,
     origin: &Origin,
     writes: &mut Writes,
 ) -> Result<AddOutcome, OpError> {
     let package = declared.package()?;
-    let module = specforge_wasm::installed_wasm_path(&extensions_dir(root), &package);
-    let module_before = std::fs::read(&module).ok();
-    let result = place(
-        root,
-        lock,
-        declared,
-        wasm,
-        sha256,
-        key_id.as_deref(),
-        origin,
-    )?;
-    writes.record_if(module_before.as_deref() != Some(wasm), module);
-    let lock_file = lock_path(root);
-    let lock_before = std::fs::read(&lock_file).ok();
-    write_lock_file(lock, &lock_file).map_err(|e| OpError::from(e).with_writes(writes.clone()))?;
-    writes.record_if(std::fs::read(&lock_file).ok() != lock_before, lock_file);
-    let enabled = crate::config::add_extension(root, declared.name(), declared.name())
-        .map_err(|e| e.with_writes(writes.clone()))?;
-    writes.record_if(enabled, root.join(crate::config::CONFIG_FILE));
+    let sha256 = module.digest().to_string();
+    change.install(
+        module,
+        Pin {
+            name: package,
+            version: declared.version().to_string(),
+            source: LockSource::parse(&origin.source()),
+            key_id: key_id.clone(),
+            peers: declared.peers().to_vec(),
+        },
+    );
+    let committed = change
+        .commit_with(&root.join(crate::config::CONFIG_FILE), || {
+            crate::config::add_extension(root, declared.name(), declared.name())
+        })
+        .map_err(|failed| failed.error.with_writes(Writes::of(failed.left)))?;
+    *writes = Writes::of(committed.changed);
     Ok(AddOutcome::Installed {
-        name: result.name,
-        version: result.version,
-        sha256: result.wasm_hash,
+        name: declared.name().to_string(),
+        version: declared.version().to_string(),
+        sha256,
         key_id,
         origin: origin.clone(),
     })
-}
-
-/// Place the binary under `.specforge/extensions/` and record it in `lock`
-/// (in memory) as `origin`, with its declared version and peers.
-pub(super) fn place(
-    root: &Path,
-    lock: &mut specforge_wasm::LockFile,
-    declared: &Declared,
-    wasm: &[u8],
-    sha256: &str,
-    key_id: Option<&str>,
-    origin: &Origin,
-) -> Result<specforge_wasm::InstallResult, OpError> {
-    let package = declared.package()?;
-    let result = install_extension(
-        &package,
-        declared.version(),
-        wasm,
-        sha256,
-        &extensions_dir(root),
-        lock,
-        key_id,
-        declared.peers().to_vec(),
-    )
-    .map_err(OpError::from)?;
-    if let Some(entry) = lock.entries.iter_mut().find(|e| e.name == declared.name()) {
-        if let Origin::Installed { source } = origin {
-            entry.source = source.clone();
-        }
-        entry.peer_dependencies = declared.peers().to_vec();
-    }
-    Ok(result)
 }
 
 /// `path` as the lock records it: relative to the project root when it
@@ -702,6 +649,54 @@ mod tests {
                 }
             }
         }
+    }
+
+    /// `@sdk/greet` 0.1.0 as the build vendors it.
+    fn greet_wasm() -> PathBuf {
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/greet-extension/greet.wasm")
+    }
+
+    #[specforge_test(
+        behavior = "install_wasm_extension",
+        verify = "an install of an extension whose binary changed after install replaces it"
+    )]
+    fn add_reinstalls_a_binary_that_changed() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            dir.path().join("specforge.json"),
+            r#"{"name": "p", "version": "0.1.0", "extensions": []}"#,
+        )
+        .unwrap();
+        let request = AddRequest {
+            root: dir.path(),
+            source: Source::Local(greet_wasm()),
+            allow_unsigned: false,
+            trust: Trust::Refuse,
+            dry_run: false,
+        };
+        let unconfigured = crate::registry::Unconfigured("add");
+        add(&request, &unconfigured).unwrap();
+        let module = dir
+            .path()
+            .join(".specforge/extensions/@sdk/greet/extension.wasm");
+        let pinned = std::fs::read(&module).unwrap();
+        let mut changed = pinned.clone();
+        changed.extend_from_slice(b"changed after install");
+        std::fs::write(&module, &changed).unwrap();
+
+        let added = add(&request, &unconfigured).unwrap();
+
+        assert!(
+            matches!(added.outcome, AddOutcome::Installed { .. }),
+            "{:?}",
+            added.outcome
+        );
+        assert_eq!(std::fs::read(&module).unwrap(), pinned);
+        assert_eq!(added.writes.len(), 1, "only the module differed");
+
+        // Now that it is the pinned binary again, adding it is a no-op.
+        let again = add(&request, &unconfigured).unwrap();
+        assert!(matches!(again.outcome, AddOutcome::AlreadyPresent { .. }));
     }
 
     #[test]

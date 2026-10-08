@@ -16,7 +16,7 @@ fn product_diagnostics(spec: &str) -> Vec<(String, String)> {
     )
     .unwrap();
     fs::write(dir.path().join("main.spec"), spec).unwrap();
-    let runtime = specforge_component::project_runtime(dir.path());
+    let runtime = specforge_component::ComponentRuntime::with_user_cache();
     let ctx = specforge_project::CompiledProject::compile(dir.path(), Some(&runtime));
     let diagnostics = ctx.diagnostics();
     diagnostics
