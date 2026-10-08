@@ -1851,7 +1851,7 @@ expression: listing
           "type": "string"
         },
         "out_dir": {
-          "description": "Directory to write the rendering into (returned inline when omitted)",
+          "description": "Directory to write the rendering into, relative to the project root (returned inline when omitted)",
           "type": "string"
         },
         "scope": {

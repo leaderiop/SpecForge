@@ -835,32 +835,48 @@ fn render_contract() {
     );
 }
 
-/// Removes a directory when dropped, so a pin that writes under the
-/// crate's working directory cleans up even when it fails.
-struct RemoveOnDrop(std::path::PathBuf);
-
-impl Drop for RemoveOnDrop {
-    fn drop(&mut self) {
-        let _ = std::fs::remove_dir_all(&self.0);
-    }
-}
-
-// pin (15-T0): today's behaviour; flipped by 15-T1
-#[test]
-fn pin_a_relative_out_dir_is_written_under_the_servers_working_directory() {
+#[specforge_test(
+    behavior = "provide_mcp_render_tool",
+    verify = "a relative out_dir is written under the call's project root, wherever the server runs"
+)]
+fn a_relative_out_dir_is_written_under_the_project_root() {
     let mut server = test_server();
-    let relative = format!("p15-render-{}", std::process::id());
-    let in_cwd = std::env::current_dir().unwrap().join(&relative);
-    let _cleanup = RemoveOnDrop(in_cwd.clone());
+    let root = server.root().to_path_buf();
+    let in_cwd = std::env::current_dir().unwrap().join("rendered");
+    assert!(!in_cwd.exists(), "a stale directory under the cwd");
 
-    let parsed = render(&mut server, json!({"format": "dot", "out_dir": relative}));
+    let parsed = render(&mut server, json!({"format": "dot", "out_dir": "rendered"}));
 
-    assert!(in_cwd.join("graph.dot").exists(), "{parsed}");
+    let written = root.join("rendered/graph.dot");
+    assert!(written.exists(), "{parsed}");
     assert_eq!(
         parsed["output_files"],
-        json!([format!("{relative}/graph.dot")]),
+        json!([written.display().to_string()]),
         "{parsed}"
     );
+    assert!(!in_cwd.exists(), "nothing is written under the cwd");
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_render_tool",
+    verify = "a relative out_dir with no project served is invalid input on out_dir"
+)]
+fn a_relative_out_dir_with_nothing_served_is_refused() {
+    let mut server = McpServer::new();
+    let init = call(&mut server, "initialize", json!({}));
+    assert!(init["error"].is_null(), "{init}");
+    let cwd = std::env::current_dir().unwrap();
+
+    let resp = call_tool(
+        &mut server,
+        "specforge.render",
+        json!({"format": "dot", "out_dir": "p15-refused"}),
+    );
+
+    let error = crate::tool_errors::mcp_error(&resp);
+    assert_eq!(error["code"], "invalid_input", "{error}");
+    assert_eq!(error["argument"], "out_dir", "{error}");
+    assert!(!cwd.join("p15-refused").exists());
 }
 
 // pin (15-T0): today's behaviour; flipped by 15-T13

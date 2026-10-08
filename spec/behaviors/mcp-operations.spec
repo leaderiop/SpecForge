@@ -509,7 +509,10 @@ behavior provide_mcp_render_tool "Provide MCP Render Tool" {
     accepts format (required, a format string matching a registered renderer),
     out_dir? (output directory path) and scope? (an entity id). The tool MUST
     invoke the matching registered renderer and write output files to out_dir;
-    without out_dir it MUST return the rendering inline instead.
+    without out_dir it MUST return the rendering inline instead. A relative
+    out_dir names a directory under the call's project root, wherever the
+    server runs; with no project served a relative out_dir MUST be refused as
+    invalid input on out_dir. output_files lists the absolute paths written.
     The renderers are the core graph engine's export formats (see P7
     justification in features/output.spec), named as `specforge export
     --format` names them: graph (also accepted as json; the full graph, as
@@ -526,6 +529,8 @@ behavior provide_mcp_render_tool "Provide MCP Render Tool" {
     The response MUST list all files written.
   """
   verify unit "specforge.render writes output files to out_dir"
+  verify unit "a relative out_dir is written under the call's project root, wherever the server runs"
+  verify unit "a relative out_dir with no project served is invalid input on out_dir"
   verify unit "registered renderer invoked for matching format"
   verify unit "unrecognized format returns error listing available renderers"
   verify unit "graph and its alias json select the full graph renderer"

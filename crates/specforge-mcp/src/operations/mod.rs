@@ -673,7 +673,8 @@ pub struct RenderArgs {
     /// Renderer to use
     #[arg(choice = specforge_ops::export::FORMAT)]
     format: String,
-    /// Directory to write the rendering into (returned inline when omitted)
+    /// Directory to write the rendering into, relative to the project root
+    /// (returned inline when omitted)
     out_dir: Option<String>,
     /// Scope to entity
     scope: Option<String>,
@@ -720,7 +721,16 @@ pub(crate) fn render_op(call: &mut Call<'_>, args: RenderArgs) -> ToolOutcome {
     let Some(out_dir) = args.out_dir.as_deref() else {
         return ok(json!({ "format": name, "output": output, "output_files": [] }));
     };
-    let out_dir = PathBuf::from(out_dir);
+    let Some(out_dir) = under_root(call.root(), out_dir) else {
+        return McpError::new(
+            ErrorCode::InvalidInput,
+            format!(
+                "out_dir '{out_dir}' is relative and no project is served to resolve it against; give an absolute directory"
+            ),
+        )
+        .with_argument("out_dir")
+        .into();
+    };
     let path = out_dir.join(file_name);
     if let Err(e) = std::fs::create_dir_all(&out_dir).and_then(|()| std::fs::write(&path, output)) {
         return fail(
@@ -729,4 +739,15 @@ pub(crate) fn render_op(call: &mut Call<'_>, args: RenderArgs) -> ToolOutcome {
         );
     }
     ok(json!({ "format": name, "output_files": [path.display().to_string()] }))
+}
+
+/// `given` as a directory the call writes into: absolute as given, else
+/// under the call's project root (ADR 0029 D8). `None` when it is relative
+/// and the call has no root to resolve it against.
+fn under_root(root: Option<&Path>, given: &str) -> Option<PathBuf> {
+    let given = Path::new(given);
+    if given.is_absolute() {
+        return Some(given.to_path_buf());
+    }
+    root.map(|root| root.join(given))
 }

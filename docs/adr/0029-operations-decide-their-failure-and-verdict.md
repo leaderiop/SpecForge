@@ -64,6 +64,12 @@ nearest project, else the directory itself" on their own.
 - The parity harness compares verdicts: the CLI's exit code and MCP's `ok` cannot disagree for check,
   analyze, format and migrate.
 
+## Amendment (architecture round 5, plan 15)
+
+- **D8a. MCP resolves a relative `out_dir` of `specforge.render` against the call's project root** as it does
+  `test_results`; with no project served a relative one is invalid input on `out_dir`. `output_files` lists
+  absolute paths.
+
 ## What would reopen it
 
 A surface that needs a failure kind ops cannot know (a transport failure), or a command whose exit
