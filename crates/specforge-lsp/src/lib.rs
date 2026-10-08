@@ -14,7 +14,7 @@ mod uri;
 pub mod watchers;
 
 pub use answers::ClientSupport;
-pub use capabilities::{ServerCapabilities, ServerInfo, server_capabilities, server_info};
+pub use capabilities::initialize_result;
 pub use completion::{field_snippet, keyword_snippet};
 pub use document::{
     CompletionSite, Cursor, Document, EntityAt, LineIndex, MOD_DECLARATION, MOD_REFERENCE, Place,

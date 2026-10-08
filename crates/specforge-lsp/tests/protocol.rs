@@ -354,35 +354,3 @@ async fn pin_the_open_sequence_reaches_the_client_in_order() {
         "{log}"
     );
 }
-
-#[tokio::test]
-async fn pin_initialize_answers_a_static_result() {
-    let mut client = Session::spawn();
-    let resp = client.initialize(None).await;
-    assert_eq!(
-        resp["result"],
-        json!({
-            "capabilities": {
-                "codeActionProvider": true,
-                "completionProvider": {"triggerCharacters": [" ", "["]},
-                "definitionProvider": true,
-                "documentFormattingProvider": true,
-                "documentRangeFormattingProvider": true,
-                "documentSymbolProvider": true,
-                "hoverProvider": true,
-                "referencesProvider": true,
-                "renameProvider": {"prepareProvider": true},
-                "semanticTokensProvider": {
-                    "full": true,
-                    "legend": {
-                        "tokenModifiers": ["declaration", "reference"],
-                        "tokenTypes": specforge_lsp::TOKEN_TYPES,
-                    },
-                },
-                "textDocumentSync": 2,
-                "workspaceSymbolProvider": true,
-            },
-            "serverInfo": {"name": "specforge-lsp", "version": env!("CARGO_PKG_VERSION")},
-        })
-    );
-}

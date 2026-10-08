@@ -12,7 +12,7 @@ use specforge_watch::Debouncer;
 use crate::changes::Change;
 use crate::editor::ClientEditor;
 use crate::reaction::Reaction;
-use crate::{ClientSupport, LspState, answers, server_capabilities, server_info};
+use crate::{ClientSupport, LspState, answers};
 
 use specforge_ops::format;
 
@@ -75,6 +75,23 @@ impl Backend {
     }
 }
 
+/// The project root: rootUri, else the first workspace folder.
+fn workspace_root(params: &InitializeParams) -> Option<String> {
+    params
+        .root_uri
+        .as_ref()
+        .and_then(|u| u.to_file_path().ok())
+        .map(|p| p.to_string_lossy().to_string())
+        .or_else(|| {
+            params
+                .workspace_folders
+                .as_ref()
+                .and_then(|folders| folders.first())
+                .and_then(|f| f.uri.to_file_path().ok())
+                .map(|p| p.to_string_lossy().to_string())
+        })
+}
+
 /// Run `change` through the reaction on the blocking pool, after every change queued before it.
 async fn react(reaction: &Shared, change: Change) {
     let mut reaction = Arc::clone(reaction).lock_owned().await;
@@ -93,83 +110,11 @@ impl LanguageServer for Backend {
             .write()
             .await
             .set_client(ClientSupport::of(&params.capabilities));
-        let root = params
-            .root_uri
-            .as_ref()
-            .and_then(|u| u.to_file_path().ok())
-            .map(|p| p.to_string_lossy().to_string())
-            .or_else(|| {
-                params
-                    .workspace_folders
-                    .as_ref()
-                    .and_then(|folders| folders.first())
-                    .and_then(|f| f.uri.to_file_path().ok())
-                    .map(|p| p.to_string_lossy().to_string())
-            });
         // The project is opened at this root once initialized: its
         // specforge.json names the spec root and the extensions, read the
         // way `specforge check` reads them.
-        *self.root_dir.lock().await = root;
-        let state = self.state.read().await;
-        let kind_keywords: Vec<String> = state.kind_registry().keywords().cloned().collect();
-        let kind_refs: Vec<&str> = kind_keywords.iter().map(|s| s.as_str()).collect();
-
-        drop(state);
-        let caps = server_capabilities(&kind_refs);
-        let token_types: Vec<SemanticTokenType> = crate::TOKEN_TYPES
-            .iter()
-            .map(|t| SemanticTokenType::new(t))
-            .collect();
-
-        let info = server_info();
-        Ok(InitializeResult {
-            server_info: Some(tower_lsp::lsp_types::ServerInfo {
-                name: info.name,
-                version: Some(info.version),
-            }),
-            capabilities: ServerCapabilities {
-                text_document_sync: Some(TextDocumentSyncCapability::Kind(
-                    TextDocumentSyncKind::INCREMENTAL,
-                )),
-                hover_provider: Some(HoverProviderCapability::Simple(caps.supports_hover)),
-                completion_provider: Some(CompletionOptions {
-                    trigger_characters: Some(caps.completion_trigger_characters.clone()),
-                    ..Default::default()
-                }),
-                definition_provider: Some(OneOf::Left(caps.supports_go_to_definition)),
-                references_provider: Some(OneOf::Left(caps.supports_find_references)),
-                rename_provider: Some(OneOf::Right(RenameOptions {
-                    prepare_provider: Some(true),
-                    work_done_progress_options: Default::default(),
-                })),
-                code_action_provider: Some(CodeActionProviderCapability::Simple(
-                    caps.supports_code_actions,
-                )),
-                document_symbol_provider: Some(OneOf::Left(caps.supports_document_symbols)),
-                workspace_symbol_provider: Some(OneOf::Left(caps.supports_workspace_symbols)),
-                semantic_tokens_provider: Some(
-                    SemanticTokensServerCapabilities::SemanticTokensOptions(
-                        SemanticTokensOptions {
-                            legend: SemanticTokensLegend {
-                                token_types,
-                                token_modifiers: crate::TOKEN_MODIFIERS
-                                    .iter()
-                                    .map(|m| SemanticTokenModifier::new(m))
-                                    .collect(),
-                            },
-                            full: Some(SemanticTokensFullOptions::Bool(true)),
-                            range: None,
-                            ..Default::default()
-                        },
-                    ),
-                ),
-                document_formatting_provider: Some(OneOf::Left(caps.supports_document_formatting)),
-                document_range_formatting_provider: Some(OneOf::Left(
-                    caps.supports_document_range_formatting,
-                )),
-                ..Default::default()
-            },
-        })
+        *self.root_dir.lock().await = workspace_root(&params);
+        Ok(crate::capabilities::initialize_result())
     }
 
     async fn initialized(&self, _: InitializedParams) {

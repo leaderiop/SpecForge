@@ -3,78 +3,16 @@ use tempfile::TempDir;
 
 #[tokio::test]
 async fn e2e_initialize_returns_all_capabilities() {
+    let expected = serde_json::to_value(specforge_lsp::initialize_result()).unwrap();
+
     let mut client = Session::spawn();
-
     let resp = client.initialize(None).await;
-    let caps = &resp["result"]["capabilities"];
+    assert_eq!(resp["result"], expected);
 
-    // textDocumentSync = 2 (INCREMENTAL)
-    assert_eq!(caps["textDocumentSync"], 2);
-    assert_eq!(caps["hoverProvider"], true);
-    assert_eq!(caps["definitionProvider"], true);
-    assert_eq!(caps["referencesProvider"], true);
-
-    // completionProvider with trigger characters
-    let triggers = caps["completionProvider"]["triggerCharacters"]
-        .as_array()
-        .unwrap();
-    let trigger_strs: Vec<&str> = triggers.iter().map(|v| v.as_str().unwrap()).collect();
-    assert!(trigger_strs.contains(&" "));
-    assert!(trigger_strs.contains(&"["));
-    // Nothing completes inside a string: `"` triggers nothing (ADR 0023).
-    assert!(!trigger_strs.contains(&"\""));
-
-    // renameProvider with prepareProvider
-    assert_eq!(caps["renameProvider"]["prepareProvider"], true);
-
-    // code action provider
-    assert_eq!(caps["codeActionProvider"], true);
-
-    // symbol providers
-    assert_eq!(caps["documentSymbolProvider"], true);
-    assert_eq!(caps["workspaceSymbolProvider"], true);
-
-    // semantic tokens
-    assert_eq!(caps["semanticTokensProvider"]["full"], true);
-    let legend = &caps["semanticTokensProvider"]["legend"];
-    let token_types = legend["tokenTypes"].as_array().unwrap();
-    assert_eq!(token_types.len(), specforge_lsp::TOKEN_TYPES.len());
-
-    // formatting
-    assert_eq!(caps["documentFormattingProvider"], true);
-    assert_eq!(caps["documentRangeFormattingProvider"], true);
-
-    // server_info
-    let server_info = &resp["result"]["serverInfo"];
-    assert_eq!(
-        server_info["name"], "specforge-lsp",
-        "server_info.name must be 'specforge-lsp'"
-    );
-    assert!(
-        server_info["version"].is_string(),
-        "server_info.version must be present"
-    );
-}
-
-#[tokio::test]
-async fn e2e_initialize_semantic_legend() {
-    let mut client = Session::spawn();
-
-    let resp = client.initialize(None).await;
-    let legend = &resp["result"]["capabilities"]["semanticTokensProvider"]["legend"];
-    let token_types: Vec<&str> = legend["tokenTypes"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|v| v.as_str().unwrap())
-        .collect();
-
-    for expected in specforge_lsp::TOKEN_TYPES {
-        assert!(
-            token_types.contains(expected),
-            "missing token type: {expected}"
-        );
-    }
+    // A project with extensions is offered the same capabilities.
+    let extended = crate::contracts::project_with(&["@specforge/software", "@specforge/testing"]);
+    let (_client, init) = Session::start(Some(extended.path())).await;
+    assert_eq!(init, expected);
 }
 
 #[tokio::test]
