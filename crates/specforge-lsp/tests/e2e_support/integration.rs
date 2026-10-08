@@ -29,17 +29,27 @@ async fn e2e_full_workflow_open_edit_hover_rename() {
     let md = resp["result"]["contents"]["value"].as_str().unwrap();
     assert!(md.contains("auth_flow"), "Hover should reflect edit");
 
-    // 4. Rename
+    // 4. Rename: one edit, naming the new ID.
     let resp = client.rename(&uri, 0, 12, "login_flow").await;
-    assert!(!resp["result"].is_null(), "Rename should succeed");
+    let changes = resp["result"]["changes"].as_object().expect("a rename");
+    let edits: Vec<&Value> = changes
+        .values()
+        .flat_map(|e| e.as_array().unwrap())
+        .collect();
+    assert_eq!(edits.len(), 1, "{resp}");
+    assert_eq!(edits[0]["newText"], "login_flow", "{resp}");
 
-    // 5. Document symbol reflects current state
+    // 5. Document symbol reflects current state. Rename returns edits for
+    // the client to apply: the graph still has the old name until the
+    // client sends the didChange.
     let resp = client.document_symbol(&uri).await;
-    let result = &resp["result"];
-    // After rename via WorkspaceEdit, the server state may not automatically update
-    // (rename returns edits for client to apply). The graph still has the old name.
-    // This is correct LSP behavior — the client applies edits and sends didChange.
-    assert!(!result.is_null(), "Document symbols should be available");
+    let names: Vec<&str> = resp["result"]
+        .as_array()
+        .expect("document symbols")
+        .iter()
+        .filter_map(|s| s["name"].as_str())
+        .collect();
+    assert_eq!(names, ["auth_flow"], "{resp}");
 }
 
 #[tokio::test]
@@ -54,23 +64,49 @@ async fn e2e_graph_serves_all_features() {
 
     // Hover
     let resp = client.hover(&uri, 0, 6).await;
-    assert!(!resp["result"].is_null(), "Hover should work");
+    let md = resp["result"]["contents"]["value"].as_str().unwrap_or("");
+    assert!(
+        md.starts_with("**type** `token`"),
+        "Hover should work: {resp}"
+    );
 
-    // Goto definition
+    // Goto definition: a client with no link support gets a location at the
+    // declaration's name.
     let resp = client.goto_definition(&uri, 2, 10).await;
-    assert!(!resp["result"].is_null(), "Goto definition should work");
+    assert_eq!(
+        resp["result"]["range"]["start"]["line"], 0,
+        "Goto definition should work: {resp}"
+    );
 
-    // References
+    // References: the declaration and the use.
     let resp = client.references(&uri, 0, 6).await;
-    assert!(!resp["result"].is_null(), "References should work");
+    let locations = resp["result"].as_array().expect("References should work");
+    assert!(
+        locations
+            .iter()
+            .any(|l| l["range"]["start"] == json!({"line": 2, "character": 9})),
+        "{resp}"
+    );
 
-    // Completion
+    // Completion offers the entity inside the list.
     let resp = client.completion(&uri, 2, 10).await;
-    assert!(!resp["result"].is_null(), "Completion should work");
+    let labels: Vec<&str> = resp["result"]
+        .as_array()
+        .expect("Completion should work")
+        .iter()
+        .filter_map(|i| i["label"].as_str())
+        .collect();
+    assert!(labels.contains(&"token"), "{labels:?}");
 
     // Document symbols
     let resp = client.document_symbol(&uri).await;
-    assert!(!resp["result"].is_null(), "Document symbols should work");
+    let names: Vec<&str> = resp["result"]
+        .as_array()
+        .expect("Document symbols should work")
+        .iter()
+        .filter_map(|s| s["name"].as_str())
+        .collect();
+    assert_eq!(names, ["token", "login"], "{resp}");
 }
 
 #[tokio::test]

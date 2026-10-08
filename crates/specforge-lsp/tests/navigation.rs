@@ -116,30 +116,24 @@ fn goto_import_returns_none_for_missing() {
     verify = "go-to-def on use path navigates to target file"
 )]
 fn goto_definition_dispatches_to_import_on_use_line() {
-    let tmp = tempfile::tempdir().unwrap();
-    let behaviors_dir = tmp.path().join("behaviors");
-    fs::create_dir_all(&behaviors_dir).unwrap();
-    fs::write(
-        behaviors_dir.join("auth.spec"),
-        "behavior auth \"Auth\" {}\n",
-    )
-    .unwrap();
-
-    // A document with a use statement: the cursor on it names its path.
-    let content = "use \"behaviors/auth\"\n\nbehavior login \"Login\" {}\n";
-    let doc = specforge_lsp::Document::new("file:///main.spec".into(), content.into());
-    let state = specforge_lsp::LspState::new();
-    let nav = specforge_lsp::navigator(&state);
-    let target = doc
-        .at(tower_lsp::lsp_types::Position::new(0, 1))
-        .and_then(|cursor| cursor.target(&nav, "main.spec"));
-    let Some(specforge_lsp::Target::Import { path }) = target else {
-        panic!("the use statement is an import: {target:?}");
+    // A document with a use statement: the cursor on it names its path, and
+    // the definition is the imported file, from its first line.
+    let served = crate::served::Served::new(&[
+        ("behaviors/auth.spec", "behavior auth \"Auth\" {}\n"),
+        (
+            "main.spec",
+            "use \"behaviors/auth\"\n\nbehavior login \"Login\" {}\n",
+        ),
+    ])
+    .open(&["main.spec"]);
+    let definition = specforge_lsp::answers::definition(
+        served.state(),
+        &served.uri("main.spec"),
+        tower_lsp::lsp_types::Position::new(0, 1),
+    );
+    let Some(tower_lsp::lsp_types::GotoDefinitionResponse::Scalar(location)) = definition else {
+        panic!("should resolve import from use line: {definition:?}");
     };
-
-    // Dispatch to goto_import_definition (as the LSP handler would)
-    let result = goto_import(tmp.path(), &path);
-    let loc = result.expect("should resolve import from use line");
-    assert_eq!(loc.file.as_str(), "behaviors/auth.spec");
-    assert_eq!(loc.start_line, 0);
+    assert_eq!(location.uri, served.uri("behaviors/auth.spec"));
+    assert_eq!(location.range, tower_lsp::lsp_types::Range::default());
 }

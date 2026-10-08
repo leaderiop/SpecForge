@@ -25,7 +25,9 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   one (`specforge_project::ProjectSession`; MCP's served one is always opened from disk, ADR 0025);
   watch and the LSP feed it watcher events and follow every update that changes its inputs
   (`Update::inputs_changed`), MCP asks it to be fresh before every request that reads the project
-  (ADR 0014, ADR 0030).
+  (ADR 0014, ADR 0030). The LSP also feeds it its open buffers, each batch of edits as one update
+  (`SourceChange::Buffers`), and a closed document's file is read from disk again
+  (`specforge_lsp::changes`, ADR 0023).
 - **Session inputs**: everything a project session depends on besides its sources' text: where its
   sources are discovered (the spec root and `exclude`), its **environment inputs**
   (`specforge.json`, `specforge.lock`, the extension modules it loaded) and its **check inputs**
@@ -349,6 +351,10 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   registry does not type as a non-reference, a `use` binding's imported name) that names an entity;
   hover, definition, references and rename all ask the cursor, completion asks it what completes
   there, and semantic tokens mark the same reference positions (`specforge_lsp::document`, ADR 0023).
+  While the document is not the text the project was compiled from, the cursor never asks navigation
+  about its position (a token of the compiled text): it names what its own word names, and
+  prepareRename and rename wait for the compile. Every request's answer is decided synchronously over
+  the LSP state (`specforge_lsp::answers`); the backend only carries requests.
 - **Proof role**: what a field's value is to the prove pass, declared by its extension
   (`proof_role`): a **bound** the solver assumes (bounds must be consistent, E046) or a **claim**
   that must follow from the bounds (W139 when not; an entailed claim is a proved claim). A field
