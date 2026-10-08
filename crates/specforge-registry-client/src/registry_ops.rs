@@ -65,22 +65,22 @@ pub fn search_registries(
 /// When `signing` is provided, the upload carries a [`PackageSignature`] over
 /// `{name, version, wasm_sha256, manifest_sha256, signed_at}`.
 /// `credential`, when provided, authenticates the upload.
-/// Rejects duplicate versions unless `force` is true. Returns the registry URL on success.
+/// A version the registry already holds is refused by the registry (R007): a
+/// published version is immutable. Returns the registry URL on success.
 pub fn publish_to_registry(
     package: &[u8],
     declaration: &ExtensionDeclaration,
     registry: &RegistryConfig,
     credential: Option<&RegistryCredential>,
     client: &dyn RegistryClient,
-    force: bool,
     signing: Option<&crate::SigningKey>,
 ) -> Result<String, Diagnostic> {
     // What is published is a package: a name and a version (ADR 0036).
     let invalid = |message: String| RegistryError::InvalidPackage { message }.to_diagnostic();
-    let name = declaration
+    declaration
         .package_name()
         .map_err(|why| invalid(why.to_string()))?;
-    let version = Version::parse(declaration.version()).map_err(|why| {
+    Version::parse(declaration.version()).map_err(|why| {
         invalid(format!(
             "'{}' is not a SemVer version: {why}",
             declaration.version()
@@ -106,25 +106,6 @@ pub fn publish_to_registry(
         );
         serde_json::to_string(&signature).expect("signature serialization cannot fail")
     });
-
-    // First, check if the version already exists by trying to fetch it
-    if !force {
-        match client.metadata(&name, &version, registry) {
-            Ok(_) => {
-                return Err(RegistryError::DuplicateVersion {
-                    name: declaration.name().to_string(),
-                    version: declaration.version().to_string(),
-                }
-                .to_diagnostic());
-            }
-            Err(RegistryError::NotFound { .. }) => {
-                // Good — version doesn't exist yet
-            }
-            Err(_) => {
-                // Other errors during existence check: proceed with publish attempt
-            }
-        }
-    }
 
     client
         .publish(

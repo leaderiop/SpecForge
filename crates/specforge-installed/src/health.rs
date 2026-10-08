@@ -13,64 +13,17 @@ pub enum Health {
         locked: String,
         actual: String,
     },
-    /// `name` requires `peer` at the range `required`; `installed` is the
-    /// version the lock records for the peer (`None`: not installed). A
-    /// recorded version that isn't semver, or a range that doesn't parse,
-    /// can't be compared, so it is a mismatch too.
-    PeerMismatch {
-        name: String,
-        peer: String,
-        required: String,
-        installed: Option<String>,
-    },
 }
 
 impl Installed {
-    /// Every lock entry checked: its module present and the pinned one,
-    /// its peers installed at versions their ranges accept. Healthy
-    /// entries are absent.
+    /// Every lock entry checked: its module present and the one the lock pins. Healthy entries are
+    /// absent. Peers are the compile's (ADR 0041).
     pub fn health(&self) -> Vec<Health> {
-        let mut problems = Vec::new();
-        let entries = self.lock().entries();
-
-        for entry in entries {
-            if let Some(problem) = self.module_health(entry) {
-                problems.push(problem);
-            }
-        }
-
-        // C8-05: real peer-dependency verification. Each entry's recorded
-        // peers must be present among the installed versions and satisfy
-        // the declared semver requirement. Optional peers that are absent
-        // are fine.
-        for entry in entries {
-            for peer in &entry.peer_dependencies {
-                let installed = entries
-                    .iter()
-                    .find(|e| e.name.as_str() == peer.name)
-                    .map(|e| &e.version);
-                let satisfied = match installed {
-                    None => peer.optional,
-                    Some(version) => match (
-                        semver::VersionReq::parse(&peer.version),
-                        semver::Version::parse(version),
-                    ) {
-                        (Ok(req), Ok(v)) => req.matches(&v),
-                        _ => false,
-                    },
-                };
-                if !satisfied {
-                    problems.push(Health::PeerMismatch {
-                        name: entry.name.to_string(),
-                        peer: peer.name.clone(),
-                        required: peer.version.clone(),
-                        installed: installed.cloned(),
-                    });
-                }
-            }
-        }
-
-        problems
+        self.lock()
+            .entries()
+            .iter()
+            .filter_map(|entry| self.module_health(entry))
+            .collect()
     }
 
     /// What is wrong with `entry`'s module, if anything: the check the
@@ -97,25 +50,17 @@ mod tests {
     use super::*;
     use crate::lock::{LockFile, LockState};
     use crate::module::hex_sha256;
-    use specforge_protocol_types::{PackageName, PeerDependency};
+    use specforge_protocol_types::PackageName;
     use tempfile::TempDir;
 
-    fn entry(name: &str, hash: &str, peers: Vec<PeerDependency>) -> LockFileEntry {
+    fn entry(name: &str, hash: &str) -> LockFileEntry {
         LockFileEntry {
             name: specforge_protocol_types::PackageName::parse(name).unwrap(),
             version: "1.0.0".to_string(),
             source: crate::LockSource::parse("registry"),
             wasm_hash: hash.to_string(),
             key_id: None,
-            peer_dependencies: peers,
-        }
-    }
-
-    fn peer(name: &str, req: &str) -> PeerDependency {
-        PeerDependency {
-            name: name.to_string(),
-            version: req.to_string(),
-            optional: false,
+            peer_dependencies: Vec::new(),
         }
     }
 
@@ -140,7 +85,7 @@ mod tests {
     #[test]
     fn test_doctor_detects_missing_binary() {
         let dir = TempDir::new().unwrap();
-        let installed = installed(&dir, vec![entry("missing-ext", "abc", vec![])]);
+        let installed = installed(&dir, vec![entry("missing-ext", "abc")]);
 
         assert_eq!(
             installed.health(),
@@ -154,7 +99,7 @@ mod tests {
     #[test]
     fn test_doctor_detects_stale_hash() {
         let dir = TempDir::new().unwrap();
-        let installed = installed(&dir, vec![entry("my-ext", "expected_hash", vec![])]);
+        let installed = installed(&dir, vec![entry("my-ext", "expected_hash")]);
         put_module(&installed, "my-ext", b"wasm content");
 
         let problems = installed.health();
@@ -173,58 +118,9 @@ mod tests {
     #[test]
     fn test_doctor_reports_healthy() {
         let dir = TempDir::new().unwrap();
-        let installed = installed(&dir, vec![entry("good-ext", &hex_sha256(b"wasm"), vec![])]);
+        let installed = installed(&dir, vec![entry("good-ext", &hex_sha256(b"wasm"))]);
         put_module(&installed, "good-ext", b"wasm");
 
         assert_eq!(installed.health(), []);
-    }
-
-    // C8-05 acceptance: doctor verifies recorded peers across OTHER entries.
-
-    fn peers_only(entries: Vec<LockFileEntry>) -> Vec<Health> {
-        let dir = TempDir::new().unwrap();
-        let installed = installed(&dir, entries);
-        installed
-            .health()
-            .into_iter()
-            .filter(|h| matches!(h, Health::PeerMismatch { .. }))
-            .collect()
-    }
-
-    #[test]
-    fn satisfied_peer_is_clean() {
-        let problems = peers_only(vec![
-            entry("@a/ext", "hash", vec![peer("@b/lib", "^2.0.0")]),
-            LockFileEntry {
-                version: "2.1.0".to_string(),
-                ..entry("@b/lib", "hash", vec![])
-            },
-        ]);
-        assert!(problems.is_empty(), "{problems:?}");
-    }
-
-    #[test]
-    fn unsatisfied_peer_reports_the_peer_not_self() {
-        let problems = peers_only(vec![
-            entry("@a/ext", "hash", vec![peer("@b/lib", "^2.0.0")]),
-            entry("@b/lib", "hash", vec![]),
-        ]);
-        assert_eq!(
-            problems,
-            [Health::PeerMismatch {
-                name: "@a/ext".to_string(),
-                peer: "@b/lib".to_string(),
-                required: "^2.0.0".to_string(),
-                installed: Some("1.0.0".to_string()),
-            }]
-        );
-    }
-
-    #[test]
-    fn missing_optional_peer_is_clean() {
-        let mut peers = vec![peer("@b/lib", "^2.0.0")];
-        peers[0].optional = true;
-        let problems = peers_only(vec![entry("@a/ext", "hash", peers)]);
-        assert!(problems.is_empty(), "{problems:?}");
     }
 }

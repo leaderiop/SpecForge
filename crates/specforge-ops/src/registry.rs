@@ -19,6 +19,10 @@ use specforge_protocol_types::package::{PackageName, Version};
 /// configured.
 pub const NO_REGISTRY: Code = codes::E063;
 
+/// No configured registry serves the package name: no `scope_filter` is its
+/// scope, and none is the default (ADR 0045).
+pub const NO_REGISTRY_FOR_NAME: Code = codes::R_OPS_001;
+
 /// A registry answered with metadata that doesn't describe the package
 /// asked for: another name or version, or a declaration other than its
 /// binary's.

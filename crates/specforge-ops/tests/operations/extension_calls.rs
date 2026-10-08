@@ -203,8 +203,8 @@ fn a_collector_receives_a_collect_input_and_answers_a_collect_output() {
 
 // ── C8 · migration hook ──
 
-fn hooked() -> Vec<ExtensionDeclaration> {
-    vec![ExtensionDeclaration {
+fn hooked() -> specforge_registry::RegistryBuild {
+    specforge_registry::build_registries(vec![ExtensionDeclaration {
         handshake: HandshakeResponse {
             name: EXT.into(),
             version: "1.0.0".into(),
@@ -212,7 +212,7 @@ fn hooked() -> Vec<ExtensionDeclaration> {
             ..HandshakeResponse::default()
         },
         ..ExtensionDeclaration::default()
-    }]
+    }])
 }
 
 fn hook_input() -> MigrationInput {

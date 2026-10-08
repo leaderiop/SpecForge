@@ -59,6 +59,36 @@ member that happens to be named `status` on an open-fields kind (a `type`) is no
 as the entity's status, as `abstract` already exempts nothing unless declared; MCP's `contract`
 likewise.
 
+## The model and the outline are one call each (amendment, architecture round 5, plan 14)
+
+`specforge_emitter::model::export(schema, declarations, options)` draws the logical data model:
+build, theme colours from the declarations, the selection (`extension`, `kinds`, and a `root` with
+its `depth`), the field level, and the format with its grouping. `specforge_emitter::outline::export(
+declarations, options)` draws the extension outline: the cards, the dependencies `deps` selects (in
+every format, JSON included), the enhancements and the cross-extension edges. Their intermediate
+representations, builders, filters and renderers are private. The JSON format is still the model's
+intermediate representation, serialized. Before, callers composed five public steps
+(`ModelIntermediate_from_schema`, `with_theme_colors`, `filter_entities`, `filter_fields`, `render`),
+and `render` took filters it never read.
+
+They stay beside `emit`, not in its table. `emit` exports a graph's entities: scope, depth, kinds and
+token budget over a `Graph`. The model and the outline draw what the extensions declare, from a schema
+and the declarations, with options `emit` has no use for (grouping, field level, dependency depth). A
+shared entry point would only dispatch between two unrelated inputs and option sets.
+
+Both exports are total: a name the schema does not have selects nothing. Requests are checked by the
+operation over the project view (`specforge_ops::model::model`, ADR 0015 Q3):
+- a root kind no loaded extension declares is `unknown_kind`;
+- an extension the project does not load is `extension_not_found`;
+- a kind of `kinds` the project does not know is an I020 notice.
+
+The operation returns `ModelOutcome { document, notices }`. `ModelOptions` cannot express a depth
+without a root (`ModelRoot { kind, depth }`), and an empty `kinds` selects every kind.
+
+What would reopen it: a third consumer that needs the model's intermediate representation itself
+rather than a drawing of it (an editor view of the model, say), or a format that needs both the graph
+and the schema.
+
 ## Known gaps
 
 - ~~**The prove pass** (`specforge_ops::prove`) is host-side because z3 is native. It reads

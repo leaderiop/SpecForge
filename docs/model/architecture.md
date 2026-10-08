@@ -3,16 +3,14 @@
 ## Data Flow
 
 ```
-GraphProtocolSchema (assembled by KindRegistry + EdgeRegistry + FieldRegistry)
+GraphProtocolSchema (ProjectView::schema)  +  extension declarations (theme colours)
         |
         v
-  ModelIntermediate (ERD-oriented IR)
-        |
-        +-->  MarkdownRenderer  -> String
-        +-->  MermaidRenderer   -> String
-        +-->  DotRenderer       -> String  (schema-level, distinct from instance-level dot.rs)
-        +-->  JsonRenderer      -> String  (serde_json)
-        +-->  DbmlRenderer      -> String
+  model::export(schema, declarations, options)        -- the one call
+        |  build the ModelIntermediate (ERD-oriented IR), colour it,
+        |  select (extension, kinds, root+depth), trim fields
+        v
+  Markdown | Mermaid | DOT | JSON (the IR, serialized) | DBML  -> String
 ```
 
 The `GraphProtocolSchema` is the input. It already contains:
@@ -32,22 +30,23 @@ The `ModelIntermediate` enriches this with:
 specforge-emitter/
   src/
     model/
-      mod.rs           -- ModelIntermediate struct, builder, ModelOptions, render() dispatcher
+      mod.rs           -- ModelOptions, ModelRoot, export(); the IR (pub(crate)) and the format dispatch
       markdown.rs      -- Markdown renderer
       mermaid.rs       -- Mermaid erDiagram renderer
       dot.rs           -- DOT schema-level renderer (HTML-like labels)
       json.rs          -- ERD JSON renderer
       dbml.rs          -- DBML renderer
       cardinality.rs   -- Cardinality inference from field types
+      filter.rs        -- the selection and the field level (private)
 
 specforge-cli/
   src/
-    model.rs           -- CLI command handler (clap args -> ModelOptions -> render)
+    model.rs           -- CLI command handler (clap args -> ModelOptions -> ops::model::model -> stdout, notices on stderr, a refusal as error[CODE])
 
 specforge-mcp/
   src/
     tools/
-      model.rs         -- MCP tool handler (JSON args -> ModelOptions -> render)
+      model.rs         -- MCP tool handler (JSON args -> ModelOptions -> ops::model::model -> text, notices in _meta.diagnostics)
 ```
 
 ## Key Types
@@ -109,9 +108,13 @@ pub struct ModelOptions {
     pub format: ModelFormat,
     pub group_by: GroupBy,
     pub fields: FieldLevel,
-    pub extension_filter: Option<String>,
-    pub kind_filter: Vec<String>,
-    pub root: Option<String>,
+    pub extension: Option<String>,
+    pub kinds: Vec<String>,
+    pub root: Option<ModelRoot>,
+}
+
+pub struct ModelRoot {
+    pub kind: String,
     pub depth: Option<usize>,
 }
 
@@ -145,4 +148,4 @@ The existing DOT format in `dot.rs` renders **instances** (actual entities and e
 
 ### With MCP
 
-The `specforge.model` MCP tool follows the same pattern as `specforge.export` and `specforge.schema`: parse JSON arguments, build options, call the shared render function, return the string result.
+The `specforge.model` MCP tool and `specforge model` call the same operation, `specforge_ops::model::model`, over the project view. It refuses a `root` no loaded extension declares (`unknown_kind`) and an `extension` the project does not load (`extension_not_found`), reports a kind of `kinds` the project does not know (I020), and draws the rest with `model::export`.

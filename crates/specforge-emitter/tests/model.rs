@@ -1,19 +1,71 @@
 use insta::assert_snapshot;
-use specforge_emitter::model::*;
+use serde_json::Value;
+use specforge_emitter::model::{FieldLevel, GroupBy, ModelFormat, ModelOptions, ModelRoot, export};
 use specforge_emitter::schema::*;
+use specforge_protocol_types::{ExtensionDeclaration, HandshakeResponse};
 use specforge_registry::FieldType;
+
+/// The model of `schema` as `options` asks, with no declarations (every
+/// extension grey).
+fn exported(schema: &GraphProtocolSchema, options: ModelOptions) -> String {
+    export(schema, &[], &options)
+}
+
+/// The JSON model `options` selects over `schema`.
+fn json_of(schema: &GraphProtocolSchema, options: ModelOptions) -> Value {
+    serde_json::from_str(&exported(
+        schema,
+        ModelOptions {
+            format: ModelFormat::Json,
+            ..options
+        },
+    ))
+    .expect("the json model parses")
+}
+
+/// The whole model of `schema` with every field: its intermediate
+/// representation, as the JSON format serializes it.
+fn built(schema: &GraphProtocolSchema) -> Value {
+    json_of(
+        schema,
+        ModelOptions {
+            fields: FieldLevel::All,
+            ..ModelOptions::default()
+        },
+    )
+}
+
+fn names(list: &Value) -> Vec<&str> {
+    list.as_array()
+        .unwrap()
+        .iter()
+        .map(|v| v["name"].as_str().unwrap())
+        .collect()
+}
+
+/// The declarations giving the builtins' `theme_color`s.
+fn builtin_colors() -> Vec<ExtensionDeclaration> {
+    [
+        ("@specforge/software", "#4a90d9"),
+        ("@specforge/product", "#2ecc71"),
+        ("@specforge/governance", "#e74c3c"),
+        ("@specforge/formal", "#9b59b6"),
+    ]
+    .into_iter()
+    .map(|(name, color)| ExtensionDeclaration {
+        handshake: HandshakeResponse {
+            name: name.into(),
+            theme_color: Some(color.into()),
+            ..HandshakeResponse::default()
+        },
+        ..ExtensionDeclaration::default()
+    })
+    .collect()
+}
 
 // =========================================================================
 // Tracer bullet: types + Display impls
 // =========================================================================
-
-#[test]
-fn cardinality_display_strings() {
-    assert_eq!(Cardinality::OneToOne.to_string(), "1:1");
-    assert_eq!(Cardinality::OneToMany.to_string(), "1:N");
-    assert_eq!(Cardinality::ManyToOne.to_string(), "N:1");
-    assert_eq!(Cardinality::ManyToMany.to_string(), "N:M");
-}
 
 #[test]
 fn model_options_defaults() {
@@ -21,10 +73,9 @@ fn model_options_defaults() {
     assert_eq!(opts.format, ModelFormat::Markdown);
     assert_eq!(opts.group_by, GroupBy::Extension);
     assert_eq!(opts.fields, FieldLevel::Keys);
-    assert!(opts.extension_filter.is_none());
-    assert!(opts.kind_filter.is_none());
+    assert!(opts.extension.is_none());
+    assert!(opts.kinds.is_empty());
     assert!(opts.root.is_none());
-    assert!(opts.depth.is_none());
 }
 
 // =========================================================================
@@ -34,12 +85,12 @@ fn model_options_defaults() {
 #[test]
 fn empty_schema_produces_empty_model() {
     let schema = GraphProtocolSchema::empty();
-    let model = ModelIntermediate_from_schema(&schema);
+    let model = built(&schema);
 
-    assert_eq!(model.model_version, "1.0.0");
-    assert!(model.extensions.is_empty());
-    assert!(model.entities.is_empty());
-    assert!(model.relationships.is_empty());
+    assert_eq!(model["model_version"], "1.0.0");
+    for list in ["extensions", "entities", "relationships"] {
+        assert!(model[list].as_array().unwrap().is_empty(), "{list}");
+    }
 }
 
 // =========================================================================
@@ -64,20 +115,20 @@ fn single_entity_kind_maps_to_model_entity_with_id() {
         edge_types: vec![],
     };
 
-    let model = ModelIntermediate_from_schema(&schema);
+    let model = built(&schema);
 
-    assert_eq!(model.entities.len(), 1);
-    let entity = &model.entities[0];
-    assert_eq!(entity.name, "behavior");
-    assert_eq!(entity.extension, "@specforge/software");
+    assert_eq!(model["entities"].as_array().unwrap().len(), 1);
+    let entity = &model["entities"][0];
+    assert_eq!(entity["name"], "behavior");
+    assert_eq!(entity["extension"], "@specforge/software");
 
     // Synthetic id field should be first
-    assert!(!entity.fields.is_empty());
-    let id_field = &entity.fields[0];
-    assert_eq!(id_field.name, "id");
-    assert_eq!(id_field.field_type, FieldType::String);
-    assert!(id_field.required);
-    assert!(id_field.is_primary_key);
+    assert!(!entity["fields"].as_array().unwrap().is_empty());
+    let id_field = &entity["fields"][0];
+    assert_eq!(id_field["name"], "id");
+    assert_eq!(id_field["field_type"], "string");
+    assert_eq!(id_field["required"], true);
+    assert_eq!(id_field["is_primary_key"], true);
 }
 
 // =========================================================================
@@ -125,34 +176,34 @@ fn entity_fields_mapped_from_schema() {
         edge_types: vec![],
     };
 
-    let model = ModelIntermediate_from_schema(&schema);
+    let model = built(&schema);
 
-    let entity = &model.entities[0];
+    let entity = &model["entities"][0];
     // id + 2 schema fields = 3 fields
-    assert_eq!(entity.fields.len(), 3);
+    assert_eq!(entity["fields"].as_array().unwrap().len(), 3);
 
     // First field is always the synthetic id
-    assert_eq!(entity.fields[0].name, "id");
-    assert!(entity.fields[0].is_primary_key);
+    assert_eq!(entity["fields"][0]["name"], "id");
+    assert_eq!(entity["fields"][0]["is_primary_key"], true);
 
     // Status field
-    let status = &entity.fields[1];
-    assert_eq!(status.name, "status");
-    assert_eq!(status.field_type, FieldType::Enum);
-    assert!(status.required);
+    let status = &entity["fields"][1];
+    assert_eq!(status["name"], "status");
+    assert_eq!(status["field_type"], "enum");
+    assert_eq!(status["required"], true);
     assert_eq!(
-        status.enum_values,
-        Some(vec!["draft".to_string(), "approved".to_string()])
+        status["enum_values"],
+        serde_json::json!(["draft", "approved"])
     );
-    assert_eq!(status.description, Some("Current status".to_string()));
-    assert!(!status.is_primary_key);
+    assert_eq!(status["description"], "Current status");
+    assert_eq!(status["is_primary_key"], false);
 
     // Features field (reference_list -> has references)
-    let features = &entity.fields[2];
-    assert_eq!(features.name, "features");
-    assert_eq!(features.field_type, FieldType::ReferenceList);
-    assert!(!features.required);
-    assert_eq!(features.references, Some("feature".to_string()));
+    let features = &entity["fields"][2];
+    assert_eq!(features["name"], "features");
+    assert_eq!(features["field_type"], "reference_list");
+    assert_eq!(features["required"], false);
+    assert_eq!(features["references"], "feature");
 }
 
 // =========================================================================
@@ -201,16 +252,16 @@ fn edge_type_maps_to_relationship() {
         }],
     };
 
-    let model = ModelIntermediate_from_schema(&schema);
+    let model = built(&schema);
 
-    assert_eq!(model.relationships.len(), 1);
-    let rel = &model.relationships[0];
-    assert_eq!(rel.name, "BehaviorImplementsFeature");
-    assert_eq!(rel.source, "behavior");
-    assert_eq!(rel.target, "feature");
+    assert_eq!(model["relationships"].as_array().unwrap().len(), 1);
+    let rel = &model["relationships"][0];
+    assert_eq!(rel["name"], "BehaviorImplementsFeature");
+    assert_eq!(rel["source"], "behavior");
+    assert_eq!(rel["target"], "feature");
     // reference_list field -> ManyToMany
-    assert_eq!(rel.cardinality, Cardinality::ManyToMany);
-    assert_eq!(rel.source_field, Some("features".to_string()));
+    assert_eq!(rel["cardinality"], "N:M");
+    assert_eq!(rel["source_field"], "features");
 }
 
 // =========================================================================
@@ -270,25 +321,26 @@ fn extension_metadata_counts() {
         ],
     };
 
-    let model = ModelIntermediate_from_schema(&schema);
+    let model = built(&schema);
 
-    assert_eq!(model.extensions.len(), 2);
+    assert_eq!(model["extensions"].as_array().unwrap().len(), 2);
 
-    let sw = model
-        .extensions
-        .iter()
-        .find(|e| e.name == "@specforge/software")
-        .unwrap();
-    assert_eq!(sw.entity_count, 2);
-    assert_eq!(sw.edge_count, 2);
+    let extension = |name: &str| {
+        model["extensions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|e| e["name"] == name)
+            .unwrap()
+            .clone()
+    };
+    let sw = extension("@specforge/software");
+    assert_eq!(sw["entity_count"], 2);
+    assert_eq!(sw["edge_count"], 2);
 
-    let prod = model
-        .extensions
-        .iter()
-        .find(|e| e.name == "@specforge/product")
-        .unwrap();
-    assert_eq!(prod.entity_count, 1);
-    assert_eq!(prod.edge_count, 0);
+    let prod = extension("@specforge/product");
+    assert_eq!(prod["entity_count"], 1);
+    assert_eq!(prod["edge_count"], 0);
 }
 
 // =========================================================================
@@ -337,14 +389,11 @@ fn reference_field_infers_many_to_one() {
         }],
     };
 
-    let model = ModelIntermediate_from_schema(&schema);
+    let model = built(&schema);
 
-    assert_eq!(model.relationships.len(), 1);
-    assert_eq!(model.relationships[0].cardinality, Cardinality::ManyToOne);
-    assert_eq!(
-        model.relationships[0].source_field,
-        Some("parent".to_string())
-    );
+    assert_eq!(model["relationships"].as_array().unwrap().len(), 1);
+    assert_eq!(model["relationships"][0]["cardinality"], "N:1");
+    assert_eq!(model["relationships"][0]["source_field"], "parent");
 }
 
 // =========================================================================
@@ -383,11 +432,11 @@ fn no_matching_field_defaults_to_many_to_many() {
         }],
     };
 
-    let model = ModelIntermediate_from_schema(&schema);
+    let model = built(&schema);
 
-    assert_eq!(model.relationships.len(), 1);
-    assert_eq!(model.relationships[0].cardinality, Cardinality::ManyToMany);
-    assert!(model.relationships[0].source_field.is_none());
+    assert_eq!(model["relationships"].as_array().unwrap().len(), 1);
+    assert_eq!(model["relationships"][0]["cardinality"], "N:M");
+    assert!(model["relationships"][0].get("source_field").is_none());
 }
 
 // =========================================================================
@@ -408,8 +457,8 @@ fn edge_with_no_source_kinds_skipped() {
         }],
     };
 
-    let model = ModelIntermediate_from_schema(&schema);
-    assert!(model.relationships.is_empty());
+    let model = built(&schema);
+    assert!(model["relationships"].as_array().unwrap().is_empty());
 }
 
 // =========================================================================
@@ -458,22 +507,32 @@ fn reference_singular_field_infers_many_to_one_for_term_module() {
         }],
     };
 
-    let model = ModelIntermediate_from_schema(&schema);
+    let model = built(&schema);
 
-    assert_eq!(model.relationships.len(), 1);
-    let rel = &model.relationships[0];
-    assert_eq!(rel.name, "TermBelongsToModule");
-    assert_eq!(rel.source, "term");
-    assert_eq!(rel.target, "module");
-    assert_eq!(rel.cardinality, Cardinality::ManyToOne);
-    assert_eq!(rel.source_field, Some("module".to_string()));
+    assert_eq!(model["relationships"].as_array().unwrap().len(), 1);
+    let rel = &model["relationships"][0];
+    assert_eq!(rel["name"], "TermBelongsToModule");
+    assert_eq!(rel["source"], "term");
+    assert_eq!(rel["target"], "module");
+    assert_eq!(rel["cardinality"], "N:1");
+    assert_eq!(rel["source_field"], "module");
 
     // term entity should have contribution info on the module field
-    let term = model.entities.iter().find(|e| e.name == "term").unwrap();
-    let module_field = term.fields.iter().find(|f| f.name == "module").unwrap();
+    let term = model["entities"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|e| e["name"] == "term")
+        .unwrap();
+    let module_field = term["fields"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|f| f["name"] == "module")
+        .unwrap();
     assert_eq!(
-        module_field.contribution.as_deref(),
-        Some("TermBelongsToModule -> module")
+        module_field["contribution"],
+        "TermBelongsToModule -> module"
     );
 }
 
@@ -584,126 +643,140 @@ fn multi_extension_schema() -> GraphProtocolSchema {
 // Filter: extension filter keeps only matching entities
 // =========================================================================
 
-#[test]
+#[specforge_test_macros::test(
+    behavior = "filter_model",
+    verify = "extension filter includes only matching entities"
+)]
 fn filter_by_extension() {
-    let schema = multi_extension_schema();
-    let model = ModelIntermediate_from_schema(&schema);
-    let opts = ModelOptions {
-        extension_filter: Some("@specforge/software".to_string()),
-        ..ModelOptions::default()
-    };
-
-    let filtered = filter_entities(&model, &opts);
-
-    let names: Vec<&str> = filtered.entities.iter().map(|e| e.name.as_str()).collect();
-    assert_eq!(names, vec!["behavior", "event"]);
+    let m = json_of(
+        &multi_extension_schema(),
+        ModelOptions {
+            fields: FieldLevel::All,
+            extension: Some("@specforge/software".to_string()),
+            ..ModelOptions::default()
+        },
+    );
+    assert_eq!(names(&m["entities"]), vec!["behavior", "event"]);
     // Implements goes behavior->feature, but feature is filtered out, so pruned
     // Triggers stays (behavior->event, both in software)
-    assert_eq!(filtered.relationships.len(), 1);
-    assert_eq!(filtered.relationships[0].name, "Triggers");
+    assert_eq!(names(&m["relationships"]), vec!["Triggers"]);
 }
 
 // =========================================================================
 // Filter: kind filter with known kinds
 // =========================================================================
 
-#[test]
+#[specforge_test_macros::test(
+    behavior = "filter_model",
+    verify = "kind filter includes only listed kinds"
+)]
 fn filter_by_kinds() {
-    let schema = multi_extension_schema();
-    let model = ModelIntermediate_from_schema(&schema);
-    let opts = ModelOptions {
-        kind_filter: Some(vec!["behavior".to_string(), "feature".to_string()]),
-        ..ModelOptions::default()
-    };
-
-    let filtered = filter_entities(&model, &opts);
-
-    let names: Vec<&str> = filtered.entities.iter().map(|e| e.name.as_str()).collect();
-    assert_eq!(names, vec!["behavior", "feature"]);
+    let m = json_of(
+        &multi_extension_schema(),
+        ModelOptions {
+            fields: FieldLevel::All,
+            kinds: vec!["behavior".to_string(), "feature".to_string()],
+            ..ModelOptions::default()
+        },
+    );
+    assert_eq!(names(&m["entities"]), vec!["behavior", "feature"]);
     // Implements stays (behavior->feature), Triggers pruned (event not in filter)
-    assert_eq!(filtered.relationships.len(), 1);
-    assert_eq!(filtered.relationships[0].name, "BehaviorImplementsFeature");
+    assert_eq!(
+        names(&m["relationships"]),
+        vec!["BehaviorImplementsFeature"]
+    );
 }
 
 // =========================================================================
 // Filter: unknown kind silently ignored
 // =========================================================================
 
-#[test]
+#[specforge_test_macros::test(
+    behavior = "filter_model",
+    verify = "a listed kind the project does not know selects nothing in the export"
+)]
 fn filter_unknown_kind_ignored() {
-    let schema = multi_extension_schema();
-    let model = ModelIntermediate_from_schema(&schema);
-    let opts = ModelOptions {
-        kind_filter: Some(vec!["nonexistent".to_string()]),
-        ..ModelOptions::default()
-    };
-
-    let filtered = filter_entities(&model, &opts);
-    assert!(filtered.entities.is_empty());
-    assert!(filtered.relationships.is_empty());
+    let m = json_of(
+        &multi_extension_schema(),
+        ModelOptions {
+            fields: FieldLevel::All,
+            kinds: vec!["nonexistent".to_string()],
+            ..ModelOptions::default()
+        },
+    );
+    assert!(names(&m["entities"]).is_empty());
+    assert!(names(&m["relationships"]).is_empty());
 }
 
 // =========================================================================
 // Filter: root+depth=0 keeps only root
 // =========================================================================
 
-#[test]
+#[specforge_test_macros::test(
+    behavior = "filter_model",
+    verify = "root+depth=0 includes only the root kind"
+)]
 fn filter_root_depth_zero() {
-    let schema = multi_extension_schema();
-    let model = ModelIntermediate_from_schema(&schema);
-    let opts = ModelOptions {
-        root: Some("behavior".to_string()),
-        depth: Some(0),
-        ..ModelOptions::default()
-    };
-
-    let filtered = filter_entities(&model, &opts);
-
-    let names: Vec<&str> = filtered.entities.iter().map(|e| e.name.as_str()).collect();
-    assert_eq!(names, vec!["behavior"]);
-    assert!(filtered.relationships.is_empty());
+    let m = json_of(
+        &multi_extension_schema(),
+        ModelOptions {
+            fields: FieldLevel::All,
+            root: Some(ModelRoot {
+                kind: "behavior".to_string(),
+                depth: Some(0),
+            }),
+            ..ModelOptions::default()
+        },
+    );
+    assert_eq!(names(&m["entities"]), vec!["behavior"]);
+    assert!(names(&m["relationships"]).is_empty());
 }
 
 // =========================================================================
 // Filter: root+depth=1 keeps root + direct neighbors
 // =========================================================================
 
-#[test]
+#[specforge_test_macros::test(
+    behavior = "filter_model",
+    verify = "root+depth=1 includes root and directly connected kinds"
+)]
 fn filter_root_depth_one() {
-    let schema = multi_extension_schema();
-    let model = ModelIntermediate_from_schema(&schema);
-    let opts = ModelOptions {
-        root: Some("behavior".to_string()),
-        depth: Some(1),
-        ..ModelOptions::default()
-    };
-
-    let filtered = filter_entities(&model, &opts);
-
-    let mut names: Vec<&str> = filtered.entities.iter().map(|e| e.name.as_str()).collect();
-    names.sort();
+    let m = json_of(
+        &multi_extension_schema(),
+        ModelOptions {
+            fields: FieldLevel::All,
+            root: Some(ModelRoot {
+                kind: "behavior".to_string(),
+                depth: Some(1),
+            }),
+            ..ModelOptions::default()
+        },
+    );
+    let mut kinds = names(&m["entities"]);
+    kinds.sort();
     // behavior is root, direct neighbors via edges: event (Triggers), feature (Implements)
-    assert_eq!(names, vec!["behavior", "event", "feature"]);
+    assert_eq!(kinds, vec!["behavior", "event", "feature"]);
 }
 
 // =========================================================================
 // Filter: intersection of extension + kind filter
 // =========================================================================
 
-#[test]
+#[specforge_test_macros::test(
+    behavior = "filter_model",
+    verify = "multiple filters compose as intersection"
+)]
 fn filter_intersection_extension_and_kind() {
-    let schema = multi_extension_schema();
-    let model = ModelIntermediate_from_schema(&schema);
-    let opts = ModelOptions {
-        extension_filter: Some("@specforge/software".to_string()),
-        kind_filter: Some(vec!["behavior".to_string()]),
-        ..ModelOptions::default()
-    };
-
-    let filtered = filter_entities(&model, &opts);
-
-    let names: Vec<&str> = filtered.entities.iter().map(|e| e.name.as_str()).collect();
-    assert_eq!(names, vec!["behavior"]);
+    let m = json_of(
+        &multi_extension_schema(),
+        ModelOptions {
+            fields: FieldLevel::All,
+            extension: Some("@specforge/software".to_string()),
+            kinds: vec!["behavior".to_string()],
+            ..ModelOptions::default()
+        },
+    );
+    assert_eq!(names(&m["entities"]), vec!["behavior"]);
 }
 
 // =========================================================================
@@ -712,16 +785,19 @@ fn filter_intersection_extension_and_kind() {
 
 #[test]
 fn filter_fields_none() {
-    let schema = multi_extension_schema();
-    let model = ModelIntermediate_from_schema(&schema);
+    let m = json_of(
+        &multi_extension_schema(),
+        ModelOptions {
+            fields: FieldLevel::None,
+            ..ModelOptions::default()
+        },
+    );
 
-    let filtered = filter_fields(&model, FieldLevel::None);
-
-    for entity in &filtered.entities {
+    for entity in m["entities"].as_array().unwrap() {
         assert!(
-            entity.fields.is_empty(),
+            entity["fields"].as_array().unwrap().is_empty(),
             "entity {} should have no fields",
-            entity.name
+            entity["name"]
         );
     }
 }
@@ -732,28 +808,30 @@ fn filter_fields_none() {
 
 #[test]
 fn filter_fields_keys() {
-    let schema = multi_extension_schema();
-    let model = ModelIntermediate_from_schema(&schema);
+    let m = json_of(
+        &multi_extension_schema(),
+        ModelOptions {
+            fields: FieldLevel::Keys,
+            ..ModelOptions::default()
+        },
+    );
+    let fields_of = |kind: &str| -> Vec<String> {
+        let entity = m["entities"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|e| e["name"] == kind)
+            .unwrap();
+        names(&entity["fields"])
+            .into_iter()
+            .map(String::from)
+            .collect()
+    };
 
-    let filtered = filter_fields(&model, FieldLevel::Keys);
-
-    let behavior = filtered
-        .entities
-        .iter()
-        .find(|e| e.name == "behavior")
-        .unwrap();
-    let field_names: Vec<&str> = behavior.fields.iter().map(|f| f.name.as_str()).collect();
     // id (pk) + contract (required) + features (reference_list)
-    assert_eq!(field_names, vec!["id", "contract", "features"]);
-
-    let feature = filtered
-        .entities
-        .iter()
-        .find(|e| e.name == "feature")
-        .unwrap();
-    let field_names: Vec<&str> = feature.fields.iter().map(|f| f.name.as_str()).collect();
+    assert_eq!(fields_of("behavior"), vec!["id", "contract", "features"]);
     // id (pk) only — priority is not required and not a reference
-    assert_eq!(field_names, vec!["id"]);
+    assert_eq!(fields_of("feature"), vec!["id"]);
 }
 
 // =========================================================================
@@ -762,35 +840,26 @@ fn filter_fields_keys() {
 
 #[test]
 fn filter_fields_all() {
-    let schema = multi_extension_schema();
-    let model = ModelIntermediate_from_schema(&schema);
+    let m = built(&multi_extension_schema());
+    let count = |kind: &str| {
+        m["entities"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|e| e["name"] == kind)
+            .unwrap()["fields"]
+            .as_array()
+            .unwrap()
+            .len()
+    };
 
-    let filtered = filter_fields(&model, FieldLevel::All);
-
-    let behavior = filtered
-        .entities
-        .iter()
-        .find(|e| e.name == "behavior")
-        .unwrap();
-    assert_eq!(behavior.fields.len(), 3); // id + contract + features
-
-    let feature = filtered
-        .entities
-        .iter()
-        .find(|e| e.name == "feature")
-        .unwrap();
-    assert_eq!(feature.fields.len(), 2); // id + priority
+    assert_eq!(count("behavior"), 3); // id + contract + features
+    assert_eq!(count("feature"), 2); // id + priority
 }
 
 // =========================================================================
 // Renderer tests — use multi_extension_schema for all snapshots
 // =========================================================================
-
-fn build_model_keys() -> ModelIntermediate {
-    let schema = multi_extension_schema();
-    let model = ModelIntermediate_from_schema(&schema);
-    filter_fields(&model, FieldLevel::Keys)
-}
 
 fn default_options(format: ModelFormat) -> ModelOptions {
     ModelOptions {
@@ -803,37 +872,42 @@ fn default_options(format: ModelFormat) -> ModelOptions {
 
 #[test]
 fn render_markdown_keys_grouped() {
-    let model = build_model_keys();
-    let output = render(&model, &default_options(ModelFormat::Markdown));
+    let output = exported(
+        &multi_extension_schema(),
+        default_options(ModelFormat::Markdown),
+    );
     assert_snapshot!(output);
 }
 
 #[test]
 fn render_markdown_none_fields() {
-    let schema = multi_extension_schema();
-    let model = ModelIntermediate_from_schema(&schema);
-    let model = filter_fields(&model, FieldLevel::None);
-    let output = render(&model, &default_options(ModelFormat::Markdown));
+    let output = exported(
+        &multi_extension_schema(),
+        ModelOptions {
+            fields: FieldLevel::None,
+            ..default_options(ModelFormat::Markdown)
+        },
+    );
     assert_snapshot!(output);
 }
 
 #[test]
 fn render_markdown_flat() {
-    let model = build_model_keys();
     let opts = ModelOptions {
         format: ModelFormat::Markdown,
         group_by: GroupBy::None,
         ..ModelOptions::default()
     };
-    let output = render(&model, &opts);
+    let output = exported(&multi_extension_schema(), opts);
     assert_snapshot!(output);
 }
 
 #[test]
 fn render_markdown_empty() {
-    let schema = GraphProtocolSchema::empty();
-    let model = ModelIntermediate_from_schema(&schema);
-    let output = render(&model, &default_options(ModelFormat::Markdown));
+    let output = exported(
+        &GraphProtocolSchema::empty(),
+        default_options(ModelFormat::Markdown),
+    );
     assert_snapshot!(output);
 }
 
@@ -841,65 +915,65 @@ fn render_markdown_empty() {
 
 #[test]
 fn render_mermaid_keys_grouped() {
-    let model = build_model_keys();
-    let output = render(&model, &default_options(ModelFormat::Mermaid));
+    let output = exported(
+        &multi_extension_schema(),
+        default_options(ModelFormat::Mermaid),
+    );
     assert_snapshot!(output);
 }
 
 #[test]
 fn render_mermaid_none_fields() {
-    let schema = multi_extension_schema();
-    let model = ModelIntermediate_from_schema(&schema);
-    let model = filter_fields(&model, FieldLevel::None);
-    let output = render(&model, &default_options(ModelFormat::Mermaid));
+    let output = exported(
+        &multi_extension_schema(),
+        ModelOptions {
+            fields: FieldLevel::None,
+            ..default_options(ModelFormat::Mermaid)
+        },
+    );
     assert_snapshot!(output);
 }
 
 #[test]
 fn render_mermaid_empty() {
-    let schema = GraphProtocolSchema::empty();
-    let model = ModelIntermediate_from_schema(&schema);
-    let output = render(&model, &default_options(ModelFormat::Mermaid));
+    let output = exported(
+        &GraphProtocolSchema::empty(),
+        default_options(ModelFormat::Mermaid),
+    );
     assert_snapshot!(output);
 }
 
 // --- DOT ---
 
-/// The model with the `theme_color`s the builtin manifests declare.
-fn themed(mut model: ModelIntermediate) -> ModelIntermediate {
-    for ext in &mut model.extensions {
-        ext.color = match ext.name.as_str() {
-            "@specforge/software" => Some("#4a90d9".to_string()),
-            "@specforge/product" => Some("#2ecc71".to_string()),
-            "@specforge/governance" => Some("#e74c3c".to_string()),
-            "@specforge/formal" => Some("#9b59b6".to_string()),
-            _ => None,
-        };
-    }
-    model
-}
-
 #[test]
 fn render_dot_keys_grouped() {
-    let model = themed(build_model_keys());
-    let output = render(&model, &default_options(ModelFormat::Dot));
+    let output = export(
+        &multi_extension_schema(),
+        &builtin_colors(),
+        &default_options(ModelFormat::Dot),
+    );
     assert_snapshot!(output);
 }
 
 #[test]
 fn render_dot_none_fields() {
-    let schema = multi_extension_schema();
-    let model = ModelIntermediate_from_schema(&schema);
-    let model = themed(filter_fields(&model, FieldLevel::None));
-    let output = render(&model, &default_options(ModelFormat::Dot));
+    let output = export(
+        &multi_extension_schema(),
+        &builtin_colors(),
+        &ModelOptions {
+            fields: FieldLevel::None,
+            ..default_options(ModelFormat::Dot)
+        },
+    );
     assert_snapshot!(output);
 }
 
 #[test]
 fn render_dot_empty() {
-    let schema = GraphProtocolSchema::empty();
-    let model = ModelIntermediate_from_schema(&schema);
-    let output = render(&model, &default_options(ModelFormat::Dot));
+    let output = exported(
+        &GraphProtocolSchema::empty(),
+        default_options(ModelFormat::Dot),
+    );
     assert_snapshot!(output);
 }
 
@@ -907,8 +981,10 @@ fn render_dot_empty() {
 
 #[test]
 fn render_json_keys() {
-    let model = build_model_keys();
-    let output = render(&model, &default_options(ModelFormat::Json));
+    let output = exported(
+        &multi_extension_schema(),
+        default_options(ModelFormat::Json),
+    );
     // Verify it's valid JSON
     let parsed: serde_json::Value = serde_json::from_str(&output).expect("valid JSON");
     assert_eq!(parsed["model_version"], "1.0.0");
@@ -919,8 +995,10 @@ fn render_json_keys() {
 
 #[test]
 fn render_json_cardinality_strings() {
-    let model = build_model_keys();
-    let output = render(&model, &default_options(ModelFormat::Json));
+    let output = exported(
+        &multi_extension_schema(),
+        default_options(ModelFormat::Json),
+    );
     let parsed: serde_json::Value = serde_json::from_str(&output).expect("valid JSON");
     for rel in parsed["relationships"].as_array().unwrap() {
         let card = rel["cardinality"].as_str().unwrap();
@@ -934,9 +1012,10 @@ fn render_json_cardinality_strings() {
 
 #[test]
 fn render_json_empty() {
-    let schema = GraphProtocolSchema::empty();
-    let model = ModelIntermediate_from_schema(&schema);
-    let output = render(&model, &default_options(ModelFormat::Json));
+    let output = exported(
+        &GraphProtocolSchema::empty(),
+        default_options(ModelFormat::Json),
+    );
     assert_snapshot!(output);
 }
 
@@ -944,16 +1023,19 @@ fn render_json_empty() {
 
 #[test]
 fn render_dbml_keys_grouped() {
-    let model = build_model_keys();
-    let output = render(&model, &default_options(ModelFormat::Dbml));
+    let output = exported(
+        &multi_extension_schema(),
+        default_options(ModelFormat::Dbml),
+    );
     assert_snapshot!(output);
 }
 
 #[test]
 fn render_dbml_empty() {
-    let schema = GraphProtocolSchema::empty();
-    let model = ModelIntermediate_from_schema(&schema);
-    let output = render(&model, &default_options(ModelFormat::Dbml));
+    let output = exported(
+        &GraphProtocolSchema::empty(),
+        default_options(ModelFormat::Dbml),
+    );
     assert_snapshot!(output);
 }
 
@@ -989,8 +1071,15 @@ fn declared_dot_color_reaches_model_dot() {
         version: "1.0.0".to_string(),
     }];
 
-    let model = themed(ModelIntermediate_from_schema(&schema));
-    let output = render(&model, &default_options(ModelFormat::Dot));
+    // `All`: the unfiltered model, as the test always drew it.
+    let output = export(
+        &schema,
+        &builtin_colors(),
+        &ModelOptions {
+            fields: FieldLevel::All,
+            ..default_options(ModelFormat::Dot)
+        },
+    );
 
     assert!(
         output.contains("#123456"),
@@ -1093,8 +1182,13 @@ fn dbml_maps_real_types_and_cardinality_operators() {
         }],
     };
 
-    let model = ModelIntermediate_from_schema(&schema);
-    let output = render(&model, &default_options(ModelFormat::Dbml));
+    let output = exported(
+        &schema,
+        ModelOptions {
+            fields: FieldLevel::All,
+            ..default_options(ModelFormat::Dbml)
+        },
+    );
 
     assert!(output.contains("count integer"), "integer mapped: {output}");
     assert!(output.contains("flag boolean"), "boolean mapped: {output}");
@@ -1109,8 +1203,13 @@ fn dbml_maps_real_types_and_cardinality_operators() {
 
 #[test]
 fn an_extension_without_a_theme_color_is_drawn_grey() {
-    let model = ModelIntermediate_from_schema(&multi_extension_schema());
-    let output = render(&model, &default_options(ModelFormat::Dot));
+    let output = exported(
+        &multi_extension_schema(),
+        ModelOptions {
+            fields: FieldLevel::All,
+            ..default_options(ModelFormat::Dot)
+        },
+    );
     assert!(output.contains("color=\"#95a5a6\";"), "{output}");
     assert!(!output.contains("#4a90d9"), "no palette by name: {output}");
 }
@@ -1144,8 +1243,14 @@ fn with_text(kind: &str, description: &str) -> GraphProtocolSchema {
 }
 
 fn rendered(schema: &GraphProtocolSchema, fields: FieldLevel, format: ModelFormat) -> String {
-    let model = filter_fields(&ModelIntermediate_from_schema(schema), fields);
-    render(&model, &default_options(format))
+    exported(
+        schema,
+        ModelOptions {
+            format,
+            fields,
+            ..ModelOptions::default()
+        },
+    )
 }
 
 #[specforge_test_macros::test(
@@ -1242,13 +1347,13 @@ fn a_ref_joins_only_columns_the_output_writes() {
     assert!(!output.contains("// ── Relationships ──"), "{output}");
 
     // `behavior` alone: its reference targets `feature`, which is not written.
-    let model = filter_fields(&ModelIntermediate_from_schema(&schema), FieldLevel::All);
     let options = ModelOptions {
         format: ModelFormat::Dbml,
-        kind_filter: Some(vec!["behavior".to_string()]),
+        fields: FieldLevel::All,
+        kinds: vec!["behavior".to_string()],
         ..ModelOptions::default()
     };
-    let output = render(&filter_entities(&model, &options), &options);
+    let output = exported(&schema, options);
     assert!(output.contains("Table behavior {"), "{output}");
     assert!(!output.contains("Ref "), "{output}");
     assert!(!output.contains("Table feature"), "{output}");
@@ -1276,4 +1381,39 @@ fn a_name_that_is_not_a_dbml_identifier_is_quoted() {
     let schema = with_text("no\"te", "the contract");
     let output = rendered(&schema, FieldLevel::All, ModelFormat::Dbml);
     assert!(output.contains("Table \"no\\\"te\" {"), "{output}");
+}
+
+#[specforge_test_macros::test(
+    behavior = "render_model_dot",
+    verify = "header row colored by extension"
+)]
+fn an_extensions_declared_theme_color_draws_its_cluster() {
+    let schema = multi_extension_schema();
+    let grey = exported(&schema, default_options(ModelFormat::Dot));
+    let themed = export(
+        &schema,
+        &builtin_colors(),
+        &default_options(ModelFormat::Dot),
+    );
+    assert!(!grey.contains("#4a90d9"), "{grey}");
+    assert!(themed.contains("#4a90d9"), "software's colour: {themed}");
+    assert!(themed.contains("#2ecc71"), "product's colour: {themed}");
+}
+
+#[specforge_test_macros::test(
+    behavior = "filter_model",
+    verify = "an empty kind list selects every kind"
+)]
+fn an_empty_kind_list_selects_every_kind() {
+    let schema = multi_extension_schema();
+    let all = json_of(&schema, ModelOptions::default());
+    let empty = json_of(
+        &schema,
+        ModelOptions {
+            kinds: vec![],
+            ..ModelOptions::default()
+        },
+    );
+    assert_eq!(names(&empty["entities"]), names(&all["entities"]));
+    assert!(!names(&all["entities"]).is_empty());
 }

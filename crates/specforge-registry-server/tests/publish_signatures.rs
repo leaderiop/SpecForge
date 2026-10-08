@@ -71,7 +71,6 @@ fn signed_publish_round_trips_through_http_boundary() {
         &registry,
         Some(&credential),
         &HttpRegistryClient::new(),
-        false,
         Some(&key),
     )
     .expect("signed publish should succeed");
@@ -128,7 +127,6 @@ fn a_rate_limited_publish_is_r003() {
             &registry,
             Some(&credential),
             &client,
-            false,
             Some(&key),
         )
     };

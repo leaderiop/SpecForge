@@ -3,7 +3,7 @@ use std::fmt::Write;
 use super::{OutlineDetail, OutlineIntermediate, OutlineOptions};
 use crate::diagram::{escape_dot, escape_record_field, extension_id as sanitize_id, theme_color};
 
-pub fn render_dot(outline: &OutlineIntermediate, options: &OutlineOptions) -> String {
+pub(super) fn render_dot(outline: &OutlineIntermediate, options: &OutlineOptions) -> String {
     let mut out = String::new();
 
     writeln!(out, "digraph extensions {{").unwrap();

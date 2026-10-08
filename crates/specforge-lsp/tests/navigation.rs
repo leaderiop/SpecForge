@@ -127,7 +127,7 @@ fn goto_definition_dispatches_to_import_on_use_line() {
     ])
     .open(&["main.spec"]);
     let definition = specforge_lsp::answers::definition(
-        served.state(),
+        &served.state(),
         &served.uri("main.spec"),
         tower_lsp::lsp_types::Position::new(0, 1),
     );

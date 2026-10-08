@@ -2098,8 +2098,9 @@ fn the_schema_carries_a_declared_default_value() {
     assert_eq!(field("urgent").default_value, None);
 
     // The model built from the schema shows it.
-    let model = specforge_emitter::model::render(
-        &specforge_emitter::model::ModelIntermediate_from_schema(&schema),
+    let model = specforge_emitter::model::export(
+        &schema,
+        &[],
         &specforge_emitter::model::ModelOptions {
             format: specforge_emitter::model::ModelFormat::Json,
             fields: specforge_emitter::model::FieldLevel::All,

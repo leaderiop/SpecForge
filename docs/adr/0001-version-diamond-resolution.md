@@ -1,6 +1,6 @@
 # Version diamond resolution is intersection-based unification, not backtracking (C8-07)
 
-**Status:** accepted
+**Status:** accepted; amended by [ADR 0041](0041-peer-requirements-are-one-module.md) (2026-10-08)
 
 When two installed extensions each declare a peer dependency on the same
 third package at different semver ranges (a "version diamond"), `specforge
@@ -26,3 +26,11 @@ would add real complexity (a proper resolver algorithm, non-deterministic
 output ordering, harder-to-explain failures) for a case that hasn't shown up
 yet. If it does, that's its own design doc and its own ADR — this one only
 covers unification.
+
+## Amended by ADR 0041
+
+The gate judges a peer by the one peer rule (`specforge_protocol_types::peers::verdict`). A peer
+range that is not SemVer, the new extension's or another requirer's, is refused with E073 (it was
+let through, or R-RES-003). A local install is gated too: with no registry to unify against, a
+locked peer outside its range is E027. Every add checks the locked extensions that require the
+package it installs, as `update` checks the dependents of what it updates.

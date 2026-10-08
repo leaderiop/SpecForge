@@ -3,7 +3,7 @@ use std::fmt::Write;
 use super::{GroupBy, ModelIntermediate, ModelOptions};
 use crate::diagram::{escape_dot, escape_html};
 
-pub fn render_dot(model: &ModelIntermediate, options: &ModelOptions) -> String {
+pub(super) fn render_dot(model: &ModelIntermediate, options: &ModelOptions) -> String {
     let mut out = String::new();
 
     writeln!(out, "digraph model {{").unwrap();

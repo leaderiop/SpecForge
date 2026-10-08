@@ -1,7 +1,7 @@
 //! `specforge publish` uploads an extension binary with the declaration it
 //! reads from it, against the real registry server running in process.
 
-use crate::registry::greet_wasm;
+use crate::registry::{greet_named, greet_wasm};
 use specforge_registry_client::{HttpRegistryClient, RegistryClient, RegistryConfig};
 use specforge_registry_server::testing::LocalRegistry;
 use specforge_test::prelude::*;
@@ -81,24 +81,6 @@ fn publish_stores_the_declaration_the_binary_declares() {
     );
 }
 
-/// The greet blob with its declared name (`@sdk/greet`, 10 bytes) replaced
-/// by another name of the same length.
-fn greet_named(name: &str) -> Vec<u8> {
-    let (from, to) = (b"@sdk/greet".as_slice(), name.as_bytes());
-    assert_eq!(from.len(), to.len());
-    let mut wasm = greet_wasm();
-    let mut at = 0;
-    while at + from.len() <= wasm.len() {
-        if &wasm[at..at + from.len()] == from {
-            wasm[at..at + from.len()].copy_from_slice(to);
-            at += from.len();
-        } else {
-            at += 1;
-        }
-    }
-    wasm
-}
-
 #[specforge_test(
     behavior = "publish_wasm_extension",
     verify = "publish refuses a declaration whose name or version is not publishable before it uploads"
@@ -144,4 +126,111 @@ fn publish_refuses_an_unscoped_or_unversioned_declaration_offline() {
         assert!(text.contains("E072"), "{name}: {text}");
         assert!(text.contains(why), "{name}: {text}");
     }
+}
+
+/// A project whose default registry is `registry`, with the greet binary.
+fn project_publishing_to(registry: &LocalRegistry) -> TempDir {
+    let project = TempDir::new().unwrap();
+    std::fs::write(
+        project.path().join("specforge.json"),
+        serde_json::json!({
+            "name": "p", "version": "0.1.0",
+            "registries": [{ "alias": "local", "url": registry.url(), "default_registry": true }]
+        })
+        .to_string(),
+    )
+    .unwrap();
+    std::fs::write(project.path().join("greet.wasm"), greet_wasm()).unwrap();
+    project
+}
+
+/// `specforge publish greet.wasm --format json` in `project`; `token` is
+/// `SPECFORGE_REGISTRY_TOKEN` (removed when `None`).
+fn publish_greet(project: &TempDir, home: &TempDir, token: Option<&str>) -> std::process::Output {
+    let mut command = std::process::Command::new(assert_cmd::cargo_bin!("specforge"));
+    command
+        .arg("publish")
+        .arg(project.path().join("greet.wasm"))
+        .arg("--path")
+        .arg(project.path())
+        .args(["--format", "json"])
+        .env("HOME", home.path());
+    match token {
+        Some(token) => command.env("SPECFORGE_REGISTRY_TOKEN", token),
+        None => command.env_remove("SPECFORGE_REGISTRY_TOKEN"),
+    };
+    command.output().unwrap()
+}
+
+fn greet_is_published(registry: &LocalRegistry) -> bool {
+    HttpRegistryClient::new()
+        .metadata(
+            &specforge_protocol_types::PackageName::parse("@sdk/greet").unwrap(),
+            &specforge_protocol_types::package::Version::new(0, 1, 0),
+            &config(registry),
+        )
+        .is_ok()
+}
+
+// Pins a bug: with no credential the signing key is created and the upload
+// is sent unauthenticated into the server's 401 (plan 06 §3 R2, R3). T5
+// flips it.
+#[test]
+fn a_publish_with_no_credential_is_refused_by_the_registry_today() {
+    let registry = LocalRegistry::start();
+    let project = project_publishing_to(&registry);
+    let home = TempDir::new().unwrap();
+
+    let output = publish_greet(&project, &home, None);
+
+    assert_eq!(output.status.code(), Some(1), "{output:?}");
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    // The server answers 401 before it reads the body, so a client that is
+    // still sending sees a reset (R005) rather than the 401 (R001).
+    assert!(
+        ["R001", "R005"].contains(&json["code"].as_str().unwrap()),
+        "{json}"
+    );
+    assert!(home.path().join(".specforge/signing-key.json").exists());
+    assert!(!greet_is_published(&registry));
+}
+
+#[specforge_test(
+    behavior = "publish_to_registry",
+    verify = "a version already published is refused with R007"
+)]
+fn publishing_a_version_twice_is_refused_with_r007() {
+    let registry = LocalRegistry::start();
+    let project = project_publishing_to(&registry);
+    let home = TempDir::new().unwrap();
+
+    let first = publish_greet(&project, &home, Some(registry.token()));
+    assert!(first.status.success(), "{first:?}");
+    let published: serde_json::Value = serde_json::from_slice(&first.stdout).unwrap();
+    let mut keys: Vec<&str> = published
+        .as_object()
+        .unwrap()
+        .keys()
+        .map(String::as_str)
+        .collect();
+    keys.sort_unstable();
+    assert_eq!(
+        keys,
+        [
+            "action",
+            "key_created",
+            "key_id",
+            "name",
+            "signed",
+            "size_bytes",
+            "url",
+            "version"
+        ]
+    );
+    assert_eq!(published["key_created"], true);
+
+    let second = publish_greet(&project, &home, Some(registry.token()));
+    assert_eq!(second.status.code(), Some(1), "{second:?}");
+    let refused: serde_json::Value = serde_json::from_slice(&second.stdout).unwrap();
+    assert_eq!(refused["code"], "R007", "{refused}");
 }

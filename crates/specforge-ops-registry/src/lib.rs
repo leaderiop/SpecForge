@@ -10,14 +10,15 @@
 use specforge_common::{Code, Diagnostic, codes};
 use specforge_ops::extension::Trust;
 use specforge_ops::registry::{
-    METADATA_MISMATCH, Package, Registry, UNREADABLE_MANIFEST, no_registry,
+    METADATA_MISMATCH, NO_REGISTRY, NO_REGISTRY_FOR_NAME, Package, Registry, UNREADABLE_MANIFEST,
+    no_registry,
 };
 use specforge_ops::{OpError, OpErrorKind};
 use specforge_protocol_types::package::Version;
 use specforge_protocol_types::{ExtensionDeclaration, PackageName};
 use specforge_registry_client::trust_flow::TrustPolicy;
 use specforge_registry_client::{
-    HttpRegistryClient, RegistryClient, RegistryConfig, RegistryError, find_registry_for,
+    HttpRegistryClient, RegistryClient, RegistryConfig, RegistryError,
     parse_registries_from_config, verify_registry_integrity,
 };
 use specforge_registry_wire::PackageMetadata;
@@ -32,6 +33,88 @@ pub struct Configured {
     /// a duplicate alias, I003 when no entry is the default. The caller
     /// shows them.
     pub diagnostics: Vec<Diagnostic>,
+}
+
+impl Configured {
+    /// The one registry that serves `name`: the first entry whose
+    /// `scope_filter` is its scope, else the first entry marked
+    /// `default_registry`. With neither, R-OPS-001 naming the scope and the
+    /// configured aliases, before any request. `add`, `update` and `publish`
+    /// ask this one (ADR 0045); `search` asks every entry.
+    pub fn registry_for(&self, name: &PackageName) -> Result<&RegistryConfig, OpError> {
+        if let Some(scope) = name.scope()
+            && let Some(registry) = self
+                .registries
+                .iter()
+                .find(|r| r.scope_filter.as_deref() == Some(scope))
+        {
+            return Ok(registry);
+        }
+        if let Some(registry) = self.registries.iter().find(|r| r.default_registry) {
+            return Ok(registry);
+        }
+        let (message, suggestion) = match name.scope() {
+            Some(scope) => (
+                format!(
+                    "no registry serves {name}: no \"scope_filter\" is \"{scope}\" (configured: {}), and none is the default",
+                    self.aliases()
+                ),
+                format!(
+                    "add \"scope_filter\": \"{scope}\" to the registry that holds it, or set \"default_registry\": true on one"
+                ),
+            ),
+            None => (
+                format!("no registry serves {name}: none is the default"),
+                "set \"default_registry\": true on one registry".to_string(),
+            ),
+        };
+        Err(OpError::coded(
+            OpErrorKind::PreconditionFailed,
+            NO_REGISTRY_FOR_NAME,
+            message,
+        )
+        .with_suggestion(suggestion))
+    }
+
+    /// The registry `alias` names, or with none the default one: what
+    /// `login` validates a token against and stores it for, and what
+    /// `logout` forgets. E063 naming the configured aliases when `alias`
+    /// names none, or when none is given and none is the default.
+    pub fn named(&self, alias: Option<&str>) -> Result<&RegistryConfig, OpError> {
+        let found = match alias {
+            Some(alias) => self.registries.iter().find(|r| r.alias == alias),
+            None => self.registries.iter().find(|r| r.default_registry),
+        };
+        found.ok_or_else(|| {
+            let (message, suggestion) = match alias {
+                Some(alias) => (
+                    format!(
+                        "no registry is named '{alias}' (configured: {})",
+                        self.aliases()
+                    ),
+                    "name one of the configured registries with --registry".to_string(),
+                ),
+                None => (
+                    format!(
+                        "no registry is the default (configured: {})",
+                        self.aliases()
+                    ),
+                    "name a registry with --registry, or set \"default_registry\": true on one"
+                        .to_string(),
+                ),
+            };
+            OpError::coded(OpErrorKind::PreconditionFailed, NO_REGISTRY, message)
+                .with_suggestion(suggestion)
+        })
+    }
+
+    fn aliases(&self) -> String {
+        self.registries
+            .iter()
+            .map(|r| r.alias.as_str())
+            .collect::<Vec<_>>()
+            .join(", ")
+    }
 }
 
 /// The diagnostic for a registry configuration that can't be read.
@@ -135,9 +218,10 @@ impl ConfiguredRegistry {
     /// The one registry that serves `name`: made once per call, and the
     /// client fetches from it without choosing again.
     fn registry_for(&self, name: &PackageName) -> Result<&RegistryConfig, OpError> {
-        let registries = &self.registries.as_ref().map_err(Clone::clone)?.registries;
-        // `configured` refuses an empty list, so there is always a first.
-        Ok(find_registry_for(name, registries).unwrap_or(&registries[0]))
+        self.registries
+            .as_ref()
+            .map_err(Clone::clone)?
+            .registry_for(name)
     }
 }
 

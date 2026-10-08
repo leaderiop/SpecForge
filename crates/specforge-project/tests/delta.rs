@@ -1,6 +1,6 @@
 use specforge_common::{SourceSpan, Sym};
 use specforge_graph::{Edge, Graph, Node};
-use specforge_parser::{EntityId, EntityKind, FieldMap, FieldValue};
+use specforge_parser::{EntityId, EntityKind, FieldMap, FieldValue, parse_expression};
 use specforge_project::{EdgeChange, GraphDelta, NodeChange, compute_graph_delta};
 use specforge_test::prelude::*;
 
@@ -116,6 +116,44 @@ fn modified_nodes_list_changed_fields() {
     let mut moved = Graph::new();
     moved.add_node(with_status("draft", 7));
     assert!(compute_graph_delta(&old, &moved).is_empty());
+}
+
+/// A graph holding `alpha`, carrying a formal `metric` expression parsed
+/// from `src`, declared at `line`.
+fn graph_with_metric(src: &str, line: usize) -> Graph {
+    let mut node = make_node("alpha", "behavior", "a.spec", line);
+    node.fields.push(
+        Sym::new("metric"),
+        FieldValue::Expression(vec![parse_expression(src).unwrap()]),
+    );
+    node.source_span.end_line = line + 4;
+    let mut graph = Graph::new();
+    graph.add_node(node);
+    graph
+}
+
+#[specforge_test(
+    behavior = "compute_graph_delta",
+    verify = "shifted expression positions are not a modification"
+)]
+fn expression_positions_are_not_a_modification() {
+    // Same expression, shifted: the entity moved and the expression's
+    // columns moved with it.
+    let before = graph_with_metric("latency < 100ms", 1);
+    let after = graph_with_metric("   latency < 100ms", 9);
+    let delta = compute_graph_delta(&before, &after);
+    assert!(delta.is_empty(), "{:?}", delta.modified_nodes);
+
+    // A changed bound is a modification.
+    let tighter = graph_with_metric("latency < 50ms", 1);
+    assert_eq!(
+        compute_graph_delta(&before, &tighter)
+            .modified_nodes
+            .iter()
+            .map(|n| n.id.as_str())
+            .collect::<Vec<_>>(),
+        ["alpha"]
+    );
 }
 
 #[specforge_test(

@@ -7,33 +7,34 @@ use super::{
 use crate::schema::{GraphProtocolSchema, SchemaEdgeType, SchemaEntityKind};
 use specforge_registry::FieldType;
 
-#[allow(non_snake_case)]
-pub fn ModelIntermediate_from_schema(schema: &GraphProtocolSchema) -> ModelIntermediate {
-    let entities: Vec<ModelEntity> = schema.entity_kinds.iter().map(build_entity).collect();
+impl ModelIntermediate {
+    pub(super) fn of(schema: &GraphProtocolSchema) -> Self {
+        let entities: Vec<ModelEntity> = schema.entity_kinds.iter().map(build_entity).collect();
 
-    let entity_map: HashMap<&str, &ModelEntity> =
-        entities.iter().map(|e| (e.name.as_str(), e)).collect();
+        let entity_map: HashMap<&str, &ModelEntity> =
+            entities.iter().map(|e| (e.name.as_str(), e)).collect();
 
-    let relationships: Vec<ModelRelationship> = schema
-        .edge_types
-        .iter()
-        .flat_map(|edge| build_relationships(edge, &entity_map))
-        .collect();
+        let relationships: Vec<ModelRelationship> = schema
+            .edge_types
+            .iter()
+            .flat_map(|edge| build_relationships(edge, &entity_map))
+            .collect();
 
-    let extensions = build_extensions(schema, &entities);
+        let extensions = build_extensions(schema, &entities);
 
-    let edge_type_owners: Vec<(String, String)> = schema
-        .edge_types
-        .iter()
-        .map(|e| (e.label.clone(), e.source_extension.clone()))
-        .collect();
+        let edge_type_owners: Vec<(String, String)> = schema
+            .edge_types
+            .iter()
+            .map(|e| (e.label.clone(), e.source_extension.clone()))
+            .collect();
 
-    ModelIntermediate {
-        model_version: "1.0.0".to_string(),
-        extensions,
-        entities,
-        relationships,
-        edge_type_owners,
+        ModelIntermediate {
+            model_version: "1.0.0".to_string(),
+            extensions,
+            entities,
+            relationships,
+            edge_type_owners,
+        }
     }
 }
 

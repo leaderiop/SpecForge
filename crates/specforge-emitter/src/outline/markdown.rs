@@ -3,7 +3,7 @@ use std::fmt::Write;
 use super::{OutlineDetail, OutlineIntermediate, OutlineOptions};
 use crate::diagram::markdown_cell;
 
-pub fn render_markdown(outline: &OutlineIntermediate, options: &OutlineOptions) -> String {
+pub(super) fn render_markdown(outline: &OutlineIntermediate, options: &OutlineOptions) -> String {
     let mut out = String::new();
 
     writeln!(out, "# Extension Architecture").unwrap();

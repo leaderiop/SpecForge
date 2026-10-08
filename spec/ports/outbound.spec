@@ -86,3 +86,19 @@ port Registry {
   method fetch(name: PackageName, version: string, allowUnsigned: boolean, trust: string) -> Result<RegistryPackage, ExtensionError>
   verify integration "Registry contract is satisfied"
 }
+
+port Editor {
+  direction outbound
+  category  "api/lsp"
+  // What the LSP's reaction to a change tells the editor (ADR 0043): its
+  // two adapters are the tower-lsp client (production) and a recorder
+  // (the LSP's tests). Each call returns once the editor has the message;
+  // watch returns once the editor answered, and a refusal falls back to
+  // the static watchers.
+  method publish(path: string, diagnostics: Diagnostic[], version: integer @optional) -> Result<void, never>
+  method watch(globs: string[]) -> Result<void, string>
+  method log(level: string, message: string) -> Result<void, never>
+  method progress(done: boolean, title: string @optional) -> Result<void, never>
+  method refreshTokens() -> Result<void, never>
+  verify integration "Editor contract is satisfied"
+}

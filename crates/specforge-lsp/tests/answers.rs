@@ -276,3 +276,21 @@ fn formatting_answers_its_edits_and_what_to_publish() {
     let closed = crate::served::uri_of_path("/buffer/closed.spec");
     assert!(answers::formatting(&state, &closed, &options, None).is_none());
 }
+
+#[test]
+fn client_support_reads_what_steers_the_reaction() {
+    let declared: ClientCapabilities = serde_json::from_value(serde_json::json!({
+        "workspace": {
+            "semanticTokens": {"refreshSupport": true},
+            "didChangeWatchedFiles": {"relativePatternSupport": true},
+        },
+    }))
+    .unwrap();
+    let support = ClientSupport::of(&declared);
+    assert!(support.tokens_refresh);
+    assert!(support.relative_patterns);
+
+    let nothing = ClientSupport::of(&ClientCapabilities::default());
+    assert!(!nothing.tokens_refresh);
+    assert!(!nothing.relative_patterns);
+}

@@ -150,17 +150,19 @@ behavior build_registries_from_declarations "Build Registries From Declarations"
   types      [ExtensionDeclaration, RegistryBuild]
   produces   [registries_populated]
   contract   """
-    The registry build MUST take the loaded declarations, in load order,
-    and own everything derived from them: identity and shape (E030: an empty
-    name or version, a malformed ext_short), self-consistency (W021), peer
-    dependencies (E027), the order of declared passes (W145 when their
-    constraints form a cycle, declaration order kept), the kind, field and
-    edge registries, the rules and the surfaces. It MUST be pure.
+    The registry build MUST take the loaded declarations in entry order, put
+    them in load order (registry_build_load_order) and own everything derived
+    from them: identity and shape (E030: an empty name or version, a
+    malformed ext_short), self-consistency (W021), peer requirements (E073,
+    E027, and E027 for a cycle among required peers), the order of declared
+    passes (W145 when their constraints form a cycle, declaration order
+    kept), the kind, field and edge registries, the rules and the surfaces.
+    It MUST be pure.
 
     Its outcomes are stated by registry_build_kinds, registry_build_fields,
     registry_build_edges, registry_build_rules,
-    registry_build_declaration_consistency and
-    registry_build_peer_dependencies. The build produces
+    registry_build_declaration_consistency,
+    registry_build_peer_dependencies and registry_build_load_order. The build produces
     registries_populated: nothing reads a registry before every loaded
     declaration is in it.
   """
@@ -172,7 +174,7 @@ behavior build_registries_from_declarations "Build Registries From Declarations"
   verify unit "a pass constraint cycle produces W145 and keeps declaration order"
   verify integration "a passes description that does not parse fails the extension's load"
   verify unit "a build of no declarations has empty registries, no rules and no diagnostics"
-  verify unit "the declarations' own diagnostics come in a fixed order: E030, W021, E027, W145"
+  verify unit "the declarations' own diagnostics come in a fixed order: E030, W021, the peers' E073 and E027, the cycles' E027, W145"
   verify integration "every loaded declaration is registered before a compile checks anything"
 }
 
@@ -594,6 +596,7 @@ behavior resolve_registry_source "Resolve Registry Source" {
   ensures {
     scope_routed              "Scope-prefixed specifiers are routed to the matching scope-specific registry"
     default_fallback_used     "Specifiers with no matching scope fall back to the default registry"
+    no_registry_refused       "A name no scope_filter matches, with no default registry, is refused with R-OPS-001 before any network call"
     network_error_diagnosed   "Network errors produce ExtensionError diagnostic with retry guidance"
     registry_resolved_emitted "registry_resolved event fires on successful resolution"
   }
@@ -605,16 +608,20 @@ behavior resolve_registry_source "Resolve Registry Source" {
     fall back to the default registry. "The default registry" means the
     registries entry marked `default_registry: true` in specforge.json:
     SpecForge ships no registry, so no registry URL is a constant in source.
+    With no scope match and no default registry, no registry serves the
+    name: the system MUST refuse with R-OPS-001, naming the scope, before
+    any network call, and MUST NOT ask another registry. add, update and
+    publish choose the registry for a name by this one rule (ADR 0045).
     Network errors MUST produce an ExtensionError diagnostic with retry guidance.
   """
   verify unit "scope-specific registry queried for matching scope"
   verify unit "default registry used when no scope filter matches"
   verify unit "network error produces ExtensionError with retry guidance"
   verify unit "successful query returns PackageMetadata"
-  verify integration "unreachable scope-specific registry falls back to next scope"
   verify unit "a fetch requests the name and version it was given, from the registry it was given"
+  verify unit "a name no registry serves is refused with R-OPS-001 before any request"
   verify integration "the registry server answers every call in the JSON its client reads"
-  verify contract "Resolve Registry Source: registry source resolution holds — registries_configured_fired, registry_client_available, scope_routed, default_fallback_used, network_error_diagnosed, registry_resolved_emitted"
+  verify contract "Resolve Registry Source: registry source resolution holds — registries_configured_fired, registry_client_available, scope_routed, default_fallback_used, no_registry_refused, network_error_diagnosed, registry_resolved_emitted"
 }
 
 behavior search_registry "Search Registry" {
@@ -679,7 +686,7 @@ behavior publish_to_registry "Publish to Registry" {
   }
   ensures {
     sha256_computed            "SHA256 hash of .wasm binary is computed and included in the upload"
-    duplicate_version_rejected "Duplicate version numbers are rejected unless --force is provided"
+    duplicate_version_rejected "A version the registry already holds is refused (R007): a published version is immutable"
     registry_url_returned      "Successful publish returns the registry URL for the published version"
     published_event_emitted    "extension_published_to_registry event fires on successful publish"
   }
@@ -690,8 +697,9 @@ behavior publish_to_registry "Publish to Registry" {
     with the .wasm binary and its SHA256 hash, before any network call
     deciding whether to refuse; the request MUST be authenticated. The
     registry MUST refuse a manifest that is not an extension declaration,
-    and takes the description and keywords it shows from the declaration. Duplicate version numbers MUST be rejected unless --force is
-    provided. Successful publish MUST return the registry URL for the
+    and takes the description and keywords it shows from the declaration. A version the registry
+    already holds MUST be refused (R007): a published version is immutable.
+    Successful publish MUST return the registry URL for the
     published version. With no registry configured, publish MUST make no
     network call and MUST fail with E063, whose suggestion names the
     specforge.json registries key.
@@ -703,10 +711,11 @@ behavior publish_to_registry "Publish to Registry" {
   verify integration "the registry refuses a manifest that is not an extension declaration"
   verify integration "the registry takes a package's description and keywords from its declaration"
   verify unit "SHA256 computed and included in upload"
-  verify unit "duplicate version rejected without --force"
+  verify unit "a version already published is refused with R007"
   verify unit "successful publish returns registry URL"
   verify unit "unauthenticated publish produces ExtensionError"
   verify unit "the registry refuses a name or version that is not a package name or version"
+  verify unit "publish refuses in one order, each refusal before anything after it is read or asked"
   verify contract "Publish to Registry: registry publishing holds — declaration_valid, wasm_binary_available, registry_client_available, credentials_available, sha256_computed, duplicate_version_rejected, registry_url_returned, published_event_emitted"
 }
 

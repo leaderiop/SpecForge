@@ -47,7 +47,8 @@ pub struct Loaded {
     /// What each entry enabled, in `entries` order.
     pub enabled: Vec<EnabledExtension>,
     /// Each loaded extension's declaration, once, in the order the
-    /// entries name them: the registry build's input.
+    /// entries name them: the registry build's input, which it puts in
+    /// load order (ADR 0041).
     pub declarations: Vec<ExtensionDeclaration>,
     /// The lock's E033 (once, when it left an entry unloaded), each
     /// failure's diagnostic, in entry order, then the declarations' load

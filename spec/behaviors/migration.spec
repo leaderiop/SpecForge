@@ -444,8 +444,10 @@ behavior invoke_extension_migration_hooks "Invoke Extension Migration Hooks" {
     migration hooks for the remaining extensions. A single extension hook
     failure MUST NOT prevent other extensions from running their hooks.
 
-    The compiler MUST invoke extension hooks in the deterministic load order
-    defined by extension_load_order_determinism. An extension that failed
+    The compiler MUST invoke extension hooks in the registry build's load
+    order (registry_build_load_order, extension_load_order_determinism). A
+    cycle among required peers is the compile's E027, not a hook failure:
+    the hooks still run. An extension that failed
     to load is not loaded, so it has no hook to invoke.
 
     Cross-extension reference stability: extension migration hooks MUST

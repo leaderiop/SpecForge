@@ -10,6 +10,7 @@ mod trace;
 
 use serde_json::{Value, json};
 
+use crate::lifecycle::Revision;
 use crate::prompt::{PromptOutcome, PromptSpec, prompt_envelope};
 use crate::protocol::JsonRpcResponse;
 use crate::state::McpState;
@@ -102,7 +103,7 @@ impl Surface for Prompts {
     }
 
     fn envelope(
-        _: &McpState,
+        _: Revision,
         found: &Found<&'static PromptSpec, std::convert::Infallible>,
         _: &Invocation,
         outcome: PromptOutcome,

@@ -405,10 +405,12 @@ term t_compile_cache "compile cache" {
 
 term t_peer_dependency "peer dependency" {
   definition """
-    An extension's declared requirement that another extension must be installed
-    and satisfy a semver version range. Peer dependencies determine
-    topological load order and are validated at compiler startup.
-    Unsatisfied peers produce a hard error.
+    An extension's declared requirement on another extension: its name, a
+    SemVer range (read as Cargo reads one) and whether it is optional. The
+    registry build loads an extension after its peers and judges each peer
+    by one rule (ADR 0041): a required peer must be loaded, a loaded one at
+    a version its range accepts. Unsatisfied is E027; a range that is not
+    SemVer is E073.
   """
   see_also   [t_edk]
 }

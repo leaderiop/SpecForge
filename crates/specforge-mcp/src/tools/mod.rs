@@ -25,6 +25,7 @@ mod validate;
 
 use serde_json::{Value, json};
 
+use crate::lifecycle::Revision;
 use crate::mutation::{self, Mutated};
 use crate::protocol::JsonRpcResponse;
 use crate::state::McpState;
@@ -237,7 +238,7 @@ impl Surface for Tools {
     }
 
     fn envelope(
-        state: &McpState,
+        revision: Revision,
         found: &Found<&'static ToolSpec, ToolEntry>,
         invocation: &Invocation,
         outcome: ToolOutcome,
@@ -252,7 +253,7 @@ impl Surface for Tools {
         envelope(
             outcome.from_tool(&invocation.name),
             id,
-            state.sends_structured_content(),
+            revision.sends_structured_content(),
             typed,
         )
     }

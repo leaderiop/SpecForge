@@ -14,7 +14,7 @@ pub(crate) fn keyword(kind: &EntityKindDescriptor) -> &str {
 }
 
 /// Populate all three registries from the declarations, in load order
-/// (dependencies first), plus the diagnostics of doing so.
+/// (ADR 0041), plus the diagnostics of doing so.
 pub(crate) fn populate(
     declarations: &[ExtensionDeclaration],
 ) -> (KindRegistry, FieldRegistry, EdgeRegistry, Vec<Diagnostic>) {

@@ -110,11 +110,15 @@ behavior render_extension_outline "Render the Extension Outline" {
   ensures {
     one_card_per_extension  "each loaded extension is one card naming its version and what it contributes"
     declared_text_contained "text an extension declares stays inside the label, string or table cell it is written in, in every format"
+    deps_selected           "the dependencies every format shows, json included, are the ones --deps selects"
   }
   contract   """
     When specforge outline (or MCP specforge.outline_extensions) is
     invoked, the system MUST render one card per loaded extension, with
     its dependencies and enhancements, as markdown, mermaid, dot or json.
+    The --deps level (direct, effective: direct and used transitive,
+    full: every transitive) selects the dependencies every format shows,
+    json included.
     Text an extension declares (its name, version, kind keywords, field
     names) MUST be written through the escaping of the syntax it sits in:
     Mermaid's entity codes in a label, the record escapes in a DOT record
@@ -124,7 +128,8 @@ behavior render_extension_outline "Render the Extension Outline" {
   verify unit "declared text with a quote, markup or a line break stays inside its Mermaid label"
   verify unit "declared text with a pipe or a line break stays in its Markdown table cell"
   verify unit "the builtins' outline is unchanged in every format"
-  verify contract "Render the Extension Outline: outline rendering holds — declarations_loaded, one_card_per_extension, declared_text_contained"
+  verify unit "the dependencies every format shows, json included, are the ones --deps selects"
+  verify contract "Render the Extension Outline: outline rendering holds — declarations_loaded, one_card_per_extension, declared_text_contained, deps_selected"
 }
 
 behavior compute_traceability_chain "Compute Traceability Chain" {

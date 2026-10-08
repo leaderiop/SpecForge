@@ -219,7 +219,7 @@ fn contract_shutdown() {
     // behavior written to disk, served by the next call.
     server.write("more.spec", "behavior gamma \"Gamma\" {\n}\n");
     call_tool(&mut server, "specforge.stats", json!({}));
-    assert_eq!(server.state().notification_outbox.len(), 1);
+    assert_eq!(server.state().subscriptions().pending(), 2);
 
     let resp = call(&mut server, "shutdown", json!({}));
     assert_eq!(resp["result"], json!({}), "{resp}");
@@ -227,8 +227,8 @@ fn contract_shutdown() {
     // notifications_flushed: the pending notification still reaches the
     // client after the shutdown response.
     let delivered = server.take_notifications();
-    assert_eq!(delivered.len(), 1, "{delivered:?}");
-    let mut added: Vec<&str> = delivered[0]["params"]["added_nodes"]
+    assert_eq!(delivered.len(), 2, "{delivered:?}");
+    let mut added: Vec<&str> = delivered[1]["params"]["added_nodes"]
         .as_array()
         .unwrap()
         .iter()
@@ -238,14 +238,14 @@ fn contract_shutdown() {
     assert_eq!(added, ["gamma"]);
 
     // subscriptions_removed: none left, and each removal was announced.
-    assert!(server.state().subscriptions.is_empty());
+    assert!(server.state().subscriptions().is_empty());
     let mut removed = events(&server, "mcp_subscription_removed");
-    removed.sort_by_key(|p| p["subscriptionType"].to_string());
+    removed.sort_by_key(|p| p["resourceUri"].to_string());
     assert_eq!(
         removed,
         [
-            json!({"subscriptionType": "specforge/diagnosticsChanged", "clientId": "default"}),
-            json!({"subscriptionType": "specforge/graphChanged", "clientId": "default"}),
+            json!({"resourceUri": "specforge://diagnostics"}),
+            json!({"resourceUri": "specforge://graph"}),
         ]
     );
 
@@ -260,7 +260,7 @@ fn contract_shutdown() {
     // shutdown_emitted, with what it released.
     let shutdown = events(&server, "mcp_server_shutdown");
     assert_eq!(shutdown.len(), 1, "{shutdown:?}");
-    assert_eq!(shutdown[0]["pending_notifications_flushed"], 1);
+    assert_eq!(shutdown[0]["pending_notifications_flushed"], 2);
     assert_eq!(shutdown[0]["subscriptions_released"], 2);
     // The served session's runtime went with it.
     assert_eq!(shutdown[0]["wasm_engines_released"], 1);
@@ -2384,6 +2384,16 @@ fn rebuild(server: &mut McpServer) {
     assert!(resp["error"].is_null(), "{resp}");
 }
 
+/// `notifications/resources/updated` for `uri`, as a handshake subscriber
+/// hears it.
+fn updated(uri: &str) -> Value {
+    json!({
+        "jsonrpc": "2.0",
+        "method": "notifications/resources/updated",
+        "params": {"uri": uri},
+    })
+}
+
 #[specforge_test(
     behavior = "notify_graph_delta_via_mcp",
     verify = "Notify Graph Delta via MCP: graph delta MCP notification holds — graph_delta_computed_fired, subscribers_notified, no_notification_when_empty, delta_notified_emitted"
@@ -2412,17 +2422,20 @@ fn contract_graph_notification() {
     rebuild(&mut server);
     assert_eq!(
         server.take_notifications(),
-        [json!({
-            "jsonrpc": "2.0",
-            "method": "specforge/graphChanged",
-            "params": {
-                "added_nodes": ["gamma"],
-                "removed_nodes": ["beta"],
-                "modified_nodes": [],
-                "added_edges": [],
-                "removed_edges": [{"source": "beta", "target": "alpha", "label": "behaviors"}],
-            },
-        })]
+        [
+            updated("specforge://graph"),
+            json!({
+                "jsonrpc": "2.0",
+                "method": "specforge/graphChanged",
+                "params": {
+                    "added_nodes": ["gamma"],
+                    "removed_nodes": ["beta"],
+                    "modified_nodes": [],
+                    "added_edges": [],
+                    "removed_edges": [{"source": "beta", "target": "alpha", "label": "behaviors"}],
+                },
+            }),
+        ]
     );
 
     // subscribers_notified: a rebuild that only changes gamma's fields
@@ -2435,17 +2448,20 @@ fn contract_graph_notification() {
     rebuild(&mut server);
     assert_eq!(
         server.take_notifications(),
-        [json!({
-            "jsonrpc": "2.0",
-            "method": "specforge/graphChanged",
-            "params": {
-                "added_nodes": [],
-                "removed_nodes": [],
-                "modified_nodes": ["gamma"],
-                "added_edges": [],
-                "removed_edges": [],
-            },
-        })]
+        [
+            updated("specforge://graph"),
+            json!({
+                "jsonrpc": "2.0",
+                "method": "specforge/graphChanged",
+                "params": {
+                    "added_nodes": [],
+                    "removed_nodes": [],
+                    "modified_nodes": ["gamma"],
+                    "added_edges": [],
+                    "removed_edges": [],
+                },
+            }),
+        ]
     );
 
     // delta_notified_emitted: once per delivered delta.
@@ -2486,9 +2502,9 @@ fn subscribed_graph_server() -> (Served, PathBuf) {
 fn modified_after_rebuild(server: &mut McpServer) -> Value {
     rebuild(server);
     let sent = server.take_notifications();
-    assert_eq!(sent.len(), 1, "{sent:?}");
-    assert_eq!(sent[0]["method"], "specforge/graphChanged");
-    sent[0]["params"]["modified_nodes"].clone()
+    assert_eq!(sent.len(), 2, "{sent:?}");
+    assert_eq!(sent[1]["method"], "specforge/graphChanged");
+    sent[1]["params"]["modified_nodes"].clone()
 }
 
 #[specforge_test(
@@ -2611,7 +2627,10 @@ fn contract_diagnostics_notification() {
     };
     assert_eq!(
         server.take_notifications(),
-        [changed(json!([duplicate]), json!([]))]
+        [
+            updated("specforge://diagnostics"),
+            changed(json!([duplicate]), json!([])),
+        ]
     );
 
     // unchanged_suppressed: rebuilding the same project sends nothing.
@@ -2624,7 +2643,10 @@ fn contract_diagnostics_notification() {
     assert_eq!(server.state().diagnostics(), clean);
     assert_eq!(
         server.take_notifications(),
-        [changed(json!([]), json!([duplicate]))]
+        [
+            updated("specforge://diagnostics"),
+            changed(json!([]), json!([duplicate])),
+        ]
     );
 
     // delta_notified_emitted: once per delivered delta.
@@ -2945,8 +2967,23 @@ fn model_filters_reach_the_model() {
         model_kinds(&mut server, json!({"kinds": ["behavior"]})),
         ["behavior"]
     );
-    // An extension the project does not load contributes nothing.
-    assert!(model_kinds(&mut server, json!({"extension": "@specforge/product"})).is_empty());
+    // An extension the project does not load is refused.
+    let refused = call_tool(
+        &mut server,
+        "specforge.model",
+        json!({"extension": "@specforge/product"}),
+    );
+    assert_eq!(refused["result"]["isError"], true, "{refused}");
+    let error = tool_json(&refused);
+    assert_eq!(error["code"], "extension_not_found");
+    assert_eq!(error["argument"], "extension");
+    assert!(
+        error["data"]["suggestion"]
+            .as_str()
+            .unwrap()
+            .contains("@specforge/software"),
+        "{error}"
+    );
     assert_eq!(
         model_kinds(&mut server, json!({"extension": "@specforge/software"})),
         all
@@ -2965,6 +3002,77 @@ fn model_filters_reach_the_model() {
     let keys = model_text(&mut server, json!({"format": "dbml"}));
     let every = model_text(&mut server, json!({"format": "dbml", "fields": "all"}));
     assert!(every.len() > keys.len());
+}
+
+#[specforge_test(
+    behavior = "filter_model",
+    verify = "a depth without a root is refused"
+)]
+fn a_model_depth_without_a_root_is_refused() {
+    let (mut server, _project) = model_server();
+    let resp = call_tool(&mut server, "specforge.model", json!({"depth": 0}));
+    assert_eq!(resp["result"]["isError"], true, "{resp}");
+    let error = tool_json(&resp);
+    assert_eq!(error["code"], "invalid_input");
+    assert_eq!(error["argument"], "root");
+    assert_eq!(
+        error["message"],
+        "'depth' needs 'root': the kind the depth counts from"
+    );
+}
+
+#[specforge_test(
+    behavior = "filter_model",
+    verify = "an empty kind list selects every kind"
+)]
+fn an_empty_kind_list_selects_every_kind() {
+    let (mut server, _project) = model_server();
+    assert_eq!(
+        model_kinds(&mut server, json!({"kinds": []})),
+        model_kinds(&mut server, json!({}))
+    );
+}
+
+#[specforge_test(
+    behavior = "filter_model",
+    verify = "a root no loaded extension declares is refused with unknown_kind naming the closest declared kind"
+)]
+fn an_unknown_model_root_is_refused_on_root() {
+    let (mut server, _project) = model_server();
+    let resp = call_tool(&mut server, "specforge.model", json!({"root": "behaviour"}));
+    assert_eq!(resp["result"]["isError"], true, "{resp}");
+    let error = tool_json(&resp);
+    assert_eq!(error["code"], "invalid_input");
+    assert_eq!(error["argument"], "root");
+    assert_eq!(error["message"], "unknown entity kind 'behaviour'");
+    assert_eq!(error["data"]["suggestion"], "did you mean 'behavior'?");
+}
+
+#[specforge_test(
+    behavior = "filter_model",
+    verify = "a listed kind the project does not know is reported as I020 and selects nothing"
+)]
+fn an_unknown_model_kind_is_an_i020_notice() {
+    let (mut server, _project) = model_server();
+    let resp = call_tool(
+        &mut server,
+        "specforge.model",
+        json!({"format": "json", "kinds": ["behavior", "behaviour"]}),
+    );
+    assert_eq!(resp["result"]["isError"], false, "{resp}");
+    let model: Value =
+        serde_json::from_str(resp["result"]["content"][0]["text"].as_str().unwrap()).unwrap();
+    let kinds: Vec<&str> = model["entities"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| e["name"].as_str().unwrap())
+        .collect();
+    assert_eq!(kinds, ["behavior"]);
+    assert_eq!(
+        resp["result"]["_meta"]["diagnostics"],
+        json!([unknown_kind("behaviour", Some("behavior"))])
+    );
 }
 
 #[specforge_test(

@@ -516,7 +516,6 @@ pub fn assert_client_contract(
             registry,
             Some(credential),
             client,
-            false,
             Some(&key),
         )
         .unwrap_or_else(|d| panic!("K2: publishing {version} fails: {d:?}"));

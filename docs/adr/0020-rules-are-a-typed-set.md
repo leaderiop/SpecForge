@@ -62,8 +62,9 @@ extension its author works without names it in the descriptor's optional `target
 (protocol 1.1.0; `@specforge/product`'s W078 on governance's `constraint` does): while that extension
 is not loaded the rule alone is inert and silent, loaded without the kind or edge type it is W021.
 A peer dependency is not the tool for that: peers order extension loading and pin versions, and a
-mutual optional pair is a needless cycle (`topological_sort_extensions` now ignores optional edges
-that would close one, and E027 is only for cycles among required peers). A cycle follows
+mutual optional pair is a needless cycle (the
+registry build's load order drops an optional edge that would close one, and E027 is only for cycles
+among required peers, ADR 0041). A cycle follows
 every field that writes the edge type. A rule that reads `verify` statements on a declared kind that
 accepts none is W112. The files `file_exists` rules read (against the spec root, ADR 0019; each item
 of a list field) are a session's check inputs. W148 carries every failed entity as data.

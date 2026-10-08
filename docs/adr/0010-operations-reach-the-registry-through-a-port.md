@@ -42,3 +42,8 @@ the fetch policy over the `RegistryClient` seam rather than a concrete HTTP clie
 in-memory adapter (`specforge_ops::registry::testing::MemoryRegistry`), and both are held to
 `assert_registry_contract`. The HTTP shapes live in `specforge-registry-wire`, which neither `specforge-ops`
 nor the LSP links.
+
+**Amended by ADR 0045 (2026-10-08):** the port has three methods, `versions`, `fetch` and
+`publish`; the adapter also holds the publish credential and the signing key, read from the user's
+`~/.specforge` (`specforge_ops_registry::User`). `publish` is an operation in ops, and the CLI only
+presents it.

@@ -6,6 +6,7 @@ mod edges;
 mod enhancements;
 mod fields;
 mod kinds;
+mod order;
 mod peers;
 mod pin;
 mod rules;

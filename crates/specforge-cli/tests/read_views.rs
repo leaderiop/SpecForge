@@ -458,6 +458,45 @@ fn cli_and_mcp_model_render_the_same_text() {
     }
 }
 
+#[test]
+fn a_model_refuses_what_the_project_does_not_have() {
+    let tmp = project("fx1");
+    let root = s(tmp.path());
+
+    let run = cli(&["model", root, "--root", "behaviour"]);
+    assert_eq!(run.code, Some(1), "{}", run.stderr);
+    assert_eq!(run.stdout, "");
+    assert_eq!(
+        run.stderr,
+        "error[unknown_kind]: unknown entity kind 'behaviour'\n  hint: did you mean 'behavior'?\n"
+    );
+
+    let run = cli(&["model", root, "--extension", "software"]);
+    assert_eq!(run.code, Some(1), "{}", run.stderr);
+    assert_eq!(run.stdout, "");
+    assert_eq!(
+        run.stderr,
+        "error[extension_not_found]: extension 'software' is not loaded by this project\n  hint: did you mean '@specforge/software'?\n"
+    );
+
+    // A kind the project does not know is reported, and selects nothing.
+    let run = cli(&["model", root, "--kinds", "behaviour", "--format", "json"]);
+    assert_eq!(run.code, Some(0), "{}", run.stderr);
+    let model: Value = serde_json::from_str(&run.stdout).unwrap();
+    assert!(model["entities"].as_array().unwrap().is_empty());
+    assert!(
+        run.stderr
+            .contains("info[I020]: unknown entity kind 'behaviour'"),
+        "{}",
+        run.stderr
+    );
+    assert!(
+        run.stderr.contains("did you mean 'behavior'?"),
+        "{}",
+        run.stderr
+    );
+}
+
 #[specforge_test_macros::test(
     behavior = "read_views_over_the_project_view",
     verify = "specforge outline and specforge.outline_extensions render the same text"

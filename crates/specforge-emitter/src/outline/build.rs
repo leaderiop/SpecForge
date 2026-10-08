@@ -17,193 +17,196 @@ fn severity(severity: &ValidationSeverity) -> &'static str {
     }
 }
 
-#[allow(non_snake_case)]
-pub fn OutlineIntermediate_from_declarations(
-    declarations: &[ExtensionDeclaration],
-) -> OutlineIntermediate {
-    // Build kind→extension ownership index
-    let mut kind_to_extension: HashMap<String, String> = HashMap::new();
-    for m in declarations {
-        for ek in &m.entities {
-            kind_to_extension.insert(keyword(ek).to_string(), m.name().to_string());
-        }
-    }
-
-    let mut extensions = Vec::new();
-    let mut dependencies = Vec::new();
-    let mut enhancements = Vec::new();
-    let mut cross_edges = Vec::new();
-
-    for m in declarations {
-        // Map entity kinds
-        let entity_kinds: Vec<OutlineEntityKind> = m
-            .entities
-            .iter()
-            .map(|ek| {
-                let fields: Vec<OutlineField> = ek
-                    .fields
-                    .iter()
-                    .map(|f| OutlineField {
-                        name: f.name.clone(),
-                        field_type: f.field_type.clone(),
-                        required: f.required,
-                        source_extension: m.name().to_string(),
-                        edge: f.edge.clone(),
-                        target_kind: f.target_kind.clone(),
-                    })
-                    .collect();
-
-                // Find enhancements targeting this kind from other extensions
-                let enhanced_by: Vec<OutlineFieldAttribution> = declarations
-                    .iter()
-                    .filter(|other| other.name() != m.name())
-                    .flat_map(|other| {
-                        other
-                            .enhancements
-                            .iter()
-                            .filter(|enh| enh.target_kind == keyword(ek))
-                            .map(move |enh| OutlineFieldAttribution {
-                                source_extension: other.name().to_string(),
-                                field_count: enh.fields.len(),
-                                field_names: enh.fields.iter().map(|f| f.name.clone()).collect(),
-                            })
-                    })
-                    .collect();
-
-                OutlineEntityKind {
-                    name: ek.name.clone(),
-                    keyword: keyword(ek).to_string(),
-                    testable: ek.testable,
-                    field_count: fields.len(),
-                    fields,
-                    enhanced_by,
-                }
-            })
-            .collect();
-
-        // Map edge types
-        let edge_types: Vec<OutlineEdgeType> = m
-            .edges
-            .iter()
-            .map(|e| OutlineEdgeType {
-                label: e.label.clone(),
-                description: e.description.clone(),
-                source_kind: e.source_kind.clone(),
-                target_kind: e.target_kind.clone(),
-            })
-            .collect();
-
-        // Map validation rules
-        let validation_rules: Vec<OutlineValidationRule> = m
-            .validation_rules
-            .iter()
-            .map(|r| OutlineValidationRule {
-                code: r.code.clone(),
-                severity: severity(&r.severity).to_string(),
-                check: r.check.clone(),
-                target_kind: r.target_kind.clone(),
-            })
-            .collect();
-
-        // Map contributes
-        let flags = m.contribution_flags();
-        let contributes = OutlineContributes {
-            entities: flags.entities,
-            validators: flags.validators,
-            renderers: flags.renderers,
-            providers: flags.providers,
-            collectors: flags.collectors,
-            prompts: flags.prompts,
-            parsers: flags.parsers,
-            grammars: flags.grammars,
-            body_parsers: flags.body_parsers,
-        };
-
-        // Map surface counts
-        let surface_counts = OutlineSurfaceCounts {
-            cli_commands: m.surfaces.commands.len(),
-            mcp_tools: m.surfaces.mcp_tools.len(),
-            mcp_resources: m.surfaces.mcp_resources.len(),
-        };
-
-        // Map shared fields (fields declared once, applied to all entity kinds)
-        let shared_fields: Vec<OutlineSharedField> = m
-            .shared_fields
-            .iter()
-            .map(|f| OutlineSharedField {
-                name: f.name.clone(),
-                field_type: f.field_type.clone(),
-                required: f.required,
-            })
-            .collect();
-
-        extensions.push(OutlineExtension {
-            name: m.name().to_string(),
-            version: m.version().to_string(),
-            entity_kinds,
-            edge_types,
-            validation_rules,
-            contributes,
-            verify_kinds: m.verify_kinds().into_iter().map(String::from).collect(),
-            surface_counts,
-            shared_fields,
-            collector_count: m.collectors.len(),
-            color: m.handshake.theme_color.clone(),
-        });
-
-        // Map peer dependencies (direct)
-        for dep in m.peers() {
-            dependencies.push(OutlineDependency {
-                from: m.name().to_string(),
-                to: dep.name.clone(),
-                version: dep.version.clone(),
-                optional: dep.optional,
-                kind: DependencyKind::Direct,
-            });
-        }
-
-        // Map entity enhancements
-        for enh in &m.enhancements {
-            // Find which extension owns the target kind
-            let owner = kind_to_extension
-                .get(&enh.target_kind)
-                .cloned()
-                .unwrap_or_else(|| enh.source_extension.clone());
-            enhancements.push(OutlineEnhancement {
-                enhancer: m.name().to_string(),
-                owner,
-                target_kind: enh.target_kind.clone(),
-                field_count: enh.fields.len(),
-                field_names: enh.fields.iter().map(|f| f.name.clone()).collect(),
-            });
-        }
-
-        // Detect cross-extension edges
-        for edge in &m.edges {
-            if let (Some(sk), Some(tk)) = (&edge.source_kind, &edge.target_kind)
-                && let Some(te) = kind_to_extension.get(tk.as_str())
-                && te != m.name()
-            {
-                cross_edges.push(OutlineCrossEdge {
-                    edge_label: edge.label.clone(),
-                    owner_extension: m.name().to_string(),
-                    source_kind: sk.clone(),
-                    target_kind: tk.clone(),
-                    target_extension: te.clone(),
-                });
+impl OutlineIntermediate {
+    pub(super) fn of(declarations: &[ExtensionDeclaration]) -> Self {
+        // Build kind→extension ownership index
+        let mut kind_to_extension: HashMap<String, String> = HashMap::new();
+        for m in declarations {
+            for ek in &m.entities {
+                kind_to_extension.insert(keyword(ek).to_string(), m.name().to_string());
             }
         }
-    }
 
-    // Compute transitive closure
-    let transitive = compute_transitive_deps(&dependencies, &kind_to_extension, declarations);
-    dependencies.extend(transitive);
+        let mut extensions = Vec::new();
+        let mut dependencies = Vec::new();
+        let mut enhancements = Vec::new();
+        let mut cross_edges = Vec::new();
 
-    OutlineIntermediate {
-        extensions,
-        dependencies,
-        enhancements,
-        cross_edges,
+        for m in declarations {
+            // Map entity kinds
+            let entity_kinds: Vec<OutlineEntityKind> = m
+                .entities
+                .iter()
+                .map(|ek| {
+                    let fields: Vec<OutlineField> = ek
+                        .fields
+                        .iter()
+                        .map(|f| OutlineField {
+                            name: f.name.clone(),
+                            field_type: f.field_type.clone(),
+                            required: f.required,
+                            source_extension: m.name().to_string(),
+                            edge: f.edge.clone(),
+                            target_kind: f.target_kind.clone(),
+                        })
+                        .collect();
+
+                    // Find enhancements targeting this kind from other extensions
+                    let enhanced_by: Vec<OutlineFieldAttribution> = declarations
+                        .iter()
+                        .filter(|other| other.name() != m.name())
+                        .flat_map(|other| {
+                            other
+                                .enhancements
+                                .iter()
+                                .filter(|enh| enh.target_kind == keyword(ek))
+                                .map(move |enh| OutlineFieldAttribution {
+                                    source_extension: other.name().to_string(),
+                                    field_count: enh.fields.len(),
+                                    field_names: enh
+                                        .fields
+                                        .iter()
+                                        .map(|f| f.name.clone())
+                                        .collect(),
+                                })
+                        })
+                        .collect();
+
+                    OutlineEntityKind {
+                        name: ek.name.clone(),
+                        keyword: keyword(ek).to_string(),
+                        testable: ek.testable,
+                        field_count: fields.len(),
+                        fields,
+                        enhanced_by,
+                    }
+                })
+                .collect();
+
+            // Map edge types
+            let edge_types: Vec<OutlineEdgeType> = m
+                .edges
+                .iter()
+                .map(|e| OutlineEdgeType {
+                    label: e.label.clone(),
+                    description: e.description.clone(),
+                    source_kind: e.source_kind.clone(),
+                    target_kind: e.target_kind.clone(),
+                })
+                .collect();
+
+            // Map validation rules
+            let validation_rules: Vec<OutlineValidationRule> = m
+                .validation_rules
+                .iter()
+                .map(|r| OutlineValidationRule {
+                    code: r.code.clone(),
+                    severity: severity(&r.severity).to_string(),
+                    check: r.check.clone(),
+                    target_kind: r.target_kind.clone(),
+                })
+                .collect();
+
+            // Map contributes
+            let flags = m.contribution_flags();
+            let contributes = OutlineContributes {
+                entities: flags.entities,
+                validators: flags.validators,
+                renderers: flags.renderers,
+                providers: flags.providers,
+                collectors: flags.collectors,
+                prompts: flags.prompts,
+                parsers: flags.parsers,
+                grammars: flags.grammars,
+                body_parsers: flags.body_parsers,
+            };
+
+            // Map surface counts
+            let surface_counts = OutlineSurfaceCounts {
+                cli_commands: m.surfaces.commands.len(),
+                mcp_tools: m.surfaces.mcp_tools.len(),
+                mcp_resources: m.surfaces.mcp_resources.len(),
+            };
+
+            // Map shared fields (fields declared once, applied to all entity kinds)
+            let shared_fields: Vec<OutlineSharedField> = m
+                .shared_fields
+                .iter()
+                .map(|f| OutlineSharedField {
+                    name: f.name.clone(),
+                    field_type: f.field_type.clone(),
+                    required: f.required,
+                })
+                .collect();
+
+            extensions.push(OutlineExtension {
+                name: m.name().to_string(),
+                version: m.version().to_string(),
+                entity_kinds,
+                edge_types,
+                validation_rules,
+                contributes,
+                verify_kinds: m.verify_kinds().into_iter().map(String::from).collect(),
+                surface_counts,
+                shared_fields,
+                collector_count: m.collectors.len(),
+                color: m.handshake.theme_color.clone(),
+            });
+
+            // Map peer dependencies (direct)
+            for dep in m.peers() {
+                dependencies.push(OutlineDependency {
+                    from: m.name().to_string(),
+                    to: dep.name.clone(),
+                    version: dep.version.clone(),
+                    optional: dep.optional,
+                    kind: DependencyKind::Direct,
+                });
+            }
+
+            // Map entity enhancements
+            for enh in &m.enhancements {
+                // Find which extension owns the target kind
+                let owner = kind_to_extension
+                    .get(&enh.target_kind)
+                    .cloned()
+                    .unwrap_or_else(|| enh.source_extension.clone());
+                enhancements.push(OutlineEnhancement {
+                    enhancer: m.name().to_string(),
+                    owner,
+                    target_kind: enh.target_kind.clone(),
+                    field_count: enh.fields.len(),
+                    field_names: enh.fields.iter().map(|f| f.name.clone()).collect(),
+                });
+            }
+
+            // Detect cross-extension edges
+            for edge in &m.edges {
+                if let (Some(sk), Some(tk)) = (&edge.source_kind, &edge.target_kind)
+                    && let Some(te) = kind_to_extension.get(tk.as_str())
+                    && te != m.name()
+                {
+                    cross_edges.push(OutlineCrossEdge {
+                        edge_label: edge.label.clone(),
+                        owner_extension: m.name().to_string(),
+                        source_kind: sk.clone(),
+                        target_kind: tk.clone(),
+                        target_extension: te.clone(),
+                    });
+                }
+            }
+        }
+
+        // Compute transitive closure
+        let transitive = compute_transitive_deps(&dependencies, &kind_to_extension, declarations);
+        dependencies.extend(transitive);
+
+        OutlineIntermediate {
+            extensions,
+            dependencies,
+            enhancements,
+            cross_edges,
+        }
     }
 }
 

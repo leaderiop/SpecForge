@@ -109,6 +109,7 @@ impl OpErrorKind {
             (codes::E045, OpErrorKind::SchemaMismatch),
             (codes::E067, OpErrorKind::SchemaMismatch),
             (codes::E071, OpErrorKind::SchemaMismatch),
+            (codes::E073, OpErrorKind::SchemaMismatch),
             (codes::R_TRUST_004, OpErrorKind::SchemaMismatch),
             (codes::R_OPS_004, OpErrorKind::SchemaMismatch),
             (codes::E058, OpErrorKind::PreconditionFailed),
@@ -230,6 +231,12 @@ impl OpError {
         self
     }
 
+    /// This failure with `prefix` ahead of its message; its code, kind and suggestion are kept.
+    pub fn prefixed(mut self, prefix: impl AsRef<str>) -> Self {
+        self.message = format!("{}{}", prefix.as_ref(), self.message);
+        self
+    }
+
     pub fn with_suggestion(mut self, suggestion: impl Into<String>) -> Self {
         self.suggestion = Some(suggestion.into());
         self
@@ -284,6 +291,7 @@ mod tests {
             (codes::E067, OpErrorKind::SchemaMismatch),
             (codes::E071, OpErrorKind::SchemaMismatch),
             (codes::E072, OpErrorKind::InvalidInput),
+            (codes::E073, OpErrorKind::SchemaMismatch),
             (codes::R_RES_001, OpErrorKind::ExtensionNotFound),
             (codes::R_RES_003, OpErrorKind::InvalidInput),
             (codes::R_RES_004, OpErrorKind::InvalidInput),

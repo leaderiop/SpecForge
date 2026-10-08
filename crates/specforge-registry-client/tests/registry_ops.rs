@@ -182,7 +182,6 @@ fn publish_computes_sha256() {
         &registry,
         Some(&accepted()),
         &client,
-        false,
         None,
     )
     .unwrap();
@@ -202,9 +201,9 @@ fn publish_computes_sha256() {
     assert_eq!(stored.size_bytes, package_bytes.len() as u64);
 }
 
-// B:publish_to_registry — verify unit "duplicate version rejected without --force"
+// B:publish_to_registry — verify unit "a version already published is refused with R007"
 #[test]
-fn publish_rejects_duplicate_version_without_force() {
+fn a_version_the_registry_holds_is_refused_with_r007() {
     let registry = default_registry();
     let manifest = minimal_manifest();
     let client = client();
@@ -217,40 +216,17 @@ fn publish_rejects_duplicate_version_without_force() {
         &registry,
         Some(&accepted()),
         &client,
-        false,
         None,
     )
     .unwrap_err();
     assert_eq!(err.severity, Severity::Error);
-    assert!(err.message.contains("already exists"));
-    assert!(publishes(&client).is_empty(), "nothing was uploaded");
-}
-
-// B:publish_to_registry — verify unit "duplicate version allowed with --force"
-#[test]
-fn publish_allows_duplicate_version_with_force() {
-    let registry = default_registry();
-    let manifest = minimal_manifest();
-    let client = client();
-
-    // force=true skips the existence check entirely
-    let url = publish_to_registry(
-        b"fake-wasm-bytes",
-        &manifest,
-        &registry,
-        Some(&accepted()),
-        &client,
-        true,
-        None,
-    )
-    .unwrap();
-    assert!(url.contains("@test"));
+    assert_eq!(err.code, "R007");
     assert!(
         client
             .calls()
             .iter()
             .all(|call| call.kind != CallKind::Metadata),
-        "no existence check was made"
+        "publish asked nothing before it uploaded"
     );
 }
 
@@ -275,7 +251,6 @@ fn publish_returns_registry_url_on_success() {
         &registry,
         Some(&accepted()),
         &client,
-        false,
         None,
     )
     .unwrap();
@@ -296,7 +271,6 @@ fn publish_threads_credential_to_client() {
         &registry,
         Some(&credential),
         &client,
-        true,
         None,
     )
     .unwrap();
@@ -316,7 +290,6 @@ fn publish_threads_credential_to_client() {
         &registry,
         None,
         &anonymous,
-        true,
         None,
     )
     .unwrap_err();
@@ -411,7 +384,6 @@ fn publish_signs_package_when_key_provided() {
         &registry,
         Some(&accepted()),
         &client,
-        false,
         Some(&key),
     )
     .unwrap();
@@ -440,7 +412,6 @@ fn publish_without_key_sends_no_signature() {
         &registry,
         Some(&accepted()),
         &client,
-        false,
         None,
     )
     .unwrap();

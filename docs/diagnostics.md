@@ -325,11 +325,15 @@ Level: error
 ```
 E027: Unsatisfiable peer dependency
 
-An extension's required peer dependency can't be satisfied: it isn't installed,
-the installed version doesn't match the required range, peer dependencies form a
-cycle, an uninstall would remove an extension others still require, or an
-upgrade would break a peer's requirement. Install or upgrade the named peer, or
-use `--force` where the command supports it.
+An extension's peer dependency isn't satisfied: a required peer isn't installed,
+or an installed peer (optional or not) is at a version the range doesn't accept,
+a version that isn't SemVer included; or required peers form a cycle, reported
+once naming its extensions by every compile. `specforge add` and `update` refuse
+an install that would leave a locked peer unsatisfied (from a registry, a
+version diamond is R-RES-005/R-RES-006 instead), and `specforge remove` refuses
+to uninstall an extension others still require. Install or upgrade the named
+peer, make one peer of a cycle optional, or use `--force` where the command
+supports it.
 
 Owner: core
 Level: error
@@ -867,6 +871,24 @@ Owner: core
 Level: error
 ```
 
+## E073
+
+```
+E073: Unreadable peer requirement
+
+An extension declares a peer dependency whose range is not a SemVer requirement
+as Cargo reads one (`^1.2`, `~1`, `>=1, <2`, `1.x`, `*`, or a bare version such
+as `1.2.0`, which means `^1.2.0`), so no version of the peer can satisfy it,
+whether the peer is installed or not. `specforge check` (and the LSP and MCP)
+and `doctor` report it, `specforge add` and `update` refuse to install or update
+around it, and `specforge publish` refuses to upload it. Fix the range in the
+extension's declaration (its SDK `peer_dependencies`) and rebuild, or install a
+version of the extension that declares one.
+
+Owner: core
+Level: error
+```
+
 ## I002
 
 ```
@@ -888,7 +910,8 @@ I003: No registry configured
 
 The registry configuration has no `registries` array, or none of the configured
 registries is marked as the default. Add a `registries` entry and set
-`"default_registry": true` on one of them.
+`"default_registry": true` on one of them. Without a default, a package no
+`scope_filter` matches has no registry (R-OPS-001).
 
 Owner: core
 Level: info
@@ -1550,7 +1573,9 @@ R-OPS-001: No registry for the package
 No configured registry serves this package: none has a scope that matches it,
 and none is marked as the default (or no registries are configured at all). Add
 a `registries` entry to `specforge.json` with a matching scope, or mark one
-`"default_registry": true`.
+`"default_registry": true`. `specforge add`, `update` and `publish` (and MCP
+`add_extension`) choose the registry by this one rule and ask no other registry;
+a refused name sends no request.
 
 Owner: core
 Level: error
@@ -2456,19 +2481,6 @@ Owner: core
 Level: warning
 ```
 
-## W062
-
-```
-W062: Malformed semver version
-
-An extension manifest declares a peer dependency range or a version that is not
-valid semver. Use a valid semver version (e.g. `1.0.0`) or range (e.g. `^1.0.0`,
-`~1.2.0`, `>=1.0.0`).
-
-Owner: core
-Level: warning
-```
-
 ## W077
 
 ```
@@ -3164,6 +3176,7 @@ These codes are no longer emitted, and are never reused for another meaning.
 | W025 | (nothing) |
 | W026 | (nothing) |
 | W028 | (nothing) |
+| W062 | [E073](#e073) |
 | W063 | (nothing) |
 | W099 | (nothing) |
 | W111 | (nothing) |

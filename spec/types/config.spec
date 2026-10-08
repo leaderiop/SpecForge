@@ -49,11 +49,15 @@ type ProviderConfig {
 
 // ── Registry Types ──────────────────────────────────────────
 
+// One entry of specforge.json's registries. The registry for a package name
+// is the first entry whose scope_filter is its scope, else the first marked
+// default_registry; none is R-OPS-001 (ADR 0045). A credential is kept per
+// alias in ~/.specforge, never here.
 type RegistryConfig {
-  alias        string             @readonly @unique
-  url          string
-  scope_filter string[]           @optional
-  credential   RegistryCredential @optional
+  alias            string  @readonly @unique
+  url              string
+  scope_filter     string  @optional
+  default_registry boolean @optional
   verify unit "RegistryConfig schema is valid"
 }
 

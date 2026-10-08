@@ -3,6 +3,7 @@ mod views;
 
 use serde_json::{Value, json};
 
+use crate::lifecycle::Revision;
 use crate::protocol::{JsonRpcError, JsonRpcResponse};
 use crate::state::McpState;
 use crate::surface_call::{Event, Found, Invocation, Ran, Surface};
@@ -64,8 +65,8 @@ impl Surface for Resources {
         Ran::of(Err(Box::new(error)))
     }
 
-    fn unknown(state: &McpState, uri: &str) -> JsonRpcError {
-        unknown_resource(state.resource_not_found_code(), uri)
+    fn unknown(revision: Revision, uri: &str) -> JsonRpcError {
+        unknown_resource(revision.resource_not_found_code(), uri)
     }
 
     fn refusal_mut(outcome: &mut ReadOutcome) -> Option<&mut McpError> {
@@ -86,7 +87,7 @@ impl Surface for Resources {
     }
 
     fn envelope(
-        state: &McpState,
+        revision: Revision,
         _: &Found<&'static ResourceSpec, ResourceEntry>,
         invocation: &Invocation,
         mut outcome: ReadOutcome,
@@ -100,7 +101,7 @@ impl Surface for Resources {
         resource_envelope(
             outcome,
             &invocation.name,
-            state.resource_not_found_code(),
+            revision.resource_not_found_code(),
             id,
         )
     }
@@ -327,58 +328,4 @@ fn extension_resource(call: &Call<'_>, entry: &ResourceEntry, uri: &str) -> Ran<
             &error.diagnostic(),
         )))),
     }
-}
-
-use crate::DEFAULT_CLIENT_ID as DEFAULT_SUBSCRIBER;
-use crate::subscriptions::Watched;
-
-/// MCP `resources/subscribe`: track the client's interest in a resource so
-/// updates of the served project deliver delta notifications (C9-01). A URI
-/// the server does not serve is refused as `resources/read` refuses it:
-/// not found, the code of the revision of the request.
-pub fn handle_resource_subscribe(
-    state: &mut McpState,
-    params: Value,
-    id: Option<Value>,
-) -> JsonRpcResponse {
-    let invocation = match Invocation::read::<Resources>(&params) {
-        Ok(invocation) => invocation,
-        Err(error) => return JsonRpcResponse::from_error(id, error),
-    };
-    let uri = invocation.name.as_str();
-    // Served by the rule `resources/read` applies: a core resource, or an
-    // extension's, the project brought up to date first (ADR 0014 D12,
-    // ADR 0024 D2).
-    if !is_served(state, uri) {
-        return JsonRpcResponse::from_error(
-            id,
-            unknown_resource(state.resource_not_found_code(), uri),
-        );
-    }
-    let client = params
-        .get("client_id")
-        .and_then(|v| v.as_str())
-        .unwrap_or(DEFAULT_SUBSCRIBER);
-    crate::subscriptions::subscribe(state, client, Watched::of(uri));
-    JsonRpcResponse::success(id, serde_json::json!({}))
-}
-
-/// MCP `resources/unsubscribe`: drop the client's interest in a resource. It
-/// never refuses a URI: dropping what was never subscribed (or what an
-/// extension stopped serving) is a no-op success.
-pub fn handle_resource_unsubscribe(
-    state: &mut McpState,
-    params: Value,
-    id: Option<Value>,
-) -> JsonRpcResponse {
-    let invocation = match Invocation::read::<Resources>(&params) {
-        Ok(invocation) => invocation,
-        Err(error) => return JsonRpcResponse::from_error(id, error),
-    };
-    let client = params
-        .get("client_id")
-        .and_then(|v| v.as_str())
-        .unwrap_or(DEFAULT_SUBSCRIBER);
-    crate::subscriptions::unsubscribe(state, client, Watched::of(&invocation.name));
-    JsonRpcResponse::success(id, serde_json::json!({}))
 }
