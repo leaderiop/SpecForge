@@ -396,51 +396,6 @@ fn doctor_reports_an_extension_that_fails_to_load() {
     );
 }
 
-#[specforge_test(
-    behavior = "run_doctor_check",
-    verify = "a peer whose installed version doctor cannot compare is remedied with a runnable command"
-)]
-fn a_peer_recorded_at_a_non_semver_version_is_remedied_by_reinstalling_it() {
-    let dir = TempDir::new().unwrap();
-    std::fs::write(
-        dir.path().join("specforge.json"),
-        json!({"name": "p", "version": "0.1.0", "extensions": []}).to_string(),
-    )
-    .unwrap();
-    // A lock from before installs recorded their declared version: the
-    // local `@sdk/greet` is at "local", which no range can be checked against.
-    let wasm = b"module";
-    for name in ["@acme/uses-greet", "@sdk/greet"] {
-        let installed = dir.path().join(".specforge/extensions").join(name);
-        std::fs::create_dir_all(&installed).unwrap();
-        std::fs::write(installed.join("extension.wasm"), wasm).unwrap();
-    }
-    let hash = specforge_installed::hex_sha256(wasm);
-    let lock = json!({
-        "lockfile_version": 1,
-        "entries": [
-            {"name": "@acme/uses-greet", "version": "1.0.0", "source": "registry",
-             "wasm_hash": hash,
-             "peer_dependencies": [{"name": "@sdk/greet", "version": "^0.1.0"}]},
-            {"name": "@sdk/greet", "version": "local", "source": "registry", "wasm_hash": hash},
-        ],
-    });
-    std::fs::write(dir.path().join("specforge.lock"), lock.to_string()).unwrap();
-
-    let (ok, report) = doctor(dir.path());
-
-    assert!(!ok, "{report}");
-    let peer = finding(&report, "peer_mismatch");
-    let remediation = peer["remediation"].as_str().unwrap();
-    assert_eq!(
-        remediation,
-        "run `specforge add @sdk/greet` to reinstall it"
-    );
-    let check = peer["check"].as_str().unwrap();
-    assert!(check.contains("'local'"), "{check}");
-    assert!(check.contains("^0.1.0"), "{check}");
-}
-
 /// Enable `entries` in the project at `root`, replacing what it enabled.
 fn enable(root: &Path, entries: Value) {
     std::fs::write(

@@ -142,6 +142,16 @@ fn render_human(report: &DoctorReport, credentials: &CredentialHealth) -> String
     }
 
     line!();
+    line!("Peer requirements:");
+    if report.peers.is_empty() {
+        line!("  all satisfied");
+    }
+    for problem in &report.peers {
+        line!("  [{}] {}", problem.code, problem.message);
+        line!("    fix: {}", problem.suggestion);
+    }
+
+    line!();
     line!(
         "Installed binaries ({} lock entr{} checked):",
         report.extensions_checked,
@@ -169,17 +179,6 @@ fn render_human(report: &DoctorReport, credentials: &CredentialHealth) -> String
                 &expected[..8.min(expected.len())],
                 &actual[..8.min(actual.len())]
             ),
-            BinaryIssue::PeerMismatch {
-                name,
-                peer,
-                required,
-                installed,
-            } => match installed {
-                Some(version) => {
-                    line!("  [PEER] {name} — requires {peer} {required}, installed '{version}'")
-                }
-                None => line!("  [PEER] {name} — requires {peer} {required}, not installed"),
-            },
         }
     }
 

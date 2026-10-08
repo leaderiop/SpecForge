@@ -4,10 +4,11 @@ use std::path::Path;
 
 use specforge_common::Severity;
 use specforge_extension_sdk::{ContributionsBuilder, ExtensionMeta};
-use specforge_ops::doctor::{BinaryIssue, diagnose_with};
+use specforge_ops::doctor::diagnose_with;
 use specforge_ops::view::ProjectView;
 use specforge_project::CompiledProject;
 use specforge_protocol_types::PeerDependency;
+use specforge_test_macros::test as specforge_test;
 use specforge_wasm::testing::InProcessRuntime;
 
 /// `name` at `version`, served in process, declaring `peers` (required).
@@ -55,10 +56,11 @@ fn project(extensions: &[&str]) -> tempfile::TempDir {
     dir
 }
 
-/// Pinned until T3 (ADR 0041): doctor reads only the lock, so a peer a
-/// builtin satisfies is "not installed".
-#[test]
-fn pin_doctor_reports_a_builtin_peer_as_not_installed() {
+#[specforge_test(
+    behavior = "run_doctor_check",
+    verify = "a peer a builtin satisfies is not reported"
+)]
+fn a_peer_a_builtin_satisfies_is_not_reported_by_doctor() {
     let dir = project(&["@specforge/software", "@acme/app"]);
     let runtime = InProcessRuntime::new()
         .with(served("@specforge/software", "1.0.0", &[]))
@@ -78,22 +80,17 @@ fn pin_doctor_reports_a_builtin_peer_as_not_installed() {
     );
     let report = diagnose_with(&ProjectView::of(&compiled), true);
 
-    assert_eq!(
-        report.issues,
-        [BinaryIssue::PeerMismatch {
-            name: "@acme/app".into(),
-            peer: "@specforge/software".into(),
-            required: "^1.0".into(),
-            installed: None,
-        }]
-    );
-    assert!(report.has_errors());
+    assert!(report.peers.is_empty(), "{:?}", report.peers);
+    assert!(report.issues.is_empty(), "{:?}", report.issues);
+    assert!(!report.has_errors(), "{:?}", report.findings);
+    assert!(report.extensions_ok());
 }
 
-/// Pinned until T3: doctor judges a malformed range its own way, though `check` reports
-/// it as E073.
-#[test]
-fn pin_check_reports_e073_and_doctor_its_own_peer_mismatch_on_a_malformed_range() {
+#[specforge_test(
+    behavior = "run_doctor_check",
+    verify = "doctor reports the peer requirements check reports, with the remedy each suggests"
+)]
+fn doctor_reports_the_peer_requirements_check_reports() {
     let dir = project(&["@acme/base", "@acme/bad"]);
     let runtime = InProcessRuntime::new()
         .with(served("@acme/base", "1.0.0", &[]))
@@ -103,23 +100,45 @@ fn pin_check_reports_e073_and_doctor_its_own_peer_mismatch_on_a_malformed_range(
 
     let compiled = CompiledProject::compile(dir.path(), Some(&runtime));
     let all = compiled.diagnostics();
-    let peer_diagnostics: Vec<_> = all
+    let reported: Vec<_> = all
         .iter()
         .filter(|d| matches!(d.code.as_str(), "E073" | "E027"))
         .collect();
-    assert_eq!(peer_diagnostics.len(), 1, "{peer_diagnostics:?}");
-    assert_eq!(peer_diagnostics[0].code, "E073");
-    assert_eq!(peer_diagnostics[0].severity, Severity::Error);
+    assert_eq!(reported.len(), 1, "{reported:?}");
+    assert_eq!(reported[0].code, "E073");
+    assert_eq!(reported[0].severity, Severity::Error);
 
     let report = diagnose_with(&ProjectView::of(&compiled), true);
+    assert_eq!(report.peers.len(), 1, "{:?}", report.peers);
+    assert_eq!(report.peers[0].code, "E073");
+    assert_eq!(report.peers[0].message, reported[0].message);
+    assert_eq!(
+        Some(report.peers[0].suggestion.as_str()),
+        reported[0].suggestion.as_deref()
+    );
     let finding = report
         .findings
         .iter()
-        .find(|f| f.code == "peer_mismatch")
+        .find(|f| f.code == "E073")
         .expect("doctor reports the peer");
     assert_eq!(format!("{:?}", finding.status), "Error");
-    assert!(
-        finding.check.contains("is not a semver range"),
-        "{finding:?}"
-    );
+    assert_eq!(finding.remediation, report.peers[0].suggestion);
+    assert!(report.issues.is_empty());
+    assert!(report.has_errors() && !report.extensions_ok());
+
+    // An unsatisfied range is reported the same way: `@acme/app` wants a
+    // base this project does not have.
+    let dir = project(&["@acme/base", "@acme/app"]);
+    let runtime = InProcessRuntime::new()
+        .with(served("@acme/base", "1.0.0", &[]))
+        .with(served("@acme/app", "1.0.0", &[("@acme/base", "^2.0")]));
+    specforge_installed::testing::install(dir.path(), &["@acme/base", "@acme/app"]);
+    let compiled = CompiledProject::compile(dir.path(), Some(&runtime));
+    let all = compiled.diagnostics();
+    let e027: Vec<_> = all.iter().filter(|d| d.code == "E027").collect();
+    assert_eq!(e027.len(), 1, "{e027:?}");
+    let report = diagnose_with(&ProjectView::of(&compiled), true);
+    assert_eq!(report.peers.len(), 1, "{:?}", report.peers);
+    assert_eq!(report.peers[0].code, "E027");
+    assert_eq!(report.peers[0].message, e027[0].message);
 }
