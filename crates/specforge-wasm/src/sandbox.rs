@@ -14,6 +14,7 @@
 
 use serde_json::Value;
 use specforge_common::{Diagnostic, codes};
+use specforge_protocol_types::UnknownKey;
 
 /// What the host holds every call into one extension to.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -59,6 +60,32 @@ const PERMISSION_KEYS: [&str; 5] = [
     "network_access",
     "file_system_access",
 ];
+
+/// W153 for a surface item's `sandbox` key, the override a guest built
+/// before ADR 0037 declares; `None` for any other unknown describe key
+/// (which stays W138).
+pub fn unhonoured_surface_key(extension: &str, key: &UnknownKey) -> Option<Diagnostic> {
+    let on_a_surface_export = key.category == "surfaces"
+        && key.key == "sandbox"
+        && ["commands[", "mcp_tools[", "mcp_resources["]
+            .iter()
+            .any(|list| key.item.contains(&format!(".{list}")))
+        && key.item.ends_with(']');
+    on_a_surface_export.then(|| {
+        Diagnostic::new(
+            codes::W153,
+            format!(
+                "extension '{extension}': surface '{}' declares a sandbox override, which grants \
+                 nothing (every surface export runs with no capability); it is ignored",
+                key.item
+            ),
+        )
+        .with_suggestion(
+            "remove the key: a component gets no file, network, environment or stdin access \
+             (ADR 0037)",
+        )
+    })
+}
 
 impl Sandbox {
     /// The sandbox of `extension`, whose handshake answered `sandbox_policy`
@@ -208,18 +235,25 @@ mod tests {
         assert_eq!(Sandbox::of("@acme/x", None).limits, Limits::CEILING);
     }
 
-    /// A limit the policy type carries must be a limit the sandbox reads.
+    /// The policy type declares exactly the limits the sandbox reads: a field
+    /// added to the type without a rule here fails the build.
     #[test]
     fn limit_keys_are_the_policy_fields() {
         let written = serde_json::to_value(SandboxPolicy {
             max_execution_ms: Some(1),
             max_memory_mb: Some(1),
-            ..Default::default()
         })
         .unwrap();
-        for key in LIMIT_KEYS {
-            assert_eq!(written.get(key), Some(&json!(1)), "{key}");
-        }
+        let mut keys: Vec<&str> = written
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(String::as_str)
+            .collect();
+        keys.sort_unstable();
+        let mut limit_keys = LIMIT_KEYS;
+        limit_keys.sort_unstable();
+        assert_eq!(keys, limit_keys);
     }
 
     #[specforge_test(

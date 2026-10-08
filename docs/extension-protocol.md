@@ -75,16 +75,8 @@ The handshake is the first call the host makes after loading a Wasm binary. It e
   "peer_dependencies": [
     { "name": "@specforge/product", "version": "^1.0", "optional": true }
   ],
-  "sandbox_policy": {
-    "max_memory_mb": 256,
-    "max_execution_ms": 5000,
-    "allowed_domains": [],
-    "allowed_paths": [],
-    "allowed_output_extensions": [],
-    "network_access": false,
-    "file_system_access": false
-  },
-  "starter_template": "spec \"{project}\" {\n  version \"0.1.0\"\n}\n",
+  "sandbox_policy": { "max_memory_mb": 256, "max_execution_ms": 5000 },
+  "starter_template": "spec \"{project}\" {\n  version \"{version}\"\n}\n",
   "theme_color": "#4a90d9",
   "ext_short": "software",
   "description": "Software design: behaviors, invariants, events, types and ports",
@@ -94,9 +86,9 @@ The handshake is the first call the host makes after loading a Wasm binary. It e
 
 Peer dependencies order extension loading (peers load first, ties by name) and are checked against the loaded versions (E027). A cycle among **required** peers is E027. **Optional** peers are only a preference: extensions may name each other as optional peers, and the host adds the optional edges after the required ones in name order, skipping any that would close a cycle. A rule on another extension's kind that this one works without uses the rule's `target_extension` (see "Category: validation_rules"), not a peer.
 
-`protocol_version`, `name`, `version`, `contribution_flags`, `peer_dependencies` and `sandbox_policy` are required on the wire (`sandbox_policy` may be `null`: the host then applies its own deny-by-default policy). The others are optional and omitted when absent:
+`protocol_version`, `name`, `version`, `contribution_flags`, `peer_dependencies` and `sandbox_policy` are required on the wire (`sandbox_policy` may be `null`: the extension then runs under the host's ceiling; see Sandbox). The others are optional and omitted when absent:
 
-- `starter_template`: the text of the starter `.spec` file `specforge init` writes for a project that enables the extension, `{project}` standing for the project's entity id. When several enabled extensions declare one, `init` uses the first listed in `specforge.json`. SDK: `ContributionsBuilder::starter_template`.
+- `starter_template`: the text of the starter `.spec` file `specforge init` writes for a project that enables the extension, `{project}` standing for the project's entity id and `{version}` for its version. When several enabled extensions declare one, `init` uses the first listed in `specforge.json`. SDK: `ContributionsBuilder::starter_template`.
 - `migration_hook`: the export `specforge migrate` calls after migrating the project's files. SDK: `ContributionsBuilder::migration_hook`.
 - `theme_color`: the hex colour (`#rgb`, `#rrggbb` or `#rrggbbaa`) the `model` and `outline` diagrams draw the extension in; grey otherwise. SDK: `ContributionsBuilder::theme_color`.
 - `ext_short`: the short name that routes the extension's commands, `specforge <ext_short> <command>` on the CLI and `specforge.<ext_short>.<id>` over MCP. Lowercase kebab case (`[a-z][a-z0-9-]*`); a malformed one is E030. Absent, it is the name's last segment (`@specforge/product` is `product`). SDK: `#[extension(short = "...")]`, checked at compile time.
@@ -104,7 +96,7 @@ Peer dependencies order extension loading (peers load first, ties by name) and a
 
 `contribution_flags` are informational: the SDK derives them from what the extension declares, and the host reads every declared category whatever they say. Only `providers`, which has no describe category, is read from them.
 
-The host checks `protocol_version`: a major version other than its own fails the extension's load (E028), and its handshake's `sandbox_policy.max_execution_ms` bounds every later call into it.
+The host checks `protocol_version`: a major version other than its own fails the extension's load (E028), and its handshake's `sandbox_policy` limits every later call into it (see Sandbox).
 
 ### Describe
 
@@ -358,7 +350,7 @@ checked.
 
 ### Category: surfaces
 
-Returns CLI command, MCP tool, and MCP resource descriptors. CLI commands auto-promote to MCP tools. Each surface declares its arguments, sandbox overrides, and export name.
+Returns CLI command, MCP tool, and MCP resource descriptors. CLI commands auto-promote to MCP tools. Each surface declares its arguments and export name.
 
 ```json
 {
@@ -376,8 +368,7 @@ Returns CLI command, MCP tool, and MCP resource descriptors. CLI commands auto-p
           { "name": "profile", "arg_type": { "enum": { "values": ["default", "strict"] } }, "default_value": "default", "description": "Lint profile" },
           { "name": "limit", "arg_type": "integer", "minimum": 0, "description": "Report at most this many" },
           { "name": "details", "arg_type": "bool", "description": "Show each finding" }
-        ],
-        "sandbox": { "fs_read": true }
+        ]
       }
     ],
     "mcp_tools": [
@@ -602,6 +593,8 @@ access files.
 > input (e.g. the `ValidatorContext` snapshot for `validate__*` exports). A
 > typed component host-import surface is future work — the names below are
 > the planned surface, specified in `spec/behaviors/wasm-host-functions.spec`.
+> The permissions those functions would check come with them; today's sandbox grants none
+> (Sandbox, ADR 0037).
 
 ### Host Function Table
 
@@ -648,33 +641,30 @@ or answered.
 A host of `1.0.x` still loads a `1.1.0` guest and hands it the `1.0.0` values; a guest that needs the
 `1.1.0` values can read `host_version` in its handshake request.
 
-### Sandbox Policy
+### Sandbox
 
-The sandbox policy declared in the handshake controls what an extension can access. The host enforces these limits at the Wasm runtime level.
+An extension runs with no capability: its component's WASI context preopens no directory, passes
+no environment, arguments or stdin, discards stdout and stderr, and refuses sockets and name
+lookup. What it needs it is handed in each call's input (a scanner gets each file's content, a
+command the graph). No declaration grants more (ADR 0037).
+
+The handshake's `sandbox_policy` declares limits, which the host enforces on every call:
 
 ```json
-{
-  "max_memory_mb": 256,
-  "max_execution_ms": 5000,
-  "network_access": false,
-  "file_system_access": false,
-  "allowed_domains": [],
-  "allowed_paths": [],
-  "allowed_output_extensions": []
-}
+{ "max_execution_ms": 5000, "max_memory_mb": 256 }
 ```
 
-| Policy | Default | Effect |
-|--------|---------|--------|
-| `max_memory_mb` | 256 | Maximum Wasm linear memory allocation |
-| `max_execution_ms` | 5000 | Maximum wall-clock time per export call |
-| `network_access` | false | Whether `fetch`-style host functions are available |
-| `file_system_access` | false | Whether the `host_read_file` / `host_emit_file` host functions are available |
-| `allowed_domains` | [] | If network enabled, restrict to these domains |
-| `allowed_paths` | [] | If filesystem enabled, restrict to these path prefixes |
-| `allowed_output_extensions` | [] | Restrict file writes to these extensions |
+| Limit | Ceiling (and value when undeclared) | Enforced by | A call past it |
+|-------|-------------------------------------|-------------|----------------|
+| `max_execution_ms` | 30000 | epoch interruption, checked every 10 ms; never before the budget | traps `deadline_exceeded` |
+| `max_memory_mb` | 512 | a limit on the instance's linear memory | traps `memory_limit_exceeded` |
+| (fuel, not declared) | a fixed instruction budget, whole for every call | fuel metering | traps `fuel_exhausted` |
 
-Individual surfaces (CLI commands, MCP tools) can override the extension-level sandbox policy. This allows a generally sandboxed extension to grant filesystem read access to a specific command that needs it.
+A declared limit above its ceiling is held to it. A call that traps on a limit fails with E028
+naming the limit, and the extension's next call gets a fresh instance under the same limits. A
+`sandbox_policy` key other than the two limits that asks for something (`network_access: true`, a
+non-empty `allowed_paths`, which older SDKs wrote), a surface's `sandbox` override, and a limit
+above its ceiling are W153 at load.
 
 ## Hot Plug and Unplug
 

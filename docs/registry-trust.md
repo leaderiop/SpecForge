@@ -125,8 +125,9 @@ registry install, so pins are auditable per project.
 
 ## Runtime sandbox note
 
-Extension sandboxing is enforced at execution time by the host (see
-[extension protocol](extension-protocol.md)). The host embeds wasmtime 49.x
+An extension runs with no capability and within the limits its handshake
+declares, at most the host's ceiling; the host enforces both at execution time
+(see Sandbox in the [extension protocol](extension-protocol.md), ADR 0037). The host embeds wasmtime 49.x
 directly through the component model, with no intermediate plugin layer, so
 runtime security fixes can be taken as soon as wasmtime ships them. CI runs
 `cargo audit` against every committed `Cargo.lock` with no ignore list and

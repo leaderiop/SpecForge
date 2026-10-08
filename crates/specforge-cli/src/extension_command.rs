@@ -526,7 +526,6 @@ mod tests {
                     Some("asc"),
                 ),
             ],
-            sandbox: None,
         }
     }
 

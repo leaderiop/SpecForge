@@ -45,9 +45,7 @@ pub mod surface;
 /// the migration hook) declared with their handlers.
 mod operations;
 
-pub use surface::{
-    ArgBuilder, CommandBuilder, CommandCall, McpResourceBuilder, McpToolBuilder, SandboxBuilder,
-};
+pub use surface::{ArgBuilder, CommandBuilder, CommandCall, McpResourceBuilder, McpToolBuilder};
 
 /// Identity of the extension: what `__handshake` reports.
 #[derive(Debug, Clone, Default)]
@@ -67,7 +65,8 @@ pub struct ExtensionMeta {
     pub peer_dependencies: Vec<PeerDependency>,
     pub sandbox_policy: Option<SandboxPolicy>,
     /// The starter `.spec` file `specforge init` writes for a project that
-    /// enables this extension; `{project}` stands for the project's id.
+    /// enables this extension; `{project}` stands for the project's id and
+    /// `{version}` for its version.
     pub starter_template: Option<String>,
     /// The export `specforge migrate` calls after migrating the project's
     /// files.
@@ -348,7 +347,8 @@ impl ContributionsBuilder {
 
     /// Contribute the starter `.spec` file `specforge init` writes for a
     /// project that enables this extension. `{project}` in `template` is
-    /// replaced with the project's entity id.
+    /// replaced with the project's entity id and `{version}` with its
+    /// version.
     pub fn starter_template(&mut self, template: &str) -> &mut Self {
         self.meta.starter_template = Some(template.to_string());
         self
@@ -1122,7 +1122,7 @@ pub mod prelude {
     pub use crate::{
         ArgBuilder, CommandBuilder, CommandCall, CommandError, CommandEvidence, CommandFormat,
         CommandGraph, CommandInput, CommandOutput, EntityEvidence, GraphEdge, GraphNode,
-        McpResourceBuilder, McpToolBuilder, SandboxBuilder,
+        McpResourceBuilder, McpToolBuilder,
     };
     pub use crate::{
         CollectEntityResult, CollectInput, CollectOutput, CollectReportFile, CollectTestResult,

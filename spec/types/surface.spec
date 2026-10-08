@@ -33,15 +33,15 @@ type SurfaceDescriptor {
 // ── CLI Command Contributions ───────────────────────────────
 
 type CommandContribution {
-  id          string                 @readonly
+  id          string       @readonly
   title       string
-  description string                 @optional
-  category    string                 @optional
+  description string       @optional
+  category    string       @optional
   // Wasm export name: cmd__{id}, or cmd__{prefix}_{id} under the SDK's
   // command_prefix (the builtins use their short name: cmd__product_features)
-  export      string                 @readonly
-  args        CommandArg[]           @optional
-  sandbox     SurfaceSandboxOverride @optional
+  export      string       @readonly
+  args        CommandArg[] @optional
+  // A sandbox key (from a guest built before ADR 0037) grants nothing and is W153 at load
   verify unit "CommandContribution schema is valid"
 }
 
@@ -128,40 +128,26 @@ type CommandOutput {
 // input_schema and output_schema must be JSON objects: a tool with
 // another value is E055 and is not registered.
 type McpToolContribution {
-  name          string                 @readonly
+  name          string          @readonly
   description   string
-  category      McpToolCategory        @optional
+  category      McpToolCategory @optional
   // Wasm export name: mcp__{name}, with . and - as _
-  export        string                 @readonly
+  export        string          @readonly
   input_schema  JsonSchema
-  output_schema JsonSchema             @optional
-  sandbox       SurfaceSandboxOverride @optional
+  output_schema JsonSchema      @optional
   verify unit "McpToolContribution schema is valid"
 }
 
 // ── MCP Resource Contributions ──────────────────────────────
 
 type McpResourceContribution {
-  uri_template string                 @readonly
-  name         string                 @readonly
-  description  string                 @optional
+  uri_template string @readonly
+  name         string @readonly
+  description  string @optional
   // Wasm export name: mcp__{name}, with . and - as _
-  export       string                 @readonly
-  mime_type    string                 @optional
-  sandbox      SurfaceSandboxOverride @optional
+  export       string @readonly
+  mime_type    string @optional
   verify unit "McpResourceContribution schema is valid"
-}
-
-// ── Sandbox Override ────────────────────────────────────────
-
-// Per-contribution sandbox ceiling override. Can only restrict
-// below the type ceiling, never expand beyond it.
-type SurfaceSandboxOverride {
-  fs_read  string[] @optional
-  fs_write string[] @optional
-  // Domain allowlist for network access
-  network  string[] @optional
-  verify unit "SurfaceSandboxOverride schema is valid"
 }
 
 // ── Extension Commands ──────────────────────────────────────

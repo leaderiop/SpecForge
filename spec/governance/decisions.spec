@@ -881,9 +881,9 @@ decision adr_surface_contribution_model "Surface Contribution Model" {
     specforge.{ext_short}.{cmd_id} naming convention, giving agents
     automatic access to all extension CLI commands.
 
-    Per-contribution sandbox overrides can only restrict below the
-    surface-type ceiling: MCP resources cannot fs_write, all surface
-    contributions are bounded by the extension's SandboxPolicy.
+    Every surface export runs with no capability; a per-contribution
+    sandbox override was dropped (ADR 0037): with nothing granted it had
+    nothing to restrict.
 
     Phase 1 covers CLI commands, MCP tools, and MCP resources. LSP
     providers are deferred to Phase 2.
@@ -903,7 +903,7 @@ decision adr_surface_contribution_model "Surface Contribution Model" {
     "MCP tools scale dynamically with installed extensions — agents discover new tools automatically",
     "CLI cold start unaffected — manifest-only discovery, no Wasm loading at startup",
     "Auto-promotion ensures every CLI command is also an MCP tool — agents and CLI stay in sync",
-    "Per-contribution sandbox overrides allow fine-grained security without per-extension granularity loss",
+    "Surface exports get no capability, so no per-contribution permission is needed",
     "Phase 2 will extend the model to LSP providers (completion, hover, code_actions, diagnostics)",
   ]
   invariants   [surface_contribution_uniqueness, surface_sandbox_ceiling]
@@ -926,7 +926,8 @@ decision wasm_component_runtime "All Extensions Execute as wasip2 Components" {
     (crates/specforge-component). The native tier is deleted; a gate test
     prevents its reintroduction. The guest boundary is the
     specforge:bridge world (call: name, export-name, input -> result).
-    Deterministic per-extension fuel limits replace wall-clock budgets.
+    Every call gets a deterministic fuel budget and a wall-clock
+    deadline, and every instance a memory limit (ADR 0037).
     The builtin blobs are vendored under extensions/<name>/wasm/ and
     embedded at compile time, each with an inputs.json fingerprint of the
     sources it was built from; `cargo run -p xtask --bin build-builtins

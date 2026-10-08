@@ -3,8 +3,11 @@
 //! stdin, the network) and report what they got. The host's tests run it
 //! through the component runtime to prove a surface export is granted no
 //! capability, even one whose declaration asks for some. Its surfaces are
-//! declared with their handlers, the SDK routing the exports. The component
-//! blob is vendored at `fixtures/sandbox-probe/probe.wasm` (refresh:
+//! declared with their handlers, the SDK routing the exports; the describe
+//! answer for `surfaces` is served raw, as a guest built before ADR 0037
+//! would give it, so each surface still carries the `sandbox` override the
+//! protocol no longer has (the host reports it as W153 and grants nothing).
+//! The component blob is vendored at `fixtures/sandbox-probe/probe.wasm` (refresh:
 //! `cd fixtures/sandbox-probe && cargo build --release --target wasm32-wasip2`,
 //! then copy `target/wasm32-wasip2/release/sandbox_probe.wasm` to `probe.wasm`).
 
@@ -21,10 +24,10 @@ use std::net::ToSocketAddrs;
 )]
 struct Probe;
 
-/// Every surface asks for every capability: a declared override must grant
+/// The override every surface asks for: every capability. It must grant
 /// none of them.
-fn everything(s: &mut SandboxBuilder) {
-    s.fs_read().fs_write().network();
+fn everything() -> Value {
+    json!({"fs_read": true, "fs_write": true, "network": true})
 }
 
 impl Contributions for Probe {
@@ -39,7 +42,6 @@ impl Contributions for Probe {
                 .arg("port", |a| {
                     a.integer().description("A port the host listens on");
                 })
-                .sandbox(everything)
                 .handler(probe);
         });
         c.command("trap", |cmd| {
@@ -52,7 +54,6 @@ impl Contributions for Probe {
                 .input_schema(json!({"type": "object", "properties": {
                     "dir": {"type": "string"}, "port": {"type": "integer"}
                 }}))
-                .sandbox(everything)
                 .handler(|input| {
                     let dir = input.get("dir").and_then(Value::as_str).unwrap_or("/");
                     Ok(report(dir, input.get("port").and_then(Value::as_i64)))
@@ -62,12 +63,52 @@ impl Contributions for Probe {
             r.uri_template("specforge://ext/probe/{dir}")
                 .description("Try every capability and report what was granted")
                 .mime_type("application/json")
-                .sandbox(everything)
                 .handler(|uri| {
                     let dir = uri.strip_prefix("specforge://ext/probe").unwrap_or("/");
                     Ok(json!({"uri": uri, "sandbox": report(dir, None)}).to_string())
                 });
         });
+        // The surfaces as an older guest describes them, each with the
+        // override the builders can no longer declare. The builders above
+        // still route the handlers.
+        c.raw_category(
+            "surfaces",
+            json!([{
+                "commands": [
+                    {
+                        "id": "probe", "title": "Probe the sandbox",
+                        "description": "Try every capability and report what was granted",
+                        "export": "cmd__probe",
+                        "args": [{
+                            "name": "port", "arg_type": "integer", "required": false,
+                            "description": "A port the host listens on"
+                        }],
+                        "sandbox": everything()
+                    },
+                    {
+                        "id": "trap", "title": "Trap", "description": "Panic",
+                        "export": "cmd__trap", "args": []
+                    }
+                ],
+                "mcp_tools": [{
+                    "name": "probe.tool",
+                    "description": "Try every capability and report what was granted",
+                    "export": "mcp__probe_tool",
+                    "input_schema": {"type": "object", "properties": {
+                        "dir": {"type": "string"}, "port": {"type": "integer"}
+                    }},
+                    "sandbox": everything()
+                }],
+                "mcp_resources": [{
+                    "uri_template": "specforge://ext/probe/{dir}",
+                    "name": "probe-resource",
+                    "description": "Try every capability and report what was granted",
+                    "export": "mcp__probe_resource",
+                    "mime_type": "application/json",
+                    "sandbox": everything()
+                }]
+            }]),
+        );
     }
 }
 

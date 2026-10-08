@@ -38,9 +38,9 @@ type HandshakeResponse {
   version            string           @readonly
   contribution_flags ContributionFlags
   peer_dependencies  PeerDependency[] @optional
-  // Absent: the host applies its own deny-by-default policy
+  // Absent: the host's ceiling holds the extension (30000 ms, 512 MB)
   sandbox_policy     SandboxPolicy    @optional
-  // Text of the starter .spec file scaffold_starter_spec_file writes; {project} stands for the project id
+  // Text of the starter .spec file scaffold_starter_spec_file writes; {project} stands for the project id and {version} for its version
   starter_template   string           @optional
   // Wasm function name to invoke during `specforge migrate` for this extension
   migration_hook     string           @optional

@@ -22,25 +22,17 @@ type HostFunctionBinding {
   verify unit "HostFunctionBinding schema is valid"
 }
 
+// The limits an extension asks its sandbox to hold it to (ADR 0037). The
+// host grants a component no capability, so the policy declares limits
+// only, each held to the host's ceiling (30000 ms, 512 MB); an undeclared
+// limit is the ceiling. The permission settings the planned host functions
+// would read (allowed paths, domains, output extensions, file and HTTP
+// limits) come with that surface (behaviors/wasm-host-functions.spec).
 type SandboxPolicy {
-  max_memory_mb             integer  @optional
-  max_execution_ms          integer  @optional
-  allowed_domains           string[] @optional
-  allowed_paths             string[] @optional
-  file_system_access        string   @optional
-  network_access            string   @optional
-  // Default: 5000. Per-request HTTP timeout in milliseconds.
-  http_timeout_ms           integer  @optional
-  // Default: 15000. Total HTTP time budget per compilation in milliseconds.
-  http_total_budget_ms      integer  @optional
-  // Default: [".json", ".html", ".csv", ".svg", ".dot", ".xml", ".txt", ".pdf"]
-  // .md is NOT in the default list because SpecForge is not a documentation
-  // generator (vision/README.md). Extensions that produce structured reports
-  // (traceability matrices, coverage dashboards — not prose) MAY add .md to
-  // their own sandbox policy via allowed_output_extensions override.
-  allowed_output_extensions string[] @optional
-  // Default: 1MB. Maximum file size readable via read_file host function.
-  max_read_file_size        u64      @optional
+  // Wall-clock budget of one call, in milliseconds
+  max_execution_ms integer @optional
+  // Ceiling of the instance's linear memory, in MiB
+  max_memory_mb    integer @optional
   verify unit "SandboxPolicy schema is valid"
 }
 

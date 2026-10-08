@@ -641,19 +641,6 @@ async fn publish_package(
         ));
     }
 
-    // 5. v1 registry bar: no network-needing extensions.
-    if declaration
-        .handshake
-        .sandbox_policy
-        .as_ref()
-        .and_then(|p| p.network_access)
-        == Some(true)
-    {
-        return Err(ApiError::bad_request(
-            "SANDBOX_POLICY_REJECTED",
-            "sandbox_policy.network_access = true is not accepted on this registry (v1 policy)",
-        ));
-    }
     // --- end validation contract ---
 
     // Compute SHA256 — hashing the payload is CPU-bound: run it on the

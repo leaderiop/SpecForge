@@ -70,11 +70,6 @@ fn handshake_response_round_trip() {
         sandbox_policy: Some(SandboxPolicy {
             max_memory_mb: Some(256),
             max_execution_ms: Some(5000),
-            allowed_domains: vec!["api.example.com".to_string()],
-            allowed_paths: vec!["/tmp".to_string()],
-            allowed_output_extensions: vec!["json".to_string()],
-            network_access: Some(true),
-            file_system_access: Some(false),
         }),
         starter_template: Some("spec \"{project}\" {}\n".to_string()),
         theme_color: None,
@@ -165,8 +160,6 @@ fn sandbox_policy_default_empty() {
     let policy = SandboxPolicy::default();
     assert!(policy.max_memory_mb.is_none());
     assert!(policy.max_execution_ms.is_none());
-    assert!(policy.allowed_domains.is_empty());
-    assert!(policy.network_access.is_none());
 }
 
 // ── Step 3: DescribeRequest + DescribeResponse ──
@@ -579,11 +572,6 @@ fn surface_descriptor_full_round_trip() {
                 description: Some("Project path".to_string()),
                 minimum: None,
             }],
-            sandbox: Some(SurfaceSandboxOverride {
-                fs_read: Some(true),
-                fs_write: None,
-                network: None,
-            }),
         }],
         mcp_tools: vec![McpToolDescriptor {
             name: "specforge.validate".to_string(),
@@ -592,7 +580,6 @@ fn surface_descriptor_full_round_trip() {
             export: "mcp__validate".to_string(),
             input_schema: serde_json::json!({"type": "object"}),
             output_schema: None,
-            sandbox: None,
         }],
         mcp_resources: vec![McpResourceDescriptor {
             uri_template: "specforge://entities/{kind}".to_string(),
@@ -600,7 +587,6 @@ fn surface_descriptor_full_round_trip() {
             description: Some("List entities by kind".to_string()),
             export: "mcp__entities".to_string(),
             mime_type: "application/json".to_string(),
-            sandbox: None,
         }],
     };
     let json = serde_json::to_string(&surface).unwrap();

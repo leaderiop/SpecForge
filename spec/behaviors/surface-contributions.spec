@@ -182,9 +182,10 @@ behavior dispatch_surface_command "Dispatch Surface Command" {
     MUST be granted no capability: its WASI context preopens no
     directory and passes no environment, arguments, inherited stdio or
     network, so cwd is a path it is told, not one it can open, and the
-    graph is all it reads. A per-command sandbox override (if declared)
-    is not applied: with nothing granted there is nothing for it to
-    withhold, and no override grants more (surface_sandbox_ceiling).
+    graph is all it reads. A sandbox override a command declares (only a
+    guest built before ADR 0037 can) is not applied and is W153 at load:
+    with nothing granted there is nothing for it to withhold, and no
+    declaration grants more (surface_sandbox_ceiling).
     Wasm traps MUST be caught and reported as ExtensionError
     diagnostics, as is a declared export the guest does not route (the
     host cannot list a component guest's exports, so presence is known
@@ -256,7 +257,7 @@ behavior dispatch_surface_mcp_tool "Dispatch Surface MCP Tool" {
     input_schema and call the mcp__{name} export with the validated
     input JSON, in the runtime the served project's compile loaded. The
     export MUST be granted no capability, like every surface export: a
-    per-tool sandbox override (if declared) is not applied, and no
+    sandbox override a tool declares (W153 at load) is not applied, and no
     override grants more (surface_sandbox_ceiling). Wasm traps MUST be
     caught and returned as structured MCP error responses. The tool
     output MUST be returned as a standard MCP tool result. When the tool

@@ -23,11 +23,6 @@ fn software_builder() -> ContributionsBuilder {
     meta.sandbox_policy = Some(SandboxPolicy {
         max_memory_mb: Some(256),
         max_execution_ms: Some(5000),
-        allowed_domains: vec![],
-        allowed_paths: vec![],
-        allowed_output_extensions: vec![],
-        network_access: Some(false),
-        file_system_access: Some(false),
     });
 
     let mut b = ContributionsBuilder::new(meta);

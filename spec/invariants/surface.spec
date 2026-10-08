@@ -18,11 +18,12 @@ invariant surface_sandbox_ceiling "Surface Sandbox Ceiling" {
   guarantee """
     Every surface export (a cmd__ command, an mcp__ tool or resource)
     MUST run with no capability: no preopened directory, environment,
-    arguments, inherited stdio or network. That is the ceiling, so no
-    per-contribution sandbox override MAY grant an export more: MCP
-    resources MUST NOT write files, and CLI commands MUST NOT exceed the
-    extension's SandboxPolicy.
+    arguments, inherited stdio or network. That is the ceiling: no
+    declaration grants an export more. MCP resources MUST NOT write
+    files. A surface's sandbox key, which a guest built before ADR 0037
+    may still declare, grants nothing and is W153 at load.
   """
   risk      high
   verify unit "a surface export whose sandbox override asks for every capability is granted none"
+  verify unit "a surface's sandbox override grants nothing and is W153 at load"
 }

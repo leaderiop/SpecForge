@@ -12,7 +12,7 @@ use specforge_common::Diagnostic;
 use specforge_component::ComponentRuntime;
 use specforge_component::builtins::BUILTIN_EXTENSIONS;
 use specforge_project::Environment;
-use specforge_protocol_types::{FieldType, SurfaceDescriptor, SurfaceSandboxOverride};
+use specforge_protocol_types::{FieldType, SurfaceDescriptor};
 use tempfile::TempDir;
 
 fn runtime() -> ComponentRuntime {
@@ -52,9 +52,6 @@ fn sorted(mut values: Vec<Value>) -> Value {
 }
 
 fn surfaces(s: &SurfaceDescriptor) -> Value {
-    let sandbox = |s: Option<&SurfaceSandboxOverride>| {
-        s.map(|s| json!({ "fs_read": s.fs_read, "fs_write": s.fs_write, "network": s.network }))
-    };
     json!({
         "commands": s.commands.iter().map(|c| json!({
             "id": c.id,
@@ -69,7 +66,6 @@ fn surfaces(s: &SurfaceDescriptor) -> Value {
                 "default_value": a.default_value,
                 "description": a.description,
             })).collect::<Vec<_>>(),
-            "sandbox": sandbox(c.sandbox.as_ref()),
         })).collect::<Vec<_>>(),
         "mcp_tools": s.mcp_tools.iter().map(|t| json!({
             "name": t.name,
@@ -78,7 +74,6 @@ fn surfaces(s: &SurfaceDescriptor) -> Value {
             "export": t.export,
             "input_schema": t.input_schema,
             "output_schema": t.output_schema,
-            "sandbox": sandbox(t.sandbox.as_ref()),
         })).collect::<Vec<_>>(),
         "mcp_resources": s.mcp_resources.iter().map(|r| json!({
             "uri_template": r.uri_template,
@@ -86,7 +81,6 @@ fn surfaces(s: &SurfaceDescriptor) -> Value {
             "description": r.description,
             "export": r.export,
             "mime_type": r.mime_type,
-            "sandbox": sandbox(r.sandbox.as_ref()),
         })).collect::<Vec<_>>(),
     })
 }

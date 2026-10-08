@@ -5,7 +5,7 @@
 // Try: specforge check
 
 spec "{project}" {
-  version "0.1.0"
+  version "{version}"
 }
 
 type user "User account" {

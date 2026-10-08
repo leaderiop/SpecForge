@@ -139,7 +139,7 @@ behavior fa_declare_manifest "Declare @specforge/formal Manifest" {
     verify_kinds_declared    "verify_kinds contains contract, refinement, deadlock_free, liveness"
     peer_dep_software        "peer_dependencies contains @specforge/software ^1.0 (required)"
     warning_level_strict     "all formal warnings require warning_level=strict"
-    sandbox_restricted       "sandbox_policy declares network_access=false, file_system_access=read-only"
+    no_sandbox_policy        "sandbox_policy is null — formal declares no sandbox policy and runs under the host's ceiling"
   }
   features [fa_progressive_warnings]
   verify unit "manifest name is @specforge/formal"
