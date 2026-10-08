@@ -5,6 +5,7 @@ mod emit_context;
 mod emit_dot;
 mod emit_graph;
 mod emit_json;
+mod emit_matrix;
 mod emitter_error;
 mod model;
 mod outline;

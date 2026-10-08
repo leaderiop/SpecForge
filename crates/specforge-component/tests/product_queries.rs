@@ -5,7 +5,9 @@
 
 use serde_json::{Value, json};
 use specforge_component::{ComponentRuntime, builtins};
+use specforge_protocol_types::{CommandEvidence, CommandFormat, CommandInput, RawGraph};
 use specforge_test::prelude::*;
+use specforge_wasm::ExtensionCalls;
 use specforge_wasm::runtime::{WasmCallResult, WasmRuntime};
 
 const PRODUCT: &str = "@specforge/product";
@@ -91,22 +93,42 @@ fn run_with(
     format: &str,
     evidence: Option<Value>,
 ) -> Out {
-    let mut input = json!({"args": args, "cwd": "/p", "format": format, "today": "2026-10-03",
-        "graph": g.graph()});
-    if let Some(evidence) = evidence {
-        input["evidence"] = evidence;
-    }
-    let export = format!("cmd__product_{id}");
-    let WasmCallResult::Ok(bytes) =
-        runtime.call_export(PRODUCT, &export, input.to_string().as_bytes())
-    else {
-        panic!("{export} trapped");
+    let evidence = evidence.map_or(CommandEvidence::None, |evidence| {
+        serde_json::from_value(evidence).expect("evidence in the host's wire shape")
+    });
+    run_input(runtime, id, args, g, format, "2026-10-03", evidence)
+}
+
+/// Run `cmd__product_<id>` as the host calls it (`ExtensionCalls::run_command`:
+/// the typed input, the strictly decoded answer), on `today` and `evidence`.
+fn run_input(
+    runtime: &ComponentRuntime,
+    id: &str,
+    args: Value,
+    g: &G,
+    format: &str,
+    today: &str,
+    evidence: CommandEvidence,
+) -> Out {
+    let input = CommandInput {
+        args: args
+            .as_object()
+            .cloned()
+            .expect("a command's args are an object"),
+        cwd: "/p".into(),
+        format: CommandFormat::parse(format).expect("human or json"),
+        today: today.into(),
+        graph: RawGraph::new(g.graph().to_string()).expect("one JSON value"),
+        evidence,
     };
-    let out: Value = serde_json::from_slice(&bytes).unwrap();
+    let export = format!("cmd__product_{id}");
+    let output = ExtensionCalls::new(runtime)
+        .run_command(PRODUCT, &export, &input)
+        .unwrap_or_else(|error| panic!("{export}: {error}"));
     Out {
-        exit: out["exit_code"].as_i64().unwrap(),
-        stdout: out["stdout"].as_str().unwrap().to_string(),
-        stderr: out["stderr"].as_str().unwrap().to_string(),
+        exit: output.exit_code.into(),
+        stdout: output.stdout,
+        stderr: output.stderr,
     }
 }
 
@@ -5006,18 +5028,18 @@ fn as_of_overrides_the_hosts_today() {
         assert_eq!(out.exit, 2, "{args}");
         assert_eq!(out.error()["code"], "INVALID_INPUT", "{args}");
     }
-    let input = json!({"args": {}, "cwd": "/p", "format": "json", "today": "",
-        "graph": timeline().graph()});
-    let WasmCallResult::Ok(bytes) = runtime().call_export(
-        PRODUCT,
-        "cmd__product_milestone_timeline",
-        input.to_string().as_bytes(),
-    ) else {
-        panic!("trapped");
-    };
-    let out: Value = serde_json::from_slice(&bytes).unwrap();
-    assert_eq!(out["exit_code"], 2, "{out}");
-    assert!(out["stderr"].as_str().unwrap().contains("--as-of"), "{out}");
+    // The host passed no date: no "as of" to default to.
+    let out = run_input(
+        &runtime(),
+        "milestone_timeline",
+        json!({}),
+        &timeline(),
+        "json",
+        "",
+        CommandEvidence::None,
+    );
+    assert_eq!(out.exit, 2, "{}", out.stderr);
+    assert!(out.stderr.contains("--as-of"), "{}", out.stderr);
 }
 
 #[specforge_test(
@@ -5828,6 +5850,8 @@ fn a_close_id_of_the_same_kind_is_suggested() {
     verify = "no surface panics on null, empty, or malformed input"
 )]
 fn no_command_panics_on_odd_input() {
+    // Raw bytes on purpose: inputs no host sends (a missing field, a
+    // malformed value), so the call is `call_export`, not `run_command`.
     let runtime = runtime();
     let odd_args = [
         json!({}),

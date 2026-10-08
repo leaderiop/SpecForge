@@ -13,26 +13,25 @@ type OutputFormat = "json" | "dot" | "context" | "brief" | "graph"
 type DiagnosticFormat = "text" | "json"
 
 type AgentExportConfig {
-  format            OutputFormat @readonly
-  scope             string       @readonly @optional
-  depth             integer      @readonly @optional
-  kind_filter       string[]     @readonly @optional
-  max_tokens        integer      @readonly @optional
-  strategy          string       @readonly @optional // default: "prioritize"
-  centrality_metric string       @readonly @optional // default: "degree"
+  format      OutputFormat @readonly
+  scope       string       @readonly @optional
+  depth       integer      @readonly @optional
+  kind_filter string[]     @readonly @optional
+  max_tokens  integer      @readonly @optional
   verify unit "AgentExportConfig schema is valid"
 }
 
 // ── Token Economics ───────────────────────────────────────
 
-type TokenBudgetStrategy = "truncate" | "prioritize" | "error"
+type TokenBudgetStrategy = "prioritize"
 
+/// The `token_budget` block of an export that did not fit its budget whole.
 type TokenBudgetResult {
-  estimated_tokens   integer
-  within_budget      boolean
-  /// Present when budget is applied and strategy=truncate; empty array when no truncation.
-  truncated_entities string[] @optional
   strategy           TokenBudgetStrategy
+  budget_tokens      integer
+  estimated_tokens   integer
+  /// The IDs of the entities dropped to fit, least central first.
+  truncated_entities string[]
   verify unit "TokenBudgetResult schema is valid"
 }
 

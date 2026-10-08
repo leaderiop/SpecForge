@@ -159,6 +159,44 @@ fn every_update_leaves_what_a_fresh_compile_builds() {
     }
 }
 
+/// The format version header is a compile diagnostic like any other: an
+/// edit that adds, changes or removes it changes what the session reports,
+/// the same as a fresh compile does.
+#[specforge_test(
+    behavior = "detect_format_version_mismatch",
+    verify = "older format version detected and reported as I007"
+)]
+fn an_edited_format_version_header_is_reported_as_a_fresh_compile_reports_it() {
+    const BODY: &str = "behavior alpha \"A\" {\n  contract \"The system MUST a\"\n}\n";
+    let dir = project(CONFIG, &[("a.spec", BODY)]);
+    let root = dir.path();
+    let mut session = ProjectSession::open(root);
+    session.set_verify_incremental(true);
+    let codes = |session: &ProjectSession| -> Vec<String> {
+        session
+            .diagnostics()
+            .into_iter()
+            .map(|d| d.code)
+            .filter(|code| code == "I007" || code == "E019")
+            .collect()
+    };
+    assert!(codes(&session).is_empty());
+
+    for (header, expected) in [
+        ("// specforge-format: 0.9\n", vec!["I007"]),
+        ("// specforge-format: 9.0\n", vec!["E019"]),
+        ("// specforge-format: 1.0\n", vec![]),
+        ("// specforge-format: 0.1\n", vec!["I007"]),
+        ("", vec![]),
+    ] {
+        write(root, "a.spec", &format!("{header}{BODY}"));
+        let update = session.update(SourceChange::Disk(&changed(&["a.spec"])));
+        assert_eq!(update.verification, Some(Ok(())), "after {header:?}");
+        assert_eq!(codes(&session), expected, "after {header:?}");
+        assert_matches_a_fresh_compile(&session, root);
+    }
+}
+
 /// Define blocks are reported, not registered: adding one, renaming it
 /// and removing it leave what a fresh compile reports.
 #[specforge_test(

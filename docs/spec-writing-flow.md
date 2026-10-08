@@ -92,7 +92,7 @@ Cross-cutting: `ref` — attach external references at any phase.
 
 ### Checkpoint
 - [ ] Every persona has at least one journey
-- [ ] Every deliverable bundles at least one journey (avoids W011)
+- [ ] Every deliverable bundles at least one journey (avoids W043)
 - [ ] Flows are concrete enough that a designer could wireframe from them
 
 ---
@@ -332,6 +332,6 @@ And minimal warnings:
 | No orphan features (W002) | Every feature belongs to a journey |
 | No orphan events (W007) | Every event has consumers |
 | No orphan modules (W009) | Every module belongs to a deliverable |
-| No orphan journeys (W011) | Every journey belongs to a deliverable |
+| No orphan journeys (W042) | Every journey belongs to a deliverable |
 | Verified behaviors (W004) | Every behavior has a verify statement |
 | Mitigated risks (W005) | High-risk invariants have failure modes |

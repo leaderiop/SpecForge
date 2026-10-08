@@ -274,8 +274,8 @@ struct Declarations<'a> {
 }
 
 /// The one sweep over the files, in the iteration order they are given:
-/// every file's E001s first (outside body-parser entities), then per file
-/// and entity W143 / E002 / W060, then I005. It is also first-writer-wins:
+/// every file's E001s (outside body-parser entities) and the I007 / E019 its
+/// format version header reports first, then per file and entity W143 / E002 / W060, then I005. It is also first-writer-wins:
 /// `seen` is keyed on (kind, id), so a second declaration of a kind is E002
 /// naming the first of that kind; `winners` is keyed on the raw ID, so a
 /// declaration of another kind is W060. Placement reads `winners`.
@@ -294,6 +294,9 @@ fn declarations<'a>(
                 diagnostics.push(diagnostic);
             }
         }
+        // What the format version header reports (I007, E019), where the
+        // file declares it.
+        diagnostics.extend(spec_file.format_diagnostics.iter().cloned());
     }
 
     // Where each (kind, ID) was first declared, so a duplicate names both sites.

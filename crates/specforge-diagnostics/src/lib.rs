@@ -197,6 +197,7 @@ pub const RETIRED: &[(&str, Option<&str>)] = &[
     ("E053", None),
     ("E060", None),
     ("I006", None),
+    ("W011", None),
     ("W024", None),
     ("W025", None),
     ("W026", None),
@@ -392,7 +393,7 @@ mod tests {
         );
         assert_eq!(
             CATALOG.iter().filter(|e| e.owner == "core").count(),
-            119,
+            118,
             "every core entry has a constant; extensions' entries have none"
         );
     }

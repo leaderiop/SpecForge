@@ -3034,6 +3034,7 @@ dependencies = [
  "specforge-emitter",
  "specforge-formatter",
  "specforge-graph",
+ "specforge-parser",
 ]
 
 [[package]]

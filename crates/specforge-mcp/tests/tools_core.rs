@@ -1288,6 +1288,39 @@ fn validate(args: Value) -> Vec<(String, String)> {
         .collect()
 }
 
+/// The format version header is a compile diagnostic, so the tool shows it
+/// with the rest: I007 for an older file, E019 for a newer one.
+#[test]
+fn validate_reports_the_format_version_headers() {
+    let project = tempfile::tempdir().unwrap();
+    std::fs::write(
+        project.path().join("specforge.json"),
+        r#"{"name":"t","version":"0.1.0","extensions":["@specforge/software"]}"#,
+    )
+    .unwrap();
+    std::fs::write(
+        project.path().join("old.spec"),
+        "// specforge-format: 0.9\nbehavior old_one \"Old\" {\n  verify unit \"x\"\n}\n",
+    )
+    .unwrap();
+    std::fs::write(
+        project.path().join("new.spec"),
+        "// specforge-format: 9.0\nbehavior new_one \"New\" {\n  verify unit \"x\"\n}\n",
+    )
+    .unwrap();
+
+    let found = validate(json!({"path": project.path().to_str().unwrap()}));
+
+    assert!(
+        found.contains(&("I007".to_string(), "Info".to_string())),
+        "{found:?}"
+    );
+    assert!(
+        found.contains(&("E019".to_string(), "Error".to_string())),
+        "{found:?}"
+    );
+}
+
 #[specforge_test(
     behavior = "provide_mcp_validate_tool",
     verify = "severity_filter restricts returned diagnostics"
@@ -1541,6 +1574,77 @@ fn trace_plan_gap_analysis() {
     );
     assert!(gaps.contains(&("act_one", "inv_a", "ordering")), "{gaps:?}");
     assert_eq!(gaps.len(), 3, "{gaps:?}");
+}
+
+#[specforge_test(behavior = "validate_agent_plan", verify = "output is structured JSON")]
+fn trace_plan_reports_its_gaps_as_structured_json() {
+    let project = tempfile::tempdir().unwrap();
+    std::fs::write(
+        project.path().join("specforge.json"),
+        r#"{"name":"t","version":"0.1.0","extensions":["@specforge/software","@specforge/testing"]}"#,
+    )
+    .unwrap();
+    std::fs::write(
+        project.path().join("app.spec"),
+        "invariant inv_a \"A\" {\n  guarantee \"g\"\n  verify unit \"z\"\n}\n\n\
+         behavior act_one \"One\" {\n  invariants [inv_a]\n  verify unit \"x\"\n}\n\n\
+         behavior act_two \"Two\" {\n  verify unit \"y\"\n}\n",
+    )
+    .unwrap();
+    let mut server = serving_nothing();
+    call_tool(
+        &mut server,
+        "specforge.validate",
+        json!({"path": project.path().to_str().unwrap()}),
+    );
+
+    let plan = json!({"entries": [{"entity_id": "act_one"}, {"entity_id": "ghost"}]});
+    let resp = call_tool(&mut server, "specforge.trace", json!({"plan": plan}));
+    let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+
+    // One object: the entries that name an entity, and the gaps.
+    let mut keys: Vec<&str> = parsed
+        .as_object()
+        .unwrap_or_else(|| panic!("not an object: {parsed}"))
+        .keys()
+        .map(String::as_str)
+        .collect();
+    keys.sort();
+    assert_eq!(keys, ["affected_entities", "gaps"], "{parsed}");
+    assert_eq!(parsed["affected_entities"], json!(["act_one"]));
+    for gap in parsed["gaps"].as_array().unwrap() {
+        let mut keys: Vec<&str> = gap
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(String::as_str)
+            .collect();
+        keys.sort();
+        assert_eq!(
+            keys,
+            [
+                "gap_context",
+                "missing_link_type",
+                "source_entity",
+                "target_entity"
+            ],
+            "{gap}"
+        );
+        assert!(
+            gap.as_object().unwrap().values().all(Value::is_string),
+            "{gap}"
+        );
+    }
+    let ghost = parsed["gaps"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|gap| gap["target_entity"] == "ghost")
+        .unwrap_or_else(|| panic!("no gap for ghost in {parsed}"));
+    assert!(
+        ghost["gap_context"].as_str().unwrap().starts_with("E003"),
+        "{ghost}"
+    );
 }
 
 #[specforge_test(

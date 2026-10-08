@@ -259,3 +259,44 @@ fn a_later_file_with_the_same_path_replaces_the_earlier_one() {
     assert!(build.graph().node("omega").is_some());
     assert_eq!(build.files().len(), 1);
 }
+
+#[test]
+fn a_format_version_header_is_a_diagnostic_of_its_file() {
+    let mut build = GraphBuild::new(GraphConfig::default());
+    build.set_verify(true);
+    let codes = |build: &GraphBuild| -> Vec<String> {
+        build.diagnostics().iter().map(|d| d.code.clone()).collect()
+    };
+
+    // An older header: I007, in the file, on the header line.
+    let applied = build.apply([parsed(
+        "a.spec",
+        &format!("// specforge-format: 0.9\n{ALPHA}"),
+    )]);
+    assert_eq!(applied.verification, Some(Ok(())));
+    assert_eq!(codes(&build), ["I007"]);
+    assert_eq!(applied.changed_diagnostic_files, ["a.spec"]);
+    let diagnostic = &build.file_diagnostics("a.spec")[0];
+    assert_eq!(diagnostic.span.as_ref().unwrap().start_line, 1);
+
+    // The same file, now current: the diagnostic goes with the header.
+    let applied = build.apply([parsed(
+        "a.spec",
+        &format!("// specforge-format: 1.0\n{ALPHA}"),
+    )]);
+    assert_eq!(applied.verification, Some(Ok(())));
+    assert!(codes(&build).is_empty());
+    assert_eq!(applied.changed_diagnostic_files, ["a.spec"]);
+
+    // A newer one is E019; removing the file removes it.
+    let applied = build.apply([parsed(
+        "a.spec",
+        &format!("// specforge-format: 9.0\n{ALPHA}"),
+    )]);
+    assert_eq!(applied.verification, Some(Ok(())));
+    assert_eq!(codes(&build), ["E019"]);
+    let applied = build.apply([FileChange::Removed("a.spec".to_string())]);
+    assert_eq!(applied.verification, Some(Ok(())));
+    assert!(codes(&build).is_empty());
+    assert_eq!(applied.changed_diagnostic_files, ["a.spec"]);
+}

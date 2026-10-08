@@ -1,80 +1,19 @@
 use serde::Serialize;
-use serde_json::Value;
 
 use specforge_graph::{Graph, Node};
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 
 use crate::error::EmitterError;
-use crate::json::{JsonEdge, SCHEMA_VERSION, field_map_to_json, sorted_edges};
-use crate::schema::{GraphProtocolSchema, SchemaAttachment, SchemaRefBlock};
 
-/// What wraps the entities of a graph export: `format_version`,
-/// `schema_version`, and for a V2 export the schema, embedded or referenced.
-/// A budgeted export always carries it whole; only entities are truncated.
-pub(crate) struct Envelope<'a> {
-    format_version: &'static str,
-    schema_version: String,
-    schema: Option<&'a GraphProtocolSchema>,
-    schema_ref: Option<SchemaRefBlock>,
-}
-
-impl<'a> Envelope<'a> {
-    /// The schemaless V1 envelope, as [`crate::json::emit_json`] writes it.
-    pub(crate) fn schemaless() -> Self {
-        Self {
-            format_version: "1.0",
-            schema_version: SCHEMA_VERSION.to_string(),
-            schema: None,
-            schema_ref: None,
-        }
-    }
-
-    /// The V2 envelope, as [`crate::schema::emit_json_attached`] writes it.
-    pub(crate) fn attached(schema: &'a GraphProtocolSchema, attach: SchemaAttachment) -> Self {
-        let (embedded, reference) = match attach {
-            SchemaAttachment::Embedded => (Some(schema), None),
-            SchemaAttachment::Referenced => (None, Some(SchemaRefBlock::for_schema(schema))),
-        };
-        Self {
-            format_version: "2.0",
-            schema_version: schema.schema_version.to_string(),
-            schema: embedded,
-            schema_ref: reference,
-        }
-    }
-}
-
+/// The `token_budget` block of an export that did not fit its budget whole:
+/// what was dropped to make it fit.
 #[derive(Serialize)]
-struct BudgetedGraph<'a> {
-    format_version: &'static str,
-    schema_version: &'a str,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    schema: Option<&'a GraphProtocolSchema>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    schema_ref: Option<&'a SchemaRefBlock>,
-    nodes: Vec<&'a BudgetedNode>,
-    edges: Vec<&'a JsonEdge>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    token_budget: Option<TokenBudgetResult<'a>>,
-}
-
-#[derive(Serialize)]
-struct BudgetedNode {
-    id: String,
-    kind: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    title: Option<String>,
-    file: String,
-    line: usize,
-    fields: BTreeMap<String, Value>,
-}
-
-#[derive(Serialize)]
-struct TokenBudgetResult<'a> {
+pub(crate) struct TokenBudget {
     strategy: &'static str,
     budget_tokens: usize,
     estimated_tokens: usize,
-    truncated_entities: Vec<&'a str>,
+    /// The IDs of the entities dropped, least central first.
+    truncated_entities: Vec<String>,
 }
 
 /// The token cost a `--max-tokens` budget measures: each word-like run
@@ -128,95 +67,71 @@ fn nodes_by_priority(graph: &Graph) -> Vec<&Node> {
     nodes
 }
 
-fn budgeted_node(n: &Node) -> BudgetedNode {
-    BudgetedNode {
-        id: n.id.raw.to_string(),
-        kind: n.kind.raw.to_string(),
-        title: n.title.clone(),
-        file: n.source_span.file.to_string(),
-        line: n.source_span.start_line,
-        fields: field_map_to_json(&n.fields),
+/// `graph` reduced to `kept`: those nodes and the edges between them.
+fn keeping(graph: &Graph, kept: &[&Node]) -> Graph {
+    let ids: HashSet<&str> = kept.iter().map(|n| n.id.raw.as_str()).collect();
+    let mut reduced = Graph::new();
+    for node in kept {
+        reduced.add_node((*node).clone());
     }
+    for edge in graph.edges() {
+        if ids.contains(edge.source.as_str()) && ids.contains(edge.target.as_str()) {
+            reduced.add_edge(*edge);
+        }
+    }
+    reduced
 }
 
-/// The schemaless graph export fitted to `max_tokens`: the whole export when
-/// it fits, otherwise the most central entities that fit with a
-/// `token_budget` block naming the rest. See [`emit_graph_within_budget`].
-pub fn emit_json_with_budget(graph: &Graph, max_tokens: usize) -> Result<String, EmitterError> {
-    emit_graph_within_budget(graph, max_tokens, &Envelope::schemaless())
-}
-
-/// The graph export in `envelope`, fitted to `max_tokens` by the
-/// `prioritize` strategy.
+/// `render`'s export of `graph` fitted to `max_tokens` by the `prioritize`
+/// strategy.
 ///
-/// The envelope always counts and is never truncated: when it carries an
-/// embedded schema, a schema over the budget fails with E062 rather than
-/// shipping part of it. Entities fill what the envelope leaves, least
-/// connected dropped first along with their edges; the dropped IDs go in
-/// the `token_budget` block. When no entity fits, the export is the envelope
-/// with no entities and that block; when even that is over the budget, E062.
-pub(crate) fn emit_graph_within_budget(
+/// The whole export when it fits. Otherwise the fewest least connected
+/// entities are dropped, along with their edges, for it to fit, and the export
+/// names them in its `token_budget` block (`render`'s second argument). The
+/// envelope always counts and is never cut: an embedded schema costing
+/// `schema_cost` tokens that is over the budget fails with E062 rather than
+/// shipping part of it, and so does a budget that cannot hold the export with
+/// no entities.
+pub(crate) fn fit(
     graph: &Graph,
     max_tokens: usize,
-    envelope: &Envelope<'_>,
+    schema_cost: Option<usize>,
+    render: impl Fn(&Graph, Option<&TokenBudget>) -> Result<String, EmitterError>,
 ) -> Result<String, EmitterError> {
-    let edges = sorted_edges(graph);
-    let render = |nodes: Vec<&BudgetedNode>, token_budget: Option<TokenBudgetResult<'_>>| {
-        let kept: HashSet<&str> = nodes.iter().map(|n| n.id.as_str()).collect();
-        let output = BudgetedGraph {
-            format_version: envelope.format_version,
-            schema_version: &envelope.schema_version,
-            schema: envelope.schema,
-            schema_ref: envelope.schema_ref.as_ref(),
-            nodes,
-            edges: edges
-                .iter()
-                .filter(|e| kept.contains(e.source.as_str()) && kept.contains(e.target.as_str()))
-                .collect(),
-            token_budget,
-        };
-        serde_json::to_string(&output).map_err(|e| EmitterError::Serialization(e.to_string()))
-    };
-
     // Everything, in graph order, when it fits.
-    let all: Vec<BudgetedNode> = graph.nodes().into_iter().map(budgeted_node).collect();
-    let full = render(all.iter().collect(), None)?;
+    let full = render(graph, None)?;
     if estimate_tokens(&full) <= max_tokens {
         return Ok(full);
     }
 
-    if let Some(schema) = envelope.schema {
-        let schema_json = serde_json::to_string(schema)
-            .map_err(|e| EmitterError::Serialization(e.to_string()))?;
-        let schema_tokens = estimate_tokens(&schema_json);
-        if schema_tokens > max_tokens {
-            return Err(EmitterError::BudgetTooSmall {
-                reason: format!(
-                    "the embedded schema alone costs {schema_tokens} tokens, over \
-                     the token budget of {max_tokens}; raise the budget or export without the schema"
-                ),
-            });
-        }
+    if let Some(schema_tokens) = schema_cost
+        && schema_tokens > max_tokens
+    {
+        return Err(EmitterError::BudgetTooSmall {
+            reason: format!(
+                "the embedded schema alone costs {schema_tokens} tokens, over \
+                 the token budget of {max_tokens}; raise the budget or export without the schema"
+            ),
+        });
     }
 
     // The export with the `cut` least central entities dropped, and its cost.
-    let priority: Vec<BudgetedNode> = nodes_by_priority(graph)
-        .into_iter()
-        .map(budgeted_node)
-        .collect();
+    let priority = nodes_by_priority(graph);
     let with_cut = |cut: usize| -> Result<(String, usize), EmitterError> {
-        let truncated: Vec<&str> = priority[..cut].iter().map(|n| n.id.as_str()).collect();
-        let kept: Vec<&BudgetedNode> = priority[cut..].iter().collect();
-        let marker = |estimated_tokens| TokenBudgetResult {
+        let kept = keeping(graph, &priority[cut..]);
+        let marker = |estimated_tokens| TokenBudget {
             strategy: "prioritize",
             budget_tokens: max_tokens,
             estimated_tokens,
-            truncated_entities: truncated.clone(),
+            truncated_entities: priority[..cut]
+                .iter()
+                .map(|n| n.id.raw.to_string())
+                .collect(),
         };
         // The estimate is one number, one token whatever its value, so the
         // placeholder costs what the real figure does.
-        let estimated = estimate_tokens(&render(kept.clone(), Some(marker(0)))?);
-        Ok((render(kept, Some(marker(estimated)))?, estimated))
+        let estimated = estimate_tokens(&render(&kept, Some(&marker(0)))?);
+        Ok((render(&kept, Some(&marker(estimated)))?, estimated))
     };
 
     // Cutting an entity always lowers the cost (its ID is cheaper in the
@@ -244,75 +159,4 @@ pub(crate) fn emit_graph_within_budget(
         }
     }
     Ok(with_cut(lo)?.0)
-}
-
-/// Build the sub-graph that fits `max_tokens` when rendered by `render`,
-/// dropping least-connected nodes first (same prioritize strategy as
-/// [`emit_json_with_budget`]). Returns the filtered graph.
-pub fn filter_graph_within_budget<F>(
-    graph: &Graph,
-    max_tokens: usize,
-    render: F,
-) -> Result<Graph, crate::error::EmitterError>
-where
-    F: Fn(&Graph) -> Result<String, crate::error::EmitterError>,
-{
-    let full = render(graph)?;
-    if estimate_tokens(&full) <= max_tokens {
-        return Ok(graph.clone());
-    }
-
-    let mut kept: Vec<_> = nodes_by_priority(graph);
-    loop {
-        let kept_ids: HashSet<&str> = kept.iter().map(|n| n.id.raw.as_str()).collect();
-
-        let mut filtered = Graph::new();
-        for n in &kept {
-            filtered.add_node(Node {
-                id: n.id,
-                kind: n.kind,
-                title: n.title.clone(),
-                fields: n.fields.clone(),
-                source_span: n.source_span.clone(),
-                methods: n.methods.clone(),
-            });
-        }
-        for e in graph.edges() {
-            if kept_ids.contains(e.source.as_str()) && kept_ids.contains(e.target.as_str()) {
-                filtered.add_edge(specforge_graph::Edge {
-                    source: e.source,
-                    target: e.target,
-                    label: e.label,
-                });
-            }
-        }
-
-        let rendered = render(&filtered)?;
-        if estimate_tokens(&rendered) <= max_tokens || kept.len() <= 1 {
-            return Ok(filtered);
-        }
-        kept.remove(0);
-    }
-}
-
-pub fn emit_json_with_budget_strategy(
-    graph: &Graph,
-    max_tokens: usize,
-    strategy: &str,
-) -> Result<String, EmitterError> {
-    let full = crate::json::emit_json(graph);
-    let est = estimate_tokens(&full);
-
-    if est <= max_tokens {
-        return Ok(full);
-    }
-
-    match strategy {
-        "error" => Err(EmitterError::BudgetTooSmall {
-            reason: format!(
-                "token budget exceeded: estimated {est} tokens, budget is {max_tokens}"
-            ),
-        }),
-        _ => emit_json_with_budget(graph, max_tokens),
-    }
 }

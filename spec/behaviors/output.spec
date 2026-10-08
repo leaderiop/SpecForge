@@ -899,17 +899,21 @@ behavior enforce_token_budget "Enforce Token Budget" {
     exceeds the budget, the system MUST apply a truncation strategy:
     prioritize entities by graph centrality, truncate low-priority entities,
     and include a TokenBudgetResult in the output metadata. The strategy
-    field MUST indicate which approach was used (truncate, prioritize, or
-    error). If no --max-tokens is specified, this behavior MUST be skipped.
+    field names the approach used; the one strategy is `prioritize`. If no
+    --max-tokens is specified, this behavior MUST be skipped.
     The TokenBudgetResult MUST list any truncated entity IDs so agents can
     request them individually via specforge query. When truncating entities
     from the budget, the system MUST remove all edges to and from truncated
     entities before serialization. The remaining subgraph MUST be a valid
     graph with no dangling edge references. The truncated_entities list in
-    TokenBudgetResult records which entities were removed. The default
-    strategy MUST be `prioritize`. The default centrality metric MUST be
-    degree centrality (count of incoming + outgoing edges). Both MUST be
-    overridable via AgentExportConfig.
+    TokenBudgetResult records which entities were removed. Centrality is
+    degree centrality (count of incoming + outgoing edges); neither the
+    strategy nor the metric is configurable.
+
+    The graph, context and brief exports are budgeted alike: each lists the
+    entities it dropped under `token_budget`, keeps no entity when only its
+    envelope and that block fit, and fails with E062 when even those, or an
+    embedded schema (which is never cut short), are over the budget.
   """
   verify unit "output within budget includes all entities"
   verify unit "output exceeding budget truncates low-priority entities"
@@ -917,11 +921,12 @@ behavior enforce_token_budget "Enforce Token Budget" {
   verify unit "truncated_entities lists omitted entity IDs"
   verify unit "no --max-tokens skips budget enforcement"
   verify integration "export with max_tokens produces output within budget and includes metadata"
-  verify unit "error strategy rejects export exceeding budget"
   verify integration "the graph export honours --max-tokens with the schema left out unless --with-schema is given"
   verify integration "an embedded schema counts toward the token budget"
   verify integration "a budget smaller than the embedded schema fails with E062 instead of truncating the schema"
   verify integration "a budget below one entity yields the envelope with no entities and the truncation marker"
   verify integration "a budget below the empty envelope fails with E062"
+  verify integration "the context and brief exports honour --max-tokens, listing the dropped entities under token_budget"
+  verify integration "a context or brief export that cannot fit even without entities, or whose embedded schema is over the budget, fails with E062"
   verify contract "Enforce Token Budget: token budget enforcement holds — validation_complete_fired, budget_respected, truncation_metadata_produced, valid_subgraph_after_truncation, token_budget_applied_emitted"
 }

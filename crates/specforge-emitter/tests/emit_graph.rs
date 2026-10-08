@@ -222,7 +222,7 @@ fn graph_format_scoped_nonexistent_entity_produces_e001() {
         methods: Vec::new(),
     });
 
-    let err = specforge_emitter::scope::emit_json_scoped(&graph, "nonexistent").unwrap_err();
+    let err = crate::support::scoped_json(&graph, "nonexistent").unwrap_err();
     assert_eq!(
         err.to_string(),
         "unresolved entity 'nonexistent' — not found in graph"

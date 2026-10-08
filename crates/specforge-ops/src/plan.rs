@@ -7,8 +7,6 @@ use specforge_common::codes;
 use specforge_project::coverage::ProjectCoverage;
 use std::collections::{HashMap, HashSet};
 
-use specforge_emitter::SCHEMA_VERSION;
-
 use crate::view::ProjectView;
 use crate::{OpError, OpErrorKind};
 
@@ -17,14 +15,10 @@ use crate::{OpError, OpErrorKind};
 pub struct PlanOutcome {
     /// Plan entries that name an entity in the graph, in plan order.
     pub entries: Vec<String>,
-    /// Every error, warning and ordering violation below, as a record.
+    /// How the plan falls short: entries naming no entity (E003 in their
+    /// context), testable entities with obligations it has no entry for,
+    /// entries before what they depend on.
     pub gaps: Vec<PlanGap>,
-    /// Entries naming no entity (E003).
-    pub errors: Vec<String>,
-    /// Testable entities with obligations the plan has no entry for.
-    pub warnings: Vec<String>,
-    /// Entries listed before an entity they depend on.
-    pub ordering_violations: Vec<String>,
 }
 
 /// Why a plan could not be checked.
@@ -69,7 +63,7 @@ pub struct PlanGap {
     pub source: String,
     pub target: String,
     pub kind: PlanGapKind,
-    /// The same text as the matching error, warning or violation.
+    /// The diagnostic text of the gap (an unresolved entry's starts with E003).
     pub context: String,
 }
 
@@ -129,9 +123,6 @@ pub fn check(view: &ProjectView, plan: &Value) -> Result<PlanOutcome, PlanError>
 
 fn validate(view: &ProjectView, entries: &[Value], coverage: &ProjectCoverage) -> PlanOutcome {
     let graph = view.graph();
-    let mut errors = Vec::new();
-    let mut warnings = Vec::new();
-    let mut ordering_violations = Vec::new();
     let mut validated_entries = Vec::new();
     let mut gaps = Vec::new();
 
@@ -153,9 +144,8 @@ fn validate(view: &ProjectView, entries: &[Value], coverage: &ProjectCoverage) -
                     source: PLAN.to_string(),
                     target: id.to_string(),
                     kind: PlanGapKind::UnresolvedEntity,
-                    context: message.clone(),
+                    context: message,
                 });
-                errors.push(message);
             }
         }
     }
@@ -176,9 +166,8 @@ fn validate(view: &ProjectView, entries: &[Value], coverage: &ProjectCoverage) -
                 source: PLAN.to_string(),
                 target: id.clone(),
                 kind: PlanGapKind::MissingPlanEntry,
-                context: message.clone(),
+                context: message,
             });
-            warnings.push(message);
         }
     }
 
@@ -208,40 +197,13 @@ fn validate(view: &ProjectView, entries: &[Value], coverage: &ProjectCoverage) -
                 source: edge.source.to_string(),
                 target: edge.target.to_string(),
                 kind: PlanGapKind::Ordering,
-                context: message.clone(),
+                context: message,
             });
-            ordering_violations.push(message);
         }
     }
 
     PlanOutcome {
         entries: validated_entries,
         gaps,
-        errors,
-        warnings,
-        ordering_violations,
     }
-}
-
-/// The plan check as a JSON report: `schema_version`, `errors`,
-/// `warnings`, `ordering_violations`, `validated_entries`.
-pub fn serialize_plan_result(result: &PlanOutcome) -> String {
-    #[derive(Serialize)]
-    struct Output<'a> {
-        schema_version: &'static str,
-        errors: &'a [String],
-        warnings: &'a [String],
-        ordering_violations: &'a [String],
-        validated_entries: &'a [String],
-    }
-
-    let output = Output {
-        schema_version: SCHEMA_VERSION,
-        errors: &result.errors,
-        warnings: &result.warnings,
-        ordering_violations: &result.ordering_violations,
-        validated_entries: &result.entries,
-    };
-
-    serde_json::to_string(&output).expect("serialization cannot fail")
 }

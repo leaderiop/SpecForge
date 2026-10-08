@@ -4,7 +4,7 @@
 
 use specforge_common::Diagnostic;
 use specforge_graph::Graph;
-use specforge_ops::plan::PlanOutcome;
+use specforge_ops::plan::{PlanGapKind, PlanOutcome};
 use specforge_ops::stats::Stats;
 use specforge_ops::trace::{Target, TraceChain};
 use specforge_ops::view::ProjectView;
@@ -158,6 +158,16 @@ pub fn stats_of(graph: &Graph, testable: &[&str], diagnostics: &[Diagnostic]) ->
 pub fn plan_check(graph: &Graph, testable: &[&str], plan: &serde_json::Value) -> PlanOutcome {
     let project = Project::of_graph(graph.clone(), registries(testable, &[]));
     specforge_ops::plan::check(&project.view(), plan).unwrap()
+}
+
+/// The contexts of `outcome`'s gaps of `kind`, in order.
+pub fn gap_texts(outcome: &PlanOutcome, kind: PlanGapKind) -> Vec<&str> {
+    outcome
+        .gaps
+        .iter()
+        .filter(|gap| gap.kind == kind)
+        .map(|gap| gap.context.as_str())
+        .collect()
 }
 
 /// The chain of `entity_id` in `graph`, its expected edges from

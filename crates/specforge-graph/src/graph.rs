@@ -84,23 +84,6 @@ impl Graph {
         self.nodes.insert(node.id.raw, node);
     }
 
-    pub fn remove_node(&mut self, id: &str) {
-        let sym = Sym::new(id);
-        self.nodes.remove(&sym);
-        // Rebuild edges and indexes, removing any edge touching this node
-        let old_edges = std::mem::take(&mut self.edges);
-        self.source_index.clear();
-        self.target_index.clear();
-        for edge in old_edges {
-            if edge.source != sym && edge.target != sym {
-                let idx = self.edges.len();
-                self.source_index.entry(edge.source).or_default().push(idx);
-                self.target_index.entry(edge.target).or_default().push(idx);
-                self.edges.push(edge);
-            }
-        }
-    }
-
     /// Remove every node `file` contributed; the build re-links every edge
     /// afterwards.
     pub(crate) fn remove_entities_of_file(&mut self, file: Sym) {
@@ -122,39 +105,6 @@ impl Graph {
         self.source_index.entry(edge.source).or_default().push(idx);
         self.target_index.entry(edge.target).or_default().push(idx);
         self.edges.push(edge);
-    }
-
-    /// Like [`add_edge`] but checks that both `source` and `target` exist as
-    /// nodes in the graph. Returns `Some(Diagnostic)` (W011) and does **not**
-    /// insert the edge when either endpoint is missing. Returns `None` on
-    /// success (edge was added).
-    pub fn add_edge_checked(&mut self, edge: Edge) -> Option<Diagnostic> {
-        let source_exists = self.nodes.contains_key(&edge.source);
-        let target_exists = self.nodes.contains_key(&edge.target);
-
-        if !source_exists || !target_exists {
-            let missing: Vec<&str> = [
-                (!source_exists).then_some(edge.source.as_str()),
-                (!target_exists).then_some(edge.target.as_str()),
-            ]
-            .into_iter()
-            .flatten()
-            .collect();
-
-            return Some(Diagnostic::new(
-                codes::W011,
-                format!(
-                    "edge '{}' --[{}]--> '{}': node(s) not found: {}",
-                    edge.source.as_str(),
-                    edge.label.as_str(),
-                    edge.target.as_str(),
-                    missing.join(", "),
-                ),
-            ));
-        }
-
-        self.add_edge(edge);
-        None
     }
 
     fn clear_edges(&mut self) {
@@ -501,11 +451,6 @@ impl Graph {
         }
 
         diagnostics
-    }
-
-    /// Returns true if the directed edge set contains at least one cycle.
-    pub fn has_cycles(&self) -> bool {
-        !self.detect_cycles().is_empty()
     }
 }
 
