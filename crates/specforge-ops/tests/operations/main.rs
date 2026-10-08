@@ -9,6 +9,7 @@ mod errors;
 mod extension_calls;
 mod failures;
 mod inspect;
+mod kinds;
 mod management;
 mod model;
 mod navigate;

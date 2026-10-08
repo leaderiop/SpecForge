@@ -61,46 +61,6 @@ pub(crate) fn span_json(span: &specforge_common::SourceSpan) -> Value {
     })
 }
 
-/// An I020 report for each kind in a `kinds` filter that no registered
-/// extension defines and no entity has, in the order given, with a
-/// `did you mean` suggestion when a known kind is close. The filter still
-/// drops them: they match no entity.
-pub(crate) fn unknown_kind_diagnostics(
-    view: &specforge_ops::view::ProjectView<'_>,
-    kinds: &[&str],
-) -> Vec<specforge_common::Diagnostic> {
-    let mut known: Vec<&str> = view
-        .registries()
-        .kinds
-        .keywords()
-        .map(String::as_str)
-        .chain(
-            view.graph()
-                .nodes()
-                .into_iter()
-                .map(|n| n.kind.raw.as_str()),
-        )
-        .collect();
-    known.sort_unstable();
-    known.dedup();
-
-    let mut reported: Vec<&str> = Vec::new();
-    let mut diagnostics = Vec::new();
-    for &kind in kinds {
-        if known.binary_search(&kind).is_ok() || reported.contains(&kind) {
-            continue;
-        }
-        reported.push(kind);
-        let mut diag =
-            specforge_common::Diagnostic::new(codes::I020, format!("unknown entity kind '{kind}'"));
-        if let Some(close) = specforge_common::find_close_match(kind, known.iter().copied()) {
-            diag = diag.with_suggestion(format!("did you mean '{close}'?"));
-        }
-        diagnostics.push(diag);
-    }
-    diagnostics
-}
-
 /// An emitter failure about `entity_id` as a failed tool result. A
 /// missing entity is [`entity_not_found`](crate::tool::entity_not_found),
 /// its `E003` in `diagnostic`, never only in the message text.

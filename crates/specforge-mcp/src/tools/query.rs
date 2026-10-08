@@ -30,7 +30,7 @@ pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
     let include_coverage = args.include_coverage;
 
     let kinds: Vec<&str> = args.kinds.iter().map(String::as_str).collect();
-    let unknown_kinds = super::unknown_kind_diagnostics(&view, &kinds);
+    let unknown_kinds = view.kinds().unknown_in(&kinds);
 
     let query_result = {
         let options = EmitOptions {

@@ -10,6 +10,8 @@
 //! both read at the root the project was compiled from and never in an
 //! ancestor directory.
 
+mod kinds;
+
 use std::path::Path;
 use std::sync::Arc;
 
@@ -21,6 +23,8 @@ use specforge_project::snapshot::EntitySnapshot;
 use specforge_project::{CompiledProject, Environment, ProjectSession};
 use specforge_registry::RegistryBuild;
 use specforge_wasm::LockState;
+
+pub use kinds::{KnownKinds, UNKNOWN_KIND};
 
 use crate::schema_cache::SchemaCache;
 use crate::{OpError, OpErrorKind};

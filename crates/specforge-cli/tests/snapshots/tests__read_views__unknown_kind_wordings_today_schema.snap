@@ -5,7 +5,7 @@ expression: "normalized(&answer, root).to_string()"
 {
   "content": [
     {
-      "text": "{\"argument\":\"kind\",\"code\":\"invalid_input\",\"data\":{\"suggestion\":\"did you mean 'behavior'?\"},\"message\":\"unknown entity kind: 'behaviour'\",\"tool\":\"specforge.schema\"}",
+      "text": "{\"argument\":\"kind\",\"code\":\"invalid_input\",\"data\":{\"suggestion\":\"did you mean 'behavior'?\"},\"message\":\"unknown entity kind 'behaviour'\",\"tool\":\"specforge.schema\"}",
       "type": "text"
     }
   ],

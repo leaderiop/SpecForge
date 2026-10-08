@@ -1652,7 +1652,7 @@ fn schema_unknown_kind_is_invalid_input() {
         assert_eq!(error["argument"], "kind", "{error}");
         assert_eq!(
             error["message"],
-            format!("unknown entity kind: '{kind}'"),
+            format!("unknown entity kind '{kind}'"),
             "{error}"
         );
         assert_eq!(error["data"]["suggestion"], suggestion, "{error}");

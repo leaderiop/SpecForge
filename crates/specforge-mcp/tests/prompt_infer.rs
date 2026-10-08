@@ -171,32 +171,39 @@ fn kind_scope_example_writes_each_field_by_its_type() {
     );
 }
 
+/// Kinds are keywords, matched exactly: `kind:Behavior` is refused, and the
+/// suggestion names the kind (ADR 0015 "Query" Q3).
 #[test]
-fn kind_scope_is_case_insensitive() {
+fn kind_scope_is_exact_and_suggests_the_kind() {
     let mut state = state_with_my_behavior();
     let resp = infer(&mut state, json!({"scope": "kind:Behavior"}));
-    let content: Value = prompt_payload(&resp);
-    let ids = content["existing_entity_ids"].as_array().unwrap();
-    assert!(ids.contains(&Value::from("my_behavior")));
+    let data = &resp["error"]["data"];
+    assert_eq!(resp["error"]["code"], -32602, "{resp}");
+    assert_eq!(data["message"], "unknown entity kind 'Behavior'", "{resp}");
+    assert_eq!(data["argument"], "scope");
+    assert_eq!(data["data"]["suggestion"], "did you mean 'behavior'?");
 }
 
-/// An extension keyword written with a capital is lowercased by the infer
-/// prompt's lookup (plan 05 R6): the entity of that kind is not listed and
-/// the example is written with a keyword the language refuses (E024).
-/// Flipped when the lookup stops lowercasing.
+/// An extension keyword written with a capital is listed as declared: the
+/// entities of that kind are found and the example is written with the
+/// keyword the language accepts.
 #[test]
-fn a_capitalized_keyword_is_listed_lowercased_today() {
+fn a_capitalized_keyword_is_kept_as_declared() {
     let mut state = TestProject::new()
         .file("d.spec", "ADR pick_db {\n}\n")
         .serve(&[test_extension("ADR", Some("g"))]);
     let resp = infer(&mut state, json!({"scope": "kind:ADR"}));
     let content: Value = prompt_payload(&resp);
-    assert_eq!(content["existing_entity_ids"], json!([]), "{content}");
+    assert_eq!(
+        content["existing_entity_ids"],
+        json!(["pick_db"]),
+        "{content}"
+    );
     assert!(
         content["example"]
             .as_str()
             .unwrap()
-            .starts_with("adr example_adr"),
+            .starts_with("ADR example_ADR"),
         "{content}"
     );
 }

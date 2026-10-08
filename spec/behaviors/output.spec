@@ -199,12 +199,18 @@ behavior read_views_over_the_project_view "Read Views over the Project View" {
   }
   contract   """
     Stats, trace (one entity or every entity), the coverage view, the
-    model and outline diagrams, the versioned Graph Protocol schema and
+    model and outline diagrams, the versioned Graph Protocol schema,
     inspect (one entity's facts: its kind, standing, headline, references,
-    coverage and the diagnostics about it) MUST each be one operation over
-    the project view, shared by the surfaces that show them (the CLI, MCP,
-    and for inspect the LSP hover); a surface maps its arguments and renders
-    the outcome. The
+    coverage and the diagnostics about it), and query, list and search
+    (the entities a selection over the view returns) MUST each be one
+    operation over the project view, shared by the surfaces that show them
+    (the CLI, MCP, and for inspect the LSP hover); a surface maps its
+    arguments and renders the outcome. A kind the project knows is one a
+    loaded extension declares or an entity is written with; names are
+    exact. A kind filter that names another kind matches nothing and is
+    reported as I020; an argument that needs a kind's declaration refuses
+    an undeclared one (unknown_kind). Both name the closest kind, a kind
+    equal but for case first. The
     view's root is the root the project was compiled from: its recorded
     test report is <root>/specforge-report.json and its schema cache
     <root>/.specforge/schema-cache.json, and no view looks in an ancestor
@@ -232,6 +238,8 @@ behavior read_views_over_the_project_view "Read Views over the Project View" {
   verify integration "specforge schema --kind and specforge.schema with a kind return the same document"
   verify integration "specforge outline and specforge.outline_extensions render the same text"
   verify integration "specforge.inspect and the LSP hover report the same facts for an entity"
+  verify unit "a kind filter reports each kind the project does not know with I020, naming the closest"
+  verify unit "an argument naming an undeclared kind is refused with unknown_kind naming the closest declared kind"
   verify contract "Read Views over the Project View: read views hold — project_compiled, one_report_rule, one_coverage_per_state, surfaces_agree"
 }
 

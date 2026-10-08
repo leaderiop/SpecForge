@@ -66,7 +66,7 @@ C8 | specforge schema --kind behavor
 exit 1
 -- stdout:
 -- stderr:
-error[unknown_kind]: unknown entity kind: 'behavor'
+error[unknown_kind]: unknown entity kind 'behavor'
   hint: did you mean 'behavior'?
 
 C9 | specforge export --scope nope
