@@ -10,6 +10,7 @@ use std::path::{Path, PathBuf};
 
 use specforge_common::{Diagnostic, codes};
 use specforge_installed::{Module, declaration_of};
+use specforge_protocol_types::peers::{Verdict, verdict};
 use specforge_protocol_types::{ExtensionDeclaration, PackageName, PeerDependency};
 use specforge_wasm::WasmRuntime;
 
@@ -179,8 +180,10 @@ impl LocalFile {
 
 /// The builtins to enable before the builtin `name`, dependencies first:
 /// its non-optional peers that are builtins, and theirs, each read once from
-/// its embedded binary. E028 when one does not load. A cycle among required
-/// builtins stops the walk; the registry build reports it.
+/// its embedded binary. E028 when one does not load; E027 when a required
+/// peer is not satisfied by the builtin this specforge embeds, judged by the
+/// one peer rule (ADR 0041; E073 for a range that can't be read). A cycle
+/// among required builtins stops the walk; the registry build reports it.
 pub(crate) fn required_builtins(
     runtime: &dyn WasmRuntime,
     name: &'static str,
@@ -222,14 +225,37 @@ impl Walk<'_> {
             return Ok(());
         }
         self.visiting.push(name);
-        let peers: Vec<&'static str> = self
+        let peers: Vec<(&'static str, PeerDependency)> = self
             .candidate(name)?
             .peers()
             .iter()
             .filter(|peer| !peer.optional)
-            .filter_map(|peer| builtin_name(&peer.name))
+            .filter_map(|peer| Some((builtin_name(&peer.name)?, peer.clone())))
             .collect();
-        for peer in peers {
+        for (peer, declared) in peers {
+            // The builtin this specforge embeds is the one that gets
+            // enabled: it must satisfy the requirement (ADR 0041).
+            let embedded = self.candidate(peer)?.version().to_string();
+            match verdict(&declared, Some(&embedded)) {
+                Verdict::Satisfied | Verdict::Missing => {}
+                Verdict::Unreadable(why) => {
+                    return Err(OpError::from(specforge_common::peers::unreadable(
+                        name, &declared, &why,
+                    )));
+                }
+                Verdict::OutOfRange { .. } | Verdict::NotSemver { .. } => {
+                    return Err(OpError::diagnostic(
+                        codes::E027,
+                        format!(
+                            "the builtin '{name}' requires '{peer}' {}, but this specforge embeds {peer} {embedded}",
+                            declared.version
+                        ),
+                    )
+                    .with_suggestion(
+                        "this specforge build's builtin extensions disagree: reinstall specforge",
+                    ));
+                }
+            }
             self.visit(peer)?;
         }
         self.visiting.pop();

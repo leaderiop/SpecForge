@@ -1073,6 +1073,62 @@ mod tests {
         ));
     }
 
+    #[specforge_test(
+        behavior = "add_extension_to_existing_project",
+        verify = "a required builtin peer the embedded builtin does not satisfy is refused before anything is written"
+    )]
+    fn a_required_builtin_peer_the_embedded_one_does_not_satisfy_is_refused() {
+        use crate::config::testing::files_under;
+        let dir = project_with(EMPTY_PROJECT);
+        let before = files_under(dir.path());
+        // formal wants software ^2.0; the software this specforge embeds is 1.0.0.
+        let runtime = serving_builtin(
+            serving_builtin(
+                runtime(),
+                "@specforge/formal",
+                declaring(
+                    "@specforge/formal",
+                    "1.0.0",
+                    &[("@specforge/software", "^2.0", false)],
+                ),
+            ),
+            "@specforge/software",
+            declaring("@specforge/software", "1.0.0", &[]),
+        );
+
+        let error = add(
+            &builtin_request(dir.path(), "@specforge/formal"),
+            &crate::registry::Unconfigured("add"),
+            &runtime,
+        )
+        .unwrap_err();
+
+        assert_eq!(error.code, "E027");
+        assert!(
+            error.message.contains("'@specforge/software' ^2.0")
+                && error.message.contains("embeds @specforge/software 1.0.0"),
+            "{}",
+            error.message
+        );
+        assert_eq!(files_under(dir.path()), before);
+
+        // init refuses the same way, before it writes anything.
+        let target = tempfile::tempdir().unwrap();
+        let extensions = vec!["@specforge/formal".to_string()];
+        let error = crate::init::plan(
+            &crate::init::Request {
+                dir: &target.path().join("demo"),
+                name: Some("demo"),
+                version: crate::init::DEFAULT_VERSION,
+                extensions: &extensions,
+                forbid_inside: None,
+            },
+            &runtime,
+        )
+        .unwrap_err();
+        assert_eq!(error.code, "E027");
+    }
+
     #[test]
     fn a_missing_config_is_config_not_found_with_the_hint_to_init() {
         let dir = tempfile::tempdir().unwrap();

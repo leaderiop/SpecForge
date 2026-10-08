@@ -278,7 +278,8 @@ behavior add_extension_to_existing_project "Add Extension to Existing Project" {
     A builtin is enabled after the builtins it requires (its non-optional
     peers that are builtins, and theirs), dependencies first; a builtin
     whose declaration cannot be read refuses the operation (E028) before
-    anything is written.
+    anything is written, and a required builtin peer the builtin this
+    specforge embeds does not satisfy refuses it (E027).
     If no specforge.json exists in the current directory or any ancestor
     directory (as resolved by find_project_root()), the system MUST reject
     the operation with an error message and exit code 1. If the extension
@@ -295,6 +296,7 @@ behavior add_extension_to_existing_project "Add Extension to Existing Project" {
   verify unit "add enables a builtin's required peers but not its optional ones"
   verify unit "add enables the builtins a required builtin peer requires, dependencies first"
   verify unit "a builtin whose declaration cannot be read is refused before anything is written"
+  verify unit "a required builtin peer the embedded builtin does not satisfy is refused before anything is written"
   verify unit "add duplicate extension is a no-op with info message"
   verify unit "add extension with no specforge.json rejects with error and exit code 1"
   verify unit "add unresolvable extension rejects with diagnostic"
