@@ -473,3 +473,27 @@ fn infer_file_scope_lists_nothing_for_an_unanchored_file() {
         assert_eq!(infer["match_mode"], "none", "{file}");
     }
 }
+
+/// Pins plan 06 R6: over a `specforge-infer.json` that cannot be read,
+/// the plan counts from scratch and lists every source file as
+/// unanalyzed, which every `mark_analyzed` then refuses. Flipped by T9
+/// (`the_plan_refuses_an_unusable_manifest`).
+#[test]
+fn the_plan_over_an_unusable_manifest_counts_from_scratch() {
+    let mut state = TestProject::new()
+        .file("src/lib.rs", "fn stub() {}\n")
+        .file("specforge-infer.json", "{ nope")
+        .serve(&[
+            test_extension("behavior", Some("guide text")).declaring(|c| {
+                c.analyzer("rust", |a| {
+                    a.file_extensions(&[".rs"]).scan(|_| ScanResponse {
+                        items: Vec::new(),
+                        language: None,
+                    });
+                });
+            }),
+        ]);
+    let content = plan_payload(&mut state, json!({"scope": "plan"}));
+    let files = content["plan"]["unanalyzed_files"].as_array().unwrap();
+    assert!(files.contains(&json!("src/lib.rs")), "{content}");
+}

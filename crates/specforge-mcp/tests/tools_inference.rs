@@ -1,6 +1,7 @@
 use crate::support::*;
 use serde_json::{Value, json};
 use specforge_extension_sdk::prelude::*;
+use specforge_mcp::McpServer;
 use specforge_test::prelude::*;
 
 /// An initialized server over `project`, which enables the rust and
@@ -528,4 +529,251 @@ fn infer_session_timestamps_are_rfc_3339() {
             "not RFC 3339: {stamp}"
         );
     }
+}
+
+// --- what the session writes today (plan 06 T0 pins) ---
+
+/// Write `text` as the project's inference manifest.
+fn write_manifest(root: &std::path::Path, text: &str) {
+    std::fs::write(root.join("specforge-infer.json"), text).unwrap();
+}
+
+/// A manifest with a completed session `s-1` and an active `s-2` that has
+/// no `agent`, as an older tool or a merge could leave it.
+const MANIFEST_WITH_AN_UNREADABLE_SESSION: &str = r#"{
+  "version": 1,
+  "source_roots": ["src"],
+  "sessions": [
+    {"session_id": "s-1", "started_at": "2026-10-01T00:00:00Z", "ended_at": "2026-10-01T01:00:00Z", "agent": "claude", "status": "completed"},
+    {"session_id": "s-2", "started_at": "2026-10-02T00:00:00Z", "status": "active"}
+  ]
+}"#;
+
+/// Pins plan 06 R1: one session missing a field is read as "no sessions",
+/// the start succeeds over an active session and the file loses both.
+/// Flipped by T3 (`a_session_the_manifest_cannot_read_refuses_every_action`).
+#[test]
+fn start_drops_a_session_the_manifest_cannot_read() {
+    let tmp = TestProject::new();
+    write_manifest(tmp.root(), MANIFEST_WITH_AN_UNREADABLE_SESSION);
+    let mut server = init_server(tmp);
+
+    let started = call_tool(
+        &mut server,
+        "specforge.infer_session",
+        json!({"action": "start", "agent": "repro"}),
+    );
+    assert!(started["result"]["isError"] != true, "{started}");
+
+    let ids: Vec<String> = recorded_sessions(server.root())
+        .iter()
+        .map(|s| s["session_id"].as_str().unwrap().to_string())
+        .collect();
+    assert_eq!(ids.len(), 1, "s-1 and s-2 are gone: {ids:?}");
+    assert!(!ids.contains(&"s-1".to_string()) && !ids.contains(&"s-2".to_string()));
+}
+
+/// Pins plan 06 R2: a write drops the keys the manifest type does not
+/// define, at the top level and inside a source entry. Flipped by T3
+/// (`a_rewrite_keeps_the_keys_it_does_not_define`).
+#[test]
+fn a_rewrite_drops_the_keys_the_manifest_does_not_define() {
+    let tmp = TestProject::new();
+    write_manifest(
+        tmp.root(),
+        r#"{"version":1,"source_roots":["src"],"notes":"kept by hand",
+            "source_index":[{"path":"src/a.rs","content_hash":"h","entities_produced":[],
+                             "analyzed_at":"2026-10-01T00:00:00Z","note":"by hand"}]}"#,
+    );
+    let mut server = init_server(tmp);
+    call_tool(
+        &mut server,
+        "specforge.infer_session",
+        json!({"action": "start"}),
+    );
+
+    let text = std::fs::read_to_string(server.root().join("specforge-infer.json")).unwrap();
+    let manifest: Value = serde_json::from_str(&text).unwrap();
+    assert!(manifest.get("notes").is_none(), "{text}");
+    assert!(manifest["source_index"][0].get("note").is_none(), "{text}");
+}
+
+/// Pins plan 06 R3: a path is recorded as the agent spelled it, so one
+/// file is both analyzed and unanalyzed. Flipped by T7
+/// (`mark_analyzed_records_the_root_relative_path`).
+#[test]
+fn mark_analyzed_records_the_path_as_given() {
+    let tmp = TestProject::new();
+    setup_project_with_sources(tmp.root());
+    write_manifest(tmp.root(), r#"{"version":1,"source_roots":["src"]}"#);
+    let mut server = init_server(tmp);
+
+    let marked = call_tool(
+        &mut server,
+        "specforge.infer_session",
+        json!({"action": "mark_analyzed", "source_file": "./src/lib.rs", "entities_produced": ["a"]}),
+    );
+    let reply: Value = serde_json::from_str(&tool_text(&marked)).unwrap();
+    assert_eq!(reply["source_file"], "./src/lib.rs");
+
+    let progress = call_tool(&mut server, "specforge.infer_progress", json!({}));
+    let progress: Value = serde_json::from_str(&tool_text(&progress)).unwrap();
+    assert_eq!(progress["summary"]["files_analyzed"], 1);
+    assert!(
+        progress["unanalyzed"]
+            .as_array()
+            .unwrap()
+            .contains(&json!("src/lib.rs")),
+        "analyzed and unanalyzed at once: {progress}"
+    );
+}
+
+/// Pins plan 06 R3: a file outside the project root is hashed and
+/// recorded. Flipped by T7 (`mark_analyzed_refuses_a_file_outside_the_root`).
+#[test]
+fn mark_analyzed_records_a_file_outside_the_root() {
+    let outside = tempfile::TempDir::new().unwrap();
+    std::fs::write(outside.path().join("outside.rs"), "pub fn o() {}\n").unwrap();
+    let tmp = TestProject::new();
+    write_manifest(tmp.root(), r#"{"version":1,"source_roots":["src"]}"#);
+    let sibling = outside.path().join("outside.rs");
+    let relative = relative_to(&sibling, tmp.root());
+    let mut server = init_server(tmp);
+
+    for spelling in [relative, sibling.display().to_string()] {
+        let marked = call_tool(
+            &mut server,
+            "specforge.infer_session",
+            json!({"action": "mark_analyzed", "source_file": spelling}),
+        );
+        let reply: Value = serde_json::from_str(&tool_text(&marked)).unwrap();
+        assert_eq!(reply["status"], "recorded", "{spelling}: {reply}");
+    }
+    let text = std::fs::read_to_string(server.root().join("specforge-infer.json")).unwrap();
+    let manifest: Value = serde_json::from_str(&text).unwrap();
+    assert_eq!(
+        manifest["source_index"].as_array().unwrap().len(),
+        2,
+        "{text}"
+    );
+}
+
+/// `target` as a path relative to `from`, through `..` components.
+fn relative_to(target: &std::path::Path, from: &std::path::Path) -> String {
+    let target: Vec<_> = target.components().collect();
+    let from: Vec<_> = from.components().collect();
+    let common = target.iter().zip(&from).take_while(|(a, b)| a == b).count();
+    let mut parts: Vec<String> = vec!["..".to_string(); from.len() - common];
+    parts.extend(
+        target[common..]
+            .iter()
+            .map(|c| c.as_os_str().to_string_lossy().into_owned()),
+    );
+    parts.join("/")
+}
+
+/// Pins every refusal's code, argument and wording. T8 flips the "Unknown
+/// action" and "Invalid status" messages only.
+#[test]
+fn session_refusals_keep_their_codes_arguments_and_wording() {
+    let tmp = TestProject::new();
+    write_manifest(tmp.root(), r#"{"version":1,"source_roots":["src"]}"#);
+    let mut server = init_server(tmp);
+
+    let check = |error: &Value, code: &str, argument: Option<&str>, message: &str| {
+        assert_eq!(error["code"], code, "{error}");
+        assert_eq!(error["message"], message, "{error}");
+        match argument {
+            Some(a) => assert_eq!(error["argument"], a, "{error}"),
+            None => assert!(error.get("argument").is_none_or(Value::is_null), "{error}"),
+        }
+    };
+    let refuse = |server: &mut McpServer, args: Value| {
+        let resp = call_tool(server, "specforge.infer_session", args);
+        let error = crate::tool_errors::mcp_error(&resp);
+        assert_eq!(
+            error["data"]["files_written"],
+            json!([]),
+            "a refusal writes nothing: {error}"
+        );
+        error
+    };
+
+    check(
+        &refuse(&mut server, json!({})),
+        "invalid_input",
+        Some("action"),
+        "Missing required parameter: action",
+    );
+    check(
+        &refuse(&mut server, json!({"action": "resume"})),
+        "invalid_input",
+        Some("action"),
+        "Unknown action: 'resume'. Expected: start, mark_analyzed, end",
+    );
+    check(
+        &refuse(
+            &mut server,
+            json!({"action": "end", "session_id": "x", "status": "done"}),
+        ),
+        "invalid_input",
+        Some("status"),
+        "Invalid status: 'done'. Expected: completed, paused",
+    );
+    check(
+        &refuse(&mut server, json!({"action": "end", "session_id": "nope"})),
+        "invalid_input",
+        Some("session_id"),
+        "Unknown session_id: 'nope'",
+    );
+    check(
+        &refuse(
+            &mut server,
+            json!({"action": "mark_analyzed", "source_file": "src/missing.rs"}),
+        ),
+        "file_not_found",
+        Some("source_file"),
+        "failed to read src/missing.rs",
+    );
+    check(
+        &refuse(&mut server, json!({"action": "mark_analyzed"})),
+        "invalid_input",
+        Some("source_file"),
+        "Missing required parameter: source_file",
+    );
+    check(
+        &refuse(&mut server, json!({"action": "end"})),
+        "invalid_input",
+        Some("session_id"),
+        "Missing required parameter: session_id",
+    );
+
+    // A started session: a second start, then ending it twice.
+    let started = call_tool(
+        &mut server,
+        "specforge.infer_session",
+        json!({"action": "start"}),
+    );
+    let id = serde_json::from_str::<Value>(&tool_text(&started)).unwrap()["session_id"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    check(
+        &refuse(&mut server, json!({"action": "start"})),
+        "conflict",
+        None,
+        "Another inference session is already active. End it first.",
+    );
+    let ended = call_tool(
+        &mut server,
+        "specforge.infer_session",
+        json!({"action": "end", "session_id": id}),
+    );
+    assert!(ended["result"]["isError"] != true, "{ended}");
+    check(
+        &refuse(&mut server, json!({"action": "end", "session_id": id})),
+        "conflict",
+        None,
+        &format!("Session '{id}' is not active"),
+    );
 }

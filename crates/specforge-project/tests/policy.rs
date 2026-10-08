@@ -79,3 +79,18 @@ fn lint_profiles_are_a_closed_set() {
         DiagnosticPolicy::default().apply(root.path(), reported)
     );
 }
+
+/// Pins plan 06 R4: the `inferred` profile reads an unusable
+/// `specforge-infer.json` as nothing, so `check --lint inferred` passes
+/// over it. T1 moves this to `ops` (through `ops::check`); T5 flips it to
+/// one E071.
+#[test]
+fn the_inferred_lint_ignores_an_unusable_manifest() {
+    let root = tempfile::TempDir::new().unwrap();
+    std::fs::write(root.path().join("specforge-infer.json"), "{ nope").unwrap();
+    let policy = DiagnosticPolicy {
+        strict: false,
+        lint_profiles: vec![LintProfile::Inferred],
+    };
+    assert!(policy.apply(root.path(), Vec::new()).is_empty());
+}
