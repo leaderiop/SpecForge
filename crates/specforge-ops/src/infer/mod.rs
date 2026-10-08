@@ -19,8 +19,7 @@ pub use gaps::{Gaps, SourceItem, directory_of, gaps};
 pub use lint::lint;
 pub(crate) use manifest::read_manifest;
 pub use manifest::{
-    InferenceManifest, InferenceSession, InferenceSummary, MANIFEST_FILENAME, MANIFEST_INVALID,
-    MANIFEST_UNREADABLE, MANIFEST_WRITE_FAILED, SessionStatus, SourceFileEntry,
-    compute_content_hash,
+    InferenceManifest, InferenceSession, InferenceSummary, MANIFEST_FILENAME,
+    MANIFEST_WRITE_FAILED, SessionStatus, SourceFileEntry, compute_content_hash,
 };
 pub use progress::{Progress, progress, progress_or_fresh};

@@ -13,16 +13,14 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
+use specforge_common::{Diagnostic, codes};
+
 use crate::{OpError, OpErrorKind, Writes};
 
 const CURRENT_VERSION: u32 = 1;
 /// The inference manifest, at the project root.
 pub const MANIFEST_FILENAME: &str = "specforge-infer.json";
 
-/// `specforge-infer.json` exists but cannot be read.
-pub const MANIFEST_UNREADABLE: &str = "infer_manifest_unreadable";
-/// `specforge-infer.json` is not a valid inference manifest.
-pub const MANIFEST_INVALID: &str = "infer_manifest_invalid";
 /// `specforge-infer.json` could not be written.
 pub const MANIFEST_WRITE_FAILED: &str = "infer_manifest_write_failed";
 
@@ -163,15 +161,31 @@ impl ManifestProblem {
     }
 }
 
+impl ManifestProblem {
+    /// What to do about it.
+    fn suggestion(&self) -> String {
+        format!(
+            "fix {} where the message says, or move it aside to start over",
+            self.file
+        )
+    }
+
+    /// The problem as the diagnostic the `inferred` lint reports.
+    pub(crate) fn diagnostic(&self) -> Diagnostic {
+        Diagnostic::new(codes::E071, self.message()).with_suggestion(self.suggestion())
+    }
+}
+
+/// E071, of the kind of the failure: `OpErrorKind::of_io` when the file
+/// could not be read, `SchemaMismatch` when it was read and is not usable.
 impl From<ManifestProblem> for OpError {
     fn from(problem: ManifestProblem) -> OpError {
-        let (kind, code) = match problem.why {
-            Why::Unreadable(_) => (OpErrorKind::Internal, MANIFEST_UNREADABLE),
-            Why::Invalid(_) | Why::UnsupportedVersion(_) => {
-                (OpErrorKind::SchemaMismatch, MANIFEST_INVALID)
-            }
+        let kind = match &problem.why {
+            Why::Unreadable(e) => OpErrorKind::of_io(e),
+            Why::Invalid(_) | Why::UnsupportedVersion(_) => OpErrorKind::SchemaMismatch,
         };
-        OpError::new(kind, code, problem.message())
+        let suggestion = problem.suggestion();
+        OpError::coded(kind, codes::E071, problem.message()).with_suggestion(suggestion)
     }
 }
 

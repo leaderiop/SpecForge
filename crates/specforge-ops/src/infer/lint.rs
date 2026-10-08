@@ -18,13 +18,15 @@ const DEFAULT_DENSITY_THRESHOLD: f64 = 0.05;
 /// I202 for each indexed file with more entities per line than the
 /// threshold of the config the view was compiled with
 /// (`view.env().config.inference.density_threshold`). Nothing without a
-/// root or a manifest.
+/// root or a manifest; one E071 when the manifest cannot be used.
 pub fn lint(view: &ProjectView) -> Vec<Diagnostic> {
     let Some(root) = view.root() else {
         return Vec::new();
     };
-    let Ok(Some(manifest)) = InferenceManifest::read(root) else {
-        return Vec::new();
+    let manifest = match InferenceManifest::read(root) {
+        Ok(Some(manifest)) => manifest,
+        Ok(None) => return Vec::new(),
+        Err(problem) => return vec![problem.diagnostic()],
     };
     let density_threshold = view
         .env()

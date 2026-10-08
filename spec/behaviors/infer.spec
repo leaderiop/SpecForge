@@ -25,7 +25,7 @@ behavior load_inference_manifest "Load Inference Manifest" {
     version_checked    "rejects manifests with unsupported version numbers"
     summary_computed   "InferenceSummary is derived from source_index on load, never read from file"
     sessions_read      "sessions are read with the manifest, each with its status"
-    never_empty        "a file that cannot be used is an error, never read as an empty manifest"
+    never_empty        "a file that cannot be used is E071, never read as an empty manifest"
   }
   contract """
     Load the inference manifest from {project_root}/specforge-infer.json,
@@ -35,7 +35,7 @@ behavior load_inference_manifest "Load Inference Manifest" {
     empty source_roots, source_index and sessions. If the file exists and
     cannot be used — it cannot be read, is not JSON, does not have the
     manifest's shape (a session's status included), or has an unsupported
-    version — refuse, naming why; never read it as empty. Keys the
+    version — refuse with E071 naming why; never read it as empty. Keys the
     manifest does not define are kept. The InferenceSummary MUST be
     computed from source_index on load — it is never persisted in JSON.
   """
@@ -44,6 +44,7 @@ behavior load_inference_manifest "Load Inference Manifest" {
   verify unit "load rejects unsupported version"
   verify unit "load computes summary from source_index"
   verify unit "a session the manifest cannot read refuses the load, and nothing is written"
+  verify unit "load refuses an unreadable or invalid manifest with E071"
 }
 
 behavior save_inference_manifest "Save Inference Manifest" {
@@ -396,6 +397,7 @@ behavior provide_infer_status_cli "Provide CLI Infer-Status Command" {
   verify unit "--gaps lists unanalyzed files grouped by directory"
   verify unit "--stale lists files with changed content"
   verify unit "missing manifest shows helpful message"
+  verify unit "an unusable manifest is refused with E071"
 }
 
 // ---------------------------------------------------------------------------
@@ -417,11 +419,13 @@ behavior detect_stale_source_anchor "I200: Stale Source Anchor" {
     content_hash. If it differs, emit I200 on the entity with message
     'source file {path} changed since entity was inferred — consider
     re-inferring'. Only fires when the manifest is present and the lint
-    profile is active.
+    profile is active. If the manifest exists and cannot be used, the
+    profile reports E071 instead, an error.
   """
   verify unit "I200 fires when source file content changed"
   verify unit "I200 silent when hash matches"
   verify unit "I200 silent when --lint=inferred not set"
+  verify unit "the inferred profile reports a manifest it cannot use as E071"
 }
 
 behavior detect_high_inference_density "I202: High Inference Density" {
@@ -439,7 +443,9 @@ behavior detect_high_inference_density "I202: High Inference Density" {
     manifest. If more than the configured threshold (default 80%, overridable
     via inference.density_threshold in specforge.json) of entities in the
     file were inferred in a single session, emit I202 with message 'spec
-    file {path} has high inference density — consider human review'.
+    file {path} has high inference density — consider human review'. If
+    the manifest exists and cannot be used, the profile reports E071
+    instead, an error.
   """
   verify unit "I202 fires when density exceeds threshold"
   verify unit "I202 silent when density is below threshold"

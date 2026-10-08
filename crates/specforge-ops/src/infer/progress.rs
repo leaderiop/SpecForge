@@ -198,13 +198,41 @@ mod tests {
         assert!(progress.unanalyzed.contains(&"src/lib.rs".to_string()));
     }
 
-    #[test]
-    fn an_invalid_manifest_is_its_own_error() {
+    #[specforge_test(
+        behavior = "load_inference_manifest",
+        verify = "load refuses an unreadable or invalid manifest with E071"
+    )]
+    fn an_invalid_manifest_is_e071() {
         let dir = project();
         std::fs::write(dir.dir.path().join("specforge-infer.json"), "{ nope").unwrap();
-        assert_eq!(
-            progress(&dir.view()).unwrap_err().code,
-            super::super::manifest::MANIFEST_INVALID
+        let error = progress(&dir.view()).unwrap_err();
+        assert!(error.is(specforge_common::codes::E071), "{error:?}");
+        assert_eq!(error.kind, crate::OpErrorKind::SchemaMismatch);
+        assert!(
+            error
+                .message
+                .starts_with("failed to parse specforge-infer.json:"),
+            "{}",
+            error.message
+        );
+        assert!(error.suggestion.is_some());
+    }
+
+    #[test]
+    fn an_unreadable_manifest_is_e071_of_its_io_kind() {
+        let dir = project();
+        let path = dir.dir.path().join("specforge-infer.json");
+        std::fs::remove_file(&path).unwrap();
+        std::fs::create_dir(&path).unwrap();
+        let error = progress(&dir.view()).unwrap_err();
+        assert!(error.is(specforge_common::codes::E071), "{error:?}");
+        assert_eq!(error.kind, crate::OpErrorKind::Internal);
+        assert!(
+            error
+                .message
+                .starts_with("failed to read specforge-infer.json:"),
+            "{}",
+            error.message
         );
     }
 

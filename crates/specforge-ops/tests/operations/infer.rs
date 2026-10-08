@@ -55,10 +55,28 @@ fn the_inferred_lint_adds_nothing_without_a_manifest() {
     assert!(inferred(&project(None)).is_empty());
 }
 
-/// Pins plan 06 R4: an unusable manifest lints as nothing. T5 flips it.
-#[test]
-fn the_inferred_lint_ignores_an_unusable_manifest() {
-    assert!(inferred(&project(Some("{ nope"))).is_empty());
+/// An unusable manifest is an error the check reports (and fails on), not
+/// a false pass (plan 06 R4).
+#[specforge_test(
+    behavior = "detect_stale_source_anchor",
+    verify = "the inferred profile reports a manifest it cannot use as E071"
+)]
+fn the_inferred_lint_reports_an_unusable_manifest() {
+    let project = project(Some("{ nope"));
+    let options = CheckOptions {
+        lint_profiles: vec![LintProfile::Inferred],
+        ..Default::default()
+    };
+    let outcome = check(&project.view(), Vec::new(), &options).unwrap();
+    assert_eq!(outcome.reported.len(), 1, "{:?}", outcome.reported);
+    assert_eq!(outcome.reported[0].code, "E071");
+    assert!(
+        outcome.reported[0]
+            .message
+            .starts_with("failed to parse specforge-infer.json:")
+    );
+    assert_eq!(outcome.counts.errors, 1);
+    assert!(!outcome.ok());
 }
 
 /// The density threshold is the config the compile read, not a second

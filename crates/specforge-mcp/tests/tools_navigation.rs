@@ -860,7 +860,7 @@ fn find_implementation_lists_every_anchor_of_the_entity() {
 }
 
 /// An anchors manifest with an anchor missing a field is a
-/// `schema_mismatch` for both readers. T5 adds the E071 diagnostic.
+/// `schema_mismatch` for both readers, with E071 as its diagnostic.
 #[test]
 fn an_unusable_anchors_manifest_is_schema_mismatch() {
     let mut server = server_with_anchors(r#"{"version":1,"anchors":[{"entity_id":"x"}]}"#);
@@ -874,6 +874,7 @@ fn an_unusable_anchors_manifest_is_schema_mismatch() {
         let resp = call_tool(&mut server, tool, args);
         let error = crate::tool_errors::mcp_error(&resp);
         assert_eq!(error["code"], "schema_mismatch", "{tool}: {error}");
+        assert_eq!(error["diagnostic"]["code"], "E071", "{tool}: {error}");
         assert!(
             error["message"]
                 .as_str()

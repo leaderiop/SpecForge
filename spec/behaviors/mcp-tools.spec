@@ -588,7 +588,7 @@ behavior provide_mcp_find_implementation_tool "Provide MCP Find Implementation T
   ensures {
     anchors_listed   "every anchor of the entity in specforge-anchors.json, in manifest order"
     empty_when_none  "an entity with no anchor, or no anchors manifest, has no implementations"
-    unusable_refused "an anchors manifest that cannot be used is refused"
+    unusable_refused "an anchors manifest that cannot be used is E071"
   }
   contract   """
     In MCP server mode, the system MUST register a
@@ -597,7 +597,8 @@ behavior provide_mcp_find_implementation_tool "Provide MCP Find Implementation T
     entity in the project's specforge-anchors.json (file, line,
     symbol_name, item_kind, scanner), in manifest order, from the one
     anchor lookup navigation owns. No anchors manifest is an empty list.
-    An anchors manifest that cannot be read or parsed is refused.
+    An anchors manifest that cannot be read or parsed is refused with
+    E071.
   """
   verify unit "find_implementation lists every anchor of the entity, in manifest order"
   verify unit "an entity with no anchor has no implementations, and no anchors manifest is none"
