@@ -464,7 +464,10 @@ behavior emit_live_diagnostics "Live Diagnostics" {
     does) MUST be published at the first one's name, with related
     information at each other's. Each publish sends every file that has
     diagnostics, and an empty list to each file that had some and has none
-    now. A diagnostic without a span about no entity is published on the
+    now. Each file's list carries the version of the buffer the project was
+    compiled from, none for a file compiled from disk, so a client drops a
+    list a newer edit superseded. A diagnostic without a span about no
+    entity is published on the
     document being edited, else on the last one such a diagnostic went on
     while it is open, else on the first open document. W143 (a define
     block, which registers nothing) MUST be published with the Unnecessary
@@ -473,6 +476,7 @@ behavior emit_live_diagnostics "Live Diagnostics" {
   verify unit "diagnostics update after file change"
   verify unit "code actions act on the diagnostics last published for the document"
   verify unit "a publish clears the files whose diagnostics are gone"
+  verify unit "a publish is labelled with the version of the buffer the project was compiled from"
   verify integration "diagnostics appear within 100ms"
   verify unit "a spanless diagnostic about entities is published at the first one's name"
   verify unit "a diagnostic is published on the file its span names"

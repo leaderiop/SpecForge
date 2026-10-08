@@ -147,7 +147,9 @@ behavior hold_editor_buffers "Hold Editor Buffers" {
     check, unless the checks were skipped while the buffer did not parse.
     Opening a project in the place of a session and loading the environment
     again keep every held buffer, read in place of its file by their one
-    cold build, so the checks run once. Watch and MCP hold no buffer.
+    cold build, so the checks run once. The session keeps each held
+    buffer's version, so what is reported from it is labelled with the
+    version it was computed from. Watch and MCP hold no buffer.
   """
   verify unit "a held buffer is the truth for its file until it is released"
   verify unit "a held buffer's file changed or deleted on disk is not stale"

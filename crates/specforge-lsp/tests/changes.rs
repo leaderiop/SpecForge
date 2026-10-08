@@ -433,10 +433,11 @@ fn last_e003(served: &Served, sent: &[Sent], file: &str) -> (Option<i32>, Vec<u3
         .expect("published")
 }
 
-/// Pin (flipped by T5): a publication computed while an edit waits labels the compiled text's
-/// diagnostics with the buffer's version now.
-#[test]
-fn pin_a_publication_is_labelled_with_the_buffer_now() {
+#[spec(
+    behavior = "emit_live_diagnostics",
+    verify = "a publish is labelled with the version of the buffer the project was compiled from"
+)]
+fn a_publication_carries_the_version_the_project_was_compiled_from() {
     let mut served =
         Served::new(&[("a.spec", V1), ("b.spec", "type beta \"B\" {}\n")]).open(&["a.spec"]);
     served.set_version("a.spec", 1);
@@ -454,9 +455,16 @@ fn pin_a_publication_is_labelled_with_the_buffer_now() {
     let sent = served.sent();
     assert_eq!(
         last_e003(&served, &sent, "a.spec"),
-        (Some(2), vec![1]),
-        "a position in version 1, labelled version 2"
+        (Some(1), vec![1]),
+        "a position in version 1, labelled version 1"
     );
+
+    // The debounce fires: the buffer is compiled, and published as version 2.
+    served.apply(Change::Edited(vec![served.uri("a.spec")]));
+    let sent = served.sent();
+    assert_eq!(last_e003(&served, &sent, "a.spec"), (Some(2), vec![3]));
+    // A file compiled from disk carries no version.
+    assert_eq!(last_e003_version(&served, &sent, "b.spec"), None);
 }
 
 #[spec(
@@ -490,4 +498,17 @@ fn closing_a_saved_buffer_that_does_not_parse_runs_the_checks() {
     let closed = served.close("a.spec").expect("the close is planned");
     assert!(closed.changed);
     assert!(checks_reported(&served));
+}
+
+/// The version of the last publication for `file`.
+fn last_e003_version(served: &Served, sent: &[Sent], file: &str) -> Option<i32> {
+    let uri = served.uri(file);
+    sent.iter().rev().find_map(|s| match s {
+        Sent::Published {
+            uri: published,
+            version,
+            ..
+        } if *published == uri => Some(*version),
+        _ => None,
+    })?
 }

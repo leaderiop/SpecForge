@@ -66,6 +66,14 @@ impl<'s> Compiled<'s> {
         self.state.source_key(&uri_to_file_path(uri))
     }
 
+    /// The editor's version of the text the project was compiled from for
+    /// the document `uri`: the version of the buffer the session holds for
+    /// it; `None` for a file compiled from disk, and while the session is
+    /// out for an update (nothing publishes then).
+    pub(crate) fn version(&self, uri: &Url) -> Option<i32> {
+        self.state.compiled_version(&self.key(uri))
+    }
+
     /// The URI of a session file key.
     pub(crate) fn uri(&self, key: &str) -> Url {
         file_path_to_uri(&self.state.file_path(key).to_string_lossy())
