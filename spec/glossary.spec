@@ -415,10 +415,12 @@ term t_peer_dependency "peer dependency" {
 
 term t_sandbox_policy "sandbox policy" {
   definition """
-    A configuration object that defines the security boundaries for a
-    Wasm extension: maximum memory, execution time limit, allowed filesystem
-    paths, allowed network domains, and access levels. Enforced by the
-    wasmtime runtime and host function implementations.
+    The limits a Wasm extension's handshake declares for its sandbox: the
+    wall-clock budget of one call (max_execution_ms) and the instance's
+    linear memory (max_memory_mb), each held to the host's ceiling and
+    enforced by the wasmtime runtime. It grants nothing: a component has
+    no file, network, environment or stdin access whatever it declares
+    (ADR 0037).
   """
 }
 

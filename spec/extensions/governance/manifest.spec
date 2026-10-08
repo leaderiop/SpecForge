@@ -25,7 +25,7 @@ behavior ge_declare_manifest "Declare @specforge/governance Manifest" {
     all_edges_named      "edgeTypes contains DecisionInvariant, ConstrainsBehavior, ProtectsInvariant, FailureModeInvariant"
     contributes_declared "contributes declares entities=true and validators=true"
     optional_peer_dep    "peer_dependencies contains @specforge/software ^1.0 (optional, for ConstrainsBehavior cross-extension edge targeting behavior kind)"
-    sandbox_restricted   "sandbox_policy declares network_access=false, file_system_access=read-only, max_memory_mb=256, max_execution_ms=5000"
+    no_sandbox_policy    "sandbox_policy is null — governance declares no sandbox policy and runs under the host's ceiling"
   }
   verify unit "manifest name is @specforge/governance"
   verify unit "manifest declares exactly 3 entity kinds"
@@ -33,7 +33,7 @@ behavior ge_declare_manifest "Declare @specforge/governance Manifest" {
   verify unit "the handshake's protocol major is the host's"
   verify unit "contributes declares entities and validators"
   verify unit "peer_dependencies includes optional @specforge/software"
-  verify unit "sandbox_policy declares no network access and read-only filesystem"
+  verify unit "sandbox_policy is null"
 }
 
 invariant ge_manifest_three_entity_kinds "Three Entity Kinds" {

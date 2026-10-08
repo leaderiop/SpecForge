@@ -46,8 +46,9 @@ reads as extension-wide fields is `shared_fields`.
 registry build over it alone, refuses on an error before any network call, and uploads the
 declaration's JSON as the package's manifest. The publisher signature already binds the exact
 manifest bytes and the binary's hash. The server parses an `ExtensionDeclaration`, checks its
-identity against the URL, refuses `sandbox_policy.network_access`, and takes the description and
-keywords it shows from the handshake. Rejected: the server deriving the declaration itself (it
+identity against the URL and takes the description and
+keywords it shows from the handshake. *(The `network_access` refusal was removed by
+[ADR 0037](0037-the-sandbox-is-limits-the-host-enforces.md): no host grants network.)* Rejected: the server deriving the declaration itself (it
 would link wasmtime and execute uploaded code; the check in D7 gives the same guarantee).
 
 ## D7. `add` verifies the served declaration against the binary
@@ -75,7 +76,7 @@ dependencies, W145 pass order cycles, in that order, extension by extension with
 orders each extension's passes (`RegistryBuild::passes`, `check_passes()`, `analyze_passes()`)
 and populates the registries; it is pure. `Environment::diagnostics()` reports, in order: the
 extension load's failures (E033 for the lock once, then E028/E070/W149 per entry, ADR 0028) in
-entry order, unknown describe keys (W138), the declarations' own diagnostics, provider
+entry order, load warnings (W153, then W138, ADR 0037), the declarations' own diagnostics, provider
 registration (W118/E057), I002, then the registry build's. The runtime keeps no load state:
 `Installed::load` returns it, and the environment keeps it. E028 and E030 used to interleave
 extension by extension; a consumer diffing `check` output sees them reordered only when both occur
