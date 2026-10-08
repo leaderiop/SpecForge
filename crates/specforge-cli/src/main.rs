@@ -74,9 +74,9 @@ enum Commands {
         #[arg(long)]
         name: Option<String>,
 
-        /// Project version (defaults to 0.1.0)
-        #[arg(long)]
-        version: Option<String>,
+        /// Project version
+        #[arg(long, default_value = specforge_ops::init::DEFAULT_VERSION)]
+        version: String,
 
         /// Extensions to install
         #[arg(long)]
@@ -717,13 +717,7 @@ fn main() {
             format,
         } => {
             let path = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
-            init::run(
-                &path,
-                name.as_deref(),
-                version.as_deref(),
-                &extensions,
-                format,
-            )
+            init::run(&path, name.as_deref(), &version, &extensions, format)
         }
         Commands::Check {
             path,

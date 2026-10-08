@@ -10,7 +10,7 @@ use std::path::Path;
 pub fn run(
     path: &Path,
     name: Option<&str>,
-    version: Option<&str>,
+    version: &str,
     extensions: &[String],
     format: OutputFormat,
 ) -> i32 {

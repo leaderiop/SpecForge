@@ -184,7 +184,7 @@ fn init(dir: &Path, extensions: &[String]) -> specforge_ops::init::Outcome {
     let request = init::Request {
         dir,
         name: Some("demo"),
-        version: None,
+        version: init::DEFAULT_VERSION,
         extensions,
         forbid_inside: None,
     };
@@ -225,6 +225,30 @@ fn init_writes_include_gitignore_only_when_it_changed() {
         changed_since(&beside, &before),
         listed(&outcome.writes, &beside)
     );
+}
+
+#[specforge_test_macros::test(
+    behavior = "scaffold_starter_spec_file",
+    verify = "the starter spec's version is the project's"
+)]
+fn the_starter_states_the_project_version() {
+    use specforge_ops::init;
+    let scratch = TempDir::new().unwrap();
+    let starter_of = |version: &str| {
+        let request = init::Request {
+            dir: &scratch.path().join(version),
+            name: Some("demo"),
+            version,
+            extensions: &[],
+            forbid_inside: None,
+        };
+        let plan = init::plan(&request).unwrap();
+        assert_eq!(plan.config["version"], version);
+        plan.starter
+    };
+
+    assert!(starter_of("2.3.0").contains("version \"2.3.0\""));
+    assert!(starter_of(init::DEFAULT_VERSION).contains("version \"0.1.0\""));
 }
 
 #[test]
