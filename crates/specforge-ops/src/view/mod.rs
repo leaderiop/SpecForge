@@ -483,6 +483,37 @@ mod tests {
     }
 
     #[specforge_test(
+        behavior = "management_operations_over_the_project_view",
+        verify = "an operation that reads or writes the project on disk refuses a view without a root"
+    )]
+    fn a_view_of_a_session_is_the_view_of_its_compiled_project() {
+        // A detached session: no root, nothing reported, no project on disk.
+        let detached = ProjectSession::detached();
+        let view = ProjectView::of_session(&detached, detached.root());
+        assert_eq!(view.root(), None);
+        assert!(view.reported().is_empty());
+        assert_eq!(view.project_root().unwrap_err().code, "no_project");
+
+        // A session opened from disk is viewed as the compile of the same disk.
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("specforge.json"), r#"{"extensions": []}"#).unwrap();
+        std::fs::write(
+            dir.path().join("a.spec"),
+            "behavior a \"A\" {\n  invariants [ghost]\n}\n",
+        )
+        .unwrap();
+        let opened = ProjectSession::open_with_runtime(dir.path(), None);
+        let compiled = CompiledProject::compile(dir.path(), None);
+        let (of_session, of) = (
+            ProjectView::of_session(&opened, opened.root()),
+            ProjectView::of(&compiled),
+        );
+        assert_eq!(of_session.root(), of.root());
+        assert_eq!(of_session.reported(), of.reported());
+        assert_eq!(of_session.entities().len(), of.entities().len());
+    }
+
+    #[specforge_test(
         behavior = "read_views_over_the_project_view",
         verify = "the recorded test report is read at the view's root, never an ancestor's"
     )]

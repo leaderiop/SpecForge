@@ -1,4 +1,3 @@
-use std::collections::BTreeMap;
 use std::fs;
 use std::path::Path;
 
@@ -24,16 +23,6 @@ fn write(root: &Path, path: &str, text: &str) {
     let path = root.join(path);
     fs::create_dir_all(path.parent().unwrap()).unwrap();
     fs::write(path, text).unwrap();
-}
-
-/// Diagnostics as a multiset of their full JSON (code, severity, message,
-/// span, suggestion): order-independent, nothing else dropped.
-fn diagnostic_set(diagnostics: &[Diagnostic]) -> BTreeMap<String, usize> {
-    let mut set = BTreeMap::new();
-    for d in diagnostics {
-        *set.entry(serde_json::to_string(d).unwrap()).or_default() += 1;
-    }
-    set
 }
 
 /// Every node (id, kind, file, title, fields) and edge of a graph.
@@ -71,8 +60,9 @@ fn assert_matches_a_fresh_compile(session: &ProjectSession, root: &Path) {
         graph_contents(&fresh.graph)
     );
     assert_eq!(
-        diagnostic_set(&session.diagnostics()),
-        diagnostic_set(&fresh.diagnostics())
+        session.diagnostics(),
+        fresh.diagnostics(),
+        "a session reports a fresh compile's diagnostics, in its order"
     );
 }
 
@@ -151,10 +141,7 @@ fn every_update_leaves_what_a_fresh_compile_builds() {
         }
         let update = session.update(SourceChange::Disk(&changed(&[path])));
         assert_eq!(update.verification, Some(Ok(())), "after {path}");
-        assert_eq!(
-            diagnostic_set(&update.diagnostics),
-            diagnostic_set(&session.diagnostics())
-        );
+        assert_eq!(update.diagnostics, session.diagnostics());
         assert_matches_a_fresh_compile(&session, root);
     }
 }
@@ -1148,10 +1135,7 @@ fn emit_incremental_diagnostics_contract() {
         session.file_diagnostics("main.spec"),
         main_before.as_slice()
     );
-    assert_eq!(
-        diagnostic_set(&update.diagnostics),
-        diagnostic_set(&session.diagnostics())
-    );
+    assert_eq!(update.diagnostics, session.diagnostics());
     assert_matches_a_fresh_compile(&session, root);
 }
 
@@ -1394,9 +1378,144 @@ fn random_updates_leave_what_a_fresh_compile_builds() {
                 graph_contents(&fresh.graph),
                 "{context}"
             );
+            assert_eq!(session.diagnostics(), fresh.diagnostics(), "{context}");
+        }
+    }
+}
+
+/// Random sequences of every kind of update a surface applies: disk edits,
+/// creations, deletions and renames named by path; one editor buffer;
+/// several buffers as one update; disk writes caught up by `ensure_fresh`;
+/// a `specforge.json` change caught up the same way (an environment
+/// reload); an explicit reload. After each update that runs the checks,
+/// the session reports exactly what a fresh compile of the disk reports,
+/// in the same order, and its graph's nodes come in the same order.
+#[specforge_test(
+    invariant = "incremental_correctness",
+    verify = "a session reports what a fresh compile of the same sources reports, in the same order, after every update that runs the checks"
+)]
+fn a_session_reports_what_a_fresh_compile_reports_in_order() {
+    const PATHS: &[&str] = &[
+        "a.spec",
+        "b.spec",
+        "m.spec",
+        "z.spec",
+        "sub/c.spec",
+        "sub/index.spec",
+        "sub/deep/e.spec",
+        "drafts/d.spec",
+        "build/f.spec",
+    ];
+    let config = |excluding: bool| {
+        let exclude: Vec<&str> = if excluding {
+            vec!["drafts/"]
+        } else {
+            Vec::new()
+        };
+        serde_json::json!({
+            "name": "s", "version": "0.1.0",
+            "extensions": ["@specforge/software", "@specforge/testing"],
+            "spec_root": "spec", "exclude": exclude,
+        })
+        .to_string()
+    };
+    let node_ids = |graph: &Graph| -> Vec<String> {
+        graph.nodes().iter().map(|n| n.id.raw.to_string()).collect()
+    };
+    for seed in [
+        0x9E37_79B9_7F4A_7C15_u64,
+        0xD1B5_4A32_D192_ED03,
+        0x2545_F491_4F6C_DD1D,
+        0x0F0F_F0F0_1357_9BDF,
+    ] {
+        let mut rng = Rng(seed);
+        let mut excluding = true;
+        let dir = project(&config(excluding), &[]);
+        let root = dir.path();
+        let spec = root.join("spec");
+        fs::write(root.join("outside.spec"), "behavior outside \"O\" {\n}\n").unwrap();
+        for path in &PATHS[..3] {
+            write(&spec, path, &random_spec(&mut rng));
+        }
+        let runtime = specforge_component::ComponentRuntime::with_user_cache();
+        let mut session = ProjectSession::open(root);
+        session.set_verify_incremental(true);
+
+        for step in 0..30 {
+            let update = match rng.below(7) {
+                // A rename: one file moves to another path in one batch.
+                0 => {
+                    let (from, to) = (rng.pick(PATHS), rng.pick(PATHS));
+                    if from == to || !spec.join(from).is_file() {
+                        continue;
+                    }
+                    let text = fs::read_to_string(spec.join(from)).unwrap();
+                    fs::remove_file(spec.join(from)).unwrap();
+                    write(&spec, to, &text);
+                    Some(session.update(SourceChange::Disk(&changed(&[from, to]))))
+                }
+                1 => {
+                    let path = rng.pick(PATHS);
+                    if !spec.join(path).is_file() {
+                        continue;
+                    }
+                    fs::remove_file(spec.join(path)).unwrap();
+                    Some(session.update(SourceChange::Disk(&changed(&[path]))))
+                }
+                // One editor buffer, saved so the fresh compile sees it.
+                2 => {
+                    let (path, text) = (rng.pick(PATHS), random_spec(&mut rng));
+                    write(&spec, path, &text);
+                    Some(session.update(SourceChange::Buffer {
+                        path,
+                        text: Some(&text),
+                    }))
+                }
+                // Two buffers as one update, both saved.
+                3 => {
+                    let (first, second) = (rng.pick(PATHS), rng.pick(PATHS));
+                    let mut buffers = vec![(first.to_string(), random_spec(&mut rng))];
+                    if second != first {
+                        buffers.push((second.to_string(), random_spec(&mut rng)));
+                    }
+                    for (path, text) in &buffers {
+                        write(&spec, path, text);
+                    }
+                    Some(session.update(SourceChange::Buffers(&buffers)))
+                }
+                // Disk writes no path names: caught up by `ensure_fresh`.
+                4 => {
+                    for _ in 0..1 + rng.below(3) {
+                        write(&spec, rng.pick(PATHS), &random_spec(&mut rng));
+                    }
+                    session.ensure_fresh()
+                }
+                // `exclude` toggled: an environment reload, caught up.
+                5 => {
+                    excluding = !excluding;
+                    fs::write(root.join("specforge.json"), config(excluding)).unwrap();
+                    session.ensure_fresh()
+                }
+                _ => Some(session.reload_environment()),
+            };
+            let Some(update) = update else { continue };
+            let context = format!("seed {seed:#x} step {step}");
+            assert!(
+                matches!(update.verification, None | Some(Ok(()))),
+                "{context}: {:?}",
+                update.verification
+            );
+            assert_eq!(update.diagnostics, session.diagnostics(), "{context}");
+            let fresh = CompiledProject::compile(root, Some(&runtime));
+            assert_eq!(session.diagnostics(), fresh.diagnostics(), "{context}");
             assert_eq!(
-                diagnostic_set(&session.diagnostics()),
-                diagnostic_set(&fresh.diagnostics()),
+                node_ids(session.graph()),
+                node_ids(&fresh.graph),
+                "{context}"
+            );
+            assert_eq!(
+                graph_contents(session.graph()),
+                graph_contents(&fresh.graph),
                 "{context}"
             );
         }
