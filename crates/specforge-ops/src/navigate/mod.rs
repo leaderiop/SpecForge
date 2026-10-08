@@ -23,7 +23,8 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use specforge_common::{SourceSpan, Sym};
+use specforge_common::{SourceSpan, Sym, codes, find_close_match};
+use specforge_graph::Graph;
 
 use crate::view::ProjectView;
 use crate::{OpError, OpErrorKind};
@@ -46,9 +47,6 @@ pub use occurrences::{
 pub use references::{Reference, References};
 
 use text::SourceText;
-
-/// The entity a navigation question names does not exist.
-pub const NOT_FOUND: &str = crate::rename::NOT_FOUND;
 
 /// What navigation reads: the project view and each spec file's text (an
 /// open buffer first for the LSP; the file under the spec root for MCP),
@@ -84,20 +82,37 @@ impl<'a, F: Fn(&str) -> Option<String>> Navigator<'a, F> {
         text
     }
 
-    /// The entity `id`, or [`NOT_FOUND`].
+    /// The entity `id`, or [`not_found`].
     fn node(&self, id: &str) -> Result<&'a specforge_graph::Node, OpError> {
-        self.view.graph().node(id).ok_or_else(|| not_found(id))
+        let graph = self.view.graph();
+        graph.node(id).ok_or_else(|| not_found(graph, id))
     }
 }
 
-/// The error of a question about `id`, which no entity declares.
-pub fn not_found(id: &str) -> OpError {
-    OpError::new(
-        OpErrorKind::EntityNotFound,
-        NOT_FOUND,
-        format!("Entity not found: {id}"),
+/// A request names an entity the graph lacks: E003, of kind
+/// `EntityNotFound`, about `id`, worded `unresolved entity '<id>' - not
+/// found in graph`, with `did you mean '<closest>'?` when an id of `graph`
+/// is close. The one refusal for it: export's scope, inspect, the
+/// navigator, rename, trace, and every MCP tool and prompt.
+pub fn not_found(graph: &Graph, id: &str) -> OpError {
+    unresolved(
+        id,
+        find_close_match(id, graph.nodes().iter().map(|n| n.id.raw.as_str())),
     )
-    .with_entity(id)
+}
+
+/// [`not_found`] with the closest id already known (a `TraceError`).
+pub(crate) fn unresolved(id: &str, near: Option<&str>) -> OpError {
+    let error = OpError::coded(
+        OpErrorKind::EntityNotFound,
+        codes::E003,
+        format!("unresolved entity '{id}' — not found in graph"),
+    )
+    .with_entity(id);
+    match near {
+        Some(near) => error.with_suggestion(format!("did you mean '{near}'?")),
+        None => error,
+    }
 }
 
 /// Whether span `inner` lies within `outer`: same file, and its start and

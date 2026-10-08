@@ -1,37 +1,47 @@
-//! The LSP's rename: the shared plan (`specforge_ops::rename`) over the
-//! session's navigator, every position from the parser.
+//! The LSP's rename (`specforge_lsp::answers::rename`): the shared plan
+//! (`specforge_ops::rename`) as a workspace edit, every position from the
+//! parser.
 
 use specforge_test_macros::test as spec;
 
-/// An LSP state whose session holds `files` (absolute paths) as open
-/// buffers: what navigation reads.
-fn state_of(files: &[(&str, &str)]) -> specforge_lsp::LspState {
-    let mut state = specforge_lsp::LspState::new();
-    for (path, text) in files {
-        state.open_document(&format!("file://{path}"), text);
-        state
-            .session_mut()
-            .unwrap()
-            .update(specforge_project::SourceChange::Buffer {
-                path,
-                text: Some(text),
-            });
-    }
-    state
-}
+use crate::served::{buffers, uri_of_path};
+use specforge_lsp::{LspState, answers};
+use tower_lsp::lsp_types::Position;
 
-/// The plan's edits as `"file line:start-end"` (0-based byte columns).
-fn rename_edits(
-    state: &specforge_lsp::LspState,
-    old: &str,
+/// The edits of the rename of the entity declared at `line`:`character` of
+/// the open buffer `path` to `new`, as `"file line:start-end"` (0-based
+/// lines, UTF-16 columns), in file order.
+fn renamed_edits(
+    state: &LspState,
+    path: &str,
+    (line, character): (u32, u32),
     new: &str,
-) -> Result<Vec<String>, specforge_ops::OpError> {
-    let plan = specforge_ops::rename::plan(&specforge_lsp::navigator(state), old, new)?;
-    Ok(plan
-        .edits
-        .iter()
-        .map(|e| format!("{} {}:{}-{}", e.file, e.line, e.start_col, e.end_col))
-        .collect())
+) -> Result<Vec<String>, tower_lsp::jsonrpc::Error> {
+    let edit = answers::rename(
+        state,
+        &uri_of_path(path),
+        Position::new(line, character),
+        new,
+    )?
+    .expect("the cursor names an entity");
+    let mut edits: Vec<String> = edit
+        .changes
+        .expect("changes")
+        .into_iter()
+        .flat_map(|(uri, edits)| {
+            edits.into_iter().map(move |e| {
+                format!(
+                    "{} {}:{}-{}",
+                    uri.path(),
+                    e.range.start.line,
+                    e.range.start.character,
+                    e.range.end.character
+                )
+            })
+        })
+        .collect();
+    edits.sort();
+    Ok(edits)
 }
 
 const TYPES: &str = "type auth_token \"Token\" {\n}\n";
@@ -44,10 +54,10 @@ const AUTH: &str = "behavior user_login \"Login\" {\n  types [auth_token]\n}\n";
     verify = "rename updates declaration and all references"
 )]
 fn rename_updates_all_sites() {
-    let state = state_of(&[("/p/types.spec", TYPES), ("/p/auth.spec", AUTH)]);
-    let edits = rename_edits(&state, "auth_token", "session_token").unwrap();
+    let state = buffers(&[("/p/types.spec", TYPES), ("/p/auth.spec", AUTH)]);
+    let edits = renamed_edits(&state, "/p/types.spec", (0, 6), "session_token").unwrap();
     // The declaration's name, and the reference from user_login.
-    assert_eq!(edits, ["/p/auth.spec 2:9-19", "/p/types.spec 1:5-15"]);
+    assert_eq!(edits, ["/p/auth.spec 1:9-19", "/p/types.spec 0:5-15"]);
 }
 
 #[spec(
@@ -175,15 +185,15 @@ async fn rename_to_an_illegal_id_is_refused_with_why() {
 
 #[spec(behavior = "rename_entity_id", verify = "rename across multiple files")]
 fn rename_across_files() {
-    let state = state_of(&[
+    let state = buffers(&[
         ("/p/a.spec", "type tok \"T\" {\n}\n"),
         ("/p/b.spec", "behavior b1 \"B1\" {\n  types [tok]\n}\n"),
         ("/p/c.spec", "behavior b2 \"B2\" {\n  types [tok]\n}\n"),
     ]);
-    let edits = rename_edits(&state, "tok", "token").unwrap();
+    let edits = renamed_edits(&state, "/p/a.spec", (0, 6), "token").unwrap();
     assert_eq!(
         edits,
-        ["/p/a.spec 1:5-8", "/p/b.spec 2:9-12", "/p/c.spec 2:9-12"]
+        ["/p/a.spec 0:5-8", "/p/b.spec 1:9-12", "/p/c.spec 1:9-12"]
     );
 }
 
@@ -192,7 +202,11 @@ fn rename_across_files() {
     verify = "rename rejects new name that duplicates existing entity ID"
 )]
 fn rename_rejects_duplicate() {
-    let state = state_of(&[("/p/types.spec", TYPES), ("/p/auth.spec", AUTH)]);
-    let refused = rename_edits(&state, "auth_token", "user_login").unwrap_err();
-    assert_eq!(refused.code, specforge_ops::rename::TAKEN);
+    let state = buffers(&[("/p/types.spec", TYPES), ("/p/auth.spec", AUTH)]);
+    let refused = renamed_edits(&state, "/p/types.spec", (0, 6), "user_login").unwrap_err();
+    assert_eq!(refused.code, tower_lsp::jsonrpc::ErrorCode::InvalidParams);
+    assert_eq!(
+        refused.message,
+        "cannot rename 'auth_token': 'user_login' exists"
+    );
 }

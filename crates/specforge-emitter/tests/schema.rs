@@ -1773,12 +1773,12 @@ fn scoped_v2_nonexistent_scope_error() {
     let err = with_schema(&graph, EmitFormat::Json, Some("nonexistent"), &schema).unwrap_err();
     assert_eq!(
         err.to_string(),
-        "E003: unresolved scope entity 'nonexistent' — entity not found in graph"
+        "unresolved entity 'nonexistent' — not found in graph"
     );
-    assert_eq!(err.exit_code(), 1);
+    assert_eq!(err.code(), Some(specforge_diagnostics::codes::E003));
 
     // What `specforge export --format graph --scope` calls, with a schema:
-    // the same E003, and the exit code the command returns for it.
+    // the same E003.
     let err = specforge_emitter::emit(
         &graph,
         &specforge_emitter::EmitOptions {
@@ -1790,9 +1790,9 @@ fn scoped_v2_nonexistent_scope_error() {
     .unwrap_err();
     assert_eq!(
         err.to_string(),
-        "E003: unresolved scope entity 'nonexistent' — entity not found in graph"
+        "unresolved entity 'nonexistent' — not found in graph"
     );
-    assert_eq!(err.exit_code(), 1);
+    assert_eq!(err.code(), Some(specforge_diagnostics::codes::E003));
 }
 
 // ===========================================================================

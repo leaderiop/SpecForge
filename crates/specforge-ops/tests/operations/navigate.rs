@@ -267,7 +267,8 @@ fn the_definition_is_the_declaration() {
 fn an_unknown_id_has_no_definition() {
     let p = nav();
     let error = p.navigator().definition("nope").unwrap_err();
-    assert_eq!(error.code, specforge_ops::navigate::NOT_FOUND);
+    assert!(error.is(specforge_common::codes::E003));
+    assert_eq!(error.kind, specforge_ops::OpErrorKind::EntityNotFound);
     // A misspelled reference is not an entity either.
     assert!(p.navigator().definition("sesion_limit").is_err());
 }

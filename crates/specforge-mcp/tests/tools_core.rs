@@ -513,6 +513,67 @@ fn search_missing_query() {
     assert_eq!(error["argument"], "query", "{error}");
 }
 
+#[specforge_test(
+    behavior = "provide_mcp_search_tool",
+    verify = "field without value, or value without field, is an invalid-input error"
+)]
+fn search_refuses_a_lone_field_or_value() {
+    let mut server = test_server();
+    for (arguments, missing) in [
+        (json!({"query": "alpha", "field": "contract"}), "value"),
+        (json!({"query": "alpha", "value": "MUST"}), "field"),
+    ] {
+        let resp = call_tool(&mut server, "specforge.search", arguments);
+        let error = crate::tool_errors::mcp_error(&resp);
+        assert_eq!(error["code"], "invalid_input", "{error}");
+        assert_eq!(error["argument"], missing, "{error}");
+    }
+    // Together they filter: the contract of alpha contains "must", any case.
+    let resp = call_tool(
+        &mut server,
+        "specforge.search",
+        json!({"query": "", "field": "contract", "value": "must"}),
+    );
+    assert!(!tool_json(&resp).as_array().unwrap().is_empty(), "{resp}");
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_entities_by_kind",
+    verify = "specforge.list reports an unknown kind with I020"
+)]
+fn list_reports_an_unknown_kind() {
+    let mut server = test_server();
+    let resp = call_tool(&mut server, "specforge.list", json!({"kind": "behaviour"}));
+    assert_eq!(tool_json(&resp), json!([]), "{resp}");
+    let notices = &resp["result"]["_meta"]["diagnostics"];
+    assert_eq!(notices[0]["code"], "I020", "{resp}");
+    assert_eq!(
+        notices[0]["suggestion"], "did you mean 'behavior'?",
+        "{resp}"
+    );
+    // A known kind reports nothing.
+    let resp = call_tool(&mut server, "specforge.list", json!({"kind": "behavior"}));
+    assert!(resp["result"]["_meta"].is_null(), "{resp}");
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_query_tool",
+    verify = "the default query is the document specforge://graph/{entityId} serves"
+)]
+fn query_is_the_graph_resource() {
+    let mut server = test_server();
+    for id in ["alpha", "gamma_orphan"] {
+        let queried = tool_json(&call_tool(
+            &mut server,
+            "specforge.query",
+            json!({"entity_id": id}),
+        ));
+        let (_, served) = resource(&mut server, &format!("specforge://graph/{id}"));
+        assert_eq!(queried, served, "{id}");
+        assert_eq!(queried["format_version"], "2.0", "{id}");
+    }
+}
+
 // --- specforge.schema ---
 
 /// A server that compiled `project_with_errors_and_warnings` (which loads
@@ -1652,7 +1713,7 @@ fn schema_unknown_kind_is_invalid_input() {
         assert_eq!(error["argument"], "kind", "{error}");
         assert_eq!(
             error["message"],
-            format!("unknown entity kind: '{kind}'"),
+            format!("unknown entity kind '{kind}'"),
             "{error}"
         );
         assert_eq!(error["data"]["suggestion"], suggestion, "{error}");

@@ -1,10 +1,10 @@
 use serde_json::Value;
-use specforge_emitter::{EmitOptions, emit};
 use specforge_ops::export::Format;
+use specforge_ops::query::{QueryRequest, query};
 
 use crate::args::Arguments;
 use crate::target::Call;
-use crate::tool::ToolOutcome;
+use crate::tool::{McpError, ToolOutcome};
 
 /// `specforge.query`'s arguments.
 #[derive(Debug, Arguments)]
@@ -12,7 +12,7 @@ pub struct Args {
     /// Entity ID to query
     entity_id: String,
     /// Number of hops
-    #[arg(default = 1)]
+    #[arg(default = specforge_ops::query::DEFAULT_DEPTH)]
     depth: usize,
     /// Filter by entity kinds
     kinds: Vec<String>,
@@ -23,55 +23,23 @@ pub struct Args {
     include_coverage: bool,
 }
 
+/// `specforge.query`: the query read view (`specforge_ops::query`), the
+/// document `specforge query` prints for the same arguments; an unknown
+/// kind of the filter rides in `_meta.diagnostics` (I020).
 pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
-    let view = call.view();
-    let entity_id = args.entity_id.as_str();
-    let depth = args.depth;
-    let include_coverage = args.include_coverage;
-
-    let kinds: Vec<&str> = args.kinds.iter().map(String::as_str).collect();
-    let unknown_kinds = super::unknown_kind_diagnostics(&view, &kinds);
-
-    let query_result = {
-        let options = EmitOptions {
-            format: args.format.emit_format(),
-            scope: Some(entity_id),
-            depth: Some(depth),
-            kind_filter: kinds,
-            field_registry: Some(&view.registries().fields),
-            ..EmitOptions::default()
-        };
-        emit(view.graph(), &options)
+    let request = QueryRequest {
+        entity_id: &args.entity_id,
+        depth: Some(args.depth),
+        kinds: args.kinds.iter().map(String::as_str).collect(),
+        format: Some(args.format),
+        include_coverage: args.include_coverage,
     };
-
-    match query_result {
-        Ok(json_str) => {
-            let mut result: Value = serde_json::from_str(&json_str).unwrap_or(Value::Null);
-
-            if include_coverage
-                && let Some(nodes) = result.get_mut("nodes").and_then(|n| n.as_array_mut())
-            {
-                // The failure `specforge.coverage` reports.
-                let coverage = match view.coverage() {
-                    Ok(coverage) => coverage,
-                    Err(error) => {
-                        return crate::tool::McpError::from(error).into();
-                    }
-                };
-                for node in nodes.iter_mut() {
-                    let node_id = node.get("id").and_then(|v| v.as_str()).unwrap_or("");
-                    let Some(verdict) = coverage.verdict(node_id) else {
-                        continue;
-                    };
-                    let status = specforge_ops::coverage::STATUS.name_of(verdict.status());
-                    node.as_object_mut()
-                        .unwrap()
-                        .insert("coverage_status".into(), Value::from(status));
-                }
-            }
-
-            ToolOutcome::ok(result).with_diagnostics(unknown_kinds)
+    match query(&call.view(), &request) {
+        Ok(outcome) => {
+            let document: Value =
+                serde_json::from_str(&outcome.document).expect("an export is JSON");
+            ToolOutcome::ok(document).with_diagnostics(outcome.notices)
         }
-        Err(err) => super::emitter_error(err, entity_id),
+        Err(error) => McpError::from(error).into(),
     }
 }

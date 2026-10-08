@@ -286,12 +286,24 @@ enum Commands {
         path: PathBuf,
 
         /// Number of hops from the entity (0 = entity only)
-        #[arg(long, default_value = "1")]
+        #[arg(long, default_value_t = specforge_ops::query::DEFAULT_DEPTH)]
         depth: usize,
 
         /// Filter results to specific entity kinds (can be repeated)
         #[arg(long)]
         kind: Vec<String>,
+
+        /// Output detail level
+        #[arg(
+            long,
+            value_parser = options::choice(&specforge_ops::export::AGENT_FORMAT),
+            default_value = specforge_ops::export::AGENT_FORMAT.default_name()
+        )]
+        format: specforge_ops::export::Format,
+
+        /// Give every entity its coverage status
+        #[arg(long)]
+        include_coverage: bool,
     },
     /// Show traceability chain for an entity, or for every entity
     Trace {
@@ -798,7 +810,18 @@ fn main() {
             path,
             depth,
             kind,
-        } => query::run(&path, &entity, depth, &kind),
+            format,
+            include_coverage,
+        } => query::run(
+            &path,
+            &specforge_ops::query::QueryRequest {
+                entity_id: &entity,
+                depth: Some(depth),
+                kinds: kind.iter().map(String::as_str).collect(),
+                format: Some(format),
+                include_coverage,
+            },
+        ),
         Commands::Trace {
             entity,
             path,
@@ -960,4 +983,27 @@ fn main() {
         },
     };
     std::process::exit(exit_code);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// `specforge query --depth` defaults to the query operation's constant,
+    /// the one `specforge.query`'s schema advertises (plan 08 T8).
+    #[test]
+    fn the_query_depth_default_is_the_operations() {
+        let command = Cli::command();
+        let query = command.find_subcommand("query").expect("a query command");
+        let depth = query
+            .get_arguments()
+            .find(|argument| argument.get_id() == "depth")
+            .expect("query takes --depth");
+        let defaults: Vec<String> = depth
+            .get_default_values()
+            .iter()
+            .map(|value| value.to_string_lossy().into_owned())
+            .collect();
+        assert_eq!(defaults, [specforge_ops::query::DEFAULT_DEPTH.to_string()]);
+    }
 }

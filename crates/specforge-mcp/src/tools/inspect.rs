@@ -18,8 +18,9 @@ pub struct Args {
 
 pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
     let view = call.view();
-    let Ok(facts) = specforge_ops::inspect::inspect(&view, &args.entity_id) else {
-        return crate::tool::entity_not_found(&args.entity_id).into();
+    let facts = match specforge_ops::inspect::inspect(&view, &args.entity_id) {
+        Ok(facts) => facts,
+        Err(error) => return crate::tool::McpError::from(error).into(),
     };
     // A recorded report that cannot be read fails the call (ADR 0004 D2-e).
     let coverage = match &facts.coverage {

@@ -10,7 +10,7 @@ expression: "normalized(&result, root)"
       "target": "signin"
     }
   ],
-  "format_version": "1.0",
+  "format_version": "2.0",
   "nodes": [
     {
       "coverage_status": "covered",
@@ -45,5 +45,9 @@ expression: "normalized(&result, root)"
       "title": "Sign in"
     }
   ],
-  "schema_version": "0.1.0"
+  "schema_ref": {
+    "content_hash": "[SHA256]",
+    "url": "https://specforge.dev/schema/graph-protocol-v1.0.0.json"
+  },
+  "schema_version": "1.0.0"
 }

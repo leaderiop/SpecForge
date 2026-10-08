@@ -4,7 +4,6 @@
 
 use serde::ser::SerializeStruct;
 use serde::{Serialize, Serializer};
-use specforge_common::codes;
 use specforge_graph::Graph;
 use specforge_registry::{FieldRegistry, KindRegistry};
 use std::collections::{BTreeMap, BTreeSet, HashSet, VecDeque};
@@ -263,17 +262,13 @@ impl std::fmt::Display for TraceError {
 
 impl std::error::Error for TraceError {}
 
-/// E003, its message, and a did-you-mean when an entity is close.
+/// `navigate::not_found`: E003, its message, and a did-you-mean when an
+/// entity is close.
 impl From<TraceError> for OpError {
     fn from(error: TraceError) -> Self {
-        let message = error.to_string();
         match error {
-            TraceError::EntityNotFound { near, .. } => {
-                let op_error = OpError::diagnostic(codes::E003, message);
-                match near {
-                    Some(near) => op_error.with_suggestion(format!("did you mean '{near}'?")),
-                    None => op_error,
-                }
+            TraceError::EntityNotFound { entity_id, near } => {
+                crate::navigate::unresolved(&entity_id, near.as_deref())
             }
         }
     }

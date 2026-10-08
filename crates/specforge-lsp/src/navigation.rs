@@ -11,55 +11,64 @@ use specforge_resolver::resolve_import;
 use std::collections::HashMap;
 use std::path::Path;
 use tower_lsp::lsp_types::{
-    CodeAction, CodeActionKind, DocumentSymbol, DocumentSymbolResponse, Location, Range,
+    CodeAction, CodeActionKind, DocumentSymbol, DocumentSymbolResponse, Location, Position, Range,
     SymbolInformation, SymbolKind, TextEdit, Url, WorkspaceEdit,
 };
 
 use crate::LspState;
-use crate::backend::file_path_to_uri;
-use crate::document::LineIndex;
+use crate::document::{LineIndex, Target};
+use crate::uri::{file_path_to_uri, uri_to_file_path};
 use std::cell::RefCell;
 use std::sync::Arc;
 
-/// The navigator over the session. It reads the text the project was
-/// compiled from ([`file_content`]), the text every span it answers is a
-/// position in.
-pub fn navigator(state: &LspState) -> Navigator<'_, impl Fn(&str) -> Option<String> + '_> {
-    Navigator::new(state.view(), move |file| file_content(state, file))
-}
-
-/// The text of a session file that navigation reads: the text the project
-/// was compiled from, not the buffer now (an edit not yet compiled would
-/// move the spans) nor the disk. `None` for a file the compile does not
-/// hold.
-pub(crate) fn file_content(state: &LspState, key: &str) -> Option<String> {
-    state.compiled_text(key).map(|text| text.to_string())
-}
-
-/// The URI of a session file key.
-pub(crate) fn uri_of(state: &LspState, key: &str) -> Url {
-    file_path_to_uri(&state.file_path(key).to_string_lossy())
-}
-
-/// Spans of session files as LSP ranges and locations. A span is a
-/// position in the text the project was compiled from, so it converts
-/// (byte columns to UTF-16) through that text's [`LineIndex`], built once
-/// per file per request, or the open document's own index when the
-/// document is that text. A file the compile holds no text of cannot be
-/// converted: its range is `None`, never byte columns passed off as UTF-16.
-pub(crate) struct Ranges<'s> {
+/// The project as its last compile saw it, read by one request. A span of
+/// the graph or of a diagnostic is a position in the text the compile read
+/// (ADR 0023 D3): `Compiled` converts it against that text (byte columns
+/// to UTF-16, through that text's [`LineIndex`], built once per file per
+/// request, or the open document's own index when the document is that
+/// text) and says whether the editor still has that text. A file the
+/// compile holds no text of cannot be converted: its range is `None`,
+/// never byte columns passed off as UTF-16.
+pub(crate) struct Compiled<'s> {
     state: &'s LspState,
     indexes: RefCell<HashMap<Sym, Option<Arc<LineIndex>>>>,
     stale: RefCell<HashMap<Sym, bool>>,
 }
 
-impl<'s> Ranges<'s> {
+impl<'s> Compiled<'s> {
     pub(crate) fn new(state: &'s LspState) -> Self {
-        Ranges {
+        Compiled {
             state,
             indexes: RefCell::new(HashMap::new()),
             stale: RefCell::new(HashMap::new()),
         }
+    }
+
+    /// The state the spans are read against.
+    pub(crate) fn state(&self) -> &'s LspState {
+        self.state
+    }
+
+    /// Navigation over the session, reading the text of each file the
+    /// project was compiled from, not the buffer now (an edit not yet
+    /// compiled would move the spans) nor the disk. A file the compile
+    /// does not hold has no text.
+    pub(crate) fn navigator(&self) -> Navigator<'s, impl Fn(&str) -> Option<String> + use<'s>> {
+        let state = self.state;
+        Navigator::new(state.view(), move |file| {
+            state.compiled_text(file).map(|text| text.to_string())
+        })
+    }
+
+    /// The session key of a document (`Environment::source_key` of its
+    /// path).
+    pub(crate) fn key(&self, uri: &Url) -> String {
+        self.state.source_key(&uri_to_file_path(uri))
+    }
+
+    /// The URI of a session file key.
+    pub(crate) fn uri(&self, key: &str) -> Url {
+        file_path_to_uri(&self.state.file_path(key).to_string_lossy())
     }
 
     /// The line index of the text session file `file` was compiled from
@@ -70,7 +79,7 @@ impl<'s> Ranges<'s> {
             return index.clone();
         }
         let index = self.state.compiled_text(file).map(|text| {
-            let uri = uri_of(self.state, file);
+            let uri = self.uri(file);
             match self.state.document(uri.as_str()) {
                 Some(doc) if doc.text() == &*text => Arc::clone(doc.index()),
                 _ => Arc::new(LineIndex::new(&text)),
@@ -90,26 +99,44 @@ impl<'s> Ranges<'s> {
     /// unknown.
     pub(crate) fn location(&self, span: &SourceSpan) -> Option<Location> {
         Some(Location {
-            uri: uri_of(self.state, span.file.as_str()),
+            uri: self.uri(span.file.as_str()),
             range: self.range(span)?,
         })
     }
 
-    /// Whether the text the editor has for session file `file` is not the
-    /// text the compile read ([`LspState::is_compiled`]): edits computed
-    /// from the compile do not apply to it. Read once per file per request.
-    pub(crate) fn is_stale(&self, file: &str) -> bool {
-        let key = Sym::new(file);
-        *self
-            .stale
-            .borrow_mut()
-            .entry(key)
-            .or_insert_with(|| !self.state.is_compiled(file))
+    /// What the cursor at `position` of the open document `uri` names (ADR
+    /// 0023 D5). Navigation is asked about the position only while the
+    /// document is the compiled text; while it is stale, the cursor names
+    /// what its own word names ([`crate::Cursor::named`], D7).
+    pub(crate) fn target(&self, uri: &Url, position: Position) -> Option<Target> {
+        let cursor = self.state.document(uri.as_str())?.at(position)?;
+        let file = self.key(uri);
+        if self.is_stale(&file) {
+            cursor.named(&self.state.view())
+        } else {
+            cursor.target(&self.navigator(), &file)
+        }
     }
 
-    /// The state the spans are read against.
-    pub(crate) fn state(&self) -> &'s LspState {
-        self.state
+    /// Whether the text the editor has for session file `file` (its open
+    /// buffer, else the file on disk) is not the text the project was
+    /// compiled from: no edit computed from the compile applies to it. True
+    /// when the editor has typed since (the compile is still to come), when
+    /// a closed file changed or went away on disk (the watcher's event is
+    /// still to come), and when the compile holds no text of the file. Read
+    /// once per file per request.
+    pub(crate) fn is_stale(&self, file: &str) -> bool {
+        let key = Sym::new(file);
+        *self.stale.borrow_mut().entry(key).or_insert_with(|| {
+            let Some(compiled) = self.state.compiled_text(file) else {
+                return true;
+            };
+            match self.state.document(self.uri(file).as_str()) {
+                Some(doc) => doc.text() != &*compiled,
+                None => std::fs::read_to_string(self.state.file_path(file))
+                    .map_or(true, |disk| disk != *compiled),
+            }
+        })
     }
 }
 
@@ -117,20 +144,17 @@ impl<'s> Ranges<'s> {
 /// cannot be placed (its file's text is unknown, or the open buffer is no
 /// longer the text the fix was computed on): a fix applies whole or not at
 /// all.
-pub(crate) fn fix_to_code_action(ranges: &Ranges, fix: Fix) -> Option<CodeAction> {
+pub(crate) fn fix_to_code_action(ranges: &Compiled, fix: Fix) -> Option<CodeAction> {
     let mut changes: HashMap<Url, Vec<TextEdit>> = HashMap::new();
     for edit in &fix.edits {
         let file = edit.span.file.as_str();
         if ranges.is_stale(file) {
             return None;
         }
-        changes
-            .entry(uri_of(ranges.state(), file))
-            .or_default()
-            .push(TextEdit {
-                range: ranges.range(&edit.span)?,
-                new_text: edit.new_text.clone(),
-            });
+        changes.entry(ranges.uri(file)).or_default().push(TextEdit {
+            range: ranges.range(&edit.span)?,
+            new_text: edit.new_text.clone(),
+        });
     }
     Some(CodeAction {
         title: fix.title,
@@ -151,7 +175,7 @@ pub(crate) fn fix_to_code_action(ranges: &Ranges, fix: Fix) -> Option<CodeAction
 /// container is its entity). An entry or method whose file's text is
 /// unknown is left out (no range of it is honest).
 pub(crate) fn outline_to_document_symbols(
-    ranges: &Ranges,
+    ranges: &Compiled,
     entries: Vec<OutlineEntry>,
     hierarchical: bool,
 ) -> DocumentSymbolResponse {
@@ -312,7 +336,7 @@ mod tests {
         std::fs::write(dir.path().join("a.spec"), COMPILED).unwrap();
         let mut state = LspState::new();
         state.set_session(ProjectSession::open(dir.path()));
-        let uri = uri_of(&state, "a.spec").to_string();
+        let uri = Compiled::new(&state).uri("a.spec").to_string();
         (state, uri)
     }
 
@@ -327,7 +351,7 @@ mod tests {
         // The buffer is the compiled text: the span lands on its UTF-16
         // column, through the document's own index.
         state.open_document(&uri, COMPILED);
-        let ranges = Ranges::new(&state);
+        let ranges = Compiled::new(&state);
         assert!(!ranges.is_stale("a.spec"));
         let range = ranges.range(&brace()).expect("the compile holds a.spec");
         assert_eq!((range.start.line, range.start.character), (0, 21));
@@ -337,15 +361,15 @@ mod tests {
         // still a position in the compiled text, so it keeps its column
         // (against the buffer, byte column 25 is past the line's end).
         state.apply_change(&uri, None, TYPED);
-        let ranges = Ranges::new(&state);
+        let ranges = Compiled::new(&state);
         assert!(ranges.is_stale("a.spec"));
         assert_eq!(ranges.range(&brace()), Some(range));
         assert_eq!(
             ranges.location(&brace()).map(|l| l.uri.to_string()),
             Some(uri.clone())
         );
-        // What navigation reads is that text too.
-        assert_eq!(file_content(&state, "a.spec").as_deref(), Some(COMPILED));
+        // What navigation reads is that text too (`Compiled::navigator`).
+        assert_eq!(state.compiled_text("a.spec").as_deref(), Some(COMPILED));
     }
 
     #[spec(
@@ -364,7 +388,7 @@ mod tests {
                 file: Sym::new(file),
                 ..brace()
             };
-            let ranges = Ranges::new(&state);
+            let ranges = Compiled::new(&state);
             assert_eq!(ranges.range(&span), None, "{file}");
             assert_eq!(ranges.location(&span), None, "{file}");
             assert!(ranges.index_of(file).is_none(), "{file}");
@@ -373,7 +397,7 @@ mod tests {
         // A file that cannot be read from disk now still has the text it
         // was compiled from: the disk is not asked.
         std::fs::remove_file(dir.path().join("a.spec")).unwrap();
-        let ranges = Ranges::new(&state);
+        let ranges = Compiled::new(&state);
         let range = ranges.range(&brace()).expect("compiled text is kept");
         assert_eq!(range.start.character, 21);
 
@@ -414,7 +438,7 @@ mod tests {
         };
 
         state.open_document(&uri, COMPILED);
-        let ranges = Ranges::new(&state);
+        let ranges = Compiled::new(&state);
         let action = fix_to_code_action(&ranges, fix(&["a.spec"])).expect("placeable");
         let changes = action.edit.unwrap().changes.unwrap();
         assert_eq!(
@@ -427,7 +451,7 @@ mod tests {
         // The editor typed since: the edits are positions in a text it no
         // longer has.
         state.apply_change(&uri, None, TYPED);
-        let ranges = Ranges::new(&state);
+        let ranges = Compiled::new(&state);
         assert!(fix_to_code_action(&ranges, fix(&["a.spec"])).is_none());
     }
 }

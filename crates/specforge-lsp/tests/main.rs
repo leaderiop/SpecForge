@@ -1,3 +1,5 @@
+mod answers;
+mod changes;
 mod code_actions;
 mod completion;
 mod concurrency;
@@ -8,10 +10,12 @@ mod e2e;
 mod hover;
 mod lifecycle;
 mod navigation;
+mod protocol;
 mod publish;
 mod registries;
 mod rename;
 mod semantic_tokens;
+mod served;
 mod session;
 mod state;
 

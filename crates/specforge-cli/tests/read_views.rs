@@ -791,3 +791,234 @@ fn contract_read_views() {
     assert_eq!(cli(&["export", s(&sub)]).code, Some(0));
     assert_eq!(cached_kinds(root), 5);
 }
+
+/// What a CLI run printed, for a snapshot: its exit code and both streams,
+/// the project's machine-specific path replaced.
+fn run_text(run: &Run, root: &Path) -> String {
+    format!(
+        "exit: {:?}\nstdout:\n{}stderr:\n{}",
+        run.code,
+        normalized_text(&run.stdout, root),
+        normalized_text(&run.stderr, root)
+    )
+}
+
+/// The node ids of a graph-shaped document, in the document's order.
+fn node_ids(document: &str) -> Vec<String> {
+    let value: Value = serde_json::from_str(document).expect("a query prints JSON");
+    value["nodes"]
+        .as_array()
+        .expect("a graph document has nodes")
+        .iter()
+        .map(|n| n["id"].as_str().unwrap().to_string())
+        .collect()
+}
+
+/// `text` with every run of 64 hexadecimal digits (a SHA-256) replaced by
+/// `[SHA256]`.
+fn without_hashes(text: &str) -> String {
+    let mut out = String::new();
+    let mut run = String::new();
+    let flush = |run: &mut String, out: &mut String| {
+        out.push_str(if run.len() == 64 { "[SHA256]" } else { run });
+        run.clear();
+    };
+    for ch in text.chars() {
+        if ch.is_ascii_hexdigit() {
+            run.push(ch);
+        } else {
+            flush(&mut run, &mut out);
+            out.push(ch);
+        }
+    }
+    flush(&mut run, &mut out);
+    out
+}
+
+fn mcp_query(arguments: Value) -> Value {
+    json!({"name": "specforge.query", "arguments": arguments})
+}
+
+/// What `specforge query` and `specforge.query` answer on fx1 today
+/// (architecture plan 2026-10 05): two implementations, two documents
+/// (Graph Protocol 1.0 on both tools, 2.0 from the resource), a raw
+/// `E003: ...` line from the CLI, no kind report from the CLI.
+#[test]
+fn query_today() {
+    let tmp = project("fx1");
+    let root = tmp.path();
+    // A schema's content hash moves whenever a builtin extension's
+    // declaration does: it is not what these snapshots pin.
+    let snap = |name: &str, text: String| {
+        insta::assert_snapshot!(format!("query_today_{name}"), without_hashes(&text));
+    };
+
+    let login = cli(&["query", "login", "--path", s(root)]);
+    snap("cli_login", run_text(&login, root));
+    snap(
+        "cli_ghost",
+        run_text(&cli(&["query", "logn", "--path", s(root)]), root),
+    );
+    let filtered = cli(&["query", "login", "--path", s(root), "--kind", "behaviour"]);
+    snap(
+        "cli_unknown_kind",
+        format!(
+            "exit: {:?}\nstderr: {:?}\nnodes: {:?}\n",
+            filtered.code,
+            filtered.stderr,
+            node_ids(&filtered.stdout)
+        ),
+    );
+
+    let calls = [
+        mcp_query(json!({"entity_id": "login"})),
+        mcp_query(json!({"entity_id": "login", "kinds": ["behaviour"]})),
+        mcp_query(json!({"entity_id": "logn"})),
+        mcp_query(json!({"entity_id": "login", "include_coverage": true, "format": "brief"})),
+        json!({"method": "resources/read", "params": {"uri": "specforge://graph/login"}}),
+    ];
+    let responses = mcp_responses(root, &calls);
+    for (name, response) in [
+        "mcp_login",
+        "mcp_unknown_kind",
+        "mcp_ghost",
+        "mcp_coverage_brief",
+        "resource_login",
+    ]
+    .iter()
+    .zip(&responses)
+    {
+        snap(name, normalized(&response["result"], root).to_string());
+    }
+}
+
+/// `specforge.list` and `specforge.search` answer today from MCP-only
+/// handlers: list reports no unknown kind, search reports `Behavior` as
+/// I020 and ignores a lone `field`.
+#[test]
+fn list_and_search_today() {
+    let tmp = project("fx1");
+    let root = tmp.path();
+    let calls = [
+        json!({"name": "specforge.list", "arguments": {"kind": "behaviour"}}),
+        json!({"name": "specforge.list", "arguments": {"kind": "behavior", "limit": 1, "offset": 1}}),
+        json!({"name": "specforge.search", "arguments": {"query": "log", "kinds": ["Behavior"]}}),
+        json!({"name": "specforge.search", "arguments": {"query": "log", "field": "title"}}),
+        json!({"name": "specforge.search", "arguments": {"query": "log"}}),
+    ];
+    let responses = mcp_responses(root, &calls);
+    let results: Vec<Value> = responses.iter().map(|r| r["result"].clone()).collect();
+    for (name, result) in [
+        "list_unknown_kind",
+        "list_page",
+        "search_capitalized_kind",
+        "search_lone_field",
+    ]
+    .iter()
+    .zip(&results)
+    {
+        insta::assert_snapshot!(
+            format!("list_and_search_today_{name}"),
+            normalized(result, root).to_string()
+        );
+    }
+    assert_ne!(
+        results[3], results[4],
+        "a lone `field` is refused, not ignored"
+    );
+}
+
+/// The one wording of "unknown entity kind '<k>'" and where each surface
+/// carries its suggestion: the schema tool's refusal in `data.suggestion`,
+/// the infer prompt's in `data.data.suggestion`, search's I020 notice in
+/// `diagnostic.suggestion`.
+#[test]
+fn unknown_kind_wordings_today() {
+    let tmp = rv1();
+    let root = tmp.path();
+    let calls = [
+        json!({"name": "specforge.schema", "arguments": {"kind": "behaviour"}}),
+        json!({"method": "prompts/get", "params": {
+            "name": "specforge://prompts/infer", "arguments": {"scope": "kind:behaviour"}}}),
+        json!({"name": "specforge.search", "arguments": {"query": "", "kinds": ["behaviour"]}}),
+    ];
+    for (name, response) in ["schema", "infer", "search"]
+        .iter()
+        .zip(mcp_responses(root, &calls))
+    {
+        let answer = if response["error"].is_null() {
+            response["result"].clone()
+        } else {
+            response["error"].clone()
+        };
+        insta::assert_snapshot!(
+            format!("unknown_kind_wordings_today_{name}"),
+            normalized(&answer, root).to_string()
+        );
+    }
+}
+
+/// Every entity of `root`, by id.
+fn entity_ids(root: &Path) -> Vec<String> {
+    let rows = &mcp_calls(root, &[json!({"name": "specforge.list", "arguments": {}})])[0];
+    rows.as_array()
+        .expect("specforge.list answers an array")
+        .iter()
+        .map(|row| row["id"].as_str().unwrap().to_string())
+        .collect()
+}
+
+/// For every entity of `root`, `specforge query` prints the document
+/// `specforge.query` answers for the same arguments: the depths, formats and
+/// coverage flag each take both values across the four combinations.
+fn assert_queries_agree(root: &Path) {
+    let combinations = [
+        (0, "graph", false),
+        (2, "graph", true),
+        (2, "context", false),
+        (0, "context", true),
+    ];
+    let ids = entity_ids(root);
+    assert!(!ids.is_empty(), "{root:?}");
+    for (depth, format, include_coverage) in combinations {
+        let calls: Vec<Value> = ids
+            .iter()
+            .map(|id| {
+                mcp_query(json!({
+                    "entity_id": id, "depth": depth, "format": format,
+                    "include_coverage": include_coverage
+                }))
+            })
+            .collect();
+        for (id, mcp) in ids.iter().zip(mcp_calls(root, &calls)) {
+            let mut args = vec![
+                "query".to_string(),
+                id.clone(),
+                "--path".to_string(),
+                s(root).to_string(),
+                "--depth".to_string(),
+                depth.to_string(),
+                "--format".to_string(),
+                format.to_string(),
+            ];
+            if include_coverage {
+                args.push("--include-coverage".to_string());
+            }
+            let args: Vec<&str> = args.iter().map(String::as_str).collect();
+            let cli = cli_json(&args);
+            assert_eq!(
+                cli, mcp,
+                "{id} at depth {depth}, {format}, coverage {include_coverage} on {root:?}"
+            );
+        }
+    }
+}
+
+#[specforge_test_macros::test(
+    behavior = "read_views_over_the_project_view",
+    verify = "specforge query and specforge.query return the same document for an entity"
+)]
+fn cli_and_mcp_query_are_one_document() {
+    assert_queries_agree(project("fx1").path());
+    assert_queries_agree(rv1().path());
+}

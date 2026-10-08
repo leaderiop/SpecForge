@@ -56,7 +56,7 @@ impl Scope {
             Some("plan") => Scope::Plan,
             Some("workflow") => Scope::Workflow,
             Some(s) if s.starts_with("kind:") => {
-                let kind = s["kind:".len()..].to_lowercase();
+                let kind = s["kind:".len()..].to_string();
                 if kind.is_empty() {
                     return Err(invalid("Empty kind name in scope 'kind:'"));
                 }
@@ -126,7 +126,7 @@ fn get_overview(project: &ProjectView) -> Rendered {
     let mut kinds_info: Vec<Value> = Vec::new();
     for declaration in project.registries().declarations() {
         for kind in &declaration.entities {
-            let keyword = keyword(kind).to_lowercase();
+            let keyword = keyword(kind).to_string();
             let guide =
                 build_guide_for_kind(&keyword, declaration, &project.env().config.inference);
             let fields: Vec<String> = kind
@@ -178,16 +178,17 @@ fn get_overview(project: &ProjectView) -> Rendered {
 }
 
 fn get_kind_scoped(project: &ProjectView, kind_name: &str) -> PromptOutcome {
-    let matched_kind = project
+    project
+        .kinds()
+        .declared(kind_name)
+        .map_err(|error| Box::new(McpError::from(error).with_argument("scope")))?;
+    let (declaration, kind_def) = project
         .registries()
         .declarations()
         .iter()
         .flat_map(|d| d.entities.iter().map(move |k| (d, k)))
-        .find(|(_, k)| keyword(k).to_lowercase() == kind_name);
-
-    let Some((declaration, kind_def)) = matched_kind else {
-        return Err(Box::new(unknown_kind(project, kind_name)));
-    };
+        .find(|(_, k)| keyword(k) == kind_name)
+        .expect("a declared kind has its declaration");
 
     let existing_ids: Vec<String> = project
         .graph()
@@ -237,29 +238,6 @@ fn get_kind_scoped(project: &ProjectView, kind_name: &str) -> PromptOutcome {
     Ok(rendered(instruction, result))
 }
 
-/// A kind no installed extension declares: I020's wording, with the
-/// closest installed kind.
-fn unknown_kind(project: &ProjectView, kind_name: &str) -> McpError {
-    let installed: Vec<String> = project
-        .registries()
-        .declarations()
-        .iter()
-        .flat_map(|d| d.entities.iter())
-        .map(|k| keyword(k).to_lowercase())
-        .collect();
-    let mut error = specforge_ops::OpError::new(
-        specforge_ops::OpErrorKind::InvalidInput,
-        "unknown_kind",
-        format!("unknown entity kind '{kind_name}'"),
-    );
-    if let Some(close) =
-        specforge_common::find_close_match(kind_name, installed.iter().map(String::as_str))
-    {
-        error = error.with_suggestion(format!("did you mean '{close}'?"));
-    }
-    McpError::from(error).with_argument("scope")
-}
-
 fn get_file_scoped(project: &ProjectView, file_path: &str) -> PromptOutcome {
     // The entities anchored to the file: the one file rule
     // (specforge_ops::navigate::anchors_of_file) over the anchors manifest,
@@ -277,7 +255,7 @@ fn get_file_scoped(project: &ProjectView, file_path: &str) -> PromptOutcome {
     let mut kinds_info: Vec<Value> = Vec::new();
     for declaration in project.registries().declarations() {
         for kind in &declaration.entities {
-            let keyword = keyword(kind).to_lowercase();
+            let keyword = keyword(kind).to_string();
             let guide =
                 build_guide_for_kind(&keyword, declaration, &project.env().config.inference);
             kinds_info.push(json!({
@@ -336,7 +314,7 @@ fn get_plan(
         .iter()
         .flat_map(|d| d.entities.iter().map(move |k| (d, k)))
         .map(|(d, k)| {
-            let keyword = keyword(k).to_lowercase();
+            let keyword = keyword(k).to_string();
             let existing_count = project
                 .graph()
                 .nodes()
@@ -409,7 +387,7 @@ fn get_workflow(project: &ProjectView) -> Rendered {
         .declarations()
         .iter()
         .flat_map(|d| d.entities.iter())
-        .map(|k| keyword(k).to_lowercase())
+        .map(|k| keyword(k).to_string())
         .collect();
 
     let result = json!({
@@ -464,7 +442,7 @@ fn build_guide_for_kind(
     let extension_guide = declaration
         .entities
         .iter()
-        .find(|k| keyword(k).to_lowercase() == kind_name)
+        .find(|k| keyword(k) == kind_name)
         .and_then(|k| k.inference_guide.as_deref())
         .unwrap_or("");
 

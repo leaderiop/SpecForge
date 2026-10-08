@@ -24,8 +24,12 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   holds with no workspace folder and MCP while nothing is served). Watch, the LSP and MCP each hold
   one (`specforge_project::ProjectSession`; MCP's served one is always opened from disk, ADR 0025);
   watch and the LSP feed it watcher events and follow every update that changes its inputs
-  (`Update::inputs_changed`), MCP asks it to be fresh before every request that reads the project
-  (ADR 0014, ADR 0030).
+  (`Update::inputs_changed`) by watching them anew and then bringing the session up to date for what
+  changed meanwhile, MCP asks it to be fresh before every request that reads the project (ADR 0014,
+  ADR 0030, ADR 0035). In a debug build it checks every update against a cold rebuild, whichever
+  surface holds it, and each surface reports a divergence where it reports (ADR 0035). The LSP also feeds it its open buffers, each batch of edits as one update
+  (`SourceChange::Buffers`), and a closed document's file is read from disk again
+  (`specforge_lsp::changes`, ADR 0023).
 - **Session inputs**: everything a project session depends on besides its sources' text: where its
   sources are discovered (the spec root and `exclude`), its **environment inputs**
   (`specforge.json`, `specforge.lock`, the extension modules it loaded) and its **check inputs**
@@ -42,10 +46,14 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Update**: one change applied to a project session. It re-reads and re-parses exactly the changed files (an
   importer parses the same, since references resolve without `use`), applies them to the session's graph
   build, resolves every file's imports again and re-runs the checks (`specforge_project::Update`, ADR 0006,
-  ADR 0032).
+  ADR 0032). An update says whether the session's inputs changed (`inputs_changed`) and, when it was
+  verified, how it differs from a cold rebuild (`divergence`).
 - **Graph delta**: what an update or a reload changed in the graph: added, removed and modified
   nodes (source positions ignored) and edges. Watch prints it and MCP notifies it
   (`specforge_graph::GraphDelta`, re-exported as `specforge_project::GraphDelta`). A graph build computes it.
+- **Debounce rule**: changes that arrive less than 50 ms apart are one batch, due 50 ms after the last
+  of them, each change once. Watch batches file changes and the LSP batches edited documents by the
+  same rule (`specforge_watch::Coalescer`, ADR 0035).
 - **Graph build**: the graph of a set of parsed `.spec` files and what building it reported (parse errors,
   duplicates, define blocks, unknown ref schemes, unresolved references, reference cycles), kept current one
   whole file at a time (`specforge_graph::GraphBuild`). Files are taken in path order; each entity ID is the
@@ -149,12 +157,18 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   target (`ProjectRef::view`: the project session with its I017 notices, or another project
   compiled for one call); the LSP from its session (`ProjectView::of_session`) (ADR 0015).
 - **Read view**: an operation that only reads the project view: stats, trace, the coverage view, the
-  model and outline diagrams, the versioned schema, and inspect. Each returns a typed outcome; the
-  CLI, MCP and the LSP only render it.
+  model and outline diagrams, the versioned schema, inspect, and query, list and search (the entities
+  a selection over the view returns, `specforge_ops::query`). Each returns a typed outcome; the CLI,
+  MCP and the LSP only render it.
 - **Entity facts**: what inspect returns for one entity: its node and kind entry, headline
   statement, standing (the snapshot's own, borrowed), obligations, references in both directions,
   coverage, and the reported diagnostics about it (`specforge_ops::inspect::EntityFacts`). MCP
   `specforge.inspect` renders it as JSON and the LSP hover as markdown, so the two cannot disagree.
+- **Known kind**: a kind a loaded extension declares, or that an entity is written with (an
+  undeclared one is E024's). A filter over entities knows both and reports any other kind as I020; an
+  argument that needs a kind's declaration (a schema entry, an inference guide) knows only the
+  declared ones and refuses others with `unknown_kind`. Names are exact; both name the closest kind, a
+  kind equal but for case first (`specforge_ops::view::KnownKinds`, `ProjectView::kinds`).
 - **Configured providers**: the `providers` `specforge.json` lists (scheme, alias, extension,
   settings), registered once per environment against the loaded declarations, each with its
   status (registered, extension not loaded, not a provider, scheme taken) and the W118/E057 the
@@ -363,6 +377,10 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   registry does not type as a non-reference, a `use` binding's imported name) that names an entity;
   hover, definition, references and rename all ask the cursor, completion asks it what completes
   there, and semantic tokens mark the same reference positions (`specforge_lsp::document`, ADR 0023).
+  While the document is not the text the project was compiled from, the cursor never asks navigation
+  about its position (a token of the compiled text): it names what its own word names, and
+  prepareRename and rename wait for the compile. Every request's answer is decided synchronously over
+  the LSP state (`specforge_lsp::answers`); the backend only carries requests.
 - **Proof role**: what a field's value is to the prove pass, declared by its extension
   (`proof_role`): a **bound** the solver assumes (bounds must be consistent, E046) or a **claim**
   that must follow from the bounds (W139 when not; an entailed claim is a proved claim). A field

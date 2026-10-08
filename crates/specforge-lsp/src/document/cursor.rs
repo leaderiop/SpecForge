@@ -2,6 +2,7 @@
 
 use specforge_common::Sym;
 use specforge_ops::navigate::{Navigator, Occurrence};
+use specforge_ops::view::ProjectView;
 use specforge_parser::lex::LexemeKind;
 use tower_lsp::lsp_types::{Position, Range};
 
@@ -398,7 +399,26 @@ impl<'d> Cursor<'d> {
         nav: &Navigator<'_, F>,
         file: &str,
     ) -> Option<Target> {
-        let view = nav.view();
+        self.resolve(nav.view(), || self.occurrence(nav, file))
+    }
+
+    /// What the cursor names without asking navigation about its position:
+    /// the `use` binding, the `use` statement, an identifier or scheme ref
+    /// ID at a reference position (a header's name included) that names an
+    /// entity of `view`'s graph, the field whose name it is on. What a
+    /// cursor in a buffer typed since the compile names (ADR 0023 D7): the
+    /// compiled text's token at its position may be another one.
+    pub fn named(&self, view: &ProjectView<'_>) -> Option<Target> {
+        self.resolve(view, || None)
+    }
+
+    /// [`Cursor::target`]'s order of questions, with `occurrence` answering
+    /// the one about the token under the cursor.
+    fn resolve(
+        &self,
+        view: &ProjectView<'_>,
+        occurrence: impl FnOnce() -> Option<Occurrence>,
+    ) -> Option<Target> {
         let word = self.word_index();
         let entity = |i: usize| {
             let lexeme = self.syntax.lexemes[i];
@@ -426,7 +446,7 @@ impl<'d> Cursor<'d> {
         if self.place() != Place::Code {
             return None;
         }
-        if let Some(occurrence) = self.occurrence(nav, file) {
+        if let Some(occurrence) = occurrence() {
             return Some(Target::Entity {
                 id: occurrence.target,
                 origin: self.index.range(&occurrence.span),

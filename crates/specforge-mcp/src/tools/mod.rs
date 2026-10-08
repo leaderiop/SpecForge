@@ -24,7 +24,6 @@ pub(crate) mod trace;
 mod validate;
 
 use serde_json::{Value, json};
-use specforge_common::codes;
 
 use crate::mutation::{self, Mutated};
 use crate::protocol::JsonRpcResponse;
@@ -59,63 +58,6 @@ pub(crate) fn span_json(span: &specforge_common::SourceSpan) -> Value {
         "end_line": span.end_line,
         "end_col": span.end_col,
     })
-}
-
-/// An I020 report for each kind in a `kinds` filter that no registered
-/// extension defines and no entity has, in the order given, with a
-/// `did you mean` suggestion when a known kind is close. The filter still
-/// drops them: they match no entity.
-pub(crate) fn unknown_kind_diagnostics(
-    view: &specforge_ops::view::ProjectView<'_>,
-    kinds: &[&str],
-) -> Vec<specforge_common::Diagnostic> {
-    let mut known: Vec<&str> = view
-        .registries()
-        .kinds
-        .keywords()
-        .map(String::as_str)
-        .chain(
-            view.graph()
-                .nodes()
-                .into_iter()
-                .map(|n| n.kind.raw.as_str()),
-        )
-        .collect();
-    known.sort_unstable();
-    known.dedup();
-
-    let mut reported: Vec<&str> = Vec::new();
-    let mut diagnostics = Vec::new();
-    for &kind in kinds {
-        if known.binary_search(&kind).is_ok() || reported.contains(&kind) {
-            continue;
-        }
-        reported.push(kind);
-        let mut diag =
-            specforge_common::Diagnostic::new(codes::I020, format!("unknown entity kind '{kind}'"));
-        if let Some(close) = specforge_common::find_close_match(kind, known.iter().copied()) {
-            diag = diag.with_suggestion(format!("did you mean '{close}'?"));
-        }
-        diagnostics.push(diag);
-    }
-    diagnostics
-}
-
-/// An emitter failure about `entity_id` as a failed tool result. A
-/// missing entity is [`entity_not_found`](crate::tool::entity_not_found),
-/// its `E003` in `diagnostic`, never only in the message text.
-fn emitter_error(error: specforge_emitter::EmitterError, entity_id: &str) -> ToolOutcome {
-    use specforge_emitter::EmitterError;
-    let mcp_error = match &error {
-        EmitterError::EntityNotFound(_) => crate::tool::entity_not_found(entity_id),
-        EmitterError::SerializationError(message) => {
-            McpError::new(ErrorCode::InternalError, message.as_str())
-        }
-        EmitterError::InvalidScope(message) | EmitterError::Other(message) => {
-            McpError::from_coded_message(ErrorCode::InvalidInput, message)
-        }
-    };
-    mcp_error.into()
 }
 
 /// A failed extension call as a failed tool result: the diagnostic the
