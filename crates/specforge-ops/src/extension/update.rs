@@ -11,7 +11,8 @@
 //! a change to the project.)
 
 use super::add::{Checked, fetch_checked};
-use super::{Trust, check_diamonds, published_versions};
+use super::diamond::broken_requirers;
+use super::{Trust, published_versions};
 use crate::registry::{NO_REGISTRY, Registry};
 use crate::{OpError, OpErrorKind, Writes};
 use specforge_common::{Code, codes};
@@ -297,25 +298,23 @@ fn broken_dependents(
     planned: &[(String, Checked)],
     registry: &dyn Registry,
 ) -> Vec<(String, (String, OpError))> {
-    let mut broken = Vec::new();
-    for entry in &staged.entries {
-        if planned.iter().any(|(name, _)| *name == entry.name.as_str()) {
-            continue;
-        }
-        for peer in &entry.peer_dependencies {
-            if !planned.iter().any(|(name, _)| *name == peer.name) {
-                continue;
-            }
-            if let Err(error) = check_diamonds(
-                staged,
-                entry.name.as_str(),
-                std::slice::from_ref(peer),
-                Some(&published_versions(registry)),
-            ) {
-                broken.push((entry.name.to_string(), (peer.name.clone(), error)));
-            }
-        }
-    }
+    let names: Vec<&str> = planned.iter().map(|(name, _)| name.as_str()).collect();
+    let published = published_versions(registry);
+    let mut broken: Vec<(String, (String, OpError))> = names
+        .iter()
+        .flat_map(|name| {
+            broken_requirers(staged, name, &names, Some(&published))
+                .into_iter()
+                .map(move |(dependent, error)| (dependent, (name.to_string(), error)))
+        })
+        .collect();
+    // In lock order, as the dependents are reported.
+    broken.sort_by_key(|(dependent, _)| {
+        staged
+            .entries
+            .iter()
+            .position(|e| e.name.as_str() == dependent)
+    });
     broken
 }
 

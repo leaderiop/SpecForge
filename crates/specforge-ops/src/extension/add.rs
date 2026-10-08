@@ -1,5 +1,6 @@
 //! `specforge add` and `specforge.add_extension`.
 
+use super::diamond::{Published, broken_requirers};
 use super::{Origin, builtin_name, check_diamonds};
 use crate::registry::Registry;
 use crate::{OpError, OpErrorKind, Writes};
@@ -256,7 +257,12 @@ fn add_local(req: &AddRequest, path: &Path, writes: &mut Writes) -> Result<AddOu
     }) {
         return Ok(present);
     }
-    install(req.root, change, &declared, module, None, &origin, writes)
+    // No registry to unify a diamond against: a locked peer outside the
+    // range is E027 (ADR 0041).
+    check_diamonds(change.lock(), declared.name(), declared.peers(), None)?;
+    install(
+        req.root, change, &declared, module, None, &origin, None, writes,
+    )
 }
 
 fn add_from_registry(
@@ -300,6 +306,7 @@ fn add_from_registry(
         Module::new(checked.package.wasm),
         checked.package.key_id,
         &origin,
+        Some(&super::published_versions(registry)),
         writes,
     )
 }
@@ -471,6 +478,10 @@ fn already_present(
 /// Install `module` as `declared`: its binary, its lock entry (as `origin`,
 /// with its declared version and peers) and its `specforge.json` entry (its
 /// bare name), as one change that puts everything back when a step fails.
+/// A locked extension the new version leaves with an unsatisfied peer
+/// refuses the install before anything is written (ADR 0041); `published` is
+/// what unifies that diamond, `None` for a local install.
+#[allow(clippy::too_many_arguments)]
 fn install(
     root: &Path,
     mut change: Change<'_>,
@@ -478,6 +489,7 @@ fn install(
     module: Module,
     key_id: Option<String>,
     origin: &Origin,
+    published: Published<'_>,
     writes: &mut Writes,
 ) -> Result<AddOutcome, OpError> {
     let package = declared.package()?;
@@ -492,6 +504,16 @@ fn install(
             peers: declared.peers().to_vec(),
         },
     );
+    let name = declared.name();
+    if let Some((dependent, error)) = broken_requirers(change.lock(), name, &[name], published)
+        .into_iter()
+        .next()
+    {
+        return Err(error.prefixed(format!(
+            "installing '{name}' {} breaks '{dependent}': ",
+            declared.version()
+        )));
+    }
     let committed = change
         .commit_with(&root.join(crate::config::CONFIG_FILE), || {
             crate::config::add_extension(root, declared.name(), declared.name())

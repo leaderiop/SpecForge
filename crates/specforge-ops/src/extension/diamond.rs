@@ -73,6 +73,33 @@ pub fn check_diamonds(
     Ok(())
 }
 
+/// Each locked extension other than those `changing` that requires `package` and that `staged`
+/// (the lock as the change leaves it) leaves unsatisfied: `(dependent, why)`, in lock order.
+pub(crate) fn broken_requirers(
+    staged: &LockFile,
+    package: &str,
+    changing: &[&str],
+    published: Published<'_>,
+) -> Vec<(String, OpError)> {
+    let mut broken = Vec::new();
+    for entry in &staged.entries {
+        if changing.contains(&entry.name.as_str()) {
+            continue;
+        }
+        for peer in entry.peer_dependencies.iter().filter(|p| p.name == package) {
+            if let Err(error) = check_diamonds(
+                staged,
+                entry.name.as_str(),
+                std::slice::from_ref(peer),
+                published,
+            ) {
+                broken.push((entry.name.to_string(), error));
+            }
+        }
+    }
+    broken
+}
+
 /// Unify a version diamond: several requirers each declare a SemVer range
 /// for the same package. Pick the highest of its published `versions` that
 /// satisfies every requirer's range (intersection, not backtracking: when

@@ -291,6 +291,7 @@ behavior add_extension_to_existing_project "Add Extension to Existing Project" {
   verify unit "add extension without version resolves to latest compatible version"
   verify unit "an extension whose peer range is not SemVer is refused with E073 before anything is installed"
   verify unit "a local install whose peer is installed outside its range is refused with E027"
+  verify integration "an install that leaves a locked extension's peer unsatisfied is refused before anything is written, local or from a registry"
   verify unit "a peer locked outside the new extension's range fails R-RES-006 naming a version that satisfies every requirer"
   verify unit "a peer no single version satisfies for every requirer fails R-RES-005"
   verify integration "a local .wasm install is locked at its declared version with source local:<path> and enabled by its bare name"

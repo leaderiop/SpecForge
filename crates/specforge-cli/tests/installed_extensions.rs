@@ -396,6 +396,62 @@ fn doctor_reports_an_extension_that_fails_to_load() {
     );
 }
 
+#[specforge_test(
+    behavior = "add_extension_to_existing_project",
+    verify = "an install that leaves a locked extension's peer unsatisfied is refused before anything is written, local or from a registry"
+)]
+fn a_local_install_a_locked_extension_does_not_accept_is_refused() {
+    let dir = greeting_project();
+    std::fs::write(
+        dir.path().join("specforge.json"),
+        json!({"name": "p", "version": "0.1.0", "extensions": ["@specforge/software", "@acme/app"]})
+            .to_string(),
+    )
+    .unwrap();
+    // `@acme/app` is locked, and wants a newer `@sdk/greet` than the one added.
+    let wasm = b"module";
+    let installed = dir.path().join(".specforge/extensions/@acme/app");
+    std::fs::create_dir_all(&installed).unwrap();
+    std::fs::write(installed.join("extension.wasm"), wasm).unwrap();
+    let lock = json!({
+        "lockfile_version": 1,
+        "entries": [
+            {"name": "@acme/app", "version": "1.0.0", "source": "registry",
+             "wasm_hash": specforge_installed::hex_sha256(wasm),
+             "peer_dependencies": [{"name": "@sdk/greet", "version": "^2.0"}]},
+        ],
+    });
+    std::fs::write(dir.path().join("specforge.lock"), lock.to_string()).unwrap();
+    let lock_before = std::fs::read(dir.path().join("specforge.lock")).unwrap();
+    std::fs::write(dir.path().join("greet.wasm"), greet_wasm()).unwrap();
+
+    let out = specforge()
+        .args(["add", "greet.wasm", "--format", "json", "--path"])
+        .arg(dir.path())
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+
+    assert!(!out.status.success());
+    let text =
+        String::from_utf8_lossy(&out.stdout).to_string() + &String::from_utf8_lossy(&out.stderr);
+    assert!(text.contains("E027"), "{text}");
+    assert!(
+        text.contains("installing '@sdk/greet' 0.1.0 breaks '@acme/app': "),
+        "{text}"
+    );
+    assert_eq!(
+        std::fs::read(dir.path().join("specforge.lock")).unwrap(),
+        lock_before,
+        "the lock is untouched"
+    );
+    assert!(!dir.path().join(".specforge/extensions/@sdk/greet").exists());
+    assert_eq!(
+        enabled(dir.path()),
+        json!(["@specforge/software", "@acme/app"])
+    );
+}
+
 /// Enable `entries` in the project at `root`, replacing what it enabled.
 fn enable(root: &Path, entries: Value) {
     std::fs::write(

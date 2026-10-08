@@ -231,6 +231,12 @@ impl OpError {
         self
     }
 
+    /// This failure with `prefix` ahead of its message; its code, kind and suggestion are kept.
+    pub fn prefixed(mut self, prefix: impl AsRef<str>) -> Self {
+        self.message = format!("{}{}", prefix.as_ref(), self.message);
+        self
+    }
+
     pub fn with_suggestion(mut self, suggestion: impl Into<String>) -> Self {
         self.suggestion = Some(suggestion.into());
         self
