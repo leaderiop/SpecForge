@@ -1,5 +1,6 @@
 use serde_json::Value;
 
+use crate::lifecycle::Revision;
 use crate::prompts::Prompts;
 use crate::protocol::{JsonRpcResponse, error_codes};
 use crate::resources::Resources;
@@ -42,6 +43,7 @@ impl SessionMethod {
 
 pub fn route(
     state: &mut McpState,
+    revision: Revision,
     method: &str,
     params: Value,
     id: Option<Value>,
@@ -71,10 +73,10 @@ pub fn route(
                 error_codes::METHOD_NOT_FOUND,
                 format!("Method not found: {}", method),
             ),
-            Some(_) if !state.is_initialized() => {
+            Some(_) if !(state.is_initialized() || revision.is_stateless()) => {
                 JsonRpcResponse::error(id, error_codes::INVALID_REQUEST, "Server not initialized")
             }
-            Some(session) => session_method(state, session, params, id),
+            Some(session) => session_method(state, revision, session, params, id),
         },
     }
 }
@@ -82,6 +84,7 @@ pub fn route(
 /// A request of an initialized session.
 fn session_method(
     state: &mut McpState,
+    revision: Revision,
     method: SessionMethod,
     params: Value,
     id: Option<Value>,
@@ -90,9 +93,9 @@ fn session_method(
         // Listing: an environment change on disk changes the extension
         // tools and resources listed (the pipeline brings the served project
         // up to date; no extension declares a prompt).
-        SessionMethod::ListTools => {
-            listed::<Tools, _>(state, |state| crate::registry::handle_list_tools(state, id))
-        }
+        SessionMethod::ListTools => listed::<Tools, _>(state, |state| {
+            crate::registry::handle_list_tools(state, revision, id)
+        }),
         SessionMethod::ListResources => listed::<Resources, _>(state, |state| {
             crate::registry::handle_list_resources(state, id)
         }),
@@ -105,12 +108,12 @@ fn session_method(
 
         // Calls and reads: the target of each brings the project up to
         // date.
-        SessionMethod::ReadResource => serve::<Resources>(state, params, id),
-        SessionMethod::CallTool => serve::<Tools>(state, params, id),
-        SessionMethod::GetPrompt => serve::<Prompts>(state, params, id),
+        SessionMethod::ReadResource => serve::<Resources>(state, revision, params, id),
+        SessionMethod::CallTool => serve::<Tools>(state, revision, params, id),
+        SessionMethod::GetPrompt => serve::<Prompts>(state, revision, params, id),
 
         SessionMethod::SubscribeResource => {
-            crate::subscriptions::requests::subscribe(state, params, id)
+            crate::subscriptions::requests::subscribe(state, revision, params, id)
         }
         SessionMethod::UnsubscribeResource => {
             crate::subscriptions::requests::unsubscribe(state, params, id)

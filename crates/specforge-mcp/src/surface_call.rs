@@ -11,6 +11,7 @@
 
 use serde_json::Value;
 
+use crate::lifecycle::Revision;
 use crate::protocol::{JsonRpcError, JsonRpcResponse, error_codes};
 use crate::state::McpState;
 use crate::target::{self, Call, TargetSpec};
@@ -137,7 +138,7 @@ pub(crate) trait Surface {
     /// How an unknown name is refused (-32602 for a tool or a prompt; a
     /// resource that does not exist is not found in the revision of the
     /// request, ADR 0024 D4).
-    fn unknown(_state: &McpState, name: &str) -> JsonRpcError {
+    fn unknown(_revision: Revision, name: &str) -> JsonRpcError {
         JsonRpcError::new(
             error_codes::INVALID_PARAMS,
             format!("{}: {name}", Self::UNKNOWN),
@@ -156,7 +157,7 @@ pub(crate) trait Surface {
     /// The reply: the only place this kind builds its result or its error,
     /// a failure naming the entry (`tool`, `prompt`, `uri`).
     fn envelope(
-        state: &McpState,
+        revision: Revision,
         found: &Found<Self::Core, Self::Extension>,
         invocation: &Invocation,
         outcome: Self::Outcome,
@@ -167,6 +168,7 @@ pub(crate) trait Surface {
 /// Serve one `tools/call`, `resources/read` or `prompts/get`.
 pub(crate) fn serve<S: Surface>(
     state: &mut McpState,
+    revision: Revision,
     params: Value,
     id: Option<Value>,
 ) -> JsonRpcResponse {
@@ -175,7 +177,7 @@ pub(crate) fn serve<S: Surface>(
         Err(error) => return JsonRpcResponse::from_error(id, error),
     };
     let Some(found) = find::<S>(state, &invocation.name) else {
-        return JsonRpcResponse::from_error(id, S::unknown(state, &invocation.name));
+        return JsonRpcResponse::from_error(id, S::unknown(revision, &invocation.name));
     };
     if let Some((name, event)) = S::invoked(&found, &invocation) {
         state.push_event(name, event);
@@ -203,7 +205,7 @@ pub(crate) fn serve<S: Surface>(
     if let Some((name, event)) = S::completed(&found, &invocation, &outcome) {
         state.push_event(name, event);
     }
-    S::envelope(state, &found, &invocation, outcome, id)
+    S::envelope(revision, &found, &invocation, outcome, id)
 }
 
 /// The entry `name` names: a core one; else, for a kind extensions

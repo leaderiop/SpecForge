@@ -10,7 +10,7 @@
 
 use serde_json::{Value, json};
 
-use crate::lifecycle::{MODERN_PROTOCOL_VERSIONS, server_info};
+use crate::lifecycle::{MODERN_PROTOCOL_VERSIONS, Revision, server_info};
 use crate::protocol::{JsonRpcError, JsonRpcResponse, error_codes};
 use crate::state::{McpState, ServerPhase};
 
@@ -75,7 +75,7 @@ pub fn handle(
         crate::lifecycle::serve_project(state, root);
     }
 
-    state.request_revision = Some(version);
+    let revision = Revision::Stateless(version);
     let response = match method {
         "server/discover" => Some(crate::lifecycle::handle_discover(id)),
         "subscriptions/listen" => crate::subscriptions::requests::listen(state, &params, id),
@@ -85,7 +85,9 @@ pub fn handle(
         | "resources/templates/list"
         | "resources/read"
         | "prompts/list"
-        | "prompts/get" => Some(crate::protocol::router::route(state, method, params, id)),
+        | "prompts/get" => Some(crate::protocol::router::route(
+            state, revision, method, params, id,
+        )),
         // ping, logging/setLevel, resources/subscribe and the rest are not
         // methods of this revision; completion/complete is not offered.
         _ => Some(JsonRpcResponse::error(
@@ -94,7 +96,6 @@ pub fn handle(
             format!("Method not found: {method}"),
         )),
     };
-    state.request_revision = None;
     response.map(|response| decorate(response, method))
 }
 

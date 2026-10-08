@@ -126,12 +126,14 @@ impl McpServer {
         // A request whose _meta names a revision is served on its own
         // (MCP 2026-07-28); the rest follow what initialize negotiated.
         let modern = modern::is_modern(&request.method, &request.params);
+        let revision = self.state.negotiated();
         let response = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
             if modern {
                 modern::handle(&mut self.state, &request.method, request.params, request.id)
             } else {
                 Some(route(
                     &mut self.state,
+                    revision,
                     &request.method,
                     request.params,
                     request.id,
@@ -139,7 +141,6 @@ impl McpServer {
             }
         }))
         .unwrap_or_else(|_| {
-            self.state.request_revision = None;
             Some(JsonRpcResponse::error(
                 id,
                 protocol::error_codes::INTERNAL_ERROR,

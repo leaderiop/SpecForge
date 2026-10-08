@@ -3,6 +3,7 @@ mod views;
 
 use serde_json::{Value, json};
 
+use crate::lifecycle::Revision;
 use crate::protocol::{JsonRpcError, JsonRpcResponse};
 use crate::state::McpState;
 use crate::surface_call::{Event, Found, Invocation, Ran, Surface};
@@ -64,8 +65,8 @@ impl Surface for Resources {
         Ran::of(Err(Box::new(error)))
     }
 
-    fn unknown(state: &McpState, uri: &str) -> JsonRpcError {
-        unknown_resource(state.resource_not_found_code(), uri)
+    fn unknown(revision: Revision, uri: &str) -> JsonRpcError {
+        unknown_resource(revision.resource_not_found_code(), uri)
     }
 
     fn refusal_mut(outcome: &mut ReadOutcome) -> Option<&mut McpError> {
@@ -86,7 +87,7 @@ impl Surface for Resources {
     }
 
     fn envelope(
-        state: &McpState,
+        revision: Revision,
         _: &Found<&'static ResourceSpec, ResourceEntry>,
         invocation: &Invocation,
         mut outcome: ReadOutcome,
@@ -100,7 +101,7 @@ impl Surface for Resources {
         resource_envelope(
             outcome,
             &invocation.name,
-            state.resource_not_found_code(),
+            revision.resource_not_found_code(),
             id,
         )
     }

@@ -5,6 +5,7 @@ use specforge_registry::RegistryBuild;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+use crate::lifecycle::Revision;
 use crate::subscriptions::{Changes, Subscriptions};
 use crate::surface_table::ExtensionSurfaceTable;
 use crate::types::McpEvent;
@@ -21,10 +22,6 @@ pub struct McpState {
     /// The protocol revision `initialize` negotiated (the latest one the
     /// server speaks until then).
     pub protocol_version: &'static str,
-    /// The revision the request being handled names in its `_meta`: set
-    /// for the length of a stateless (2026-07-28) request, which is served
-    /// under its own revision whatever `initialize` negotiated.
-    pub request_revision: Option<&'static str>,
     /// Whether a project (or the empty default surface) is being served:
     /// set by `initialize`, or by the first stateless request.
     pub served: bool,
@@ -67,7 +64,6 @@ impl McpState {
         Self {
             phase: ServerPhase::Uninitialized,
             protocol_version: crate::lifecycle::LATEST_PROTOCOL_VERSION,
-            request_revision: None,
             served: false,
             session: ProjectSession::detached(),
             generation: 0,
@@ -142,17 +138,15 @@ impl McpState {
         &self.surfaces
     }
 
-    /// Whether requests are served: after `initialize`, or for a stateless
-    /// request, which needs no handshake.
-    pub fn is_initialized(&self) -> bool {
-        self.phase == ServerPhase::Initialized
-            || (self.request_revision.is_some() && self.phase != ServerPhase::ShuttingDown)
+    /// The revision a request without `_meta` is served under: the one
+    /// `initialize` negotiated.
+    pub fn negotiated(&self) -> Revision {
+        Revision::Negotiated(self.protocol_version)
     }
 
-    /// The revision the current request is served under: its own, for a
-    /// stateless request, else the one `initialize` negotiated.
-    pub fn revision(&self) -> &'static str {
-        self.request_revision.unwrap_or(self.protocol_version)
+    /// Whether `initialize` was answered (and shutdown not asked for).
+    pub fn is_initialized(&self) -> bool {
+        self.phase == ServerPhase::Initialized
     }
 
     /// Whether the session accepts JSON-RPC batches: only a 2025-03-26
@@ -160,24 +154,6 @@ impl McpState {
     pub fn accepts_batches(&self) -> bool {
         self.phase == ServerPhase::Initialized
             && self.protocol_version == crate::lifecycle::BATCHING_PROTOCOL_VERSION
-    }
-
-    /// The JSON-RPC code of a resource that does not exist, in the revision
-    /// the request in hand speaks: -32002 in a handshake session (MCP
-    /// 2025-03-26 to 2025-11-25, server/resources), -32602 in a 2026-07-28
-    /// request, which says "Invalid Params" and asks clients to accept
-    /// -32002 as earlier revisions used it.
-    pub fn resource_not_found_code(&self) -> i64 {
-        if crate::lifecycle::MODERN_PROTOCOL_VERSIONS.contains(&self.revision()) {
-            crate::protocol::error_codes::INVALID_PARAMS
-        } else {
-            crate::protocol::error_codes::RESOURCE_NOT_FOUND
-        }
-    }
-
-    /// Whether tool results carry `structuredContent` (2025-06-18 on).
-    pub fn sends_structured_content(&self) -> bool {
-        self.revision() >= crate::lifecycle::STRUCTURED_CONTENT_PROTOCOL_VERSION
     }
 
     /// Record an event. Object payloads without a `timestamp` get one (RFC

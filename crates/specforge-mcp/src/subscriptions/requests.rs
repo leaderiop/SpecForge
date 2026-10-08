@@ -5,6 +5,7 @@
 
 use serde_json::{Value, json};
 
+use crate::lifecycle::Revision;
 use crate::protocol::{JsonRpcResponse, error_codes};
 use crate::resources::{self, Resources};
 use crate::state::McpState;
@@ -13,7 +14,12 @@ use crate::surface_call::Invocation;
 /// `resources/subscribe` (the handshake revisions). A URI the server does
 /// not serve is refused as `resources/read` refuses it: not found, in the
 /// code of the request's revision.
-pub(crate) fn subscribe(state: &mut McpState, params: Value, id: Option<Value>) -> JsonRpcResponse {
+pub(crate) fn subscribe(
+    state: &mut McpState,
+    revision: Revision,
+    params: Value,
+    id: Option<Value>,
+) -> JsonRpcResponse {
     let uri = match Invocation::read::<Resources>(&params) {
         Ok(invocation) => invocation.name,
         Err(error) => return JsonRpcResponse::from_error(id, error),
@@ -21,7 +27,7 @@ pub(crate) fn subscribe(state: &mut McpState, params: Value, id: Option<Value>) 
     if !resources::is_served(state, &uri) {
         return JsonRpcResponse::from_error(
             id,
-            resources::unknown_resource(state.resource_not_found_code(), &uri),
+            resources::unknown_resource(revision.resource_not_found_code(), &uri),
         );
     }
     state.subscriptions.subscribe(&uri, &mut state.events);
