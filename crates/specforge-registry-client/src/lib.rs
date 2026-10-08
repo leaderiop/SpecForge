@@ -16,6 +16,8 @@ pub mod registry_config;
 pub mod registry_ops;
 pub mod secrets;
 pub mod signing;
+#[cfg(any(test, feature = "testing"))]
+pub mod testing;
 pub mod trust;
 pub mod trust_flow;
 

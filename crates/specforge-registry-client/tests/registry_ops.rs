@@ -1,147 +1,14 @@
-use parking_lot::Mutex;
-
 use specforge_common::Severity;
 use specforge_protocol_types::package::Version;
 use specforge_protocol_types::{ExtensionDeclaration, PackageName};
 use specforge_registry_client::registry_ops::{
     publish_to_registry, search_registries, verify_registry_integrity,
 };
+use specforge_registry_client::testing::{Call, CallKind, MemoryClient, package};
 use specforge_registry_client::{
     AuthMethod, RegistryClient, RegistryConfig, RegistryCredential, RegistryError, SigningKey,
 };
-use specforge_registry_wire::{PackageMetadata, SearchHit};
-
-// ---------------------------------------------------------------------------
-// Mock client
-// ---------------------------------------------------------------------------
-
-struct MockRegistryClient {
-    fetch_results: Mutex<Vec<(String, Result<PackageMetadata, RegistryError>)>>,
-    #[allow(clippy::type_complexity)]
-    search_results: Mutex<Vec<(String, Result<Vec<SearchHit>, RegistryError>)>>,
-    publish_result: Mutex<Option<Result<String, RegistryError>>>,
-    publish_credentials: Mutex<Vec<Option<RegistryCredential>>>,
-    publish_signatures: Mutex<Vec<Option<String>>>,
-}
-
-impl MockRegistryClient {
-    fn new() -> Self {
-        Self {
-            fetch_results: Mutex::new(Vec::new()),
-            search_results: Mutex::new(Vec::new()),
-            publish_result: Mutex::new(None),
-            publish_credentials: Mutex::new(Vec::new()),
-            publish_signatures: Mutex::new(Vec::new()),
-        }
-    }
-
-    /// Add a fetch result keyed by registry alias.
-    fn with_fetch_for(self, alias: &str, result: Result<PackageMetadata, RegistryError>) -> Self {
-        self.fetch_results.lock().push((alias.to_string(), result));
-        self
-    }
-
-    /// Add a search result keyed by registry alias.
-    fn with_search_for(self, alias: &str, result: Result<Vec<SearchHit>, RegistryError>) -> Self {
-        self.search_results.lock().push((alias.to_string(), result));
-        self
-    }
-
-    fn with_publish(self, result: Result<String, RegistryError>) -> Self {
-        *self.publish_result.lock() = Some(result);
-        self
-    }
-
-    /// Credentials seen by each `publish()` call, in order.
-    fn publish_credentials(&self) -> Vec<Option<RegistryCredential>> {
-        self.publish_credentials.lock().clone()
-    }
-
-    /// Signature strings seen by each `publish()` call, in order.
-    fn publish_signatures(&self) -> Vec<Option<String>> {
-        self.publish_signatures.lock().clone()
-    }
-}
-
-impl RegistryClient for MockRegistryClient {
-    fn versions(
-        &self,
-        name: &PackageName,
-        _registry: &RegistryConfig,
-    ) -> Result<Vec<String>, RegistryError> {
-        Err(RegistryError::NotFound {
-            specifier: name.to_string(),
-        })
-    }
-
-    fn download(&self, wasm_url: &str) -> Result<Vec<u8>, RegistryError> {
-        Err(RegistryError::NotFound {
-            specifier: wasm_url.to_string(),
-        })
-    }
-
-    fn metadata(
-        &self,
-        name: &PackageName,
-        version: &Version,
-        registry: &RegistryConfig,
-    ) -> Result<PackageMetadata, RegistryError> {
-        let results = self.fetch_results.lock();
-        for (alias, result) in results.iter() {
-            if alias == &registry.alias {
-                return result.clone();
-            }
-        }
-        Err(RegistryError::NotFound {
-            specifier: format!("{name}@{version}"),
-        })
-    }
-
-    fn search(
-        &self,
-        _query: &str,
-        registry: &RegistryConfig,
-    ) -> Result<Vec<SearchHit>, RegistryError> {
-        let results = self.search_results.lock();
-        for (alias, result) in results.iter() {
-            if alias == &registry.alias {
-                return result.clone();
-            }
-        }
-        Err(RegistryError::NetworkError {
-            message: "no mock configured".into(),
-        })
-    }
-
-    fn publish(
-        &self,
-        _package: &[u8],
-        _declaration: &ExtensionDeclaration,
-        _manifest_json: &str,
-        signature: Option<&str>,
-        _registry: &RegistryConfig,
-        credential: Option<&RegistryCredential>,
-    ) -> Result<String, RegistryError> {
-        self.publish_credentials.lock().push(credential.cloned());
-        self.publish_signatures
-            .lock()
-            .push(signature.map(str::to_string));
-        self.publish_result
-            .lock()
-            .clone()
-            .unwrap_or(Err(RegistryError::NetworkError {
-                message: "no mock configured".into(),
-            }))
-    }
-
-    fn authenticate(
-        &self,
-        _registry: &RegistryConfig,
-        _credential: &RegistryCredential,
-    ) -> Result<Option<String>, RegistryError> {
-        Ok(None)
-    }
-}
+use specforge_registry_wire::{PackageMetadata, path};
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -179,25 +46,40 @@ fn minimal_manifest() -> ExtensionDeclaration {
     .unwrap()
 }
 
-fn make_response(name: &str, version: &str) -> PackageMetadata {
-    PackageMetadata {
-        name: name.to_string(),
-        version: version.to_string(),
-        wasm_url: format!("https://r.specforge.dev/{name}-{version}.wasm"),
-        sha256: "abc123".to_string(),
-        signature: String::new(),
-        key_id: String::new(),
-        manifest: String::new(),
-        ..Default::default()
+/// A token the registry accepts, and the credential that sends it.
+const TOKEN: &str = "publisher-token";
+
+fn accepted() -> RegistryCredential {
+    RegistryCredential {
+        alias: "default".to_string(),
+        auth_method: AuthMethod::Bearer(TOKEN.to_string()),
     }
 }
 
-fn make_search_result(name: &str, version: &str, desc: &str) -> SearchHit {
-    SearchHit {
-        name: name.to_string(),
-        version: version.to_string(),
-        description: desc.to_string(),
-    }
+fn client() -> MemoryClient {
+    MemoryClient::new().accepting(TOKEN)
+}
+
+/// `registry` holds `name@version`, found by `desc` in a search.
+fn store(client: &MemoryClient, registry: &RegistryConfig, name: &str, version: &str, desc: &str) {
+    client.store(
+        registry,
+        PackageMetadata {
+            name: name.to_string(),
+            version: version.to_string(),
+            description: desc.to_string(),
+            ..Default::default()
+        },
+        Vec::new(),
+    );
+}
+
+fn publishes(client: &MemoryClient) -> Vec<Call> {
+    client
+        .calls()
+        .into_iter()
+        .filter(|call| call.kind == CallKind::Publish)
+        .collect()
 }
 
 // ---------------------------------------------------------------------------
@@ -207,21 +89,15 @@ fn make_search_result(name: &str, version: &str, desc: &str) -> SearchHit {
 // B:search_registry — verify unit "queries ALL configured registries"
 #[test]
 fn search_queries_all_registries() {
-    let registries = vec![
+    let (a, b) = (
         scoped_registry("reg-a", "@alpha"),
         scoped_registry("reg-b", "@beta"),
-    ];
-    let client = MockRegistryClient::new()
-        .with_search_for(
-            "reg-a",
-            Ok(vec![make_search_result("@alpha/ext", "1.0.0", "Alpha ext")]),
-        )
-        .with_search_for(
-            "reg-b",
-            Ok(vec![make_search_result("@beta/ext", "1.0.0", "Beta ext")]),
-        );
+    );
+    let client = MemoryClient::new();
+    store(&client, &a, "@alpha/ext", "1.0.0", "Alpha ext");
+    store(&client, &b, "@beta/ext", "1.0.0", "Beta ext");
 
-    let (results, diags) = search_registries("ext", &registries, &client);
+    let (results, diags) = search_registries("ext", &[a, b], &client);
     assert!(diags.is_empty());
     assert_eq!(results.len(), 2);
     // Both registries contributed results
@@ -233,30 +109,16 @@ fn search_queries_all_registries() {
 // B:search_registry — verify unit "results deduplicated by name+version"
 #[test]
 fn search_deduplicates_by_name_and_version() {
-    let registries = vec![
+    let (a, b) = (
         scoped_registry("reg-a", "@specforge"),
         scoped_registry("reg-b", "@specforge"),
-    ];
+    );
     // Both registries return the same package
-    let client = MockRegistryClient::new()
-        .with_search_for(
-            "reg-a",
-            Ok(vec![make_search_result(
-                "@specforge/software",
-                "1.0.0",
-                "From A",
-            )]),
-        )
-        .with_search_for(
-            "reg-b",
-            Ok(vec![make_search_result(
-                "@specforge/software",
-                "1.0.0",
-                "From B",
-            )]),
-        );
+    let client = MemoryClient::new();
+    store(&client, &a, "@specforge/software", "1.0.0", "From A");
+    store(&client, &b, "@specforge/software", "1.0.0", "From B");
 
-    let (results, diags) = search_registries("software", &registries, &client);
+    let (results, diags) = search_registries("software", &[a, b], &client);
     assert!(diags.is_empty());
     assert_eq!(results.len(), 1, "duplicate should be removed");
     assert_eq!(results[0].name, "@specforge/software");
@@ -265,17 +127,13 @@ fn search_deduplicates_by_name_and_version() {
 // B:search_registry — verify unit "search output deterministic (sorted)"
 #[test]
 fn search_results_sorted_deterministically() {
-    let registries = vec![default_registry()];
-    let client = MockRegistryClient::new().with_search_for(
-        "default",
-        Ok(vec![
-            make_search_result("@z/ext", "1.0.0", "Z"),
-            make_search_result("@a/ext", "1.0.0", "A"),
-            make_search_result("@m/ext", "1.0.0", "M"),
-        ]),
-    );
+    let registry = default_registry();
+    let client = MemoryClient::new();
+    for name in ["@z/ext", "@a/ext", "@m/ext"] {
+        store(&client, &registry, name, "1.0.0", "ext");
+    }
 
-    let (results, _) = search_registries("ext", &registries, &client);
+    let (results, _) = search_registries("ext", &[registry], &client);
     assert_eq!(results.len(), 3);
     assert_eq!(results[0].name, "@a/ext");
     assert_eq!(results[1].name, "@m/ext");
@@ -285,23 +143,21 @@ fn search_results_sorted_deterministically() {
 // B:search_registry — verify unit "error from one registry doesn't abort others"
 #[test]
 fn search_error_from_one_registry_does_not_abort_others() {
-    let registries = vec![
+    let (failing, working) = (
         scoped_registry("failing", "@fail"),
         scoped_registry("working", "@work"),
-    ];
-    let client = MockRegistryClient::new()
-        .with_search_for(
-            "failing",
-            Err(RegistryError::Timeout {
-                url: "https://failing.registry.dev".into(),
-            }),
-        )
-        .with_search_for(
-            "working",
-            Ok(vec![make_search_result("@work/ext", "1.0.0", "Works")]),
-        );
+    );
+    let client = MemoryClient::new();
+    client.fail_next(
+        CallKind::Search,
+        Some(&failing),
+        RegistryError::Timeout {
+            url: "https://failing.registry.dev".into(),
+        },
+    );
+    store(&client, &working, "@work/ext", "1.0.0", "Works");
 
-    let (results, diags) = search_registries("ext", &registries, &client);
+    let (results, diags) = search_registries("ext", &[failing, working], &client);
     assert_eq!(results.len(), 1);
     assert_eq!(results[0].name, "@work/ext");
     assert_eq!(diags.len(), 1);
@@ -317,21 +173,33 @@ fn search_error_from_one_registry_does_not_abort_others() {
 fn publish_computes_sha256() {
     let registry = default_registry();
     let manifest = minimal_manifest();
-    let package = b"fake-wasm-bytes";
+    let package_bytes = b"fake-wasm-bytes";
+    let client = client();
 
-    let client = MockRegistryClient::new()
-        // First fetch (existence check) returns NotFound — version doesn't exist
-        .with_fetch_for(
-            "default",
-            Err(RegistryError::NotFound {
-                specifier: "@test/ext@1.0.0".into(),
-            }),
+    let url = publish_to_registry(
+        package_bytes,
+        &manifest,
+        &registry,
+        Some(&accepted()),
+        &client,
+        false,
+        None,
+    )
+    .unwrap();
+    assert!(url.contains("@test"));
+
+    let stored = client
+        .metadata(
+            &PackageName::parse("@test/ext").unwrap(),
+            &Version::new(1, 0, 0),
+            &registry,
         )
-        .with_publish(Ok("https://r.specforge.dev/@test/ext/1.0.0".into()));
-
-    let url =
-        publish_to_registry(package, &manifest, &registry, None, &client, false, None).unwrap();
-    assert!(url.contains("@test/ext"));
+        .unwrap();
+    assert_eq!(
+        stored.sha256,
+        package("@test/ext", "1.0.0", package_bytes, "", None).sha256
+    );
+    assert_eq!(stored.size_bytes, package_bytes.len() as u64);
 }
 
 // B:publish_to_registry — verify unit "duplicate version rejected without --force"
@@ -339,16 +207,23 @@ fn publish_computes_sha256() {
 fn publish_rejects_duplicate_version_without_force() {
     let registry = default_registry();
     let manifest = minimal_manifest();
-    let package = b"fake-wasm-bytes";
+    let client = client();
+    // the version is already there
+    store(&client, &registry, "@test/ext", "1.0.0", "");
 
-    // fetch succeeds = version already exists
-    let client = MockRegistryClient::new()
-        .with_fetch_for("default", Ok(make_response("@test/ext", "1.0.0")));
-
-    let err =
-        publish_to_registry(package, &manifest, &registry, None, &client, false, None).unwrap_err();
+    let err = publish_to_registry(
+        b"fake-wasm-bytes",
+        &manifest,
+        &registry,
+        Some(&accepted()),
+        &client,
+        false,
+        None,
+    )
+    .unwrap_err();
     assert_eq!(err.severity, Severity::Error);
     assert!(err.message.contains("already exists"));
+    assert!(publishes(&client).is_empty(), "nothing was uploaded");
 }
 
 // B:publish_to_registry — verify unit "duplicate version allowed with --force"
@@ -356,15 +231,27 @@ fn publish_rejects_duplicate_version_without_force() {
 fn publish_allows_duplicate_version_with_force() {
     let registry = default_registry();
     let manifest = minimal_manifest();
-    let package = b"fake-wasm-bytes";
-
-    let client = MockRegistryClient::new()
-        .with_publish(Ok("https://r.specforge.dev/@test/ext/1.0.0".into()));
+    let client = client();
 
     // force=true skips the existence check entirely
-    let url =
-        publish_to_registry(package, &manifest, &registry, None, &client, true, None).unwrap();
-    assert!(url.contains("@test/ext"));
+    let url = publish_to_registry(
+        b"fake-wasm-bytes",
+        &manifest,
+        &registry,
+        Some(&accepted()),
+        &client,
+        true,
+        None,
+    )
+    .unwrap();
+    assert!(url.contains("@test"));
+    assert!(
+        client
+            .calls()
+            .iter()
+            .all(|call| call.kind != CallKind::Metadata),
+        "no existence check was made"
+    );
 }
 
 // B:publish_to_registry — verify unit "successful publish returns registry URL"
@@ -372,21 +259,27 @@ fn publish_allows_duplicate_version_with_force() {
 fn publish_returns_registry_url_on_success() {
     let registry = default_registry();
     let manifest = minimal_manifest();
-    let package = b"fake-wasm-bytes";
+    let client = client();
 
-    let expected_url = "https://registry.specforge.dev/@test/ext/1.0.0";
-    let client = MockRegistryClient::new()
-        .with_fetch_for(
-            "default",
-            Err(RegistryError::NotFound {
-                specifier: "@test/ext@1.0.0".into(),
-            }),
+    let expected = format!(
+        "{}{}",
+        registry.url,
+        path::version(
+            &PackageName::parse("@test/ext").unwrap(),
+            &Version::new(1, 0, 0)
         )
-        .with_publish(Ok(expected_url.to_string()));
-
-    let url =
-        publish_to_registry(package, &manifest, &registry, None, &client, false, None).unwrap();
-    assert_eq!(url, expected_url);
+    );
+    let url = publish_to_registry(
+        b"fake-wasm-bytes",
+        &manifest,
+        &registry,
+        Some(&accepted()),
+        &client,
+        false,
+        None,
+    )
+    .unwrap();
+    assert_eq!(url, expected);
 }
 
 // B:publish_to_registry — verify unit "threads credential into client.publish"
@@ -394,13 +287,9 @@ fn publish_returns_registry_url_on_success() {
 fn publish_threads_credential_to_client() {
     let registry = default_registry();
     let manifest = minimal_manifest();
-    let credential = RegistryCredential {
-        alias: registry.alias.clone(),
-        auth_method: AuthMethod::Bearer("token-value".to_string()),
-    };
+    let credential = accepted();
 
-    let client = MockRegistryClient::new()
-        .with_publish(Ok("https://r.specforge.dev/@test/ext/1.0.0".into()));
+    let client = client();
     publish_to_registry(
         b"fake-wasm-bytes",
         &manifest,
@@ -411,11 +300,17 @@ fn publish_threads_credential_to_client() {
         None,
     )
     .unwrap();
-    assert_eq!(client.publish_credentials(), vec![Some(credential.clone())]);
+    assert_eq!(
+        publishes(&client)
+            .into_iter()
+            .map(|call| call.credential)
+            .collect::<Vec<_>>(),
+        vec![Some(credential.clone())]
+    );
 
-    let anonymous = MockRegistryClient::new()
-        .with_publish(Ok("https://r.specforge.dev/@test/ext/1.0.0".into()));
-    publish_to_registry(
+    // An anonymous publish carries no credential, and the registry refuses it.
+    let anonymous = self::client();
+    let err = publish_to_registry(
         b"fake-wasm-bytes",
         &manifest,
         &registry,
@@ -424,8 +319,15 @@ fn publish_threads_credential_to_client() {
         true,
         None,
     )
-    .unwrap();
-    assert_eq!(anonymous.publish_credentials(), vec![None]);
+    .unwrap_err();
+    assert_eq!(err.code, "R001");
+    assert_eq!(
+        publishes(&anonymous)
+            .into_iter()
+            .map(|call| call.credential)
+            .collect::<Vec<_>>(),
+        vec![None]
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -501,28 +403,23 @@ fn publish_signs_package_when_key_provided() {
     let registry = default_registry();
     let manifest = minimal_manifest();
     let key = SigningKey::generate();
-
-    let client = MockRegistryClient::new()
-        .with_fetch_for(
-            "default",
-            Err(RegistryError::NotFound {
-                specifier: format!("{}@{}", manifest.name(), manifest.version()),
-            }),
-        )
-        .with_publish(Ok("https://r.specforge.dev/@test/ext/1.0.0".into()));
+    let client = client();
 
     publish_to_registry(
         b"wasm-bytes",
         &manifest,
         &registry,
-        None,
+        Some(&accepted()),
         &client,
         false,
         Some(&key),
     )
     .unwrap();
 
-    let sigs = client.publish_signatures();
+    let sigs: Vec<Option<String>> = publishes(&client)
+        .into_iter()
+        .map(|call| call.signature)
+        .collect();
     assert_eq!(sigs.len(), 1);
     let sig: specforge_registry_client::PackageSignature =
         serde_json::from_str(sigs[0].as_deref().expect("signature present")).unwrap();
@@ -535,25 +432,23 @@ fn publish_signs_package_when_key_provided() {
 fn publish_without_key_sends_no_signature() {
     let registry = default_registry();
     let manifest = minimal_manifest();
-
-    let client = MockRegistryClient::new()
-        .with_fetch_for(
-            "default",
-            Err(RegistryError::NotFound {
-                specifier: format!("{}@{}", manifest.name(), manifest.version()),
-            }),
-        )
-        .with_publish(Ok("https://r.specforge.dev/@test/ext/1.0.0".into()));
+    let client = client();
 
     publish_to_registry(
         b"wasm-bytes",
         &manifest,
         &registry,
-        None,
+        Some(&accepted()),
         &client,
         false,
         None,
     )
     .unwrap();
-    assert_eq!(client.publish_signatures(), vec![None]);
+    assert_eq!(
+        publishes(&client)
+            .into_iter()
+            .map(|call| call.signature)
+            .collect::<Vec<_>>(),
+        vec![None]
+    );
 }

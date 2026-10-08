@@ -3177,6 +3177,8 @@ dependencies = [
  "sha2",
  "specforge-common",
  "specforge-protocol-types",
+ "specforge-registry-client",
+ "specforge-registry-server",
  "specforge-registry-wire",
  "specforge-test",
  "specforge-test-macros",

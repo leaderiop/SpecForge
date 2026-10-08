@@ -26,7 +26,13 @@ getrandom = "0.3"
 hex = "0.4.3"
 chrono = "0.4.41"
 
+[features]
+# A package registry in memory and the client contract (ADR 0044).
+testing = []
+
 [dev-dependencies]
+specforge-registry-client = { path = ".", features = ["testing"] }
+specforge-registry-server = { path = "../specforge-registry-server", features = ["testing"] }
 parking_lot = "0.12"
 specforge-test = { workspace = true }
 specforge-test-macros = { workspace = true }

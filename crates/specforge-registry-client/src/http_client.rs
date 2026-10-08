@@ -57,7 +57,7 @@ impl HttpRegistryClient {
         })
     }
 
-    fn resolve_token(credential: &RegistryCredential) -> Result<String, RegistryError> {
+    pub(crate) fn resolve_token(credential: &RegistryCredential) -> Result<String, RegistryError> {
         match &credential.auth_method {
             AuthMethod::Bearer(token) => Ok(token.clone()),
             AuthMethod::TokenEnvVar(var) => {
