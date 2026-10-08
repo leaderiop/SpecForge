@@ -1,13 +1,12 @@
-use serde_json::json;
+use serde_json::{Value, json};
 
-use specforge_ops::infer::{
-    self, InferenceManifest, InferenceSession, SessionStatus, SourceFileEntry,
-};
+use specforge_ops::OpError;
+use specforge_ops::infer::{self, EndStatus, Recorded, SessionOutcome, SessionStep};
 
 use crate::args::Arguments;
-use crate::mutation::{Mutated, Written};
+use crate::mutation::{Mutated, MutationHandled, Written};
 use crate::target::Call;
-use crate::tool::{ErrorCode, McpError, ToolOutcome};
+use crate::tool::{McpError, ToolOutcome};
 
 /// The actions a session takes, in the order the listing states them.
 const ACTIONS: &[&str] = &["start", "mark_analyzed", "end"];
@@ -36,216 +35,102 @@ pub struct Args {
     status: Option<String>,
 }
 
-/// `specforge.infer_session`: each action rewrites `specforge-infer.json`
-/// (a mutation that names it); a refusal writes nothing.
-pub fn call(call: &mut Call<'_>, args: Args) -> Mutated {
-    let Some(project_root) = call.root().map(std::path::Path::to_path_buf) else {
-        return Mutated::refused(crate::target::no_project(crate::target::Reach::Served));
+/// `specforge.infer_session`: one step of an inference session
+/// (`specforge_ops::infer::session`), which writes `specforge-infer.json`.
+pub fn call(call: &mut Call<'_>, args: Args) -> MutationHandled {
+    let project = call.project()?;
+    let step = match step(&args) {
+        Ok(step) => step,
+        Err(refused) => return Ok(Mutated::refused(refused)),
     };
-
-    let action = args.action.as_str();
-
-    match action {
-        "start" => handle_start(&args, &project_root),
-        "mark_analyzed" => handle_mark_analyzed(&args, &project_root),
-        "end" => handle_end(&args, &project_root),
-        _ => Mutated::refused(ToolOutcome::invalid_input(
-            "action",
-            format!(
-                "Unknown action: '{}'. Expected: {}",
-                action,
-                ACTIONS.join(", ")
-            ),
-        )),
-    }
+    Ok(match infer::session(&project.view(), step) {
+        Ok(SessionOutcome { recorded, writes }) => {
+            let written = match &recorded {
+                Recorded::Marked { entities, .. } => {
+                    Written::files(writes).with_entities(entities.clone())
+                }
+                _ => Written::files(writes),
+            };
+            Mutated::wrote(ToolOutcome::ok(reply(&recorded)), written)
+        }
+        Err(error) => {
+            let argument = argument_of(&error);
+            let refused = McpError::from(error);
+            Mutated::refused(match argument {
+                Some(argument) => refused.with_argument(argument),
+                None => refused,
+            })
+        }
+    })
 }
 
-fn handle_start(args: &Args, project_root: &std::path::Path) -> Mutated {
-    let mut manifest = match InferenceManifest::at(project_root) {
-        Ok(m) => m,
-        Err(e) => return Mutated::refused_after(false, e),
-    };
-
-    if manifest.active_session().is_some() {
-        return Mutated::refused(ToolOutcome::error(
-            ErrorCode::Conflict,
-            "Another inference session is already active. End it first.",
-        ));
-    }
-
-    if let Some(roots) = args.source_roots.clone() {
-        manifest.source_roots = roots;
-    }
-
-    let session_id = generate_session_id();
-    manifest.sessions.push(InferenceSession {
-        session_id: session_id.clone(),
-        started_at: now_rfc3339(),
-        ended_at: None,
-        agent: args.agent.clone().unwrap_or_else(|| "unknown".to_string()),
-        status: SessionStatus::Active,
-        unknown: Default::default(),
-    });
-
-    let written = match manifest.write(project_root) {
-        Ok(written) => written,
-        Err(e) => return Mutated::refused_after(false, e),
-    };
-
-    Mutated::wrote(
-        ToolOutcome::ok(json!({
-            "session_id": session_id,
-            "status": SessionStatus::Active.name()
-        })),
-        Written::files(written),
-    )
-}
-
-fn handle_mark_analyzed(args: &Args, project_root: &std::path::Path) -> Mutated {
-    let source_file = match args.source_file.as_deref() {
-        Some(f) => f.to_string(),
-        None => {
-            return Mutated::refused(ToolOutcome::invalid_input(
-                "source_file",
-                "Missing required parameter: source_file",
+/// The step `args` asks for, or the refusal of the arguments.
+fn step(args: &Args) -> Result<SessionStep<'_>, ToolOutcome> {
+    Ok(match args.action.as_str() {
+        "start" => SessionStep::Start {
+            agent: args.agent.as_deref(),
+            source_roots: args.source_roots.as_deref(),
+        },
+        "mark_analyzed" => SessionStep::MarkAnalyzed {
+            source_file: required(&args.source_file, "source_file")?,
+            entities: &args.entities_produced,
+        },
+        "end" => SessionStep::End {
+            session_id: required(&args.session_id, "session_id")?,
+            status: match args.status.as_deref().unwrap_or("completed") {
+                "completed" => EndStatus::Completed,
+                "paused" => EndStatus::Paused,
+                other => {
+                    let expected = END_STATUSES.join(", ");
+                    return Err(ToolOutcome::invalid_input(
+                        "status",
+                        format!("Invalid status: '{other}'. Expected: {expected}"),
+                    ));
+                }
+            },
+        },
+        other => {
+            let expected = ACTIONS.join(", ");
+            return Err(ToolOutcome::invalid_input(
+                "action",
+                format!("Unknown action: '{other}'. Expected: {expected}"),
             ));
         }
-    };
+    })
+}
 
-    let entities: Vec<String> = args.entities_produced.clone();
+/// The argument `value` holds, or the refusal that it is missing.
+fn required<'a>(value: &'a Option<String>, name: &str) -> Result<&'a str, ToolOutcome> {
+    value.as_deref().ok_or_else(|| {
+        ToolOutcome::invalid_input(name, format!("Missing required parameter: {name}"))
+    })
+}
 
-    let mut manifest = match InferenceManifest::at(project_root) {
-        Ok(m) => m,
-        Err(e) => return Mutated::refused_after(false, e),
-    };
+/// The argument an operation refusal is about.
+fn argument_of(error: &OpError) -> Option<&'static str> {
+    match error.code.as_ref() {
+        infer::UNKNOWN_SESSION => Some("session_id"),
+        infer::SOURCE_UNREADABLE => Some("source_file"),
+        _ => None,
+    }
+}
 
-    let abs_path = project_root.join(&source_file);
-    let content_hash = match infer::compute_content_hash(&abs_path) {
-        Ok(h) => h,
-        // Name the file as the agent did: the absolute path would leak
-        // where the server's project lives.
-        Err(_) => {
-            return Mutated::refused(
-                McpError::new(
-                    ErrorCode::FileNotFound,
-                    format!("failed to read {source_file}"),
-                )
-                .with_argument("source_file"),
-            );
+/// What a recorded step replies.
+fn reply(recorded: &Recorded) -> Value {
+    match recorded {
+        Recorded::Started { session_id } => {
+            json!({"session_id": session_id, "status": "active"})
         }
-    };
-
-    manifest.upsert_source_entry(SourceFileEntry::new(
-        source_file.clone(),
-        content_hash,
-        entities.clone(),
-        now_rfc3339(),
-    ));
-
-    let written = match manifest.write(project_root) {
-        Ok(written) => written,
-        Err(e) => return Mutated::refused_after(false, e),
-    };
-
-    Mutated::wrote(
-        ToolOutcome::ok(json!({
+        Recorded::Marked {
+            source_file,
+            entities,
+        } => json!({
             "source_file": source_file,
             "entities_produced": entities,
-            "status": "recorded"
-        })),
-        Written::files(written).with_entities(entities),
-    )
-}
-
-fn handle_end(args: &Args, project_root: &std::path::Path) -> Mutated {
-    let session_id = match args.session_id.as_deref() {
-        Some(s) => s.to_string(),
-        None => {
-            return Mutated::refused(ToolOutcome::invalid_input(
-                "session_id",
-                "Missing required parameter: session_id",
-            ));
-        }
-    };
-
-    let status = args.status.as_deref().unwrap_or("completed");
-    let ended = match status {
-        "completed" => SessionStatus::Completed,
-        "paused" => SessionStatus::Paused,
-        _ => {
-            return Mutated::refused(ToolOutcome::invalid_input(
-                "status",
-                format!(
-                    "Invalid status: '{}'. Expected: {}",
-                    status,
-                    END_STATUSES.join(", ")
-                ),
-            ));
-        }
-    };
-
-    let mut manifest = match InferenceManifest::at(project_root) {
-        Ok(m) => m,
-        Err(e) => return Mutated::refused_after(false, e),
-    };
-
-    match manifest
-        .sessions
-        .iter_mut()
-        .find(|s| s.session_id == session_id)
-    {
-        Some(s) if s.status == SessionStatus::Active => {
-            s.status = ended;
-            s.ended_at = Some(now_rfc3339());
-        }
-        Some(_) => {
-            return Mutated::refused(ToolOutcome::error(
-                ErrorCode::Conflict,
-                format!("Session '{session_id}' is not active"),
-            ));
-        }
-        None => {
-            return Mutated::refused(ToolOutcome::invalid_input(
-                "session_id",
-                format!("Unknown session_id: '{session_id}'"),
-            ));
+            "status": "recorded",
+        }),
+        Recorded::Ended { session_id, status } => {
+            json!({"session_id": session_id, "status": status.name()})
         }
     }
-
-    let written = match manifest.write(project_root) {
-        Ok(written) => written,
-        Err(e) => return Mutated::refused_after(false, e),
-    };
-
-    Mutated::wrote(
-        ToolOutcome::ok(json!({
-            "session_id": session_id,
-            "status": ended.name()
-        })),
-        Written::files(written),
-    )
-}
-
-/// A new session's ID: a random (version 4) UUID, as `InferenceSession`'s
-/// `session_id` is (`start_inference_session`: "a generated UUID").
-fn generate_session_id() -> String {
-    let mut bytes = [0u8; 16];
-    getrandom::fill(&mut bytes).expect("OS entropy unavailable");
-    bytes[6] = (bytes[6] & 0x0f) | 0x40; // version 4
-    bytes[8] = (bytes[8] & 0x3f) | 0x80; // the RFC 9562 variant
-    let hex: String = bytes.iter().map(|b| format!("{b:02x}")).collect();
-    format!(
-        "{}-{}-{}-{}-{}",
-        &hex[0..8],
-        &hex[8..12],
-        &hex[12..16],
-        &hex[16..20],
-        &hex[20..32]
-    )
-}
-
-/// The current time as an RFC 3339 UTC timestamp, as the session and
-/// source-file records store it.
-fn now_rfc3339() -> String {
-    chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true)
 }

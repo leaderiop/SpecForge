@@ -232,7 +232,7 @@ impl InferenceManifest {
 
     /// [`Self::read`] for an operation: an empty manifest when there is
     /// none, the problem as an `OpError`.
-    pub fn at(root: &Path) -> Result<Self, OpError> {
+    pub(crate) fn at(root: &Path) -> Result<Self, OpError> {
         Ok(Self::read(root)?.unwrap_or_default())
     }
 
@@ -240,7 +240,7 @@ impl InferenceManifest {
     /// keys sorted, written to `specforge-infer.json.tmp`, synced, then
     /// renamed. Returns the file it wrote. A failure removes the temporary
     /// file, leaves the old manifest and is `infer_manifest_write_failed`.
-    pub fn write(&self, root: &Path) -> Result<Writes, OpError> {
+    pub(crate) fn write(&self, root: &Path) -> Result<Writes, OpError> {
         let path = root.join(MANIFEST_FILENAME);
         let tmp = path.with_extension("json.tmp");
         // `to_value` orders the keys (a `BTreeMap`), as the spec's
@@ -310,9 +310,9 @@ impl InferenceManifest {
     }
 }
 
-pub fn compute_content_hash(file_path: &Path) -> Result<String, String> {
-    let content =
-        fs::read(file_path).map_err(|e| format!("failed to read {}: {e}", file_path.display()))?;
+/// The SHA-256 of the file's bytes, lowercase hex.
+pub(crate) fn compute_content_hash(file_path: &Path) -> std::io::Result<String> {
+    let content = fs::read(file_path)?;
     let hash = Sha256::digest(&content);
     Ok(format!("{:x}", hash))
 }
