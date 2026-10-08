@@ -2,10 +2,10 @@ use specforge_common::{Diagnostic, ProjectConfig};
 use specforge_graph::Graph;
 use specforge_project::{ProjectSession, SharedRuntime, Update, UpdateKind};
 use specforge_registry::RegistryBuild;
-use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+use crate::subscriptions::{Changes, Subscriptions};
 use crate::surface_table::ExtensionSurfaceTable;
 use crate::types::McpEvent;
 
@@ -28,8 +28,6 @@ pub struct McpState {
     /// Whether a project (or the empty default surface) is being served:
     /// set by `initialize`, or by the first stateless request.
     pub served: bool,
-    /// Open `subscriptions/listen` streams, by their request id.
-    pub listens: Vec<Listen>,
     /// The served project: its root, environment (config, spec root,
     /// registries, rules, manifests, surfaces), graph, diagnostics and
     /// extension runtime: always opened from disk (ADR 0025). Detached
@@ -46,31 +44,16 @@ pub struct McpState {
     /// Project compiled when the client's `initialize` names no `projectRoot`
     /// (the `specforge mcp <path>` argument).
     pub default_project_root: Option<PathBuf>,
-    pub subscriptions: HashMap<String, Vec<Subscription>>,
-    pub previous_diagnostics: Vec<Diagnostic>,
     pub events: Vec<McpEvent>,
-    /// Server→client notifications queued for subscribed channels (C9-01),
-    /// drained by the host loop via `pending_notifications`.
-    pub notification_outbox: Vec<serde_json::Value>,
+    /// Who hears about what (ADR 0024 D6). Read through
+    /// [`Self::subscriptions`]; changed only by the subscription requests,
+    /// an update of the served project, cancellation, disconnect and
+    /// shutdown.
+    pub(crate) subscriptions: Subscriptions,
     /// The Wasm runtime extensions run in, when the host supplies one; by
     /// default the served project's session builds the project's runtime
     /// (`specforge_component::ComponentRuntime::with_user_cache`) each time it loads.
     pub extension_runtime: Option<SharedRuntime>,
-}
-
-/// One `subscriptions/listen` stream (MCP 2026-07-28): the resources it
-/// asked to hear about, and the listen request's id every notification on
-/// it carries as `io.modelcontextprotocol/subscriptionId`.
-#[derive(Debug, Clone, PartialEq)]
-pub struct Listen {
-    pub id: serde_json::Value,
-    pub uris: Vec<String>,
-}
-
-#[derive(Debug, Clone)]
-pub struct Subscription {
-    pub client_id: String,
-    pub channel: String,
 }
 
 impl Default for McpState {
@@ -86,18 +69,20 @@ impl McpState {
             protocol_version: crate::lifecycle::LATEST_PROTOCOL_VERSION,
             request_revision: None,
             served: false,
-            listens: Vec::new(),
             session: ProjectSession::detached(),
             generation: 0,
             last_update: None,
             surfaces: ExtensionSurfaceTable::empty(),
             default_project_root: None,
-            subscriptions: HashMap::new(),
-            previous_diagnostics: Vec::new(),
             events: Vec::new(),
-            notification_outbox: Vec::new(),
+            subscriptions: Subscriptions::new(),
             extension_runtime: None,
         }
+    }
+
+    /// Who hears about what.
+    pub fn subscriptions(&self) -> &Subscriptions {
+        &self.subscriptions
     }
 
     /// The served project's session.
@@ -197,16 +182,8 @@ impl McpState {
 
     /// Record an event. Object payloads without a `timestamp` get one (RFC
     /// 3339, UTC) — except `mcp_initialized`, whose spec payload has none.
-    pub fn push_event(&mut self, name: impl Into<String>, mut params: serde_json::Value) {
-        let name = name.into();
-        if name != "mcp_initialized"
-            && let Some(object) = params.as_object_mut()
-            && !object.contains_key("timestamp")
-        {
-            let now = chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
-            object.insert("timestamp".into(), serde_json::Value::String(now));
-        }
-        self.events.push(McpEvent { name, params });
+    pub fn push_event(&mut self, name: impl Into<String>, params: serde_json::Value) {
+        self.events.push(McpEvent::new(name, params));
     }
 
     /// Serve the project at `root` as it is on disk now, its config and
@@ -221,7 +198,7 @@ impl McpState {
     /// project is replaced (initialize, adopting a call's path, the
     /// directory `init` created).
     pub fn serve(&mut self, root: &Path) {
-        let previous_diagnostics = self.diagnostics();
+        let before = self.heard_diagnostics();
         // The served session reloads when it is the project on disk at
         // `root`; any other root is opened.
         let canonical = |p: &Path| std::fs::canonicalize(p).unwrap_or_else(|_| p.to_path_buf());
@@ -238,7 +215,7 @@ impl McpState {
             let previous = std::mem::replace(&mut self.session, next);
             self.session.replaced(&previous)
         };
-        self.applied(update, &previous_diagnostics);
+        self.applied(update, before);
     }
 
     /// Bring the served project up to date with disk (behavior
@@ -249,16 +226,24 @@ impl McpState {
     /// re-check for a changed check input. Subscribed clients learn what
     /// changed. `None` when nothing did.
     pub fn ensure_fresh(&mut self) -> Option<&Update> {
-        let previous_diagnostics = self.diagnostics();
+        let before = self.heard_diagnostics();
         let update = self.session.ensure_fresh()?;
-        self.applied(update, &previous_diagnostics);
+        self.applied(update, before);
         self.last_update.as_ref()
+    }
+
+    /// What the server reports now, when someone hears about the
+    /// diagnostics: an update compares it with what it reports after.
+    fn heard_diagnostics(&self) -> Option<Vec<Diagnostic>> {
+        self.subscriptions
+            .hears_diagnostics()
+            .then(|| self.diagnostics())
     }
 
     /// Record `update`, applied to the served session: the extension
     /// surface table is built again when its environment loaded again, and
     /// subscribed clients learn what changed.
-    fn applied(&mut self, update: Update, previous_diagnostics: &[Diagnostic]) {
+    fn applied(&mut self, update: Update, before: Option<Vec<Diagnostic>>) {
         // Every session verifies its updates in a debug build (ADR 0035):
         // a divergence from a cold rebuild is a bug, and this is the one
         // place every update of the served project passes.
@@ -286,27 +271,24 @@ impl McpState {
                 );
             }
         }
-        crate::notifications::enqueue_compile_notifications(self, &update, previous_diagnostics);
+        // Subscribers hear what changed (ADR 0024 D6), here because every
+        // update of the served project passes here (ADR 0035 D3).
+        let after = before.as_ref().map(|_| self.diagnostics());
+        let diagnostics = before.as_deref().zip(after.as_deref());
+        self.subscriptions
+            .updated(&Changes::of(&update, diagnostics), &mut self.events);
         self.last_update = Some(update);
     }
 
-    pub fn shutdown(&mut self) {
+    /// Every subscription and stream ends, each recorded; the session
+    /// detaches. How many subscriptions ended.
+    pub fn shutdown(&mut self) -> usize {
         self.phase = ServerPhase::ShuttingDown;
-        let clients: std::collections::BTreeSet<String> = self
-            .subscriptions
-            .values()
-            .flatten()
-            .map(|s| s.client_id.clone())
-            .collect();
-        for client in clients {
-            crate::subscriptions::unsubscribe_all(self, &client);
-        }
-        self.subscriptions.clear();
-        self.listens.clear();
-        // The outbox stays: the host drains it after the shutdown response.
-        self.previous_diagnostics = self.diagnostics();
+        // The queue stays: the host sends it after the shutdown response.
+        let released = self.subscriptions.disconnect(&mut self.events);
         self.session = ProjectSession::detached();
         self.generation += 1;
         self.surfaces = ExtensionSurfaceTable::empty();
+        released
     }
 }

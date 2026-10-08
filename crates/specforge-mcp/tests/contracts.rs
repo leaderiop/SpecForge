@@ -219,7 +219,7 @@ fn contract_shutdown() {
     // behavior written to disk, served by the next call.
     server.write("more.spec", "behavior gamma \"Gamma\" {\n}\n");
     call_tool(&mut server, "specforge.stats", json!({}));
-    assert_eq!(server.state().notification_outbox.len(), 1);
+    assert_eq!(server.state().subscriptions().pending(), 1);
 
     let resp = call(&mut server, "shutdown", json!({}));
     assert_eq!(resp["result"], json!({}), "{resp}");
@@ -238,7 +238,7 @@ fn contract_shutdown() {
     assert_eq!(added, ["gamma"]);
 
     // subscriptions_removed: none left, and each removal was announced.
-    assert!(server.state().subscriptions.is_empty());
+    assert!(server.state().subscriptions().is_empty());
     let mut removed = events(&server, "mcp_subscription_removed");
     removed.sort_by_key(|p| p["subscriptionType"].to_string());
     assert_eq!(

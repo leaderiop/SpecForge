@@ -36,7 +36,7 @@ fn server_with_extension_surfaces() -> (
 }
 
 /// What a cancellation must leave untouched: the registries, the graph, the
-/// diagnostics and the subscriptions.
+/// diagnostics (the subscriptions are compared beside it).
 fn state_snapshot(server: &McpServer) -> Value {
     let state = server.state();
     let mut nodes: Vec<String> = state
@@ -46,20 +46,12 @@ fn state_snapshot(server: &McpServer) -> Value {
         .map(|n| n.id.raw.to_string())
         .collect();
     nodes.sort();
-    let mut subscriptions: Vec<(String, String)> = state
-        .subscriptions
-        .values()
-        .flatten()
-        .map(|s| (s.client_id.clone(), s.channel.clone()))
-        .collect();
-    subscriptions.sort();
     json!({
         "tools": specforge_mcp::registry::listed_tools(state).collect::<Vec<_>>(),
         "resources": specforge_mcp::registry::listed_resources(state).collect::<Vec<_>>(),
         "nodes": nodes,
         "edges": state.graph().edge_count(),
         "diagnostics": state.diagnostics().iter().map(|d| d.code.clone()).collect::<Vec<_>>(),
-        "subscriptions": subscriptions,
         "initialized": state.is_initialized(),
     })
 }
@@ -589,6 +581,7 @@ fn cancel_state_consistent() {
         json!({"uri": "specforge://graph"}),
     );
     let before = state_snapshot(&server);
+    let subscriptions = server.state().subscriptions().clone();
     assert_eq!(before["nodes"], json!(["greeting", "hello_world"]));
 
     // Cancel a completed request, an unknown one, and one by MCP's
@@ -603,6 +596,7 @@ fn cancel_state_consistent() {
     );
 
     assert_eq!(state_snapshot(&server), before);
+    assert_eq!(server.state().subscriptions(), &subscriptions);
 }
 
 #[test]

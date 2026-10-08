@@ -5,7 +5,6 @@ pub mod json_schema;
 pub mod lifecycle;
 pub mod modern;
 pub mod mutation;
-pub mod notifications;
 pub mod operations;
 pub mod prompt;
 pub mod prompts;
@@ -25,10 +24,6 @@ use protocol::router::route;
 use protocol::{JsonRpcResponse, parse_request_value};
 use serde_json::Value;
 use state::McpState;
-
-/// The client a request speaks for when it names no `client_id`: the one
-/// peer of a stdio session.
-pub const DEFAULT_CLIENT_ID: &str = "default";
 
 pub struct McpServer {
     state: McpState,
@@ -180,21 +175,16 @@ impl McpServer {
         &self.state
     }
 
-    /// Drain the server→client notification outbox (C9-01): notifications
-    /// queued for subscribed channels since the last drain.
+    /// The notifications queued since the last call, oldest first: the host
+    /// writes them after the response of the message that queued them.
     pub fn take_notifications(&mut self) -> Vec<serde_json::Value> {
-        notifications::pending_notifications(&mut self.state)
+        self.state.subscriptions.drain()
     }
 
-    /// A client went away: drop every subscription it held. Transports call
-    /// this when a connection closes (stdio: at end of input).
-    pub fn disconnect(&mut self, client_id: &str) {
-        subscriptions::unsubscribe_all(&mut self.state, client_id);
-        // The connection's subscriptions/listen streams end with it.
-        let listens: Vec<Value> = self.state.listens.iter().map(|l| l.id.clone()).collect();
-        for id in listens {
-            modern::end_listen(&mut self.state, &id);
-        }
+    /// The connection ended (stdio: end of input): every subscription and
+    /// listen stream ends.
+    pub fn disconnect(&mut self) {
+        self.state.subscriptions.disconnect(&mut self.state.events);
     }
 
     pub fn state_mut(&mut self) -> &mut McpState {

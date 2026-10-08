@@ -428,7 +428,7 @@ fn cancelling_the_listen_request_ends_the_stream() {
         "params": {"requestId": 7, "reason": "done"},
     });
     assert!(server.handle_message(&cancel.to_string()).is_none());
-    assert!(server.state().listens.is_empty());
+    assert!(server.state().subscriptions().is_empty());
     assert!(
         server
             .state()
@@ -454,7 +454,7 @@ fn the_end_of_the_connection_ends_the_stream() {
         &mut server,
         json!({"resourceSubscriptions": ["specforge://graph"]}),
     );
-    server.disconnect("default");
+    server.disconnect();
     assert_eq!(
         events(&server, "mcp_subscription_removed"),
         [json!({"subscriptionType": "specforge://graph", "clientId": "7"})]

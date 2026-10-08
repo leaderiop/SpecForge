@@ -77,7 +77,7 @@ behavior mcp_shutdown "MCP Shutdown" {
   }
   ensures {
     notifications_flushed "All pending notifications flushed before exit"
-    subscriptions_removed "All active subscriptions unsubscribed and mcp_subscription_removed emitted"
+    subscriptions_removed "Every subscription and listen stream ends, an mcp_subscription_removed emitted for each resource"
     wasm_engines_released "No Wasm engine instance outlives shutdown (the served project's runtime is released with its session)"
     shutdown_emitted      "mcp_server_shutdown event emitted"
   }
@@ -88,6 +88,7 @@ behavior mcp_shutdown "MCP Shutdown" {
   """
   verify unit "shutdown flushes pending notifications"
   verify unit "shutdown unsubscribes all active subscriptions"
+  verify unit "shutdown ends every listen stream and records its removal"
   verify unit "shutdown rejects new tool calls during teardown"
   verify integration "shutdown completes within 5 seconds"
   verify contract "MCP Shutdown: MCP shutdown holds — server_initialized, notifications_flushed, subscriptions_removed, wasm_engines_released, shutdown_emitted"

@@ -1,6 +1,9 @@
 use crate::support::*;
 use serde_json::json;
+use specforge_common::{Diagnostic, Severity, SourceSpan};
 use specforge_mcp::McpServer;
+use specforge_mcp::subscriptions::{Changes, Subscriptions, Watched};
+use specforge_project::{GraphDelta, NodeChange};
 use specforge_test::prelude::*;
 use std::fs;
 use tempfile::TempDir;
@@ -26,11 +29,7 @@ fn subscribe_adds_subscription() {
     );
     assert_eq!(reply["result"], json!({}), "{reply}");
 
-    let subs = specforge_mcp::subscriptions::subscribers(
-        server.state(),
-        specforge_mcp::subscriptions::Watched::Graph,
-    );
-    assert_eq!(subs, vec!["default"]);
+    assert!(server.state().subscriptions().hears(Watched::Graph));
 }
 
 #[test]
@@ -66,11 +65,7 @@ fn unsubscribe_removes_subscription() {
     );
     assert_eq!(reply["result"], json!({}), "{reply}");
 
-    let subs = specforge_mcp::subscriptions::subscribers(
-        server.state(),
-        specforge_mcp::subscriptions::Watched::Graph,
-    );
-    assert!(subs.is_empty());
+    assert!(!server.state().subscriptions().hears(Watched::Graph));
 }
 
 // B:mcp_subscription_cleanup — verify unit "shutdown clears all subscriptions"
@@ -89,7 +84,7 @@ fn shutdown_clears_subscriptions() {
     let req = json!({"jsonrpc":"2.0","id":2,"method":"shutdown","params":{}});
     server.handle_message(&req.to_string());
 
-    assert!(server.state().subscriptions.is_empty());
+    assert!(server.state().subscriptions().is_empty());
     assert!(
         server
             .state()
@@ -228,7 +223,7 @@ fn shutdown_event_counts_what_it_released() {
         "resources/read",
         json!({"uri": "specforge://diagnostics"}),
     );
-    let pending = server.state().notification_outbox.len();
+    let pending = server.state().subscriptions().pending();
     assert!(pending > 0, "the rebuild queued notifications");
 
     call(&mut server, "shutdown", json!({}));
@@ -245,48 +240,21 @@ fn shutdown_event_counts_what_it_released() {
     assert_eq!(event.params["wasm_engines_released"], 1);
 }
 
-fn subscribe_as(server: &mut McpServer, client: &str, uri: &str) {
-    let resp = call(
-        server,
-        "resources/subscribe",
-        json!({"uri": uri, "client_id": client}),
-    );
-    assert!(resp["result"].is_object(), "{resp}");
-}
-
 #[specforge_test(
     behavior = "mcp_subscription_cleanup",
     verify = "client disconnect removes all subscriptions for that client"
 )]
-fn disconnect_removes_only_that_clients_subscriptions() {
+fn disconnect_ends_every_subscription_and_stream() {
     let mut server = init_server();
-    subscribe_as(&mut server, "c1", "specforge://graph");
-    subscribe_as(&mut server, "c1", "specforge://diagnostics");
-    subscribe_as(&mut server, "c2", "specforge://graph");
+    for uri in ["specforge://graph", "specforge://diagnostics"] {
+        call(&mut server, "resources/subscribe", json!({"uri": uri}));
+    }
+    listen(&mut server, json!(7), &["specforge://graph"]);
 
-    server.disconnect("c1");
+    server.disconnect();
 
-    let state = server.state();
-    assert_eq!(
-        specforge_mcp::subscriptions::subscribers(
-            state,
-            specforge_mcp::subscriptions::Watched::Graph
-        ),
-        ["c2"]
-    );
-    assert!(
-        specforge_mcp::subscriptions::subscribers(
-            state,
-            specforge_mcp::subscriptions::Watched::Diagnostics
-        )
-        .is_empty()
-    );
-    let removed = state
-        .events
-        .iter()
-        .filter(|e| e.name == "mcp_subscription_removed" && e.params["clientId"] == "c1")
-        .count();
-    assert_eq!(removed, 2);
+    assert!(server.state().subscriptions().is_empty());
+    assert_eq!(events(&server, "mcp_subscription_removed").len(), 3);
 }
 
 #[specforge_test(
@@ -296,16 +264,18 @@ fn disconnect_removes_only_that_clients_subscriptions() {
 fn rapid_connect_disconnect_cycles_leave_nothing_behind() {
     let mut server = init_server();
     for i in 0..50 {
-        let client = format!("client_{i}");
-        subscribe_as(&mut server, &client, "specforge://graph");
-        subscribe_as(&mut server, &client, "specforge://diagnostics");
-        server.disconnect(&client);
+        for uri in ["specforge://graph", "specforge://diagnostics"] {
+            call(&mut server, "resources/subscribe", json!({"uri": uri}));
+        }
+        listen(&mut server, json!(i), &["specforge://graph"]);
+        server.disconnect();
     }
     assert!(
-        server.state().subscriptions.is_empty(),
+        server.state().subscriptions().is_empty(),
         "{:?}",
-        server.state().subscriptions
+        server.state().subscriptions()
     );
+    assert_eq!(events(&server, "mcp_subscription_removed").len(), 150);
 }
 
 /// C9-01 contract: no subscribers → notification suppressed.
@@ -376,20 +346,8 @@ fn diagnostics_subscription_uses_diagnostics_channel() {
         "resources/subscribe",
         json!({"uri": "specforge://diagnostics"}),
     );
-    assert!(
-        !specforge_mcp::subscriptions::subscribers(
-            server.state(),
-            specforge_mcp::subscriptions::Watched::Diagnostics
-        )
-        .is_empty()
-    );
-    assert!(
-        specforge_mcp::subscriptions::subscribers(
-            server.state(),
-            specforge_mcp::subscriptions::Watched::Graph
-        )
-        .is_empty()
-    );
+    assert!(server.state().subscriptions().hears(Watched::Diagnostics));
+    assert!(!server.state().subscriptions().hears(Watched::Graph));
 }
 
 /// Guard: subscribe requires initialization and a uri parameter.
@@ -511,9 +469,11 @@ fn a_subscribed_resource_hears_only_the_specforge_delta() {
     );
 }
 
-/// P4 (bug D): shutdown ends a listen stream without recording it.
-#[test]
-fn shutdown_ends_a_listen_stream_without_recording_it() {
+#[specforge_test(
+    behavior = "mcp_shutdown",
+    verify = "shutdown ends every listen stream and records its removal"
+)]
+fn shutdown_ends_every_listen_stream_and_records_it() {
     let mut server = alpha();
     call(
         &mut server,
@@ -524,11 +484,14 @@ fn shutdown_ends_a_listen_stream_without_recording_it() {
     call(&mut server, "shutdown", json!({}));
     assert_eq!(
         events(&server, "mcp_subscription_removed"),
-        [json!({"subscriptionType": "specforge/graphChanged", "clientId": "default"})]
+        [
+            json!({"subscriptionType": "specforge/graphChanged", "clientId": "default"}),
+            json!({"subscriptionType": "specforge://diagnostics", "clientId": "7"}),
+        ]
     );
     assert_eq!(
         events(&server, "mcp_server_shutdown")[0]["subscriptions_released"],
-        1
+        2
     );
 }
 
@@ -563,4 +526,249 @@ fn a_string_listen_id_is_quoted_in_its_events() {
         events(&server, "mcp_subscription_created"),
         [json!({"subscriptionType": "specforge://graph", "clientId": "\"abc\""})]
     );
+}
+
+// ---- Moved from notifications.rs: what a rebuild sends ----
+
+/// A feature naming `ghost`, which no entity declares: the compile reports
+/// E003.
+const BROKEN: &str = "feature broken \"Broken\" {\n    behaviors [ghost]\n}\n";
+
+/// A server over a project of `files`, `@test/ext` declaring the software
+/// kinds.
+fn served(files: &[(&str, &str)]) -> Served {
+    files
+        .iter()
+        .fold(TestProject::new(), |project, (path, text)| {
+            project.file(path, text)
+        })
+        .serve(&[TestExtension::software()])
+}
+
+/// Subscribe the default client to `uri`'s delta notifications.
+fn subscribe(server: &mut McpServer, uri: &str) {
+    let reply = call(server, "resources/subscribe", json!({"uri": uri}));
+    assert_eq!(reply["result"], json!({}), "{reply}");
+}
+
+/// Any request: it brings the served project up to date with disk, and
+/// the update's notifications are queued for the subscribers.
+fn any_request(server: &mut McpServer) {
+    let reply = call_tool(server, "specforge.stats", json!({}));
+    assert!(reply["error"].is_null(), "{reply}");
+}
+
+/// B:notify_graph_delta_via_mcp — verify unit "enqueue delivers one
+/// notification per subscribed channel and suppresses empty channels"
+#[test]
+fn enqueue_delivers_graph_and_diagnostics_to_subscribers() {
+    let mut server = served(&[]);
+    subscribe(&mut server, "specforge://graph");
+    subscribe(&mut server, "specforge://diagnostics");
+
+    // One file adds an entity and a diagnostic.
+    server.write("broken.spec", BROKEN);
+    any_request(&mut server);
+
+    let sent = server.take_notifications();
+    assert_eq!(sent.len(), 2, "one notification per subscribed channel");
+    assert_eq!(sent[0]["method"], "specforge/graphChanged");
+    assert_eq!(sent[1]["method"], "specforge/diagnosticsChanged");
+
+    // Taking them empties the queue (the captured client sink).
+    assert!(server.take_notifications().is_empty());
+}
+
+/// B:notify_graph_delta_via_mcp — verify unit "enqueue suppresses
+/// channels without subscribers and unchanged graphs"
+#[test]
+fn enqueue_suppresses_unsubscribed_and_unchanged() {
+    let mut server = served(&[]);
+    // Only the diagnostics channel is subscribed.
+    subscribe(&mut server, "specforge://diagnostics");
+
+    // Graph changed but nobody subscribes; diagnostics unchanged anyway.
+    server.write("alpha.spec", "behavior alpha \"Alpha\" {\n}\n");
+    any_request(&mut server);
+    assert!(
+        server.take_notifications().is_empty(),
+        "graph delta must be suppressed without subscribers"
+    );
+
+    // Diagnostics changed and the channel is subscribed.
+    server.write("broken.spec", BROKEN);
+    any_request(&mut server);
+    let sent = server.take_notifications();
+    assert_eq!(sent.len(), 1);
+    assert_eq!(sent[0]["method"], "specforge/diagnosticsChanged");
+}
+
+// B:notify_diagnostics_delta_via_mcp — verify unit "no notification when diagnostics are unchanged"
+#[specforge_test(
+    behavior = "notify_diagnostics_delta_via_mcp",
+    verify = "no notification when diagnostics are unchanged"
+)]
+fn diagnostics_no_notification_when_unchanged() {
+    // A subscribed client gets nothing when a compile leaves the
+    // diagnostics as they were (an entity added, broken.spec's E003 kept)
+    // ...
+    let mut server = served(&[("broken.spec", BROKEN)]);
+    subscribe(&mut server, "specforge://diagnostics");
+    server.write("gamma.spec", "behavior gamma \"Gamma\" {\n}\n");
+    any_request(&mut server);
+    let sent = server.take_notifications();
+    assert!(sent.is_empty(), "{sent:?}");
+    // ... and one notification when they change.
+    server.remove("broken.spec");
+    any_request(&mut server);
+    let sent = server.take_notifications();
+    assert_eq!(sent.len(), 1);
+    assert_eq!(sent[0]["method"], "specforge/diagnosticsChanged");
+}
+
+fn node_change(id: &str) -> NodeChange {
+    NodeChange {
+        id: id.to_string(),
+        kind: "behavior".to_string(),
+        file: "test.spec".to_string(),
+        line: 1,
+    }
+}
+
+// B:notify_graph_delta_via_mcp — verify unit "formats notification as JSON-RPC"
+#[specforge_test(
+    behavior = "notify_graph_delta_via_mcp",
+    verify = "notification includes GraphDelta payload"
+)]
+fn the_graph_delta_names_nodes_by_id() {
+    let mut subscriptions = Subscriptions::new();
+    let mut events = Vec::new();
+    subscriptions.subscribe("specforge://graph", &mut events);
+
+    let delta = GraphDelta {
+        added_nodes: vec![node_change("alpha")],
+        ..GraphDelta::default()
+    };
+    subscriptions.updated(&Changes::new(&delta, None), &mut events);
+    assert_eq!(
+        subscriptions.drain(),
+        [json!({
+            "jsonrpc": "2.0",
+            "method": "specforge/graphChanged",
+            "params": {
+                "added_nodes": ["alpha"],
+                "removed_nodes": [],
+                "modified_nodes": [],
+                "added_edges": [],
+                "removed_edges": [],
+            },
+        })]
+    );
+
+    // And the other way round: alpha removed.
+    let delta = GraphDelta {
+        removed_nodes: vec![node_change("alpha")],
+        ..GraphDelta::default()
+    };
+    subscriptions.updated(&Changes::new(&delta, None), &mut events);
+    let sent = subscriptions.drain();
+    assert_eq!(sent[0]["params"]["added_nodes"], json!([]));
+    assert_eq!(sent[0]["params"]["removed_nodes"], json!(["alpha"]));
+}
+
+// B:notify_diagnostics_delta_via_mcp — verify unit "formats notification as JSON-RPC"
+#[specforge_test(
+    behavior = "notify_diagnostics_delta_via_mcp",
+    verify = "payload includes added and removed diagnostics"
+)]
+fn the_diagnostics_delta_names_what_was_added_and_removed() {
+    let warning = Diagnostic::untyped("W001", Severity::Warning, "test warning");
+    let delta = GraphDelta::default();
+    let mut subscriptions = Subscriptions::new();
+    let mut events = Vec::new();
+    subscriptions.subscribe("specforge://diagnostics", &mut events);
+
+    subscriptions.updated(
+        &Changes::new(&delta, Some((&[], std::slice::from_ref(&warning)))),
+        &mut events,
+    );
+    assert_eq!(
+        subscriptions.drain(),
+        [json!({
+            "jsonrpc": "2.0",
+            "method": "specforge/diagnosticsChanged",
+            "params": {
+                "added": [{"code": "W001", "severity": "Warning", "message": "test warning"}],
+                "removed": [],
+            },
+        })]
+    );
+
+    // A fixed warning shows up as removed.
+    subscriptions.updated(
+        &Changes::new(&delta, Some((std::slice::from_ref(&warning), &[]))),
+        &mut events,
+    );
+    assert_eq!(
+        subscriptions.drain()[0]["params"],
+        json!({
+            "added": [],
+            "removed": [{"code": "W001", "severity": "Warning", "message": "test warning"}],
+        })
+    );
+}
+
+#[test]
+fn a_diagnostic_is_named_by_code_message_and_file() {
+    let graph = GraphDelta::default();
+    let error = Diagnostic::new(specforge_common::codes::E001, "test error");
+    let at = |line: usize| {
+        let span = SourceSpan {
+            file: "a.spec".into(),
+            start_line: line,
+            start_col: 0,
+            end_line: line,
+            end_col: 0,
+        };
+        Diagnostic::new(specforge_common::codes::E001, "test error").with_span(span)
+    };
+    let touched = |before: &[Diagnostic], after: &[Diagnostic]| {
+        Changes::new(&graph, Some((before, after))).touched(Watched::Diagnostics)
+    };
+
+    assert!(touched(&[], std::slice::from_ref(&error)), "added");
+    assert!(touched(std::slice::from_ref(&error), &[]), "removed");
+    assert!(
+        !touched(std::slice::from_ref(&error), std::slice::from_ref(&error)),
+        "the same pair"
+    );
+    assert!(
+        !touched(&[at(1)], &[at(9)]),
+        "the same code, message and file on another line"
+    );
+    assert!(
+        !Changes::new(&graph, None).touched(Watched::Diagnostics),
+        "not read"
+    );
+}
+
+#[test]
+fn diagnostics_are_read_only_when_someone_hears_them() {
+    let mut events = Vec::new();
+    let mut subscriptions = Subscriptions::new();
+    assert!(!subscriptions.hears_diagnostics());
+    subscriptions.subscribe("specforge://graph", &mut events);
+    assert!(!subscriptions.hears_diagnostics());
+    subscriptions.listen(json!(1), vec!["specforge://schema".into()], &mut events);
+    assert!(!subscriptions.hears_diagnostics());
+    subscriptions.subscribe("specforge://diagnostics", &mut events);
+    assert!(subscriptions.hears_diagnostics());
+
+    let mut streamed = Subscriptions::new();
+    streamed.listen(
+        json!(1),
+        vec!["specforge://diagnostics".into()],
+        &mut events,
+    );
+    assert!(streamed.hears_diagnostics());
 }

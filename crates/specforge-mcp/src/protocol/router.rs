@@ -110,10 +110,10 @@ fn session_method(
         SessionMethod::GetPrompt => serve::<Prompts>(state, params, id),
 
         SessionMethod::SubscribeResource => {
-            crate::resources::handle_resource_subscribe(state, params, id)
+            crate::subscriptions::requests::subscribe(state, params, id)
         }
         SessionMethod::UnsubscribeResource => {
-            crate::resources::handle_resource_unsubscribe(state, params, id)
+            crate::subscriptions::requests::unsubscribe(state, params, id)
         }
     }
 }

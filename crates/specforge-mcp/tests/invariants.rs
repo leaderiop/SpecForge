@@ -142,31 +142,16 @@ fn trace_is_idempotent() {
 fn no_orphan_subscriptions_after_disconnect() {
     let mut server = McpServer::new();
     call(&mut server, "initialize", json!({}));
-    for client in ["c1", "c2"] {
-        for uri in ["specforge://graph", "specforge://diagnostics"] {
-            let resp = call(
-                &mut server,
-                "resources/subscribe",
-                json!({"uri": uri, "client_id": client}),
-            );
-            assert!(resp["result"].is_object(), "{resp}");
-        }
+    for uri in ["specforge://graph", "specforge://diagnostics"] {
+        let resp = call(&mut server, "resources/subscribe", json!({"uri": uri}));
+        assert!(resp["result"].is_object(), "{resp}");
     }
+    assert!(!server.state().subscriptions().is_empty());
 
-    server.disconnect("c1");
-    let clients: std::collections::BTreeSet<&str> = server
-        .state()
-        .subscriptions
-        .values()
-        .flatten()
-        .map(|s| s.client_id.as_str())
-        .collect();
-    assert_eq!(clients, ["c2"].into());
-
-    server.disconnect("c2");
+    server.disconnect();
     assert!(
-        server.state().subscriptions.is_empty(),
-        "no empty channel left behind"
+        server.state().subscriptions().is_empty(),
+        "no subscription left behind"
     );
 }
 
@@ -180,10 +165,10 @@ fn no_subscriptions_survive_shutdown() {
         "resources/subscribe",
         json!({"uri": "specforge://graph"}),
     );
-    assert!(!server.state().subscriptions.is_empty());
+    assert!(!server.state().subscriptions().is_empty());
 
     call(&mut server, "shutdown", json!({}));
-    assert!(server.state().subscriptions.is_empty());
+    assert!(server.state().subscriptions().is_empty());
 }
 
 // I:mcp_structured_error_responses — verify property "error response includes entity_id when applicable"

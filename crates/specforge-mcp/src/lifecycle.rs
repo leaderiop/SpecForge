@@ -158,12 +158,11 @@ pub fn handle_shutdown(state: &mut McpState, id: Option<Value>) -> JsonRpcRespon
         );
     }
 
-    let pending_notifications = state.notification_outbox.len();
-    let subscriptions: usize = state.subscriptions.values().map(Vec::len).sum();
+    let pending_notifications = state.subscriptions().pending();
     // The served project's runtime goes with its session: no engine
     // outlives shutdown.
     let engines = usize::from(state.session().runtime().is_some());
-    state.shutdown();
+    let subscriptions = state.shutdown();
     state.push_event(
         "mcp_server_shutdown",
         serde_json::json!({
@@ -178,7 +177,7 @@ pub fn handle_shutdown(state: &mut McpState, id: Option<Value>) -> JsonRpcRespon
 pub fn handle_cancel(state: &mut McpState, params: Value, id: Option<Value>) -> JsonRpcResponse {
     // Cancelling a subscriptions/listen request ends its stream.
     if let Some(listened) = params.get("requestId") {
-        crate::modern::end_listen(state, listened);
+        state.subscriptions.end(listened, &mut state.events);
     }
     // JSON-RPC ids are strings or numbers; the event names either as a string.
     let request_id = match params.get("requestId").or_else(|| params.get("id")) {
