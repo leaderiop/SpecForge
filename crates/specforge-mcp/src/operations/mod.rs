@@ -303,7 +303,7 @@ pub struct AddArgs {
 /// wrote and `extension_added` (for an extension already there too,
 /// `wasDuplicate`).
 pub(crate) fn add_extension(call: &mut Call<'_>, args: AddArgs) -> MutationHandled {
-    use specforge_ops::extension::{self, AddOutcome, AddRequest, Origin, Source, Trust};
+    use specforge_ops::extension::{self, AddOutcome, AddRequest, Origin, Trust};
 
     let allow_unsigned = args.allow_unsigned;
     let dry_run = args.dry_run;
@@ -325,12 +325,6 @@ pub(crate) fn add_extension(call: &mut Call<'_>, args: AddArgs) -> MutationHandl
     };
 
     let registry = specforge_ops_registry::ConfiguredRegistry::for_project(&root, "add_extension");
-    // What reading the registry configuration reported (E067, W140,
-    // I003), as `specforge add` shows it: only a registry package reads it.
-    let reported = match &source {
-        Source::Registry(_) => registry.diagnostics().to_vec(),
-        _ => Vec::new(),
-    };
     // The shared operation `specforge add` runs. An agent can't be asked,
     // so a publisher key change is refused rather than re-pinned.
     let request = AddRequest {
@@ -340,7 +334,11 @@ pub(crate) fn add_extension(call: &mut Call<'_>, args: AddArgs) -> MutationHandl
         trust: Trust::Refuse,
         dry_run,
     };
-    let added = match extension::add(&request, &registry) {
+    let added = extension::add(&request, &registry);
+    // What reading the registry configuration reported (E067, W140, I003), once the add asked a
+    // registry, as `specforge add` shows it.
+    let reported = registry.reported().to_vec();
+    let added = match added {
         Ok(added) => added,
         // An install that failed after placing its module reports it.
         Err(error) => {

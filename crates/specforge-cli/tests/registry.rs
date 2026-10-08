@@ -785,12 +785,12 @@ fn add_refuses_an_unsigned_package_without_allow_unsigned() {
     assert_refused(&output, &dir, "R-TRUST-001");
 }
 
-// bug: §3 R3, flipped by T9
+// §3 R3 (plan 05): nothing asked a registry, so its configuration is not shown.
 #[specforge_test(
     behavior = "configure_registries",
     verify = "an operation shows the registry configuration's diagnostics once it has asked a registry"
 )]
-fn adding_an_installed_registry_package_shows_the_registry_configuration_today() {
+fn adding_an_installed_registry_package_shows_no_registry_configuration() {
     use crate::fake_registry::{FakeRegistry, Package};
     let registry = FakeRegistry::serve(vec![Package::new("@sdk/greet", "0.1.0", greet_wasm())]);
     // The served registry is the default; a second entry repeats an alias (W140).
@@ -828,10 +828,9 @@ fn adding_an_installed_registry_package_shows_the_registry_configuration_today()
         String::from_utf8_lossy(&again.stdout)
     );
     assert_eq!(registry.hits(), hits, "nothing was asked");
-    // bug: nothing asked a registry, yet its configuration is shown.
     assert!(
-        stderr_of(&again).contains("warning[W140]"),
-        "{}",
+        !stderr_of(&again).contains("W140"),
+        "nothing asked a registry: {}",
         stderr_of(&again)
     );
 }

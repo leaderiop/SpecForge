@@ -28,15 +28,14 @@ pub fn run(
             (false, OutputFormat::Human) => Trust::Prompt,
         },
     };
-    let outcome = match extension::update(&request, &registry) {
+    let updated = extension::update(&request, &registry);
+    format.eprint_diagnostics(registry.reported());
+    let outcome = match updated {
         Ok(outcome) => outcome,
         Err(error) => {
             return Refusal::of(format).report(&error);
         }
     };
-    if outcome.registry_used {
-        format.eprint_diagnostics(registry.diagnostics());
-    }
     // The update ran to the end (applied or rolled back): it emits
     // `batch_update_completed`, which JSON output carries.
     let completed = batch_update_completed(&outcome);

@@ -1861,12 +1861,12 @@ fn add_extension_from_a_registry_reports_a_duplicate_registry_alias() {
     assert!(builtin["result"]["_meta"].is_null(), "{builtin}");
 }
 
-// bug: §3 R4, flipped by T9
+// §3 R4 (plan 05): a dry run of an exact version asks no registry, so its configuration is not shown.
 #[specforge_test(
     behavior = "configure_registries",
     verify = "an operation shows the registry configuration's diagnostics once it has asked a registry"
 )]
-fn add_extension_dry_run_of_an_exact_version_reports_the_registry_configuration_today() {
+fn add_extension_dry_run_of_an_exact_version_reports_no_registry_configuration() {
     let dir = project_with_duplicate_registry_alias();
     let mut server = test_server();
     let path = dir.path().to_str().unwrap();
@@ -1878,12 +1878,9 @@ fn add_extension_dry_run_of_an_exact_version_reports_the_registry_configuration_
     );
     let codes: Vec<&str> = resp["result"]["_meta"]["diagnostics"]
         .as_array()
-        .unwrap_or_else(|| panic!("no _meta.diagnostics: {resp}"))
-        .iter()
-        .filter_map(|d| d["code"].as_str())
-        .collect();
-    // bug: a dry run of an exact version asks no registry, yet shows W140.
-    assert!(codes.contains(&"W140"), "{resp}");
+        .map(|all| all.iter().filter_map(|d| d["code"].as_str()).collect())
+        .unwrap_or_default();
+    assert!(!codes.contains(&"W140"), "{resp}");
 }
 
 /// The new name follows the entity-ID rule (the grammar's identifier,

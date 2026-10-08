@@ -69,9 +69,6 @@ pub struct ExtensionUpdate {
 #[derive(Debug, Clone, PartialEq)]
 pub struct UpdateOutcome {
     pub extensions: Vec<ExtensionUpdate>,
-    /// Whether a registry was asked about anything (its configuration's
-    /// diagnostics are then worth showing).
-    pub registry_used: bool,
 }
 
 impl UpdateOutcome {
@@ -168,7 +165,6 @@ pub fn update(req: &UpdateRequest, registry: &dyn Registry) -> Result<UpdateOutc
     let mut staged = lock.clone();
     let mut planned: Vec<(String, Checked)> = Vec::new();
     let mut extensions = Vec::new();
-    let mut registry_used = false;
     for entry in lock
         .entries
         .iter()
@@ -179,7 +175,6 @@ pub fn update(req: &UpdateRequest, registry: &dyn Registry) -> Result<UpdateOutc
                 source: entry.source.to_string(),
             }
         } else {
-            registry_used = true;
             match plan_one(req, registry, &staged, &entry.name, &entry.version) {
                 Ok(None) => UpdateStatus::UpToDate {
                     version: entry.version.clone(),
@@ -222,10 +217,7 @@ pub fn update(req: &UpdateRequest, registry: &dyn Registry) -> Result<UpdateOutc
         }
     }
 
-    let mut outcome = UpdateOutcome {
-        extensions,
-        registry_used,
-    };
+    let mut outcome = UpdateOutcome { extensions };
     if !outcome.applied() || planned.is_empty() {
         return Ok(outcome);
     }
@@ -527,7 +519,6 @@ mod tests {
         let outcome = update(&request(dir.path(), true), &registry).unwrap();
 
         assert!(registry.asked().is_empty());
-        assert!(!outcome.registry_used);
         assert_eq!(
             status_of(&outcome, "@sdk/greet"),
             &UpdateStatus::NotFromRegistry {
