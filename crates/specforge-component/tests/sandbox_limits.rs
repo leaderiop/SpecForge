@@ -33,7 +33,7 @@ const DECLARES_NOTHING: &str = r#"{"protocol_version":"1.0.0","name":"@repro/gro
 fn grower(pages: u32, handshake: &str) -> ComponentRuntime {
     let runtime = ComponentRuntime::new();
     runtime
-        .load_module_bytes("@repro/grow", &bridge_component(pages, 0, false, handshake))
+        .load("@repro/grow", &bridge_component(pages, 0, false, handshake))
         .expect("the growing guest instantiates");
     let handshake = ExtensionCalls::new(&runtime)
         .handshake("@repro/grow")
@@ -215,7 +215,7 @@ fn every_call_gets_the_whole_fuel_budget() {
     // the instance's calls would run out on the third.
     let runtime = ComponentRuntime::new().with_fuel_limit(1_000_000);
     runtime
-        .load_module_bytes("@repro/spin", &bridge_component(0, 50_000, false, "{}"))
+        .load("@repro/spin", &bridge_component(0, 50_000, false, "{}"))
         .expect("the spinning guest instantiates");
     for call in 1..=10 {
         let result = runtime.call_export("@repro/spin", "anything", b"{}");
@@ -225,7 +225,7 @@ fn every_call_gets_the_whole_fuel_budget() {
     // One call that spends more than the whole budget traps, naming it.
     let runtime = ComponentRuntime::new().with_fuel_limit(1_000_000);
     runtime
-        .load_module_bytes("@repro/spin", &bridge_component(0, 400_000, false, "{}"))
+        .load("@repro/spin", &bridge_component(0, 400_000, false, "{}"))
         .expect("the spinning guest instantiates");
     let result = runtime.call_export("@repro/spin", "anything", b"{}");
     assert_eq!(trap_kind(&result), "fuel_exhausted", "{result:?}");
@@ -243,7 +243,7 @@ fn every_call_gets_the_whole_fuel_budget() {
 fn a_limit_trap_names_its_limit() {
     let runtime = ComponentRuntime::new();
     runtime
-        .load_module_bytes("@repro/spin", &bridge_component(0, u32::MAX, false, "{}"))
+        .load("@repro/spin", &bridge_component(0, u32::MAX, false, "{}"))
         .expect("the spinning guest instantiates");
     runtime.apply_limits(
         "@repro/spin",
@@ -295,7 +295,7 @@ fn the_sandbox_contract_holds() {
     // execution_time_enforced: the instruction budget
     let runtime = ComponentRuntime::new().with_fuel_limit(1_000_000);
     runtime
-        .load_module_bytes("@repro/spin", &bridge_component(0, 400_000, false, "{}"))
+        .load("@repro/spin", &bridge_component(0, 400_000, false, "{}"))
         .unwrap();
     let result = runtime.call_export("@repro/spin", "anything", b"{}");
     assert_eq!(trap_kind(&result), "fuel_exhausted", "{result:?}");
@@ -303,7 +303,7 @@ fn the_sandbox_contract_holds() {
     // execution_time_enforced, deadline_never_early: the wall clock
     let runtime = ComponentRuntime::new();
     runtime
-        .load_module_bytes("@repro/spin", &bridge_component(0, u32::MAX, false, "{}"))
+        .load("@repro/spin", &bridge_component(0, u32::MAX, false, "{}"))
         .unwrap();
     runtime.apply_limits(
         "@repro/spin",

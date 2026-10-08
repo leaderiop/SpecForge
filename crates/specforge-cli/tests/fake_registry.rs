@@ -2,6 +2,7 @@
 //! the registry client makes (versions, package metadata, the Wasm
 //! download) from an in-memory package list, and counts its requests.
 
+use specforge_wasm::WasmRuntime as _;
 use std::io::{BufRead, BufReader, Write};
 use std::net::TcpListener;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -99,7 +100,7 @@ impl Package {
 /// What `wasm` declares, when it is a loadable extension.
 fn declared(wasm: &[u8]) -> Option<specforge_protocol_types::ExtensionDeclaration> {
     let runtime = specforge_component::ComponentRuntime::new();
-    runtime.load_module_bytes("__served", wasm).ok()?;
+    runtime.load("__served", wasm).ok()?;
     specforge_wasm::protocol::load_declaration(&runtime, "__served")
         .ok()
         .map(|loaded| loaded.declaration)
