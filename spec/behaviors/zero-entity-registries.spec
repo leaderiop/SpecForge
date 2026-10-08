@@ -499,7 +499,7 @@ behavior registry_build_rules "Registry Build Collects Rules" {
     rules_collected        "Every declared rule that parses is in the build's rules with the extension that declared it, ordered by code"
     duplicates_warned      "A rule code two extensions declare is W023, and both rules are kept"
     required_enforced      "Every field registered as required has a host-generated E006 rule"
-    unloaded_targets_inert "A rule whose target kind or edge type no loaded extension declares reports nothing"
+    unloaded_targets_inert "A rule whose target kind or edge type no loaded extension declares is not registered, so it reports nothing"
     rule_codes_checked     "A rule whose code its extension may not use is reported (W150) and still registered"
   }
   contract   """
@@ -511,9 +511,11 @@ behavior registry_build_rules "Registry Build Collects Rules" {
     produce a W023 warning naming the code and both extensions; both rules
     are kept. A rule's target kind and edge type are resolved against the
     loaded registries: a rule whose target kind or edge type no loaded
-    extension declares reports nothing when rules run, since it belongs to
-    an optional peer that is not installed (an edge rule whose edge type's
-    far-end kind no extension declares is dropped too). An edge type is
+    extension declares is not registered, so it reports nothing when rules
+    run (and the entities written with that keyword are E024), since it
+    belongs to an optional peer that is not installed (an edge rule whose
+    edge type's far-end kind no extension declares is dropped too). A
+    structural kind (spec, ref) is always there. An edge type is
     resolved through the edge registry only, never read as a field name. A
     rule naming a target kind or an edge type that neither its extension,
     its loaded peers nor its target_extension declare is the extension
@@ -534,7 +536,7 @@ behavior registry_build_rules "Registry Build Collects Rules" {
   verify unit "every declared rule is in the build's rules with the extension that declared it"
   verify unit "the extensions' rules are ordered by code"
   verify unit "a rule code two extensions declare is W023 and both rules are kept"
-  verify unit "the build keeps a rule whose target kind no loaded extension declares, and drops one whose edge type no loaded extension declares"
+  verify unit "the build drops a rule whose target kind or edge type no loaded extension declares"
   verify unit "a rule whose edge type no loaded extension declares reports nothing"
   verify unit "a rule targeting a kind no loaded extension declares reports nothing"
   verify unit "extensions produce E006 rules for required fields"

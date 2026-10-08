@@ -58,9 +58,12 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   registry stores it (ADR 0012).
 - **Registry build**: the pure result of turning extension declarations into kind, field and
   edge registries, the rule set, pass order and derived graph inputs, and the diagnostics of those
-  declarations (`specforge_registry::build_registries`). Its outcomes are the `registry_build_*`
-  behaviors. Tests and every caller reach it only through `build_registries`; its steps are
-  private.
+  declarations (`specforge_registry::build_registries`). It also runs every check over a built
+  graph's entity records, in one order behind one gate: the structural checks, then the rule set
+  (`RegistryBuild::check`), and says which files those checks read (`RegistryBuild::files`). Its
+  outcomes are the `registry_build_*` behaviors and `check_entities_in_one_order`. Tests and every
+  caller reach it only through `build_registries` and that build's methods; its steps and its
+  checks are private (ADR 0031).
 - **Rule set**: the extensions' declared validation rules plus the host's E006 rules for required
   fields, each turned once per registry build into a typed rule that carries only what its check
   reads, resolved against the registries (a compiled regex, an edge rule's peer kind, the fields an
@@ -68,6 +71,16 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   0019), cycles included, and answers which rule applies to a kind, which the snapshot's standing
   reads (`specforge_registry::rules::Rules`, ADR 0020). A declared rule that cannot work is W112; a
   property its check does not read is W147.
+- **Structural checks**: the host's own checks over the entity snapshot's records, run by the
+  registry build before the rule set, in this order: W012 (a `ref` nothing references), E016 (a
+  path a `file_reference` field of the entity's kind names that does not exist under the spec
+  root), then, unless the project is structural-only, E024, E013, E014, W020, E022 and E061
+  (`specforge_registry`'s `checks`, ADR 0031). None reads a graph node. Whether every reference
+  became an edge is the linker's own debug assertion, not a check.
+- **Structural-only**: no loaded extension declares an entity kind
+  (`RegistryBuild::structural_only`). The checks that read kinds, fields and identifiers do not
+  run; with no extension loaded I002 says so, with extensions loaded W151 names the entities left
+  unchecked.
 - **Custom verdict**: an extension's answer, through its `wasm_function`, on one entity for a
   `check: "custom"` rule: pass, or fail naming a field and value. The rule set asks for it through
   the `CustomVerdicts` port; the project's adapter calls the extension (`ExtensionCalls::validate`),
@@ -75,7 +88,9 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Entity snapshot**: every entity of one built graph as every check after the build reads it, taken
   once per compile and per session check (`specforge_project::snapshot::EntitySnapshot`, ADR 0019).
   Each entity's record holds:
-  - what it writes, as field text;
+  - what it writes, as field text, with each value's shape (quoted, bare, a number, a list of
+    strings or references, …) and span beside it for the host's own checks
+    (`specforge_registry::entity::ValueShape`);
   - its references, obligations and methods;
   - its edge counts by peer kind;
   - what exempts it, if anything (a union body, an exempting flag, a kind that accepts no `verify`).
@@ -140,6 +155,11 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   statement, standing (the snapshot's own, borrowed), obligations, references in both directions,
   coverage, and the reported diagnostics about it (`specforge_ops::inspect::EntityFacts`). MCP
   `specforge.inspect` renders it as JSON and the LSP hover as markdown, so the two cannot disagree.
+- **Configured providers**: the `providers` `specforge.json` lists (scheme, alias, extension,
+  settings), registered once per environment against the loaded declarations, each with its
+  status (registered, extension not loaded, not a provider, scheme taken) and the W118/E057 the
+  registration reported (`specforge_project::providers::Providers`). The compile's I005 and the
+  providers listing read this one registration.
 - **Management operation**: an operation about a project's setup and tooling rather than its
   graph: the extensions and providers listings, doctor, remove, collect, inference progress and
   gaps. Like a read view it takes the project view and a request and returns a typed outcome; unlike

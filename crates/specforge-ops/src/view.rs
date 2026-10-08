@@ -308,7 +308,8 @@ pub(crate) mod testing {
 
         /// The compile read `config` as `specforge.json` (not written to
         /// disk): its `extensions` entries, each enabling what its text
-        /// names ([`EnabledExtension::of`] with no runtime).
+        /// names ([`EnabledExtension::of`] with no runtime), and its
+        /// `providers`, registered against the loaded declarations.
         pub fn config_json(mut self, config: serde_json::Value) -> Self {
             let entries: Vec<String> = config["extensions"]
                 .as_array()
@@ -324,6 +325,12 @@ pub(crate) mod testing {
                 .map(|e| specforge_project::EnabledExtension::of(e, None))
                 .collect();
             self.env.config.extensions = entries;
+            // ... and registered its `providers` against the loaded
+            // declarations.
+            self.env.providers = specforge_project::providers::Providers::register(
+                Some(&config),
+                self.env.registries.declarations(),
+            );
             self.env.config.raw = Some(config);
             self
         }

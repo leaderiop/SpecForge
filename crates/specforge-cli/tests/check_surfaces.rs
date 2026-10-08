@@ -95,6 +95,21 @@ fn cli_check_json_golden() {
     }
 }
 
+/// The human rendering (no TTY, so no colour): the annotated diagnostics
+/// and the summary line, byte for byte (architecture plan 04, T0).
+#[test]
+fn cli_check_human_golden() {
+    for name in FIXTURES {
+        let dir = fixture(name);
+        let (exit, _, stderr) = check(dir.path(), &[]);
+        let doc = json!({"exit": exit, "stderr": stderr});
+        insta::assert_snapshot!(
+            format!("cli_check_human_{name}"),
+            normalized(&doc, dir.path())
+        );
+    }
+}
+
 #[test]
 fn cli_check_lint_values_golden() {
     for profile in ["inferred", "pedantic", "nonsense"] {

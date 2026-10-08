@@ -1,15 +1,13 @@
 //! Field values against their declared types, through the graph build and
-//! `check_graph` every surface (check, watch, LSP) runs.
+//! the environment's checks every surface (check, watch, LSP) runs.
 
 use specforge_common::Diagnostic;
-use specforge_graph::{Graph, GraphConfig, build_graph_with_config};
+use specforge_graph::{Graph, build_graph_with_config};
 use specforge_parser::FieldValue;
-use specforge_project::compile::{GraphChecks, check_graph};
-use specforge_project::field_types::field_coercions;
+use specforge_project::Environment;
 use specforge_protocol_types::{
     EntityKindDescriptor, ExtensionDeclaration, FieldDescriptor, HandshakeResponse,
 };
-use specforge_registry::build_registries;
 use specforge_test_macros::test as specforge_test;
 
 /// An extension declaring a `ticket` with one field of each checked type.
@@ -44,28 +42,14 @@ fn ticket_manifest() -> ExtensionDeclaration {
 
 /// Build and check `source` against the ticket extension's registries.
 fn build_and_check(source: &str) -> (Graph, Vec<Diagnostic>) {
-    let build = build_registries(vec![ticket_manifest()]);
-    let pop_diags = &build.registry_diagnostics;
+    let env = Environment::from_declarations(vec![ticket_manifest()]);
+    let pop_diags = &env.registries.registry_diagnostics;
     assert!(pop_diags.is_empty(), "{pop_diags:?}");
-    let field_reg = &build.fields;
     let parsed = specforge_parser::parse(source, "main.spec");
     assert!(parsed.errors.is_empty(), "{:?}", parsed.errors);
-    let config = GraphConfig {
-        field_coercions: field_coercions(field_reg),
-        ..GraphConfig::default()
-    };
-    let (graph, mut diags) = build_graph_with_config(&[parsed], &config);
-    let spec_root = std::path::Path::new(".");
-    let entities = specforge_project::snapshot::EntitySnapshot::of(&graph, &build, spec_root);
-    diags.extend(check_graph(
-        &graph,
-        &GraphChecks {
-            spec_root,
-            registries: &build,
-            entities: &entities,
-            runtime: None,
-        },
-    ));
+    let (graph, mut diags) = build_graph_with_config(&[parsed], &env.graph_config());
+    let entities = env.entity_snapshot(&graph);
+    diags.extend(env.run_checks(&graph, &entities, None));
     (graph, diags)
 }
 

@@ -428,8 +428,10 @@ fn a_rules_target_kind_nobody_it_knows_declares_is_w021() {
             "extension '@test/nobody': rule 'X200' references target_kind 'ghost' not declared by this extension",
         ]
     );
-    // The rules stay registered (inert where no entity has their kind).
-    assert_eq!(build.rules.len(), 4);
+    // A rule for a kind nobody loaded declares (`ghost`, an absent peer's
+    // `absent_kind`) is not registered: it is inert (ADR 0020 D5). The W021
+    // above still tells its author.
+    assert_eq!(build.rules.len(), 2);
 }
 
 /// An extension `name` (no peers) with one rule `X300` on `target_kind` /

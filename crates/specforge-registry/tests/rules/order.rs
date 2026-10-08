@@ -7,17 +7,17 @@ use specforge_extension_sdk::prelude::*;
 use specforge_protocol_types::CheckKind;
 use specforge_registry::rules::Origin;
 
-use super::{declaring, entity, rule, rules_of};
+use super::{declaring_with_kinds, entity, rule, rules_of};
 use crate::support::declare;
 
 #[test]
 fn rules_from_several_extensions_are_one_set_in_code_order() {
-    let mut a = declaring(vec![
+    let mut a = declaring_with_kinds(vec![
         rule("W300", "no_incoming_edges"),
         rule("W100", "no_incoming_edges"),
     ]);
     a.handshake.name = "@ext/a".to_string();
-    let mut b = declaring(vec![rule("W200", "no_outgoing_edges")]);
+    let mut b = declaring_with_kinds(vec![rule("W200", "no_outgoing_edges")]);
     b.handshake.name = "@ext/b".to_string();
 
     let built = rules_of(vec![a, b]);
@@ -43,7 +43,7 @@ fn a_code_declared_for_several_kinds_keeps_declaration_order() {
         declared.push(w004);
     }
     declared.insert(1, rule("A001", "no_edges"));
-    let built = rules_of(vec![declaring(declared)]);
+    let built = rules_of(vec![declaring_with_kinds(declared)]);
     let order: Vec<(&str, Option<&str>)> = built
         .rules
         .iter()
@@ -62,15 +62,15 @@ fn a_code_declared_for_several_kinds_keeps_declaration_order() {
 
 #[test]
 fn a_code_two_extensions_declare_is_w023_and_both_rules_are_kept() {
-    let mut a = declaring(vec![rule("W100", "no_incoming_edges")]);
+    let mut a = declaring_with_kinds(vec![rule("W100", "no_incoming_edges")]);
     a.handshake.name = "@ext/a".to_string();
-    let mut b = declaring(vec![
+    let mut b = declaring_with_kinds(vec![
         rule("W100", "no_outgoing_edges"),
         // A rule W112 rejects still counts for W023.
         rule("W101", "bogus"),
     ]);
     b.handshake.name = "@ext/b".to_string();
-    let mut c = declaring(vec![rule("W101", "no_edges"), rule("W101", "no_edges")]);
+    let mut c = declaring_with_kinds(vec![rule("W101", "no_edges"), rule("W101", "no_edges")]);
     c.handshake.name = "@ext/c".to_string();
 
     let built = rules_of(vec![a, b, c]);
@@ -108,6 +108,9 @@ fn a_code_two_extensions_declare_is_w023_and_both_rules_are_kept() {
 #[test]
 fn the_hosts_e006_rules_follow_the_extensions_by_kind_and_field() {
     let mut declaration = declare("@test", |c| {
+        c.kind("behavior", |k| {
+            k.keyword("behavior");
+        });
         c.kind("zeta", |k| {
             k.description("z");
             k.field("b", |f| {

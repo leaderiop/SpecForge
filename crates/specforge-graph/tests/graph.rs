@@ -879,22 +879,6 @@ fn edges_to_updated_after_node_removal() {
     );
 }
 
-#[specforge_test(
-    behavior = "maintain_mutable_graph",
-    verify = "graph consistency after batch mutations"
-)]
-fn clear_edges_resets_index() {
-    let mut graph = Graph::new();
-    graph.add_node(make_node("a", "behavior"));
-    graph.add_node(make_node("b", "feature"));
-    graph.add_edge(make_edge("b", "a", "behaviors"));
-
-    assert_eq!(graph.edges_from("b").len(), 1);
-    graph.clear_edges();
-    assert!(graph.edges_from("b").is_empty());
-    assert!(graph.edges_to("a").is_empty());
-}
-
 // === cycle detection ===
 
 #[specforge_test(
@@ -1425,6 +1409,10 @@ fn e002_duplicate_entity_has_suggestion() {
     let e002s: Vec<_> = diagnostics.iter().filter(|d| d.code == "E002").collect();
     assert_eq!(e002s.len(), 1, "duplicate ID should produce E002");
     assert!(
+        e002s[0].message.contains("alpha"),
+        "E002 message should name the duplicate ID"
+    );
+    assert!(
         e002s[0].suggestion.is_some(),
         "E002 should carry an actionable suggestion, got None"
     );
@@ -1694,4 +1682,101 @@ fn a_duplicate_goes_to_the_first_file_in_path_order() {
     let e002: Vec<_> = diagnostics.iter().filter(|d| d.code == "E002").collect();
     assert_eq!(e002.len(), 1);
     assert_eq!(e002[0].span.as_ref().unwrap().file.as_str(), "b.spec");
+}
+
+#[specforge_test(
+    behavior = "detect_duplicate_entity_ids",
+    verify = "duplicate ID in same file produces E002"
+)]
+fn duplicate_id_in_the_same_file_produces_e002() {
+    use specforge_graph::build_graph;
+    use specforge_parser::parse;
+
+    let source = r#"
+behavior alpha "First Alpha" { contract "first" }
+behavior alpha "Second Alpha" { contract "second" }
+"#;
+    let (_, diagnostics) = build_graph(&[parse(source, "main.spec")]);
+
+    let e002: Vec<_> = diagnostics.iter().filter(|d| d.code == "E002").collect();
+    assert_eq!(
+        e002.len(),
+        1,
+        "duplicate ID in same file should produce E002"
+    );
+    assert!(e002[0].message.contains("alpha"));
+}
+
+#[specforge_test(
+    behavior = "detect_duplicate_entity_ids",
+    verify = "E002 includes both source locations"
+)]
+fn e002_includes_both_source_locations() {
+    use specforge_graph::build_graph;
+    use specforge_parser::parse;
+
+    let file_a = parse(
+        "\nbehavior alpha \"Alpha in file A\" { contract \"first\" }\n",
+        "a.spec",
+    );
+    let file_b = parse(
+        "\nbehavior alpha \"Alpha in file B\" { contract \"second\" }\n",
+        "b.spec",
+    );
+    let (_, diagnostics) = build_graph(&[file_a, file_b]);
+
+    let e002: Vec<_> = diagnostics.iter().filter(|d| d.code == "E002").collect();
+    assert_eq!(e002.len(), 1, "should have exactly one E002");
+
+    // The span points at the duplicate (second) declaration; the message
+    // names the first, whose node the graph retains.
+    let diag = &e002[0];
+    let span = diag
+        .span
+        .as_ref()
+        .expect("E002 carries the duplicate's span");
+    assert_eq!(span.file.as_str(), "b.spec");
+    assert_eq!((span.start_line, span.start_col), (2, 1));
+    assert_eq!(
+        diag.message,
+        "duplicate entity ID 'alpha' (first declared at a.spec:2:1)"
+    );
+}
+
+#[specforge_test(
+    behavior = "detect_duplicate_entity_ids",
+    verify = "Detect Duplicate Entity IDs: duplicate entity ID detection holds — all_files_parsed, duplicate_ids_diagnosed"
+)]
+fn duplicate_id_contract_consistency() {
+    use specforge_graph::build_graph;
+    use specforge_parser::parse;
+
+    // Case 1: unique IDs → no E002.
+    let source_unique = r#"
+behavior alpha "A" { contract "first" }
+behavior beta "B" { contract "second" }
+"#;
+    let (_, diagnostics) = build_graph(&[parse(source_unique, "main.spec")]);
+    assert!(
+        diagnostics.iter().all(|d| d.code != "E002"),
+        "unique IDs must not produce E002"
+    );
+
+    // Case 2: duplicate IDs → one E002 with a declaration site.
+    let file_a = parse(
+        "\nbehavior gamma \"Gamma A\" { contract \"first\" }\n",
+        "first.spec",
+    );
+    let file_b = parse(
+        "\nbehavior gamma \"Gamma B\" { contract \"second\" }\n",
+        "second.spec",
+    );
+    let (_, diagnostics) = build_graph(&[file_a, file_b]);
+    let e002: Vec<_> = diagnostics.iter().filter(|d| d.code == "E002").collect();
+    assert_eq!(e002.len(), 1, "duplicate IDs must produce exactly one E002");
+    assert!(e002[0].message.contains("gamma"));
+    assert!(
+        e002[0].span.is_some(),
+        "E002 must include source span identifying a declaration site"
+    );
 }

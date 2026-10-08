@@ -203,6 +203,7 @@ fn digest(env: &Environment) -> Value {
         .load_diagnostics
         .iter()
         .chain(&r.declaration_diagnostics)
+        .chain(env.providers.diagnostics())
         .chain(&env.setup_diagnostics);
     json!({
         "kinds": kinds,

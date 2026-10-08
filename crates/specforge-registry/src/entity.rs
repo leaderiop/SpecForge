@@ -36,8 +36,9 @@ pub struct EntityRecord {
     pub methods: Vec<MethodRecord>,
 }
 
-/// One written field: its key, its field text (ADR 0019) and the names of
-/// the annotations on it, without the `@`.
+/// One written field: its key, its field text (ADR 0019), its value's shape
+/// and span (ADR 0031), and the names of the annotations on it, without the
+/// `@`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FieldRecord {
     pub key: String,
@@ -47,6 +48,51 @@ pub struct FieldRecord {
     /// reader never splits a joined text (lossy when an item contains the
     /// joiner); `None` for a scalar. Host-internal: never on the wire.
     pub items: Option<Vec<String>>,
+    /// What the value was written as, after the graph build coerced it to
+    /// its field's declared type. Host-internal: never on the wire.
+    pub shape: ValueShape,
+    /// Where the value is written; `None` when the parser recorded no span
+    /// for it (a check then points at the entity). Host-internal: never on
+    /// the wire.
+    pub value_span: Option<SourceSpan>,
+}
+
+/// What a field's value was written as: the structure its field text loses
+/// (ADR 0019, "What would reopen this"). One variant per parsed value form,
+/// so a check tells `"1"` from `1`, a one-item list from a scalar and a
+/// quoted string from a bare word.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ValueShape {
+    /// `"text"`.
+    String,
+    /// A bare word: an identifier, or a single reference.
+    Identifier,
+    Date,
+    Integer,
+    Boolean,
+    /// `["a", "b"]`.
+    Strings,
+    /// `[a, b]`.
+    References,
+    /// A list whose items have different shapes.
+    Mixed,
+    /// A variant list (`a | b` in a body).
+    Variants,
+    TypeUnion,
+    Block,
+    /// `verify` statements.
+    Verify,
+    Expression,
+}
+
+impl ValueShape {
+    /// A list: of strings, references, mixed items or variants.
+    pub fn is_list(self) -> bool {
+        matches!(
+            self,
+            Self::Strings | Self::References | Self::Mixed | Self::Variants
+        )
+    }
 }
 
 /// One `verify` statement: its kind (`""` for a bare `verify "…"`) and text.
@@ -151,25 +197,36 @@ impl EntityRecord {
         self
     }
 
-    /// One more written field, with `text`.
-    pub fn with_field(mut self, key: &str, text: &str) -> Self {
-        self.fields.push(FieldRecord {
-            key: key.to_string(),
-            text: text.to_string(),
-            annotations: Vec::new(),
-            items: None,
-        });
-        self
+    /// One more written field, with `text`, written as a quoted string.
+    pub fn with_field(self, key: &str, text: &str) -> Self {
+        self.with_value(key, ValueShape::String, text)
     }
 
-    /// One more written list field: its items, and their text joined by
-    /// `", "`.
+    /// One more written list field of strings: its items, and their text
+    /// joined by `", "`.
     pub fn with_list(mut self, key: &str, items: &[&str]) -> Self {
         self.fields.push(FieldRecord {
             key: key.to_string(),
             text: items.join(", "),
             annotations: Vec::new(),
             items: Some(items.iter().map(|item| item.to_string()).collect()),
+            shape: ValueShape::Strings,
+            value_span: None,
+        });
+        self
+    }
+
+    /// One more written field with `text`, written as `shape` (a list shape
+    /// holds `text` as its one item). The checks' tests build the values
+    /// they read with this.
+    pub fn with_value(mut self, key: &str, shape: ValueShape, text: &str) -> Self {
+        self.fields.push(FieldRecord {
+            key: key.to_string(),
+            text: text.to_string(),
+            annotations: Vec::new(),
+            items: shape.is_list().then(|| vec![text.to_string()]),
+            shape,
+            value_span: None,
         });
         self
     }
@@ -303,6 +360,7 @@ mod tests {
         // A list keeps its items unjoined beside the (lossy) joined text.
         let tags = record.fields.iter().find(|f| f.key == "tags").unwrap();
         assert_eq!(tags.text, "x, y, z");
+        assert_eq!(tags.shape, ValueShape::Strings);
         assert_eq!(
             tags.items.as_deref(),
             Some(&["x, y".to_string(), "z".to_string()][..])

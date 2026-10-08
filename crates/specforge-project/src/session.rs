@@ -12,7 +12,7 @@ use specforge_wasm::WasmRuntime;
 
 use crate::coverage::RecordedCoverage;
 use crate::freshness::DiskSnapshot;
-use crate::inputs::{Changes, SessionInputs, UpdateKind, named_files};
+use crate::inputs::{Changes, SessionInputs, UpdateKind};
 use crate::snapshot::EntitySnapshot;
 use crate::sources::{self, Read, SourceCache};
 use crate::{Environment, SourceBuild};
@@ -564,9 +564,9 @@ impl ProjectSession {
         let entities = self.snapshot_now();
         let mut changed = false;
         if self.inputs.root().is_some() {
-            let next =
-                self.inputs
-                    .with_named(named_files(&self.env, self.graph.graph(), &entities));
+            let next = self
+                .inputs
+                .with_named(self.env.registries.files(&entities.rule_input()));
             changed = next != self.inputs;
             self.inputs = next;
             self.snapshot.stamp_checks(&self.inputs);

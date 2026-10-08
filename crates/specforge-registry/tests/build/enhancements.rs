@@ -4,11 +4,11 @@
 
 use specforge_common::Severity;
 use specforge_protocol_types::ExtensionDeclaration;
+use specforge_registry::FieldType;
 use specforge_registry::entity::EntityRecord;
-use specforge_registry::{FieldType, detect_unknown_entity_fields};
 use specforge_test_macros::test as spec;
 
-use crate::support::{build, coded, declare, diagnostics, software, span};
+use crate::support::{build, check, coded, coded_in, declare, diagnostics, software, span};
 
 /// An extension `name` enhancing `target` (owned by `owner`) with string
 /// fields `fields`.
@@ -244,7 +244,8 @@ fn enhancement_registration_holds() {
 
     // registration_before_resolve: the registries the build hands on
     // already accept an enhanced field on a parsed entity (no W020).
-    let unknown = detect_unknown_entity_fields(
+    let diagnostics = check(
+        &build,
         &[
             EntityRecord::new("behavior", "b1", span("main.spec")).with_fields(&[
                 "owner",
@@ -252,16 +253,15 @@ fn enhancement_registration_holds() {
                 "reference_note",
             ]),
         ],
-        &build.kinds,
-        &build.fields,
     );
+    let unknown = coded_in(&diagnostics, "W020");
     assert!(unknown.is_empty(), "{unknown:?}");
     // A field nobody declares is still W020.
-    let unknown = detect_unknown_entity_fields(
+    let diagnostics = check(
+        &build,
         &[EntityRecord::new("behavior", "b2", span("main.spec")).with_fields(&["nobody"])],
-        &build.kinds,
-        &build.fields,
     );
+    let unknown = coded_in(&diagnostics, "W020");
     assert_eq!(unknown.len(), 1, "{unknown:?}");
     assert_eq!(unknown[0].code, "W020");
 

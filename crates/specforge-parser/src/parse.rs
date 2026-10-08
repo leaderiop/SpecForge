@@ -1,7 +1,7 @@
 use crate::ast::*;
 use crate::expr::{CmpOp, Expr, ExprSpan, SpannedExpr};
 use crate::recovery;
-use specforge_common::{SourceSpan, Sym};
+use specforge_common::{SourceSpan, Sym, structural};
 use tree_sitter::{Node, Parser};
 use tree_sitter_specforge::{field, kind};
 
@@ -455,7 +455,7 @@ impl<'a> ParseContext<'a> {
 
         self.entities.push(Entity {
             kind: EntityKind {
-                raw: Sym::new("spec"),
+                raw: Sym::new(structural::SPEC),
             },
             id: EntityId {
                 raw: Sym::new(&name),
@@ -497,7 +497,7 @@ impl<'a> ParseContext<'a> {
 
         self.entities.push(Entity {
             kind: EntityKind {
-                raw: Sym::new("ref"),
+                raw: Sym::new(structural::REF),
             },
             id: EntityId {
                 raw: Sym::new(id_text),
@@ -567,7 +567,7 @@ impl<'a> ParseContext<'a> {
 
         self.entities.push(Entity {
             kind: EntityKind {
-                raw: Sym::new("define"),
+                raw: Sym::new(structural::DEFINE),
             },
             id: EntityId { raw: name },
             title: None,
