@@ -6,6 +6,7 @@ use specforge_protocol_types::{EntityKindDescriptor, ExtensionDeclaration};
 use specforge_registry::{FieldRegistryEntry, FieldType};
 use std::collections::HashMap;
 
+use specforge_ops::infer::Progress;
 use specforge_ops::navigate::{anchors_of_file, source_anchors};
 
 use crate::args::Arguments;
@@ -100,11 +101,7 @@ pub fn render(call: &Call<'_>, args: Args) -> PromptOutcome {
 /// The prompt over `project`.
 fn respond(project: &ProjectView, args: Args) -> PromptOutcome {
     match Scope::parse(args.scope.as_deref())? {
-        Scope::Plan => Ok(get_plan(
-            project,
-            args.target_spec_directory.as_deref(),
-            args.cursor,
-        )),
+        Scope::Plan => get_plan(project, args.target_spec_directory.as_deref(), args.cursor),
         Scope::Workflow => Ok(get_workflow(project)),
         Scope::Kind(kind) => get_kind_scoped(project, &kind),
         Scope::File(file) => get_file_scoped(project, &file),
@@ -317,12 +314,20 @@ fn get_file_scoped(project: &ProjectView, file_path: &str) -> PromptOutcome {
     Ok(rendered(instruction, result))
 }
 
-fn get_plan(project: &ProjectView, target_spec_directory: Option<&str>, cursor: usize) -> Rendered {
+fn get_plan(
+    project: &ProjectView,
+    target_spec_directory: Option<&str>,
+    cursor: usize,
+) -> PromptOutcome {
     let target_spec_directory = target_spec_directory.unwrap_or("spec/");
 
-    // A fresh count when specforge-infer.json can't be read; nothing
-    // without a root.
-    let progress = specforge_ops::infer::progress_or_fresh(project);
+    // Nothing is planned from a specforge-infer.json that cannot be used:
+    // every mark_analyzed the plan sent the agent to make would be refused.
+    // Without a root there is nothing to count.
+    let progress = match project.root() {
+        None => Progress::none(),
+        Some(_) => specforge_ops::infer::progress(project).map_err(McpError::from)?,
+    };
     let (summary, unanalyzed, stale) = (progress.summary, progress.unanalyzed, progress.stale);
 
     let kind_priorities: Vec<Value> = project
@@ -386,7 +391,7 @@ fn get_plan(project: &ProjectView, target_spec_directory: Option<&str>, cursor: 
         target_spec_directory
     );
 
-    rendered(instruction, result)
+    Ok(rendered(instruction, result))
 }
 
 fn get_workflow(project: &ProjectView) -> Rendered {

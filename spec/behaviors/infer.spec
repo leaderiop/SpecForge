@@ -318,13 +318,16 @@ behavior provide_infer_plan_scope "Provide Infer Prompt Plan Scope" {
     invariants, ports after types). Within each phase, suggest source files
     likely to contain that kind. Each phase includes target_spec_directory
     (e.g., "spec/types/" for type entities) so agents know where to write.
-    If specforge-infer.json exists, exclude already-analyzed files.
+    If specforge-infer.json exists, exclude already-analyzed files. If
+    specforge-infer.json exists and cannot be used, the plan is refused
+    with E071.
     Requires explicit Some("plan") match arm in prompt dispatch.
   """
   verify unit "plan orders types before behaviors"
   verify unit "plan prioritizes kinds with zero existing entities"
   verify unit "plan excludes already-analyzed files"
   verify unit "plan includes target_spec_directory per phase"
+  verify unit "plan refuses a specforge-infer.json it cannot use with E071"
 }
 
 behavior provide_infer_workflow_scope "Provide Infer Prompt Workflow Scope" {

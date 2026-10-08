@@ -474,12 +474,14 @@ fn infer_file_scope_lists_nothing_for_an_unanchored_file() {
     }
 }
 
-/// Pins plan 06 R6: over a `specforge-infer.json` that cannot be read,
-/// the plan counts from scratch and lists every source file as
-/// unanalyzed, which every `mark_analyzed` then refuses. Flipped by T9
-/// (`the_plan_refuses_an_unusable_manifest`).
-#[test]
-fn the_plan_over_an_unusable_manifest_counts_from_scratch() {
+/// Over a `specforge-infer.json` that cannot be used, the plan refuses with
+/// E071 instead of listing every source file as unanalyzed (plan 06 R6),
+/// which every `mark_analyzed` would then refuse.
+#[specforge_test(
+    behavior = "provide_infer_plan_scope",
+    verify = "plan refuses a specforge-infer.json it cannot use with E071"
+)]
+fn the_plan_refuses_an_unusable_manifest() {
     let mut state = TestProject::new()
         .file("src/lib.rs", "fn stub() {}\n")
         .file("specforge-infer.json", "{ nope")
@@ -493,7 +495,16 @@ fn the_plan_over_an_unusable_manifest_counts_from_scratch() {
                 });
             }),
         ]);
-    let content = plan_payload(&mut state, json!({"scope": "plan"}));
-    let files = content["plan"]["unanalyzed_files"].as_array().unwrap();
-    assert!(files.contains(&json!("src/lib.rs")), "{content}");
+    let resp = infer(&mut state, json!({"scope": "plan"}));
+    assert!(resp.get("result").is_none(), "{resp}");
+    let data = &resp["error"]["data"];
+    assert_eq!(data["code"], "schema_mismatch", "{resp}");
+    assert_eq!(data["diagnostic"]["code"], "E071", "{resp}");
+    assert!(
+        data["message"]
+            .as_str()
+            .unwrap()
+            .starts_with("failed to parse specforge-infer.json"),
+        "{resp}"
+    );
 }

@@ -38,24 +38,6 @@ pub fn progress(view: &ProjectView) -> Result<Progress, OpError> {
     ))
 }
 
-/// [`progress`], counting from scratch when `specforge-infer.json` cannot
-/// be read, and nothing without a root: what the infer prompt plans from.
-pub fn progress_or_fresh(view: &ProjectView) -> Progress {
-    let Some(root) = view.root() else {
-        return Progress {
-            summary: InferenceManifest::default().compute_summary(0),
-            unanalyzed: Vec::new(),
-            stale: Vec::new(),
-            deleted: Vec::new(),
-        };
-    };
-    progress_under(
-        root,
-        view.registries().declarations(),
-        &InferenceManifest::at(root).unwrap_or_default(),
-    )
-}
-
 fn progress_under(
     root: &Path,
     declarations: &[ExtensionDeclaration],
@@ -78,6 +60,16 @@ fn progress_under(
 }
 
 impl Progress {
+    /// No project: nothing discovered, nothing recorded.
+    pub fn none() -> Self {
+        Progress {
+            summary: InferenceManifest::default().compute_summary(0),
+            unanalyzed: Vec::new(),
+            stale: Vec::new(),
+            deleted: Vec::new(),
+        }
+    }
+
     /// The unanalyzed files grouped by directory, sorted.
     pub fn unanalyzed_by_directory(&self) -> BTreeMap<&str, Vec<&str>> {
         let mut by_dir: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
@@ -262,19 +254,19 @@ mod tests {
     }
 
     #[test]
-    fn progress_over_a_rootless_view_is_no_project_and_fresh_counts_nothing() {
+    fn progress_over_a_rootless_view_is_no_project_and_none_counts_nothing() {
         let dir = project();
         let rootless = dir.rootless_view();
 
         assert_eq!(progress(&rootless).unwrap_err().code, "no_project");
         let runtime = specforge_wasm::testing::InProcessRuntime::new();
         assert_eq!(gaps(&rootless, &runtime).unwrap_err().code, "no_project");
-        let fresh = progress_or_fresh(&rootless);
-        assert_eq!(fresh.summary.files_total, 0);
-        assert_eq!(fresh.summary.files_analyzed, 0);
-        assert!(fresh.unanalyzed.is_empty() && fresh.stale.is_empty() && fresh.deleted.is_empty());
+        let none = Progress::none();
+        assert_eq!(none.summary.files_total, 0);
+        assert_eq!(none.summary.files_analyzed, 0);
+        assert!(none.unanalyzed.is_empty() && none.stale.is_empty() && none.deleted.is_empty());
 
         // Rooted, the same view counts the files at its root.
-        assert_eq!(progress_or_fresh(&dir.view()).summary.files_total, 2);
+        assert_eq!(progress(&dir.view()).unwrap().summary.files_total, 2);
     }
 }

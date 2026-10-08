@@ -25,7 +25,7 @@ pub use manifest::{
     InferenceManifest, InferenceSession, InferenceSummary, MANIFEST_FILENAME,
     MANIFEST_WRITE_FAILED, SessionStatus, SourceFileEntry,
 };
-pub use progress::{Progress, progress, progress_or_fresh};
+pub use progress::{Progress, progress};
 pub use session::{
     END_STATUS, EndStatus, Recorded, SESSION_ACTION, SESSION_ACTIVE, SESSION_NOT_ACTIVE,
     SOURCE_OUTSIDE_ROOT, SOURCE_UNREADABLE, SessionAction, SessionOutcome, SessionStep,
