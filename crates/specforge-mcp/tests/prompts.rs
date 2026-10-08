@@ -488,45 +488,10 @@ fn explore_prompt_returns_data() {
     let resp = get_prompt(&mut server, "specforge://prompts/explore", json!({}));
     let text = prompt_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();
-    // Starting points rank by out-degree minus in-degree: beta (1 out) is the
-    // top-down entry, gamma_orphan (0) next, alpha (1 in) last.
-    assert_eq!(
-        parsed["starting_points"],
-        json!(["beta", "gamma_orphan", "alpha"])
-    );
-}
-
-// B:provide_mcp_explore_prompt — verify unit "identifies orphan nodes"
-#[specforge_test(
-    behavior = "provide_mcp_explore_prompt",
-    verify = "orphan_nodes field lists entities with zero incoming and outgoing edges"
-)]
-fn explore_prompt_identifies_orphans() {
-    let mut server = test_server();
-    let resp = get_prompt(&mut server, "specforge://prompts/explore", json!({}));
-    let text = prompt_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
-    let orphans = parsed["orphan_nodes"].as_array().unwrap();
-    assert!(orphans.contains(&json!("gamma_orphan")));
-}
-
-// B:provide_mcp_explore_prompt — verify unit "respects kind filter"
-#[specforge_test(
-    behavior = "provide_mcp_explore_prompt",
-    verify = "kind filter restricts results to matching entity kind"
-)]
-fn explore_prompt_kind_filter() {
-    let mut server = test_server();
-    let resp = get_prompt(
-        &mut server,
-        "specforge://prompts/explore",
-        json!({"kind": "behavior"}),
-    );
-    let text = prompt_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
-    let matching = parsed["matching_entities"].as_array().unwrap();
-    assert!(matching.contains(&json!("alpha")));
-    assert!(!matching.contains(&json!("beta")));
+    // Starting points rank connected entities by out-degree minus in-degree:
+    // beta (1 out) is the top-down entry, alpha (1 in) last; gamma_orphan
+    // is linked to nothing, so it leads nowhere.
+    assert_eq!(parsed["starting_points"], json!(["beta", "alpha"]));
 }
 
 // Unknown prompt
@@ -619,52 +584,6 @@ fn context_zero_extensions() {
     assert_eq!(parsed["kind"], "behavior");
     assert_eq!(parsed["upstream_entities"], json!([]));
     assert_eq!(parsed["downstream_entities"], json!([]));
-}
-
-// B:provide_mcp_explore_prompt — verify unit "entity_id focuses exploration on that entity"
-#[specforge_test(
-    behavior = "provide_mcp_explore_prompt",
-    verify = "entity_id focuses exploration on that entity"
-)]
-fn explore_entity_id_focus() {
-    let mut server = test_server();
-    let resp = get_prompt(
-        &mut server,
-        "specforge://prompts/explore",
-        json!({"entity_id": "alpha"}),
-    );
-    let text = prompt_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
-    // beta and gamma_orphan match with no filter; the focus drops them.
-    assert_eq!(parsed["matching_entities"], json!(["alpha"]));
-}
-
-// B:provide_mcp_explore_prompt — verify unit "high_connectivity excludes zero-edge nodes"
-#[specforge_test(
-    behavior = "provide_mcp_explore_prompt",
-    verify = "high_connectivity field lists entities with highest edge degree"
-)]
-fn explore_high_connectivity() {
-    let mut server = test_server();
-    let resp = get_prompt(&mut server, "specforge://prompts/explore", json!({}));
-    let text = prompt_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
-    let high_conn = parsed["high_connectivity"].as_array().unwrap();
-    // gamma_orphan has zero edges — must NOT appear in high_connectivity
-    assert!(
-        !high_conn.contains(&json!("gamma_orphan")),
-        "zero-edge nodes must not appear in high_connectivity, got: {:?}",
-        high_conn
-    );
-    // alpha and beta have edges — they should be in high_connectivity
-    assert!(
-        high_conn.contains(&json!("alpha")),
-        "alpha (has edges) should be in high_connectivity"
-    );
-    assert!(
-        high_conn.contains(&json!("beta")),
-        "beta (has edges) should be in high_connectivity"
-    );
 }
 
 // B:provide_mcp_context_prompt — verify unit "context includes contract text"

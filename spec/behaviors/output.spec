@@ -294,6 +294,46 @@ behavior read_views_over_the_project_view "Read Views over the Project View" {
   verify contract "Read Views over the Project View: read views hold — project_compiled, one_report_rule, one_coverage_per_state, surfaces_agree"
 }
 
+// The exploration and the review: the explore and review prompts'
+// payloads, and specforge explore / specforge review, read one view each.
+behavior explore_the_graph "Explore the Graph" {
+  features   [agent_export, mcp_prompts]
+  invariants [diagnostic_determinism, zero_domain_knowledge_core]
+  category   query
+  types      [Graph, Diagnostic]
+  requires {
+    project_compiled "A compiled project or a project session supplies the project view"
+  }
+  ensures {
+    one_selection    "entity_id, depth and kind select the entities every list is about"
+    connected_ranked "starting points and the most connected entities are connected entities, ranked by their edges to other entities"
+    unconnected_kept "the selected unconnected entities are listed"
+  }
+  contract   """
+    The exploration (specforge_ops::explore) MUST select the entities
+    entity_id reaches within depth hops over edges both ways (every entity
+    without entity_id; unbounded without depth), of kind when given, and
+    answer about that selection only: the selected entities in id order;
+    the path from entity_id to each selected entity it reaches, nearest
+    first, with the labels of its edges; the starting points, the
+    selected connected entities with the highest lead (edges to other
+    entities minus edges from them), ties by id, at most five; the most
+    connected, the selected connected entities with the most edges to and
+    from other entities, ties by id, at most ten; and the selected
+    unconnected entities (read_views_over_the_project_view). Degrees count
+    every edge of the project. A kind the project does not know selects
+    nothing and is an I020 notice naming the closest kind; an entity_id
+    the graph lacks is E003 naming the closest entity. The exploration
+    reaches exactly the entities the review reaches at the same depth.
+  """
+  verify unit "the exploration selects the entities entity_id reaches within depth, of kind when given, and every list is about that selection"
+  verify unit "starting points are the selected connected entities that lead most, ties by id, at most five"
+  verify unit "the most connected are the selected connected entities with the most edges to other entities, ties by id, at most ten"
+  verify unit "unconnected lists the selected entities no edge links to another entity"
+  verify unit "relationship paths run from entity_id to each selected entity it reaches, nearest first, with their edge labels"
+  verify unit "an unknown kind selects nothing and is an I020 notice naming the closest kind"
+}
+
 // An enumerated argument is one option table (ADR 0027): the CLI's possible
 // values and MCP's input schema are built from it, and both parse with it.
 behavior name_enumerated_options_once "Name Enumerated Options Once" {

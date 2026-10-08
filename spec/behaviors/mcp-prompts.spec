@@ -190,27 +190,21 @@ behavior provide_mcp_explore_prompt "Provide MCP Explore Prompt" {
     graph_available "Compiled graph is available via CompilerApi"
   }
   ensures {
-    exploration_returned   "Guided exploration returned: starting points, high-connectivity entities, orphan nodes"
+    exploration_returned   "Guided exploration returned: starting points, high-connectivity entities, unconnected entities"
     bfs_from_entity        "When entity_id provided, BFS traversal starts from that node"
     prompt_invoked_emitted "mcp_prompt_invoked event emitted"
   }
   contract   """
     In MCP server mode, the system MUST register a specforge://prompts/explore
-    prompt that accepts entity_id? (optional starting point) and kind? (optional
-    entity kind filter). The prompt MUST return a guided exploration of the graph
-    including suggested starting points, high-connectivity entities, and orphan
-    nodes. When entity_id is provided, exploration MUST start from that entity
-    using BFS traversal from that node. When kind is specified, results MUST
-    be filtered to that entity kind. depth? (optional count; unbounded when
-    omitted) bounds the BFS, which reaches exactly the entities review's
-    depth reaches. If entity_id names no entity, the prompt MUST return an
-    error.
+    prompt that accepts entity_id? (optional starting point), kind? (optional
+    entity kind) and depth? (optional count; unbounded when omitted). It
+    renders the exploration (explore_the_graph) of its arguments:
+    matching_entities, relationship_paths, starting_points,
+    high_connectivity, unconnected and notices, after an instruction to
+    start from the most connected entities and investigate unconnected
+    ones. If entity_id names no entity, the prompt MUST return an error.
   """
   verify unit "specforge://prompts/explore returns exploration starting points"
-  verify unit "entity_id focuses exploration on that entity"
-  verify unit "kind filter restricts results to matching entity kind"
-  verify unit "high_connectivity field lists entities with highest edge degree"
-  verify unit "orphan_nodes field lists entities with zero incoming and outgoing edges"
   verify unit "unknown entity_id returns error"
   verify unit "explore and review reach the same entities at the same depth"
   verify contract "Provide MCP Explore Prompt: MCP explore prompt holds — graph_available, exploration_returned, bfs_from_entity, prompt_invoked_emitted"

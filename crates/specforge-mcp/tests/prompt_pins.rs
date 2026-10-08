@@ -57,17 +57,11 @@ fn connectivity_is_one_rule() {
 
     let explored = explore(&mut served, json!({}));
     assert_eq!(
-        strings(&explored["orphan_nodes"]),
-        ["alone", "dangling", "lonely"]
+        strings(&explored["unconnected"]),
+        ["alone", "dangling", "lonely", "selfish"]
     );
-    assert_eq!(
-        strings(&explored["high_connectivity"]),
-        ["selfish", "hub", "linked"]
-    );
-    assert_eq!(
-        strings(&explored["starting_points"]),
-        ["hub", "alone", "dangling", "lonely", "selfish"]
-    );
+    assert_eq!(strings(&explored["high_connectivity"]), ["hub", "linked"]);
+    assert_eq!(strings(&explored["starting_points"]), ["hub", "linked"]);
 
     let review = prompt_payload(&get_prompt(
         &mut served,
@@ -86,18 +80,15 @@ fn connectivity_is_one_rule() {
 }
 
 #[test]
-fn explore_ignores_its_filters_today() {
+fn explore_applies_its_selection_to_every_list() {
     let mut served = connectivity_project();
     let explored = explore(&mut served, json!({"kind": "feature"}));
-    assert!(strings(&explored["starting_points"]).contains(&"dangling"));
-    assert_eq!(
-        strings(&explored["orphan_nodes"]),
-        ["alone", "dangling", "lonely"]
-    );
+    assert_eq!(strings(&explored["starting_points"]), ["hub"]);
+    assert_eq!(strings(&explored["unconnected"]), ["alone", "selfish"]);
 
     let unknown = explore(&mut served, json!({"kind": "featur"}));
     assert_eq!(unknown["matching_entities"], json!([]));
-    assert!(unknown.get("notices").is_none(), "{unknown}");
+    assert_eq!(unknown["notices"][0]["code"], "I020", "{unknown}");
 }
 
 /// `@specforge/test` declaring `widget`: a required `owner` reference to a

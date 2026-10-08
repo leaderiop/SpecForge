@@ -7,6 +7,7 @@ mod coverage;
 mod determinism;
 mod diagnostics_json;
 mod errors;
+mod explore;
 mod export_cache;
 mod extension_calls;
 mod failures;

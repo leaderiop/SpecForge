@@ -493,19 +493,19 @@ type McpTraceGap {
 }
 
 type McpExplorePromptResult "Explore Prompt Result" {
-  /// Entity IDs matching the explore query filters (entity_id starting point
-  /// and/or kind filter). When no filters are provided, contains all entities.
+  /// The selected entities: those entity_id reaches within depth (every
+  /// entity without it), of kind when given, in id order.
   matching_entities  string[]
   relationship_paths McpRelationshipPath[]
-  /// Suggested entity IDs for agents to begin exploring — typically
-  /// root-level entities (high out-degree, low in-degree).
+  /// The selected connected entities with the highest lead, at most five.
   starting_points    string[]
-  /// Entity IDs with the highest edge counts (in-degree + out-degree), useful
-  /// for understanding the most interconnected parts of the graph.
+  /// The selected connected entities with the most edges to other entities,
+  /// at most ten.
   high_connectivity  string[]
-  /// Entity IDs with no incoming or outgoing edges — candidates for cleanup or
-  /// missing references.
-  orphan_nodes       string[]
+  /// The selected entities no edge links to another entity.
+  unconnected        string[]
+  /// I020 for a kind the project does not know.
+  notices            Diagnostic[]
   verify unit "Explore Prompt Result conforms to schema"
 }
 

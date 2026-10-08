@@ -2046,7 +2046,7 @@ fn mcp_prompt_explore_returns_starting_points() {
     let mut top_two = high[..2].to_vec();
     top_two.sort_unstable();
     assert_eq!(top_two, ["alpha", "gamma"], "{parsed}");
-    assert_eq!(parsed["orphan_nodes"], serde_json::json!([]), "{parsed}");
+    assert_eq!(parsed["unconnected"], serde_json::json!([]), "{parsed}");
 }
 
 #[test]
