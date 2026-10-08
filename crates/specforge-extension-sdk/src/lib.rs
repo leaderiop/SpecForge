@@ -29,7 +29,7 @@ pub use specforge_protocol_types::{
 
 use specforge_protocol_types::{
     AnalyzerDescriptor, AutoDetectConfig, CollectorDescriptor, CompilerPassDescriptor,
-    DeclaredCategory, DescribeRequest, DescribeResponse, SUPPORTED_CATEGORIES,
+    DeclaredCategory, DescribeRequest, DescribeResponse, SUPPORTED_CATEGORIES, pass_export,
 };
 
 use std::collections::BTreeMap;
@@ -189,7 +189,7 @@ impl ContributionsBuilder {
     }
 
     /// Contribute a compiler pass, run by its handler ([`PassBuilder::run`])
-    /// at the export `__pass_<name>`.
+    /// at the export [`pass_export`] names (`__pass_<name>`).
     ///
     /// # Panics
     ///
@@ -200,7 +200,7 @@ impl ContributionsBuilder {
         let Some(run) = b.run else {
             panic!("pass '{name}' declares no handler: run it with `p.run(...)`");
         };
-        self.add_operation(format!("__pass_{name}"), format!("pass '{name}'"), run);
+        self.add_operation(pass_export(name), format!("pass '{name}'"), run);
         self.decl.passes.push(b.descriptor);
         self
     }

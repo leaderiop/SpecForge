@@ -51,8 +51,11 @@ compile-time checking and any other language an exact JSON contract
 
 `specforge_wasm::calls::ExtensionCalls` has `handshake`, `describe`, `run_command`,
 `call_mcp_tool`, `read_mcp_resource`, `run_pass`, `collect`, `validate`, `scan` and `migrate`.
-It owns the export a pass is called by (`__pass_<name>`), encoding (an input encoded once for
-many passes: `Encoded`), strict decoding, and the one mapping of every failure;
+It is the host's one caller of a pass's export, whose name is the protocol's rule
+(`specforge_protocol_types::pass_export`, `__pass_<name>`) that the SDK routes by too; it owns
+encoding (an input encoded once for many passes, `Encoded`, which carries its encoding failure, so
+each pass's call fails with its own export and no caller builds an export name or a `CallError`),
+strict decoding, and the one mapping of every failure;
 `pass_diagnostics` turns a pass's answer into host diagnostics in canonical order (code, file and
 line, message), attaching an entity's span to a span-less diagnostic that names it. Callers keep
 what is theirs: building the payload from the graph, and what a failure means for their

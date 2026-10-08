@@ -1,6 +1,6 @@
 {
   "artifact": "specforge_ext_formal.wasm",
-  "artifact_sha256": "942c3018e049a1939df08536a3e392c799358dc34effb42cc9c8419f71195754",
+  "artifact_sha256": "060367f1ccaae659bda59f87ae5d347d36d0c67ffdef22cabfef71c156a25fe7",
   "built_with": "rustc 1.98.1 (48a229cea 2026-09-01)",
   "inputs": {
     "Cargo.toml#workspace-inherited": "f445cf417114d7d1896a3fbd9d2348d9bedf3ac7c437748f18f7bfda2217efc2",
@@ -9,12 +9,12 @@
     "crates/specforge-extension-sdk-macros/Cargo.toml": "bfe09b19206691f6683a853136148d8fa2453cfbd575f2b65a560691ddee9c56",
     "crates/specforge-extension-sdk-macros/src/lib.rs": "65539d5bead2c749029c1241c3966c24ee4c1e08261c68798ddca78b8e640478",
     "crates/specforge-extension-sdk/Cargo.toml": "8e2dec08a44d91a963414b569936c150366b0c09f94d81881b43be1003124327",
-    "crates/specforge-extension-sdk/src/lib.rs": "19f410f1ff20e833ed566f4a4c0b527c23a016517cf9a53cff8e13f7e8232fbf",
+    "crates/specforge-extension-sdk/src/lib.rs": "a038f202bce7f98d7b8ae1907ac03c8459871c33cb990948a3e19d8a845a9de3",
     "crates/specforge-extension-sdk/src/operations.rs": "5abc571e460dd645044eb5b5c40e505bec76f4ca12600ae1e23a1eb77895c2f4",
     "crates/specforge-extension-sdk/src/surface.rs": "8bd13566e2dc699c86ea97e292ee22e890e8a7eda35525c6e7b0b821e3d5951e",
     "crates/specforge-extension-sdk/src/testing.rs": "d16ef30bebb062d0776505bf4b368e217ad1242fb96ac45e8c0608417ccc5326",
     "crates/specforge-protocol-types/Cargo.toml": "3b0e1ff6d22035b8b284dc9b2c8245e6305c6b2608c7fbd07a4a2bd09a8814a5",
-    "crates/specforge-protocol-types/src/calls.rs": "32e49e04bfa52256f261063c20624232b4a3da64d927d24b9f265d1c8f306267",
+    "crates/specforge-protocol-types/src/calls.rs": "808bc0ca3269136d8ed925e58c75dfe7d3dec0fbf83c17325a043b81a1bed963",
     "crates/specforge-protocol-types/src/command_args.rs": "720eb3f296673ff5e937a8cd6731918d3e85304102f26dfe81579a6693dc87d0",
     "crates/specforge-protocol-types/src/declaration.rs": "009b648c0b0293abcf66954750cbbf254bbfb124bfd3ebda5a786e65226cb495",
     "crates/specforge-protocol-types/src/lib.rs": "b39529322e1b0967c9c57c666ea6513783436835fa1937656801a8386302639e",

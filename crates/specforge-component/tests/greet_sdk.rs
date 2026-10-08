@@ -111,7 +111,10 @@ fn every_call(
     for pass in &declaration.passes {
         let input =
             br#"{"entities":[{"id":"hi","kind":"greeting","fields":{"style":"warm"}}],"edges":[]}"#;
-        calls.push((format!("__pass_{}", pass.name), input.to_vec()));
+        calls.push((
+            specforge_protocol_types::pass_export(&pass.name),
+            input.to_vec(),
+        ));
     }
     for collector in &declaration.collectors {
         let input = br#"{"reports":[{"path":"r.txt","content":"hi ok\n"}]}"#;
