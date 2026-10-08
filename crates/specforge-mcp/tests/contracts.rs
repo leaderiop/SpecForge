@@ -1350,11 +1350,17 @@ fn contract_dispatch_surface_command() {
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/sandbox-probe/probe.wasm");
     let runtime = specforge_component::ComponentRuntime::new();
     runtime
-        .load_module_bytes("@test/probe", &std::fs::read(probe).unwrap())
+        .load_module_bytes("@test/probe", &std::fs::read(&probe).unwrap())
         .unwrap();
     let dir = project_dir(
         json!({"name": "probed", "version": "0.1.0", "extensions": ["@test/probe"]}),
         "probe_target t1 \"Target\" {\n}\n",
+    );
+    // The probe is installed as any extension is, so the project loads it.
+    specforge_installed::testing::install_module(
+        dir.path(),
+        "@test/probe",
+        &std::fs::read(&probe).unwrap(),
     );
     std::fs::write(dir.path().join("secret.txt"), "secret").unwrap();
     let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();

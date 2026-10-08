@@ -56,6 +56,7 @@ semver = { workspace = true }
 # Extensions declared with the SDK, served in process (`specforge_wasm::testing`).
 specforge-extension-sdk = { path = "../specforge-extension-sdk" }
 specforge-wasm = { workspace = true, features = ["testing"] }
+specforge-installed = { workspace = true, features = ["testing"] }
 assert_cmd = { workspace = true }
 predicates = { workspace = true }
 insta = { workspace = true }

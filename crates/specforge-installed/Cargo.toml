@@ -20,8 +20,14 @@ serde_json = { workspace = true }
 sha2 = { workspace = true }
 semver = { workspace = true }
 
+[features]
+# `specforge_installed::testing::install`: what a test that serves an
+# extension in process writes so its project loads it from disk.
+testing = ["specforge-wasm/testing"]
+
 [dev-dependencies]
 specforge-wasm = { workspace = true, features = ["testing"] }
+specforge-installed = { path = ".", features = ["testing"] }
 specforge-extension-sdk = { path = "../specforge-extension-sdk" }
 specforge-test = { workspace = true }
 specforge-test-macros = { workspace = true }

@@ -12,6 +12,8 @@ pub mod legacy;
 mod load;
 mod lock;
 mod module;
+#[cfg(feature = "testing")]
+pub mod testing;
 
 use std::path::{Path, PathBuf};
 

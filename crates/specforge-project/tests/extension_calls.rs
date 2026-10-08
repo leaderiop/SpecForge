@@ -116,6 +116,7 @@ fn project() -> TempDir {
     let dir = TempDir::new().unwrap();
     let config = json!({ "name": "p", "version": "0.1.0", "extensions": [EXT] });
     fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
+    specforge_installed::testing::install_configured(dir.path(), &specforge_project::builtins());
     fs::write(dir.path().join("a.spec"), SPEC).unwrap();
     dir
 }

@@ -68,7 +68,7 @@ pub use specforge_graph::{
 };
 
 /// The builtin extensions this host embeds.
-pub(crate) fn builtins() -> Builtins<'static> {
+pub fn builtins() -> Builtins<'static> {
     Builtins(specforge_component::builtins::BUILTIN_EXTENSIONS)
 }
 

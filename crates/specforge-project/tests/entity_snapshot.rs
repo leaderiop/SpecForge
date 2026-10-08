@@ -130,6 +130,7 @@ fn project() -> TempDir {
     let config =
         json!({ "name": "repro", "version": "0.1.0", "spec_root": "spec", "extensions": [EXT] });
     fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
+    specforge_installed::testing::install_configured(dir.path(), &specforge_project::builtins());
     fs::create_dir(dir.path().join("spec")).unwrap();
     fs::write(dir.path().join("spec/main.spec"), SPEC).unwrap();
     fs::write(dir.path().join("spec/doc.md"), "# doc\n").unwrap();
@@ -288,6 +289,7 @@ fn an_empty_list_or_block_is_written() {
     let dir = TempDir::new().unwrap();
     let config = json!({ "name": "empty", "version": "0.1.0", "extensions": ["@pin/empty"] });
     fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
+    specforge_installed::testing::install_configured(dir.path(), &specforge_project::builtins());
     fs::write(
         dir.path().join("a.spec"),
         "item zeta \"Zeta\" {\n  values []\n  requires {\n  }\n}\n",

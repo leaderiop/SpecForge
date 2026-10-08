@@ -82,6 +82,13 @@ impl TestProject {
     /// surface tests' `FakeExtension`).
     pub fn serve_in(mut self, runtime: SharedRuntime) -> Served {
         self.enabled.get_or_insert_with(|| vec![EXT.to_string()]);
+        // What an in-process runtime serves, the project has installed: it
+        // loads through the production path.
+        specforge_installed::testing::install_enabled(
+            self.root(),
+            self.enabled.as_deref().unwrap_or_default(),
+            &specforge_installed::Builtins(specforge_component::builtins::BUILTIN_EXTENSIONS),
+        );
         let mut server = McpServer::new();
         server.state_mut().extension_runtime = Some(runtime);
         self.initialized(server)
