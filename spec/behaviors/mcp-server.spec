@@ -131,7 +131,7 @@ behavior list_mcp_tools "List MCP Tools" {
   invariants [mcp_structured_error_responses, mcp_tool_idempotency]
   category   query
   ports      [McpProtocol, CompilerApi]
-  types      [McpToolDescriptor, McpToolCategory, McpToolAnnotations]
+  types      [McpToolDescriptor, McpToolCategory, McpToolGroup, McpToolAnnotations]
   produces   [mcp_discovery_invoked]
   requires {
     server_initialized "MCP server has been initialized and all extensions loaded"
@@ -154,8 +154,8 @@ behavior list_mcp_tools "List MCP Tools" {
     property allowed. Each listed tool's category is its role,
     one of McpToolCategory, and its source says where it comes from: core,
     or the contributing extension's name. An extension tool is listed once,
-    whatever category it declares, however often the project recompiles,
-    with the output_schema it declares as its outputSchema.
+    however often the project recompiles, with the output_schema it
+    declares as its outputSchema.
     Each core tool's category and MCP annotations derive from the one
     declaration of what it does: a tool that only reads is readOnlyHint and
     is listed in its group (core, navigation or management); a tool that
@@ -163,7 +163,10 @@ behavior list_mcp_tools "List MCP Tools" {
     its target's project files is a mutation whose outputSchema declares
     files_written; both say whether they are destructive (they may
     overwrite or remove), idempotent (a repeat changes nothing) and open
-    world.
+    world. An extension tool is annotated readOnlyHint and not
+    openWorldHint, since the host grants an extension no capability, and is
+    listed in the group it declares, core when it declares none or another
+    name: never as a mutation.
   """
   verify unit "returns all registered tool descriptors after extension load"
   verify unit "returns core-provided descriptors when no extensions installed"
@@ -176,6 +179,7 @@ behavior list_mcp_tools "List MCP Tools" {
   verify unit "core tools are annotated: read-only tools readOnlyHint, writing tools how they write"
   verify unit "a mutation's outputSchema declares files_written, derived from its effect"
   verify unit "a writing tool's hints say what it does: one that overwrites is destructive, one whose repeat changes nothing is idempotent"
+  verify unit "an extension tool is annotated read-only and is never listed as a mutation"
   verify unit "an extension tool is listed once across recompiles"
   verify unit "an extension tool's declared output_schema is listed as its outputSchema"
   verify unit "a tool's path and use_cached are declared once, by its target"

@@ -225,9 +225,6 @@ fn core_tool_annotations_follow_what_each_tool_does() {
     assert_eq!(hint("specforge.add_extension", "destructiveHint"), true);
     assert_eq!(hint("specforge.rename", "idempotentHint"), true);
     assert_eq!(hint("specforge.infer_session", "readOnlyHint"), false);
-    // An extension declares no annotations: none are made up for it.
-    let extension = tools.iter().find(|t| t["name"] == "specforge.cmds.check");
-    assert!(extension.unwrap().get("annotations").is_none());
 }
 
 #[specforge_test(
@@ -271,10 +268,11 @@ fn an_extension_tool_is_listed_once_across_recompiles() {
     }
 }
 
-/// Plan 10 T0: an extension tool that declares `mutation` is listed as one,
-/// and no extension tool carries annotations. Flipped by T9.
-#[test]
-fn pin_an_extension_tool_declared_a_mutation_is_listed_as_one() {
+#[specforge_test(
+    behavior = "list_mcp_tools",
+    verify = "an extension tool is annotated read-only and is never listed as a mutation"
+)]
+fn an_extension_tool_is_annotated_read_only_and_never_a_mutation() {
     use crate::fake_extension::FakeExtension;
     let ext = FakeExtension::new().with_tool(json!({
         "name": "specforge.cmds.write",
@@ -290,12 +288,19 @@ fn pin_an_extension_tool_declared_a_mutation_is_listed_as_one() {
             .find(|t| t["name"] == name)
             .unwrap_or_else(|| panic!("{name} listed"))
     };
-    assert_eq!(listed("specforge.cmds.write")["category"], "mutation");
+    // A declared `mutation` is no group: the tool is listed `core`.
+    assert_eq!(listed("specforge.cmds.write")["category"], "core");
+    // The host grants an extension no capability: every extension tool, an
+    // explicit one or an auto-promoted command, is read-only and closed.
     for name in [
         "specforge.cmds.write",
         "specforge.cmds.check",
         "specforge.cmds.report",
     ] {
-        assert!(listed(name).get("annotations").is_none(), "{name}");
+        assert_eq!(
+            listed(name)["annotations"],
+            json!({"readOnlyHint": true, "openWorldHint": false}),
+            "{name}"
+        );
     }
 }

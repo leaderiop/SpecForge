@@ -28,6 +28,20 @@ pub enum ToolGroup {
     Management,
 }
 
+impl ToolGroup {
+    /// The group `name` names (`core`, `navigation`, `management`); `None`
+    /// for any other name, `mutation` included: only a core tool that writes
+    /// its target's project files is a mutation.
+    pub fn parse(name: &str) -> Option<Self> {
+        match name {
+            "core" => Some(ToolGroup::Core),
+            "navigation" => Some(ToolGroup::Navigation),
+            "management" => Some(ToolGroup::Management),
+            _ => None,
+        }
+    }
+}
+
 /// A tool's role as `tools/list` and `mcp_tool_invoked` name it: the spec's
 /// `McpToolCategory`. Never declared: a mutation's is `Mutation`, any other
 /// tool's its group ([`ToolSpec::category`]). Where a tool comes from is its
@@ -48,17 +62,6 @@ impl Category {
             Category::Navigation => "navigation",
             Category::Mutation => "mutation",
             Category::Management => "management",
-        }
-    }
-
-    /// The category named `name`, if it is one of the four.
-    pub fn parse(name: &str) -> Option<Self> {
-        match name {
-            "core" => Some(Category::Core),
-            "navigation" => Some(Category::Navigation),
-            "mutation" => Some(Category::Mutation),
-            "management" => Some(Category::Management),
-            _ => None,
         }
     }
 }
@@ -104,7 +107,9 @@ impl WriteHints {
 }
 
 /// The annotations of a tool that only reads and reaches nothing beyond the
-/// project, `{readOnlyHint: true, openWorldHint: false}`: every core read.
+/// project, `{readOnlyHint: true, openWorldHint: false}`: every core read,
+/// and every extension tool (the host grants an extension no capability,
+/// ADR 0037 D1).
 pub fn read_only_annotations() -> Value {
     json!({ "readOnlyHint": true, "openWorldHint": false })
 }
@@ -357,7 +362,7 @@ impl ToolSpec {
             output_schema: self.output_schema(),
             category: Some(self.category().as_str().into()),
             source: Some(CORE_SOURCE.into()),
-            annotations: Some(self.annotations()),
+            annotations: self.annotations(),
         }
     }
 }

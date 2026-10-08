@@ -32,7 +32,7 @@ use crate::state::McpState;
 use crate::surface_call::{Event, Found, Invocation, Ran, Surface};
 use crate::surface_table::{ToolEntry, ToolKind};
 use crate::target::{Call, TargetSpec};
-use crate::tool::{Effect, ErrorCode, McpError, ToolOutcome, ToolSpec, envelope};
+use crate::tool::{Category, Effect, ErrorCode, McpError, ToolOutcome, ToolSpec, envelope};
 use specforge_ops::view::ProjectView;
 pub use table::CORE_TOOLS;
 
@@ -158,7 +158,7 @@ impl Surface for Tools {
         // The category it is listed with: no second lookup.
         let category = match found {
             Found::Core(spec) => spec.category().as_str(),
-            Found::Extension(entry) => entry.category.as_str(),
+            Found::Extension(entry) => Category::from(entry.group).as_str(),
         };
         let mut event = json!({
             "toolName": invocation.name,
