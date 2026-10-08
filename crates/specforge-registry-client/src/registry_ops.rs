@@ -5,43 +5,17 @@ use std::collections::HashSet;
 use sha2::{Digest, Sha256};
 use specforge_common::{Diagnostic, codes};
 
-use super::registry_client::{
-    RegistryClient, RegistryError, RegistryResponse, RegistrySearchResult,
-};
+use super::registry_client::{RegistryClient, RegistryError};
 use super::registry_config::{RegistryConfig, RegistryCredential};
+use specforge_protocol_types::ExtensionDeclaration;
 use specforge_protocol_types::package::Version;
-use specforge_protocol_types::{ExtensionDeclaration, PackageName};
+use specforge_registry_wire::{PackageMetadata, SearchHit};
 
 /// Compute the hex-encoded SHA256 digest of the given data.
 fn hex_sha256(data: &[u8]) -> String {
     let mut hasher = Sha256::new();
     hasher.update(data);
     format!("{:x}", hasher.finalize())
-}
-
-/// Fetch `name` at `version` from `registry`, the one registry the caller
-/// chose (the client chooses nothing).
-///
-/// Returns a `Diagnostic` on failure (network error, not found, etc.); a
-/// network error carries retry guidance.
-pub fn resolve_from_registry(
-    name: &PackageName,
-    version: &Version,
-    registry: &RegistryConfig,
-    client: &dyn RegistryClient,
-) -> Result<RegistryResponse, Diagnostic> {
-    client.fetch(name, version, registry).map_err(|e| {
-        let mut diag = e.to_diagnostic();
-        // Append retry guidance for network errors
-        if matches!(
-            e,
-            RegistryError::NetworkError { .. } | RegistryError::Timeout { .. }
-        ) && let Some(ref mut s) = diag.suggestion
-        {
-            s.push_str(" You may retry the operation.");
-        }
-        diag
-    })
 }
 
 /// Search ALL configured registries, dedup by name+version, sort by name.
@@ -51,7 +25,7 @@ pub fn search_registries(
     query: &str,
     registries: &[RegistryConfig],
     client: &dyn RegistryClient,
-) -> (Vec<RegistrySearchResult>, Vec<Diagnostic>) {
+) -> (Vec<SearchHit>, Vec<Diagnostic>) {
     let mut all_results = Vec::new();
     let mut diagnostics = Vec::new();
     let mut seen = HashSet::new();
@@ -179,7 +153,7 @@ pub enum TrustCheck {
 /// tampered manifest, wrong key, or metadata inconsistency between the
 /// server-extracted key id and the signature object.
 pub fn verify_package_signature(
-    response: &RegistryResponse,
+    response: &PackageMetadata,
     wasm_bytes: &[u8],
 ) -> Result<TrustCheck, Diagnostic> {
     if response.signature.is_empty() {

@@ -3,7 +3,12 @@
 
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
-use specforge_registry_server::{auth, db::Database, handlers, rate::RateLimiter, state::AppState};
+use specforge_registry_server::state::{AppState, PublishLimits};
+use specforge_registry_server::{auth, handlers};
+use specforge_registry_wire::{
+    ErrorBody, PackageMetadata, PublishReceipt, SearchResults, TokenVerified, VersionList, Yanked,
+    form,
+};
 use std::sync::Arc;
 use tower::ServiceExt as _;
 
@@ -12,15 +17,16 @@ const VALID_MANIFEST: &str = r#"{"handshake":{"protocol_version":"1","name":"@te
 const WASM: &[u8] = b"\0asm-fake-extension-bytes";
 
 fn app_state(dir: &std::path::Path, publish_limit_per_token: u32) -> Arc<AppState> {
-    let database = Database::open(&dir.join("registry.db")).expect("open db");
-    let store = specforge_registry_server::storage::LocalStorage::new(dir.join("packages"));
-    Arc::new(AppState {
-        database,
-        storage: store,
-        rate_limiter: RateLimiter::new(60),
-        publish_limit_per_token,
-        publish_limit_per_ip: 10_000,
-    })
+    Arc::new(
+        AppState::open(
+            dir,
+            PublishLimits {
+                per_token: publish_limit_per_token,
+                per_ip: 10_000,
+            },
+        )
+        .expect("open registry"),
+    )
 }
 
 fn app(state: Arc<AppState>) -> axum::Router {
@@ -32,24 +38,7 @@ fn app_clone(state: &Arc<AppState>) -> axum::Router {
 }
 
 fn multipart_body(manifest: &str, wasm: &[u8], signature: Option<&str>) -> Body {
-    let boundary = "testboundary123";
-    let mut body = Vec::new();
-    let mut part = |name: &str, content_type: &str, bytes: &[u8]| {
-        body.extend_from_slice(format!("--{}\r\n", boundary).as_bytes());
-        body.extend_from_slice(
-            format!("Content-Disposition: form-data; name=\"{}\"\r\n", name).as_bytes(),
-        );
-        body.extend_from_slice(format!("Content-Type: {}\r\n\r\n", content_type).as_bytes());
-        body.extend_from_slice(bytes);
-        body.extend_from_slice(b"\r\n");
-    };
-    part("manifest", "application/json", manifest.as_bytes());
-    part("wasm", "application/wasm", wasm);
-    if let Some(sig) = signature {
-        part("signature", "application/json", sig.as_bytes());
-    }
-    body.extend_from_slice(format!("--{}--\r\n", boundary).as_bytes());
-    Body::from(body)
+    Body::from(form::body("testboundary123", manifest, wasm, signature))
 }
 
 fn put_request(token: &str, name: &str, version: &str, body: Body) -> Request<Body> {
@@ -61,10 +50,7 @@ fn put_request(token: &str, name: &str, version: &str, body: Body) -> Request<Bo
             version
         ))
         .header("authorization", format!("Bearer {}", token))
-        .header(
-            "content-type",
-            "multipart/form-data; boundary=testboundary123".to_string(),
-        )
+        .header("content-type", form::content_type("testboundary123"))
         .body(body)
         .unwrap()
 }
@@ -634,4 +620,153 @@ async fn a_read_of_a_name_that_is_not_one_is_not_found() {
             .unwrap();
         assert_eq!(response.status(), StatusCode::NOT_FOUND, "{uri}");
     }
+}
+
+/// `value` reads as a `T` and writes back as the same JSON: the wire type is the body.
+fn round_trips<T: serde::Serialize + serde::de::DeserializeOwned>(value: &serde_json::Value) {
+    let typed: T = serde_json::from_value(value.clone()).unwrap();
+    assert_eq!(&serde_json::to_value(typed).unwrap(), value);
+}
+
+/// The sorted keys of a JSON object.
+fn keys_of(value: &serde_json::Value) -> Vec<String> {
+    let mut keys: Vec<String> = value.as_object().unwrap().keys().cloned().collect();
+    keys.sort();
+    keys
+}
+
+async fn get_json(router: &axum::Router, uri: &str) -> (StatusCode, serde_json::Value) {
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri(uri)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let status = response.status();
+    (status, json_of(response).await)
+}
+
+#[specforge_test_macros::test(
+    behavior = "resolve_registry_source",
+    verify = "the registry server answers every call in the JSON its client reads"
+)]
+#[tokio::test]
+async fn the_server_answers_in_these_json_shapes() {
+    let dir = tempfile::tempdir().unwrap();
+    let state = app_state(dir.path(), 100);
+    let token = auth::create_token(&state.database, None, "pub", Some(90), false);
+    let router = app_clone(&state);
+
+    // publish: 201 and the receipt.
+    let response = router
+        .clone()
+        .oneshot(put_request(
+            &token,
+            "@test%2Fsigned-ext",
+            "1.0.0",
+            multipart_body(VALID_MANIFEST, WASM, Some(SIGNATURE)),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::CREATED);
+    let receipt = json_of(response).await;
+    assert_eq!(
+        keys_of(&receipt),
+        ["key_id", "name", "sha256", "size_bytes", "version"]
+    );
+    round_trips::<PublishReceipt>(&receipt);
+
+    // the version list.
+    let (status, list) = get_json(&router, "/v1/packages/@test%2Fsigned-ext").await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(keys_of(&list), ["name", "versions"]);
+    assert_eq!(list["versions"], serde_json::json!(["1.0.0"]));
+    round_trips::<VersionList>(&list);
+
+    // one version's metadata.
+    let (status, metadata) = get_json(&router, "/v1/packages/@test%2Fsigned-ext/1.0.0").await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        keys_of(&metadata),
+        [
+            "description",
+            "key_id",
+            "keywords",
+            "manifest",
+            "name",
+            "published_at",
+            "publisher",
+            "sha256",
+            "signature",
+            "size_bytes",
+            "version",
+            "wasm_url"
+        ]
+    );
+    assert_eq!(
+        metadata["wasm_url"],
+        "/packages/@test%2Fsigned-ext/1.0.0/download"
+    );
+    round_trips::<PackageMetadata>(&metadata);
+
+    // search.
+    let (status, search) = get_json(&router, "/v1/search?q=signed").await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(keys_of(&search), ["results"]);
+    let hits = search["results"].as_array().unwrap();
+    assert_eq!(hits.len(), 1, "{search}");
+    assert_eq!(keys_of(&hits[0]), ["description", "name", "version"]);
+    round_trips::<SearchResults>(&search);
+
+    // token check.
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/v1/auth/verify")
+                .header("authorization", format!("Bearer {token}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let verified = json_of(response).await;
+    assert_eq!(
+        keys_of(&verified),
+        ["expires_at", "label", "scope", "valid"]
+    );
+    round_trips::<TokenVerified>(&verified);
+
+    // an error.
+    let (status, missing) = get_json(&router, "/v1/packages/@test%2Fnone").await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    assert_eq!(keys_of(&missing), ["error"]);
+    assert_eq!(keys_of(&missing["error"]), ["code", "message"]);
+    assert_eq!(missing["error"]["code"], "NOT_FOUND");
+    round_trips::<ErrorBody>(&missing);
+
+    // yank.
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("DELETE")
+                .uri("/v1/packages/@test%2Fsigned-ext/1.0.0")
+                .header("authorization", format!("Bearer {token}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let yanked = json_of(response).await;
+    assert_eq!(yanked, serde_json::json!({"yanked": true}));
+    round_trips::<Yanked>(&yanked);
 }

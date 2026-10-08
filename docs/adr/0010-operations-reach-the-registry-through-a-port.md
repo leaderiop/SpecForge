@@ -37,6 +37,12 @@ it, say). It would then link the adapter knowingly, or reach it through a narrow
 methods, `versions` and `fetch`; `resolve_version` is gone and ops resolves a requirement itself
 (`VersionRequirement::pick`).
 
+**Amended by ADR 0044 (2026-10-08):** the adapter is `ConfiguredRegistry` (it was `HttpRegistry`), which runs
+the fetch policy over the `RegistryClient` seam rather than a concrete HTTP client; the port has a second,
+in-memory adapter (`specforge_ops::registry::testing::MemoryRegistry`), and both are held to
+`assert_registry_contract`. The HTTP shapes live in `specforge-registry-wire`, which neither `specforge-ops`
+nor the LSP links.
+
 **Amended by ADR 0045 (2026-10-08):** the port has three methods, `versions`, `fetch` and
 `publish`; the adapter also holds the publish credential and the signing key, read from the user's
 `~/.specforge` (`specforge_ops_registry::User`). `publish` is an operation in ops, and the CLI only

@@ -3074,12 +3074,15 @@ dependencies = [
 name = "specforge-ops-registry"
 version = "0.1.0"
 dependencies = [
+ "hex",
  "serde_json",
  "sha2",
  "specforge-common",
  "specforge-ops",
  "specforge-protocol-types",
  "specforge-registry-client",
+ "specforge-registry-server",
+ "specforge-registry-wire",
  "specforge-test",
  "specforge-test-macros",
  "tempfile",
@@ -3164,7 +3167,6 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "ed25519-dalek",
- "form_urlencoded",
  "getrandom 0.3.4",
  "hex",
  "httpdate",
@@ -3177,6 +3179,11 @@ dependencies = [
  "sha2",
  "specforge-common",
  "specforge-protocol-types",
+ "specforge-registry-client",
+ "specforge-registry-server",
+ "specforge-registry-wire",
+ "specforge-test",
+ "specforge-test-macros",
  "tempfile",
 ]
 
@@ -3198,6 +3205,8 @@ dependencies = [
  "sha2",
  "specforge-protocol-types",
  "specforge-registry-client",
+ "specforge-registry-server",
+ "specforge-registry-wire",
  "specforge-test",
  "specforge-test-macros",
  "tempfile",
@@ -3206,6 +3215,18 @@ dependencies = [
  "tower-http",
  "tracing",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "specforge-registry-wire"
+version = "0.1.0"
+dependencies = [
+ "form_urlencoded",
+ "serde",
+ "serde_json",
+ "specforge-protocol-types",
+ "specforge-test",
+ "specforge-test-macros",
 ]
 
 [[package]]

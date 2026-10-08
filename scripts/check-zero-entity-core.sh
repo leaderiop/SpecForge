@@ -23,6 +23,7 @@ CORE_DIRS=(
   crates/specforge-coverage/src
   crates/specforge-ops/src
   crates/specforge-ops-registry/src
+  crates/specforge-registry-wire/src
   crates/specforge-installed/src
 )
 

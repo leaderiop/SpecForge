@@ -546,7 +546,11 @@ fn shown_path(root: &Path, path: &Path) -> String {
 
 #[cfg(test)]
 mod tests {
+    use super::super::fixtures::{declaration_of, entry, greet, installed, project};
     use super::*;
+    use crate::registry::testing::{MemoryRegistry, Published, declaration};
+    use specforge_installed::LockFileEntry;
+    use specforge_registry::PeerDependency;
     use specforge_test_macros::test as specforge_test;
 
     #[test]
@@ -737,5 +741,133 @@ mod tests {
         assert_eq!(error.code, "config_not_found");
         assert!(error.suggestion.unwrap().contains("specforge init"));
         assert!(!dir.path().join("specforge.json").exists());
+    }
+
+    /// A project enabling nothing yet, with `lock` locked.
+    fn add_project(lock: Vec<LockFileEntry>) -> tempfile::TempDir {
+        let dir = project(lock);
+        std::fs::write(
+            dir.path().join("specforge.json"),
+            r#"{"name": "p", "version": "0.1.0", "extensions": []}"#,
+        )
+        .unwrap();
+        dir
+    }
+
+    fn add_greet(root: &Path, registry: &MemoryRegistry) -> Result<AddOutcome, OpError> {
+        add(
+            &AddRequest {
+                root,
+                source: Source::Registry(PackageRef::parse("@sdk/greet@0.1.0").unwrap()),
+                allow_unsigned: true,
+                trust: Trust::Refuse,
+                dry_run: false,
+            },
+            registry,
+        )
+        .map(|added| added.outcome)
+    }
+
+    fn with_peer(
+        mut declaration: ExtensionDeclaration,
+        name: &str,
+        range: &str,
+    ) -> ExtensionDeclaration {
+        declaration
+            .handshake
+            .peer_dependencies
+            .push(PeerDependency {
+                name: name.to_string(),
+                version: range.to_string(),
+                optional: false,
+            });
+        declaration
+    }
+
+    #[specforge_test(
+        behavior = "check_registry_reply",
+        verify = "add refuses a package whose binary declares other than its published declaration"
+    )]
+    fn a_binary_that_declares_other_than_its_published_declaration_is_refused() {
+        // R4/R5: the published declaration differs from the binary's, in
+        // its handshake (another description) or in a category (no kinds).
+        // A served declaration is trusted for nothing the binary doesn't
+        // declare: the package is refused before anything is installed.
+        let mut description = declaration_of(&greet());
+        description.handshake.description = Some("Something else".to_string());
+        for published in [description, {
+            let mut kinds = declaration_of(&greet());
+            kinds.entities.clear();
+            kinds
+        }] {
+            let dir = add_project(Vec::new());
+            let registry = MemoryRegistry::new().publish(Published::new(greet(), published));
+            let err = add_greet(dir.path(), &registry).unwrap_err();
+            assert!(err.is(crate::registry::METADATA_MISMATCH), "{err:?}");
+            assert!(err.message.contains("@sdk/greet@0.1.0"), "{err:?}");
+            assert!(
+                !installed(dir.path(), "@sdk/greet").exists(),
+                "nothing is installed"
+            );
+        }
+        // The message names the first part that differs.
+        let mut kinds = declaration_of(&greet());
+        kinds.entities.clear();
+        let dir = add_project(Vec::new());
+        let registry = MemoryRegistry::new().publish(Published::new(greet(), kinds));
+        let err = add_greet(dir.path(), &registry).unwrap_err();
+        assert!(err.message.contains("another entities"), "{err:?}");
+        // The published declaration equal to the binary's installs.
+        let dir = add_project(Vec::new());
+        let registry =
+            MemoryRegistry::new().publish(Published::new(greet(), declaration_of(&greet())));
+        add_greet(dir.path(), &registry).unwrap();
+    }
+
+    #[specforge_test(
+        behavior = "check_registry_reply",
+        verify = "the diamond gate decides on the published declaration's peers"
+    )]
+    fn the_diamond_gate_reads_the_published_declarations_peers() {
+        // R4: the published declaration names a peer @acme/x ^2 that the
+        // lock holds at 1.0.0. The gate refuses before the binary (which
+        // declares no peer) is loaded.
+        let dir = add_project(vec![entry("@acme/x", "1.0.0", "registry", &[])]);
+        let registry = MemoryRegistry::new()
+            .publish(Published::new(
+                greet(),
+                with_peer(declaration_of(&greet()), "@acme/x", "^2"),
+            ))
+            .publish(Published::new(
+                b"\0asm x".to_vec(),
+                declaration("@acme/x", "1.0.0", &[]),
+            ));
+        let err = add_greet(dir.path(), &registry).unwrap_err();
+        assert!(!err.is(crate::registry::METADATA_MISMATCH), "{err:?}");
+        assert!(err.code.starts_with("R-RES"), "{err:?}");
+        assert!(err.message.contains("@acme/x"), "{err:?}");
+    }
+
+    #[test]
+    fn adding_an_installed_exact_version_asks_the_registry_nothing() {
+        let dir = add_project(Vec::new());
+        let registry =
+            MemoryRegistry::new().publish(Published::new(greet(), declaration_of(&greet())));
+        let first = add_greet(dir.path(), &registry).unwrap();
+        assert!(matches!(first, AddOutcome::Installed { .. }), "{first:?}");
+        let asked = registry.asked();
+        assert_eq!(asked.len(), 1, "{asked:?}");
+
+        // The same version again: installed and enabled, so nothing is asked.
+        let again = add_greet(dir.path(), &registry).unwrap();
+        assert!(
+            matches!(again, AddOutcome::AlreadyPresent { .. }),
+            "{again:?}"
+        );
+        assert_eq!(
+            registry.asked(),
+            asked,
+            "the registry was asked nothing more"
+        );
     }
 }

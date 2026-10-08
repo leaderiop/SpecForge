@@ -179,7 +179,7 @@ fn respond(packages: &[Package], path: &str) -> (&'static str, Vec<u8>) {
             if versions.is_empty() {
                 return not_found;
             }
-            let body = serde_json::json!({ "versions": versions }).to_string();
+            let body = serde_json::json!({ "name": name, "versions": versions }).to_string();
             ("200 OK", body.into_bytes())
         }
         ["v1", "packages", name, version] => {

@@ -785,6 +785,57 @@ fn add_refuses_an_unsigned_package_without_allow_unsigned() {
     assert_refused(&output, &dir, "R-TRUST-001");
 }
 
+// bug: §3 R3, flipped by T9
+#[specforge_test(
+    behavior = "configure_registries",
+    verify = "an operation shows the registry configuration's diagnostics once it has asked a registry"
+)]
+fn adding_an_installed_registry_package_shows_the_registry_configuration_today() {
+    use crate::fake_registry::{FakeRegistry, Package};
+    let registry = FakeRegistry::serve(vec![Package::new("@sdk/greet", "0.1.0", greet_wasm())]);
+    // The served registry is the default; a second entry repeats an alias (W140).
+    let dir = TempDir::new().unwrap();
+    let config = serde_json::json!({
+        "name": "p",
+        "version": "0.1.0",
+        "extensions": ["@specforge/software"],
+        "registries": [
+            {"alias": "fake", "url": registry.url, "default_registry": true},
+            {"alias": "fake", "url": "http://registry.invalid/v1"},
+        ],
+    });
+    std::fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
+    let home = TempDir::new().unwrap();
+    let add = || {
+        specforge_cmd()
+            .args(["add", "@sdk/greet@0.1.0", "--allow-unsigned"])
+            .arg("--path")
+            .arg(dir.path())
+            .env("HOME", home.path())
+            .output()
+            .unwrap()
+    };
+
+    let first = add();
+    assert!(first.status.success(), "{}", stderr_of(&first));
+    let hits = registry.hits();
+
+    let again = add();
+    assert!(again.status.success(), "{}", stderr_of(&again));
+    assert!(
+        String::from_utf8_lossy(&again.stdout).contains("already installed"),
+        "{}",
+        String::from_utf8_lossy(&again.stdout)
+    );
+    assert_eq!(registry.hits(), hits, "nothing was asked");
+    // bug: nothing asked a registry, yet its configuration is shown.
+    assert!(
+        stderr_of(&again).contains("warning[W140]"),
+        "{}",
+        stderr_of(&again)
+    );
+}
+
 #[specforge_test(
     behavior = "verify_registry_integrity",
     verify = "mismatched SHA256 produces hard error"

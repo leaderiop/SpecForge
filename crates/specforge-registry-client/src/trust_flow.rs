@@ -9,10 +9,8 @@
 //! 5. operator allowlist (`trusted_keys`) accepts a key without a prior pin
 //!    and re-pins it
 
-use crate::{
-    KnownKeys, RegistryResponse, TrustCheck, load_known_keys, save_known_keys,
-    verify_package_signature,
-};
+use crate::{KnownKeys, TrustCheck, load_known_keys, save_known_keys, verify_package_signature};
+use specforge_registry_wire::PackageMetadata;
 use std::io::Write;
 use std::path::Path;
 
@@ -51,7 +49,7 @@ pub struct TrustOutcome {
 /// `None` to use `~/.specforge/known-keys.json`.
 pub fn check_and_pin(
     name: &str,
-    response: &RegistryResponse,
+    response: &PackageMetadata,
     wasm_bytes: &[u8],
     allow_unsigned: bool,
     policy: TrustPolicy,
@@ -191,7 +189,7 @@ mod tests {
     use super::*;
     use crate::SigningKey;
 
-    fn signed_response(key: &SigningKey, manifest_json: &str, wasm: &[u8]) -> RegistryResponse {
+    fn signed_response(key: &SigningKey, manifest_json: &str, wasm: &[u8]) -> PackageMetadata {
         use sha2::{Digest, Sha256};
         let hash = |d: &[u8]| {
             let mut h = Sha256::new();
@@ -205,7 +203,7 @@ mod tests {
             &hash(manifest_json.as_bytes()),
             "2026-09-24T00:00:00+00:00",
         );
-        RegistryResponse {
+        PackageMetadata {
             name: "@acme/tool".to_string(),
             version: "1.0.0".to_string(),
             wasm_url: String::new(),
@@ -213,11 +211,12 @@ mod tests {
             signature: serde_json::to_string(&sig).unwrap(),
             key_id: sig.key_id.clone(),
             manifest: manifest_json.to_string(),
+            ..Default::default()
         }
     }
 
-    fn unsigned_response() -> RegistryResponse {
-        RegistryResponse {
+    fn unsigned_response() -> PackageMetadata {
+        PackageMetadata {
             name: "@acme/tool".to_string(),
             version: "1.0.0".to_string(),
             wasm_url: String::new(),
@@ -225,6 +224,7 @@ mod tests {
             signature: String::new(),
             key_id: String::new(),
             manifest: String::new(),
+            ..Default::default()
         }
     }
 

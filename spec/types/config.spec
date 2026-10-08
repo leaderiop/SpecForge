@@ -61,41 +61,84 @@ type RegistryConfig {
   verify unit "RegistryConfig schema is valid"
 }
 
-type RegistryResponse {
-  extension_name      string             @readonly
-  description         string             @optional
-  latest_version      string
-  versions            string[]
-  contributes_summary ContributesSummary @optional
-  peer_dependencies   string[]           @optional
-  downloads           integer            @optional
-  published_at        string             @optional
-  wasm_size_bytes     integer            @optional
-  sha256              string             @optional
-  verify unit "RegistryResponse schema is valid"
+// ── Package registry wire (ADR 0044) ─────────────────────────
+// The JSON a package registry serves and a client reads
+// (specforge_registry_wire): one definition each, compiled into both
+// specforge-registry-server and specforge-registry-client.
+
+// GET {base}/packages/{name}: every version not yanked, oldest first.
+type VersionList "Version List" {
+  name     string
+  versions string[]
+  verify unit "VersionList is the JSON a registry serves for a package's versions"
 }
 
-type ContributesSummary {
-  entities     integer @optional
-  edges        integer @optional
-  ref_schemes  integer @optional
-  validators   integer @optional
-  renderers    integer @optional
-  providers    integer @optional
-  graph_views  integer @optional
-  collectors   integer @optional
-  prompts      integer @optional
-  parsers      integer @optional
-  grammars     integer @optional
-  body_parsers integer @optional
-  verify unit "ContributesSummary schema is valid"
+// GET {base}/packages/{name}/{version}: what a registry stores for one
+// version. signature, key_id and manifest are absent when empty.
+type PackageMetadata "Package Metadata" {
+  name         string
+  version      string
+  sha256       string
+  size_bytes   integer  @optional
+  description  string   @optional
+  keywords     string[] @optional
+  publisher    string   @optional
+  published_at string   @optional
+  wasm_url     string
+  signature    string   @optional
+  key_id       string   @optional
+  manifest     string   @optional
+  verify unit "PackageMetadata is the JSON a registry serves for one version"
 }
 
-type RegistrySearchResult {
-  results     RegistryResponse[]
-  total_count integer
-  query       string
-  verify unit "RegistrySearchResult schema is valid"
+type SearchHit "Search Hit" {
+  name        string
+  version     string
+  description string @optional
+  verify unit "SearchHit is the JSON of one search hit"
+}
+
+// GET {base}/search?q=&limit=: the latest version of each matching package.
+type SearchResults "Search Results" {
+  results SearchHit[]
+  verify unit "SearchResults is the JSON a registry answers a search with"
+}
+
+// PUT {base}/packages/{name}/{version}, answered 201.
+type PublishReceipt "Publish Receipt" {
+  name       string
+  version    string
+  sha256     string
+  size_bytes integer
+  key_id     string
+  verify unit "PublishReceipt is the JSON a registry answers a publish with"
+}
+
+// POST {base}/auth/verify.
+type TokenVerified "Token Verified" {
+  valid      boolean
+  scope      string @optional
+  label      string
+  expires_at string @optional
+  verify unit "TokenVerified is the JSON a registry answers a token check with"
+}
+
+// Every error answer: {"error": {"code", "message"}}.
+type RegistryErrorBody "Registry Error Body" {
+  code    string
+  message string
+  verify unit "RegistryErrorBody is the JSON of every registry error"
+}
+
+// What the Registry port's fetch hands an operation: a package that passed
+// the fetch policy (specforge_ops::registry::Package; its binary omitted here).
+type RegistryPackage "Registry Package" {
+  name        PackageName
+  version     string
+  sha256      string
+  declaration ExtensionDeclaration
+  key_id      string @optional
+  verify unit "RegistryPackage is what a package that passed the fetch policy hands an operation"
 }
 
 type TrustLevel = verified | community | local | git
