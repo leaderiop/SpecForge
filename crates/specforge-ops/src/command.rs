@@ -1101,4 +1101,63 @@ mod tests {
         );
         assert_eq!(commands.of("widgets").count(), 0);
     }
+
+    /// The precondition of running a command over the compiled project: the
+    /// CLI's hand-built view (graph without the checks) and the compiled
+    /// project's view send one command input. Deleted with the hand-built
+    /// view.
+    #[test]
+    fn the_hand_built_view_and_the_compiled_projects_send_one_input() {
+        let dir = tempfile::TempDir::new().unwrap();
+        std::fs::write(
+            dir.path().join("specforge.json"),
+            json!({"name": "p", "version": "0.1.0", "extensions":
+                ["@specforge/product", "@specforge/software", "@specforge/testing"]})
+            .to_string(),
+        )
+        .unwrap();
+        std::fs::write(
+            dir.path().join("main.spec"),
+            "feature f_proven \"Proven\" {\n  status done\n}\n\nfeature f_half \"Half\" {\n  status done\n}\n\n\
+             milestone m1 \"One\" {\n  status completed\n  features [f_proven, f_half]\n}\n\n\
+             behavior b_proven \"Proven\" {\n  features [f_proven]\n  verify unit \"works\"\n}\n\n\
+             behavior b_half \"Half\" {\n  features [f_half]\n  verify unit \"works\"\n  verify unit \"still works\"\n}\n",
+        )
+        .unwrap();
+        std::fs::write(
+            dir.path().join("specforge-report.json"),
+            r#"{"runner":"fixture","results":{"b_proven":{"tests":[{"name":"t1","status":"pass","verify":"works"}]},"b_half":{"tests":[{"name":"t2","status":"pass","verify":"works"}]}}}"#,
+        )
+        .unwrap();
+        let runtime = specforge_component::ComponentRuntime::new();
+        let args = Map::new();
+
+        // (a) today's CLI path.
+        let env = specforge_project::Environment::load(dir.path(), Some(&runtime));
+        let graph_a = env.build_graph();
+        let recorded = specforge_project::coverage::RecordedCoverage::over(&graph_a, &env);
+        let view_a = ProjectView::new(&graph_a, &env, Some(dir.path()), &recorded);
+        let context_a = CommandContext {
+            format: CommandFormat::Json,
+            today: "2026-10-03".into(),
+            evidence: evidence(&view_a),
+        };
+        let input_a =
+            serde_json::to_value(command_input(&graph_a, &args, dir.path(), &context_a)).unwrap();
+
+        // (b) the compiled project's view.
+        let project = specforge_project::CompiledProject::compile(dir.path(), Some(&runtime));
+        let view_b = ProjectView::of(&project);
+        let context_b = CommandContext {
+            format: CommandFormat::Json,
+            today: "2026-10-03".into(),
+            evidence: evidence(&view_b),
+        };
+        let input_b =
+            serde_json::to_value(command_input(view_b.graph(), &args, dir.path(), &context_b))
+                .unwrap();
+
+        assert_eq!(input_a["evidence"]["state"], "recorded");
+        assert_eq!(input_a, input_b);
+    }
 }
