@@ -340,7 +340,7 @@ fn extension_tool(
 /// declares, before its module runs: `invalid_input` naming each
 /// violation (its schema is opaque JSON to the host, ADR 0004 D4-a).
 fn check_input(schema: &Value, arguments: &Value) -> Result<(), ToolOutcome> {
-    let violations = crate::json_schema::violations(schema, arguments);
+    let violations = specforge_common::shape::violations(schema, arguments);
     if violations.is_empty() {
         return Ok(());
     }
@@ -379,7 +379,7 @@ fn mcp_tool_adapter(
             // An output the tool's own schema refuses is never served as
             // its structured result.
             Some(schema) => {
-                let violations = crate::json_schema::violations(schema, &value);
+                let violations = specforge_common::shape::violations(schema, &value);
                 if violations.is_empty() {
                     ToolOutcome::ok(value)
                 } else {

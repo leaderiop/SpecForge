@@ -905,7 +905,7 @@ fn the_schema_check_finds_type_enum_and_required_violations() {
         },
         "required": ["format"],
     });
-    let check = |value: Value| specforge_mcp::json_schema::violations(&schema, &value);
+    let check = |value: Value| specforge_common::shape::violations(&schema, &value);
     assert!(check(json!({"format": "md", "paths": ["a"]})).is_empty());
     assert_eq!(check(json!({})), ["$: missing required format"]);
     assert_eq!(check(json!({"format": "xml"})).len(), 1);

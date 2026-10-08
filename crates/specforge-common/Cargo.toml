@@ -10,6 +10,9 @@ repository.workspace = true
 specforge-diagnostics = { path = "../specforge-diagnostics" }
 # `package::invalid`: the diagnostic for a name that is no package name.
 specforge-protocol-types = { path = "../specforge-protocol-types" }
+# `#[derive(Shape)]`: a type's JSON shape beside its serialization (ADR 0048). A plain
+# path dependency, not a workspace entry: that would change the builtin blobs' hash.
+specforge-shape-macros = { path = "../specforge-shape-macros" }
 # The source-annotated rendering of diagnostics (`render_diagnostics`).
 ariadne = { workspace = true }
 lasso = { workspace = true }
