@@ -5,6 +5,7 @@
 //! refused when the extension is built.
 
 use serde_json::json;
+use specforge_extension_sdk::answer_export;
 use specforge_extension_sdk::prelude::*;
 
 fn extension() -> ContributionsBuilder {
@@ -243,4 +244,40 @@ fn an_operation_and_a_surface_cannot_share_an_export() {
     c.command("dup", |cmd| {
         cmd.title("Dup").handler(|_| CommandOutput::ok(""));
     });
+}
+
+#[specforge_test_macros::test(
+    behavior = "call_extension_exports",
+    verify = "an export the guest's handler answers decodes its input and encodes its answer as a declared handler does"
+)]
+fn answer_export_names_a_bad_input_as_a_declared_handler_does() {
+    let mut handled = false;
+    let by_hand = answer_export::<ScanRequest, ScanResponse>("scan", b"nope", |_| {
+        handled = true;
+        ScanResponse {
+            items: Vec::new(),
+            language: None,
+        }
+    })
+    .expect_err("an input that is not a ScanRequest");
+    let declared = extension()
+        .dispatch_export("scan__acme", b"nope")
+        .expect("routed")
+        .expect_err("an input that is not a ScanRequest");
+    assert!(!handled, "the handler is not called");
+    assert_eq!(
+        by_hand, declared,
+        "one decode: the same words for the same input"
+    );
+    assert!(by_hand.starts_with("invalid scan input: "), "{by_hand}");
+
+    let ok = answer_export::<ScanRequest, ScanResponse>(
+        "scan",
+        br#"{"file_path":"a","content":"x"}"#,
+        |_| ScanResponse {
+            items: Vec::new(),
+            language: None,
+        },
+    );
+    assert!(ok.is_ok(), "{ok:?}");
 }

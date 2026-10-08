@@ -1117,9 +1117,8 @@ where
     I: serde::de::DeserializeOwned,
     O: serde::Serialize,
 {
-    let input: I =
-        serde_json::from_slice(input).map_err(|e| format!("invalid {export} input: {e}"))?;
-    serde_json::to_vec(&handler(&input)).map_err(|e| format!("{export} answer did not encode: {e}"))
+    let input: I = operations::decode(export, input)?;
+    operations::encode(export, &handler(&input))
 }
 
 /// The `handler` of a [`component_guest!`] that names none: no export

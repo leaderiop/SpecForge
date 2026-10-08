@@ -173,6 +173,7 @@ behavior call_extension_exports "Call Extension Exports" {
   verify unit "an analyze pass that traps is reported as an E028 finding of that pass"
   verify unit "a scanner that traps or answers malformed output is reported, not dropped"
   verify unit "a pass, collector, custom rule, scanner or migration hook is declared with its handler, and its export answers through it"
+  verify unit "an export the guest's handler answers decodes its input and encodes its answer as a declared handler does"
   verify unit "a pass diagnostic whose code the extension may not use is reported (W150) and kept"
   verify unit "a diagnostic an extension reported names its extension, and a code it may not use is not described as its owner's"
   verify contract "Call Extension Exports: extension calls hold — extension_loaded, one_protocol_type, strict_answers, one_failure, no_silent_failure, runtimes_agree, pass_codes_checked"
