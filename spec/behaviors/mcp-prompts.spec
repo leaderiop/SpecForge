@@ -116,23 +116,21 @@ behavior provide_mcp_review_prompt "Provide MCP Review Prompt" {
   }
   ensures {
     coverage_analysis_returned "Coverage analysis returned for entity and neighbors up to specified depth"
-    gaps_identified            "Missing verification coverage, uncovered verify declarations, and missing evidence links identified"
+    gaps_identified            "Entities that declare no obligation, uncovered verify declarations, missing evidence links and unconnected entities identified"
     prompt_invoked_emitted     "mcp_prompt_invoked event emitted"
   }
   contract   """
     In MCP server mode, the system MUST register a specforge://prompts/review
     prompt that accepts entity_id? (optional; the whole graph when omitted)
-    and depth? (optional count, default 1). The prompt MUST return a coverage analysis for the entity and
-    its neighbors up to the specified depth, identifying missing verification coverage,
-    uncovered verify declarations, and entities lacking evidence links.
+    and depth? (optional count, default 1). It renders the review
+    (review_coverage_gaps) of its arguments: entity_id ("*" for the whole
+    graph), findings (entity_id, severity, message) and coverage_summary
+    (the coverage view's rows, as specforge.coverage lists them), after an
+    instruction to prioritize uncovered and unconnected entities.
   """
   verify unit "specforge://prompts/review returns coverage analysis"
   verify unit "review coverage matches specforge.coverage obligation by obligation"
-  verify unit "response identifies entities with missing verification coverage"
-  verify unit "depth parameter controls neighbor traversal depth"
-  verify unit "review prompt returns empty findings when no testable entities exist"
   verify contract "Provide MCP Review Prompt: MCP review prompt holds — graph_available, coverage_analysis_returned, gaps_identified, prompt_invoked_emitted"
-  verify unit "detects orphan entities"
 }
 
 behavior provide_mcp_trace_prompt "Provide MCP Trace Prompt" {
@@ -206,6 +204,5 @@ behavior provide_mcp_explore_prompt "Provide MCP Explore Prompt" {
   """
   verify unit "specforge://prompts/explore returns exploration starting points"
   verify unit "unknown entity_id returns error"
-  verify unit "explore and review reach the same entities at the same depth"
   verify contract "Provide MCP Explore Prompt: MCP explore prompt holds — graph_available, exploration_returned, bfs_from_entity, prompt_invoked_emitted"
 }

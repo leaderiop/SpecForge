@@ -34,6 +34,7 @@ pub mod query;
 pub mod registry;
 pub mod rename;
 mod report;
+pub mod review;
 mod scan;
 pub mod schema;
 mod schema_cache;

@@ -146,98 +146,23 @@ fn reviewed_ids(review: &Value) -> Vec<&str> {
         .collect()
 }
 
-fn finding_ids<'a>(review: &'a Value, about: &str) -> Vec<&'a str> {
-    review["findings"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .filter(|f| f["message"].as_str().unwrap().contains(about))
-        .map(|f| f["entity_id"].as_str().unwrap())
-        .collect()
-}
-
 #[specforge_test(
     behavior = "provide_mcp_review_prompt",
     verify = "specforge://prompts/review returns coverage analysis"
 )]
-fn review_prompt_analyzes_the_coverage_of_testable_entities() {
+fn review_prompt_returns_coverage_analysis() {
     let mut server = test_server();
 
     let parsed = review(&mut server, json!({}));
 
     // beta is a feature: not testable, so not reviewed.
     assert_eq!(reviewed_ids(&parsed), ["alpha", "gamma_orphan"], "{parsed}");
+    assert_eq!(parsed["entity_id"], "*");
+    assert!(parsed["findings"].is_array(), "{parsed}");
     let alpha = &parsed["coverage_summary"][0];
     assert_eq!(alpha["status"], "uncovered", "{parsed}");
     assert_eq!(alpha["declared"], true);
     assert_eq!(alpha["unproven"], json!(["test alpha"]));
-}
-
-#[specforge_test(
-    behavior = "provide_mcp_review_prompt",
-    verify = "response identifies entities with missing verification coverage"
-)]
-fn review_prompt_flags_testable_entities_without_verify() {
-    let mut server = test_server();
-    let parsed = review(&mut server, json!({}));
-    assert_eq!(
-        finding_ids(&parsed, "no verify"),
-        ["gamma_orphan"],
-        "{parsed}"
-    );
-}
-
-#[specforge_test(
-    behavior = "provide_mcp_review_prompt",
-    verify = "detects orphan entities"
-)]
-fn review_prompt_detects_orphans() {
-    let mut server = test_server();
-    let parsed = review(&mut server, json!({}));
-    assert_eq!(
-        finding_ids(&parsed, "is an orphan"),
-        ["gamma_orphan"],
-        "{parsed}"
-    );
-}
-
-#[specforge_test(
-    behavior = "provide_mcp_review_prompt",
-    verify = "depth parameter controls neighbor traversal depth"
-)]
-fn review_depth_bounds_the_neighborhood() {
-    // alpha <- beta -> delta: delta is two hops from alpha.
-    let mut server = server_with_delta();
-
-    let default = review(&mut server, json!({"entity_id": "alpha"}));
-    assert_eq!(reviewed_ids(&default), ["alpha"], "depth defaults to 1");
-    let two = review(&mut server, json!({"entity_id": "alpha", "depth": 2}));
-    assert_eq!(reviewed_ids(&two), ["alpha", "delta"]);
-    let zero = review(&mut server, json!({"entity_id": "delta", "depth": 0}));
-    assert_eq!(reviewed_ids(&zero), ["delta"]);
-
-    let unknown = get_prompt(
-        &mut server,
-        "specforge://prompts/review",
-        json!({"entity_id": "no_such_entity"}),
-    );
-    assert!(unknown["error"].is_object(), "{unknown}");
-}
-
-#[specforge_test(
-    behavior = "provide_mcp_review_prompt",
-    verify = "review prompt returns empty findings when no testable entities exist"
-)]
-fn review_of_a_graph_without_testable_entities_is_empty() {
-    // Only beta, a feature with no verify and no edges.
-    let mut server = TestProject::new()
-        .file("features.spec", "feature beta \"Beta Feature\" {\n}\n")
-        .serve(&[extension()]);
-
-    let parsed = review(&mut server, json!({}));
-
-    assert_eq!(parsed["findings"], json!([]), "{parsed}");
-    assert_eq!(parsed["coverage_summary"], json!([]), "{parsed}");
 }
 
 // --- specforge://prompts/trace ---
@@ -947,70 +872,9 @@ fn every_prompt_renders_an_instruction_then_a_json_payload() {
     assert_eq!(listed.len(), 5, "every core prompt is covered: {listed:?}");
 }
 
-// --- explore and review share Graph::reach ---
-
-/// A chain `a - b - c - d` of testable behaviors, each like `alpha`, each
-/// naming the next in its `next` reference list.
-fn chain_server() -> Served {
-    let chain: String = [("a", Some("b")), ("b", Some("c")), ("c", Some("d")), ("d", None)]
-        .iter()
-        .map(|(id, next)| {
-            let next = next.map_or_else(String::new, |next| format!("    next [{next}]\n"));
-            format!(
-                "behavior {id} \"Alpha Behavior\" {{\n    contract \"The system MUST do alpha\"\n    verify unit \"test alpha\"\n{next}}}\n"
-            )
-        })
-        .collect();
-    TestProject::new()
-        .file("chain.spec", &chain)
-        .serve(&[TestExtension::new()
-            .kind("behavior", true)
-            .string_field("behavior", "contract")
-            .reference("behavior", "next", "behavior")
-            .obligating("behavior")])
-}
+// --- explore ---
 
 const EXPLORE: &str = "specforge://prompts/explore";
-
-/// The entities explore's relationship paths reach.
-fn explored_ids(resp: &Value) -> Vec<String> {
-    let payload: Value = serde_json::from_str(&prompt_text(resp)).unwrap();
-    payload["relationship_paths"]
-        .as_array()
-        .unwrap_or_else(|| panic!("{resp}"))
-        .iter()
-        .map(|p| p["to_entity"].as_str().unwrap().to_string())
-        .collect()
-}
-
-#[specforge_test(
-    behavior = "provide_mcp_explore_prompt",
-    verify = "explore and review reach the same entities at the same depth"
-)]
-fn explore_and_review_share_one_neighbourhood() {
-    let mut server = chain_server();
-    for depth in [0, 1, 2, 3] {
-        let depth = depth.to_string();
-        let explore = get_prompt(
-            &mut server,
-            EXPLORE,
-            json!({"entity_id": "a", "depth": depth}),
-        );
-        let explored: std::collections::BTreeSet<String> = explored_ids(&explore)
-            .into_iter()
-            .chain(["a".to_string()])
-            .collect();
-        let reviewed = review(&mut server, json!({"entity_id": "a", "depth": depth}));
-        let reviewed: std::collections::BTreeSet<String> = reviewed_ids(&reviewed)
-            .into_iter()
-            .map(str::to_string)
-            .collect();
-        assert_eq!(explored, reviewed, "depth {depth}");
-    }
-    // Unbounded by default: the whole component, nearest first.
-    let all = get_prompt(&mut server, EXPLORE, json!({"entity_id": "a"}));
-    assert_eq!(explored_ids(&all), ["b", "c", "d"]);
-}
 
 #[specforge_test(
     behavior = "provide_mcp_explore_prompt",

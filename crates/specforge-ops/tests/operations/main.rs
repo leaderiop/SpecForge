@@ -22,6 +22,7 @@ mod options;
 mod peers;
 mod plan;
 mod query;
+mod review;
 mod schema;
 mod stats;
 mod trace;

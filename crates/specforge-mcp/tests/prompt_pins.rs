@@ -68,15 +68,15 @@ fn connectivity_is_one_rule() {
         "specforge://prompts/review",
         json!({}),
     ));
-    let mut orphans: Vec<&str> = review["findings"]
+    let mut unconnected: Vec<&str> = review["findings"]
         .as_array()
         .unwrap()
         .iter()
-        .filter(|f| f["message"].as_str().unwrap().contains("is an orphan"))
+        .filter(|f| f["message"].as_str().unwrap().contains("is unconnected"))
         .map(|f| f["entity_id"].as_str().unwrap())
         .collect();
-    orphans.sort_unstable();
-    assert_eq!(orphans, ["dangling", "lonely"]);
+    unconnected.sort_unstable();
+    assert_eq!(unconnected, ["dangling", "lonely"]);
 }
 
 #[test]

@@ -268,7 +268,8 @@ behavior read_views_over_the_project_view "Read Views over the Project View" {
     nothing else. Stats counts the unconnected entities, the exploration
     lists them and the review flags those that count toward coverage, by
     this one rule. The entities of each kind are counted once, for every
-    kind an entity is written with.
+    kind an entity is written with. A coverage row is one JSON document
+    on every surface that lists rows.
     An entity is unverified when it counts toward coverage and is not
     proven.
   """
@@ -289,6 +290,7 @@ behavior read_views_over_the_project_view "Read Views over the Project View" {
   verify integration "specforge query and specforge.query return the same document for an entity"
   verify unit "an entity is unconnected when no edge links it to another entity: a reference that does not resolve or names the entity itself links nothing"
   verify unit "the entities of each kind are counted once, for every kind an entity is written with"
+  verify unit "a coverage row is one JSON document on every surface"
   verify unit "a kind filter reports each kind the project does not know with I020, naming the closest"
   verify unit "an argument naming an undeclared kind is refused with unknown_kind naming the closest declared kind"
   verify contract "Read Views over the Project View: read views hold — project_compiled, one_report_rule, one_coverage_per_state, surfaces_agree"
@@ -332,6 +334,37 @@ behavior explore_the_graph "Explore the Graph" {
   verify unit "unconnected lists the selected entities no edge links to another entity"
   verify unit "relationship paths run from entity_id to each selected entity it reaches, nearest first, with their edge labels"
   verify unit "an unknown kind selects nothing and is an I020 notice naming the closest kind"
+  verify unit "the exploration and the review reach the same entities at the same depth"
+}
+
+behavior review_coverage_gaps "Review Coverage Gaps" {
+  features   [agent_export, mcp_prompts, extension_driven_coverage]
+  invariants [diagnostic_determinism, testable_entity_classification, zero_domain_knowledge_core]
+  category   query
+  types      [Graph, Diagnostic]
+  requires {
+    project_compiled "A compiled project or a project session supplies the project view"
+  }
+  ensures {
+    neighbourhood_rows "the coverage view's rows of the entities that count toward coverage within depth hops of entity_id"
+    gaps_found         "each row's missing obligations and unconnectedness are findings"
+  }
+  contract   """
+    The review (specforge_ops::review) MUST list the coverage view's rows
+    of the entities that count toward coverage within depth hops of
+    entity_id (default one hop), or of the whole project without
+    entity_id, in id order, and for each row a warning finding when it
+    declares no obligation and an info finding when it is unconnected
+    (read_views_over_the_project_view). An entity_id the graph lacks is
+    E003 naming the closest entity; a recorded report that cannot be read
+    is its E045 failure.
+  """
+  verify unit "the review lists the coverage view's rows of the entities within depth hops of entity_id, or of every entity that counts toward coverage"
+  verify unit "an entity that declares no obligation is a warning finding"
+  verify unit "an unconnected entity is an info finding"
+  verify unit "the review's depth defaults to one hop"
+  verify unit "a project with nothing that counts toward coverage has no rows and no findings"
+  verify unit "a recorded report that cannot be read is the review's E045 failure"
 }
 
 // An enumerated argument is one option table (ADR 0027): the CLI's possible
