@@ -1,6 +1,7 @@
 use std::fmt::Write;
 
 use super::{Cardinality, GroupBy, ModelIntermediate, ModelOptions};
+use crate::diagram::{escape_mermaid, mermaid_name};
 
 pub fn render_mermaid(model: &ModelIntermediate, options: &ModelOptions) -> String {
     let mut out = String::new();
@@ -22,7 +23,10 @@ pub fn render_mermaid(model: &ModelIntermediate, options: &ModelOptions) -> Stri
             writeln!(
                 out,
                 "    {} {} {} : \"{}\"",
-                rel.source, notation, rel.target, rel.name
+                mermaid_name(&rel.source),
+                notation,
+                mermaid_name(&rel.target),
+                escape_mermaid(&rel.name)
             )
             .unwrap();
         }
@@ -43,7 +47,7 @@ fn render_grouped(model: &ModelIntermediate, out: &mut String) {
         }
 
         writeln!(out).unwrap();
-        writeln!(out, "    %% {}", ext.name).unwrap();
+        writeln!(out, "    %% {}", escape_mermaid(&ext.name)).unwrap();
         writeln!(out).unwrap();
 
         for entity in entities {
@@ -61,15 +65,20 @@ fn render_flat(model: &ModelIntermediate, out: &mut String) {
 
 fn render_entity(entity: &super::ModelEntity, out: &mut String) {
     if !entity.enhanced_by.is_empty() {
-        writeln!(out, "    %% Enhanced by: {}", entity.enhanced_by.join(", ")).unwrap();
+        writeln!(
+            out,
+            "    %% Enhanced by: {}",
+            escape_mermaid(&entity.enhanced_by.join(", "))
+        )
+        .unwrap();
     }
 
     if entity.fields.is_empty() {
         // No fields: just declare entity name
-        writeln!(out, "    {} {{", entity.name).unwrap();
+        writeln!(out, "    {} {{", mermaid_name(&entity.name)).unwrap();
         writeln!(out, "    }}").unwrap();
     } else {
-        writeln!(out, "    {} {{", entity.name).unwrap();
+        writeln!(out, "    {} {{", mermaid_name(&entity.name)).unwrap();
         for field in &entity.fields {
             let type_str = field.field_type.to_string();
             let mut markers = Vec::new();
@@ -101,19 +110,21 @@ fn render_entity(entity: &super::ModelEntity, out: &mut String) {
                 desc_parts.push(vals.join(", "));
             }
 
-            // C13-07: a quote or newline inside the description invalidates
-            // the erDiagram — escape both before it enters a quoted string.
+            // The description sits in a quoted string: its quote, markup and
+            // line breaks are escaped before it enters the string.
             let desc_str = if desc_parts.is_empty() {
                 String::new()
             } else {
-                let escaped = desc_parts.join(" | ").replace('"', "\\u{0022}\\u{0022}");
-                format!(" \"{}\"", escaped)
+                format!(" \"{}\"", escape_mermaid(&desc_parts.join(" | ")))
             };
 
             writeln!(
                 out,
                 "        {} {}{}{}",
-                type_str, field.name, marker_str, desc_str
+                type_str,
+                mermaid_name(&field.name),
+                marker_str,
+                desc_str
             )
             .unwrap();
         }

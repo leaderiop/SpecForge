@@ -995,9 +995,11 @@ fn quoted(version: &str) -> OutlineIntermediate {
     OutlineIntermediate_from_declarations(&[declaration])
 }
 
-// pin (16-T0): today's behaviour; flipped by 16-T8
-#[test]
-fn pin_a_quote_in_a_version_or_keyword_ends_the_mermaid_label() {
+#[specforge_test_macros::test(
+    behavior = "render_extension_outline",
+    verify = "declared text with a quote, markup or a line break stays inside its Mermaid label"
+)]
+fn a_quote_in_a_version_or_keyword_stays_inside_the_mermaid_label() {
     let opts = OutlineOptions {
         format: OutlineFormat::Mermaid,
         detail: OutlineDetail::Keys,
@@ -1005,26 +1007,30 @@ fn pin_a_quote_in_a_version_or_keyword_ends_the_mermaid_label() {
     };
     let output = render(&quoted("1.0.0-\"rc\""), &opts);
     assert!(
-        output.contains("subgraph t_q[\"  @t/q v1.0.0-\"rc\"  \"]"),
+        output.contains("subgraph t_q[\"  @t/q v1.0.0-#quot;rc#quot;  \"]"),
         "{output}"
     );
-    assert!(output.contains("<br>no\"te\"]"), "{output}");
+    assert!(output.contains("<br>no#quot;te\"]"), "{output}");
 }
 
-// pin (16-T0): today's behaviour; flipped by 16-T8
-#[test]
-fn pin_a_pipe_in_a_version_splits_the_outline_markdown_row() {
+#[specforge_test_macros::test(
+    behavior = "render_extension_outline",
+    verify = "declared text with a pipe or a line break stays in its Markdown table cell"
+)]
+fn a_pipe_in_a_version_stays_in_its_markdown_cell() {
     let opts = OutlineOptions {
         format: OutlineFormat::Markdown,
         detail: OutlineDetail::Keys,
         ..Default::default()
     };
     let output = render(&quoted("1.0|rc"), &opts);
-    assert!(output.contains("| @t/q | 1.0|rc |"), "{output}");
+    assert!(output.contains("| @t/q | 1.0\\|rc |"), "{output}");
 }
 
-// pin (16-T0): stays
-#[test]
+#[specforge_test_macros::test(
+    behavior = "render_extension_outline",
+    verify = "the builtins' outline is unchanged in every format"
+)]
 fn outline_of_the_builtins_in_every_format() {
     let outline = OutlineIntermediate_from_declarations(&load_all_manifests());
     for (format, name) in [

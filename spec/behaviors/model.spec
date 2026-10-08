@@ -79,7 +79,9 @@ behavior render_model_markdown "Render Model as Markdown" {
     mean. The output MUST include an extension summary table, entity kind
     sections with field tables (respecting the --fields level), and
     relationship lists with cardinality notation. When --group-by=extension,
-    entity kinds MUST be grouped under extension section headers.
+    entity kinds MUST be grouped under extension section headers. Text the
+    model carries (names, contributions, descriptions) MUST NOT split a
+    table row: a pipe is escaped and a line break is a space.
   """
   verify unit "output starts with framing preamble"
   verify unit "extension summary table is present"
@@ -91,6 +93,7 @@ behavior render_model_markdown "Render Model as Markdown" {
   verify unit "fields=keys shows only id, required, and reference fields"
   verify unit "fields=all shows every field"
   verify unit "empty model produces valid Markdown with zero-entity message"
+  verify unit "declared text with a pipe or a line break stays in its table cell"
   verify contract "Render Model as Markdown: Markdown rendering holds — model_ir_built, preamble_present, extension_summary, field_tables_present, relationships_listed, grouping_respected, field_level_respected"
 }
 
@@ -115,7 +118,10 @@ behavior render_model_mermaid "Render Model as Mermaid erDiagram" {
     use standard Mermaid notation: ||--|| for 1:1, ||--o{ for 1:N,
     }o--|| for N:1, }o--o{ for N:M. Entity blocks MUST include field
     definitions when --fields is not none. Extension grouping MUST use
-    %% @extension-name comment separators.
+    %% @extension-name comment separators. Declared text MUST stay inside
+    the Mermaid string it is written in (Mermaid's entity codes for a
+    quote, `#`, `<` and `&`; a line break as a space), and an entity
+    or attribute name that is not a Mermaid name MUST be written as one.
   """
   verify unit "output is valid Mermaid erDiagram syntax"
   verify unit "1:1 cardinality uses ||--|| notation"
@@ -126,6 +132,8 @@ behavior render_model_mermaid "Render Model as Mermaid erDiagram" {
   verify unit "fields=none produces entities without blocks"
   verify unit "extension grouping uses comment headers"
   verify unit "empty model produces valid erDiagram with no entities"
+  verify unit "declared text with a quote, markup or a line break stays inside its Mermaid string"
+  verify unit "an entity or attribute name that is not a Mermaid name is written as one"
   verify contract "Render Model as Mermaid erDiagram: Mermaid rendering holds — model_ir_built, valid_mermaid_produced, cardinality_notation_correct, field_types_shown, grouping_via_comments"
 }
 

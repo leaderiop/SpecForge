@@ -1148,23 +1148,49 @@ fn rendered(schema: &GraphProtocolSchema, fields: FieldLevel, format: ModelForma
     render(&model, &default_options(format))
 }
 
-// pin (16-T0): today's behaviour; flipped by 16-T8
-#[test]
-fn pin_a_quote_in_a_description_is_written_as_rust_escape_text() {
+#[specforge_test_macros::test(
+    behavior = "render_model_mermaid",
+    verify = "declared text with a quote, markup or a line break stays inside its Mermaid string"
+)]
+fn a_quote_or_line_break_in_a_description_stays_inside_the_er_string() {
     let schema = with_text("behavior", "the \"body\"\nnext");
     let output = rendered(&schema, FieldLevel::All, ModelFormat::Mermaid);
-    assert!(
-        output.contains("\"the \\u{0022}\\u{0022}body\\u{0022}\\u{0022}\nnext\""),
-        "{output}"
-    );
+    assert!(output.contains("\"the #quot;body#quot; next\""), "{output}");
 }
 
-// pin (16-T0): today's behaviour; flipped by 16-T8
-#[test]
-fn pin_a_kind_name_is_written_bare_in_the_er_diagram() {
+#[specforge_test_macros::test(
+    behavior = "render_model_mermaid",
+    verify = "an entity or attribute name that is not a Mermaid name is written as one"
+)]
+fn a_kind_name_that_is_not_an_identifier_is_made_one() {
     let schema = with_text("no\"te", "the contract");
     let output = rendered(&schema, FieldLevel::All, ModelFormat::Mermaid);
-    assert!(output.contains("    no\"te {"), "{output}");
+    assert!(output.contains("    no_te {"), "{output}");
+    assert!(!output.contains("no\"te"), "{output}");
+}
+
+#[specforge_test_macros::test(
+    behavior = "render_model_markdown",
+    verify = "declared text with a pipe or a line break stays in its table cell"
+)]
+fn a_pipe_in_any_cell_stays_in_its_cell() {
+    let mut schema = multi_extension_schema();
+    for entity in &mut schema.entity_kinds {
+        for field in &mut entity.fields {
+            if field.name == "contract" {
+                field.name = "con|tract".to_string();
+                field.description = Some("a|b\nc".to_string());
+            }
+        }
+    }
+    let output = rendered(&schema, FieldLevel::All, ModelFormat::Markdown);
+    let row = output
+        .lines()
+        .find(|line| line.starts_with("| con"))
+        .expect("the field's row");
+    assert!(row.starts_with("| con\\|tract |"), "{row}");
+    assert!(row.ends_with("| a\\|b c |"), "{row}");
+    assert_eq!(row.replace("\\|", "").matches('|').count(), 7, "{row}");
 }
 
 // pin (16-T0): today's behaviour; flipped by 16-T9

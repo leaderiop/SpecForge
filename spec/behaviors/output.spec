@@ -97,6 +97,36 @@ behavior serialize_dot_visualization "Serialize DOT Visualization" {
   verify unit "labels toggle emits bare IDs"
 }
 
+// The extension outline: specforge outline and MCP specforge.outline_extensions.
+behavior render_extension_outline "Render the Extension Outline" {
+  features   [extension_driven_visualization]
+  invariants [diagnostic_determinism, zero_domain_knowledge_core]
+  category   query
+  types      [ExtensionDeclaration]
+  ports      [CompilerApi]
+  requires {
+    declarations_loaded "the project's extension declarations are loaded"
+  }
+  ensures {
+    one_card_per_extension  "each loaded extension is one card naming its version and what it contributes"
+    declared_text_contained "text an extension declares stays inside the label, string or table cell it is written in, in every format"
+  }
+  contract   """
+    When specforge outline (or MCP specforge.outline_extensions) is
+    invoked, the system MUST render one card per loaded extension, with
+    its dependencies and enhancements, as markdown, mermaid, dot or json.
+    Text an extension declares (its name, version, kind keywords, field
+    names) MUST be written through the escaping of the syntax it sits in:
+    Mermaid's entity codes in a label, the record escapes in a DOT record
+    field, an escaped pipe in a Markdown cell. An extension name used as
+    an identifier MUST be reduced to a bare one.
+  """
+  verify unit "declared text with a quote, markup or a line break stays inside its Mermaid label"
+  verify unit "declared text with a pipe or a line break stays in its Markdown table cell"
+  verify unit "the builtins' outline is unchanged in every format"
+  verify contract "Render the Extension Outline: outline rendering holds — declarations_loaded, one_card_per_extension, declared_text_contained"
+}
+
 behavior compute_traceability_chain "Compute Traceability Chain" {
   features   [traceability_serialization]
   invariants [graph_traversal_integrity, diagnostic_determinism, zero_domain_knowledge_core]
