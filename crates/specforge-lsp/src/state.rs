@@ -266,6 +266,13 @@ impl LspState {
         }
     }
 
+    /// The version of the buffer the project was compiled from for session
+    /// file `key` ([`ProjectSession::buffer`]); `None` for a file compiled
+    /// from disk and while the session is out for an update.
+    pub fn compiled_version(&self, key: &str) -> Option<i32> {
+        self.session()?.buffer(key)?.version
+    }
+
     /// The project session, unless it is out for an update.
     pub fn session_mut(&mut self) -> Option<&mut ProjectSession> {
         match &mut self.project {

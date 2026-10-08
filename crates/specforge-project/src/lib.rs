@@ -17,6 +17,7 @@
 //!   (watch, the LSP and MCP each hold one). After every update that runs
 //!   the checks it reports what a fresh compile reports, in the same order.
 
+mod buffers;
 mod build_cache;
 mod check_passes;
 mod compiled;
@@ -32,6 +33,7 @@ pub mod snapshot;
 mod sources;
 mod verdicts;
 
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use sources::SourceCache;
@@ -53,6 +55,7 @@ use specforge_resolver::resolve_imports;
 use specforge_wasm::WasmRuntime;
 use verdicts::WasmVerdicts;
 
+pub use buffers::Buffer;
 pub use build_cache::{BUILD_CACHE_FILE, BUILD_CACHE_FORMAT, BuildCache, CachedStatus};
 pub use compiled::CompiledProject;
 pub use inputs::{Changes, InputRole, SessionInputs, UpdateKind, WatchRoot, Watched, source_key};
@@ -300,8 +303,16 @@ impl Environment {
     /// Read and parse `discovered`, build their graph and resolve their
     /// imports: the one cold build every compile and session open
     /// starts from (ADR 0032).
-    pub(crate) fn build_sources(&self, discovered: &[PathBuf]) -> SourceBuild {
-        let (sources, files) = SourceCache::read_all(&self.spec_root, discovered);
+    ///
+    /// A `held` text (by source key) is read in place of its file: the
+    /// editor's buffers, which the session layer holds; the core stays
+    /// buffer-agnostic.
+    pub(crate) fn build_sources(
+        &self,
+        discovered: &[PathBuf],
+        held: &BTreeMap<String, &str>,
+    ) -> SourceBuild {
+        let (sources, files) = SourceCache::read_all(&self.spec_root, discovered, held);
         let graph = GraphBuild::of(files, self.graph_config());
         let imports = self.import_diagnostics(&sources, &graph);
         SourceBuild {

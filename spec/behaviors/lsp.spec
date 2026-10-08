@@ -105,6 +105,9 @@ behavior document_open_close "Document Open/Close" {
     file: a project source MUST be compiled from the file on disk again
     (unsaved edits are dropped), and any other file (outside the spec root,
     excluded, or any file when no project is open) MUST leave the project.
+    While a document is open its buffer is the truth for its file,
+    whatever happens to the file on disk, its deletion included (the
+    session holds it, hold_editor_buffers).
     The closed document's file MUST then be published once, as the project
     reports it, in place of the buffer's diagnostics: a project source
     keeps the errors its file on disk has, and a file that left the project
@@ -118,6 +121,9 @@ behavior document_open_close "Document Open/Close" {
   verify unit "closing a document compiles its file from disk again, dropping its unsaved edits"
   verify unit "closing a document outside a project drops its file from the project"
   verify unit "closing a project source publishes what the project reports for its file"
+  verify unit "closing a saved document leaves nothing to catch up on"
+  verify unit "closing a document that does not parse runs the checks its typing skipped"
+  verify unit "an open document's entities stay when its file is deleted, until it is closed"
   verify contract "Document Open/Close: document open/close holds — lsp_initialized_fired, document_tracked, file_changed_emitted, closed_file_published, closed_file_from_disk"
 }
 
@@ -458,7 +464,10 @@ behavior emit_live_diagnostics "Live Diagnostics" {
     does) MUST be published at the first one's name, with related
     information at each other's. Each publish sends every file that has
     diagnostics, and an empty list to each file that had some and has none
-    now. A diagnostic without a span about no entity is published on the
+    now. Each file's list carries the version of the buffer the project was
+    compiled from, none for a file compiled from disk, so a client drops a
+    list a newer edit superseded. A diagnostic without a span about no
+    entity is published on the
     document being edited, else on the last one such a diagnostic went on
     while it is open, else on the first open document. W143 (a define
     block, which registers nothing) MUST be published with the Unnecessary
@@ -467,6 +476,7 @@ behavior emit_live_diagnostics "Live Diagnostics" {
   verify unit "diagnostics update after file change"
   verify unit "code actions act on the diagnostics last published for the document"
   verify unit "a publish clears the files whose diagnostics are gone"
+  verify unit "a publish is labelled with the version of the buffer the project was compiled from"
   verify integration "diagnostics appear within 100ms"
   verify unit "a spanless diagnostic about entities is published at the first one's name"
   verify unit "a diagnostic is published on the file its span names"
@@ -628,6 +638,7 @@ behavior shared_incremental_pipeline "Shared Incremental Pipeline" {
   verify integration "graph update serves all LSP features"
   verify integration "the LSP publishes the diagnostics specforge check reports"
   verify unit "a reload applies every open buffer again, in one update"
+  verify unit "opening a project with open documents runs the checks once"
   verify property "CLI and LSP share identical debounce window"
   verify property "CLI and LSP share identical validator dispatch order"
   verify contract "Shared Incremental Pipeline: shared incremental pipeline holds — incremental_rebuild_complete_fired, shared_graph_updated, diagnostics_pushed, pipeline_parity_enforced"

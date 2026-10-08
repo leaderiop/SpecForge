@@ -132,6 +132,8 @@ opened from a temporary directory with its extensions served in process (ADR 002
 (`SourceChange::Buffers`; the typing fast path skips the checks while any edited buffer does not parse).
 A closed project source is read from disk again; any other closed file leaves the project. A reload
 applies every open buffer once.
+*(ADR 0046: the session holds the buffers; a closed document's buffer is released through the session's one
+read, and a reload keeps the held buffers in its one cold build instead of applying them after it.)*
 
 ### Consequences
 

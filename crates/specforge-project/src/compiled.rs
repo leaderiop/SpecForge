@@ -2,7 +2,7 @@
 //! compile built and what it reports. A one-shot compile is one; a project
 //! session holds one and keeps it current.
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, OnceLock};
 
@@ -26,7 +26,7 @@ use crate::{Environment, SourceBuild};
 /// checks, a session's compiled project reports exactly what
 /// [`Self::compile`] of the same sources reports, in the same order (ADR
 /// 0047). An editor update that skipped the checks
-/// ([`crate::CheckMode::SyntaxOnlyIfParseErrorsIn`]) reports no check
+/// ([`crate::CheckMode::SyntaxOnlyIfParseErrors`]) reports no check
 /// diagnostic until the next update that runs them.
 pub struct CompiledProject {
     /// Shared, so a reader keeps the environment an update started from
@@ -69,7 +69,7 @@ impl CompiledProject {
     pub fn of(env: Environment, runtime: Option<&dyn WasmRuntime>) -> Self {
         let env = Arc::new(env);
         let discovered = env.discover();
-        let mut project = CompiledProject::read(env, &discovered);
+        let mut project = CompiledProject::read(env, &discovered, &BTreeMap::new());
         let entities = project.snapshot_now();
         project.check_over(entities, runtime);
         project
@@ -164,13 +164,18 @@ impl CompiledProject {
 
     /// The cold read of `discovered` in `env` (ADR 0032's one cold
     /// pipeline, [`Environment::build_sources`]): sources read and parsed,
-    /// the graph built, the imports resolved. The checks have not run.
-    pub(crate) fn read(env: Arc<Environment>, discovered: &[PathBuf]) -> Self {
+    /// the graph built, the imports resolved. The checks have not run. A
+    /// `held` text (by source key) is read in place of its file.
+    pub(crate) fn read(
+        env: Arc<Environment>,
+        discovered: &[PathBuf],
+        held: &BTreeMap<String, &str>,
+    ) -> Self {
         let SourceBuild {
             sources,
             graph,
             imports,
-        } = env.build_sources(discovered);
+        } = env.build_sources(discovered, held);
         CompiledProject {
             env,
             sources,
@@ -185,6 +190,11 @@ impl CompiledProject {
     /// The one read of a source (`sources::read`) under its spec root.
     pub(crate) fn read_source(&self, key: &str) -> Read {
         sources::read(&self.env.spec_root, key)
+    }
+
+    /// Whether the project already holds the state `read` gives for `key`.
+    pub(crate) fn is_current(&self, key: &str, read: &Read) -> bool {
+        self.sources.is_current(key, read)
     }
 
     /// Apply each source's new state as one change of the graph build;
@@ -229,7 +239,7 @@ impl CompiledProject {
     }
 
     /// Whether any of `paths` has a parse error (E001) in the graph build.
-    pub(crate) fn has_parse_errors_in(&self, paths: &[&str]) -> bool {
+    pub(crate) fn has_parse_errors_in(&self, paths: &[String]) -> bool {
         paths.iter().any(|path| {
             self.graph
                 .file_diagnostics(path)

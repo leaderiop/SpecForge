@@ -9,7 +9,7 @@ use std::sync::Arc;
 use serde_json::{Value, json};
 use specforge_common::{Diagnostic, Severity};
 use specforge_extension_sdk::prelude::*;
-use specforge_project::{CompiledProject, ProjectSession, SourceChange};
+use specforge_project::{Buffer, CompiledProject, ProjectSession, SourceChange};
 use specforge_test::prelude::*;
 use specforge_wasm::testing::InProcessRuntime;
 use tempfile::TempDir;
@@ -222,10 +222,10 @@ fn a_session_reports_check_pass_diagnostics_after_an_update() {
     );
     assert!(with_code(&session.project().diagnostics(), "E951").is_empty());
 
-    let update = session.update(SourceChange::Buffer {
-        path: "a.spec",
-        text: Some("gadget good \"Good\" {\n}\n\ngadget bad_two \"Bad\" {\n}\n"),
-    });
+    let update = session.update(SourceChange::Hold(&[Buffer::new(
+        dir.path().join("a.spec"),
+        "gadget good \"Good\" {\n}\n\ngadget bad_two \"Bad\" {\n}\n",
+    )]));
 
     let audit = with_code(&update.diagnostics, "E951");
     assert_eq!(audit.len(), 1, "{:?}", update.diagnostics);
