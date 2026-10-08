@@ -265,11 +265,35 @@ fn migrate_reads_the_project_sources() {
     assert_eq!(visited.len(), 1, "{visited:?}");
     assert!(visited[0].ends_with("specs/a.spec"), "{visited:?}");
     // Rollback looks at the same files (none has a backup: a dry run).
-    let rollback = rollback(root);
+    let rollback = rollback(root).summary;
     assert_eq!(rollback.skipped_count, 1, "{rollback:?}");
     assert!(
         rollback.results[0].file_path.ends_with("specs/a.spec"),
         "{rollback:?}"
+    );
+}
+
+#[specforge_test(
+    behavior = "rollback_failed_migration",
+    verify = "a rollback reports the files it restored as written"
+)]
+fn a_rollback_reports_the_files_it_restored_as_written() {
+    let dir = project();
+    let root = dir.path();
+    let migrated = run(&request(root), None);
+    assert!(migrated.ok(), "{migrated:?}");
+    assert_ne!(std::fs::read_to_string(root.join("old.spec")).unwrap(), OLD);
+
+    let outcome = rollback(root);
+
+    assert!(outcome.ok(), "{outcome:?}");
+    assert_eq!(std::fs::read_to_string(root.join("old.spec")).unwrap(), OLD);
+    let written: Vec<&Path> = outcome.writes.paths().collect();
+    assert_eq!(written.len(), 1, "{written:?}");
+    assert!(written[0].ends_with("old.spec"), "{written:?}");
+    assert!(
+        root.join("old.spec.bak").exists(),
+        "the backup is preserved for the user"
     );
 }
 

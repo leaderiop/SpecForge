@@ -1,7 +1,6 @@
 use crate::OutputFormat;
 use crate::outcome::{Exit, Refusal};
-use specforge_migrate::{MigrationStatus, MigrationSummary, RollbackSummary};
-use specforge_ops::migrate::{self, Request};
+use specforge_ops::migrate::{self, MigrationStatus, MigrationSummary, Request, RollbackSummary};
 use std::path::Path;
 
 pub fn run(
@@ -14,13 +13,9 @@ pub fn run(
 ) -> Exit {
     // Handle rollback mode
     if rollback {
-        let summary = migrate::rollback(path);
-        print_rollback(
-            &summary,
-            &migrate::restored(&summary).names_under(path),
-            format,
-        );
-        return Exit::of_verdict(summary.failed_count == 0);
+        let outcome = migrate::rollback(path);
+        print_rollback(&outcome.summary, &outcome.writes.names_under(path), format);
+        return Exit::of_verdict(outcome.ok());
     }
 
     let target = match migrate::parse_target(target_version) {

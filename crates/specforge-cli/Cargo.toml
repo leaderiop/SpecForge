@@ -30,7 +30,6 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 specforge-common = { workspace = true }
 specforge-diagnostics = { path = "../specforge-diagnostics" }
-specforge-migrate = { workspace = true }
 specforge-formatter = { workspace = true }
 specforge-graph = { path = "../specforge-graph" }
 specforge-protocol-types = { path = "../specforge-protocol-types" }
