@@ -546,6 +546,7 @@ fn every_core_tool_lists_its_typed_arguments() {
                 }
                 Some("boolean") => assert!(property["default"].is_boolean(), "{name}"),
                 Some("integer") => assert_eq!(property["minimum"], 0, "{name}"),
+                Some("number") => assert!(property.get("default").is_none(), "{name}"),
                 Some("string" | "array" | "object") => {}
                 other => panic!("{name}: type {other:?}"),
             }

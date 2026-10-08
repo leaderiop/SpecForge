@@ -142,7 +142,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         name: "specforge.analyze",
         description: "Run analysis passes (coverage: proof obligations and discharge funnel; contracts: clause symmetry) over the compiled project",
         output: Some(
-            || json!({ "type": "object", "properties": { "ok": { "type": "boolean" }, "passes": { "type": "array" }, "stray_records": { "type": "array" } }, "required": ["ok", "passes"] }),
+            || json!({ "type": "object", "properties": { "ok": { "type": "boolean" }, "passes": { "type": "array" }, "gate": { "type": "object" }, "stray_records": { "type": "array" } }, "required": ["ok", "passes"] }),
         ),
         effect: Effect::Reads {
             group: ToolGroup::Core,

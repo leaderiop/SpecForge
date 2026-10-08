@@ -15,6 +15,8 @@ pub struct Args {
     strict: bool,
     /// Path to a specforge-report.json for proof-level verdicts
     test_results: Option<String>,
+    /// Proof-coverage minimum, in percent (0 to 100): below it the run fails (E048); it needs test results and the coverage pass
+    min: Option<f64>,
 }
 
 /// `specforge.analyze` — run the analysis passes (coverage, contracts) plus
@@ -37,7 +39,7 @@ pub fn call(project: &ProjectRef<'_>, args: Args) -> ToolOutcome {
             Some(named) => ReportSource::File(project.root.join(named)),
             None => ReportSource::Recorded,
         },
-        min: None,
+        min: args.min,
         prove: None,
     };
     // The project's runtime: every project a call reaches has one, so its

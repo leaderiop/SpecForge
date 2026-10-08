@@ -70,6 +70,14 @@ const EXPECTED_DIVERGENCES: &[(&str, Aspect, &str)] = &[
         Aspect::Outcome,
         "a format check that finds a change is a successful MCP call (ADR 0004 D4-a); the CLI exits 1",
     ),
+    // analyze --min: a gate below its minimum fails `specforge analyze`
+    // (exit 1); over MCP it is a successful call whose verdict is `ok`
+    // (false) and whose `gate` says where it landed (ADR 0004 D4-a, 0029 D3a).
+    (
+        "analyze_gate_below",
+        Aspect::Outcome,
+        "an analysis whose gate is below its minimum is a successful MCP call (ADR 0004 D4-a); the CLI exits 1",
+    ),
     // The build cache is opt-in and the CLI's: validate never writes it.
     (
         "check_cache",
@@ -362,6 +370,28 @@ const SCENARIOS: &[Scenario] = &[
         setup: project,
         cli: |root| args(&["analyze", "--path", &s(root), "--json"]),
         mcp: |root| ("specforge.analyze", json!({"path": s(root)})),
+        mcp_rooted: true,
+    },
+    Scenario {
+        name: "analyze_gate_below",
+        setup: project_with_a_coverage_gate,
+        cli: |root| {
+            args(&[
+                "analyze",
+                "coverage",
+                "--min",
+                "50",
+                "--json",
+                "--path",
+                &s(root),
+            ])
+        },
+        mcp: |root| {
+            (
+                "specforge.analyze",
+                json!({"pass": "coverage", "min": 50, "path": s(root)}),
+            )
+        },
         mcp_rooted: true,
     },
 ];
@@ -734,6 +764,7 @@ fn verdicts_agree() {
         "check",
         "check_failing",
         "analyze",
+        "analyze_gate_below",
         "format",
         "format_check",
         "format_preview",
@@ -767,6 +798,11 @@ fn parity_export() {
 #[test]
 fn parity_analyze() {
     parity("analyze");
+}
+
+#[test]
+fn parity_analyze_gate_below() {
+    parity("analyze_gate_below");
 }
 
 #[test]
@@ -1062,6 +1098,17 @@ fn mcp_init_writes_what_cli_init_writes() {
 }
 
 // ── analyze: one payload on both surfaces (wayfinder #41) ───────────────────
+
+/// The analyze project with a recorded report that proves nothing: a
+/// `coverage --min 50` gate lands below (0 of 1).
+fn project_with_a_coverage_gate(root: &Path) {
+    analyze_project(root);
+    std::fs::write(
+        root.join("specforge-report.json"),
+        r#"{"runner":"r","results":{}}"#,
+    )
+    .unwrap();
+}
 
 /// A project with the testing extension and a `widget` the report can prove.
 fn analyze_project(root: &Path) {
