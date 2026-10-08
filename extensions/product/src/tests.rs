@@ -3,6 +3,21 @@ use specforge_extension_sdk::prelude::{
     CommandFormat, CommandGraph, CommandInput, GraphEdge, GraphNode,
 };
 
+mod coverage_matrices;
+mod dates_and_effort;
+mod dependency_graphs;
+mod feature_dependents;
+mod host;
+mod journey_coverage;
+mod lists;
+mod milestone_completion;
+mod persona_channel_features;
+mod project_wide;
+mod rollups;
+mod shared_contract;
+mod term_analytics;
+mod traceability;
+
 /// A graph built entity by entity.
 #[derive(Default)]
 struct G {
