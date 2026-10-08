@@ -1,21 +1,26 @@
 use std::path::PathBuf;
 use std::sync::Arc;
-use tokio::sync::mpsc;
 use tokio::sync::{Mutex, RwLock};
+use tokio::sync::{mpsc, watch};
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer};
 
-use specforge_project::ProjectSession;
+use specforge_project::RuntimeSource;
 use specforge_watch::Debouncer;
 
 use crate::changes::Change;
+use crate::editor::ClientEditor;
 use crate::reaction::Reaction;
 use crate::{ClientSupport, LspState, answers, server_capabilities, server_info};
 
 use specforge_ops::format;
 
+/// The reaction, behind the queue every change waits in (ADR 0043 D4).
+type Shared = Arc<Mutex<Reaction<ClientEditor>>>;
+
 pub struct Backend {
+    /// Formatting publishes and logs on the request path (ADR 0043 D8).
     client: Client,
     state: Arc<RwLock<LspState>>,
     /// The project root: rootUri, else the first workspace folder.
@@ -26,27 +31,36 @@ pub struct Backend {
     /// across a keystroke storm.
     update_tx: mpsc::UnboundedSender<Url>,
     /// What every change to the project session is reacted to by: applied,
-    /// published, the client's watchers followed, its highlighting
-    /// refreshed (ADR 0035).
-    reaction: Reaction,
+    /// published, the editor's watchers followed, its highlighting
+    /// refreshed (ADR 0035, ADR 0043).
+    reaction: Shared,
+    /// Dropped with the backend: the editor's calls give up once the server is gone, so a
+    /// request the editor never answers cannot hold the reaction's thread (and the runtime's
+    /// shutdown) for good.
+    _gone: watch::Sender<()>,
 }
 
 impl Backend {
     pub fn new(client: Client) -> Self {
         let state = Arc::new(RwLock::new(LspState::new()));
+        let (gone, closed) = watch::channel(());
+        let reaction: Shared = Arc::new(Mutex::new(Reaction::new(
+            ClientEditor::new(client.clone(), closed),
+            Arc::clone(&state),
+            RuntimeSource::project(),
+        )));
         let (update_tx, mut update_rx) = mpsc::unbounded_channel::<Url>();
-        let reaction = Reaction::new(client.clone(), Arc::clone(&state));
 
         // Serialized latest-wins reparse worker (C4-03). Exits when the
         // Backend (and its sender) is dropped.
-        let worker = reaction.clone();
+        let worker = Arc::clone(&reaction);
         tokio::spawn(async move {
             // The rule `specforge watch` batches file changes by: the burst
             // is quiet for the debounce window, each document once.
             let debouncer = Debouncer::new(specforge_watch::DEFAULT_DEBOUNCE_WINDOW);
             while let Some(pending) = debouncer.coalesce_async(&mut update_rx).await {
                 // Everything the burst edited is one update (ADR 0023 D9).
-                worker.react(Change::Edited(pending)).await;
+                react(&worker, Change::Edited(pending)).await;
             }
         });
 
@@ -56,28 +70,25 @@ impl Backend {
             root_dir: Arc::new(Mutex::new(None)),
             update_tx,
             reaction,
+            _gone: gone,
         }
     }
+}
+
+/// Run `change` through the reaction on the blocking pool, after every change queued before it.
+async fn react(reaction: &Shared, change: Change) {
+    let mut reaction = Arc::clone(reaction).lock_owned().await;
+    // The reaction reports an update's panic itself; a panic here (a debug build's divergence
+    // assertion) has left the state whole, and the next change goes on.
+    let _ = tokio::task::spawn_blocking(move || {
+        reaction.react(change);
+    })
+    .await;
 }
 
 #[tower_lsp::async_trait]
 impl LanguageServer for Backend {
     async fn initialize(&self, params: InitializeParams) -> Result<InitializeResult> {
-        let refresh_support = params
-            .capabilities
-            .workspace
-            .as_ref()
-            .and_then(|w| w.semantic_tokens.as_ref())
-            .and_then(|t| t.refresh_support)
-            .unwrap_or(false);
-        let relative_patterns = params
-            .capabilities
-            .workspace
-            .as_ref()
-            .and_then(|w| w.did_change_watched_files.as_ref())
-            .and_then(|w| w.relative_pattern_support)
-            .unwrap_or(false);
-        self.reaction.declared(refresh_support, relative_patterns);
         self.state
             .write()
             .await
@@ -162,99 +173,12 @@ impl LanguageServer for Backend {
     }
 
     async fn initialized(&self, _: InitializedParams) {
-        // Until the project is open, watch every .spec, config and lock
-        // file; once it is, the watchers cover exactly what it is built
-        // from (`Reaction::react`).
-        self.reaction.watch_defaults().await;
-
-        // Opening the project (extensions, then every .spec file under the
-        // spec root) runs in a background task with workDone progress
-        // (C4-04): `initialized` returns immediately so the session stays
-        // responsive. Edits that arrive meanwhile queue behind it.
-        let root = self.root_dir.lock().await.clone();
-        let client = self.client.clone();
-        let state = Arc::clone(&self.state);
-        let reaction = self.reaction.clone();
-        tokio::spawn(async move {
-            let token = NumberOrString::String("specforge-index".into());
-            let _ = client
-                .send_request::<tower_lsp::lsp_types::request::WorkDoneProgressCreate>(
-                    WorkDoneProgressCreateParams {
-                        token: token.clone(),
-                    },
-                )
-                .await;
-            client
-                .send_notification::<tower_lsp::lsp_types::notification::Progress>(ProgressParams {
-                    token: token.clone(),
-                    value: ProgressParamsValue::WorkDone(WorkDoneProgress::Begin(
-                        WorkDoneProgressBegin {
-                            title: "specforge: indexing workspace".into(),
-                            cancellable: None,
-                            message: None,
-                            percentage: None,
-                        },
-                    )),
-                })
-                .await;
-
-            let end = |message: Option<String>| ProgressParams {
-                token: token.clone(),
-                value: ProgressParamsValue::WorkDone(WorkDoneProgress::End(WorkDoneProgressEnd {
-                    message,
-                })),
-            };
-            let Some(root) = root else {
-                client
-                    .log_message(MessageType::INFO, "specforge-lsp initialized (no root_uri)")
-                    .await;
-                client
-                    .send_notification::<tower_lsp::lsp_types::notification::Progress>(end(None))
-                    .await;
-                return;
-            };
-
-            // The client then watches what the project is built from, and
-            // the session has caught up with what changed while it did not.
-            let opened = reaction
-                .react(Change::Open(PathBuf::from(&root)))
-                .await
-                .is_some();
-            let (ext_count, kind_count, file_count, spec_root) = {
-                let st = state.read().await;
-                (
-                    st.registries().declarations().len(),
-                    st.kind_registry().len(),
-                    st.session().map_or(0, ProjectSession::file_count),
-                    st.spec_root().to_string_lossy().into_owned(),
-                )
-            };
-            if opened && ext_count > 0 {
-                // The lsp_initialized announcement: its payload is the
-                // extension and entity kind counts.
-                client
-                    .log_message(
-                        MessageType::INFO,
-                        format!(
-                            "specforge-lsp: loaded {ext_count} extension(s), \
-                             {kind_count} entity kind(s)"
-                        ),
-                    )
-                    .await;
-            }
-            client
-                .log_message(
-                    MessageType::INFO,
-                    format!("specforge-lsp: indexed {file_count} .spec files from {spec_root}"),
-                )
-                .await;
-
-            client
-                .send_notification::<tower_lsp::lsp_types::notification::Progress>(end(Some(
-                    format!("{file_count} files"),
-                )))
-                .await;
-        });
+        let root = self.root_dir.lock().await.clone().map(PathBuf::from);
+        // Taken before returning, so every change the client reports next waits for the
+        // project to open; the open itself runs in the background with workDone progress
+        // (C4-04): `initialized` returns immediately so the session stays responsive.
+        let mut reaction = Arc::clone(&self.reaction).lock_owned().await;
+        tokio::task::spawn_blocking(move || reaction.open(root));
     }
 
     async fn shutdown(&self) -> Result<()> {
@@ -275,7 +199,7 @@ impl LanguageServer for Backend {
             }
         }
 
-        self.reaction.react(Change::Edited(vec![uri])).await;
+        react(&self.reaction, Change::Edited(vec![uri])).await;
     }
 
     async fn did_change(&self, params: DidChangeTextDocumentParams) {
@@ -306,14 +230,14 @@ impl LanguageServer for Backend {
             .publish_diagnostics(uri.clone(), Vec::new(), None)
             .await;
         // The buffer is no longer the truth for its file (ADR 0023 D9).
-        self.reaction.react(Change::Closed(uri)).await;
+        react(&self.reaction, Change::Closed(uri)).await;
     }
 
     async fn did_change_watched_files(&self, params: DidChangeWatchedFilesParams) {
         // One reaction for the whole batch: an extension reload (new kind
         // classifications), a deletion or an on-disk edit may all have
         // changed what open editors highlight.
-        self.reaction.react(Change::Watched(params.changes)).await;
+        react(&self.reaction, Change::Watched(params.changes)).await;
     }
 
     async fn hover(&self, params: HoverParams) -> Result<Option<Hover>> {

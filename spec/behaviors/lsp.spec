@@ -437,7 +437,7 @@ behavior emit_live_diagnostics "Live Diagnostics" {
   ]
   category   command
   types      [DiagnosticBag]
-  ports      [LspProtocol]
+  ports      [LspProtocol, Editor]
   consumes   [incremental_rebuild_complete] // delegates to the shared incremental pipeline's rebuild event
   requires {
     lsp_initialized_fired "LSP server has been initialized and the incremental pipeline is ready"
