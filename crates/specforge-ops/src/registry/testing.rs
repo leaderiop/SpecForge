@@ -252,7 +252,10 @@ pub fn assert_registry_contract(registry: &dyn Registry, published: &[Published]
     let error = registry
         .versions(&PackageName::parse("@contract/missing").unwrap())
         .unwrap_err();
-    assert_eq!(error.code, "R-RES-001", "C2: an unknown package: {error:?}");
+    assert!(
+        error.is(codes::R_RES_001),
+        "C2: an unknown package: {error:?}"
+    );
 
     // C3
     let one_one = Version::parse("1.1.0").unwrap();
@@ -280,7 +283,7 @@ pub fn assert_registry_contract(registry: &dyn Registry, published: &[Published]
             Trust::Refuse,
         )
         .unwrap_err();
-    assert_eq!(error.code, "R006", "C4: an unknown version: {error:?}");
+    assert!(error.is(codes::R006), "C4: an unknown version: {error:?}");
     assert!(
         error.message.contains("@contract/base@9.9.9"),
         "C4: the message names the package: {error:?}"
@@ -306,8 +309,8 @@ pub fn assert_registry_contract(registry: &dyn Registry, published: &[Published]
     let error = registry
         .fetch(&plain, &one, false, Trust::Refuse)
         .unwrap_err();
-    assert_eq!(
-        error.code, "R-TRUST-001",
+    assert!(
+        error.is(codes::R_TRUST_001),
         "C6: an unsigned package: {error:?}"
     );
     let allowed = registry
