@@ -23,6 +23,7 @@ use specforge_registry_client::{
 };
 use specforge_registry_wire::PackageMetadata;
 use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
 
 /// The registries a project configures, and what reading them reported.
 #[derive(Debug, Clone)]
@@ -160,9 +161,9 @@ pub fn configured(root: &Path, operation: &str) -> Result<Configured, OpError> {
     })
 }
 
-/// A project's package registry as the `Registry` port (ADR 0010, 0044). It holds the registries the
-/// project's `specforge.json` configures, asks the one that serves a name, and hands ops only a package
-/// that passed the fetch policy:
+/// A project's package registry as the `Registry` port (ADR 0010, 0044). It reads the registries the
+/// project's `specforge.json` configures the first time an operation asks it anything, asks the one that
+/// serves a name, and hands ops only a package that passed the fetch policy:
 ///
 /// 1. the reply names the package and version asked for (R-TRUST-004);
 /// 2. the binary hashes to the reply's SHA-256 (R-OPS-002);
@@ -171,10 +172,13 @@ pub fn configured(root: &Path, operation: &str) -> Result<Configured, OpError> {
 /// 4. the publisher signature verifies and the key matches its pin, or is pinned (R-TRUST-001..006).
 ///
 /// A refused package pins no key. The policy runs over any [`RegistryClient`]: HTTP unless
-/// [`ConfiguredRegistry::with_client`] gives another. Built without touching the network or failing: with
-/// no registry configured, each call fails with E063 before any request.
+/// [`ConfiguredRegistry::with_client`] gives another. Built without reading, touching the network or
+/// failing: with no registry configured, each call fails with E063 before any request.
 pub struct ConfiguredRegistry {
-    registries: Result<Configured, OpError>,
+    root: PathBuf,
+    operation: String,
+    /// Read once, on the first call that needs a registry.
+    registries: OnceLock<Result<Configured, OpError>>,
     client: Box<dyn RegistryClient>,
     /// Where publisher keys are pinned; `None` is the user's
     /// `~/.specforge/known-keys.json`.
@@ -182,11 +186,13 @@ pub struct ConfiguredRegistry {
 }
 
 impl ConfiguredRegistry {
-    /// The registries `root`'s `specforge.json` configures, over HTTP; `operation`
+    /// The registries `root`'s `specforge.json` configures, over HTTP. Reads nothing yet; `operation`
     /// names the command in E063.
     pub fn for_project(root: &Path, operation: &str) -> Self {
         Self {
-            registries: configured(root, operation),
+            root: root.to_path_buf(),
+            operation: operation.to_string(),
+            registries: OnceLock::new(),
             client: Box::new(HttpRegistryClient::new()),
             known_keys: None,
         }
@@ -205,23 +211,29 @@ impl ConfiguredRegistry {
         self
     }
 
-    /// What reading the registry configuration reported (see
-    /// [`Configured::diagnostics`]); none when it failed outright, since
-    /// each registry call then fails with that error.
-    pub fn diagnostics(&self) -> &[Diagnostic] {
-        match &self.registries {
-            Ok(configured) => &configured.diagnostics,
-            Err(_) => &[],
+    /// What reading the registry configuration reported (E067 for an entry it skipped, W140 for a
+    /// duplicate alias, I003 when none is the default), once an operation has asked this registry
+    /// anything; nothing before, and nothing when reading failed outright (each call then fails with
+    /// that error). A surface shows these after the operation, whatever its result.
+    pub fn reported(&self) -> &[Diagnostic] {
+        match self.registries.get() {
+            Some(Ok(configured)) => &configured.diagnostics,
+            _ => &[],
         }
+    }
+
+    /// The configuration, read on the first call that needs it.
+    fn registries(&self) -> Result<&Configured, OpError> {
+        self.registries
+            .get_or_init(|| configured(&self.root, &self.operation))
+            .as_ref()
+            .map_err(Clone::clone)
     }
 
     /// The one registry that serves `name`: made once per call, and the
     /// client fetches from it without choosing again.
     fn registry_for(&self, name: &PackageName) -> Result<&RegistryConfig, OpError> {
-        self.registries
-            .as_ref()
-            .map_err(Clone::clone)?
-            .registry_for(name)
+        self.registries()?.registry_for(name)
     }
 }
 
@@ -399,7 +411,7 @@ mod tests {
     fn an_unconfigured_project_fails_each_call_with_e063_before_any_request() {
         let dir = tempfile::tempdir().unwrap();
         let registry = ConfiguredRegistry::for_project(dir.path(), "update");
-        assert!(registry.diagnostics().is_empty());
+        assert!(registry.reported().is_empty());
         let sdk = PackageName::parse("@sdk/greet").unwrap();
         let error = registry.versions(&sdk).unwrap_err();
         assert!(error.is(specforge_ops::registry::NO_REGISTRY), "{error:?}");
@@ -408,5 +420,6 @@ mod tests {
             .fetch(&sdk, &Version::new(0, 1, 0), false, Trust::Refuse)
             .unwrap_err();
         assert!(error.is(specforge_ops::registry::NO_REGISTRY), "{error:?}");
+        assert!(registry.reported().is_empty());
     }
 }

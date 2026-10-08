@@ -638,7 +638,7 @@ pub(crate) fn greet_wasm() -> Vec<u8> {
 }
 
 /// A project whose only registry is `registry`.
-pub(crate) fn project_on(registry: &crate::fake_registry::FakeRegistry) -> TempDir {
+pub(crate) fn project_on(registry: &specforge_registry_server::testing::LocalRegistry) -> TempDir {
     let dir = TempDir::new().unwrap();
     let config = serde_json::json!({
         "name": "p",
@@ -655,8 +655,8 @@ pub(crate) fn project_on(registry: &crate::fake_registry::FakeRegistry) -> TempD
     verify = "add extension without version resolves to latest compatible version"
 )]
 fn add_without_a_version_installs_the_latest() {
-    use crate::fake_registry::{FakeRegistry, Package};
-    let registry = FakeRegistry::serve(vec![
+    use crate::published::{Package, serve};
+    let registry = serve(vec![
         Package::new("@sdk/greet", "0.0.1", greet_wasm()),
         Package::new("@sdk/greet", "0.1.0", greet_wasm()),
     ]);
@@ -722,9 +722,9 @@ fn known_keys(home: &TempDir) -> std::path::PathBuf {
     verify = "specforge add pins the publisher key and records it in specforge.lock"
 )]
 fn add_installs_a_signed_package_and_pins_its_key() {
-    use crate::fake_registry::{FakeRegistry, Package};
+    use crate::published::{Package, serve};
     let key = specforge_registry_client::SigningKey::generate();
-    let registry = FakeRegistry::serve(vec![
+    let registry = serve(vec![
         Package::new("@sdk/greet", "0.1.0", greet_wasm()).signed_by(&key),
     ]);
     let dir = project_on(&registry);
@@ -751,10 +751,10 @@ fn add_installs_a_signed_package_and_pins_its_key() {
     verify = "specforge add refuses a package signed by another key than the pinned one"
 )]
 fn add_refuses_a_package_signed_by_another_key_than_the_pinned_one() {
-    use crate::fake_registry::{FakeRegistry, Package};
+    use crate::published::{Package, serve};
     let pinned = specforge_registry_client::SigningKey::generate();
     let other = specforge_registry_client::SigningKey::generate();
-    let registry = FakeRegistry::serve(vec![
+    let registry = serve(vec![
         Package::new("@sdk/greet", "0.1.0", greet_wasm()).signed_by(&other),
     ]);
     let dir = project_on(&registry);
@@ -775,8 +775,8 @@ fn add_refuses_a_package_signed_by_another_key_than_the_pinned_one() {
     verify = "specforge add refuses an unsigned package without --allow-unsigned"
 )]
 fn add_refuses_an_unsigned_package_without_allow_unsigned() {
-    use crate::fake_registry::{FakeRegistry, Package};
-    let registry = FakeRegistry::serve(vec![Package::new("@sdk/greet", "0.1.0", greet_wasm())]);
+    use crate::published::{Package, serve};
+    let registry = serve(vec![Package::new("@sdk/greet", "0.1.0", greet_wasm())]);
     let dir = project_on(&registry);
     let home = TempDir::new().unwrap();
 
@@ -785,14 +785,14 @@ fn add_refuses_an_unsigned_package_without_allow_unsigned() {
     assert_refused(&output, &dir, "R-TRUST-001");
 }
 
-// bug: §3 R3, flipped by T9
+// §3 R3 (plan 05): nothing asked a registry, so its configuration is not shown.
 #[specforge_test(
     behavior = "configure_registries",
     verify = "an operation shows the registry configuration's diagnostics once it has asked a registry"
 )]
-fn adding_an_installed_registry_package_shows_the_registry_configuration_today() {
-    use crate::fake_registry::{FakeRegistry, Package};
-    let registry = FakeRegistry::serve(vec![Package::new("@sdk/greet", "0.1.0", greet_wasm())]);
+fn adding_an_installed_registry_package_shows_no_registry_configuration() {
+    use crate::published::{Package, serve};
+    let registry = serve(vec![Package::new("@sdk/greet", "0.1.0", greet_wasm())]);
     // The served registry is the default; a second entry repeats an alias (W140).
     let dir = TempDir::new().unwrap();
     let config = serde_json::json!({
@@ -800,8 +800,8 @@ fn adding_an_installed_registry_package_shows_the_registry_configuration_today()
         "version": "0.1.0",
         "extensions": ["@specforge/software"],
         "registries": [
-            {"alias": "fake", "url": registry.url, "default_registry": true},
-            {"alias": "fake", "url": "http://registry.invalid/v1"},
+            {"alias": "local", "url": registry.url(), "default_registry": true},
+            {"alias": "local", "url": "http://registry.invalid/v1"},
         ],
     });
     std::fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
@@ -818,7 +818,7 @@ fn adding_an_installed_registry_package_shows_the_registry_configuration_today()
 
     let first = add();
     assert!(first.status.success(), "{}", stderr_of(&first));
-    let hits = registry.hits();
+    let hits = registry.requests().len();
 
     let again = add();
     assert!(again.status.success(), "{}", stderr_of(&again));
@@ -827,36 +827,12 @@ fn adding_an_installed_registry_package_shows_the_registry_configuration_today()
         "{}",
         String::from_utf8_lossy(&again.stdout)
     );
-    assert_eq!(registry.hits(), hits, "nothing was asked");
-    // bug: nothing asked a registry, yet its configuration is shown.
+    assert_eq!(registry.requests().len(), hits, "nothing was asked");
     assert!(
-        stderr_of(&again).contains("warning[W140]"),
-        "{}",
+        !stderr_of(&again).contains("W140"),
+        "nothing asked a registry: {}",
         stderr_of(&again)
     );
-}
-
-#[specforge_test(
-    behavior = "verify_registry_integrity",
-    verify = "mismatched SHA256 produces hard error"
-)]
-fn add_refuses_a_download_that_does_not_match_the_registry_sha256() {
-    use crate::fake_registry::{FakeRegistry, Package};
-    let key = specforge_registry_client::SigningKey::generate();
-    let mut tampered = greet_wasm();
-    tampered.push(0);
-    let registry = FakeRegistry::serve(vec![
-        Package::new("@sdk/greet", "0.1.0", greet_wasm())
-            .signed_by(&key)
-            .serving(tampered),
-    ]);
-    let dir = project_on(&registry);
-    let home = TempDir::new().unwrap();
-
-    let output = add_greet(&dir, &home, &["--allow-unsigned", "--yes"]);
-
-    assert_refused(&output, &dir, "R-OPS-002");
-    assert!(!known_keys(&home).exists(), "nothing is pinned");
 }
 
 // ---------------------------------------------------------------

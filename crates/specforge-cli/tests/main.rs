@@ -27,8 +27,6 @@ mod export_version;
 mod extension_authoring;
 mod extension_surfaces;
 mod extensions;
-#[allow(dead_code)]
-mod fake_registry;
 mod field_types;
 mod formal_diagnostics;
 #[allow(deprecated)]
@@ -48,6 +46,8 @@ mod pipeline;
 mod product_commands;
 mod product_rules;
 mod publish;
+#[allow(dead_code)]
+mod published;
 mod query;
 mod read_views;
 mod registry;

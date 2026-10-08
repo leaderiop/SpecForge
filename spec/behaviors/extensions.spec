@@ -914,6 +914,10 @@ behavior configure_registries "Configure Registries" {
     extensions and local .wasm files MUST install with no registry
     configured. First-use MUST NOT require network access — registries are
     opt-in configuration, and first use is always local/offline per P8.
+    The diagnostics of reading the registries array (E067, W140, I003) are
+    shown by an operation only once it has asked a registry: an add of an
+    exact version already installed, or a dry run of an exact version,
+    asks none and shows none.
   """
   verify unit "registries parsed from specforge.json"
   verify unit "scope_filter routes to correct registry"
