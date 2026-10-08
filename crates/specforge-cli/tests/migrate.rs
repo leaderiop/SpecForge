@@ -1103,40 +1103,51 @@ fn double_migrate_is_idempotent() {
 }
 
 // H3: Failure in one file does not block others
-#[test]
+#[specforge_test(
+    behavior = "migrate_spec_files_in_place",
+    verify = "failure in one file does not block others"
+)]
 fn failure_in_one_file_does_not_block_others() {
     let tmp = TempDir::new().unwrap();
     let root = tmp.path();
     setup_project(root);
-
-    // Two files: one valid, one will be unreadable
-    write_spec(
-        root,
-        "good.spec",
-        "// specforge-format: 0.1\nbehavior good \"Good\" {\n  contract \"ok\"\n}\n",
-    );
-    write_spec(
-        root,
-        "bad.spec",
-        "// specforge-format: 0.1\nbehavior bad \"Bad\" {\n  contract \"ok\"\n}\n",
-    );
-
-    // Make bad.spec a directory (unreadable as file)
-    fs::remove_file(root.join("spec/bad.spec")).unwrap();
-    fs::create_dir(root.join("spec/bad.spec")).unwrap();
+    let good = "// specforge-format: 0.1\nbehavior good \"Good\" {\n  contract \"ok\"\n}\n";
+    let bad = "// specforge-format: 9.0\nbehavior bad \"Bad\" {\n  contract \"ok\"\n}\n";
+    write_spec(root, "good.spec", good);
+    write_spec(root, "bad.spec", bad);
 
     let output = Command::cargo_bin("specforge")
         .unwrap()
         .args(["migrate", "--format=json", "--path", root.to_str().unwrap()])
         .output()
         .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
 
-    let stdout = String::from_utf8(output.stdout).unwrap();
-    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-
-    // good.spec should have been migrated despite bad.spec failure
-    let migrated = json["migrated_count"].as_u64().unwrap_or(0);
-    assert!(migrated >= 1, "good.spec should be migrated: {stdout}");
+    assert_eq!(output.status.code(), Some(1), "{json}");
+    assert_eq!(json["migrated_count"], 1, "{json}");
+    assert_eq!(json["failed_count"], 1, "{json}");
+    let failed = json["results"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|r| r["file_path"].as_str().unwrap().ends_with("bad.spec"))
+        .unwrap();
+    assert_eq!(failed["status"], "failed", "{json}");
+    assert!(
+        failed["error"].as_str().unwrap().starts_with("E019"),
+        "{json}"
+    );
+    assert!(
+        fs::read_to_string(root.join("spec/good.spec"))
+            .unwrap()
+            .starts_with("// specforge-format: 1.0"),
+        "good.spec is migrated despite bad.spec"
+    );
+    assert_eq!(
+        fs::read_to_string(root.join("spec/bad.spec")).unwrap(),
+        bad,
+        "bad.spec is left alone"
+    );
 }
 
 // H3b: JSON summary output
@@ -1409,14 +1420,34 @@ fn diff_format_compatible_with_patch() {
             .any(|l| l.starts_with('+') && !l.starts_with("+++")),
         "missing + added lines"
     );
+
+    // 4. patch(1) applies it from the project root.
+    let mut patch = std::process::Command::new("patch")
+        .args(["-p1", "--dry-run"])
+        .current_dir(root)
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .expect("patch(1) is installed");
+    std::io::Write::write_all(&mut patch.stdin.take().unwrap(), stdout.as_bytes()).unwrap();
+    let applied = patch.wait_with_output().unwrap();
+    assert!(
+        applied.status.success(),
+        "patch -p1 --dry-run: {}{}",
+        String::from_utf8_lossy(&applied.stdout),
+        String::from_utf8_lossy(&applied.stderr)
+    );
 }
 
-#[test]
+#[specforge_test(
+    behavior = "generate_migration_diff",
+    verify = "failure in one file does not block diff generation for others"
+)]
 fn dry_run_failure_isolation() {
     let tmp = TempDir::new().unwrap();
     let root = tmp.path();
     setup_project(root);
-
     write_spec(
         root,
         "good.spec",
@@ -1425,12 +1456,9 @@ fn dry_run_failure_isolation() {
     write_spec(
         root,
         "bad.spec",
-        "// specforge-format: 0.1\nbehavior bad \"Bad\" {\n  contract \"ok\"\n}\n",
+        "// specforge-format: 9.0\nbehavior bad \"Bad\" {\n  contract \"ok\"\n}\n",
     );
-
-    // Make bad.spec a directory (unreadable as file)
-    fs::remove_file(root.join("spec/bad.spec")).unwrap();
-    fs::create_dir(root.join("spec/bad.spec")).unwrap();
+    let before = crate::written::files_under(root);
 
     let output = Command::cargo_bin("specforge")
         .unwrap()
@@ -1443,19 +1471,22 @@ fn dry_run_failure_isolation() {
         ])
         .output()
         .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
 
-    let stdout = String::from_utf8(output.stdout).unwrap();
-    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-
-    // good.spec should still produce a diff
     let diffs = json["diffs"].as_array().expect("diffs should be array");
+    assert_eq!(diffs.len(), 1, "{json}");
     assert!(
-        diffs.iter().any(|d| {
-            d["file_path"]
-                .as_str()
-                .is_some_and(|p| p.contains("good.spec"))
-        }),
-        "good.spec diff should be present despite bad.spec failure: {stdout}"
+        diffs[0]["file_path"]
+            .as_str()
+            .unwrap()
+            .ends_with("good.spec"),
+        "{json}"
+    );
+    assert_eq!(json["failed_count"], 1, "{json}");
+    assert_eq!(
+        crate::written::changed_since(root, &before),
+        Vec::<String>::new(),
+        "a dry run writes nothing"
     );
 }
 
@@ -2317,10 +2348,10 @@ fn migrate_json_has_no_diagnostics_key() {
     assert!(json.get("diagnostics").is_none(), "{json}");
 }
 
-/// Pin (plan 14 P4): a dry-run diff is labelled with the absolute path of the
-/// file, so `patch -p1` cannot apply it. Flipped by T3 (root-relative labels).
+/// A dry-run diff labels each file with its path from the project root, so
+/// that `patch -p1` applies it there (plan 14 D14).
 #[test]
-fn dry_run_diff_labels_are_absolute_today() {
+fn dry_run_diff_labels_are_relative_to_the_project_root() {
     let tmp = TempDir::new().unwrap();
     let root = tmp.path();
     setup_project(root);
@@ -2330,23 +2361,34 @@ fn dry_run_diff_labels_are_absolute_today() {
         "// specforge-format: 0.1\nbehavior foo \"Foo\" {\n  contract \"stuff\"\n}\n",
     );
 
-    let output = Command::cargo_bin("specforge")
+    let text = Command::cargo_bin("specforge")
         .unwrap()
         .args(["migrate", "--dry-run", "--path", root.to_str().unwrap()])
         .output()
         .unwrap();
-    let stdout = String::from_utf8(output.stdout).unwrap();
-    let first = stdout.lines().next().unwrap_or_default();
-    assert_eq!(
-        first,
-        // The project root is resolved first (macOS temp dirs are links).
-        format!(
-            "--- a/{}",
-            root.canonicalize()
-                .unwrap()
-                .join("spec/test.spec")
-                .display()
-        ),
-        "{stdout}"
+    let stdout = String::from_utf8(text.stdout).unwrap();
+    let mut lines = stdout.lines();
+    assert_eq!(lines.next(), Some("--- a/spec/test.spec"), "{stdout}");
+    assert_eq!(lines.next(), Some("+++ b/spec/test.spec"), "{stdout}");
+
+    // MCP and --format json carry the same text.
+    let json = Command::cargo_bin("specforge")
+        .unwrap()
+        .args([
+            "migrate",
+            "--dry-run",
+            "--format=json",
+            "--path",
+            root.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&json.stdout).unwrap();
+    assert!(
+        json["diffs"][0]["unified_text"]
+            .as_str()
+            .unwrap()
+            .starts_with("--- a/spec/test.spec\n+++ b/spec/test.spec\n"),
+        "{json}"
     );
 }

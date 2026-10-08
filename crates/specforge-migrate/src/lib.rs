@@ -362,9 +362,22 @@ fn comparable_fields(
 // Core Migration Logic
 // ---------------------------------------------------------------------------
 
-/// Run migration on a single file. Returns the result, the backup it made and the diff.
+/// `path` from `root`, `/`-separated; `path` itself when it is not under `root`.
+fn diff_label(path: &Path, root: &Path) -> String {
+    let relative = path.strip_prefix(root).unwrap_or(path);
+    relative
+        .components()
+        .map(|c| c.as_os_str().to_string_lossy())
+        .collect::<Vec<_>>()
+        .join("/")
+}
+
+/// Run migration on a single file of the project at `root`. Returns the result,
+/// the backup it made and the diff, which labels the file with its path from
+/// `root` so that `patch -p1` applies it there.
 fn migrate_file(
     path: &Path,
+    root: &Path,
     target_version: &FormatVersion,
     dry_run: bool,
     no_backup: bool,
@@ -374,6 +387,7 @@ fn migrate_file(
     Option<MigrationDiff>,
 ) {
     let path_str = path.display().to_string();
+    let label = diff_label(path, root);
 
     // Read file
     let content = match std::fs::read_to_string(path) {
@@ -434,12 +448,12 @@ fn migrate_file(
 
     // Build diff
     let diff = if content != transformed {
-        let diff_text = unified_diff(&format!("a/{path_str}"), &content, &transformed);
+        let diff_text = unified_diff(&format!("a/{label}"), &content, &transformed);
         // unified_diff uses the same path for both --- and +++.
         // We need +++ to use b/ prefix per POSIX convention.
         let unified_text = diff_text
             .diff_text
-            .replace(&format!("+++ a/{path_str}"), &format!("+++ b/{path_str}"));
+            .replace(&format!("+++ a/{label}"), &format!("+++ b/{label}"));
         Some(MigrationDiff {
             file_path: path_str.clone(),
             before_hash: sha256_hash(&content),
@@ -536,7 +550,7 @@ fn migrate_file(
 /// Run rollback: restore `.spec.bak` files to their originals.
 pub fn run_rollback(path: &Path) -> RollbackSummary {
     // The project's sources, then their .bak counterparts.
-    let targets = project_sources(path);
+    let targets = project_sources(&project_root_of(path));
 
     let mut results = Vec::new();
     let mut restored = 0;
@@ -625,12 +639,11 @@ pub fn run_rollback(path: &Path) -> RollbackSummary {
     }
 }
 
-/// The sources of the project `path` is in (else of `path` itself): the
+/// The sources of the project at `project_root`: the
 /// files a compile reads, under `spec_root` without what `exclude` leaves
 /// out (ADR 0021 D3).
-fn project_sources(path: &Path) -> Vec<PathBuf> {
-    let project_root = project_root_of(path);
-    load_project_config(&project_root).spec_files(&project_root)
+fn project_sources(project_root: &Path) -> Vec<PathBuf> {
+    load_project_config(project_root).spec_files(project_root)
 }
 
 /// Migrate every source of the project `path` is in.
@@ -640,7 +653,8 @@ pub fn migrate_project(
     dry_run: bool,
     no_backup: bool,
 ) -> MigrationSummary {
-    let targets = project_sources(path);
+    let project_root = project_root_of(path);
+    let targets = project_sources(&project_root);
 
     let mut results = Vec::new();
     let mut backups = Vec::new();
@@ -650,7 +664,13 @@ pub fn migrate_project(
     let mut failed = 0;
 
     for target_path in &targets {
-        let (result, backup, diff) = migrate_file(target_path, target_version, dry_run, no_backup);
+        let (result, backup, diff) = migrate_file(
+            target_path,
+            &project_root,
+            target_version,
+            dry_run,
+            no_backup,
+        );
 
         match result.status {
             MigrationStatus::Migrated => migrated += 1,

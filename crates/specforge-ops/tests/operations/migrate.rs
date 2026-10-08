@@ -8,8 +8,9 @@ use specforge_extension_sdk::{ContributionsBuilder, ExtensionMeta};
 use specforge_migrate::{CURRENT_FORMAT_VERSION, migrate_project};
 use specforge_ops::OpErrorKind;
 use specforge_ops::migrate::{MigrationInput, Request, invoke_hooks, parse_target, rollback, run};
-use specforge_protocol_types::{ExtensionDeclaration, FieldType, PeerDependency};
+use specforge_protocol_types::{ExtensionDeclaration, FieldType, PeerDependency, SandboxPolicy};
 use specforge_test_macros::test as specforge_test;
+use specforge_wasm::runtime::{WasmCallResult, WasmTrapInfo};
 use specforge_wasm::testing::InProcessRuntime;
 
 const OLD: &str = "// specforge-format: 0.9\nbehavior alpha \"Alpha\" {\n}\n";
@@ -187,14 +188,20 @@ fn a_failed_migration_names_its_kind() {
     );
 }
 
-#[test]
-fn a_header_only_migration_keeps_the_graph_and_stays_applied() {
+#[specforge_test(
+    behavior = "validate_post_migration_integrity",
+    verify = "post-migration check runs automatically"
+)]
+fn a_header_only_migration_is_checked_after_it_runs() {
     let dir = project();
 
     let outcome = run(&request(dir.path()), None);
 
     assert!(outcome.migrated(), "{outcome:?}");
-    assert!(outcome.validated);
+    assert!(
+        outcome.validated,
+        "the migrated project is compiled and compared"
+    );
     assert!(outcome.structural_differences.is_empty());
     assert!(outcome.rollback.is_none());
     assert_eq!(outcome.from.to_string(), "0.9");
@@ -524,4 +531,314 @@ fn the_schema_before_the_hooks_holds_their_kinds_edges_and_fields() {
             "{name} not in {warnings:?}"
         );
     }
+}
+
+/// `name`, declaring the migration hook `hook` answered by `handler`, and
+/// peer-depending on `peers`.
+fn extension(
+    name: &'static str,
+    hook: &'static str,
+    peers: &'static [&'static str],
+    handler: fn(&MigrationInput) -> Result<(), String>,
+) -> impl Fn() -> ContributionsBuilder + Send + Sync + 'static {
+    move || {
+        let mut meta = ExtensionMeta::new(name, "1.0.0");
+        meta.peer_dependencies = peers
+            .iter()
+            .map(|peer| PeerDependency {
+                name: (*peer).into(),
+                version: "^1".into(),
+                optional: false,
+            })
+            .collect();
+        let mut c = ContributionsBuilder::new(meta);
+        c.migration_hook_handler(hook, handler);
+        c
+    }
+}
+
+/// A project enabling `extensions`, with one file at the old format version.
+fn project_enabling(extensions: &[&str]) -> tempfile::TempDir {
+    let dir = project();
+    let config = serde_json::json!({"name": "p", "version": "0.1.0", "extensions": extensions});
+    std::fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
+    dir
+}
+
+/// The hook exports (`migrate_*`) the runtime was called with, in order.
+fn hooks_called(runtime: &InProcessRuntime) -> Vec<String> {
+    exports_called(runtime)
+        .into_iter()
+        .filter(|export| export.starts_with("migrate_"))
+        .collect()
+}
+
+/// How many times the host read `extension`'s handshake: once per compile
+/// that loads it.
+fn handshakes_of(runtime: &InProcessRuntime, extension: &str) -> usize {
+    runtime
+        .calls()
+        .iter()
+        .filter(|call| call.extension == extension && call.export == "__handshake")
+        .count()
+}
+
+#[specforge_test(
+    behavior = "validate_post_migration_integrity",
+    verify = "new diagnostics from migration reported"
+)]
+fn a_diagnostic_the_migration_introduces_is_reported() {
+    let dir = project_with_extension();
+    let runtime = hooked(|input| {
+        let file = &input.files[0];
+        let migrated = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
+        std::fs::write(
+            file,
+            format!("{migrated}\nfeature extra \"Extra\" {{\n  behaviors [ghost]\n}}\n"),
+        )
+        .map_err(|e| e.to_string())
+    });
+    let before = specforge_project::CompiledProject::compile(dir.path(), Some(&runtime));
+    assert!(
+        !before.diagnostics().iter().any(|d| d.code == "E003"),
+        "{:?}",
+        before.diagnostics()
+    );
+
+    let outcome = run(&request(dir.path()), Some(&runtime));
+
+    assert!(
+        outcome
+            .post_diagnostics
+            .iter()
+            .any(|d| d.code == "E003" && d.message.contains("ghost")),
+        "{:?}",
+        outcome.post_diagnostics
+    );
+    // `extra` appeared: the graph changed structure, so the run is undone.
+    assert!(outcome.rollback.is_some(), "{outcome:?}");
+}
+
+#[specforge_test(
+    behavior = "verify_graph_protocol_compatibility_after_migration",
+    verify = "comparison runs once after extension_migration_hooks_complete"
+)]
+fn the_schema_is_compared_once_after_the_hooks() {
+    let dir = schema_project();
+    let runtime = schema_runtime();
+
+    let outcome = run(&request(dir.path()), Some(&runtime));
+
+    // The comparison saw the hook's change to the enabled extensions...
+    assert!(!outcome.schema_warnings.is_empty(), "{outcome:?}");
+    // ...from the two compiles of the run: before the files, after the hooks.
+    assert_eq!(handshakes_of(&runtime, "@acme/base"), 2);
+    assert_eq!(handshakes_of(&runtime, "@acme/extra"), 1);
+}
+
+#[specforge_test(
+    behavior = "invoke_extension_migration_hooks",
+    verify = "extension with empty migration_hook field is skipped silently"
+)]
+fn an_empty_hook_name_is_skipped_silently() {
+    let runtime = hooks();
+    let input = MigrationInput {
+        from: "0.9".into(),
+        to: "1.0".into(),
+        files: Vec::new(),
+    };
+
+    let run = invoke_hooks(&[manifest("@acme/a", "")], &runtime, &input);
+
+    assert_eq!(run, (Vec::new(), Vec::new()));
+    assert!(runtime.calls().is_empty(), "{:?}", runtime.calls());
+}
+
+#[specforge_test(
+    behavior = "invoke_extension_migration_hooks",
+    verify = "hook returning error collects diagnostic and continues"
+)]
+fn a_hook_that_answers_an_error_is_recorded_and_the_next_one_runs() {
+    let dir = project_enabling(&["@acme/a", "@acme/b"]);
+    let runtime = InProcessRuntime::new()
+        .with(extension("@acme/a", "migrate_a", &[], |_| {
+            Err("bad data".into())
+        }))
+        .with(extension("@acme/b", "migrate_b", &[], |_| Ok(())));
+
+    let outcome = run(&request(dir.path()), Some(&runtime));
+
+    assert_eq!(outcome.hooks_invoked, ["@acme/b:migrate_b"]);
+    assert_eq!(
+        outcome.hook_failures.len(),
+        1,
+        "{:?}",
+        outcome.hook_failures
+    );
+    assert!(
+        outcome.hook_failures[0].contains("migrate_a() of '@acme/a' trapped")
+            && outcome.hook_failures[0].contains("bad data"),
+        "{:?}",
+        outcome.hook_failures
+    );
+    assert_eq!(hooks_called(&runtime), ["migrate_a", "migrate_b"]);
+    assert!(
+        outcome.rollback.is_some(),
+        "a failed hook rolls the run back"
+    );
+}
+
+#[specforge_test(
+    behavior = "invoke_extension_migration_hooks",
+    verify = "hooks invoked in deterministic extension load order"
+)]
+fn hooks_run_in_dependency_order_every_time() {
+    // `@acme/b` is listed first and peer-depends on `@acme/a`.
+    let order = || {
+        let dir = project_enabling(&["@acme/b", "@acme/a"]);
+        let runtime = InProcessRuntime::new()
+            .with(extension("@acme/b", "migrate_b", &["@acme/a"], |_| Ok(())))
+            .with(extension("@acme/a", "migrate_a", &[], |_| Ok(())));
+        let outcome = run(&request(dir.path()), Some(&runtime));
+        (outcome.hooks_invoked, hooks_called(&runtime))
+    };
+
+    let (first_invoked, first_called) = order();
+    let (second_invoked, second_called) = order();
+
+    assert_eq!(first_called, ["migrate_a", "migrate_b"]);
+    assert_eq!(second_called, first_called);
+    assert_eq!(first_invoked, ["@acme/a:migrate_a", "@acme/b:migrate_b"]);
+    assert_eq!(second_invoked, first_invoked);
+}
+
+#[specforge_test(
+    behavior = "invoke_extension_migration_hooks",
+    verify = "extension in failed lifecycle state has hook skipped"
+)]
+fn an_extension_that_failed_to_load_runs_no_hook() {
+    let dir = project_enabling(&["@acme/broken", "@acme/ok"]);
+    let runtime = InProcessRuntime::new()
+        .with(extension("@acme/broken", "migrate_broken", &[], |_| Ok(())))
+        .with(extension("@acme/ok", "migrate_ok", &[], |_| Ok(())))
+        .answer_raw(
+            "@acme/broken",
+            "__handshake",
+            WasmCallResult::Trap(WasmTrapInfo {
+                kind: "call_failed".into(),
+                message: "the module is broken".into(),
+                export_name: "__handshake".into(),
+            }),
+        );
+
+    let outcome = run(&request(dir.path()), Some(&runtime));
+
+    assert_eq!(outcome.hooks_invoked, ["@acme/ok:migrate_ok"]);
+    assert_eq!(hooks_called(&runtime), ["migrate_ok"]);
+    assert!(
+        outcome.hook_failures.is_empty(),
+        "{:?}",
+        outcome.hook_failures
+    );
+    assert!(
+        outcome
+            .post_diagnostics
+            .iter()
+            .any(|d| d.code == "E028" && d.message.contains("@acme/broken")),
+        "{:?}",
+        outcome.post_diagnostics
+    );
+}
+
+#[specforge_test(
+    behavior = "invoke_extension_migration_hooks",
+    verify = "hook exceeding timeout treated as trap"
+)]
+fn a_hook_over_its_deadline_is_a_trap_and_the_next_one_runs() {
+    // The component runtime enforces the deadline (its own tests prove it);
+    // here the host's reading of the extension's declared limit and of the
+    // trap it answers: a failure of that hook, and the next still runs.
+    let dir = project_enabling(&["@acme/slow", "@acme/b"]);
+    let runtime = InProcessRuntime::new()
+        .with(|| {
+            let mut meta = ExtensionMeta::new("@acme/slow", "1.0.0");
+            meta.sandbox_policy = Some(SandboxPolicy {
+                max_execution_ms: Some(50),
+                ..Default::default()
+            });
+            let mut c = ContributionsBuilder::new(meta);
+            c.migration_hook_handler("migrate_slow", |_| Ok(()));
+            c
+        })
+        .with(extension("@acme/b", "migrate_b", &[], |_| Ok(())))
+        .answer_raw(
+            "@acme/slow",
+            "migrate_slow",
+            WasmCallResult::Trap(WasmTrapInfo {
+                kind: "deadline_exceeded".into(),
+                message: "interrupted".into(),
+                export_name: "migrate_slow".into(),
+            }),
+        );
+
+    let outcome = run(&request(dir.path()), Some(&runtime));
+
+    assert!(
+        runtime
+            .limits()
+            .iter()
+            .any(|(extension, limits)| extension == "@acme/slow" && limits.execution_ms == 50),
+        "{:?}",
+        runtime.limits()
+    );
+    assert_eq!(
+        outcome.hook_failures.len(),
+        1,
+        "{:?}",
+        outcome.hook_failures
+    );
+    assert!(
+        outcome.hook_failures[0].contains("deadline_exceeded"),
+        "{:?}",
+        outcome.hook_failures
+    );
+    assert_eq!(outcome.hooks_invoked, ["@acme/b:migrate_b"]);
+    assert!(outcome.rollback.is_some(), "{outcome:?}");
+}
+
+#[specforge_test(
+    behavior = "invoke_extension_migration_hooks",
+    verify = "validation runs once after both core and extension hooks complete"
+)]
+fn the_project_is_checked_once_after_the_files_and_the_hooks() {
+    let dir = project_with_extension();
+    let file = dir.path().join("old.spec");
+    // The hook sees the file the core migration already rewrote.
+    let runtime = hooked(|input| {
+        let file = &input.files[0];
+        let text = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
+        if !text.starts_with("// specforge-format: 1.0") {
+            return Err(format!("the core migration did not run first: {text}"));
+        }
+        std::fs::write(file, format!("{text}// migrated by @acme/x\n")).map_err(|e| e.to_string())
+    });
+
+    let outcome = run(&request(dir.path()), Some(&runtime));
+
+    assert!(
+        outcome.validated && outcome.rollback.is_none(),
+        "{outcome:?}"
+    );
+    assert!(
+        outcome.hook_failures.is_empty(),
+        "{:?}",
+        outcome.hook_failures
+    );
+    assert!(
+        std::fs::read_to_string(file)
+            .unwrap()
+            .ends_with("// migrated by @acme/x\n")
+    );
+    // One compile before the files, one after the hooks.
+    assert_eq!(handshakes_of(&runtime, "@acme/x"), 2);
 }
