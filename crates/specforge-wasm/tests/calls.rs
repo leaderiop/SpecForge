@@ -259,7 +259,7 @@ fn every_call_encodes_its_input_as_the_protocol_type() {
 
     for golden in ["pass.input.json", "pass.check.input.json"] {
         let input: PassInput = typed(&wire(golden));
-        let encoded = ExtensionCalls::encode(&input).unwrap();
+        let encoded = ExtensionCalls::encode(&input);
         calls.run_pass(EXT, "audit", &encoded).unwrap();
         assert_eq!(sent(&runtime), wire(golden), "{golden}");
         assert_eq!(received("__pass_audit"), wire(golden), "{golden}");
@@ -295,7 +295,7 @@ fn every_call_decodes_the_protocol_type() {
     let runtime = runtime();
     let calls = ExtensionCalls::new(&runtime);
 
-    let handshake = calls.handshake(EXT).unwrap();
+    let handshake = calls.handshake(EXT).unwrap().response;
     assert_eq!(handshake, extension().declaration().handshake);
     let describe = calls.describe(EXT, "entities").unwrap();
     assert_eq!(describe.category, "entities");
@@ -318,7 +318,7 @@ fn every_call_decodes_the_protocol_type() {
             .unwrap(),
         resource_answer("u://r")
     );
-    let input = ExtensionCalls::encode(&PassInput::default()).unwrap();
+    let input = ExtensionCalls::encode(&PassInput::default());
     assert_eq!(calls.run_pass(EXT, "audit", &input).unwrap(), pass_answer());
     assert_eq!(
         calls
@@ -376,7 +376,7 @@ fn perform(calls: &ExtensionCalls, operation: Operation, extension: &str) -> Res
             .read_mcp_resource(extension, export, "u://r")
             .map(drop),
         Operation::Pass => {
-            let input = ExtensionCalls::encode(&PassInput::default()).unwrap();
+            let input = ExtensionCalls::encode(&PassInput::default());
             calls.run_pass(extension, "audit", &input).map(drop)
         }
         Operation::Collect => calls
@@ -599,7 +599,7 @@ fn unknown_fields_are_ignored_and_absent_optional_fields_default() {
         "__pass_audit",
         r#"[{"code":"W1","severity":"Warning","message":"m","newer":1}]"#,
     );
-    let input = ExtensionCalls::encode(&PassInput::default()).unwrap();
+    let input = ExtensionCalls::encode(&PassInput::default());
     let output = ExtensionCalls::new(&runtime)
         .run_pass(EXT, "audit", &input)
         .unwrap();
@@ -645,7 +645,10 @@ fn unknown_fields_are_ignored_and_absent_optional_fields_default() {
         "__handshake",
         r#"{"protocol_version":"1.0.0","name":"@calls/x","version":"1.0.0","contribution_flags":{},"peer_dependencies":[],"newer":1}"#,
     );
-    let handshake = ExtensionCalls::new(&runtime).handshake(EXT).unwrap();
+    let handshake = ExtensionCalls::new(&runtime)
+        .handshake(EXT)
+        .unwrap()
+        .response;
     assert_eq!(handshake.sandbox_policy, None);
     assert_eq!(handshake.starter_template, None);
 }
@@ -667,7 +670,7 @@ fn span(line: usize) -> SourceSpan {
 fn a_pass_answer_is_bare_or_with_a_summary_and_its_diagnostics_are_canonical() {
     let runtime = runtime();
     let calls = ExtensionCalls::new(&runtime);
-    let input = ExtensionCalls::encode(&PassInput::default()).unwrap();
+    let input = ExtensionCalls::encode(&PassInput::default());
     let with_summary = calls.run_pass(EXT, "audit", &input).unwrap();
     assert_eq!(with_summary.summary["audited"], 2);
     let bare = calls.run_pass(EXT, "bare", &input).unwrap();
@@ -817,13 +820,11 @@ fn a_host_input_that_does_not_encode_is_never_sent() {
             Err(serde::ser::Error::custom("no"))
         }
     }
-    let failure = ExtensionCalls::encode(&Unencodable).unwrap_err();
-    assert_eq!(
-        failure,
-        CallFailure::Unencodable {
-            reason: "no".into()
-        }
-    );
+    let encoded = ExtensionCalls::encode(&Unencodable);
+    let failure = CallFailure::Unencodable {
+        reason: "no".into(),
+    };
+    assert_eq!(encoded.failure(), Some(&failure));
     let err = CallError::new(Operation::Pass, EXT, "__pass_audit", failure);
     assert_eq!(
         err.to_string(),

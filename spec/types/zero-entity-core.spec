@@ -38,9 +38,9 @@ type HandshakeResponse {
   version            string           @readonly
   contribution_flags ContributionFlags
   peer_dependencies  PeerDependency[] @optional
-  // Absent: the host applies its own deny-by-default policy
+  // Absent: the host's ceiling holds the extension (30000 ms, 512 MB)
   sandbox_policy     SandboxPolicy    @optional
-  // Text of the starter .spec file scaffold_starter_spec_file writes; {project} stands for the project id
+  // Text of the starter .spec file scaffold_starter_spec_file writes; {project} stands for the project id and {version} for its version
   starter_template   string           @optional
   // Wasm function name to invoke during `specforge migrate` for this extension
   migration_hook     string           @optional
@@ -170,7 +170,8 @@ type AnalyzerDescriptor {
 
 type FieldDescriptor {
   name                string                 @readonly
-  field_type          ManifestFieldType      @readonly
+  /// A FieldType name or an accepted older spelling; any other is W019.
+  field_type          string                 @readonly
   required            boolean                @optional
   description         string                 @optional
   edge                string                 @optional
@@ -207,27 +208,25 @@ type ProofRole = bound | claim
 // the entity's type-syntax field values, or in its method signatures.
 type DerivedReferenceSource = type_expressions | method_signatures
 
-// ManifestFieldType covers field types available in .spec DSL syntax for
-// extension-declared fields, enhancement fields included. The block_type
-// variant corresponds to
-// triple-quoted string blocks which have a dedicated grammar rule.
+// FieldType: how the host reads a field's value (FieldType in
+// specforge-protocol-types). Every output names a field type by these
+// names: the declaration, the Graph Protocol schema and exports, the
+// published JSON Schema, the model, the hover and E061 (ADR 0034). The
+// host also reads the older spellings — each name with a `_type` suffix,
+// and "boolean" — and never writes them.
 //
 // verify is NOT a field type — it is a grammar-level construct parsed by a
 // dedicated rule (parse_verify_statements). Whether an entity kind supports
 // verify is declared via the supports_verify flag on EntityKindDescriptor, not
 // via field type registration.
-//
-// On the wire the names drop the _type suffix (string, bool, block, ...;
-// FieldType in specforge-protocol-types); the suffixed spellings and
-// "boolean" are read as aliases.
-type ManifestFieldType = string_type
-  | integer_type
-  | bool_type
-  | enum_type
-  | string_list_type
-  | reference_type
-  | reference_list_type
-  | block_type
+type FieldType = "string"
+  | "integer"
+  | "bool"
+  | "enum"
+  | "string_list"
+  | "reference"
+  | "reference_list"
+  | "block"
 
 // A validation rule as an extension declares it (the protocol's
 // ValidationRuleDescriptor). The registry build turns it into a typed rule
@@ -290,7 +289,10 @@ type CustomCall {
 type FieldRegistryEntry {
   kind_name           string                 @readonly
   field_name          string                 @readonly
-  field_type          ManifestFieldType      @readonly
+  /// Built only from a descriptor whose type the host reads, named
+  /// canonically; its enum values and proof role are the descriptor's.
+  field_type          FieldType              @readonly
+  enum_values         string[]               @optional
   source_extension    string                 @readonly
   edge                string                 @optional
   target_kind         string                 @optional

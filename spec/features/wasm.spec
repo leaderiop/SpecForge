@@ -19,7 +19,9 @@ feature wasm_extension_runtime "Wasm Extension Runtime" {
     Wasm components (wasmtime Component Model) as the sole extension runtime. Extensions compile to .wasm
     binaries. The compiler loads modules, validates peer dependencies,
     initializes in topological order, calls validators, and handles traps
-    gracefully — failed extensions do not affect others.
+    gracefully — failed extensions do not affect others. Each extension
+    runs with no capability and within the limits its handshake declares
+    (enforce_wasm_sandbox, configure_sandbox_policy).
   """
 }
 
@@ -34,10 +36,9 @@ feature wasm_host_function_api "Wasm Host Function API" {
   solution """
     Seven host functions (specforge.query_graph, specforge.emit_diagnostic,
     specforge.add_graph_node, specforge.add_graph_edge, specforge.read_file,
-    specforge.emit_file, specforge.http_get) plus the supporting behaviors
-    for sandbox enforcement (enforce_wasm_sandbox, configure_sandbox_policy)
-    providing linear memory limits,
-    fuel metering, filesystem restrictions, and domain allowlists. The
+    specforge.emit_file, specforge.http_get) with the per-call-site
+    permissions they check (planned; the sandbox itself grants none,
+    ADR 0037). The
     emit_file host function is restricted to non-code outputs only (reports,
     dashboards, traceability matrices, graph visualizations) — extensions
     MUST NOT use it to generate source code, configuration files, or
@@ -45,9 +46,7 @@ feature wasm_host_function_api "Wasm Host Function API" {
     Sandbox policy is computed by merging defaults, manifest, and project
     overrides. Host functions are synchronous leaf operations and
     intentionally produce no events — traceability comes from the calling
-    behavior's events. Debug-level tracing of individual host function
-    calls is available via the sandbox fuel metering counters reported in
-    extension lifecycle diagnostics.
+    behavior's events.
     Status: planned (milestone wasm_host_functions). The component
     runtime's bridge world imports none of these functions today; the
     Extism runtime registered three (emit_diagnostic, query_graph,

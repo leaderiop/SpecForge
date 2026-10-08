@@ -11,6 +11,9 @@ use specforge_registry::FieldRegistry;
 use std::collections::BTreeMap;
 use tower_lsp::lsp_types::Position;
 
+/// The rule between the sections of a hover.
+pub const SECTION: &str = "\n\n---\n\n";
+
 /// The published diagnostics whose range (in the document `index`
 /// indexes) holds `position`, in published order.
 pub fn diagnostics_at<'d>(
@@ -62,7 +65,7 @@ pub fn diagnostics(shown: &[&Diagnostic]) -> Option<String> {
             },
         )
         .collect();
-    (!sections.is_empty()).then(|| sections.join("\n\n---\n\n"))
+    (!sections.is_empty()).then(|| sections.join(SECTION))
 }
 
 /// Markdown for an entity's facts:
@@ -195,7 +198,7 @@ pub fn entity(facts: &EntityFacts, shown: &[&Diagnostic], rebuilding: bool) -> S
         ));
     }
 
-    sections.join("\n\n---\n\n")
+    sections.join(SECTION)
 }
 
 /// Whether `value` is the headline statement: the very string the read
@@ -266,7 +269,7 @@ fn coverage_line(facts: &EntityFacts, rebuilding: bool) -> Option<String> {
         Err(error) => {
             return Some(format!(
                 "the recorded test report cannot be read ({}): {error}",
-                specforge_common::codes::E045
+                error.code
             ));
         }
     };
@@ -300,10 +303,10 @@ pub fn hover_field_info(
 ) -> Option<String> {
     let entry = field_registry.get(entity_kind, field_name)?;
 
-    let type_str = format_field_type(&entry.field_type);
+    let type_str = entry.type_label();
 
     // First line: field name + type, with optional target kind on same line
-    let first_line = if let Some(ref target) = entry.declared.target_kind {
+    let first_line = if let Some(ref target) = entry.declared().target_kind {
         format!("**`{}`** : {} → **{}**", field_name, type_str, target)
     } else {
         format!("**`{}`** : {}", field_name, type_str)
@@ -311,12 +314,12 @@ pub fn hover_field_info(
 
     let mut parts = vec![first_line];
 
-    if let Some(ref desc) = entry.declared.description {
+    if let Some(ref desc) = entry.declared().description {
         parts.push(desc.clone());
     }
 
     // Edge and required on same line
-    match (&entry.declared.edge, entry.declared.required) {
+    match (&entry.declared().edge, entry.declared().required) {
         (Some(edge_name), true) => {
             parts.push(format!("Edge `{}` · *required*", edge_name));
         }
@@ -329,7 +332,7 @@ pub fn hover_field_info(
         (None, false) => {}
     }
 
-    parts.push(format!("*{}*", entry.source_extension));
+    parts.push(format!("*{}*", entry.source_extension()));
 
     Some(parts.join("  \n"))
 }
@@ -402,18 +405,5 @@ fn format_field_value(fv: &FieldValue) -> String {
                 format!("{}; … +{}", items[..3].join("; "), items.len() - 3)
             }
         }
-    }
-}
-
-fn format_field_type(ft: &specforge_registry::ManifestFieldType) -> &'static str {
-    match ft {
-        specforge_registry::ManifestFieldType::String => "string",
-        specforge_registry::ManifestFieldType::Integer => "integer",
-        specforge_registry::ManifestFieldType::Bool => "bool",
-        specforge_registry::ManifestFieldType::Enum(_) => "enum",
-        specforge_registry::ManifestFieldType::StringList => "string_list",
-        specforge_registry::ManifestFieldType::Reference => "reference",
-        specforge_registry::ManifestFieldType::ReferenceList => "reference_list",
-        specforge_registry::ManifestFieldType::Block => "block",
     }
 }

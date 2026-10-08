@@ -88,13 +88,12 @@ pub fn json_schema(view: &ProjectView, format: export::Format) -> Result<String,
 }
 
 /// The view's versioned schema, as `request` selects it. A kind no loaded
-/// extension declares is `unknown_kind`, naming the closest one.
+/// extension declares is `unknown_kind` ([`ProjectView::kinds`]), naming the
+/// closest one.
 pub fn schema(view: &ProjectView, request: &SchemaRequest) -> Result<SchemaOutcome, OpError> {
     let mut schema = view.versioned_schema();
     if let Some(kind) = request.kind {
-        if !schema.entity_kinds.iter().any(|entry| entry.name == kind) {
-            return Err(unknown_kind(kind, &schema));
-        }
+        view.kinds().declared(kind)?;
         schema.entity_kinds.retain(|entry| entry.name == kind);
         schema.edge_types.retain(|edge| touches(edge, kind));
     }
@@ -121,19 +120,6 @@ pub fn schema(view: &ProjectView, request: &SchemaRequest) -> Result<SchemaOutco
         edges: request.edges,
         validation_rules,
     })
-}
-
-fn unknown_kind(kind: &str, schema: &GraphProtocolSchema) -> OpError {
-    let error = OpError::new(
-        OpErrorKind::InvalidInput,
-        "unknown_kind",
-        format!("unknown entity kind: '{kind}'"),
-    );
-    let known = schema.entity_kinds.iter().map(|entry| entry.name.as_str());
-    match specforge_common::suggest::find_close_match(kind, known) {
-        Some(close) => error.with_suggestion(format!("did you mean '{close}'?")),
-        None => error,
-    }
 }
 
 /// Whether an edge type can start or end at `kind`. An edge that names no

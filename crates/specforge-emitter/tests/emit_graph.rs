@@ -222,15 +222,15 @@ fn graph_format_scoped_nonexistent_entity_produces_e001() {
         methods: Vec::new(),
     });
 
-    let err = specforge_emitter::scope::emit_json_scoped(&graph, "nonexistent").unwrap_err();
+    let err = crate::support::scoped_json(&graph, "nonexistent").unwrap_err();
     assert_eq!(
         err.to_string(),
-        "E003: unresolved scope entity 'nonexistent' — entity not found in graph"
+        "unresolved entity 'nonexistent' — not found in graph"
     );
-    assert_eq!(err.exit_code(), 1);
+    assert_eq!(err.code(), Some(specforge_diagnostics::codes::E003));
 
     // The call `specforge export --format graph --no-schema --scope` makes:
-    // the same E003, and the exit code the command returns for it.
+    // the same E003.
     let err = specforge_emitter::emit(
         &graph,
         &specforge_emitter::EmitOptions {
@@ -241,9 +241,9 @@ fn graph_format_scoped_nonexistent_entity_produces_e001() {
     .unwrap_err();
     assert_eq!(
         err.to_string(),
-        "E003: unresolved scope entity 'nonexistent' — entity not found in graph"
+        "unresolved entity 'nonexistent' — not found in graph"
     );
-    assert_eq!(err.exit_code(), 1);
+    assert_eq!(err.code(), Some(specforge_diagnostics::codes::E003));
 }
 
 // B:export_agent_graph_format — verify integration "structural-only graph exports valid JSON with raw keyword strings as entity kinds"

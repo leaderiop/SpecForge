@@ -1,63 +1,10 @@
 use serde::Serialize;
 use sha2::{Digest, Sha256};
-use specforge_common::{Diagnostic, Severity, codes, find_project_root, load_project_config};
+use specforge_common::{Diagnostic, Severity, codes, load_project_config, project_root_of};
 use specforge_emitter::schema::{GraphProtocolSchema, SchemaMigration, diff_schemas};
 use specforge_formatter::unified_diff;
-use std::fmt;
+use specforge_parser::{FORMAT_HEADER_PREFIX, FormatVersion, detect_format_version};
 use std::path::{Path, PathBuf};
-use std::str::FromStr;
-
-// ---------------------------------------------------------------------------
-// Format Version
-// ---------------------------------------------------------------------------
-
-/// The DSL format version embedded in spec file headers.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize)]
-pub struct FormatVersion {
-    pub major: u32,
-    pub minor: u32,
-}
-
-/// Current format version. All new spec files are at this version.
-pub const CURRENT_FORMAT_VERSION: FormatVersion = FormatVersion { major: 1, minor: 0 };
-
-/// Minimum supported format version for migration.
-pub const MIN_SUPPORTED_VERSION: FormatVersion = FormatVersion { major: 1, minor: 0 };
-
-/// Maximum supported target version.
-pub const MAX_SUPPORTED_VERSION: FormatVersion = FormatVersion { major: 1, minor: 0 };
-
-impl fmt::Display for FormatVersion {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}.{}", self.major, self.minor)
-    }
-}
-
-impl FromStr for FormatVersion {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let parts: Vec<&str> = s.split('.').collect();
-        match parts.len() {
-            1 => {
-                let major = parts[0]
-                    .parse::<u32>()
-                    .map_err(|e| format!("invalid version: {e}"))?;
-                Ok(FormatVersion { major, minor: 0 })
-            }
-            2 => {
-                let major = parts[0]
-                    .parse::<u32>()
-                    .map_err(|e| format!("invalid major: {e}"))?;
-                let minor = parts[1]
-                    .parse::<u32>()
-                    .map_err(|e| format!("invalid minor: {e}"))?;
-                Ok(FormatVersion { major, minor })
-            }
-            _ => Err(format!("expected MAJOR.MINOR, got '{s}'")),
-        }
-    }
-}
 
 // ---------------------------------------------------------------------------
 // Migration Types
@@ -106,7 +53,6 @@ pub struct MigrationSummary {
     pub target_version: FormatVersion,
     pub results: Vec<MigrationResult>,
     pub backups: Vec<MigrationBackup>,
-    pub diagnostics: Vec<Diagnostic>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub diffs: Vec<MigrationDiff>,
 }
@@ -119,67 +65,6 @@ pub struct RollbackSummary {
     pub results: Vec<MigrationResult>,
     /// One warning per file skipped because its `.bak` backup is missing.
     pub warnings: Vec<String>,
-}
-
-// ---------------------------------------------------------------------------
-// Version Detection
-// ---------------------------------------------------------------------------
-
-const FORMAT_HEADER_PREFIX: &str = "// specforge-format: ";
-
-/// Detect the format version from a spec file's content.
-/// Returns the detected version (or default) and any diagnostics.
-pub fn detect_format_version(content: &str) -> (FormatVersion, Vec<Diagnostic>) {
-    let mut diagnostics = Vec::new();
-
-    let first_line = content.lines().find(|l| !l.trim().is_empty());
-
-    if let Some(version_str) = first_line.and_then(|line| line.strip_prefix(FORMAT_HEADER_PREFIX)) {
-        let version_str = version_str.trim();
-        match FormatVersion::from_str(version_str) {
-            Ok(v) => {
-                if v > MAX_SUPPORTED_VERSION {
-                    diagnostics.push(
-                        Diagnostic::new(
-                            codes::E019,
-                            format!(
-                                "unsupported format version {v} (max supported: {MAX_SUPPORTED_VERSION})"
-                            ),
-                        )
-                        .with_suggestion(format!(
-                            "Use a format version between {MIN_SUPPORTED_VERSION} and {MAX_SUPPORTED_VERSION}."
-                        )),
-                    );
-                } else if v < MIN_SUPPORTED_VERSION {
-                    diagnostics.push(
-                        Diagnostic::new(
-                            codes::I007,
-                            format!(
-                                "format version {v} is older than current ({CURRENT_FORMAT_VERSION}); migration available"
-                            ),
-                        )
-                        .with_suggestion("Run `specforge migrate` to upgrade.".to_string()),
-                    );
-                }
-                return (v, diagnostics);
-            }
-            Err(_) => {
-                diagnostics.push(
-                    Diagnostic::new(
-                        codes::E019,
-                        format!("invalid format version header: '{version_str}'"),
-                    )
-                    .with_suggestion(format!(
-                        "Expected `// specforge-format: MAJOR.MINOR` (e.g., `// specforge-format: {CURRENT_FORMAT_VERSION}`)."
-                    )),
-                );
-                return (MIN_SUPPORTED_VERSION, diagnostics);
-            }
-        }
-    }
-
-    // No header found — default to current version (files without headers are current)
-    (CURRENT_FORMAT_VERSION, diagnostics)
 }
 
 // ---------------------------------------------------------------------------
@@ -204,9 +89,9 @@ fn set_format_version_header(content: &str, version: &FormatVersion) -> String {
     format!("{new_header}\n{content}")
 }
 
-/// Transform content from one version to the next.
+/// Transform content to version `to`.
 /// Currently v1 is the only version, so this just ensures the header is set.
-fn transform_content(content: &str, _from: &FormatVersion, to: &FormatVersion) -> String {
+fn transform_content(content: &str, to: &FormatVersion) -> String {
     set_format_version_header(content, to)
 }
 
@@ -221,19 +106,8 @@ fn sha256_hash(content: &str) -> String {
 }
 
 // ---------------------------------------------------------------------------
-// Pre-Migration Schema Snapshot
+// Schema and Graph Comparison
 // ---------------------------------------------------------------------------
-
-#[derive(Debug, Clone)]
-pub struct PreMigrationSnapshot {
-    pub schema: GraphProtocolSchema,
-}
-
-pub fn capture_pre_migration_snapshot(schema: &GraphProtocolSchema) -> PreMigrationSnapshot {
-    PreMigrationSnapshot {
-        schema: schema.clone(),
-    }
-}
 
 /// Compare pre/post migration schemas and return breaking change diagnostics.
 pub fn check_schema_compatibility(
@@ -371,44 +245,25 @@ fn comparable_fields(
 }
 
 // ---------------------------------------------------------------------------
-// Extension Hook Runner (trait for testability)
-// ---------------------------------------------------------------------------
-
-#[allow(dead_code)]
-pub trait MigrationHookRunner {
-    fn invoke(
-        &self,
-        extension_name: &str,
-        hook: &str,
-        from: &FormatVersion,
-        to: &FormatVersion,
-    ) -> Result<(), String>;
-}
-
-/// Mock hook runner for testing.
-#[allow(dead_code)]
-pub struct NoOpMigrationHookRunner;
-
-#[allow(dead_code)]
-impl MigrationHookRunner for NoOpMigrationHookRunner {
-    fn invoke(
-        &self,
-        _extension_name: &str,
-        _hook: &str,
-        _from: &FormatVersion,
-        _to: &FormatVersion,
-    ) -> Result<(), String> {
-        Ok(())
-    }
-}
-
-// ---------------------------------------------------------------------------
 // Core Migration Logic
 // ---------------------------------------------------------------------------
 
-/// Run migration on a single file. Returns the result and optionally a diff.
-pub fn migrate_file(
+/// `path` from `root`, `/`-separated; `path` itself when it is not under `root`.
+fn diff_label(path: &Path, root: &Path) -> String {
+    let relative = path.strip_prefix(root).unwrap_or(path);
+    relative
+        .components()
+        .map(|c| c.as_os_str().to_string_lossy())
+        .collect::<Vec<_>>()
+        .join("/")
+}
+
+/// Run migration on a single file of the project at `root`. Returns the result,
+/// the backup it made and the diff, which labels the file with its path from
+/// `root` so that `patch -p1` applies it there.
+fn migrate_file(
     path: &Path,
+    root: &Path,
     target_version: &FormatVersion,
     dry_run: bool,
     no_backup: bool,
@@ -418,6 +273,7 @@ pub fn migrate_file(
     Option<MigrationDiff>,
 ) {
     let path_str = path.display().to_string();
+    let label = diff_label(path, root);
 
     // Read file
     let content = match std::fs::read_to_string(path) {
@@ -438,7 +294,7 @@ pub fn migrate_file(
     };
 
     // Detect version; a header this build can't read fails the file.
-    let (detected_version, diags) = detect_format_version(&content);
+    let (detected_version, diags) = detect_format_version(&content, &path_str);
     if let Some(error) = diags.iter().find(|d| d.severity == Severity::Error) {
         let guidance = error
             .suggestion
@@ -474,16 +330,16 @@ pub fn migrate_file(
     }
 
     // Transform
-    let transformed = transform_content(&content, &detected_version, target_version);
+    let transformed = transform_content(&content, target_version);
 
     // Build diff
     let diff = if content != transformed {
-        let diff_text = unified_diff(&format!("a/{path_str}"), &content, &transformed);
+        let diff_text = unified_diff(&format!("a/{label}"), &content, &transformed);
         // unified_diff uses the same path for both --- and +++.
         // We need +++ to use b/ prefix per POSIX convention.
         let unified_text = diff_text
             .diff_text
-            .replace(&format!("+++ a/{path_str}"), &format!("+++ b/{path_str}"));
+            .replace(&format!("+++ a/{label}"), &format!("+++ b/{label}"));
         Some(MigrationDiff {
             file_path: path_str.clone(),
             before_hash: sha256_hash(&content),
@@ -580,7 +436,7 @@ pub fn migrate_file(
 /// Run rollback: restore `.spec.bak` files to their originals.
 pub fn run_rollback(path: &Path) -> RollbackSummary {
     // The project's sources, then their .bak counterparts.
-    let targets = project_sources(path);
+    let targets = project_sources(&project_root_of(path));
 
     let mut results = Vec::new();
     let mut restored = 0;
@@ -669,12 +525,11 @@ pub fn run_rollback(path: &Path) -> RollbackSummary {
     }
 }
 
-/// The sources of the project `path` is in (else of `path` itself): the
+/// The sources of the project at `project_root`: the
 /// files a compile reads, under `spec_root` without what `exclude` leaves
 /// out (ADR 0021 D3).
-fn project_sources(path: &Path) -> Vec<PathBuf> {
-    let project_root = find_project_root(path).unwrap_or_else(|| path.to_path_buf());
-    load_project_config(&project_root).spec_files(&project_root)
+fn project_sources(project_root: &Path) -> Vec<PathBuf> {
+    load_project_config(project_root).spec_files(project_root)
 }
 
 /// Migrate every source of the project `path` is in.
@@ -684,18 +539,24 @@ pub fn migrate_project(
     dry_run: bool,
     no_backup: bool,
 ) -> MigrationSummary {
-    let targets = project_sources(path);
+    let project_root = project_root_of(path);
+    let targets = project_sources(&project_root);
 
     let mut results = Vec::new();
     let mut backups = Vec::new();
     let mut diffs = Vec::new();
-    let diagnostics: Vec<Diagnostic> = Vec::new();
     let mut migrated = 0;
     let mut skipped = 0;
     let mut failed = 0;
 
     for target_path in &targets {
-        let (result, backup, diff) = migrate_file(target_path, target_version, dry_run, no_backup);
+        let (result, backup, diff) = migrate_file(
+            target_path,
+            &project_root,
+            target_version,
+            dry_run,
+            no_backup,
+        );
 
         match result.status {
             MigrationStatus::Migrated => migrated += 1,
@@ -720,7 +581,6 @@ pub fn migrate_project(
         target_version: target_version.clone(),
         results,
         backups,
-        diagnostics,
         diffs,
     }
 }

@@ -28,9 +28,11 @@ use specforge_protocol_types::{
     HandshakeRequest, HandshakeResponse, McpResourceContent, McpResourceRequest, MigrationInput,
     PROTOCOL_VERSION, PassAnswer, PassDiagnostic, PassInput, PassOutput, PassSeverity, PassSpan,
     RawGraph, SUPPORTED_CATEGORIES, ScanRequest, ScanResponse, ValidatorContext, ValidatorVerdict,
+    pass_export,
 };
 
 use crate::runtime::{WasmCallResult, WasmRuntime};
+use crate::sandbox::Sandbox;
 
 /// The operation a call performs.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -92,7 +94,8 @@ pub enum CallFailure {
     NotLoaded,
     /// The export did not answer: it trapped, the guest returned an error
     /// (`guest_error`, which an export the guest does not route is too), or
-    /// its time ran out (`deadline_exceeded`).
+    /// it crossed a limit of its sandbox: its time (`deadline_exceeded`), its
+    /// fuel (`fuel_exhausted`) or its memory (`memory_limit_exceeded`).
     Trapped { kind: String, message: String },
     /// The export answered, but not the protocol type it owes.
     Malformed {
@@ -162,18 +165,28 @@ impl fmt::Display for CallError {
 impl std::error::Error for CallError {}
 
 /// An input encoded once, to send to many exports (one pass input, every
-/// pass).
+/// pass), or why it did not encode (a host bug): a call given it then fails
+/// with [`CallFailure::Unencodable`] naming that call's export, and nothing
+/// is sent.
 #[derive(Debug, Clone)]
 pub struct Encoded<T> {
-    bytes: Vec<u8>,
+    bytes: Result<Vec<u8>, CallFailure>,
     _type: PhantomData<fn(&T)>,
 }
 
 impl<T> Encoded<T> {
-    /// The encoded bytes, as the guest receives them.
-    pub fn as_bytes(&self) -> &[u8] {
-        &self.bytes
+    /// Why the input did not encode, if it did not.
+    pub fn failure(&self) -> Option<&CallFailure> {
+        self.bytes.as_ref().err()
     }
+}
+
+/// An extension's handshake, and the sandbox its `sandbox_policy` reads as
+/// (the limits the loader applies, and what the host does not honour).
+#[derive(Debug, Clone)]
+pub struct Handshake {
+    pub response: HandshakeResponse,
+    pub sandbox: Sandbox,
 }
 
 /// The operations on loaded extensions, over a runtime; see the module
@@ -188,44 +201,41 @@ impl<'r> ExtensionCalls<'r> {
         ExtensionCalls { runtime }
     }
 
-    /// `value` encoded once, for [`Self::run_pass`]. Err: it does not
-    /// encode (a host bug), to report as each call's
-    /// [`CallFailure::Unencodable`].
-    pub fn encode<T: Serialize>(value: &T) -> Result<Encoded<T>, CallFailure> {
-        serde_json::to_vec(value)
-            .map(|bytes| Encoded {
-                bytes,
-                _type: PhantomData,
-            })
-            .map_err(|e| CallFailure::Unencodable {
+    /// `value` encoded once, for [`Self::run_pass`]. Never fails: a value
+    /// that does not encode is kept as its failure, for each call to report.
+    pub fn encode<T: Serialize>(value: &T) -> Encoded<T> {
+        Encoded {
+            bytes: serde_json::to_vec(value).map_err(|e| CallFailure::Unencodable {
                 reason: e.to_string(),
-            })
+            }),
+            _type: PhantomData,
+        }
     }
 
-    /// `__handshake`: the extension's identity and what it declares. The
-    /// wall-clock budget it declares (`sandbox_policy.max_execution_ms`)
-    /// gates its later calls.
-    pub fn handshake(&self, extension: &str) -> Result<HandshakeResponse, CallError> {
+    /// `__handshake`: the extension's identity and what it declares, with the
+    /// sandbox reading its `sandbox_policy` gives. Reading it applies
+    /// nothing; the loader applies the limits
+    /// ([`crate::protocol::load_declaration`]).
+    pub fn handshake(&self, extension: &str) -> Result<Handshake, CallError> {
         let request = HandshakeRequest {
             host_version: PROTOCOL_VERSION.to_string(),
             supported_categories: SUPPORTED_CATEGORIES.iter().map(|s| s.to_string()).collect(),
         };
-        let response: HandshakeResponse = self.call_typed(
-            Operation::Handshake,
+        let export = "__handshake";
+        let operation = Operation::Handshake;
+        let bytes = encode(operation, extension, export, &request)?;
+        let answer = self.call_raw(operation, extension, export, &bytes)?;
+        let response: HandshakeResponse =
+            decode(operation, extension, export, &answer, "HandshakeResponse")?;
+        // The same bytes read as a value cannot fail once the typed decode
+        // succeeded: the sandbox reads the policy as sent.
+        let wire: Value = serde_json::from_slice(&answer).expect("a decoded handshake is JSON");
+        let sandbox = Sandbox::of(
             extension,
-            "__handshake",
-            &request,
-            "HandshakeResponse",
-        )?;
-        if let Some(ms) = response
-            .sandbox_policy
-            .as_ref()
-            .and_then(|policy| policy.max_execution_ms)
-        {
-            self.runtime
-                .set_execution_deadline_ms(extension, u64::from(ms));
-        }
-        Ok(response)
+            wire.get("sandbox_policy")
+                .filter(|policy| !policy.is_null()),
+        );
+        Ok(Handshake { response, sandbox })
     }
 
     /// `__describe` of `category`.
@@ -295,22 +305,21 @@ impl<'r> ExtensionCalls<'r> {
         )
     }
 
-    /// The pass `pass`'s `__pass_<pass>` export on `input`: its diagnostics,
-    /// with its summary (empty for a bare answer).
+    /// The pass `pass`'s export ([`pass_export`]) on `input`: its
+    /// diagnostics, with its summary (empty for a bare answer). An input
+    /// that did not encode is this call's `Unencodable` failure.
     pub fn run_pass(
         &self,
         extension: &str,
         pass: &str,
         input: &Encoded<PassInput>,
     ) -> Result<PassOutput, CallError> {
-        let export = format!("__pass_{pass}");
-        let answer: PassAnswer = self.call(
-            Operation::Pass,
-            extension,
-            &export,
-            input.as_bytes(),
-            "PassAnswer",
-        )?;
+        let export = pass_export(pass);
+        let bytes = input.bytes.as_ref().map_err(|failure| {
+            CallError::new(Operation::Pass, extension, &export, failure.clone())
+        })?;
+        let answer: PassAnswer =
+            self.call(Operation::Pass, extension, &export, bytes, "PassAnswer")?;
         Ok(answer.into_output())
     }
 
@@ -392,17 +401,7 @@ impl<'r> ExtensionCalls<'r> {
         expected: &'static str,
     ) -> Result<O, CallError> {
         let answer = self.call_raw(operation, extension, export, bytes)?;
-        serde_json::from_slice(&answer).map_err(|e| {
-            CallError::new(
-                operation,
-                extension,
-                export,
-                CallFailure::Malformed {
-                    expected,
-                    reason: e.to_string(),
-                },
-            )
-        })
+        decode(operation, extension, export, &answer, expected)
     }
 
     fn call_raw(
@@ -429,6 +428,27 @@ impl<'r> ExtensionCalls<'r> {
     }
 }
 
+/// Decode an export's `answer` as the protocol type `expected` names.
+fn decode<O: DeserializeOwned>(
+    operation: Operation,
+    extension: &str,
+    export: &str,
+    answer: &[u8],
+    expected: &'static str,
+) -> Result<O, CallError> {
+    serde_json::from_slice(answer).map_err(|e| {
+        CallError::new(
+            operation,
+            extension,
+            export,
+            CallFailure::Malformed {
+                expected,
+                reason: e.to_string(),
+            },
+        )
+    })
+}
+
 fn encode<T: Serialize>(
     operation: Operation,
     extension: &str,
@@ -436,7 +456,7 @@ fn encode<T: Serialize>(
     input: &T,
 ) -> Result<Vec<u8>, CallError> {
     ExtensionCalls::encode(input)
-        .map(|encoded| encoded.bytes)
+        .bytes
         .map_err(|failure| CallError::new(operation, extension, export, failure))
 }
 
@@ -502,5 +522,37 @@ fn source_span(span: PassSpan) -> SourceSpan {
         start_col: span.start_col,
         end_line: span.end_line,
         end_col: span.end_col,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::testing::InProcessRuntime;
+
+    #[specforge_test_macros::test(
+        behavior = "call_extension_exports",
+        verify = "a pass input that does not encode fails each pass's call, naming its export, and nothing is sent"
+    )]
+    fn a_pass_input_that_does_not_encode_fails_each_pass_without_a_call() {
+        let runtime = InProcessRuntime::new();
+        let calls = ExtensionCalls::new(&runtime);
+        let input = Encoded::<PassInput> {
+            bytes: Err(CallFailure::Unencodable {
+                reason: "no".to_string(),
+            }),
+            _type: PhantomData,
+        };
+        for (pass, export) in [("a", "__pass_a"), ("b", "__pass_b")] {
+            let error = calls.run_pass("@t/x", pass, &input).unwrap_err();
+            assert_eq!(error.export, export);
+            assert!(
+                error
+                    .to_string()
+                    .ends_with("was not called: its input does not encode: no"),
+                "{error}"
+            );
+        }
+        assert!(runtime.calls().is_empty(), "nothing is sent");
     }
 }

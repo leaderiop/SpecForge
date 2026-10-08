@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use specforge_component::{ComponentRuntime, project_runtime};
+use specforge_component::ComponentRuntime;
 use specforge_project::CompiledProject;
 
 /// Compile the project at `path` with its extensions, and the runtime they
@@ -9,7 +9,7 @@ use specforge_project::CompiledProject;
 /// (extension passes, source scanning, collectors) reuse the runtime
 /// rather than building one per stage.
 pub fn compile_project(path: &Path) -> (CompiledProject, ComponentRuntime) {
-    let runtime = project_runtime(path);
+    let runtime = ComponentRuntime::with_user_cache();
     let project = CompiledProject::compile(path, Some(&runtime));
     (project, runtime)
 }

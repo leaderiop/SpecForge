@@ -4,7 +4,7 @@
 
 use specforge_common::Diagnostic;
 use specforge_graph::Graph;
-use specforge_ops::plan::PlanOutcome;
+use specforge_ops::plan::{PlanGapKind, PlanOutcome};
 use specforge_ops::stats::Stats;
 use specforge_ops::trace::{Target, TraceChain};
 use specforge_ops::view::ProjectView;
@@ -14,7 +14,7 @@ use specforge_protocol_types::{
     ExtensionDeclaration, ValidationRuleDescriptor, ValidationSeverity,
 };
 use specforge_registry::rules::{Registries, Rules};
-use specforge_registry::{FieldRegistryEntry, KindRegistryEntry, ManifestFieldType, RegistryBuild};
+use specforge_registry::{FieldRegistryEntry, KindRegistryEntry, RegistryBuild};
 use tempfile::TempDir;
 
 /// A kind `@t/soft` declares.
@@ -47,17 +47,17 @@ pub fn obligations_rule(kind: &str) -> ValidationRuleDescriptor {
 /// A boolean `kind.field` that, set, exempts the entity from obligations
 /// (as `@specforge/formal` declares `abstract`).
 pub fn exempting_field(kind: &str, field: &str) -> FieldRegistryEntry {
-    FieldRegistryEntry {
-        kind_name: kind.to_string(),
-        field_type: ManifestFieldType::Bool,
-        source_extension: "@t/formal".into(),
-        proof_role: None,
-        declared: specforge_registry::FieldDescriptor {
+    FieldRegistryEntry::new(
+        kind,
+        "@t/formal",
+        specforge_registry::FieldDescriptor {
             name: field.to_string(),
+            field_type: "bool".to_string(),
             exempts_obligations: true,
             ..Default::default()
         },
-    }
+    )
+    .unwrap()
 }
 
 /// Registries whose `obligated` kinds are testable and must declare
@@ -158,6 +158,16 @@ pub fn stats_of(graph: &Graph, testable: &[&str], diagnostics: &[Diagnostic]) ->
 pub fn plan_check(graph: &Graph, testable: &[&str], plan: &serde_json::Value) -> PlanOutcome {
     let project = Project::of_graph(graph.clone(), registries(testable, &[]));
     specforge_ops::plan::check(&project.view(), plan).unwrap()
+}
+
+/// The contexts of `outcome`'s gaps of `kind`, in order.
+pub fn gap_texts(outcome: &PlanOutcome, kind: PlanGapKind) -> Vec<&str> {
+    outcome
+        .gaps
+        .iter()
+        .filter(|gap| gap.kind == kind)
+        .map(|gap| gap.context.as_str())
+        .collect()
 }
 
 /// The chain of `entity_id` in `graph`, its expected edges from

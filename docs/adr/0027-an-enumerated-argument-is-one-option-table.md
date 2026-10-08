@@ -24,8 +24,11 @@ outline's default was markdown on the CLI and json on MCP, said only in a descri
   re-exports them so surfaces name ops.
 - **D2. The surfaces are adapters.** The CLI builds each flag's possible values with
   `options::choice(&TABLE)` (a `PossibleValuesParser` mapped through the table) and its default with
-  `default_value = TABLE.default_name()`; MCP builds each input-schema property with
-  `args::choice_schema(&TABLE, …)` and parses with `args::choice(&TABLE, key, …)`. No surface spells
+  `default_value = TABLE.default_name()`; MCP declares the argument as a field
+  `#[arg(choice = TABLE)]` of the tool's typed arguments (amended by
+  [ADR 0033](0033-a-tools-arguments-are-one-typed-definition.md)): its input-schema property
+  (`args::choice_schema`) and its reading (`OptionTable::parse`, the refusal on the argument) are
+  both derived from that field. No surface spells
   a name or a default. Severity and lint profile names (ADR 0018) stay name lists whose MCP schema
   reads them (`args::names_schema`).
 - **D3. One default per argument, on every surface.** The table's default is what an absent

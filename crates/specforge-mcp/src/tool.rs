@@ -7,8 +7,10 @@
 //! to the dispatcher typed (ADR 0022), never read back from the reply.
 
 use serde_json::{Value, json};
-use specforge_common::{Diagnostic, Severity, codes};
+use specforge_common::{Diagnostic, Severity};
+use specforge_graph::Graph;
 
+use crate::args::Argument;
 use crate::mutation::Mutated;
 use crate::protocol::{JsonRpcError, JsonRpcResponse, error_codes};
 use crate::target::{Call, TargetSpec};
@@ -89,15 +91,22 @@ impl Access {
     }
 }
 
-/// How a tool is run: its handler, by role.
+/// How a tool is run: its handler, by role, and the arguments it reads
+/// ([`crate::args::Arguments::declared`] of its `Args` struct).
 #[derive(Clone, Copy)]
 pub enum Handler {
     /// Any tool but a mutation: its reply is all there is (collect and
     /// render write output artifacts, not project sources; spec feature
     /// `mcp_project_management_tools`).
-    Tool(fn(&mut Call<'_>, Value) -> ToolOutcome),
+    Tool {
+        arguments: fn() -> Vec<Argument>,
+        run: fn(&mut Call<'_>, Value) -> ToolOutcome,
+    },
     /// A mutation (category `mutation`): its reply and what it wrote.
-    Mutation(fn(&mut Call<'_>, Value) -> Mutated),
+    Mutation {
+        arguments: fn() -> Vec<Argument>,
+        run: fn(&mut Call<'_>, Value) -> Mutated,
+    },
 }
 
 /// One core tool: everything the server lists, dispatches and reports
@@ -108,50 +117,45 @@ pub struct ToolSpec {
     pub category: Category,
     /// What it does to its environment: the listing's annotations.
     pub access: Access,
-    pub schema: fn() -> Value,
     /// The schema its `structuredContent` conforms to: for a tool whose
     /// result is a JSON object.
     pub output: Option<fn() -> Value>,
-    /// The fields of the handler's `Args` struct ([`crate::args::fields`]):
-    /// the arguments it reads, beside the ones its target reads
-    /// ([`Self::reads`]).
-    pub fields: fn() -> &'static [&'static str],
     /// Which project it acts on, and whether that project is brought up
     /// to date first: resolved into the call's target before the handler.
     pub target: TargetSpec,
-    /// The handler, reading its `Args` from the call's `arguments`: a
+    /// The handler and its arguments, read from the call's `arguments`: a
     /// [`Handler::Mutation`] exactly for the `mutation` category.
     pub handler: Handler,
 }
 
 impl ToolSpec {
-    /// The input schema `tools/list` lists: [`Self::schema`] with the
-    /// target's properties merged in and its required arguments added.
+    /// The input schema `tools/list` lists: the handler's arguments, then
+    /// the target's, and no other property ([`crate::args::input_schema`]).
     pub fn input_schema(&self) -> Value {
-        let mut schema = (self.schema)();
-        if let Some(properties) = schema.get_mut("properties").and_then(Value::as_object_mut) {
-            properties.extend(self.target.properties());
-        }
-        let required = self.target.required();
-        if !required.is_empty() {
-            let listed = schema
-                .as_object_mut()
-                .map(|schema| schema.entry("required").or_insert_with(|| json!([])));
-            if let Some(Value::Array(listed)) = listed {
-                listed.extend(required.iter().map(|name| Value::from(*name)));
-            }
-        }
-        schema
+        crate::args::input_schema(&self.arguments(), self.target)
     }
 
-    /// Every argument the call reads: the handler's `Args` fields, then the
-    /// target's ([`TargetSpec::fields`]).
+    /// The handler's declared arguments, in field order.
+    pub fn arguments(&self) -> Vec<Argument> {
+        match self.handler {
+            Handler::Tool { arguments, .. } | Handler::Mutation { arguments, .. } => arguments(),
+        }
+    }
+
+    /// Every argument the call reads: the handler's, then the target's
+    /// ([`TargetSpec::fields`]).
     pub fn reads(&self) -> Vec<&'static str> {
-        (self.fields)()
+        self.arguments()
             .iter()
-            .chain(self.target.fields())
-            .copied()
+            .map(|argument| argument.name)
+            .chain(self.target.fields().iter().copied())
             .collect()
+    }
+
+    /// The refusal of a call that sends a name neither the tool nor its
+    /// target declares ([`crate::args::undeclared`]).
+    pub fn undeclared(&self, arguments: &Value) -> Option<McpError> {
+        crate::args::undeclared(arguments, &self.arguments(), self.target)
     }
 
     /// The tool as `tools/list` describes it.
@@ -232,7 +236,7 @@ impl ErrorCode {
 }
 
 /// The code an operation's failure kind is reported as: total, one arm per
-/// kind (ADR 0024 D15).
+/// kind (ADR 0024 D7).
 impl From<OpErrorKind> for ErrorCode {
     fn from(kind: OpErrorKind) -> Self {
         match kind {
@@ -242,6 +246,7 @@ impl From<OpErrorKind> for ErrorCode {
             OpErrorKind::ExtensionNotFound => ErrorCode::ExtensionNotFound,
             OpErrorKind::Conflict => ErrorCode::Conflict,
             OpErrorKind::SchemaMismatch => ErrorCode::SchemaMismatch,
+            OpErrorKind::CompilationFailed => ErrorCode::CompilationFailed,
             OpErrorKind::PreconditionFailed => ErrorCode::PreconditionFailed,
             OpErrorKind::PermissionDenied => ErrorCode::PermissionDenied,
             OpErrorKind::Timeout => ErrorCode::Timeout,
@@ -264,6 +269,10 @@ pub struct McpError {
     /// answered with an error (the URI read).
     pub uri: Option<String>,
     pub entity_id: Option<String>,
+    /// The project file the failure is about (`file_not_found`): what a
+    /// refusal that finds no project to look in names, rather than reading
+    /// it back out of the message.
+    pub file: Option<String>,
     pub argument: Option<String>,
     pub diagnostic: Option<Value>,
     pub data: Option<Value>,
@@ -281,6 +290,7 @@ impl McpError {
             prompt: None,
             uri: None,
             entity_id: None,
+            file: None,
             argument: None,
             diagnostic: None,
             data: None,
@@ -298,19 +308,13 @@ impl McpError {
         .with_diagnostic(diagnostic)
     }
 
-    /// A failure whose message leads with a diagnostic code
-    /// (`"E003: unresolved entity 'x' …"`): the code moves to `diagnostic`.
-    pub fn from_coded_message(fallback: ErrorCode, message: &str) -> Self {
-        match split_code(message) {
-            Some((code, rest)) => {
-                Self::from_diagnostic(&Diagnostic::untyped(code, Severity::Error, rest))
-            }
-            None => Self::new(fallback, message),
-        }
-    }
-
     pub fn with_entity(mut self, entity_id: impl Into<String>) -> Self {
         self.entity_id = Some(entity_id.into());
+        self
+    }
+
+    pub fn with_file(mut self, file: impl Into<String>) -> Self {
+        self.file = Some(file.into());
         self
     }
 
@@ -369,6 +373,7 @@ impl McpError {
             ("prompt", self.prompt.clone().map(Value::from)),
             ("uri", self.uri.clone().map(Value::from)),
             ("entity_id", self.entity_id.clone().map(Value::from)),
+            ("file", self.file.clone().map(Value::from)),
             ("argument", self.argument.clone().map(Value::from)),
             ("diagnostic", self.diagnostic.clone()),
             ("data", self.data.clone()),
@@ -409,18 +414,12 @@ impl From<OpError> for McpError {
     }
 }
 
-/// A question about `entity_id`, which no entity of the graph declares:
-/// `entity_not_found` naming it, its E003 in `diagnostic` (the one refusal
-/// tools and prompts share).
-pub fn entity_not_found(entity_id: &str) -> McpError {
-    McpError::from_coded_message(
-        ErrorCode::EntityNotFound,
-        &format!(
-            "{}: unresolved entity '{entity_id}' — not found in graph",
-            codes::E003
-        ),
-    )
-    .with_entity(entity_id)
+/// A question about `entity_id`, which no entity of `graph` declares:
+/// `specforge_ops::navigate::not_found` (E003 in `diagnostic`, a
+/// did-you-mean when an id is close), the one refusal tools and prompts
+/// share with every operation.
+pub fn entity_not_found(graph: &Graph, entity_id: &str) -> McpError {
+    specforge_ops::navigate::not_found(graph, entity_id).into()
 }
 
 /// What a refusal of a file the project does not hold says before the file's
@@ -430,14 +429,9 @@ pub(crate) const FILE_NOT_FOUND: &str = "File not found: ";
 /// A question about `file`, which the project has no entity from and does
 /// not hold under its spec root: `file_not_found` on argument `file`.
 pub(crate) fn file_not_found(file: &str) -> McpError {
-    McpError::new(ErrorCode::FileNotFound, format!("{FILE_NOT_FOUND}{file}")).with_argument("file")
-}
-
-/// `("E003", "unresolved …")` for `"E003: unresolved …"`: a leading
-/// diagnostic code, a letter and three digits.
-fn split_code(message: &str) -> Option<(&str, &str)> {
-    let (code, rest) = message.split_once(": ")?;
-    is_diagnostic_code(code).then_some((code, rest))
+    McpError::new(ErrorCode::FileNotFound, format!("{FILE_NOT_FOUND}{file}"))
+        .with_argument("file")
+        .with_file(file)
 }
 
 /// Whether `code` is a diagnostic code (`E003`, `R004`, `R-RES-006`):
@@ -735,9 +729,10 @@ mod tests {
         assert_eq!(json["data"]["suggestion"], "pick another");
         assert!(json.get("diagnostic").is_none(), "{json}");
 
-        let error: McpError = OpError::diagnostic(codes::E062, "the budget is too small")
-            .with_suggestion("raise it")
-            .into();
+        let error: McpError =
+            OpError::diagnostic(specforge_common::codes::E062, "the budget is too small")
+                .with_suggestion("raise it")
+                .into();
         let json = error.to_json();
         assert_eq!(json["code"], "invalid_input");
         assert_eq!(json["diagnostic"]["code"], "E062");
@@ -806,7 +801,7 @@ mod tests {
 
     #[test]
     fn an_unknown_entity_carries_its_e003() {
-        let json = entity_not_found("ghost").to_json();
+        let json = entity_not_found(&Graph::new(), "ghost").to_json();
         assert_eq!(json["code"], "entity_not_found");
         assert_eq!(json["entity_id"], "ghost");
         assert_eq!(json["diagnostic"]["code"], "E003");

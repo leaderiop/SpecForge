@@ -35,7 +35,9 @@ The operations, each one function over the view returning a typed outcome:
 `stats::stats` (`Stats`), `coverage::{coverage, row}` (`CoverageOutcome`, `CoverageRow`),
 `trace::trace` (`TraceOutcome`, which serializes as the document `specforge trace` writes),
 `plan::check` (`PlanOutcome`), `schema::schema` (`SchemaOutcome`), `export::export`,
-`model::{model, outline}` (`ModelOutcome`), `inspect::inspect` (`EntityFacts`, section "Inspect").
+`model::{model, outline}` (`ModelOutcome`), `inspect::inspect` (`EntityFacts`, section
+"Inspect"), `query::{query, list, search}` (`QueryOutcome`, `Listing`, `SearchOutcome`, section
+"Query").
 The CLI and MCP map arguments in and render the outcome, and the LSP hover renders inspect's; MCP
 has one coverage-row presenter (`tools::coverage::row_json`) and one gap presenter
 (`tools::trace::gap_json`).
@@ -85,14 +87,18 @@ has one coverage-row presenter (`tools::coverage::row_json`) and one gap present
   "Management operations"; `StatsRequest` is gone).
 - **D8. An unknown schema kind is refused on both surfaces**: `unknown_kind` naming the closest
   kind; the CLI keeps its message (exit 1) and adds a help line, MCP answers `invalid_input` on
-  `kind`. ~~The CLI's `--kind` still prints the kind's entry alone; the operation returns the filtered
+  `kind`. *(Amended by ADR 0029 D5: the CLI's refusal is `error[unknown_kind]: …` with a `hint:`
+  line.)* ~~The CLI's `--kind` still prints the kind's entry alone; the operation returns the filtered
   schema MCP serves.~~ Amended by [ADR 0027](0027-an-enumerated-argument-is-one-option-table.md)'s round
   (architecture plan 2026-10-06 12, D4): `specforge schema --kind` prints the operation's outcome, the
   document `specforge.schema` returns (the kind and the edge types that touch it), and `--publish`
   goes through `ops::schema::json_schema`; `--kind` cannot be combined with `--publish`.
-- **D9. Model warnings are W146 on both surfaces**: CLI stderr `warning[W146]: model: …`, MCP the
+- ~~**D9. Model warnings are W146 on both surfaces**: CLI stderr `warning[W146]: model: …`, MCP the
   tool result's diagnostics. A registry-built schema only carries known field types, but the model
-  accepts any Graph Protocol schema, and a catalogued code reaches `explain` and the docs.
+  accepts any Graph Protocol schema, and a catalogued code reaches `explain` and the docs.~~
+  Superseded by [ADR 0034](0034-one-field-type-read-from-the-declaration.md) D5: the schema's field type
+  is typed, so no schema carries a type the model cannot name; W146 is retired and `model` returns the
+  rendered text.
 - **D10. Only `specforge export` records the schema cache**, at the view's root (D1). MCP only
   reads it.
 - **D11. Trace errors are typed**: `TraceError::EntityNotFound { entity_id, near }` replaces the
@@ -107,7 +113,7 @@ has one coverage-row presenter (`tools::coverage::row_json`) and one gap present
 - MCP clients see: `specforge.coverage {}` and `status_filter: uncovered` without union types,
   abstract entities and governance entities that declare nothing; an `exempt` field on every row;
   no `gaps` on an entity trace; an error for an unknown schema kind or coverage status; W146 in
-  model results.
+  model results (retired by ADR 0034).
 - Sub-path invocations change (D1); the R1/R2 reproductions of plan 02 are tests.
 - No ADR conflicts: D3 extends ADR 0004 D2-b, D4 is consistent with D2-a, D6 mirrors D1-c, and ADR
   0004 is silent on roots (27c48e54 had already chosen the view's own root for MCP).
@@ -148,8 +154,8 @@ without one.
 Each is one function over the view and a request: `extension::list(&view) -> ExtensionListing`,
 `extension::providers(&view) -> ProviderListing`, `extension::remove(&view, &RemoveRequest { name,
 force, dry_run })`, `doctor::diagnose(&view)`, `collect::collect(&view, runtime, Request { runner,
-mode, consent, announce })`, `infer::{progress, progress_or_fresh}(&view)`, `infer::gaps(&view,
-runtime)`. `stats::stats(&view)` reads `reported()` (D7 amended). The CLI compiles once
+mode, consent, announce })`, `infer::progress(&view)`, `infer::gaps(&view,
+runtime)`, `infer::session(&view, SessionStep)` and `infer::lint(&view)`. `stats::stats(&view)` reads `reported()` (D7 amended). The CLI compiles once
 (`pipeline::compile_project`) for every command; `CompilationContext` is deleted.
 
 ### Decisions
@@ -177,7 +183,8 @@ runtime)`. `stats::stats(&view)` reads `reported()` (D7 amended). The CLI compil
 - **M8. `add`, `update`, `init` and `migrate` are not view operations**: they run before or instead
   of a compile, and `add`/`update` reach the `Registry` port. `add` and `update` read the config
   through `config::usable`/`config::required` (`read_project_config`, the function the compile reads
-  it with) and the lock through `LockState::at` (M10), never a reader of their own (see M11).
+  it with) and the installed extensions through `Installed::at` (M10, ADR 0028), never a reader of their own
+  (see M11).
 - **M9. A `specforge.json` not used as written is E069, an error.** The Environment keeps every way
   the file is not used as written (`config_problems`: unreadable, not JSON, not an object, a key of
   the wrong type, a non-string `extensions` or `exclude` item) and
@@ -187,15 +194,16 @@ runtime)`. `stats::stats(&view)` reads `reported()` (D7 amended). The CLI compil
   what was reported"), as E028 is for one extension that does not load: a project whose config
   loads nothing must not pass `check`. Doctor reports it as an error, and reports a missing
   `specforge.json` as the warning finding `config_missing`.
-- **M10. `specforge.lock` is read once, by the Environment.** `Environment::lock` is a typed
-  `specforge_wasm::LockState` (`Absent`, `Read`, or `Unreadable` with its E033 problem), read at
+- **M10. `specforge.lock` is read once, by the Environment.** `Environment::installed` holds a typed
+  `LockState` (`specforge_installed`: `Absent`, `Read`, or `Unreadable` with its E033 problem), read at
   `Environment::load` and reloaded when the file changes (it is an environment input); the view's
   `lock()` hands it to `list`, `doctor` and `remove` (none without a root), so they read what the
-  compile read, not the disk again. It is a typed result, not a diagnostic: a corrupt lock does not
-  fail `check` (it did not before), and `doctor` lists it as the error finding `lock_unreadable`
-  naming E033. `specforge_wasm::lock_path` is the one definition of where the lock lives, used by the
-  Environment, the extension loader and the root-based `add` and `update` (M8), which read it with
-  the same `LockState::at`.
+  compile read, not the disk again. It is a typed result, not a diagnostic: a corrupt lock fails
+  `check` only through the installed extensions it leaves unloaded (its E033 once, then their E028s,
+  ADR 0028), and `doctor` lists it as the error finding `lock_unreadable` naming E033.
+  `Installed::lock_path` is the one definition of where the lock lives, used by the Environment, the
+  extension load and the root-based `add` and `update` (M8), which read it with the same
+  `Installed::at`.
 
 - **M11. One refusal for an unusable `specforge.json`.** `add`, `update` and `remove` refuse a
   config that `ConfigProblem::blocks_edits` names with `config::refusal`: code `config_invalid`
@@ -206,6 +214,18 @@ runtime)`. `stats::stats(&view)` reads `reported()` (D7 amended). The CLI compil
   changed after the compile is refused too. A missing `specforge.json` is `config_not_found` for
   `add` (hint: `specforge init`) and not refused by `update`, which only reads the lock. `add` used
   to refuse with E032 ("extension install or uninstall failed"), a code about something else.
+- **M12. The inference session steps are a management operation that writes** (architecture round
+  4, plan 06; ADR 0022 "Inference sessions"). `infer::session` takes the view, refuses a rootless
+  one (`no_project`, M4) and writes only `<root>/specforge-infer.json`. The inference manifest is not
+  part of the view: it is not a project input, and each operation reads it once.
+- **M13. The `inferred` lint is computed in ops.** `DiagnosticPolicy::apply` asks its caller for a
+  profile's diagnostics; `check` answers `inferred` with `infer::lint(&view)`, which reads the
+  manifest through the one reader and the density threshold from the view's Environment, not from a
+  second read of `specforge.json`. `specforge-project` reads no inference file.
+- **M14. An unusable inference or anchors manifest is E071**, an error, for every operation that
+  reads it: progress, gaps, the session steps, `infer::lint` and `navigate::source_anchors`. The infer
+  prompt's plan no longer counts from scratch when the manifest cannot be used (`progress_or_fresh` is
+  gone).
 
 ### Consequences
 
@@ -243,7 +263,8 @@ prompt, read the same headline, edges and obligations.
   carries the headline statement, the standing (the entity snapshot's `snapshot::Standing`,
   borrowed: `testable`, `obligated()`, `exempt()`; inspect keeps no standing type of its own), the obligations, the
   references (`navigate::References`, one per edge, in edge order, with the peer's kind and the
-  field), the coverage (`Result<EntityCoverage, ReportError>`) and the diagnostics the view reports
+  field), the coverage (`Result<EntityCoverage, OpError>`, classified by `ops::report`, ADR 0029 D1) and the
+  diagnostics the view reports
   about it (`navigate::is_about`). MCP inspect, the context prompt and the hover only render it.
 - **I2. A reference list without spans** is navigate's (`References::of`), selected by the same
   `reference_edges` as `Navigator::references`. Inspect reads no spec file.
@@ -265,3 +286,53 @@ view's (section "Management operations"): MCP's view reports its call target's, 
 what it published (`ProjectView::reporting`), so the hover's dedupe against the cursor's
 diagnostics compares the same copies. While the LSP's session is out for an update, the hover says
 coverage is unavailable rather than reading a stand-in view with no root.
+
+## Query
+
+*(Added 2026-10, architecture round 4, plan 05.)*
+
+`specforge query` had two implementations. The CLI called `specforge_emitter::query` over the raw
+graph; MCP `specforge.query` built its own emitter options, read its format from `AGENT_FORMAT`,
+reported I020 and injected coverage. Of 20 commits to the MCP handler none reached the CLI, which had
+no format, no coverage, no I020 and printed `E003: …` raw; both answered Graph Protocol 1.0 where
+`specforge://graph/{id}` answered 2.0 for the same request. Three modules decided what a known kind
+is (two case rules, three wordings) and `specforge.list` reported nothing. "No such entity" was built
+four ways, one by formatting `"E003: …"` and parsing it back, and the emitter's errors carried their
+code in their text, which ops and MCP split off again.
+
+- **Q1. Query, list and search are read views**: `specforge_ops::query::{query, list, search}`, each a
+  typed request holding its defaults (`DEFAULT_DEPTH` 1, `DEFAULT_SEARCH_LIMIT` 20) and a typed
+  outcome. `specforge query` and `specforge.query` render one query; `specforge.list` and
+  `specforge://entities/{kind}` one listing; `specforge.search` one search. The CLI's query takes
+  `--format` (`export::AGENT_FORMAT`) and `--include-coverage`.
+- **Q2. A query is an export**: scope, depth, kinds and format under the export schema policy
+  (`export::Request`, `Schema::Default`), so `specforge.query {entity_id}` is the document
+  `specforge://graph/{entity_id}` serves; `include_coverage` adds each node's `coverage_status`
+  (`coverage::STATUS`). The kind filter keeps an edge when both its entities are kept.
+- **Q3. One known-kind answer** (`ProjectView::kinds`, `KnownKinds`): a filter over entities knows the
+  declared kinds and the kinds entities are written with, and reports the others as I020 (the filter
+  drops them); an argument that needs a kind's declaration (schema `kind`, the infer prompt's
+  `kind:<name>`) knows the declared kinds and refuses the others with `unknown_kind`. Names are exact
+  (keywords are case-sensitive); one wording, `unknown entity kind '<kind>'`; the suggestion is a kind
+  equal ignoring case, else the closest. `specforge.list` reports I020 too and still lists nothing.
+- **Q4. Emitter errors are typed**: `EmitterError::{ScopeNotFound, BudgetTooSmall, Serialization}`;
+  `code()` is the variant's constant (E003, E062, none), `Display` carries no code. Ops maps the
+  variants to `OpError` in one total `match` (`export::failure`); the kind is the operation's, the
+  emitter does not link ops (ADR 0007). `SchemaVersionError` is read by its `reason` and `code()`.
+  No adapter parses a message: `from_coded_message`, `split_code` and `without_code` are gone.
+- **Q5. One not-found refusal**: `navigate::not_found(graph, id)`: E003, kind `EntityNotFound`,
+  `unresolved entity '<id>' — not found in graph`, `did you mean '<closest>'?`. Export's scope,
+  inspect, the navigator, rename and trace raise it; MCP tools and prompts convert it.
+- **Q6. Search's field filter is a pair**: `field` with `value` keeps the entities whose field's text
+  contains the value, ignoring case; one without the other is `invalid_input` naming the missing one
+  (it was ignored).
+
+Consequences: `specforge query` prints `error[E003]` with a did-you-mean, I020 on stderr, and takes
+`--format` and `--include-coverage`; a graph-format query, CLI or MCP, is Graph Protocol 2.0 with
+`schema_ref`; `specforge.list` reports I020; `specforge.schema`'s refusal loses its colon; the infer
+prompt refuses `kind:Behavior` naming `behavior`, and lists capitalized keywords as declared;
+`specforge export --scope` and the scoped resources say `unresolved entity '<id>' — not found in
+graph`; MCP navigation refusals carry a suggestion; search refuses a lone `field` or `value`.
+
+What would reopen it: a query that needs more than an export (a path query, a semantic search over
+embeddings), or a third surface for list or search with a shape of its own.

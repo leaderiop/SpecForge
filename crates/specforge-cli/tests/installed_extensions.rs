@@ -99,7 +99,7 @@ fn a_local_install_loads_through_check() {
     assert!(ok, "{after:?}");
     // `greeting` is a known kind now, and nothing failed to load — its
     // field types (W019) and rule (W112) included.
-    for code in ["E024", "E028", "E033", "W019", "W112"] {
+    for code in ["E024", "E028", "E033", "E070", "W019", "W112"] {
         assert!(!codes(&after).contains(&code), "{code}: {after:?}");
     }
 }
@@ -151,10 +151,10 @@ fn a_registry_install_loads_through_check() {
 }
 
 #[specforge_test(
-    invariant = "wasm_compile_cache_integrity",
-    verify = "tampered installed binary refused via lockfile hash pin (E033)"
+    behavior = "load_extension_manifests",
+    verify = "tampered installed binary refused via lockfile hash pin (E070)"
 )]
-fn a_tampered_installed_binary_is_refused_with_e033() {
+fn a_tampered_installed_binary_is_refused_with_e070() {
     let dir = greeting_project();
     add_local_greet(dir.path());
     let installed = dir
@@ -169,8 +169,8 @@ fn a_tampered_installed_binary_is_refused_with_e033() {
     assert!(!ok, "{found:?}");
     let (_, message, _) = found
         .iter()
-        .find(|(code, _, _)| code == "E033")
-        .unwrap_or_else(|| panic!("no E033: {found:?}"));
+        .find(|(code, _, _)| code == "E070")
+        .unwrap_or_else(|| panic!("no E070: {found:?}"));
     assert!(message.contains("@sdk/greet"), "{message}");
 }
 
@@ -336,10 +336,10 @@ fn finding<'a>(report: &'a Value, code: &str) -> &'a Value {
 
 #[specforge_test(
     behavior = "run_doctor_check",
-    verify = "doctor reports an extension that fails to load (E028, E033) as an error"
+    verify = "doctor reports an extension that fails to load (E028, E070) as an error"
 )]
 fn doctor_reports_an_extension_that_fails_to_load() {
-    // A binary that no longer matches its lock entry: check refuses it (E033).
+    // A binary that no longer matches its lock entry: check refuses it (E070).
     let tampered = greeting_project();
     add_local_greet(tampered.path());
     let installed = tampered
@@ -351,9 +351,30 @@ fn doctor_reports_an_extension_that_fails_to_load() {
 
     let (ok, report) = doctor(tampered.path());
     assert!(!ok, "{report}");
-    let e033 = finding(&report, "E033");
-    assert_eq!(e033["status"], "error", "{e033}");
-    assert!(e033["check"].as_str().unwrap().contains("@sdk/greet"));
+    // One finding, with the command that reinstalls it; the load failure
+    // that duplicates it stays in the data, marked.
+    let stale = finding(&report, "stale_hash");
+    assert_eq!(stale["status"], "error", "{stale}");
+    assert!(stale["check"].as_str().unwrap().contains("@sdk/greet"));
+    assert!(
+        stale["remediation"]
+            .as_str()
+            .unwrap()
+            .starts_with("run `specforge add "),
+        "{stale}"
+    );
+    let failures = report["load_failures"].as_array().unwrap();
+    assert_eq!(failures.len(), 1, "{report}");
+    assert_eq!(failures[0]["code"], "E070", "{report}");
+    assert_eq!(failures[0]["binary_issue"], true, "{report}");
+    assert!(
+        report["findings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|f| f["code"] != "E070"),
+        "listed once: {report}"
+    );
 
     // Enabled, but neither locked nor installed: only the load knows (E028).
     let missing = greeting_project();
@@ -394,7 +415,7 @@ fn a_peer_recorded_at_a_non_semver_version_is_remedied_by_reinstalling_it() {
         std::fs::create_dir_all(&installed).unwrap();
         std::fs::write(installed.join("extension.wasm"), wasm).unwrap();
     }
-    let hash = specforge_wasm::hex_sha256(wasm);
+    let hash = specforge_installed::hex_sha256(wasm);
     let lock = json!({
         "lockfile_version": 1,
         "entries": [
@@ -468,7 +489,7 @@ fn a_wasm_file_entry_loads_through_check() {
         assert!(ok, "{entry}: {found:?}");
         // `greeting` is a known kind, and greet's field types (W019) and
         // rule (W112) resolved against the extension it declares.
-        for code in ["E024", "E028", "E033", "W019", "W112"] {
+        for code in ["E024", "E028", "E033", "E070", "W019", "W112"] {
             assert!(!codes(&found).contains(&code), "{entry}: {code}: {found:?}");
         }
     }

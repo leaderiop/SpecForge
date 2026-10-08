@@ -8,8 +8,9 @@ use specforge_common::{Diagnostic, codes};
 use super::registry_client::{
     RegistryClient, RegistryError, RegistryResponse, RegistrySearchResult,
 };
-use super::registry_config::{RegistryConfig, RegistryCredential, find_registry_for_specifier};
-use specforge_protocol_types::ExtensionDeclaration;
+use super::registry_config::{RegistryConfig, RegistryCredential};
+use specforge_protocol_types::package::Version;
+use specforge_protocol_types::{ExtensionDeclaration, PackageName};
 
 /// Compute the hex-encoded SHA256 digest of the given data.
 fn hex_sha256(data: &[u8]) -> String {
@@ -18,27 +19,18 @@ fn hex_sha256(data: &[u8]) -> String {
     format!("{:x}", hasher.finalize())
 }
 
-/// Resolve an extension from the appropriate registry.
+/// Fetch `name` at `version` from `registry`, the one registry the caller
+/// chose (the client chooses nothing).
 ///
-/// Routes via scope prefix to a matching registry, falls back to the default.
-/// Returns a `Diagnostic` on failure (network error, not found, etc.).
+/// Returns a `Diagnostic` on failure (network error, not found, etc.); a
+/// network error carries retry guidance.
 pub fn resolve_from_registry(
-    specifier: &str,
-    registries: &[RegistryConfig],
+    name: &PackageName,
+    version: &Version,
+    registry: &RegistryConfig,
     client: &dyn RegistryClient,
 ) -> Result<RegistryResponse, Diagnostic> {
-    let registry = find_registry_for_specifier(specifier, registries).ok_or_else(|| {
-        Diagnostic::new(
-            codes::R_OPS_001,
-            format!("No registry found for specifier '{specifier}'. No scope match and no default registry configured."),
-        )
-        .with_suggestion(
-            "Configure a default registry or add a scope-filtered registry matching this package."
-                .to_string(),
-        )
-    })?;
-
-    client.fetch(specifier, registry).map_err(|e| {
+    client.fetch(name, version, registry).map_err(|e| {
         let mut diag = e.to_diagnostic();
         // Append retry guidance for network errors
         if matches!(
@@ -109,6 +101,18 @@ pub fn publish_to_registry(
     force: bool,
     signing: Option<&crate::SigningKey>,
 ) -> Result<String, Diagnostic> {
+    // What is published is a package: a name and a version (ADR 0036).
+    let invalid = |message: String| RegistryError::InvalidPackage { message }.to_diagnostic();
+    let name = declaration
+        .package_name()
+        .map_err(|why| invalid(why.to_string()))?;
+    let version = Version::parse(declaration.version()).map_err(|why| {
+        invalid(format!(
+            "'{}' is not a SemVer version: {why}",
+            declaration.version()
+        ))
+    })?;
+
     let manifest_json = serde_json::to_string(declaration).map_err(|e| {
         Diagnostic::new(
             codes::R_OPS_003,
@@ -131,8 +135,7 @@ pub fn publish_to_registry(
 
     // First, check if the version already exists by trying to fetch it
     if !force {
-        let specifier = format!("{}@{}", declaration.name(), declaration.version());
-        match client.fetch(&specifier, registry) {
+        match client.fetch(&name, &version, registry) {
             Ok(_) => {
                 return Err(RegistryError::DuplicateVersion {
                     name: declaration.name().to_string(),

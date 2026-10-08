@@ -52,6 +52,7 @@ fn project(spec: &str) -> TempDir {
         "name": "p", "version": "0.1.0", "extensions": [EXTENSION]
     });
     fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
+    specforge_installed::testing::install_configured(dir.path(), &specforge_project::builtins());
     fs::write(dir.path().join("a.spec"), spec).unwrap();
     dir
 }
@@ -122,8 +123,9 @@ fn compile_with_software(spec: &str) -> CompiledProject {
         "name": "p", "version": "0.1.0", "extensions": ["@specforge/software"]
     });
     fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
+    specforge_installed::testing::install_configured(dir.path(), &specforge_project::builtins());
     fs::write(dir.path().join("a.spec"), spec).unwrap();
-    let runtime = specforge_component::project_runtime(dir.path());
+    let runtime = specforge_component::ComponentRuntime::with_user_cache();
     CompiledProject::compile(dir.path(), Some(&runtime))
 }
 

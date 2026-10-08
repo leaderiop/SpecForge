@@ -1,0 +1,522 @@
+use serde::{Deserialize, Serialize};
+use specforge_common::{Diagnostic, codes};
+use specforge_protocol_types::PackageName;
+use std::path::Path;
+
+use crate::layout::lock_path;
+
+/// The lock file format for extension resolution.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct LockFile {
+    pub lockfile_version: u32,
+    pub entries: Vec<LockFileEntry>,
+}
+
+/// A single entry in the lock file.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct LockFileEntry {
+    /// The package the entry locks: text that is no package name makes the
+    /// whole lock unreadable (E033), since no module could be installed
+    /// under it (ADR 0036).
+    pub name: PackageName,
+    pub version: String,
+    pub source: LockSource,
+    pub wasm_hash: String,
+    /// Publisher key id recorded at install from a signed registry package.
+    /// `None` for local installs and for lock files written before signed
+    /// publishing existed (field defaults on deserialize for compatibility).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub key_id: Option<String>,
+    /// Peer requirements recorded at install from the extension's manifest
+    /// (C8-05: doctor verifies these across the other lock entries). Defaults
+    /// on deserialize for lock files written before this existed.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub peer_dependencies: Vec<specforge_protocol_types::PeerDependency>,
+}
+
+/// Where a lock entry's binary came from. Serialized as the lock's string:
+/// `registry`, `local:<path>`, or anything else, kept as it was written.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum LockSource {
+    /// Installed from a registry.
+    Registry,
+    /// Installed from a `.wasm` file at this path (as `add` recorded it).
+    Local(String),
+    /// A source this version of SpecForge does not know, kept verbatim.
+    Other(String),
+}
+
+const LOCAL_PREFIX: &str = "local:";
+
+impl LockSource {
+    /// The path of a local install.
+    pub fn local_path(&self) -> Option<&str> {
+        match self {
+            LockSource::Local(path) => Some(path),
+            LockSource::Registry | LockSource::Other(_) => None,
+        }
+    }
+
+    pub fn is_registry(&self) -> bool {
+        matches!(self, LockSource::Registry)
+    }
+
+    /// Read the lock's string.
+    pub fn parse(text: &str) -> LockSource {
+        if text == "registry" {
+            LockSource::Registry
+        } else if let Some(path) = text.strip_prefix(LOCAL_PREFIX) {
+            LockSource::Local(path.to_string())
+        } else {
+            LockSource::Other(text.to_string())
+        }
+    }
+}
+
+impl std::fmt::Display for LockSource {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            LockSource::Registry => f.write_str("registry"),
+            LockSource::Local(path) => write!(f, "{LOCAL_PREFIX}{path}"),
+            LockSource::Other(text) => f.write_str(text),
+        }
+    }
+}
+
+impl Serialize for LockSource {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.collect_str(self)
+    }
+}
+
+impl<'de> Deserialize<'de> for LockSource {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        String::deserialize(deserializer).map(|text| LockSource::parse(&text))
+    }
+}
+
+impl Default for LockFile {
+    fn default() -> Self {
+        Self {
+            lockfile_version: 1,
+            entries: Vec::new(),
+        }
+    }
+}
+
+impl LockFile {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Every requirer (name, range) declaring a peer dependency on
+    /// `peer_name` across all locked entries, plus one optional extra
+    /// requirer: the package currently being installed, which may not be in
+    /// the lock yet. Used to unify a version diamond (C8-07) before it is
+    /// silently locked.
+    pub fn requirers_of(
+        &self,
+        peer_name: &str,
+        extra: Option<(&str, &str)>,
+    ) -> Vec<(String, String)> {
+        let mut requirers: Vec<(String, String)> = self
+            .entries
+            .iter()
+            .flat_map(|e| {
+                e.peer_dependencies
+                    .iter()
+                    .filter(|p| p.name == peer_name)
+                    .map(move |p| (e.name.to_string(), p.version.clone()))
+            })
+            .collect();
+        if let Some((name, range)) = extra {
+            requirers.push((name.to_string(), range.to_string()));
+        }
+        requirers
+    }
+}
+
+/// Write a lock file to disk as JSON.
+pub fn write_lock_file(lock: &LockFile, path: &Path) -> Result<(), Diagnostic> {
+    let json = serde_json::to_string_pretty(lock).map_err(|e| {
+        Diagnostic::new(codes::E033, format!("failed to serialize lock file: {}", e))
+    })?;
+
+    // Write a sibling file, then rename it over the lock: a write that
+    // fails part-way (a full disk) leaves the old lock whole.
+    let mut temp_name = path.file_name().unwrap_or_default().to_os_string();
+    temp_name.push(".tmp");
+    let temp = path.with_file_name(temp_name);
+    std::fs::write(&temp, json)
+        .and_then(|()| std::fs::rename(&temp, path))
+        .map_err(|e| {
+            let _ = std::fs::remove_file(&temp);
+            Diagnostic::new(
+                codes::E033,
+                format!(
+                    "failed to write lock file at '{}' (through '{}'): {}",
+                    path.display(),
+                    temp.display(),
+                    e
+                ),
+            )
+        })
+}
+
+/// Read a lock file from disk.
+pub fn read_lock_file(path: &Path) -> Result<LockFile, Diagnostic> {
+    let content = std::fs::read_to_string(path).map_err(|e| unreadable(path, &e))?;
+    parse_lock_file(path, &content)
+}
+
+fn unreadable(path: &Path, error: &std::io::Error) -> Diagnostic {
+    Diagnostic::new(
+        codes::E033,
+        format!(
+            "failed to read lock file at '{}': {}",
+            path.display(),
+            error
+        ),
+    )
+}
+
+fn parse_lock_file(path: &Path, content: &str) -> Result<LockFile, Diagnostic> {
+    serde_json::from_str::<LockFile>(content).map_err(|e| {
+        Diagnostic::new(
+            codes::E033,
+            format!("corrupt lock file at '{}': {}", path.display(), e),
+        )
+        .with_suggestion(
+            "delete the lock file and run `specforge install` to regenerate".to_string(),
+        )
+    })
+}
+
+/// What `<root>/specforge.lock` held when it was read: the typed result of
+/// the one read an environment takes, so every operation over the project
+/// sees the same lock and the same problem with it.
+#[derive(Debug, Clone, PartialEq)]
+pub enum LockState {
+    /// No lock file: nothing is installed from a registry or a path.
+    Absent,
+    /// The lock file, as written.
+    Read(LockFile),
+    /// A lock file that could not be read or is corrupt (E033). Nothing
+    /// is known to be locked.
+    Unreadable(Diagnostic),
+}
+
+impl LockState {
+    /// Read the lock at the project root `root` ([`lock_path`]). A file
+    /// that does not exist is [`Self::Absent`], not a problem.
+    pub(crate) fn at(root: &Path) -> LockState {
+        let path = lock_path(root);
+        match std::fs::read_to_string(&path) {
+            Ok(content) => match parse_lock_file(&path, &content) {
+                Ok(lock) => LockState::Read(lock),
+                Err(problem) => LockState::Unreadable(problem),
+            },
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => LockState::Absent,
+            Err(e) => LockState::Unreadable(unreadable(&path, &e)),
+        }
+    }
+
+    /// The lock, when there is a readable one.
+    pub fn file(&self) -> Option<&LockFile> {
+        match self {
+            LockState::Read(lock) => Some(lock),
+            LockState::Absent | LockState::Unreadable(_) => None,
+        }
+    }
+
+    /// Its entries (none without a readable lock).
+    pub fn entries(&self) -> &[LockFileEntry] {
+        self.file().map_or(&[], |lock| lock.entries.as_slice())
+    }
+
+    /// Why there is a lock file that cannot be used.
+    pub fn problem(&self) -> Option<&Diagnostic> {
+        match self {
+            LockState::Unreadable(problem) => Some(problem),
+            LockState::Absent | LockState::Read(_) => None,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::TempDir;
+
+    // -- write_lock_file + read_lock_file --
+
+    // B:write_lock_file — verify unit "serializes lock file to JSON"
+    #[test]
+    fn test_write_lock_file_serializes_to_json() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("specforge.lock");
+
+        let lock = LockFile {
+            lockfile_version: 1,
+            entries: vec![LockFileEntry {
+                name: specforge_protocol_types::PackageName::parse("@specforge/software").unwrap(),
+                version: "1.0.0".to_string(),
+                source: crate::LockSource::parse("registry"),
+                wasm_hash: "abc123".to_string(),
+                key_id: None,
+                peer_dependencies: Vec::new(),
+            }],
+        };
+
+        write_lock_file(&lock, &path).unwrap();
+        assert!(path.exists());
+
+        let content = std::fs::read_to_string(&path).unwrap();
+        assert!(content.contains("@specforge/software"));
+        assert!(content.contains("abc123"));
+    }
+
+    #[test]
+    fn a_failed_lock_write_leaves_the_old_lock_whole() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("specforge.lock");
+        write_lock_file(&LockFile::new(), &path).unwrap();
+        let before = std::fs::read(&path).unwrap();
+        // The sibling it writes first cannot be created.
+        std::fs::create_dir(dir.path().join("specforge.lock.tmp")).unwrap();
+
+        let error = write_lock_file(&LockFile::new(), &path).unwrap_err();
+
+        assert_eq!(error.code, "E033");
+        assert_eq!(std::fs::read(&path).unwrap(), before);
+    }
+
+    // B:read_lock_file — verify unit "deserializes lock file from JSON"
+    #[test]
+    fn test_read_lock_file_roundtrip() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("specforge.lock");
+
+        let lock = LockFile {
+            lockfile_version: 1,
+            entries: vec![
+                LockFileEntry {
+                    name: specforge_protocol_types::PackageName::parse("@specforge/software")
+                        .unwrap(),
+                    version: "1.0.0".to_string(),
+                    source: crate::LockSource::parse("registry"),
+                    wasm_hash: "abc123".to_string(),
+                    key_id: None,
+                    peer_dependencies: Vec::new(),
+                },
+                LockFileEntry {
+                    name: specforge_protocol_types::PackageName::parse("@specforge/governance")
+                        .unwrap(),
+                    version: "1.0.0".to_string(),
+                    source: crate::LockSource::parse("local"),
+                    wasm_hash: "def456".to_string(),
+                    key_id: None,
+                    peer_dependencies: Vec::new(),
+                },
+            ],
+        };
+
+        write_lock_file(&lock, &path).unwrap();
+        let read_back = read_lock_file(&path).unwrap();
+        assert_eq!(lock, read_back);
+    }
+
+    // B:read_lock_file — verify unit "corrupt file produces E033 diagnostic"
+    #[test]
+    fn test_read_lock_file_corrupt_produces_diagnostic() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("specforge.lock");
+        std::fs::write(&path, "not valid json {{{").unwrap();
+
+        let err = read_lock_file(&path).unwrap_err();
+        assert_eq!(err.code, "E033");
+        assert!(err.message.contains("corrupt lock file"));
+        assert!(err.suggestion.is_some());
+    }
+
+    // B:read_lock_file — verify unit "missing file produces E033 diagnostic"
+    #[test]
+    fn test_read_lock_file_missing_produces_diagnostic() {
+        let err = read_lock_file(Path::new("/nonexistent/specforge.lock")).unwrap_err();
+        assert_eq!(err.code, "E033");
+        assert!(err.message.contains("failed to read lock file"));
+    }
+
+    // -- LockState --
+
+    #[test]
+    fn a_lock_state_tells_absent_read_and_unreadable_apart() {
+        let dir = TempDir::new().unwrap();
+        assert_eq!(LockState::at(dir.path()), LockState::Absent);
+        assert!(LockState::at(dir.path()).entries().is_empty());
+        assert!(LockState::at(dir.path()).problem().is_none());
+
+        let lock = LockFile::default();
+        write_lock_file(&lock, &lock_path(dir.path())).unwrap();
+        let state = LockState::at(dir.path());
+        assert_eq!(state, LockState::Read(lock));
+        assert!(state.file().is_some() && state.problem().is_none());
+
+        std::fs::write(lock_path(dir.path()), "not valid json {{{").unwrap();
+        let state = LockState::at(dir.path());
+        let problem = state.problem().expect("a corrupt lock is a problem");
+        assert_eq!(problem.code, "E033");
+        assert!(problem.message.contains("corrupt lock file"));
+        assert!(state.file().is_none() && state.entries().is_empty());
+
+        // A lock path that is a directory cannot be read either.
+        std::fs::remove_file(lock_path(dir.path())).unwrap();
+        std::fs::create_dir(lock_path(dir.path())).unwrap();
+        assert_eq!(
+            LockState::at(dir.path()).problem().map(|p| p.code.as_str()),
+            Some("E033")
+        );
+    }
+
+    #[specforge_test_macros::test(
+        behavior = "run_doctor_check",
+        verify = "a lock file that cannot be read is an error finding naming E033"
+    )]
+    fn a_lock_entry_that_names_no_package_is_unreadable() {
+        let dir = TempDir::new().unwrap();
+        let entry = |name: &str| {
+            format!(
+                r#"{{"name": "{name}", "version": "1.0.0", "source": "registry", "wasm_hash": "h"}}"#
+            )
+        };
+        for name in ["../../../outside1", "@acme/..", "Bad Name", ""] {
+            let lock = format!(r#"{{"lockfile_version": 1, "entries": [{}]}}"#, entry(name));
+            std::fs::write(lock_path(dir.path()), lock).unwrap();
+
+            let state = LockState::at(dir.path());
+
+            let problem = state
+                .problem()
+                .unwrap_or_else(|| panic!("{name:?}: {state:?}"));
+            assert_eq!(problem.code, "E033", "{name:?}");
+            assert!(problem.message.contains("corrupt lock file"), "{problem:?}");
+            assert!(state.entries().is_empty());
+        }
+        // A name is read as a name: the entries of a good lock are typed.
+        let lock = format!(
+            r#"{{"lockfile_version": 1, "entries": [{}]}}"#,
+            entry("@acme/tool")
+        );
+        std::fs::write(lock_path(dir.path()), lock).unwrap();
+        assert_eq!(
+            LockState::at(dir.path()).entries()[0].name.as_str(),
+            "@acme/tool"
+        );
+    }
+
+    #[test]
+    fn a_source_reads_and_writes_as_the_lock_spells_it() {
+        for (text, source) in [
+            ("registry", LockSource::Registry),
+            ("local:ext/x.wasm", LockSource::Local("ext/x.wasm".into())),
+            ("local:", LockSource::Local(String::new())),
+            (
+                "git+https://h/r",
+                LockSource::Other("git+https://h/r".into()),
+            ),
+            ("local", LockSource::Other("local".into())),
+        ] {
+            assert_eq!(LockSource::parse(text), source, "{text}");
+            assert_eq!(source.to_string(), text);
+            let json = serde_json::to_string(&source).unwrap();
+            assert_eq!(json, format!("\"{text}\""));
+            assert_eq!(serde_json::from_str::<LockSource>(&json).unwrap(), source);
+        }
+        assert_eq!(
+            LockSource::Local("a.wasm".into()).local_path(),
+            Some("a.wasm")
+        );
+        assert!(LockSource::Registry.is_registry());
+
+        // A lock written before sources were typed reads and writes back
+        // byte for byte.
+        let text = r#"{
+  "lockfile_version": 1,
+  "entries": [
+    {
+      "name": "@acme/tool",
+      "version": "1.0.0",
+      "source": "local:ext/tool.wasm",
+      "wasm_hash": "abc"
+    },
+    {
+      "name": "@acme/other",
+      "version": "2.0.0",
+      "source": "registry",
+      "wasm_hash": "def",
+      "key_id": "k"
+    }
+  ]
+}"#;
+        let lock: LockFile = serde_json::from_str(text).unwrap();
+        assert_eq!(serde_json::to_string_pretty(&lock).unwrap(), text);
+    }
+
+    #[test]
+    fn the_lock_lives_at_the_project_root() {
+        assert_eq!(
+            lock_path(Path::new("/p")),
+            Path::new("/p").join("specforge.lock")
+        );
+    }
+
+    // C8-07: a diamond is unified over every requirer of a peer.
+
+    fn entry(name: &str, peers: Vec<specforge_protocol_types::PeerDependency>) -> LockFileEntry {
+        LockFileEntry {
+            name: specforge_protocol_types::PackageName::parse(name).unwrap(),
+            version: "1.0.0".to_string(),
+            source: crate::LockSource::parse("registry"),
+            wasm_hash: "hash".to_string(),
+            key_id: None,
+            peer_dependencies: peers,
+        }
+    }
+
+    fn peer(name: &str, req: &str) -> specforge_protocol_types::PeerDependency {
+        specforge_protocol_types::PeerDependency {
+            name: name.to_string(),
+            version: req.to_string(),
+            optional: false,
+        }
+    }
+
+    #[test]
+    fn requirers_of_gathers_every_locked_entry_wanting_the_peer() {
+        let lock = LockFile {
+            entries: vec![
+                entry("@a/ext", vec![peer("@shared/lib", "^1.0.0")]),
+                entry("@b/ext", vec![peer("@shared/lib", "^2.0.0")]),
+                entry("@shared/lib", vec![]),
+            ],
+            ..Default::default()
+        };
+
+        let requirers = lock.requirers_of("@shared/lib", None);
+        assert_eq!(requirers.len(), 2);
+        assert!(requirers.contains(&("@a/ext".to_string(), "^1.0.0".to_string())));
+        assert!(requirers.contains(&("@b/ext".to_string(), "^2.0.0".to_string())));
+    }
+
+    #[test]
+    fn requirers_of_includes_the_extra_in_flight_requirer() {
+        let lock = LockFile {
+            entries: vec![entry("@a/ext", vec![peer("@shared/lib", "^1.0.0")])],
+            ..Default::default()
+        };
+
+        let requirers = lock.requirers_of("@shared/lib", Some(("@c/ext", "^3.0.0")));
+        assert_eq!(requirers.len(), 2);
+        assert!(requirers.contains(&("@c/ext".to_string(), "^3.0.0".to_string())));
+    }
+}

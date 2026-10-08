@@ -7,7 +7,7 @@ use crate::snapshot::EntitySnapshot;
 use specforge_common::Diagnostic;
 use specforge_graph::Graph;
 use specforge_protocol_types::PassBuildCache;
-use specforge_wasm::{CallError, ExtensionCalls, Operation, WasmRuntime};
+use specforge_wasm::{ExtensionCalls, WasmRuntime};
 
 use crate::Environment;
 use crate::build_cache::BuildCache;
@@ -51,15 +51,7 @@ pub(crate) fn run(
     let calls = ExtensionCalls::new(runtime);
     for declared in env.registries.check_passes() {
         let pass = &declared.pass;
-        let answer = match &encoded {
-            Ok(encoded) => calls.run_pass(&declared.extension, &pass.name, encoded),
-            Err(failure) => Err(CallError::new(
-                Operation::Pass,
-                &declared.extension,
-                &format!("__pass_{}", pass.name),
-                failure.clone(),
-            )),
-        };
+        let answer = calls.run_pass(&declared.extension, &pass.name, &encoded);
         match answer {
             Ok(output) => diagnostics.extend(pass_findings(
                 &declared.extension,

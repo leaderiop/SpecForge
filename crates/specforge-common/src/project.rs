@@ -21,6 +21,15 @@ pub fn find_project_root(start: &Path) -> Option<PathBuf> {
     }
 }
 
+/// The project `path` is in: its nearest enclosing project
+/// ([`find_project_root`], `path` included), else `path` itself. The one
+/// rule for what format, migrate and an MCP call's `path` act on, so a
+/// directory that is no project is its own root and gets the default
+/// configuration.
+pub fn project_root_of(path: &Path) -> PathBuf {
+    find_project_root(path).unwrap_or_else(|| path.to_path_buf())
+}
+
 /// What one `specforge.json` `extensions` entry enables: the one reading
 /// of an entry that the runtime loading extensions, the environment
 /// reading their declarations, the freshness inputs and the extension
@@ -60,11 +69,25 @@ impl<'a> ExtensionEntry<'a> {
                 },
             };
         }
-        match entry.rfind('@') {
-            Some(at) if at > 0 && !entry[at + 1..].contains('/') => {
-                ExtensionEntry::Named(&entry[..at])
-            }
-            _ => ExtensionEntry::Named(entry),
+        // The one rule that splits `name@requirement`: the requirement of
+        // a legacy entry is not read here.
+        ExtensionEntry::Named(specforge_protocol_types::package::split_requirement(entry).0)
+    }
+
+    /// The package a named entry names, or why its name is none (a name
+    /// that is no package name could never be installed, ADR 0036); `None`
+    /// for a `.wasm` file entry, which names a file.
+    pub fn package_name(
+        &self,
+    ) -> Option<
+        Result<
+            specforge_protocol_types::PackageName,
+            specforge_protocol_types::package::PackageNameError,
+        >,
+    > {
+        match *self {
+            ExtensionEntry::Named(name) => Some(specforge_protocol_types::PackageName::parse(name)),
+            ExtensionEntry::File { .. } => None,
         }
     }
 
@@ -455,6 +478,26 @@ mod tests {
     use super::*;
 
     #[test]
+    fn project_root_of_is_the_nearest_project_else_the_path() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let root = dir.path().canonicalize().unwrap();
+        let inner = root.join("project/spec/deep");
+        std::fs::create_dir_all(&inner).unwrap();
+        std::fs::write(root.join("project/specforge.json"), "{}").unwrap();
+        let loose = root.join("loose");
+        std::fs::create_dir_all(&loose).unwrap();
+
+        // Inside a project: its root, from the root and from below it.
+        assert_eq!(project_root_of(&root.join("project")), root.join("project"));
+        assert_eq!(project_root_of(&inner), root.join("project"));
+        // Outside any project: the directory itself.
+        assert_eq!(project_root_of(&loose), loose);
+        // A path that does not exist is itself.
+        let missing = root.join("nowhere");
+        assert_eq!(project_root_of(&missing), missing);
+    }
+
+    #[test]
     fn spec_root_in_defaults_to_the_root() {
         let root = Path::new("/p");
         let unset = ProjectConfig::default();
@@ -535,10 +578,34 @@ mod tests {
                     path: "ext/greet.wasm",
                 },
             ),
+            // Plan 12 §2.2, as P4 reads them today.
+            ("@acme/tool@", Named("@acme/tool")), // I2
+            // The requirement is split off at the last inner `@`, whatever it holds.
+            ("@acme/tool@1.0.0/x", Named("@acme/tool")), // I7
+            ("foo@/bar", Named("foo")),                  // I9
+            // A name that is no package name is still a named entry: the load
+            // refuses it (E072), the reading does not.
+            ("@acme/..", Named("@acme/..")),                   // I12
+            ("../../../outside1", Named("../../../outside1")), // I23
         ];
         for (entry, expected) in cases {
             assert_eq!(ExtensionEntry::parse(entry), expected, "{entry}");
         }
+    }
+
+    #[test]
+    fn a_named_entry_names_a_package_or_says_why_not() {
+        let name = |entry: &str| ExtensionEntry::parse(entry).package_name();
+        assert_eq!(
+            name("@acme/tool@1.2.0").unwrap().unwrap().as_str(),
+            "@acme/tool"
+        );
+        assert_eq!(name("greet").unwrap().unwrap().as_str(), "greet");
+        for refused in ["../../../outside1", "@acme/..", "Bad Name"] {
+            assert!(name(refused).unwrap().is_err(), "{refused}");
+        }
+        // A file entry names a file, not a package.
+        assert!(name("ext/greet.wasm").is_none());
     }
 
     #[test]

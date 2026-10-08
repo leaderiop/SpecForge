@@ -30,8 +30,13 @@ behavior watch_file_system_for_changes "Watch File System for Changes" {
     under the spec root for changes using the OS file watching API.
     File creation, modification, and deletion MUST each trigger
     recompilation of affected files. Changed paths are classified by the
-    project session (classify_project_changes); after an environment
-    reload the watcher follows the session's new watch roots.
+    project session (classify_project_changes). After any update that
+    changes the session's inputs (an environment reload, an edit that names
+    a file the checks read) the watcher follows the session's watch roots
+    and brings the session up to date with what was written meanwhile
+    (bring_session_up_to_date); it does so once at start, before it reports
+    ready. A missing directory on the way to an input is watched from its
+    nearest existing ancestor.
   """
   verify unit "file modification triggers recompilation"
   verify unit "file creation triggers recompilation"
@@ -41,6 +46,13 @@ behavior watch_file_system_for_changes "Watch File System for Changes" {
   verify integration "a specforge.lock change reloads the environment"
   verify integration "a .wasm file no extension loads changes nothing"
   verify integration "after spec_root changes, files under the new spec root are watched"
+  verify integration "after an edit names a file outside the watched directories, a change to it is seen"
+  verify integration "a file the checks read is seen when it is created in a directory that did not exist"
+  verify unit "an edit that names a file outside the watched directories moves the watchers"
+  verify unit "an edit that names a file inside the watched directories moves nothing"
+  verify unit "after the watchers move, the session catches up on what changed while they did"
+  verify unit "a failed move of the watchers is reported and the session still catches up"
+  verify unit "what was written between the open and the watchers is applied before ready"
 }
 
 behavior classify_project_changes "Classify Project Changes" {
@@ -57,8 +69,16 @@ behavior classify_project_changes "Classify Project Changes" {
     environment changes; specforge-cache.json, which check-phase passes
     read, and every file a file_reference field or a file_exists rule
     names, which the checks look for, are check-input changes; any other
-    path changes nothing.
-    Watch, the LSP and MCP MUST classify through the session.
+    path changes nothing. A detached session (no project) has no inputs:
+    a .spec path is a source keyed by itself and nothing else is an input.
+    Watch, the LSP and MCP MUST classify through the session. What a
+    changed path is, which directories watch watches, which files the LSP
+    asks its client to report and what the session stamps MUST all derive
+    from one set of session inputs, renewed when the environment loads and
+    each time the checks run. Watch's watch roots and the LSP's watchers
+    MUST cover every path the session classifies as an input (the LSP
+    spelling each under the project root as opened), and MUST follow every
+    update that changes the inputs.
   """
   verify unit "a discovered .spec file is a source change keyed relative to the spec root"
   verify unit "specforge.json, specforge.lock and a loaded extension module are environment changes"
@@ -67,6 +87,12 @@ behavior classify_project_changes "Classify Project Changes" {
   verify unit "a file a file_reference field names re-runs the checks"
   verify unit "a file a file_exists rule names re-runs the checks"
   verify unit "an excluded or undiscovered .spec file changes nothing"
+  verify unit "a detached session classifies a .spec buffer as a source and nothing else as an input"
+  verify unit "a session's watch roots cover every input it classifies"
+  verify unit "the LSP's watchers cover every input the session classifies"
+  verify integration "the LSP watches a missing referenced file and its directory, spelled under the project root"
+  verify unit "an update that names a new file the checks read changes the session's inputs"
+  verify integration "the LSP's watchers follow an edit that names a new file the checks read"
 }
 
 behavior bring_session_up_to_date "Bring a Session Up to Date with Disk" {
@@ -83,13 +109,23 @@ behavior bring_session_up_to_date "Bring a Session Up to Date with Disk" {
     applies exactly those changes: sources by an update, environment
     inputs by an environment reload, check inputs by re-running the
     checks. Afterwards its graph and diagnostics MUST be those a fresh
-    compile of the files on disk produces.
+    compile of the files on disk produces. specforge.json MUST be read
+    once per environment load, the extension runtime and the environment
+    both built from that read, and every input MUST be stamped before
+    anything reads it, the extension runtime included, so a file written
+    while the session loads is seen next time. A surface that watches files
+    MUST do so each time its watchers move, for what was written while they
+    did not watch; the LSP's catch-up MUST NOT replace an open document's
+    buffer with its file.
   """
   verify unit "an up-to-date session reports no change and re-parses nothing"
   verify unit "edits, creations and deletions since the last build are applied as one update"
   verify unit "a file rewritten within the timestamp granularity of the last build is still seen"
   verify unit "a specforge.lock change reloads the environment"
   verify unit "after bringing itself up to date a session matches a fresh compile"
+  verify unit "a specforge.json or module written while the extension runtime loads is seen next time"
+  verify integration "after the LSP's watchers move, the session catches up on what changed while they did"
+  verify integration "the LSP's catch-up keeps an open buffer"
 }
 
 behavior invalidate_changed_files "Invalidate Changed Files" {
@@ -109,7 +145,8 @@ behavior invalidate_changed_files "Invalidate Changed Files" {
   }
   contract   """
     When a coalesced batch of file changes is received from the debounce
-    stage (or an editor buffer changes), the system MUST compute the
+    stage (or editor buffers change, one or several at once, as one
+    update), the system MUST compute the
     invalidation set: exactly the changed files. A parse depends only on
     its own file's text, and references resolve across the project
     without use (ADR 0004 D1-a), so an importer of a changed file parses
@@ -126,6 +163,8 @@ behavior invalidate_changed_files "Invalidate Changed Files" {
   verify unit "unrelated files are not re-parsed"
   verify unit "deleted file entities removed from graph"
   verify unit "new file entities added to graph"
+  verify unit "several editor buffers changed at once are one update"
+  verify unit "the typing fast path skips the checks while any edited buffer does not parse"
   verify contract "Invalidate Changed Files: file invalidation holds — file_changes_coalesced_fired, invalidation_set_computed, subgraph_invalidated_emitted, unrelated_files_untouched"
 }
 
@@ -162,10 +201,12 @@ behavior rebuild_affected_subgraph "Rebuild Affected Subgraph" {
     declaration in path order, as in a cold build) and re-link references
     over the whole graph. The result MUST be identical to a full cold
     rebuild — identical means same node set, same edge set, same field
-    values, same diagnostic set (order-independent comparison). With
-    --verify-incremental, and always in a debug build, each rebuild is
-    compared with a full cold rebuild of the same sources, and its delta
-    is checked by validate_delta_correctness. The
+    values, same diagnostic set. With --verify-incremental, and always in
+    a debug build (watch, the LSP and MCP alike), each rebuild is compared
+    with a full cold build of the same parses: its nodes, edges and
+    graph-build diagnostics, in order. Its delta is checked by
+    validate_delta_correctness. The cold build and the rebuild are one
+    graph build (ADR 0032): a cold build applies every file at once. The
     rebuild MUST operate on generic entity nodes — it MUST NOT contain
     logic specific to any entity kind. All kind-specific validation is
     deferred to the extension validation phase after the subgraph is
@@ -175,6 +216,7 @@ behavior rebuild_affected_subgraph "Rebuild Affected Subgraph" {
   verify unit "new nodes are added"
   verify property "incremental rebuild equals cold rebuild"
   verify unit "debug --verify-incremental performs cold rebuild comparison"
+  verify unit "a rebuild whose diagnostics differ from a cold build is reported"
   verify contract "Rebuild Affected Subgraph: affected subgraph rebuild holds — subgraph_invalidated, import_dag_updated, graph_reflects_reparse, stale_removed, new_added, rebuild_event_fired, unaffected_subgraph_intact"
 }
 
@@ -251,16 +293,17 @@ behavior debounce_file_changes "Debounce File Changes" {
   contract   """
     When multiple file_changed events arrive in rapid succession (e.g.,
     save-all or editor reformatting), the system MUST coalesce them into a
-    single invalidation batch. A configurable debounce window (default 50ms)
-    MUST be applied: the system MUST wait until no new changes arrive within
-    the window before emitting a file_changes_coalesced event. The coalesced
-    batch MUST include the union of all changed files within the debounce
-    window.
+    single invalidation batch. A debounce window of 50ms MUST be applied,
+    by one rule watch and the LSP share: the system MUST wait until no new
+    changes arrive within the window before emitting a
+    file_changes_coalesced event. The coalesced batch MUST include the
+    union of all changed files within the debounce window.
   """
   verify unit "rapid successive changes coalesced into single batch"
   verify unit "debounce window prevents redundant recompilation"
   verify unit "coalesced batch includes union of all changed files"
   verify unit "single isolated change triggers after debounce window"
+  verify unit "each change restarts the quiet window"
   verify contract "Debounce File Changes: file change debouncing holds — file_changed_fired, coalesced_batch_produced, redundant_recompilation_prevented"
 }
 
@@ -284,7 +327,8 @@ behavior resolve_imports_on_update "Resolve Imports on Every Update" {
     After every update, the system MUST resolve the use imports of every
     file again, over the cached parses (no file is re-read or re-parsed
     for it), so the import diagnostics (E025, I004, W113, W027) are the
-    ones a full rebuild reports. The import graph is rebuilt rather than
+    ones a full rebuild reports. A source that could not be read stays
+    E025 until it is readable or gone. The import graph is rebuilt rather than
     patched: an added or removed import, an import target created or
     deleted, and a cycle closed or broken anywhere are all seen on the
     update that causes them. References resolve across the project
@@ -294,6 +338,7 @@ behavior resolve_imports_on_update "Resolve Imports on Every Update" {
   verify unit "a removed use import no longer reports"
   verify unit "cycle detection re-runs after an update"
   verify unit "import diagnostics after an update match a full rebuild"
+  verify unit "an unreadable source stays E025 after an update of another file"
   verify contract "Resolve Imports on Every Update: import resolution after each update holds — subgraph_invalidated_fired, import_dag_updated_emitted, cycle_detection_rerun"
 }
 
@@ -440,8 +485,11 @@ behavior validate_delta_correctness "Validate Delta Correctness" {
     or edges: a node ID or edge mismatch between the applied delta and
     the new graph, or a modified node missing from either graph.
 
-    Debug mode is activated by the compiler's debug build configuration or the
-    --verify-incremental CLI flag. The CLI flag enables delta validation
+    Debug mode is activated by the compiler's debug build configuration,
+    in every project session (watch, the LSP and MCP), or by watch's
+    --verify-incremental CLI flag. A divergence is reported with the
+    rebuild: watch prints it, the LSP logs it, and a debug build of the
+    LSP or MCP stops on it. The CLI flag enables delta validation
     in release builds for CI use. This check MUST be disabled in release
     builds (without --verify-incremental) to avoid performance overhead.
   """
@@ -449,6 +497,7 @@ behavior validate_delta_correctness "Validate Delta Correctness" {
   verify unit "a discrepancy is reported with a message naming what differs"
   verify unit "check disabled in release builds"
   verify integration "a debug build checks each rebuild without the flag"
+  verify unit "the LSP and MCP check each rebuild in a debug build"
   verify unit "a rebuild that passes the check is reported as passed"
   verify contract "Validate Delta Correctness: delta correctness validation holds — graph_delta_available, debug_mode_active, delta_verified, validation_event_emitted"
 }

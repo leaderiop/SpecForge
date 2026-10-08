@@ -33,6 +33,8 @@ invariant formatting_consistency "Formatting Consistency" {
     to the same canonical form. Parse-error regions are excluded from this
     guarantee: format_with_parse_errors preserves unparseable text verbatim,
     so two files with differently-shaped parse errors MAY produce different output.
+    So are lists and statements holding a comment between their tokens,
+    which are kept as written so that no comment is lost or moved.
   """
   risk      medium
   verify property "two files differing only in whitespace produce identical formatted output"

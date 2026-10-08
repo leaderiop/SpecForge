@@ -198,7 +198,7 @@ impl<F: Fn(&str) -> Option<String>> Navigator<'_, F> {
             .registries()
             .fields
             .get(holder.kind.raw.as_str(), field)?
-            .declared
+            .declared()
             .target_kind
             .clone()?;
         let file = diagnostic

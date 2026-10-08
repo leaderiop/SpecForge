@@ -17,7 +17,7 @@ places (`Call::wrote` in two handlers, a dispatcher fallback, `init`'s own `serv
 ## Decisions
 
 - **D1. Operations record their writes.** Every writing operation (format, rename, init, add,
-  remove, migrate) returns the files it created, rewrote or removed and left so
+  remove, migrate, and the inference session steps since the amendment below) returns the files it created, rewrote or removed and left so
   (`specforge_ops::Writes`), recorded at the write call. A write that changed nothing is not one; a
   file restored by a rollback is forgotten.
 - **D2. A mutation handler returns what it wrote.** `Handler::Mutation` returns `Mutated`: its reply
@@ -54,3 +54,31 @@ places (`Call::wrote` in two handlers, a dispatcher fallback, `init`'s own `serv
 - The seven mutation tools' output schemas declare `files_written` (not required: a preview has
   none; the schemas stay open, so existing clients keep validating).
 - Amends ADR 0014 ("The MCP call target"): handlers no longer call `Call::wrote`.
+
+## Inference sessions (amendment, architecture round 4, plan 06)
+
+`specforge.infer_session` was the one mutation whose writes no operation made. Its handler read
+`specforge-infer.json` twice: once through the shared reader, whose manifest type had no sessions,
+and once by hand for the `sessions` key. It merged that key back into the JSON it wrote, and built its
+`Writes` itself. A session the second read could not parse was dropped from the file on the next write
+(and the one-active-session rule did not see it). Every write dropped the keys the type did not define,
+and paths were recorded as the agent spelled them, a file outside the project included.
+
+- **S1. Session steps are an operation.** `specforge_ops::infer::session(&view, SessionStep)`
+  (start, mark analyzed, end) reads the inference manifest once, applies the step, writes it once and
+  returns what it recorded with its `Writes` (D1). A refusal writes nothing. The MCP handler parses
+  `action` and `status` through the option tables `infer::SESSION_ACTION` and `infer::END_STATUS`
+  (ADR 0027), calls the operation and renders today's replies; `Written` carries the operation's
+  writes and, for a mark, the entities produced (D2).
+- **S2. One manifest type, one reader, one writer.** `InferenceManifest` holds the sessions, each
+  with a typed `SessionStatus` (active, paused, completed). Keys it does not define are kept at every
+  level. The writer sorts keys, syncs a temporary file and renames it.
+- **S3. An unusable manifest is E071 for every reader.** That covers the session steps, progress,
+  gaps, the infer prompt's plan and `check --lint inferred`; the anchors manifest is refused the same
+  way by navigation. No reader treats such a file as empty, and no write follows such a read.
+- **S4. Recorded paths are root-relative.** A marked file and each source root are recorded
+  root-relative with `/` separators; a path outside the root is refused.
+
+Consequences: a manifest whose sessions do not parse is refused where it used to lose them; unknown
+keys survive a write; `specforge.infer_session`'s unknown `action`/`status` refusals use ADR 0027's
+wording; `infer_progress` and `specforge infer-status` list the sessions.

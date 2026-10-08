@@ -3,34 +3,23 @@
 
 use std::collections::BTreeSet;
 
-use serde::Deserialize;
-use serde_json::{Value, json};
+use serde_json::json;
 use specforge_ops::plan::PlanError;
 use specforge_ops::trace::{Target, trace};
 
-use crate::prompt::{PromptArgs, PromptOutcome, Rendered};
+use crate::args::{AgentPlan, Arguments};
+use crate::prompt::{PromptOutcome, Rendered};
 use crate::target::Call;
-use crate::tool::{ErrorCode, McpError, entity_not_found};
-use crate::tools::coverage::report_mcp_error;
+use crate::tool::{ErrorCode, McpError};
 use crate::tools::trace::{analyze_plan, gap_json};
 
-#[derive(Debug, Deserialize)]
+/// `specforge://prompts/trace`'s arguments.
+#[derive(Debug, Arguments)]
 pub struct Args {
-    /// An `AgentPlan` object, or JSON text of one.
-    #[serde(default)]
-    plan: Option<Value>,
-    #[serde(default)]
+    /// AgentPlan JSON ({"entries": [{"entity_id", "action"}]}) to check against the graph
+    plan: Option<AgentPlan>,
+    /// Entity ID to trace when no plan is given
     entity_id: Option<String>,
-}
-
-impl PromptArgs for Args {
-    const DESCRIPTIONS: &'static [(&'static str, &'static str)] = &[
-        (
-            "plan",
-            "AgentPlan JSON ({\"entries\": [{\"entity_id\", \"action\"}]}) to check against the graph",
-        ),
-        ("entity_id", "Entity ID to trace when no plan is given"),
-    ];
 }
 
 pub fn render(call: &Call<'_>, args: Args) -> PromptOutcome {
@@ -39,18 +28,18 @@ pub fn render(call: &Call<'_>, args: Args) -> PromptOutcome {
     // plan's, or the entity's chain's missing links.
     let (seeds, coverage_gaps, subject) = match (&args.plan, args.entity_id.as_deref()) {
         (Some(plan), _) => {
-            let analysis = analyze_plan(&view, plan).map_err(|error| match error {
+            let analysis = analyze_plan(&view, &plan.0).map_err(|error| match error {
                 PlanError::NotAPlan(why) => {
                     McpError::new(ErrorCode::InvalidInput, why).with_argument("plan")
                 }
-                PlanError::Report(e) => report_mcp_error(&e),
+                PlanError::Report(e) => McpError::from(e),
             })?;
             (analysis.entries, analysis.gaps, "the plan".to_string())
         }
         (None, Some(entity_id)) => {
             // As the trace tool traces it: its chain and missing links.
-            let outcome =
-                trace(&view, Target::Entity(entity_id)).map_err(|_| entity_not_found(entity_id))?;
+            let outcome = trace(&view, Target::Entity(entity_id))
+                .map_err(|error| McpError::from(specforge_ops::OpError::from(error)))?;
             let gaps = outcome.gaps().iter().map(gap_json).collect();
             (
                 vec![entity_id.to_string()],
@@ -80,7 +69,7 @@ pub fn render(call: &Call<'_>, args: Args) -> PromptOutcome {
 
     // The affected entities that count toward coverage and are not proven
     // (the coverage view's one definition of unverified).
-    let coverage = view.coverage().map_err(|e| report_mcp_error(&e))?;
+    let coverage = view.coverage().map_err(McpError::from)?;
     let unverified: Vec<&String> = affected
         .iter()
         .filter(|id| coverage.is_unverified(id))

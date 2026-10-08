@@ -251,12 +251,12 @@ fn context_contract_includes_contracts_and_verify_omits_prose() {
     }
 
     // scope_enforced: scoped at a, only the connected a, b, c.
-    let scoped = specforge_emitter::scope::emit_context_scoped(&graph, "a").unwrap();
+    let scoped = crate::support::scoped_context(&graph, "a").unwrap();
     let scoped: serde_json::Value = serde_json::from_str(&scoped).unwrap();
     assert_eq!(node_ids(&scoped), vec!["a", "b", "c"]);
     assert_eq!(scoped["edges"].as_array().unwrap().len(), 2);
 
-    // invalid_scope_diagnosed: E003 naming the entity, exit code 1 — through
+    // invalid_scope_diagnosed: E003 naming the entity — through
     // the call `specforge export --format context --scope` makes.
     let err = specforge_emitter::emit(
         &graph,
@@ -269,9 +269,9 @@ fn context_contract_includes_contracts_and_verify_omits_prose() {
     .unwrap_err();
     assert_eq!(
         err.to_string(),
-        "E003: unresolved scope entity 'ghost' — entity not found in graph"
+        "unresolved entity 'ghost' — not found in graph"
     );
-    assert_eq!(err.exit_code(), 1);
+    assert_eq!(err.code(), Some(specforge_diagnostics::codes::E003));
 }
 
 // === export_agent_graph_format contract ===
@@ -317,12 +317,12 @@ fn graph_format_contract_finalized_graph_produces_full_output() {
     );
 
     // scope_enforced: scoped at c, only the connected a, b, c.
-    let scoped = specforge_emitter::scope::emit_json_scoped(&graph, "c").unwrap();
+    let scoped = crate::support::scoped_json(&graph, "c").unwrap();
     let scoped: serde_json::Value = serde_json::from_str(&scoped).unwrap();
     assert_eq!(node_ids(&scoped), vec!["a", "b", "c"]);
     assert_eq!(scoped["edges"].as_array().unwrap().len(), 2);
 
-    // invalid_scope_diagnosed: E003 naming the entity, exit code 1 — through
+    // invalid_scope_diagnosed: E003 naming the entity — through
     // the call `specforge export --format graph --scope` makes.
     let err = specforge_emitter::emit(
         &graph,
@@ -334,54 +334,9 @@ fn graph_format_contract_finalized_graph_produces_full_output() {
     .unwrap_err();
     assert_eq!(
         err.to_string(),
-        "E003: unresolved scope entity 'ghost' — entity not found in graph"
+        "unresolved entity 'ghost' — not found in graph"
     );
-    assert_eq!(err.exit_code(), 1);
-}
-
-// === query_graph_multi_resolution contract ===
-
-// B:query_graph_multi_resolution — verify contract "requires/ensures consistency for multi-resolution graph query"
-#[specforge_test(
-    behavior = "query_graph_multi_resolution",
-    verify = "Query Graph at Multiple Resolutions: multi-resolution graph query holds — validation_complete_fired, depth_respected, kind_filter_applied, graph_protocol_conformance, graph_queried_emitted"
-)]
-fn query_contract_valid_entity_returns_subgraph() {
-    // Requires: entity exists in graph, depth >= 0
-    // a(feature) -> b(behavior) -> c(behavior) -> x(invariant)
-    let mut graph = build_graph();
-    graph.add_node(node_with_fields("x", "invariant", "holds", "active"));
-    graph.add_edge(Edge {
-        source: "c".into(),
-        target: "x".into(),
-        label: "invariants".into(),
-    });
-    let query = |depth: usize, kinds: &[&str]| -> serde_json::Value {
-        let out = specforge_emitter::query(&graph, "a", depth, kinds).unwrap();
-        serde_json::from_str(&out).unwrap()
-    };
-
-    // depth_respected: exactly the entities within N hops.
-    assert_eq!(node_ids(&query(0, &[])), vec!["a"]);
-    assert_eq!(node_ids(&query(1, &[])), vec!["a", "b"]);
-    assert_eq!(node_ids(&query(2, &[])), vec!["a", "b", "c"]);
-    assert_eq!(node_ids(&query(3, &[])), vec!["a", "b", "c", "x"]);
-
-    // kind_filter_applied: only the listed kinds, plus the queried root.
-    assert_eq!(node_ids(&query(3, &["behavior"])), vec!["a", "b", "c"]);
-    assert_eq!(node_ids(&query(3, &["invariant"])), vec!["a", "x"]);
-
-    // graph_protocol_conformance: schema_version, and edges only between
-    // returned nodes.
-    let result = query(2, &[]);
-    assert_eq!(result["schema_version"], "0.1.0");
-    assert_eq!(
-        result["edges"],
-        serde_json::json!([
-            { "source": "a", "target": "b", "label": "behaviors" },
-            { "source": "b", "target": "c", "label": "depends_on" },
-        ])
-    );
+    assert_eq!(err.code(), Some(specforge_diagnostics::codes::E003));
 }
 
 // === enforce_token_budget contract ===
@@ -395,10 +350,7 @@ fn budget_contract_within_budget_no_truncation() {
     // Requires: graph + budget
     let graph = build_graph(); // a -> b -> c: b is the most central
     let emit = |budget: usize| -> serde_json::Value {
-        serde_json::from_str(
-            &specforge_emitter::budget::emit_json_with_budget(&graph, budget).unwrap(),
-        )
-        .unwrap()
+        serde_json::from_str(&crate::support::budgeted_json(&graph, budget)).unwrap()
     };
 
     // Within budget: everything, and no truncation metadata.
@@ -861,7 +813,8 @@ fn machine_formats_serialize_compact() {
 }
 
 // C1-10: token budget applies to the agent formats (context/brief), not just
-// schemaless JSON. A tight budget must shrink the output to a subgraph.
+// schemaless JSON, and they are fitted as the graph export is: within the
+// budget, with a `token_budget` block naming what was dropped.
 #[test]
 fn budget_truncates_context_and_brief() {
     let graph = build_graph(); // 3 nodes, 2 edges
@@ -878,12 +831,7 @@ fn budget_truncates_context_and_brief() {
             },
         )
         .unwrap();
-        // Far below the full render; the graph export gets just under it,
-        // since it can't shrink past its envelope (E062 below that).
-        let budget = match format {
-            specforge_emitter::EmitFormat::Json => specforge_emitter::estimate_tokens(&full) - 1,
-            _ => 20,
-        };
+        let budget = specforge_emitter::estimate_tokens(&full) / 2;
         let truncated = specforge_emitter::emit(
             &graph,
             &specforge_emitter::EmitOptions {
@@ -894,16 +842,32 @@ fn budget_truncates_context_and_brief() {
         )
         .unwrap();
         assert!(
+            specforge_emitter::estimate_tokens(&truncated) <= budget,
+            "{format:?}: over the budget of {budget}: {truncated}"
+        );
+        assert!(
             truncated.len() < full.len(),
             "{format:?}: budgeted output must be strictly smaller ({} vs {})",
             truncated.len(),
             full.len()
         );
-        // Budgeted output stays valid JSON for the JSON family.
-        if matches!(format, specforge_emitter::EmitFormat::Json) {
-            serde_json::from_str::<serde_json::Value>(&truncated)
-                .expect("budgeted JSON still parses");
-        }
+        let parsed: serde_json::Value =
+            serde_json::from_str(&truncated).expect("budgeted JSON still parses");
+        assert_eq!(
+            parsed["token_budget"]["strategy"], "prioritize",
+            "{format:?}"
+        );
+        assert_eq!(
+            parsed["token_budget"]["budget_tokens"], budget,
+            "{format:?}"
+        );
+        assert!(
+            !parsed["token_budget"]["truncated_entities"]
+                .as_array()
+                .unwrap()
+                .is_empty(),
+            "{format:?}: {truncated}"
+        );
     }
 
     // No budget: unchanged full output.

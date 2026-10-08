@@ -24,7 +24,6 @@ pub(crate) mod trace;
 mod validate;
 
 use serde_json::{Value, json};
-use specforge_common::codes;
 
 use crate::mutation::{self, Mutated};
 use crate::protocol::JsonRpcResponse;
@@ -59,80 +58,6 @@ pub(crate) fn span_json(span: &specforge_common::SourceSpan) -> Value {
         "end_line": span.end_line,
         "end_col": span.end_col,
     })
-}
-
-/// An I020 report for each kind in a `kinds` filter that no registered
-/// extension defines and no entity has, in the order given, with a
-/// `did you mean` suggestion when a known kind is close. The filter still
-/// drops them: they match no entity.
-pub(crate) fn unknown_kind_diagnostics(
-    view: &specforge_ops::view::ProjectView<'_>,
-    kinds: &[&str],
-) -> Vec<specforge_common::Diagnostic> {
-    let mut known: Vec<&str> = view
-        .registries()
-        .kinds
-        .keywords()
-        .map(String::as_str)
-        .chain(
-            view.graph()
-                .nodes()
-                .into_iter()
-                .map(|n| n.kind.raw.as_str()),
-        )
-        .collect();
-    known.sort_unstable();
-    known.dedup();
-
-    let mut reported: Vec<&str> = Vec::new();
-    let mut diagnostics = Vec::new();
-    for &kind in kinds {
-        if known.binary_search(&kind).is_ok() || reported.contains(&kind) {
-            continue;
-        }
-        reported.push(kind);
-        let mut diag =
-            specforge_common::Diagnostic::new(codes::I020, format!("unknown entity kind '{kind}'"));
-        if let Some(close) = specforge_common::find_close_match(kind, known.iter().copied()) {
-            diag = diag.with_suggestion(format!("did you mean '{close}'?"));
-        }
-        diagnostics.push(diag);
-    }
-    diagnostics
-}
-
-/// An emitter failure about `entity_id` as a failed tool result. A
-/// missing entity is [`entity_not_found`](crate::tool::entity_not_found),
-/// its `E003` in `diagnostic`, never only in the message text.
-fn emitter_error(error: specforge_emitter::EmitterError, entity_id: &str) -> ToolOutcome {
-    use specforge_emitter::EmitterError;
-    let mcp_error = match &error {
-        EmitterError::EntityNotFound(_) => crate::tool::entity_not_found(entity_id),
-        EmitterError::SerializationError(message) => {
-            McpError::new(ErrorCode::InternalError, message.as_str())
-        }
-        EmitterError::InvalidScope(message) | EmitterError::Other(message) => {
-            McpError::from_coded_message(ErrorCode::InvalidInput, message)
-        }
-    };
-    mcp_error.into()
-}
-
-/// A project file the tool reads (`specforge-infer.json`, the anchors
-/// manifest) that it cannot use: unreadable, or not what it should hold.
-pub(crate) fn manifest_error(message: String) -> ToolOutcome {
-    manifest_mcp_error(message).into()
-}
-
-/// [`manifest_error`]'s `McpError`: what a prompt that reads the file
-/// refuses with.
-pub(crate) fn manifest_mcp_error(message: String) -> McpError {
-    let code = if message.starts_with("failed to read") {
-        ErrorCode::InternalError
-    } else {
-        ErrorCode::SchemaMismatch
-    };
-    McpError::new(code, message)
 }
 
 /// A failed extension call as a failed tool result: the diagnostic the
@@ -246,25 +171,32 @@ impl Surface for Tools {
         found: &Found<&'static ToolSpec, ToolEntry>,
         invocation: &Invocation,
     ) -> Ran<ToolOutcome> {
+        // A name the tool and its target do not declare is refused, before
+        // anything is read (a refused mutation is a failed one).
+        if let Found::Core(spec) = found
+            && let Some(error) = spec.undeclared(&invocation.arguments)
+        {
+            return Self::refused(found, error);
+        }
         let arguments = invocation.arguments.clone();
         match found {
             // A mutation says what it wrote; `mutation::refresh` brings the
             // target up to date with it (inside the call), `mutation::report`
             // names its events and the files in its reply.
             Found::Core(ToolSpec {
-                handler: Handler::Mutation(handler),
+                handler: Handler::Mutation { run, .. },
                 ..
             }) => {
-                let mut mutated = handler(call, arguments);
+                let mut mutated = run(call, arguments);
                 let root = mutation::refresh(call, &mut mutated);
                 let (outcome, events) =
                     mutation::report(&invocation.name, root.as_deref(), mutated);
                 Ran { outcome, events }
             }
             Found::Core(ToolSpec {
-                handler: Handler::Tool(handler),
+                handler: Handler::Tool { run, .. },
                 ..
-            }) => Ran::of(handler(call, arguments)),
+            }) => Ran::of(run(call, arguments)),
             Found::Extension(entry) => {
                 let (outcome, dispatched) = extension_tool(call, entry, arguments);
                 Ran {
@@ -281,7 +213,7 @@ impl Surface for Tools {
     fn refused(found: &Found<&'static ToolSpec, ToolEntry>, error: McpError) -> Ran<ToolOutcome> {
         match found {
             // A refused mutation is a failed one: it wrote nothing, and says so.
-            Found::Core(spec) if matches!(spec.handler, Handler::Mutation(_)) => {
+            Found::Core(spec) if matches!(spec.handler, Handler::Mutation { .. }) => {
                 let (outcome, events) = mutation::report(spec.name, None, Mutated::refused(error));
                 Ran { outcome, events }
             }
@@ -474,9 +406,8 @@ fn command_adapter(
     args: &serde_json::Map<String, Value>,
 ) -> (ToolOutcome, Dispatched) {
     let context = specforge_ops::command::CommandContext {
-        format: specforge_ops::command::CommandFormat::Json,
-        today: chrono::Utc::now().format("%Y-%m-%d").to_string(),
         evidence,
+        ..specforge_ops::command::CommandContext::now(specforge_ops::command::CommandFormat::Json)
     };
     let started = std::time::Instant::now();
     let outcome =

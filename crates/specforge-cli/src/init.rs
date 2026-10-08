@@ -1,4 +1,5 @@
 use crate::OutputFormat;
+use crate::outcome::Refusal;
 use serde_json::json;
 use specforge_common::find_project_root;
 use specforge_ops::init;
@@ -9,7 +10,7 @@ use std::path::Path;
 pub fn run(
     path: &Path,
     name: Option<&str>,
-    version: Option<&str>,
+    version: &str,
     extensions: &[String],
     format: OutputFormat,
 ) -> i32 {
@@ -24,7 +25,7 @@ pub fn run(
     };
     let plan = match init::plan(&request) {
         Ok(plan) => plan,
-        Err(error) => return fail(&error),
+        Err(error) => return Refusal::of(format).report(&error),
     };
     if let Some(enclosing) = path.parent().and_then(find_project_root)
         && format != OutputFormat::Json
@@ -37,7 +38,7 @@ pub fn run(
     }
     let outcome = match init::apply(path, &plan) {
         Ok(outcome) => outcome,
-        Err(error) => return fail(&error),
+        Err(error) => return Refusal::of(format).report(&error),
     };
 
     // Every file init wrote: .gitignore when it lacked an entry, the
@@ -82,13 +83,4 @@ pub fn run(
         }
     }
     0
-}
-
-/// An init error on stderr, as `error: message` with its hint; exit 1.
-fn fail(error: &specforge_ops::OpError) -> i32 {
-    eprintln!("error: {}", error.message);
-    if let Some(suggestion) = &error.suggestion {
-        eprintln!("  hint: {suggestion}");
-    }
-    1
 }

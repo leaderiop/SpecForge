@@ -1,4 +1,5 @@
 use crate::OutputFormat;
+use crate::outcome::{Exit, Refusal};
 use specforge_migrate::{MigrationStatus, MigrationSummary, RollbackSummary};
 use specforge_ops::migrate::{self, Request};
 use std::path::Path;
@@ -19,23 +20,17 @@ pub fn run(
             &migrate::restored(&summary).names_under(path),
             format,
         );
-        return if summary.failed_count > 0 { 1 } else { 0 };
+        return Exit::of_verdict(summary.failed_count == 0).code();
     }
 
     let target = match migrate::parse_target(target_version) {
         Ok(target) => target,
-        Err(error) => {
-            eprintln!("{}: {}", error.code, error.message);
-            if let Some(suggestion) = &error.suggestion {
-                eprintln!("  help: {suggestion}");
-            }
-            return 1;
-        }
+        Err(error) => return Refusal::of(format).report(&error),
     };
 
     // The shared migration: migrate, run the extensions' hooks, then check
     // the graph kept its structure, rolling back when it didn't.
-    let runtime = specforge_component::project_runtime(path);
+    let runtime = specforge_component::ComponentRuntime::with_user_cache();
     let request = Request {
         root: path,
         target,
@@ -47,8 +42,8 @@ pub fn run(
     let written = (!dry_run).then(|| outcome.writes.names_under(path));
     print_migration(&outcome.summary, written.as_deref(), format, dry_run);
 
-    if outcome.summary.failed_count > 0 {
-        return 1;
+    if outcome.summary.failed_count != 0 {
+        return Exit::of_verdict(outcome.ok()).code();
     }
     for failure in &outcome.hook_failures {
         eprintln!("migration hook failure: {failure}");
@@ -66,10 +61,9 @@ pub fn run(
         } else {
             eprintln!("files restored from backups");
         }
-        return 1;
     }
 
-    0
+    Exit::of_verdict(outcome.ok()).code()
 }
 
 /// The JSON of `document` with `files_written`, when given.
@@ -130,10 +124,6 @@ fn print_migration(
                 for d in &summary.diffs {
                     println!("{}", d.unified_text);
                 }
-            }
-
-            for d in &summary.diagnostics {
-                eprintln!("{}: {}", d.code, d.message);
             }
 
             eprintln!(

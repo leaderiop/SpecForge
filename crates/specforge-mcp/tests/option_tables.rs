@@ -8,6 +8,7 @@ use crate::support::{Served, TestProject, call_tool};
 use serde_json::{Value, json};
 use specforge_ops::coverage::STATUS;
 use specforge_ops::export::{AGENT_FORMAT, FORMAT};
+use specforge_ops::infer::{END_STATUS, SESSION_ACTION};
 use specforge_ops::model::{
     DEPS, GROUP_BY, MODEL_FIELDS, MODEL_FORMAT, OUTLINE_FIELDS, OUTLINE_FORMAT,
 };
@@ -63,6 +64,8 @@ fn enumerated() -> Vec<Advertised> {
         advertised("specforge.outline_extensions", "deps", &DEPS),
         advertised("specforge.coverage", "status_filter", &STATUS),
         advertised("specforge.find_references", "direction", &DIRECTION),
+        required("specforge.infer_session", "action", &SESSION_ACTION),
+        advertised("specforge.infer_session", "status", &END_STATUS),
     ]
 }
 
@@ -82,13 +85,6 @@ fn name_lists() -> Vec<(&'static str, &'static str, &'static [&'static str])> {
         ),
     ]
 }
-
-/// Input `enum`s that are a tool's own protocol, not an argument any
-/// operation reads: the inference session's state machine.
-const STATE_MACHINES: [(&str, &str); 2] = [
-    ("specforge.infer_session", "action"),
-    ("specforge.infer_session", "status"),
-];
 
 /// The listed names of a property's `enum` (an array's items' for a list).
 fn listed(property: &Value) -> Option<Vec<&str>> {
@@ -117,7 +113,7 @@ fn every_input_enum_comes_from_a_table_or_a_name_list() {
         );
     }
     for spec in specforge_mcp::tools::CORE_TOOLS {
-        let schema = (spec.schema)();
+        let schema = spec.input_schema();
         let Some(properties) = schema["properties"].as_object() else {
             continue;
         };
@@ -130,8 +126,7 @@ fn every_input_enum_comes_from_a_table_or_a_name_list() {
                 .any(|t| t.tool == spec.name && t.argument == argument)
                 || lists
                     .iter()
-                    .any(|(tool, a, _)| *tool == spec.name && a == argument)
-                || STATE_MACHINES.contains(&(spec.name, argument.as_str()));
+                    .any(|(tool, a, _)| *tool == spec.name && a == argument);
             assert!(
                 known,
                 "{}.{argument} lists names no option table or name list holds",
@@ -147,7 +142,7 @@ fn property(tool: &str, argument: &str) -> Value {
         .iter()
         .find(|spec| spec.name == tool)
         .unwrap_or_else(|| panic!("no core tool {tool}"));
-    (spec.schema)()["properties"][argument].clone()
+    spec.input_schema()["properties"][argument].clone()
 }
 
 #[specforge_test_macros::test(

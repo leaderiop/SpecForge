@@ -122,13 +122,90 @@ fn kind_scope_includes_example() {
     assert!(example.contains("behavior example_behavior"));
 }
 
+#[specforge_test(
+    behavior = "provide_infer_kind_scope",
+    verify = "kind scope lists every field registered on the kind, its type by name"
+)]
+fn kind_scope_lists_every_registered_field() {
+    let extension = test_extension("behavior", None).declaring(|c| {
+        c.shared_field("tags", |f| {
+            f.field_type(FieldType::StringList);
+        });
+    });
+    let mut state = TestProject::new().serve(&[extension]);
+    let resp = infer(&mut state, json!({"scope": "kind:behavior"}));
+    let content: Value = prompt_payload(&resp);
+    // `tags` is the extension's shared field, registered on `behavior`;
+    // fields come in name order, typed by their protocol names.
+    let fields: Vec<(&str, &str)> = content["fields"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|f| (f["name"].as_str().unwrap(), f["type"].as_str().unwrap()))
+        .collect();
+    assert_eq!(fields, [("description", "string"), ("tags", "string_list")]);
+}
+
+#[specforge_test(
+    behavior = "provide_infer_kind_scope",
+    verify = "kind scope's example writes each optional field the way its type is written"
+)]
+fn kind_scope_example_writes_each_field_by_its_type() {
+    let extension = test_extension("behavior", None).declaring(|c| {
+        c.shared_field("tags", |f| {
+            f.field_type(FieldType::StringList);
+        });
+        c.shared_field("refs_to", |f| {
+            f.field_type(FieldType::ReferenceList)
+                .target_kind("behavior");
+        });
+    });
+    let mut state = TestProject::new().serve(&[extension]);
+    let resp = infer(&mut state, json!({"scope": "kind:behavior"}));
+    let content: Value = prompt_payload(&resp);
+    let example = content["example"].as_str().unwrap();
+    assert!(example.contains("  refs_to [ref_1, ref_2]"), "{example}");
+    assert!(
+        example.contains("  tags [\"item1\", \"item2\"]"),
+        "{example}"
+    );
+}
+
+/// Kinds are keywords, matched exactly: `kind:Behavior` is refused, and the
+/// suggestion names the kind (ADR 0015 "Query" Q3).
 #[test]
-fn kind_scope_is_case_insensitive() {
+fn kind_scope_is_exact_and_suggests_the_kind() {
     let mut state = state_with_my_behavior();
     let resp = infer(&mut state, json!({"scope": "kind:Behavior"}));
+    let data = &resp["error"]["data"];
+    assert_eq!(resp["error"]["code"], -32602, "{resp}");
+    assert_eq!(data["message"], "unknown entity kind 'Behavior'", "{resp}");
+    assert_eq!(data["argument"], "scope");
+    assert_eq!(data["data"]["suggestion"], "did you mean 'behavior'?");
+}
+
+/// An extension keyword written with a capital is listed as declared: the
+/// entities of that kind are found and the example is written with the
+/// keyword the language accepts.
+#[test]
+fn a_capitalized_keyword_is_kept_as_declared() {
+    let mut state = TestProject::new()
+        .file("d.spec", "ADR pick_db {\n}\n")
+        .serve(&[test_extension("ADR", Some("g"))]);
+    let resp = infer(&mut state, json!({"scope": "kind:ADR"}));
     let content: Value = prompt_payload(&resp);
-    let ids = content["existing_entity_ids"].as_array().unwrap();
-    assert!(ids.contains(&Value::from("my_behavior")));
+    assert_eq!(
+        content["existing_entity_ids"],
+        json!(["pick_db"]),
+        "{content}"
+    );
+    assert!(
+        content["example"]
+            .as_str()
+            .unwrap()
+            .starts_with("ADR example_ADR"),
+        "{content}"
+    );
 }
 
 #[test]
@@ -423,4 +500,39 @@ fn infer_file_scope_lists_nothing_for_an_unanchored_file() {
         );
         assert_eq!(infer["match_mode"], "none", "{file}");
     }
+}
+
+/// Over a `specforge-infer.json` that cannot be used, the plan refuses with
+/// E071 instead of listing every source file as unanalyzed (plan 06 R6),
+/// which every `mark_analyzed` would then refuse.
+#[specforge_test(
+    behavior = "provide_infer_plan_scope",
+    verify = "plan refuses a specforge-infer.json it cannot use with E071"
+)]
+fn the_plan_refuses_an_unusable_manifest() {
+    let mut state = TestProject::new()
+        .file("src/lib.rs", "fn stub() {}\n")
+        .file("specforge-infer.json", "{ nope")
+        .serve(&[
+            test_extension("behavior", Some("guide text")).declaring(|c| {
+                c.analyzer("rust", |a| {
+                    a.file_extensions(&[".rs"]).scan(|_| ScanResponse {
+                        items: Vec::new(),
+                        language: None,
+                    });
+                });
+            }),
+        ]);
+    let resp = infer(&mut state, json!({"scope": "plan"}));
+    assert!(resp.get("result").is_none(), "{resp}");
+    let data = &resp["error"]["data"];
+    assert_eq!(data["code"], "schema_mismatch", "{resp}");
+    assert_eq!(data["diagnostic"]["code"], "E071", "{resp}");
+    assert!(
+        data["message"]
+            .as_str()
+            .unwrap()
+            .starts_with("failed to parse specforge-infer.json"),
+        "{resp}"
+    );
 }

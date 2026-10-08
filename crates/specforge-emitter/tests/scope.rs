@@ -53,7 +53,7 @@ fn build_chain_graph() -> Graph {
 )]
 fn scoped_json_returns_only_reachable_subgraph() {
     let graph = build_chain_graph();
-    let json = specforge_emitter::scope::emit_json_scoped(&graph, "b").unwrap();
+    let json = crate::support::scoped_json(&graph, "b").unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
 
     let nodes = parsed["nodes"].as_array().unwrap();
@@ -73,7 +73,7 @@ fn scoped_json_returns_only_reachable_subgraph() {
 )]
 fn scoped_context_returns_only_reachable_subgraph() {
     let graph = build_chain_graph();
-    let json = specforge_emitter::scope::emit_context_scoped(&graph, "a").unwrap();
+    let json = crate::support::scoped_context(&graph, "a").unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
 
     let nodes = parsed["nodes"].as_array().unwrap();
@@ -89,15 +89,11 @@ fn scoped_context_returns_only_reachable_subgraph() {
 #[test]
 fn scoped_export_on_nonexistent_entity_returns_error() {
     let graph = build_chain_graph();
-    let result = specforge_emitter::scope::emit_json_scoped(&graph, "nonexistent");
+    let result = crate::support::scoped_json(&graph, "nonexistent");
     assert!(result.is_err());
 
     let err = result.unwrap_err();
-    assert!(
-        err.to_string().contains("E003"),
-        "error should contain E003: {}",
-        err
-    );
+    assert_eq!(err.code(), Some(specforge_diagnostics::codes::E003));
 }
 
 // B:export_agent_graph_format — verify unit "non-existent scope entity produces E003 and exit code 1"
@@ -119,13 +115,13 @@ fn graph_scoped_export_on_nonexistent_entity_returns_e001() {
         .unwrap_err();
         assert_eq!(
             err.to_string(),
-            format!("E003: unresolved scope entity '{scope}' — entity not found in graph")
+            format!("unresolved entity '{scope}' — not found in graph")
         );
-        // The exit code `specforge export` returns for this error.
-        assert_eq!(err.exit_code(), 1);
+        // The failure is the catalogued E003; its message carries no code.
+        assert_eq!(err.code(), Some(specforge_diagnostics::codes::E003));
     }
     // An existing scope is not an error.
-    assert!(specforge_emitter::scope::emit_json_scoped(&graph, "a").is_ok());
+    assert!(crate::support::scoped_json(&graph, "a").is_ok());
 }
 
 // B:export_agent_graph_format — verify unit "scoped export returns only reachable subgraph"
@@ -133,7 +129,7 @@ fn graph_scoped_export_on_nonexistent_entity_returns_e001() {
 #[specforge_test(behavior = "export_agent_graph_format")]
 fn scoped_edges_only_between_reachable_nodes() {
     let graph = build_chain_graph();
-    let json = specforge_emitter::scope::emit_json_scoped(&graph, "a").unwrap();
+    let json = crate::support::scoped_json(&graph, "a").unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
 
     let edges = parsed["edges"].as_array().unwrap();
@@ -146,7 +142,7 @@ fn scoped_edges_only_between_reachable_nodes() {
 fn scoped_leaf_node_returns_single_node() {
     let graph = build_chain_graph();
     // "d" is disconnected, so scope returns just d
-    let json = specforge_emitter::scope::emit_json_scoped(&graph, "d").unwrap();
+    let json = crate::support::scoped_json(&graph, "d").unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
 
     let nodes = parsed["nodes"].as_array().unwrap();

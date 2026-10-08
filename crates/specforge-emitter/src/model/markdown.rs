@@ -1,6 +1,7 @@
 use std::fmt::Write;
 
 use super::{GroupBy, ModelIntermediate, ModelOptions};
+use crate::diagram::markdown_cell;
 
 pub fn render_markdown(model: &ModelIntermediate, options: &ModelOptions) -> String {
     let mut out = String::new();
@@ -50,7 +51,10 @@ pub fn render_markdown(model: &ModelIntermediate, options: &ModelOptions) -> Str
             writeln!(
                 out,
                 "| {} | {} | {} | {} |",
-                ext.name, ext.version, ext.entity_count, ext.edge_count
+                markdown_cell(&ext.name),
+                markdown_cell(&ext.version),
+                ext.entity_count,
+                ext.edge_count
             )
             .unwrap();
         }
@@ -135,19 +139,17 @@ fn render_entity(entity: &super::ModelEntity, model: &ModelIntermediate, out: &m
             let required = if field.required { "yes" } else { "no" };
             let contribution = field.contribution.as_deref().unwrap_or("");
             let source = field.contributed_by.as_deref().unwrap_or("");
-            // C13-07: a raw pipe shifts every subsequent table column and a
-            // newline breaks the row — escape both for the table cell.
-            let description = field
-                .description
-                .as_deref()
-                .unwrap_or("")
-                .replace('|', "\\|")
-                .replace('\n', " ");
+            let description = field.description.as_deref().unwrap_or("");
 
             writeln!(
                 out,
                 "| {} | {} | {} | {} | {} | {} |",
-                field.name, type_str, required, contribution, source, description
+                markdown_cell(&field.name),
+                markdown_cell(&type_str),
+                required,
+                markdown_cell(contribution),
+                markdown_cell(source),
+                markdown_cell(description)
             )
             .unwrap();
         }

@@ -19,6 +19,16 @@ use serde::de::DeserializeOwned;
 /// An export's answer from its raw input.
 pub(crate) type Wire = Box<dyn Fn(&[u8]) -> Result<Vec<u8>, String>>;
 
+/// `input` decoded as `I`; the error names `what` (`invalid <what> input: …`).
+pub(crate) fn decode<I: DeserializeOwned>(what: &str, input: &[u8]) -> Result<I, String> {
+    serde_json::from_slice(input).map_err(|e| format!("invalid {what} input: {e}"))
+}
+
+/// `answer` encoded; the error names `what` (`<what> answer did not encode: …`).
+pub(crate) fn encode<O: Serialize>(what: &str, answer: &O) -> Result<Vec<u8>, String> {
+    serde_json::to_vec(answer).map_err(|e| format!("{what} answer did not encode: {e}"))
+}
+
 /// `handler` as an export: its input decoded as `I` (`what` names it in
 /// the error when it does not decode), its answer encoded.
 pub(crate) fn wire<I, O>(
@@ -29,12 +39,7 @@ where
     I: DeserializeOwned,
     O: Serialize,
 {
-    Box::new(move |input| {
-        let input: I =
-            serde_json::from_slice(input).map_err(|e| format!("invalid {what} input: {e}"))?;
-        let answer = handler(&input)?;
-        serde_json::to_vec(&answer).map_err(|e| format!("{what} answer did not encode: {e}"))
-    })
+    Box::new(move |input| encode(what, &handler(&decode(what, input)?)?))
 }
 
 /// Every operational export an extension declared, with its handler, in

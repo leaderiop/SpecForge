@@ -156,7 +156,7 @@ catalog! {
         "An extension's required peer dependency can't be satisfied: it isn't installed, the installed version doesn't match the required range, peer dependencies form a cycle, an uninstall would remove an extension others still require, or an upgrade would break a peer's requirement. Install or upgrade the named peer, or use `--force` where the command supports it.";
     E028: Error core,
         "Extension load or execution failure",
-        "An extension failed somewhere in its lifecycle: its binary is missing, unreadable or does not load as a component (a `.wasm` file entry of `specforge.json` also when the file declares another name than the entry writes, or an extension another entry already loads); its handshake or one of its describe categories failed or does not parse, so its declaration cannot be read (`specforge add` and `specforge publish` refuse such a binary); or a call the host makes on the loaded extension failed. The host calls ten exports: the handshake and describe, a command, an MCP tool, an MCP resource, a compiler pass, a collector, a custom validator, a scanner and the migration hook. Each call fails when the export traps (its time or fuel included), when the extension does not route it, or when it answers output that is not the protocol type the operation owes; the message names the operation, the export and the extension (`command cmd__x() of '@acme/x' trapped: ...`). What the failure costs is the operation's: a check pass's is the compile's error, an analyze pass's a finding of that pass, a scanner's makes `infer` approximate. Report the failure to the extension's author, and confirm the extension is installed and up to date.";
+        "An extension failed somewhere in its lifecycle: its binary is missing, unreadable or does not load as a component, or `specforge.lock` can't be read so nothing is known to be installed (a `.wasm` file entry of `specforge.json` also when the file declares another name than the entry writes, or an extension another entry already loads); its handshake or one of its describe categories failed or does not parse, so its declaration cannot be read (`specforge add` and `specforge publish` refuse such a binary); or a call the host makes on the loaded extension failed. The host calls ten exports: the handshake and describe, a command, an MCP tool, an MCP resource, a compiler pass, a collector, a custom validator, a scanner and the migration hook. Each call fails when the export traps (a limit of its sandbox included: its time, its fuel or its memory, the trap naming which), when the extension does not route it, or when it answers output that is not the protocol type the operation owes; the message names the operation, the export and the extension (`command cmd__x() of '@acme/x' trapped: ...`). What the failure costs is the operation's: a check pass's is the compile's error, an analyze pass's a finding of that pass, a scanner's makes `infer` approximate. Report the failure to the extension's author, and confirm the extension is installed and up to date.";
     E030: Error core,
         "Invalid extension declaration",
         "An extension's declaration (its handshake and describe answers) can't be used as declared: its name or version is empty, its `ext_short` isn't lowercase kebab case (`[a-z][a-z0-9-]*`; it names the extension's CLI subcommand and MCP tool prefix), or an analyzer has no language, no file extensions or an empty export name. The registry build reports it on every load, and `specforge publish` refuses such a binary before any network call. Fix the declaration in the extension's source (with the SDK: `#[extension(name, version, short)]` and the builders) and rebuild it.";
@@ -165,10 +165,10 @@ catalog! {
         "A behavior that `refines` an `abstract` behavior drops one or more of the abstract behavior's `ensures` conditions. A refinement may only strengthen its abstraction's postconditions, never weaken them — restore or strengthen the missing `ensures` condition(s) in the concrete behavior.";
     E032: Error core,
         "Extension install or uninstall failed",
-        "An install or uninstall step failed: the downloaded `.wasm` binary's SHA-256 hash didn't match the expected value (possible tampering or a bad download), or a filesystem step — creating the temp directory, writing the binary, finalizing the install, or removing the extension directory on uninstall — failed. Re-download the extension or check filesystem permissions.";
+        "An install, update or uninstall step failed: creating the staging directory, writing the binary, or moving it into place or aside. Everything the change wrote was put back; when something couldn't be, the error names it. Check filesystem permissions and retry.";
     E033: Error core,
         "Lock file error",
-        "`specforge.lock` couldn't be serialized, written, read, or parsed, or the hash it records for an installed extension no longer matches the binary on disk; `specforge update` reports it when there is no lock file to update. Delete the lock file and reinstall extensions, reinstall the specific extension whose binary changed, or run `specforge add` first.";
+        "`specforge.lock` couldn't be serialized, written, read, or parsed; `specforge update` reports it when there is no lock file to update. A lock that can't be read loads no installed extension and refuses `add`, `update` and `remove` until it is fixed or deleted (then reinstall the extensions). Delete the lock file and reinstall extensions, or run `specforge add` first.";
     E034: Error formal,
         "Unmitigated event cycle",
         "`specforge analyze`'s `event_graph_analyze` pass found a cycle in the event flow graph (a behavior `produces` an event another behavior `consumes`, and so on back to the first) through two or more behaviors, and no behavior or event in it declares `sync`. The message gives one cycle path. Declare a `sync` constraint (a timeout, barrier or delivery bound) on one of its members, or break the cycle. The analysis is structural: a declared `sync` counts as the mitigation, what it says is not checked.";
@@ -186,7 +186,7 @@ catalog! {
         "A `process` entity composes, transitively, with itself through its composition edges. Remove or redirect one of the composition steps to break the cycle.";
     E045: Error core,
         "Invalid test report",
-        "`specforge collect` couldn't get a test report: the runner's command couldn't be started, it finished without writing a report at the collector's declared location (often because the tests didn't build), `--no-run` found no existing report, or a report file couldn't be read. Check the runner's output above the error and the report path. `specforge analyze` and the MCP coverage, inspect, query and analyze tools report the same code when `specforge-report.json` (or `--test-results`) exists but can't be read or parsed, rather than scoring the project as if no test ran: run `specforge collect` again to rewrite it, or fix or remove the file.";
+        "`specforge collect` couldn't get a test report: the runner's command couldn't be started, it finished without writing a report at the collector's declared location (often because the tests didn't build), `--no-run` found no existing report, or a report file couldn't be read. Check the runner's output above the error and the report path. `specforge stats`, `specforge analyze` and every MCP tool that reads coverage report the same code when `specforge-report.json` exists but can't be read or parsed, or when a `--test-results` (`test_results`) file can't be read or doesn't exist (over MCP: `schema_mismatch`, `permission_denied`, `file_not_found` or `internal_error`), rather than scoring the project as if no test ran: run `specforge collect` again to rewrite it, or fix or remove the file.";
     E046: Error core,
         "Declared bounds are contradictory",
         "`specforge analyze --prove`'s SMT solver found the declared bounds mutually unsatisfiable; the cited bounds form the conflicting core. Bounds are the fields an extension declares with the `bound` proof role (a governance constraint's `metric`, a formal axiom's `expression`). Relax or correct one of the listed bounds.";
@@ -201,7 +201,7 @@ catalog! {
         "The `depends_on` edges between `deliverable` entities form a cycle. Break the cycle by removing or inverting one of the dependencies.";
     E054: Error core,
         "Invalid extension specifier",
-        "The extension identifier passed to install couldn't be parsed — it was empty or didn't match `name@version`, a local path, or a `git+https://...` URL — or a local install path didn't exist on disk. Use a valid specifier format or check the local file path.";
+        "The argument given to `specforge add` (or `specforge.add_extension`, or `init --extensions`) isn't a builtin's name, a local path (ending in `.wasm`, or starting with `./`, `../` or `/`), a `git+https://...` URL, or a registry package `@scope/name` with an optional `@version` or `@requirement`, or a local install path didn't exist on disk. A registry package name is lowercase letters, digits, `.`, `_` or `-` in two parts that each start with a letter or digit. Nothing is asked of any registry.";
     E055: Error core,
         "Invalid surface contribution schema",
         "An extension's explicit MCP tool declares an `input_schema` or `output_schema` that isn't a JSON object, so the tool is not registered. Declare the schema as a JSON Schema object. (A command argument type outside `string`, `path`, `bool`, `enum` and `integer` fails the extension's load as E028: its surfaces don't parse.)";
@@ -217,9 +217,6 @@ catalog! {
     E059: Error core,
         "Test command not approved",
         "A runner extension declares the command that runs its tests, and `specforge collect` only runs it after you approve it for the project. The approval is asked at an interactive prompt and remembered per project, extension and command, in your user-level `~/.specforge/collector-consent.json`, never in the project. Without a terminal (CI, `--format json`) nothing is asked: pass `--yes` to run the command, or `--no-run` to parse a report the runner already wrote.";
-    E060: Error core,
-        "Resolved reference without a graph edge",
-        "A reference list names an entity that exists, but the resolver never turned the reference into a graph edge. That is a SpecForge bug, not a mistake in your spec: queries, traces and coverage would miss the relationship. Please report it with the spec that triggers it.";
     E061: Error core,
         "Field value is not the declared type",
         "The extension that registers a field declares its type, and the value given can't be that type: an integer field got something other than an integer, a bool field something other than true or false, an enum field a value outside its declared values (the suggestion names the closest one), or a field declared as a single value got a list. Values that can be read as the declared type are converted without a diagnostic: a single string or reference on a list field becomes a one-item list, and a quoted integer or boolean becomes the number or boolean. Fix the value, or check the field's type with `specforge schema --kind <kind>`.";
@@ -247,6 +244,15 @@ catalog! {
     E069: Error core,
         "Unusable specforge.json",
         "The project root has a `specforge.json` that isn't used as written. When it can't be read, isn't valid JSON, isn't a JSON object, or its `extensions` value isn't an array, the compile uses the default config: no extension loads and only structure is checked (I002 says so), and `specforge add`, `specforge update` and `specforge remove` refuse (config_invalid) without changing anything. When a key has the wrong type (`name`, `version` or `spec_root` not a string, `exclude` not an array), that key's default is used; when an item of `extensions` or `exclude` isn't a string, that item is ignored; the rest of the file is used. Each problem is one E069, and `check` fails on it, so a broken config can't pass a CI that checks nothing. Fix the file: the message names the JSON error's line and column, or the key and the item. A missing `specforge.json` is not this: it is a project with the default config (`specforge doctor` says so).";
+    E070: Error core,
+        "Installed extension does not match its lock entry",
+        "An installed extension's binary, `.specforge/extensions/<name>/extension.wasm`, is not the one its `specforge.lock` entry pins: its SHA-256 differs from the recorded hash (it was changed or replaced after install), or it declares another extension than the entry names. It is not loaded, and `check` fails. Reinstall it with the command the suggestion names (`specforge add <path>` for a local install, `specforge add <name>@<version>` for a registry one); `specforge doctor` lists it as `stale_hash`.";
+    E071: Error core,
+        "Unusable inference manifest",
+        "A file inference keeps at the project root is there and can't be used as written: `specforge-infer.json` (the analyzed source files and the inference sessions) or `specforge-anchors.json` (the source anchors navigation reads). It can't be read, isn't valid JSON, doesn't have the manifest's shape (a field missing or of the wrong type, a session status other than `active`, `paused` or `completed`), or, for `specforge-infer.json`, has a `version` other than 1. Nothing reads such a file as empty, and nothing writes over it: `specforge infer-status`, `specforge.infer_progress`, `specforge.infer_gaps`, the infer prompt's plan and every `specforge.infer_session` action refuse with this code, `specforge.find_implementation`, `specforge.find_spec_for_source` and the infer prompt's file scope refuse when it is the anchors manifest, and `specforge check --lint inferred` reports it as an error instead of I200 and I202. Fix the file where the message says (it names the line and column of a JSON or shape error), or move it aside to start over. A missing file is not this: inference has recorded nothing yet.";
+    E072: Error core,
+        "Invalid package name or version",
+        "A name that must be a package name is not one, or a version that must be a SemVer version is not one. A package name is `@scope/name` (what a registry holds) or `name` alone (a local module); each part is lowercase letters, digits, `.`, `_` or `-`, and starts with a letter or digit, so it is always a directory inside `.specforge/extensions`. It is checked where a name does not come from the `add` argument (that is E054): the name a local module declares when `specforge add` installs it, a peer a declaration names, a `specforge.json` `extensions` entry (the entry is not loaded), the name `specforge remove` is given, and the name and version of the declaration `specforge publish` uploads (which must also be scoped and a full version). Nothing is written or deleted. Fix the extension's declared name or version (its SDK `name`/`version`) and rebuild, or fix the `specforge.json` entry.";
     I002: Info core,
         "Structural-only mode",
         "Emitted when no extensions are installed, or when every installed extension failed to load, so the compiler falls back to structural-only validation. Install an extension (for example `specforge add @specforge/software`) to enable kind-specific checks.";
@@ -288,7 +294,7 @@ catalog! {
         "MCP serves each name once (ADR 0017): the core tools and resources first, then each extension's explicit MCP tools and resources in extension load order, then its commands as the tools `specforge.<ext>.<command>`. A contribution not served under its name is reported here, with why: an explicit tool named as a core tool or an earlier extension's tool; a resource whose URIs a core resource or an earlier extension resource already serves; a command whose tool name an explicit tool (or a core tool) already has; a command the host refuses (an arg taking `--path`, `--format` or `--help`, two args spelling one option, or a default its declaration contradicts); a command another extension of the same short name routes first. Only MCP reports it, so `specforge check` does not. Rename the contribution if the collision is unintended; otherwise no action is needed.";
     I020: Info core,
         "Unknown entity kind in a filter",
-        "A `kinds` filter passed to the `specforge.query` or `specforge.search` MCP tool names a kind that no loaded extension defines and no entity has. The kind matches nothing and is dropped from the filter; the report rides in the tool result's `_meta.diagnostics`, with a `did you mean` suggestion when a known kind is close. Fix the spelling, or enable the extension that defines the kind.";
+        "A kind filter (`specforge query --kind`, the `kinds` of the `specforge.query` and `specforge.search` MCP tools, or `specforge.list`'s `kind`) names a kind that no loaded extension declares and no entity is written with. The kind matches nothing and is dropped from the filter; the report goes to stderr on the CLI and rides in the tool result's `_meta.diagnostics` over MCP, with a `did you mean` suggestion when a known kind is close (a kind equal but for case first: kind names are case-sensitive keywords). Fix the spelling, or enable the extension that defines the kind.";
     I046: Info product,
         "Unreferenced persona",
         "A `persona` entity has no incoming edges, meaning no `journey` references it. Reference the persona from a journey, or remove it if it's no longer needed.";
@@ -417,7 +423,7 @@ catalog! {
         "The registry lists the package, but no version of it (or no version with a valid semver number). Ask the publisher to publish a release, or install from another source.";
     R_RES_003 = "R-RES-003": Error core,
         "Invalid version range",
-        "The version range isn't valid semver range syntax. Use a range such as `^1.0`, `~2.3` or `>=1.0.0 <2.0.0`, or `latest`.";
+        "The version after `@` isn't `latest`, a full version or valid SemVer requirement syntax, so no registry was asked. Use a version such as `1.2.0`, a requirement such as `^1.0`, `~2.3`, `1.x` or `>=1.0.0, <2.0.0`, or `latest`.";
     R_RES_004 = "R-RES-004": Error core,
         "No version satisfies the range",
         "The registry has versions of the package, but none inside the requested range; the message lists the available ones. Widen the range, or pick one of the listed versions.";
@@ -508,9 +514,6 @@ catalog! {
     W010: Warning software,
         "Unknown field annotation",
         "A `type` field carries an annotation that isn't recognized by the compiler. Remove the annotation or correct its spelling.";
-    W011: Warning core,
-        "Edge references missing node",
-        "An edge was about to be added between two entities, but one or both endpoints don't exist in the graph, so the edge was dropped. Check the referenced entity IDs for typos or missing definitions.";
     W012: Warning core,
         "Unreferenced ref entity",
         "A `ref` entity has no incoming edges, meaning nothing in the project references it. Reference the `ref` from another entity, or remove it if it's unused.";
@@ -664,9 +667,6 @@ catalog! {
     W118: Warning core,
         "Invalid provider configuration",
         "A `providers` entry in `specforge.json` is missing its `alias`/`name` or `scheme` field, or no installed extension contributes providers to back a configured provider. Add the missing field, or install an extension that contributes the provider.";
-    W119: Warning core,
-        "Partial install cleanup failed",
-        "Rolling back a failed extension install could not remove the partially-created extension directory. Manually delete the leftover extension directory reported in the message.";
     W121: Warning governance,
         "Invalid failure mode detection",
         "A `failure_mode` entity's `detection` or `post_detection` field is not one of the recognized values (`certain`, `likely`, `moderate`, `unlikely`, `undetectable`). Set the field to one of these values.";
@@ -736,18 +736,24 @@ catalog! {
     W145: Warning core,
         "Pass order constraints form a cycle",
         "An extension's compiler passes declare `after`/`before` constraints that form a cycle, so no order satisfies them all. The registry build reports it, naming the passes in the cycle, and runs that extension's passes in the order it declares them. Remove the constraint that closes the cycle.";
-    W146: Warning core,
-        "Unknown field type in the model",
-        "`specforge model` (and MCP `specforge.model`) met a field type in the Graph Protocol schema that the model does not know, and rendered the field as a string. A schema built from the loaded extensions only carries known types, so this comes from a schema built some other way. Fix the schema's `field_type`, or add the type to the model.";
     W147: Warning core,
         "Validation rule property ignored",
         "An extension-declared validation rule sets a property its check does not read — an `edge_type` on a field check, a `constraint` on an edge check, a `wasm_function` on a declarative check, a constraint kind, `pattern` or `values` its check does not read. The rule is registered without it, so it does not do what its author meant. Remove the property, or use the check that reads it (`conditional_field_required` reads `constraint.pattern` as the condition field's name, `field_value_constraint` with `matches` as a regex).";
     W148: Warning core,
         "Custom rule could not check entities",
         "A `check: \"custom\"` rule's `wasm_function` failed (trapped, or answered something that is not a verdict) on some entities during this check, so they were not checked. Reported once per rule, with how many failed and the first one's error. The load-time probe (W112) calls the function on an empty entity only; fix the function so that it answers every entity of the rule's target kind. The diagnostic's data lists every entity that was not checked, with its error.";
+    W149: Warning core,
+        "Installed extension is not pinned",
+        "A `specforge.lock` entry records no hash (it was written before installs were pinned), so its binary loads without being checked. Reinstall the extension with the command the suggestion names to pin it.";
     W150: Warning core,
         "Extension reports a code it may not use",
         "An extension declared a validation rule, or a pass reported a diagnostic, with a code it may not use: a code the catalog gives to core or to another extension, its own code at a level the catalog does not give it, a retired code, a first-party extension's uncatalogued code, or a third-party code outside `E900`-`E998`, `W900`-`W998` and `I900`-`I998` or whose prefix contradicts its level. The rule still runs and the finding is still reported, with the code as given, so its title and docs link may describe another diagnostic. Renumber it in the extension's range (a third-party extension) or catalogue it (a first-party one).";
+    W151: Warning core,
+        "Entity kinds left unchecked",
+        "Extensions are loaded, but none of them declares an entity kind, so the entities' kinds, fields and identifiers are not checked: no E024 for an unknown kind, no W020, E013, E014, E022 or E061. The warning names how many entities that leaves unchecked and their kinds. Enable the extension that declares those kinds (the suggestion names it when it is a builtin), or remove the entities. A project with no extension at all is structural-only on purpose and gets I002 instead.";
+    W153: Warning core,
+        "Sandbox declaration not honoured",
+        "An extension's declaration asks its sandbox for something the host does not give, so the extension runs without it. A component is granted no capability, whatever it declares: no directory, environment, arguments, stdin, socket or name lookup (ADR 0037). So a `sandbox_policy` key other than `max_execution_ms` and `max_memory_mb` that asks for something (`network_access: true`, a non-empty `allowed_paths`, a misspelled limit), and a surface's `sandbox` override, grant nothing. A declared limit above the host's ceiling (30000 ms per call, 512 MB of linear memory) is held to the ceiling. The message names the extension and the key. Remove the key, or lower the limit. An extension that needs a file's content gets it in its input (an analyzer is handed each file); one that needs the network can't run in SpecForge.";
     W154: Warning product,
         "Completed milestone delivers an unfinished feature",
         "A `milestone` has `status: completed` but a feature its `features` names is neither `done` nor `deprecated`, so the milestone's completion claims what its features do not. Reported once per such feature, by the `lifecycle` pass of @specforge/product. Mark the feature done if it was delivered; otherwise move it out of the milestone or set the milestone back to `in_progress`.";

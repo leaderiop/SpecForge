@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-exclude = ["fixtures/greet-extension", "fixtures/sandbox-probe", "extensions/product", "extensions/software", "extensions/governance", "extensions/formal", "extensions/testing", "extensions/cargo-test", "extensions/vitest", "extensions/rust", "extensions/typescript"]
+exclude = ["fixtures/greet-extension", "fixtures/sandbox-probe", "fixtures/docref-extension", "extensions/product", "extensions/software", "extensions/governance", "extensions/formal", "extensions/testing", "extensions/cargo-test", "extensions/vitest", "extensions/rust", "extensions/typescript"]
 members = [
     "crates/specforge-common",
     "crates/specforge-component",
@@ -11,7 +11,6 @@ members = [
     "crates/specforge-parser",
     "crates/specforge-resolver",
     "crates/specforge-graph",
-    "crates/specforge-validator",
     "crates/specforge-coverage",
     "crates/specforge-diagnostics",
     "crates/specforge-emitter",
@@ -20,8 +19,10 @@ members = [
     "crates/specforge-registry",
     "crates/specforge-registry-client",
     "crates/specforge-wasm",
+    "crates/specforge-installed",
     "crates/specforge-lsp",
     "crates/specforge-mcp",
+    "crates/specforge-mcp-macros",
     "crates/specforge-migrate",
     "crates/specforge-ops",
     "crates/specforge-ops-registry",

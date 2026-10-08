@@ -4,9 +4,9 @@
 //! by directory and `--gaps-detail` the `specforge.infer_gaps` report.
 
 use crate::OutputFormat;
+use crate::outcome::Refusal;
 use serde_json::json;
-use specforge_common::inference::MANIFEST_FILENAME;
-use specforge_ops::infer::{self, Gaps, Progress};
+use specforge_ops::infer::{self, Gaps, MANIFEST_FILENAME, Progress};
 use specforge_ops::view::ProjectView;
 use std::path::Path;
 
@@ -22,16 +22,14 @@ pub fn run(
     let progress = match infer::progress(&view) {
         Ok(progress) => progress,
         Err(error) => {
-            format.print_op_error(&error);
-            return 1;
+            return Refusal::of(format).report(&error);
         }
     };
     let gaps = if show_gaps_detail {
         match infer::gaps(&view, &runtime) {
             Ok(gaps) => Some(gaps),
             Err(error) => {
-                format.print_op_error(&error);
-                return 1;
+                return Refusal::of(format).report(&error);
             }
         }
     } else {
@@ -63,7 +61,7 @@ pub fn run(
                 "{}",
                 render_human(&progress, show_gaps, show_stale, gaps.as_ref())
             );
-            if !path.join(MANIFEST_FILENAME).exists() {
+            if !progress.recorded {
                 println!();
                 println!(
                     "No {MANIFEST_FILENAME} yet: start an inference with the MCP infer prompt \
@@ -98,6 +96,21 @@ fn render_human(progress: &Progress, gaps: bool, stale: bool, detail: Option<&Ga
     if !progress.stale.is_empty() || !progress.deleted.is_empty() {
         line!("  Stale:    {}", progress.stale.len());
         line!("  Deleted:  {}", progress.deleted.len());
+    }
+
+    if !progress.sessions.is_empty() {
+        line!();
+        line!("Sessions:");
+        for session in &progress.sessions {
+            line!(
+                "  {}  {}  {}  {} \u{2192} {}",
+                session.session_id,
+                session.agent,
+                session.status.name(),
+                session.started_at,
+                session.ended_at.as_deref().unwrap_or("\u{2026}")
+            );
+        }
     }
 
     if gaps && !progress.unanalyzed.is_empty() {

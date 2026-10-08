@@ -1,7 +1,9 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt::Write;
 
-use super::{Cardinality, GroupBy, ModelFieldType, ModelIntermediate, ModelOptions};
+use super::{Cardinality, GroupBy, ModelIntermediate, ModelOptions};
+use crate::diagram::{dbml_name, escape_dbml_string};
+use specforge_registry::FieldType;
 
 pub fn render_dbml(model: &ModelIntermediate, options: &ModelOptions) -> String {
     let mut out = String::new();
@@ -12,29 +14,55 @@ pub fn render_dbml(model: &ModelIntermediate, options: &ModelOptions) -> String 
     let pk = primary_key_columns(model);
 
     match options.group_by {
-        GroupBy::Extension => render_grouped(model, &pk, &mut out),
-        GroupBy::None => render_flat(model, &pk, &mut out),
+        GroupBy::Extension => render_grouped(model, &mut out),
+        GroupBy::None => render_flat(model, &mut out),
     }
 
-    // Named Ref declarations for edge types. The operator encodes the
-    // inferred cardinality (C13-10); the target column is the declared PK,
-    // not a hardcoded `id`.
-    if !model.relationships.is_empty() {
+    // One named Ref per reference, the form that carries the edge's name and
+    // cardinality (C13-10): the operator encodes the inferred cardinality and
+    // the target column is the declared PK, not a hardcoded `id`. A Ref is
+    // written only between columns the output writes (a field level of
+    // `none` or a filter leaves the others out, and DBML refuses a Ref to a
+    // column no table has).
+    let written: HashMap<&str, HashSet<&str>> = model
+        .entities
+        .iter()
+        .map(|entity| {
+            (
+                entity.name.as_str(),
+                entity.fields.iter().map(|f| f.name.as_str()).collect(),
+            )
+        })
+        .collect();
+    let has_column = |table: &str, column: &str| {
+        written
+            .get(table)
+            .is_some_and(|columns| columns.contains(column))
+    };
+    let refs: Vec<_> = model
+        .relationships
+        .iter()
+        .filter_map(|rel| {
+            let source_col = rel.source_field.as_deref().unwrap_or("id");
+            let target_col = pk.get(rel.target.as_str()).copied().unwrap_or("id");
+            (has_column(&rel.source, source_col) && has_column(&rel.target, target_col))
+                .then_some((rel, source_col, target_col))
+        })
+        .collect();
+    if !refs.is_empty() {
         writeln!(out).unwrap();
         writeln!(out, "// ── Relationships ──").unwrap();
         writeln!(out).unwrap();
-        for rel in &model.relationships {
-            let source_col = rel.source_field.as_deref().unwrap_or("id");
-            let target_col = pk.get(rel.target.as_str()).copied().unwrap_or("id");
+        for (rel, source_col, target_col) in refs {
             writeln!(
                 out,
                 "Ref {}: {}.{} {} {}.{}",
-                rel.name,
-                rel.source,
-                source_col,
+                dbml_name(&rel.name),
+                dbml_name(&rel.source),
+                dbml_name(source_col),
                 ref_operator(rel.cardinality),
-                rel.target,
-                target_col
+                dbml_name(&rel.target),
+                dbml_name(target_col)
             )
             .unwrap();
         }
@@ -43,7 +71,7 @@ pub fn render_dbml(model: &ModelIntermediate, options: &ModelOptions) -> String 
     out
 }
 
-fn render_grouped(model: &ModelIntermediate, pk: &HashMap<&str, &str>, out: &mut String) {
+fn render_grouped(model: &ModelIntermediate, out: &mut String) {
     for ext in &model.extensions {
         let entities: Vec<_> = model
             .entities
@@ -56,13 +84,13 @@ fn render_grouped(model: &ModelIntermediate, pk: &HashMap<&str, &str>, out: &mut
 
         let short_name = ext.name.replace("@specforge/", "");
         writeln!(out).unwrap();
-        writeln!(out, "// ── {} ──", ext.name).unwrap();
+        writeln!(out, "// ── {} ──", one_line(&ext.name)).unwrap();
         writeln!(out).unwrap();
 
         // TableGroup
-        writeln!(out, "TableGroup {} {{", short_name).unwrap();
+        writeln!(out, "TableGroup {} {{", dbml_name(&short_name)).unwrap();
         for entity in &entities {
-            writeln!(out, "  {}", entity.name).unwrap();
+            writeln!(out, "  {}", dbml_name(&entity.name)).unwrap();
         }
         writeln!(out, "}}").unwrap();
 
@@ -70,50 +98,54 @@ fn render_grouped(model: &ModelIntermediate, pk: &HashMap<&str, &str>, out: &mut
         for entity in &entities {
             render_enums(entity, out);
             writeln!(out).unwrap();
-            render_table(entity, pk, out);
+            render_table(entity, out);
         }
     }
 }
 
-fn render_flat(model: &ModelIntermediate, pk: &HashMap<&str, &str>, out: &mut String) {
+fn render_flat(model: &ModelIntermediate, out: &mut String) {
     for entity in &model.entities {
         render_enums(entity, out);
         writeln!(out).unwrap();
-        render_table(entity, pk, out);
+        render_table(entity, out);
     }
 }
 
 fn render_enums(entity: &super::ModelEntity, out: &mut String) {
     for field in &entity.fields {
-        let has_enum_values =
-            field.field_type == ModelFieldType::Enum && field.enum_values.is_some();
+        let has_enum_values = field.field_type == FieldType::Enum && field.enum_values.is_some();
         if has_enum_values {
             writeln!(out).unwrap();
-            writeln!(out, "Enum {}_{} {{", entity.name, field.name).unwrap();
+            writeln!(
+                out,
+                "Enum {} {{",
+                dbml_name(&format!("{}_{}", entity.name, field.name))
+            )
+            .unwrap();
             for val in field.enum_values.as_ref().unwrap() {
-                writeln!(out, "  {}", val).unwrap();
+                writeln!(out, "  {}", dbml_name(val)).unwrap();
             }
             writeln!(out, "}}").unwrap();
         }
     }
 }
 
-fn render_table(entity: &super::ModelEntity, pk: &HashMap<&str, &str>, out: &mut String) {
+fn render_table(entity: &super::ModelEntity, out: &mut String) {
     if entity.enhanced_by.is_empty() {
-        writeln!(out, "Table {} {{", entity.name).unwrap();
+        writeln!(out, "Table {} {{", dbml_name(&entity.name)).unwrap();
     } else {
         writeln!(
             out,
             "Table {} {{ // enhanced by: {}",
-            entity.name,
-            entity.enhanced_by.join(", ")
+            dbml_name(&entity.name),
+            one_line(&entity.enhanced_by.join(", "))
         )
         .unwrap();
     }
 
     for field in &entity.fields {
-        let type_str = if field.field_type == ModelFieldType::Enum {
-            format!("{}_{}", entity.name, field.name)
+        let type_str = if field.field_type == FieldType::Enum {
+            dbml_name(&format!("{}_{}", entity.name, field.name)).into_owned()
         } else {
             dbml_type(field.field_type).to_string()
         };
@@ -125,10 +157,6 @@ fn render_table(entity: &super::ModelEntity, pk: &HashMap<&str, &str>, out: &mut
         }
         if field.required && !field.is_primary_key {
             attrs.push("not null".to_string());
-        }
-        if let Some(target) = &field.references {
-            let target_col = pk.get(target.as_str()).copied().unwrap_or("id");
-            attrs.push(format!("ref: > {target}.{target_col}"));
         }
 
         // Build note from contribution, source, and description
@@ -143,7 +171,10 @@ fn render_table(entity: &super::ModelEntity, pk: &HashMap<&str, &str>, out: &mut
             note_parts.push(desc.clone());
         }
         if !note_parts.is_empty() {
-            attrs.push(format!("note: '{}'", note_parts.join(" | ")));
+            attrs.push(format!(
+                "note: '{}'",
+                escape_dbml_string(&note_parts.join(" | "))
+            ));
         }
 
         let attr_str = if attrs.is_empty() {
@@ -152,7 +183,7 @@ fn render_table(entity: &super::ModelEntity, pk: &HashMap<&str, &str>, out: &mut
             format!(" [{}]", attrs.join(", "))
         };
 
-        writeln!(out, "  {} {}{}", field.name, type_str, attr_str).unwrap();
+        writeln!(out, "  {} {}{}", dbml_name(&field.name), type_str, attr_str).unwrap();
     }
 
     writeln!(out, "}}").unwrap();
@@ -161,15 +192,15 @@ fn render_table(entity: &super::ModelEntity, pk: &HashMap<&str, &str>, out: &mut
 /// Real DBML column types instead of the previous all-`string` erasure (C13-10).
 /// Lists have no native DBML column type and render as JSON-carrying `text`;
 /// structured `block` fields render as `json`.
-fn dbml_type(ft: ModelFieldType) -> &'static str {
+fn dbml_type(ft: FieldType) -> &'static str {
     match ft {
-        ModelFieldType::String | ModelFieldType::Reference => "varchar",
-        ModelFieldType::Integer => "integer",
-        ModelFieldType::Boolean => "boolean",
-        ModelFieldType::StringList | ModelFieldType::ReferenceList => "text",
-        ModelFieldType::Block => "json",
+        FieldType::String | FieldType::Reference => "varchar",
+        FieldType::Integer => "integer",
+        FieldType::Bool => "boolean",
+        FieldType::StringList | FieldType::ReferenceList => "text",
+        FieldType::Block => "json",
         // Enum fields render as the custom `Enum {entity}_{field}` type instead.
-        ModelFieldType::Enum => "varchar",
+        FieldType::Enum => "varchar",
     }
 }
 
@@ -200,4 +231,9 @@ fn primary_key_columns(model: &ModelIntermediate) -> HashMap<&str, &str> {
             (e.name.as_str(), col)
         })
         .collect()
+}
+
+/// `text` on one line, for a `//` comment.
+fn one_line(text: &str) -> String {
+    text.replace(['\n', '\r'], " ")
 }

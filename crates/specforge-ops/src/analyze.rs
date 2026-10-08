@@ -15,13 +15,13 @@ use std::sync::Arc;
 use crate::builtin_passes::{COVERAGE_PASS, PASS_NAMES};
 use specforge_common::{Diagnostic, Severity};
 use specforge_graph::Graph;
+use specforge_project::coverage;
 use specforge_project::coverage::TestReport;
-use specforge_project::coverage::{self, ReportError};
 use specforge_project::passes::{self, AnalysisContext};
 use specforge_registry::DeclaredPass;
 use specforge_wasm::runtime::WasmRuntime;
 
-use crate::OpError;
+use crate::{OpError, OpErrorKind};
 
 pub use crate::view::ProjectView;
 
@@ -210,6 +210,36 @@ impl std::fmt::Display for AnalyzeError {
 
 impl std::error::Error for AnalyzeError {}
 
+/// What each way of not running is, for every surface: an unknown pass is
+/// `invalid_input` (`unknown_pass`, with a did-you-mean when one is close),
+/// an unusable report is the classified E045, `--min` without a report is
+/// `precondition_failed` (`no_test_results`).
+impl From<AnalyzeError> for OpError {
+    fn from(error: AnalyzeError) -> Self {
+        let message = error.to_string();
+        match error {
+            AnalyzeError::UnknownPass {
+                requested,
+                available,
+            } => {
+                let close = specforge_common::suggest::find_close_match(
+                    &requested,
+                    available.iter().map(String::as_str),
+                );
+                let error = OpError::new(OpErrorKind::InvalidInput, "unknown_pass", message);
+                match close {
+                    Some(close) => error.with_suggestion(format!("did you mean '{close}'?")),
+                    None => error,
+                }
+            }
+            AnalyzeError::UnusableReport(error) => error,
+            AnalyzeError::MinNeedsTestResults => {
+                OpError::new(OpErrorKind::PreconditionFailed, "no_test_results", message)
+            }
+        }
+    }
+}
+
 /// Run the selected passes over `view`; the extension passes in `runtime`,
 /// when there is one (a rootless analysis has none and runs none).
 pub fn analyze(
@@ -390,12 +420,12 @@ fn read_report(
     view: &ProjectView,
     source: &ReportSource,
 ) -> Result<Option<Arc<TestReport>>, AnalyzeError> {
-    let read = match source {
+    match source {
         ReportSource::None => Ok(None),
-        ReportSource::File(path) => coverage::read_report_file(path).map(|r| Some(Arc::new(r))),
+        ReportSource::File(path) => crate::report::named(path).map(Some),
         ReportSource::Recorded => view.test_report(),
-    };
-    read.map_err(|e: ReportError| AnalyzeError::UnusableReport(e.diagnostic().into()))
+    }
+    .map_err(AnalyzeError::UnusableReport)
 }
 
 #[cfg(test)]
@@ -473,10 +503,16 @@ mod tests {
         }
 
         fn view(&self) -> ProjectView<'_> {
+            self.view_at(Some(self.dir.path()))
+        }
+
+        /// The project's view rooted at `root`: what a view reads at its
+        /// root, never in an ancestor.
+        fn view_at<'a>(&'a self, root: Option<&'a std::path::Path>) -> ProjectView<'a> {
             ProjectView::new(
                 &self.graph,
                 &self.env,
-                Some(self.dir.path()),
+                root,
                 self.recorded
                     .get_or_init(|| coverage::RecordedCoverage::over(&self.graph, &self.env)),
             )
@@ -605,7 +641,7 @@ mod tests {
     #[test]
     fn extension_passes_are_skipped_without_a_root() {
         let project = Project::new();
-        let view = project.view().rooted_at(None);
+        let view = project.view_at(None);
         let outcome = analyze(
             &view,
             Some(&scanning_extension()),
@@ -663,7 +699,7 @@ mod tests {
         std::fs::write(project.dir.path().join("specforge-report.json"), "{}").unwrap();
         let sub = project.dir.path().join("sub");
         std::fs::create_dir(&sub).unwrap();
-        let view = project.view().rooted_at(Some(&sub));
+        let view = project.view_at(Some(&sub));
         let min = AnalyzeOptions {
             min: Some(50.0),
             ..Default::default()

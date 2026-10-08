@@ -7,8 +7,8 @@
 //! stats and the schema cache are `specforge-ops`'.
 
 pub mod brief;
-pub mod budget;
-pub use budget::{estimate_tokens, filter_graph_within_budget};
+mod budget;
+pub use budget::estimate_tokens;
 pub mod context;
 mod diagram;
 pub mod dot;
@@ -17,15 +17,12 @@ mod error;
 pub mod json;
 pub mod model;
 pub mod outline;
-mod query;
 pub mod schema;
-pub mod scope;
 
 pub use dot::DotOptions;
 pub use emit::{EmitFormat, EmitOptions, emit};
 pub use error::EmitterError;
 pub use json::{SCHEMA_VERSION, field_map_to_json, field_value_to_json};
-pub use query::query;
 pub use schema::{
     GraphProtocolSchema, SchemaCacheEntry, SchemaCompatibility, SchemaEdgeType, SchemaEntityKind,
     SchemaExtensionInfo, SchemaField, SchemaMigration, SchemaMigrationChange, SchemaVersion,

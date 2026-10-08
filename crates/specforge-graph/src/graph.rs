@@ -84,50 +84,10 @@ impl Graph {
         self.nodes.insert(node.id.raw, node);
     }
 
-    pub fn remove_node(&mut self, id: &str) {
-        let sym = Sym::new(id);
-        self.nodes.remove(&sym);
-        // Rebuild edges and indexes, removing any edge touching this node
-        let old_edges = std::mem::take(&mut self.edges);
-        self.source_index.clear();
-        self.target_index.clear();
-        for edge in old_edges {
-            if edge.source != sym && edge.target != sym {
-                let idx = self.edges.len();
-                self.source_index.entry(edge.source).or_default().push(idx);
-                self.target_index.entry(edge.target).or_default().push(idx);
-                self.edges.push(edge);
-            }
-        }
-    }
-
-    /// Remove every node contributed by `file` (matched by
-    /// `source_span.file`) and, in one sweep, every edge incident to a
-    /// removed node. This is the red-green update primitive (C4-01): the
-    /// incremental pipeline strips a changed file's live contribution and
-    /// re-adds its re-parsed entities without rebuilding the whole graph.
-    pub fn remove_entities_of_file(&mut self, file: Sym) {
-        let removed: HashSet<Sym> = self
-            .nodes
-            .values()
-            .filter(|n| n.source_span.file == file)
-            .map(|n| n.id.raw)
-            .collect();
-        if removed.is_empty() {
-            return;
-        }
+    /// Remove every node `file` contributed; the build re-links every edge
+    /// afterwards.
+    pub(crate) fn remove_entities_of_file(&mut self, file: Sym) {
         self.nodes.retain(|_, n| n.source_span.file != file);
-        let old_edges = std::mem::take(&mut self.edges);
-        self.source_index.clear();
-        self.target_index.clear();
-        for edge in old_edges {
-            if !removed.contains(&edge.source) && !removed.contains(&edge.target) {
-                let idx = self.edges.len();
-                self.source_index.entry(edge.source).or_default().push(idx);
-                self.target_index.entry(edge.target).or_default().push(idx);
-                self.edges.push(edge);
-            }
-        }
     }
 
     /// Insert an edge. Idempotent on the (source, target, label) triple —
@@ -147,43 +107,58 @@ impl Graph {
         self.edges.push(edge);
     }
 
-    /// Like [`add_edge`] but checks that both `source` and `target` exist as
-    /// nodes in the graph. Returns `Some(Diagnostic)` (W011) and does **not**
-    /// insert the edge when either endpoint is missing. Returns `None` on
-    /// success (edge was added).
-    pub fn add_edge_checked(&mut self, edge: Edge) -> Option<Diagnostic> {
-        let source_exists = self.nodes.contains_key(&edge.source);
-        let target_exists = self.nodes.contains_key(&edge.target);
-
-        if !source_exists || !target_exists {
-            let missing: Vec<&str> = [
-                (!source_exists).then_some(edge.source.as_str()),
-                (!target_exists).then_some(edge.target.as_str()),
-            ]
-            .into_iter()
-            .flatten()
-            .collect();
-
-            return Some(Diagnostic::new(
-                codes::W011,
-                format!(
-                    "edge '{}' --[{}]--> '{}': node(s) not found: {}",
-                    edge.source.as_str(),
-                    edge.label.as_str(),
-                    edge.target.as_str(),
-                    missing.join(", "),
-                ),
-            ));
-        }
-
-        self.add_edge(edge);
-        None
-    }
-
-    pub fn clear_edges(&mut self) {
+    fn clear_edges(&mut self) {
         self.edges.clear();
         self.source_index.clear();
         self.target_index.clear();
+    }
+
+    /// The reference-list entries that name an existing entity but have no
+    /// edge (source, target, field). Empty after every link.
+    #[cfg_attr(not(debug_assertions), allow(dead_code))]
+    pub(crate) fn unlinked_references(&self) -> Vec<(Sym, Sym, Sym)> {
+        let mut unlinked = Vec::new();
+        for node in self.nodes.values() {
+            let source = node.id.raw;
+            let edges = self.source_index.get(&source);
+            for entry in node.fields.entries() {
+                let FieldValue::ReferenceList(refs) = &entry.value else {
+                    continue;
+                };
+                for target in refs {
+                    let target = Sym::new(target.as_str());
+                    if !self.nodes.contains_key(&target) {
+                        continue;
+                    }
+                    let linked = edges.is_some_and(|indices| {
+                        indices.iter().any(|&i| {
+                            let edge = &self.edges[i];
+                            edge.target == target && edge.label == entry.key
+                        })
+                    });
+                    if !linked {
+                        unlinked.push((source, target, entry.key));
+                    }
+                }
+            }
+        }
+        unlinked
+    }
+
+    /// Panic, naming them, when [`Self::unlinked_references`] is not empty:
+    /// a SpecForge bug, never a spec error.
+    #[cfg_attr(not(debug_assertions), allow(dead_code))]
+    pub(crate) fn assert_linked(&self) {
+        let unlinked = self.unlinked_references();
+        assert!(
+            unlinked.is_empty(),
+            "SpecForge bug: references to existing entities without their edge (source, target, field): {}",
+            unlinked
+                .iter()
+                .map(|(source, target, field)| format!("({source}, {target}, {field})"))
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
     }
 
     pub fn node(&self, id: &str) -> Option<&Node> {
@@ -359,38 +334,23 @@ impl Graph {
             .map(|reached| self.induced(&reached))
     }
 
-    /// Resolve reference fields into graph edges and return E001
+    /// Resolve reference fields into graph edges and return E003 (and I004)
     /// diagnostics for any unresolved references.
     ///
-    /// This is the **single source of truth** for reference resolution.
-    /// Both the CLI (via `build_graph_with_config`) and the LSP call this
-    /// method so that diagnostics are identical.
+    /// The graph build's linking step (`GraphBuild`): the one place
+    /// references resolve, so a compile and every update agree.
     ///
     /// The method clears all existing edges, then iterates every node's
     /// `ReferenceList` fields plus any `Identifier` fields that match
     /// `single_ref_fields` (a set of `(entity_kind, field_name)` pairs
     /// declaring which Identifier fields are single-reference fields).
     /// For each target that exists in the graph an edge is created; for
-    /// each target that does *not* exist an E001 diagnostic is emitted
-    /// (with a fuzzy-match suggestion when possible).
-    pub fn resolve_references(&mut self) -> Vec<Diagnostic> {
-        self.resolve_references_with_singles(&HashSet::new())
-    }
-
-    /// Like [`resolve_references`] but also resolves single-reference
-    /// `Identifier` fields when `(entity_kind, field_name)` is in the set.
-    pub fn resolve_references_with_singles(
-        &mut self,
-        single_ref_fields: &HashSet<(String, String)>,
-    ) -> Vec<Diagnostic> {
-        self.resolve_references_with(single_ref_fields, &HashMap::new())
-    }
-
-    /// Like [`resolve_references_with_singles`], and an unresolved target
-    /// in a field listed in `absent_targets` ((kind, field) -> target kind)
-    /// is an I004 hint: no loaded extension declares that kind, so the
+    /// each target that does *not* exist a diagnostic is emitted (with a
+    /// fuzzy-match suggestion when possible). An unresolved target in a
+    /// field listed in `absent_targets` ((kind, field) -> target kind) is
+    /// an I004 hint: no loaded extension declares that kind, so the
     /// reference can't resolve until its extension is enabled.
-    pub fn resolve_references_with(
+    pub(crate) fn resolve_references_with(
         &mut self,
         single_ref_fields: &HashSet<(String, String)>,
         absent_targets: &HashMap<(String, String), String>,
@@ -491,11 +451,6 @@ impl Graph {
         }
 
         diagnostics
-    }
-
-    /// Returns true if the directed edge set contains at least one cycle.
-    pub fn has_cycles(&self) -> bool {
-        !self.detect_cycles().is_empty()
     }
 }
 
@@ -629,5 +584,89 @@ impl Graph {
             let has_rev = hop_labels.iter().any(|ls| ls.contains(rev.as_str()));
             all_in_pair && has_fwd && has_rev
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use specforge_test_macros::test as specforge_test;
+
+    const REFERENCING: &str = r#"
+behavior alpha "A" {
+  contract "first"
+  invariants [inv_one]
+}
+invariant inv_one "Invariant One" {
+  contract "must hold"
+}
+"#;
+
+    /// The graph and diagnostics of `source`, built the way a compile builds it.
+    fn built(source: &str) -> (Graph, Vec<Diagnostic>) {
+        crate::build_graph(&[specforge_parser::parse(source, "main.spec")])
+    }
+
+    #[specforge_test(
+        behavior = "detect_dangling_references",
+        verify = "a reference to an existing entity without its edge fails the linker's assertion"
+    )]
+    #[should_panic(expected = "without their edge")]
+    fn a_reference_without_its_edge_fails_the_assertion() {
+        let (mut graph, _) = built(REFERENCING);
+        // What a linker that forgot an edge leaves behind.
+        graph.edges.clear();
+        graph.source_index.clear();
+        graph.target_index.clear();
+
+        graph.assert_linked();
+    }
+
+    #[test]
+    fn unlinked_references_names_the_missing_edge() {
+        let (mut graph, _) = built(REFERENCING);
+        graph.clear_edges();
+
+        let unlinked: Vec<(&str, &str, &str)> = graph
+            .unlinked_references()
+            .iter()
+            .map(|(s, t, f)| (s.as_str(), t.as_str(), f.as_str()))
+            .collect();
+
+        assert_eq!(unlinked, [("alpha", "inv_one", "invariants")]);
+    }
+
+    #[specforge_test(
+        behavior = "detect_dangling_references",
+        verify = "reference with corresponding graph edge passes"
+    )]
+    fn a_linked_reference_passes() {
+        let (graph, _) = built(REFERENCING);
+        graph.assert_linked();
+        assert!(graph.unlinked_references().is_empty());
+    }
+
+    #[specforge_test(
+        behavior = "detect_dangling_references",
+        verify = "an empty graph passes the linker's assertion"
+    )]
+    fn an_empty_graph_passes() {
+        let (graph, _) = built("");
+        assert_eq!(graph.edge_count(), 0);
+        graph.assert_linked();
+    }
+
+    #[specforge_test(
+        behavior = "detect_dangling_references",
+        verify = "Detect Dangling References: dangling reference detection holds — graph_built_fired, resolver_integrity_verified, no_duplicate_diagnostics"
+    )]
+    fn a_missing_target_is_e003_once() {
+        // An unresolved id is the linker's E003, once; it names no existing
+        // entity, so the assertion has nothing to say.
+        let source = "behavior beta \"B\" { contract \"second\" invariants [missing] }\n";
+        let (graph, diagnostics) = built(source);
+        assert_eq!(diagnostics.iter().filter(|d| d.code == "E003").count(), 1);
+        assert!(graph.unlinked_references().is_empty());
+        graph.assert_linked();
     }
 }

@@ -2,10 +2,14 @@
 //! document lexes too: identifiers, scheme ref IDs, numbers, strings,
 //! comments and single punctuation characters, as tree-sitter's grammar
 //! (`crates/tree-sitter-specforge/grammar.js`) tokenizes them; the test
-//! `lexer_agrees_with_the_grammar` checks it over the repository's spec.
-//! One divergence: a `"…"` string ends at its line's end (the grammar lets
-//! it run on, no spec in the repository writes one), so an unclosed quote
-//! never swallows the rest of a document being typed.
+//! `lexer_agrees_with_the_grammar` checks it over the repository's spec and
+//! a fixture of the forms the spec does not write. A string is read the
+//! grammar's way, across lines. One the grammar would not close is marked
+//! (`Str { closed: false }`); a `"…"` one ends at its first line's end, so
+//! an unclosed quote never swallows the rest of a document being typed.
+//! The parser's recovery from unclosed strings, the LSP's document, navigation
+//! and the formatter read text through this module and scan none themselves
+//! (ADR 0023, ADR 0038).
 //!
 //! This is the second reader of the language's text beside the grammar, and
 //! `expr::tokenize` is a third that is not built on it. `tokenize` reads the
@@ -39,12 +43,25 @@ pub enum LexemeKind {
     /// A word starting with a digit, with an optional `.digits` part:
     /// `42`, `10ms`, `1.5`. A leading `-` is its own `Punct`.
     Number,
-    /// `"…"` (with `\` escapes) or `"""…"""`, quotes included.
-    Str,
+    /// `"…"` (with `\` escapes) or `"""…"""`, quotes included, read as the
+    /// grammar's `string` and `triple_quoted_string` tokens read it: across
+    /// lines. `closed` is false for one the grammar would not close. Such a
+    /// `"…"` (no closing quote; a `\` before a line break, which is no
+    /// escape; or, spanning lines, a closing quote that runs straight into
+    /// text, the pairing an unclosed quote shifts) ends at its first line's
+    /// end. Such a `"""…"""` (no closing `"""`) runs to the end of the text.
+    Str { closed: bool },
     /// `//` to the end of its line, the newline excluded.
     Comment,
     /// One ASCII punctuation character.
     Punct(char),
+}
+
+impl LexemeKind {
+    /// A string, closed or not.
+    pub fn is_str(self) -> bool {
+        matches!(self, LexemeKind::Str { .. })
+    }
 }
 
 /// One lexeme, as a byte range of the text it was read from.
@@ -122,10 +139,84 @@ fn ref_id_end(bytes: &[u8], at: usize) -> Option<usize> {
     (end > kind + 1).then_some(end)
 }
 
+/// Whether the byte at `at` of `text` continues a token: what the closing
+/// quote of a string spanning lines is never followed by in the repository's
+/// spec. Whitespace, a bracket, `,`, `|`, `/` (a comment) and the end of the
+/// text do not continue one.
+pub fn runs_into_text(text: &str, at: usize) -> bool {
+    follows_text(text.as_bytes(), at)
+}
+
+/// `runs_into_text` over bytes.
+fn follows_text(bytes: &[u8], at: usize) -> bool {
+    bytes.get(at).is_some_and(|&c| {
+        !(c.is_ascii_whitespace()
+            || matches!(
+                c,
+                b'{' | b'}' | b'[' | b']' | b'(' | b')' | b',' | b'|' | b'/'
+            ))
+    })
+}
+
+/// Whether `text` is a scheme ref ID cut short: `scheme`, `scheme.`,
+/// `scheme.kind`, `scheme.kind:` or a whole `scheme.kind:id` (the grammar's
+/// `scheme_ref_id`, typed so far).
+pub fn is_ref_id_prefix(text: &str) -> bool {
+    let bytes = text.as_bytes();
+    let Some(scheme) = ascii_ident_end(bytes, 0) else {
+        return false;
+    };
+    match bytes.get(scheme) {
+        None => return true,
+        Some(b'.') => {}
+        Some(_) => return false,
+    }
+    if scheme + 1 == bytes.len() {
+        return true;
+    }
+    let Some(kind) = ascii_ident_end(bytes, scheme + 1) else {
+        return false;
+    };
+    match bytes.get(kind) {
+        None => true,
+        Some(b':') => bytes[kind + 1..].iter().all(|&b| is_ref_id_byte(b)),
+        Some(_) => false,
+    }
+}
+
+/// The end of the `"…"` string opening at `open`, and whether the grammar
+/// closes it: at its closing quote when the grammar's token ends there and,
+/// if it spans lines, nothing runs straight into that quote; else at its
+/// first line's end. `"`, `\` and `\n` are ASCII, so no byte of a wider
+/// character is ever taken for one of them.
+fn regular_string(bytes: &[u8], open: usize) -> (usize, bool) {
+    let line_end = bytes[open..]
+        .iter()
+        .position(|&b| b == b'\n')
+        .map_or(bytes.len(), |at| open + at);
+    let mut i = open + 1;
+    let close = loop {
+        match bytes.get(i) {
+            None => break None,
+            Some(b'"') => break Some(i),
+            // The grammar's escape is `\` and any character but a line break.
+            Some(b'\\') => match bytes.get(i + 1) {
+                None | Some(b'\n') => break None,
+                Some(_) => i += 2,
+            },
+            Some(_) => i += 1,
+        }
+    };
+    match close {
+        Some(close) if close < line_end || !follows_text(bytes, close + 1) => (close + 1, true),
+        _ => (line_end, false),
+    }
+}
+
 /// The lexemes of `text`, in order, whitespace skipped. Text that starts
 /// inside a string is read as code: callers lex from a statement's start.
-/// An unclosed `"…"` ends at its line's end; an unclosed `"""…"""` at the
-/// text's end.
+/// A string the grammar would not close is marked `Str { closed: false }`:
+/// a `"…"` ends at its first line's end, a `"""…"""` at the text's end.
 pub fn lex(text: &str) -> Vec<Lexeme> {
     let bytes = text.as_bytes();
     let find = |from: usize, needle: &[u8]| {
@@ -143,25 +234,15 @@ pub fn lex(text: &str) -> Vec<Lexeme> {
             i += 1;
             continue;
         } else if bytes[i..].starts_with(b"\"\"\"") {
-            i = find(i + 3, b"\"\"\"").map_or(bytes.len(), |end| end + 3);
-            LexemeKind::Str
-        } else if byte == b'"' {
-            // `"`, `\` and `\n` are ASCII, so no byte of a wider
-            // character is ever taken for one of them.
-            i += 1;
-            loop {
-                match bytes.get(i) {
-                    // Unclosed: the string ends at its line's end.
-                    None | Some(b'\n') => break,
-                    Some(b'"') => {
-                        i += 1;
-                        break;
-                    }
-                    Some(b'\\') if bytes.get(i + 1).is_some_and(|b| *b != b'\n') => i += 2,
-                    Some(_) => i += 1,
-                }
+            let close = find(i + 3, b"\"\"\"");
+            i = close.map_or(bytes.len(), |end| end + 3);
+            LexemeKind::Str {
+                closed: close.is_some(),
             }
-            LexemeKind::Str
+        } else if byte == b'"' {
+            let (end, closed) = regular_string(bytes, i);
+            i = end;
+            LexemeKind::Str { closed }
         } else if bytes[i..].starts_with(b"//") {
             i = find(i, b"\n").unwrap_or(bytes.len());
             LexemeKind::Comment

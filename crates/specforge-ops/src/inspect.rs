@@ -6,7 +6,7 @@
 use specforge_common::Diagnostic;
 use specforge_graph::Node;
 use specforge_parser::VerifyStatement;
-use specforge_project::coverage::{ReportError, Status, Verdict};
+use specforge_project::coverage::{Status, Verdict};
 use specforge_project::snapshot::Standing;
 use specforge_registry::KindRegistryEntry;
 
@@ -39,9 +39,9 @@ pub struct EntityFacts<'v> {
     /// edge order.
     pub references: References,
     /// Its coverage under the one rule, or why the recorded report cannot
-    /// be read (E045). A surface decides whether that fails it (MCP) or
+    /// be used (E045, classified by the operation). A surface decides whether that fails it (MCP) or
     /// is shown (hover).
-    pub coverage: Result<EntityCoverage, ReportError>,
+    pub coverage: Result<EntityCoverage, OpError>,
     /// The diagnostics the view reports about it (`navigate::is_about`:
     /// what their data names, else the innermost block holding their
     /// span), in the order they are reported.
@@ -69,16 +69,18 @@ impl EntityCoverage {
 
 /// The facts of the entity `entity_id`, with the diagnostics the view
 /// reports about it (MCP: its call target's; the LSP: what it published).
-/// An entity the graph lacks is `navigate::NOT_FOUND`.
+/// An entity the graph lacks is `navigate::not_found`.
 pub fn inspect<'v>(view: &ProjectView<'v>, entity_id: &str) -> Result<EntityFacts<'v>, OpError> {
     let graph = view.graph();
-    let node = graph.node(entity_id).ok_or_else(|| not_found(entity_id))?;
+    let node = graph
+        .node(entity_id)
+        .ok_or_else(|| not_found(graph, entity_id))?;
     // The snapshot is built over the same graph: a node it lacks is not one
     // this view can state facts about.
     let standing = view
         .entities()
         .standing(entity_id)
-        .ok_or_else(|| not_found(entity_id))?;
+        .ok_or_else(|| not_found(graph, entity_id))?;
     let coverage = view.recorded().map(|recorded| EntityCoverage {
         verdict: recorded
             .coverage

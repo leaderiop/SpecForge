@@ -3,14 +3,9 @@
 //! `validate` and `analyze`.
 
 use std::fmt;
-use std::path::Path;
 use std::str::FromStr;
 
-use specforge_common::{Diagnostic, Severity, inference, load_project_config};
-
-/// The inference density above which the `inferred` profile reports I202,
-/// unless `inference.density_threshold` in specforge.json says otherwise.
-const DEFAULT_DENSITY_THRESHOLD: f64 = 0.05;
+use specforge_common::{Diagnostic, Severity};
 
 /// The names of the lint profiles, as `specforge check --lint` and MCP
 /// validate's `lint` take them. Any other name is refused.
@@ -19,8 +14,8 @@ pub const LINT_PROFILE_NAMES: &[&str] = &["inferred", "pedantic"];
 /// A lint profile: a closed set of extra checks a surface may ask for.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum LintProfile {
-    /// The inference-quality checks I200 and I202, when
-    /// `specforge-infer.json` exists.
+    /// The inference-quality checks I200 and I202 over
+    /// `specforge-infer.json`, when it exists.
     Inferred,
     /// The explicit name of the default: info diagnostics are always
     /// reported, so it adds nothing.
@@ -28,6 +23,9 @@ pub enum LintProfile {
 }
 
 impl LintProfile {
+    /// Every profile, in the order their diagnostics are added.
+    pub const ALL: [LintProfile; 2] = [LintProfile::Inferred, LintProfile::Pedantic];
+
     /// The profile's name, one of [`LINT_PROFILE_NAMES`].
     pub fn name(self) -> &'static str {
         match self {
@@ -95,12 +93,21 @@ impl DiagnosticPolicy {
         }
     }
 
-    /// The diagnostics the project at `root` reports under this policy:
-    /// the lint profiles' diagnostics are added, then strict promotes
-    /// warnings (the added ones too).
-    pub fn apply(&self, root: &Path, mut diagnostics: Vec<Diagnostic>) -> Vec<Diagnostic> {
-        if self.lint_profiles.contains(&LintProfile::Inferred) {
-            diagnostics.extend(inferred_lint(root));
+    /// What a surface reports under this policy: for each lint profile the
+    /// policy names (once, in [`LintProfile::ALL`] order), the diagnostics
+    /// `lint` answers for it are added; then strict promotes warnings, the
+    /// added ones too. A profile's diagnostics are its caller's to compute
+    /// (`specforge_ops::check` answers `Inferred` from the inference
+    /// manifest); the policy reads no file.
+    pub fn apply(
+        &self,
+        mut diagnostics: Vec<Diagnostic>,
+        mut lint: impl FnMut(LintProfile) -> Vec<Diagnostic>,
+    ) -> Vec<Diagnostic> {
+        for profile in LintProfile::ALL {
+            if self.lint_profiles.contains(&profile) {
+                diagnostics.extend(lint(profile));
+            }
         }
         self.promote(&mut diagnostics);
         diagnostics
@@ -117,26 +124,4 @@ impl DiagnosticPolicy {
             }
         }
     }
-}
-
-/// [`DiagnosticPolicy::apply`].
-pub fn apply_policy(
-    root: &Path,
-    diagnostics: Vec<Diagnostic>,
-    policy: &DiagnosticPolicy,
-) -> Vec<Diagnostic> {
-    policy.apply(root, diagnostics)
-}
-
-/// The `inferred` profile: I200 and I202 from `specforge-infer.json`, when
-/// it exists and parses.
-fn inferred_lint(root: &Path) -> Vec<Diagnostic> {
-    let Ok(manifest) = inference::load_inference_manifest(root) else {
-        return Vec::new();
-    };
-    let density_threshold = load_project_config(root)
-        .inference
-        .density_threshold
-        .unwrap_or(DEFAULT_DENSITY_THRESHOLD);
-    inference::compute_inference_diagnostics(root, &manifest, density_threshold)
 }

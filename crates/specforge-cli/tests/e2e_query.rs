@@ -170,6 +170,38 @@ fn query_kind_filter_prunes_edges() {
 
 #[specforge_test(
     behavior = "query_graph_multi_resolution",
+    verify = "an unknown --kind is reported with I020 and the closest kind"
+)]
+fn query_reports_an_unknown_kind() {
+    let dir = setup_project(&[("main.spec", DEEP_CHAIN_SPEC)]);
+
+    let output = specforge_cmd()
+        .args(["query", "beh_middle", "--kind=behaviour", "--kind=behavior"])
+        .arg("--path")
+        .arg(dir.path())
+        .output()
+        .unwrap();
+
+    // The notice is on stderr; the document on stdout is the behavior-only
+    // query, unchanged by it.
+    assert!(output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert_eq!(
+        stderr,
+        "info[I020]: unknown entity kind 'behaviour'\n  = help: did you mean 'behavior'?\n"
+    );
+    let parsed = parse_json_stdout(&output);
+    let ids: Vec<&str> = parsed["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|n| n["id"].as_str().unwrap())
+        .collect();
+    assert_eq!(ids, ["beh_middle"], "{parsed}");
+}
+
+#[specforge_test(
+    behavior = "query_graph_multi_resolution",
     verify = "depth 1 returns direct neighbors"
 )]
 fn query_isolated_entity_depth_1() {

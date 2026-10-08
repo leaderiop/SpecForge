@@ -1,4 +1,4 @@
-//! User-level operations shared by the CLI and the MCP server.
+//! User-level operations shared by the CLI, the MCP server and the LSP.
 //!
 //! Each surface used to orchestrate the backend crates on its own, so fixes
 //! landed on one side only. An operation here takes a typed request and
@@ -9,7 +9,7 @@
 //! JSON-RPC stream). The crate denies `clippy::print_stdout`.
 
 pub mod analyze;
-pub mod builtin_passes;
+mod builtin_passes;
 pub mod check;
 pub mod collect;
 pub mod command;
@@ -27,13 +27,15 @@ pub mod model;
 pub mod navigate;
 pub mod options;
 pub mod plan;
-pub mod prove;
+mod prove;
 pub mod publish;
+pub mod query;
 pub mod registry;
 pub mod rename;
-pub mod scan;
+mod report;
+mod scan;
 pub mod schema;
-pub mod schema_cache;
+mod schema_cache;
 pub mod stats;
 pub mod trace;
 pub mod view;
@@ -47,7 +49,7 @@ use std::borrow::Cow;
 
 /// What kind of failure an operation reports: the closed set every surface
 /// maps its own codes from (MCP's `ErrorCode`), decided where the failure is
-/// raised (ADR 0024 D15). [`OpError::code`] stays what the CLI prints
+/// raised (ADR 0024 D7). [`OpError::code`] stays what the CLI prints
 /// (`error[E027]`, `error[invalid_input]`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OpErrorKind {
@@ -68,6 +70,9 @@ pub enum OpErrorKind {
     /// A file the operation reads is not what it should hold: the config,
     /// the lock, a manifest, a test report, a signature's metadata.
     SchemaMismatch,
+    /// The project the operation produced does not compile: a migration
+    /// whose migrated sources report errors.
+    CompilationFailed,
     /// Something the operation needs is not set up: no project, no
     /// registry, no collector, no lock file.
     PreconditionFailed,
@@ -83,8 +88,8 @@ pub enum OpErrorKind {
 
 impl OpErrorKind {
     /// The kind of a failure reported as diagnostic `code`: the one table
-    /// (E003 entity, E019/E054/E062/E064 and a registry's R-RES-004 input,
-    /// R-RES-001 extension, E027 and R-RES-006 conflict, E045/E067 and a
+    /// (E003 entity, E019/E054/E062/E064/E072 and a registry's R-RES-003/R-RES-004 input,
+    /// R-RES-001 extension, E027 and R-RES-006 conflict, E045/E067/E071 and a
     /// registry's R-TRUST-004/R-OPS-004 schema, E058/E063 precondition,
     /// E059 permission, R004 timeout, else internal). MCP's
     /// `ErrorCode::for_diagnostic` reads it.
@@ -95,12 +100,15 @@ impl OpErrorKind {
             (codes::E054, OpErrorKind::InvalidInput),
             (codes::E062, OpErrorKind::InvalidInput),
             (codes::E064, OpErrorKind::InvalidInput),
+            (codes::E072, OpErrorKind::InvalidInput),
+            (codes::R_RES_003, OpErrorKind::InvalidInput),
             (codes::R_RES_004, OpErrorKind::InvalidInput),
             (codes::R_RES_001, OpErrorKind::ExtensionNotFound),
             (codes::E027, OpErrorKind::Conflict),
             (codes::R_RES_006, OpErrorKind::Conflict),
             (codes::E045, OpErrorKind::SchemaMismatch),
             (codes::E067, OpErrorKind::SchemaMismatch),
+            (codes::E071, OpErrorKind::SchemaMismatch),
             (codes::R_TRUST_004, OpErrorKind::SchemaMismatch),
             (codes::R_OPS_004, OpErrorKind::SchemaMismatch),
             (codes::E058, OpErrorKind::PreconditionFailed),
@@ -125,6 +133,7 @@ impl OpErrorKind {
             Self::ExtensionNotFound => "extension_not_found",
             Self::Conflict => "conflict",
             Self::SchemaMismatch => "schema_mismatch",
+            Self::CompilationFailed => "compilation_failed",
             Self::PreconditionFailed => "precondition_failed",
             Self::PermissionDenied => "permission_denied",
             Self::Timeout => "timeout",
@@ -135,7 +144,12 @@ impl OpErrorKind {
     /// The kind of a failed file operation: `PermissionDenied` when the OS
     /// refused, `FileNotFound` for `NotFound`, else `Internal`.
     pub fn of_io(error: &std::io::Error) -> Self {
-        match error.kind() {
+        Self::of_io_kind(error.kind())
+    }
+
+    /// [`Self::of_io`] for the kind of an error already taken apart.
+    pub fn of_io_kind(kind: std::io::ErrorKind) -> Self {
+        match kind {
             std::io::ErrorKind::PermissionDenied => Self::PermissionDenied,
             std::io::ErrorKind::NotFound => Self::FileNotFound,
             _ => Self::Internal,
@@ -268,7 +282,10 @@ mod tests {
             (codes::E062, OpErrorKind::InvalidInput),
             (codes::E063, OpErrorKind::PreconditionFailed),
             (codes::E067, OpErrorKind::SchemaMismatch),
+            (codes::E071, OpErrorKind::SchemaMismatch),
+            (codes::E072, OpErrorKind::InvalidInput),
             (codes::R_RES_001, OpErrorKind::ExtensionNotFound),
+            (codes::R_RES_003, OpErrorKind::InvalidInput),
             (codes::R_RES_004, OpErrorKind::InvalidInput),
             (codes::R_RES_006, OpErrorKind::Conflict),
             (codes::R_TRUST_004, OpErrorKind::SchemaMismatch),

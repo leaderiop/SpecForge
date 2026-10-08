@@ -1,7 +1,8 @@
 use serde::Serialize;
-use specforge_common::{SourceSpan, Sym, codes};
+use specforge_common::{Diagnostic, SourceSpan, Sym, codes};
 
 use crate::expr::SpannedExpr;
+use crate::format_version::FormatVersion;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct SpecFile {
@@ -9,6 +10,13 @@ pub struct SpecFile {
     pub imports: Vec<ImportDeclaration>,
     pub entities: Vec<Entity>,
     pub errors: Vec<ParseError>,
+    /// The format version the file's `// specforge-format:` header declares;
+    /// the current version when it has none.
+    pub format_version: FormatVersion,
+    /// What that header reports: I007 for an older version, E019 for a newer
+    /// or unreadable one, spanned on the header line. The graph build
+    /// reports them with the rest of the file's diagnostics.
+    pub format_diagnostics: Vec<Diagnostic>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -188,6 +196,11 @@ impl Serialize for SpannedRef {
 /// writes as `values [a, b]` is also a [`FieldValue::VariantList`], under
 /// its own key, and is not a union.
 pub const UNION_VARIANTS_FIELD: &str = "variants";
+
+/// The field of a scheme reference (`ref jira.issue:PROJ-1 "…"`, kind
+/// [`specforge_common::structural::REF`]) holding its scheme (`jira`). The
+/// name is the parser's own: no extension declares it.
+pub const REF_SCHEME_FIELD: &str = "scheme";
 
 #[derive(Debug, Clone, Serialize)]
 pub enum FieldValue {

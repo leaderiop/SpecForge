@@ -286,7 +286,7 @@ fn entity_resource_error_for_unknown() {
     assert_eq!(resp["error"]["code"], -32002);
     assert_eq!(
         resp["error"]["message"],
-        "unresolved scope entity 'nonexistent' — entity not found in graph"
+        "unresolved entity 'nonexistent' — not found in graph"
     );
     let data = &resp["error"]["data"];
     assert_eq!(data["code"], "entity_not_found", "{resp}");

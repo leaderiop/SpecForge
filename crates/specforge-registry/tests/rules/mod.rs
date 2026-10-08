@@ -62,9 +62,28 @@ pub fn declaring(rules: Vec<ValidationRuleDescriptor>) -> ExtensionDeclaration {
     declaration
 }
 
-/// The rule set of an extension `@test` declaring `rules` only.
+/// An extension `@test` declaring `rules` and, for each kind they target,
+/// that kind (a rule for a kind nobody declares is inert, ADR 0020 D5).
+pub fn declaring_with_kinds(rules: Vec<ValidationRuleDescriptor>) -> ExtensionDeclaration {
+    let kinds: std::collections::BTreeSet<String> = rules
+        .iter()
+        .filter_map(|rule| rule.target_kind.clone())
+        .collect();
+    let mut declaration = declare("@test", |c| {
+        for kind in &kinds {
+            c.kind(kind, |k| {
+                k.keyword(kind).testable(true).supports_verify(true);
+            });
+        }
+    });
+    declaration.validation_rules = rules;
+    declaration
+}
+
+/// The rule set of an extension `@test` declaring `rules` and the kinds
+/// they target.
 pub fn rules(rules: Vec<ValidationRuleDescriptor>) -> Built {
-    rules_of(vec![declaring(rules)])
+    rules_of(vec![declaring_with_kinds(rules)])
 }
 
 /// The rule set of the one rule `rule`.

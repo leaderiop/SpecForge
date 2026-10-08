@@ -1,3 +1,4 @@
+use crate::answers::ClientSupport;
 use crate::document::Document;
 use specforge_common::Diagnostic;
 use specforge_graph::Graph;
@@ -25,6 +26,8 @@ pub struct LspState {
     /// The format configurations the editor was told override its settings
     /// (once per session and configuration, ADR 0021 D1).
     format_notices: HashSet<String>,
+    /// What the client declared at initialize that shapes an answer.
+    client: ClientSupport,
 }
 
 /// The session, or what readers see while it is out for an update.
@@ -66,9 +69,27 @@ impl LspState {
             last_token_signature: 0,
             shutdown: false,
             format_notices: HashSet::new(),
+            client: ClientSupport::default(),
         };
         state.last_token_signature = state.token_signature();
         state
+    }
+
+    /// What the client declared that shapes an answer.
+    pub fn client(&self) -> ClientSupport {
+        self.client
+    }
+
+    /// Record what the client declared at initialize.
+    pub fn set_client(&mut self, client: ClientSupport) {
+        self.client = client;
+    }
+
+    /// Whether the session is out for an update: readers see its last
+    /// complete graph and cannot read what only a session holds (the
+    /// recorded coverage).
+    pub fn rebuilding(&self) -> bool {
+        matches!(self.project, Project::Out(_))
     }
 
     /// Record that the editor is told `configuration` overrides its
@@ -102,7 +123,7 @@ impl LspState {
         let mut fields: Vec<(&str, &str, String)> = self
             .field_registry()
             .iter()
-            .map(|(kind, field, entry)| (kind, field, format!("{:?}", entry.field_type)))
+            .map(|(kind, field, entry)| (kind, field, format!("{:?}", entry.field_type())))
             .collect();
         fields.sort();
         fields.hash(&mut hasher);
@@ -213,24 +234,6 @@ impl LspState {
         match &self.project {
             Project::Held(session) => session.source_text(key),
             Project::Out(stand_in) => stand_in.texts.get(key).cloned(),
-        }
-    }
-
-    /// Whether the text the editor has for session file `key` (its open
-    /// buffer, else the file on disk) is the text the project was compiled
-    /// from. False when the editor has typed since (the compile is still to
-    /// come), when a closed file changed or went away on disk (the watcher's
-    /// event is still to come), and when the compile holds no text of the
-    /// file. An edit computed from the compile applies only when it holds.
-    pub fn is_compiled(&self, key: &str) -> bool {
-        let Some(compiled) = self.compiled_text(key) else {
-            return false;
-        };
-        let path = self.file_path(key);
-        let uri = crate::backend::file_path_to_uri(&path.to_string_lossy());
-        match self.document(uri.as_str()) {
-            Some(doc) => doc.text() == &*compiled,
-            None => std::fs::read_to_string(path).is_ok_and(|disk| disk == *compiled),
         }
     }
 

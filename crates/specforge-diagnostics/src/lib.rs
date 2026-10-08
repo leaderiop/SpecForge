@@ -195,7 +195,9 @@ pub const RETIRED: &[(&str, Option<&str>)] = &[
     ("E038", None),
     ("E047", Some("W139")),
     ("E053", None),
+    ("E060", None),
     ("I006", None),
+    ("W011", None),
     ("W024", None),
     ("W025", None),
     ("W026", None),
@@ -206,8 +208,10 @@ pub const RETIRED: &[(&str, Option<&str>)] = &[
     ("W114", None),
     ("W116", None),
     ("W117", None),
+    ("W119", None),
     ("W120", None),
     ("W122", None),
+    ("W146", None),
 ];
 
 /// Look up a retired code (case-insensitive): `Some(replacement)`.
@@ -389,7 +393,7 @@ mod tests {
         );
         assert_eq!(
             CATALOG.iter().filter(|e| e.owner == "core").count(),
-            116,
+            118,
             "every core entry has a constant; extensions' entries have none"
         );
     }
@@ -832,8 +836,6 @@ mod tests {
     #[test]
     fn untyped_is_called_only_where_codes_cross() {
         const UNTYPED_FILES: &[&str] = &[
-            // An operation's failure back to a diagnostic: `error[CODE]` on stderr.
-            "crates/specforge-cli/src/export.rs",
             // The definition (`new`, `graded` and `from_extension` build through it).
             "crates/specforge-common/src/diagnostic.rs",
             // An MCP failure's code is text from an `OpError` or a message.

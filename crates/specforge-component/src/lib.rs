@@ -16,7 +16,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 use specforge_wasm::runtime::{WasmCallResult, WasmRuntime, WasmTrapInfo};
-use specforge_wasm::sandbox::default_sandbox_policy;
+use specforge_wasm::sandbox::Limits;
 use wasmtime::component::{Component, Linker};
 use wasmtime::{Cache, CacheConfig, Config, Engine, Store};
 use wasmtime_wasi::{WasiCtx, WasiCtxView, WasiView};
@@ -27,16 +27,72 @@ wasmtime::component::bindgen!({
 });
 
 pub mod builtins;
-pub mod project;
 
-pub use project::project_runtime;
-
-/// Per-process WASI context for guest components. Builtins are pure-compute,
-/// but wasip2 targets import `wasi:io/poll` from std, so the linker always
-/// provides it.
+/// Per-instance state: the WASI context (no capability) and the memory
+/// ceiling the limiter enforces. Builtins are pure-compute, but wasip2
+/// targets import `wasi:io/poll` from std, so the linker always provides it.
 struct HostState {
     table: wasmtime_wasi::ResourceTable,
     wasi: WasiCtx,
+    memory: MemoryCeiling,
+}
+
+/// Refuses any linear-memory growth past `bytes`, trapping the call;
+/// records the refusal so the call's trap is named `memory_limit_exceeded`
+/// whatever way wasmtime wraps the error (ADR 0037).
+struct MemoryCeiling {
+    bytes: usize,
+    refused: Option<usize>,
+}
+
+impl MemoryCeiling {
+    fn of(limits: Limits) -> Self {
+        MemoryCeiling {
+            bytes: (limits.memory_mb as usize) << 20,
+            refused: None,
+        }
+    }
+}
+
+impl wasmtime::ResourceLimiter for MemoryCeiling {
+    fn memory_growing(
+        &mut self,
+        _current: usize,
+        desired: usize,
+        maximum: Option<usize>,
+    ) -> wasmtime::Result<bool> {
+        if desired > self.bytes {
+            self.refused = Some(desired);
+            wasmtime::bail!(
+                "memory limit exceeded: {desired} bytes asked, {} MiB allowed",
+                self.bytes >> 20
+            );
+        }
+        Ok(maximum.is_none_or(|max| desired <= max))
+    }
+
+    fn table_growing(
+        &mut self,
+        _current: usize,
+        desired: usize,
+        maximum: Option<usize>,
+    ) -> wasmtime::Result<bool> {
+        Ok(maximum.is_none_or(|max| desired <= max))
+    }
+}
+
+/// The capabilities a guest gets: none. No preopened directory,
+/// environment, arguments or stdin (closed); stdout and stderr discarded;
+/// TCP, UDP and name lookup refused (every socket address is denied by
+/// default as well). Clocks and randomness are WASI's own (wasip2 std needs
+/// them). Spelled out so that a future wasmtime default that allows
+/// something cannot grant it silently (ADR 0037).
+fn no_capabilities() -> WasiCtx {
+    WasiCtx::builder()
+        .allow_tcp(false)
+        .allow_udp(false)
+        .allow_ip_name_lookup(false)
+        .build()
 }
 
 impl WasiView for HostState {
@@ -50,17 +106,18 @@ impl WasiView for HostState {
 struct PluginInstance {
     store: Store<HostState>,
     bindings: Bridge,
-    /// Wall-clock budget for each call into this plugin, in milliseconds.
-    /// Enforced with wasmtime epoch interruption; `set_epoch_deadline` is
-    /// refreshed from this value before every `call`.
-    deadline_ms: u64,
+    /// What each call into this plugin is held to. The wall-clock budget
+    /// is enforced with wasmtime epoch interruption; `set_epoch_deadline`
+    /// is refreshed from it before every `call`.
+    limits: Limits,
     /// What the instance was made from, to make a fresh one after a trap:
     /// a component instance that trapped cannot be entered again.
     component: Component,
     fuel: u64,
 }
 
-/// Deterministic per-call instruction budget, shared by every surface.
+/// Deterministic instruction budget, given whole to every call (refilled
+/// before each), shared by every surface.
 pub const DEFAULT_FUEL_LIMIT: u64 = 30_000 * 20_000_000;
 
 /// Granularity of the epoch ticker: a plugin's `max_execution_ms` deadline is
@@ -132,17 +189,8 @@ pub struct ComponentRuntime {
     /// still serialize (audit C7-10).
     plugins: Mutex<HashMap<String, Arc<Mutex<PluginInstance>>>>,
     fuel: u64,
-    /// Ceiling for per-call wall-clock budgets: a plugin's declared
-    /// `max_execution_ms` is clamped to this.
-    default_deadline_ms: u64,
     /// Drives epoch interruption; must outlive every `Store`.
     _ticker: EpochTicker,
-    /// Why an extension the project enables failed to load (a missing or
-    /// tampered installed binary), by name: compile reports it.
-    load_failures: Mutex<HashMap<String, specforge_common::Diagnostic>>,
-    /// The extension each `.wasm` file entry of `specforge.json` loaded
-    /// as (the name its component declares), by the entry.
-    file_entries: Mutex<HashMap<String, String>>,
 }
 
 impl ComponentRuntime {
@@ -151,8 +199,7 @@ impl ComponentRuntime {
         Self::construct(None)
     }
 
-    /// Runtime with wasmtime's on-disk compilation cache enabled
-    /// (`SPECFORGE_WASMTIME_CACHE` selection happens in `project_runtime`).
+    /// Runtime with wasmtime's on-disk compilation cache enabled.
     ///
     /// The cache MUST be configured before the `Engine` is built — wasmtime
     /// reads the cache setting at construction — so this is a constructor,
@@ -160,6 +207,17 @@ impl ComponentRuntime {
     /// byte copy that no runtime ever consumed).
     pub fn new_with_compile_cache(dir: PathBuf) -> Self {
         Self::construct(Some(dir))
+    }
+
+    /// The runtime a project's extensions load into: with the per-user
+    /// compilation cache ([`user_compile_cache_dir`]), or without when it is
+    /// switched off. It loads nothing: the environment's extension load
+    /// does (`Installed::load`).
+    pub fn with_user_cache() -> Self {
+        match user_compile_cache_dir() {
+            Some(dir) => Self::new_with_compile_cache(dir),
+            None => Self::new(),
+        }
     }
 
     fn construct(cache_dir: Option<PathBuf>) -> Self {
@@ -187,42 +245,17 @@ impl ComponentRuntime {
             );
         }
         let engine = Engine::new(&config).expect("engine initializes");
-        let default_deadline_ms = u64::from(
-            default_sandbox_policy()
-                .max_execution_ms
-                .unwrap_or(u32::MAX),
-        );
         Self {
             _ticker: EpochTicker::spawn(engine.clone()),
             engine,
             plugins: Mutex::new(HashMap::new()),
             fuel: DEFAULT_FUEL_LIMIT,
-            default_deadline_ms,
-            load_failures: Mutex::new(HashMap::new()),
-            file_entries: Mutex::new(HashMap::new()),
         }
-    }
-
-    /// Record why `name` could not be loaded, for [`WasmRuntime::load_failure`].
-    pub fn record_load_failure(&self, name: &str, diagnostic: specforge_common::Diagnostic) {
-        self.load_failures
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .insert(name.to_string(), diagnostic);
-    }
-
-    /// Record that the `.wasm` file entry `entry` loaded as `extension`,
-    /// for [`WasmRuntime::file_entry_extension`].
-    pub(crate) fn record_file_entry(&self, entry: &str, extension: &str) {
-        self.file_entries
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .insert(entry.to_string(), extension.to_string());
     }
 
     /// Register the extension loaded as `from` under `to` instead, without
     /// compiling or instantiating it again. False when `from` is not loaded.
-    pub(crate) fn rename(&self, from: &str, to: &str) -> bool {
+    pub fn rename(&self, from: &str, to: &str) -> bool {
         let Ok(mut plugins) = self.plugins.lock() else {
             return false;
         };
@@ -259,18 +292,6 @@ impl ComponentRuntime {
         self.instantiate_with_fuel(name, component, fuel)
     }
 
-    /// Compile a component from a file and register it under `name`.
-    pub fn load_module_as(&self, name: &str, wasm_path: &Path) -> Result<(), String> {
-        let component = Component::from_file(&self.engine, wasm_path)
-            .map_err(|e| format!("failed to compile component {name}: {e}"))?;
-        self.instantiate(name, component)
-    }
-
-    /// Atomically replace a loaded extension's component (hot reload / H1).
-    pub fn reload_module_bytes(&self, name: &str, wasm_bytes: &[u8]) -> Result<(), String> {
-        self.load_module_bytes(name, wasm_bytes)
-    }
-
     /// Unload an extension. Returns true when it was loaded.
     pub fn unload(&self, name: &str) -> bool {
         match self.plugins.lock() {
@@ -290,24 +311,20 @@ impl ComponentRuntime {
             Err(_) => Vec::new(),
         }
     }
-    fn instantiate(&self, name: &str, component: Component) -> Result<(), String> {
-        self.instantiate_with_fuel(name, component, self.fuel)
-    }
-
     fn instantiate_with_fuel(
         &self,
         name: &str,
         component: Component,
         fuel: u64,
     ) -> Result<(), String> {
-        let (store, bindings) = self.fresh_instance(name, &component, fuel)?;
+        let (store, bindings) = self.fresh_instance(name, &component, fuel, Limits::CEILING)?;
         let mut plugins = self.plugins.lock().map_err(|e| e.to_string())?;
         plugins.insert(
             name.to_string(),
             Arc::new(Mutex::new(PluginInstance {
                 store,
                 bindings,
-                deadline_ms: self.default_deadline_ms,
+                limits: Limits::CEILING,
                 component,
                 fuel,
             })),
@@ -315,50 +332,40 @@ impl ComponentRuntime {
         Ok(())
     }
 
-    /// A new instance of `component`, with `fuel` and the default
-    /// wall-clock budget armed.
+    /// A new instance of `component`, with `fuel`, `limits`' memory ceiling
+    /// and its wall-clock budget armed.
     fn fresh_instance(
         &self,
         name: &str,
         component: &Component,
         fuel: u64,
+        limits: Limits,
     ) -> Result<(Store<HostState>, Bridge), String> {
         let mut linker: Linker<HostState> = Linker::new(&self.engine);
         wasmtime_wasi::p2::add_to_linker_sync(&mut linker)
             .map_err(|e| format!("failed to add WASI to linker: {e}"))?;
 
         let table = wasmtime_wasi::ResourceTable::new();
-        let wasi = wasmtime_wasi::WasiCtx::builder().build();
-        let mut store = Store::new(&self.engine, HostState { table, wasi });
+        let mut store = Store::new(
+            &self.engine,
+            HostState {
+                table,
+                wasi: no_capabilities(),
+                memory: MemoryCeiling::of(limits),
+            },
+        );
+        store.limiter(|state| &mut state.memory);
         store
             .set_fuel(fuel)
             .map_err(|e| format!("failed to set fuel for {name}: {e}"))?;
         // With epoch interruption enabled, stores start with a deadline of
-        // zero ticks and would trap immediately — arm the plugin's default
+        // zero ticks and would trap immediately — arm the plugin's
         // wall-clock budget before any guest code can run.
-        store.set_epoch_deadline(ms_to_ticks(self.default_deadline_ms));
+        store.set_epoch_deadline(ms_to_ticks(u64::from(limits.execution_ms)));
 
         let bindings = Bridge::instantiate(&mut store, component, &linker)
             .map_err(|e| format!("failed to instantiate component {name}: {e}"))?;
         Ok((store, bindings))
-    }
-
-    /// Applies a plugin-declared wall-clock budget (its handshake
-    /// `sandbox_policy.max_execution_ms`) to the named extension's
-    /// subsequent calls. The budget is clamped to the host's
-    /// deny-by-default ceiling: a plugin may tighten its own deadline but
-    /// never extend it past the host default.
-    pub fn set_execution_deadline_ms(&self, name: &str, max_execution_ms: u64) {
-        let effective = self.default_deadline_ms.min(max_execution_ms);
-        let plugins = match self.plugins.lock() {
-            Ok(p) => p,
-            Err(_) => return,
-        };
-        if let Some(plugin) = plugins.get(name)
-            && let Ok(mut plugin) = plugin.lock()
-        {
-            plugin.deadline_ms = effective;
-        }
     }
 
     /// Call the bridge `call` export; returns the raw JSON wire bytes.
@@ -402,11 +409,21 @@ impl ComponentRuntime {
         let PluginInstance {
             store,
             bindings,
-            deadline_ms,
+            limits,
             component,
             fuel,
         } = &mut *instance;
-        store.set_epoch_deadline(ms_to_ticks(*deadline_ms));
+        // Every call gets the whole fuel budget and the whole wall-clock
+        // budget: a long session never spends one call's allowance on the
+        // next.
+        if let Err(e) = store.set_fuel(*fuel) {
+            return WasmCallResult::Trap(WasmTrapInfo {
+                kind: "call_failed".to_string(),
+                message: format!("failed to set fuel for {name}: {e}"),
+                export_name: export.to_string(),
+            });
+        }
+        store.set_epoch_deadline(ms_to_ticks(u64::from(limits.execution_ms)));
         match bindings.call_call(&mut *store, name, export, input) {
             Ok(Ok(bytes)) => WasmCallResult::Ok(bytes),
             Ok(Err(message)) => WasmCallResult::Trap(WasmTrapInfo {
@@ -415,35 +432,55 @@ impl ComponentRuntime {
                 export_name: export.to_string(),
             }),
             Err(e) => {
-                // Epoch-deadline expiry surfaces as `Trap::Interrupt`; map it
-                // to a distinct kind so callers can tell a wall-clock
-                // timeout apart from other call failures.
-                let deadline_hit = matches!(
-                    e.downcast_ref::<wasmtime::Trap>(),
-                    Some(wasmtime::Trap::Interrupt)
-                );
+                // What stopped the call is read before the instance is
+                // replaced: a limit of the sandbox is named, any other
+                // fault keeps wasmtime's message.
+                let memory_refused = store.data_mut().memory.refused.take();
+                let kind = trap_kind(&e, memory_refused);
+                let message = match kind {
+                    "memory_limit_exceeded" => format!(
+                        "grew past its {} MB memory limit (sandbox_policy.max_memory_mb)",
+                        limits.memory_mb
+                    ),
+                    "fuel_exhausted" => {
+                        format!("spent its fuel budget ({fuel} instructions) in one call")
+                    }
+                    "deadline_exceeded" => format!(
+                        "ran past its {} ms execution limit (sandbox_policy.max_execution_ms)",
+                        limits.execution_ms
+                    ),
+                    _ => e.to_string(),
+                };
                 // An instance that trapped cannot be entered again: the
-                // extension's next call gets a fresh one, as a guest that
-                // panics in one call must not take the extension down for
-                // the rest of the process (an MCP session).
+                // extension's next call gets a fresh one under the same
+                // limits, as a guest that panics in one call must not take
+                // the extension down for the rest of the process (an MCP
+                // session).
                 if let Ok((fresh_store, fresh_bindings)) =
-                    self.fresh_instance(name, component, *fuel)
+                    self.fresh_instance(name, component, *fuel, *limits)
                 {
                     *store = fresh_store;
                     *bindings = fresh_bindings;
                 }
                 WasmCallResult::Trap(WasmTrapInfo {
-                    kind: if deadline_hit {
-                        "deadline_exceeded"
-                    } else {
-                        "call_failed"
-                    }
-                    .to_string(),
-                    message: e.to_string(),
+                    kind: kind.to_string(),
+                    message,
                     export_name: export.to_string(),
                 })
             }
         }
+    }
+}
+
+/// What stopped a call: a limit the sandbox holds it to, or another fault.
+fn trap_kind(error: &wasmtime::Error, memory_refused: Option<usize>) -> &'static str {
+    if memory_refused.is_some() {
+        return "memory_limit_exceeded";
+    }
+    match error.downcast_ref::<wasmtime::Trap>() {
+        Some(wasmtime::Trap::Interrupt) => "deadline_exceeded",
+        Some(wasmtime::Trap::OutOfFuel) => "fuel_exhausted",
+        _ => "call_failed",
     }
 }
 
@@ -454,38 +491,50 @@ impl Default for ComponentRuntime {
 }
 
 impl WasmRuntime for ComponentRuntime {
-    fn load_module(&self, wasm_path: &Path) -> Result<(), String> {
-        let bytes = std::fs::read(wasm_path).map_err(|e| e.to_string())?;
-        let name = wasm_path
-            .file_stem()
-            .and_then(|s| s.to_str())
-            .unwrap_or("unknown")
-            .to_string();
-        self.load_module_bytes(&name, &bytes)
+    fn load(&self, name: &str, bytes: &[u8]) -> Result<(), String> {
+        self.load_module_bytes(name, bytes)
+    }
+
+    fn rename(&self, from: &str, to: &str) -> bool {
+        ComponentRuntime::rename(self, from, to)
+    }
+
+    fn unload(&self, name: &str) -> bool {
+        ComponentRuntime::unload(self, name)
     }
 
     fn call_export(&self, extension_name: &str, export_name: &str, input: &[u8]) -> WasmCallResult {
         self.call(extension_name, export_name, input)
     }
 
-    fn load_module_named(&self, extension_name: &str, wasm_path: &Path) -> Result<(), String> {
-        ComponentRuntime::load_module_as(self, extension_name, wasm_path)
+    fn apply_limits(&self, extension_name: &str, limits: Limits) {
+        let Ok(plugins) = self.plugins.lock() else {
+            return;
+        };
+        if let Some(plugin) = plugins.get(extension_name)
+            && let Ok(mut plugin) = plugin.lock()
+        {
+            plugin.limits = limits;
+            plugin.store.data_mut().memory.bytes = MemoryCeiling::of(limits).bytes;
+        }
     }
+}
 
-    fn load_failure(&self, extension_name: &str) -> Option<specforge_common::Diagnostic> {
-        self.load_failures
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .get(extension_name)
-            .cloned()
-    }
-
-    fn file_entry_extension(&self, entry: &str) -> Option<String> {
-        self.file_entries
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .get(entry)
-            .cloned()
+/// Per-user Wasmtime compilation cache directory.
+///
+/// `$SPECFORGE_WASMTIME_CACHE` overrides; setting it to `off` disables the
+/// cache. Default: `$HOME/.cache/specforge/wasmtime` (no cache when `HOME`
+/// is unset).
+fn user_compile_cache_dir() -> Option<PathBuf> {
+    match std::env::var_os("SPECFORGE_WASMTIME_CACHE") {
+        Some(v) if v == "off" => None,
+        Some(v) => Some(PathBuf::from(v)),
+        None => std::env::var_os("HOME").map(|home| {
+            PathBuf::from(home)
+                .join(".cache")
+                .join("specforge")
+                .join("wasmtime")
+        }),
     }
 }
 

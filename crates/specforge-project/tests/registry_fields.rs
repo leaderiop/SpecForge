@@ -7,23 +7,13 @@ fn no_spec_side_tests_field_is_registered() {
         "@specforge/testing".to_string(),
         "@specforge/formal".to_string(),
     ];
-    let runtime = wasm_runtime_for(&exts);
-    let mut diags = Vec::new();
-    let declarations = specforge_project::compile::load_extensions(&exts, &runtime, &mut diags);
+    let runtime = specforge_component::ComponentRuntime::new();
+    let builtins = specforge_installed::Builtins(specforge_component::builtins::BUILTIN_EXTENSIONS);
+    let declarations = specforge_installed::Installed::none()
+        .load(&exts, &builtins, &runtime)
+        .declarations;
     let field_reg = specforge_registry::build_registries(declarations).fields;
     assert!(field_reg.contains("behavior", "invariants"));
     assert!(!field_reg.contains("behavior", "tests"));
     assert!(!field_reg.contains("invariant", "tests"));
-}
-
-/// Build a Wasm runtime for a temp project listing `ext_names`.
-fn wasm_runtime_for(ext_names: &[String]) -> specforge_component::ComponentRuntime {
-    let dir = tempfile::TempDir::new().unwrap();
-    let config = serde_json::json!({
-        "name": "test-project",
-        "version": "0.1.0",
-        "extensions": ext_names,
-    });
-    std::fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
-    specforge_component::project_runtime(dir.path())
 }

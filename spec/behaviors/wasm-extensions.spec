@@ -139,7 +139,7 @@ behavior call_extension_exports "Call Extension Exports" {
     The host performs ten operations on a loaded extension, each one call
     of one export over the WasmRuntime port: handshake and describe (the
     declaration, ADR 0012), a command (cmd__), an MCP tool or resource
-    (mcp__), a compiler pass (__pass_<name>), a collector (collect__), a
+    (mcp__), a compiler pass (__pass_<name>, one rule the SDK and the host share), a collector (collect__), a
     custom validator (the rule's wasm_function), a scanner (the analyzer's
     scan export) and a migration hook. Each sends one protocol type as
     JSON and reads one protocol type back (specforge_protocol_types); an
@@ -173,6 +173,9 @@ behavior call_extension_exports "Call Extension Exports" {
   verify unit "an analyze pass that traps is reported as an E028 finding of that pass"
   verify unit "a scanner that traps or answers malformed output is reported, not dropped"
   verify unit "a pass, collector, custom rule, scanner or migration hook is declared with its handler, and its export answers through it"
+  verify unit "the SDK routes a compiler pass at the export the host calls it by"
+  verify unit "a pass input that does not encode fails each pass's call, naming its export, and nothing is sent"
+  verify unit "an export the guest's handler answers decodes its input and encodes its answer as a declared handler does"
   verify unit "a pass diagnostic whose code the extension may not use is reported (W150) and kept"
   verify unit "a diagnostic an extension reported names its extension, and a code it may not use is not described as its owner's"
   verify contract "Call Extension Exports: extension calls hold — extension_loaded, one_protocol_type, strict_answers, one_failure, no_silent_failure, runtimes_agree, pass_codes_checked"
@@ -657,8 +660,10 @@ behavior run_doctor_check "Run Doctor Check" {
     enhancements, any conflicts with actionable resolution suggestions,
     and additional checks (shadowed fields, unknown target entities,
     edge label conflicts). An enabled extension that fails to load (E028:
-    not installed; E033: its binary no longer matches the lock) MUST be
-    reported as an error. Each listed extension MUST carry the source the
+    not installed; E070: its binary is not the one the lock pins) MUST be
+    reported as an error. A missing or changed installed binary MUST be one
+    finding, whose remediation is the command that reinstalls it as its lock
+    entry records it. Each listed extension MUST carry the source the
     extensions listing gives it: builtin, the lock entry's source, or
     file:<path> for a .wasm file entry of specforge.json. Run in a
     directory without specforge.json, doctor MUST report a warning finding
@@ -677,7 +682,8 @@ behavior run_doctor_check "Run Doctor Check" {
   verify unit "doctor reports conflicts with resolution suggestions"
   verify unit "doctor detects shadowed grammar-level constructs"
   verify unit "doctor --json produces valid JSON output"
-  verify unit "doctor reports an extension that fails to load (E028, E033) as an error"
+  verify unit "doctor reports an extension that fails to load (E028, E070) as an error"
+  verify unit "doctor reports a missing or changed installed binary once, with the remedy its load gives"
   verify unit "a peer whose installed version doctor cannot compare is remedied with a runnable command"
   verify unit "a finding without its own suggestion quotes the catalogued explanation"
   verify unit "doctor gives each extension the source the extensions listing gives it"
@@ -692,7 +698,7 @@ behavior parse_extension_specifier "Parse Extension Specifier" {
   features   [wasm_extension_installation]
   invariants [registry_integrity]
   category   command
-  types      [ExtensionSpecifier, ExtensionSource, ExtensionError]
+  types      [ExtensionSpecifier, ExtensionSource, ExtensionError, PackageName, VersionRequirement]
   requires {
     specifier_string_provided "a raw extension specifier string is provided for parsing"
   }
@@ -701,17 +707,24 @@ behavior parse_extension_specifier "Parse Extension Specifier" {
     invalid_specifier_diagnosed        "invalid specifiers produce ExtensionError diagnostic with expected format"
   }
   contract   """
-    The system MUST parse extension specifier strings into structured
-    source descriptors. Supported formats: "@scope/name@version" for
-    registry extensions, "./path" for local extensions, and "git:url#ref"
-    for git-sourced extensions. Invalid specifiers MUST produce a
-    ExtensionError diagnostic with the expected format.
+    The system MUST read an add argument once into one source: a builtin's
+    name, a local path (ending in .wasm, or starting with ./, ../ or /), a
+    git+ URL, or a package reference @scope/name[@requirement], where the
+    name is a PackageName and the requirement a VersionRequirement (latest
+    when absent). An argument that is none of these MUST be refused with
+    E054 before any registry is asked; a requirement that is not one MUST be
+    refused with R-RES-003 before any registry is asked. No other code may
+    split name@requirement.
   """
   produces   [extension_specifier_parsed]
   verify unit "@scope/name@version parsed as registry source"
   verify unit "./path parsed as local source"
   verify unit "git:url#ref parsed as git source"
   verify unit "invalid specifier produces ExtensionError"
+  verify unit "each add argument reads as one extension source"
+  verify unit "a package name is @scope/name or a local name, and always a relative path inside its directory"
+  verify unit "a package name crosses a registry URL as one segment"
+  verify unit "a version requirement is latest, one version or a SemVer requirement"
   verify contract "Parse Extension Specifier: extension specifier parsing holds — specifier_string_provided, extension_specifier_parsed_emitted, invalid_specifier_diagnosed"
 }
 
@@ -791,19 +804,20 @@ behavior read_lock_file "Read Lock File" {
   ensures {
     lock_file_read_emitted  "lock_file_read event is emitted after lock file is processed"
     locked_versions_used    "locked versions are used instead of resolving from sources when lock file exists"
-    malformed_lock_graceful "malformed lock files produce warning and fall back to fresh resolution"
+    malformed_lock_reported "a lock file that exists and can't be read is E033: nothing is known to be installed"
   }
   contract   """
-    When a specforge.lock file exists, the system MUST use locked versions
-    instead of resolving from sources. Missing lock entries for declared
-    extensions MUST trigger resolution and lock file update. Malformed lock
-    files MUST produce a warning and fall back to fresh resolution.
+    When a specforge.lock file exists, the system MUST use the versions and
+    hashes it records. A lock file that exists and can't be read or parsed is
+    E033: no installed extension loads from it (each is E028 naming the
+    lock), and add, update and remove refuse to change what is installed
+    until it is fixed or deleted, so it is never silently replaced.
   """
   produces   [lock_file_read]
   verify unit "locked versions used when lock file exists"
   verify unit "missing lock entry triggers resolution"
-  verify unit "malformed lock file produces warning and falls back"
-  verify contract "Read Lock File: lock file reading holds — all_files_parsed_fired, filesystem_available, lock_file_read_emitted, locked_versions_used, malformed_lock_graceful"
+  verify unit "an unreadable lock file is E033 and is never replaced by a change"
+  verify contract "Read Lock File: lock file reading holds — all_files_parsed_fired, filesystem_available, lock_file_read_emitted, locked_versions_used, malformed_lock_reported"
 }
 
 // ── Extension Update ──────────────────────────────────────────

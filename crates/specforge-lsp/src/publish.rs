@@ -11,7 +11,7 @@ use tower_lsp::lsp_types::{
 };
 
 use crate::LspState;
-use crate::navigation::{Ranges, navigator, uri_of};
+use crate::navigation::Compiled;
 
 /// What one publish sends, read from the state alone (so it is tested
 /// without a client): each target file's diagnostics, placed and
@@ -52,15 +52,15 @@ impl Publication {
                     .and_then(|uri| Url::parse(uri).ok())
             });
         let diagnostics = state.session().map(|s| s.diagnostics()).unwrap_or_default();
-        let nav = navigator(state);
-        let ranges = Ranges::new(state);
+        let compiled = Compiled::new(state);
+        let nav = compiled.navigator();
         let mut files: BTreeMap<Url, FilePublication> = BTreeMap::new();
         let mut anchor = None;
         for diagnostic in &diagnostics {
             let mut related = Vec::new();
             let placed = match &diagnostic.span {
                 Some(_) => diagnostic.clone(),
-                None => match place_at_subjects(&ranges, &nav, diagnostic) {
+                None => match place_at_subjects(&compiled, &nav, diagnostic) {
                     Some((at, others)) => {
                         related = others;
                         at
@@ -69,7 +69,7 @@ impl Publication {
                 },
             };
             let uri = match &placed.span {
-                Some(span) => uri_of(state, span.file.as_str()),
+                Some(span) => compiled.uri(span.file.as_str()),
                 None => match &nowhere {
                     Some(uri) => {
                         anchor = Some(uri.clone());
@@ -78,7 +78,7 @@ impl Publication {
                     None => continue,
                 },
             };
-            let mut lsp = diagnostic_to_lsp(&placed, |span| ranges.range(span));
+            let mut lsp = diagnostic_to_lsp(&placed, |span| compiled.range(span));
             if !related.is_empty() {
                 lsp.related_information = Some(related);
             }
@@ -108,14 +108,14 @@ impl Publication {
 /// and the related information pointing at each other's name. `None`
 /// when its data names no entity the graph holds.
 fn place_at_subjects<F: Fn(&str) -> Option<String>>(
-    ranges: &Ranges,
+    compiled: &Compiled,
     nav: &specforge_ops::navigate::Navigator<'_, F>,
     diagnostic: &specforge_common::Diagnostic,
 ) -> Option<(
     specforge_common::Diagnostic,
     Vec<DiagnosticRelatedInformation>,
 )> {
-    let subjects = specforge_ops::navigate::subjects(ranges.state().graph(), diagnostic);
+    let subjects = specforge_ops::navigate::subjects(compiled.state().graph(), diagnostic);
     let (first, others) = subjects.split_first()?;
     let name = |node: &specforge_graph::Node| {
         nav.definition(node.id.raw.as_str())
@@ -128,7 +128,7 @@ fn place_at_subjects<F: Fn(&str) -> Option<String>>(
         .iter()
         .filter_map(|node| {
             Some(DiagnosticRelatedInformation {
-                location: ranges.location(&name(node))?,
+                location: compiled.location(&name(node))?,
                 message: format!("also about '{}'", node.id.raw),
             })
         })

@@ -273,6 +273,7 @@ version = "0.1.0"
 dependencies = [
  "proc-macro2",
  "quote",
+ "specforge-protocol-types",
  "syn",
 ]
 
@@ -280,6 +281,7 @@ dependencies = [
 name = "specforge-protocol-types"
 version = "0.1.0"
 dependencies = [
+ "semver",
  "serde",
  "serde_json",
 ]

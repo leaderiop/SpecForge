@@ -1017,8 +1017,8 @@ fn the_cli_runs_a_pass_an_extension_declares() {
     let stderr = String::from_utf8_lossy(&refused.stderr);
     assert_eq!(
         stderr.trim_end(),
-        "error: Unknown analysis pass 'nosuch' (available: all, coverage, contracts, \
-         @specforge/testing:coverage)"
+        "error[unknown_pass]: Unknown analysis pass 'nosuch' (available: all, coverage, \
+         contracts, @specforge/testing:coverage)"
     );
 
     // MCP lists the same passes for the same project.

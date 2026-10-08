@@ -88,3 +88,16 @@ fn reload_swaps_and_unload_drops() {
         WasmCallResult::Ok(_) => panic!("unloaded component must not answer calls"),
     }
 }
+
+/// The component runtime keeps the contract every adapter of the port keeps
+/// for the modules it holds: load bytes by name, rename, unload.
+#[test]
+fn the_component_runtime_keeps_the_module_contract() {
+    // An extension that declares its own name (the test component echoes
+    // the name it is called as).
+    let greet = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../fixtures/greet-extension/greet.wasm");
+    let bytes = std::fs::read(greet).expect("the greet fixture is vendored");
+
+    specforge_wasm::testing::assert_module_contract(&ComponentRuntime::new(), &bytes, "@sdk/greet");
+}

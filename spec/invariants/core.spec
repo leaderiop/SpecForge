@@ -177,6 +177,19 @@ invariant query_file_grammar_consistency "Query File Grammar Consistency" {
   verify integration "indents.scm loads without error against current grammar"
 }
 
+invariant cst_vocabulary_grammar_consistency "CST Vocabulary Grammar Consistency" {
+  guarantee """
+    The node kinds and field names the parser and the formatter read from
+    tree-sitter's concrete syntax tree MUST be named once, by the grammar
+    crate (tree_sitter_specforge::kind and tree_sitter_specforge::field),
+    and MUST be exactly the named node kinds and field names of the
+    current grammar: a grammar change that adds, removes or renames a rule
+    or a field fails a test until the vocabulary follows it (ADR 0038).
+  """
+  risk      medium
+  verify unit "every named node kind and field name of the grammar has one constant, and every constant names one"
+}
+
 invariant dry_run_side_effect_freedom "Dry-Run Side-Effect Freedom" {
   guarantee """
     Any command invoked with --dry-run or --check MUST NOT modify any files
@@ -184,10 +197,13 @@ invariant dry_run_side_effect_freedom "Dry-Run Side-Effect Freedom" {
     reachable from a dry-run context writes to the filesystem, it is a P0
     bug. This applies to specforge migrate --dry-run, specforge format --check,
     specforge format --diff, and any future commands that support dry-run mode.
+    Over MCP a preview flag is read by its type: dry_run, check or diff sent as
+    the string "true" is a preview.
   """
   risk      high
   verify unit "--dry-run produces output without modifying files"
   verify unit "--check produces output without modifying files"
+  verify unit "an MCP dry run, check or diff asked for with the string true writes nothing"
   verify property "no file write operations occur during dry-run execution"
 }
 

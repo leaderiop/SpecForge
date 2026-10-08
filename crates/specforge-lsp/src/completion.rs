@@ -2,19 +2,16 @@
 //! the project view's registries and graph (ADR 0023). Where the cursor is
 //! is the document module's to say.
 
+use specforge_common::structural;
 use specforge_ops::navigate::{EntityQuery, MatchScope, find_entities};
 use specforge_ops::view::ProjectView;
-use specforge_registry::{FieldRegistry, ManifestFieldType};
+use specforge_registry::{FieldRegistry, FieldType};
 use tower_lsp::lsp_types::{
     CompletionItem, CompletionItemKind, CompletionTextEdit, InsertReplaceEdit, InsertTextFormat,
     TextEdit,
 };
 
 use crate::document::{CompletionSite, WordEdit};
-
-/// The kind a ref entity has: the only entities a string list names (a
-/// scheme ref ID written in any list is linked to its ref).
-const REF_KIND: &str = "ref";
 
 /// The completion items of `site`. Each carries an edit over the word
 /// under the cursor (`edit`): an insert-and-replace edit when the client
@@ -31,14 +28,14 @@ pub fn items(
         CompletionSite::Keywords { prefix } => keywords(prefix, view),
         CompletionSite::Fields { kind, prefix } => {
             let mut fields = registries.fields.fields_for_kind(kind);
-            fields.sort_by(|a, b| a.declared.name.cmp(&b.declared.name));
+            fields.sort_by(|a, b| a.declared().name.cmp(&b.declared().name));
             fields
                 .into_iter()
-                .filter(|field| starts_with(&field.declared.name, prefix))
+                .filter(|field| starts_with(&field.declared().name, prefix))
                 .map(|field| CompletionItem {
-                    label: field.declared.name.clone(),
+                    label: field.declared().name.clone(),
                     kind: Some(CompletionItemKind::FIELD),
-                    detail: field.declared.description.clone(),
+                    detail: field.declared().description.clone(),
                     insert_text: Some(field_snippet(field, 1)),
                     insert_text_format: Some(InsertTextFormat::SNIPPET),
                     ..Default::default()
@@ -69,15 +66,16 @@ pub fn items(
             prefix,
         } => {
             let entry = registries.fields.get(kind, field);
-            match entry.map(|e| &e.field_type) {
+            match entry.map(|e| e.field_type()) {
                 // A reference list, or a field the registry does not type.
-                None | Some(ManifestFieldType::ReferenceList) => {
-                    let target = entry.and_then(|e| e.declared.target_kind.as_deref());
+                None | Some(FieldType::ReferenceList) => {
+                    let target = entry.and_then(|e| e.declared().target_kind.as_deref());
                     entity_ids(view, prefix, target)
                 }
                 // A string list's items are strings; the refs a scheme ref
-                // ID names are linked from any list.
-                Some(ManifestFieldType::StringList) => entity_ids(view, prefix, Some(REF_KIND)),
+                // ID names are linked from any list (the only entities a
+                // string list names).
+                Some(FieldType::StringList) => entity_ids(view, prefix, Some(structural::REF)),
                 Some(_) => Vec::new(),
             }
         }
@@ -121,7 +119,7 @@ fn starts_with(label: &str, prefix: &str) -> bool {
 fn keywords(prefix: &str, view: &ProjectView) -> Vec<CompletionItem> {
     let kinds = &view.registries().kinds;
     let mut keywords: Vec<String> = kinds.keywords().cloned().collect();
-    keywords.push("use".into());
+    keywords.push(structural::USE.into());
     keywords.sort();
     keywords.dedup();
     keywords
@@ -165,19 +163,18 @@ fn value(
     let constant = |label: &str, item_kind| CompletionItem {
         label: label.to_string(),
         kind: Some(item_kind),
-        detail: entry.declared.description.clone(),
+        detail: entry.declared().description.clone(),
         ..Default::default()
     };
-    match &entry.field_type {
-        ManifestFieldType::Reference => {
-            entity_ids(view, prefix, entry.declared.target_kind.as_deref())
-        }
-        ManifestFieldType::Enum(values) => values
+    match entry.field_type() {
+        FieldType::Reference => entity_ids(view, prefix, entry.declared().target_kind.as_deref()),
+        FieldType::Enum => entry
+            .enum_values()
             .iter()
             .filter(|value| starts_with(value, prefix))
             .map(|value| constant(value, CompletionItemKind::ENUM_MEMBER))
             .collect(),
-        ManifestFieldType::Bool => ["true", "false"]
+        FieldType::Bool => ["true", "false"]
             .into_iter()
             .filter(|value| starts_with(value, prefix))
             .map(|value| constant(value, CompletionItemKind::KEYWORD))
@@ -220,13 +217,11 @@ fn entity_ids(view: &ProjectView, prefix: &str, kind: Option<&str>) -> Vec<Compl
 /// Insert text for `field` as snippet placeholder `n`: a reference list
 /// scaffolds its brackets, a string its quotes.
 pub fn field_snippet(field: &specforge_registry::FieldRegistryEntry, n: usize) -> String {
-    let name = &field.declared.name;
-    match field.field_type {
-        ManifestFieldType::ReferenceList | ManifestFieldType::StringList => {
-            format!("{name} [${n}]")
-        }
-        ManifestFieldType::String => format!("{name} \"${n}\""),
-        ManifestFieldType::Block => format!("{name} {{\n    ${n}\n  }}"),
+    let name = &field.declared().name;
+    match field.field_type() {
+        t if t.is_list() => format!("{name} [${n}]"),
+        FieldType::String => format!("{name} \"${n}\""),
+        FieldType::Block => format!("{name} {{\n    ${n}\n  }}"),
         _ => format!("{name} ${n}"),
     }
 }
@@ -236,9 +231,9 @@ pub fn keyword_snippet(kind: &str, field_registry: &FieldRegistry) -> String {
     let mut required: Vec<_> = field_registry
         .fields_for_kind(kind)
         .into_iter()
-        .filter(|f| f.declared.required)
+        .filter(|f| f.declared().required)
         .collect();
-    required.sort_by(|a, b| a.declared.name.cmp(&b.declared.name));
+    required.sort_by(|a, b| a.declared().name.cmp(&b.declared().name));
     let mut snippet = format!("{kind} ${{1:id}} \"${{2:Title}}\" {{\n");
     for (i, field) in required.iter().enumerate() {
         snippet.push_str(&format!("  {}\n", field_snippet(field, i + 3)));

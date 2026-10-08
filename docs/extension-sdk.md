@@ -98,7 +98,6 @@ use specforge_extension_sdk::prelude::*;
     short = "software",
     description = "Software design: behaviors, invariants, events, types and ports",
 )]
-#[sandbox(max_memory_mb = 256, max_execution_ms = 5000, network = false, filesystem = false)]
 #[peer_dependency("@specforge/product", version = "^1.0")]
 mod software {
 
@@ -208,7 +207,6 @@ mod software {
 
     #[cli_command(id = "validate", title = "Run validation",
         description = "Run product validation rules", category = "analysis")]
-    #[sandbox_override(fs_read = true)]
     fn cmd_validate(
         #[arg(required, description = "Path to spec root")] path: PathArg,
         #[arg(default = "default", description = "Lint profile")] lint: EnumArg,
@@ -306,14 +304,7 @@ The `#[extension]` macro is the root declaration. It generates the `__handshake`
 
 Everything else the handshake carries is set on the builder: `ContributionsBuilder::starter_template`, `migration_hook` and `theme_color`, and `ExtensionMeta`'s `peer_dependencies`, `sandbox_policy` and `keywords`. The declaration the builder builds (`ContributionsBuilder::declaration`) is exactly what the host loads and what `specforge publish` uploads (ADR 0012).
 
-The `#[sandbox]` macro sets the extension-level sandbox policy:
-
-| Attribute | Required | Description |
-|-----------|----------|-------------|
-| `max_memory_mb` | no | Maximum Wasm memory in megabytes |
-| `max_execution_ms` | no | Maximum execution time per call |
-| `network` | no | Enable network access (default: `false`) |
-| `filesystem` | no | Enable filesystem access (default: `false`) |
+`ExtensionMeta::sandbox_policy` declares the extension's limits, `SandboxPolicy { max_execution_ms, max_memory_mb }`: at most 30000 ms and 512 MB, the ceiling when unset. A component is granted no capability whatever it declares (see Sandbox in the [protocol doc](extension-protocol.md)).
 
 The `#[peer_dependency]` macro declares dependencies on other extensions:
 
@@ -344,8 +335,6 @@ Every macro maps to a protocol category. The SDK generates the appropriate Wasm 
 | `c.pass(...)` with `p.run(...)` (builder) | Pass descriptor + `__pass_*` export | `passes` |
 | `c.analyzer(...)` with `a.scan(...)` (builder) | Analyzer descriptor + `scan__*` export | `analyzers` |
 | `#[feature_flag]` | Flag descriptor | `feature_flags` |
-| `#[sandbox]` | Sandbox policy | handshake |
-| `#[sandbox_override]` | Per-surface sandbox | `surfaces` |
 | `#[peer_dependency]` | Dependency declaration | handshake |
 | `#[lsp]` | LSP metadata on entity kind | `entities` |
 | `#[dot]` | DOT visualization metadata | `entities` |
@@ -537,10 +526,8 @@ c.pass("coverage", |p| {
 });
 ```
 
-`#[compiler_pass]` is deprecated: the function it wraps is already the
-handler `p.run` takes; the attribute still generates the
-`specforge_dispatch_pass_<name>` helper for a guest that routes the export
-through `component_guest!`'s `handler`. A pass declared with `p.phase("check")` runs with every
+`#[compiler_pass]` is gone (it was deprecated): the function it wrapped is the handler `p.run`
+takes, so `#[compiler_pass(name = "x")] fn f(…)` becomes `c.pass("x", |p| { p.run(f); })`. A pass declared with `p.phase("check")` runs with every
 compile (`specforge check`, watch, the LSP and MCP), after the graph checks:
 its diagnostics are the compile's, with the codes and severities it returns,
 and `specforge check` exits 1 on its errors. Check passes run in their

@@ -97,6 +97,36 @@ behavior serialize_dot_visualization "Serialize DOT Visualization" {
   verify unit "labels toggle emits bare IDs"
 }
 
+// The extension outline: specforge outline and MCP specforge.outline_extensions.
+behavior render_extension_outline "Render the Extension Outline" {
+  features   [extension_driven_visualization]
+  invariants [diagnostic_determinism, zero_domain_knowledge_core]
+  category   query
+  types      [ExtensionDeclaration]
+  ports      [CompilerApi]
+  requires {
+    declarations_loaded "the project's extension declarations are loaded"
+  }
+  ensures {
+    one_card_per_extension  "each loaded extension is one card naming its version and what it contributes"
+    declared_text_contained "text an extension declares stays inside the label, string or table cell it is written in, in every format"
+  }
+  contract   """
+    When specforge outline (or MCP specforge.outline_extensions) is
+    invoked, the system MUST render one card per loaded extension, with
+    its dependencies and enhancements, as markdown, mermaid, dot or json.
+    Text an extension declares (its name, version, kind keywords, field
+    names) MUST be written through the escaping of the syntax it sits in:
+    Mermaid's entity codes in a label, the record escapes in a DOT record
+    field, an escaped pipe in a Markdown cell. An extension name used as
+    an identifier MUST be reduced to a bare one.
+  """
+  verify unit "declared text with a quote, markup or a line break stays inside its Mermaid label"
+  verify unit "declared text with a pipe or a line break stays in its Markdown table cell"
+  verify unit "the builtins' outline is unchanged in every format"
+  verify contract "Render the Extension Outline: outline rendering holds — declarations_loaded, one_card_per_extension, declared_text_contained"
+}
+
 behavior compute_traceability_chain "Compute Traceability Chain" {
   features   [traceability_serialization]
   invariants [graph_traversal_integrity, diagnostic_determinism, zero_domain_knowledge_core]
@@ -199,17 +229,25 @@ behavior read_views_over_the_project_view "Read Views over the Project View" {
   }
   contract   """
     Stats, trace (one entity or every entity), the coverage view, the
-    model and outline diagrams, the versioned Graph Protocol schema and
+    model and outline diagrams, the versioned Graph Protocol schema,
     inspect (one entity's facts: its kind, standing, headline, references,
-    coverage and the diagnostics about it) MUST each be one operation over
-    the project view, shared by the surfaces that show them (the CLI, MCP,
-    and for inspect the LSP hover); a surface maps its arguments and renders
-    the outcome. The
+    coverage and the diagnostics about it), and query, list and search
+    (the entities a selection over the view returns) MUST each be one
+    operation over the project view, shared by the surfaces that show them
+    (the CLI, MCP, and for inspect the LSP hover); a surface maps its
+    arguments and renders the outcome. A kind the project knows is one a
+    loaded extension declares or an entity is written with; names are
+    exact. A kind filter that names another kind matches nothing and is
+    reported as I020; an argument that needs a kind's declaration refuses
+    an undeclared one (unknown_kind). Both name the closest kind, a kind
+    equal but for case first. The
     view's root is the root the project was compiled from: its recorded
     test report is <root>/specforge-report.json and its schema cache
     <root>/.specforge/schema-cache.json, and no view looks in an ancestor
-    directory. A report that exists but cannot be read is an error on
-    every view (E045). The view says what its surface reports for the
+    directory. A report that exists but cannot be used is the same error on
+    every view (E045), of the kind the operation decides: schema_mismatch
+    when it is not a specforge-report.json, permission_denied when the system
+    refuses to read it, else internal_error. The view says what its surface reports for the
     project: what specforge check reports for the compile behind it, then
     what the surface adds (MCP: I017). Coverage is computed once per
     compiled project or session state and per content of the recorded
@@ -223,12 +261,16 @@ behavior read_views_over_the_project_view "Read Views over the Project View" {
   verify unit "an entity is unverified when it counts toward coverage and is not proven"
   verify unit "inspect reports an entity's standing as the coverage view counts it"
   verify unit "a report that cannot be read is the coverage's error, and the standing still holds"
+  verify unit "an unusable report is the same failure, of the kind the operation decides, on every view"
   verify integration "specforge stats and specforge.stats report the same numbers"
   verify integration "specforge trace and specforge.trace return the same chain for an entity"
   verify integration "specforge schema and specforge.schema carry the same version"
   verify integration "specforge schema --kind and specforge.schema with a kind return the same document"
   verify integration "specforge outline and specforge.outline_extensions render the same text"
   verify integration "specforge.inspect and the LSP hover report the same facts for an entity"
+  verify integration "specforge query and specforge.query return the same document for an entity"
+  verify unit "a kind filter reports each kind the project does not know with I020, naming the closest"
+  verify unit "an argument naming an undeclared kind is refused with unknown_kind naming the closest declared kind"
   verify contract "Read Views over the Project View: read views hold — project_compiled, one_report_rule, one_coverage_per_state, surfaces_agree"
 }
 
@@ -335,6 +377,46 @@ behavior exit_code_reflects_diagnostic_severity "Exit Code Reflects Diagnostic S
   verify unit "a typo'd --format fails with a clap error (exit 2), not a bespoke runtime error"
   verify unit "an unknown --lint profile fails with a clap error (exit 2), before anything is compiled"
   verify contract "Exit Code Reflects Diagnostic Severity: exit code severity mapping holds — validation_complete_fired, exit_zero_on_clean, exit_one_on_errors, strict_mode_enforced"
+}
+
+behavior report_command_outcome "Report a Command's Outcome" {
+  features   [ci_integration]
+  invariants [diagnostic_determinism, zero_domain_knowledge_core]
+  category   command
+  types      [DiagnosticBag]
+  ports      [CompilerApi]
+  requires {
+    operation_ran "the command's operation returned its outcome or refused"
+  }
+  ensures {
+    one_refusal_shape "a refusal is error[CODE]: message with its hint, or the error document under --format json"
+    one_exit_table    "the exit code is the run's verdict, the refusal, or that the command could not judge"
+    surfaces_agree    "the CLI's exit code and MCP's ok are one verdict"
+  }
+  contract   """
+    Every core command MUST end in one of three ways. Its run passed:
+    exit 0. Its run's verdict failed (check found an error, format --check
+    a file that would change, migrate failed or rolled back, analyze an
+    error finding or a gate below its minimum) or its operation refused:
+    exit 1. The command could not judge the project, because the command
+    line was refused or a measuring command (stats, analyze) cannot read
+    what it measures against: exit 2. A refusal MUST be printed on stderr
+    as error[CODE]: message, then "  hint: " and the suggestion when there
+    is one, then "  wrote: " and each file the failed operation left
+    written; under --format json (analyze: --json) it MUST instead be the
+    error document {error, code, suggestion} (and files_written when files
+    were left written) on stdout, with nothing on stderr. A command run
+    outside any project where it needs one MUST refuse with no_project.
+    The verdict is the operation's: the CLI's exit code and the ok MCP
+    returns for check, analyze, format and migrate MUST agree.
+  """
+  verify unit "an operation's refusal is error[CODE]: message, its hint and the files it left written, on stderr"
+  verify unit "under --format json a refusal is the error document on stdout and nothing on stderr"
+  verify unit "a passed run exits 0, a failed verdict or a refusal 1, a refusal of a measuring command 2"
+  verify unit "stats, trace, analyze, migrate and init refuse with the error document under --format json"
+  verify unit "a command run outside any project refuses with no_project"
+  verify integration "the CLI's exit code and MCP's ok agree for check, analyze, format and migrate"
+  verify contract "Report a Command's Outcome: command outcome holds — operation_ran, one_refusal_shape, one_exit_table, surfaces_agree"
 }
 
 behavior serialize_traceability_data "Serialize Traceability Data" {
@@ -498,6 +580,7 @@ behavior check_diagnostic_policy "Apply the Diagnostic Policy Once" {
     whether the check passes or whether the build cache is written.
   """
   verify unit "an unknown lint profile is refused by name, and pedantic adds nothing"
+  verify unit "each named lint profile adds its diagnostics once, before strict promotes warnings"
   verify unit "the verdict and the cache decision are taken over every reported diagnostic, never the filtered ones"
   verify unit "strict promotes warnings before the verdict, so a strict check with warnings is not clean"
   verify unit "--lint pedantic is accepted and changes nothing"
@@ -749,6 +832,7 @@ behavior export_agent_graph_format "Export Agent Graph Format" {
   verify unit "graph format includes all fields and metadata"
   verify unit "scoped export returns only reachable subgraph"
   verify unit "non-existent scope entity produces E003 and exit code 1"
+  verify unit "an export failure carries its code as a constant, never in its message"
   verify unit "output conforms to Graph Protocol schema"
   verify unit "output includes schema_version field"
   verify integration "structural-only graph exports valid JSON with raw keyword strings as entity kinds"
@@ -780,16 +864,24 @@ behavior query_graph_multi_resolution "Query Graph at Multiple Resolutions" {
   contract   """
     When specforge query is invoked with an entity ID and a --depth parameter,
     the system MUST return the subgraph at the requested resolution level.
-    Depth 0 returns only the entity itself. Depth 1 returns direct neighbors.
-    Depth N returns all entities within N hops. An optional --kind parameter
-    MUST filter results to only include entities of the specified kind(s),
-    while preserving edges that connect through filtered-out nodes. Multiple
-    --kind values MAY be specified (e.g., --kind=alpha --kind=beta).
+    Depth 0 returns only the entity itself. Depth 1 (the default) returns
+    direct neighbors. Depth N returns all entities within N hops. An
+    optional --kind parameter MUST filter results to only include entities
+    of the specified kind(s), the queried entity always, keeping an edge
+    only when both of its entities are kept. Multiple --kind values MAY be
+    specified (e.g., --kind=alpha --kind=beta); a kind the project does not
+    know matches nothing and is reported as I020 with the closest kind.
     Kind names are extension-defined; examples use placeholders.
-    The output MUST be valid JSON conforming to the Graph Protocol schema
-    with a schema_version field. This enables agents to request exactly the
-    context slice they need without consuming the full graph.
-    Filtering builds on a graph-level node filter that accepts any
+    --format selects an agent format (graph, context, brief) and
+    --include-coverage gives each entity its coverage status. The output
+    MUST be the export of the entity's subgraph under the export schema
+    policy: valid JSON conforming to the Graph Protocol schema with a
+    schema_version field (a graph-format query references the published
+    schema). An entity that does not exist MUST be E003, naming the closest
+    entity, with exit code 1. The CLI and MCP specforge.query MUST return
+    the same document for the same arguments. This enables agents to
+    request exactly the context slice they need without consuming the full
+    graph. Filtering builds on a graph-level node filter that accepts any
     predicate over an entity's kind and fields.
   """
   verify unit "depth 0 returns only the target entity"
@@ -797,6 +889,9 @@ behavior query_graph_multi_resolution "Query Graph at Multiple Resolutions" {
   verify unit "depth N returns all entities within N hops"
   verify unit "kind filter restricts results to specified entity kinds"
   verify unit "multiple kind filters combine as union"
+  verify unit "an unknown --kind is reported with I020 and the closest kind"
+  verify unit "a non-existent entity is E003 naming the closest entity"
+  verify unit "--include-coverage gives each entity its coverage status"
   verify unit "output conforms to Graph Protocol schema"
   verify unit "output includes schema_version field"
   verify property "querying same entity at same depth produces identical subgraph"
@@ -834,17 +929,21 @@ behavior enforce_token_budget "Enforce Token Budget" {
     exceeds the budget, the system MUST apply a truncation strategy:
     prioritize entities by graph centrality, truncate low-priority entities,
     and include a TokenBudgetResult in the output metadata. The strategy
-    field MUST indicate which approach was used (truncate, prioritize, or
-    error). If no --max-tokens is specified, this behavior MUST be skipped.
+    field names the approach used; the one strategy is `prioritize`. If no
+    --max-tokens is specified, this behavior MUST be skipped.
     The TokenBudgetResult MUST list any truncated entity IDs so agents can
     request them individually via specforge query. When truncating entities
     from the budget, the system MUST remove all edges to and from truncated
     entities before serialization. The remaining subgraph MUST be a valid
     graph with no dangling edge references. The truncated_entities list in
-    TokenBudgetResult records which entities were removed. The default
-    strategy MUST be `prioritize`. The default centrality metric MUST be
-    degree centrality (count of incoming + outgoing edges). Both MUST be
-    overridable via AgentExportConfig.
+    TokenBudgetResult records which entities were removed. Centrality is
+    degree centrality (count of incoming + outgoing edges); neither the
+    strategy nor the metric is configurable.
+
+    The graph, context and brief exports are budgeted alike: each lists the
+    entities it dropped under `token_budget`, keeps no entity when only its
+    envelope and that block fit, and fails with E062 when even those, or an
+    embedded schema (which is never cut short), are over the budget.
   """
   verify unit "output within budget includes all entities"
   verify unit "output exceeding budget truncates low-priority entities"
@@ -852,11 +951,12 @@ behavior enforce_token_budget "Enforce Token Budget" {
   verify unit "truncated_entities lists omitted entity IDs"
   verify unit "no --max-tokens skips budget enforcement"
   verify integration "export with max_tokens produces output within budget and includes metadata"
-  verify unit "error strategy rejects export exceeding budget"
   verify integration "the graph export honours --max-tokens with the schema left out unless --with-schema is given"
   verify integration "an embedded schema counts toward the token budget"
   verify integration "a budget smaller than the embedded schema fails with E062 instead of truncating the schema"
   verify integration "a budget below one entity yields the envelope with no entities and the truncation marker"
   verify integration "a budget below the empty envelope fails with E062"
+  verify integration "the context and brief exports honour --max-tokens, listing the dropped entities under token_budget"
+  verify integration "a context or brief export that cannot fit even without entities, or whose embedded schema is over the budget, fails with E062"
   verify contract "Enforce Token Budget: token budget enforcement holds — validation_complete_fired, budget_respected, truncation_metadata_produced, valid_subgraph_after_truncation, token_budget_applied_emitted"
 }

@@ -32,3 +32,7 @@ normal` now lists no reqwest, keyring or ed25519.
 
 **What would reopen it:** an LSP feature that needs the registry (completing package names from
 it, say). It would then link the adapter knowingly, or reach it through a narrower port.
+
+**Amended by ADR 0036 (2026-10-07):** the port takes a `PackageName` and a `Version`, and has two
+methods, `versions` and `fetch`; `resolve_version` is gone and ops resolves a requirement itself
+(`VersionRequirement::pick`).

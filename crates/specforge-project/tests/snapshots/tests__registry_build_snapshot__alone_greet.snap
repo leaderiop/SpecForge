@@ -77,7 +77,6 @@ expression: "digest(&load(&runtime, &[\"@sdk/greet\"]))"
             "description": "Greet someone, warmly",
             "export": "cmd__hello",
             "id": "hello",
-            "sandbox": null,
             "title": "Say hello"
           }
         ],

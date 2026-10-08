@@ -351,10 +351,13 @@ fn shape(descriptor: &ValidationRuleDescriptor, extension: &str) -> Result<Rule,
 /// `rule` resolved against the registries; `None` when it cannot apply to
 /// this project, W112 when it can never fire.
 ///
+/// A rule whose target kind no loaded extension declares (and that is not
+/// structural) is dropped (inert), as ADR 0020 D5 says: it belongs to an
+/// optional peer that is not installed, and its entities are E024.
+///
 /// A rule that reads `verify` statements (an allowlist, or an obligation
 /// rule whose obligations are statements) on a declared kind that accepts
-/// none can neither be satisfied nor violated: W112. On a kind no loaded
-/// extension declares it is inert instead.
+/// none can neither be satisfied nor violated: W112.
 ///
 /// An edge rule (`no_*_edges` with an edge type) counts only edges to the
 /// edge type's target kind (from its source kind for `no_incoming_edges`):
@@ -366,6 +369,12 @@ fn shape(descriptor: &ValidationRuleDescriptor, extension: &str) -> Result<Rule,
 /// extension declares is dropped (inert).
 #[allow(clippy::result_large_err)]
 fn resolve(mut rule: Rule, registries: Registries<'_>) -> Result<Option<Rule>, Diagnostic> {
+    if let Some(kind) = rule.target.as_deref()
+        && !registries.kinds.contains(kind)
+        && !specforge_common::structural::is_structural(kind)
+    {
+        return Ok(None);
+    }
     let reads_statements = matches!(
         rule.check,
         Check::VerifyKindAllowlist { .. }
@@ -407,7 +416,7 @@ fn resolve(mut rule: Rule, registries: Registries<'_>) -> Result<Option<Rule>, D
     let writing: Vec<String> = registries
         .fields
         .iter()
-        .filter(|(_, _, entry)| entry.declared.edge.as_deref() == Some(&edge_type))
+        .filter(|(_, _, entry)| entry.declared().edge.as_deref() == Some(&edge_type))
         .map(|(_, field, _)| field.to_string())
         .collect::<BTreeSet<_>>()
         .into_iter()
@@ -438,7 +447,7 @@ fn required_field_rules(registries: Registries<'_>) -> Vec<Rule> {
     let mut required: Vec<(String, String)> = registries
         .fields
         .iter()
-        .filter(|(_, _, entry)| entry.declared.required)
+        .filter(|(_, _, entry)| entry.declared().required)
         .map(|(kind, field, _)| (kind.to_string(), field.to_string()))
         .collect();
     required.sort();

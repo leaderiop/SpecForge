@@ -169,6 +169,32 @@ async fn words_in_prose_name_no_entity() {
     }
 }
 
+/// A string spanning lines whose second line names an entity.
+const MULTI: &str = concat!(
+    "behavior issue \"Issue tracking\" {\n",
+    "  contract \"tracks issues\"\n",
+    "}\n",
+    "\n",
+    "behavior login \"Login\" {\n",
+    "  contract \"first line\n",
+    "  mentions issue and ends\"\n",
+    "}\n",
+);
+
+#[spec(
+    invariant = "cursor_names_one_entity",
+    verify = "a word in a string or comment names no entity"
+)]
+#[tokio::test]
+async fn words_in_a_multi_line_string_name_no_entity() {
+    let (mut client, uri, _dir) = open("multi.spec", MULTI).await;
+    let at = pos(MULTI, "issue and", 0, 1);
+    let value = hover_text(&mut client, &uri, at).await;
+    assert!(!names_an_entity(&value), "{value}");
+    let resp = client.goto_definition(&uri, at.0, at.1).await;
+    assert!(resp["result"].is_null(), "{resp}");
+}
+
 #[spec(
     behavior = "hover_information",
     verify = "field help answers only on a field's name"

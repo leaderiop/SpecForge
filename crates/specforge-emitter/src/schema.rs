@@ -4,16 +4,14 @@ use std::collections::BTreeMap;
 use std::fmt;
 use std::str::FromStr;
 
+use crate::error::EmitterError;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
-use specforge_diagnostics::codes;
-use specforge_graph::Graph;
-use specforge_registry::{EdgeRegistry, FieldRegistry, KindRegistry, ManifestFieldType};
-
-use crate::error::EmitterError;
-
-use crate::json::{JsonEdge, field_map_to_json, sorted_edges};
+use specforge_diagnostics::{Code, codes};
+use specforge_registry::{
+    EdgeRegistry, FieldRegistry, FieldRegistryEntry, FieldType, KindRegistry,
+};
 
 // ---------------------------------------------------------------------------
 // Slice 1: Schema Types
@@ -111,8 +109,12 @@ impl PartialOrd for SchemaVersion {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SchemaField {
     pub name: String,
-    pub field_type: String,
+    /// The field's type, named as its extension declares it (ADR 0034). A
+    /// schema an older host wrote reads its older names (`"boolean"`).
+    pub field_type: FieldType,
     pub required: bool,
+    /// An enum field's declared values (present, possibly empty, exactly for
+    /// enum fields).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub enum_values: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -126,6 +128,26 @@ pub struct SchemaField {
     /// Extension that contributed this field (may differ from the entity's owning extension
     /// when the field comes from an entity enhancement).
     pub source_extension: String,
+}
+
+impl SchemaField {
+    /// The schema's field for a registered one: everything its declaration
+    /// says.
+    fn of(entry: &FieldRegistryEntry) -> Self {
+        let declared = entry.declared();
+        SchemaField {
+            name: entry.name().to_string(),
+            field_type: entry.field_type(),
+            required: declared.required,
+            enum_values: (entry.field_type() == FieldType::Enum)
+                .then(|| entry.enum_values().to_vec()),
+            edge: declared.edge.clone(),
+            target_kind: declared.target_kind.clone(),
+            description: declared.description.clone(),
+            default_value: declared.default_value.clone(),
+            source_extension: entry.source_extension().to_string(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -303,6 +325,13 @@ pub struct SchemaVersionError {
     pub reason: String,
 }
 
+impl SchemaVersionError {
+    /// The diagnostic this failure is: E027.
+    pub fn code(&self) -> Code {
+        codes::E027
+    }
+}
+
 impl fmt::Display for SchemaVersionError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}: {}", codes::E027, self.reason)
@@ -348,26 +377,6 @@ pub(crate) enum SchemaAttachment {
 // Slice 2: Generate Schema from Registries
 // ---------------------------------------------------------------------------
 
-fn map_field_type(ft: &ManifestFieldType) -> String {
-    match ft {
-        ManifestFieldType::String => "string".to_string(),
-        ManifestFieldType::Integer => "integer".to_string(),
-        ManifestFieldType::Bool => "boolean".to_string(),
-        ManifestFieldType::Enum(_) => "enum".to_string(),
-        ManifestFieldType::StringList => "string_list".to_string(),
-        ManifestFieldType::Reference => "reference".to_string(),
-        ManifestFieldType::ReferenceList => "reference_list".to_string(),
-        ManifestFieldType::Block => "block".to_string(),
-    }
-}
-
-fn enum_values(ft: &ManifestFieldType) -> Option<Vec<String>> {
-    match ft {
-        ManifestFieldType::Enum(values) => Some(values.clone()),
-        _ => None,
-    }
-}
-
 pub fn generate_schema(
     kinds: &KindRegistry,
     edges: &EdgeRegistry,
@@ -388,17 +397,7 @@ pub fn generate_schema(
             let mut kind_fields: Vec<SchemaField> = fields
                 .fields_for_kind(&entry.kind_name)
                 .into_iter()
-                .map(|f| SchemaField {
-                    name: f.declared.name.clone(),
-                    field_type: map_field_type(&f.field_type),
-                    required: f.declared.required,
-                    enum_values: enum_values(&f.field_type),
-                    edge: f.declared.edge.clone(),
-                    target_kind: f.declared.target_kind.clone(),
-                    description: f.declared.description.clone(),
-                    default_value: None,
-                    source_extension: f.source_extension.clone(),
-                })
+                .map(SchemaField::of)
                 .collect();
             kind_fields.sort_by(|a, b| a.name.cmp(&b.name));
 
@@ -436,12 +435,12 @@ pub fn generate_schema(
 
         for (_, kind_entry) in kinds.iter() {
             for field in fields.fields_for_kind(&kind_entry.kind_name) {
-                if field.declared.edge.as_deref() == Some(&edge_type.label) {
+                if field.declared().edge.as_deref() == Some(&edge_type.label) {
                     if !sources.contains(&kind_entry.kind_name) {
                         sources.push(kind_entry.kind_name.clone());
                     }
                     if let Some(tk) = field
-                        .declared
+                        .declared()
                         .target_kind
                         .as_ref()
                         .filter(|tk| !targets.contains(tk))
@@ -470,185 +469,6 @@ pub fn generate_schema(
         entity_kinds,
         edge_types,
     }
-}
-
-// ---------------------------------------------------------------------------
-// Slice 3: Embed Schema in Export
-// ---------------------------------------------------------------------------
-
-fn schema_block(
-    schema: &GraphProtocolSchema,
-    attach: SchemaAttachment,
-) -> (Option<GraphProtocolSchema>, Option<SchemaRefBlock>) {
-    match attach {
-        SchemaAttachment::Embedded => (Some(schema.clone()), None),
-        SchemaAttachment::Referenced => (None, Some(SchemaRefBlock::for_schema(schema))),
-    }
-}
-
-#[derive(Serialize)]
-struct JsonGraphV2 {
-    format_version: &'static str,
-    schema_version: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    schema: Option<GraphProtocolSchema>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    schema_ref: Option<SchemaRefBlock>,
-    nodes: Vec<JsonNodeV2>,
-    edges: Vec<JsonEdge>,
-}
-
-#[derive(Serialize)]
-struct JsonNodeV2 {
-    id: String,
-    kind: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    title: Option<String>,
-    file: String,
-    line: usize,
-    fields: BTreeMap<String, Value>,
-}
-
-pub(crate) fn emit_json_attached(
-    graph: &Graph,
-    schema: &GraphProtocolSchema,
-    attach: SchemaAttachment,
-) -> Result<String, EmitterError> {
-    let nodes: Vec<JsonNodeV2> = graph
-        .nodes()
-        .iter()
-        .map(|n| JsonNodeV2 {
-            id: n.id.raw.to_string(),
-            kind: n.kind.raw.to_string(),
-            title: n.title.clone(),
-            file: n.source_span.file.to_string(),
-            line: n.source_span.start_line,
-            fields: field_map_to_json(&n.fields),
-        })
-        .collect();
-
-    let (embedded, reference) = schema_block(schema, attach);
-    let output = JsonGraphV2 {
-        format_version: "2.0",
-        schema_version: schema.schema_version.to_string(),
-        schema: embedded,
-        schema_ref: reference,
-        nodes,
-        edges: sorted_edges(graph),
-    };
-
-    serde_json::to_string(&output).map_err(|e| EmitterError::SerializationError(e.to_string()))
-}
-
-#[derive(Serialize)]
-struct ContextGraphV2 {
-    format_version: &'static str,
-    schema_version: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    schema: Option<GraphProtocolSchema>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    schema_ref: Option<SchemaRefBlock>,
-    nodes: Vec<ContextNodeV2>,
-    edges: Vec<JsonEdge>,
-}
-
-#[derive(Serialize)]
-struct ContextNodeV2 {
-    id: String,
-    kind: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    title: Option<String>,
-    /// The fields an extension declares `headline`, by name.
-    #[serde(flatten)]
-    headline: std::collections::BTreeMap<String, Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    verify: Option<Value>,
-    #[serde(skip_serializing_if = "std::collections::BTreeMap::is_empty")]
-    fields: std::collections::BTreeMap<String, Value>,
-}
-
-pub(crate) fn emit_context_attached(
-    graph: &Graph,
-    schema: &GraphProtocolSchema,
-    attach: SchemaAttachment,
-    registry: Option<&specforge_registry::FieldRegistry>,
-) -> Result<String, EmitterError> {
-    let nodes: Vec<ContextNodeV2> = graph
-        .nodes()
-        .iter()
-        .map(|n| {
-            let verify = crate::json::obligations_json(n);
-
-            ContextNodeV2 {
-                id: n.id.raw.to_string(),
-                kind: n.kind.raw.to_string(),
-                title: n.title.clone(),
-                headline: crate::context::headline_fields(n, registry),
-                verify,
-                fields: crate::context::normative_fields(n, registry),
-            }
-        })
-        .collect();
-
-    let (embedded, reference) = schema_block(schema, attach);
-    let output = ContextGraphV2 {
-        format_version: "2.0",
-        schema_version: schema.schema_version.to_string(),
-        schema: embedded,
-        schema_ref: reference,
-        nodes,
-        edges: sorted_edges(graph),
-    };
-
-    serde_json::to_string(&output).map_err(|e| EmitterError::SerializationError(e.to_string()))
-}
-
-#[derive(Serialize)]
-struct BriefGraphV2 {
-    format_version: &'static str,
-    schema_version: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    schema: Option<GraphProtocolSchema>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    schema_ref: Option<SchemaRefBlock>,
-    nodes: Vec<BriefNodeV2>,
-    edges: Vec<JsonEdge>,
-}
-
-#[derive(Serialize)]
-struct BriefNodeV2 {
-    id: String,
-    kind: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    title: Option<String>,
-}
-
-pub(crate) fn emit_brief_attached(
-    graph: &Graph,
-    schema: &GraphProtocolSchema,
-    attach: SchemaAttachment,
-) -> Result<String, EmitterError> {
-    let nodes: Vec<BriefNodeV2> = graph
-        .nodes()
-        .iter()
-        .map(|n| BriefNodeV2 {
-            id: n.id.raw.to_string(),
-            kind: n.kind.raw.to_string(),
-            title: n.title.clone(),
-        })
-        .collect();
-
-    let (embedded, reference) = schema_block(schema, attach);
-    let output = BriefGraphV2 {
-        format_version: "2.0",
-        schema_version: schema.schema_version.to_string(),
-        schema: embedded,
-        schema_ref: reference,
-        nodes,
-        edges: sorted_edges(graph),
-    };
-
-    serde_json::to_string(&output).map_err(|e| EmitterError::SerializationError(e.to_string()))
 }
 
 // ---------------------------------------------------------------------------
@@ -739,8 +559,8 @@ pub fn diff_schemas(old: &GraphProtocolSchema, new: &GraphProtocolSchema) -> Sch
                         changes.push(SchemaMigrationChange::FieldTypeChanged {
                             kind: name.to_string(),
                             field: field_name.to_string(),
-                            old_type: old_field.field_type.clone(),
-                            new_type: field.field_type.clone(),
+                            old_type: old_field.field_type.as_str().to_string(),
+                            new_type: field.field_type.as_str().to_string(),
                         });
                     }
                     for (attribute, changed) in [
@@ -882,18 +702,18 @@ pub fn content_hash(schema: &GraphProtocolSchema) -> String {
 
 /// JSON Schema fragment for one field value, derived from the registry's
 /// declared field type (C6-04).
-fn json_field_schema(field_type: &str, enum_values: Option<&[String]>) -> Value {
+fn json_field_schema(field_type: FieldType, enum_values: Option<&[String]>) -> Value {
     match field_type {
-        "integer" => serde_json::json!({ "type": "integer" }),
-        "boolean" => serde_json::json!({ "type": "boolean" }),
-        "enum" => match enum_values {
+        FieldType::Integer => serde_json::json!({ "type": "integer" }),
+        FieldType::Bool => serde_json::json!({ "type": "boolean" }),
+        FieldType::Enum => match enum_values {
             Some(values) if !values.is_empty() => serde_json::json!({ "enum": values }),
             _ => serde_json::json!({ "type": "string" }),
         },
-        "string_list" | "reference_list" => {
+        t if t.is_list() => {
             serde_json::json!({ "type": "array", "items": { "type": "string" } })
         }
-        "block" => serde_json::json!({ "type": "object" }),
+        FieldType::Block => serde_json::json!({ "type": "object" }),
         _ => serde_json::json!({ "type": "string" }),
     }
 }
@@ -1018,10 +838,7 @@ pub fn publish_json_schema_format(
                         "required": ["name", "field_type", "required", "source_extension"],
                         "properties": {
                             "name": { "type": "string" },
-                            "field_type": { "enum": [
-                                "string", "integer", "boolean", "enum",
-                                "string_list", "reference", "reference_list", "block"
-                            ] },
+                            "field_type": { "enum": FieldType::ALL.iter().map(|t| t.as_str()).collect::<Vec<_>>() },
                             "required": { "type": "boolean" },
                             "enum_values": { "type": "array", "items": { "type": "string" } },
                             "edge": { "type": "string" },
@@ -1044,7 +861,7 @@ pub fn publish_json_schema_format(
             for field in &kind.fields {
                 props.insert(
                     field.name.clone(),
-                    json_field_schema(&field.field_type, field.enum_values.as_deref()),
+                    json_field_schema(field.field_type, field.enum_values.as_deref()),
                 );
                 if field.required {
                     required.push(Value::String(field.name.clone()));
@@ -1186,5 +1003,5 @@ pub fn publish_json_schema_format(
     });
 
     serde_json::to_string_pretty(&json_schema)
-        .map_err(|e| EmitterError::SerializationError(e.to_string()))
+        .map_err(|e| EmitterError::Serialization(e.to_string()))
 }

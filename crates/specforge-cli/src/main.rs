@@ -18,6 +18,7 @@ mod migrate;
 mod model;
 mod new;
 mod options;
+mod outcome;
 mod outline;
 mod pipeline;
 mod providers;
@@ -33,7 +34,6 @@ mod watch;
 use clap::builder::{PossibleValuesParser, TypedValueParser};
 use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
 use clap_complete::Shell;
-use specforge_common::{Code, Diagnostic};
 use std::path::{Path, PathBuf};
 
 #[derive(Parser)]
@@ -61,80 +61,8 @@ impl OutputFormat {
     /// stderr in either format, so JSON stdout stays one document.
     fn eprint_diagnostics(self, diagnostics: &[specforge_common::Diagnostic]) {
         for diagnostic in diagnostics {
-            eprintln!("{}", export::render_plain(diagnostic));
+            eprintln!("{}", specforge_common::render_plain(diagnostic));
         }
-    }
-
-    /// An operation's failure as the JSON document every command prints:
-    /// `{"error", "code", "suggestion"}`, and `files_written` when the
-    /// operation left files changed before it failed ([`OpError::writes`],
-    /// named from `root` when given).
-    ///
-    /// [`OpError::writes`]: specforge_ops::OpError::writes
-    fn op_error_json(error: &specforge_ops::OpError, root: Option<&Path>) -> serde_json::Value {
-        let mut output = serde_json::json!({
-            "error": error.message,
-            "code": error.code,
-            "suggestion": error.suggestion,
-        });
-        if !error.writes.is_empty() {
-            output["files_written"] = serde_json::json!(files_written(&error.writes, root));
-        }
-        output
-    }
-
-    /// Report a failure with diagnostic `code`, as [`Self::print_op_error`].
-    fn print_error(self, message: &str, code: Code) {
-        self.print_op_error(&specforge_ops::OpError::diagnostic(code, message));
-    }
-
-    /// Report a diagnostic that stopped the command, under the code it
-    /// carries as text (an extension's, or a registry's).
-    fn print_diagnostic(self, diagnostic: &Diagnostic) {
-        self.print_op_error(&specforge_ops::OpError::new(
-            specforge_ops::OpErrorKind::of_diagnostic(&diagnostic.code),
-            diagnostic.code.clone(),
-            diagnostic.message.clone(),
-        ));
-    }
-
-    /// Report an operation's failure: `{"error", "code", "suggestion"}` on
-    /// stdout as JSON, or `error[CODE]: …` and a hint on stderr.
-    fn print_op_error(self, error: &specforge_ops::OpError) {
-        self.print_op_error_in(error, None);
-    }
-
-    /// [`Self::print_op_error`] for an operation on the project at `root`:
-    /// the files it left written before it failed are named from it (in
-    /// JSON `files_written`, in human output one `wrote` line each).
-    fn print_op_error_in(self, error: &specforge_ops::OpError, root: Option<&Path>) {
-        match self {
-            OutputFormat::Json => {
-                let output = Self::op_error_json(error, root);
-                println!("{}", serde_json::to_string_pretty(&output).unwrap());
-            }
-            OutputFormat::Human => {
-                eprintln!("error[{}]: {}", error.code, error.message);
-                if let Some(suggestion) = &error.suggestion {
-                    eprintln!("  hint: {suggestion}");
-                }
-                for file in files_written(&error.writes, root) {
-                    eprintln!("  wrote: {file}");
-                }
-            }
-        }
-    }
-}
-
-/// The files `writes` names, as a command lists them: relative to `root`
-/// (absolute outside it), sorted.
-fn files_written(writes: &specforge_ops::Writes, root: Option<&Path>) -> Vec<String> {
-    match root {
-        Some(root) => writes.names_under(root),
-        None => writes
-            .paths()
-            .map(|path| path.display().to_string())
-            .collect(),
     }
 }
 
@@ -146,9 +74,9 @@ enum Commands {
         #[arg(long)]
         name: Option<String>,
 
-        /// Project version (defaults to 0.1.0)
-        #[arg(long)]
-        version: Option<String>,
+        /// Project version
+        #[arg(long, default_value = specforge_ops::init::DEFAULT_VERSION)]
+        version: String,
 
         /// Extensions to install
         #[arg(long)]
@@ -234,7 +162,7 @@ enum Commands {
 
         /// Token budget for the export: keeps the most central entities that
         /// fit. The schema is left out unless --with-schema is given, and
-        /// then counts toward the budget. A `graph` export lists the dropped
+        /// then counts toward the budget. The export lists the dropped
         /// entities under `token_budget`; below one entity it is the envelope
         /// with no entities, and below even that it fails (E062). Ignored by
         /// `dot`.
@@ -358,12 +286,24 @@ enum Commands {
         path: PathBuf,
 
         /// Number of hops from the entity (0 = entity only)
-        #[arg(long, default_value = "1")]
+        #[arg(long, default_value_t = specforge_ops::query::DEFAULT_DEPTH)]
         depth: usize,
 
         /// Filter results to specific entity kinds (can be repeated)
         #[arg(long)]
         kind: Vec<String>,
+
+        /// Output detail level
+        #[arg(
+            long,
+            value_parser = options::choice(&specforge_ops::export::AGENT_FORMAT),
+            default_value = specforge_ops::export::AGENT_FORMAT.default_name()
+        )]
+        format: specforge_ops::export::Format,
+
+        /// Give every entity its coverage status
+        #[arg(long)]
+        include_coverage: bool,
     },
     /// Show traceability chain for an entity, or for every entity
     Trace {
@@ -777,13 +717,7 @@ fn main() {
             format,
         } => {
             let path = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
-            init::run(
-                &path,
-                name.as_deref(),
-                version.as_deref(),
-                &extensions,
-                format,
-            )
+            init::run(&path, name.as_deref(), &version, &extensions, format)
         }
         Commands::Check {
             path,
@@ -870,7 +804,18 @@ fn main() {
             path,
             depth,
             kind,
-        } => query::run(&path, &entity, depth, &kind),
+            format,
+            include_coverage,
+        } => query::run(
+            &path,
+            &specforge_ops::query::QueryRequest {
+                entity_id: &entity,
+                depth: Some(depth),
+                kinds: kind.iter().map(String::as_str).collect(),
+                format: Some(format),
+                include_coverage,
+            },
+        ),
         Commands::Trace {
             entity,
             path,
@@ -1032,4 +977,27 @@ fn main() {
         },
     };
     std::process::exit(exit_code);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// `specforge query --depth` defaults to the query operation's constant,
+    /// the one `specforge.query`'s schema advertises (plan 08 T8).
+    #[test]
+    fn the_query_depth_default_is_the_operations() {
+        let command = Cli::command();
+        let query = command.find_subcommand("query").expect("a query command");
+        let depth = query
+            .get_arguments()
+            .find(|argument| argument.get_id() == "depth")
+            .expect("query takes --depth");
+        let defaults: Vec<String> = depth
+            .get_default_values()
+            .iter()
+            .map(|value| value.to_string_lossy().into_owned())
+            .collect();
+        assert_eq!(defaults, [specforge_ops::query::DEFAULT_DEPTH.to_string()]);
+    }
 }

@@ -1,25 +1,17 @@
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
 use tokio::sync::mpsc;
 use tokio::sync::{Mutex, RwLock};
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer};
 
-use specforge_project::{CheckMode, ProjectSession, SourceChange, UpdateKind};
+use specforge_project::ProjectSession;
+use specforge_watch::Debouncer;
 
-use crate::document::{LineIndex, Target};
-use crate::navigation::{
-    Ranges, fix_to_code_action, navigator, outline_to_document_symbols, symbol_kind_from_entity,
-    uri_of,
-};
-use crate::publish::{Publication, diagnostic_to_lsp};
-use crate::{LspState, goto_import_definition, hover_field_info, server_capabilities, server_info};
-use specforge_common::{SourceSpan, Sym};
-use specforge_ops::navigate::{
-    Direction, EntityQuery, FixQuery, MatchScope, ReferenceQuery, find_entities, outline,
-};
+use crate::changes::Change;
+use crate::reaction::Reaction;
+use crate::{ClientSupport, LspState, answers, server_capabilities, server_info};
 
 use specforge_ops::format;
 
@@ -33,95 +25,28 @@ pub struct Backend {
     /// whole-graph pass runs at a time and the state lock is never held
     /// across a keystroke storm.
     update_tx: mpsc::UnboundedSender<Url>,
-    /// Held by every change to the project session (edits, files changed
-    /// on disk, extension reloads, opening the project), so changes apply
-    /// one at a time and none is lost to another.
-    updates: Arc<Mutex<()>>,
-    /// Whether the client declared `workspace.semanticTokens.refreshSupport`
-    /// at initialize: only then is it sent `workspace/semanticTokens/refresh`.
-    tokens_refresh_support: Arc<AtomicBool>,
-    /// The file watchers the client was asked to register
-    /// ([`crate::watchers`]), so a reload that changes them re-registers.
-    watched: Arc<Mutex<Vec<FileSystemWatcher>>>,
-    /// Whether the client declared
-    /// `workspace.didChangeWatchedFiles.relativePatternSupport`.
-    relative_patterns: Arc<AtomicBool>,
-    /// Whether the client declared `textDocument.definition.linkSupport`:
-    /// then a definition is a `LocationLink` (the block, its name
-    /// selected), else a `Location` at the name.
-    definition_links: Arc<AtomicBool>,
-    /// Whether the client declared
-    /// `textDocument.documentSymbol.hierarchicalDocumentSymbolSupport`:
-    /// then the outline is nested `DocumentSymbol`s, else flat.
-    hierarchical_symbols: Arc<AtomicBool>,
-    /// Whether the client declared
-    /// `textDocument.completion.completionItem.insertReplaceSupport`: then
-    /// a completion item's edit inserts over the word's start to the cursor
-    /// and replaces the whole word, else it is a plain edit.
-    insert_replace: Arc<AtomicBool>,
-}
-
-/// A change the project session is asked to apply.
-enum Change {
-    /// Open the project at this root, then apply every open buffer.
-    Open(PathBuf),
-    /// An open document's buffer changed: it is the truth for its file.
-    Buffer(Url),
-    /// Files changed, were created or deleted on disk (absolute paths). The
-    /// session says what they are, once it is held for the update
-    /// (`ProjectSession::changes`), and applies what they amount to: an
-    /// environment reload (then every open buffer again), an update of the
-    /// changed sources, or a re-check.
-    Apply(Vec<PathBuf>),
-}
-
-/// What [`Backend::recompile`] did to the session.
-struct Recompiled {
-    /// The environment was loaded again (or the project opened).
-    environment: bool,
+    /// What every change to the project session is reacted to by: applied,
+    /// published, the client's watchers followed, its highlighting
+    /// refreshed (ADR 0035).
+    reaction: Reaction,
 }
 
 impl Backend {
     pub fn new(client: Client) -> Self {
         let state = Arc::new(RwLock::new(LspState::new()));
         let (update_tx, mut update_rx) = mpsc::unbounded_channel::<Url>();
-        let updates = Arc::new(Mutex::new(()));
-        let tokens_refresh_support = Arc::new(AtomicBool::new(false));
-        let watched = Arc::new(Mutex::new(Vec::new()));
+        let reaction = Reaction::new(client.clone(), Arc::clone(&state));
 
         // Serialized latest-wins reparse worker (C4-03). Exits when the
         // Backend (and its sender) is dropped.
-        let worker_state = Arc::clone(&state);
-        let worker_client = client.clone();
-        let worker_updates = Arc::clone(&updates);
-        let worker_refresh_support = Arc::clone(&tokens_refresh_support);
+        let worker = reaction.clone();
         tokio::spawn(async move {
-            while let Some(first) = update_rx.recv().await {
-                // Coalesce everything already queued, then hold off until
-                // the stream is quiet for DEBOUNCE_WINDOW.
-                let mut pending = vec![first];
-                while let Ok(Some(next)) =
-                    tokio::time::timeout(crate::DEBOUNCE_WINDOW, update_rx.recv()).await
-                {
-                    pending.push(next);
-                }
-                pending.sort();
-                pending.dedup();
-                for uri in pending {
-                    Self::recompile(
-                        &worker_state,
-                        &worker_client,
-                        &worker_updates,
-                        Change::Buffer(uri),
-                    )
-                    .await;
-                }
-                Self::refresh_semantic_tokens_if_stale(
-                    &worker_state,
-                    &worker_client,
-                    &worker_refresh_support,
-                )
-                .await;
+            // The rule `specforge watch` batches file changes by: the burst
+            // is quiet for the debounce window, each document once.
+            let debouncer = Debouncer::new(specforge_watch::DEFAULT_DEBOUNCE_WINDOW);
+            while let Some(pending) = debouncer.coalesce_async(&mut update_rx).await {
+                // Everything the burst edited is one update (ADR 0023 D9).
+                worker.react(Change::Edited(pending)).await;
             }
         });
 
@@ -130,324 +55,9 @@ impl Backend {
             state,
             root_dir: Arc::new(Mutex::new(None)),
             update_tx,
-            updates,
-            tokens_refresh_support,
-            watched,
-            relative_patterns: Arc::new(AtomicBool::new(false)),
-            definition_links: Arc::new(AtomicBool::new(false)),
-            hierarchical_symbols: Arc::new(AtomicBool::new(false)),
-            insert_replace: Arc::new(AtomicBool::new(false)),
+            reaction,
         }
     }
-
-    /// After a recompile: when the graph changed in anything semantic
-    /// tokens depend on (entity IDs, kinds, titles, the kind registry's
-    /// classification), ask a client that declared refreshSupport to
-    /// re-request tokens. The LSP does not subscribe to watch deltas; this
-    /// is how open editors learn their highlighting went stale. The request
-    /// is sent from its own task so a slow client never stalls a recompile.
-    async fn refresh_semantic_tokens_if_stale(
-        state: &RwLock<LspState>,
-        client: &Client,
-        refresh_support: &AtomicBool,
-    ) {
-        let stale = state.write().await.record_token_signature();
-        if stale && refresh_support.load(Ordering::Relaxed) {
-            let client = client.clone();
-            tokio::spawn(async move {
-                let _ = client.semantic_tokens_refresh().await;
-            });
-        }
-    }
-
-    /// Apply `change` to the project session, the one `specforge watch`
-    /// holds, and publish everything the project reports now: the
-    /// diagnostics `specforge check` reports for the same sources and
-    /// buffers. Returns `None` when there was nothing to apply, or it could
-    /// not be applied.
-    ///
-    /// Changes apply one at a time (`updates`). The session does
-    /// synchronous file reads and whole-graph checks, so it runs on the
-    /// blocking pool: it is taken out of the state (a brief write lock),
-    /// updated without any lock held, and put back. Meanwhile readers see
-    /// its last complete graph and environment (C4-05).
-    async fn recompile(
-        state: &RwLock<LspState>,
-        client: &Client,
-        updates: &Mutex<()>,
-        change: Change,
-    ) -> Option<Recompiled> {
-        let _one_at_a_time = updates.lock().await;
-        let (session, buffers, edited, changes) = {
-            let mut st = state.write().await;
-            let session = st.take_session()?;
-            // What changed files are, to the session as it is now (a
-            // reload queued before this one may have changed the answer).
-            let changes = match &change {
-                Change::Apply(paths) => Some(session.changes(paths.iter().map(PathBuf::as_path))),
-                _ => None,
-            };
-            if changes
-                .as_ref()
-                .is_some_and(specforge_project::Changes::is_empty)
-            {
-                st.set_session(session);
-                return None;
-            }
-            let reload = changes.as_ref().is_some_and(|c| c.environment);
-            // Every open buffer, as (absolute path, text), for a change
-            // that rebuilds from disk; the edited one for a buffer change.
-            let buffer = |uri: &str| {
-                let doc = st.document(uri)?;
-                let url = Url::parse(uri).ok()?;
-                Some((uri_to_file_path(&url), doc.text().to_string()))
-            };
-            let (buffers, edited): (Vec<(String, String)>, Option<Url>) = match &change {
-                Change::Buffer(uri) => (
-                    buffer(uri.as_str()).into_iter().collect(),
-                    Some(uri.clone()),
-                ),
-                Change::Apply(_) if !reload => (Vec::new(), None),
-                Change::Open(_) | Change::Apply(_) => (
-                    st.open_uris().into_iter().filter_map(buffer).collect(),
-                    None,
-                ),
-            };
-            (session, buffers, edited, changes)
-        };
-        if matches!(change, Change::Buffer(_)) && buffers.is_empty() {
-            // Closed before the worker got to it.
-            state.write().await.set_session(session);
-            return None;
-        }
-
-        // Opening a project loads its environment first and shows it to
-        // readers before the sources are read: the kinds and fields
-        // keyword completion offers need no `.spec` file, so they are
-        // answered while indexing runs (CONTEXT: Environment).
-        let mut opening = None;
-        if let Change::Open(root) = &change {
-            let root = root.clone();
-            match tokio::task::spawn_blocking(move || ProjectSession::begin_open(&root)).await {
-                Ok(loaded) => {
-                    state
-                        .write()
-                        .await
-                        .show_environment(Arc::clone(loaded.environment()));
-                    opening = Some(loaded);
-                }
-                Err(e) => {
-                    Self::lose_session(state, client, e).await;
-                    return None;
-                }
-            }
-        }
-
-        let joined = tokio::task::spawn_blocking(move || {
-            let mut session = session;
-            let mut touched: Vec<String> = Vec::new();
-            let mut environment = false;
-            match (&change, changes) {
-                (Change::Open(_), _) => {
-                    if let Some(loaded) = opening {
-                        session = loaded.finish();
-                    }
-                    environment = true;
-                }
-                (Change::Apply(_), Some(changes)) => {
-                    if let Some(update) = session.apply(&changes) {
-                        environment = update.kind == UpdateKind::Environment;
-                        touched.extend(update.rebuilt_files);
-                    }
-                    touched.extend(changes.sources);
-                }
-                _ => {}
-            }
-            let typing = matches!(change, Change::Buffer(_));
-            for (path, text) in &buffers {
-                let key = session.source_key(std::path::Path::new(path));
-                let mode = if typing {
-                    // The syntax-only fast path (C4-07): no checks while
-                    // the edited file does not parse.
-                    CheckMode::SyntaxOnlyIfParseErrorsIn(&key)
-                } else {
-                    CheckMode::Full
-                };
-                let buffer = SourceChange::Buffer {
-                    path: &key,
-                    text: Some(text),
-                };
-                touched.extend(session.update_with(buffer, mode).rebuilt_files);
-                touched.push(key);
-            }
-            (session, touched, environment)
-        })
-        .await;
-
-        match joined {
-            Ok((session, touched, environment)) => {
-                let touched: Vec<Url> = {
-                    let mut st = state.write().await;
-                    st.set_session(session);
-                    touched
-                        .iter()
-                        .map(|key| file_path_to_uri(&st.file_path(key).to_string_lossy()))
-                        .collect()
-                };
-                Self::publish(state, client, edited, touched).await;
-                Some(Recompiled { environment })
-            }
-            Err(e) => {
-                Self::lose_session(state, client, e).await;
-                None
-            }
-        }
-    }
-
-    /// An update panicked: the session is lost, so the state falls back to
-    /// an empty one rather than a stale stand-in.
-    async fn lose_session(
-        state: &RwLock<LspState>,
-        client: &Client,
-        error: tokio::task::JoinError,
-    ) {
-        state.write().await.set_session(ProjectSession::detached());
-        client
-            .log_message(
-                MessageType::ERROR,
-                format!("specforge-lsp: recompile failed: {error}"),
-            )
-            .await;
-    }
-
-    /// Ask the client to watch every file the project is built from
-    /// ([`crate::watchers::file_watchers`]), replacing the watchers it was
-    /// asked for before when they differ: after the project opens, and
-    /// after a reload that changed its inputs. A client that refuses the
-    /// project's watchers keeps the static ones.
-    async fn sync_watchers(
-        state: &RwLock<LspState>,
-        client: &Client,
-        watched: &Mutex<Vec<FileSystemWatcher>>,
-        relative_patterns: bool,
-    ) {
-        let wanted = {
-            let st = state.read().await;
-            match st.session() {
-                Some(session) => crate::watchers::file_watchers(session, relative_patterns),
-                None => return,
-            }
-        };
-        let mut watched = watched.lock().await;
-        if *watched == wanted {
-            return;
-        }
-        let _ = client
-            .unregister_capability(vec![Unregistration {
-                id: crate::watchers::REGISTRATION_ID.into(),
-                method: "workspace/didChangeWatchedFiles".into(),
-            }])
-            .await;
-        *watched = match Self::register_watchers(client, wanted.clone()).await {
-            Ok(()) => wanted,
-            Err(_) => {
-                let defaults = crate::watchers::default_watchers();
-                let _ = Self::register_watchers(client, defaults.clone()).await;
-                defaults
-            }
-        };
-    }
-
-    /// Register `watchers` for `workspace/didChangeWatchedFiles`.
-    async fn register_watchers(client: &Client, watchers: Vec<FileSystemWatcher>) -> Result<()> {
-        client
-            .register_capability(vec![Registration {
-                id: crate::watchers::REGISTRATION_ID.into(),
-                method: "workspace/didChangeWatchedFiles".into(),
-                register_options: Some(
-                    serde_json::to_value(DidChangeWatchedFilesRegistrationOptions { watchers })
-                        .expect("watcher options serialize"),
-                ),
-            }])
-            .await
-    }
-
-    /// Publish what the project reports now ([`Publication::of`]): each
-    /// diagnostic on the file its span names, a spanless one about entities
-    /// at the first one's name, one about none on `edited` (else the anchor,
-    /// else the first open document); files that had diagnostics and have
-    /// none now, and every `touched` file, get an empty list. What is
-    /// published is kept: code actions act on it.
-    async fn publish(
-        state: &RwLock<LspState>,
-        client: &Client,
-        edited: Option<Url>,
-        touched: Vec<Url>,
-    ) {
-        let publication = Publication::of(&*state.read().await, edited.as_ref(), &touched);
-        state.write().await.record(&publication);
-        for (uri, file) in publication.files {
-            client
-                .publish_diagnostics(uri, file.diagnostics, file.version)
-                .await;
-        }
-    }
-}
-
-/// A request refused because the editor's buffer is not the text the
-/// project was compiled from (LSP's `ContentModified`, -32801): the answer
-/// would be computed on a text the editor no longer has.
-fn content_modified(file: &str) -> tower_lsp::jsonrpc::Error {
-    tower_lsp::jsonrpc::Error {
-        code: tower_lsp::jsonrpc::ErrorCode::ServerError(-32801),
-        message: format!("{file} changed since the project was compiled; try again").into(),
-        data: None,
-    }
-}
-
-/// The session file key of a document.
-fn key_of(state: &LspState, uri: &Url) -> String {
-    state.source_key(&uri_to_file_path(uri))
-}
-
-/// The entity the cursor at `position` of the open document `uri` names
-/// ([`crate::Cursor::target`]): what references and rename act on.
-fn entity_under_cursor(state: &LspState, uri: &Url, position: Position) -> Option<Sym> {
-    let cursor = state.document(uri.as_str())?.at(position)?;
-    match cursor.target(&navigator(state), &key_of(state, uri))? {
-        Target::Entity { id, .. } => Some(id),
-        _ => None,
-    }
-}
-
-pub fn file_path_to_uri(path: &str) -> Url {
-    Url::from_file_path(path).unwrap_or_else(|_| {
-        Url::parse(&format!("file://{path}")).unwrap_or_else(|_| Url::parse("file:///").unwrap())
-    })
-}
-
-pub fn uri_to_file_path(uri: &Url) -> String {
-    uri.to_file_path()
-        .map(|p| p.to_string_lossy().to_string())
-        .unwrap_or_else(|_| uri.to_string())
-}
-
-/// Formatter edits (0-based lines, byte columns of the formatted
-/// document) as LSP edits.
-fn formatter_edits_to_lsp(
-    edits: Vec<specforge_formatter::TextEdit>,
-    index: &LineIndex,
-) -> Vec<TextEdit> {
-    edits
-        .into_iter()
-        .map(|e| TextEdit {
-            range: Range {
-                start: index.position_at(e.start_line, e.start_col),
-                end: index.position_at(e.end_line, e.end_col),
-            },
-            new_text: e.new_text,
-        })
-        .collect()
 }
 
 #[tower_lsp::async_trait]
@@ -460,8 +70,6 @@ impl LanguageServer for Backend {
             .and_then(|w| w.semantic_tokens.as_ref())
             .and_then(|t| t.refresh_support)
             .unwrap_or(false);
-        self.tokens_refresh_support
-            .store(refresh_support, Ordering::Relaxed);
         let relative_patterns = params
             .capabilities
             .workspace
@@ -469,35 +77,11 @@ impl LanguageServer for Backend {
             .and_then(|w| w.did_change_watched_files.as_ref())
             .and_then(|w| w.relative_pattern_support)
             .unwrap_or(false);
-        self.relative_patterns
-            .store(relative_patterns, Ordering::Relaxed);
-        let definition_links = params
-            .capabilities
-            .text_document
-            .as_ref()
-            .and_then(|t| t.definition.as_ref())
-            .and_then(|d| d.link_support)
-            .unwrap_or(false);
-        self.definition_links
-            .store(definition_links, Ordering::Relaxed);
-        let hierarchical_symbols = params
-            .capabilities
-            .text_document
-            .as_ref()
-            .and_then(|t| t.document_symbol.as_ref())
-            .and_then(|d| d.hierarchical_document_symbol_support)
-            .unwrap_or(false);
-        self.hierarchical_symbols
-            .store(hierarchical_symbols, Ordering::Relaxed);
-        let insert_replace = params
-            .capabilities
-            .text_document
-            .as_ref()
-            .and_then(|t| t.completion.as_ref())
-            .and_then(|c| c.completion_item.as_ref())
-            .and_then(|i| i.insert_replace_support)
-            .unwrap_or(false);
-        self.insert_replace.store(insert_replace, Ordering::Relaxed);
+        self.reaction.declared(refresh_support, relative_patterns);
+        self.state
+            .write()
+            .await
+            .set_client(ClientSupport::of(&params.capabilities));
         let root = params
             .root_uri
             .as_ref()
@@ -580,14 +164,8 @@ impl LanguageServer for Backend {
     async fn initialized(&self, _: InitializedParams) {
         // Until the project is open, watch every .spec, config and lock
         // file; once it is, the watchers cover exactly what it is built
-        // from (`sync_watchers`).
-        let defaults = crate::watchers::default_watchers();
-        if Self::register_watchers(&self.client, defaults.clone())
-            .await
-            .is_ok()
-        {
-            *self.watched.lock().await = defaults;
-        }
+        // from (`Reaction::react`).
+        self.reaction.watch_defaults().await;
 
         // Opening the project (extensions, then every .spec file under the
         // spec root) runs in a background task with workDone progress
@@ -596,10 +174,7 @@ impl LanguageServer for Backend {
         let root = self.root_dir.lock().await.clone();
         let client = self.client.clone();
         let state = Arc::clone(&self.state);
-        let updates = Arc::clone(&self.updates);
-        let refresh_support = Arc::clone(&self.tokens_refresh_support);
-        let watched = Arc::clone(&self.watched);
-        let relative_patterns = self.relative_patterns.load(Ordering::Relaxed);
+        let reaction = self.reaction.clone();
         tokio::spawn(async move {
             let token = NumberOrString::String("specforge-index".into());
             let _ = client
@@ -639,14 +214,12 @@ impl LanguageServer for Backend {
                 return;
             };
 
-            let opened = Self::recompile(
-                &state,
-                &client,
-                &updates,
-                Change::Open(PathBuf::from(&root)),
-            )
-            .await
-            .is_some();
+            // The client then watches what the project is built from, and
+            // the session has caught up with what changed while it did not.
+            let opened = reaction
+                .react(Change::Open(PathBuf::from(&root)))
+                .await
+                .is_some();
             let (ext_count, kind_count, file_count, spec_root) = {
                 let st = state.read().await;
                 (
@@ -675,15 +248,12 @@ impl LanguageServer for Backend {
                     format!("specforge-lsp: indexed {file_count} .spec files from {spec_root}"),
                 )
                 .await;
-            Self::refresh_semantic_tokens_if_stale(&state, &client, &refresh_support).await;
 
             client
                 .send_notification::<tower_lsp::lsp_types::notification::Progress>(end(Some(
                     format!("{file_count} files"),
                 )))
                 .await;
-            // The client now watches what the project is built from.
-            Self::sync_watchers(&state, &client, &watched, relative_patterns).await;
         });
     }
 
@@ -705,19 +275,7 @@ impl LanguageServer for Backend {
             }
         }
 
-        Self::recompile(
-            &self.state,
-            &self.client,
-            &self.updates,
-            Change::Buffer(uri),
-        )
-        .await;
-        Self::refresh_semantic_tokens_if_stale(
-            &self.state,
-            &self.client,
-            &self.tokens_refresh_support,
-        )
-        .await;
+        self.reaction.react(Change::Edited(vec![uri])).await;
     }
 
     async fn did_change(&self, params: DidChangeTextDocumentParams) {
@@ -744,414 +302,117 @@ impl LanguageServer for Backend {
         self.state.write().await.close_document(uri.as_str());
         // The editor keeps a closed document's squiggles until told
         // otherwise: publish an empty set to clear them.
-        self.client.publish_diagnostics(uri, Vec::new(), None).await;
+        self.client
+            .publish_diagnostics(uri.clone(), Vec::new(), None)
+            .await;
+        // The buffer is no longer the truth for its file (ADR 0023 D9).
+        self.reaction.react(Change::Closed(uri)).await;
     }
 
     async fn did_change_watched_files(&self, params: DidChangeWatchedFilesParams) {
-        // An open document's buffer is the truth for its file, so of its
-        // changes on disk only its deletion counts. What the others are (a
-        // source, an environment or check input, nothing) is the session's
-        // to say (classify_project_changes).
-        let paths: Vec<PathBuf> = {
-            let state = self.state.read().await;
-            params
-                .changes
-                .iter()
-                .filter(|change| {
-                    change.typ == FileChangeType::DELETED || !state.is_open(change.uri.as_str())
-                })
-                .map(|change| PathBuf::from(uri_to_file_path(&change.uri)))
-                .collect()
-        };
-        let recompiled = if paths.is_empty() {
-            None
-        } else {
-            Self::recompile(
-                &self.state,
-                &self.client,
-                &self.updates,
-                Change::Apply(paths),
-            )
-            .await
-        };
-        if recompiled.is_some_and(|r| r.environment) {
-            // The environment loaded again (hardening-plan H4 / R-5): the
-            // spec root re-indexed, everything republished, and the
-            // watchers follow what the project is now built from.
-            let ext_count = self.state.read().await.registries().declarations().len();
-            self.client
-                .log_message(
-                    MessageType::INFO,
-                    format!(
-                        "specforge-lsp: extension environment changed, reloaded {ext_count} extension(s)"
-                    ),
-                )
-                .await;
-            Self::sync_watchers(
-                &self.state,
-                &self.client,
-                &self.watched,
-                self.relative_patterns.load(Ordering::Relaxed),
-            )
-            .await;
-        }
-        // One check for the whole batch: an extension reload (new kind
+        // One reaction for the whole batch: an extension reload (new kind
         // classifications), a deletion or an on-disk edit may all have
         // changed what open editors highlight.
-        Self::refresh_semantic_tokens_if_stale(
-            &self.state,
-            &self.client,
-            &self.tokens_refresh_support,
-        )
-        .await;
+        self.reaction.react(Change::Watched(params.changes)).await;
     }
 
     async fn hover(&self, params: HoverParams) -> Result<Option<Hover>> {
-        let uri = params.text_document_position_params.text_document.uri;
-        let pos = params.text_document_position_params.position;
-
-        let state = self.state.read().await;
-        let Some(doc) = state.document(uri.as_str()) else {
-            return Ok(None);
-        };
-
-        // A diagnostic under the cursor comes first: what it means and how
-        // to fix it, from the catalogue.
-        // Published ranges are positions in the compiled text.
-        let shown = Ranges::new(&state)
-            .index_of(&key_of(&state, &uri))
-            .map(|index| crate::hover::diagnostics_at(state.diagnostics(uri.as_str()), &index, pos))
-            .unwrap_or_default();
-        let diagnostic_md = crate::hover::diagnostics(&shown);
-        let markdown = |md: String| {
-            Some(Hover {
-                contents: HoverContents::Markup(MarkupContent {
-                    kind: MarkupKind::Markdown,
-                    value: md,
-                }),
-                range: None,
-            })
-        };
-
-        // What the cursor names: the entity's facts (the inspect read view,
-        // reporting what was published), or a field's help.
-        // While the session is out for an update, the view is a stand-in
-        // that cannot read the recorded report.
-        let rebuilding = state.session().is_none();
-        let published: Vec<specforge_common::Diagnostic> =
-            state.published_diagnostics().cloned().collect();
-        let nav = navigator(&state);
-        let file = key_of(&state, &uri);
-        let info = doc
-            .at(pos)
-            .and_then(|cursor| match cursor.target(&nav, &file)? {
-                Target::Entity { id, .. } => specforge_ops::inspect::inspect(
-                    &state.view().reporting(&published),
-                    id.as_str(),
-                )
-                .ok()
-                .map(|facts| crate::hover::entity(&facts, &shown, rebuilding)),
-                Target::Field { kind, field } => {
-                    hover_field_info(&field, &kind, state.field_registry())
-                }
-                Target::Import { .. } => None,
-            });
-        let combined = match (diagnostic_md, info) {
-            (Some(diag), Some(entity)) => Some(format!("{diag}\n\n---\n\n{entity}")),
-            (diag, entity) => diag.or(entity),
-        };
-        Ok(combined.and_then(markdown))
+        let at = params.text_document_position_params;
+        Ok(answers::hover(
+            &*self.state.read().await,
+            &at.text_document.uri,
+            at.position,
+        ))
     }
 
     async fn completion(&self, params: CompletionParams) -> Result<Option<CompletionResponse>> {
-        let uri = params.text_document_position.text_document.uri;
-        let pos = params.text_document_position.position;
-
-        let state = self.state.read().await;
-        let Some(cursor) = state.document(uri.as_str()).and_then(|doc| doc.at(pos)) else {
-            return Ok(None);
-        };
-        let items = crate::completion::items(
-            &cursor.completion(),
-            &cursor.word_edit(),
-            self.insert_replace.load(Ordering::Relaxed),
-            &state.view(),
-        );
-        Ok(Some(CompletionResponse::Array(items)))
+        let at = params.text_document_position;
+        Ok(answers::completion(
+            &*self.state.read().await,
+            &at.text_document.uri,
+            at.position,
+        ))
     }
 
     async fn goto_definition(
         &self,
         params: GotoDefinitionParams,
     ) -> Result<Option<GotoDefinitionResponse>> {
-        let uri = params.text_document_position_params.text_document.uri;
-        let pos = params.text_document_position_params.position;
-
-        let state = self.state.read().await;
-        let Some(cursor) = state.document(uri.as_str()).and_then(|doc| doc.at(pos)) else {
-            return Ok(None);
-        };
-        let ranges = Ranges::new(&state);
-        let nav = navigator(&state);
-        let file = key_of(&state, &uri);
-        match cursor.target(&nav, &file) {
-            Some(Target::Import { path }) => {
-                if state.spec_root().as_os_str().is_empty() {
-                    return Ok(None);
-                }
-                // The imported file, from its first line: no text needed.
-                let span = goto_import_definition(
-                    &path,
-                    &file,
-                    state.spec_root(),
-                    &state.environment().resolve_config(),
-                );
-                Ok(span.map(|s| {
-                    GotoDefinitionResponse::Scalar(Location {
-                        uri: uri_of(&state, s.file.as_str()),
-                        range: Range::default(),
-                    })
-                }))
-            }
-            Some(Target::Entity { id, origin }) => {
-                let Ok(definition) = nav.definition(id.as_str()) else {
-                    return Ok(None);
-                };
-                // A definition whose file's text is unknown is not answered
-                // (no range of it is honest).
-                if self.definition_links.load(Ordering::Relaxed) {
-                    let (Some(target_range), Some(target_selection_range)) = (
-                        ranges.range(&definition.block),
-                        ranges.range(&definition.name),
-                    ) else {
-                        return Ok(None);
-                    };
-                    return Ok(Some(GotoDefinitionResponse::Link(vec![LocationLink {
-                        origin_selection_range: Some(origin),
-                        target_uri: uri_of(&state, definition.block.file.as_str()),
-                        target_range,
-                        target_selection_range,
-                    }])));
-                }
-                Ok(ranges
-                    .location(&definition.name)
-                    .map(GotoDefinitionResponse::Scalar))
-            }
-            _ => Ok(None),
-        }
+        let at = params.text_document_position_params;
+        Ok(answers::definition(
+            &*self.state.read().await,
+            &at.text_document.uri,
+            at.position,
+        ))
     }
 
-    /// The references to the entity under the cursor: incoming, its
-    /// declaration only when the request includes it (ADR 0016).
     async fn references(&self, params: ReferenceParams) -> Result<Option<Vec<Location>>> {
-        let uri = params.text_document_position.text_document.uri;
-        let pos = params.text_document_position.position;
-
-        let state = self.state.read().await;
-        let ranges = Ranges::new(&state);
-        let Some(id) = entity_under_cursor(&state, &uri, pos) else {
-            return Ok(None);
-        };
-        let query = ReferenceQuery {
-            direction: Direction::Incoming,
-            include_declaration: params.context.include_declaration,
-        };
-        let refs = navigator(&state)
-            .references(id.as_str(), query)
-            .unwrap_or_default();
-        if refs.is_empty() {
-            return Ok(None);
-        }
-        // An occurrence whose file's text is unknown is left out.
-        let locations: Vec<Location> = refs
-            .iter()
-            .filter_map(|o| ranges.location(&o.span))
-            .collect();
-        Ok((!locations.is_empty()).then_some(locations))
+        let at = params.text_document_position;
+        Ok(answers::references(
+            &*self.state.read().await,
+            &at.text_document.uri,
+            at.position,
+            params.context.include_declaration,
+        ))
     }
 
     async fn prepare_rename(
         &self,
         params: TextDocumentPositionParams,
     ) -> Result<Option<PrepareRenameResponse>> {
-        let uri = params.text_document.uri;
-        let pos = params.position;
-
-        let state = self.state.read().await;
-        let Some(cursor) = state.document(uri.as_str()).and_then(|doc| doc.at(pos)) else {
-            return Ok(None);
-        };
-
-        // The token as written under the cursor, declaration or
-        // reference; nothing else renames.
-        let ranges = Ranges::new(&state);
-        let occurrence = cursor.occurrence(&navigator(&state), &key_of(&state, &uri));
-        Ok(occurrence
-            .and_then(|o| ranges.range(&o.span))
-            .map(PrepareRenameResponse::Range))
+        answers::prepare_rename(
+            &*self.state.read().await,
+            &params.text_document.uri,
+            params.position,
+        )
     }
 
     async fn rename(&self, params: RenameParams) -> Result<Option<WorkspaceEdit>> {
-        let uri = params.text_document_position.text_document.uri;
-        let pos = params.text_document_position.position;
-        let new_name = params.new_name;
-
-        let state = self.state.read().await;
-        let ranges = Ranges::new(&state);
-        let Some(id) = entity_under_cursor(&state, &uri, pos) else {
-            return Ok(None);
-        };
-
-        // The declaration's name and every reference's token, read from
-        // the open buffer, else disk, planned by the shared rename (the MCP
-        // tool's rules). A rename is all or nothing: one that cannot be
-        // done whole is refused with why.
-        let edits = match specforge_ops::rename::plan(&navigator(&state), id.as_str(), &new_name) {
-            Ok(plan) => plan.edits,
-            Err(e) if e.kind == specforge_ops::OpErrorKind::EntityNotFound => return Ok(None),
-            Err(e) => return Err(tower_lsp::jsonrpc::Error::invalid_params(e.message)),
-        };
-
-        let mut changes: std::collections::HashMap<Url, Vec<TextEdit>> =
-            std::collections::HashMap::new();
-        for edit in edits {
-            // The edits are positions in the compiled text, and apply to
-            // the editor's buffer: a buffer typed in since the compile is
-            // not that text, so the rename waits for the compile (LSP's
-            // ContentModified).
-            if ranges.is_stale(&edit.file) {
-                return Err(content_modified(&edit.file));
-            }
-            let file_uri = uri_of(&state, &edit.file);
-            // A 1-based line and byte columns of the file's text.
-            let span = SourceSpan {
-                file: Sym::new(&edit.file),
-                start_line: edit.line,
-                start_col: edit.start_col + 1,
-                end_line: edit.line,
-                end_col: edit.end_col + 1,
-            };
-            // A rename is all or nothing: an edit that cannot be placed
-            // refuses it.
-            let Some(range) = ranges.range(&span) else {
-                return Err(tower_lsp::jsonrpc::Error::invalid_params(format!(
-                    "cannot rename: the text of {} is not known",
-                    edit.file
-                )));
-            };
-            changes.entry(file_uri).or_default().push(TextEdit {
-                range,
-                new_text: new_name.clone(),
-            });
-        }
-
-        Ok(Some(WorkspaceEdit {
-            changes: Some(changes),
-            ..Default::default()
-        }))
+        let at = params.text_document_position;
+        answers::rename(
+            &*self.state.read().await,
+            &at.text_document.uri,
+            at.position,
+            &params.new_name,
+        )
     }
 
-    /// The fixes for what the request's range covers: the diagnostics
-    /// published for the document whose span overlaps it, and the
-    /// entities there missing verify statements (ADR 0016: the fixes MCP
-    /// suggest_fixes returns for the same diagnostics).
     async fn code_action(&self, params: CodeActionParams) -> Result<Option<CodeActionResponse>> {
-        let uri = params.text_document.uri;
-        let state = self.state.read().await;
-        let file = key_of(&state, &uri);
-        let ranges = Ranges::new(&state);
-        // The request's range is the editor's own: positions in its buffer.
-        let within = state
-            .document(uri.as_str())
-            .map(|doc| doc.index().span(Sym::new(&file), params.range));
-        let query = FixQuery {
-            file: Some(&file),
-            within: within.as_ref(),
-            ..FixQuery::default()
-        };
-        let fixes = navigator(&state).fixes(state.diagnostics(uri.as_str()), &query);
-        // A fix that cannot be placed whole (see `fix_to_code_action`) is
-        // not offered.
-        let actions: Vec<CodeActionOrCommand> = fixes
-            .into_iter()
-            .filter_map(|fix| fix_to_code_action(&ranges, fix))
-            .map(CodeActionOrCommand::CodeAction)
-            .collect();
-        Ok((!actions.is_empty()).then_some(actions))
+        Ok(answers::code_actions(
+            &*self.state.read().await,
+            &params.text_document.uri,
+            params.range,
+        ))
     }
 
-    /// The document's outline (`specforge_ops::navigate::outline`, what MCP
-    /// outline returns): nested symbols, methods as children, each
-    /// selecting its name, for a client that declared
-    /// hierarchicalDocumentSymbolSupport; flat otherwise.
     async fn document_symbol(
         &self,
         params: DocumentSymbolParams,
     ) -> Result<Option<DocumentSymbolResponse>> {
-        let uri = params.text_document.uri;
-
-        let state = self.state.read().await;
-        let entries = outline(&navigator(&state), &key_of(&state, &uri));
-        if entries.is_empty() {
-            return Ok(None);
-        }
-        let hierarchical = self.hierarchical_symbols.load(Ordering::Relaxed);
-        Ok(Some(outline_to_document_symbols(
-            &Ranges::new(&state),
-            entries,
-            hierarchical,
-        )))
+        Ok(answers::document_symbols(
+            &*self.state.read().await,
+            &params.text_document.uri,
+        ))
     }
 
     async fn symbol(
         &self,
         params: WorkspaceSymbolParams,
     ) -> Result<Option<Vec<SymbolInformation>>> {
-        let state = self.state.read().await;
-        // The shared ranking over ids and titles: what MCP search and
-        // completion rank alike.
-        let query = EntityQuery::new(&params.query, MatchScope::Names);
-        let found = find_entities(state.graph(), &query);
-        if found.is_empty() {
-            return Ok(None);
-        }
-
-        let kind_reg = state.kind_registry();
-        let ranges = Ranges::new(&state);
-        #[allow(deprecated)]
-        let lsp_symbols: Vec<SymbolInformation> = found
-            .into_iter()
-            .filter_map(|m| {
-                Some(SymbolInformation {
-                    // Graph byte columns convert to UTF-16 against the text
-                    // the graph was compiled from; an entity whose file's
-                    // text is unknown is left out.
-                    location: ranges.location(&m.node.source_span)?,
-                    name: m.node.id.raw.to_string(),
-                    kind: symbol_kind_from_entity(m.node.kind.raw.as_str(), kind_reg),
-                    tags: None,
-                    deprecated: None,
-                    container_name: Some(m.node.kind.raw.to_string()),
-                })
-            })
-            .collect();
-
-        Ok((!lsp_symbols.is_empty()).then_some(lsp_symbols))
+        Ok(answers::workspace_symbols(
+            &*self.state.read().await,
+            &params.query,
+        ))
     }
 
     async fn semantic_tokens_full(
         &self,
         params: SemanticTokensParams,
     ) -> Result<Option<SemanticTokensResult>> {
-        let uri = params.text_document.uri;
-        let state = self.state.read().await;
-        let Some(doc) = state.document(uri.as_str()) else {
-            return Ok(None);
-        };
-        Ok(Some(SemanticTokensResult::Tokens(SemanticTokens {
-            result_id: None,
-            data: doc.semantic_tokens(&state.view()),
-        })))
+        Ok(answers::semantic_tokens(
+            &*self.state.read().await,
+            &params.text_document.uri,
+        ))
     }
 
     async fn formatting(&self, params: DocumentFormattingParams) -> Result<Option<Vec<TextEdit>>> {
@@ -1174,87 +435,29 @@ impl LanguageServer for Backend {
 
 impl Backend {
     /// Format an open document as `specforge format` formats its file
-    /// (ADR 0021), and publish what formatting reported alongside the
-    /// compile's diagnostics. Inside a project the project's configuration
-    /// wins over `options`; the editor is told so once per configuration.
+    /// (ADR 0021): what [`answers::formatting`] answers, published beside
+    /// the compile's diagnostics, and the editor told once per
+    /// configuration that the project's wins over `options`.
     async fn format(
         &self,
         uri: &Url,
         options: &FormattingOptions,
         lines: Option<format::Lines>,
     ) -> Result<Option<Vec<TextEdit>>> {
-        let editor = format::EditorOptions {
-            tab_size: options.tab_size as usize,
-            insert_spaces: options.insert_spaces,
+        let formatted = answers::formatting(&*self.state.read().await, uri, options, lines);
+        let Some(formatted) = formatted else {
+            return Ok(None);
         };
-        let (edits, notice) =
-            {
-                let state = self.state.read().await;
-                let Some(doc) = state.document(uri.as_str()) else {
-                    return Ok(None);
-                };
-                let file = uri.to_file_path().ok();
-                let place = file
-                    .as_deref()
-                    .map_or(format::Place::Detached, format::Place::File);
-                let formatted = format::document(place, doc.text(), lines, Some(editor));
-                if !formatted.diagnostics.is_empty() {
-                    // A publish replaces the document's list: the formatter's
-                    // diagnostics go alongside the compile ones, not in their
-                    // place.
-                    // The compile's are positions in the text it compiled, the
-                    // formatter's in the document it formatted.
-                    let ranges = Ranges::new(&state);
-                    let lsp_diags: Vec<Diagnostic> =
-                        state
-                            .diagnostics(uri.as_str())
-                            .iter()
-                            .map(|d| diagnostic_to_lsp(d, |span| ranges.range(span)))
-                            .chain(formatted.diagnostics.iter().map(|d| {
-                                diagnostic_to_lsp(d, |span| Some(doc.index().range(span)))
-                            }))
-                            .collect();
-                    self.client
-                        .publish_diagnostics(uri.clone(), lsp_diags, doc.version())
-                        .await;
-                }
-                let notice = overridden_editor_options(&formatted, editor);
-                (
-                    formatter_edits_to_lsp(formatted.edits(), doc.index()),
-                    notice,
-                )
-            };
-        if let Some((configuration, message)) = notice
+        if let Some((diagnostics, version)) = formatted.publish {
+            self.client
+                .publish_diagnostics(uri.clone(), diagnostics, version)
+                .await;
+        }
+        if let Some((configuration, message)) = formatted.notice
             && self.state.write().await.first_format_notice(&configuration)
         {
             self.client.log_message(MessageType::INFO, message).await;
         }
-        Ok(Some(edits))
+        Ok(Some(formatted.edits))
     }
-}
-
-/// When a project's configuration formatted `formatted` and the editor's
-/// `editor` settings differ from it: the configuration (its key for the
-/// once-per-session notice) and the message telling the editor so.
-fn overridden_editor_options(
-    formatted: &format::FormattedDocument,
-    editor: format::EditorOptions,
-) -> Option<(String, String)> {
-    let configuration = match &formatted.config_source {
-        format::ConfigSource::File(path) => path.display().to_string(),
-        format::ConfigSource::Defaults => "the defaults".to_string(),
-        format::ConfigSource::Editor => return None,
-    };
-    let config = &formatted.config;
-    let same = editor.insert_spaces != config.use_tabs
-        && (config.use_tabs || editor.tab_size == config.indent_width);
-    if same {
-        return None;
-    }
-    let indent = if config.use_tabs { "tabs" } else { "spaces" };
-    let message = format!(
-        "formatting with {configuration} (indent {}, {indent}); the editor's tabSize {} / insertSpaces {} apply only outside a project",
-        config.indent_width, editor.tab_size, editor.insert_spaces
-    );
-    Some((configuration, message))
 }

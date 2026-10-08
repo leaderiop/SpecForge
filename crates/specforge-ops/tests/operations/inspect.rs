@@ -4,7 +4,7 @@
 
 use specforge_common::{Diagnostic, DiagnosticData, Severity, SourceSpan, Sym};
 use specforge_ops::inspect::inspect;
-use specforge_ops::navigate::{NOT_FOUND, Reference};
+use specforge_ops::navigate::Reference;
 use specforge_ops::view::ProjectView;
 use specforge_project::coverage::Status;
 use specforge_project::snapshot::Standing;
@@ -123,7 +123,7 @@ fn an_unreadable_report_is_the_coverage_error_not_the_inspects() {
         let error = facts
             .coverage
             .expect_err("the coverage is the report's error");
-        assert_eq!(error.diagnostic().code, "E045", "{id}");
+        assert_eq!(error.code, "E045", "{id}");
         assert_eq!(facts.standing, &readable, "{id}");
     }
 }
@@ -288,6 +288,10 @@ type orphan \"Orphan\" {\n}\n";
 fn an_unknown_entity_is_not_found() {
     let project = standings();
     let error = inspect(&project.view(), "ghost").unwrap_err();
-    assert_eq!(error.code, NOT_FOUND);
-    assert_eq!(error.message, "Entity not found: ghost");
+    assert!(error.is(specforge_common::codes::E003));
+    assert_eq!(error.kind, specforge_ops::OpErrorKind::EntityNotFound);
+    assert_eq!(
+        error.message,
+        "unresolved entity 'ghost' — not found in graph"
+    );
 }

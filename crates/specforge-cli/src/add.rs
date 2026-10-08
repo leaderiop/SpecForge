@@ -1,4 +1,5 @@
 use crate::OutputFormat;
+use crate::outcome::Refusal;
 use serde_json::json;
 use specforge_ops::extension::{self, AddOutcome, AddRequest, Origin, Source, Trust};
 use specforge_ops_registry::HttpRegistry;
@@ -15,13 +16,12 @@ pub fn run(
     let source = match extension::parse(specifier) {
         Ok(source) => source,
         Err(error) => {
-            format.print_op_error(&error);
-            return 1;
+            return Refusal::of(format).report(&error);
         }
     };
     let registry = HttpRegistry::for_project(path, "add");
     // Only a registry package reads the registry configuration.
-    if matches!(source, Source::Registry { .. }) {
+    if matches!(source, Source::Registry(_)) {
         format.eprint_diagnostics(registry.diagnostics());
     }
     let request = AddRequest {
@@ -41,10 +41,7 @@ pub fn run(
             0
         }
         // An install that failed after placing its module names it.
-        Err(error) => {
-            format.print_op_error_in(&error, Some(path));
-            1
-        }
+        Err(error) => Refusal::of(format).at(path).report(&error),
     }
 }
 

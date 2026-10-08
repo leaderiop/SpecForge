@@ -10,7 +10,7 @@
 //! ```
 
 use serde_json::{Value, json};
-use specforge_wasm::hex_sha256;
+use specforge_installed::hex_sha256;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::process::Command;

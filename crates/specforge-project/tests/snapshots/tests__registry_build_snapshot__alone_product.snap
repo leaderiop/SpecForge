@@ -2000,7 +2000,6 @@ expression: "digest(&load(&runtime, &[name]))"
             "description": "List features: each feature's id, title, status, priority, problem and tags, filtered (every filter set must match), sorted (by id unless --sort-by says otherwise) and paged, with the total before paging.",
             "export": "cmd__product_features",
             "id": "features",
-            "sandbox": null,
             "title": "List features"
           },
           {
@@ -2075,7 +2074,6 @@ expression: "digest(&load(&runtime, &[name]))"
             "description": "List journeys: each journey's id, title, persona, channel and feature counts, priority and tags, filtered (every filter set must match), sorted (by id unless --sort-by says otherwise) and paged, with the total before paging.",
             "export": "cmd__product_journeys",
             "id": "journeys",
-            "sandbox": null,
             "title": "List journeys"
           },
           {
@@ -2164,7 +2162,6 @@ expression: "digest(&load(&runtime, &[name]))"
             "description": "List deliverables: each deliverable's id, title, artifact type, status, journey and module counts and tags, filtered (every filter set must match), sorted (by id unless --sort-by says otherwise) and paged, with the total before paging.",
             "export": "cmd__product_deliverables",
             "id": "deliverables",
-            "sandbox": null,
             "title": "List deliverables"
           },
           {
@@ -2248,7 +2245,6 @@ expression: "digest(&load(&runtime, &[name]))"
             "description": "List milestones: each milestone's id, title, status, target date, feature count, priority and tags, filtered (every filter set must match), sorted (by id unless --sort-by says otherwise) and paged, with the total before paging.",
             "export": "cmd__product_milestones",
             "id": "milestones",
-            "sandbox": null,
             "title": "List milestones"
           },
           {
@@ -2307,7 +2303,6 @@ expression: "digest(&load(&runtime, &[name]))"
             "description": "List modules: each module's id, title, family, feature count, the modules it depends on and tags, filtered (every filter set must match), sorted (by id unless --sort-by says otherwise) and paged, with the total before paging.",
             "export": "cmd__product_modules",
             "id": "modules",
-            "sandbox": null,
             "title": "List modules"
           },
           {
@@ -2359,7 +2354,6 @@ expression: "digest(&load(&runtime, &[name]))"
             "description": "List terms: each term's id, title, definition, alias count and tags, filtered (every filter set must match), sorted (by id unless --sort-by says otherwise) and paged, with the total before paging.",
             "export": "cmd__product_terms",
             "id": "terms",
-            "sandbox": null,
             "title": "List terms"
           },
           {
@@ -2442,7 +2436,6 @@ expression: "digest(&load(&runtime, &[name]))"
             "description": "List personas: each persona's id, title, technical level, status, journey count and tags, filtered (every filter set must match), sorted (by id unless --sort-by says otherwise) and paged, with the total before paging.",
             "export": "cmd__product_personas",
             "id": "personas",
-            "sandbox": null,
             "title": "List personas"
           },
           {
@@ -2526,7 +2519,6 @@ expression: "digest(&load(&runtime, &[name]))"
             "description": "List channels: each channel's id, title, interaction model, status, journey count and tags, filtered (every filter set must match), sorted (by id unless --sort-by says otherwise) and paged, with the total before paging.",
             "export": "cmd__product_channels",
             "id": "channels",
-            "sandbox": null,
             "title": "List channels"
           },
           {
@@ -2594,7 +2586,6 @@ expression: "digest(&load(&runtime, &[name]))"
             "description": "List releases: each release's id, title, version, status, deliverable count, release date and tags, filtered (every filter set must match), sorted (by id unless --sort-by says otherwise) and paged, with the total before paging.",
             "export": "cmd__product_releases",
             "id": "releases",
-            "sandbox": null,
             "title": "List releases"
           },
           {
@@ -2611,7 +2602,6 @@ expression: "digest(&load(&runtime, &[name]))"
             "description": "How many of a milestone's features are done: the count, the ratio in [0, 1] and their ids; beside it, how many the project's recorded tests prove (each feature's implementing behaviors, after `specforge collect`).",
             "export": "cmd__product_milestone_completion",
             "id": "milestone_completion",
-            "sandbox": null,
             "title": "Show milestone completion progress"
           },
           {
@@ -2628,7 +2618,6 @@ expression: "digest(&load(&runtime, &[name]))"
             "description": "How many of a journey's features are done, and the ones that are not.",
             "export": "cmd__product_journey_coverage",
             "id": "journey_coverage",
-            "sandbox": null,
             "title": "Show journey feature-module coverage"
           },
           {
@@ -2645,7 +2634,6 @@ expression: "digest(&load(&runtime, &[name]))"
             "description": "What deferring or removing a feature touches: the journeys, milestones and modules that list it, the deliverables holding those journeys or modules, the features depending on it (transitively), and their total.",
             "export": "cmd__product_feature_impact",
             "id": "feature_impact",
-            "sandbox": null,
             "title": "Show feature impact analysis"
           },
           {
@@ -2662,7 +2650,6 @@ expression: "digest(&load(&runtime, &[name]))"
             "description": "The features that declare depends_on the feature, sorted by id.",
             "export": "cmd__product_feature_dependents",
             "id": "feature_dependents",
-            "sandbox": null,
             "title": "Show features that depend on a given feature"
           },
           {
@@ -2679,7 +2666,6 @@ expression: "digest(&load(&runtime, &[name]))"
             "description": "The features of every journey the persona undertakes, and those journeys, sorted.",
             "export": "cmd__product_persona_features",
             "id": "persona_features",
-            "sandbox": null,
             "title": "Show features reachable from a persona (via journeys)"
           },
           {
@@ -2696,7 +2682,6 @@ expression: "digest(&load(&runtime, &[name]))"
             "description": "The features of every journey that uses the channel, and those journeys, sorted.",
             "export": "cmd__product_channel_features",
             "id": "channel_features",
-            "sandbox": null,
             "title": "Show features reachable from a channel (via journeys)"
           },
           {
@@ -2713,7 +2698,6 @@ expression: "digest(&load(&runtime, &[name]))"
             "description": "Every feature a deliverable reaches through its journeys or its modules, once each, and how many each path reaches.",
             "export": "cmd__product_deliverable_traceability",
             "id": "deliverable_traceability",
-            "sandbox": null,
             "title": "Show the features a deliverable reaches"
           },
           {
@@ -2730,7 +2714,6 @@ expression: "digest(&load(&runtime, &[name]))"
             "description": "Every deliverable that holds a feature through one of its journeys or modules, once each, and how many each path reaches.",
             "export": "cmd__product_feature_deliverables",
             "id": "feature_deliverables",
-            "sandbox": null,
             "title": "Show the deliverables holding a feature"
           },
           {
@@ -2747,7 +2730,6 @@ expression: "digest(&load(&runtime, &[name]))"
             "description": "The channels of every journey the persona undertakes, once each, sorted.",
             "export": "cmd__product_persona_channels",
             "id": "persona_channels",
-            "sandbox": null,
             "title": "Show the channels a persona uses (via journeys)"
           },
           {
@@ -2764,7 +2746,6 @@ expression: "digest(&load(&runtime, &[name]))"
             "description": "The personas the deliverable's journeys target, once each, sorted, and the journeys that connect them.",
             "export": "cmd__product_deliverable_personas",
             "id": "deliverable_personas",
-            "sandbox": null,
             "title": "Show the personas a deliverable serves (via journeys)"
           },
           {
@@ -2788,7 +2769,6 @@ expression: "digest(&load(&runtime, &[name]))"
             "description": "How many of the milestones a deliverable is tracked by are completed, as a count and a ratio in [0, 1]; --details adds each milestone's feature completion.",
             "export": "cmd__product_deliverable_completion",
             "id": "deliverable_completion",
-            "sandbox": null,
             "title": "Show deliverable completion"
           },
           {
@@ -2805,7 +2785,6 @@ expression: "digest(&load(&runtime, &[name]))"
             "description": "How many of a release's deliverables are shipped, as a count and a ratio in [0, 1] (null without deliverables).",
             "export": "cmd__product_release_completion",
             "id": "release_completion",
-            "sandbox": null,
             "title": "Show release completion"
           },
           {
@@ -2822,7 +2801,6 @@ expression: "digest(&load(&runtime, &[name]))"
             "description": "The highest priority among the milestones and journeys a deliverable references that declare one (null when none does), and how many declare one.",
             "export": "cmd__product_deliverable_priority",
             "id": "deliverable_priority",
-            "sandbox": null,
             "title": "Show a deliverable's derived priority"
           },
           {
@@ -2831,7 +2809,6 @@ expression: "digest(&load(&runtime, &[name]))"
             "description": "The features no milestone lists, sorted by id, with how many features there are and how many are scheduled.",
             "export": "cmd__product_unscheduled_features",
             "id": "unscheduled_features",
-            "sandbox": null,
             "title": "Show features no milestone schedules"
           },
           {
@@ -2855,7 +2832,6 @@ expression: "digest(&load(&runtime, &[name]))"
             "description": "Per owner, the features, milestones, deliverables and releases it owns (most first, ties by owner), paged, and how many of those entities have no owner.",
             "export": "cmd__product_owner_workload",
             "id": "owner_workload",
-            "sandbox": null,
             "title": "Show ownership by owner"
           },
           {
@@ -2864,7 +2840,6 @@ expression: "digest(&load(&runtime, &[name]))"
             "description": "Every feature, dependencies before dependents, by priority within a level (none counts as medium), then by id; features on or behind a depends_on cycle come last, and the cycle's members are reported.",
             "export": "cmd__product_feature_ordering",
             "id": "feature_ordering",
-            "sandbox": null,
             "title": "Show features in dependency order"
           },
           {
@@ -2873,7 +2848,6 @@ expression: "digest(&load(&runtime, &[name]))"
             "description": "The longest depends_on chain of milestones not yet completed, earliest first, with target dates, zero slack and the blocked or in-progress bottlenecks; empty, with a message, when milestones depend on each other in a cycle.",
             "export": "cmd__product_critical_path",
             "id": "critical_path",
-            "sandbox": null,
             "title": "Show the critical path through milestones"
           },
           {
@@ -2890,7 +2864,6 @@ expression: "digest(&load(&runtime, &[name]))"
             "description": "The longest depends_on chain from a module, the module first, and its length in edges; -1 and the cycle's members when the module is on or behind a dependency cycle.",
             "export": "cmd__product_module_depth",
             "id": "module_depth",
-            "sandbox": null,
             "title": "Show a module's dependency depth"
           },
           {
@@ -2914,7 +2887,6 @@ expression: "digest(&load(&runtime, &[name]))"
             "description": "Each module's fan-in, fan-out and their sum over depends_on, most coupled first, paged, with the averages and the most coupled module.",
             "export": "cmd__product_module_coupling",
             "id": "module_coupling",
-            "sandbox": null,
             "title": "Show module coupling"
           },
           {
@@ -2931,7 +2903,6 @@ expression: "digest(&load(&runtime, &[name]))"
             "description": "The deliverables that declare depends_on the deliverable, sorted by id.",
             "export": "cmd__product_deliverable_dependents",
             "id": "deliverable_dependents",
-            "sandbox": null,
             "title": "Show deliverables that depend on a given deliverable"
           },
           {
@@ -2955,7 +2926,6 @@ expression: "digest(&load(&runtime, &[name]))"
             "description": "Per persona, by id, the features its journeys reach and the ones they do not, with the coverage ratio and journey count, paged; the feature total and the mean coverage over every persona.",
             "export": "cmd__product_coverage_matrix",
             "id": "coverage_matrix",
-            "sandbox": null,
             "title": "Show the persona coverage matrix"
           },
           {
@@ -2979,7 +2949,6 @@ expression: "digest(&load(&runtime, &[name]))"
             "description": "Per channel, by id, the features the journeys using it reach and the ones they do not, with the coverage ratio and journey count, paged; the feature total and the mean coverage over every channel.",
             "export": "cmd__product_channel_coverage_matrix",
             "id": "channel_coverage_matrix",
-            "sandbox": null,
             "title": "Show the channel coverage matrix"
           },
           {
@@ -3003,7 +2972,6 @@ expression: "digest(&load(&runtime, &[name]))"
             "description": "The features two or more deliverables reach through a journey or a module, with those deliverables, most shared first, paged.",
             "export": "cmd__product_feature_overlap",
             "id": "feature_overlap",
-            "sandbox": null,
             "title": "Show features shared across deliverables"
           },
           {
@@ -3027,7 +2995,6 @@ expression: "digest(&load(&runtime, &[name]))"
             "description": "The terms reachable from a term over see_also within --max-hops (default 1, at most 5), sorted by id, the term itself left out.",
             "export": "cmd__product_term_graph",
             "id": "term_graph",
-            "sandbox": null,
             "title": "Show the terms related to a term"
           },
           {
@@ -3036,7 +3003,6 @@ expression: "digest(&load(&runtime, &[name]))"
             "description": "The connected components of the see_also graph between terms (undirected), largest first, ties by first term id; terms with no see_also link are counted as isolated.",
             "export": "cmd__product_term_clusters",
             "id": "term_clusters",
-            "sandbox": null,
             "title": "Show clusters of related terms"
           },
           {
@@ -3045,7 +3011,6 @@ expression: "digest(&load(&runtime, &[name]))"
             "description": "Terms, see_also references between them, average and maximum connections, hub terms (more than twice the average and at least 3) and isolated terms.",
             "export": "cmd__product_term_density",
             "id": "term_density",
-            "sandbox": null,
             "title": "Show how connected the glossary is"
           },
           {
@@ -3062,7 +3027,6 @@ expression: "digest(&load(&runtime, &[name]))"
             "description": "Every milestone by target date, undated ones last, by id within a date; a milestone not completed whose target date is before --as-of (default today) is overdue.",
             "export": "cmd__product_milestone_timeline",
             "id": "milestone_timeline",
-            "sandbox": null,
             "title": "Show the milestone timeline"
           },
           {
@@ -3086,7 +3050,6 @@ expression: "digest(&load(&runtime, &[name]))"
             "description": "A milestone's done, in-progress and remaining features, its completion, the days elapsed since its start date (or target date) as of --as-of (default today), features done per day and the days that pace leaves.",
             "export": "cmd__product_milestone_velocity",
             "id": "milestone_velocity",
-            "sandbox": null,
             "title": "Show a milestone's velocity"
           },
           {
@@ -3103,7 +3066,6 @@ expression: "digest(&load(&runtime, &[name]))"
             "description": "A milestone's completion weighted by effort (xs=1, s=2, m=3, l=5, xl=8; a feature without one weighs as m), with its features per effort level.",
             "export": "cmd__product_weighted_milestone_completion",
             "id": "weighted_milestone_completion",
-            "sandbox": null,
             "title": "Show a milestone's effort-weighted completion"
           },
           {
@@ -3112,7 +3074,6 @@ expression: "digest(&load(&runtime, &[name]))"
             "description": "For each product kind with a lifecycle, how many entities have each status.",
             "export": "cmd__product_bulk_status",
             "id": "bulk_status",
-            "sandbox": null,
             "title": "Show status breakdown across all entity kinds"
           },
           {
@@ -3121,7 +3082,6 @@ expression: "digest(&load(&runtime, &[name]))"
             "description": "A 0-100 score averaging coverage, connectivity and completeness of the product graph, with entity and orphan counts.",
             "export": "cmd__product_health",
             "id": "health",
-            "sandbox": null,
             "title": "Show project health score"
           }
         ],
@@ -3992,29 +3952,6 @@ expression: "digest(&load(&runtime, &[name]))"
       "owner": "@specforge/product",
       "severity": "Warning",
       "target_kind": "milestone",
-      "wasm_function": null
-    },
-    {
-      "check": "field_value_constraint",
-      "code": "W078",
-      "constraint": {
-        "kind": "one_of",
-        "pattern": null,
-        "values": [
-          "critical",
-          "high",
-          "medium",
-          "low"
-        ]
-      },
-      "edge_peer_kind": null,
-      "edge_type": null,
-      "field": "priority",
-      "message_template": "{kind} '{id}' has invalid priority '{value}' — expected one of: critical, high, medium, low",
-      "owner": "@specforge/product",
-      "severity": "Warning",
-      "target_extension": "@specforge/governance",
-      "target_kind": "constraint",
       "wasm_function": null
     },
     {

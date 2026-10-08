@@ -54,9 +54,12 @@ behavior load_extension_manifests "Load Extension Manifests" {
     bare name (a legacy name@version entry names the same extension): it
     MUST load from .specforge/extensions/<name>/extension.wasm under that
     name, on every surface, only when the binary's hash is the one its
-    specforge.lock entry records; a mismatch MUST be refused with E033, and
-    an extension enabled but not installed MUST produce E028 naming the
-    command that installs it. An entry ending in .wasm names a component
+    specforge.lock entry records; a mismatch, or a binary that declares
+    another extension than its entry, MUST be refused with E070, and an
+    extension enabled but not installed MUST produce E028 naming the
+    command that installs it. A specforge.lock that is there and can't be
+    read MUST be reported once (E033), before an E028 for each installed
+    extension it leaves unloaded. An entry ending in .wasm names a component
     file instead (path.wasm, or name=path.wasm; a relative path is relative
     to the project root): it MUST load from that file, on every surface,
     under the name the component declares, the one rule the runtime and the
@@ -83,6 +86,9 @@ behavior load_extension_manifests "Load Extension Manifests" {
     contributions.
   """
   verify unit "installed extension manifest is loaded"
+  verify unit "an installed extension loads only when its binary is the one its specforge.lock entry pins"
+  verify integration "tampered installed binary refused via lockfile hash pin (E070)"
+  verify unit "an unreadable specforge.lock is reported once (E033) and each installed extension it leaves unloaded is E028 naming it"
   verify integration "an extension installed from a registry loads through check"
   verify integration "an enabled extension with no installed binary produces E028 naming the command that installs it"
   verify integration "an entry naming a .wasm file loads that component from disk under the name it declares"
@@ -113,7 +119,10 @@ behavior load_extension_declaration "Load Extension Declaration" {
     MUST produce W138. The declaration is read once per environment load;
     nothing describes a category again outside it. A handshake whose
     protocol major version differs from the host's MUST fail the
-    extension's load (E028), and none of its categories are read.
+    extension's load (E028), and none of its categories are read. The
+    loader, not the handshake call, applies the execution budget the
+    handshake declares (sandbox_policy.max_execution_ms) to the
+    extension's later calls.
   """
   verify integration "every builtin's handshake and describe answers match their pinned snapshot byte for byte"
   verify unit "a declaration round-trips through its wire answers unchanged"
@@ -121,6 +130,7 @@ behavior load_extension_declaration "Load Extension Declaration" {
   verify unit "a describe item key the protocol does not define produces W138"
   verify unit "the fields category is every kind's fields, concatenated"
   verify unit "an absent short is the name's last segment"
+  verify unit "a declaration's default short name is its package name's base"
   verify unit "the SDK's short name reaches the handshake as ext_short"
   verify unit "a short name that is not lowercase kebab case is refused when the extension is built"
   verify unit "a raw category that does not parse panics when the extension is built"
@@ -129,6 +139,8 @@ behavior load_extension_declaration "Load Extension Declaration" {
   verify integration "an extension that only declares passes has them in its declaration"
   verify integration "the declared short name reaches the registry build"
   verify integration "an unsupported protocol major version fails the load"
+  verify unit "the loader applies the execution budget its handshake declares, and a handshake call alone applies none"
+  verify unit "the SDK's raw category and the host's load parse a category's items through one function"
 }
 
 behavior build_registries_from_declarations "Build Registries From Declarations" {
@@ -274,7 +286,9 @@ behavior register_provider_schemes "Register Provider Schemes" {
     both providers; the provider declared first in the specforge.json
     providers array MUST win the scheme registration as a deterministic
     tiebreaker. Unresolvable provider extensions MUST produce an
-    ExtensionError diagnostic.
+    ExtensionError diagnostic. The providers are registered once per
+    environment: the compile's I005 check and the providers listing
+    (CLI and MCP) read that one registration, never specforge.json again.
   """
   verify unit "provider schemes registered from manifest"
   verify unit "duplicate scheme from two providers produces E057"
@@ -282,6 +296,7 @@ behavior register_provider_schemes "Register Provider Schemes" {
   verify unit "unresolvable provider extension produces ExtensionError"
   verify unit "no built-in schemes exist before provider loading"
   verify integration "Wasm-based provider scheme registered and validates ref"
+  verify integration "the providers listing reads the environment's registration, never specforge.json again"
   verify contract "Register Provider Schemes: provider scheme registration holds — provider_configured_fired, wasm_runtime_available, schemes_registered, duplicate_scheme_warned, declaration_order_tiebreak, schemes_registered_emitted"
 }
 
@@ -357,8 +372,9 @@ behavior remove_extension "Remove Extension" {
     nothing; a name no entry, lock entry or builtin matches is
     extension_not_found. Every refusal MUST be decided before anything is
     written, and a specforge.json the compile could not read refuses every
-    removal (config_invalid), changing nothing; specforge.json is written
-    before specforge.lock and the binary.
+    removal (config_invalid), changing nothing. A removal is all or
+    nothing: a failure at any step leaves specforge.json, specforge.lock
+    and the binary as they were.
     Removing an extension that another loaded or installed extension
     requires as a non-optional peer MUST fail with E027 naming the
     dependents, unless --force is given. The CLI and the MCP
@@ -381,6 +397,7 @@ behavior remove_extension "Remove Extension" {
   verify unit "specforge remove for non-existent extension reports error"
   verify integration "remove --format json lists the files it wrote in files_written"
   verify unit "specforge remove with no lock file reports error"
+  verify unit "a removal that fails changes nothing"
   verify integration "removing an installed extension drops its specforge.json entry"
   verify integration "removing an extension another installed extension requires fails with E027 unless --force"
   verify integration "a .wasm file entry is removed by the name it declares or by its entry as written, leaving its file in place"
@@ -595,6 +612,7 @@ behavior resolve_registry_source "Resolve Registry Source" {
   verify unit "network error produces ExtensionError with retry guidance"
   verify unit "successful query returns RegistryResponse"
   verify integration "unreachable scope-specific registry falls back to next scope"
+  verify unit "a fetch requests the name and version it was given, from the registry it was given"
   verify contract "Resolve Registry Source: registry source resolution holds — registries_configured_fired, registry_client_available, scope_routed, default_fallback_used, network_error_diagnosed, registry_resolved_emitted"
 }
 
@@ -629,8 +647,12 @@ behavior search_registry "Search Registry" {
     deterministic — sorted by relevance score then extension name.
     With no registry configured, search MUST make no network call and MUST
     fail with E063, whose suggestion names the specforge.json registries key.
+    A specforge.json that is there and can't be used MUST be refused as add
+    refuses it (config_invalid, naming E069), before any network call; so
+    for login and publish.
   """
   verify unit "with no registry configured, search makes no network call and reports how to configure one"
+  verify unit "an unusable specforge.json is refused with the refusal add gives, before any network call"
   verify unit "queries all configured registries"
   verify unit "filters by contribution type"
   verify unit "deduplicates results across registries"
@@ -683,6 +705,7 @@ behavior publish_to_registry "Publish to Registry" {
   verify unit "duplicate version rejected without --force"
   verify unit "successful publish returns registry URL"
   verify unit "unauthenticated publish produces ExtensionError"
+  verify unit "the registry refuses a name or version that is not a package name or version"
   verify contract "Publish to Registry: registry publishing holds — declaration_valid, wasm_binary_available, registry_client_available, credentials_available, sha256_computed, duplicate_version_rejected, registry_url_returned, published_event_emitted"
 }
 

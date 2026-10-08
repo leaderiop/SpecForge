@@ -53,7 +53,7 @@ fn type_names(expr: &str) -> impl Iterator<Item = &str> {
 impl Graph {
     /// Add the edges of every derived reference field. Idempotent; run
     /// after references resolve, since resolution clears the edges.
-    pub fn link_derived_references(
+    pub(crate) fn link_derived_references(
         &mut self,
         derived: &[DerivedReference],
         single_ref_fields: &HashSet<(String, String)>,

@@ -20,7 +20,7 @@ pub struct Prepared {
     /// package's stored manifest.
     pub declaration: ExtensionDeclaration,
     pub wasm: Vec<u8>,
-    /// Warnings about the declaration (W138, W021, ...), to show.
+    /// Warnings about the declaration (W153, W138, W021, ...), to show.
     pub diagnostics: Vec<Diagnostic>,
 }
 
@@ -104,24 +104,13 @@ fn crate_name(cargo_toml: &Path) -> Option<String> {
 }
 
 /// Load `wasm` and read its declaration, with what the registry build
-/// alone reports of it (its W138s first). A binary that isn't a loadable
-/// extension is E028. Missing peers (E027) are left out: they are
-/// installed beside the extension, not with it.
+/// alone reports of it (its load warnings, W153 and W138, first). A binary
+/// that isn't a loadable extension is E028. Missing peers (E027) are left
+/// out: they are installed beside the extension, not with it.
 pub fn declare(wasm: &[u8]) -> Result<(ExtensionDeclaration, Vec<Diagnostic>), OpError> {
-    const CANDIDATE: &str = "__candidate";
     let runtime = specforge_component::ComponentRuntime::new();
-    let invalid = |why: String| {
-        OpError::diagnostic(
-            codes::E028,
-            format!("not a loadable SpecForge extension: {why}"),
-        )
-        .with_suggestion("build it with specforge-extension-sdk for wasm32-wasip2")
-    };
-    runtime
-        .load_module_bytes(CANDIDATE, wasm)
-        .map_err(invalid)?;
-    let loaded = specforge_wasm::protocol::load_declaration(&runtime, CANDIDATE)
-        .map_err(|e| invalid(e.to_string()))?;
+    let module = specforge_installed::Module::new(wasm.to_vec());
+    let loaded = specforge_installed::declaration_of(&module, &runtime)?;
     let diagnostics = diagnostics_of(&loaded.declaration, loaded.warnings);
     Ok((loaded.declaration, diagnostics))
 }
@@ -157,7 +146,8 @@ fn diagnostics_of(
 
 /// Check `declaration` as the registry build alone checks it: an error
 /// (E030, a refused tool schema, ...) refuses it, naming every error;
-/// otherwise its warnings come back, after `warnings` (its W138s).
+/// otherwise its warnings come back, after `warnings` (its load warnings,
+/// W153 and W138).
 pub fn check(
     declaration: &ExtensionDeclaration,
     warnings: Vec<Diagnostic>,

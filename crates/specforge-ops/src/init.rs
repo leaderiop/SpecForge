@@ -19,6 +19,11 @@ pub const PROJECT_EXISTS: &str = "project_exists";
 /// The code for a project name init can't use.
 pub const INVALID_NAME: &str = "invalid_name";
 
+/// The version a new project gets when none is given: what `specforge init
+/// --version` and `specforge.init`'s `version` default to, and what the
+/// starter spec's `spec` block states.
+pub const DEFAULT_VERSION: &str = "0.1.0";
+
 /// Where the spec files go, relative to the project root.
 pub const SPEC_ROOT: &str = "spec";
 /// The starter file, relative to the project root.
@@ -38,8 +43,9 @@ pub struct Request<'a> {
     pub dir: &'a Path,
     /// The project name; the directory's name when absent.
     pub name: Option<&'a str>,
-    /// The project version; 0.1.0 when absent.
-    pub version: Option<&'a str>,
+    /// The project version (`specforge init --version`; [`DEFAULT_VERSION`]
+    /// unless given).
+    pub version: &'a str,
     /// Extension specifiers; an entry may hold several, comma-separated.
     pub extensions: &'a [String],
     /// A project the new one must not be inside (MCP: the server's own).
@@ -119,7 +125,7 @@ pub fn plan(req: &Request) -> Result<Plan, OpError> {
             "it must be 2-60 characters, as the starter's spec ID must",
         ));
     }
-    let version = req.version.unwrap_or("0.1.0").to_string();
+    let version = req.version.to_string();
 
     let (mut extensions, installs) = extensions_of(req.extensions)?;
     // Test obligations (`verify`) on software kinds come from
@@ -139,9 +145,14 @@ pub fn plan(req: &Request) -> Result<Plan, OpError> {
     }
 
     let starter = match starter_template(&extensions, &installs) {
-        Some(template) => template.replace("{project}", &spec_id),
-        None => structural_starter(&spec_id),
+        Some(template) => template
+            .replace("{project}", &spec_id)
+            .replace("{version}", &version),
+        None => structural_starter(&spec_id, &version),
     };
+    // Whatever the extensions contribute, the file is written as the
+    // formatter writes it, so `specforge format --check` accepts it.
+    let starter = canonical(&starter, req.dir);
     let config = json!({
         "$schema": "https://specforge.dev/schema/specforge.json",
         "name": name,
@@ -208,7 +219,7 @@ pub fn apply(dir: &Path, plan: &Plan) -> Result<Outcome, OpError> {
         // Leave the directory as it was.
         let _ = std::fs::remove_file(dir.join(crate::config::CONFIG_FILE));
         let _ = std::fs::remove_file(dir.join(STARTER_FILE));
-        let _ = std::fs::remove_file(specforge_wasm::lock_path(dir));
+        let _ = std::fs::remove_file(specforge_installed::lock_path(dir));
         let _ = std::fs::remove_dir_all(dir.join(".specforge"));
         match &gitignore_before {
             Some(text) => {
@@ -271,7 +282,7 @@ fn extensions_of(specifiers: &[String]) -> Result<(Vec<String>, Vec<PathBuf>), O
                 installs.push(path);
                 name
             }
-            Source::Registry { .. } | Source::Git { .. } => {
+            Source::Registry(_) | Source::Git { .. } => {
                 let builtins: Vec<&str> = specforge_component::builtins::BUILTIN_EXTENSIONS
                     .iter()
                     .map(|(name, _)| *name)
@@ -293,20 +304,38 @@ fn extensions_of(specifiers: &[String]) -> Result<(Vec<String>, Vec<PathBuf>), O
 }
 
 /// The starter template the extensions contribute: the one listed first
-/// wins. Builtins load from the binary, local files from disk.
+/// wins. Builtins load from the binary, local files from disk (read as
+/// every candidate binary is).
 fn starter_template(extensions: &[String], installs: &[PathBuf]) -> Option<String> {
     let runtime = specforge_component::ComponentRuntime::new();
     let _ = specforge_component::builtins::load_builtins_for(&runtime, extensions);
-    for wasm in installs {
-        if let Ok((name, _)) = extension::declared(wasm) {
-            let _ = runtime.load_module_as(&name, wasm);
-        }
-    }
+    // A local file contributes under the name it declares.
+    let locals: Vec<(String, Option<String>)> = installs
+        .iter()
+        .filter_map(|wasm| {
+            let module = specforge_installed::Module::read(wasm).ok()?;
+            let declaration = specforge_installed::declaration_of(&module, &runtime)
+                .ok()?
+                .declaration;
+            Some((
+                declaration.name().to_string(),
+                declaration.handshake.starter_template,
+            ))
+        })
+        .collect();
     // A load failure only costs the extension its template.
-    let mut ignored = Vec::new();
-    specforge_project::compile::load_extensions(extensions, &runtime, &mut ignored)
-        .into_iter()
-        .find_map(|declaration| declaration.handshake.starter_template)
+    extensions.iter().find_map(
+        |name| match locals.iter().find(|(local, _)| local == name) {
+            Some((_, template)) => template.clone(),
+            None => {
+                specforge_wasm::protocol::load_declaration(&runtime, name)
+                    .ok()?
+                    .declaration
+                    .handshake
+                    .starter_template
+            }
+        },
+    )
 }
 
 fn sanitize_entity_id(name: &str) -> String {
@@ -321,7 +350,13 @@ fn sanitize_entity_id(name: &str) -> String {
         .collect()
 }
 
-fn structural_starter(project_name: &str) -> String {
+/// `starter`, formatted as the project at `dir` formats its files.
+fn canonical(starter: &str, dir: &Path) -> String {
+    let (config, _) = specforge_formatter::load_config(dir, dir);
+    specforge_formatter::format_source(starter, &config).formatted
+}
+
+fn structural_starter(project_name: &str, version: &str) -> String {
     format!(
         r#"// {project_name} — starter spec file
 //
@@ -332,7 +367,7 @@ fn structural_starter(project_name: &str) -> String {
 // Try: specforge check
 
 spec "{project_name}" {{
-  version "0.1.0"
+  version "{version}"
 }}
 "#
     )

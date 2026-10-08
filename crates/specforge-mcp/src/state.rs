@@ -1,6 +1,6 @@
 use specforge_common::{Diagnostic, ProjectConfig};
 use specforge_graph::Graph;
-use specforge_project::{Origin, ProjectSession, SharedRuntime, Update, UpdateKind};
+use specforge_project::{ProjectSession, SharedRuntime, Update, UpdateKind};
 use specforge_registry::RegistryBuild;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -32,8 +32,8 @@ pub struct McpState {
     pub listens: Vec<Listen>,
     /// The served project: its root, environment (config, spec root,
     /// registries, rules, manifests, surfaces), graph, diagnostics and
-    /// extension runtime: always opened from disk ([`Origin::Disk`], ADR
-    /// 0025). With no project ([`Origin::None`]) while none is served.
+    /// extension runtime: always opened from disk (ADR 0025). Detached
+    /// while none is served.
     session: ProjectSession,
     /// How many times the served project changed: every update applied to
     /// it and every replacement bumps it ([`Self::session_generation`]).
@@ -54,7 +54,7 @@ pub struct McpState {
     pub notification_outbox: Vec<serde_json::Value>,
     /// The Wasm runtime extensions run in, when the host supplies one; by
     /// default the served project's session builds the project's runtime
-    /// (`specforge_component::project_runtime`) each time it loads.
+    /// (`specforge_component::ComponentRuntime::with_user_cache`) each time it loads.
     pub extension_runtime: Option<SharedRuntime>,
 }
 
@@ -225,21 +225,16 @@ impl McpState {
         // The served session reloads when it is the project on disk at
         // `root`; any other root is opened.
         let canonical = |p: &Path| std::fs::canonicalize(p).unwrap_or_else(|_| p.to_path_buf());
-        let reloads = self.session.origin() == Origin::Disk
-            && self
-                .project_root()
-                .is_some_and(|served| canonical(served) == canonical(root));
+        let reloads = self
+            .project_root()
+            .is_some_and(|served| canonical(served) == canonical(root));
         let update = if reloads {
             self.session.reload_environment()
         } else {
-            let mut next = match &self.extension_runtime {
+            let next = match &self.extension_runtime {
                 Some(runtime) => ProjectSession::open_with_runtime(root, Some(Arc::clone(runtime))),
                 None => ProjectSession::open(root),
             };
-            // Every update of a served project is checked against a cold
-            // rebuild in a debug build (ADR 0006): MCP's tests check every
-            // one.
-            next.set_verify_incremental(cfg!(debug_assertions));
             let previous = std::mem::replace(&mut self.session, next);
             self.session.replaced(&previous)
         };
@@ -256,12 +251,6 @@ impl McpState {
     pub fn ensure_fresh(&mut self) -> Option<&Update> {
         let previous_diagnostics = self.diagnostics();
         let update = self.session.ensure_fresh()?;
-        if let Some(Err(divergence)) = &update.verification {
-            debug_assert!(
-                false,
-                "an update of the served project diverged from a cold rebuild: {divergence}"
-            );
-        }
         self.applied(update, &previous_diagnostics);
         self.last_update.as_ref()
     }
@@ -270,6 +259,15 @@ impl McpState {
     /// surface table is built again when its environment loaded again, and
     /// subscribed clients learn what changed.
     fn applied(&mut self, update: Update, previous_diagnostics: &[Diagnostic]) {
+        // Every session verifies its updates in a debug build (ADR 0035):
+        // a divergence from a cold rebuild is a bug, and this is the one
+        // place every update of the served project passes.
+        if let Some(divergence) = update.divergence() {
+            debug_assert!(
+                false,
+                "an update of the served project diverged from a cold rebuild: {divergence}"
+            );
+        }
         self.generation += 1;
         if update.kind == UpdateKind::Environment {
             self.surfaces = ExtensionSurfaceTable::build(

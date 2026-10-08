@@ -93,22 +93,30 @@ behavior document_open_close "Document Open/Close" {
   ensures {
     document_tracked           "open/close state of the document is correctly reflected in the open document set"
     file_changed_emitted       "file_changed event is produced on didOpen to trigger initial compilation"
-    closed_diagnostics_cleared "diagnostics for closed documents are cleared from the editor"
+    closed_diagnostics_cleared "the closed buffer's diagnostics are cleared from the editor"
+    closed_file_from_disk      "a closed project source is compiled from disk again; any other closed file leaves the project"
   }
   contract   """
     When the LSP server receives a textDocument/didOpen notification,
     it MUST register the document in its open document set and trigger
     an initial compilation for diagnostics. When the server receives a
     textDocument/didClose notification, it MUST remove the document from
-    its open document set. Diagnostics for closed documents MUST be
-    cleared from the editor. The server MUST track which documents are
-    open to determine the scope of incremental recompilation.
+    its open document set, and the closed buffer's diagnostics MUST be
+    cleared from the editor. The buffer is no longer the truth for its
+    file: a project source MUST be compiled from the file on disk again
+    (unsaved edits are dropped), and any other file (outside the spec root,
+    excluded, or any file when no project is open) MUST leave the project.
+    What the project then reports for the file is published as for any file
+    that is not open. The server MUST track which documents are open to
+    determine the scope of incremental recompilation.
   """
   verify unit "didOpen registers document and triggers compilation"
   verify unit "didClose removes document and clears diagnostics"
   verify unit "only open documents participate in incremental compilation"
   verify unit "rapid open and close cycles do not corrupt state"
-  verify contract "Document Open/Close: document open/close holds — lsp_initialized_fired, document_tracked, file_changed_emitted, closed_diagnostics_cleared"
+  verify unit "closing a document compiles its file from disk again, dropping its unsaved edits"
+  verify unit "closing a document outside a project drops its file from the project"
+  verify contract "Document Open/Close: document open/close holds — lsp_initialized_fired, document_tracked, file_changed_emitted, closed_diagnostics_cleared, closed_file_from_disk"
 }
 
 // Event consumer chain: didChange -> file_changed -> debounce window ->
@@ -132,10 +140,15 @@ behavior handle_text_document_change "Handle Text Document Change" {
     On textDocument/didChange notification, the LSP MUST apply
     incremental text edits to the in-memory document buffer, trigger
     incremental_document_sync, and schedule a recompile via the shared
-    incremental pipeline. The handler MUST NOT block the LSP event loop.
+    incremental pipeline. The edits to every document that arrive within
+    one debounce window MUST be applied as one update and published once,
+    so an edit the editor applies to several files at once (a rename) never
+    publishes the diagnostics of a half-applied edit. The handler MUST NOT
+    block the LSP event loop.
   """
   verify unit "didChange applies incremental edits to buffer"
   verify unit "didChange triggers incremental recompile"
+  verify unit "edits to several documents in one debounce window are one update and one publication"
   verify contract "Handle Text Document Change: text document change holds — document_open, buffer_updated, file_changed_emitted, event_loop_unblocked"
 }
 
@@ -171,6 +184,7 @@ behavior go_to_definition "Go-to-Definition" {
   verify unit "source spans convert from 1-based to 0-based for LSP"
   verify unit "the definition's selection is the entity's name token"
   verify unit "a use binding's imported name goes to the entity it names"
+  verify unit "a definition is a location link for a client that declares linkSupport, else a location at the name"
   verify contract "Go-to-Definition: go-to-definition holds — graph_available, declaration_site_returned"
 }
 
@@ -242,13 +256,15 @@ behavior hover_information "Hover Information" {
     and the diagnostics about the entity.
     This behavior is responsible only for dispatching the hover request
     and returning the formatted result. The hover content MUST be
-    formatted as markdown. Field help (the field's declared type and
+    formatted as markdown. Field help (the field's declared type, named
+    as E061 names it — an enum field with its declared values — and its
     description) answers when the cursor is on a field's name in an
     entity's own body, nowhere else.
   """
   verify unit "hover delegates to provide_extension_entity_hover"
   verify unit "hover returns markdown-formatted content"
   verify unit "field help answers only on a field's name"
+  verify unit "field help names a field's type as E061 does, an enum's declared values included"
   verify contract "Hover Information: hover information holds — graph_available, kind_registry_available, hover_delegated, markdown_produced"
 }
 
@@ -269,10 +285,12 @@ behavior hover_diagnostic "Hover a Diagnostic" {
     MUST show, as markdown and before any entity hover, the diagnostic's
     code with the catalogue's title, the catalogue's explanation and the
     link to the code's section of docs/diagnostics.md. A code the catalogue
-    does not have shows its code and message only.
+    does not have shows its code and message only. The entity hover that
+    follows does not list that diagnostic again.
   """
   verify unit "hovering a diagnostic shows its catalogued title and explanation"
   verify unit "an uncatalogued diagnostic's hover shows its code and message only"
+  verify unit "the diagnostic under the cursor comes before the entity's hover, which does not list it again"
 }
 
 // Completion behaviors (autocomplete_entity_ids, complete_field_names, complete_keywords)
@@ -349,10 +367,14 @@ behavior prepare_rename "Prepare Rename" {
     renameable token (entity ID in a declaration or reference). The
     response MUST include the range of the token to be renamed. If
     the cursor is not on a renameable token, the response MUST indicate
-    that rename is not available at that position.
+    that rename is not available at that position. While the document is
+    not the text the project was compiled from, prepareRename MUST be
+    refused as ContentModified (-32801): a range in the compiled text is not
+    a range in the buffer.
   """
   verify unit "prepare rename on entity ID returns token range"
   verify unit "prepare rename on non-renameable token returns not available"
+  verify unit "prepare rename over a buffer typed since the compile is refused as content modified"
   verify contract "Prepare Rename: prepare rename holds — graph_available, token_range_returned, non_renameable_rejected"
 }
 
@@ -390,12 +412,14 @@ behavior rename_entity_id "Rename Entity ID" {
     is not a reference and is not edited. The edits are positions in the
     text the project was compiled from: a rename over a file whose text (an
     open buffer, else the file on disk) is no longer that text MUST be
-    refused as ContentModified (-32801), never applied from stale positions.
+    refused as ContentModified (-32801), never applied from stale positions;
+    so is a rename asked from a document typed since the compile.
   """
   verify unit "rename updates declaration and all references"
   verify unit "rename leaves strings, comments and verify texts alone"
   verify unit "rename is atomic — all or nothing"
   verify unit "rename is refused as content modified when a file it edits changed since the compile"
+  verify unit "rename from a buffer typed since the compile is refused as content modified"
   verify unit "rename across multiple files"
   verify unit "rename rejects new name that duplicates existing entity ID"
   verify unit "rename to an illegal entity ID is refused with why"
@@ -601,6 +625,7 @@ behavior shared_incremental_pipeline "Shared Incremental Pipeline" {
   verify unit "LSP and watch share the same graph"
   verify integration "graph update serves all LSP features"
   verify integration "the LSP publishes the diagnostics specforge check reports"
+  verify unit "a reload applies every open buffer again, in one update"
   verify property "CLI and LSP share identical debounce window"
   verify property "CLI and LSP share identical validator dispatch order"
   verify contract "Shared Incremental Pipeline: shared incremental pipeline holds — incremental_rebuild_complete_fired, shared_graph_updated, diagnostics_pushed, pipeline_parity_enforced"
@@ -658,6 +683,7 @@ behavior provide_semantic_tokens "Provide Semantic Tokens" {
   verify unit "entity ID declaration uses its kind's semantic_token from the KindRegistry"
   verify unit "structural keywords are classified as keyword"
   verify unit "triple-quoted strings are classified as strings"
+  verify unit "a string spanning lines is one string, holding no other token"
   verify unit "entity ID declaration without a declared semantic_token is 'function'"
   verify unit "entity ID declaration whose semantic_token is not in the legend is 'function'"
   verify unit "semantic token legend lists every standard LSP token type"

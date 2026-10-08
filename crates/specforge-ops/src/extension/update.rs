@@ -4,17 +4,20 @@
 //!
 //! An update is all or nothing (`update_all_extensions`): every newer
 //! package is fetched and checked before anything is written, and if one
-//! fails, nothing is applied. A failure while placing the binaries puts
-//! the previous ones back; the lock is written once, last. (A publisher key
+//! fails, nothing is applied. The binaries and the lock are one change
+//! (`specforge_installed::Change`): a failure puts the previous ones back.
+//! (A publisher key
 //! pinned while checking a signature stays pinned: it records trust, not
 //! a change to the project.)
 
-use super::add::{Checked, fetch_checked, place};
-use super::{Origin, Trust, check_diamonds, extensions_dir, lock_path};
+use super::add::{Checked, fetch_checked};
+use super::{Trust, check_diamonds, published_versions};
 use crate::registry::{NO_REGISTRY, Registry};
-use crate::{OpError, OpErrorKind};
+use crate::{OpError, OpErrorKind, Writes};
 use specforge_common::{Code, codes};
-use specforge_wasm::{LockFile, LockState, installed_wasm_path, write_lock_file};
+use specforge_installed::{Installed, LockFile, LockSource, LockState, Module, Pin};
+use specforge_protocol_types::PackageName;
+use specforge_protocol_types::package::VersionRequirement;
 use std::path::Path;
 
 /// The code `update` reports when the project has no lock file.
@@ -140,9 +143,9 @@ pub fn update(req: &UpdateRequest, registry: &dyn Registry) -> Result<UpdateOutc
     // A project whose specforge.json cannot be used is refused before
     // anything is read or written, as `add` and `remove` refuse it.
     crate::config::usable(req.root)?;
-    let lock_file = lock_path(req.root);
-    let lock = match LockState::at(req.root) {
-        LockState::Read(lock) => lock,
+    let installed = Installed::at(req.root);
+    let lock = match installed.lock() {
+        LockState::Read(lock) => lock.clone(),
         LockState::Absent => {
             return Err(OpError::coded(
                 OpErrorKind::PreconditionFailed,
@@ -168,11 +171,11 @@ pub fn update(req: &UpdateRequest, registry: &dyn Registry) -> Result<UpdateOutc
     for entry in lock
         .entries
         .iter()
-        .filter(|e| req.name.is_none_or(|n| e.name == n))
+        .filter(|e| req.name.is_none_or(|n| e.name.as_str() == n))
     {
-        let status = if entry.source != "registry" {
+        let status = if !entry.source.is_registry() {
             UpdateStatus::NotFromRegistry {
-                source: entry.source.clone(),
+                source: entry.source.to_string(),
             }
         } else {
             registry_used = true;
@@ -193,7 +196,7 @@ pub fn update(req: &UpdateRequest, registry: &dyn Registry) -> Result<UpdateOutc
                         staged_entry.version = checked.declared.version().to_string();
                         staged_entry.peer_dependencies = checked.declared.peers().to_vec();
                     }
-                    planned.push((entry.name.clone(), checked));
+                    planned.push((entry.name.to_string(), checked));
                     status
                 }
                 Err(error) if error.is(NO_REGISTRY) => return Err(error),
@@ -201,7 +204,7 @@ pub fn update(req: &UpdateRequest, registry: &dyn Registry) -> Result<UpdateOutc
             }
         };
         extensions.push(ExtensionUpdate {
-            name: entry.name.clone(),
+            name: entry.name.to_string(),
             status,
         });
     }
@@ -226,40 +229,28 @@ pub fn update(req: &UpdateRequest, registry: &dyn Registry) -> Result<UpdateOutc
         return Ok(outcome);
     }
 
-    // Apply: place every binary, then write the lock once. Any failure
-    // puts the previous binaries back and leaves the lock as it was.
-    let mut lock = lock;
-    let mut placed: Vec<(String, Option<Vec<u8>>)> = Vec::new();
-    let origin = Origin::Installed {
-        source: "registry".to_string(),
-    };
-    let mut failure = None;
-    for (name, checked) in &planned {
-        let previous = std::fs::read(installed_wasm_path(&extensions_dir(req.root), name)).ok();
-        // Recorded before placing: a placement that fails part-way may
-        // already have removed the previous binary.
-        placed.push((name.clone(), previous));
-        if let Err(error) = place(
-            req.root,
-            &mut lock,
-            &checked.declared,
-            &checked.package.wasm,
-            &checked.package.sha256,
-            checked.package.key_id.as_deref(),
-            &origin,
-        ) {
-            failure = Some((name.clone(), error));
-            break;
-        }
+    // Apply: one change that places every binary and writes the lock once.
+    // A failure puts the previous binaries and lock back.
+    let mut change = installed.change().map_err(OpError::from)?;
+    for (_, checked) in &planned {
+        change.install(
+            Module::new(checked.package.wasm.clone()),
+            Pin {
+                name: checked.package.name.clone(),
+                version: checked.declared.version().to_string(),
+                source: LockSource::Registry,
+                key_id: checked.package.key_id.clone(),
+                peers: checked.declared.peers().to_vec(),
+            },
+        );
     }
-    if failure.is_none()
-        && let Err(diagnostic) = write_lock_file(&lock, &lock_file)
-    {
-        failure = Some((planned[0].0.clone(), OpError::from(diagnostic)));
-    }
-    if let Some((name, error)) = failure {
-        restore(req.root, &placed);
-        if let Some(e) = outcome.extensions.iter_mut().find(|e| e.name == name) {
+    if let Err(failed) = change.commit() {
+        let error = OpError::from(failed.error).with_writes(Writes::of(failed.left));
+        if let Some(e) = outcome
+            .extensions
+            .iter_mut()
+            .find(|e| e.name == planned[0].0)
+        {
             e.status = UpdateStatus::Failed(error);
         }
     }
@@ -272,26 +263,26 @@ fn plan_one(
     req: &UpdateRequest,
     registry: &dyn Registry,
     staged: &LockFile,
-    name: &str,
+    package: &PackageName,
     current: &str,
 ) -> Result<Option<Checked>, OpError> {
     // Within the caret range of the locked version unless --major: a new
     // major version is a breaking change the user opts into.
-    let range = match semver::Version::parse(current) {
-        Ok(_) if !req.major => format!("^{current}"),
-        _ => "*".to_string(),
+    let requirement = match semver::Version::parse(current) {
+        Ok(current) if !req.major => VersionRequirement::compatible_with(&current),
+        _ => VersionRequirement::Latest,
     };
-    let latest = registry.resolve_version(name, &range)?;
-    if latest == current {
+    let latest = super::resolve_requirement(registry, package, &requirement)?;
+    if latest.to_string() == current {
         return Ok(None);
     }
     // The package's own locked peers are the ones it replaces.
     let mut others = staged.clone();
-    others.entries.retain(|e| e.name != name);
+    others.entries.retain(|e| e.name != *package);
     fetch_checked(
         registry,
         &others,
-        name,
+        package,
         &latest,
         req.allow_unsigned,
         req.trust,
@@ -308,53 +299,41 @@ fn broken_dependents(
 ) -> Vec<(String, (String, OpError))> {
     let mut broken = Vec::new();
     for entry in &staged.entries {
-        if planned.iter().any(|(name, _)| *name == entry.name) {
+        if planned.iter().any(|(name, _)| *name == entry.name.as_str()) {
             continue;
         }
         for peer in &entry.peer_dependencies {
             if !planned.iter().any(|(name, _)| *name == peer.name) {
                 continue;
             }
-            if let Err(error) =
-                check_diamonds(staged, &entry.name, std::slice::from_ref(peer), &|p| {
-                    registry.versions(p)
-                })
-            {
-                broken.push((entry.name.clone(), (peer.name.clone(), error)));
+            if let Err(error) = check_diamonds(
+                staged,
+                entry.name.as_str(),
+                std::slice::from_ref(peer),
+                &published_versions(registry),
+            ) {
+                broken.push((entry.name.to_string(), (peer.name.clone(), error)));
             }
         }
     }
     broken
 }
 
-/// Put back the binaries an aborted update replaced.
-fn restore(root: &Path, placed: &[(String, Option<Vec<u8>>)]) {
-    for (name, previous) in placed {
-        let path = installed_wasm_path(&extensions_dir(root), name);
-        match previous {
-            Some(bytes) => {
-                if let Some(dir) = path.parent() {
-                    let _ = std::fs::create_dir_all(dir);
-                }
-                let _ = std::fs::write(&path, bytes);
-            }
-            // It had no binary before: take the new one away.
-            None => {
-                let _ = std::fs::remove_dir_all(extensions_dir(root).join(name));
-            }
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::registry::Package;
-    use specforge_protocol_types::ExtensionDeclaration;
+    use specforge_installed::{LockFileEntry, hex_sha256, lock_path, write_lock_file};
+    use specforge_protocol_types::package::Version;
+    use specforge_protocol_types::{ExtensionDeclaration, PackageName};
     use specforge_registry::PeerDependency;
     use specforge_test_macros::test as specforge_test;
-    use specforge_wasm::{LockFileEntry, hex_sha256};
     use std::cell::RefCell;
+
+    /// Where the module of extension `name` is installed under `root`.
+    fn installed(root: &Path, name: &str) -> std::path::PathBuf {
+        Installed::unread(root).module_path(&PackageName::parse(name).unwrap())
+    }
 
     /// `@sdk/greet` 0.1.0, a real extension binary.
     fn greet() -> Vec<u8> {
@@ -372,7 +351,8 @@ mod tests {
         /// The declaration published with a package, when it isn't the one
         /// its binary declares.
         declared: Vec<(&'static str, &'static str, ExtensionDeclaration)>,
-        ranges: RefCell<Vec<String>>,
+        /// The packages whose versions were listed, in order.
+        listed: RefCell<Vec<String>>,
     }
 
     /// What `wasm` declares, as `publish` would upload it.
@@ -388,7 +368,7 @@ mod tests {
                 published: Vec::new(),
                 served: Vec::new(),
                 declared: Vec::new(),
-                ranges: RefCell::new(Vec::new()),
+                listed: RefCell::new(Vec::new()),
             }
         }
         fn publish(mut self, name: &'static str, versions: &[&'static str]) -> Self {
@@ -413,31 +393,15 @@ mod tests {
     }
 
     impl Registry for FakeRegistry {
-        fn resolve_version(&self, name: &str, range: &str) -> Result<String, OpError> {
-            self.ranges.borrow_mut().push(range.to_string());
-            let req = match range {
-                "*" | "latest" => semver::VersionReq::STAR,
-                r => semver::VersionReq::parse(r).unwrap(),
-            };
-            self.versions(name)?
-                .iter()
-                .filter_map(|v| semver::Version::parse(v).ok())
-                .filter(|v| req.matches(v))
-                .max()
-                .map(|v| v.to_string())
-                .ok_or_else(|| {
-                    OpError::diagnostic(codes::R_RES_004, format!("no {name} matches {range}"))
-                })
-        }
-
         /// Serves unsigned packages; the tests allow them.
         fn fetch(
             &self,
-            name: &str,
-            version: &str,
+            name: &PackageName,
+            version: &Version,
             _allow_unsigned: bool,
             _trust: Trust,
         ) -> Result<Package, OpError> {
+            let (name, version) = (name.as_str(), version.to_string());
             let (_, _, wasm) = self
                 .served
                 .iter()
@@ -452,8 +416,8 @@ mod tests {
                 .map(|(_, _, d)| d.clone())
                 .unwrap_or_else(|| declaration_of(wasm));
             Ok(Package {
-                name: name.to_string(),
-                version: version.to_string(),
+                name: PackageName::parse(name).unwrap(),
+                version: Version::parse(&version).unwrap(),
                 wasm: wasm.clone(),
                 sha256: hex_sha256(wasm),
                 declaration,
@@ -461,21 +425,22 @@ mod tests {
             })
         }
 
-        fn versions(&self, name: &str) -> Result<Vec<String>, OpError> {
+        fn versions(&self, name: &PackageName) -> Result<Vec<Version>, OpError> {
+            self.listed.borrow_mut().push(name.to_string());
             Ok(self
                 .published
                 .iter()
-                .find(|(n, _)| *n == name)
-                .map(|(_, v)| v.iter().map(|v| v.to_string()).collect())
+                .find(|(n, _)| *n == name.as_str())
+                .map(|(_, v)| v.iter().map(|v| Version::parse(v).unwrap()).collect())
                 .unwrap_or_default())
         }
     }
 
     fn entry(name: &str, version: &str, source: &str, peers: &[(&str, &str)]) -> LockFileEntry {
         LockFileEntry {
-            name: name.to_string(),
+            name: specforge_protocol_types::PackageName::parse(name).unwrap(),
             version: version.to_string(),
-            source: source.to_string(),
+            source: LockSource::parse(source),
             wasm_hash: hex_sha256(b"old"),
             key_id: None,
             peer_dependencies: peers
@@ -493,7 +458,7 @@ mod tests {
     fn project(entries: Vec<LockFileEntry>) -> tempfile::TempDir {
         let dir = tempfile::tempdir().unwrap();
         for e in &entries {
-            let path = installed_wasm_path(&extensions_dir(dir.path()), &e.name);
+            let path = installed(dir.path(), e.name.as_str());
             std::fs::create_dir_all(path.parent().unwrap()).unwrap();
             std::fs::write(path, b"old").unwrap();
         }
@@ -549,11 +514,11 @@ mod tests {
                 skipped_count: 0,
             }
         );
-        let lock = specforge_wasm::read_lock_file(&lock_path(dir.path())).unwrap();
+        let lock = specforge_installed::read_lock_file(&lock_path(dir.path())).unwrap();
         assert_eq!(lock.entries[0].version, "0.1.0");
         assert_eq!(lock.entries[0].wasm_hash, hex_sha256(&greet()));
-        assert_eq!(lock.entries[0].source, "registry");
-        let installed = installed_wasm_path(&extensions_dir(dir.path()), "@sdk/greet");
+        assert_eq!(lock.entries[0].source, LockSource::Registry);
+        let installed = installed(dir.path(), "@sdk/greet");
         assert_eq!(std::fs::read(installed).unwrap(), greet());
     }
 
@@ -570,7 +535,8 @@ mod tests {
 
         let outcome = update(&request(dir.path(), false), &registry).unwrap();
 
-        assert_eq!(registry.ranges.borrow().as_slice(), ["^0.0.9"]);
+        // Asked for what ^0.0.9 admits: 0.1.0 is not it.
+        assert_eq!(registry.listed.borrow().as_slice(), ["@sdk/greet"]);
         assert_eq!(
             status_of(&outcome, "@sdk/greet"),
             &UpdateStatus::UpToDate {
@@ -578,7 +544,7 @@ mod tests {
             }
         );
         assert_eq!(
-            specforge_wasm::read_lock_file(&lock_path(dir.path()))
+            specforge_installed::read_lock_file(&lock_path(dir.path()))
                 .unwrap()
                 .entries[0]
                 .version,
@@ -621,7 +587,7 @@ mod tests {
             }
         );
         assert_eq!(std::fs::read(lock_path(dir.path())).unwrap(), lock_before);
-        let installed = installed_wasm_path(&extensions_dir(dir.path()), "@sdk/greet");
+        let installed = installed(dir.path(), "@sdk/greet");
         assert_eq!(std::fs::read(installed).unwrap(), b"old");
     }
 
@@ -685,7 +651,7 @@ mod tests {
         let (_, error) = outcome.failures().next().unwrap();
         assert_eq!(error.code, "E033", "{error:?}");
         assert_eq!(std::fs::read(lock_path(dir.path())).unwrap(), lock_before);
-        let installed = installed_wasm_path(&extensions_dir(dir.path()), "@sdk/greet");
+        let installed = installed(dir.path(), "@sdk/greet");
         assert_eq!(std::fs::read(installed).unwrap(), b"old");
     }
 
@@ -696,7 +662,7 @@ mod tests {
 
         let outcome = update(&request(dir.path(), true), &registry).unwrap();
 
-        assert!(registry.ranges.borrow().is_empty());
+        assert!(registry.listed.borrow().is_empty());
         assert!(!outcome.registry_used);
         assert_eq!(
             status_of(&outcome, "@sdk/greet"),
@@ -736,10 +702,9 @@ mod tests {
         super::super::add(
             &super::super::AddRequest {
                 root,
-                source: super::super::Source::Registry {
-                    name: "@sdk/greet".to_string(),
-                    range: "0.1.0".to_string(),
-                },
+                source: super::super::Source::Registry(
+                    specforge_protocol_types::PackageRef::parse("@sdk/greet@0.1.0").unwrap(),
+                ),
                 allow_unsigned: true,
                 trust: Trust::Refuse,
                 dry_run: false,
@@ -790,7 +755,7 @@ mod tests {
             assert!(err.is(crate::registry::METADATA_MISMATCH), "{err:?}");
             assert!(err.message.contains("@sdk/greet@0.1.0"), "{err:?}");
             assert!(
-                !installed_wasm_path(&extensions_dir(dir.path()), "@sdk/greet").exists(),
+                !installed(dir.path(), "@sdk/greet").exists(),
                 "nothing is installed"
             );
         }

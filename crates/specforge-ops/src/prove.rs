@@ -432,12 +432,8 @@ fn note_failure(failure: SolveFailure, runtime_failure: &mut bool, timed_out: &m
 }
 
 /// Run the prove pass: consistency over declared bounds (E046 with unsat
-/// cores) and entailment of formal claims with counterexample models (W139).
-pub fn run_prove(ctx: &AnalysisContext) -> ProveReport {
-    run_prove_with(ctx, &ProveOptions::default())
-}
-
-/// [`run_prove`] with explicit options (z3 timeout).
+/// cores) and entailment of formal claims with counterexample models (W139),
+/// with `options` (the z3 timeout).
 pub fn run_prove_with(ctx: &AnalysisContext, options: &ProveOptions) -> ProveReport {
     analyze_with(
         ctx,
@@ -468,7 +464,7 @@ pub(crate) fn analyze_with(ctx: &AnalysisContext, solver: &dyn Solver) -> ProveR
             let Some(role) = ctx
                 .field_registry
                 .get(kind, name)
-                .and_then(|field| field.proof_role)
+                .and_then(|field| field.proof_role())
             else {
                 continue;
             };
@@ -708,7 +704,7 @@ mod tests {
     use specforge_common::Sym;
     use specforge_graph::{FieldMap, Graph, Node};
     use specforge_parser::{EntityId, EntityKind, FieldValue};
-    use specforge_registry::{FieldRegistry, FieldRegistryEntry, KindRegistry, ManifestFieldType};
+    use specforge_registry::{FieldRegistry, FieldRegistryEntry, KindRegistry};
     use std::path::Path;
 
     fn span(file: &str) -> SourceSpan {
@@ -759,17 +755,20 @@ mod tests {
             ("axiom", "expression", ProofRole::Bound),
             ("invariant", "expression", ProofRole::Claim),
         ] {
-            registry.register(FieldRegistryEntry {
-                kind_name: kind.to_string(),
-                field_type: ManifestFieldType::String,
-                source_extension: "@test/roles".to_string(),
-                proof_role: Some(role),
-                declared: specforge_protocol_types::FieldDescriptor {
-                    name: field.to_string(),
-                    normative: true,
-                    ..Default::default()
-                },
-            });
+            registry.register(
+                FieldRegistryEntry::new(
+                    kind,
+                    "@test/roles",
+                    specforge_protocol_types::FieldDescriptor {
+                        name: field.to_string(),
+                        field_type: "string".to_string(),
+                        normative: true,
+                        proof_role: Some(role.as_str().to_string()),
+                        ..Default::default()
+                    },
+                )
+                .unwrap(),
+            );
         }
         registry
     }
@@ -787,7 +786,7 @@ mod tests {
             test_results: None,
             proved_claims: Some(&empty_proved),
         };
-        run_prove(&ctx)
+        run_prove_with(&ctx, &ProveOptions::default())
     }
 
     #[test]

@@ -12,19 +12,18 @@ use specforge_common::Diagnostic;
 use specforge_component::ComponentRuntime;
 use specforge_component::builtins::BUILTIN_EXTENSIONS;
 use specforge_project::Environment;
-use specforge_protocol_types::{SurfaceDescriptor, SurfaceSandboxOverride};
+use specforge_protocol_types::{FieldType, SurfaceDescriptor};
 use tempfile::TempDir;
 
 fn runtime() -> ComponentRuntime {
-    let runtime = ComponentRuntime::new();
-    specforge_component::builtins::load_builtins(&runtime).expect("builtins load");
+    ComponentRuntime::new()
+}
+
+/// The SDK greet fixture's component blob.
+fn greet() -> Vec<u8> {
     let greet =
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/greet-extension/greet.wasm");
-    let greet = std::fs::read(greet).expect("vendored greet component blob");
-    runtime
-        .load_module_bytes("@sdk/greet", &greet)
-        .expect("greet loads");
-    runtime
+    std::fs::read(greet).expect("vendored greet component blob")
 }
 
 fn load(runtime: &ComponentRuntime, extensions: &[&str]) -> Environment {
@@ -34,6 +33,9 @@ fn load(runtime: &ComponentRuntime, extensions: &[&str]) -> Environment {
         json!({ "name": "p", "version": "0.1.0", "extensions": extensions }).to_string(),
     )
     .unwrap();
+    if extensions.contains(&"@sdk/greet") {
+        specforge_installed::testing::install_module(dir.path(), "@sdk/greet", &greet());
+    }
     Environment::load(dir.path(), Some(runtime))
 }
 
@@ -50,9 +52,6 @@ fn sorted(mut values: Vec<Value>) -> Value {
 }
 
 fn surfaces(s: &SurfaceDescriptor) -> Value {
-    let sandbox = |s: Option<&SurfaceSandboxOverride>| {
-        s.map(|s| json!({ "fs_read": s.fs_read, "fs_write": s.fs_write, "network": s.network }))
-    };
     json!({
         "commands": s.commands.iter().map(|c| json!({
             "id": c.id,
@@ -67,7 +66,6 @@ fn surfaces(s: &SurfaceDescriptor) -> Value {
                 "default_value": a.default_value,
                 "description": a.description,
             })).collect::<Vec<_>>(),
-            "sandbox": sandbox(c.sandbox.as_ref()),
         })).collect::<Vec<_>>(),
         "mcp_tools": s.mcp_tools.iter().map(|t| json!({
             "name": t.name,
@@ -76,7 +74,6 @@ fn surfaces(s: &SurfaceDescriptor) -> Value {
             "export": t.export,
             "input_schema": t.input_schema,
             "output_schema": t.output_schema,
-            "sandbox": sandbox(t.sandbox.as_ref()),
         })).collect::<Vec<_>>(),
         "mcp_resources": s.mcp_resources.iter().map(|r| json!({
             "uri_template": r.uri_template,
@@ -84,7 +81,6 @@ fn surfaces(s: &SurfaceDescriptor) -> Value {
             "description": r.description,
             "export": r.export,
             "mime_type": r.mime_type,
-            "sandbox": sandbox(r.sandbox.as_ref()),
         })).collect::<Vec<_>>(),
     })
 }
@@ -126,21 +122,24 @@ fn digest(env: &Environment) -> Value {
             (
                 format!("{kind}.{field}"),
                 json!({
-                    "kind_name": f.kind_name,
-                    "field_name": f.declared.name,
-                    "description": f.declared.description,
-                    "field_type": format!("{:?}", f.field_type),
-                    "source_extension": f.source_extension,
-                    "edge": f.declared.edge,
-                    "target_kind": f.declared.target_kind,
-                    "file_reference": f.declared.file_reference,
-                    "required": f.declared.required,
-                    "inverse_of": f.declared.inverse_of,
-                    "normative": f.declared.normative,
-                    "exempts_obligations": f.declared.exempts_obligations,
-                    "headline": f.declared.headline,
-                    "derived_from": f.declared.derived_from,
-                    "proof_role": f.proof_role.map(|p| format!("{p:?}")),
+                    "kind_name": f.kind_name(),
+                    "field_name": f.declared().name,
+                    "description": f.declared().description,
+                    "field_type": match f.field_type() {
+                        FieldType::Enum => format!("Enum({:?})", f.enum_values()),
+                        t => format!("{t:?}"),
+                    },
+                    "source_extension": f.source_extension(),
+                    "edge": f.declared().edge,
+                    "target_kind": f.declared().target_kind,
+                    "file_reference": f.declared().file_reference,
+                    "required": f.declared().required,
+                    "inverse_of": f.declared().inverse_of,
+                    "normative": f.declared().normative,
+                    "exempts_obligations": f.declared().exempts_obligations,
+                    "headline": f.declared().headline,
+                    "derived_from": f.declared().derived_from,
+                    "proof_role": f.proof_role().map(|p| format!("{p:?}")),
                 }),
             )
         })
@@ -200,6 +199,7 @@ fn digest(env: &Environment) -> Value {
         .load_diagnostics
         .iter()
         .chain(&r.declaration_diagnostics)
+        .chain(env.providers.diagnostics())
         .chain(&env.setup_diagnostics);
     json!({
         "kinds": kinds,

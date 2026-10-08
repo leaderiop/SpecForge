@@ -1,19 +1,19 @@
-use serde::Deserialize;
-use std::path::PathBuf;
-
-use crate::args::lenient;
+use crate::args::Arguments;
 use crate::target::Call;
-use crate::tool::{Handled, ToolOutcome};
+use crate::tool::{Handled, McpError, ToolOutcome};
+use specforge_ops::OpError;
 use specforge_ops::analyze::{AnalyzeError, AnalyzeOptions, ReportSource, analyze};
 use specforge_wasm::runtime::WasmRuntime;
 
-#[derive(Debug, Deserialize)]
+/// `specforge.analyze`'s arguments.
+#[derive(Debug, Arguments)]
 pub struct Args {
-    #[serde(default, deserialize_with = "lenient")]
-    pass: Option<String>,
-    #[serde(default, deserialize_with = "lenient")]
-    strict: Option<bool>,
-    #[serde(default, deserialize_with = "lenient")]
+    /// Analysis pass to run: all, coverage, contracts, or a pass an extension declares (`<extension>:<pass>`)
+    #[arg(default = specforge_ops::analyze::EVERY_PASS.to_string())]
+    pass: String,
+    /// Promote warnings to errors
+    strict: bool,
+    /// Path to a specforge-report.json for proof-level verdicts
     test_results: Option<String>,
 }
 
@@ -30,12 +30,12 @@ pub fn call(call: &mut Call<'_>, args: Args) -> Handled {
     // Without `test_results`, use what `specforge collect` last recorded at
     // the project root, as the CLI does.
     let options = AnalyzeOptions {
-        pass: args
-            .pass
-            .unwrap_or_else(|| specforge_ops::analyze::EVERY_PASS.to_string()),
-        strict: args.strict.unwrap_or(false),
+        pass: args.pass,
+        strict: args.strict,
         report: match args.test_results {
-            Some(named) => ReportSource::File(PathBuf::from(named)),
+            // A relative path names a file under the call's project, as the
+            // paths of `specforge.format` do; an absolute one is itself.
+            Some(named) => ReportSource::File(project.root.join(named)),
             None => ReportSource::Recorded,
         },
         min: None,
@@ -46,15 +46,15 @@ pub fn call(call: &mut Call<'_>, args: Args) -> Handled {
     let runtime: Option<&dyn WasmRuntime> = Some(project.runtime.as_ref());
     Ok(match analyze(&view, runtime, &options) {
         Ok(outcome) => ToolOutcome::ok(outcome.to_json()),
-        Err(e @ AnalyzeError::UnknownPass { .. }) => {
-            ToolOutcome::invalid_input("pass", e.to_string())
+        Err(e) => {
+            // The argument an unknown pass names is this surface's spelling.
+            let unknown_pass = matches!(e, AnalyzeError::UnknownPass { .. });
+            let error = McpError::from(OpError::from(e));
+            match unknown_pass {
+                true => error.with_argument("pass"),
+                false => error,
+            }
+            .into()
         }
-        Err(AnalyzeError::UnusableReport(e)) => {
-            let mut error = crate::tool::McpError::from(e);
-            error.tool = Some("specforge.analyze".to_string());
-            error.into()
-        }
-        // `min` is never set here, so this is not reached today.
-        Err(e) => ToolOutcome::invalid_input("test_results", e.to_string()),
     })
 }

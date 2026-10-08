@@ -341,21 +341,23 @@ Level: error
 E028: Extension load or execution failure
 
 An extension failed somewhere in its lifecycle: its binary is missing,
-unreadable or does not load as a component (a `.wasm` file entry of
-`specforge.json` also when the file declares another name than the entry writes,
-or an extension another entry already loads); its handshake or one of its
-describe categories failed or does not parse, so its declaration cannot be read
-(`specforge add` and `specforge publish` refuse such a binary); or a call the
-host makes on the loaded extension failed. The host calls ten exports: the
-handshake and describe, a command, an MCP tool, an MCP resource, a compiler
-pass, a collector, a custom validator, a scanner and the migration hook. Each
-call fails when the export traps (its time or fuel included), when the extension
-does not route it, or when it answers output that is not the protocol type the
-operation owes; the message names the operation, the export and the extension
-(`command cmd__x() of '@acme/x' trapped: ...`). What the failure costs is the
-operation's: a check pass's is the compile's error, an analyze pass's a finding
-of that pass, a scanner's makes `infer` approximate. Report the failure to the
-extension's author, and confirm the extension is installed and up to date.
+unreadable or does not load as a component, or `specforge.lock` can't be read so
+nothing is known to be installed (a `.wasm` file entry of `specforge.json` also
+when the file declares another name than the entry writes, or an extension
+another entry already loads); its handshake or one of its describe categories
+failed or does not parse, so its declaration cannot be read (`specforge add` and
+`specforge publish` refuse such a binary); or a call the host makes on the
+loaded extension failed. The host calls ten exports: the handshake and describe,
+a command, an MCP tool, an MCP resource, a compiler pass, a collector, a custom
+validator, a scanner and the migration hook. Each call fails when the export
+traps (a limit of its sandbox included: its time, its fuel or its memory, the
+trap naming which), when the extension does not route it, or when it answers
+output that is not the protocol type the operation owes; the message names the
+operation, the export and the extension (`command cmd__x() of '@acme/x' trapped:
+...`). What the failure costs is the operation's: a check pass's is the
+compile's error, an analyze pass's a finding of that pass, a scanner's makes
+`infer` approximate. Report the failure to the extension's author, and confirm
+the extension is installed and up to date.
 
 Owner: core
 Level: error
@@ -398,11 +400,10 @@ Level: error
 ```
 E032: Extension install or uninstall failed
 
-An install or uninstall step failed: the downloaded `.wasm` binary's SHA-256
-hash didn't match the expected value (possible tampering or a bad download), or
-a filesystem step — creating the temp directory, writing the binary,
-finalizing the install, or removing the extension directory on uninstall —
-failed. Re-download the extension or check filesystem permissions.
+An install, update or uninstall step failed: creating the staging directory,
+writing the binary, or moving it into place or aside. Everything the change
+wrote was put back; when something couldn't be, the error names it. Check
+filesystem permissions and retry.
 
 Owner: core
 Level: error
@@ -413,11 +414,11 @@ Level: error
 ```
 E033: Lock file error
 
-`specforge.lock` couldn't be serialized, written, read, or parsed, or the hash
-it records for an installed extension no longer matches the binary on disk;
-`specforge update` reports it when there is no lock file to update. Delete the
-lock file and reinstall extensions, reinstall the specific extension whose
-binary changed, or run `specforge add` first.
+`specforge.lock` couldn't be serialized, written, read, or parsed; `specforge
+update` reports it when there is no lock file to update. A lock that can't be
+read loads no installed extension and refuses `add`, `update` and `remove` until
+it is fixed or deleted (then reinstall the extensions). Delete the lock file and
+reinstall extensions, or run `specforge add` first.
 
 Owner: core
 Level: error
@@ -502,11 +503,13 @@ E045: Invalid test report
 started, it finished without writing a report at the collector's declared
 location (often because the tests didn't build), `--no-run` found no existing
 report, or a report file couldn't be read. Check the runner's output above the
-error and the report path. `specforge analyze` and the MCP coverage, inspect,
-query and analyze tools report the same code when `specforge-report.json` (or
-`--test-results`) exists but can't be read or parsed, rather than scoring the
-project as if no test ran: run `specforge collect` again to rewrite it, or fix
-or remove the file.
+error and the report path. `specforge stats`, `specforge analyze` and every MCP
+tool that reads coverage report the same code when `specforge-report.json`
+exists but can't be read or parsed, or when a `--test-results` (`test_results`)
+file can't be read or doesn't exist (over MCP: `schema_mismatch`,
+`permission_denied`, `file_not_found` or `internal_error`), rather than scoring
+the project as if no test ran: run `specforge collect` again to rewrite it, or
+fix or remove the file.
 
 Owner: core
 Level: error
@@ -571,10 +574,13 @@ Level: error
 ```
 E054: Invalid extension specifier
 
-The extension identifier passed to install couldn't be parsed — it was empty
-or didn't match `name@version`, a local path, or a `git+https://...` URL — or
-a local install path didn't exist on disk. Use a valid specifier format or check
-the local file path.
+The argument given to `specforge add` (or `specforge.add_extension`, or `init
+--extensions`) isn't a builtin's name, a local path (ending in `.wasm`, or
+starting with `./`, `../` or `/`), a `git+https://...` URL, or a registry
+package `@scope/name` with an optional `@version` or `@requirement`, or a local
+install path didn't exist on disk. A registry package name is lowercase letters,
+digits, `.`, `_` or `-` in two parts that each start with a letter or digit.
+Nothing is asked of any registry.
 
 Owner: core
 Level: error
@@ -646,20 +652,6 @@ asked at an interactive prompt and remembered per project, extension and
 command, in your user-level `~/.specforge/collector-consent.json`, never in the
 project. Without a terminal (CI, `--format json`) nothing is asked: pass `--yes`
 to run the command, or `--no-run` to parse a report the runner already wrote.
-
-Owner: core
-Level: error
-```
-
-## E060
-
-```
-E060: Resolved reference without a graph edge
-
-A reference list names an entity that exists, but the resolver never turned the
-reference into a graph edge. That is a SpecForge bug, not a mistake in your
-spec: queries, traces and coverage would miss the relationship. Please report it
-with the spec that triggers it.
 
 Owner: core
 Level: error
@@ -806,6 +798,70 @@ is one E069, and `check` fails on it, so a broken config can't pass a CI that
 checks nothing. Fix the file: the message names the JSON error's line and
 column, or the key and the item. A missing `specforge.json` is not this: it is a
 project with the default config (`specforge doctor` says so).
+
+Owner: core
+Level: error
+```
+
+## E070
+
+```
+E070: Installed extension does not match its lock entry
+
+An installed extension's binary, `.specforge/extensions/<name>/extension.wasm`,
+is not the one its `specforge.lock` entry pins: its SHA-256 differs from the
+recorded hash (it was changed or replaced after install), or it declares another
+extension than the entry names. It is not loaded, and `check` fails. Reinstall
+it with the command the suggestion names (`specforge add <path>` for a local
+install, `specforge add <name>@<version>` for a registry one); `specforge
+doctor` lists it as `stale_hash`.
+
+Owner: core
+Level: error
+```
+
+## E071
+
+```
+E071: Unusable inference manifest
+
+A file inference keeps at the project root is there and can't be used as
+written: `specforge-infer.json` (the analyzed source files and the inference
+sessions) or `specforge-anchors.json` (the source anchors navigation reads). It
+can't be read, isn't valid JSON, doesn't have the manifest's shape (a field
+missing or of the wrong type, a session status other than `active`, `paused` or
+`completed`), or, for `specforge-infer.json`, has a `version` other than 1.
+Nothing reads such a file as empty, and nothing writes over it: `specforge
+infer-status`, `specforge.infer_progress`, `specforge.infer_gaps`, the infer
+prompt's plan and every `specforge.infer_session` action refuse with this code,
+`specforge.find_implementation`, `specforge.find_spec_for_source` and the infer
+prompt's file scope refuse when it is the anchors manifest, and `specforge check
+--lint inferred` reports it as an error instead of I200 and I202. Fix the file
+where the message says (it names the line and column of a JSON or shape error),
+or move it aside to start over. A missing file is not this: inference has
+recorded nothing yet.
+
+Owner: core
+Level: error
+```
+
+## E072
+
+```
+E072: Invalid package name or version
+
+A name that must be a package name is not one, or a version that must be a
+SemVer version is not one. A package name is `@scope/name` (what a registry
+holds) or `name` alone (a local module); each part is lowercase letters, digits,
+`.`, `_` or `-`, and starts with a letter or digit, so it is always a directory
+inside `.specforge/extensions`. It is checked where a name does not come from
+the `add` argument (that is E054): the name a local module declares when
+`specforge add` installs it, a peer a declaration names, a `specforge.json`
+`extensions` entry (the entry is not loaded), the name `specforge remove` is
+given, and the name and version of the declaration `specforge publish` uploads
+(which must also be scoped and a full version). Nothing is written or deleted.
+Fix the extension's declared name or version (its SDK `name`/`version`) and
+rebuild, or fix the `specforge.json` entry.
 
 Owner: core
 Level: error
@@ -1013,11 +1069,14 @@ Level: info
 ```
 I020: Unknown entity kind in a filter
 
-A `kinds` filter passed to the `specforge.query` or `specforge.search` MCP tool
-names a kind that no loaded extension defines and no entity has. The kind
-matches nothing and is dropped from the filter; the report rides in the tool
-result's `_meta.diagnostics`, with a `did you mean` suggestion when a known kind
-is close. Fix the spelling, or enable the extension that defines the kind.
+A kind filter (`specforge query --kind`, the `kinds` of the `specforge.query`
+and `specforge.search` MCP tools, or `specforge.list`'s `kind`) names a kind
+that no loaded extension declares and no entity is written with. The kind
+matches nothing and is dropped from the filter; the report goes to stderr on the
+CLI and rides in the tool result's `_meta.diagnostics` over MCP, with a `did you
+mean` suggestion when a known kind is close (a kind equal but for case first:
+kind names are case-sensitive keywords). Fix the spelling, or enable the
+extension that defines the kind.
 
 Owner: core
 Level: info
@@ -1569,8 +1628,9 @@ Level: error
 ```
 R-RES-003: Invalid version range
 
-The version range isn't valid semver range syntax. Use a range such as `^1.0`,
-`~2.3` or `>=1.0.0 <2.0.0`, or `latest`.
+The version after `@` isn't `latest`, a full version or valid SemVer requirement
+syntax, so no registry was asked. Use a version such as `1.2.0`, a requirement
+such as `^1.0`, `~2.3`, `1.x` or `>=1.0.0, <2.0.0`, or `latest`.
 
 Owner: core
 Level: error
@@ -1959,19 +2019,6 @@ A `type` field carries an annotation that isn't recognized by the compiler.
 Remove the annotation or correct its spelling.
 
 Owner: @specforge/software
-Level: warning
-```
-
-## W011
-
-```
-W011: Edge references missing node
-
-An edge was about to be added between two entities, but one or both endpoints
-don't exist in the graph, so the edge was dropped. Check the referenced entity
-IDs for typos or missing definitions.
-
-Owner: core
 Level: warning
 ```
 
@@ -2660,19 +2707,6 @@ Owner: core
 Level: warning
 ```
 
-## W119
-
-```
-W119: Partial install cleanup failed
-
-Rolling back a failed extension install could not remove the partially-created
-extension directory. Manually delete the leftover extension directory reported
-in the message.
-
-Owner: core
-Level: warning
-```
-
 ## W121
 
 ```
@@ -2988,21 +3022,6 @@ Owner: core
 Level: warning
 ```
 
-## W146
-
-```
-W146: Unknown field type in the model
-
-`specforge model` (and MCP `specforge.model`) met a field type in the Graph
-Protocol schema that the model does not know, and rendered the field as a
-string. A schema built from the loaded extensions only carries known types, so
-this comes from a schema built some other way. Fix the schema's `field_type`, or
-add the type to the model.
-
-Owner: core
-Level: warning
-```
-
 ## W147
 
 ```
@@ -3037,6 +3056,19 @@ Owner: core
 Level: warning
 ```
 
+## W149
+
+```
+W149: Installed extension is not pinned
+
+A `specforge.lock` entry records no hash (it was written before installs were
+pinned), so its binary loads without being checked. Reinstall the extension with
+the command the suggestion names to pin it.
+
+Owner: core
+Level: warning
+```
+
 ## W150
 
 ```
@@ -3051,6 +3083,44 @@ level. The rule still runs and the finding is still reported, with the code as
 given, so its title and docs link may describe another diagnostic. Renumber it
 in the extension's range (a third-party extension) or catalogue it (a
 first-party one).
+
+Owner: core
+Level: warning
+```
+
+## W151
+
+```
+W151: Entity kinds left unchecked
+
+Extensions are loaded, but none of them declares an entity kind, so the
+entities' kinds, fields and identifiers are not checked: no E024 for an unknown
+kind, no W020, E013, E014, E022 or E061. The warning names how many entities
+that leaves unchecked and their kinds. Enable the extension that declares those
+kinds (the suggestion names it when it is a builtin), or remove the entities. A
+project with no extension at all is structural-only on purpose and gets I002
+instead.
+
+Owner: core
+Level: warning
+```
+
+## W153
+
+```
+W153: Sandbox declaration not honoured
+
+An extension's declaration asks its sandbox for something the host does not
+give, so the extension runs without it. A component is granted no capability,
+whatever it declares: no directory, environment, arguments, stdin, socket or
+name lookup (ADR 0037). So a `sandbox_policy` key other than `max_execution_ms`
+and `max_memory_mb` that asks for something (`network_access: true`, a non-empty
+`allowed_paths`, a misspelled limit), and a surface's `sandbox` override, grant
+nothing. A declared limit above the host's ceiling (30000 ms per call, 512 MB of
+linear memory) is held to the ceiling. The message names the extension and the
+key. Remove the key, or lower the limit. An extension that needs a file's
+content gets it in its input (an analyzer is handed each file); one that needs
+the network can't run in SpecForge.
 
 Owner: core
 Level: warning
@@ -3087,7 +3157,9 @@ These codes are no longer emitted, and are never reused for another meaning.
 | E038 | (nothing) |
 | E047 | [W139](#w139) |
 | E053 | (nothing) |
+| E060 | (nothing) |
 | I006 | (nothing) |
+| W011 | (nothing) |
 | W024 | (nothing) |
 | W025 | (nothing) |
 | W026 | (nothing) |
@@ -3098,5 +3170,7 @@ These codes are no longer emitted, and are never reused for another meaning.
 | W114 | (nothing) |
 | W116 | (nothing) |
 | W117 | (nothing) |
+| W119 | (nothing) |
 | W120 | (nothing) |
 | W122 | (nothing) |
+| W146 | (nothing) |

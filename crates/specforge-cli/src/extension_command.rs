@@ -60,7 +60,7 @@ pub fn run(argv: &[String], builtins: &[String]) -> i32 {
     };
 
     let root = project_path(&rest);
-    let runtime = specforge_component::project_runtime(&root);
+    let runtime = specforge_component::ComponentRuntime::with_user_cache();
     let env = Environment::load(&root, Some(&runtime));
     let routed = ExtensionCommands::build(&env.registries);
     let commands: Vec<&ExtensionCommand> = routed.of(&ext).collect();
@@ -146,9 +146,8 @@ pub fn run(argv: &[String], builtins: &[String]) -> i32 {
     let recorded = specforge_project::coverage::RecordedCoverage::over(&graph, &env);
     let view = specforge_ops::view::ProjectView::new(&graph, &env, Some(&cwd), &recorded);
     let context = CommandContext {
-        format,
-        today: chrono::Utc::now().format("%Y-%m-%d").to_string(),
         evidence: specforge_ops::command::evidence(&view),
+        ..CommandContext::now(format)
     };
     dispatch(
         &runtime,
@@ -207,7 +206,7 @@ fn failed_run(error: &CallError, format: CommandFormat) -> String {
             line.push('\n');
             line
         }
-        CommandFormat::Human => format!("{}\n", crate::export::render_plain(&diagnostic)),
+        CommandFormat::Human => format!("{}\n", specforge_common::render_plain(&diagnostic)),
     }
 }
 
@@ -227,7 +226,7 @@ fn refused_args(error: &ArgError, format: CommandFormat) -> String {
 /// built-in command's is left out (the built-in wins), and so is any
 /// command the host refuses.
 pub fn with_extension_commands(mut cli: Command, root: &Path) -> Command {
-    let runtime = specforge_component::project_runtime(root);
+    let runtime = specforge_component::ComponentRuntime::with_user_cache();
     let env = Environment::load(root, Some(&runtime));
     let routed = ExtensionCommands::build(&env.registries);
     for ext in routed.shorts() {
@@ -242,7 +241,7 @@ pub fn with_extension_commands(mut cli: Command, root: &Path) -> Command {
 
 /// The exit code of a usage error clap catches, `INVALID_INPUT`'s: the
 /// one commands give the usage errors they catch themselves (ADR 0011).
-const INVALID_INPUT_EXIT: i32 = 2;
+const INVALID_INPUT_EXIT: i32 = crate::outcome::Exit::Unjudged.code();
 
 /// Whether `args` ask for `--format json` (`--format json` or
 /// `--format=json`), read before the command line is parsed.
@@ -527,7 +526,6 @@ mod tests {
                     Some("asc"),
                 ),
             ],
-            sandbox: None,
         }
     }
 

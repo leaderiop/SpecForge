@@ -27,7 +27,7 @@ pub fn compile(extensions: &[&str], files: &[(&str, &str)]) -> Compiled {
         std::fs::create_dir_all(path.parent().unwrap()).unwrap();
         std::fs::write(path, text).unwrap();
     }
-    let runtime = specforge_component::project_runtime(dir.path());
+    let runtime = specforge_component::ComponentRuntime::with_user_cache();
     let project = CompiledProject::compile(dir.path(), Some(&runtime));
     let unloaded: Vec<_> = project
         .diagnostics()
@@ -267,7 +267,8 @@ fn the_definition_is_the_declaration() {
 fn an_unknown_id_has_no_definition() {
     let p = nav();
     let error = p.navigator().definition("nope").unwrap_err();
-    assert_eq!(error.code, specforge_ops::navigate::NOT_FOUND);
+    assert!(error.is(specforge_common::codes::E003));
+    assert_eq!(error.kind, specforge_ops::OpErrorKind::EntityNotFound);
     // A misspelled reference is not an entity either.
     assert!(p.navigator().definition("sesion_limit").is_err());
 }
@@ -523,7 +524,7 @@ fn completion_keeps_the_fields_target_kind() {
         .registries
         .fields
         .get("behavior", "invariants")
-        .and_then(|f| f.declared.target_kind.clone())
+        .and_then(|f| f.declared().target_kind.clone())
         .expect("@specforge/software's invariants field targets a kind");
     let kinds = [target.as_str()];
     let query = EntityQuery {
@@ -717,8 +718,7 @@ fn the_message_is_never_read() {
 use specforge_ops::navigate::{Fix, FixKind, FixQuery, FixSource, TextEdit};
 use specforge_project::coverage::RecordedCoverage;
 use specforge_registry::{
-    FieldRegistry, FieldRegistryEntry, KindRegistry, KindRegistryEntry, ManifestFieldType,
-    RegistryBuild,
+    FieldRegistry, FieldRegistryEntry, KindRegistry, KindRegistryEntry, RegistryBuild,
 };
 
 /// `text` with `edits` (spans of it) applied.
@@ -895,6 +895,7 @@ fn an_untargeted_obligation_rule_stubs_every_kind_that_accepts_verify() {
          memo epsilon \"Epsilon\" {\n}\n",
     )
     .unwrap();
+    specforge_installed::testing::install(dir.path(), &["@pin/untargeted"]);
     let runtime = specforge_wasm::testing::InProcessRuntime::new().with(untargeted_rule);
     let project = CompiledProject::compile(dir.path(), Some(&runtime));
     let reported: Vec<String> = project
@@ -1144,17 +1145,19 @@ fn the_stub_kind_is_the_fields_target_kind() {
 /// `behavior.invariants` as a reference list targeting `target_kind`.
 fn invariants_field(target_kind: Option<&str>) -> FieldRegistry {
     let mut fields = FieldRegistry::new();
-    fields.register(FieldRegistryEntry {
-        kind_name: "behavior".into(),
-        field_type: ManifestFieldType::ReferenceList,
-        source_extension: "@test/ext".into(),
-        proof_role: None,
-        declared: specforge_registry::FieldDescriptor {
-            name: "invariants".into(),
-            target_kind: target_kind.map(str::to_string),
-            ..Default::default()
-        },
-    });
+    fields.register(
+        FieldRegistryEntry::new(
+            "behavior",
+            "@test/ext",
+            specforge_registry::FieldDescriptor {
+                name: "invariants".into(),
+                field_type: "reference_list".to_string(),
+                target_kind: target_kind.map(str::to_string),
+                ..Default::default()
+            },
+        )
+        .unwrap(),
+    );
     fields
 }
 
@@ -1411,12 +1414,12 @@ fn match_file_is_component_wise() {
 }
 
 /// An anchors manifest anchoring each `(entity, file)`.
-fn anchored(anchors: &[(&str, &str)]) -> specforge_common::AnchorManifest {
-    specforge_common::AnchorManifest {
+fn anchored(anchors: &[(&str, &str)]) -> specforge_ops::navigate::AnchorManifest {
+    specforge_ops::navigate::AnchorManifest {
         version: 1,
         anchors: anchors
             .iter()
-            .map(|(entity, file)| specforge_common::SourceAnchor {
+            .map(|(entity, file)| specforge_ops::navigate::SourceAnchor {
                 entity_id: entity.to_string(),
                 file: file.to_string(),
                 line: 1,
@@ -1428,6 +1431,36 @@ fn anchored(anchors: &[(&str, &str)]) -> specforge_common::AnchorManifest {
             })
             .collect(),
     }
+}
+
+/// An entity's anchors are the manifest's anchors of it, in manifest
+/// order; an entity with none, or a project with no manifest, has none.
+#[specforge_test(
+    behavior = "provide_mcp_find_implementation_tool",
+    verify = "an entity with no anchor has no implementations, and no anchors manifest is none"
+)]
+fn anchors_of_an_entity_are_in_manifest_order() {
+    use specforge_ops::navigate::{anchors_of_entity, source_anchors};
+
+    let manifest = anchored(&[
+        ("alpha", "src/lib.rs"),
+        ("beta", "src/lib.rs"),
+        ("alpha", "src/net.rs"),
+    ]);
+    let files = |entity: &str| -> Vec<String> {
+        anchors_of_entity(&manifest, entity)
+            .iter()
+            .map(|a| a.file.clone())
+            .collect()
+    };
+    assert_eq!(files("alpha"), ["src/lib.rs", "src/net.rs"]);
+    assert!(files("nope").is_empty());
+
+    let project = crate::view_support::Project::new(
+        "behavior a \"A\" {\n}\n",
+        specforge_registry::RegistryBuild::default(),
+    );
+    assert!(source_anchors(&project.view()).unwrap().anchors.is_empty());
 }
 
 #[test]

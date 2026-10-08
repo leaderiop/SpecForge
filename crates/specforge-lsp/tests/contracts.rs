@@ -3,6 +3,12 @@ use specforge_graph::{Graph, Node};
 use specforge_ops::navigate::{EntityQuery, MatchScope, find_entities};
 use specforge_parser::{EntityId, EntityKind, FieldMap};
 use specforge_test_macros::test as specforge_test;
+use tower_lsp::lsp_types::{
+    DocumentSymbolResponse, GotoDefinitionResponse, Position, PrepareRenameResponse, Url,
+};
+
+use crate::served::{buffers, uri_of_path};
+use specforge_lsp::answers;
 
 fn node(id: &str, kind: &str, title: Option<&str>) -> Node {
     Node {
@@ -200,7 +206,7 @@ fn lsp_shutdown_contract() {
 // B:document_open_close — verify contract "requires/ensures consistency for document open/close"
 #[specforge_test(
     behavior = "document_open_close",
-    verify = "Document Open/Close: document open/close holds — lsp_initialized_fired, document_tracked, file_changed_emitted, closed_diagnostics_cleared"
+    verify = "Document Open/Close: document open/close holds — lsp_initialized_fired, document_tracked, file_changed_emitted, closed_diagnostics_cleared, closed_file_from_disk"
 )]
 #[tokio::test]
 async fn document_open_close_contract() {
@@ -230,6 +236,14 @@ async fn document_open_close_contract() {
     let closed = session.diagnostics(uri).await;
     assert!(closed.is_empty(), "{closed:?}");
     assert!(session.format(uri).await.is_null());
+
+    // closed_file_from_disk: a file outside a project has no disk text to
+    // return to, so the closed file leaves the project; the publication
+    // that follows says it was compiled.
+    let after = session.diagnostics(uri).await;
+    assert!(after.is_empty(), "{after:?}");
+    let found = session.workspace_symbol("login").await;
+    assert!(found["result"].is_null(), "{found}");
 }
 
 /// Formatting a document with a parse error publishes the formatter's
@@ -598,17 +612,22 @@ fn complete_keywords_contract() {
 fn hover_information_contract() {
     // Requires: entity ID exists in graph
     // Ensures: hover returns markdown with kind, id, title; None for missing
-    let mut g = Graph::new();
-    g.add_node(node("user_login", "behavior", Some("User Login")));
+    let served =
+        crate::served::Served::new(&[("main.spec", "behavior user_login \"User Login\" {}\n")])
+            .open(&["main.spec"]);
 
-    let hover = crate::hover::plain_hover(&g, "user_login");
-    let text = hover.expect("existing entity must produce hover");
+    let text = served
+        .hover_on("main.spec", "user_login")
+        .expect("existing entity must produce hover");
     assert!(text.contains("behavior"), "hover must include kind");
     assert!(text.contains("user_login"), "hover must include id");
     assert!(text.contains("User Login"), "hover must include title");
 
-    let missing = crate::hover::plain_hover(&g, "nonexistent");
-    assert!(missing.is_none(), "missing entity must return None");
+    // Nothing is named at a position past the document's last line.
+    assert!(
+        served.hover("main.spec", 9, 0).is_none(),
+        "no entity must return None"
+    );
 }
 
 // B:goto_import_definition — verify contract "requires/ensures consistency for import go-to-definition"
@@ -628,10 +647,8 @@ fn goto_import_definition_contract() {
     )
     .unwrap();
 
-    let config = specforge_resolver::ResolveConfig::default();
-    let goto = |import: &str| {
-        specforge_lsp::goto_import_definition(import, "main.spec", tmp.path(), &config)
-    };
+    let goto =
+        |import: &str| specforge_lsp::goto_import_definition(import, "main.spec", tmp.path());
 
     let result = goto("behaviors/auth");
     let loc = result.expect("valid import path must resolve");
@@ -663,47 +680,38 @@ fn contract_prepare_rename() {
             "behavior login \"L\" {\n  types [auth_token]\n}\n",
         ),
     ]);
-    let nav = specforge_lsp::navigator(&state);
+    let types = uri_of_path("/p/types.spec");
+    let auth = uri_of_path("/p/auth.spec");
+    let ask = |uri: &Url, line: u32, character: u32| {
+        answers::prepare_rename(&state, uri, Position::new(line, character))
+            .expect("the buffers are the compiled text")
+    };
+    let range = |response: Option<PrepareRenameResponse>| match response {
+        Some(PrepareRenameResponse::Range(range)) => Some((
+            range.start.line,
+            range.start.character,
+            range.end.line,
+            range.end.character,
+        )),
+        None => None,
+        other => panic!("a range, or nothing: {other:?}"),
+    };
 
-    let declaration = nav
-        .occurrence_at("/p/types.spec", 5, 8)
-        .expect("the declaration's name is renameable");
-    let span = &declaration.span;
     assert_eq!(
-        (
-            span.file.as_str(),
-            span.start_line,
-            span.start_col,
-            span.end_col
-        ),
-        ("/p/types.spec", 5, 6, 16)
+        range(ask(&types, 4, 7)),
+        Some((4, 5, 4, 15)),
+        "the declaration's name is renameable"
     );
-    let reference = nav
-        .occurrence_at("/p/auth.spec", 2, 12)
-        .expect("a reference's token is renameable");
-    assert_eq!(reference.target, "auth_token");
+    assert_eq!(
+        range(ask(&auth, 1, 11)),
+        Some((1, 9, 1, 19)),
+        "a reference's token is renameable"
+    );
 
     // The title naming it, a keyword, nothing: not renameable.
-    assert!(nav.occurrence_at("/p/types.spec", 5, 20).is_none());
-    assert!(nav.occurrence_at("/p/types.spec", 5, 2).is_none());
-    assert!(nav.occurrence_at("/p/types.spec", 1, 1).is_none());
-}
-
-/// An LSP state whose session holds `files` (absolute paths) as open
-/// buffers.
-fn buffers(files: &[(&str, &str)]) -> specforge_lsp::LspState {
-    let mut state = specforge_lsp::LspState::new();
-    for (path, text) in files {
-        state.open_document(&format!("file://{path}"), text);
-        state
-            .session_mut()
-            .unwrap()
-            .update(specforge_project::SourceChange::Buffer {
-                path,
-                text: Some(text),
-            });
-    }
-    state
+    assert_eq!(range(ask(&types, 4, 19)), None);
+    assert_eq!(range(ask(&types, 4, 1)), None);
+    assert_eq!(range(ask(&types, 0, 0)), None);
 }
 
 // B:rename_entity_id — verify contract "requires/ensures consistency for entity rename"
@@ -722,19 +730,38 @@ fn rename_entity_id_contract() {
             "behavior user_login \"L\" {\n  types [auth_token]\n  // auth_token\n}\n",
         ),
     ]);
-    let nav = specforge_lsp::navigator(&state);
-    let plan = specforge_ops::rename::plan(&nav, "auth_token", "session_token")
-        .expect("valid rename must produce edits");
-    let edits: Vec<(&str, usize, usize)> = plan
-        .edits
-        .iter()
-        .map(|e| (e.file.as_str(), e.line, e.start_col))
+    let types = uri_of_path("/p/types.spec");
+    let rename = |new_name: &str| answers::rename(&state, &types, Position::new(0, 6), new_name);
+    let edit = rename("session_token")
+        .expect("valid rename must produce edits")
+        .expect("an edit");
+    let mut edits: Vec<(String, u32, u32)> = edit
+        .changes
+        .expect("changes")
+        .into_iter()
+        .flat_map(|(uri, edits)| {
+            let file = uri.path().to_string();
+            edits
+                .into_iter()
+                .map(move |e| (file.clone(), e.range.start.line, e.range.start.character))
+        })
         .collect();
-    assert_eq!(edits, [("/p/auth.spec", 2, 9), ("/p/types.spec", 1, 5)]);
+    edits.sort();
+    assert_eq!(
+        edits,
+        [
+            ("/p/auth.spec".to_string(), 1, 9),
+            ("/p/types.spec".to_string(), 0, 5)
+        ]
+    );
 
     // Reject rename to existing ID
-    let dup = specforge_ops::rename::plan(&nav, "auth_token", "user_login");
-    assert_eq!(dup.unwrap_err().code, specforge_ops::rename::TAKEN);
+    let dup = rename("user_login").expect_err("a taken name is refused");
+    assert_eq!(dup.code, tower_lsp::jsonrpc::ErrorCode::InvalidParams);
+    assert!(
+        dup.message.contains("'user_login' exists"),
+        "the plan's reason: {dup:?}"
+    );
 
     // All or nothing: a file the rename cannot read refuses the whole.
     let blind = specforge_ops::navigate::Navigator::new(state.view(), |file: &str| {
@@ -753,30 +780,40 @@ fn outline_view_contract() {
     // Requires: graph with entities across files
     // Ensures: the outline of a file is its entities, in line order, each
     // with its kind, id and title, selecting its name
-    let state = buffers(&[
+    let mut state = buffers(&[
         (
             "/p/test.spec",
             "type b \"B\" {\n}\n\nbehavior a \"A\" {\n}\n",
         ),
         ("/p/other.spec", "event c \"C\" {\n}\n"),
     ]);
-    let entries =
-        specforge_ops::navigate::outline(&specforge_lsp::navigator(&state), "/p/test.spec");
+    state.set_client(specforge_lsp::ClientSupport {
+        hierarchical_symbols: true,
+        ..Default::default()
+    });
+    let Some(DocumentSymbolResponse::Nested(symbols)) =
+        answers::document_symbols(&state, &uri_of_path("/p/test.spec"))
+    else {
+        panic!("a hierarchical client gets nested symbols");
+    };
 
-    let ids: Vec<&str> = entries.iter().map(|e| e.id.as_str()).collect();
+    let ids: Vec<&str> = symbols.iter().map(|s| s.name.as_str()).collect();
     assert_eq!(
         ids,
         ["b", "a"],
         "only entities from target file, in line order"
     );
-    for entry in &entries {
+    for symbol in &symbols {
         assert!(
-            !entry.kind.as_str().is_empty(),
+            symbol.detail.as_deref().is_some_and(|d| !d.is_empty()),
             "each symbol must have kind"
         );
-        assert!(entry.title.is_some(), "each symbol must have title");
+        assert!(
+            symbol.detail.as_deref().is_some_and(|d| d.contains(" — ")),
+            "each symbol must have title"
+        );
         assert_eq!(
-            entry.name.start_line, entry.block.start_line,
+            symbol.selection_range.start.line, symbol.range.start.line,
             "the name is selected"
         );
     }
@@ -1106,39 +1143,40 @@ fn go_to_definition_contract() {
     // Ensures: the declaration site (file, line, column of the block
     // header) returned for an existing entity, its name selected; none for
     // a missing one.
-    let mut state = specforge_lsp::LspState::new();
-    for (path, text) in [
+    let mut state = buffers(&[
         ("/p/types.spec", "\n\ntype   auth_token \"Token\" {\n}\n"),
         (
             "/p/auth.spec",
-            "behavior login \"L\" {\n  types [auth_token]\n}\n",
+            "behavior login \"L\" {\n  types [auth_token, nonexistent]\n}\n",
         ),
-    ] {
-        state.open_document(&format!("file://{path}"), text);
-        state
-            .session_mut()
-            .unwrap()
-            .update(specforge_project::SourceChange::Buffer {
-                path,
-                text: Some(text),
-            });
-    }
-    let nav = specforge_lsp::navigator(&state);
+    ]);
+    state.set_client(specforge_lsp::ClientSupport {
+        definition_links: true,
+        ..Default::default()
+    });
+    let auth = uri_of_path("/p/auth.spec");
 
-    let def = nav
-        .definition("auth_token")
-        .expect("existing entity must return declaration site");
-    assert_eq!(def.block.file, "/p/types.spec", "must return correct file");
-    assert_eq!(def.block.start_line, 3, "must return correct line");
-    assert_eq!(def.block.start_col, 1, "must return correct column");
+    let Some(GotoDefinitionResponse::Link(links)) =
+        answers::definition(&state, &auth, Position::new(1, 12))
+    else {
+        panic!("existing entity must return declaration site");
+    };
     assert_eq!(
-        (def.name.start_line, def.name.start_col, def.name.end_col),
-        (3, 8, 18),
+        links[0].target_uri,
+        uri_of_path("/p/types.spec"),
+        "must return correct file"
+    );
+    let block = links[0].target_range.start;
+    assert_eq!((block.line, block.character), (2, 0), "the block header");
+    let name = links[0].target_selection_range;
+    assert_eq!(
+        (name.start.line, name.start.character, name.end.character),
+        (2, 7, 17),
         "the name is selected"
     );
 
     assert!(
-        nav.definition("nonexistent").is_err(),
+        answers::definition(&state, &auth, Position::new(1, 24)).is_none(),
         "missing entity must return nothing"
     );
 }
@@ -1231,27 +1269,19 @@ async fn live_diagnostics_contract() {
 fn shared_incremental_pipeline_contract() {
     // Requires: incremental_rebuild_complete event has fired
     // Ensures: shared graph updated, diagnostics pushed, pipeline parity enforced
-    let mut state = specforge_lsp::LspState::new();
-
     // Open a doc, build the graph through the session, push diagnostics
-    let text = "behavior a \"A\" {}\n";
-    state.open_document("file:///a.spec", text);
-    state
-        .session_mut()
-        .unwrap()
-        .update(specforge_project::SourceChange::Buffer {
-            path: "/a.spec",
-            text: Some(text),
-        });
+    let state = buffers(&[("/a.spec", "behavior a \"A\" {}\n")]);
+    let mut state = state;
 
     // Graph is shared: navigation works on the same graph instance
-    let def = specforge_lsp::navigator(&state).definition("a");
-    assert!(def.is_ok(), "shared graph must serve navigation");
+    let def = answers::definition(&state, &uri_of_path("/a.spec"), Position::new(0, 10));
+    assert!(def.is_some(), "shared graph must serve navigation");
 
     // Diagnostics pushed through the shared state
-    state.set_diagnostics("file:///a.spec", vec![]);
+    let a = uri_of_path("/a.spec");
+    state.set_diagnostics(a.as_str(), vec![]);
     assert!(
-        state.diagnostics("file:///a.spec").is_empty(),
+        state.diagnostics(a.as_str()).is_empty(),
         "diagnostics must be pushable"
     );
 }
@@ -1330,12 +1360,8 @@ async fn a_spanless_diagnostic_about_entities_is_published_at_its_name() {
 /// Build a Wasm runtime for a temp project listing `ext_names`, mirroring
 /// how a real session loads extensions from specforge.json.
 fn wasm_runtime_for(ext_names: &[String]) -> specforge_component::ComponentRuntime {
-    let dir = tempfile::TempDir::new().unwrap();
-    let config = serde_json::json!({
-        "name": "test-project",
-        "version": "0.1.0",
-        "extensions": ext_names,
-    });
-    std::fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
-    specforge_component::project_runtime(dir.path())
+    let runtime = specforge_component::ComponentRuntime::new();
+    let names: Vec<String> = ext_names.iter().map(|name| name.to_string()).collect();
+    specforge_component::builtins::load_builtins_for(&runtime, &names).unwrap();
+    runtime
 }

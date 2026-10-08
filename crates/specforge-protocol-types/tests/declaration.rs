@@ -4,10 +4,10 @@
 use serde_json::json;
 use specforge_protocol_types::{
     CommandArgDescriptor, CommandArgType, CommandDescriptor, CompilerPassDescriptor,
-    DECLARED_CATEGORIES, DescribeResponse, EdgeTypeDescriptor, EntityEnhancementDescriptor,
-    EntityKindDescriptor, ExtensionDeclaration, FeatureFlagDescriptor, FieldDescriptor,
-    HandshakeResponse, PeerDependency, ProtocolError, SUPPORTED_CATEGORIES, SurfaceDescriptor,
-    UnknownKey, ValidationRuleDescriptor, ValidationSeverity,
+    DECLARED_CATEGORIES, DeclaredCategory, DescribeResponse, EdgeTypeDescriptor,
+    EntityEnhancementDescriptor, EntityKindDescriptor, ExtensionDeclaration, FeatureFlagDescriptor,
+    FieldDescriptor, HandshakeResponse, PeerDependency, ProtocolError, SUPPORTED_CATEGORIES,
+    SurfaceDescriptor, UnknownKey, ValidationRuleDescriptor, ValidationSeverity,
 };
 
 fn field(name: &str) -> FieldDescriptor {
@@ -85,7 +85,6 @@ fn full() -> ExtensionDeclaration {
                     description: None,
                     minimum: Some(0),
                 }],
-                sandbox: None,
             }],
             ..Default::default()
         },
@@ -257,13 +256,13 @@ fn an_unknown_item_key_is_reported() {
             },
             UnknownKey {
                 category: "surfaces",
-                item: "#0.commands[list].args[n]".to_string(),
-                key: "minimun".to_string(),
+                item: "#0.commands[list]".to_string(),
+                key: "sandbox".to_string(),
             },
             UnknownKey {
                 category: "surfaces",
-                item: "#0.commands[list].sandbox".to_string(),
-                key: "fs_raed".to_string(),
+                item: "#0.commands[list].args[n]".to_string(),
+                key: "minimun".to_string(),
             },
         ]
     );
@@ -338,4 +337,29 @@ fn absent_handshake_metadata_is_not_serialized() {
     }
     let parsed: HandshakeResponse = serde_json::from_value(wire).unwrap();
     assert_eq!(parsed, handshake);
+}
+
+#[specforge_test_macros::test(
+    behavior = "load_extension_declaration",
+    verify = "the loader reads the handshake and every describe category once"
+)]
+fn every_declared_category_is_a_supported_one() {
+    let names: Vec<&str> = DeclaredCategory::ALL.iter().map(|c| c.name()).collect();
+    assert_eq!(DECLARED_CATEGORIES, names.as_slice());
+    for category in DeclaredCategory::ALL {
+        assert_eq!(DeclaredCategory::from_name(category.name()), Some(category));
+    }
+    // The wire list holds every declared name, and only the categories the
+    // host never reads besides.
+    let mut others: Vec<&str> = SUPPORTED_CATEGORIES
+        .iter()
+        .copied()
+        .filter(|name| !names.contains(name))
+        .collect();
+    others.sort_unstable();
+    assert_eq!(others, ["body_parsers", "fields", "grammars"]);
+    for other in others {
+        assert_eq!(DeclaredCategory::from_name(other), None);
+    }
+    assert_eq!(DeclaredCategory::from_name("nope"), None);
 }

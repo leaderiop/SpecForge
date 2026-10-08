@@ -373,28 +373,34 @@ constraint wasm_compile_cache_budget "Wasm Compile Cache Budget" {
 }
 
 constraint wasm_memory_limit "Wasm Memory Limit" {
-  description "Each Wasm extension instance must be limited to 64MB of linear memory, with a 256MB total cap across all loaded extensions."
+  description "Each Wasm extension instance is limited to the linear memory its handshake declares (max_memory_mb), held to the host ceiling of 512 MB, which is also the limit of an extension declaring none; a growth past it traps the call."
   category    performance
   priority    critical
   metric      """
-    Each Wasm extension instance MUST be limited to 64MB of linear memory.
-    Total memory across all loaded extensions MUST NOT exceed 256MB.
-    Memory limit violations MUST trap the extension.
+    Each Wasm extension instance MUST be limited to its declared
+    max_memory_mb of linear memory, at most 512 MB; an extension declaring
+    no limit MUST be limited to 512 MB. A growth past the limit MUST trap
+    the call (memory_limit_exceeded, reported as E028). No limit is shared
+    across extensions: one extension's memory never fails another
+    (extension_isolation, ADR 0037).
   """
   constrains  [enforce_wasm_sandbox, load_wasm_module]
   protects    [wasm_sandbox_integrity]
-  verify unit "extension exceeding 64MB traps"
-  verify unit "total memory exceeding 256MB prevents new extension load"
+  verify unit "an extension growing past its memory limit traps"
+  verify unit "an extension declaring no memory limit is held to the 512 MB ceiling"
 }
 
 constraint wasm_sandbox_enforcement "Wasm Sandbox Enforcement" {
-  description "Extensions must not access host filesystem, network, environment variables, or process control outside of designated host functions, with zero sandbox escapes in adversarial testing."
+  description "Extensions must not access the host filesystem, network, environment variables, arguments, stdin or process control: the host grants a component no WASI capability, whatever its declaration asks for, with zero sandbox escapes in adversarial testing."
   category    security
   priority    critical
   metric      """
-    Zero sandbox escapes in adversarial testing. Extensions MUST NOT
-    access host filesystem, network, environment variables, or
-    process control outside of designated host functions.
+    Zero sandbox escapes in adversarial testing. A component's WASI
+    context MUST preopen no directory and pass no environment, arguments
+    or stdin, and MUST refuse TCP, UDP and name lookup. No declaration
+    (sandbox_policy, a surface's sandbox override) grants a capability
+    (ADR 0037); host functions that would grant scoped access are planned
+    (wasm_host_function_api) and none exists.
   """
   constrains  [
     enforce_wasm_sandbox,
@@ -404,7 +410,7 @@ constraint wasm_sandbox_enforcement "Wasm Sandbox Enforcement" {
     enforce_per_call_site_permissions,
   ]
   protects    [wasm_sandbox_integrity]
-  verify integration "adversarial extension cannot escape sandbox"
+  verify integration "an extension that tries every capability a component can reach is granted none"
   verify unit "direct filesystem access from Wasm is blocked"
   verify unit "direct network access from Wasm is blocked"
 }

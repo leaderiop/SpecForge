@@ -5,9 +5,10 @@
 //! with no entity named it lists exactly the entities stats counts as
 //! testable, so its rows and stats' numbers cannot disagree.
 
-use specforge_project::coverage::{ReportError, Status, Summary, Verdict};
+use specforge_project::coverage::{Status, Summary, Verdict};
 use specforge_project::snapshot::{EntityRecord, Standing};
 
+use crate::OpError;
 use crate::options::{Choice, OptionTable};
 use crate::view::ProjectView;
 
@@ -80,7 +81,7 @@ pub struct CoverageOutcome {
 /// and status, in entity id order. With `entity_id`: that entity, counted
 /// or not (an exempt row says so), or no row when the graph lacks it. A
 /// recorded report that cannot be read is the error.
-pub fn coverage(view: &ProjectView, query: &CoverageQuery) -> Result<CoverageOutcome, ReportError> {
+pub fn coverage(view: &ProjectView, query: &CoverageQuery) -> Result<CoverageOutcome, OpError> {
     let coverage = view.coverage()?;
     let rows = coverage
         .entities()
@@ -105,7 +106,7 @@ pub fn coverage(view: &ProjectView, query: &CoverageQuery) -> Result<CoverageOut
 }
 
 /// One entity's row, counted or not; `None` when the graph lacks it.
-pub fn row(view: &ProjectView, entity_id: &str) -> Result<Option<CoverageRow>, ReportError> {
+pub fn row(view: &ProjectView, entity_id: &str) -> Result<Option<CoverageRow>, OpError> {
     let coverage = view.coverage()?;
     Ok(coverage
         .entities()

@@ -137,6 +137,7 @@ back when an item contains the joiner.
 ## What would reopen this
 
 - A reader that needs a field's structure, not its text (a validator that must tell a one-item list
-  from a scalar). Add a structured value beside the text; do not change the text.
+  from a scalar). Add a structured value beside the text; do not change the text. Reopened by
+  ADR 0031 for the host's own checks: `FieldRecord::shape` and `value_span` (never on the wire).
 - A kind of obligation other than `verify` statements counting toward coverage.
 - Graphs large enough that one snapshot per check costs more than an incremental patch.

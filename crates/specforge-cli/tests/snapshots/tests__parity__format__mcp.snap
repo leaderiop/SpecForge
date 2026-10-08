@@ -37,6 +37,7 @@ expression: mcp_snap
     "files_written": [
       "spec/messy.spec"
     ],
+    "ok": true,
     "total_checked": 2
   }
 }

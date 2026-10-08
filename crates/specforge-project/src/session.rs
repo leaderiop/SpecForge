@@ -1,37 +1,75 @@
 //! A long-lived compiled project: what watch, the LSP and MCP hold.
 
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::{Arc, OnceLock};
 
-use specforge_common::{Diagnostic, codes, discover_spec_files, load_project_config};
-use specforge_graph::{Graph, build_graph_with_config};
-use specforge_parser::SpecFile;
-use specforge_resolver::resolve_parsed;
+use specforge_common::{Diagnostic, ProjectConfig, codes, read_project_config};
+use specforge_graph::{
+    FileChange, Graph, GraphBuild, GraphConfig, GraphDelta, compute_graph_delta,
+};
 use specforge_wasm::WasmRuntime;
 
 use crate::coverage::RecordedCoverage;
-use crate::delta::{GraphDelta, compute_graph_delta};
 use crate::freshness::DiskSnapshot;
-use crate::incremental::IncrementalBuild;
-use crate::inputs::{Changes, InputRole, Origin, UpdateKind, canonical, environment_inputs};
+use crate::inputs::{Changes, SessionInputs, UpdateKind};
 use crate::snapshot::EntitySnapshot;
-use crate::{Environment, sources_in_path_order};
+use crate::sources::{self, Read, SourceCache};
+use crate::{Environment, SourceBuild};
 
 /// The runtime a session runs its project's extensions in (every
 /// [`WasmRuntime`] is `Send + Sync`).
 pub type SharedRuntime = Arc<dyn WasmRuntime>;
 
+/// Builds the runtime of the project at a root from the config read there.
+pub type BuildRuntime = Arc<dyn Fn(&Path, &ProjectConfig) -> SharedRuntime + Send + Sync>;
+
+/// How a session gets the runtime its project's extensions run in.
+#[derive(Clone)]
+pub enum RuntimeSource {
+    /// Built for each environment load from the config that load read,
+    /// after every environment input is stamped: the project's own
+    /// component runtime ([`RuntimeSource::project`]), or a test's.
+    Build(BuildRuntime),
+    /// The same runtime for every load (none: no extension loads).
+    Fixed(Option<SharedRuntime>),
+}
+
+impl RuntimeSource {
+    /// The project's own component runtime, with the per-user compile
+    /// cache ([`specforge_component::ComponentRuntime::with_user_cache`]):
+    /// empty, for the environment's extension load to fill.
+    pub fn project() -> Self {
+        RuntimeSource::Build(Arc::new(|_, _| {
+            Arc::new(specforge_component::ComponentRuntime::with_user_cache())
+        }))
+    }
+
+    /// The runtime of the environment load at `root` with `config`.
+    fn runtime_for(&self, root: &Path, config: &ProjectConfig) -> Option<SharedRuntime> {
+        match self {
+            RuntimeSource::Build(build) => Some(build(root, config)),
+            RuntimeSource::Fixed(runtime) => runtime.clone(),
+        }
+    }
+}
+
 /// What changed in a session's sources.
 pub enum SourceChange<'a> {
     /// Files changed, created or deleted on disk, by path relative to the
-    /// spec root. A file that can no longer be read was deleted.
+    /// spec root. A file that is gone was deleted; one that is there and
+    /// cannot be read is E025 and leaves the graph.
     Disk(&'a [String]),
     /// An editor buffer is the truth for one file (`None`: it is gone).
     Buffer {
         path: &'a str,
         text: Option<&'a str>,
     },
+    /// Several editor buffers, each the truth for its file (relative to the
+    /// spec root), applied as one update with one run of the checks: an edit
+    /// the editor applied to several files at once, or every open buffer
+    /// again after a reload. Files discovery would not find are ignored.
+    Buffers(&'a [(String, String)]),
 }
 
 /// Which checks an update runs on the updated graph.
@@ -39,11 +77,12 @@ pub enum SourceChange<'a> {
 pub enum CheckMode<'a> {
     /// Every check `specforge check` runs.
     Full,
-    /// The editor's fast path while typing: when this file (relative to
-    /// the spec root) has parse errors the graph is broken and the checks
-    /// would evaluate garbage, so they are skipped and only the parse
-    /// layer is reported until it parses again. Otherwise, [`Self::Full`].
-    SyntaxOnlyIfParseErrorsIn(&'a str),
+    /// The editor's fast path while typing: when any of these files
+    /// (relative to the spec root) has parse errors the graph is broken and
+    /// the checks would evaluate garbage, so they are skipped and only the
+    /// parse layer is reported until they parse again. Otherwise,
+    /// [`Self::Full`].
+    SyntaxOnlyIfParseErrorsIn(&'a [&'a str]),
 }
 
 /// What one update of a session did.
@@ -51,6 +90,10 @@ pub enum CheckMode<'a> {
 pub struct Update {
     /// What was applied: sources, the checks alone, or the environment.
     pub kind: UpdateKind,
+    /// The session's inputs changed: a file the checks read was named or
+    /// dropped, or the environment loaded again with other inputs. What an
+    /// adapter watches must follow [`ProjectSession::inputs`] (ADR 0030).
+    pub inputs_changed: bool,
     pub delta: GraphDelta,
     /// The files re-parsed or dropped: exactly the changed ones (sorted).
     pub rebuilt_files: Vec<String>,
@@ -63,11 +106,24 @@ pub struct Update {
     pub verification: Option<Result<(), String>>,
 }
 
+impl Update {
+    /// How the incremental graph differs from a cold rebuild, when this
+    /// update was verified and the two differ: what every surface reports
+    /// where it reports (watch in its event, the LSP in its log, MCP as a
+    /// debug assertion; ADR 0035).
+    pub fn divergence(&self) -> Option<&str> {
+        match &self.verification {
+            Some(Err(divergence)) => Some(divergence),
+            Some(Ok(())) | None => None,
+        }
+    }
+}
+
 /// A compiled project that accepts source changes and environment reloads.
 ///
 /// It is seeded by one cold build, then kept current incrementally: only
-/// the changed files are re-parsed and the graph is patched with them
-/// ([`crate::incremental`]), the imports of every cached parse are
+/// the changed files are re-read and re-parsed and the graph build applies
+/// them whole ([`specforge_graph::GraphBuild`]), the imports of every parse are
 /// resolved again (E025, I004, W113, W027), and the graph checks re-run on
 /// the patched graph. After any sequence of updates,
 /// [`ProjectSession::diagnostics`] is the set
@@ -77,18 +133,22 @@ pub struct ProjectSession {
     /// from while the session itself is busy.
     env: Arc<Environment>,
     runtime: Option<SharedRuntime>,
-    /// The session built its runtime, so a reload builds a fresh one (the
-    /// extensions' `.wasm` files may have changed).
-    owns_runtime: bool,
-    build: IncrementalBuild,
+    /// Where each environment load gets its runtime: a built one is fresh
+    /// for every load (the extensions' `.wasm` files may have changed).
+    source: RuntimeSource,
+    /// The text of every source as read, the retained trees and the
+    /// sources that could not be read.
+    sources: SourceCache,
+    /// The graph of the sources and what building it reported (ADR 0032).
+    graph: GraphBuild,
     import_diagnostics: Vec<Diagnostic>,
     check_diagnostics: Vec<Diagnostic>,
     verify_incremental: bool,
-    /// Where the project comes from. With [`Origin::None`] (an editor with
-    /// no workspace folder) files are buffers keyed by absolute path, with
-    /// no spec root to resolve their imports against and no environment to
+    /// What the session depends on (ADR 0030). Detached (an editor with no
+    /// workspace folder), files are buffers keyed by absolute path, with no
+    /// spec root to resolve their imports against and no environment to
     /// reload.
-    origin: Origin,
+    inputs: SessionInputs,
     /// What the session last built from, as it was when read: what
     /// [`Self::stale`] compares with disk.
     snapshot: DiskSnapshot,
@@ -107,8 +167,10 @@ pub struct ProjectSession {
 pub struct OpeningProject {
     env: Arc<Environment>,
     runtime: Option<SharedRuntime>,
-    /// The session built its runtime, so a reload builds a fresh one.
-    owns_runtime: bool,
+    /// Where each environment load gets its runtime.
+    source: RuntimeSource,
+    /// What the loaded environment depends on.
+    inputs: SessionInputs,
     /// Stamped for the environment; the sources are stamped by `finish`.
     snapshot: DiskSnapshot,
 }
@@ -124,42 +186,30 @@ impl OpeningProject {
     /// [`ProjectSession::open`] returns.
     pub fn finish(self) -> ProjectSession {
         let mut snapshot = self.snapshot;
-        let discovered = discover_spec_files(&self.env.spec_root, &self.env.config.exclude);
-        snapshot.stamp_all_sources(&self.env.spec_root, &discovered);
-        let resolved = self.env.resolve();
-        let (paths, specs): (Vec<String>, Vec<SpecFile>) =
-            sources_in_path_order(&resolved).into_iter().unzip();
-        let graph_config = self.env.graph_config();
-        // The one cold build seeds the incremental one.
-        let (graph, graph_diagnostics) = build_graph_with_config(&specs, &graph_config);
-        let files: Vec<(String, SpecFile)> = paths.into_iter().zip(specs).collect();
-        // The text each file was parsed from (the resolver kept it).
-        let sources: HashMap<String, Arc<str>> = resolved
-            .files
-            .iter()
-            .map(|file| (file.path.clone(), Arc::from(file.source.as_str())))
-            .collect();
-        let build = IncrementalBuild::from_cold_build(
-            files,
+        let discovered = self.inputs.discover();
+        snapshot.stamp_all_sources(&self.inputs, &discovered);
+        // What was stamped is exactly what is read.
+        let SourceBuild {
             sources,
-            graph,
-            &graph_diagnostics,
-            graph_config,
-        );
+            mut graph,
+            imports,
+        } = self.env.build_sources(&discovered);
+        graph.set_verify(cfg!(debug_assertions));
 
         let mut session = ProjectSession {
             env: self.env,
             runtime: self.runtime,
-            owns_runtime: self.owns_runtime,
-            build,
-            import_diagnostics: resolved.diagnostics,
+            source: self.source,
+            sources,
+            graph,
+            import_diagnostics: imports,
             check_diagnostics: Vec::new(),
-            verify_incremental: false,
-            origin: Origin::Disk,
+            verify_incremental: cfg!(debug_assertions),
+            inputs: self.inputs,
             snapshot,
             recorded: OnceLock::new(),
         };
-        session.check_diagnostics = session.checked();
+        session.check_diagnostics = session.checked().0;
         session
     }
 }
@@ -171,27 +221,38 @@ impl ProjectSession {
         ProjectSession {
             env: Arc::new(Environment::empty()),
             runtime: None,
-            owns_runtime: false,
-            build: IncrementalBuild::empty(),
+            source: RuntimeSource::Fixed(None),
+            sources: SourceCache::empty(),
+            graph: {
+                let mut graph = GraphBuild::new(GraphConfig::default());
+                graph.set_verify(cfg!(debug_assertions));
+                graph
+            },
             import_diagnostics: Vec::new(),
             check_diagnostics: Vec::new(),
-            verify_incremental: false,
-            origin: Origin::None,
+            verify_incremental: cfg!(debug_assertions),
+            inputs: SessionInputs::detached(),
             snapshot: DiskSnapshot::default(),
             recorded: OnceLock::new(),
         }
     }
 
     /// Open the project at `root`, running its extensions in the project's
-    /// own runtime.
+    /// own runtime ([`RuntimeSource::project`]).
     pub fn open(root: &Path) -> Self {
-        Self::begin_open(root).finish()
+        Self::open_from(root, RuntimeSource::project())
     }
 
     /// Open the project at `root` with `runtime` (none: no extension
     /// loads). A reload keeps using the same runtime.
     pub fn open_with_runtime(root: &Path, runtime: Option<SharedRuntime>) -> Self {
-        Self::begin_open_with_runtime(root, runtime).finish()
+        Self::open_from(root, RuntimeSource::Fixed(runtime))
+    }
+
+    /// Open the project at `root`, each environment load getting its
+    /// runtime from `source`.
+    pub fn open_from(root: &Path, source: RuntimeSource) -> Self {
+        Self::begin_open_from(root, source).finish()
     }
 
     /// The first half of [`Self::open`]: the environment loaded (config,
@@ -200,33 +261,37 @@ impl ProjectSession {
     /// served from [`OpeningProject::environment`] while
     /// [`OpeningProject::finish`] reads and builds the sources.
     pub fn begin_open(root: &Path) -> OpeningProject {
-        let mut opening = Self::begin_open_with_runtime(root, Some(project_runtime(root)));
-        opening.owns_runtime = true;
-        opening
+        Self::begin_open_from(root, RuntimeSource::project())
     }
 
-    /// [`Self::begin_open`] with `runtime` (none: no extension loads).
-    pub fn begin_open_with_runtime(root: &Path, runtime: Option<SharedRuntime>) -> OpeningProject {
-        // Everything is stamped before it is read (crate::freshness): the
-        // config first, then what it names, then the sources.
+    /// [`Self::begin_open`] with the runtime `source` gives.
+    pub fn begin_open_from(root: &Path, source: RuntimeSource) -> OpeningProject {
+        // Everything is stamped before anything reads it (crate::freshness):
+        // the config before its one read, the lock and the modules before
+        // the runtime and the environment read them, the sources by `finish`.
         let mut snapshot = DiskSnapshot::default();
-        snapshot.stamp_environment(&root.join("specforge.json"), || {
-            let inputs = environment_inputs(root, &load_project_config(root), false);
-            std::iter::once(inputs.lock).chain(inputs.modules).collect()
-        });
+        snapshot.stamp_config(&root.join("specforge.json"));
+        let read = read_project_config(root);
+        let inputs = SessionInputs::opened(root, &read.config);
+        snapshot.stamp_environment(&inputs);
+        let runtime = source.runtime_for(root, &read.config);
+        let env = Environment::from_read(root, read, runtime.as_deref());
+        let inputs = inputs.with_check_passes(env.registries.check_passes().next().is_some());
         OpeningProject {
-            env: Arc::new(Environment::load(root, runtime.as_deref())),
+            env: Arc::new(env),
             runtime,
-            owns_runtime: false,
+            source,
+            inputs,
             snapshot,
         }
     }
 
-    /// Compare every update's graph with a cold rebuild (costly: a debug
-    /// build of watch does it always).
+    /// Compare every update's graph with a cold rebuild (costly). A debug
+    /// build verifies every session by default; this turns it on in release
+    /// (watch's `--verify-incremental`) or off.
     pub fn set_verify_incremental(&mut self, enabled: bool) {
         self.verify_incremental = enabled;
-        self.build.set_verify(enabled);
+        self.graph.set_verify(enabled);
     }
 
     /// Apply a change to the project's sources, then run every check.
@@ -238,7 +303,7 @@ impl ProjectSession {
 
     /// [`Self::update`], running the checks `mode` asks for.
     pub fn update_with(&mut self, change: SourceChange<'_>, mode: CheckMode<'_>) -> Update {
-        let changes: Vec<(String, Option<String>)> = match change {
+        let changes: Vec<FileChange> = match change {
             SourceChange::Disk(paths) => {
                 let keys: Vec<String> = paths
                     .iter()
@@ -246,53 +311,65 @@ impl ProjectSession {
                     .cloned()
                     .collect();
                 // Stamped before they are read again (crate::freshness).
-                if self.origin == Origin::Disk {
-                    self.snapshot.stamp_sources(&self.env.spec_root, &keys);
-                }
-                keys.into_iter()
+                self.snapshot.stamp_sources(&self.inputs, &keys);
+                keys.iter()
                     .map(|path| {
-                        let text = std::fs::read_to_string(self.env.spec_root.join(&path)).ok();
-                        (path, text)
+                        self.sources
+                            .change(path, sources::read(&self.env.spec_root, path))
                     })
                     .collect()
             }
             SourceChange::Buffer { path, .. } if self.excludes(path) => Vec::new(),
-            SourceChange::Buffer { path, text } => {
-                vec![(path.to_string(), text.map(str::to_string))]
+            SourceChange::Buffer { path, text } => vec![self.sources.change(
+                path,
+                text.map_or(Read::Gone, |text| Read::Text(text.to_string())),
+            )],
+            SourceChange::Buffers(buffers) => {
+                let held: Vec<&(String, String)> = buffers
+                    .iter()
+                    .filter(|(path, _)| !self.excludes(path))
+                    .collect();
+                held.into_iter()
+                    .map(|(path, text)| self.sources.change(path, Read::Text(text.clone())))
+                    .collect()
             }
         };
-        let result = self.build.rebuild(changes);
+        let applied = self.graph.apply(changes);
         self.recorded = OnceLock::new();
         self.import_diagnostics = self.resolve_imports();
-        self.check_diagnostics = match mode {
-            CheckMode::SyntaxOnlyIfParseErrorsIn(path)
-                if self
-                    .build
-                    .file_diagnostics(path)
-                    .iter()
-                    .any(|d| d.is(codes::E001)) =>
+        let (check_diagnostics, inputs_changed) = match mode {
+            CheckMode::SyntaxOnlyIfParseErrorsIn(paths)
+                if paths.iter().any(|path| {
+                    self.graph
+                        .file_diagnostics(path)
+                        .iter()
+                        .any(|d| d.is(codes::E001))
+                }) =>
             {
-                Vec::new()
+                (Vec::new(), false)
             }
             _ => self.checked(),
         };
+        self.check_diagnostics = check_diagnostics;
         Update {
             kind: UpdateKind::Sources,
-            delta: result.delta,
-            rebuilt_files: result.rebuilt_files,
-            changed_diagnostic_files: result.changed_diagnostic_files,
+            inputs_changed,
+            delta: applied.delta,
+            rebuilt_files: applied.files,
+            changed_diagnostic_files: applied.changed_diagnostic_files,
             diagnostics: self.diagnostics(),
-            verification: result.verification,
+            verification: applied.verification,
         }
     }
 
     /// `specforge.json` or an extension changed: load the environment again
     /// and rebuild from the sources on disk.
     pub fn reload_environment(&mut self) -> Update {
-        if self.origin != Origin::Disk {
+        if self.inputs.root().is_none() {
             // Nothing on disk to load again.
             return Update {
                 kind: UpdateKind::Environment,
+                inputs_changed: false,
                 delta: GraphDelta::default(),
                 rebuilt_files: Vec::new(),
                 changed_diagnostic_files: Vec::new(),
@@ -301,13 +378,7 @@ impl ProjectSession {
             };
         }
         let root = self.env.root.clone();
-        let runtime = if self.owns_runtime {
-            Some(project_runtime(&root))
-        } else {
-            self.runtime.clone()
-        };
-        let mut next = Self::open_with_runtime(&root, runtime);
-        next.owns_runtime = self.owns_runtime;
+        let mut next = Self::open_from(&root, self.source.clone());
         next.set_verify_incremental(self.verify_incremental);
         let previous = std::mem::replace(self, next);
         self.replaced(&previous)
@@ -318,14 +389,14 @@ impl ProjectSession {
     pub fn replaced(&self, previous: &ProjectSession) -> Update {
         Update {
             kind: UpdateKind::Environment,
+            inputs_changed: previous.inputs != self.inputs,
             delta: compute_graph_delta(previous.graph(), self.graph()),
             rebuilt_files: self
-                .build
-                .parsed_files()
-                .into_iter()
+                .graph
+                .files()
                 .map(|(path, _)| path.to_string())
                 .collect(),
-            changed_diagnostic_files: self.build.diagnostic_files(),
+            changed_diagnostic_files: self.graph.diagnostic_files(),
             diagnostics: self.diagnostics(),
             verification: None,
         }
@@ -339,14 +410,14 @@ impl ProjectSession {
             .diagnostics()
             .chain(&self.import_diagnostics)
             .cloned()
-            .chain(self.build.diagnostics())
+            .chain(self.graph.diagnostics().iter().cloned())
             .chain(self.check_diagnostics.iter().cloned())
             .chain(self.env.surface_diagnostics().iter().cloned())
             .collect()
     }
 
     pub fn graph(&self) -> &Graph {
-        self.build.graph()
+        self.graph.graph()
     }
 
     /// The text the session's current build parsed `path` (relative to the
@@ -355,30 +426,30 @@ impl ProjectSession {
     /// a diagnostic is a position in this text, not in the file on disk or
     /// the buffer now. `None` for a file the session does not hold.
     pub fn source_text(&self, path: &str) -> Option<Arc<str>> {
-        self.build.source_text(path).cloned()
+        self.sources.text(path).cloned()
     }
 
     /// [`Self::source_text`] of every file, shared rather than copied: what
     /// a reader keeps while the session is out for an update.
     pub fn source_texts(&self) -> HashMap<String, Arc<str>> {
-        self.build.source_texts()
+        self.sources.texts()
     }
 
-    /// Where the project comes from: disk, or nowhere.
-    pub fn origin(&self) -> Origin {
-        self.origin
+    /// What the session depends on now (ADR 0030): what a changed path is,
+    /// which directories to watch, which files to report.
+    pub fn inputs(&self) -> &SessionInputs {
+        &self.inputs
     }
 
-    /// The project root: `None` with no project ([`Origin::None`]).
+    /// The project root: `None` with no project (detached).
     pub fn root(&self) -> Option<&Path> {
-        let root = self.env.root.as_path();
-        (self.origin != Origin::None && !root.as_os_str().is_empty()).then_some(root)
+        self.inputs.root()
     }
 
     /// Where `.spec` files are keyed from: `None` unless the project was
     /// opened from disk.
     pub fn spec_root(&self) -> Option<&Path> {
-        (self.origin == Origin::Disk).then_some(self.env.spec_root.as_path())
+        self.inputs.spec_root()
     }
 
     /// A `.spec` path's key in this session: relative to the spec root
@@ -387,88 +458,20 @@ impl ProjectSession {
         self.env.source_key(path)
     }
 
-    /// What `path` (absolute, or relative to the working directory) is to
-    /// this session (behavior `classify_project_changes`). With no project,
-    /// a `.spec` file is a buffer source keyed by its path.
-    pub fn classify(&self, path: &Path) -> InputRole {
-        match self.origin {
-            Origin::None => {
-                if path.extension().is_some_and(|ext| ext == "spec") {
-                    InputRole::Source(self.source_key(path))
-                } else {
-                    InputRole::Unrelated
-                }
-            }
-            Origin::Disk => self.classify_on_disk(&self.classifier(), path),
-        }
-    }
-
-    /// What a batch of changed paths means to this session.
-    pub fn changes<'p>(&self, paths: impl IntoIterator<Item = &'p Path>) -> Changes {
-        Changes::from_roles(self.classify_all(paths))
-    }
-
-    /// Each of `paths` [classified](Self::classify), in order, the inputs
-    /// compared against computed once.
-    pub fn classify_all<'p>(&self, paths: impl IntoIterator<Item = &'p Path>) -> Vec<InputRole> {
-        match self.origin {
-            Origin::Disk => {
-                let classifier = self.classifier();
-                paths
-                    .into_iter()
-                    .map(|path| self.classify_on_disk(&classifier, path))
-                    .collect()
-            }
-            _ => paths.into_iter().map(|path| self.classify(path)).collect(),
-        }
-    }
-
     /// Apply `changes`: the environment first (a reload rebuilds
     /// everything), else the sources (an update re-runs every check), else
     /// the checks alone. `None` when there is nothing to apply: `changes` is
     /// empty.
     pub fn apply(&mut self, changes: &Changes) -> Option<Update> {
-        if changes.environment && self.origin == Origin::Disk {
+        if changes.environment && self.inputs.root().is_some() {
             Some(self.reload_environment())
         } else if !changes.sources.is_empty() {
             Some(self.update(SourceChange::Disk(&changes.sources)))
-        } else if changes.check_inputs && self.origin == Origin::Disk {
+        } else if changes.check_inputs && self.inputs.root().is_some() {
             Some(self.recheck())
         } else {
             None
         }
-    }
-
-    /// The directories a file watcher must watch to see every change this
-    /// session is built from: the root, the spec root when it is outside
-    /// the root, and the directory of every input outside both (canonical,
-    /// existing, none inside another). Empty unless opened from disk.
-    pub fn watch_roots(&self) -> Vec<PathBuf> {
-        if self.origin != Origin::Disk {
-            return Vec::new();
-        }
-        let inputs = self.env.inputs();
-        let references = self.env.named_files(self.graph(), self.entities());
-        let candidates = [canonical(&self.env.root), canonical(&self.env.spec_root)]
-            .into_iter()
-            .chain(
-                inputs
-                    .modules
-                    .iter()
-                    .chain(&inputs.check_inputs)
-                    .chain(&references)
-                    .filter_map(|path| path.parent().map(canonical)),
-            )
-            .filter(|dir| dir.is_dir());
-        let mut roots: Vec<PathBuf> = Vec::new();
-        for dir in candidates {
-            if roots.iter().any(|root| dir.starts_with(root)) {
-                continue;
-            }
-            roots.retain(|root| !root.starts_with(&dir));
-            roots.push(dir);
-        }
-        roots
     }
 
     /// What changed on disk since the session last built (behavior
@@ -476,11 +479,7 @@ impl ProjectSession {
     /// those it read, and every environment and check input against what
     /// it read. A session that was not opened from disk reports nothing.
     pub fn stale(&self) -> Changes {
-        if self.origin != Origin::Disk {
-            return Changes::default();
-        }
-        let discovered = discover_spec_files(&self.env.spec_root, &self.env.config.exclude);
-        self.snapshot.changes(&self.env.spec_root, &discovered)
+        self.snapshot.changes(&self.inputs)
     }
 
     /// Bring the session up to date with disk, without a watcher: apply
@@ -500,7 +499,7 @@ impl ProjectSession {
     /// against it, memoized until the next update or reload.
     pub fn recorded(&self) -> &RecordedCoverage {
         self.recorded
-            .get_or_init(|| RecordedCoverage::over(self.build.graph(), &self.env))
+            .get_or_init(|| RecordedCoverage::over(self.graph.graph(), &self.env))
     }
 
     /// The current graph's entity snapshot (ADR 0019): the one its last
@@ -524,83 +523,39 @@ impl ProjectSession {
     /// The graph build's diagnostics: duplicates, unresolved references,
     /// reference cycles, parse errors (no import's, no check's).
     pub fn graph_diagnostics(&self) -> Vec<Diagnostic> {
-        self.build.diagnostics()
+        self.graph.diagnostics().to_vec()
     }
 
     /// The graph build's diagnostics in one file (relative to the spec root).
     pub fn file_diagnostics(&self, path: &str) -> &[Diagnostic] {
-        self.build.file_diagnostics(path)
+        self.graph.file_diagnostics(path)
     }
 
     /// Every file with graph-build diagnostics (sorted).
     pub fn diagnostic_files(&self) -> Vec<String> {
-        self.build.diagnostic_files()
+        self.graph.diagnostic_files()
     }
 
     /// How many `.spec` files the project has.
     pub fn file_count(&self) -> usize {
-        self.build.parsed_files().len()
+        self.graph.files().len()
     }
 
     /// Whether a changed file is outside the project. A session with no
     /// project takes every buffer: it has no spec root to discover files
     /// under.
     fn excludes(&self, path: &str) -> bool {
-        self.origin == Origin::Disk && self.env.excludes(path)
-    }
-
-    /// What paths are compared against to classify them, for a project
-    /// on disk: computed once per batch.
-    fn classifier(&self) -> Classifier {
-        let inputs = self.env.inputs();
-        let references = self.env.named_files(self.graph(), self.entities());
-        Classifier {
-            spec_root: canonical(&self.env.spec_root),
-            environment: inputs.environment_paths().map(canonical).collect(),
-            checks: inputs
-                .check_inputs
-                .iter()
-                .chain(&references)
-                .map(|path| canonical(path))
-                .collect(),
-            // A missing referenced file's suggestion names a similar file
-            // in its directory: a file created or deleted there changes it.
-            suggestion_dirs: references
-                .iter()
-                .filter(|path| !path.exists())
-                .filter_map(|path| path.parent().map(canonical))
-                .collect(),
-        }
-    }
-
-    /// [`Self::classify`] for a project on disk, against `classifier`.
-    fn classify_on_disk(&self, classifier: &Classifier, path: &Path) -> InputRole {
-        let path = canonical(path);
-        if classifier.environment.contains(&path) {
-            return InputRole::Environment;
-        }
-        if let Ok(relative) = path.strip_prefix(&classifier.spec_root) {
-            let key = relative.to_string_lossy().into_owned();
-            if !self.env.excludes(&key) {
-                return InputRole::Source(key);
-            }
-        }
-        if classifier.checks.contains(&path)
-            || path
-                .parent()
-                .is_some_and(|dir| classifier.suggestion_dirs.contains(dir))
-        {
-            return InputRole::CheckInput;
-        }
-        InputRole::Unrelated
+        self.inputs.excludes(path)
     }
 
     /// Run every check again on the current graph: a check input changed.
     fn recheck(&mut self) -> Update {
         self.recorded = OnceLock::new();
-        self.check_diagnostics = self.checked();
+        let (check_diagnostics, inputs_changed) = self.checked();
+        self.check_diagnostics = check_diagnostics;
         Update {
             kind: UpdateKind::Checks,
+            inputs_changed,
             delta: GraphDelta::default(),
             rebuilt_files: Vec::new(),
             changed_diagnostic_files: Vec::new(),
@@ -610,21 +565,15 @@ impl ProjectSession {
     }
 
     fn resolve_imports(&self) -> Vec<Diagnostic> {
-        if self.origin != Origin::Disk {
+        if self.inputs.root().is_none() {
             return Vec::new();
         }
-        resolve_parsed(
-            &self.env.spec_root,
-            &self.build.parsed_files(),
-            &self.env.resolve_config(),
-            &|path: &Path| path.is_file(),
-        )
-        .diagnostics
+        self.env.import_diagnostics(&self.sources, &self.graph)
     }
 
     /// A snapshot of the current graph, taken now (ADR 0019).
     fn snapshot_now(&self) -> Arc<EntitySnapshot> {
-        Arc::new(self.env.entity_snapshot(self.build.graph()))
+        Arc::new(self.env.entity_snapshot(self.graph.graph()))
     }
 
     /// Run every check on the current graph over `entities`, its snapshot:
@@ -632,33 +581,25 @@ impl ProjectSession {
     fn check_over(&mut self, entities: Arc<EntitySnapshot>) -> Vec<Diagnostic> {
         let diagnostics =
             self.env
-                .run_checks(self.build.graph(), &entities, self.runtime.as_deref());
+                .run_checks(self.graph.graph(), &entities, self.runtime.as_deref());
         self.recorded = OnceLock::from(RecordedCoverage::of(entities));
         diagnostics
     }
 
     /// Every check on the current graph, over a snapshot of it taken now,
     /// the check inputs (which the snapshot's `file_exists` rules add to)
-    /// stamped first.
-    fn checked(&mut self) -> Vec<Diagnostic> {
+    /// stamped first; also whether the session's inputs changed.
+    fn checked(&mut self) -> (Vec<Diagnostic>, bool) {
         let entities = self.snapshot_now();
-        if self.origin == Origin::Disk {
-            let inputs = self.env.check_inputs(self.build.graph(), &entities);
-            self.snapshot.stamp_checks(inputs);
+        let mut changed = false;
+        if self.inputs.root().is_some() {
+            let next = self
+                .inputs
+                .with_named(self.env.registries.files(&entities.rule_input()));
+            changed = next != self.inputs;
+            self.inputs = next;
+            self.snapshot.stamp_checks(&self.inputs);
         }
-        self.check_over(entities)
+        (self.check_over(entities), changed)
     }
-}
-
-/// What changed paths are compared against: canonical paths of the
-/// session's inputs (see [`ProjectSession::classify`]).
-struct Classifier {
-    spec_root: PathBuf,
-    environment: std::collections::BTreeSet<PathBuf>,
-    checks: std::collections::BTreeSet<PathBuf>,
-    suggestion_dirs: std::collections::BTreeSet<PathBuf>,
-}
-
-fn project_runtime(root: &Path) -> SharedRuntime {
-    Arc::new(specforge_component::project_runtime(root))
 }

@@ -635,3 +635,275 @@ async fn e2e_registered_watchers_cover_the_environment_inputs() {
     // A .wasm no extension loads is not watched.
     assert!(!globs.iter().any(|g| g == "**/*.wasm"), "{globs:?}");
 }
+
+/// The globs of the two watcher registrations a server makes once the
+/// project is open: the static watchers, then the ones it is built from.
+async fn registrations_after_open(client: &mut Session) -> Vec<String> {
+    let mut globs = Vec::new();
+    for _ in 0..2 {
+        let registration = client
+            .wait_for_notification("client/registerCapability", 10_000)
+            .await
+            .expect("a watcher registration");
+        globs = registered_globs(&registration);
+    }
+    globs
+}
+
+/// A gadget of the docref project naming `../docs/guide.md` (from `spec/`:
+/// `docs/guide.md` under the root), which does not exist.
+const NAMES_GUIDE: &str = "gadget gadget_one \"G\" {\n  docs [\"../docs/guide.md\"]\n}\n";
+
+#[spec(
+    behavior = "classify_project_changes",
+    verify = "the LSP's watchers follow an edit that names a new file the checks read"
+)]
+#[tokio::test]
+async fn e2e_watchers_follow_an_edit_that_names_a_file() {
+    let dir = crate::session::docref_project("gadget gadget_one \"G\" {\n}\n");
+    let root = dir.path().to_str().unwrap();
+    let mut client = Session::launch(Some(root), json!({})).await.0;
+    let globs = registrations_after_open(&mut client).await;
+    assert!(
+        !globs.iter().any(|g| g.ends_with("docs/guide.md")),
+        "{globs:?}"
+    );
+
+    let a = dir.path().join("spec/a.spec");
+    let uri = uri_of(&a);
+    client
+        .did_open(&uri, "specforge", "gadget gadget_one \"G\" {\n}\n")
+        .await;
+    client
+        .did_change(&uri, 2, vec![json!({"text": NAMES_GUIDE})])
+        .await;
+
+    // The edit names a file the checks read: the watchers are asked for
+    // again, and now cover it.
+    let third = client
+        .notification_within(
+            "client/registerCapability",
+            std::time::Duration::from_secs(5),
+            |_| true,
+        )
+        .await
+        .expect("the watchers did not follow the edit");
+    let globs = registered_globs(&json!({"params": third}));
+    assert!(
+        globs.contains(&format!("{root}/docs/guide.md")),
+        "{globs:?}"
+    );
+
+    // The file appears; the client reports it, and E016 goes.
+    std::fs::write(dir.path().join("docs/guide.md"), "# guide\n").unwrap();
+    client
+        .notify(
+            "workspace/didChangeWatchedFiles",
+            json!({"changes": [{"uri": uri_of(&dir.path().join("docs/guide.md")), "type": 1}]}),
+        )
+        .await;
+    // Anything published before the file was reported is dropped (the first
+    // wait clears what was kept), so only what follows it counts.
+    let mut cleared = false;
+    while let Some(message) = client
+        .wait_for_notification("textDocument/publishDiagnostics", 10_000)
+        .await
+    {
+        let params = &message["params"];
+        if params["uri"] == uri.as_str()
+            && !codes(params["diagnostics"].as_array().unwrap()).contains(&"E016")
+        {
+            cleared = true;
+            break;
+        }
+    }
+    assert!(cleared, "E016 stayed after the file appeared");
+}
+
+#[spec(
+    behavior = "classify_project_changes",
+    verify = "the LSP watches a missing referenced file and its directory, spelled under the project root"
+)]
+#[tokio::test]
+async fn e2e_a_referenced_file_is_watched_under_its_root() {
+    let dir = crate::session::docref_project(NAMES_GUIDE);
+    let root = dir.path().to_str().unwrap();
+    let mut client = Session::launch(Some(root), json!({})).await.0;
+    let globs = registrations_after_open(&mut client).await;
+    assert!(
+        globs.contains(&format!("{root}/docs/guide.md")),
+        "{globs:?}"
+    );
+    assert!(!globs.iter().any(|g| g.contains("/../")), "{globs:?}");
+}
+
+#[spec(
+    behavior = "classify_project_changes",
+    verify = "the LSP watches a missing referenced file and its directory, spelled under the project root"
+)]
+#[tokio::test]
+async fn e2e_a_missing_files_directory_is_watched() {
+    let dir = crate::session::docref_project(NAMES_GUIDE);
+    let root = dir.path().to_str().unwrap();
+    let mut client = Session::launch(Some(root), json!({})).await.0;
+    let globs = registrations_after_open(&mut client).await;
+    assert!(globs.contains(&format!("{root}/docs/*")), "{globs:?}");
+}
+
+/// An edit that names a file moves the client's watchers, and the session
+/// catches up on what changed on disk while they moved (ADR 0035). The file
+/// is written after the edit, before the client answers the
+/// re-registration, so no event can report it: only the catch-up can.
+#[spec(
+    behavior = "bring_session_up_to_date",
+    verify = "after the LSP's watchers move, the session catches up on what changed while they did"
+)]
+#[tokio::test]
+async fn e2e_an_edit_naming_a_file_registers_it_and_catches_up() {
+    let dir = crate::session::docref_project("gadget gadget_one \"G\" {\n}\n");
+    let root = dir.path().to_str().unwrap();
+    let mut client = Session::launch(Some(root), json!({})).await.0;
+    registrations_after_open(&mut client).await;
+
+    let a = dir.path().join("spec/a.spec");
+    let uri = uri_of(&a);
+    client
+        .did_open(&uri, "specforge", "gadget gadget_one \"G\" {\n}\n")
+        .await;
+    client
+        .did_change(&uri, 2, vec![json!({"text": NAMES_GUIDE})])
+        .await;
+    // E016 is published; the client has not been read since, so the
+    // server's request to move the watchers is not answered yet.
+    loop {
+        let diagnostics = client.diagnostics(&uri).await;
+        if codes(&diagnostics).contains(&"E016") {
+            break;
+        }
+    }
+    std::fs::write(dir.path().join("docs/guide.md"), "# guide\n").unwrap();
+
+    // The client answers the re-registration as it reads it.
+    let registered = client
+        .notification_within(
+            "client/registerCapability",
+            std::time::Duration::from_secs(5),
+            |_| true,
+        )
+        .await
+        .expect("the watchers did not follow the edit");
+    let globs = registered_globs(&json!({"params": registered}));
+    assert!(
+        globs.contains(&format!("{root}/docs/guide.md")),
+        "{globs:?}"
+    );
+    // No `didChangeWatchedFiles` is sent: only the catch-up after the
+    // watchers moved can clear E016.
+    let cleared = client
+        .notification_within(
+            "textDocument/publishDiagnostics",
+            std::time::Duration::from_secs(10),
+            |p| {
+                p["uri"] == uri.as_str()
+                    && !codes(p["diagnostics"].as_array().unwrap()).contains(&"E016")
+            },
+        )
+        .await;
+    assert!(cleared.is_some(), "E016 stayed after the watchers moved");
+}
+
+#[spec(
+    behavior = "classify_project_changes",
+    verify = "the LSP's watchers follow an edit that names a new file the checks read"
+)]
+#[tokio::test]
+async fn e2e_a_disk_change_naming_a_file_registers_it() {
+    let dir = crate::session::docref_project("gadget gadget_one \"G\" {\n}\n");
+    let root = dir.path().to_str().unwrap();
+    let mut client = Session::launch(Some(root), json!({})).await.0;
+    registrations_after_open(&mut client).await;
+
+    let a = dir.path().join("spec/a.spec");
+    std::fs::write(&a, NAMES_GUIDE).unwrap();
+    client
+        .notify(
+            "workspace/didChangeWatchedFiles",
+            json!({"changes": [{"uri": uri_of(&a), "type": 2}]}),
+        )
+        .await;
+
+    let registered = client
+        .notification_within(
+            "client/registerCapability",
+            std::time::Duration::from_secs(5),
+            |_| true,
+        )
+        .await
+        .expect("the watchers did not follow the change on disk");
+    let globs = registered_globs(&json!({"params": registered}));
+    assert!(
+        globs.contains(&format!("{root}/docs/guide.md")),
+        "{globs:?}"
+    );
+}
+
+/// The catch-up after the watchers move reads what changed on disk, but an
+/// open document's buffer is the truth for its file: its file, rewritten
+/// meanwhile, does not replace it.
+#[spec(
+    behavior = "bring_session_up_to_date",
+    verify = "the LSP's catch-up keeps an open buffer"
+)]
+#[tokio::test]
+async fn e2e_a_catch_up_keeps_an_open_buffer() {
+    let dir = crate::session::docref_project("gadget gadget_one \"G\" {\n}\n");
+    let root = dir.path().to_str().unwrap();
+    let mut client = Session::launch(Some(root), json!({})).await.0;
+    registrations_after_open(&mut client).await;
+
+    let a = dir.path().join("spec/a.spec");
+    let uri = uri_of(&a);
+    // The buffer names the guide and declares an entity only it holds.
+    let buffer = format!("{NAMES_GUIDE}gadget gadget_two \"T\" {{\n}}\n");
+    client
+        .did_open(&uri, "specforge", "gadget gadget_one \"G\" {\n}\n")
+        .await;
+    client
+        .did_change(&uri, 2, vec![json!({"text": buffer})])
+        .await;
+    loop {
+        let diagnostics = client.diagnostics(&uri).await;
+        if codes(&diagnostics).contains(&"E016") {
+            break;
+        }
+    }
+    // While the watchers move: the guide appears and the file of the open
+    // document is rewritten with something else.
+    std::fs::write(dir.path().join("docs/guide.md"), "# guide\n").unwrap();
+    std::fs::write(&a, "gadget gadget_zero \"Z\" {\n}\n").unwrap();
+
+    client
+        .notification_within(
+            "client/registerCapability",
+            std::time::Duration::from_secs(5),
+            |_| true,
+        )
+        .await
+        .expect("the watchers did not follow the edit");
+    client
+        .notification_within(
+            "textDocument/publishDiagnostics",
+            std::time::Duration::from_secs(10),
+            |p| {
+                p["uri"] == uri.as_str()
+                    && !codes(p["diagnostics"].as_array().unwrap()).contains(&"E016")
+            },
+        )
+        .await
+        .expect("E016 stayed after the watchers moved");
+
+    // The buffer is still what is compiled: its second entity answers.
+    let hover = client.hover(&uri, 3, 10).await;
+    let value = hover["result"]["contents"]["value"].as_str().unwrap_or("");
+    assert!(value.contains("gadget_two"), "{hover}");
+}

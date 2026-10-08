@@ -1,6 +1,6 @@
 use specforge_common::{SourceSpan, Sym};
-use specforge_graph::{Edge, Graph, Node};
-use specforge_parser::{EntityId, EntityKind, FieldMap};
+use specforge_graph::{Edge, FileChange, Graph, GraphBuild, GraphConfig, Node, SpecFile};
+use specforge_parser::{EntityId, EntityKind, FieldMap, parse};
 use specforge_test_macros::test as specforge_test;
 
 fn make_node(id: &str, kind: &str) -> Node {
@@ -49,38 +49,116 @@ fn graph_edges_connect_existing_nodes() {
 }
 
 // --- maintain_mutable_graph ---
+// The graph changes one whole file at a time: `GraphBuild::apply` strips the
+// changed files' entities and links every edge again, which is what the
+// incremental update runs. Each step is checked against a cold build of the
+// same files.
+
+/// One behavior declaration in a file of its own.
+fn behavior_in(file: &str, id: &str) -> SpecFile {
+    parse(
+        &format!("behavior {id} \"{id}\" {{\n  contract \"c\"\n}}\n"),
+        file,
+    )
+}
+
+/// A feature in `file` listing `behaviors`.
+fn feature_in(file: &str, id: &str, behaviors: &[&str]) -> SpecFile {
+    parse(
+        &format!(
+            "feature {id} \"{id}\" {{\n  behaviors [{}]\n}}\n",
+            behaviors.join(", ")
+        ),
+        file,
+    )
+}
+
+fn verified(files: Vec<SpecFile>) -> GraphBuild {
+    let mut build = GraphBuild::of(files, GraphConfig::default());
+    build.set_verify(true);
+    build
+}
+
+fn edge_triples(graph: &Graph) -> Vec<(String, String, String)> {
+    let mut edges: Vec<_> = graph
+        .edges()
+        .iter()
+        .map(|e| {
+            (
+                e.source.to_string(),
+                e.target.to_string(),
+                e.label.to_string(),
+            )
+        })
+        .collect();
+    edges.sort();
+    edges
+}
 
 #[specforge_test(
     behavior = "maintain_mutable_graph",
     verify = "add and remove nodes from graph"
 )]
-fn remove_node_from_graph() {
-    let mut graph = Graph::new();
-    graph.add_node(make_node("alpha", "behavior"));
-    graph.add_node(make_node("beta", "behavior"));
+fn removing_a_file_removes_its_entities() {
+    let mut build = verified(vec![
+        behavior_in("a.spec", "alpha"),
+        behavior_in("b.spec", "beta"),
+    ]);
 
-    graph.remove_node("alpha");
+    let applied = build.apply([FileChange::Removed("a.spec".into())]);
 
-    assert_eq!(graph.nodes().len(), 1);
-    assert!(graph.node("alpha").is_none());
-    assert!(graph.node("beta").is_some());
+    assert_eq!(applied.verification, Some(Ok(())));
+    assert_eq!(build.graph().nodes().len(), 1);
+    assert!(build.graph().node("alpha").is_none());
+    assert!(build.graph().node("beta").is_some());
 }
 
 #[specforge_test(
     behavior = "maintain_mutable_graph",
     verify = "removing a node removes its edges"
 )]
-fn removing_node_removes_its_edges() {
-    let mut graph = Graph::new();
-    graph.add_node(make_node("feat", "feature"));
-    graph.add_node(make_node("beh", "behavior"));
-    graph.add_edge(make_edge("feat", "beh", "behaviors"));
+fn removing_a_file_removes_the_edges_of_its_entities() {
+    let mut build = verified(vec![
+        feature_in("feat.spec", "feat", &["beh"]),
+        behavior_in("beh.spec", "beh"),
+    ]);
+    assert_eq!(build.graph().edges().len(), 1);
 
-    graph.remove_node("beh");
+    let applied = build.apply([FileChange::Removed("beh.spec".into())]);
 
+    assert_eq!(applied.verification, Some(Ok(())));
     assert!(
-        graph.edges().is_empty(),
+        build.graph().edges().is_empty(),
         "edges to removed node should be gone"
+    );
+}
+
+#[specforge_test(
+    behavior = "maintain_mutable_graph",
+    verify = "removing a node removes its edges"
+)]
+fn edges_to_updated_after_node_removal() {
+    let mut build = verified(vec![
+        behavior_in("a.spec", "a"),
+        behavior_in("b.spec", "b"),
+        feature_in("c.spec", "c", &["a", "b"]),
+    ]);
+    assert_eq!(build.graph().edges_to("a").len(), 1);
+    assert_eq!(build.graph().edges_to("b").len(), 1);
+
+    let applied = build.apply([FileChange::Removed("a.spec".into())]);
+
+    assert_eq!(applied.verification, Some(Ok(())));
+    let graph = build.graph();
+    assert!(
+        graph.edges_to("a").is_empty(),
+        "removed node should have no incoming edges"
+    );
+    assert_eq!(graph.edges_to("b").len(), 1, "b still has incoming edge");
+    assert_eq!(
+        graph.edges_from("c").len(),
+        1,
+        "c should have one edge left"
     );
 }
 
@@ -89,19 +167,34 @@ fn removing_node_removes_its_edges() {
     verify = "graph consistency after batch mutations"
 )]
 fn graph_consistency_after_batch_mutations() {
-    let mut graph = Graph::new();
-    graph.add_node(make_node("a", "behavior"));
-    graph.add_node(make_node("b", "behavior"));
-    graph.add_node(make_node("c", "feature"));
-    graph.add_edge(make_edge("c", "a", "behaviors"));
-    graph.add_edge(make_edge("c", "b", "behaviors"));
+    let mut build = verified(vec![
+        behavior_in("a.spec", "a"),
+        behavior_in("b.spec", "b"),
+        feature_in("c.spec", "c", &["a", "b", "d"]),
+    ]);
 
-    // Remove a, should remove edge c->a but keep c->b
-    graph.remove_node("a");
+    // Remove a (its edge goes, c's dangling d stays unresolved), add d (its
+    // edge appears), remove b.
+    let first = build.apply([FileChange::Removed("a.spec".into())]);
+    let second = build.apply([FileChange::Parsed(behavior_in("d.spec", "d"))]);
+    let third = build.apply([FileChange::Removed("b.spec".into())]);
 
-    assert_eq!(graph.nodes().len(), 2);
-    assert_eq!(graph.edges().len(), 1);
-    assert_eq!(graph.edges()[0].target, "b");
+    for applied in [&first, &second, &third] {
+        assert_eq!(applied.verification, Some(Ok(())));
+    }
+    let graph = build.graph();
+    let ids: Vec<&str> = graph.nodes().iter().map(|n| n.id.raw.as_str()).collect();
+    assert_eq!(ids, ["c", "d"]);
+    assert_eq!(
+        edge_triples(graph),
+        [("c".to_string(), "d".to_string(), "behaviors".to_string())]
+    );
+    for edge in graph.edges() {
+        assert!(graph.node(edge.source.as_str()).is_some(), "{edge:?}");
+        assert!(graph.node(edge.target.as_str()).is_some(), "{edge:?}");
+    }
+    assert_eq!(graph.edges_from("c").len(), 1);
+    assert_eq!(graph.edges_to("d").len(), 1);
 }
 
 // --- subgraph ---
@@ -623,11 +716,24 @@ fn setup_project(files: &[(&str, &str)]) -> tempfile::TempDir {
     dir
 }
 
-/// The project at `dir`, resolved and built into a graph.
+/// The `.spec` files under `dir`, read and parsed as a compile reads them.
+fn parse_dir(dir: &std::path::Path) -> Vec<specforge_graph::SpecFile> {
+    specforge_common::discover_spec_files(dir, &[])
+        .into_iter()
+        .map(|path| {
+            let key = path
+                .strip_prefix(dir)
+                .unwrap()
+                .to_string_lossy()
+                .into_owned();
+            specforge_parser::parse(&std::fs::read_to_string(&path).unwrap(), &key)
+        })
+        .collect()
+}
+
+/// The project at `dir`, read and built into a graph.
 fn resolve_and_build(dir: &std::path::Path) -> (Graph, Vec<specforge_common::Diagnostic>) {
-    let resolved = specforge_resolver::resolve_project(dir);
-    let spec_files: Vec<_> = resolved.files.iter().map(|f| f.spec_file.clone()).collect();
-    specforge_graph::build_graph(&spec_files)
+    specforge_graph::build_graph(&parse_dir(dir))
 }
 
 // The E003 span covers the unresolved identifier token itself, not the
@@ -762,7 +868,6 @@ fn same_id_different_kind_across_files_warns_w060() {
 )]
 fn end_to_end_resolve_and_build() {
     use specforge_graph::build_graph;
-    use specforge_resolver::resolve_project;
 
     let dir = setup_project(&[
         ("types.spec", r#"behavior alpha "A" { contract "first" }"#),
@@ -772,23 +877,7 @@ fn end_to_end_resolve_and_build() {
         ),
     ]);
 
-    let resolved = resolve_project(dir.path());
-    assert!(
-        resolved
-            .diagnostics
-            .iter()
-            .all(|d| d.severity != specforge_graph::Severity::Error),
-        "resolve errors: {:?}",
-        resolved.diagnostics
-    );
-
-    let spec_files: Vec<_> = resolved
-        .files
-        .iter()
-        .map(|f| &f.spec_file)
-        .cloned()
-        .collect();
-    let (graph, diagnostics) = build_graph(&spec_files);
+    let (graph, diagnostics) = build_graph(&parse_dir(dir.path()));
 
     assert!(
         diagnostics
@@ -808,7 +897,6 @@ fn end_to_end_resolve_and_build() {
 )]
 fn end_to_end_with_errors() {
     use specforge_graph::build_graph;
-    use specforge_resolver::resolve_project;
 
     let dir = setup_project(&[(
         "main.spec",
@@ -818,14 +906,7 @@ feature gamma "G" { behaviors [alpha, nonexistent] }
 "#,
     )]);
 
-    let resolved = resolve_project(dir.path());
-    let spec_files: Vec<_> = resolved
-        .files
-        .iter()
-        .map(|f| &f.spec_file)
-        .cloned()
-        .collect();
-    let (graph, diagnostics) = build_graph(&spec_files);
+    let (graph, diagnostics) = build_graph(&parse_dir(dir.path()));
 
     assert_eq!(graph.node_count(), 2);
     assert_eq!(graph.edge_count(), 1, "only valid ref becomes edge");
@@ -860,51 +941,6 @@ fn edges_from_returns_correct_edges_after_multiple_adds() {
 
     let from_a = graph.edges_from("a");
     assert!(from_a.is_empty(), "a has no outgoing edges");
-}
-
-#[specforge_test(
-    behavior = "maintain_mutable_graph",
-    verify = "removing a node removes its edges"
-)]
-fn edges_to_updated_after_node_removal() {
-    let mut graph = Graph::new();
-    graph.add_node(make_node("a", "behavior"));
-    graph.add_node(make_node("b", "behavior"));
-    graph.add_node(make_node("c", "feature"));
-    graph.add_edge(make_edge("c", "a", "behaviors"));
-    graph.add_edge(make_edge("c", "b", "behaviors"));
-
-    assert_eq!(graph.edges_to("a").len(), 1);
-    assert_eq!(graph.edges_to("b").len(), 1);
-
-    graph.remove_node("a");
-
-    assert!(
-        graph.edges_to("a").is_empty(),
-        "removed node should have no incoming edges"
-    );
-    assert_eq!(graph.edges_to("b").len(), 1, "b still has incoming edge");
-    assert_eq!(
-        graph.edges_from("c").len(),
-        1,
-        "c should have one edge left"
-    );
-}
-
-#[specforge_test(
-    behavior = "maintain_mutable_graph",
-    verify = "graph consistency after batch mutations"
-)]
-fn clear_edges_resets_index() {
-    let mut graph = Graph::new();
-    graph.add_node(make_node("a", "behavior"));
-    graph.add_node(make_node("b", "feature"));
-    graph.add_edge(make_edge("b", "a", "behaviors"));
-
-    assert_eq!(graph.edges_from("b").len(), 1);
-    graph.clear_edges();
-    assert!(graph.edges_from("b").is_empty());
-    assert!(graph.edges_to("a").is_empty());
 }
 
 // === cycle detection ===
@@ -999,25 +1035,6 @@ fn detect_cycles_finds_self_loop() {
 
     let cycles = graph.detect_cycles();
     assert!(!cycles.is_empty(), "self-loop should be detected as cycle");
-}
-
-#[specforge_test(
-    behavior = "build_in_memory_graph",
-    verify = "has_cycles returns boolean"
-)]
-fn has_cycles_boolean_check() {
-    let mut graph = Graph::new();
-    graph.add_node(make_node("a", "behavior"));
-    graph.add_node(make_node("b", "behavior"));
-    graph.add_edge(make_edge("a", "b", "depends_on"));
-
-    assert!(!graph.has_cycles(), "DAG should not have cycles");
-
-    graph.add_edge(make_edge("b", "a", "depends_on"));
-    assert!(
-        graph.has_cycles(),
-        "should detect cycle after adding back-edge"
-    );
 }
 
 // === cycle detection in build_graph ===
@@ -1437,6 +1454,10 @@ fn e002_duplicate_entity_has_suggestion() {
     let e002s: Vec<_> = diagnostics.iter().filter(|d| d.code == "E002").collect();
     assert_eq!(e002s.len(), 1, "duplicate ID should produce E002");
     assert!(
+        e002s[0].message.contains("alpha"),
+        "E002 message should name the duplicate ID"
+    );
+    assert!(
         e002s[0].suggestion.is_some(),
         "E002 should carry an actionable suggestion, got None"
     );
@@ -1509,95 +1530,43 @@ fn graph_with_bidirectional_pairs_stores_pairs() {
     );
 }
 
-// --- add_edge_checked: node existence validation ---
+// --- every edge the build adds joins two entities ---
 
 #[specforge_test(
     behavior = "build_in_memory_graph",
     verify = "every edge connects two existing nodes"
 )]
-fn add_edge_checked_rejects_nonexistent_source() {
-    let mut graph = Graph::new();
-    graph.add_node(make_node("alpha", "behavior"));
-    // "ghost" does not exist as a node
-    let diag = graph.add_edge_checked(make_edge("ghost", "alpha", "depends_on"));
-    assert!(
-        diag.is_some(),
-        "add_edge_checked should return a diagnostic when source node doesn't exist"
-    );
-    let d = diag.unwrap();
-    assert_eq!(d.code, "W011");
-    assert!(
-        d.message.contains("ghost"),
-        "diagnostic should mention the missing node ID"
-    );
-    // Edge should NOT be added
-    assert_eq!(
-        graph.edge_count(),
-        0,
-        "edge should not be added when source is missing"
-    );
-}
+fn every_edge_the_build_adds_joins_two_entities() {
+    let (graph, diagnostics) = specforge_graph::build_graph(&[
+        parse(
+            "behavior a \"A\" {\n  contract \"c\"\n}\nfeature f \"F\" {\n  behaviors [a, ghost]\n}\n",
+            "main.spec",
+        ),
+        parse(
+            "feature g \"G\" {\n  behaviors [a, missing]\n}\n",
+            "other.spec",
+        ),
+    ]);
 
-#[specforge_test(
-    behavior = "build_in_memory_graph",
-    verify = "every edge connects two existing nodes"
-)]
-fn add_edge_checked_rejects_nonexistent_target() {
-    let mut graph = Graph::new();
-    graph.add_node(make_node("alpha", "behavior"));
-    let diag = graph.add_edge_checked(make_edge("alpha", "phantom", "depends_on"));
+    // A reference to nothing is E003 and no edge; the others are edges.
+    assert_eq!(graph.edges().len(), 2, "{:?}", graph.edges());
+    for edge in graph.edges() {
+        assert!(graph.node(edge.source.as_str()).is_some(), "{edge:?}");
+        assert!(graph.node(edge.target.as_str()).is_some(), "{edge:?}");
+    }
+    let unresolved: Vec<&str> = diagnostics
+        .iter()
+        .filter(|d| d.code == "E003")
+        .map(|d| d.message.as_str())
+        .collect();
+    assert_eq!(unresolved.len(), 2, "{diagnostics:?}");
     assert!(
-        diag.is_some(),
-        "add_edge_checked should return a diagnostic when target node doesn't exist"
+        unresolved.iter().any(|m| m.contains("ghost")),
+        "{unresolved:?}"
     );
-    let d = diag.unwrap();
-    assert_eq!(d.code, "W011");
     assert!(
-        d.message.contains("phantom"),
-        "diagnostic should mention the missing node ID"
-    );
-    assert_eq!(
-        graph.edge_count(),
-        0,
-        "edge should not be added when target is missing"
-    );
-}
-
-#[specforge_test(
-    behavior = "build_in_memory_graph",
-    verify = "every edge connects two existing nodes"
-)]
-fn add_edge_checked_accepts_valid_edge() {
-    let mut graph = Graph::new();
-    graph.add_node(make_node("alpha", "behavior"));
-    graph.add_node(make_node("beta", "feature"));
-    let diag = graph.add_edge_checked(make_edge("beta", "alpha", "behaviors"));
-    assert!(
-        diag.is_none(),
-        "add_edge_checked should return None when both nodes exist"
-    );
-    assert_eq!(
-        graph.edge_count(),
-        1,
-        "edge should be added when both nodes exist"
-    );
-}
-
-#[specforge_test(
-    behavior = "build_in_memory_graph",
-    verify = "every edge connects two existing nodes"
-)]
-fn add_edge_checked_rejects_both_missing() {
-    let mut graph = Graph::new();
-    let diag = graph.add_edge_checked(make_edge("ghost_a", "ghost_b", "depends_on"));
-    assert!(
-        diag.is_some(),
-        "add_edge_checked should return a diagnostic when both nodes don't exist"
-    );
-    assert_eq!(
-        graph.edge_count(),
-        0,
-        "edge should not be added when both nodes are missing"
+        unresolved.iter().any(|m| m.contains("missing")),
+        "{unresolved:?}"
     );
 }
 
@@ -1684,4 +1653,123 @@ fn reach_from_an_unknown_root_is_none() {
     assert!(graph.reach("nope", Some(1)).is_none());
     assert!(graph.subgraph("nope").is_none());
     assert!(graph.subgraph_depth("nope", 2).is_none());
+}
+
+// === first declaration wins, in path order ===
+
+#[specforge_test(
+    behavior = "detect_duplicate_entity_ids",
+    verify = "duplicate ID across files produces E002"
+)]
+fn a_duplicate_goes_to_the_first_file_in_path_order() {
+    use specforge_graph::build_graph;
+    use specforge_parser::parse;
+
+    let source = "behavior dup \"Dup\" { contract \"x\" }\n";
+    let (graph, diagnostics) = build_graph(&[parse(source, "b.spec"), parse(source, "a.spec")]);
+
+    assert_eq!(
+        graph.node("dup").unwrap().source_span.file.as_str(),
+        "a.spec"
+    );
+    let e002: Vec<_> = diagnostics.iter().filter(|d| d.code == "E002").collect();
+    assert_eq!(e002.len(), 1);
+    assert_eq!(e002[0].span.as_ref().unwrap().file.as_str(), "b.spec");
+}
+
+#[specforge_test(
+    behavior = "detect_duplicate_entity_ids",
+    verify = "duplicate ID in same file produces E002"
+)]
+fn duplicate_id_in_the_same_file_produces_e002() {
+    use specforge_graph::build_graph;
+    use specforge_parser::parse;
+
+    let source = r#"
+behavior alpha "First Alpha" { contract "first" }
+behavior alpha "Second Alpha" { contract "second" }
+"#;
+    let (_, diagnostics) = build_graph(&[parse(source, "main.spec")]);
+
+    let e002: Vec<_> = diagnostics.iter().filter(|d| d.code == "E002").collect();
+    assert_eq!(
+        e002.len(),
+        1,
+        "duplicate ID in same file should produce E002"
+    );
+    assert!(e002[0].message.contains("alpha"));
+}
+
+#[specforge_test(
+    behavior = "detect_duplicate_entity_ids",
+    verify = "E002 includes both source locations"
+)]
+fn e002_includes_both_source_locations() {
+    use specforge_graph::build_graph;
+    use specforge_parser::parse;
+
+    let file_a = parse(
+        "\nbehavior alpha \"Alpha in file A\" { contract \"first\" }\n",
+        "a.spec",
+    );
+    let file_b = parse(
+        "\nbehavior alpha \"Alpha in file B\" { contract \"second\" }\n",
+        "b.spec",
+    );
+    let (_, diagnostics) = build_graph(&[file_a, file_b]);
+
+    let e002: Vec<_> = diagnostics.iter().filter(|d| d.code == "E002").collect();
+    assert_eq!(e002.len(), 1, "should have exactly one E002");
+
+    // The span points at the duplicate (second) declaration; the message
+    // names the first, whose node the graph retains.
+    let diag = &e002[0];
+    let span = diag
+        .span
+        .as_ref()
+        .expect("E002 carries the duplicate's span");
+    assert_eq!(span.file.as_str(), "b.spec");
+    assert_eq!((span.start_line, span.start_col), (2, 1));
+    assert_eq!(
+        diag.message,
+        "duplicate entity ID 'alpha' (first declared at a.spec:2:1)"
+    );
+}
+
+#[specforge_test(
+    behavior = "detect_duplicate_entity_ids",
+    verify = "Detect Duplicate Entity IDs: duplicate entity ID detection holds — all_files_parsed, duplicate_ids_diagnosed"
+)]
+fn duplicate_id_contract_consistency() {
+    use specforge_graph::build_graph;
+    use specforge_parser::parse;
+
+    // Case 1: unique IDs → no E002.
+    let source_unique = r#"
+behavior alpha "A" { contract "first" }
+behavior beta "B" { contract "second" }
+"#;
+    let (_, diagnostics) = build_graph(&[parse(source_unique, "main.spec")]);
+    assert!(
+        diagnostics.iter().all(|d| d.code != "E002"),
+        "unique IDs must not produce E002"
+    );
+
+    // Case 2: duplicate IDs → one E002 with a declaration site.
+    let file_a = parse(
+        "\nbehavior gamma \"Gamma A\" { contract \"first\" }\n",
+        "first.spec",
+    );
+    let file_b = parse(
+        "\nbehavior gamma \"Gamma B\" { contract \"second\" }\n",
+        "second.spec",
+    );
+    let (_, diagnostics) = build_graph(&[file_a, file_b]);
+    let e002: Vec<_> = diagnostics.iter().filter(|d| d.code == "E002").collect();
+    assert_eq!(e002.len(), 1, "duplicate IDs must produce exactly one E002");
+    assert!(e002[0].message.contains("gamma"));
+    assert!(
+        e002[0].span.is_some(),
+        "E002 must include source span identifying a declaration site"
+    );
 }

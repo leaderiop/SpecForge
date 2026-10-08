@@ -342,14 +342,27 @@ impl ExtensionCommands {
 }
 
 /// What the host passes a command beside its args: the format the caller
-/// asked for, the host's date when it was called (UTC, `YYYY-MM-DD`),
-/// computed by the caller so a test can pin it, and what the project's
-/// recorded tests prove ([`evidence`]).
+/// asked for, the host's date when it was called (UTC, `YYYY-MM-DD`; a test
+/// that pins it sets `today`), and what the project's recorded tests prove
+/// ([`evidence`]).
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct CommandContext {
     pub format: CommandFormat,
     pub today: String,
     pub evidence: CommandEvidence,
+}
+
+impl CommandContext {
+    /// The context of a command called now, in `format`: today's date in
+    /// UTC (`YYYY-MM-DD`), the one clock every surface reads, and no
+    /// evidence until the caller sets it.
+    pub fn now(format: CommandFormat) -> Self {
+        Self {
+            format,
+            today: chrono::Utc::now().format("%Y-%m-%d").to_string(),
+            evidence: CommandEvidence::default(),
+        }
+    }
 }
 
 /// What the view's recorded test report proves, as a command's input
@@ -501,7 +514,6 @@ mod tests {
             category: None,
             export: format!("cmd__{id}"),
             args: Vec::new(),
-            sandbox: None,
         }
     }
 
@@ -844,6 +856,17 @@ mod tests {
         );
     }
 
+    #[test]
+    fn now_carries_todays_utc_date() {
+        let context = CommandContext::now(CommandFormat::Json);
+
+        assert_eq!(context.format, CommandFormat::Json);
+        let parsed = chrono::NaiveDate::parse_from_str(&context.today, "%Y-%m-%d")
+            .unwrap_or_else(|e| panic!("{:?} is no %Y-%m-%d date: {e}", context.today));
+        assert_eq!(parsed, chrono::Utc::now().date_naive());
+        assert_eq!(context.evidence, CommandEvidence::default());
+    }
+
     #[specforge_test(
         behavior = "dispatch_surface_command",
         verify = "the CommandInput carries the format the caller asked for and the host's date"
@@ -946,7 +969,6 @@ mod tests {
         verify = "the command runs in the runtime that read the project's declarations, which loaded only the extensions the project enables"
     )]
     fn a_command_runs_in_the_runtime_that_read_the_declarations() {
-        use specforge_wasm::runtime::WasmRuntime as _;
         let dir = tempfile::TempDir::new().unwrap();
         std::fs::write(
             dir.path().join("specforge.json"),
@@ -962,21 +984,22 @@ mod tests {
 
         // What the CLI does: one runtime, the project's environment read
         // through it, then the routed command run in it.
-        let runtime = specforge_component::project_runtime(dir.path());
+        let runtime = specforge_component::ComponentRuntime::with_user_cache();
+        assert!(runtime.loaded_names().is_empty(), "a runtime starts empty");
+        let env = specforge_project::Environment::load(dir.path(), Some(&runtime));
         let loaded = runtime.loaded_names();
         assert_eq!(
             loaded,
             ["@specforge/product"],
             "only what the project enables"
         );
-        let env = specforge_project::Environment::load(dir.path(), Some(&runtime));
+        assert!(env.enabled.iter().all(|e| e.failure.is_none()));
         let commands = ExtensionCommands::build(&env.registries);
         let features = commands
             .all()
             .iter()
             .find(|c| c.id() == "features")
             .expect("product declares `features`");
-        assert!(runtime.load_failure(features.extension()).is_none());
 
         let json = CommandContext {
             format: CommandFormat::Json,
@@ -1014,7 +1037,9 @@ mod tests {
                 .to_string(),
         )
         .unwrap();
-        let runtime = specforge_component::project_runtime(dir.path());
+        let runtime = specforge_component::ComponentRuntime::new();
+        specforge_component::builtins::load_builtins_for(&runtime, &["@specforge/product".into()])
+            .unwrap();
         let unrouted = CommandDescriptor {
             export: "cmd__product_no_such_command".into(),
             ..command("no_such_command")

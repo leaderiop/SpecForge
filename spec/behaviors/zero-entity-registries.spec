@@ -407,13 +407,7 @@ behavior registry_build_fields "Registry Build Registers Fields" {
   features   [dynamic_entity_registration]
   invariants [zero_domain_knowledge_core, registry_population_before_validation]
   category   command
-  types      [
-    ExtensionDeclaration,
-    FieldDescriptor,
-    FieldRegistryEntry,
-    ManifestFieldType,
-    RegistryBuild,
-  ]
+  types      [ExtensionDeclaration, FieldDescriptor, FieldRegistryEntry, FieldType, RegistryBuild]
   requires {
     declarations_in_load_order "The loaded declarations are given in load order, dependencies first"
   }
@@ -429,7 +423,7 @@ behavior registry_build_fields "Registry Build Registers Fields" {
     default value, enum values, description, required, edge, target kind)
     and naming the declaring extension. A field type is one of string,
     integer, bool, enum, string_list, reference, reference_list and block,
-    each also accepted with a `_type` suffix; any other type MUST produce a
+    each also accepted with a `_type` suffix (and bool as boolean); any other type MUST produce a
     W019 warning and the field is not registered. A field's normative flag
     MUST be kept so exports tell what an entity promises from prose without
     core knowing any field's name. A field's proof_role (bound or claim)
@@ -437,6 +431,10 @@ behavior registry_build_fields "Registry Build Registers Fields" {
     field name; any other role value MUST be refused with W021 and the
     field registered without a role. `verify` is not a field type and the
     entity title is not a field: both are grammar.
+    A field's registry entry is built from its descriptor alone and only
+    through that build's one constructor: its type, enum values and proof
+    role are read from the descriptor, and the descriptor it embeds names
+    the type canonically.
   """
   verify unit "every kind's declared fields and its extension's shared fields are registered for that kind"
   verify unit "each field type and its _type alias register as that type"
@@ -445,6 +443,8 @@ behavior registry_build_fields "Registry Build Registers Fields" {
   verify unit "a field's proof_role reaches the field registry"
   verify unit "a proof_role other than bound or claim is refused"
   verify unit "a field's declared descriptor reaches its registry entry whole"
+  verify unit "a registry entry is built only from a descriptor whose type the host reads"
+  verify unit "a registry entry names its type canonically, whatever spelling was declared"
   verify contract "Registry Build Registers Fields: field registration holds — declarations_in_load_order, fields_registered, types_parsed, roles_checked"
 }
 
@@ -499,7 +499,7 @@ behavior registry_build_rules "Registry Build Collects Rules" {
     rules_collected        "Every declared rule that parses is in the build's rules with the extension that declared it, ordered by code"
     duplicates_warned      "A rule code two extensions declare is W023, and both rules are kept"
     required_enforced      "Every field registered as required has a host-generated E006 rule"
-    unloaded_targets_inert "A rule whose target kind or edge type no loaded extension declares reports nothing"
+    unloaded_targets_inert "A rule whose target kind or edge type no loaded extension declares is not registered, so it reports nothing"
     rule_codes_checked     "A rule whose code its extension may not use is reported (W150) and still registered"
   }
   contract   """
@@ -511,9 +511,11 @@ behavior registry_build_rules "Registry Build Collects Rules" {
     produce a W023 warning naming the code and both extensions; both rules
     are kept. A rule's target kind and edge type are resolved against the
     loaded registries: a rule whose target kind or edge type no loaded
-    extension declares reports nothing when rules run, since it belongs to
-    an optional peer that is not installed (an edge rule whose edge type's
-    far-end kind no extension declares is dropped too). An edge type is
+    extension declares is not registered, so it reports nothing when rules
+    run (and the entities written with that keyword are E024), since it
+    belongs to an optional peer that is not installed (an edge rule whose
+    edge type's far-end kind no extension declares is dropped too). A
+    structural kind (spec, ref) is always there. An edge type is
     resolved through the edge registry only, never read as a field name. A
     rule naming a target kind or an edge type that neither its extension,
     its loaded peers nor its target_extension declare is the extension
@@ -534,7 +536,7 @@ behavior registry_build_rules "Registry Build Collects Rules" {
   verify unit "every declared rule is in the build's rules with the extension that declared it"
   verify unit "the extensions' rules are ordered by code"
   verify unit "a rule code two extensions declare is W023 and both rules are kept"
-  verify unit "the build keeps a rule whose target kind no loaded extension declares, and drops one whose edge type no loaded extension declares"
+  verify unit "the build drops a rule whose target kind or edge type no loaded extension declares"
   verify unit "a rule whose edge type no loaded extension declares reports nothing"
   verify unit "a rule targeting a kind no loaded extension declares reports nothing"
   verify unit "extensions produce E006 rules for required fields"

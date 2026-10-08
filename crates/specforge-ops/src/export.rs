@@ -9,13 +9,15 @@
 //! `brief` and any export under a token budget leave it out unless asked
 //! for it. `dot` never carries a schema.
 
+use crate::navigate;
 use crate::options::{Choice, OptionTable};
 use crate::view::ProjectView;
 use crate::{OpError, OpErrorKind};
-use specforge_common::{Code, codes};
+use specforge_common::Diagnostic;
 use specforge_emitter::{
     EmitFormat, EmitOptions, EmitterError, GraphProtocolSchema, SchemaVersion, emit,
 };
+use std::path::PathBuf;
 
 /// An export format.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -151,45 +153,76 @@ pub fn export(view: &ProjectView, request: &Request) -> Result<String, OpError> 
         kind_registry: Some(&view.registries().kinds),
         field_registry: Some(&view.registries().fields),
     };
-    emit(view.graph(), &options).map_err(|error| failure(error, request.scope))
+    emit(view.graph(), &options).map_err(|error| failure(view, error))
 }
 
-/// The emitter's failure as the operation's: what kind it is is decided by
-/// the variant, and a diagnostic code its message leads with (`E003`,
-/// `E062`) is the failure's code, not text of its message.
-fn failure(error: EmitterError, scope: Option<&str>) -> OpError {
-    match error {
-        EmitterError::EntityNotFound(message) => {
-            let error = OpError::coded(
-                OpErrorKind::EntityNotFound,
-                codes::E003,
-                without_code(&message, codes::E003),
-            );
-            match scope {
-                Some(scope) => error.with_entity(scope),
-                None => error,
-            }
-        }
-        EmitterError::Other(message) | EmitterError::InvalidScope(message) => {
-            if let Some(rest) = message.strip_prefix(&format!("{}: ", codes::E062)) {
-                OpError::coded(OpErrorKind::InvalidInput, codes::E062, rest)
-            } else {
-                OpError::new(OpErrorKind::InvalidInput, "export_failed", message)
-            }
-        }
-        EmitterError::SerializationError(message) => {
-            OpError::new(OpErrorKind::Internal, "export_failed", message)
-        }
+/// What `specforge export` did: the export, the schema's breaking changes
+/// against the view root's cache (W053, found before the export ran), and
+/// what became of the cache.
+#[derive(Debug)]
+pub struct RecordedExport {
+    pub export: Result<String, OpError>,
+    pub breaking: Vec<Diagnostic>,
+    pub cache: CacheWrite,
+}
+
+/// What became of the schema cache after an export.
+#[derive(Debug, PartialEq, Eq)]
+pub enum CacheWrite {
+    /// There is no root, or the export failed: the cache is left as it was.
+    NotWritten,
+    Written,
+    /// The export succeeded; the cache could not be written.
+    WriteFailed {
+        dir: PathBuf,
+        error: String,
+    },
+}
+
+/// The export `specforge export` makes (ADR 0015 D10): compare the schema
+/// the extensions produce with the cache at the view's root, export it
+/// carrying the cached version bumped by what changed, and record it after
+/// a successful export. MCP never calls it.
+pub fn export_recorded(view: &ProjectView, request: &Request) -> RecordedExport {
+    let cache = view.schema_cache();
+    let generated = view.versioned_schema();
+    let breaking = cache
+        .as_ref()
+        .map(|cache| cache.breaking_changes(&generated))
+        .unwrap_or_default();
+    let export = export(view, request);
+    let cache = match (&export, cache) {
+        (Ok(_), Some(cache)) => match cache.record(&generated) {
+            Ok(()) => CacheWrite::Written,
+            Err(error) => CacheWrite::WriteFailed {
+                dir: cache.dir().to_path_buf(),
+                error: error.to_string(),
+            },
+        },
+        _ => CacheWrite::NotWritten,
+    };
+    RecordedExport {
+        export,
+        breaking,
+        cache,
     }
 }
 
-/// `message` without the `"{code}: "` it leads with.
-fn without_code(message: &str, code: Code) -> String {
-    message
-        .strip_prefix(code.id())
-        .and_then(|rest| rest.strip_prefix(": "))
-        .unwrap_or(message)
-        .to_string()
+/// The emitter's failure as the operation's: the kind by variant, the code
+/// the variant's ([`EmitterError::code`]); nothing is read from the message.
+/// A missing scope entity is the one not-found refusal.
+fn failure(view: &ProjectView, error: EmitterError) -> OpError {
+    let kind = match &error {
+        EmitterError::ScopeNotFound { entity_id } => {
+            return navigate::not_found(view.graph(), entity_id);
+        }
+        EmitterError::BudgetTooSmall { .. } => OpErrorKind::InvalidInput,
+        EmitterError::Serialization(_) => OpErrorKind::Internal,
+    };
+    match error.code() {
+        Some(code) => OpError::coded(kind, code, error.to_string()),
+        None => OpError::new(kind, "export_failed", error.to_string()),
+    }
 }
 
 /// `schema`, at `requested` when one is asked for: the same major as the
@@ -210,13 +243,8 @@ fn negotiated(
     })?;
     let max = schema.schema_version.clone();
     let min = SchemaVersion::new(max.major, 0, 0);
-    specforge_emitter::negotiate_version(&requested, &min, &max).map_err(|e| {
-        OpError::coded(
-            OpErrorKind::Conflict,
-            codes::E027,
-            without_code(&e.to_string(), codes::E027),
-        )
-    })?;
+    specforge_emitter::negotiate_version(&requested, &min, &max)
+        .map_err(|e| OpError::coded(OpErrorKind::Conflict, e.code(), e.reason))?;
     schema.schema_version = requested;
     Ok(schema)
 }
@@ -277,19 +305,6 @@ mod tests {
             "{}",
             error.message
         );
-    }
-
-    #[test]
-    fn a_message_loses_the_code_it_leads_with() {
-        assert_eq!(
-            without_code("E003: no such entity", codes::E003),
-            "no such entity"
-        );
-        assert_eq!(
-            without_code("no such entity", codes::E003),
-            "no such entity"
-        );
-        assert_eq!(without_code("E0031: odd", codes::E003), "E0031: odd");
     }
 
     #[test]

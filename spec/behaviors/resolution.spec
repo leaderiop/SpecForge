@@ -31,7 +31,11 @@ behavior resolve_use_imports "Resolve Use Imports" {
     appended implicitly; a path that already ends in .spec names the same
     file. Missing files MUST produce an E025 diagnostic. A target above
     the spec root does not resolve, whichever step of the cascade
-    (relative, @alias, bare path) names it: E025.
+    (relative or bare path) names it: E025. An @scope/name import names
+    an extension (I004 when it is not installed). A .spec file discovery
+    finds that cannot be read (not UTF-8, no permission) MUST produce an
+    E025 naming its path, in a compile and after every update, and is
+    left out of the graph.
     The resolver MUST build the file dependency graph from imports.
     A .spec file whose path relative to the spec root contains one of the
     exclude entries of specforge.json MUST NOT be compiled, on every
@@ -50,6 +54,7 @@ behavior resolve_use_imports "Resolve Use Imports" {
   verify unit "resolve extension import path"
   verify unit "symlink pointing outside spec_root is rejected"
   verify unit "files matching an exclude entry are not compiled"
+  verify unit "a source that cannot be read produces E025 naming it"
 }
 
 // No consumes — called inline during use import resolution
@@ -186,22 +191,23 @@ behavior resolve_reexports "Resolve pub use Re-exports" {
     imports_resolved "use imports have been resolved to files"
   }
   ensures {
-    all_reexported       "pub use re-exports every entity the target file exports"
-    selective_reexported "pub use { A, B } re-exports only the named entities"
-    chains_transitive    "re-exports through several files resolve transitively"
-    plain_use_private    "a plain use never re-exports"
+    all_reexported       "pub use adds every entity the target exports to the re-exporting file's exports"
+    selective_reexported "pub use { A, B } adds only the named entities to the file's exports"
+    chains_transitive    "exports through several pub use files chain transitively"
+    plain_use_private    "a plain use adds nothing to the file's exports"
     unknown_name_warned  "a selective re-export of a name the target doesn't export is W027"
   }
   contract   """
-    `pub use "target"` MUST make every entity the target exports visible to
-    files that import the re-exporting file, and `pub use { A, B } from
-    "target"` MUST re-export only the named entities. Re-exports MUST chain
+    References resolve across the project without use (ADR 0004 D1-a),
+    so a file's exports decide no reference; they decide W027. A file
+    exports the entities it declares. `pub use "target"` MUST add every
+    entity the target exports, and `pub use { A, B } from "target"` MUST
+    add only the named ones (`A as B` adds B). Exports MUST chain
     transitively, so a barrel index file can re-export its sub-files. A
-    plain `use` MUST NOT re-export anything. A selective re-export of a
-    name the target doesn't export MUST produce W027. When files import
-    each other in a cycle, a re-export through a cycle participant MUST use
-    only that file's declared set, never a transitive closure through the
-    cycle.
+    plain `use` MUST NOT add anything. A selective re-export of a name the
+    target doesn't export MUST produce W027. When files import each other
+    in a cycle, a re-export through a cycle participant MUST use only that
+    file's declared set, never a transitive closure through the cycle.
   """
   verify unit "pub use re-exports all entities from target"
   verify unit "pub use selective re-exports only named entities"

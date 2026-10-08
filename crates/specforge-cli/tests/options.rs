@@ -131,7 +131,7 @@ const PROBES: &[Probe] = &[
     },
     Probe {
         label: "query format",
-        cli: None,
+        cli: Some(&["query", "alpha", "--path", ROOT, "--format", NAME]),
         mcp: Some(McpProbe("specforge.query", "format", entity_alpha)),
         names: &["graph", "context", "brief", "json", "dot", "yaml"],
     },
@@ -241,8 +241,8 @@ fn advertised(tool: &str, argument: &str) -> String {
         .iter()
         .find(|spec| spec.name == tool)
         .unwrap_or_else(|| panic!("no tool {tool}"));
-    let property = (spec.schema)()["properties"][argument].clone();
-    let required = (spec.schema)()["required"]
+    let property = spec.input_schema()["properties"][argument].clone();
+    let required = spec.input_schema()["required"]
         .as_array()
         .is_some_and(|names| names.iter().any(|name| name == argument));
     format!(
@@ -440,14 +440,14 @@ fn paired() -> Vec<(&'static str, Names, Names)> {
             names(&OUTLINE_FIELDS),
         ),
         ("outline deps", names(&DEPS), names(&DEPS)),
+        ("query format", names(&AGENT_FORMAT), names(&AGENT_FORMAT)),
     ]
 }
 
 /// MCP-only probes `specforge-mcp`'s `tests/option_tables.rs` holds to
 /// their option table.
-const LINKED_ELSEWHERE: [&str; 4] = [
+const LINKED_ELSEWHERE: [&str; 3] = [
     "render format",
-    "query format",
     "coverage status_filter",
     "find_references direction",
 ];

@@ -29,7 +29,7 @@ pub fn compiled(files: &[(&str, &str)]) -> (tempfile::TempDir, CompiledProject) 
     for (name, text) in files {
         std::fs::write(dir.path().join(name), text).unwrap();
     }
-    let runtime = specforge_component::project_runtime(dir.path());
+    let runtime = specforge_component::ComponentRuntime::with_user_cache();
     let project = CompiledProject::compile(dir.path(), Some(&runtime));
     assert!(
         project.diagnostics().iter().all(|d| d.code != "I002"),

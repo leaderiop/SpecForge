@@ -20,9 +20,11 @@ completion code that tests proved was not the code production ran.
 **D1. One lexer, in the parser crate.** `specforge_parser::lex` reads identifiers, scheme ref IDs (one
 lexeme), numbers, strings, comments and punctuation, without a parse, so half-typed text lexes. A test
 checks it against tree-sitter on every spec file of the repository. Navigation's `SourceText` and the
-LSP's document read text through it; neither scans text itself. A regular string ends at its line's end
-(the grammar lets it run on; the repository has none), so an unclosed quote never swallows a document
-being typed. The lexer mirrors the grammar by hand (one deliberate divergence, above), and the parser
+LSP's document read text through it; neither scans text itself. A string is read as the grammar reads it,
+across lines; a regular string the grammar would not close (no closing quote, a `\` before a line
+break, or a closing quote that runs straight into text) ends at its line's end, so an unclosed quote
+never swallows a document being typed (amended by ADR 0038). The lexer mirrors the grammar by hand
+(one deliberate divergence, the unclosed string above), and the parser
 crate's third reader of the language, `expr::tokenize` (the expression sub-language the prove pass
 reads: lowercase identifiers, alphabetic units, `<=`/`==`/`!=` as one token, character columns, errors),
 is not built on it: a tokenizer over these lexemes would re-read each lexeme character by character to
@@ -48,7 +50,7 @@ a buffer typed since the compile, is not offered, and a rename over a stale buff
 **D4. Structure from the text, identity from navigation.** The graph lags the buffer while the user
 types, and loses a block the parser rejects, so where the cursor is (entity body, field, list, string,
 comment) is read from the buffer's syntax. Which entity a token names is navigation's occurrence, which
-checks the token against the same text.
+checks the token against the same text. Navigation is asked only while the document is that text (D7).
 
 **D5. One entity per cursor.** `Cursor::target` answers, in order: the `use` statement's path; the
 declaration or reference token under the cursor; an identifier or scheme ref ID at a reference
@@ -100,3 +102,61 @@ completion lists the kinds while the workspace is still being indexed, not only 
 A client that negotiates UTF-8 or UTF-32 positions (`general.positionEncodings`): the line index grows
 an encoding, nothing else changes. A grammar change that the agreement test rejects: the lexer follows
 the grammar.
+
+## Amendment: the LSP decides synchronously (2026-10-07, architecture plan 10)
+
+The handlers of `backend.rs` held the decisions above the document module: what hover joins, whether a
+definition is a link, how a rename is refused, which buffers a change applies. They were tested only
+over JSON-RPC, where a request races the 50 ms debounce, so tests rebuilt the handlers' chain by hand
+(`entity_hover`, `OnDisk`, `rename_edits`). Three answers were wrong: in the ~200 ms after an edit,
+hover, definition, references and prepareRename named the compiled text's token at the buffer's
+position (another entity after a line was inserted); a buffer closed without saving stayed compiled
+until its file changed on disk; and a burst of edits to several files was one update per file, so a
+rename's edits published an E003 between them, and a reload replayed each open buffer as its own update
+(20 buffers: 2.9 s instead of 0.34 s).
+
+**D7. The cursor in a stale document.** While an open document is not the text the project was compiled
+from, the cursor names what its own word names (`Cursor::named`: a `use` binding, a `use` statement, an
+identifier or scheme ref ID at a reference position that names an entity, a field's name), never
+navigation's occurrence at its position. Hover, definition and references answer for that entity;
+prepareRename and rename are refused as `ContentModified`. Locations stay positions in the compiled text
+(D3). One type owns the rule (`navigation::Compiled`: ranges, locations, staleness, the cursor's target).
+
+**D8. Answers are synchronous.** `specforge_lsp::answers` answers every request over `&LspState` (one
+function per request, `ClientSupport` holding what the client declared that shapes an answer); the
+`LanguageServer` methods take a lock and return the answer. Tests ask the same functions over a project
+opened from a temporary directory with its extensions served in process (ADR 0025).
+
+**D9. A change is one update.** `specforge_lsp::changes` reads a change (`Open`, `Edited`, `Closed`,
+`Watched`) into a plan while the state is held, and applies it to the session in one update
+(`SourceChange::Buffers`; the typing fast path skips the checks while any edited buffer does not parse).
+A closed project source is read from disk again; any other closed file leaves the project. A reload
+applies every open buffer once.
+
+### Consequences
+
+- Hover and go-to-definition right after typing name the token under the cursor; prepareRename waits
+  for the compile instead of selecting a stale range.
+- Closing an unsaved buffer restores the project to the disk; in an editor with no workspace, closing a
+  file removes its entities.
+- A multi-file edit publishes once; a reload with N open buffers runs one buffer update, not N.
+- `backend.rs` holds transport, locks and the reactions after an update (watchers, token refresh).
+
+### Rejected
+
+- **The session publishing a read snapshot** for readers during an update (an `Arc` of graph, texts,
+  environment and memo, with a copy-on-write graph). The LSP's stand-in copies only the graph: 0.76 ms
+  (release) / 2.3 ms (debug) for this repository's 1,977 entities against a ~140 ms update, and the LSP
+  is the only reader of a session while it updates. It would add copy-on-write to the incremental
+  build for one reader.
+- **Refusing every cursor request while the document is stale**: hover and F12 would be blank after
+  every keystroke.
+- **One update per buffer with the checks deferred to the last**: one more check mode for what one
+  batched update already does.
+
+### What would reopen it
+
+A second reader of a session during its update (MCP answering concurrent requests, watch serving
+queries): the read snapshot then belongs in `ProjectSession`. A client that sends `didChange` for many
+files over more than one debounce window as one edit: the batch then needs the client's grouping
+(workspace edits applied as one).

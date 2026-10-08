@@ -3,9 +3,10 @@
 invariant wasm_sandbox_integrity "Wasm Sandbox Integrity" {
   guarantee """
     Wasm extensions MUST NOT escape the Wasm sandbox. An extension MUST NOT
-    access the host filesystem, network, or memory outside its linear
-    memory region unless explicitly permitted by the sandbox policy.
-    Any sandbox violation MUST trap the extension and emit a diagnostic.
+    access the host filesystem, network, environment, or memory outside its
+    linear memory region; no sandbox policy permits it, since a policy
+    declares limits only (ADR 0037). Any call that crosses a limit of its
+    sandbox MUST trap the extension and emit a diagnostic (E028).
   """
   risk      high
   verify property "no extension can read or write outside its sandbox boundaries"
@@ -49,12 +50,11 @@ invariant wasm_compile_cache_integrity "Wasm Compile Cache Integrity" {
     runtime engine (wasmtime), selected via SPECFORGE_WASMTIME_CACHE.
     Separately, the integrity of an installed extension binary is enforced
     by the specforge.lock hash pin: a binary that no longer matches its
-    recorded hash MUST be refused at load time (E033).
+    recorded hash MUST be refused at load time (E070).
   """
   risk      medium
   verify property "a cache artifact from different bytes or engine config is never reused"
   verify unit "corrupted cache entry falls back to fresh compilation"
-  verify unit "tampered installed binary refused via lockfile hash pin (E033)"
 }
 
 invariant extension_isolation "Extension Isolation" {

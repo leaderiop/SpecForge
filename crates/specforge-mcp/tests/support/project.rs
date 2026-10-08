@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use serde_json::{Value, json};
 use specforge_mcp::McpServer;
-use specforge_project::{Origin, SharedRuntime};
+use specforge_project::SharedRuntime;
 use specforge_wasm::testing::{InProcessRuntime, RecordedCall};
 use tempfile::TempDir;
 
@@ -82,6 +82,13 @@ impl TestProject {
     /// surface tests' `FakeExtension`).
     pub fn serve_in(mut self, runtime: SharedRuntime) -> Served {
         self.enabled.get_or_insert_with(|| vec![EXT.to_string()]);
+        // What an in-process runtime serves, the project has installed: it
+        // loads through the production path.
+        specforge_installed::testing::install_enabled(
+            self.root(),
+            self.enabled.as_deref().unwrap_or_default(),
+            &specforge_installed::Builtins(specforge_component::builtins::BUILTIN_EXTENSIONS),
+        );
         let mut server = McpServer::new();
         server.state_mut().extension_runtime = Some(runtime);
         self.initialized(server)
@@ -119,7 +126,7 @@ impl TestProject {
             json!({"projectRoot": self.root().to_str().expect("a UTF-8 root")}),
         );
         assert!(reply["error"].is_null(), "initialize: {reply}");
-        assert_eq!(server.state().session().origin(), Origin::Disk);
+        assert!(server.state().session().root().is_some());
         Served {
             server,
             project: self,
@@ -212,7 +219,7 @@ fn the_fixture_serves_its_declaration_through_the_registry_build() {
         )
         .serve(&[TestExtension::software().obligating("behavior")]);
 
-    assert_eq!(served.state().session().origin(), Origin::Disk);
+    assert!(served.state().session().root().is_some());
     let registries = served.state().registries();
     let declared: Vec<&str> = registries.declarations().iter().map(|d| d.name()).collect();
     assert_eq!(declared, [EXT]);

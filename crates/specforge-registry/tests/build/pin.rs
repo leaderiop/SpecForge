@@ -162,7 +162,7 @@ fn digest(build: &RegistryBuild) -> Value {
     let mut fields: Vec<String> = build
         .fields
         .iter()
-        .map(|(kind, field, entry)| format!("{kind}.{field}: {:?}", entry.field_type))
+        .map(|(kind, field, entry)| format!("{kind}.{field}: {:?}", entry.field_type()))
         .collect();
     fields.sort();
     let mut edges: Vec<String> = build

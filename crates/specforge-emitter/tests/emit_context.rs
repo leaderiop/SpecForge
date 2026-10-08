@@ -186,7 +186,7 @@ fn context_is_smaller_than_full_json() {
     verify = "context format keeps each entity's normative fields"
 )]
 fn context_keeps_normative_fields() {
-    use specforge_registry::{FieldRegistry, FieldRegistryEntry, ManifestFieldType};
+    use specforge_registry::{FieldRegistry, FieldRegistryEntry};
 
     let mut fields = FieldMap::new();
     fields.push(
@@ -212,17 +212,19 @@ fn context_keeps_normative_fields() {
     });
     let mut registry = FieldRegistry::new();
     for (field, normative) in [("guarantee", true), ("description", false)] {
-        registry.register(FieldRegistryEntry {
-            kind_name: "invariant".to_string(),
-            field_type: ManifestFieldType::String,
-            source_extension: "@test/ext".to_string(),
-            proof_role: None,
-            declared: specforge_registry::FieldDescriptor {
-                name: field.to_string(),
-                normative,
-                ..Default::default()
-            },
-        });
+        registry.register(
+            FieldRegistryEntry::new(
+                "invariant",
+                "@test/ext",
+                specforge_registry::FieldDescriptor {
+                    name: field.to_string(),
+                    field_type: "string".to_string(),
+                    normative,
+                    ..Default::default()
+                },
+            )
+            .unwrap(),
+        );
     }
 
     let emit = |registry| {
@@ -249,7 +251,7 @@ fn context_keeps_normative_fields() {
     verify = "context format includes entity IDs and contracts"
 )]
 fn context_lifts_the_fields_an_extension_declares_headline() {
-    use specforge_registry::{FieldRegistry, FieldRegistryEntry, ManifestFieldType};
+    use specforge_registry::{FieldRegistry, FieldRegistryEntry};
 
     let mut fields = FieldMap::new();
     fields.push(
@@ -277,18 +279,20 @@ fn context_lifts_the_fields_an_extension_declares_headline() {
     // are struct members.
     let mut registry = FieldRegistry::new();
     for field in ["contract", "status"] {
-        registry.register(FieldRegistryEntry {
-            kind_name: "behavior".to_string(),
-            field_type: ManifestFieldType::String,
-            source_extension: "@test/ext".to_string(),
-            proof_role: None,
-            declared: specforge_registry::FieldDescriptor {
-                name: field.to_string(),
-                normative: field == "contract",
-                headline: true,
-                ..Default::default()
-            },
-        });
+        registry.register(
+            FieldRegistryEntry::new(
+                "behavior",
+                "@test/ext",
+                specforge_registry::FieldDescriptor {
+                    name: field.to_string(),
+                    field_type: "string".to_string(),
+                    normative: field == "contract",
+                    headline: true,
+                    ..Default::default()
+                },
+            )
+            .unwrap(),
+        );
     }
     let options = specforge_emitter::EmitOptions {
         format: specforge_emitter::EmitFormat::Context,

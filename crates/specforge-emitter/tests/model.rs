@@ -1,6 +1,7 @@
 use insta::assert_snapshot;
 use specforge_emitter::model::*;
 use specforge_emitter::schema::*;
+use specforge_registry::FieldType;
 
 // =========================================================================
 // Tracer bullet: types + Display impls
@@ -12,18 +13,6 @@ fn cardinality_display_strings() {
     assert_eq!(Cardinality::OneToMany.to_string(), "1:N");
     assert_eq!(Cardinality::ManyToOne.to_string(), "N:1");
     assert_eq!(Cardinality::ManyToMany.to_string(), "N:M");
-}
-
-#[test]
-fn model_field_type_display_strings() {
-    assert_eq!(ModelFieldType::String.to_string(), "string");
-    assert_eq!(ModelFieldType::Integer.to_string(), "integer");
-    assert_eq!(ModelFieldType::Boolean.to_string(), "boolean");
-    assert_eq!(ModelFieldType::Enum.to_string(), "enum");
-    assert_eq!(ModelFieldType::StringList.to_string(), "string_list");
-    assert_eq!(ModelFieldType::Reference.to_string(), "reference");
-    assert_eq!(ModelFieldType::ReferenceList.to_string(), "reference_list");
-    assert_eq!(ModelFieldType::Block.to_string(), "block");
 }
 
 #[test]
@@ -86,7 +75,7 @@ fn single_entity_kind_maps_to_model_entity_with_id() {
     assert!(!entity.fields.is_empty());
     let id_field = &entity.fields[0];
     assert_eq!(id_field.name, "id");
-    assert_eq!(id_field.field_type, ModelFieldType::String);
+    assert_eq!(id_field.field_type, FieldType::String);
     assert!(id_field.required);
     assert!(id_field.is_primary_key);
 }
@@ -111,7 +100,7 @@ fn entity_fields_mapped_from_schema() {
             fields: vec![
                 SchemaField {
                     name: "status".to_string(),
-                    field_type: "enum".to_string(),
+                    field_type: FieldType::Enum,
                     required: true,
                     enum_values: Some(vec!["draft".to_string(), "approved".to_string()]),
                     edge: None,
@@ -122,7 +111,7 @@ fn entity_fields_mapped_from_schema() {
                 },
                 SchemaField {
                     name: "features".to_string(),
-                    field_type: "reference_list".to_string(),
+                    field_type: FieldType::ReferenceList,
                     required: false,
                     enum_values: None,
                     edge: Some("BehaviorImplementsFeature".to_string()),
@@ -149,7 +138,7 @@ fn entity_fields_mapped_from_schema() {
     // Status field
     let status = &entity.fields[1];
     assert_eq!(status.name, "status");
-    assert_eq!(status.field_type, ModelFieldType::Enum);
+    assert_eq!(status.field_type, FieldType::Enum);
     assert!(status.required);
     assert_eq!(
         status.enum_values,
@@ -161,7 +150,7 @@ fn entity_fields_mapped_from_schema() {
     // Features field (reference_list -> has references)
     let features = &entity.fields[2];
     assert_eq!(features.name, "features");
-    assert_eq!(features.field_type, ModelFieldType::ReferenceList);
+    assert_eq!(features.field_type, FieldType::ReferenceList);
     assert!(!features.required);
     assert_eq!(features.references, Some("feature".to_string()));
 }
@@ -186,7 +175,7 @@ fn edge_type_maps_to_relationship() {
                 dot_color: None,
                 fields: vec![SchemaField {
                     name: "features".to_string(),
-                    field_type: "reference_list".to_string(),
+                    field_type: FieldType::ReferenceList,
                     required: false,
                     enum_values: None,
                     edge: Some("BehaviorImplementsFeature".to_string()),
@@ -322,7 +311,7 @@ fn reference_field_infers_many_to_one() {
                 dot_color: None,
                 fields: vec![SchemaField {
                     name: "parent".to_string(),
-                    field_type: "reference".to_string(),
+                    field_type: FieldType::Reference,
                     required: false,
                     enum_values: None,
                     edge: Some("BelongsTo".to_string()),
@@ -443,7 +432,7 @@ fn reference_singular_field_infers_many_to_one_for_term_module() {
                 dot_color: None,
                 fields: vec![SchemaField {
                     name: "module".to_string(),
-                    field_type: "reference".to_string(),
+                    field_type: FieldType::Reference,
                     required: false,
                     enum_values: None,
                     edge: Some("TermBelongsToModule".to_string()),
@@ -514,7 +503,7 @@ fn multi_extension_schema() -> GraphProtocolSchema {
                 fields: vec![
                     SchemaField {
                         name: "contract".to_string(),
-                        field_type: "string".to_string(),
+                        field_type: FieldType::String,
                         required: true,
                         enum_values: None,
                         edge: None,
@@ -525,7 +514,7 @@ fn multi_extension_schema() -> GraphProtocolSchema {
                     },
                     SchemaField {
                         name: "features".to_string(),
-                        field_type: "reference_list".to_string(),
+                        field_type: FieldType::ReferenceList,
                         required: false,
                         enum_values: None,
                         edge: Some("BehaviorImplementsFeature".to_string()),
@@ -550,7 +539,7 @@ fn multi_extension_schema() -> GraphProtocolSchema {
                 dot_color: None,
                 fields: vec![SchemaField {
                     name: "priority".to_string(),
-                    field_type: "enum".to_string(),
+                    field_type: FieldType::Enum,
                     required: false,
                     enum_values: Some(vec!["low".into(), "medium".into(), "high".into()]),
                     edge: None,
@@ -968,53 +957,6 @@ fn render_dbml_empty() {
     assert_snapshot!(output);
 }
 
-// C13-09: an unknown field type string falls back to string AND warns.
-#[test]
-fn unknown_field_type_warns_and_falls_back_to_string() {
-    let schema = GraphProtocolSchema {
-        schema_version: SchemaVersion::new(1, 0, 0),
-        extensions: vec![SchemaExtensionInfo {
-            name: "@specforge/software".to_string(),
-            version: "1.0.0".to_string(),
-        }],
-        entity_kinds: vec![SchemaEntityKind {
-            name: "behavior".to_string(),
-            source_extension: "@specforge/software".to_string(),
-            testable: true,
-            dot_color: None,
-            fields: vec![SchemaField {
-                name: "sneaky".to_string(),
-                field_type: "stirng".to_string(),
-                required: false,
-                enum_values: None,
-                edge: None,
-                target_kind: None,
-                description: None,
-                default_value: None,
-                source_extension: "@specforge/software".to_string(),
-            }],
-        }],
-        edge_types: vec![],
-    };
-
-    let model = ModelIntermediate_from_schema(&schema);
-
-    let sneaky = model.entities[0]
-        .fields
-        .iter()
-        .find(|f| f.name == "sneaky")
-        .unwrap();
-    assert_eq!(sneaky.field_type, ModelFieldType::String, "safe fallback");
-    assert!(
-        model
-            .warnings
-            .iter()
-            .any(|w| w.contains("stirng") && w.contains("sneaky")),
-        "warning names the bad type and field: {:?}",
-        model.warnings
-    );
-}
-
 // C13-03: registry-declared dot_color wins over the extension palette.
 #[test]
 fn declared_dot_color_reaches_model_dot() {
@@ -1080,7 +1022,7 @@ fn dbml_maps_real_types_and_cardinality_operators() {
                 fields: vec![
                     SchemaField {
                         name: "count".to_string(),
-                        field_type: "integer".to_string(),
+                        field_type: FieldType::Integer,
                         required: false,
                         enum_values: None,
                         edge: None,
@@ -1091,7 +1033,7 @@ fn dbml_maps_real_types_and_cardinality_operators() {
                     },
                     SchemaField {
                         name: "flag".to_string(),
-                        field_type: "boolean".to_string(),
+                        field_type: FieldType::Bool,
                         required: false,
                         enum_values: None,
                         edge: None,
@@ -1102,7 +1044,7 @@ fn dbml_maps_real_types_and_cardinality_operators() {
                     },
                     SchemaField {
                         name: "tags".to_string(),
-                        field_type: "string_list".to_string(),
+                        field_type: FieldType::StringList,
                         required: false,
                         enum_values: None,
                         edge: None,
@@ -1113,7 +1055,7 @@ fn dbml_maps_real_types_and_cardinality_operators() {
                     },
                     SchemaField {
                         name: "body".to_string(),
-                        field_type: "block".to_string(),
+                        field_type: FieldType::Block,
                         required: false,
                         enum_values: None,
                         edge: None,
@@ -1124,7 +1066,7 @@ fn dbml_maps_real_types_and_cardinality_operators() {
                     },
                     SchemaField {
                         name: "features".to_string(),
-                        field_type: "reference_list".to_string(),
+                        field_type: FieldType::ReferenceList,
                         required: false,
                         enum_values: None,
                         edge: Some("BehaviorImplementsFeature".to_string()),
@@ -1171,4 +1113,167 @@ fn an_extension_without_a_theme_color_is_drawn_grey() {
     let output = render(&model, &default_options(ModelFormat::Dot));
     assert!(output.contains("color=\"#95a5a6\";"), "{output}");
     assert!(!output.contains("#4a90d9"), "no palette by name: {output}");
+}
+
+// =========================================================================
+// Declared text in the text diagrams (plan 16)
+// =========================================================================
+
+/// `multi_extension_schema()` with `behavior` renamed to `kind` and its
+/// `contract` field's description replaced.
+fn with_text(kind: &str, description: &str) -> GraphProtocolSchema {
+    let mut schema = multi_extension_schema();
+    for entity in &mut schema.entity_kinds {
+        if entity.name == "behavior" {
+            entity.name = kind.to_string();
+            for field in &mut entity.fields {
+                if field.name == "contract" {
+                    field.description = Some(description.to_string());
+                }
+            }
+        }
+    }
+    for edge in &mut schema.edge_types {
+        if let Some(sources) = &mut edge.source_kinds {
+            for source in sources.iter_mut().filter(|s| *s == "behavior") {
+                *source = kind.to_string();
+            }
+        }
+    }
+    schema
+}
+
+fn rendered(schema: &GraphProtocolSchema, fields: FieldLevel, format: ModelFormat) -> String {
+    let model = filter_fields(&ModelIntermediate_from_schema(schema), fields);
+    render(&model, &default_options(format))
+}
+
+#[specforge_test_macros::test(
+    behavior = "render_model_mermaid",
+    verify = "declared text with a quote, markup or a line break stays inside its Mermaid string"
+)]
+fn a_quote_or_line_break_in_a_description_stays_inside_the_er_string() {
+    let schema = with_text("behavior", "the \"body\"\nnext");
+    let output = rendered(&schema, FieldLevel::All, ModelFormat::Mermaid);
+    assert!(output.contains("\"the #quot;body#quot; next\""), "{output}");
+}
+
+#[specforge_test_macros::test(
+    behavior = "render_model_mermaid",
+    verify = "an entity or attribute name that is not a Mermaid name is written as one"
+)]
+fn a_kind_name_that_is_not_an_identifier_is_made_one() {
+    let schema = with_text("no\"te", "the contract");
+    let output = rendered(&schema, FieldLevel::All, ModelFormat::Mermaid);
+    assert!(output.contains("    no_te {"), "{output}");
+    assert!(!output.contains("no\"te"), "{output}");
+}
+
+#[specforge_test_macros::test(
+    behavior = "render_model_markdown",
+    verify = "declared text with a pipe or a line break stays in its table cell"
+)]
+fn a_pipe_in_any_cell_stays_in_its_cell() {
+    let mut schema = multi_extension_schema();
+    for entity in &mut schema.entity_kinds {
+        for field in &mut entity.fields {
+            if field.name == "contract" {
+                field.name = "con|tract".to_string();
+                field.description = Some("a|b\nc".to_string());
+            }
+        }
+    }
+    let output = rendered(&schema, FieldLevel::All, ModelFormat::Markdown);
+    let row = output
+        .lines()
+        .find(|line| line.starts_with("| con"))
+        .expect("the field's row");
+    assert!(row.starts_with("| con\\|tract |"), "{row}");
+    assert!(row.ends_with("| a\\|b c |"), "{row}");
+    assert_eq!(row.replace("\\|", "").matches('|').count(), 7, "{row}");
+}
+
+#[specforge_test_macros::test(
+    behavior = "render_model_dbml",
+    verify = "a name or note with a quote, an apostrophe or a line break stays one DBML name or string"
+)]
+fn an_apostrophe_or_line_break_stays_inside_a_dbml_note() {
+    let schema = with_text("behavior", "this event's shape");
+    let output = rendered(&schema, FieldLevel::All, ModelFormat::Dbml);
+    assert!(output.contains("note: 'this event\\'s shape'"), "{output}");
+
+    let schema = with_text("behavior", "first\nsecond");
+    let output = rendered(&schema, FieldLevel::All, ModelFormat::Dbml);
+    assert!(output.contains("note: 'first\\nsecond'"), "{output}");
+}
+
+#[specforge_test_macros::test(
+    behavior = "render_model_dbml",
+    verify = "each reference is one named Ref between columns the output writes"
+)]
+fn a_reference_is_one_named_ref() {
+    let output = rendered(
+        &multi_extension_schema(),
+        FieldLevel::All,
+        ModelFormat::Dbml,
+    );
+    assert!(!output.contains("ref:"), "{output}");
+    assert_eq!(
+        output
+            .matches("Ref BehaviorImplementsFeature: behavior.features <> feature.id")
+            .count(),
+        1,
+        "{output}"
+    );
+    assert!(
+        output.contains("features text [note: 'BehaviorImplementsFeature -> feature']"),
+        "{output}"
+    );
+}
+
+#[specforge_test_macros::test(
+    behavior = "render_model_dbml",
+    verify = "each reference is one named Ref between columns the output writes"
+)]
+fn a_ref_joins_only_columns_the_output_writes() {
+    let schema = multi_extension_schema();
+    let output = rendered(&schema, FieldLevel::None, ModelFormat::Dbml);
+    assert!(!output.contains("Ref "), "{output}");
+    assert!(!output.contains("// ── Relationships ──"), "{output}");
+
+    // `behavior` alone: its reference targets `feature`, which is not written.
+    let model = filter_fields(&ModelIntermediate_from_schema(&schema), FieldLevel::All);
+    let options = ModelOptions {
+        format: ModelFormat::Dbml,
+        kind_filter: Some(vec!["behavior".to_string()]),
+        ..ModelOptions::default()
+    };
+    let output = render(&filter_entities(&model, &options), &options);
+    assert!(output.contains("Table behavior {"), "{output}");
+    assert!(!output.contains("Ref "), "{output}");
+    assert!(!output.contains("Table feature"), "{output}");
+}
+
+#[specforge_test_macros::test(
+    behavior = "render_model_dbml",
+    verify = "a name or note with a quote, an apostrophe or a line break stays one DBML name or string"
+)]
+fn a_name_that_is_not_a_dbml_identifier_is_quoted() {
+    let mut schema = multi_extension_schema();
+    for info in &mut schema.extensions {
+        if info.name == "@specforge/software" {
+            info.name = "@acme/x".to_string();
+        }
+    }
+    for entity in &mut schema.entity_kinds {
+        if entity.source_extension == "@specforge/software" {
+            entity.source_extension = "@acme/x".to_string();
+        }
+    }
+    let output = rendered(&schema, FieldLevel::Keys, ModelFormat::Dbml);
+    assert!(output.contains("TableGroup \"@acme/x\" {"), "{output}");
+
+    let schema = with_text("no\"te", "the contract");
+    let output = rendered(&schema, FieldLevel::All, ModelFormat::Dbml);
+    assert!(output.contains("Table \"no\\\"te\" {"), "{output}");
 }

@@ -98,6 +98,12 @@ behavior scaffold_starter_spec_file "Scaffold Starter Spec File" {
     specforge check with zero diagnostics regardless of which extensions
     are installed. This behavior delivers on Principle 8 (seconds to
     value): the user can run specforge check immediately after init.
+    The starter spec's spec block MUST state the project's version, the
+    one specforge.json records: an extension's template writes it as
+    {version} (as {project} stands for the project id), which init fills
+    in. Init MUST write the starter as the
+    formatter writes it, whatever the extensions contribute, so a freshly
+    initialised project passes specforge format --check.
   """
   verify unit "starter spec file is created alongside specforge.json"
   verify unit "starter spec file passes specforge check with zero errors"
@@ -108,6 +114,8 @@ behavior scaffold_starter_spec_file "Scaffold Starter Spec File" {
   verify integration "when several enabled extensions contribute starter templates, the one listed first in specforge.json is used"
   verify integration "extension-contributed starter file passes specforge check with zero errors"
   verify integration "the software starter passes specforge check with no warnings"
+  verify unit "the starter spec's version is the project's"
+  verify integration "a freshly initialised project passes format --check and check"
   verify contract "Scaffold Starter Spec File: starter spec file scaffolding holds — config_created, filesystem_available, starter_file_created, structural_syntax_only, zero_diagnostic_pass"
 }
 
@@ -240,8 +248,9 @@ behavior add_extension_to_existing_project "Add Extension to Existing Project" {
     When specforge add <extension-specifier> is invoked on an existing project,
     the system MUST add the extension to the extensions list in specforge.json.
     The extension specifier MUST accept @scope/name@version syntax; version
-    resolution is delegated to parse_extension_specifier from the wasm
-    behaviors. If no version is specified, the system MUST resolve to the
+    resolution is delegated to parse_extension_specifier
+    (specforge_ops::extension::parse over the package module).
+    If no version is specified, the system MUST resolve to the
     latest compatible version.
     An installed extension MUST be enabled by its bare name; specforge.lock
     records the version the extension itself declares (its handshake), with

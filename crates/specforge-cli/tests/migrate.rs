@@ -1,6 +1,7 @@
 use assert_cmd::Command;
 use predicates::prelude::*;
 use specforge_common::Sym;
+use specforge_protocol_types::FieldType;
 use specforge_test_macros::test as specforge_test;
 use std::fs;
 use tempfile::TempDir;
@@ -156,7 +157,7 @@ fn migrate_unknown_target_version_produces_error() {
         .assert()
         .code(1)
         .stderr(predicate::str::contains(
-            "E019: unsupported target version 99.0",
+            "error[E019]: unsupported target version 99.0",
         ))
         .stderr(predicate::str::contains(
             "Use a format version between 1.0 and 1.0.",
@@ -186,7 +187,7 @@ fn migrate_unparseable_target_version_reports_e019() {
         .assert()
         .code(1)
         .stderr(predicate::str::contains(
-            "E019: invalid target version 'not-a-version'",
+            "error[E019]: invalid target version 'not-a-version'",
         ));
 }
 
@@ -240,7 +241,7 @@ fn detect_format_version_from_header() {
 // B2: Missing version defaults to current (no migration needed)
 #[specforge_test(
     behavior = "detect_format_version_mismatch",
-    verify = "missing format version treated as oldest supported"
+    verify = "missing format version treated as the current version"
 )]
 fn missing_version_header_defaults_to_current() {
     let tmp = TempDir::new().unwrap();
@@ -746,30 +747,6 @@ fn rollback_failure_isolation() {
 // Phase F: Graph Validation
 // ===================================================================
 
-// F1: Capture pre-migration schema snapshot
-#[test]
-fn capture_pre_migration_snapshot_captures_schema() {
-    use specforge_emitter::schema::{GraphProtocolSchema, SchemaEntityKind, SchemaVersion};
-    use specforge_migrate::capture_pre_migration_snapshot;
-
-    let schema = GraphProtocolSchema {
-        schema_version: SchemaVersion::new(1, 0, 0),
-        extensions: Vec::new(),
-        entity_kinds: vec![SchemaEntityKind {
-            name: "behavior".to_string(),
-            source_extension: "@specforge/software".to_string(),
-            testable: true,
-            dot_color: None,
-            fields: Vec::new(),
-        }],
-        edge_types: Vec::new(),
-    };
-
-    let snapshot = capture_pre_migration_snapshot(&schema);
-    assert_eq!(snapshot.schema.entity_kinds.len(), 1);
-    assert_eq!(snapshot.schema.entity_kinds[0].name, "behavior");
-}
-
 // F2: Post-migration structural equivalence (format-only migration)
 #[specforge_test(
     behavior = "validate_post_migration_integrity",
@@ -987,7 +964,7 @@ fn non_breaking_schema_change_no_w053() {
             dot_color: None,
             fields: vec![SchemaField {
                 name: "new_field".to_string(),
-                field_type: "string".to_string(),
+                field_type: FieldType::String,
                 required: false,
                 enum_values: None,
                 edge: None,
@@ -1027,83 +1004,6 @@ fn non_breaking_schema_change_no_w053() {
         "1 migrated, 0 skipped, 0 failed",
         "nothing but the summary"
     );
-}
-
-// ===================================================================
-// Phase G: Extension Hooks
-// ===================================================================
-
-// G1: Extension without migration_hook → skip silently
-#[test]
-fn extension_without_hook_skipped() {
-    use specforge_migrate::{FormatVersion, MigrationHookRunner, NoOpMigrationHookRunner};
-
-    let runner = NoOpMigrationHookRunner;
-    let result = runner.invoke(
-        "@specforge/software",
-        "",
-        &FormatVersion { major: 0, minor: 1 },
-        &FormatVersion { major: 1, minor: 0 },
-    );
-    assert!(result.is_ok(), "no-op runner should succeed");
-}
-
-// G2: Hook error → diagnostic collected
-#[test]
-fn hook_error_produces_diagnostic() {
-    use specforge_migrate::{FormatVersion, MigrationHookRunner};
-
-    struct FailingHookRunner;
-    impl MigrationHookRunner for FailingHookRunner {
-        fn invoke(
-            &self,
-            _ext: &str,
-            _hook: &str,
-            _from: &FormatVersion,
-            _to: &FormatVersion,
-        ) -> Result<(), String> {
-            Err("hook failed".to_string())
-        }
-    }
-
-    let runner = FailingHookRunner;
-    let result = runner.invoke(
-        "@specforge/software",
-        "migrate",
-        &FormatVersion { major: 0, minor: 1 },
-        &FormatVersion { major: 1, minor: 0 },
-    );
-    assert!(result.is_err(), "failing runner should return error");
-    assert_eq!(result.unwrap_err(), "hook failed");
-}
-
-// G3: Hook timeout → trap diagnostic (structural test)
-#[test]
-fn hook_timeout_produces_trap() {
-    use specforge_migrate::{FormatVersion, MigrationHookRunner};
-
-    struct TimeoutHookRunner;
-    impl MigrationHookRunner for TimeoutHookRunner {
-        fn invoke(
-            &self,
-            _ext: &str,
-            _hook: &str,
-            _from: &FormatVersion,
-            _to: &FormatVersion,
-        ) -> Result<(), String> {
-            Err("Wasm trap: execution timed out after 30s".to_string())
-        }
-    }
-
-    let runner = TimeoutHookRunner;
-    let result = runner.invoke(
-        "@specforge/software",
-        "migrate",
-        &FormatVersion { major: 0, minor: 1 },
-        &FormatVersion { major: 1, minor: 0 },
-    );
-    assert!(result.is_err());
-    assert!(result.unwrap_err().contains("timed out"));
 }
 
 // ===================================================================
@@ -1203,40 +1103,51 @@ fn double_migrate_is_idempotent() {
 }
 
 // H3: Failure in one file does not block others
-#[test]
+#[specforge_test(
+    behavior = "migrate_spec_files_in_place",
+    verify = "failure in one file does not block others"
+)]
 fn failure_in_one_file_does_not_block_others() {
     let tmp = TempDir::new().unwrap();
     let root = tmp.path();
     setup_project(root);
-
-    // Two files: one valid, one will be unreadable
-    write_spec(
-        root,
-        "good.spec",
-        "// specforge-format: 0.1\nbehavior good \"Good\" {\n  contract \"ok\"\n}\n",
-    );
-    write_spec(
-        root,
-        "bad.spec",
-        "// specforge-format: 0.1\nbehavior bad \"Bad\" {\n  contract \"ok\"\n}\n",
-    );
-
-    // Make bad.spec a directory (unreadable as file)
-    fs::remove_file(root.join("spec/bad.spec")).unwrap();
-    fs::create_dir(root.join("spec/bad.spec")).unwrap();
+    let good = "// specforge-format: 0.1\nbehavior good \"Good\" {\n  contract \"ok\"\n}\n";
+    let bad = "// specforge-format: 9.0\nbehavior bad \"Bad\" {\n  contract \"ok\"\n}\n";
+    write_spec(root, "good.spec", good);
+    write_spec(root, "bad.spec", bad);
 
     let output = Command::cargo_bin("specforge")
         .unwrap()
         .args(["migrate", "--format=json", "--path", root.to_str().unwrap()])
         .output()
         .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
 
-    let stdout = String::from_utf8(output.stdout).unwrap();
-    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-
-    // good.spec should have been migrated despite bad.spec failure
-    let migrated = json["migrated_count"].as_u64().unwrap_or(0);
-    assert!(migrated >= 1, "good.spec should be migrated: {stdout}");
+    assert_eq!(output.status.code(), Some(1), "{json}");
+    assert_eq!(json["migrated_count"], 1, "{json}");
+    assert_eq!(json["failed_count"], 1, "{json}");
+    let failed = json["results"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|r| r["file_path"].as_str().unwrap().ends_with("bad.spec"))
+        .unwrap();
+    assert_eq!(failed["status"], "failed", "{json}");
+    assert!(
+        failed["error"].as_str().unwrap().starts_with("E019"),
+        "{json}"
+    );
+    assert!(
+        fs::read_to_string(root.join("spec/good.spec"))
+            .unwrap()
+            .starts_with("// specforge-format: 1.0"),
+        "good.spec is migrated despite bad.spec"
+    );
+    assert_eq!(
+        fs::read_to_string(root.join("spec/bad.spec")).unwrap(),
+        bad,
+        "bad.spec is left alone"
+    );
 }
 
 // H3b: JSON summary output
@@ -1271,87 +1182,83 @@ fn json_summary_contains_results_and_backups() {
 }
 
 // ===================================================================
-// Phase I: detect_format_version_mismatch — unit tests
+// Phase I: detect_format_version_mismatch — the compile reports it
 // ===================================================================
+
+/// `specforge check --format json` over the project at `root`: the exit code
+/// and the diagnostics it reports.
+fn check_json(root: &std::path::Path) -> (Option<i32>, Vec<serde_json::Value>) {
+    let output = Command::cargo_bin("specforge")
+        .unwrap()
+        .args(["check", "--format", "json"])
+        .arg(root)
+        .output()
+        .unwrap();
+    let diagnostics = serde_json::from_slice(&output.stdout).unwrap_or_else(|e| {
+        panic!(
+            "check printed no JSON ({e}): {}{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        )
+    });
+    (output.status.code(), diagnostics)
+}
+
+fn reported<'a>(diagnostics: &'a [serde_json::Value], code: &str) -> Vec<&'a serde_json::Value> {
+    diagnostics.iter().filter(|d| d["code"] == code).collect()
+}
 
 #[specforge_test(
     behavior = "detect_format_version_mismatch",
     verify = "older format version detected and reported as I007"
 )]
 fn older_format_version_produces_i007() {
-    use specforge_migrate::detect_format_version;
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path();
+    setup_project(root);
+    write_spec(
+        root,
+        "old.spec",
+        "// specforge-format: 0.1\nbehavior foo \"Foo\" {\n  contract \"x\"\n}\n",
+    );
+    write_spec(
+        root,
+        "current.spec",
+        "// specforge-format: 1.0\nbehavior bar \"Bar\" {\n  contract \"x\"\n}\n",
+    );
+    write_spec(
+        root,
+        "bare.spec",
+        "behavior baz \"Baz\" {\n  contract \"x\"\n}\n",
+    );
 
-    let content = "// specforge-format: 0.1\nbehavior foo \"Foo\" {\n  contract \"x\"\n}\n";
-    let (version, diags) = detect_format_version(content);
-    assert_eq!(version.major, 0);
-    assert_eq!(version.minor, 1);
+    let (code, diagnostics) = check_json(root);
+
+    // `check` reports the older file once, on its header line; the current
+    // file and the one with no header report nothing. It is an info: the
+    // project still checks.
+    assert_eq!(code, Some(0), "{diagnostics:?}");
+    let i007 = reported(&diagnostics, "I007");
+    assert_eq!(i007.len(), 1, "{diagnostics:?}");
+    assert_eq!(i007[0]["file"], "spec/old.spec", "{}", i007[0]);
+    assert_eq!(i007[0]["line"], 1, "{}", i007[0]);
+    assert_eq!(i007[0]["severity"], "Info", "{}", i007[0]);
     assert!(
-        diags.iter().any(|d| d.code == "I007"),
-        "older version should emit I007: {diags:?}"
+        i007[0]["message"].as_str().unwrap().contains("0.1"),
+        "{}",
+        i007[0]
     );
-}
+    assert!(reported(&diagnostics, "E019").is_empty(), "{diagnostics:?}");
 
-#[specforge_test(
-    behavior = "detect_format_version_mismatch",
-    verify = "current format version produces no diagnostic"
-)]
-fn current_format_version_no_diagnostic() {
-    use specforge_migrate::detect_format_version;
-
-    let content = "// specforge-format: 1.0\nbehavior foo \"Foo\" {\n  contract \"x\"\n}\n";
-    let (version, diags) = detect_format_version(content);
-    assert_eq!(version.major, 1);
-    assert_eq!(version.minor, 0);
-    assert!(
-        diags.is_empty(),
-        "current version should produce no diagnostic: {diags:?}"
-    );
-}
-
-#[specforge_test(
-    behavior = "detect_format_version_mismatch",
-    verify = "missing format version treated as oldest supported"
-)]
-fn missing_format_version_defaults_to_current() {
-    use specforge_migrate::{CURRENT_FORMAT_VERSION, detect_format_version};
-
-    let content = "behavior foo \"Foo\" {\n  contract \"x\"\n}\n";
-    let (version, diags) = detect_format_version(content);
-    assert_eq!(
-        version, CURRENT_FORMAT_VERSION,
-        "no header → defaults to current"
-    );
-    assert!(diags.is_empty(), "no header → no diagnostic: {diags:?}");
-}
-
-#[specforge_test(
-    behavior = "detect_format_version_mismatch",
-    verify = "header comment format version detected correctly"
-)]
-fn header_comment_detected_correctly() {
-    use specforge_migrate::detect_format_version;
-
-    let content = "// specforge-format: 0.5\nbehavior foo \"Foo\" {\n  contract \"x\"\n}\n";
-    let (version, _) = detect_format_version(content);
-    assert_eq!(version.major, 0);
-    assert_eq!(version.minor, 5);
-}
-
-#[specforge_test(
-    behavior = "detect_format_version_mismatch",
-    verify = "unsupported format version produces E019 with upgrade guidance"
-)]
-fn unsupported_format_version_produces_e015() {
-    use specforge_migrate::detect_format_version;
-
-    let content = "// specforge-format: 99.0\nbehavior foo \"Foo\" {\n  contract \"x\"\n}\n";
-    let (_version, diags) = detect_format_version(content);
-    assert!(
-        diags
-            .iter()
-            .any(|d| d.code == "E019" && d.suggestion.is_some()),
-        "unsupported version should emit E019 with suggestion: {diags:?}"
-    );
+    // Migrating the file clears it: the header is current.
+    Command::cargo_bin("specforge")
+        .unwrap()
+        .args(["migrate", "--path", root.to_str().unwrap()])
+        .assert()
+        .success();
+    let (code, diagnostics) = check_json(root);
+    assert_eq!(code, Some(0), "{diagnostics:?}");
+    assert!(reported(&diagnostics, "I007").is_empty(), "{diagnostics:?}");
 }
 
 #[specforge_test(
@@ -1359,28 +1266,87 @@ fn unsupported_format_version_produces_e015() {
     verify = "Detect Format Version Mismatch: format version detection holds — spec_file_available, version_mismatch_reported, unsupported_version_rejected, parsing_continues"
 )]
 fn detect_format_version_contract() {
-    use specforge_migrate::detect_format_version;
-
-    // Requires: spec file content is accessible (we pass a string)
-    // Ensures: version detected, diagnostics emitted appropriately
-
-    // Valid header → version detected, no errors
-    let (v, d) = detect_format_version("// specforge-format: 1.0\n");
-    assert_eq!(v.major, 1);
-    assert!(d.is_empty());
-
-    // Invalid header → fallback version, error emitted
-    let (v, d) = detect_format_version("// specforge-format: abc\n");
-    assert!(v.major >= 1, "fallback to min supported");
-    assert!(
-        d.iter()
-            .any(|d| d.severity == specforge_common::Severity::Error)
+    // Requires (spec_file_available): .spec files are being compiled.
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path();
+    setup_project(root);
+    write_spec(
+        root,
+        "older.spec",
+        "// specforge-format: 0.9\nbehavior older_one \"Older\" {\n  contract \"x\"\n}\n",
+    );
+    write_spec(
+        root,
+        "newer.spec",
+        "// specforge-format: 9.0\nbehavior newer_one \"Newer\" {\n  contract \"x\"\n}\n",
+    );
+    write_spec(
+        root,
+        "garbled.spec",
+        "// specforge-format: abc\nbehavior garbled_one \"Garbled\" {\n  contract \"x\"\n}\n",
     );
 
-    // No header → current version, no diagnostics
-    let (v, d) = detect_format_version("behavior foo \"Foo\" {}\n");
-    assert_eq!(v.major, 1);
-    assert!(d.is_empty());
+    let (code, diagnostics) = check_json(root);
+
+    // version_mismatch_reported: I007 for the older file.
+    let i007 = reported(&diagnostics, "I007");
+    assert_eq!(i007.len(), 1, "{diagnostics:?}");
+    assert_eq!(i007[0]["file"], "spec/older.spec");
+    // unsupported_version_rejected: E019 with upgrade guidance for the newer
+    // and for the unreadable header, which fails the check.
+    let e019 = reported(&diagnostics, "E019");
+    assert_eq!(e019.len(), 2, "{diagnostics:?}");
+    let newer = e019
+        .iter()
+        .find(|d| d["file"] == "spec/newer.spec")
+        .unwrap();
+    assert_eq!(newer["severity"], "Error");
+    assert!(
+        newer["suggestion"]
+            .as_str()
+            .unwrap()
+            .contains("Use a format version between"),
+        "{newer}"
+    );
+    assert!(e019.iter().any(|d| d["file"] == "spec/garbled.spec"));
+    assert_eq!(code, Some(1), "an unsupported format version fails check");
+
+    // parsing_continues: every file is still in the graph.
+    let export = Command::cargo_bin("specforge")
+        .unwrap()
+        .args(["export", "--format", "graph", "--no-schema"])
+        .arg(root)
+        .output()
+        .unwrap();
+    let graph: serde_json::Value = serde_json::from_slice(&export.stdout).unwrap();
+    let mut ids: Vec<&str> = graph["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|n| n["id"].as_str().unwrap())
+        .collect();
+    ids.sort();
+    assert_eq!(ids, ["garbled_one", "newer_one", "older_one"]);
+}
+
+#[test]
+fn a_file_with_no_header_reports_no_version_diagnostic() {
+    // Almost every file has none (no file of this repository's own specs
+    // carries a header): none is the current version, so nothing to report.
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path();
+    setup_project(root);
+    write_spec(
+        root,
+        "bare.spec",
+        "behavior baz \"Baz\" {\n  contract \"x\"\n}\n",
+    );
+
+    let (code, diagnostics) = check_json(root);
+
+    assert_eq!(code, Some(0), "{diagnostics:?}");
+    assert!(reported(&diagnostics, "I007").is_empty(), "{diagnostics:?}");
+    assert!(reported(&diagnostics, "E019").is_empty(), "{diagnostics:?}");
 }
 
 // ===================================================================
@@ -1509,14 +1475,34 @@ fn diff_format_compatible_with_patch() {
             .any(|l| l.starts_with('+') && !l.starts_with("+++")),
         "missing + added lines"
     );
+
+    // 4. patch(1) applies it from the project root.
+    let mut patch = std::process::Command::new("patch")
+        .args(["-p1", "--dry-run"])
+        .current_dir(root)
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .expect("patch(1) is installed");
+    std::io::Write::write_all(&mut patch.stdin.take().unwrap(), stdout.as_bytes()).unwrap();
+    let applied = patch.wait_with_output().unwrap();
+    assert!(
+        applied.status.success(),
+        "patch -p1 --dry-run: {}{}",
+        String::from_utf8_lossy(&applied.stdout),
+        String::from_utf8_lossy(&applied.stderr)
+    );
 }
 
-#[test]
+#[specforge_test(
+    behavior = "generate_migration_diff",
+    verify = "failure in one file does not block diff generation for others"
+)]
 fn dry_run_failure_isolation() {
     let tmp = TempDir::new().unwrap();
     let root = tmp.path();
     setup_project(root);
-
     write_spec(
         root,
         "good.spec",
@@ -1525,12 +1511,9 @@ fn dry_run_failure_isolation() {
     write_spec(
         root,
         "bad.spec",
-        "// specforge-format: 0.1\nbehavior bad \"Bad\" {\n  contract \"ok\"\n}\n",
+        "// specforge-format: 9.0\nbehavior bad \"Bad\" {\n  contract \"ok\"\n}\n",
     );
-
-    // Make bad.spec a directory (unreadable as file)
-    fs::remove_file(root.join("spec/bad.spec")).unwrap();
-    fs::create_dir(root.join("spec/bad.spec")).unwrap();
+    let before = crate::written::files_under(root);
 
     let output = Command::cargo_bin("specforge")
         .unwrap()
@@ -1543,19 +1526,22 @@ fn dry_run_failure_isolation() {
         ])
         .output()
         .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
 
-    let stdout = String::from_utf8(output.stdout).unwrap();
-    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-
-    // good.spec should still produce a diff
     let diffs = json["diffs"].as_array().expect("diffs should be array");
+    assert_eq!(diffs.len(), 1, "{json}");
     assert!(
-        diffs.iter().any(|d| {
-            d["file_path"]
-                .as_str()
-                .is_some_and(|p| p.contains("good.spec"))
-        }),
-        "good.spec diff should be present despite bad.spec failure: {stdout}"
+        diffs[0]["file_path"]
+            .as_str()
+            .unwrap()
+            .ends_with("good.spec"),
+        "{json}"
+    );
+    assert_eq!(json["failed_count"], 1, "{json}");
+    assert_eq!(
+        crate::written::changed_since(root, &before),
+        Vec::<String>::new(),
+        "a dry run writes nothing"
     );
 }
 
@@ -1606,62 +1592,6 @@ fn migration_diff_contract() {
 // ===================================================================
 // Phase L: validate_post_migration_integrity — additional coverage
 // ===================================================================
-
-#[test]
-fn post_migration_check_runs_automatically() {
-    use specforge_graph::{EntityId, EntityKind, FieldMap, Graph, Node, SourceSpan};
-    use specforge_migrate::compare_graphs;
-
-    // The compare_graphs function is the post-migration check.
-    // It runs automatically as part of the migration pipeline.
-    // Here we verify it catches differences when invoked.
-    let mut pre = Graph::new();
-    pre.add_node(Node {
-        id: EntityId {
-            raw: Sym::new("alpha"),
-        },
-        kind: EntityKind {
-            raw: Sym::new("behavior"),
-        },
-        title: Some("Alpha".to_string()),
-        source_span: SourceSpan {
-            file: Sym::new("test.spec"),
-            start_line: 1,
-            start_col: 0,
-            end_line: 1,
-            end_col: 0,
-        },
-        fields: FieldMap::new(),
-        methods: Vec::new(),
-    });
-
-    let mut post = Graph::new();
-    post.add_node(Node {
-        id: EntityId {
-            raw: Sym::new("alpha"),
-        },
-        kind: EntityKind {
-            raw: Sym::new("behavior"),
-        },
-        title: Some("Alpha".to_string()),
-        source_span: SourceSpan {
-            file: Sym::new("test.spec"),
-            start_line: 5,
-            start_col: 0,
-            end_line: 5,
-            end_col: 0,
-        },
-        fields: FieldMap::new(),
-        methods: Vec::new(),
-    });
-
-    // Identical entities (different source spans excluded) → no diagnostics
-    let diags = compare_graphs(&pre, &post);
-    assert!(
-        diags.is_empty(),
-        "same entities should produce no diagnostics"
-    );
-}
 
 #[test]
 fn new_entities_after_migration_reported() {
@@ -1757,168 +1687,6 @@ fn post_migration_integrity_contract() {
             .any(|d| d.code == "W054" && d.message.contains("edge")),
         "missing edge → W054: {diags2:?}"
     );
-}
-
-// ===================================================================
-// Phase M: capture_pre_migration_schema_snapshot — additional coverage
-// ===================================================================
-
-#[specforge_test(
-    behavior = "capture_pre_migration_schema_snapshot",
-    verify = "snapshot includes node kinds, edge types, and field definitions"
-)]
-fn snapshot_includes_all_schema_components() {
-    use specforge_emitter::schema::{
-        GraphProtocolSchema, SchemaEdgeType, SchemaEntityKind, SchemaField, SchemaVersion,
-    };
-    use specforge_migrate::capture_pre_migration_snapshot;
-
-    let schema = GraphProtocolSchema {
-        schema_version: SchemaVersion::new(1, 0, 0),
-        extensions: Vec::new(),
-        entity_kinds: vec![SchemaEntityKind {
-            name: "behavior".to_string(),
-            source_extension: "@specforge/software".to_string(),
-            testable: true,
-            dot_color: None,
-            fields: vec![SchemaField {
-                name: "contract".to_string(),
-                field_type: "string".to_string(),
-                required: true,
-                enum_values: None,
-                edge: None,
-                target_kind: None,
-                description: None,
-                default_value: None,
-                source_extension: "@specforge/software".to_string(),
-            }],
-        }],
-        edge_types: vec![SchemaEdgeType {
-            label: "implements".to_string(),
-            source_extension: "@specforge/software".to_string(),
-            source_kinds: Some(vec!["behavior".to_string()]),
-            target_kinds: Some(vec!["feature".to_string()]),
-        }],
-    };
-
-    let snapshot = capture_pre_migration_snapshot(&schema);
-    assert_eq!(
-        snapshot.schema, schema,
-        "the snapshot holds the whole schema"
-    );
-
-    // The schema `specforge migrate` snapshots is the project's compiled
-    // schema, the one `specforge schema` prints. Snapshot a real one.
-    let tmp = TempDir::new().unwrap();
-    let root = tmp.path();
-    fs::write(
-        root.join("specforge.json"),
-        r#"{"name":"test","version":"0.1.0","extensions":["@specforge/software"]}"#,
-    )
-    .unwrap();
-    write_spec(
-        root,
-        "test.spec",
-        "behavior foo \"Foo\" {\n  contract \"stuff\"\n}\n",
-    );
-    let output = Command::cargo_bin("specforge")
-        .unwrap()
-        .args(["schema", root.to_str().unwrap()])
-        .output()
-        .unwrap();
-    assert!(output.status.success());
-    let project_schema: GraphProtocolSchema = serde_json::from_slice(&output.stdout)
-        .unwrap_or_else(|e| panic!("{e}: {}", String::from_utf8_lossy(&output.stdout)));
-    let snapshot = capture_pre_migration_snapshot(&project_schema);
-
-    // Node kinds
-    let behavior = snapshot
-        .schema
-        .entity_kinds
-        .iter()
-        .find(|k| k.name == "behavior")
-        .expect("behavior kind in snapshot");
-    assert!(
-        snapshot
-            .schema
-            .entity_kinds
-            .iter()
-            .any(|k| k.name == "invariant")
-    );
-    // Field definitions, with their types
-    let contract = behavior
-        .fields
-        .iter()
-        .find(|f| f.name == "contract")
-        .expect("behavior.contract field in snapshot");
-    assert_eq!(contract.field_type, "string");
-    let invariants = behavior
-        .fields
-        .iter()
-        .find(|f| f.name == "invariants")
-        .expect("behavior.invariants field in snapshot");
-    assert_eq!(invariants.field_type, "reference_list");
-    // Edge types
-    assert!(
-        snapshot
-            .schema
-            .edge_types
-            .iter()
-            .any(|e| e.label == "BehaviorEnforcesInvariant"),
-        "{:?}",
-        snapshot.schema.edge_types
-    );
-}
-
-#[test]
-fn snapshot_persists_across_lifecycle() {
-    use specforge_emitter::schema::{GraphProtocolSchema, SchemaEntityKind, SchemaVersion};
-    use specforge_migrate::capture_pre_migration_snapshot;
-
-    let schema = GraphProtocolSchema {
-        schema_version: SchemaVersion::new(1, 0, 0),
-        extensions: Vec::new(),
-        entity_kinds: vec![SchemaEntityKind {
-            name: "invariant".to_string(),
-            source_extension: "@specforge/software".to_string(),
-            testable: false,
-            dot_color: None,
-            fields: Vec::new(),
-        }],
-        edge_types: Vec::new(),
-    };
-
-    // Capture at migration_starting
-    let snapshot = capture_pre_migration_snapshot(&schema);
-
-    // Simulate time passing / hooks running — snapshot is still accessible
-    let snapshot_clone = snapshot.clone();
-    assert_eq!(
-        snapshot_clone.schema.entity_kinds[0].name, "invariant",
-        "snapshot must persist across lifecycle phases"
-    );
-    assert_eq!(snapshot.schema, snapshot_clone.schema);
-}
-
-#[test]
-fn pre_migration_snapshot_contract() {
-    use specforge_emitter::schema::{GraphProtocolSchema, SchemaVersion};
-    use specforge_migrate::capture_pre_migration_snapshot;
-
-    // Requires: migration_starting fired (we call the function directly)
-    // Ensures: snapshot_captured with node kinds, edge types, field defs
-
-    let schema = GraphProtocolSchema {
-        schema_version: SchemaVersion::new(1, 0, 0),
-        extensions: Vec::new(),
-        entity_kinds: Vec::new(),
-        edge_types: Vec::new(),
-    };
-
-    let snapshot = capture_pre_migration_snapshot(&schema);
-    assert_eq!(snapshot.schema.schema_version, SchemaVersion::new(1, 0, 0));
-    assert!(snapshot.schema.entity_kinds.is_empty());
-    assert!(snapshot.schema.edge_types.is_empty());
 }
 
 // ===================================================================
@@ -2090,7 +1858,7 @@ fn removed_required_field_is_breaking() {
             dot_color: None,
             fields: vec![SchemaField {
                 name: "contract".to_string(),
-                field_type: "string".to_string(),
+                field_type: FieldType::String,
                 required: true,
                 enum_values: None,
                 edge: None,
@@ -2145,7 +1913,7 @@ fn changed_field_type_is_breaking() {
             dot_color: None,
             fields: vec![SchemaField {
                 name: "contract".to_string(),
-                field_type: "string".to_string(),
+                field_type: FieldType::String,
                 required: true,
                 enum_values: None,
                 edge: None,
@@ -2168,7 +1936,7 @@ fn changed_field_type_is_breaking() {
             dot_color: None,
             fields: vec![SchemaField {
                 name: "contract".to_string(),
-                field_type: "string_list".to_string(), // type changed
+                field_type: FieldType::StringList, // type changed
                 required: true,
                 enum_values: None,
                 edge: None,
@@ -2223,7 +1991,7 @@ fn added_optional_field_not_breaking() {
             dot_color: None,
             fields: vec![SchemaField {
                 name: "description".to_string(),
-                field_type: "string".to_string(),
+                field_type: FieldType::String,
                 required: false, // optional
                 enum_values: None,
                 edge: None,
@@ -2547,352 +2315,8 @@ fn rollback_contract() {
 }
 
 // ===================================================================
-// Phase P: invoke_extension_migration_hooks — additional coverage
-// ===================================================================
-
-#[test]
-fn extension_with_hook_gets_invoked() {
-    use specforge_migrate::{FormatVersion, MigrationHookRunner};
-    use std::sync::{Arc, Mutex};
-
-    struct TrackingRunner {
-        invocations: Arc<Mutex<Vec<String>>>,
-    }
-
-    impl MigrationHookRunner for TrackingRunner {
-        fn invoke(
-            &self,
-            ext: &str,
-            hook: &str,
-            _from: &FormatVersion,
-            _to: &FormatVersion,
-        ) -> Result<(), String> {
-            self.invocations
-                .lock()
-                .unwrap()
-                .push(format!("{ext}:{hook}"));
-            Ok(())
-        }
-    }
-
-    let invocations = Arc::new(Mutex::new(Vec::new()));
-    let runner = TrackingRunner {
-        invocations: invocations.clone(),
-    };
-
-    let result = runner.invoke(
-        "@specforge/software",
-        "migrate_v1_to_v2",
-        &FormatVersion { major: 1, minor: 0 },
-        &FormatVersion { major: 2, minor: 0 },
-    );
-
-    assert!(result.is_ok());
-    let calls = invocations.lock().unwrap();
-    assert_eq!(calls.len(), 1);
-    assert_eq!(calls[0], "@specforge/software:migrate_v1_to_v2");
-}
-
-#[test]
-fn extension_with_empty_hook_skipped() {
-    use specforge_migrate::{FormatVersion, MigrationHookRunner, NoOpMigrationHookRunner};
-
-    let runner = NoOpMigrationHookRunner;
-
-    // Empty hook name → should succeed (no-op)
-    let result = runner.invoke(
-        "@specforge/governance",
-        "",
-        &FormatVersion { major: 0, minor: 1 },
-        &FormatVersion { major: 1, minor: 0 },
-    );
-    assert!(result.is_ok(), "empty hook should be silently skipped");
-}
-
-#[test]
-fn hooks_invoked_in_deterministic_order() {
-    use specforge_migrate::{FormatVersion, MigrationHookRunner};
-    use std::sync::{Arc, Mutex};
-
-    struct OrderTracker {
-        order: Arc<Mutex<Vec<String>>>,
-    }
-
-    impl MigrationHookRunner for OrderTracker {
-        fn invoke(
-            &self,
-            ext: &str,
-            _hook: &str,
-            _from: &FormatVersion,
-            _to: &FormatVersion,
-        ) -> Result<(), String> {
-            self.order.lock().unwrap().push(ext.to_string());
-            Ok(())
-        }
-    }
-
-    let order = Arc::new(Mutex::new(Vec::new()));
-    let runner = OrderTracker {
-        order: order.clone(),
-    };
-    let from = FormatVersion { major: 0, minor: 1 };
-    let to = FormatVersion { major: 1, minor: 0 };
-
-    // Invoke in a specific order
-    let extensions = [
-        "@specforge/software",
-        "@specforge/product",
-        "@specforge/governance",
-    ];
-
-    for ext in &extensions {
-        runner.invoke(ext, "migrate", &from, &to).unwrap();
-    }
-
-    let calls = order.lock().unwrap();
-    assert_eq!(calls.len(), 3);
-    // Same order as invocation
-    assert_eq!(calls[0], "@specforge/software");
-    assert_eq!(calls[1], "@specforge/product");
-    assert_eq!(calls[2], "@specforge/governance");
-
-    // Run again — same order (deterministic)
-    drop(calls);
-    let order2 = Arc::new(Mutex::new(Vec::new()));
-    let runner2 = OrderTracker {
-        order: order2.clone(),
-    };
-
-    for ext in &extensions {
-        runner2.invoke(ext, "migrate", &from, &to).unwrap();
-    }
-
-    let calls2 = order2.lock().unwrap();
-    assert_eq!(calls2.as_slice(), &extensions);
-}
-
-#[test]
-fn failed_extension_hook_skipped() {
-    use specforge_migrate::{FormatVersion, MigrationHookRunner};
-
-    struct LifecycleAwareRunner {
-        failed_extensions: Vec<String>,
-    }
-
-    impl MigrationHookRunner for LifecycleAwareRunner {
-        fn invoke(
-            &self,
-            ext: &str,
-            _hook: &str,
-            _from: &FormatVersion,
-            _to: &FormatVersion,
-        ) -> Result<(), String> {
-            if self.failed_extensions.contains(&ext.to_string()) {
-                Err(format!("extension {ext} is in failed state"))
-            } else {
-                Ok(())
-            }
-        }
-    }
-
-    let runner = LifecycleAwareRunner {
-        failed_extensions: vec!["@specforge/broken".to_string()],
-    };
-
-    let from = FormatVersion { major: 0, minor: 1 };
-    let to = FormatVersion { major: 1, minor: 0 };
-
-    // Failed extension returns error
-    assert!(
-        runner
-            .invoke("@specforge/broken", "migrate", &from, &to)
-            .is_err()
-    );
-
-    // Healthy extension succeeds
-    assert!(
-        runner
-            .invoke("@specforge/software", "migrate", &from, &to)
-            .is_ok()
-    );
-}
-
-#[test]
-fn extension_hooks_contract() {
-    use specforge_migrate::{FormatVersion, MigrationHookRunner, NoOpMigrationHookRunner};
-
-    // Requires: migration_complete event has fired
-    // Ensures: all hooks invoked, event emitted
-    // Maintains: extension_isolation (failing hook doesn't prevent others)
-
-    let from = FormatVersion { major: 0, minor: 1 };
-    let to = FormatVersion { major: 1, minor: 0 };
-
-    // No-op runner always succeeds → all hooks invoked
-    let runner = NoOpMigrationHookRunner;
-    assert!(
-        runner
-            .invoke("@specforge/software", "migrate", &from, &to)
-            .is_ok()
-    );
-    assert!(
-        runner
-            .invoke("@specforge/product", "migrate", &from, &to)
-            .is_ok()
-    );
-
-    // Failing runner still returns result (doesn't panic)
-    struct FailRunner;
-    impl MigrationHookRunner for FailRunner {
-        fn invoke(
-            &self,
-            _: &str,
-            _: &str,
-            _: &FormatVersion,
-            _: &FormatVersion,
-        ) -> Result<(), String> {
-            Err("hook crashed".to_string())
-        }
-    }
-    let fail_result = FailRunner.invoke("@specforge/software", "migrate", &from, &to);
-    assert!(
-        fail_result.is_err(),
-        "failing hook returns error, doesn't panic"
-    );
-}
-
-// ===================================================================
 // Phase Q: Remaining uncovered verify statements
 // ===================================================================
-
-#[test]
-fn spec_root_format_version_field_detected() {
-    use specforge_migrate::detect_format_version;
-
-    // The spec root format_version is an alternative to the header comment.
-    // Currently, the primary mechanism is the header comment. This test
-    // verifies that the header-based detection works as the primary path
-    // (spec root field parsing will be added when the parser supports it).
-    let content = "// specforge-format: 1.0\nbehavior foo \"Foo\" {\n  contract \"x\"\n}\n";
-    let (version, diags) = detect_format_version(content);
-    assert_eq!(version.major, 1);
-    assert_eq!(version.minor, 0);
-    assert!(diags.is_empty());
-}
-
-#[test]
-fn mismatched_header_and_root_format_version() {
-    use specforge_migrate::detect_format_version;
-
-    // When both header comment and spec root field are present, they must agree.
-    // Currently only header is supported; when root field is added, a mismatch
-    // will produce an E-level diagnostic. This test verifies the header path
-    // doesn't produce false positives on valid input.
-    let content = "// specforge-format: 1.0\nbehavior foo \"Foo\" {\n  contract \"x\"\n}\n";
-    let (version, diags) = detect_format_version(content);
-    assert_eq!(version.major, 1);
-    assert!(
-        !diags
-            .iter()
-            .any(|d| d.severity == specforge_common::Severity::Error),
-        "consistent version should not produce E-level diagnostic"
-    );
-}
-
-#[test]
-fn schema_comparison_runs_once() {
-    use specforge_emitter::schema::{GraphProtocolSchema, SchemaEntityKind, SchemaVersion};
-    use specforge_migrate::check_schema_compatibility;
-
-    let pre = GraphProtocolSchema {
-        schema_version: SchemaVersion::new(1, 0, 0),
-        extensions: Vec::new(),
-        entity_kinds: vec![SchemaEntityKind {
-            name: "behavior".to_string(),
-            source_extension: "@specforge/software".to_string(),
-            testable: true,
-            dot_color: None,
-            fields: Vec::new(),
-        }],
-        edge_types: Vec::new(),
-    };
-
-    // Running the check twice with the same inputs yields identical results
-    // (no accumulated state between runs — single-shot comparison)
-    let diags1 = check_schema_compatibility(&pre, &pre);
-    let diags2 = check_schema_compatibility(&pre, &pre);
-    assert_eq!(
-        diags1.len(),
-        diags2.len(),
-        "check is stateless, runs once per invocation"
-    );
-    assert!(diags1.is_empty());
-}
-
-#[test]
-fn hook_trap_collects_wasm_trap_info() {
-    use specforge_migrate::{FormatVersion, MigrationHookRunner};
-
-    struct TrapRunner;
-    impl MigrationHookRunner for TrapRunner {
-        fn invoke(
-            &self,
-            _ext: &str,
-            _hook: &str,
-            _from: &FormatVersion,
-            _to: &FormatVersion,
-        ) -> Result<(), String> {
-            Err("Wasm trap: unreachable code reached at offset 0x42".to_string())
-        }
-    }
-
-    let runner = TrapRunner;
-    let result = runner.invoke(
-        "@specforge/software",
-        "migrate",
-        &FormatVersion { major: 0, minor: 1 },
-        &FormatVersion { major: 1, minor: 0 },
-    );
-
-    assert!(result.is_err());
-    let err = result.unwrap_err();
-    assert!(
-        err.contains("Wasm trap"),
-        "error should contain trap info: {err}"
-    );
-}
-
-#[test]
-fn validation_runs_after_core_and_hooks() {
-    use specforge_emitter::schema::{GraphProtocolSchema, SchemaVersion};
-    use specforge_migrate::{
-        FormatVersion, MigrationHookRunner, NoOpMigrationHookRunner, check_schema_compatibility,
-    };
-
-    // Simulate: core migration runs, then extension hooks run, then validation
-    let from = FormatVersion { major: 0, minor: 1 };
-    let to = FormatVersion { major: 1, minor: 0 };
-
-    // Step 1: Core migration (simulated)
-    let schema_pre = GraphProtocolSchema {
-        schema_version: SchemaVersion::new(1, 0, 0),
-        extensions: Vec::new(),
-        entity_kinds: Vec::new(),
-        edge_types: Vec::new(),
-    };
-
-    // Step 2: Extension hooks
-    let runner = NoOpMigrationHookRunner;
-    assert!(runner.invoke("@specforge/software", "", &from, &to).is_ok());
-
-    // Step 3: Validation runs once after both complete
-    let schema_post = schema_pre.clone(); // no changes in this case
-    let diags = check_schema_compatibility(&schema_pre, &schema_post);
-    assert!(
-        diags.is_empty(),
-        "validation after hooks complete: no changes → no diags"
-    );
-}
 
 use crate::written::{changed_since, files_under, files_written};
 
@@ -2945,4 +2369,81 @@ fn migrate_json_lists_each_file_and_its_backup() {
     let restored = migrate(&["--rollback"]);
     assert_eq!(files_written(&restored), ["spec/a.spec", "spec/b.spec"]);
     assert_eq!(changed_since(root, &before), files_written(&restored));
+}
+
+// ===================================================================
+// Plan 14, T0 pins: what migrate prints today
+// ===================================================================
+
+/// `MigrationSummary` carries no `diagnostics`: nothing ever filled it (plan
+/// 14 D4), so the JSON does not claim an empty list.
+#[test]
+fn migrate_json_has_no_diagnostics_key() {
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path();
+    setup_project(root);
+    write_spec(
+        root,
+        "test.spec",
+        "// specforge-format: 0.1\nbehavior foo \"Foo\" {\n  contract \"stuff\"\n}\n",
+    );
+
+    let output = Command::cargo_bin("specforge")
+        .unwrap()
+        .args([
+            "migrate",
+            "--dry-run",
+            "--format=json",
+            "--path",
+            root.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert!(json.get("diagnostics").is_none(), "{json}");
+}
+
+/// A dry-run diff labels each file with its path from the project root, so
+/// that `patch -p1` applies it there (plan 14 D14).
+#[test]
+fn dry_run_diff_labels_are_relative_to_the_project_root() {
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path();
+    setup_project(root);
+    write_spec(
+        root,
+        "test.spec",
+        "// specforge-format: 0.1\nbehavior foo \"Foo\" {\n  contract \"stuff\"\n}\n",
+    );
+
+    let text = Command::cargo_bin("specforge")
+        .unwrap()
+        .args(["migrate", "--dry-run", "--path", root.to_str().unwrap()])
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8(text.stdout).unwrap();
+    let mut lines = stdout.lines();
+    assert_eq!(lines.next(), Some("--- a/spec/test.spec"), "{stdout}");
+    assert_eq!(lines.next(), Some("+++ b/spec/test.spec"), "{stdout}");
+
+    // MCP and --format json carry the same text.
+    let json = Command::cargo_bin("specforge")
+        .unwrap()
+        .args([
+            "migrate",
+            "--dry-run",
+            "--format=json",
+            "--path",
+            root.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&json.stdout).unwrap();
+    assert!(
+        json["diffs"][0]["unified_text"]
+            .as_str()
+            .unwrap()
+            .starts_with("--- a/spec/test.spec\n+++ b/spec/test.spec\n"),
+        "{json}"
+    );
 }

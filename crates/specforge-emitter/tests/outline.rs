@@ -14,16 +14,12 @@ fn load_manifest(name: &str) -> ExtensionDeclaration {
     load_declaration(&runtime, ext_name).unwrap().declaration
 }
 
-/// Build a Wasm runtime for a temp project listing `ext_names`.
+/// A Wasm runtime holding the builtin extensions `ext_names`.
 fn wasm_runtime_for(ext_names: &[&str]) -> specforge_component::ComponentRuntime {
-    let dir = tempfile::TempDir::new().unwrap();
-    let config = serde_json::json!({
-        "name": "test-project",
-        "version": "0.1.0",
-        "extensions": ext_names,
-    });
-    std::fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
-    specforge_component::project_runtime(dir.path())
+    let runtime = specforge_component::ComponentRuntime::new();
+    let names: Vec<String> = ext_names.iter().map(|name| name.to_string()).collect();
+    specforge_component::builtins::load_builtins_for(&runtime, &names).unwrap();
+    runtime
 }
 
 fn load_all_manifests() -> Vec<ExtensionDeclaration> {
@@ -963,5 +959,86 @@ fn transitive_dependencies_are_the_same_on_every_run() {
             render(&OutlineIntermediate_from_declarations(&manifests), &options),
             first
         );
+    }
+}
+
+// ==========================================================================
+// Declared text in the text diagrams (plan 16)
+// ==========================================================================
+
+/// One extension, `@t/q` at `version`, declaring a `note` kind whose keyword
+/// is `no"te`.
+fn quoted(version: &str) -> OutlineIntermediate {
+    use specforge_protocol_types::{EntityKindDescriptor, FieldDescriptor, HandshakeResponse};
+    let declaration = ExtensionDeclaration {
+        handshake: HandshakeResponse {
+            name: "@t/q".to_string(),
+            version: version.to_string(),
+            ..Default::default()
+        },
+        entities: vec![EntityKindDescriptor {
+            name: "note".to_string(),
+            keyword: Some("no\"te".to_string()),
+            fields: vec![FieldDescriptor {
+                name: "body".to_string(),
+                field_type: "string".to_string(),
+                ..Default::default()
+            }],
+            ..Default::default()
+        }],
+        ..Default::default()
+    };
+    OutlineIntermediate_from_declarations(&[declaration])
+}
+
+#[specforge_test_macros::test(
+    behavior = "render_extension_outline",
+    verify = "declared text with a quote, markup or a line break stays inside its Mermaid label"
+)]
+fn a_quote_in_a_version_or_keyword_stays_inside_the_mermaid_label() {
+    let opts = OutlineOptions {
+        format: OutlineFormat::Mermaid,
+        detail: OutlineDetail::Keys,
+        ..Default::default()
+    };
+    let output = render(&quoted("1.0.0-\"rc\""), &opts);
+    assert!(
+        output.contains("subgraph t_q[\"  @t/q v1.0.0-#quot;rc#quot;  \"]"),
+        "{output}"
+    );
+    assert!(output.contains("<br>no#quot;te\"]"), "{output}");
+}
+
+#[specforge_test_macros::test(
+    behavior = "render_extension_outline",
+    verify = "declared text with a pipe or a line break stays in its Markdown table cell"
+)]
+fn a_pipe_in_a_version_stays_in_its_markdown_cell() {
+    let opts = OutlineOptions {
+        format: OutlineFormat::Markdown,
+        detail: OutlineDetail::Keys,
+        ..Default::default()
+    };
+    let output = render(&quoted("1.0|rc"), &opts);
+    assert!(output.contains("| @t/q | 1.0\\|rc |"), "{output}");
+}
+
+#[specforge_test_macros::test(
+    behavior = "render_extension_outline",
+    verify = "the builtins' outline is unchanged in every format"
+)]
+fn outline_of_the_builtins_in_every_format() {
+    let outline = OutlineIntermediate_from_declarations(&load_all_manifests());
+    for (format, name) in [
+        (OutlineFormat::Markdown, "markdown"),
+        (OutlineFormat::Mermaid, "mermaid"),
+        (OutlineFormat::Dot, "dot"),
+    ] {
+        let opts = OutlineOptions {
+            format,
+            detail: OutlineDetail::All,
+            deps: DependencyDepth::Full,
+        };
+        insta::assert_snapshot!(format!("outline_builtins_{name}"), render(&outline, &opts));
     }
 }

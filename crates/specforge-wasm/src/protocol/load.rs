@@ -2,31 +2,33 @@
 //!
 //! Everything the host knows about an extension it reads here, once per
 //! environment load: the handshake (its protocol major checked, its
-//! sandbox deadline applied), then every category of
-//! [`DECLARED_CATEGORIES`], whatever its contribution flags say. Nothing
+//! sandbox applied), then every category of
+//! [`DeclaredCategory::ALL`], whatever its contribution flags say. Nothing
 //! describes a category again outside this load.
 
 use specforge_common::{Diagnostic, codes};
 #[cfg(doc)]
-use specforge_protocol_types::DECLARED_CATEGORIES;
+use specforge_protocol_types::DeclaredCategory;
 use specforge_protocol_types::{
     ExtensionDeclaration, HandshakeResponse, PROTOCOL_VERSION, ProtocolError, UnknownKey,
 };
 
-use crate::calls::{CallError, CallFailure, ExtensionCalls};
+use crate::calls::{CallError, CallFailure, ExtensionCalls, Handshake};
 use crate::runtime::WasmRuntime;
+use crate::sandbox;
 
 /// A loaded declaration, with what its load found worth a warning.
 #[derive(Debug, Clone)]
 pub struct Loaded {
     pub declaration: ExtensionDeclaration,
-    /// W138: describe item keys the protocol does not define, in the order
-    /// the categories were read.
+    /// W153 (what its sandbox declaration asks for that the host does not
+    /// honour), then W138 (describe item keys the protocol does not
+    /// define), in the order the handshake and the categories were read.
     pub warnings: Vec<Diagnostic>,
 }
 
 /// Load `extension`'s declaration through `runtime`: the handshake
-/// (protocol major checked, sandbox deadline applied), then every declared
+/// (protocol major checked, sandbox applied), then every declared
 /// describe category, unconditionally, each one call of
 /// [`ExtensionCalls`]. A handshake or category that fails, or does not
 /// parse, fails the load, naming what failed.
@@ -35,17 +37,20 @@ pub fn load_declaration(
     extension: &str,
 ) -> Result<Loaded, ProtocolError> {
     let calls = ExtensionCalls::new(runtime);
-    let handshake = calls.handshake(extension).map_err(|error| {
+    let Handshake { response, sandbox } = calls.handshake(extension).map_err(|error| {
         match error.failure {
             // A handshake that is not one is a deserialization error.
             CallFailure::Malformed { reason, .. } => ProtocolError::DeserializationError(reason),
             _ => ProtocolError::HandshakeFailed(reason(&error)),
         }
     })?;
-    check_protocol_version(&handshake)?;
-    let mut warnings = Vec::new();
+    check_protocol_version(&response)?;
+    // The limits the extension declares (the ceiling when it declares
+    // none) hold every call after the handshake.
+    runtime.apply_limits(extension, sandbox.limits);
+    let mut warnings = sandbox.unhonoured;
     let declaration = ExtensionDeclaration::from_wire(
-        handshake,
+        response,
         |category| {
             calls
                 .describe(extension, category)
@@ -54,7 +59,12 @@ pub fn load_declaration(
                     reason: reason(&error),
                 })
         },
-        |key| warnings.push(unknown_key(extension, key)),
+        |key| {
+            warnings.push(
+                sandbox::unhonoured_surface_key(extension, &key)
+                    .unwrap_or_else(|| unknown_key(extension, key)),
+            )
+        },
     )?;
     Ok(Loaded {
         declaration,

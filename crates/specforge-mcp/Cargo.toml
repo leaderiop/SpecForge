@@ -18,6 +18,7 @@ specforge-emitter = { path = "../specforge-emitter" }
 specforge-component = { path = "../specforge-component" }
 specforge-registry = { workspace = true }
 specforge-formatter = { workspace = true }
+specforge-mcp-macros = { path = "../specforge-mcp-macros" }
 specforge-migrate = { workspace = true }
 specforge-ops = { workspace = true }
 specforge-ops-registry = { path = "../specforge-ops-registry" }
@@ -27,12 +28,12 @@ specforge-wasm = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 chrono = "0.4.41"
-getrandom = "0.3"
 
 [dev-dependencies]
 specforge-extension-sdk = { path = "../specforge-extension-sdk" }
 # Extensions served in process (`specforge_wasm::testing`).
 specforge-wasm = { workspace = true, features = ["testing"] }
+specforge-installed = { path = "../specforge-installed", features = ["testing"] }
 specforge-parser = { workspace = true }
 specforge-test = { workspace = true }
 specforge-test-macros = { workspace = true }

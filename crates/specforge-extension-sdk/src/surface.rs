@@ -50,7 +50,7 @@ use serde_json::Value;
 use specforge_protocol_types::command_args::{self, normalize_args};
 use specforge_protocol_types::{
     CommandArgDescriptor, CommandArgType, CommandDescriptor, McpResourceDescriptor,
-    McpToolDescriptor, SurfaceDescriptor, SurfaceSandboxOverride,
+    McpToolDescriptor, SurfaceDescriptor,
 };
 
 /// The error code of a command called with an arg it cannot use (ADR 0011):
@@ -214,7 +214,6 @@ impl Surfaces {
                 category: None,
                 export,
                 args: Vec::new(),
-                sandbox: None,
             },
             handler: None,
         }
@@ -248,7 +247,6 @@ impl Surfaces {
                 export: format!("mcp__{}", export_suffix(name)),
                 input_schema: serde_json::json!({"type": "object"}),
                 output_schema: None,
-                sandbox: None,
             },
             handler: None,
         }
@@ -281,7 +279,6 @@ impl Surfaces {
                 description: None,
                 export: format!("mcp__{}", export_suffix(name)),
                 mime_type: "application/json".to_string(),
-                sandbox: None,
             },
             handler: None,
         }
@@ -403,13 +400,6 @@ impl CommandBuilder {
         self
     }
 
-    /// The capabilities the command asks for. Declared, not granted: the
-    /// host grants a `cmd__` export none (ADR 0008).
-    pub fn sandbox(&mut self, f: impl FnOnce(&mut SandboxBuilder)) -> &mut Self {
-        self.descriptor.sandbox = Some(sandbox(f));
-        self
-    }
-
     /// Declare the arg `name` (a string unless `f` says otherwise). On the
     /// command line a required arg is positional, in declaration order; any
     /// other, and every flag, is `--<name with _ as ->`.
@@ -528,34 +518,6 @@ impl ArgBuilder {
     }
 }
 
-/// Builder for a surface's [`SurfaceSandboxOverride`].
-pub struct SandboxBuilder(SurfaceSandboxOverride);
-
-impl SandboxBuilder {
-    pub fn fs_read(&mut self) -> &mut Self {
-        self.0.fs_read = Some(true);
-        self
-    }
-    pub fn fs_write(&mut self) -> &mut Self {
-        self.0.fs_write = Some(true);
-        self
-    }
-    pub fn network(&mut self) -> &mut Self {
-        self.0.network = Some(true);
-        self
-    }
-}
-
-fn sandbox(f: impl FnOnce(&mut SandboxBuilder)) -> SurfaceSandboxOverride {
-    let mut b = SandboxBuilder(SurfaceSandboxOverride {
-        fs_read: None,
-        fs_write: None,
-        network: None,
-    });
-    f(&mut b);
-    b.0
-}
-
 /// Builder for one MCP tool ([`crate::ContributionsBuilder::mcp_tool`]).
 pub struct McpToolBuilder {
     descriptor: McpToolDescriptor,
@@ -578,10 +540,6 @@ impl McpToolBuilder {
     }
     pub fn output_schema(&mut self, schema: Value) -> &mut Self {
         self.descriptor.output_schema = Some(schema);
-        self
-    }
-    pub fn sandbox(&mut self, f: impl FnOnce(&mut SandboxBuilder)) -> &mut Self {
-        self.descriptor.sandbox = Some(sandbox(f));
         self
     }
     /// The function that answers the tool: its arguments in, its JSON
@@ -615,10 +573,6 @@ impl McpResourceBuilder {
     /// read reports.
     pub fn mime_type(&mut self, mime_type: &str) -> &mut Self {
         self.descriptor.mime_type = mime_type.to_string();
-        self
-    }
-    pub fn sandbox(&mut self, f: impl FnOnce(&mut SandboxBuilder)) -> &mut Self {
-        self.descriptor.sandbox = Some(sandbox(f));
         self
     }
     /// The function that reads the resource: the URI read in, its content
@@ -1188,9 +1142,6 @@ mod tests {
         let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/x", "1.0.0"));
         c.mcp_tool("acme.echo", |t| {
             t.description("Echo")
-                .sandbox(|s| {
-                    s.network();
-                })
                 .handler(|input| Ok(json!({"echo": input})));
         });
         c.mcp_resource("acme-doc", |r| {
@@ -1205,8 +1156,7 @@ mod tests {
             json!([{
                 "commands": [],
                 "mcp_tools": [{"name": "acme.echo", "description": "Echo",
-                    "export": "mcp__acme_echo", "input_schema": {"type": "object"},
-                    "sandbox": {"network": true}}],
+                    "export": "mcp__acme_echo", "input_schema": {"type": "object"}}],
                 "mcp_resources": [{"uri_template": "specforge://ext/acme/{id}",
                     "name": "acme-doc", "export": "mcp__acme_doc", "mime_type": "text/plain"}]
             }])

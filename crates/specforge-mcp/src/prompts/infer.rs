@@ -1,15 +1,16 @@
 //! `specforge://prompts/infer`: guidance for inferring spec entities from
 //! code, by scope.
 
-use serde::Deserialize;
 use serde_json::{Value, json};
-use specforge_protocol_types::{EntityKindDescriptor, ExtensionDeclaration, FieldDescriptor};
+use specforge_protocol_types::{EntityKindDescriptor, ExtensionDeclaration};
+use specforge_registry::{FieldRegistryEntry, FieldType};
 use std::collections::HashMap;
 
-use specforge_common::inference::anchors::{AnchorManifest, load_anchor_manifest};
-use specforge_ops::navigate::anchors_of_file;
+use specforge_ops::infer::Progress;
+use specforge_ops::navigate::{anchors_of_file, source_anchors};
 
-use crate::prompt::{PromptArgs, PromptOutcome, Rendered};
+use crate::args::Arguments;
+use crate::prompt::{PromptOutcome, Rendered};
 use crate::target::Call;
 use crate::tool::{ErrorCode, McpError};
 use crate::tools::find_spec_for_source::{anchor_json, file_match_name};
@@ -18,31 +19,16 @@ use specforge_ops::view::ProjectView;
 /// Maximum number of files listed per page in the plan prompt (C9-08).
 const MAX_LISTED_FILES: usize = 50;
 
-#[derive(Debug, Deserialize)]
+/// `specforge://prompts/infer`'s arguments.
+#[derive(Debug, Arguments)]
 pub struct Args {
-    #[serde(default)]
+    /// Scope: omit for overview, 'kind:{name}' for focused guide, 'file:{path}' for file deduplication
     scope: Option<String>,
-    #[serde(default)]
+    /// Directory where generated .spec files are written (scope "plan")
     target_spec_directory: Option<String>,
-    #[serde(default, deserialize_with = "crate::args::count")]
+    /// Offset into the plan's unanalyzed/stale file lists for paging (scope "plan")
+    #[arg(default = 0)]
     cursor: usize,
-}
-
-impl PromptArgs for Args {
-    const DESCRIPTIONS: &'static [(&'static str, &'static str)] = &[
-        (
-            "scope",
-            "Scope: omit for overview, 'kind:{name}' for focused guide, 'file:{path}' for file deduplication",
-        ),
-        (
-            "target_spec_directory",
-            "Directory where generated .spec files are written (scope \"plan\")",
-        ),
-        (
-            "cursor",
-            "Offset into the plan's unanalyzed/stale file lists for paging (scope \"plan\")",
-        ),
-    ];
 }
 
 /// What the prompt is about: the `scope` argument read.
@@ -70,7 +56,7 @@ impl Scope {
             Some("plan") => Scope::Plan,
             Some("workflow") => Scope::Workflow,
             Some(s) if s.starts_with("kind:") => {
-                let kind = s["kind:".len()..].to_lowercase();
+                let kind = s["kind:".len()..].to_string();
                 if kind.is_empty() {
                     return Err(invalid("Empty kind name in scope 'kind:'"));
                 }
@@ -115,11 +101,7 @@ pub fn render(call: &Call<'_>, args: Args) -> PromptOutcome {
 /// The prompt over `project`.
 fn respond(project: &ProjectView, args: Args) -> PromptOutcome {
     match Scope::parse(args.scope.as_deref())? {
-        Scope::Plan => Ok(get_plan(
-            project,
-            args.target_spec_directory.as_deref(),
-            args.cursor,
-        )),
+        Scope::Plan => get_plan(project, args.target_spec_directory.as_deref(), args.cursor),
         Scope::Workflow => Ok(get_workflow(project)),
         Scope::Kind(kind) => get_kind_scoped(project, &kind),
         Scope::File(file) => get_file_scoped(project, &file),
@@ -144,7 +126,7 @@ fn get_overview(project: &ProjectView) -> Rendered {
     let mut kinds_info: Vec<Value> = Vec::new();
     for declaration in project.registries().declarations() {
         for kind in &declaration.entities {
-            let keyword = keyword(kind).to_lowercase();
+            let keyword = keyword(kind).to_string();
             let guide =
                 build_guide_for_kind(&keyword, declaration, &project.env().config.inference);
             let fields: Vec<String> = kind
@@ -196,16 +178,17 @@ fn get_overview(project: &ProjectView) -> Rendered {
 }
 
 fn get_kind_scoped(project: &ProjectView, kind_name: &str) -> PromptOutcome {
-    let matched_kind = project
+    project
+        .kinds()
+        .declared(kind_name)
+        .map_err(|error| Box::new(McpError::from(error).with_argument("scope")))?;
+    let (declaration, kind_def) = project
         .registries()
         .declarations()
         .iter()
         .flat_map(|d| d.entities.iter().map(move |k| (d, k)))
-        .find(|(_, k)| keyword(k).to_lowercase() == kind_name);
-
-    let Some((declaration, kind_def)) = matched_kind else {
-        return Err(Box::new(unknown_kind(project, kind_name)));
-    };
+        .find(|(_, k)| keyword(k) == kind_name)
+        .expect("a declared kind has its declaration");
 
     let existing_ids: Vec<String> = project
         .graph()
@@ -216,19 +199,26 @@ fn get_kind_scoped(project: &ProjectView, kind_name: &str) -> PromptOutcome {
         .collect();
 
     let guide = build_guide_for_kind(kind_name, declaration, &project.env().config.inference);
-    let fields: Vec<Value> = kind_def
+    // Every field the registry build registered on the kind (its own, its
+    // extension's shared fields and other extensions' enhancement fields),
+    // by name: the registry's map has no declaration order.
+    let mut registered = project
+        .registries()
         .fields
+        .fields_for_kind(keyword(kind_def));
+    registered.sort_by(|a, b| a.name().cmp(b.name()));
+    let fields: Vec<Value> = registered
         .iter()
         .map(|f| {
             json!({
-                "name": f.name,
-                "type": f.field_type,
-                "required": f.required,
-                "description": f.description,
+                "name": f.name(),
+                "type": f.field_type().as_str(),
+                "required": f.declared().required,
+                "description": f.declared().description,
             })
         })
         .collect();
-    let example = build_example_for_kind(kind_name, &kind_def.fields);
+    let example = build_example_for_kind(kind_name, &registered);
 
     let result = json!({
         "kind": kind_name,
@@ -248,38 +238,12 @@ fn get_kind_scoped(project: &ProjectView, kind_name: &str) -> PromptOutcome {
     Ok(rendered(instruction, result))
 }
 
-/// A kind no installed extension declares: I020's wording, with the
-/// closest installed kind.
-fn unknown_kind(project: &ProjectView, kind_name: &str) -> McpError {
-    let installed: Vec<String> = project
-        .registries()
-        .declarations()
-        .iter()
-        .flat_map(|d| d.entities.iter())
-        .map(|k| keyword(k).to_lowercase())
-        .collect();
-    let mut error = specforge_ops::OpError::new(
-        specforge_ops::OpErrorKind::InvalidInput,
-        "unknown_kind",
-        format!("unknown entity kind '{kind_name}'"),
-    );
-    if let Some(close) =
-        specforge_common::find_close_match(kind_name, installed.iter().map(String::as_str))
-    {
-        error = error.with_suggestion(format!("did you mean '{close}'?"));
-    }
-    McpError::from(error).with_argument("scope")
-}
-
 fn get_file_scoped(project: &ProjectView, file_path: &str) -> PromptOutcome {
     // The entities anchored to the file: the one file rule
     // (specforge_ops::navigate::anchors_of_file) over the anchors manifest,
     // the answer specforge.find_spec_for_source gives (C9-09). With no
     // project there is no manifest.
-    let manifest = match project.root() {
-        Some(root) => load_anchor_manifest(root).map_err(crate::tools::manifest_mcp_error)?,
-        None => AnchorManifest::default(),
-    };
+    let manifest = source_anchors(project).map_err(McpError::from)?;
     let found = anchors_of_file(&manifest, file_path);
     let referencing_entities: Vec<Value> = found
         .anchors
@@ -291,7 +255,7 @@ fn get_file_scoped(project: &ProjectView, file_path: &str) -> PromptOutcome {
     let mut kinds_info: Vec<Value> = Vec::new();
     for declaration in project.registries().declarations() {
         for kind in &declaration.entities {
-            let keyword = keyword(kind).to_lowercase();
+            let keyword = keyword(kind).to_string();
             let guide =
                 build_guide_for_kind(&keyword, declaration, &project.env().config.inference);
             kinds_info.push(json!({
@@ -328,12 +292,20 @@ fn get_file_scoped(project: &ProjectView, file_path: &str) -> PromptOutcome {
     Ok(rendered(instruction, result))
 }
 
-fn get_plan(project: &ProjectView, target_spec_directory: Option<&str>, cursor: usize) -> Rendered {
+fn get_plan(
+    project: &ProjectView,
+    target_spec_directory: Option<&str>,
+    cursor: usize,
+) -> PromptOutcome {
     let target_spec_directory = target_spec_directory.unwrap_or("spec/");
 
-    // A fresh count when specforge-infer.json can't be read; nothing
-    // without a root.
-    let progress = specforge_ops::infer::progress_or_fresh(project);
+    // Nothing is planned from a specforge-infer.json that cannot be used:
+    // every mark_analyzed the plan sent the agent to make would be refused.
+    // Without a root there is nothing to count.
+    let progress = match project.root() {
+        None => Progress::none(),
+        Some(_) => specforge_ops::infer::progress(project).map_err(McpError::from)?,
+    };
     let (summary, unanalyzed, stale) = (progress.summary, progress.unanalyzed, progress.stale);
 
     let kind_priorities: Vec<Value> = project
@@ -342,7 +314,7 @@ fn get_plan(project: &ProjectView, target_spec_directory: Option<&str>, cursor: 
         .iter()
         .flat_map(|d| d.entities.iter().map(move |k| (d, k)))
         .map(|(d, k)| {
-            let keyword = keyword(k).to_lowercase();
+            let keyword = keyword(k).to_string();
             let existing_count = project
                 .graph()
                 .nodes()
@@ -397,7 +369,7 @@ fn get_plan(project: &ProjectView, target_spec_directory: Option<&str>, cursor: 
         target_spec_directory
     );
 
-    rendered(instruction, result)
+    Ok(rendered(instruction, result))
 }
 
 fn get_workflow(project: &ProjectView) -> Rendered {
@@ -415,7 +387,7 @@ fn get_workflow(project: &ProjectView) -> Rendered {
         .declarations()
         .iter()
         .flat_map(|d| d.entities.iter())
-        .map(|k| keyword(k).to_lowercase())
+        .map(|k| keyword(k).to_string())
         .collect();
 
     let result = json!({
@@ -470,7 +442,7 @@ fn build_guide_for_kind(
     let extension_guide = declaration
         .entities
         .iter()
-        .find(|k| keyword(k).to_lowercase() == kind_name)
+        .find(|k| keyword(k) == kind_name)
         .and_then(|k| k.inference_guide.as_deref())
         .unwrap_or("");
 
@@ -488,10 +460,14 @@ fn build_guide_for_kind(
     }
 }
 
-fn build_example_for_kind(kind_name: &str, fields: &[FieldDescriptor]) -> String {
-    let required_fields: Vec<&FieldDescriptor> = fields.iter().filter(|f| f.required).collect();
-    let optional_fields: Vec<&FieldDescriptor> =
-        fields.iter().filter(|f| !f.required).take(3).collect();
+fn build_example_for_kind(kind_name: &str, fields: &[&FieldRegistryEntry]) -> String {
+    let required_fields: Vec<&&FieldRegistryEntry> =
+        fields.iter().filter(|f| f.declared().required).collect();
+    let optional_fields: Vec<&&FieldRegistryEntry> = fields
+        .iter()
+        .filter(|f| !f.declared().required)
+        .take(3)
+        .collect();
 
     let mut lines = vec![format!(
         "{} example_{} \"Example Title\" {{",
@@ -499,20 +475,14 @@ fn build_example_for_kind(kind_name: &str, fields: &[FieldDescriptor]) -> String
     )];
 
     for f in &required_fields {
-        lines.push(format!("  {} \"...\"", f.name));
+        lines.push(format!("  {} \"...\"", f.name()));
     }
     for f in &optional_fields {
-        match specforge_registry::FieldType::parse(&f.field_type) {
-            Some(specforge_registry::FieldType::ReferenceList) => {
-                lines.push(format!("  {} [ref_1, ref_2]", f.name))
-            }
-            Some(specforge_registry::FieldType::StringList) => {
-                lines.push(format!("  {} [\"item1\", \"item2\"]", f.name))
-            }
-            Some(specforge_registry::FieldType::Reference) => {
-                lines.push(format!("  {} ref_id", f.name))
-            }
-            _ => lines.push(format!("  {} \"...\"", f.name)),
+        match f.field_type() {
+            FieldType::ReferenceList => lines.push(format!("  {} [ref_1, ref_2]", f.name())),
+            FieldType::StringList => lines.push(format!("  {} [\"item1\", \"item2\"]", f.name())),
+            FieldType::Reference => lines.push(format!("  {} ref_id", f.name())),
+            _ => lines.push(format!("  {} \"...\"", f.name())),
         }
     }
 

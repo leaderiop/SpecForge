@@ -8,16 +8,18 @@
 
 use specforge_common::{Diagnostic, Severity, codes};
 use specforge_migrate::{
-    CURRENT_FORMAT_VERSION, FormatVersion, MAX_SUPPORTED_VERSION, MIN_SUPPORTED_VERSION,
     MigrationSummary, RollbackSummary, check_schema_compatibility, compare_graphs, migrate_project,
     run_rollback,
+};
+use specforge_parser::{
+    CURRENT_FORMAT_VERSION, FormatVersion, MAX_SUPPORTED_VERSION, MIN_SUPPORTED_VERSION,
 };
 use specforge_project::CompiledProject;
 use specforge_protocol_types::ExtensionDeclaration;
 use specforge_wasm::WasmRuntime;
 use std::path::Path;
 
-use crate::{OpError, Writes};
+use crate::{OpError, OpErrorKind, Writes};
 
 /// The format version to migrate to: `raw`, checked, else the current one.
 /// A version that doesn't parse, or one newer than this build supports, is
@@ -92,9 +94,31 @@ impl Outcome {
         self.applied && self.summary.migrated_count > 0 && self.rollback.is_none()
     }
 
-    /// Whether the run failed: a file failed to migrate, or it rolled back.
-    pub fn failed(&self) -> bool {
-        self.summary.failed_count > 0 || self.rollback.is_some()
+    /// The run's verdict: no file failed to migrate and nothing was rolled
+    /// back. `specforge migrate` exits by it; MCP `specforge.migrate`
+    /// returns it as `ok`.
+    pub fn ok(&self) -> bool {
+        self.summary.failed_count == 0 && self.rollback.is_none()
+    }
+
+    /// Why the run failed, as every operation reports a failure; `None`
+    /// when [`Self::ok`]. Code `migration_failed`; kind `CompilationFailed`
+    /// when the migrated project reported errors before it was rolled
+    /// back, else `Internal`; message "the migrated project does not
+    /// compile" or "the migration failed".
+    pub fn failure(&self) -> Option<OpError> {
+        if self.ok() {
+            return None;
+        }
+        let (kind, message) = if self.post_errors().next().is_some() {
+            (
+                OpErrorKind::CompilationFailed,
+                "the migrated project does not compile",
+            )
+        } else {
+            (OpErrorKind::Internal, "the migration failed")
+        };
+        Some(OpError::new(kind, "migration_failed", message))
     }
 
     /// The errors compiling the migrated project reported.
@@ -113,23 +137,15 @@ pub type HookRun = (Vec<String>, Vec<String>);
 /// the files the core migration rewrote.
 pub use specforge_protocol_types::MigrationInput;
 
-/// Migrate the project, running its extensions (and their migration hooks)
-/// in `runtime`.
+/// Migrate the project at `request.root`: preview, compile, rewrite the files,
+/// run the extensions' migration hooks in `runtime` in dependency order,
+/// compile again and compare. A failing hook or a changed graph structure
+/// restores every migrated file from its backup. With no runtime no
+/// extension is loaded, so no hook runs.
 pub fn run(request: &Request, runtime: Option<&dyn WasmRuntime>) -> Outcome {
-    run_with_hooks(request, runtime, &mut |declarations, input| match runtime {
-        Some(runtime) => invoke_hooks(declarations, runtime, input),
-        None => (Vec::new(), Vec::new()),
-    })
-}
-
-/// [`run`] with the hook step supplied: given the loaded declarations, it
-/// returns the hooks it ran and why any failed.
-pub fn run_with_hooks(
-    request: &Request,
-    runtime: Option<&dyn WasmRuntime>,
-    hooks: &mut dyn FnMut(&[ExtensionDeclaration], &MigrationInput) -> HookRun,
-) -> Outcome {
-    let root = request.root;
+    // The project the path is in (else the path itself): the one the files
+    // are migrated in and the one the hooks and the checks compile.
+    let root = &specforge_common::project_root_of(request.root);
     let target = &request.target;
     let preview = migrate_project(root, target, true, true);
     let from = preview
@@ -181,7 +197,10 @@ pub fn run_with_hooks(
             .map(|r| r.file_path.clone())
             .collect(),
     };
-    let (invoked, failures) = hooks(pre.env.registries.declarations(), &input);
+    let (invoked, failures) = match runtime {
+        Some(runtime) => invoke_hooks(pre.env.registries.declarations(), runtime, &input),
+        None => (Vec::new(), Vec::new()),
+    };
     outcome.hooks_invoked = invoked;
     outcome.hook_failures = failures;
     if !outcome.hook_failures.is_empty() {
@@ -307,360 +326,4 @@ pub fn invoke_hooks(
         }
     }
     (invoked, failures)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use specforge_extension_sdk::{ContributionsBuilder, ExtensionMeta};
-    use specforge_test_macros::test as specforge_test;
-    use specforge_wasm::testing::InProcessRuntime;
-
-    const OLD: &str = "// specforge-format: 0.9\nbehavior alpha \"Alpha\" {\n}\n";
-
-    fn project() -> tempfile::TempDir {
-        let dir = tempfile::TempDir::new().unwrap();
-        std::fs::write(
-            dir.path().join("specforge.json"),
-            r#"{"name": "p", "version": "0.1.0", "extensions": []}"#,
-        )
-        .unwrap();
-        std::fs::write(dir.path().join("old.spec"), OLD).unwrap();
-        dir
-    }
-
-    fn request(root: &Path) -> Request<'_> {
-        Request {
-            root,
-            target: CURRENT_FORMAT_VERSION,
-            dry_run: false,
-            no_backup: false,
-        }
-    }
-
-    #[specforge_test(
-        behavior = "rollback_failed_migration",
-        verify = "a migration whose graph changes structure is rolled back automatically"
-    )]
-    fn a_migration_that_changes_the_graph_is_rolled_back() {
-        let dir = project();
-        let file = dir.path().join("old.spec");
-
-        // A hook that renames the entity: the graph loses `alpha`.
-        let outcome = run_with_hooks(&request(dir.path()), None, &mut |_, _| {
-            let migrated = std::fs::read_to_string(&file).unwrap();
-            std::fs::write(&file, migrated.replace("alpha", "beta")).unwrap();
-            (vec!["@acme/x:migrate".into()], Vec::new())
-        });
-
-        assert!(outcome.validated);
-        assert!(
-            outcome
-                .structural_differences
-                .iter()
-                .any(|d| d.code == "W054" && d.message.contains("alpha")),
-            "{:?}",
-            outcome.structural_differences
-        );
-        let rollback = outcome.rollback.as_ref().expect("rolled back");
-        assert_eq!(rollback.restored_count, 1, "{rollback:?}");
-        assert!(outcome.failed() && !outcome.migrated());
-        assert_eq!(std::fs::read_to_string(&file).unwrap(), OLD);
-    }
-
-    #[specforge_test(
-        behavior = "rollback_failed_migration",
-        verify = "a migration whose extension hook fails is rolled back automatically"
-    )]
-    fn a_migration_whose_hook_fails_is_rolled_back() {
-        let dir = project();
-
-        let outcome = run_with_hooks(&request(dir.path()), None, &mut |_, _| {
-            (
-                Vec::new(),
-                vec!["migration hook 'm' of @acme/x trapped".into()],
-            )
-        });
-
-        assert!(!outcome.validated, "no validation after a failed hook");
-        assert_eq!(outcome.hook_failures.len(), 1);
-        assert_eq!(outcome.rollback.as_ref().unwrap().restored_count, 1);
-        assert_eq!(
-            std::fs::read_to_string(dir.path().join("old.spec")).unwrap(),
-            OLD
-        );
-    }
-
-    #[test]
-    fn a_header_only_migration_keeps_the_graph_and_stays_applied() {
-        let dir = project();
-
-        let outcome = run(&request(dir.path()), None);
-
-        assert!(outcome.migrated(), "{outcome:?}");
-        assert!(outcome.validated);
-        assert!(outcome.structural_differences.is_empty());
-        assert!(outcome.rollback.is_none());
-        assert_eq!(outcome.from.to_string(), "0.9");
-    }
-
-    #[test]
-    fn nothing_pending_runs_nothing() {
-        let dir = project();
-        std::fs::write(dir.path().join("old.spec"), "behavior alpha \"A\" {\n}\n").unwrap();
-        let mut called = false;
-
-        let outcome = run_with_hooks(&request(dir.path()), None, &mut |_, _| {
-            called = true;
-            (Vec::new(), Vec::new())
-        });
-
-        assert!(!outcome.pending && !outcome.applied && !outcome.validated);
-        assert!(!called, "no hooks with nothing to migrate");
-    }
-
-    #[test]
-    fn a_target_newer_than_supported_or_malformed_is_e019() {
-        assert_eq!(parse_target(Some("99.0")).unwrap_err().code, "E019");
-        assert_eq!(parse_target(Some("latest")).unwrap_err().code, "E019");
-        assert_eq!(parse_target(None).unwrap(), CURRENT_FORMAT_VERSION);
-    }
-
-    #[specforge_test(
-        behavior = "migrate_spec_files_in_place",
-        verify = "only the project's sources are migrated: under spec_root, without excluded files"
-    )]
-    fn migrate_reads_the_project_sources() {
-        let dir = tempfile::TempDir::new().unwrap();
-        let root = dir.path();
-        std::fs::write(
-            root.join("specforge.json"),
-            r#"{"spec_root": "specs", "exclude": ["drafts"]}"#,
-        )
-        .unwrap();
-        for file in [
-            "specs/a.spec",
-            "specs/drafts/d.spec",
-            "spec/old.spec",
-            "fixtures/fx.spec",
-        ] {
-            std::fs::create_dir_all(root.join(file).parent().unwrap()).unwrap();
-            std::fs::write(root.join(file), OLD).unwrap();
-        }
-
-        let summary = migrate_project(root, &CURRENT_FORMAT_VERSION, true, true);
-
-        let visited: Vec<&str> = summary
-            .results
-            .iter()
-            .map(|r| r.file_path.as_str())
-            .collect();
-        assert_eq!(visited.len(), 1, "{visited:?}");
-        assert!(visited[0].ends_with("specs/a.spec"), "{visited:?}");
-        // Rollback looks at the same files (none has a backup: a dry run).
-        let rollback = rollback(root);
-        assert_eq!(rollback.skipped_count, 1, "{rollback:?}");
-        assert!(
-            rollback.results[0].file_path.ends_with("specs/a.spec"),
-            "{rollback:?}"
-        );
-    }
-
-    /// `@acme/x`, served in process, declaring its migration hook
-    /// `migrate_acme` with its handler, or no hook; the runtime records
-    /// every export the host calls.
-    fn hooked_extension(hook: bool) -> InProcessRuntime {
-        let build = move || {
-            let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/x", "1.0.0"));
-            if hook {
-                c.migration_hook_handler("migrate_acme", |_| Ok(()));
-            }
-            c
-        };
-        InProcessRuntime::new().with(build)
-    }
-
-    fn exports_called(runtime: &InProcessRuntime) -> Vec<String> {
-        runtime.calls().into_iter().map(|c| c.export).collect()
-    }
-
-    fn project_with_extension() -> tempfile::TempDir {
-        let dir = project();
-        std::fs::write(
-            dir.path().join("specforge.json"),
-            r#"{"name": "p", "version": "0.1.0", "extensions": ["@acme/x"]}"#,
-        )
-        .unwrap();
-        dir
-    }
-
-    #[specforge_test(
-        behavior = "invoke_extension_migration_hooks",
-        verify = "extension with migration_hook field has it invoked during migrate"
-    )]
-    fn the_hook_an_extension_declares_in_its_handshake_runs_on_migrate() {
-        let dir = project_with_extension();
-        let runtime = hooked_extension(true);
-
-        let outcome = run(&request(dir.path()), Some(&runtime));
-
-        assert!(outcome.migrated(), "{outcome:?}");
-        assert_eq!(outcome.hooks_invoked, ["@acme/x:migrate_acme"]);
-        assert!(outcome.hook_failures.is_empty(), "{outcome:?}");
-        assert!(exports_called(&runtime).contains(&"migrate_acme".to_string()));
-    }
-
-    #[specforge_test(
-        behavior = "invoke_extension_migration_hooks",
-        verify = "extension without migration_hook field is skipped silently"
-    )]
-    fn an_extension_whose_handshake_names_no_hook_is_skipped_silently() {
-        let dir = project_with_extension();
-        let runtime = hooked_extension(false);
-
-        let outcome = run(&request(dir.path()), Some(&runtime));
-
-        assert!(outcome.migrated(), "{outcome:?}");
-        assert!(outcome.hooks_invoked.is_empty() && outcome.hook_failures.is_empty());
-        assert!(
-            exports_called(&runtime).iter().all(|c| c.starts_with("__")),
-            "only the protocol exports are called"
-        );
-        assert!(
-            !outcome
-                .post_diagnostics
-                .iter()
-                .any(|d| d.message.contains("hook")),
-            "{outcome:?}"
-        );
-    }
-
-    /// Two extensions with hooks, `@acme/a`'s panicking.
-    fn hooks() -> InProcessRuntime {
-        InProcessRuntime::new()
-            .with(|| {
-                let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/a", "1.0.0"));
-                c.migration_hook_handler("migrate_a", |_| panic!("hook panicked"));
-                c
-            })
-            .with(|| {
-                let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/b", "1.0.0"));
-                c.migration_hook_handler("migrate_b", |_| Ok(()));
-                c
-            })
-    }
-
-    fn manifest(name: &str, hook: &str) -> ExtensionDeclaration {
-        ExtensionDeclaration {
-            handshake: specforge_protocol_types::HandshakeResponse {
-                name: name.into(),
-                version: "1.0.0".into(),
-                migration_hook: Some(hook.into()),
-                ..Default::default()
-            },
-            ..Default::default()
-        }
-    }
-
-    #[specforge_test(
-        behavior = "invoke_extension_migration_hooks",
-        verify = "a migration hook receives the from and to format versions and the migrated files"
-    )]
-    fn a_hook_receives_the_versions_and_the_migrated_files() {
-        use std::sync::{Arc, Mutex};
-        // The hook's handler records what it decoded.
-        let seen: Arc<Mutex<Vec<MigrationInput>>> = Arc::default();
-        let recorder = Arc::clone(&seen);
-        let runtime = InProcessRuntime::new().with(move || {
-            let recorder = Arc::clone(&recorder);
-            let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/a", "1.0.0"));
-            c.migration_hook_handler("migrate_a", move |input| {
-                recorder.lock().unwrap().push(input.clone());
-                Ok(())
-            });
-            c
-        });
-        let input = MigrationInput {
-            from: "0.9".into(),
-            to: "1.0".into(),
-            files: vec!["old.spec".into()],
-        };
-
-        invoke_hooks(&[manifest("@acme/a", "migrate_a")], &runtime, &input);
-
-        assert_eq!(*seen.lock().unwrap(), [input]);
-        assert_eq!(
-            runtime.calls()[0].input,
-            serde_json::json!({"from": "0.9", "to": "1.0", "files": ["old.spec"]})
-        );
-    }
-
-    #[specforge_test(
-        behavior = "invoke_extension_migration_hooks",
-        verify = "the nine builtin extensions' hooks run in dependency order with no failure"
-    )]
-    fn the_builtin_extensions_hooks_run_without_a_dependency_failure() {
-        // Every builtin loaded together, as a project enabling all of them
-        // does: the peer graph (optional peers included) must sort, or the
-        // hooks never run and a migration rolls back.
-        let names: Vec<&str> = specforge_component::builtins::BUILTIN_EXTENSIONS
-            .iter()
-            .map(|(name, _)| *name)
-            .collect();
-        assert_eq!(names.len(), 9);
-        let dir = tempfile::TempDir::new().unwrap();
-        let config = serde_json::json!({"name": "p", "version": "0.1.0", "extensions": names});
-        std::fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
-        let runtime = specforge_component::project_runtime(dir.path());
-        let declarations: Vec<ExtensionDeclaration> = names
-            .iter()
-            .map(|name| {
-                specforge_wasm::protocol::load_declaration(&runtime, name)
-                    .unwrap()
-                    .declaration
-            })
-            .collect();
-        let input = MigrationInput {
-            from: "0.9".into(),
-            to: "1.0".into(),
-            files: Vec::new(),
-        };
-
-        let (_, failures) = invoke_hooks(&declarations, &runtime, &input);
-
-        assert!(failures.is_empty(), "{failures:?}");
-        assert!(specforge_wasm::topological_sort_extensions(&declarations).is_ok());
-    }
-
-    #[specforge_test(
-        behavior = "invoke_extension_migration_hooks",
-        verify = "hook that traps collects WasmTrapInfo and continues"
-    )]
-    fn a_trapping_hook_is_recorded_and_the_next_one_still_runs() {
-        let runtime = hooks();
-        let manifests = [
-            manifest("@acme/a", "migrate_a"),
-            manifest("@acme/b", "migrate_b"),
-        ];
-
-        let input = MigrationInput {
-            from: "0.9".into(),
-            to: "1.0".into(),
-            files: Vec::new(),
-        };
-        let (invoked, failures) = invoke_hooks(&manifests, &runtime, &input);
-
-        assert_eq!(invoked, ["@acme/b:migrate_b"]);
-        assert_eq!(failures.len(), 1, "{failures:?}");
-        assert!(
-            failures[0].contains("unreachable") && failures[0].contains("hook panicked"),
-            "{failures:?}"
-        );
-        let called: Vec<String> = runtime
-            .calls()
-            .into_iter()
-            .map(|c| format!("{}:{}", c.extension, c.export))
-            .collect();
-        assert_eq!(called, ["@acme/a:migrate_a", "@acme/b:migrate_b"]);
-    }
 }

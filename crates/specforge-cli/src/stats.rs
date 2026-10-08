@@ -3,6 +3,7 @@ use specforge_ops::view::ProjectView;
 use std::path::Path;
 
 use crate::OutputFormat;
+use crate::outcome::{Exit, Refusal};
 use crate::pipeline;
 
 /// `specforge stats`: the stats operation over the project compiled at
@@ -13,10 +14,7 @@ pub fn run(path: &Path, format: OutputFormat) -> i32 {
     let (project, _runtime) = pipeline::compile_project(path);
     let stats = match specforge_ops::stats::stats(&ProjectView::of(&project)) {
         Ok(stats) => stats,
-        Err(e) => {
-            eprintln!("{}", crate::export::render_plain(&e.diagnostic()));
-            return 2;
-        }
+        Err(error) => return Refusal::measuring(format).report(&error),
     };
 
     match format {
@@ -24,7 +22,7 @@ pub fn run(path: &Path, format: OutputFormat) -> i32 {
         OutputFormat::Human => print_human(&stats),
     }
 
-    0
+    Exit::Passed.code()
 }
 
 fn print_human(stats: &Stats) {

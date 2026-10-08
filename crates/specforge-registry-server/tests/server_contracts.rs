@@ -188,37 +188,6 @@ async fn invalid_manifest_schema_is_rejected() {
 }
 
 #[tokio::test]
-async fn network_enabled_sandbox_policy_is_rejected() {
-    let dir = tempfile::tempdir().unwrap();
-    let state = app_state(dir.path(), 100);
-    let raw = auth::create_token(&state.database, None, "pub", Some(90), false);
-
-    let manifest = r#"{"handshake":{"protocol_version":"1","name":"@test/signed-ext","version":"1.0.0","contribution_flags":{},"peer_dependencies":[],"sandbox_policy":{"network_access":true}}}"#;
-    let response = app(state)
-        .oneshot(put_request(
-            &raw,
-            "@test%2Fsigned-ext",
-            "1.0.0",
-            multipart_body(
-                manifest,
-                WASM,
-                Some(r#"{"sig":"x","keyId":"y","pubkey":"z","signedAt":"now"}"#),
-            ),
-        ))
-        .await
-        .unwrap();
-
-    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
-    let body: serde_json::Value = serde_json::from_slice(
-        &axum::body::to_bytes(response.into_body(), 1_000_000)
-            .await
-            .unwrap(),
-    )
-    .unwrap();
-    assert_eq!(body["error"]["code"], "SANDBOX_POLICY_REJECTED");
-}
-
-#[tokio::test]
 async fn publish_rate_limit_returns_429() {
     let dir = tempfile::tempdir().unwrap();
     let state = app_state(dir.path(), 2); // 2 publishes per window per token
@@ -580,5 +549,89 @@ async fn description_and_keywords_come_from_the_declaration() {
         let hit = &body["results"][0];
         assert_eq!(hit["name"], "@test/signed-ext", "{query}: {body}");
         assert_eq!(hit["description"], "Reports over the graph");
+    }
+}
+
+/// The code a publish of `name` at `version` (unsigned, a valid manifest
+/// of another name) is answered with: the name and version checks come
+/// first, so `INVALID_NAME` and `INVALID_VERSION` are theirs.
+async fn publish_code(name: &str, version: &str) -> String {
+    let dir = tempfile::tempdir().unwrap();
+    let state = app_state(dir.path(), 100);
+    let raw = auth::create_token(&state.database, None, "pub", Some(90), false);
+    let response = app(state)
+        .oneshot(put_request(
+            &raw,
+            name,
+            version,
+            multipart_body(VALID_MANIFEST, WASM, None),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(
+        response.status(),
+        StatusCode::BAD_REQUEST,
+        "{name}@{version}"
+    );
+    let body = json_of(response).await;
+    body["error"]["code"].as_str().unwrap().to_string()
+}
+
+/// What `publish_package` makes of a name and a version (plan 12 §3 R5): a
+/// name the package module refuses never reaches the signature check.
+#[specforge_test_macros::test(
+    behavior = "publish_to_registry",
+    verify = "the registry refuses a name or version that is not a package name or version"
+)]
+#[tokio::test]
+async fn publish_refuses_what_is_not_a_package() {
+    // Past the name check: the signature is the next refusal.
+    assert_eq!(
+        publish_code("@a%2Fx", "1.0.0").await,
+        "UNSIGNED_PACKAGE",
+        "@a/x"
+    );
+    for name in [
+        "@acme%2F..",
+        "@acme%2FT%20ool",
+        "@acme%2Ftool@",
+        "tool",
+        "@scope",
+        "@a%2Fb%2Fc",
+    ] {
+        assert_eq!(publish_code(name, "1.0.0").await, "INVALID_NAME", "{name}");
+    }
+    for version in ["1.x", "1.2"] {
+        assert_eq!(
+            publish_code("@test%2Fsigned-ext", version).await,
+            "INVALID_VERSION",
+            "{version}"
+        );
+    }
+    // Build metadata is a version.
+    assert_ne!(
+        publish_code("@test%2Fsigned-ext", "2.0.0+build.1").await,
+        "INVALID_VERSION"
+    );
+}
+
+#[specforge_test_macros::test(
+    behavior = "publish_to_registry",
+    verify = "the registry refuses a name or version that is not a package name or version"
+)]
+#[tokio::test]
+async fn a_read_of_a_name_that_is_not_one_is_not_found() {
+    let dir = tempfile::tempdir().unwrap();
+    let state = app_state(dir.path(), 100);
+    for uri in [
+        "/v1/packages/@acme%2F..",
+        "/v1/packages/@acme%2F../1.0.0",
+        "/v1/packages/@acme%2F../1.0.0/download",
+    ] {
+        let response = app_clone(&state)
+            .oneshot(Request::builder().uri(uri).body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::NOT_FOUND, "{uri}");
     }
 }

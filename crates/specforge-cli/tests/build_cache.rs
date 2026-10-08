@@ -158,12 +158,8 @@ fn mcp_validate_never_writes_the_build_cache() {
     call("initialize", serde_json::json!({}));
     // Without strict the project passes the check, which is when `check
     // --cache` writes; under strict its warnings fail it. validate takes no
-    // cache argument, and an unknown one is ignored.
-    let runs = [
-        serde_json::json!({}),
-        serde_json::json!({"strict": true}),
-        serde_json::json!({"cache": true}),
-    ];
+    // cache argument, and an unknown one is refused (ADR 0033).
+    let runs = [serde_json::json!({}), serde_json::json!({"strict": true})];
     let validate = |call: &mut dyn FnMut(&str, serde_json::Value) -> serde_json::Value,
                     arguments: &serde_json::Value| {
         let resp = call(
@@ -181,6 +177,13 @@ fn mcp_validate_never_writes_the_build_cache() {
         validate(&mut call, arguments);
         assert!(!dir.path().join(CACHE).exists(), "{arguments}");
     }
+    let refused = call(
+        "tools/call",
+        serde_json::json!({"name": "specforge.validate", "arguments": {"cache": true}}),
+    );
+    assert_eq!(refused["result"]["isError"], true, "{refused}");
+    assert_eq!(refused["result"]["structuredContent"]["argument"], "cache");
+    assert!(!dir.path().join(CACHE).exists());
 
     // An existing cache is read, never rewritten.
     let previous = "{\"format\": 1, \"statuses\": {}}\n";

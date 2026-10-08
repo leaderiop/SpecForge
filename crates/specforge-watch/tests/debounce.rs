@@ -105,3 +105,60 @@ fn coalesced_batch_includes_union_of_all_changed_files() {
     assert!(batch.contains(&"y.spec".to_string()));
     assert!(batch.contains(&"z.spec".to_string()));
 }
+
+/// The std adapter (watch's) and the tokio adapter (the LSP's reparse
+/// worker) are one rule: the same changes make the same batch, and a closed
+/// channel ends both.
+#[cfg(feature = "tokio")]
+#[spec(
+    behavior = "shared_incremental_pipeline",
+    verify = "CLI and LSP share identical debounce window"
+)]
+#[tokio::test]
+async fn both_adapters_batch_alike() {
+    let window = specforge_watch::DEFAULT_DEBOUNCE_WINDOW;
+    let debouncer = Debouncer::new(window);
+
+    let (tx, rx) = mpsc::channel();
+    let (async_tx, mut async_rx) = tokio::sync::mpsc::unbounded_channel();
+    for change in ["b", "a", "b"] {
+        tx.send(change).unwrap();
+        async_tx.send(change).unwrap();
+    }
+    assert_eq!(debouncer.coalesce(&rx), Some(vec!["a", "b"]));
+    assert_eq!(
+        debouncer.coalesce_async(&mut async_rx).await,
+        Some(vec!["a", "b"])
+    );
+
+    drop(tx);
+    drop(async_tx);
+    assert_eq!(debouncer.coalesce(&rx), None);
+    assert_eq!(debouncer.coalesce_async(&mut async_rx).await, None);
+}
+
+/// A change sent while the window runs restarts it, on a tokio channel too.
+#[cfg(feature = "tokio")]
+#[spec(
+    behavior = "debounce_file_changes",
+    verify = "each change restarts the quiet window"
+)]
+#[tokio::test]
+async fn the_tokio_adapter_restarts_the_window_on_every_change() {
+    let window = Duration::from_millis(120);
+    let debouncer = Debouncer::new(window);
+    let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+    tokio::spawn(async move {
+        for change in ["a", "b", "c"] {
+            tx.send(change).unwrap();
+            tokio::time::sleep(Duration::from_millis(60)).await;
+        }
+        // The sender stays alive past the batch.
+        tokio::time::sleep(Duration::from_secs(5)).await;
+    });
+    let started = std::time::Instant::now();
+    let batch = debouncer.coalesce_async(&mut rx).await;
+    assert_eq!(batch, Some(vec!["a", "b", "c"]));
+    // 120 ms of sends plus a quiet window after the last one.
+    assert!(started.elapsed() >= Duration::from_millis(120 + 120));
+}

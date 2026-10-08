@@ -1,0 +1,106 @@
+//! The entity kinds a project knows, and the one answer to "is this a known
+//! kind" (ADR 0015, section "Query").
+
+use std::collections::BTreeSet;
+
+use specforge_common::{Diagnostic, codes, find_close_match};
+
+use super::ProjectView;
+use crate::{OpError, OpErrorKind};
+
+/// What an `unknown_kind` refusal is reported as (ADR 0015 D8).
+pub const UNKNOWN_KIND: &str = "unknown_kind";
+
+/// The entity kinds a project knows: the kinds its loaded extensions
+/// declare (the registry build's keywords), and the kinds its entities are
+/// written with (a kind no extension declares is E024's, and still the
+/// kind of an entity). Kind names are keywords: matched exactly, case
+/// included. The closest kind to an unknown one is a kind equal to it
+/// ignoring case, else the closest by edit distance
+/// ([`find_close_match`]).
+pub struct KnownKinds<'a> {
+    declared: BTreeSet<&'a str>,
+    written: BTreeSet<&'a str>,
+}
+
+impl<'a> ProjectView<'a> {
+    /// The kinds this view's project knows.
+    pub fn kinds(&self) -> KnownKinds<'a> {
+        let declared: BTreeSet<&'a str> = self
+            .registries()
+            .kinds
+            .keywords()
+            .map(String::as_str)
+            .collect();
+        let written = self
+            .graph()
+            .nodes()
+            .into_iter()
+            .map(|node| node.kind.raw.as_str())
+            .filter(|kind| !declared.contains(kind))
+            .collect();
+        KnownKinds { declared, written }
+    }
+}
+
+impl KnownKinds<'_> {
+    /// A loaded extension declares `kind`.
+    pub fn declares(&self, kind: &str) -> bool {
+        self.declared.contains(kind)
+    }
+
+    /// An entity can be of `kind`: declared, or written by an entity.
+    pub fn has(&self, kind: &str) -> bool {
+        self.declares(kind) || self.written.contains(kind)
+    }
+
+    /// The kinds of a filter over entities that the project does not have
+    /// ([`has`](Self::has) is false), once each, in the filter's order, as
+    /// I020 notices `unknown entity kind '<kind>'` with `did you mean
+    /// '<closest>'?` among every kind it has. The filter still drops them.
+    pub fn unknown_in(&self, filter: &[&str]) -> Vec<Diagnostic> {
+        let mut reported: Vec<&str> = Vec::new();
+        let mut notices = Vec::new();
+        for &kind in filter {
+            if self.has(kind) || reported.contains(&kind) {
+                continue;
+            }
+            reported.push(kind);
+            let mut notice = Diagnostic::new(codes::I020, format!("unknown entity kind '{kind}'"));
+            if let Some(close) = closest(kind, self.declared.iter().chain(&self.written).copied()) {
+                notice = notice.with_suggestion(format!("did you mean '{close}'?"));
+            }
+            notices.push(notice);
+        }
+        notices
+    }
+
+    /// `kind` as an argument that needs its declaration (a schema entry,
+    /// an inference guide): `Ok` when declared, else `unknown_kind`
+    /// (`InvalidInput`), `unknown entity kind '<kind>'`, with `did you mean
+    /// '<closest>'?` among the declared kinds.
+    pub fn declared(&self, kind: &str) -> Result<(), OpError> {
+        if self.declares(kind) {
+            return Ok(());
+        }
+        let error = OpError::new(
+            OpErrorKind::InvalidInput,
+            UNKNOWN_KIND,
+            format!("unknown entity kind '{kind}'"),
+        );
+        Err(match closest(kind, self.declared.iter().copied()) {
+            Some(close) => error.with_suggestion(format!("did you mean '{close}'?")),
+            None => error,
+        })
+    }
+}
+
+/// The kind of `among` closest to `kind`: one equal to it ignoring case
+/// (the smallest, when several), else the closest by edit distance.
+fn closest<'a>(kind: &str, among: impl Iterator<Item = &'a str> + Clone) -> Option<&'a str> {
+    let same_but_for_case = among
+        .clone()
+        .filter(|candidate| candidate.eq_ignore_ascii_case(kind))
+        .min();
+    same_but_for_case.or_else(|| find_close_match(kind, among))
+}

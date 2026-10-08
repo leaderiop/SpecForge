@@ -23,11 +23,8 @@ struct RustAnalyzer;
 impl Contributions for RustAnalyzer {
     fn contribute(c: &mut ContributionsBuilder) {
         c.meta.sandbox_policy = Some(SandboxPolicy {
-            network_access: Some(false),
-            file_system_access: Some(true),
             max_memory_mb: Some(512),
             max_execution_ms: Some(30000),
-            ..Default::default()
         });
         c.analyzer("rust", |a| {
             a.file_extensions(&[".rs"])
@@ -368,8 +365,6 @@ mod tests {
         assert!(handshake.contribution_flags.analyzers);
         assert!(!handshake.contribution_flags.entities);
         let policy = handshake.sandbox_policy.expect("sandbox policy");
-        assert_eq!(policy.network_access, Some(false));
-        assert_eq!(policy.file_system_access, Some(true));
         assert_eq!(policy.max_memory_mb, Some(512));
         assert_eq!(policy.max_execution_ms, Some(30000));
     }

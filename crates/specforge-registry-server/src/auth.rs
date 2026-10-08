@@ -1,4 +1,5 @@
 use sha2::{Digest, Sha256};
+use specforge_protocol_types::PackageName;
 
 use crate::db::{Database, TokenRecord};
 
@@ -47,7 +48,13 @@ pub fn validate_bearer(db: &Database, auth_header: &str) -> Option<TokenRecord> 
     Some(record)
 }
 
-pub fn token_has_scope(record: &TokenRecord, package_name: &str) -> bool {
+/// Whether the token's scope covers `name`: no scope covers every package;
+/// otherwise the scope itself or a name under it (`@org` covers `@org/tool`).
+pub fn token_has_scope(record: &TokenRecord, name: &PackageName) -> bool {
+    covers(record, name.as_str())
+}
+
+fn covers(record: &TokenRecord, package_name: &str) -> bool {
     match &record.scope {
         None => true,
         Some(scope) => {
@@ -120,42 +127,46 @@ mod tests {
 
     #[test]
     fn token_without_scope_grants_all() {
-        assert!(token_has_scope(&token(None), "web"));
-        assert!(token_has_scope(&token(None), "webui"));
+        assert!(covers(&token(None), "web"));
+        assert!(covers(&token(None), "webui"));
     }
 
     #[test]
     fn exact_scope_match_allowed() {
-        assert!(token_has_scope(&token(Some("web")), "web"));
+        assert!(covers(&token(Some("web")), "web"));
     }
 
     #[test]
     fn scope_prefix_collision_denied() {
-        assert!(!token_has_scope(&token(Some("web")), "webui"));
+        assert!(!covers(&token(Some("web")), "webui"));
     }
 
     #[test]
     fn package_under_scope_allowed() {
-        assert!(token_has_scope(&token(Some("web")), "web/sub"));
-        assert!(token_has_scope(&token(Some("web")), "web/sub/deep"));
+        assert!(covers(&token(Some("web")), "web/sub"));
+        assert!(covers(&token(Some("web")), "web/sub/deep"));
     }
 
     #[test]
     fn package_outside_scope_denied() {
-        assert!(!token_has_scope(&token(Some("web")), "other"));
-        assert!(!token_has_scope(&token(Some("web")), "websub"));
+        assert!(!covers(&token(Some("web")), "other"));
+        assert!(!covers(&token(Some("web")), "websub"));
     }
 
     #[test]
     fn npm_style_scope_matches_only_own_packages() {
-        assert!(token_has_scope(&token(Some("@web")), "@web/ui"));
-        assert!(!token_has_scope(&token(Some("@web")), "@webui/x"));
+        assert!(covers(&token(Some("@web")), "@web/ui"));
+        assert!(!covers(&token(Some("@web")), "@webui/x"));
     }
 }
 
 #[cfg(test)]
 mod scope_tests {
     use super::*;
+
+    fn name(text: &str) -> PackageName {
+        PackageName::parse(text).unwrap()
+    }
 
     fn token(scope: Option<&str>) -> TokenRecord {
         TokenRecord {
@@ -173,20 +184,20 @@ mod scope_tests {
         // C8-10/C14-06: a token scoped to '@org/soft' must NOT authorize
         // '@org/software' — the boundary is the '/', not the prefix.
         let t = token(Some("@org/soft"));
-        assert!(token_has_scope(&t, "@org/soft"));
-        assert!(!token_has_scope(&t, "@org/software"));
+        assert!(token_has_scope(&t, &name("@org/soft")));
+        assert!(!token_has_scope(&t, &name("@org/software")));
     }
 
     #[test]
     fn namespace_scope_covers_exactly_its_namespace() {
         let t = token(Some("@org"));
-        assert!(token_has_scope(&t, "@org/software"));
-        assert!(token_has_scope(&t, "@org"));
-        assert!(!token_has_scope(&t, "@other/software"));
+        assert!(token_has_scope(&t, &name("@org/software")));
+        assert!(covers(&t, "@org"));
+        assert!(!token_has_scope(&t, &name("@other/software")));
     }
 
     #[test]
     fn unscoped_token_has_full_access() {
-        assert!(token_has_scope(&token(None), "@anything/here"));
+        assert!(token_has_scope(&token(None), &name("@anything/here")));
     }
 }

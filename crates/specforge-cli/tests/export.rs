@@ -177,6 +177,28 @@ fn export_with_nonexistent_scope_exits_one() {
         .code(1);
 }
 
+#[specforge_test(
+    behavior = "export_agent_context_format",
+    verify = "non-existent scope entity produces E003 and exit code 1"
+)]
+fn a_context_export_of_a_missing_scope_is_e003() {
+    let dir = setup_project(&[("main.spec", SPEC_CONTENT)]);
+
+    let output = specforge_cmd()
+        .args(["export", "--format=context", "--scope=nope"])
+        .arg(dir.path())
+        .output()
+        .unwrap();
+
+    assert_eq!(output.status.code(), Some(1));
+    assert!(output.stdout.is_empty(), "no partial export");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.starts_with("error[E003]: unresolved entity 'nope'"),
+        "{stderr}"
+    );
+}
+
 // B:embed_schema_in_export — V2 format with embedded schema (default)
 #[test]
 fn export_default_produces_v2_with_schema() {
@@ -529,6 +551,269 @@ fn budget_below_one_entity_yields_an_empty_envelope() {
         truncated,
         vec!["b0", "b1", "b2", "b3", "b4", "b5", "b6", "b7", "f"]
     );
+}
+
+/// `specforge export <dir> --format=<format> <args>`: the exit code, stdout and
+/// stderr.
+fn export_format(dir: &TempDir, format: &str, args: &[&str]) -> (i32, String, String) {
+    let output = specforge_cmd()
+        .args(["export", &format!("--format={format}")])
+        .args(args)
+        .arg(dir.path())
+        .output()
+        .unwrap();
+    (
+        output.status.code().unwrap_or(-1),
+        String::from_utf8_lossy(&output.stdout).into_owned(),
+        String::from_utf8_lossy(&output.stderr).into_owned(),
+    )
+}
+
+#[specforge_test(
+    behavior = "enforce_token_budget",
+    verify = "the context and brief exports honour --max-tokens, listing the dropped entities under token_budget"
+)]
+fn context_and_brief_exports_honour_max_tokens() {
+    let dir = budget_project();
+    for format in ["context", "brief"] {
+        let (code, whole, stderr) = export_format(&dir, format, &[]);
+        assert_eq!(code, 0, "{format}: {stderr}");
+        let cost = specforge_emitter::estimate_tokens(&whole);
+
+        // Half the cost: entities are dropped, and the export says which.
+        let budget = cost / 2;
+        let (code, stdout, stderr) =
+            export_format(&dir, format, &["--max-tokens", &budget.to_string()]);
+        assert_eq!(code, 0, "{format}: {stderr}");
+        let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+        let used = specforge_emitter::estimate_tokens(&stdout);
+        assert!(
+            used <= budget,
+            "{format}: {used} tokens over the {budget} budget"
+        );
+        let meta = &parsed["token_budget"];
+        assert_eq!(meta["strategy"], "prioritize", "{format}: {parsed}");
+        assert_eq!(meta["budget_tokens"], budget, "{format}: {parsed}");
+        let mut all: Vec<&str> = parsed["nodes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|n| n["id"].as_str().unwrap())
+            .chain(
+                meta["truncated_entities"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|v| v.as_str().unwrap()),
+            )
+            .collect();
+        all.sort();
+        assert_eq!(
+            all, NINE,
+            "{format}: kept and dropped are the nine, disjoint"
+        );
+
+        // Exactly the unbudgeted cost: nothing dropped, nothing added.
+        let (code, stdout, stderr) =
+            export_format(&dir, format, &["--max-tokens", &cost.to_string()]);
+        assert_eq!(code, 0, "{format}: {stderr}");
+        assert_eq!(stdout, whole, "{format}");
+        assert!(!stdout.contains("token_budget"), "{format}");
+    }
+}
+
+#[specforge_test(
+    behavior = "enforce_token_budget",
+    verify = "a context or brief export that cannot fit even without entities, or whose embedded schema is over the budget, fails with E062"
+)]
+fn context_and_brief_budgets_too_small_fail_with_e062() {
+    let dir = budget_project();
+    for format in ["context", "brief"] {
+        let (code, stdout, stderr) = export_format(&dir, format, &["--max-tokens", "5"]);
+        assert_eq!(code, 1, "{format}: {stdout}");
+        assert!(
+            stdout.trim().is_empty(),
+            "{format}: no over-budget export: {stdout}"
+        );
+        assert!(stderr.contains("E062"), "{format}: {stderr}");
+
+        let (code, stdout, stderr) =
+            export_format(&dir, format, &["--with-schema", "--max-tokens", "300"]);
+        assert_eq!(code, 1, "{format}: {stdout}");
+        assert!(stdout.trim().is_empty(), "{format}: {stdout}");
+        assert!(stderr.contains("E062"), "{format}: {stderr}");
+        assert!(
+            stderr.contains("embedded schema alone"),
+            "{format}: {stderr}"
+        );
+    }
+}
+
+// ── The export matrix (plan 14, P1) ───────────────────────────────────
+
+/// What one cell of the export matrix does.
+#[derive(Debug, PartialEq)]
+enum Expect {
+    /// Exit 0, all nine entities, and these top-level keys besides
+    /// `nodes` and `edges`.
+    Whole { keys: &'static [&'static str] },
+    /// Exit 0, within the budget, the `token_budget` block naming the rest.
+    Truncated { kept: usize, dropped: usize },
+    /// Exit 1, no stdout, and this code on stderr.
+    Fails(&'static str),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum Format {
+    Graph,
+    Context,
+    Brief,
+}
+
+impl Format {
+    fn name(self) -> &'static str {
+        match self {
+            Format::Graph => "graph",
+            Format::Context => "context",
+            Format::Brief => "brief",
+        }
+    }
+}
+
+/// The matrix: (format, with a schema, scoped to `f`, budget) and what
+/// the export does. `f` reaches every entity, so scoping selects the same nine.
+fn expected(format: Format, schema: bool, scoped: bool, budget: Option<usize>) -> Expect {
+    const PLAIN: &[&str] = &["schema_version"];
+    const V1: &[&str] = &["format_version", "schema_version"];
+    const EMBEDDED: &[&str] = &["format_version", "schema", "schema_version"];
+    const REFERENCED: &[&str] = &["format_version", "schema_ref", "schema_version"];
+    let keys = match (format, schema, scoped) {
+        (Format::Graph, false, _) => V1,
+        (_, false, _) => PLAIN,
+        (_, true, false) => EMBEDDED,
+        (_, true, true) => REFERENCED,
+    };
+    // An embedded schema alone is over every small budget.
+    let embedded = schema && !scoped;
+    match (format, budget) {
+        (_, None | Some(100_000)) => Expect::Whole { keys },
+        // Below the empty export, or with an embedded schema over the budget,
+        // every format fails alike.
+        (_, Some(5)) => Expect::Fails("E062"),
+        (_, Some(_)) if embedded => Expect::Fails("E062"),
+        (Format::Graph | Format::Context, Some(_)) => Expect::Truncated {
+            kept: 2,
+            dropped: 7,
+        },
+        (Format::Brief, Some(_)) if schema => Expect::Truncated {
+            kept: 7,
+            dropped: 2,
+        },
+        (Format::Brief, Some(_)) => Expect::Whole { keys },
+    }
+}
+
+const NINE: [&str; 9] = ["b0", "b1", "b2", "b3", "b4", "b5", "b6", "b7", "f"];
+
+#[test]
+fn the_export_matrix() {
+    let dir = budget_project();
+    let budgets = [None, Some(100_000), Some(300), Some(5)];
+    let mut whole: std::collections::BTreeMap<String, String> = Default::default();
+    for format in [Format::Graph, Format::Context, Format::Brief] {
+        for schema in [false, true] {
+            for scoped in [false, true] {
+                for budget in budgets {
+                    let cell = format!(
+                        "{} schema={schema} scoped={scoped} budget={budget:?}",
+                        format.name()
+                    );
+                    let mut args = vec![format!("--format={}", format.name())];
+                    args.push(
+                        if schema {
+                            "--with-schema"
+                        } else {
+                            "--no-schema"
+                        }
+                        .to_string(),
+                    );
+                    if scoped {
+                        args.extend(["--scope".to_string(), "f".to_string()]);
+                    }
+                    if let Some(budget) = budget {
+                        args.extend(["--max-tokens".to_string(), budget.to_string()]);
+                    }
+                    args.push(dir.path().display().to_string());
+                    let output = specforge_cmd().arg("export").args(&args).output().unwrap();
+                    let code = output.status.code().unwrap_or(-1);
+                    let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
+                    let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
+                    let expect = expected(format, schema, scoped, budget);
+
+                    if let Expect::Fails(error) = expect {
+                        assert_eq!(code, 1, "{cell}: {stdout}");
+                        assert!(stdout.trim().is_empty(), "{cell}: {stdout}");
+                        assert!(stderr.contains(error), "{cell}: {stderr}");
+                        continue;
+                    }
+                    assert_eq!(code, 0, "{cell}: {stderr}");
+                    let parsed: serde_json::Value = serde_json::from_str(&stdout)
+                        .unwrap_or_else(|e| panic!("{cell}: {e}: {stdout}"));
+                    let object = parsed.as_object().unwrap();
+                    let ids: Vec<&str> = parsed["nodes"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .map(|n| n["id"].as_str().unwrap())
+                        .collect();
+                    let used = specforge_emitter::estimate_tokens(&stdout);
+                    match expect {
+                        Expect::Whole { keys } => {
+                            let mut seen: Vec<&str> = object
+                                .keys()
+                                .map(String::as_str)
+                                .filter(|k| *k != "nodes" && *k != "edges")
+                                .collect();
+                            seen.sort();
+                            assert_eq!(seen, keys, "{cell}: {stdout}");
+                            let mut sorted = ids.clone();
+                            sorted.sort();
+                            assert_eq!(sorted, NINE, "{cell}");
+                            // A budget the export fits in changes nothing.
+                            let key = format!("{} {schema} {scoped}", format.name());
+                            match budget {
+                                None => {
+                                    whole.insert(key, stdout);
+                                }
+                                Some(100_000) => {
+                                    assert_eq!(whole.get(&key), Some(&stdout), "{cell}")
+                                }
+                                Some(_) => {}
+                            }
+                        }
+                        Expect::Truncated { kept, dropped } => {
+                            let budget = budget.unwrap();
+                            assert!(used <= budget, "{cell}: {used} tokens");
+                            let meta = &parsed["token_budget"];
+                            assert_eq!(meta["strategy"], "prioritize", "{cell}");
+                            assert_eq!(meta["budget_tokens"], budget, "{cell}");
+                            let gone: Vec<&str> = meta["truncated_entities"]
+                                .as_array()
+                                .unwrap()
+                                .iter()
+                                .map(|v| v.as_str().unwrap())
+                                .collect();
+                            assert_eq!((ids.len(), gone.len()), (kept, dropped), "{cell}");
+                            let mut all: Vec<&str> = ids.iter().chain(&gone).copied().collect();
+                            all.sort();
+                            assert_eq!(all, NINE, "{cell}: kept and dropped are disjoint");
+                        }
+                        Expect::Fails(_) => unreachable!(),
+                    }
+                }
+            }
+        }
+    }
 }
 
 #[specforge_test(

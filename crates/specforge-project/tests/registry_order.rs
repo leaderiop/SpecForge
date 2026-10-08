@@ -64,6 +64,7 @@ fn project() -> tempfile::TempDir {
         "extensions": ["@test/alpha", "@test/beta"]
     });
     std::fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
+    specforge_installed::testing::install_configured(dir.path(), &specforge_project::builtins());
     // A duplicate ID: a graph diagnostic, between the registry ones and E039.
     std::fs::write(
         dir.path().join("main.spec"),

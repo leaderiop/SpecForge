@@ -1,4 +1,7 @@
+use crate::served::{edit_buffer, hover_text, uri_of_path};
+use specforge_lsp::{ClientSupport, answers};
 use specforge_test_macros::test as spec;
+use tower_lsp::lsp_types::{GotoDefinitionResponse, Position};
 
 // -- lsp_initialize -----------------------------------------------------------
 
@@ -103,18 +106,6 @@ async fn init_zero_extensions() {
 
 // -- lsp_shutdown -------------------------------------------------------------
 
-/// Apply an editor buffer to the state's project session.
-fn edit(state: &mut specforge_lsp::LspState, path: &str, text: &str) {
-    // The buffer is the file's text: what navigation reads.
-    state.open_document(&format!("file://{path}"), text);
-    state.session_mut().expect("no update is running").update(
-        specforge_project::SourceChange::Buffer {
-            path,
-            text: Some(text),
-        },
-    );
-}
-
 #[spec(
     behavior = "lsp_shutdown",
     verify = "shutdown releases in-memory graph"
@@ -122,7 +113,7 @@ fn edit(state: &mut specforge_lsp::LspState, path: &str, text: &str) {
 fn shutdown_clears_state() {
     let mut state = specforge_lsp::LspState::new();
     state.open_document("file:///p/login.spec", LOGIN);
-    edit(&mut state, "/p/login.spec", LOGIN);
+    edit_buffer(&mut state, "/p/login.spec", LOGIN);
     assert!(state.graph().node("login").is_some());
     let session = state.session().unwrap();
     assert_eq!(session.graph_diagnostics().len(), 1, "the E003");
@@ -174,21 +165,22 @@ fn lsp_state_holds_graph() {
 
     // A change driven through the session is what the LSP's features see.
     let limit = "invariant session_limit \"Limit\" {\n}\n";
-    edit(&mut state, "/p/login.spec", LOGIN);
-    edit(&mut state, "/p/limit.spec", limit);
-    let nav = specforge_lsp::navigator(&state);
-    let def = nav
-        .definition("session_limit")
-        .expect("the session's entity is navigable");
-    assert_eq!(def.block.file, "/p/limit.spec");
-    let with_declaration = specforge_ops::navigate::ReferenceQuery {
-        include_declaration: true,
-        ..Default::default()
+    edit_buffer(&mut state, "/p/login.spec", LOGIN);
+    edit_buffer(&mut state, "/p/limit.spec", limit);
+    state.set_client(ClientSupport {
+        definition_links: true,
+        ..ClientSupport::default()
+    });
+    let login = uri_of_path("/p/login.spec");
+    let on_limit = Position::new(1, 16);
+    let Some(GotoDefinitionResponse::Link(links)) = answers::definition(&state, &login, on_limit)
+    else {
+        panic!("the session's entity is navigable");
     };
-    let refs = nav.references("session_limit", with_declaration).unwrap();
-    let ref_files: Vec<&str> = refs.iter().map(|r| r.span.file.as_str()).collect();
+    assert_eq!(links[0].target_uri, uri_of_path("/p/limit.spec"));
+    let refs = answers::references(&state, &login, on_limit, true).unwrap();
+    let ref_files: Vec<&str> = refs.iter().map(|r| r.uri.path()).collect();
     assert_eq!(ref_files, ["/p/limit.spec", "/p/login.spec"]);
-    drop(nav);
 
     // A session fed the same changes, as `specforge watch` feeds its own,
     // builds the same graph and reports the same diagnostics.
@@ -218,39 +210,34 @@ fn graph_update_serves_all_features() {
     let mut state = specforge_lsp::LspState::new();
 
     // Build a graph through the shared session.
-    edit(
+    edit_buffer(
         &mut state,
         "/p/auth.spec",
         "behavior login \"User Login\" {\n  types [token]\n}\n",
     );
-    edit(
+    edit_buffer(
         &mut state,
         "/p/types.spec",
         "type token \"Auth Token\" {\n}\n",
     );
 
     // The same graph serves go-to-definition
-    let nav = specforge_lsp::navigator(&state);
+    let auth = uri_of_path("/p/auth.spec");
+    let on_token = Position::new(1, 10);
     assert!(
-        nav.definition("token").is_ok(),
+        answers::definition(&state, &auth, on_token).is_some(),
         "go-to-definition must use shared graph"
     );
 
     // The same graph serves find-all-references
-    let refs = nav.references("token", Default::default()).unwrap();
+    let refs = answers::references(&state, &auth, on_token, false).unwrap();
     assert!(
-        refs.iter().any(|r| r.span.file == "/p/auth.spec"),
+        refs.iter().any(|r| r.uri == auth),
         "find-all-references must use shared graph: {refs:?}"
     );
 
     // The same graph serves hover, through the inspect read view
-    let facts = specforge_ops::inspect::inspect(&state.view(), "login")
-        .expect("inspect must use shared graph");
-    assert!(std::ptr::eq(
-        facts.node,
-        state.graph().node("login").unwrap()
-    ));
-    let hover = specforge_lsp::hover::entity(&facts, &[], false);
+    let hover = hover_text(&state, &auth, Position::new(0, 10)).expect("a hover");
     assert!(
         hover.contains("`login`"),
         "hover must use shared graph: {hover}"
@@ -258,18 +245,19 @@ fn graph_update_serves_all_features() {
 
     // The same graph serves workspace symbols and completions (one
     // ranking, over ids and titles)
-    use specforge_ops::navigate::{EntityQuery, MatchScope, find_entities};
-    let syms = find_entities(state.graph(), &EntityQuery::new("login", MatchScope::Names));
-    assert!(!syms.is_empty(), "workspace symbols must use shared graph");
-    let completions = find_entities(state.graph(), &EntityQuery::new("log", MatchScope::Names));
-    assert!(!completions.is_empty(), "completions must use shared graph");
-}
-
-#[test]
-fn lsp_debounces_like_watch() {
-    assert_eq!(
-        specforge_lsp::DEBOUNCE_WINDOW,
-        specforge_watch::DEFAULT_DEBOUNCE_WINDOW
+    let symbols = answers::workspace_symbols(&state, "login").unwrap_or_default();
+    assert!(
+        symbols.iter().any(|s| s.name == "login"),
+        "workspace symbols must use shared graph"
+    );
+    let Some(tower_lsp::lsp_types::CompletionResponse::Array(items)) =
+        answers::completion(&state, &auth, Position::new(1, 9))
+    else {
+        panic!("completion answers a list");
+    };
+    assert!(
+        items.iter().any(|i| i.label == "token"),
+        "completions must use shared graph: {items:?}"
     );
 }
 
@@ -361,7 +349,7 @@ fn file_watchers_follow_what_the_session_is_built_from() {
     let session = specforge_project::ProjectSession::open_with_runtime(dir.path(), None);
     let root = dir.path().to_string_lossy().into_owned();
 
-    let absolute: Vec<String> = specforge_lsp::watchers::file_watchers(&session, false)
+    let absolute: Vec<String> = specforge_lsp::watchers::file_watchers(session.inputs(), false)
         .into_iter()
         .map(|w| match w.glob_pattern {
             GlobPattern::String(glob) => glob,
@@ -379,7 +367,7 @@ fn file_watchers_follow_what_the_session_is_built_from() {
     );
 
     let relative: Vec<(std::path::PathBuf, String)> =
-        specforge_lsp::watchers::file_watchers(&session, true)
+        specforge_lsp::watchers::file_watchers(session.inputs(), true)
             .into_iter()
             .map(|w| match w.glob_pattern {
                 GlobPattern::Relative(pattern) => {
@@ -402,7 +390,140 @@ fn file_watchers_follow_what_the_session_is_built_from() {
 
     let detached = specforge_project::ProjectSession::detached();
     assert_eq!(
-        specforge_lsp::watchers::file_watchers(&detached, true),
+        specforge_lsp::watchers::file_watchers(detached.inputs(), true),
         specforge_lsp::watchers::default_watchers()
     );
+}
+
+/// Whether `glob` (`**` any depth, `*` one path segment, else literal)
+/// matches `path`.
+fn glob_matches(glob: &str, path: &str) -> bool {
+    fn go(glob: &[&str], path: &[&str]) -> bool {
+        match glob.split_first() {
+            None => path.is_empty(),
+            Some((&"**", rest)) => (0..=path.len()).any(|skipped| go(rest, &path[skipped..])),
+            Some((segment, rest)) => path.split_first().is_some_and(|(first, tail)| {
+                (*segment == "*" || segment == first) && go(rest, tail)
+            }),
+        }
+    }
+    go(
+        &glob.split('/').collect::<Vec<_>>(),
+        &path.split('/').collect::<Vec<_>>(),
+    )
+}
+
+/// Every input the session classifies, a file created beside a missing
+/// referenced file included, is matched by a watcher glob, spelled under
+/// the project root (or canonical outside it).
+#[spec(
+    behavior = "classify_project_changes",
+    verify = "the LSP's watchers cover every input the session classifies"
+)]
+fn the_watchers_cover_what_the_session_classifies() {
+    use specforge_project::{InputRole, ProjectSession};
+    use tower_lsp::lsp_types::GlobPattern;
+
+    let outside = tempfile::TempDir::new().unwrap();
+    let far = tempfile::TempDir::new().unwrap();
+    let module_dir = std::fs::canonicalize(far.path()).unwrap().join("mods");
+    std::fs::create_dir_all(&module_dir).unwrap();
+    let module = module_dir.join("ext.wasm");
+    // From `spec/`, two levels up is the parent of the root: the sibling
+    // temp directory `outside`.
+    let outside_name = outside.path().file_name().unwrap().to_string_lossy();
+    let reference = format!("../../{outside_name}/guide.md");
+    let dir = crate::session::docref_project(&format!(
+        "gadget gadget_one \"G\" {{\n  docs [\"{reference}\", \"missing/sub.md\"]\n}}\n"
+    ));
+    let root = dir.path();
+    std::fs::write(
+        root.join("specforge.json"),
+        serde_json::json!({
+            "name": "p",
+            "version": "0.1.0",
+            "spec_root": "spec",
+            "extensions": [
+                "@specforge/software",
+                "@sdk/docref=ext/docref.wasm",
+                format!("@acme/far={}", module.display()),
+            ],
+        })
+        .to_string(),
+    )
+    .unwrap();
+    let session = ProjectSession::open(root);
+
+    let globs: Vec<String> = specforge_lsp::watchers::file_watchers(session.inputs(), false)
+        .into_iter()
+        .map(|w| match w.glob_pattern {
+            GlobPattern::String(glob) => glob,
+            other => panic!("expected an absolute glob, got {other:?}"),
+        })
+        .collect();
+    let spec_root = root.join("spec");
+    let canonical_outside = std::fs::canonicalize(outside.path()).unwrap();
+    // The inputs as the watchers spell them: under the root as opened,
+    // canonical outside it.
+    let spelled = [
+        (root.join("specforge.json"), root.join("specforge.json")),
+        (root.join("specforge.lock"), root.join("specforge.lock")),
+        (root.join("ext/docref.wasm"), root.join("ext/docref.wasm")),
+        (module.clone(), module),
+        (
+            spec_root.join(&reference),
+            canonical_outside.join("guide.md"),
+        ),
+        (
+            spec_root.join("missing/sub.md"),
+            spec_root.join("missing/sub.md"),
+        ),
+        // A file created beside a missing referenced file changes E016's
+        // suggestion.
+        (
+            spec_root.join("missing/x.md"),
+            spec_root.join("missing/x.md"),
+        ),
+    ];
+    for (input, watched) in &spelled {
+        assert_ne!(
+            session.inputs().classify(input),
+            InputRole::Unrelated,
+            "{}",
+            input.display()
+        );
+        let watched = watched.display().to_string();
+        assert!(
+            globs.iter().any(|glob| glob_matches(glob, &watched)),
+            "{watched} is matched by none of {globs:?}"
+        );
+    }
+    assert!(!globs.iter().any(|g| g.contains("/../")), "{globs:?}");
+}
+
+// -- validate_delta_correctness -----------------------------------------------
+
+/// The session the LSP holds verifies each rebuild against a cold build in a
+/// debug build, with no flag set (ADR 0032).
+#[cfg(debug_assertions)]
+#[spec(
+    behavior = "validate_delta_correctness",
+    verify = "the LSP and MCP check each rebuild in a debug build"
+)]
+fn a_debug_build_of_the_lsp_verifies_each_rebuild() {
+    let mut state = specforge_lsp::LspState::new();
+    let limit = "invariant session_limit \"Limit\" {\n}\n";
+    for (path, text) in [
+        ("/p/login.spec", LOGIN),
+        ("/p/limit.spec", limit),
+        ("/p/limit.spec", "invariant session_cap \"Cap\" {\n}\n"),
+    ] {
+        let update = state.session_mut().expect("no update is running").update(
+            specforge_project::SourceChange::Buffer {
+                path,
+                text: Some(text),
+            },
+        );
+        assert_eq!(update.verification, Some(Ok(())), "after {path}");
+    }
 }

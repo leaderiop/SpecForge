@@ -214,7 +214,10 @@ impl FakeExtension {
 
 /// A project on disk that enables `@test/cmds`, with one spec file.
 pub fn project() -> tempfile::TempDir {
-    cmds_project().into_dir()
+    let dir = cmds_project().into_dir();
+    // The runtime serves it; the project has it installed.
+    specforge_installed::testing::install(dir.path(), &[EXT]);
+    dir
 }
 
 /// [`project`], as the fixture serves it.

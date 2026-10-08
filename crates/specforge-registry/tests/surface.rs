@@ -28,7 +28,6 @@ fn make_command(id: &str, export: &str) -> CommandDescriptor {
         category: None,
         export: export.to_string(),
         args: vec![],
-        sandbox: None,
     }
 }
 
@@ -40,7 +39,6 @@ fn make_tool(name: &str, export: &str) -> McpToolDescriptor {
         export: export.to_string(),
         input_schema: serde_json::json!({"type": "object"}),
         output_schema: None,
-        sandbox: None,
     }
 }
 
@@ -51,7 +49,6 @@ fn make_resource(name: &str, export: &str) -> McpResourceDescriptor {
         description: None,
         export: export.to_string(),
         mime_type: "application/json".to_string(),
-        sandbox: None,
     }
 }
 

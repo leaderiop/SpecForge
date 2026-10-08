@@ -7,6 +7,7 @@ use specforge_parser::{EntityId, EntityKind, FieldMap};
 use specforge_project::coverage::RecordedCoverage;
 use specforge_registry::{KindRegistry, RegistryBuild};
 use specforge_test_macros::test as spec;
+use tree_sitter_specforge::{field, kind};
 
 use crate::registries::registries;
 
@@ -228,6 +229,28 @@ fn triple_quoted_strings_classified() {
             .all(|t| t.token_type != "string" || t.text == "\"Bar\""),
         "{tokens:?}"
     );
+}
+
+#[spec(
+    behavior = "provide_semantic_tokens",
+    verify = "a string spanning lines is one string, holding no other token"
+)]
+fn a_multi_line_string_is_one_string_token_per_line() {
+    let tokens = tokens_of(
+        "behavior login \"Log in\" {\n  contract \"first line\n  second line mentions login and ends\"\n}\n\nbehavior logout \"Log out\" {\n  contract \"x\"\n}\n",
+        kinds(&[]),
+    );
+    assert!(
+        tokens.iter().all(|t| t.text != "mentions"),
+        "a word inside the string is a token: {tokens:?}"
+    );
+    let second = token(&tokens, "  second line mentions login and ends\"");
+    assert_eq!(
+        (second.line, second.col, second.token_type),
+        (2, 0, "string")
+    );
+    let first = token(&tokens, "\"first line");
+    assert_eq!((first.line, first.col, first.token_type), (1, 11, "string"));
 }
 
 #[spec(
@@ -651,7 +674,7 @@ fn walk<'t>(node: tree_sitter::Node<'t>, out: &mut Vec<tree_sitter::Node<'t>>) {
 )]
 fn tokens_agree_with_the_grammar() {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
-    let runtime = specforge_component::project_runtime(&root);
+    let runtime = specforge_component::ComponentRuntime::with_user_cache();
     let project = specforge_project::CompiledProject::compile(&root, Some(&runtime));
     let view = ProjectView::of(&project);
     let declared: Vec<&str> = view
@@ -696,24 +719,24 @@ fn tokens_agree_with_the_grammar() {
             )
         };
         for node in nodes {
-            if within(node, &["define_block"]) {
+            if within(node, &[kind::DEFINE_BLOCK]) {
                 continue;
             }
             match node.kind() {
-                "entity_block" => {
-                    let kind = node.child_by_field_name("kind").unwrap();
+                kind::ENTITY_BLOCK => {
+                    let kind = node.child_by_field_name(field::KIND).unwrap();
                     assert_eq!(
                         token_at(kind).map(|t| t.0),
                         Some("type"),
                         "{}",
                         where_(kind)
                     );
-                    let name = node.child_by_field_name("name").unwrap();
+                    let name = node.child_by_field_name(field::NAME).unwrap();
                     let token = token_at(name).unwrap_or_else(|| panic!("{}", where_(name)));
                     assert_ne!(token.1 & MOD_DECLARATION, 0, "{}", where_(name));
                 }
-                "field" => {
-                    let key = node.child_by_field_name("key").unwrap();
+                kind::FIELD => {
+                    let key = node.child_by_field_name(field::KEY).unwrap();
                     assert_eq!(
                         token_at(key).map(|t| t.0),
                         Some("property"),
@@ -721,8 +744,8 @@ fn tokens_agree_with_the_grammar() {
                         where_(key)
                     );
                 }
-                "string" | "triple_quoted_string" | "comment" => {
-                    let expected = if node.kind() == "comment" {
+                kind::STRING | kind::TRIPLE_QUOTED_STRING | kind::COMMENT => {
+                    let expected = if node.kind() == kind::COMMENT {
                         "comment"
                     } else {
                         "string"
@@ -742,9 +765,9 @@ fn tokens_agree_with_the_grammar() {
                         from = line_end + 1;
                     }
                 }
-                "identifier" | "scheme_ref_id"
-                    if node.parent().is_some_and(|p| p.kind() == "list")
-                        && !within(node, &["nested_block"]) =>
+                kind::IDENTIFIER | kind::SCHEME_REF_ID
+                    if node.parent().is_some_and(|p| p.kind() == kind::LIST)
+                        && !within(node, &[kind::NESTED_BLOCK]) =>
                 {
                     let token = token_at(node).unwrap_or_else(|| panic!("{}", where_(node)));
                     assert_ne!(token.1 & MOD_REFERENCE, 0, "{}", where_(node));

@@ -9,7 +9,7 @@ use specforge_extension_sdk::prelude::*;
 use specforge_protocol_types::{HandshakeResponse, PROTOCOL_VERSION, ProtocolError};
 use specforge_wasm::protocol::{Loaded, load_declaration};
 use specforge_wasm::testing::InProcessRuntime;
-use specforge_wasm::{WasmCallResult, WasmTrapInfo};
+use specforge_wasm::{ExtensionCalls, Limits, WasmCallResult, WasmTrapInfo};
 
 /// `name`, declaring a testable `behavior` kind, an `Implements` edge and
 /// a `W001` rule.
@@ -62,10 +62,17 @@ fn handshake_returns_parsed_response() {
     assert!(resp.contribution_flags.validators);
 }
 
-// ── Handshake applies the plugin's declared execution budget (C7-10) ──
+// ── Handshake applies the extension's sandbox: its limits (C7-10, ADR 0037) ──
 
-#[test]
-fn handshake_applies_declared_max_execution_ms() {
+#[specforge_test_macros::test(
+    behavior = "configure_sandbox_policy",
+    verify = "a declared limit below the ceiling is applied as declared"
+)]
+#[specforge_test_macros::test(
+    behavior = "load_extension_declaration",
+    verify = "the loader applies the execution budget its handshake declares, and a handshake call alone applies none"
+)]
+fn the_loader_applies_the_declared_execution_budget() {
     let runtime = InProcessRuntime::new().with(|| {
         let mut meta = ExtensionMeta::new("@specforge/software", "1.0.0");
         meta.sandbox_policy = Some(SandboxPolicy {
@@ -76,16 +83,162 @@ fn handshake_applies_declared_max_execution_ms() {
     });
     load_declaration(&runtime, "@specforge/software").unwrap();
     assert_eq!(
-        runtime.deadlines(),
-        vec![("@specforge/software".to_string(), 5000)]
+        runtime.limits(),
+        vec![(
+            "@specforge/software".to_string(),
+            Limits {
+                execution_ms: 5000,
+                memory_mb: 512
+            }
+        )]
+    );
+}
+
+#[specforge_test_macros::test(
+    behavior = "load_extension_declaration",
+    verify = "the loader applies the execution budget its handshake declares, and a handshake call alone applies none"
+)]
+fn a_handshake_call_applies_no_limits() {
+    let runtime = InProcessRuntime::new().with(|| {
+        let mut meta = ExtensionMeta::new("@specforge/software", "1.0.0");
+        meta.sandbox_policy = Some(SandboxPolicy {
+            max_execution_ms: Some(5000),
+            ..Default::default()
+        });
+        ContributionsBuilder::new(meta)
+    });
+    let handshake = ExtensionCalls::new(&runtime)
+        .handshake("@specforge/software")
+        .unwrap();
+    // It reads what the policy comes to; applying it is the loader's.
+    assert_eq!(handshake.sandbox.limits.execution_ms, 5000);
+    assert!(runtime.limits().is_empty(), "{:?}", runtime.limits());
+}
+
+#[specforge_test_macros::test(
+    behavior = "configure_sandbox_policy",
+    verify = "an extension declaring no sandbox policy runs under the host's ceiling"
+)]
+fn an_extension_declaring_no_policy_runs_under_the_ceiling() {
+    let runtime = InProcessRuntime::new().with(declaring("@specforge/formal"));
+    load_declaration(&runtime, "@specforge/formal").unwrap();
+    assert_eq!(
+        runtime.limits(),
+        vec![("@specforge/formal".to_string(), Limits::CEILING)]
+    );
+}
+
+/// The handshake an older SDK built: `name`'s own, with `sandbox_policy`
+/// as that SDK wrote it (permission fields the type no longer has).
+fn older_handshake(name: &'static str, sandbox_policy: serde_json::Value) -> WasmCallResult {
+    let mut handshake: serde_json::Value =
+        serde_json::from_str(&declaring(name)().handshake_json()).unwrap();
+    handshake["sandbox_policy"] = sandbox_policy;
+    raw(handshake.to_string().as_bytes())
+}
+
+#[specforge_test_macros::test(
+    behavior = "configure_sandbox_policy",
+    verify = "Configure Sandbox Policy: sandbox policy configuration holds — handshake_read, limits_held_to_ceiling, above_ceiling_warned, capabilities_never_granted, limits_applied_at_handshake"
+)]
+#[specforge_test_macros::test(
+    behavior = "configure_sandbox_policy",
+    verify = "a sandbox_policy key that asks for a capability is W153"
+)]
+fn a_sandbox_policy_key_that_asks_for_a_capability_is_w153() {
+    let runtime = InProcessRuntime::new()
+        .with(declaring("@acme/asks"))
+        .answer_raw(
+            "@acme/asks",
+            "__handshake",
+            older_handshake(
+                "@acme/asks",
+                json!({
+                    "max_memory_mb": 64,
+                    "max_execution_ms": 60_000,
+                    "network_access": true,
+                    "allowed_paths": ["/etc"],
+                }),
+            ),
+        );
+    let loaded = load_declaration(&runtime, "@acme/asks").unwrap();
+
+    // One W153 per key, and no W138: the handshake is not a describe item.
+    let keys: Vec<&str> = loaded
+        .warnings
+        .iter()
+        .map(|warning| {
+            assert_eq!(warning.code, "W153", "{warning:?}");
+            ["allowed_paths", "max_execution_ms", "network_access"]
+                .into_iter()
+                .find(|key| warning.message.contains(&format!("sandbox_policy.{key} ")))
+                .unwrap_or_else(|| panic!("a key not declared: {}", warning.message))
+        })
+        .collect();
+    assert_eq!(
+        keys,
+        ["allowed_paths", "max_execution_ms", "network_access"]
+    );
+
+    // The limits were applied at the handshake: the declared one as
+    // declared, the one above the ceiling held to it.
+    assert_eq!(
+        runtime.limits(),
+        vec![(
+            "@acme/asks".to_string(),
+            Limits {
+                execution_ms: 30_000,
+                memory_mb: 64
+            }
+        )]
     );
 }
 
 #[test]
-fn handshake_without_execution_budget_sets_no_deadline() {
-    let runtime = InProcessRuntime::new().with(declaring("@specforge/formal"));
-    load_declaration(&runtime, "@specforge/formal").unwrap();
-    assert!(runtime.deadlines().is_empty());
+fn a_policy_of_two_limits_loads_clean() {
+    let runtime = InProcessRuntime::new().with(|| {
+        let mut meta = ExtensionMeta::new("@acme/tidy", "1.0.0");
+        meta.sandbox_policy = Some(SandboxPolicy {
+            max_memory_mb: Some(64),
+            max_execution_ms: Some(1000),
+        });
+        ContributionsBuilder::new(meta)
+    });
+    let loaded = load_declaration(&runtime, "@acme/tidy").unwrap();
+    assert!(loaded.warnings.is_empty(), "{:?}", loaded.warnings);
+}
+
+#[specforge_test_macros::test(
+    behavior = "configure_sandbox_policy",
+    verify = "a surface's sandbox override is W153"
+)]
+fn a_surface_sandbox_override_is_w153() {
+    let runtime = InProcessRuntime::new().with(|| {
+        let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/asks", "1.0.0"));
+        c.command("x", |cmd| {
+            cmd.title("X").handler(|_| CommandOutput::default());
+        });
+        // Served as an older guest describes it: the command with the
+        // `sandbox` override the descriptor no longer has.
+        c.raw_category(
+            "surfaces",
+            json!([{
+                "commands": [{
+                    "id": "x", "title": "X", "description": "", "export": "cmd__x",
+                    "sandbox": { "fs_write": true }
+                }]
+            }]),
+        );
+        c
+    });
+    let loaded = load_declaration(&runtime, "@acme/asks").unwrap();
+    assert_eq!(loaded.warnings.len(), 1, "{:?}", loaded.warnings);
+    assert_eq!(loaded.warnings[0].code, "W153");
+    assert!(
+        loaded.warnings[0].message.contains("#0.commands[x]"),
+        "{}",
+        loaded.warnings[0].message
+    );
 }
 
 // ── Handshake error handling ──

@@ -1,6 +1,6 @@
 # One incremental rebuild, inside the project session
 
-**Status:** accepted (2026-10-02)
+**Status:** accepted (2026-10-02); amended by [ADR 0032](0032-one-graph-build.md) (2026-10-07)
 
 The incremental rebuild was split three ways: `specforge-watch` picked the files to re-parse from
 an import DAG, the project session seeded that DAG and resolved imports again on its own, and MCP
@@ -8,7 +8,8 @@ diffed graphs with a delta type of its own. The DAG only matched imports spelled
 (no relative, `@alias` or `index.spec` targets), so the files it picked were wrong anyway.
 
 The rebuild now lives in `specforge-project` (`incremental.rs`, `delta.rs`) behind
-`ProjectSession`. `specforge-watch` is the file watcher and its debounce.
+`ProjectSession`. `specforge-watch` is the file watcher and its debounce. *(ADR 0035: it is also the
+debounce rule the LSP shares and the loop that keeps a session current from the watcher.)*
 
 - **No import DAG.** A parse depends only on its own text, and references resolve across the
   project without `use` (ADR 0004 D1-a), so re-parsing an importer gains nothing. An update
@@ -30,3 +31,9 @@ The rebuild now lives in `specforge-project` (`incremental.rs`, `delta.rs`) behi
   compiled, so its entities were missing anyway.
 - **Known gap:** `dispatch_incremental_validators` was never wired; every check runs over the whole
   graph after an update. Its planner is deleted; the behavior stays until extensions receive deltas.
+
+**Amended by ADR 0032.** The graph half of the rebuild (stripping a changed file's nodes, first-writer-wins,
+re-linking, the graph-build diagnostics, `GraphDelta` and `--verify-incremental`'s comparison) is
+`specforge_graph::GraphBuild`, which a cold build uses too; `specforge-project` keeps the source cache
+(texts, retained trees, unreadable files) and the session. Every session verifies in a debug build, the
+comparison covers diagnostics, and path aliases are removed, so the `@alias` case above no longer exists.

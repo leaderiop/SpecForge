@@ -620,13 +620,13 @@ fn doctor_lists_enhancements() {
                 "name": "ext-a",
                 "version": "1.0.0",
                 "source": "registry",
-                "wasm_hash": specforge_wasm::hex_sha256(b"wasm-ext-a"),
+                "wasm_hash": specforge_installed::hex_sha256(b"wasm-ext-a"),
             },
             {
                 "name": "ext-b",
                 "version": "1.0.0",
                 "source": "registry",
-                "wasm_hash": specforge_wasm::hex_sha256(b"wasm-ext-b"),
+                "wasm_hash": specforge_installed::hex_sha256(b"wasm-ext-b"),
             },
         ],
     });
@@ -702,7 +702,7 @@ fn doctor_healthy_lock_entry() {
             "name": "ok-ext",
             "version": "1.0.0",
             "source": "registry",
-            "wasm_hash": specforge_wasm::hex_sha256(b"good wasm"),
+            "wasm_hash": specforge_installed::hex_sha256(b"good wasm"),
         }],
     });
     fs::write(
@@ -969,7 +969,7 @@ fn doctor_contract() {
             "name": "ok-ext",
             "version": "1.0.0",
             "source": "registry",
-            "wasm_hash": specforge_wasm::hex_sha256(b"good wasm"),
+            "wasm_hash": specforge_installed::hex_sha256(b"good wasm"),
         }],
     });
     fs::write(
@@ -1071,9 +1071,11 @@ fn add_rejects_invalid_specifier() {
         assert_eq!(output.status.code(), Some(1));
         let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
         assert_eq!(json["code"], "E054", "{json}");
-        assert_eq!(
-            json["error"],
-            format!("invalid extension specifier: '{specifier}'")
+        let message = json["error"].as_str().unwrap();
+        assert!(
+            message.starts_with("invalid extension specifier: ")
+                && message.contains(&format!("'{specifier}'")),
+            "{message}"
         );
     }
 
@@ -1084,10 +1086,10 @@ fn add_rejects_invalid_specifier() {
         .assert()
         .code(1)
         .stderr(predicates::str::contains(
-            "error[E054]: invalid extension specifier: 'not-valid'",
+            "error[E054]: invalid extension specifier: 'not-valid' is not a registry package name",
         ))
         .stderr(predicates::str::contains(
-            "use format: 'name@version', './local/path', or 'git+https://...'",
+            "use a builtin's name, './local/path.wasm', 'git+https://...', or '@scope/name[@version]'",
         ));
 
     // Nothing was installed.
@@ -1096,6 +1098,146 @@ fn add_rejects_invalid_specifier() {
         config
     );
     assert!(!dir.path().join("specforge.lock").exists());
+}
+
+/// Which inputs `specforge add` takes for a registry package (plan 12 §2.2):
+/// E063 is the registry port reached with no registry configured, E054 and
+/// R-RES-003 are the argument refused before any registry is asked.
+#[specforge_test(
+    behavior = "parse_extension_specifier",
+    verify = "each add argument reads as one extension source"
+)]
+fn add_refuses_what_is_not_a_package_before_the_registry() {
+    let dir = TempDir::new().unwrap();
+    let config = r#"{"name":"t","version":"0.1.0","extensions":[]}"#;
+    fs::write(dir.path().join("specforge.json"), config).unwrap();
+
+    let cases: &[(&str, &str)] = &[
+        ("@acme/tool", "E063"),                // I1
+        ("@acme/tool@", "E054"),               // I2
+        ("@acme/tool@1.2.0", "E063"),          // I3
+        ("@acme/tool@^1.2", "E063"),           // I4
+        ("@acme/tool@1.x", "E063"),            // I5
+        ("@acme/tool@1.2", "E063"),            // I6
+        ("@acme/tool@1.0.0/x", "R-RES-003"),   // I7
+        ("@acme/tool@1.0.0?x=1", "R-RES-003"), // I8
+        ("foo@/bar", "E054"),                  // I9
+        ("tool@1.0.0", "E054"),                // I10
+        ("tool", "E054"),                      // I11
+        ("@acme/..", "E054"),                  // I12
+        ("@acme/aa/bb", "E054"),               // I13
+        ("@acme/a/b", "E054"),                 // I14
+        ("@a/x", "E063"),                      // I15
+        ("@acme/T ool", "E054"),               // I16
+        ("Acme@1", "E054"),                    // I17
+        ("@acme/tool@latest", "E063"),         // I18
+        ("@acme/tool@*", "E063"),              // I18
+        ("@acme/tool@>=1, <2", "E063"),        // I19
+        ("@acme/tool@^bogus", "R-RES-003"),    // I20
+        ("@acme/tool@2.0.0+build.1", "E063"),  // I21
+        ("@scope", "E054"),                    // I22
+    ];
+    for (input, code) in cases {
+        let output = specforge_cmd()
+            .args(["add", input, "--path"])
+            .arg(dir.path())
+            .args(["--format", "json"])
+            .output()
+            .unwrap();
+        assert_eq!(output.status.code(), Some(1), "{input}: {output:?}");
+        let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+        assert_eq!(json["code"], *code, "{input}: {json}");
+    }
+    assert_eq!(
+        fs::read_to_string(dir.path().join("specforge.json")).unwrap(),
+        config
+    );
+}
+
+/// Plan 12 §3 R3: a module whose declared name is `../../../x` is refused
+/// (E072) with nothing written, and `remove ../../../x` is refused with
+/// nothing deleted, even when a lock entry carries that name. The module is
+/// the greet blob with its name (`@sdk/greet`, 10 bytes) replaced by a
+/// path of the same length.
+#[specforge_test(
+    behavior = "install_wasm_extension",
+    verify = "an extension is installed under the extensions directory of its project, by its package name"
+)]
+fn a_module_whose_declared_name_is_not_a_package_name_is_refused() {
+    let root = TempDir::new().unwrap();
+    let project = root.path().join("a/b/proj");
+    fs::create_dir_all(&project).unwrap();
+    fs::write(
+        project.join("specforge.json"),
+        r#"{"name":"t","version":"0.1.0","extensions":[]}"#,
+    )
+    .unwrap();
+
+    let (from, to) = (b"@sdk/greet".as_slice(), b"../../../x".as_slice());
+    let mut wasm = crate::registry::greet_wasm();
+    let mut replaced = 0;
+    let mut at = 0;
+    while at + from.len() <= wasm.len() {
+        if &wasm[at..at + from.len()] == from {
+            wasm[at..at + from.len()].copy_from_slice(to);
+            replaced += 1;
+            at += from.len();
+        } else {
+            at += 1;
+        }
+    }
+    assert!(replaced > 0, "the blob names itself");
+    let module = root.path().join("evil.wasm");
+    fs::write(&module, wasm).unwrap();
+
+    let outside = root.path().join("a/b/x");
+    fs::create_dir_all(&outside).unwrap();
+    fs::write(outside.join("other.txt"), "keep").unwrap();
+    let before = crate::written::files_under(root.path());
+    let config_before = fs::read_to_string(project.join("specforge.json")).unwrap();
+
+    let output = specforge_cmd()
+        .arg("add")
+        .arg(&module)
+        .arg("--path")
+        .arg(&project)
+        .args(["--format", "json"])
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(1), "{output:?}");
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(json["code"], "E072", "{json}");
+    assert!(
+        json["error"].as_str().unwrap().contains("'../../../x'"),
+        "{json}"
+    );
+    // Nothing was written: not the module, not the lock, not the config.
+    assert_eq!(crate::written::files_under(root.path()), before);
+    assert_eq!(
+        fs::read_to_string(project.join("specforge.json")).unwrap(),
+        config_before
+    );
+
+    // `remove` of that name is refused too, whether or not a lock names it.
+    for lock in [false, true] {
+        if lock {
+            write_lock_file(&project, &[("../../../x", "1.0.0", "registry")]);
+        }
+        let output = specforge_cmd()
+            .args(["remove", "../../../x", "--path"])
+            .arg(&project)
+            .args(["--format", "json"])
+            .output()
+            .unwrap();
+        assert_eq!(output.status.code(), Some(1), "lock={lock}: {output:?}");
+        let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+        assert_eq!(json["code"], "E072", "lock={lock}: {json}");
+        assert_eq!(
+            fs::read_to_string(outside.join("other.txt")).unwrap(),
+            "keep"
+        );
+    }
+    assert!(outside.is_dir());
 }
 
 #[specforge_test(

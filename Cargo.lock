@@ -2783,6 +2783,7 @@ dependencies = [
  "specforge-extension-sdk",
  "specforge-formatter",
  "specforge-graph",
+ "specforge-installed",
  "specforge-lsp",
  "specforge-mcp",
  "specforge-migrate",
@@ -2794,10 +2795,8 @@ dependencies = [
  "specforge-registry",
  "specforge-registry-client",
  "specforge-registry-server",
- "specforge-resolver",
  "specforge-test",
  "specforge-test-macros",
- "specforge-validator",
  "specforge-wasm",
  "specforge-watch",
  "tempfile",
@@ -2809,11 +2808,12 @@ dependencies = [
 name = "specforge-common"
 version = "0.1.0"
 dependencies = [
+ "ariadne",
  "lasso",
  "serde",
  "serde_json",
- "sha2",
  "specforge-diagnostics",
+ "specforge-protocol-types",
  "specforge-test",
  "specforge-test-macros",
  "strsim",
@@ -2900,6 +2900,7 @@ version = "0.1.0"
 dependencies = [
  "proc-macro2",
  "quote",
+ "specforge-protocol-types",
  "specforge-test",
  "specforge-test-macros",
  "syn 2.0.117",
@@ -2932,9 +2933,26 @@ dependencies = [
  "serde_json",
  "specforge-common",
  "specforge-parser",
- "specforge-resolver",
  "specforge-test",
  "specforge-test-macros",
+ "tempfile",
+]
+
+[[package]]
+name = "specforge-installed"
+version = "0.1.0"
+dependencies = [
+ "semver",
+ "serde",
+ "serde_json",
+ "sha2",
+ "specforge-common",
+ "specforge-extension-sdk",
+ "specforge-installed",
+ "specforge-protocol-types",
+ "specforge-test",
+ "specforge-test-macros",
+ "specforge-wasm",
  "tempfile",
 ]
 
@@ -2950,6 +2968,7 @@ dependencies = [
  "specforge-extension-sdk",
  "specforge-formatter",
  "specforge-graph",
+ "specforge-installed",
  "specforge-ops",
  "specforge-parser",
  "specforge-project",
@@ -2963,6 +2982,7 @@ dependencies = [
  "tokio",
  "tower-lsp",
  "tree-sitter",
+ "tree-sitter-specforge",
 ]
 
 [[package]]
@@ -2970,7 +2990,6 @@ name = "specforge-mcp"
 version = "0.1.0"
 dependencies = [
  "chrono",
- "getrandom 0.3.4",
  "insta",
  "serde",
  "serde_json",
@@ -2981,6 +3000,8 @@ dependencies = [
  "specforge-extension-sdk",
  "specforge-formatter",
  "specforge-graph",
+ "specforge-installed",
+ "specforge-mcp-macros",
  "specforge-migrate",
  "specforge-ops",
  "specforge-ops-registry",
@@ -2995,6 +3016,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "specforge-mcp-macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.117",
+]
+
+[[package]]
 name = "specforge-migrate"
 version = "0.1.0"
 dependencies = [
@@ -3005,15 +3035,19 @@ dependencies = [
  "specforge-emitter",
  "specforge-formatter",
  "specforge-graph",
+ "specforge-parser",
 ]
 
 [[package]]
 name = "specforge-ops"
 version = "0.1.0"
 dependencies = [
+ "chrono",
+ "getrandom 0.3.4",
  "semver",
  "serde",
  "serde_json",
+ "sha2",
  "specforge-common",
  "specforge-component",
  "specforge-diagnostics",
@@ -3021,6 +3055,7 @@ dependencies = [
  "specforge-extension-sdk",
  "specforge-formatter",
  "specforge-graph",
+ "specforge-installed",
  "specforge-migrate",
  "specforge-parser",
  "specforge-project",
@@ -3080,13 +3115,13 @@ dependencies = [
  "specforge-emitter",
  "specforge-extension-sdk",
  "specforge-graph",
+ "specforge-installed",
  "specforge-parser",
  "specforge-protocol-types",
  "specforge-registry",
  "specforge-resolver",
  "specforge-test",
  "specforge-test-macros",
- "specforge-validator",
  "specforge-wasm",
  "tempfile",
  "tree-sitter",
@@ -3096,6 +3131,7 @@ dependencies = [
 name = "specforge-protocol-types"
 version = "0.1.0"
 dependencies = [
+ "semver",
  "serde",
  "serde_json",
  "specforge-test",
@@ -3181,9 +3217,7 @@ dependencies = [
  "specforge-parser",
  "specforge-test",
  "specforge-test-macros",
- "specforge-validator",
  "tempfile",
- "walkdir",
 ]
 
 [[package]]
@@ -3208,26 +3242,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "specforge-validator"
-version = "0.1.0"
-dependencies = [
- "ariadne",
- "specforge-common",
- "specforge-graph",
- "specforge-parser",
- "specforge-test",
- "specforge-test-macros",
- "tempfile",
-]
-
-[[package]]
 name = "specforge-wasm"
 version = "0.1.0"
 dependencies = [
  "semver",
  "serde",
  "serde_json",
- "sha2",
  "specforge-common",
  "specforge-extension-sdk",
  "specforge-protocol-types",
@@ -3243,9 +3263,13 @@ name = "specforge-watch"
 version = "0.1.0"
 dependencies = [
  "notify",
+ "serde_json",
+ "specforge-project",
  "specforge-test",
  "specforge-test-macros",
+ "specforge-watch",
  "tempfile",
+ "tokio",
 ]
 
 [[package]]
@@ -3759,6 +3783,8 @@ name = "tree-sitter-specforge"
 version = "0.1.0"
 dependencies = [
  "cc",
+ "specforge-test",
+ "specforge-test-macros",
  "tree-sitter",
  "tree-sitter-language",
 ]
@@ -5027,6 +5053,7 @@ dependencies = [
  "serde_json",
  "specforge-component",
  "specforge-emitter",
+ "specforge-installed",
  "specforge-protocol-types",
  "specforge-wasm",
 ]

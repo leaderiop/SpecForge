@@ -52,6 +52,7 @@ fn load(runtime: &InProcessRuntime, extensions: &[&str]) -> Environment {
         "name": "p", "version": "0.1.0", "extensions": extensions
     });
     fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
+    specforge_installed::testing::install_configured(dir.path(), &specforge_project::builtins());
     Environment::load(dir.path(), Some(runtime))
 }
 
@@ -95,7 +96,7 @@ fn a_target_kind_another_extension_registers_resolves() {
 
     assert!(env.registries.kinds.contains("person"));
     let owner = env.registries.fields.get("task", "owner").unwrap();
-    assert_eq!(owner.declared.target_kind.as_deref(), Some("person"));
+    assert_eq!(owner.declared().target_kind.as_deref(), Some("person"));
     assert!(w021(&env).is_empty(), "{:?}", w021(&env));
 }
 
@@ -300,6 +301,7 @@ fn population_completes_before_any_validation() {
         "name": "p", "version": "0.1.0", "extensions": ["@test/tasks", "@test/people"]
     });
     fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
+    specforge_installed::testing::install_configured(dir.path(), &specforge_project::builtins());
     fs::write(
         dir.path().join("main.spec"),
         "task t1 \"T\" {\n  owner p1\n}\n\nperson p1 \"P\" {\n}\n",

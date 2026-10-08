@@ -27,21 +27,22 @@ behavior detect_dangling_references "Detect Dangling References" {
     graph_built_fired "graph_built event has fired, confirming the in-memory graph is fully constructed"
   }
   ensures {
-    resolver_integrity_verified "Every reference list entry has a corresponding graph edge, or an internal error is raised"
-    no_duplicate_diagnostics    "E003 diagnostics already emitted by link_entity_references are not re-emitted"
+    resolver_integrity_verified "Every reference list entry naming an existing entity has its graph edge after every link, cold or incremental"
+    no_duplicate_diagnostics    "A reference to a missing entity is the linker's E003 alone; nothing reports it again"
   }
   contract   """
-    This behavior is a post-resolution integrity assertion. User-facing
-    E003 diagnostics are emitted by link_entity_references during resolution.
-    This behavior delegates to link_entity_references for E003 emission.
-    The validator MUST NOT re-emit E003 for references already flagged
-    during resolution. The validator's role is to verify that every
-    reference list entry has a corresponding graph edge — if not, it
-    indicates a resolver bug, not a user error.
+    This behavior is the linker's postcondition, not a check a user
+    sees. After every link (the cold build's and every incremental
+    update's), each entry of a reference list that names an existing
+    entity MUST have its graph edge, labeled with the field. A build with
+    debug assertions MUST fail on a reference without its edge: that is
+    a SpecForge bug, never a spec error. A reference to a missing entity
+    is E003, emitted once by the linker. E060, which reported the bug as
+    a diagnostic, is retired.
   """
-  verify unit "reference without corresponding graph edge indicates resolver bug"
+  verify unit "a reference to an existing entity without its edge fails the linker's assertion"
   verify unit "reference with corresponding graph edge passes"
-  verify unit "empty graph with zero edges produces no dangling reference diagnostic"
+  verify unit "an empty graph passes the linker's assertion"
   verify contract "Detect Dangling References: dangling reference detection holds — graph_built_fired, resolver_integrity_verified, no_duplicate_diagnostics"
 }
 
@@ -123,14 +124,14 @@ behavior detect_orphan_refs "Detect Orphan Structural Nodes" {
     graph_built_fired "graph_built event has fired, confirming the in-memory graph is fully constructed with all edges"
   }
   ensures {
-    orphans_detected       "All structural nodes (ref, spec) with zero incoming edges produce W012 warnings"
+    orphans_detected       "Every ref with zero incoming edges produces a W012 warning; a spec block, the root container, does not"
     referenced_nodes_clean "Structural nodes with at least one incoming edge produce no warning"
   }
   contract   """
-    The core validator MUST detect orphan nodes of ANY structural node
-    type (ref, spec) that have zero incoming edges in the compiled
-    graph. Orphan structural nodes MUST produce a W012 warning
-    identifying the unreferenced node.
+    The registry build's checks MUST report every ref entity that has
+    zero incoming edges in the compiled graph as a W012 warning
+    identifying the unreferenced node. A spec block is the project's
+    root container: nothing references it, and it produces no W012.
 
     This is a generic structural check applied uniformly to all
     grammar-level structural kinds — it does not encode domain
@@ -193,7 +194,10 @@ behavior validate_file_reference_paths "Validate File Reference Paths" {
 
     File existence (E016): every file path in a file-reference field
     MUST reference an existing file relative to the spec root.
-    Non-existent files MUST produce an E016 diagnostic.
+    Non-existent files MUST produce an E016 diagnostic. A field is a
+    file reference on the kinds whose registry entry declares it so: a
+    field of the same name on another kind is not one. Its value is a
+    list of paths, or a single path.
 
     Field-presence warnings (e.g., W018 for missing file-reference
     field on a supported kind) are NOT handled here — they are declared
@@ -203,7 +207,9 @@ behavior validate_file_reference_paths "Validate File Reference Paths" {
   verify unit "non-existent file reference produces E016"
   verify unit "existing file reference passes silently"
   verify unit "multiple file references in same entity each validated independently"
-  verify unit "relative path resolved from spec file directory"
+  verify unit "relative path resolved from the spec root"
+  verify unit "a field another kind declares as a file reference is not one on this kind"
+  verify unit "a single path on a file-reference field is checked like a one-item list"
   verify contract "Validate File Reference Paths: file reference validation holds — graph_built_fired, filesystem_available, missing_files_diagnosed, existing_files_pass"
 }
 

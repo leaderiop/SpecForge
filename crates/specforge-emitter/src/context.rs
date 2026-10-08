@@ -4,17 +4,10 @@ use specforge_graph::{FieldValue, Graph, Node};
 use specforge_registry::FieldRegistry;
 use std::collections::BTreeMap;
 
-use crate::json::{JsonEdge, SCHEMA_VERSION, sorted_edges};
+use crate::json::Export;
 
 #[derive(Serialize)]
-struct ContextGraph {
-    schema_version: &'static str,
-    nodes: Vec<ContextNode>,
-    edges: Vec<JsonEdge>,
-}
-
-#[derive(Serialize)]
-struct ContextNode {
+pub(crate) struct ContextNode {
     id: String,
     kind: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -63,7 +56,7 @@ pub fn headline_statement<'n>(node: &'n Node, registry: &FieldRegistry) -> Optio
     node.fields.entries().iter().find_map(|entry| {
         let declared = registry
             .get(node.kind.raw.as_str(), entry.key.as_str())
-            .is_some_and(|f| f.declared.headline && f.declared.normative);
+            .is_some_and(|f| f.declared().headline && f.declared().normative);
         match &entry.value {
             FieldValue::String(s) if declared => Some(s.as_str()),
             _ => None,
@@ -74,7 +67,7 @@ pub fn headline_statement<'n>(node: &'n Node, registry: &FieldRegistry) -> Optio
 fn is_headline(node: &Node, field: &str, registry: &FieldRegistry) -> bool {
     registry
         .get(node.kind.raw.as_str(), field)
-        .is_some_and(|f| f.declared.headline)
+        .is_some_and(|f| f.declared().headline)
 }
 
 /// The fields of `node` its extension declares normative (the text that
@@ -96,7 +89,7 @@ pub(crate) fn normative_fields(
         .filter(|entry| {
             registry
                 .get(node.kind.raw.as_str(), entry.key.as_str())
-                .is_some_and(|field| field.declared.normative)
+                .is_some_and(|field| field.declared().normative)
         })
         .map(|entry| {
             (
@@ -111,31 +104,28 @@ pub fn emit_context(graph: &Graph) -> String {
     emit_context_with_fields(graph, None)
 }
 
+/// `n` as the context export writes an entity: its title and obligations, the
+/// headline and normative fields `registry` declares.
+pub(crate) fn context_node(n: &Node, registry: Option<&FieldRegistry>) -> ContextNode {
+    ContextNode {
+        id: n.id.raw.to_string(),
+        kind: n.kind.raw.to_string(),
+        title: n.title.clone(),
+        headline: headline_fields(n, registry),
+        verify: crate::json::obligations_json(n),
+        fields: normative_fields(n, registry),
+    }
+}
+
 /// The context export, with each entity's normative fields when the field
 /// registry that declares them is given.
 pub fn emit_context_with_fields(graph: &Graph, registry: Option<&FieldRegistry>) -> String {
-    let nodes: Vec<ContextNode> = graph
+    let nodes = graph
         .nodes()
-        .iter()
-        .map(|n| {
-            let verify = crate::json::obligations_json(n);
-
-            ContextNode {
-                id: n.id.raw.to_string(),
-                kind: n.kind.raw.to_string(),
-                title: n.title.clone(),
-                headline: headline_fields(n, registry),
-                verify,
-                fields: normative_fields(n, registry),
-            }
-        })
+        .into_iter()
+        .map(|n| context_node(n, registry))
         .collect();
-
-    let output = ContextGraph {
-        schema_version: SCHEMA_VERSION,
-        nodes,
-        edges: sorted_edges(graph),
-    };
-
-    serde_json::to_string(&output).expect("graph serialization cannot fail")
+    Export::plain(None, graph, nodes)
+        .to_json()
+        .expect("graph serialization cannot fail")
 }

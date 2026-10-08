@@ -1,6 +1,8 @@
+use crate::outcome::{Exit, Refusal};
 use specforge_common::Diagnostic;
 use specforge_formatter::unified_diff;
 use specforge_ops::format::{self, Mode, Request};
+use specforge_ops::{OpError, OpErrorKind};
 use std::io::{self, Read as IoRead, Write as IoWrite};
 use std::path::{Path, PathBuf};
 
@@ -14,7 +16,7 @@ use std::path::{Path, PathBuf};
 /// - 1 under `--check` when a file would change;
 /// - 0 otherwise.
 pub fn run(path: &Path, check: bool, diff: bool, stdin: bool, explicit_paths: &[String]) -> i32 {
-    let project_root = format::project_root(path);
+    let project_root = specforge_common::project_root_of(path);
     if stdin {
         return run_stdin(&project_root, path);
     }
@@ -35,7 +37,7 @@ pub fn run(path: &Path, check: bool, diff: bool, stdin: bool, explicit_paths: &[
     // A failed file is reported as every operation's failure is
     // (`error[CODE]: …`), its code and kind the OS-given ones.
     for failure in &outcome.failures {
-        crate::OutputFormat::Human.print_op_error(&failure.to_op_error());
+        Refusal::of(crate::OutputFormat::Human).report(&failure.to_op_error());
     }
 
     for change in &outcome.changes {
@@ -45,7 +47,7 @@ pub fn run(path: &Path, check: bool, diff: bool, stdin: bool, explicit_paths: &[
                 "{}",
                 unified_diff(&shown, &change.before, &change.after).diff_text
             );
-        } else if change.written || mode == Mode::Check {
+        } else if change.written || !mode.writes() {
             println!("{shown}");
         }
     }
@@ -58,11 +60,7 @@ pub fn run(path: &Path, check: bool, diff: bool, stdin: bool, explicit_paths: &[
         );
     }
 
-    if !outcome.succeeded() || !outcome.complete() || (check && !outcome.changes.is_empty()) {
-        1
-    } else {
-        0
-    }
+    Exit::of_verdict(outcome.ok()).code()
 }
 
 /// A diagnostic on stderr: `<file>: <message>` when it names a file, the
@@ -85,8 +83,11 @@ fn print_diagnostic(d: &Diagnostic) {
 fn run_stdin(root: &Path, dir: &Path) -> i32 {
     let mut input = String::new();
     if let Err(e) = io::stdin().read_to_string(&mut input) {
-        eprintln!("error: failed to read stdin: {e}");
-        return 1;
+        return Refusal::of(crate::OutputFormat::Human).report(&OpError::new(
+            OpErrorKind::of_io(&e),
+            "file_unreadable",
+            format!("failed to read stdin: {e}"),
+        ));
     }
 
     let place = format::Place::InProject { root, dir };
@@ -99,5 +100,5 @@ fn run_stdin(root: &Path, dir: &Path) -> i32 {
     print!("{}", result.formatted);
     io::stdout().flush().ok();
 
-    if result.complete() { 0 } else { 1 }
+    Exit::of_verdict(result.complete()).code()
 }

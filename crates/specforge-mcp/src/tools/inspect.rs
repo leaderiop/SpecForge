@@ -5,23 +5,27 @@
 use serde_json::{Value, json};
 use specforge_ops::inspect::{EntityCoverage, EntityFacts, obligation_text};
 
+use crate::args::Arguments;
 use crate::target::Call;
 use crate::tool::ToolOutcome;
 
-#[derive(Debug, serde::Deserialize)]
+/// `specforge.inspect`'s arguments.
+#[derive(Debug, Arguments)]
 pub struct Args {
+    /// Entity ID to inspect
     entity_id: String,
 }
 
 pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
     let view = call.view();
-    let Ok(facts) = specforge_ops::inspect::inspect(&view, &args.entity_id) else {
-        return crate::tool::entity_not_found(&args.entity_id).into();
+    let facts = match specforge_ops::inspect::inspect(&view, &args.entity_id) {
+        Ok(facts) => facts,
+        Err(error) => return crate::tool::McpError::from(error).into(),
     };
     // A recorded report that cannot be read fails the call (ADR 0004 D2-e).
     let coverage = match &facts.coverage {
         Ok(coverage) => coverage,
-        Err(error) => return super::coverage::report_error_result(error),
+        Err(error) => return crate::tool::McpError::from(error.clone()).into(),
     };
     ToolOutcome::ok(result_json(&facts, coverage))
 }

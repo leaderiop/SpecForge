@@ -51,8 +51,12 @@ compile-time checking and any other language an exact JSON contract
 
 `specforge_wasm::calls::ExtensionCalls` has `handshake`, `describe`, `run_command`,
 `call_mcp_tool`, `read_mcp_resource`, `run_pass`, `collect`, `validate`, `scan` and `migrate`.
-It owns the export a pass is called by (`__pass_<name>`), encoding (an input encoded once for
-many passes: `Encoded`), strict decoding, and the one mapping of every failure;
+It is the host's one caller of a pass's export, whose name is the protocol's rule
+(`specforge_protocol_types::pass_export`, `__pass_<name>`) that the SDK routes by too; it owns
+encoding (an input encoded once for many passes, `Encoded`, which carries its encoding failure, so
+each pass's call fails with its own export and no caller builds an export name or a `CallError`),
+strict decoding, and the one mapping of every failure; `handshake` reads the handshake and applies
+nothing, the loader applies its sandbox limits (ADR 0012 D2, ADR 0037);
 `pass_diagnostics` turns a pass's answer into host diagnostics in canonical order (code, file and
 line, message), attaching an entity's span to a span-less diagnostic that names it. Callers keep
 what is theirs: building the payload from the graph, and what a failure means for their
@@ -123,8 +127,11 @@ are declared together with the function that answers them: `PassBuilder::run`,
 `ContributionsBuilder::migration_hook_handler`. The SDK routes the export, decoding the protocol
 input and encoding the answer once, in code a guest links only for what it declares. A
 declaration without its handler panics when the extension is built. The `handler` of
-`component_guest!`, `raw_category`, the deprecated `migration_hook` and `#[compiler_pass]` stay
-for guests not written with the builders; `answer_export` decodes and encodes for such a handler.
+`component_guest!`, `raw_category` and the deprecated `migration_hook` stay for guests not
+written with the builders; `answer_export` decodes and encodes for such a handler with the
+declared handlers' code. `#[compiler_pass]` was removed with `HostApi` and the free
+`describe_dispatch` (plan 16, 2026-10): the function it wrapped is the handler `PassBuilder::run`
+takes.
 One SDK source change: `PassOutput::summary` is a JSON object, the keys the host merges into the
 pass's report.
 
