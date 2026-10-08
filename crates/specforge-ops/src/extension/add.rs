@@ -171,32 +171,31 @@ pub fn add(
     // anything is installed into it: the refusal `update` and `remove`
     // give an unusable specforge.json too (`config_invalid`).
     let config = crate::config::required(req.root)?.config;
-    let mut writes = Writes::none();
-    let outcome = match &req.source {
-        Source::Builtin(name) => add_builtin(req, &config, name, runtime, &mut writes),
+    match &req.source {
+        Source::Builtin(name) => add_builtin(req, &config, name, runtime),
         Source::Local(path) => {
             // A specforge.lock that can't be read refuses before anything is read.
             let installed = Installed::at(req.root);
             let change = installed.change()?;
             let local = LocalFile::read(runtime, path)?;
-            add_local(req, &installed, change, local, &mut writes)
+            add_local(req, &config, &installed, change, local)
         }
-        Source::Registry(package) => {
-            add_from_registry(req, registry, runtime, package, &mut writes)
-        }
+        Source::Registry(package) => add_from_registry(req, &config, registry, runtime, package),
         Source::Git { url } => Err(OpError::diagnostic(
             codes::E064,
             format!("git source '{url}' not yet supported"),
         )),
-    }?;
-    Ok(Added {
+    }
+}
+
+/// `outcome`, with nothing written: the extensions `config` enables are
+/// still the ones it enabled.
+fn unchanged(outcome: AddOutcome, config: &specforge_common::ProjectConfig) -> Added {
+    Added {
         outcome,
-        writes,
-        extensions_enabled: specforge_common::read_project_config(req.root)
-            .config
-            .extensions
-            .len(),
-    })
+        writes: Writes::none(),
+        extensions_enabled: config.extensions.len(),
+    }
 }
 
 fn add_builtin(
@@ -204,79 +203,90 @@ fn add_builtin(
     config: &specforge_common::ProjectConfig,
     name: &'static str,
     runtime: &dyn WasmRuntime,
-    writes: &mut Writes,
-) -> Result<AddOutcome, OpError> {
-    let enabled = super::enabled_builtins(config);
+) -> Result<Added, OpError> {
     if req.dry_run {
-        return Ok(AddOutcome::Planned {
-            name: name.to_string(),
-            version: None,
-            origin: Origin::Builtin,
-        });
+        return Ok(unchanged(
+            AddOutcome::Planned {
+                name: name.to_string(),
+                version: None,
+                origin: Origin::Builtin,
+            },
+            config,
+        ));
+    }
+    // An already-enabled extension is left exactly as it is.
+    if super::enabled_builtins(config).contains(&name) {
+        return Ok(unchanged(
+            AddOutcome::Builtin {
+                name,
+                changed: false,
+                peers_enabled: Vec::new(),
+            },
+            config,
+        ));
     }
     // Required builtin peers come first, so they're enabled before the
-    // extension that builds on them. An already-enabled extension is left
-    // exactly as it is.
-    let peers = if enabled.contains(&name) {
-        Vec::new()
-    } else {
-        super::required_builtins(runtime, name)?
-    };
-    let mut peers_enabled = Vec::new();
-    let config = req.root.join(crate::config::CONFIG_FILE);
-    for peer in peers {
-        let added = crate::config::add_extension(req.root, peer, peer)
-            .map_err(|e| e.with_writes(writes.clone()))?;
-        writes.record_if(added, &config);
-        if added {
-            peers_enabled.push(peer);
-        }
-    }
-    let changed = crate::config::add_extension(req.root, name, name)
-        .map_err(|e| e.with_writes(writes.clone()))?;
-    writes.record_if(changed, &config);
-    Ok(AddOutcome::Builtin {
-        name,
-        changed,
-        peers_enabled,
+    // extension that builds on them, in the one edit that enables it.
+    let peers = super::required_builtins(runtime, name)?;
+    let wanted: Vec<&str> = peers.iter().copied().chain([name]).collect();
+    let enabled = crate::config::enable(req.root, &wanted)?;
+    let mut writes = Writes::none();
+    writes.record_if(
+        !enabled.appended.is_empty(),
+        req.root.join(crate::config::CONFIG_FILE),
+    );
+    Ok(Added {
+        outcome: AddOutcome::Builtin {
+            name,
+            changed: enabled.appended.iter().any(|appended| appended == name),
+            peers_enabled: peers
+                .into_iter()
+                .filter(|peer| enabled.appended.iter().any(|appended| appended == peer))
+                .collect(),
+        },
+        writes,
+        extensions_enabled: enabled.total,
     })
 }
 
 fn add_local(
     req: &AddRequest,
+    config: &specforge_common::ProjectConfig,
     installed: &Installed,
     change: Change<'_>,
     local: LocalFile,
-    writes: &mut Writes,
-) -> Result<AddOutcome, OpError> {
+) -> Result<Added, OpError> {
     let package = local.binary.package()?;
     let origin = Origin::Installed {
         source: format!("local:{}", shown_path(req.root, &local.path)),
     };
     let candidate = local.binary.candidate();
     if req.dry_run {
-        return Ok(AddOutcome::Planned {
-            name: candidate.name().to_string(),
-            version: Some(candidate.version().to_string()),
-            origin,
-        });
+        return Ok(unchanged(
+            AddOutcome::Planned {
+                name: candidate.name().to_string(),
+                version: Some(candidate.version().to_string()),
+                origin,
+            },
+            config,
+        ));
     }
     let digest = local.binary.module().digest().to_string();
-    if let Some(present) = already_present(installed, &package, |e| {
+    if let Some(present) = already_present(installed, config, &package, |e| {
         e.wasm_hash == digest && e.source.local_path().is_some()
     }) {
-        return Ok(present);
+        return Ok(unchanged(present, config));
     }
     // No registry to unify a diamond against: a locked peer outside the
     // range is E027 (ADR 0041).
     check_diamonds(change.lock(), candidate.name(), candidate.peers(), None)?;
-    install(req.root, change, local.binary, None, &origin, None, writes)
+    install(req.root, change, local.binary, None, &origin, None)
 }
 
 /// Install `local`, read once by `init`'s plan, into the project at `root`
 /// as `add` installs a `.wasm` file, without reading it again.
 pub(crate) fn install_local(root: &Path, local: LocalFile) -> Result<Added, OpError> {
-    crate::config::required(root)?;
+    let config = crate::config::required(root)?.config;
     let installed = Installed::at(root);
     let change = installed.change()?;
     let request = AddRequest {
@@ -286,25 +296,16 @@ pub(crate) fn install_local(root: &Path, local: LocalFile) -> Result<Added, OpEr
         trust: Trust::Refuse,
         dry_run: false,
     };
-    let mut writes = Writes::none();
-    let outcome = add_local(&request, &installed, change, local, &mut writes)?;
-    Ok(Added {
-        outcome,
-        writes,
-        extensions_enabled: specforge_common::read_project_config(root)
-            .config
-            .extensions
-            .len(),
-    })
+    add_local(&request, &config, &installed, change, local)
 }
 
 fn add_from_registry(
     req: &AddRequest,
+    config: &specforge_common::ProjectConfig,
     registry: &dyn Registry,
     runtime: &dyn WasmRuntime,
     package: &PackageRef,
-    writes: &mut Writes,
-) -> Result<AddOutcome, OpError> {
+) -> Result<Added, OpError> {
     // A specforge.lock that can't be read refuses before a registry is asked.
     let installed = Installed::at(req.root);
     let change = installed.change()?;
@@ -313,17 +314,20 @@ fn add_from_registry(
     let origin = Origin::Installed {
         source: "registry".to_string(),
     };
-    if let Some(present) = already_present(&installed, &package.name, |e| {
+    if let Some(present) = already_present(&installed, config, &package.name, |e| {
         e.version == version.to_string() && e.source.is_registry()
     }) {
-        return Ok(present);
+        return Ok(unchanged(present, config));
     }
     if req.dry_run {
-        return Ok(AddOutcome::Planned {
-            name: name.to_string(),
-            version: Some(version.to_string()),
-            origin,
-        });
+        return Ok(unchanged(
+            AddOutcome::Planned {
+                name: name.to_string(),
+                version: Some(version.to_string()),
+                origin,
+            },
+            config,
+        ));
     }
     let checked = fetch_checked(
         registry,
@@ -341,7 +345,6 @@ fn add_from_registry(
         checked.package.key_id,
         &origin,
         Some(&super::published_versions(registry)),
-        writes,
     )
 }
 
@@ -428,11 +431,12 @@ fn first_difference(
 /// it again reinstalls it.
 fn already_present(
     installed: &Installed,
+    config: &specforge_common::ProjectConfig,
     name: &PackageName,
     same: impl Fn(&specforge_installed::LockFileEntry) -> bool,
 ) -> Option<AddOutcome> {
     let entry = installed.verified(name.as_str()).filter(|e| same(e))?;
-    let enabled = specforge_common::load_project_config(installed.root())
+    let enabled = config
         .extensions
         .iter()
         .any(|e| specforge_common::extension_entry_name(e) == name.as_str());
@@ -448,7 +452,6 @@ fn already_present(
 /// A locked extension the new version leaves with an unsatisfied peer
 /// refuses the install before anything is written (ADR 0041); `published` is
 /// what unifies that diamond, `None` for a local install.
-#[allow(clippy::too_many_arguments)]
 fn install(
     root: &Path,
     mut change: Change<'_>,
@@ -456,8 +459,7 @@ fn install(
     key_id: Option<String>,
     origin: &Origin,
     published: Published<'_>,
-    writes: &mut Writes,
-) -> Result<AddOutcome, OpError> {
+) -> Result<Added, OpError> {
     let package = binary.package()?;
     let declared = binary.candidate().clone();
     let module = binary.into_module();
@@ -482,18 +484,24 @@ fn install(
             declared.version()
         )));
     }
+    let mut total = 0;
     let committed = change
         .commit_with(&root.join(crate::config::CONFIG_FILE), || {
-            crate::config::add_extension(root, declared.name(), declared.name())
+            let enabled = crate::config::enable(root, &[declared.name()])?;
+            total = enabled.total;
+            Ok::<bool, OpError>(!enabled.appended.is_empty())
         })
         .map_err(|failed| failed.error.with_writes(Writes::of(failed.left)))?;
-    *writes = Writes::of(committed.changed);
-    Ok(AddOutcome::Installed {
-        name: declared.name().to_string(),
-        version: declared.version().to_string(),
-        sha256,
-        key_id,
-        origin: origin.clone(),
+    Ok(Added {
+        outcome: AddOutcome::Installed {
+            name: declared.name().to_string(),
+            version: declared.version().to_string(),
+            sha256,
+            key_id,
+            origin: origin.clone(),
+        },
+        writes: Writes::of(committed.changed),
+        extensions_enabled: total,
     })
 }
 
@@ -1127,6 +1135,57 @@ mod tests {
         )
         .unwrap_err();
         assert_eq!(error.code, "E027");
+    }
+
+    #[test]
+    fn add_reads_specforge_json_once_before_its_edit() {
+        let dir = project_with(
+            r#"{"name": "p", "version": "0.1.0", "sentinel": {"keep": [1, 2]}, "extensions": []}"#,
+        );
+        let files = tempfile::tempdir().unwrap();
+        let greet = files.path().join("greet.wasm");
+        std::fs::write(&greet, GREET).unwrap();
+
+        let added = add(
+            &local_request(dir.path(), &greet),
+            &crate::registry::Unconfigured("add"),
+            &runtime(),
+        )
+        .unwrap();
+
+        assert!(matches!(added.outcome, AddOutcome::Installed { .. }));
+        assert_eq!(added.extensions_enabled, 1);
+        let config: serde_json::Value = serde_json::from_str(
+            &std::fs::read_to_string(dir.path().join("specforge.json")).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(config["sentinel"], serde_json::json!({"keep": [1, 2]}));
+        assert_eq!(config["extensions"], serde_json::json!(["@sdk/greet"]));
+    }
+
+    #[cfg(unix)]
+    #[specforge_test(
+        behavior = "install_wasm_extension",
+        verify = "a failed install puts back the binary, specforge.lock and specforge.json it changed"
+    )]
+    fn a_failed_builtin_edit_enables_no_peer() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = project_with(EMPTY_PROJECT);
+        let config = dir.path().join("specforge.json");
+        std::fs::set_permissions(&config, std::fs::Permissions::from_mode(0o444)).unwrap();
+        let before = std::fs::read(&config).unwrap();
+
+        let error = add(
+            &builtin_request(dir.path(), "@specforge/cargo-test"),
+            &crate::registry::Unconfigured("add"),
+            &runtime_with_cargo_test(),
+        )
+        .unwrap_err();
+        std::fs::set_permissions(&config, std::fs::Permissions::from_mode(0o644)).unwrap();
+
+        assert_eq!(error.code, "config_write_failed", "{error:?}");
+        assert!(error.writes.is_empty());
+        assert_eq!(std::fs::read(&config).unwrap(), before);
     }
 
     #[test]
