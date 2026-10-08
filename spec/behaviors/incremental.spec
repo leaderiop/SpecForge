@@ -297,11 +297,14 @@ behavior debounce_file_changes "Debounce File Changes" {
     by one rule watch and the LSP share: the system MUST wait until no new
     changes arrive within the window before emitting a
     file_changes_coalesced event. The coalesced batch MUST include the
-    union of all changed files within the debounce window.
+    union of all changed files within the debounce window, under every
+    directory watch watches: one burst is one batch however many watched
+    directories it touches.
   """
   verify unit "rapid successive changes coalesced into single batch"
   verify unit "debounce window prevents redundant recompilation"
   verify unit "coalesced batch includes union of all changed files"
+  verify unit "changes under different watched directories within the window join one batch"
   verify unit "single isolated change triggers after debounce window"
   verify unit "each change restarts the quiet window"
   verify contract "Debounce File Changes: file change debouncing holds — file_changed_fired, coalesced_batch_produced, redundant_recompilation_prevented"

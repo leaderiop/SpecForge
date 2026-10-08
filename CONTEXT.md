@@ -61,8 +61,9 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   nodes (source positions ignored) and edges. Watch prints it and MCP notifies it
   (`specforge_graph::GraphDelta`, re-exported as `specforge_project::GraphDelta`). A graph build computes it.
 - **Debounce rule**: changes that arrive less than 50 ms apart are one batch, due 50 ms after the last
-  of them, each change once. Watch batches file changes and the LSP batches edited documents by the
-  same rule (`specforge_watch::Coalescer`, ADR 0035).
+  of them, each change once. Watch batches the file changes under every directory it watches as one
+  stream, and the LSP batches edited documents, by the same rule (`specforge_watch::Coalescer`,
+  ADR 0035).
 - **Graph build**: the graph of a set of parsed `.spec` files and what building it reported (parse errors,
   duplicates, define blocks, unknown ref schemes, unresolved references, reference cycles), kept current one
   whole file at a time (`specforge_graph::GraphBuild`). Files are taken in path order; each entity ID is the

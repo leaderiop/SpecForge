@@ -1,15 +1,13 @@
 use notify::{Config, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc;
-use std::time::Duration;
-
-use crate::debounce::Debouncer;
 
 /// Watches one directory, recursively ([`Self::new`]) or only its own
-/// entries ([`Self::shallow`]), and sends debounced batches of the
-/// paths created, modified or removed under it: absolute, sorted, each
-/// once per batch. What a path means to the project (a source, an
-/// environment input, nothing) is the project session's to say
+/// entries ([`Self::shallow`]), and sends each path created, modified or
+/// removed under it, absolute, as notify reports it. Batching is the
+/// receiver's ([`crate::Notify`] debounces every watcher it runs as one
+/// stream). What a path means to the project (a source, an environment
+/// input, nothing) is the project session's to say
 /// (`specforge_project::ProjectSession::changes`), so every surface shares
 /// one meaning of "a change".
 pub struct SpecWatcher {
@@ -17,31 +15,21 @@ pub struct SpecWatcher {
 }
 
 impl SpecWatcher {
-    /// Watch `root` and send changed paths through `sender` as batches,
-    /// each after `debounce_window` of quiet.
-    pub fn new(
-        root: &Path,
-        sender: mpsc::Sender<Vec<PathBuf>>,
-        debounce_window: Duration,
-    ) -> Result<Self, String> {
-        Self::watching(root, sender, debounce_window, RecursiveMode::Recursive)
+    /// Watch `root` and send each changed path through `sender`.
+    pub fn new(root: &Path, sender: mpsc::Sender<PathBuf>) -> Result<Self, String> {
+        Self::watching(root, sender, RecursiveMode::Recursive)
     }
 
     /// [`Self::new`] for `dir`'s own entries only, not what is below them:
     /// the nearest existing ancestor of a directory that does not exist
     /// yet, which reports the creation of the next directory on the way.
-    pub fn shallow(
-        dir: &Path,
-        sender: mpsc::Sender<Vec<PathBuf>>,
-        debounce_window: Duration,
-    ) -> Result<Self, String> {
-        Self::watching(dir, sender, debounce_window, RecursiveMode::NonRecursive)
+    pub fn shallow(dir: &Path, sender: mpsc::Sender<PathBuf>) -> Result<Self, String> {
+        Self::watching(dir, sender, RecursiveMode::NonRecursive)
     }
 
     fn watching(
         root: &Path,
-        sender: mpsc::Sender<Vec<PathBuf>>,
-        debounce_window: Duration,
+        sender: mpsc::Sender<PathBuf>,
         mode: RecursiveMode,
     ) -> Result<Self, String> {
         // Canonicalize so notify's reported paths are compared with the
@@ -63,24 +51,14 @@ impl SpecWatcher {
 
         // Map notify events to changed paths. The mapping thread owns
         // `root` so out-of-root paths are dropped at the boundary (C14-08).
-        let (event_tx, event_rx) = mpsc::channel::<PathBuf>();
         let map_root = root_path.clone();
         std::thread::spawn(move || {
             for res in notify_rx {
                 let Ok(event) = res else { continue };
                 for path in Self::changed_paths(&event, &map_root) {
-                    let _ = event_tx.send(path);
-                }
-            }
-        });
-
-        // Coalescing delegates to the tested Debouncer (C14-09) instead of a
-        // hand-rolled duplicate; the window is a constructor argument.
-        std::thread::spawn(move || {
-            let debouncer = Debouncer::new(debounce_window);
-            while let Some(batch) = debouncer.coalesce(&event_rx) {
-                if sender.send(batch).is_err() {
-                    return; // receiver dropped
+                    if sender.send(path).is_err() {
+                        return; // receiver dropped
+                    }
                 }
             }
         });
