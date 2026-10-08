@@ -698,14 +698,14 @@ expression: listing
         "entity_counts": {
           "type": "array"
         },
-        "orphan_count": {
-          "type": "integer"
-        },
         "proof_pct": {
           "type": [
             "number",
             "null"
           ]
+        },
+        "unconnected_count": {
+          "type": "integer"
         }
       },
       "required": [
@@ -713,7 +713,7 @@ expression: listing
         "declared_pct",
         "proof_pct",
         "edge_count",
-        "orphan_count",
+        "unconnected_count",
         "diagnostic_summary"
       ],
       "type": "object"

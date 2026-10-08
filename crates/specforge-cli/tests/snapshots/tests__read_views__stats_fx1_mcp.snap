@@ -29,6 +29,6 @@ expression: "normalized(mcp, root)"
       "kind": "type"
     }
   ],
-  "orphan_count": 5,
-  "proof_pct": 50.0
+  "proof_pct": 50.0,
+  "unconnected_count": 5
 }

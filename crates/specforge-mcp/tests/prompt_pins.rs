@@ -50,10 +50,10 @@ fn strings(value: &Value) -> Vec<&str> {
 }
 
 #[test]
-fn connectivity_today() {
+fn connectivity_is_one_rule() {
     let mut served = connectivity_project();
     let stats = tool(&mut served, "specforge.stats", json!({}));
-    assert_eq!(stats["orphan_count"], 3, "{stats}");
+    assert_eq!(stats["unconnected_count"], 4, "{stats}");
 
     let explored = explore(&mut served, json!({}));
     assert_eq!(

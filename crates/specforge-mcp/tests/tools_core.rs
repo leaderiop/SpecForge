@@ -1178,7 +1178,7 @@ fn stats_returns_statistics() {
 
 #[specforge_test(
     behavior = "provide_mcp_stats_tool",
-    verify = "response includes orphan node count"
+    verify = "response includes the unconnected entity count"
 )]
 fn stats_counts_match_graph() {
     let mut server = test_server();
@@ -1186,7 +1186,7 @@ fn stats_counts_match_graph() {
     let text = tool_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();
     assert_eq!(parsed["edge_count"], 1); // one behaviors edge
-    assert_eq!(parsed["orphan_count"], 1); // gamma_orphan
+    assert_eq!(parsed["unconnected_count"], 1); // gamma_orphan
 }
 
 // Tool call when not initialized

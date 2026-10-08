@@ -26,7 +26,7 @@ pub fn call(call: &mut Call<'_>, _args: crate::args::NoArgs) -> ToolOutcome {
         // Deprecated alias of declared_pct.
         "coverage_pct": stats.coverage_pct,
         "edge_count": stats.total_edges,
-        "orphan_count": stats.orphan_count,
+        "unconnected_count": stats.unconnected_count,
         "diagnostic_summary": {
             "errors": stats.error_count,
             "warnings": stats.warning_count,

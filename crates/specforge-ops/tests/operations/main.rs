@@ -1,6 +1,7 @@
 //! The graph views and project files operations compute: traces, plan
 //! validation, stats.
 
+mod connectivity;
 mod contracts;
 mod coverage;
 mod determinism;

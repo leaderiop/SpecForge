@@ -230,7 +230,7 @@ type McpStatsResult {
   /// Testable entities proven, in percent; null without recorded test results.
   proof_pct          float @optional
   edge_count         integer
-  orphan_count       integer
+  unconnected_count  integer
   diagnostic_summary McpDiagnosticSummary
   verify unit "McpStatsResult schema is valid"
 }

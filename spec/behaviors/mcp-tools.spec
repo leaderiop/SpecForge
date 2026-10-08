@@ -425,7 +425,7 @@ behavior provide_mcp_stats_tool "Provide MCP Stats Tool" {
     graph_available "Compiled graph is available via CompilerApi"
   }
   ensures {
-    stats_returned         "Aggregate statistics returned: entity counts, edge count, coverage, orphans, diagnostics"
+    stats_returned         "Aggregate statistics returned: entity counts, edge count, coverage, unconnected entities, diagnostics"
     latest_state_reflected "Response reflects the latest compilation state"
     tool_invoked_emitted   "mcp_tool_invoked event emitted"
   }
@@ -434,15 +434,15 @@ behavior provide_mcp_stats_tool "Provide MCP Stats Tool" {
     no required parameters. The tool MUST return aggregate statistics about the
     current graph: entity counts by kind, total edge count, the declared
     percentage (declared_pct; coverage_pct is its deprecated alias), the proof
-    percentage (proof_pct, null without recorded test results), orphan node
-    count, and a diagnostic summary (counts by severity). A
+    percentage (proof_pct, null without recorded test results), the unconnected entity
+    count (unconnected_count), and a diagnostic summary (counts by severity). A
     specforge-report.json that exists but cannot be read is an error result. The
     response MUST reflect the latest compilation state.
   """
   verify unit "specforge.stats returns entity counts by kind"
   verify unit "response includes coverage percentage"
   verify integration "response includes the declared and proof percentages"
-  verify unit "response includes orphan node count"
+  verify unit "response includes the unconnected entity count"
   verify unit "response includes diagnostic summary by severity"
   verify contract "Provide MCP Stats Tool: MCP stats tool holds — graph_available, stats_returned, latest_state_reflected, tool_invoked_emitted"
 }

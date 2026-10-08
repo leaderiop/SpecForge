@@ -609,7 +609,7 @@ fn contract_stats() {
         json!([{"kind": "behavior", "count": 1}, {"kind": "feature", "count": 1}])
     );
     assert_eq!(stats["edge_count"], 1);
-    assert_eq!(stats["orphan_count"], 0);
+    assert_eq!(stats["unconnected_count"], 0);
     assert!(stats["coverage_pct"].is_number(), "{stats}");
     assert_eq!(
         stats["diagnostic_summary"],
@@ -627,7 +627,7 @@ fn contract_stats() {
         stats["entity_counts"],
         json!([{"kind": "behavior", "count": 2}, {"kind": "feature", "count": 1}])
     );
-    assert_eq!(stats["orphan_count"], 1);
+    assert_eq!(stats["unconnected_count"], 1);
     assert_eq!(stats["diagnostic_summary"]["warnings"], 1);
 
     assert_tool_invoked(&server, "specforge.stats");

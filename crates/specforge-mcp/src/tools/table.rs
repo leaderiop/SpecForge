@@ -234,7 +234,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         category: Category::Core,
         access: Access::ReadOnly,
         output: Some(
-            || json!({ "type": "object", "properties": { "entity_counts": { "type": "array" }, "declared_pct": { "type": "number" }, "proof_pct": { "type": ["number", "null"] }, "coverage_pct": { "type": "number" }, "edge_count": { "type": "integer" }, "orphan_count": { "type": "integer" }, "diagnostic_summary": { "type": "object" } }, "required": ["entity_counts", "declared_pct", "proof_pct", "edge_count", "orphan_count", "diagnostic_summary"] }),
+            || json!({ "type": "object", "properties": { "entity_counts": { "type": "array" }, "declared_pct": { "type": "number" }, "proof_pct": { "type": ["number", "null"] }, "coverage_pct": { "type": "number" }, "edge_count": { "type": "integer" }, "unconnected_count": { "type": "integer" }, "diagnostic_summary": { "type": "object" } }, "required": ["entity_counts", "declared_pct", "proof_pct", "edge_count", "unconnected_count", "diagnostic_summary"] }),
         ),
         target: TargetSpec::SERVED,
         handler: typed!(stats::call, NoArgs),

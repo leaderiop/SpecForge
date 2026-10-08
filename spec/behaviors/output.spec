@@ -189,7 +189,9 @@ behavior compute_project_statistics "Compute Project Statistics" {
   contract   """
     When specforge stats is invoked, the system MUST compute and display:
     entity counts by kind, the declared percentage, the proof percentage
-    when tests are recorded, orphan count, and diagnostic summary. Statistics MUST be derived from the current
+    when tests are recorded, the unconnected entity count (the entities no edge
+    links to another entity, read_views_over_the_project_view), and diagnostic
+    summary. Statistics MUST be derived from the current
     graph state. Coverage percentage MUST be computed only over entity
     kinds with testable=true in the KindRegistry, not over all entities,
     and without the entities W004 exempts that declare no obligations
@@ -208,7 +210,7 @@ behavior compute_project_statistics "Compute Project Statistics" {
   """
   verify unit "stats reports correct entity counts"
   verify unit "stats reports coverage percentage"
-  verify unit "stats reports orphan count"
+  verify unit "stats reports the unconnected entity count"
   verify unit "stats reports diagnostic summary"
   verify unit "coverage is 0% when testable_entity_count is zero"
   verify unit "stats leaves the entities W004 exempts out of the testable count"
@@ -236,10 +238,13 @@ behavior read_views_over_the_project_view "Read Views over the Project View" {
     Stats, trace (one entity or every entity), the coverage view, the
     model and outline diagrams, the versioned Graph Protocol schema,
     inspect (one entity's facts: its kind, standing, headline, references,
-    coverage and the diagnostics about it), and query, list and search
-    (the entities a selection over the view returns) MUST each be one
-    operation over the project view, shared by the surfaces that show them
-    (the CLI, MCP, and for inspect the LSP hover); a surface maps its
+    coverage and the diagnostics about it), query, list and search
+    (the entities a selection over the view returns), the exploration
+    (explore_the_graph), the review (review_coverage_gaps) and the
+    inference guide and plan (compute_inference_guide,
+    provide_infer_plan_scope) MUST each be one operation over the project
+    view, shared by the surfaces that show them (the CLI, MCP's tools and
+    prompts, and the LSP hover and keyword completion); a surface maps its
     arguments and renders the outcome. A kind the project knows is one a
     loaded extension declares or an entity is written with; names are
     exact. A kind filter that names another kind matches nothing and is
@@ -256,8 +261,16 @@ behavior read_views_over_the_project_view "Read Views over the Project View" {
     project: what specforge check reports for the compile behind it, then
     what the surface adds (MCP: I017). Coverage is computed once per
     compiled project or session state and per content of the recorded
-    report; a rewritten report is read again. An entity is unverified when
-    it counts toward coverage and is not proven.
+    report; a rewritten report is read again.
+    An entity is unconnected when no edge links it to another entity, in
+    either direction: a reference that does not resolve is no edge (E003
+    or I004 reports it), and an edge from an entity to itself links it to
+    nothing else. Stats counts the unconnected entities, the exploration
+    lists them and the review flags those that count toward coverage, by
+    this one rule. The entities of each kind are counted once, for every
+    kind an entity is written with.
+    An entity is unverified when it counts toward coverage and is not
+    proven.
   """
   verify unit "the recorded test report is read at the view's root, never an ancestor's"
   verify unit "a view reports what its compile reported, then what its surface adds"
@@ -274,6 +287,8 @@ behavior read_views_over_the_project_view "Read Views over the Project View" {
   verify integration "specforge outline and specforge.outline_extensions render the same text"
   verify integration "specforge.inspect and the LSP hover report the same facts for an entity"
   verify integration "specforge query and specforge.query return the same document for an entity"
+  verify unit "an entity is unconnected when no edge links it to another entity: a reference that does not resolve or names the entity itself links nothing"
+  verify unit "the entities of each kind are counted once, for every kind an entity is written with"
   verify unit "a kind filter reports each kind the project does not know with I020, naming the closest"
   verify unit "an argument naming an undeclared kind is refused with unknown_kind naming the closest declared kind"
   verify contract "Read Views over the Project View: read views hold — project_compiled, one_report_rule, one_coverage_per_state, surfaces_agree"
