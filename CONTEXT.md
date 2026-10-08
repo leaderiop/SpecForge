@@ -36,9 +36,9 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   (`Update::inputs_changed`) by watching them anew and then bringing the session up to date for what
   changed meanwhile, MCP asks it to be fresh before every request that reads the project (ADR 0014,
   ADR 0030, ADR 0035). In a debug build it checks every update against a cold rebuild, whichever
-  surface holds it, and each surface reports a divergence where it reports (ADR 0035). The LSP also feeds it its open buffers, each batch of edits as one update
-  (`SourceChange::Buffers`), and a closed document's file is read from disk again
-  (`specforge_lsp::changes`, ADR 0023).
+  surface holds it, and each surface reports a divergence where it reports (ADR 0035). The LSP gives it its open documents as **held buffers**, each batch of edits as one update
+  (`SourceChange::Hold`), and releases a closed document's buffer (`ProjectSession::release`); what an open
+  buffer is to its file is the session's to say (ADR 0023, ADR 0046).
 - **Session inputs**: everything a project session depends on besides its sources' text: where its
   sources are discovered (the spec root and `exclude`), its **environment inputs**
   (`specforge.json`, `specforge.lock`, the extension modules it loaded) and its **check inputs**
@@ -48,6 +48,11 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   `ProjectSession::inputs`). What a changed path is, which directories watch watches, which files
   the LSP asks its client to report and what the session stamps for freshness are all read from it;
   a detached session's inputs are empty (ADR 0030).
+- **Held buffer**: an editor buffer a project session holds (`specforge_project::Buffer`: the file's path, the
+  editor's text and version). While held it is the truth for its file, whatever happens to the file on disk:
+  the session's freshness and classification leave it out, and an open or an environment reload builds it in
+  place of its file. Releasing it reads the file through the session's one read. Diagnostics computed from it
+  are published with its version. Only the LSP holds buffers (ADR 0046).
 - **Call target**: the project one MCP call acts on, resolved from the call's optional `path` and its
   tool spec's target (reach and freshness) before the handler runs: the served session (brought up to
   date unless `use_cached`), another project compiled for that call only, or the directory `init`
@@ -56,7 +61,8 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   importer parses the same, since references resolve without `use`), applies them to the session's graph
   build, resolves every file's imports again and re-runs the checks (`specforge_project::Update`, ADR 0006,
   ADR 0032). An update says whether the session's inputs changed (`inputs_changed`) and, when it was
-  verified, how it differs from a cold rebuild (`divergence`).
+  verified, how it differs from a cold rebuild (`divergence`). An update that changes no file (a held buffer
+  whose text is already its file's) runs no check.
 - **Graph delta**: what an update or a reload changed in the graph: added, removed and modified
   nodes (source positions ignored) and edges. Watch prints it and MCP notifies it
   (`specforge_graph::GraphDelta`, re-exported as `specforge_project::GraphDelta`). A graph build computes it.

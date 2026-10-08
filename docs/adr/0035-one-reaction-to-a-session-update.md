@@ -28,6 +28,8 @@ surface held it (ADR 0032), but each surface reported a divergence its own way, 
   document whose file exists, because its buffer is the truth), and repeats while the catch-up moves
   the inputs again, at most eight times. MCP watches nothing and ignores it. This amends ADR 0014 D9:
   the catch-up is part of following.
+  *(ADR 0046: the session leaves out every file an editor buffer holds, whether or not it exists; the LSP's
+  catch-up is `ProjectSession::stale` as it is.)*
 - **D3. Each surface reports a divergence where it reports.** Watch prints it in its event, the LSP
   logs it at ERROR, MCP debug-asserts in `McpState::applied`, the one place every update of the served
   project passes. A session-level assertion was rejected: it would crash watch before its event says
