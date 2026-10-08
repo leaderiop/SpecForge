@@ -6,6 +6,7 @@
 //! with `specforge-infer.json`'s index; gaps scans those files for public
 //! items and keeps the ones no graph entity names.
 
+pub use crate::scan::ScanFailure;
 use crate::view::ProjectView;
 use crate::{OpError, OpErrorKind};
 use serde_json::{Value, json};
@@ -48,7 +49,7 @@ pub struct Gaps {
     pub approximate: bool,
     pub scanners_used: Vec<String>,
     /// The files a scanner failed on (E028 each): their items are unknown.
-    pub scan_failures: Vec<crate::scan::ScanFailure>,
+    pub scan_failures: Vec<ScanFailure>,
 }
 
 /// The inference manifest at `root`: an empty one when there is none.

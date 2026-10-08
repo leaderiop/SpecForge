@@ -162,3 +162,6 @@ fn detect_breaking(
     }
     (migration, diagnostics)
 }
+
+#[cfg(test)]
+mod tests;

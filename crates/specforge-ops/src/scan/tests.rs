@@ -1,6 +1,11 @@
+use super::*;
+use serde_json::json;
 use specforge_component::ComponentRuntime;
-use specforge_ops::scan;
 use specforge_protocol_types::{AnalyzerDescriptor, ExtensionDeclaration, HandshakeResponse};
+use specforge_test_macros::test as specforge_test;
+use specforge_wasm::WasmCallResult;
+use specforge_wasm::testing::InProcessRuntime;
+use std::path::Path;
 use tempfile::TempDir;
 
 /// Build a Wasm runtime for a temp project listing `ext_names` — the only
@@ -52,11 +57,11 @@ fn scan_only_matching_extensions() {
     let manifests = vec![rust_manifest()];
     let source_files = vec!["lib.rs".into(), "readme.md".into(), "app.txt".into()];
 
-    let scan::ScanOutcome {
+    let ScanOutcome {
         items,
         scanners_used: scanners,
         ..
-    } = scan::scan_source_files(&runtime, &manifests, dir.path(), &source_files);
+    } = scan_source_files(&runtime, &manifests, dir.path(), &source_files);
 
     assert_eq!(items.len(), 1);
     assert_eq!(items[0].name, "hello");
@@ -72,11 +77,11 @@ fn scan_empty_source_list() {
     let runtime = rust_only_runtime();
     let manifests = vec![rust_manifest()];
 
-    let scan::ScanOutcome {
+    let ScanOutcome {
         items,
         scanners_used: scanners,
         ..
-    } = scan::scan_source_files(&runtime, &manifests, dir.path(), &[]);
+    } = scan_source_files(&runtime, &manifests, dir.path(), &[]);
 
     assert!(items.is_empty());
     assert!(scanners.is_empty());
@@ -90,11 +95,11 @@ fn scan_no_manifests_skips_all_files() {
     let runtime = rust_only_runtime();
     let source_files = vec!["lib.rs".into()];
 
-    let scan::ScanOutcome {
+    let ScanOutcome {
         items,
         scanners_used: scanners,
         ..
-    } = scan::scan_source_files(&runtime, &[], dir.path(), &source_files);
+    } = scan_source_files(&runtime, &[], dir.path(), &source_files);
 
     assert!(items.is_empty());
     assert!(scanners.is_empty());
@@ -108,11 +113,11 @@ fn scan_missing_file_skipped_gracefully() {
     let manifests = vec![rust_manifest()];
     let source_files = vec!["nonexistent.rs".into()];
 
-    let scan::ScanOutcome {
+    let ScanOutcome {
         items,
         scanners_used: scanners,
         ..
-    } = scan::scan_source_files(&runtime, &manifests, dir.path(), &source_files);
+    } = scan_source_files(&runtime, &manifests, dir.path(), &source_files);
 
     assert!(items.is_empty());
     assert!(scanners.is_empty());
@@ -131,11 +136,11 @@ fn default_runtime_scans_rust_files() {
     let manifests = vec![rust_manifest()];
     let source_files = vec!["main.rs".into()];
 
-    let scan::ScanOutcome {
+    let ScanOutcome {
         items,
         scanners_used: scanners,
         ..
-    } = scan::scan_source_files(&runtime, &manifests, dir.path(), &source_files);
+    } = scan_source_files(&runtime, &manifests, dir.path(), &source_files);
 
     assert_eq!(items.len(), 2);
     assert_eq!(items[0].name, "process_order");
@@ -190,11 +195,11 @@ fn multi_scanner_mixed_project() {
         "readme.md".into(),
     ];
 
-    let scan::ScanOutcome {
+    let ScanOutcome {
         items,
         scanners_used: scanners,
         ..
-    } = scan::scan_source_files(&runtime, &manifests, dir.path(), &source_files);
+    } = scan_source_files(&runtime, &manifests, dir.path(), &source_files);
 
     assert_eq!(items.len(), 5);
 
@@ -242,7 +247,7 @@ fn a_scanner_that_fails_is_reported_not_dropped() {
     });
     for answer in [trapped, WasmCallResult::Ok(b"garbage".to_vec())] {
         let runtime = InProcessRuntime::new().answer_raw("@specforge/rust", "scan__rust", answer);
-        let outcome = scan::scan_source_files(
+        let outcome = scan_source_files(
             &runtime,
             &[rust_manifest()],
             dir.path(),
@@ -269,4 +274,98 @@ fn a_scanner_that_fails_is_reported_not_dropped() {
             CallFailure::NotLoaded
         ));
     }
+}
+
+// ── The scanner's wire (plan 04 T1: compared with the goldens in
+// `crates/specforge-wasm/tests/wire/`) ──
+
+const EXT: &str = "@pin/ext";
+
+fn wire_dir() -> std::path::PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../specforge-wasm/tests/wire")
+}
+
+fn sorted(value: &serde_json::Value) -> serde_json::Value {
+    use serde_json::Value;
+    match value {
+        Value::Object(map) => {
+            let mut keys: Vec<&String> = map.keys().collect();
+            keys.sort();
+            Value::Object(
+                keys.into_iter()
+                    .map(|k| (k.clone(), sorted(&map[k])))
+                    .collect(),
+            )
+        }
+        Value::Array(items) => Value::Array(items.iter().map(sorted).collect()),
+        other => other.clone(),
+    }
+}
+
+fn golden(name: &str, actual: &serde_json::Value) {
+    let path = wire_dir().join(name);
+    if std::env::var_os("SPECFORGE_BLESS").is_some() {
+        let mut text = serde_json::to_string_pretty(&sorted(actual)).unwrap();
+        text.push('\n');
+        std::fs::write(&path, text).unwrap();
+    }
+    let expected: serde_json::Value = serde_json::from_str(
+        &std::fs::read_to_string(&path)
+            .unwrap_or_else(|e| panic!("golden {}: {e}", path.display())),
+    )
+    .unwrap();
+    assert_eq!(actual, &expected, "golden {name}");
+}
+
+fn answering(export: &str, result: WasmCallResult) -> InProcessRuntime {
+    InProcessRuntime::new().answer_raw(EXT, export, result)
+}
+
+fn scanner() -> Vec<ExtensionDeclaration> {
+    vec![ExtensionDeclaration {
+        handshake: HandshakeResponse {
+            name: EXT.into(),
+            version: "1.0.0".into(),
+            ..HandshakeResponse::default()
+        },
+        analyzers: vec![AnalyzerDescriptor {
+            language: "rust".into(),
+            file_extensions: vec![".rs".into()],
+            excluded_dirs: Vec::new(),
+            scan_export: "scan__rust".into(),
+            classify_export: "classify__rust".into(),
+            map_export: "map__rust".into(),
+            description: None,
+        }],
+        ..ExtensionDeclaration::default()
+    }]
+}
+
+fn sources() -> tempfile::TempDir {
+    let dir = tempfile::TempDir::new().unwrap();
+    std::fs::write(dir.path().join("a.rs"), "pub fn a() {}\n").unwrap();
+    dir
+}
+
+#[specforge_test(
+    behavior = "call_extension_exports",
+    verify = "every extension call encodes its input as the protocol type the SDK decodes"
+)]
+fn the_scan_request_and_its_answer() {
+    let dir = sources();
+    let answer = json!({"items": [{"name": "a", "item_kind": "function", "line": 1}],
+                        "language": "rust"});
+    let runtime = answering(
+        "scan__rust",
+        WasmCallResult::Ok(answer.to_string().into_bytes()),
+    );
+    let scanned = scan_source_files(&runtime, &scanner(), dir.path(), &["a.rs".into()]);
+    golden("scan.input.json", &runtime.calls()[0].input);
+    assert_eq!(scanned.items.len(), 1);
+    assert_eq!(
+        (scanned.items[0].name.as_str(), scanned.items[0].line),
+        ("a", 1)
+    );
+    assert_eq!(scanned.scanners_used, [EXT]);
+    assert!(scanned.failures.is_empty());
 }

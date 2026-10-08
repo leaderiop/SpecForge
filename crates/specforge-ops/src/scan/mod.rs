@@ -110,3 +110,6 @@ pub fn scan_source_files(
     }
     outcome
 }
+
+#[cfg(test)]
+mod tests;

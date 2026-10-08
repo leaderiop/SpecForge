@@ -432,12 +432,8 @@ fn note_failure(failure: SolveFailure, runtime_failure: &mut bool, timed_out: &m
 }
 
 /// Run the prove pass: consistency over declared bounds (E046 with unsat
-/// cores) and entailment of formal claims with counterexample models (W139).
-pub fn run_prove(ctx: &AnalysisContext) -> ProveReport {
-    run_prove_with(ctx, &ProveOptions::default())
-}
-
-/// [`run_prove`] with explicit options (z3 timeout).
+/// cores) and entailment of formal claims with counterexample models (W139),
+/// with `options` (the z3 timeout).
 pub fn run_prove_with(ctx: &AnalysisContext, options: &ProveOptions) -> ProveReport {
     analyze_with(
         ctx,
@@ -790,7 +786,7 @@ mod tests {
             test_results: None,
             proved_claims: Some(&empty_proved),
         };
-        run_prove(&ctx)
+        run_prove_with(&ctx, &ProveOptions::default())
     }
 
     #[test]

@@ -13,11 +13,8 @@ use specforge_graph::{Graph, Node};
 use specforge_ops::collect::{Collector, dispatch};
 use specforge_ops::command::{CommandContext, CommandFormat, command_input};
 use specforge_ops::migrate::{MigrationInput, invoke_hooks};
-use specforge_ops::scan::scan_source_files;
 use specforge_parser::{EntityId, EntityKind, FieldMap};
-use specforge_protocol_types::{
-    AnalyzerDescriptor, CollectReportFile, ExtensionDeclaration, HandshakeResponse,
-};
+use specforge_protocol_types::{CollectReportFile, ExtensionDeclaration, HandshakeResponse};
 use specforge_test_macros::test as specforge_test;
 use specforge_wasm::testing::InProcessRuntime;
 use specforge_wasm::{CallFailure, WasmCallResult, WasmTrapInfo};
@@ -202,57 +199,6 @@ fn a_collector_receives_a_collect_input_and_answers_a_collect_output() {
             .to_string(),
         format!("collector collect__x() of '{EXT}' trapped: k: m")
     );
-}
-
-// ── C7 · scanner ──
-
-fn scanner() -> Vec<ExtensionDeclaration> {
-    vec![ExtensionDeclaration {
-        handshake: HandshakeResponse {
-            name: EXT.into(),
-            version: "1.0.0".into(),
-            ..HandshakeResponse::default()
-        },
-        analyzers: vec![AnalyzerDescriptor {
-            language: "rust".into(),
-            file_extensions: vec![".rs".into()],
-            excluded_dirs: Vec::new(),
-            scan_export: "scan__rust".into(),
-            classify_export: "classify__rust".into(),
-            map_export: "map__rust".into(),
-            description: None,
-        }],
-        ..ExtensionDeclaration::default()
-    }]
-}
-
-fn sources() -> tempfile::TempDir {
-    let dir = tempfile::TempDir::new().unwrap();
-    fs::write(dir.path().join("a.rs"), "pub fn a() {}\n").unwrap();
-    dir
-}
-
-#[specforge_test(
-    behavior = "call_extension_exports",
-    verify = "every extension call encodes its input as the protocol type the SDK decodes"
-)]
-fn the_scan_request_and_its_answer() {
-    let dir = sources();
-    let answer = json!({"items": [{"name": "a", "item_kind": "function", "line": 1}],
-                        "language": "rust"});
-    let runtime = answering(
-        "scan__rust",
-        WasmCallResult::Ok(answer.to_string().into_bytes()),
-    );
-    let scanned = scan_source_files(&runtime, &scanner(), dir.path(), &["a.rs".into()]);
-    golden("scan.input.json", &runtime.calls()[0].input);
-    assert_eq!(scanned.items.len(), 1);
-    assert_eq!(
-        (scanned.items[0].name.as_str(), scanned.items[0].line),
-        ("a", 1)
-    );
-    assert_eq!(scanned.scanners_used, [EXT]);
-    assert!(scanned.failures.is_empty());
 }
 
 // ── C8 · migration hook ──
