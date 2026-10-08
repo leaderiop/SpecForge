@@ -25,7 +25,7 @@ specforge-project = { workspace = true }
 specforge-protocol-types = { path = "../specforge-protocol-types" }
 specforge-registry = { workspace = true }
 specforge-wasm = { workspace = true }
-specforge-installed = { workspace = true }
+specforge-installed = { path = "../specforge-installed" }
 chrono = "0.4.41"
 semver = { workspace = true }
 strsim = { workspace = true }
@@ -37,7 +37,7 @@ specforge-extension-sdk = { path = "../specforge-extension-sdk" }
 # One diagnostic of each kind the host builds, for the diagnostics JSON pin.
 specforge-registry-client = { path = "../specforge-registry-client" }
 specforge-wasm = { workspace = true, features = ["testing"] }
-specforge-installed = { workspace = true, features = ["testing"] }
+specforge-installed = { path = "../specforge-installed", features = ["testing"] }
 specforge-test = { workspace = true }
 specforge-test-macros = { workspace = true }
 tempfile = { workspace = true }

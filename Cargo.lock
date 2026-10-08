@@ -2830,7 +2830,6 @@ dependencies = [
  "specforge-common",
  "specforge-diagnostics",
  "specforge-extension-sdk",
- "specforge-installed",
  "specforge-protocol-types",
  "specforge-test",
  "specforge-test-macros",

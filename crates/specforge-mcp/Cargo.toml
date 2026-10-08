@@ -34,7 +34,7 @@ getrandom = "0.3"
 specforge-extension-sdk = { path = "../specforge-extension-sdk" }
 # Extensions served in process (`specforge_wasm::testing`).
 specforge-wasm = { workspace = true, features = ["testing"] }
-specforge-installed = { workspace = true, features = ["testing"] }
+specforge-installed = { path = "../specforge-installed", features = ["testing"] }
 specforge-parser = { workspace = true }
 specforge-test = { workspace = true }
 specforge-test-macros = { workspace = true }

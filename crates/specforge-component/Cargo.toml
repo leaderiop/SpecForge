@@ -7,7 +7,6 @@ repository.workspace = true
 
 [dependencies]
 specforge-wasm = { path = "../specforge-wasm" }
-specforge-installed = { workspace = true }
 specforge-common = { workspace = true }
 # `PackageName`: an installed module is read from the directory its name is.
 specforge-protocol-types = { path = "../specforge-protocol-types" }
