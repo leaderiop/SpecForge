@@ -393,18 +393,18 @@ fn structural_only_notice(configured: &[String], problems: &[ConfigProblem]) -> 
 /// A one-shot compile: an environment, the sources it read and the graph
 /// built from them. What `specforge check` and every CLI command use.
 pub struct CompiledProject {
-    pub env: Environment,
+    env: Environment,
     /// The text of every source, as read.
     sources: SourceCache,
     /// E025 for the unreadable sources, then the resolver's diagnostics.
     import_diagnostics: Vec<Diagnostic>,
-    pub graph: Graph,
+    graph: Graph,
     /// What building the graph reported (parse errors, duplicates,
     /// unresolved references, reference cycles).
-    pub graph_diagnostics: Vec<Diagnostic>,
+    graph_diagnostics: Vec<Diagnostic>,
     /// What the checks on the built graph reported: core validation, the
     /// registry checks, the extensions' rules, then the check-phase passes.
-    pub check_diagnostics: Vec<Diagnostic>,
+    check_diagnostics: Vec<Diagnostic>,
     /// The graph's entity snapshot: what its checks read (ADR 0019).
     entities: Arc<EntitySnapshot>,
     /// The recorded test report at the root and the coverage of the graph
@@ -436,6 +436,17 @@ impl CompiledProject {
             recorded: RecordedCoverage::of(Arc::clone(&entities)),
             entities,
         }
+    }
+
+    /// The environment it was compiled in: config, what each `extensions`
+    /// entry enabled, the spec root, the registry build.
+    pub fn environment(&self) -> &Environment {
+        &self.env
+    }
+
+    /// The graph of its sources.
+    pub fn graph(&self) -> &Graph {
+        &self.graph
     }
 
     /// Each source's text, by its path relative to the spec root: exactly

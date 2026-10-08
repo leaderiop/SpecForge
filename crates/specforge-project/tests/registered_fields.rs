@@ -311,7 +311,7 @@ fn population_completes_before_any_validation() {
     let project = specforge_project::CompiledProject::compile(dir.path(), Some(&runtime));
 
     let loaded: Vec<&str> = project
-        .env
+        .environment()
         .registries
         .declarations()
         .iter()
@@ -327,11 +327,11 @@ fn population_completes_before_any_validation() {
     );
     assert!(
         project
-            .graph
+            .graph()
             .edges_from("t1")
             .iter()
             .any(|e| e.label == "owner" && e.target == "p1"),
         "{:?}",
-        project.graph.edges()
+        project.graph().edges()
     );
 }

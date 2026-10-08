@@ -57,7 +57,7 @@ fn assert_matches_a_fresh_compile(session: &ProjectSession, root: &Path) {
     let fresh = CompiledProject::compile(root, Some(&runtime));
     assert_eq!(
         graph_contents(session.graph()),
-        graph_contents(&fresh.graph)
+        graph_contents(fresh.graph())
     );
     assert_eq!(
         session.diagnostics(),
@@ -1375,7 +1375,7 @@ fn random_updates_leave_what_a_fresh_compile_builds() {
             let fresh = CompiledProject::compile(root, Some(&runtime));
             assert_eq!(
                 graph_contents(session.graph()),
-                graph_contents(&fresh.graph),
+                graph_contents(fresh.graph()),
                 "{context}"
             );
             assert_eq!(session.diagnostics(), fresh.diagnostics(), "{context}");
@@ -1510,12 +1510,12 @@ fn a_session_reports_what_a_fresh_compile_reports_in_order() {
             assert_eq!(session.diagnostics(), fresh.diagnostics(), "{context}");
             assert_eq!(
                 node_ids(session.graph()),
-                node_ids(&fresh.graph),
+                node_ids(fresh.graph()),
                 "{context}"
             );
             assert_eq!(
                 graph_contents(session.graph()),
-                graph_contents(&fresh.graph),
+                graph_contents(fresh.graph()),
                 "{context}"
             );
         }
@@ -2239,18 +2239,21 @@ fn the_session_reports_graph_diagnostics_in_build_order() {
     );
     let root = dir.path();
     let runtime = specforge_component::ComponentRuntime::with_user_cache();
-    let codes = |diagnostics: &[Diagnostic]| -> Vec<String> {
-        diagnostics.iter().map(|d| d.code.to_string()).collect()
+    let graph_codes = |diagnostics: &[Diagnostic]| -> Vec<String> {
+        diagnostics
+            .iter()
+            .filter(|d| d.code == "E002" || d.code == "E003")
+            .map(|d| d.code.to_string())
+            .collect()
     };
     let compiled = CompiledProject::compile(root, Some(&runtime));
     let session = ProjectSession::open(root);
 
-    assert_eq!(codes(&compiled.graph_diagnostics), ["E002", "E003"]);
+    assert_eq!(graph_codes(&compiled.diagnostics()), ["E002", "E003"]);
     // Build order, the order `specforge check` lists them in (ADR 0032).
-    assert_eq!(codes(&session.graph_diagnostics()), ["E002", "E003"]);
     assert_eq!(
-        compiled.graph_diagnostics,
-        session.graph_diagnostics(),
+        session.diagnostics(),
+        compiled.diagnostics(),
         "the same sequence"
     );
 }

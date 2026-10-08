@@ -198,7 +198,7 @@ pub fn run(request: &Request, runtime: Option<&dyn WasmRuntime>) -> Outcome {
             .collect(),
     };
     let (invoked, failures) = match runtime {
-        Some(runtime) => invoke_hooks(pre.env.registries.declarations(), runtime, &input),
+        Some(runtime) => invoke_hooks(pre.environment().registries.declarations(), runtime, &input),
         None => (Vec::new(), Vec::new()),
     };
     outcome.hooks_invoked = invoked;
@@ -212,7 +212,7 @@ pub fn run(request: &Request, runtime: Option<&dyn WasmRuntime>) -> Outcome {
     let post = CompiledProject::compile(root, runtime);
     outcome.validated = true;
     outcome.schema_warnings = check_schema_compatibility(&pre_schema, &schema_of(&post));
-    outcome.structural_differences = compare_graphs(&pre.graph, &post.graph);
+    outcome.structural_differences = compare_graphs(pre.graph(), post.graph());
     outcome.post_diagnostics = post.diagnostics();
     if !outcome.structural_differences.is_empty() {
         roll_back(root, &mut outcome);
@@ -272,7 +272,7 @@ pub fn rollback(root: &Path) -> RollbackSummary {
 }
 
 fn schema_of(project: &CompiledProject) -> specforge_emitter::GraphProtocolSchema {
-    let registries = &project.env.registries;
+    let registries = &project.environment().registries;
     specforge_emitter::generate_schema(
         &registries.kinds,
         &registries.edges,

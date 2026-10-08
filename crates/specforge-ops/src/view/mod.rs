@@ -92,9 +92,9 @@ impl<'a> ProjectView<'a> {
         ProjectView {
             reported: Reported::Compiled(project),
             ..Self::new(
-                &project.graph,
-                &project.env,
-                Some(&project.env.root),
+                project.graph(),
+                project.environment(),
+                Some(&project.environment().root),
                 project.recorded(),
             )
         }
@@ -562,7 +562,10 @@ mod tests {
         assert_eq!(of.reported(), compiled.diagnostics());
         assert_eq!(of.root(), Some(dir.path()));
         // One registry build: the environment's, reached through one accessor.
-        assert!(std::ptr::eq(of.registries(), &compiled.env.registries));
+        assert!(std::ptr::eq(
+            of.registries(),
+            &compiled.environment().registries
+        ));
 
         // A view built in memory reports nothing until it is told what.
         let graph = Graph::new();

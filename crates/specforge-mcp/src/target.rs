@@ -471,7 +471,7 @@ impl<'s> Call<'s> {
     pub fn spec_root(&self) -> Option<&Path> {
         match &self.target {
             CallTarget::Served => self.state.spec_root(),
-            CallTarget::Other(other) => Some(&other.project.env.spec_root),
+            CallTarget::Other(other) => Some(&other.project.environment().spec_root),
             CallTarget::New(_) | CallTarget::Unscoped | CallTarget::NoProject(_) => None,
         }
     }

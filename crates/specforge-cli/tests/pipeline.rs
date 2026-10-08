@@ -57,8 +57,8 @@ fn test_pipeline_with_product_extension_recognizes_feature() {
     );
 
     // Graph should contain the feature node
-    assert!(ctx.graph.node("my_feature").is_some());
-    assert_eq!(ctx.graph.node("my_feature").unwrap().kind.raw, "feature");
+    assert!(ctx.graph().node("my_feature").is_some());
+    assert_eq!(ctx.graph().node("my_feature").unwrap().kind.raw, "feature");
 }
 
 #[test]
@@ -178,12 +178,12 @@ module mod1 "Module One" {
     let diagnostics = ctx.diagnostics();
 
     // All 3 entities should be in the graph
-    assert!(ctx.graph.node("f1").is_some());
-    assert!(ctx.graph.node("m1").is_some());
-    assert!(ctx.graph.node("mod1").is_some());
+    assert!(ctx.graph().node("f1").is_some());
+    assert!(ctx.graph().node("m1").is_some());
+    assert!(ctx.graph().node("mod1").is_some());
 
     // Edges should exist
-    let edges = ctx.graph.edges_from("m1");
+    let edges = ctx.graph().edges_from("m1");
     assert!(!edges.is_empty(), "milestone m1 should have edges to f1");
 
     // f1 is referenced by m1 and mod1, so W041 (orphan feature) should NOT fire
@@ -205,15 +205,15 @@ fn test_pipeline_registries_populated() {
     let ctx = compile(&dir);
 
     // Kind registry should have all 9 product entity kinds
-    assert!(ctx.env.registries.kinds.contains("feature"));
-    assert!(ctx.env.registries.kinds.contains("journey"));
-    assert!(ctx.env.registries.kinds.contains("deliverable"));
-    assert!(ctx.env.registries.kinds.contains("milestone"));
-    assert!(ctx.env.registries.kinds.contains("module"));
-    assert!(ctx.env.registries.kinds.contains("term"));
-    assert!(ctx.env.registries.kinds.contains("persona"));
-    assert!(ctx.env.registries.kinds.contains("channel"));
-    assert!(ctx.env.registries.kinds.contains("release"));
+    assert!(ctx.environment().registries.kinds.contains("feature"));
+    assert!(ctx.environment().registries.kinds.contains("journey"));
+    assert!(ctx.environment().registries.kinds.contains("deliverable"));
+    assert!(ctx.environment().registries.kinds.contains("milestone"));
+    assert!(ctx.environment().registries.kinds.contains("module"));
+    assert!(ctx.environment().registries.kinds.contains("term"));
+    assert!(ctx.environment().registries.kinds.contains("persona"));
+    assert!(ctx.environment().registries.kinds.contains("channel"));
+    assert!(ctx.environment().registries.kinds.contains("release"));
 }
 
 #[test]
