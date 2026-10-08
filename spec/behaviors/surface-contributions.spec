@@ -145,18 +145,19 @@ behavior dispatch_surface_command "Dispatch Surface Command" {
     command_declared "The command is one an extension the project enables declares in its surfaces, read when the project's environment loaded"
   }
   ensures {
-    args_serialized                    "Command arguments, the project root and the graph are serialized as JSON and passed to the cmd__ export"
+    args_serialized                    "Command arguments, the project root (absolute and canonical, the same on both surfaces) and the graph are serialized as JSON and passed to the cmd__ export"
     sandbox_restricted                 "The cmd__ export is granted no capability (no preopened directory, environment, arguments, stdin or network), whatever sandbox override its declaration asks for"
     traps_caught                       "Wasm traps are caught and reported as ExtensionError diagnostics"
     output_returned                    "Exit code, stdout, and stderr are returned to the caller"
     surface_command_dispatched_emitted "Over MCP, a surface_command_dispatched event records the command and its exit code once its export returns; the CLI has no event sink"
     args_normalized_by_the_host        "Both surfaces send the export the args normalized by one rule before it runs: an absent arg takes its declared default, an unset flag is false, each value is its declared type, no undeclared arg is passed; a value the rule refuses is INVALID_INPUT, the same error object on both surfaces, and the export is not called"
     evidence_carried                   "The CommandInput carries what the project's recorded test report proves: absent without a report, unreadable with the reason when the report cannot be used, else the obligations, proven obligations and failing tests of every entity that counts toward coverage, scored by the coverage rule specforge stats reports"
+    one_operation                      "Both surfaces run a command through one operation over the project view: it normalizes the given args, attaches the project root, the evidence and the host's date, and calls the export; a surface reads its arguments in and renders the outcome"
   }
   contract   """
     When a CLI command from an extension is invoked, the host MUST
     serialize the command's input as JSON (CommandInput: its args, the
-    project root, the compiled graph, the format asked for, the
+    project root, absolute and canonical (symlinks resolved), the compiled graph, the format asked for, the
     host's date, UTC, and the evidence of the project's recorded test
     report) and call the cmd__{id} export,
     in the runtime that loaded the project's extensions to read their
@@ -203,7 +204,10 @@ behavior dispatch_surface_command "Dispatch Surface Command" {
     the arg as declared and, for a one_of, its values), nothing on
     stdout, exit 2; under human it is clap's usage text, exit 2; --help
     is clap's, exit 0. The command's exit code, stdout, and stderr MUST be
-    returned to the caller. The MCP server records each command whose
+    returned to the caller. Both surfaces run a command through one
+    operation over the project view, so what the export receives for the
+    same arguments is the same on both; the CLI runs it over its compiled
+    project (its checks run, as MCP's served session's have). The MCP server records each command whose
     export returned as a surface_command_dispatched event.
   """
   verify unit "the command runs in the runtime that read the project's declarations, which loaded only the extensions the project enables"
@@ -213,6 +217,7 @@ behavior dispatch_surface_command "Dispatch Surface Command" {
   verify unit "exit code, stdout, stderr returned to CLI"
   verify unit "a declared export the guest does not route is an ExtensionError when dispatched"
   verify unit "the CommandInput carries the format the caller asked for and the host's date"
+  verify unit "one operation runs a command over the project view: it normalizes the args, attaches the evidence, the date and the project root, absolute and canonical, and calls the export"
   verify unit "the CommandInput carries what the recorded tests prove, per entity that counts toward coverage"
   verify unit "a command's input says when the recorded test report cannot be read, and carries no evidence without one"
   verify unit "a command declaring an arg named format is refused on the command line"
@@ -226,7 +231,7 @@ behavior dispatch_surface_command "Dispatch Surface Command" {
   verify integration "a trapped command is E028 on both surfaces: one error object on the CLI's stderr under json, a structured MCP error over MCP"
   verify integration "the CLI and MCP send a command the same evidence for the same recorded report"
   verify unit "over MCP a failure's JSON error object is an isError result carrying it, and output that is not one object is text"
-  verify contract "Dispatch Surface Command: surface command dispatch holds — command_declared, args_serialized, sandbox_restricted, traps_caught, output_returned, surface_command_dispatched_emitted, args_normalized_by_the_host, evidence_carried"
+  verify contract "Dispatch Surface Command: surface command dispatch holds — command_declared, args_serialized, sandbox_restricted, traps_caught, output_returned, surface_command_dispatched_emitted, args_normalized_by_the_host, evidence_carried, one_operation"
 }
 
 behavior dispatch_surface_mcp_tool "Dispatch Surface MCP Tool" {
