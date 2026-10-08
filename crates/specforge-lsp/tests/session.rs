@@ -271,6 +271,33 @@ impl Session {
         }
     }
 
+    /// Every message the server sends (its notifications, and its requests, answered) until one
+    /// matching `last` arrives within `wait`, that one included; what was kept before comes
+    /// first. `None` when `last` never comes.
+    pub async fn messages_until(
+        &mut self,
+        wait: Duration,
+        last: impl Fn(&Value) -> bool,
+    ) -> Option<Vec<Value>> {
+        let mut seen = std::mem::take(&mut self.pending);
+        if let Some(i) = seen.iter().position(&last) {
+            self.pending = seen.split_off(i + 1);
+            return Some(seen);
+        }
+        let deadline = tokio::time::Instant::now() + wait;
+        loop {
+            let msg = tokio::time::timeout_at(deadline, self.read()).await.ok()?;
+            if msg.get("method").is_none() {
+                continue;
+            }
+            let done = last(&msg);
+            seen.push(msg);
+            if done {
+                return Some(seen);
+            }
+        }
+    }
+
     /// [`Self::notification_within`] ten seconds.
     pub async fn notification(
         &mut self,

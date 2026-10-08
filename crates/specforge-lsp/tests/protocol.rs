@@ -13,6 +13,8 @@ const A_OMEGA: &str = "type omega \"O\" {}\n";
 const B_USES_ALPHA: &str = "behavior user \"U\" {\n  types [alpha]\n}\n";
 const CYCLE: &str =
     "behavior alpha \"A\" {\n  types [beta]\n}\nbehavior beta \"B\" {\n  types [alpha]\n}\n";
+const A_DANGLING: &str = "behavior login \"Login\" {\n  invariants [session_limit]\n}\n";
+const B_PLAIN: &str = "type other \"O\" {}\n";
 const LINKED: &str = "type token \"T\" {}\nbehavior login \"L\" {\n  types [token]\n}\n";
 
 /// A project with no extension holding `files`.
@@ -247,4 +249,132 @@ async fn closing_a_detached_buffer_drops_it() {
         "b.spec now names a missing foo"
     );
     assert!(symbols(&mut client, "foo").await.is_empty());
+}
+
+#[tokio::test]
+async fn pin_closing_a_clean_source_with_errors_clears_them() {
+    let dir = project(&[("a.spec", A_DANGLING), ("b.spec", B_PLAIN)]);
+    let (mut client, _) = Session::start(Some(dir.path())).await;
+    let a = uri_of(&dir.path().join("a.spec"));
+    client.open(&a, A_DANGLING).await;
+    assert!(publishes(&mut client, &a, "E003").await);
+    settle(&mut client).await;
+
+    client.close(&a).await;
+    // Encodes the bug: the handler's empty publish is all the editor gets.
+    let cleared = client
+        .notification_within(
+            "textDocument/publishDiagnostics",
+            Duration::from_secs(5),
+            |p| p["uri"] == a,
+        )
+        .await
+        .expect("the close publishes");
+    assert_eq!(cleared["diagnostics"], json!([]));
+    assert!(
+        client
+            .wait_for_notification("textDocument/publishDiagnostics", 500)
+            .await
+            .is_none(),
+        "nothing follows the empty set"
+    );
+}
+
+#[tokio::test]
+async fn pin_the_open_sequence_reaches_the_client_in_order() {
+    let dir = project(&[("a.spec", A_DANGLING)]);
+    let root = dir.path().to_str().unwrap();
+    let (mut client, _) = Session::launch(Some(root), json!({})).await;
+    let end = |m: &Value| m["method"] == "$/progress" && m["params"]["value"]["kind"] == "end";
+    let messages = client
+        .messages_until(Duration::from_secs(10), end)
+        .await
+        .expect("workspace indexing never ended");
+    let shape = |m: &Value| match m["method"].as_str().unwrap() {
+        "$/progress" => format!(
+            "$/progress {}",
+            m["params"]["value"]["kind"].as_str().unwrap()
+        ),
+        other => other.to_string(),
+    };
+    let kept = [
+        "client/registerCapability",
+        "window/workDoneProgress/create",
+        "$/progress begin",
+        "textDocument/publishDiagnostics",
+        "client/unregisterCapability",
+        "window/logMessage",
+        "$/progress end",
+    ];
+    let sequence: Vec<String> = messages
+        .iter()
+        .map(shape)
+        .filter(|s| kept.contains(&s.as_str()))
+        .collect();
+    assert_eq!(
+        sequence,
+        [
+            "client/registerCapability",
+            "window/workDoneProgress/create",
+            "$/progress begin",
+            "textDocument/publishDiagnostics",
+            "client/unregisterCapability",
+            "client/registerCapability",
+            "window/logMessage",
+            "$/progress end",
+        ]
+    );
+    let published = messages
+        .iter()
+        .find(|m| m["method"] == "textDocument/publishDiagnostics")
+        .unwrap();
+    assert_eq!(
+        published["params"]["uri"],
+        uri_of(&dir.path().join("a.spec"))
+    );
+    let diagnostics = published["params"]["diagnostics"].as_array().unwrap();
+    assert_eq!(codes(diagnostics), ["E003"]);
+    let log = messages
+        .iter()
+        .find(|m| m["method"] == "window/logMessage")
+        .unwrap();
+    assert!(
+        log["params"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("indexed 1 .spec files"),
+        "{log}"
+    );
+}
+
+#[tokio::test]
+async fn pin_initialize_answers_a_static_result() {
+    let mut client = Session::spawn();
+    let resp = client.initialize(None).await;
+    assert_eq!(
+        resp["result"],
+        json!({
+            "capabilities": {
+                "codeActionProvider": true,
+                "completionProvider": {"triggerCharacters": [" ", "["]},
+                "definitionProvider": true,
+                "documentFormattingProvider": true,
+                "documentRangeFormattingProvider": true,
+                "documentSymbolProvider": true,
+                "hoverProvider": true,
+                "referencesProvider": true,
+                "renameProvider": {"prepareProvider": true},
+                "semanticTokensProvider": {
+                    "full": true,
+                    "legend": {
+                        "tokenModifiers": ["declaration", "reference"],
+                        "tokenTypes": specforge_lsp::TOKEN_TYPES,
+                    },
+                },
+                "textDocumentSync": 2,
+                "workspaceSymbolProvider": true,
+            },
+            "serverInfo": {"name": "specforge-lsp", "version": env!("CARGO_PKG_VERSION")},
+        })
+    );
 }
