@@ -2786,7 +2786,6 @@ dependencies = [
  "specforge-installed",
  "specforge-lsp",
  "specforge-mcp",
- "specforge-migrate",
  "specforge-ops",
  "specforge-ops-registry",
  "specforge-parser",
@@ -3032,6 +3031,9 @@ dependencies = [
  "specforge-formatter",
  "specforge-graph",
  "specforge-parser",
+ "specforge-protocol-types",
+ "specforge-test",
+ "specforge-test-macros",
 ]
 
 [[package]]
