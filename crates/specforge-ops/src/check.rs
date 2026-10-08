@@ -11,7 +11,6 @@
 use std::fmt;
 use std::path::Path;
 
-use serde::Serialize;
 use serde_json::{Value, json};
 use specforge_common::{Diagnostic, Severity};
 use specforge_project::{BuildCache, DiagnosticPolicy, LINT_PROFILE_NAMES, LintProfile};
@@ -31,28 +30,7 @@ pub struct CheckOptions {
     pub record_cache: bool,
 }
 
-/// Error, warning and info counts of a diagnostic list.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize)]
-pub struct Counts {
-    pub errors: usize,
-    pub warnings: usize,
-    pub infos: usize,
-}
-
-impl Counts {
-    /// The counts of `diagnostics`, by severity.
-    pub fn of<'a>(diagnostics: impl IntoIterator<Item = &'a Diagnostic>) -> Self {
-        let mut counts = Counts::default();
-        for diagnostic in diagnostics {
-            match diagnostic.severity {
-                Severity::Error => counts.errors += 1,
-                Severity::Warning => counts.warnings += 1,
-                Severity::Info => counts.infos += 1,
-            }
-        }
-        counts
-    }
-}
+pub use specforge_common::Counts;
 
 /// What became of the build cache.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -225,7 +203,10 @@ pub fn check(
         strict: options.strict,
         lint_profiles: options.lint_profiles.clone(),
     };
-    let reported = policy.apply(root, reported);
+    let reported = policy.apply(reported, |profile| match profile {
+        LintProfile::Inferred => crate::infer::lint(view),
+        LintProfile::Pedantic => Vec::new(),
+    });
     let counts = Counts::of(&reported);
     let cache = match (options.record_cache, counts.errors == 0) {
         (false, _) => CacheRecord::NotRequested,

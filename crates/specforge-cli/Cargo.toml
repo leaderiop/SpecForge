@@ -40,7 +40,6 @@ specforge-watch = { path = "../specforge-watch" }
 chrono = "0.4.41"
 specforge-parser = { workspace = true }
 specforge-emitter = { path = "../specforge-emitter" }
-specforge-validator = { path = "../specforge-validator" }
 specforge-wasm = { workspace = true }
 specforge-component = { workspace = true }
 specforge-mcp = { workspace = true }

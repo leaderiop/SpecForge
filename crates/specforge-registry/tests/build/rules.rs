@@ -140,9 +140,9 @@ fn the_extensions_rules_are_ordered_by_code() {
 
 #[spec(
     behavior = "registry_build_rules",
-    verify = "the build keeps a rule whose target kind no loaded extension declares, and drops one whose edge type no loaded extension declares"
+    verify = "the build drops a rule whose target kind or edge type no loaded extension declares"
 )]
-fn the_build_keeps_a_rule_whose_target_kind_no_extension_declares() {
+fn the_build_drops_a_rule_whose_target_kind_or_edge_type_no_extension_declares() {
     let ghostly = declare("@t/e", |c| {
         c.meta
             .peer_dependencies
@@ -169,10 +169,10 @@ fn the_build_keeps_a_rule_whose_target_kind_no_extension_declares() {
     });
     let build = build([software(), ghostly, waiting]);
 
-    // W102 is kept (inert: no entity has its kind); W101 is dropped, and
-    // its extension is told about the edge type (W021).
-    assert_eq!(rule_codes(&build), [("W102", "@t/f")]);
-    assert_eq!(nth(&build, 0).target_kind(), Some("nonexistent_kind"));
+    // W102 (a kind nobody declares) and W101 (an edge type nobody declares)
+    // are both dropped: inert (ADR 0020 D5). W101's extension is told about
+    // the edge type (W021).
+    assert_eq!(rule_codes(&build), []);
     let w021: Vec<&str> = coded(&build, "W021")
         .iter()
         .map(|d| d.message.as_str())
@@ -242,8 +242,8 @@ fn required_fields_get_e006_rules() {
 )]
 fn rule_collection_holds() {
     // declarations_in_load_order: each extension's rules out of code order;
-    // both declare W900; `b` has a required field and a rule for a kind no
-    // extension declares.
+    // both declare W900; `b` has a required field and a rule (W903) for a
+    // kind no extension declares, which is not registered.
     let a = rules(
         "@ext/a",
         &[
@@ -286,7 +286,6 @@ fn rule_collection_holds() {
             ("W900", "@ext/b"),
             ("W901", "@ext/b"),
             ("W902", "@ext/a"),
-            ("W903", "@ext/b"),
             ("E006", ""),
         ]
     );

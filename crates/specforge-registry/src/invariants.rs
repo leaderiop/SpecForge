@@ -228,25 +228,27 @@ mod tests {
         let m = c.declaration();
 
         // Step 2: Populate registries
-        let (kind_reg, field_reg, edge_reg, _) = registries(std::slice::from_ref(&m));
-        assert!(kind_reg.contains("behavior"));
-        assert!(kind_reg.contains("feature"));
+        let build = build_registries(vec![m]);
+        assert!(build.kinds.contains("behavior"));
+        assert!(build.kinds.contains("feature"));
 
-        // Step 3: Validation (after all registries are populated)
-        // detect_unknown uses the fully populated registry
-        let unknown_diags = compilation::detect_unknown_entity_kinds(
-            &[crate::entity::EntityRecord::new(
-                "behavior",
-                "b1",
-                &dummy_span(),
-            )],
-            &kind_reg,
-            None,
+        // Step 3: Validation (after all registries are populated): the
+        // populated registry accepts `behavior`.
+        let record = crate::entity::EntityRecord::new("behavior", "b1", &dummy_span());
+        let diagnostics = build.check(
+            &crate::entity::RuleInput {
+                entities: &[record],
+                edges: &[],
+                spec_root: std::path::Path::new("."),
+            },
+            &crate::rules::NoVerdicts,
         );
-        assert!(unknown_diags.is_empty()); // "behavior" is registered
+        assert!(
+            diagnostics.iter().all(|d| d.code != "E024"),
+            "{diagnostics:?}"
+        ); // "behavior" is registered
 
         // verify edge registry and field registry are also available
-        assert_eq!(edge_reg.len(), 0); // no edges declared
-        let _ = field_reg;
+        assert_eq!(build.edges.len(), 0); // no edges declared
     }
 }

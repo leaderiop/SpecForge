@@ -48,6 +48,11 @@ behavior watch_file_system_for_changes "Watch File System for Changes" {
   verify integration "after spec_root changes, files under the new spec root are watched"
   verify integration "after an edit names a file outside the watched directories, a change to it is seen"
   verify integration "a file the checks read is seen when it is created in a directory that did not exist"
+  verify unit "an edit that names a file outside the watched directories moves the watchers"
+  verify unit "an edit that names a file inside the watched directories moves nothing"
+  verify unit "after the watchers move, the session catches up on what changed while they did"
+  verify unit "a failed move of the watchers is reported and the session still catches up"
+  verify unit "what was written between the open and the watchers is applied before ready"
 }
 
 behavior classify_project_changes "Classify Project Changes" {
@@ -108,7 +113,10 @@ behavior bring_session_up_to_date "Bring a Session Up to Date with Disk" {
     once per environment load, the extension runtime and the environment
     both built from that read, and every input MUST be stamped before
     anything reads it, the extension runtime included, so a file written
-    while the session loads is seen next time.
+    while the session loads is seen next time. A surface that watches files
+    MUST do so each time its watchers move, for what was written while they
+    did not watch; the LSP's catch-up MUST NOT replace an open document's
+    buffer with its file.
   """
   verify unit "an up-to-date session reports no change and re-parses nothing"
   verify unit "edits, creations and deletions since the last build are applied as one update"
@@ -116,6 +124,8 @@ behavior bring_session_up_to_date "Bring a Session Up to Date with Disk" {
   verify unit "a specforge.lock change reloads the environment"
   verify unit "after bringing itself up to date a session matches a fresh compile"
   verify unit "a specforge.json or module written while the extension runtime loads is seen next time"
+  verify integration "after the LSP's watchers move, the session catches up on what changed while they did"
+  verify integration "the LSP's catch-up keeps an open buffer"
 }
 
 behavior invalidate_changed_files "Invalidate Changed Files" {
@@ -135,7 +145,8 @@ behavior invalidate_changed_files "Invalidate Changed Files" {
   }
   contract   """
     When a coalesced batch of file changes is received from the debounce
-    stage (or an editor buffer changes), the system MUST compute the
+    stage (or editor buffers change, one or several at once, as one
+    update), the system MUST compute the
     invalidation set: exactly the changed files. A parse depends only on
     its own file's text, and references resolve across the project
     without use (ADR 0004 D1-a), so an importer of a changed file parses
@@ -152,6 +163,8 @@ behavior invalidate_changed_files "Invalidate Changed Files" {
   verify unit "unrelated files are not re-parsed"
   verify unit "deleted file entities removed from graph"
   verify unit "new file entities added to graph"
+  verify unit "several editor buffers changed at once are one update"
+  verify unit "the typing fast path skips the checks while any edited buffer does not parse"
   verify contract "Invalidate Changed Files: file invalidation holds — file_changes_coalesced_fired, invalidation_set_computed, subgraph_invalidated_emitted, unrelated_files_untouched"
 }
 
@@ -280,16 +293,17 @@ behavior debounce_file_changes "Debounce File Changes" {
   contract   """
     When multiple file_changed events arrive in rapid succession (e.g.,
     save-all or editor reformatting), the system MUST coalesce them into a
-    single invalidation batch. A configurable debounce window (default 50ms)
-    MUST be applied: the system MUST wait until no new changes arrive within
-    the window before emitting a file_changes_coalesced event. The coalesced
-    batch MUST include the union of all changed files within the debounce
-    window.
+    single invalidation batch. A debounce window of 50ms MUST be applied,
+    by one rule watch and the LSP share: the system MUST wait until no new
+    changes arrive within the window before emitting a
+    file_changes_coalesced event. The coalesced batch MUST include the
+    union of all changed files within the debounce window.
   """
   verify unit "rapid successive changes coalesced into single batch"
   verify unit "debounce window prevents redundant recompilation"
   verify unit "coalesced batch includes union of all changed files"
   verify unit "single isolated change triggers after debounce window"
+  verify unit "each change restarts the quiet window"
   verify contract "Debounce File Changes: file change debouncing holds — file_changed_fired, coalesced_batch_produced, redundant_recompilation_prevented"
 }
 

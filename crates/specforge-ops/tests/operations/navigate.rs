@@ -267,7 +267,8 @@ fn the_definition_is_the_declaration() {
 fn an_unknown_id_has_no_definition() {
     let p = nav();
     let error = p.navigator().definition("nope").unwrap_err();
-    assert_eq!(error.code, specforge_ops::navigate::NOT_FOUND);
+    assert!(error.is(specforge_common::codes::E003));
+    assert_eq!(error.kind, specforge_ops::OpErrorKind::EntityNotFound);
     // A misspelled reference is not an entity either.
     assert!(p.navigator().definition("sesion_limit").is_err());
 }
@@ -1413,12 +1414,12 @@ fn match_file_is_component_wise() {
 }
 
 /// An anchors manifest anchoring each `(entity, file)`.
-fn anchored(anchors: &[(&str, &str)]) -> specforge_common::AnchorManifest {
-    specforge_common::AnchorManifest {
+fn anchored(anchors: &[(&str, &str)]) -> specforge_ops::navigate::AnchorManifest {
+    specforge_ops::navigate::AnchorManifest {
         version: 1,
         anchors: anchors
             .iter()
-            .map(|(entity, file)| specforge_common::SourceAnchor {
+            .map(|(entity, file)| specforge_ops::navigate::SourceAnchor {
                 entity_id: entity.to_string(),
                 file: file.to_string(),
                 line: 1,
@@ -1430,6 +1431,36 @@ fn anchored(anchors: &[(&str, &str)]) -> specforge_common::AnchorManifest {
             })
             .collect(),
     }
+}
+
+/// An entity's anchors are the manifest's anchors of it, in manifest
+/// order; an entity with none, or a project with no manifest, has none.
+#[specforge_test(
+    behavior = "provide_mcp_find_implementation_tool",
+    verify = "an entity with no anchor has no implementations, and no anchors manifest is none"
+)]
+fn anchors_of_an_entity_are_in_manifest_order() {
+    use specforge_ops::navigate::{anchors_of_entity, source_anchors};
+
+    let manifest = anchored(&[
+        ("alpha", "src/lib.rs"),
+        ("beta", "src/lib.rs"),
+        ("alpha", "src/net.rs"),
+    ]);
+    let files = |entity: &str| -> Vec<String> {
+        anchors_of_entity(&manifest, entity)
+            .iter()
+            .map(|a| a.file.clone())
+            .collect()
+    };
+    assert_eq!(files("alpha"), ["src/lib.rs", "src/net.rs"]);
+    assert!(files("nope").is_empty());
+
+    let project = crate::view_support::Project::new(
+        "behavior a \"A\" {\n}\n",
+        specforge_registry::RegistryBuild::default(),
+    );
+    assert!(source_anchors(&project.view()).unwrap().anchors.is_empty());
 }
 
 #[test]

@@ -53,7 +53,9 @@ behavior provide_mcp_query_tool "Provide MCP Query Tool" {
     MUST use that serialization format. An unknown format MUST be an
     invalid-input error on format naming the expected formats (graph,
     context, brief). If entityId does not exist, the tool MUST return an
-    error response.
+    error response. The result MUST be the document specforge query prints
+    for the same arguments; at the default depth in the graph format it is
+    the document specforge://graph/{entityId} serves.
   """
   verify unit "specforge.query tool returns subgraph for valid entityId"
   verify unit "depth parameter limits traversal depth"
@@ -62,6 +64,7 @@ behavior provide_mcp_query_tool "Provide MCP Query Tool" {
   verify unit "non-existent entityId returns error response"
   verify unit "an unknown format is an invalid-input error naming the expected formats"
   verify unit "include_coverage parameter includes coverage status in response"
+  verify unit "the default query is the document specforge://graph/{entityId} serves"
   verify contract "Provide MCP Query Tool: MCP query tool holds — graph_available, subgraph_returned, unknown_kinds_reported, tool_invoked_emitted"
   verify unit "unknown tool returns error"
 }
@@ -244,8 +247,10 @@ behavior provide_mcp_search_tool "Provide MCP Search Tool" {
   contract   """
     In MCP server mode, the system MUST register a specforge.search tool that
     accepts query (required; empty matches every entity), kinds?[], field?
-    and value?, references? (an entity id: only entities that reference
-    it), and limit? (default 20). The tool MUST combine these filters with
+    and value? (together: only entities whose field's text contains the
+    value, ignoring case; one without the other MUST be an invalid-input
+    error naming the missing one), references? (an entity id: only
+    entities that reference it), and limit? (default 20). The tool MUST combine these filters with
     AND semantics. Unknown kind values in the kinds[] array MUST be
     silently filtered out and an I-level diagnostic MUST be included in the
     response metadata listing the unrecognized kinds. Fuzzy text search
@@ -257,6 +262,7 @@ behavior provide_mcp_search_tool "Provide MCP Search Tool" {
   verify unit "text search finds entities matching by name or contract"
   verify unit "kind filter restricts results to matching entity kinds"
   verify unit "field and value filter matches entity fields"
+  verify unit "field without value, or value without field, is an invalid-input error"
   verify unit "limit caps the number of returned results"
   verify unit "empty query returns all entities up to limit"
   verify unit "references filter returns entities referencing target"
@@ -581,6 +587,29 @@ behavior provide_mcp_find_references_tool "Provide MCP Find References Tool" {
   verify contract "Provide MCP Find References Tool: MCP find references tool holds — graph_available, references_returned, empty_list_for_unreferenced, tool_invoked_emitted"
 }
 
+behavior provide_mcp_find_implementation_tool "Provide MCP Find Implementation Tool" {
+  features   [mcp_navigation_tools]
+  invariants [diagnostic_determinism, mcp_structured_error_responses, mcp_tool_idempotency]
+  category   query
+  ensures {
+    anchors_listed   "every anchor of the entity in specforge-anchors.json, in manifest order"
+    empty_when_none  "an entity with no anchor, or no anchors manifest, has no implementations"
+    unusable_refused "an anchors manifest that cannot be used is E071"
+  }
+  contract   """
+    In MCP server mode, the system MUST register a
+    specforge.find_implementation tool that accepts entity_id (required)
+    and returns {entity_id, implementations, count}: each anchor of the
+    entity in the project's specforge-anchors.json (file, line,
+    symbol_name, item_kind, scanner), in manifest order, from the one
+    anchor lookup navigation owns. No anchors manifest is an empty list.
+    An anchors manifest that cannot be read or parsed is refused with
+    E071.
+  """
+  verify unit "find_implementation lists every anchor of the entity, in manifest order"
+  verify unit "an entity with no anchor has no implementations, and no anchors manifest is none"
+}
+
 behavior provide_mcp_outline_tool "Provide MCP Outline Tool" {
   features   [mcp_navigation_tools]
   invariants [
@@ -742,7 +771,7 @@ behavior provide_mcp_entities_by_kind "List Entities by Kind over MCP" {
     tool_filters_fields    "specforge.list keeps only the entities whose fields hold every value its where object names"
     tool_pages             "specforge.list returns the entities sorted by id, paged by offset and limit"
     resource_lists_by_kind "specforge://entities/{kind} returns the entities of that kind"
-    unknown_kind_empty     "an unknown kind yields an empty list, not an error"
+    unknown_kind_empty     "an unknown kind yields an empty list and an I-level diagnostic, not an error"
   }
   contract   """
     Because entity kinds come from extensions, MCP clients need a way to
@@ -750,7 +779,8 @@ behavior provide_mcp_entities_by_kind "List Entities by Kind over MCP" {
     MUST register a specforge.list tool (optional `kind`) and a
     specforge://entities/{kind} resource template. Both MUST return each
     matching entity's id, kind and title. An unknown kind MUST yield an
-    empty list. The tool MUST also accept a `where` object (field name to
+    empty list, and the tool's response metadata MUST carry I020 naming
+    the closest kind. The tool MUST also accept a `where` object (field name to
     the value the field holds, any kind's fields, no field known to core)
     and `offset`/`limit`, applied to the entities sorted by id.
     Extensions that list their own kinds their way contribute commands,
@@ -760,6 +790,7 @@ behavior provide_mcp_entities_by_kind "List Entities by Kind over MCP" {
   verify unit "specforge.list keeps the entities whose fields hold the where values"
   verify unit "specforge.list pages the entities sorted by id with offset and limit"
   verify unit "specforge.list returns empty for unknown kind"
+  verify unit "specforge.list reports an unknown kind with I020"
   verify unit "the entities resource lists what specforge.list lists for the kind"
   verify unit "entity-by-kind resource returns entities"
   verify unit "specforge.list tool appears in tool list"

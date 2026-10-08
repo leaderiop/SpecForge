@@ -54,14 +54,6 @@ module specforge_graph "specforge-graph" {
   tags        ["graph", "pipeline"]
 }
 
-module specforge_validator "specforge-validator" {
-  family      core
-  description "Structural and semantic validation with diagnostic reporting"
-  features    [structural_validation, diagnostic_reporting]
-  depends_on  [specforge_graph]
-  tags        ["validation", "pipeline"]
-}
-
 module specforge_emitter "specforge-emitter" {
   family      core
   description "Serializes graph to JSON, DOT, and agent-optimized formats"
@@ -77,9 +69,9 @@ module specforge_emitter "specforge-emitter" {
 
 module specforge_watch "specforge-watch" {
   family      core
-  description "File watching with debouncing (the incremental rebuild is the project session's)"
+  description "The file watcher, the one debounce rule watch and the LSP share, and the loop that keeps a project session current from them (ADR 0035)"
   features    [incremental_compilation]
-  depends_on  [specforge_graph, specforge_validator]
+  depends_on  [specforge_graph]
   tags        ["watch", "incremental"]
 }
 
@@ -107,7 +99,6 @@ module specforge_cli "specforge-cli" {
     specforge_parser,
     specforge_resolver,
     specforge_graph,
-    specforge_validator,
     specforge_emitter,
     specforge_watch,
     specforge_wasm,
@@ -126,13 +117,7 @@ module specforge_lsp "specforge-lsp" {
     code_actions,
     outline_and_symbol_search,
   ]
-  depends_on  [
-    specforge_parser,
-    specforge_resolver,
-    specforge_graph,
-    specforge_validator,
-    specforge_watch,
-  ]
+  depends_on  [specforge_parser, specforge_resolver, specforge_graph, specforge_watch]
   tags        ["lsp", "platform"]
 }
 
@@ -148,13 +133,7 @@ module specforge_mcp "specforge-mcp" {
     mcp_delta_notifications,
     mcp_prompts,
   ]
-  depends_on  [
-    specforge_graph,
-    specforge_validator,
-    specforge_emitter,
-    specforge_watch,
-    specforge_wasm,
-  ]
+  depends_on  [specforge_graph, specforge_emitter, specforge_watch, specforge_wasm]
   tags        ["mcp", "platform"]
 }
 
@@ -162,7 +141,7 @@ module specforge_package_software "specforge-package-software" {
   family      extension
   description "Wasm package for @specforge/software: behavior, invariant, event, type, port entities"
   features    [extension_management, se_core_entity_kinds, se_validation_suite, se_gherkin_bridge]
-  depends_on  [specforge_validator, specforge_wasm]
+  depends_on  [specforge_wasm]
   tags        ["extension", "domain"]
 }
 
@@ -170,7 +149,7 @@ module specforge_package_formal "specforge-package-formal" {
   family      extension
   description "Wasm package for @specforge/formal: property, axiom, protocol, refinement, process entities"
   features    [extension_management]
-  depends_on  [specforge_validator, specforge_wasm]
+  depends_on  [specforge_wasm]
   tags        ["extension", "domain"]
 }
 
@@ -178,7 +157,7 @@ module specforge_package_product "specforge-package-product" {
   family      extension
   description "Wasm package for @specforge/product: journey, deliverable, milestone, module, term, feature, persona, channel entities"
   features    [extension_management]
-  depends_on  [specforge_validator, specforge_wasm]
+  depends_on  [specforge_wasm]
   tags        ["extension", "domain"]
 }
 
@@ -186,7 +165,7 @@ module specforge_package_governance "specforge-package-governance" {
   family      extension
   description "Wasm package for @specforge/governance: decision, constraint, failure_mode entities"
   features    [extension_management]
-  depends_on  [specforge_validator, specforge_wasm]
+  depends_on  [specforge_wasm]
   tags        ["extension", "domain"]
 }
 
@@ -194,7 +173,7 @@ module specforge_provider_gh "specforge-provider-gh" {
   family      extension
   description "GitHub ref provider: validates gh.issue, gh.pr, gh.discussion schemes via GitHub API"
   features    [provider_based_ref_validation]
-  depends_on  [specforge_validator, specforge_wasm]
+  depends_on  [specforge_wasm]
   tags        ["extension", "provider"]
 }
 
@@ -202,7 +181,7 @@ module specforge_package_testing "specforge-package-testing" {
   family      extension
   description "Wasm package for @specforge/testing: verify obligations, W004/W009 and the coverage analysis pass"
   features    [te_test_vocabulary, te_coverage_analysis]
-  depends_on  [specforge_validator, specforge_wasm]
+  depends_on  [specforge_wasm]
   tags        ["extension", "traceability"]
 }
 

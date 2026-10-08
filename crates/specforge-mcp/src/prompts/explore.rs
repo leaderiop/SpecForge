@@ -60,7 +60,7 @@ pub fn render(call: &Call<'_>, args: Args) -> PromptOutcome {
         Some(start) => Some(
             graph
                 .reach(start, args.depth)
-                .ok_or_else(|| entity_not_found(start))?,
+                .ok_or_else(|| entity_not_found(graph, start))?,
         ),
         None => None,
     };

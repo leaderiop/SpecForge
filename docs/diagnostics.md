@@ -657,20 +657,6 @@ Owner: core
 Level: error
 ```
 
-## E060
-
-```
-E060: Resolved reference without a graph edge
-
-A reference list names an entity that exists, but the resolver never turned the
-reference into a graph edge. That is a SpecForge bug, not a mistake in your
-spec: queries, traces and coverage would miss the relationship. Please report it
-with the spec that triggers it.
-
-Owner: core
-Level: error
-```
-
 ## E061
 
 ```
@@ -829,6 +815,31 @@ extension than the entry names. It is not loaded, and `check` fails. Reinstall
 it with the command the suggestion names (`specforge add <path>` for a local
 install, `specforge add <name>@<version>` for a registry one); `specforge
 doctor` lists it as `stale_hash`.
+
+Owner: core
+Level: error
+```
+
+## E071
+
+```
+E071: Unusable inference manifest
+
+A file inference keeps at the project root is there and can't be used as
+written: `specforge-infer.json` (the analyzed source files and the inference
+sessions) or `specforge-anchors.json` (the source anchors navigation reads). It
+can't be read, isn't valid JSON, doesn't have the manifest's shape (a field
+missing or of the wrong type, a session status other than `active`, `paused` or
+`completed`), or, for `specforge-infer.json`, has a `version` other than 1.
+Nothing reads such a file as empty, and nothing writes over it: `specforge
+infer-status`, `specforge.infer_progress`, `specforge.infer_gaps`, the infer
+prompt's plan and every `specforge.infer_session` action refuse with this code,
+`specforge.find_implementation`, `specforge.find_spec_for_source` and the infer
+prompt's file scope refuse when it is the anchors manifest, and `specforge check
+--lint inferred` reports it as an error instead of I200 and I202. Fix the file
+where the message says (it names the line and column of a JSON or shape error),
+or move it aside to start over. A missing file is not this: inference has
+recorded nothing yet.
 
 Owner: core
 Level: error
@@ -1058,11 +1069,14 @@ Level: info
 ```
 I020: Unknown entity kind in a filter
 
-A `kinds` filter passed to the `specforge.query` or `specforge.search` MCP tool
-names a kind that no loaded extension defines and no entity has. The kind
-matches nothing and is dropped from the filter; the report rides in the tool
-result's `_meta.diagnostics`, with a `did you mean` suggestion when a known kind
-is close. Fix the spelling, or enable the extension that defines the kind.
+A kind filter (`specforge query --kind`, the `kinds` of the `specforge.query`
+and `specforge.search` MCP tools, or `specforge.list`'s `kind`) names a kind
+that no loaded extension declares and no entity is written with. The kind
+matches nothing and is dropped from the filter; the report goes to stderr on the
+CLI and rides in the tool result's `_meta.diagnostics` over MCP, with a `did you
+mean` suggestion when a known kind is close (a kind equal but for case first:
+kind names are case-sensitive keywords). Fix the spelling, or enable the
+extension that defines the kind.
 
 Owner: core
 Level: info
@@ -3087,6 +3101,23 @@ Owner: core
 Level: warning
 ```
 
+## W151
+
+```
+W151: Entity kinds left unchecked
+
+Extensions are loaded, but none of them declares an entity kind, so the
+entities' kinds, fields and identifiers are not checked: no E024 for an unknown
+kind, no W020, E013, E014, E022 or E061. The warning names how many entities
+that leaves unchecked and their kinds. Enable the extension that declares those
+kinds (the suggestion names it when it is a builtin), or remove the entities. A
+project with no extension at all is structural-only on purpose and gets I002
+instead.
+
+Owner: core
+Level: warning
+```
+
 ## W153
 
 ```
@@ -3139,6 +3170,7 @@ These codes are no longer emitted, and are never reused for another meaning.
 | E038 | (nothing) |
 | E047 | [W139](#w139) |
 | E053 | (nothing) |
+| E060 | (nothing) |
 | I006 | (nothing) |
 | W024 | (nothing) |
 | W025 | (nothing) |

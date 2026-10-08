@@ -281,7 +281,9 @@ behavior register_provider_schemes "Register Provider Schemes" {
     both providers; the provider declared first in the specforge.json
     providers array MUST win the scheme registration as a deterministic
     tiebreaker. Unresolvable provider extensions MUST produce an
-    ExtensionError diagnostic.
+    ExtensionError diagnostic. The providers are registered once per
+    environment: the compile's I005 check and the providers listing
+    (CLI and MCP) read that one registration, never specforge.json again.
   """
   verify unit "provider schemes registered from manifest"
   verify unit "duplicate scheme from two providers produces E057"
@@ -289,6 +291,7 @@ behavior register_provider_schemes "Register Provider Schemes" {
   verify unit "unresolvable provider extension produces ExtensionError"
   verify unit "no built-in schemes exist before provider loading"
   verify integration "Wasm-based provider scheme registered and validates ref"
+  verify integration "the providers listing reads the environment's registration, never specforge.json again"
   verify contract "Register Provider Schemes: provider scheme registration holds — provider_configured_fired, wasm_runtime_available, schemes_registered, duplicate_scheme_warned, declaration_order_tiebreak, schemes_registered_emitted"
 }
 

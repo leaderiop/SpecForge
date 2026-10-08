@@ -83,7 +83,7 @@ milestone validation_and_errors "Phase 3: Validation & Error Reporting" {
   contributors  ["specforge-team"]
   depends_on    [resolution_and_graph]
   features      [structural_validation, diagnostic_reporting, ci_integration, product_validation]
-  modules       [specforge_validator, specforge_cli]
+  modules       [specforge_common, specforge_cli]
   tags          ["h1", "core"]
   exit_criteria [
     "specforge check passes on SpecForge's own .spec files",

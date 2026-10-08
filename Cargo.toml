@@ -11,7 +11,6 @@ members = [
     "crates/specforge-parser",
     "crates/specforge-resolver",
     "crates/specforge-graph",
-    "crates/specforge-validator",
     "crates/specforge-coverage",
     "crates/specforge-diagnostics",
     "crates/specforge-emitter",

@@ -799,3 +799,88 @@ fn outline_sorted_by_line_extended() {
         .collect();
     assert_eq!(lines, vec![5, 12, 20]);
 }
+
+// --- the anchors manifest (plan 06 T0 pins) ---
+
+/// A server over `project()` whose root holds `anchors` as
+/// `specforge-anchors.json`.
+fn server_with_anchors(anchors: &str) -> Served {
+    project()
+        .file("specforge-anchors.json", anchors)
+        .serve(&[TestExtension::software()])
+}
+
+/// `find_implementation` lists the anchors of the entity it is asked
+/// about, in manifest order, and nothing for another entity or without a
+/// manifest.
+#[specforge_test(
+    behavior = "provide_mcp_find_implementation_tool",
+    verify = "find_implementation lists every anchor of the entity, in manifest order"
+)]
+fn find_implementation_lists_every_anchor_of_the_entity() {
+    let mut server = server_with_anchors(
+        r#"{"version":1,"anchors":[
+            {"entity_id":"alpha","file":"src/lib.rs","line":1,"symbol_name":"a","item_kind":"function","scanner":"rust"},
+            {"entity_id":"beta","file":"src/lib.rs","line":2,"symbol_name":"b","item_kind":"function","scanner":"rust"},
+            {"entity_id":"alpha","file":"src/net.rs","line":4,"symbol_name":"n","item_kind":"function","scanner":"rust","confidence":0.5}
+        ]}"#,
+    );
+    let found = result(
+        &mut server,
+        "specforge.find_implementation",
+        json!({"entity_id": "alpha"}),
+    );
+    assert_eq!(
+        found,
+        json!({
+            "entity_id": "alpha",
+            "count": 2,
+            "implementations": [
+                {"file": "src/lib.rs", "line": 1, "symbol_name": "a", "item_kind": "function", "scanner": "rust"},
+                {"file": "src/net.rs", "line": 4, "symbol_name": "n", "item_kind": "function", "scanner": "rust"},
+            ],
+        })
+    );
+
+    let none = result(
+        &mut server,
+        "specforge.find_implementation",
+        json!({"entity_id": "nope"}),
+    );
+    assert_eq!(none["count"], 0);
+    assert_eq!(none["implementations"], json!([]));
+
+    let mut bare = test_server();
+    let absent = result(
+        &mut bare,
+        "specforge.find_implementation",
+        json!({"entity_id": "alpha"}),
+    );
+    assert_eq!(absent["count"], 0);
+}
+
+/// An anchors manifest with an anchor missing a field is a
+/// `schema_mismatch` for both readers, with E071 as its diagnostic.
+#[test]
+fn an_unusable_anchors_manifest_is_schema_mismatch() {
+    let mut server = server_with_anchors(r#"{"version":1,"anchors":[{"entity_id":"x"}]}"#);
+    for (tool, args) in [
+        ("specforge.find_implementation", json!({"entity_id": "x"})),
+        (
+            "specforge.find_spec_for_source",
+            json!({"file_path": "a.rs"}),
+        ),
+    ] {
+        let resp = call_tool(&mut server, tool, args);
+        let error = crate::tool_errors::mcp_error(&resp);
+        assert_eq!(error["code"], "schema_mismatch", "{tool}: {error}");
+        assert_eq!(error["diagnostic"]["code"], "E071", "{tool}: {error}");
+        assert!(
+            error["message"]
+                .as_str()
+                .unwrap()
+                .starts_with("failed to parse specforge-anchors.json: missing field `file`"),
+            "{tool}: {error}"
+        );
+    }
+}

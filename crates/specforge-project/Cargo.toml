@@ -25,7 +25,6 @@ specforge-parser = { workspace = true }
 specforge-protocol-types = { path = "../specforge-protocol-types" }
 specforge-registry = { workspace = true }
 specforge-resolver = { path = "../specforge-resolver" }
-specforge-validator = { path = "../specforge-validator" }
 specforge-wasm = { workspace = true }
 specforge-installed = { path = "../specforge-installed" }
 tree-sitter = { workspace = true }

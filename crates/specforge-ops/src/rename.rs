@@ -13,8 +13,6 @@ use std::path::Path;
 
 /// The new ID is not a legal entity ID.
 pub const INVALID_ID: &str = "invalid_name";
-/// The entity to rename does not exist.
-pub const NOT_FOUND: &str = "entity_not_found";
 /// The new ID already names an entity.
 pub const TAKEN: &str = "entity_exists";
 /// A file the rename must edit cannot be read (or written).
@@ -112,12 +110,7 @@ pub fn plan<F: Fn(&str) -> Option<String>>(
     validate_id(new_id)?;
     let graph = nav.view().graph();
     if graph.node(old_id).is_none() {
-        return Err(OpError::new(
-            OpErrorKind::EntityNotFound,
-            NOT_FOUND,
-            format!("Entity not found: {old_id}"),
-        )
-        .with_entity(old_id));
+        return Err(crate::navigate::not_found(graph, old_id));
     }
     if graph.node(new_id).is_some() {
         return Err(OpError::new(
@@ -353,7 +346,11 @@ mod tests {
         let navigator = nav(&project, read);
 
         assert_eq!(code(plan(&navigator, "session_limit", "x")), INVALID_ID);
-        assert_eq!(code(plan(&navigator, "nope", "fine_name")), NOT_FOUND);
+        assert_eq!(code(plan(&navigator, "nope", "fine_name")), "E003");
+        assert_eq!(
+            plan(&navigator, "nope", "fine_name").unwrap_err().kind,
+            OpErrorKind::EntityNotFound
+        );
         assert_eq!(code(plan(&navigator, "session_limit", "login")), TAKEN);
         let without_limit = |f: &str| {
             (f != "limit.spec").then(|| std::fs::read_to_string(dir.path().join(f)).unwrap())

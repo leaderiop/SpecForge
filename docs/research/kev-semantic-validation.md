@@ -18,12 +18,12 @@ SpecForge already supplies deterministic answers to several requested checks:
 | Need | Current mechanism | Remaining semantic question |
 | --- | --- | --- |
 | Referenced node exists | Graph builder emits `E003` for unresolved references; `I004` identifies references to kinds provided by an absent extension (`crates/specforge-graph/src/graph.rs`). | Does this reference **mean** the relationship its field claims? Is an unlinked relationship implied by the prose? |
-| Resolved edge exists | Validator emits `E060` when a resolved reference failed to become a graph edge (`crates/specforge-validator/src/dangling.rs`). | Is the edge appropriate and useful? |
+| Resolved edge exists | The linker asserts, in debug builds, that a resolved reference became a graph edge (`Graph::assert_linked`, `crates/specforge-graph/src/graph.rs`). | Is the edge appropriate and useful? |
 | Node shape | Extension field/rule registries and custom validators run in `check` (`docs/guides/extending-specforge.md`). | Is its description coherent, specific, and falsifiable? |
 | Verify declaration and proof | `@specforge/testing` has `W004`/`W009`; coverage verdicts require passing tests naming exact obligations or formal proof (`crates/specforge-coverage/src/lib.rs`). | Is each `verify` statement actually a good test of its claim? Do the obligations cover the failure cases? |
 | Formal contradiction | `analyze --prove` uses Z3 to detect unsatisfiable numeric bounds and unentailed expression claims (`docs/guides/formal-verification.md`). | Do two natural-language claims conflict, even when no expression captures them? |
 
-Do not let a probability replace `E003`, `E060`, Z3, or the coverage verdict. A high Kev score is a review signal, not proof that a node or spec is valid.
+Do not let a probability replace `E003`, Z3, or the coverage verdict. A high Kev score is a review signal, not proof that a node or spec is valid.
 
 The current WASI component passes receive an entity/edge snapshot and return diagnostics. They are pure computation and cannot call the documented host HTTP function today (`docs/extension-protocol.md`, `docs/extension-sdk.md`). A pass declared `phase: "check"` runs during `check`, watch, LSP, and MCP; an ordinary pass runs during `analyze`. Calling a local Kev server inside either pass is therefore **not** available under the present ABI. The `host_http_get` permission matrix is only a future design and is limited to providers, so enabling a network flag in a manifest does not solve this.
 

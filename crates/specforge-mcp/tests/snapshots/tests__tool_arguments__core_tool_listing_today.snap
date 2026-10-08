@@ -345,7 +345,7 @@ expression: listing
       "additionalProperties": false,
       "properties": {
         "field": {
-          "description": "Only search a specific field",
+          "description": "Only entities whose field of this name contains `value`; needs `value`",
           "type": "string"
         },
         "kinds": {
@@ -370,7 +370,7 @@ expression: listing
           "type": "string"
         },
         "value": {
-          "description": "Exact field value filter (with field)",
+          "description": "With `field`: text the field contains, ignoring case; needs `field`",
           "type": "string"
         }
       },
@@ -1907,6 +1907,9 @@ expression: listing
         "message": {
           "type": "string"
         },
+        "sessions": {
+          "type": "array"
+        },
         "stale": {
           "type": "array"
         },
@@ -1991,7 +1994,7 @@ expression: listing
       "additionalProperties": false,
       "properties": {
         "action": {
-          "description": "Session action to perform",
+          "description": "Session action to perform: start: begin a session; one may be active at a time; mark_analyzed: record a source file and the entities inferred from it; end: end the active session",
           "enum": [
             "start",
             "mark_analyzed",
@@ -2026,7 +2029,8 @@ expression: listing
           "type": "array"
         },
         "status": {
-          "description": "Final status (for end, default: completed)",
+          "default": "completed",
+          "description": "Final status (for end): completed: the inference is done; paused: a later session continues it",
           "enum": [
             "completed",
             "paused"

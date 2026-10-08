@@ -2797,7 +2797,6 @@ dependencies = [
  "specforge-registry-server",
  "specforge-test",
  "specforge-test-macros",
- "specforge-validator",
  "specforge-wasm",
  "specforge-watch",
  "tempfile",
@@ -2809,10 +2808,10 @@ dependencies = [
 name = "specforge-common"
 version = "0.1.0"
 dependencies = [
+ "ariadne",
  "lasso",
  "serde",
  "serde_json",
- "sha2",
  "specforge-diagnostics",
  "specforge-protocol-types",
  "specforge-test",
@@ -2968,6 +2967,7 @@ dependencies = [
  "specforge-extension-sdk",
  "specforge-formatter",
  "specforge-graph",
+ "specforge-installed",
  "specforge-ops",
  "specforge-parser",
  "specforge-project",
@@ -2989,7 +2989,6 @@ name = "specforge-mcp"
 version = "0.1.0"
 dependencies = [
  "chrono",
- "getrandom 0.3.4",
  "insta",
  "serde",
  "serde_json",
@@ -3042,9 +3041,11 @@ name = "specforge-ops"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "getrandom 0.3.4",
  "semver",
  "serde",
  "serde_json",
+ "sha2",
  "specforge-common",
  "specforge-component",
  "specforge-diagnostics",
@@ -3119,7 +3120,6 @@ dependencies = [
  "specforge-resolver",
  "specforge-test",
  "specforge-test-macros",
- "specforge-validator",
  "specforge-wasm",
  "tempfile",
  "tree-sitter",
@@ -3240,19 +3240,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "specforge-validator"
-version = "0.1.0"
-dependencies = [
- "ariadne",
- "specforge-common",
- "specforge-graph",
- "specforge-parser",
- "specforge-test",
- "specforge-test-macros",
- "tempfile",
-]
-
-[[package]]
 name = "specforge-wasm"
 version = "0.1.0"
 dependencies = [
@@ -3274,9 +3261,13 @@ name = "specforge-watch"
 version = "0.1.0"
 dependencies = [
  "notify",
+ "serde_json",
+ "specforge-project",
  "specforge-test",
  "specforge-test-macros",
+ "specforge-watch",
  "tempfile",
+ "tokio",
 ]
 
 [[package]]

@@ -1,13 +1,18 @@
+pub mod answers;
 pub mod backend;
 mod capabilities;
+pub mod changes;
 pub mod completion;
 mod document;
 pub mod hover;
 mod navigation;
 pub mod publish;
+mod reaction;
 mod state;
+mod uri;
 pub mod watchers;
 
+pub use answers::ClientSupport;
 pub use capabilities::{ServerCapabilities, ServerInfo, server_capabilities, server_info};
 pub use completion::{field_snippet, keyword_snippet};
 pub use document::{
@@ -15,9 +20,5 @@ pub use document::{
     SemanticToken, TOKEN_MODIFIERS, TOKEN_TYPES, Target, Word, WordEdit,
 };
 pub use hover::hover_field_info;
-pub use navigation::{goto_import_definition, navigator};
+pub use navigation::goto_import_definition;
 pub use state::LspState;
-
-/// Quiet window the reparse worker waits for before recompiling: the one
-/// `specforge watch` uses, so both coalesce edits the same way.
-pub const DEBOUNCE_WINDOW: std::time::Duration = specforge_watch::DEFAULT_DEBOUNCE_WINDOW;

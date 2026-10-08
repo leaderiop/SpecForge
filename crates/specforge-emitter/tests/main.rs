@@ -8,7 +8,6 @@ mod emit_json;
 mod emitter_error;
 mod model;
 mod outline;
-mod query;
 mod schema;
 mod scope;
 mod stress;

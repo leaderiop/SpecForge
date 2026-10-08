@@ -15,11 +15,8 @@ use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
 use specforge_common::{ProjectConfig, discover_spec_files, is_discovered};
-use specforge_graph::Graph;
-use specforge_parser::FieldValue;
 
 use crate::build_cache::BUILD_CACHE_FILE;
-use crate::snapshot::EntitySnapshot;
 use crate::{Environment, builtins};
 use specforge_installed::Installed;
 
@@ -388,7 +385,7 @@ impl SessionInputs {
     }
 
     /// With `named`, the files the checks about to run read
-    /// ([`named_files`]); the missing ones' directories are taken now.
+    /// ([`specforge_registry::RegistryBuild::files`]); the missing ones' directories are taken now.
     pub(crate) fn with_named(&self, named: Vec<PathBuf>) -> Self {
         match &self.place {
             Place::Detached => self.clone(),
@@ -528,41 +525,6 @@ impl Canonical {
             listings: BTreeSet::new(),
         }
     }
-}
-
-/// The files the checks read on `graph` in `env`: what its `file_reference`
-/// fields name ([`specforge_registry::FieldRegistry::file_reference_fields`])
-/// and what its `file_exists` rules read over `entities`, resolved against
-/// the spec root, sorted and unique.
-pub(crate) fn named_files(
-    env: &Environment,
-    graph: &Graph,
-    entities: &EntitySnapshot,
-) -> Vec<PathBuf> {
-    let fields = env.registries.fields.file_reference_fields();
-    let mut files: Vec<PathBuf> = if fields.is_empty() {
-        Vec::new()
-    } else {
-        graph
-            .nodes()
-            .iter()
-            .flat_map(|node| {
-                fields
-                    .iter()
-                    .filter_map(|field| match node.fields.get(field) {
-                        Some(FieldValue::StringList(paths)) => Some(paths.as_slice()),
-                        _ => None,
-                    })
-                    .flatten()
-                    .map(|path| env.spec_root.join(path))
-                    .collect::<Vec<_>>()
-            })
-            .collect()
-    };
-    files.extend(env.registries.rules.files(&entities.rule_input()));
-    files.sort();
-    files.dedup();
-    files
 }
 
 impl Environment {

@@ -1,4 +1,3 @@
-use specforge_common::Severity;
 use specforge_ops::export;
 use specforge_ops::schema::SchemaRequest;
 use specforge_ops::view::ProjectView;
@@ -40,7 +39,7 @@ pub fn run(
     // snapshot too, so nothing here shows the project was exported before.
     let recorded = export::export_recorded(&view, &request);
     for diagnostic in &recorded.breaking {
-        eprintln!("{}", render_plain(diagnostic));
+        eprintln!("{}", specforge_common::render_plain(diagnostic));
     }
     let output = match recorded.export {
         Ok(output) => output,
@@ -55,21 +54,6 @@ pub fn run(
         );
     }
     0
-}
-
-/// A spanless diagnostic as `severity[CODE]: message`, with its suggestion
-/// on a `= help:` line.
-pub(crate) fn render_plain(diagnostic: &specforge_common::Diagnostic) -> String {
-    let severity = match diagnostic.severity {
-        Severity::Error => "error",
-        Severity::Warning => "warning",
-        Severity::Info => "info",
-    };
-    let mut text = format!("{severity}[{}]: {}", diagnostic.code, diagnostic.message);
-    if let Some(suggestion) = &diagnostic.suggestion {
-        text.push_str(&format!("\n  = help: {suggestion}"));
-    }
-    text
 }
 
 /// `specforge schema`: the schema operation over the project compiled at
