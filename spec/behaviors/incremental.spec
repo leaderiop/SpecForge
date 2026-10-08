@@ -113,7 +113,10 @@ behavior bring_session_up_to_date "Bring a Session Up to Date with Disk" {
     once per environment load, the extension runtime and the environment
     both built from that read, and every input MUST be stamped before
     anything reads it, the extension runtime included, so a file written
-    while the session loads is seen next time.
+    while the session loads is seen next time. A surface that watches files
+    MUST do so each time its watchers move, for what was written while they
+    did not watch; the LSP's catch-up MUST NOT replace an open document's
+    buffer with its file.
   """
   verify unit "an up-to-date session reports no change and re-parses nothing"
   verify unit "edits, creations and deletions since the last build are applied as one update"
@@ -121,6 +124,8 @@ behavior bring_session_up_to_date "Bring a Session Up to Date with Disk" {
   verify unit "a specforge.lock change reloads the environment"
   verify unit "after bringing itself up to date a session matches a fresh compile"
   verify unit "a specforge.json or module written while the extension runtime loads is seen next time"
+  verify integration "after the LSP's watchers move, the session catches up on what changed while they did"
+  verify integration "the LSP's catch-up keeps an open buffer"
 }
 
 behavior invalidate_changed_files "Invalidate Changed Files" {

@@ -750,13 +750,16 @@ async fn e2e_a_missing_files_directory_is_watched() {
     assert!(globs.contains(&format!("{root}/docs/*")), "{globs:?}");
 }
 
-/// Pin: an edit that names a file moves the client's watchers, and the
-/// session does not look at what changed on disk while they moved. The file
+/// An edit that names a file moves the client's watchers, and the session
+/// catches up on what changed on disk while they moved (ADR 0035). The file
 /// is written after the edit, before the client answers the
-/// re-registration, so no event can report it: only a catch-up could.
-/// Flipped by the LSP's catch-up (ADR 0035).
+/// re-registration, so no event can report it: only the catch-up can.
+#[spec(
+    behavior = "bring_session_up_to_date",
+    verify = "after the LSP's watchers move, the session catches up on what changed while they did"
+)]
 #[tokio::test]
-async fn e2e_what_changes_while_the_watchers_move_is_not_caught_up() {
+async fn e2e_an_edit_naming_a_file_registers_it_and_catches_up() {
     let dir = crate::session::docref_project("gadget gadget_one \"G\" {\n}\n");
     let root = dir.path().to_str().unwrap();
     let mut client = Session::launch(Some(root), json!({})).await.0;
@@ -794,20 +797,25 @@ async fn e2e_what_changes_while_the_watchers_move_is_not_caught_up() {
         globs.contains(&format!("{root}/docs/guide.md")),
         "{globs:?}"
     );
-    // Nothing reports the file: E016 stays until another change.
-    let published = client
+    // No `didChangeWatchedFiles` is sent: only the catch-up after the
+    // watchers moved can clear E016.
+    let cleared = client
         .notification_within(
             "textDocument/publishDiagnostics",
-            std::time::Duration::from_millis(1500),
-            |p| p["uri"] == uri.as_str(),
+            std::time::Duration::from_secs(10),
+            |p| {
+                p["uri"] == uri.as_str()
+                    && !codes(p["diagnostics"].as_array().unwrap()).contains(&"E016")
+            },
         )
         .await;
-    assert!(
-        published.is_none(),
-        "the session caught up on its own: {published:?}"
-    );
+    assert!(cleared.is_some(), "E016 stayed after the watchers moved");
 }
 
+#[spec(
+    behavior = "classify_project_changes",
+    verify = "the LSP's watchers follow an edit that names a new file the checks read"
+)]
 #[tokio::test]
 async fn e2e_a_disk_change_naming_a_file_registers_it() {
     let dir = crate::session::docref_project("gadget gadget_one \"G\" {\n}\n");
@@ -837,4 +845,65 @@ async fn e2e_a_disk_change_naming_a_file_registers_it() {
         globs.contains(&format!("{root}/docs/guide.md")),
         "{globs:?}"
     );
+}
+
+/// The catch-up after the watchers move reads what changed on disk, but an
+/// open document's buffer is the truth for its file: its file, rewritten
+/// meanwhile, does not replace it.
+#[spec(
+    behavior = "bring_session_up_to_date",
+    verify = "the LSP's catch-up keeps an open buffer"
+)]
+#[tokio::test]
+async fn e2e_a_catch_up_keeps_an_open_buffer() {
+    let dir = crate::session::docref_project("gadget gadget_one \"G\" {\n}\n");
+    let root = dir.path().to_str().unwrap();
+    let mut client = Session::launch(Some(root), json!({})).await.0;
+    registrations_after_open(&mut client).await;
+
+    let a = dir.path().join("spec/a.spec");
+    let uri = uri_of(&a);
+    // The buffer names the guide and declares an entity only it holds.
+    let buffer = format!("{NAMES_GUIDE}gadget gadget_two \"T\" {{\n}}\n");
+    client
+        .did_open(&uri, "specforge", "gadget gadget_one \"G\" {\n}\n")
+        .await;
+    client
+        .did_change(&uri, 2, vec![json!({"text": buffer})])
+        .await;
+    loop {
+        let diagnostics = client.diagnostics(&uri).await;
+        if codes(&diagnostics).contains(&"E016") {
+            break;
+        }
+    }
+    // While the watchers move: the guide appears and the file of the open
+    // document is rewritten with something else.
+    std::fs::write(dir.path().join("docs/guide.md"), "# guide\n").unwrap();
+    std::fs::write(&a, "gadget gadget_zero \"Z\" {\n}\n").unwrap();
+
+    client
+        .notification_within(
+            "client/registerCapability",
+            std::time::Duration::from_secs(5),
+            |_| true,
+        )
+        .await
+        .expect("the watchers did not follow the edit");
+    client
+        .notification_within(
+            "textDocument/publishDiagnostics",
+            std::time::Duration::from_secs(10),
+            |p| {
+                p["uri"] == uri.as_str()
+                    && !codes(p["diagnostics"].as_array().unwrap()).contains(&"E016")
+            },
+        )
+        .await
+        .expect("E016 stayed after the watchers moved");
+
+    // The buffer is still what is compiled: its second entity answers.
+    let hover = client.hover(&uri, 3, 10).await;
+    let value = hover["result"]["contents"]["value"].as_str().unwrap_or("");
+    assert!(value.contains("gadget_two"), "{hover}");
 }

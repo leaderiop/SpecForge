@@ -7,6 +7,7 @@ mod document;
 pub mod hover;
 mod navigation;
 pub mod publish;
+mod reaction;
 mod state;
 mod uri;
 pub mod watchers;
