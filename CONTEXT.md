@@ -412,7 +412,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   crosses one traps with the limit's kind (E028). What a declaration asks for that the host does not
   give is W153 (`specforge_wasm::sandbox`, ADR 0037).
 - **In-process runtime**: the test adapter of the `WasmRuntime` port that runs an SDK-declared
-  extension in the host process through the guest's own routing (`guest_call`), unsandboxed
+  extension in the host process through the guest's own routing (`Served`), unsandboxed
   (it records the limits the host applies and enforces none;
   `specforge_wasm::testing::InProcessRuntime`). It serves a binary's bytes under the name they are
   loaded as (`binary`), so the extension load and a candidate's read (add, init, update, publish)

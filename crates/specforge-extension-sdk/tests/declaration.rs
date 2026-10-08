@@ -1,12 +1,12 @@
 //! The SDK builds one `ExtensionDeclaration` and serves exactly it: the
 //! handshake carries the meta's short name, description and keywords; a
 //! raw category is checked when the extension is built; and the generated
-//! guest's routing is one function, `guest_call`, an in-process host
-//! reuses.
+//! guest's routing is one value, `Served`, which an in-process host reuses
+//! and which reads the declaration once.
 
 use specforge_extension_sdk::prelude::*;
 use specforge_extension_sdk::testing::MockHost;
-use specforge_extension_sdk::{ExtensionDeclaration, HandshakeResponse, guest_call};
+use specforge_extension_sdk::{ExtensionDeclaration, HandshakeResponse, Served, no_other_exports};
 use specforge_protocol_types::{DeclaredCategory, DescribeResponse, SUPPORTED_CATEGORIES};
 
 fn reports() -> ContributionsBuilder {
@@ -118,34 +118,70 @@ fn dispatch(export: &str, _input: &[u8]) -> Option<Result<Vec<u8>, String>> {
     (export == "scan__x").then(|| Ok(b"scanned".to_vec()))
 }
 
-/// `guest_call` routes as the component guest does: the protocol exports,
+/// A served guest routes as the component guest does: the protocol exports,
 /// then the declared surfaces and operations, then the handler, else an
 /// unknown export.
-#[test]
-fn guest_call_routes_every_export() {
+#[specforge_test_macros::test(
+    behavior = "call_extension_exports",
+    verify = "a guest answers the handshake and every describe from one declaration it builds once"
+)]
+fn a_served_guest_routes_every_export() {
     let b = reports();
-    let handshake = guest_call(&b, dispatch, "__handshake", b"{}").unwrap();
-    assert_eq!(handshake, b.handshake_json().into_bytes());
-    let describe = guest_call(&b, dispatch, "__describe", br#"{"category":"entities"}"#).unwrap();
-    assert_eq!(
-        describe,
-        b.describe_response_json("entities").unwrap().into_bytes()
-    );
-    let unsupported = guest_call(&b, dispatch, "__describe", br#"{"category":"nope"}"#);
+    let handshake_json = b.handshake_json().into_bytes();
+    let describe_entities = b.describe_response_json("entities").unwrap().into_bytes();
+    let served = Served::new(b);
+    let handshake = served.call(dispatch, "__handshake", b"{}").unwrap();
+    assert_eq!(handshake, handshake_json);
+    let describe = served
+        .call(dispatch, "__describe", br#"{"category":"entities"}"#)
+        .unwrap();
+    assert_eq!(describe, describe_entities);
+    let unsupported = served.call(dispatch, "__describe", br#"{"category":"nope"}"#);
     assert_eq!(unsupported, Err("unsupported category: nope".to_string()));
     let input = serde_json::to_vec(&CommandInput::default()).unwrap();
-    let command = guest_call(&b, dispatch, "cmd__list", &input).unwrap();
+    let command = served.call(dispatch, "cmd__list", &input).unwrap();
     let output: serde_json::Value = serde_json::from_slice(&command).unwrap();
     assert_eq!(output["stdout"], "hi");
-    let pass = guest_call(&b, dispatch, "__pass_audit", br#"{"entities":[]}"#).unwrap();
+    let pass = served
+        .call(dispatch, "__pass_audit", br#"{"entities":[]}"#)
+        .unwrap();
     assert_eq!(pass, b"[]");
     assert_eq!(
-        guest_call(&b, dispatch, "scan__x", b""),
+        served.call(dispatch, "scan__x", b""),
         Ok(b"scanned".to_vec())
     );
     assert_eq!(
-        guest_call(&b, dispatch, "nope", b""),
+        served.call(dispatch, "nope", b""),
         Err("unknown export 'nope'".to_string())
+    );
+}
+
+/// What a served guest answers is what its builder declares, for every
+/// category the protocol supports: the answers it reads from one declaration
+/// are the ones the builder gives.
+#[specforge_test_macros::test(
+    behavior = "call_extension_exports",
+    verify = "a guest answers the handshake and every describe from one declaration it builds once"
+)]
+fn served_answers_what_the_builder_declares() {
+    let builder = reports();
+    let expected: Vec<(&str, Option<String>)> = SUPPORTED_CATEGORIES
+        .iter()
+        .map(|category| (*category, builder.describe_response_json(category)))
+        .collect();
+    let handshake = builder.handshake_json();
+    let served = Served::new(builder);
+    for (category, answer) in expected {
+        let request = serde_json::to_vec(&serde_json::json!({ "category": category })).unwrap();
+        assert_eq!(
+            served.call(no_other_exports, "__describe", &request),
+            Ok(answer.expect("a supported category").into_bytes()),
+            "{category}"
+        );
+    }
+    assert_eq!(
+        served.call(no_other_exports, "__handshake", b""),
+        Ok(handshake.into_bytes())
     );
 }
 

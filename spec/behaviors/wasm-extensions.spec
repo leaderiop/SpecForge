@@ -153,6 +153,8 @@ behavior call_extension_exports "Call Extension Exports" {
     pass, a command's its E028 error, a scanner's a reported failure that
     makes the gap report approximate, a collector's the collect error. A
     migration hook's answer is not read.
+    A component guest builds its declaration once per instance and answers
+    the handshake and every describe from it.
 
     A pass diagnostic keeps the code and severity the pass gave it; when
     the code is not one the extension may use (its own catalogued code
@@ -166,6 +168,7 @@ behavior call_extension_exports "Call Extension Exports" {
   verify unit "an SDK-declared extension answers the same through the in-process runtime as through the component runtime"
   verify unit "both runtimes report an unknown extension, an unrouted export, a guest error and a guest panic as traps"
   verify unit "every extension call encodes its input as the protocol type the SDK decodes"
+  verify unit "a guest answers the handshake and every describe from one declaration it builds once"
   verify unit "every extension call decodes the protocol type the SDK encodes"
   verify unit "a call whose export trapped is E028 naming the extension, the operation and the export"
   verify unit "a call whose answer does not decode as its protocol type is E028, never a default"

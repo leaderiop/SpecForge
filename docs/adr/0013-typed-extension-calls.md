@@ -102,7 +102,7 @@ The host's encoders skip unset optional fields: `stdout` of a collect input, `te
 
 `WasmRuntime` has two implementations: `ComponentRuntime` (wasmtime, production) and
 `specforge_wasm::testing::InProcessRuntime` (feature `testing`), which serves an SDK-declared
-extension in the host process through the guest's own routing (`guest_call`, the body of
+extension in the host process through the guest's own routing (`Served::call`, the body of
 `component_guest!`), unsandboxed. Host tests declare their extensions with the SDK and give the
 answers no SDK guest gives (another protocol version, a trap, bytes that do not parse) through
 `answer_raw`; the nineteen hand-written doubles are gone. One contract suite
@@ -144,7 +144,8 @@ declaration without its handler panics when the extension is built. The `handler
 written with the builders; `answer_export` decodes and encodes for such a handler with the
 declared handlers' code. `#[compiler_pass]` was removed with `HostApi` and the free
 `describe_dispatch` (plan 16, 2026-10): the function it wrapped is the handler `PassBuilder::run`
-takes.
+takes. A guest builds its declaration once per instance (`Served`, plan 15, 2026-10); `guest_call` and
+the builder's `describe_dispatch` are gone.
 One SDK source change: `PassOutput::summary` is a JSON object, the keys the host merges into the
 pass's report.
 

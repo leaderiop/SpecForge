@@ -32,7 +32,11 @@ use specforge_protocol_types::{
     DeclaredCategory, DescribeRequest, DescribeResponse, SUPPORTED_CATEGORIES, pass_export,
 };
 
+use std::borrow::Cow;
 use std::collections::BTreeMap;
+
+/// The categories an extension gave as raw items, by name.
+type RawCategories = BTreeMap<String, serde_json::Value>;
 
 /// Runtime-free testing of an extension's contributions.
 pub mod testing;
@@ -104,7 +108,7 @@ pub struct ContributionsBuilder {
     decl: ExtensionDeclaration,
     surfaces: surface::Surfaces,
     operations: operations::Operations,
-    raw: BTreeMap<String, serde_json::Value>,
+    raw: RawCategories,
 }
 
 impl ContributionsBuilder {
@@ -490,32 +494,90 @@ impl ContributionsBuilder {
     /// category is not one of the protocol's supported categories: a raw
     /// category as given, else the declaration's items (`fields` derived
     /// from the kinds, the reserved categories empty).
+    ///
+    /// For tests: a guest answers through [`Served`], which reads the
+    /// declaration once.
     pub fn describe_response_json(&self, category: &str) -> Option<String> {
-        if !SUPPORTED_CATEGORIES.contains(&category) {
-            return None;
-        }
-        let declaration = self.declaration();
-        match self.raw.get(category) {
-            Some(raw) => Some(
-                DescribeResponse {
-                    category: category.to_string(),
-                    items: raw.clone(),
-                }
-                .wire_json(),
-            ),
-            None => declaration.describe_json(category),
+        describe_answer(&self.raw, || Cow::Owned(self.declaration()), category)
+    }
+}
+
+/// The describe answer: a raw category as given, else `declaration`'s
+/// items; `declaration` is read only for a category that is not raw.
+fn describe_answer<'d>(
+    raw: &RawCategories,
+    declaration: impl FnOnce() -> Cow<'d, ExtensionDeclaration>,
+    category: &str,
+) -> Option<String> {
+    if !SUPPORTED_CATEGORIES.contains(&category) {
+        return None;
+    }
+    match raw.get(category) {
+        Some(items) => Some(
+            DescribeResponse {
+                category: category.to_string(),
+                items: items.clone(),
+            }
+            .wire_json(),
+        ),
+        None => declaration().describe_json(category),
+    }
+}
+
+/// An extension as its component guest serves the host: its builder, and
+/// the declaration and handshake read from it once. [`component_guest!`]
+/// keeps one per instance.
+pub struct Served {
+    builder: ContributionsBuilder,
+    declaration: ExtensionDeclaration,
+    handshake: Vec<u8>,
+}
+
+impl Served {
+    /// Serve `builder`: its declaration and handshake are built here, once.
+    pub fn new(builder: ContributionsBuilder) -> Self {
+        let declaration = builder.declaration();
+        let handshake = declaration.handshake_json().into_bytes();
+        Self {
+            builder,
+            declaration,
+            handshake,
         }
     }
 
-    /// Full dispatch for the generated `__describe` export: parses the host's
-    /// request and returns the serialized response, or an error string for
-    /// malformed requests and unsupported categories.
-    pub fn describe_dispatch(&self, input: &[u8]) -> Result<Vec<u8>, String> {
-        let request: DescribeRequest =
-            serde_json::from_slice(input).map_err(|e| format!("invalid describe request: {e}"))?;
-        match self.describe_response_json(&request.category) {
-            Some(body) => Ok(body.into_bytes()),
-            None => Err(format!("unsupported category: {}", request.category)),
+    /// The answer to the host's `call(name, export, input)`:
+    /// - `__handshake` and `__describe` from the declaration read once;
+    /// - a declared surface's or operation's export by its handler
+    ///   ([`ContributionsBuilder::dispatch_export`]);
+    /// - any other export through `handler`, whose `None` is
+    ///   `unknown export '<name>'`, as a missing export is.
+    pub fn call(
+        &self,
+        handler: ExportHandler,
+        export: &str,
+        input: &[u8],
+    ) -> Result<Vec<u8>, String> {
+        match export {
+            "__handshake" => Ok(self.handshake.clone()),
+            "__describe" => {
+                let request: DescribeRequest = serde_json::from_slice(input)
+                    .map_err(|e| format!("invalid describe request: {e}"))?;
+                match describe_answer(
+                    &self.builder.raw,
+                    || Cow::Borrowed(&self.declaration),
+                    &request.category,
+                ) {
+                    Some(body) => Ok(body.into_bytes()),
+                    None => Err(format!("unsupported category: {}", request.category)),
+                }
+            }
+            other => match self.builder.dispatch_export(other, input) {
+                Some(result) => result,
+                None => match handler(other, input) {
+                    Some(result) => result,
+                    None => Err(format!("unknown export '{other}'")),
+                },
+            },
         }
     }
 }
@@ -1055,36 +1117,6 @@ pub fn handshake_json(b: &ContributionsBuilder) -> String {
 /// declaration answers, `None` for a name it does not implement.
 pub type ExportHandler = fn(&str, &[u8]) -> Option<Result<Vec<u8>, String>>;
 
-/// A guest's answer to the host's `call(name, export, input)`: the body of
-/// [`component_guest!`]'s `call`, as a function, so an in-process host
-/// (`specforge_wasm::testing::InProcessRuntime`) routes an extension
-/// exactly as its component does.
-///
-/// - `__handshake` and `__describe` are served from `build`'s declaration;
-/// - a declared surface's export is answered by its declared handler
-///   ([`ContributionsBuilder::dispatch_export`]);
-/// - any other export goes to `handler`, which returns `None` for names it
-///   does not implement: the answer is then the error
-///   `unknown export '<name>'`, exactly like a missing export.
-pub fn guest_call(
-    build: &ContributionsBuilder,
-    handler: ExportHandler,
-    export: &str,
-    input: &[u8],
-) -> Result<Vec<u8>, String> {
-    match export {
-        "__handshake" => Ok(build.handshake_json().into_bytes()),
-        "__describe" => build.describe_dispatch(input),
-        other => match build.dispatch_export(other, input) {
-            Some(result) => result,
-            None => match handler(other, input) {
-                Some(result) => result,
-                None => Err(format!("unknown export '{other}'")),
-            },
-        },
-    }
-}
-
 /// The answer of an export the guest's `handler` serves (one no builder
 /// declares with its handler: an analyzer's `classify__`/`map__`, or an
 /// export of a category given with [`ContributionsBuilder::raw_category`]):
@@ -1439,7 +1471,14 @@ world bridge {
                 export_name: String,
                 input: Vec<u8>,
             ) -> Result<Vec<u8>, String> {
-                ::specforge_extension_sdk::guest_call(&$build(), $handler, &export_name, &input)
+                // A component instance is single-threaded, and the host makes
+                // a new one after a trap, so the builder, its declaration and
+                // the handshake are built once per instance.
+                ::std::thread_local! {
+                    static SERVED: ::specforge_extension_sdk::Served =
+                        ::specforge_extension_sdk::Served::new($build());
+                }
+                SERVED.with(|served| served.call($handler, &export_name, &input))
             }
         }
 
