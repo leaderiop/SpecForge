@@ -503,10 +503,16 @@ mod tests {
         }
 
         fn view(&self) -> ProjectView<'_> {
+            self.view_at(Some(self.dir.path()))
+        }
+
+        /// The project's view rooted at `root`: what a view reads at its
+        /// root, never in an ancestor.
+        fn view_at<'a>(&'a self, root: Option<&'a std::path::Path>) -> ProjectView<'a> {
             ProjectView::new(
                 &self.graph,
                 &self.env,
-                Some(self.dir.path()),
+                root,
                 self.recorded
                     .get_or_init(|| coverage::RecordedCoverage::over(&self.graph, &self.env)),
             )
@@ -635,7 +641,7 @@ mod tests {
     #[test]
     fn extension_passes_are_skipped_without_a_root() {
         let project = Project::new();
-        let view = project.view().rooted_at(None);
+        let view = project.view_at(None);
         let outcome = analyze(
             &view,
             Some(&scanning_extension()),
@@ -693,7 +699,7 @@ mod tests {
         std::fs::write(project.dir.path().join("specforge-report.json"), "{}").unwrap();
         let sub = project.dir.path().join("sub");
         std::fs::create_dir(&sub).unwrap();
-        let view = project.view().rooted_at(Some(&sub));
+        let view = project.view_at(Some(&sub));
         let min = AnalyzeOptions {
             min: Some(50.0),
             ..Default::default()

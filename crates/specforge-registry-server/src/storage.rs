@@ -86,16 +86,6 @@ impl LocalStorage {
     pub fn read_wasm(&self, name: &str, version: &str) -> Option<Vec<u8>> {
         std::fs::read(self.wasm_path(name, version)).ok()
     }
-
-    #[allow(dead_code)]
-    pub fn delete_wasm(&self, name: &str, version: &str) -> bool {
-        std::fs::remove_file(self.wasm_path(name, version)).is_ok()
-    }
-
-    #[allow(dead_code)]
-    pub fn wasm_exists(&self, name: &str, version: &str) -> bool {
-        self.wasm_path(name, version).exists()
-    }
 }
 
 #[cfg(test)]
@@ -125,10 +115,10 @@ mod tests {
             .store_wasm_temp("@t/pkg", "1.0.0", b"payload-bytes")
             .unwrap();
         // final blob must not exist before commit
-        assert!(!storage.wasm_exists("@t/pkg", "1.0.0"));
+        assert!(storage.read_wasm("@t/pkg", "1.0.0").is_none());
 
         storage.commit_wasm("@t/pkg", "1.0.0", &temp).unwrap();
-        assert!(storage.wasm_exists("@t/pkg", "1.0.0"));
+        assert!(storage.read_wasm("@t/pkg", "1.0.0").is_some());
         assert_eq!(
             storage.read_wasm("@t/pkg", "1.0.0").unwrap(),
             b"payload-bytes"
@@ -145,7 +135,7 @@ mod tests {
             .store_wasm_temp("@t/pkg", "1.0.0", b"rejected")
             .unwrap();
         LocalStorage::discard_temp(&temp);
-        assert!(!storage.wasm_exists("@t/pkg", "1.0.0"));
+        assert!(storage.read_wasm("@t/pkg", "1.0.0").is_none());
     }
 
     #[test]

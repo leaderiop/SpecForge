@@ -153,13 +153,6 @@ impl<'a> ProjectView<'a> {
         }
     }
 
-    /// This view over the same project at another root (a test of what a
-    /// view reads at its root, never in an ancestor).
-    #[cfg(test)]
-    pub(crate) fn rooted_at(self, root: Option<&'a Path>) -> Self {
-        ProjectView { root, ..self }
-    }
-
     /// This view, reporting `diagnostics` in place of its owner's (a graph
     /// built in memory, a test).
     pub fn reporting(self, diagnostics: &'a [Diagnostic]) -> Self {
