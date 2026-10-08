@@ -82,8 +82,6 @@ fn parse_attrs(ts: TokenStream2) -> syn::Result<Attrs> {
     Ok(attrs)
 }
 use quote::quote;
-use syn::parse::{Parse, ParseStream};
-use syn::{Ident, ItemFn};
 use syn::{ItemStruct, LitStr, Token, parse_macro_input};
 
 #[proc_macro_attribute]
@@ -136,76 +134,6 @@ pub fn extension(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
     };
     ts.into()
-}
-
-/// Compiler pass arguments: `name` (required), plus optional `after`,
-/// `before`, and `phase` ordering hints.
-struct CompilerPassArgs {
-    name: String,
-}
-
-impl Parse for CompilerPassArgs {
-    fn parse(input: ParseStream) -> syn::Result<Self> {
-        let mut name = None;
-        while !input.is_empty() {
-            let key: Ident = input.parse()?;
-            let _eq: Token![=] = input.parse()?;
-            let value: LitStr = input.parse()?;
-            if key == "name" {
-                name = Some(value.value());
-            }
-            if !input.is_empty() {
-                let _comma: Token![,] = input.parse()?;
-            }
-        }
-        Ok(CompilerPassArgs {
-            name: name.ok_or_else(|| input.error("compiler_pass requires name = \"...\""))?,
-        })
-    }
-}
-
-/// Wrap a pass function for the component bridge.
-///
-/// **Deprecated** (ADR 0013): declare the pass with its handler instead,
-/// `c.pass("condition_check", |p| { p.after("resolve").run(pass_condition_check); })`;
-/// the function this attribute wraps (`fn(&PassInput) -> Vec<PassDiagnostic>`)
-/// is already the handler `PassBuilder::run` takes. The attribute keeps
-/// generating `specforge_dispatch_pass_<name>`, which decodes the
-/// `PassInput` and encodes the diagnostics, for a guest that still routes
-/// `__pass_<name>` through `component_guest!`'s `handler` (a pass declared
-/// with `raw_category`).
-///
-/// ```ignore
-/// #[compiler_pass(name = "condition_check", after = "resolve")]
-/// fn pass_condition_check(input: &PassInput) -> Vec<PassDiagnostic> {
-///     // ...
-/// }
-/// ```
-///
-#[proc_macro_attribute]
-pub fn compiler_pass(attr: TokenStream, item: TokenStream) -> TokenStream {
-    let args = syn::parse_macro_input!(attr as CompilerPassArgs);
-    let func = syn::parse_macro_input!(item as ItemFn);
-
-    let fn_name = &func.sig.ident;
-    let dispatch_ident = quote::format_ident!("specforge_dispatch_pass_{}", args.name);
-
-    let expanded = quote::quote! {
-        #func
-
-        /// Wire helper: deserializes the host's `PassInput` snapshot, calls
-        /// the pass function, and serializes the returned diagnostics. The
-        /// guest's `component_guest!` handler routes `__pass_<name>` here.
-        pub fn #dispatch_ident(input: &[u8]) -> Result<Vec<u8>, String> {
-            let request: ::specforge_extension_sdk::PassInput =
-                ::serde_json::from_slice(input)
-                    .map_err(|e| format!("invalid pass request: {e}"))?;
-            let findings = #fn_name(&request);
-            ::serde_json::to_vec(&findings)
-                .map_err(|e| format!("pass serialization failed: {e}"))
-        }
-    };
-    expanded.into()
 }
 
 #[cfg(test)]

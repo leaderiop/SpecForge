@@ -123,8 +123,11 @@ are declared together with the function that answers them: `PassBuilder::run`,
 `ContributionsBuilder::migration_hook_handler`. The SDK routes the export, decoding the protocol
 input and encoding the answer once, in code a guest links only for what it declares. A
 declaration without its handler panics when the extension is built. The `handler` of
-`component_guest!`, `raw_category`, the deprecated `migration_hook` and `#[compiler_pass]` stay
-for guests not written with the builders; `answer_export` decodes and encodes for such a handler.
+`component_guest!`, `raw_category` and the deprecated `migration_hook` stay for guests not
+written with the builders; `answer_export` decodes and encodes for such a handler with the
+declared handlers' code. `#[compiler_pass]` was removed with `HostApi` and the free
+`describe_dispatch` (plan 16, 2026-10): the function it wrapped is the handler `PassBuilder::run`
+takes.
 One SDK source change: `PassOutput::summary` is a JSON object, the keys the host merges into the
 pass's report.
 

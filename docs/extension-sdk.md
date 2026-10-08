@@ -537,10 +537,8 @@ c.pass("coverage", |p| {
 });
 ```
 
-`#[compiler_pass]` is deprecated: the function it wraps is already the
-handler `p.run` takes; the attribute still generates the
-`specforge_dispatch_pass_<name>` helper for a guest that routes the export
-through `component_guest!`'s `handler`. A pass declared with `p.phase("check")` runs with every
+`#[compiler_pass]` is gone (it was deprecated): the function it wrapped is the handler `p.run`
+takes, so `#[compiler_pass(name = "x")] fn f(…)` becomes `c.pass("x", |p| { p.run(f); })`. A pass declared with `p.phase("check")` runs with every
 compile (`specforge check`, watch, the LSP and MCP), after the graph checks:
 its diagnostics are the compile's, with the codes and severities it returns,
 and `specforge check` exits 1 on its errors. Check passes run in their
