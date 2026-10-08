@@ -93,22 +93,30 @@ behavior document_open_close "Document Open/Close" {
   ensures {
     document_tracked           "open/close state of the document is correctly reflected in the open document set"
     file_changed_emitted       "file_changed event is produced on didOpen to trigger initial compilation"
-    closed_diagnostics_cleared "diagnostics for closed documents are cleared from the editor"
+    closed_diagnostics_cleared "the closed buffer's diagnostics are cleared from the editor"
+    closed_file_from_disk      "a closed project source is compiled from disk again; any other closed file leaves the project"
   }
   contract   """
     When the LSP server receives a textDocument/didOpen notification,
     it MUST register the document in its open document set and trigger
     an initial compilation for diagnostics. When the server receives a
     textDocument/didClose notification, it MUST remove the document from
-    its open document set. Diagnostics for closed documents MUST be
-    cleared from the editor. The server MUST track which documents are
-    open to determine the scope of incremental recompilation.
+    its open document set, and the closed buffer's diagnostics MUST be
+    cleared from the editor. The buffer is no longer the truth for its
+    file: a project source MUST be compiled from the file on disk again
+    (unsaved edits are dropped), and any other file (outside the spec root,
+    excluded, or any file when no project is open) MUST leave the project.
+    What the project then reports for the file is published as for any file
+    that is not open. The server MUST track which documents are open to
+    determine the scope of incremental recompilation.
   """
   verify unit "didOpen registers document and triggers compilation"
   verify unit "didClose removes document and clears diagnostics"
   verify unit "only open documents participate in incremental compilation"
   verify unit "rapid open and close cycles do not corrupt state"
-  verify contract "Document Open/Close: document open/close holds — lsp_initialized_fired, document_tracked, file_changed_emitted, closed_diagnostics_cleared"
+  verify unit "closing a document compiles its file from disk again, dropping its unsaved edits"
+  verify unit "closing a document outside a project drops its file from the project"
+  verify contract "Document Open/Close: document open/close holds — lsp_initialized_fired, document_tracked, file_changed_emitted, closed_diagnostics_cleared, closed_file_from_disk"
 }
 
 // Event consumer chain: didChange -> file_changed -> debounce window ->
@@ -132,10 +140,15 @@ behavior handle_text_document_change "Handle Text Document Change" {
     On textDocument/didChange notification, the LSP MUST apply
     incremental text edits to the in-memory document buffer, trigger
     incremental_document_sync, and schedule a recompile via the shared
-    incremental pipeline. The handler MUST NOT block the LSP event loop.
+    incremental pipeline. The edits to every document that arrive within
+    one debounce window MUST be applied as one update and published once,
+    so an edit the editor applies to several files at once (a rename) never
+    publishes the diagnostics of a half-applied edit. The handler MUST NOT
+    block the LSP event loop.
   """
   verify unit "didChange applies incremental edits to buffer"
   verify unit "didChange triggers incremental recompile"
+  verify unit "edits to several documents in one debounce window are one update and one publication"
   verify contract "Handle Text Document Change: text document change holds — document_open, buffer_updated, file_changed_emitted, event_loop_unblocked"
 }
 
@@ -610,6 +623,7 @@ behavior shared_incremental_pipeline "Shared Incremental Pipeline" {
   verify unit "LSP and watch share the same graph"
   verify integration "graph update serves all LSP features"
   verify integration "the LSP publishes the diagnostics specforge check reports"
+  verify unit "a reload applies every open buffer again, in one update"
   verify property "CLI and LSP share identical debounce window"
   verify property "CLI and LSP share identical validator dispatch order"
   verify contract "Shared Incremental Pipeline: shared incremental pipeline holds — incremental_rebuild_complete_fired, shared_graph_updated, diagnostics_pushed, pipeline_parity_enforced"

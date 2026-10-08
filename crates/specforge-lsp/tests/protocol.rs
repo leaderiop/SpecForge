@@ -1,7 +1,7 @@
-//! Characterization of what the LSP answers and applies today, which the
-//! decision modules (`answers`, `changes`) move (architecture plan 10).
-//! Each `pin_*` test asserts the behaviour as it is; the ticket that fixes
-//! the behaviour flips or deletes its pin.
+//! What the LSP answers and applies over the protocol, with the decisions in
+//! `answers` and `changes` (architecture plan 10): the same behaviours as the
+//! synchronous tests beside them, asked through a client. The tests that
+//! start `pin_` assert behaviour kept as it was before those modules.
 
 use crate::session::{Session, codes, uri_of};
 use serde_json::{Value, json};
@@ -11,7 +11,6 @@ use tempfile::TempDir;
 const A_ALPHA: &str = "type alpha \"A\" {}\n";
 const A_OMEGA: &str = "type omega \"O\" {}\n";
 const B_USES_ALPHA: &str = "behavior user \"U\" {\n  types [alpha]\n}\n";
-const B_USES_OMEGA: &str = "behavior user \"U\" {\n  types [omega]\n}\n";
 const CYCLE: &str =
     "behavior alpha \"A\" {\n  types [beta]\n}\nbehavior beta \"B\" {\n  types [alpha]\n}\n";
 const LINKED: &str = "type token \"T\" {}\nbehavior login \"L\" {\n  types [token]\n}\n";
@@ -58,6 +57,24 @@ async fn publishes(client: &mut Session, uri: &str, code: &str) -> bool {
         .is_some()
 }
 
+/// Whether diagnostics without `code` are published for `uri` within a few
+/// seconds.
+async fn recovers(client: &mut Session, uri: &str, code: &str) -> bool {
+    client
+        .notification_within(
+            "textDocument/publishDiagnostics",
+            Duration::from_secs(5),
+            |p| {
+                p["uri"] == uri
+                    && p["diagnostics"]
+                        .as_array()
+                        .is_some_and(|d| !codes(d).contains(&code))
+            },
+        )
+        .await
+        .is_some()
+}
+
 /// The names `workspace/symbol` answers for `query`.
 async fn symbols(client: &mut Session, query: &str) -> Vec<String> {
     client.workspace_symbol(query).await["result"]
@@ -76,7 +93,7 @@ fn whole(text: &str) -> Vec<Value> {
 }
 
 #[tokio::test]
-async fn pin_a_closed_unsaved_buffer_stays_compiled() {
+async fn a_closed_unsaved_buffer_is_read_from_disk() {
     let dir = project(&[("a.spec", A_ALPHA), ("b.spec", B_USES_ALPHA)]);
     let (mut client, _) = Session::start(Some(dir.path())).await;
     let a = uri_of(&dir.path().join("a.spec"));
@@ -88,54 +105,16 @@ async fn pin_a_closed_unsaved_buffer_stays_compiled() {
         publishes(&mut client, &b, "E003").await,
         "the edit compiled"
     );
+    settle(&mut client).await;
     client.close(&a).await;
 
-    // The discarded text is still what the project is compiled from.
-    assert_eq!(symbols(&mut client, "omega").await, ["omega"]);
-    assert!(symbols(&mut client, "alpha").await.is_empty());
-    assert_eq!(
-        std::fs::read_to_string(dir.path().join("a.spec")).unwrap(),
-        A_ALPHA
-    );
-}
-
-#[tokio::test]
-async fn pin_a_batch_of_edits_publishes_each_file() {
-    let dir = project(&[("a.spec", A_ALPHA), ("b.spec", B_USES_ALPHA)]);
-    let (mut client, _) = Session::start(Some(dir.path())).await;
-    let a = uri_of(&dir.path().join("a.spec"));
-    let b = uri_of(&dir.path().join("b.spec"));
-    client.open(&a, A_ALPHA).await;
-    client.open(&b, B_USES_ALPHA).await;
-    settle(&mut client).await;
-
-    // A rename's edits, applied by the client as two back-to-back changes.
-    client.did_change(&a, 2, whole(A_OMEGA)).await;
-    client.did_change(&b, 2, whole(B_USES_OMEGA)).await;
-
-    let mut published: Vec<Vec<String>> = Vec::new();
-    while let Some(message) = client
-        .wait_for_notification("textDocument/publishDiagnostics", 1500)
-        .await
-    {
-        let params = &message["params"];
-        if params["uri"] == b.as_str() {
-            let list = params["diagnostics"].as_array().unwrap();
-            published.push(codes(list).iter().map(|c| c.to_string()).collect());
-        }
-    }
+    // b.spec is compiled against the disk's alpha again.
     assert!(
-        published
-            .first()
-            .is_some_and(|c| c.contains(&"E003".into())),
-        "the half-applied edit is published first: {published:?}"
+        recovers(&mut client, &b, "E003").await,
+        "b.spec's next diagnostics have no E003"
     );
-    assert!(
-        published
-            .get(1)
-            .is_some_and(|c| !c.contains(&"E003".into())),
-        "then the whole edit: {published:?}"
-    );
+    assert_eq!(symbols(&mut client, "alpha").await, ["alpha"]);
+    assert!(symbols(&mut client, "omega").await.is_empty());
 }
 
 #[tokio::test]
@@ -181,7 +160,7 @@ async fn pin_definition_is_a_link_only_for_a_link_client() {
 }
 
 #[tokio::test]
-async fn pin_a_reload_reapplies_the_open_buffers() {
+async fn a_reload_reapplies_the_open_buffers() {
     let dir = project(&[("a.spec", A_ALPHA), ("b.spec", B_USES_ALPHA)]);
     let (mut client, _) = Session::start(Some(dir.path())).await;
     let a = uri_of(&dir.path().join("a.spec"));
@@ -221,7 +200,7 @@ async fn pin_a_reload_reapplies_the_open_buffers() {
 }
 
 #[tokio::test]
-async fn pin_a_disk_change_to_an_open_document_is_ignored() {
+async fn a_disk_change_to_an_open_document_is_ignored_over_the_protocol() {
     let dir = project(&[("a.spec", A_ALPHA), ("b.spec", B_USES_ALPHA)]);
     let (mut client, _) = Session::start(Some(dir.path())).await;
     let a = uri_of(&dir.path().join("a.spec"));
@@ -253,17 +232,19 @@ async fn pin_a_disk_change_to_an_open_document_is_ignored() {
 }
 
 #[tokio::test]
-async fn pin_closing_a_detached_buffer_keeps_it_compiled() {
+async fn closing_a_detached_buffer_drops_it() {
     let (mut client, test) =
         Session::with_doc(None, "test.spec", "behavior foo \"Foo\" {}\n").await;
     let other = "file:///test/b.spec";
     client
         .open(other, "behavior user \"U\" {\n  types [foo]\n}\n")
         .await;
-    client
-        .wait_for_notification("textDocument/publishDiagnostics", 5000)
-        .await;
+    settle(&mut client).await;
 
     client.close(&test).await;
-    assert_eq!(symbols(&mut client, "foo").await, ["foo"]);
+    assert!(
+        publishes(&mut client, other, "E003").await,
+        "b.spec now names a missing foo"
+    );
+    assert!(symbols(&mut client, "foo").await.is_empty());
 }

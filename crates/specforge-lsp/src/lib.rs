@@ -1,6 +1,7 @@
 pub mod answers;
 pub mod backend;
 mod capabilities;
+pub mod changes;
 pub mod completion;
 mod document;
 pub mod hover;

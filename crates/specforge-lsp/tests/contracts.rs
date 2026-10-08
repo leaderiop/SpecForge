@@ -200,7 +200,7 @@ fn lsp_shutdown_contract() {
 // B:document_open_close — verify contract "requires/ensures consistency for document open/close"
 #[specforge_test(
     behavior = "document_open_close",
-    verify = "Document Open/Close: document open/close holds — lsp_initialized_fired, document_tracked, file_changed_emitted, closed_diagnostics_cleared"
+    verify = "Document Open/Close: document open/close holds — lsp_initialized_fired, document_tracked, file_changed_emitted, closed_diagnostics_cleared, closed_file_from_disk"
 )]
 #[tokio::test]
 async fn document_open_close_contract() {
@@ -230,6 +230,14 @@ async fn document_open_close_contract() {
     let closed = session.diagnostics(uri).await;
     assert!(closed.is_empty(), "{closed:?}");
     assert!(session.format(uri).await.is_null());
+
+    // closed_file_from_disk: a file outside a project has no disk text to
+    // return to, so the closed file leaves the project; the publication
+    // that follows says it was compiled.
+    let after = session.diagnostics(uri).await;
+    assert!(after.is_empty(), "{after:?}");
+    let found = session.workspace_symbol("login").await;
+    assert!(found["result"].is_null(), "{found}");
 }
 
 /// Formatting a document with a parse error publishes the formatter's

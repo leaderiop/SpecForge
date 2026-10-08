@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use tokio::sync::mpsc;
@@ -7,12 +7,12 @@ use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer};
 
-use specforge_project::{CheckMode, ProjectSession, SourceChange, UpdateKind};
+use specforge_project::{OpeningProject, ProjectSession};
 
+use crate::changes::{Applied, Change, Plan};
 use crate::document::LineIndex;
 use crate::navigation::Compiled;
-use crate::publish::{Publication, diagnostic_to_lsp};
-use crate::uri::{file_path_to_uri, uri_to_file_path};
+use crate::publish::diagnostic_to_lsp;
 use crate::{ClientSupport, LspState, answers, server_capabilities, server_info};
 
 use specforge_ops::format;
@@ -40,29 +40,6 @@ pub struct Backend {
     /// Whether the client declared
     /// `workspace.didChangeWatchedFiles.relativePatternSupport`.
     relative_patterns: Arc<AtomicBool>,
-}
-
-/// A change the project session is asked to apply.
-enum Change {
-    /// Open the project at this root, then apply every open buffer.
-    Open(PathBuf),
-    /// An open document's buffer changed: it is the truth for its file.
-    Buffer(Url),
-    /// Files changed, were created or deleted on disk (absolute paths). The
-    /// session says what they are, once it is held for the update
-    /// (`ProjectSession::changes`), and applies what they amount to: an
-    /// environment reload (then every open buffer again), an update of the
-    /// changed sources, or a re-check.
-    Apply(Vec<PathBuf>),
-}
-
-/// What [`Backend::recompile`] did to the session.
-struct Recompiled {
-    /// The environment was loaded again (or the project opened).
-    environment: bool,
-    /// The session's inputs changed (`Update::inputs_changed`): what the
-    /// client is asked to watch must follow them.
-    inputs_changed: bool,
 }
 
 impl Backend {
@@ -94,25 +71,24 @@ impl Backend {
                 }
                 pending.sort();
                 pending.dedup();
-                for uri in pending {
-                    let recompiled = Self::recompile(
+                // Everything the burst edited is one update (ADR 0023 D9).
+                let applied = Self::recompile(
+                    &worker_state,
+                    &worker_client,
+                    &worker_updates,
+                    Change::Edited(pending),
+                )
+                .await;
+                // An edit that names a file the checks read moves what
+                // the client must watch (ADR 0030).
+                if applied.is_some_and(|a| a.inputs_changed) {
+                    Self::sync_watchers(
                         &worker_state,
                         &worker_client,
-                        &worker_updates,
-                        Change::Buffer(uri),
+                        &worker_watched,
+                        worker_relative_patterns.load(Ordering::Relaxed),
                     )
                     .await;
-                    // An edit that names a file the checks read moves what
-                    // the client must watch (ADR 0030).
-                    if recompiled.is_some_and(|r| r.inputs_changed) {
-                        Self::sync_watchers(
-                            &worker_state,
-                            &worker_client,
-                            &worker_watched,
-                            worker_relative_patterns.load(Ordering::Relaxed),
-                        )
-                        .await;
-                    }
                 }
                 Self::refresh_semantic_tokens_if_stale(
                     &worker_state,
@@ -158,8 +134,9 @@ impl Backend {
     /// Apply `change` to the project session, the one `specforge watch`
     /// holds, and publish everything the project reports now: the
     /// diagnostics `specforge check` reports for the same sources and
-    /// buffers. Returns `None` when there was nothing to apply, or it could
-    /// not be applied.
+    /// buffers. What the change asks of the session is [`Plan::of`]'s to
+    /// say. Returns `None` when there was nothing to apply, or it could not
+    /// be applied.
     ///
     /// Changes apply one at a time (`updates`). The session does
     /// synchronous file reads and whole-graph checks, so it runs on the
@@ -171,130 +148,50 @@ impl Backend {
         client: &Client,
         updates: &Mutex<()>,
         change: Change,
-    ) -> Option<Recompiled> {
+    ) -> Option<Applied> {
         let _one_at_a_time = updates.lock().await;
-        let (session, buffers, edited, changes) = {
+        let (session, plan) = {
             let mut st = state.write().await;
-            let session = st.take_session()?;
-            // What changed files are, to the session as it is now (a
-            // reload queued before this one may have changed the answer).
-            let changes = match &change {
-                Change::Apply(paths) => {
-                    Some(session.inputs().changes(paths.iter().map(PathBuf::as_path)))
-                }
-                _ => None,
-            };
-            if changes
-                .as_ref()
-                .is_some_and(specforge_project::Changes::is_empty)
-            {
-                st.set_session(session);
-                return None;
-            }
-            let reload = changes.as_ref().is_some_and(|c| c.environment);
-            // Every open buffer, as (absolute path, text), for a change
-            // that rebuilds from disk; the edited one for a buffer change.
-            let buffer = |uri: &str| {
-                let doc = st.document(uri)?;
-                let url = Url::parse(uri).ok()?;
-                Some((uri_to_file_path(&url), doc.text().to_string()))
-            };
-            let (buffers, edited): (Vec<(String, String)>, Option<Url>) = match &change {
-                Change::Buffer(uri) => (
-                    buffer(uri.as_str()).into_iter().collect(),
-                    Some(uri.clone()),
-                ),
-                Change::Apply(_) if !reload => (Vec::new(), None),
-                Change::Open(_) | Change::Apply(_) => (
-                    st.open_uris().into_iter().filter_map(buffer).collect(),
-                    None,
-                ),
-            };
-            (session, buffers, edited, changes)
+            let plan = Plan::of(change, &st)?;
+            (st.take_session()?, plan)
         };
-        if matches!(change, Change::Buffer(_)) && buffers.is_empty() {
-            // Closed before the worker got to it.
-            state.write().await.set_session(session);
-            return None;
-        }
 
         // Opening a project loads its environment first and shows it to
         // readers before the sources are read: the kinds and fields
         // keyword completion offers need no `.spec` file, so they are
         // answered while indexing runs (CONTEXT: Environment).
-        let mut opening = None;
-        if let Change::Open(root) = &change {
-            let root = root.clone();
-            match tokio::task::spawn_blocking(move || ProjectSession::begin_open(&root)).await {
-                Ok(loaded) => {
-                    state
-                        .write()
-                        .await
-                        .show_environment(Arc::clone(loaded.environment()));
-                    opening = Some(loaded);
-                }
-                Err(e) => {
-                    Self::lose_session(state, client, e).await;
-                    return None;
+        let opening = match plan.root().map(Path::to_path_buf) {
+            Some(root) => {
+                match tokio::task::spawn_blocking(move || ProjectSession::begin_open(&root)).await {
+                    Ok(loaded) => {
+                        state
+                            .write()
+                            .await
+                            .show_environment(Arc::clone(loaded.environment()));
+                        Some(loaded)
+                    }
+                    Err(e) => {
+                        Self::lose_session(state, client, e).await;
+                        return None;
+                    }
                 }
             }
-        }
+            None => None,
+        };
 
         let joined = tokio::task::spawn_blocking(move || {
-            let mut session = session;
-            let mut touched: Vec<String> = Vec::new();
-            let mut environment = false;
-            let mut inputs_changed = false;
-            // Every session verifies its updates in a debug build (ADR
-            // 0032): a rebuild that differs from a cold build is reported
-            // below.
-            let mut divergences: Vec<String> = Vec::new();
-            match (&change, changes) {
-                (Change::Open(_), _) => {
-                    if let Some(loaded) = opening {
-                        session = loaded.finish();
-                    }
-                    environment = true;
-                    inputs_changed = true;
-                }
-                (Change::Apply(_), Some(changes)) => {
-                    if let Some(update) = session.apply(&changes) {
-                        divergences.extend(update.verification.and_then(std::result::Result::err));
-                        environment = update.kind == UpdateKind::Environment;
-                        inputs_changed |= update.inputs_changed;
-                        touched.extend(update.rebuilt_files);
-                    }
-                    touched.extend(changes.sources);
-                }
-                _ => {}
-            }
-            let typing = matches!(change, Change::Buffer(_));
-            for (path, text) in &buffers {
-                let key = session.source_key(std::path::Path::new(path));
-                let mode = if typing {
-                    // The syntax-only fast path (C4-07): no checks while
-                    // the edited file does not parse.
-                    CheckMode::SyntaxOnlyIfParseErrorsIn(&[key.as_str()])
-                } else {
-                    CheckMode::Full
-                };
-                let buffer = SourceChange::Buffer {
-                    path: &key,
-                    text: Some(text),
-                };
-                let update = session.update_with(buffer, mode);
-                divergences.extend(update.verification.and_then(std::result::Result::err));
-                inputs_changed |= update.inputs_changed;
-                touched.extend(update.rebuilt_files);
-                touched.push(key);
-            }
-            (session, touched, environment, inputs_changed, divergences)
+            let mut session = opening.map_or(session, OpeningProject::finish);
+            let applied = plan.apply(&mut session);
+            (session, applied)
         })
         .await;
 
         match joined {
-            Ok((session, touched, environment, inputs_changed, divergences)) => {
-                for divergence in &divergences {
+            Ok((session, applied)) => {
+                // Every session verifies its updates in a debug build (ADR
+                // 0032): a rebuild that differs from a cold build is
+                // reported here.
+                for divergence in &applied.divergences {
                     client
                         .log_message(
                             MessageType::ERROR,
@@ -304,20 +201,10 @@ impl Backend {
                         )
                         .await;
                 }
-                debug_assert!(divergences.is_empty(), "{divergences:?}");
-                let touched: Vec<Url> = {
-                    let mut st = state.write().await;
-                    st.set_session(session);
-                    touched
-                        .iter()
-                        .map(|key| file_path_to_uri(&st.file_path(key).to_string_lossy()))
-                        .collect()
-                };
-                Self::publish(state, client, edited, touched).await;
-                Some(Recompiled {
-                    environment,
-                    inputs_changed,
-                })
+                debug_assert!(applied.divergences.is_empty(), "{:?}", applied.divergences);
+                state.write().await.set_session(session);
+                Self::publish(state, client, &applied).await;
+                Some(applied)
             }
             Err(e) => {
                 Self::lose_session(state, client, e).await;
@@ -396,19 +283,13 @@ impl Backend {
             .await
     }
 
-    /// Publish what the project reports now ([`Publication::of`]): each
-    /// diagnostic on the file its span names, a spanless one about entities
-    /// at the first one's name, one about none on `edited` (else the anchor,
-    /// else the first open document); files that had diagnostics and have
-    /// none now, and every `touched` file, get an empty list. What is
-    /// published is kept: code actions act on it.
-    async fn publish(
-        state: &RwLock<LspState>,
-        client: &Client,
-        edited: Option<Url>,
-        touched: Vec<Url>,
-    ) {
-        let publication = Publication::of(&*state.read().await, edited.as_ref(), &touched);
+    /// Publish what `applied` says the project reports now
+    /// ([`Applied::publication`]). What is published is kept: code actions
+    /// act on it.
+    async fn publish(state: &RwLock<LspState>, client: &Client, applied: &Applied) {
+        let Some(publication) = applied.publication(&*state.read().await) else {
+            return;
+        };
         state.write().await.record(&publication);
         for (uri, file) in publication.files {
             client
@@ -668,14 +549,14 @@ impl LanguageServer for Backend {
             }
         }
 
-        let recompiled = Self::recompile(
+        let applied = Self::recompile(
             &self.state,
             &self.client,
             &self.updates,
-            Change::Buffer(uri),
+            Change::Edited(vec![uri]),
         )
         .await;
-        if recompiled.is_some_and(|r| r.inputs_changed) {
+        if applied.is_some_and(|a| a.inputs_changed) {
             Self::sync_watchers(
                 &self.state,
                 &self.client,
@@ -716,38 +597,44 @@ impl LanguageServer for Backend {
         self.state.write().await.close_document(uri.as_str());
         // The editor keeps a closed document's squiggles until told
         // otherwise: publish an empty set to clear them.
-        self.client.publish_diagnostics(uri, Vec::new(), None).await;
+        self.client
+            .publish_diagnostics(uri.clone(), Vec::new(), None)
+            .await;
+        // The buffer is no longer the truth for its file (ADR 0023 D9).
+        let applied = Self::recompile(
+            &self.state,
+            &self.client,
+            &self.updates,
+            Change::Closed(uri),
+        )
+        .await;
+        if applied.is_some_and(|a| a.inputs_changed) {
+            Self::sync_watchers(
+                &self.state,
+                &self.client,
+                &self.watched,
+                self.relative_patterns.load(Ordering::Relaxed),
+            )
+            .await;
+        }
+        Self::refresh_semantic_tokens_if_stale(
+            &self.state,
+            &self.client,
+            &self.tokens_refresh_support,
+        )
+        .await;
     }
 
     async fn did_change_watched_files(&self, params: DidChangeWatchedFilesParams) {
-        // An open document's buffer is the truth for its file, so of its
-        // changes on disk only its deletion counts. What the others are (a
-        // source, an environment or check input, nothing) is the session's
-        // to say (classify_project_changes).
-        let paths: Vec<PathBuf> = {
-            let state = self.state.read().await;
-            params
-                .changes
-                .iter()
-                .filter(|change| {
-                    change.typ == FileChangeType::DELETED || !state.is_open(change.uri.as_str())
-                })
-                .map(|change| PathBuf::from(uri_to_file_path(&change.uri)))
-                .collect()
-        };
-        let recompiled = if paths.is_empty() {
-            None
-        } else {
-            Self::recompile(
-                &self.state,
-                &self.client,
-                &self.updates,
-                Change::Apply(paths),
-            )
-            .await
-        };
+        let applied = Self::recompile(
+            &self.state,
+            &self.client,
+            &self.updates,
+            Change::Watched(params.changes),
+        )
+        .await;
         let (environment, inputs_changed) =
-            recompiled.map_or((false, false), |r| (r.environment, r.inputs_changed));
+            applied.map_or((false, false), |a| (a.environment, a.inputs_changed));
         if environment {
             // The environment loaded again (hardening-plan H4 / R-5): the
             // spec root re-indexed, everything republished, and the
