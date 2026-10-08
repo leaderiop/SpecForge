@@ -255,7 +255,7 @@ fn report(session: &ProjectSession, update: &Update, changed: &[String], json: b
                 "warnings": warnings,
                 "diagnostics": specforge_common::diagnostics_json(&update.diagnostics),
                 "changed_diagnostic_files": update.changed_diagnostic_files,
-                "verification_failed": matches!(update.verification, Some(Err(_))),
+                "verification_failed": update.divergence().is_some(),
                 "verification": match &update.verification {
                     None => serde_json::Value::Null,
                     Some(Ok(())) => "passed".into(),
@@ -279,7 +279,7 @@ fn report(session: &ProjectSession, update: &Update, changed: &[String], json: b
             errors,
             warnings
         );
-        if let Some(Err(msg)) = &update.verification {
+        if let Some(msg) = update.divergence() {
             eprintln!("verification FAILED: {msg}");
         }
     }

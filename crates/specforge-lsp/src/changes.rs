@@ -250,7 +250,7 @@ impl Applied {
     fn record(&mut self, update: Update) {
         self.inputs_changed |= update.inputs_changed;
         self.divergences
-            .extend(update.verification.and_then(std::result::Result::err));
+            .extend(update.divergence().map(str::to_string));
         self.touched.extend(update.rebuilt_files);
     }
 
