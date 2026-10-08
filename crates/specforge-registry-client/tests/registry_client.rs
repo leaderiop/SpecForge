@@ -125,7 +125,7 @@ fn auth_double_401_produces_error_diagnostic() {
         err.suggestion
             .as_ref()
             .unwrap()
-            .contains("specforge registry login")
+            .contains("specforge login --registry")
     );
     assert_eq!(auth_calls(&client), 2);
 }

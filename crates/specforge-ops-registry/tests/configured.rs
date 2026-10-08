@@ -162,7 +162,10 @@ fn an_unscoped_name_goes_to_the_default_registry() {
     );
 }
 
-#[test]
+#[specforge_test(
+    behavior = "validate_registry_credentials",
+    verify = "login stores the credential under the alias of the registry it validated against"
+)]
 fn named_is_the_alias_given_else_the_default() {
     let found = configured_with(ACME_AND_MAIN);
 

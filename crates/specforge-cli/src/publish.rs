@@ -1,241 +1,64 @@
+//! `specforge publish`: the publish operation, presented.
+
 use crate::OutputFormat;
-use crate::outcome::Refusal;
+use crate::outcome::{Exit, Refusal};
 use serde_json::json;
-use specforge_common::{Diagnostic, codes};
-use specforge_registry_client::{
-    AuthMethod, CredentialStore, HttpRegistryClient, RegistryConfig, RegistryCredential,
-    credentials::{credentials_path, read_credentials},
-    load_or_create_signing_key, publish_to_registry,
-};
+use specforge_component::ComponentRuntime;
+use specforge_ops::publish::{self, PublishOutcome};
+use specforge_ops_registry::ConfiguredRegistry;
 use std::path::Path;
 
 /// Publish the extension at `extension` (a `.wasm` component or its crate
-/// directory) to a registry `project`'s `specforge.json` configures. The
-/// package's manifest is the declaration read from the binary (ADR 0012):
-/// a binary whose declaration has errors is refused before any network
-/// call.
-pub fn run(extension: &Path, project: &Path, format: OutputFormat) -> i32 {
-    let binary = match specforge_ops::publish::binary_at(extension) {
-        Ok(binary) => binary,
+/// directory) to the registry that serves its name among those `project`'s
+/// `specforge.json` configures (ADR 0045). The package's manifest is the
+/// declaration read from the binary (ADR 0012): a binary whose declaration
+/// has errors is refused before any network call. The declaration's
+/// warnings, then what reading the registry configuration reported, go to
+/// stderr whatever the result.
+pub(crate) fn run(extension: &Path, project: &Path, format: OutputFormat) -> Exit {
+    let registry = ConfiguredRegistry::for_project(project, "publish");
+    let runtime = ComponentRuntime::with_user_cache();
+    let report = publish::publish(extension, &registry, &runtime);
+    format.eprint_diagnostics(&report.warnings);
+    format.eprint_diagnostics(registry.reported());
+    match &report.result {
+        Ok(outcome) => {
+            present(outcome, format);
+            Exit::Passed
+        }
         Err(error) => {
-            return Refusal::of(format).report(&error);
+            Refusal::of(format).report(error);
+            Exit::Failed
         }
-    };
-    let wasm_bytes = match std::fs::read(&binary) {
-        Ok(b) => b,
-        Err(e) => {
-            return Refusal::of(format).coded(
-                codes::E040,
-                format!("failed to read {}: {}", binary.display(), e),
-            );
-        }
-    };
-    let runtime = specforge_component::ComponentRuntime::with_user_cache();
-    let prepared = match specforge_ops::publish::prepare(&runtime, wasm_bytes) {
-        Ok(prepared) => prepared,
-        Err(error) => {
-            return Refusal::of(format).report(&error);
-        }
-    };
-    format.eprint_diagnostics(&prepared.diagnostics);
-    let declaration = &prepared.declaration;
-    let wasm_bytes = &prepared.wasm;
-
-    // What is uploaded is a registry package: a scoped name and a full
-    // version. Refused before any registry is chosen or asked (E072).
-    let package = match declaration.package_name() {
-        Ok(package) if package.scope().is_some() => package,
-        Ok(package) => {
-            return Refusal::of(format).diagnostic(&specforge_common::package::invalid(
-                &format_args!(
-                    "'{package}' is not a registry package name: registry packages are named @scope/name"
-                ),
-            ));
-        }
-        Err(why) => {
-            return Refusal::of(format).diagnostic(&specforge_common::package::invalid(&why));
-        }
-    };
-    if let Err(why) = specforge_protocol_types::package::Version::parse(declaration.version()) {
-        return Refusal::of(format).diagnostic(&specforge_common::package::invalid(&format_args!(
-            "'{}' is not a SemVer version: {why}",
-            declaration.version()
-        )));
     }
+}
 
-    // No registry configured: fail before any network call (ADR 0004 N1).
-    let configured = match specforge_ops_registry::configured(project, "publish") {
-        Ok(configured) => {
-            format.eprint_diagnostics(&configured.diagnostics);
-            configured
+fn present(outcome: &PublishOutcome, format: OutputFormat) {
+    let published = &outcome.published;
+    match format {
+        OutputFormat::Json => {
+            let output = json!({
+                "action": "publish",
+                "name": outcome.name.as_str(),
+                "version": outcome.version.to_string(),
+                "registry": published.registry,
+                "url": published.url,
+                "size_bytes": outcome.size_bytes,
+                "key_id": published.key_id,
+                "signed": true,
+                "key_created": published.key_created,
+            });
+            println!("{}", serde_json::to_string_pretty(&output).unwrap());
         }
-        Err(error) => {
-            return Refusal::of(format).report(&error);
-        }
-    };
-
-    let registry = match configured.registry_for(&package) {
-        Ok(registry) => registry,
-        Err(error) => return Refusal::of(format).report(&error),
-    };
-    // Load publish credential: SPECFORGE_REGISTRY_TOKEN overrides stored credentials.
-    let credential = match load_credential(registry) {
-        Ok(credential) => credential,
-        Err(diag) => {
-            return Refusal::of(format).diagnostic(&diag);
-        }
-    };
-
-    // Load (or first-run generate) the publisher signing key.
-    let (signing_key, key_created) = match load_or_create_signing_key() {
-        Ok(pair) => pair,
-        Err(message) => {
-            return Refusal::of(format).report(&specforge_ops::OpError::new(
-                specforge_ops::OpErrorKind::Internal,
-                "SIGNING_KEY_ERROR",
-                message,
-            ));
-        }
-    };
-
-    // Publish
-    let client = HttpRegistryClient::new();
-    match publish_to_registry(
-        wasm_bytes,
-        declaration,
-        registry,
-        credential.as_ref(),
-        &client,
-        Some(&signing_key),
-    ) {
-        Ok(url) => {
-            let key_id = signing_key.key_id();
-            match format {
-                OutputFormat::Json => {
-                    let output = json!({
-                        "action": "publish",
-                        "name": declaration.name(),
-                        "version": declaration.version(),
-                        "url": url,
-                        "size_bytes": wasm_bytes.len(),
-                        "key_id": key_id,
-                        "signed": true,
-                        "key_created": key_created,
-                    });
-                    println!("{}", serde_json::to_string_pretty(&output).unwrap());
-                }
-                OutputFormat::Human => {
-                    if key_created {
-                        println!("generated publisher signing key {}", key_id);
-                    }
-                    println!(
-                        "published {} v{}",
-                        declaration.name(),
-                        declaration.version()
-                    );
-                    println!("  url: {}", url);
-                    println!("  size: {} bytes", wasm_bytes.len());
-                    println!("  signed by key: {}", key_id);
-                }
+        OutputFormat::Human => {
+            if published.key_created {
+                println!("generated publisher signing key {}", published.key_id);
             }
-            0
+            println!("published {} v{}", outcome.name, outcome.version);
+            println!("  registry: {}", published.registry);
+            println!("  url: {}", published.url);
+            println!("  size: {} bytes", outcome.size_bytes);
+            println!("  signed by key: {}", published.key_id);
         }
-        Err(diag) => Refusal::of(format).diagnostic(&diag),
-    }
-}
-
-/// Determine the credential for a publish: `SPECFORGE_REGISTRY_TOKEN` wins
-/// when set to a non-blank value, otherwise the stored credential for the
-/// registry alias is used.
-fn select_credential(
-    env_token: Option<String>,
-    store: &CredentialStore,
-    alias: &str,
-) -> Result<Option<RegistryCredential>, Diagnostic> {
-    if let Some(token) = env_token
-        && !token.trim().is_empty()
-    {
-        return Ok(Some(RegistryCredential {
-            alias: alias.to_string(),
-            auth_method: AuthMethod::Bearer(token),
-        }));
-    }
-    // Keyring-backed secrets and expired tokens surface clear diagnostics.
-    store.get_credential_detail(alias)
-}
-
-fn load_credential(registry: &RegistryConfig) -> Result<Option<RegistryCredential>, Diagnostic> {
-    let env_token = std::env::var("SPECFORGE_REGISTRY_TOKEN").ok();
-    let store = match read_credentials(&credentials_path()) {
-        Ok(store) => store,
-        Err(diag) => {
-            eprintln!("warning: ignoring stored credentials: {}", diag.message);
-            CredentialStore::default()
-        }
-    };
-    select_credential(env_token, &store, &registry.alias)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn store_with_token(alias: &str, token: &str) -> CredentialStore {
-        let mut store = CredentialStore::default();
-        // Legacy plaintext form (what a pre-keyring credentials.json holds).
-        store.registries.insert(
-            alias.to_string(),
-            specforge_registry_client::credentials::CredentialEntry::Token {
-                token: token.to_string(),
-                expires_at: None,
-                in_keyring: false,
-            },
-        );
-        store
-    }
-
-    #[test]
-    fn env_token_overrides_stored_credential() {
-        let store = store_with_token("default", "stored-token");
-        let cred = select_credential(Some("env-token".to_string()), &store, "default")
-            .unwrap()
-            .unwrap();
-        assert_eq!(cred.alias, "default");
-        assert_eq!(
-            cred.auth_method,
-            AuthMethod::Bearer("env-token".to_string())
-        );
-    }
-
-    #[test]
-    fn blank_env_token_falls_back_to_store() {
-        let store = store_with_token("default", "stored-token");
-        let cred = select_credential(Some("  ".to_string()), &store, "default")
-            .unwrap()
-            .unwrap();
-        assert_eq!(
-            cred.auth_method,
-            AuthMethod::Bearer("stored-token".to_string())
-        );
-    }
-
-    #[test]
-    fn stored_credential_used_when_env_unset() {
-        let store = store_with_token("default", "stored-token");
-        let cred = select_credential(None, &store, "default").unwrap().unwrap();
-        assert_eq!(
-            cred.auth_method,
-            AuthMethod::Bearer("stored-token".to_string())
-        );
-    }
-
-    #[test]
-    fn missing_alias_yields_no_credential() {
-        let store = store_with_token("other", "stored-token");
-        assert!(
-            select_credential(None, &store, "default")
-                .unwrap()
-                .is_none()
-        );
     }
 }

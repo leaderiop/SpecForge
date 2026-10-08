@@ -45,7 +45,9 @@ impl RegistryError {
                 codes::R001,
                 format!("Registry authentication failed: {guidance}"),
             )
-            .with_suggestion("Run `specforge registry login` to authenticate.".to_string()),
+            .with_suggestion(
+                "Log in: `specforge login --registry <alias> --token <TOKEN>`.".to_string(),
+            ),
             RegistryError::Forbidden { guidance } => Diagnostic::new(
                 codes::R002,
                 format!("Registry access forbidden: {guidance}"),

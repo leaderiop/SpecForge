@@ -113,7 +113,13 @@ fn update_without_lockfile_fails() {
 
 #[test]
 fn logout_without_credentials_succeeds() {
-    specforge_cmd().arg("logout").assert().success();
+    // A named registry is forgotten without reading any project.
+    let home = TempDir::new().unwrap();
+    specforge_cmd()
+        .args(["logout", "--registry", "plan06-no-such-registry"])
+        .env("HOME", home.path())
+        .assert()
+        .success();
 }
 
 #[test]
@@ -334,6 +340,34 @@ fn publish_without_registry_makes_no_network_call() {
     assert_eq!(spy.hits(), 0, "publish reached the network");
 }
 
+#[test]
+fn publish_with_no_credential_makes_no_network_call() {
+    let spy = NetSpy::start();
+    let dir = TempDir::new().unwrap();
+    std::fs::write(
+        dir.path().join("specforge.json"),
+        serde_json::json!({
+            "name": "p", "version": "0.1.0", "extensions": [],
+            "registries": [{ "alias": "main", "url": UNREACHABLE, "default_registry": true }],
+        })
+        .to_string(),
+    )
+    .unwrap();
+    std::fs::write(dir.path().join("greet.wasm"), greet_wasm()).unwrap();
+    let output = spy
+        .command(&["publish", "--format", "json"])
+        .env_remove("SPECFORGE_REGISTRY_TOKEN")
+        .arg(dir.path().join("greet.wasm"))
+        .arg("--path")
+        .arg(dir.path())
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(1), "{output:?}");
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(json["code"], "R001", "{json}");
+    assert_eq!(spy.hits(), 0, "publish reached the network");
+}
+
 /// The greet blob with its declared name (`@sdk/greet`, 10 bytes) replaced
 /// by another name of the same length.
 pub(crate) fn greet_named(name: &str) -> Vec<u8> {
@@ -380,6 +414,13 @@ fn publish_refuses_a_name_no_registry_serves_offline() {
     assert_eq!(output.status.code(), Some(1), "{output:?}");
     let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
     assert_eq!(json["code"], "R-OPS-001", "{json}");
+    assert!(
+        json["suggestion"]
+            .as_str()
+            .unwrap()
+            .contains("\"scope_filter\": \"@sdk\""),
+        "{json}"
+    );
     assert_eq!(spy.hits(), 0, "publish reached the network");
     assert!(
         !spy.home.path().join(".specforge/signing-key.json").exists(),
@@ -972,4 +1013,96 @@ fn no_source_names_specforge_dev() {
         "SpecForge does not own specforge.dev (ADR 0004 N1); remove these:\n  {}",
         problems.join("\n  ")
     );
+}
+
+#[specforge_test(
+    behavior = "logout_registry",
+    verify = "logout without --registry forgets the default registry's credential"
+)]
+fn logout_without_a_registry_forgets_the_default_registrys_credential() {
+    let spy = NetSpy::start();
+    let pid = std::process::id();
+    let (default, other) = (
+        format!("plan06-logout-default-{pid}"),
+        format!("plan06-logout-other-{pid}"),
+    );
+    let dir = TempDir::new().unwrap();
+    std::fs::write(
+        dir.path().join("specforge.json"),
+        serde_json::json!({
+            "name": "p", "version": "0.1.0", "extensions": [],
+            "registries": [
+                { "alias": default, "url": UNREACHABLE, "default_registry": true },
+                { "alias": other, "url": UNREACHABLE, "scope_filter": "@other" },
+            ],
+        })
+        .to_string(),
+    )
+    .unwrap();
+    let store = spy.home.path().join(".specforge");
+    std::fs::create_dir_all(&store).unwrap();
+    std::fs::write(
+        store.join("credentials.json"),
+        serde_json::json!({
+            "registries": { default.clone(): { "token": "t1" }, other.clone(): { "token": "t2" } }
+        })
+        .to_string(),
+    )
+    .unwrap();
+
+    let output = spy
+        .command(&["logout", "--format", "json", "--path"])
+        .arg(dir.path())
+        .output()
+        .unwrap();
+
+    assert_eq!(output.status.code(), Some(0), "{output:?}");
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(json["registry"], default.as_str(), "{json}");
+    assert_eq!(json["status"], "removed", "{json}");
+    let kept: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(store.join("credentials.json")).unwrap()).unwrap();
+    let aliases: Vec<&String> = kept["registries"].as_object().unwrap().keys().collect();
+    assert_eq!(aliases, [&other]);
+    assert_eq!(spy.hits(), 0);
+}
+
+#[test]
+fn login_with_an_unknown_registry_is_refused_before_any_request() {
+    let spy = NetSpy::start();
+    let dir = TempDir::new().unwrap();
+    std::fs::write(
+        dir.path().join("specforge.json"),
+        serde_json::json!({
+            "name": "p", "version": "0.1.0", "extensions": [],
+            "registries": [{ "alias": "main", "url": UNREACHABLE, "default_registry": true }],
+        })
+        .to_string(),
+    )
+    .unwrap();
+
+    let output = spy
+        .command(&[
+            "login",
+            "--registry",
+            "typo",
+            "--token",
+            "t",
+            "--format",
+            "json",
+            "--path",
+        ])
+        .arg(dir.path())
+        .output()
+        .unwrap();
+
+    assert_eq!(output.status.code(), Some(1), "{output:?}");
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(json["code"], "E063", "{json}");
+    let message = json["error"].as_str().unwrap();
+    assert!(
+        message.contains("typo") && message.contains("main"),
+        "{json}"
+    );
+    assert_eq!(spy.hits(), 0, "login reached the network");
 }
