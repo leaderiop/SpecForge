@@ -4,6 +4,7 @@ use specforge_extension_sdk::prelude::{
 };
 
 mod coverage_matrices;
+mod dates_and_effort;
 mod dependency_graphs;
 mod feature_dependents;
 mod host;
