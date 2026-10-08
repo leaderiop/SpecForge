@@ -27,6 +27,10 @@ the compiler must not know (principle 2): union `variants`, `abstract`, the `inv
   titles. The validator keeps the source-annotated rendering and the one summary line
   (`aggregate_diagnostic_summary`; the emitter's other summary had no caller).
 
+  > Amended by ADR 0031: the source-annotated rendering, the summary line and `Counts` moved to
+  > `specforge_common::present`; the graph checks and E061 run in `RegistryBuild::check`;
+  > `specforge-validator` is gone.
+
 ## What extensions now declare
 
 | Declaration | On | Replaces | Builtins that set it |
