@@ -212,3 +212,59 @@ fn brief_schema_version_matches_graph_format() {
         "brief and graph formats must use same schema_version"
     );
 }
+
+/// Three kinds, an edge between two of them, one with prose.
+fn multi_kind_graph() -> Graph {
+    let mut graph = Graph::new();
+    graph.add_node(node_with_contract(
+        "alpha",
+        "behavior",
+        "Alpha",
+        "The system MUST do alpha things.",
+    ));
+    graph.add_node(node("beta", "feature", Some("Beta")));
+    graph.add_node(node("gamma", "invariant", None));
+    graph.add_edge(Edge {
+        source: Sym::new("beta"),
+        target: Sym::new("alpha"),
+        label: Sym::new("behaviors"),
+    });
+    graph
+}
+
+// pin (15-T0): stays
+#[test]
+fn emit_brief_and_emit_agree_text() {
+    use specforge_emitter::{EmitFormat, EmitOptions, emit};
+
+    let graph = multi_kind_graph();
+    let export = |format, fields| {
+        emit(
+            &graph,
+            &EmitOptions {
+                format,
+                field_registry: fields,
+                ..EmitOptions::default()
+            },
+        )
+        .unwrap()
+    };
+
+    assert_eq!(
+        specforge_emitter::brief::emit_brief(&graph),
+        export(EmitFormat::Brief, None)
+    );
+    assert_eq!(
+        specforge_emitter::context::emit_context(&graph),
+        export(EmitFormat::Context, None)
+    );
+    let fields = crate::support::headline_registry(&["behavior"]);
+    assert_eq!(
+        specforge_emitter::context::emit_context_with_fields(&graph, Some(&fields)),
+        export(EmitFormat::Context, Some(&fields))
+    );
+    insta::assert_snapshot!(
+        "brief_export_of_the_multi_kind_graph",
+        export(EmitFormat::Brief, None)
+    );
+}

@@ -629,6 +629,26 @@ fn a_query_the_resource_cannot_read_is_refused_naming_its_key() {
     assert_eq!(error["data"]["argument"], "scope", "{error}");
 }
 
+// pin (15-T0): today's behaviour; flipped by 15-T17
+#[test]
+fn pin_a_resource_count_has_its_own_wording() {
+    let mut server = served();
+    let error = read_error(&mut server, "specforge://brief?depth=x");
+    assert_eq!(
+        error["message"], "'depth' is a non-negative integer, not 'x'",
+        "{error}"
+    );
+}
+
+// pin (15-T0): today's behaviour; flipped by 15-T17
+#[test]
+fn pin_a_depth_without_a_scope_is_ignored() {
+    let mut server = served();
+    let (_, with_depth) = resource(&mut server, "specforge://graph?depth=2");
+    let (_, without) = resource(&mut server, "specforge://graph");
+    assert_eq!(with_depth, without);
+}
+
 // --- P15, P16: the request's own schema ---
 
 #[specforge_test(

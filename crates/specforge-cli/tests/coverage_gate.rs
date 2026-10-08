@@ -404,3 +404,62 @@ fn todo_app_traceability_loop_stays_wired() {
     let stdout = String::from_utf8_lossy(&out.stdout);
     assert!(stdout.contains("create_task"), "trace names the entity");
 }
+
+/// `analyze <pass> --min 50 --json` over `path`, with the report it holds.
+fn analyze_min_json(path: &Path, pass: &str) -> std::process::Output {
+    specforge()
+        .args([
+            "analyze",
+            "--path",
+            path.to_str().unwrap(),
+            pass,
+            "--test-results",
+            path.join("specforge-report.json").to_str().unwrap(),
+            "--min",
+            "50",
+            "--json",
+        ])
+        .output()
+        .unwrap()
+}
+
+// pin (15-T0): today's behaviour; flipped by 15-T7
+#[test]
+fn pin_the_json_says_ok_when_the_gate_fails() {
+    let tmp = TempDir::new().unwrap();
+    seed(tmp.path());
+    std::fs::write(
+        tmp.path().join("specforge-report.json"),
+        r#"{"runner":"r","results":{}}"#,
+    )
+    .unwrap();
+
+    let out = analyze_min_json(tmp.path(), "coverage");
+
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert_eq!(out.status.code(), Some(1), "{stderr}");
+    let doc: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(doc["ok"], true, "{doc}");
+    assert!(doc.get("gate").is_none(), "{doc}");
+    assert!(stderr.contains("error[E048]"), "{stderr}");
+}
+
+// pin (15-T0): today's behaviour; flipped by 15-T7
+#[test]
+fn pin_a_gate_without_the_coverage_pass_prints_the_analysis_first() {
+    let tmp = TempDir::new().unwrap();
+    seed(tmp.path());
+    std::fs::write(
+        tmp.path().join("specforge-report.json"),
+        r#"{"runner":"r","results":{}}"#,
+    )
+    .unwrap();
+
+    let out = analyze_min_json(tmp.path(), "contracts");
+
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert_eq!(out.status.code(), Some(2), "{stderr}");
+    let doc: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(doc["passes"][0]["pass"], "contracts", "{doc}");
+    assert!(stderr.contains("error[E068]"), "{stderr}");
+}

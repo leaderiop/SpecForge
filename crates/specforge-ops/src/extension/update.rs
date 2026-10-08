@@ -654,6 +654,55 @@ mod tests {
         assert_eq!(std::fs::read(installed).unwrap(), b"old");
     }
 
+    // pin (15-T0): today's behaviour; flipped by 15-T9
+    #[cfg(unix)]
+    #[test]
+    fn pin_a_failed_commit_is_pinned_on_the_first_planned_update() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = project(vec![
+            entry("@sdk/greet", "0.0.9", "registry", &[]),
+            entry("@test/probe", "0.0.9", "registry", &[]),
+        ]);
+        let lock_before = std::fs::read(lock_path(dir.path())).unwrap();
+        let probe = std::fs::read(
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/sandbox-probe/probe.wasm"),
+        )
+        .expect("the probe fixture is vendored");
+        let registry = FakeRegistry::new()
+            .publish("@sdk/greet", &["0.1.0"])
+            .serve("@sdk/greet", "0.1.0", greet())
+            .publish("@test/probe", &["0.1.0"])
+            .serve("@test/probe", "0.1.0", probe);
+        // The second package's directory cannot take a new file.
+        let probe_dir = dir.path().join(".specforge/extensions/@test");
+        let mode = |m| std::fs::Permissions::from_mode(m);
+        std::fs::set_permissions(&probe_dir, mode(0o555)).unwrap();
+        if std::fs::write(probe_dir.join("probe-check"), b"").is_ok() {
+            // Running as a user permissions don't bind (root): nothing to test.
+            std::fs::set_permissions(&probe_dir, mode(0o755)).unwrap();
+            return;
+        }
+
+        let outcome = update(&request(dir.path(), true), &registry).unwrap();
+        std::fs::set_permissions(&probe_dir, mode(0o755)).unwrap();
+
+        let failures: Vec<(&str, &OpError)> = outcome.failures().collect();
+        assert_eq!(failures.len(), 1, "{outcome:?}");
+        let (name, error) = failures[0];
+        assert_eq!(name, "@sdk/greet");
+        assert_eq!(error.code, "E032", "{error:?}");
+        assert!(error.message.contains("'@test/probe'"), "{error:?}");
+        assert_eq!(std::fs::read(lock_path(dir.path())).unwrap(), lock_before);
+        assert_eq!(
+            std::fs::read(installed(dir.path(), "@sdk/greet")).unwrap(),
+            b"old"
+        );
+        assert_eq!(
+            std::fs::read(installed(dir.path(), "@test/probe")).unwrap(),
+            b"old"
+        );
+    }
+
     #[test]
     fn a_local_install_is_never_asked_about() {
         let dir = project(vec![entry("@sdk/greet", "0.0.9", "local:greet.wasm", &[])]);

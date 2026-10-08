@@ -216,3 +216,41 @@ fn a_shallow_watcher_reports_its_own_entries_only() {
     let expected = fs::canonicalize(dir.path()).unwrap().join("own.md");
     assert!(events.contains(&expected), "{events:?}");
 }
+
+// ── one burst across two watched roots ────────────────────────
+
+// pin (15-T0): today's behaviour; flipped by 15-T19
+#[test]
+fn pin_a_burst_across_two_roots_is_two_batches() {
+    use specforge_project::WatchRoot;
+    use specforge_watch::{Notify, Watchers};
+
+    let a = TempDir::new().unwrap();
+    let b = TempDir::new().unwrap();
+    let (mut notify, batches) = Notify::new(Duration::from_millis(50));
+    notify
+        .watch(&[
+            WatchRoot {
+                dir: a.path().to_path_buf(),
+                recursive: true,
+            },
+            WatchRoot {
+                dir: b.path().to_path_buf(),
+                recursive: true,
+            },
+        ])
+        .unwrap();
+    std::thread::sleep(Duration::from_millis(300));
+
+    fs::write(a.path().join("x.spec"), "a").unwrap();
+    fs::write(b.path().join("y.spec"), "b").unwrap();
+
+    let mut seen = Vec::new();
+    while let Some(batch) = wait_for_event(&batches, Duration::from_secs(1)) {
+        seen.push(batch);
+    }
+    let x = fs::canonicalize(a.path()).unwrap().join("x.spec");
+    let y = fs::canonicalize(b.path()).unwrap().join("y.spec");
+    seen.sort();
+    assert_eq!(seen, [vec![x], vec![y]]);
+}
