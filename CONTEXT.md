@@ -7,8 +7,10 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   `.spec` file is read: config, spec root, registries, rules, surfaces, and load diagnostics
   (`specforge_project::Environment`). A `specforge.json` that is there and can't be used is the
   default config (for the unusable file or key), with each reason kept (`config_problems`) and
-  reported as the error E069. It also holds what `specforge.lock` held when it was read
-  (`lock`: absent, read, or unreadable), once, for every operation over the project. A session
+  reported as the error E069. It also holds the project's **installed extensions** (`installed`:
+  what `specforge.lock` held when it was read, absent, read or unreadable, once, for every
+  operation over the project) and what each `extensions` entry enabled, as the **extension load**
+  left it. A session
   reads `specforge.json` once per load and builds its extension runtime and its environment from
   that read, after stamping every environment input (ADR 0030). It
   opens in two steps (`ProjectSession::begin_open`, then `OpeningProject::finish`), so an editor
@@ -56,6 +58,18 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   category — as the protocol types (`specforge_protocol_types::ExtensionDeclaration`). The SDK
   builds it, the guest serves it, the host loads it once, the Registry build reads it, a package
   registry stores it (ADR 0012).
+- **Installed extension**: an extension placed in the project under
+  `.specforge/extensions/<name>/extension.wasm` and pinned by its `specforge.lock` entry (version,
+  source `registry` or `local:<path>`, the SHA-256 of the binary). It loads only while its binary is
+  the one its entry pins (E070 otherwise; W149 when the entry pins no hash). A project's installed
+  extensions are one value, its lock read once (`specforge_installed::Installed`); installing,
+  updating and removing them is one **change** (`Installed::change`), written all at once or not at
+  all, `specforge.json` included (ADR 0028).
+- **Extension load**: turning a project's `extensions` entries into loaded extensions and their
+  declarations, once per environment load (`Installed::load`, over the `WasmRuntime` port): a
+  builtin from its embedded binary, an installed extension from its pinned module, a `.wasm` file
+  entry from its file under the name it declares. What does not load is a typed `LoadFailure` on its
+  entry with one diagnostic; the runtime keeps none.
 - **Registry build**: the pure result of turning extension declarations into kind, field and
   edge registries, the rule set, pass order and derived graph inputs, and the diagnostics of those
   declarations (`specforge_registry::build_registries`). Its outcomes are the `registry_build_*`
@@ -146,8 +160,8 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   one it also reads what the view does not own (installed binaries, source files),
   and remove and collect write, at the view's root only. `add`, `update`, `init` and `migrate` are
   operations but not over a view: they run before or instead of a compile (ADR 0015); `add` and
-  `update` read `specforge.json` through the compile's own reader and refuse an unusable one with
-  the refusal `remove` gives.
+  `update` read `specforge.json` through the compile's own reader and the installed extensions
+  through `Installed::at`, and refuse an unusable `specforge.json` with the refusal `remove` gives.
 - **Recorded test report**: `<root>/specforge-report.json`, what `specforge collect` last wrote. The
   project view reads it once per compile and per content
   (`specforge_project::coverage::RecordedCoverage`).
@@ -248,7 +262,10 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **In-process runtime**: the test adapter of the `WasmRuntime` port that runs an SDK-declared
   extension in the host process through the guest's own routing (`guest_call`), unsandboxed
   (it records the limits the host applies and enforces none;
-  `specforge_wasm::testing::InProcessRuntime`). Host tests declare their extensions with it; the
+  `specforge_wasm::testing::InProcessRuntime`). It serves a binary's bytes under the name they are
+  loaded as (`binary`), so the extension load runs in process; a test that serves an extension
+  installs it (`specforge_installed::testing::install`) and the project loads it through the
+  production path. Host tests declare their extensions with it; the
   component runtime is the production adapter, and both keep one contract
   (`assert_runtime_contract`). MCP's tests serve every project from a temporary directory through
   it (`tests/support`): no test writes a registry, a graph or a diagnostic into a server (ADR 0025).

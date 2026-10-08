@@ -74,10 +74,12 @@ themselves (E030 identity and shape, W021 consistency against the loaded peers, 
 dependencies, W145 pass order cycles, in that order, extension by extension within each),
 orders each extension's passes (`RegistryBuild::passes`, `check_passes()`, `analyze_passes()`)
 and populates the registries; it is pure. `Environment::diagnostics()` reports, in order: the
-runtime's load failures (E028/E033) in load order, unknown describe keys (W138), the
-declarations' own diagnostics, provider registration (W118/E057), I002, then the registry
-build's. E028 and E030 used to interleave extension by extension; a consumer diffing `check`
-output sees them reordered only when both occur in one project.
+extension load's failures (E033 for the lock once, then E028/E070/W149 per entry, ADR 0028) in
+entry order, unknown describe keys (W138), the declarations' own diagnostics, provider
+registration (W118/E057), I002, then the registry build's. The runtime keeps no load state:
+`Installed::load` returns it, and the environment keeps it. E028 and E030 used to interleave
+extension by extension; a consumer diffing `check` output sees them reordered only when both occur
+in one project.
 
 ## D13. W138 and E030 are re-scoped, not retired; W145 is new
 

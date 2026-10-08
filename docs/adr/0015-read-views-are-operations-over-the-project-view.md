@@ -181,7 +181,8 @@ runtime)`. `stats::stats(&view)` reads `reported()` (D7 amended). The CLI compil
 - **M8. `add`, `update`, `init` and `migrate` are not view operations**: they run before or instead
   of a compile, and `add`/`update` reach the `Registry` port. `add` and `update` read the config
   through `config::usable`/`config::required` (`read_project_config`, the function the compile reads
-  it with) and the lock through `LockState::at` (M10), never a reader of their own (see M11).
+  it with) and the installed extensions through `Installed::at` (M10, ADR 0028), never a reader of their own
+  (see M11).
 - **M9. A `specforge.json` not used as written is E069, an error.** The Environment keeps every way
   the file is not used as written (`config_problems`: unreadable, not JSON, not an object, a key of
   the wrong type, a non-string `extensions` or `exclude` item) and
@@ -191,15 +192,16 @@ runtime)`. `stats::stats(&view)` reads `reported()` (D7 amended). The CLI compil
   what was reported"), as E028 is for one extension that does not load: a project whose config
   loads nothing must not pass `check`. Doctor reports it as an error, and reports a missing
   `specforge.json` as the warning finding `config_missing`.
-- **M10. `specforge.lock` is read once, by the Environment.** `Environment::lock` is a typed
-  `specforge_wasm::LockState` (`Absent`, `Read`, or `Unreadable` with its E033 problem), read at
+- **M10. `specforge.lock` is read once, by the Environment.** `Environment::installed` holds a typed
+  `LockState` (`specforge_installed`: `Absent`, `Read`, or `Unreadable` with its E033 problem), read at
   `Environment::load` and reloaded when the file changes (it is an environment input); the view's
   `lock()` hands it to `list`, `doctor` and `remove` (none without a root), so they read what the
-  compile read, not the disk again. It is a typed result, not a diagnostic: a corrupt lock does not
-  fail `check` (it did not before), and `doctor` lists it as the error finding `lock_unreadable`
-  naming E033. `specforge_wasm::lock_path` is the one definition of where the lock lives, used by the
-  Environment, the extension loader and the root-based `add` and `update` (M8), which read it with
-  the same `LockState::at`.
+  compile read, not the disk again. It is a typed result, not a diagnostic: a corrupt lock fails
+  `check` only through the installed extensions it leaves unloaded (its E033 once, then their E028s,
+  ADR 0028), and `doctor` lists it as the error finding `lock_unreadable` naming E033.
+  `Installed::lock_path` is the one definition of where the lock lives, used by the Environment, the
+  extension load and the root-based `add` and `update` (M8), which read it with the same
+  `Installed::at`.
 
 - **M11. One refusal for an unusable `specforge.json`.** `add`, `update` and `remove` refuse a
   config that `ConfigProblem::blocks_edits` names with `config::refusal`: code `config_invalid`
