@@ -12,6 +12,7 @@ mod lifecycle;
 mod navigation;
 mod protocol;
 mod publish;
+mod recorder;
 mod registries;
 mod rename;
 mod semantic_tokens;
