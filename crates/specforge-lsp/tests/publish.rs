@@ -20,7 +20,7 @@ fn project(extensions: &[&str], files: &[(&str, &str)]) -> (tempfile::TempDir, L
     for (name, text) in files {
         std::fs::write(dir.path().join(name), text).unwrap();
     }
-    let runtime = specforge_component::project_runtime(dir.path());
+    let runtime = specforge_component::ComponentRuntime::with_user_cache();
     let mut state = LspState::new();
     state.set_session(ProjectSession::open_with_runtime(
         dir.path(),

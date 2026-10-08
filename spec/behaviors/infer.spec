@@ -24,19 +24,27 @@ behavior load_inference_manifest "Load Inference Manifest" {
     default_on_missing "returns empty manifest when file does not exist"
     version_checked    "rejects manifests with unsupported version numbers"
     summary_computed   "InferenceSummary is derived from source_index on load, never read from file"
+    sessions_read      "sessions are read with the manifest, each with its status"
+    never_empty        "a file that cannot be used is E071, never read as an empty manifest"
   }
   contract """
-    Load the inference manifest from {project_root}/specforge-infer.json.
-    If the file does not exist, return a default empty manifest with
-    version=1, empty source_roots, and empty source_index. If the file
-    exists but has an unsupported version number, return an error.
-    The InferenceSummary MUST be computed from source_index on load —
-    it is never persisted in JSON.
+    Load the inference manifest from {project_root}/specforge-infer.json,
+    once per operation, through the one reader every operation, the MCP
+    tools, the infer prompt and the inferred lint profile share. If the
+    file does not exist, return a default empty manifest with version=1,
+    empty source_roots, source_index and sessions. If the file exists and
+    cannot be used — it cannot be read, is not JSON, does not have the
+    manifest's shape (a session's status included), or has an unsupported
+    version — refuse with E071 naming why; never read it as empty. Keys the
+    manifest does not define are kept. The InferenceSummary MUST be
+    computed from source_index on load — it is never persisted in JSON.
   """
   verify unit "load returns default manifest when file is missing"
   verify unit "load deserializes valid specforge-infer.json"
   verify unit "load rejects unsupported version"
   verify unit "load computes summary from source_index"
+  verify unit "a session the manifest cannot read refuses the load, and nothing is written"
+  verify unit "load refuses an unreadable or invalid manifest with E071"
 }
 
 behavior save_inference_manifest "Save Inference Manifest" {
@@ -48,10 +56,12 @@ behavior save_inference_manifest "Save Inference Manifest" {
     summary_excluded    "InferenceSummary is not written to JSON"
     json_formatted      "output is pretty-printed JSON with sorted keys"
     source_index_sorted "source_index serialized as sorted Vec for stable diffs"
+    unknown_kept        "keys the manifest does not define are written back as read"
   }
   contract """
     Save the inference manifest to {project_root}/specforge-infer.json.
-    The source_index HashMap MUST be serialized as a sorted Vec (by path)
+    It is the one writer of the file: the sessions are written with the
+    rest of the manifest. The source_index MUST be sorted by path
     for stable git diffs. The InferenceSummary MUST NOT be written.
     Write to a temporary file in the same directory, then atomically
     rename to the target path. The JSON MUST be pretty-printed.
@@ -60,6 +70,7 @@ behavior save_inference_manifest "Save Inference Manifest" {
   verify unit "save does not include summary in JSON output"
   verify unit "save uses atomic write (temp file + rename)"
   verify unit "save serializes source_index sorted by path"
+  verify unit "save keeps keys the manifest does not define, at every level"
 }
 
 behavior compute_inference_summary "Compute Inference Summary" {
@@ -136,18 +147,25 @@ behavior mark_source_file_analyzed "Mark Source File as Analyzed" {
     hash_computed     "content_hash is SHA-256 of file contents"
     entities_recorded "entities_produced lists all entity IDs inferred from this file"
     idempotent        "re-analyzing a file updates the existing entry"
+    path_recorded     "the file is recorded root-relative with / separators"
+    inside_root       "a file outside the project root is refused and nothing is written"
   }
   contract """
     Read the source file at the given path and compute its SHA-256 hash.
     Create or update a SourceFileEntry in the manifest's source_index with
     the path, hash, entities_produced list, and current timestamp. If an
     entry for this path already exists, overwrite it (re-analysis). Save
-    the manifest. Agents should call this AFTER specforge_validate succeeds.
+    the manifest. The path is recorded root-relative with / separators
+    (./src/a.rs and src\a.rs are src/a.rs); an absolute path or one with a
+    .. component is refused. The same rule applies to the source_roots a
+    start sets. Agents should call this AFTER specforge_validate succeeds.
     On validation failure: fix .spec errors, re-validate, then mark.
   """
   verify unit "mark creates new entry for unanalyzed file"
   verify unit "mark updates existing entry on re-analysis"
   verify unit "mark computes SHA-256 content hash"
+  verify unit "mark records the path root-relative with / separators"
+  verify unit "mark refuses a file outside the project root"
 }
 
 // ---------------------------------------------------------------------------
@@ -213,7 +231,8 @@ behavior provide_mcp_infer_session_tool "Provide MCP Infer Session Tool" {
     creates_manifest      "creates specforge-infer.json on first write"
   }
   contract """
-    Register a mutating MCP tool specforge.infer_session with three actions:
+    Register a mutating MCP tool specforge.infer_session over the one
+    session operation (specforge_ops::infer::session), with three actions:
     - start: Call start_inference_session, return session_id.
     - mark_analyzed: Call mark_source_file_analyzed with provided
       source_file path and entities_produced list.
@@ -225,6 +244,7 @@ behavior provide_mcp_infer_session_tool "Provide MCP Infer Session Tool" {
   verify unit "mark_analyzed action records file entry"
   verify unit "end action completes session"
   verify unit "creates manifest on first write"
+  verify unit "an unknown action or status is refused with the option table's wording"
 }
 
 behavior provide_mcp_infer_gaps_tool "Provide MCP Infer Gaps Tool" {
@@ -298,13 +318,16 @@ behavior provide_infer_plan_scope "Provide Infer Prompt Plan Scope" {
     invariants, ports after types). Within each phase, suggest source files
     likely to contain that kind. Each phase includes target_spec_directory
     (e.g., "spec/types/" for type entities) so agents know where to write.
-    If specforge-infer.json exists, exclude already-analyzed files.
+    If specforge-infer.json exists, exclude already-analyzed files. If
+    specforge-infer.json exists and cannot be used, the plan is refused
+    with E071.
     Requires explicit Some("plan") match arm in prompt dispatch.
   """
   verify unit "plan orders types before behaviors"
   verify unit "plan prioritizes kinds with zero existing entities"
   verify unit "plan excludes already-analyzed files"
   verify unit "plan includes target_spec_directory per phase"
+  verify unit "plan refuses a specforge-infer.json it cannot use with E071"
 }
 
 behavior provide_infer_workflow_scope "Provide Infer Prompt Workflow Scope" {
@@ -378,7 +401,8 @@ behavior provide_infer_status_cli "Provide CLI Infer-Status Command" {
     source files grouped by directory with counts per directory. --stale
     lists files whose content changed since last analysis. If
     specforge-infer.json does not exist, print a message directing the user
-    to the infer prompt.
+    to the infer prompt. The JSON document and specforge.infer_progress
+    list the sessions (session_id, agent, status, started_at, ended_at).
   """
   verify unit "displays summary table"
   verify unit "--format json produces valid JSON"
@@ -386,6 +410,8 @@ behavior provide_infer_status_cli "Provide CLI Infer-Status Command" {
   verify unit "--gaps lists unanalyzed files grouped by directory"
   verify unit "--stale lists files with changed content"
   verify unit "missing manifest shows helpful message"
+  verify unit "an unusable manifest is refused with E071"
+  verify unit "prints the sessions the manifest records, with their timestamps"
 }
 
 // ---------------------------------------------------------------------------
@@ -407,11 +433,13 @@ behavior detect_stale_source_anchor "I200: Stale Source Anchor" {
     content_hash. If it differs, emit I200 on the entity with message
     'source file {path} changed since entity was inferred — consider
     re-inferring'. Only fires when the manifest is present and the lint
-    profile is active.
+    profile is active. If the manifest exists and cannot be used, the
+    profile reports E071 instead, an error.
   """
   verify unit "I200 fires when source file content changed"
   verify unit "I200 silent when hash matches"
   verify unit "I200 silent when --lint=inferred not set"
+  verify unit "the inferred profile reports a manifest it cannot use as E071"
 }
 
 behavior detect_high_inference_density "I202: High Inference Density" {
@@ -429,7 +457,9 @@ behavior detect_high_inference_density "I202: High Inference Density" {
     manifest. If more than the configured threshold (default 80%, overridable
     via inference.density_threshold in specforge.json) of entities in the
     file were inferred in a single session, emit I202 with message 'spec
-    file {path} has high inference density — consider human review'.
+    file {path} has high inference density — consider human review'. If
+    the manifest exists and cannot be used, the profile reports E071
+    instead, an error.
   """
   verify unit "I202 fires when density exceeds threshold"
   verify unit "I202 silent when density is below threshold"

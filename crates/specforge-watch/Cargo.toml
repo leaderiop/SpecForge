@@ -10,10 +10,20 @@ autotests = false
 name = "tests"
 path = "tests/main.rs"
 
+[features]
+# `Debouncer::coalesce_async`, the rule on a tokio channel (the LSP's).
+tokio = ["dep:tokio"]
+
 [dependencies]
 notify = { workspace = true }
+specforge-project = { workspace = true }
+tokio = { workspace = true, optional = true, features = ["sync", "time"] }
 
 [dev-dependencies]
+# The tests of the tokio adapter.
+specforge-watch = { path = ".", features = ["tokio"] }
+serde_json = { workspace = true }
 specforge-test = { workspace = true }
 specforge-test-macros = { workspace = true }
 tempfile = { workspace = true }
+tokio = { workspace = true, features = ["sync", "time", "macros", "rt-multi-thread"] }

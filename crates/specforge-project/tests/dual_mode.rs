@@ -18,6 +18,7 @@ fn setup_project(extensions: &[&str], spec_content: &str) -> TempDir {
         ext_json.join(",")
     );
     fs::write(dir.path().join("specforge.json"), config).unwrap();
+    specforge_installed::testing::install_configured(dir.path(), &specforge_project::builtins());
     fs::write(dir.path().join("core.spec"), spec_content).unwrap();
     dir
 }

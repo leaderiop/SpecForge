@@ -103,6 +103,7 @@ fn project(source: &str) -> TempDir {
     let config =
         json!({ "name": "pins", "version": "0.1.0", "spec_root": "spec", "extensions": [EXT] });
     fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
+    specforge_installed::testing::install_configured(dir.path(), &specforge_project::builtins());
     fs::create_dir(dir.path().join("spec")).unwrap();
     fs::write(dir.path().join("spec/nodes.spec"), source).unwrap();
     fs::write(

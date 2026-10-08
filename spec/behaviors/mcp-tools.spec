@@ -587,6 +587,29 @@ behavior provide_mcp_find_references_tool "Provide MCP Find References Tool" {
   verify contract "Provide MCP Find References Tool: MCP find references tool holds — graph_available, references_returned, empty_list_for_unreferenced, tool_invoked_emitted"
 }
 
+behavior provide_mcp_find_implementation_tool "Provide MCP Find Implementation Tool" {
+  features   [mcp_navigation_tools]
+  invariants [diagnostic_determinism, mcp_structured_error_responses, mcp_tool_idempotency]
+  category   query
+  ensures {
+    anchors_listed   "every anchor of the entity in specforge-anchors.json, in manifest order"
+    empty_when_none  "an entity with no anchor, or no anchors manifest, has no implementations"
+    unusable_refused "an anchors manifest that cannot be used is E071"
+  }
+  contract   """
+    In MCP server mode, the system MUST register a
+    specforge.find_implementation tool that accepts entity_id (required)
+    and returns {entity_id, implementations, count}: each anchor of the
+    entity in the project's specforge-anchors.json (file, line,
+    symbol_name, item_kind, scanner), in manifest order, from the one
+    anchor lookup navigation owns. No anchors manifest is an empty list.
+    An anchors manifest that cannot be read or parsed is refused with
+    E071.
+  """
+  verify unit "find_implementation lists every anchor of the entity, in manifest order"
+  verify unit "an entity with no anchor has no implementations, and no anchors manifest is none"
+}
+
 behavior provide_mcp_outline_tool "Provide MCP Outline Tool" {
   features   [mcp_navigation_tools]
   invariants [

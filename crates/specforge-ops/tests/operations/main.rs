@@ -8,6 +8,7 @@ mod diagnostics_json;
 mod errors;
 mod extension_calls;
 mod failures;
+mod infer;
 mod inspect;
 mod kinds;
 mod management;

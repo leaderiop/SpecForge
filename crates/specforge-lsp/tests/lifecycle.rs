@@ -261,14 +261,6 @@ fn graph_update_serves_all_features() {
     );
 }
 
-#[test]
-fn lsp_debounces_like_watch() {
-    assert_eq!(
-        specforge_lsp::DEBOUNCE_WINDOW,
-        specforge_watch::DEFAULT_DEBOUNCE_WINDOW
-    );
-}
-
 #[spec(behavior = "lsp_shutdown", verify = "shutdown releases Wasm engines")]
 fn shutdown_frees_the_wasm_runtime() {
     let project = tempfile::TempDir::new().unwrap();

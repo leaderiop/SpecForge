@@ -7,8 +7,10 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   `.spec` file is read: config, spec root, registries, rules, surfaces, and load diagnostics
   (`specforge_project::Environment`). A `specforge.json` that is there and can't be used is the
   default config (for the unusable file or key), with each reason kept (`config_problems`) and
-  reported as the error E069. It also holds what `specforge.lock` held when it was read
-  (`lock`: absent, read, or unreadable), once, for every operation over the project. A session
+  reported as the error E069. It also holds the project's **installed extensions** (`installed`:
+  what `specforge.lock` held when it was read, absent, read or unreadable, once, for every
+  operation over the project) and what each `extensions` entry enabled, as the **extension load**
+  left it. A session
   reads `specforge.json` once per load and builds its extension runtime and its environment from
   that read, after stamping every environment input (ADR 0030). It
   opens in two steps (`ProjectSession::begin_open`, then `OpeningProject::finish`), so an editor
@@ -31,8 +33,10 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   holds with no workspace folder and MCP while nothing is served). Watch, the LSP and MCP each hold
   one (`specforge_project::ProjectSession`; MCP's served one is always opened from disk, ADR 0025);
   watch and the LSP feed it watcher events and follow every update that changes its inputs
-  (`Update::inputs_changed`), MCP asks it to be fresh before every request that reads the project
-  (ADR 0014, ADR 0030). The LSP also feeds it its open buffers, each batch of edits as one update
+  (`Update::inputs_changed`) by watching them anew and then bringing the session up to date for what
+  changed meanwhile, MCP asks it to be fresh before every request that reads the project (ADR 0014,
+  ADR 0030, ADR 0035). In a debug build it checks every update against a cold rebuild, whichever
+  surface holds it, and each surface reports a divergence where it reports (ADR 0035). The LSP also feeds it its open buffers, each batch of edits as one update
   (`SourceChange::Buffers`), and a closed document's file is read from disk again
   (`specforge_lsp::changes`, ADR 0023).
 - **Session inputs**: everything a project session depends on besides its sources' text: where its
@@ -51,10 +55,14 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Update**: one change applied to a project session. It re-reads and re-parses exactly the changed files (an
   importer parses the same, since references resolve without `use`), applies them to the session's graph
   build, resolves every file's imports again and re-runs the checks (`specforge_project::Update`, ADR 0006,
-  ADR 0032).
+  ADR 0032). An update says whether the session's inputs changed (`inputs_changed`) and, when it was
+  verified, how it differs from a cold rebuild (`divergence`).
 - **Graph delta**: what an update or a reload changed in the graph: added, removed and modified
   nodes (source positions ignored) and edges. Watch prints it and MCP notifies it
   (`specforge_graph::GraphDelta`, re-exported as `specforge_project::GraphDelta`). A graph build computes it.
+- **Debounce rule**: changes that arrive less than 50 ms apart are one batch, due 50 ms after the last
+  of them, each change once. Watch batches file changes and the LSP batches edited documents by the
+  same rule (`specforge_watch::Coalescer`, ADR 0035).
 - **Graph build**: the graph of a set of parsed `.spec` files and what building it reported (parse errors,
   duplicates, define blocks, unknown ref schemes, unresolved references, reference cycles), kept current one
   whole file at a time (`specforge_graph::GraphBuild`). Files are taken in path order; each entity ID is the
@@ -65,6 +73,18 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   category — as the protocol types (`specforge_protocol_types::ExtensionDeclaration`). The SDK
   builds it, the guest serves it, the host loads it once, the Registry build reads it, a package
   registry stores it (ADR 0012).
+- **Installed extension**: an extension placed in the project under
+  `.specforge/extensions/<name>/extension.wasm` and pinned by its `specforge.lock` entry (version,
+  source `registry` or `local:<path>`, the SHA-256 of the binary). It loads only while its binary is
+  the one its entry pins (E070 otherwise; W149 when the entry pins no hash). A project's installed
+  extensions are one value, its lock read once (`specforge_installed::Installed`); installing,
+  updating and removing them is one **change** (`Installed::change`), written all at once or not at
+  all, `specforge.json` included (ADR 0028).
+- **Extension load**: turning a project's `extensions` entries into loaded extensions and their
+  declarations, once per environment load (`Installed::load`, over the `WasmRuntime` port): a
+  builtin from its embedded binary, an installed extension from its pinned module, a `.wasm` file
+  entry from its file under the name it declares. What does not load is a typed `LoadFailure` on its
+  entry with one diagnostic; the runtime keeps none.
 - **Registry build**: the pure result of turning extension declarations into kind, field and
   edge registries, the rule set, pass order and derived graph inputs, and the diagnostics of those
   declarations (`specforge_registry::build_registries`). It also runs every check over a built
@@ -177,15 +197,29 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   providers listing read this one registration.
 - **Management operation**: an operation about a project's setup and tooling rather than its
   graph: the extensions and providers listings, doctor, remove, collect, inference progress and
-  gaps. Like a read view it takes the project view and a request and returns a typed outcome; unlike
-  one it also reads what the view does not own (installed binaries, source files),
-  and remove and collect write, at the view's root only. `add`, `update`, `init` and `migrate` are
-  operations but not over a view: they run before or instead of a compile (ADR 0015); `add` and
-  `update` read `specforge.json` through the compile's own reader and refuse an unusable one with
-  the refusal `remove` gives.
+  gaps, and the inference session steps. Like a read view it takes the project view and a request
+  and returns a typed outcome; unlike one it also reads what the view does not own (installed
+  binaries, source files, the inference manifest), and remove, collect and the session steps write,
+  at the view's root only. `add`, `update`, `init` and `migrate` are operations but not over a view:
+  they run before or instead of a compile (ADR 0015); `add` and `update` read `specforge.json`
+  through the compile's own reader and the installed extensions through `Installed::at`, and refuse
+  an unusable `specforge.json` with the refusal `remove` gives.
 - **Recorded test report**: `<root>/specforge-report.json`, what `specforge collect` last wrote. The
   project view reads it once per compile and per content
   (`specforge_project::coverage::RecordedCoverage`).
+- **Inference manifest**: `<root>/specforge-infer.json`, what inference has recorded: the source
+  roots, each analyzed source file (root-relative path, content hash, the entities produced) and
+  the inference sessions (`specforge_ops::infer::InferenceManifest`). One reader and one writer in
+  `specforge_ops::infer`: a file that cannot be used is E071 for every reader, never an empty
+  manifest, and a write keeps the keys it does not define. Not a project input: the compile and the
+  session never read it.
+- **Inference session**: one agent's run of inference, recorded in the manifest: started, then
+  ended as completed or paused; at most one is active (`SessionStatus`). Its steps (start, mark a
+  source file analyzed, end) are one management operation, `specforge_ops::infer::session`; MCP's
+  `specforge.infer_session` is its adapter.
+- **Anchors manifest**: `<root>/specforge-anchors.json`, which source item each entity is anchored
+  to. Navigation reads it (`specforge_ops::navigate::source_anchors`): the anchors of a source file
+  and of an entity; E071 when it cannot be used.
 - **Obligation**: one `verify` statement on an entity. **Proven** when a passing test names its
   exact text, or a formal claim discharges it. Who owes obligations is the entity's standing.
 - **Unverified**: an entity that counts toward coverage and is not proven
@@ -252,7 +286,8 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   confused with an entity's coverage **Verdict** (ADR 0029).
 - **Diagnostic policy**: lint profiles (a closed set: `inferred`, `pedantic`) and strict promotion
   (`specforge_project::DiagnosticPolicy`). It is the only thing that changes a diagnostic's severity
-  after the diagnostic is built.
+  after the diagnostic is built. A profile's diagnostics come from the check that applies it
+  (`inferred`: `specforge_ops::infer::lint`, I200/I202 or E071); the policy reads no file.
 - **Extension command**: a CLI command an extension declares in its surfaces (with the SDK, together
   with its handler: `ContributionsBuilder::command`), answered by its `cmd__` export over the graph
   the host passes (`specforge_protocol_types::CommandInput`: args, project root, graph, the
@@ -283,7 +318,10 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **In-process runtime**: the test adapter of the `WasmRuntime` port that runs an SDK-declared
   extension in the host process through the guest's own routing (`guest_call`), unsandboxed
   (it records the limits the host applies and enforces none;
-  `specforge_wasm::testing::InProcessRuntime`). Host tests declare their extensions with it; the
+  `specforge_wasm::testing::InProcessRuntime`). It serves a binary's bytes under the name they are
+  loaded as (`binary`), so the extension load runs in process; a test that serves an extension
+  installs it (`specforge_installed::testing::install`) and the project loads it through the
+  production path. Host tests declare their extensions with it; the
   component runtime is the production adapter, and both keep one contract
   (`assert_runtime_contract`). MCP's tests serve every project from a temporary directory through
   it (`tests/support`): no test writes a registry, a graph or a diagnostic into a server (ADR 0025).

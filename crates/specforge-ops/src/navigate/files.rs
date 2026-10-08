@@ -3,7 +3,7 @@
 //! (`anchors_of_file`), and the outline of a spec file the LSP's document
 //! symbols and MCP's `specforge.outline` both answer.
 
-use specforge_common::inference::anchors::{AnchorManifest, SourceAnchor};
+use super::anchors::{AnchorManifest, SourceAnchor};
 use specforge_common::{SourceSpan, Sym};
 use specforge_graph::Node;
 

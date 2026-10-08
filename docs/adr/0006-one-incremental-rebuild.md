@@ -8,7 +8,8 @@ diffed graphs with a delta type of its own. The DAG only matched imports spelled
 (no relative, `@alias` or `index.spec` targets), so the files it picked were wrong anyway.
 
 The rebuild now lives in `specforge-project` (`incremental.rs`, `delta.rs`) behind
-`ProjectSession`. `specforge-watch` is the file watcher and its debounce.
+`ProjectSession`. `specforge-watch` is the file watcher and its debounce. *(ADR 0035: it is also the
+debounce rule the LSP shares and the loop that keeps a session current from the watcher.)*
 
 - **No import DAG.** A parse depends only on its own text, and references resolve across the
   project without `use` (ADR 0004 D1-a), so re-parsing an importer gains nothing. An update

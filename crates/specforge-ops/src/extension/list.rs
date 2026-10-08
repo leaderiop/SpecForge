@@ -107,7 +107,7 @@ pub fn list(view: &ProjectView) -> ExtensionListing {
     let mut names: Vec<String> = enabled_names
         .iter()
         .map(|name| name.to_string())
-        .chain(lock_entries.iter().map(|e| e.name.clone()))
+        .chain(lock_entries.iter().map(|e| e.name.to_string()))
         .chain(loaded.iter().map(|d| d.name().to_string()))
         .collect();
     names.sort();
@@ -117,7 +117,7 @@ pub fn list(view: &ProjectView) -> ExtensionListing {
         .into_iter()
         .map(|name| {
             let declaration = loaded.iter().find(|d| d.name() == name);
-            let locked = lock_entries.iter().find(|e| e.name == name);
+            let locked = lock_entries.iter().find(|e| e.name.as_str() == name);
             let status = match (enabled_names.contains(&name.as_str()), declaration) {
                 (true, Some(_)) => Status::Loaded,
                 (true, None) => Status::NotLoaded,
@@ -155,7 +155,7 @@ pub fn list(view: &ProjectView) -> ExtensionListing {
         locked: lock_entries
             .iter()
             .map(|e| LockedExtension {
-                name: e.name.clone(),
+                name: e.name.to_string(),
                 version: e.version.clone(),
             })
             .collect(),
@@ -258,7 +258,7 @@ mod tests {
     fn the_listing_reads_the_lock_the_compile_read_not_the_disk() {
         let fixture = Fixture::new().lock(&[("@acme/locked", "1.0.0", "registry")]);
         // The file changed after the compile read it.
-        std::fs::remove_file(specforge_wasm::lock_path(fixture.dir.path())).unwrap();
+        std::fs::remove_file(specforge_installed::lock_path(fixture.dir.path())).unwrap();
 
         let listing = list(&fixture.view());
 
@@ -281,6 +281,7 @@ mod tests {
                 entry: "greet.wasm".into(),
                 name: "@sdk/greet".into(),
                 file: Some("greet.wasm".into()),
+                failure: None,
             }])
             .declarations(vec![Fixture::declaration("@sdk/greet", "0.1.0")]);
 

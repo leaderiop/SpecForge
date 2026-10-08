@@ -16,8 +16,16 @@ fn project(config: serde_json::Value, files: &[(&str, &str)]) -> TempDir {
     dir
 }
 
+/// [`project`] whose enabled extensions an in-process runtime serves: they
+/// are installed too, as a project that enables them has them.
+fn served_project(config: serde_json::Value, files: &[(&str, &str)]) -> TempDir {
+    let dir = project(config, files);
+    specforge_installed::testing::install_configured(dir.path(), &specforge_project::builtins());
+    dir
+}
+
 fn compile(root: &Path) -> CompiledProject {
-    let runtime = specforge_component::project_runtime(root);
+    let runtime = specforge_component::ComponentRuntime::with_user_cache();
     CompiledProject::compile(root, Some(&runtime))
 }
 
@@ -407,7 +415,7 @@ fn compile_with_providers(
     verify = "Wasm-based provider scheme registered and validates ref"
 )]
 fn a_registered_provider_scheme_validates_refs() {
-    let dir = project(
+    let dir = served_project(
         serde_json::json!({
             "name": "p", "version": "0.1.0",
             "extensions": ["@test/gh-provider"],
@@ -434,7 +442,7 @@ fn a_registered_provider_scheme_validates_refs() {
     verify = "duplicate scheme from two providers produces E057"
 )]
 fn a_scheme_declared_twice_is_e057_on_compile() {
-    let dir = project(
+    let dir = served_project(
         serde_json::json!({
             "name": "p", "version": "0.1.0",
             "extensions": ["@test/gh-a", "@test/gh-b"],
@@ -460,7 +468,7 @@ fn a_scheme_declared_twice_is_e057_on_compile() {
 /// Without a provider configured, refs are not checked for their scheme.
 #[test]
 fn no_provider_means_no_scheme_check() {
-    let dir = project(
+    let dir = served_project(
         serde_json::json!({
             "name": "p", "version": "0.1.0", "extensions": ["@test/gh-provider"]
         }),
@@ -503,7 +511,7 @@ fn environment_diagnostics_come_in_load_order() {
         }),
         &[],
     );
-    let runtime = specforge_component::project_runtime(dir.path());
+    let runtime = specforge_component::ComponentRuntime::with_user_cache();
     let env = specforge_project::Environment::load(dir.path(), Some(&runtime));
     let codes: Vec<&str> = env.diagnostics().map(|d| d.code.as_str()).collect();
     // The missing extension's load failure, formal's missing peer, then the
@@ -520,7 +528,7 @@ mod declared_in_process {
     //! Extensions declared with the SDK and served in process: what they
     //! declare is what the environment loads.
 
-    use super::project;
+    use super::served_project as project;
     use specforge_extension_sdk::prelude::*;
     use specforge_project::Environment;
     use specforge_registry::SurfaceType;
@@ -660,7 +668,7 @@ mod passes_of_the_declaration {
     //! read: nothing describes `passes` again, and a passes answer that does
     //! not parse fails the extension's load.
 
-    use super::project;
+    use super::served_project as project;
     use specforge_extension_sdk::prelude::*;
     use specforge_project::{CompiledProject, Environment};
     use specforge_wasm::WasmCallResult;
@@ -781,7 +789,7 @@ mod passes_of_the_declaration {
 fn an_unusable_config_is_e069_then_i002_naming_it() {
     let dir = TempDir::new().unwrap();
     fs::write(dir.path().join("specforge.json"), r#"{ "extensions": ["#).unwrap();
-    let runtime = specforge_component::project_runtime(dir.path());
+    let runtime = specforge_component::ComponentRuntime::with_user_cache();
 
     let env = specforge_project::Environment::load(dir.path(), Some(&runtime));
 
@@ -836,28 +844,33 @@ fn an_unusable_config_is_e069_then_i002_naming_it() {
 /// unreadable with its E033 problem (and no extension is locked).
 #[test]
 fn the_environment_reads_the_lock_once_at_its_root() {
-    use specforge_wasm::{LockFile, LockState};
+    use specforge_installed::{LockFile, LockState};
     let dir = TempDir::new().unwrap();
     fs::write(dir.path().join("specforge.json"), "{}").unwrap();
-    let runtime = specforge_component::project_runtime(dir.path());
+    let runtime = specforge_component::ComponentRuntime::with_user_cache();
     let load = || specforge_project::Environment::load(dir.path(), Some(&runtime));
 
-    assert_eq!(load().lock, LockState::Absent);
+    assert_eq!(load().installed.lock(), &LockState::Absent);
 
     let lock = LockFile::default();
-    specforge_wasm::write_lock_file(&lock, &specforge_wasm::lock_path(dir.path())).unwrap();
-    assert_eq!(load().lock, LockState::Read(lock));
+    specforge_installed::write_lock_file(&lock, &specforge_installed::lock_path(dir.path()))
+        .unwrap();
+    assert_eq!(load().installed.lock(), &LockState::Read(lock));
 
     // What changed on disk after the load is not what the environment holds.
     let env = load();
-    fs::write(specforge_wasm::lock_path(dir.path()), "not valid json {{{").unwrap();
-    assert!(matches!(env.lock, LockState::Read(_)));
+    fs::write(
+        specforge_installed::lock_path(dir.path()),
+        "not valid json {{{",
+    )
+    .unwrap();
+    assert!(matches!(env.installed.lock(), LockState::Read(_)));
     let reloaded = load();
     assert_eq!(
-        reloaded.lock.problem().map(|p| p.code.as_str()),
+        reloaded.installed.lock().problem().map(|p| p.code.as_str()),
         Some("E033")
     );
-    assert!(reloaded.lock.entries().is_empty());
+    assert!(reloaded.installed.lock().entries().is_empty());
 }
 
 /// A non-string `extensions` item is one E069 (it is ignored); the other
@@ -933,4 +946,119 @@ fn an_unreadable_source_is_e025_naming_it() {
         .collect();
     assert_eq!(ids, ["alpha"]);
     assert_eq!(compiled.source_texts().len(), 1);
+}
+
+/// `@sdk/greet` installed by hand under `root`: its module, and a lock
+/// entry pinning `hash` (the module's own when `None`).
+fn install_greet(root: &Path, hash: Option<&str>) {
+    let blob =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/greet-extension/greet.wasm");
+    let bytes = fs::read(blob).unwrap();
+    let module = root.join(".specforge/extensions/@sdk/greet/extension.wasm");
+    fs::create_dir_all(module.parent().unwrap()).unwrap();
+    fs::write(&module, &bytes).unwrap();
+    let lock = specforge_installed::LockFile {
+        lockfile_version: 1,
+        entries: vec![specforge_installed::LockFileEntry {
+            name: specforge_protocol_types::PackageName::parse("@sdk/greet").unwrap(),
+            version: "0.1.0".into(),
+            source: specforge_installed::LockSource::Registry,
+            wasm_hash: hash.map_or_else(|| specforge_installed::hex_sha256(&bytes), str::to_string),
+            key_id: None,
+            peer_dependencies: Vec::new(),
+        }],
+    };
+    specforge_installed::write_lock_file(&lock, &specforge_installed::lock_path(root)).unwrap();
+}
+
+/// A `specforge.json` entry that names no package is E072 and is not
+/// loaded: no module is looked for under a path it would escape.
+#[specforge_test(
+    behavior = "install_wasm_extension",
+    verify = "an extension is installed under the extensions directory of its project, by its package name"
+)]
+fn an_entry_that_names_no_package_is_e072_and_not_loaded() {
+    let dir = project(
+        serde_json::json!({
+            "name": "p", "version": "0.1.0",
+            "extensions": ["../../../outside1", "@specforge/product"]
+        }),
+        &[],
+    );
+    let runtime = specforge_component::ComponentRuntime::with_user_cache();
+
+    let env = specforge_project::Environment::load(dir.path(), Some(&runtime));
+
+    let e072: Vec<&specforge_common::Diagnostic> =
+        env.diagnostics().filter(|d| d.code == "E072").collect();
+    assert_eq!(e072.len(), 1, "{:?}", env.diagnostics().collect::<Vec<_>>());
+    assert!(e072[0].message.contains("../../../outside1"), "{e072:?}");
+    assert_eq!(runtime.loaded_names(), ["@specforge/product"]);
+}
+
+/// A lock that cannot be read is reported once (E033), then each installed
+/// extension it leaves unloaded is E028 naming it.
+#[specforge_test(
+    behavior = "load_extension_manifests",
+    verify = "an unreadable specforge.lock is reported once (E033) and each installed extension it leaves unloaded is E028 naming it"
+)]
+fn an_unreadable_lock_reports_e033_once_then_each_installed_extension() {
+    let dir = project(
+        serde_json::json!({"name": "p", "version": "0.1.0", "extensions": ["@sdk/greet"]}),
+        &[],
+    );
+    install_greet(dir.path(), None);
+    fs::write(
+        specforge_installed::lock_path(dir.path()),
+        "not valid json {{{",
+    )
+    .unwrap();
+    let runtime = specforge_component::ComponentRuntime::with_user_cache();
+
+    let env = specforge_project::Environment::load(dir.path(), Some(&runtime));
+
+    let diagnostics: Vec<&specforge_common::Diagnostic> = env.diagnostics().collect();
+    let lock: Vec<&&specforge_common::Diagnostic> =
+        diagnostics.iter().filter(|d| d.code == "E033").collect();
+    assert_eq!(lock.len(), 1, "{diagnostics:?}");
+    assert!(lock[0].message.contains("corrupt lock file"));
+    let unloaded: Vec<&str> = diagnostics
+        .iter()
+        .filter(|d| d.code == "E028" && d.message.contains("@sdk/greet"))
+        .map(|d| d.message.as_str())
+        .collect();
+    assert_eq!(unloaded.len(), 1, "{diagnostics:?}");
+    assert!(unloaded[0].contains("specforge.lock can't be read"));
+    let at = |code: &str| diagnostics.iter().position(|d| d.code == code).unwrap();
+    assert!(at("E033") < at("E028"), "the lock comes first");
+}
+
+/// A lock entry that pins no hash loads its extension, with W149.
+#[specforge_test(
+    behavior = "load_wasm_module",
+    verify = "legacy lockfile entry without hash loads with W149"
+)]
+fn an_unpinned_lock_entry_loads_with_w149() {
+    let dir = project(
+        serde_json::json!({"name": "p", "version": "0.1.0", "extensions": ["@sdk/greet"]}),
+        &[],
+    );
+    install_greet(dir.path(), Some(""));
+    let runtime = specforge_component::ComponentRuntime::with_user_cache();
+
+    let env = specforge_project::Environment::load(dir.path(), Some(&runtime));
+
+    let named: Vec<(&str, specforge_common::Severity)> = env
+        .diagnostics()
+        .filter(|d| d.message.contains("@sdk/greet"))
+        .map(|d| (d.code.as_str(), d.severity))
+        .collect();
+    assert_eq!(named, [("W149", specforge_common::Severity::Warning)]);
+    assert!(
+        env.registries
+            .declarations()
+            .iter()
+            .any(|d| d.name() == "@sdk/greet"),
+        "its declaration loaded"
+    );
 }

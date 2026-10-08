@@ -185,10 +185,16 @@ fn render_human(report: &DoctorReport, credentials: &CredentialHealth) -> String
 
     line!();
     line!("Extension load failures:");
-    if report.load_failures.is_empty() {
+    // A missing or changed binary is listed above, once, with its remedy.
+    let failures: Vec<_> = report
+        .load_failures
+        .iter()
+        .filter(|failure| !failure.binary_issue)
+        .collect();
+    if failures.is_empty() {
         line!("  none");
     }
-    for failure in &report.load_failures {
+    for failure in failures {
         line!("  [{}] {}", failure.code, failure.message);
         line!("    fix: {}", failure.suggestion);
     }

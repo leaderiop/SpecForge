@@ -44,6 +44,7 @@ fn project_with_extension() -> tempfile::TempDir {
         r#"{"name": "p", "version": "0.1.0", "extensions": ["@acme/x"]}"#,
     )
     .unwrap();
+    specforge_installed::testing::install(dir.path(), &["@acme/x"]);
     dir
 }
 
@@ -385,10 +386,8 @@ fn the_builtin_extensions_hooks_run_without_a_dependency_failure() {
         .map(|(name, _)| *name)
         .collect();
     assert_eq!(names.len(), 9);
-    let dir = tempfile::TempDir::new().unwrap();
-    let config = serde_json::json!({"name": "p", "version": "0.1.0", "extensions": names});
-    std::fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
-    let runtime = specforge_component::project_runtime(dir.path());
+    let runtime = specforge_component::ComponentRuntime::new();
+    specforge_component::builtins::load_builtins(&runtime).unwrap();
     let declarations: Vec<ExtensionDeclaration> = names
         .iter()
         .map(|name| {
@@ -492,6 +491,7 @@ fn schema_project() -> tempfile::TempDir {
         r#"{"name": "p", "version": "0.1.0", "extensions": ["@acme/base", "@acme/extra"]}"#,
     )
     .unwrap();
+    specforge_installed::testing::install(dir.path(), &["@acme/base", "@acme/extra"]);
     std::fs::write(
         dir.path().join("old.spec"),
         "// specforge-format: 0.9\nthing t \"T\" {\n}\n",
@@ -563,6 +563,7 @@ fn project_enabling(extensions: &[&str]) -> tempfile::TempDir {
     let dir = project();
     let config = serde_json::json!({"name": "p", "version": "0.1.0", "extensions": extensions});
     std::fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
+    specforge_installed::testing::install(dir.path(), extensions);
     dir
 }
 

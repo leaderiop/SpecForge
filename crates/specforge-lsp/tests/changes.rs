@@ -221,6 +221,52 @@ fn readers_keep_the_last_graph_while_the_session_is_out() {
     assert!(!served.state().rebuilding());
 }
 
+#[spec(
+    behavior = "bring_session_up_to_date",
+    verify = "the LSP's catch-up keeps an open buffer"
+)]
+fn a_catch_up_reads_the_disk_except_for_an_open_buffer() {
+    let mut served = Served::new(&[("a.spec", A_ALPHA), ("c.spec", A_OMEGA)]).open(&["a.spec"]);
+    served.edit("a.spec", "type zeta \"Z\" {}\n");
+    assert!(
+        Plan::of(Change::CatchUp, served.state()).is_none(),
+        "nothing changed on disk"
+    );
+
+    // Both files are rewritten on disk while the client's watchers moved.
+    served.write("a.spec", "type other \"O\" {}\n");
+    served.write("c.spec", "type sigma \"S\" {}\n");
+    let (applied, _) = served.apply(Change::CatchUp).expect("c.spec changed");
+    assert!(applied.changed);
+    let state = served.state();
+    assert!(state.graph().node("zeta").is_some(), "the buffer stays");
+    assert!(
+        state.graph().node("other").is_none(),
+        "its file is not read"
+    );
+    assert!(
+        state.graph().node("sigma").is_some(),
+        "c.spec is the disk's"
+    );
+    assert!(state.graph().node("omega").is_none());
+    assert!(
+        Plan::of(Change::CatchUp, served.state()).is_none(),
+        "a catch-up leaves nothing stale"
+    );
+}
+
+#[spec(
+    behavior = "bring_session_up_to_date",
+    verify = "the LSP's catch-up keeps an open buffer"
+)]
+fn a_catch_up_sees_the_deletion_of_an_open_documents_file() {
+    let mut served = Served::new(&[("a.spec", A_ALPHA), ("c.spec", A_OMEGA)]).open(&["a.spec"]);
+    served.edit("a.spec", "type zeta \"Z\" {}\n");
+
+    std::fs::remove_file(served.root().join("a.spec")).unwrap();
+    assert!(Plan::of(Change::CatchUp, served.state()).is_some());
+}
+
 #[test]
 fn a_served_extension_declares_the_kinds_the_project_reads() {
     let served = Served::new(&[("main.spec", "gadget widget \"W\" {}\n")])

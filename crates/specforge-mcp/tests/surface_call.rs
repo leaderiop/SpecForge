@@ -395,6 +395,8 @@ fn extension_enabled_after_serving()
         .enabling(&[])
         .file("main.spec", "")
         .serve_in(ext.runtime() as std::sync::Arc<dyn specforge_wasm::runtime::WasmRuntime>);
+    // The project installs what its runtime serves, then enables it.
+    specforge_installed::testing::install(server.root(), &[EXT]);
     server.write("specforge.json", &config(&[EXT]));
     (server, ext)
 }
@@ -495,7 +497,7 @@ fn a_read_names_the_uri_the_client_read() {
 
 /// What `specforge export` writes for `request`, over the project at `root`.
 fn exported(root: &std::path::Path, request: &Request) -> String {
-    let runtime = specforge_component::project_runtime(root);
+    let runtime = specforge_component::ComponentRuntime::with_user_cache();
     let project = CompiledProject::compile(root, Some(&runtime));
     specforge_ops::export::export(&ProjectView::of(&project), request).unwrap()
 }

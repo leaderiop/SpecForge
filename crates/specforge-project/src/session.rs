@@ -36,12 +36,12 @@ pub enum RuntimeSource {
 }
 
 impl RuntimeSource {
-    /// `specforge_component::project_runtime_with`: the builtins the config
-    /// enables, the installed extensions from the lock, the `.wasm` file
-    /// entries.
+    /// The project's own component runtime, with the per-user compile
+    /// cache ([`specforge_component::ComponentRuntime::with_user_cache`]):
+    /// empty, for the environment's extension load to fill.
     pub fn project() -> Self {
-        RuntimeSource::Build(Arc::new(|root, config| {
-            Arc::new(specforge_component::project_runtime_with(root, config))
+        RuntimeSource::Build(Arc::new(|_, _| {
+            Arc::new(specforge_component::ComponentRuntime::with_user_cache())
         }))
     }
 
@@ -104,6 +104,19 @@ pub struct Update {
     /// The comparison of the incremental graph with a cold rebuild, when
     /// the session verifies its updates.
     pub verification: Option<Result<(), String>>,
+}
+
+impl Update {
+    /// How the incremental graph differs from a cold rebuild, when this
+    /// update was verified and the two differ: what every surface reports
+    /// where it reports (watch in its event, the LSP in its log, MCP as a
+    /// debug assertion; ADR 0035).
+    pub fn divergence(&self) -> Option<&str> {
+        match &self.verification {
+            Some(Err(divergence)) => Some(divergence),
+            Some(Ok(())) | None => None,
+        }
+    }
 }
 
 /// A compiled project that accepts source changes and environment reloads.

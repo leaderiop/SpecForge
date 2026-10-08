@@ -30,7 +30,17 @@ fn project() -> Project {
         project.env.registries.declarations(),
     );
     project.env.config.raw = Some(config);
-    project.env.enabled = vec![EnabledExtension::of("@acme/missing@1.2.0", None)];
+    // It did not load: not installed, as the load recorded it.
+    project.env.enabled = vec![EnabledExtension {
+        failure: Some(specforge_installed::LoadFailure {
+            problem: specforge_installed::LoadProblem::NotInstalled,
+            diagnostic: Diagnostic::new(
+                specforge_common::codes::E028,
+                "extension '@acme/missing' is not installed",
+            ),
+        }),
+        ..EnabledExtension::unloaded("@acme/missing@1.2.0")
+    }];
     project.env.config_found = true;
     let root = project.dir.path();
     std::fs::write(
@@ -47,7 +57,7 @@ fn project() -> Project {
     )
     .unwrap();
     // The compile read the lock as it is at this root.
-    project.env.lock = specforge_wasm::LockState::at(root);
+    project.env.installed = specforge_installed::Installed::at(root);
     project
 }
 

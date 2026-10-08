@@ -54,9 +54,12 @@ behavior load_extension_manifests "Load Extension Manifests" {
     bare name (a legacy name@version entry names the same extension): it
     MUST load from .specforge/extensions/<name>/extension.wasm under that
     name, on every surface, only when the binary's hash is the one its
-    specforge.lock entry records; a mismatch MUST be refused with E033, and
-    an extension enabled but not installed MUST produce E028 naming the
-    command that installs it. An entry ending in .wasm names a component
+    specforge.lock entry records; a mismatch, or a binary that declares
+    another extension than its entry, MUST be refused with E070, and an
+    extension enabled but not installed MUST produce E028 naming the
+    command that installs it. A specforge.lock that is there and can't be
+    read MUST be reported once (E033), before an E028 for each installed
+    extension it leaves unloaded. An entry ending in .wasm names a component
     file instead (path.wasm, or name=path.wasm; a relative path is relative
     to the project root): it MUST load from that file, on every surface,
     under the name the component declares, the one rule the runtime and the
@@ -83,6 +86,9 @@ behavior load_extension_manifests "Load Extension Manifests" {
     contributions.
   """
   verify unit "installed extension manifest is loaded"
+  verify unit "an installed extension loads only when its binary is the one its specforge.lock entry pins"
+  verify integration "tampered installed binary refused via lockfile hash pin (E070)"
+  verify unit "an unreadable specforge.lock is reported once (E033) and each installed extension it leaves unloaded is E028 naming it"
   verify integration "an extension installed from a registry loads through check"
   verify integration "an enabled extension with no installed binary produces E028 naming the command that installs it"
   verify integration "an entry naming a .wasm file loads that component from disk under the name it declares"
@@ -361,8 +367,9 @@ behavior remove_extension "Remove Extension" {
     nothing; a name no entry, lock entry or builtin matches is
     extension_not_found. Every refusal MUST be decided before anything is
     written, and a specforge.json the compile could not read refuses every
-    removal (config_invalid), changing nothing; specforge.json is written
-    before specforge.lock and the binary.
+    removal (config_invalid), changing nothing. A removal is all or
+    nothing: a failure at any step leaves specforge.json, specforge.lock
+    and the binary as they were.
     Removing an extension that another loaded or installed extension
     requires as a non-optional peer MUST fail with E027 naming the
     dependents, unless --force is given. The CLI and the MCP
@@ -385,6 +392,7 @@ behavior remove_extension "Remove Extension" {
   verify unit "specforge remove for non-existent extension reports error"
   verify integration "remove --format json lists the files it wrote in files_written"
   verify unit "specforge remove with no lock file reports error"
+  verify unit "a removal that fails changes nothing"
   verify integration "removing an installed extension drops its specforge.json entry"
   verify integration "removing an extension another installed extension requires fails with E027 unless --force"
   verify integration "a .wasm file entry is removed by the name it declares or by its entry as written, leaving its file in place"
@@ -634,8 +642,12 @@ behavior search_registry "Search Registry" {
     deterministic — sorted by relevance score then extension name.
     With no registry configured, search MUST make no network call and MUST
     fail with E063, whose suggestion names the specforge.json registries key.
+    A specforge.json that is there and can't be used MUST be refused as add
+    refuses it (config_invalid, naming E069), before any network call; so
+    for login and publish.
   """
   verify unit "with no registry configured, search makes no network call and reports how to configure one"
+  verify unit "an unusable specforge.json is refused with the refusal add gives, before any network call"
   verify unit "queries all configured registries"
   verify unit "filters by contribution type"
   verify unit "deduplicates results across registries"

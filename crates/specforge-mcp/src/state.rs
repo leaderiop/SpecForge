@@ -54,7 +54,7 @@ pub struct McpState {
     pub notification_outbox: Vec<serde_json::Value>,
     /// The Wasm runtime extensions run in, when the host supplies one; by
     /// default the served project's session builds the project's runtime
-    /// (`specforge_component::project_runtime`) each time it loads.
+    /// (`specforge_component::ComponentRuntime::with_user_cache`) each time it loads.
     pub extension_runtime: Option<SharedRuntime>,
 }
 
@@ -251,12 +251,6 @@ impl McpState {
     pub fn ensure_fresh(&mut self) -> Option<&Update> {
         let previous_diagnostics = self.diagnostics();
         let update = self.session.ensure_fresh()?;
-        if let Some(Err(divergence)) = &update.verification {
-            debug_assert!(
-                false,
-                "an update of the served project diverged from a cold rebuild: {divergence}"
-            );
-        }
         self.applied(update, &previous_diagnostics);
         self.last_update.as_ref()
     }
@@ -265,6 +259,15 @@ impl McpState {
     /// surface table is built again when its environment loaded again, and
     /// subscribed clients learn what changed.
     fn applied(&mut self, update: Update, previous_diagnostics: &[Diagnostic]) {
+        // Every session verifies its updates in a debug build (ADR 0035):
+        // a divergence from a cold rebuild is a bug, and this is the one
+        // place every update of the served project passes.
+        if let Some(divergence) = update.divergence() {
+            debug_assert!(
+                false,
+                "an update of the served project diverged from a cold rebuild: {divergence}"
+            );
+        }
         self.generation += 1;
         if update.kind == UpdateKind::Environment {
             self.surfaces = ExtensionSurfaceTable::build(

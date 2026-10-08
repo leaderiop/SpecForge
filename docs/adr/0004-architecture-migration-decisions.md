@@ -52,12 +52,14 @@ Changed answers are marked *(amended)*.
 - **D3-b** *(amended)* Installed extensions load from the **lock file**, hash-checked, on every
   surface; the `specforge.json` entry is the bare name. The lock records a local install's **own
   declared version**, with `source: "local:<path>"`, so peer and diamond checks work and `update`
-  never replaces it from a registry.
+  never replaces it from a registry. *(Amended by ADR 0028)* A binary that is not the pinned one is
+  E070, an entry without a hash loads with W149, and every surface loads through
+  `Installed::load`.
 - **D3-c** Provider configuration follows the spec's `ProviderConfig`: an **array** of
   `{scheme, alias, extension, settings}` with `extension` required. Order is kept, because the first
   declared scheme wins (E057). Two instances of one provider use distinct schemes.
 - **D3-d** *(amended)* MCP doctor **compiles fresh by default**, like `validate`, with a `use_cached`
-  option. Doctor reports extension load failures (E028, E033) on both surfaces.
+  option. Doctor reports extension load failures (E028, E070) on both surfaces.
 - **D3-e** *(amended)* `init` enables **builtins, and extensions it installs through the shared add
   operation**; it never writes an entry `check` cannot load. Until the shared add exists, builtins only.
 - **D3-f** MCP analyze passes **no proved claims unless prove ran**. An opt-in `prove` argument comes

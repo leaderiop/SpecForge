@@ -509,7 +509,7 @@ fn rename_recompiles_files_it_did_not_edit() {
         codes.sort();
         codes
     };
-    let runtime = specforge_component::project_runtime(&root);
+    let runtime = specforge_component::ComponentRuntime::with_user_cache();
     let fresh: Vec<Value> = specforge_project::CompiledProject::compile(&root, Some(&runtime))
         .diagnostics()
         .iter()

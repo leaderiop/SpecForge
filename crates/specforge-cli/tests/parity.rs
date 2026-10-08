@@ -1250,7 +1250,13 @@ fn infer_project(root: &Path) {
             "source_index": [{
                 "path": "src/lib.rs", "content_hash": "stale",
                 "entities_produced": ["alpha"], "analyzed_at": "2026-10-01T00:00:00Z"
-            }]
+            }],
+            "sessions": [
+                {"session_id": "s-1", "agent": "claude", "status": "completed",
+                 "started_at": "2026-10-01T00:00:00Z", "ended_at": "2026-10-01T01:00:00Z"},
+                {"session_id": "s-2", "agent": "codex", "status": "active",
+                 "started_at": "2026-10-02T00:00:00Z"}
+            ]
         })
         .to_string(),
     )
@@ -1296,6 +1302,16 @@ fn infer_progress_is_equal_on_both_surfaces() {
         "{cli_doc}"
     );
     assert_eq!(cli_doc["stale"], json!(["src/lib.rs"]), "{cli_doc}");
+    assert_eq!(
+        cli_doc["sessions"],
+        json!([
+            {"session_id": "s-1", "agent": "claude", "status": "completed",
+             "started_at": "2026-10-01T00:00:00Z", "ended_at": "2026-10-01T01:00:00Z"},
+            {"session_id": "s-2", "agent": "codex", "status": "active",
+             "started_at": "2026-10-02T00:00:00Z"}
+        ]),
+        "{cli_doc}"
+    );
     assert_eq!(cli_doc, mcp_doc);
 }
 

@@ -26,6 +26,7 @@ specforge-protocol-types = { path = "../specforge-protocol-types" }
 specforge-registry = { workspace = true }
 specforge-resolver = { path = "../specforge-resolver" }
 specforge-wasm = { workspace = true }
+specforge-installed = { path = "../specforge-installed" }
 tree-sitter = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
@@ -37,6 +38,7 @@ insta = { workspace = true }
 # Extensions declared with the SDK, served in process.
 specforge-extension-sdk = { path = "../specforge-extension-sdk" }
 specforge-wasm = { workspace = true, features = ["testing"] }
+specforge-installed = { path = "../specforge-installed", features = ["testing"] }
 specforge-test = { workspace = true }
 specforge-test-macros = { workspace = true }
 tempfile = { workspace = true }

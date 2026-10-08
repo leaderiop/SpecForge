@@ -674,7 +674,7 @@ fn walk<'t>(node: tree_sitter::Node<'t>, out: &mut Vec<tree_sitter::Node<'t>>) {
 )]
 fn tokens_agree_with_the_grammar() {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
-    let runtime = specforge_component::project_runtime(&root);
+    let runtime = specforge_component::ComponentRuntime::with_user_cache();
     let project = specforge_project::CompiledProject::compile(&root, Some(&runtime));
     let view = ProjectView::of(&project);
     let declared: Vec<&str> = view

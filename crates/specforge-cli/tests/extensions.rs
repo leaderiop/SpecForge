@@ -620,13 +620,13 @@ fn doctor_lists_enhancements() {
                 "name": "ext-a",
                 "version": "1.0.0",
                 "source": "registry",
-                "wasm_hash": specforge_wasm::hex_sha256(b"wasm-ext-a"),
+                "wasm_hash": specforge_installed::hex_sha256(b"wasm-ext-a"),
             },
             {
                 "name": "ext-b",
                 "version": "1.0.0",
                 "source": "registry",
-                "wasm_hash": specforge_wasm::hex_sha256(b"wasm-ext-b"),
+                "wasm_hash": specforge_installed::hex_sha256(b"wasm-ext-b"),
             },
         ],
     });
@@ -702,7 +702,7 @@ fn doctor_healthy_lock_entry() {
             "name": "ok-ext",
             "version": "1.0.0",
             "source": "registry",
-            "wasm_hash": specforge_wasm::hex_sha256(b"good wasm"),
+            "wasm_hash": specforge_installed::hex_sha256(b"good wasm"),
         }],
     });
     fs::write(
@@ -969,7 +969,7 @@ fn doctor_contract() {
             "name": "ok-ext",
             "version": "1.0.0",
             "source": "registry",
-            "wasm_hash": specforge_wasm::hex_sha256(b"good wasm"),
+            "wasm_hash": specforge_installed::hex_sha256(b"good wasm"),
         }],
     });
     fs::write(

@@ -1,15 +1,16 @@
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
 use tokio::sync::mpsc;
 use tokio::sync::{Mutex, RwLock};
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer};
 
-use specforge_project::{OpeningProject, ProjectSession};
+use specforge_project::ProjectSession;
+use specforge_watch::Debouncer;
 
-use crate::changes::{Applied, Change, Plan};
+use crate::changes::Change;
+use crate::reaction::Reaction;
 use crate::{ClientSupport, LspState, answers, server_capabilities, server_info};
 
 use specforge_ops::format;
@@ -24,75 +25,28 @@ pub struct Backend {
     /// whole-graph pass runs at a time and the state lock is never held
     /// across a keystroke storm.
     update_tx: mpsc::UnboundedSender<Url>,
-    /// Held by every change to the project session (edits, files changed
-    /// on disk, extension reloads, opening the project), so changes apply
-    /// one at a time and none is lost to another.
-    updates: Arc<Mutex<()>>,
-    /// Whether the client declared `workspace.semanticTokens.refreshSupport`
-    /// at initialize: only then is it sent `workspace/semanticTokens/refresh`.
-    tokens_refresh_support: Arc<AtomicBool>,
-    /// The file watchers the client was asked to register
-    /// ([`crate::watchers`]), so a reload that changes them re-registers.
-    watched: Arc<Mutex<Vec<FileSystemWatcher>>>,
-    /// Whether the client declared
-    /// `workspace.didChangeWatchedFiles.relativePatternSupport`.
-    relative_patterns: Arc<AtomicBool>,
+    /// What every change to the project session is reacted to by: applied,
+    /// published, the client's watchers followed, its highlighting
+    /// refreshed (ADR 0035).
+    reaction: Reaction,
 }
 
 impl Backend {
     pub fn new(client: Client) -> Self {
         let state = Arc::new(RwLock::new(LspState::new()));
         let (update_tx, mut update_rx) = mpsc::unbounded_channel::<Url>();
-        let updates = Arc::new(Mutex::new(()));
-        let tokens_refresh_support = Arc::new(AtomicBool::new(false));
-        let watched = Arc::new(Mutex::new(Vec::new()));
-        let relative_patterns = Arc::new(AtomicBool::new(false));
+        let reaction = Reaction::new(client.clone(), Arc::clone(&state));
 
         // Serialized latest-wins reparse worker (C4-03). Exits when the
         // Backend (and its sender) is dropped.
-        let worker_state = Arc::clone(&state);
-        let worker_client = client.clone();
-        let worker_updates = Arc::clone(&updates);
-        let worker_refresh_support = Arc::clone(&tokens_refresh_support);
-        let worker_watched = Arc::clone(&watched);
-        let worker_relative_patterns = Arc::clone(&relative_patterns);
+        let worker = reaction.clone();
         tokio::spawn(async move {
-            while let Some(first) = update_rx.recv().await {
-                // Coalesce everything already queued, then hold off until
-                // the stream is quiet for DEBOUNCE_WINDOW.
-                let mut pending = vec![first];
-                while let Ok(Some(next)) =
-                    tokio::time::timeout(crate::DEBOUNCE_WINDOW, update_rx.recv()).await
-                {
-                    pending.push(next);
-                }
-                pending.sort();
-                pending.dedup();
+            // The rule `specforge watch` batches file changes by: the burst
+            // is quiet for the debounce window, each document once.
+            let debouncer = Debouncer::new(specforge_watch::DEFAULT_DEBOUNCE_WINDOW);
+            while let Some(pending) = debouncer.coalesce_async(&mut update_rx).await {
                 // Everything the burst edited is one update (ADR 0023 D9).
-                let applied = Self::recompile(
-                    &worker_state,
-                    &worker_client,
-                    &worker_updates,
-                    Change::Edited(pending),
-                )
-                .await;
-                // An edit that names a file the checks read moves what
-                // the client must watch (ADR 0030).
-                if applied.is_some_and(|a| a.inputs_changed) {
-                    Self::sync_watchers(
-                        &worker_state,
-                        &worker_client,
-                        &worker_watched,
-                        worker_relative_patterns.load(Ordering::Relaxed),
-                    )
-                    .await;
-                }
-                Self::refresh_semantic_tokens_if_stale(
-                    &worker_state,
-                    &worker_client,
-                    &worker_refresh_support,
-                )
-                .await;
+                worker.react(Change::Edited(pending)).await;
             }
         });
 
@@ -101,197 +55,7 @@ impl Backend {
             state,
             root_dir: Arc::new(Mutex::new(None)),
             update_tx,
-            updates,
-            tokens_refresh_support,
-            watched,
-            relative_patterns,
-        }
-    }
-
-    /// After a recompile: when the graph changed in anything semantic
-    /// tokens depend on (entity IDs, kinds, titles, the kind registry's
-    /// classification), ask a client that declared refreshSupport to
-    /// re-request tokens. The LSP does not subscribe to watch deltas; this
-    /// is how open editors learn their highlighting went stale. The request
-    /// is sent from its own task so a slow client never stalls a recompile.
-    async fn refresh_semantic_tokens_if_stale(
-        state: &RwLock<LspState>,
-        client: &Client,
-        refresh_support: &AtomicBool,
-    ) {
-        let stale = state.write().await.record_token_signature();
-        if stale && refresh_support.load(Ordering::Relaxed) {
-            let client = client.clone();
-            tokio::spawn(async move {
-                let _ = client.semantic_tokens_refresh().await;
-            });
-        }
-    }
-
-    /// Apply `change` to the project session, the one `specforge watch`
-    /// holds, and publish everything the project reports now: the
-    /// diagnostics `specforge check` reports for the same sources and
-    /// buffers. What the change asks of the session is [`Plan::of`]'s to
-    /// say. Returns `None` when there was nothing to apply, or it could not
-    /// be applied.
-    ///
-    /// Changes apply one at a time (`updates`). The session does
-    /// synchronous file reads and whole-graph checks, so it runs on the
-    /// blocking pool: it is taken out of the state (a brief write lock),
-    /// updated without any lock held, and put back. Meanwhile readers see
-    /// its last complete graph and environment (C4-05).
-    async fn recompile(
-        state: &RwLock<LspState>,
-        client: &Client,
-        updates: &Mutex<()>,
-        change: Change,
-    ) -> Option<Applied> {
-        let _one_at_a_time = updates.lock().await;
-        let (session, plan) = {
-            let mut st = state.write().await;
-            let plan = Plan::of(change, &st)?;
-            (st.take_session()?, plan)
-        };
-
-        // Opening a project loads its environment first and shows it to
-        // readers before the sources are read: the kinds and fields
-        // keyword completion offers need no `.spec` file, so they are
-        // answered while indexing runs (CONTEXT: Environment).
-        let opening = match plan.root().map(Path::to_path_buf) {
-            Some(root) => {
-                match tokio::task::spawn_blocking(move || ProjectSession::begin_open(&root)).await {
-                    Ok(loaded) => {
-                        state
-                            .write()
-                            .await
-                            .show_environment(Arc::clone(loaded.environment()));
-                        Some(loaded)
-                    }
-                    Err(e) => {
-                        Self::lose_session(state, client, e).await;
-                        return None;
-                    }
-                }
-            }
-            None => None,
-        };
-
-        let joined = tokio::task::spawn_blocking(move || {
-            let mut session = opening.map_or(session, OpeningProject::finish);
-            let applied = plan.apply(&mut session);
-            (session, applied)
-        })
-        .await;
-
-        match joined {
-            Ok((session, applied)) => {
-                // Every session verifies its updates in a debug build (ADR
-                // 0032): a rebuild that differs from a cold build is
-                // reported here.
-                for divergence in &applied.divergences {
-                    client
-                        .log_message(
-                            MessageType::ERROR,
-                            format!(
-                                "an incremental rebuild diverged from a cold build: {divergence}"
-                            ),
-                        )
-                        .await;
-                }
-                debug_assert!(applied.divergences.is_empty(), "{:?}", applied.divergences);
-                state.write().await.set_session(session);
-                Self::publish(state, client, &applied).await;
-                Some(applied)
-            }
-            Err(e) => {
-                Self::lose_session(state, client, e).await;
-                None
-            }
-        }
-    }
-
-    /// An update panicked: the session is lost, so the state falls back to
-    /// an empty one rather than a stale stand-in.
-    async fn lose_session(
-        state: &RwLock<LspState>,
-        client: &Client,
-        error: tokio::task::JoinError,
-    ) {
-        state.write().await.set_session(ProjectSession::detached());
-        client
-            .log_message(
-                MessageType::ERROR,
-                format!("specforge-lsp: recompile failed: {error}"),
-            )
-            .await;
-    }
-
-    /// Ask the client to watch every file the project is built from
-    /// ([`crate::watchers::file_watchers`]), replacing the watchers it was
-    /// asked for before when they differ: after the project opens, and
-    /// after a reload that changed its inputs. A client that refuses the
-    /// project's watchers keeps the static ones.
-    async fn sync_watchers(
-        state: &RwLock<LspState>,
-        client: &Client,
-        watched: &Mutex<Vec<FileSystemWatcher>>,
-        relative_patterns: bool,
-    ) {
-        let wanted = {
-            let st = state.read().await;
-            match st.session() {
-                Some(session) => {
-                    crate::watchers::file_watchers(session.inputs(), relative_patterns)
-                }
-                None => return,
-            }
-        };
-        let mut watched = watched.lock().await;
-        if *watched == wanted {
-            return;
-        }
-        let _ = client
-            .unregister_capability(vec![Unregistration {
-                id: crate::watchers::REGISTRATION_ID.into(),
-                method: "workspace/didChangeWatchedFiles".into(),
-            }])
-            .await;
-        *watched = match Self::register_watchers(client, wanted.clone()).await {
-            Ok(()) => wanted,
-            Err(_) => {
-                let defaults = crate::watchers::default_watchers();
-                let _ = Self::register_watchers(client, defaults.clone()).await;
-                defaults
-            }
-        };
-    }
-
-    /// Register `watchers` for `workspace/didChangeWatchedFiles`.
-    async fn register_watchers(client: &Client, watchers: Vec<FileSystemWatcher>) -> Result<()> {
-        client
-            .register_capability(vec![Registration {
-                id: crate::watchers::REGISTRATION_ID.into(),
-                method: "workspace/didChangeWatchedFiles".into(),
-                register_options: Some(
-                    serde_json::to_value(DidChangeWatchedFilesRegistrationOptions { watchers })
-                        .expect("watcher options serialize"),
-                ),
-            }])
-            .await
-    }
-
-    /// Publish what `applied` says the project reports now
-    /// ([`Applied::publication`]). What is published is kept: code actions
-    /// act on it.
-    async fn publish(state: &RwLock<LspState>, client: &Client, applied: &Applied) {
-        let Some(publication) = applied.publication(&*state.read().await) else {
-            return;
-        };
-        state.write().await.record(&publication);
-        for (uri, file) in publication.files {
-            client
-                .publish_diagnostics(uri, file.diagnostics, file.version)
-                .await;
+            reaction,
         }
     }
 }
@@ -306,8 +70,6 @@ impl LanguageServer for Backend {
             .and_then(|w| w.semantic_tokens.as_ref())
             .and_then(|t| t.refresh_support)
             .unwrap_or(false);
-        self.tokens_refresh_support
-            .store(refresh_support, Ordering::Relaxed);
         let relative_patterns = params
             .capabilities
             .workspace
@@ -315,8 +77,7 @@ impl LanguageServer for Backend {
             .and_then(|w| w.did_change_watched_files.as_ref())
             .and_then(|w| w.relative_pattern_support)
             .unwrap_or(false);
-        self.relative_patterns
-            .store(relative_patterns, Ordering::Relaxed);
+        self.reaction.declared(refresh_support, relative_patterns);
         self.state
             .write()
             .await
@@ -403,14 +164,8 @@ impl LanguageServer for Backend {
     async fn initialized(&self, _: InitializedParams) {
         // Until the project is open, watch every .spec, config and lock
         // file; once it is, the watchers cover exactly what it is built
-        // from (`sync_watchers`).
-        let defaults = crate::watchers::default_watchers();
-        if Self::register_watchers(&self.client, defaults.clone())
-            .await
-            .is_ok()
-        {
-            *self.watched.lock().await = defaults;
-        }
+        // from (`Reaction::react`).
+        self.reaction.watch_defaults().await;
 
         // Opening the project (extensions, then every .spec file under the
         // spec root) runs in a background task with workDone progress
@@ -419,10 +174,7 @@ impl LanguageServer for Backend {
         let root = self.root_dir.lock().await.clone();
         let client = self.client.clone();
         let state = Arc::clone(&self.state);
-        let updates = Arc::clone(&self.updates);
-        let refresh_support = Arc::clone(&self.tokens_refresh_support);
-        let watched = Arc::clone(&self.watched);
-        let relative_patterns = self.relative_patterns.load(Ordering::Relaxed);
+        let reaction = self.reaction.clone();
         tokio::spawn(async move {
             let token = NumberOrString::String("specforge-index".into());
             let _ = client
@@ -462,14 +214,12 @@ impl LanguageServer for Backend {
                 return;
             };
 
-            let opened = Self::recompile(
-                &state,
-                &client,
-                &updates,
-                Change::Open(PathBuf::from(&root)),
-            )
-            .await
-            .is_some();
+            // The client then watches what the project is built from, and
+            // the session has caught up with what changed while it did not.
+            let opened = reaction
+                .react(Change::Open(PathBuf::from(&root)))
+                .await
+                .is_some();
             let (ext_count, kind_count, file_count, spec_root) = {
                 let st = state.read().await;
                 (
@@ -498,15 +248,12 @@ impl LanguageServer for Backend {
                     format!("specforge-lsp: indexed {file_count} .spec files from {spec_root}"),
                 )
                 .await;
-            Self::refresh_semantic_tokens_if_stale(&state, &client, &refresh_support).await;
 
             client
                 .send_notification::<tower_lsp::lsp_types::notification::Progress>(end(Some(
                     format!("{file_count} files"),
                 )))
                 .await;
-            // The client now watches what the project is built from.
-            Self::sync_watchers(&state, &client, &watched, relative_patterns).await;
         });
     }
 
@@ -528,28 +275,7 @@ impl LanguageServer for Backend {
             }
         }
 
-        let applied = Self::recompile(
-            &self.state,
-            &self.client,
-            &self.updates,
-            Change::Edited(vec![uri]),
-        )
-        .await;
-        if applied.is_some_and(|a| a.inputs_changed) {
-            Self::sync_watchers(
-                &self.state,
-                &self.client,
-                &self.watched,
-                self.relative_patterns.load(Ordering::Relaxed),
-            )
-            .await;
-        }
-        Self::refresh_semantic_tokens_if_stale(
-            &self.state,
-            &self.client,
-            &self.tokens_refresh_support,
-        )
-        .await;
+        self.reaction.react(Change::Edited(vec![uri])).await;
     }
 
     async fn did_change(&self, params: DidChangeTextDocumentParams) {
@@ -580,74 +306,14 @@ impl LanguageServer for Backend {
             .publish_diagnostics(uri.clone(), Vec::new(), None)
             .await;
         // The buffer is no longer the truth for its file (ADR 0023 D9).
-        let applied = Self::recompile(
-            &self.state,
-            &self.client,
-            &self.updates,
-            Change::Closed(uri),
-        )
-        .await;
-        if applied.is_some_and(|a| a.inputs_changed) {
-            Self::sync_watchers(
-                &self.state,
-                &self.client,
-                &self.watched,
-                self.relative_patterns.load(Ordering::Relaxed),
-            )
-            .await;
-        }
-        Self::refresh_semantic_tokens_if_stale(
-            &self.state,
-            &self.client,
-            &self.tokens_refresh_support,
-        )
-        .await;
+        self.reaction.react(Change::Closed(uri)).await;
     }
 
     async fn did_change_watched_files(&self, params: DidChangeWatchedFilesParams) {
-        let applied = Self::recompile(
-            &self.state,
-            &self.client,
-            &self.updates,
-            Change::Watched(params.changes),
-        )
-        .await;
-        let (environment, inputs_changed) =
-            applied.map_or((false, false), |a| (a.environment, a.inputs_changed));
-        if environment {
-            // The environment loaded again (hardening-plan H4 / R-5): the
-            // spec root re-indexed, everything republished, and the
-            // watchers follow what the project is now built from.
-            let ext_count = self.state.read().await.registries().declarations().len();
-            self.client
-                .log_message(
-                    MessageType::INFO,
-                    format!(
-                        "specforge-lsp: extension environment changed, reloaded {ext_count} extension(s)"
-                    ),
-                )
-                .await;
-        }
-        // The watchers follow what the project is now built from: after a
-        // reload, and after any update that changed its inputs.
-        if environment || inputs_changed {
-            Self::sync_watchers(
-                &self.state,
-                &self.client,
-                &self.watched,
-                self.relative_patterns.load(Ordering::Relaxed),
-            )
-            .await;
-        }
-        // One check for the whole batch: an extension reload (new kind
+        // One reaction for the whole batch: an extension reload (new kind
         // classifications), a deletion or an on-disk edit may all have
         // changed what open editors highlight.
-        Self::refresh_semantic_tokens_if_stale(
-            &self.state,
-            &self.client,
-            &self.tokens_refresh_support,
-        )
-        .await;
+        self.reaction.react(Change::Watched(params.changes)).await;
     }
 
     async fn hover(&self, params: HoverParams) -> Result<Option<Hover>> {

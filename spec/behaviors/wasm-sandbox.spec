@@ -77,12 +77,12 @@ behavior compile_wasm_component_with_cache "Compile Wasm Component With Cache" {
     component bytes. Cache corruption or an unusable cache directory MUST
     degrade to uncached compilation with a warning. Installed-binary
     integrity is a separate concern enforced by the lockfile hash pin
-    (E033) at load time.
+    (E070) at load time.
   """
   verify unit "first compile populates the compile cache directory"
   verify unit "second engine over the same cache dir loads via cache and executes"
   verify unit "unwritable cache dir degrades to uncached compile with warning"
-  verify unit "tampered installed binary refused via E033 lockfile pin"
+  verify unit "tampered installed binary refused via E070 lockfile pin"
   verify contract "Compile Wasm Component With Cache: wasm compile cache holds — component_binary_available, cache_dir_resolved, engine_configured_at_construction, first_compile_populates_cache, cache_hit_skips_compilation, cache_failure_degrades"
 }
 

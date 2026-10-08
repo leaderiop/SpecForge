@@ -18,7 +18,6 @@
 
 mod build_cache;
 mod check_passes;
-pub mod compile;
 pub mod coverage;
 pub mod field_types;
 mod freshness;
@@ -38,7 +37,6 @@ use std::path::{Path, PathBuf};
 
 use sources::SourceCache;
 
-use compile::load_extensions;
 use coverage::RecordedCoverage;
 use snapshot::EntitySnapshot;
 use specforge_common::{
@@ -46,6 +44,7 @@ use specforge_common::{
     is_discovered, read_project_config,
 };
 use specforge_graph::{Graph, GraphBuild, GraphConfig};
+use specforge_installed::{Builtins, Installed};
 use specforge_parser::SpecFile;
 use specforge_protocol_types::ExtensionDeclaration;
 use specforge_registry::{
@@ -53,15 +52,12 @@ use specforge_registry::{
     rules::{CustomVerdicts, NoVerdicts},
 };
 use specforge_resolver::resolve_imports;
-use specforge_wasm::{LockState, WasmRuntime};
+use specforge_wasm::WasmRuntime;
 use verdicts::WasmVerdicts;
 
 pub use build_cache::{BUILD_CACHE_FILE, BUILD_CACHE_FORMAT, BuildCache, CachedStatus};
-pub use compile::EnabledExtension;
 pub use inputs::{Changes, InputRole, SessionInputs, UpdateKind, WatchRoot, Watched, source_key};
-pub use policy::{
-    DiagnosticPolicy, LINT_PROFILE_NAMES, LintProfile, UnknownLintProfile, apply_policy,
-};
+pub use policy::{DiagnosticPolicy, LINT_PROFILE_NAMES, LintProfile, UnknownLintProfile};
 pub use providers::Providers;
 pub use session::{
     CheckMode, OpeningProject, ProjectSession, RuntimeSource, SharedRuntime, SourceChange, Update,
@@ -69,6 +65,12 @@ pub use session::{
 pub use specforge_graph::{
     EdgeChange, GraphDelta, ModifiedNodeChange, NodeChange, compute_graph_delta,
 };
+pub use specforge_installed::EnabledExtension;
+
+/// The builtin extensions this host embeds.
+pub fn builtins() -> Builtins<'static> {
+    Builtins(specforge_component::builtins::BUILTIN_EXTENSIONS)
+}
 
 /// Everything derived from `specforge.json` and the loaded extensions,
 /// before any `.spec` file is read.
@@ -85,11 +87,12 @@ pub struct Environment {
     /// [`Self::from_declarations`] and [`Self::with_registries`] (no file
     /// was read).
     pub config_found: bool,
-    /// What `specforge.lock` held when the environment was read (absent,
-    /// read, or unreadable with its problem): one read per environment,
-    /// which every operation over the project reads instead of the disk.
-    /// A changed lock reloads the environment ([`SessionInputs`]).
-    pub lock: LockState,
+    /// The project's installed extensions: what `specforge.lock` held when
+    /// the environment was read (absent, read, or unreadable with its
+    /// problem), once per environment, which every operation over the
+    /// project reads instead of the disk. A changed lock reloads the
+    /// environment ([`SessionInputs`]).
+    pub installed: Installed,
     /// What each `specforge.json` `extensions` entry enables, in order, as
     /// the runtime loaded it (a `.wasm` file entry by the name its
     /// component declares).
@@ -120,7 +123,7 @@ impl Environment {
             config: ProjectConfig::default(),
             config_problems: Vec::new(),
             config_found: false,
-            lock: LockState::Absent,
+            installed: Installed::none(),
             enabled: Vec::new(),
             spec_root: PathBuf::new(),
             registries: RegistryBuild::default(),
@@ -160,19 +163,28 @@ impl Environment {
     /// `specforge.json`), its extensions loaded through `runtime`.
     pub fn from_read(root: &Path, read: ConfigRead, runtime: Option<&dyn WasmRuntime>) -> Self {
         let config = read.config;
-        let enabled = config
-            .extensions
-            .iter()
-            .map(|entry| EnabledExtension::of(entry, runtime))
-            .collect();
         let mut load_diagnostics: Vec<Diagnostic> = read
             .problems
             .iter()
             .map(config_problem_diagnostic)
             .collect();
-        let declarations = match runtime {
-            Some(runtime) => load_extensions(&config.extensions, runtime, &mut load_diagnostics),
-            None => Vec::new(),
+        // The lock is read once, here; the extensions load through the
+        // production policy into whatever runtime this is given.
+        let installed = Installed::at(root);
+        let (enabled, declarations) = match runtime {
+            Some(runtime) => {
+                let loaded = installed.load(&config.extensions, &builtins(), runtime);
+                load_diagnostics.extend(loaded.diagnostics);
+                (loaded.enabled, loaded.declarations)
+            }
+            None => (
+                config
+                    .extensions
+                    .iter()
+                    .map(|entry| EnabledExtension::unloaded(entry))
+                    .collect(),
+                Vec::new(),
+            ),
         };
         let mut registries = build_registries(declarations);
         // A custom rule's wasm_function is resolved against its extension
@@ -194,7 +206,7 @@ impl Environment {
             config,
             config_problems: read.problems,
             config_found: read.found,
-            lock: LockState::at(root),
+            installed,
             enabled,
             spec_root,
             registries,
