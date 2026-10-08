@@ -156,7 +156,12 @@ fn walk_source_dir(
         } else if config.is_source_file(&name)
             && let Ok(rel) = path.strip_prefix(project_root)
         {
-            files.push(rel.to_string_lossy().to_string());
+            // `/`-separated on every platform, as the manifest records it.
+            let parts: Vec<_> = rel
+                .components()
+                .map(|c| c.as_os_str().to_string_lossy())
+                .collect();
+            files.push(parts.join("/"));
         }
     }
 }

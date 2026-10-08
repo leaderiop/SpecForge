@@ -147,18 +147,25 @@ behavior mark_source_file_analyzed "Mark Source File as Analyzed" {
     hash_computed     "content_hash is SHA-256 of file contents"
     entities_recorded "entities_produced lists all entity IDs inferred from this file"
     idempotent        "re-analyzing a file updates the existing entry"
+    path_recorded     "the file is recorded root-relative with / separators"
+    inside_root       "a file outside the project root is refused and nothing is written"
   }
   contract """
     Read the source file at the given path and compute its SHA-256 hash.
     Create or update a SourceFileEntry in the manifest's source_index with
     the path, hash, entities_produced list, and current timestamp. If an
     entry for this path already exists, overwrite it (re-analysis). Save
-    the manifest. Agents should call this AFTER specforge_validate succeeds.
+    the manifest. The path is recorded root-relative with / separators
+    (./src/a.rs and src\a.rs are src/a.rs); an absolute path or one with a
+    .. component is refused. The same rule applies to the source_roots a
+    start sets. Agents should call this AFTER specforge_validate succeeds.
     On validation failure: fix .spec errors, re-validate, then mark.
   """
   verify unit "mark creates new entry for unanalyzed file"
   verify unit "mark updates existing entry on re-analysis"
   verify unit "mark computes SHA-256 content hash"
+  verify unit "mark records the path root-relative with / separators"
+  verify unit "mark refuses a file outside the project root"
 }
 
 // ---------------------------------------------------------------------------

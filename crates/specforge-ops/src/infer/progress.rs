@@ -62,10 +62,10 @@ fn progress_under(
     manifest: &InferenceManifest,
 ) -> Progress {
     let files = source_files(root, declarations, manifest);
-    let index = manifest.source_index_map();
+    let indexed = manifest.indexed_paths();
     let unanalyzed = files
         .iter()
-        .filter(|f| !index.contains_key(f.as_str()))
+        .filter(|f| !indexed.contains(f.as_str()))
         .cloned()
         .collect();
     let (stale, deleted) = detect_stale_entries(root, manifest);
@@ -196,6 +196,31 @@ mod tests {
         let progress = progress(&dir.view()).unwrap();
         assert_eq!(progress.summary.files_analyzed, 0);
         assert!(progress.unanalyzed.contains(&"src/lib.rs".to_string()));
+    }
+
+    #[specforge_test(
+        behavior = "mark_source_file_analyzed",
+        verify = "mark records the path root-relative with / separators"
+    )]
+    fn an_entry_recorded_as_dot_slash_counts_as_analyzed() {
+        let dir = project();
+        let hash = compute_content_hash(&dir.dir.path().join("src/lib.rs")).unwrap();
+        std::fs::write(
+            dir.dir.path().join("specforge-infer.json"),
+            json!({
+                "version": 1,
+                "source_roots": ["src"],
+                "source_index": [
+                    {"path": "./src/lib.rs", "content_hash": hash,
+                     "entities_produced": ["alpha"], "analyzed_at": "2026-10-01T00:00:00Z"}
+                ]
+            })
+            .to_string(),
+        )
+        .unwrap();
+        let progress = progress(&dir.view()).unwrap();
+        assert_eq!(progress.unanalyzed, ["src/net/wire.rs"]);
+        assert!(progress.stale.is_empty(), "{progress:?}");
     }
 
     #[specforge_test(

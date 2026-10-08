@@ -633,11 +633,13 @@ fn a_rewrite_keeps_the_keys_it_does_not_define() {
     assert_eq!(manifest["sessions"].as_array().unwrap().len(), 1, "{text}");
 }
 
-/// Pins plan 06 R3: a path is recorded as the agent spelled it, so one
-/// file is both analyzed and unanalyzed. Flipped by T7
-/// (`mark_analyzed_records_the_root_relative_path`).
-#[test]
-fn mark_analyzed_records_the_path_as_given() {
+/// A path is recorded root-relative with `/` separators, so a file is
+/// analyzed or unanalyzed, never both (plan 06 R3).
+#[specforge_test(
+    behavior = "mark_source_file_analyzed",
+    verify = "mark records the path root-relative with / separators"
+)]
+fn mark_analyzed_records_the_root_relative_path() {
     let tmp = TestProject::new();
     setup_project_with_sources(tmp.root());
     write_manifest(tmp.root(), r#"{"version":1,"source_roots":["src"]}"#);
@@ -649,28 +651,30 @@ fn mark_analyzed_records_the_path_as_given() {
         json!({"action": "mark_analyzed", "source_file": "./src/lib.rs", "entities_produced": ["a"]}),
     );
     let reply: Value = serde_json::from_str(&tool_text(&marked)).unwrap();
-    assert_eq!(reply["source_file"], "./src/lib.rs");
+    assert_eq!(reply["source_file"], "src/lib.rs");
 
     let progress = call_tool(&mut server, "specforge.infer_progress", json!({}));
     let progress: Value = serde_json::from_str(&tool_text(&progress)).unwrap();
     assert_eq!(progress["summary"]["files_analyzed"], 1);
-    assert!(
-        progress["unanalyzed"]
-            .as_array()
-            .unwrap()
-            .contains(&json!("src/lib.rs")),
-        "analyzed and unanalyzed at once: {progress}"
-    );
+    assert_eq!(progress["unanalyzed"], json!(["src/main.rs"]), "{progress}");
+
+    let text = std::fs::read_to_string(server.root().join("specforge-infer.json")).unwrap();
+    let manifest: Value = serde_json::from_str(&text).unwrap();
+    assert_eq!(manifest["source_index"][0]["path"], "src/lib.rs", "{text}");
 }
 
-/// Pins plan 06 R3: a file outside the project root is hashed and
-/// recorded. Flipped by T7 (`mark_analyzed_refuses_a_file_outside_the_root`).
-#[test]
-fn mark_analyzed_records_a_file_outside_the_root() {
+/// A file outside the project root is refused and nothing is written
+/// (plan 06 R3).
+#[specforge_test(
+    behavior = "mark_source_file_analyzed",
+    verify = "mark refuses a file outside the project root"
+)]
+fn mark_analyzed_refuses_a_file_outside_the_root() {
     let outside = tempfile::TempDir::new().unwrap();
     std::fs::write(outside.path().join("outside.rs"), "pub fn o() {}\n").unwrap();
     let tmp = TestProject::new();
     write_manifest(tmp.root(), r#"{"version":1,"source_roots":["src"]}"#);
+    let before = std::fs::read_to_string(tmp.root().join("specforge-infer.json")).unwrap();
     let sibling = outside.path().join("outside.rs");
     let relative = relative_to(&sibling, tmp.root());
     let mut server = init_server(tmp);
@@ -681,16 +685,17 @@ fn mark_analyzed_records_a_file_outside_the_root() {
             "specforge.infer_session",
             json!({"action": "mark_analyzed", "source_file": spelling}),
         );
-        let reply: Value = serde_json::from_str(&tool_text(&marked)).unwrap();
-        assert_eq!(reply["status"], "recorded", "{spelling}: {reply}");
+        let error = crate::tool_errors::mcp_error(&marked);
+        assert_eq!(error["code"], "invalid_input", "{spelling}: {error}");
+        assert_eq!(error["argument"], "source_file", "{spelling}: {error}");
+        assert_eq!(error["data"]["files_written"], json!([]), "{error}");
+        assert_eq!(
+            error["message"],
+            format!("source_file '{spelling}' is not a path inside the project root")
+        );
     }
-    let text = std::fs::read_to_string(server.root().join("specforge-infer.json")).unwrap();
-    let manifest: Value = serde_json::from_str(&text).unwrap();
-    assert_eq!(
-        manifest["source_index"].as_array().unwrap().len(),
-        2,
-        "{text}"
-    );
+    let after = std::fs::read_to_string(server.root().join("specforge-infer.json")).unwrap();
+    assert_eq!(before, after);
 }
 
 /// `target` as a path relative to `from`, through `..` components.

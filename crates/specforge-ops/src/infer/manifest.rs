@@ -4,7 +4,7 @@
 //! through one writer ([`InferenceManifest::write`]); a key this version
 //! does not define, at any level, is kept as read and written back.
 
-use std::collections::HashMap;
+use std::collections::HashSet;
 use std::fs;
 use std::io::Write;
 use std::path::Path;
@@ -277,17 +277,30 @@ impl InferenceManifest {
             .find(|s| s.status == SessionStatus::Active)
     }
 
-    pub fn source_index_map(&self) -> HashMap<&str, &SourceFileEntry> {
+    /// The paths the index records, by the source path rule (`./src/a.rs`,
+    /// as an older version recorded it, is `src/a.rs`).
+    pub(crate) fn indexed_paths(&self) -> HashSet<String> {
         self.source_index
             .iter()
-            .map(|e| (e.path.as_str(), e))
+            .map(|entry| normal_path(&entry.path))
             .collect()
     }
 
-    /// Record `entry`, replacing the entry for the same path; the index
-    /// stays sorted by path.
+    /// Whether `path` is indexed, by the source path rule.
+    #[cfg(test)]
+    pub(crate) fn indexes(&self, path: &str) -> bool {
+        self.indexed_paths().contains(&normal_path(path))
+    }
+
+    /// Record `entry`, replacing the entry for the same path (by the
+    /// source path rule); the index stays sorted by path.
     pub fn upsert_source_entry(&mut self, entry: SourceFileEntry) {
-        if let Some(existing) = self.source_index.iter_mut().find(|e| e.path == entry.path) {
+        let path = normal_path(&entry.path);
+        if let Some(existing) = self
+            .source_index
+            .iter_mut()
+            .find(|e| normal_path(&e.path) == path)
+        {
             *existing = entry;
         } else {
             self.source_index.push(entry);
@@ -308,6 +321,64 @@ impl InferenceManifest {
             entities_produced,
         }
     }
+}
+
+/// A path outside the project root, or naming nothing: the source path
+/// rule refuses it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct OutsideRoot;
+
+/// The components of `query` under the source path rule's separators (`/`
+/// and `\`), without the empty and `.` ones. A path that is absolute, has
+/// a drive prefix or has a `..` component is outside the root.
+fn components(query: &str) -> Result<Vec<&str>, OutsideRoot> {
+    let bytes = query.as_bytes();
+    let absolute = query.starts_with(['/', '\\']);
+    let drive = bytes.len() >= 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':';
+    if absolute || drive {
+        return Err(OutsideRoot);
+    }
+    let parts: Vec<&str> = query
+        .split(['/', '\\'])
+        .filter(|part| !part.is_empty() && *part != ".")
+        .collect();
+    if parts.contains(&"..") {
+        return Err(OutsideRoot);
+    }
+    Ok(parts)
+}
+
+/// The source path rule: `query` as the root-relative, `/`-separated path
+/// the manifest records. Separators `/` and `\` are both accepted; empty
+/// and `.` components are dropped. A path that is absolute, has a drive
+/// prefix, has a `..` component, or names nothing is outside the root.
+pub(crate) fn source_path(query: &str) -> Result<String, OutsideRoot> {
+    let parts = components(query)?;
+    if parts.is_empty() {
+        return Err(OutsideRoot);
+    }
+    Ok(parts.join("/"))
+}
+
+/// [`source_path`] for a source root: the project root itself (`.`) is a
+/// root, naming nothing at all is not.
+pub(crate) fn source_root(query: &str) -> Result<String, OutsideRoot> {
+    let parts = components(query)?;
+    if parts.is_empty() {
+        return if query.is_empty() {
+            Err(OutsideRoot)
+        } else {
+            Ok(".".to_string())
+        };
+    }
+    Ok(parts.join("/"))
+}
+
+/// A recorded path as the rule spells it, leniently: an entry an older
+/// version recorded as the agent spelled it (`./src/a.rs`) compares as
+/// the path it names.
+fn normal_path(path: &str) -> String {
+    components(path).map_or_else(|_| path.to_string(), |parts| parts.join("/"))
 }
 
 /// The SHA-256 of the file's bytes, lowercase hex.
@@ -614,6 +685,44 @@ mod tests {
         let (stale, deleted) = detect_stale_entries(dir.path(), &m);
         assert_eq!(stale, vec!["a.rs"]);
         assert_eq!(deleted, vec!["deleted.rs"]);
+    }
+
+    #[test]
+    fn the_source_path_rule() {
+        for (given, recorded) in [
+            ("a.rs", "a.rs"),
+            ("./a.rs", "a.rs"),
+            ("src\\a.rs", "src/a.rs"),
+            ("src//a.rs", "src/a.rs"),
+            ("src/./a.rs", "src/a.rs"),
+            ("src/", "src"),
+        ] {
+            assert_eq!(source_path(given), Ok(recorded.to_string()), "{given}");
+        }
+        for outside in [
+            "/x", "\\x", "C:\\x", "c:/x", "../x", "a/../b", "", ".", "./",
+        ] {
+            assert_eq!(source_path(outside), Err(OutsideRoot), "{outside:?}");
+        }
+        // A source root may be the project root itself.
+        assert_eq!(source_root("."), Ok(".".to_string()));
+        assert_eq!(source_root("./src"), Ok("src".to_string()));
+        for outside in ["", "/x", "../x"] {
+            assert_eq!(source_root(outside), Err(OutsideRoot), "{outside:?}");
+        }
+    }
+
+    #[test]
+    fn an_entry_recorded_with_another_spelling_is_the_same_path() {
+        let mut m = InferenceManifest::default();
+        m.upsert_source_entry(entry("./src/lib.rs", &["a"]));
+        assert!(m.indexes("src/lib.rs"));
+        assert!(m.indexes("./src/lib.rs"));
+        assert!(!m.indexes("src/main.rs"));
+        // Marking it again replaces the entry, whatever the old spelling.
+        m.upsert_source_entry(entry("src/lib.rs", &["a", "b"]));
+        assert_eq!(m.source_index.len(), 1);
+        assert_eq!(m.source_index[0].path, "src/lib.rs");
     }
 
     #[test]

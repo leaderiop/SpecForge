@@ -8,6 +8,7 @@ use std::path::Path;
 
 use super::manifest::{
     InferenceManifest, InferenceSession, SessionStatus, SourceFileEntry, compute_content_hash,
+    source_path, source_root,
 };
 use crate::view::ProjectView;
 use crate::{OpError, OpErrorKind, Writes};
@@ -18,6 +19,9 @@ pub const SESSION_ACTIVE: &str = "session_active";
 pub const SESSION_NOT_ACTIVE: &str = "session_not_active";
 /// An end of a session the manifest does not record (`InvalidInput`).
 pub const UNKNOWN_SESSION: &str = "unknown_session";
+/// A source path or source root outside the project root
+/// (`InvalidInput`); `data.argument` names `source_file` or `source_roots`.
+pub const SOURCE_OUTSIDE_ROOT: &str = "source_outside_root";
 /// A marked file that cannot be read (`OpErrorKind::of_io`: `FileNotFound`
 /// when missing).
 pub const SOURCE_UNREADABLE: &str = "source_unreadable";
@@ -42,13 +46,15 @@ impl EndStatus {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum SessionStep<'a> {
     /// Begin a session for `agent` (`unknown` when unnamed); replace the
-    /// manifest's source roots when `source_roots` is given.
+    /// manifest's source roots when `source_roots` is given (each by the
+    /// source path rule).
     Start {
         agent: Option<&'a str>,
         source_roots: Option<&'a [String]>,
     },
-    /// Record `source_file` (a path under the root) as analyzed now,
-    /// producing `entities`; its SHA-256 is read from disk.
+    /// Record `source_file` (a path inside the root, recorded
+    /// root-relative with `/` separators) as analyzed now, producing
+    /// `entities`; its SHA-256 is read from disk.
     MarkAnalyzed {
         source_file: &'a str,
         entities: &'a [String],
@@ -86,16 +92,86 @@ pub struct SessionOutcome {
 
 /// Record `step` in the inference manifest at the view's root: one read,
 /// the step applied, one write, the writes returned (ADR 0022 D1). A
-/// refusal writes nothing. In order: `no_project` without a root; E071 for
-/// a manifest that cannot be used; then the step's own refusal
+/// refusal writes nothing. In order: `no_project` without a root; a path
+/// outside the root ([`SOURCE_OUTSIDE_ROOT`]); E071 for a manifest that
+/// cannot be used; then the step's own refusal
 /// ([`SESSION_ACTIVE`], [`UNKNOWN_SESSION`], [`SESSION_NOT_ACTIVE`],
 /// [`SOURCE_UNREADABLE`]). Marking a file does not need an active session.
 pub fn session(view: &ProjectView<'_>, step: SessionStep<'_>) -> Result<SessionOutcome, OpError> {
     let root = view.project_root()?;
+    let step = Normalized::of(step)?;
     let mut manifest = InferenceManifest::at(root)?;
     let recorded = apply(&mut manifest, root, step, &now(), new_session_id)?;
     let writes = manifest.write(root)?;
     Ok(SessionOutcome { recorded, writes })
+}
+
+/// A [`SessionStep`] whose paths follow the source path rule.
+enum Normalized<'a> {
+    Start {
+        agent: Option<&'a str>,
+        source_roots: Option<Vec<String>>,
+    },
+    Mark {
+        /// As the caller gave it: what a refusal names.
+        given: &'a str,
+        /// As the manifest records it.
+        path: String,
+        entities: &'a [String],
+    },
+    End {
+        session_id: &'a str,
+        status: EndStatus,
+    },
+}
+
+impl<'a> Normalized<'a> {
+    /// `step`, or the refusal of a path outside the root.
+    fn of(step: SessionStep<'a>) -> Result<Self, OpError> {
+        Ok(match step {
+            SessionStep::Start {
+                agent,
+                source_roots,
+            } => Normalized::Start {
+                agent,
+                source_roots: source_roots
+                    .map(|roots| {
+                        roots
+                            .iter()
+                            .map(|root| {
+                                source_root(root).map_err(|_| outside_root("source_roots", root))
+                            })
+                            .collect::<Result<Vec<_>, _>>()
+                    })
+                    .transpose()?,
+            },
+            SessionStep::MarkAnalyzed {
+                source_file,
+                entities,
+            } => Normalized::Mark {
+                given: source_file,
+                path: source_path(source_file)
+                    .map_err(|_| outside_root("source_file", source_file))?,
+                entities,
+            },
+            SessionStep::End { session_id, status } => Normalized::End { session_id, status },
+        })
+    }
+}
+
+/// `argument`'s path `given` is not a path inside the project root.
+fn outside_root(argument: &str, given: &str) -> OpError {
+    let what = if argument == "source_roots" {
+        "source_roots entry"
+    } else {
+        argument
+    };
+    OpError::new(
+        OpErrorKind::InvalidInput,
+        SOURCE_OUTSIDE_ROOT,
+        format!("{what} '{given}' is not a path inside the project root"),
+    )
+    .with_data(serde_json::json!({ "argument": argument }))
 }
 
 /// `step` applied to `manifest`, at time `now`: the rules, without disk
@@ -103,12 +179,12 @@ pub fn session(view: &ProjectView<'_>, step: SessionStep<'_>) -> Result<SessionO
 fn apply(
     manifest: &mut InferenceManifest,
     root: &Path,
-    step: SessionStep<'_>,
+    step: Normalized<'_>,
     now: &str,
     new_id: impl FnOnce() -> String,
 ) -> Result<Recorded, OpError> {
     match step {
-        SessionStep::Start {
+        Normalized::Start {
             agent,
             source_roots,
         } => {
@@ -120,7 +196,7 @@ fn apply(
                 ));
             }
             if let Some(roots) = source_roots {
-                manifest.source_roots = roots.to_vec();
+                manifest.source_roots = roots;
             }
             let session_id = new_id();
             manifest.sessions.push(InferenceSession {
@@ -133,31 +209,32 @@ fn apply(
             });
             Ok(Recorded::Started { session_id })
         }
-        SessionStep::MarkAnalyzed {
-            source_file,
+        Normalized::Mark {
+            given,
+            path,
             entities,
         } => {
             // The file is named as the agent did: the absolute path would
             // leak where the server's project lives.
-            let content_hash = compute_content_hash(&root.join(source_file)).map_err(|e| {
+            let content_hash = compute_content_hash(&root.join(&path)).map_err(|e| {
                 OpError::new(
                     OpErrorKind::of_io(&e),
                     SOURCE_UNREADABLE,
-                    format!("failed to read {source_file}"),
+                    format!("failed to read {given}"),
                 )
             })?;
             manifest.upsert_source_entry(SourceFileEntry::new(
-                source_file,
+                path.clone(),
                 content_hash,
                 entities.to_vec(),
                 now,
             ));
             Ok(Recorded::Marked {
-                source_file: source_file.to_string(),
+                source_file: path,
                 entities: entities.to_vec(),
             })
         }
-        SessionStep::End { session_id, status } => {
+        Normalized::End { session_id, status } => {
             let Some(session) = manifest
                 .sessions
                 .iter_mut()

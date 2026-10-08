@@ -380,3 +380,40 @@ fn every_step_reports_the_manifest_as_its_write() {
     .unwrap_err();
     assert!(refused.writes.is_empty());
 }
+
+#[specforge_test(
+    behavior = "mark_source_file_analyzed",
+    verify = "mark refuses a file outside the project root"
+)]
+fn a_source_root_outside_the_root_is_refused() {
+    let project = project(None);
+    let error = step(
+        &project,
+        SessionStep::Start {
+            agent: None,
+            source_roots: Some(&["src".to_string(), "../x".to_string()]),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(error.code, infer::SOURCE_OUTSIDE_ROOT);
+    assert_eq!(error.kind, OpErrorKind::InvalidInput);
+    assert_eq!(
+        error.message,
+        "source_roots entry '../x' is not a path inside the project root"
+    );
+    assert_eq!(error.data.as_ref().unwrap()["argument"], "source_roots");
+    assert!(!project.dir.path().join("specforge-infer.json").exists());
+
+    // The project root itself is a root; roots are recorded by the rule.
+    step(
+        &project,
+        SessionStep::Start {
+            agent: None,
+            source_roots: Some(&[".".to_string(), "./src".to_string()]),
+        },
+    )
+    .unwrap();
+    let text = std::fs::read_to_string(project.dir.path().join("specforge-infer.json")).unwrap();
+    let manifest: serde_json::Value = serde_json::from_str(&text).unwrap();
+    assert_eq!(manifest["source_roots"], serde_json::json!([".", "src"]));
+}
