@@ -634,6 +634,7 @@ behavior shared_incremental_pipeline "Shared Incremental Pipeline" {
   verify integration "graph update serves all LSP features"
   verify integration "the LSP publishes the diagnostics specforge check reports"
   verify unit "a reload applies every open buffer again, in one update"
+  verify unit "opening a project with open documents runs the checks once"
   verify property "CLI and LSP share identical debounce window"
   verify property "CLI and LSP share identical validator dispatch order"
   verify contract "Shared Incremental Pipeline: shared incremental pipeline holds — incremental_rebuild_complete_fired, shared_graph_updated, diagnostics_pushed, pipeline_parity_enforced"

@@ -1,6 +1,5 @@
 //! A long-lived compiled project: what watch, the LSP and MCP hold.
 
-use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -199,13 +198,24 @@ impl OpeningProject {
     }
 
     /// Read every source, build the graph and run the checks: the session
-    /// [`ProjectSession::open`] returns.
+    /// [`ProjectSession::open`] returns. [`Self::finish_holding`] with no
+    /// buffer.
     pub fn finish(self) -> ProjectSession {
+        self.finish_holding(Vec::new())
+    }
+
+    /// [`Self::finish`], holding `buffers`: each held buffer's text is read
+    /// in place of its file by the one cold build, so the checks run once.
+    pub fn finish_holding(self, buffers: Vec<Buffer>) -> ProjectSession {
         let mut snapshot = self.snapshot;
         let discovered = self.inputs.discover();
         snapshot.stamp_all_sources(&self.inputs, &discovered);
-        // What was stamped is exactly what is read.
-        let mut project = CompiledProject::read(self.env, &discovered, &BTreeMap::new());
+        // Keys as this environment gives them: the spec root may have moved.
+        let held = Held::keyed(buffers, |path| self.env.source_key(path));
+        // What was stamped is what is read, except a held file: its buffer
+        // is read in its place.
+        let texts = held.sources(|key| !self.inputs.excludes(key));
+        let mut project = CompiledProject::read(self.env, &discovered, &texts);
         project.set_verify(cfg!(debug_assertions));
         let mut session = ProjectSession {
             project,
@@ -213,7 +223,7 @@ impl OpeningProject {
             source: self.source,
             inputs: self.inputs,
             snapshot,
-            held: Held::default(),
+            held,
             checks_skipped: false,
         };
         session.check();
@@ -435,7 +445,8 @@ impl ProjectSession {
     }
 
     /// `specforge.json` or an extension changed: load the environment again
-    /// and rebuild from the sources on disk.
+    /// and rebuild, from the sources on disk and the held buffers, in one
+    /// cold build that runs the checks once.
     pub fn reload_environment(&mut self) -> Update {
         if self.inputs.root().is_none() {
             // Nothing on disk to load again.
@@ -447,7 +458,8 @@ impl ProjectSession {
             );
         }
         let root = self.project.environment().root.clone();
-        let mut next = Self::open_from(&root, self.source.clone());
+        let buffers = std::mem::take(&mut self.held).into_buffers();
+        let mut next = Self::begin_open(&root, self.source.clone()).finish_holding(buffers);
         next.project.set_verify(self.project.verifies());
         let previous = std::mem::replace(self, next);
         self.replaced(&previous)

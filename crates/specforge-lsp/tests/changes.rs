@@ -378,19 +378,16 @@ fn checks_reported(served: &Served) -> bool {
         .any(|d| d.code == "I990")
 }
 
-/// Pin (flipped by T3): the open applies a restored buffer as an update of its own after
-/// building from disk, and a reload does the same: two runs of the checks each.
-#[test]
-fn pin_opening_with_a_restored_buffer_runs_the_checks_twice() {
+#[spec(
+    behavior = "shared_incremental_pipeline",
+    verify = "opening a project with open documents runs the checks once"
+)]
+fn opening_and_reloading_with_open_buffers_runs_the_checks_once() {
     // The editor restores a tab holding unsaved text before the project opens.
     let mut served = counted(&[("a.spec", A_ALPHA), ("b.spec", B_USES_ALPHA)])
         .restore(&[("a.spec", A_OMEGA)])
         .open(&[]);
-    assert_eq!(
-        served.check_runs(),
-        2,
-        "the open's checks, then the buffer's"
-    );
+    assert_eq!(served.check_runs(), 1, "the open's checks, over the buffer");
     assert!(served.state().graph().node("omega").is_some());
 
     served.write(
@@ -403,8 +400,8 @@ fn pin_opening_with_a_restored_buffer_runs_the_checks_twice() {
         .expect("specforge.json is an input");
     assert_eq!(
         served.check_runs(),
-        4,
-        "the reload's checks, then the buffer's"
+        2,
+        "the reload's checks, over the buffer"
     );
     assert!(served.state().graph().node("omega").is_some());
 }

@@ -4,7 +4,7 @@
 //! disk; when the editor releases it, the file is the disk's again.
 
 use std::collections::BTreeMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// An editor buffer: the editor's text of one file. Given to a session with
 /// [`crate::SourceChange::Hold`]; held until
@@ -48,6 +48,19 @@ pub(crate) struct Held {
 }
 
 impl Held {
+    /// `buffers`, each keyed by `key(&buffer.path)`.
+    pub(crate) fn keyed(
+        buffers: impl IntoIterator<Item = Buffer>,
+        key: impl Fn(&Path) -> String,
+    ) -> Held {
+        Held {
+            by_key: buffers
+                .into_iter()
+                .map(|buffer| (key(&buffer.path), buffer))
+                .collect(),
+        }
+    }
+
     /// Hold `buffer` under `key`, replacing what was held there.
     pub(crate) fn hold(&mut self, key: String, buffer: Buffer) {
         self.by_key.insert(key, buffer);
@@ -65,6 +78,16 @@ impl Held {
     /// `keys` without the held ones: a held file is not the disk's.
     pub(crate) fn leave_out(&self, keys: &mut Vec<String>) {
         keys.retain(|key| !self.by_key.contains_key(key));
+    }
+
+    /// The text of every held buffer whose key `is_source` accepts: what a
+    /// cold build reads in place of its file.
+    pub(crate) fn sources(&self, is_source: impl Fn(&str) -> bool) -> BTreeMap<String, &str> {
+        self.by_key
+            .iter()
+            .filter(|(key, _)| is_source(key))
+            .map(|(key, buffer)| (key.clone(), buffer.text.as_str()))
+            .collect()
     }
 
     pub(crate) fn into_buffers(self) -> Vec<Buffer> {

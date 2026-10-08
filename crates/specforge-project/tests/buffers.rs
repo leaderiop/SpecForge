@@ -7,8 +7,8 @@ use std::sync::Arc;
 
 use specforge_extension_sdk::prelude::*;
 use specforge_project::{
-    Buffer, Changes, CheckMode, CompiledProject, ProjectSession, SharedRuntime, SourceChange,
-    UpdateKind,
+    Buffer, Changes, CheckMode, CompiledProject, ProjectSession, RuntimeSource, SharedRuntime,
+    SourceChange, UpdateKind,
 };
 use specforge_test::prelude::*;
 use specforge_wasm::testing::InProcessRuntime;
@@ -210,14 +210,76 @@ fn releasing_a_buffer_that_did_not_parse_runs_the_skipped_checks() {
     );
 }
 
-/// Pin (flipped by T3): a reload rebuilds from disk and forgets the buffers.
-#[test]
-fn pin_a_reload_rebuilds_from_disk_without_the_buffers() {
+#[specforge_test(
+    behavior = "hold_editor_buffers",
+    verify = "an environment reload keeps the held buffers and runs the checks once"
+)]
+fn a_reload_keeps_the_held_buffers_and_runs_the_checks_once() {
     let rt = counting();
     let (dir, mut session) = opened(&rt);
     hold(&mut session, &dir, OMEGA);
     let before = check_runs(&rt);
     session.reload_environment();
     assert_eq!(check_runs(&rt) - before, 1);
-    assert!(has(&session, "alpha") && !has(&session, "omega"));
+    assert!(has(&session, "omega") && !has(&session, "alpha"));
+    assert!(session.buffer("a.spec").is_some());
+    assert!(session.stale().is_empty());
+}
+
+#[specforge_test(
+    behavior = "hold_editor_buffers",
+    verify = "opening a project in place of a session keeps its buffers and runs the checks once"
+)]
+fn opening_a_project_in_place_of_a_session_keeps_its_buffers() {
+    let rt = counting();
+    let (dir, session) = opened(&rt);
+    drop(session);
+    let mut detached = ProjectSession::detached();
+    detached.update(SourceChange::Hold(&[Buffer::new(
+        dir.path().join("a.spec"),
+        OMEGA,
+    )
+    .at_version(Some(4))]));
+    let before = check_runs(&rt);
+    let session = ProjectSession::begin_open(
+        dir.path(),
+        RuntimeSource::Fixed(Some(Arc::clone(&rt) as SharedRuntime)),
+    )
+    .finish_holding(detached.into_buffers());
+    assert_eq!(check_runs(&rt) - before, 1);
+    assert!(has(&session, "omega") && !has(&session, "alpha"));
+    // Re-keyed relative to the spec root.
+    assert_eq!(session.buffer("a.spec").unwrap().version, Some(4));
+}
+
+#[specforge_test(
+    behavior = "hold_editor_buffers",
+    verify = "a held buffer that a reload brings into the project is built from its text"
+)]
+fn a_held_buffer_a_reload_brings_into_the_project_is_built_from_its_text() {
+    let dir = TempDir::new().unwrap();
+    let config = |root: &str| serde_json::json!({"name": "p", "version": "0.1.0", "extensions": [], "spec_root": root});
+    fs::write(
+        dir.path().join("specforge.json"),
+        config("spec").to_string(),
+    )
+    .unwrap();
+    fs::create_dir_all(dir.path().join("spec")).unwrap();
+    fs::create_dir_all(dir.path().join("spec2")).unwrap();
+    fs::write(dir.path().join("spec2/b.spec"), ZETA).unwrap();
+    let mut session = ProjectSession::open_with_runtime(dir.path(), None);
+
+    session.update(SourceChange::Hold(&[Buffer::new(
+        dir.path().join("spec2/b.spec"),
+        OMEGA,
+    )]));
+    assert!(!has(&session, "omega"), "outside the spec root");
+
+    fs::write(
+        dir.path().join("specforge.json"),
+        config("spec2").to_string(),
+    )
+    .unwrap();
+    session.reload_environment();
+    assert!(has(&session, "omega") && !has(&session, "zeta"));
 }

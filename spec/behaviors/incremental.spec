@@ -145,7 +145,9 @@ behavior hold_editor_buffers "Hold Editor Buffers" {
     stamped and read from disk through the session's one read, and any
     other file leaves the project; a release that changes nothing runs no
     check, unless the checks were skipped while the buffer did not parse.
-    Watch and MCP hold no buffer.
+    Opening a project in the place of a session and loading the environment
+    again keep every held buffer, read in place of its file by their one
+    cold build, so the checks run once. Watch and MCP hold no buffer.
   """
   verify unit "a held buffer is the truth for its file until it is released"
   verify unit "a held buffer's file changed or deleted on disk is not stale"
@@ -153,6 +155,9 @@ behavior hold_editor_buffers "Hold Editor Buffers" {
   verify unit "releasing a buffer reads its file through the one read and leaves nothing stale"
   verify unit "releasing a buffer outside the project drops its file"
   verify unit "releasing a buffer that did not parse runs the skipped checks"
+  verify unit "opening a project in place of a session keeps its buffers and runs the checks once"
+  verify unit "an environment reload keeps the held buffers and runs the checks once"
+  verify unit "a held buffer that a reload brings into the project is built from its text"
 }
 
 behavior invalidate_changed_files "Invalidate Changed Files" {

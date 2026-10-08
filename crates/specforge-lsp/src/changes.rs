@@ -19,8 +19,8 @@ use crate::uri::uri_to_file_path;
 /// A change the client reports.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Change {
-    /// The workspace opened at this root (`initialized`): then every open
-    /// buffer.
+    /// The workspace opened at this root (`initialized`); the project holds
+    /// the open buffers.
     Open(PathBuf),
     /// These documents were opened or edited: everything the debounce
     /// coalesced. Each one still open has its buffer as the truth for its
@@ -58,15 +58,15 @@ pub struct Plan {
 impl Plan {
     /// What `change` asks of the session `state` holds, read from the state
     /// as it is now:
-    /// - `Open`: the root, then every open buffer, with every check;
+    /// - `Open`: the root; the opened project holds the buffers the session it replaces held;
     /// - `Edited`: the buffers of the documents still open, the checks
     ///   skipped while any of them does not parse (the typing fast path);
     /// - `Closed`: the session releases the buffer (a project source is read
     ///   from disk again; any other file, and every file of a session with no
     ///   project, leaves the project);
     /// - `Watched`: the paths that are not open documents, and the
-    ///   deletions of those that are, as the session classifies them; after
-    ///   an environment reload, every open buffer again;
+    ///   deletions of those that are, as the session classifies them (a
+    ///   reload keeps every held buffer);
     /// - `CatchUp`: what the session finds changed on disk since it last
     ///   read it, the same way, except an open document whose file still
     ///   exists.
@@ -87,7 +87,6 @@ impl Plan {
         match change {
             Change::Open(root) => Some(Plan {
                 root: Some(root),
-                buffers: open_buffers(state),
                 ..nothing
             }),
             Change::Edited(uris) => {
@@ -128,7 +127,7 @@ impl Plan {
                     .map(|event| PathBuf::from(uri_to_file_path(&event.uri)))
                     .collect();
                 let changes = session.inputs().changes(paths.iter().map(PathBuf::as_path));
-                Plan::on_disk(changes, state)
+                Plan::on_disk(changes)
             }
             Change::CatchUp => {
                 // What the session finds changed on disk since it last read
@@ -139,29 +138,22 @@ impl Plan {
                 changes.sources.retain(|key| {
                     !state.is_open(compiled.uri(key).as_str()) || !state.file_path(key).exists()
                 });
-                Plan::on_disk(changes, state)
+                Plan::on_disk(changes)
             }
         }
     }
 
     /// The plan for changes found on disk, applied first; `None` when there
     /// are none.
-    fn on_disk(changes: Changes, state: &LspState) -> Option<Plan> {
+    fn on_disk(changes: Changes) -> Option<Plan> {
         if changes.is_empty() {
             return None;
         }
-        // The reload read every file from disk again: the open buffers are
-        // still the truth for theirs.
-        let buffers = if changes.environment {
-            open_buffers(state)
-        } else {
-            Vec::new()
-        };
         Some(Plan {
             root: None,
             disk: Some(changes),
             released: None,
-            buffers,
+            buffers: Vec::new(),
             typing: false,
             edited: None,
         })
@@ -230,15 +222,6 @@ fn buffer_of(state: &LspState, uri: &str) -> Option<Buffer> {
         Buffer::new(PathBuf::from(uri_to_file_path(&url)), document.text())
             .at_version(document.version()),
     )
-}
-
-/// Every open document as a buffer to apply, in URI order.
-fn open_buffers(state: &LspState) -> Vec<Buffer> {
-    state
-        .open_uris()
-        .into_iter()
-        .filter_map(|uri| buffer_of(state, uri))
-        .collect()
 }
 
 /// What applying a plan did.
