@@ -307,7 +307,7 @@ decision wasm_compile_cache_strategy "Wasm Compile Cache Strategy" {
     500MB files-total-size soft limit. Entries are keyed by component
     bytes and engine config; integrity and cleanup are engine-owned.
     Host-side concerns stay separate: installed-binary integrity is the
-    specforge.lock hash pin (E033) at load time.
+    specforge.lock hash pin (E070) at load time.
   """
   consequences [
     "CLI cold start <50ms per extension on cache hit",

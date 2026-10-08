@@ -10,10 +10,8 @@
 //! Sandbox obligations stay proven only through the component runtime.
 
 use std::collections::BTreeMap;
-use std::path::Path;
 use std::sync::{Arc, Mutex};
 
-use specforge_common::Diagnostic;
 use specforge_extension_sdk::{ContributionsBuilder, ExportHandler, guest_call, no_other_exports};
 
 use crate::runtime::{WasmCallResult, WasmRuntime, WasmTrapInfo};
@@ -21,6 +19,10 @@ use crate::sandbox::Limits;
 
 /// What builds an extension's contributions, per call (as its guest does).
 type Build = Arc<dyn Fn() -> ContributionsBuilder + Send + Sync>;
+
+/// An extension served under a name: what builds it, and what answers the
+/// exports its declarations do not.
+type Served = (Build, ExportHandler);
 
 /// One call the runtime answered.
 #[derive(Debug, Clone, PartialEq)]
@@ -38,9 +40,13 @@ type Overrides = Vec<(String, String, Option<serde_json::Value>, WasmCallResult)
 /// Serves SDK-declared extensions in process; see the module docs.
 #[derive(Default)]
 pub struct InProcessRuntime {
-    extensions: BTreeMap<String, (Build, ExportHandler)>,
+    /// The extensions served, by the name each is loaded as. Behind a lock:
+    /// loading, renaming and unloading change it through the port.
+    extensions: Mutex<BTreeMap<String, Served>>,
+    /// Binaries that serve an extension under whatever name they are
+    /// loaded as ([`InProcessRuntime::binary`]).
+    binaries: Vec<(Vec<u8>, Served)>,
     overrides: Mutex<Overrides>,
-    load_failures: BTreeMap<String, Diagnostic>,
     faults: Vec<(String, String)>,
     calls: Mutex<Vec<RecordedCall>>,
     limits: Mutex<Vec<(String, Limits)>>,
@@ -79,7 +85,22 @@ impl InProcessRuntime {
         handler: ExportHandler,
     ) -> Self {
         self.extensions
+            .get_mut()
+            .expect("extensions lock")
             .insert(name.to_string(), (Arc::new(build), handler));
+        self
+    }
+
+    /// Serve `build` under whatever name a module of exactly `bytes` is
+    /// loaded as: a `.wasm` file whose content a test chooses, installed
+    /// and loaded as any extension is.
+    pub fn binary(
+        mut self,
+        bytes: &[u8],
+        build: impl Fn() -> ContributionsBuilder + Send + Sync + 'static,
+    ) -> Self {
+        self.binaries
+            .push((bytes.to_vec(), (Arc::new(build), no_other_exports)));
         self
     }
 
@@ -128,13 +149,6 @@ impl InProcessRuntime {
         self
     }
 
-    /// Report `diagnostic` as why `extension` failed to load (a missing
-    /// or tampered binary, as the component runtime knows it).
-    pub fn with_load_failure(mut self, extension: &str, diagnostic: Diagnostic) -> Self {
-        self.load_failures.insert(extension.to_string(), diagnostic);
-        self
-    }
-
     /// Every call answered so far, in order.
     pub fn calls(&self) -> Vec<RecordedCall> {
         self.calls.lock().expect("calls lock").clone()
@@ -161,21 +175,48 @@ fn trap(kind: &str, message: String, export: &str) -> WasmCallResult {
 }
 
 impl WasmRuntime for InProcessRuntime {
-    fn load_module(&self, wasm_path: &Path) -> Result<(), String> {
+    /// A binary this runtime was given ([`InProcessRuntime::binary`]) is
+    /// served under `name`; a name it serves, or answers raw
+    /// ([`InProcessRuntime::answer_raw`]), loads as it is (an extension
+    /// served in process is whatever binary is installed under its name);
+    /// any other bytes are no component it serves.
+    fn load(&self, name: &str, bytes: &[u8]) -> Result<(), String> {
+        let mut extensions = self.extensions.lock().expect("extensions lock");
+        if let Some((_, served)) = self.binaries.iter().find(|(known, _)| known == bytes) {
+            extensions.insert(name.to_string(), served.clone());
+            return Ok(());
+        }
+        let answered = self
+            .overrides
+            .lock()
+            .expect("overrides lock")
+            .iter()
+            .any(|(extension, ..)| extension == name);
+        if extensions.contains_key(name) || answered {
+            return Ok(());
+        }
         Err(format!(
-            "the in-process runtime serves SDK builders, not binaries ({})",
-            wasm_path.display()
+            "'{name}' is not a component the in-process runtime serves"
         ))
     }
 
-    /// Loading a binary under a name the runtime serves is a no-op: the
-    /// extension is already there. Any other name cannot be loaded.
-    fn load_module_named(&self, extension: &str, wasm_path: &Path) -> Result<(), String> {
-        if self.extensions.contains_key(extension) {
-            Ok(())
-        } else {
-            self.load_module(wasm_path)
+    fn rename(&self, from: &str, to: &str) -> bool {
+        let mut extensions = self.extensions.lock().expect("extensions lock");
+        match extensions.remove(from) {
+            Some(served) => {
+                extensions.insert(to.to_string(), served);
+                true
+            }
+            None => false,
         }
+    }
+
+    fn unload(&self, name: &str) -> bool {
+        self.extensions
+            .lock()
+            .expect("extensions lock")
+            .remove(name)
+            .is_some()
     }
 
     fn apply_limits(&self, extension: &str, limits: Limits) {
@@ -183,10 +224,6 @@ impl WasmRuntime for InProcessRuntime {
             .lock()
             .expect("limits lock")
             .push((extension.to_string(), limits));
-    }
-
-    fn load_failure(&self, extension: &str) -> Option<Diagnostic> {
-        self.load_failures.get(extension).cloned()
     }
 
     fn call_export(&self, extension: &str, export: &str, input: &[u8]) -> WasmCallResult {
@@ -216,7 +253,13 @@ impl WasmRuntime for InProcessRuntime {
         if let Some(result) = overridden {
             return result;
         }
-        let Some((build, handler)) = self.extensions.get(extension) else {
+        let served = self
+            .extensions
+            .lock()
+            .expect("extensions lock")
+            .get(extension)
+            .cloned();
+        let Some((build, handler)) = served else {
             return trap(
                 "extension_not_found",
                 format!("Extension '{extension}' not loaded"),
@@ -225,7 +268,7 @@ impl WasmRuntime for InProcessRuntime {
         };
         // A guest panic is a trap, as `unreachable` is in a component.
         let answer = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            guest_call(&build(), *handler, export, input)
+            guest_call(&build(), handler, export, input)
         }));
         match answer {
             Ok(Ok(bytes)) => WasmCallResult::Ok(bytes),
@@ -310,4 +353,46 @@ pub fn assert_runtime_contract(runtime: &dyn WasmRuntime, extension: &str, panic
         }
         WasmCallResult::Trap(trap) => panic!("the extension stopped answering: {trap:?}"),
     }
+}
+
+/// The contract every adapter of the [`WasmRuntime`] port keeps for the
+/// modules it holds, asserted over `runtime`, which must load `bytes` as a
+/// component declaring `declared`:
+///
+/// - loading `bytes` under a name registers them there, and the extension
+///   answers its handshake under that name;
+/// - a renamed module answers under its new name and no longer under the
+///   old one; renaming what is not loaded is false;
+/// - an unloaded module is not loaded any more; unloading twice is false.
+pub fn assert_module_contract(runtime: &dyn WasmRuntime, bytes: &[u8], declared: &str) {
+    let answers = |name: &str| match runtime.call_export(name, "__handshake", b"{}") {
+        WasmCallResult::Ok(answer) => {
+            let handshake: serde_json::Value =
+                serde_json::from_slice(&answer).expect("a handshake is JSON");
+            assert_eq!(handshake["name"], declared);
+            true
+        }
+        WasmCallResult::Trap(trap) => {
+            assert_eq!(trap.kind, "extension_not_found", "{trap:?}");
+            false
+        }
+    };
+
+    assert!(!answers("loaded-as"), "nothing is loaded yet");
+    runtime
+        .load("loaded-as", bytes)
+        .expect("the bytes are a component");
+    assert!(answers("loaded-as"), "loading registers the bytes by name");
+
+    assert!(!runtime.rename("not-loaded", "elsewhere"));
+    assert!(runtime.rename("loaded-as", "renamed"));
+    assert!(
+        answers("renamed"),
+        "a renamed module answers as its new name"
+    );
+    assert!(!answers("loaded-as"), "and no longer as the old one");
+
+    assert!(runtime.unload("renamed"));
+    assert!(!answers("renamed"), "an unloaded module is not loaded");
+    assert!(!runtime.unload("renamed"), "nothing is left to unload");
 }

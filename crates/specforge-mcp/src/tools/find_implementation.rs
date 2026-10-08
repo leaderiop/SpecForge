@@ -1,10 +1,10 @@
 use serde_json::{Value, json};
 
-use specforge_common::inference::anchors;
+use specforge_ops::navigate;
 
 use crate::args::Arguments;
 use crate::target::Call;
-use crate::tool::{Handled, ToolOutcome};
+use crate::tool::{Handled, McpError, ToolOutcome};
 
 /// `specforge.find_implementation`'s arguments.
 #[derive(Debug, Arguments)]
@@ -13,19 +13,17 @@ pub struct Args {
     entity_id: String,
 }
 
+/// The source items the anchors manifest anchors the entity to
+/// (`specforge_ops::navigate::anchors_of_entity`), in manifest order.
 pub fn call(call: &mut Call<'_>, args: Args) -> Handled {
-    let entity_id = args.entity_id.as_str();
-
     let project = call.project()?;
-    let manifest = match anchors::load_anchor_manifest(project.root) {
-        Ok(m) => m,
-        Err(e) => return Ok(super::manifest_error(e)),
+    let anchors = match navigate::source_anchors(&project.view()) {
+        Ok(anchors) => anchors,
+        Err(error) => return Ok(McpError::from(error).into()),
     };
 
-    let sources: Vec<Value> = manifest
-        .anchors
-        .iter()
-        .filter(|a| a.entity_id == entity_id)
+    let implementations: Vec<Value> = navigate::anchors_of_entity(&anchors, &args.entity_id)
+        .into_iter()
         .map(|a| {
             json!({
                 "file": a.file,
@@ -37,11 +35,9 @@ pub fn call(call: &mut Call<'_>, args: Args) -> Handled {
         })
         .collect();
 
-    let result = json!({
-        "entity_id": entity_id,
-        "implementations": sources,
-        "count": sources.len(),
-    });
-
-    Ok(ToolOutcome::ok(result))
+    Ok(ToolOutcome::ok(json!({
+        "entity_id": args.entity_id,
+        "implementations": implementations,
+        "count": implementations.len(),
+    })))
 }

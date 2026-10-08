@@ -10,6 +10,7 @@
 //! to* are its outgoing references. Navigation names no kind: kinds,
 //! fields and their targets come from the registries (ADR 0016).
 
+mod anchors;
 mod attribution;
 mod files;
 mod find;
@@ -28,6 +29,9 @@ use specforge_graph::Graph;
 use crate::view::ProjectView;
 use crate::{OpError, OpErrorKind};
 
+pub use anchors::{
+    ANCHORS_FILENAME, AnchorManifest, SourceAnchor, anchors_of_entity, source_anchors,
+};
 pub use attribution::{is_about, subjects};
 pub use files::{
     FileAnchors, FileMatch, OutlineEntry, OutlineMethod, anchors_of_file, match_file, outline,

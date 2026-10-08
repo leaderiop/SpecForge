@@ -3,22 +3,18 @@ use specforge_protocol_types::{EntityKindDescriptor, ExtensionDeclaration};
 use specforge_wasm::WasmRuntime;
 use specforge_wasm::protocol::load_declaration;
 
-/// Build a Wasm runtime for a temp project listing `ext_names` — the only
-/// way extensions exist now (WASM-only migration, Phase 7: the native
-/// mirror tier is gone).
+/// A Wasm runtime holding the builtin extensions `ext_names` — the only way
+/// extensions exist now (WASM-only migration, Phase 7: the native mirror
+/// tier is gone).
 fn wasm_runtime_for(ext_names: &[&str]) -> specforge_component::ComponentRuntime {
-    let dir = tempfile::TempDir::new().unwrap();
-    let config = serde_json::json!({
-        "name": "test-project",
-        "version": "0.1.0",
-        "extensions": ext_names,
-    });
-    std::fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
-    specforge_component::project_runtime(dir.path())
+    let runtime = specforge_component::ComponentRuntime::new();
+    let names: Vec<String> = ext_names.iter().map(|name| name.to_string()).collect();
+    specforge_component::builtins::load_builtins_for(&runtime, &names).unwrap();
+    runtime
 }
 
 /// Load an extension through the full protocol pipeline over its real Wasm
-/// blob: project_runtime → load_declaration → ExtensionDeclaration.
+/// blob: load_builtins_for → load_declaration → ExtensionDeclaration.
 fn load_via_protocol(ext_name: &str) -> ExtensionDeclaration {
     let runtime = wasm_runtime_for(&[ext_name]);
     load_declaration(&runtime, ext_name).unwrap().declaration
@@ -502,7 +498,7 @@ fn the_builtin_extensions_rules_register_cleanly() {
     assert_eq!(names.len(), 9, "{names:?}");
     let config = serde_json::json!({ "name": "all", "version": "0.1.0", "extensions": names });
     std::fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
-    let runtime = specforge_component::project_runtime(dir.path());
+    let runtime = specforge_component::ComponentRuntime::with_user_cache();
 
     let env = specforge_project::Environment::load(dir.path(), Some(&runtime));
 

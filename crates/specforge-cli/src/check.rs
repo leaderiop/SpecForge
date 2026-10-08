@@ -16,7 +16,7 @@ pub fn run(
     severity: Option<Severity>,
     cache: bool,
 ) -> i32 {
-    let runtime = specforge_component::project_runtime(path);
+    let runtime = specforge_component::ComponentRuntime::with_user_cache();
     let options = CheckOptions {
         strict,
         lint_profiles: lint_profiles.to_vec(),
@@ -148,6 +148,7 @@ mod tests {
         let dir = tempfile::TempDir::new().unwrap();
         let config = json!({ "name": "p", "version": "0.1.0", "extensions": [EXT] });
         std::fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
+        specforge_installed::testing::install(dir.path(), &[EXT]);
         std::fs::write(dir.path().join("a.spec"), spec).unwrap();
         dir
     }

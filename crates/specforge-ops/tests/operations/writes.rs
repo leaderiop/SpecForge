@@ -90,7 +90,7 @@ fn add(root: &Path, source: Source) -> Result<extension::Added, specforge_ops::O
 
 /// The project at `root`, compiled with its own component runtime.
 fn compiled(root: &Path) -> CompiledProject {
-    let runtime = specforge_component::project_runtime(root);
+    let runtime = specforge_component::ComponentRuntime::with_user_cache();
     CompiledProject::compile(root, Some(&runtime))
 }
 
@@ -310,8 +310,11 @@ fn installing_a_local_extension_writes_module_lock_and_config() {
     assert_eq!(changed_since(root, &before), Vec::<String>::new());
 }
 
-#[test]
-fn an_add_that_fails_after_placing_its_module_reports_it() {
+#[specforge_test_macros::test(
+    behavior = "install_wasm_extension",
+    verify = "a failed install puts back the binary, specforge.lock and specforge.json it changed"
+)]
+fn an_add_that_fails_after_placing_its_module_writes_nothing() {
     let dir = project(&[], &[]);
     let root = dir.path();
     // The lock is written through a sibling file; a directory in its place
@@ -322,8 +325,124 @@ fn an_add_that_fails_after_placing_its_module_reports_it() {
     let error = add(root, Source::Local(greet_blob())).unwrap_err();
 
     assert_eq!(error.code, "E033", "{error:?}");
-    assert_eq!(listed(&error.writes, root), [MODULE]);
-    assert_eq!(changed_since(root, &before), [MODULE]);
+    assert!(
+        error.message.contains("specforge.lock.tmp"),
+        "the message names the file it could not write: {error:?}"
+    );
+    assert!(error.writes.is_empty(), "{:?}", error.writes);
+    assert_eq!(changed_since(root, &before), Vec::<String>::new());
+}
+
+/// `@sdk/greet` 0.1.0 with other bytes: the vendored blob plus one custom
+/// section, which wasmtime loads like the original.
+fn greet_variant() -> Vec<u8> {
+    let mut bytes = std::fs::read(greet_blob()).unwrap();
+    let body: Vec<u8> = [&[3u8][..], b"pin", b"variant"].concat();
+    bytes.push(0);
+    bytes.push(body.len() as u8);
+    bytes.extend(body);
+    bytes
+}
+
+/// The sandbox probe, an installable extension that declares `@test/probe`.
+fn probe_blob() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/sandbox-probe/probe.wasm")
+}
+
+const PROBE: &str = "@test/probe";
+const PROBE_MODULE: &str = ".specforge/extensions/@test/probe/extension.wasm";
+
+/// `bytes` as a file under `dir`, for `add` to install from.
+fn blob_file(dir: &Path, name: &str, bytes: &[u8]) -> PathBuf {
+    let path = dir.join(name);
+    std::fs::write(&path, bytes).unwrap();
+    path
+}
+
+/// Make the lock write fail: it goes through a sibling file, and a
+/// directory in its place cannot be written.
+fn unwritable_lock(root: &Path) {
+    std::fs::create_dir_all(root.join("specforge.lock.tmp")).unwrap();
+}
+
+#[test]
+fn a_failed_add_over_an_install_keeps_the_pinned_binary() {
+    let dir = project(&[], &[]);
+    let root = dir.path();
+    add(root, Source::Local(greet_blob())).unwrap();
+    let scratch = TempDir::new().unwrap();
+    let variant = blob_file(scratch.path(), "greet-v.wasm", &greet_variant());
+    let before = files_under(root);
+    unwritable_lock(root);
+
+    let error = add(root, Source::Local(variant)).unwrap_err();
+    std::fs::remove_dir(root.join("specforge.lock.tmp")).unwrap();
+
+    assert_eq!(error.code, "E033", "{error:?}");
+    assert_eq!(changed_since(root, &before), Vec::<String>::new());
+    let diagnostics = compiled(root).diagnostics();
+    let refused: Vec<&str> = diagnostics
+        .iter()
+        .filter(|d| d.message.contains(GREET) && ["E033", "E070"].contains(&d.code.as_str()))
+        .map(|d| d.code.as_str())
+        .collect();
+    assert!(refused.is_empty(), "{diagnostics:?}");
+}
+
+#[specforge_test_macros::test(
+    behavior = "read_lock_file",
+    verify = "an unreadable lock file is E033 and is never replaced by a change"
+)]
+fn an_add_over_an_unreadable_lock_is_refused() {
+    let dir = project(&[], &[]);
+    let root = dir.path();
+    add(root, Source::Local(greet_blob())).unwrap();
+    add(root, Source::Local(probe_blob())).unwrap();
+    std::fs::write(root.join("specforge.lock"), "not a lock {{{").unwrap();
+    let scratch = TempDir::new().unwrap();
+    let variant = blob_file(scratch.path(), "greet-v.wasm", &greet_variant());
+    let before = files_under(root);
+
+    let error = add(root, Source::Local(variant)).unwrap_err();
+
+    assert_eq!(error.code, "E033", "{error:?}");
+    assert!(error.writes.is_empty());
+    assert_eq!(changed_since(root, &before), Vec::<String>::new());
+    let lock = std::fs::read_to_string(root.join("specforge.lock")).unwrap();
+    assert_eq!(lock, "not a lock {{{", "the lock is byte-identical");
+}
+
+#[specforge_test_macros::test(
+    behavior = "remove_extension",
+    verify = "a removal that fails changes nothing"
+)]
+fn a_failed_remove_changes_nothing() {
+    let dir = project(&[], &[]);
+    let root = dir.path();
+    add(root, Source::Local(greet_blob())).unwrap();
+    add(root, Source::Local(probe_blob())).unwrap();
+    unwritable_lock(root);
+    let before = files_under(root);
+    let project = compiled(root);
+
+    let error = extension::remove(
+        &ProjectView::of(&project),
+        &RemoveRequest {
+            name: PROBE,
+            force: false,
+            dry_run: false,
+        },
+    )
+    .unwrap_err();
+
+    assert_eq!(error.code, "E033", "{error:?}");
+    assert!(error.writes.is_empty(), "{:?}", error.writes);
+    assert_eq!(changed_since(root, &before), Vec::<String>::new());
+    let config = std::fs::read_to_string(root.join("specforge.json")).unwrap();
+    assert!(config.contains(PROBE), "{config}");
+    let lock = std::fs::read_to_string(root.join("specforge.lock")).unwrap();
+    assert!(lock.contains(PROBE), "{lock}");
+    assert!(root.join(PROBE_MODULE).exists());
 }
 
 #[test]

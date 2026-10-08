@@ -18,6 +18,7 @@ fn project(extensions: &[&str], spec: &str) -> TempDir {
         "name": "p", "version": "0.1.0", "extensions": extensions
     });
     fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
+    specforge_installed::testing::install_configured(dir.path(), &specforge_project::builtins());
     fs::write(dir.path().join("a.spec"), spec).unwrap();
     dir
 }
@@ -103,7 +104,7 @@ fn rules_extension() -> InProcessRuntime {
 )]
 fn a_builtin_custom_rule_is_registered_with_its_wasm_function() {
     let dir = project(&["@specforge/software"], "");
-    let runtime = specforge_component::project_runtime(dir.path());
+    let runtime = specforge_component::ComponentRuntime::with_user_cache();
 
     let env = Environment::load(dir.path(), Some(&runtime));
 

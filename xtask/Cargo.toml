@@ -16,6 +16,7 @@ path = "src/snapshot_builtins.rs"
 specforge-component = { path = "../crates/specforge-component" }
 serde = "1.0"
 specforge-emitter = { path = "../crates/specforge-emitter" }
+specforge-installed = { path = "../crates/specforge-installed" }
 specforge-wasm = { path = "../crates/specforge-wasm" }
 specforge-protocol-types = { path = "../crates/specforge-protocol-types" }
 serde_json = "1.0"

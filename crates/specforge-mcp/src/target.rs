@@ -185,7 +185,7 @@ impl OtherProject {
     fn compile(root: PathBuf, host: Option<&SharedRuntime>) -> Self {
         let (runtime, owns_runtime) = match host {
             Some(host) => (Arc::clone(host), false),
-            None => (project_runtime(&root), true),
+            None => (own_runtime(), true),
         };
         let project = CompiledProject::compile(&root, Some(runtime.as_ref()));
         OtherProject {
@@ -200,14 +200,14 @@ impl OtherProject {
     /// reports for the project now.
     fn recompile(&mut self) {
         if self.owns_runtime {
-            self.runtime = project_runtime(&self.root);
+            self.runtime = own_runtime();
         }
         self.project = CompiledProject::compile(&self.root, Some(self.runtime.as_ref()));
     }
 }
 
-fn project_runtime(root: &Path) -> SharedRuntime {
-    Arc::new(specforge_component::project_runtime(root))
+fn own_runtime() -> SharedRuntime {
+    Arc::new(specforge_component::ComponentRuntime::with_user_cache())
 }
 
 /// What every handler reads, from either adapter: the served session or a

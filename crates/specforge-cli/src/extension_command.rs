@@ -60,7 +60,7 @@ pub fn run(argv: &[String], builtins: &[String]) -> i32 {
     };
 
     let root = project_path(&rest);
-    let runtime = specforge_component::project_runtime(&root);
+    let runtime = specforge_component::ComponentRuntime::with_user_cache();
     let env = Environment::load(&root, Some(&runtime));
     let routed = ExtensionCommands::build(&env.registries);
     let commands: Vec<&ExtensionCommand> = routed.of(&ext).collect();
@@ -226,7 +226,7 @@ fn refused_args(error: &ArgError, format: CommandFormat) -> String {
 /// built-in command's is left out (the built-in wins), and so is any
 /// command the host refuses.
 pub fn with_extension_commands(mut cli: Command, root: &Path) -> Command {
-    let runtime = specforge_component::project_runtime(root);
+    let runtime = specforge_component::ComponentRuntime::with_user_cache();
     let env = Environment::load(root, Some(&runtime));
     let routed = ExtensionCommands::build(&env.registries);
     for ext in routed.shorts() {

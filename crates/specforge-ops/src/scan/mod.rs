@@ -5,7 +5,7 @@
 use std::collections::HashMap;
 use std::path::Path;
 
-use specforge_common::SourceItem;
+use crate::infer::SourceItem;
 use specforge_protocol_types::{ExtensionDeclaration, ScanRequest};
 use specforge_wasm::runtime::WasmRuntime;
 use specforge_wasm::{CallError, ExtensionCalls};

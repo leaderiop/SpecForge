@@ -9,6 +9,7 @@ mod errors;
 mod export_cache;
 mod extension_calls;
 mod failures;
+mod infer;
 mod inspect;
 mod kinds;
 mod management;
