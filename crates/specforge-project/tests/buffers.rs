@@ -200,7 +200,7 @@ fn releasing_a_buffer_that_did_not_parse_runs_the_skipped_checks() {
     let update = session.release(&[a]).expect("the skipped checks run");
     assert_eq!(update.kind, UpdateKind::Checks);
     assert!(reported(&session));
-    let fresh = CompiledProject::compile(dir.path(), Some(&*rt));
+    let fresh = CompiledProject::compile(dir.path(), Some(rt.clone()));
     let codes = |d: Vec<specforge_common::Diagnostic>| -> Vec<String> {
         d.into_iter().map(|d| d.code).collect()
     };

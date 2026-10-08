@@ -26,7 +26,7 @@ fn greet() -> Vec<u8> {
     std::fs::read(greet).expect("vendored greet component blob")
 }
 
-fn load(runtime: &ComponentRuntime, extensions: &[&str]) -> Environment {
+fn load(runtime: &std::sync::Arc<ComponentRuntime>, extensions: &[&str]) -> Environment {
     let dir = TempDir::new().unwrap();
     std::fs::write(
         dir.path().join("specforge.json"),
@@ -36,7 +36,7 @@ fn load(runtime: &ComponentRuntime, extensions: &[&str]) -> Environment {
     if extensions.contains(&"@sdk/greet") {
         specforge_installed::testing::install_module(dir.path(), "@sdk/greet", &greet());
     }
-    Environment::load(dir.path(), Some(runtime))
+    Environment::load(dir.path(), Some(runtime.clone()))
 }
 
 fn diagnostics<'a>(diagnostics: impl IntoIterator<Item = &'a Diagnostic>) -> Value {
@@ -238,7 +238,7 @@ fn digest(env: &Environment) -> Value {
     verify = "the registry build of the builtins matches its pinned snapshot"
 )]
 fn registry_build_of_the_builtins_matches_its_snapshot() {
-    let runtime = runtime();
+    let runtime = std::sync::Arc::new(runtime());
     let all: Vec<&str> = BUILTIN_EXTENSIONS.iter().map(|(name, _)| *name).collect();
     insta::assert_json_snapshot!("all_builtins", digest(&load(&runtime, &all)));
     for name in &all {

@@ -5,18 +5,13 @@ use std::sync::Arc;
 
 use specforge_common::{Diagnostic, ProjectConfig, read_project_config};
 use specforge_graph::{Applied, GraphDelta};
-use specforge_wasm::WasmRuntime;
 
-use crate::Environment;
 use crate::buffers::{Buffer, Held};
 use crate::compiled::CompiledProject;
 use crate::freshness::DiskSnapshot;
 use crate::inputs::{Changes, SessionInputs, UpdateKind};
 use crate::sources::Read;
-
-/// The runtime a session runs its project's extensions in (every
-/// [`WasmRuntime`] is `Send + Sync`).
-pub type SharedRuntime = Arc<dyn WasmRuntime>;
+use crate::{Environment, SharedRuntime};
 
 /// Builds the runtime of the project at a root from the config read there.
 pub type BuildRuntime = Arc<dyn Fn(&Path, &ProjectConfig) -> SharedRuntime + Send + Sync>;
@@ -153,9 +148,6 @@ impl Update {
 pub struct ProjectSession {
     /// What it compiled, kept current.
     project: CompiledProject,
-    /// The runtime the project's extensions run in (none: no extension
-    /// loads).
-    runtime: Option<SharedRuntime>,
     /// Where each environment load gets its runtime: a built one is fresh
     /// for every load (the extensions' `.wasm` files may have changed).
     source: RuntimeSource,
@@ -181,7 +173,6 @@ pub struct ProjectSession {
 /// [`Self::finish`] reads and builds the sources.
 pub struct OpeningProject {
     env: Arc<Environment>,
-    runtime: Option<SharedRuntime>,
     /// Where each environment load gets its runtime.
     source: RuntimeSource,
     /// What the loaded environment depends on.
@@ -219,7 +210,6 @@ impl OpeningProject {
         project.set_verify(cfg!(debug_assertions));
         let mut session = ProjectSession {
             project,
-            runtime: self.runtime,
             source: self.source,
             inputs: self.inputs,
             snapshot,
@@ -237,7 +227,6 @@ impl ProjectSession {
     pub fn detached() -> Self {
         ProjectSession {
             project: CompiledProject::detached(),
-            runtime: None,
             source: RuntimeSource::Fixed(None),
             inputs: SessionInputs::detached(),
             snapshot: DiskSnapshot::default(),
@@ -280,11 +269,10 @@ impl ProjectSession {
         let inputs = SessionInputs::opened(root, &read.config);
         snapshot.stamp_environment(&inputs);
         let runtime = source.runtime_for(root, &read.config);
-        let env = Environment::from_read(root, read, runtime.as_deref());
+        let env = Environment::from_read(root, read, runtime);
         let inputs = inputs.with_check_passes(env.registries.check_passes().next().is_some());
         OpeningProject {
             env: Arc::new(env),
-            runtime,
             source,
             inputs,
             snapshot,
@@ -526,10 +514,10 @@ impl ProjectSession {
         self.apply(&changes)
     }
 
-    /// The runtime the project's extensions run in (none: no extension
-    /// loads).
+    /// The runtime the project's extensions were loaded in (its
+    /// environment's; none: no extension loads).
     pub fn runtime(&self) -> Option<&SharedRuntime> {
-        self.runtime.as_ref()
+        self.project.environment().runtime.as_ref()
     }
 
     /// Whether a changed file is outside the project. A session with no
@@ -568,7 +556,7 @@ impl ProjectSession {
             self.inputs = next;
             self.snapshot.stamp_checks(&self.inputs);
         }
-        self.project.check_over(entities, self.runtime.as_deref());
+        self.project.check_over(entities);
         changed
     }
 }

@@ -136,7 +136,12 @@ behavior auto_promote_commands_to_mcp_tools "Auto-Promote Commands to MCP Tools"
 
 behavior dispatch_surface_command "Dispatch Surface Command" {
   features   [surface_contributions]
-  invariants [surface_sandbox_ceiling, wasm_sandbox_integrity, extension_isolation]
+  invariants [
+    surface_sandbox_ceiling,
+    wasm_sandbox_integrity,
+    extension_isolation,
+    extensions_run_in_their_loading_runtime,
+  ]
   category   command
   types      [CommandContribution, CommandInput, CommandOutput, SurfaceError, WasmTrapInfo]
   ports      [WasmRuntime]

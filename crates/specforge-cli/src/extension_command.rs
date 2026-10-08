@@ -31,6 +31,7 @@ use specforge_protocol_types::command_args::{ArgError, normalize_arg};
 use specforge_protocol_types::{CommandError, CommandOutput};
 use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 /// The host's own option on every extension command: where the project is.
 const PATH: &str = "path";
@@ -61,8 +62,12 @@ pub fn run(argv: &[String], builtins: &[String]) -> i32 {
     };
 
     let root = project_path(&rest);
-    let runtime = specforge_component::ComponentRuntime::with_user_cache();
-    let env = Environment::load(&root, Some(&runtime));
+    let env = Environment::load(
+        &root,
+        Some(Arc::new(
+            specforge_component::ComponentRuntime::with_user_cache(),
+        )),
+    );
     let routed = ExtensionCommands::build(&env.registries);
     let commands: Vec<&ExtensionCommand> = routed.of(&ext).collect();
     if commands.is_empty() {
@@ -139,14 +144,8 @@ pub fn run(argv: &[String], builtins: &[String]) -> i32 {
     // The project, compiled from the environment that routed the command:
     // its sources read, its graph built and checked (ADR 0011, "One
     // operation runs a command", O3).
-    let project = CompiledProject::of(env, Some(&runtime));
-    let outcome = specforge_ops::command::run(
-        &ProjectView::of(&project),
-        &runtime,
-        command,
-        &given,
-        format,
-    );
+    let project = CompiledProject::of(env);
+    let outcome = specforge_ops::command::run(&ProjectView::of(&project), command, &given, format);
     ended(
         outcome,
         format,
@@ -209,8 +208,12 @@ fn written(error: &RunError, format: CommandFormat) -> String {
 /// built-in command's is left out (the built-in wins), and so is any
 /// command the host refuses.
 pub fn with_extension_commands(mut cli: Command, root: &Path) -> Command {
-    let runtime = specforge_component::ComponentRuntime::with_user_cache();
-    let env = Environment::load(root, Some(&runtime));
+    let env = Environment::load(
+        root,
+        Some(Arc::new(
+            specforge_component::ComponentRuntime::with_user_cache(),
+        )),
+    );
     let routed = ExtensionCommands::build(&env.registries);
     for ext in routed.shorts() {
         if cli.find_subcommand(ext).is_none() {

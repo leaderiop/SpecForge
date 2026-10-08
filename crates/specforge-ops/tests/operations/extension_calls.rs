@@ -96,7 +96,7 @@ fn a_collector_receives_a_collect_input_and_answers_a_collect_output() {
         "collect__x",
         WasmCallResult::Ok(answer.to_string().into_bytes()),
     );
-    let read = dispatch(&runtime, &collector(), &reports(), None).unwrap();
+    let read = dispatch(Some(&runtime), &collector(), &reports(), None).unwrap();
     // flipped in T7: `stdout` is absent when nothing was captured, not null
     golden("collect.input.json", &runtime.calls()[0].input);
     assert_eq!(read.entity_results[0].entity_id, "a");
@@ -106,7 +106,7 @@ fn a_collector_receives_a_collect_input_and_answers_a_collect_output() {
         ("t", Some("v"), Some(2.0))
     );
     assert_eq!(read.unlinked[0].path, ["m", "t"]);
-    dispatch(&runtime, &collector(), &reports(), Some("out")).unwrap();
+    dispatch(Some(&runtime), &collector(), &reports(), Some("out")).unwrap();
     assert_eq!(runtime.calls()[1].input["stdout"], "out");
 
     // flipped in T7: an answer that is not a CollectOutput (an empty array
@@ -122,7 +122,7 @@ fn a_collector_receives_a_collect_input_and_answers_a_collect_output() {
         b"not json".to_vec(),
     ] {
         let runtime = answering("collect__x", WasmCallResult::Ok(raw.clone()));
-        let err = dispatch(&runtime, &collector(), &reports(), None).unwrap_err();
+        let err = dispatch(Some(&runtime), &collector(), &reports(), None).unwrap_err();
         let shown = String::from_utf8_lossy(&raw);
         assert!(
             matches!(
@@ -143,7 +143,7 @@ fn a_collector_receives_a_collect_input_and_answers_a_collect_output() {
     }
     let runtime = answering("collect__x", trap("collect__x"));
     assert_eq!(
-        dispatch(&runtime, &collector(), &reports(), None)
+        dispatch(Some(&runtime), &collector(), &reports(), None)
             .unwrap_err()
             .to_string(),
         format!("collector collect__x() of '{EXT}' trapped: k: m")
@@ -208,19 +208,22 @@ mod evidence {
 
     /// The evidence `project`'s command run sends the export: the `evidence`
     /// of the input it received (`None`: the input carries none).
-    fn sent(project: &Project) -> CommandEvidence {
-        let runtime = InProcessRuntime::new().answer_raw(
-            "@pin/ext",
-            "cmd__probe",
-            WasmCallResult::Ok(
-                CommandOutput {
-                    exit_code: 0,
-                    stdout: "{}".into(),
-                    stderr: String::new(),
-                }
-                .to_bytes(),
+    fn sent(project: &mut Project) -> CommandEvidence {
+        let runtime = std::sync::Arc::new(
+            InProcessRuntime::new().answer_raw(
+                "@pin/ext",
+                "cmd__probe",
+                WasmCallResult::Ok(
+                    CommandOutput {
+                        exit_code: 0,
+                        stdout: "{}".into(),
+                        stderr: String::new(),
+                    }
+                    .to_bytes(),
+                ),
             ),
         );
+        project.env.runtime = Some(runtime.clone());
         let command = ExtensionCommand::new(
             "@pin/ext",
             "pin",
@@ -233,14 +236,8 @@ mod evidence {
                 args: Vec::new(),
             },
         );
-        run(
-            &project.view(),
-            &runtime,
-            &command,
-            &Map::new(),
-            CommandFormat::Json,
-        )
-        .expect("the export answers");
+        run(&project.view(), &command, &Map::new(), CommandFormat::Json)
+            .expect("the export answers");
         let input = runtime.calls()[0].input.clone();
         match input.get("evidence") {
             // Absent, not null (ADR 0013 D7).
@@ -257,7 +254,7 @@ mod evidence {
         verify = "the CommandInput carries what the recorded tests prove, per entity that counts toward coverage"
     )]
     fn the_input_carries_each_counted_entitys_proof() {
-        let project = Project::new(SOURCE, registries(&["behavior"], &[]));
+        let mut project = Project::new(SOURCE, registries(&["behavior"], &[]));
         let pass = |verify: &str| serde_json::json!({"status": "pass", "verify": verify});
         std::fs::write(
             project.dir.path().join("specforge-report.json"),
@@ -268,7 +265,7 @@ mod evidence {
             .to_string(),
         )
         .unwrap();
-        let CommandEvidence::Recorded { entities } = sent(&project) else {
+        let CommandEvidence::Recorded { entities } = sent(&mut project) else {
             panic!("a recorded report is evidence");
         };
         assert_eq!(
@@ -297,18 +294,121 @@ mod evidence {
         verify = "a command's input says when the recorded test report cannot be read, and carries no evidence without one"
     )]
     fn no_report_is_no_evidence_and_a_broken_one_says_why() {
-        let project = Project::new(SOURCE, registries(&["behavior"], &[]));
-        assert_eq!(sent(&project), CommandEvidence::None);
+        let mut project = Project::new(SOURCE, registries(&["behavior"], &[]));
+        assert_eq!(sent(&mut project), CommandEvidence::None);
         std::fs::write(
             project.dir.path().join("specforge-report.json"),
             "{not json",
         )
         .unwrap();
-        let CommandEvidence::Unreadable { reason } = sent(&project) else {
+        let CommandEvidence::Unreadable { reason } = sent(&mut project) else {
             panic!("a broken report is unreadable evidence");
         };
         assert!(reason.contains("invalid test results"), "{reason}");
         let wire = serde_json::to_value(CommandEvidence::Unreadable { reason }).unwrap();
         assert_eq!(wire["state"], "unreadable");
+    }
+}
+
+/// An operation over a view calls extensions in the view's runtime.
+mod the_views_runtime {
+    use std::sync::Arc;
+
+    use serde_json::Map;
+    use specforge_extension_sdk::prelude::*;
+    use specforge_ops::analyze::{AnalyzeOptions, analyze};
+    use specforge_ops::command::{CommandFormat, ExtensionCommands, RunError, run};
+    use specforge_ops::view::ProjectView;
+    use specforge_project::{CompiledProject, SharedRuntime};
+    use specforge_test_macros::test as specforge_test;
+    use specforge_wasm::CallFailure;
+    use specforge_wasm::testing::InProcessRuntime;
+    use tempfile::TempDir;
+
+    /// `@t/x`: an analyze pass `scan` and a command `hello`.
+    fn extension() -> InProcessRuntime {
+        InProcessRuntime::new().with(|| {
+            let mut c = ContributionsBuilder::new(ExtensionMeta::new("@t/x", "1.0.0"));
+            c.pass("scan", |p| {
+                p.run(|_: &PassInput| Vec::<PassDiagnostic>::new());
+            });
+            c.command("hello", |cmd| {
+                cmd.title("Hello").handler(|_| CommandOutput {
+                    exit_code: 0,
+                    stdout: "{}\n".into(),
+                    stderr: String::new(),
+                });
+            });
+            c
+        })
+    }
+
+    /// A project enabling `@t/x`, with one `main.spec`.
+    fn project() -> TempDir {
+        let dir = TempDir::new().unwrap();
+        std::fs::write(
+            dir.path().join("specforge.json"),
+            r#"{"name":"p","version":"0.1.0","extensions":["@t/x"]}"#,
+        )
+        .unwrap();
+        specforge_installed::testing::install(dir.path(), &["@t/x"]);
+        std::fs::write(dir.path().join("main.spec"), "behavior a \"A\" {\n}\n").unwrap();
+        dir
+    }
+
+    #[specforge_test(
+        invariant = "extensions_run_in_their_loading_runtime",
+        verify = "an operation over a project view calls its extensions in the runtime the view's environment loaded them in"
+    )]
+    fn operations_over_a_view_call_extensions_in_its_runtime() {
+        let dir = project();
+        let rt = Arc::new(extension());
+        let shared: SharedRuntime = rt.clone();
+        let compiled = CompiledProject::compile(dir.path(), Some(shared));
+        let view = ProjectView::of(&compiled);
+
+        let outcome = analyze(&view, &AnalyzeOptions::default()).unwrap();
+        assert!(
+            outcome.passes.iter().any(|p| p.name == "@t/x:scan"),
+            "{:?}",
+            outcome.passes.iter().map(|p| &p.name).collect::<Vec<_>>()
+        );
+        let commands = ExtensionCommands::build(view.registries());
+        let hello = commands
+            .all()
+            .iter()
+            .find(|c| c.id() == "hello")
+            .expect("the extension declares `hello`");
+        run(&view, hello, &Map::new(), CommandFormat::Json).expect("the export answers");
+
+        let exports: Vec<String> = rt.calls().into_iter().map(|c| c.export).collect();
+        assert!(exports.contains(&"__pass_scan".to_string()), "{exports:?}");
+        assert!(exports.contains(&"cmd__hello".to_string()), "{exports:?}");
+    }
+
+    #[test]
+    fn without_a_runtime_an_extension_call_is_not_loaded() {
+        let dir = project();
+        // Compiled with a runtime only to learn the command the project's
+        // extension declares; the environment under test has none.
+        let declared = CompiledProject::compile(dir.path(), Some(Arc::new(extension())));
+        let commands = ExtensionCommands::build(ProjectView::of(&declared).registries());
+        let hello = commands.all().iter().find(|c| c.id() == "hello").unwrap();
+
+        let bare = CompiledProject::compile(dir.path(), None);
+        let view = ProjectView::of(&bare);
+        let RunError::Call(error) =
+            run(&view, hello, &Map::new(), CommandFormat::Json).unwrap_err()
+        else {
+            panic!("a command over an environment with no runtime is a failed call");
+        };
+        assert_eq!(error.failure, CallFailure::NotLoaded);
+        assert_eq!(error.diagnostic().code, "E028");
+
+        let outcome = analyze(&view, &AnalyzeOptions::default()).unwrap();
+        assert!(
+            !outcome.passes.iter().any(|p| p.name.starts_with("@t/x:")),
+            "no extension pass runs without a runtime"
+        );
     }
 }

@@ -13,6 +13,7 @@ use specforge_extension_sdk::prelude::*;
 use specforge_project::CompiledProject;
 use specforge_test_macros::test as spec;
 use specforge_wasm::testing::InProcessRuntime;
+use std::sync::Arc;
 use tempfile::TempDir;
 
 const EXT: &str = "@pin/rules";
@@ -117,7 +118,7 @@ fn project(source: &str) -> TempDir {
 /// The compile of `root` with the extension declaring `rules`.
 fn compile_with(root: &Path, rules: Value, required_owner: bool) -> CompiledProject {
     let runtime = InProcessRuntime::new().with_handler(extension(rules, required_owner), x007);
-    CompiledProject::compile(root, Some(&runtime))
+    CompiledProject::compile(root, Some(Arc::new(runtime)))
 }
 
 /// The diagnostics of compiling `source` with the extension declaring `rules`.

@@ -32,7 +32,8 @@ order that nothing outside it read.
   the session until it is readable or gone.
 - **One cold pipeline.** `Environment::build_sources` reads what discovery found, builds the graph and
   resolves the imports; `CompiledProject::compile`, `OpeningProject::finish` and
-  `Environment::build_graph` all use it.
+  `Environment::build_graph` all use it. *(ADR 0047: its result is a `CompiledProject`; a session holds
+  one, so `OpeningProject::finish` and `CompiledProject::compile` read through `CompiledProject::read`.)*
 - **The resolver returns what is read.** `resolve_imports(spec_root, files, exists)` gives E025, I004,
   W113 and W027; `resolve_import` names one import's file for go-to-definition. File scopes, re-exports
   and the import order stay inside it, where W027 and W113 need them. Path aliases are removed:

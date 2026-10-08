@@ -9,6 +9,7 @@ use specforge_mcp::target::TargetSpec;
 use specforge_test::prelude::*;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use tempfile::TempDir;
 
 fn initialize(server: &mut McpServer, root: &Path) {
@@ -700,7 +701,10 @@ fn analyze_of_another_project_runs_its_extensions_in_one_runtime() {
 
 /// A rename on another project reports what `specforge check` reports for
 /// it afterwards, in order, and the served project is untouched.
-#[test]
+#[specforge_test(
+    invariant = "mcp_served_project_consistency",
+    verify = "a mutation on another project brings it up to date with what it wrote and reports what a fresh compile reports"
+)]
 fn a_mutation_on_another_project_reports_what_a_fresh_compile_reports() {
     use crate::fake_extension::{self, FakeExtension};
 
@@ -720,15 +724,58 @@ fn a_mutation_on_another_project_reports_what_a_fresh_compile_reports() {
         json!({"path": other.path().to_str().unwrap(), "entity_id": "alpha", "new_name": "gamma"}),
     );
     assert_eq!(resp["result"]["isError"], false, "{resp}");
-    // PIN (08-T5): compiled at resolve and compiled again after the write.
-    assert_eq!(ext.handshakes() - loads, 2);
+    assert_eq!(
+        ext.handshakes() - loads,
+        1,
+        "loaded once: the rename changed no environment input"
+    );
 
     let payload: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
     let runtime = ext.runtime();
-    let fresh = specforge_project::CompiledProject::compile(other.path(), Some(runtime.as_ref()));
+    let fresh = specforge_project::CompiledProject::compile(other.path(), Some(runtime.clone()));
     let expected =
         serde_json::to_value(specforge_common::diagnostics_json(&fresh.diagnostics())).unwrap();
     assert_eq!(payload["diagnostics"], expected);
+    assert_eq!(server.state().session_generation(), generation);
+}
+
+#[specforge_test(
+    invariant = "mcp_served_project_consistency",
+    verify = "a mutation on another project brings it up to date with what it wrote and reports what a fresh compile reports"
+)]
+fn an_extension_added_to_another_project_is_loaded_when_it_is_brought_up_to_date() {
+    let served = project(&[], "behavior login \"Login\" {\n}\n");
+    let mut server = McpServer::new();
+    initialize(&mut server, served.path());
+    let generation = server.state().session_generation();
+    let other = project(&[], "behavior alpha \"A\" {\n}\n");
+    let path = other.path().to_str().unwrap();
+
+    let resp = call_tool(
+        &mut server,
+        "specforge.add_extension",
+        json!({"path": path, "specifier": "@specforge/software"}),
+    );
+    assert_eq!(resp["result"]["isError"], false, "{resp}");
+    assert_eq!(server.state().session_generation(), generation);
+
+    let resp = call_tool(
+        &mut server,
+        "specforge.rename",
+        json!({"path": path, "entity_id": "alpha", "new_name": "omega"}),
+    );
+    assert_eq!(resp["result"]["isError"], false, "{resp}");
+    let payload: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+    let runtime = specforge_component::ComponentRuntime::with_user_cache();
+    let fresh = specforge_project::CompiledProject::compile(other.path(), Some(Arc::new(runtime)));
+    let expected =
+        serde_json::to_value(specforge_common::diagnostics_json(&fresh.diagnostics())).unwrap();
+    assert_eq!(payload["diagnostics"], expected);
+    assert!(
+        fresh.diagnostics().iter().all(|d| d.code != "I002"),
+        "the added extension is loaded: {:?}",
+        fresh.diagnostics()
+    );
     assert_eq!(server.state().session_generation(), generation);
 }
 

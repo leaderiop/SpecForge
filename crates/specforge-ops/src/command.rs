@@ -29,8 +29,7 @@ use specforge_protocol_types::{
     CommandInput, CommandOutput, EntityEvidence, RawGraph,
 };
 use specforge_registry::RegistryBuild;
-use specforge_wasm::runtime::WasmRuntime;
-use specforge_wasm::{CallError, ExtensionCalls};
+use specforge_wasm::{CallError, CallFailure, ExtensionCalls, Operation};
 use std::path::{Path, PathBuf};
 
 /// The output a command is asked for: `human` (the CLI default) or `json`
@@ -419,7 +418,7 @@ impl RunError {
 /// Run `command` over the project `view` describes, with the arguments the
 /// caller `given` (by declared name; a flag `true`/`false`, an integer a
 /// number or its text, the CLI's parsed command line or an MCP tool's
-/// arguments), asked for `format`, in `runtime`. In order:
+/// arguments), asked for `format`, in the view's runtime. In order:
 ///
 /// 1. the args are normalized by the one arg rule both surfaces and the SDK
 ///    share ([`ExtensionCommand::normalize`]): declared defaults applied, an
@@ -441,19 +440,17 @@ impl RunError {
 /// operation runs a command", O5).
 pub fn run(
     view: &ProjectView<'_>,
-    runtime: &dyn WasmRuntime,
     command: &ExtensionCommand,
     given: &Map<String, Value>,
     format: CommandFormat,
 ) -> Result<CommandOutput, RunError> {
-    run_on(view, runtime, command, given, format, &today())
+    run_on(view, command, given, format, &today())
 }
 
 /// [`run`], on the date `today` (unit tests pin it here; `run` passes the
 /// clock's).
 fn run_on(
     view: &ProjectView<'_>,
-    runtime: &dyn WasmRuntime,
     command: &ExtensionCommand,
     given: &Map<String, Value>,
     format: CommandFormat,
@@ -470,7 +467,15 @@ fn run_on(
             .expect("the graph export is one JSON value"),
         evidence: evidence(view),
     };
-    ExtensionCalls::new(runtime)
+    let Some(runtime) = view.runtime() else {
+        return Err(RunError::Call(CallError::new(
+            Operation::Command,
+            command.extension(),
+            command.export(),
+            CallFailure::NotLoaded,
+        )));
+    };
+    ExtensionCalls::new(runtime.as_ref())
         .run_command(command.extension(), command.export(), &input)
         .map_err(RunError::Call)
 }
@@ -496,7 +501,6 @@ mod tests {
     use specforge_test_macros::test as specforge_test;
     use specforge_wasm::runtime::WasmCallResult;
     use specforge_wasm::testing::InProcessRuntime;
-    use specforge_wasm::{CallFailure, Operation};
 
     const EXT: &str = "@acme/x";
 
@@ -902,9 +906,10 @@ mod tests {
     }
 
     /// A fixture project whose graph is [`graph`].
-    fn fixture() -> crate::view::testing::Fixture {
+    fn fixture(runtime: &std::sync::Arc<InProcessRuntime>) -> crate::view::testing::Fixture {
         let mut fixture = crate::view::testing::Fixture::new();
         fixture.graph = graph();
+        fixture.env.runtime = Some(runtime.clone());
         fixture
     }
 
@@ -922,12 +927,11 @@ mod tests {
         verify = "args serialized as JSON to cmd__ export"
     )]
     fn args_reach_the_export_as_json_with_the_graph() {
-        let runtime = fake();
-        let fixture = fixture();
+        let runtime = std::sync::Arc::new(fake());
+        let fixture = fixture(&runtime);
         let args = json!({"status": "done", "limit": 2, "all": true});
         let out = run_on(
             &fixture.view(),
-            &runtime,
             &listing(),
             args.as_object().unwrap(),
             CommandFormat::Json,
@@ -950,11 +954,10 @@ mod tests {
 
     #[test]
     fn run_sends_todays_utc_date() {
-        let runtime = fake();
-        let fixture = fixture();
+        let runtime = std::sync::Arc::new(fake());
+        let fixture = fixture(&runtime);
         run(
             &fixture.view(),
-            &runtime,
             &routed("ok"),
             &Map::new(),
             CommandFormat::Json,
@@ -972,12 +975,11 @@ mod tests {
         verify = "the CommandInput carries the format the caller asked for and the host's date"
     )]
     fn the_input_carries_the_format_and_the_date() {
-        let runtime = fake();
-        let fixture = fixture();
+        let runtime = std::sync::Arc::new(fake());
+        let fixture = fixture(&runtime);
         for format in CommandFormat::ALL {
             run_on(
                 &fixture.view(),
-                &runtime,
                 &routed("ok"),
                 &Map::new(),
                 format,
@@ -998,8 +1000,8 @@ mod tests {
         verify = "one operation runs a command over the project view: it normalizes the args, attaches the evidence, the date and the project root, absolute and canonical, and calls the export"
     )]
     fn one_operation_runs_a_command_over_the_view() {
-        let runtime = fake();
-        let fixture = fixture();
+        let runtime = std::sync::Arc::new(fake());
+        let fixture = fixture(&runtime);
         std::fs::write(
             fixture.dir.path().join("specforge-report.json"),
             r#"{"runner":"fixture","results":{}}"#,
@@ -1008,7 +1010,6 @@ mod tests {
 
         run_on(
             &fixture.view(),
-            &runtime,
             &ordered_ok(),
             json!({"milestone": "m1"}).as_object().unwrap(),
             CommandFormat::Json,
@@ -1032,11 +1033,10 @@ mod tests {
 
     #[test]
     fn a_refused_arg_runs_nothing() {
-        let runtime = fake();
-        let fixture = fixture();
+        let runtime = std::sync::Arc::new(fake());
+        let fixture = fixture(&runtime);
         let err = run(
             &fixture.view(),
-            &runtime,
             &ordered_ok(),
             json!({"milestone": "m1", "limit": -1}).as_object().unwrap(),
             CommandFormat::Json,
@@ -1055,11 +1055,10 @@ mod tests {
 
     #[test]
     fn a_rootless_view_runs_nothing() {
-        let runtime = fake();
-        let fixture = fixture();
+        let runtime = std::sync::Arc::new(fake());
+        let fixture = fixture(&runtime);
         let err = run(
             &fixture.rootless_view(),
-            &runtime,
             &routed("ok"),
             &Map::new(),
             CommandFormat::Json,
@@ -1076,24 +1075,17 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn the_root_a_command_receives_is_canonical() {
-        let runtime = fake();
+        let runtime = std::sync::Arc::new(fake());
         let dir = tempfile::TempDir::new().unwrap();
         std::fs::create_dir(dir.path().join("real")).unwrap();
         std::os::unix::fs::symlink(dir.path().join("real"), dir.path().join("link")).unwrap();
-        let fixture = fixture();
+        let fixture = fixture(&runtime);
         let recorded =
             specforge_project::coverage::RecordedCoverage::over(&fixture.graph, &fixture.env);
         let linked = dir.path().join("link");
         let view = ProjectView::new(&fixture.graph, &fixture.env, Some(&linked), &recorded);
 
-        run(
-            &view,
-            &runtime,
-            &routed("ok"),
-            &Map::new(),
-            CommandFormat::Json,
-        )
-        .unwrap();
+        run(&view, &routed("ok"), &Map::new(), CommandFormat::Json).unwrap();
 
         assert_eq!(
             last_input(&runtime)["cwd"],
@@ -1147,10 +1139,9 @@ mod tests {
         verify = "Wasm trap caught and reported as ExtensionError"
     )]
     fn a_trapping_command_is_an_extension_error() {
-        let fixture = fixture();
+        let fixture = fixture(&std::sync::Arc::new(fake()));
         let err = run(
             &fixture.view(),
-            &fake(),
             &routed("boom"),
             &Map::new(),
             CommandFormat::Json,
@@ -1172,17 +1163,20 @@ mod tests {
         verify = "a command whose output is not a CommandOutput is an ExtensionError, not exit 0 with the raw bytes"
     )]
     fn a_command_whose_output_is_not_a_command_output_is_an_extension_error() {
-        let fixture = fixture();
+        let mut fixture = fixture(&std::sync::Arc::new(fake()));
         for raw in [
             &b"not json at all"[..],
             br#"{"exit_code":"3","stdout":"x"}"#,
             br#"{}"#,
             br#"[1,2]"#,
         ] {
-            let runtime = fake().answer_raw(EXT, "cmd__ok", WasmCallResult::Ok(raw.to_vec()));
+            fixture.env.runtime = Some(std::sync::Arc::new(fake().answer_raw(
+                EXT,
+                "cmd__ok",
+                WasmCallResult::Ok(raw.to_vec()),
+            )));
             let err = run(
                 &fixture.view(),
-                &runtime,
                 &routed("ok"),
                 &Map::new(),
                 CommandFormat::Json,
@@ -1235,9 +1229,10 @@ mod tests {
 
         // What the CLI does: one runtime, the project compiled through it,
         // then the routed command run in it.
-        let runtime = specforge_component::ComponentRuntime::with_user_cache();
+        let runtime = std::sync::Arc::new(specforge_component::ComponentRuntime::with_user_cache());
         assert!(runtime.loaded_names().is_empty(), "a runtime starts empty");
-        let project = specforge_project::CompiledProject::compile(dir.path(), Some(&runtime));
+        let project =
+            specforge_project::CompiledProject::compile(dir.path(), Some(runtime.clone()));
         let loaded = runtime.loaded_names();
         assert_eq!(
             loaded,
@@ -1260,7 +1255,6 @@ mod tests {
 
         let out = run(
             &ProjectView::of(&project),
-            &runtime,
             features,
             &Map::new(),
             CommandFormat::Json,
@@ -1288,15 +1282,15 @@ mod tests {
                 .to_string(),
         )
         .unwrap();
-        let runtime = specforge_component::ComponentRuntime::new();
-        let project = specforge_project::CompiledProject::compile(dir.path(), Some(&runtime));
+        let runtime = std::sync::Arc::new(specforge_component::ComponentRuntime::new());
+        let project =
+            specforge_project::CompiledProject::compile(dir.path(), Some(runtime.clone()));
         let unrouted = CommandDescriptor {
             export: "cmd__product_no_such_command".into(),
             ..command("no_such_command")
         };
         let err = run(
             &ProjectView::of(&project),
-            &runtime,
             &ExtensionCommand::new("@specforge/product", "product", &unrouted),
             &Map::new(),
             CommandFormat::Json,
@@ -1359,17 +1353,17 @@ mod tests {
         verify = "every extension call encodes its input as the protocol type the SDK decodes"
     )]
     fn the_command_input_is_the_wire_golden() {
-        let runtime = fake();
+        let runtime = std::sync::Arc::new(fake());
         let fixture = crate::view::testing::Fixture::new();
         let mut env = fixture.env;
         env.root = std::path::PathBuf::from("/p");
+        env.runtime = Some(runtime.clone());
         let graph = graph();
         let recorded = specforge_project::coverage::RecordedCoverage::over(&graph, &env);
         let view = ProjectView::new(&graph, &env, Some(Path::new("/p")), &recorded);
         let args = json!({"status": "done", "limit": 2, "all": true});
         run_on(
             &view,
-            &runtime,
             &listing(),
             args.as_object().unwrap(),
             CommandFormat::Json,

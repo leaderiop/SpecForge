@@ -105,7 +105,7 @@ behavior register_entity_enhancements "Register Entity Enhancements" {
 
 behavior call_extension_exports "Call Extension Exports" {
   features   [contribution_based_extensions]
-  invariants [extension_isolation]
+  invariants [extension_isolation, extensions_run_in_their_loading_runtime]
   category   command
   types      [
     CommandInput,

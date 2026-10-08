@@ -16,7 +16,7 @@ use crate::pipeline;
 /// replaces the cache, so the next export compares against it. The export
 /// is written whatever the comparison finds.
 pub fn run(path: &Path, request: &export::Request) -> Exit {
-    let (project, _runtime) = pipeline::compile_project(path);
+    let project = pipeline::compile_project(path);
     let view = ProjectView::of(&project);
 
     // The export goes to stdout: there is no output directory holding
@@ -47,7 +47,7 @@ pub fn run(path: &Path, request: &export::Request) -> Exit {
 /// printed. With `publish`, the JSON Schema an export of that format
 /// conforms to. An unknown kind is refused with the closest one (exit 1).
 pub fn run_schema(path: &Path, request: &SchemaRequest, publish: Option<export::Format>) -> Exit {
-    let (project, _runtime) = pipeline::compile_project(path);
+    let project = pipeline::compile_project(path);
     let view = ProjectView::of(&project);
     let output = match publish {
         Some(format) => specforge_ops::schema::json_schema(&view, format),

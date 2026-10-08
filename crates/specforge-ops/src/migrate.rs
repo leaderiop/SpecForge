@@ -18,7 +18,7 @@ use specforge_migrate::{
 use specforge_parser::{
     CURRENT_FORMAT_VERSION, FormatVersion, MAX_SUPPORTED_VERSION, MIN_SUPPORTED_VERSION,
 };
-use specforge_project::CompiledProject;
+use specforge_project::{CompiledProject, SharedRuntime};
 use specforge_registry::RegistryBuild;
 use specforge_wasm::WasmRuntime;
 use std::path::Path;
@@ -146,7 +146,7 @@ pub use specforge_protocol_types::MigrationInput;
 /// compile again and compare. A failing hook or a changed graph structure
 /// restores every migrated file from its backup. With no runtime no
 /// extension is loaded, so no hook runs.
-pub fn run(request: &Request, runtime: Option<&dyn WasmRuntime>) -> Outcome {
+pub fn run(request: &Request, runtime: Option<SharedRuntime>) -> Outcome {
     // The project the path is in (else the path itself): the one the files
     // are migrated in and the one the hooks and the checks compile.
     let root = &specforge_common::project_root_of(request.root);
@@ -179,7 +179,7 @@ pub fn run(request: &Request, runtime: Option<&dyn WasmRuntime>) -> Outcome {
     }
 
     // The graph and schema before any file is touched.
-    let pre = CompiledProject::compile(root, runtime);
+    let pre = CompiledProject::compile(root, runtime.clone());
     let pre_schema = schema_of(&pre);
 
     outcome.summary = migrate_project(root, target, false, request.no_backup);
@@ -201,7 +201,7 @@ pub fn run(request: &Request, runtime: Option<&dyn WasmRuntime>) -> Outcome {
             .map(|r| r.file_path.clone())
             .collect(),
     };
-    let (invoked, failures) = match runtime {
+    let (invoked, failures) = match pre.environment().runtime.as_deref() {
         Some(runtime) => invoke_hooks(&pre.environment().registries, runtime, &input),
         None => (Vec::new(), Vec::new()),
     };

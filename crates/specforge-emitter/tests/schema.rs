@@ -13,6 +13,7 @@ use specforge_registry::{
     KindRegistryEntry,
 };
 use specforge_test::prelude::*;
+use std::sync::Arc;
 
 /// `graph` exported as `format` with `schema` attached: embedded, or
 /// referenced when scoped (`emit`, ADR 0007).
@@ -1362,7 +1363,7 @@ fn schema_reflects_current_state() {
     // schema from the compilation's registries, serialize it.
     fn serve(dir: &std::path::Path) -> serde_json::Value {
         let runtime = specforge_component::ComponentRuntime::with_user_cache();
-        let ctx = specforge_project::CompiledProject::compile(dir, Some(&runtime));
+        let ctx = specforge_project::CompiledProject::compile(dir, Some(Arc::new(runtime)));
         let schema = generate_schema(
             &ctx.environment().registries.kinds,
             &ctx.environment().registries.edges,

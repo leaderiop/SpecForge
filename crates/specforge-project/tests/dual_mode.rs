@@ -7,6 +7,7 @@ use specforge_test::prelude::*;
 use specforge_wasm::testing::InProcessRuntime;
 use specforge_wasm::{WasmCallResult, WasmTrapInfo};
 use std::fs;
+use std::sync::Arc;
 use tempfile::TempDir;
 
 /// Helper: create a temp project dir with specforge.json and optional extensions.
@@ -50,7 +51,7 @@ fn protocol_extension_loaded_with_runtime() {
         no_other_exports,
     );
 
-    let ctx = specforge_project::CompiledProject::compile(dir.path(), Some(&runtime));
+    let ctx = specforge_project::CompiledProject::compile(dir.path(), Some(Arc::new(runtime)));
 
     let diagnostics = ctx.diagnostics();
 
@@ -111,7 +112,7 @@ fn protocol_handshake_trap_produces_e028() {
         }),
     );
 
-    let ctx = specforge_project::CompiledProject::compile(dir.path(), Some(&runtime));
+    let ctx = specforge_project::CompiledProject::compile(dir.path(), Some(Arc::new(runtime)));
 
     let diagnostics = ctx.diagnostics();
 
@@ -169,7 +170,7 @@ fn protocol_version_mismatch_produces_e028() {
         WasmCallResult::Ok(serde_json::to_vec(&bad_handshake).unwrap()),
     );
 
-    let ctx = specforge_project::CompiledProject::compile(dir.path(), Some(&runtime));
+    let ctx = specforge_project::CompiledProject::compile(dir.path(), Some(Arc::new(runtime)));
 
     let diagnostics = ctx.diagnostics();
 

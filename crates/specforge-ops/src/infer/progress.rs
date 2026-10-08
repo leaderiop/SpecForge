@@ -322,8 +322,7 @@ mod tests {
         let rootless = dir.rootless_view();
 
         assert_eq!(progress(&rootless).unwrap_err().code, "no_project");
-        let runtime = specforge_wasm::testing::InProcessRuntime::new();
-        assert_eq!(gaps(&rootless, &runtime).unwrap_err().code, "no_project");
+        assert_eq!(gaps(&rootless).unwrap_err().code, "no_project");
         let none = Progress::none();
         assert_eq!(none.summary.files_total, 0);
         assert_eq!(none.summary.files_analyzed, 0);

@@ -1,5 +1,6 @@
 use std::fs;
 use std::path::Path;
+use std::sync::Arc;
 
 use specforge_common::Diagnostic;
 use specforge_graph::Graph;
@@ -64,8 +65,8 @@ fn graph_contents(graph: &Graph) -> (Vec<String>, Vec<String>) {
 
 /// The session agrees with a fresh compile of what is on disk now.
 fn assert_matches_a_fresh_compile(session: &ProjectSession, root: &Path) {
-    let runtime = specforge_component::ComponentRuntime::with_user_cache();
-    let fresh = CompiledProject::compile(root, Some(&runtime));
+    let runtime = Arc::new(specforge_component::ComponentRuntime::with_user_cache());
+    let fresh = CompiledProject::compile(root, Some(runtime.clone()));
     assert_eq!(
         graph_contents(session.project().graph()),
         graph_contents(fresh.graph())
@@ -498,8 +499,8 @@ fn excluded_files_stay_out_of_the_compile_and_the_session() {
         ],
     );
     let root = dir.path();
-    let runtime = specforge_component::ComponentRuntime::with_user_cache();
-    let compiled = CompiledProject::compile(root, Some(&runtime));
+    let runtime = Arc::new(specforge_component::ComponentRuntime::with_user_cache());
+    let compiled = CompiledProject::compile(root, Some(runtime.clone()));
     let mut files: Vec<String> = compiled.source_texts().into_keys().collect();
     files.sort();
     assert_eq!(files, ["main.spec"]);
@@ -1424,8 +1425,8 @@ fn random_updates_leave_what_a_fresh_compile_builds() {
                 specforge_project::compute_graph_delta(&previous, session.project().graph()),
                 "{context}"
             );
-            let runtime = specforge_component::ComponentRuntime::with_user_cache();
-            let fresh = CompiledProject::compile(root, Some(&runtime));
+            let runtime = Arc::new(specforge_component::ComponentRuntime::with_user_cache());
+            let fresh = CompiledProject::compile(root, Some(runtime.clone()));
             assert_eq!(
                 graph_contents(session.project().graph()),
                 graph_contents(fresh.graph()),
@@ -1494,7 +1495,7 @@ fn a_session_reports_what_a_fresh_compile_reports_in_order() {
         for path in &PATHS[..3] {
             write(&spec, path, &random_spec(&mut rng));
         }
-        let runtime = specforge_component::ComponentRuntime::with_user_cache();
+        let runtime = Arc::new(specforge_component::ComponentRuntime::with_user_cache());
         let mut session = ProjectSession::open(root);
         session.set_verify_incremental(true);
 
@@ -1576,7 +1577,7 @@ fn a_session_reports_what_a_fresh_compile_reports_in_order() {
                 session.project().diagnostics(),
                 "{context}"
             );
-            let fresh = CompiledProject::compile(root, Some(&runtime));
+            let fresh = CompiledProject::compile(root, Some(runtime.clone()));
             assert_eq!(
                 session.project().diagnostics(),
                 fresh.diagnostics(),
@@ -2245,7 +2246,7 @@ fn e025_messages(diagnostics: &[Diagnostic]) -> Vec<String> {
 fn an_unreadable_source_is_reported_after_an_update_of_another_file() {
     let dir = project_with_an_unreadable_source();
     let root = dir.path();
-    let runtime = specforge_component::ComponentRuntime::with_user_cache();
+    let runtime = Arc::new(specforge_component::ComponentRuntime::with_user_cache());
     let message = "cannot read bad.spec: stream did not contain valid UTF-8";
     let mut session = ProjectSession::open(root);
     assert_eq!(e025_messages(&session.project().diagnostics()), [message]);
@@ -2254,7 +2255,7 @@ fn an_unreadable_source_is_reported_after_an_update_of_another_file() {
     session.update(SourceChange::Disk(&changed(&["a.spec"])));
 
     assert_eq!(e025_messages(&session.project().diagnostics()), [message]);
-    let fresh = CompiledProject::compile(root, Some(&runtime));
+    let fresh = CompiledProject::compile(root, Some(runtime.clone()));
     assert_eq!(e025_messages(&fresh.diagnostics()), [message]);
     assert_matches_a_fresh_compile(&session, root);
 }
@@ -2355,7 +2356,7 @@ fn the_session_reports_graph_diagnostics_in_build_order() {
         ],
     );
     let root = dir.path();
-    let runtime = specforge_component::ComponentRuntime::with_user_cache();
+    let runtime = Arc::new(specforge_component::ComponentRuntime::with_user_cache());
     let graph_codes = |diagnostics: &[Diagnostic]| -> Vec<String> {
         diagnostics
             .iter()
@@ -2363,7 +2364,7 @@ fn the_session_reports_graph_diagnostics_in_build_order() {
             .map(|d| d.code.to_string())
             .collect()
     };
-    let compiled = CompiledProject::compile(root, Some(&runtime));
+    let compiled = CompiledProject::compile(root, Some(runtime.clone()));
     let session = ProjectSession::open(root);
 
     assert_eq!(graph_codes(&compiled.diagnostics()), ["E002", "E003"]);
@@ -2418,4 +2419,43 @@ fn a_divergence_is_the_failed_verification() {
         update.verification = verification;
         assert_eq!(update.divergence(), divergence);
     }
+}
+
+#[specforge_test(
+    invariant = "extensions_run_in_their_loading_runtime",
+    verify = "an environment holds the runtime it loaded its extensions in, and its session and compiled project read it there"
+)]
+fn an_environment_holds_the_runtime_it_loaded_its_extensions_in() {
+    use specforge_project::{Environment, SharedRuntime};
+    use specforge_wasm::testing::InProcessRuntime;
+
+    let dir = project(
+        r#"{"name":"s","version":"0.1.0","extensions":["@pin/items"]}"#,
+        &[("a.spec", "item gizmo \"Gizmo\" {\n}\n")],
+    );
+    let root = dir.path();
+    specforge_installed::testing::install_configured(root, &specforge_project::builtins());
+    let rt: SharedRuntime = Arc::new(InProcessRuntime::new().with(obliging_items));
+
+    let loaded = Environment::load(root, Some(rt.clone()));
+    assert!(Arc::ptr_eq(loaded.runtime.as_ref().unwrap(), &rt));
+
+    let compiled = CompiledProject::compile(root, Some(rt.clone()));
+    assert!(Arc::ptr_eq(
+        compiled.environment().runtime.as_ref().unwrap(),
+        &rt
+    ));
+
+    let mut session = ProjectSession::open_with_runtime(root, Some(rt.clone()));
+    assert!(Arc::ptr_eq(session.runtime().unwrap(), &rt));
+    session.reload_environment();
+    assert!(Arc::ptr_eq(session.runtime().unwrap(), &rt));
+    assert!(Arc::ptr_eq(
+        session.project().environment().runtime.as_ref().unwrap(),
+        &rt
+    ));
+
+    let bare = CompiledProject::compile(root, None);
+    assert!(bare.environment().runtime.is_none());
+    assert!(bare.environment().registries.declarations().is_empty());
 }

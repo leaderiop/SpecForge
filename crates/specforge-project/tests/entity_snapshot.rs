@@ -137,13 +137,16 @@ fn project() -> TempDir {
     dir
 }
 
-fn runtime() -> InProcessRuntime {
-    InProcessRuntime::new().with(extension)
+fn runtime() -> std::sync::Arc<InProcessRuntime> {
+    std::sync::Arc::new(InProcessRuntime::new().with(extension))
 }
 
 /// A compile of `root` through `runtime`, and its diagnostics.
-fn compile(root: &Path, runtime: &InProcessRuntime) -> (CompiledProject, Vec<Diagnostic>) {
-    let compiled = CompiledProject::compile(root, Some(runtime));
+fn compile(
+    root: &Path,
+    runtime: &std::sync::Arc<InProcessRuntime>,
+) -> (CompiledProject, Vec<Diagnostic>) {
+    let compiled = CompiledProject::compile(root, Some(runtime.clone()));
     let diagnostics = compiled.diagnostics();
     (compiled, diagnostics)
 }
@@ -295,7 +298,7 @@ fn an_empty_list_or_block_is_written() {
         "item zeta \"Zeta\" {\n  values []\n  requires {\n  }\n}\n",
     )
     .unwrap();
-    let runtime = InProcessRuntime::new().with(empty_values_extension);
+    let runtime = std::sync::Arc::new(InProcessRuntime::new().with(empty_values_extension));
     let (_, diagnostics) = compile(dir.path(), &runtime);
 
     // Written, so present (no E102/E103), and empty (E100/E101 fire).

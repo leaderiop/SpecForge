@@ -6,7 +6,6 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
-use specforge_wasm::runtime::WasmRuntime;
 
 use super::ScanFailure;
 use super::discovery::source_files;
@@ -72,13 +71,18 @@ pub fn compute_gap_report(
 }
 
 /// The public items of the view's source files that no entity of its
-/// graph names, scanned through its extensions' scanners on `runtime`.
-/// Without a root: `no_project`.
-pub fn gaps(view: &ProjectView, runtime: &dyn WasmRuntime) -> Result<Gaps, OpError> {
+/// graph names, scanned through its extensions' scanners in the view's
+/// runtime. Without a root: `no_project`.
+pub fn gaps(view: &ProjectView) -> Result<Gaps, OpError> {
     let root = view.project_root()?;
     let declarations = view.registries().declarations();
     let files = source_files(root, declarations, &InferenceManifest::at(root)?);
-    let scanned = crate::scan::scan_source_files(runtime, declarations, root, &files);
+    let scanned = crate::scan::scan_source_files(
+        view.runtime().map(|r| r.as_ref()),
+        declarations,
+        root,
+        &files,
+    );
     let entity_ids: Vec<&str> = view
         .graph()
         .nodes()

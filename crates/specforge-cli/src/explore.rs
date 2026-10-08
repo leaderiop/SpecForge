@@ -13,7 +13,7 @@ use crate::pipeline;
 /// unknown entity, E003) is `error[CODE]` with the closest entity as its
 /// hint (exit 1).
 pub(crate) fn run(path: &Path, request: &ExplorationRequest, format: OutputFormat) -> Exit {
-    let (project, _runtime) = pipeline::compile_project(path);
+    let project = pipeline::compile_project(path);
     let view = ProjectView::of(&project);
     match explore(&view, request) {
         Ok(exploration) => {

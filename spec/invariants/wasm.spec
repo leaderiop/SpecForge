@@ -208,3 +208,22 @@ invariant surface_schema_validity "Surface Schema Validity" {
   verify unit "a tool whose input_schema is not a JSON object is E055 and not registered"
   verify unit "a surfaces description with an unknown arg type fails the extension's load"
 }
+
+invariant extensions_run_in_their_loading_runtime "Extensions Run in Their Loading Runtime" {
+  guarantee """
+    Every extension call the host makes over a project MUST run in the
+    runtime that loaded the project's extensions: the environment holds
+    that runtime from the moment it loads them, a compiled project, a
+    project session and every project view read it there, and no
+    operation over a project view takes a runtime of its own (analyze's
+    passes, collect's collectors, inference gaps' scanners, an extension
+    command, a check's custom verdicts and passes). An environment loaded
+    without a runtime loads no extension, and an extension call over it
+    is E028, not loaded. Migrate, which compiles the project itself, and
+    reading a candidate's declaration, which is in no environment, are
+    handed a runtime.
+  """
+  risk      medium
+  verify unit "an environment holds the runtime it loaded its extensions in, and its session and compiled project read it there"
+  verify unit "an operation over a project view calls its extensions in the runtime the view's environment loaded them in"
+}

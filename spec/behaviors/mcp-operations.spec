@@ -119,8 +119,8 @@ behavior provide_mcp_rename_tool "Provide MCP Rename Tool" {
     In MCP server mode, the system MUST register a specforge.rename tool that
     accepts entity_id (required), new_name (required), dry_run? (optional
     boolean, default false) and path? (the project root; the served project
-    when omitted; another project is planned, edited and recompiled on its
-    own, the served one untouched). The rename is planned on the project as
+    when omitted; another project is planned, edited and brought up to date
+    on its own, the served one untouched). The rename is planned on the project as
     it is on disk. The tool MUST rename the entity and update all
     references across all spec files. The edits are exactly the entity's
     declaration name and its references, as find-references returns them;

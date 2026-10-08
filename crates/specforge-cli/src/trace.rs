@@ -12,7 +12,7 @@ use crate::pipeline;
 /// named. Expected edges come from the loaded extensions' registries; the
 /// ones a chain lacks are reported as missing.
 pub fn run(path: &Path, entity: Option<&str>, format: OutputFormat) -> Exit {
-    let (project, _runtime) = pipeline::compile_project(path);
+    let project = pipeline::compile_project(path);
     let target = entity.map_or(Target::Every, Target::Entity);
     let outcome = match specforge_ops::trace::trace(&ProjectView::of(&project), target) {
         Ok(outcome) => outcome,

@@ -8,7 +8,7 @@ use std::path::Path;
 /// declaration order, each with the status the scheme registry built from
 /// the loaded extensions gives it.
 pub fn run(path: &Path, format: OutputFormat) -> Exit {
-    let (project, _runtime) = crate::pipeline::compile_project(path);
+    let project = crate::pipeline::compile_project(path);
     let listing = extension::providers(&ProjectView::of(&project));
     let (providers, diagnostics) = (&listing.providers, &listing.diagnostics);
 

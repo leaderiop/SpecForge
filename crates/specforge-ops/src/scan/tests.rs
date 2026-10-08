@@ -57,7 +57,7 @@ fn scan_only_matching_extensions() {
         items,
         scanners_used: scanners,
         ..
-    } = scan_source_files(&runtime, &manifests, dir.path(), &source_files);
+    } = scan_source_files(Some(&runtime), &manifests, dir.path(), &source_files);
 
     assert_eq!(items.len(), 1);
     assert_eq!(items[0].name, "hello");
@@ -77,7 +77,7 @@ fn scan_empty_source_list() {
         items,
         scanners_used: scanners,
         ..
-    } = scan_source_files(&runtime, &manifests, dir.path(), &[]);
+    } = scan_source_files(Some(&runtime), &manifests, dir.path(), &[]);
 
     assert!(items.is_empty());
     assert!(scanners.is_empty());
@@ -95,7 +95,7 @@ fn scan_no_manifests_skips_all_files() {
         items,
         scanners_used: scanners,
         ..
-    } = scan_source_files(&runtime, &[], dir.path(), &source_files);
+    } = scan_source_files(Some(&runtime), &[], dir.path(), &source_files);
 
     assert!(items.is_empty());
     assert!(scanners.is_empty());
@@ -113,7 +113,7 @@ fn scan_missing_file_skipped_gracefully() {
         items,
         scanners_used: scanners,
         ..
-    } = scan_source_files(&runtime, &manifests, dir.path(), &source_files);
+    } = scan_source_files(Some(&runtime), &manifests, dir.path(), &source_files);
 
     assert!(items.is_empty());
     assert!(scanners.is_empty());
@@ -136,7 +136,7 @@ fn default_runtime_scans_rust_files() {
         items,
         scanners_used: scanners,
         ..
-    } = scan_source_files(&runtime, &manifests, dir.path(), &source_files);
+    } = scan_source_files(Some(&runtime), &manifests, dir.path(), &source_files);
 
     assert_eq!(items.len(), 2);
     assert_eq!(items[0].name, "process_order");
@@ -195,7 +195,7 @@ fn multi_scanner_mixed_project() {
         items,
         scanners_used: scanners,
         ..
-    } = scan_source_files(&runtime, &manifests, dir.path(), &source_files);
+    } = scan_source_files(Some(&runtime), &manifests, dir.path(), &source_files);
 
     assert_eq!(items.len(), 5);
 
@@ -244,7 +244,7 @@ fn a_scanner_that_fails_is_reported_not_dropped() {
     for answer in [trapped, WasmCallResult::Ok(b"garbage".to_vec())] {
         let runtime = InProcessRuntime::new().answer_raw("@specforge/rust", "scan__rust", answer);
         let outcome = scan_source_files(
-            &runtime,
+            Some(&runtime),
             &[rust_manifest()],
             dir.path(),
             &["a.rs".into(), "b.rs".into()],
@@ -355,7 +355,7 @@ fn the_scan_request_and_its_answer() {
         "scan__rust",
         WasmCallResult::Ok(answer.to_string().into_bytes()),
     );
-    let scanned = scan_source_files(&runtime, &scanner(), dir.path(), &["a.rs".into()]);
+    let scanned = scan_source_files(Some(&runtime), &scanner(), dir.path(), &["a.rs".into()]);
     golden("scan.input.json", &runtime.calls()[0].input);
     assert_eq!(scanned.items.len(), 1);
     assert_eq!(

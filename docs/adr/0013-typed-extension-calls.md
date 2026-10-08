@@ -159,7 +159,10 @@ nobody calls would be speculative.
 
 `specforge_ops::analyze::analyze(view, Option<&dyn WasmRuntime>, options)`: a rootless MCP
 analysis has no runtime and runs no extension pass, which the type now says instead of a
-production `NoRuntime` double.
+production `NoRuntime` double. *(Amended by ADR 0015, "The runtime travels with the
+environment": `analyze(view, options)` runs the extension passes in the view's runtime, and none
+when its environment was loaded without one. MCP's analysis always has a project: it refuses
+`no_project` first.)*
 
 ## D13. `WasmValidationRuntime` keeps one method
 

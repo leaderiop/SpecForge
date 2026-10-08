@@ -21,7 +21,7 @@ use specforge_common::{Code, Diagnostic, codes};
 use specforge_project::coverage::{ReportedEntity, ReportedTest, TestReport};
 use specforge_protocol_types::ExtensionDeclaration;
 use specforge_protocol_types::{CollectInput, CollectOutput, CollectReportFile};
-use specforge_wasm::{CallError, ExtensionCalls};
+use specforge_wasm::{CallError, CallFailure, ExtensionCalls, Operation};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Component, Path, PathBuf};
 use std::time::SystemTime;
@@ -424,7 +424,7 @@ pub fn read_report(
 /// `CollectOutput` out. Err: the export trapped, or answered something
 /// that is not a `CollectOutput` (E028 naming the collector).
 pub fn dispatch(
-    runtime: &dyn specforge_wasm::runtime::WasmRuntime,
+    runtime: Option<&dyn specforge_wasm::runtime::WasmRuntime>,
     collector: &Collector,
     reports: &[CollectReportFile],
     stdout: Option<&str>,
@@ -432,6 +432,14 @@ pub fn dispatch(
     let input = CollectInput {
         reports: reports.to_vec(),
         stdout: stdout.map(str::to_string),
+    };
+    let Some(runtime) = runtime else {
+        return Err(CallError::new(
+            Operation::Collect,
+            &collector.extension,
+            &collector.export,
+            CallFailure::NotLoaded,
+        ));
     };
     ExtensionCalls::new(runtime).collect(&collector.extension, &collector.export, &input)
 }
@@ -681,11 +689,7 @@ impl Outcome {
 /// `consent` decides whether a collector's command may run; its `announce`
 /// is told just before it runs. Without a root, or at a root that holds no
 /// project: `no_project`.
-pub fn collect(
-    view: &ProjectView,
-    runtime: &dyn specforge_wasm::runtime::WasmRuntime,
-    request: Request,
-) -> Result<Outcome, OpError> {
+pub fn collect(view: &ProjectView, request: Request) -> Result<Outcome, OpError> {
     let root = view.project_root()?;
     if !specforge_common::is_project_root(root) {
         return Err(OpError::no_project(format!(
@@ -776,8 +780,13 @@ pub fn collect(
             return Err(fail(codes::E045, message));
         }
 
-        let mut collected = dispatch(runtime, collector, &files, stdout.as_deref())
-            .map_err(|error| OpError::from(error.diagnostic()))?;
+        let mut collected = dispatch(
+            view.runtime().map(|r| r.as_ref()),
+            collector,
+            &files,
+            stdout.as_deref(),
+        )
+        .map_err(|error| OpError::from(error.diagnostic()))?;
         let (by_convention, diags) = convention::resolve(&collected.unlinked, known);
         diagnostics.extend(diags);
         let by_convention_count = by_convention.iter().map(|e| e.test_results.len()).sum();
@@ -1275,11 +1284,9 @@ mod tests {
     #[test]
     fn collect_without_a_root_is_no_project() {
         let fixture = crate::view::testing::Fixture::new();
-        let runtime = specforge_wasm::testing::InProcessRuntime::new();
 
         let error = collect(
             &fixture.rootless_view(),
-            &runtime,
             Request {
                 runner: None,
                 mode: Mode::NoRun,

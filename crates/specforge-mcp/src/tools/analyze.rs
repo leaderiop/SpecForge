@@ -3,7 +3,6 @@ use crate::target::ProjectRef;
 use crate::tool::{McpError, ToolOutcome};
 use specforge_ops::OpError;
 use specforge_ops::analyze::{AnalyzeError, AnalyzeOptions, ReportSource, analyze};
-use specforge_wasm::runtime::WasmRuntime;
 
 /// `specforge.analyze`'s arguments.
 #[derive(Debug, Arguments)]
@@ -22,9 +21,9 @@ pub struct Args {
 /// `specforge.analyze` — run the analysis passes (coverage, contracts) plus
 /// extension-owned compiler passes over the call's project and return
 /// structured findings. Extension passes execute in the runtime the
-/// project was compiled in (WASM-only migration, Phase 4): the served
-/// session's, or the one runtime another project was compiled in for this
-/// call. With no project served and no `path`, there is nothing to
+/// project's environment was loaded in (ADR 0015, "The runtime travels with
+/// the environment"): the served session's, or the session another project
+/// was opened as for this call. With no project served and no `path`, there is nothing to
 /// analyze: a no-project refusal (plan 01 D7).
 pub fn call(project: &ProjectRef<'_>, args: Args) -> ToolOutcome {
     let view = project.view();
@@ -42,10 +41,7 @@ pub fn call(project: &ProjectRef<'_>, args: Args) -> ToolOutcome {
         min: args.min,
         prove: None,
     };
-    // The project's runtime: every project a call reaches has one, so its
-    // extensions' passes run (ADR 0017).
-    let runtime: Option<&dyn WasmRuntime> = Some(project.runtime.as_ref());
-    match analyze(&view, runtime, &options) {
+    match analyze(&view, &options) {
         Ok(outcome) => ToolOutcome::ok(outcome.to_json()),
         Err(e) => {
             // The argument an unknown pass names is this surface's spelling.
