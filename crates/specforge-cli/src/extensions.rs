@@ -9,7 +9,7 @@ use std::path::Path;
 /// installed or loaded, alphabetically, with the entity kinds each
 /// registered and how many of the project's entities use them.
 pub fn run(path: &Path, format: OutputFormat) -> Exit {
-    let (project, _runtime) = crate::pipeline::compile_project(path);
+    let project = crate::pipeline::compile_project(path);
     let entries = extension::list(&ProjectView::of(&project)).extensions;
 
     match format {

@@ -3,6 +3,7 @@ use serde_json::{Value, json};
 use specforge_mcp::McpServer;
 use specforge_test::prelude::*;
 use std::path::Path;
+use std::sync::Arc;
 
 /// test.spec: the behavior `alpha` on lines 1–2, the feature `beta` that
 /// has it on lines 10–12.
@@ -510,11 +511,12 @@ fn rename_recompiles_files_it_did_not_edit() {
         codes
     };
     let runtime = specforge_component::ComponentRuntime::with_user_cache();
-    let fresh: Vec<Value> = specforge_project::CompiledProject::compile(&root, Some(&runtime))
-        .diagnostics()
-        .iter()
-        .map(|d| serde_json::to_value(d).unwrap())
-        .collect();
+    let fresh: Vec<Value> =
+        specforge_project::CompiledProject::compile(&root, Some(Arc::new(runtime)))
+            .diagnostics()
+            .iter()
+            .map(|d| serde_json::to_value(d).unwrap())
+            .collect();
     let returned = parsed["diagnostics"].as_array().unwrap();
     assert_eq!(codes(returned), codes(&fresh), "{parsed}");
     let e003 = returned

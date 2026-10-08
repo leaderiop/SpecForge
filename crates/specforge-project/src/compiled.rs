@@ -8,12 +8,11 @@ use std::sync::{Arc, OnceLock};
 
 use specforge_common::{Diagnostic, codes};
 use specforge_graph::{Applied, FileChange, Graph, GraphBuild, GraphConfig, compute_graph_delta};
-use specforge_wasm::WasmRuntime;
 
 use crate::coverage::RecordedCoverage;
 use crate::snapshot::EntitySnapshot;
 use crate::sources::{self, Read, SourceCache};
-use crate::{Environment, SourceBuild};
+use crate::{Environment, SharedRuntime, SourceBuild};
 
 /// A compiled project: an environment, the sources read in it, their graph
 /// build, what resolving their imports and running the checks reported, and
@@ -56,22 +55,22 @@ pub struct CompiledProject {
 }
 
 impl CompiledProject {
-    /// Compile the project at `root`, running its extensions in `runtime`
-    /// (without one no extension loads). It keeps no stamp (ADR 0030).
-    pub fn compile(root: &Path, runtime: Option<&dyn WasmRuntime>) -> Self {
-        Self::of(Environment::load(root, runtime), runtime)
+    /// Compile the project at `root`, its extensions loaded into `runtime`
+    /// (without one no extension loads), which its environment holds. It
+    /// keeps no stamp (ADR 0030).
+    pub fn compile(root: &Path, runtime: Option<SharedRuntime>) -> Self {
+        Self::of(Environment::load(root, runtime))
     }
 
     /// Compile the project of an environment already loaded (the CLI routes
     /// an extension command on it first): its sources read, its graph built
-    /// and checked in `runtime`, the runtime the environment's extensions
-    /// were loaded in.
-    pub fn of(env: Environment, runtime: Option<&dyn WasmRuntime>) -> Self {
+    /// and checked in the environment's runtime.
+    pub fn of(env: Environment) -> Self {
         let env = Arc::new(env);
         let discovered = env.discover();
         let mut project = CompiledProject::read(env, &discovered, &BTreeMap::new());
         let entities = project.snapshot_now();
-        project.check_over(entities, runtime);
+        project.check_over(entities);
         project
     }
 
@@ -221,13 +220,10 @@ impl CompiledProject {
     }
 
     /// Run every check on the current graph over `entities`, its snapshot,
-    /// in `runtime`; the memo starts again from that snapshot.
-    pub(crate) fn check_over(
-        &mut self,
-        entities: Arc<EntitySnapshot>,
-        runtime: Option<&dyn WasmRuntime>,
-    ) {
-        self.check_diagnostics = self.env.run_checks(self.graph.graph(), &entities, runtime);
+    /// in the environment's runtime; the memo starts again from that
+    /// snapshot.
+    pub(crate) fn check_over(&mut self, entities: Arc<EntitySnapshot>) {
+        self.check_diagnostics = self.env.run_checks(self.graph.graph(), &entities);
         self.recorded = OnceLock::from(RecordedCoverage::of(entities));
     }
 
@@ -326,7 +322,7 @@ mod tests {
         .unwrap();
         std::fs::write(dir.path().join("a.spec"), "behavior alpha \"A\" {\n}\n").unwrap();
         let runtime = specforge_component::ComponentRuntime::with_user_cache();
-        let mut project = CompiledProject::compile(dir.path(), Some(&runtime));
+        let mut project = CompiledProject::compile(dir.path(), Some(Arc::new(runtime)));
         let checked = project.diagnostics();
         assert!(checked.iter().any(|d| d.code == "W006"), "{checked:?}");
 

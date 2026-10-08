@@ -14,7 +14,7 @@ use crate::pipeline;
 /// `validation` text. An undeclared kind is `unknown_kind` naming the
 /// closest declared kind (exit 1).
 pub(crate) fn run(path: &Path, kind: Option<&str>, format: OutputFormat) -> Exit {
-    let (project, _runtime) = pipeline::compile_project(path);
+    let project = pipeline::compile_project(path);
     let view = ProjectView::of(&project);
     match kind {
         None => {

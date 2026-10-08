@@ -35,6 +35,7 @@ mod verdicts;
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use sources::SourceCache;
 
@@ -61,13 +62,15 @@ pub use compiled::CompiledProject;
 pub use inputs::{Changes, InputRole, SessionInputs, UpdateKind, WatchRoot, Watched, source_key};
 pub use policy::{DiagnosticPolicy, LINT_PROFILE_NAMES, LintProfile, UnknownLintProfile};
 pub use providers::Providers;
-pub use session::{
-    CheckMode, OpeningProject, ProjectSession, RuntimeSource, SharedRuntime, SourceChange, Update,
-};
+pub use session::{CheckMode, OpeningProject, ProjectSession, RuntimeSource, SourceChange, Update};
 pub use specforge_graph::{
     EdgeChange, GraphDelta, ModifiedNodeChange, NodeChange, compute_graph_delta,
 };
 pub use specforge_installed::EnabledExtension;
+
+/// The runtime a project's extensions run in (every [`WasmRuntime`] is
+/// `Send + Sync`).
+pub type SharedRuntime = Arc<dyn WasmRuntime>;
 
 /// The builtin extensions this host embeds.
 pub fn builtins() -> Builtins<'static> {
@@ -115,6 +118,12 @@ pub struct Environment {
     pub load_diagnostics: Vec<Diagnostic>,
     /// After the registry build: I002 when no extension loaded.
     pub setup_diagnostics: Vec<Diagnostic>,
+    /// The runtime the extensions were loaded in: every extension call an
+    /// operation makes over this project runs there, a custom rule's
+    /// verdict and a check pass included. None: the environment was loaded
+    /// without one, so no extension loaded ([`Self::empty`],
+    /// [`Self::from_declarations`] and [`Self::with_registries`] have none).
+    pub runtime: Option<SharedRuntime>,
 }
 
 impl Environment {
@@ -132,6 +141,7 @@ impl Environment {
             providers: Providers::default(),
             load_diagnostics: Vec::new(),
             setup_diagnostics: Vec::new(),
+            runtime: None,
         }
     }
 
@@ -155,15 +165,16 @@ impl Environment {
         }
     }
 
-    /// Read the project's config and load its extensions through `runtime`
-    /// (none without one), then build the registries from them.
-    pub fn load(root: &Path, runtime: Option<&dyn WasmRuntime>) -> Self {
+    /// Read the project's config and load its extensions into `runtime`
+    /// (none without one), which the environment then holds, then build the
+    /// registries from them.
+    pub fn load(root: &Path, runtime: Option<SharedRuntime>) -> Self {
         Self::from_read(root, read_project_config(root), runtime)
     }
 
     /// The environment of the config `read` (the one read of
-    /// `specforge.json`), its extensions loaded through `runtime`.
-    pub fn from_read(root: &Path, read: ConfigRead, runtime: Option<&dyn WasmRuntime>) -> Self {
+    /// `specforge.json`), its extensions loaded into `runtime`.
+    pub fn from_read(root: &Path, read: ConfigRead, runtime: Option<SharedRuntime>) -> Self {
         let config = read.config;
         let mut load_diagnostics: Vec<Diagnostic> = read
             .problems
@@ -173,7 +184,7 @@ impl Environment {
         // The lock is read once, here; the extensions load through the
         // production policy into whatever runtime this is given.
         let installed = Installed::at(root);
-        let (enabled, declarations) = match runtime {
+        let (enabled, declarations) = match runtime.as_deref() {
             Some(runtime) => {
                 let loaded = installed.load(&config.extensions, &builtins(), runtime);
                 load_diagnostics.extend(loaded.diagnostics);
@@ -191,7 +202,7 @@ impl Environment {
         let mut registries = build_registries(declarations);
         // A custom rule's wasm_function is resolved against its extension
         // now, so a name it does not export is reported once (W112).
-        if let Some(runtime) = runtime {
+        if let Some(runtime) = runtime.as_deref() {
             let probes = registries
                 .rules
                 .probe(&verdicts::WasmVerdicts::probe_only(runtime));
@@ -215,6 +226,7 @@ impl Environment {
             providers,
             load_diagnostics,
             setup_diagnostics,
+            runtime,
         }
     }
 
@@ -245,13 +257,10 @@ impl Environment {
     /// Every check a compile runs on a built graph, over its entity
     /// snapshot `entities`: the registry build's checks (the structural
     /// checks and the extensions' rules, in the order
-    /// [`RegistryBuild::check`] runs them), then the check-phase passes.
-    pub fn run_checks(
-        &self,
-        graph: &Graph,
-        entities: &EntitySnapshot,
-        runtime: Option<&dyn WasmRuntime>,
-    ) -> Vec<Diagnostic> {
+    /// [`RegistryBuild::check`] runs them), then the check-phase passes;
+    /// the custom verdicts and the passes run in [`Self::runtime`].
+    pub fn run_checks(&self, graph: &Graph, entities: &EntitySnapshot) -> Vec<Diagnostic> {
+        let runtime = self.runtime.as_deref();
         let mut diagnostics = Vec::new();
         let verdicts: Box<dyn CustomVerdicts + '_> = match runtime {
             Some(runtime) => Box::new(WasmVerdicts::new(runtime, entities)),

@@ -12,7 +12,7 @@ use crate::pipeline;
 /// stderr; a refusal as `error[CODE]` with the closest entity as its hint
 /// (exit 1).
 pub fn run(path: &Path, request: &QueryRequest) -> Exit {
-    let (project, _runtime) = pipeline::compile_project(path);
+    let project = pipeline::compile_project(path);
     match query(&ProjectView::of(&project), request) {
         Ok(outcome) => {
             for notice in &outcome.notices {

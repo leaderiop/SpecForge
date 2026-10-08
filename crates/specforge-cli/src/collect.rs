@@ -29,7 +29,7 @@ pub fn run(path: &Path, options: &Options, format: OutputFormat) -> Exit {
     // The project the path is in (ADR 0029 D6); collect refuses one that is none.
     let root = specforge_common::project_root_of(path);
 
-    let (project, runtime) = crate::pipeline::compile_project(&root);
+    let project = crate::pipeline::compile_project(&root);
 
     let mode = if !options.reports.is_empty() {
         Mode::Reports(options.reports)
@@ -68,7 +68,9 @@ pub fn run(path: &Path, options: &Options, format: OutputFormat) -> Exit {
     };
     // The view is rooted where the project compiled: the report lands where
     // every view over the project reads it.
-    let outcome = match collect::collect(&ProjectView::of(&project), &runtime, request) {
+    let view = ProjectView::of(&project);
+    let runtime = view.runtime().expect("compiled with a runtime");
+    let outcome = match collect::collect(&view, runtime.as_ref(), request) {
         Ok(outcome) => outcome,
         Err(e) => {
             return Refusal::of(format).report(&e);

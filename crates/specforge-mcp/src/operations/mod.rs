@@ -503,7 +503,7 @@ pub(crate) fn migrate_op(project: &ProjectRef<'_>, args: MigrateArgs) -> Mutated
         dry_run,
         no_backup,
     };
-    let outcome = specforge_ops::migrate::run(&request, Some(runtime.as_ref()));
+    let outcome = specforge_ops::migrate::run(&request, Some(runtime.clone()));
     let (from, to) = (outcome.from.to_string(), outcome.to.to_string());
     // The format version lives in each spec file's header: with no file
     // behind the target, the project is current and nothing ran: a

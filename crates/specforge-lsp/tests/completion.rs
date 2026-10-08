@@ -14,6 +14,7 @@ use specforge_project::CompiledProject;
 use specforge_project::coverage::RecordedCoverage;
 use specforge_registry::RegistryBuild;
 use specforge_test_macros::test as spec;
+use std::sync::Arc;
 use tower_lsp::lsp_types::{
     CompletionItem, CompletionItemKind, CompletionTextEdit, Documentation, MarkupKind, Position,
 };
@@ -32,7 +33,7 @@ pub fn compiled(files: &[(&str, &str)]) -> (tempfile::TempDir, CompiledProject) 
         std::fs::write(dir.path().join(name), text).unwrap();
     }
     let runtime = specforge_component::ComponentRuntime::with_user_cache();
-    let project = CompiledProject::compile(dir.path(), Some(&runtime));
+    let project = CompiledProject::compile(dir.path(), Some(Arc::new(runtime)));
     assert!(
         project.diagnostics().iter().all(|d| d.code != "I002"),
         "the extension did not load"

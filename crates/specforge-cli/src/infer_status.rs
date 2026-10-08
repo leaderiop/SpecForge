@@ -17,7 +17,7 @@ pub fn run(
     show_stale: bool,
     show_gaps_detail: bool,
 ) -> Exit {
-    let (project, runtime) = crate::pipeline::compile_project(path);
+    let project = crate::pipeline::compile_project(path);
     let view = ProjectView::of(&project);
     let progress = match infer::progress(&view) {
         Ok(progress) => progress,
@@ -26,7 +26,10 @@ pub fn run(
         }
     };
     let gaps = if show_gaps_detail {
-        match infer::gaps(&view, &runtime) {
+        match infer::gaps(
+            &view,
+            view.runtime().expect("compiled with a runtime").as_ref(),
+        ) {
             Ok(gaps) => Some(gaps),
             Err(error) => {
                 return Refusal::of(format).report(&error);

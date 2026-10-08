@@ -24,7 +24,7 @@ pub fn run(
     min: Option<f64>,
     prove: bool,
 ) -> Exit {
-    let (project, runtime) = pipeline::compile_project(path);
+    let project = pipeline::compile_project(path);
     // Without --test-results, the operation uses what `specforge collect`
     // last recorded at the root it compiled.
     let report = match test_results {
@@ -47,7 +47,8 @@ pub fn run(
     } else {
         OutputFormat::Human
     };
-    let outcome = match analyze(&ProjectView::of(&project), Some(&runtime), &options) {
+    let view = ProjectView::of(&project);
+    let outcome = match analyze(&view, view.runtime().map(|r| r.as_ref()), &options) {
         Ok(outcome) => outcome,
         Err(error) => return Refusal::measuring(format).report(&OpError::from(error)),
     };

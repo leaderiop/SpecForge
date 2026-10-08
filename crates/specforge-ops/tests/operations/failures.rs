@@ -206,11 +206,12 @@ fn hooks_run_for_the_project_a_sub_path_is_in() {
         "// specforge-format: 0.1\nbehavior old_one \"Old\" {\n}\n",
     )
     .unwrap();
-    let runtime = InProcessRuntime::new().with(|| {
-        let mut c = ContributionsBuilder::new(ExtensionMeta::new("@t/x", "1.0.0"));
-        c.migration_hook_handler("migrate_x", |_| Ok(()));
-        c
-    });
+    let runtime: specforge_project::SharedRuntime =
+        std::sync::Arc::new(InProcessRuntime::new().with(|| {
+            let mut c = ContributionsBuilder::new(ExtensionMeta::new("@t/x", "1.0.0"));
+            c.migration_hook_handler("migrate_x", |_| Ok(()));
+            c
+        }));
     let declared = |at: &Path| {
         // Start from a fresh copy of the old file each time.
         std::fs::write(
@@ -225,7 +226,7 @@ fn hooks_run_for_the_project_a_sub_path_is_in() {
                 dry_run: false,
                 no_backup: true,
             },
-            Some(&runtime),
+            Some(runtime.clone()),
         )
         .hooks_invoked
     };

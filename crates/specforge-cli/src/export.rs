@@ -23,7 +23,7 @@ pub fn run(
     schema_version: Option<&str>,
     max_tokens: Option<usize>,
 ) -> Exit {
-    let (project, _runtime) = pipeline::compile_project(path);
+    let project = pipeline::compile_project(path);
     let view = ProjectView::of(&project);
 
     let request = export::Request {
@@ -62,7 +62,7 @@ pub fn run(
 /// printed. With `publish`, the JSON Schema an export of that format
 /// conforms to. An unknown kind is refused with the closest one (exit 1).
 pub fn run_schema(path: &Path, request: &SchemaRequest, publish: Option<export::Format>) -> Exit {
-    let (project, _runtime) = pipeline::compile_project(path);
+    let project = pipeline::compile_project(path);
     let view = ProjectView::of(&project);
     let output = match publish {
         Some(format) => specforge_ops::schema::json_schema(&view, format),

@@ -9,6 +9,7 @@ use specforge_mcp::target::TargetSpec;
 use specforge_test::prelude::*;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use tempfile::TempDir;
 
 fn initialize(server: &mut McpServer, root: &Path) {
@@ -725,7 +726,7 @@ fn a_mutation_on_another_project_reports_what_a_fresh_compile_reports() {
 
     let payload: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
     let runtime = ext.runtime();
-    let fresh = specforge_project::CompiledProject::compile(other.path(), Some(runtime.as_ref()));
+    let fresh = specforge_project::CompiledProject::compile(other.path(), Some(runtime.clone()));
     let expected =
         serde_json::to_value(specforge_common::diagnostics_json(&fresh.diagnostics())).unwrap();
     assert_eq!(payload["diagnostics"], expected);
@@ -760,7 +761,7 @@ fn an_extension_added_to_another_project_is_loaded_when_it_is_brought_up_to_date
     assert_eq!(resp["result"]["isError"], false, "{resp}");
     let payload: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
     let runtime = specforge_component::ComponentRuntime::with_user_cache();
-    let fresh = specforge_project::CompiledProject::compile(other.path(), Some(&runtime));
+    let fresh = specforge_project::CompiledProject::compile(other.path(), Some(Arc::new(runtime)));
     let expected =
         serde_json::to_value(specforge_common::diagnostics_json(&fresh.diagnostics())).unwrap();
     assert_eq!(payload["diagnostics"], expected);

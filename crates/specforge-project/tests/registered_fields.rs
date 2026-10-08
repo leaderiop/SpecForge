@@ -11,6 +11,7 @@ use specforge_extension_sdk::prelude::*;
 use specforge_project::Environment;
 use specforge_test::prelude::*;
 use specforge_wasm::testing::InProcessRuntime;
+use std::sync::Arc;
 use tempfile::TempDir;
 
 /// Extensions, served in process, that contribute entity kinds (with their
@@ -46,14 +47,14 @@ fn kind_extensions(specs: Vec<serde_json::Value>) -> InProcessRuntime {
 }
 
 /// Load a project configuring `extensions` (in order) from `runtime`.
-fn load(runtime: &InProcessRuntime, extensions: &[&str]) -> Environment {
+fn load(runtime: InProcessRuntime, extensions: &[&str]) -> Environment {
     let dir = TempDir::new().unwrap();
     let config = serde_json::json!({
         "name": "p", "version": "0.1.0", "extensions": extensions
     });
     fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
     specforge_installed::testing::install_configured(dir.path(), &specforge_project::builtins());
-    Environment::load(dir.path(), Some(runtime))
+    Environment::load(dir.path(), Some(std::sync::Arc::new(runtime)))
 }
 
 fn w021(env: &Environment) -> Vec<Diagnostic> {
@@ -92,7 +93,7 @@ fn tasks_and_people() -> InProcessRuntime {
     verify = "a target_kind the extension or a loaded peer declares passes"
 )]
 fn a_target_kind_another_extension_registers_resolves() {
-    let env = load(&tasks_and_people(), &["@test/people", "@test/tasks"]);
+    let env = load(tasks_and_people(), &["@test/people", "@test/tasks"]);
 
     assert!(env.registries.kinds.contains("person"));
     let owner = env.registries.fields.get("task", "owner").unwrap();
@@ -107,7 +108,7 @@ fn a_target_kind_another_extension_registers_resolves() {
     verify = "an edge label the extension declares an edge type for passes"
 )]
 fn an_edge_label_the_extension_declares_resolves() {
-    let env = load(&tasks_and_people(), &["@test/people", "@test/tasks"]);
+    let env = load(tasks_and_people(), &["@test/people", "@test/tasks"]);
 
     let owned_by = env.registries.edges.get("owned_by").unwrap();
     assert_eq!(owned_by.declared.target_kind.as_deref(), Some("person"));
@@ -129,7 +130,7 @@ fn an_unresolved_target_kind_is_w021() {
         }]
     })]);
 
-    let env = load(&runtime, &["@test/tasks"]);
+    let env = load(runtime, &["@test/tasks"]);
 
     let warnings = w021(&env);
     assert_eq!(warnings.len(), 1, "{warnings:?}");
@@ -165,7 +166,7 @@ fn an_unresolved_edge_label_is_w021() {
         ]
     })]);
 
-    let env = load(&runtime, &["@test/tasks"]);
+    let env = load(runtime, &["@test/tasks"]);
 
     let warnings = w021(&env);
     assert_eq!(warnings.len(), 1, "{warnings:?}");
@@ -201,7 +202,7 @@ fn a_domain_the_host_does_not_know_cross_validates_cleanly() {
         "edges": [{ "label": "uses", "source_kind": "recipe", "target_kind": "ingredient" }]
     })]);
 
-    let env = load(&runtime, &["@custom/cooking"]);
+    let env = load(runtime, &["@custom/cooking"]);
 
     assert!(env.registries.kinds.contains("recipe"));
     let diagnostics: Vec<&Diagnostic> = env.diagnostics().collect();
@@ -244,7 +245,7 @@ fn field_cross_validation_holds_on_load() {
 
     // The dependency loads after the extension that needs it: the check
     // waits for both.
-    let env = load(&runtime, &["@test/tasks", "@test/people"]);
+    let env = load(runtime, &["@test/tasks", "@test/people"]);
 
     let warnings = w021(&env);
     let mut messages: Vec<&str> = warnings.iter().map(|d| d.message.as_str()).collect();
@@ -308,7 +309,7 @@ fn population_completes_before_any_validation() {
     )
     .unwrap();
 
-    let project = specforge_project::CompiledProject::compile(dir.path(), Some(&runtime));
+    let project = specforge_project::CompiledProject::compile(dir.path(), Some(Arc::new(runtime)));
 
     let loaded: Vec<&str> = project
         .environment()

@@ -4,6 +4,7 @@
 
 use specforge_test_macros::test as specforge_test;
 use std::fs;
+use std::sync::Arc;
 use tempfile::TempDir;
 
 /// Compile `spec` in a project that enables only @specforge/product and
@@ -17,7 +18,7 @@ fn product_diagnostics(spec: &str) -> Vec<(String, String)> {
     .unwrap();
     fs::write(dir.path().join("main.spec"), spec).unwrap();
     let runtime = specforge_component::ComponentRuntime::with_user_cache();
-    let ctx = specforge_project::CompiledProject::compile(dir.path(), Some(&runtime));
+    let ctx = specforge_project::CompiledProject::compile(dir.path(), Some(Arc::new(runtime)));
     let diagnostics = ctx.diagnostics();
     diagnostics
         .iter()

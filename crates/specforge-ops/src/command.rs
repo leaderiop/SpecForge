@@ -1235,9 +1235,10 @@ mod tests {
 
         // What the CLI does: one runtime, the project compiled through it,
         // then the routed command run in it.
-        let runtime = specforge_component::ComponentRuntime::with_user_cache();
+        let runtime = std::sync::Arc::new(specforge_component::ComponentRuntime::with_user_cache());
         assert!(runtime.loaded_names().is_empty(), "a runtime starts empty");
-        let project = specforge_project::CompiledProject::compile(dir.path(), Some(&runtime));
+        let project =
+            specforge_project::CompiledProject::compile(dir.path(), Some(runtime.clone()));
         let loaded = runtime.loaded_names();
         assert_eq!(
             loaded,
@@ -1260,7 +1261,7 @@ mod tests {
 
         let out = run(
             &ProjectView::of(&project),
-            &runtime,
+            runtime.as_ref(),
             features,
             &Map::new(),
             CommandFormat::Json,
@@ -1288,15 +1289,16 @@ mod tests {
                 .to_string(),
         )
         .unwrap();
-        let runtime = specforge_component::ComponentRuntime::new();
-        let project = specforge_project::CompiledProject::compile(dir.path(), Some(&runtime));
+        let runtime = std::sync::Arc::new(specforge_component::ComponentRuntime::new());
+        let project =
+            specforge_project::CompiledProject::compile(dir.path(), Some(runtime.clone()));
         let unrouted = CommandDescriptor {
             export: "cmd__product_no_such_command".into(),
             ..command("no_such_command")
         };
         let err = run(
             &ProjectView::of(&project),
-            &runtime,
+            runtime.as_ref(),
             &ExtensionCommand::new("@specforge/product", "product", &unrouted),
             &Map::new(),
             CommandFormat::Json,

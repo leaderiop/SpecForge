@@ -11,7 +11,7 @@ use crate::pipeline;
 /// recorded there; a report that is there but unusable is an error (exit
 /// 2), as in `analyze`.
 pub fn run(path: &Path, format: OutputFormat) -> Exit {
-    let (project, _runtime) = pipeline::compile_project(path);
+    let project = pipeline::compile_project(path);
     let stats = match specforge_ops::stats::stats(&ProjectView::of(&project)) {
         Ok(stats) => stats,
         Err(error) => return Refusal::measuring(format).report(&error),
