@@ -25,22 +25,26 @@ behavior load_wasm_module "Load Wasm Module" {
   ensures {
     extension_loaded_emitted     "extension_loaded event is emitted on successful module load"
     extension_loaded_via_runtime "the binary is loaded into the runtime engine (component compilation itself is cached by the engine — see compile_wasm_component_with_cache)"
-    tampered_binary_refused      "a binary whose hash no longer matches the specforge.lock pin is refused with E033"
+    tampered_binary_refused      "a binary whose hash no longer matches the specforge.lock pin, or that declares another extension than its lock entry, is refused with E070"
     missing_binary_diagnosed     "missing .wasm binary produces ExtensionError diagnostic"
   }
   contract   """
-    When the compiler loads an extension, it MUST locate the .wasm binary
-    from its installed path, verify its content hash against the
-    specforge.lock pin (refusing a mismatch with E033; legacy entries
-    without a hash warn and load), and load it into the Wasm runtime.
+    When the compiler loads an extension, it MUST read its .wasm binary
+    from its installed path once, verify that content's hash against the
+    specforge.lock pin (refusing a mismatch with E070; a lock entry
+    without a hash, written before pinning, MUST load with the warning
+    W149), and load those same bytes into the Wasm runtime. A loaded
+    binary that declares another extension than its lock entry MUST be
+    refused with E070.
     Component compilation caching is the engine's concern (see
     compile_wasm_component_with_cache). Missing .wasm files MUST produce
     an ExtensionError diagnostic.
   """
   produces   [extension_loaded]
   verify unit "loads .wasm binary from manifest path"
-  verify unit "tampered installed binary refused via E033 lockfile pin"
-  verify unit "legacy lockfile entry without hash loads unchanged"
+  verify unit "tampered installed binary refused via E070 lockfile pin"
+  verify unit "legacy lockfile entry without hash loads with W149"
+  verify unit "the hash is checked over the bytes the runtime compiles"
   verify unit "missing .wasm produces ExtensionError"
   verify contract "Load Wasm Module: Wasm module loading holds — manifest_validated_fired, wasm_runtime_available, extension_loaded_emitted, extension_loaded_via_runtime, tampered_binary_refused, missing_binary_diagnosed"
 }
@@ -177,8 +181,14 @@ behavior install_wasm_extension "Install Wasm Extension" {
     extension from its source (registry, local path, or git), download
     the .wasm binary, verify its SHA256 integrity, place it in the
     project atomically (temp dir + rename), and update specforge.json
-    with the extension entry. On failure at any step, the system MUST
-    rollback all changes — no partial installs. Component compilation
+    with the extension entry. The binary, its specforge.lock entry and the
+    specforge.json entry MUST be written as one change: on failure at any
+    step, every file it changed MUST be put back — the previous binary,
+    the previous lock, the previous specforge.json — so no partial install
+    remains. A specforge.lock that is there and can't be read MUST refuse
+    the install (E033) before anything is written or downloaded. An
+    extension already installed MUST be reinstalled when its binary is not
+    the one its lock entry pins. Component compilation
     is NOT an install step: the engine compiles on first load and
     caches the artifact (see compile_wasm_component_with_cache), so a
     slow network or large binary never blocks install.
@@ -190,6 +200,9 @@ behavior install_wasm_extension "Install Wasm Extension" {
   verify unit "places binary atomically via temp dir"
   verify unit "updates specforge.json with extension entry"
   verify unit "rolls back on download failure"
+  verify unit "a failed install puts back the binary, specforge.lock and specforge.json it changed"
+  verify unit "an install over an unreadable specforge.lock is refused before anything is written"
+  verify unit "an install of an extension whose binary changed after install replaces it"
   verify unit "an extension is installed under the extensions directory of its project, by its package name"
   verify performance "single extension install completes within 30 seconds on commodity hardware"
   verify contract "Install Wasm Extension: Wasm extension installation holds — extension_source_available, filesystem_available, extension_install_completed_emitted, integrity_verified, atomic_install_enforced, config_updated"
@@ -263,8 +276,9 @@ behavior uninstall_wasm_extension "Uninstall Wasm Extension" {
     with a diagnostic listing the dependent extensions unless --force is
     provided. The session runtime drops the extension's loaded instance
     (see reuse_session_runtime); stale engine cache entries are inert —
-    cache keys include binary content. On failure, the system MUST
-    rollback all changes.
+    cache keys include binary content. The binary, the lock entry and the
+    specforge.json entry MUST be removed as one change: on failure, every
+    file it changed MUST be put back.
   """
   produces   [extension_unloaded, wasm_extension_removed]
   verify unit "removes extension entry from specforge.json"

@@ -39,6 +39,7 @@ fn project(extensions: &[&str], spec: &str) -> TempDir {
 fn write_config(root: &Path, extensions: &[&str]) {
     let config = json!({"name": "served", "version": "0.1.0", "extensions": extensions});
     fs::write(root.join("specforge.json"), config.to_string()).unwrap();
+    specforge_installed::testing::install_configured(root, &specforge_project::builtins());
 }
 
 fn canonical(path: &Path) -> PathBuf {

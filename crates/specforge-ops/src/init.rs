@@ -217,7 +217,7 @@ pub fn apply(dir: &Path, plan: &Plan) -> Result<Outcome, OpError> {
         // Leave the directory as it was.
         let _ = std::fs::remove_file(dir.join(crate::config::CONFIG_FILE));
         let _ = std::fs::remove_file(dir.join(STARTER_FILE));
-        let _ = std::fs::remove_file(specforge_wasm::lock_path(dir));
+        let _ = std::fs::remove_file(specforge_installed::lock_path(dir));
         let _ = std::fs::remove_dir_all(dir.join(".specforge"));
         match &gitignore_before {
             Some(text) => {
@@ -302,20 +302,38 @@ fn extensions_of(specifiers: &[String]) -> Result<(Vec<String>, Vec<PathBuf>), O
 }
 
 /// The starter template the extensions contribute: the one listed first
-/// wins. Builtins load from the binary, local files from disk.
+/// wins. Builtins load from the binary, local files from disk (read as
+/// every candidate binary is).
 fn starter_template(extensions: &[String], installs: &[PathBuf]) -> Option<String> {
     let runtime = specforge_component::ComponentRuntime::new();
     let _ = specforge_component::builtins::load_builtins_for(&runtime, extensions);
-    for wasm in installs {
-        if let Ok((name, _)) = extension::declared(wasm) {
-            let _ = runtime.load_module_as(&name, wasm);
-        }
-    }
+    // A local file contributes under the name it declares.
+    let locals: Vec<(String, Option<String>)> = installs
+        .iter()
+        .filter_map(|wasm| {
+            let module = specforge_installed::Module::read(wasm).ok()?;
+            let declaration = specforge_installed::declaration_of(&module, &runtime)
+                .ok()?
+                .declaration;
+            Some((
+                declaration.name().to_string(),
+                declaration.handshake.starter_template,
+            ))
+        })
+        .collect();
     // A load failure only costs the extension its template.
-    let mut ignored = Vec::new();
-    specforge_project::compile::load_extensions(extensions, &runtime, &mut ignored)
-        .into_iter()
-        .find_map(|declaration| declaration.handshake.starter_template)
+    extensions.iter().find_map(
+        |name| match locals.iter().find(|(local, _)| local == name) {
+            Some((_, template)) => template.clone(),
+            None => {
+                specforge_wasm::protocol::load_declaration(&runtime, name)
+                    .ok()?
+                    .declaration
+                    .handshake
+                    .starter_template
+            }
+        },
+    )
 }
 
 fn sanitize_entity_id(name: &str) -> String {

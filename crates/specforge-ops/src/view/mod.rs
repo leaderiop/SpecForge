@@ -18,11 +18,11 @@ use std::sync::Arc;
 use specforge_common::Diagnostic;
 use specforge_emitter::{GraphProtocolSchema, generate_schema};
 use specforge_graph::Graph;
+use specforge_installed::{Installed, LockState};
 use specforge_project::coverage::{ProjectCoverage, Recorded, RecordedCoverage, TestReport};
 use specforge_project::snapshot::EntitySnapshot;
 use specforge_project::{CompiledProject, Environment, ProjectSession};
 use specforge_registry::RegistryBuild;
-use specforge_wasm::LockState;
 
 pub use kinds::{KnownKinds, UNKNOWN_KIND};
 
@@ -146,10 +146,17 @@ impl<'a> ProjectView<'a> {
     /// Absent without a root: a graph built in memory has no project on
     /// disk to have locked anything.
     pub fn lock(&self) -> &'a LockState {
-        static NO_LOCK: LockState = LockState::Absent;
+        self.installed().lock()
+    }
+
+    /// The project's installed extensions as the compile read them: its
+    /// root and lock, once. None without a root: a graph built in memory
+    /// has no project on disk to have installed anything.
+    pub fn installed(&self) -> &'a Installed {
+        static NONE: Installed = Installed::none();
         match self.root {
-            Some(_) => &self.env.lock,
-            None => &NO_LOCK,
+            Some(_) => &self.env.installed,
+            None => &NONE,
         }
     }
 
@@ -312,8 +319,8 @@ pub(crate) mod testing {
 
         /// The compile read `config` as `specforge.json` (not written to
         /// disk): its `extensions` entries, each enabling what its text
-        /// names ([`EnabledExtension::of`] with no runtime), and its
-        /// `providers`, registered against the loaded declarations.
+        /// names ([`EnabledExtension::unloaded`]), and its `providers`,
+        /// registered against the loaded declarations.
         pub fn config_json(mut self, config: serde_json::Value) -> Self {
             let entries: Vec<String> = config["extensions"]
                 .as_array()
@@ -326,7 +333,7 @@ pub(crate) mod testing {
                 .unwrap_or_default();
             self.env.enabled = entries
                 .iter()
-                .map(|e| specforge_project::EnabledExtension::of(e, None))
+                .map(|e| specforge_project::EnabledExtension::unloaded(e))
                 .collect();
             self.env.config.extensions = entries;
             // ... and registered its `providers` against the loaded
@@ -378,23 +385,28 @@ pub(crate) mod testing {
         /// `<dir>/specforge.lock` locks each `(name, version, source)`; the
         /// compile read it.
         pub fn lock(mut self, entries: &[(&str, &str, &str)]) -> Self {
-            let lock = specforge_wasm::LockFile {
+            let lock = specforge_installed::LockFile {
                 lockfile_version: 1,
                 entries: entries
                     .iter()
-                    .map(|(name, version, source)| specforge_wasm::LockFileEntry {
-                        name: name.to_string(),
-                        version: version.to_string(),
-                        source: source.to_string(),
-                        wasm_hash: format!("hash-{name}"),
-                        key_id: None,
-                        peer_dependencies: Vec::new(),
-                    })
+                    .map(
+                        |(name, version, source)| specforge_installed::LockFileEntry {
+                            name: specforge_protocol_types::PackageName::parse(name).unwrap(),
+                            version: version.to_string(),
+                            source: specforge_installed::LockSource::parse(source),
+                            wasm_hash: format!("hash-{name}"),
+                            key_id: None,
+                            peer_dependencies: Vec::new(),
+                        },
+                    )
                     .collect(),
             };
-            specforge_wasm::write_lock_file(&lock, &specforge_wasm::lock_path(self.dir.path()))
-                .unwrap();
-            self.env.lock = LockState::Read(lock);
+            specforge_installed::write_lock_file(
+                &lock,
+                &specforge_installed::lock_path(self.dir.path()),
+            )
+            .unwrap();
+            self.env.installed = Installed::with_lock(self.dir.path(), LockState::Read(lock));
             self
         }
 

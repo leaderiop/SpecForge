@@ -15,12 +15,11 @@
 
 use serde::Serialize;
 use specforge_common::{Code, Diagnostic, DiagnosticData, Severity, codes};
-use specforge_wasm::{DoctorStatus, run_doctor_check};
-use std::collections::{BTreeMap, HashMap};
+use specforge_installed::Health;
+use std::collections::BTreeMap;
 
 use crate::extension::Origin;
 use crate::view::ProjectView;
-use std::path::Path;
 
 /// Diagnostic codes that mean two contributions collide.
 pub const CONFLICT_CODES: [Code; 3] = [codes::E026, codes::E057, codes::W018];
@@ -29,11 +28,6 @@ pub const CONFLICT_CODES: [Code; 3] = [codes::E026, codes::E057, codes::W018];
 /// entity ID is a structural keyword or an extension's kind keyword) and E026
 /// (a kind keyword is registered twice, which is also a conflict).
 pub const SHADOWING_CODES: [Code; 2] = [codes::E013, codes::E026];
-
-/// Codes that mean an enabled extension did not load: E028 (not installed,
-/// or its protocol load failed) and E033 (its installed binary no longer
-/// matches the lock file's hash).
-pub const LOAD_FAILURE_CODES: [Code; 2] = [codes::E028, codes::E033];
 
 /// Codes that mean `specforge.json` is not used as written: E069 (it can't
 /// be read, isn't a JSON object, or has a mistyped key or item).
@@ -57,8 +51,9 @@ pub struct DoctorReport {
     pub conflicts: Vec<Conflict>,
     /// Names shadowing a grammar-level construct (see [`SHADOWING_CODES`]).
     pub shadowed: Vec<ShadowedConstruct>,
-    /// Enabled extensions the compile could not load (see
-    /// [`LOAD_FAILURE_CODES`]), in diagnostic order.
+    /// Enabled extensions the compile could not load, in entry order: E028
+    /// (not installed, not loadable, or its lock unreadable) and E070 (its
+    /// installed binary is not the one the lock pins).
     pub load_failures: Vec<LoadFailure>,
     /// Installed binaries that do not match the lock file.
     pub issues: Vec<BinaryIssue>,
@@ -118,6 +113,9 @@ pub struct LoadFailure {
     /// The diagnostic's own suggestion, else the catalogue's explanation of
     /// its code.
     pub suggestion: String,
+    /// The failure is a missing or changed installed binary, which
+    /// [`DoctorReport::issues`] lists too: the findings list it once.
+    pub binary_issue: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -214,11 +212,11 @@ pub fn diagnose_with(view: &ProjectView, z3_available: bool) -> DoctorReport {
         })
         .collect();
     for entry in lock_entries {
-        if !extensions.iter().any(|e| e.name == entry.name) {
+        if !extensions.iter().any(|e| e.name == entry.name.as_str()) {
             extensions.push(ExtensionHealth {
-                name: entry.name.clone(),
+                name: entry.name.to_string(),
                 version: entry.version.clone(),
-                source: entry.source.clone(),
+                source: entry.source.to_string(),
                 enhancement_count: 0,
             });
         }
@@ -289,43 +287,12 @@ pub fn diagnose_with(view: &ProjectView, z3_available: bool) -> DoctorReport {
     }
 
     // Installed binaries against the lock file.
-    let installed_versions: HashMap<String, String> = lock_entries
-        .iter()
-        .map(|e| (e.name.clone(), e.version.clone()))
-        .collect();
-    let compute_hash = |wasm_path: &Path| -> Option<String> {
-        let bytes = std::fs::read(wasm_path).ok()?;
-        Some(specforge_wasm::hex_sha256(&bytes))
-    };
-    let statuses = lock
-        .zip(view.root())
-        .map(|(l, root)| {
-            run_doctor_check(
-                l,
-                &root.join(".specforge").join("extensions"),
-                compute_hash,
-                &installed_versions,
-            )
-        })
-        .unwrap_or_default();
-    // A local install reinstalls from its path; a registry one at the
-    // version it is locked at, when that is a version a registry can serve.
-    let reinstall = |name: &str| {
-        let entry = lock_entries.iter().find(|e| e.name == name);
-        let specifier = match entry {
-            Some(e) if e.source.starts_with("local:") => e.source["local:".len()..].to_string(),
-            Some(e) if semver::Version::parse(&e.version).is_ok() => {
-                format!("{name}@{}", e.version)
-            }
-            _ => name.to_string(),
-        };
-        format!("run `specforge add {specifier}` to reinstall it")
-    };
+    let installed = view.installed();
+    let reinstall = |name: &str| format!("run `{}` to reinstall it", installed.reinstall(name));
     let mut issues = Vec::new();
-    for status in statuses {
+    for status in installed.health() {
         let (issue, finding) = match status {
-            DoctorStatus::Healthy => continue,
-            DoctorStatus::MissingBinary { name } => (
+            Health::MissingModule { name } => (
                 BinaryIssue::MissingBinary { name: name.clone() },
                 Finding {
                     check: format!("extension {name}"),
@@ -334,9 +301,9 @@ pub fn diagnose_with(view: &ProjectView, z3_available: bool) -> DoctorReport {
                     remediation: reinstall(&name),
                 },
             ),
-            DoctorStatus::StaleHash {
+            Health::Changed {
                 name,
-                expected,
+                locked: expected,
                 actual,
             } => (
                 BinaryIssue::StaleHash {
@@ -351,7 +318,7 @@ pub fn diagnose_with(view: &ProjectView, z3_available: bool) -> DoctorReport {
                     remediation: reinstall(&name),
                 },
             ),
-            DoctorStatus::PeerMismatch {
+            Health::PeerMismatch {
                 name,
                 peer,
                 required,
@@ -425,26 +392,32 @@ pub fn diagnose_with(view: &ProjectView, z3_available: bool) -> DoctorReport {
     };
 
     // Extensions the compile could not load: `check` fails on them, so
-    // doctor does too.
+    // doctor does too. A missing or changed binary is a finding of its own
+    // above, with the command that reinstalls it: not listed twice.
     let mut load_failures = Vec::new();
-    for diag in &diagnostics {
-        if !LOAD_FAILURE_CODES.iter().any(|code| diag.is(*code)) {
+    for enabled in &view.env().enabled {
+        let Some(failure) = &enabled.failure else {
             continue;
-        }
+        };
+        let diag = &failure.diagnostic;
+        let binary_issue = failure.problem.is_module_health();
         let suggestion = remediation(diag, || format!("run `specforge explain {}`", diag.code));
-        findings.push(Finding {
-            check: diag.message.clone(),
-            status: match diag.severity {
-                Severity::Error => FindingStatus::Error,
-                _ => FindingStatus::Warn,
-            },
-            code: diag.code.clone(),
-            remediation: suggestion.clone(),
-        });
+        if !binary_issue {
+            findings.push(Finding {
+                check: diag.message.clone(),
+                status: match diag.severity {
+                    Severity::Error => FindingStatus::Error,
+                    _ => FindingStatus::Warn,
+                },
+                code: diag.code.clone(),
+                remediation: suggestion.clone(),
+            });
+        }
         load_failures.push(LoadFailure {
             code: diag.code.clone(),
             message: diag.message.clone(),
             suggestion,
+            binary_issue,
         });
     }
 
@@ -603,23 +576,48 @@ mod tests {
         );
     }
 
+    /// An entry the load could not load, as the environment records it.
+    fn failed(
+        entry: &str,
+        problem: specforge_installed::LoadProblem,
+        diagnostic: Diagnostic,
+    ) -> specforge_project::EnabledExtension {
+        specforge_project::EnabledExtension {
+            failure: Some(specforge_installed::LoadFailure {
+                problem,
+                diagnostic,
+            }),
+            ..specforge_project::EnabledExtension::unloaded(entry)
+        }
+    }
+
     #[specforge_test(
         behavior = "run_doctor_check",
         verify = "a finding without its own suggestion quotes the catalogued explanation"
     )]
     fn a_finding_without_a_suggestion_quotes_the_catalogue() {
-        let diagnostics = [
+        use specforge_installed::LoadProblem;
+        let fixture = Fixture::new().enabled(vec![
             // No suggestion: the explanation of E028 is quoted.
-            diag("E028", "extension '@acme/x' is not installed", None),
-            // Its own suggestion wins.
-            diag(
-                "E033",
-                "binary hash mismatch",
-                Some("run `specforge add @acme/y`"),
+            failed(
+                "@acme/x",
+                LoadProblem::NotInstalled,
+                diag("E028", "extension '@acme/x' is not installed", None),
             ),
-        ];
+            // Its own suggestion wins.
+            failed(
+                "@acme/y",
+                LoadProblem::NoDeclaration {
+                    reason: "no handshake".into(),
+                },
+                diag(
+                    "E028",
+                    "protocol loading failed",
+                    Some("run `specforge add @acme/y`"),
+                ),
+            ),
+        ]);
 
-        let fixture = Fixture::new().reporting(diagnostics.to_vec());
         let report = diagnose_with(&fixture.view(), true);
 
         let remedies: Vec<&str> = report
@@ -680,7 +678,11 @@ mod tests {
     )]
     fn doctor_reads_the_diagnostics_its_view_reports() {
         let e028 = diag("E028", "extension '@acme/x' is not installed", None);
-        let failing = Fixture::new().reporting(vec![e028]);
+        let failing = Fixture::new().enabled(vec![failed(
+            "@acme/x",
+            specforge_installed::LoadProblem::NotInstalled,
+            e028,
+        )]);
         let report = diagnose_with(&failing.view(), true);
         let failures: Vec<&str> = report
             .load_failures
@@ -723,11 +725,12 @@ mod tests {
         let fixture = Fixture::new()
             .config(&["@specforge/product", "greet.wasm", "@acme/stray"])
             .enabled(vec![
-                specforge_project::EnabledExtension::of("@specforge/product", None),
+                specforge_project::EnabledExtension::unloaded("@specforge/product"),
                 specforge_project::EnabledExtension {
                     entry: "greet.wasm".into(),
                     name: "@sdk/greet".into(),
                     file: Some("greet.wasm".into()),
+                    failure: None,
                 },
             ])
             .declarations(vec![
@@ -813,6 +816,95 @@ mod tests {
         let report = diagnose_with(&fixture.rootless_view(), true);
 
         assert!(finding_codes(&report).is_empty(), "{:?}", report.findings);
+    }
+
+    /// A project with `@sdk/greet` installed from the vendored blob, whose
+    /// module was then replaced by other bytes.
+    fn project_with_a_changed_greet() -> tempfile::TempDir {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            dir.path().join("specforge.json"),
+            r#"{"name": "p", "version": "0.1.0", "extensions": []}"#,
+        )
+        .unwrap();
+        let blob = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../fixtures/greet-extension/greet.wasm");
+        crate::extension::add(
+            &crate::extension::AddRequest {
+                root: dir.path(),
+                source: crate::extension::Source::Local(blob),
+                allow_unsigned: false,
+                trust: crate::extension::Trust::Refuse,
+                dry_run: false,
+            },
+            &crate::registry::Unconfigured("add"),
+        )
+        .unwrap();
+        let module = dir
+            .path()
+            .join(".specforge/extensions/@sdk/greet/extension.wasm");
+        let mut bytes = std::fs::read(&module).unwrap();
+        bytes.extend_from_slice(b"changed after install");
+        std::fs::write(module, bytes).unwrap();
+        dir
+    }
+
+    #[specforge_test(
+        behavior = "run_doctor_check",
+        verify = "doctor reports a missing or changed installed binary once, with the remedy its load gives"
+    )]
+    fn doctor_reports_a_changed_binary_once() {
+        let dir = project_with_a_changed_greet();
+        let runtime = specforge_component::ComponentRuntime::with_user_cache();
+        let compiled = specforge_project::CompiledProject::compile(dir.path(), Some(&runtime));
+
+        let report = diagnose_with(&ProjectView::of(&compiled), true);
+
+        let about_greet: Vec<(&str, &str)> = report
+            .findings
+            .iter()
+            .filter(|f| f.check.contains("@sdk/greet"))
+            .map(|f| (f.code.as_str(), f.remediation.as_str()))
+            .collect();
+        assert_eq!(about_greet.len(), 1, "{:?}", report.findings);
+        let (code, remedy) = about_greet[0];
+        assert_eq!(code, "stale_hash");
+        assert!(
+            remedy.starts_with("run `specforge add ") && remedy.ends_with(".wasm` to reinstall it"),
+            "{remedy}"
+        );
+        // Both facets stay in the report's data: the issue and the load
+        // failure that duplicates it.
+        assert_eq!(report.issues.len(), 1);
+        assert_eq!(report.load_failures.len(), 1);
+        assert_eq!(report.load_failures[0].code, "E070");
+        assert!(report.load_failures[0].binary_issue);
+
+        // Running the remedy reinstalls the pinned binary: doctor is clean.
+        let command = remedy
+            .strip_prefix("run `specforge add ")
+            .and_then(|r| r.strip_suffix("` to reinstall it"))
+            .unwrap();
+        crate::extension::add(
+            &crate::extension::AddRequest {
+                root: dir.path(),
+                source: crate::extension::Source::Local(command.into()),
+                allow_unsigned: false,
+                trust: crate::extension::Trust::Refuse,
+                dry_run: false,
+            },
+            &crate::registry::Unconfigured("add"),
+        )
+        .unwrap();
+        let runtime = specforge_component::ComponentRuntime::with_user_cache();
+        let compiled = specforge_project::CompiledProject::compile(dir.path(), Some(&runtime));
+        let report = diagnose_with(&ProjectView::of(&compiled), true);
+        assert!(report.issues.is_empty(), "{:?}", report.issues);
+        assert!(
+            report.load_failures.is_empty(),
+            "{:?}",
+            report.load_failures
+        );
     }
 
     #[specforge_test(

@@ -20,6 +20,11 @@ impl Writes {
         Self::default()
     }
 
+    /// The files a committed change changed (or a failed one left).
+    pub fn of(paths: impl IntoIterator<Item = PathBuf>) -> Self {
+        paths.into_iter().collect()
+    }
+
     /// `path` was created, rewritten or removed.
     pub fn record(&mut self, path: impl Into<PathBuf>) {
         self.0.insert(path.into());

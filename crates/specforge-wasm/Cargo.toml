@@ -15,7 +15,6 @@ specforge-protocol-types = { path = "../specforge-protocol-types" }
 specforge-common = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-sha2 = { workspace = true }
 semver = { workspace = true }
 # The in-process runtime adapter (`testing`, plan 03/04).
 specforge-extension-sdk = { path = "../specforge-extension-sdk", optional = true }

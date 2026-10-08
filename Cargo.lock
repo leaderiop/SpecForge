@@ -2783,6 +2783,7 @@ dependencies = [
  "specforge-extension-sdk",
  "specforge-formatter",
  "specforge-graph",
+ "specforge-installed",
  "specforge-lsp",
  "specforge-mcp",
  "specforge-migrate",
@@ -2937,6 +2938,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "specforge-installed"
+version = "0.1.0"
+dependencies = [
+ "semver",
+ "serde",
+ "serde_json",
+ "sha2",
+ "specforge-common",
+ "specforge-extension-sdk",
+ "specforge-installed",
+ "specforge-protocol-types",
+ "specforge-test",
+ "specforge-test-macros",
+ "specforge-wasm",
+ "tempfile",
+]
+
+[[package]]
 name = "specforge-lsp"
 version = "0.1.0"
 dependencies = [
@@ -2948,6 +2967,7 @@ dependencies = [
  "specforge-extension-sdk",
  "specforge-formatter",
  "specforge-graph",
+ "specforge-installed",
  "specforge-ops",
  "specforge-parser",
  "specforge-project",
@@ -2979,6 +2999,7 @@ dependencies = [
  "specforge-extension-sdk",
  "specforge-formatter",
  "specforge-graph",
+ "specforge-installed",
  "specforge-mcp-macros",
  "specforge-migrate",
  "specforge-ops",
@@ -3032,6 +3053,7 @@ dependencies = [
  "specforge-extension-sdk",
  "specforge-formatter",
  "specforge-graph",
+ "specforge-installed",
  "specforge-migrate",
  "specforge-parser",
  "specforge-project",
@@ -3091,6 +3113,7 @@ dependencies = [
  "specforge-emitter",
  "specforge-extension-sdk",
  "specforge-graph",
+ "specforge-installed",
  "specforge-parser",
  "specforge-protocol-types",
  "specforge-registry",
@@ -3223,7 +3246,6 @@ dependencies = [
  "semver",
  "serde",
  "serde_json",
- "sha2",
  "specforge-common",
  "specforge-extension-sdk",
  "specforge-protocol-types",
@@ -5029,6 +5051,7 @@ dependencies = [
  "serde_json",
  "specforge-component",
  "specforge-emitter",
+ "specforge-installed",
  "specforge-protocol-types",
  "specforge-wasm",
 ]

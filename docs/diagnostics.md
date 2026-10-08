@@ -341,22 +341,23 @@ Level: error
 E028: Extension load or execution failure
 
 An extension failed somewhere in its lifecycle: its binary is missing,
-unreadable or does not load as a component (a `.wasm` file entry of
-`specforge.json` also when the file declares another name than the entry writes,
-or an extension another entry already loads); its handshake or one of its
-describe categories failed or does not parse, so its declaration cannot be read
-(`specforge add` and `specforge publish` refuse such a binary); or a call the
-host makes on the loaded extension failed. The host calls ten exports: the
-handshake and describe, a command, an MCP tool, an MCP resource, a compiler
-pass, a collector, a custom validator, a scanner and the migration hook. Each
-call fails when the export traps (a limit of its sandbox included: its time, its
-fuel or its memory, the trap naming which), when the extension does not route
-it, or when it answers output that is not the protocol type the operation owes;
-the message names the operation, the export and the extension (`command cmd__x()
-of '@acme/x' trapped: ...`). What the failure costs is the operation's: a check
-pass's is the compile's error, an analyze pass's a finding of that pass, a
-scanner's makes `infer` approximate. Report the failure to the extension's
-author, and confirm the extension is installed and up to date.
+unreadable or does not load as a component, or `specforge.lock` can't be read so
+nothing is known to be installed (a `.wasm` file entry of `specforge.json` also
+when the file declares another name than the entry writes, or an extension
+another entry already loads); its handshake or one of its describe categories
+failed or does not parse, so its declaration cannot be read (`specforge add` and
+`specforge publish` refuse such a binary); or a call the host makes on the
+loaded extension failed. The host calls ten exports: the handshake and describe,
+a command, an MCP tool, an MCP resource, a compiler pass, a collector, a custom
+validator, a scanner and the migration hook. Each call fails when the export
+traps (a limit of its sandbox included: its time, its fuel or its memory, the
+trap naming which), when the extension does not route it, or when it answers
+output that is not the protocol type the operation owes; the message names the
+operation, the export and the extension (`command cmd__x() of '@acme/x' trapped:
+...`). What the failure costs is the operation's: a check pass's is the
+compile's error, an analyze pass's a finding of that pass, a scanner's makes
+`infer` approximate. Report the failure to the extension's author, and confirm
+the extension is installed and up to date.
 
 Owner: core
 Level: error
@@ -399,11 +400,10 @@ Level: error
 ```
 E032: Extension install or uninstall failed
 
-An install or uninstall step failed: the downloaded `.wasm` binary's SHA-256
-hash didn't match the expected value (possible tampering or a bad download), or
-a filesystem step — creating the temp directory, writing the binary,
-finalizing the install, or removing the extension directory on uninstall —
-failed. Re-download the extension or check filesystem permissions.
+An install, update or uninstall step failed: creating the staging directory,
+writing the binary, or moving it into place or aside. Everything the change
+wrote was put back; when something couldn't be, the error names it. Check
+filesystem permissions and retry.
 
 Owner: core
 Level: error
@@ -414,11 +414,11 @@ Level: error
 ```
 E033: Lock file error
 
-`specforge.lock` couldn't be serialized, written, read, or parsed, or the hash
-it records for an installed extension no longer matches the binary on disk;
-`specforge update` reports it when there is no lock file to update. Delete the
-lock file and reinstall extensions, reinstall the specific extension whose
-binary changed, or run `specforge add` first.
+`specforge.lock` couldn't be serialized, written, read, or parsed; `specforge
+update` reports it when there is no lock file to update. A lock that can't be
+read loads no installed extension and refuses `add`, `update` and `remove` until
+it is fixed or deleted (then reinstall the extensions). Delete the lock file and
+reinstall extensions, or run `specforge add` first.
 
 Owner: core
 Level: error
@@ -798,6 +798,23 @@ is one E069, and `check` fails on it, so a broken config can't pass a CI that
 checks nothing. Fix the file: the message names the JSON error's line and
 column, or the key and the item. A missing `specforge.json` is not this: it is a
 project with the default config (`specforge doctor` says so).
+
+Owner: core
+Level: error
+```
+
+## E070
+
+```
+E070: Installed extension does not match its lock entry
+
+An installed extension's binary, `.specforge/extensions/<name>/extension.wasm`,
+is not the one its `specforge.lock` entry pins: its SHA-256 differs from the
+recorded hash (it was changed or replaced after install), or it declares another
+extension than the entry names. It is not loaded, and `check` fails. Reinstall
+it with the command the suggestion names (`specforge add <path>` for a local
+install, `specforge add <name>@<version>` for a registry one); `specforge
+doctor` lists it as `stale_hash`.
 
 Owner: core
 Level: error
@@ -2703,19 +2720,6 @@ Owner: core
 Level: warning
 ```
 
-## W119
-
-```
-W119: Partial install cleanup failed
-
-Rolling back a failed extension install could not remove the partially-created
-extension directory. Manually delete the leftover extension directory reported
-in the message.
-
-Owner: core
-Level: warning
-```
-
 ## W121
 
 ```
@@ -3065,6 +3069,19 @@ Owner: core
 Level: warning
 ```
 
+## W149
+
+```
+W149: Installed extension is not pinned
+
+A `specforge.lock` entry records no hash (it was written before installs were
+pinned), so its binary loads without being checked. Reinstall the extension with
+the command the suggestion names to pin it.
+
+Owner: core
+Level: warning
+```
+
 ## W150
 
 ```
@@ -3165,6 +3182,7 @@ These codes are no longer emitted, and are never reused for another meaning.
 | W114 | (nothing) |
 | W116 | (nothing) |
 | W117 | (nothing) |
+| W119 | (nothing) |
 | W120 | (nothing) |
 | W122 | (nothing) |
 | W146 | (nothing) |

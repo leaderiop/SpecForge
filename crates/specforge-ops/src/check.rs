@@ -261,7 +261,7 @@ mod tests {
     }
 
     fn compile(dir: &TempDir) -> CompiledProject {
-        let runtime = specforge_component::project_runtime(dir.path());
+        let runtime = specforge_component::ComponentRuntime::with_user_cache();
         CompiledProject::compile(dir.path(), Some(&runtime))
     }
 

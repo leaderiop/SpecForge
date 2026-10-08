@@ -36,12 +36,12 @@ pub enum RuntimeSource {
 }
 
 impl RuntimeSource {
-    /// `specforge_component::project_runtime_with`: the builtins the config
-    /// enables, the installed extensions from the lock, the `.wasm` file
-    /// entries.
+    /// The project's own component runtime, with the per-user compile
+    /// cache ([`specforge_component::ComponentRuntime::with_user_cache`]):
+    /// empty, for the environment's extension load to fill.
     pub fn project() -> Self {
-        RuntimeSource::Build(Arc::new(|root, config| {
-            Arc::new(specforge_component::project_runtime_with(root, config))
+        RuntimeSource::Build(Arc::new(|_, _| {
+            Arc::new(specforge_component::ComponentRuntime::with_user_cache())
         }))
     }
 
