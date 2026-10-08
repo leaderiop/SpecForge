@@ -8,7 +8,6 @@ use serde_json::json;
 
 use super::*;
 use crate::args::NoArgs;
-use crate::operations;
 use crate::target::ProjectTarget;
 use crate::tool::{Effect, Handler, MutationHandler, ToolGroup, ToolSpec, WriteHints};
 
@@ -415,11 +414,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
                 idempotent: true,
                 open_world: false,
             },
-            handler: mutation!(
-                operations::format_op,
-                operations::FormatArgs,
-                ProjectTarget::ANY
-            ),
+            handler: mutation!(format::call, format::Args, ProjectTarget::ANY),
         },
     },
     ToolSpec {
@@ -434,11 +429,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
                 idempotent: true,
                 open_world: false,
             },
-            handler: mutation!(
-                operations::rename_op,
-                operations::RenameArgs,
-                ProjectTarget::ANY
-            ),
+            handler: mutation!(rename::call, rename::Args, ProjectTarget::ANY),
         },
     },
     ToolSpec {
@@ -453,7 +444,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
                 idempotent: true,
                 open_world: false,
             },
-            handler: create!(operations::init_op, operations::InitArgs),
+            handler: create!(init::call, init::Args),
         },
     },
     ToolSpec {
@@ -468,11 +459,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
                 idempotent: true,
                 open_world: true,
             },
-            handler: mutation!(
-                operations::add_extension,
-                operations::AddArgs,
-                ProjectTarget::ANY
-            ),
+            handler: mutation!(add_extension::call, add_extension::Args, ProjectTarget::ANY),
         },
     },
     ToolSpec {
@@ -488,8 +475,8 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
                 open_world: false,
             },
             handler: mutation!(
-                operations::remove_extension_op,
-                operations::RemoveArgs,
+                remove_extension::call,
+                remove_extension::Args,
                 ProjectTarget::ANY
             ),
         },
@@ -506,11 +493,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
                 idempotent: true,
                 open_world: false,
             },
-            handler: mutation!(
-                operations::migrate_op,
-                operations::MigrateArgs,
-                ProjectTarget::ANY
-            ),
+            handler: mutation!(migrate::call, migrate::Args, ProjectTarget::ANY),
         },
     },
     ToolSpec {
@@ -521,7 +504,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         ),
         effect: Effect::Reads {
             group: ToolGroup::Management,
-            handler: project!(operations::extensions_op, NoArgs, ProjectTarget::SERVED),
+            handler: project!(extensions::call, NoArgs, ProjectTarget::SERVED),
         },
     },
     ToolSpec {
@@ -532,7 +515,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         ),
         effect: Effect::Reads {
             group: ToolGroup::Management,
-            handler: project!(operations::providers_op, NoArgs, ProjectTarget::SERVED),
+            handler: project!(providers::call, NoArgs, ProjectTarget::SERVED),
         },
     },
     ToolSpec {
@@ -543,11 +526,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         ),
         effect: Effect::Reads {
             group: ToolGroup::Management,
-            handler: project!(
-                operations::doctor_op,
-                NoArgs,
-                ProjectTarget::SERVED_UNLESS_CACHED
-            ),
+            handler: project!(doctor::call, NoArgs, ProjectTarget::SERVED_UNLESS_CACHED),
         },
     },
     ToolSpec {
@@ -590,11 +569,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
                 idempotent: false,
                 open_world: true,
             },
-            handler: project!(
-                operations::collect_op,
-                operations::CollectArgs,
-                ProjectTarget::ANY
-            ),
+            handler: project!(collect::call, collect::Args, ProjectTarget::ANY),
         },
     },
     ToolSpec {
@@ -610,11 +585,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
                 idempotent: true,
                 open_world: false,
             },
-            handler: view!(
-                operations::render_op,
-                operations::RenderArgs,
-                ProjectTarget::SERVED
-            ),
+            handler: view!(render::call, render::Args, ProjectTarget::SERVED),
         },
     },
     ToolSpec {

@@ -6,6 +6,15 @@
 //! call, while it holds the target) and [`report`]: nothing else in the
 //! crate brings a target up to date after a write, names a mutation's
 //! events or tells the client which files the call wrote.
+//!
+//! A mutation handler (format, rename, init, add_extension,
+//! remove_extension, migrate) performs its real function against the same
+//! library backends the CLI uses (canned placeholder responses are
+//! forbidden: a tool either does real work or refuses with an explicit
+//! error). It returns its reply and what its operation wrote, typed: the
+//! files from the operation's [`specforge_ops::Writes`], the entities it
+//! changed and its domain event; a preview says it only previewed. It never
+//! refreshes the target or records an event itself: this module does.
 
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
