@@ -639,10 +639,11 @@ fn a_rolled_back_migration_keeps_only_its_backups() {
     assert_eq!(changed_since(root, &before), ["old.spec.bak"]);
 }
 
-/// Bug pin (flipped by the ticket that fixes it): `init` enables a builtin
-/// without the builtins it requires, so the first `check` fails E027.
-#[test]
-fn init_enables_a_builtin_without_the_builtins_it_requires() {
+#[specforge_test_macros::test(
+    behavior = "non_interactive_init",
+    verify = "init enables a builtin after the builtins it requires, as add does"
+)]
+fn init_enables_a_builtin_after_the_builtins_it_requires() {
     use specforge_ops::init;
     let scratch = TempDir::new().unwrap();
     let extensions = vec!["@specforge/formal".to_string()];
@@ -656,12 +657,62 @@ fn init_enables_a_builtin_without_the_builtins_it_requires() {
 
     let plan = init::plan(&request, &runtime()).unwrap();
 
-    assert_eq!(plan.extensions, ["@specforge/formal"]);
+    assert_eq!(
+        plan.extensions,
+        [
+            "@specforge/software",
+            "@specforge/formal",
+            "@specforge/testing"
+        ]
+    );
     assert!(
-        plan.starter.contains("starter spec file"),
+        plan.starter.contains("software specification"),
         "{}",
         plan.starter
     );
+}
+
+#[specforge_test_macros::test(
+    behavior = "non_interactive_init",
+    verify = "init enables a builtin after the builtins it requires, as add does"
+)]
+fn init_enables_each_builtin_after_the_builtins_it_requires() {
+    use specforge_ops::init;
+    let scratch = TempDir::new().unwrap();
+    let runtime = runtime();
+    for (i, builtin) in specforge_project::builtins().names().enumerate() {
+        let extensions = vec![builtin.to_string()];
+        let request = init::Request {
+            dir: &scratch.path().join(format!("p{i}")),
+            name: Some("demo"),
+            version: init::DEFAULT_VERSION,
+            extensions: &extensions,
+            forbid_inside: None,
+        };
+
+        let plan = init::plan(&request, &runtime).unwrap();
+
+        for enabled in &plan.extensions {
+            let Some(enabled) = extension::builtin_name(enabled) else {
+                continue;
+            };
+            let position = |name: &str| plan.extensions.iter().position(|e| e == name);
+            for required in extension::Candidate::builtin(&runtime, enabled)
+                .unwrap()
+                .peers()
+                .iter()
+                .filter(|peer| !peer.optional)
+            {
+                assert!(
+                    position(&required.name) < position(enabled)
+                        && position(&required.name).is_some(),
+                    "{builtin}: {enabled} requires {} first: {:?}",
+                    required.name,
+                    plan.extensions
+                );
+            }
+        }
+    }
 }
 
 #[test]

@@ -177,20 +177,63 @@ impl LocalFile {
     }
 }
 
-/// The builtins to enable before the builtin `name`: its non-optional peers
-/// that are builtins. A builtin that does not load enables none (T4 makes it
-/// refuse).
+/// The builtins to enable before the builtin `name`, dependencies first:
+/// its non-optional peers that are builtins, and theirs, each read once from
+/// its embedded binary. E028 when one does not load. A cycle among required
+/// builtins stops the walk; the registry build reports it.
 pub(crate) fn required_builtins(
     runtime: &dyn WasmRuntime,
     name: &'static str,
-) -> Vec<&'static str> {
-    let Ok(candidate) = Candidate::builtin(runtime, name) else {
-        return Vec::new();
+) -> Result<Vec<&'static str>, OpError> {
+    let mut walk = Walk {
+        runtime,
+        read: Vec::new(),
+        visiting: Vec::new(),
+        order: Vec::new(),
     };
-    candidate
-        .peers()
-        .iter()
-        .filter(|peer| !peer.optional)
-        .filter_map(|peer| builtin_name(&peer.name))
-        .collect()
+    walk.visit(name)?;
+    walk.order.retain(|builtin| *builtin != name);
+    Ok(walk.order)
+}
+
+struct Walk<'r> {
+    runtime: &'r dyn WasmRuntime,
+    /// Each builtin read so far, once.
+    read: Vec<(&'static str, Candidate)>,
+    visiting: Vec<&'static str>,
+    /// Dependencies first.
+    order: Vec<&'static str>,
+}
+
+impl Walk<'_> {
+    fn candidate(&mut self, name: &'static str) -> Result<&Candidate, OpError> {
+        if let Some(i) = self.read.iter().position(|(read, _)| *read == name) {
+            return Ok(&self.read[i].1);
+        }
+        let candidate = Candidate::builtin(self.runtime, name)?;
+        self.read.push((name, candidate));
+        Ok(&self.read.last().expect("just pushed").1)
+    }
+
+    fn visit(&mut self, name: &'static str) -> Result<(), OpError> {
+        // A cycle among required builtins stops here; the registry build
+        // reports it.
+        if self.order.contains(&name) || self.visiting.contains(&name) {
+            return Ok(());
+        }
+        self.visiting.push(name);
+        let peers: Vec<&'static str> = self
+            .candidate(name)?
+            .peers()
+            .iter()
+            .filter(|peer| !peer.optional)
+            .filter_map(|peer| builtin_name(&peer.name))
+            .collect();
+        for peer in peers {
+            self.visit(peer)?;
+        }
+        self.visiting.pop();
+        self.order.push(name);
+        Ok(())
+    }
 }

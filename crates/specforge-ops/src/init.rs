@@ -129,7 +129,9 @@ pub fn plan(req: &Request, runtime: &dyn WasmRuntime) -> Result<Plan, OpError> {
     }
     let version = req.version.to_string();
 
-    let (mut extensions, installs) = extensions_of(req.extensions, runtime)?;
+    let (extensions, installs) = extensions_of(req.extensions, runtime)?;
+    // A builtin is enabled after the builtins it requires, as `add` does.
+    let mut extensions = with_required_builtins(extensions, runtime)?;
     // Test obligations (`verify`) on software kinds come from
     // @specforge/testing (ADR 0002), so enabling software enables it too;
     // the project's test runners get the extensions that collect their
@@ -146,7 +148,7 @@ pub fn plan(req: &Request, runtime: &dyn WasmRuntime) -> Result<Plan, OpError> {
         }
     }
 
-    let starter = match starter_template(&extensions, &installs, runtime) {
+    let starter = match starter_template(&extensions, &installs, runtime)? {
         Some(template) => template
             .replace("{project}", &spec_id)
             .replace("{version}", &version),
@@ -300,31 +302,60 @@ fn extensions_of(
     Ok((extensions, installs))
 }
 
+/// `extensions`, each builtin after the builtins it requires, each once, in
+/// order.
+fn with_required_builtins(
+    extensions: Vec<String>,
+    runtime: &dyn WasmRuntime,
+) -> Result<Vec<String>, OpError> {
+    let mut enabled: Vec<String> = Vec::new();
+    for name in extensions {
+        if let Some(builtin) = extension::builtin_name(&name) {
+            for peer in extension::required_builtins(runtime, builtin)? {
+                if !enabled.iter().any(|e| e == peer) {
+                    enabled.push(peer.to_string());
+                }
+            }
+        }
+        if !enabled.contains(&name) {
+            enabled.push(name);
+        }
+    }
+    Ok(enabled)
+}
+
 /// The starter template the extensions contribute: the one listed first
 /// wins. A local file contributes under the name it declares, read by the
 /// plan; a builtin is read from the binary, through `runtime`, only until a
-/// template is found.
+/// template is found, and one that does not load refuses the init.
 fn starter_template(
     extensions: &[String],
     installs: &[LocalFile],
     runtime: &dyn WasmRuntime,
-) -> Option<String> {
-    extensions.iter().find_map(|name| {
-        match installs
+) -> Result<Option<String>, OpError> {
+    for name in extensions {
+        let local = installs
             .iter()
-            .find(|local| local.binary.candidate().name() == name)
-        {
+            .find(|local| local.binary.candidate().name() == name);
+        let template = match local {
             Some(local) => local
                 .binary
                 .candidate()
                 .starter_template()
                 .map(str::to_string),
-            // A load failure only costs the builtin its template.
-            None => extension::builtin_name(name)
-                .and_then(|builtin| Candidate::builtin(runtime, builtin).ok())
-                .and_then(|candidate| candidate.starter_template().map(str::to_string)),
+            // A builtin that does not load refuses the init (E028).
+            None => match extension::builtin_name(name) {
+                Some(builtin) => Candidate::builtin(runtime, builtin)?
+                    .starter_template()
+                    .map(str::to_string),
+                None => None,
+            },
+        };
+        if template.is_some() {
+            return Ok(template);
         }
-    })
+    }
+    Ok(None)
 }
 
 fn sanitize_entity_id(name: &str) -> String {

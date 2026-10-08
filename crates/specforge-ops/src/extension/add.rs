@@ -220,7 +220,7 @@ fn add_builtin(
     let peers = if enabled.contains(&name) {
         Vec::new()
     } else {
-        super::required_builtins(runtime, name)
+        super::required_builtins(runtime, name)?
     };
     let mut peers_enabled = Vec::new();
     let config = req.root.join(crate::config::CONFIG_FILE);
@@ -958,33 +958,119 @@ mod tests {
         );
     }
 
-    /// Bug pin (flipped by the ticket that fixes it): a builtin whose
-    /// declaration cannot be read is enabled, silently, without its peers.
-    #[test]
-    fn a_builtin_whose_declaration_cannot_be_read_is_enabled_without_its_peers() {
+    #[specforge_test(
+        behavior = "add_extension_to_existing_project",
+        verify = "a builtin whose declaration cannot be read is refused before anything is written"
+    )]
+    fn a_builtin_whose_declaration_cannot_be_read_is_refused() {
+        use crate::config::testing::files_under;
         let dir = project_with(EMPTY_PROJECT);
+        let before = files_under(dir.path());
 
-        let added = add(
+        let error = add(
             &builtin_request(dir.path(), "@specforge/cargo-test"),
             &crate::registry::Unconfigured("add"),
             &InProcessRuntime::new(),
+        )
+        .unwrap_err();
+
+        assert_eq!(error.code, "E028");
+        assert!(
+            error
+                .message
+                .starts_with("the builtin '@specforge/cargo-test' does not load: "),
+            "{}",
+            error.message
+        );
+        assert_eq!(files_under(dir.path()), before);
+    }
+
+    #[specforge_test(
+        behavior = "add_extension_to_existing_project",
+        verify = "add enables the builtins a required builtin peer requires, dependencies first"
+    )]
+    fn add_enables_what_a_required_builtin_requires_first() {
+        let dir = project_with(EMPTY_PROJECT);
+        let registry = crate::registry::Unconfigured("add");
+        let chain = serving_builtin(
+            serving_builtin(
+                serving_builtin(
+                    runtime(),
+                    "@specforge/formal",
+                    declaring(
+                        "@specforge/formal",
+                        "1.0.0",
+                        &[("@specforge/software", "^1.0", false)],
+                    ),
+                ),
+                "@specforge/software",
+                declaring(
+                    "@specforge/software",
+                    "1.0.0",
+                    &[("@specforge/product", "^1.0", false)],
+                ),
+            ),
+            "@specforge/product",
+            declaring("@specforge/product", "1.0.0", &[]),
+        );
+
+        let added = add(
+            &builtin_request(dir.path(), "@specforge/formal"),
+            &registry,
+            &chain,
         )
         .unwrap();
 
         assert_eq!(
             added.outcome,
             AddOutcome::Builtin {
-                name: "@specforge/cargo-test",
+                name: "@specforge/formal",
                 changed: true,
-                peers_enabled: Vec::new(),
+                peers_enabled: vec!["@specforge/product", "@specforge/software"],
             }
         );
         assert_eq!(
             specforge_common::read_project_config(dir.path())
                 .config
                 .extensions,
-            ["@specforge/cargo-test"]
+            [
+                "@specforge/product",
+                "@specforge/software",
+                "@specforge/formal"
+            ]
         );
+        assert_eq!(added.writes.names_under(dir.path()), ["specforge.json"]);
+
+        // A cycle among required builtins stops the walk: the registry build
+        // reports it, and the add succeeds.
+        let cyclic_dir = project_with(EMPTY_PROJECT);
+        let cycle = serving_builtin(
+            serving_builtin(
+                runtime(),
+                "@specforge/formal",
+                declaring(
+                    "@specforge/formal",
+                    "1.0.0",
+                    &[("@specforge/software", "^1.0", false)],
+                ),
+            ),
+            "@specforge/software",
+            declaring(
+                "@specforge/software",
+                "1.0.0",
+                &[("@specforge/formal", "^1.0", false)],
+            ),
+        );
+        let added = add(
+            &builtin_request(cyclic_dir.path(), "@specforge/formal"),
+            &registry,
+            &cycle,
+        )
+        .unwrap();
+        assert!(matches!(
+            added.outcome,
+            AddOutcome::Builtin { changed: true, .. }
+        ));
     }
 
     #[test]

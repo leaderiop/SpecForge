@@ -795,7 +795,7 @@ fn init_without_a_path_is_invalid_input_on_path() {
 )]
 fn init_adds_the_requested_extensions_to_the_config() {
     let dir = fresh_project_dir();
-    let mut server = test_server();
+    let mut server = components_server();
 
     init(
         &mut server,
@@ -816,7 +816,7 @@ fn init_adds_the_requested_extensions_to_the_config() {
 )]
 fn init_extensions_in_result() {
     let dir = fresh_project_dir();
-    let mut server = test_server();
+    let mut server = components_server();
 
     let parsed = init(
         &mut server,
