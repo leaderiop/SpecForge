@@ -1412,12 +1412,12 @@ fn match_file_is_component_wise() {
 }
 
 /// An anchors manifest anchoring each `(entity, file)`.
-fn anchored(anchors: &[(&str, &str)]) -> specforge_common::AnchorManifest {
-    specforge_common::AnchorManifest {
+fn anchored(anchors: &[(&str, &str)]) -> specforge_ops::navigate::AnchorManifest {
+    specforge_ops::navigate::AnchorManifest {
         version: 1,
         anchors: anchors
             .iter()
-            .map(|(entity, file)| specforge_common::SourceAnchor {
+            .map(|(entity, file)| specforge_ops::navigate::SourceAnchor {
                 entity_id: entity.to_string(),
                 file: file.to_string(),
                 line: 1,

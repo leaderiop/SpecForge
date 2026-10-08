@@ -1,9 +1,34 @@
+//! Which source files inference covers: those the loaded analyzers would
+//! scan under the manifest's source roots.
+
 use std::collections::HashSet;
 use std::path::Path;
 
+use specforge_protocol_types::ExtensionDeclaration;
+
+use super::manifest::InferenceManifest;
+
+/// The source files the enabled analyzers would scan under `manifest`'s
+/// source roots.
+pub(super) fn source_files(
+    root: &Path,
+    declarations: &[ExtensionDeclaration],
+    manifest: &InferenceManifest,
+) -> Vec<String> {
+    let analyzers: Vec<AnalyzerConfig> = declarations
+        .iter()
+        .flat_map(|d| d.analyzers.iter())
+        .map(|ac| AnalyzerConfig {
+            file_extensions: ac.file_extensions.clone(),
+            excluded_dirs: ac.excluded_dirs.clone(),
+        })
+        .collect();
+    let discovery = SourceDiscoveryConfig::from_analyzer_configs(&analyzers);
+    discover_source_files(root, &manifest.source_roots, &discovery)
+}
+
 #[derive(Debug, Clone)]
 pub struct AnalyzerConfig {
-    pub language: String,
     pub file_extensions: Vec<String>,
     pub excluded_dirs: Vec<String>,
 }
@@ -158,7 +183,6 @@ mod tests {
     #[test]
     fn is_source_file_matches_analyzer_extensions() {
         let configs = vec![AnalyzerConfig {
-            language: "rust".to_string(),
             file_extensions: vec![".rs".to_string()],
             excluded_dirs: vec![],
         }];
@@ -185,7 +209,6 @@ mod tests {
         std::fs::write(src.join("readme.md"), "# Hello").unwrap();
 
         let config = SourceDiscoveryConfig::from_analyzer_configs(&[AnalyzerConfig {
-            language: "rust".to_string(),
             file_extensions: vec![".rs".to_string()],
             excluded_dirs: vec![],
         }]);
@@ -204,7 +227,6 @@ mod tests {
         std::fs::write(target.join("built.rs"), "").unwrap();
 
         let config = SourceDiscoveryConfig::from_analyzer_configs(&[AnalyzerConfig {
-            language: "rust".to_string(),
             file_extensions: vec![".rs".to_string()],
             excluded_dirs: vec!["target".to_string()],
         }]);
@@ -219,7 +241,6 @@ mod tests {
         std::fs::write(dir.path().join("lib.rs"), "").unwrap();
 
         let config = SourceDiscoveryConfig::from_analyzer_configs(&[AnalyzerConfig {
-            language: "rust".to_string(),
             file_extensions: vec![".rs".to_string()],
             excluded_dirs: vec![],
         }]);
@@ -231,12 +252,10 @@ mod tests {
     fn from_analyzer_configs_merges_extensions() {
         let configs = vec![
             AnalyzerConfig {
-                language: "rust".to_string(),
                 file_extensions: vec![".rs".to_string()],
                 excluded_dirs: vec!["target".to_string()],
             },
             AnalyzerConfig {
-                language: "typescript".to_string(),
                 file_extensions: vec![".ts".to_string(), ".tsx".to_string()],
                 excluded_dirs: vec!["node_modules".to_string()],
             },
@@ -250,7 +269,6 @@ mod tests {
     #[test]
     fn from_analyzer_configs_normalizes_dot_prefix() {
         let configs = vec![AnalyzerConfig {
-            language: "go".to_string(),
             file_extensions: vec!["go".to_string()],
             excluded_dirs: vec![],
         }];
@@ -261,7 +279,6 @@ mod tests {
     #[test]
     fn from_analyzer_configs_uses_default_excludes_when_none_specified() {
         let configs = vec![AnalyzerConfig {
-            language: "rust".to_string(),
             file_extensions: vec![".rs".to_string()],
             excluded_dirs: vec![],
         }];
@@ -274,12 +291,10 @@ mod tests {
     fn from_analyzer_configs_deduplicates_extensions() {
         let configs = vec![
             AnalyzerConfig {
-                language: "ts".to_string(),
                 file_extensions: vec![".ts".to_string()],
                 excluded_dirs: vec![],
             },
             AnalyzerConfig {
-                language: "tsx".to_string(),
                 file_extensions: vec![".ts".to_string(), ".tsx".to_string()],
                 excluded_dirs: vec![],
             },

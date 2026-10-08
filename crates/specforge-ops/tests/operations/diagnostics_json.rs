@@ -7,10 +7,10 @@
 //! moves those functions to typed codes.
 
 use serde_json::{Value, json};
-use specforge_common::{Diagnostic, InferenceManifest, SourceFileEntry};
+use specforge_common::Diagnostic;
 use specforge_extension_sdk::prelude::*;
 use specforge_ops::analyze::{AnalyzeOptions, analyze};
-use specforge_registry::build_registries;
+use specforge_registry::{RegistryBuild, build_registries};
 use specforge_registry_client::registry_client::RegistryError;
 
 use crate::view_support::Project;
@@ -80,22 +80,29 @@ fn registry_unauthorized() -> Diagnostic {
     .to_diagnostic()
 }
 
-/// I202: inference reports a source file that produced too many entities.
+/// I202: inference reports a source file that produced too many entities,
+/// through the lint the `inferred` profile runs.
 fn dense_inference() -> Diagnostic {
-    let root = tempfile::TempDir::new().unwrap();
-    std::fs::write(root.path().join("lib.rs"), "fn a() {}\n").unwrap();
-    let manifest = InferenceManifest {
-        version: 1,
-        source_roots: vec![".".to_string()],
-        source_index: vec![SourceFileEntry {
-            path: "lib.rs".to_string(),
-            content_hash: String::new(),
-            entities_produced: vec!["a".to_string(), "b".to_string()],
-            analyzed_at: String::new(),
-        }],
-    };
-    let diagnostics = specforge_common::compute_inference_diagnostics(root.path(), &manifest, 0.5);
-    only(diagnostics, "I202")
+    let mut project = Project::new("behavior a \"A\" {\n}\n", RegistryBuild::default());
+    project.env.config.inference.density_threshold = Some(0.5);
+    let root = project.dir.path();
+    std::fs::write(root.join("lib.rs"), "fn a() {}\n").unwrap();
+    std::fs::write(
+        root.join("specforge-infer.json"),
+        json!({
+            "version": 1,
+            "source_roots": ["."],
+            "source_index": [{
+                "path": "lib.rs",
+                "content_hash": "",
+                "entities_produced": ["a", "b"],
+                "analyzed_at": "",
+            }],
+        })
+        .to_string(),
+    )
+    .unwrap();
+    only(specforge_ops::infer::lint(&project.view()), "I202")
 }
 
 /// The one diagnostic of `diagnostics` whose code is `code`.

@@ -6,8 +6,7 @@ use specforge_protocol_types::{EntityKindDescriptor, ExtensionDeclaration};
 use specforge_registry::{FieldRegistryEntry, FieldType};
 use std::collections::HashMap;
 
-use specforge_common::inference::anchors::{AnchorManifest, load_anchor_manifest};
-use specforge_ops::navigate::anchors_of_file;
+use specforge_ops::navigate::{AnchorManifest, anchors_of_file, load_anchor_manifest};
 
 use crate::args::Arguments;
 use crate::prompt::{PromptOutcome, Rendered};

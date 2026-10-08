@@ -1,6 +1,6 @@
 use serde_json::{Value, json};
 
-use specforge_common::inference::anchors;
+use specforge_ops::navigate;
 
 use crate::args::Arguments;
 use crate::target::Call;
@@ -17,7 +17,7 @@ pub fn call(call: &mut Call<'_>, args: Args) -> Handled {
     let entity_id = args.entity_id.as_str();
 
     let project = call.project()?;
-    let manifest = match anchors::load_anchor_manifest(project.root) {
+    let manifest = match navigate::load_anchor_manifest(project.root) {
         Ok(m) => m,
         Err(e) => return Ok(super::manifest_error(e)),
     };

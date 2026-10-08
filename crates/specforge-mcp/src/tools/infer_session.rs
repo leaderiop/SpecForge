@@ -1,6 +1,6 @@
 use serde_json::{Value, json};
 
-use specforge_common::inference::{self, InferenceManifest, SourceFileEntry};
+use specforge_ops::infer::{self, InferenceManifest, SourceFileEntry};
 
 use specforge_ops::Writes;
 
@@ -73,7 +73,7 @@ pub fn call(call: &mut Call<'_>, args: Args) -> Mutated {
 }
 
 fn handle_start(_state: &McpState, args: &Args, project_root: &std::path::Path) -> Mutated {
-    let mut manifest = match inference::load_inference_manifest(project_root) {
+    let mut manifest = match infer::load_inference_manifest(project_root) {
         Ok(m) => m,
         Err(e) => return Mutated::refused(super::manifest_error(e)),
     };
@@ -135,13 +135,13 @@ fn handle_mark_analyzed(_state: &McpState, args: &Args, project_root: &std::path
 
     let entities: Vec<String> = args.entities_produced.clone();
 
-    let mut manifest = match inference::load_inference_manifest(project_root) {
+    let mut manifest = match infer::load_inference_manifest(project_root) {
         Ok(m) => m,
         Err(e) => return Mutated::refused(super::manifest_error(e)),
     };
 
     let abs_path = project_root.join(&source_file);
-    let content_hash = match inference::compute_content_hash(&abs_path) {
+    let content_hash = match infer::compute_content_hash(&abs_path) {
         Ok(h) => h,
         // Name the file as the agent did: the absolute path would leak
         // where the server's project lives.
@@ -203,7 +203,7 @@ fn handle_end(_state: &McpState, args: &Args, project_root: &std::path::Path) ->
         ));
     }
 
-    let manifest = match inference::load_inference_manifest(project_root) {
+    let manifest = match infer::load_inference_manifest(project_root) {
         Ok(m) => m,
         Err(e) => return Mutated::refused(super::manifest_error(e)),
     };

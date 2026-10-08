@@ -1,5 +1,4 @@
-pub mod anchors;
-pub mod discovery;
+//! The inference manifest: `<root>/specforge-infer.json`.
 
 use std::collections::HashMap;
 use std::fs;
@@ -9,11 +8,28 @@ use std::path::Path;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-pub use discovery::{AnalyzerConfig, SourceDiscoveryConfig, discover_source_files};
+use crate::{OpError, OpErrorKind};
 
 const CURRENT_VERSION: u32 = 1;
 /// The inference manifest, at the project root.
 pub const MANIFEST_FILENAME: &str = "specforge-infer.json";
+
+/// `specforge-infer.json` exists but cannot be read.
+pub const MANIFEST_UNREADABLE: &str = "infer_manifest_unreadable";
+/// `specforge-infer.json` is not a valid inference manifest.
+pub const MANIFEST_INVALID: &str = "infer_manifest_invalid";
+
+/// The inference manifest at `root`: an empty one when there is none.
+pub(super) fn manifest(root: &Path) -> Result<InferenceManifest, OpError> {
+    load_inference_manifest(root).map_err(|message| {
+        let (kind, code) = if message.starts_with("failed to read") {
+            (OpErrorKind::Internal, MANIFEST_UNREADABLE)
+        } else {
+            (OpErrorKind::SchemaMismatch, MANIFEST_INVALID)
+        };
+        OpError::new(kind, code, message)
+    })
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InferenceManifest {
@@ -154,106 +170,6 @@ pub fn detect_stale_entries(
     }
 
     (stale, deleted)
-}
-
-pub fn compute_inference_diagnostics(
-    project_root: &Path,
-    manifest: &InferenceManifest,
-    density_threshold: f64,
-) -> Vec<crate::Diagnostic> {
-    let mut diagnostics = Vec::new();
-
-    let (stale, _deleted) = detect_stale_entries(project_root, manifest);
-    for path in &stale {
-        diagnostics.push(
-            crate::Diagnostic::new(
-                crate::codes::I200,
-                format!(
-                    "Source file '{}' has changed since it was analyzed — inferred entities may be stale",
-                    path
-                ),
-            )
-            .with_suggestion("Re-analyze this file to update inferred entities".to_string()),
-        );
-    }
-
-    for entry in &manifest.source_index {
-        if entry.entities_produced.is_empty() {
-            continue;
-        }
-        let abs_path = project_root.join(&entry.path);
-        if !abs_path.exists() {
-            continue;
-        }
-        let line_count = match fs::read_to_string(&abs_path) {
-            Ok(content) => content.lines().count().max(1),
-            Err(_) => continue,
-        };
-        let density = entry.entities_produced.len() as f64 / line_count as f64;
-        if density > density_threshold {
-            diagnostics.push(
-                crate::Diagnostic::new(
-                    crate::codes::I202,
-                    format!(
-                        "High inference density in '{}': {} entities from {} lines ({:.1} entities/100 lines, threshold: {:.1})",
-                        entry.path,
-                        entry.entities_produced.len(),
-                        line_count,
-                        density * 100.0,
-                        density_threshold * 100.0,
-                    ),
-                )
-                .with_suggestion(
-                    "Consider whether some inferred entities should be merged or removed"
-                        .to_string(),
-                ),
-            );
-        }
-    }
-
-    diagnostics
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SourceItem {
-    pub name: String,
-    pub item_kind: String,
-    pub file: String,
-    pub line: usize,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub scanner: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GapReport {
-    pub total_pub_items: usize,
-    pub covered_items: usize,
-    pub gaps: Vec<SourceItem>,
-    pub approximate: bool,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub scanners_used: Vec<String>,
-}
-
-pub fn compute_gap_report(
-    scanned_items: Vec<SourceItem>,
-    entity_ids: &[&str],
-    scanners_used: Vec<String>,
-) -> GapReport {
-    let total = scanned_items.len();
-    let entity_set: std::collections::HashSet<&str> = entity_ids.iter().copied().collect();
-
-    let gaps: Vec<SourceItem> = scanned_items
-        .into_iter()
-        .filter(|item| !entity_set.contains(item.name.as_str()))
-        .collect();
-
-    GapReport {
-        total_pub_items: total,
-        covered_items: total - gaps.len(),
-        scanners_used,
-        gaps,
-        approximate: false,
-    }
 }
 
 #[cfg(test)]
@@ -443,123 +359,5 @@ mod tests {
         let m = InferenceManifest::default();
         let json = serde_json::to_string(&m).unwrap();
         assert!(!json.contains("source_index"));
-    }
-
-    #[test]
-    fn gap_report_identifies_uncovered_items() {
-        let items = vec![
-            SourceItem {
-                name: "hello".into(),
-                item_kind: "function".into(),
-                file: "src/lib.rs".into(),
-                line: 1,
-                scanner: Some("rust".into()),
-            },
-            SourceItem {
-                name: "config".into(),
-                item_kind: "struct".into(),
-                file: "src/lib.rs".into(),
-                line: 2,
-                scanner: Some("rust".into()),
-            },
-        ];
-        let report = compute_gap_report(items, &["hello"], vec!["rust".into()]);
-        assert_eq!(report.total_pub_items, 2);
-        assert_eq!(report.covered_items, 1);
-        assert_eq!(report.gaps.len(), 1);
-        assert_eq!(report.gaps[0].name, "config");
-        assert!(!report.approximate);
-        assert_eq!(report.scanners_used, vec!["rust"]);
-    }
-
-    #[test]
-    fn gap_report_all_covered() {
-        let items = vec![SourceItem {
-            name: "hello".into(),
-            item_kind: "function".into(),
-            file: "src/lib.rs".into(),
-            line: 1,
-            scanner: Some("rust".into()),
-        }];
-        let report = compute_gap_report(items, &["hello"], vec!["rust".into()]);
-        assert_eq!(report.gaps.len(), 0);
-        assert_eq!(report.covered_items, 1);
-    }
-
-    #[test]
-    fn gap_report_empty_items() {
-        let report = compute_gap_report(vec![], &["hello"], vec![]);
-        assert_eq!(report.total_pub_items, 0);
-        assert_eq!(report.gaps.len(), 0);
-    }
-
-    #[test]
-    fn i200_stale_source_anchor() {
-        let dir = TempDir::new().unwrap();
-        let file = dir.path().join("main.rs");
-        fs::write(&file, "fn main() {}").unwrap();
-
-        let hash = compute_content_hash(&file).unwrap();
-        let mut manifest = InferenceManifest::default();
-        manifest.upsert_source_entry(SourceFileEntry {
-            path: "main.rs".to_string(),
-            content_hash: hash,
-            entities_produced: vec!["app_main".to_string()],
-            analyzed_at: "t".to_string(),
-        });
-
-        let diags = compute_inference_diagnostics(dir.path(), &manifest, 0.05);
-        assert!(diags.iter().all(|d| d.code != "I200"));
-
-        fs::write(&file, "fn main() { changed }").unwrap();
-        let diags = compute_inference_diagnostics(dir.path(), &manifest, 0.05);
-        assert!(diags.iter().any(|d| d.code == "I200"));
-    }
-
-    #[test]
-    fn i202_high_density() {
-        let dir = TempDir::new().unwrap();
-        let file = dir.path().join("tiny.rs");
-        fs::write(&file, "pub fn a() {}\npub fn b() {}").unwrap();
-
-        let hash = compute_content_hash(&file).unwrap();
-        let mut manifest = InferenceManifest::default();
-        manifest.upsert_source_entry(SourceFileEntry {
-            path: "tiny.rs".to_string(),
-            content_hash: hash,
-            entities_produced: vec![
-                "e1".into(),
-                "e2".into(),
-                "e3".into(),
-                "e4".into(),
-                "e5".into(),
-            ],
-            analyzed_at: "t".to_string(),
-        });
-
-        let diags = compute_inference_diagnostics(dir.path(), &manifest, 0.05);
-        assert!(diags.iter().any(|d| d.code == "I202"));
-    }
-
-    #[test]
-    fn i202_below_threshold_no_diagnostic() {
-        let dir = TempDir::new().unwrap();
-        let file = dir.path().join("big.rs");
-        let content = (0..200)
-            .map(|i| format!("pub fn func_{i}() {{}}\n"))
-            .collect::<String>();
-        fs::write(&file, &content).unwrap();
-
-        let hash = compute_content_hash(&file).unwrap();
-        let mut manifest = InferenceManifest::default();
-        manifest.upsert_source_entry(SourceFileEntry {
-            path: "big.rs".to_string(),
-            content_hash: hash,
-            entities_produced: vec!["one".into()],
-            analyzed_at: "t".to_string(),
-        });
-
-        let diags = compute_inference_diagnostics(dir.path(), &manifest, 0.05);
-        assert!(diags.iter().all(|d| d.code != "I202"));
     }
 }

@@ -6,8 +6,7 @@
 use crate::OutputFormat;
 use crate::outcome::Refusal;
 use serde_json::json;
-use specforge_common::inference::MANIFEST_FILENAME;
-use specforge_ops::infer::{self, Gaps, Progress};
+use specforge_ops::infer::{self, Gaps, MANIFEST_FILENAME, Progress};
 use specforge_ops::view::ProjectView;
 use std::path::Path;
 

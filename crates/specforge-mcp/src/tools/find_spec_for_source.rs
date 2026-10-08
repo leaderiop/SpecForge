@@ -1,7 +1,7 @@
 use serde_json::{Value, json};
 
-use specforge_common::inference::anchors::{self, SourceAnchor};
 use specforge_graph::Graph;
+use specforge_ops::navigate::{self, SourceAnchor};
 use specforge_ops::navigate::{FileAnchors, FileMatch, anchors_of_file};
 
 use crate::args::Arguments;
@@ -47,7 +47,7 @@ pub fn call(call: &mut Call<'_>, args: Args) -> Handled {
     let file_path = args.file_path.as_str();
 
     let project = call.project()?;
-    let manifest = match anchors::load_anchor_manifest(project.root) {
+    let manifest = match navigate::load_anchor_manifest(project.root) {
         Ok(m) => m,
         Err(e) => return Ok(super::manifest_error(e)),
     };
