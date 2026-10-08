@@ -482,7 +482,7 @@ behavior management_operations_over_the_project_view "Management Operations over
   types      [ExtensionDeclaration, Diagnostic]
   ports      [CompilerApi, McpProtocol, FileSystem]
   requires {
-    project_compiled "A compiled project or a project session supplies the project view"
+    project_compiled "A compiled project, one-shot or a project session's, supplies the project view"
   }
   ensures {
     one_project_read "Each operation reads the config, the enabled entries, the lock, the loaded declarations and the reported diagnostics of the compile behind its view, never specforge.json or specforge.lock again"

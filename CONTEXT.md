@@ -16,9 +16,12 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   opens in two steps (`ProjectSession::begin_open`, then `OpeningProject::finish`), so an editor
   answers what needs only the environment (keyword completion) while the sources are still being
   read.
-- **Compiled project**: an environment plus the sources it read, their graph build and import diagnostics.
-  Its diagnostics are, by definition, what `specforge check` reports under the default policy
-  (`specforge_project::CompiledProject`).
+- **Compiled project**: an environment plus the sources it read, their graph build, what resolving their
+  imports and running the checks reported, and the memo of its entity snapshot and coverage. Its
+  diagnostics are, by definition, what `specforge check` reports under the default policy, in the one
+  report order: the environment's, the imports', the graph build's, the checks', then surface conflicts
+  (`specforge_project::CompiledProject`). A one-shot compile (every CLI command) is one and keeps no
+  stamp; a project session holds one and keeps it current (`ProjectSession::project`, ADR 0047).
 - **Format version**: the `.spec` file format a file was written against, `MAJOR.MINOR`, declared by
   the `// specforge-format:` header on its first non-blank line; a file with no header is at the
   current version and reports nothing. The parser reads it with the file
@@ -26,8 +29,9 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   I007 (older) and E019 (newer, or a header that is not `MAJOR.MINOR`) on the header line, like any
   parser diagnostic; `specforge migrate` reads the version through the same function. It is
   distinct from the Graph Protocol's schema version.
-- **Project session**: a long-lived compiled project that knows what it is built from: its sources
-  and its **session inputs**. It classifies any changed path through them, applies changes as an
+- **Project session**: a compiled project kept current, plus what it is built from: its **session
+  inputs**, the stamps of what it last read, and where each environment load gets its extension runtime
+  (ADR 0047). It classifies any changed path through them, applies changes as an
   update, an environment reload or a re-check, and can bring itself up to date with disk without a
   watcher (`ensure_fresh`). A session is opened from disk or detached (no project: what the LSP
   holds with no workspace folder and MCP while nothing is served). Watch, the LSP and MCP each hold
@@ -38,7 +42,9 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   ADR 0030, ADR 0035). In a debug build it checks every update against a cold rebuild, whichever
   surface holds it, and each surface reports a divergence where it reports (ADR 0035). The LSP gives it its open documents as **held buffers**, each batch of edits as one update
   (`SourceChange::Hold`), and releases a closed document's buffer (`ProjectSession::release`); what an open
-  buffer is to its file is the session's to say (ADR 0023, ADR 0046).
+  buffer is to its file is the session's to say (ADR 0023, ADR 0046). After every update that runs the
+  checks, its compiled project reports exactly what a fresh compile of the same sources reports, in the
+  same order (an editor update that skips the checks while a file does not parse is the one exception).
 - **Session inputs**: everything a project session depends on besides its sources' text: where its
   sources are discovered (the spec root and `exclude`), its **environment inputs**
   (`specforge.json`, `specforge.lock`, the extension modules it loaded) and its **check inputs**
@@ -55,7 +61,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   are published with its version. Only the LSP holds buffers (ADR 0046).
 - **Call target**: the project one MCP call acts on, resolved from the call's optional `path` and its
   entry's target before the handler runs: the served session (brought up to date unless `use_cached`),
-  another project compiled for that call only, the directory `init` creates, or, with nothing served and
+  another project opened as a session for that call only and brought up to date after the call writes, as the served one is, the directory `init` creates, or, with nothing served and
   no project named, the empty session for an entry that reads only the project view
   (`specforge_mcp::target::CallTarget`). An entry's target is derived from what its handler is given
   (nothing, the project view, the project, the new directory), never declared beside it: an entry
@@ -225,9 +231,9 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   compiled from, and what the surface reports for it; its entity snapshot, through the per-compile
   memo (`ProjectView::entities`) (`specforge_ops::view::ProjectView`). It owns
   the project's recorded test report and its versioned schema, both read at that root and never an
-  ancestor's. The CLI builds one from its compiled project (`ProjectView::of`); MCP from its call
-  target (`ProjectRef::view`: the project session with its I017 notices, or another project
-  compiled for one call); the LSP from its session (`ProjectView::of_session`) (ADR 0015).
+  ancestor's. The CLI builds one from its compiled project and the LSP from its session's
+  (`ProjectView::of`); MCP from its call target (`ProjectRef::view`: the served session's compiled
+  project with its I017 notices, or that of a session opened for one call) (ADR 0015, ADR 0047).
 - **Read view**: an operation that only reads the project view: stats, trace, the coverage view, the
   model and outline diagrams, the versioned schema, inspect, query, list and search (the entities a
   selection over the view returns, `specforge_ops::query`), the exploration and the review

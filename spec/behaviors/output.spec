@@ -227,7 +227,7 @@ behavior read_views_over_the_project_view "Read Views over the Project View" {
   types      [Graph, KindRegistryEntry, GraphProtocolSchema, TraceChain]
   ports      [CompilerApi, McpProtocol]
   requires {
-    project_compiled "A compiled project or a project session supplies the project view"
+    project_compiled "A compiled project, one-shot or a project session's, supplies the project view"
   }
   ensures {
     one_report_rule        "The recorded test report and the schema cache are the view root's, never an ancestor's"
@@ -304,7 +304,7 @@ behavior explore_the_graph "Explore the Graph" {
   category   query
   types      [Graph, Diagnostic]
   requires {
-    project_compiled "A compiled project or a project session supplies the project view"
+    project_compiled "A compiled project, one-shot or a project session's, supplies the project view"
   }
   ensures {
     one_selection    "entity_id, depth and kind select the entities every list is about"
@@ -343,7 +343,7 @@ behavior review_coverage_gaps "Review Coverage Gaps" {
   category   query
   types      [Graph, Diagnostic]
   requires {
-    project_compiled "A compiled project or a project session supplies the project view"
+    project_compiled "A compiled project, one-shot or a project session's, supplies the project view"
   }
   ensures {
     neighbourhood_rows "the coverage view's rows of the entities that count toward coverage within depth hops of entity_id"
