@@ -128,6 +128,15 @@ fn an_extension_declaring_no_policy_runs_under_the_ceiling() {
     );
 }
 
+/// The handshake an older SDK built: `name`'s own, with `sandbox_policy`
+/// as that SDK wrote it (permission fields the type no longer has).
+fn older_handshake(name: &'static str, sandbox_policy: serde_json::Value) -> WasmCallResult {
+    let mut handshake: serde_json::Value =
+        serde_json::from_str(&declaring(name)().handshake_json()).unwrap();
+    handshake["sandbox_policy"] = sandbox_policy;
+    raw(handshake.to_string().as_bytes())
+}
+
 #[specforge_test_macros::test(
     behavior = "configure_sandbox_policy",
     verify = "Configure Sandbox Policy: sandbox policy configuration holds — handshake_read, limits_held_to_ceiling, above_ceiling_warned, capabilities_never_granted, limits_applied_at_handshake"
@@ -137,17 +146,21 @@ fn an_extension_declaring_no_policy_runs_under_the_ceiling() {
     verify = "a sandbox_policy key that asks for a capability is W153"
 )]
 fn a_sandbox_policy_key_that_asks_for_a_capability_is_w153() {
-    let runtime = InProcessRuntime::new().with(|| {
-        let mut meta = ExtensionMeta::new("@acme/asks", "1.0.0");
-        meta.sandbox_policy = Some(SandboxPolicy {
-            max_memory_mb: Some(64),
-            max_execution_ms: Some(60_000),
-            network_access: Some(true),
-            allowed_paths: vec!["/etc".into()],
-            ..Default::default()
-        });
-        ContributionsBuilder::new(meta)
-    });
+    let runtime = InProcessRuntime::new()
+        .with(declaring("@acme/asks"))
+        .answer_raw(
+            "@acme/asks",
+            "__handshake",
+            older_handshake(
+                "@acme/asks",
+                json!({
+                    "max_memory_mb": 64,
+                    "max_execution_ms": 60_000,
+                    "network_access": true,
+                    "allowed_paths": ["/etc"],
+                }),
+            ),
+        );
     let loaded = load_declaration(&runtime, "@acme/asks").unwrap();
 
     // One W153 per key, and no W138: the handshake is not a describe item.
@@ -181,24 +194,51 @@ fn a_sandbox_policy_key_that_asks_for_a_capability_is_w153() {
     );
 }
 
-/// Pin of today: a surface's sandbox override, which grants nothing, loads
-/// without a warning. ADR 0037 makes it a W153 when the `sandbox` key
-/// becomes an unknown describe key (the protocol trim).
 #[test]
-fn pin_a_surface_sandbox_override_loads_without_warning() {
+fn a_policy_of_two_limits_loads_clean() {
+    let runtime = InProcessRuntime::new().with(|| {
+        let mut meta = ExtensionMeta::new("@acme/tidy", "1.0.0");
+        meta.sandbox_policy = Some(SandboxPolicy {
+            max_memory_mb: Some(64),
+            max_execution_ms: Some(1000),
+        });
+        ContributionsBuilder::new(meta)
+    });
+    let loaded = load_declaration(&runtime, "@acme/tidy").unwrap();
+    assert!(loaded.warnings.is_empty(), "{:?}", loaded.warnings);
+}
+
+#[specforge_test_macros::test(
+    behavior = "configure_sandbox_policy",
+    verify = "a surface's sandbox override is W153"
+)]
+fn a_surface_sandbox_override_is_w153() {
     let runtime = InProcessRuntime::new().with(|| {
         let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/asks", "1.0.0"));
         c.command("x", |cmd| {
-            cmd.title("X")
-                .sandbox(|s| {
-                    s.fs_write();
-                })
-                .handler(|_| CommandOutput::default());
+            cmd.title("X").handler(|_| CommandOutput::default());
         });
+        // Served as an older guest describes it: the command with the
+        // `sandbox` override the descriptor no longer has.
+        c.raw_category(
+            "surfaces",
+            json!([{
+                "commands": [{
+                    "id": "x", "title": "X", "description": "", "export": "cmd__x",
+                    "sandbox": { "fs_write": true }
+                }]
+            }]),
+        );
         c
     });
     let loaded = load_declaration(&runtime, "@acme/asks").unwrap();
-    assert!(loaded.warnings.is_empty(), "{:?}", loaded.warnings);
+    assert_eq!(loaded.warnings.len(), 1, "{:?}", loaded.warnings);
+    assert_eq!(loaded.warnings[0].code, "W153");
+    assert!(
+        loaded.warnings[0].message.contains("#0.commands[x]"),
+        "{}",
+        loaded.warnings[0].message
+    );
 }
 
 // ── Handshake error handling ──

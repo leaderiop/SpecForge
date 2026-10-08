@@ -45,9 +45,7 @@ pub mod surface;
 /// the migration hook) declared with their handlers.
 mod operations;
 
-pub use surface::{
-    ArgBuilder, CommandBuilder, CommandCall, McpResourceBuilder, McpToolBuilder, SandboxBuilder,
-};
+pub use surface::{ArgBuilder, CommandBuilder, CommandCall, McpResourceBuilder, McpToolBuilder};
 
 /// Identity of the extension: what `__handshake` reports.
 #[derive(Debug, Clone, Default)]
@@ -1122,7 +1120,7 @@ pub mod prelude {
     pub use crate::{
         ArgBuilder, CommandBuilder, CommandCall, CommandError, CommandEvidence, CommandFormat,
         CommandGraph, CommandInput, CommandOutput, EntityEvidence, GraphEdge, GraphNode,
-        McpResourceBuilder, McpToolBuilder, SandboxBuilder,
+        McpResourceBuilder, McpToolBuilder,
     };
     pub use crate::{
         CollectEntityResult, CollectInput, CollectOutput, CollectReportFile, CollectTestResult,

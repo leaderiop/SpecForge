@@ -15,6 +15,7 @@ use probe_support::{
 use serde_json::{Value, json};
 use specforge_test_macros::test as specforge_test;
 use specforge_wasm::ExtensionCalls;
+use specforge_wasm::protocol::load_declaration;
 
 #[specforge_test(
     behavior = "dispatch_surface_command",
@@ -128,6 +129,29 @@ fn no_override_expands_the_ceiling() {
         ],
     );
     bait.untouched();
+}
+
+#[specforge_test(
+    invariant = "surface_sandbox_ceiling",
+    verify = "a surface's sandbox override grants nothing and is W153 at load"
+)]
+fn the_probe_loads_with_one_w153_per_override() {
+    let loaded = load_declaration(&probe_runtime(), PROBE).expect("the probe loads");
+    assert!(
+        loaded.warnings.iter().all(|warning| warning.code == "W153"),
+        "no W138: {:?}",
+        loaded.warnings
+    );
+    let items: Vec<&str> = [
+        "#0.commands[probe]",
+        "#0.mcp_tools[probe.tool]",
+        "#0.mcp_resources[probe-resource]",
+    ]
+    .into_iter()
+    .filter(|item| loaded.warnings.iter().any(|w| w.message.contains(item)))
+    .collect();
+    assert_eq!(items.len(), 3, "{:?}", loaded.warnings);
+    assert_eq!(loaded.warnings.len(), 3, "{:?}", loaded.warnings);
 }
 
 /// The component runtime keeps the contract every adapter of the

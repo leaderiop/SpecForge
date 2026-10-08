@@ -15,6 +15,7 @@ use specforge_protocol_types::{
 
 use crate::calls::{CallError, CallFailure, ExtensionCalls, Handshake};
 use crate::runtime::WasmRuntime;
+use crate::sandbox;
 
 /// A loaded declaration, with what its load found worth a warning.
 #[derive(Debug, Clone)]
@@ -58,7 +59,12 @@ pub fn load_declaration(
                     reason: reason(&error),
                 })
         },
-        |key| warnings.push(unknown_key(extension, key)),
+        |key| {
+            warnings.push(
+                sandbox::unhonoured_surface_key(extension, &key)
+                    .unwrap_or_else(|| unknown_key(extension, key)),
+            )
+        },
     )?;
     Ok(Loaded {
         declaration,

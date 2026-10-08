@@ -17,8 +17,7 @@ use crate::{
     CommandDescriptor, CompilerPassDescriptor, ContributionFlags, DescribeResponse,
     EdgeTypeDescriptor, EntityEnhancementDescriptor, EntityKindDescriptor, FeatureFlagDescriptor,
     FieldConstraintDescriptor, FieldDescriptor, HandshakeResponse, McpResourceDescriptor,
-    McpToolDescriptor, PeerDependency, ProtocolError, SurfaceDescriptor, SurfaceSandboxOverride,
-    ValidationRuleDescriptor,
+    McpToolDescriptor, PeerDependency, ProtocolError, SurfaceDescriptor, ValidationRuleDescriptor,
 };
 
 /// Everything one extension declares: its handshake and every describe
@@ -394,28 +393,21 @@ static RULE: Shape = Shape {
     fields: struct_fields::<ValidationRuleDescriptor>,
     nested: &[("constraint", Nested::One(&CONSTRAINT))],
 };
-static SANDBOX: Shape = Shape {
-    fields: struct_fields::<SurfaceSandboxOverride>,
-    nested: &[],
-};
 static ARG: Shape = Shape {
     fields: struct_fields::<CommandArgDescriptor>,
     nested: &[],
 };
 static COMMAND: Shape = Shape {
     fields: struct_fields::<CommandDescriptor>,
-    nested: &[
-        ("args", Nested::List(&ARG)),
-        ("sandbox", Nested::One(&SANDBOX)),
-    ],
+    nested: &[("args", Nested::List(&ARG))],
 };
 static TOOL: Shape = Shape {
     fields: struct_fields::<McpToolDescriptor>,
-    nested: &[("sandbox", Nested::One(&SANDBOX))],
+    nested: &[],
 };
 static RESOURCE: Shape = Shape {
     fields: struct_fields::<McpResourceDescriptor>,
-    nested: &[("sandbox", Nested::One(&SANDBOX))],
+    nested: &[],
 };
 static SURFACE: Shape = Shape {
     fields: struct_fields::<SurfaceDescriptor>,

@@ -85,7 +85,6 @@ fn full() -> ExtensionDeclaration {
                     description: None,
                     minimum: Some(0),
                 }],
-                sandbox: None,
             }],
             ..Default::default()
         },
@@ -257,13 +256,13 @@ fn an_unknown_item_key_is_reported() {
             },
             UnknownKey {
                 category: "surfaces",
-                item: "#0.commands[list].args[n]".to_string(),
-                key: "minimun".to_string(),
+                item: "#0.commands[list]".to_string(),
+                key: "sandbox".to_string(),
             },
             UnknownKey {
                 category: "surfaces",
-                item: "#0.commands[list].sandbox".to_string(),
-                key: "fs_raed".to_string(),
+                item: "#0.commands[list].args[n]".to_string(),
+                key: "minimun".to_string(),
             },
         ]
     );

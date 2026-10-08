@@ -188,37 +188,6 @@ async fn invalid_manifest_schema_is_rejected() {
 }
 
 #[tokio::test]
-async fn network_enabled_sandbox_policy_is_rejected() {
-    let dir = tempfile::tempdir().unwrap();
-    let state = app_state(dir.path(), 100);
-    let raw = auth::create_token(&state.database, None, "pub", Some(90), false);
-
-    let manifest = r#"{"handshake":{"protocol_version":"1","name":"@test/signed-ext","version":"1.0.0","contribution_flags":{},"peer_dependencies":[],"sandbox_policy":{"network_access":true}}}"#;
-    let response = app(state)
-        .oneshot(put_request(
-            &raw,
-            "@test%2Fsigned-ext",
-            "1.0.0",
-            multipart_body(
-                manifest,
-                WASM,
-                Some(r#"{"sig":"x","keyId":"y","pubkey":"z","signedAt":"now"}"#),
-            ),
-        ))
-        .await
-        .unwrap();
-
-    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
-    let body: serde_json::Value = serde_json::from_slice(
-        &axum::body::to_bytes(response.into_body(), 1_000_000)
-            .await
-            .unwrap(),
-    )
-    .unwrap();
-    assert_eq!(body["error"]["code"], "SANDBOX_POLICY_REJECTED");
-}
-
-#[tokio::test]
 async fn publish_rate_limit_returns_429() {
     let dir = tempfile::tempdir().unwrap();
     let state = app_state(dir.path(), 2); // 2 publishes per window per token

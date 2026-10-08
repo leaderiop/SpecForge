@@ -128,8 +128,8 @@ pub struct HandshakeRequest {
 /// `sandbox_policy` is a documented exception: serde treats `Option<T>`
 /// fields as implicitly optional, so absence and explicit `null` both
 /// deserialize to `None`. That default is fail-safe, not silent — `None`
-/// means the plugin declares no limits and the host substitutes its own
-/// deny-by-default policy (`specforge-wasm::sandbox::default_sandbox_policy`).
+/// means the plugin declares no limits and the host holds it to its ceiling
+/// (`Limits::CEILING` in `specforge_wasm::sandbox`).
 /// All builtin fixtures and every SDK-built extension serialize all six
 /// fields (`ContributionsBuilder::handshake_json` never elides them).
 ///
@@ -216,23 +216,18 @@ pub struct PeerDependency {
     pub optional: bool,
 }
 
-/// Sandbox constraints for extension execution.
+/// The limits an extension asks its sandbox to hold it to (ADR 0037). The
+/// host grants a component no capability, so the policy declares limits
+/// only. Each is held to the host's ceiling (`Limits::CEILING` in
+/// `specforge_wasm::sandbox`), and an undeclared one is the ceiling.
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct SandboxPolicy {
-    #[serde(default)]
-    pub max_memory_mb: Option<u32>,
-    #[serde(default)]
+    /// Wall-clock budget of one call, in milliseconds.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_execution_ms: Option<u32>,
-    #[serde(default)]
-    pub allowed_domains: Vec<String>,
-    #[serde(default)]
-    pub allowed_paths: Vec<String>,
-    #[serde(default)]
-    pub allowed_output_extensions: Vec<String>,
-    #[serde(default)]
-    pub network_access: Option<bool>,
-    #[serde(default)]
-    pub file_system_access: Option<bool>,
+    /// Ceiling of the instance's linear memory, in MiB.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_memory_mb: Option<u32>,
 }
 
 // ── Describe ──
@@ -485,8 +480,6 @@ pub struct CommandDescriptor {
     pub export: String,
     #[serde(default)]
     pub args: Vec<CommandArgDescriptor>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub sandbox: Option<SurfaceSandboxOverride>,
 }
 
 /// Describes an argument to a CLI command.
@@ -533,8 +526,6 @@ pub struct McpToolDescriptor {
     pub input_schema: serde_json::Value,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub output_schema: Option<serde_json::Value>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub sandbox: Option<SurfaceSandboxOverride>,
 }
 
 /// Describes an MCP resource contributed by an extension.
@@ -546,19 +537,6 @@ pub struct McpResourceDescriptor {
     pub description: Option<String>,
     pub export: String,
     pub mime_type: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub sandbox: Option<SurfaceSandboxOverride>,
-}
-
-/// Per-surface sandbox override.
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
-pub struct SurfaceSandboxOverride {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub fs_read: Option<bool>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub fs_write: Option<bool>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub network: Option<bool>,
 }
 
 // ── Grammar Descriptor ──

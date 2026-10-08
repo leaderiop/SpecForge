@@ -514,7 +514,6 @@ mod tests {
             category: None,
             export: format!("cmd__{id}"),
             args: Vec::new(),
-            sandbox: None,
         }
     }
 
