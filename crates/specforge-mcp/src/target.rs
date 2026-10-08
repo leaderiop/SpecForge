@@ -3,19 +3,18 @@
 //! A call's optional `path` and its entry's [`TargetSpec`] (reach and
 //! freshness) are resolved into one [`CallTarget`] before the handler runs:
 //! the served session, brought up to date with disk unless the call asks
-//! for the last compile; another project, compiled for this call only; or
-//! the directory `init` creates. Handlers read their project as a
+//! for the last compile; another project, opened as a session for this call
+//! only; or the directory `init` creates. Handlers read their project as a
 //! [`ProjectRef`] and cannot tell which adapter answered it; they never
 //! resolve a root, pick a freshness rule or reload anything themselves.
 
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 
 use serde_json::Value;
 use specforge_common::{Diagnostic, project_root_of};
 use specforge_graph::Graph;
 use specforge_ops::view::ProjectView;
-use specforge_project::{CompiledProject, SharedRuntime};
+use specforge_project::{ProjectSession, SharedRuntime};
 
 use crate::state::McpState;
 use crate::tool::{ErrorCode, McpError};
@@ -25,7 +24,7 @@ use crate::tool::{ErrorCode, McpError};
 pub enum Reach {
     /// The served project only: no listed `path` (its own root is accepted).
     Served,
-    /// The served project or, by `path`, another one compiled for this call.
+    /// The served project or, by `path`, another one opened for this call.
     AnyProject,
 }
 
@@ -216,8 +215,9 @@ impl TargetSpec {
 pub enum CallTarget {
     /// The served session (adopted if nothing was served).
     Served,
-    /// Compiled for this call; the server keeps serving its own.
-    Other(Box<OtherProject>),
+    /// Another project, opened as a session for this call; the server keeps
+    /// serving its own.
+    Other(Box<ProjectSession>),
     /// The directory `init` creates a project in.
     New(PathBuf),
     /// The tool reads no project.
@@ -229,57 +229,14 @@ pub enum CallTarget {
     EmptySession(Reach),
 }
 
-/// Another project, compiled for one call, with the one runtime it was
-/// compiled in.
-pub struct OtherProject {
-    root: PathBuf,
-    project: CompiledProject,
-    runtime: SharedRuntime,
-    /// The runtime was built for this project (not the host's), so a
-    /// recompile builds a fresh one: the call may have changed its
-    /// extensions.
-    owns_runtime: bool,
-}
-
-impl OtherProject {
-    /// Compile the project at `root`, its extensions running in `host`
-    /// when the server has one, else in a runtime of the project's own.
-    fn compile(root: PathBuf, host: Option<&SharedRuntime>) -> Self {
-        let (runtime, owns_runtime) = match host {
-            Some(host) => (Arc::clone(host), false),
-            None => (own_runtime(), true),
-        };
-        let project = CompiledProject::compile(&root, Some(runtime.as_ref()));
-        OtherProject {
-            root,
-            project,
-            runtime,
-            owns_runtime,
-        }
-    }
-
-    /// Compile again after the call wrote files: what `specforge check`
-    /// reports for the project now.
-    fn recompile(&mut self) {
-        if self.owns_runtime {
-            self.runtime = own_runtime();
-        }
-        self.project = CompiledProject::compile(&self.root, Some(self.runtime.as_ref()));
-    }
-}
-
-fn own_runtime() -> SharedRuntime {
-    Arc::new(specforge_component::ComponentRuntime::with_user_cache())
-}
-
-/// What every handler reads, from either adapter: the served session or a
-/// project compiled for the call.
+/// What every handler reads, from either adapter: the served session or the
+/// session opened for the call.
 pub struct ProjectRef<'a> {
     /// The project root (where `specforge.json` lives).
     pub root: &'a Path,
     /// The runtime its extensions run in: every project a call reaches has
-    /// one (the served session's, the host's or the project's own; the
-    /// one-shot compile's for another project), so an extension call never
+    /// one (the served session's, the host's or the project's own, as
+    /// `McpState::open` gives it), so an extension call never
     /// finds none (ADR 0017).
     pub runtime: &'a SharedRuntime,
     /// The project view, built once for the call: rooted at the project
@@ -309,7 +266,7 @@ impl<'a> ProjectRef<'a> {
     /// What every operation over this project reads, rooted at the project
     /// root: the one way MCP builds a project view. Its recorded test
     /// report and coverage are memoized by its owner (the served session,
-    /// or the project compiled for this call); it reports what `specforge
+    /// or the session opened for this call); it reports what `specforge
     /// check` reports, then, for the served project, the contributions of
     /// its extensions MCP does not serve under their names (I017).
     pub fn view(&self) -> ProjectView<'a> {
@@ -475,6 +432,16 @@ impl<'s> Call<'s> {
         Call { state, target }
     }
 
+    /// The session the call reads: the served one, or the one opened for
+    /// another project. `None` for a target that is no project.
+    fn session(&self) -> Option<&ProjectSession> {
+        match &self.target {
+            CallTarget::Served => Some(self.state.session()),
+            CallTarget::Other(session) => Some(session.as_ref()),
+            CallTarget::New(_) | CallTarget::Unscoped | CallTarget::EmptySession(_) => None,
+        }
+    }
+
     /// The project the call acts on. The empty session is
     /// `precondition_failed` (a target that refuses then never resolves to
     /// it), and a target that is no project is an internal error: tools
@@ -503,13 +470,20 @@ impl<'s> Call<'s> {
                     served: true,
                 })
             }
-            CallTarget::Other(other) => Ok(ProjectRef {
-                root: &other.root,
-                runtime: &other.runtime,
-                // Rooted where it was compiled: `other.root`.
-                view: ProjectView::of(&other.project),
-                served: false,
-            }),
+            CallTarget::Other(session) => {
+                // `McpState::open` opens every project from disk, with a
+                // runtime (see above).
+                let (Some(root), Some(runtime)) = (session.project().root(), session.runtime())
+                else {
+                    return Err(no_project(Reach::AnyProject));
+                };
+                Ok(ProjectRef {
+                    root,
+                    runtime,
+                    view: ProjectView::of(session.project()),
+                    served: false,
+                })
+            }
             CallTarget::EmptySession(reach) => Err(no_project(*reach)),
             // Only a project handler calls this, and its target never
             // resolves to these.
@@ -525,19 +499,17 @@ impl<'s> Call<'s> {
     }
 
     /// The runtime the call's operation reads an extension's declaration in:
-    /// its project's (the served session's, or the one another project was
-    /// compiled in); with none, the host's (`McpState::extension_runtime`),
+    /// its project's (the served session's, or the one another project's
+    /// session was opened with); with none, the host's (`McpState::extension_runtime`),
     /// else one of its own with the per-user compile cache. `init` and
     /// `add_extension` pass it to their operation (ADR 0028 D7).
     pub(crate) fn runtime(&self) -> SharedRuntime {
-        let project = match &self.target {
-            CallTarget::Served => self.state.session().runtime().cloned(),
-            CallTarget::Other(other) => Some(Arc::clone(&other.runtime)),
-            CallTarget::New(_) | CallTarget::Unscoped | CallTarget::EmptySession(_) => None,
-        };
-        project
+        self.session()
+            .and_then(|session| session.runtime().cloned())
             .or_else(|| self.state.extension_runtime.clone())
-            .unwrap_or_else(own_runtime)
+            .unwrap_or_else(|| {
+                std::sync::Arc::new(specforge_component::ComponentRuntime::with_user_cache())
+            })
     }
 
     /// The project view of what the call reads: its project's
@@ -567,8 +539,7 @@ impl<'s> Call<'s> {
     pub(crate) fn written_root(&self) -> Option<&Path> {
         match &self.target {
             CallTarget::New(dir) => Some(dir),
-            CallTarget::Served => self.state.session().project().root(),
-            CallTarget::Other(other) => Some(&other.root),
+            CallTarget::Served | CallTarget::Other(_) => self.session()?.project().root(),
             CallTarget::Unscoped | CallTarget::EmptySession(_) => None,
         }
     }
@@ -576,8 +547,8 @@ impl<'s> Call<'s> {
     /// The call wrote its target's files: bring the target up to date now
     /// and return what `specforge check` reports for it. Called only by
     /// [`crate::mutation::refresh`] (ADR 0022). The served project is
-    /// brought up to date with disk; another project is compiled again (the
-    /// server keeps serving its own); the directory `init` created is
+    /// brought up to date with disk; another project's session is brought up
+    /// to date the same way (the server keeps serving its own); the directory `init` created is
     /// served when nothing is (ADR 0014 D5).
     pub(crate) fn bring_up_to_date(&mut self) -> Vec<Diagnostic> {
         match &mut self.target {
@@ -585,9 +556,13 @@ impl<'s> Call<'s> {
                 self.state.ensure_fresh();
                 self.state.diagnostics()
             }
-            CallTarget::Other(other) => {
-                other.recompile();
-                other.project.diagnostics()
+            // Exactly what the call wrote is applied, as for the served
+            // project; nobody subscribes to another project's changes.
+            CallTarget::Other(session) => {
+                if let Some(update) = session.ensure_fresh() {
+                    crate::state::assert_converged(&update, "another project");
+                }
+                session.project().diagnostics()
             }
             CallTarget::New(dir) => {
                 if self.state.project_root().is_none() {
@@ -609,7 +584,7 @@ impl<'s> Call<'s> {
 /// one that does not exist is `file_not_found`. A path while nothing is
 /// served is adopted: the server serves it, and the call acts on it as the
 /// served project. A path naming the served project (or a directory inside
-/// it) is the served project; any other is compiled for this call only.
+/// it) is the served project; any other is opened as a session for this call only.
 /// `init`'s path is used as given (it creates it), and may not lie inside
 /// the served project.
 pub fn resolve(
@@ -672,10 +647,7 @@ pub fn resolve(
     if target.reach == Reach::Served {
         return Err(TargetError::OtherProjectRefused);
     }
-    Ok(CallTarget::Other(Box::new(OtherProject::compile(
-        root,
-        state.extension_runtime.as_ref(),
-    ))))
+    Ok(CallTarget::Other(Box::new(state.open(&root))))
 }
 
 /// The target argument `name` of the call, read as `T`: none when absent

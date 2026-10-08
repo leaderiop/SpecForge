@@ -70,8 +70,9 @@ invariant mcp_served_project_consistency "MCP Served Project Consistency" {
     an update for changed sources, an environment reload with its extension
     tools and resources for a changed specforge.json, specforge.lock or
     extension module. Subscribed clients learn what changed. A call whose
-    path names another project acts on that project only, compiled for the
-    call, and the server keeps serving its own without reloading it. A call
+    path names another project acts on that project only, opened for the
+    call and brought up to date after it writes as the served project is,
+    and the server keeps serving its own without reloading it. A call
     that names a tool, a resource or a prompt looks it up in the project as
     it is on disk: an extension enabled since the last request is found by
     the next one, whether the request is a call, a read, a listing or a
@@ -96,6 +97,7 @@ invariant mcp_served_project_consistency "MCP Served Project Consistency" {
   verify unit "an extension enabled on disk since the last request is listed by the next listing of every kind"
   verify unit "a subscription to an extension resource enabled on disk since the last request is accepted"
   verify unit "a mutation on another project does not reload the served one"
+  verify unit "a mutation on another project brings it up to date with what it wrote and reports what a fresh compile reports"
   verify unit "a path while no project is served serves that project, for every tool that takes a path"
   verify unit "a path inside the served project names the served project"
   verify unit "rename with a path to another project edits that project only and keeps serving this one"

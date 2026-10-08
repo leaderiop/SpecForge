@@ -98,7 +98,7 @@ behavior provide_mcp_validate_tool "Provide MCP Validate Tool" {
     that brings the served project up to date with disk (its diagnostics
     are what specforge check reports) and returns validation results as
     Graph Protocol diagnostics. The tool accepts path? (optional: the
-    project; another project is compiled for the call only),
+    project; another project is opened for the call only),
     severity_filter? (optional: error, warning or info, matched ignoring
     case; any other value is invalid input), strict? (optional boolean,
     treat warnings as errors), lint? (optional list of inferred and
@@ -717,8 +717,8 @@ behavior provide_mcp_analyze_tool "Provide MCP Analyze Tool" {
     accepts `strict` (warnings become errors), `test_results` (a
     specforge-report.json path), `use_cached` (analyze the served project
     as last brought up to date instead of bringing it up to date with disk)
-    and `path` (another project, compiled for the call only, its extension
-    passes run in the one runtime it was compiled in). With no project
+    and `path` (another project, opened for the call only, its extension
+    passes run in the one runtime it was opened with). With no project
     served and no `path` there is nothing to analyze: the call MUST be an
     isError result with a no-project McpError. Without `test_results` it MUST read the
     project's own specforge-report.json when one exists, as the CLI does,

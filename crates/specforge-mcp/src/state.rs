@@ -1,6 +1,6 @@
 use specforge_common::{Diagnostic, ProjectConfig};
 use specforge_graph::Graph;
-use specforge_project::{ProjectSession, SharedRuntime, Update, UpdateKind};
+use specforge_project::{ProjectSession, RuntimeSource, SharedRuntime, Update, UpdateKind};
 use specforge_registry::RegistryBuild;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -184,14 +184,23 @@ impl McpState {
         let update = if reloads {
             self.session.reload_environment()
         } else {
-            let next = match &self.extension_runtime {
-                Some(runtime) => ProjectSession::open_with_runtime(root, Some(Arc::clone(runtime))),
-                None => ProjectSession::open(root),
-            };
+            let next = self.open(root);
             let previous = std::mem::replace(&mut self.session, next);
             self.session.replaced(&previous)
         };
         self.applied(update, before);
+    }
+
+    /// A session of the project at `root`, its extensions running in the
+    /// host's runtime when the server has one, else in the project's own,
+    /// built for each environment load (ADR 0030 D3): how the served project
+    /// and another project a call names are opened.
+    pub(crate) fn open(&self, root: &Path) -> ProjectSession {
+        let source = match &self.extension_runtime {
+            Some(runtime) => RuntimeSource::Fixed(Some(Arc::clone(runtime))),
+            None => RuntimeSource::project(),
+        };
+        ProjectSession::open_from(root, source)
     }
 
     /// Bring the served project up to date with disk (behavior
@@ -223,12 +232,7 @@ impl McpState {
         // Every session verifies its updates in a debug build (ADR 0035):
         // a divergence from a cold rebuild is a bug, and this is the one
         // place every update of the served project passes.
-        if let Some(divergence) = update.divergence() {
-            debug_assert!(
-                false,
-                "an update of the served project diverged from a cold rebuild: {divergence}"
-            );
-        }
+        assert_converged(&update, "the served project");
         self.generation += 1;
         if update.kind == UpdateKind::Environment {
             self.surfaces = ExtensionSurfaceTable::build(
@@ -266,5 +270,16 @@ impl McpState {
         self.generation += 1;
         self.surfaces = ExtensionSurfaceTable::empty();
         released
+    }
+}
+
+/// An update that diverged from a cold rebuild is a bug (ADR 0035): a
+/// debug build stops on it. Every update MCP applies passes here.
+pub(crate) fn assert_converged(update: &Update, project: &str) {
+    if let Some(divergence) = update.divergence() {
+        debug_assert!(
+            false,
+            "an update of {project} diverged from a cold rebuild: {divergence}"
+        );
     }
 }
