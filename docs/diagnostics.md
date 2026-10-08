@@ -2478,19 +2478,6 @@ Owner: core
 Level: warning
 ```
 
-## W062
-
-```
-W062: Malformed semver version
-
-An extension manifest declares a peer dependency range or a version that is not
-valid semver. Use a valid semver version (e.g. `1.0.0`) or range (e.g. `^1.0.0`,
-`~1.2.0`, `>=1.0.0`).
-
-Owner: core
-Level: warning
-```
-
 ## W077
 
 ```
@@ -3186,6 +3173,7 @@ These codes are no longer emitted, and are never reused for another meaning.
 | W025 | (nothing) |
 | W026 | (nothing) |
 | W028 | (nothing) |
+| W062 | [E073](#e073) |
 | W063 | (nothing) |
 | W099 | (nothing) |
 | W111 | (nothing) |

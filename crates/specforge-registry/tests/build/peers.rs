@@ -1,6 +1,6 @@
 //! `registry_build_peer_dependencies`: every declared peer is checked
 //! against the loaded declarations' versions as a semver range. An
-//! unsatisfied peer is E027; a range or version that is not semver is W062.
+//! unsatisfied peer is E027; a range that is not a SemVer requirement is E073 (ADR 0041).
 
 use specforge_common::Severity;
 use specforge_extension_sdk::prelude::*;
@@ -143,26 +143,46 @@ fn a_peer_range_matches_as_semver() {
 
 #[spec(
     behavior = "registry_build_peer_dependencies",
-    verify = "a malformed peer range or installed version is W062"
+    verify = "a peer range that is not SemVer is E073, whether its peer is loaded, missing or optional"
 )]
-fn a_malformed_peer_range_or_installed_version_is_w062() {
-    let malformed_range = build([
+fn a_range_that_is_not_semver_is_e073_and_a_version_that_is_not_is_e027() {
+    // Loaded, missing and optional-and-absent: the range is read first.
+    let loaded = build([
         versioned("@specforge/software", "1.0.0", vec![]),
         versioned(
             "@specforge/product",
             "1.0.0",
-            vec![peer("@specforge/software", "not-a-version")],
+            vec![peer("@specforge/software", "one-ish")],
         ),
     ]);
-    assert_eq!(codes(&malformed_range), ["W062"]);
-    let w062 = coded(&malformed_range, "W062");
-    assert_eq!(w062[0].severity, Severity::Warning);
-    assert!(
-        w062[0].message.contains("'not-a-version'"),
-        "{}",
-        w062[0].message
-    );
+    let missing = build([versioned(
+        "@t/bad",
+        "1.0.0",
+        vec![peer("@t/base", "one-ish")],
+    )]);
+    let absent_optional = build([versioned(
+        "@t/bad",
+        "1.0.0",
+        vec![optional_peer("@t/base", "one-ish")],
+    )]);
+    for build in [&loaded, &missing, &absent_optional] {
+        assert_eq!(codes(build), ["E073"], "{:?}", diagnostics(build));
+        let e073 = coded(build, "E073");
+        assert_eq!(e073[0].severity, Severity::Error);
+        assert!(
+            e073[0].message.contains("'one-ish'")
+                && e073[0].message.contains("is not a SemVer requirement"),
+            "{}",
+            e073[0].message
+        );
+    }
+}
 
+#[spec(
+    behavior = "registry_build_peer_dependencies",
+    verify = "a peer loaded at a version that is not SemVer is E027"
+)]
+fn a_peer_loaded_at_a_version_that_is_not_semver_is_e027() {
     let malformed_version = build([
         versioned("@specforge/software", "bad-version", vec![]),
         versioned(
@@ -171,44 +191,16 @@ fn a_malformed_peer_range_or_installed_version_is_w062() {
             vec![peer("@specforge/software", "^1.0.0")],
         ),
     ]);
-    assert_eq!(codes(&malformed_version), ["W062"]);
-    let w062 = coded(&malformed_version, "W062");
-    assert_eq!(w062[0].severity, Severity::Warning);
+    assert_eq!(codes(&malformed_version), ["E027"]);
+    let e027 = coded(&malformed_version, "E027");
+    assert_eq!(e027[0].severity, Severity::Error);
     assert!(
-        w062[0].message.contains("'bad-version'"),
-        "{}",
-        w062[0].message
-    );
-}
-
-/// Pinned until T2 (ADR 0041): a malformed range on a missing peer is judged
-/// as a missing peer.
-#[test]
-fn pin_a_malformed_range_on_a_missing_peer_is_e027() {
-    let build = build([versioned(
-        "@t/bad",
-        "1.0.0",
-        vec![peer("@t/base", "one-ish")],
-    )]);
-    assert_eq!(codes(&build), ["E027"]);
-    assert!(
-        coded(&build, "E027")[0]
+        e027[0]
             .message
-            .ends_with("'@t/base' one-ish which is not installed"),
-        "{:?}",
-        diagnostics(&build)
+            .ends_with("version 'bad-version' is installed, which is not SemVer"),
+        "{}",
+        e027[0].message
     );
-}
-
-/// Pinned until T2: a malformed range on an absent optional peer is silent.
-#[test]
-fn pin_a_malformed_range_on_an_absent_optional_peer_is_silent() {
-    let build = build([versioned(
-        "@t/bad",
-        "1.0.0",
-        vec![optional_peer("@t/base", "one-ish")],
-    )]);
-    assert!(diagnostics(&build).is_empty(), "{:?}", diagnostics(&build));
 }
 
 #[spec(
@@ -234,7 +226,7 @@ fn an_extension_with_an_unsatisfied_peer_still_registers_its_kinds() {
 
 #[spec(
     behavior = "registry_build_peer_dependencies",
-    verify = "Registry Build Checks Peer Dependencies: peer dependency checking holds — declarations_in_load_order, peers_checked, unsatisfied_failed, malformed_warned"
+    verify = "Registry Build Checks Peer Dependencies: peer dependency checking holds — declarations_in_load_order, peers_checked, unsatisfied_failed, unreadable_failed"
 )]
 fn peer_dependency_checking_holds() {
     // declarations_in_load_order: software, then an extension with a peer
@@ -257,19 +249,19 @@ fn peer_dependency_checking_holds() {
     let unnamed = declare("", |_| {});
     let build = build([software(), checked.declaration(), unnamed]);
 
-    // peers_checked + unsatisfied_failed + malformed_warned, in peer order,
+    // peers_checked + unsatisfied_failed + unreadable_failed, in peer order,
     // after E030 and before W145.
     let declared: Vec<&str> = build
         .declaration_diagnostics
         .iter()
         .map(|d| d.code.as_str())
         .collect();
-    assert_eq!(declared, ["E030", "E027", "E027", "W062", "W145"]);
+    assert_eq!(declared, ["E030", "E027", "E027", "E073", "W145"]);
     let e027 = coded(&build, "E027");
     assert!(e027[0].message.contains("^2.0.0") && e027[0].message.contains("1.0.0"));
     assert!(e027[1].message.contains("'@test/missing'"));
     assert!(e027.iter().all(|d| d.severity == Severity::Error));
-    assert!(coded(&build, "W062")[0].message.contains("'one-ish'"));
+    assert!(coded(&build, "E073")[0].message.contains("'one-ish'"));
     assert!(build.registry_diagnostics.is_empty());
     assert!(build.surface_diagnostics.is_empty());
 }

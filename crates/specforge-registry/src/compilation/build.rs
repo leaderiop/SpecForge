@@ -14,8 +14,9 @@ use specforge_common::Diagnostic;
 use specforge_protocol_types::{CompilerPassDescriptor, ExtensionDeclaration};
 
 use super::declaration::{consistency, order_passes, shape};
+use super::peers;
 use super::populate::{keyword, populate};
-use super::validate::{peer_dependencies, validate_extension_testability};
+use super::validate::validate_extension_testability;
 use crate::rules::{Registries, Rules};
 use crate::{
     EdgeRegistry, FieldRegistry, FieldType, KindRegistry, SurfaceRegistryEntry,
@@ -78,7 +79,7 @@ pub struct RegistryBuild {
     /// load order, each extension's in its after/before order.
     pub passes: Vec<DeclaredPass>,
     /// The declarations' own diagnostics: E030 identity and shape, W021
-    /// self-consistency, E027 peers, W145 pass cycles — in that order,
+    /// self-consistency, the peers' E073 and E027, W145 pass cycles — in that order,
     /// extension by extension within each. Reported before
     /// `registry_diagnostics`.
     pub declaration_diagnostics: Vec<Diagnostic>,
@@ -129,13 +130,13 @@ impl RegistryBuild {
 /// Build every registry and derived input from the loaded declarations,
 /// which come in load order (dependencies first).
 pub fn build_registries(mut declarations: Vec<ExtensionDeclaration>) -> RegistryBuild {
-    // The declarations themselves: E030, W021, E027, then W145.
+    // The declarations themselves: E030, W021, the peers' E073 and E027, then W145.
     let mut declaration_diagnostics: Vec<Diagnostic> =
         declarations.iter().flat_map(shape).collect();
     for declaration in &declarations {
         declaration_diagnostics.extend(consistency(declaration, &declarations));
     }
-    declaration_diagnostics.extend(peer_dependencies(&declarations));
+    declaration_diagnostics.extend(peers::check(&declarations));
     let mut passes = Vec::new();
     for declaration in &declarations {
         let (ordered, cycle) = order_passes(declaration.name(), &declaration.passes);

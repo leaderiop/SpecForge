@@ -613,9 +613,6 @@ catalog! {
     W061: Warning core,
         "Reference cycle detected",
         "The resolved reference graph contains a cycle among entity references. Break the cycle by removing or inverting one of the references in the reported path.";
-    W062: Warning core,
-        "Malformed semver version",
-        "An extension manifest declares a peer dependency range or a version that is not valid semver. Use a valid semver version (e.g. `1.0.0`) or range (e.g. `^1.0.0`, `~1.2.0`, `>=1.0.0`).";
     W077: Warning product,
         "Invalid feature status",
         "A `feature` entity's `status` field is not one of the recognized values (`proposed`, `accepted`, `in_progress`, `done`, `deferred`, `deprecated`). Set `status` to one of these values.";

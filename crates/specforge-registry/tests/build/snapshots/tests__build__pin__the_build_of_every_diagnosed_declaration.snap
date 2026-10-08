@@ -30,9 +30,9 @@ expression: digest(&build)
       "extension '@pin/product' requires peer dependency '@pin/missing' ^1 which is not installed"
     ],
     [
-      "W062",
-      "Warning",
-      "extension '@pin/product' declares peer dependency '@pin/software' with malformed semver range 'not-a-version'"
+      "E073",
+      "Error",
+      "extension '@pin/product' declares peer dependency '@pin/software' with range 'not-a-version', which is not a SemVer requirement: unexpected character 'n' while parsing major version number"
     ],
     [
       "W145",

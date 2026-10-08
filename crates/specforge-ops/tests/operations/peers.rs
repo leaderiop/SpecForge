@@ -90,10 +90,10 @@ fn pin_doctor_reports_a_builtin_peer_as_not_installed() {
     assert!(report.has_errors());
 }
 
-/// Pinned until T2/T3: `check` warns (W062) and doctor errs on a malformed
-/// range.
+/// Pinned until T3: doctor judges a malformed range its own way, though `check` reports
+/// it as E073.
 #[test]
-fn pin_check_warns_and_doctor_errs_on_a_malformed_range() {
+fn pin_check_reports_e073_and_doctor_its_own_peer_mismatch_on_a_malformed_range() {
     let dir = project(&["@acme/base", "@acme/bad"]);
     let runtime = InProcessRuntime::new()
         .with(served("@acme/base", "1.0.0", &[]))
@@ -105,11 +105,11 @@ fn pin_check_warns_and_doctor_errs_on_a_malformed_range() {
     let all = compiled.diagnostics();
     let peer_diagnostics: Vec<_> = all
         .iter()
-        .filter(|d| matches!(d.code.as_str(), "W062" | "E027"))
+        .filter(|d| matches!(d.code.as_str(), "E073" | "E027"))
         .collect();
     assert_eq!(peer_diagnostics.len(), 1, "{peer_diagnostics:?}");
-    assert_eq!(peer_diagnostics[0].code, "W062");
-    assert_eq!(peer_diagnostics[0].severity, Severity::Warning);
+    assert_eq!(peer_diagnostics[0].code, "E073");
+    assert_eq!(peer_diagnostics[0].severity, Severity::Error);
 
     let report = diagnose_with(&ProjectView::of(&compiled), true);
     let finding = report

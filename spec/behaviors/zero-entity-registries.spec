@@ -605,29 +605,32 @@ behavior registry_build_declaration_consistency "Registry Build Checks Declarati
 
 behavior registry_build_peer_dependencies "Registry Build Checks Peer Dependencies" {
   features   [wasm_extension_runtime]
-  invariants [zero_domain_knowledge_core, registry_population_before_validation]
+  invariants [zero_domain_knowledge_core, registry_population_before_validation, peer_dependency_satisfaction]
   category   validation
   types      [ExtensionDeclaration, PeerDependency, RegistryBuild]
   produces   [extension_loading_failed]
   requires {
-    declarations_in_load_order "The loaded declarations are given in load order, dependencies first"
+    declarations_in_load_order "The registry build reads the loaded declarations in load order: it puts them there first, dependencies first (registry_build_load_order)"
   }
   ensures {
-    peers_checked      "Every declared peer is checked against the loaded declarations' versions as a semver range"
-    unsatisfied_failed "A required peer missing or out of range, or an optional one installed out of range, is E027, which fails the check"
-    malformed_warned   "A peer range or a loaded version that is not semver is W062"
+    peers_checked      "Every declared peer is judged by the one peer rule (ADR 0041) against the loaded declarations' versions"
+    unsatisfied_failed "A required peer missing, or any peer loaded at a version its range does not accept (a version that is not SemVer included), is E027, which fails the check"
+    unreadable_failed  "A peer range that is not a SemVer requirement is E073, whether the peer is loaded, missing or optional, which fails the check"
   }
   contract   """
-    The registry build MUST check every declaration's peer dependencies
-    against the loaded declarations: a required peer MUST be loaded at a
-    version its range matches, as semver (caret, tilde, comparison and
-    exact versions); an optional peer that is not loaded is fine, one that
-    is loaded MUST match its range. An unsatisfied peer is a hard error
-    (E027) naming the extension, the peer and its range, and the installed
-    version when there is one, which fails the check. A range or an
-    installed version that is not semver is W062. The extension's kinds
-    are still registered, so its entities are checked rather than each
-    reported as an unknown kind (E024).
+    The registry build MUST judge every declaration's peer dependencies by
+    the one peer rule (specforge_protocol_types::peers, ADR 0041) against
+    the loaded declarations. The range is read first, as Cargo reads a
+    SemVer requirement (caret, tilde, comparisons, wildcards, and a bare
+    version as a caret): a range that is not one is E073, whether the peer
+    is loaded, missing or optional, since no version can satisfy it. A
+    required peer MUST be loaded; an optional one may be absent. A loaded
+    peer MUST be at a version its range accepts: one it does not accept,
+    or a version that is not SemVer (which no range accepts), is E027
+    naming the extension, the peer, its range and the installed version.
+    Both are errors that fail the check. The extension's kinds are still
+    registered, so its entities are checked rather than each reported as
+    an unknown kind (E024).
   """
   verify unit "satisfied peer dependency passes validation"
   verify unit "missing peer dependency produces hard error"
@@ -635,8 +638,9 @@ behavior registry_build_peer_dependencies "Registry Build Checks Peer Dependenci
   verify unit "missing optional peer dependency passes validation"
   verify unit "installed optional peer outside its range produces hard error"
   verify unit "a peer range matches as semver: caret, tilde or exact"
-  verify unit "a malformed peer range or installed version is W062"
+  verify unit "a peer range that is not SemVer is E073, whether its peer is loaded, missing or optional"
+  verify unit "a peer loaded at a version that is not SemVer is E027"
   verify unit "an extension with an unsatisfied peer still registers its kinds"
   verify integration "specforge check reports a missing required peer dependency"
-  verify contract "Registry Build Checks Peer Dependencies: peer dependency checking holds — declarations_in_load_order, peers_checked, unsatisfied_failed, malformed_warned"
+  verify contract "Registry Build Checks Peer Dependencies: peer dependency checking holds — declarations_in_load_order, peers_checked, unsatisfied_failed, unreadable_failed"
 }

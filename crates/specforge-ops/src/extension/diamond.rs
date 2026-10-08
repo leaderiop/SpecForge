@@ -14,7 +14,7 @@ use specforge_registry::PeerDependency;
 /// fix is to reinstall the peer at it), R-RES-005 when none would.
 /// `versions` lists a peer's published versions; it is asked only for a
 /// peer whose locked version falls outside a range. A malformed range or
-/// locked version is left to the peer-dependency validation (W062).
+/// locked version is left to the peer-dependency validation (E073, E027).
 pub fn check_diamonds(
     lock: &LockFile,
     package: &str,
