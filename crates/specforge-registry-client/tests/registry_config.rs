@@ -1,12 +1,5 @@
 use specforge_common::Severity;
-use specforge_protocol_types::PackageName;
-use specforge_registry_client::registry_config::{
-    RegistryConfig, find_registry_for, parse_registries_from_config,
-};
-
-fn name(text: &str) -> PackageName {
-    PackageName::parse(text).unwrap()
-}
+use specforge_registry_client::registry_config::{RegistryConfig, parse_registries_from_config};
 
 // B:configure_registries — verify unit "RegistryConfig deserializes from JSON"
 #[test]
@@ -94,64 +87,7 @@ fn registries_without_default_produces_i003() {
         .find(|d| d.code == "I003")
         .expect("expected I003 diagnostic");
     assert_eq!(i003.severity, Severity::Info);
-}
-
-// B:configure_registries — verify unit "find_registry_for routes @scope/ prefix to matching registry"
-#[test]
-fn find_registry_routes_scope_prefix() {
-    let registries = vec![
-        RegistryConfig {
-            alias: "specforge".to_string(),
-            url: "https://specforge.example.com".to_string(),
-            scope_filter: Some("@specforge".to_string()),
-            default_registry: false,
-        },
-        RegistryConfig {
-            alias: "default".to_string(),
-            url: "https://default.example.com".to_string(),
-            scope_filter: None,
-            default_registry: true,
-        },
-    ];
-
-    let result = find_registry_for(&name("@specforge/software"), &registries);
-    assert_eq!(result.unwrap().alias, "specforge");
-}
-
-// B:configure_registries — verify unit "no scope match falls back to default registry"
-#[test]
-fn find_registry_falls_back_to_default() {
-    let registries = vec![
-        RegistryConfig {
-            alias: "specforge".to_string(),
-            url: "https://specforge.example.com".to_string(),
-            scope_filter: Some("@specforge".to_string()),
-            default_registry: false,
-        },
-        RegistryConfig {
-            alias: "default".to_string(),
-            url: "https://default.example.com".to_string(),
-            scope_filter: None,
-            default_registry: true,
-        },
-    ];
-
-    let result = find_registry_for(&name("@other/extension"), &registries);
-    assert_eq!(result.unwrap().alias, "default");
-}
-
-// B:configure_registries — verify unit "no scope match and no default returns None"
-#[test]
-fn find_registry_no_match_no_default_returns_none() {
-    let registries = vec![RegistryConfig {
-        alias: "specforge".to_string(),
-        url: "https://specforge.example.com".to_string(),
-        scope_filter: Some("@specforge".to_string()),
-        default_registry: false,
-    }];
-
-    let result = find_registry_for(&name("@other/extension"), &registries);
-    assert!(result.is_none());
+    assert!(i003.message.contains("No registry is the default"));
 }
 
 // B:configure_registries — verify unit "duplicate alias produces W-level diagnostic"
@@ -216,76 +152,4 @@ fn invalid_json_produces_error() {
         .find(|d| d.code == "E067")
         .expect("expected E067 diagnostic");
     assert_eq!(error.severity, Severity::Error);
-}
-
-// B:configure_registries — verify unit "specifier without scope falls back to default"
-#[test]
-fn specifier_without_scope_falls_back_to_default() {
-    let registries = vec![RegistryConfig {
-        alias: "default".to_string(),
-        url: "https://default.example.com".to_string(),
-        scope_filter: None,
-        default_registry: true,
-    }];
-
-    let result = find_registry_for(&name("plain-extension"), &registries);
-    assert_eq!(result.unwrap().alias, "default");
-}
-
-// B:resolve_registry_source — verify unit "scope-specific registry queried for matching scope"
-#[test]
-fn a_scoped_name_is_routed_to_the_registry_of_its_scope() {
-    let registries = vec![
-        RegistryConfig {
-            alias: "private".to_string(),
-            url: "https://private.example.com".to_string(),
-            scope_filter: Some("@myco".to_string()),
-            default_registry: false,
-        },
-        RegistryConfig {
-            alias: "default".to_string(),
-            url: "https://default.example.com".to_string(),
-            scope_filter: None,
-            default_registry: true,
-        },
-    ];
-
-    assert_eq!(
-        find_registry_for(&name("@myco/analytics"), &registries)
-            .unwrap()
-            .alias,
-        "private"
-    );
-}
-
-// B:resolve_registry_source — verify unit "default registry used when no scope filter matches"
-#[test]
-fn a_name_with_no_scope_match_is_routed_to_the_default_registry() {
-    let registries = vec![
-        RegistryConfig {
-            alias: "private".to_string(),
-            url: "https://private.example.com".to_string(),
-            scope_filter: Some("@myco".to_string()),
-            default_registry: false,
-        },
-        RegistryConfig {
-            alias: "default".to_string(),
-            url: "https://default.example.com".to_string(),
-            scope_filter: None,
-            default_registry: true,
-        },
-    ];
-
-    assert_eq!(
-        find_registry_for(&name("@specforge/software"), &registries)
-            .unwrap()
-            .alias,
-        "default"
-    );
-}
-
-// B:resolve_registry_source — verify unit "no registries → error diagnostic"
-#[test]
-fn no_registry_serves_a_name_when_none_matches_and_none_is_default() {
-    assert!(find_registry_for(&name("@specforge/software"), &[]).is_none());
 }

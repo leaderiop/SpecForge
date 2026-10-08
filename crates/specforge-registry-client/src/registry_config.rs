@@ -1,6 +1,5 @@
 use serde::{Deserialize, Serialize};
 use specforge_common::{Diagnostic, codes};
-use specforge_protocol_types::PackageName;
 use std::path::PathBuf;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -104,7 +103,12 @@ pub fn parse_registries_from_config(config_json: &str) -> (Vec<RegistryConfig>, 
         diagnostics.push(
             Diagnostic::new(
                 codes::I003,
-                "No registries configured and no default registry set.".to_string(),
+                if registries.is_empty() {
+                    "No registries configured and no default registry set.".to_string()
+                } else {
+                    "No registry is the default: a package no \"scope_filter\" matches has no registry (R-OPS-001)."
+                        .to_string()
+                },
             )
             .with_suggestion(
                 "Set \"default_registry\": true on one of your registries.".to_string(),
@@ -113,22 +117,4 @@ pub fn parse_registries_from_config(config_json: &str) -> (Vec<RegistryConfig>, 
     }
 
     (registries, diagnostics)
-}
-
-/// Finds the registry that serves `name`.
-///
-/// For a scoped name, a registry whose `scope_filter` is its scope;
-/// otherwise the first registry with `default_registry: true`.
-pub fn find_registry_for<'a>(
-    name: &PackageName,
-    registries: &'a [RegistryConfig],
-) -> Option<&'a RegistryConfig> {
-    if let Some(scope) = name.scope()
-        && let Some(registry) = registries
-            .iter()
-            .find(|r| r.scope_filter.as_deref() == Some(scope))
-    {
-        return Some(registry);
-    }
-    registries.iter().find(|r| r.default_registry)
 }

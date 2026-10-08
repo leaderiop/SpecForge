@@ -97,7 +97,6 @@ async fn signed_publish_round_trips_through_http_boundary() {
             &registry_for_task,
             Some(&credential),
             &client,
-            false,
             Some(&key_for_task),
         )
     })

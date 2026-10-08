@@ -29,7 +29,7 @@ pub use registry_client::{
     RegistryClient, RegistryError, RegistryResponse, RegistrySearchResult, RetryPolicy,
 };
 pub use registry_config::{
-    AuthMethod, RegistryConfig, RegistryCredential, find_registry_for, parse_registries_from_config,
+    AuthMethod, RegistryConfig, RegistryCredential, parse_registries_from_config,
 };
 pub use registry_ops::{
     TrustCheck, publish_to_registry, resolve_from_registry, search_registries,

@@ -910,7 +910,8 @@ I003: No registry configured
 
 The registry configuration has no `registries` array, or none of the configured
 registries is marked as the default. Add a `registries` entry and set
-`"default_registry": true` on one of them.
+`"default_registry": true` on one of them. Without a default, a package no
+`scope_filter` matches has no registry (R-OPS-001).
 
 Owner: core
 Level: info
@@ -1572,7 +1573,9 @@ R-OPS-001: No registry for the package
 No configured registry serves this package: none has a scope that matches it,
 and none is marked as the default (or no registries are configured at all). Add
 a `registries` entry to `specforge.json` with a matching scope, or mark one
-`"default_registry": true`.
+`"default_registry": true`. `specforge add`, `update` and `publish` (and MCP
+`add_extension`) choose the registry by this one rule and ask no other registry;
+a refused name sends no request.
 
 Owner: core
 Level: error
