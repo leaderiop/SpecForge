@@ -27,6 +27,7 @@ pub use manifest::{
 };
 pub use progress::{Progress, progress, progress_or_fresh};
 pub use session::{
-    EndStatus, Recorded, SESSION_ACTIVE, SESSION_NOT_ACTIVE, SOURCE_OUTSIDE_ROOT,
-    SOURCE_UNREADABLE, SessionOutcome, SessionStep, UNKNOWN_SESSION, session,
+    END_STATUS, EndStatus, Recorded, SESSION_ACTION, SESSION_ACTIVE, SESSION_NOT_ACTIVE,
+    SOURCE_OUTSIDE_ROOT, SOURCE_UNREADABLE, SessionAction, SessionOutcome, SessionStep,
+    UNKNOWN_SESSION, session,
 };

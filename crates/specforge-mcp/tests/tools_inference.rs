@@ -712,9 +712,12 @@ fn relative_to(target: &std::path::Path, from: &std::path::Path) -> String {
     parts.join("/")
 }
 
-/// Pins every refusal's code, argument and wording. T8 flips the "Unknown
-/// action" and "Invalid status" messages only.
-#[test]
+/// Every refusal's code, argument and wording; an unknown action or status
+/// is refused with the option table's wording (ADR 0027 D5).
+#[specforge_test(
+    behavior = "provide_mcp_infer_session_tool",
+    verify = "an unknown action or status is refused with the option table's wording"
+)]
 fn session_refusals_keep_their_codes_arguments_and_wording() {
     let tmp = TestProject::new();
     write_manifest(tmp.root(), r#"{"version":1,"source_roots":["src"]}"#);
@@ -749,7 +752,7 @@ fn session_refusals_keep_their_codes_arguments_and_wording() {
         &refuse(&mut server, json!({"action": "resume"})),
         "invalid_input",
         Some("action"),
-        "Unknown action: 'resume'. Expected: start, mark_analyzed, end",
+        "Unknown action: resume. Expected: start, mark_analyzed, end",
     );
     check(
         &refuse(
@@ -758,7 +761,7 @@ fn session_refusals_keep_their_codes_arguments_and_wording() {
         ),
         "invalid_input",
         Some("status"),
-        "Invalid status: 'done'. Expected: completed, paused",
+        "Unknown status: done. Expected: completed, paused",
     );
     check(
         &refuse(&mut server, json!({"action": "end", "session_id": "nope"})),

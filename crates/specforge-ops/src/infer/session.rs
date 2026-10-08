@@ -10,6 +10,7 @@ use super::manifest::{
     InferenceManifest, InferenceSession, SessionStatus, SourceFileEntry, compute_content_hash,
     source_path, source_root,
 };
+use crate::options::{Choice, OptionTable};
 use crate::view::ProjectView;
 use crate::{OpError, OpErrorKind, Writes};
 
@@ -26,12 +27,66 @@ pub const SOURCE_OUTSIDE_ROOT: &str = "source_outside_root";
 /// when missing).
 pub const SOURCE_UNREADABLE: &str = "source_unreadable";
 
+/// A session step, as `specforge.infer_session`'s `action` names it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SessionAction {
+    Start,
+    MarkAnalyzed,
+    End,
+}
+
+/// `action` (ADR 0027): required, no default.
+pub const SESSION_ACTION: OptionTable<SessionAction> = OptionTable {
+    argument: "action",
+    choices: &[
+        Choice {
+            name: "start",
+            aliases: &[],
+            help: "begin a session; one may be active at a time",
+            value: SessionAction::Start,
+        },
+        Choice {
+            name: "mark_analyzed",
+            aliases: &[],
+            help: "record a source file and the entities inferred from it",
+            value: SessionAction::MarkAnalyzed,
+        },
+        Choice {
+            name: "end",
+            aliases: &[],
+            help: "end the active session",
+            value: SessionAction::End,
+        },
+    ],
+    default: None,
+};
+
 /// How a session ends.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EndStatus {
     Completed,
     Paused,
 }
+
+/// `status` of an end (ADR 0027): `completed` unless asked.
+pub const END_STATUS: OptionTable<EndStatus> = OptionTable {
+    argument: "status",
+    choices: &[
+        Choice {
+            name: "completed",
+            aliases: &[],
+            help: "the inference is done",
+            value: EndStatus::Completed,
+        },
+        Choice {
+            name: "paused",
+            aliases: &[],
+            help: "a later session continues it",
+            value: EndStatus::Paused,
+        },
+    ],
+    default: Some(EndStatus::Completed),
+};
 
 impl EndStatus {
     fn status(self) -> SessionStatus {

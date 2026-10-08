@@ -1,24 +1,20 @@
 use serde_json::{Value, json};
 
 use specforge_ops::OpError;
-use specforge_ops::infer::{self, EndStatus, Recorded, SessionOutcome, SessionStep};
+use specforge_ops::infer::{
+    self, EndStatus, Recorded, SessionAction, SessionOutcome, SessionStatus, SessionStep,
+};
 
 use crate::args::Arguments;
 use crate::mutation::{Mutated, MutationHandled, Written};
 use crate::target::Call;
-use crate::tool::{McpError, ToolOutcome};
-
-/// The actions a session takes, in the order the listing states them.
-const ACTIONS: &[&str] = &["start", "mark_analyzed", "end"];
-
-/// The states a session ends in.
-const END_STATUSES: &[&str] = &["completed", "paused"];
+use crate::tool::{ErrorCode, McpError, ToolOutcome};
 
 /// `specforge.infer_session`'s arguments.
 #[derive(Debug, Arguments)]
 pub struct Args {
     /// Session action to perform
-    #[arg(names = ACTIONS)]
+    #[arg(choice = infer::SESSION_ACTION)]
     action: String,
     /// Agent identifier (for start)
     agent: Option<String>,
@@ -30,19 +26,16 @@ pub struct Args {
     entities_produced: Vec<String>,
     /// Session ID to end (for end)
     session_id: Option<String>,
-    /// Final status (for end, default: completed)
-    #[arg(names = END_STATUSES)]
-    status: Option<String>,
+    /// Final status (for end)
+    #[arg(choice = infer::END_STATUS)]
+    status: EndStatus,
 }
 
 /// `specforge.infer_session`: one step of an inference session
 /// (`specforge_ops::infer::session`), which writes `specforge-infer.json`.
 pub fn call(call: &mut Call<'_>, args: Args) -> MutationHandled {
     let project = call.project()?;
-    let step = match step(&args) {
-        Ok(step) => step,
-        Err(refused) => return Ok(Mutated::refused(refused)),
-    };
+    let step = step(&args)?;
     Ok(match infer::session(&project.view(), step) {
         Ok(SessionOutcome { recorded, writes }) => {
             let written = match &recorded {
@@ -65,44 +58,31 @@ pub fn call(call: &mut Call<'_>, args: Args) -> MutationHandled {
 }
 
 /// The step `args` asks for, or the refusal of the arguments.
-fn step(args: &Args) -> Result<SessionStep<'_>, ToolOutcome> {
-    Ok(match args.action.as_str() {
-        "start" => SessionStep::Start {
+fn step(args: &Args) -> Result<SessionStep<'_>, Box<McpError>> {
+    let action = infer::SESSION_ACTION
+        .parse(&args.action)
+        .map_err(|error| Box::new(McpError::from(error).with_argument("action")))?;
+    Ok(match action {
+        SessionAction::Start => SessionStep::Start {
             agent: args.agent.as_deref(),
             source_roots: args.source_roots.as_deref(),
         },
-        "mark_analyzed" => SessionStep::MarkAnalyzed {
+        SessionAction::MarkAnalyzed => SessionStep::MarkAnalyzed {
             source_file: required(&args.source_file, "source_file")?,
             entities: &args.entities_produced,
         },
-        "end" => SessionStep::End {
+        SessionAction::End => SessionStep::End {
             session_id: required(&args.session_id, "session_id")?,
-            status: match args.status.as_deref().unwrap_or("completed") {
-                "completed" => EndStatus::Completed,
-                "paused" => EndStatus::Paused,
-                other => {
-                    let expected = END_STATUSES.join(", ");
-                    return Err(ToolOutcome::invalid_input(
-                        "status",
-                        format!("Invalid status: '{other}'. Expected: {expected}"),
-                    ));
-                }
-            },
+            status: args.status,
         },
-        other => {
-            let expected = ACTIONS.join(", ");
-            return Err(ToolOutcome::invalid_input(
-                "action",
-                format!("Unknown action: '{other}'. Expected: {expected}"),
-            ));
-        }
     })
 }
 
 /// The argument `value` holds, or the refusal that it is missing.
-fn required<'a>(value: &'a Option<String>, name: &str) -> Result<&'a str, ToolOutcome> {
+fn required<'a>(value: &'a Option<String>, name: &str) -> Result<&'a str, Box<McpError>> {
     value.as_deref().ok_or_else(|| {
-        ToolOutcome::invalid_input(name, format!("Missing required parameter: {name}"))
+        let message = format!("Missing required parameter: {name}");
+        Box::new(McpError::new(ErrorCode::InvalidInput, message).with_argument(name))
     })
 }
 
@@ -125,7 +105,7 @@ fn argument_of(error: &OpError) -> Option<&'static str> {
 fn reply(recorded: &Recorded) -> Value {
     match recorded {
         Recorded::Started { session_id } => {
-            json!({"session_id": session_id, "status": "active"})
+            json!({"session_id": session_id, "status": SessionStatus::Active.name()})
         }
         Recorded::Marked {
             source_file,

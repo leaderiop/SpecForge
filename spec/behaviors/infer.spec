@@ -231,7 +231,8 @@ behavior provide_mcp_infer_session_tool "Provide MCP Infer Session Tool" {
     creates_manifest      "creates specforge-infer.json on first write"
   }
   contract """
-    Register a mutating MCP tool specforge.infer_session with three actions:
+    Register a mutating MCP tool specforge.infer_session over the one
+    session operation (specforge_ops::infer::session), with three actions:
     - start: Call start_inference_session, return session_id.
     - mark_analyzed: Call mark_source_file_analyzed with provided
       source_file path and entities_produced list.
@@ -243,6 +244,7 @@ behavior provide_mcp_infer_session_tool "Provide MCP Infer Session Tool" {
   verify unit "mark_analyzed action records file entry"
   verify unit "end action completes session"
   verify unit "creates manifest on first write"
+  verify unit "an unknown action or status is refused with the option table's wording"
 }
 
 behavior provide_mcp_infer_gaps_tool "Provide MCP Infer Gaps Tool" {
