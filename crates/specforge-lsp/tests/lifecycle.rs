@@ -122,7 +122,15 @@ fn shutdown_clears_state() {
     edit_buffer(&mut state, "/p/login.spec", LOGIN);
     assert!(state.graph().node("login").is_some());
     let session = state.session().unwrap();
-    assert_eq!(session.graph_diagnostics().len(), 1, "the E003");
+    assert_eq!(
+        session
+            .diagnostics()
+            .iter()
+            .filter(|d| d.code == "E003")
+            .count(),
+        1,
+        "the E003"
+    );
 
     state.shutdown();
 
@@ -130,7 +138,6 @@ fn shutdown_clears_state() {
     assert_eq!(state.graph().edges().len(), 0);
     let session = state.session().unwrap();
     assert!(session.diagnostics().is_empty());
-    assert!(session.diagnostic_files().is_empty());
     assert!(!state.is_open("file:///p/login.spec"));
     assert!(state.is_shutdown());
 }

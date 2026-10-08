@@ -499,8 +499,8 @@ fn source_texts_are_what_was_compiled() {
     fs::write(dir.path().join("a.spec"), "// rewritten\n").unwrap();
 
     let texts = compiled.source_texts();
-    assert_eq!(texts["a.spec"], compiled_text);
-    assert_eq!(texts["sub/b.spec"], "// b\n");
+    assert_eq!(&*texts["a.spec"], compiled_text);
+    assert_eq!(&*texts["sub/b.spec"], "// b\n");
     assert_eq!(texts.len(), 2, "{texts:?}");
 }
 

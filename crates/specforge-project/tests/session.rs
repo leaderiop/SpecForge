@@ -25,6 +25,15 @@ fn write(root: &Path, path: &str, text: &str) {
     fs::write(path, text).unwrap();
 }
 
+/// What the session reports with a span in `path`.
+fn in_file(diagnostics: &[Diagnostic], path: &str) -> Vec<Diagnostic> {
+    diagnostics
+        .iter()
+        .filter(|d| d.span.as_ref().is_some_and(|s| s.file == path))
+        .cloned()
+        .collect()
+}
+
 /// Every node (id, kind, file, title, fields) and edge of a graph.
 fn graph_contents(graph: &Graph) -> (Vec<String>, Vec<String>) {
     let mut nodes: Vec<String> = graph
@@ -1044,8 +1053,7 @@ fn diagnostics_from_changed_files_are_refreshed() {
             .contains(&"c.spec".to_string())
     );
     assert!(
-        session
-            .file_diagnostics("c.spec")
+        in_file(&session.diagnostics(), "c.spec")
             .iter()
             .any(|d| d.code == "E003")
     );
@@ -1064,7 +1072,7 @@ fn diagnostics_from_unchanged_files_are_preserved() {
         &behavior("gamma", "  invariants [nowhere]\n"),
     );
     let mut session = ProjectSession::open(root);
-    let before = session.file_diagnostics("main.spec").to_vec();
+    let before = in_file(&session.diagnostics(), "main.spec");
     assert!(before.iter().any(|d| d.code == "E003"));
 
     write(
@@ -1074,7 +1082,7 @@ fn diagnostics_from_unchanged_files_are_preserved() {
     );
     let update = session.update(SourceChange::Disk(&changed(&["c.spec"])));
 
-    assert_eq!(session.file_diagnostics("main.spec"), before.as_slice());
+    assert_eq!(in_file(&session.diagnostics(), "main.spec"), before);
     assert!(
         !update
             .changed_diagnostic_files
@@ -1119,7 +1127,7 @@ fn emit_incremental_diagnostics_contract() {
         &behavior("gamma", "  invariants [nowhere]\n"),
     );
     let mut session = ProjectSession::open(root);
-    let main_before = session.file_diagnostics("main.spec").to_vec();
+    let main_before = in_file(&session.diagnostics(), "main.spec");
 
     write(
         root,
@@ -1131,10 +1139,7 @@ fn emit_incremental_diagnostics_contract() {
     // Refreshed for the changed file, preserved for the others, and the
     // whole set is a fresh compile's.
     assert_eq!(update.changed_diagnostic_files, ["c.spec"]);
-    assert_eq!(
-        session.file_diagnostics("main.spec"),
-        main_before.as_slice()
-    );
+    assert_eq!(in_file(&session.diagnostics(), "main.spec"), main_before);
     assert_eq!(update.diagnostics, session.diagnostics());
     assert_matches_a_fresh_compile(&session, root);
 }
