@@ -1,6 +1,6 @@
 # One MCP request pipeline; resources read through the view
 
-**Status:** accepted (2026-10-06); D6 amended and D8 added (2026-10-08, architecture plan 12). Amends
+**Status:** accepted (2026-10-06); D6 amended and D8 added (2026-10-08, architecture plan 12); a tool spec declares what it does once (2026-10-09, architecture plan 10, last section). Amends
 ADR 0004 "MCP tool table" (D4-e) and ADR 0017 D6 and D14's resource code.
 
 `tools/call`, `resources/read` and `prompts/get` ran the same steps in three functions: read the
@@ -162,3 +162,50 @@ A fourth request kind that invokes a named entry (completion, an MCP revision's 
 `Surface` trait cannot express without a method most adapters leave empty; or an MCP revision that
 changes the not-found code again, or a transport with several connections per server (one
 `Subscriptions` per connection), or an MCP revision that changes how a resource change is notified.
+
+## A tool spec declares what it does once (amendment, architecture round 5, plan 10)
+
+D5 made the call target declare `path` and `use_cached`. Whether a tool writes was still stated five times on its
+entry: its category, its access, its target's reach (`WritesAnyProject`, which behaved exactly as `AnyProject` once
+in-memory serving was gone, ADR 0025), its handler kind, and the `files_written` property added by hand to seven output
+schemas. Whether a call answered with nothing served was stated nowhere: it was whichever accessor the handler called
+(`call.view()` answered over the empty session, `call.project()?` refused, and `infer_progress` and `infer_gaps`
+answered documents of their own making). Init's "not inside the served project" was checked by the target and, out of
+reach, by `ops::init` again. Four annotations were wrong, and extension tools had none, so MCP's defaults called 40
+read-only product queries destructive and open-world.
+
+- **A1. One effect.** A tool spec is a name, a description, an output schema and an `Effect`: `Reads { group }`,
+  `WritesOutput { group, hints }` (collect, render: ADR 0022's output artifacts) or `Mutates { hints }`, each holding
+  its handler. The category (`mutation` exactly for `Mutates`, else the group), the annotations (`readOnlyHint` for
+  `Reads`, else the hints) and a mutation's `files_written` output property derive from it.
+- **A2. The handler's input is the target.** A handler is given nothing (explain), the project view, the project
+  (`ProjectRef`), or the directory init creates (`&Path`, with the runtime its extensions' declarations are read in),
+  then its typed arguments, never the `Call`. The target derives from that variant: `TargetSpec::{Unscoped,
+  Project { target, without }, NewProject}`, `Reach::{Served, AnyProject}`. `WritesAnyProject` is deleted. Core
+  prompts and resources are given the view.
+- **A3. With nothing served, the target decides.** An entry given the view reads the empty session (ADR 0014 D7, ADR
+  0025 D1, which stay); an entry given the project is refused as no project by `resolve`, before its undeclared and
+  typed arguments are checked, like the target's other refusals. The rule the table follows: an entry that reads only
+  the project view answers; one that reads or writes at the project root beyond the view, runs the project's
+  extensions, or takes a `path` is refused. `infer_progress` and `infer_gaps` now refuse.
+- **A4. Init's inside-the-served-project rule is the target's** (ADR 0014 D6). `ops::init` has no `forbid_inside`;
+  the CLI allows a nested project, as `scaffold_new_project` says.
+- **A5. Annotations say what a tool does.** A repeat that is refused and writes nothing is idempotent (rename, as
+  remove already was); a tool that may overwrite is destructive (add_extension replaces a module, infer_session a
+  record). Init is additive: it refuses an existing starter file, and a failed init puts back what was there. Every
+  extension tool is annotated `readOnlyHint: true, openWorldHint: false` (ADR 0037 D1), and is listed in the group it
+  declares, never as a mutation.
+
+Consequences (user-visible over MCP): with nothing served, `infer_progress` and `infer_gaps` are `precondition_failed`;
+a call that needs a project is refused for it before an unknown or malformed argument is; `add_extension` and
+`infer_session` are `destructiveHint: true`, `rename` `idempotentHint: true`; extension tools carry annotations, and
+one declaring `mutation` is listed `core`. On both surfaces, init refuses a directory whose `spec/hello.spec` exists.
+No handler can read the server state or refuse "no project" itself.
+
+Rejected: a `without_project` field beside the handler (two statements that must agree); refusing after the arguments
+are read (a project handler could then observe a missing project); letting extensions declare annotations (they hold
+no capability, so only read-only is true); answering extensions, providers and doctor over the empty session (a
+healthy report of no project misleads).
+
+Reopen if: ADR 0037 grants an extension a capability (its tools' annotations then come from its declaration); a tool
+both writes project files and must not report them as a mutation; a prompt or resource needs the project on disk.

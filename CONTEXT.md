@@ -54,9 +54,12 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   place of its file. Releasing it reads the file through the session's one read. Diagnostics computed from it
   are published with its version. Only the LSP holds buffers (ADR 0046).
 - **Call target**: the project one MCP call acts on, resolved from the call's optional `path` and its
-  tool spec's target (reach and freshness) before the handler runs: the served session (brought up to
-  date unless `use_cached`), another project compiled for that call only, or the directory `init`
-  creates (`specforge_mcp::target::CallTarget`). Handlers read it as a `ProjectRef` (ADR 0014).
+  entry's target before the handler runs: the served session (brought up to date unless `use_cached`),
+  another project compiled for that call only, the directory `init` creates, or, with nothing served and
+  no project named, the empty session for an entry that reads only the project view
+  (`specforge_mcp::target::CallTarget`). An entry's target is derived from what its handler is given
+  (nothing, the project view, the project, the new directory), never declared beside it: an entry
+  whose handler acts on the project is refused as no project before it runs (ADR 0014, ADR 0024).
 - **Update**: one change applied to a project session. It re-reads and re-parses exactly the changed files (an
   importer parses the same, since references resolve without `use`), applies them to the session's graph
   build, resolves every file's imports again and re-runs the checks (`specforge_project::Update`, ADR 0006,
@@ -424,14 +427,22 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Command format**: the output an extension command is asked for, `human` (the CLI default) or
   `json` (always, over MCP). The host owns the `--format` flag; the extension renders both, since
   only it knows its payloads (ADR 0011).
-- **Tool spec**: the single definition of an MCP tool: its name, description, category, access,
-  output schema, target (reach and freshness, which declares the `path` and `use_cached` arguments)
-  and handler, a tool's (a reply) or a mutation's (a reply and its mutation outcome), with the tool
-  arguments it reads. Its descriptor (input schema included), annotations and dispatch derive from
-  it (`specforge_mcp`'s `ToolSpec` table).
+- **Tool spec**: the single definition of an MCP tool: its name, description, output schema and
+  effect. The effect says what the tool does to its environment: it reads (listed in its group: core,
+  navigation or management), writes output artifacts (listed in its group, with how it writes), or
+  mutates its target's project (category mutation, with how it writes, its reply listing
+  `files_written`); and it holds the handler, whose variant is what the handler is given (nothing, the
+  project view, the project, or the directory init creates), with the tool arguments it reads. Its
+  category, annotations, call target and descriptor derive from it (`specforge_mcp`'s `ToolSpec`
+  table, ADR 0024).
+- **Tool effect**: what a tool does to its environment, declared once on its tool spec
+  (`specforge_mcp::tool::Effect`): reads, writes output artifacts (collect, render), or mutates the
+  target's project files (a mutation, ADR 0022), with how a writing tool writes (destructive,
+  idempotent, open world) as MCP's annotations say it. An extension tool only reads: the host grants
+  an extension no capability (ADR 0037).
 - **Prompt spec**: the single definition of an MCP prompt, from which its descriptor (its tool arguments'
   names, descriptions and required) and reply are derived; it renders the read view its prompt is about
-  over the call target, adding only its instruction (tools named as the tool table names them), and refuses
+  over the project view (the empty session's when nothing is served), adding only its instruction (tools named as the tool table names them), and refuses
   with an McpError, sent as a JSON-RPC error's data since prompts have no isError (`specforge_mcp`'s
   `PromptSpec` table).
 - **Tool arguments**: the one typed struct a tool or prompt reads its call's arguments into
@@ -447,8 +458,8 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   the invocation, resolve the call target, run the handler, record its events, answer with the kind's
   envelope. Each kind is one adapter; a refusal without `isError` (resources, prompts) is a JSON-RPC
   error whose data is its McpError (`specforge_mcp::surface_call`, ADR 0024).
-- **Resource spec**: the single definition of a core MCP resource: its URI or template, descriptor,
-  target and read. A graph view (`graph`, `context`, `brief`, scoped or not, and `graph/{entity_id}`)
+- **Resource spec**: the single definition of a core MCP resource: its URI or template, descriptor
+  and its read of the project view. A graph view (`graph`, `context`, `brief`, scoped or not, and `graph/{entity_id}`)
   is `specforge export` over the call's project view; the entity list and the diagnostics read what
   `specforge.list` and `specforge.validate` read (`specforge_mcp`'s `ResourceSpec` table).
 - **Stateless request**: an MCP request whose `_meta` names its protocol version (MCP 2026-07-28),

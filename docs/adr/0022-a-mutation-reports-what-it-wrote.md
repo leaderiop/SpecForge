@@ -54,6 +54,7 @@ places (`Call::wrote` in two handlers, a dispatcher fallback, `init`'s own `serv
 - The seven mutation tools' output schemas declare `files_written` (not required: a preview has
   none; the schemas stay open, so existing clients keep validating).
 - Amends ADR 0014 ("The MCP call target"): handlers no longer call `Call::wrote`.
+- (ADR 0024, round-5 amendment) A mutation is a tool spec whose effect is `Mutates`; its outputSchema's `files_written` derives from that, not from its schema text.
 
 ## Inference sessions (amendment, architecture round 4, plan 06)
 

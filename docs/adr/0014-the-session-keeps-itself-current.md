@@ -2,6 +2,8 @@
 
 **Status:** accepted (2026-10-05)
 
+Amended by ADR 0024 (round-5 amendment): the reaches are Served and AnyProject; Unscoped and NewProject are targets of their own, and WritesAnyProject is gone.
+
 Which project an MCP call served, and whether that project was current with disk, was decided in a
 dozen places. Each handler resolved its `path` against a public `McpState::project_root`, picked one
 of three staleness predicates (`use_cached || diagnostics.is_empty()`, `node_count() == 0`,
