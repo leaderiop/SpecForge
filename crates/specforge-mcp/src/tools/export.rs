@@ -12,6 +12,12 @@ pub struct Args {
     format: Format,
     /// Scope to entity subgraph
     scope: Option<String>,
+    /// With scope, how many hops from the scoped entity to include
+    depth: Option<usize>,
+    /// Keep only entities of these kinds; the scoped entity always stays
+    kinds: Vec<String>,
+    /// Request a specific schema version for the export
+    schema_version: Option<String>,
     /// Optional token budget; truncates the export to the most central entities that fit
     max_tokens: Option<usize>,
     /// Embed the Graph Protocol schema in a context, brief or budgeted graph export (a full graph export embeds it already); under max_tokens it counts toward the budget
@@ -33,9 +39,11 @@ pub fn call(view: ProjectView<'_>, args: Args) -> ToolOutcome {
     let request = export::Request {
         format: Some(args.format),
         scope: args.scope.as_deref(),
+        depth: args.depth,
+        kinds: args.kinds.iter().map(String::as_str).collect(),
         max_tokens: args.max_tokens,
         schema,
-        ..export::Request::default()
+        schema_version: args.schema_version.as_deref(),
     };
 
     match export::export(&view, &request) {

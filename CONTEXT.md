@@ -377,10 +377,13 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   the severity filter (what is shown, never the verdict) and the opt-in build-cache record
   (`specforge_ops::check`). `specforge check` and MCP `specforge.validate` are its adapters; watch and
   the LSP report a compile's diagnostics without a policy (ADR 0018).
-- **Run verdict**: whether an operation that judges the project passed, computed by the operation
-  (`ok()`): check (no error reported), analyze (no error finding), format (every target read and
-  written, nothing left unformatted, and under `--check` nothing that would change), migrate (no file
-  failed, nothing rolled back). The CLI exits 0 or 1 by it; MCP returns it as `ok`
+- **Run verdict**: whether an operation that judges the project passed, failed, or could not judge it,
+  computed by the operation (`ok()`, or `verdict()` → `specforge_ops::RunVerdict` where it can be
+  unjudged): check (no error reported), analyze (no error finding, and with a minimum the coverage
+  gate met; unjudged when the gate has no figure), format (every target read and written, nothing
+  left unformatted, and under `--check` nothing that would change), migrate (no file failed, nothing
+  rolled back), doctor (no error-level finding). The CLI exits 0, 1 or 2 by it (`specforge_cli::outcome::Exit`, the only value a core
+  command ends with); MCP returns it as `ok`
   (`specforge.validate`: `_meta["specforge/check"].ok`) and keeps `isError` for refusals (ADR 0004
   D4-a). A refusal (`OpError`) is not a verdict; a measuring command's refusal exits 2. Not to be
   confused with an entity's coverage **Verdict** (ADR 0029).
@@ -421,7 +424,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   crosses one traps with the limit's kind (E028). What a declaration asks for that the host does not
   give is W153 (`specforge_wasm::sandbox`, ADR 0037).
 - **In-process runtime**: the test adapter of the `WasmRuntime` port that runs an SDK-declared
-  extension in the host process through the guest's own routing (`guest_call`), unsandboxed
+  extension in the host process through the guest's own routing (`Served`), unsandboxed
   (it records the limits the host applies and enforces none;
   `specforge_wasm::testing::InProcessRuntime`). It serves a binary's bytes under the name they are
   loaded as (`binary`), so the extension load and a candidate's read (add, init, update, publish)

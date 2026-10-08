@@ -218,6 +218,27 @@ impl Arg for usize {
     }
 }
 
+/// A number: a JSON number, or a string holding a finite one.
+impl Arg for f64 {
+    fn schema() -> Value {
+        json!({ "type": "number" })
+    }
+    fn absent() -> Option<Self> {
+        None
+    }
+    fn advertised(value: &Self) -> Option<Value> {
+        Some(json!(value))
+    }
+    fn read(name: &str, value: &Value) -> Result<Self, String> {
+        let number = match value {
+            Value::Number(n) => n.as_f64(),
+            Value::String(text) => text.trim().parse::<f64>().ok().filter(|n| n.is_finite()),
+            _ => None,
+        };
+        number.ok_or_else(|| format!("{name} must be a number, got {}", shown(value)))
+    }
+}
+
 impl Arg for Vec<String> {
     fn schema() -> Value {
         json!({ "type": "array", "items": { "type": "string" } })
@@ -545,4 +566,31 @@ pub fn required_choice_schema<T: Copy + PartialEq>(
         "enum": table.accepted().collect::<Vec<_>>(),
         "description": format!("{description}: {}", choices.join("; ")),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use specforge_test_macros::test as specforge_test;
+
+    #[specforge_test(
+        behavior = "provide_mcp_analyze_tool",
+        verify = "specforge.analyze takes min and returns the run verdict and where the gate landed"
+    )]
+    fn a_number_is_read_from_a_number_or_a_string_holding_one() {
+        assert_eq!(f64::read("min", &json!(92.5)), Ok(92.5));
+        assert_eq!(f64::read("min", &json!(50)), Ok(50.0));
+        assert_eq!(f64::read("min", &json!(" 50.5 ")), Ok(50.5));
+        for bad in [json!(true), json!("many"), json!("NaN"), json!(null)] {
+            let message = f64::read("min", &bad).unwrap_err();
+            assert!(
+                message.starts_with("min must be a number, got "),
+                "{message}"
+            );
+        }
+        assert_eq!(
+            f64::read("min", &json!(true)),
+            Err("min must be a number, got true".to_string())
+        );
+    }
 }

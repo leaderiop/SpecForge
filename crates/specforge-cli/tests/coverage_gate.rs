@@ -196,7 +196,7 @@ fn min_without_the_coverage_pass_exits_2_with_e068() {
     let stderr = String::from_utf8_lossy(&out.stderr);
     assert_eq!(out.status.code(), Some(2), "{stderr}");
     assert!(
-        stderr.contains("error[E068]: --min requires the coverage pass"),
+        stderr.contains("error[E068]: a proof-coverage minimum needs the coverage pass"),
         "{stderr}"
     );
 }
@@ -423,9 +423,11 @@ fn analyze_min_json(path: &Path, pass: &str) -> std::process::Output {
         .unwrap()
 }
 
-// pin (15-T0): today's behaviour; flipped by 15-T7
-#[test]
-fn pin_the_json_says_ok_when_the_gate_fails() {
+#[specforge_test(
+    behavior = "te_coverage_gate",
+    verify = "the analysis's ok is the run verdict, the gate included, and its JSON says where the gate landed"
+)]
+fn the_json_verdict_is_the_exit_verdict() {
     let tmp = TempDir::new().unwrap();
     seed(tmp.path());
     std::fs::write(
@@ -439,14 +441,20 @@ fn pin_the_json_says_ok_when_the_gate_fails() {
     let stderr = String::from_utf8_lossy(&out.stderr);
     assert_eq!(out.status.code(), Some(1), "{stderr}");
     let doc: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
-    assert_eq!(doc["ok"], true, "{doc}");
-    assert!(doc.get("gate").is_none(), "{doc}");
-    assert!(stderr.contains("error[E048]"), "{stderr}");
+    assert_eq!(doc["ok"], false, "{doc}");
+    assert_eq!(
+        doc["gate"],
+        serde_json::json!({"status": "below", "min": 50.0, "pct": 0.0, "proven": 0, "total": 1}),
+        "{doc}"
+    );
+    assert!(stderr.is_empty(), "{stderr}");
 }
 
-// pin (15-T0): today's behaviour; flipped by 15-T7
-#[test]
-fn pin_a_gate_without_the_coverage_pass_prints_the_analysis_first() {
+#[specforge_test(
+    behavior = "te_coverage_gate",
+    verify = "a gate without the coverage pass exits 2 with E068"
+)]
+fn a_gate_without_the_coverage_pass_is_refused_before_the_analysis() {
     let tmp = TempDir::new().unwrap();
     seed(tmp.path());
     std::fs::write(
@@ -460,6 +468,7 @@ fn pin_a_gate_without_the_coverage_pass_prints_the_analysis_first() {
     let stderr = String::from_utf8_lossy(&out.stderr);
     assert_eq!(out.status.code(), Some(2), "{stderr}");
     let doc: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
-    assert_eq!(doc["passes"][0]["pass"], "contracts", "{doc}");
-    assert!(stderr.contains("error[E068]"), "{stderr}");
+    assert_eq!(doc["code"], "E068", "{doc}");
+    assert!(doc.get("passes").is_none(), "{doc}");
+    assert!(stderr.is_empty(), "{stderr}");
 }

@@ -4,9 +4,12 @@
 //! The report is built from what a compile already produced (the loaded
 //! declarations and the diagnostics) plus the project's lock file on disk:
 //! enabled extensions with their enhancement counts, enhancements grouped
-//! by the entity kind they target, extension conflicts with a resolution
-//! suggestion, keywords that shadow an entity kind, extensions that failed
-//! to load, installed-binary integrity, and whether the z3 solver is on PATH.
+//! by the entity kind they target, and one list of findings (extension
+//! conflicts with a resolution suggestion, keywords that shadow an entity
+//! kind, unsatisfied peers, extensions that failed to load, installed-binary
+//! integrity, and whether the z3 solver is on PATH). Each problem is one
+//! finding that says what it is about; the report's sections are filters of
+//! that list ([`DoctorReport::about`]) and its verdict is [`DoctorReport::ok`].
 //!
 //! Registry credential health is the user's, not the project's, and lives
 //! with the credential store (`specforge_registry_client::credential_health`):
@@ -22,55 +25,40 @@ use crate::extension::Origin;
 use crate::view::ProjectView;
 
 /// Diagnostic codes that mean two contributions collide.
-pub const CONFLICT_CODES: [Code; 3] = [codes::E026, codes::E057, codes::W018];
+const CONFLICT_CODES: [Code; 3] = [codes::E026, codes::E057, codes::W018];
 
 /// Codes that mean a name shadows a grammar-level construct: E013 (a project
 /// entity ID is a structural keyword or an extension's kind keyword) and E026
 /// (a kind keyword is registered twice, which is also a conflict).
-pub const SHADOWING_CODES: [Code; 2] = [codes::E013, codes::E026];
+const SHADOWING_CODES: [Code; 2] = [codes::E013, codes::E026];
 
 /// Codes that mean `specforge.json` is not used as written: E069 (it can't
 /// be read, isn't a JSON object, or has a mistyped key or item).
-pub const CONFIG_CODES: [Code; 1] = [codes::E069];
+const CONFIG_CODES: [Code; 1] = [codes::E069];
 
 /// Codes the compile reports a peer requirement by (ADR 0041): E027 (unsatisfied, or a cycle among
 /// required peers) and E073 (a range that is not SemVer).
-pub const PEER_CODES: [Code; 2] = [codes::E027, codes::E073];
+const PEER_CODES: [Code; 2] = [codes::E027, codes::E073];
 
 /// The finding code of a project root without `specforge.json`.
-pub const CONFIG_MISSING: &str = "config_missing";
+const CONFIG_MISSING: &str = "config_missing";
 
 /// The finding code of a `specforge.lock` that exists but cannot be read
 /// (its check names the diagnostic, E033).
-pub const LOCK_UNREADABLE: &str = "lock_unreadable";
+const LOCK_UNREADABLE: &str = "lock_unreadable";
 
 /// Everything `specforge doctor` reports about a project.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
 pub struct DoctorReport {
     /// Every enabled extension: builtins from `specforge.json` and lock entries.
     pub extensions: Vec<ExtensionHealth>,
     /// Entity enhancements keyed by the entity kind they target (sorted).
     pub enhancements: BTreeMap<String, Vec<EnhancementEntry>>,
-    /// Extension conflicts the compile reported, in diagnostic order.
-    pub conflicts: Vec<Conflict>,
-    /// Names shadowing a grammar-level construct (see [`SHADOWING_CODES`]).
-    pub shadowed: Vec<ShadowedConstruct>,
-    /// The peer requirements the compile reports unsatisfied (see [`PEER_CODES`]), in diagnostic
-    /// order (ADR 0041).
-    pub peers: Vec<PeerProblem>,
-    /// Enabled extensions the compile could not load, in entry order: E028
-    /// (not installed, not loadable, or its lock unreadable) and E070 (its
-    /// installed binary is not the one the lock pins).
-    pub load_failures: Vec<LoadFailure>,
-    /// Installed binaries that do not match the lock file.
-    pub issues: Vec<BinaryIssue>,
     /// Lock entries whose binaries were checked.
-    pub extensions_checked: usize,
-    /// `stale` when an installed binary is missing or its hash drifted.
-    pub cache_status: CacheStatus,
+    pub installed_count: usize,
     /// Whether the z3 SMT solver is on PATH.
     pub z3_available: bool,
-    /// Every problem above as one flat, remediable list.
+    /// Every problem, once, in report order, each saying what it is about.
     pub findings: Vec<Finding>,
 }
 
@@ -93,45 +81,6 @@ pub struct EnhancementEntry {
     pub edge_types: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub verify_kinds: Option<Vec<String>>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct Conflict {
-    pub code: String,
-    pub severity: FindingStatus,
-    pub message: String,
-    /// The diagnostic's own suggestion, else the catalogue's explanation of
-    /// its code.
-    pub suggestion: String,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct ShadowedConstruct {
-    pub keyword: String,
-    pub code: String,
-    pub message: String,
-    pub suggestion: String,
-}
-
-/// A peer requirement the compile reports unsatisfied.
-#[derive(Debug, Clone, Serialize)]
-pub struct PeerProblem {
-    pub code: String,
-    pub message: String,
-    /// The diagnostic's own suggestion.
-    pub suggestion: String,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct LoadFailure {
-    pub code: String,
-    pub message: String,
-    /// The diagnostic's own suggestion, else the catalogue's explanation of
-    /// its code.
-    pub suggestion: String,
-    /// The failure is a missing or changed installed binary, which
-    /// [`DoctorReport::issues`] lists too: the findings list it once.
-    pub binary_issue: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -164,35 +113,134 @@ pub enum FindingStatus {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Finding {
+    /// What the finding is about, with what that part knows.
+    #[serde(flatten)]
+    pub about: About,
     pub check: String,
     pub status: FindingStatus,
     pub code: String,
     pub remediation: String,
 }
 
+/// What a doctor finding is about: the report's sections.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(tag = "about", rename_all = "snake_case")]
+pub enum About {
+    /// `specforge.json`: E069, or none at the root (`config_missing`).
+    Config,
+    /// `specforge.lock` exists and cannot be read (`lock_unreadable`).
+    Lock,
+    /// An installed binary does not match the lock.
+    Binary { issue: BinaryIssue },
+    /// An enabled extension the compile could not load (not a binary problem).
+    Load,
+    /// Two contributions collide (E026, E057, W018).
+    Conflict,
+    /// A name shadows a grammar-level construct (E013, E026).
+    Shadowing { keyword: String },
+    /// A peer requirement the compile reports unsatisfied (E027, E073).
+    Peer,
+    /// The z3 solver is not on PATH.
+    Toolchain,
+}
+
+/// The parts of a report, to select findings by ([`DoctorReport::about`]).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Part {
+    Config,
+    Lock,
+    Binary,
+    Load,
+    Conflict,
+    Shadowing,
+    Peer,
+    Toolchain,
+}
+
+impl About {
+    /// The part of the report this finding belongs to.
+    pub fn part(&self) -> Part {
+        match self {
+            About::Config => Part::Config,
+            About::Lock => Part::Lock,
+            About::Binary { .. } => Part::Binary,
+            About::Load => Part::Load,
+            About::Conflict => Part::Conflict,
+            About::Shadowing { .. } => Part::Shadowing,
+            About::Peer => Part::Peer,
+            About::Toolchain => Part::Toolchain,
+        }
+    }
+}
+
 impl DoctorReport {
-    /// Any error-level finding: doctor exits 1.
-    pub fn has_errors(&self) -> bool {
+    /// The report's verdict: no error-level finding. `specforge doctor`
+    /// exits by it (with the user's credentials); `specforge.doctor`
+    /// returns it as `ok`.
+    pub fn ok(&self) -> bool {
         self.findings
             .iter()
-            .any(|f| f.status == FindingStatus::Error)
+            .all(|f| f.status != FindingStatus::Error)
     }
 
-    /// Every installed binary is healthy and every enabled extension loaded.
+    /// Every installed binary is healthy, every enabled extension loaded
+    /// and every peer requirement is met.
     pub fn extensions_ok(&self) -> bool {
-        self.issues.is_empty() && self.load_failures.is_empty() && self.peers.is_empty()
+        !self
+            .findings
+            .iter()
+            .any(|f| matches!(f.about.part(), Part::Binary | Part::Load | Part::Peer))
     }
 
-    /// Each conflict's message, in report order.
-    pub fn conflict_messages(&self) -> Vec<&str> {
-        self.conflicts.iter().map(|c| c.message.as_str()).collect()
+    /// `stale` when an installed binary is missing or its hash drifted.
+    pub fn cache_status(&self) -> CacheStatus {
+        match self.about(Part::Binary).next() {
+            Some(_) => CacheStatus::Stale,
+            None => CacheStatus::Ok,
+        }
+    }
+
+    /// The findings about one part, in report order.
+    pub fn about(&self, part: Part) -> impl Iterator<Item = &Finding> {
+        self.findings.iter().filter(move |f| f.about.part() == part)
+    }
+
+    /// The findings where two contributions collide: those about a conflict,
+    /// and a shadowing that is also a collision (E026, a kind registered
+    /// twice).
+    pub fn conflicts(&self) -> impl Iterator<Item = &Finding> {
+        self.findings.iter().filter(|f| match f.about {
+            About::Conflict => true,
+            About::Shadowing { .. } => CONFLICT_CODES.iter().any(|code| code.matches(&f.code)),
+            _ => false,
+        })
+    }
+
+    /// The one JSON both surfaces return: `{ok, extensions_ok,
+    /// cache_status, installed_count, z3_available, extensions,
+    /// enhancements, conflicts: [message…], findings: [...]}`.
+    pub fn to_json(&self) -> serde_json::Value {
+        serde_json::json!({
+            "ok": self.ok(),
+            "extensions_ok": self.extensions_ok(),
+            "cache_status": self.cache_status(),
+            "installed_count": self.installed_count,
+            "z3_available": self.z3_available,
+            "extensions": self.extensions,
+            "enhancements": self.enhancements,
+            "conflicts": self
+                .conflicts()
+                .map(|f| f.check.as_str())
+                .collect::<Vec<_>>(),
+            "findings": self.findings,
+        })
     }
 }
 
 /// The health report of the project the view was compiled from: its
 /// loaded declarations, the diagnostics its surface reports, and, with a
 /// root, its lock and installed binaries. Without a root the installation
-/// checks are skipped (`extensions_checked: 0`).
+/// checks are skipped (`installed_count: 0`).
 pub fn diagnose(view: &ProjectView) -> DoctorReport {
     diagnose_with(view, z3_on_path())
 }
@@ -258,6 +306,7 @@ pub fn diagnose_with(view: &ProjectView, z3_available: bool) -> DoctorReport {
         .filter(|d| CONFIG_CODES.iter().any(|code| d.is(*code)))
     {
         findings.push(Finding {
+            about: About::Config,
             check: diag.message.clone(),
             status: match diag.severity {
                 Severity::Error => FindingStatus::Error,
@@ -271,6 +320,7 @@ pub fn diagnose_with(view: &ProjectView, z3_available: bool) -> DoctorReport {
         && !view.env().config_found
     {
         findings.push(Finding {
+            about: About::Config,
             check: format!("specforge.json at {}", root.display()),
             status: FindingStatus::Warn,
             code: CONFIG_MISSING.into(),
@@ -283,6 +333,7 @@ pub fn diagnose_with(view: &ProjectView, z3_available: bool) -> DoctorReport {
     // A lock file that cannot be used: nothing is known to be installed.
     if let Some(problem) = view.lock().problem() {
         findings.push(Finding {
+            about: About::Lock,
             check: format!("{} [{}]", problem.message, problem.code),
             status: FindingStatus::Error,
             code: LOCK_UNREADABLE.into(),
@@ -292,20 +343,18 @@ pub fn diagnose_with(view: &ProjectView, z3_available: bool) -> DoctorReport {
         });
     }
 
-    // Installed binaries against the lock file.
+    // Installed binaries against the lock file. A missing or changed binary
+    // is one finding with the command that reinstalls it; the load failure
+    // it causes is not listed again below.
     let installed = view.installed();
     let reinstall = |name: &str| format!("run `{}` to reinstall it", installed.reinstall(name));
-    let mut issues = Vec::new();
     for status in installed.health() {
-        let (issue, finding) = match status {
+        let (issue, check, code, name) = match status {
             Health::MissingModule { name } => (
                 BinaryIssue::MissingBinary { name: name.clone() },
-                Finding {
-                    check: format!("extension {name}"),
-                    status: FindingStatus::Error,
-                    code: "missing_binary".into(),
-                    remediation: reinstall(&name),
-                },
+                format!("extension {name}"),
+                "missing_binary",
+                name,
             ),
             Health::Changed {
                 name,
@@ -317,99 +366,75 @@ pub fn diagnose_with(view: &ProjectView, z3_available: bool) -> DoctorReport {
                     expected: expected.clone(),
                     actual: actual.clone(),
                 },
-                Finding {
-                    check: format!("extension {name}: lock expects {expected}, found {actual}"),
-                    status: FindingStatus::Error,
-                    code: "stale_hash".into(),
-                    remediation: reinstall(&name),
-                },
+                format!("extension {name}: lock expects {expected}, found {actual}"),
+                "stale_hash",
+                name,
             ),
         };
-        issues.push(issue);
-        findings.push(finding);
+        findings.push(Finding {
+            about: About::Binary { issue },
+            check,
+            status: FindingStatus::Error,
+            code: code.into(),
+            remediation: reinstall(&name),
+        });
     }
-    let cache_status = if issues.is_empty() {
-        CacheStatus::Ok
-    } else {
-        CacheStatus::Stale
-    };
 
     // Extensions the compile could not load: `check` fails on them, so
-    // doctor does too. A missing or changed binary is a finding of its own
-    // above, with the command that reinstalls it: not listed twice.
-    let mut load_failures = Vec::new();
+    // doctor does too.
     for enabled in &view.env().enabled {
         let Some(failure) = &enabled.failure else {
             continue;
         };
-        let diag = &failure.diagnostic;
-        let binary_issue = failure.problem.is_module_health();
-        let suggestion = remediation(diag, || format!("run `specforge explain {}`", diag.code));
-        if !binary_issue {
-            findings.push(Finding {
-                check: diag.message.clone(),
-                status: match diag.severity {
-                    Severity::Error => FindingStatus::Error,
-                    _ => FindingStatus::Warn,
-                },
-                code: diag.code.clone(),
-                remediation: suggestion.clone(),
-            });
+        if failure.problem.is_module_health() {
+            continue;
         }
-        load_failures.push(LoadFailure {
+        let diag = &failure.diagnostic;
+        findings.push(Finding {
+            about: About::Load,
+            check: diag.message.clone(),
+            status: match diag.severity {
+                Severity::Error => FindingStatus::Error,
+                _ => FindingStatus::Warn,
+            },
             code: diag.code.clone(),
-            message: diag.message.clone(),
-            suggestion,
-            binary_issue,
+            remediation: remediation(diag, || format!("run `specforge explain {}`", diag.code)),
         });
     }
 
-    // Conflicts and shadowed keywords the compile reported.
-    let mut conflicts = Vec::new();
-    let mut shadowed = Vec::new();
-    let mut peers = Vec::new();
+    // Conflicts and shadowed keywords the compile reported. A kind registered
+    // twice (E026) that names the keyword it shadows is one finding, about
+    // the shadowing.
     for diag in &diagnostics {
         let conflict = CONFLICT_CODES.iter().any(|code| diag.is(*code));
         let shadowing = SHADOWING_CODES.iter().any(|code| diag.is(*code));
         if !conflict && !shadowing {
             continue;
         }
-        let severity = match diag.severity {
-            Severity::Error => FindingStatus::Error,
-            _ => FindingStatus::Warn,
-        };
-        let suggestion = remediation(diag, || {
-            format!(
-                "uninstall or reconfigure one of the conflicting extensions \
-                 (`specforge explain {}`)",
-                diag.code
-            )
-        });
-        findings.push(Finding {
-            check: diag.message.clone(),
-            status: severity,
-            code: diag.code.clone(),
-            remediation: suggestion.clone(),
-        });
         // The keyword is the diagnostic's data, not a quoted word of its
         // message.
-        if shadowing && let Some(DiagnosticData::ShadowedKeyword { keyword }) = diag.data.as_deref()
-        {
-            shadowed.push(ShadowedConstruct {
+        let about = match diag.data.as_deref() {
+            Some(DiagnosticData::ShadowedKeyword { keyword }) if shadowing => About::Shadowing {
                 keyword: keyword.clone(),
-                code: diag.code.clone(),
-                message: diag.message.clone(),
-                suggestion: suggestion.clone(),
-            });
-        }
-        if conflict {
-            conflicts.push(Conflict {
-                code: diag.code.clone(),
-                severity,
-                message: diag.message.clone(),
-                suggestion,
-            });
-        }
+            },
+            _ => About::Conflict,
+        };
+        findings.push(Finding {
+            about,
+            check: diag.message.clone(),
+            status: match diag.severity {
+                Severity::Error => FindingStatus::Error,
+                _ => FindingStatus::Warn,
+            },
+            code: diag.code.clone(),
+            remediation: remediation(diag, || {
+                format!(
+                    "uninstall or reconfigure one of the conflicting extensions \
+                     (`specforge explain {}`)",
+                    diag.code
+                )
+            }),
+        });
     }
 
     // The peer requirements the compile reports unsatisfied: one rule, so doctor and
@@ -418,22 +443,18 @@ pub fn diagnose_with(view: &ProjectView, z3_available: bool) -> DoctorReport {
         .iter()
         .filter(|d| PEER_CODES.iter().any(|code| d.is(*code)))
     {
-        let suggestion = remediation(diag, || format!("run `specforge explain {}`", diag.code));
         findings.push(Finding {
+            about: About::Peer,
             check: diag.message.clone(),
             status: FindingStatus::Error,
             code: diag.code.clone(),
-            remediation: suggestion.clone(),
-        });
-        peers.push(PeerProblem {
-            code: diag.code.clone(),
-            message: diag.message.clone(),
-            suggestion,
+            remediation: remediation(diag, || format!("run `specforge explain {}`", diag.code)),
         });
     }
 
     if !z3_available {
         findings.push(Finding {
+            about: About::Toolchain,
             check: "z3 on PATH".into(),
             status: FindingStatus::Warn,
             code: "z3_missing".into(),
@@ -446,13 +467,7 @@ pub fn diagnose_with(view: &ProjectView, z3_available: bool) -> DoctorReport {
     DoctorReport {
         extensions,
         enhancements,
-        conflicts,
-        shadowed,
-        peers,
-        load_failures,
-        issues,
-        extensions_checked: lock_entries.len(),
-        cache_status,
+        installed_count: lock_entries.len(),
         z3_available,
         findings,
     }
@@ -491,8 +506,11 @@ mod tests {
         diagnostic
     }
 
-    #[test]
-    fn a_kind_registered_twice_is_a_shadowed_construct() {
+    #[specforge_test(
+        behavior = "run_doctor_check",
+        verify = "doctor detects shadowed grammar-level constructs"
+    )]
+    fn an_e026_with_a_keyword_is_one_shadowing_finding() {
         // What the registry build reports for a kind two extensions declare,
         // worded so that no quoted word of it is the keyword: only the data
         // names it.
@@ -509,14 +527,21 @@ mod tests {
         let fixture = Fixture::new().reporting(diagnostics.to_vec());
         let report = diagnose_with(&fixture.view(), true);
 
-        assert_eq!(report.shadowed.len(), 1);
-        assert_eq!(report.shadowed[0].keyword, "memo");
-        assert_eq!(report.shadowed[0].code, "E026");
+        assert_eq!(report.findings.len(), 1, "{:?}", report.findings);
+        let finding = &report.findings[0];
         assert_eq!(
-            report.conflicts[0].suggestion,
+            finding.about,
+            About::Shadowing {
+                keyword: "memo".into()
+            }
+        );
+        assert_eq!(finding.code, "E026");
+        assert_eq!(
+            finding.remediation,
             "choose a different keyword for this entity kind"
         );
-        assert!(report.has_errors());
+        assert_eq!(report.about(Part::Conflict).count(), 0);
+        assert!(!report.ok());
     }
 
     #[test]
@@ -529,15 +554,16 @@ mod tests {
         let fixture = Fixture::new().reporting(diagnostics.to_vec());
         let report = diagnose_with(&fixture.view(), true);
 
-        assert_eq!(report.conflicts.len(), 1);
-        assert!(report.shadowed.is_empty());
+        let conflicts: Vec<&Finding> = report.about(Part::Conflict).collect();
+        assert_eq!(conflicts.len(), 1);
+        assert_eq!(report.about(Part::Shadowing).count(), 0);
         // W018 offers no suggestion: the catalogue's explanation stands in.
         assert!(
-            report.conflicts[0]
-                .suggestion
+            conflicts[0]
+                .remediation
                 .starts_with("Two extensions register an edge type with the same label"),
             "{}",
-            report.conflicts[0].suggestion
+            conflicts[0].remediation
         );
     }
 
@@ -586,9 +612,8 @@ mod tests {
         let report = diagnose_with(&fixture.view(), true);
 
         let remedies: Vec<&str> = report
-            .load_failures
-            .iter()
-            .map(|f| f.suggestion.as_str())
+            .about(Part::Load)
+            .map(|f| f.remediation.as_str())
             .collect();
         assert_eq!(remedies.len(), 2, "{remedies:?}");
         assert!(
@@ -621,9 +646,15 @@ mod tests {
         let fixture = Fixture::new().reporting(diagnostics.to_vec());
         let report = diagnose_with(&fixture.view(), true);
 
-        assert!(report.conflicts.is_empty());
-        assert_eq!(report.shadowed[0].keyword, "behavior");
-        assert_eq!(report.shadowed[0].suggestion, "rename the entity");
+        assert_eq!(report.about(Part::Conflict).count(), 0);
+        let shadowed: Vec<&Finding> = report.about(Part::Shadowing).collect();
+        assert_eq!(
+            shadowed[0].about,
+            About::Shadowing {
+                keyword: "behavior".into()
+            }
+        );
+        assert_eq!(shadowed[0].remediation, "rename the entity");
         assert_eq!(report.findings[0].code, "E013");
     }
 
@@ -633,8 +664,8 @@ mod tests {
         let report = diagnose_with(&fixture.view(), false);
         assert_eq!(report.findings.len(), 1);
         assert_eq!(report.findings[0].code, "z3_missing");
-        assert!(!report.has_errors());
-        assert_eq!(report.cache_status, CacheStatus::Ok);
+        assert!(report.ok());
+        assert_eq!(report.cache_status(), CacheStatus::Ok);
     }
 
     #[specforge_test(
@@ -649,18 +680,14 @@ mod tests {
             e028,
         )]);
         let report = diagnose_with(&failing.view(), true);
-        let failures: Vec<&str> = report
-            .load_failures
-            .iter()
-            .map(|f| f.code.as_str())
-            .collect();
+        let failures: Vec<&str> = report.about(Part::Load).map(|f| f.code.as_str()).collect();
         assert_eq!(failures, ["E028"]);
-        assert!(report.has_errors());
+        assert!(!report.ok());
 
         let clean = Fixture::new();
         let report = diagnose_with(&clean.view(), true);
-        assert!(report.load_failures.is_empty());
-        assert!(!report.has_errors());
+        assert_eq!(report.about(Part::Load).count(), 0);
+        assert!(report.ok());
     }
 
     #[test]
@@ -671,15 +698,15 @@ mod tests {
 
         let report = diagnose_with(&fixture.rootless_view(), true);
 
-        assert_eq!(report.extensions_checked, 0);
-        assert_eq!(report.cache_status, CacheStatus::Ok);
+        assert_eq!(report.installed_count, 0);
+        assert_eq!(report.cache_status(), CacheStatus::Ok);
         let names: Vec<&str> = report.extensions.iter().map(|e| e.name.as_str()).collect();
         assert_eq!(names, ["@acme/loaded"], "no lock is read without a root");
 
         // Rooted, the lock is read and its binary checked (missing here).
         let report = diagnose_with(&fixture.view(), true);
-        assert_eq!(report.extensions_checked, 1);
-        assert_eq!(report.cache_status, CacheStatus::Stale);
+        assert_eq!(report.installed_count, 1);
+        assert_eq!(report.cache_status(), CacheStatus::Stale);
     }
 
     #[specforge_test(
@@ -756,7 +783,7 @@ mod tests {
             finding_codes(&report),
             [(CONFIG_MISSING, FindingStatus::Warn)]
         );
-        assert!(!report.has_errors(), "a warning: doctor stays healthy");
+        assert!(report.ok(), "a warning: doctor stays healthy");
         assert!(
             report.findings[0]
                 .check
@@ -842,12 +869,17 @@ mod tests {
             remedy.starts_with("run `specforge add ") && remedy.ends_with(".wasm` to reinstall it"),
             "{remedy}"
         );
-        // Both facets stay in the report's data: the issue and the load
-        // failure that duplicates it.
-        assert_eq!(report.issues.len(), 1);
-        assert_eq!(report.load_failures.len(), 1);
-        assert_eq!(report.load_failures[0].code, "E070");
-        assert!(report.load_failures[0].binary_issue);
+        // The binary is the one finding: the load failure it causes (E070)
+        // is not listed again.
+        assert_eq!(report.about(Part::Binary).count(), 1);
+        assert_eq!(report.about(Part::Load).count(), 0);
+        assert!(report.findings.iter().all(|f| f.code != "E070"));
+        assert!(matches!(
+            report.findings[0].about,
+            About::Binary {
+                issue: BinaryIssue::StaleHash { .. }
+            }
+        ));
 
         // Running the remedy reinstalls the pinned binary: doctor is clean.
         let command = remedy
@@ -868,12 +900,7 @@ mod tests {
         .unwrap();
         let compiled = specforge_project::CompiledProject::compile(dir.path(), Some(runtime));
         let report = diagnose_with(&ProjectView::of(&compiled), true);
-        assert!(report.issues.is_empty(), "{:?}", report.issues);
-        assert!(
-            report.load_failures.is_empty(),
-            "{:?}",
-            report.load_failures
-        );
+        assert!(report.findings.is_empty(), "{:?}", report.findings);
     }
 
     #[specforge_test(
@@ -891,13 +918,15 @@ mod tests {
         let report = diagnose_with(&fixture.view(), true);
 
         assert_eq!(finding_codes(&report), [("E069", FindingStatus::Error)]);
-        assert!(report.has_errors());
+        assert!(!report.ok());
         assert_eq!(
             report.findings[0].remediation,
             "fix specforge.json; `specforge explain E069` says what it must be"
         );
-        assert!(
-            report.load_failures.is_empty(),
+        assert_eq!(report.findings[0].about, About::Config);
+        assert_eq!(
+            report.about(Part::Load).count(),
+            0,
             "E069 is about the config, not an extension"
         );
     }

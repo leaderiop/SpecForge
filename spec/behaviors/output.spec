@@ -527,10 +527,12 @@ behavior report_command_outcome "Report a Command's Outcome" {
     Every core command MUST end in one of three ways. Its run passed:
     exit 0. Its run's verdict failed (check found an error, format --check
     a file that would change, migrate failed or rolled back, analyze an
-    error finding or a gate below its minimum) or its operation refused:
+    error finding or a gate below its minimum, doctor an error-level
+    finding or an unusable credential) or its operation refused:
     exit 1. The command could not judge the project, because the command
     line was refused or a measuring command (stats, analyze) cannot read
-    what it measures against: exit 2. A refusal MUST be printed on stderr
+    what it measures against, or analyze's coverage gate has no figure:
+    exit 2. A refusal MUST be printed on stderr
     as error[CODE]: message, then "  hint: " and the suggestion when there
     is one, then "  wrote: " and each file the failed operation left
     written; under --format json (analyze: --json) it MUST instead be the
@@ -538,7 +540,8 @@ behavior report_command_outcome "Report a Command's Outcome" {
     were left written) on stdout, with nothing on stderr. A command run
     outside any project where it needs one MUST refuse with no_project.
     The verdict is the operation's: the CLI's exit code and the ok MCP
-    returns for check, analyze, format and migrate MUST agree.
+    returns for check, analyze, format, migrate and doctor MUST agree
+    (doctor's credentials are the CLI's alone).
   """
   verify unit "an operation's refusal is error[CODE]: message, its hint and the files it left written, on stderr"
   verify unit "under --format json a refusal is the error document on stdout and nothing on stderr"
@@ -881,7 +884,6 @@ behavior export_agent_context_format "Export Agent Context Format" {
   verify integration "export --format context keeps an invariant's guarantee"
   verify unit "scoped export returns only reachable subgraph"
   verify unit "non-existent scope entity produces E003 and exit code 1"
-  verify unit "depth without a scope is invalid input on every surface"
   verify unit "output conforms to Graph Protocol schema"
   verify unit "output includes schema_version field"
   verify contract "Export Agent Context Format: agent context export holds — validation_complete_fired, token_optimized_output, schema_version_present, scope_enforced, invalid_scope_diagnosed, export_complete_emitted"
@@ -956,14 +958,19 @@ behavior export_agent_graph_format "Export Agent Graph Format" {
     command writes to stdout for agent consumption. An optional --scope parameter
     MUST allow scoping to a subgraph rooted at a specific entity. If --scope
     references a non-existent entity ID, the system MUST emit an E003
-    diagnostic and exit with code 1. The output MUST include a schema_version
-    field identifying the Graph Protocol version. Depth without a scope is
-    invalid input.
+    diagnostic and exit with code 1. --depth (with --scope) limits the hops
+    from it, and --kinds keeps only entities of those kinds, the scoped
+    entity always kept; depth without a scope is invalid input.
+    specforge.export and the graph resources take the same options. The
+    output MUST include a schema_version field identifying the Graph
+    Protocol version.
   """
   verify unit "graph format includes all nodes and edges"
   verify unit "graph format includes all fields and metadata"
   verify unit "scoped export returns only reachable subgraph"
   verify unit "non-existent scope entity produces E003 and exit code 1"
+  verify unit "depth without a scope is invalid input on every surface"
+  verify integration "depth and kinds narrow the export the same way on every surface"
   verify unit "an export failure carries its code as a constant, never in its message"
   verify unit "output conforms to Graph Protocol schema"
   verify unit "output includes schema_version field"

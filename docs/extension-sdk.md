@@ -673,7 +673,7 @@ An extension is tested natively (`cargo test`, no wasm build) at three depths:
   declare (a panic here, E028 in the host).
 - **Its commands, as the host calls them**: `specforge_wasm::testing::InProcessRuntime` (feature
   `testing`) serves the extension's `ContributionsBuilder` through the guest's own routing
-  (`guest_call`, what `component_guest!` calls), and `ExtensionCalls::run_command` calls a command
+  (`Served`, what `component_guest!` calls), and `ExtensionCalls::run_command` calls a command
   exactly as the CLI and MCP do: the typed `CommandInput` (the graph as the host renders it), the
   strictly decoded `CommandOutput`, a failure as E028.
 

@@ -62,7 +62,9 @@ schema policy, byte-equal to `specforge export`. The entity list is `specforge.l
 diagnostics are what the view reports. A read answers under the URI it was asked for. A query key the
 read does not know, a repeated key, a value that does not parse, `scope` with `root`, a scope on a
 templated URI or `depth` without a scope is refused as `invalid_input` naming the key; keys and values
-are percent-decoded, and a count is read by ADR 0033 D2's rule.
+are percent-decoded, and a count is read by ADR 0033 D2's rule. *(Amended, round 5 plan 15:
+`specforge export` and `specforge.export` take `depth` and `kinds` too, and `specforge.export` takes
+`schema_version`, so the byte-equality holds for every key.)*
 
 **D5. The call target declares its arguments.** `TargetSpec` contributes `path` (by reach) and
 `use_cached` (by freshness) to the listed schema and to the field set the drift test reads; handlers

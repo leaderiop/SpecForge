@@ -544,10 +544,10 @@ fn doctor_reports_health_check() {
     let json: serde_json::Value =
         serde_json::from_str(&stdout).expect("doctor --format json should produce valid JSON");
 
-    assert_eq!(json["extensions_checked"], 1);
+    assert_eq!(json["installed_count"], 1);
     // The hash won't match (lock has "hash_test_ext", actual file has a real sha256)
     // so it should report stale_hash
-    assert!(json["issues"].is_array());
+    assert!(json["findings"].is_array());
 }
 
 #[test]
@@ -573,9 +573,13 @@ fn doctor_missing_binary() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
 
-    assert_eq!(json["status"], "issues_found");
-    let issues = json["issues"].as_array().unwrap();
-    assert!(issues.iter().any(|i| i["status"] == "missing_binary"));
+    assert_eq!(json["ok"], false);
+    let issues = findings_about(&json, "binary");
+    assert!(
+        issues
+            .iter()
+            .any(|i| i["issue"]["status"] == "missing_binary")
+    );
 }
 
 #[test]
@@ -594,7 +598,7 @@ fn doctor_no_lock_file() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
 
-    assert_eq!(json["status"], "healthy");
+    assert_eq!(json["ok"], true);
 }
 
 #[test]
@@ -647,7 +651,7 @@ fn doctor_lists_enhancements() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
 
-    assert_eq!(json["extensions_checked"], 2);
+    assert_eq!(json["installed_count"], 2);
 }
 
 #[test]
@@ -675,10 +679,10 @@ fn doctor_detects_stale_hash() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
 
-    assert_eq!(json["status"], "issues_found");
-    let issues = json["issues"].as_array().unwrap();
+    assert_eq!(json["ok"], false);
+    let issues = findings_about(&json, "binary");
     assert!(
-        issues.iter().any(|i| i["status"] == "stale_hash"),
+        issues.iter().any(|i| i["issue"]["status"] == "stale_hash"),
         "should detect stale hash when binary changes"
     );
 }
@@ -723,13 +727,13 @@ fn doctor_healthy_lock_entry() {
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
 
     // Postcondition: report produced
-    assert_eq!(json["status"], "healthy", "ensures: report_produced");
+    assert_eq!(json["ok"], true, "ensures: report_produced");
     assert_eq!(
-        json["extensions_checked"], 1,
+        json["installed_count"], 1,
         "ensures: doctor_check_completed_emitted"
     );
     assert!(
-        json["issues"].as_array().unwrap().is_empty(),
+        findings_about(&json, "binary").is_empty(),
         "ensures: no issues for valid extension"
     );
 }
@@ -884,7 +888,7 @@ fn doctor_fails_on_a_shadowed_keyword_without_calling_it_a_conflict() {
     let (report, code) = doctor_json(dir.path());
 
     assert_eq!(report["conflicts"], serde_json::json!([]), "{report}");
-    assert_eq!(report["status"], "issues_found", "{report}");
+    assert_eq!(report["ok"], false, "{report}");
     assert_eq!(code, 1, "{report}");
     let (human, human_code) = doctor_human(dir.path());
     assert_eq!(human_code, 1, "{human}");
@@ -900,12 +904,12 @@ fn doctor_reports_a_keyword_shadowing_an_extension_entity_kind() {
 
     let (report, _) = doctor_json(dir.path());
 
-    let shadowed = report["shadowed"].as_array().unwrap();
+    let shadowed = findings_about(&report, "shadowing");
     assert_eq!(shadowed.len(), 1, "{report}");
     assert_eq!(shadowed[0]["keyword"], "behavior", "{report}");
     assert_eq!(shadowed[0]["code"], "E013", "{report}");
     assert!(
-        shadowed[0]["suggestion"]
+        shadowed[0]["remediation"]
             .as_str()
             .unwrap()
             .contains("rename"),
@@ -915,7 +919,7 @@ fn doctor_reports_a_keyword_shadowing_an_extension_entity_kind() {
     // A project without the clash shadows nothing.
     let clean_dir = builtin_project(None);
     let (clean, _) = doctor_json(clean_dir.path());
-    assert_eq!(clean["shadowed"], serde_json::json!([]), "{clean}");
+    assert!(findings_about(&clean, "shadowing").is_empty(), "{clean}");
 
     let (human, _) = doctor_human(dir.path());
     let section = human
@@ -933,16 +937,16 @@ fn doctor_json_carries_every_report_section() {
 
     let (report, _) = doctor_json(dir.path());
 
-    for key in ["extensions", "conflicts", "shadowed", "findings", "issues"] {
+    for key in ["extensions", "conflicts", "findings"] {
         assert!(report[key].is_array(), "{key} is not an array: {report}");
     }
     assert!(report["enhancements"].is_object(), "{report}");
     assert!(report["cache_status"].is_string(), "{report}");
-    assert!(report["status"].is_string(), "{report}");
+    assert!(report["ok"].is_boolean(), "{report}");
     let findings = report["findings"].as_array().unwrap();
     assert!(findings.iter().any(|f| f["code"] == "E013"), "{report}");
     for finding in findings {
-        for field in ["check", "status", "code", "remediation"] {
+        for field in ["about", "check", "status", "code", "remediation"] {
             assert!(finding[field].is_string(), "{field} missing: {finding}");
         }
     }
@@ -987,15 +991,15 @@ fn doctor_contract() {
         "requires: enhancement_registered_fired: {report}"
     );
     assert_eq!(
-        report["extensions_checked"], 1,
+        report["installed_count"], 1,
         "requires: filesystem_available (the lock entry is checked on disk): {report}"
     );
     assert_eq!(
-        report["status"], "healthy",
+        report["ok"], true,
         "ensures: doctor_check_completed_emitted: {report}"
     );
     assert!(
-        report["issues"].as_array().unwrap().is_empty(),
+        findings_about(&report, "binary").is_empty(),
         "ensures: report_produced — the binary matches its lock hash: {report}"
     );
     assert_eq!(
@@ -1947,9 +1951,9 @@ fn doctor_without_specforge_json_says_so() {
     let (report, code) = doctor_json(dir.path());
 
     assert_eq!(code, 0, "{report}");
-    assert_eq!(report["status"], "healthy", "{report}");
+    assert_eq!(report["ok"], true, "{report}");
     assert_eq!(report["extensions"], serde_json::json!([]), "{report}");
-    assert_eq!(report["extensions_checked"], 0, "{report}");
+    assert_eq!(report["installed_count"], 0, "{report}");
     let findings = project_findings(&report);
     let codes: Vec<(&str, &str)> = findings
         .iter()
@@ -1995,7 +1999,8 @@ fn doctor_reports_a_corrupt_lock_as_an_error_finding() {
             .contains("corrupt lock file at"),
         "{report}"
     );
-    assert_eq!(report["extensions_checked"], 0, "{report}");
+    assert_eq!(report["installed_count"], 0, "{report}");
+    assert_eq!(findings[0]["about"], "lock", "{report}");
 
     let (human, code) = doctor_human(dir.path());
     assert_eq!(code, 1, "{human}");
@@ -2194,38 +2199,34 @@ fn keys_of(value: &serde_json::Value) -> Vec<&str> {
     keys
 }
 
-// pin (15-T0): today's behaviour; flipped by 15-T14
-#[test]
-fn pin_doctor_json_shapes() {
+/// The findings of `report` about `about` (config, lock, binary, load,
+/// conflict, shadowing, peer or toolchain).
+fn findings_about<'a>(report: &'a serde_json::Value, about: &str) -> Vec<&'a serde_json::Value> {
+    report["findings"]
+        .as_array()
+        .unwrap_or_else(|| panic!("no findings: {report}"))
+        .iter()
+        .filter(|f| f["about"] == about)
+        .collect()
+}
+
+#[specforge_test(
+    behavior = "run_doctor_check",
+    verify = "doctor states each finding once, saying what it is about, and its verdict; the CLI and MCP return one report"
+)]
+fn doctor_json_is_one_report_on_both_surfaces() {
     let dir = TempDir::new().unwrap();
     write_config_with_extensions(dir.path(), &["@specforge/software", "@acme/missing"]);
 
     let (cli, code) = doctor_json(dir.path());
     assert_eq!(code, 1, "{cli}");
-    assert_eq!(
-        keys_of(&cli),
-        [
-            "cache_status",
-            "conflicts",
-            "credentials",
-            "credentials_failures",
-            "enhancements",
-            "extensions",
-            "extensions_checked",
-            "findings",
-            "issues",
-            "load_failures",
-            "peers",
-            "shadowed",
-            "status",
-            "z3_available",
-        ],
-        "{cli}"
-    );
-    assert_eq!(cli["load_failures"][0]["binary_issue"], false, "{cli}");
-    assert_eq!(cli["findings"][0]["code"], "E028", "{cli}");
-
     let mcp = mcp_doctor_json(dir.path());
+
+    // The CLI adds the user's credentials; nothing else differs in shape.
+    let mut expected = keys_of(&mcp);
+    expected.extend(["credentials", "credentials_failures"]);
+    expected.sort_unstable();
+    assert_eq!(keys_of(&cli), expected, "{cli}");
     assert_eq!(
         keys_of(&mcp),
         [
@@ -2236,12 +2237,16 @@ fn pin_doctor_json_shapes() {
             "extensions_ok",
             "findings",
             "installed_count",
-            "issues",
-            "load_failures",
-            "peers",
-            "shadowed",
+            "ok",
             "z3_available",
         ],
         "{mcp}"
     );
+    for report in [&cli, &mcp] {
+        assert_eq!(report["ok"], false, "{report}");
+        let load = findings_about(report, "load");
+        assert_eq!(load.len(), 1, "{report}");
+        assert_eq!(load[0]["code"], "E028", "{report}");
+    }
+    assert_eq!(cli["findings"], mcp["findings"]);
 }

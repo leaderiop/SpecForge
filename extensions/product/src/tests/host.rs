@@ -2,7 +2,7 @@
 //! host calls it, `ExtensionCalls::run_command` with the typed
 //! `CommandInput` and the strictly decoded answer (ADR 0013), over the
 //! in-process runtime serving this crate's own declaration through the
-//! guest's routing (`guest_call`, what `component_guest!` calls). So a
+//! guest's routing (`Served`, what `component_guest!` calls). So a
 //! change to a command is tested before any blob is built. What only the
 //! vendored blob proves is `specforge-component`'s (`tests/product_blob.rs`).
 

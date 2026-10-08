@@ -280,18 +280,28 @@ type McpProviderInfo {
 }
 
 type McpDoctorFinding {
+  /// What the finding is about: config, lock, binary, load, conflict, shadowing, peer or toolchain.
+  about       "config" | "lock" | "binary" | "load" | "conflict" | "shadowing" | "peer" | "toolchain"
   check       string
   status      "ok" | "warn" | "error"
   code        string
   remediation string @optional
+  /// A binary finding's issue (missing_binary or stale_hash and its fields).
+  issue       object @optional
+  /// A shadowing finding's keyword.
+  keyword     string @optional
   verify unit "McpDoctorFinding schema is valid"
 }
 
 type McpDoctorReport {
-  extensions_ok boolean
-  conflicts     string[]
-  cache_status  string
-  findings      McpDoctorFinding[]
+  /// The report's verdict: no error-level finding (specforge doctor exits 1 without it).
+  ok              boolean
+  extensions_ok   boolean
+  conflicts       string[]
+  cache_status    string
+  installed_count integer
+  z3_available    boolean
+  findings        McpDoctorFinding[]
   verify unit "McpDoctorReport schema is valid"
 }
 

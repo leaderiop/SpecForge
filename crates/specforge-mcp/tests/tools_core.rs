@@ -2360,16 +2360,78 @@ fn validate_gives_each_catalogued_code_its_title() {
     assert_eq!(title("E006"), "Missing required field");
 }
 
-// pin (15-T0): today's behaviour; flipped by 15-T8
-#[test]
-fn pin_analyze_takes_no_min() {
-    let mut server = test_server();
+#[specforge_test(
+    behavior = "provide_mcp_analyze_tool",
+    verify = "specforge.analyze takes min and returns the run verdict and where the gate landed"
+)]
+fn analyze_gates_on_min() {
+    // Software and testing, a widget with an obligation, and a recorded
+    // report that proves nothing: 0 of 1 testable entities proven.
+    let root = tempfile::tempdir().unwrap();
+    std::fs::create_dir_all(root.path().join("spec")).unwrap();
+    std::fs::write(
+        root.path().join("specforge.json"),
+        r#"{"name":"cov","spec_root":"spec","extensions":["@specforge/software","@specforge/testing"]}"#,
+    )
+    .unwrap();
+    std::fs::write(
+        root.path().join("spec/a.spec"),
+        "type widget \"Widget\" {\n  id string @unique\n  verify unit \"widget valid\"\n}\n",
+    )
+    .unwrap();
+    std::fs::write(
+        root.path().join("specforge-report.json"),
+        r#"{"runner":"r","results":{}}"#,
+    )
+    .unwrap();
+    let path = root.path().to_str().unwrap();
+    let mut server = serving_nothing();
+
+    // A number, or a string holding one, is read the same way; the gate is
+    // below its minimum, which is a verdict, not a refusal.
+    for min in [json!(50), json!("50")] {
+        let resp = call_tool(
+            &mut server,
+            "specforge.analyze",
+            json!({"pass": "coverage", "min": min, "path": path}),
+        );
+        assert_eq!(resp["result"]["isError"], false, "{resp}");
+        let doc: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+        assert_eq!(doc["ok"], false, "{doc}");
+        assert_eq!(doc["gate"]["status"], "below", "{doc}");
+        assert_eq!(doc["gate"]["min"], 50.0, "{doc}");
+    }
+
     let resp = call_tool(
         &mut server,
         "specforge.analyze",
-        json!({"pass": "coverage", "min": 50}),
+        json!({"pass": "coverage", "min": true, "path": path}),
     );
     let error = mcp_error(&resp);
     assert_eq!(error["code"], "invalid_input", "{error}");
-    assert_eq!(error["argument"], "min", "{error}");
+    assert_eq!(
+        error["message"], "min must be a number, got true",
+        "{error}"
+    );
+
+    let resp = call_tool(
+        &mut server,
+        "specforge.analyze",
+        json!({"pass": "coverage", "min": 150, "path": path}),
+    );
+    let error = mcp_error(&resp);
+    assert_eq!(error["code"], "invalid_input", "{error}");
+    assert_eq!(
+        error["message"], "min must be a percentage between 0 and 100, got 150",
+        "{error}"
+    );
+
+    // A minimum the coverage pass will not answer is refused as E068.
+    let resp = call_tool(
+        &mut server,
+        "specforge.analyze",
+        json!({"pass": "contracts", "min": 50, "path": path}),
+    );
+    let error = mcp_error(&resp);
+    assert_eq!(error["diagnostic"]["code"], "E068", "{error}");
 }

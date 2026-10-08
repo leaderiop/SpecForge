@@ -160,6 +160,15 @@ enum Commands {
         #[arg(long)]
         scope: Option<String>,
 
+        /// With --scope, how many hops from the scoped entity to include
+        #[arg(long, requires = "scope")]
+        depth: Option<usize>,
+
+        /// Keep only entities of these kinds (comma-separated); the scoped
+        /// entity always stays
+        #[arg(long, value_delimiter = ',')]
+        kinds: Vec<String>,
+
         /// Suppress schema embedding in `graph` exports (keeps format_version 1.0)
         #[arg(long)]
         no_schema: bool,
@@ -819,23 +828,29 @@ fn run(command: Commands) -> Exit {
             path,
             format,
             scope,
+            depth,
+            kinds,
             no_schema,
             with_schema,
             schema_version,
             max_tokens,
         } => export::run(
             &path,
-            format,
-            scope.as_deref(),
-            // context, brief and a budgeted graph export leave the schema
-            // out unless asked for it (the policy lives in specforge-ops).
-            match (no_schema, with_schema) {
-                (true, _) => specforge_ops::export::Schema::Without,
-                (_, true) => specforge_ops::export::Schema::With,
-                _ => specforge_ops::export::Schema::Default,
+            &specforge_ops::export::Request {
+                format: Some(format),
+                scope: scope.as_deref(),
+                depth,
+                kinds: kinds.iter().map(String::as_str).collect(),
+                max_tokens,
+                // context, brief and a budgeted graph export leave the schema
+                // out unless asked for it (the policy lives in specforge-ops).
+                schema: match (no_schema, with_schema) {
+                    (true, _) => specforge_ops::export::Schema::Without,
+                    (_, true) => specforge_ops::export::Schema::With,
+                    _ => specforge_ops::export::Schema::Default,
+                },
+                schema_version: schema_version.as_deref(),
             },
-            schema_version.as_deref(),
-            max_tokens,
         ),
         Commands::Schema {
             path,

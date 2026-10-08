@@ -153,6 +153,8 @@ behavior call_extension_exports "Call Extension Exports" {
     pass, a command's its E028 error, a scanner's a reported failure that
     makes the gap report approximate, a collector's the collect error. A
     migration hook's answer is not read.
+    A component guest builds its declaration once per instance and answers
+    the handshake and every describe from it.
 
     A pass diagnostic keeps the code and severity the pass gave it; when
     the code is not one the extension may use (its own catalogued code
@@ -166,6 +168,7 @@ behavior call_extension_exports "Call Extension Exports" {
   verify unit "an SDK-declared extension answers the same through the in-process runtime as through the component runtime"
   verify unit "both runtimes report an unknown extension, an unrouted export, a guest error and a guest panic as traps"
   verify unit "every extension call encodes its input as the protocol type the SDK decodes"
+  verify unit "a guest answers the handshake and every describe from one declaration it builds once"
   verify unit "every extension call decodes the protocol type the SDK encodes"
   verify unit "a call whose export trapped is E028 naming the extension, the operation and the export"
   verify unit "a call whose answer does not decode as its protocol type is E028, never a default"
@@ -663,9 +666,14 @@ behavior run_doctor_check "Run Doctor Check" {
     and additional checks (shadowed fields, unknown target entities,
     edge label conflicts). An enabled extension that fails to load (E028:
     not installed; E070: its binary is not the one the lock pins) MUST be
-    reported as an error. A missing or changed installed binary MUST be one
-    finding, whose remediation is the command that reinstalls it as its lock
-    entry records it. Each peer requirement the compile reports unsatisfied
+    reported as an error. Each problem MUST be one finding that says what it
+    is about (the config, the lock, a binary, a load, a conflict, a
+    shadowing, a peer, the toolchain); a missing or changed installed binary
+    is one binary finding, whose remediation is the command that reinstalls
+    it as its lock entry records it. The report MUST carry its verdict (no
+    error-level finding), and specforge doctor --format json and
+    specforge.doctor MUST return the same report (the CLI adds the user's
+    credentials). Each peer requirement the compile reports unsatisfied
     (E027, E073) MUST be an error finding with the remedy its diagnostic
     suggests: doctor and check judge peers by one rule over the loaded
     extensions (ADR 0041), so a peer a builtin or a .wasm file entry
@@ -696,6 +704,7 @@ behavior run_doctor_check "Run Doctor Check" {
   verify unit "doctor gives each extension the source the extensions listing gives it"
   verify unit "doctor in a directory without specforge.json reports config_missing as a warning"
   verify unit "a lock file that cannot be read is an error finding naming E033"
+  verify unit "doctor states each finding once, saying what it is about, and its verdict; the CLI and MCP return one report"
   verify contract "Run Doctor Check: doctor check holds — enhancement_registered_fired, filesystem_available, doctor_check_completed_emitted, report_produced, json_output_supported"
 }
 

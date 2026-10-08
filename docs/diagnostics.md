@@ -774,12 +774,16 @@ Level: error
 ## E068
 
 ```
-E068: Coverage gate without the coverage pass
+E068: Coverage gate without a coverage figure
 
-`specforge analyze --min N` gates on proof coverage, which the `coverage` pass
-of `@specforge/testing` computes, but that pass didn't run: the extension isn't
-enabled, or `--pass` selected a different pass. Enable it with `specforge add
-@specforge/testing`, and run the `coverage` (or `all`) pass. The run exits 2.
+`specforge analyze --min N` (and `specforge.analyze`'s `min`) gates on proof
+coverage, which the `coverage` pass of `@specforge/testing` computes. Either
+that pass will not run (the extension isn't enabled, or the run selects a
+different pass), and the analysis is refused before any pass runs; or it ran and
+gave no figure this specforge reads (it failed, or `@specforge/testing` is a
+different version), and the run is unjudged. Enable it with `specforge add
+@specforge/testing`, run the `coverage` (or `all`) pass, and keep the extension
+at the version this specforge ships. The run exits 2.
 
 Owner: core
 Level: error

@@ -442,8 +442,9 @@ behavior provide_mcp_doctor_tool "Provide MCP Doctor Tool" {
     conflicts, stale Wasm cache entries, extensions that fail to load (E028,
     E070), missing specforge.json fields, version mismatches, and orphan
     entities. A specforge.json the server could not use (E069) MUST be a
-    finding. The response MUST include detected issues and deterministic
-    resolution steps. Like specforge.validate, the tool MUST bring the
+    finding. The response MUST be the report specforge doctor computes: its
+    verdict ok and each detected issue once, with what it is about and a
+    deterministic resolution step. Like specforge.validate, the tool MUST bring the
     project up to date with disk before checking it, so it sees edits made
     outside the server; with use_cached (optional boolean, default false) it
     MUST report on the project as last brought up to date instead.

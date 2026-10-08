@@ -8,7 +8,7 @@ use std::path::Path;
 
 use specforge_common::{codes, diagnostic_summary, render_diagnostics, truncate_diagnostics};
 use specforge_ops::OpError;
-use specforge_ops::analyze::{AnalyzeOptions, Gate, ProveOptions, ReportSource, analyze};
+use specforge_ops::analyze::{AnalyzeOptions, ProveOptions, ReportSource, analyze};
 use specforge_ops::view::ProjectView;
 
 use crate::OutputFormat;
@@ -118,37 +118,12 @@ pub fn run(
     }
 
     // The gate comes after the reports print, so the operator still sees the
-    // full analysis; it only decides the exit code.
-    match &outcome.gate {
-        Gate::NotRequested | Gate::Met => {}
-        Gate::NoCoveragePass => {
-            eprintln!(
-                "error[{}]: --min requires the coverage pass (pass=coverage or all) from @specforge/testing — enable it with `specforge add @specforge/testing`",
-                codes::E068
-            );
-            return Exit::Unjudged;
-        }
-        Gate::UnreadableSummary(e) => {
-            eprintln!(
-                "error: the coverage pass summary is not the shape this specforge reads ({e}); update @specforge/testing"
-            );
-            return Exit::Unjudged;
-        }
-        Gate::Below {
-            pct,
-            min,
-            proven,
-            total,
-        } => {
-            eprintln!(
-                "error[{}]: proof coverage {pct:.1}% is below the required minimum {min:.1}% ({proven}/{total} testable entities proven)",
-                codes::E048
-            );
-            return Exit::Failed;
-        }
+    // full analysis. Under `--json` the document carries where it landed and
+    // nothing goes to stderr.
+    if let (OutputFormat::Human, Some(failure)) = (format, outcome.gate_failure()) {
+        eprint!("{}", crate::outcome::error_lines(&failure, None));
     }
-
-    Exit::of_verdict(outcome.ok)
+    Exit::of(outcome.verdict())
 }
 
 /// A pass summary as `key: value` lines, nested keys dotted. Its shape is

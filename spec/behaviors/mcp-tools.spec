@@ -157,7 +157,9 @@ behavior provide_mcp_export_tool "Provide MCP Export Tool" {
     In MCP server mode, the system MUST register a specforge.export tool that
     accepts format (required: context|brief|graph), scope? (optional entityId
     to restrict to subgraph), max_tokens? (optional integer token budget),
-    with_schema? and no_schema? (optional booleans). The tool MUST return the
+    with_schema? and no_schema? (optional booleans), depth? (with scope,
+    hops from the scoped entity), kinds? (entity kinds to keep) and
+    schema_version? (as specforge export --schema-version). The tool MUST return the
     graph in the requested agent-optimized format. When max_tokens is
     specified, the output MUST be truncated to fit within the budget,
     prioritizing high-connectivity nodes. The output MUST conform to the
@@ -170,6 +172,7 @@ behavior provide_mcp_export_tool "Provide MCP Export Tool" {
     schema carries the version specforge export computes against the
     project's schema cache; the tool only reads the cache.
   """
+  verify unit "specforge.export takes the options specforge export takes"
   verify unit "specforge.export tool returns graph in requested format"
   verify unit "scope parameter restricts to subgraph"
   verify unit "max_tokens truncates output to fit token budget"
@@ -714,8 +717,10 @@ behavior provide_mcp_analyze_tool "Provide MCP Analyze Tool" {
     that runs the same analysis passes as `specforge analyze`: the core
     `contracts` pass and every extension-owned pass (such as
     @specforge/testing's coverage), or only the one named by `pass`. It
-    accepts `strict` (warnings become errors), `test_results` (a
-    specforge-report.json path), `use_cached` (analyze the served project
+    accepts `strict` (warnings become errors), `min` (a proof-coverage
+    minimum in percent: below it the analysis is not ok, E048; it needs
+    test results and the coverage pass, as `specforge analyze --min`),
+    `test_results` (a specforge-report.json path), `use_cached` (analyze the served project
     as last brought up to date instead of bringing it up to date with disk)
     and `path` (another project, opened for the call only, its extension
     passes run in the one runtime it was opened with). With no project
@@ -728,7 +733,8 @@ behavior provide_mcp_analyze_tool "Provide MCP Analyze Tool" {
     test_results file that does not exist is file_not_found. A relative
     test_results names a file under the project's root. The result MUST list each pass with its
     findings and summary, plus an `ok` flag that is false when any finding
-    is an error. An extension pass that traps or answers what does not
+    is an error or the coverage gate is below its minimum or unjudged,
+    and, with `min`, a `gate` object saying where the gate landed. An extension pass that traps or answers what does not
     parse is one E028 finding of that pass (its summary marks it
     `failed`), so the analysis is not ok. The tool does not run the prove
     pass, so extension passes
@@ -753,6 +759,7 @@ behavior provide_mcp_analyze_tool "Provide MCP Analyze Tool" {
   verify unit "analyzing another project leaves the served project untouched"
   verify unit "analyze with no project served and no path is a no-project error"
   verify unit "stray test records come back as an optional stray_records field"
+  verify unit "specforge.analyze takes min and returns the run verdict and where the gate landed"
   verify contract "Provide MCP Analyze Tool: MCP analyze tool holds — graph_available, passes_run, results_structured, tool_invoked_emitted"
 }
 

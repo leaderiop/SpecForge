@@ -14,7 +14,7 @@ use specforge_common::{Severity, SourceSpan, Sym};
 use specforge_extension_sdk::prelude::*;
 use specforge_extension_sdk::{
     McpResourceContent, McpResourceRequest, MigrationInput, PassAnswer, ScanRequest, ScanResponse,
-    ScannedItem, guest_call,
+    ScannedItem, Served,
 };
 use specforge_protocol_types::{CommandInput as WireCommandInput, RawGraph};
 use specforge_wasm::testing::InProcessRuntime;
@@ -804,7 +804,9 @@ fn extension_calls_hold_their_contract() {
     // runtimes_agree: the in-process runtime answers what the guest's own
     // routing (the component's `call`) answers.
     let input = serde_json::to_vec(&command_input()).unwrap();
-    let routed = guest_call(&extension(), guest, "cmd__raw", &input).unwrap();
+    let routed = Served::new(extension())
+        .call(guest, "cmd__raw", &input)
+        .unwrap();
     match runtime.call_export(EXT, "cmd__raw", &input) {
         WasmCallResult::Ok(bytes) => assert_eq!(bytes, routed),
         WasmCallResult::Trap(trap) => panic!("{trap:?}"),

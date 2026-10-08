@@ -70,6 +70,14 @@ const EXPECTED_DIVERGENCES: &[(&str, Aspect, &str)] = &[
         Aspect::Outcome,
         "a format check that finds a change is a successful MCP call (ADR 0004 D4-a); the CLI exits 1",
     ),
+    // analyze --min: a gate below its minimum fails `specforge analyze`
+    // (exit 1); over MCP it is a successful call whose verdict is `ok`
+    // (false) and whose `gate` says where it landed (ADR 0004 D4-a, 0029 D3a).
+    (
+        "analyze_gate_below",
+        Aspect::Outcome,
+        "an analysis whose gate is below its minimum is a successful MCP call (ADR 0004 D4-a); the CLI exits 1",
+    ),
     // The build cache is opt-in and the CLI's: validate never writes it.
     (
         "check_cache",
@@ -362,6 +370,28 @@ const SCENARIOS: &[Scenario] = &[
         setup: project,
         cli: |root| args(&["analyze", "--path", &s(root), "--json"]),
         mcp: |root| ("specforge.analyze", json!({"path": s(root)})),
+        mcp_rooted: true,
+    },
+    Scenario {
+        name: "analyze_gate_below",
+        setup: project_with_a_coverage_gate,
+        cli: |root| {
+            args(&[
+                "analyze",
+                "coverage",
+                "--min",
+                "50",
+                "--json",
+                "--path",
+                &s(root),
+            ])
+        },
+        mcp: |root| {
+            (
+                "specforge.analyze",
+                json!({"pass": "coverage", "min": 50, "path": s(root)}),
+            )
+        },
         mcp_rooted: true,
     },
 ];
@@ -734,6 +764,7 @@ fn verdicts_agree() {
         "check",
         "check_failing",
         "analyze",
+        "analyze_gate_below",
         "format",
         "format_check",
         "format_preview",
@@ -767,6 +798,11 @@ fn parity_export() {
 #[test]
 fn parity_analyze() {
     parity("analyze");
+}
+
+#[test]
+fn parity_analyze_gate_below() {
+    parity("analyze_gate_below");
 }
 
 #[test]
@@ -1063,6 +1099,17 @@ fn mcp_init_writes_what_cli_init_writes() {
 
 // ── analyze: one payload on both surfaces (wayfinder #41) ───────────────────
 
+/// The analyze project with a recorded report that proves nothing: a
+/// `coverage --min 50` gate lands below (0 of 1).
+fn project_with_a_coverage_gate(root: &Path) {
+    analyze_project(root);
+    std::fs::write(
+        root.join("specforge-report.json"),
+        r#"{"runner":"r","results":{}}"#,
+    )
+    .unwrap();
+}
+
 /// A project with the testing extension and a `widget` the report can prove.
 fn analyze_project(root: &Path) {
     std::fs::create_dir_all(root.join("spec")).unwrap();
@@ -1223,6 +1270,100 @@ fn analyze_bad_pass_uses_each_surfaces_channel() {
     assert!(text.contains("Unknown analysis pass 'nonsense'"), "{text}");
 }
 
+// ── export: depth and kinds narrow the export the same way ─────────────────
+
+/// A project where `alpha` is in a feature and an invariant: three kinds,
+/// and entities one hop from `alpha`.
+fn export_project(root: &Path) {
+    project(root);
+    std::fs::write(
+        root.join("spec/main.spec"),
+        "behavior alpha \"Alpha\" {\n  category \"core\"\n  contract \"The system MUST work\"\n  invariants [law]\n}\n\
+         invariant law \"Law\" {\n  guarantee \"x\"\n}\n\
+         feature wide \"Wide\" {\n  behaviors [alpha]\n}\n",
+    )
+    .unwrap();
+}
+
+/// `specforge export --format brief` with `extra`, and `specforge.export`
+/// with `arguments` over the same project: the two payloads.
+fn export_both_ways(extra: &[&str], arguments: Value) -> (String, String) {
+    let dir = tempfile::tempdir().unwrap();
+    export_project(dir.path());
+    let out = cli()
+        .args(["export", &s(dir.path()), "--format", "brief"])
+        .args(extra)
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "{out:?}");
+    let cli_text = String::from_utf8_lossy(&out.stdout).trim_end().to_string();
+
+    let mut server = mcp_on(dir.path());
+    let mut arguments = arguments;
+    arguments["format"] = json!("brief");
+    let req = json!({
+        "jsonrpc": "2.0", "id": 2, "method": "tools/call",
+        "params": {"name": "specforge.export", "arguments": arguments}
+    });
+    let resp: Value =
+        serde_json::from_str(&server.handle_message(&req.to_string()).unwrap()).unwrap();
+    assert_ne!(resp["result"]["isError"], true, "{resp}");
+    let mcp_text = resp["result"]["content"][0]["text"]
+        .as_str()
+        .unwrap()
+        .trim_end()
+        .to_string();
+    (cli_text, mcp_text)
+}
+
+#[specforge_test_macros::test(
+    behavior = "export_agent_graph_format",
+    verify = "depth and kinds narrow the export the same way on every surface"
+)]
+fn export_scoped_depth_kinds() {
+    let (cli_text, mcp_text) = export_both_ways(
+        &["--scope", "alpha", "--depth", "1", "--kinds", "invariant"],
+        json!({"scope": "alpha", "depth": 1, "kinds": ["invariant"]}),
+    );
+    assert_eq!(cli_text, mcp_text);
+    assert!(cli_text.contains("alpha"), "{cli_text}");
+    assert!(cli_text.contains("law"), "{cli_text}");
+    assert!(!cli_text.contains("wide"), "kinds narrowed it: {cli_text}");
+
+    // Without the narrowing the feature is in.
+    let (all, _) = export_both_ways(
+        &["--scope", "alpha", "--depth", "1"],
+        json!({
+            "scope": "alpha", "depth": 1
+        }),
+    );
+    assert!(all.contains("wide"), "{all}");
+
+    // The graph resource reads the same options (ADR 0024 D4).
+    let dir = tempfile::tempdir().unwrap();
+    export_project(dir.path());
+    let mut server = mcp_on(dir.path());
+    let resource = mcp_document_text(
+        &mut server,
+        "specforge://brief?scope=alpha&depth=1&kinds=invariant",
+    );
+    assert_eq!(resource.trim_end(), cli_text);
+}
+
+/// The text a resource read answered with.
+fn mcp_document_text(server: &mut McpServer, uri: &str) -> String {
+    let req = json!({
+        "jsonrpc": "2.0", "id": 3, "method": "resources/read", "params": {"uri": uri}
+    });
+    let resp: Value =
+        serde_json::from_str(&server.handle_message(&req.to_string()).unwrap()).unwrap();
+    resp["result"]["contents"][0]["text"]
+        .as_str()
+        .unwrap_or_else(|| panic!("{resp}"))
+        .to_string()
+}
+
 // ── infer: one progress and gap document on both surfaces ───────────────────
 
 /// A Rust project half-way through inference: `src/lib.rs` is indexed and
@@ -1368,33 +1509,30 @@ fn doctor_report_is_the_same_on_both_surfaces() {
     let cli_doc: Value = serde_json::from_slice(&out.stdout).unwrap();
     let mcp_doc = mcp_tool(dir.path(), "specforge.doctor");
 
-    // MCP answers with the spec's McpDoctorReport plus the report's
-    // sections; the CLI with the whole report. What both carry is equal.
+    // One report on both surfaces: the CLI adds the user's credentials.
     for key in [
+        "ok",
         "findings",
         "extensions",
         "enhancements",
-        "shadowed",
-        "load_failures",
-        "issues",
+        "conflicts",
         "cache_status",
+        "installed_count",
+        "extensions_ok",
         "z3_available",
     ] {
         assert_eq!(cli_doc[key], mcp_doc[key], "{key} differs");
     }
     assert!(
-        !cli_doc["issues"].as_array().unwrap().is_empty(),
+        cli_doc["findings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|f| f["about"] == "binary"),
         "{cli_doc}"
     );
-    assert_eq!(mcp_doc["installed_count"], cli_doc["extensions_checked"]);
+    assert_eq!(mcp_doc["ok"], false);
     assert_eq!(mcp_doc["extensions_ok"], false);
-    let messages: Vec<&Value> = cli_doc["conflicts"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|c| &c["message"])
-        .collect();
-    assert_eq!(mcp_doc["conflicts"], json!(messages));
     // Registry credentials are the user's, reported by the CLI only.
     assert!(cli_doc.get("credentials").is_some());
     assert!(mcp_doc.get("credentials").is_none());

@@ -95,15 +95,14 @@ fn management_operations_read_the_project_from_their_view() {
 
     let report = specforge_ops::doctor::diagnose_with(&view, true);
     let failures: Vec<&str> = report
-        .load_failures
-        .iter()
+        .about(specforge_ops::doctor::Part::Load)
         .map(|f| f.code.as_str())
         .collect();
     assert_eq!(failures, ["E028"]);
 
     // root_for_disk: the lock is read at the view's root ...
     assert_eq!(listing.locked.len(), 1);
-    assert_eq!(report.extensions_checked, 1);
+    assert_eq!(report.installed_count, 1);
 
     // ... and a view without one: the listings and doctor answer from what
     // the view enabled and loaded; the others refuse with no_project.
@@ -113,7 +112,7 @@ fn management_operations_read_the_project_from_their_view() {
     assert!(listing.locked.is_empty());
     assert_eq!(listing.extensions.len(), 1);
     assert_eq!(
-        specforge_ops::doctor::diagnose_with(&rootless, true).extensions_checked,
+        specforge_ops::doctor::diagnose_with(&rootless, true).installed_count,
         0
     );
     let refused = |result: Result<(), specforge_ops::OpError>| {
