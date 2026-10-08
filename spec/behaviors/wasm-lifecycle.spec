@@ -130,7 +130,11 @@ behavior install_wasm_extension "Install Wasm Extension" {
     the one its lock entry pins. Component compilation
     is NOT an install step: the engine compiles on first load and
     caches the artifact (see compile_wasm_component_with_cache), so a
-    slow network or large binary never blocks install.
+    slow network or large binary never blocks install. What a candidate
+    binary declares is read in the runtime the surface passes (the CLI's
+    component runtime with the per-user compile cache, the MCP call's
+    runtime), never in one the operation builds, so the environment load
+    that follows reuses its compile.
   """
   produces   [extension_install_completed]
   verify unit "resolves extension from registry"
@@ -143,6 +147,7 @@ behavior install_wasm_extension "Install Wasm Extension" {
   verify unit "an install over an unreadable specforge.lock is refused before anything is written"
   verify unit "an install of an extension whose binary changed after install replaces it"
   verify unit "an extension is installed under the extensions directory of its project, by its package name"
+  verify unit "add, init and publish read a candidate's declaration in the runtime their surface passes"
   verify performance "single extension install completes within 30 seconds on commodity hardware"
   verify contract "Install Wasm Extension: Wasm extension installation holds — extension_source_available, filesystem_available, extension_install_completed_emitted, integrity_verified, atomic_install_enforced, config_updated"
 }

@@ -191,7 +191,7 @@ pub fn remove(view: &ProjectView, req: &RemoveRequest) -> Result<RemoveOutcome, 
         (Some(entry), _) => (
             Some(entry.version.clone()),
             Origin::Installed {
-                source: entry.source.to_string(),
+                source: entry.source.clone(),
             },
         ),
         (None, Some(builtin)) => {
@@ -526,6 +526,7 @@ mod tests {
                     dry_run: false,
                 },
                 &unconfigured,
+                &specforge_wasm::testing::InProcessRuntime::new(),
             )
             .unwrap_err();
             let updated = update(
@@ -537,6 +538,7 @@ mod tests {
                     trust: Trust::Refuse,
                 },
                 &unconfigured,
+                &specforge_wasm::testing::InProcessRuntime::new(),
             )
             .unwrap_err();
 

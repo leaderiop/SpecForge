@@ -264,10 +264,12 @@ pub(crate) fn init_op(call: &mut Call<'_>, args: InitArgs) -> Mutated {
         extensions,
         forbid_inside: served.as_deref(),
     };
-    let outcome = match init::plan(&request).and_then(|plan| init::apply(&path, &plan)) {
-        Ok(outcome) => outcome,
-        Err(error) => return Mutated::refused_after(false, error),
-    };
+    let runtime = call.runtime();
+    let outcome =
+        match init::plan(&request, runtime.as_ref()).and_then(|plan| init::apply(&path, plan)) {
+            Ok(outcome) => outcome,
+            Err(error) => return Mutated::refused_after(false, error),
+        };
     let result = ok(json!({
         "project_path": path.display().to_string(),
         "config_file": "specforge.json",
@@ -334,7 +336,8 @@ pub(crate) fn add_extension(call: &mut Call<'_>, args: AddArgs) -> MutationHandl
         trust: Trust::Refuse,
         dry_run,
     };
-    let added = extension::add(&request, &registry);
+    let runtime = call.runtime();
+    let added = extension::add(&request, &registry, runtime.as_ref());
     // What reading the registry configuration reported (E067, W140, I003), once the add asked a
     // registry, as `specforge add` shows it.
     let reported = registry.reported().to_vec();

@@ -145,6 +145,17 @@ mod tests {
     use super::*;
 
     #[test]
+    fn builtins_name_themselves_in_order() {
+        let builtins = Builtins(&[("@specforge/b", b"\0asm"), ("@specforge/a", b"\0asm")]);
+
+        assert_eq!(
+            builtins.names().collect::<Vec<_>>(),
+            ["@specforge/b", "@specforge/a"]
+        );
+        assert_eq!(Builtins::none().names().count(), 0);
+    }
+
+    #[test]
     fn one_rule_names_every_installed_path() {
         let installed = Installed::with_lock(Path::new("/p"), LockState::Absent);
         let builtins = Builtins(&[("@specforge/product", b"\0asm")]);

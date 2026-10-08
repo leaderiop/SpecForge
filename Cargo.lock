@@ -2827,6 +2827,7 @@ version = "0.1.0"
 dependencies = [
  "serde_json",
  "specforge-common",
+ "specforge-component",
  "specforge-diagnostics",
  "specforge-extension-sdk",
  "specforge-protocol-types",
@@ -3057,6 +3058,7 @@ dependencies = [
  "specforge-graph",
  "specforge-installed",
  "specforge-migrate",
+ "specforge-ops",
  "specforge-parser",
  "specforge-project",
  "specforge-protocol-types",

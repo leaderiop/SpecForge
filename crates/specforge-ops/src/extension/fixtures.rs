@@ -13,17 +13,14 @@ pub(super) fn installed(root: &Path, name: &str) -> PathBuf {
     Installed::unread(root).module_path(&PackageName::parse(name).unwrap())
 }
 
-/// `@sdk/greet` 0.1.0, a real extension binary.
+/// The bytes the in-process runtime serves as `@sdk/greet` 0.1.0.
 pub(super) fn greet() -> Vec<u8> {
-    std::fs::read(
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/greet-extension/greet.wasm"),
-    )
-    .expect("the greet fixture is vendored")
+    crate::testing::GREET.to_vec()
 }
 
 /// What `wasm` declares, as `publish` would upload it.
 pub(super) fn declaration_of(wasm: &[u8]) -> ExtensionDeclaration {
-    crate::publish::prepare(wasm.to_vec())
+    crate::publish::prepare(&crate::testing::candidates(), wasm.to_vec())
         .expect("a publishable binary")
         .declaration
 }

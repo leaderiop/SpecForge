@@ -221,6 +221,7 @@ pub fn providers(view: &ProjectView) -> ProviderListing {
 mod tests {
     use super::*;
     use crate::view::testing::Fixture;
+    use specforge_installed::LockSource;
     use specforge_project::EnabledExtension;
     use specforge_test_macros::test as specforge_test;
 
@@ -243,12 +244,8 @@ mod tests {
         let missing = &listing.extensions[0];
         assert_eq!(missing.version.as_deref(), Some("1.2.0"));
         assert_eq!(missing.status, Status::NotLoaded);
-        assert_eq!(
-            missing.origin,
-            Origin::Installed {
-                source: "unknown".into()
-            }
-        );
+        assert_eq!(missing.origin, Origin::Unknown);
+        assert_eq!(missing.origin.source(), "unknown");
     }
 
     #[specforge_test(
@@ -341,7 +338,7 @@ mod tests {
         assert_eq!(
             locked.origin,
             Origin::Installed {
-                source: "registry".into()
+                source: LockSource::Registry
             }
         );
     }

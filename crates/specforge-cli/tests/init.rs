@@ -293,13 +293,8 @@ fn init_creates_starter_spec_file() {
     verify = "a freshly initialised project passes format --check and check"
 )]
 fn a_fresh_project_is_formatted_and_checks_clean() {
-    // No extension, then each builtin, with the peers it declares (init
-    // does not add peers; `check` reports a missing one as E027).
-    let peers = |extension: &str| match extension {
-        "@specforge/formal" => "@specforge/software",
-        "@specforge/cargo-test" | "@specforge/vitest" => "@specforge/testing",
-        _ => "",
-    };
+    // No extension, then each builtin alone: init enables the builtins it
+    // requires.
     let builtins = specforge_component::builtins::BUILTIN_EXTENSIONS
         .iter()
         .map(|(name, _)| Some(*name));
@@ -309,11 +304,7 @@ fn a_fresh_project_is_formatted_and_checks_clean() {
         init.args(["init", "--name", "fresh"])
             .current_dir(dir.path());
         if let Some(extension) = extension {
-            let peer = peers(extension);
             init.args(["--extensions", extension]);
-            if !peer.is_empty() {
-                init.args(["--extensions", peer]);
-            }
         }
         init.assert().success();
 
@@ -331,6 +322,51 @@ fn a_fresh_project_is_formatted_and_checks_clean() {
             );
         }
     }
+}
+
+#[specforge_test(
+    behavior = "non_interactive_init",
+    verify = "init with a builtin that requires another passes check"
+)]
+fn init_with_a_builtin_that_requires_another_passes_check() {
+    let dir = TempDir::new().unwrap();
+
+    let init = specforge_cmd()
+        .args([
+            "init",
+            "--name",
+            "needs-software",
+            "--extensions",
+            "@specforge/formal",
+            "--format",
+            "json",
+        ])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+    assert!(init.status.success(), "{init:?}");
+    let output: serde_json::Value = serde_json::from_slice(&init.stdout).unwrap();
+    let installed: Vec<&str> = output["extensions_installed"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| e.as_str().unwrap())
+        .collect();
+    let position = |name: &str| installed.iter().position(|e| *e == name);
+    assert!(
+        position("@specforge/software") < position("@specforge/formal")
+            && position("@specforge/software").is_some(),
+        "{installed:?}"
+    );
+
+    let check = specforge_cmd()
+        .args(["check", "--format", "json"])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+    assert!(check.status.success(), "{check:?}");
+    let reported = String::from_utf8_lossy(&check.stdout);
+    assert!(!reported.contains("E027"), "{reported}");
 }
 
 #[test]

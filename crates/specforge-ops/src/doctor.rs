@@ -783,17 +783,19 @@ mod tests {
         assert!(finding_codes(&report).is_empty(), "{:?}", report.findings);
     }
 
-    /// A project with `@sdk/greet` installed from the vendored blob, whose
-    /// module was then replaced by other bytes.
-    fn project_with_a_changed_greet() -> tempfile::TempDir {
+    /// A project with `@sdk/greet` installed from a file in a second
+    /// directory (returned with it: the lock names its path), whose module
+    /// was then replaced by other bytes.
+    fn project_with_a_changed_greet() -> (tempfile::TempDir, tempfile::TempDir) {
         let dir = tempfile::tempdir().unwrap();
         std::fs::write(
             dir.path().join("specforge.json"),
             r#"{"name": "p", "version": "0.1.0", "extensions": []}"#,
         )
         .unwrap();
-        let blob = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../fixtures/greet-extension/greet.wasm");
+        let files = tempfile::tempdir().unwrap();
+        let blob = files.path().join("greet.wasm");
+        std::fs::write(&blob, crate::testing::GREET).unwrap();
         crate::extension::add(
             &crate::extension::AddRequest {
                 root: dir.path(),
@@ -803,6 +805,7 @@ mod tests {
                 dry_run: false,
             },
             &crate::registry::Unconfigured("add"),
+            &crate::testing::candidates(),
         )
         .unwrap();
         let module = dir
@@ -811,7 +814,7 @@ mod tests {
         let mut bytes = std::fs::read(&module).unwrap();
         bytes.extend_from_slice(b"changed after install");
         std::fs::write(module, bytes).unwrap();
-        dir
+        (dir, files)
     }
 
     #[specforge_test(
@@ -819,8 +822,8 @@ mod tests {
         verify = "doctor reports a missing or changed installed binary once, with the remedy its load gives"
     )]
     fn doctor_reports_a_changed_binary_once() {
-        let dir = project_with_a_changed_greet();
-        let runtime = specforge_component::ComponentRuntime::with_user_cache();
+        let (dir, _files) = project_with_a_changed_greet();
+        let runtime = crate::testing::candidates();
         let compiled = specforge_project::CompiledProject::compile(dir.path(), Some(&runtime));
 
         let report = diagnose_with(&ProjectView::of(&compiled), true);
@@ -859,9 +862,9 @@ mod tests {
                 dry_run: false,
             },
             &crate::registry::Unconfigured("add"),
+            &runtime,
         )
         .unwrap();
-        let runtime = specforge_component::ComponentRuntime::with_user_cache();
         let compiled = specforge_project::CompiledProject::compile(dir.path(), Some(&runtime));
         let report = diagnose_with(&ProjectView::of(&compiled), true);
         assert!(report.issues.is_empty(), "{:?}", report.issues);

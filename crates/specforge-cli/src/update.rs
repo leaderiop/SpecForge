@@ -14,21 +14,18 @@ pub fn run(
     format: OutputFormat,
     major: bool,
     allow_unsigned: bool,
-    assume_yes: bool,
+    trust: Trust,
 ) -> i32 {
     let registry = ConfiguredRegistry::for_project(path, "update");
+    let runtime = specforge_component::ComponentRuntime::with_user_cache();
     let request = UpdateRequest {
         root: path,
         name,
         major,
         allow_unsigned,
-        trust: match (assume_yes, format) {
-            (true, _) => Trust::AssumeYes,
-            (false, OutputFormat::Json) => Trust::Refuse,
-            (false, OutputFormat::Human) => Trust::Prompt,
-        },
+        trust,
     };
-    let updated = extension::update(&request, &registry);
+    let updated = extension::update(&request, &registry, &runtime);
     format.eprint_diagnostics(registry.reported());
     let outcome = match updated {
         Ok(outcome) => outcome,

@@ -67,6 +67,18 @@ impl OutputFormat {
             eprintln!("{}", specforge_common::render_plain(diagnostic));
         }
     }
+
+    /// How a publisher key change is decided for this output: `--yes`
+    /// accepts it; JSON output can't ask anyone, so it refuses; a terminal
+    /// is asked.
+    fn trust(self, assume_yes: bool) -> specforge_ops::extension::Trust {
+        use specforge_ops::extension::Trust;
+        match (assume_yes, self) {
+            (true, _) => Trust::AssumeYes,
+            (false, OutputFormat::Json) => Trust::Refuse,
+            (false, OutputFormat::Human) => Trust::Prompt,
+        }
+    }
 }
 
 #[derive(Subcommand)]
@@ -921,7 +933,7 @@ fn main() {
             format,
             allow_unsigned,
             yes,
-        } => add::run(&specifier, &path, format, allow_unsigned, yes),
+        } => add::run(&specifier, &path, format, allow_unsigned, format.trust(yes)),
         Commands::Analyze {
             pass,
             path,
@@ -984,7 +996,14 @@ fn main() {
             major,
             allow_unsigned,
             yes,
-        } => update::run(name.as_deref(), &path, format, major, allow_unsigned, yes),
+        } => update::run(
+            name.as_deref(),
+            &path,
+            format,
+            major,
+            allow_unsigned,
+            format.trust(yes),
+        ),
         Commands::Login {
             registry,
             token,
@@ -1068,6 +1087,15 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn trust_is_yes_then_what_the_output_can_ask() {
+        use specforge_ops::extension::Trust;
+        assert_eq!(OutputFormat::Human.trust(true), Trust::AssumeYes);
+        assert_eq!(OutputFormat::Json.trust(true), Trust::AssumeYes);
+        assert_eq!(OutputFormat::Json.trust(false), Trust::Refuse);
+        assert_eq!(OutputFormat::Human.trust(false), Trust::Prompt);
+    }
 
     /// `specforge query --depth` defaults to the query operation's constant,
     /// the one `specforge.query`'s schema advertises (plan 08 T8).

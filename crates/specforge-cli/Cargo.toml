@@ -62,7 +62,7 @@ tempfile = { workspace = true }
 specforge-test = { workspace = true }
 specforge-test-macros = { workspace = true }
 specforge-migrate = { workspace = true }
-specforge-component = { path = "../specforge-component" }
+specforge-component = { path = "../specforge-component", features = ["testing"] }
 specforge-lsp = { path = "../specforge-lsp" }
 tokio = { workspace = true }
 specforge-registry-server = { path = "../specforge-registry-server", features = ["testing"] }

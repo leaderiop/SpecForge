@@ -31,7 +31,7 @@ impl Writes {
     }
 
     /// [`Self::record`] when `changed`: for a writer that reports whether
-    /// it changed anything (`config::add_extension`).
+    /// it changed anything (`config::remove_extension`).
     pub fn record_if(&mut self, changed: bool, path: impl Into<PathBuf>) {
         if changed {
             self.record(path);

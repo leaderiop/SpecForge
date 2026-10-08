@@ -11,7 +11,7 @@ pub fn run(
     path: &Path,
     format: OutputFormat,
     allow_unsigned: bool,
-    assume_yes: bool,
+    trust: Trust,
 ) -> i32 {
     let source = match extension::parse(specifier) {
         Ok(source) => source,
@@ -20,18 +20,15 @@ pub fn run(
         }
     };
     let registry = ConfiguredRegistry::for_project(path, "add");
+    let runtime = specforge_component::ComponentRuntime::with_user_cache();
     let request = AddRequest {
         root: path,
         source,
         allow_unsigned,
-        trust: match (assume_yes, format) {
-            (true, _) => Trust::AssumeYes,
-            (false, OutputFormat::Json) => Trust::Refuse,
-            (false, OutputFormat::Human) => Trust::Prompt,
-        },
+        trust,
         dry_run: false,
     };
-    let added = extension::add(&request, &registry);
+    let added = extension::add(&request, &registry, &runtime);
     // What reading the registry configuration reported, once the add asked a registry.
     format.eprint_diagnostics(registry.reported());
     match added {
@@ -98,8 +95,8 @@ fn present(outcome: &AddOutcome, files_written: &[String], format: OutputFormat)
                 "files_written": files_written,
             });
             match origin {
-                Origin::Installed { source } if source != "registry" => {
-                    output["source"] = json!(source);
+                Origin::Installed { source } if !source.is_registry() => {
+                    output["source"] = json!(source.to_string());
                 }
                 _ => output["key_id"] = json!(key_id),
             }
@@ -115,7 +112,7 @@ fn present(outcome: &AddOutcome, files_written: &[String], format: OutputFormat)
             },
             OutputFormat::Human,
         ) => match origin {
-            Origin::Installed { source } if source != "registry" => {
+            Origin::Installed { source } if !source.is_registry() => {
                 println!("installed {} from local path", name);
             }
             _ => {

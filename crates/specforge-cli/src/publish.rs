@@ -30,7 +30,8 @@ pub fn run(extension: &Path, project: &Path, format: OutputFormat) -> i32 {
             );
         }
     };
-    let prepared = match specforge_ops::publish::prepare(wasm_bytes) {
+    let runtime = specforge_component::ComponentRuntime::with_user_cache();
+    let prepared = match specforge_ops::publish::prepare(&runtime, wasm_bytes) {
         Ok(prepared) => prepared,
         Err(error) => {
             return Refusal::of(format).report(&error);
