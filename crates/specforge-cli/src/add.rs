@@ -100,8 +100,8 @@ fn present(outcome: &AddOutcome, files_written: &[String], format: OutputFormat)
                 "files_written": files_written,
             });
             match origin {
-                Origin::Installed { source } if source != "registry" => {
-                    output["source"] = json!(source);
+                Origin::Installed { source } if !source.is_registry() => {
+                    output["source"] = json!(source.to_string());
                 }
                 _ => output["key_id"] = json!(key_id),
             }
@@ -117,7 +117,7 @@ fn present(outcome: &AddOutcome, files_written: &[String], format: OutputFormat)
             },
             OutputFormat::Human,
         ) => match origin {
-            Origin::Installed { source } if source != "registry" => {
+            Origin::Installed { source } if !source.is_registry() => {
                 println!("installed {} from local path", name);
             }
             _ => {

@@ -257,16 +257,14 @@ fn add_local(
     local: LocalFile,
 ) -> Result<Added, OpError> {
     let package = local.binary.package()?;
-    let origin = Origin::Installed {
-        source: format!("local:{}", shown_path(req.root, &local.path)),
-    };
+    let source = LockSource::Local(shown_path(req.root, &local.path));
     let candidate = local.binary.candidate();
     if req.dry_run {
         return Ok(unchanged(
             AddOutcome::Planned {
                 name: candidate.name().to_string(),
                 version: Some(candidate.version().to_string()),
-                origin,
+                origin: Origin::Installed { source },
             },
             config,
         ));
@@ -280,7 +278,7 @@ fn add_local(
     // No registry to unify a diamond against: a locked peer outside the
     // range is E027 (ADR 0041).
     check_diamonds(change.lock(), candidate.name(), candidate.peers(), None)?;
-    install(req.root, change, local.binary, None, &origin, None)
+    install(req.root, change, local.binary, None, source, None)
 }
 
 /// Install `local`, read once by `init`'s plan, into the project at `root`
@@ -311,9 +309,6 @@ fn add_from_registry(
     let change = installed.change()?;
     let name = package.name.as_str();
     let version = super::resolve(registry, package)?;
-    let origin = Origin::Installed {
-        source: "registry".to_string(),
-    };
     if let Some(present) = already_present(&installed, config, &package.name, |e| {
         e.version == version.to_string() && e.source.is_registry()
     }) {
@@ -324,7 +319,9 @@ fn add_from_registry(
             AddOutcome::Planned {
                 name: name.to_string(),
                 version: Some(version.to_string()),
-                origin,
+                origin: Origin::Installed {
+                    source: LockSource::Registry,
+                },
             },
             config,
         ));
@@ -343,7 +340,7 @@ fn add_from_registry(
         change,
         checked.binary,
         checked.package.key_id,
-        &origin,
+        LockSource::Registry,
         Some(&super::published_versions(registry)),
     )
 }
@@ -457,7 +454,7 @@ fn install(
     mut change: Change<'_>,
     binary: Installable,
     key_id: Option<String>,
-    origin: &Origin,
+    source: LockSource,
     published: Published<'_>,
 ) -> Result<Added, OpError> {
     let package = binary.package()?;
@@ -469,7 +466,7 @@ fn install(
         Pin {
             name: package,
             version: declared.version().to_string(),
-            source: LockSource::parse(&origin.source()),
+            source: source.clone(),
             key_id: key_id.clone(),
             peers: declared.peers().to_vec(),
         },
@@ -498,7 +495,7 @@ fn install(
             version: declared.version().to_string(),
             sha256,
             key_id,
-            origin: origin.clone(),
+            origin: Origin::Installed { source },
         },
         writes: Writes::of(committed.changed),
         extensions_enabled: total,

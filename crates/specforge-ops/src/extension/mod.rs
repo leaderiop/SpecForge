@@ -29,7 +29,7 @@ pub(crate) use candidate::required_builtins;
 use crate::OpError;
 use crate::registry::Registry;
 use specforge_component::builtins::BUILTIN_EXTENSIONS;
-use specforge_installed::LockFile;
+use specforge_installed::{LockFile, LockSource};
 use specforge_project::EnabledExtension;
 use specforge_protocol_types::PackageName;
 use specforge_protocol_types::package::Version;
@@ -59,18 +59,21 @@ pub const NOT_FOUND: &str = "extension_not_found";
 pub enum Origin {
     /// Embedded in the binary; enabling it is only a config entry.
     Builtin,
-    /// Installed under `.specforge/extensions/`, pinned in `specforge.lock`.
-    /// `source` is the lock entry's (`registry`, `local:<path>`, ...).
-    Installed { source: String },
+    /// Installed under `.specforge/extensions/`, pinned in `specforge.lock`
+    /// with this source.
+    Installed { source: LockSource },
     /// Loaded from the `.wasm` file a `specforge.json` entry names; `path`
     /// as the entry writes it.
     File { path: String },
+    /// Named by an entry, neither a builtin nor locked: it does not load
+    /// (E028).
+    Unknown,
 }
 
 impl Origin {
     /// Where `name` comes from in a project: the `.wasm` file an
     /// `extensions` entry names (over a lock entry), the lock entry's
-    /// source, a builtin, else `Installed { source: "unknown" }`. The one
+    /// source, a builtin, else `Unknown`. The one
     /// rule `list` and `doctor` name sources by.
     pub fn of(name: &str, enabled: &[EnabledExtension], lock: Option<&LockFile>) -> Origin {
         if let Some(path) = enabled
@@ -84,14 +87,12 @@ impl Origin {
             lock.and_then(|lock| lock.entries.iter().find(|e| e.name.as_str() == name))
         {
             return Origin::Installed {
-                source: entry.source.to_string(),
+                source: entry.source.clone(),
             };
         }
         match builtin_name(name) {
             Some(_) => Origin::Builtin,
-            None => Origin::Installed {
-                source: "unknown".to_string(),
-            },
+            None => Origin::Unknown,
         }
     }
 
@@ -100,8 +101,9 @@ impl Origin {
     pub fn source(&self) -> String {
         match self {
             Origin::Builtin => "builtin".to_string(),
-            Origin::Installed { source } => source.clone(),
+            Origin::Installed { source } => source.to_string(),
             Origin::File { path } => format!("file:{path}"),
+            Origin::Unknown => "unknown".to_string(),
         }
     }
 }

@@ -32,7 +32,11 @@ pub fn run(name: &str, path: &Path, force: bool, format: OutputFormat) -> i32 {
             });
             match &outcome.origin {
                 Origin::Builtin => output["source"] = json!("builtin"),
-                Origin::Installed { .. } => output["version"] = json!(outcome.version),
+                // `remove` refuses an unlocked non-builtin, so it never
+                // reports `Unknown`.
+                Origin::Installed { .. } | Origin::Unknown => {
+                    output["version"] = json!(outcome.version)
+                }
                 Origin::File { .. } => {
                     output["version"] = json!(outcome.version);
                     output["source"] = json!(outcome.origin.source());
@@ -50,7 +54,7 @@ pub fn run(name: &str, path: &Path, force: bool, format: OutputFormat) -> i32 {
                     "Disabled extension '{}' loaded from {path} (the file is left in place)",
                     outcome.name
                 ),
-                Origin::Installed { .. } => println!(
+                Origin::Installed { .. } | Origin::Unknown => println!(
                     "Removed extension '{}' (v{})",
                     outcome.name,
                     outcome.version.as_deref().unwrap_or("?")
