@@ -79,3 +79,65 @@ fn tracing_an_unknown_entity_is_e003_with_a_suggestion() {
     let far = specforge_ops::OpError::from(trace("zzzzzzzz"));
     assert_eq!(far.suggestion, None);
 }
+
+// Plan 05 (T2): a missing entity is one refusal on every read view.
+#[specforge_test_macros::test(
+    invariant = "mcp_structured_error_responses",
+    verify = "a missing entity is one E003 refusal naming the closest entity on every read view"
+)]
+fn a_missing_entity_is_one_refusal() {
+    use specforge_ops::export::{Request, export};
+    use specforge_ops::navigate::Navigator;
+    use specforge_ops::{OpError, OpErrorKind};
+
+    let mut graph = Graph::new();
+    graph.add_node(node("login", "behavior"));
+    graph.add_node(node("signin", "feature"));
+    let project = crate::view_support::Project::of_graph(graph, Default::default());
+    let view = project.view();
+    let navigator = Navigator::new(view, |_: &str| None);
+
+    let refusals: Vec<(&str, OpError)> = vec![
+        (
+            "export scope",
+            export(
+                &view,
+                &Request {
+                    scope: Some("logn"),
+                    ..Request::default()
+                },
+            )
+            .unwrap_err(),
+        ),
+        (
+            "inspect",
+            specforge_ops::inspect::inspect(&view, "logn").unwrap_err(),
+        ),
+        ("navigator", navigator.definition("logn").unwrap_err()),
+        (
+            "rename",
+            specforge_ops::rename::plan(&navigator, "logn", "fine_name").unwrap_err(),
+        ),
+        (
+            "trace",
+            OpError::from(
+                specforge_ops::trace::trace(&view, specforge_ops::trace::Target::Entity("logn"))
+                    .unwrap_err(),
+            ),
+        ),
+    ];
+    for (surface, error) in &refusals {
+        assert_eq!(error.kind, OpErrorKind::EntityNotFound, "{surface}");
+        assert_eq!(error.code, "E003", "{surface}");
+        assert_eq!(
+            error.message, "unresolved entity 'logn' — not found in graph",
+            "{surface}"
+        );
+        assert_eq!(
+            error.suggestion.as_deref(),
+            Some("did you mean 'login'?"),
+            "{surface}"
+        );
+        assert_eq!(error.entity.as_deref(), Some("logn"), "{surface}");
+    }
+}

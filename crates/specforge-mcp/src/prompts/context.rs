@@ -5,7 +5,7 @@ use serde_json::{Value, json};
 use crate::args::{Arguments, EntityIds};
 use crate::prompt::{PromptOutcome, Rendered};
 use crate::target::Call;
-use crate::tool::{ErrorCode, McpError, entity_not_found};
+use crate::tool::{ErrorCode, McpError};
 
 /// `specforge://prompts/context`'s arguments.
 #[derive(Debug, Arguments)]
@@ -23,8 +23,8 @@ pub fn render(call: &Call<'_>, args: Args) -> PromptOutcome {
     // The inspect read view, without the reported diagnostics (the prompt
     // shows none) and whatever its coverage (a report that cannot be read
     // does not fail the prompt).
-    let facts = specforge_ops::inspect::inspect(&view.reporting(&[]), entity_id)
-        .map_err(|_| entity_not_found(entity_id))?;
+    let facts =
+        specforge_ops::inspect::inspect(&view.reporting(&[]), entity_id).map_err(McpError::from)?;
     let node = facts.node;
 
     // The statement the extension declares (headline and normative), e.g.

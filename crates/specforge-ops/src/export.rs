@@ -9,6 +9,7 @@
 //! `brief` and any export under a token budget leave it out unless asked
 //! for it. `dot` never carries a schema.
 
+use crate::navigate;
 use crate::options::{Choice, OptionTable};
 use crate::view::ProjectView;
 use crate::{OpError, OpErrorKind};
@@ -152,7 +153,7 @@ pub fn export(view: &ProjectView, request: &Request) -> Result<String, OpError> 
         kind_registry: Some(&view.registries().kinds),
         field_registry: Some(&view.registries().fields),
     };
-    emit(view.graph(), &options).map_err(failure)
+    emit(view.graph(), &options).map_err(|error| failure(view, error))
 }
 
 /// What `specforge export` did: the export, the schema's breaking changes
@@ -209,19 +210,18 @@ pub fn export_recorded(view: &ProjectView, request: &Request) -> RecordedExport 
 
 /// The emitter's failure as the operation's: the kind by variant, the code
 /// the variant's ([`EmitterError::code`]); nothing is read from the message.
-fn failure(error: EmitterError) -> OpError {
+/// A missing scope entity is the one not-found refusal.
+fn failure(view: &ProjectView, error: EmitterError) -> OpError {
     let kind = match &error {
-        EmitterError::ScopeNotFound { .. } => OpErrorKind::EntityNotFound,
+        EmitterError::ScopeNotFound { entity_id } => {
+            return navigate::not_found(view.graph(), entity_id);
+        }
         EmitterError::BudgetTooSmall { .. } => OpErrorKind::InvalidInput,
         EmitterError::Serialization(_) => OpErrorKind::Internal,
     };
-    let failed = match error.code() {
+    match error.code() {
         Some(code) => OpError::coded(kind, code, error.to_string()),
         None => OpError::new(kind, "export_failed", error.to_string()),
-    };
-    match &error {
-        EmitterError::ScopeNotFound { entity_id } => failed.with_entity(entity_id),
-        _ => failed,
     }
 }
 

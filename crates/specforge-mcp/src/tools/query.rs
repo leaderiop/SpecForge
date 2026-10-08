@@ -72,6 +72,6 @@ pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
 
             ToolOutcome::ok(result).with_diagnostics(unknown_kinds)
         }
-        Err(err) => super::emitter_error(err, entity_id),
+        Err(err) => super::emitter_error(err, view.graph(), entity_id),
     }
 }

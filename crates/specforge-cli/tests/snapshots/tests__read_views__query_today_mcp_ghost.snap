@@ -5,7 +5,7 @@ expression: text
 {
   "content": [
     {
-      "text": "{\"code\":\"entity_not_found\",\"diagnostic\":{\"code\":\"E003\",\"column\":null,\"file\":null,\"line\":null,\"message\":\"unresolved entity 'logn' — not found in graph\",\"severity\":\"Error\",\"span\":null,\"suggestion\":null,\"title\":\"Unresolved reference\"},\"entity_id\":\"logn\",\"message\":\"unresolved entity 'logn' — not found in graph\",\"tool\":\"specforge.query\"}",
+      "text": "{\"code\":\"entity_not_found\",\"diagnostic\":{\"code\":\"E003\",\"column\":null,\"file\":null,\"line\":null,\"message\":\"unresolved entity 'logn' — not found in graph\",\"severity\":\"Error\",\"span\":null,\"suggestion\":\"did you mean 'login'?\",\"title\":\"Unresolved reference\"},\"entity_id\":\"logn\",\"message\":\"unresolved entity 'logn' — not found in graph\",\"tool\":\"specforge.query\"}",
       "type": "text"
     }
   ],

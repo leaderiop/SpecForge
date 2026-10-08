@@ -104,11 +104,15 @@ pub(crate) fn unknown_kind_diagnostics(
 /// An emitter failure about `entity_id` as a failed tool result. A
 /// missing entity is [`entity_not_found`](crate::tool::entity_not_found),
 /// its `E003` in `diagnostic`, never only in the message text.
-fn emitter_error(error: specforge_emitter::EmitterError, entity_id: &str) -> ToolOutcome {
+fn emitter_error(
+    error: specforge_emitter::EmitterError,
+    graph: &specforge_graph::Graph,
+    entity_id: &str,
+) -> ToolOutcome {
     use specforge_emitter::EmitterError;
     use specforge_ops::{OpError, OpErrorKind};
     let mcp_error = match &error {
-        EmitterError::ScopeNotFound { .. } => crate::tool::entity_not_found(entity_id),
+        EmitterError::ScopeNotFound { .. } => crate::tool::entity_not_found(graph, entity_id),
         EmitterError::BudgetTooSmall { reason } => McpError::from(OpError::coded(
             OpErrorKind::InvalidInput,
             codes::E062,
