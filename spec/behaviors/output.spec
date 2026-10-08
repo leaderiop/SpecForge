@@ -832,16 +832,24 @@ behavior query_graph_multi_resolution "Query Graph at Multiple Resolutions" {
   contract   """
     When specforge query is invoked with an entity ID and a --depth parameter,
     the system MUST return the subgraph at the requested resolution level.
-    Depth 0 returns only the entity itself. Depth 1 returns direct neighbors.
-    Depth N returns all entities within N hops. An optional --kind parameter
-    MUST filter results to only include entities of the specified kind(s),
-    while preserving edges that connect through filtered-out nodes. Multiple
-    --kind values MAY be specified (e.g., --kind=alpha --kind=beta).
+    Depth 0 returns only the entity itself. Depth 1 (the default) returns
+    direct neighbors. Depth N returns all entities within N hops. An
+    optional --kind parameter MUST filter results to only include entities
+    of the specified kind(s), the queried entity always, keeping an edge
+    only when both of its entities are kept. Multiple --kind values MAY be
+    specified (e.g., --kind=alpha --kind=beta); a kind the project does not
+    know matches nothing and is reported as I020 with the closest kind.
     Kind names are extension-defined; examples use placeholders.
-    The output MUST be valid JSON conforming to the Graph Protocol schema
-    with a schema_version field. This enables agents to request exactly the
-    context slice they need without consuming the full graph.
-    Filtering builds on a graph-level node filter that accepts any
+    --format selects an agent format (graph, context, brief) and
+    --include-coverage gives each entity its coverage status. The output
+    MUST be the export of the entity's subgraph under the export schema
+    policy: valid JSON conforming to the Graph Protocol schema with a
+    schema_version field (a graph-format query references the published
+    schema). An entity that does not exist MUST be E003, naming the closest
+    entity, with exit code 1. The CLI and MCP specforge.query MUST return
+    the same document for the same arguments. This enables agents to
+    request exactly the context slice they need without consuming the full
+    graph. Filtering builds on a graph-level node filter that accepts any
     predicate over an entity's kind and fields.
   """
   verify unit "depth 0 returns only the target entity"
@@ -849,6 +857,9 @@ behavior query_graph_multi_resolution "Query Graph at Multiple Resolutions" {
   verify unit "depth N returns all entities within N hops"
   verify unit "kind filter restricts results to specified entity kinds"
   verify unit "multiple kind filters combine as union"
+  verify unit "an unknown --kind is reported with I020 and the closest kind"
+  verify unit "a non-existent entity is E003 naming the closest entity"
+  verify unit "--include-coverage gives each entity its coverage status"
   verify unit "output conforms to Graph Protocol schema"
   verify unit "output includes schema_version field"
   verify property "querying same entity at same depth produces identical subgraph"

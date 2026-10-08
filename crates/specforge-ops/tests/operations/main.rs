@@ -15,6 +15,7 @@ mod model;
 mod navigate;
 mod options;
 mod plan;
+mod query;
 mod scan;
 mod schema;
 mod schema_cache;
