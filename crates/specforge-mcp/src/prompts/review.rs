@@ -6,8 +6,8 @@ use specforge_ops::review::{DEFAULT_DEPTH, ReviewRequest, review};
 
 use crate::args::Arguments;
 use crate::prompt::{PromptOutcome, Rendered};
-use crate::target::Call;
 use crate::tool::McpError;
+use specforge_ops::view::ProjectView;
 
 /// `specforge://prompts/review`'s arguments.
 #[derive(Debug, Arguments)]
@@ -21,12 +21,12 @@ pub struct Args {
     depth: usize,
 }
 
-pub fn render(call: &Call<'_>, args: Args) -> PromptOutcome {
+pub fn render(view: ProjectView<'_>, args: Args) -> PromptOutcome {
     let request = ReviewRequest {
         entity_id: args.entity_id.as_deref(),
         depth: args.depth,
     };
-    let review = review(&call.view(), &request).map_err(McpError::from)?;
+    let review = review(&view, &request).map_err(McpError::from)?;
 
     let scope = args.entity_id.as_deref().unwrap_or("the entire graph");
     let instruction = format!(

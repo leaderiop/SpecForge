@@ -7,7 +7,6 @@ use specforge_ops::navigate::{anchors_of_file, source_anchors};
 
 use crate::args::Arguments;
 use crate::prompt::{PromptOutcome, Rendered};
-use crate::target::Call;
 use crate::tool::{ErrorCode, McpError};
 use crate::tools::core_tool_name;
 use crate::tools::find_spec_for_source::{anchor_json, file_match_name};
@@ -91,8 +90,8 @@ fn page_json(page: &FilePage) -> Vec<Value> {
     files
 }
 
-pub fn render(call: &Call<'_>, args: Args) -> PromptOutcome {
-    respond(&call.view(), args)
+pub fn render(view: ProjectView<'_>, args: Args) -> PromptOutcome {
+    respond(&view, args)
 }
 
 /// The prompt over `project`.
