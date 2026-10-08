@@ -1861,6 +1861,31 @@ fn add_extension_from_a_registry_reports_a_duplicate_registry_alias() {
     assert!(builtin["result"]["_meta"].is_null(), "{builtin}");
 }
 
+// bug: §3 R4, flipped by T9
+#[specforge_test(
+    behavior = "configure_registries",
+    verify = "an operation shows the registry configuration's diagnostics once it has asked a registry"
+)]
+fn add_extension_dry_run_of_an_exact_version_reports_the_registry_configuration_today() {
+    let dir = project_with_duplicate_registry_alias();
+    let mut server = test_server();
+    let path = dir.path().to_str().unwrap();
+
+    let resp = call_tool(
+        &mut server,
+        "specforge.add_extension",
+        json!({"specifier": "@acme/widget@1.0.0", "path": path, "dry_run": true}),
+    );
+    let codes: Vec<&str> = resp["result"]["_meta"]["diagnostics"]
+        .as_array()
+        .unwrap_or_else(|| panic!("no _meta.diagnostics: {resp}"))
+        .iter()
+        .filter_map(|d| d["code"].as_str())
+        .collect();
+    // bug: a dry run of an exact version asks no registry, yet shows W140.
+    assert!(codes.contains(&"W140"), "{resp}");
+}
+
 /// The new name follows the entity-ID rule (the grammar's identifier,
 /// 2-60 characters): an illegal one is refused and nothing is written.
 #[test]

@@ -635,3 +635,137 @@ async fn a_read_of_a_name_that_is_not_one_is_not_found() {
         assert_eq!(response.status(), StatusCode::NOT_FOUND, "{uri}");
     }
 }
+
+/// The sorted keys of a JSON object.
+fn keys_of(value: &serde_json::Value) -> Vec<String> {
+    let mut keys: Vec<String> = value.as_object().unwrap().keys().cloned().collect();
+    keys.sort();
+    keys
+}
+
+async fn get_json(router: &axum::Router, uri: &str) -> (StatusCode, serde_json::Value) {
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri(uri)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let status = response.status();
+    (status, json_of(response).await)
+}
+
+#[specforge_test_macros::test(
+    behavior = "resolve_registry_source",
+    verify = "the registry server answers every call in the JSON its client reads"
+)]
+#[tokio::test]
+async fn the_server_answers_in_these_json_shapes() {
+    let dir = tempfile::tempdir().unwrap();
+    let state = app_state(dir.path(), 100);
+    let token = auth::create_token(&state.database, None, "pub", Some(90), false);
+    let router = app_clone(&state);
+
+    // publish: 201 and the receipt.
+    let response = router
+        .clone()
+        .oneshot(put_request(
+            &token,
+            "@test%2Fsigned-ext",
+            "1.0.0",
+            multipart_body(VALID_MANIFEST, WASM, Some(SIGNATURE)),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::CREATED);
+    let receipt = json_of(response).await;
+    assert_eq!(
+        keys_of(&receipt),
+        ["key_id", "name", "sha256", "size_bytes", "version"]
+    );
+
+    // the version list.
+    let (status, list) = get_json(&router, "/v1/packages/@test%2Fsigned-ext").await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(keys_of(&list), ["name", "versions"]);
+    assert_eq!(list["versions"], serde_json::json!(["1.0.0"]));
+
+    // one version's metadata.
+    let (status, metadata) = get_json(&router, "/v1/packages/@test%2Fsigned-ext/1.0.0").await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        keys_of(&metadata),
+        [
+            "description",
+            "key_id",
+            "keywords",
+            "manifest",
+            "name",
+            "published_at",
+            "publisher",
+            "sha256",
+            "signature",
+            "size_bytes",
+            "version",
+            "wasm_url"
+        ]
+    );
+    assert_eq!(
+        metadata["wasm_url"],
+        "/packages/@test%2Fsigned-ext/1.0.0/download"
+    );
+
+    // search.
+    let (status, search) = get_json(&router, "/v1/search?q=signed").await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(keys_of(&search), ["results"]);
+    let hits = search["results"].as_array().unwrap();
+    assert_eq!(hits.len(), 1, "{search}");
+    assert_eq!(keys_of(&hits[0]), ["description", "name", "version"]);
+
+    // token check.
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/v1/auth/verify")
+                .header("authorization", format!("Bearer {token}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        keys_of(&json_of(response).await),
+        ["expires_at", "label", "scope", "valid"]
+    );
+
+    // an error.
+    let (status, missing) = get_json(&router, "/v1/packages/@test%2Fnone").await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    assert_eq!(keys_of(&missing), ["error"]);
+    assert_eq!(keys_of(&missing["error"]), ["code", "message"]);
+    assert_eq!(missing["error"]["code"], "NOT_FOUND");
+
+    // yank.
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("DELETE")
+                .uri("/v1/packages/@test%2Fsigned-ext/1.0.0")
+                .header("authorization", format!("Bearer {token}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(json_of(response).await, serde_json::json!({"yanked": true}));
+}

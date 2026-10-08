@@ -613,6 +613,7 @@ behavior resolve_registry_source "Resolve Registry Source" {
   verify unit "successful query returns RegistryResponse"
   verify integration "unreachable scope-specific registry falls back to next scope"
   verify unit "a fetch requests the name and version it was given, from the registry it was given"
+  verify integration "the registry server answers every call in the JSON its client reads"
   verify contract "Resolve Registry Source: registry source resolution holds — registries_configured_fired, registry_client_available, scope_routed, default_fallback_used, network_error_diagnosed, registry_resolved_emitted"
 }
 
@@ -914,6 +915,7 @@ behavior configure_registries "Configure Registries" {
   verify integration "first specforge init succeeds without any registry authentication"
   verify unit "builtins and local .wasm files install with no registry configured"
   verify unit "no registry URL on the specforge.dev domain is compiled into non-test source"
+  verify unit "an operation shows the registry configuration's diagnostics once it has asked a registry"
   verify contract "Configure Registries: registry configuration holds — specforge_json_parsed, filesystem_available, registry_entries_created, scope_filters_set, no_registries_diagnosed, no_hardcoded_urls, registries_configured_emitted"
 }
 
@@ -1008,6 +1010,7 @@ behavior retry_registry_request "Retry Registry Request" {
   verify unit "429 response retries with exponential backoff"
   verify unit "network timeout produces ExtensionError with retry guidance"
   verify unit "max retries exceeded produces final error"
+  verify integration "a rate-limited answer is R003 on every registry call"
   verify contract "Retry Registry Request: registry request retry holds — registry_request_failed, registry_client_available, exponential_backoff_applied, timeout_diagnosed, retries_exhausted_emitted"
 }
 

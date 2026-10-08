@@ -15,11 +15,15 @@ use specforge_registry_server::{auth, db::Database, handlers, state::AppState};
 use std::sync::Arc;
 
 fn minimal_manifest() -> ExtensionDeclaration {
+    manifest_of("1.0.0")
+}
+
+fn manifest_of(version: &str) -> ExtensionDeclaration {
     serde_json::from_value(serde_json::json!({
         "handshake": {
             "protocol_version": "1.0.0",
             "name": "@test/signed-ext",
-            "version": "1.0.0",
+            "version": version,
             "contribution_flags": {},
             "peer_dependencies": [],
             "sandbox_policy": null
@@ -28,7 +32,10 @@ fn minimal_manifest() -> ExtensionDeclaration {
     .unwrap()
 }
 
-fn spawn_server(data_dir: &std::path::Path) -> (String, tokio::task::JoinHandle<()>) {
+fn spawn_server(
+    data_dir: &std::path::Path,
+    publish_limit_per_token: u32,
+) -> (String, tokio::task::JoinHandle<()>) {
     let db_path = data_dir.join("registry.db");
     let database = Database::open(&db_path).expect("failed to open database");
     let store = specforge_registry_server::storage::LocalStorage::new(data_dir.join("packages"));
@@ -36,7 +43,7 @@ fn spawn_server(data_dir: &std::path::Path) -> (String, tokio::task::JoinHandle<
         database,
         storage: store,
         rate_limiter: specforge_registry_server::rate::RateLimiter::new(60),
-        publish_limit_per_token: 100,
+        publish_limit_per_token,
         publish_limit_per_ip: 100,
     });
     let app = handlers::router(state);
@@ -60,7 +67,7 @@ fn sha256_hex(data: &[u8]) -> String {
 #[tokio::test]
 async fn signed_publish_round_trips_through_http_boundary() {
     let dir = tempfile::tempdir().unwrap();
-    let (base_url, server) = spawn_server(dir.path());
+    let (base_url, server) = spawn_server(dir.path(), 100);
 
     // A publisher token the upload can authenticate with.
     let raw_token = {
@@ -140,6 +147,59 @@ async fn signed_publish_round_trips_through_http_boundary() {
     .expect("served signature must verify offline against served metadata");
 
     server.abort();
+}
+
+// bug: §3 R1, flipped by T4
+#[specforge_test_macros::test(
+    behavior = "retry_registry_request",
+    verify = "a rate-limited answer is R003 on every registry call"
+)]
+#[tokio::test]
+async fn a_rate_limited_publish_is_reported_as_a_network_error_today() {
+    let dir = tempfile::tempdir().unwrap();
+    let (base_url, server) = spawn_server(dir.path(), 1);
+    let raw_token = {
+        let database = Database::open(&dir.path().join("registry.db")).expect("open db");
+        auth::create_token(&database, None, "test-publisher", Some(1), false)
+    };
+    let registry = RegistryConfig {
+        alias: "test".to_string(),
+        url: format!("{}/v1", base_url),
+        scope_filter: None,
+        default_registry: true,
+    };
+    let credential = RegistryCredential {
+        alias: "test".to_string(),
+        auth_method: AuthMethod::Bearer(raw_token),
+    };
+    let key = SigningKey::generate();
+
+    let outcome = tokio::task::spawn_blocking(move || {
+        let client = HttpRegistryClient::new();
+        let publish = |version: &str| {
+            publish_to_registry(
+                b"\0asm-fake-extension-bytes",
+                &manifest_of(version),
+                &registry,
+                Some(&credential),
+                &client,
+                false,
+                Some(&key),
+            )
+        };
+        (publish("1.0.0"), publish("1.0.1"))
+    })
+    .await
+    .expect("publish task panicked");
+    server.abort();
+
+    outcome.0.expect("the first publish is inside the window");
+    let diagnostic = outcome.1.expect_err("the second is rate limited");
+    assert_eq!(diagnostic.code, "R005", "{diagnostic:?}");
+    assert!(
+        diagnostic.message.contains("too many publish requests"),
+        "{diagnostic:?}"
+    );
 }
 
 #[test]
