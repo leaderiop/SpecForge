@@ -27,6 +27,11 @@ chrono = { version = "0.4.41", features = ["serde"] }
 rand = "0.9.1"
 hex = "0.4.3"
 parking_lot = "0.12"
+tempfile = { workspace = true, optional = true }
+
+[features]
+# The real server in process, for tests of what reaches a registry over HTTP (ADR 0044).
+testing = ["dep:tempfile"]
 
 [dev-dependencies]
 specforge-test = { workspace = true }
@@ -35,3 +40,4 @@ tower = { version = "0.5", features = ["util"] }
 reqwest = { workspace = true }
 tempfile = { workspace = true }
 specforge-registry-client = { path = "../specforge-registry-client" }
+specforge-registry-server = { path = ".", features = ["testing"] }

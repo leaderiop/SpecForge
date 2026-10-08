@@ -3,7 +3,8 @@
 
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
-use specforge_registry_server::{auth, db::Database, handlers, rate::RateLimiter, state::AppState};
+use specforge_registry_server::state::{AppState, PublishLimits};
+use specforge_registry_server::{auth, handlers};
 use specforge_registry_wire::{
     ErrorBody, PackageMetadata, PublishReceipt, SearchResults, TokenVerified, VersionList, Yanked,
     form,
@@ -16,15 +17,16 @@ const VALID_MANIFEST: &str = r#"{"handshake":{"protocol_version":"1","name":"@te
 const WASM: &[u8] = b"\0asm-fake-extension-bytes";
 
 fn app_state(dir: &std::path::Path, publish_limit_per_token: u32) -> Arc<AppState> {
-    let database = Database::open(&dir.join("registry.db")).expect("open db");
-    let store = specforge_registry_server::storage::LocalStorage::new(dir.join("packages"));
-    Arc::new(AppState {
-        database,
-        storage: store,
-        rate_limiter: RateLimiter::new(60),
-        publish_limit_per_token,
-        publish_limit_per_ip: 10_000,
-    })
+    Arc::new(
+        AppState::open(
+            dir,
+            PublishLimits {
+                per_token: publish_limit_per_token,
+                per_ip: 10_000,
+            },
+        )
+        .expect("open registry"),
+    )
 }
 
 fn app(state: Arc<AppState>) -> axum::Router {
