@@ -4,8 +4,6 @@
 //! 0015). Each enumerated argument is an option table here (ADR 0027), so
 //! both surfaces list, accept, default and refuse the same names.
 
-use specforge_emitter::model::{ModelIntermediate_from_schema, filter_entities, filter_fields};
-
 // The value types, so surfaces name ops rather than the emitter.
 pub use specforge_emitter::model::{FieldLevel, GroupBy, ModelFormat, ModelOptions};
 pub use specforge_emitter::outline::{
@@ -17,11 +15,7 @@ use crate::view::ProjectView;
 
 /// The logical data model of the view's extensions, as `options` asks.
 pub fn model(view: &ProjectView, options: &ModelOptions) -> String {
-    let model = ModelIntermediate_from_schema(&view.schema())
-        .with_theme_colors(view.registries().declarations());
-    let model = filter_entities(&model, options);
-    let model = filter_fields(&model, options.fields);
-    specforge_emitter::model::render(&model, options)
+    specforge_emitter::model::export(&view.schema(), view.registries().declarations(), options)
 }
 
 /// The architecture of the view's extensions (dependencies, enhancements,

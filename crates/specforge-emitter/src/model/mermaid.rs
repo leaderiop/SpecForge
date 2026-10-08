@@ -3,7 +3,7 @@ use std::fmt::Write;
 use super::{Cardinality, GroupBy, ModelIntermediate, ModelOptions};
 use crate::diagram::{escape_mermaid, mermaid_name};
 
-pub fn render_mermaid(model: &ModelIntermediate, options: &ModelOptions) -> String {
+pub(super) fn render_mermaid(model: &ModelIntermediate, options: &ModelOptions) -> String {
     let mut out = String::new();
 
     writeln!(out, "erDiagram").unwrap();

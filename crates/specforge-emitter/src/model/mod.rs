@@ -1,3 +1,9 @@
+//! The logical data model: the entity kinds a Graph Protocol schema
+//! declares, drawn as tables (their fields as columns, a synthetic `id` as
+//! the key) and the edge types between them as relationships with a
+//! cardinality. One call, [`export`]. How the model is built, selected and
+//! drawn is this module's own (ADR 0007).
+
 mod build;
 mod cardinality;
 mod dbml;
@@ -10,7 +16,10 @@ mod mermaid;
 use std::fmt;
 
 use serde::{Deserialize, Serialize};
+use specforge_protocol_types::ExtensionDeclaration;
 use specforge_registry::FieldType;
+
+use crate::schema::GraphProtocolSchema;
 
 // ---------------------------------------------------------------------------
 // Enums
@@ -45,7 +54,7 @@ pub enum FieldLevel {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum Cardinality {
+pub(crate) enum Cardinality {
     #[serde(rename = "1:1")]
     OneToOne,
     #[serde(rename = "1:N")]
@@ -86,7 +95,7 @@ pub struct ModelOptions {
 // ---------------------------------------------------------------------------
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ModelIntermediate {
+pub(crate) struct ModelIntermediate {
     pub model_version: String,
     pub extensions: Vec<ModelExtension>,
     pub entities: Vec<ModelEntity>,
@@ -98,7 +107,7 @@ pub struct ModelIntermediate {
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 
-pub struct ModelEntity {
+pub(crate) struct ModelEntity {
     pub name: String,
     pub extension: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -114,7 +123,7 @@ pub struct ModelEntity {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ModelField {
+pub(crate) struct ModelField {
     pub name: String,
     pub field_type: FieldType,
     pub required: bool,
@@ -141,7 +150,7 @@ pub struct ModelField {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ModelRelationship {
+pub(crate) struct ModelRelationship {
     pub name: String,
     pub source: String,
     pub target: String,
@@ -153,7 +162,7 @@ pub struct ModelRelationship {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ModelExtension {
+pub(crate) struct ModelExtension {
     pub name: String,
     pub version: String,
     pub entity_count: usize,
@@ -167,10 +176,7 @@ pub struct ModelExtension {
 
 impl ModelIntermediate {
     /// Each extension's declared `theme_color`, from its handshake.
-    pub fn with_theme_colors(
-        mut self,
-        declarations: &[specforge_protocol_types::ExtensionDeclaration],
-    ) -> Self {
+    fn with_theme_colors(mut self, declarations: &[ExtensionDeclaration]) -> Self {
         for ext in &mut self.extensions {
             ext.color = declarations
                 .iter()
@@ -181,7 +187,7 @@ impl ModelIntermediate {
     }
 
     /// The colour `extension` is drawn in.
-    pub fn extension_color(&self, extension: &str) -> &str {
+    pub(crate) fn extension_color(&self, extension: &str) -> &str {
         crate::diagram::theme_color(
             self.extensions
                 .iter()
@@ -191,19 +197,48 @@ impl ModelIntermediate {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Public API: build + filter + render
-// ---------------------------------------------------------------------------
-
-pub use build::ModelIntermediate_from_schema;
-pub use filter::{filter_entities, filter_fields};
-
-pub fn render(model: &ModelIntermediate, options: &ModelOptions) -> String {
+/// The logical data model of `schema`, as `options` asks.
+///
+/// Every kind of `schema` is one entity, whose first field is a synthetic
+/// `id` key. Every edge type joins each of its source kinds to each of its
+/// target kinds, with the cardinality the source's field declares (N:M when
+/// none does). The export then keeps only the kinds that `options.extension`,
+/// `options.kinds` and `options.root` all select. It keeps a relationship
+/// when both its kinds are kept, and recounts each extension's entities and
+/// edge types. Each kept entity lists the fields `options.fields` names. The
+/// model is drawn in `options.format`, grouped by `options.group_by`, and each
+/// extension takes the `theme_color` its declaration in `declarations` gives
+/// (grey when none does).
+///
+/// Total: a name `schema` does not have selects nothing. Refusing or
+/// reporting such a name is the operation's job (`specforge_ops::model::model`).
+pub fn export(
+    schema: &GraphProtocolSchema,
+    declarations: &[ExtensionDeclaration],
+    options: &ModelOptions,
+) -> String {
+    let model = ModelIntermediate::of(schema)
+        .with_theme_colors(declarations)
+        .selected(options)
+        .with_fields(options.fields);
     match options.format {
-        ModelFormat::Markdown => markdown::render_markdown(model, options),
-        ModelFormat::Mermaid => mermaid::render_mermaid(model, options),
-        ModelFormat::Dot => dot::render_dot(model, options),
-        ModelFormat::Json => json::render_json(model),
-        ModelFormat::Dbml => dbml::render_dbml(model, options),
+        ModelFormat::Markdown => markdown::render_markdown(&model, options),
+        ModelFormat::Mermaid => mermaid::render_mermaid(&model, options),
+        ModelFormat::Dot => dot::render_dot(&model, options),
+        ModelFormat::Json => json::render_json(&model),
+        ModelFormat::Dbml => dbml::render_dbml(&model, options),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn cardinality_display_strings() {
+        assert_eq!(Cardinality::OneToOne.to_string(), "1:1");
+        assert_eq!(Cardinality::OneToMany.to_string(), "1:N");
+        assert_eq!(Cardinality::ManyToOne.to_string(), "N:1");
+        assert_eq!(Cardinality::ManyToMany.to_string(), "N:M");
     }
 }
