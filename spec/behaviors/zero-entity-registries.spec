@@ -605,7 +605,11 @@ behavior registry_build_declaration_consistency "Registry Build Checks Declarati
 
 behavior registry_build_peer_dependencies "Registry Build Checks Peer Dependencies" {
   features   [wasm_extension_runtime]
-  invariants [zero_domain_knowledge_core, registry_population_before_validation, peer_dependency_satisfaction]
+  invariants [
+    zero_domain_knowledge_core,
+    registry_population_before_validation,
+    peer_dependency_satisfaction,
+  ]
   category   validation
   types      [ExtensionDeclaration, PeerDependency, RegistryBuild]
   produces   [extension_loading_failed]
