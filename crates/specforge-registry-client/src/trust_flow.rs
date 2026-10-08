@@ -9,7 +9,7 @@
 //! 5. operator allowlist (`trusted_keys`) accepts a key without a prior pin
 //!    and re-pins it
 
-use crate::{KnownKeys, TrustCheck, load_known_keys, save_known_keys, verify_package_signature};
+use crate::{KnownKeys, TrustCheck, verify_package_signature};
 use specforge_registry_wire::PackageMetadata;
 use std::io::Write;
 use std::path::Path;
@@ -45,15 +45,16 @@ pub struct TrustOutcome {
 
 /// Run the verification + TOFU flow for a downloaded registry package.
 ///
-/// `known_keys_path_override` exists for tests; production callers pass
-/// `None` to use `~/.specforge/known-keys.json`.
+/// `known_keys` is the file the user's pins live in (the user's
+/// `known-keys.json`): the caller says whose, so a test never reads or writes
+/// the real one.
 pub fn check_and_pin(
     name: &str,
     response: &PackageMetadata,
     wasm_bytes: &[u8],
     allow_unsigned: bool,
     policy: TrustPolicy,
-    known_keys_path_override: Option<&Path>,
+    known_keys: &Path,
 ) -> Result<TrustOutcome, Diagnostic> {
     let unsigned = |message: String, suggestion: Option<String>| {
         let mut diagnostic = Diagnostic::new(codes::R_TRUST_001, message);
@@ -79,10 +80,7 @@ pub fn check_and_pin(
             }
         }
         TrustCheck::Verified { key_id } => {
-            let mut known = match known_keys_path_override {
-                Some(p) => load_known_keys_at(p),
-                None => load_known_keys(),
-            };
+            let mut known = load_known_keys_at(known_keys);
 
             // Config-level revocation wins over everything.
             if known.is_denied(&key_id) {
@@ -104,7 +102,7 @@ pub fn check_and_pin(
             match existing_pin {
                 None => {
                     known.pin(name, &key_id);
-                    save(&known, known_keys_path_override)?;
+                    save(&known, known_keys)?;
                     if policy.announces() {
                         eprintln!("key pinned for '{}': {}", name, key_id);
                     }
@@ -135,7 +133,7 @@ pub fn check_and_pin(
                         )));
                     }
                     known.pin(name, &key_id);
-                    save(&known, known_keys_path_override)?;
+                    save(&known, known_keys)?;
                     if policy.announces() {
                         eprintln!("re-pinned key for '{}': {} -> {}", name, pinned, key_id);
                     }
@@ -148,12 +146,8 @@ pub fn check_and_pin(
     }
 }
 
-fn save(known: &KnownKeys, override_path: Option<&Path>) -> Result<(), Diagnostic> {
-    let result = match override_path {
-        Some(p) => save_known_keys_at(p, known),
-        None => save_known_keys(known),
-    };
-    result.map_err(|message| {
+fn save(known: &KnownKeys, path: &Path) -> Result<(), Diagnostic> {
+    save_known_keys_at(path, known).map_err(|message| {
         Diagnostic::new(codes::R_TRUST_006, message)
             .with_suggestion("check permissions on the file".to_string())
     })
@@ -230,6 +224,10 @@ mod tests {
 
     const MANIFEST: &str = r#"{"name":"@acme/tool","version":"1.0.0"}"#;
     const WASM: &[u8] = b"\0asm-bytes";
+    /// An unsigned package reads and writes no store; the path is never touched.
+    fn no_store() -> &'static Path {
+        Path::new("unused-known-keys.json")
+    }
 
     #[test]
     fn unsigned_package_is_refused_without_flag() {
@@ -240,7 +238,7 @@ mod tests {
             WASM,
             false,
             TrustPolicy::Prompt,
-            None,
+            no_store(),
         )
         .unwrap_err();
         assert_eq!(err.code, "R-TRUST-001");
@@ -260,7 +258,7 @@ mod tests {
             WASM,
             true,
             TrustPolicy::Prompt,
-            None,
+            no_store(),
         )
         .unwrap();
         assert!(outcome.key_id.is_none());
@@ -279,7 +277,7 @@ mod tests {
             WASM,
             false,
             TrustPolicy::Prompt,
-            Some(&store),
+            &store,
         )
         .unwrap();
         assert_eq!(outcome.key_id.as_deref(), Some(key.key_id().as_str()));
@@ -301,7 +299,7 @@ mod tests {
             WASM,
             false,
             TrustPolicy::Prompt,
-            Some(&store),
+            &store,
         )
         .unwrap();
         // Second install of the same package/key: accepted, pin unchanged.
@@ -311,7 +309,7 @@ mod tests {
             WASM,
             false,
             TrustPolicy::Prompt,
-            Some(&store),
+            &store,
         )
         .unwrap();
         assert_eq!(outcome.key_id.as_deref(), Some(key.key_id().as_str()));
@@ -331,7 +329,7 @@ mod tests {
             WASM,
             false,
             TrustPolicy::Prompt,
-            Some(&store),
+            &store,
         )
         .unwrap();
 
@@ -343,7 +341,7 @@ mod tests {
             WASM,
             false,
             TrustPolicy::Prompt,
-            Some(&store),
+            &store,
         )
         .unwrap_err();
         assert_eq!(err.code, "R-TRUST-003");
@@ -355,7 +353,7 @@ mod tests {
             WASM,
             false,
             TrustPolicy::AssumeYes,
-            Some(&store),
+            &store,
         )
         .unwrap();
         assert_eq!(outcome.key_id.as_deref(), Some(key_b.key_id().as_str()));
@@ -381,7 +379,7 @@ mod tests {
             WASM,
             false,
             TrustPolicy::Prompt,
-            Some(&store),
+            &store,
         )
         .unwrap();
         assert_eq!(outcome.key_id.as_deref(), Some(key.key_id().as_str()));
@@ -405,7 +403,7 @@ mod tests {
             WASM,
             false,
             TrustPolicy::Prompt,
-            Some(&store),
+            &store,
         )
         .unwrap_err();
         assert_eq!(err.code, "R-TRUST-005");
@@ -427,7 +425,7 @@ mod tests {
             tampered,
             true,
             TrustPolicy::Prompt,
-            Some(&store),
+            &store,
         )
         .unwrap_err();
         assert_eq!(err.code, "R-TRUST-002");
@@ -449,10 +447,10 @@ mod tests {
             let dir = tempfile::tempdir().unwrap();
             let store = dir.path().join("known-keys.json");
             let first = signed_response(&key_a, MANIFEST, WASM);
-            check_and_pin("@acme/tool", &first, WASM, false, policy, Some(&store)).unwrap();
+            check_and_pin("@acme/tool", &first, WASM, false, policy, &store).unwrap();
 
             let second = signed_response(&key_b, MANIFEST, WASM);
-            let decided = check_and_pin("@acme/tool", &second, WASM, false, policy, Some(&store));
+            let decided = check_and_pin("@acme/tool", &second, WASM, false, policy, &store);
 
             match (accepts, decided) {
                 (true, Ok(outcome)) => {
@@ -462,8 +460,14 @@ mod tests {
                 (accepts, decided) => panic!("{policy:?}: accepts {accepts}: {decided:?}"),
             }
 
-            let unsigned =
-                check_and_pin("@acme/tool", &unsigned_response(), WASM, true, policy, None);
+            let unsigned = check_and_pin(
+                "@acme/tool",
+                &unsigned_response(),
+                WASM,
+                true,
+                policy,
+                no_store(),
+            );
             assert!(unsigned.unwrap().key_id.is_none(), "{policy:?}");
         }
     }

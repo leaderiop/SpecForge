@@ -141,6 +141,16 @@ type RegistryPackage "Registry Package" {
   verify unit "RegistryPackage is what a package that passed the fetch policy hands an operation"
 }
 
+// What the Registry port's publish answers: the registry that took the
+// package and the publisher key it is signed with (specforge_ops::registry::Published).
+type RegistryPublished "Registry Published" {
+  registry    string
+  url         string
+  key_id      string
+  key_created boolean
+  verify unit "RegistryPublished is what the registry that took a publish answers with"
+}
+
 type TrustLevel = verified | community | local | git
 
 // ── Registry Authentication ───────────────────────────────

@@ -6,7 +6,7 @@
 use sha2::{Digest, Sha256};
 use specforge_ops::extension::{Trust, resolve};
 use specforge_ops::registry::Registry;
-use specforge_ops_registry::ConfiguredRegistry;
+use specforge_ops_registry::{ConfiguredRegistry, User};
 use specforge_protocol_types::package::{PackageName, PackageRef, Version};
 use specforge_registry_server::testing::LocalRegistry;
 use specforge_registry_wire::PackageMetadata;
@@ -141,8 +141,8 @@ fn the_registry_is_chosen_once() {
     // from it (§3 R4).
     let served = serving(&["1.0.0"]);
     let dir = project_with(&default_registry(served.url()));
-    let known_keys = dir.path().join("home").join("known-keys.json");
-    let registry = ConfiguredRegistry::for_project(dir.path(), "add").with_known_keys(known_keys);
+    let home = User::at(dir.path().join("home"), None);
+    let registry = ConfiguredRegistry::for_project(dir.path(), "add").as_user(home);
 
     assert_eq!(
         registry.versions(&name("@acme/tool")).unwrap(),

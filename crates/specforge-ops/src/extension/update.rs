@@ -358,8 +358,8 @@ mod tests {
     fn an_update_installs_the_newer_binary_and_locks_its_hash() {
         let dir = project(vec![entry("@sdk/greet", "0.0.9", "registry", &[])]);
         let registry = MemoryRegistry::new()
-            .publish(old("@sdk/greet", "0.0.9"))
-            .publish(greet_published());
+            .serving(old("@sdk/greet", "0.0.9"))
+            .serving(greet_published());
 
         let outcome = update(&request(dir.path(), true), &registry).unwrap();
 
@@ -392,8 +392,8 @@ mod tests {
         // ^0.0.9 admits only 0.0.9: 0.1.0 is a breaking change.
         let dir = project(vec![entry("@sdk/greet", "0.0.9", "registry", &[])]);
         let registry = MemoryRegistry::new()
-            .publish(old("@sdk/greet", "0.0.9"))
-            .publish(greet_published());
+            .serving(old("@sdk/greet", "0.0.9"))
+            .serving(greet_published());
 
         let outcome = update(&request(dir.path(), false), &registry).unwrap();
 
@@ -427,8 +427,8 @@ mod tests {
         // @acme/liar 1.1.0 is published as @acme/liar but its binary is greet's: it
         // declares other than was published, E028, as add refuses it.
         let registry = MemoryRegistry::new()
-            .publish(greet_published())
-            .publish(Published::new(
+            .serving(greet_published())
+            .serving(Published::new(
                 greet(),
                 declaration("@acme/liar", "1.1.0", &[]),
             ));
@@ -470,7 +470,7 @@ mod tests {
             ),
         ]);
         let lock_before = std::fs::read(lock_path(dir.path())).unwrap();
-        let registry = MemoryRegistry::new().publish(greet_published());
+        let registry = MemoryRegistry::new().serving(greet_published());
 
         let outcome = update(&request(dir.path(), true), &registry).unwrap();
 
@@ -490,7 +490,7 @@ mod tests {
         use std::os::unix::fs::PermissionsExt;
         let dir = project(vec![entry("@sdk/greet", "0.0.9", "registry", &[])]);
         let lock_before = std::fs::read(lock_path(dir.path())).unwrap();
-        let registry = MemoryRegistry::new().publish(greet_published());
+        let registry = MemoryRegistry::new().serving(greet_published());
         // The binaries can be placed, the lock beside them cannot be written.
         let mode = |m| std::fs::Permissions::from_mode(m);
         std::fs::set_permissions(dir.path(), mode(0o555)).unwrap();
@@ -514,7 +514,7 @@ mod tests {
     #[test]
     fn a_local_install_is_never_asked_about() {
         let dir = project(vec![entry("@sdk/greet", "0.0.9", "local:greet.wasm", &[])]);
-        let registry = MemoryRegistry::new().publish(old("@sdk/greet", "9.9.9"));
+        let registry = MemoryRegistry::new().serving(old("@sdk/greet", "9.9.9"));
 
         let outcome = update(&request(dir.path(), true), &registry).unwrap();
 

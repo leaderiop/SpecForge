@@ -168,9 +168,7 @@ pub fn key_id_from_pubkey(public_key_hex: &str) -> String {
 
 /// Default on-disk location of the publisher signing key.
 pub fn signing_key_path() -> PathBuf {
-    crate::credentials::dirs_home()
-        .join(".specforge")
-        .join("signing-key.json")
+    crate::credentials::user_dir().join("signing-key.json")
 }
 
 /// Load the local signing key, generating and persisting one on first use.

@@ -2,7 +2,7 @@
 //! real server in process, and over the in-memory client. `MemoryRegistry` keeps it in `specforge-ops`.
 
 use specforge_ops::registry::testing::{Published, assert_registry_contract, contract_packages};
-use specforge_ops_registry::ConfiguredRegistry;
+use specforge_ops_registry::{ConfiguredRegistry, User};
 use specforge_registry_client::testing::{MemoryClient, package};
 use specforge_registry_client::{RegistryConfig, SigningKey};
 use specforge_registry_server::testing::LocalRegistry;
@@ -39,7 +39,7 @@ fn the_configured_registry_over_http_keeps_the_registry_contract() {
     }
     let dir = project(server.config_entry());
     let registry = ConfiguredRegistry::for_project(dir.path(), "add")
-        .with_known_keys(dir.path().join("known-keys.json"));
+        .as_user(User::at(dir.path(), Some(server.token().to_string())));
 
     assert_registry_contract(&registry, &published);
 }
@@ -52,7 +52,7 @@ fn the_configured_registry_over_memory_keeps_the_registry_contract() {
         scope_filter: None,
         default_registry: true,
     };
-    let client = MemoryClient::new();
+    let client = MemoryClient::new().accepting("token");
     let key = SigningKey::generate();
     let published = contract_packages(&key.key_id());
     for p in &published {
@@ -63,7 +63,7 @@ fn the_configured_registry_over_memory_keeps_the_registry_contract() {
     ]));
     let registry = ConfiguredRegistry::for_project(dir.path(), "add")
         .with_client(client)
-        .with_known_keys(dir.path().join("known-keys.json"));
+        .as_user(User::at(dir.path(), Some("token".to_string())));
 
     assert_registry_contract(&registry, &published);
 }

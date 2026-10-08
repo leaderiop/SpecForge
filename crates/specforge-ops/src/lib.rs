@@ -89,9 +89,9 @@ pub enum OpErrorKind {
 impl OpErrorKind {
     /// The kind of a failure reported as diagnostic `code`: the one table
     /// (E003 entity, E019/E054/E062/E064/E072 and a registry's R-RES-003/R-RES-004 input,
-    /// R-RES-001 extension, E027 and R-RES-006 conflict, E045/E067/E071 and a
+    /// R-RES-001 extension, E027 and R-RES-006/R007 conflict, E045/E067/E071 and a
     /// registry's R-TRUST-004/R-OPS-004 schema, E058/E063 precondition,
-    /// E059 permission, R004 timeout, else internal). MCP's
+    /// E059/R001/R002 permission, R004 timeout, else internal). MCP's
     /// `ErrorCode::for_diagnostic` reads it.
     pub fn of_diagnostic(code: &str) -> Self {
         const KINDS: &[(Code, OpErrorKind)] = &[
@@ -115,6 +115,9 @@ impl OpErrorKind {
             (codes::E058, OpErrorKind::PreconditionFailed),
             (codes::E063, OpErrorKind::PreconditionFailed),
             (codes::E059, OpErrorKind::PermissionDenied),
+            (codes::R001, OpErrorKind::PermissionDenied),
+            (codes::R002, OpErrorKind::PermissionDenied),
+            (codes::R007, OpErrorKind::Conflict),
             (codes::R004, OpErrorKind::Timeout),
         ];
         KINDS
@@ -286,6 +289,9 @@ mod tests {
             (codes::E045, OpErrorKind::SchemaMismatch),
             (codes::E058, OpErrorKind::PreconditionFailed),
             (codes::E059, OpErrorKind::PermissionDenied),
+            (codes::R001, OpErrorKind::PermissionDenied),
+            (codes::R002, OpErrorKind::PermissionDenied),
+            (codes::R007, OpErrorKind::Conflict),
             (codes::E062, OpErrorKind::InvalidInput),
             (codes::E063, OpErrorKind::PreconditionFailed),
             (codes::E067, OpErrorKind::SchemaMismatch),

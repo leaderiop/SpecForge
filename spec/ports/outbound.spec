@@ -79,11 +79,13 @@ port Registry {
   direction outbound
   category  "io/registry"
   // What operations reach a package registry through (ADR 0010, 0036,
-  // 0044): it lists a package's versions and fetches one that passed the
-  // fetch policy. Its adapters are the configured registry (production) and
+  // 0044, 0045): it lists a package's versions, fetches one that passed the
+  // fetch policy and publishes one, each to the one registry that serves
+  // the name. Its adapters are the configured registry (production) and
   // the in-memory registry (tests); both keep one contract suite.
   method versions(name: PackageName) -> Result<string[], ExtensionError>
   method fetch(name: PackageName, version: string, allowUnsigned: boolean, trust: string) -> Result<RegistryPackage, ExtensionError>
+  method publish(name: PackageName, version: string, wasm: u8[], declaration: ExtensionDeclaration) -> Result<RegistryPublished, ExtensionError>
   verify integration "Registry contract is satisfied"
 }
 
