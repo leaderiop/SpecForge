@@ -8,7 +8,7 @@ use std::path::Path;
 use crate::infer::SourceItem;
 use specforge_protocol_types::{ExtensionDeclaration, ScanRequest};
 use specforge_wasm::runtime::WasmRuntime;
-use specforge_wasm::{CallError, ExtensionCalls};
+use specforge_wasm::{CallError, CallFailure, ExtensionCalls, Operation};
 
 struct ScannerEntry {
     extension_name: String,
@@ -40,7 +40,7 @@ pub struct ScanFailure {
 /// be read, is skipped; a scanner that fails on a file is reported, never
 /// dropped.
 pub fn scan_source_files(
-    runtime: &dyn WasmRuntime,
+    runtime: Option<&dyn WasmRuntime>,
     declarations: &[ExtensionDeclaration],
     project_root: &Path,
     source_files: &[String],
@@ -64,7 +64,7 @@ pub fn scan_source_files(
         }
     }
 
-    let calls = ExtensionCalls::new(runtime);
+    let calls = runtime.map(ExtensionCalls::new);
     let mut outcome = ScanOutcome::default();
     for file_path in source_files {
         let file_ext = match file_path.rfind('.') {
@@ -86,6 +86,18 @@ pub fn scan_source_files(
         let request = ScanRequest {
             file_path: file_path.clone(),
             content,
+        };
+        let Some(calls) = &calls else {
+            outcome.failures.push(ScanFailure {
+                file: file_path.clone(),
+                error: CallError::new(
+                    Operation::Scan,
+                    &entry.extension_name,
+                    &entry.scan_export,
+                    CallFailure::NotLoaded,
+                ),
+            });
+            continue;
         };
         match calls.scan(&entry.extension_name, &entry.scan_export, &request) {
             Ok(response) => {

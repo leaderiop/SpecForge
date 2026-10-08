@@ -296,6 +296,17 @@ pub(crate) mod testing {
             }
         }
 
+        /// The compile loaded its extensions in `runtime`, which the
+        /// environment holds.
+        #[allow(
+            dead_code,
+            reason = "a fixture builder tests reach for as they need it"
+        )]
+        pub fn runtime(mut self, runtime: SharedRuntime) -> Self {
+            self.env.runtime = Some(runtime);
+            self
+        }
+
         /// The coverage memo of the graph and environment the test built.
         fn recorded(&self) -> &RecordedCoverage {
             self.recorded

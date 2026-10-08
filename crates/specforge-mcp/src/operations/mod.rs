@@ -632,7 +632,7 @@ pub(crate) fn collect_op(project: &ProjectRef<'_>, args: CollectArgs) -> ToolOut
 
     // Tests map to the entities on disk now: the target brought the served
     // project up to date, or compiled the project `path` names for this
-    // call, in the runtime it collects with.
+    // call, in the runtime its environment was loaded in.
     let request = Request {
         runner,
         mode: if run {
@@ -646,7 +646,7 @@ pub(crate) fn collect_op(project: &ProjectRef<'_>, args: CollectArgs) -> ToolOut
         consent: Consent::Approved,
         announce: &mut |_, _| {},
     };
-    match collect::collect(&project.view(), project.runtime.as_ref(), request) {
+    match collect::collect(&project.view(), request) {
         Ok(outcome) => ok(outcome.to_json()),
         Err(mut e) => {
             if e.is(codes::E059) {

@@ -26,10 +26,7 @@ pub fn run(
         }
     };
     let gaps = if show_gaps_detail {
-        match infer::gaps(
-            &view,
-            view.runtime().expect("compiled with a runtime").as_ref(),
-        ) {
+        match infer::gaps(&view) {
             Ok(gaps) => Some(gaps),
             Err(error) => {
                 return Refusal::of(format).report(&error);

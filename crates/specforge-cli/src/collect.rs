@@ -68,9 +68,7 @@ pub fn run(path: &Path, options: &Options, format: OutputFormat) -> Exit {
     };
     // The view is rooted where the project compiled: the report lands where
     // every view over the project reads it.
-    let view = ProjectView::of(&project);
-    let runtime = view.runtime().expect("compiled with a runtime");
-    let outcome = match collect::collect(&view, runtime.as_ref(), request) {
+    let outcome = match collect::collect(&ProjectView::of(&project), request) {
         Ok(outcome) => outcome,
         Err(e) => {
             return Refusal::of(format).report(&e);

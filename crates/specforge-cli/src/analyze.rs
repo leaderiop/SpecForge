@@ -47,8 +47,7 @@ pub fn run(
     } else {
         OutputFormat::Human
     };
-    let view = ProjectView::of(&project);
-    let outcome = match analyze(&view, view.runtime().map(|r| r.as_ref()), &options) {
+    let outcome = match analyze(&ProjectView::of(&project), &options) {
         Ok(outcome) => outcome,
         Err(error) => return Refusal::measuring(format).report(&OpError::from(error)),
     };

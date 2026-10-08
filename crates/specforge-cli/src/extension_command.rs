@@ -26,7 +26,7 @@ use specforge_ops::command::{
     ArgShape, ArgValue, CommandFormat, ExtensionArg, ExtensionCommand, ExtensionCommands, RunError,
 };
 use specforge_ops::view::ProjectView;
-use specforge_project::{CompiledProject, Environment, SharedRuntime};
+use specforge_project::{CompiledProject, Environment};
 use specforge_protocol_types::command_args::{ArgError, normalize_arg};
 use specforge_protocol_types::{CommandError, CommandOutput};
 use std::io::Write;
@@ -62,8 +62,12 @@ pub fn run(argv: &[String], builtins: &[String]) -> i32 {
     };
 
     let root = project_path(&rest);
-    let runtime: SharedRuntime = Arc::new(specforge_component::ComponentRuntime::with_user_cache());
-    let env = Environment::load(&root, Some(Arc::clone(&runtime)));
+    let env = Environment::load(
+        &root,
+        Some(Arc::new(
+            specforge_component::ComponentRuntime::with_user_cache(),
+        )),
+    );
     let routed = ExtensionCommands::build(&env.registries);
     let commands: Vec<&ExtensionCommand> = routed.of(&ext).collect();
     if commands.is_empty() {
@@ -141,13 +145,7 @@ pub fn run(argv: &[String], builtins: &[String]) -> i32 {
     // its sources read, its graph built and checked (ADR 0011, "One
     // operation runs a command", O3).
     let project = CompiledProject::of(env);
-    let outcome = specforge_ops::command::run(
-        &ProjectView::of(&project),
-        runtime.as_ref(),
-        command,
-        &given,
-        format,
-    );
+    let outcome = specforge_ops::command::run(&ProjectView::of(&project), command, &given, format);
     ended(
         outcome,
         format,

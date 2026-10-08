@@ -68,7 +68,7 @@ fn every_view(project: &Project) -> Vec<(&'static str, OpError)> {
         ),
         (
             "analyze",
-            match analyze(&view, None, &AnalyzeOptions::default()).unwrap_err() {
+            match analyze(&view, &AnalyzeOptions::default()).unwrap_err() {
                 AnalyzeError::UnusableReport(error) => error,
                 other => panic!("expected the report's failure: {other:?}"),
             },
@@ -161,7 +161,7 @@ fn analyze_calls_a_missing_named_report_file_not_found() {
         ..Default::default()
     };
 
-    let error = analyze(&project.view(), None, &options).unwrap_err();
+    let error = analyze(&project.view(), &options).unwrap_err();
 
     let AnalyzeError::UnusableReport(error) = error else {
         panic!("expected an unusable report: {error:?}");
