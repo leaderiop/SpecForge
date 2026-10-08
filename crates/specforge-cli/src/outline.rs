@@ -9,7 +9,7 @@ use crate::pipeline;
 /// `specforge outline`: the outline operation over the project compiled at
 /// `path`.
 pub fn run(path: &Path, options: &OutlineOptions) -> Exit {
-    let (project, _runtime) = pipeline::compile_project(path);
+    let project = pipeline::compile_project(path);
     print!(
         "{}",
         specforge_ops::model::outline(&ProjectView::of(&project), options)

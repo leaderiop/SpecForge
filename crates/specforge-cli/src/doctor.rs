@@ -16,7 +16,7 @@ use std::path::Path;
 /// their enhancements, conflicts, shadowed keywords, installed binaries)
 /// plus registry credential health. Exit 1 on any error-level finding.
 pub fn run(path: &Path, format: OutputFormat) -> Exit {
-    let (project, _runtime) = crate::pipeline::compile_project(path);
+    let project = crate::pipeline::compile_project(path);
     let report = diagnose(&ProjectView::of(&project));
     let credentials = user_credential_health();
     let healthy = !report.has_errors();

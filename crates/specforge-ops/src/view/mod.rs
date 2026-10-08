@@ -22,7 +22,7 @@ use specforge_graph::Graph;
 use specforge_installed::{Installed, LockState};
 use specforge_project::coverage::{ProjectCoverage, Recorded, RecordedCoverage, TestReport};
 use specforge_project::snapshot::EntitySnapshot;
-use specforge_project::{CompiledProject, Environment};
+use specforge_project::{CompiledProject, Environment, SharedRuntime};
 use specforge_registry::RegistryBuild;
 
 pub use connectivity::{Connectivity, Degree};
@@ -114,6 +114,13 @@ impl<'a> ProjectView<'a> {
     /// again.
     pub fn env(&self) -> &'a Environment {
         self.env
+    }
+
+    /// The runtime the view's extensions were loaded in (its environment's):
+    /// every operation that calls an extension over the view calls it there.
+    /// None: the environment loaded no extension.
+    pub fn runtime(&self) -> Option<&'a SharedRuntime> {
+        self.env.runtime.as_ref()
     }
 
     /// The registry build of the environment: kinds, fields, edges, rules,
@@ -287,6 +294,17 @@ pub(crate) mod testing {
                 recorded: std::sync::OnceLock::new(),
                 reported: Vec::new(),
             }
+        }
+
+        /// The compile loaded its extensions in `runtime`, which the
+        /// environment holds.
+        #[allow(
+            dead_code,
+            reason = "a fixture builder tests reach for as they need it"
+        )]
+        pub fn runtime(mut self, runtime: SharedRuntime) -> Self {
+            self.env.runtime = Some(runtime);
+            self
         }
 
         /// The coverage memo of the graph and environment the test built.

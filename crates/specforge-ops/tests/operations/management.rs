@@ -131,12 +131,10 @@ fn management_operations_read_the_project_from_their_view() {
         .map(drop),
     );
     refused(specforge_ops::infer::progress(&rootless).map(drop));
-    let runtime = specforge_wasm::testing::InProcessRuntime::new();
-    refused(specforge_ops::infer::gaps(&rootless, &runtime).map(drop));
+    refused(specforge_ops::infer::gaps(&rootless).map(drop));
     refused(
         specforge_ops::collect::collect(
             &rootless,
-            &runtime,
             Request {
                 runner: None,
                 mode: Mode::NoRun,
@@ -234,11 +232,9 @@ fn collect_at_a_root_that_is_no_project_is_no_project() {
     let recorded = RecordedCoverage::over(&project.graph, &project.env);
     let bare = tempfile::TempDir::new().unwrap();
     let view = ProjectView::new(&project.graph, &project.env, Some(bare.path()), &recorded);
-    let runtime = specforge_wasm::testing::InProcessRuntime::new();
 
     let error = specforge_ops::collect::collect(
         &view,
-        &runtime,
         Request {
             runner: None,
             mode: Mode::NoRun,

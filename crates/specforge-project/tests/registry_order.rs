@@ -11,6 +11,7 @@
 use specforge_common::Diagnostic;
 use specforge_extension_sdk::{ContributionsBuilder, ExtensionMeta};
 use specforge_wasm::testing::InProcessRuntime;
+use std::sync::Arc;
 
 /// Two extensions that collide on everything the registry build checks:
 /// the same entity kind (E026), the same edge label (W018) and the same CLI
@@ -87,7 +88,7 @@ fn render(diagnostics: &[Diagnostic]) -> Vec<String> {
 #[test]
 fn registry_diagnostics_keep_their_order() {
     let dir = project();
-    let runtime = colliding_extensions();
+    let runtime = Arc::new(colliding_extensions());
 
     let expected = [
         "<E026>: error[E026]: entity kind 'gadget' registered by '@test/beta' conflicts with '@test/alpha' (first registration wins)",
@@ -104,7 +105,7 @@ fn registry_diagnostics_keep_their_order() {
     // Compiled again and again, with fresh hash maps each time: the order
     // must not depend on them.
     for _ in 0..20 {
-        let ctx = specforge_project::CompiledProject::compile(dir.path(), Some(&runtime));
+        let ctx = specforge_project::CompiledProject::compile(dir.path(), Some(runtime.clone()));
         let diagnostics = ctx.diagnostics();
         assert_eq!(render(&diagnostics), expected);
     }

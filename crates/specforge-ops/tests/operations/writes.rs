@@ -12,6 +12,7 @@ use specforge_ops::testing::{self, declaring, serving_builtin};
 use specforge_ops::view::ProjectView;
 use specforge_project::CompiledProject;
 use specforge_wasm::testing::InProcessRuntime;
+use std::sync::Arc;
 use tempfile::TempDir;
 
 type Snapshot = BTreeMap<PathBuf, Vec<u8>>;
@@ -129,14 +130,14 @@ fn add(root: &Path, source: Source) -> Result<extension::Added, specforge_ops::O
 
 /// The project at `root`, compiled in process with [`candidates`].
 fn compiled(root: &Path) -> CompiledProject {
-    CompiledProject::compile(root, Some(&candidates()))
+    CompiledProject::compile(root, Some(Arc::new(candidates())))
 }
 
 /// The project at `root`, compiled with the component runtime that loads
 /// the builtins.
 fn compiled_with_builtins(root: &Path) -> CompiledProject {
     let runtime = specforge_component::ComponentRuntime::with_user_cache();
-    CompiledProject::compile(root, Some(&runtime))
+    CompiledProject::compile(root, Some(Arc::new(runtime)))
 }
 
 fn remove(root: &Path, name: &str, dry_run: bool) -> extension::RemoveOutcome {
@@ -705,7 +706,8 @@ fn a_rolled_back_migration_keeps_only_its_backups() {
         c
     });
 
-    let outcome = specforge_ops::migrate::run(&migration(root, false), Some(&runtime));
+    let outcome =
+        specforge_ops::migrate::run(&migration(root, false), Some(std::sync::Arc::new(runtime)));
 
     assert!(outcome.rollback.is_some());
     assert_eq!(listed(&outcome.writes, root), ["old.spec.bak"]);

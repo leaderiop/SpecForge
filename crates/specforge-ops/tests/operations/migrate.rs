@@ -3,6 +3,7 @@
 //! hook or a changed graph structure restores the migrated files.
 
 use std::path::Path;
+use std::sync::Arc;
 
 use specforge_extension_sdk::{ContributionsBuilder, ExtensionMeta};
 use specforge_migrate::migrate_project;
@@ -82,12 +83,12 @@ fn a_migration_that_changes_the_graph_is_rolled_back() {
     let file = dir.path().join("old.spec");
 
     // A hook that renames the entity: the graph loses `alpha`.
-    let runtime = hooked(|input| {
+    let runtime = Arc::new(hooked(|input| {
         let file = &input.files[0];
         let migrated = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
         std::fs::write(file, migrated.replace("alpha", "beta")).map_err(|e| e.to_string())
-    });
-    let outcome = run(&request(dir.path()), Some(&runtime));
+    }));
+    let outcome = run(&request(dir.path()), Some(runtime.clone()));
 
     assert_eq!(outcome.hooks_invoked, ["@acme/x:migrate_acme"]);
     assert!(outcome.validated);
@@ -111,9 +112,9 @@ fn a_migration_that_changes_the_graph_is_rolled_back() {
 )]
 fn a_migration_whose_hook_fails_is_rolled_back() {
     let dir = project_with_extension();
-    let runtime = hooked(|_| Err("the data cannot be migrated".into()));
+    let runtime = Arc::new(hooked(|_| Err("the data cannot be migrated".into())));
 
-    let outcome = run(&request(dir.path()), Some(&runtime));
+    let outcome = run(&request(dir.path()), Some(runtime.clone()));
 
     assert!(!outcome.validated, "no validation after a failed hook");
     assert_eq!(
@@ -168,17 +169,18 @@ fn a_failed_migration_names_its_kind() {
 
     // A hook that fails: rolled back, the project never compiled again.
     let dir = project_with_extension();
-    let runtime = hooked(|_| Err("trapped".into()));
-    let outcome = run(&request(dir.path()), Some(&runtime));
+    let runtime = Arc::new(hooked(|_| Err("trapped".into())));
+    let outcome = run(&request(dir.path()), Some(runtime.clone()));
     assert!(outcome.rollback.is_some() && !outcome.ok());
     assert_eq!(outcome.failure().unwrap().kind, OpErrorKind::Internal);
 
     // A hook that leaves the project not compiling: rolled back with the
     // errors the migrated project reported.
     let dir = project_with_extension();
-    let runtime =
-        hooked(|input| std::fs::write(&input.files[0], "behavior {\n").map_err(|e| e.to_string()));
-    let outcome = run(&request(dir.path()), Some(&runtime));
+    let runtime = Arc::new(hooked(|input| {
+        std::fs::write(&input.files[0], "behavior {\n").map_err(|e| e.to_string())
+    }));
+    let outcome = run(&request(dir.path()), Some(runtime.clone()));
     assert!(outcome.post_errors().next().is_some(), "{outcome:?}");
     assert!(outcome.rollback.is_some());
     let failure = outcome.failure().expect("rolled back");
@@ -214,9 +216,9 @@ fn a_header_only_migration_is_checked_after_it_runs() {
 fn nothing_pending_runs_nothing() {
     let dir = project_with_extension();
     std::fs::write(dir.path().join("old.spec"), "behavior alpha \"A\" {\n}\n").unwrap();
-    let runtime = hooked(|_| Ok(()));
+    let runtime = Arc::new(hooked(|_| Ok(())));
 
-    let outcome = run(&request(dir.path()), Some(&runtime));
+    let outcome = run(&request(dir.path()), Some(runtime.clone()));
 
     assert!(!outcome.pending && !outcome.applied && !outcome.validated);
     assert!(
@@ -303,9 +305,9 @@ fn a_rollback_reports_the_files_it_restored_as_written() {
 )]
 fn the_hook_an_extension_declares_in_its_handshake_runs_on_migrate() {
     let dir = project_with_extension();
-    let runtime = hooked(|_| Ok(()));
+    let runtime = Arc::new(hooked(|_| Ok(())));
 
-    let outcome = run(&request(dir.path()), Some(&runtime));
+    let outcome = run(&request(dir.path()), Some(runtime.clone()));
 
     assert!(outcome.migrated(), "{outcome:?}");
     assert_eq!(outcome.hooks_invoked, ["@acme/x:migrate_acme"]);
@@ -319,9 +321,9 @@ fn the_hook_an_extension_declares_in_its_handshake_runs_on_migrate() {
 )]
 fn an_extension_whose_handshake_names_no_hook_is_skipped_silently() {
     let dir = project_with_extension();
-    let runtime = unhooked();
+    let runtime = Arc::new(unhooked());
 
-    let outcome = run(&request(dir.path()), Some(&runtime));
+    let outcome = run(&request(dir.path()), Some(runtime.clone()));
 
     assert!(outcome.migrated(), "{outcome:?}");
     assert!(outcome.hooks_invoked.is_empty() && outcome.hook_failures.is_empty());
@@ -374,7 +376,7 @@ fn a_hook_receives_the_versions_and_the_migrated_files() {
     // The hook's handler records what it decoded.
     let seen: Arc<Mutex<Vec<MigrationInput>>> = Arc::default();
     let recorder = Arc::clone(&seen);
-    let runtime = InProcessRuntime::new().with(move || {
+    let runtime = Arc::new(InProcessRuntime::new().with(move || {
         let recorder = Arc::clone(&recorder);
         let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/a", "1.0.0"));
         c.migration_hook_handler("migrate_a", move |input| {
@@ -382,7 +384,7 @@ fn a_hook_receives_the_versions_and_the_migrated_files() {
             Ok(())
         });
         c
-    });
+    }));
     let input = MigrationInput {
         from: "0.9".into(),
         to: "1.0".into(),
@@ -391,7 +393,7 @@ fn a_hook_receives_the_versions_and_the_migrated_files() {
 
     invoke_hooks(
         &build_registries(vec![manifest("@acme/a", "migrate_a")]),
-        &runtime,
+        runtime.as_ref(),
         &input,
     );
 
@@ -415,12 +417,12 @@ fn the_builtin_extensions_hooks_run_without_a_dependency_failure() {
         .map(|(name, _)| *name)
         .collect();
     assert_eq!(names.len(), 9);
-    let runtime = specforge_component::ComponentRuntime::new();
-    specforge_component::builtins::load_builtins(&runtime).unwrap();
+    let runtime = Arc::new(specforge_component::ComponentRuntime::new());
+    specforge_component::builtins::load_builtins(runtime.as_ref()).unwrap();
     let declarations: Vec<ExtensionDeclaration> = names
         .iter()
         .map(|name| {
-            specforge_wasm::protocol::load_declaration(&runtime, name)
+            specforge_wasm::protocol::load_declaration(runtime.as_ref(), name)
                 .unwrap()
                 .declaration
         })
@@ -433,7 +435,7 @@ fn the_builtin_extensions_hooks_run_without_a_dependency_failure() {
 
     let build = build_registries(declarations);
 
-    let (_, failures) = invoke_hooks(&build, &runtime, &input);
+    let (_, failures) = invoke_hooks(&build, runtime.as_ref(), &input);
 
     assert!(failures.is_empty(), "{failures:?}");
     assert!(
@@ -451,7 +453,7 @@ fn the_builtin_extensions_hooks_run_without_a_dependency_failure() {
     verify = "hook that traps collects WasmTrapInfo and continues"
 )]
 fn a_trapping_hook_is_recorded_and_the_next_one_still_runs() {
-    let runtime = hooks();
+    let runtime = Arc::new(hooks());
     let manifests = build_registries(vec![
         manifest("@acme/a", "migrate_a"),
         manifest("@acme/b", "migrate_b"),
@@ -462,7 +464,7 @@ fn a_trapping_hook_is_recorded_and_the_next_one_still_runs() {
         to: "1.0".into(),
         files: Vec::new(),
     };
-    let (invoked, failures) = invoke_hooks(&manifests, &runtime, &input);
+    let (invoked, failures) = invoke_hooks(&manifests, runtime.as_ref(), &input);
 
     assert_eq!(invoked, ["@acme/b:migrate_b"]);
     assert_eq!(failures.len(), 1, "{failures:?}");
@@ -544,9 +546,9 @@ fn schema_project() -> tempfile::TempDir {
 )]
 fn the_schema_before_the_hooks_holds_their_kinds_edges_and_fields() {
     let dir = schema_project();
-    let runtime = schema_runtime();
+    let runtime = Arc::new(schema_runtime());
 
-    let outcome = run(&request(dir.path()), Some(&runtime));
+    let outcome = run(&request(dir.path()), Some(runtime.clone()));
 
     assert!(outcome.validated, "{outcome:?}");
     assert!(outcome.rollback.is_none(), "{outcome:?}");
@@ -602,11 +604,13 @@ fn extension(
 )]
 fn a_required_peer_cycle_does_not_stop_the_hooks() {
     let dir = project_enabling(&["@acme/a", "@acme/b"]);
-    let runtime = InProcessRuntime::new()
-        .with(extension("@acme/a", "migrate_a", &["@acme/b"], |_| Ok(())))
-        .with(extension("@acme/b", "migrate_b", &["@acme/a"], |_| Ok(())));
+    let runtime = Arc::new(
+        InProcessRuntime::new()
+            .with(extension("@acme/a", "migrate_a", &["@acme/b"], |_| Ok(())))
+            .with(extension("@acme/b", "migrate_b", &["@acme/a"], |_| Ok(()))),
+    );
 
-    let outcome = run(&request(dir.path()), Some(&runtime));
+    let outcome = run(&request(dir.path()), Some(runtime.clone()));
 
     assert!(
         outcome.hook_failures.is_empty(),
@@ -663,7 +667,7 @@ fn handshakes_of(runtime: &InProcessRuntime, extension: &str) -> usize {
 )]
 fn a_diagnostic_the_migration_introduces_is_reported() {
     let dir = project_with_extension();
-    let runtime = hooked(|input| {
+    let runtime = Arc::new(hooked(|input| {
         let file = &input.files[0];
         let migrated = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
         std::fs::write(
@@ -671,15 +675,15 @@ fn a_diagnostic_the_migration_introduces_is_reported() {
             format!("{migrated}\nfeature extra \"Extra\" {{\n  behaviors [ghost]\n}}\n"),
         )
         .map_err(|e| e.to_string())
-    });
-    let before = specforge_project::CompiledProject::compile(dir.path(), Some(&runtime));
+    }));
+    let before = specforge_project::CompiledProject::compile(dir.path(), Some(runtime.clone()));
     assert!(
         !before.diagnostics().iter().any(|d| d.code == "E003"),
         "{:?}",
         before.diagnostics()
     );
 
-    let outcome = run(&request(dir.path()), Some(&runtime));
+    let outcome = run(&request(dir.path()), Some(runtime.clone()));
 
     assert!(
         outcome
@@ -699,9 +703,9 @@ fn a_diagnostic_the_migration_introduces_is_reported() {
 )]
 fn the_schema_is_compared_once_after_the_hooks() {
     let dir = schema_project();
-    let runtime = schema_runtime();
+    let runtime = Arc::new(schema_runtime());
 
-    let outcome = run(&request(dir.path()), Some(&runtime));
+    let outcome = run(&request(dir.path()), Some(runtime.clone()));
 
     // The comparison saw the hook's change to the enabled extensions...
     assert!(!outcome.schema_warnings.is_empty(), "{outcome:?}");
@@ -715,7 +719,7 @@ fn the_schema_is_compared_once_after_the_hooks() {
     verify = "extension with empty migration_hook field is skipped silently"
 )]
 fn an_empty_hook_name_is_skipped_silently() {
-    let runtime = hooks();
+    let runtime = Arc::new(hooks());
     let input = MigrationInput {
         from: "0.9".into(),
         to: "1.0".into(),
@@ -724,7 +728,7 @@ fn an_empty_hook_name_is_skipped_silently() {
 
     let run = invoke_hooks(
         &build_registries(vec![manifest("@acme/a", "")]),
-        &runtime,
+        runtime.as_ref(),
         &input,
     );
 
@@ -738,13 +742,15 @@ fn an_empty_hook_name_is_skipped_silently() {
 )]
 fn a_hook_that_answers_an_error_is_recorded_and_the_next_one_runs() {
     let dir = project_enabling(&["@acme/a", "@acme/b"]);
-    let runtime = InProcessRuntime::new()
-        .with(extension("@acme/a", "migrate_a", &[], |_| {
-            Err("bad data".into())
-        }))
-        .with(extension("@acme/b", "migrate_b", &[], |_| Ok(())));
+    let runtime = Arc::new(
+        InProcessRuntime::new()
+            .with(extension("@acme/a", "migrate_a", &[], |_| {
+                Err("bad data".into())
+            }))
+            .with(extension("@acme/b", "migrate_b", &[], |_| Ok(()))),
+    );
 
-    let outcome = run(&request(dir.path()), Some(&runtime));
+    let outcome = run(&request(dir.path()), Some(runtime.clone()));
 
     assert_eq!(outcome.hooks_invoked, ["@acme/b:migrate_b"]);
     assert_eq!(
@@ -774,10 +780,12 @@ fn hooks_run_in_dependency_order_every_time() {
     // `@acme/b` is listed first and peer-depends on `@acme/a`.
     let order = || {
         let dir = project_enabling(&["@acme/b", "@acme/a"]);
-        let runtime = InProcessRuntime::new()
-            .with(extension("@acme/b", "migrate_b", &["@acme/a"], |_| Ok(())))
-            .with(extension("@acme/a", "migrate_a", &[], |_| Ok(())));
-        let outcome = run(&request(dir.path()), Some(&runtime));
+        let runtime = Arc::new(
+            InProcessRuntime::new()
+                .with(extension("@acme/b", "migrate_b", &["@acme/a"], |_| Ok(())))
+                .with(extension("@acme/a", "migrate_a", &[], |_| Ok(()))),
+        );
+        let outcome = run(&request(dir.path()), Some(runtime.clone()));
         (outcome.hooks_invoked, hooks_called(&runtime))
     };
 
@@ -796,20 +804,22 @@ fn hooks_run_in_dependency_order_every_time() {
 )]
 fn an_extension_that_failed_to_load_runs_no_hook() {
     let dir = project_enabling(&["@acme/broken", "@acme/ok"]);
-    let runtime = InProcessRuntime::new()
-        .with(extension("@acme/broken", "migrate_broken", &[], |_| Ok(())))
-        .with(extension("@acme/ok", "migrate_ok", &[], |_| Ok(())))
-        .answer_raw(
-            "@acme/broken",
-            "__handshake",
-            WasmCallResult::Trap(WasmTrapInfo {
-                kind: "call_failed".into(),
-                message: "the module is broken".into(),
-                export_name: "__handshake".into(),
-            }),
-        );
+    let runtime = Arc::new(
+        InProcessRuntime::new()
+            .with(extension("@acme/broken", "migrate_broken", &[], |_| Ok(())))
+            .with(extension("@acme/ok", "migrate_ok", &[], |_| Ok(())))
+            .answer_raw(
+                "@acme/broken",
+                "__handshake",
+                WasmCallResult::Trap(WasmTrapInfo {
+                    kind: "call_failed".into(),
+                    message: "the module is broken".into(),
+                    export_name: "__handshake".into(),
+                }),
+            ),
+    );
 
-    let outcome = run(&request(dir.path()), Some(&runtime));
+    let outcome = run(&request(dir.path()), Some(runtime.clone()));
 
     assert_eq!(outcome.hooks_invoked, ["@acme/ok:migrate_ok"]);
     assert_eq!(hooks_called(&runtime), ["migrate_ok"]);
@@ -837,29 +847,31 @@ fn a_hook_over_its_deadline_is_a_trap_and_the_next_one_runs() {
     // here the host's reading of the extension's declared limit and of the
     // trap it answers: a failure of that hook, and the next still runs.
     let dir = project_enabling(&["@acme/slow", "@acme/b"]);
-    let runtime = InProcessRuntime::new()
-        .with(|| {
-            let mut meta = ExtensionMeta::new("@acme/slow", "1.0.0");
-            meta.sandbox_policy = Some(SandboxPolicy {
-                max_execution_ms: Some(50),
-                ..Default::default()
-            });
-            let mut c = ContributionsBuilder::new(meta);
-            c.migration_hook_handler("migrate_slow", |_| Ok(()));
-            c
-        })
-        .with(extension("@acme/b", "migrate_b", &[], |_| Ok(())))
-        .answer_raw(
-            "@acme/slow",
-            "migrate_slow",
-            WasmCallResult::Trap(WasmTrapInfo {
-                kind: "deadline_exceeded".into(),
-                message: "interrupted".into(),
-                export_name: "migrate_slow".into(),
-            }),
-        );
+    let runtime = Arc::new(
+        InProcessRuntime::new()
+            .with(|| {
+                let mut meta = ExtensionMeta::new("@acme/slow", "1.0.0");
+                meta.sandbox_policy = Some(SandboxPolicy {
+                    max_execution_ms: Some(50),
+                    ..Default::default()
+                });
+                let mut c = ContributionsBuilder::new(meta);
+                c.migration_hook_handler("migrate_slow", |_| Ok(()));
+                c
+            })
+            .with(extension("@acme/b", "migrate_b", &[], |_| Ok(())))
+            .answer_raw(
+                "@acme/slow",
+                "migrate_slow",
+                WasmCallResult::Trap(WasmTrapInfo {
+                    kind: "deadline_exceeded".into(),
+                    message: "interrupted".into(),
+                    export_name: "migrate_slow".into(),
+                }),
+            ),
+    );
 
-    let outcome = run(&request(dir.path()), Some(&runtime));
+    let outcome = run(&request(dir.path()), Some(runtime.clone()));
 
     assert!(
         runtime
@@ -892,16 +904,16 @@ fn the_project_is_checked_once_after_the_files_and_the_hooks() {
     let dir = project_with_extension();
     let file = dir.path().join("old.spec");
     // The hook sees the file the core migration already rewrote.
-    let runtime = hooked(|input| {
+    let runtime = Arc::new(hooked(|input| {
         let file = &input.files[0];
         let text = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
         if !text.starts_with("// specforge-format: 1.0") {
             return Err(format!("the core migration did not run first: {text}"));
         }
         std::fs::write(file, format!("{text}// migrated by @acme/x\n")).map_err(|e| e.to_string())
-    });
+    }));
 
-    let outcome = run(&request(dir.path()), Some(&runtime));
+    let outcome = run(&request(dir.path()), Some(runtime.clone()));
 
     assert!(
         outcome.validated && outcome.rollback.is_none(),

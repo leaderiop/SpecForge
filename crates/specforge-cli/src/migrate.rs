@@ -25,14 +25,15 @@ pub fn run(
 
     // The shared migration: migrate, run the extensions' hooks, then check
     // the graph kept its structure, rolling back when it didn't.
-    let runtime = specforge_component::ComponentRuntime::with_user_cache();
+    let runtime: specforge_project::SharedRuntime =
+        std::sync::Arc::new(specforge_component::ComponentRuntime::with_user_cache());
     let request = Request {
         root: path,
         target,
         dry_run,
         no_backup,
     };
-    let outcome = migrate::run(&request, Some(&runtime));
+    let outcome = migrate::run(&request, Some(runtime));
     // Each migrated file and each backup (none for a dry run).
     let written = (!dry_run).then(|| outcome.writes.names_under(path));
     print_migration(&outcome.summary, written.as_deref(), format, dry_run);

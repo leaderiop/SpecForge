@@ -261,7 +261,10 @@ mod tests {
             std::fs::write(dir.path().join(name), text).unwrap();
         }
         let runtime = specforge_component::ComponentRuntime::with_user_cache();
-        let project = specforge_project::CompiledProject::compile(dir.path(), Some(&runtime));
+        let project = specforge_project::CompiledProject::compile(
+            dir.path(),
+            Some(std::sync::Arc::new(runtime)),
+        );
         (dir, project)
     }
 

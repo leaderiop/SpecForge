@@ -3,6 +3,7 @@ use std::path::Path;
 
 use specforge_project::CompiledProject;
 use specforge_test::prelude::*;
+use std::sync::Arc;
 use tempfile::TempDir;
 
 fn project(config: serde_json::Value, files: &[(&str, &str)]) -> TempDir {
@@ -25,8 +26,8 @@ fn served_project(config: serde_json::Value, files: &[(&str, &str)]) -> TempDir 
 }
 
 fn compile(root: &Path) -> CompiledProject {
-    let runtime = specforge_component::ComponentRuntime::with_user_cache();
-    CompiledProject::compile(root, Some(&runtime))
+    let runtime = Arc::new(specforge_component::ComponentRuntime::with_user_cache());
+    CompiledProject::compile(root, Some(runtime.clone()))
 }
 
 fn codes(diagnostics: &[specforge_common::Diagnostic]) -> Vec<&str> {
@@ -407,7 +408,7 @@ fn compile_with_providers(
     root: &Path,
     extensions: &'static [&'static str],
 ) -> Vec<specforge_common::Diagnostic> {
-    CompiledProject::compile(root, Some(&provider_extensions(extensions)))
+    CompiledProject::compile(root, Some(Arc::new(provider_extensions(extensions))))
         .diagnostics()
         .into_iter()
         .filter(|d| d.code != "W012")
@@ -515,10 +516,10 @@ fn a_compile_of_a_loaded_environment_is_the_compile_of_its_root() {
             "feature f1 \"One\" {\n  status done\n  problem \"p\"\n}\n\nfeature f1 \"Again\" {\n}\n",
         )],
     );
-    let runtime = specforge_component::ComponentRuntime::new();
-    let whole = CompiledProject::compile(dir.path(), Some(&runtime));
-    let env = specforge_project::Environment::load(dir.path(), Some(&runtime));
-    let of = CompiledProject::of(env, Some(&runtime));
+    let runtime = Arc::new(specforge_component::ComponentRuntime::new());
+    let whole = CompiledProject::compile(dir.path(), Some(runtime.clone()));
+    let env = specforge_project::Environment::load(dir.path(), Some(runtime));
+    let of = CompiledProject::of(env);
 
     assert_eq!(of.diagnostics(), whole.diagnostics());
     assert_eq!(
@@ -545,8 +546,8 @@ fn environment_diagnostics_come_in_load_order() {
         }),
         &[],
     );
-    let runtime = specforge_component::ComponentRuntime::with_user_cache();
-    let env = specforge_project::Environment::load(dir.path(), Some(&runtime));
+    let runtime = Arc::new(specforge_component::ComponentRuntime::with_user_cache());
+    let env = specforge_project::Environment::load(dir.path(), Some(runtime.clone()));
     let codes: Vec<&str> = env.diagnostics().map(|d| d.code.as_str()).collect();
     // The missing extension's load failure, formal's missing peer, then the
     // registry build's: formal's enhancements of software's kinds.
@@ -567,6 +568,7 @@ mod declared_in_process {
     use specforge_project::Environment;
     use specforge_registry::SurfaceType;
     use specforge_wasm::testing::InProcessRuntime;
+    use std::sync::Arc;
 
     fn reports() -> ContributionsBuilder {
         let mut meta = ExtensionMeta::new("@acme/reports", "0.1.0");
@@ -601,7 +603,7 @@ mod declared_in_process {
         b
     }
 
-    fn load(extensions: &[&str], runtime: &InProcessRuntime) -> Environment {
+    fn load(extensions: &[&str], runtime: Arc<InProcessRuntime>) -> Environment {
         let dir = project(
             serde_json::json!({ "name": "p", "version": "0.1.0", "extensions": extensions }),
             &[],
@@ -614,8 +616,8 @@ mod declared_in_process {
         verify = "an extension that only declares commands registers its commands"
     )]
     fn a_commands_only_extension_registers_its_commands() {
-        let runtime = InProcessRuntime::new().with(commands_only);
-        let env = load(&["@acme/cmds"], &runtime);
+        let runtime = Arc::new(InProcessRuntime::new().with(commands_only));
+        let env = load(&["@acme/cmds"], runtime);
         let registered: Vec<(&SurfaceType, &str)> = env
             .registries
             .surfaces
@@ -638,8 +640,8 @@ mod declared_in_process {
         verify = "the declared short name reaches the registry build"
     )]
     fn the_declared_short_name_reaches_the_registry_build() {
-        let runtime = InProcessRuntime::new().with(reports);
-        let env = load(&["@acme/reports"], &runtime);
+        let runtime = Arc::new(InProcessRuntime::new().with(reports));
+        let env = load(&["@acme/reports"], runtime);
         let declaration = env.registries.declaration("@acme/reports").expect("loaded");
         assert_eq!(declaration.short(), "rep");
     }
@@ -656,12 +658,12 @@ mod declared_in_process {
             ..Default::default()
         })
         .unwrap();
-        let runtime = InProcessRuntime::new().with(reports).answer_raw(
+        let runtime = Arc::new(InProcessRuntime::new().with(reports).answer_raw(
             "@acme/reports",
             "__handshake",
             specforge_wasm::WasmCallResult::Ok(handshake),
-        );
-        let env = load(&["@acme/reports"], &runtime);
+        ));
+        let env = load(&["@acme/reports"], runtime);
         assert!(env.registries.declaration("@acme/reports").is_none());
         assert!(!env.registries.kinds.contains("report"));
         let e028: Vec<_> = env.diagnostics().filter(|d| d.code == "E028").collect();
@@ -683,8 +685,8 @@ mod declared_in_process {
             );
             b
         };
-        let runtime = InProcessRuntime::new().with(typo);
-        let env = load(&["@acme/typo"], &runtime);
+        let runtime = Arc::new(InProcessRuntime::new().with(typo));
+        let env = load(&["@acme/typo"], runtime);
         // The extension still loads, without the key it misspelled.
         assert!(env.registries.kinds.contains("memo"));
         let warnings: Vec<_> = env
@@ -707,6 +709,7 @@ mod passes_of_the_declaration {
     use specforge_project::{CompiledProject, Environment};
     use specforge_wasm::WasmCallResult;
     use specforge_wasm::testing::InProcessRuntime;
+    use std::sync::Arc;
 
     fn audit() -> ContributionsBuilder {
         let mut b = ContributionsBuilder::new(ExtensionMeta::new("@acme/audit", "0.1.0"));
@@ -735,12 +738,12 @@ mod passes_of_the_declaration {
         verify = "a passes description that does not parse fails the extension's load"
     )]
     fn a_passes_description_that_does_not_parse_fails_the_load() {
-        let runtime = malformed_passes(serde_json::json!([{ "nam": "x" }]));
+        let runtime = Arc::new(malformed_passes(serde_json::json!([{ "nam": "x" }])));
         let dir = project(
             serde_json::json!({ "name": "p", "version": "0.1.0", "extensions": ["@acme/audit"] }),
             &[],
         );
-        let env = Environment::load(dir.path(), Some(&runtime));
+        let env = Environment::load(dir.path(), Some(runtime.clone()));
         let e028: Vec<&str> = env
             .diagnostics()
             .filter(|d| d.code == "E028")
@@ -761,12 +764,12 @@ mod passes_of_the_declaration {
     /// nothing again.
     #[test]
     fn an_environment_describes_each_category_once() {
-        let runtime = InProcessRuntime::new().with(audit);
+        let runtime = Arc::new(InProcessRuntime::new().with(audit));
         let dir = project(
             serde_json::json!({ "name": "p", "version": "0.1.0", "extensions": ["@acme/audit"] }),
             &[("a.spec", "spec p \"P\" {\n}\n")],
         );
-        let compiled = CompiledProject::compile(dir.path(), Some(&runtime));
+        let compiled = CompiledProject::compile(dir.path(), Some(runtime.clone()));
         let calls: Vec<String> = runtime
             .calls()
             .iter()
@@ -799,7 +802,7 @@ mod passes_of_the_declaration {
     /// used to interleave extension by extension.
     #[test]
     fn load_failures_come_before_declaration_diagnostics() {
-        let runtime = InProcessRuntime::new().with(no_version);
+        let runtime = Arc::new(InProcessRuntime::new().with(no_version));
         let dir = project(
             serde_json::json!({
                 "name": "p", "version": "0.1.0",
@@ -807,7 +810,7 @@ mod passes_of_the_declaration {
             }),
             &[],
         );
-        let env = Environment::load(dir.path(), Some(&runtime));
+        let env = Environment::load(dir.path(), Some(runtime.clone()));
         let codes: Vec<&str> = env.diagnostics().map(|d| d.code.as_str()).collect();
         assert_eq!(codes, ["E028", "E030"], "{codes:?}");
     }
@@ -823,9 +826,9 @@ mod passes_of_the_declaration {
 fn an_unusable_config_is_e069_then_i002_naming_it() {
     let dir = TempDir::new().unwrap();
     fs::write(dir.path().join("specforge.json"), r#"{ "extensions": ["#).unwrap();
-    let runtime = specforge_component::ComponentRuntime::with_user_cache();
+    let runtime = Arc::new(specforge_component::ComponentRuntime::with_user_cache());
 
-    let env = specforge_project::Environment::load(dir.path(), Some(&runtime));
+    let env = specforge_project::Environment::load(dir.path(), Some(runtime.clone()));
 
     let diagnostics: Vec<&specforge_common::Diagnostic> = env.diagnostics().collect();
     let codes: Vec<&str> = diagnostics.iter().map(|d| d.code.as_str()).collect();
@@ -863,7 +866,7 @@ fn an_unusable_config_is_e069_then_i002_naming_it() {
 
     // No file at all: no problem, the old wording.
     let empty = TempDir::new().unwrap();
-    let env = specforge_project::Environment::load(empty.path(), Some(&runtime));
+    let env = specforge_project::Environment::load(empty.path(), Some(runtime.clone()));
     assert!(!env.config_found);
     assert!(env.config_problems.is_empty());
     let messages: Vec<&str> = env.diagnostics().map(|d| d.message.as_str()).collect();
@@ -881,8 +884,9 @@ fn the_environment_reads_the_lock_once_at_its_root() {
     use specforge_installed::{LockFile, LockState};
     let dir = TempDir::new().unwrap();
     fs::write(dir.path().join("specforge.json"), "{}").unwrap();
-    let runtime = specforge_component::ComponentRuntime::with_user_cache();
-    let load = || specforge_project::Environment::load(dir.path(), Some(&runtime));
+    let runtime = Arc::new(specforge_component::ComponentRuntime::with_user_cache());
+    let runtime: specforge_project::SharedRuntime = runtime;
+    let load = || specforge_project::Environment::load(dir.path(), Some(runtime.clone()));
 
     assert_eq!(load().installed.lock(), &LockState::Absent);
 
@@ -1024,9 +1028,9 @@ fn an_entry_that_names_no_package_is_e072_and_not_loaded() {
         }),
         &[],
     );
-    let runtime = specforge_component::ComponentRuntime::with_user_cache();
+    let runtime = Arc::new(specforge_component::ComponentRuntime::with_user_cache());
 
-    let env = specforge_project::Environment::load(dir.path(), Some(&runtime));
+    let env = specforge_project::Environment::load(dir.path(), Some(runtime.clone()));
 
     let e072: Vec<&specforge_common::Diagnostic> =
         env.diagnostics().filter(|d| d.code == "E072").collect();
@@ -1052,9 +1056,9 @@ fn an_unreadable_lock_reports_e033_once_then_each_installed_extension() {
         "not valid json {{{",
     )
     .unwrap();
-    let runtime = specforge_component::ComponentRuntime::with_user_cache();
+    let runtime = Arc::new(specforge_component::ComponentRuntime::with_user_cache());
 
-    let env = specforge_project::Environment::load(dir.path(), Some(&runtime));
+    let env = specforge_project::Environment::load(dir.path(), Some(runtime.clone()));
 
     let diagnostics: Vec<&specforge_common::Diagnostic> = env.diagnostics().collect();
     let lock: Vec<&&specforge_common::Diagnostic> =
@@ -1083,9 +1087,9 @@ fn an_unpinned_lock_entry_loads_with_w149() {
         &[],
     );
     install_greet(dir.path(), Some(""));
-    let runtime = specforge_component::ComponentRuntime::with_user_cache();
+    let runtime = Arc::new(specforge_component::ComponentRuntime::with_user_cache());
 
-    let env = specforge_project::Environment::load(dir.path(), Some(&runtime));
+    let env = specforge_project::Environment::load(dir.path(), Some(runtime.clone()));
 
     let named: Vec<(&str, specforge_common::Severity)> = env
         .diagnostics()
@@ -1136,11 +1140,13 @@ fn a_project_listing_a_dependent_first_loads_its_peer_first() {
         }),
         &[],
     );
-    let runtime = specforge_wasm::testing::InProcessRuntime::new()
-        .with(widget_extension("@acme/dep", Some("@acme/base")))
-        .with(widget_extension("@acme/base", None));
+    let runtime = Arc::new(
+        specforge_wasm::testing::InProcessRuntime::new()
+            .with(widget_extension("@acme/dep", Some("@acme/base")))
+            .with(widget_extension("@acme/base", None)),
+    );
 
-    let compiled = CompiledProject::compile(dir.path(), Some(&runtime));
+    let compiled = CompiledProject::compile(dir.path(), Some(runtime.clone()));
 
     let e026: Vec<String> = compiled
         .diagnostics()

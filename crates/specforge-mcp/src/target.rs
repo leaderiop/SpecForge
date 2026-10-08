@@ -234,10 +234,11 @@ pub enum CallTarget {
 pub struct ProjectRef<'a> {
     /// The project root (where `specforge.json` lives).
     pub root: &'a Path,
-    /// The runtime its extensions run in: every project a call reaches has
-    /// one (the served session's, the host's or the project's own, as
-    /// `McpState::open` gives it), so an extension call never
-    /// finds none (ADR 0017).
+    /// The runtime its extensions were loaded in, read from the view (its
+    /// environment's): every project a call reaches has one (the host's or
+    /// the project's own, as `McpState::open` gives it), so an extension
+    /// call never finds none (ADR 0017). For MCP's own extension adapters,
+    /// which are not operations over the view.
     pub runtime: &'a SharedRuntime,
     /// The project view, built once for the call: rooted at the project
     /// root, reporting what the server reports for the project.
@@ -458,29 +459,29 @@ impl<'s> Call<'s> {
                 // `McpState::serve` opens every served project from disk, with
                 // a runtime: a session without either is no project (it is
                 // unreachable, and a server answers rather than panics).
-                let (Some(root), Some(runtime)) = (session.project().root(), session.runtime())
-                else {
+                let view = ProjectView::of(session.project())
+                    .also_reporting(self.state.surfaces().diagnostics());
+                let (Some(root), Some(runtime)) = (view.root(), view.runtime()) else {
                     return Err(no_project(Reach::Served));
                 };
                 Ok(ProjectRef {
                     root,
                     runtime,
-                    view: ProjectView::of(session.project())
-                        .also_reporting(self.state.surfaces().diagnostics()),
+                    view,
                     served: true,
                 })
             }
             CallTarget::Other(session) => {
                 // `McpState::open` opens every project from disk, with a
                 // runtime (see above).
-                let (Some(root), Some(runtime)) = (session.project().root(), session.runtime())
-                else {
+                let view = ProjectView::of(session.project());
+                let (Some(root), Some(runtime)) = (view.root(), view.runtime()) else {
                     return Err(no_project(Reach::AnyProject));
                 };
                 Ok(ProjectRef {
                     root,
                     runtime,
-                    view: ProjectView::of(session.project()),
+                    view,
                     served: false,
                 })
             }

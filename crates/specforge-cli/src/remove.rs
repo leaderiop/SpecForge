@@ -9,7 +9,7 @@ use std::path::Path;
 /// compile of the project, whose loaded declarations say which extensions
 /// depend on the one removed.
 pub fn run(name: &str, path: &Path, force: bool, format: OutputFormat) -> Exit {
-    let (project, _runtime) = crate::pipeline::compile_project(path);
+    let project = crate::pipeline::compile_project(path);
     let request = RemoveRequest {
         name,
         force,

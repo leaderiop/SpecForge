@@ -11,7 +11,7 @@ use crate::pipeline;
 /// `path`. The model on stdout, the notices (I020) on stderr, a refusal as
 /// `error[CODE]` with its hint (exit 1).
 pub fn run(path: &Path, options: &ModelOptions) -> Exit {
-    let (project, _runtime) = pipeline::compile_project(path);
+    let project = pipeline::compile_project(path);
     match specforge_ops::model::model(&ProjectView::of(&project), options) {
         Ok(outcome) => {
             for notice in &outcome.notices {

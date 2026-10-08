@@ -10,6 +10,7 @@ use specforge_extension_sdk::prelude::*;
 use specforge_project::CompiledProject;
 use specforge_test::prelude::*;
 use specforge_wasm::testing::InProcessRuntime;
+use std::sync::Arc;
 use tempfile::TempDir;
 
 const EXTENSION: &str = "@test/shapes";
@@ -94,7 +95,7 @@ iface Garage {
 "#,
     );
 
-    let compiled = CompiledProject::compile(dir.path(), Some(&shapes_extension()));
+    let compiled = CompiledProject::compile(dir.path(), Some(Arc::new(shapes_extension())));
 
     let edge = |target: &str, label: &str| (target.to_string(), label.to_string());
     assert_eq!(edges_from(&compiled, "Car"), vec![edge("Wheel", "parts")]);
@@ -126,7 +127,7 @@ fn compile_with_software(spec: &str) -> CompiledProject {
     specforge_installed::testing::install_configured(dir.path(), &specforge_project::builtins());
     fs::write(dir.path().join("a.spec"), spec).unwrap();
     let runtime = specforge_component::ComponentRuntime::with_user_cache();
-    CompiledProject::compile(dir.path(), Some(&runtime))
+    CompiledProject::compile(dir.path(), Some(Arc::new(runtime)))
 }
 
 /// The W002 messages, sorted.

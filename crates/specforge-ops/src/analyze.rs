@@ -2,7 +2,7 @@
 //!
 //! One operation serves the CLI and the MCP tool: it validates the pass
 //! selection, reads the test report, runs the built-in passes, the
-//! extension passes (through the [`WasmRuntime`] port) and, when asked,
+//! extension passes (in the view's runtime) and, when asked,
 //! `prove`, then applies strictness once and computes `ok` once. The shape of
 //! the JSON document lives in [`AnalyzeOutcome::to_json`] and nowhere else.
 //!
@@ -19,7 +19,6 @@ use specforge_project::coverage;
 use specforge_project::coverage::TestReport;
 use specforge_project::passes::{self, AnalysisContext};
 use specforge_registry::DeclaredPass;
-use specforge_wasm::runtime::WasmRuntime;
 
 use crate::{OpError, OpErrorKind};
 
@@ -241,14 +240,13 @@ impl From<AnalyzeError> for OpError {
     }
 }
 
-/// Run the selected passes over `view`; the extension passes in `runtime`,
-/// when there is one (a rootless analysis has none and runs none).
+/// Run the selected passes over `view`; the extension passes in the view's
+/// runtime, when it has one and a root.
 pub fn analyze(
     view: &ProjectView,
-    runtime: Option<&dyn WasmRuntime>,
     options: &AnalyzeOptions,
 ) -> Result<AnalyzeOutcome, AnalyzeError> {
-    analyze_via(view, runtime, options, &crate::prove::run_prove_with)
+    analyze_via(view, options, &crate::prove::run_prove_with)
 }
 
 /// The prove step as the operation sees it; tests swap in a scripted solver.
@@ -256,7 +254,6 @@ type ProveFn<'a> = &'a dyn Fn(&AnalysisContext, &ProveOptions) -> crate::prove::
 
 fn analyze_via(
     view: &ProjectView,
-    runtime: Option<&dyn WasmRuntime>,
     options: &AnalyzeOptions,
     prove: ProveFn,
 ) -> Result<AnalyzeOutcome, AnalyzeError> {
@@ -307,19 +304,24 @@ fn analyze_via(
         }
     }
     if view.root().is_some()
-        && let Some(runtime) = runtime
+        && let Some(runtime) = view.runtime()
     {
         // Declared `after` constraints order a single extension's passes;
         // across extensions they are advisory.
         passes_run.extend(
-            passes::run_extension_passes(&registries.passes, &input, runtime, &selection.extension)
-                .into_iter()
-                .map(|r| PassOutcome {
-                    name: r.name,
-                    description: "extension compiler pass".to_string(),
-                    findings: r.findings,
-                    summary: r.summary,
-                }),
+            passes::run_extension_passes(
+                &registries.passes,
+                &input,
+                runtime.as_ref(),
+                &selection.extension,
+            )
+            .into_iter()
+            .map(|r| PassOutcome {
+                name: r.name,
+                description: "extension compiler pass".to_string(),
+                findings: r.findings,
+                summary: r.summary,
+            }),
         );
     }
     if let Some(r) = proved {
@@ -495,9 +497,12 @@ mod tests {
                 declared(EXT, "scan", None),
                 declared(EXT, "hidden", Some("check")),
             ];
+            let mut env = specforge_project::Environment::with_registries(registries);
+            // The environment the extension passes were loaded in.
+            env.runtime = Some(std::sync::Arc::new(scanning_extension()));
             Self {
                 graph: Graph::new(),
-                env: specforge_project::Environment::with_registries(registries),
+                env,
                 recorded: std::sync::OnceLock::new(),
                 dir,
             }
@@ -520,7 +525,7 @@ mod tests {
         }
 
         fn run(&self, options: &AnalyzeOptions) -> Result<AnalyzeOutcome, AnalyzeError> {
-            analyze(&self.view(), Some(&scanning_extension()), options)
+            analyze(&self.view(), options)
         }
     }
 
@@ -579,7 +584,7 @@ mod tests {
         verify = "an analyze pass that traps is reported as an E028 finding of that pass"
     )]
     fn an_analyze_pass_that_traps_is_an_e028_finding_and_the_analysis_fails() {
-        let project = Project::new();
+        let mut project = Project::new();
         for answer in [
             WasmCallResult::Trap(WasmTrapInfo {
                 kind: "call_failed".into(),
@@ -588,9 +593,12 @@ mod tests {
             }),
             WasmCallResult::Ok(b"not diagnostics".to_vec()),
         ] {
-            let runtime = InProcessRuntime::new().answer_raw(EXT, "__pass_scan", answer);
-            let outcome =
-                analyze(&project.view(), Some(&runtime), &AnalyzeOptions::default()).unwrap();
+            project.env.runtime = Some(std::sync::Arc::new(InProcessRuntime::new().answer_raw(
+                EXT,
+                "__pass_scan",
+                answer,
+            )));
+            let outcome = analyze(&project.view(), &AnalyzeOptions::default()).unwrap();
             assert!(!outcome.ok, "a failed pass fails the analysis");
             let scan = outcome
                 .passes
@@ -643,12 +651,7 @@ mod tests {
     fn extension_passes_are_skipped_without_a_root() {
         let project = Project::new();
         let view = project.view_at(None);
-        let outcome = analyze(
-            &view,
-            Some(&scanning_extension()),
-            &AnalyzeOptions::default(),
-        )
-        .unwrap();
+        let outcome = analyze(&view, &AnalyzeOptions::default()).unwrap();
         assert_eq!(names(&outcome), vec!["contracts"]);
     }
 
@@ -707,10 +710,10 @@ mod tests {
         };
         // The view rooted at the sub-path reads its root and nothing above.
         assert_eq!(
-            analyze(&view, Some(&scanning_extension()), &min).unwrap_err(),
+            analyze(&view, &min).unwrap_err(),
             AnalyzeError::MinNeedsTestResults
         );
-        assert!(analyze(&project.view(), Some(&scanning_extension()), &min).is_ok());
+        assert!(analyze(&project.view(), &min).is_ok());
     }
 
     #[test]
@@ -740,17 +743,19 @@ mod tests {
 
     #[test]
     fn prove_runs_last_and_tells_the_passes_it_ran() {
-        let project = Project::new();
-        let fake = scanning_extension();
-        analyze(&project.view(), Some(&fake), &AnalyzeOptions::default()).unwrap();
+        let mut project = Project::new();
+        let fake = std::sync::Arc::new(scanning_extension());
+        project.env.runtime = Some(fake.clone());
+        analyze(&project.view(), &AnalyzeOptions::default()).unwrap();
         assert_eq!(proved_seen(&fake), vec![Value::Null]);
 
-        let fake = scanning_extension();
+        let fake = std::sync::Arc::new(scanning_extension());
+        project.env.runtime = Some(fake.clone());
         let options = AnalyzeOptions {
             prove: Some(ProveOptions::default()),
             ..Default::default()
         };
-        let outcome = analyze(&project.view(), Some(&fake), &options).unwrap();
+        let outcome = analyze(&project.view(), &options).unwrap();
         assert_eq!(names(&outcome), vec!["contracts", "@t/x:scan", "prove"]);
         assert_eq!(proved_seen(&fake), vec![json!([])]);
     }
@@ -782,13 +787,8 @@ mod tests {
             min,
             ..Default::default()
         };
-        analyze(
-            &project.view(),
-            Some(&coverage_answering(summary)),
-            &options,
-        )
-        .unwrap()
-        .gate
+        project.env.runtime = Some(std::sync::Arc::new(coverage_answering(summary)));
+        analyze(&project.view(), &options).unwrap().gate
     }
 
     fn tally(proven: usize, total: usize) -> Value {
@@ -903,8 +903,9 @@ mod tests {
 
     #[test]
     fn the_z3_timeout_reaches_the_prove_step_and_its_claims_reach_coverage() {
-        let project = Project::new();
-        let fake = scanning_extension();
+        let mut project = Project::new();
+        let fake = std::sync::Arc::new(scanning_extension());
+        project.env.runtime = Some(fake.clone());
         let seen = Mutex::new(None);
         let prove = |ctx: &AnalysisContext, o: &ProveOptions| {
             *seen.lock().unwrap() = Some(o.z3_timeout);
@@ -912,7 +913,7 @@ mod tests {
             r.proved_claim_ids = vec!["claim_a".to_string()];
             r
         };
-        analyze_via(&project.view(), Some(&fake), &prove_options(7), &prove).unwrap();
+        analyze_via(&project.view(), &prove_options(7), &prove).unwrap();
         assert_eq!(
             *seen.lock().unwrap(),
             Some(std::time::Duration::from_secs(7))
@@ -922,12 +923,13 @@ mod tests {
 
     #[test]
     fn prove_with_z3_missing_is_a_last_w098_report_with_empty_proved_claims() {
-        let project = Project::new();
-        let fake = scanning_extension();
+        let mut project = Project::new();
+        let fake = std::sync::Arc::new(scanning_extension());
+        project.env.runtime = Some(fake.clone());
         let prove =
             |ctx: &AnalysisContext, _: &ProveOptions| crate::prove::analyze_with(ctx, &NoZ3);
         let mut options = prove_options(1);
-        let lenient = analyze_via(&project.view(), Some(&fake), &options, &prove).unwrap();
+        let lenient = analyze_via(&project.view(), &options, &prove).unwrap();
         assert_eq!(names(&lenient).last().copied(), Some("prove"));
         let report = lenient.passes.last().unwrap();
         assert!(report.findings.iter().any(|f| f.code == "W098"));
@@ -935,13 +937,7 @@ mod tests {
         assert_eq!(proved_seen(&fake), vec![json!([])]);
 
         options.strict = true;
-        let strict = analyze_via(
-            &project.view(),
-            Some(&scanning_extension()),
-            &options,
-            &prove,
-        )
-        .unwrap();
+        let strict = analyze_via(&project.view(), &options, &prove).unwrap();
         assert!(!strict.ok, "strict promotes the prove report too");
     }
 

@@ -4,6 +4,7 @@
 
 use specforge_test::prelude::*;
 use std::fs;
+use std::sync::Arc;
 use tempfile::TempDir;
 
 /// `graph` exported as `format`, unscoped and unbudgeted.
@@ -72,7 +73,7 @@ fn compile_with_builtins(
         fs::write(&path, content).unwrap();
     }
     let runtime = wasm_runtime_for(extensions);
-    specforge_project::CompiledProject::compile(dir.path(), Some(&runtime))
+    specforge_project::CompiledProject::compile(dir.path(), Some(Arc::new(runtime)))
 }
 
 // B:extension_owned_body_syntax — verify unit "port method body syntax does not surface parse errors"

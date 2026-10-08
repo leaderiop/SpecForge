@@ -823,8 +823,9 @@ mod tests {
     )]
     fn doctor_reports_a_changed_binary_once() {
         let (dir, _files) = project_with_a_changed_greet();
-        let runtime = crate::testing::candidates();
-        let compiled = specforge_project::CompiledProject::compile(dir.path(), Some(&runtime));
+        let runtime = std::sync::Arc::new(crate::testing::candidates());
+        let compiled =
+            specforge_project::CompiledProject::compile(dir.path(), Some(runtime.clone()));
 
         let report = diagnose_with(&ProjectView::of(&compiled), true);
 
@@ -862,10 +863,10 @@ mod tests {
                 dry_run: false,
             },
             &crate::registry::Unconfigured("add"),
-            &runtime,
+            runtime.as_ref(),
         )
         .unwrap();
-        let compiled = specforge_project::CompiledProject::compile(dir.path(), Some(&runtime));
+        let compiled = specforge_project::CompiledProject::compile(dir.path(), Some(runtime));
         let report = diagnose_with(&ProjectView::of(&compiled), true);
         assert!(report.issues.is_empty(), "{:?}", report.issues);
         assert!(

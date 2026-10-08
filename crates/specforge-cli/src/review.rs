@@ -14,7 +14,7 @@ use crate::pipeline;
 /// review prompt renders. An unknown entity is E003 (exit 1); a recorded
 /// report that cannot be read is E045 (exit 2, as `stats`).
 pub(crate) fn run(path: &Path, request: &ReviewRequest, format: OutputFormat) -> Exit {
-    let (project, _runtime) = pipeline::compile_project(path);
+    let project = pipeline::compile_project(path);
     match review(&ProjectView::of(&project), request) {
         Ok(review) => {
             match format {

@@ -316,7 +316,6 @@ fn extension_tool(
             let started = std::time::Instant::now();
             let outcome = specforge_ops::command::run(
                 &project.view(),
-                project.runtime.as_ref(),
                 command,
                 &given,
                 specforge_ops::command::CommandFormat::Json,
