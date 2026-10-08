@@ -228,8 +228,8 @@ fn a_disk_change_to_an_open_document_is_ignored() {
     );
     std::fs::remove_file(served.root().join("a.spec")).unwrap();
     let deleted = changed(&served, "a.spec", FileChangeType::DELETED);
-    let applied = served.apply(Change::Watched(vec![deleted]));
-    assert!(applied.is_none_or(|applied| !applied.changed));
+    assert!(Plan::of(Change::Watched(vec![deleted.clone()]), &served.state()).is_none());
+    assert!(served.apply(Change::Watched(vec![deleted])).is_none());
     assert!(served.state().graph().node("zeta").is_some());
 
     // A file that is not open is the disk's.

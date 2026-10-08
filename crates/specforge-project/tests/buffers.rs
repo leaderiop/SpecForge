@@ -283,3 +283,23 @@ fn a_held_buffer_a_reload_brings_into_the_project_is_built_from_its_text() {
     session.reload_environment();
     assert!(has(&session, "omega") && !has(&session, "zeta"));
 }
+
+#[specforge_test(
+    behavior = "hold_editor_buffers",
+    verify = "a held buffer's file changed or deleted on disk is not stale"
+)]
+fn the_session_classifies_a_held_file_as_nothing() {
+    let rt = counting();
+    let (dir, mut session) = opened(&rt);
+    hold(&mut session, &dir, OMEGA);
+    let paths = [dir.path().join("a.spec"), dir.path().join("specforge.json")];
+    let changes = session.changes(paths.iter().map(PathBuf::as_path));
+    assert_eq!(
+        changes,
+        Changes {
+            sources: vec![],
+            environment: true,
+            check_inputs: false
+        }
+    );
+}

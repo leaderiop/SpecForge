@@ -2,14 +2,15 @@
 //! applying it did. The plan is read from the state while the backend holds
 //! it; it is applied to the session on the blocking pool with no lock held;
 //! what it did names what to publish. A change applies as one update of the
-//! session, whatever number of buffers it carries (ADR 0023 D9).
+//! session, whatever number of buffers it carries (ADR 0023 D9); what an open
+//! buffer is to its file is the session's to say (ADR 0046).
 
 use std::path::{Path, PathBuf};
 
 use specforge_project::{
     Buffer, Changes, CheckMode, ProjectSession, SourceChange, Update, UpdateKind,
 };
-use tower_lsp::lsp_types::{FileChangeType, FileEvent, Url};
+use tower_lsp::lsp_types::{FileEvent, Url};
 
 use crate::LspState;
 use crate::navigation::Compiled;
@@ -32,8 +33,8 @@ pub enum Change {
     /// The client's file watchers reported these events.
     Watched(Vec<FileEvent>),
     /// The client watches what the session is built from now: apply what
-    /// changed on disk while it did not (`ProjectSession::stale`), except an
-    /// open document's file that still exists (its buffer is the truth).
+    /// changed on disk while it did not (`ProjectSession::stale`, which
+    /// leaves out every held buffer).
     CatchUp,
 }
 
@@ -47,10 +48,7 @@ pub struct Plan {
     /// releases its buffer.
     released: Option<PathBuf>,
     /// The open buffers to hold, by absolute path: the session keys them.
-    buffers: Vec<Buffer>,
-    /// The editor is typing: the checks are skipped while a buffer does not
-    /// parse.
-    typing: bool,
+    held: Vec<Buffer>,
     /// The document an anchorless diagnostic goes to.
     edited: Option<Url>,
 }
@@ -60,16 +58,15 @@ impl Plan {
     /// as it is now:
     /// - `Open`: the root; the opened project holds the buffers the session it replaces held;
     /// - `Edited`: the buffers of the documents still open, the checks
-    ///   skipped while any of them does not parse (the typing fast path);
+    ///   skipped while any of them does not parse (the fast path while the editor types);
     /// - `Closed`: the session releases the buffer (a project source is read
     ///   from disk again; any other file, and every file of a session with no
     ///   project, leaves the project);
-    /// - `Watched`: the paths that are not open documents, and the
-    ///   deletions of those that are, as the session classifies them (a
-    ///   reload keeps every held buffer);
+    /// - `Watched`: the paths as the session classifies them
+    ///   (`ProjectSession::changes`, which leaves out every held buffer; a
+    ///   reload keeps them);
     /// - `CatchUp`: what the session finds changed on disk since it last
-    ///   read it, the same way, except an open document whose file still
-    ///   exists.
+    ///   read it (`ProjectSession::stale`).
     ///
     /// `None` when it asks nothing: no session is held, every edited
     /// document was closed since, the closed document was opened again, no
@@ -80,8 +77,7 @@ impl Plan {
             root: None,
             disk: None,
             released: None,
-            buffers: Vec::new(),
-            typing: false,
+            held: Vec::new(),
             edited: None,
         };
         match change {
@@ -96,11 +92,10 @@ impl Plan {
                     .collect();
                 let edited = open.last().map(|uri| (*uri).clone())?;
                 Some(Plan {
-                    buffers: open
+                    held: open
                         .iter()
                         .filter_map(|uri| buffer_of(state, uri.as_str()))
                         .collect(),
-                    typing: true,
                     edited: Some(edited),
                     ..nothing
                 })
@@ -115,31 +110,13 @@ impl Plan {
                 })
             }
             Change::Watched(events) => {
-                // An open document's buffer is the truth for its file, so
-                // of its changes on disk only its deletion counts. What the
-                // others are (a source, an environment or check input,
-                // nothing) is the session's to say (classify_project_changes).
                 let paths: Vec<PathBuf> = events
                     .iter()
-                    .filter(|event| {
-                        event.typ == FileChangeType::DELETED || !state.is_open(event.uri.as_str())
-                    })
                     .map(|event| PathBuf::from(uri_to_file_path(&event.uri)))
                     .collect();
-                let changes = session.inputs().changes(paths.iter().map(PathBuf::as_path));
-                Plan::on_disk(changes)
+                Plan::on_disk(session.changes(paths.iter().map(PathBuf::as_path)))
             }
-            Change::CatchUp => {
-                // What the session finds changed on disk since it last read
-                // it. An open document's buffer is the truth for its file:
-                // of its changes only its deletion counts.
-                let compiled = Compiled::new(state);
-                let mut changes = session.stale();
-                changes.sources.retain(|key| {
-                    !state.is_open(compiled.uri(key).as_str()) || !state.file_path(key).exists()
-                });
-                Plan::on_disk(changes)
-            }
+            Change::CatchUp => Plan::on_disk(session.stale()),
         }
     }
 
@@ -153,8 +130,7 @@ impl Plan {
             root: None,
             disk: Some(changes),
             released: None,
-            buffers: Vec::new(),
-            typing: false,
+            held: Vec::new(),
             edited: None,
         })
     }
@@ -193,18 +169,16 @@ impl Plan {
         if let Some(path) = &self.released {
             applied.close(session, path);
         }
-        if !self.buffers.is_empty() {
-            let mode = if self.typing {
-                // The syntax-only fast path (C4-07): no checks while an
-                // edited file does not parse.
-                CheckMode::SyntaxOnlyIfParseErrors
-            } else {
-                CheckMode::Full
-            };
-            let update = session.update_with(SourceChange::Hold(&self.buffers), mode);
+        if !self.held.is_empty() {
+            // The syntax-only fast path (C4-07): no checks while an edited
+            // file does not parse.
+            let update = session.update_with(
+                SourceChange::Hold(&self.held),
+                CheckMode::SyntaxOnlyIfParseErrors,
+            );
             applied.record(update);
             applied.touched.extend(
-                self.buffers
+                self.held
                     .iter()
                     .map(|buffer| session.source_key(&buffer.path)),
             );
