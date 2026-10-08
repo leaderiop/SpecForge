@@ -107,7 +107,10 @@ pub fn authenticate_with_retry(
                         registry.alias, guidance
                     ),
                 )
-                .with_suggestion("Run `specforge registry login` to re-authenticate.".to_string())),
+                .with_suggestion(
+                    "Log in again: `specforge login --registry <alias> --token <TOKEN>`."
+                        .to_string(),
+                )),
                 Err(other) => Err(other.to_diagnostic()),
             }
         }

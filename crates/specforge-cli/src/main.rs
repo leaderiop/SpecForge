@@ -584,7 +584,7 @@ enum Commands {
     },
     /// Authenticate with a registry
     Login {
-        /// Registry alias (defaults to "default")
+        /// Registry alias (defaults to the default registry)
         #[arg(long)]
         registry: Option<String>,
 
@@ -602,9 +602,14 @@ enum Commands {
     },
     /// Remove registry credentials
     Logout {
-        /// Registry alias (defaults to "default")
+        /// Registry alias (defaults to the default registry)
         #[arg(long)]
         registry: Option<String>,
+
+        /// The project whose specforge.json names the default registry (when
+        /// --registry is not given)
+        #[arg(long, default_value = ".")]
+        path: PathBuf,
 
         /// Output format: human or json
         #[arg(long, default_value = "human")]
@@ -1009,8 +1014,12 @@ fn main() {
             token,
             path,
             format,
-        } => login::run(registry.as_deref(), token.as_deref(), &path, format),
-        Commands::Logout { registry, format } => login::run_logout(registry.as_deref(), format),
+        } => login::run(registry.as_deref(), token.as_deref(), &path, format).code(),
+        Commands::Logout {
+            registry,
+            path,
+            format,
+        } => login::run_logout(registry.as_deref(), &path, format).code(),
         Commands::Providers { path, format } => providers::run(&path, format),
         Commands::Collect {
             path,

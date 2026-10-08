@@ -998,7 +998,7 @@ behavior authenticate_registry_request "Authenticate Registry Request" {
     a 401 response, the compiler MUST re-resolve the credential from its
     source. If the re-resolved credential also fails, the compiler MUST
     emit an E-level diagnostic with resolution guidance (e.g., "run
-    `specforge registry login`"). On receiving a 403 response, the
+    `specforge login --registry <alias> --token <TOKEN>`"). On receiving a 403 response, the
     compiler MUST emit an E-level diagnostic with permission guidance.
     Retry logic for transient failures (429, timeout) is handled by
     retry_registry_request. When the token source is available but the
@@ -1072,9 +1072,12 @@ behavior validate_registry_credentials "Validate Registry Credentials" {
     credentials_validated_emitted "registry_credentials_validated event fires on successful validation"
   }
   contract   """
-    When specforge registry login is invoked, the system MUST validate the
+    When specforge login is invoked, the system MUST validate the
     provided credentials against the target registry by making an authenticated
-    test request. Valid credentials MUST be stored as a RegistryCredential
+    test request. The credential MUST be stored under the alias of the
+    registry it was validated against: the entry --registry names, else the
+    default registry; a --registry that names no entry MUST be refused (E063)
+    before any network call. Valid credentials MUST be stored as a RegistryCredential
     entry referencing only the environment variable name or token file path —
     never the raw token value. The system MUST confirm successful authentication
     with an info message including the registry alias and authenticated scope.
@@ -1086,6 +1089,7 @@ behavior validate_registry_credentials "Validate Registry Credentials" {
   verify unit "invalid credentials produce error with guidance"
   verify unit "raw token never stored in specforge.json"
   verify unit "success message includes registry alias and scope"
+  verify unit "login stores the credential under the alias of the registry it validated against"
   verify contract "Validate Registry Credentials: registry credential validation holds — registry_configured, registry_client_available, valid_credentials_stored, invalid_credentials_diagnosed, raw_token_never_stored, credentials_validated_emitted"
 }
 
@@ -1108,8 +1112,10 @@ behavior logout_registry "Logout Registry" {
     logged_out_emitted        "registry_logged_out event fires after credential removal"
   }
   contract   """
-    When specforge registry logout --alias <alias> is invoked, the system
+    When specforge logout --registry <alias> is invoked, the system
     MUST remove the stored credential reference for the given registry alias.
+    Without --registry, the alias is the default registry's, read from
+    the specforge.json of the project at --path.
     The alias MUST match a RegistryConfig entry's alias field. The removal
     MUST delete only the RegistryCredential entry whose alias matches —
     credentials for other aliases (and their scopes) MUST remain untouched.
@@ -1120,6 +1126,7 @@ behavior logout_registry "Logout Registry" {
   verify unit "credentials for other aliases and scopes remain untouched"
   verify unit "no credential for alias succeeds silently"
   verify unit "no network requests made during logout"
+  verify unit "logout without --registry forgets the default registry's credential"
   verify contract "Logout Registry: registry logout holds — alias_matches_config, filesystem_available, credential_removed, other_credentials_intact, missing_credential_silent, no_network_requests, logged_out_emitted"
 }
 

@@ -9,8 +9,8 @@
 //! on stderr, or under JSON output the error document on stdout.
 
 use crate::OutputFormat;
-use specforge_common::{Code, Diagnostic};
-use specforge_ops::{OpError, OpErrorKind, Writes};
+use specforge_common::Code;
+use specforge_ops::{OpError, Writes};
 use std::path::Path;
 
 /// The process exit code: one table for every core command.
@@ -103,17 +103,6 @@ impl<'a> Refusal<'a> {
     /// [`Self::report`].
     pub(crate) fn coded(self, code: Code, message: impl Into<String>) -> i32 {
         self.report(&OpError::diagnostic(code, message))
-    }
-
-    /// Report a diagnostic that stopped the command, under the code it
-    /// carries as text (an extension's, or a registry's), as
-    /// [`Self::report`].
-    pub(crate) fn diagnostic(self, diagnostic: &Diagnostic) -> i32 {
-        self.report(&OpError::new(
-            OpErrorKind::of_diagnostic(&diagnostic.code),
-            diagnostic.code.clone(),
-            diagnostic.message.clone(),
-        ))
     }
 }
 
