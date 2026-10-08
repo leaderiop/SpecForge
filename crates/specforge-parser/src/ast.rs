@@ -197,6 +197,11 @@ impl Serialize for SpannedRef {
 /// its own key, and is not a union.
 pub const UNION_VARIANTS_FIELD: &str = "variants";
 
+/// The field of a scheme reference (`ref jira.issue:PROJ-1 "…"`, kind
+/// [`specforge_common::structural::REF`]) holding its scheme (`jira`). The
+/// name is the parser's own: no extension declares it.
+pub const REF_SCHEME_FIELD: &str = "scheme";
+
 #[derive(Debug, Clone, Serialize)]
 pub enum FieldValue {
     String(String),

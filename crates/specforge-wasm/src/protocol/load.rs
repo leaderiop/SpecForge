@@ -3,12 +3,12 @@
 //! Everything the host knows about an extension it reads here, once per
 //! environment load: the handshake (its protocol major checked, its
 //! sandbox applied), then every category of
-//! [`DECLARED_CATEGORIES`], whatever its contribution flags say. Nothing
+//! [`DeclaredCategory::ALL`], whatever its contribution flags say. Nothing
 //! describes a category again outside this load.
 
 use specforge_common::{Diagnostic, codes};
 #[cfg(doc)]
-use specforge_protocol_types::DECLARED_CATEGORIES;
+use specforge_protocol_types::DeclaredCategory;
 use specforge_protocol_types::{
     ExtensionDeclaration, HandshakeResponse, PROTOCOL_VERSION, ProtocolError, UnknownKey,
 };
@@ -44,6 +44,9 @@ pub fn load_declaration(
         }
     })?;
     check_protocol_version(&response)?;
+    // The limits the extension declares (the ceiling when it declares
+    // none) hold every call after the handshake.
+    runtime.apply_limits(extension, sandbox.limits);
     let mut warnings = sandbox.unhonoured;
     let declaration = ExtensionDeclaration::from_wire(
         response,

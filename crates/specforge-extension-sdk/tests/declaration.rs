@@ -7,7 +7,7 @@
 use specforge_extension_sdk::prelude::*;
 use specforge_extension_sdk::testing::MockHost;
 use specforge_extension_sdk::{ExtensionDeclaration, HandshakeResponse, guest_call};
-use specforge_protocol_types::{DescribeResponse, SUPPORTED_CATEGORIES};
+use specforge_protocol_types::{DeclaredCategory, DescribeResponse, SUPPORTED_CATEGORIES};
 
 fn reports() -> ContributionsBuilder {
     let mut meta = ExtensionMeta::new("@acme/reports", "0.1.0");
@@ -147,4 +147,56 @@ fn guest_call_routes_every_export() {
         guest_call(&b, dispatch, "nope", b""),
         Err("unknown export 'nope'".to_string())
     );
+}
+
+#[specforge_test_macros::test(
+    behavior = "load_extension_declaration",
+    verify = "the SDK's raw category and the host's load parse a category's items through one function"
+)]
+fn a_raw_category_and_a_loaded_one_parse_alike() {
+    let mut built = reports();
+    built
+        .edge("charts", |e| {
+            e.source_kind("report").target_kind("chart");
+        })
+        .shared_field("tags", |f| {
+            f.field_type(FieldType::String);
+        })
+        .enhance("behavior", "@acme/base", |e| {
+            e.field("report", |f| {
+                f.field_type(FieldType::String);
+            });
+        })
+        .rule("R001", |r| {
+            r.check(CheckKind::NoIncomingEdges).message_template("x");
+        })
+        .feature_flag("beta", false, "a flag");
+    let declared = built.declaration();
+
+    for category in DeclaredCategory::ALL {
+        let items = declared.describe_items(category.name()).unwrap();
+        // The category is served raw, in place of the builder's own.
+        let mut raw = ContributionsBuilder::new(ExtensionMeta::new("@acme/reports", "0.1.0"));
+        raw.raw_category(category.name(), items.clone());
+        assert_eq!(
+            raw.declaration().describe_items(category.name()),
+            Some(items),
+            "{category:?}"
+        );
+    }
+
+    // The host's load of what the builder serves is the builder's declaration.
+    let handshake: HandshakeResponse = serde_json::from_str(&built.handshake_json()).unwrap();
+    let loaded = ExtensionDeclaration::from_wire(
+        handshake,
+        |category| {
+            Ok(serde_json::from_str::<DescribeResponse>(
+                &built.describe_response_json(category).unwrap(),
+            )
+            .unwrap())
+        },
+        |key| panic!("unexpected key {key:?}"),
+    )
+    .unwrap();
+    assert_eq!(loaded, declared);
 }

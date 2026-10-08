@@ -1,7 +1,7 @@
 use std::fmt::Write;
 
 use super::{OutlineDetail, OutlineIntermediate, OutlineOptions};
-use crate::diagram::extension_id as sanitize_id;
+use crate::diagram::{escape_mermaid, extension_id as sanitize_id};
 
 /// Color palette for extension cards.
 /// Each entry: (subgraph_fill, subgraph_stroke, inner_stroke, text_color)
@@ -30,7 +30,9 @@ pub fn render_mermaid(outline: &OutlineIntermediate, options: &OutlineOptions) -
         writeln!(
             out,
             "    subgraph {}[\"  {} v{}  \"]",
-            id, ext.name, ext.version
+            id,
+            escape_mermaid(&ext.name),
+            escape_mermaid(&ext.version)
         )
         .unwrap();
         writeln!(out, "        {}[\"{}\"]", card_id, content).unwrap();
@@ -75,7 +77,9 @@ pub fn render_mermaid(outline: &OutlineIntermediate, options: &OutlineOptions) -
         writeln!(
             out,
             "    {} -.->|\"enhances {}\"| {}",
-            from_id, enh.target_kind, to_id
+            from_id,
+            escape_mermaid(&enh.target_kind),
+            to_id
         )
         .unwrap();
         edge_count += 1;
@@ -190,10 +194,10 @@ fn build_card_content(
     }
 
     // Keywords section
-    let keywords: Vec<&str> = ext
+    let keywords: Vec<String> = ext
         .entity_kinds
         .iter()
-        .map(|k| k.keyword.as_str())
+        .map(|k| escape_mermaid(&k.keyword))
         .collect();
     if !keywords.is_empty() {
         parts.push(divider.clone());
@@ -224,7 +228,11 @@ fn build_card_content(
 
     // Shared fields
     if !ext.shared_fields.is_empty() {
-        let names: Vec<&str> = ext.shared_fields.iter().map(|f| f.name.as_str()).collect();
+        let names: Vec<String> = ext
+            .shared_fields
+            .iter()
+            .map(|f| escape_mermaid(&f.name))
+            .collect();
         extras.push(format!("shared: {}", names.join(", ")));
     }
 
@@ -237,7 +245,7 @@ fn build_card_content(
     if !ext_enhancements.is_empty() {
         let summary: Vec<String> = ext_enhancements
             .iter()
-            .map(|e| format!("{} +{}", e.target_kind, e.field_count))
+            .map(|e| format!("{} +{}", escape_mermaid(&e.target_kind), e.field_count))
             .collect();
         extras.push(format!("enhances: {}", summary.join(" \u{00b7} ")));
     }

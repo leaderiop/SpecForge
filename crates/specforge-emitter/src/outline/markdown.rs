@@ -1,6 +1,7 @@
 use std::fmt::Write;
 
 use super::{OutlineDetail, OutlineIntermediate, OutlineOptions};
+use crate::diagram::markdown_cell;
 
 pub fn render_markdown(outline: &OutlineIntermediate, options: &OutlineOptions) -> String {
     let mut out = String::new();
@@ -27,15 +28,15 @@ pub fn render_markdown(outline: &OutlineIntermediate, options: &OutlineOptions) 
             writeln!(
                 out,
                 "| {} | {} | {} | {} | {} | {} |",
-                ext.name,
-                ext.version,
+                markdown_cell(&ext.name),
+                markdown_cell(&ext.version),
                 ext.entity_kinds.len(),
                 ext.edge_types.len(),
                 ext.validation_rules.len(),
                 if enhances_summary.is_empty() {
                     "\u{2014}".to_string()
                 } else {
-                    enhances_summary
+                    markdown_cell(&enhances_summary).into_owned()
                 }
             )
             .unwrap();
@@ -262,12 +263,12 @@ pub fn render_markdown(outline: &OutlineIntermediate, options: &OutlineOptions) 
                         writeln!(
                             out,
                             "| {} | {} | {} | {} | {} | {} |",
-                            f.name,
-                            f.field_type,
+                            markdown_cell(&f.name),
+                            markdown_cell(&f.field_type),
                             if f.required { "yes" } else { "no" },
-                            f.source_extension,
-                            f.edge.as_deref().unwrap_or("\u{2014}"),
-                            f.target_kind.as_deref().unwrap_or("\u{2014}"),
+                            markdown_cell(&f.source_extension),
+                            markdown_cell(f.edge.as_deref().unwrap_or("\u{2014}")),
+                            markdown_cell(f.target_kind.as_deref().unwrap_or("\u{2014}")),
                         )
                         .unwrap();
                     }

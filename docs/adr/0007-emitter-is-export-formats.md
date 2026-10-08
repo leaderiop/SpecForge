@@ -14,9 +14,11 @@ the compiler must not know (principle 2): union `variants`, `abstract`, the `inv
 - **specforge-emitter**: the export formats only (graph JSON, Graph Protocol V2 schema and
   exports, context, brief, scoped and budgeted exports, DOT, the model and outline diagrams).
   It depends on the graph, the registry, serde and sha2; no Wasm runtime, no file I/O. The
-  three DOT renderers draw different things and keep their layouts; escaping and identifiers
-  are shared (`diagram.rs`). The two Mermaid renderers (an ER diagram, a flowchart) share nothing
-  worth extracting. The legacy flat re-exports are gone: callers use `emit` or a format module.
+  renderers draw different things and keep their layouts; how declared text is written into each
+  syntax is shared (`diagram.rs`): DOT strings, record fields and HTML labels, Mermaid strings and
+  names, Markdown cells, DBML names and strings, and the bare identifier an extension name becomes.
+  A DBML reference is one named `Ref`, written only between columns the output writes. The legacy
+  flat re-exports are gone: callers use `emit` or a format module.
 - **specforge-project**: `compile` (graph checks, `load_extensions`, Wasm custom rules),
   `field_types`, `passes` (extension compiler passes), `coverage` (the host's coverage view and
   the test report format).

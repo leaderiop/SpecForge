@@ -260,7 +260,7 @@ impl<'a> ProjectView<'a> {
     }
 
     /// The schema cache at `<root>/.specforge/`; `None` without a root.
-    pub fn schema_cache(&self) -> Option<SchemaCache> {
+    pub(crate) fn schema_cache(&self) -> Option<SchemaCache> {
         self.root.map(SchemaCache::of_root)
     }
 }

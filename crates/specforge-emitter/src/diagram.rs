@@ -1,8 +1,12 @@
-//! What the diagram renderers share: the graph's DOT export (`dot`), the
-//! model's (`model::dot`) and the outline's (`outline::dot`, and the outline's
-//! Mermaid flowchart). They draw different things (entities and edges, a
-//! kind's fields as an HTML table, one record per extension), so each keeps
-//! its own layout; the syntax they all need is here, once.
+//! What the text renderers share: how declared text is written into each
+//! syntax. The renderers draw different things (entities and edges, a kind's
+//! fields as an HTML table, one record per extension) and each keeps its own
+//! layout; the escaping every one of them needs is here, once: DOT strings,
+//! record fields and HTML labels, Mermaid strings and names, Markdown table
+//! cells, DBML names and strings, and the bare identifier an extension name
+//! becomes.
+
+use std::borrow::Cow;
 
 /// Escape a string for safe inclusion inside a DOT quoted string.
 /// Titles and descriptions are user-controlled: unescaped quotes
@@ -55,13 +59,116 @@ pub(crate) fn escape_html(text: &str) -> String {
     out
 }
 
-/// An extension name as a bare DOT or Mermaid identifier: `@scope/name-x`
-/// becomes `scope_name_x`.
+/// Text inside a Mermaid quoted string: a flowchart node, subgraph or edge
+/// label (`["…"]`, `|"…"|`), an erDiagram attribute comment or relationship
+/// label. Mermaid ends the string at `"`, reads `#…;` as an entity code and
+/// `<…>` as markup, so `"`, `#`, `<` and `&` are written as the entity codes
+/// Mermaid decodes back (`#quot;`, `#35;`, `#lt;`, `#amp;`); a line break,
+/// which no label holds, is a space and a `\r` is dropped. A `>` opens
+/// nothing and stays (the `->` the model writes into its notes is the
+/// builtins' own text).
+pub(crate) fn escape_mermaid(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    for ch in text.chars() {
+        match ch {
+            '"' => out.push_str("#quot;"),
+            '#' => out.push_str("#35;"),
+            '<' => out.push_str("#lt;"),
+            '&' => out.push_str("#amp;"),
+            '\n' => out.push(' '),
+            '\r' => {}
+            _ => out.push(ch),
+        }
+    }
+    out
+}
+
+/// A name as a bare Mermaid erDiagram entity or attribute name: every
+/// character but an ASCII letter, digit, `_` and `-` becomes `_`. A name the
+/// parser can read is unchanged.
+pub(crate) fn mermaid_name(name: &str) -> Cow<'_, str> {
+    let bare = |c: char| c.is_ascii_alphanumeric() || c == '_' || c == '-';
+    if !name.is_empty() && name.chars().all(bare) {
+        return Cow::Borrowed(name);
+    }
+    if name.is_empty() {
+        return Cow::Borrowed("_");
+    }
+    Cow::Owned(
+        name.chars()
+            .map(|c| if bare(c) { c } else { '_' })
+            .collect(),
+    )
+}
+
+/// An extension name as a bare DOT or Mermaid identifier: the `@` goes and
+/// every other character but an ASCII letter, digit or `_` becomes `_`
+/// (`@scope/name-x` is `scope_name_x`).
 pub(crate) fn extension_id(name: &str) -> String {
     name.chars()
         .filter(|c| *c != '@')
-        .map(|c| if c == '/' || c == '-' { '_' } else { c })
+        .map(|c| if c.is_ascii_alphanumeric() { c } else { '_' })
         .collect()
+}
+
+/// Text in a Markdown table cell: `|` escaped as `\|`, a line break as a
+/// space, so the cell cannot split its row.
+pub(crate) fn markdown_cell(text: &str) -> Cow<'_, str> {
+    if !text.contains(['|', '\n', '\r']) {
+        return Cow::Borrowed(text);
+    }
+    let mut out = String::with_capacity(text.len());
+    for ch in text.chars() {
+        match ch {
+            '|' => out.push_str("\\|"),
+            '\n' => out.push(' '),
+            '\r' => {}
+            _ => out.push(ch),
+        }
+    }
+    Cow::Owned(out)
+}
+
+/// A DBML name (table, column, enum, enum value, table group): bare when it
+/// is `[A-Za-z_][A-Za-z0-9_]*`, else double-quoted with `\` and `"` escaped.
+pub(crate) fn dbml_name(name: &str) -> Cow<'_, str> {
+    let mut chars = name.chars();
+    let bare = chars
+        .next()
+        .is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
+        && chars.all(|c| c.is_ascii_alphanumeric() || c == '_');
+    if bare {
+        return Cow::Borrowed(name);
+    }
+    let mut out = String::with_capacity(name.len() + 2);
+    out.push('"');
+    for ch in name.chars() {
+        match ch {
+            '\\' => out.push_str("\\\\"),
+            '"' => out.push_str("\\\""),
+            '\n' => out.push_str("\\n"),
+            '\r' => {}
+            _ => out.push(ch),
+        }
+    }
+    out.push('"');
+    Cow::Owned(out)
+}
+
+/// Text inside a DBML single-quoted string (a note): `\` and `'` escaped, a
+/// line break as `\n`, a `\r` dropped.
+pub(crate) fn escape_dbml_string(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    for ch in text.chars() {
+        match ch {
+            '\\' => out.push_str("\\\\"),
+            '\'' => out.push_str("\\'"),
+            '\n' => out.push_str("\\n"),
+            '\r' => {}
+            _ => out.push(ch),
+        }
+    }
+    out
 }
 
 /// The colour an extension's nodes and clusters are drawn in: the
@@ -126,5 +233,50 @@ mod tests {
             extension_id("@specforge/cargo-test"),
             "specforge_cargo_test"
         );
+        assert_eq!(extension_id("@a/b.c d"), "a_b_c_d");
+    }
+
+    #[test]
+    fn mermaid_text_is_written_as_entity_codes() {
+        assert_eq!(
+            escape_mermaid("a\"b#c<d>e&f\ng\r"),
+            "a#quot;b#35;c#lt;d>e#amp;f g"
+        );
+        assert_eq!(escape_mermaid("plain text"), "plain text");
+    }
+
+    #[test]
+    fn mermaid_names_are_bare() {
+        assert_eq!(mermaid_name("no\"te"), "no_te");
+        assert_eq!(mermaid_name("failure-mode"), "failure-mode");
+        assert!(matches!(mermaid_name("behavior"), Cow::Borrowed(_)));
+        assert_eq!(mermaid_name(""), "_");
+    }
+
+    #[test]
+    fn dbml_names_are_bare_or_quoted() {
+        assert_eq!(dbml_name("behavior"), "behavior");
+        assert_eq!(dbml_name("_x1"), "_x1");
+        assert!(matches!(dbml_name("behavior"), Cow::Borrowed(_)));
+        assert_eq!(dbml_name("@acme/x"), "\"@acme/x\"");
+        assert_eq!(dbml_name("no\"te"), "\"no\\\"te\"");
+        assert_eq!(dbml_name("a\\b"), "\"a\\\\b\"");
+        assert_eq!(dbml_name("1st"), "\"1st\"");
+        assert_eq!(dbml_name("in-progress"), "\"in-progress\"");
+        assert_eq!(dbml_name(""), "\"\"");
+    }
+
+    #[test]
+    fn dbml_strings_cannot_end_early() {
+        assert_eq!(
+            escape_dbml_string("this event's \\ shape\nnext\r"),
+            "this event\\'s \\\\ shape\\nnext"
+        );
+    }
+
+    #[test]
+    fn markdown_cells_cannot_split_the_row() {
+        assert_eq!(markdown_cell("a|b\nc\r"), "a\\|b c");
+        assert!(matches!(markdown_cell("plain"), Cow::Borrowed(_)));
     }
 }

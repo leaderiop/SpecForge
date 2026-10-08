@@ -1,9 +1,10 @@
-//! Wire types for the SpecForge extension protocol (v1.0.0).
+//! Wire types for the SpecForge extension protocol, at the version
+//! [`PROTOCOL_VERSION`] names.
 //!
 //! Shared single source of truth: the host (specforge-wasm) and the
 //! plugin-side SDK (specforge-extension-sdk) both consume these types, so the
-//! wire format cannot drift between them. Compiles clean on host and
-//! wasm32-unknown-unknown (serde-only).
+//! wire format cannot drift between them. Serde-only, so it compiles for the
+//! host and for wasm32-wasip2 guests.
 //!
 //! Two families:
 //! - the declaration: the `__handshake` and `__describe` payloads and the
@@ -30,7 +31,9 @@ mod declaration;
 pub mod package;
 mod vocabulary;
 pub use calls::*;
-pub use declaration::{DECLARED_CATEGORIES, ExtensionDeclaration, UnknownKey, is_valid_short};
+pub use declaration::{
+    DECLARED_CATEGORIES, DeclaredCategory, ExtensionDeclaration, UnknownKey, is_valid_short,
+};
 pub use package::{PackageName, PackageRef, VersionRequirement};
 pub use vocabulary::{CheckKind, ConstraintKind, FieldType, ProofRole};
 

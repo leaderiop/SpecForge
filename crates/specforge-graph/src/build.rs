@@ -1,7 +1,7 @@
 use crate::delta::{self, GraphDelta};
 use crate::{Graph, Node};
 use specforge_common::{Diagnostic, SourceSpan, Sym, codes, structural};
-use specforge_parser::{Entity, FieldValue, SpecFile};
+use specforge_parser::{Entity, FieldValue, REF_SCHEME_FIELD, SpecFile};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 #[derive(Debug, Clone, Default)]
@@ -350,7 +350,7 @@ fn declarations<'a>(
         for spec_file in files {
             for entity in &spec_file.entities {
                 if entity.kind.raw == structural::REF
-                    && let Some(FieldValue::String(scheme)) = entity.fields.get("scheme")
+                    && let Some(FieldValue::String(scheme)) = entity.fields.get(REF_SCHEME_FIELD)
                     && !config.known_provider_schemes.contains(scheme)
                 {
                     diagnostics.push(

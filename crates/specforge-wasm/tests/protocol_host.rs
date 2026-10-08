@@ -9,7 +9,7 @@ use specforge_extension_sdk::prelude::*;
 use specforge_protocol_types::{HandshakeResponse, PROTOCOL_VERSION, ProtocolError};
 use specforge_wasm::protocol::{Loaded, load_declaration};
 use specforge_wasm::testing::InProcessRuntime;
-use specforge_wasm::{Limits, WasmCallResult, WasmTrapInfo};
+use specforge_wasm::{ExtensionCalls, Limits, WasmCallResult, WasmTrapInfo};
 
 /// `name`, declaring a testable `behavior` kind, an `Implements` edge and
 /// a `W001` rule.
@@ -68,7 +68,11 @@ fn handshake_returns_parsed_response() {
     behavior = "configure_sandbox_policy",
     verify = "a declared limit below the ceiling is applied as declared"
 )]
-fn handshake_applies_declared_max_execution_ms() {
+#[specforge_test_macros::test(
+    behavior = "load_extension_declaration",
+    verify = "the loader applies the execution budget its handshake declares, and a handshake call alone applies none"
+)]
+fn the_loader_applies_the_declared_execution_budget() {
     let runtime = InProcessRuntime::new().with(|| {
         let mut meta = ExtensionMeta::new("@specforge/software", "1.0.0");
         meta.sandbox_policy = Some(SandboxPolicy {
@@ -88,6 +92,27 @@ fn handshake_applies_declared_max_execution_ms() {
             }
         )]
     );
+}
+
+#[specforge_test_macros::test(
+    behavior = "load_extension_declaration",
+    verify = "the loader applies the execution budget its handshake declares, and a handshake call alone applies none"
+)]
+fn a_handshake_call_applies_no_limits() {
+    let runtime = InProcessRuntime::new().with(|| {
+        let mut meta = ExtensionMeta::new("@specforge/software", "1.0.0");
+        meta.sandbox_policy = Some(SandboxPolicy {
+            max_execution_ms: Some(5000),
+            ..Default::default()
+        });
+        ContributionsBuilder::new(meta)
+    });
+    let handshake = ExtensionCalls::new(&runtime)
+        .handshake("@specforge/software")
+        .unwrap();
+    // It reads what the policy comes to; applying it is the loader's.
+    assert_eq!(handshake.sandbox.limits.execution_ms, 5000);
+    assert!(runtime.limits().is_empty(), "{:?}", runtime.limits());
 }
 
 #[specforge_test_macros::test(

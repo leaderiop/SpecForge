@@ -505,7 +505,10 @@ impl<'a> ParseContext<'a> {
 
         let mut fields = FieldMap::new();
         if let Some((scheme, kind, identifier)) = parse_ref_id(id_text) {
-            fields.push(Sym::new("scheme"), FieldValue::String(scheme));
+            fields.push(
+                Sym::new(crate::ast::REF_SCHEME_FIELD),
+                FieldValue::String(scheme),
+            );
             fields.push(Sym::new("ref_kind"), FieldValue::String(kind));
             fields.push(Sym::new("identifier"), FieldValue::String(identifier));
         }

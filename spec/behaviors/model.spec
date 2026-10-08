@@ -79,7 +79,9 @@ behavior render_model_markdown "Render Model as Markdown" {
     mean. The output MUST include an extension summary table, entity kind
     sections with field tables (respecting the --fields level), and
     relationship lists with cardinality notation. When --group-by=extension,
-    entity kinds MUST be grouped under extension section headers.
+    entity kinds MUST be grouped under extension section headers. Text the
+    model carries (names, contributions, descriptions) MUST NOT split a
+    table row: a pipe is escaped and a line break is a space.
   """
   verify unit "output starts with framing preamble"
   verify unit "extension summary table is present"
@@ -91,6 +93,7 @@ behavior render_model_markdown "Render Model as Markdown" {
   verify unit "fields=keys shows only id, required, and reference fields"
   verify unit "fields=all shows every field"
   verify unit "empty model produces valid Markdown with zero-entity message"
+  verify unit "declared text with a pipe or a line break stays in its table cell"
   verify contract "Render Model as Markdown: Markdown rendering holds — model_ir_built, preamble_present, extension_summary, field_tables_present, relationships_listed, grouping_respected, field_level_respected"
 }
 
@@ -115,7 +118,10 @@ behavior render_model_mermaid "Render Model as Mermaid erDiagram" {
     use standard Mermaid notation: ||--|| for 1:1, ||--o{ for 1:N,
     }o--|| for N:1, }o--o{ for N:M. Entity blocks MUST include field
     definitions when --fields is not none. Extension grouping MUST use
-    %% @extension-name comment separators.
+    %% @extension-name comment separators. Declared text MUST stay inside
+    the Mermaid string it is written in (Mermaid's entity codes for a
+    quote, `#`, `<` and `&`; a line break as a space), and an entity
+    or attribute name that is not a Mermaid name MUST be written as one.
   """
   verify unit "output is valid Mermaid erDiagram syntax"
   verify unit "1:1 cardinality uses ||--|| notation"
@@ -126,6 +132,8 @@ behavior render_model_mermaid "Render Model as Mermaid erDiagram" {
   verify unit "fields=none produces entities without blocks"
   verify unit "extension grouping uses comment headers"
   verify unit "empty model produces valid erDiagram with no entities"
+  verify unit "declared text with a quote, markup or a line break stays inside its Mermaid string"
+  verify unit "an entity or attribute name that is not a Mermaid name is written as one"
   verify contract "Render Model as Mermaid erDiagram: Mermaid rendering holds — model_ir_built, valid_mermaid_produced, cardinality_notation_correct, field_types_shown, grouping_via_comments"
 }
 
@@ -216,7 +224,7 @@ behavior render_model_dbml "Render Model as DBML" {
     synthetic_pk        "Every table has an id string [pk] column"
     enum_definitions    "Enum fields produce standalone Enum declarations"
     table_groups        "Extension grouping produces TableGroup declarations"
-    named_refs          "Edge types produce named Ref declarations"
+    named_refs          "Each reference is one named Ref declaration, between columns the output writes"
     required_not_null   "Required fields have [not null] annotation"
   }
   contract   """
@@ -224,20 +232,23 @@ behavior render_model_dbml "Render Model as DBML" {
     the ModelIntermediate as DBML. Each ModelEntity MUST produce a Table
     with a synthetic id string [pk] column. Enum fields MUST produce
     standalone Enum declarations named {entity}_{field}. Required fields
-    MUST have [not null] annotation. Reference fields MUST have inline
-    [ref: > target.id] annotation. Extension grouping MUST use TableGroup
-    declarations. Edge types MUST produce named Ref declarations.
+    MUST have [not null] annotation. A name that is not a DBML identifier
+    MUST be double-quoted, and a note MUST escape its quotes and line
+    breaks. Extension grouping MUST use TableGroup declarations. Each
+    reference MUST be one named Ref declaration, written only when both
+    of its columns are written.
   """
   verify unit "output is valid DBML syntax"
   verify unit "each entity kind produces a Table"
   verify unit "every table has id string [pk]"
   verify unit "enum fields produce Enum declarations"
   verify unit "required fields have [not null]"
-  verify unit "reference fields have inline ref annotation"
   verify unit "extension grouping uses TableGroup"
   verify unit "edge types produce named Ref declarations"
   verify unit "field descriptions use [note: '...']"
   verify unit "empty model produces valid DBML with no tables"
+  verify unit "a name or note with a quote, an apostrophe or a line break stays one DBML name or string"
+  verify unit "each reference is one named Ref between columns the output writes"
   verify contract "Render Model as DBML: DBML rendering holds — model_ir_built, valid_dbml_produced, table_per_entity, synthetic_pk, enum_definitions, table_groups, named_refs, required_not_null"
 }
 

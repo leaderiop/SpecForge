@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use specforge_wasm::runtime::WasmRuntime;
 
+use super::ScanFailure;
 use super::discovery::source_files;
 use super::manifest::InferenceManifest;
 use crate::OpError;
@@ -25,7 +26,7 @@ pub struct Gaps {
     pub approximate: bool,
     pub scanners_used: Vec<String>,
     /// The files a scanner failed on (E028 each): their items are unknown.
-    pub scan_failures: Vec<crate::scan::ScanFailure>,
+    pub scan_failures: Vec<ScanFailure>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

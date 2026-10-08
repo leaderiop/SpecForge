@@ -18,6 +18,7 @@ mod manifest;
 mod progress;
 mod session;
 
+pub use crate::scan::ScanFailure;
 pub use gaps::{Gaps, SourceItem, directory_of, gaps};
 pub use lint::lint;
 pub(crate) use manifest::read_manifest;

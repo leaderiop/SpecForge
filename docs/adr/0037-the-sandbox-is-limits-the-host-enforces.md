@@ -22,9 +22,10 @@ its proof.
 
 `SandboxPolicy` is `max_execution_ms` and `max_memory_mb`. `specforge_wasm::sandbox::Sandbox::of`
 turns the handshake's `sandbox_policy` into `Limits`: each declared limit as declared, held to the
-host's ceiling (`Limits::CEILING`: 30 000 ms, 512 MB), the ceiling when undeclared. Reading the
-handshake applies them (`ExtensionCalls::handshake` → `WasmRuntime::apply_limits`, required: the
-component runtime enforces, the in-process runtime records). There is no project-level override and
+host's ceiling (`Limits::CEILING`: 30 000 ms, 512 MB), the ceiling when undeclared. The loader
+applies them once the handshake's protocol major is checked (`load_declaration` →
+`WasmRuntime::apply_limits`, required: the component runtime enforces, the in-process runtime
+records); a handshake call applies none. There is no project-level override and
 no total across extensions: the ceiling bounds every extension, and a shared total would let one
 extension's memory fail another (`extension_isolation`).
 

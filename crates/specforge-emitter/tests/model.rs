@@ -1114,3 +1114,166 @@ fn an_extension_without_a_theme_color_is_drawn_grey() {
     assert!(output.contains("color=\"#95a5a6\";"), "{output}");
     assert!(!output.contains("#4a90d9"), "no palette by name: {output}");
 }
+
+// =========================================================================
+// Declared text in the text diagrams (plan 16)
+// =========================================================================
+
+/// `multi_extension_schema()` with `behavior` renamed to `kind` and its
+/// `contract` field's description replaced.
+fn with_text(kind: &str, description: &str) -> GraphProtocolSchema {
+    let mut schema = multi_extension_schema();
+    for entity in &mut schema.entity_kinds {
+        if entity.name == "behavior" {
+            entity.name = kind.to_string();
+            for field in &mut entity.fields {
+                if field.name == "contract" {
+                    field.description = Some(description.to_string());
+                }
+            }
+        }
+    }
+    for edge in &mut schema.edge_types {
+        if let Some(sources) = &mut edge.source_kinds {
+            for source in sources.iter_mut().filter(|s| *s == "behavior") {
+                *source = kind.to_string();
+            }
+        }
+    }
+    schema
+}
+
+fn rendered(schema: &GraphProtocolSchema, fields: FieldLevel, format: ModelFormat) -> String {
+    let model = filter_fields(&ModelIntermediate_from_schema(schema), fields);
+    render(&model, &default_options(format))
+}
+
+#[specforge_test_macros::test(
+    behavior = "render_model_mermaid",
+    verify = "declared text with a quote, markup or a line break stays inside its Mermaid string"
+)]
+fn a_quote_or_line_break_in_a_description_stays_inside_the_er_string() {
+    let schema = with_text("behavior", "the \"body\"\nnext");
+    let output = rendered(&schema, FieldLevel::All, ModelFormat::Mermaid);
+    assert!(output.contains("\"the #quot;body#quot; next\""), "{output}");
+}
+
+#[specforge_test_macros::test(
+    behavior = "render_model_mermaid",
+    verify = "an entity or attribute name that is not a Mermaid name is written as one"
+)]
+fn a_kind_name_that_is_not_an_identifier_is_made_one() {
+    let schema = with_text("no\"te", "the contract");
+    let output = rendered(&schema, FieldLevel::All, ModelFormat::Mermaid);
+    assert!(output.contains("    no_te {"), "{output}");
+    assert!(!output.contains("no\"te"), "{output}");
+}
+
+#[specforge_test_macros::test(
+    behavior = "render_model_markdown",
+    verify = "declared text with a pipe or a line break stays in its table cell"
+)]
+fn a_pipe_in_any_cell_stays_in_its_cell() {
+    let mut schema = multi_extension_schema();
+    for entity in &mut schema.entity_kinds {
+        for field in &mut entity.fields {
+            if field.name == "contract" {
+                field.name = "con|tract".to_string();
+                field.description = Some("a|b\nc".to_string());
+            }
+        }
+    }
+    let output = rendered(&schema, FieldLevel::All, ModelFormat::Markdown);
+    let row = output
+        .lines()
+        .find(|line| line.starts_with("| con"))
+        .expect("the field's row");
+    assert!(row.starts_with("| con\\|tract |"), "{row}");
+    assert!(row.ends_with("| a\\|b c |"), "{row}");
+    assert_eq!(row.replace("\\|", "").matches('|').count(), 7, "{row}");
+}
+
+#[specforge_test_macros::test(
+    behavior = "render_model_dbml",
+    verify = "a name or note with a quote, an apostrophe or a line break stays one DBML name or string"
+)]
+fn an_apostrophe_or_line_break_stays_inside_a_dbml_note() {
+    let schema = with_text("behavior", "this event's shape");
+    let output = rendered(&schema, FieldLevel::All, ModelFormat::Dbml);
+    assert!(output.contains("note: 'this event\\'s shape'"), "{output}");
+
+    let schema = with_text("behavior", "first\nsecond");
+    let output = rendered(&schema, FieldLevel::All, ModelFormat::Dbml);
+    assert!(output.contains("note: 'first\\nsecond'"), "{output}");
+}
+
+#[specforge_test_macros::test(
+    behavior = "render_model_dbml",
+    verify = "each reference is one named Ref between columns the output writes"
+)]
+fn a_reference_is_one_named_ref() {
+    let output = rendered(
+        &multi_extension_schema(),
+        FieldLevel::All,
+        ModelFormat::Dbml,
+    );
+    assert!(!output.contains("ref:"), "{output}");
+    assert_eq!(
+        output
+            .matches("Ref BehaviorImplementsFeature: behavior.features <> feature.id")
+            .count(),
+        1,
+        "{output}"
+    );
+    assert!(
+        output.contains("features text [note: 'BehaviorImplementsFeature -> feature']"),
+        "{output}"
+    );
+}
+
+#[specforge_test_macros::test(
+    behavior = "render_model_dbml",
+    verify = "each reference is one named Ref between columns the output writes"
+)]
+fn a_ref_joins_only_columns_the_output_writes() {
+    let schema = multi_extension_schema();
+    let output = rendered(&schema, FieldLevel::None, ModelFormat::Dbml);
+    assert!(!output.contains("Ref "), "{output}");
+    assert!(!output.contains("// ── Relationships ──"), "{output}");
+
+    // `behavior` alone: its reference targets `feature`, which is not written.
+    let model = filter_fields(&ModelIntermediate_from_schema(&schema), FieldLevel::All);
+    let options = ModelOptions {
+        format: ModelFormat::Dbml,
+        kind_filter: Some(vec!["behavior".to_string()]),
+        ..ModelOptions::default()
+    };
+    let output = render(&filter_entities(&model, &options), &options);
+    assert!(output.contains("Table behavior {"), "{output}");
+    assert!(!output.contains("Ref "), "{output}");
+    assert!(!output.contains("Table feature"), "{output}");
+}
+
+#[specforge_test_macros::test(
+    behavior = "render_model_dbml",
+    verify = "a name or note with a quote, an apostrophe or a line break stays one DBML name or string"
+)]
+fn a_name_that_is_not_a_dbml_identifier_is_quoted() {
+    let mut schema = multi_extension_schema();
+    for info in &mut schema.extensions {
+        if info.name == "@specforge/software" {
+            info.name = "@acme/x".to_string();
+        }
+    }
+    for entity in &mut schema.entity_kinds {
+        if entity.source_extension == "@specforge/software" {
+            entity.source_extension = "@acme/x".to_string();
+        }
+    }
+    let output = rendered(&schema, FieldLevel::Keys, ModelFormat::Dbml);
+    assert!(output.contains("TableGroup \"@acme/x\" {"), "{output}");
+
+    let schema = with_text("no\"te", "the contract");
+    let output = rendered(&schema, FieldLevel::All, ModelFormat::Dbml);
+    assert!(output.contains("Table \"no\\\"te\" {"), "{output}");
+}

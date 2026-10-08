@@ -139,7 +139,7 @@ behavior call_extension_exports "Call Extension Exports" {
     The host performs ten operations on a loaded extension, each one call
     of one export over the WasmRuntime port: handshake and describe (the
     declaration, ADR 0012), a command (cmd__), an MCP tool or resource
-    (mcp__), a compiler pass (__pass_<name>), a collector (collect__), a
+    (mcp__), a compiler pass (__pass_<name>, one rule the SDK and the host share), a collector (collect__), a
     custom validator (the rule's wasm_function), a scanner (the analyzer's
     scan export) and a migration hook. Each sends one protocol type as
     JSON and reads one protocol type back (specforge_protocol_types); an
@@ -173,6 +173,9 @@ behavior call_extension_exports "Call Extension Exports" {
   verify unit "an analyze pass that traps is reported as an E028 finding of that pass"
   verify unit "a scanner that traps or answers malformed output is reported, not dropped"
   verify unit "a pass, collector, custom rule, scanner or migration hook is declared with its handler, and its export answers through it"
+  verify unit "the SDK routes a compiler pass at the export the host calls it by"
+  verify unit "a pass input that does not encode fails each pass's call, naming its export, and nothing is sent"
+  verify unit "an export the guest's handler answers decodes its input and encodes its answer as a declared handler does"
   verify unit "a pass diagnostic whose code the extension may not use is reported (W150) and kept"
   verify unit "a diagnostic an extension reported names its extension, and a code it may not use is not described as its owner's"
   verify contract "Call Extension Exports: extension calls hold — extension_loaded, one_protocol_type, strict_answers, one_failure, no_silent_failure, runtimes_agree, pass_codes_checked"

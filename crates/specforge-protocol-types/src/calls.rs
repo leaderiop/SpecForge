@@ -328,6 +328,13 @@ pub struct McpResourceContent {
 
 // ── Compiler pass (`__pass_<name>`) ────────────────────────────────────────
 
+/// The export a compiler pass named `pass` answers at: `__pass_<pass>`. A
+/// pass's descriptor names the pass only; the SDK routes this export to the
+/// pass's handler and the host calls it, so both read this one rule.
+pub fn pass_export(pass: &str) -> String {
+    format!("__pass_{pass}")
+}
+
 /// What a `__pass_<name>` export receives: the compiled project's entity
 /// snapshot and its resolved references, with the recorded test results,
 /// the claims the prove pass entailed and the previous build's statuses
@@ -657,4 +664,15 @@ pub struct MigrationInput {
     pub from: String,
     pub to: String,
     pub files: Vec<String>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_pass_is_called_at_its_prefixed_export() {
+        assert_eq!(pass_export("audit"), "__pass_audit");
+        assert_eq!(pass_export("a-b_c"), "__pass_a-b_c");
+    }
 }

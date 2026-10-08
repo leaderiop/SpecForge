@@ -11,7 +11,7 @@ use specforge_diagnostics::{Level, check_extension_code};
 use specforge_graph::Graph;
 use specforge_protocol_types::{PassInput, PassOutput, PassSeverity, PassTestResults};
 use specforge_registry::{FieldRegistry, KindRegistry};
-use specforge_wasm::{CallError, ExtensionCalls, Operation};
+use specforge_wasm::ExtensionCalls;
 use std::collections::HashSet;
 use std::path::Path;
 
@@ -164,15 +164,7 @@ pub fn run_extension_passes(
         summary.insert("extension".into(), declared.extension.clone().into());
         summary.insert("pass".into(), pass.name.clone().into());
         summary.insert("entities_analyzed".into(), entities_analyzed.into());
-        let answer = match &encoded {
-            Ok(encoded) => calls.run_pass(&declared.extension, &pass.name, encoded),
-            Err(failure) => Err(CallError::new(
-                Operation::Pass,
-                &declared.extension,
-                &format!("__pass_{}", pass.name),
-                failure.clone(),
-            )),
-        };
+        let answer = calls.run_pass(&declared.extension, &pass.name, &encoded);
         let findings = match answer {
             Ok(output) => {
                 let extra = output.summary.clone();

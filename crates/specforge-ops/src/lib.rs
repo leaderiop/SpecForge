@@ -1,4 +1,4 @@
-//! User-level operations shared by the CLI and the MCP server.
+//! User-level operations shared by the CLI, the MCP server and the LSP.
 //!
 //! Each surface used to orchestrate the backend crates on its own, so fixes
 //! landed on one side only. An operation here takes a typed request and
@@ -9,7 +9,7 @@
 //! JSON-RPC stream). The crate denies `clippy::print_stdout`.
 
 pub mod analyze;
-pub mod builtin_passes;
+mod builtin_passes;
 pub mod check;
 pub mod collect;
 pub mod command;
@@ -27,15 +27,15 @@ pub mod model;
 pub mod navigate;
 pub mod options;
 pub mod plan;
-pub mod prove;
+mod prove;
 pub mod publish;
 pub mod query;
 pub mod registry;
 pub mod rename;
 mod report;
-pub mod scan;
+mod scan;
 pub mod schema;
-pub mod schema_cache;
+mod schema_cache;
 pub mod stats;
 pub mod trace;
 pub mod view;
