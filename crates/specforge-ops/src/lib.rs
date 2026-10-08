@@ -37,6 +37,8 @@ mod scan;
 pub mod schema;
 mod schema_cache;
 pub mod stats;
+#[cfg(feature = "testing")]
+pub mod testing;
 pub mod trace;
 pub mod view;
 mod writes;

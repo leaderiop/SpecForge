@@ -1,0 +1,73 @@
+//! What tests serve in process as candidates: `@sdk/greet` (the fixture's
+//! own declarations, `fixtures/greet-extension/src/contributions.rs`) under
+//! bytes a test chooses, and builtin look-alikes under a builtin's real
+//! embedded bytes (`InProcessRuntime::binary` serves whatever name the
+//! candidate is loaded under).
+//!
+//! Behind the `testing` feature; no production code reads it.
+
+use specforge_extension_sdk::{ContributionsBuilder, ExtensionMeta};
+use specforge_protocol_types::PeerDependency;
+use specforge_wasm::testing::InProcessRuntime;
+
+#[path = "../../../fixtures/greet-extension/src/contributions.rs"]
+#[allow(dead_code, reason = "the fixture's own source: only `build` is served")]
+mod greet;
+
+/// The bytes the in-process runtime serves as `@sdk/greet` 0.1.0.
+pub const GREET: &[u8] = b"\0asm in-process @sdk/greet 0.1.0";
+/// Other bytes that also serve `@sdk/greet` 0.1.0: a reinstall, a changed
+/// binary.
+pub const GREET_VARIANT: &[u8] = b"\0asm in-process @sdk/greet 0.1.0 variant";
+/// The bytes the in-process runtime serves as `@test/probe` 0.1.0.
+pub const PROBE: &[u8] = b"\0asm in-process @test/probe 0.1.0";
+
+/// What `@sdk/greet` declares: the fixture's builder.
+pub fn greet() -> ContributionsBuilder {
+    greet::build()
+}
+
+/// An extension named `name` at `version` whose peers are `peers` (name,
+/// requirement, optional).
+pub fn declaring(
+    name: &'static str,
+    version: &'static str,
+    peers: &'static [(&'static str, &'static str, bool)],
+) -> impl Fn() -> ContributionsBuilder + Send + Sync + 'static {
+    move || {
+        let mut meta = ExtensionMeta::new(name, version);
+        meta.peer_dependencies = peers
+            .iter()
+            .map(|(peer, requirement, optional)| PeerDependency {
+                name: (*peer).to_string(),
+                version: (*requirement).to_string(),
+                optional: *optional,
+            })
+            .collect();
+        ContributionsBuilder::new(meta)
+    }
+}
+
+/// An in-process runtime serving `GREET` and `GREET_VARIANT` as `@sdk/greet`
+/// and `PROBE` as `@test/probe`.
+pub fn candidates() -> InProcessRuntime {
+    InProcessRuntime::new()
+        .binary(GREET, greet)
+        .binary(GREET_VARIANT, greet)
+        .binary(PROBE, declaring("@test/probe", "0.1.0", &[]))
+}
+
+/// `runtime`, also serving the embedded bytes of the builtin `name` as
+/// `build` declares it.
+pub fn serving_builtin(
+    runtime: InProcessRuntime,
+    name: &str,
+    build: impl Fn() -> ContributionsBuilder + Send + Sync + 'static,
+) -> InProcessRuntime {
+    runtime.binary(
+        specforge_project::builtins()
+            .get(name)
+            .expect("a builtin extension"),
+        build,
+    )
+}

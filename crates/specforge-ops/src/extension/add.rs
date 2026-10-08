@@ -517,8 +517,12 @@ mod tests {
     use super::*;
     use specforge_test_macros::test as specforge_test;
 
-    fn runtime() -> specforge_component::ComponentRuntime {
-        specforge_component::ComponentRuntime::new()
+    use crate::testing::{self, GREET, declaring, serving_builtin};
+    use specforge_wasm::testing::InProcessRuntime;
+
+    /// What the tests serve in process: `@sdk/greet` and `@test/probe`.
+    fn runtime() -> InProcessRuntime {
+        testing::candidates()
     }
 
     #[test]
@@ -646,11 +650,6 @@ mod tests {
         }
     }
 
-    /// `@sdk/greet` 0.1.0 as the build vendors it.
-    fn greet_wasm() -> PathBuf {
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/greet-extension/greet.wasm")
-    }
-
     #[specforge_test(
         behavior = "install_wasm_extension",
         verify = "an install of an extension whose binary changed after install replaces it"
@@ -662,9 +661,12 @@ mod tests {
             r#"{"name": "p", "version": "0.1.0", "extensions": []}"#,
         )
         .unwrap();
+        let files = tempfile::tempdir().unwrap();
+        let greet = files.path().join("greet.wasm");
+        std::fs::write(&greet, GREET).unwrap();
         let request = AddRequest {
             root: dir.path(),
-            source: Source::Local(greet_wasm()),
+            source: Source::Local(greet),
             allow_unsigned: false,
             trust: Trust::Refuse,
             dry_run: false,
@@ -723,28 +725,23 @@ mod tests {
         }
     }
 
-    /// The embedded bytes of the builtin `name`.
-    fn builtin_bytes(name: &str) -> &'static [u8] {
-        specforge_component::builtins::BUILTIN_EXTENSIONS
-            .iter()
-            .find(|(builtin, _)| *builtin == name)
-            .map(|(_, bytes)| *bytes)
-            .expect("a builtin")
-    }
-
     #[test]
     fn add_refuses_a_binary_that_claims_a_builtins_name() {
         use crate::config::testing::files_under;
         let dir = project_with(EMPTY_PROJECT);
         let file = tempfile::tempdir().unwrap();
         let wasm = file.path().join("product.wasm");
-        std::fs::write(&wasm, builtin_bytes("@specforge/product")).unwrap();
+        std::fs::write(&wasm, b"\0asm impostor").unwrap();
+        let impostor = runtime().binary(
+            b"\0asm impostor",
+            declaring("@specforge/product", "9.9.9", &[]),
+        );
         let before = files_under(dir.path());
 
         let error = add(
             &local_request(dir.path(), &wasm),
             &crate::registry::Unconfigured("add"),
-            &runtime(),
+            &impostor,
         )
         .unwrap_err();
 
@@ -812,7 +809,7 @@ mod tests {
         let error = add(
             &local_request(dir.path(), &wasm),
             &crate::registry::Unconfigured("add"),
-            &runtime(),
+            &InProcessRuntime::new(),
         )
         .unwrap_err();
 
@@ -857,6 +854,24 @@ mod tests {
         );
     }
 
+    /// `runtime()`, also serving the builtins `@specforge/cargo-test` (which
+    /// requires `@specforge/testing`) and `@specforge/testing`.
+    fn runtime_with_cargo_test() -> InProcessRuntime {
+        serving_builtin(
+            serving_builtin(
+                runtime(),
+                "@specforge/cargo-test",
+                declaring(
+                    "@specforge/cargo-test",
+                    "1.0.0",
+                    &[("@specforge/testing", "^1.0", false)],
+                ),
+            ),
+            "@specforge/testing",
+            declaring("@specforge/testing", "1.0.0", &[]),
+        )
+    }
+
     #[specforge_test(
         behavior = "add_extension_to_existing_project",
         verify = "add enables a builtin's required peers but not its optional ones"
@@ -867,7 +882,7 @@ mod tests {
         let added = add(
             &builtin_request(dir.path(), "@specforge/cargo-test"),
             &crate::registry::Unconfigured("add"),
-            &runtime(),
+            &runtime_with_cargo_test(),
         )
         .unwrap();
 
@@ -895,17 +910,81 @@ mod tests {
             project_with(r#"{"name":"p","version":"0.1.0","extensions":[1,"@specforge/rust"]}"#);
         let registry = crate::registry::Unconfigured("add");
         let request = builtin_request(dir.path(), "@specforge/product");
+        let runtime = serving_builtin(
+            runtime(),
+            "@specforge/product",
+            declaring("@specforge/product", "1.0.0", &[]),
+        );
 
-        let added = add(&request, &registry, &runtime()).unwrap();
+        let added = add(&request, &registry, &runtime).unwrap();
         assert_eq!(added.extensions_enabled, 2);
 
-        let again = add(&request, &registry, &runtime()).unwrap();
+        let again = add(&request, &registry, &runtime).unwrap();
         assert!(matches!(
             again.outcome,
             AddOutcome::Builtin { changed: false, .. }
         ));
         assert!(again.writes.is_empty());
         assert_eq!(again.extensions_enabled, 2);
+    }
+
+    #[specforge_test(
+        behavior = "install_wasm_extension",
+        verify = "add, init and publish read a candidate's declaration in the runtime their surface passes"
+    )]
+    fn a_candidate_is_read_in_the_runtime_the_caller_passes() {
+        let dir = project_with(EMPTY_PROJECT);
+        let files = tempfile::tempdir().unwrap();
+        let greet = files.path().join("greet.wasm");
+        std::fs::write(&greet, GREET).unwrap();
+        let runtime = runtime();
+
+        add(
+            &local_request(dir.path(), &greet),
+            &crate::registry::Unconfigured("add"),
+            &runtime,
+        )
+        .unwrap();
+
+        let handshakes: Vec<_> = runtime
+            .calls()
+            .into_iter()
+            .filter(|call| call.extension == "__candidate" && call.export == "__handshake")
+            .collect();
+        assert_eq!(handshakes.len(), 1, "{handshakes:?}");
+        assert!(
+            !specforge_wasm::WasmRuntime::unload(&runtime, "__candidate"),
+            "the candidate is left unloaded"
+        );
+    }
+
+    /// Bug pin (flipped by the ticket that fixes it): a builtin whose
+    /// declaration cannot be read is enabled, silently, without its peers.
+    #[test]
+    fn a_builtin_whose_declaration_cannot_be_read_is_enabled_without_its_peers() {
+        let dir = project_with(EMPTY_PROJECT);
+
+        let added = add(
+            &builtin_request(dir.path(), "@specforge/cargo-test"),
+            &crate::registry::Unconfigured("add"),
+            &InProcessRuntime::new(),
+        )
+        .unwrap();
+
+        assert_eq!(
+            added.outcome,
+            AddOutcome::Builtin {
+                name: "@specforge/cargo-test",
+                changed: true,
+                peers_enabled: Vec::new(),
+            }
+        );
+        assert_eq!(
+            specforge_common::read_project_config(dir.path())
+                .config
+                .extensions,
+            ["@specforge/cargo-test"]
+        );
     }
 
     #[test]

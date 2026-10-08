@@ -524,7 +524,7 @@ mod tests {
                     dry_run: false,
                 },
                 &unconfigured,
-                &specforge_component::ComponentRuntime::new(),
+                &specforge_wasm::testing::InProcessRuntime::new(),
             )
             .unwrap_err();
             let updated = update(
@@ -536,7 +536,7 @@ mod tests {
                     trust: Trust::Refuse,
                 },
                 &unconfigured,
-                &specforge_component::ComponentRuntime::new(),
+                &specforge_wasm::testing::InProcessRuntime::new(),
             )
             .unwrap_err();
 

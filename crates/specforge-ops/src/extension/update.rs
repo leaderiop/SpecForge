@@ -342,16 +342,14 @@ mod tests {
         Installed::unread(root).module_path(&PackageName::parse(name).unwrap())
     }
 
-    fn runtime() -> specforge_component::ComponentRuntime {
-        specforge_component::ComponentRuntime::new()
+    /// What the tests serve in process: `@sdk/greet` and `@test/probe`.
+    fn runtime() -> specforge_wasm::testing::InProcessRuntime {
+        crate::testing::candidates()
     }
 
-    /// `@sdk/greet` 0.1.0, a real extension binary.
+    /// The bytes served as `@sdk/greet` 0.1.0.
     fn greet() -> Vec<u8> {
-        std::fs::read(
-            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/greet-extension/greet.wasm"),
-        )
-        .expect("the greet fixture is vendored")
+        crate::testing::GREET.to_vec()
     }
 
     /// An in-memory registry: each package's versions, and the bytes it

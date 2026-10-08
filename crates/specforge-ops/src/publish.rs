@@ -194,15 +194,16 @@ mod tests {
     use specforge_protocol_types::PeerDependency;
     use specforge_test_macros::test as specforge_test;
 
-    fn runtime() -> specforge_component::ComponentRuntime {
-        specforge_component::ComponentRuntime::new()
+    use crate::testing;
+    use specforge_wasm::testing::InProcessRuntime;
+
+    /// What the tests serve in process: `@sdk/greet` and `@test/probe`.
+    fn runtime() -> InProcessRuntime {
+        testing::candidates()
     }
 
     fn greet() -> Vec<u8> {
-        std::fs::read(
-            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/greet-extension/greet.wasm"),
-        )
-        .expect("the greet fixture is vendored")
+        testing::GREET.to_vec()
     }
 
     #[specforge_test(
@@ -218,6 +219,23 @@ mod tests {
             "{:?}",
             prepared.diagnostics
         );
+    }
+
+    #[specforge_test(
+        behavior = "install_wasm_extension",
+        verify = "add, init and publish read a candidate's declaration in the runtime their surface passes"
+    )]
+    fn publish_reads_the_binary_in_the_runtime_it_is_given() {
+        let runtime = runtime();
+
+        prepare(&runtime, greet()).unwrap();
+
+        let handshakes = runtime
+            .calls()
+            .into_iter()
+            .filter(|call| call.extension == "__candidate" && call.export == "__handshake")
+            .count();
+        assert_eq!(handshakes, 1);
     }
 
     #[specforge_test(
@@ -248,7 +266,7 @@ mod tests {
         assert!(check(&with_peer, Vec::new()).is_ok());
 
         // A binary that isn't an extension never gets that far.
-        let error = prepare(&runtime(), b"\0asm\x01\0\0\0".to_vec()).unwrap_err();
+        let error = prepare(&InProcessRuntime::new(), b"\0asm\x01\0\0\0".to_vec()).unwrap_err();
         assert_eq!(error.code, "E028", "{error:?}");
     }
 

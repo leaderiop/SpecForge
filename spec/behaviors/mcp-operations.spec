@@ -254,6 +254,7 @@ behavior provide_mcp_add_extension_tool "Provide MCP Add Extension Tool" {
   verify unit "wasm module downloaded for remote extensions"
   verify unit "invalid manifest returns error"
   verify unit "dry_run returns preview without modifying files"
+  verify unit "add, init and publish read a candidate's declaration in the runtime their surface passes"
   verify contract "Provide MCP Add Extension Tool: MCP add extension tool holds — filesystem_available, extension_installed, wasm_downloaded, extension_added_emitted, dry_run_safe, tool_invoked_emitted"
   verify unit "invalid specifier format returns error"
   verify integration "a builtin is enabled with no registry and no network"

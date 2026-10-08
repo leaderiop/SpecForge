@@ -1039,6 +1039,50 @@ fn add_extension_returns_result() {
     assert!(lock.contains("@sdk/greet"));
 }
 
+#[specforge_test(
+    behavior = "provide_mcp_add_extension_tool",
+    verify = "add, init and publish read a candidate's declaration in the runtime their surface passes"
+)]
+fn add_extension_reads_the_candidate_in_the_host_runtime() {
+    // The host serves `@sdk/greet` in process: the tool reads the candidate
+    // in it, and the served session then loads the install through it too.
+    let runtime = std::sync::Arc::new(specforge_ops::testing::candidates());
+    let mut server = TestProject::new()
+        .enabling(&[])
+        .serve_in(runtime.clone() as specforge_project::SharedRuntime);
+    let root = server.root().to_path_buf();
+    let files = tempfile::tempdir().unwrap();
+    let greet = files.path().join("greet.wasm");
+    std::fs::write(&greet, specforge_ops::testing::GREET).unwrap();
+
+    let resp = call_tool(
+        &mut server,
+        "specforge.add_extension",
+        json!({"specifier": greet.to_str().unwrap()}),
+    );
+
+    let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+    assert_eq!(parsed["installed"], true, "{parsed}");
+    let lock = std::fs::read_to_string(root.join("specforge.lock")).unwrap();
+    assert!(lock.contains("@sdk/greet"), "{lock}");
+    let handshakes = runtime
+        .calls()
+        .into_iter()
+        .filter(|call| call.extension == "__candidate" && call.export == "__handshake")
+        .count();
+    assert_eq!(handshakes, 1);
+
+    let listed = call_tool(&mut server, "specforge.extensions", json!({}));
+    let listed: Value = serde_json::from_str(&tool_text(&listed)).unwrap();
+    let greet = listed["extensions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|e| e["name"] == "@sdk/greet")
+        .unwrap_or_else(|| panic!("{listed}"));
+    assert_eq!(greet["status"], "loaded", "{listed}");
+}
+
 #[test]
 fn add_extension_missing_specifier() {
     let mut server = test_server();

@@ -6,8 +6,10 @@ use std::path::{Path, PathBuf};
 
 use specforge_ops::Writes;
 use specforge_ops::extension::{self, AddOutcome, AddRequest, RemoveRequest, Source, Trust};
+use specforge_ops::testing::{self, declaring, serving_builtin};
 use specforge_ops::view::ProjectView;
 use specforge_project::CompiledProject;
+use specforge_wasm::testing::InProcessRuntime;
 use tempfile::TempDir;
 
 type Snapshot = BTreeMap<PathBuf, Vec<u8>>;
@@ -66,10 +68,44 @@ fn project(extensions: &[&str], files: &[(&str, &str)]) -> TempDir {
     dir
 }
 
-/// The extension blob the build vendors: `@sdk/greet`, declaring the kind
-/// `greeting`.
-fn greet_blob() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/greet-extension/greet.wasm")
+/// The binaries a test installs from, as files: `@sdk/greet` (declaring
+/// the kind `greeting`), the same extension with other bytes, and
+/// `@test/probe`. Served in process by [`candidates`].
+struct Blobs {
+    dir: TempDir,
+}
+
+impl Blobs {
+    fn new() -> Self {
+        let dir = TempDir::new().unwrap();
+        std::fs::write(dir.path().join("greet.wasm"), testing::GREET).unwrap();
+        std::fs::write(dir.path().join("greet-v.wasm"), testing::GREET_VARIANT).unwrap();
+        std::fs::write(dir.path().join("probe.wasm"), testing::PROBE).unwrap();
+        Blobs { dir }
+    }
+
+    fn greet(&self) -> PathBuf {
+        self.dir.path().join("greet.wasm")
+    }
+
+    /// `@sdk/greet` 0.1.0 with other bytes.
+    fn variant(&self) -> PathBuf {
+        self.dir.path().join("greet-v.wasm")
+    }
+
+    fn probe(&self) -> PathBuf {
+        self.dir.path().join("probe.wasm")
+    }
+}
+
+/// What the tests serve in process: the blobs, and the builtin
+/// `@specforge/product` as a look-alike.
+fn candidates() -> InProcessRuntime {
+    serving_builtin(
+        testing::candidates(),
+        "@specforge/product",
+        declaring("@specforge/product", "1.0.0", &[]),
+    )
 }
 
 const GREET: &str = "@sdk/greet";
@@ -85,24 +121,33 @@ fn add(root: &Path, source: Source) -> Result<extension::Added, specforge_ops::O
             dry_run: false,
         },
         &specforge_ops::registry::Unconfigured("test"),
-        &specforge_component::ComponentRuntime::with_user_cache(),
+        &candidates(),
     )
 }
 
-/// The project at `root`, compiled with its own component runtime.
+/// The project at `root`, compiled in process with [`candidates`].
 fn compiled(root: &Path) -> CompiledProject {
+    CompiledProject::compile(root, Some(&candidates()))
+}
+
+/// The project at `root`, compiled with the component runtime that loads
+/// the builtins.
+fn compiled_with_builtins(root: &Path) -> CompiledProject {
     let runtime = specforge_component::ComponentRuntime::with_user_cache();
     CompiledProject::compile(root, Some(&runtime))
 }
 
 fn remove(root: &Path, name: &str, dry_run: bool) -> extension::RemoveOutcome {
-    let project = compiled(root);
+    remove_over(&compiled(root), name, dry_run)
+}
+
+fn remove_over(project: &CompiledProject, name: &str, dry_run: bool) -> extension::RemoveOutcome {
     let request = RemoveRequest {
         name,
         force: false,
         dry_run,
     };
-    extension::remove(&ProjectView::of(&project), &request).unwrap()
+    extension::remove(&ProjectView::of(project), &request).unwrap()
 }
 
 const MESSY: &str = "behavior messy \"Messy\" {\ncontract \"The system MUST work\"\n}\n";
@@ -163,7 +208,7 @@ fn rename_writes_are_the_files_it_edited() {
         ],
     );
     let root = dir.path();
-    let project = compiled(root);
+    let project = compiled_with_builtins(root);
     let read = |f: &str| std::fs::read_to_string(root.join(f)).ok();
     let plan = rename::plan(
         &Navigator::new(ProjectView::of(&project), read),
@@ -179,11 +224,13 @@ fn rename_writes_are_the_files_it_edited() {
     assert_eq!(changed_since(root, &before), ["limit.spec", "login.spec"]);
 }
 
+/// The component runtime that loads the builtins, with the per-user cache.
 fn runtime() -> specforge_component::ComponentRuntime {
     specforge_component::ComponentRuntime::with_user_cache()
 }
 
-/// What `init` scaffolds in `dir` with `extensions`.
+/// What `init` scaffolds in `dir` with `extensions`, the candidates read in
+/// process.
 fn init(dir: &Path, extensions: &[String]) -> specforge_ops::init::Outcome {
     use specforge_ops::init;
     let request = init::Request {
@@ -193,8 +240,7 @@ fn init(dir: &Path, extensions: &[String]) -> specforge_ops::init::Outcome {
         extensions,
         forbid_inside: None,
     };
-    let runtime = specforge_component::ComponentRuntime::with_user_cache();
-    let plan = init::plan(&request, &runtime).unwrap();
+    let plan = init::plan(&request, &candidates()).unwrap();
     init::apply(dir, plan).unwrap()
 }
 
@@ -278,10 +324,11 @@ fn the_starter_states_the_project_version() {
 
 #[test]
 fn init_with_a_local_extension_writes_its_module_and_lock() {
+    let blobs = Blobs::new();
     let scratch = TempDir::new().unwrap();
     let dir = scratch.path().join("with-greet");
 
-    let outcome = init(&dir, &[greet_blob().display().to_string()]);
+    let outcome = init(&dir, &[blobs.greet().display().to_string()]);
 
     assert_eq!(
         listed(&outcome.writes, &dir),
@@ -339,11 +386,12 @@ fn enabling_an_enabled_builtin_writes_nothing() {
 
 #[test]
 fn installing_a_local_extension_writes_module_lock_and_config() {
+    let blobs = Blobs::new();
     let dir = project(&[], &[]);
     let root = dir.path();
     let before = files_under(root);
 
-    let added = add(root, Source::Local(greet_blob())).unwrap();
+    let added = add(root, Source::Local(blobs.greet())).unwrap();
 
     assert!(matches!(added.outcome, AddOutcome::Installed { .. }));
     let three = [MODULE, "specforge.json", "specforge.lock"];
@@ -353,7 +401,7 @@ fn installing_a_local_extension_writes_module_lock_and_config() {
 
     // The same blob again: already present, nothing written.
     let before = files_under(root);
-    let again = add(root, Source::Local(greet_blob())).unwrap();
+    let again = add(root, Source::Local(blobs.greet())).unwrap();
     assert!(matches!(again.outcome, AddOutcome::AlreadyPresent { .. }));
     assert!(again.writes.is_empty());
     assert_eq!(changed_since(root, &before), Vec::<String>::new());
@@ -364,6 +412,7 @@ fn installing_a_local_extension_writes_module_lock_and_config() {
     verify = "a failed install puts back the binary, specforge.lock and specforge.json it changed"
 )]
 fn an_add_that_fails_after_placing_its_module_writes_nothing() {
+    let blobs = Blobs::new();
     let dir = project(&[], &[]);
     let root = dir.path();
     // The lock is written through a sibling file; a directory in its place
@@ -371,7 +420,7 @@ fn an_add_that_fails_after_placing_its_module_writes_nothing() {
     std::fs::create_dir_all(root.join("specforge.lock.tmp")).unwrap();
     let before = files_under(root);
 
-    let error = add(root, Source::Local(greet_blob())).unwrap_err();
+    let error = add(root, Source::Local(blobs.greet())).unwrap_err();
 
     assert_eq!(error.code, "E033", "{error:?}");
     assert!(
@@ -382,31 +431,8 @@ fn an_add_that_fails_after_placing_its_module_writes_nothing() {
     assert_eq!(changed_since(root, &before), Vec::<String>::new());
 }
 
-/// `@sdk/greet` 0.1.0 with other bytes: the vendored blob plus one custom
-/// section, which wasmtime loads like the original.
-fn greet_variant() -> Vec<u8> {
-    let mut bytes = std::fs::read(greet_blob()).unwrap();
-    let body: Vec<u8> = [&[3u8][..], b"pin", b"variant"].concat();
-    bytes.push(0);
-    bytes.push(body.len() as u8);
-    bytes.extend(body);
-    bytes
-}
-
-/// The sandbox probe, an installable extension that declares `@test/probe`.
-fn probe_blob() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/sandbox-probe/probe.wasm")
-}
-
 const PROBE: &str = "@test/probe";
 const PROBE_MODULE: &str = ".specforge/extensions/@test/probe/extension.wasm";
-
-/// `bytes` as a file under `dir`, for `add` to install from.
-fn blob_file(dir: &Path, name: &str, bytes: &[u8]) -> PathBuf {
-    let path = dir.join(name);
-    std::fs::write(&path, bytes).unwrap();
-    path
-}
 
 /// Make the lock write fail: it goes through a sibling file, and a
 /// directory in its place cannot be written.
@@ -416,11 +442,11 @@ fn unwritable_lock(root: &Path) {
 
 #[test]
 fn a_failed_add_over_an_install_keeps_the_pinned_binary() {
+    let blobs = Blobs::new();
     let dir = project(&[], &[]);
     let root = dir.path();
-    add(root, Source::Local(greet_blob())).unwrap();
-    let scratch = TempDir::new().unwrap();
-    let variant = blob_file(scratch.path(), "greet-v.wasm", &greet_variant());
+    add(root, Source::Local(blobs.greet())).unwrap();
+    let variant = blobs.variant();
     let before = files_under(root);
     unwritable_lock(root);
 
@@ -443,13 +469,13 @@ fn a_failed_add_over_an_install_keeps_the_pinned_binary() {
     verify = "an unreadable lock file is E033 and is never replaced by a change"
 )]
 fn an_add_over_an_unreadable_lock_is_refused() {
+    let blobs = Blobs::new();
     let dir = project(&[], &[]);
     let root = dir.path();
-    add(root, Source::Local(greet_blob())).unwrap();
-    add(root, Source::Local(probe_blob())).unwrap();
+    add(root, Source::Local(blobs.greet())).unwrap();
+    add(root, Source::Local(blobs.probe())).unwrap();
     std::fs::write(root.join("specforge.lock"), "not a lock {{{").unwrap();
-    let scratch = TempDir::new().unwrap();
-    let variant = blob_file(scratch.path(), "greet-v.wasm", &greet_variant());
+    let variant = blobs.variant();
     let before = files_under(root);
 
     let error = add(root, Source::Local(variant)).unwrap_err();
@@ -466,10 +492,11 @@ fn an_add_over_an_unreadable_lock_is_refused() {
     verify = "a removal that fails changes nothing"
 )]
 fn a_failed_remove_changes_nothing() {
+    let blobs = Blobs::new();
     let dir = project(&[], &[]);
     let root = dir.path();
-    add(root, Source::Local(greet_blob())).unwrap();
-    add(root, Source::Local(probe_blob())).unwrap();
+    add(root, Source::Local(blobs.greet())).unwrap();
+    add(root, Source::Local(blobs.probe())).unwrap();
     unwritable_lock(root);
     let before = files_under(root);
     let project = compiled(root);
@@ -496,9 +523,10 @@ fn a_failed_remove_changes_nothing() {
 
 #[test]
 fn removing_an_install_writes_its_module_lock_and_config() {
+    let blobs = Blobs::new();
     let dir = project(&[], &[]);
     let root = dir.path();
-    add(root, Source::Local(greet_blob())).unwrap();
+    add(root, Source::Local(blobs.greet())).unwrap();
     let before = files_under(root);
 
     let outcome = remove(root, GREET, false);
@@ -514,7 +542,7 @@ fn disabling_a_builtin_writes_the_config_only() {
     let root = dir.path();
     let before = files_under(root);
 
-    let outcome = remove(root, "@specforge/product", false);
+    let outcome = remove_over(&compiled_with_builtins(root), "@specforge/product", false);
 
     assert_eq!(listed(&outcome.writes, root), ["specforge.json"]);
     assert_eq!(changed_since(root, &before), ["specforge.json"]);
@@ -522,13 +550,18 @@ fn disabling_a_builtin_writes_the_config_only() {
     // A dry run writes nothing.
     let dir = project(&["@specforge/product"], &[]);
     let before = files_under(dir.path());
-    let preview = remove(dir.path(), "@specforge/product", true);
+    let preview = remove_over(
+        &compiled_with_builtins(dir.path()),
+        "@specforge/product",
+        true,
+    );
     assert!(preview.writes.is_empty());
     assert_eq!(changed_since(dir.path(), &before), Vec::<String>::new());
 }
 
 #[test]
 fn orphaned_lists_the_entity_ids() {
+    let blobs = Blobs::new();
     let dir = project(
         &[],
         &[
@@ -537,7 +570,7 @@ fn orphaned_lists_the_entity_ids() {
         ],
     );
     let root = dir.path();
-    add(root, Source::Local(greet_blob())).unwrap();
+    add(root, Source::Local(blobs.greet())).unwrap();
 
     let outcome = remove(root, GREET, true);
 
@@ -606,15 +639,6 @@ fn a_rolled_back_migration_keeps_only_its_backups() {
     assert_eq!(changed_since(root, &before), ["old.spec.bak"]);
 }
 
-/// The bytes of the embedded builtin `name`.
-fn builtin_bytes(name: &str) -> &'static [u8] {
-    specforge_component::builtins::BUILTIN_EXTENSIONS
-        .iter()
-        .find(|(builtin, _)| *builtin == name)
-        .map(|(_, bytes)| *bytes)
-        .expect("a builtin")
-}
-
 /// Bug pin (flipped by the ticket that fixes it): `init` enables a builtin
 /// without the builtins it requires, so the first `check` fails E027.
 #[test]
@@ -645,7 +669,11 @@ fn init_refuses_a_local_binary_that_claims_a_builtins_name_before_writing() {
     use specforge_ops::init;
     let scratch = TempDir::new().unwrap();
     let wasm = scratch.path().join("product.wasm");
-    std::fs::write(&wasm, builtin_bytes("@specforge/product")).unwrap();
+    std::fs::write(&wasm, b"\0asm impostor").unwrap();
+    let impostor = candidates().binary(
+        b"\0asm impostor",
+        declaring("@specforge/product", "9.9.9", &[]),
+    );
     let dir = scratch.path().join("never");
     let extensions = vec![wasm.display().to_string()];
     let request = init::Request {
@@ -656,7 +684,7 @@ fn init_refuses_a_local_binary_that_claims_a_builtins_name_before_writing() {
         forbid_inside: None,
     };
 
-    let error = init::plan(&request, &runtime()).unwrap_err();
+    let error = init::plan(&request, &impostor).unwrap_err();
 
     assert_eq!(error.code, "extension_not_found");
     assert_eq!(
@@ -667,4 +695,41 @@ fn init_refuses_a_local_binary_that_claims_a_builtins_name_before_writing() {
         )
     );
     assert!(!dir.exists());
+}
+
+#[specforge_test_macros::test(
+    behavior = "install_wasm_extension",
+    verify = "add, init and publish read a candidate's declaration in the runtime their surface passes"
+)]
+fn init_reads_a_local_file_once() {
+    use specforge_ops::init;
+    let blobs = Blobs::new();
+    let scratch = TempDir::new().unwrap();
+    let dir = scratch.path().join("once");
+    let extensions = vec![blobs.greet().display().to_string()];
+    let request = init::Request {
+        dir: &dir,
+        name: Some("demo"),
+        version: init::DEFAULT_VERSION,
+        extensions: &extensions,
+        forbid_inside: None,
+    };
+    let runtime = candidates();
+    let handshakes = |runtime: &InProcessRuntime| {
+        runtime
+            .calls()
+            .iter()
+            .filter(|call| call.extension == "__candidate" && call.export == "__handshake")
+            .count()
+    };
+
+    let plan = init::plan(&request, &runtime).unwrap();
+    assert_eq!(handshakes(&runtime), 1);
+
+    init::apply(&dir, plan).unwrap();
+    assert_eq!(
+        handshakes(&runtime),
+        1,
+        "apply installs without reading again"
+    );
 }
