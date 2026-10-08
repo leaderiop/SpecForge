@@ -65,8 +65,9 @@ fn event_mcp_initialized() {
 )]
 fn event_mcp_server_shutdown() {
     let mut server = init_server();
-    // Two subscriptions and one notification waiting to be sent: a new
-    // behavior changes the graph, not the diagnostics.
+    // Two subscriptions and two notifications waiting to be sent: a new
+    // behavior changes the graph (the resource's update, then the delta),
+    // not the diagnostics.
     for uri in ["specforge://graph", "specforge://diagnostics"] {
         call(&mut server, "resources/subscribe", json!({"uri": uri}));
     }
@@ -77,7 +78,7 @@ fn event_mcp_server_shutdown() {
     assert_eq!(
         only_event(&server, "mcp_server_shutdown"),
         json!({
-            "pending_notifications_flushed": 1,
+            "pending_notifications_flushed": 2,
             "subscriptions_released": 2,
             "wasm_engines_released": 1,
         })
@@ -320,10 +321,10 @@ fn event_mcp_delta_notified() {
     let notifications = server.take_notifications();
     assert_eq!(
         notifications.len(),
-        1,
+        2,
         "subscribed client must receive the graph delta: {notifications:?}"
     );
-    assert_eq!(notifications[0]["method"], "specforge/graphChanged");
+    assert_eq!(notifications[1]["method"], "specforge/graphChanged");
     // gamma and delta were added.
     assert_eq!(
         only_event(&server, "mcp_delta_notified"),
@@ -362,10 +363,10 @@ fn event_mcp_mutation_completed() {
     assert_eq!(events(&server, "mcp_mutation_completed").len(), 1);
 }
 
-// E:mcp_subscription_created — verify integration "emits mcp_subscription_created when a client subscribes to delta notifications"
+// E:mcp_subscription_created — verify integration "emits mcp_subscription_created for each resource a client subscribes to or a listen stream names"
 #[specforge_test(
     behavior = "mcp_subscription_created",
-    verify = "emits mcp_subscription_created when a client subscribes to delta notifications"
+    verify = "emits mcp_subscription_created for each resource a client subscribes to or a listen stream names"
 )]
 fn event_mcp_subscription_created() {
     let mut server = init_server();
@@ -376,14 +377,14 @@ fn event_mcp_subscription_created() {
     );
     assert_eq!(
         only_event(&server, "mcp_subscription_created"),
-        json!({"subscriptionType": "specforge/graphChanged", "clientId": "default"})
+        json!({"resourceUri": "specforge://graph"})
     );
 }
 
-// E:mcp_subscription_removed — verify integration "emits mcp_subscription_removed when a client unsubscribes or server shuts down"
+// E:mcp_subscription_removed — verify integration "emits mcp_subscription_removed for each resource whose subscription ends: unsubscribe, cancel, disconnect or shutdown"
 #[specforge_test(
     behavior = "mcp_subscription_removed",
-    verify = "emits mcp_subscription_removed when a client unsubscribes or server shuts down"
+    verify = "emits mcp_subscription_removed for each resource whose subscription ends: unsubscribe, cancel, disconnect or shutdown"
 )]
 fn event_mcp_subscription_removed() {
     let mut server = init_server();
@@ -399,7 +400,7 @@ fn event_mcp_subscription_removed() {
     );
     assert_eq!(
         only_event(&server, "mcp_subscription_removed"),
-        json!({"subscriptionType": "specforge/graphChanged", "clientId": "default"})
+        json!({"resourceUri": "specforge://graph"})
     );
 }
 

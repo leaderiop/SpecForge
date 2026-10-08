@@ -98,9 +98,8 @@ type McpToolAnnotations {
 }
 
 type McpSubscription {
-  client_id     string @readonly
-  channel       string @readonly
-  subscribed_at timestamp
+  uri             string @readonly
+  subscription_id string @readonly @optional
   verify unit "McpSubscription schema is valid"
 }
 

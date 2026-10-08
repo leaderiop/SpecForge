@@ -108,21 +108,21 @@ event mcp_mutation_completed "MCP Mutation Completed" {
 event mcp_subscription_created "MCP Subscription Created" {
   channel "mcp.subscription_created"
   payload {
-    subscriptionType string
-    clientId         string
-    timestamp        timestamp
+    resourceUri    string
+    subscriptionId string @optional
+    timestamp      timestamp
   }
-  verify integration "emits mcp_subscription_created when a client subscribes to delta notifications"
+  verify integration "emits mcp_subscription_created for each resource a client subscribes to or a listen stream names"
 }
 
 event mcp_subscription_removed "MCP Subscription Removed" {
   channel "mcp.subscription_removed"
   payload {
-    subscriptionType string
-    clientId         string
-    timestamp        timestamp
+    resourceUri    string
+    subscriptionId string @optional
+    timestamp      timestamp
   }
-  verify integration "emits mcp_subscription_removed when a client unsubscribes or server shuts down"
+  verify integration "emits mcp_subscription_removed for each resource whose subscription ends: unsubscribe, cancel, disconnect or shutdown"
 }
 
 event mcp_initialization_failed "MCP Initialization Failed" {

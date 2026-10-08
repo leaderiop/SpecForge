@@ -180,11 +180,11 @@ pub fn handle_cancel(state: &mut McpState, params: Value, id: Option<Value>) -> 
         state.subscriptions.end(listened, &mut state.events);
     }
     // JSON-RPC ids are strings or numbers; the event names either as a string.
-    let request_id = match params.get("requestId").or_else(|| params.get("id")) {
-        Some(Value::String(s)) => s.clone(),
-        Some(Value::Null) | None => String::new(),
-        Some(other) => other.to_string(),
-    };
+    let request_id = params
+        .get("requestId")
+        .or_else(|| params.get("id"))
+        .map(crate::protocol::id_text)
+        .unwrap_or_default();
     // Requests run one at a time, so the one named has already completed:
     // it was never in progress, and cancelling it changes nothing.
     state.push_event(

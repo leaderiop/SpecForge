@@ -435,7 +435,7 @@ fn cancelling_the_listen_request_ends_the_stream() {
             .events
             .iter()
             .any(|e| e.name == "mcp_subscription_removed"
-                && e.params["subscriptionType"] == "specforge://graph"),
+                && e.params["resourceUri"] == "specforge://graph"),
         "no mcp_subscription_removed"
     );
 
@@ -457,7 +457,7 @@ fn the_end_of_the_connection_ends_the_stream() {
     server.disconnect();
     assert_eq!(
         events(&server, "mcp_subscription_removed"),
-        [json!({"subscriptionType": "specforge://graph", "clientId": "7"})]
+        [json!({"resourceUri": "specforge://graph", "subscriptionId": "7"})]
     );
     change_graph(&mut server, &dir);
     assert!(server.take_notifications().is_empty());

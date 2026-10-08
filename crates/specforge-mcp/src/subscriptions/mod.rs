@@ -19,6 +19,7 @@ use serde_json::{Value, json};
 use specforge_common::Diagnostic;
 use specforge_project::{GraphDelta, Update};
 
+use crate::protocol::id_text;
 use crate::types::McpEvent;
 
 /// What a resource's content changes with: the one rule both eras read.
@@ -40,14 +41,6 @@ impl Watched {
             Watched::Diagnostics
         } else {
             Watched::Graph
-        }
-    }
-
-    /// The handshake era's notification method for this aspect.
-    fn channel(self) -> &'static str {
-        match self {
-            Watched::Graph => wire::GRAPH_CHANGED,
-            Watched::Diagnostics => wire::DIAGNOSTICS_CHANGED,
         }
     }
 }
@@ -148,8 +141,8 @@ struct Stream {
 /// Who hears about what, and what waits to be sent.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Subscriptions {
-    /// `resources/subscribe`: what the client hears about, once each.
-    channels: Vec<Watched>,
+    /// `resources/subscribe`: each resource once, in subscription order.
+    resources: Vec<String>,
     /// `subscriptions/listen`: the open streams, in opening order.
     streams: Vec<Stream>,
     /// Queued notifications, oldest first.
@@ -162,55 +155,52 @@ impl Subscriptions {
         Self::default()
     }
 
-    /// `resources/subscribe`: the client hears when what `uri` changes with
-    /// changes, until it unsubscribes or the connection ends. False when it
-    /// already did. The request checked that the server serves `uri`.
-    /// Records `mcp_subscription_created`.
+    /// `resources/subscribe`: the client hears when `uri` changes, until it
+    /// unsubscribes or the connection ends. False when it already did. The
+    /// request checked that the server serves `uri`. Records
+    /// `mcp_subscription_created`.
     pub fn subscribe(&mut self, uri: &str, events: &mut Vec<McpEvent>) -> bool {
-        let watched = Watched::of(uri);
-        if self.channels.contains(&watched) {
+        if self.resources.iter().any(|held| held == uri) {
             return false;
         }
-        self.channels.push(watched);
-        events.push(subscription_event(
-            "mcp_subscription_created",
-            watched.channel(),
-            "default",
-        ));
+        self.resources.push(uri.to_string());
+        events.push(subscription_event("mcp_subscription_created", uri, None));
         true
     }
 
-    /// `resources/unsubscribe`: the client no longer hears about what `uri`
-    /// changes with. False when it did not. Records
+    /// `resources/unsubscribe`: the client no longer hears about `uri`; its
+    /// other subscriptions stay. False when it did not. Records
     /// `mcp_subscription_removed`.
     pub fn unsubscribe(&mut self, uri: &str, events: &mut Vec<McpEvent>) -> bool {
-        let watched = Watched::of(uri);
-        let Some(position) = self.channels.iter().position(|held| *held == watched) else {
+        let Some(position) = self.resources.iter().position(|held| held == uri) else {
             return false;
         };
-        self.channels.remove(position);
-        events.push(subscription_event(
-            "mcp_subscription_removed",
-            watched.channel(),
-            "default",
-        ));
+        self.resources.remove(position);
+        events.push(subscription_event("mcp_subscription_removed", uri, None));
         true
     }
 
-    /// `subscriptions/listen`: open the stream `id` on `uris`, queueing its
-    /// acknowledgement before anything else on it. Records
+    /// `subscriptions/listen`: open the stream `id` on `uris` (each once, in
+    /// the order first named), queueing its acknowledgement before anything
+    /// else on it. A stream already open under `id` ends first. Records
     /// `mcp_subscription_created` per resource.
     pub fn listen(&mut self, id: Value, uris: Vec<String>, events: &mut Vec<McpEvent>) {
-        self.outbox.push(wire::acknowledged(&id, &uris));
-        for uri in &uris {
+        self.end(&id, events);
+        let mut named = Vec::with_capacity(uris.len());
+        for uri in uris {
+            if !named.contains(&uri) {
+                named.push(uri);
+            }
+        }
+        self.outbox.push(wire::acknowledged(&id, &named));
+        for uri in &named {
             events.push(subscription_event(
                 "mcp_subscription_created",
                 uri,
-                &id.to_string(),
+                Some(&id),
             ));
         }
-        self.streams.retain(|open| open.id != id);
-        self.streams.push(Stream { id, uris });
+        self.streams.push(Stream { id, uris: named });
     }
 
     /// The client cancelled the listen request `id`: its stream ends, and
@@ -225,7 +215,7 @@ impl Subscriptions {
             events.push(subscription_event(
                 "mcp_subscription_removed",
                 uri,
-                &ended.id.to_string(),
+                Some(&ended.id),
             ));
         }
         true
@@ -237,12 +227,8 @@ impl Subscriptions {
     /// (a stream counts one per resource).
     pub fn disconnect(&mut self, events: &mut Vec<McpEvent>) -> usize {
         let mut ended = 0;
-        for watched in self.channels.drain(..) {
-            events.push(subscription_event(
-                "mcp_subscription_removed",
-                watched.channel(),
-                "default",
-            ));
+        for uri in self.resources.drain(..) {
+            events.push(subscription_event("mcp_subscription_removed", &uri, None));
             ended += 1;
         }
         for stream in self.streams.drain(..) {
@@ -250,7 +236,7 @@ impl Subscriptions {
                 events.push(subscription_event(
                     "mcp_subscription_removed",
                     uri,
-                    &stream.id.to_string(),
+                    Some(&stream.id),
                 ));
                 ended += 1;
             }
@@ -261,19 +247,20 @@ impl Subscriptions {
     /// Whether anyone hears about the diagnostics: only then does an update
     /// read them before and after it applies.
     pub fn hears_diagnostics(&self) -> bool {
-        self.hears(Watched::Diagnostics)
-            || self
-                .streams
-                .iter()
-                .flat_map(|stream| &stream.uris)
-                .any(|uri| Watched::of(uri) == Watched::Diagnostics)
+        self.resources
+            .iter()
+            .chain(self.streams.iter().flat_map(|stream| &stream.uris))
+            .any(|uri| Watched::of(uri) == Watched::Diagnostics)
     }
 
-    /// After an update of the served project: queue, for each open stream,
-    /// `notifications/resources/updated` (with the stream's id) for each
-    /// resource it names that `changes` touched; then `specforge/graphChanged`
-    /// and `specforge/diagnosticsChanged` for each subscribed aspect that
-    /// changed. Records `mcp_delta_notified` per delta queued.
+    /// After an update of the served project: queue, in this order, for
+    /// each open stream, `notifications/resources/updated` (with the
+    /// stream's id) for each resource it names that `changes` touched; for
+    /// each subscribed resource it touched, `notifications/resources/updated`;
+    /// `specforge/graphChanged` when the graph delta is not empty and a
+    /// subscribed resource changes with the graph; `specforge/diagnosticsChanged`
+    /// when the diagnostics changed and `specforge://diagnostics` is
+    /// subscribed. Records `mcp_delta_notified` per delta queued.
     pub fn updated(&mut self, changes: &Changes<'_>, events: &mut Vec<McpEvent>) {
         for stream in &self.streams {
             for uri in &stream.uris {
@@ -283,34 +270,39 @@ impl Subscriptions {
                 }
             }
         }
-        for watched in [Watched::Graph, Watched::Diagnostics] {
-            if !self.hears(watched) || !changes.touched(watched) {
-                continue;
+        for uri in &self.resources {
+            if changes.touched(Watched::of(uri)) {
+                self.outbox.push(wire::resource_updated(uri, None));
             }
-            let (notification, summary) = match (watched, &changes.diagnostics) {
-                (Watched::Graph, _) => (
-                    wire::graph_changed(changes.graph),
-                    json!({
-                        "notificationType": "graph",
-                        "subscriberCount": 1,
-                        "addedNodes": changes.graph.added_nodes.len(),
-                        "removedNodes": changes.graph.removed_nodes.len(),
-                        "modifiedNodes": changes.graph.modified_nodes.len(),
-                    }),
-                ),
-                (Watched::Diagnostics, Some(delta)) => (
-                    wire::diagnostics_changed(delta),
-                    json!({
-                        "notificationType": "diagnostics",
-                        "subscriberCount": 1,
-                        "addedDiagnostics": delta.added.len(),
-                        "removedDiagnostics": delta.removed.len(),
-                    }),
-                ),
-                (Watched::Diagnostics, None) => continue,
-            };
-            self.outbox.push(notification);
-            events.push(McpEvent::new("mcp_delta_notified", summary));
+        }
+        let subscribed =
+            |watched: Watched| self.resources.iter().any(|uri| Watched::of(uri) == watched);
+        if !changes.graph.is_empty() && subscribed(Watched::Graph) {
+            self.outbox.push(wire::graph_changed(changes.graph));
+            events.push(McpEvent::new(
+                "mcp_delta_notified",
+                json!({
+                    "notificationType": "graph",
+                    "subscriberCount": 1,
+                    "addedNodes": changes.graph.added_nodes.len(),
+                    "removedNodes": changes.graph.removed_nodes.len(),
+                    "modifiedNodes": changes.graph.modified_nodes.len(),
+                }),
+            ));
+        }
+        if let Some(delta) = changes.diagnostics.as_ref().filter(|d| !d.is_empty())
+            && subscribed(Watched::Diagnostics)
+        {
+            self.outbox.push(wire::diagnostics_changed(delta));
+            events.push(McpEvent::new(
+                "mcp_delta_notified",
+                json!({
+                    "notificationType": "diagnostics",
+                    "subscriberCount": 1,
+                    "addedDiagnostics": delta.added.len(),
+                    "removedDiagnostics": delta.removed.len(),
+                }),
+            ));
         }
     }
 
@@ -324,24 +316,25 @@ impl Subscriptions {
         self.outbox.len()
     }
 
-    /// Whether the client subscribed to a resource that changes with
-    /// `watched`.
-    pub fn hears(&self, watched: Watched) -> bool {
-        self.channels.contains(&watched)
+    /// The resources the client subscribed to, in order.
+    pub fn subscribed(&self) -> &[String] {
+        &self.resources
     }
 
     /// Nothing subscribed and no stream open.
     pub fn is_empty(&self) -> bool {
-        self.channels.is_empty() && self.streams.is_empty()
+        self.resources.is_empty() && self.streams.is_empty()
     }
 }
 
-/// An `mcp_subscription_created` / `_removed` event.
-fn subscription_event(name: &str, subscription_type: &str, client_id: &str) -> McpEvent {
-    McpEvent::new(
-        name,
-        json!({"subscriptionType": subscription_type, "clientId": client_id}),
-    )
+/// An `mcp_subscription_created` / `_removed` event: the resource, and the
+/// listen request's id when it is on a stream.
+fn subscription_event(name: &str, uri: &str, stream: Option<&Value>) -> McpEvent {
+    let mut params = json!({ "resourceUri": uri });
+    if let Some(id) = stream {
+        params["subscriptionId"] = Value::String(id_text(id));
+    }
+    McpEvent::new(name, params)
 }
 
 #[cfg(test)]
@@ -363,10 +356,5 @@ mod tests {
         ] {
             assert_eq!(Watched::of(uri), Watched::Graph, "{uri}");
         }
-        assert_eq!(Watched::Graph.channel(), "specforge/graphChanged");
-        assert_eq!(
-            Watched::Diagnostics.channel(),
-            "specforge/diagnosticsChanged"
-        );
     }
 }

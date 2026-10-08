@@ -8,7 +8,6 @@
 
 use serde_json::{Value, json};
 use specforge_mcp::McpServer;
-use specforge_mcp::subscriptions::Watched;
 use specforge_ops::export::{Format, Request};
 use specforge_ops::view::ProjectView;
 use specforge_project::CompiledProject;
@@ -331,8 +330,14 @@ fn subscribing_to_an_unserved_uri_is_refused_as_not_found() {
         let reply = call(&mut server, "resources/subscribe", json!({"uri": uri}));
         assert_eq!(reply["result"], json!({}), "{uri}: {reply}");
     }
-    assert!(server.state().subscriptions().hears(Watched::Graph));
-    assert!(server.state().subscriptions().hears(Watched::Diagnostics));
+    assert_eq!(
+        server.state().subscriptions().subscribed(),
+        [
+            "specforge://graph",
+            "specforge://graph/alpha",
+            "specforge://diagnostics"
+        ]
+    );
     for uri in [
         "specforge://nope",
         "specforge://graph",
@@ -341,7 +346,10 @@ fn subscribing_to_an_unserved_uri_is_refused_as_not_found() {
         let reply = call(&mut server, "resources/unsubscribe", json!({"uri": uri}));
         assert_eq!(reply["result"], json!({}), "{uri}: {reply}");
     }
-    assert!(!server.state().subscriptions().hears(Watched::Graph));
+    assert_eq!(
+        server.state().subscriptions().subscribed(),
+        ["specforge://graph/alpha", "specforge://diagnostics"]
+    );
 }
 
 // --- P10: an extension enabled on disk ---
@@ -444,7 +452,7 @@ fn a_subscription_finds_an_extension_resource_enabled_on_disk() {
     let uri = "specforge://ext/cmds/summary";
     let reply = call(&mut server, "resources/subscribe", json!({"uri": uri}));
     assert_eq!(reply["result"], json!({}), "{reply}");
-    assert!(server.state().subscriptions().hears(Watched::of(uri)));
+    assert_eq!(server.state().subscriptions().subscribed(), [uri]);
 
     // Taken off the list again, the same lookup refuses it as `read` does.
     server.write("specforge.json", &config(&[]));
@@ -862,6 +870,10 @@ fn listen_and_subscribe_watch_by_one_rule() {
                 "notifications/resources/updated".to_string(),
                 context.to_string()
             ),
+            (
+                "notifications/resources/updated".to_string(),
+                context.to_string()
+            ),
             ("specforge/graphChanged".to_string(), String::new()),
         ],
         "{sent:?}"
@@ -878,6 +890,10 @@ fn listen_and_subscribe_watch_by_one_rule() {
                 "notifications/resources/updated".to_string(),
                 diagnostics.to_string()
             ),
+            (
+                "notifications/resources/updated".to_string(),
+                diagnostics.to_string()
+            ),
             ("specforge/diagnosticsChanged".to_string(), String::new()),
         ],
         "{sent:?}"
@@ -886,5 +902,8 @@ fn listen_and_subscribe_watch_by_one_rule() {
         sent[0]["params"]["_meta"]["io.modelcontextprotocol/subscriptionId"],
         1
     );
-    assert!(server.state().subscriptions().hears(Watched::Diagnostics));
+    assert_eq!(
+        server.state().subscriptions().subscribed(),
+        ["specforge://context", "specforge://diagnostics"]
+    );
 }
