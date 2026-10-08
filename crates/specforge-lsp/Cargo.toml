@@ -28,7 +28,7 @@ tokio = { workspace = true }
 serde_json = { workspace = true }
 
 [dev-dependencies]
-specforge-component = { path = "../specforge-component" }
+specforge-component = { path = "../specforge-component", features = ["testing"] }
 specforge-installed = { path = "../specforge-installed", features = ["testing"] }
 specforge-extension-sdk = { path = "../specforge-extension-sdk" }
 specforge-wasm = { path = "../specforge-wasm", features = ["testing"] }

@@ -5,6 +5,11 @@ version.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[features]
+# `builtins::load_builtins` and `load_builtins_for`: put builtins into a
+# runtime outside the extension load, for tests.
+testing = []
+
 [dependencies]
 specforge-wasm = { path = "../specforge-wasm" }
 specforge-common = { workspace = true }
@@ -15,6 +20,7 @@ wasmtime-wasi = "49.0.2"
 wit-bindgen = "0.30"
 
 [dev-dependencies]
+specforge-component = { path = ".", features = ["testing"] }
 # The runtime contract and the SDK-declared greet served in process.
 specforge-extension-sdk = { path = "../specforge-extension-sdk" }
 specforge-diagnostics = { path = "../specforge-diagnostics" }

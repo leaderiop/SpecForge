@@ -24,7 +24,7 @@ sha2.workspace = true
 [dev-dependencies]
 specforge-common = { path = "../specforge-common" }
 specforge-parser = { workspace = true }
-specforge-component = { path = "../specforge-component" }
+specforge-component = { path = "../specforge-component", features = ["testing"] }
 # The outline tests read the real builtin declarations.
 specforge-wasm = { path = "../specforge-wasm" }
 # Integration tests compile whole projects through the crate built on this one.
