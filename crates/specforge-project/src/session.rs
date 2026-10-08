@@ -106,6 +106,19 @@ pub struct Update {
     pub verification: Option<Result<(), String>>,
 }
 
+impl Update {
+    /// How the incremental graph differs from a cold rebuild, when this
+    /// update was verified and the two differ: what every surface reports
+    /// where it reports (watch in its event, the LSP in its log, MCP as a
+    /// debug assertion; ADR 0035).
+    pub fn divergence(&self) -> Option<&str> {
+        match &self.verification {
+            Some(Err(divergence)) => Some(divergence),
+            Some(Ok(())) | None => None,
+        }
+    }
+}
+
 /// A compiled project that accepts source changes and environment reloads.
 ///
 /// It is seeded by one cold build, then kept current incrementally: only

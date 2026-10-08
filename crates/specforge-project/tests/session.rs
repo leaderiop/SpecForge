@@ -2119,3 +2119,23 @@ fn a_session_verifies_its_updates_in_a_debug_build() {
     let update = session.update(SourceChange::Disk(&changed(&["c.spec"])));
     assert_eq!(update.verification.is_some(), cfg!(debug_assertions));
 }
+
+/// What every surface reports of a verified update: how its graph differs
+/// from a cold rebuild, only when it does.
+#[specforge_test(
+    behavior = "validate_delta_correctness",
+    verify = "a discrepancy is reported with a message naming what differs"
+)]
+fn a_divergence_is_the_failed_verification() {
+    let dir = three_files();
+    let mut session = ProjectSession::open(dir.path());
+    let mut update = session.update(SourceChange::Disk(&changed(&["c.spec"])));
+    for (verification, divergence) in [
+        (Some(Err("nodes differ".to_string())), Some("nodes differ")),
+        (Some(Ok(())), None),
+        (None, None),
+    ] {
+        update.verification = verification;
+        assert_eq!(update.divergence(), divergence);
+    }
+}

@@ -31,6 +31,10 @@ pub enum Change {
     Closed(Url),
     /// The client's file watchers reported these events.
     Watched(Vec<FileEvent>),
+    /// The client watches what the session is built from now: apply what
+    /// changed on disk while it did not (`ProjectSession::stale`), except an
+    /// open document's file that still exists (its buffer is the truth).
+    CatchUp,
 }
 
 /// What a closed document's file becomes to the project.
@@ -71,7 +75,10 @@ impl Plan {
     ///   (and every file of a session with no project) leaves the project;
     /// - `Watched`: the paths that are not open documents, and the
     ///   deletions of those that are, as the session classifies them; after
-    ///   an environment reload, every open buffer again.
+    ///   an environment reload, every open buffer again;
+    /// - `CatchUp`: what the session finds changed on disk since it last
+    ///   read it, the same way, except an open document whose file still
+    ///   exists.
     ///
     /// `None` when it asks nothing: no session is held, every edited
     /// document was closed since, the closed document was opened again, no
@@ -130,23 +137,43 @@ impl Plan {
                     .map(|event| PathBuf::from(uri_to_file_path(&event.uri)))
                     .collect();
                 let changes = session.inputs().changes(paths.iter().map(PathBuf::as_path));
-                if changes.is_empty() {
-                    return None;
-                }
-                // The reload read every file from disk again: the open
-                // buffers are still the truth for theirs.
-                let buffers = if changes.environment {
-                    open_buffers(state)
-                } else {
-                    Vec::new()
-                };
-                Some(Plan {
-                    disk: Some(changes),
-                    buffers,
-                    ..nothing
-                })
+                Plan::on_disk(changes, state)
+            }
+            Change::CatchUp => {
+                // What the session finds changed on disk since it last read
+                // it. An open document's buffer is the truth for its file:
+                // of its changes only its deletion counts.
+                let compiled = Compiled::new(state);
+                let mut changes = session.stale();
+                changes.sources.retain(|key| {
+                    !state.is_open(compiled.uri(key).as_str()) || !state.file_path(key).exists()
+                });
+                Plan::on_disk(changes, state)
             }
         }
+    }
+
+    /// The plan for changes found on disk, applied first; `None` when there
+    /// are none.
+    fn on_disk(changes: Changes, state: &LspState) -> Option<Plan> {
+        if changes.is_empty() {
+            return None;
+        }
+        // The reload read every file from disk again: the open buffers are
+        // still the truth for theirs.
+        let buffers = if changes.environment {
+            open_buffers(state)
+        } else {
+            Vec::new()
+        };
+        Some(Plan {
+            root: None,
+            disk: Some(changes),
+            closed: None,
+            buffers,
+            typing: false,
+            edited: None,
+        })
     }
 
     /// The root a project opens at (`Change::Open`). The caller opens it
@@ -246,11 +273,17 @@ pub struct Applied {
 }
 
 impl Applied {
+    /// What the client is asked to watch must follow (ADR 0035): the
+    /// environment was loaded, or the session's inputs changed.
+    pub fn rewatch(&self) -> bool {
+        self.environment || self.inputs_changed
+    }
+
     /// What an update says about the session's inputs and its own check.
     fn record(&mut self, update: Update) {
         self.inputs_changed |= update.inputs_changed;
         self.divergences
-            .extend(update.verification.and_then(std::result::Result::err));
+            .extend(update.divergence().map(str::to_string));
         self.touched.extend(update.rebuilt_files);
     }
 

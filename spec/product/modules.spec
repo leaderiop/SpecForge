@@ -69,7 +69,7 @@ module specforge_emitter "specforge-emitter" {
 
 module specforge_watch "specforge-watch" {
   family      core
-  description "File watching with debouncing (the incremental rebuild is the project session's)"
+  description "The file watcher, the one debounce rule watch and the LSP share, and the loop that keeps a project session current from them (ADR 0035)"
   features    [incremental_compilation]
   depends_on  [specforge_graph]
   tags        ["watch", "incremental"]
