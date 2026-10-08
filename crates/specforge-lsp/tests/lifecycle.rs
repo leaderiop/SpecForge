@@ -124,6 +124,7 @@ fn shutdown_clears_state() {
     let session = state.session().unwrap();
     assert_eq!(
         session
+            .project()
             .diagnostics()
             .iter()
             .filter(|d| d.code == "E003")
@@ -137,7 +138,7 @@ fn shutdown_clears_state() {
     assert_eq!(state.graph().node_count(), 0);
     assert_eq!(state.graph().edges().len(), 0);
     let session = state.session().unwrap();
-    assert!(session.diagnostics().is_empty());
+    assert!(session.project().diagnostics().is_empty());
     assert!(!state.is_open("file:///p/login.spec"));
     assert!(state.is_shutdown());
 }
@@ -174,7 +175,7 @@ fn lsp_state_holds_graph() {
     // The graph the LSP serves is the one owned by its project session,
     // the type `specforge watch` holds.
     let session: &specforge_project::ProjectSession = state.session().unwrap();
-    assert!(std::ptr::eq(state.graph(), session.graph()));
+    assert!(std::ptr::eq(state.graph(), session.project().graph()));
 
     // A change driven through the session is what the LSP's features see.
     let limit = "invariant session_limit \"Limit\" {\n}\n";
@@ -210,9 +211,15 @@ fn lsp_state_holds_graph() {
         ids
     };
     assert_eq!(ids(state.graph()), ["login", "session_limit"]);
-    assert_eq!(ids(state.graph()), ids(watch.graph()));
-    assert_eq!(state.graph().edges().len(), watch.graph().edges().len());
-    assert_eq!(state.session().unwrap().diagnostics(), watch.diagnostics());
+    assert_eq!(ids(state.graph()), ids(watch.project().graph()));
+    assert_eq!(
+        state.graph().edges().len(),
+        watch.project().graph().edges().len()
+    );
+    assert_eq!(
+        state.session().unwrap().project().diagnostics(),
+        watch.project().diagnostics()
+    );
 }
 
 #[spec(
@@ -322,7 +329,8 @@ fn a_stand_in_reads_the_snapshot_of_its_own_graph() {
         None,
     ));
 
-    let first_snapshot = std::sync::Arc::clone(state.session().unwrap().recorded().entities());
+    let first_snapshot =
+        std::sync::Arc::clone(state.session().unwrap().project().recorded().entities());
     let session = state.take_session().expect("the session is held");
     let first = state.view().entities().kind_of("a").map(str::to_string);
     assert_eq!(first.as_deref(), Some("behavior"));
@@ -343,7 +351,7 @@ fn a_stand_in_reads_the_snapshot_of_its_own_graph() {
     assert_eq!(view.entities().kind_of("b"), Some("behavior"));
     assert!(!std::ptr::eq(view.entities(), &*first_snapshot));
     // It is the snapshot the session holds for that graph.
-    assert!(std::ptr::eq(view.entities(), session.entities()));
+    assert!(std::ptr::eq(view.entities(), session.project().entities()));
 }
 
 /// The watchers derive from the session: relative to each input's

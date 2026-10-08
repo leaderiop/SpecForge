@@ -415,7 +415,8 @@ impl<'s> Call<'s> {
                 // `McpState::serve` opens every served project from disk, with
                 // a runtime: a session without either is no project (it is
                 // unreachable, and a server answers rather than panics).
-                let (Some(root), Some(runtime)) = (session.root(), session.runtime()) else {
+                let (Some(root), Some(runtime)) = (session.project().root(), session.runtime())
+                else {
                     return Err(no_project(Reach::Served));
                 };
                 Ok(ProjectRef {
@@ -460,7 +461,7 @@ impl<'s> Call<'s> {
     /// (a tool that answers without a project reads the empty session).
     pub fn root(&self) -> Option<&Path> {
         match &self.target {
-            CallTarget::Served => self.state.session().root(),
+            CallTarget::Served => self.state.session().project().root(),
             CallTarget::Other(other) => Some(&other.root),
             CallTarget::New(_) | CallTarget::Unscoped | CallTarget::NoProject(_) => None,
         }

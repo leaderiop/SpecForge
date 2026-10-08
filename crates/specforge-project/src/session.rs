@@ -1,19 +1,16 @@
 //! A long-lived compiled project: what watch, the LSP and MCP hold.
 
-use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
 
 use specforge_common::{Diagnostic, ProjectConfig, read_project_config};
-use specforge_graph::{Applied, Graph, GraphDelta};
+use specforge_graph::{Applied, GraphDelta};
 use specforge_wasm::WasmRuntime;
 
 use crate::Environment;
 use crate::compiled::CompiledProject;
-use crate::coverage::RecordedCoverage;
 use crate::freshness::DiskSnapshot;
 use crate::inputs::{Changes, SessionInputs, UpdateKind};
-use crate::snapshot::EntitySnapshot;
 use crate::sources::Read;
 
 /// The runtime a session runs its project's extensions in (every
@@ -365,48 +362,16 @@ impl ProjectSession {
         )
     }
 
-    /// Everything the project reports now: [`CompiledProject::diagnostics`].
-    pub fn diagnostics(&self) -> Vec<Diagnostic> {
-        self.project.diagnostics()
-    }
-
-    pub fn graph(&self) -> &Graph {
-        self.project.graph()
-    }
-
-    /// The text the session's current build parsed `path` (relative to the
-    /// spec root) from: see [`CompiledProject::source_text`].
-    pub fn source_text(&self, path: &str) -> Option<Arc<str>> {
-        self.project.source_text(path)
-    }
-
-    /// [`Self::source_text`] of every file, shared rather than copied: what
-    /// a reader keeps while the session is out for an update.
-    pub fn source_texts(&self) -> HashMap<String, Arc<str>> {
-        self.project.source_texts()
+    /// What the session compiled, as it is now: its graph, environment,
+    /// root, report, source texts and memo. Every reader goes through it.
+    pub fn project(&self) -> &CompiledProject {
+        &self.project
     }
 
     /// What the session depends on now (ADR 0030): what a changed path is,
     /// which directories to watch, which files to report.
     pub fn inputs(&self) -> &SessionInputs {
         &self.inputs
-    }
-
-    /// The project root: `None` with no project (detached).
-    pub fn root(&self) -> Option<&Path> {
-        self.inputs.root()
-    }
-
-    /// Where `.spec` files are keyed from: `None` unless the project was
-    /// opened from disk.
-    pub fn spec_root(&self) -> Option<&Path> {
-        self.inputs.spec_root()
-    }
-
-    /// A `.spec` path's key in this session: relative to the spec root
-    /// when the file is under it, else the path itself.
-    pub fn source_key(&self, path: &Path) -> String {
-        self.project.environment().source_key(path)
     }
 
     /// Apply `changes`: the environment first (a reload rebuilds
@@ -442,37 +407,10 @@ impl ProjectSession {
         self.apply(&changes)
     }
 
-    pub fn environment(&self) -> &Environment {
-        self.project.environment()
-    }
-
-    /// The recorded test report and the coverage of the current graph
-    /// against it, memoized until the next update or reload.
-    pub fn recorded(&self) -> &RecordedCoverage {
-        self.project.recorded()
-    }
-
-    /// The current graph's entity snapshot (ADR 0019): the one its last
-    /// check read, or, when the last update skipped the checks, one taken
-    /// on first use.
-    pub fn entities(&self) -> &EntitySnapshot {
-        self.project.entities()
-    }
-
-    /// The environment, shared: it stays valid after the session reloads.
-    pub fn shared_environment(&self) -> Arc<Environment> {
-        self.project.shared_environment()
-    }
-
     /// The runtime the project's extensions run in (none: no extension
     /// loads).
     pub fn runtime(&self) -> Option<&SharedRuntime> {
         self.runtime.as_ref()
-    }
-
-    /// How many `.spec` files the project has.
-    pub fn file_count(&self) -> usize {
-        self.project.file_count()
     }
 
     /// Whether a changed file is outside the project. A session with no

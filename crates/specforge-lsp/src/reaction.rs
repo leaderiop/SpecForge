@@ -78,7 +78,7 @@ impl<E: Editor> Reaction<E> {
             (
                 st.registries().declarations().len(),
                 st.kind_registry().len(),
-                st.session().map_or(0, ProjectSession::file_count),
+                st.session().map_or(0, |s| s.project().file_count()),
                 st.spec_root().to_string_lossy().into_owned(),
             )
         };

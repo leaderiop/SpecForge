@@ -107,10 +107,10 @@ impl<'a> ProjectView<'a> {
         ProjectView {
             reported: Reported::Session(session),
             ..Self::new(
-                session.graph(),
-                session.environment(),
+                session.project().graph(),
+                session.project().environment(),
                 root,
-                session.recorded(),
+                session.project().recorded(),
             )
         }
     }
@@ -184,7 +184,7 @@ impl<'a> ProjectView<'a> {
     pub fn reported(&self) -> Vec<Diagnostic> {
         let mut diagnostics = match self.reported {
             Reported::Compiled(project) => project.diagnostics(),
-            Reported::Session(session) => session.diagnostics(),
+            Reported::Session(session) => session.project().diagnostics(),
             Reported::Listed(listed) => listed.to_vec(),
         };
         diagnostics.extend(self.also_reported.iter().cloned());
@@ -489,7 +489,7 @@ mod tests {
     fn a_view_of_a_session_is_the_view_of_its_compiled_project() {
         // A detached session: no root, nothing reported, no project on disk.
         let detached = ProjectSession::detached();
-        let view = ProjectView::of_session(&detached, detached.root());
+        let view = ProjectView::of_session(&detached, detached.project().root());
         assert_eq!(view.root(), None);
         assert!(view.reported().is_empty());
         assert_eq!(view.project_root().unwrap_err().code, "no_project");
@@ -505,7 +505,7 @@ mod tests {
         let opened = ProjectSession::open_with_runtime(dir.path(), None);
         let compiled = CompiledProject::compile(dir.path(), None);
         let (of_session, of) = (
-            ProjectView::of_session(&opened, opened.root()),
+            ProjectView::of_session(&opened, opened.project().root()),
             ProjectView::of(&compiled),
         );
         assert_eq!(of_session.root(), of.root());

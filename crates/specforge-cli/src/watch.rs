@@ -80,9 +80,9 @@ fn unix_seconds() -> u64 {
 
 /// The `ready` event: the session as opened, and caught up with disk.
 fn print_ready(session: &ProjectSession, json: bool) {
-    let spec_root: PathBuf = std::fs::canonicalize(&session.environment().spec_root)
-        .unwrap_or_else(|_| session.environment().spec_root.clone());
-    let diagnostics = session.diagnostics();
+    let spec_root: PathBuf = std::fs::canonicalize(&session.project().environment().spec_root)
+        .unwrap_or_else(|_| session.project().environment().spec_root.clone());
+    let diagnostics = session.project().diagnostics();
     let Counts {
         errors, warnings, ..
     } = Counts::of(&diagnostics);
@@ -92,9 +92,9 @@ fn print_ready(session: &ProjectSession, json: bool) {
             serde_json::json!({
                 "event": "ready",
                 "spec_root": spec_root.to_string_lossy(),
-                "files": session.file_count(),
-                "nodes": session.graph().node_count(),
-                "edges": session.graph().edge_count(),
+                "files": session.project().file_count(),
+                "nodes": session.project().graph().node_count(),
+                "edges": session.project().graph().edge_count(),
                 "errors": errors,
                 "warnings": warnings,
                 "diagnostics": specforge_common::diagnostics_json(&diagnostics),
@@ -104,9 +104,9 @@ fn print_ready(session: &ProjectSession, json: bool) {
         println!(
             "specforge watch: {} ({} files, {} nodes, {} edges, {} errors, {} warnings)",
             spec_root.display(),
-            session.file_count(),
-            session.graph().node_count(),
-            session.graph().edge_count(),
+            session.project().file_count(),
+            session.project().graph().node_count(),
+            session.project().graph().edge_count(),
             errors,
             warnings
         );

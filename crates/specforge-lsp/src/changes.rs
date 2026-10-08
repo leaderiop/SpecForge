@@ -216,7 +216,12 @@ impl Plan {
             let buffers: Vec<(String, String)> = self
                 .buffers
                 .iter()
-                .map(|(path, text)| (session.source_key(path), text.clone()))
+                .map(|(path, text)| {
+                    (
+                        session.project().environment().source_key(path),
+                        text.clone(),
+                    )
+                })
                 .collect();
             let keys: Vec<&str> = buffers.iter().map(|(key, _)| key.as_str()).collect();
             let mode = if self.typing {
@@ -296,10 +301,10 @@ impl Applied {
     /// the project holds), any other file leaves the project. Either way
     /// the file is published as the project reports it now.
     fn close(&mut self, session: &mut ProjectSession, path: &Path) {
-        let key = session.source_key(path);
+        let key = session.project().environment().source_key(path);
         self.closed = true;
         self.touched.push(key.clone());
-        let source = session.root().is_some()
+        let source = session.project().root().is_some()
             && matches!(session.inputs().classify(path), InputRole::Source(_));
         let closed = if source {
             Closed::Reread(key)
@@ -308,8 +313,10 @@ impl Applied {
         };
         match closed {
             Closed::Reread(key) => {
-                let disk = std::fs::read_to_string(session.environment().spec_root.join(&key)).ok();
-                if disk.as_deref() != session.source_text(&key).as_deref() {
+                let disk =
+                    std::fs::read_to_string(session.project().environment().spec_root.join(&key))
+                        .ok();
+                if disk.as_deref() != session.project().source_text(&key).as_deref() {
                     let update = session.update(SourceChange::Disk(std::slice::from_ref(&key)));
                     self.record(update);
                     self.changed = true;

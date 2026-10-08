@@ -51,7 +51,10 @@ impl Publication {
                     .first()
                     .and_then(|uri| Url::parse(uri).ok())
             });
-        let diagnostics = state.session().map(|s| s.diagnostics()).unwrap_or_default();
+        let diagnostics = state
+            .session()
+            .map(|s| s.project().diagnostics())
+            .unwrap_or_default();
         let compiled = Compiled::new(state);
         let nav = compiled.navigator();
         let mut files: BTreeMap<Url, FilePublication> = BTreeMap::new();

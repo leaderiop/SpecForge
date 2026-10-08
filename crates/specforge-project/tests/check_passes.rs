@@ -220,7 +220,7 @@ fn a_session_reports_check_pass_diagnostics_after_an_update() {
         dir.path(),
         Some(Arc::clone(&ext) as specforge_project::SharedRuntime),
     );
-    assert!(with_code(&session.diagnostics(), "E951").is_empty());
+    assert!(with_code(&session.project().diagnostics(), "E951").is_empty());
 
     let update = session.update(SourceChange::Buffer {
         path: "a.spec",
