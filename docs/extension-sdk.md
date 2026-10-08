@@ -664,47 +664,55 @@ The output `.wasm` file is at `target/wasm32-wasip2/release/specforge_ext_softwa
 
 ### Test
 
-Extensions can be tested with standard `cargo test` (native target) for logic, and with the SDK's test harness for protocol conformance:
+An extension is tested natively (`cargo test`, no wasm build) at three depths:
+
+- **Its logic**: plain unit tests of the functions its handlers call.
+- **Its declaration**: `specforge_extension_sdk::testing::MockHost` pins the handshake and describe
+  wire JSON (`assert_handshake`, `assert_describe`), and `testing::call_every_command` runs every
+  declared command with every arg set, which catches a handler reading an arg its command does not
+  declare (a panic here, E028 in the host).
+- **Its commands, as the host calls them**: `specforge_wasm::testing::InProcessRuntime` (feature
+  `testing`) serves the extension's `ContributionsBuilder` through the guest's own routing
+  (`guest_call`, what `component_guest!` calls), and `ExtensionCalls::run_command` calls a command
+  exactly as the CLI and MCP do: the typed `CommandInput` (the graph as the host renders it), the
+  strictly decoded `CommandOutput`, a failure as E028.
+
+```toml
+[dev-dependencies]
+specforge-wasm = { version = "0.1", features = ["testing"] }
+specforge-protocol-types = "0.1"
+specforge-test = "0.1"   # to link a test to the obligation it proves
+```
 
 ```rust
-#[cfg(test)]
-mod tests {
-    use specforge_extension_sdk::test::*;
+use specforge_protocol_types::{CommandEvidence, CommandFormat, CommandInput, RawGraph};
+use specforge_test::prelude::*;
+use specforge_wasm::{ExtensionCalls, testing::InProcessRuntime};
 
-    #[test]
-    fn handshake_returns_valid_metadata() {
-        let ext = TestExtension::load("target/wasm32-wasip2/release/specforge_ext_software.wasm");
-        let metadata = ext.handshake("1.0.0");
-        assert_eq!(metadata.name, "@specforge/software");
-        assert!(metadata.contribution_flags.entities);
-    }
-
-    #[test]
-    fn describe_entities_returns_behavior() {
-        let ext = TestExtension::load("target/wasm32-wasip2/release/specforge_ext_software.wasm");
-        let entities = ext.describe("entities");
-        assert!(entities.iter().any(|e| e.keyword == "behavior"));
-    }
+#[specforge_test(behavior = "count_widgets", verify = "an empty graph has no widgets")]
+fn an_empty_graph_has_no_widgets() {
+    let runtime = InProcessRuntime::new().with(crate::specforge_extension_build);
+    let input = CommandInput {
+        args: serde_json::Map::new(),
+        cwd: "/p".into(),
+        format: CommandFormat::Json,
+        today: "2026-10-08".into(),
+        graph: RawGraph::new(r#"{"nodes":[],"edges":[]}"#.into()).unwrap(),
+        evidence: CommandEvidence::None,
+    };
+    let out = ExtensionCalls::new(&runtime)
+        .run_command("@acme/widgets", "cmd__widgets_count", &input)
+        .unwrap();
+    assert_eq!((out.exit_code, out.stdout.as_str()), (0, "{\"count\":0}"));
 }
 ```
 
-A host-side test (a test of the host, or of how a host reads an extension)
-serves the extension in process: `specforge_wasm::testing::InProcessRuntime`
-(feature `testing`) runs an SDK `ContributionsBuilder` through the guest's
-own routing (`guest_call`, what `component_guest!` calls), so a test declares
-the extension with the same builders, loads it with `load_declaration` and
-calls it with `ExtensionCalls` exactly as the host calls a component.
-Answers no SDK guest gives (a trap, bytes that do not parse) are given with
-`answer_raw`. It runs the guest unsandboxed, in the host process; sandbox
-and deadline behaviour is only proven through the component runtime.
-
-```rust
-use specforge_wasm::testing::InProcessRuntime;
-use specforge_wasm::protocol::load_declaration;
-
-let runtime = InProcessRuntime::new().with(my_extension_build);
-let declaration = load_declaration(&runtime, "@acme/widgets").unwrap().declaration;
-```
+`@specforge/product`'s `extensions/product/src/tests/host.rs` is a complete harness of this kind.
+The in-process runtime runs the guest unsandboxed, in the test's process: the sandbox, the deadline
+and the component's stack are proven only through the component runtime (`specforge-component`'s
+tests of the vendored blob). A host-side test (of the host, or of how it reads an extension) uses
+the same runtime and loads the declaration with `specforge_wasm::protocol::load_declaration`;
+answers no SDK guest gives (a trap, bytes that do not parse) are given with `answer_raw`.
 
 ### Install
 

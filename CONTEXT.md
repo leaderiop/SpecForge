@@ -416,6 +416,10 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   component runtime is the production adapter, and both keep one contract
   (`assert_runtime_contract`). MCP's tests serve every project from a temporary directory through
   it (`tests/support`): no test writes a registry, a graph or a diagnostic into a server (ADR 0025).
+  An extension's own command tests call its commands through it as well, from source
+  (`@specforge/product`'s `extensions/product/src/tests/`, with `ExtensionCalls::run_command`); the
+  component runtime tests a builtin only for what its vendored bytes prove: its declaration snapshots,
+  that each command answers through it, and what a native test cannot hold it to (ADR 0013 D8).
 - **Command format**: the output an extension command is asked for, `human` (the CLI default) or
   `json` (always, over MCP). The host owns the `--format` flag; the extension renders both, since
   only it knows its payloads (ADR 0011).

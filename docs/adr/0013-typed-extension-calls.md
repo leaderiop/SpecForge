@@ -113,6 +113,19 @@ again, so one panicking call took the extension down for the rest of an MCP sess
 component runtime now gives the extension a fresh instance after a trap. Sandbox and deadline
 obligations stay proven on the component runtime only.
 
+*Amended (2026-10-08): a builtin's command behaviour is tested from source.* An extension's command
+tests run through the in-process runtime, called as the host calls them
+(`ExtensionCalls::run_command`), in the extension's own crate: `@specforge/product`'s 283 live in
+`extensions/product/src/tests/` and link their obligations there (ADR 0002). Over the vendored blob
+they cost a re-vendor before any feedback and about ten seconds of CPU each. The blob is its sources
+at every green commit (`build-builtins --check`), so `specforge-component` tests a builtin only for
+what its bytes prove: its declaration snapshots (`tests/declarations.rs`), that every declared
+command answers through it as the host calls it (`tests/builtins.rs`, `tests/product_blob.rs`), and
+what the in-process runtime cannot hold it to (the component's stack, as `product_blob.rs`'s long
+chain; the sandbox and the deadline, above). In this repository the extension crates are outside the
+workspace, so their linked tests are recorded by the gate (`scripts/gate.sh full` runs them into
+`target/specforge` before `collect --no-run`), not by a bare `specforge collect`.
+
 ## D9. One `PassDiagnostic`, without the host's diagnostic data
 
 Guests answer the protocol's `PassDiagnostic` (code, severity, message, span, suggestion,
