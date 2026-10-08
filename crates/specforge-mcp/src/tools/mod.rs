@@ -24,7 +24,6 @@ pub(crate) mod trace;
 mod validate;
 
 use serde_json::{Value, json};
-use specforge_common::codes;
 
 use crate::mutation::{self, Mutated};
 use crate::protocol::JsonRpcResponse;
@@ -59,30 +58,6 @@ pub(crate) fn span_json(span: &specforge_common::SourceSpan) -> Value {
         "end_line": span.end_line,
         "end_col": span.end_col,
     })
-}
-
-/// An emitter failure about `entity_id` as a failed tool result. A
-/// missing entity is [`entity_not_found`](crate::tool::entity_not_found),
-/// its `E003` in `diagnostic`, never only in the message text.
-fn emitter_error(
-    error: specforge_emitter::EmitterError,
-    graph: &specforge_graph::Graph,
-    entity_id: &str,
-) -> ToolOutcome {
-    use specforge_emitter::EmitterError;
-    use specforge_ops::{OpError, OpErrorKind};
-    let mcp_error = match &error {
-        EmitterError::ScopeNotFound { .. } => crate::tool::entity_not_found(graph, entity_id),
-        EmitterError::BudgetTooSmall { reason } => McpError::from(OpError::coded(
-            OpErrorKind::InvalidInput,
-            codes::E062,
-            reason.as_str(),
-        )),
-        EmitterError::Serialization(message) => {
-            McpError::new(ErrorCode::InternalError, message.as_str())
-        }
-    };
-    mcp_error.into()
 }
 
 /// A project file the tool reads (`specforge-infer.json`, the anchors

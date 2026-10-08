@@ -345,7 +345,7 @@ expression: listing
       "additionalProperties": false,
       "properties": {
         "field": {
-          "description": "Only search a specific field",
+          "description": "Only entities whose field of this name contains `value`; needs `value`",
           "type": "string"
         },
         "kinds": {
@@ -370,7 +370,7 @@ expression: listing
           "type": "string"
         },
         "value": {
-          "description": "Exact field value filter (with field)",
+          "description": "With `field`: text the field contains, ignoring case; needs `field`",
           "type": "string"
         }
       },

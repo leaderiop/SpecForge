@@ -900,9 +900,9 @@ fn list_and_search_today() {
             normalized(result, root).to_string()
         );
     }
-    assert_eq!(
+    assert_ne!(
         results[3], results[4],
-        "a lone `field` filters nothing: search ignores it today"
+        "a lone `field` is refused, not ignored"
     );
 }
 
