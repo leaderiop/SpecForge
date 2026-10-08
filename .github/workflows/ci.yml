@@ -66,9 +66,11 @@ jobs:
           cargo clippy --workspace --all-targets -- -D warnings
           # Extension crates live outside the workspace; their code compiles
           # to wasip2 components and needs its own clippy pass to be gated.
-          # (kept outside the main clippy run; see the loop below)
+          # (kept outside the main clippy run: a wasm pass for the component, a native one for the tests)
           for ext in extensions/*/Cargo.toml; do
             cargo clippy --manifest-path "$ext" --target wasm32-wasip2 -- -D warnings
+            # Their tests compile only natively (`#[cfg(test)]`): lint them there too.
+            cargo clippy --manifest-path "$ext" --all-targets -- -D warnings
           done
 
       - name: Install nextest

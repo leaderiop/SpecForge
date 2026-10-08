@@ -2,7 +2,7 @@ use crate::OutputFormat;
 use crate::outcome::Refusal;
 use serde_json::json;
 use specforge_ops::extension::{self, Trust, UpdateRequest};
-use specforge_ops_registry::HttpRegistry;
+use specforge_ops_registry::ConfiguredRegistry;
 use std::path::Path;
 
 /// `specforge update`: the shared update operation, presented. Exit 1
@@ -16,7 +16,7 @@ pub fn run(
     allow_unsigned: bool,
     assume_yes: bool,
 ) -> i32 {
-    let registry = HttpRegistry::for_project(path, "update");
+    let registry = ConfiguredRegistry::for_project(path, "update");
     let request = UpdateRequest {
         root: path,
         name,

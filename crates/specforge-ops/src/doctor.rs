@@ -33,6 +33,10 @@ pub const SHADOWING_CODES: [Code; 2] = [codes::E013, codes::E026];
 /// be read, isn't a JSON object, or has a mistyped key or item).
 pub const CONFIG_CODES: [Code; 1] = [codes::E069];
 
+/// Codes the compile reports a peer requirement by (ADR 0041): E027 (unsatisfied, or a cycle among
+/// required peers) and E073 (a range that is not SemVer).
+pub const PEER_CODES: [Code; 2] = [codes::E027, codes::E073];
+
 /// The finding code of a project root without `specforge.json`.
 pub const CONFIG_MISSING: &str = "config_missing";
 
@@ -51,6 +55,9 @@ pub struct DoctorReport {
     pub conflicts: Vec<Conflict>,
     /// Names shadowing a grammar-level construct (see [`SHADOWING_CODES`]).
     pub shadowed: Vec<ShadowedConstruct>,
+    /// The peer requirements the compile reports unsatisfied (see [`PEER_CODES`]), in diagnostic
+    /// order (ADR 0041).
+    pub peers: Vec<PeerProblem>,
     /// Enabled extensions the compile could not load, in entry order: E028
     /// (not installed, not loadable, or its lock unreadable) and E070 (its
     /// installed binary is not the one the lock pins).
@@ -106,6 +113,15 @@ pub struct ShadowedConstruct {
     pub suggestion: String,
 }
 
+/// A peer requirement the compile reports unsatisfied.
+#[derive(Debug, Clone, Serialize)]
+pub struct PeerProblem {
+    pub code: String,
+    pub message: String,
+    /// The diagnostic's own suggestion.
+    pub suggestion: String,
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct LoadFailure {
     pub code: String,
@@ -128,16 +144,6 @@ pub enum BinaryIssue {
         name: String,
         expected: String,
         actual: String,
-    },
-    PeerMismatch {
-        name: String,
-        peer: String,
-        /// The range `name` requires.
-        required: String,
-        /// The version the lock records for `peer`; absent when it isn't
-        /// installed.
-        #[serde(skip_serializing_if = "Option::is_none")]
-        installed: Option<String>,
     },
 }
 
@@ -174,7 +180,7 @@ impl DoctorReport {
 
     /// Every installed binary is healthy and every enabled extension loaded.
     pub fn extensions_ok(&self) -> bool {
-        self.issues.is_empty() && self.load_failures.is_empty()
+        self.issues.is_empty() && self.load_failures.is_empty() && self.peers.is_empty()
     }
 
     /// Each conflict's message, in report order.
@@ -318,77 +324,14 @@ pub fn diagnose_with(view: &ProjectView, z3_available: bool) -> DoctorReport {
                     remediation: reinstall(&name),
                 },
             ),
-            Health::PeerMismatch {
-                name,
-                peer,
-                required,
-                installed,
-            } => {
-                let range_ok = semver::VersionReq::parse(&required).is_ok();
-                let version_ok = installed
-                    .as_deref()
-                    .is_none_or(|v| semver::Version::parse(v).is_ok());
-                let (check, remediation) = match &installed {
-                    // The requirement itself is broken: reinstall the requirer.
-                    _ if !range_ok => (
-                        format!(
-                            "extension {name}: its peer requirement '{required}' on {peer} \
-                             is not a semver range"
-                        ),
-                        reinstall(&name),
-                    ),
-                    // The peer's recorded version can't be compared:
-                    // reinstalling it records its declared version.
-                    Some(version) if !version_ok => (
-                        format!(
-                            "extension {name}: requires peer {peer} at {required}, but the \
-                             lock records {peer} at '{version}', which is not semver"
-                        ),
-                        reinstall(&peer),
-                    ),
-                    Some(version) => (
-                        format!(
-                            "extension {name}: requires peer {peer} at {required}, \
-                             installed {version}"
-                        ),
-                        format!("run `specforge add {peer}@{required}`"),
-                    ),
-                    None => (
-                        format!(
-                            "extension {name}: requires peer {peer} at {required}, \
-                             not installed"
-                        ),
-                        format!("run `specforge add {peer}@{required}`"),
-                    ),
-                };
-                (
-                    BinaryIssue::PeerMismatch {
-                        name: name.clone(),
-                        peer: peer.clone(),
-                        required: required.clone(),
-                        installed: installed.clone(),
-                    },
-                    Finding {
-                        check,
-                        status: FindingStatus::Error,
-                        code: "peer_mismatch".into(),
-                        remediation,
-                    },
-                )
-            }
         };
         issues.push(issue);
         findings.push(finding);
     }
-    let cache_status = if issues.iter().any(|i| {
-        matches!(
-            i,
-            BinaryIssue::MissingBinary { .. } | BinaryIssue::StaleHash { .. }
-        )
-    }) {
-        CacheStatus::Stale
-    } else {
+    let cache_status = if issues.is_empty() {
         CacheStatus::Ok
+    } else {
+        CacheStatus::Stale
     };
 
     // Extensions the compile could not load: `check` fails on them, so
@@ -424,6 +367,7 @@ pub fn diagnose_with(view: &ProjectView, z3_available: bool) -> DoctorReport {
     // Conflicts and shadowed keywords the compile reported.
     let mut conflicts = Vec::new();
     let mut shadowed = Vec::new();
+    let mut peers = Vec::new();
     for diag in &diagnostics {
         let conflict = CONFLICT_CODES.iter().any(|code| diag.is(*code));
         let shadowing = SHADOWING_CODES.iter().any(|code| diag.is(*code));
@@ -468,6 +412,26 @@ pub fn diagnose_with(view: &ProjectView, z3_available: bool) -> DoctorReport {
         }
     }
 
+    // The peer requirements the compile reports unsatisfied: one rule, so doctor and
+    // check cannot disagree (ADR 0041).
+    for diag in diagnostics
+        .iter()
+        .filter(|d| PEER_CODES.iter().any(|code| d.is(*code)))
+    {
+        let suggestion = remediation(diag, || format!("run `specforge explain {}`", diag.code));
+        findings.push(Finding {
+            check: diag.message.clone(),
+            status: FindingStatus::Error,
+            code: diag.code.clone(),
+            remediation: suggestion.clone(),
+        });
+        peers.push(PeerProblem {
+            code: diag.code.clone(),
+            message: diag.message.clone(),
+            suggestion,
+        });
+    }
+
     if !z3_available {
         findings.push(Finding {
             check: "z3 on PATH".into(),
@@ -484,6 +448,7 @@ pub fn diagnose_with(view: &ProjectView, z3_available: bool) -> DoctorReport {
         enhancements,
         conflicts,
         shadowed,
+        peers,
         load_failures,
         issues,
         extensions_checked: lock_entries.len(),

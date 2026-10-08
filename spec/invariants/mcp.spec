@@ -36,9 +36,11 @@ invariant mcp_structured_error_responses "MCP Structured Error Responses" {
 
 invariant mcp_subscription_cleanup "MCP Subscription Cleanup" {
   guarantee """
-    When an MCP client disconnects, all its subscriptions MUST be removed. No
-    orphan subscriptions may remain after client disconnect. This prevents
-    resource leaks and ensures notification delivery targets only active clients.
+    When an MCP client disconnects, all its subscriptions and listen streams
+    MUST be removed, each removal recorded. Subscriptions belong to the
+    connection: no request parameter names another client. No orphan
+    subscriptions may remain after client disconnect. This prevents resource
+    leaks and ensures notification delivery targets only active clients.
   """
   risk      high
   verify unit "client disconnect removes all subscriptions for that client"

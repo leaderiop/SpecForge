@@ -7,6 +7,22 @@ pub struct McpEvent {
     pub params: Value,
 }
 
+impl McpEvent {
+    /// An event. Object payloads without a `timestamp` get one (RFC 3339,
+    /// UTC), except `mcp_initialized`, whose spec payload has none.
+    pub fn new(name: impl Into<String>, mut params: Value) -> Self {
+        let name = name.into();
+        if name != "mcp_initialized"
+            && let Some(object) = params.as_object_mut()
+            && !object.contains_key("timestamp")
+        {
+            let now = chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
+            object.insert("timestamp".into(), Value::String(now));
+        }
+        McpEvent { name, params }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct McpCapabilities {

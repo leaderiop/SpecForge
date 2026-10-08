@@ -59,7 +59,15 @@ impl CompiledProject {
     /// Compile the project at `root`, running its extensions in `runtime`
     /// (without one no extension loads). It keeps no stamp (ADR 0030).
     pub fn compile(root: &Path, runtime: Option<&dyn WasmRuntime>) -> Self {
-        let env = Arc::new(Environment::load(root, runtime));
+        Self::of(Environment::load(root, runtime), runtime)
+    }
+
+    /// Compile the project of an environment already loaded (the CLI routes
+    /// an extension command on it first): its sources read, its graph built
+    /// and checked in `runtime`, the runtime the environment's extensions
+    /// were loaded in.
+    pub fn of(env: Environment, runtime: Option<&dyn WasmRuntime>) -> Self {
+        let env = Arc::new(env);
         let discovered = env.discover();
         let mut project = CompiledProject::read(env, &discovered);
         let entities = project.snapshot_now();

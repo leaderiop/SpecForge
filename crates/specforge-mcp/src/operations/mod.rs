@@ -324,7 +324,7 @@ pub(crate) fn add_extension(call: &mut Call<'_>, args: AddArgs) -> MutationHandl
         Err(error) => return Ok(Mutated::refused_after(dry_run, error)),
     };
 
-    let registry = specforge_ops_registry::HttpRegistry::for_project(&root, "add_extension");
+    let registry = specforge_ops_registry::ConfiguredRegistry::for_project(&root, "add_extension");
     // What reading the registry configuration reported (E067, W140,
     // I003), as `specforge add` shows it: only a registry package reads it.
     let reported = match &source {
@@ -605,6 +605,7 @@ pub(crate) fn doctor_op(call: &mut Call<'_>, _args: NoArgs) -> Handled {
         "extensions": report.extensions,
         "enhancements": report.enhancements,
         "shadowed": report.shadowed,
+        "peers": report.peers,
         "load_failures": report.load_failures,
         "issues": report.issues,
         "z3_available": report.z3_available,

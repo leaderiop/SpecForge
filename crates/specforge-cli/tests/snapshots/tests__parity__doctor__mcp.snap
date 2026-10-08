@@ -63,6 +63,7 @@ expression: mcp_snap
     "installed_count": 0,
     "issues": [],
     "load_failures": [],
+    "peers": [],
     "shadowed": [],
     "z3_available": "[Z3]"
   }

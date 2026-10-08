@@ -16,7 +16,6 @@ specforge-diagnostics = { path = "../specforge-diagnostics" }
 specforge-protocol-types = { path = "../specforge-protocol-types" }
 serde = { workspace = true }
 serde_json = { workspace = true }
-semver = { workspace = true }
 regex = { workspace = true }
 
 [dev-dependencies]

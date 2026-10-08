@@ -1,56 +1,71 @@
 //! The ADR-0001 version-diamond gate: `add` decides whether one locked
 //! version can satisfy every requirer of a peer before it installs,
-//! instead of leaving `doctor` to find the conflict afterwards.
+//! instead of leaving `doctor` to find the conflict afterwards. It judges a
+//! peer by the one peer rule (ADR 0041).
 
-use crate::{OpError, OpErrorKind};
-use semver::{Version, VersionReq};
+use crate::OpError;
+use crate::OpErrorKind;
 use specforge_common::{Diagnostic, codes};
 use specforge_installed::LockFile;
-use specforge_registry::PeerDependency;
+use specforge_protocol_types::PeerDependency;
+use specforge_protocol_types::package::Version;
+use specforge_protocol_types::peers::{PeerRequirement, Verdict, verdict};
+
+/// What the gate may consult about a peer outside a range: the versions a
+/// registry publishes of it (an install from a registry), or nothing (a
+/// local install), when the refusal is E027.
+pub type Published<'a> = Option<&'a dyn Fn(&str) -> Result<Vec<String>, OpError>>;
 
 /// Check that installing `package` (declaring `peers`) leaves every locked
-/// peer satisfied. A locked peer outside a declared range is refused:
-/// R-RES-006 when one registry version would satisfy every requirer (the
-/// fix is to reinstall the peer at it), R-RES-005 when none would.
-/// `versions` lists a peer's published versions; it is asked only for a
-/// peer whose locked version falls outside a range. A malformed range or
-/// locked version is left to the peer-dependency validation (W062).
+/// peer satisfied. A range that is not SemVer is E073. A locked peer outside
+/// a declared range is refused: from a registry, R-RES-006 when one
+/// published version would satisfy every requirer (the fix is to reinstall
+/// the peer at it) and R-RES-005 when none would; without a registry
+/// (`published` is `None`), E027. `published` lists a peer's published
+/// versions; it is asked only for a peer whose locked version falls outside
+/// a range. A peer that is not locked is `check`'s (E027).
 pub fn check_diamonds(
     lock: &LockFile,
     package: &str,
     peers: &[PeerDependency],
-    versions: &dyn Fn(&str) -> Result<Vec<String>, OpError>,
+    published: Published<'_>,
 ) -> Result<(), OpError> {
-    for peer in peers {
-        let Some(locked) = lock.entries.iter().find(|e| e.name.as_str() == peer.name) else {
-            continue;
+    for declared in peers {
+        let locked = lock
+            .entries
+            .iter()
+            .find(|e| e.name.as_str() == declared.name)
+            .map(|e| e.version.as_str());
+        let unsatisfied = match verdict(declared, locked) {
+            Verdict::Satisfied | Verdict::Missing => continue,
+            Verdict::Unreadable(why) => {
+                return Err(OpError::from(specforge_common::peers::unreadable(
+                    package, declared, &why,
+                )));
+            }
+            unsatisfied @ (Verdict::OutOfRange { .. } | Verdict::NotSemver { .. }) => unsatisfied,
         };
-        let satisfied = match (
-            semver::VersionReq::parse(&peer.version),
-            semver::Version::parse(&locked.version),
-        ) {
-            (Ok(req), Ok(version)) => req.matches(&version),
-            _ => true,
+        let Some(published) = published else {
+            let diagnostic = specforge_common::peers::of(package, declared, &unsatisfied)
+                .expect("an unsatisfied peer is a diagnostic");
+            return Err(OpError::from(diagnostic));
         };
-        if satisfied {
-            continue;
-        }
 
-        let requirers = lock.requirers_of(&peer.name, Some((package, &peer.version)));
-        let published = versions(&peer.name)?;
-        return match unify_diamond(&peer.name, &published, &requirers)
-        {
+        let requirers = lock.requirers_of(&declared.name, Some((package, declared)));
+        let versions = published(&declared.name)?;
+        let locked = locked.expect("an installed peer is out of range or not SemVer");
+        return match unify_diamond(&declared.name, &versions, &requirers) {
             Ok(unified) => Err(OpError::coded(
                 OpErrorKind::Conflict,
                 codes::R_RES_006,
                 format!(
-                    "version diamond: '{package}' requires peer '{}' {} but {} is locked; {} {unified} would satisfy every requirer",
-                    peer.name, peer.version, locked.version, peer.name
+                    "version diamond: '{package}' requires peer '{}' {} but {locked} is locked; {} {unified} would satisfy every requirer",
+                    declared.name, declared.version, declared.name
                 ),
             )
             .with_suggestion(format!(
                 "no command pins peer versions yet; manually reinstall '{}' at {unified} (or a version satisfying every requirer), then retry add",
-                peer.name
+                declared.name
             ))),
             Err(diagnostic) => Err(OpError::from(diagnostic)),
         };
@@ -58,28 +73,48 @@ pub fn check_diamonds(
     Ok(())
 }
 
-/// Unify a version diamond: several requirers each declare a semver range
+/// Each locked extension other than those `changing` that requires `package` and that `staged`
+/// (the lock as the change leaves it) leaves unsatisfied: `(dependent, why)`, in lock order.
+pub(crate) fn broken_requirers(
+    staged: &LockFile,
+    package: &str,
+    changing: &[&str],
+    published: Published<'_>,
+) -> Vec<(String, OpError)> {
+    let mut broken = Vec::new();
+    for entry in &staged.entries {
+        if changing.contains(&entry.name.as_str()) {
+            continue;
+        }
+        for peer in entry.peer_dependencies.iter().filter(|p| p.name == package) {
+            if let Err(error) = check_diamonds(
+                staged,
+                entry.name.as_str(),
+                std::slice::from_ref(peer),
+                published,
+            ) {
+                broken.push((entry.name.to_string(), error));
+            }
+        }
+    }
+    broken
+}
+
+/// Unify a version diamond: several requirers each declare a SemVer range
 /// for the same package. Pick the highest of its published `versions` that
 /// satisfies every requirer's range (intersection, not backtracking: when
-/// none does, R-RES-005 names each requirer; a malformed range is R-RES-003).
+/// none does, R-RES-005 names each requirer; a range that is not SemVer is
+/// E073).
 fn unify_diamond(
     name: &str,
     versions: &[String],
-    requirers: &[(String, String)],
+    requirers: &[(String, PeerDependency)],
 ) -> Result<String, Diagnostic> {
     let mut reqs = Vec::with_capacity(requirers.len());
-    for (requirer, range) in requirers {
-        let req = VersionReq::parse(range).map_err(|e| {
-            Diagnostic::new(
-                codes::R_RES_003,
-                format!(
-                    "'{}' declares an invalid version range '{}' for peer '{}': {}",
-                    requirer, range, name, e
-                ),
-            )
-            .with_suggestion("use semver syntax: ^1.0, ~2.3, >=1.0.0 <2.0.0".to_string())
-        })?;
-        reqs.push((requirer.as_str(), range.as_str(), req));
+    for (requirer, declared) in requirers {
+        let requirement = PeerRequirement::read(declared)
+            .map_err(|why| specforge_common::peers::unreadable(requirer, declared, &why))?;
+        reqs.push((requirer.as_str(), declared.version.as_str(), requirement));
     }
 
     let mut candidates: Vec<Version> = versions
@@ -88,10 +123,10 @@ fn unify_diamond(
         .collect();
     candidates.sort();
 
-    let unified = candidates
-        .into_iter()
-        .rev()
-        .find(|v| reqs.iter().all(|(_, _, req)| req.matches(v)));
+    let unified = candidates.into_iter().rev().find(|v| {
+        reqs.iter()
+            .all(|(_, _, requirement)| requirement.accepts(&v.to_string()) == Some(true))
+    });
 
     unified.map(|v| v.to_string()).ok_or_else(|| {
         let wanted = reqs
@@ -174,7 +209,7 @@ mod tests {
             &lock(">=1.0.0"),
             "@acme/app",
             &[peer("@acme/base", "^2.0")],
-            &published,
+            Some(&published),
         )
         .unwrap_err();
         assert_eq!(err.code, "R-RES-006");
@@ -191,7 +226,7 @@ mod tests {
             &lock("^1.0"),
             "@acme/app",
             &[peer("@acme/base", "^2.0")],
-            &published,
+            Some(&published),
         )
         .unwrap_err();
         assert_eq!(err.code, "R-RES-005");
@@ -208,7 +243,7 @@ mod tests {
             &lock("^1.0"),
             "@acme/app",
             &[peer("@acme/base", "^1.0"), peer("@acme/unlocked", "^3")],
-            &offline,
+            Some(&offline),
         );
         assert_eq!(ok, Ok(()));
     }
@@ -219,18 +254,84 @@ mod tests {
             &lock("^1.0"),
             "@acme/app",
             &[peer("@acme/base", "^2.0")],
-            &|_| Err(OpError::diagnostic(codes::E063, "no registry")),
+            Some(&|_| Err(OpError::diagnostic(codes::E063, "no registry"))),
         )
         .unwrap_err();
         assert_eq!(err.code, "E063");
+    }
+
+    #[specforge_test(
+        behavior = "add_extension_to_existing_project",
+        verify = "an extension whose peer range is not SemVer is refused with E073 before anything is installed"
+    )]
+    fn an_unreadable_candidate_range_is_refused_e073() {
+        let err = check_diamonds(
+            &lock(">=1.0.0"),
+            "@acme/app",
+            &[peer("@acme/base", "one-ish")],
+            Some(&offline),
+        )
+        .unwrap_err();
+        assert_eq!(err.code, "E073", "{err:?}");
+        assert!(
+            err.message.contains("'@acme/app'") && err.message.contains("'one-ish'"),
+            "{err:?}"
+        );
+    }
+
+    #[test]
+    fn an_unreadable_requirer_range_is_e073_naming_it() {
+        let err = check_diamonds(
+            &lock("one-ish"),
+            "@acme/app",
+            &[peer("@acme/base", "^2.0")],
+            Some(&published),
+        )
+        .unwrap_err();
+        assert_eq!(err.code, "E073", "{err:?}");
+        assert!(err.message.contains("'@acme/other'"), "{err:?}");
+    }
+
+    #[specforge_test(
+        behavior = "add_extension_to_existing_project",
+        verify = "a local install whose peer is installed outside its range is refused with E027"
+    )]
+    fn a_local_candidate_out_of_range_is_e027() {
+        let err = check_diamonds(
+            &lock("^1.0"),
+            "@acme/app",
+            &[peer("@acme/base", "^2.0")],
+            None,
+        )
+        .unwrap_err();
+        assert_eq!(err.code, "E027", "{err:?}");
+        assert_eq!(
+            err.message,
+            "extension '@acme/app' requires peer dependency '@acme/base' ^2.0 but version 1.0.0 is installed"
+        );
+    }
+
+    #[test]
+    fn a_locked_peer_at_a_version_that_is_not_semver_is_unified_like_one_out_of_range() {
+        let mut locked = lock("^1.0");
+        locked.entries[0].version = "local".to_string();
+        let err = check_diamonds(
+            &locked,
+            "@acme/app",
+            &[peer("@acme/base", ">=1.0.0")],
+            Some(&|_: &str| Ok(vec!["1.0.0".to_string(), "2.0.0".to_string()])),
+        )
+        .unwrap_err();
+        assert_eq!(err.code, "R-RES-006", "{err:?}");
+        assert!(err.message.contains("@acme/base 1.0.0"), "{err:?}");
     }
 
     fn versions(vs: &[&str]) -> Vec<String> {
         vs.iter().map(|v| v.to_string()).collect()
     }
 
-    fn req(requirer: &str, range: &str) -> (String, String) {
-        (requirer.to_string(), range.to_string())
+    fn req(requirer: &str, range: &str) -> (String, PeerDependency) {
+        (requirer.to_string(), peer("@shared/lib", range))
     }
 
     // -- unify_diamond --
@@ -269,7 +370,7 @@ mod tests {
         let vs = versions(&["1.0.0"]);
         let requirers = vec![req("@a/ext", "not-a-range")];
         let err = unify_diamond("@shared/lib", &vs, &requirers).unwrap_err();
-        assert_eq!(err.code, "R-RES-003");
+        assert_eq!(err.code, "E073");
         assert!(err.message.contains("@a/ext"));
     }
 

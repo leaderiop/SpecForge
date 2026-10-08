@@ -52,45 +52,19 @@ pub fn resolve_requirement(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::extension::Trust;
-    use crate::registry::Package;
+    use crate::registry::testing::{MemoryRegistry, Published, declaration};
     use specforge_test_macros::test as specforge_test;
-    use std::cell::Cell;
 
-    /// A registry publishing `versions` of every package, counting its
-    /// listings.
-    struct Publishing {
-        versions: Vec<Version>,
-        listed: Cell<usize>,
-    }
-
-    impl Publishing {
-        fn of(versions: &[&str]) -> Self {
-            Publishing {
-                versions: versions
-                    .iter()
-                    .map(|v| Version::parse(v).unwrap())
-                    .collect(),
-                listed: Cell::new(0),
-            }
-        }
-    }
-
-    impl Registry for Publishing {
-        fn versions(&self, _: &PackageName) -> Result<Vec<Version>, OpError> {
-            self.listed.set(self.listed.get() + 1);
-            Ok(self.versions.clone())
-        }
-
-        fn fetch(
-            &self,
-            _: &PackageName,
-            _: &Version,
-            _: bool,
-            _: Trust,
-        ) -> Result<Package, OpError> {
-            unreachable!("resolving a requirement fetches nothing")
-        }
+    /// A registry publishing `@acme/tool` at `versions`.
+    fn publishing(versions: &[&str]) -> MemoryRegistry {
+        versions
+            .iter()
+            .fold(MemoryRegistry::new(), |registry, version| {
+                registry.publish(Published::new(
+                    b"\0asm".to_vec(),
+                    declaration("@acme/tool", version, &[]),
+                ))
+            })
     }
 
     #[specforge_test(
@@ -98,12 +72,12 @@ mod tests {
         verify = "one rule picks the version a requirement asks for"
     )]
     fn resolve_asks_nothing_for_an_exact_version() {
-        let registry = Publishing::of(&["1.0.0"]);
+        let registry = publishing(&["1.0.0"]);
 
         let version = resolve(&registry, &PackageRef::parse("@acme/tool@2.5.0").unwrap()).unwrap();
 
         assert_eq!(version.to_string(), "2.5.0");
-        assert_eq!(registry.listed.get(), 0);
+        assert!(registry.listed().is_empty());
     }
 
     #[specforge_test(
@@ -111,7 +85,7 @@ mod tests {
         verify = "one rule picks the version a requirement asks for"
     )]
     fn resolve_picks_from_the_published_versions() {
-        let registry = Publishing::of(&["1.4.0", "1.9.0", "2.0.0-beta.1", "2.0.0"]);
+        let registry = publishing(&["1.4.0", "1.9.0", "2.0.0-beta.1", "2.0.0"]);
         for (reference, want) in [
             ("@acme/tool", "2.0.0"),
             ("@acme/tool@1.x", "1.9.0"),
@@ -128,7 +102,7 @@ mod tests {
         verify = "one rule picks the version a requirement asks for"
     )]
     fn resolve_reports_r_res_004_with_the_published_versions() {
-        let registry = Publishing::of(&["1.4.0", "1.9.0"]);
+        let registry = publishing(&["1.4.0", "1.9.0"]);
 
         let error = resolve(&registry, &PackageRef::parse("@acme/tool@^3.0").unwrap()).unwrap_err();
 
@@ -140,7 +114,7 @@ mod tests {
 
     #[test]
     fn a_package_publishing_nothing_is_r_res_002() {
-        let registry = Publishing::of(&[]);
+        let registry = MemoryRegistry::new().listing_none("@acme/tool");
 
         let error = resolve(&registry, &PackageRef::parse("@acme/tool").unwrap()).unwrap_err();
 

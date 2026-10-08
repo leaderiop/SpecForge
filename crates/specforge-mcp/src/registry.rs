@@ -6,6 +6,7 @@
 
 use serde_json::{Value, json};
 
+use crate::lifecycle::Revision;
 use crate::protocol::JsonRpcResponse;
 use crate::resources::{CORE_RESOURCES, ResourceSpec};
 use crate::state::McpState;
@@ -35,9 +36,13 @@ pub fn listed_resources(state: &McpState) -> impl Iterator<Item = McpResourceDes
     )
 }
 
-pub fn handle_list_tools(state: &mut McpState, id: Option<Value>) -> JsonRpcResponse {
+pub fn handle_list_tools(
+    state: &mut McpState,
+    revision: Revision,
+    id: Option<Value>,
+) -> JsonRpcResponse {
     // outputSchema came with structuredContent, in 2025-06-18.
-    let structured = state.sends_structured_content();
+    let structured = revision.sends_structured_content();
     let tools: Vec<Value> = listed_tools(state)
         .map(|t| {
             let mut tool = serde_json::to_value(t).unwrap();

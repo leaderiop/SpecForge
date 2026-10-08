@@ -334,6 +334,80 @@ fn publish_without_registry_makes_no_network_call() {
     assert_eq!(spy.hits(), 0, "publish reached the network");
 }
 
+/// The greet blob with its declared name (`@sdk/greet`, 10 bytes) replaced
+/// by another name of the same length.
+pub(crate) fn greet_named(name: &str) -> Vec<u8> {
+    let (from, to) = (b"@sdk/greet".as_slice(), name.as_bytes());
+    assert_eq!(from.len(), to.len());
+    let mut wasm = greet_wasm();
+    let mut at = 0;
+    while at + from.len() <= wasm.len() {
+        if &wasm[at..at + from.len()] == from {
+            wasm[at..at + from.len()].copy_from_slice(to);
+            at += from.len();
+        } else {
+            at += 1;
+        }
+    }
+    wasm
+}
+
+#[specforge_test(
+    behavior = "resolve_registry_source",
+    verify = "a name no registry serves is refused with R-OPS-001 before any request"
+)]
+fn publish_refuses_a_name_no_registry_serves_offline() {
+    let spy = NetSpy::start();
+    let dir = TempDir::new().unwrap();
+    std::fs::write(
+        dir.path().join("specforge.json"),
+        serde_json::json!({
+            "name": "p", "version": "0.1.0", "extensions": [],
+            "registries": [{ "alias": "acme", "url": UNREACHABLE, "scope_filter": "@acme" }],
+        })
+        .to_string(),
+    )
+    .unwrap();
+    std::fs::write(dir.path().join("greet.wasm"), greet_wasm()).unwrap();
+    let output = spy
+        .command(&["publish", "--format", "json"])
+        .env("SPECFORGE_REGISTRY_TOKEN", "t")
+        .arg(dir.path().join("greet.wasm"))
+        .arg("--path")
+        .arg(dir.path())
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(1), "{output:?}");
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(json["code"], "R-OPS-001", "{json}");
+    assert_eq!(spy.hits(), 0, "publish reached the network");
+    assert!(
+        !spy.home.path().join(".specforge/signing-key.json").exists(),
+        "a refused publish created the signing key"
+    );
+}
+
+#[specforge_test(
+    behavior = "publish_to_registry",
+    verify = "publish refuses in one order, each refusal before anything after it is read or asked"
+)]
+fn publish_checks_the_name_before_the_registry_configuration() {
+    let spy = NetSpy::start();
+    let dir = project_without_registry();
+    std::fs::write(dir.path().join("ext.wasm"), greet_named("greet-ext1")).unwrap();
+    let output = spy
+        .command(&["publish", "--format", "json"])
+        .arg(dir.path().join("ext.wasm"))
+        .arg("--path")
+        .arg(dir.path())
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(1), "{output:?}");
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(json["code"], "E072", "{json}");
+    assert_eq!(spy.hits(), 0, "publish reached the network");
+}
+
 #[specforge_test(
     behavior = "validate_registry_credentials",
     verify = "with no registry configured, login makes no network call and reports how to configure one"
@@ -709,6 +783,57 @@ fn add_refuses_an_unsigned_package_without_allow_unsigned() {
     let output = add_greet(&dir, &home, &[]);
 
     assert_refused(&output, &dir, "R-TRUST-001");
+}
+
+// bug: §3 R3, flipped by T9
+#[specforge_test(
+    behavior = "configure_registries",
+    verify = "an operation shows the registry configuration's diagnostics once it has asked a registry"
+)]
+fn adding_an_installed_registry_package_shows_the_registry_configuration_today() {
+    use crate::fake_registry::{FakeRegistry, Package};
+    let registry = FakeRegistry::serve(vec![Package::new("@sdk/greet", "0.1.0", greet_wasm())]);
+    // The served registry is the default; a second entry repeats an alias (W140).
+    let dir = TempDir::new().unwrap();
+    let config = serde_json::json!({
+        "name": "p",
+        "version": "0.1.0",
+        "extensions": ["@specforge/software"],
+        "registries": [
+            {"alias": "fake", "url": registry.url, "default_registry": true},
+            {"alias": "fake", "url": "http://registry.invalid/v1"},
+        ],
+    });
+    std::fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
+    let home = TempDir::new().unwrap();
+    let add = || {
+        specforge_cmd()
+            .args(["add", "@sdk/greet@0.1.0", "--allow-unsigned"])
+            .arg("--path")
+            .arg(dir.path())
+            .env("HOME", home.path())
+            .output()
+            .unwrap()
+    };
+
+    let first = add();
+    assert!(first.status.success(), "{}", stderr_of(&first));
+    let hits = registry.hits();
+
+    let again = add();
+    assert!(again.status.success(), "{}", stderr_of(&again));
+    assert!(
+        String::from_utf8_lossy(&again.stdout).contains("already installed"),
+        "{}",
+        String::from_utf8_lossy(&again.stdout)
+    );
+    assert_eq!(registry.hits(), hits, "nothing was asked");
+    // bug: nothing asked a registry, yet its configuration is shown.
+    assert!(
+        stderr_of(&again).contains("warning[W140]"),
+        "{}",
+        stderr_of(&again)
+    );
 }
 
 #[specforge_test(

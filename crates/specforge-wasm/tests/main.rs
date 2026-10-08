@@ -5,4 +5,3 @@ mod protocol_host;
 mod protocol_types;
 mod runtime_contract;
 mod sdk_vocabulary;
-mod wasm_lifecycle;

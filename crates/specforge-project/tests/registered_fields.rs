@@ -317,7 +317,11 @@ fn population_completes_before_any_validation() {
         .iter()
         .map(|d| d.name())
         .collect();
-    assert_eq!(loaded, ["@test/tasks", "@test/people"], "load order");
+    assert_eq!(
+        loaded,
+        ["@test/people", "@test/tasks"],
+        "load order: the peer first, though the dependent is listed first"
+    );
     let diagnostics = project.diagnostics();
     assert!(
         !diagnostics

@@ -643,7 +643,7 @@ impl<'a> CommandCall<'a> {
         &self.input.today
     }
 
-    /// The project root.
+    /// The project root, absolute and canonical (the host resolves symlinks).
     pub fn cwd(&self) -> &'a str {
         &self.input.cwd
     }

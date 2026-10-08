@@ -20,6 +20,51 @@ pub const BATCHING_PROTOCOL_VERSION: &str = "2025-03-26";
 /// The first revision with `structuredContent` in tool results.
 pub const STRUCTURED_CONTENT_PROTOCOL_VERSION: &str = "2025-06-18";
 
+/// The protocol revision one request is served under (ADR 0024 D8): the one
+/// `initialize` negotiated, or the stateless one the request's `_meta`
+/// names (MCP 2026-07-28). It travels with the request from
+/// `McpServer::handle_message` to the reply; the server state keeps only
+/// what `initialize` negotiated.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Revision {
+    /// A handshake revision (`PROTOCOL_VERSIONS`), negotiated by
+    /// `initialize`; the latest until it is.
+    Negotiated(&'static str),
+    /// A stateless revision (`MODERN_PROTOCOL_VERSIONS`) the request names.
+    Stateless(&'static str),
+}
+
+impl Revision {
+    /// The version, as `initialize` and `_meta` name it.
+    pub fn version(self) -> &'static str {
+        match self {
+            Revision::Negotiated(version) | Revision::Stateless(version) => version,
+        }
+    }
+
+    /// Whether the request is served without `initialize`.
+    pub fn is_stateless(self) -> bool {
+        matches!(self, Revision::Stateless(_))
+    }
+
+    /// The JSON-RPC code of a resource that does not exist: -32002 in a
+    /// handshake session (2025-03-26 to 2025-11-25, server/resources),
+    /// -32602 in a stateless request, which says "Invalid Params" and asks
+    /// clients to accept -32002 as earlier revisions used it (ADR 0024 D3).
+    pub fn resource_not_found_code(self) -> i64 {
+        match self {
+            Revision::Stateless(_) => error_codes::INVALID_PARAMS,
+            Revision::Negotiated(_) => error_codes::RESOURCE_NOT_FOUND,
+        }
+    }
+
+    /// Whether tool results carry `structuredContent` and tools list their
+    /// `outputSchema` (2025-06-18 on).
+    pub fn sends_structured_content(self) -> bool {
+        self.version() >= STRUCTURED_CONTENT_PROTOCOL_VERSION
+    }
+}
+
 /// The revision to speak with a client that asked for `requested`: that
 /// one when the server speaks it, else the latest (MCP lifecycle, version
 /// negotiation).
@@ -158,12 +203,11 @@ pub fn handle_shutdown(state: &mut McpState, id: Option<Value>) -> JsonRpcRespon
         );
     }
 
-    let pending_notifications = state.notification_outbox.len();
-    let subscriptions: usize = state.subscriptions.values().map(Vec::len).sum();
+    let pending_notifications = state.subscriptions().pending();
     // The served project's runtime goes with its session: no engine
     // outlives shutdown.
     let engines = usize::from(state.session().runtime().is_some());
-    state.shutdown();
+    let subscriptions = state.shutdown();
     state.push_event(
         "mcp_server_shutdown",
         serde_json::json!({
@@ -178,14 +222,14 @@ pub fn handle_shutdown(state: &mut McpState, id: Option<Value>) -> JsonRpcRespon
 pub fn handle_cancel(state: &mut McpState, params: Value, id: Option<Value>) -> JsonRpcResponse {
     // Cancelling a subscriptions/listen request ends its stream.
     if let Some(listened) = params.get("requestId") {
-        crate::modern::end_listen(state, listened);
+        state.subscriptions.end(listened, &mut state.events);
     }
     // JSON-RPC ids are strings or numbers; the event names either as a string.
-    let request_id = match params.get("requestId").or_else(|| params.get("id")) {
-        Some(Value::String(s)) => s.clone(),
-        Some(Value::Null) | None => String::new(),
-        Some(other) => other.to_string(),
-    };
+    let request_id = params
+        .get("requestId")
+        .or_else(|| params.get("id"))
+        .map(crate::protocol::id_text)
+        .unwrap_or_default();
     // Requests run one at a time, so the one named has already completed:
     // it was never in progress, and cancelling it changes nothing.
     state.push_event(
@@ -196,4 +240,30 @@ pub fn handle_cancel(state: &mut McpState, params: Value, id: Option<Value>) -> 
         }),
     );
     JsonRpcResponse::success(id, serde_json::json!({}))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_revision_shapes_its_reply() {
+        let stateless = Revision::Stateless("2026-07-28");
+        assert_eq!(stateless.resource_not_found_code(), -32602);
+        assert!(stateless.sends_structured_content());
+        assert!(stateless.is_stateless());
+
+        let oldest = Revision::Negotiated("2025-03-26");
+        assert_eq!(oldest.resource_not_found_code(), -32002);
+        assert!(!oldest.sends_structured_content());
+        assert!(!oldest.is_stateless());
+
+        for version in ["2025-06-18", "2025-11-25"] {
+            let negotiated = Revision::Negotiated(version);
+            assert_eq!(negotiated.resource_not_found_code(), -32002, "{version}");
+            assert!(negotiated.sends_structured_content(), "{version}");
+            assert!(!negotiated.is_stateless(), "{version}");
+            assert_eq!(negotiated.version(), version);
+        }
+    }
 }

@@ -7,13 +7,9 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use serde_json::{Map, Value, json};
-use specforge_common::{SourceSpan, Sym};
-use specforge_graph::{Graph, Node};
+use serde_json::{Value, json};
 use specforge_ops::collect::{Collector, dispatch};
-use specforge_ops::command::{CommandContext, CommandFormat, command_input};
 use specforge_ops::migrate::{MigrationInput, invoke_hooks};
-use specforge_parser::{EntityId, EntityKind, FieldMap};
 use specforge_protocol_types::{CollectReportFile, ExtensionDeclaration, HandshakeResponse};
 use specforge_test_macros::test as specforge_test;
 use specforge_wasm::testing::InProcessRuntime;
@@ -65,53 +61,6 @@ fn trap(export: &str) -> WasmCallResult {
 
 fn answering(export: &str, result: WasmCallResult) -> InProcessRuntime {
     InProcessRuntime::new().answer_raw(EXT, export, result)
-}
-
-// ── C1 · command input ──
-
-fn graph() -> Graph {
-    let mut graph = Graph::new();
-    graph.add_node(Node {
-        id: EntityId {
-            raw: Sym::new("f1"),
-        },
-        kind: EntityKind {
-            raw: Sym::new("feature"),
-        },
-        title: Some("One".into()),
-        fields: FieldMap::new(),
-        source_span: SourceSpan {
-            file: Sym::new("main.spec"),
-            start_line: 1,
-            start_col: 1,
-            end_line: 1,
-            end_col: 2,
-        },
-        methods: Vec::new(),
-    });
-    graph
-}
-
-#[specforge_test(
-    behavior = "call_extension_exports",
-    verify = "every extension call encodes its input as the protocol type the SDK decodes"
-)]
-fn the_command_input() {
-    let args: Map<String, Value> = json!({"status": "done", "limit": 2, "all": true})
-        .as_object()
-        .unwrap()
-        .clone();
-    let input = command_input(
-        &graph(),
-        &args,
-        Path::new("/p"),
-        &CommandContext {
-            format: CommandFormat::Json,
-            today: "2026-10-03".into(),
-            ..CommandContext::default()
-        },
-    );
-    golden("command.input.json", &serde_json::to_value(&input).unwrap());
 }
 
 // ── C5 · collector ──
@@ -203,8 +152,8 @@ fn a_collector_receives_a_collect_input_and_answers_a_collect_output() {
 
 // ── C8 · migration hook ──
 
-fn hooked() -> Vec<ExtensionDeclaration> {
-    vec![ExtensionDeclaration {
+fn hooked() -> specforge_registry::RegistryBuild {
+    specforge_registry::build_registries(vec![ExtensionDeclaration {
         handshake: HandshakeResponse {
             name: EXT.into(),
             version: "1.0.0".into(),
@@ -212,7 +161,7 @@ fn hooked() -> Vec<ExtensionDeclaration> {
             ..HandshakeResponse::default()
         },
         ..ExtensionDeclaration::default()
-    }]
+    }])
 }
 
 fn hook_input() -> MigrationInput {
@@ -248,9 +197,57 @@ fn the_migration_hook_input_and_any_answer() {
 
 mod evidence {
     use crate::view_support::{Project, registries};
-    use specforge_ops::command::{CommandEvidence, evidence};
-    use specforge_protocol_types::EntityEvidence;
+    use serde_json::Map;
+    use specforge_ops::command::{CommandFormat, ExtensionCommand, run};
+    use specforge_protocol_types::{
+        CommandDescriptor, CommandEvidence, CommandOutput, EntityEvidence,
+    };
     use specforge_test_macros::test as specforge_test;
+    use specforge_wasm::WasmCallResult;
+    use specforge_wasm::testing::InProcessRuntime;
+
+    /// The evidence `project`'s command run sends the export: the `evidence`
+    /// of the input it received (`None`: the input carries none).
+    fn sent(project: &Project) -> CommandEvidence {
+        let runtime = InProcessRuntime::new().answer_raw(
+            "@pin/ext",
+            "cmd__probe",
+            WasmCallResult::Ok(
+                CommandOutput {
+                    exit_code: 0,
+                    stdout: "{}".into(),
+                    stderr: String::new(),
+                }
+                .to_bytes(),
+            ),
+        );
+        let command = ExtensionCommand::new(
+            "@pin/ext",
+            "pin",
+            &CommandDescriptor {
+                id: "probe".into(),
+                title: "Probe".into(),
+                description: String::new(),
+                category: None,
+                export: "cmd__probe".into(),
+                args: Vec::new(),
+            },
+        );
+        run(
+            &project.view(),
+            &runtime,
+            &command,
+            &Map::new(),
+            CommandFormat::Json,
+        )
+        .expect("the export answers");
+        let input = runtime.calls()[0].input.clone();
+        match input.get("evidence") {
+            // Absent, not null (ADR 0013 D7).
+            None => CommandEvidence::None,
+            Some(evidence) => serde_json::from_value(evidence.clone()).unwrap(),
+        }
+    }
 
     const SOURCE: &str = "behavior proven \"Proven\" {\n  verify unit \"a\"\n  verify unit \"b\"\n}\n\
                           behavior half \"Half\" {\n  verify unit \"a\"\n  verify unit \"b\"\n}\n";
@@ -271,7 +268,7 @@ mod evidence {
             .to_string(),
         )
         .unwrap();
-        let CommandEvidence::Recorded { entities } = evidence(&project.view()) else {
+        let CommandEvidence::Recorded { entities } = sent(&project) else {
             panic!("a recorded report is evidence");
         };
         assert_eq!(
@@ -301,13 +298,13 @@ mod evidence {
     )]
     fn no_report_is_no_evidence_and_a_broken_one_says_why() {
         let project = Project::new(SOURCE, registries(&["behavior"], &[]));
-        assert_eq!(evidence(&project.view()), CommandEvidence::None);
+        assert_eq!(sent(&project), CommandEvidence::None);
         std::fs::write(
             project.dir.path().join("specforge-report.json"),
             "{not json",
         )
         .unwrap();
-        let CommandEvidence::Unreadable { reason } = evidence(&project.view()) else {
+        let CommandEvidence::Unreadable { reason } = sent(&project) else {
             panic!("a broken report is unreadable evidence");
         };
         assert!(reason.contains("invalid test results"), "{reason}");

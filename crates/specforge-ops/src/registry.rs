@@ -6,7 +6,7 @@
 //!
 //! The operations name only the [`Registry`] trait. The adapter that talks
 //! HTTP, checks publisher signatures and pins keys is
-//! `specforge_ops_registry::HttpRegistry`, which only the surfaces that
+//! `specforge_ops_registry::ConfiguredRegistry`, which only the surfaces that
 //! reach a registry (the CLI, MCP) link (ADR 0010).
 
 use crate::extension::Trust;
@@ -18,6 +18,10 @@ use specforge_protocol_types::package::{PackageName, Version};
 /// The diagnostic a registry operation reports when no registry is
 /// configured.
 pub const NO_REGISTRY: Code = codes::E063;
+
+/// No configured registry serves the package name: no `scope_filter` is its
+/// scope, and none is the default (ADR 0045).
+pub const NO_REGISTRY_FOR_NAME: Code = codes::R_OPS_001;
 
 /// A registry answered with metadata that doesn't describe the package
 /// asked for: another name or version, or a declaration other than its
@@ -60,10 +64,12 @@ pub struct Package {
     pub key_id: Option<String>,
 }
 
-/// The registry port the extension operations use: an HTTP adapter in
-/// production, an in-memory fake in tests. It lists a package's versions
+/// The registry port the extension operations use. It lists a package's versions
 /// and fetches one; it does not resolve a requirement (ADR 0036): ops
 /// does, with [`crate::extension::resolve`].
+///
+/// Two adapters (ADR 0044): `specforge_ops_registry::ConfiguredRegistry` in production and
+/// [`testing::MemoryRegistry`] in tests, both held to [`testing::assert_registry_contract`].
 pub trait Registry {
     /// Every version `name` publishes (unparseable ones dropped);
     /// R-RES-001 when the registry has no such package.
@@ -81,6 +87,9 @@ pub trait Registry {
         trust: Trust,
     ) -> Result<Package, OpError>;
 }
+
+#[cfg(any(test, feature = "testing"))]
+pub mod testing;
 
 /// No registry: every call fails with E063 naming `operation`. What an
 /// operation that never reaches a registry (`init`, which installs only

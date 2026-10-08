@@ -8,7 +8,6 @@ mod invariants;
 mod lifecycle;
 mod management_view;
 mod mutation_outcome;
-mod notifications;
 mod operations_mgmt;
 mod operations_mutation;
 mod option_tables;

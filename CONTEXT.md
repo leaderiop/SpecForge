@@ -83,10 +83,11 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Extension load**: turning a project's `extensions` entries into loaded extensions and their
   declarations, once per environment load (`Installed::load`, over the `WasmRuntime` port): a
   builtin from its embedded binary, an installed extension from its pinned module, a `.wasm` file
-  entry from its file under the name it declares. What does not load is a typed `LoadFailure` on its
+  entry from its file under the name it declares. Its declarations come in entry order; the registry
+  build puts them in load order. What does not load is a typed `LoadFailure` on its
   entry with one diagnostic; the runtime keeps none.
-- **Registry build**: the pure result of turning extension declarations into kind, field and
-  edge registries, the rule set, pass order and derived graph inputs, and the diagnostics of those
+- **Registry build**: the pure result of putting extension declarations in load order and turning
+  them into kind, field and edge registries, the rule set, pass order and derived graph inputs, and the diagnostics of those
   declarations (`specforge_registry::build_registries`). It also runs every check over a built
   graph's entity records, in one order behind one gate: the structural checks, then the rule set
   (`RegistryBuild::check`), and says which files those checks read (`RegistryBuild::files`). Its
@@ -148,13 +149,34 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   It **owes** obligations when a rule applies and nothing exempts it. It **counts** toward coverage
   when testable and owing or declaring. It is **exempt** when testable and neither. W004, the pass
   input's `exempt`, the coverage rule, stats, plan validation and the verify-stub fix read it.
-- **Package registry client**: what talks to a package registry: search, resolve and publish over
-  HTTP, credentials in the OS keyring, publisher trust and package signing
+- **Package registry client**: what talks to a package registry: search, versions, metadata, download and
+  publish over HTTP, credentials in the OS keyring, publisher trust and package signing
   (`specforge-registry-client`). Not the Registry build, which is pure and needs none of it.
-  Operations reach it only through the `Registry` port, which takes a package name and a
-  version (ADR 0036); its adapter (`specforge-ops-registry`)
-  is linked by the CLI and MCP, never the LSP (ADR 0010). Publish derives the stored declaration
-  from the binary; `add` checks the binary declares what was published (ADR 0012).
+  Operations reach it only through the `Registry` port, which lists a package's versions, fetches
+  one and publishes one, by package name and version (ADR 0036, 0045); its adapter,
+  `specforge_ops_registry::ConfiguredRegistry`, reads the project's registries, asks the one that
+  serves a name and runs the fetch policy over the `RegistryClient` seam (ADR 0044). It is linked by
+  the CLI and MCP, never the LSP (ADR 0010), and holds what needs the user's `~/.specforge`: the
+  credential, the signing key, the known keys. Publish derives the stored declaration from the
+  binary; `add` checks the binary declares what was published (ADR 0012). Each seam has a second
+  adapter for tests, held with the first to one contract: `MemoryRegistry` beside the port, `MemoryClient`
+  beside the client (`assert_registry_contract`, `assert_client_contract`).
+- **Fetch policy**: what a package passes before an operation sees it: the registry's reply names the
+  package and version asked for, the binary hashes to the served SHA-256, the served manifest reads as that
+  package's declaration (one from before ADR 0012 is refused), and the publisher signature verifies with a
+  key that matches its pin or is pinned now (`ConfiguredRegistry::fetch`; ADR 0010, 0012, 0044). A refused
+  package pins no key.
+- **Package registry contract**: what a package registry and its client exchange over HTTP: the paths, the
+  JSON bodies, the publish form and the error codes, each defined once in `specforge-registry-wire`, which
+  `specforge-registry-server` and `specforge-registry-client` both compile against (ADR 0044). A test
+  reaches a registry through the real server in process or an in-memory client, never through JSON written
+  by hand.
+- **Registry for a package**: the one configured registry that serves a package name: the first
+  `registries` entry whose `scope_filter` is the name's scope, else the first marked
+  `default_registry`; with neither, none does, and the operation refuses with R-OPS-001 before any
+  request (`specforge_ops_registry::Configured::registry_for`, ADR 0045). `add`, `update` and
+  `publish` ask that one registry; `search` asks every entry. A registry credential is kept under
+  the registry's alias (`login --registry`, else the default registry's).
 - **Package name**: what an extension package is called, `@scope/name` (a registry holds only
   these) or `name` alone (a local module); each part `a-z 0-9 . _ -`, starting with a letter or
   digit, so it is always a relative path inside the directory it is joined to and one URL segment
@@ -165,6 +187,17 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   reads one (`VersionRequirement`); `pick` is the one rule that chooses among published versions,
   run by ops for `add` and `update`. The `Registry` port lists versions and fetches one; it does not
   resolve.
+- **Peer requirement**: what an extension declares it needs from another extension: the peer's name,
+  a SemVer range read as Cargo reads one, and whether the peer may be absent
+  (`specforge_protocol_types::peers::PeerRequirement`). One rule judges it (`peers::verdict`): an
+  unreadable range satisfies nothing (E073); a required peer must be installed; an installed one must
+  be at a version the range accepts (E027 otherwise). The registry build, `doctor`, `add` and `update`
+  read that rule and nothing else (ADR 0041).
+- **Load order**: the order a project's extensions load in, which every first-wins rule and in-order
+  list follows: entry order, except that an extension comes after the peers it declares (required
+  ones always, optional ones unless that would close a cycle). The registry build produces it
+  (`Peers::load_order`); a cycle among required peers is E027 and its extensions load together in
+  entry order (ADR 0041).
 - **Extension specifier**: the `add` argument (also `specforge.add_extension`'s and
   `init --extensions`'): a builtin's name, a local path, a `git+` URL, or a package reference
   `@scope/name[@requirement]` (`PackageRef`), read once by `specforge_ops::extension::parse`.
@@ -230,7 +263,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   the coverage rule counts proven, their obligations and failing tests. A feature is **proven** when
   at least one behavior implements it and every one is proven. The host passes each entity's score
   to an extension command (`CommandInput.evidence`: none, unreadable, or recorded;
-  `specforge_ops::command::evidence`); `@specforge/product` aggregates it per feature
+  computed by `specforge_ops::command::run` from the project view's recorded report); `@specforge/product` aggregates it per feature
   (`milestone-completion`'s `proven_count`) and its `delivery_evidence` pass reports a done feature
   that is not proven (I071). Status stays the input of every status query (ADR 0039).
 - **Lifecycle consistency**: what the product kinds' statuses claim across entities, checked by
@@ -298,7 +331,12 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   surfaces (`specforge_ops::command::ExtensionCommand`): its CLI name, its tool name, its args'
   command-line shapes, its input schema and the args both send, normalized by the one arg rule the
   SDK also runs (`specforge_protocol_types::command_args`): declared defaults applied by the host,
-  an unset flag `false`, each value its declared type (ADR 0017).
+  an unset flag `false`, each value its declared type (ADR 0017). Both surfaces run it through one
+  operation over the project view (`specforge_ops::command::run`): it normalizes the given args,
+  sends the project root (absolute and canonical), the evidence and the date, and calls the export
+  in the runtime that loaded the project's extensions; a surface only reads its arguments in and renders the output or the
+  failure (`RunError`: refused args, no project, or an export that did not answer) (ADR 0011, "One
+  operation runs a command").
 - **Extension surface table**: what MCP serves from the project's extensions, built once per
   reload from their declarations: each tool once (an explicit `mcp__` tool, or an extension
   command), each resource with its URI template; listings are the core tables plus it, and a call
@@ -356,7 +394,18 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   `specforge.list` and `specforge.validate` read (`specforge_mcp`'s `ResourceSpec` table).
 - **Stateless request**: an MCP request whose `_meta` names its protocol version (MCP 2026-07-28),
   answered on its own without `initialize`; every other request follows the revision `initialize`
-  negotiated (`specforge_mcp::modern`).
+  negotiated (`specforge_mcp::modern`). Every request is served under its revision, which travels
+  with it from the router to the reply (`specforge_mcp::lifecycle::Revision`); the server state
+  keeps only the negotiated one.
+- **Subscription**: a client's interest in one resource the MCP server serves, made with
+  `resources/subscribe` (the handshake revisions) or named by a `subscriptions/listen` stream
+  (2026-07-28). A resource changes with the graph or the environment (the graph views, an
+  extension's resources), with the environment alone (`specforge://schema`) or with the diagnostics
+  (`specforge://diagnostics`). After an update that changed it, each subscription hears
+  `notifications/resources/updated` once, and a handshake subscriber of a graph view or of the
+  diagnostics then hears the delta (`specforge/graphChanged`, `specforge/diagnosticsChanged`).
+  Subscriptions belong to the connection and end with it or at shutdown
+  (`specforge_mcp::subscriptions::Subscriptions`, ADR 0024 D6).
 - **Diagnostic catalog**: the one table of diagnostic codes (`specforge_diagnostics`'s `catalog!`):
   each code's title, owner, level and explanation. It generates `CATALOG`, which `specforge explain`,
   MCP `specforge.explain`, diagnostics JSON titles, doctor and the LSP hover read and from which

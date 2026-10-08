@@ -52,3 +52,7 @@ typed name and version from the one registry the adapter chose.
 
 **What would reopen it:** a registry that must hold unscoped or mixed-case names (an import from
 another ecosystem). The rule would then grow a registry-side alias, not a looser `PackageName`.
+
+**Amended by ADR 0045 (2026-10-08):** D3's "the one registry the adapter chose" is
+`Configured::registry_for`: the scope's entry, else the default entry, else R-OPS-001 before any
+request; there is no fallback to the first entry, and `publish` asks the same registry.

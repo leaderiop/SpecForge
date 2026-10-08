@@ -33,6 +33,10 @@ semver = { workspace = true }
 strsim = { workspace = true }
 walkdir = { workspace = true }
 
+[features]
+# A package registry in memory beside the Registry port, and the contract of the port (ADR 0044).
+testing = []
+
 [dev-dependencies]
 # Extensions declared with the SDK, served in process.
 specforge-extension-sdk = { path = "../specforge-extension-sdk" }

@@ -28,11 +28,13 @@ listed the product module. Both close here: the queries are `@specforge/product`
   other (and every bool) a `--flag`; enum args take their values, integer args parse; `--path` and
   `--help` are the host's on every command, so a command declaring an arg of either name, or two
   args of one name, is refused (exit 2). Clap prints help and usage errors (exit 2). Only a matched
-  command has the project's sources read and its graph built (without the checks a compile runs).
+  command has the project compiled, from the environment that routed it (its checks run since
+  ADR 0011, "One operation runs a command", O3).
   `specforge completions` adds the commands of the project in the current directory. The export's
   stdout and stderr are printed as returned, its exit code is the CLI's; a trap is an E028 on
   stderr, exit 1. `specforge_ops::command` holds what both surfaces share:
-  the routing table (disabled commands left out), the short name, the input and the call.
+  the routing table (disabled commands left out), the short name, and the operation that runs a command (`command::run`, ADR
+  0011 O1).
 - **MCP** auto-promotes each command to `specforge.<ext_short>.<id>` (already built), and now
   calls the export with the same `CommandInput`, over the served session's graph.
 
