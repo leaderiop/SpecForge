@@ -48,6 +48,11 @@ behavior watch_file_system_for_changes "Watch File System for Changes" {
   verify integration "after spec_root changes, files under the new spec root are watched"
   verify integration "after an edit names a file outside the watched directories, a change to it is seen"
   verify integration "a file the checks read is seen when it is created in a directory that did not exist"
+  verify unit "an edit that names a file outside the watched directories moves the watchers"
+  verify unit "an edit that names a file inside the watched directories moves nothing"
+  verify unit "after the watchers move, the session catches up on what changed while they did"
+  verify unit "a failed move of the watchers is reported and the session still catches up"
+  verify unit "what was written between the open and the watchers is applied before ready"
 }
 
 behavior classify_project_changes "Classify Project Changes" {

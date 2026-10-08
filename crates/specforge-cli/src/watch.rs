@@ -1,17 +1,18 @@
-//! `specforge watch` — incremental rebuild loop over a [`ProjectSession`].
+//! `specforge watch` — renders what [`SessionWatch`] does to a
+//! [`ProjectSession`].
 //!
 //! The session is seeded by one cold build and kept current from
 //! file-watcher events; every event reports its diagnostics, the set
 //! `specforge check` reports for the same sources. The watchers only say
 //! which paths changed: what a path is to the project, and what its change
-//! does, is the session's (`classify_project_changes`).
+//! does, is the session's (`classify_project_changes`); following the
+//! session's inputs and catching up is the watch crate's loop (ADR 0035).
 
 use std::path::{Path, PathBuf};
-use std::sync::mpsc;
 
 use specforge_ops::check::Counts;
-use specforge_project::{Changes, InputRole, ProjectSession, Update, UpdateKind, WatchRoot};
-use specforge_watch::SpecWatcher;
+use specforge_project::{ProjectSession, UpdateKind};
+use specforge_watch::{Applied, DEFAULT_DEBOUNCE_WINDOW, Notify, SessionWatch, WatchEvent};
 
 pub fn run(path: &Path, json: bool, verify_incremental: bool) -> i32 {
     // A debug build checks every rebuild (ProjectSession); a release build
@@ -21,13 +22,11 @@ pub fn run(path: &Path, json: bool, verify_incremental: bool) -> i32 {
         session.set_verify_incremental(true);
     }
 
-    // Start watching before announcing readiness: a client that writes on
-    // seeing "ready" must never race a watcher that does not exist yet.
-    // One watcher per directory the session is built from.
-    let (tx, rx) = mpsc::channel::<Vec<PathBuf>>();
-    let mut roots = session.inputs().watch_roots();
-    let mut watchers = match arm(path, &roots, &tx) {
-        Ok(watchers) => watchers,
+    // Watch before announcing readiness: a client that writes on seeing
+    // "ready" must never race a watcher that does not exist yet.
+    let (watchers, batches) = Notify::new(DEFAULT_DEBOUNCE_WINDOW);
+    let mut watch = match SessionWatch::start(session, watchers) {
+        Ok(watch) => watch,
         Err(e) => {
             eprintln!("error: {e}");
             return 1;
@@ -37,23 +36,50 @@ pub fn run(path: &Path, json: bool, verify_incremental: bool) -> i32 {
     // What was written between the open's stamps and the watchers is applied
     // before `ready` (ADR 0030): the session follows the disk it saw when
     // the watchers were armed.
-    while session.ensure_fresh().is_some() {
-        let now = session.inputs().watch_roots();
-        if now == roots {
-            break;
+    for event in watch.catch_up() {
+        if let WatchEvent::Unwatched(e) = event {
+            eprintln!("warning: {e}");
         }
-        match arm(path, &now, &tx) {
-            Ok(rearmed) => {
-                watchers = rearmed;
-                roots = now;
-            }
-            Err(e) => {
-                eprintln!("warning: {e}");
-                break;
+    }
+    print_ready(watch.session(), json);
+
+    // Debounced batches of changed paths. The session says what they are
+    // and applies them: sources take the incremental path (tree-sitter
+    // trees are retained, so unchanged subtrees are not re-parsed), an
+    // environment input reloads the environment, a check input re-runs the
+    // checks; anything else changes nothing.
+    let debug = std::env::var("SPECFORGE_WATCH_DEBUG").is_ok();
+    for batch in &batches {
+        if debug {
+            let roles: Vec<_> = batch.iter().map(|path| watch.classify(path)).collect();
+            eprintln!("[watch] batch: {batch:?} -> {roles:?}");
+        }
+        for event in watch.changed(&batch) {
+            match event {
+                WatchEvent::Applied(applied) => {
+                    let rendered = render(&applied, json, unix_seconds());
+                    println!("{}", rendered.line);
+                    if let Some(warning) = rendered.warning {
+                        eprintln!("{warning}");
+                    }
+                }
+                WatchEvent::Unwatched(e) => eprintln!("warning: {e}"),
             }
         }
     }
+    0
+}
 
+/// Seconds since the epoch, for a text event's stamp.
+fn unix_seconds() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0)
+}
+
+/// The `ready` event: the session as opened, and caught up with disk.
+fn print_ready(session: &ProjectSession, json: bool) {
     let spec_root: PathBuf = std::fs::canonicalize(&session.environment().spec_root)
         .unwrap_or_else(|_| session.environment().spec_root.clone());
     let diagnostics = session.diagnostics();
@@ -86,153 +112,49 @@ pub fn run(path: &Path, json: bool, verify_incremental: bool) -> i32 {
         );
         println!("watching for changes (Ctrl-C to stop)");
     }
-
-    // Watch loop: debounced batches of changed paths. The session says
-    // what they are and applies them: sources take the incremental path
-    // (tree-sitter trees are retained, so unchanged subtrees are not
-    // re-parsed), an environment input reloads the environment, a check
-    // input re-runs the checks; anything else changes nothing.
-    let debug = std::env::var("SPECFORGE_WATCH_DEBUG").is_ok();
-    for batch in &rx {
-        let roles: Vec<InputRole> = batch
-            .iter()
-            .map(|path| session.inputs().classify(path))
-            .collect();
-        if debug {
-            eprintln!("[watch] batch: {batch:?} -> {roles:?}");
-        }
-        let changed = changed_labels(&session, &batch, &roles);
-        let Some(update) = session.apply(&Changes::from_roles(roles)) else {
-            continue;
-        };
-        report(&session, &update, &changed, json);
-        // An edit that names a file the checks read, or a reload that moved
-        // the spec root or loaded modules from elsewhere: follow the
-        // session's inputs, then catch up on what was written while no
-        // watcher covered it (ADR 0030).
-        let mut inputs_changed = update.inputs_changed;
-        while inputs_changed {
-            let now = session.inputs().watch_roots();
-            if now == roots {
-                break;
-            }
-            match arm(path, &now, &tx) {
-                Ok(rearmed) => {
-                    watchers = rearmed;
-                    roots = now;
-                }
-                Err(e) => {
-                    eprintln!("warning: {e}");
-                    break;
-                }
-            }
-            inputs_changed = match session.ensure_fresh() {
-                Some(update) => {
-                    report(&session, &update, &update.rebuilt_files, json);
-                    update.inputs_changed
-                }
-                None => false,
-            };
-        }
-    }
-    drop(watchers);
-
-    0
 }
 
-/// One watcher per directory in `roots`, each sending its batches to `tx`.
-fn arm(
-    path: &Path,
-    roots: &[WatchRoot],
-    tx: &mpsc::Sender<Vec<PathBuf>>,
-) -> Result<Vec<SpecWatcher>, String> {
-    if roots.is_empty() {
-        return Err(format!(
-            "failed to watch directory: {} does not exist",
-            path.display()
-        ));
-    }
-    roots
-        .iter()
-        .map(|root| {
-            let watch = if root.recursive {
-                SpecWatcher::new
-            } else {
-                SpecWatcher::shallow
-            };
-            watch(
-                &root.dir,
-                tx.clone(),
-                specforge_watch::DEFAULT_DEBOUNCE_WINDOW,
-            )
-        })
-        .collect()
+/// One event's output: its stdout line, and, in text mode, the stderr line a
+/// divergence adds.
+struct Rendered {
+    line: String,
+    warning: Option<String>,
 }
 
-/// How the changed paths of a batch are named in its event: a source by
-/// its key under the spec root, any other input by its path under the
-/// project root (absolute outside it). Paths that change nothing are not
-/// named.
-fn changed_labels(session: &ProjectSession, batch: &[PathBuf], roles: &[InputRole]) -> Vec<String> {
-    let root = std::fs::canonicalize(&session.environment().root)
-        .unwrap_or_else(|_| session.environment().root.clone());
-    let mut labels: Vec<String> = batch
-        .iter()
-        .zip(roles)
-        .filter_map(|(path, role)| match role {
-            InputRole::Unrelated => None,
-            InputRole::Source(key) => Some(key.clone()),
-            InputRole::Environment | InputRole::CheckInput => Some(
-                path.strip_prefix(&root)
-                    .unwrap_or(path)
-                    .to_string_lossy()
-                    .into_owned(),
-            ),
-        })
-        .collect();
-    labels.sort();
-    labels.dedup();
-    labels
-}
-
-/// Print what `update` did: `rebuilt` for sources, `rechecked` for check
-/// inputs (with the same fields), `extensions_reloaded` for the
-/// environment.
-fn report(session: &ProjectSession, update: &Update, changed: &[String], json: bool) {
+/// What `applied` did: `extensions_reloaded` for the environment,
+/// `rechecked` for check inputs (with the same fields as `rebuilt`),
+/// `rebuilt` for sources. `stamp` (seconds since the epoch) heads a text
+/// line.
+fn render(applied: &Applied, json: bool, stamp: u64) -> Rendered {
+    let update = &applied.update;
     let Counts {
         errors, warnings, ..
     } = Counts::of(&update.diagnostics);
     if update.kind == UpdateKind::Environment {
-        let extensions: Vec<&str> = session
-            .environment()
-            .registries
-            .declarations()
-            .iter()
-            .map(|d| d.name())
-            .collect();
-        if json {
-            println!(
-                "{}",
-                serde_json::json!({
-                    "event": "extensions_reloaded",
-                    "extensions": extensions,
-                    "files": session.file_count(),
-                    "nodes": session.graph().node_count(),
-                    "errors": errors,
-                    "warnings": warnings,
-                    "diagnostics": specforge_common::diagnostics_json(&update.diagnostics),
-                })
-            );
+        let line = if json {
+            serde_json::json!({
+                "event": "extensions_reloaded",
+                "extensions": applied.extensions,
+                "files": applied.files,
+                "nodes": applied.nodes,
+                "errors": errors,
+                "warnings": warnings,
+                "diagnostics": specforge_common::diagnostics_json(&update.diagnostics),
+            })
+            .to_string()
         } else {
-            println!(
+            format!(
                 "[reload] extension environment changed: {} extension(s), {} file(s) | {} errors, {} warnings",
-                extensions.len(),
-                session.file_count(),
+                applied.extensions.len(),
+                applied.files,
                 errors,
                 warnings
-            );
-        }
-        return;
+            )
+        };
+        return Rendered {
+            line,
+            warning: None,
+        };
     }
 
     let event = match update.kind {
@@ -240,35 +162,33 @@ fn report(session: &ProjectSession, update: &Update, changed: &[String], json: b
         _ => "rebuilt",
     };
     if json {
-        println!(
-            "{}",
-            serde_json::json!({
-                "event": event,
-                "changed": changed,
-                "rebuilt_files": update.rebuilt_files,
-                "added_nodes": update.delta.added_nodes.len(),
-                "removed_nodes": update.delta.removed_nodes.len(),
-                "modified_nodes": update.delta.modified_nodes.len(),
-                "added_edges": update.delta.added_edges.len(),
-                "removed_edges": update.delta.removed_edges.len(),
-                "errors": errors,
-                "warnings": warnings,
-                "diagnostics": specforge_common::diagnostics_json(&update.diagnostics),
-                "changed_diagnostic_files": update.changed_diagnostic_files,
-                "verification_failed": update.divergence().is_some(),
-                "verification": match &update.verification {
-                    None => serde_json::Value::Null,
-                    Some(Ok(())) => "passed".into(),
-                    Some(Err(msg)) => msg.clone().into(),
-                },
-            })
-        );
+        let line = serde_json::json!({
+            "event": event,
+            "changed": applied.changed,
+            "rebuilt_files": update.rebuilt_files,
+            "added_nodes": update.delta.added_nodes.len(),
+            "removed_nodes": update.delta.removed_nodes.len(),
+            "modified_nodes": update.delta.modified_nodes.len(),
+            "added_edges": update.delta.added_edges.len(),
+            "removed_edges": update.delta.removed_edges.len(),
+            "errors": errors,
+            "warnings": warnings,
+            "diagnostics": specforge_common::diagnostics_json(&update.diagnostics),
+            "changed_diagnostic_files": update.changed_diagnostic_files,
+            "verification_failed": update.divergence().is_some(),
+            "verification": match &update.verification {
+                None => serde_json::Value::Null,
+                Some(Ok(())) => "passed".into(),
+                Some(Err(msg)) => msg.clone().into(),
+            },
+        })
+        .to_string();
+        Rendered {
+            line,
+            warning: None,
+        }
     } else {
-        let stamp = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_secs())
-            .unwrap_or(0);
-        println!(
+        let line = format!(
             "[{stamp}] {event} {} file(s): +{} -{} ~{} nodes, +{} -{} edges | {} errors, {} warnings",
             update.rebuilt_files.len(),
             update.delta.added_nodes.len(),
@@ -279,8 +199,118 @@ fn report(session: &ProjectSession, update: &Update, changed: &[String], json: b
             errors,
             warnings
         );
-        if let Some(msg) = update.divergence() {
-            eprintln!("verification FAILED: {msg}");
+        Rendered {
+            line,
+            warning: update
+                .divergence()
+                .map(|msg| format!("verification FAILED: {msg}")),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use specforge_project::{GraphDelta, Update};
+
+    fn applied(kind: UpdateKind, verification: Option<Result<(), String>>) -> Applied {
+        Applied {
+            update: Update {
+                kind,
+                inputs_changed: false,
+                delta: GraphDelta::default(),
+                rebuilt_files: vec!["a.spec".to_string()],
+                changed_diagnostic_files: Vec::new(),
+                diagnostics: Vec::new(),
+                verification,
+            },
+            changed: vec!["a.spec".to_string()],
+            files: 3,
+            nodes: 7,
+            extensions: vec!["@specforge/software".to_string()],
+        }
+    }
+
+    fn keys(line: &str) -> Vec<String> {
+        let value: serde_json::Value = serde_json::from_str(line).unwrap();
+        let mut keys: Vec<String> = value.as_object().unwrap().keys().cloned().collect();
+        keys.sort();
+        keys
+    }
+
+    #[test]
+    fn a_rebuild_renders_todays_json_fields() {
+        let rendered = render(&applied(UpdateKind::Sources, Some(Ok(()))), true, 0);
+        assert_eq!(
+            keys(&rendered.line),
+            [
+                "added_edges",
+                "added_nodes",
+                "changed",
+                "changed_diagnostic_files",
+                "diagnostics",
+                "errors",
+                "event",
+                "modified_nodes",
+                "rebuilt_files",
+                "removed_edges",
+                "removed_nodes",
+                "verification",
+                "verification_failed",
+                "warnings",
+            ]
+        );
+        let value: serde_json::Value = serde_json::from_str(&rendered.line).unwrap();
+        assert_eq!(value["event"], "rebuilt");
+        assert_eq!(value["verification"], "passed");
+        assert_eq!(value["verification_failed"], false);
+        assert_eq!(value["changed"], serde_json::json!(["a.spec"]));
+    }
+
+    #[test]
+    fn a_check_input_renders_rechecked() {
+        let rendered = render(&applied(UpdateKind::Checks, None), true, 0);
+        let value: serde_json::Value = serde_json::from_str(&rendered.line).unwrap();
+        assert_eq!(value["event"], "rechecked");
+        assert_eq!(value["verification"], serde_json::Value::Null);
+        let text = render(&applied(UpdateKind::Checks, None), false, 12);
+        assert!(
+            text.line.starts_with("[12] rechecked 1 file(s)"),
+            "{}",
+            text.line
+        );
+    }
+
+    #[test]
+    fn a_reload_renders_extensions_reloaded() {
+        let rendered = render(&applied(UpdateKind::Environment, None), true, 0);
+        let value: serde_json::Value = serde_json::from_str(&rendered.line).unwrap();
+        assert_eq!(value["event"], "extensions_reloaded");
+        assert_eq!(
+            value["extensions"],
+            serde_json::json!(["@specforge/software"])
+        );
+        assert_eq!(value["files"], 3);
+        assert_eq!(value["nodes"], 7);
+        let text = render(&applied(UpdateKind::Environment, None), false, 0);
+        assert_eq!(
+            text.line,
+            "[reload] extension environment changed: 1 extension(s), 3 file(s) | 0 errors, 0 warnings"
+        );
+    }
+
+    #[test]
+    fn a_divergence_adds_the_stderr_line_in_text_mode() {
+        let diverged = applied(UpdateKind::Sources, Some(Err("nodes differ".to_string())));
+        let text = render(&diverged, false, 0);
+        assert_eq!(
+            text.warning.as_deref(),
+            Some("verification FAILED: nodes differ")
+        );
+        let json = render(&diverged, true, 0);
+        assert_eq!(json.warning, None);
+        let value: serde_json::Value = serde_json::from_str(&json.line).unwrap();
+        assert_eq!(value["verification_failed"], true);
+        assert_eq!(value["verification"], "nodes differ");
     }
 }

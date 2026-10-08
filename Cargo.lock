@@ -3239,6 +3239,8 @@ name = "specforge-watch"
 version = "0.1.0"
 dependencies = [
  "notify",
+ "serde_json",
+ "specforge-project",
  "specforge-test",
  "specforge-test-macros",
  "specforge-watch",
