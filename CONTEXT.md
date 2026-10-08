@@ -162,15 +162,28 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   providers listing read this one registration.
 - **Management operation**: an operation about a project's setup and tooling rather than its
   graph: the extensions and providers listings, doctor, remove, collect, inference progress and
-  gaps. Like a read view it takes the project view and a request and returns a typed outcome; unlike
-  one it also reads what the view does not own (installed binaries, source files),
-  and remove and collect write, at the view's root only. `add`, `update`, `init` and `migrate` are
-  operations but not over a view: they run before or instead of a compile (ADR 0015); `add` and
-  `update` read `specforge.json` through the compile's own reader and refuse an unusable one with
-  the refusal `remove` gives.
+  gaps, and the inference session steps. Like a read view it takes the project view and a request
+  and returns a typed outcome; unlike one it also reads what the view does not own (installed
+  binaries, source files, the inference manifest), and remove, collect and the session steps write,
+  at the view's root only. `add`, `update`, `init` and `migrate` are operations but not over a view:
+  they run before or instead of a compile (ADR 0015); `add` and `update` read `specforge.json`
+  through the compile's own reader and refuse an unusable one with the refusal `remove` gives.
 - **Recorded test report**: `<root>/specforge-report.json`, what `specforge collect` last wrote. The
   project view reads it once per compile and per content
   (`specforge_project::coverage::RecordedCoverage`).
+- **Inference manifest**: `<root>/specforge-infer.json`, what inference has recorded: the source
+  roots, each analyzed source file (root-relative path, content hash, the entities produced) and
+  the inference sessions (`specforge_ops::infer::InferenceManifest`). One reader and one writer in
+  `specforge_ops::infer`: a file that cannot be used is E071 for every reader, never an empty
+  manifest, and a write keeps the keys it does not define. Not a project input: the compile and the
+  session never read it.
+- **Inference session**: one agent's run of inference, recorded in the manifest: started, then
+  ended as completed or paused; at most one is active (`SessionStatus`). Its steps (start, mark a
+  source file analyzed, end) are one management operation, `specforge_ops::infer::session`; MCP's
+  `specforge.infer_session` is its adapter.
+- **Anchors manifest**: `<root>/specforge-anchors.json`, which source item each entity is anchored
+  to. Navigation reads it (`specforge_ops::navigate::source_anchors`): the anchors of a source file
+  and of an entity; E071 when it cannot be used.
 - **Obligation**: one `verify` statement on an entity. **Proven** when a passing test names its
   exact text, or a formal claim discharges it. Who owes obligations is the entity's standing.
 - **Unverified**: an entity that counts toward coverage and is not proven
@@ -237,7 +250,8 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   confused with an entity's coverage **Verdict** (ADR 0029).
 - **Diagnostic policy**: lint profiles (a closed set: `inferred`, `pedantic`) and strict promotion
   (`specforge_project::DiagnosticPolicy`). It is the only thing that changes a diagnostic's severity
-  after the diagnostic is built.
+  after the diagnostic is built. A profile's diagnostics come from the check that applies it
+  (`inferred`: `specforge_ops::infer::lint`, I200/I202 or E071); the policy reads no file.
 - **Extension command**: a CLI command an extension declares in its surfaces (with the SDK, together
   with its handler: `ContributionsBuilder::command`), answered by its `cmd__` export over the graph
   the host passes (`specforge_protocol_types::CommandInput`: args, project root, graph, the
