@@ -1193,53 +1193,72 @@ fn a_pipe_in_any_cell_stays_in_its_cell() {
     assert_eq!(row.replace("\\|", "").matches('|').count(), 7, "{row}");
 }
 
-// pin (16-T0): today's behaviour; flipped by 16-T9
-#[test]
-fn pin_an_apostrophe_ends_a_dbml_note() {
+#[specforge_test_macros::test(
+    behavior = "render_model_dbml",
+    verify = "a name or note with a quote, an apostrophe or a line break stays one DBML name or string"
+)]
+fn an_apostrophe_or_line_break_stays_inside_a_dbml_note() {
     let schema = with_text("behavior", "this event's shape");
     let output = rendered(&schema, FieldLevel::All, ModelFormat::Dbml);
-    assert!(output.contains("note: 'this event's shape'"), "{output}");
+    assert!(output.contains("note: 'this event\\'s shape'"), "{output}");
+
+    let schema = with_text("behavior", "first\nsecond");
+    let output = rendered(&schema, FieldLevel::All, ModelFormat::Dbml);
+    assert!(output.contains("note: 'first\\nsecond'"), "{output}");
 }
 
-// pin (16-T0): today's behaviour; flipped by 16-T9
-#[test]
-fn pin_a_reference_is_written_inline_and_as_a_named_ref() {
+#[specforge_test_macros::test(
+    behavior = "render_model_dbml",
+    verify = "each reference is one named Ref between columns the output writes"
+)]
+fn a_reference_is_one_named_ref() {
     let output = rendered(
         &multi_extension_schema(),
         FieldLevel::All,
         ModelFormat::Dbml,
     );
-    assert!(
-        output.contains(
-            "features text [ref: > feature.id, note: 'BehaviorImplementsFeature -> feature']"
-        ),
+    assert!(!output.contains("ref:"), "{output}");
+    assert_eq!(
+        output
+            .matches("Ref BehaviorImplementsFeature: behavior.features <> feature.id")
+            .count(),
+        1,
         "{output}"
     );
     assert!(
-        output.contains("Ref BehaviorImplementsFeature: behavior.features <> feature.id"),
-        "{output}"
-    );
-}
-
-// pin (16-T0): today's behaviour; flipped by 16-T9
-#[test]
-fn pin_a_ref_names_a_column_the_table_does_not_write() {
-    let output = rendered(
-        &multi_extension_schema(),
-        FieldLevel::None,
-        ModelFormat::Dbml,
-    );
-    let table = output.split("Table behavior {").nth(1).expect("a table");
-    assert!(table.trim_start().starts_with('}'), "{output}");
-    assert!(
-        output.contains("Ref BehaviorImplementsFeature: behavior.features <> feature.id"),
+        output.contains("features text [note: 'BehaviorImplementsFeature -> feature']"),
         "{output}"
     );
 }
 
-// pin (16-T0): today's behaviour; flipped by 16-T9
-#[test]
-fn pin_an_extension_name_is_a_bare_dbml_table_group() {
+#[specforge_test_macros::test(
+    behavior = "render_model_dbml",
+    verify = "each reference is one named Ref between columns the output writes"
+)]
+fn a_ref_joins_only_columns_the_output_writes() {
+    let schema = multi_extension_schema();
+    let output = rendered(&schema, FieldLevel::None, ModelFormat::Dbml);
+    assert!(!output.contains("Ref "), "{output}");
+    assert!(!output.contains("// ── Relationships ──"), "{output}");
+
+    // `behavior` alone: its reference targets `feature`, which is not written.
+    let model = filter_fields(&ModelIntermediate_from_schema(&schema), FieldLevel::All);
+    let options = ModelOptions {
+        format: ModelFormat::Dbml,
+        kind_filter: Some(vec!["behavior".to_string()]),
+        ..ModelOptions::default()
+    };
+    let output = render(&filter_entities(&model, &options), &options);
+    assert!(output.contains("Table behavior {"), "{output}");
+    assert!(!output.contains("Ref "), "{output}");
+    assert!(!output.contains("Table feature"), "{output}");
+}
+
+#[specforge_test_macros::test(
+    behavior = "render_model_dbml",
+    verify = "a name or note with a quote, an apostrophe or a line break stays one DBML name or string"
+)]
+fn a_name_that_is_not_a_dbml_identifier_is_quoted() {
     let mut schema = multi_extension_schema();
     for info in &mut schema.extensions {
         if info.name == "@specforge/software" {
@@ -1252,5 +1271,9 @@ fn pin_an_extension_name_is_a_bare_dbml_table_group() {
         }
     }
     let output = rendered(&schema, FieldLevel::Keys, ModelFormat::Dbml);
-    assert!(output.contains("TableGroup @acme/x {"), "{output}");
+    assert!(output.contains("TableGroup \"@acme/x\" {"), "{output}");
+
+    let schema = with_text("no\"te", "the contract");
+    let output = rendered(&schema, FieldLevel::All, ModelFormat::Dbml);
+    assert!(output.contains("Table \"no\\\"te\" {"), "{output}");
 }

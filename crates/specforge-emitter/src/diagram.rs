@@ -129,6 +129,48 @@ pub(crate) fn markdown_cell(text: &str) -> Cow<'_, str> {
     Cow::Owned(out)
 }
 
+/// A DBML name (table, column, enum, enum value, table group): bare when it
+/// is `[A-Za-z_][A-Za-z0-9_]*`, else double-quoted with `\` and `"` escaped.
+pub(crate) fn dbml_name(name: &str) -> Cow<'_, str> {
+    let mut chars = name.chars();
+    let bare = chars
+        .next()
+        .is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
+        && chars.all(|c| c.is_ascii_alphanumeric() || c == '_');
+    if bare {
+        return Cow::Borrowed(name);
+    }
+    let mut out = String::with_capacity(name.len() + 2);
+    out.push('"');
+    for ch in name.chars() {
+        match ch {
+            '\\' => out.push_str("\\\\"),
+            '"' => out.push_str("\\\""),
+            '\n' => out.push_str("\\n"),
+            '\r' => {}
+            _ => out.push(ch),
+        }
+    }
+    out.push('"');
+    Cow::Owned(out)
+}
+
+/// Text inside a DBML single-quoted string (a note): `\` and `'` escaped, a
+/// line break as `\n`, a `\r` dropped.
+pub(crate) fn escape_dbml_string(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    for ch in text.chars() {
+        match ch {
+            '\\' => out.push_str("\\\\"),
+            '\'' => out.push_str("\\'"),
+            '\n' => out.push_str("\\n"),
+            '\r' => {}
+            _ => out.push(ch),
+        }
+    }
+    out
+}
+
 /// The colour an extension's nodes and clusters are drawn in: the
 /// `theme_color` its manifest declares, when it is a hex colour (`#rgb`,
 /// `#rrggbb` or `#rrggbbaa`), or a neutral grey. The value is written into
@@ -209,6 +251,27 @@ mod tests {
         assert_eq!(mermaid_name("failure-mode"), "failure-mode");
         assert!(matches!(mermaid_name("behavior"), Cow::Borrowed(_)));
         assert_eq!(mermaid_name(""), "_");
+    }
+
+    #[test]
+    fn dbml_names_are_bare_or_quoted() {
+        assert_eq!(dbml_name("behavior"), "behavior");
+        assert_eq!(dbml_name("_x1"), "_x1");
+        assert!(matches!(dbml_name("behavior"), Cow::Borrowed(_)));
+        assert_eq!(dbml_name("@acme/x"), "\"@acme/x\"");
+        assert_eq!(dbml_name("no\"te"), "\"no\\\"te\"");
+        assert_eq!(dbml_name("a\\b"), "\"a\\\\b\"");
+        assert_eq!(dbml_name("1st"), "\"1st\"");
+        assert_eq!(dbml_name("in-progress"), "\"in-progress\"");
+        assert_eq!(dbml_name(""), "\"\"");
+    }
+
+    #[test]
+    fn dbml_strings_cannot_end_early() {
+        assert_eq!(
+            escape_dbml_string("this event's \\ shape\nnext\r"),
+            "this event\\'s \\\\ shape\\nnext"
+        );
     }
 
     #[test]

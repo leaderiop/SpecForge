@@ -224,7 +224,7 @@ behavior render_model_dbml "Render Model as DBML" {
     synthetic_pk        "Every table has an id string [pk] column"
     enum_definitions    "Enum fields produce standalone Enum declarations"
     table_groups        "Extension grouping produces TableGroup declarations"
-    named_refs          "Edge types produce named Ref declarations"
+    named_refs          "Each reference is one named Ref declaration, between columns the output writes"
     required_not_null   "Required fields have [not null] annotation"
   }
   contract   """
@@ -232,20 +232,23 @@ behavior render_model_dbml "Render Model as DBML" {
     the ModelIntermediate as DBML. Each ModelEntity MUST produce a Table
     with a synthetic id string [pk] column. Enum fields MUST produce
     standalone Enum declarations named {entity}_{field}. Required fields
-    MUST have [not null] annotation. Reference fields MUST have inline
-    [ref: > target.id] annotation. Extension grouping MUST use TableGroup
-    declarations. Edge types MUST produce named Ref declarations.
+    MUST have [not null] annotation. A name that is not a DBML identifier
+    MUST be double-quoted, and a note MUST escape its quotes and line
+    breaks. Extension grouping MUST use TableGroup declarations. Each
+    reference MUST be one named Ref declaration, written only when both
+    of its columns are written.
   """
   verify unit "output is valid DBML syntax"
   verify unit "each entity kind produces a Table"
   verify unit "every table has id string [pk]"
   verify unit "enum fields produce Enum declarations"
   verify unit "required fields have [not null]"
-  verify unit "reference fields have inline ref annotation"
   verify unit "extension grouping uses TableGroup"
   verify unit "edge types produce named Ref declarations"
   verify unit "field descriptions use [note: '...']"
   verify unit "empty model produces valid DBML with no tables"
+  verify unit "a name or note with a quote, an apostrophe or a line break stays one DBML name or string"
+  verify unit "each reference is one named Ref between columns the output writes"
   verify contract "Render Model as DBML: DBML rendering holds — model_ir_built, valid_dbml_produced, table_per_entity, synthetic_pk, enum_definitions, table_groups, named_refs, required_not_null"
 }
 

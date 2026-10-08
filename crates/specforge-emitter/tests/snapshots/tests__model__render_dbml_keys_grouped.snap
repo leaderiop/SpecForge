@@ -15,7 +15,7 @@ TableGroup software {
 Table behavior {
   id varchar [pk]
   contract varchar [not null, note: 'The contract']
-  features text [ref: > feature.id, note: 'BehaviorImplementsFeature -> feature']
+  features text [note: 'BehaviorImplementsFeature -> feature']
 }
 
 Table event {
