@@ -901,6 +901,31 @@ fn init_inside_the_served_project_is_a_conflict_on_path() {
 
 #[specforge_test(
     behavior = "provide_mcp_init_tool",
+    verify = "init refuses a directory whose starter file exists, writing nothing"
+)]
+fn init_refuses_to_overwrite_a_starter_file() {
+    let dir = fresh_project_dir();
+    std::fs::create_dir_all(dir.path().join("spec")).unwrap();
+    let starter = dir.path().join("spec/hello.spec");
+    std::fs::write(&starter, "term mine \"Mine\" {\n}\n").unwrap();
+    let mut server = test_server();
+
+    let error = init_error(
+        &mut server,
+        json!({"path": dir.path().to_str().unwrap(), "name": "victim"}),
+    );
+
+    assert_eq!(error["code"], "conflict", "{error}");
+    assert_eq!(error["data"]["files_written"], json!([]), "{error}");
+    assert_eq!(
+        std::fs::read_to_string(&starter).unwrap(),
+        "term mine \"Mine\" {\n}\n"
+    );
+    assert!(!dir.path().join("specforge.json").exists());
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_init_tool",
     verify = "invalid project name returns error"
 )]
 fn init_rejects_an_invalid_project_name() {

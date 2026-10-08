@@ -262,6 +262,33 @@ fn init_preserves_existing_files() {
     assert!(dir.path().join("specforge.json").exists());
 }
 
+#[specforge_test(
+    behavior = "scaffold_new_project",
+    verify = "scaffold in non-empty directory preserves existing files"
+)]
+fn init_refuses_to_overwrite_a_starter_file() {
+    let dir = TempDir::new().unwrap();
+    fs::create_dir_all(dir.path().join("spec")).unwrap();
+    fs::write(
+        dir.path().join("spec/hello.spec"),
+        "term mine \"Mine\" {\n}\n",
+    )
+    .unwrap();
+
+    specforge_cmd()
+        .args(["init", "--name", "victim"])
+        .current_dir(dir.path())
+        .assert()
+        .code(1)
+        .stderr(predicates::str::contains("spec/hello.spec already exists"));
+
+    assert_eq!(
+        fs::read_to_string(dir.path().join("spec/hello.spec")).unwrap(),
+        "term mine \"Mine\" {\n}\n"
+    );
+    assert!(!dir.path().join("specforge.json").exists());
+}
+
 // ═══════════════════════════════════════════════════════════
 // Behavior: scaffold_starter_spec_file
 // ═══════════════════════════════════════════════════════════

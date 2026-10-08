@@ -346,24 +346,36 @@ fn init_with_a_local_extension_writes_its_module_and_lock() {
     );
 }
 
-/// Plan 10 T0: init overwrites an existing starter file. Flipped by T3.
-#[test]
-fn pin_init_overwrites_an_existing_starter() {
+#[specforge_test_macros::test(
+    behavior = "scaffold_new_project",
+    verify = "init refuses a directory whose starter file exists, writing nothing"
+)]
+fn init_refuses_a_directory_whose_starter_file_exists() {
+    use specforge_ops::{OpErrorKind, init};
     let scratch = TempDir::new().unwrap();
     let dir = scratch.path().join("victim");
     std::fs::create_dir_all(dir.join("spec")).unwrap();
     std::fs::write(dir.join("spec/hello.spec"), "term mine \"Mine\" {\n}\n").unwrap();
+    let before = files_under(&dir);
+    let request = init::Request {
+        dir: &dir,
+        name: Some("demo"),
+        version: init::DEFAULT_VERSION,
+        extensions: &[],
+    };
 
-    init(&dir, &[]);
+    let error = init::plan(&request, &candidates()).unwrap_err();
 
-    let starter = std::fs::read_to_string(dir.join("spec/hello.spec")).unwrap();
-    assert!(!starter.contains("mine"), "{starter}");
+    assert_eq!(error.code, init::STARTER_EXISTS, "{error:?}");
+    assert_eq!(error.kind, OpErrorKind::Conflict);
+    assert_eq!(files_under(&dir), before, "the file is byte-identical");
 }
 
-/// Plan 10 T0: a failed init removes the lock and `.specforge/` that were
-/// there before it ran. Flipped by T3.
-#[test]
-fn pin_a_failed_init_removes_what_was_there() {
+#[specforge_test_macros::test(
+    behavior = "scaffold_new_project",
+    verify = "a failed init leaves the directory as it was, files that were there included"
+)]
+fn a_failed_init_puts_back_what_was_there() {
     use specforge_ops::init;
     let blobs = Blobs::new();
     let scratch = TempDir::new().unwrap();
@@ -383,8 +395,18 @@ fn pin_a_failed_init_removes_what_was_there() {
     let error = init::apply(&dir, plan).unwrap_err();
 
     assert_eq!(error.code, "E033", "{error:?}");
-    assert!(!dir.join(".specforge").exists());
-    assert!(!dir.join("specforge.lock").exists());
+    assert!(error.writes.is_empty(), "{:?}", error.writes);
+    assert_eq!(
+        std::fs::read_to_string(dir.join(".specforge/keep.txt")).unwrap(),
+        "keep\n"
+    );
+    assert_eq!(
+        std::fs::read_to_string(dir.join("specforge.lock")).unwrap(),
+        "garbage\n"
+    );
+    for gone in ["spec", "specforge.json", ".gitignore"] {
+        assert!(!dir.join(gone).exists(), "{gone} is removed again");
+    }
 }
 
 #[test]

@@ -42,7 +42,11 @@ behavior scaffold_new_project "Scaffold New Project" {
     IDE autocomplete. The generated config MUST be syntactically valid
     and parseable by the compiler. If a specforge.json or specforge.spec
     already exists in the directory being initialized, the system MUST
-    reject the operation with an error message and exit code 1. A project
+    reject the operation with an error message and exit code 1. Init only
+    adds: a directory whose starter file (spec/hello.spec) already exists
+    is rejected the same way, and an init that fails after writing leaves
+    the directory as it was, files that were already there (specforge.lock,
+    .specforge/) included. A project
     in an ancestor directory MUST NOT block init: the new project is
     separate, and commands run inside it resolve to it because the
     nearest project wins. Init notes the enclosing project on stderr. The
@@ -56,6 +60,8 @@ behavior scaffold_new_project "Scaffold New Project" {
   verify unit "scaffold creates valid specforge.json"
   verify unit "scaffold includes $schema field in generated config"
   verify unit "scaffold rejects when specforge.json already exists"
+  verify unit "init refuses a directory whose starter file exists, writing nothing"
+  verify unit "a failed init leaves the directory as it was, files that were there included"
   verify unit "scaffold inside another project creates a separate project"
   verify performance "full init-check-export cycle completes in under 60 seconds"
   verify integration "scaffold in non-empty directory preserves existing files"

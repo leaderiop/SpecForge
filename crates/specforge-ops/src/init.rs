@@ -16,6 +16,9 @@ use std::path::{Path, PathBuf};
 
 /// The code an init refused with because the directory is already a project.
 pub const PROJECT_EXISTS: &str = "project_exists";
+/// The code an init refused with because the file it would write as the
+/// starter is already there.
+pub const STARTER_EXISTS: &str = "starter_exists";
 /// The code for a project name init can't use.
 pub const INVALID_NAME: &str = "invalid_name";
 
@@ -92,6 +95,10 @@ pub fn plan(req: &Request, runtime: &dyn WasmRuntime) -> Result<Plan, OpError> {
         ));
     }
 
+    if req.dir.join(STARTER_FILE).exists() {
+        return Err(starter_exists(req.dir));
+    }
+
     let name = match req.name {
         Some(name) => name.to_string(),
         None => req
@@ -160,8 +167,10 @@ pub fn plan(req: &Request, runtime: &dyn WasmRuntime) -> Result<Plan, OpError> {
 
 /// Write `plan` into `dir`: `specforge.json`, the starter file, the
 /// `.gitignore` entries, and each local install, without reading the files
-/// again. A failed install removes what init wrote (and its error reports
-/// nothing written).
+/// again. Init only adds: the starter is created, never overwritten, and a
+/// failed init puts back what was there before it ran (the lock's bytes, a
+/// pre-existing `.specforge/`) and removes only what it wrote. Its error
+/// reports nothing written.
 pub fn apply(dir: &Path, plan: Plan) -> Result<Outcome, OpError> {
     let write_error = |what: &str, e: std::io::Error| {
         OpError::new(
@@ -176,16 +185,25 @@ pub fn apply(dir: &Path, plan: Plan) -> Result<Outcome, OpError> {
     std::fs::create_dir_all(&spec_dir).map_err(|e| write_error("the spec directory", e))?;
     let gitignore_path = dir.join(".gitignore");
     let gitignore_before = std::fs::read_to_string(&gitignore_path).ok();
+    let lock_path = specforge_installed::lock_path(dir);
+    let lock_before = std::fs::read(&lock_path).ok();
+    let specforge_dir = dir.join(".specforge");
+    let specforge_dir_existed = specforge_dir.exists();
 
     let mut writes = Writes::none();
+    let mut wrote_config = false;
+    let mut wrote_starter = false;
     let written = (|| -> Result<(), OpError> {
+        wrote_config = true;
         crate::config::write(dir, &plan.config)?;
         writes.record(dir.join(crate::config::CONFIG_FILE));
         let appended = append_gitignore(&gitignore_path, gitignore_before.as_deref().unwrap_or(""))
             .map_err(|e| write_error(".gitignore", e))?;
         writes.record_if(appended, &gitignore_path);
-        std::fs::write(dir.join(STARTER_FILE), &plan.starter)
-            .map_err(|e| write_error(STARTER_FILE, e))?;
+        create_starter(dir, &plan.starter, &mut wrote_starter).map_err(|e| match e.kind() {
+            std::io::ErrorKind::AlreadyExists => starter_exists(dir),
+            _ => write_error(STARTER_FILE, e),
+        })?;
         writes.record(dir.join(STARTER_FILE));
         for local in plan.installs {
             let added = extension::install_local(dir, local)?;
@@ -195,11 +213,46 @@ pub fn apply(dir: &Path, plan: Plan) -> Result<Outcome, OpError> {
     })();
 
     if let Err(mut error) = written {
-        // Leave the directory as it was.
-        let _ = std::fs::remove_file(dir.join(crate::config::CONFIG_FILE));
-        let _ = std::fs::remove_file(dir.join(STARTER_FILE));
-        let _ = std::fs::remove_file(specforge_installed::lock_path(dir));
-        let _ = std::fs::remove_dir_all(dir.join(".specforge"));
+        // Leave the directory as it was: remove what this init wrote, put
+        // back what it replaced.
+        if wrote_config {
+            let _ = std::fs::remove_file(dir.join(crate::config::CONFIG_FILE));
+        }
+        if wrote_starter {
+            let _ = std::fs::remove_file(dir.join(STARTER_FILE));
+        }
+        match &lock_before {
+            Some(bytes) => {
+                let _ = std::fs::write(&lock_path, bytes);
+            }
+            None => {
+                let _ = std::fs::remove_file(&lock_path);
+            }
+        }
+        if specforge_dir_existed {
+            // What the failed install placed in the directory that was
+            // already there, and its now-empty parents.
+            let placed: Vec<PathBuf> = writes
+                .paths()
+                .chain(error.writes.paths())
+                .filter(|path| path.starts_with(&specforge_dir))
+                .map(Path::to_path_buf)
+                .collect();
+            for path in placed {
+                let _ = std::fs::remove_file(&path);
+                let mut parent = path.parent();
+                while let Some(dir) =
+                    parent.filter(|dir| dir.starts_with(&specforge_dir) && *dir != specforge_dir)
+                {
+                    if std::fs::remove_dir(dir).is_err() {
+                        break;
+                    }
+                    parent = dir.parent();
+                }
+            }
+        } else {
+            let _ = std::fs::remove_dir_all(&specforge_dir);
+        }
         match &gitignore_before {
             Some(text) => {
                 let _ = std::fs::write(&gitignore_path, text);
@@ -228,6 +281,30 @@ pub fn apply(dir: &Path, plan: Plan) -> Result<Outcome, OpError> {
         extensions: plan.extensions,
         writes,
     })
+}
+
+/// Create the starter file with `text`; `created` is set once the file
+/// exists, so a rollback removes only a starter this init made.
+fn create_starter(dir: &Path, text: &str, created: &mut bool) -> std::io::Result<()> {
+    use std::io::Write;
+    let mut file = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(dir.join(STARTER_FILE))?;
+    *created = true;
+    file.write_all(text.as_bytes())
+}
+
+/// The refusal of a directory whose starter file is already there.
+fn starter_exists(dir: &Path) -> OpError {
+    OpError::new(
+        OpErrorKind::Conflict,
+        STARTER_EXISTS,
+        format!(
+            "{STARTER_FILE} already exists in {}; init would overwrite it",
+            dir.display()
+        ),
+    )
 }
 
 fn invalid_name(name: &str, why: &str) -> OpError {
