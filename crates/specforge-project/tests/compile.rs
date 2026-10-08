@@ -498,6 +498,34 @@ fn source_texts_are_what_was_compiled() {
     assert_eq!(texts.len(), 2, "{texts:?}");
 }
 
+/// Compiling an environment already loaded is compiling its root: the CLI
+/// routes an extension command on the environment, then compiles from it.
+#[test]
+fn a_compile_of_a_loaded_environment_is_the_compile_of_its_root() {
+    let dir = project(
+        serde_json::json!({"name": "p", "version": "0.1.0", "extensions": ["@specforge/product"]}),
+        &[(
+            "main.spec",
+            "feature f1 \"One\" {\n  status done\n  problem \"p\"\n}\n\nfeature f1 \"Again\" {\n}\n",
+        )],
+    );
+    let runtime = specforge_component::ComponentRuntime::new();
+    let whole = CompiledProject::compile(dir.path(), Some(&runtime));
+    let env = specforge_project::Environment::load(dir.path(), Some(&runtime));
+    let of = CompiledProject::of(env, Some(&runtime));
+
+    assert_eq!(of.diagnostics(), whole.diagnostics());
+    assert_eq!(
+        specforge_emitter::json::emit_json(&of.graph),
+        specforge_emitter::json::emit_json(&whole.graph)
+    );
+    assert_eq!(of.source_texts(), whole.source_texts());
+    assert!(
+        !of.diagnostics().is_empty(),
+        "the project has an error to compare"
+    );
+}
+
 /// Characterization (plan 03 T0): the order `Environment::diagnostics()`
 /// reports a missing extension's load failure, the loaded extensions'
 /// declaration diagnostics and the registry build's. The registry build

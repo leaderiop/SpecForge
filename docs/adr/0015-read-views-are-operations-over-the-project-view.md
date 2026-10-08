@@ -26,7 +26,7 @@ adapters. Architecture plan 02 makes it the pattern for every read view.
 `RegistryBuild` (kinds, fields, edges, rules, the extension declarations and their ordered passes,
 ADR 0012), the root the project was compiled from, and its owner's coverage memo. Three constructors: `ProjectView::of(&CompiledProject)`
 (the CLI), `ProjectView::of_session(&ProjectSession, root)` (the LSP), `ProjectView::new` (tests and
-graphs built in memory); MCP builds every view through `ProjectRef::view()` of its call target (ADR
+graphs built in memory; an extension command runs over `ProjectView::of` in the CLI too, ADR 0011 "One operation runs a command"); MCP builds every view through `ProjectRef::view()` of its call target (ADR
 0014), or `Call::view()` for a call that may have no project. The view owns the recorded test
 report (`test_report`), the coverage computed from it (`coverage`) and the versioned schema
 (`versioned_schema`, `schema_cache`).

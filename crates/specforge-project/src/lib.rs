@@ -299,8 +299,8 @@ impl Environment {
     }
 
     /// Read and parse `discovered`, build their graph and resolve their
-    /// imports: the one cold build every compile, session open and
-    /// extension-command graph starts from (ADR 0032).
+    /// imports: the one cold build every compile and session open
+    /// starts from (ADR 0032).
     pub(crate) fn build_sources(&self, discovered: &[PathBuf]) -> SourceBuild {
         let (sources, files) = SourceCache::read_all(&self.spec_root, discovered);
         let graph = GraphBuild::of(files, self.graph_config());
@@ -329,13 +329,6 @@ impl Environment {
                 path.is_file()
             }))
             .collect()
-    }
-
-    /// The graph of the project's sources, as a compile builds it, without
-    /// the checks a compile then runs on it: what a query over the project
-    /// reads (an extension command, ADR 0008).
-    pub fn build_graph(&self) -> Graph {
-        self.build_sources(&self.discover()).graph.into_parts().0
     }
 }
 
@@ -417,7 +410,14 @@ impl CompiledProject {
     /// Compile the project at `root`, running its extensions in `runtime`.
     /// Without a runtime no extension is loaded.
     pub fn compile(root: &Path, runtime: Option<&dyn WasmRuntime>) -> Self {
-        let env = Environment::load(root, runtime);
+        Self::of(Environment::load(root, runtime), runtime)
+    }
+
+    /// Compile the project of an environment already loaded (the CLI routes
+    /// an extension command on it first): its sources read, its graph built
+    /// and checked in `runtime`, the runtime the environment's extensions
+    /// were loaded in.
+    pub fn of(env: Environment, runtime: Option<&dyn WasmRuntime>) -> Self {
         let SourceBuild {
             sources,
             graph,

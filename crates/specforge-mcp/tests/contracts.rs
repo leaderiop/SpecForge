@@ -1340,7 +1340,7 @@ fn contract_auto_promote_commands() {
 
 #[specforge_test(
     behavior = "dispatch_surface_command",
-    verify = "Dispatch Surface Command: surface command dispatch holds — command_declared, args_serialized, sandbox_restricted, traps_caught, output_returned, surface_command_dispatched_emitted, args_normalized_by_the_host"
+    verify = "Dispatch Surface Command: surface command dispatch holds — command_declared, args_serialized, sandbox_restricted, traps_caught, output_returned, surface_command_dispatched_emitted, args_normalized_by_the_host, evidence_carried, one_operation"
 )]
 fn contract_dispatch_surface_command() {
     // The sandbox probe (fixtures/sandbox-probe), in the component runtime
@@ -1396,7 +1396,10 @@ fn contract_dispatch_surface_command() {
 
     // args_serialized: the args, the project root and the served graph.
     assert_eq!(out["args"], json!({"port": port}));
-    assert_eq!(out["cwd"], root.display().to_string());
+    assert_eq!(
+        out["cwd"],
+        std::fs::canonicalize(&root).unwrap().display().to_string()
+    );
     assert_eq!(out["nodes"], json!(["t1"]));
 
     // sandbox_restricted: though its declaration asks for every capability,

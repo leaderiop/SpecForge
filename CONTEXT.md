@@ -250,7 +250,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   the coverage rule counts proven, their obligations and failing tests. A feature is **proven** when
   at least one behavior implements it and every one is proven. The host passes each entity's score
   to an extension command (`CommandInput.evidence`: none, unreadable, or recorded;
-  `specforge_ops::command::evidence`); `@specforge/product` aggregates it per feature
+  computed by `specforge_ops::command::run` from the project view's recorded report); `@specforge/product` aggregates it per feature
   (`milestone-completion`'s `proven_count`) and its `delivery_evidence` pass reports a done feature
   that is not proven (I071). Status stays the input of every status query (ADR 0039).
 - **Lifecycle consistency**: what the product kinds' statuses claim across entities, checked by
@@ -318,7 +318,12 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   surfaces (`specforge_ops::command::ExtensionCommand`): its CLI name, its tool name, its args'
   command-line shapes, its input schema and the args both send, normalized by the one arg rule the
   SDK also runs (`specforge_protocol_types::command_args`): declared defaults applied by the host,
-  an unset flag `false`, each value its declared type (ADR 0017).
+  an unset flag `false`, each value its declared type (ADR 0017). Both surfaces run it through one
+  operation over the project view (`specforge_ops::command::run`): it normalizes the given args,
+  sends the project root (absolute and canonical), the evidence and the date, and calls the export
+  in the runtime that loaded the project's extensions; a surface only reads its arguments in and renders the output or the
+  failure (`RunError`: refused args, no project, or an export that did not answer) (ADR 0011, "One
+  operation runs a command").
 - **Extension surface table**: what MCP serves from the project's extensions, built once per
   reload from their declarations: each tool once (an explicit `mcp__` tool, or an extension
   command), each resource with its URI template; listings are the core tables plus it, and a call
