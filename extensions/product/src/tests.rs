@@ -3,6 +3,7 @@ use specforge_extension_sdk::prelude::{
     CommandFormat, CommandGraph, CommandInput, GraphEdge, GraphNode,
 };
 
+mod dependency_graphs;
 mod feature_dependents;
 mod host;
 mod journey_coverage;
