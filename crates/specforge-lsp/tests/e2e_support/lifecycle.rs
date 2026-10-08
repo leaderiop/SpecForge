@@ -749,3 +749,92 @@ async fn e2e_a_missing_files_directory_is_watched() {
     let globs = registrations_after_open(&mut client).await;
     assert!(globs.contains(&format!("{root}/docs/*")), "{globs:?}");
 }
+
+/// Pin: an edit that names a file moves the client's watchers, and the
+/// session does not look at what changed on disk while they moved. The file
+/// is written after the edit, before the client answers the
+/// re-registration, so no event can report it: only a catch-up could.
+/// Flipped by the LSP's catch-up (ADR 0035).
+#[tokio::test]
+async fn e2e_what_changes_while_the_watchers_move_is_not_caught_up() {
+    let dir = crate::session::docref_project("gadget gadget_one \"G\" {\n}\n");
+    let root = dir.path().to_str().unwrap();
+    let mut client = Session::launch(Some(root), json!({})).await.0;
+    registrations_after_open(&mut client).await;
+
+    let a = dir.path().join("spec/a.spec");
+    let uri = uri_of(&a);
+    client
+        .did_open(&uri, "specforge", "gadget gadget_one \"G\" {\n}\n")
+        .await;
+    client
+        .did_change(&uri, 2, vec![json!({"text": NAMES_GUIDE})])
+        .await;
+    // E016 is published; the client has not been read since, so the
+    // server's request to move the watchers is not answered yet.
+    loop {
+        let diagnostics = client.diagnostics(&uri).await;
+        if codes(&diagnostics).contains(&"E016") {
+            break;
+        }
+    }
+    std::fs::write(dir.path().join("docs/guide.md"), "# guide\n").unwrap();
+
+    // The client answers the re-registration as it reads it.
+    let registered = client
+        .notification_within(
+            "client/registerCapability",
+            std::time::Duration::from_secs(5),
+            |_| true,
+        )
+        .await
+        .expect("the watchers did not follow the edit");
+    let globs = registered_globs(&json!({"params": registered}));
+    assert!(
+        globs.contains(&format!("{root}/docs/guide.md")),
+        "{globs:?}"
+    );
+    // Nothing reports the file: E016 stays until another change.
+    let published = client
+        .notification_within(
+            "textDocument/publishDiagnostics",
+            std::time::Duration::from_millis(1500),
+            |p| p["uri"] == uri.as_str(),
+        )
+        .await;
+    assert!(
+        published.is_none(),
+        "the session caught up on its own: {published:?}"
+    );
+}
+
+#[tokio::test]
+async fn e2e_a_disk_change_naming_a_file_registers_it() {
+    let dir = crate::session::docref_project("gadget gadget_one \"G\" {\n}\n");
+    let root = dir.path().to_str().unwrap();
+    let mut client = Session::launch(Some(root), json!({})).await.0;
+    registrations_after_open(&mut client).await;
+
+    let a = dir.path().join("spec/a.spec");
+    std::fs::write(&a, NAMES_GUIDE).unwrap();
+    client
+        .notify(
+            "workspace/didChangeWatchedFiles",
+            json!({"changes": [{"uri": uri_of(&a), "type": 2}]}),
+        )
+        .await;
+
+    let registered = client
+        .notification_within(
+            "client/registerCapability",
+            std::time::Duration::from_secs(5),
+            |_| true,
+        )
+        .await
+        .expect("the watchers did not follow the change on disk");
+    let globs = registered_globs(&json!({"params": registered}));
+    assert!(
+        globs.contains(&format!("{root}/docs/guide.md")),
+        "{globs:?}"
+    );
+}
