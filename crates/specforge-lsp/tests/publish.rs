@@ -3,7 +3,7 @@
 
 use specforge_lsp::LspState;
 use specforge_lsp::publish::{FilePublication, Publication};
-use specforge_project::{CheckMode, ProjectSession, SourceChange};
+use specforge_project::{Buffer, CheckMode, ProjectSession, SourceChange};
 use specforge_test_macros::test as spec;
 use std::path::Path;
 use std::sync::Arc;
@@ -181,10 +181,7 @@ fn a_publish_clears_files_whose_diagnostics_are_gone() {
     // The reference is fixed: the file is sent an empty list, once.
     let fixed = "behavior alpha \"A\" {\n  contract \"x\"\n  category command\n}\n";
     state.session_mut().unwrap().update_with(
-        SourceChange::Buffer {
-            path: "a.spec",
-            text: Some(fixed),
-        },
+        SourceChange::Hold(&[Buffer::new(dir.path().join("a.spec"), fixed)]),
         CheckMode::Full,
     );
     let publication = Publication::of(&state, None, &[]);

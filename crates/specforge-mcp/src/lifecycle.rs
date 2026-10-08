@@ -3,6 +3,7 @@ use std::path::PathBuf;
 
 use crate::protocol::{JsonRpcResponse, error_codes};
 use crate::state::{McpState, ServerPhase};
+use crate::tools::core_tool_name;
 use crate::types::{
     McpCapabilities, McpCapabilityFlags, McpPromptCapability, McpResourceCapability, McpServerInfo,
     McpToolCapability,
@@ -184,12 +185,19 @@ pub fn server_info() -> McpServerInfo {
 /// handshake revisions are not listed: a client reaches them through
 /// `initialize`, never through per-request `_meta`.
 pub fn handle_discover(id: Option<Value>) -> JsonRpcResponse {
+    let instructions = format!(
+        "SpecForge compiles .spec files into a graph of entities. Query it with {}, {} and {}; check it with {}.",
+        core_tool_name("specforge.query"),
+        core_tool_name("specforge.search"),
+        core_tool_name("specforge.inspect"),
+        core_tool_name("specforge.validate"),
+    );
     JsonRpcResponse::success(
         id,
         serde_json::json!({
             "supportedVersions": MODERN_PROTOCOL_VERSIONS,
             "capabilities": capability_flags(),
-            "instructions": "SpecForge compiles .spec files into a graph of entities. Query it with specforge.query, specforge.search and specforge.inspect; check it with specforge.validate.",
+            "instructions": instructions,
         }),
     )
 }

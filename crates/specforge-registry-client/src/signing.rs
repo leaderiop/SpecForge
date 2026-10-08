@@ -168,19 +168,12 @@ pub fn key_id_from_pubkey(public_key_hex: &str) -> String {
 
 /// Default on-disk location of the publisher signing key.
 pub fn signing_key_path() -> PathBuf {
-    crate::credentials::dirs_home()
-        .join(".specforge")
-        .join("signing-key.json")
+    crate::credentials::user_dir().join("signing-key.json")
 }
 
-/// Load the local signing key, generating and persisting one on first use.
+/// Load the signing key at `path`, generating and persisting one on first use.
 ///
 /// Returns the key and whether it was newly created.
-pub fn load_or_create_signing_key() -> Result<(SigningKey, bool), String> {
-    load_or_create_signing_key_at(&signing_key_path())
-}
-
-/// [`load_or_create_signing_key`] at an explicit path (tests, custom homes).
 pub fn load_or_create_signing_key_at(path: &Path) -> Result<(SigningKey, bool), String> {
     if let Ok(content) = std::fs::read_to_string(path) {
         #[derive(Deserialize)]

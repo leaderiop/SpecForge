@@ -17,6 +17,36 @@ use specforge_registry::rules::{Registries, Rules};
 use specforge_registry::{FieldRegistryEntry, KindRegistryEntry, RegistryBuild};
 use tempfile::TempDir;
 
+/// A project of five kinds of connectedness (plan 04): `hub` is referenced
+/// by `linked`; `lonely` and `alone` reference nothing and nothing references
+/// them; `dangling`'s only reference does not resolve; `selfish` references
+/// only itself.
+pub const R1_SOURCE: &str = "\
+feature hub \"Hub\" {
+}
+
+behavior linked \"Linked\" {
+  features [hub]
+  verify unit \"linked works\"
+}
+
+behavior lonely \"Lonely\" {
+  verify unit \"lonely works\"
+}
+
+behavior dangling \"Dangling\" {
+  needs [nowhere]
+  verify unit \"dangling works\"
+}
+
+feature selfish \"Selfish\" {
+  depends_on [selfish]
+}
+
+feature alone \"Alone\" {
+}
+";
+
 /// A kind `@t/soft` declares.
 pub fn kind(name: &str, testable: bool) -> KindRegistryEntry {
     KindRegistryEntry {

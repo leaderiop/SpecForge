@@ -126,7 +126,7 @@ impl TestProject {
             json!({"projectRoot": self.root().to_str().expect("a UTF-8 root")}),
         );
         assert!(reply["error"].is_null(), "initialize: {reply}");
-        assert!(server.state().session().root().is_some());
+        assert!(server.state().session().project().root().is_some());
         Served {
             server,
             project: self,
@@ -219,7 +219,7 @@ fn the_fixture_serves_its_declaration_through_the_registry_build() {
         )
         .serve(&[TestExtension::software().obligating("behavior")]);
 
-    assert!(served.state().session().root().is_some());
+    assert!(served.state().session().project().root().is_some());
     let registries = served.state().registries();
     let declared: Vec<&str> = registries.declarations().iter().map(|d| d.name()).collect();
     assert_eq!(declared, [EXT]);

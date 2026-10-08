@@ -14,11 +14,11 @@ expression: "normalized(&json, root)"
   },
   "error_count": 0,
   "info_count": 3,
-  "orphan_count": 5,
   "proof_pct": 50.0,
   "testable_count": 4,
   "total_edges": 1,
   "total_entities": 7,
+  "unconnected_count": 5,
   "verified_count": 4,
   "warning_count": 9
 }

@@ -2,7 +2,11 @@
 //! way `add`, `update` and `remove` read it, so a project whose config is
 //! unusable is refused the same on every command.
 
-use specforge_ops_registry::configured;
+use specforge_common::codes;
+use specforge_ops::registry::Registry;
+use specforge_ops_registry::{ConfiguredRegistry, configured};
+use specforge_protocol_types::PackageName;
+use specforge_registry_client::testing::MemoryClient;
 use specforge_test_macros::test as specforge_test;
 use tempfile::TempDir;
 
@@ -158,7 +162,10 @@ fn an_unscoped_name_goes_to_the_default_registry() {
     );
 }
 
-#[test]
+#[specforge_test(
+    behavior = "validate_registry_credentials",
+    verify = "login stores the credential under the alias of the registry it validated against"
+)]
 fn named_is_the_alias_given_else_the_default() {
     let found = configured_with(ACME_AND_MAIN);
 
@@ -179,4 +186,31 @@ fn named_is_the_alias_given_else_the_default() {
         hint.contains("--registry") && hint.contains("\"default_registry\": true"),
         "{hint}"
     );
+}
+
+#[specforge_test(
+    behavior = "configure_registries",
+    verify = "an operation shows the registry configuration's diagnostics once it has asked a registry"
+)]
+fn the_configuration_is_reported_once_the_registry_is_asked() {
+    let dir = project(
+        r#"{"name": "p", "extensions": [], "registries": [
+            {"alias": "main", "url": "memory://local", "default_registry": true},
+            {"alias": "main", "url": "memory://other"}
+        ]}"#,
+    );
+    let registry =
+        ConfiguredRegistry::for_project(dir.path(), "add").with_client(MemoryClient::new());
+    assert!(registry.reported().is_empty(), "nothing asked yet");
+
+    let tool = PackageName::parse("@acme/tool").unwrap();
+    let error = registry.versions(&tool).unwrap_err();
+
+    assert!(error.is(codes::R_RES_001), "{error:?}");
+    let reported: Vec<&str> = registry
+        .reported()
+        .iter()
+        .map(|d| d.code.as_str())
+        .collect();
+    assert!(reported.contains(&"W140"), "{reported:?}");
 }

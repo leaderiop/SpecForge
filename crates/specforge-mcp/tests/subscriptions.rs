@@ -475,7 +475,7 @@ fn an_environment_reload_is_heard_by_the_schema_and_the_graph_views() {
     );
     assert_eq!(
         schema_extensions(&mut server),
-        ["@specforge/software", "@specforge/product"]
+        ["@specforge/product", "@specforge/software"]
     );
 
     // A second request with nothing changed sends nothing.

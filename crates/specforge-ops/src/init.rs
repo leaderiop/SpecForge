@@ -7,10 +7,11 @@
 //! a configured registry, which a project that doesn't exist yet can't
 //! have, so it is added afterwards with `specforge add`.
 
-use crate::extension::{self, Source};
+use crate::extension::{self, Candidate, LocalFile, Source};
 use crate::{OpError, OpErrorKind, Writes};
 use serde_json::{Value, json};
 use specforge_common::validate_project_name;
+use specforge_wasm::WasmRuntime;
 use std::path::{Path, PathBuf};
 
 /// The code an init refused with because the target is already a project,
@@ -62,8 +63,9 @@ pub struct Plan {
     pub extensions: Vec<String>,
     pub config: Value,
     pub starter: String,
-    /// Local `.wasm` files installed through `add`.
-    pub installs: Vec<PathBuf>,
+    /// Local `.wasm` files installed through `add`, each read once by the
+    /// plan.
+    pub installs: Vec<LocalFile>,
 }
 
 /// What init wrote.
@@ -81,7 +83,7 @@ pub struct Outcome {
 }
 
 /// Validate `req` and build what init writes, writing nothing.
-pub fn plan(req: &Request) -> Result<Plan, OpError> {
+pub fn plan(req: &Request, runtime: &dyn WasmRuntime) -> Result<Plan, OpError> {
     if let Some(marker) = ["specforge.json", "specforge.spec"]
         .into_iter()
         .find(|marker| req.dir.join(marker).exists())
@@ -127,7 +129,9 @@ pub fn plan(req: &Request) -> Result<Plan, OpError> {
     }
     let version = req.version.to_string();
 
-    let (mut extensions, installs) = extensions_of(req.extensions)?;
+    let (extensions, installs) = extensions_of(req.extensions, runtime)?;
+    // A builtin is enabled after the builtins it requires, as `add` does.
+    let mut extensions = with_required_builtins(extensions, runtime)?;
     // Test obligations (`verify`) on software kinds come from
     // @specforge/testing (ADR 0002), so enabling software enables it too;
     // the project's test runners get the extensions that collect their
@@ -144,7 +148,7 @@ pub fn plan(req: &Request) -> Result<Plan, OpError> {
         }
     }
 
-    let starter = match starter_template(&extensions, &installs) {
+    let starter = match starter_template(&extensions, &installs, runtime)? {
         Some(template) => template
             .replace("{project}", &spec_id)
             .replace("{version}", &version),
@@ -171,9 +175,10 @@ pub fn plan(req: &Request) -> Result<Plan, OpError> {
 }
 
 /// Write `plan` into `dir`: `specforge.json`, the starter file, the
-/// `.gitignore` entries, and each local install. A failed install removes
-/// what init wrote (and its error reports nothing written).
-pub fn apply(dir: &Path, plan: &Plan) -> Result<Outcome, OpError> {
+/// `.gitignore` entries, and each local install, without reading the files
+/// again. A failed install removes what init wrote (and its error reports
+/// nothing written).
+pub fn apply(dir: &Path, plan: Plan) -> Result<Outcome, OpError> {
     let write_error = |what: &str, e: std::io::Error| {
         OpError::new(
             OpErrorKind::of_io(&e),
@@ -198,18 +203,8 @@ pub fn apply(dir: &Path, plan: &Plan) -> Result<Outcome, OpError> {
         std::fs::write(dir.join(STARTER_FILE), &plan.starter)
             .map_err(|e| write_error(STARTER_FILE, e))?;
         writes.record(dir.join(STARTER_FILE));
-        let registry = crate::registry::Unconfigured("init");
-        for wasm in &plan.installs {
-            let added = extension::add(
-                &extension::AddRequest {
-                    root: dir,
-                    source: Source::Local(wasm.clone()),
-                    allow_unsigned: false,
-                    trust: extension::Trust::Refuse,
-                    dry_run: false,
-                },
-                &registry,
-            )?;
+        for local in plan.installs {
+            let added = extension::install_local(dir, local)?;
             writes.merge(added.writes);
         }
         Ok(())
@@ -244,9 +239,9 @@ pub fn apply(dir: &Path, plan: &Plan) -> Result<Outcome, OpError> {
         root: dir.canonicalize().unwrap_or_else(|_| dir.to_path_buf()),
         config_path: dir.join(crate::config::CONFIG_FILE),
         starter_path: dir.join(STARTER_FILE),
-        name: plan.name.clone(),
-        version: plan.version.clone(),
-        extensions: plan.extensions.clone(),
+        name: plan.name,
+        version: plan.version,
+        extensions: plan.extensions,
         writes,
     })
 }
@@ -260,10 +255,13 @@ fn invalid_name(name: &str, why: &str) -> OpError {
 }
 
 /// The extensions `specifiers` enable, in order, and the local files to
-/// install. A builtin is enabled by name; a local `.wasm` is checked by its
-/// handshake and enabled by the name it declares. Anything else is refused
-/// before anything is written.
-fn extensions_of(specifiers: &[String]) -> Result<(Vec<String>, Vec<PathBuf>), OpError> {
+/// install, each read once. A builtin is enabled by name; a local `.wasm` is
+/// checked by its handshake and enabled by the name it declares. Anything
+/// else is refused before anything is written.
+fn extensions_of(
+    specifiers: &[String],
+    runtime: &dyn WasmRuntime,
+) -> Result<(Vec<String>, Vec<LocalFile>), OpError> {
     let mut extensions = Vec::new();
     let mut installs = Vec::new();
     for specifier in specifiers.iter().flat_map(|s| s.split(',')) {
@@ -278,15 +276,13 @@ fn extensions_of(specifiers: &[String]) -> Result<(Vec<String>, Vec<PathBuf>), O
         let name = match extension::parse(specifier).map_err(|e| unresolvable(e.message))? {
             Source::Builtin(name) => name.to_string(),
             Source::Local(path) => {
-                let (name, _) = extension::declared(&path).map_err(|e| unresolvable(e.message))?;
-                installs.push(path);
+                let local = LocalFile::read(runtime, &path).map_err(|e| unresolvable(e.message))?;
+                let name = local.binary.candidate().name().to_string();
+                installs.push(local);
                 name
             }
             Source::Registry(_) | Source::Git { .. } => {
-                let builtins: Vec<&str> = specforge_component::builtins::BUILTIN_EXTENSIONS
-                    .iter()
-                    .map(|(name, _)| *name)
-                    .collect();
+                let builtins: Vec<&str> = specforge_project::builtins().names().collect();
                 return Err(unresolvable(
                     "init enables builtins and local .wasm files only".to_string(),
                 )
@@ -303,39 +299,60 @@ fn extensions_of(specifiers: &[String]) -> Result<(Vec<String>, Vec<PathBuf>), O
     Ok((extensions, installs))
 }
 
-/// The starter template the extensions contribute: the one listed first
-/// wins. Builtins load from the binary, local files from disk (read as
-/// every candidate binary is).
-fn starter_template(extensions: &[String], installs: &[PathBuf]) -> Option<String> {
-    let runtime = specforge_component::ComponentRuntime::new();
-    let _ = specforge_component::builtins::load_builtins_for(&runtime, extensions);
-    // A local file contributes under the name it declares.
-    let locals: Vec<(String, Option<String>)> = installs
-        .iter()
-        .filter_map(|wasm| {
-            let module = specforge_installed::Module::read(wasm).ok()?;
-            let declaration = specforge_installed::declaration_of(&module, &runtime)
-                .ok()?
-                .declaration;
-            Some((
-                declaration.name().to_string(),
-                declaration.handshake.starter_template,
-            ))
-        })
-        .collect();
-    // A load failure only costs the extension its template.
-    extensions.iter().find_map(
-        |name| match locals.iter().find(|(local, _)| local == name) {
-            Some((_, template)) => template.clone(),
-            None => {
-                specforge_wasm::protocol::load_declaration(&runtime, name)
-                    .ok()?
-                    .declaration
-                    .handshake
-                    .starter_template
+/// `extensions`, each builtin after the builtins it requires, each once, in
+/// order.
+fn with_required_builtins(
+    extensions: Vec<String>,
+    runtime: &dyn WasmRuntime,
+) -> Result<Vec<String>, OpError> {
+    let mut enabled: Vec<String> = Vec::new();
+    for name in extensions {
+        if let Some(builtin) = extension::builtin_name(&name) {
+            for peer in extension::required_builtins(runtime, builtin)? {
+                if !enabled.iter().any(|e| e == peer) {
+                    enabled.push(peer.to_string());
+                }
             }
-        },
-    )
+        }
+        if !enabled.contains(&name) {
+            enabled.push(name);
+        }
+    }
+    Ok(enabled)
+}
+
+/// The starter template the extensions contribute: the one listed first
+/// wins. A local file contributes under the name it declares, read by the
+/// plan; a builtin is read from the binary, through `runtime`, only until a
+/// template is found, and one that does not load refuses the init.
+fn starter_template(
+    extensions: &[String],
+    installs: &[LocalFile],
+    runtime: &dyn WasmRuntime,
+) -> Result<Option<String>, OpError> {
+    for name in extensions {
+        let local = installs
+            .iter()
+            .find(|local| local.binary.candidate().name() == name);
+        let template = match local {
+            Some(local) => local
+                .binary
+                .candidate()
+                .starter_template()
+                .map(str::to_string),
+            // A builtin that does not load refuses the init (E028).
+            None => match extension::builtin_name(name) {
+                Some(builtin) => Candidate::builtin(runtime, builtin)?
+                    .starter_template()
+                    .map(str::to_string),
+                None => None,
+            },
+        };
+        if template.is_some() {
+            return Ok(template);
+        }
+    }
+    Ok(None)
 }
 
 fn sanitize_entity_id(name: &str) -> String {

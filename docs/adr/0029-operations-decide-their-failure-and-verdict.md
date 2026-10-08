@@ -45,7 +45,7 @@ nearest project, else the directory itself" on their own.
   migrate act on it on both surfaces, a directory that is no project included; migrate compiles the
   root it migrates, so a migration started from a sub-path runs the project's hooks.
 - **D7.** Export's schema-cache protocol is `ops::export::export_recorded` (as ADR 0018 D1 for check);
-  MCP still never records (ADR 0015 D10). An extension command's date is `CommandContext::now`. MCP's
+  MCP still never records (ADR 0015 D10). An extension command's date is read by the operation that runs it (`specforge_ops::command::run`, ADR 0011 O1). MCP's
   no-project refusal reads `McpError::file`, never its message; `Reach::takes_path` is the one predicate
   for an entry that takes a `path`.
 - **D8. MCP resolves a relative `test_results` against the call's project root**, as the paths of

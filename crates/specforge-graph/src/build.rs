@@ -49,7 +49,7 @@ pub enum FileChange {
 }
 
 /// What one [`GraphBuild::apply`] did.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct Applied {
     /// The files added, replaced or removed, sorted. Removing a file the
     /// build did not hold changes nothing and is not listed.
@@ -171,6 +171,11 @@ impl GraphBuild {
     /// clone of the graph and a full build per apply).
     pub fn set_verify(&mut self, enabled: bool) {
         self.verify = enabled;
+    }
+
+    /// Whether every apply is compared with a cold build.
+    pub fn verifies(&self) -> bool {
+        self.verify
     }
 
     pub fn graph(&self) -> &Graph {

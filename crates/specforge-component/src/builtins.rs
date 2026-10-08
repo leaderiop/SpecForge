@@ -1,4 +1,6 @@
+#[cfg(feature = "testing")]
 use specforge_common::ExtensionEntry;
+#[cfg(feature = "testing")]
 use specforge_wasm::WasmRuntime;
 
 static PRODUCT_WASM: &[u8] =
@@ -31,18 +33,13 @@ pub const BUILTIN_EXTENSIONS: &[(&str, &[u8])] = &[
     ("@specforge/typescript", TYPESCRIPT_WASM),
 ];
 
-/// Whether `name` is a builtin extension.
-pub fn is_builtin(name: &str) -> bool {
-    BUILTIN_EXTENSIONS
-        .iter()
-        .any(|(builtin, _)| *builtin == name)
-}
-
-/// Load only the builtin Wasm extensions `requested` (`specforge.json`
-/// entries, read by [`ExtensionEntry`]: a legacy `name@version` names the
-/// builtin too) names.
+/// Test support: puts the builtin Wasm extensions `requested`
+/// (`specforge.json` entries, read by [`ExtensionEntry`]: a legacy
+/// `name@version` names the builtin too) names into a runtime outside the
+/// extension load (`Installed::load`).
 ///
 /// Other entries (installed extensions, `.wasm` files) are skipped.
+#[cfg(feature = "testing")]
 pub fn load_builtins_for(runtime: &dyn WasmRuntime, requested: &[String]) -> Result<(), String> {
     for (name, wasm_bytes) in BUILTIN_EXTENSIONS {
         if requested
@@ -55,7 +52,9 @@ pub fn load_builtins_for(runtime: &dyn WasmRuntime, requested: &[String]) -> Res
     Ok(())
 }
 
-/// Load all builtin Wasm extensions. Used by tests only.
+/// Test support: puts all builtin Wasm extensions into a runtime outside the
+/// extension load (`Installed::load`).
+#[cfg(feature = "testing")]
 pub fn load_builtins(runtime: &dyn WasmRuntime) -> Result<(), String> {
     for (name, wasm_bytes) in BUILTIN_EXTENSIONS {
         runtime.load(name, wasm_bytes)?;

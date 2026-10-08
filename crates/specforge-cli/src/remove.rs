@@ -27,12 +27,20 @@ pub fn run(name: &str, path: &Path, force: bool, format: OutputFormat) -> Exit {
         OutputFormat::Json => {
             let mut output = json!({
                 "removed": outcome.name,
-                "orphan_warnings": outcome.orphan_warnings,
+                "stranded": outcome
+                    .stranded
+                    .iter()
+                    .map(|entity| json!({"entity_id": entity.entity_id, "kind": entity.kind}))
+                    .collect::<Vec<_>>(),
                 "files_written": outcome.writes.names_under(path),
             });
             match &outcome.origin {
                 Origin::Builtin => output["source"] = json!("builtin"),
-                Origin::Installed { .. } => output["version"] = json!(outcome.version),
+                // `remove` refuses an unlocked non-builtin, so it never
+                // reports `Unknown`.
+                Origin::Installed { .. } | Origin::Unknown => {
+                    output["version"] = json!(outcome.version)
+                }
                 Origin::File { .. } => {
                     output["version"] = json!(outcome.version);
                     output["source"] = json!(outcome.origin.source());
@@ -50,14 +58,14 @@ pub fn run(name: &str, path: &Path, force: bool, format: OutputFormat) -> Exit {
                     "Disabled extension '{}' loaded from {path} (the file is left in place)",
                     outcome.name
                 ),
-                Origin::Installed { .. } => println!(
+                Origin::Installed { .. } | Origin::Unknown => println!(
                     "Removed extension '{}' (v{})",
                     outcome.name,
                     outcome.version.as_deref().unwrap_or("?")
                 ),
             }
-            for warning in &outcome.orphan_warnings {
-                eprintln!("warning: {warning}");
+            for entity in &outcome.stranded {
+                eprintln!("warning: {}", entity.warning(&outcome.name));
             }
         }
     }

@@ -78,11 +78,12 @@ pub struct PassOutcome {
     pub summary: serde_json::Value,
 }
 
-/// W097: a test record naming an entity the graph does not know, with the
-/// closest known id when one is near. Not a finding of any pass, so strict
-/// never promotes it.
+/// W097: a stray test record (CONTEXT.md): a record of the recorded test
+/// report naming an entity the graph does not have, with the closest known
+/// id when one is near. Not a finding of any pass, so strict never promotes
+/// it.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Orphan {
+pub struct StrayRecord {
     pub entity_id: String,
     pub near: Option<String>,
 }
@@ -97,8 +98,8 @@ pub struct AnalyzeOutcome {
     /// The `min` proof-coverage gate. It never changes `ok` or `passes`; the
     /// caller decides what a failed gate costs (CLI: exit code).
     pub gate: Gate,
-    /// Test records for unknown entities, outside the pass reports.
-    pub orphans: Vec<Orphan>,
+    /// Stray test records, outside the pass reports.
+    pub stray_records: Vec<StrayRecord>,
 }
 
 /// Where the proof-coverage gate landed.
@@ -151,7 +152,7 @@ impl Gate {
 
 impl AnalyzeOutcome {
     /// The JSON document `{ok, passes: [{pass, findings, summary}]}`, plus
-    /// `orphans` when there are any.
+    /// `stray_records` when there are any.
     pub fn to_json(&self) -> serde_json::Value {
         let mut doc = serde_json::json!({
             "ok": self.ok,
@@ -165,9 +166,9 @@ impl AnalyzeOutcome {
                 }))
                 .collect::<Vec<_>>(),
         });
-        if !self.orphans.is_empty() {
-            doc["orphans"] = self
-                .orphans
+        if !self.stray_records.is_empty() {
+            doc["stray_records"] = self
+                .stray_records
                 .iter()
                 .map(|o| serde_json::json!({"entity_id": o.entity_id, "near": o.near}))
                 .collect();
@@ -265,7 +266,7 @@ fn analyze_via(
         return Err(AnalyzeError::MinNeedsTestResults);
     }
 
-    let orphans = find_orphans(view.graph(), report.as_deref());
+    let stray_records = stray_records(view.graph(), report.as_deref());
 
     let registries = view.registries();
     let base = AnalysisContext {
@@ -344,13 +345,13 @@ fn analyze_via(
         ok,
         passes: passes_run,
         gate,
-        orphans,
+        stray_records,
     })
 }
 
 /// Report entries for entities the graph does not know. Matching is exact;
 /// a close match is only a hint.
-fn find_orphans(graph: &Graph, report: Option<&TestReport>) -> Vec<Orphan> {
+fn stray_records(graph: &Graph, report: Option<&TestReport>) -> Vec<StrayRecord> {
     let Some(report) = report else {
         return Vec::new();
     };
@@ -358,7 +359,7 @@ fn find_orphans(graph: &Graph, report: Option<&TestReport>) -> Vec<Orphan> {
         .results
         .keys()
         .filter(|id| graph.node(id).is_none())
-        .map(|id| Orphan {
+        .map(|id| StrayRecord {
             entity_id: id.clone(),
             near: specforge_common::suggest::find_close_match(
                 id,
@@ -983,26 +984,26 @@ mod tests {
     }
 
     #[test]
-    fn a_record_for_an_unknown_entity_is_an_orphan_with_a_close_match() {
+    fn a_record_for_an_unknown_entity_is_stray_with_a_close_match() {
         let mut project = Project::new();
         add_entity(&mut project, "widget");
         write_report(&project, &["widget", "wodget", "zzzzzzzz"]);
         let outcome = project.run(&pass("contracts")).unwrap();
         assert_eq!(
-            outcome.orphans,
+            outcome.stray_records,
             vec![
-                Orphan {
+                StrayRecord {
                     entity_id: "wodget".to_string(),
                     near: Some("widget".to_string()),
                 },
-                Orphan {
+                StrayRecord {
                     entity_id: "zzzzzzzz".to_string(),
                     near: None,
                 },
             ]
         );
         assert_eq!(
-            outcome.to_json()["orphans"],
+            outcome.to_json()["stray_records"],
             json!([
                 {"entity_id": "wodget", "near": "widget"},
                 {"entity_id": "zzzzzzzz", "near": null}
@@ -1011,7 +1012,7 @@ mod tests {
     }
 
     #[test]
-    fn orphans_are_never_promoted_by_strict_and_change_neither_ok_nor_the_list() {
+    fn stray_records_are_never_promoted_by_strict_and_change_neither_ok_nor_the_list() {
         let mut project = Project::new();
         add_entity(&mut project, "widget");
         write_report(&project, &["wodget"]);
@@ -1023,21 +1024,21 @@ mod tests {
             })
             .unwrap();
         assert!(lax.ok && strict.ok);
-        assert_eq!(lax.orphans, strict.orphans);
-        assert_eq!(strict.orphans.len(), 1);
+        assert_eq!(lax.stray_records, strict.stray_records);
+        assert_eq!(strict.stray_records.len(), 1);
         assert!(strict.passes.iter().all(|p| p.findings.is_empty()));
     }
 
     #[test]
-    fn the_orphans_key_is_absent_when_there_are_none() {
+    fn the_stray_records_key_is_absent_when_there_are_none() {
         let mut project = Project::new();
         add_entity(&mut project, "widget");
         write_report(&project, &["widget"]);
         let outcome = project.run(&pass("contracts")).unwrap();
-        assert!(outcome.orphans.is_empty());
-        assert!(outcome.to_json().get("orphans").is_none());
+        assert!(outcome.stray_records.is_empty());
+        assert!(outcome.to_json().get("stray_records").is_none());
 
         let none = Project::new().run(&pass("contracts")).unwrap();
-        assert!(none.to_json().get("orphans").is_none());
+        assert!(none.to_json().get("stray_records").is_none());
     }
 }

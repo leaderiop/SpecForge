@@ -3,64 +3,18 @@
 
 use crate::registry::{greet_named, greet_wasm};
 use specforge_registry_client::{HttpRegistryClient, RegistryClient, RegistryConfig};
-use specforge_registry_server::{auth, db::Database, handlers, rate::RateLimiter, state::AppState};
+use specforge_registry_server::testing::LocalRegistry;
 use specforge_test::prelude::*;
 use specforge_wasm::WasmRuntime as _;
-use std::sync::Arc;
 use tempfile::TempDir;
 
-/// A registry server on a local port, with a publisher token, until the
-/// runtime is dropped.
-struct LocalRegistry {
-    url: String,
-    token: String,
-    _runtime: tokio::runtime::Runtime,
-    _data: TempDir,
-}
-
-impl LocalRegistry {
-    fn start() -> Self {
-        let data = TempDir::new().unwrap();
-        let database = Database::open(&data.path().join("registry.db")).unwrap();
-        let token = auth::create_token(&database, None, "publisher", Some(1), false);
-        let state = Arc::new(AppState {
-            database,
-            storage: specforge_registry_server::storage::LocalStorage::new(
-                data.path().join("packages"),
-            ),
-            rate_limiter: RateLimiter::new(60),
-            publish_limit_per_token: 100,
-            publish_limit_per_ip: 100,
-        });
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
-        let url = format!("http://{}/v1", listener.local_addr().unwrap());
-        listener.set_nonblocking(true).unwrap();
-        let runtime = tokio::runtime::Builder::new_multi_thread()
-            .worker_threads(1)
-            .enable_all()
-            .build()
-            .unwrap();
-        runtime.spawn(async move {
-            let listener = tokio::net::TcpListener::from_std(listener).unwrap();
-            axum::serve(listener, handlers::router(state))
-                .await
-                .unwrap();
-        });
-        LocalRegistry {
-            url,
-            token,
-            _runtime: runtime,
-            _data: data,
-        }
-    }
-
-    fn config(&self) -> RegistryConfig {
-        RegistryConfig {
-            alias: "local".to_string(),
-            url: self.url.clone(),
-            scope_filter: None,
-            default_registry: true,
-        }
+/// How `specforge.json` names `registry`.
+fn config(registry: &LocalRegistry) -> RegistryConfig {
+    RegistryConfig {
+        alias: "local".to_string(),
+        url: registry.url().to_string(),
+        scope_filter: None,
+        default_registry: true,
     }
 }
 
@@ -75,7 +29,7 @@ fn publish_stores_the_declaration_the_binary_declares() {
         project.path().join("specforge.json"),
         serde_json::json!({
             "name": "p", "version": "0.1.0",
-            "registries": [{ "alias": "local", "url": registry.url, "default_registry": true }]
+            "registries": [{ "alias": "local", "url": registry.url(), "default_registry": true }]
         })
         .to_string(),
     )
@@ -91,7 +45,7 @@ fn publish_stores_the_declaration_the_binary_declares() {
         .arg(project.path())
         .args(["--format", "json"])
         .env("HOME", home.path())
-        .env("SPECFORGE_REGISTRY_TOKEN", &registry.token)
+        .env("SPECFORGE_REGISTRY_TOKEN", registry.token())
         .output()
         .unwrap();
     assert!(
@@ -106,10 +60,10 @@ fn publish_stores_the_declaration_the_binary_declares() {
 
     // The stored manifest is exactly greet's declaration.
     let served = HttpRegistryClient::new()
-        .fetch(
+        .metadata(
             &specforge_protocol_types::PackageName::parse("@sdk/greet").unwrap(),
             &specforge_protocol_types::package::Version::new(0, 1, 0),
-            &registry.config(),
+            &config(&registry),
         )
         .unwrap();
     let stored: specforge_protocol_types::ExtensionDeclaration =
@@ -180,7 +134,7 @@ fn project_publishing_to(registry: &LocalRegistry) -> TempDir {
         project.path().join("specforge.json"),
         serde_json::json!({
             "name": "p", "version": "0.1.0",
-            "registries": [{ "alias": "local", "url": registry.url, "default_registry": true }]
+            "registries": [{ "alias": "local", "url": registry.url(), "default_registry": true }]
         })
         .to_string(),
     )
@@ -209,19 +163,19 @@ fn publish_greet(project: &TempDir, home: &TempDir, token: Option<&str>) -> std:
 
 fn greet_is_published(registry: &LocalRegistry) -> bool {
     HttpRegistryClient::new()
-        .fetch(
+        .metadata(
             &specforge_protocol_types::PackageName::parse("@sdk/greet").unwrap(),
             &specforge_protocol_types::package::Version::new(0, 1, 0),
-            &registry.config(),
+            &config(registry),
         )
         .is_ok()
 }
 
-// Pins a bug: with no credential the signing key is created and the upload
-// is sent unauthenticated into the server's 401 (plan 06 §3 R2, R3). T5
-// flips it.
-#[test]
-fn a_publish_with_no_credential_is_refused_by_the_registry_today() {
+#[specforge_test(
+    behavior = "publish_to_registry",
+    verify = "with no credential for its registry, publish refuses with R001 before any network call and creates no signing key"
+)]
+fn a_publish_with_no_credential_is_refused_before_any_request() {
     let registry = LocalRegistry::start();
     let project = project_publishing_to(&registry);
     let home = TempDir::new().unwrap();
@@ -230,13 +184,22 @@ fn a_publish_with_no_credential_is_refused_by_the_registry_today() {
 
     assert_eq!(output.status.code(), Some(1), "{output:?}");
     let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
-    // The server answers 401 before it reads the body, so a client that is
-    // still sending sees a reset (R005) rather than the 401 (R001).
+    assert_eq!(json["code"], "R001", "{json}");
     assert!(
-        ["R001", "R005"].contains(&json["code"].as_str().unwrap()),
+        json["error"]
+            .as_str()
+            .unwrap()
+            .contains("no credential for registry 'local'"),
         "{json}"
     );
-    assert!(home.path().join(".specforge/signing-key.json").exists());
+    assert!(
+        json["suggestion"]
+            .as_str()
+            .unwrap()
+            .contains("specforge login --registry local"),
+        "{json}"
+    );
+    assert!(!home.path().join(".specforge/signing-key.json").exists());
     assert!(!greet_is_published(&registry));
 }
 
@@ -249,7 +212,7 @@ fn publishing_a_version_twice_is_refused_with_r007() {
     let project = project_publishing_to(&registry);
     let home = TempDir::new().unwrap();
 
-    let first = publish_greet(&project, &home, Some(&registry.token));
+    let first = publish_greet(&project, &home, Some(registry.token()));
     assert!(first.status.success(), "{first:?}");
     let published: serde_json::Value = serde_json::from_slice(&first.stdout).unwrap();
     let mut keys: Vec<&str> = published
@@ -266,6 +229,7 @@ fn publishing_a_version_twice_is_refused_with_r007() {
             "key_created",
             "key_id",
             "name",
+            "registry",
             "signed",
             "size_bytes",
             "url",
@@ -273,8 +237,9 @@ fn publishing_a_version_twice_is_refused_with_r007() {
         ]
     );
     assert_eq!(published["key_created"], true);
+    assert_eq!(published["registry"], "local");
 
-    let second = publish_greet(&project, &home, Some(&registry.token));
+    let second = publish_greet(&project, &home, Some(registry.token()));
     assert_eq!(second.status.code(), Some(1), "{second:?}");
     let refused: serde_json::Value = serde_json::from_slice(&second.stdout).unwrap();
     assert_eq!(refused["code"], "R007", "{refused}");

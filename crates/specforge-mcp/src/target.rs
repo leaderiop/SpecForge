@@ -415,13 +415,14 @@ impl<'s> Call<'s> {
                 // `McpState::serve` opens every served project from disk, with
                 // a runtime: a session without either is no project (it is
                 // unreachable, and a server answers rather than panics).
-                let (Some(root), Some(runtime)) = (session.root(), session.runtime()) else {
+                let (Some(root), Some(runtime)) = (session.project().root(), session.runtime())
+                else {
                     return Err(no_project(Reach::Served));
                 };
                 Ok(ProjectRef {
                     root,
                     runtime,
-                    view: ProjectView::of_session(session, Some(root))
+                    view: ProjectView::of(session.project())
                         .also_reporting(self.state.surfaces().diagnostics()),
                 })
             }
@@ -441,6 +442,22 @@ impl<'s> Call<'s> {
         &self.target
     }
 
+    /// The runtime the call's operation reads an extension's declaration in:
+    /// its project's (the served session's, or the one another project was
+    /// compiled in); with none, the host's (`McpState::extension_runtime`),
+    /// else one of its own with the per-user compile cache. `init` and
+    /// `add_extension` pass it to their operation (ADR 0028 D7).
+    pub fn runtime(&self) -> SharedRuntime {
+        let project = match &self.target {
+            CallTarget::Served => self.state.session().runtime().cloned(),
+            CallTarget::Other(other) => Some(Arc::clone(&other.runtime)),
+            CallTarget::New(_) | CallTarget::Unscoped | CallTarget::NoProject(_) => None,
+        };
+        project
+            .or_else(|| self.state.extension_runtime.clone())
+            .unwrap_or_else(own_runtime)
+    }
+
     /// The project view of what the call reads: its project's
     /// ([`ProjectRef::view`]), else, with no project, the empty session's
     /// graph without a root: no recorded report, no schema cache; it
@@ -450,7 +467,7 @@ impl<'s> Call<'s> {
     pub fn view(&self) -> ProjectView<'_> {
         match self.project() {
             Ok(project) => project.view(),
-            Err(_) => ProjectView::of_session(self.state.session(), None)
+            Err(_) => ProjectView::of(self.state.session().project())
                 .also_reporting(self.state.surfaces().diagnostics()),
         }
     }
@@ -460,7 +477,7 @@ impl<'s> Call<'s> {
     /// (a tool that answers without a project reads the empty session).
     pub fn root(&self) -> Option<&Path> {
         match &self.target {
-            CallTarget::Served => self.state.session().root(),
+            CallTarget::Served => self.state.session().project().root(),
             CallTarget::Other(other) => Some(&other.root),
             CallTarget::New(_) | CallTarget::Unscoped | CallTarget::NoProject(_) => None,
         }
@@ -471,7 +488,7 @@ impl<'s> Call<'s> {
     pub fn spec_root(&self) -> Option<&Path> {
         match &self.target {
             CallTarget::Served => self.state.spec_root(),
-            CallTarget::Other(other) => Some(&other.project.env.spec_root),
+            CallTarget::Other(other) => Some(&other.project.environment().spec_root),
             CallTarget::New(_) | CallTarget::Unscoped | CallTarget::NoProject(_) => None,
         }
     }

@@ -253,7 +253,7 @@ pub(crate) fn init_op(call: &mut Call<'_>, args: InitArgs) -> Mutated {
         return Mutated::refused(McpError::from(crate::target::TargetError::PathRequired));
     };
     let extensions = &args.extensions;
-    let served = call.state.session().root().map(Path::to_path_buf);
+    let served = call.state.session().project().root().map(Path::to_path_buf);
 
     // The scaffold `specforge init` writes; the new project must not land
     // inside the one this server serves.
@@ -264,10 +264,12 @@ pub(crate) fn init_op(call: &mut Call<'_>, args: InitArgs) -> Mutated {
         extensions,
         forbid_inside: served.as_deref(),
     };
-    let outcome = match init::plan(&request).and_then(|plan| init::apply(&path, &plan)) {
-        Ok(outcome) => outcome,
-        Err(error) => return Mutated::refused_after(false, error),
-    };
+    let runtime = call.runtime();
+    let outcome =
+        match init::plan(&request, runtime.as_ref()).and_then(|plan| init::apply(&path, plan)) {
+            Ok(outcome) => outcome,
+            Err(error) => return Mutated::refused_after(false, error),
+        };
     let result = ok(json!({
         "project_path": path.display().to_string(),
         "config_file": "specforge.json",
@@ -303,7 +305,7 @@ pub struct AddArgs {
 /// wrote and `extension_added` (for an extension already there too,
 /// `wasDuplicate`).
 pub(crate) fn add_extension(call: &mut Call<'_>, args: AddArgs) -> MutationHandled {
-    use specforge_ops::extension::{self, AddOutcome, AddRequest, Origin, Source, Trust};
+    use specforge_ops::extension::{self, AddOutcome, AddRequest, Origin, Trust};
 
     let allow_unsigned = args.allow_unsigned;
     let dry_run = args.dry_run;
@@ -324,13 +326,7 @@ pub(crate) fn add_extension(call: &mut Call<'_>, args: AddArgs) -> MutationHandl
         Err(error) => return Ok(Mutated::refused_after(dry_run, error)),
     };
 
-    let registry = specforge_ops_registry::HttpRegistry::for_project(&root, "add_extension");
-    // What reading the registry configuration reported (E067, W140,
-    // I003), as `specforge add` shows it: only a registry package reads it.
-    let reported = match &source {
-        Source::Registry(_) => registry.diagnostics().to_vec(),
-        _ => Vec::new(),
-    };
+    let registry = specforge_ops_registry::ConfiguredRegistry::for_project(&root, "add_extension");
     // The shared operation `specforge add` runs. An agent can't be asked,
     // so a publisher key change is refused rather than re-pinned.
     let request = AddRequest {
@@ -340,7 +336,12 @@ pub(crate) fn add_extension(call: &mut Call<'_>, args: AddArgs) -> MutationHandl
         trust: Trust::Refuse,
         dry_run,
     };
-    let added = match extension::add(&request, &registry) {
+    let runtime = call.runtime();
+    let added = extension::add(&request, &registry, runtime.as_ref());
+    // What reading the registry configuration reported (E067, W140, I003), once the add asked a
+    // registry, as `specforge add` shows it.
+    let reported = registry.reported().to_vec();
+    let added = match added {
         Ok(added) => added,
         // An install that failed after placing its module reports it.
         Err(error) => {
@@ -426,7 +427,7 @@ pub struct RemoveArgs {
     name: String,
     /// Force removal
     force: bool,
-    /// Preview the removal, orphan warnings included, without changing any file
+    /// Preview the removal, stranded entities included, without changing any file
     dry_run: bool,
 }
 
@@ -436,7 +437,7 @@ pub(crate) fn remove_extension_op(call: &mut Call<'_>, args: RemoveArgs) -> Muta
     let dry_run = args.dry_run;
 
     // The shared operation, over the view of the call's project: its
-    // dependents and its orphaned entities, the served project's or those
+    // dependents and its stranded entities, the served project's or those
     // of the project `path` names.
     let request = specforge_ops::extension::RemoveRequest {
         name: &name,
@@ -450,7 +451,11 @@ pub(crate) fn remove_extension_op(call: &mut Call<'_>, args: RemoveArgs) -> Muta
                     "removed_extension": outcome.name,
                     "success": true,
                     "version": outcome.version,
-                    "orphan_warnings": outcome.orphan_warnings,
+                    "stranded": outcome
+                        .stranded
+                        .iter()
+                        .map(|entity| json!({"entity_id": entity.entity_id, "kind": entity.kind}))
+                        .collect::<Vec<_>>(),
                 });
                 if outcome.dry_run {
                     result["dry_run"] = Value::from(true);
@@ -458,7 +463,8 @@ pub(crate) fn remove_extension_op(call: &mut Call<'_>, args: RemoveArgs) -> Muta
                 }
                 Mutated::wrote(
                     ok(result),
-                    Written::files(outcome.writes).with_entities(outcome.orphaned),
+                    Written::files(outcome.writes)
+                        .with_entities(outcome.stranded.into_iter().map(|entity| entity.entity_id)),
                 )
             }
             // A removal that failed after editing specforge.json reports it.

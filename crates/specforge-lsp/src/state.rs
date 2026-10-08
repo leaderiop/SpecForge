@@ -219,7 +219,7 @@ impl LspState {
 
     pub fn graph(&self) -> &Graph {
         match &self.project {
-            Project::Held(session) => session.graph(),
+            Project::Held(session) => session.project().graph(),
             Project::Out(stand_in) => &stand_in.graph,
         }
     }
@@ -232,7 +232,7 @@ impl LspState {
     /// for a file the compile does not hold.
     pub fn compiled_text(&self, key: &str) -> Option<Arc<str>> {
         match &self.project {
-            Project::Held(session) => session.source_text(key),
+            Project::Held(session) => session.project().source_text(key),
             Project::Out(stand_in) => stand_in.texts.get(key).cloned(),
         }
     }
@@ -240,7 +240,7 @@ impl LspState {
     /// The project's environment: config, spec root, registries, rules.
     pub fn environment(&self) -> &Environment {
         match &self.project {
-            Project::Held(session) => session.environment(),
+            Project::Held(session) => session.project().environment(),
             Project::Out(stand_in) => &stand_in.env,
         }
     }
@@ -251,7 +251,7 @@ impl LspState {
     /// root.
     pub fn view(&self) -> ProjectView<'_> {
         match &self.project {
-            Project::Held(session) => ProjectView::of_session(session, session.root()),
+            Project::Held(session) => ProjectView::of(session.project()),
             Project::Out(stand_in) => {
                 ProjectView::new(&stand_in.graph, &stand_in.env, None, &stand_in.recorded)
             }
@@ -264,6 +264,13 @@ impl LspState {
             Project::Held(session) => Some(session),
             Project::Out(_) => None,
         }
+    }
+
+    /// The version of the buffer the project was compiled from for session
+    /// file `key` ([`ProjectSession::buffer`]); `None` for a file compiled
+    /// from disk and while the session is out for an update.
+    pub fn compiled_version(&self, key: &str) -> Option<i32> {
+        self.session()?.buffer(key)?.version
     }
 
     /// The project session, unless it is out for an update.
@@ -280,10 +287,10 @@ impl LspState {
     pub fn take_session(&mut self) -> Option<ProjectSession> {
         let stand_in = match &self.project {
             Project::Held(session) => Project::Out(Box::new(StandIn {
-                graph: session.graph().clone(),
-                env: session.shared_environment(),
-                texts: session.source_texts(),
-                recorded: RecordedCoverage::of(Arc::clone(session.recorded().entities())),
+                graph: session.project().graph().clone(),
+                env: session.project().shared_environment(),
+                texts: session.project().source_texts(),
+                recorded: RecordedCoverage::of(Arc::clone(session.project().recorded().entities())),
             })),
             Project::Out(_) => return None,
         };

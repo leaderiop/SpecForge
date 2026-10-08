@@ -60,7 +60,7 @@ fn project(spec: &str) -> TempDir {
 /// The (target, label) of every edge out of `id`, sorted.
 fn edges_from(compiled: &CompiledProject, id: &str) -> Vec<(String, String)> {
     let mut edges: Vec<(String, String)> = compiled
-        .graph
+        .graph()
         .edges_from(id)
         .iter()
         .map(|e| (e.target.to_string(), e.label.to_string()))
@@ -210,8 +210,8 @@ port Store {
 "#,
     );
 
-    assert!(compiled.graph.edges_from("Counter").is_empty());
-    assert!(compiled.graph.edges_from("Store").is_empty());
+    assert!(compiled.graph().edges_from("Counter").is_empty());
+    assert!(compiled.graph().edges_from("Store").is_empty());
     assert_eq!(
         w002(&compiled),
         ["type 'Counter' is not referenced by any behavior, port, or type"]

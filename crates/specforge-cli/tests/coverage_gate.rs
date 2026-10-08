@@ -273,12 +273,12 @@ fn json_carries_orphans_only_when_records_exist() {
     seed(tmp.path());
     write_report(tmp.path(), &["widget"]);
     let (_, clean) = analyze_json(tmp.path(), false);
-    assert!(clean.get("orphans").is_none(), "{clean}");
+    assert!(clean.get("stray_records").is_none(), "{clean}");
 
     write_report(tmp.path(), &["widget", "wodget"]);
     let (_, doc) = analyze_json(tmp.path(), false);
     assert_eq!(
-        doc["orphans"],
+        doc["stray_records"],
         serde_json::json!([{"entity_id": "wodget", "near": "widget"}]),
         "{doc}"
     );
@@ -296,7 +296,7 @@ fn strict_leaves_orphans_alone() {
     let (strict_code, strict) = analyze_json(tmp.path(), true);
     assert_eq!(lax_code, strict_code);
     assert_eq!(lax["ok"], strict["ok"]);
-    assert_eq!(lax["orphans"], strict["orphans"]);
+    assert_eq!(lax["stray_records"], strict["stray_records"]);
 }
 
 // C1-06 rot guard: the flagship example's traceability loop must keep

@@ -36,9 +36,9 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   (`Update::inputs_changed`) by watching them anew and then bringing the session up to date for what
   changed meanwhile, MCP asks it to be fresh before every request that reads the project (ADR 0014,
   ADR 0030, ADR 0035). In a debug build it checks every update against a cold rebuild, whichever
-  surface holds it, and each surface reports a divergence where it reports (ADR 0035). The LSP also feeds it its open buffers, each batch of edits as one update
-  (`SourceChange::Buffers`), and a closed document's file is read from disk again
-  (`specforge_lsp::changes`, ADR 0023).
+  surface holds it, and each surface reports a divergence where it reports (ADR 0035). The LSP gives it its open documents as **held buffers**, each batch of edits as one update
+  (`SourceChange::Hold`), and releases a closed document's buffer (`ProjectSession::release`); what an open
+  buffer is to its file is the session's to say (ADR 0023, ADR 0046).
 - **Session inputs**: everything a project session depends on besides its sources' text: where its
   sources are discovered (the spec root and `exclude`), its **environment inputs**
   (`specforge.json`, `specforge.lock`, the extension modules it loaded) and its **check inputs**
@@ -48,6 +48,11 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   `ProjectSession::inputs`). What a changed path is, which directories watch watches, which files
   the LSP asks its client to report and what the session stamps for freshness are all read from it;
   a detached session's inputs are empty (ADR 0030).
+- **Held buffer**: an editor buffer a project session holds (`specforge_project::Buffer`: the file's path, the
+  editor's text and version). While held it is the truth for its file, whatever happens to the file on disk:
+  the session's freshness and classification leave it out, and an open or an environment reload builds it in
+  place of its file. Releasing it reads the file through the session's one read. Diagnostics computed from it
+  are published with its version. Only the LSP holds buffers (ADR 0046).
 - **Call target**: the project one MCP call acts on, resolved from the call's optional `path` and its
   tool spec's target (reach and freshness) before the handler runs: the served session (brought up to
   date unless `use_cached`), another project compiled for that call only, or the directory `init`
@@ -56,7 +61,8 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   importer parses the same, since references resolve without `use`), applies them to the session's graph
   build, resolves every file's imports again and re-runs the checks (`specforge_project::Update`, ADR 0006,
   ADR 0032). An update says whether the session's inputs changed (`inputs_changed`) and, when it was
-  verified, how it differs from a cold rebuild (`divergence`).
+  verified, how it differs from a cold rebuild (`divergence`). An update that changes no file (a held buffer
+  whose text is already its file's) runs no check.
 - **Graph delta**: what an update or a reload changed in the graph: added, removed and modified
   nodes (source positions ignored) and edges. Watch prints it and MCP notifies it
   (`specforge_graph::GraphDelta`, re-exported as `specforge_project::GraphDelta`). A graph build computes it.
@@ -87,6 +93,14 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   entry from its file under the name it declares. Its declarations come in entry order; the registry
   build puts them in load order. What does not load is a typed `LoadFailure` on its
   entry with one diagnostic; the runtime keeps none.
+- **Candidate**: an extension a project does not load yet — a builtin `add` or `init` enables, a
+  binary `add`, `update` or `init` installs, a binary `publish` uploads — and the extension
+  declaration read from its binary once, through the `WasmRuntime` the operation's caller passes (the
+  CLI's component runtime with the per-user compile cache, the MCP call's runtime, a test's in-process
+  runtime), never through one the operation builds (`specforge_ops::extension::candidate`, ADR 0028
+  D7). A binary to install must load (E028) and must not declare a builtin's name; enabling a builtin
+  enables the builtins it requires first, in `add` and `init` alike, and a builtin that does not load
+  refuses the operation.
 - **Registry build**: the pure result of putting extension declarations in load order and turning
   them into kind, field and edge registries, the rule set, pass order and derived graph inputs, and the diagnostics of those
   declarations (`specforge_registry::build_registries`). It also runs every check over a built
@@ -150,15 +164,28 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   It **owes** obligations when a rule applies and nothing exempts it. It **counts** toward coverage
   when testable and owing or declaring. It is **exempt** when testable and neither. W004, the pass
   input's `exempt`, the coverage rule, stats, plan validation and the verify-stub fix read it.
-- **Package registry client**: what talks to a package registry: search, resolve and publish over
-  HTTP, credentials in the OS keyring, publisher trust and package signing
+- **Package registry client**: what talks to a package registry: search, versions, metadata, download and
+  publish over HTTP, credentials in the OS keyring, publisher trust and package signing
   (`specforge-registry-client`). Not the Registry build, which is pure and needs none of it.
   Operations reach it only through the `Registry` port, which lists a package's versions, fetches
-  one and publishes one, by package name and version (ADR 0036, 0045); its adapter
-  (`specforge-ops-registry`) is linked by the CLI and MCP, never the LSP (ADR 0010), and holds what
-  needs the user's `~/.specforge`: the credential, the signing key, the known keys. Publish derives
-  the stored declaration from the binary; `add` checks the binary declares what was published
-  (ADR 0012).
+  one and publishes one, by package name and version (ADR 0036, 0045); its adapter,
+  `specforge_ops_registry::ConfiguredRegistry`, reads the project's registries, asks the one that
+  serves a name and runs the fetch policy over the `RegistryClient` seam (ADR 0044). It is linked by
+  the CLI and MCP, never the LSP (ADR 0010), and holds what needs the user's `~/.specforge`: the
+  credential, the signing key, the known keys. Publish derives the stored declaration from the
+  binary; `add` checks the binary declares what was published (ADR 0012). Each seam has a second
+  adapter for tests, held with the first to one contract: `MemoryRegistry` beside the port, `MemoryClient`
+  beside the client (`assert_registry_contract`, `assert_client_contract`).
+- **Fetch policy**: what a package passes before an operation sees it: the registry's reply names the
+  package and version asked for, the binary hashes to the served SHA-256, the served manifest reads as that
+  package's declaration (one from before ADR 0012 is refused), and the publisher signature verifies with a
+  key that matches its pin or is pinned now (`ConfiguredRegistry::fetch`; ADR 0010, 0012, 0044). A refused
+  package pins no key.
+- **Package registry contract**: what a package registry and its client exchange over HTTP: the paths, the
+  JSON bodies, the publish form and the error codes, each defined once in `specforge-registry-wire`, which
+  `specforge-registry-server` and `specforge-registry-client` both compile against (ADR 0044). A test
+  reaches a registry through the real server in process or an in-memory client, never through JSON written
+  by hand.
 - **Registry for a package**: the one configured registry that serves a package name: the first
   `registries` entry whose `scope_filter` is the name's scope, else the first marked
   `default_registry`; with neither, none does, and the operation refuses with R-OPS-001 before any
@@ -199,9 +226,11 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   target (`ProjectRef::view`: the project session with its I017 notices, or another project
   compiled for one call); the LSP from its session (`ProjectView::of_session`) (ADR 0015).
 - **Read view**: an operation that only reads the project view: stats, trace, the coverage view, the
-  model and outline diagrams, the versioned schema, inspect, and query, list and search (the entities
-  a selection over the view returns, `specforge_ops::query`). Each returns a typed outcome; the CLI,
-  MCP and the LSP only render it.
+  model and outline diagrams, the versioned schema, inspect, query, list and search (the entities a
+  selection over the view returns, `specforge_ops::query`), the exploration and the review
+  (`specforge_ops::{explore, review}`), and the inference guide and plan
+  (`specforge_ops::infer::{guide, kind_guide, inference_plan}`). Each returns a typed outcome; the CLI,
+  MCP (its tools and its prompts) and the LSP only render it.
 - **Entity facts**: what inspect returns for one entity: its node and kind entry, headline
   statement, standing and obligations (the snapshot's own, borrowed), references in both directions,
   coverage, and the reported diagnostics about it (`specforge_ops::inspect::EntityFacts`). MCP
@@ -212,6 +241,34 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   inference guide, the model's root) knows only the declared ones and refuses others with
   `unknown_kind`. Names are exact; both name the closest kind, a kind equal but for case first
   (`specforge_ops::view::KnownKinds`, `ProjectView::kinds`).
+- **Unconnected entity**: an entity no edge links to another entity, in either direction
+  (`ProjectView::connectivity`, `Degree::is_unconnected`). A reference that does not resolve is no edge
+  (E003 or I004 reports it), and an edge from an entity to itself links it to nothing else. Stats counts
+  them, the exploration lists them and the review flags those that count toward coverage. Not the same as
+  unreferenced.
+- **Unreferenced entity**: an entity no edge points at: W012 for a `ref`, an extension's
+  `no_incoming_edges` rule for its kinds, the coverage summary's `invariant_orphans`. The extensions call one
+  an *orphan* (W041 "Orphan feature", `@specforge/product`'s `orphan_entity` term); the host's code and
+  outputs do not use that word.
+- **Exploration**: where to start reading a project's graph (`specforge_ops::explore`): a selection (the
+  entities one entity reaches within a depth, or every entity; of one kind when given), the paths from that
+  entity, the starting points (the selected connected entities that reference more than they are referenced),
+  the most connected and the unconnected ones. The explore prompt and `specforge explore` render it.
+- **Review**: the coverage gaps of a neighbourhood (`specforge_ops::review`): the coverage view's rows of
+  the entities that count toward coverage within some hops of one entity, or of the whole project, each with
+  a finding when it declares no obligation or is unconnected. The review prompt and `specforge review`
+  render it.
+- **Inference guide**: what an agent is told to look for to infer a kind's entities from code
+  (`specforge_ops::infer::KindGuide`): the kind's description and extension, every field the registry build
+  registered on it, the extension's `inference_guide` followed by the project's own guide for the kind
+  (`inference.<kind>` in `specforge.json`, under **Project-specific:**), an example entity writing each field
+  the way its type is written, and the kind's entities. A project's guide is every declared kind's, its
+  global conventions (`inference.global`) and its spec directory. The infer prompt, `specforge infer-guide`
+  and the LSP's keyword completion render it.
+- **Inference plan**: the infer prompt's plan (`specforge_ops::infer::inference_plan`): the inference
+  progress, the unanalyzed and stale files paged from a cursor, the target spec directory (the spec root by
+  default) and the kind priorities: kinds with no entity first, each after the kinds its reference fields
+  target.
 - **Configured providers**: the `providers` `specforge.json` lists (scheme, alias, extension,
   settings), registered once per environment against the loaded declarations, each with its
   status (registered, extension not loaded, not a provider, scheme taken) and the W118/E057 the
@@ -223,12 +280,18 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   and returns a typed outcome; unlike one it also reads what the view does not own (installed
   binaries, source files, the inference manifest), and remove, collect and the session steps write,
   at the view's root only. `add`, `update`, `init` and `migrate` are operations but not over a view:
-  they run before or instead of a compile (ADR 0015); `add` and `update` read `specforge.json`
+  they run before or instead of a compile (ADR 0015), in the runtime their surface passes (ADR 0028
+  D7); `add` and `update` read `specforge.json`
   through the compile's own reader and the installed extensions through `Installed::at`, and refuse
   an unusable `specforge.json` with the refusal `remove` gives.
+- **Stranded entity**: an entity whose kind only the extension being removed declares: `remove` lists it
+  (`specforge_ops::extension::StrandedEntity`), still removes, and the next compile reports it E024.
 - **Recorded test report**: `<root>/specforge-report.json`, what `specforge collect` last wrote. The
   project view reads it once per compile and per content
   (`specforge_project::coverage::RecordedCoverage`).
+- **Stray test record**: a record of the recorded test report naming an entity the graph does not have
+  (W097): `analyze` lists it apart from the passes with the closest id, never promotes it under strict,
+  and it proves nothing (`specforge_ops::analyze::StrayRecord`).
 - **Inference manifest**: `<root>/specforge-infer.json`, what inference has recorded: the source
   roots, each analyzed source file (root-relative path, content hash, the entities produced) and
   the inference sessions (`specforge_ops::infer::InferenceManifest`). One reader and one writer in
@@ -251,7 +314,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   the coverage rule counts proven, their obligations and failing tests. A feature is **proven** when
   at least one behavior implements it and every one is proven. The host passes each entity's score
   to an extension command (`CommandInput.evidence`: none, unreadable, or recorded;
-  `specforge_ops::command::evidence`); `@specforge/product` aggregates it per feature
+  computed by `specforge_ops::command::run` from the project view's recorded report); `@specforge/product` aggregates it per feature
   (`milestone-completion`'s `proven_count`) and its `delivery_evidence` pass reports a done feature
   that is not proven (I071). Status stays the input of every status query (ADR 0039).
 - **Lifecycle consistency**: what the product kinds' statuses claim across entities, checked by
@@ -319,7 +382,12 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   surfaces (`specforge_ops::command::ExtensionCommand`): its CLI name, its tool name, its args'
   command-line shapes, its input schema and the args both send, normalized by the one arg rule the
   SDK also runs (`specforge_protocol_types::command_args`): declared defaults applied by the host,
-  an unset flag `false`, each value its declared type (ADR 0017).
+  an unset flag `false`, each value its declared type (ADR 0017). Both surfaces run it through one
+  operation over the project view (`specforge_ops::command::run`): it normalizes the given args,
+  sends the project root (absolute and canonical), the evidence and the date, and calls the export
+  in the runtime that loaded the project's extensions; a surface only reads its arguments in and renders the output or the
+  failure (`RunError`: refused args, no project, or an export that did not answer) (ADR 0011, "One
+  operation runs a command").
 - **Extension surface table**: what MCP serves from the project's extensions, built once per
   reload from their declarations: each tool once (an explicit `mcp__` tool, or an extension
   command), each resource with its URI template; listings are the core tables plus it, and a call
@@ -341,7 +409,9 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   extension in the host process through the guest's own routing (`guest_call`), unsandboxed
   (it records the limits the host applies and enforces none;
   `specforge_wasm::testing::InProcessRuntime`). It serves a binary's bytes under the name they are
-  loaded as (`binary`), so the extension load runs in process; a test that serves an extension
+  loaded as (`binary`), so the extension load and a candidate's read (add, init, update, publish)
+  run in process (`specforge_ops::testing` serves `@sdk/greet` and builtin look-alikes that way); a
+  test that serves an extension
   installs it (`specforge_installed::testing::install`) and the project loads it through the
   production path. Host tests declare their extensions with it; the
   component runtime is the production adapter, and both keep one contract
@@ -356,8 +426,10 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   arguments it reads. Its descriptor (input schema included), annotations and dispatch derive from
   it (`specforge_mcp`'s `ToolSpec` table).
 - **Prompt spec**: the single definition of an MCP prompt, from which its descriptor (its tool arguments'
-  names, descriptions and required) and reply are derived; it renders over the call target and refuses with an McpError, sent as a
-  JSON-RPC error's data since prompts have no isError (`specforge_mcp`'s `PromptSpec` table).
+  names, descriptions and required) and reply are derived; it renders the read view its prompt is about
+  over the call target, adding only its instruction (tools named as the tool table names them), and refuses
+  with an McpError, sent as a JSON-RPC error's data since prompts have no isError (`specforge_mcp`'s
+  `PromptSpec` table).
 - **Tool arguments**: the one typed struct a tool or prompt reads its call's arguments into
   (`#[derive(Arguments)]`, `specforge_mcp::args`, ADR 0033). Each field is an argument: its name, its
   doc comment as description, its type (how a value is read, and the JSON type listed), its default,

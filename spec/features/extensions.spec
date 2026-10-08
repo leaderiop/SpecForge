@@ -94,8 +94,8 @@ feature registry_authentication "Registry Authentication" {
     authentication, organizations cannot use private extension repositories.
   """
   solution """
-    Registry credential management via specforge registry login and
-    specforge registry logout. Credentials are stored as environment variable
+    Registry credential management via specforge login and
+    specforge logout. Credentials are stored as environment variable
     references or token file paths — never raw tokens. The system authenticates
     before fetching from configured registries, respects scope filters, assigns
     appropriate trust levels, and retries on authentication failures. Logout

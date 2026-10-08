@@ -1,12 +1,13 @@
 // Inference workflow behaviors — AI agent spec inference from codebases
 //
-// 15 behaviors:
+// 19 behaviors:
 //   - Manifest I/O (3): load, save, compute summary
 //   - Session management (3): start, end, mark analyzed
 //   - Staleness detection (1): detect stale entries
 //   - MCP tools (3): infer_progress, infer_session, infer_gaps
-//   - MCP prompts (2): plan scope, workflow scope
-//   - CLI (1): infer-status command
+//   - Guides (1): compute inference guide
+//   - MCP prompts (4): kind, plan, workflow and file scopes
+//   - CLI (2): infer-status, infer-guide
 //   - Diagnostics (2): I200, I202
 
 use "types/infer"
@@ -158,7 +159,7 @@ behavior mark_source_file_analyzed "Mark Source File as Analyzed" {
     the manifest. The path is recorded root-relative with / separators
     (./src/a.rs and src\a.rs are src/a.rs); an absolute path or one with a
     .. component is refused. The same rule applies to the source_roots a
-    start sets. Agents should call this AFTER specforge_validate succeeds.
+    start sets. Agents should call this AFTER specforge.validate succeeds.
     On validation failure: fix .spec errors, re-validate, then mark.
   """
   verify unit "mark creates new entry for unanalyzed file"
@@ -280,6 +281,46 @@ behavior provide_mcp_infer_gaps_tool "Provide MCP Infer Gaps Tool" {
 // MCP Prompt Enhancements
 // ---------------------------------------------------------------------------
 
+behavior compute_inference_guide "Compute Inference Guide" {
+  features   [infer_plan_mode]
+  invariants [zero_domain_knowledge_core]
+  category   query
+  ensures {
+    guides_merged     "a kind's guide is its extension's, then the project's own for it"
+    fields_listed     "every field registered on the kind, by name, with its type"
+    example_typed     "the example writes each field the way its type is written"
+    project_directory "the spec directory is the project's spec root"
+  }
+  contract   """
+    The inference guide (specforge_ops::infer::guide, kind_guide) MUST give,
+    for every kind a loaded extension declares (once, as the extension the
+    kind registry registered it for declares it), in declaration order:
+    its keyword, extension and description; every field the registry
+    build registered on it, sorted by name, with its type, whether it is
+    required and its description; its guide, the extension's
+    inference_guide followed by a blank line, "**Project-specific:**" and
+    the project's own guide for the kind (inference.<kind> in
+    specforge.json), either alone when the other is absent, empty when
+    neither is; an example entity writing its required fields and its
+    first three optional ones, each the way its type is written ("..." for
+    a string, 0, true, the first enum value, ["item1", "item2"], ref_id,
+    [ref_1, ref_2], { } for a block); and its entities, in id order. The
+    project's guide adds the loaded extensions, the entity count of every
+    written kind, the global conventions (inference.global) and the spec
+    directory, the spec root relative to the root. The infer prompt's
+    overview, kind and file scopes, specforge infer-guide and the LSP's
+    keyword completion render it.
+  """
+  verify unit "a kind's guide is its extension's guide, then the project's guide for the kind under Project-specific"
+  verify unit "a kind only the project guides has the project's guide alone, and one nobody guides an empty guide"
+  verify unit "a kind guide lists every field registered on the kind, by name, with its type"
+  verify unit "the example entity writes its required fields and three optional ones, each the way its type is written"
+  verify unit "a kind declared by two extensions is guided by the one that registered it"
+  verify unit "the guide's spec directory is the project's spec root, relative to its root"
+  verify unit "the guide lists each loaded extension, every declared kind in declaration order, and the entities of every written kind"
+  verify integration "every builtin kind's example parses and holds no value of the wrong type"
+}
+
 behavior provide_infer_kind_scope "Provide Infer Prompt Kind Scope" {
   features [infer_plan_mode]
   category mcp
@@ -288,45 +329,45 @@ behavior provide_infer_kind_scope "Provide Infer Prompt Kind Scope" {
     types_named       "each field's type is named as the extension protocol names it"
   }
   contract """
-    When specforge://prompts/infer is invoked with scope=kind:<name>, list
-    the kind's existing entity IDs, its inference guide, an example entity
-    and every field the registry build registered on the kind, sorted by
-    name, each with its type (string, integer, bool, enum, string_list,
-    reference, reference_list, block), whether it is required and its
-    description. A field the registry build refused (W019) is not listed.
+    When specforge://prompts/infer is invoked with scope=kind:<name>, render
+    the kind's guide (compute_inference_guide): its keyword, extension,
+    description, existing entity IDs, fields, guide and example, and the
+    validation step naming the validate and analyze tools. A kind no loaded
+    extension declares is refused on scope as unknown_kind naming the
+    closest declared kind.
   """
-  verify unit "kind scope lists every field registered on the kind, its type by name"
-  verify unit "kind scope's example writes each optional field the way its type is written"
+  verify unit "the kind scope renders the kind's guide; an undeclared kind is refused on scope with the closest declared kind"
 }
 
 behavior provide_infer_plan_scope "Provide Infer Prompt Plan Scope" {
   features [infer_plan_mode]
-  types    [InferencePlan, InferencePlanPhase]
+  types    [InferencePlan, InferenceKindPriority]
   category mcp
   ensures {
-    kinds_prioritized "entity kinds ordered by dependency (types -> behaviors -> events)"
-    zero_first        "kinds with zero existing entities get highest priority"
-    analyzed_excluded "already-analyzed files excluded when specforge-infer.json exists"
-    files_suggested   "source files grouped by relevant kind per phase"
-    placement_guided  "each phase includes target_spec_directory hint"
+    zero_first        "kinds with no existing entity come first"
+    referenced_first  "within each group a kind comes after the kinds its reference fields target"
+    analyzed_excluded "already-analyzed files are not listed as unanalyzed"
+    directory_default "the target directory defaults to the project's spec root"
+    paged             "file lists are pages of at most 50 from the cursor"
   }
   contract """
-    When specforge://prompts/infer is invoked with scope=plan, return an
-    InferencePlan with phases. Each phase targets one entity kind. Priority
-    order: (1) kinds with zero existing entities, (2) dependency order
-    (types before behaviors, behaviors before events, events before
-    invariants, ports after types). Within each phase, suggest source files
-    likely to contain that kind. Each phase includes target_spec_directory
-    (e.g., "spec/types/" for type entities) so agents know where to write.
-    If specforge-infer.json exists, exclude already-analyzed files. If
-    specforge-infer.json exists and cannot be used, the plan is refused
-    with E071.
+    When specforge://prompts/infer is invoked with scope=plan, render the
+    inference plan (specforge_ops::infer::inference_plan): the target
+    spec directory (target_spec_directory, else the project's spec root
+    relative to its root), the inference progress, the unanalyzed and
+    stale source files in pages of 50 from cursor with the cursor of the
+    next page, and the kind priorities. Kinds with no existing entity come
+    first, then the others; within each group a kind comes after the kinds
+    its reference fields target, else in declaration order, a cycle broken
+    in declaration order. The core names no kind. Already-analyzed files
+    are not unanalyzed. If specforge-infer.json exists and cannot be used,
+    the plan is refused with E071.
     Requires explicit Some("plan") match arm in prompt dispatch.
   """
-  verify unit "plan orders types before behaviors"
-  verify unit "plan prioritizes kinds with zero existing entities"
+  verify unit "plan lists kinds with no entities first, then each kind after the kinds it references"
   verify unit "plan excludes already-analyzed files"
-  verify unit "plan includes target_spec_directory per phase"
+  verify unit "plan's target directory defaults to the project's spec root"
+  verify unit "plan pages the file lists 50 at a time from the cursor"
   verify unit "plan refuses a specforge-infer.json it cannot use with E071"
 }
 
@@ -336,24 +377,26 @@ behavior provide_infer_workflow_scope "Provide Infer Prompt Workflow Scope" {
   category mcp
   ensures {
     protocol_taught   "agent receives step-by-step inference protocol"
-    tool_names_listed "all MCP tool names included in workflow"
+    tool_names_listed "the tools the protocol names are listed, as tools/list names them"
     retry_documented  "retry pattern for validation failures documented"
   }
   contract """
     When specforge://prompts/infer is invoked with scope=workflow, return
-    the step-by-step agent protocol:
-    1. Call specforge_infer_session with action=start
-    2. Call specforge_infer_progress to get unanalyzed files
+    the step-by-step agent protocol, naming each tool as tools/list names
+    it:
+    1. Call specforge.infer_session with action=start
+    2. Call specforge.infer_progress to get unanalyzed files
     3. Read source files, write .spec files
-    4. Call specforge_validate to check errors, fix any errors
-    5. Call specforge_infer_session with action=mark_analyzed
+    4. Call specforge.validate to check errors, fix any errors
+    5. Call specforge.infer_session with action=mark_analyzed
     6. Repeat steps 2-5 until satisfied
-    7. Call specforge_infer_session with action=end
+    7. Call specforge.infer_session with action=end
     Include retry pattern: if validate fails, fix .spec -> re-validate
-    -> then mark. Never mark before validation passes.
+    -> then mark. Never mark before validation passes. The payload lists
+    the tools the protocol names and the declared kinds.
   """
   verify unit "workflow returns step-by-step protocol"
-  verify unit "workflow includes all MCP tool names"
+  verify unit "the workflow lists the tools it names, as the tool table names them"
   verify unit "workflow documents retry pattern"
 }
 
@@ -368,7 +411,8 @@ behavior provide_infer_file_scope "Provide Infer Prompt File Scope" {
     When specforge://prompts/infer is invoked with scope=file:<path>,
     list the entities that belong to that source file under the one
     file rule MCP navigation and the LSP share, with each one's kind,
-    line and symbol, and the kind guides. The list is the one
+    line and symbol, and each kind's guide
+    (compute_inference_guide). The list is the one
     specforge.find_spec_for_source returns for the same path.
   """
   verify unit "file scope lists the entities find_spec_for_source finds for the same file"
@@ -412,6 +456,27 @@ behavior provide_infer_status_cli "Provide CLI Infer-Status Command" {
   verify unit "missing manifest shows helpful message"
   verify unit "an unusable manifest is refused with E071"
   verify unit "prints the sessions the manifest records, with their timestamps"
+}
+
+behavior provide_infer_guide_cli "Provide CLI Infer-Guide Command" {
+  features [infer_plan_mode]
+  category cli
+  ensures {
+    overview_printed "without a kind, every declared kind's guide is printed"
+    kind_printed     "with a kind, the kind's guide, fields, existing entities and example are printed"
+    json_format      "--format json prints the infer prompt's guide data"
+  }
+  contract """
+    Register a CLI subcommand 'infer-guide [KIND]' that renders the
+    inference guide (compute_inference_guide) of the project compiled at
+    --path: without KIND every declared kind's guide, the conventions and
+    the spec directory; with KIND that kind's guide. --format json prints
+    the infer prompt's overview or kind-scope data, without the prompt's
+    output_format and validation text. An undeclared KIND is unknown_kind
+    naming the closest declared kind, exit 1.
+  """
+  verify integration "specforge infer-guide --format json is the infer prompt's guide data"
+  verify integration "an undeclared kind is unknown_kind naming the closest declared kind, exit 1"
 }
 
 // ---------------------------------------------------------------------------

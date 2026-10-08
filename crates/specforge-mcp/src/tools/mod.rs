@@ -67,48 +67,50 @@ fn extension_error(diag: &specforge_common::Diagnostic) -> ToolOutcome {
     McpError::from_diagnostic(diag).into()
 }
 
-/// An auto-promoted command's run as a tool result. The command was asked
-/// for json (ADR 0011): a JSON object on stdout, and nothing on stderr, is
-/// the result's structured payload; a failure that wrote one JSON object
-/// on stderr, and nothing on stdout, is an `isError` result carrying it.
-/// Otherwise its stdout, then its stderr when it wrote any; a nonzero exit
-/// code fails the call.
-fn command_tool_result(
-    outcome: Result<specforge_protocol_types::CommandOutput, specforge_wasm::CallError>,
-) -> ToolOutcome {
+/// An auto-promoted command's output as a tool result. The command was
+/// asked for json (ADR 0011): a JSON object on stdout, and nothing on
+/// stderr, is the result's structured payload; a failure that wrote one JSON
+/// object on stderr, and nothing on stdout, is an `isError` result carrying
+/// it. Otherwise its stdout, then its stderr when it wrote any; a nonzero
+/// exit code fails the call.
+fn output_result(output: specforge_protocol_types::CommandOutput) -> ToolOutcome {
     let object = |text: &str| match serde_json::from_str::<Value>(text) {
         Ok(object @ Value::Object(_)) => Some(object),
         _ => None,
     };
-    match outcome {
-        Ok(output) => {
-            let failed = output.exit_code != 0;
-            if !failed
-                && output.stderr.is_empty()
-                && let Some(payload) = object(&output.stdout)
-            {
-                return ToolOutcome::ok(payload);
-            }
-            if failed
-                && output.stdout.is_empty()
-                && let Some(error) = object(&output.stderr)
-            {
-                return ToolOutcome::failed(error);
-            }
-            let failed = output.exit_code != 0;
-            let mut blocks = vec![output.stdout];
-            if !output.stderr.is_empty() {
-                blocks.push(output.stderr);
-            }
-            ToolOutcome::texts(blocks, failed)
-        }
-        Err(error) => extension_error(&error.diagnostic()),
+    let failed = output.exit_code != 0;
+    if !failed
+        && output.stderr.is_empty()
+        && let Some(payload) = object(&output.stdout)
+    {
+        return ToolOutcome::ok(payload);
     }
+    if failed
+        && output.stdout.is_empty()
+        && let Some(error) = object(&output.stderr)
+    {
+        return ToolOutcome::failed(error);
+    }
+    let mut blocks = vec![output.stdout];
+    if !output.stderr.is_empty() {
+        blocks.push(output.stderr);
+    }
+    ToolOutcome::texts(blocks, failed)
 }
 
 /// The core tool named `name`.
 pub fn core_tool(name: &str) -> Option<&'static ToolSpec> {
     CORE_TOOLS.iter().find(|t| t.name == name)
+}
+
+/// The name of the core tool `name` as `tools/list` lists it: the one way
+/// a prompt or the server's instructions name a tool. A name no core tool
+/// has is a SpecForge bug; the prompts' tests render every text that names
+/// one, so it fails there first.
+pub(crate) fn core_tool_name(name: &'static str) -> &'static str {
+    core_tool(name)
+        .map(|tool| tool.name)
+        .unwrap_or_else(|| panic!("SpecForge bug: no core tool is named {name}"))
 }
 
 /// `tools/call`: the core tool table, then the extension surface table (ADR
@@ -265,10 +267,11 @@ type Dispatched = Option<(&'static str, Value)>;
 /// An extension tool, found in the extension surface table, run by one of
 /// its two adapters over the `WasmRuntime` seam the call's project was
 /// compiled in: an explicit tool's `mcp__` export, or a command's `cmd__`
-/// export. Arguments its declaration refuses are refused first, the
-/// project resolved after; the dispatch event is the one to record when
-/// the export returned (whatever the result: a schema mismatch is a
-/// dispatched tool that failed).
+/// export. An explicit tool's arguments its declared schema refuses are
+/// refused first, the project resolved after; a command's arguments are
+/// normalized by its run, over the resolved project; the dispatch event is
+/// the one to record when the export returned (whatever the result: a schema
+/// mismatch is a dispatched tool that failed).
 fn extension_tool(
     call: &mut Call<'_>,
     entry: &ToolEntry,
@@ -296,25 +299,23 @@ fn extension_tool(
             )
         }
         ToolKind::Command(command) => {
-            let given = arguments.as_object().cloned().unwrap_or_default();
-            // The args the command line would send for the same input, or
-            // the command's own INVALID_INPUT object the CLI writes (D5).
-            let args = match command.normalize(&given) {
-                Ok(args) => args,
-                Err(refused) => return (ToolOutcome::failed(refused.to_json()), None),
-            };
             let project = match call.project() {
                 Ok(project) => project,
                 Err(refused) => return (refused.into(), None),
             };
-            command_adapter(
+            // The run `specforge <ext> <command>` makes, over the call's
+            // project, always asked for json: the tool has no format
+            // argument (ADR 0011 A).
+            let given = arguments.as_object().cloned().unwrap_or_default();
+            let started = std::time::Instant::now();
+            let outcome = specforge_ops::command::run(
+                &project.view(),
                 project.runtime.as_ref(),
-                project.graph(),
-                project.root,
-                specforge_ops::command::evidence(&project.view()),
                 command,
-                &args,
-            )
+                &given,
+                specforge_ops::command::CommandFormat::Json,
+            );
+            command_result(command, outcome, started)
         }
     }
 }
@@ -394,35 +395,32 @@ fn mcp_tool_adapter(
     (result, Some(("surface_mcp_tool_dispatched", event)))
 }
 
-/// An extension command: its `cmd__` export run with `args` (normalized
-/// by its derivation) over the call's graph, as `specforge <ext>
-/// <command>` runs it over the compiled one, always asked for json: the
-/// tool has no format argument (ADR 0011).
-fn command_adapter(
-    runtime: &dyn specforge_wasm::runtime::WasmRuntime,
-    graph: &specforge_graph::Graph,
-    root: &std::path::Path,
-    evidence: specforge_protocol_types::CommandEvidence,
+/// A command's run as a tool result, and its dispatch event when its export
+/// returned (whatever its exit code). Args the rule refuses are the
+/// command's own `INVALID_INPUT` object, the one the CLI writes; an export
+/// that did not answer is a structured MCP error carrying its E028 (ADR 0013
+/// D4); no dispatch is recorded for either.
+fn command_result(
     command: &specforge_ops::command::ExtensionCommand,
-    args: &serde_json::Map<String, Value>,
+    outcome: Result<specforge_protocol_types::CommandOutput, specforge_ops::command::RunError>,
+    started: std::time::Instant,
 ) -> (ToolOutcome, Dispatched) {
-    let context = specforge_ops::command::CommandContext {
-        evidence,
-        ..specforge_ops::command::CommandContext::now(specforge_ops::command::CommandFormat::Json)
-    };
-    let started = std::time::Instant::now();
-    let outcome =
-        specforge_ops::command::run_command(runtime, command, graph, args, root, &context);
-    // A command whose export returned is a dispatched command; a trap is
-    // the tool's error.
-    let dispatched = outcome.as_ref().ok().map(|output| {
-        let event = json!({
-            "extensionName": command.extension(),
-            "commandId": command.id(),
-            "exitCode": output.exit_code,
-            "durationMs": elapsed_ms(started),
-        });
-        ("surface_command_dispatched", event)
-    });
-    (command_tool_result(outcome), dispatched)
+    use specforge_ops::command::RunError;
+    match outcome {
+        Ok(output) => {
+            let event = json!({
+                "extensionName": command.extension(),
+                "commandId": command.id(),
+                "exitCode": output.exit_code,
+                "durationMs": elapsed_ms(started),
+            });
+            (
+                output_result(output),
+                Some(("surface_command_dispatched", event)),
+            )
+        }
+        Err(RunError::Args(refused)) => (ToolOutcome::failed(refused.to_json()), None),
+        Err(RunError::Call(error)) => (extension_error(&error.diagnostic()), None),
+        Err(RunError::NoProject(error)) => (McpError::from(error).into(), None),
+    }
 }

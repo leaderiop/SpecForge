@@ -88,7 +88,7 @@ impl McpState {
 
     /// The served project's root: `None` while no project is served.
     pub fn project_root(&self) -> Option<&Path> {
-        self.session.root()
+        self.session.project().root()
     }
 
     /// How many times the served project changed since the server started:
@@ -100,7 +100,7 @@ impl McpState {
 
     /// The served project's graph.
     pub fn graph(&self) -> &Graph {
-        self.session.graph()
+        self.session.project().graph()
     }
 
     /// The served project's registries, rules, declarations and surfaces.
@@ -108,25 +108,25 @@ impl McpState {
     /// ([`crate::target::Call::view`]); this is the served session's, for
     /// the server itself (the surface table, the lifecycle answers).
     pub fn registries(&self) -> &RegistryBuild {
-        &self.session.environment().registries
+        &self.session.project().environment().registries
     }
 
     /// The served project's `specforge.json`.
     pub fn config(&self) -> &ProjectConfig {
-        &self.session.environment().config
+        &self.session.project().environment().config
     }
 
     /// Where the served project's `.spec` files live: spans are relative
     /// to it. None while no project on disk is served.
     pub fn spec_root(&self) -> Option<&Path> {
-        self.session.spec_root()
+        self.session.inputs().spec_root()
     }
 
     /// Everything the server reports for the served project: what
     /// `specforge check` reports, then the contributions of its extensions
     /// MCP does not serve under their names (I017).
     pub fn diagnostics(&self) -> Vec<Diagnostic> {
-        let mut diagnostics = self.session.diagnostics();
+        let mut diagnostics = self.session.project().diagnostics();
         diagnostics.extend(self.surfaces.diagnostics().iter().cloned());
         diagnostics
     }

@@ -23,7 +23,8 @@ pub fn run(
         // and commands run inside it resolve to it (the nearest wins).
         forbid_inside: None,
     };
-    let plan = match init::plan(&request) {
+    let runtime = specforge_component::ComponentRuntime::with_user_cache();
+    let plan = match init::plan(&request, &runtime) {
         Ok(plan) => plan,
         Err(error) => return Refusal::of(format).report(&error),
     };
@@ -36,7 +37,7 @@ pub fn run(
             enclosing.display()
         );
     }
-    let outcome = match init::apply(path, &plan) {
+    let outcome = match init::apply(path, plan) {
         Ok(outcome) => outcome,
         Err(error) => return Refusal::of(format).report(&error),
     };

@@ -82,7 +82,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         category: Category::Core,
         access: Access::ReadOnly,
         output: Some(
-            || json!({ "type": "object", "properties": { "ok": { "type": "boolean" }, "passes": { "type": "array" }, "orphans": { "type": "array" } }, "required": ["ok", "passes"] }),
+            || json!({ "type": "object", "properties": { "ok": { "type": "boolean" }, "passes": { "type": "array" }, "stray_records": { "type": "array" } }, "required": ["ok", "passes"] }),
         ),
         target: TargetSpec::new(Reach::AnyProject, Freshness::FreshUnlessCached),
         handler: typed!(analyze::call, analyze::Args),
@@ -234,7 +234,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         category: Category::Core,
         access: Access::ReadOnly,
         output: Some(
-            || json!({ "type": "object", "properties": { "entity_counts": { "type": "array" }, "declared_pct": { "type": "number" }, "proof_pct": { "type": ["number", "null"] }, "coverage_pct": { "type": "number" }, "edge_count": { "type": "integer" }, "orphan_count": { "type": "integer" }, "diagnostic_summary": { "type": "object" } }, "required": ["entity_counts", "declared_pct", "proof_pct", "edge_count", "orphan_count", "diagnostic_summary"] }),
+            || json!({ "type": "object", "properties": { "entity_counts": { "type": "array" }, "declared_pct": { "type": "number" }, "proof_pct": { "type": ["number", "null"] }, "coverage_pct": { "type": "number" }, "edge_count": { "type": "integer" }, "unconnected_count": { "type": "integer" }, "diagnostic_summary": { "type": "object" } }, "required": ["entity_counts", "declared_pct", "proof_pct", "edge_count", "unconnected_count", "diagnostic_summary"] }),
         ),
         target: TargetSpec::SERVED,
         handler: typed!(stats::call, NoArgs),
@@ -400,7 +400,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         },
         output: Some(|| {
             with_files_written(
-                json!({ "type": "object", "properties": { "removed_extension": { "type": "string" }, "success": { "type": "boolean" }, "version": { "type": ["string", "null"] }, "orphan_warnings": { "type": "array" }, "dry_run": { "type": "boolean" } }, "required": ["removed_extension", "success", "orphan_warnings"] }),
+                json!({ "type": "object", "properties": { "removed_extension": { "type": "string" }, "success": { "type": "boolean" }, "version": { "type": ["string", "null"] }, "stranded": { "type": "array", "items": { "type": "object" } }, "dry_run": { "type": "boolean" } }, "required": ["removed_extension", "success", "stranded"] }),
             )
         }),
         target: TargetSpec::new(Reach::WritesAnyProject, Freshness::Fresh),

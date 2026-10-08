@@ -2,7 +2,7 @@ use crate::OutputFormat;
 use crate::outcome::{Exit, Refusal};
 use serde_json::json;
 use specforge_ops::extension::{self, Trust, UpdateRequest};
-use specforge_ops_registry::HttpRegistry;
+use specforge_ops_registry::ConfiguredRegistry;
 use std::path::Path;
 
 /// `specforge update`: the shared update operation, presented. Exit 1
@@ -14,29 +14,25 @@ pub fn run(
     format: OutputFormat,
     major: bool,
     allow_unsigned: bool,
-    assume_yes: bool,
+    trust: Trust,
 ) -> Exit {
-    let registry = HttpRegistry::for_project(path, "update");
+    let registry = ConfiguredRegistry::for_project(path, "update");
+    let runtime = specforge_component::ComponentRuntime::with_user_cache();
     let request = UpdateRequest {
         root: path,
         name,
         major,
         allow_unsigned,
-        trust: match (assume_yes, format) {
-            (true, _) => Trust::AssumeYes,
-            (false, OutputFormat::Json) => Trust::Refuse,
-            (false, OutputFormat::Human) => Trust::Prompt,
-        },
+        trust,
     };
-    let outcome = match extension::update(&request, &registry) {
+    let updated = extension::update(&request, &registry, &runtime);
+    format.eprint_diagnostics(registry.reported());
+    let outcome = match updated {
         Ok(outcome) => outcome,
         Err(error) => {
             return Refusal::of(format).report(&error);
         }
     };
-    if outcome.registry_used {
-        format.eprint_diagnostics(registry.diagnostics());
-    }
     // The update ran to the end (applied or rolled back): it emits
     // `batch_update_completed`, which JSON output carries.
     let completed = batch_update_completed(&outcome);

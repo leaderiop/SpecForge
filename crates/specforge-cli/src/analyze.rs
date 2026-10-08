@@ -51,20 +51,20 @@ pub fn run(
         Ok(outcome) => outcome,
         Err(error) => return Refusal::measuring(format).report(&OpError::from(error)),
     };
-    // D3: orphaned test records, on stderr before the reports. Exact
+    // D3: stray test records, on stderr before the reports. Exact
     // matching is preserved; the warning only surfaces what was silently
     // dropped before.
-    for orphan in &outcome.orphans {
-        match &orphan.near {
+    for stray in &outcome.stray_records {
+        match &stray.near {
             Some(near) => eprintln!(
                 "{}: test record references unknown entity '{}' (did you mean '{near}'?)",
                 codes::W097,
-                orphan.entity_id
+                stray.entity_id
             ),
             None => eprintln!(
                 "{}: test record references unknown entity '{}'",
                 codes::W097,
-                orphan.entity_id
+                stray.entity_id
             ),
         }
     }

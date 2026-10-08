@@ -79,7 +79,7 @@ fn the_context_view_keeps_the_spec_root_and_the_resolved_files() {
 
     let compiled = compile(dir.path());
 
-    assert_eq!(compiled.env.spec_root, dir.path().join("spec"));
+    assert_eq!(compiled.environment().spec_root, dir.path().join("spec"));
     let mut files: Vec<String> = compiled.source_texts().into_keys().collect();
     files.sort();
     assert_eq!(files, ["a.spec"]);
@@ -127,16 +127,16 @@ fn graceful_degradation_contract() {
 
     // registries_populated_fired: with no extension, the registries are
     // built, and empty.
-    assert!(compiled.env.registries.kinds.is_empty());
+    assert!(compiled.environment().registries.kinds.is_empty());
     // i002_emitted
     assert_eq!(codes(&compiled.diagnostics()), ["I002"]);
     // structural_mode_operational: generic nodes, raw keywords, a
     // reference edge.
-    let alpha = compiled.graph.node("alpha").unwrap();
+    let alpha = compiled.graph().node("alpha").unwrap();
     assert_eq!(alpha.kind.raw.as_str(), "thing");
-    assert_eq!(compiled.graph.edges_from("alpha").len(), 1);
+    assert_eq!(compiled.graph().edges_from("alpha").len(), 1);
     // valid_export_produced
-    let json = specforge_emitter::json::emit_json(&compiled.graph);
+    let json = specforge_emitter::json::emit_json(compiled.graph());
     let exported: serde_json::Value = serde_json::from_str(&json).unwrap();
     assert_eq!(exported["nodes"].as_array().unwrap().len(), 2);
 }
@@ -188,7 +188,7 @@ fn all_failed_extensions_leave_a_structural_compile() {
     let diagnostics = compiled.diagnostics();
 
     // The graph is still built, and nothing kind-specific is reported.
-    assert_eq!(compiled.graph.node_count(), 2);
+    assert_eq!(compiled.graph().node_count(), 2);
     assert_eq!(
         codes(&diagnostics),
         ["E028", "E028", "I002"],
@@ -302,7 +302,13 @@ fn soft_cross_extension_resolution_contract() {
     let diagnostics = compiled.diagnostics();
 
     // registries_populated_fired: software's kinds are registered.
-    assert!(compiled.env.registries.kinds.contains("invariant"));
+    assert!(
+        compiled
+            .environment()
+            .registries
+            .kinds
+            .contains("invariant")
+    );
     // known_extensions_catalog_available, suggestion_emitted: the unknown
     // keyword's E024 names its extension, once.
     let e024: Vec<_> = diagnostics.iter().filter(|d| d.code == "E024").collect();
@@ -356,7 +362,7 @@ fn a_define_block_is_one_warning_and_no_node() {
             .unwrap()
             .contains("extension")
     );
-    assert_eq!(compiled.graph.node_count(), 0);
+    assert_eq!(compiled.graph().node_count(), 0);
 }
 
 /// A project with an extension loaded is not in structural-only mode.
@@ -493,9 +499,37 @@ fn source_texts_are_what_was_compiled() {
     fs::write(dir.path().join("a.spec"), "// rewritten\n").unwrap();
 
     let texts = compiled.source_texts();
-    assert_eq!(texts["a.spec"], compiled_text);
-    assert_eq!(texts["sub/b.spec"], "// b\n");
+    assert_eq!(&*texts["a.spec"], compiled_text);
+    assert_eq!(&*texts["sub/b.spec"], "// b\n");
     assert_eq!(texts.len(), 2, "{texts:?}");
+}
+
+/// Compiling an environment already loaded is compiling its root: the CLI
+/// routes an extension command on the environment, then compiles from it.
+#[test]
+fn a_compile_of_a_loaded_environment_is_the_compile_of_its_root() {
+    let dir = project(
+        serde_json::json!({"name": "p", "version": "0.1.0", "extensions": ["@specforge/product"]}),
+        &[(
+            "main.spec",
+            "feature f1 \"One\" {\n  status done\n  problem \"p\"\n}\n\nfeature f1 \"Again\" {\n}\n",
+        )],
+    );
+    let runtime = specforge_component::ComponentRuntime::new();
+    let whole = CompiledProject::compile(dir.path(), Some(&runtime));
+    let env = specforge_project::Environment::load(dir.path(), Some(&runtime));
+    let of = CompiledProject::of(env, Some(&runtime));
+
+    assert_eq!(of.diagnostics(), whole.diagnostics());
+    assert_eq!(
+        specforge_emitter::json::emit_json(of.graph()),
+        specforge_emitter::json::emit_json(whole.graph())
+    );
+    assert_eq!(of.source_texts(), whole.source_texts());
+    assert!(
+        !of.diagnostics().is_empty(),
+        "the project has an error to compare"
+    );
 }
 
 /// Characterization (plan 03 T0): the order `Environment::diagnostics()`
@@ -901,7 +935,12 @@ fn a_non_string_extension_entry_is_e069_and_the_others_load() {
     assert_eq!(codes(&diagnostics)[0], "E069", "E069 is reported first");
     assert!(!codes(&diagnostics).contains(&"I002"), "{diagnostics:?}");
     assert!(
-        compiled.env.registries.kinds.get("feature").is_some(),
+        compiled
+            .environment()
+            .registries
+            .kinds
+            .get("feature")
+            .is_some(),
         "product loaded: its kinds are registered"
     );
 }
@@ -939,7 +978,7 @@ fn an_unreadable_source_is_e025_naming_it() {
     );
     assert!(e025[0].span.is_none());
     let ids: Vec<_> = compiled
-        .graph
+        .graph()
         .nodes()
         .iter()
         .map(|n| n.id.raw.to_string())
@@ -1115,7 +1154,7 @@ fn a_project_listing_a_dependent_first_loads_its_peer_first() {
         "{e026:?}"
     );
     let loaded: Vec<&str> = compiled
-        .env
+        .environment()
         .registries
         .declarations()
         .iter()
@@ -1123,7 +1162,7 @@ fn a_project_listing_a_dependent_first_loads_its_peer_first() {
         .collect();
     assert_eq!(loaded, ["@acme/base", "@acme/dep"]);
     let enabled: Vec<&str> = compiled
-        .env
+        .environment()
         .enabled
         .iter()
         .map(|e| e.name.as_str())

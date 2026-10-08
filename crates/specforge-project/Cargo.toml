@@ -32,6 +32,8 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 
 [dev-dependencies]
+# The builtins, loaded outside the extension load by the tests.
+specforge-component = { path = "../specforge-component", features = ["testing"] }
 # The pipeline tests render what they compile.
 specforge-emitter = { path = "../specforge-emitter" }
 insta = { workspace = true }

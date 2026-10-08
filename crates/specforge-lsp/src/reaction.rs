@@ -16,7 +16,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use tower_lsp::lsp_types::*;
 
-use specforge_project::{OpeningProject, ProjectSession, RuntimeSource};
+use specforge_project::{ProjectSession, RuntimeSource};
 
 use crate::LspState;
 use crate::changes::{Applied, Change, Plan};
@@ -53,8 +53,8 @@ impl<E: Editor> Reaction<E> {
 
     /// The workspace opens (`initialized`) at `root`, or with no root. The editor watches every
     /// `.spec`, config and lock file, is shown the indexing's progress while the project opens
-    /// ([`Change::Open`], with everything [`Self::react`] does after it: the open buffers
-    /// applied, the project's diagnostics published, its watchers followed), and is told how
+    /// ([`Change::Open`], with everything [`Self::react`] does after it: the project opened
+    /// holding the open buffers, the project's diagnostics published, its watchers followed), and is told how
     /// many extensions, kinds and files were loaded.
     pub fn open(&mut self, root: Option<PathBuf>) {
         let defaults = crate::watchers::default_watchers();
@@ -78,7 +78,7 @@ impl<E: Editor> Reaction<E> {
             (
                 st.registries().declarations().len(),
                 st.kind_registry().len(),
-                st.session().map_or(0, ProjectSession::file_count),
+                st.session().map_or(0, |s| s.project().file_count()),
                 st.spec_root().to_string_lossy().into_owned(),
             )
         };
@@ -169,7 +169,12 @@ impl<E: Editor> Reaction<E> {
         };
 
         let updated = unwinding(move || {
-            let mut session = opening.map_or(session, OpeningProject::finish);
+            // The project opens in the place of the session the editor's buffers were
+            // given to (detached until now): it holds them, built in its one cold build.
+            let mut session = match opening {
+                Some(opening) => opening.finish_holding(session.into_buffers()),
+                None => session,
+            };
             let applied = plan.apply(&mut session);
             (session, applied)
         });

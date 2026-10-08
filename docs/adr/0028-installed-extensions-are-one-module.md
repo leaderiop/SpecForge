@@ -17,7 +17,8 @@ binary twice, with two remedies, one of which `add` answered "already installed"
 - **D1. One crate, `specforge-installed`.** It owns the layout (`.specforge/extensions/<name>/extension.wasm`,
   `specforge.lock`), the lock, the pin, the extension load and changes to what is installed.
   `specforge-wasm` keeps the runtime port, extension calls and the declaration loader;
-  `specforge-component` is the wasmtime adapter and the builtin blobs. The crate takes builtins as a
+  `specforge-component` is the wasmtime adapter and the builtin blobs; its loaders that put builtins into
+  a runtime outside the extension load are test support (feature `testing`, D7). The crate takes builtins as a
   value and the engine as `&dyn WasmRuntime`, so it depends on neither.
 - **D2. `Installed` is a project's installed extensions, its lock read once.** The environment holds
   it (`Environment::installed`); `add` and `update`, which run without a compile, read it with
@@ -47,12 +48,44 @@ binary twice, with two remedies, one of which `add` answered "already installed"
 - `check` reports an unreadable lock once (E033) when an enabled installed extension needs it, before
   the E028 of each such extension; a project that enables none still does not report it.
 - A tampered or replaced binary is E070 everywhere it was E033.
-- Lock files are byte-identical; the lock entry's source is typed in memory only (`LockSource`).
+- Lock files are byte-identical; the lock entry's source is typed in memory only (`LockSource`), and
+  so is where an operation says an extension comes from (`Origin::Installed { source: LockSource }`).
 - `specforge-installed` is a path dependency, not a workspace dependency: the root manifest's
   `[workspace.dependencies]` table is an input of the builtin blobs.
+
+## Amendment (2026-10-08): a candidate's declaration is read through the caller's runtime
+
+D1 put the engine behind `&dyn WasmRuntime` for the extension load, but every operation that read an
+extension the project does not load yet — `add` and `update` (`Declared::of`), the builtin-peer lookup,
+`init`'s starter template, `publish` and `extension validate` — built `ComponentRuntime::new()` itself:
+uncached (a builtin compiled from scratch on every `add`), impossible to replace in a test (their
+tests read vendored `.wasm` blobs), and three ways to read a declaration. `init` read a local file
+three times and enabled a builtin without the builtins it requires (E027 on the first `check`), and the
+peer lookup swallowed a load failure.
+
+- **D7. A candidate's declaration is read through the runtime the operation is given.**
+  `specforge_ops::extension::candidate` is the one module that reads an extension the project does
+  not load yet: a builtin from its embedded binary, a module, or a `.wasm` file (E054 when it can't be
+  read), each loaded under the candidate name and unloaded (`declaration_of`). A binary to install must
+  load (E028) and must not declare a builtin's name (`extension_conflict`). `add`, `update`, `init` and
+  `publish` take `&dyn WasmRuntime` from their surface, as `migrate`, `analyze` and `collect` do: the
+  CLI passes `ComponentRuntime::with_user_cache()`, MCP the call's runtime (the project's, else the
+  host's, else one of its own), tests `InProcessRuntime`. Ops never constructs an adapter;
+  `specforge-component` is a dev-dependency of `specforge-ops` (wasmtime still reaches it through
+  `specforge-project`, whose `builtins()` and `RuntimeSource::project()` are the host's).
+  - Enabling a builtin enables the builtins it requires — its non-optional peers that are builtins,
+    and theirs, dependencies first — in `add` and `init` alike, each read once; a builtin that does
+    not load refuses the operation (E028), and a required builtin peer the embedded one does not
+    satisfy, by the one peer satisfaction rule, refuses it (E027). Nothing is written either way.
+  - `init`'s plan keeps the local files it read, and `apply` installs them without reading them again.
+  - Rejected: a fresh runtime per MCP call (uncached, and it bypasses a host runtime tests inject); a
+    static table of builtin peers (a second source for what the binary declares, ADR 0012); loading a
+    builtin under its own name to read it (it would replace and unload one the served session loaded).
 
 **What would reopen it:** two processes changing one project's extensions at once (the invariant's
 "concurrent install and uninstall are serialized" is not enforced: an advisory lock on the staging
 directory would be the place), or a crash between moving a module aside and placing the new one
 needing automatic recovery (today the next change sweeps the staging directory and doctor reports
 the missing binary).
+A runtime that cannot read a candidate without disturbing what it has loaded (D7 relies on the
+candidate name being loaded and unloaded in place).

@@ -27,6 +27,11 @@ impl<'a> Builtins<'a> {
         Builtins(&[])
     }
 
+    /// The builtins' names, in embedded order.
+    pub fn names(self) -> impl Iterator<Item = &'a str> + 'a {
+        self.0.iter().map(|(name, _)| *name)
+    }
+
     /// The embedded bytes of the builtin `name` (`@specforge/product`).
     pub fn get(&self, name: &str) -> Option<&'a [u8]> {
         self.0

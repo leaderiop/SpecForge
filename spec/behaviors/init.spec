@@ -195,9 +195,12 @@ behavior non_interactive_init "Non-Interactive Init" {
     When --version is specified, it MUST override the default version
     (0.1.0) in the generated specforge.json.
     --extensions takes builtins and local .wasm files, several to a flag
-    separated by commas: init enables a builtin and installs a local file
-    through the add operation (ADR 0004 D3-e), so it never writes an entry
-    specforge check cannot load. Any other extension (a registry package,
+    separated by commas: init enables a builtin after the builtins it
+    requires (its non-optional peers that are builtins, and theirs), as
+    add does, and installs a local file through the add operation (ADR
+    0004 D3-e) without reading it again, so it never writes an entry
+    specforge check cannot load or whose required builtin peer is
+    missing. Any other extension (a registry package,
     which needs a registry a new project has not configured yet) MUST be
     rejected with a diagnostic naming it and exit code 1. A project name
     whose starter spec ID would break the identifier contract (2-60
@@ -207,6 +210,8 @@ behavior non_interactive_init "Non-Interactive Init" {
   verify unit "non-interactive init creates valid specforge.json"
   verify unit "non-interactive init skips all prompts"
   verify unit "non-interactive init with --extensions populates extensions list"
+  verify unit "init enables a builtin after the builtins it requires, as add does"
+  verify integration "init with a builtin that requires another passes check"
   verify unit "non-interactive init with unknown extension rejects with diagnostic and exit code 1"
   verify unit "invalid project name is rejected with InitError::invalid_name"
   verify integration "--extensions splits a comma-separated list into its extensions"
@@ -270,6 +275,11 @@ behavior add_extension_to_existing_project "Add Extension to Existing Project" {
     a locked extension's peer range does not accept MUST be rejected the
     same way, its message naming the extension it would break. A peer that
     is not installed is not refused: specforge check reports it (E027).
+    A builtin is enabled after the builtins it requires (its non-optional
+    peers that are builtins, and theirs), dependencies first; a builtin
+    whose declaration cannot be read refuses the operation (E028) before
+    anything is written, and a required builtin peer the builtin this
+    specforge embeds does not satisfy refuses it (E027).
     If no specforge.json exists in the current directory or any ancestor
     directory (as resolved by find_project_root()), the system MUST reject
     the operation with an error message and exit code 1. If the extension
@@ -284,6 +294,9 @@ behavior add_extension_to_existing_project "Add Extension to Existing Project" {
   verify unit "add extension appends to extensions list"
   verify integration "add --format json lists the files it wrote in files_written"
   verify unit "add enables a builtin's required peers but not its optional ones"
+  verify unit "add enables the builtins a required builtin peer requires, dependencies first"
+  verify unit "a builtin whose declaration cannot be read is refused before anything is written"
+  verify unit "a required builtin peer the embedded builtin does not satisfy is refused before anything is written"
   verify unit "add duplicate extension is a no-op with info message"
   verify unit "add extension with no specforge.json rejects with error and exit code 1"
   verify unit "add unresolvable extension rejects with diagnostic"

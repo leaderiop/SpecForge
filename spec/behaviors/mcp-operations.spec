@@ -254,6 +254,7 @@ behavior provide_mcp_add_extension_tool "Provide MCP Add Extension Tool" {
   verify unit "wasm module downloaded for remote extensions"
   verify unit "invalid manifest returns error"
   verify unit "dry_run returns preview without modifying files"
+  verify unit "add, init and publish read a candidate's declaration in the runtime their surface passes"
   verify contract "Provide MCP Add Extension Tool: MCP add extension tool holds — filesystem_available, extension_installed, wasm_downloaded, extension_added_emitted, dry_run_safe, tool_invoked_emitted"
   verify unit "invalid specifier format returns error"
   verify integration "a builtin is enabled with no registry and no network"
@@ -278,7 +279,7 @@ behavior provide_mcp_remove_extension_tool "Provide MCP Remove Extension Tool" {
   }
   ensures {
     extension_removed          "Extension removed from specforge.json"
-    orphan_warning_produced    "Warning included when removal leaves orphan entities"
+    stranded_entities_listed   "The entities the removal strands are listed"
     dry_run_safe               "When dry_run is true, no files modified and preview returned"
     mutation_completed_emitted "mcp_mutation_completed event emitted after removal"
     tool_invoked_emitted       "mcp_tool_invoked event emitted"
@@ -286,13 +287,14 @@ behavior provide_mcp_remove_extension_tool "Provide MCP Remove Extension Tool" {
   contract   """
     In MCP server mode, the system MUST register a specforge.remove_extension
     tool that accepts name (required), force? and dry_run? (optional
-    booleans, default false) and path? (as rename); dependents and orphan
+    booleans, default false) and path? (as rename); dependents and stranded
     entities are those of the project the path names. When dry_run is true, the tool MUST return a
-    preview of the removal (including orphan warnings) without modifying
+    preview of the removal (including the stranded entities) without modifying
     specforge.json. The tool MUST remove the
-    extension from specforge.json. If removing the extension would leave
-    orphan entities (entities of kinds only defined by that extension), the
-    tool MUST include a warning in the response but still proceed.
+    extension from specforge.json. If removing the extension strands
+    entities (entities of kinds only that extension defines, E024 on the
+    next compile), the tool MUST list them in the response (stranded:
+    entity_id, kind, in id order) but still proceed.
     If the specified extension is not installed (not listed in specforge.json),
     the tool MUST return an isError result whose McpError code is
     "extension_not_found" and whose message names the unknown extension.
@@ -301,10 +303,10 @@ behavior provide_mcp_remove_extension_tool "Provide MCP Remove Extension Tool" {
   """
   verify unit "specforge.remove_extension removes extension from config"
   verify integration "specforge.remove_extension removes a .wasm file entry by the name it declares, leaving its file in place"
-  verify unit "orphan entities produce a warning"
+  verify unit "the entities whose kind only that extension declares are listed as stranded"
   verify unit "non-installed extension returns extension_not_found error"
   verify unit "dry_run returns preview without modifying files"
-  verify contract "Provide MCP Remove Extension Tool: MCP remove extension tool holds — filesystem_available, extension_removed, orphan_warning_produced, dry_run_safe, mutation_completed_emitted, tool_invoked_emitted"
+  verify contract "Provide MCP Remove Extension Tool: MCP remove extension tool holds — filesystem_available, extension_removed, stranded_entities_listed, dry_run_safe, mutation_completed_emitted, tool_invoked_emitted"
 }
 
 behavior provide_mcp_migrate_tool "Provide MCP Migrate Tool" {

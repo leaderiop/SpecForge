@@ -256,6 +256,9 @@ catalog! {
     E073: Error core,
         "Unreadable peer requirement",
         "An extension declares a peer dependency whose range is not a SemVer requirement as Cargo reads one (`^1.2`, `~1`, `>=1, <2`, `1.x`, `*`, or a bare version such as `1.2.0`, which means `^1.2.0`), so no version of the peer can satisfy it, whether the peer is installed or not. `specforge check` (and the LSP and MCP) and `doctor` report it, `specforge add` and `update` refuse to install or update around it, and `specforge publish` refuses to upload it. Fix the range in the extension's declaration (its SDK `peer_dependencies`) and rebuild, or install a version of the extension that declares one.";
+    E074: Error core,
+        "Publisher signing key unusable",
+        "`specforge publish` signs every package with your publisher key, kept in `~/.specforge/signing-key.json` and created on your first publish. That file is there and can't be read as a key (it is not JSON, or its `secretKey` is not 32 hex-encoded bytes), or the key could not be created there (the directory or the file can't be written). Nothing was sent. Fix the file's permissions, or move it aside: the next publish creates a new key, and whoever pinned the old one then sees a changed publisher key (R-TRUST-003) for your packages.";
     I002: Info core,
         "Structural-only mode",
         "Emitted when no extensions are installed, or when every installed extension failed to load, so the compiler falls back to structural-only validation. Install an extension (for example `specforge add @specforge/software`) to enable kind-specific checks.";
@@ -456,7 +459,7 @@ catalog! {
         "The publisher key pinned for the package couldn't be saved to `~/.specforge/known-keys.json`. Check the permissions on that file and its directory.";
     R001: Error core,
         "Registry authentication failed",
-        "The registry rejected the request as unauthenticated (HTTP 401), or the credentials its `auth` configuration names couldn't be read; a request is retried once with re-read credentials first. Log in again with `specforge login --registry <alias> --token <TOKEN>`.";
+        "The registry rejected the request as unauthenticated (HTTP 401), or the credentials its `auth` configuration names couldn't be read; a request is retried once with re-read credentials first. Log in again with `specforge login --registry <alias> --token <TOKEN>`. `specforge publish` refuses before any request when there is no credential for the registry that serves the package: none stored for its alias and `SPECFORGE_REGISTRY_TOKEN` unset or blank.";
     R002: Error core,
         "Registry access forbidden",
         "The registry accepted the credentials but refused the request (HTTP 403). Check your permissions for the registry or the package scope.";
