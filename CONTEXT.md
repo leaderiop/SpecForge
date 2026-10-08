@@ -199,8 +199,11 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Operation**: one user-level command (init, add, remove, …) as a typed request and outcome,
   independent of surface. An operation that writes names the files it changed on disk in its
   outcome (`specforge_ops::Writes`), recorded where it wrote. It fails with an `OpError` whose kind
-  (`OpErrorKind`: invalid input, not found, conflict, …) is decided where it is raised; its code is
-  what the CLI prints. The CLI and MCP are adapters over it (`specforge-ops`).
+  (`OpErrorKind`: invalid input, not found, conflict, schema mismatch, compilation failed, …) is
+  decided in ops where it is raised — a recorded test report that cannot be used included
+  (`specforge_ops::report`) — and never by a surface; its code is what the CLI prints. The CLI and MCP
+  are adapters over it (`specforge-ops`); the CLI ends every core command through one renderer
+  (`specforge_cli::outcome`: the refusal, the exit code) (ADR 0029).
 - **Mutation outcome**: what one MCP mutation call wrote: the files its operation changed, the
   entities it changed and the domain event it produces (`specforge_mcp::mutation::Written`), or
   nothing for a preview. The request pipeline's tools adapter alone turns it into the call target's
@@ -225,6 +228,13 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   the severity filter (what is shown, never the verdict) and the opt-in build-cache record
   (`specforge_ops::check`). `specforge check` and MCP `specforge.validate` are its adapters; watch and
   the LSP report a compile's diagnostics without a policy (ADR 0018).
+- **Run verdict**: whether an operation that judges the project passed, computed by the operation
+  (`ok()`): check (no error reported), analyze (no error finding), format (every target read and
+  written, nothing left unformatted, and under `--check` nothing that would change), migrate (no file
+  failed, nothing rolled back). The CLI exits 0 or 1 by it; MCP returns it as `ok`
+  (`specforge.validate`: `_meta["specforge/check"].ok`) and keeps `isError` for refusals (ADR 0004
+  D4-a). A refusal (`OpError`) is not a verdict; a measuring command's refusal exits 2. Not to be
+  confused with an entity's coverage **Verdict** (ADR 0029).
 - **Diagnostic policy**: lint profiles (a closed set: `inferred`, `pedantic`) and strict promotion
   (`specforge_project::DiagnosticPolicy`). It is the only thing that changes a diagnostic's severity
   after the diagnostic is built.

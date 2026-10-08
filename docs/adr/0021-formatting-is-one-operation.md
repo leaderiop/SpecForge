@@ -54,7 +54,9 @@ rules live in ops and `specforge-common`.
   target was read, nothing would change and no region was left unformatted (W142). The CLI exits 1,
   in every mode (write, `--check`, `--diff`, `--stdin`), when a file could not be read or written or
   has a region left unformatted, and under `--check` also when a file would change; MCP fails the
-  call for read failures as for write failures and sets `all_clean` from `clean()`.
+  call for read failures as for write failures and sets `all_clean` from `clean()`. *(ADR 0029 D3:
+  the rule is `format::Outcome::ok()`; MCP returns it as `ok` beside `all_clean`; `Mode::Preview` is
+  a `--diff` that does not fail.)*
 - **D5. One diagnostics list.** The outcome has one `diagnostics` list (W141, W142 with file and
   lines) so no adapter can drop part of it. A W142 spans the whole region it kept, in document
   lines, also for a range.

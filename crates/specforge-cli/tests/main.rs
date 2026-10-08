@@ -42,6 +42,7 @@ mod mcp_add;
 mod migrate;
 mod navigation_parity;
 mod options;
+mod outcome;
 mod parity;
 mod pipeline;
 mod product_commands;

@@ -51,11 +51,11 @@ pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
             if include_coverage
                 && let Some(nodes) = result.get_mut("nodes").and_then(|n| n.as_array_mut())
             {
-                // The same classification `specforge.coverage` reports.
+                // The failure `specforge.coverage` reports.
                 let coverage = match view.coverage() {
                     Ok(coverage) => coverage,
                     Err(error) => {
-                        return super::coverage::report_error_result(&error);
+                        return crate::tool::McpError::from(error).into();
                     }
                 };
                 for node in nodes.iter_mut() {

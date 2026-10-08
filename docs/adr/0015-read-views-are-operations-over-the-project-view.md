@@ -85,7 +85,8 @@ has one coverage-row presenter (`tools::coverage::row_json`) and one gap present
   "Management operations"; `StatsRequest` is gone).
 - **D8. An unknown schema kind is refused on both surfaces**: `unknown_kind` naming the closest
   kind; the CLI keeps its message (exit 1) and adds a help line, MCP answers `invalid_input` on
-  `kind`. ~~The CLI's `--kind` still prints the kind's entry alone; the operation returns the filtered
+  `kind`. *(Amended by ADR 0029 D5: the CLI's refusal is `error[unknown_kind]: …` with a `hint:`
+  line.)* ~~The CLI's `--kind` still prints the kind's entry alone; the operation returns the filtered
   schema MCP serves.~~ Amended by [ADR 0027](0027-an-enumerated-argument-is-one-option-table.md)'s round
   (architecture plan 2026-10-06 12, D4): `specforge schema --kind` prints the operation's outcome, the
   document `specforge.schema` returns (the kind and the edge types that touch it), and `--publish`
@@ -246,7 +247,8 @@ prompt, read the same headline, edges and obligations.
   carries the headline statement, the standing (the entity snapshot's `snapshot::Standing`,
   borrowed: `testable`, `obligated()`, `exempt()`; inspect keeps no standing type of its own), the obligations, the
   references (`navigate::References`, one per edge, in edge order, with the peer's kind and the
-  field), the coverage (`Result<EntityCoverage, ReportError>`) and the diagnostics the view reports
+  field), the coverage (`Result<EntityCoverage, OpError>`, classified by `ops::report`, ADR 0029 D1) and the
+  diagnostics the view reports
   about it (`navigate::is_about`). MCP inspect, the context prompt and the hover only render it.
 - **I2. A reference list without spans** is navigate's (`References::of`), selected by the same
   `reference_edges` as `Navigator::references`. Inspect reads no spec file.

@@ -140,12 +140,14 @@ link) as depending on it. Fixed here: only a `depends_on` reference is a depende
   their own errors in, rather than the diagnostic line.
 - **Extension-command errors go to stderr; core commands' `--format json` errors go to
   stdout.** Core commands print `{"error", "code", "suggestion"}` on stdout under `json`
-  (`print_op_error` in `specforge-cli`), extension commands print `ProductSurfaceError` on
+  (`specforge_cli::outcome::Refusal`), extension commands print `ProductSurfaceError` on
   stderr. The difference is known and kept for now: changing core's would break every script
   reading core errors from stdout, for no consumer that needs the two alike. Reopen it when
   a consumer reads both kinds of command the same way (an agent driving the CLI rather than
   MCP), or at core's next breaking output change; then both write one error object to
-  stderr.
+  stderr. *(ADR 0029 D5: `specforge_cli::outcome::Refusal` is the one writer of core errors;
+  every core command with JSON output writes them there, `stats`, `trace`, `analyze`, `migrate`
+  and `init` included.)*
 - **Only closed enums are validated.** `--family` takes any value: `ModuleFamily` is open
   (a family outside the standard set is I062, an info), so refusing it would refuse a valid
   project. A filter on a reference (`--persona`) matches the id, unvalidated.

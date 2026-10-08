@@ -50,6 +50,7 @@ expression: mcp_snap
     "hook_failures": [],
     "hooks_invoked": [],
     "migrated": true,
+    "ok": true,
     "post_migration_errors": [],
     "post_migration_validated": true,
     "results": [

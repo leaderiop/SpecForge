@@ -1,4 +1,5 @@
 use crate::OutputFormat;
+use crate::outcome::Refusal;
 use serde_json::json;
 use specforge_ops::extension::{self, Origin, RemoveRequest};
 use specforge_ops::view::ProjectView;
@@ -18,8 +19,7 @@ pub fn run(name: &str, path: &Path, force: bool, format: OutputFormat) -> i32 {
         Ok(outcome) => outcome,
         // A removal that failed after editing specforge.json names it.
         Err(error) => {
-            format.print_op_error_in(&error, Some(path));
-            return 1;
+            return Refusal::of(format).at(path).report(&error);
         }
     };
 

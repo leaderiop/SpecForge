@@ -1,4 +1,5 @@
 use crate::OutputFormat;
+use crate::outcome::Refusal;
 use serde_json::json;
 use specforge_registry_client::{HttpRegistryClient, search_registries};
 use std::path::Path;
@@ -11,8 +12,7 @@ pub fn run(query: &str, path: &Path, format: OutputFormat) -> i32 {
             configured.registries
         }
         Err(error) => {
-            format.print_op_error(&error);
-            return 1;
+            return Refusal::of(format).report(&error);
         }
     };
 

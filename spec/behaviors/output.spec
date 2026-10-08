@@ -208,8 +208,10 @@ behavior read_views_over_the_project_view "Read Views over the Project View" {
     view's root is the root the project was compiled from: its recorded
     test report is <root>/specforge-report.json and its schema cache
     <root>/.specforge/schema-cache.json, and no view looks in an ancestor
-    directory. A report that exists but cannot be read is an error on
-    every view (E045). The view says what its surface reports for the
+    directory. A report that exists but cannot be used is the same error on
+    every view (E045), of the kind the operation decides: schema_mismatch
+    when it is not a specforge-report.json, permission_denied when the system
+    refuses to read it, else internal_error. The view says what its surface reports for the
     project: what specforge check reports for the compile behind it, then
     what the surface adds (MCP: I017). Coverage is computed once per
     compiled project or session state and per content of the recorded
@@ -223,6 +225,7 @@ behavior read_views_over_the_project_view "Read Views over the Project View" {
   verify unit "an entity is unverified when it counts toward coverage and is not proven"
   verify unit "inspect reports an entity's standing as the coverage view counts it"
   verify unit "a report that cannot be read is the coverage's error, and the standing still holds"
+  verify unit "an unusable report is the same failure, of the kind the operation decides, on every view"
   verify integration "specforge stats and specforge.stats report the same numbers"
   verify integration "specforge trace and specforge.trace return the same chain for an entity"
   verify integration "specforge schema and specforge.schema carry the same version"
@@ -335,6 +338,46 @@ behavior exit_code_reflects_diagnostic_severity "Exit Code Reflects Diagnostic S
   verify unit "a typo'd --format fails with a clap error (exit 2), not a bespoke runtime error"
   verify unit "an unknown --lint profile fails with a clap error (exit 2), before anything is compiled"
   verify contract "Exit Code Reflects Diagnostic Severity: exit code severity mapping holds — validation_complete_fired, exit_zero_on_clean, exit_one_on_errors, strict_mode_enforced"
+}
+
+behavior report_command_outcome "Report a Command's Outcome" {
+  features   [ci_integration]
+  invariants [diagnostic_determinism, zero_domain_knowledge_core]
+  category   command
+  types      [DiagnosticBag]
+  ports      [CompilerApi]
+  requires {
+    operation_ran "the command's operation returned its outcome or refused"
+  }
+  ensures {
+    one_refusal_shape "a refusal is error[CODE]: message with its hint, or the error document under --format json"
+    one_exit_table    "the exit code is the run's verdict, the refusal, or that the command could not judge"
+    surfaces_agree    "the CLI's exit code and MCP's ok are one verdict"
+  }
+  contract   """
+    Every core command MUST end in one of three ways. Its run passed:
+    exit 0. Its run's verdict failed (check found an error, format --check
+    a file that would change, migrate failed or rolled back, analyze an
+    error finding or a gate below its minimum) or its operation refused:
+    exit 1. The command could not judge the project, because the command
+    line was refused or a measuring command (stats, analyze) cannot read
+    what it measures against: exit 2. A refusal MUST be printed on stderr
+    as error[CODE]: message, then "  hint: " and the suggestion when there
+    is one, then "  wrote: " and each file the failed operation left
+    written; under --format json (analyze: --json) it MUST instead be the
+    error document {error, code, suggestion} (and files_written when files
+    were left written) on stdout, with nothing on stderr. A command run
+    outside any project where it needs one MUST refuse with no_project.
+    The verdict is the operation's: the CLI's exit code and the ok MCP
+    returns for check, analyze, format and migrate MUST agree.
+  """
+  verify unit "an operation's refusal is error[CODE]: message, its hint and the files it left written, on stderr"
+  verify unit "under --format json a refusal is the error document on stdout and nothing on stderr"
+  verify unit "a passed run exits 0, a failed verdict or a refusal 1, a refusal of a measuring command 2"
+  verify unit "stats, trace, analyze, migrate and init refuse with the error document under --format json"
+  verify unit "a command run outside any project refuses with no_project"
+  verify integration "the CLI's exit code and MCP's ok agree for check, analyze, format and migrate"
+  verify contract "Report a Command's Outcome: command outcome holds — operation_ran, one_refusal_shape, one_exit_table, surfaces_agree"
 }
 
 behavior serialize_traceability_data "Serialize Traceability Data" {

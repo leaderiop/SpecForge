@@ -6,6 +6,7 @@
 //! extension.
 
 use crate::OutputFormat;
+use crate::outcome::Refusal;
 use serde_json::json;
 use specforge_common::{Code, Diagnostic, Severity, codes};
 use std::path::Path;
@@ -24,15 +25,13 @@ pub fn run_init(path: &Path, name: Option<&str>, format: OutputFormat) -> i32 {
     };
 
     if ext_dir.exists() {
-        format.print_error(
-            &format!("directory '{}' already exists", ext_dir.display()),
+        return Refusal::of(format).coded(
             codes::E065,
+            format!("directory '{}' already exists", ext_dir.display()),
         );
-        return 1;
     }
     if let Err(message) = crate::new::scaffold(&ext_dir, &declared) {
-        format.print_error(&message, codes::E066);
-        return 1;
+        return Refusal::of(format).coded(codes::E066, message);
     }
 
     match format {
@@ -68,11 +67,10 @@ pub fn run_init(path: &Path, name: Option<&str>, format: OutputFormat) -> i32 {
 
 pub fn run_build(path: &Path, format: OutputFormat) -> i32 {
     if !path.join("Cargo.toml").exists() {
-        format.print_error(
-            &format!("no Cargo.toml found at {}", path.display()),
+        return Refusal::of(format).coded(
             NOT_BUILT,
+            format!("no Cargo.toml found at {}", path.display()),
         );
-        return 1;
     }
 
     // The component the host loads: release, wasm32-wasip2, built into the
@@ -93,8 +91,7 @@ pub fn run_build(path: &Path, format: OutputFormat) -> i32 {
     {
         Ok(output) => output,
         Err(e) => {
-            format.print_error(&format!("cannot run cargo: {e}"), NOT_BUILT);
-            return 1;
+            return Refusal::of(format).coded(NOT_BUILT, format!("cannot run cargo: {e}"));
         }
     };
     if !output.status.success() {
@@ -108,14 +105,12 @@ pub fn run_build(path: &Path, format: OutputFormat) -> i32 {
         if format == OutputFormat::Human {
             eprint!("{stderr}");
         }
-        format.print_error(&message, NOT_BUILT);
-        return 1;
+        return Refusal::of(format).coded(NOT_BUILT, message);
     }
     let binary = match specforge_ops::publish::binary_at(path) {
         Ok(binary) => binary,
         Err(error) => {
-            format.print_op_error(&error);
-            return 1;
+            return Refusal::of(format).report(&error);
         }
     };
 
@@ -138,22 +133,20 @@ pub fn run_validate(path: &Path, format: OutputFormat) -> i32 {
     let binary = match specforge_ops::publish::binary_at(path) {
         Ok(binary) => binary,
         Err(error) => {
-            format.print_op_error(&error);
-            return 1;
+            return Refusal::of(format).report(&error);
         }
     };
     let wasm = match std::fs::read(&binary) {
         Ok(wasm) => wasm,
         Err(e) => {
-            format.print_error(&format!("cannot read {}: {e}", binary.display()), NOT_BUILT);
-            return 1;
+            return Refusal::of(format)
+                .coded(NOT_BUILT, format!("cannot read {}: {e}", binary.display()));
         }
     };
     let (declaration, diagnostics) = match specforge_ops::publish::declare(&wasm) {
         Ok(declared) => declared,
         Err(error) => {
-            format.print_op_error(&error);
-            return 1;
+            return Refusal::of(format).report(&error);
         }
     };
     let valid = !diagnostics.iter().any(|d| d.severity == Severity::Error);

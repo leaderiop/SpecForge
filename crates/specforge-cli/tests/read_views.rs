@@ -216,7 +216,10 @@ fn trace_today() {
     let ghost = cli(&["trace", "ghost", "--path", s(root)]);
     insta::assert_snapshot!(
         "trace_fx1_ghost_cli",
-        format!("exit: {:?}\nstderr:\n{}", ghost.code, ghost.stderr)
+        format!(
+            "exit: {:?}\nstdout:\n{}stderr:\n{}",
+            ghost.code, ghost.stdout, ghost.stderr
+        )
     );
 
     let mcp = mcp_calls(
@@ -601,18 +604,24 @@ fn analyze_and_stats_read_the_report_at_the_compiled_root() {
     let analyze = cli(&["analyze", "--path", s(&sub), "--json"]);
     assert_eq!(analyze.code, Some(0), "{}", analyze.stderr);
 
-    // At the root both refuse the report.
+    // At the root both refuse the report: exit 2, and under JSON output
+    // the error document on stdout and nothing on stderr.
     for args in [
         vec!["stats", s(tmp.path()), "--format", "json"],
         vec!["analyze", "--path", s(tmp.path()), "--json"],
     ] {
         let run = cli(&args);
         assert_eq!(run.code, Some(2), "{args:?}: {}", run.stdout);
+        let document: Value = serde_json::from_str(&run.stdout)
+            .unwrap_or_else(|e| panic!("{args:?}: not a document ({e}): {}", run.stdout));
+        assert_eq!(document["code"], "E045", "{args:?}: {document}");
         assert!(
-            run.stderr.contains("invalid test results"),
-            "{}",
-            run.stderr
+            document["error"]
+                .as_str()
+                .is_some_and(|e| e.contains("invalid test results")),
+            "{document}"
         );
+        assert_eq!(run.stderr, "", "{args:?}");
     }
 }
 

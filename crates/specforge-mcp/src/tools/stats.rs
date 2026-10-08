@@ -10,7 +10,7 @@ use crate::tool::ToolOutcome;
 pub fn call(call: &mut Call<'_>, _args: crate::args::NoArgs) -> ToolOutcome {
     let stats = match specforge_ops::stats::stats(&call.view()) {
         Ok(stats) => stats,
-        Err(error) => return super::coverage::report_error_result(&error),
+        Err(error) => return crate::tool::McpError::from(error).into(),
     };
 
     let entity_counts: Vec<Value> = stats
