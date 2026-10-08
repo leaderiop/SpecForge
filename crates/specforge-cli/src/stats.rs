@@ -31,7 +31,7 @@ fn print_human(stats: &Stats) {
         println!("  {}: {}", kind, count);
     }
     println!("Edges:    {}", stats.total_edges);
-    println!("Orphans:  {}", stats.orphan_count);
+    println!("Unconnected: {}", stats.unconnected_count);
     println!("Verified: {}", stats.verified_count);
     println!(
         "Declared: {}% of {} testable",
@@ -57,7 +57,7 @@ fn print_json(stats: &Stats) {
     let json = serde_json::json!({
         "total_entities": stats.total_entities,
         "total_edges": stats.total_edges,
-        "orphan_count": stats.orphan_count,
+        "unconnected_count": stats.unconnected_count,
         "verified_count": stats.verified_count,
         "testable_count": stats.testable_count,
         "declared_count": stats.declared_count,

@@ -10,6 +10,7 @@
 //! both read at the root the project was compiled from and never in an
 //! ancestor directory.
 
+mod connectivity;
 mod kinds;
 
 use std::path::Path;
@@ -24,6 +25,7 @@ use specforge_project::snapshot::EntitySnapshot;
 use specforge_project::{CompiledProject, Environment};
 use specforge_registry::RegistryBuild;
 
+pub use connectivity::{Connectivity, Degree};
 pub use kinds::{KnownKinds, UNKNOWN_KIND};
 
 use crate::schema_cache::SchemaCache;

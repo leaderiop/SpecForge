@@ -103,6 +103,16 @@ pub fn core_tool(name: &str) -> Option<&'static ToolSpec> {
     CORE_TOOLS.iter().find(|t| t.name == name)
 }
 
+/// The name of the core tool `name` as `tools/list` lists it: the one way
+/// a prompt or the server's instructions name a tool. A name no core tool
+/// has is a SpecForge bug; the prompts' tests render every text that names
+/// one, so it fails there first.
+pub(crate) fn core_tool_name(name: &'static str) -> &'static str {
+    core_tool(name)
+        .map(|tool| tool.name)
+        .unwrap_or_else(|| panic!("SpecForge bug: no core tool is named {name}"))
+}
+
 /// `tools/call`: the core tool table, then the extension surface table (ADR
 /// 0017 D7). The request pipeline's tools adapter
 /// ([`crate::surface_call`]).

@@ -5,6 +5,7 @@
 //! with no entity named it lists exactly the entities stats counts as
 //! testable, so its rows and stats' numbers cannot disagree.
 
+use serde_json::{Value, json};
 use specforge_project::coverage::{Status, Summary, Verdict};
 use specforge_project::snapshot::{EntityRecord, Standing};
 
@@ -50,6 +51,25 @@ impl CoverageRow {
 
     pub fn status(&self) -> Status {
         self.verdict.status()
+    }
+
+    /// One row as every surface writes it (`McpCoverageResult`):
+    /// `entity_id`, `kind`, `status` (a [`STATUS`] name), `declared`,
+    /// `linked`, `evidence_collected`, `obligations`, `proven`, `unproven`,
+    /// `exempt`.
+    pub fn to_json(&self) -> Value {
+        json!({
+            "entity_id": self.entity_id,
+            "kind": self.kind,
+            "status": STATUS.name_of(self.status()),
+            "declared": self.declared(),
+            "linked": self.linked(),
+            "evidence_collected": self.linked(),
+            "obligations": self.verdict.obligations,
+            "proven": self.verdict.proven,
+            "unproven": self.verdict.unproven,
+            "exempt": self.exempt,
+        })
     }
 
     /// It declares at least one obligation.

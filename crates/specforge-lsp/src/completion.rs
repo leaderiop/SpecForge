@@ -3,12 +3,13 @@
 //! is the document module's to say.
 
 use specforge_common::structural;
+use specforge_ops::infer::{KindGuide, guide};
 use specforge_ops::navigate::{EntityQuery, MatchScope, find_entities};
 use specforge_ops::view::ProjectView;
 use specforge_registry::{FieldRegistry, FieldType};
 use tower_lsp::lsp_types::{
-    CompletionItem, CompletionItemKind, CompletionTextEdit, InsertReplaceEdit, InsertTextFormat,
-    TextEdit,
+    CompletionItem, CompletionItemKind, CompletionTextEdit, Documentation, InsertReplaceEdit,
+    InsertTextFormat, MarkupContent, MarkupKind, TextEdit,
 };
 
 use crate::document::{CompletionSite, WordEdit};
@@ -114,10 +115,12 @@ fn starts_with(label: &str, prefix: &str) -> bool {
 }
 
 /// The top level's keywords: `use` and every registered kind, each kind
-/// scaffolding its required fields. `define` is a reserved word whose
-/// blocks register nothing (W143, ADR 0005): never suggested.
+/// scaffolding its required fields and documented from its inference guide.
+/// `define` is a reserved word whose blocks register nothing (W143, ADR
+/// 0005): never suggested.
 fn keywords(prefix: &str, view: &ProjectView) -> Vec<CompletionItem> {
     let kinds = &view.registries().kinds;
+    let guide = guide(view);
     let mut keywords: Vec<String> = kinds.keywords().cloned().collect();
     keywords.push(structural::USE.into());
     keywords.sort();
@@ -134,15 +137,35 @@ fn keywords(prefix: &str, view: &ProjectView) -> Vec<CompletionItem> {
                 None => (None, None),
             };
             CompletionItem {
-                label: keyword,
                 kind: Some(CompletionItemKind::KEYWORD),
                 detail,
+                documentation: guide.kind(&keyword).and_then(kind_documentation),
                 insert_text_format: snippet.as_ref().map(|_| InsertTextFormat::SNIPPET),
                 insert_text: snippet,
+                label: keyword,
                 ..Default::default()
             }
         })
         .collect()
+}
+
+/// A kind's markdown documentation: its description, then its inference
+/// guide under "**Inferring it from code**"; none when it has neither.
+fn kind_documentation(kind: &KindGuide) -> Option<Documentation> {
+    let mut sections: Vec<String> = Vec::new();
+    if let Some(description) = kind.description.filter(|d| !d.is_empty()) {
+        sections.push(description.to_string());
+    }
+    if !kind.guide.is_empty() {
+        sections.push(format!("**Inferring it from code**\n\n{}", kind.guide));
+    }
+    if sections.is_empty() {
+        return None;
+    }
+    Some(Documentation::MarkupContent(MarkupContent {
+        kind: MarkupKind::Markdown,
+        value: sections.join("\n\n"),
+    }))
 }
 
 /// A field's single value, completed from its declared type: a reference's

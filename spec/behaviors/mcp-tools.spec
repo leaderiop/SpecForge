@@ -425,7 +425,7 @@ behavior provide_mcp_stats_tool "Provide MCP Stats Tool" {
     graph_available "Compiled graph is available via CompilerApi"
   }
   ensures {
-    stats_returned         "Aggregate statistics returned: entity counts, edge count, coverage, orphans, diagnostics"
+    stats_returned         "Aggregate statistics returned: entity counts, edge count, coverage, unconnected entities, diagnostics"
     latest_state_reflected "Response reflects the latest compilation state"
     tool_invoked_emitted   "mcp_tool_invoked event emitted"
   }
@@ -434,15 +434,15 @@ behavior provide_mcp_stats_tool "Provide MCP Stats Tool" {
     no required parameters. The tool MUST return aggregate statistics about the
     current graph: entity counts by kind, total edge count, the declared
     percentage (declared_pct; coverage_pct is its deprecated alias), the proof
-    percentage (proof_pct, null without recorded test results), orphan node
-    count, and a diagnostic summary (counts by severity). A
+    percentage (proof_pct, null without recorded test results), the unconnected entity
+    count (unconnected_count), and a diagnostic summary (counts by severity). A
     specforge-report.json that exists but cannot be read is an error result. The
     response MUST reflect the latest compilation state.
   """
   verify unit "specforge.stats returns entity counts by kind"
   verify unit "response includes coverage percentage"
   verify integration "response includes the declared and proof percentages"
-  verify unit "response includes orphan node count"
+  verify unit "response includes the unconnected entity count"
   verify unit "response includes diagnostic summary by severity"
   verify contract "Provide MCP Stats Tool: MCP stats tool holds — graph_available, stats_returned, latest_state_reflected, tool_invoked_emitted"
 }
@@ -740,7 +740,7 @@ behavior provide_mcp_analyze_tool "Provide MCP Analyze Tool" {
     every pass. A `path` naming another project analyzes that project for the
     call and leaves the served project untouched. When the test report holds
     records for entities the graph does not know, the result MUST carry a
-    top-level `orphans` list of `{entity_id, near}`, outside the passes and
+    top-level `stray_records` list of `{entity_id, near}` (stray test records), outside the passes and
     never promoted by `strict`; the field is absent when there are none.
   """
   verify unit "analyze reads the project's specforge-report.json by default"
@@ -752,7 +752,7 @@ behavior provide_mcp_analyze_tool "Provide MCP Analyze Tool" {
   verify unit "strict promotes warnings and clears ok"
   verify unit "analyzing another project leaves the served project untouched"
   verify unit "analyze with no project served and no path is a no-project error"
-  verify unit "orphaned test records come back as an optional orphans field"
+  verify unit "stray test records come back as an optional stray_records field"
   verify contract "Provide MCP Analyze Tool: MCP analyze tool holds — graph_available, passes_run, results_structured, tool_invoked_emitted"
 }
 

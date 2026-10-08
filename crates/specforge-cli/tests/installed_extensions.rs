@@ -633,8 +633,11 @@ fn a_wasm_file_entry_is_removed_by_its_declared_name_or_its_entry() {
         );
         assert_eq!(output["version"], "0.1.0", "{output}");
         // `hello` is a greeting, a kind only greet defines.
-        let warnings = output["orphan_warnings"].to_string();
-        assert!(warnings.contains("'hello'"), "{entry} by {name}: {output}");
+        assert_eq!(
+            output["stranded"],
+            json!([{"entity_id": "hello", "kind": "greeting"}]),
+            "{entry} by {name}: {output}"
+        );
         assert_eq!(enabled(dir.path()), json!(["@specforge/software"]));
         assert!(
             dir.path().join("greet.wasm").is_file(),

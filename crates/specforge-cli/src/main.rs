@@ -5,11 +5,13 @@ mod collect;
 mod color;
 mod doctor;
 mod explain;
+mod explore;
 mod export;
 mod extension_authoring;
 mod extension_command;
 mod extensions;
 mod format;
+mod infer_guide;
 mod infer_status;
 mod init;
 mod login;
@@ -25,6 +27,7 @@ mod providers;
 mod publish;
 mod query;
 mod remove;
+mod review;
 mod search;
 mod stats;
 mod trace;
@@ -344,6 +347,57 @@ enum Commands {
     Stats {
         /// Path to the spec root directory
         #[arg(default_value = ".")]
+        path: PathBuf,
+
+        /// Output format: human or json
+        #[arg(long, default_value = "human")]
+        format: OutputFormat,
+    },
+    /// Where to start reading the graph: starting points, hubs and unconnected entities
+    Explore {
+        /// Entity ID to explore from (omit to explore the whole project)
+        entity: Option<String>,
+
+        /// Path to the spec root directory
+        #[arg(long, default_value = ".")]
+        path: PathBuf,
+
+        /// Only entities of this kind
+        #[arg(long)]
+        kind: Option<String>,
+
+        /// Hops from the entity (unbounded when omitted)
+        #[arg(long)]
+        depth: Option<usize>,
+
+        /// Output format: human or json
+        #[arg(long, default_value = "human")]
+        format: OutputFormat,
+    },
+    /// Coverage gaps around an entity, or of the whole project
+    Review {
+        /// Entity ID to review (omit to review the whole project)
+        entity: Option<String>,
+
+        /// Path to the spec root directory
+        #[arg(long, default_value = ".")]
+        path: PathBuf,
+
+        /// Hops around the entity
+        #[arg(long, default_value_t = specforge_ops::review::DEFAULT_DEPTH)]
+        depth: usize,
+
+        /// Output format: human or json
+        #[arg(long, default_value = "human")]
+        format: OutputFormat,
+    },
+    /// What to look for in code to write a kind's entities
+    InferGuide {
+        /// Entity kind (omit for every declared kind)
+        kind: Option<String>,
+
+        /// Path to the spec root directory
+        #[arg(long, default_value = ".")]
         path: PathBuf,
 
         /// Output format: human or json
@@ -828,6 +882,39 @@ fn main() {
             stdin,
         } => format::run(&path, check, diff, stdin, &paths),
         Commands::Stats { path, format } => stats::run(&path, format),
+        Commands::Explore {
+            entity,
+            path,
+            kind,
+            depth,
+            format,
+        } => explore::run(
+            &path,
+            &specforge_ops::explore::ExplorationRequest {
+                entity_id: entity.as_deref(),
+                kind: kind.as_deref(),
+                depth,
+            },
+            format,
+        )
+        .code(),
+        Commands::Review {
+            entity,
+            path,
+            depth,
+            format,
+        } => review::run(
+            &path,
+            &specforge_ops::review::ReviewRequest {
+                entity_id: entity.as_deref(),
+                depth,
+            },
+            format,
+        )
+        .code(),
+        Commands::InferGuide { kind, path, format } => {
+            infer_guide::run(&path, kind.as_deref(), format).code()
+        }
         Commands::Add {
             specifier,
             path,

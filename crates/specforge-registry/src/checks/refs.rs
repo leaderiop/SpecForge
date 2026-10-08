@@ -6,8 +6,8 @@ use crate::entity::EntityRecord;
 
 /// W012 for every `ref` entity with no incoming edge. Only `ref`s are
 /// checked: `spec` is the project's root container, which nothing
-/// references and which is no orphan. Extension kinds that want orphan
-/// detection declare a `no_incoming_edges` rule.
+/// references and which is never unreferenced. Extension kinds that want
+/// unreferenced detection declare a `no_incoming_edges` rule.
 pub(super) fn unreferenced(entities: &[EntityRecord]) -> Vec<Diagnostic> {
     entities
         .iter()

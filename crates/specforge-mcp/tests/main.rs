@@ -13,6 +13,7 @@ mod operations_mutation;
 mod option_tables;
 mod prompt_golden;
 mod prompt_infer;
+mod prompt_pins;
 mod prompts;
 mod protocol;
 mod resources;

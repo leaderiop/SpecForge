@@ -882,9 +882,9 @@ fn analyze_reads_the_project_report_by_default() {
 
 #[specforge_test(
     behavior = "provide_mcp_analyze_tool",
-    verify = "orphaned test records come back as an optional orphans field"
+    verify = "stray test records come back as an optional stray_records field"
 )]
-fn analyze_returns_orphans_only_when_records_are_orphaned() {
+fn analyze_returns_stray_records_only_when_records_are_stray() {
     let project = tempfile::tempdir().unwrap();
     let root = project.path();
     std::fs::write(
@@ -905,14 +905,14 @@ fn analyze_returns_orphans_only_when_records_are_orphaned() {
     };
 
     std::fs::write(&report, r#"{"results":{"widget":{"tests":[]}}}"#).unwrap();
-    assert!(run(false).get("orphans").is_none());
+    assert!(run(false).get("stray_records").is_none());
 
     std::fs::write(&report, r#"{"results":{"wodget":{"tests":[]}}}"#).unwrap();
     let expected = json!([{"entity_id": "wodget", "near": "widget"}]);
     let lax = run(false);
-    assert_eq!(lax["orphans"], expected, "{lax}");
+    assert_eq!(lax["stray_records"], expected, "{lax}");
     let strict = run(true);
-    assert_eq!(strict["orphans"], expected, "{strict}");
+    assert_eq!(strict["stray_records"], expected, "{strict}");
     assert_eq!(strict["ok"], lax["ok"]);
 }
 
@@ -1178,7 +1178,7 @@ fn stats_returns_statistics() {
 
 #[specforge_test(
     behavior = "provide_mcp_stats_tool",
-    verify = "response includes orphan node count"
+    verify = "response includes the unconnected entity count"
 )]
 fn stats_counts_match_graph() {
     let mut server = test_server();
@@ -1186,7 +1186,7 @@ fn stats_counts_match_graph() {
     let text = tool_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();
     assert_eq!(parsed["edge_count"], 1); // one behaviors edge
-    assert_eq!(parsed["orphan_count"], 1); // gamma_orphan
+    assert_eq!(parsed["unconnected_count"], 1); // gamma_orphan
 }
 
 // Tool call when not initialized

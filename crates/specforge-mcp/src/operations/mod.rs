@@ -424,7 +424,7 @@ pub struct RemoveArgs {
     name: String,
     /// Force removal
     force: bool,
-    /// Preview the removal, orphan warnings included, without changing any file
+    /// Preview the removal, stranded entities included, without changing any file
     dry_run: bool,
 }
 
@@ -434,7 +434,7 @@ pub(crate) fn remove_extension_op(call: &mut Call<'_>, args: RemoveArgs) -> Muta
     let dry_run = args.dry_run;
 
     // The shared operation, over the view of the call's project: its
-    // dependents and its orphaned entities, the served project's or those
+    // dependents and its stranded entities, the served project's or those
     // of the project `path` names.
     let request = specforge_ops::extension::RemoveRequest {
         name: &name,
@@ -448,7 +448,11 @@ pub(crate) fn remove_extension_op(call: &mut Call<'_>, args: RemoveArgs) -> Muta
                     "removed_extension": outcome.name,
                     "success": true,
                     "version": outcome.version,
-                    "orphan_warnings": outcome.orphan_warnings,
+                    "stranded": outcome
+                        .stranded
+                        .iter()
+                        .map(|entity| json!({"entity_id": entity.entity_id, "kind": entity.kind}))
+                        .collect::<Vec<_>>(),
                 });
                 if outcome.dry_run {
                     result["dry_run"] = Value::from(true);
@@ -456,7 +460,8 @@ pub(crate) fn remove_extension_op(call: &mut Call<'_>, args: RemoveArgs) -> Muta
                 }
                 Mutated::wrote(
                     ok(result),
-                    Written::files(outcome.writes).with_entities(outcome.orphaned),
+                    Written::files(outcome.writes)
+                        .with_entities(outcome.stranded.into_iter().map(|entity| entity.entity_id)),
                 )
             }
             // A removal that failed after editing specforge.json reports it.

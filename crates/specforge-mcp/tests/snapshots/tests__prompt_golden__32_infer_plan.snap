@@ -11,36 +11,6 @@ expression: "shape(&reply, dir.path())"
       "cursor": 0,
       "kind_priorities": [
         {
-          "existing_count": 1,
-          "extension": "@specforge/product",
-          "kind": "feature"
-        },
-        {
-          "existing_count": 0,
-          "extension": "@specforge/product",
-          "kind": "journey"
-        },
-        {
-          "existing_count": 0,
-          "extension": "@specforge/product",
-          "kind": "deliverable"
-        },
-        {
-          "existing_count": 0,
-          "extension": "@specforge/product",
-          "kind": "milestone"
-        },
-        {
-          "existing_count": 0,
-          "extension": "@specforge/product",
-          "kind": "module"
-        },
-        {
-          "existing_count": 0,
-          "extension": "@specforge/product",
-          "kind": "term"
-        },
-        {
           "existing_count": 0,
           "extension": "@specforge/product",
           "kind": "persona"
@@ -53,22 +23,7 @@ expression: "shape(&reply, dir.path())"
         {
           "existing_count": 0,
           "extension": "@specforge/product",
-          "kind": "release"
-        },
-        {
-          "existing_count": 3,
-          "extension": "@specforge/software",
-          "kind": "behavior"
-        },
-        {
-          "existing_count": 1,
-          "extension": "@specforge/software",
-          "kind": "invariant"
-        },
-        {
-          "existing_count": 0,
-          "extension": "@specforge/software",
-          "kind": "event"
+          "kind": "journey"
         },
         {
           "existing_count": 0,
@@ -78,7 +33,52 @@ expression: "shape(&reply, dir.path())"
         {
           "existing_count": 0,
           "extension": "@specforge/software",
+          "kind": "event"
+        },
+        {
+          "existing_count": 0,
+          "extension": "@specforge/software",
           "kind": "port"
+        },
+        {
+          "existing_count": 0,
+          "extension": "@specforge/product",
+          "kind": "module"
+        },
+        {
+          "existing_count": 0,
+          "extension": "@specforge/product",
+          "kind": "milestone"
+        },
+        {
+          "existing_count": 0,
+          "extension": "@specforge/product",
+          "kind": "deliverable"
+        },
+        {
+          "existing_count": 0,
+          "extension": "@specforge/product",
+          "kind": "term"
+        },
+        {
+          "existing_count": 0,
+          "extension": "@specforge/product",
+          "kind": "release"
+        },
+        {
+          "existing_count": 1,
+          "extension": "@specforge/product",
+          "kind": "feature"
+        },
+        {
+          "existing_count": 1,
+          "extension": "@specforge/software",
+          "kind": "invariant"
+        },
+        {
+          "existing_count": 3,
+          "extension": "@specforge/software",
+          "kind": "behavior"
         }
       ],
       "next_cursor": null,

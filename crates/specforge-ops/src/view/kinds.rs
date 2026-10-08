@@ -1,7 +1,7 @@
 //! The entity kinds a project knows, and the one answer to "is this a known
 //! kind" (ADR 0015, section "Query").
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use specforge_common::{Diagnostic, codes, find_close_match};
 
@@ -40,6 +40,18 @@ impl<'a> ProjectView<'a> {
             .filter(|kind| !declared.contains(kind))
             .collect();
         KnownKinds { declared, written }
+    }
+}
+
+impl ProjectView<'_> {
+    /// How many entities each kind has, for every kind an entity is written
+    /// with (an undeclared one, E024's, included), in kind order.
+    pub fn entities_by_kind(&self) -> BTreeMap<&'static str, usize> {
+        let mut counts = BTreeMap::new();
+        for node in self.graph().nodes() {
+            *counts.entry(node.kind.raw.as_str()).or_insert(0) += 1;
+        }
+        counts
     }
 }
 

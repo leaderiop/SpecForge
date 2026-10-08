@@ -1170,8 +1170,9 @@ fn remove_extension_removes_a_wasm_file_entry_by_its_declared_name() {
     assert_eq!(parsed["success"], true, "{parsed}");
     assert_eq!(parsed["removed_extension"], GREET, "{parsed}");
     assert_eq!(parsed["version"], "0.1.0", "{parsed}");
-    assert!(
-        parsed["orphan_warnings"].to_string().contains("'hello'"),
+    assert_eq!(
+        parsed["stranded"],
+        json!([{"entity_id": "hello", "kind": "greeting"}]),
         "{parsed}"
     );
     assert_eq!(config_extensions(root), ["@specforge/software"]);
@@ -1196,15 +1197,15 @@ fn remove_extension_dry_run_writes_nothing() {
     let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
     assert_eq!(parsed["dry_run"], true, "{parsed}");
     assert_eq!(parsed["removed_extension"], GREET, "{parsed}");
-    assert!(parsed["orphan_warnings"].is_array(), "{parsed}");
+    assert!(parsed["stranded"].is_array(), "{parsed}");
     assert_eq!(files_under(&root), before, "a dry run writes nothing");
 }
 
 #[specforge_test(
     behavior = "provide_mcp_remove_extension_tool",
-    verify = "orphan entities produce a warning"
+    verify = "the entities whose kind only that extension declares are listed as stranded"
 )]
-fn remove_extension_warns_about_orphaned_entities() {
+fn remove_extension_lists_stranded_entities() {
     let (mut server, root) = server_with_product();
     // `hello` is a greeting, a kind only the product extension declares;
     // test.spec's `alpha` and `beta` are of kinds it does not.
@@ -1220,12 +1221,10 @@ fn remove_extension_warns_about_orphaned_entities() {
     );
 
     let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
-    let warnings = parsed["orphan_warnings"].as_array().unwrap();
-    assert_eq!(warnings.len(), 1, "{parsed}");
-    let warning = warnings[0].as_str().unwrap();
-    assert!(
-        warning.contains("'hello'") && warning.contains("greeting"),
-        "{warning}"
+    assert_eq!(
+        parsed["stranded"],
+        json!([{"entity_id": "hello", "kind": "greeting"}]),
+        "{parsed}"
     );
     assert_eq!(parsed["success"], true, "removal still proceeds");
     assert!(!root.join(".specforge/extensions").join(GREET).exists());

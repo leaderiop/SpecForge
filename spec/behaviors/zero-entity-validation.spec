@@ -95,7 +95,7 @@ behavior execute_validation_pattern "Execute Validation Pattern" {
     register_custom_validation_patterns. Each pattern violation MUST
     produce a diagnostic with the configured code and severity.
   """
-  verify unit "no_incoming_edges detects orphan entities"
+  verify unit "no_incoming_edges detects unreferenced entities"
   verify unit "no_outgoing_edges detects entities with zero outgoing edges"
   verify unit "an edge rule counts only edges of its edge type and is dropped when no extension declares the kind at its far end"
   verify unit "missing_field_when_flag_set detects missing specified field on flagged entity"

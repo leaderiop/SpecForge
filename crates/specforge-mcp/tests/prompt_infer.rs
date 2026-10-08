@@ -65,115 +65,12 @@ fn plan_payload(server: &mut McpServer, arguments: Value) -> Value {
     prompt_payload(&infer(server, arguments))
 }
 
-#[test]
-fn overview_returns_installed_extensions() {
-    let mut state = make_state_with_kind("behavior", Some("Look for public functions"));
-    let resp = infer(&mut state, json!({}));
-    let content: Value = prompt_payload(&resp);
-    assert_eq!(content["installed_extensions"][0], "@specforge/test");
-}
-
-#[test]
-fn overview_includes_inference_guide_from_extension() {
-    let mut state = make_state_with_kind("behavior", Some("Look for public functions"));
-    let resp = infer(&mut state, json!({}));
-    let content: Value = prompt_payload(&resp);
-    let guide = content["kinds"][0]["inference_guide"].as_str().unwrap();
-    assert!(guide.contains("Look for public functions"));
-}
-
-#[test]
-fn overview_appends_project_override() {
-    let mut state = TestProject::new()
-        .config(|c| {
-            c["inference"] = json!({
-                "global": "This is a Rust project",
-                "behavior": "In our codebase, behaviors are in use_cases/",
-            });
-        })
-        .serve(&[test_extension(
-            "behavior",
-            Some("Look for public functions"),
-        )]);
-    let resp = infer(&mut state, json!({}));
-    let content: Value = prompt_payload(&resp);
-    let guide = content["kinds"][0]["inference_guide"].as_str().unwrap();
-    assert!(guide.contains("Look for public functions"));
-    assert!(guide.contains("Project-specific"));
-    assert!(guide.contains("use_cases/"));
-    assert_eq!(content["project_conventions"], "This is a Rust project");
-}
-
-#[test]
-fn kind_scope_returns_existing_ids() {
-    let mut state = state_with_my_behavior();
-    let resp = infer(&mut state, json!({"scope": "kind:behavior"}));
-    let content: Value = prompt_payload(&resp);
-    let ids = content["existing_entity_ids"].as_array().unwrap();
-    assert!(ids.contains(&Value::from("my_behavior")));
-}
-
-#[test]
-fn kind_scope_includes_example() {
-    let mut state = make_state_with_kind("behavior", Some("guide text"));
-    let resp = infer(&mut state, json!({"scope": "kind:behavior"}));
-    let content: Value = prompt_payload(&resp);
-    let example = content["example"].as_str().unwrap();
-    assert!(example.contains("behavior example_behavior"));
-}
-
-#[specforge_test(
-    behavior = "provide_infer_kind_scope",
-    verify = "kind scope lists every field registered on the kind, its type by name"
-)]
-fn kind_scope_lists_every_registered_field() {
-    let extension = test_extension("behavior", None).declaring(|c| {
-        c.shared_field("tags", |f| {
-            f.field_type(FieldType::StringList);
-        });
-    });
-    let mut state = TestProject::new().serve(&[extension]);
-    let resp = infer(&mut state, json!({"scope": "kind:behavior"}));
-    let content: Value = prompt_payload(&resp);
-    // `tags` is the extension's shared field, registered on `behavior`;
-    // fields come in name order, typed by their protocol names.
-    let fields: Vec<(&str, &str)> = content["fields"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|f| (f["name"].as_str().unwrap(), f["type"].as_str().unwrap()))
-        .collect();
-    assert_eq!(fields, [("description", "string"), ("tags", "string_list")]);
-}
-
-#[specforge_test(
-    behavior = "provide_infer_kind_scope",
-    verify = "kind scope's example writes each optional field the way its type is written"
-)]
-fn kind_scope_example_writes_each_field_by_its_type() {
-    let extension = test_extension("behavior", None).declaring(|c| {
-        c.shared_field("tags", |f| {
-            f.field_type(FieldType::StringList);
-        });
-        c.shared_field("refs_to", |f| {
-            f.field_type(FieldType::ReferenceList)
-                .target_kind("behavior");
-        });
-    });
-    let mut state = TestProject::new().serve(&[extension]);
-    let resp = infer(&mut state, json!({"scope": "kind:behavior"}));
-    let content: Value = prompt_payload(&resp);
-    let example = content["example"].as_str().unwrap();
-    assert!(example.contains("  refs_to [ref_1, ref_2]"), "{example}");
-    assert!(
-        example.contains("  tags [\"item1\", \"item2\"]"),
-        "{example}"
-    );
-}
-
 /// Kinds are keywords, matched exactly: `kind:Behavior` is refused, and the
 /// suggestion names the kind (ADR 0015 "Query" Q3).
-#[test]
+#[specforge_test(
+    behavior = "provide_infer_kind_scope",
+    verify = "the kind scope renders the kind's guide; an undeclared kind is refused on scope with the closest declared kind"
+)]
 fn kind_scope_is_exact_and_suggests_the_kind() {
     let mut state = state_with_my_behavior();
     let resp = infer(&mut state, json!({"scope": "kind:Behavior"}));
@@ -187,7 +84,10 @@ fn kind_scope_is_exact_and_suggests_the_kind() {
 /// An extension keyword written with a capital is listed as declared: the
 /// entities of that kind are found and the example is written with the
 /// keyword the language accepts.
-#[test]
+#[specforge_test(
+    behavior = "provide_infer_kind_scope",
+    verify = "the kind scope renders the kind's guide; an undeclared kind is refused on scope with the closest declared kind"
+)]
 fn a_capitalized_keyword_is_kept_as_declared() {
     let mut state = TestProject::new()
         .file("d.spec", "ADR pick_db {\n}\n")
@@ -206,6 +106,26 @@ fn a_capitalized_keyword_is_kept_as_declared() {
             .starts_with("ADR example_ADR"),
         "{content}"
     );
+}
+
+#[test]
+fn the_overview_renders_the_guide() {
+    let mut state = make_state_with_kind("behavior", Some("Look for public functions"));
+    let content = prompt_payload(&infer(&mut state, json!({})));
+    assert_eq!(content["installed_extensions"][0], "@specforge/test");
+    assert_eq!(
+        content["kinds"][0]["inference_guide"],
+        "Look for public functions"
+    );
+    assert_eq!(content["kinds"][0]["extension"], "@specforge/test");
+    assert!(
+        content["output_format"]
+            .as_str()
+            .unwrap()
+            .contains("Write .spec files in the ./ directory"),
+        "{content}"
+    );
+    assert!(content["validation"].is_string(), "{content}");
 }
 
 #[test]
@@ -256,23 +176,17 @@ fn empty_file_scope_returns_error() {
 }
 
 #[test]
-fn overview_with_no_inference_guide() {
-    let mut state = make_state_with_kind("behavior", None);
-    let resp = infer(&mut state, json!({}));
-    let content: Value = prompt_payload(&resp);
-    let guide = content["kinds"][0]["inference_guide"].as_str().unwrap();
-    assert_eq!(guide, "");
-}
-
-#[test]
 fn plan_scope_returns_kind_priorities() {
     let mut state = state_with_my_behavior();
     let resp = infer(&mut state, json!({"scope": "plan"}));
     let content: Value = prompt_payload(&resp);
     let priorities = content["plan"]["kind_priorities"].as_array().unwrap();
     assert!(!priorities.is_empty());
-    assert_eq!(priorities[0]["kind"], "behavior");
-    assert_eq!(priorities[0]["existing_count"], 1);
+    // Kinds with no entity come first: the one kind of the test extension
+    // that has an entity is last.
+    let last = priorities.last().unwrap();
+    assert_eq!(last["kind"], "behavior");
+    assert_eq!(last["existing_count"], 1);
 }
 
 #[test]
@@ -294,7 +208,14 @@ fn plan_scope_includes_progress() {
     assert!(content["plan"]["progress"]["files_total"].is_number());
 }
 
-#[test]
+#[specforge_test(
+    behavior = "provide_infer_workflow_scope",
+    verify = "workflow returns step-by-step protocol"
+)]
+#[specforge_test(
+    behavior = "provide_infer_workflow_scope",
+    verify = "workflow documents retry pattern"
+)]
 fn workflow_scope_returns_protocol() {
     let mut state = make_state_with_kind("behavior", Some("guide text"));
     let resp = infer(&mut state, json!({"scope": "workflow"}));
@@ -304,21 +225,40 @@ fn workflow_scope_returns_protocol() {
     assert!(instruction.contains("Start Session"));
     assert!(instruction.contains("mark_analyzed"));
     assert!(instruction.contains("End Session"));
+    assert!(instruction.contains("Retry Pattern"));
+    assert!(
+        instruction.contains("`specforge.validate`"),
+        "{instruction}"
+    );
 }
 
-#[test]
+#[specforge_test(
+    behavior = "provide_infer_workflow_scope",
+    verify = "the workflow lists the tools it names, as the tool table names them"
+)]
 fn workflow_scope_lists_tools_and_kinds() {
     let mut state = make_state_with_kind("behavior", Some("guide text"));
     let resp = infer(&mut state, json!({"scope": "workflow"}));
     let content: Value = prompt_payload(&resp);
-    let tools = content["tools"].as_array().unwrap();
-    assert!(tools.contains(&Value::from("specforge.infer_session")));
-    assert!(tools.contains(&Value::from("specforge.infer_progress")));
+    assert_eq!(
+        content["tools"],
+        json!([
+            "specforge.infer_session",
+            "specforge.infer_progress",
+            "specforge.validate",
+            "specforge.query",
+            "specforge.search",
+            "specforge.schema"
+        ])
+    );
     let kinds = content["installed_kinds"].as_array().unwrap();
     assert!(kinds.contains(&Value::from("behavior")));
 }
 
-#[test]
+#[specforge_test(
+    behavior = "provide_infer_plan_scope",
+    verify = "plan pages the file lists 50 at a time from the cursor"
+)]
 fn plan_scope_caps_file_lists_at_50() {
     let mut state = plan_state_with_sources(60);
     let content = plan_payload(&mut state, json!({"scope": "plan"}));
@@ -338,18 +278,6 @@ fn plan_scope_caps_file_lists_at_50() {
     );
     assert_eq!(content["plan"]["unanalyzed_total"], 60);
     assert_eq!(content["plan"]["next_cursor"], 50);
-}
-
-#[test]
-fn plan_scope_pages_remaining_files_via_cursor() {
-    let mut state = plan_state_with_sources(60);
-    let content = plan_payload(&mut state, json!({"scope": "plan", "cursor": 50}));
-    let files = content["plan"]["unanalyzed_files"].as_array().unwrap();
-    assert_eq!(files.len(), 10, "only the remainder is listed");
-    assert!(
-        content["plan"]["next_cursor"].is_null(),
-        "no further page exists"
-    );
 }
 
 #[test]

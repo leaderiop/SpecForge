@@ -368,7 +368,7 @@ behavior remove_extension "Remove Extension" {
     extensions listing names it, or by the entry as specforge.json writes
     it (or its path); removing it MUST only drop that entry from
     specforge.json, never delete the file nor touch specforge.lock, with
-    the same dependents (E027) and orphan checks as any extension. A name
+    the same dependents (E027) and stranded-entity checks as any extension. A name
     more than one specforge.json entry enables MUST be refused as
     ambiguous (extension_conflict), naming the entries and changing
     nothing; a name no entry, lock entry or builtin matches is

@@ -7,12 +7,14 @@ expression: "shape(&reply, dir.path())"
   "instruction": "You are inferring 'behavior' entities from this codebase. Use the guide below. Do not duplicate the existing entity IDs listed.",
   "layout": "turns",
   "payload": {
+    "description": "A testable unit of system functionality with a defined contract",
     "example": "behavior example_behavior \"Example Title\" {\n  contract \"...\"\n  category \"...\"\n  consumes [ref_1, ref_2]\n  description \"...\"\n}",
     "existing_entity_ids": [
       "alpha",
       "beta",
       "delta"
     ],
+    "extension": "@specforge/software",
     "fields": [
       {
         "description": "Classification tag for agent task routing",
@@ -95,7 +97,7 @@ expression: "shape(&reply, dir.path())"
     ],
     "inference_guide": "[guide]",
     "kind": "behavior",
-    "validation": "After writing .spec files, call specforge_validate to check for errors (and specforge_analyze for coverage/contract findings). Fix any errors before proceeding."
+    "validation": "After writing .spec files, call specforge.validate to check for errors (and specforge.analyze for coverage/contract findings). Fix any errors before proceeding."
   },
   "roles": [
     "user",

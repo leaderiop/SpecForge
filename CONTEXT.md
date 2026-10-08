@@ -211,9 +211,11 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   target (`ProjectRef::view`: the project session with its I017 notices, or another project
   compiled for one call); the LSP from its session (`ProjectView::of_session`) (ADR 0015).
 - **Read view**: an operation that only reads the project view: stats, trace, the coverage view, the
-  model and outline diagrams, the versioned schema, inspect, and query, list and search (the entities
-  a selection over the view returns, `specforge_ops::query`). Each returns a typed outcome; the CLI,
-  MCP and the LSP only render it.
+  model and outline diagrams, the versioned schema, inspect, query, list and search (the entities a
+  selection over the view returns, `specforge_ops::query`), the exploration and the review
+  (`specforge_ops::{explore, review}`), and the inference guide and plan
+  (`specforge_ops::infer::{guide, kind_guide, inference_plan}`). Each returns a typed outcome; the CLI,
+  MCP (its tools and its prompts) and the LSP only render it.
 - **Entity facts**: what inspect returns for one entity: its node and kind entry, headline
   statement, standing (the snapshot's own, borrowed), obligations, references in both directions,
   coverage, and the reported diagnostics about it (`specforge_ops::inspect::EntityFacts`). MCP
@@ -224,6 +226,34 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   inference guide, the model's root) knows only the declared ones and refuses others with
   `unknown_kind`. Names are exact; both name the closest kind, a kind equal but for case first
   (`specforge_ops::view::KnownKinds`, `ProjectView::kinds`).
+- **Unconnected entity**: an entity no edge links to another entity, in either direction
+  (`ProjectView::connectivity`, `Degree::is_unconnected`). A reference that does not resolve is no edge
+  (E003 or I004 reports it), and an edge from an entity to itself links it to nothing else. Stats counts
+  them, the exploration lists them and the review flags those that count toward coverage. Not the same as
+  unreferenced.
+- **Unreferenced entity**: an entity no edge points at: W012 for a `ref`, an extension's
+  `no_incoming_edges` rule for its kinds, the coverage summary's `invariant_orphans`. The extensions call one
+  an *orphan* (W041 "Orphan feature", `@specforge/product`'s `orphan_entity` term); the host's code and
+  outputs do not use that word.
+- **Exploration**: where to start reading a project's graph (`specforge_ops::explore`): a selection (the
+  entities one entity reaches within a depth, or every entity; of one kind when given), the paths from that
+  entity, the starting points (the selected connected entities that reference more than they are referenced),
+  the most connected and the unconnected ones. The explore prompt and `specforge explore` render it.
+- **Review**: the coverage gaps of a neighbourhood (`specforge_ops::review`): the coverage view's rows of
+  the entities that count toward coverage within some hops of one entity, or of the whole project, each with
+  a finding when it declares no obligation or is unconnected. The review prompt and `specforge review`
+  render it.
+- **Inference guide**: what an agent is told to look for to infer a kind's entities from code
+  (`specforge_ops::infer::KindGuide`): the kind's description and extension, every field the registry build
+  registered on it, the extension's `inference_guide` followed by the project's own guide for the kind
+  (`inference.<kind>` in `specforge.json`, under **Project-specific:**), an example entity writing each field
+  the way its type is written, and the kind's entities. A project's guide is every declared kind's, its
+  global conventions (`inference.global`) and its spec directory. The infer prompt, `specforge infer-guide`
+  and the LSP's keyword completion render it.
+- **Inference plan**: the infer prompt's plan (`specforge_ops::infer::inference_plan`): the inference
+  progress, the unanalyzed and stale files paged from a cursor, the target spec directory (the spec root by
+  default) and the kind priorities: kinds with no entity first, each after the kinds its reference fields
+  target.
 - **Configured providers**: the `providers` `specforge.json` lists (scheme, alias, extension,
   settings), registered once per environment against the loaded declarations, each with its
   status (registered, extension not loaded, not a provider, scheme taken) and the W118/E057 the
@@ -238,9 +268,14 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   they run before or instead of a compile (ADR 0015); `add` and `update` read `specforge.json`
   through the compile's own reader and the installed extensions through `Installed::at`, and refuse
   an unusable `specforge.json` with the refusal `remove` gives.
+- **Stranded entity**: an entity whose kind only the extension being removed declares: `remove` lists it
+  (`specforge_ops::extension::StrandedEntity`), still removes, and the next compile reports it E024.
 - **Recorded test report**: `<root>/specforge-report.json`, what `specforge collect` last wrote. The
   project view reads it once per compile and per content
   (`specforge_project::coverage::RecordedCoverage`).
+- **Stray test record**: a record of the recorded test report naming an entity the graph does not have
+  (W097): `analyze` lists it apart from the passes with the closest id, never promotes it under strict,
+  and it proves nothing (`specforge_ops::analyze::StrayRecord`).
 - **Inference manifest**: `<root>/specforge-infer.json`, what inference has recorded: the source
   roots, each analyzed source file (root-relative path, content hash, the entities produced) and
   the inference sessions (`specforge_ops::infer::InferenceManifest`). One reader and one writer in
@@ -373,8 +408,10 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   arguments it reads. Its descriptor (input schema included), annotations and dispatch derive from
   it (`specforge_mcp`'s `ToolSpec` table).
 - **Prompt spec**: the single definition of an MCP prompt, from which its descriptor (its tool arguments'
-  names, descriptions and required) and reply are derived; it renders over the call target and refuses with an McpError, sent as a
-  JSON-RPC error's data since prompts have no isError (`specforge_mcp`'s `PromptSpec` table).
+  names, descriptions and required) and reply are derived; it renders the read view its prompt is about
+  over the call target, adding only its instruction (tools named as the tool table names them), and refuses
+  with an McpError, sent as a JSON-RPC error's data since prompts have no isError (`specforge_mcp`'s
+  `PromptSpec` table).
 - **Tool arguments**: the one typed struct a tool or prompt reads its call's arguments into
   (`#[derive(Arguments)]`, `specforge_mcp::args`, ADR 0033). Each field is an argument: its name, its
   doc comment as description, its type (how a value is read, and the JSON type listed), its default,

@@ -609,7 +609,7 @@ fn contract_stats() {
         json!([{"kind": "behavior", "count": 1}, {"kind": "feature", "count": 1}])
     );
     assert_eq!(stats["edge_count"], 1);
-    assert_eq!(stats["orphan_count"], 0);
+    assert_eq!(stats["unconnected_count"], 0);
     assert!(stats["coverage_pct"].is_number(), "{stats}");
     assert_eq!(
         stats["diagnostic_summary"],
@@ -627,7 +627,7 @@ fn contract_stats() {
         stats["entity_counts"],
         json!([{"kind": "behavior", "count": 2}, {"kind": "feature", "count": 1}])
     );
-    assert_eq!(stats["orphan_count"], 1);
+    assert_eq!(stats["unconnected_count"], 1);
     assert_eq!(stats["diagnostic_summary"]["warnings"], 1);
 
     assert_tool_invoked(&server, "specforge.stats");
@@ -1075,7 +1075,7 @@ fn contract_trace_prompt() {
 )]
 fn contract_explore_prompt() {
     // alpha <-behaviors- beta -invariants-> gamma (inv.spec); delta
-    // (test.spec 11–13) is an orphan.
+    // (test.spec 11–13) is unconnected.
     let mut server = contracts_project()
         .file(
             "test.spec",
@@ -1085,14 +1085,14 @@ fn contract_explore_prompt() {
         .file("inv.spec", "invariant gamma \"GAMMA\" {\n}\n")
         .serve(&[extension()]);
 
-    // exploration_returned: starting points, hubs and orphans.
+    // exploration_returned: starting points, hubs and unconnected entities.
     let explore = prompt_payload(&get_prompt(
         &mut server,
         "specforge://prompts/explore",
         json!({}),
     ));
     assert_eq!(explore["high_connectivity"][0], "beta");
-    assert_eq!(explore["orphan_nodes"], json!(["delta"]));
+    assert_eq!(explore["unconnected"], json!(["delta"]));
     assert_eq!(explore["starting_points"][0], "beta");
     assert_eq!(explore["relationship_paths"], json!([]));
 

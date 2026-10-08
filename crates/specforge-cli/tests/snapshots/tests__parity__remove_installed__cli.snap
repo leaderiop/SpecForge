@@ -33,8 +33,8 @@ expression: cli_snap
       "specforge.json",
       "specforge.lock"
     ],
-    "orphan_warnings": [],
     "removed": "@sdk/greet",
+    "stranded": [],
     "version": "0.1.0"
   }
 }

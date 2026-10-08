@@ -81,24 +81,30 @@ fn stats_reports_edge_count() {
     assert_eq!(stats.total_edges, 1);
 }
 
-// B:compute_project_statistics — verify unit "stats reports orphan count"
+// B:compute_project_statistics — verify unit "stats reports the unconnected entity count"
 #[specforge_test(
     behavior = "compute_project_statistics",
-    verify = "stats reports orphan count"
+    verify = "stats reports the unconnected entity count"
 )]
-fn stats_reports_orphan_count() {
+fn stats_reports_the_unconnected_count() {
     let mut graph = Graph::new();
-    graph.add_node(node("a", "behavior")); // orphan — no edges
+    graph.add_node(node("a", "behavior")); // unconnected: no edges
     graph.add_node(node("b", "feature"));
     graph.add_node(node("c", "behavior"));
+    graph.add_node(node("s", "behavior")); // unconnected: it references only itself
     graph.add_edge(Edge {
         source: Sym::new("b"),
         target: Sym::new("c"),
         label: Sym::new("behaviors"),
     });
+    graph.add_edge(Edge {
+        source: Sym::new("s"),
+        target: Sym::new("s"),
+        label: Sym::new("depends_on"),
+    });
 
     let stats = crate::view_support::stats_of(&graph, &[], &[]);
-    assert_eq!(stats.orphan_count, 1); // only "a" is orphan
+    assert_eq!(stats.unconnected_count, 2); // "a" and "s"
 }
 
 // B:compute_project_statistics — verify unit "stats reports coverage percentage"
@@ -121,7 +127,7 @@ fn stats_on_empty_graph() {
     let stats = crate::view_support::stats_of(&graph, &[], &[]);
     assert_eq!(stats.total_entities, 0);
     assert_eq!(stats.total_edges, 0);
-    assert_eq!(stats.orphan_count, 0);
+    assert_eq!(stats.unconnected_count, 0);
     assert_eq!(stats.verified_count, 0);
 }
 
@@ -254,7 +260,7 @@ fn registries_graph() -> Graph {
 const STATS_TODAY: &str = r#"{
     total_entities: 5,
     total_edges: 2,
-    orphan_count: 2,
+    unconnected_count: 2,
     verified_count: 3,
     testable_count: 3,
     declared_count: 2,

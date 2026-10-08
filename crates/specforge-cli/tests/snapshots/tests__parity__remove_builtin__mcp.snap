@@ -30,8 +30,8 @@ expression: mcp_snap
     "files_written": [
       "specforge.json"
     ],
-    "orphan_warnings": [],
     "removed_extension": "@specforge/product",
+    "stranded": [],
     "success": true,
     "version": "1.0.0"
   }
