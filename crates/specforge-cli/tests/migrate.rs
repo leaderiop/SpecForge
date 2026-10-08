@@ -2947,3 +2947,69 @@ fn migrate_json_lists_each_file_and_its_backup() {
     assert_eq!(files_written(&restored), ["spec/a.spec", "spec/b.spec"]);
     assert_eq!(changed_since(root, &before), files_written(&restored));
 }
+
+// ===================================================================
+// Plan 14, T0 pins: what migrate prints today
+// ===================================================================
+
+/// Pin (plan 14 P3): `MigrationSummary::diagnostics` is always empty, and the
+/// JSON carries it. Flipped by T2, which deletes the field.
+#[test]
+fn migrate_json_diagnostics_are_always_empty() {
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path();
+    setup_project(root);
+    write_spec(
+        root,
+        "test.spec",
+        "// specforge-format: 0.1\nbehavior foo \"Foo\" {\n  contract \"stuff\"\n}\n",
+    );
+
+    let output = Command::cargo_bin("specforge")
+        .unwrap()
+        .args([
+            "migrate",
+            "--dry-run",
+            "--format=json",
+            "--path",
+            root.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(json["diagnostics"], serde_json::json!([]), "{json}");
+}
+
+/// Pin (plan 14 P4): a dry-run diff is labelled with the absolute path of the
+/// file, so `patch -p1` cannot apply it. Flipped by T3 (root-relative labels).
+#[test]
+fn dry_run_diff_labels_are_absolute_today() {
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path();
+    setup_project(root);
+    write_spec(
+        root,
+        "test.spec",
+        "// specforge-format: 0.1\nbehavior foo \"Foo\" {\n  contract \"stuff\"\n}\n",
+    );
+
+    let output = Command::cargo_bin("specforge")
+        .unwrap()
+        .args(["migrate", "--dry-run", "--path", root.to_str().unwrap()])
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let first = stdout.lines().next().unwrap_or_default();
+    assert_eq!(
+        first,
+        // The project root is resolved first (macOS temp dirs are links).
+        format!(
+            "--- a/{}",
+            root.canonicalize()
+                .unwrap()
+                .join("spec/test.spec")
+                .display()
+        ),
+        "{stdout}"
+    );
+}

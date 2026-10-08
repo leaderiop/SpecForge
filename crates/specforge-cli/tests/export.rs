@@ -531,6 +531,187 @@ fn budget_below_one_entity_yields_an_empty_envelope() {
     );
 }
 
+// ── The export matrix (plan 14, P1) ───────────────────────────────────
+
+/// What one cell of the export matrix does today.
+#[derive(Debug, PartialEq)]
+enum Expect {
+    /// Exit 0, all nine entities, and these top-level keys besides
+    /// `nodes` and `edges`.
+    Whole { keys: &'static [&'static str] },
+    /// Exit 0, within the budget, the `token_budget` block naming the rest.
+    Truncated { kept: usize, dropped: usize },
+    /// Exit 1, no stdout, and this code on stderr.
+    Fails(&'static str),
+    /// Exit 0 over the budget: `nodes` entities and no `token_budget` block
+    /// (bug R1/R2, fixed by T6).
+    OverToday { nodes: usize },
+    /// Exit 0, within the budget but with fewer than nine entities and no
+    /// `token_budget` block (bug R1, fixed by T6).
+    FitsWithoutMarkerToday { nodes: usize },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum Format {
+    Graph,
+    Context,
+    Brief,
+}
+
+impl Format {
+    fn name(self) -> &'static str {
+        match self {
+            Format::Graph => "graph",
+            Format::Context => "context",
+            Format::Brief => "brief",
+        }
+    }
+}
+
+/// The matrix, today: (format, with a schema, scoped to `f`, budget) and what
+/// the export does. `f` reaches every entity, so scoping selects the same nine.
+fn today(format: Format, schema: bool, scoped: bool, budget: Option<usize>) -> Expect {
+    const PLAIN: &[&str] = &["schema_version"];
+    const V1: &[&str] = &["format_version", "schema_version"];
+    const EMBEDDED: &[&str] = &["format_version", "schema", "schema_version"];
+    const REFERENCED: &[&str] = &["format_version", "schema_ref", "schema_version"];
+    let keys = match (format, schema, scoped) {
+        (Format::Graph, false, _) => V1,
+        (_, false, _) => PLAIN,
+        (_, true, false) => EMBEDDED,
+        (_, true, true) => REFERENCED,
+    };
+    // An embedded schema alone is over every small budget.
+    let embedded = schema && !scoped;
+    match (format, budget) {
+        (_, None | Some(100_000)) => Expect::Whole { keys },
+        (Format::Graph, Some(5)) => Expect::Fails("E062"),
+        (Format::Graph, Some(_)) if embedded => Expect::Fails("E062"),
+        (Format::Graph, Some(_)) => Expect::Truncated {
+            kept: 2,
+            dropped: 7,
+        },
+        (_, Some(5)) => Expect::OverToday { nodes: 1 },
+        (_, Some(_)) if embedded => Expect::OverToday { nodes: 1 },
+        (Format::Context, Some(_)) => Expect::FitsWithoutMarkerToday { nodes: 2 },
+        (Format::Brief, Some(_)) if schema => Expect::FitsWithoutMarkerToday { nodes: 8 },
+        (Format::Brief, Some(_)) => Expect::Whole { keys },
+    }
+}
+
+const NINE: [&str; 9] = ["b0", "b1", "b2", "b3", "b4", "b5", "b6", "b7", "f"];
+
+#[test]
+fn the_export_matrix() {
+    let dir = budget_project();
+    let budgets = [None, Some(100_000), Some(300), Some(5)];
+    let mut whole: std::collections::BTreeMap<String, String> = Default::default();
+    for format in [Format::Graph, Format::Context, Format::Brief] {
+        for schema in [false, true] {
+            for scoped in [false, true] {
+                for budget in budgets {
+                    let cell = format!(
+                        "{} schema={schema} scoped={scoped} budget={budget:?}",
+                        format.name()
+                    );
+                    let mut args = vec![format!("--format={}", format.name())];
+                    args.push(
+                        if schema {
+                            "--with-schema"
+                        } else {
+                            "--no-schema"
+                        }
+                        .to_string(),
+                    );
+                    if scoped {
+                        args.extend(["--scope".to_string(), "f".to_string()]);
+                    }
+                    if let Some(budget) = budget {
+                        args.extend(["--max-tokens".to_string(), budget.to_string()]);
+                    }
+                    args.push(dir.path().display().to_string());
+                    let output = specforge_cmd().arg("export").args(&args).output().unwrap();
+                    let code = output.status.code().unwrap_or(-1);
+                    let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
+                    let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
+                    let expect = today(format, schema, scoped, budget);
+
+                    if let Expect::Fails(error) = expect {
+                        assert_eq!(code, 1, "{cell}: {stdout}");
+                        assert!(stdout.trim().is_empty(), "{cell}: {stdout}");
+                        assert!(stderr.contains(error), "{cell}: {stderr}");
+                        continue;
+                    }
+                    assert_eq!(code, 0, "{cell}: {stderr}");
+                    let parsed: serde_json::Value = serde_json::from_str(&stdout)
+                        .unwrap_or_else(|e| panic!("{cell}: {e}: {stdout}"));
+                    let object = parsed.as_object().unwrap();
+                    let ids: Vec<&str> = parsed["nodes"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .map(|n| n["id"].as_str().unwrap())
+                        .collect();
+                    let used = specforge_emitter::estimate_tokens(&stdout);
+                    match expect {
+                        Expect::Whole { keys } => {
+                            let mut seen: Vec<&str> = object
+                                .keys()
+                                .map(String::as_str)
+                                .filter(|k| *k != "nodes" && *k != "edges")
+                                .collect();
+                            seen.sort();
+                            assert_eq!(seen, keys, "{cell}: {stdout}");
+                            let mut sorted = ids.clone();
+                            sorted.sort();
+                            assert_eq!(sorted, NINE, "{cell}");
+                            // A budget the export fits in changes nothing.
+                            let key = format!("{} {schema} {scoped}", format.name());
+                            match budget {
+                                None => {
+                                    whole.insert(key, stdout);
+                                }
+                                Some(100_000) => {
+                                    assert_eq!(whole.get(&key), Some(&stdout), "{cell}")
+                                }
+                                Some(_) => {}
+                            }
+                        }
+                        Expect::Truncated { kept, dropped } => {
+                            let budget = budget.unwrap();
+                            assert!(used <= budget, "{cell}: {used} tokens");
+                            let meta = &parsed["token_budget"];
+                            assert_eq!(meta["strategy"], "prioritize", "{cell}");
+                            assert_eq!(meta["budget_tokens"], budget, "{cell}");
+                            let gone: Vec<&str> = meta["truncated_entities"]
+                                .as_array()
+                                .unwrap()
+                                .iter()
+                                .map(|v| v.as_str().unwrap())
+                                .collect();
+                            assert_eq!((ids.len(), gone.len()), (kept, dropped), "{cell}");
+                            let mut all: Vec<&str> = ids.iter().chain(&gone).copied().collect();
+                            all.sort();
+                            assert_eq!(all, NINE, "{cell}: kept and dropped are disjoint");
+                        }
+                        Expect::OverToday { nodes } => {
+                            assert_eq!(ids.len(), nodes, "{cell}");
+                            assert!(object.get("token_budget").is_none(), "{cell}");
+                            assert!(used > budget.unwrap(), "{cell}: {used} tokens fit");
+                        }
+                        Expect::FitsWithoutMarkerToday { nodes } => {
+                            assert_eq!(ids.len(), nodes, "{cell}");
+                            assert!(object.get("token_budget").is_none(), "{cell}");
+                            assert!(used <= budget.unwrap(), "{cell}: {used} tokens");
+                        }
+                        Expect::Fails(_) => unreachable!(),
+                    }
+                }
+            }
+        }
+    }
+}
+
 #[specforge_test(
     behavior = "enforce_token_budget",
     verify = "a budget below the empty envelope fails with E062"

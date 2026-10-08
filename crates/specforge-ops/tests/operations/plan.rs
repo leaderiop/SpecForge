@@ -276,3 +276,39 @@ fn plan_validation_contract_consistency() {
         ])
     );
 }
+
+/// Pin (plan 14 P5): each gap's `context` is the text of its entry in the
+/// outcome's string lists. T8 deletes the lists and this test with them.
+#[test]
+fn every_gap_carries_the_text_of_its_list_entry() {
+    use specforge_ops::plan::PlanGapKind;
+
+    let graph = build_graph();
+    for plan in [
+        serde_json::json!({
+            "entries": [
+                { "entity_id": "nonexistent", "action": "implement" },
+                { "entity_id": "b", "action": "implement" },
+            ]
+        }),
+        serde_json::json!({
+            "entries": [
+                { "entity_id": "b", "action": "implement" },
+                { "entity_id": "c", "action": "implement" },
+            ]
+        }),
+    ] {
+        let result = crate::view_support::plan_check(&graph, &["behavior"], &plan);
+        let texts = |kind: PlanGapKind| -> Vec<String> {
+            result
+                .gaps
+                .iter()
+                .filter(|gap| gap.kind == kind)
+                .map(|gap| gap.context.clone())
+                .collect()
+        };
+        assert_eq!(texts(PlanGapKind::UnresolvedEntity), result.errors);
+        assert_eq!(texts(PlanGapKind::MissingPlanEntry), result.warnings);
+        assert_eq!(texts(PlanGapKind::Ordering), result.ordering_violations);
+    }
+}
