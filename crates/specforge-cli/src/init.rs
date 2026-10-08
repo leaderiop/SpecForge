@@ -1,5 +1,5 @@
 use crate::OutputFormat;
-use crate::outcome::Refusal;
+use crate::outcome::{Exit, Refusal};
 use serde_json::json;
 use specforge_common::find_project_root;
 use specforge_ops::init;
@@ -13,7 +13,7 @@ pub fn run(
     version: &str,
     extensions: &[String],
     format: OutputFormat,
-) -> i32 {
+) -> Exit {
     let request = init::Request {
         dir: path,
         name,
@@ -82,5 +82,5 @@ pub fn run(
             }
         }
     }
-    0
+    Exit::Passed
 }

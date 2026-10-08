@@ -1,8 +1,9 @@
+use crate::outcome::Exit;
 use specforge_mcp::McpServer;
 use std::io::{self, BufRead, Write};
 use std::path::Path;
 
-pub fn run(path: &Path) -> i32 {
+pub fn run(path: &Path) -> Exit {
     // The client drives the handshake; its `initialize` compiles `path`
     // unless it names a `projectRoot` of its own.
     let mut server = McpServer::with_project_root(path.to_path_buf());
@@ -36,5 +37,5 @@ pub fn run(path: &Path) -> i32 {
 
     // End of input: the stdio client is gone.
     server.disconnect();
-    0
+    Exit::Passed
 }

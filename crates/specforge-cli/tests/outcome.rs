@@ -173,7 +173,30 @@ fn verdicts() {
     .unwrap();
     let check_fails = exit(dangling.path(), &["check"]);
 
+    let doctor_fails = rv1(None);
+    std::fs::write(
+        doctor_fails.path().join("specforge.json"),
+        r#"{"name":"d","version":"0.1.0","extensions":["@acme/missing"]}"#,
+    )
+    .unwrap();
+    let doctor_exit = exit(doctor_fails.path(), &["doctor"]);
+    let explain_unknown = exit(old.path(), &["explain", "ZZZ9"]);
+    let none = TempDir::new().unwrap();
+    let wasm = none.path().join("none.wasm");
+    std::fs::write(&wasm, b"nope").unwrap();
+    let validate_none = exit(
+        none.path(),
+        &["extension", "validate", "--path", wasm.to_str().unwrap()],
+    );
+
     for (what, got, expected) in [
+        ("doctor, an E028", doctor_exit, 1),
+        ("explain ZZZ9", explain_unknown, 1),
+        (
+            "extension validate, a binary that is none",
+            validate_none,
+            1,
+        ),
         ("format --check, a change", check, 1),
         ("format --diff, a change", diff, 0),
         ("format, a change", write, 0),
@@ -271,5 +294,64 @@ fn collect_outside_a_project_is_no_project() {
         human.stderr.starts_with("error[no_project]:"),
         "{}",
         human.stderr
+    );
+}
+
+#[specforge_test_macros::test(
+    behavior = "report_command_outcome",
+    verify = "an operation's refusal is error[CODE]: message, its hint and the files it left written, on stderr"
+)]
+fn an_unknown_explain_code_is_a_refusal() {
+    let dir = TempDir::new().unwrap();
+
+    let run = run_in(dir.path(), &["explain", "ZZZ9"], None);
+
+    assert_eq!(run.code, 1);
+    assert!(
+        run.stderr.starts_with(
+            "error[unknown_code]: unknown diagnostic code: ZZZ9\n  hint: codes are E###"
+        ),
+        "{}",
+        run.stderr
+    );
+}
+
+#[cfg(unix)]
+#[specforge_test_macros::test(
+    behavior = "report_command_outcome",
+    verify = "an operation's refusal is error[CODE]: message, its hint and the files it left written, on stderr"
+)]
+fn a_build_cache_that_cannot_be_written_is_a_refusal() {
+    use std::os::unix::fs::PermissionsExt;
+    let project = rv1(None);
+    let mode = |m| std::fs::Permissions::from_mode(m);
+    std::fs::set_permissions(project.path(), mode(0o555)).unwrap();
+    if std::fs::write(project.path().join("probe"), b"").is_ok() {
+        // Permissions do not bind this user (root): nothing to test.
+        std::fs::set_permissions(project.path(), mode(0o755)).unwrap();
+        return;
+    }
+
+    let human = run_in(project.path(), &["check", "--cache"], None);
+    let json = run_in(
+        project.path(),
+        &["check", "--cache", "--format", "json"],
+        None,
+    );
+    std::fs::set_permissions(project.path(), mode(0o755)).unwrap();
+
+    assert_eq!(human.code, 1, "{}", human.stderr);
+    assert!(
+        human
+            .stderr
+            .contains("error[cache_write_failed]: cannot write"),
+        "{}",
+        human.stderr
+    );
+    assert_eq!(json.code, 1, "{}", json.stderr);
+    assert!(
+        json.stdout.contains("\"code\": \"cache_write_failed\""),
+        "{}",
+        json.stdout
     );
 }

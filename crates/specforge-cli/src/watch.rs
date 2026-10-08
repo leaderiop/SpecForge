@@ -10,11 +10,14 @@
 
 use std::path::{Path, PathBuf};
 
+use crate::OutputFormat;
+use crate::outcome::{Exit, Refusal};
 use specforge_ops::check::Counts;
+use specforge_ops::{OpError, OpErrorKind};
 use specforge_project::{ProjectSession, UpdateKind};
 use specforge_watch::{Applied, DEFAULT_DEBOUNCE_WINDOW, Notify, SessionWatch, WatchEvent};
 
-pub fn run(path: &Path, json: bool, verify_incremental: bool) -> i32 {
+pub fn run(path: &Path, json: bool, verify_incremental: bool) -> Exit {
     // A debug build checks every rebuild (ProjectSession); a release build
     // only when asked (the check costs a cold rebuild per change).
     let mut session = ProjectSession::open(path);
@@ -28,8 +31,16 @@ pub fn run(path: &Path, json: bool, verify_incremental: bool) -> i32 {
     let mut watch = match SessionWatch::start(session, watchers) {
         Ok(watch) => watch,
         Err(e) => {
-            eprintln!("error: {e}");
-            return 1;
+            let format = if json {
+                OutputFormat::Json
+            } else {
+                OutputFormat::Human
+            };
+            return Refusal::of(format).report(&OpError::new(
+                OpErrorKind::Internal,
+                "watch_failed",
+                e,
+            ));
         }
     };
 
@@ -67,7 +78,7 @@ pub fn run(path: &Path, json: bool, verify_incremental: bool) -> i32 {
             }
         }
     }
-    0
+    Exit::Passed
 }
 
 /// Seconds since the epoch, for a text event's stamp.

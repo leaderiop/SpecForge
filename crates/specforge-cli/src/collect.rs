@@ -12,7 +12,7 @@
 //! was approved before) and presents the outcome.
 
 use crate::OutputFormat;
-use crate::outcome::Refusal;
+use crate::outcome::{Exit, Refusal};
 use specforge_common::find_project_root;
 use specforge_ops::collect::{self, Collector, Consent, Mode, Request, RunnerOutput};
 use specforge_ops::view::ProjectView;
@@ -27,7 +27,7 @@ pub struct Options<'a> {
     pub yes: bool,
 }
 
-pub fn run(path: &Path, options: &Options, format: OutputFormat) -> i32 {
+pub fn run(path: &Path, options: &Options, format: OutputFormat) -> Exit {
     let Some(root) = find_project_root(path) else {
         return Refusal::of(format).report(&OpError::new(
             OpErrorKind::PreconditionFailed,
@@ -115,7 +115,7 @@ pub fn run(path: &Path, options: &Options, format: OutputFormat) -> i32 {
         }
         println!("report written: {}", outcome.report.display());
     }
-    0
+    Exit::Passed
 }
 
 /// Ask on the terminal whether the collector's command may run here.

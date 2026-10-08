@@ -66,6 +66,10 @@ nearest project, else the directory itself" on their own.
 
 ## Amendment (architecture round 5, plan 15)
 
+- **D4a. A core command's `run` returns `Exit`.** `main` alone turns it into a process code; `Refusal::report`
+  returns `Exit`, and `RunVerdict` (`specforge_ops`) is the verdict an operation that can be unjudged returns.
+  Extension commands keep their own code (ADR 0011). The build-cache write failure, the watch start failure
+  and an unknown `explain` code are refusals (`error[CODE]`).
 - **D8a. MCP resolves a relative `out_dir` of `specforge.render` against the call's project root** as it does
   `test_results`; with no project served a relative one is invalid input on `out_dir`. `output_files` lists
   absolute paths.

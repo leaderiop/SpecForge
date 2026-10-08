@@ -1,5 +1,5 @@
 use crate::OutputFormat;
-use crate::outcome::Refusal;
+use crate::outcome::{Exit, Refusal};
 use serde_json::json;
 use specforge_common::{Diagnostic, codes};
 use specforge_registry_client::{
@@ -14,7 +14,7 @@ use std::path::Path;
 /// package's manifest is the declaration read from the binary (ADR 0012):
 /// a binary whose declaration has errors is refused before any network
 /// call.
-pub fn run(extension: &Path, project: &Path, format: OutputFormat) -> i32 {
+pub fn run(extension: &Path, project: &Path, format: OutputFormat) -> Exit {
     let binary = match specforge_ops::publish::binary_at(extension) {
         Ok(binary) => binary,
         Err(error) => {
@@ -137,7 +137,7 @@ pub fn run(extension: &Path, project: &Path, format: OutputFormat) -> i32 {
                     println!("  signed by key: {}", key_id);
                 }
             }
-            0
+            Exit::Passed
         }
         Err(diag) => Refusal::of(format).diagnostic(&diag),
     }

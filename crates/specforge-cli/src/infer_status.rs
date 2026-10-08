@@ -4,7 +4,7 @@
 //! by directory and `--gaps-detail` the `specforge.infer_gaps` report.
 
 use crate::OutputFormat;
-use crate::outcome::Refusal;
+use crate::outcome::{Exit, Refusal};
 use serde_json::json;
 use specforge_ops::infer::{self, Gaps, MANIFEST_FILENAME, Progress};
 use specforge_ops::view::ProjectView;
@@ -16,7 +16,7 @@ pub fn run(
     show_gaps: bool,
     show_stale: bool,
     show_gaps_detail: bool,
-) -> i32 {
+) -> Exit {
     let (project, runtime) = crate::pipeline::compile_project(path);
     let view = ProjectView::of(&project);
     let progress = match infer::progress(&view) {
@@ -70,7 +70,7 @@ pub fn run(
             }
         }
     }
-    0
+    Exit::Passed
 }
 
 fn render_human(progress: &Progress, gaps: bool, stale: bool, detail: Option<&Gaps>) -> String {

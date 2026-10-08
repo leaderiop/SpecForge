@@ -34,6 +34,7 @@ mod watch;
 use clap::builder::{PossibleValuesParser, TypedValueParser};
 use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
 use clap_complete::Shell;
+use outcome::Exit;
 use std::path::{Path, PathBuf};
 
 #[derive(Parser)]
@@ -710,6 +711,22 @@ fn main() {
     let cli = Cli::parse();
 
     let exit_code = match cli.command {
+        // An extension command's exit code is its own (ADR 0011).
+        Commands::External(argv) => {
+            let builtins: Vec<String> = Cli::command()
+                .get_subcommands()
+                .map(|c| c.get_name().to_string())
+                .collect();
+            extension_command::run(&argv, &builtins)
+        }
+        command => run(command).code(),
+    };
+    std::process::exit(exit_code);
+}
+
+/// Run one core command.
+fn run(command: Commands) -> Exit {
+    match command {
         Commands::Init {
             name,
             version,
@@ -931,7 +948,7 @@ fn main() {
             let mut cmd =
                 extension_command::with_extension_commands(Cli::command(), Path::new("."));
             clap_complete::generate(shell, &mut cmd, "specforge", &mut std::io::stdout());
-            0
+            Exit::Passed
         }
         Commands::Explain { code } => explain::run(&code),
         Commands::Migrate {
@@ -956,13 +973,7 @@ fn main() {
             stale,
             gaps_detail,
         } => infer_status::run(&path, format, gaps, stale, gaps_detail),
-        Commands::External(argv) => {
-            let builtins: Vec<String> = Cli::command()
-                .get_subcommands()
-                .map(|c| c.get_name().to_string())
-                .collect();
-            extension_command::run(&argv, &builtins)
-        }
+        Commands::External(_) => unreachable!("main runs an extension command itself"),
         Commands::Extension { action } => match action {
             ExtensionAction::Init { name, path, format } => {
                 extension_authoring::run_init(&path, name.as_deref(), format)
@@ -974,8 +985,7 @@ fn main() {
                 extension_authoring::run_validate(&path, format)
             }
         },
-    };
-    std::process::exit(exit_code);
+    }
 }
 
 #[cfg(test)]

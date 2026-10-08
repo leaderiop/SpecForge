@@ -1,5 +1,5 @@
 use crate::OutputFormat;
-use crate::outcome::Refusal;
+use crate::outcome::{Exit, Refusal};
 use serde_json::json;
 use specforge_ops::extension::{self, Trust, UpdateRequest};
 use specforge_ops_registry::HttpRegistry;
@@ -15,7 +15,7 @@ pub fn run(
     major: bool,
     allow_unsigned: bool,
     assume_yes: bool,
-) -> i32 {
+) -> Exit {
     let registry = HttpRegistry::for_project(path, "update");
     let request = UpdateRequest {
         root: path,
@@ -64,7 +64,7 @@ pub fn run(
                 eprintln!("no extension was updated");
             }
         }
-        return 1;
+        return Exit::Failed;
     }
 
     let updated: Vec<_> = outcome
@@ -87,7 +87,7 @@ pub fn run(
             }
         }
     }
-    0
+    Exit::Passed
 }
 
 /// The `batch_update_completed` event's payload

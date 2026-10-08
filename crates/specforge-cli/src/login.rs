@@ -1,5 +1,5 @@
 use crate::OutputFormat;
-use crate::outcome::Refusal;
+use crate::outcome::{Exit, Refusal};
 use serde_json::json;
 use specforge_common::codes;
 use specforge_registry_client::{
@@ -14,7 +14,7 @@ pub fn run(
     token: Option<&str>,
     path: &Path,
     format: OutputFormat,
-) -> i32 {
+) -> Exit {
     let alias = registry_alias.unwrap_or("default");
 
     let token_value = match token {
@@ -95,10 +95,10 @@ pub fn run(
         }
     }
 
-    0
+    Exit::Passed
 }
 
-pub fn run_logout(registry_alias: Option<&str>, format: OutputFormat) -> i32 {
+pub fn run_logout(registry_alias: Option<&str>, format: OutputFormat) -> Exit {
     let alias = registry_alias.unwrap_or("default");
     let cred_path = credentials_path();
 
@@ -118,7 +118,7 @@ pub fn run_logout(registry_alias: Option<&str>, format: OutputFormat) -> i32 {
             }
             OutputFormat::Human => println!("no credentials found for registry '{}'", alias),
         }
-        return 0;
+        return Exit::Passed;
     }
 
     if let Err(diag) = write_credentials(&cred_path, &store) {
@@ -137,5 +137,5 @@ pub fn run_logout(registry_alias: Option<&str>, format: OutputFormat) -> i32 {
         OutputFormat::Human => println!("logged out from registry '{}'", alias),
     }
 
-    0
+    Exit::Passed
 }

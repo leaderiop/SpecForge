@@ -4,7 +4,7 @@ use specforge_ops::view::ProjectView;
 use std::path::Path;
 
 use crate::OutputFormat;
-use crate::outcome::Refusal;
+use crate::outcome::{Exit, Refusal};
 use crate::pipeline;
 
 /// Export the project compiled at `path` to stdout. Before it writes, the
@@ -22,7 +22,7 @@ pub fn run(
     schema: export::Schema,
     schema_version: Option<&str>,
     max_tokens: Option<usize>,
-) -> i32 {
+) -> Exit {
     let (project, _runtime) = pipeline::compile_project(path);
     let view = ProjectView::of(&project);
 
@@ -53,7 +53,7 @@ pub fn run(
             dir.display()
         );
     }
-    0
+    Exit::Passed
 }
 
 /// `specforge schema`: the schema operation over the project compiled at
@@ -61,7 +61,7 @@ pub fn run(
 /// the document `specforge.schema` returns for the same request, pretty
 /// printed. With `publish`, the JSON Schema an export of that format
 /// conforms to. An unknown kind is refused with the closest one (exit 1).
-pub fn run_schema(path: &Path, request: &SchemaRequest, publish: Option<export::Format>) -> i32 {
+pub fn run_schema(path: &Path, request: &SchemaRequest, publish: Option<export::Format>) -> Exit {
     let (project, _runtime) = pipeline::compile_project(path);
     let view = ProjectView::of(&project);
     let output = match publish {
@@ -72,7 +72,7 @@ pub fn run_schema(path: &Path, request: &SchemaRequest, publish: Option<export::
     match output {
         Ok(text) => {
             println!("{text}");
-            0
+            Exit::Passed
         }
         Err(error) => Refusal::of(OutputFormat::Human).report(&error),
     }

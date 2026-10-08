@@ -12,7 +12,7 @@ use specforge_ops::analyze::{AnalyzeOptions, Gate, ProveOptions, ReportSource, a
 use specforge_ops::view::ProjectView;
 
 use crate::OutputFormat;
-use crate::outcome::Refusal;
+use crate::outcome::{Exit, Refusal};
 use crate::pipeline;
 
 pub fn run(
@@ -23,7 +23,7 @@ pub fn run(
     test_results: Option<&Path>,
     min: Option<f64>,
     prove: bool,
-) -> i32 {
+) -> Exit {
     let (project, runtime) = pipeline::compile_project(path);
     // Without --test-results, the operation uses what `specforge collect`
     // last recorded at the root it compiled.
@@ -126,13 +126,13 @@ pub fn run(
                 "error[{}]: --min requires the coverage pass (pass=coverage or all) from @specforge/testing — enable it with `specforge add @specforge/testing`",
                 codes::E068
             );
-            return 2;
+            return Exit::Unjudged;
         }
         Gate::UnreadableSummary(e) => {
             eprintln!(
                 "error: the coverage pass summary is not the shape this specforge reads ({e}); update @specforge/testing"
             );
-            return 2;
+            return Exit::Unjudged;
         }
         Gate::Below {
             pct,
@@ -144,11 +144,11 @@ pub fn run(
                 "error[{}]: proof coverage {pct:.1}% is below the required minimum {min:.1}% ({proven}/{total} testable entities proven)",
                 codes::E048
             );
-            return 1;
+            return Exit::Failed;
         }
     }
 
-    if outcome.ok { 0 } else { 1 }
+    Exit::of_verdict(outcome.ok)
 }
 
 /// A pass summary as `key: value` lines, nested keys dotted. Its shape is

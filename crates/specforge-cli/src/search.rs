@@ -1,10 +1,10 @@
 use crate::OutputFormat;
-use crate::outcome::Refusal;
+use crate::outcome::{Exit, Refusal};
 use serde_json::json;
 use specforge_registry_client::{HttpRegistryClient, search_registries};
 use std::path::Path;
 
-pub fn run(query: &str, path: &Path, format: OutputFormat) -> i32 {
+pub fn run(query: &str, path: &Path, format: OutputFormat) -> Exit {
     // No registry configured: fail before any network call (ADR 0004 N1).
     let registries = match specforge_ops_registry::configured(path, "search") {
         Ok(configured) => {
@@ -59,5 +59,5 @@ pub fn run(query: &str, path: &Path, format: OutputFormat) -> i32 {
         }
     }
 
-    0
+    Exit::Passed
 }
