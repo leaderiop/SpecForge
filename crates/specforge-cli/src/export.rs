@@ -1,4 +1,3 @@
-use specforge_common::Severity;
 use specforge_ops::export;
 use specforge_ops::schema::SchemaRequest;
 use specforge_ops::view::ProjectView;
@@ -31,7 +30,7 @@ pub fn run(
     // earlier exports, and `.specforge/` holds extensions and the watch
     // snapshot too, so nothing here shows the project was exported before.
     for diagnostic in &cache.breaking_changes(&generated) {
-        eprintln!("{}", render_plain(diagnostic));
+        eprintln!("{}", specforge_common::render_plain(diagnostic));
     }
 
     let request = export::Request {
@@ -66,21 +65,6 @@ pub fn run(
     0
 }
 
-/// A spanless diagnostic as `severity[CODE]: message`, with its suggestion
-/// on a `= help:` line.
-pub(crate) fn render_plain(diagnostic: &specforge_common::Diagnostic) -> String {
-    let severity = match diagnostic.severity {
-        Severity::Error => "error",
-        Severity::Warning => "warning",
-        Severity::Info => "info",
-    };
-    let mut text = format!("{severity}[{}]: {}", diagnostic.code, diagnostic.message);
-    if let Some(suggestion) = &diagnostic.suggestion {
-        text.push_str(&format!("\n  = help: {suggestion}"));
-    }
-    text
-}
-
 /// An operation's failure as `error[CODE]: message`, with its suggestion
 /// on a `= help:` line.
 pub(crate) fn render_op_error(error: &specforge_ops::OpError) -> String {
@@ -92,7 +76,7 @@ pub(crate) fn render_op_error(error: &specforge_ops::OpError) -> String {
     if let Some(suggestion) = &error.suggestion {
         diagnostic = diagnostic.with_suggestion(suggestion);
     }
-    render_plain(&diagnostic)
+    specforge_common::render_plain(&diagnostic)
 }
 
 /// `specforge schema`: the schema operation over the project compiled at

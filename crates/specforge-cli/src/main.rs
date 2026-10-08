@@ -61,7 +61,7 @@ impl OutputFormat {
     /// stderr in either format, so JSON stdout stays one document.
     fn eprint_diagnostics(self, diagnostics: &[specforge_common::Diagnostic]) {
         for diagnostic in diagnostics {
-            eprintln!("{}", export::render_plain(diagnostic));
+            eprintln!("{}", specforge_common::render_plain(diagnostic));
         }
     }
 

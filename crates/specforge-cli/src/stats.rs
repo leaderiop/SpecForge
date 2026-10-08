@@ -14,7 +14,7 @@ pub fn run(path: &Path, format: OutputFormat) -> i32 {
     let stats = match specforge_ops::stats::stats(&ProjectView::of(&project)) {
         Ok(stats) => stats,
         Err(e) => {
-            eprintln!("{}", crate::export::render_plain(&e.diagnostic()));
+            eprintln!("{}", specforge_common::render_plain(&e.diagnostic()));
             return 2;
         }
     };

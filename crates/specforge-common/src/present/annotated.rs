@@ -31,25 +31,27 @@ pub fn render_diagnostics(
             Severity::Info => ariadne::ReportKind::Advice,
         };
 
-        let (file, offset) = if let Some(span) = &diag.span {
-            let byte_range = line_col_to_byte_range(
-                sources
-                    .get(span.file.as_str())
-                    .map(|s| s.as_str())
-                    .unwrap_or(""),
-                span.start_line,
-                span.start_col,
-                span.end_line,
-                span.end_col,
-            );
-            (span.file.to_string(), byte_range)
-        } else {
-            // C14-13: anchor spanless diagnostics deterministically — the
-            // lexicographically first source, never HashMap iteration order.
-            let file = sources.keys().min().cloned().unwrap_or_default();
-            let span_end = sources.get(&file).map(|s| s.len().min(1)).unwrap_or(0);
-            (file, 0..span_end)
+        // A diagnostic with no span has no snippet to show: it is written as
+        // its heading and help, never anchored at some unrelated file.
+        let Some(span) = &diag.span else {
+            if !buf.is_empty() {
+                buf.push(b'\n');
+            }
+            buf.extend_from_slice(super::render_plain(diag).as_bytes());
+            buf.push(b'\n');
+            continue;
         };
+        let byte_range = line_col_to_byte_range(
+            sources
+                .get(span.file.as_str())
+                .map(|s| s.as_str())
+                .unwrap_or(""),
+            span.start_line,
+            span.start_col,
+            span.end_line,
+            span.end_col,
+        );
+        let (file, offset) = (span.file.to_string(), byte_range);
 
         let span: Span = (file.clone(), offset.clone());
 
@@ -208,20 +210,19 @@ mod tests {
         );
     }
 
-    // C14-13: spanless diagnostics anchor to the first source (sorted),
-    // regardless of HashMap iteration order.
+    // A diagnostic with no span is written as one line, naming no file:
+    // anchoring it at a source blames an unrelated file.
     #[test]
-    fn spanless_diagnostics_anchor_deterministically() {
+    fn a_spanless_diagnostic_names_no_file() {
         let mut sources = HashMap::new();
         sources.insert("zzz.spec".to_string(), "content z\n".to_string());
         sources.insert("aaa.spec".to_string(), "content a\n".to_string());
         let diag = Diagnostic::untyped("W001", Severity::Warning, "spanless".to_string());
-        let out1 = render_diagnostics(std::slice::from_ref(&diag), &sources, false);
-        let out2 = render_diagnostics(&[diag], &sources, false);
-        assert_eq!(out1, out2);
+        let out = render_diagnostics(&[diag], &sources, false);
+        assert_eq!(out, "warning[W001]: spanless\n");
         assert!(
-            out1.contains("aaa.spec"),
-            "anchor must be the first sorted source"
+            !out.contains("aaa.spec") && !out.contains("zzz.spec"),
+            "{out}"
         );
     }
 

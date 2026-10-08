@@ -207,7 +207,7 @@ fn failed_run(error: &CallError, format: CommandFormat) -> String {
             line.push('\n');
             line
         }
-        CommandFormat::Human => format!("{}\n", crate::export::render_plain(&diagnostic)),
+        CommandFormat::Human => format!("{}\n", specforge_common::render_plain(&diagnostic)),
     }
 }
 

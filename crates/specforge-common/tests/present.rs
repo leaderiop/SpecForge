@@ -1,5 +1,6 @@
 use specforge_common::{
     Diagnostic, DiagnosticData, Severity, SourceSpan, Sym, diagnostic_summary, render_diagnostics,
+    render_plain,
 };
 use specforge_test::prelude::*;
 
@@ -1043,5 +1044,39 @@ fn summary_contract_consistency() {
         summary.contains("0 info"),
         "must report exact info count: got '{}'",
         summary
+    );
+}
+
+#[specforge_test(
+    behavior = "format_diagnostics_with_source_context",
+    verify = "Format Diagnostics with Source Context: diagnostic source context formatting holds — valid_source_span, header_present, context_snippet_present, caret_marker_present"
+)]
+fn only_a_diagnostic_with_a_span_gets_a_snippet() {
+    let source = "line 1\nfeature gamma \"G\" {}\n";
+    let sources = std::collections::HashMap::from([("t.spec".to_string(), source.to_string())]);
+    let spanned =
+        Diagnostic::untyped("E003", Severity::Error, "unresolved").with_span(SourceSpan {
+            file: Sym::new("t.spec"),
+            start_line: 2,
+            start_col: 1,
+            end_line: 2,
+            end_col: 8,
+        });
+    let spanless =
+        Diagnostic::untyped("W061", Severity::Warning, "a cycle").with_suggestion("break it");
+
+    let out = render_diagnostics(&[spanned, spanless.clone()], &sources, false);
+
+    // The spanned one is a snippet; the spanless one is its plain lines,
+    // after a blank line, naming no file.
+    let (snippet, plain) = out
+        .split_once("\n\n")
+        .unwrap_or_else(|| panic!("a blank line between: {out}"));
+    assert!(snippet.contains("[E003] Error: unresolved"), "{out}");
+    assert!(snippet.contains("╭─[ t.spec:2:1 ]"), "{out}");
+    assert_eq!(plain, "warning[W061]: a cycle\n  = help: break it\n");
+    assert_eq!(
+        render_plain(&spanless),
+        "warning[W061]: a cycle\n  = help: break it"
     );
 }

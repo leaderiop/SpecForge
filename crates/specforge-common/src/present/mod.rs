@@ -13,6 +13,23 @@ pub use summary::{Counts, diagnostic_summary};
 use crate::{Diagnostic, DiagnosticData, Severity, SourceSpan};
 use serde::Serialize;
 
+/// A diagnostic as one heading line, `severity[CODE]: message`, with its
+/// suggestion on a `  = help:` line. This is the form for a diagnostic with
+/// no span, which has no snippet to show ([`render_diagnostics`] writes it
+/// so), and for any command's refusal.
+pub fn render_plain(diagnostic: &Diagnostic) -> String {
+    let severity = match diagnostic.severity {
+        Severity::Error => "error",
+        Severity::Warning => "warning",
+        Severity::Info => "info",
+    };
+    let mut text = format!("{severity}[{}]: {}", diagnostic.code, diagnostic.message);
+    if let Some(suggestion) = &diagnostic.suggestion {
+        text.push_str(&format!("\n  = help: {suggestion}"));
+    }
+    text
+}
+
 pub fn format_diagnostic(diag: &Diagnostic) -> String {
     let severity_label = match diag.severity {
         Severity::Error => "error",

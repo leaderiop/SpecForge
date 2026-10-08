@@ -25,7 +25,7 @@ pub use inference::{
 pub use interner::Sym;
 pub use present::{
     Counts, DiagnosticJson, MAX_DIAGNOSTICS, compute_exit_code, diagnostic_summary,
-    diagnostics_json, format_diagnostic, render_diagnostics, serialize_diagnostics,
+    diagnostics_json, format_diagnostic, render_diagnostics, render_plain, serialize_diagnostics,
     truncate_diagnostics,
 };
 pub use project::{
