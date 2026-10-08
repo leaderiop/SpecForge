@@ -3057,6 +3057,7 @@ dependencies = [
  "specforge-graph",
  "specforge-installed",
  "specforge-migrate",
+ "specforge-ops",
  "specforge-parser",
  "specforge-project",
  "specforge-protocol-types",

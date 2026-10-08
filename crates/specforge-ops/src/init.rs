@@ -282,10 +282,7 @@ fn extensions_of(
                 name
             }
             Source::Registry(_) | Source::Git { .. } => {
-                let builtins: Vec<&str> = specforge_component::builtins::BUILTIN_EXTENSIONS
-                    .iter()
-                    .map(|(name, _)| *name)
-                    .collect();
+                let builtins: Vec<&str> = specforge_project::builtins().names().collect();
                 return Err(unresolvable(
                     "init enables builtins and local .wasm files only".to_string(),
                 )

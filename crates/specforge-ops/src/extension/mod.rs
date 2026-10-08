@@ -28,7 +28,6 @@ pub(crate) use candidate::required_builtins;
 
 use crate::OpError;
 use crate::registry::Registry;
-use specforge_component::builtins::BUILTIN_EXTENSIONS;
 use specforge_installed::{LockFile, LockSource};
 use specforge_project::EnabledExtension;
 use specforge_protocol_types::PackageName;
@@ -112,9 +111,8 @@ impl Origin {
 /// `@version` suffix, which is ignored: builtins track the binary).
 pub fn builtin_name(specifier: &str) -> Option<&'static str> {
     let name = crate::config::entry_name(specifier);
-    BUILTIN_EXTENSIONS
-        .iter()
-        .map(|(builtin, _)| *builtin)
+    specforge_project::builtins()
+        .names()
         .find(|builtin| *builtin == name)
 }
 

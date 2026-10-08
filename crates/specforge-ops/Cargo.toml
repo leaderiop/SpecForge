@@ -20,7 +20,6 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 specforge-diagnostics = { path = "../specforge-diagnostics" }
 specforge-common = { workspace = true }
-specforge-component = { workspace = true }
 specforge-emitter = { path = "../specforge-emitter" }
 specforge-formatter = { workspace = true }
 specforge-graph = { path = "../specforge-graph" }
@@ -40,6 +39,8 @@ strsim = { workspace = true }
 walkdir = { workspace = true }
 
 [dev-dependencies]
+# The production adapter, in the tests that load the builtins.
+specforge-component = { workspace = true }
 specforge-ops = { path = ".", features = ["testing"] }
 # Extensions declared with the SDK, served in process.
 specforge-extension-sdk = { path = "../specforge-extension-sdk" }
