@@ -317,11 +317,6 @@ impl ComponentRuntime {
         self.instantiate(name, component)
     }
 
-    /// Atomically replace a loaded extension's component (hot reload / H1).
-    pub fn reload_module_bytes(&self, name: &str, wasm_bytes: &[u8]) -> Result<(), String> {
-        self.load_module_bytes(name, wasm_bytes)
-    }
-
     /// Unload an extension. Returns true when it was loaded.
     pub fn unload(&self, name: &str) -> bool {
         match self.plugins.lock() {
