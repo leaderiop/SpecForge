@@ -6,6 +6,7 @@ use specforge_extension_sdk::prelude::{
 mod feature_dependents;
 mod host;
 mod journey_coverage;
+mod lists;
 mod milestone_completion;
 mod persona_channel_features;
 
