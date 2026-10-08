@@ -142,10 +142,11 @@ fn the_adapter_requests_these_paths() {
     );
 }
 
-// Pins a bug: a name no registry serves is asked of the first entry, which
-// here is scoped to another owner (plan 06 §3 R1). T1 flips it.
-#[test]
-fn the_adapter_asks_a_registry_scoped_to_another_name_today() {
+#[specforge_test(
+    behavior = "resolve_registry_source",
+    verify = "a name no registry serves is refused with R-OPS-001 before any request"
+)]
+fn the_adapter_asks_no_registry_for_a_name_none_serves() {
     let served = Recording::serving(&["1.0.0"]);
     let dir = project_with(&format!(
         r#"{{"alias":"acme","url":"{}","scope_filter":"@acme"}}"#,
@@ -154,9 +155,17 @@ fn the_adapter_asks_a_registry_scoped_to_another_name_today() {
     let registry = HttpRegistry::for_project(dir.path(), "add");
 
     let error = registry.versions(&name("@other/x")).unwrap_err();
-
-    assert_eq!(error.code, "R-RES-001", "{error:?}");
-    assert_eq!(served.requests(), ["/v1/packages/@other%2Fx"]);
+    assert_eq!(error.code, "R-OPS-001", "{error:?}");
+    let error = registry
+        .fetch(
+            &name("@other/x"),
+            &Version::new(1, 0, 0),
+            true,
+            Trust::Refuse,
+        )
+        .unwrap_err();
+    assert_eq!(error.code, "R-OPS-001", "{error:?}");
+    assert!(served.requests().is_empty(), "{:?}", served.requests());
 }
 
 #[specforge_test(
@@ -164,10 +173,10 @@ fn the_adapter_asks_a_registry_scoped_to_another_name_today() {
     verify = "a fetch requests the name and version it was given, from the registry it was given"
 )]
 fn the_registry_is_chosen_once() {
-    // One registry with no default and no scope filter: the adapter falls
-    // back to the first entry, and the client fetches from it (§3 R4).
+    // One default registry: the adapter chooses it, and the client fetches
+    // from it (§3 R4).
     let served = Recording::serving(&["1.0.0"]);
-    let dir = project_with(&format!(r#"{{"alias":"main","url":"{}"}}"#, served.url));
+    let dir = project_with(&default_registry(&served.url));
     let registry = HttpRegistry::for_project(dir.path(), "add");
 
     assert_eq!(

@@ -151,10 +151,18 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Package registry client**: what talks to a package registry: search, resolve and publish over
   HTTP, credentials in the OS keyring, publisher trust and package signing
   (`specforge-registry-client`). Not the Registry build, which is pure and needs none of it.
-  Operations reach it only through the `Registry` port, which takes a package name and a
-  version (ADR 0036); its adapter (`specforge-ops-registry`)
-  is linked by the CLI and MCP, never the LSP (ADR 0010). Publish derives the stored declaration
-  from the binary; `add` checks the binary declares what was published (ADR 0012).
+  Operations reach it only through the `Registry` port, which lists a package's versions, fetches
+  one and publishes one, by package name and version (ADR 0036, 0045); its adapter
+  (`specforge-ops-registry`) is linked by the CLI and MCP, never the LSP (ADR 0010), and holds what
+  needs the user's `~/.specforge`: the credential, the signing key, the known keys. Publish derives
+  the stored declaration from the binary; `add` checks the binary declares what was published
+  (ADR 0012).
+- **Registry for a package**: the one configured registry that serves a package name: the first
+  `registries` entry whose `scope_filter` is the name's scope, else the first marked
+  `default_registry`; with neither, none does, and the operation refuses with R-OPS-001 before any
+  request (`specforge_ops_registry::Configured::registry_for`, ADR 0045). `add`, `update` and
+  `publish` ask that one registry; `search` asks every entry. A registry credential is kept under
+  the registry's alias (`login --registry`, else the default registry's).
 - **Package name**: what an extension package is called, `@scope/name` (a registry holds only
   these) or `name` alone (a local module); each part `a-z 0-9 . _ -`, starting with a letter or
   digit, so it is always a relative path inside the directory it is joined to and one URL segment

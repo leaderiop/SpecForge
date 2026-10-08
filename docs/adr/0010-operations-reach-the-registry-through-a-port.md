@@ -36,3 +36,8 @@ it, say). It would then link the adapter knowingly, or reach it through a narrow
 **Amended by ADR 0036 (2026-10-07):** the port takes a `PackageName` and a `Version`, and has two
 methods, `versions` and `fetch`; `resolve_version` is gone and ops resolves a requirement itself
 (`VersionRequirement::pick`).
+
+**Amended by ADR 0045 (2026-10-08):** the port has three methods, `versions`, `fetch` and
+`publish`; the adapter also holds the publish credential and the signing key, read from the user's
+`~/.specforge` (`specforge_ops_registry::User`). `publish` is an operation in ops, and the CLI only
+presents it.

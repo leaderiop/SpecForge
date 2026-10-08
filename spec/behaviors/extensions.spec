@@ -594,6 +594,7 @@ behavior resolve_registry_source "Resolve Registry Source" {
   ensures {
     scope_routed              "Scope-prefixed specifiers are routed to the matching scope-specific registry"
     default_fallback_used     "Specifiers with no matching scope fall back to the default registry"
+    no_registry_refused       "A name no scope_filter matches, with no default registry, is refused with R-OPS-001 before any network call"
     network_error_diagnosed   "Network errors produce ExtensionError diagnostic with retry guidance"
     registry_resolved_emitted "registry_resolved event fires on successful resolution"
   }
@@ -605,16 +606,19 @@ behavior resolve_registry_source "Resolve Registry Source" {
     fall back to the default registry. "The default registry" means the
     registries entry marked `default_registry: true` in specforge.json:
     SpecForge ships no registry, so no registry URL is a constant in source.
+    With no scope match and no default registry, no registry serves the
+    name: the system MUST refuse with R-OPS-001, naming the scope, before
+    any network call, and MUST NOT ask another registry. add, update and
+    publish choose the registry for a name by this one rule (ADR 0045).
     Network errors MUST produce an ExtensionError diagnostic with retry guidance.
   """
   verify unit "scope-specific registry queried for matching scope"
   verify unit "default registry used when no scope filter matches"
   verify unit "network error produces ExtensionError with retry guidance"
   verify unit "successful query returns RegistryResponse"
-  verify integration "unreachable scope-specific registry falls back to next scope"
   verify unit "a fetch requests the name and version it was given, from the registry it was given"
   verify unit "a name no registry serves is refused with R-OPS-001 before any request"
-  verify contract "Resolve Registry Source: registry source resolution holds — registries_configured_fired, registry_client_available, scope_routed, default_fallback_used, network_error_diagnosed, registry_resolved_emitted"
+  verify contract "Resolve Registry Source: registry source resolution holds — registries_configured_fired, registry_client_available, scope_routed, default_fallback_used, no_registry_refused, network_error_diagnosed, registry_resolved_emitted"
 }
 
 behavior search_registry "Search Registry" {

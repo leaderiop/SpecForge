@@ -5,7 +5,7 @@ use specforge_common::{Diagnostic, codes};
 use specforge_registry_client::{
     AuthMethod, CredentialStore, HttpRegistryClient, RegistryConfig, RegistryCredential,
     credentials::{credentials_path, read_credentials},
-    find_registry_for, load_or_create_signing_key, publish_to_registry,
+    load_or_create_signing_key, publish_to_registry,
 };
 use std::path::Path;
 
@@ -63,24 +63,19 @@ pub fn run(extension: &Path, project: &Path, format: OutputFormat) -> i32 {
     }
 
     // No registry configured: fail before any network call (ADR 0004 N1).
-    let registries = match specforge_ops_registry::configured(project, "publish") {
+    let configured = match specforge_ops_registry::configured(project, "publish") {
         Ok(configured) => {
             format.eprint_diagnostics(&configured.diagnostics);
-            configured.registries
+            configured
         }
         Err(error) => {
             return Refusal::of(format).report(&error);
         }
     };
 
-    let registry = match find_registry_for(&package, &registries) {
-        Some(r) => r,
-        None => {
-            return Refusal::of(format).coded(
-                codes::R_OPS_001,
-                "no registry configured for this package scope",
-            );
-        }
+    let registry = match configured.registry_for(&package) {
+        Ok(registry) => registry,
+        Err(error) => return Refusal::of(format).report(&error),
     };
     // Load publish credential: SPECFORGE_REGISTRY_TOKEN overrides stored credentials.
     let credential = match load_credential(registry) {
