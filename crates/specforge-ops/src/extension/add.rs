@@ -333,7 +333,7 @@ pub(super) fn fetch_checked(
         lock,
         package.name.as_str(),
         package.declaration.peers(),
-        &super::published_versions(registry),
+        Some(&super::published_versions(registry)),
     )?;
     let declared = Declared::of(&package.wasm)?;
     if declared.name() != package.name.as_str() || declared.version() != package.version.to_string()

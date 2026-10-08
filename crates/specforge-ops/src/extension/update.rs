@@ -310,7 +310,7 @@ fn broken_dependents(
                 staged,
                 entry.name.as_str(),
                 std::slice::from_ref(peer),
-                &published_versions(registry),
+                Some(&published_versions(registry)),
             ) {
                 broken.push((entry.name.to_string(), (peer.name.clone(), error)));
             }

@@ -241,7 +241,7 @@ behavior add_extension_to_existing_project "Add Extension to Existing Project" {
     extension_appended      "Extension is added to the extensions list in specforge.json"
     no_duplicate_added      "Already-installed extensions are not duplicated"
     other_fields_preserved  "No other fields in specforge.json are modified"
-    peer_deps_satisfied     "Unsatisfied peer dependencies produce E-level diagnostics and reject the operation"
+    peer_deps_satisfied     "An install that leaves a locked peer requirement unsatisfied, or whose own peer range can't be read, is refused before anything is written"
     extension_added_emitted "extension_added event is emitted after successful addition"
   }
   contract   """
@@ -259,14 +259,17 @@ behavior add_extension_to_existing_project "Add Extension to Existing Project" {
     local build from a registry.
     The system MUST NOT duplicate an already-installed extension.
     The system MUST NOT modify any other field in specforge.json.
-    When adding an extension, the compiler MUST check peer dependencies
-    of the new extension. Unsatisfied peer dependencies MUST be reported
-    as E-level diagnostics naming each missing peer and the operation
-    MUST be rejected with exit code 1. A peer the lock file already pins at
+    When adding an extension, the system MUST judge its peers by the one
+    peer rule (ADR 0041) before anything is installed: a peer range that is
+    not a SemVer requirement is refused with E073. A peer the lock pins at
     a version outside the new extension's range is a version diamond (ADR
-    0001): the operation MUST be rejected before anything is installed,
-    with R-RES-006 naming the version that would satisfy every requirer, or
-    R-RES-005 when no published version does.
+    0001): from a registry the operation MUST be rejected with R-RES-006
+    naming the version that would satisfy every requirer, or R-RES-005 when
+    no published version does; a local install, with no registry to
+    consult, MUST be rejected with E027. Installing a package at a version
+    a locked extension's peer range does not accept MUST be rejected the
+    same way, its message naming the extension it would break. A peer that
+    is not installed is not refused: specforge check reports it (E027).
     If no specforge.json exists in the current directory or any ancestor
     directory (as resolved by find_project_root()), the system MUST reject
     the operation with an error message and exit code 1. If the extension
@@ -286,7 +289,8 @@ behavior add_extension_to_existing_project "Add Extension to Existing Project" {
   verify unit "add unresolvable extension rejects with diagnostic"
   verify unit "add extension with @scope/name@version resolves version via parse_extension_specifier"
   verify unit "add extension without version resolves to latest compatible version"
-  verify unit "add extension with unsatisfied peer dependencies emits error diagnostics and rejects"
+  verify unit "an extension whose peer range is not SemVer is refused with E073 before anything is installed"
+  verify unit "a local install whose peer is installed outside its range is refused with E027"
   verify unit "a peer locked outside the new extension's range fails R-RES-006 naming a version that satisfies every requirer"
   verify unit "a peer no single version satisfies for every requirer fails R-RES-005"
   verify integration "a local .wasm install is locked at its declared version with source local:<path> and enabled by its bare name"
