@@ -186,10 +186,11 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   coverage, and the reported diagnostics about it (`specforge_ops::inspect::EntityFacts`). MCP
   `specforge.inspect` renders it as JSON and the LSP hover as markdown, so the two cannot disagree.
 - **Known kind**: a kind a loaded extension declares, or that an entity is written with (an
-  undeclared one is E024's). A filter over entities knows both and reports any other kind as I020; an
-  argument that needs a kind's declaration (a schema entry, an inference guide) knows only the
-  declared ones and refuses others with `unknown_kind`. Names are exact; both name the closest kind, a
-  kind equal but for case first (`specforge_ops::view::KnownKinds`, `ProjectView::kinds`).
+  undeclared one is E024's). A kind filter (over entities, or the model's `kinds`) knows both and
+  reports any other kind as I020; an argument that needs a kind's declaration (a schema entry, an
+  inference guide, the model's root) knows only the declared ones and refuses others with
+  `unknown_kind`. Names are exact; both name the closest kind, a kind equal but for case first
+  (`specforge_ops::view::KnownKinds`, `ProjectView::kinds`).
 - **Configured providers**: the `providers` `specforge.json` lists (scheme, alias, extension,
   settings), registered once per environment against the loaded declarations, each with its
   status (registered, extension not loaded, not a provider, scheme taken) and the W118/E057 the

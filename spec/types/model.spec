@@ -9,14 +9,19 @@ type FieldLevel = "none" | "keys" | "all"
 type Cardinality = "1:1" | "1:N" | "N:1" | "N:M"
 
 type ModelOptions {
-  format           ModelFormat @readonly
-  group_by         GroupBy     @readonly
-  fields           FieldLevel  @readonly
-  extension_filter string      @readonly @optional
-  kind_filter      string[]    @readonly @optional
-  root             string      @readonly @optional
-  depth            integer     @readonly @optional
+  format    ModelFormat @readonly
+  group_by  GroupBy     @readonly
+  fields    FieldLevel  @readonly
+  extension string      @readonly @optional
+  kinds     string[]    @readonly
+  root      ModelRoot   @readonly @optional
   verify unit "ModelOptions schema is valid"
+}
+
+type ModelRoot "The kinds within depth hops of a root kind" {
+  kind  string  @readonly
+  depth integer @readonly @optional
+  verify unit "ModelRoot schema is valid"
 }
 
 type ModelField {

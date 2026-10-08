@@ -573,7 +573,7 @@ expression: listing
           "type": "string"
         },
         "kinds": {
-          "description": "Filter to specific entity kinds",
+          "description": "Filter to specific entity kinds (empty: every kind)",
           "items": {
             "type": "string"
           },

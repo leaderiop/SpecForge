@@ -3,7 +3,7 @@ use std::fmt::Write;
 use super::{GroupBy, ModelIntermediate, ModelOptions};
 use crate::diagram::markdown_cell;
 
-pub fn render_markdown(model: &ModelIntermediate, options: &ModelOptions) -> String {
+pub(super) fn render_markdown(model: &ModelIntermediate, options: &ModelOptions) -> String {
     let mut out = String::new();
 
     // Title

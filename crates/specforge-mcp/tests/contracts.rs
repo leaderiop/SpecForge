@@ -2945,8 +2945,23 @@ fn model_filters_reach_the_model() {
         model_kinds(&mut server, json!({"kinds": ["behavior"]})),
         ["behavior"]
     );
-    // An extension the project does not load contributes nothing.
-    assert!(model_kinds(&mut server, json!({"extension": "@specforge/product"})).is_empty());
+    // An extension the project does not load is refused.
+    let refused = call_tool(
+        &mut server,
+        "specforge.model",
+        json!({"extension": "@specforge/product"}),
+    );
+    assert_eq!(refused["result"]["isError"], true, "{refused}");
+    let error = tool_json(&refused);
+    assert_eq!(error["code"], "extension_not_found");
+    assert_eq!(error["argument"], "extension");
+    assert!(
+        error["data"]["suggestion"]
+            .as_str()
+            .unwrap()
+            .contains("@specforge/software"),
+        "{error}"
+    );
     assert_eq!(
         model_kinds(&mut server, json!({"extension": "@specforge/software"})),
         all
@@ -2965,6 +2980,77 @@ fn model_filters_reach_the_model() {
     let keys = model_text(&mut server, json!({"format": "dbml"}));
     let every = model_text(&mut server, json!({"format": "dbml", "fields": "all"}));
     assert!(every.len() > keys.len());
+}
+
+#[specforge_test(
+    behavior = "filter_model",
+    verify = "a depth without a root is refused"
+)]
+fn a_model_depth_without_a_root_is_refused() {
+    let (mut server, _project) = model_server();
+    let resp = call_tool(&mut server, "specforge.model", json!({"depth": 0}));
+    assert_eq!(resp["result"]["isError"], true, "{resp}");
+    let error = tool_json(&resp);
+    assert_eq!(error["code"], "invalid_input");
+    assert_eq!(error["argument"], "root");
+    assert_eq!(
+        error["message"],
+        "'depth' needs 'root': the kind the depth counts from"
+    );
+}
+
+#[specforge_test(
+    behavior = "filter_model",
+    verify = "an empty kind list selects every kind"
+)]
+fn an_empty_kind_list_selects_every_kind() {
+    let (mut server, _project) = model_server();
+    assert_eq!(
+        model_kinds(&mut server, json!({"kinds": []})),
+        model_kinds(&mut server, json!({}))
+    );
+}
+
+#[specforge_test(
+    behavior = "filter_model",
+    verify = "a root no loaded extension declares is refused with unknown_kind naming the closest declared kind"
+)]
+fn an_unknown_model_root_is_refused_on_root() {
+    let (mut server, _project) = model_server();
+    let resp = call_tool(&mut server, "specforge.model", json!({"root": "behaviour"}));
+    assert_eq!(resp["result"]["isError"], true, "{resp}");
+    let error = tool_json(&resp);
+    assert_eq!(error["code"], "invalid_input");
+    assert_eq!(error["argument"], "root");
+    assert_eq!(error["message"], "unknown entity kind 'behaviour'");
+    assert_eq!(error["data"]["suggestion"], "did you mean 'behavior'?");
+}
+
+#[specforge_test(
+    behavior = "filter_model",
+    verify = "a listed kind the project does not know is reported as I020 and selects nothing"
+)]
+fn an_unknown_model_kind_is_an_i020_notice() {
+    let (mut server, _project) = model_server();
+    let resp = call_tool(
+        &mut server,
+        "specforge.model",
+        json!({"format": "json", "kinds": ["behavior", "behaviour"]}),
+    );
+    assert_eq!(resp["result"]["isError"], false, "{resp}");
+    let model: Value =
+        serde_json::from_str(resp["result"]["content"][0]["text"].as_str().unwrap()).unwrap();
+    let kinds: Vec<&str> = model["entities"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| e["name"].as_str().unwrap())
+        .collect();
+    assert_eq!(kinds, ["behavior"]);
+    assert_eq!(
+        resp["result"]["_meta"]["diagnostics"],
+        json!([unknown_kind("behaviour", Some("behavior"))])
+    );
 }
 
 #[specforge_test(
