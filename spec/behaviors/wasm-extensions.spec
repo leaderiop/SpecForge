@@ -571,6 +571,7 @@ behavior ingest_collector_report "Ingest Collector Report" {
   """
   produces   [collector_report_ingested]
   verify unit "merge replaces only the same runner"
+  verify unit "the entities results may name are the entity snapshot's, with their obligation texts"
   verify integration "collect then analyze scores the recorded tests"
   verify contract "Ingest Collector Report: collector report ingestion holds — collector_dispatched_fired, graph_available, collector_report_ingested_emitted, runner_results_replaced, unknown_entities_warned, skipped_not_recorded, merged_report_written"
 }

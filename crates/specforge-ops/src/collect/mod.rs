@@ -444,17 +444,14 @@ pub fn dispatch(
 pub struct KnownEntities(BTreeMap<String, Vec<String>>);
 
 impl KnownEntities {
-    /// Every entity of the compiled graph.
-    pub(crate) fn from_graph(graph: &specforge_graph::Graph) -> Self {
-        graph
-            .nodes()
+    /// Every entity of the view's entity snapshot, with its obligation texts.
+    pub(crate) fn of(entities: &specforge_project::snapshot::EntitySnapshot) -> Self {
+        entities
+            .records()
             .iter()
-            .map(|node| {
-                let texts = specforge_graph::obligations(node)
-                    .iter()
-                    .map(|s| s.description.clone())
-                    .collect();
-                (node.id.raw.to_string(), texts)
+            .map(|record| {
+                let texts = record.obligations.iter().map(|o| o.text.clone()).collect();
+                (record.id.clone(), texts)
             })
             .collect()
     }
@@ -695,7 +692,7 @@ pub fn collect(
         mut consent,
         announce,
     } = request;
-    let known = &KnownEntities::from_graph(view.graph());
+    let known = &KnownEntities::of(view.entities());
     let available = collectors(view.registries().declarations());
     let parse_only = !matches!(mode, Mode::Run(_));
     let selected = select(&available, runner, root)?;
@@ -1125,6 +1122,56 @@ mod tests {
                 .collect(),
             unlinked: Vec::new(),
         }
+    }
+
+    #[specforge_test(
+        behavior = "ingest_collector_report",
+        verify = "the entities results may name are the entity snapshot's, with their obligation texts"
+    )]
+    fn known_entities_are_the_snapshots_records() {
+        use specforge_common::{SourceSpan, Sym};
+        use specforge_parser::{EntityId, EntityKind, FieldMap, FieldValue, VerifyStatement};
+
+        let mut fixture = crate::view::testing::Fixture::new();
+        let mut fields = FieldMap::new();
+        fields.push(
+            Sym::new("verify"),
+            FieldValue::VerifyList(vec![
+                VerifyStatement {
+                    kind: "unit".into(),
+                    description: "first".into(),
+                },
+                VerifyStatement {
+                    kind: "integration".into(),
+                    description: "second".into(),
+                },
+            ]),
+        );
+        fixture.graph.add_node(specforge_graph::Node {
+            id: EntityId {
+                raw: Sym::new("widget"),
+            },
+            kind: EntityKind {
+                raw: Sym::new("behavior"),
+            },
+            title: None,
+            fields,
+            source_span: SourceSpan {
+                file: Sym::new("t.spec"),
+                start_line: 1,
+                start_col: 1,
+                end_line: 1,
+                end_col: 1,
+            },
+            methods: Vec::new(),
+        });
+        let view = fixture.view();
+
+        let known = KnownEntities::of(view.entities());
+
+        assert!(known.contains("widget"));
+        assert!(!known.contains("gadget"));
+        assert_eq!(known.obligations("widget"), ["first", "second"]);
     }
 
     #[specforge_test(

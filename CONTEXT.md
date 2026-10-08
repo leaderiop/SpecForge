@@ -202,7 +202,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   a selection over the view returns, `specforge_ops::query`). Each returns a typed outcome; the CLI,
   MCP and the LSP only render it.
 - **Entity facts**: what inspect returns for one entity: its node and kind entry, headline
-  statement, standing (the snapshot's own, borrowed), obligations, references in both directions,
+  statement, standing and obligations (the snapshot's own, borrowed), references in both directions,
   coverage, and the reported diagnostics about it (`specforge_ops::inspect::EntityFacts`). MCP
   `specforge.inspect` renders it as JSON and the LSP hover as markdown, so the two cannot disagree.
 - **Known kind**: a kind a loaded extension declares, or that an entity is written with (an
