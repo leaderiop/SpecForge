@@ -1543,6 +1543,77 @@ fn trace_plan_gap_analysis() {
     assert_eq!(gaps.len(), 3, "{gaps:?}");
 }
 
+#[specforge_test(behavior = "validate_agent_plan", verify = "output is structured JSON")]
+fn trace_plan_reports_its_gaps_as_structured_json() {
+    let project = tempfile::tempdir().unwrap();
+    std::fs::write(
+        project.path().join("specforge.json"),
+        r#"{"name":"t","version":"0.1.0","extensions":["@specforge/software","@specforge/testing"]}"#,
+    )
+    .unwrap();
+    std::fs::write(
+        project.path().join("app.spec"),
+        "invariant inv_a \"A\" {\n  guarantee \"g\"\n  verify unit \"z\"\n}\n\n\
+         behavior act_one \"One\" {\n  invariants [inv_a]\n  verify unit \"x\"\n}\n\n\
+         behavior act_two \"Two\" {\n  verify unit \"y\"\n}\n",
+    )
+    .unwrap();
+    let mut server = serving_nothing();
+    call_tool(
+        &mut server,
+        "specforge.validate",
+        json!({"path": project.path().to_str().unwrap()}),
+    );
+
+    let plan = json!({"entries": [{"entity_id": "act_one"}, {"entity_id": "ghost"}]});
+    let resp = call_tool(&mut server, "specforge.trace", json!({"plan": plan}));
+    let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+
+    // One object: the entries that name an entity, and the gaps.
+    let mut keys: Vec<&str> = parsed
+        .as_object()
+        .unwrap_or_else(|| panic!("not an object: {parsed}"))
+        .keys()
+        .map(String::as_str)
+        .collect();
+    keys.sort();
+    assert_eq!(keys, ["affected_entities", "gaps"], "{parsed}");
+    assert_eq!(parsed["affected_entities"], json!(["act_one"]));
+    for gap in parsed["gaps"].as_array().unwrap() {
+        let mut keys: Vec<&str> = gap
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(String::as_str)
+            .collect();
+        keys.sort();
+        assert_eq!(
+            keys,
+            [
+                "gap_context",
+                "missing_link_type",
+                "source_entity",
+                "target_entity"
+            ],
+            "{gap}"
+        );
+        assert!(
+            gap.as_object().unwrap().values().all(Value::is_string),
+            "{gap}"
+        );
+    }
+    let ghost = parsed["gaps"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|gap| gap["target_entity"] == "ghost")
+        .unwrap_or_else(|| panic!("no gap for ghost in {parsed}"));
+    assert!(
+        ghost["gap_context"].as_str().unwrap().starts_with("E003"),
+        "{ghost}"
+    );
+}
+
 #[specforge_test(
     behavior = "provide_mcp_trace_tool",
     verify = "trace without entity_id or plan returns error"
