@@ -8,7 +8,7 @@
 use sha2::{Digest, Sha256};
 use specforge_ops::extension::Trust;
 use specforge_ops::registry::Registry;
-use specforge_ops_registry::ConfiguredRegistry;
+use specforge_ops_registry::{ConfiguredRegistry, User};
 use specforge_protocol_types::PackageName;
 use specforge_protocol_types::package::Version;
 use specforge_registry_client::testing::MemoryClient;
@@ -147,7 +147,7 @@ impl Project {
     fn registry(&self) -> ConfiguredRegistry {
         ConfiguredRegistry::for_project(self.dir.path(), "add")
             .with_client(self.client.clone())
-            .with_known_keys(self.known_keys())
+            .as_user(User::at(self.dir.path().join("home"), None))
     }
 
     fn fetch(

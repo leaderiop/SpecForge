@@ -8,7 +8,7 @@ use specforge_installed::hex_sha256;
 use specforge_protocol_types::ExtensionDeclaration;
 use specforge_protocol_types::package::{PackageName, Version};
 
-use super::{Package, Registry};
+use super::{Package, Published as Receipt, Registry, Upload};
 use crate::OpError;
 use crate::extension::Trust;
 
@@ -98,28 +98,38 @@ pub enum Asked {
 /// A package registry held in memory: the second adapter of [`Registry`], beside
 /// `specforge_ops_registry::ConfiguredRegistry`. It serves what it publishes as the configured registry
 /// serves a package that passed the fetch policy, refuses as it refuses (both are held to
-/// [`assert_registry_contract`]), and records what it was asked. It verifies no signature and pins no key.
+/// [`assert_registry_contract`]), and records what it was asked and what it accepted. It verifies no
+/// signature and pins no key. A publish is signed by the key id `"in-memory"`.
 #[derive(Debug, Default)]
 pub struct MemoryRegistry {
-    published: Vec<Published>,
+    held: Mutex<Vec<Published>>,
     listing_none: Vec<PackageName>,
     asked: Mutex<Vec<Asked>>,
+    accepted: Mutex<Vec<(PackageName, Version)>>,
 }
+
+/// The publisher key id a [`MemoryRegistry`] signs what it accepts with.
+pub const IN_MEMORY_KEY: &str = "in-memory";
 
 impl MemoryRegistry {
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// Publish `published` too.
-    pub fn publish(mut self, published: Published) -> Self {
-        self.published.push(published);
+    /// Serve `published` too: what a test sets up. [`Registry::publish`] is the port's call.
+    pub fn serving(mut self, published: Published) -> Self {
+        self.held.get_mut().unwrap().push(published);
         self
     }
 
     /// Everything asked so far, oldest first.
     pub fn asked(&self) -> Vec<Asked> {
         self.asked.lock().unwrap().clone()
+    }
+
+    /// The publishes it accepted through [`Registry::publish`], in order.
+    pub fn published(&self) -> Vec<(PackageName, Version)> {
+        self.accepted.lock().unwrap().clone()
     }
 
     /// The packages whose versions were listed, in order.
@@ -150,7 +160,9 @@ impl Registry for MemoryRegistry {
             .unwrap()
             .push(Asked::Versions(name.clone()));
         let versions: Vec<Version> = self
-            .published
+            .held
+            .lock()
+            .unwrap()
             .iter()
             .filter(|p| p.name() == *name)
             .map(Published::version)
@@ -180,8 +192,8 @@ impl Registry for MemoryRegistry {
             .lock()
             .unwrap()
             .push(Asked::Fetch(name.clone(), version.clone()));
-        let Some(published) = self
-            .published
+        let held = self.held.lock().unwrap();
+        let Some(published) = held
             .iter()
             .find(|p| p.name() == *name && p.version() == *version)
         else {
@@ -205,6 +217,40 @@ impl Registry for MemoryRegistry {
             wasm: published.wasm.clone(),
             declaration: published.declaration.clone(),
             key_id: published.key_id.clone(),
+        })
+    }
+
+    /// Hold `package` as a version signed by [`IN_MEMORY_KEY`]. A version already held is R007
+    /// "Version {version} already exists for package {name}." (suggestion "Bump the version number
+    /// before publishing."). The receipt names registry and key `"in-memory"` and the url
+    /// `memory://{name}/{version}`; no key is created.
+    fn publish(&self, package: &Upload<'_>) -> Result<Receipt, OpError> {
+        let mut held = self.held.lock().unwrap();
+        if held
+            .iter()
+            .any(|p| p.name() == *package.name && p.version() == *package.version)
+        {
+            return Err(OpError::diagnostic(
+                codes::R007,
+                format!(
+                    "Version {} already exists for package {}.",
+                    package.version, package.name
+                ),
+            )
+            .with_suggestion("Bump the version number before publishing."));
+        }
+        held.push(
+            Published::new(package.wasm, package.declaration.clone()).signed_by(IN_MEMORY_KEY),
+        );
+        self.accepted
+            .lock()
+            .unwrap()
+            .push((package.name.clone(), package.version.clone()));
+        Ok(Receipt {
+            registry: IN_MEMORY_KEY.to_string(),
+            url: format!("memory://{}/{}", package.name, package.version),
+            key_id: IN_MEMORY_KEY.to_string(),
+            key_created: false,
         })
     }
 }
@@ -317,6 +363,44 @@ pub fn assert_registry_contract(registry: &dyn Registry, published: &[Published]
         .fetch(&plain, &one, true, Trust::Refuse)
         .unwrap_or_else(|e| panic!("C6: unsigned allowed fails: {e:?}"));
     assert_eq!(allowed.key_id, None, "C6: an unsigned package has no key");
+
+    // C7
+    let fresh = PackageName::parse("@contract/fresh").unwrap();
+    let fresh_version = Version::parse("1.0.0").unwrap();
+    let wasm = b"\0asm @contract/fresh 1.0.0";
+    let declaration = declaration("@contract/fresh", "1.0.0", &[]);
+    let upload = Upload {
+        name: &fresh,
+        version: &fresh_version,
+        wasm,
+        declaration: &declaration,
+    };
+    let receipt = registry
+        .publish(&upload)
+        .unwrap_or_else(|e| panic!("C7: publish fails: {e:?}"));
+    assert!(!receipt.url.is_empty(), "C7: the receipt names a url");
+    assert!(!receipt.key_id.is_empty(), "C7: the receipt names the key");
+    let listed = registry
+        .versions(&fresh)
+        .unwrap_or_else(|e| panic!("C7: versions of a published package: {e:?}"));
+    assert_eq!(listed, vec![fresh_version.clone()], "C7: it is listed");
+    let served = registry
+        .fetch(&fresh, &fresh_version, false, Trust::Refuse)
+        .unwrap_or_else(|e| panic!("C7: fetch of a published package: {e:?}"));
+    assert_eq!(served.wasm, wasm, "C7: its bytes are served");
+    assert_eq!(served.declaration, declaration, "C7: its declaration");
+    assert_eq!(
+        served.key_id.as_deref(),
+        Some(receipt.key_id.as_str()),
+        "C7: signed by the key the receipt names"
+    );
+    let again = registry.publish(&upload).unwrap_err();
+    assert!(again.is(codes::R007), "C7: a held version: {again:?}");
+    assert_eq!(
+        again.kind,
+        crate::OpErrorKind::Conflict,
+        "C7: a held version is a conflict"
+    );
 }
 
 #[cfg(test)]
@@ -329,7 +413,7 @@ mod tests {
         let registry = published
             .iter()
             .cloned()
-            .fold(MemoryRegistry::new(), MemoryRegistry::publish);
+            .fold(MemoryRegistry::new(), MemoryRegistry::serving);
         assert_registry_contract(&registry, &published);
     }
 
@@ -343,7 +427,7 @@ mod tests {
             declaration("@acme/tool", "1.0.0", &[]),
         )
         .signed_by("key-1");
-        let registry = MemoryRegistry::new().publish(published.clone());
+        let registry = MemoryRegistry::new().serving(published.clone());
         let package = registry
             .fetch(
                 &published.name(),
@@ -361,7 +445,7 @@ mod tests {
 
     #[test]
     fn it_records_what_it_was_asked() {
-        let registry = MemoryRegistry::new().publish(Published::new(
+        let registry = MemoryRegistry::new().serving(Published::new(
             b"\0asm".to_vec(),
             declaration("@acme/tool", "1.0.0", &[]),
         ));
@@ -376,6 +460,53 @@ mod tests {
             ]
         );
         assert_eq!(registry.listed(), [name]);
+    }
+
+    #[specforge_test_macros::test(
+        type = "RegistryPublished",
+        verify = "RegistryPublished is what the registry that took a publish answers with"
+    )]
+    fn a_published_version_is_listed_served_and_recorded() {
+        let registry = MemoryRegistry::new();
+        let name = PackageName::parse("@acme/tool").unwrap();
+        let version = Version::new(1, 0, 0);
+        let declaration = declaration("@acme/tool", "1.0.0", &[]);
+        let receipt = registry
+            .publish(&Upload {
+                name: &name,
+                version: &version,
+                wasm: b"\0asm",
+                declaration: &declaration,
+            })
+            .unwrap();
+        assert_eq!(receipt.registry, IN_MEMORY_KEY);
+        assert_eq!(receipt.url, "memory://@acme/tool/1.0.0");
+        assert!(!receipt.key_created);
+        assert_eq!(registry.versions(&name).unwrap(), vec![version.clone()]);
+        let served = registry
+            .fetch(&name, &version, false, Trust::Refuse)
+            .unwrap();
+        assert_eq!(served.key_id.as_deref(), Some(IN_MEMORY_KEY));
+        assert_eq!(registry.published(), [(name, version)]);
+    }
+
+    #[test]
+    fn publishing_twice_is_r007() {
+        let registry = MemoryRegistry::new();
+        let name = PackageName::parse("@acme/tool").unwrap();
+        let version = Version::new(1, 0, 0);
+        let declaration = declaration("@acme/tool", "1.0.0", &[]);
+        let upload = Upload {
+            name: &name,
+            version: &version,
+            wasm: b"\0asm",
+            declaration: &declaration,
+        };
+        registry.publish(&upload).unwrap();
+        let error = registry.publish(&upload).unwrap_err();
+        assert!(error.is(super::super::ALREADY_PUBLISHED), "{error:?}");
+        assert_eq!(error.kind, crate::OpErrorKind::Conflict);
+        assert_eq!(registry.published().len(), 1);
     }
 
     #[test]

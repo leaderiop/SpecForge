@@ -60,7 +60,7 @@ mod tests {
         versions
             .iter()
             .fold(MemoryRegistry::new(), |registry, version| {
-                registry.publish(Published::new(
+                registry.serving(Published::new(
                     b"\0asm".to_vec(),
                     declaration("@acme/tool", version, &[]),
                 ))

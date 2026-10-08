@@ -1,5 +1,5 @@
 //! Which registries a project uses, and the adapter behind `specforge_ops::registry::Registry`: the fetch
-//! policy over the package registry client.
+//! policy over the package registry client, and the publish that authenticates and signs as the user.
 //!
 //! `specforge-ops` names only the port, so a surface that never reaches a
 //! registry (the LSP) links no HTTP client, keyring or signature code
@@ -10,19 +10,68 @@
 use specforge_common::{Code, Diagnostic, codes};
 use specforge_ops::extension::Trust;
 use specforge_ops::registry::{
-    METADATA_MISMATCH, NO_REGISTRY, NO_REGISTRY_FOR_NAME, Package, Registry, UNREADABLE_MANIFEST,
-    no_registry,
+    METADATA_MISMATCH, NO_REGISTRY, NO_REGISTRY_FOR_NAME, NOT_AUTHENTICATED, Package, Published,
+    Registry, UNREADABLE_MANIFEST, UNUSABLE_SIGNING_KEY, Upload, no_registry,
 };
 use specforge_ops::{OpError, OpErrorKind};
 use specforge_protocol_types::package::Version;
 use specforge_protocol_types::{ExtensionDeclaration, PackageName};
+use specforge_registry_client::credentials::{read_credentials, user_dir};
+use specforge_registry_client::signing::load_or_create_signing_key_at;
 use specforge_registry_client::trust_flow::TrustPolicy;
 use specforge_registry_client::{
-    HttpRegistryClient, RegistryClient, RegistryConfig, RegistryError,
-    parse_registries_from_config, verify_registry_integrity,
+    AuthMethod, HttpRegistryClient, RegistryClient, RegistryConfig, RegistryCredential,
+    RegistryError, SigningKey, parse_registries_from_config, publish_to_registry,
+    verify_registry_integrity,
 };
 use specforge_registry_wire::PackageMetadata;
 use std::path::{Path, PathBuf};
+
+/// The environment variable whose token `publish` authenticates with, ahead
+/// of a stored credential.
+pub const TOKEN_VARIABLE: &str = "SPECFORGE_REGISTRY_TOKEN";
+
+/// The user SpecForge runs as, as a registry sees them: the directory that
+/// holds their registry files (`credentials.json`, `signing-key.json`,
+/// `known-keys.json`) and the token their environment gives.
+#[derive(Debug, Clone)]
+pub struct User {
+    dir: PathBuf,
+    token: Option<String>,
+}
+
+impl User {
+    /// `~/.specforge`, and `SPECFORGE_REGISTRY_TOKEN` when it is set.
+    pub fn current() -> Self {
+        Self::at(user_dir(), std::env::var(TOKEN_VARIABLE).ok())
+    }
+
+    /// Registry files in `dir`, and `token` as the environment's token (a
+    /// test, a custom home).
+    pub fn at(dir: impl Into<PathBuf>, token: Option<String>) -> Self {
+        Self {
+            dir: dir.into(),
+            token,
+        }
+    }
+
+    fn credentials(&self) -> PathBuf {
+        self.dir.join("credentials.json")
+    }
+
+    fn signing_key(&self) -> PathBuf {
+        self.dir.join("signing-key.json")
+    }
+
+    fn known_keys(&self) -> PathBuf {
+        self.dir.join("known-keys.json")
+    }
+
+    /// The environment's token unless it is blank.
+    fn token(&self) -> Option<&str> {
+        self.token.as_deref().filter(|t| !t.trim().is_empty())
+    }
+}
 
 /// The registries a project configures, and what reading them reported.
 #[derive(Debug, Clone)]
@@ -176,9 +225,8 @@ pub fn configured(root: &Path, operation: &str) -> Result<Configured, OpError> {
 pub struct ConfiguredRegistry {
     registries: Result<Configured, OpError>,
     client: Box<dyn RegistryClient>,
-    /// Where publisher keys are pinned; `None` is the user's
-    /// `~/.specforge/known-keys.json`.
-    known_keys: Option<PathBuf>,
+    /// Whose registry files are read (pins, credentials, signing key).
+    user: User,
 }
 
 impl ConfiguredRegistry {
@@ -188,7 +236,7 @@ impl ConfiguredRegistry {
         Self {
             registries: configured(root, operation),
             client: Box::new(HttpRegistryClient::new()),
-            known_keys: None,
+            user: User::current(),
         }
     }
 
@@ -198,10 +246,10 @@ impl ConfiguredRegistry {
         self
     }
 
-    /// Pin and check publisher keys in the store at `path` instead of the
-    /// user's `~/.specforge/known-keys.json` (a test, or a custom home).
-    pub fn with_known_keys(mut self, path: impl Into<PathBuf>) -> Self {
-        self.known_keys = Some(path.into());
+    /// Read the registry files of `user` instead of the current user's (a
+    /// test, or a custom home).
+    pub fn as_user(mut self, user: User) -> Self {
+        self.user = user;
         self
     }
 
@@ -258,7 +306,7 @@ impl Registry for ConfiguredRegistry {
             &wasm,
             allow_unsigned,
             policy(trust),
-            self.known_keys.as_deref(),
+            &self.user.known_keys(),
         )
         .map_err(OpError::from)?; // 4
 
@@ -296,6 +344,68 @@ impl Registry for ConfiguredRegistry {
             .iter()
             .filter_map(|text| Version::parse(text).ok())
             .collect())
+    }
+
+    fn publish(&self, package: &Upload<'_>) -> Result<Published, OpError> {
+        let registry = self.registry_for(package.name)?; // E063, E067, R-OPS-001
+        let credential = self.credential_for(registry)?; // R001, R012, R-AUTH-020/021
+        let (key, key_created) = self.signing_key()?; // E074
+        let url = publish_to_registry(
+            package.wasm,
+            package.declaration,
+            registry,
+            Some(&credential),
+            &*self.client,
+            Some(&key),
+        )
+        .map_err(OpError::from)?; // R007, R001, R002, R004, R005
+        Ok(Published {
+            registry: registry.alias.clone(),
+            url,
+            key_id: key.key_id(),
+            key_created,
+        })
+    }
+}
+
+impl ConfiguredRegistry {
+    /// The credential a publish to `registry` authenticates with: the
+    /// environment's token when set and not blank (the store is not read),
+    /// else the one stored for the registry's alias.
+    fn credential_for(&self, registry: &RegistryConfig) -> Result<RegistryCredential, OpError> {
+        if let Some(token) = self.user.token() {
+            return Ok(RegistryCredential {
+                alias: registry.alias.clone(),
+                auth_method: AuthMethod::Bearer(token.to_string()),
+            });
+        }
+        let store = read_credentials(&self.user.credentials()).map_err(OpError::from)?;
+        store
+            .get_credential_detail(&registry.alias)
+            .map_err(OpError::from)?
+            .ok_or_else(|| {
+                OpError::coded(
+                    OpErrorKind::PreconditionFailed,
+                    NOT_AUTHENTICATED,
+                    format!("no credential for registry '{}'", registry.alias),
+                )
+                .with_suggestion(format!(
+                    "log in with `specforge login --registry {} --token <TOKEN>`, or set {TOKEN_VARIABLE}",
+                    registry.alias
+                ))
+            })
+    }
+
+    /// The user's publisher key, and whether it was created just now.
+    fn signing_key(&self) -> Result<(SigningKey, bool), OpError> {
+        let path = self.user.signing_key();
+        load_or_create_signing_key_at(&path).map_err(|why| {
+            OpError::coded(OpErrorKind::PreconditionFailed, UNUSABLE_SIGNING_KEY, why)
+                .with_suggestion(format!(
+                    "move {} aside: the next publish creates a new key, and whoever pinned the                      old one then sees a changed key (R-TRUST-003)",
+                    path.display()
+                ))
+        })
     }
 }
 

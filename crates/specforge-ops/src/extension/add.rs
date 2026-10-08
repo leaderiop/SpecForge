@@ -801,7 +801,7 @@ mod tests {
             kinds
         }] {
             let dir = add_project(Vec::new());
-            let registry = MemoryRegistry::new().publish(Published::new(greet(), published));
+            let registry = MemoryRegistry::new().serving(Published::new(greet(), published));
             let err = add_greet(dir.path(), &registry).unwrap_err();
             assert!(err.is(crate::registry::METADATA_MISMATCH), "{err:?}");
             assert!(err.message.contains("@sdk/greet@0.1.0"), "{err:?}");
@@ -814,13 +814,13 @@ mod tests {
         let mut kinds = declaration_of(&greet());
         kinds.entities.clear();
         let dir = add_project(Vec::new());
-        let registry = MemoryRegistry::new().publish(Published::new(greet(), kinds));
+        let registry = MemoryRegistry::new().serving(Published::new(greet(), kinds));
         let err = add_greet(dir.path(), &registry).unwrap_err();
         assert!(err.message.contains("another entities"), "{err:?}");
         // The published declaration equal to the binary's installs.
         let dir = add_project(Vec::new());
         let registry =
-            MemoryRegistry::new().publish(Published::new(greet(), declaration_of(&greet())));
+            MemoryRegistry::new().serving(Published::new(greet(), declaration_of(&greet())));
         add_greet(dir.path(), &registry).unwrap();
     }
 
@@ -834,11 +834,11 @@ mod tests {
         // declares no peer) is loaded.
         let dir = add_project(vec![entry("@acme/x", "1.0.0", "registry", &[])]);
         let registry = MemoryRegistry::new()
-            .publish(Published::new(
+            .serving(Published::new(
                 greet(),
                 with_peer(declaration_of(&greet()), "@acme/x", "^2"),
             ))
-            .publish(Published::new(
+            .serving(Published::new(
                 b"\0asm x".to_vec(),
                 declaration("@acme/x", "1.0.0", &[]),
             ));
@@ -852,7 +852,7 @@ mod tests {
     fn adding_an_installed_exact_version_asks_the_registry_nothing() {
         let dir = add_project(Vec::new());
         let registry =
-            MemoryRegistry::new().publish(Published::new(greet(), declaration_of(&greet())));
+            MemoryRegistry::new().serving(Published::new(greet(), declaration_of(&greet())));
         let first = add_greet(dir.path(), &registry).unwrap();
         assert!(matches!(first, AddOutcome::Installed { .. }), "{first:?}");
         let asked = registry.asked();

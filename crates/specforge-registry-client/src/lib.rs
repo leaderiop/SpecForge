@@ -25,7 +25,7 @@ pub use auth::{
     authenticate_with_retry, logout_registry, resolve_credential, sanitize_token,
     validate_credentials,
 };
-pub use credentials::{CredentialStore, read_credentials, write_credentials};
+pub use credentials::{CredentialStore, read_credentials, user_dir, write_credentials};
 pub use http_client::HttpRegistryClient;
 pub use registry_client::{RegistryClient, RegistryError, RetryPolicy};
 pub use registry_config::{
@@ -38,7 +38,4 @@ pub use registry_ops::{
 pub use signing::{
     PackageSignature, SigningKey, load_or_create_signing_key, signing_key_path, verify_signature,
 };
-pub use trust::{
-    KnownKeys, known_keys_path, load_known_keys, load_known_keys_at, save_known_keys,
-    save_known_keys_at,
-};
+pub use trust::{KnownKeys, known_keys_path, load_known_keys_at, save_known_keys_at};

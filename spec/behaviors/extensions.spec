@@ -699,6 +699,18 @@ behavior publish_to_registry "Publish to Registry" {
     registry MUST refuse a manifest that is not an extension declaration,
     and takes the description and keywords it shows from the declaration. A version the registry
     already holds MUST be refused (R007): a published version is immutable.
+    The package MUST go to the one registry that serves its name, the
+    registry add and update fetch that name from (ADR 0045). The upload MUST
+    be authenticated: with no credential for that registry
+    (SPECFORGE_REGISTRY_TOKEN unset or blank, and none stored for its alias)
+    publish MUST refuse with R001 before any network call and MUST NOT
+    create a publisher signing key; a signing key that can't be read or
+    created MUST be refused with E074 before any network call. Publish
+    refuses in one order, each refusal before anything after it is read or
+    asked: the binary (E040, E028), its declaration's errors, its name and
+    version (E072), the registry configuration (E063, E067), the registry
+    for the name (R-OPS-001), the credential (R001, R012, R-AUTH-020,
+    R-AUTH-021), the signing key (E074); then the registry's answer.
     Successful publish MUST return the registry URL for the
     published version. With no registry configured, publish MUST make no
     network call and MUST fail with E063, whose suggestion names the
@@ -716,6 +728,10 @@ behavior publish_to_registry "Publish to Registry" {
   verify unit "unauthenticated publish produces ExtensionError"
   verify unit "the registry refuses a name or version that is not a package name or version"
   verify unit "publish refuses in one order, each refusal before anything after it is read or asked"
+  verify unit "with no credential for its registry, publish refuses with R001 before any network call and creates no signing key"
+  verify unit "the environment token wins over the stored credential"
+  verify unit "a signing key that can't be read is refused with E074 before any network call"
+  verify unit "publish asks the registry add fetches the same name from"
   verify contract "Publish to Registry: registry publishing holds — declaration_valid, wasm_binary_available, registry_client_available, credentials_available, sha256_computed, duplicate_version_rejected, registry_url_returned, published_event_emitted"
 }
 
