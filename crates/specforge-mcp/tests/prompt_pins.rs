@@ -150,16 +150,21 @@ fn infer_names_the_projects_spec_directory() {
 }
 
 #[test]
-fn infer_names_tools_two_ways_today() {
+fn infer_names_tools_as_the_tool_table_does() {
     let mut served = model_root_project();
     let overview = infer(&mut served, json!({}));
-    assert!(
-        overview["validation"]
-            .as_str()
-            .unwrap()
-            .contains("specforge_validate"),
-        "{overview}"
-    );
+    let kind = infer(&mut served, json!({"scope": "kind:behavior"}));
+    let file = infer(&mut served, json!({"scope": "file:w.rs"}));
+    for payload in [&overview, &kind, &file] {
+        assert!(!payload.to_string().contains("specforge_"), "{payload}");
+        assert!(
+            payload["validation"]
+                .as_str()
+                .unwrap()
+                .contains("specforge.validate"),
+            "{payload}"
+        );
+    }
     let workflow = infer(&mut served, json!({"scope": "workflow"}));
     assert!(strings(&workflow["tools"]).contains(&"specforge.validate"));
 }

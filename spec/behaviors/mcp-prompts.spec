@@ -45,7 +45,8 @@ behavior serve_mcp_prompt "Serve MCP Prompt" {
     instruction, then the JSON payload. prompts/get first brings the
     served project up to date with disk, as tools/call does
     (bring_session_up_to_date). An unknown prompt is -32602 and is not an
-    invocation.
+    invocation. A prompt or the server's instructions name a tool only as
+    tools/list names it, read from the core tool table.
   """
   verify unit "each core prompt lists exactly the arguments its handler reads"
   verify unit "a listed required argument is exactly one the prompt cannot render without"
@@ -56,6 +57,7 @@ behavior serve_mcp_prompt "Serve MCP Prompt" {
   verify unit "every prompt result is an instruction then a JSON payload, both user messages"
   verify unit "an unknown prompt records no mcp_prompt_invoked event"
   verify unit "a stateless prompts/get renders without initialize"
+  verify unit "every tool a prompt or the server's instructions name is a core tool, named as tools/list names it"
 }
 
 behavior provide_mcp_context_prompt "Provide MCP Context Prompt" {

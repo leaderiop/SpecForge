@@ -9,8 +9,19 @@ use crate::args::Arguments;
 use crate::prompt::{PromptOutcome, Rendered};
 use crate::target::Call;
 use crate::tool::{ErrorCode, McpError};
+use crate::tools::core_tool_name;
 use crate::tools::find_spec_for_source::{anchor_json, file_match_name};
 use specforge_ops::view::ProjectView;
+
+/// The core tools the workflow protocol names, in the order it lists them.
+const WORKFLOW_TOOLS: [&str; 6] = [
+    "specforge.infer_session",
+    "specforge.infer_progress",
+    "specforge.validate",
+    "specforge.query",
+    "specforge.search",
+    "specforge.schema",
+];
 
 /// `specforge://prompts/infer`'s arguments.
 #[derive(Debug, Arguments)]
@@ -112,11 +123,14 @@ fn get_overview(project: &ProjectView) -> Rendered {
     ));
     payload["validation"] = Value::from(validation());
 
-    let instruction = "You are inferring spec entities from this codebase. \
-        Use the inference guides below to identify entities in the code, \
-        write .spec files, and validate them with specforge_validate. \
-        Each kind has signals describing what to look for in code. \
-        Do not duplicate entities that already exist.";
+    let instruction = format!(
+        "You are inferring spec entities from this codebase. \
+         Use the inference guides below to identify entities in the code, \
+         write .spec files, and validate them with {}. \
+         Each kind has signals describing what to look for in code. \
+         Do not duplicate entities that already exist.",
+        core_tool_name("specforge.validate")
+    );
 
     rendered(instruction, payload)
 }
@@ -135,9 +149,14 @@ fn get_kind_scoped(project: &ProjectView, kind_name: &str) -> PromptOutcome {
     Ok(rendered(instruction, payload))
 }
 
-/// What the agent runs after writing `.spec` files.
+/// What the agent runs after writing `.spec` files, naming the tools as the
+/// tool table does.
 fn validation() -> String {
-    "After writing .spec files, call specforge_validate to check for errors (and specforge_analyze for coverage/contract findings). Fix any errors before proceeding.".to_string()
+    format!(
+        "After writing .spec files, call {} to check for errors (and {} for coverage/contract findings). Fix any errors before proceeding.",
+        core_tool_name("specforge.validate"),
+        core_tool_name("specforge.analyze"),
+    )
 }
 
 fn get_file_scoped(project: &ProjectView, file_path: &str) -> PromptOutcome {
@@ -224,23 +243,20 @@ fn get_plan(
     let instruction = format!(
         "Create a prioritized inference plan. There are {} unanalyzed files and {} stale files. \
          Write .spec files to '{}'. Process files with the most entity signals first. \
-         Use specforge.infer_session to track progress (start → mark_analyzed per file → end). \
-         After each file, call specforge.validate to check for errors.",
-        plan.unanalyzed.total, plan.stale.total, plan.target_spec_directory
+         Use {} to track progress (start → mark_analyzed per file → end). \
+         After each file, call {} to check for errors.",
+        plan.unanalyzed.total,
+        plan.stale.total,
+        plan.target_spec_directory,
+        core_tool_name("specforge.infer_session"),
+        core_tool_name("specforge.validate"),
     );
 
     Ok(rendered(instruction, result))
 }
 
 fn get_workflow(project: &ProjectView) -> Rendered {
-    let tool_names: Vec<&str> = vec![
-        "specforge.infer_session",
-        "specforge.infer_progress",
-        "specforge.validate",
-        "specforge.query",
-        "specforge.search",
-        "specforge.schema",
-    ];
+    let tool_names = WORKFLOW_TOOLS.map(core_tool_name);
 
     let installed_kinds: Vec<&str> = infer::guide(project)
         .kinds
@@ -248,41 +264,51 @@ fn get_workflow(project: &ProjectView) -> Rendered {
         .map(|kind| kind.keyword)
         .collect();
 
+    let [
+        infer_session,
+        infer_progress,
+        validate,
+        query,
+        search,
+        _schema,
+    ] = tool_names;
     let result = json!({
         "tools": tool_names,
         "installed_kinds": installed_kinds,
     });
 
-    let workflow = "\
+    let workflow = format!(
+        "\
 ## Inference Workflow Protocol
 
 ### Step 1: Start Session
-Call `specforge.infer_session` with `action: \"start\"` and `agent: \"<your-id>\"`.
+Call `{infer_session}` with `action: \"start\"` and `agent: \"<your-id>\"`.
 Optionally set `source_roots` to limit scanning scope.
 
 ### Step 2: Check Progress
-Call `specforge.infer_progress` to see unanalyzed files and current project.
+Call `{infer_progress}` to see unanalyzed files and current project.
 
 ### Step 3: For Each Source File
 1. Read the source file
 2. Identify entities (behaviors, types, events, etc.) using entity kind guides
 3. Write a `.spec` file with the discovered entities
-4. Call `specforge.validate` to check for errors — fix any before proceeding
-5. Call `specforge.infer_session` with `action: \"mark_analyzed\"`, `source_file`, and `entities_produced`
+4. Call `{validate}` to check for errors — fix any before proceeding
+5. Call `{infer_session}` with `action: \"mark_analyzed\"`, `source_file`, and `entities_produced`
 
 ### Step 4: Validate Continuously
-After every 3-5 files, call `specforge.validate` to catch cross-file issues.
-Use `specforge.search` to find existing entities and avoid duplicates.
-Use `specforge.query` to check how new entities connect to the graph.
+After every 3-5 files, call `{validate}` to catch cross-file issues.
+Use `{search}` to find existing entities and avoid duplicates.
+Use `{query}` to check how new entities connect to the graph.
 
 ### Step 5: End Session
-Call `specforge.infer_session` with `action: \"end\"` and the `session_id` from Step 1.
+Call `{infer_session}` with `action: \"end\"` and the `session_id` from Step 1.
 Use `status: \"completed\"` when done, or `status: \"paused\"` to resume later.
 
 ### Retry Pattern
 If validation fails, fix the .spec file and re-validate. Do not skip errors.
 If a file has no identifiable entities, still mark it as analyzed with an empty `entities_produced`.
-";
+",
+    );
 
     rendered(workflow, result)
 }

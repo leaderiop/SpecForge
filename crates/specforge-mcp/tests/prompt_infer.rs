@@ -208,7 +208,14 @@ fn plan_scope_includes_progress() {
     assert!(content["plan"]["progress"]["files_total"].is_number());
 }
 
-#[test]
+#[specforge_test(
+    behavior = "provide_infer_workflow_scope",
+    verify = "workflow returns step-by-step protocol"
+)]
+#[specforge_test(
+    behavior = "provide_infer_workflow_scope",
+    verify = "workflow documents retry pattern"
+)]
 fn workflow_scope_returns_protocol() {
     let mut state = make_state_with_kind("behavior", Some("guide text"));
     let resp = infer(&mut state, json!({"scope": "workflow"}));
@@ -218,16 +225,32 @@ fn workflow_scope_returns_protocol() {
     assert!(instruction.contains("Start Session"));
     assert!(instruction.contains("mark_analyzed"));
     assert!(instruction.contains("End Session"));
+    assert!(instruction.contains("Retry Pattern"));
+    assert!(
+        instruction.contains("`specforge.validate`"),
+        "{instruction}"
+    );
 }
 
-#[test]
+#[specforge_test(
+    behavior = "provide_infer_workflow_scope",
+    verify = "the workflow lists the tools it names, as the tool table names them"
+)]
 fn workflow_scope_lists_tools_and_kinds() {
     let mut state = make_state_with_kind("behavior", Some("guide text"));
     let resp = infer(&mut state, json!({"scope": "workflow"}));
     let content: Value = prompt_payload(&resp);
-    let tools = content["tools"].as_array().unwrap();
-    assert!(tools.contains(&Value::from("specforge.infer_session")));
-    assert!(tools.contains(&Value::from("specforge.infer_progress")));
+    assert_eq!(
+        content["tools"],
+        json!([
+            "specforge.infer_session",
+            "specforge.infer_progress",
+            "specforge.validate",
+            "specforge.query",
+            "specforge.search",
+            "specforge.schema"
+        ])
+    );
     let kinds = content["installed_kinds"].as_array().unwrap();
     assert!(kinds.contains(&Value::from("behavior")));
 }

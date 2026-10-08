@@ -889,3 +889,105 @@ fn explore_unknown_entity_is_an_error() {
     assert_eq!(data["entity_id"], "ghost");
     assert_eq!(data["diagnostic"]["code"], "E003");
 }
+
+// --- tool names ---
+
+/// The tool names a text spells: every `specforge.<name>` or
+/// `specforge_<name>` that is not a file (`specforge.json`, `specforge.lock`)
+/// or the start of a URI.
+fn tool_names_in(text: &str) -> Vec<String> {
+    let mut names = Vec::new();
+    for (at, _) in text.match_indices("specforge") {
+        let before = text[..at].chars().next_back();
+        if before.is_some_and(|c| c.is_alphanumeric() || matches!(c, '_' | '-' | '/' | '@')) {
+            continue;
+        }
+        let rest = &text[at + "specforge".len()..];
+        if !rest.starts_with(['.', '_']) {
+            continue;
+        }
+        let word: String = rest[1..]
+            .chars()
+            .take_while(|c| c.is_ascii_lowercase() || *c == '_')
+            .collect();
+        if word.is_empty() || matches!(word.as_str(), "json" | "lock") {
+            continue;
+        }
+        names.push(format!("specforge{}{word}", &rest[..1]));
+    }
+    names
+}
+
+#[specforge_test(
+    behavior = "serve_mcp_prompt",
+    verify = "every tool a prompt or the server's instructions name is a core tool, named as tools/list names it"
+)]
+fn every_tool_a_prompt_names_is_a_core_tool() {
+    let mut server = test_server();
+    let mut replies = vec![
+        (
+            "context",
+            get_prompt(
+                &mut server,
+                "specforge://prompts/context",
+                json!({"entity_id": "alpha"}),
+            ),
+        ),
+        (
+            "review",
+            get_prompt(&mut server, "specforge://prompts/review", json!({})),
+        ),
+        (
+            "trace",
+            get_prompt(
+                &mut server,
+                "specforge://prompts/trace",
+                json!({"entity_id": "alpha"}),
+            ),
+        ),
+        ("explore", get_prompt(&mut server, EXPLORE, json!({}))),
+    ];
+    for scope in [
+        "overview",
+        "kind:behavior",
+        "file:test.spec",
+        "plan",
+        "workflow",
+    ] {
+        let arguments = if scope == "overview" {
+            json!({})
+        } else {
+            json!({"scope": scope})
+        };
+        replies.push((
+            scope,
+            get_prompt(&mut server, "specforge://prompts/infer", arguments),
+        ));
+    }
+    replies.push((
+        "server/discover",
+        call(
+            &mut McpServer::new(),
+            "server/discover",
+            json!({"_meta": {
+                "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+                "io.modelcontextprotocol/clientCapabilities": {},
+            }}),
+        ),
+    ));
+
+    let core: Vec<String> = core_tools().into_iter().map(|t| t.name).collect();
+    let mut found = 0;
+    for (what, reply) in &replies {
+        assert!(reply["error"].is_null(), "{what}: {reply}");
+        for name in tool_names_in(&reply.to_string().replace("\\\"", "\"")) {
+            found += 1;
+            assert!(
+                core.contains(&name),
+                "{what} names '{name}', which is no core tool"
+            );
+        }
+    }
+    // The scan is not vacuous: the infer prompt and the instructions name tools.
+    assert!(found >= 10, "only {found} tool names found");
+}

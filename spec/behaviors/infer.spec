@@ -158,7 +158,7 @@ behavior mark_source_file_analyzed "Mark Source File as Analyzed" {
     the manifest. The path is recorded root-relative with / separators
     (./src/a.rs and src\a.rs are src/a.rs); an absolute path or one with a
     .. component is refused. The same rule applies to the source_roots a
-    start sets. Agents should call this AFTER specforge_validate succeeds.
+    start sets. Agents should call this AFTER specforge.validate succeeds.
     On validation failure: fix .spec errors, re-validate, then mark.
   """
   verify unit "mark creates new entry for unanalyzed file"
@@ -376,24 +376,26 @@ behavior provide_infer_workflow_scope "Provide Infer Prompt Workflow Scope" {
   category mcp
   ensures {
     protocol_taught   "agent receives step-by-step inference protocol"
-    tool_names_listed "all MCP tool names included in workflow"
+    tool_names_listed "the tools the protocol names are listed, as tools/list names them"
     retry_documented  "retry pattern for validation failures documented"
   }
   contract """
     When specforge://prompts/infer is invoked with scope=workflow, return
-    the step-by-step agent protocol:
-    1. Call specforge_infer_session with action=start
-    2. Call specforge_infer_progress to get unanalyzed files
+    the step-by-step agent protocol, naming each tool as tools/list names
+    it:
+    1. Call specforge.infer_session with action=start
+    2. Call specforge.infer_progress to get unanalyzed files
     3. Read source files, write .spec files
-    4. Call specforge_validate to check errors, fix any errors
-    5. Call specforge_infer_session with action=mark_analyzed
+    4. Call specforge.validate to check errors, fix any errors
+    5. Call specforge.infer_session with action=mark_analyzed
     6. Repeat steps 2-5 until satisfied
-    7. Call specforge_infer_session with action=end
+    7. Call specforge.infer_session with action=end
     Include retry pattern: if validate fails, fix .spec -> re-validate
-    -> then mark. Never mark before validation passes.
+    -> then mark. Never mark before validation passes. The payload lists
+    the tools the protocol names and the declared kinds.
   """
   verify unit "workflow returns step-by-step protocol"
-  verify unit "workflow includes all MCP tool names"
+  verify unit "the workflow lists the tools it names, as the tool table names them"
   verify unit "workflow documents retry pattern"
 }
 
