@@ -8,21 +8,23 @@
 use std::collections::HashMap;
 
 use specforge_common::{SourceSpan, Sym};
+use specforge_ops::format;
 use specforge_ops::navigate::{
     Direction, EntityQuery, FixQuery, MatchScope, ReferenceQuery, find_entities, outline,
 };
 use tower_lsp::jsonrpc::{Error, ErrorCode};
 use tower_lsp::lsp_types::{
-    ClientCapabilities, CodeActionOrCommand, CodeActionResponse, CompletionResponse,
-    DocumentSymbolResponse, GotoDefinitionResponse, Hover, HoverContents, Location, LocationLink,
-    MarkupContent, MarkupKind, Position, PrepareRenameResponse, Range, SemanticTokens,
-    SemanticTokensResult, SymbolInformation, TextEdit, Url, WorkspaceEdit,
+    ClientCapabilities, CodeActionOrCommand, CodeActionResponse, CompletionResponse, Diagnostic,
+    DocumentSymbolResponse, FormattingOptions, GotoDefinitionResponse, Hover, HoverContents,
+    Location, LocationLink, MarkupContent, MarkupKind, Position, PrepareRenameResponse, Range,
+    SemanticTokens, SemanticTokensResult, SymbolInformation, TextEdit, Url, WorkspaceEdit,
 };
 
-use crate::document::Target;
+use crate::document::{LineIndex, Target};
 use crate::navigation::{
     Compiled, fix_to_code_action, outline_to_document_symbols, symbol_kind_from_entity,
 };
+use crate::publish::diagnostic_to_lsp;
 use crate::{LspState, goto_import_definition, hover};
 
 /// What the client declared at initialize that changes the shape of an
@@ -390,4 +392,108 @@ pub fn semantic_tokens(state: &LspState, uri: &Url) -> Option<SemanticTokensResu
         result_id: None,
         data: doc.semantic_tokens(&state.view()),
     }))
+}
+
+/// What formatting the open document `uri` answers: its edits, the
+/// diagnostics to publish beside the compile's when formatting reported any,
+/// and the notice that the project's configuration overrode the editor's
+/// settings.
+pub struct Formatted {
+    pub edits: Vec<TextEdit>,
+    /// The document's whole list to publish now (a publish replaces it): the
+    /// compile's diagnostics and the formatter's, with the document's
+    /// version. `None`: nothing to publish.
+    pub publish: Option<(Vec<Diagnostic>, Option<i32>)>,
+    /// The configuration key and the message, sent once per configuration
+    /// (`LspState::first_format_notice`).
+    pub notice: Option<(String, String)>,
+}
+
+/// Format the open document `uri` as `specforge format` formats its file
+/// (ADR 0021). Inside a project the project's configuration wins over
+/// `options`. `None` for a document that is not open.
+pub fn formatting(
+    state: &LspState,
+    uri: &Url,
+    options: &FormattingOptions,
+    lines: Option<format::Lines>,
+) -> Option<Formatted> {
+    let editor = format::EditorOptions {
+        tab_size: options.tab_size as usize,
+        insert_spaces: options.insert_spaces,
+    };
+    let doc = state.document(uri.as_str())?;
+    let file = uri.to_file_path().ok();
+    let place = file
+        .as_deref()
+        .map_or(format::Place::Detached, format::Place::File);
+    let formatted = format::document(place, doc.text(), lines, Some(editor));
+    // A publish replaces the document's list: the formatter's diagnostics go
+    // alongside the compile ones, not in their place. The compile's are
+    // positions in the text it compiled, the formatter's in the document it
+    // formatted.
+    let publish = (!formatted.diagnostics.is_empty()).then(|| {
+        let compiled = Compiled::new(state);
+        let diagnostics: Vec<Diagnostic> = state
+            .diagnostics(uri.as_str())
+            .iter()
+            .map(|d| diagnostic_to_lsp(d, |span| compiled.range(span)))
+            .chain(
+                formatted
+                    .diagnostics
+                    .iter()
+                    .map(|d| diagnostic_to_lsp(d, |span| Some(doc.index().range(span)))),
+            )
+            .collect();
+        (diagnostics, doc.version())
+    });
+    Some(Formatted {
+        edits: formatter_edits_to_lsp(formatted.edits(), doc.index()),
+        publish,
+        notice: overridden_editor_options(&formatted, editor),
+    })
+}
+
+/// Formatter edits (0-based lines, byte columns of the formatted document)
+/// as LSP edits.
+fn formatter_edits_to_lsp(
+    edits: Vec<specforge_formatter::TextEdit>,
+    index: &LineIndex,
+) -> Vec<TextEdit> {
+    edits
+        .into_iter()
+        .map(|e| TextEdit {
+            range: Range {
+                start: index.position_at(e.start_line, e.start_col),
+                end: index.position_at(e.end_line, e.end_col),
+            },
+            new_text: e.new_text,
+        })
+        .collect()
+}
+
+/// When a project's configuration formatted `formatted` and the editor's
+/// `editor` settings differ from it: the configuration (its key for the
+/// once-per-session notice) and the message telling the editor so.
+fn overridden_editor_options(
+    formatted: &format::FormattedDocument,
+    editor: format::EditorOptions,
+) -> Option<(String, String)> {
+    let configuration = match &formatted.config_source {
+        format::ConfigSource::File(path) => path.display().to_string(),
+        format::ConfigSource::Defaults => "the defaults".to_string(),
+        format::ConfigSource::Editor => return None,
+    };
+    let config = &formatted.config;
+    let same = editor.insert_spaces != config.use_tabs
+        && (config.use_tabs || editor.tab_size == config.indent_width);
+    if same {
+        return None;
+    }
+    let indent = if config.use_tabs { "tabs" } else { "spaces" };
+    let message = format!(
+        "formatting with {configuration} (indent {}, {indent}); the editor's tabSize {} / insertSpaces {} apply only outside a project",
+        config.indent_width, editor.tab_size, editor.insert_spaces
+    );
+    Some((configuration, message))
 }

@@ -244,3 +244,35 @@ fn rename_waits_for_the_compile_of_its_document() {
     assert_eq!(edits.len(), 1);
     assert_eq!(quad(edits[0].range), (2, 5, 2, 9));
 }
+
+#[test]
+fn formatting_answers_its_edits_and_what_to_publish() {
+    let text = "behavior login \"Login\" {\n  invariants [session_limit]\n}\n\n}}}\n";
+    let state = crate::served::buffers(&[("/buffer/format_keeps.spec", text)]);
+    let uri = crate::served::uri_of_path("/buffer/format_keeps.spec");
+    let options = tower_lsp::lsp_types::FormattingOptions {
+        tab_size: 2,
+        insert_spaces: true,
+        ..Default::default()
+    };
+
+    let formatted = answers::formatting(&state, &uri, &options, None).expect("an open document");
+    // The formatter's W142 goes beside the compile's E001 and E003, which
+    // a publish would otherwise erase.
+    let (published, _) = formatted.publish.expect("formatting reported something");
+    let mut codes: Vec<String> = published
+        .iter()
+        .filter_map(|d| match d.code.as_ref()? {
+            tower_lsp::lsp_types::NumberOrString::String(code) => Some(code.clone()),
+            tower_lsp::lsp_types::NumberOrString::Number(_) => None,
+        })
+        .collect();
+    codes.sort();
+    assert_eq!(codes, ["E001", "E003", "W142"], "{published:?}");
+    // Outside a project the editor's settings are the ones that apply.
+    assert_eq!(formatted.notice, None);
+
+    // A document that is not open is not formatted.
+    let closed = crate::served::uri_of_path("/buffer/closed.spec");
+    assert!(answers::formatting(&state, &closed, &options, None).is_none());
+}
