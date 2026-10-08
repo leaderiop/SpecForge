@@ -16,7 +16,7 @@ pub fn run(path: &Path, request: &QueryRequest) -> i32 {
     match query(&ProjectView::of(&project), request) {
         Ok(outcome) => {
             for notice in &outcome.notices {
-                eprintln!("{}", crate::export::render_plain(notice));
+                eprintln!("{}", specforge_common::render_plain(notice));
             }
             println!("{}", outcome.document);
             0
