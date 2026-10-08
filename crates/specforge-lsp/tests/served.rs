@@ -36,6 +36,9 @@ pub struct Served {
     reaction: Option<Reaction<Recorder>>,
     runtime: Runtime,
     extensions: Vec<(String, Declare)>,
+    /// The runtime serving the declared extensions, built when the reaction is: its recorded
+    /// calls are what the project ran.
+    served: Option<Arc<InProcessRuntime>>,
     opening: Vec<Sent>,
 }
 
@@ -48,6 +51,7 @@ impl Served {
             reaction: None,
             runtime,
             extensions: Vec::new(),
+            served: None,
             opening: Vec::new(),
         }
     }
@@ -106,7 +110,7 @@ impl Served {
     }
 
     /// The runtime every declared extension is served by, in process.
-    fn in_process(&self) -> SharedRuntime {
+    fn in_process(&self) -> Arc<InProcessRuntime> {
         let mut runtime = InProcessRuntime::new();
         for (name, declare) in &self.extensions {
             let (name, declare) = (name.clone(), Arc::clone(declare));
@@ -119,12 +123,28 @@ impl Served {
         Arc::new(runtime)
     }
 
+    /// How many times the project's checks ran: each run calls every check pass once, and a
+    /// counting extension declares one.
+    pub fn check_runs(&self) -> usize {
+        self.served.as_ref().map_or(0, |runtime| {
+            runtime
+                .calls()
+                .iter()
+                .filter(|call| call.export.starts_with("__pass_"))
+                .count()
+        })
+    }
+
     /// The reaction, built on first use with the runtime the project's extensions run in.
     fn reaction(&mut self) -> &mut Reaction<Recorder> {
         if self.reaction.is_none() {
             let source = match self.runtime {
                 Runtime::InProcess if self.extensions.is_empty() => RuntimeSource::Fixed(None),
-                Runtime::InProcess => RuntimeSource::Fixed(Some(self.in_process())),
+                Runtime::InProcess => {
+                    let runtime = self.in_process();
+                    self.served = Some(Arc::clone(&runtime));
+                    RuntimeSource::Fixed(Some(runtime as SharedRuntime))
+                }
                 Runtime::Project => RuntimeSource::project(),
             };
             self.reaction = Some(Reaction::new(
@@ -165,6 +185,34 @@ impl Served {
         }
         self.opening = self.editor.take();
         self
+    }
+
+    /// Documents the editor restores before the project opens (`initialized` has not run yet):
+    /// each opened holding `text`, which need not be its file's, and applied as the debounce
+    /// applies them. Call before `open`.
+    pub fn restore(mut self, files: &[(&str, &str)]) -> Served {
+        let uris: Vec<Url> = files
+            .iter()
+            .map(|(file, text)| {
+                let uri = self.uri(file);
+                self.state
+                    .blocking_write()
+                    .open_document(uri.as_str(), text);
+                uri
+            })
+            .collect();
+        self.apply(Change::Edited(uris));
+        self
+    }
+
+    /// The editor's version of the open document `file` becomes `version`.
+    pub fn set_version(&mut self, file: &str, version: i32) {
+        let uri = self.uri(file);
+        self.state
+            .blocking_write()
+            .document_mut(uri.as_str())
+            .expect("open")
+            .set_version(version);
     }
 
     /// What opening the workspace and its documents sent.

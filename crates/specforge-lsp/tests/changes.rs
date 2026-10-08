@@ -4,6 +4,7 @@
 
 use crate::recorder::{Sent, codes, last_codes, logs, publications};
 use crate::served::Served;
+use specforge_extension_sdk::prelude::*;
 use specforge_lsp::answers;
 use specforge_lsp::changes::{Change, Plan};
 use specforge_test_macros::test as spec;
@@ -308,4 +309,156 @@ fn a_served_extension_declares_the_kinds_the_project_reads() {
         .open(&["main.spec"]);
     let hover = served.hover_on("main.spec", "widget").expect("a hover");
     assert!(hover.starts_with("**gadget** `widget`"), "{hover}");
+}
+
+const COUNT: &str = "@test/count";
+
+/// `files`, served with an extension whose one check pass reports I990: each run of the checks
+/// is one call (`Served::check_runs`), and the project reports I990 exactly when the checks ran
+/// last. It declares no kind, so the project also reports W151, which no test reads.
+fn counted(files: &[(&str, &str)]) -> Served {
+    Served::new(files).extension(COUNT, |c| {
+        c.pass("count", |p| {
+            p.phase("check").run(|_: &PassInput| {
+                vec![PassDiagnostic::new(
+                    "I990",
+                    PassSeverity::Info,
+                    "the checks ran",
+                )]
+            });
+        });
+    })
+}
+
+fn checks_reported(served: &Served) -> bool {
+    served
+        .state()
+        .session()
+        .expect("held")
+        .project()
+        .diagnostics()
+        .iter()
+        .any(|d| d.code == "I990")
+}
+
+/// Pin (flipped by T3): the open applies a restored buffer as an update of its own after
+/// building from disk, and a reload does the same: two runs of the checks each.
+#[test]
+fn pin_opening_with_a_restored_buffer_runs_the_checks_twice() {
+    // The editor restores a tab holding unsaved text before the project opens.
+    let mut served = counted(&[("a.spec", A_ALPHA), ("b.spec", B_USES_ALPHA)])
+        .restore(&[("a.spec", A_OMEGA)])
+        .open(&[]);
+    assert_eq!(
+        served.check_runs(),
+        2,
+        "the open's checks, then the buffer's"
+    );
+    assert!(served.state().graph().node("omega").is_some());
+
+    served.write(
+        "specforge.json",
+        r#"{"name":"t","version":"0.2.0","extensions":["@test/count"]}"#,
+    );
+    let event = changed(&served, "specforge.json", FileChangeType::CHANGED);
+    served
+        .apply(Change::Watched(vec![event]))
+        .expect("specforge.json is an input");
+    assert_eq!(
+        served.check_runs(),
+        4,
+        "the reload's checks, then the buffer's"
+    );
+    assert!(served.state().graph().node("omega").is_some());
+}
+
+const V1: &str = "behavior alpha \"A\" {\n  types [missing]\n}\n";
+
+/// The version and E003 lines of the last publication for `file`.
+fn last_e003(served: &Served, sent: &[Sent], file: &str) -> (Option<i32>, Vec<u32>) {
+    let uri = served.uri(file);
+    sent.iter()
+        .rev()
+        .find_map(|s| match s {
+            Sent::Published {
+                uri: published,
+                diagnostics,
+                version,
+            } if *published == uri => Some((
+                *version,
+                diagnostics
+                    .iter()
+                    .filter(|d| {
+                        d.code == Some(tower_lsp::lsp_types::NumberOrString::String("E003".into()))
+                    })
+                    .map(|d| d.range.start.line)
+                    .collect(),
+            )),
+            _ => None,
+        })
+        .expect("published")
+}
+
+/// Pin (flipped by T5): a publication computed while an edit waits labels the compiled text's
+/// diagnostics with the buffer's version now.
+#[test]
+fn pin_a_publication_is_labelled_with_the_buffer_now() {
+    let mut served =
+        Served::new(&[("a.spec", V1), ("b.spec", "type beta \"B\" {}\n")]).open(&["a.spec"]);
+    served.set_version("a.spec", 1);
+    served.apply(Change::Edited(vec![served.uri("a.spec")]));
+    // Version 2 typed, two lines at the top; the debounce has not fired.
+    served.type_text("a.spec", &format!("// one\n// two\n{V1}"));
+    served.set_version("a.spec", 2);
+    // Meanwhile another file changes on disk.
+    served.write("b.spec", "type gamma \"G\" {}\n");
+    let event = changed(&served, "b.spec", FileChangeType::CHANGED);
+    served.sent();
+    served
+        .apply(Change::Watched(vec![event]))
+        .expect("b.spec is a source");
+    let sent = served.sent();
+    assert_eq!(
+        last_e003(&served, &sent, "a.spec"),
+        (Some(2), vec![1]),
+        "a position in version 1, labelled version 2"
+    );
+}
+
+/// Pin (flipped by T2): a buffer saved then closed is never stamped: it stays stale, and the
+/// next catch-up re-reads it and runs the checks for nothing.
+#[test]
+fn pin_a_saved_and_closed_buffer_stays_stale() {
+    let mut served = counted(&[("a.spec", A_ALPHA), ("b.spec", B_USES_ALPHA)]).open(&["a.spec"]);
+    served.edit("a.spec", A_OMEGA);
+    served.write("a.spec", A_OMEGA); // the editor saves
+    let closed = served.close("a.spec").expect("the close is planned");
+    assert!(!closed.changed);
+    assert_eq!(
+        served.state().session().expect("held").stale().sources,
+        ["a.spec"]
+    );
+    let before = served.check_runs();
+    let caught = served.apply(Change::CatchUp).expect("a.spec is stale");
+    assert!(caught.changed);
+    assert_eq!(
+        served.check_runs() - before,
+        1,
+        "the checks ran for nothing"
+    );
+    assert!(served.state().graph().node("omega").is_some());
+}
+
+/// Pin (flipped by T2): the typing fast path skipped the checks; the saved buffer is closed with
+/// the same text and they stay skipped.
+#[test]
+fn pin_closing_a_saved_buffer_that_does_not_parse_keeps_the_checks_skipped() {
+    let mut served = counted(&[("a.spec", A_ALPHA)]).open(&["a.spec"]);
+    assert!(checks_reported(&served));
+    let broken = "type alpha \"A\" {\n  contract \"\n";
+    served.edit("a.spec", broken);
+    assert!(!checks_reported(&served), "the typing fast path skips them");
+    served.write("a.spec", broken);
+    served.close("a.spec");
+    assert!(!checks_reported(&served), "still skipped after the close");
 }
