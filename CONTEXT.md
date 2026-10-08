@@ -86,6 +86,14 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   entry from its file under the name it declares. Its declarations come in entry order; the registry
   build puts them in load order. What does not load is a typed `LoadFailure` on its
   entry with one diagnostic; the runtime keeps none.
+- **Candidate**: an extension a project does not load yet — a builtin `add` or `init` enables, a
+  binary `add`, `update` or `init` installs, a binary `publish` uploads — and the extension
+  declaration read from its binary once, through the `WasmRuntime` the operation's caller passes (the
+  CLI's component runtime with the per-user compile cache, the MCP call's runtime, a test's in-process
+  runtime), never through one the operation builds (`specforge_ops::extension::candidate`, ADR 0028
+  D7). A binary to install must load (E028) and must not declare a builtin's name; enabling a builtin
+  enables the builtins it requires first, in `add` and `init` alike, and a builtin that does not load
+  refuses the operation.
 - **Registry build**: the pure result of putting extension declarations in load order and turning
   them into kind, field and edge registries, the rule set, pass order and derived graph inputs, and the diagnostics of those
   declarations (`specforge_registry::build_registries`). It also runs every check over a built
@@ -214,7 +222,8 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   and returns a typed outcome; unlike one it also reads what the view does not own (installed
   binaries, source files, the inference manifest), and remove, collect and the session steps write,
   at the view's root only. `add`, `update`, `init` and `migrate` are operations but not over a view:
-  they run before or instead of a compile (ADR 0015); `add` and `update` read `specforge.json`
+  they run before or instead of a compile (ADR 0015), in the runtime their surface passes (ADR 0028
+  D7); `add` and `update` read `specforge.json`
   through the compile's own reader and the installed extensions through `Installed::at`, and refuse
   an unusable `specforge.json` with the refusal `remove` gives.
 - **Recorded test report**: `<root>/specforge-report.json`, what `specforge collect` last wrote. The
@@ -332,7 +341,9 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   extension in the host process through the guest's own routing (`guest_call`), unsandboxed
   (it records the limits the host applies and enforces none;
   `specforge_wasm::testing::InProcessRuntime`). It serves a binary's bytes under the name they are
-  loaded as (`binary`), so the extension load runs in process; a test that serves an extension
+  loaded as (`binary`), so the extension load and a candidate's read (add, init, update, publish)
+  run in process (`specforge_ops::testing` serves `@sdk/greet` and builtin look-alikes that way); a
+  test that serves an extension
   installs it (`specforge_installed::testing::install`) and the project loads it through the
   production path. Host tests declare their extensions with it; the
   component runtime is the production adapter, and both keep one contract
