@@ -51,9 +51,10 @@ behavior load_extension_manifest "Load Extension Manifest" {
          and populate the kind, field and edge registries and the rules
       4. register_surface_contributions — populate SurfaceRegistry (CLI
          commands, MCP tools, MCP resources)
-    Steps 1-2 run per extension in topological order (see
-    topological_sort_extensions); steps 3-4 run once over every loaded
-    declaration, in that order.
+    Steps 1-2 run per extension in entry order (the extension load); step 3
+    puts the declarations in load order (registry_build_load_order) before
+    anything registers; steps 3-4 run once over every loaded declaration,
+    in that order.
   """
   verify unit "the declaration is read from the binary"
   verify unit "a declaration that cannot be read produces a diagnostic"
@@ -663,7 +664,11 @@ behavior run_doctor_check "Run Doctor Check" {
     not installed; E070: its binary is not the one the lock pins) MUST be
     reported as an error. A missing or changed installed binary MUST be one
     finding, whose remediation is the command that reinstalls it as its lock
-    entry records it. Each listed extension MUST carry the source the
+    entry records it. Each peer requirement the compile reports unsatisfied
+    (E027, E073) MUST be an error finding with the remedy its diagnostic
+    suggests: doctor and check judge peers by one rule over the loaded
+    extensions (ADR 0041), so a peer a builtin or a .wasm file entry
+    satisfies is not reported. Each listed extension MUST carry the source the
     extensions listing gives it: builtin, the lock entry's source, or
     file:<path> for a .wasm file entry of specforge.json. Run in a
     directory without specforge.json, doctor MUST report a warning finding
@@ -684,7 +689,8 @@ behavior run_doctor_check "Run Doctor Check" {
   verify unit "doctor --json produces valid JSON output"
   verify unit "doctor reports an extension that fails to load (E028, E070) as an error"
   verify unit "doctor reports a missing or changed installed binary once, with the remedy its load gives"
-  verify unit "a peer whose installed version doctor cannot compare is remedied with a runnable command"
+  verify unit "doctor reports the peer requirements check reports, with the remedy each suggests"
+  verify unit "a peer a builtin satisfies is not reported"
   verify unit "a finding without its own suggestion quotes the catalogued explanation"
   verify unit "doctor gives each extension the source the extensions listing gives it"
   verify unit "doctor in a directory without specforge.json reports config_missing as a warning"

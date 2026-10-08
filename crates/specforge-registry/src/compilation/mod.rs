@@ -7,6 +7,7 @@
 
 mod build;
 mod declaration;
+mod peers;
 mod populate;
 mod validate;
 

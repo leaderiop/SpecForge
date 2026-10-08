@@ -15,7 +15,7 @@ use specforge_parser::{
     CURRENT_FORMAT_VERSION, FormatVersion, MAX_SUPPORTED_VERSION, MIN_SUPPORTED_VERSION,
 };
 use specforge_project::CompiledProject;
-use specforge_protocol_types::ExtensionDeclaration;
+use specforge_registry::RegistryBuild;
 use specforge_wasm::WasmRuntime;
 use std::path::Path;
 
@@ -198,7 +198,7 @@ pub fn run(request: &Request, runtime: Option<&dyn WasmRuntime>) -> Outcome {
             .collect(),
     };
     let (invoked, failures) = match runtime {
-        Some(runtime) => invoke_hooks(pre.env.registries.declarations(), runtime, &input),
+        Some(runtime) => invoke_hooks(&pre.env.registries, runtime, &input),
         None => (Vec::new(), Vec::new()),
     };
     outcome.hooks_invoked = invoked;
@@ -284,33 +284,20 @@ fn schema_of(project: &CompiledProject) -> specforge_emitter::GraphProtocolSchem
     )
 }
 
-/// Run each extension's declared migration hook, in dependency order. A
-/// hook that fails (E028: it trapped, or the extension does not route it)
-/// is recorded and the rest still run. Returns the hooks
-/// run (`extension:hook`) and the failures.
+/// Run each extension's declared migration hook, in the registry build's load order (ADR 0041).
+/// A hook that fails (E028: it trapped, or the extension does not route it) is recorded and the
+/// rest still run. Returns the hooks run (`extension:hook`) and the failures.
 pub fn invoke_hooks(
-    declarations: &[ExtensionDeclaration],
+    build: &RegistryBuild,
     runtime: &dyn WasmRuntime,
     input: &MigrationInput,
 ) -> HookRun {
     let calls = specforge_wasm::ExtensionCalls::new(runtime);
 
-    let order = match specforge_wasm::topological_sort_extensions(declarations) {
-        Ok(order) => order,
-        Err(diagnostics) => {
-            let reason = diagnostics
-                .first()
-                .map(|d| d.message.clone())
-                .unwrap_or_else(|| "dependency cycle".to_string());
-            return (Vec::new(), vec![reason]);
-        }
-    };
     let mut invoked = Vec::new();
     let mut failures = Vec::new();
-    for name in &order {
-        let Some(declaration) = declarations.iter().find(|d| d.name() == name) else {
-            continue;
-        };
+    for declaration in build.declarations() {
+        let name = declaration.name();
         let Some(hook) = declaration
             .handshake
             .migration_hook

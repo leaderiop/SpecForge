@@ -186,3 +186,50 @@ fn mcp_add_refuses_a_version_diamond() {
     );
     assert!(!dir.path().join(".specforge/extensions/@acme/app").exists());
 }
+
+#[specforge_test(
+    behavior = "add_extension_to_existing_project",
+    verify = "an install that leaves a locked extension's peer unsatisfied is refused before anything is written, local or from a registry"
+)]
+fn mcp_add_refuses_an_install_a_locked_extension_does_not_accept() {
+    let registry = FakeRegistry::serve(vec![Package::new(
+        "@sdk/greet",
+        "0.1.0",
+        crate::registry::greet_wasm(),
+    )]);
+    let dir = project(&["@specforge/software"], registry.config_entry());
+    // `@acme/app` is locked and wants `@sdk/greet ^2.0`, which the registry never published.
+    std::fs::write(
+        dir.path().join("specforge.lock"),
+        json!({"lockfile_version": 1, "entries": [
+            {"name": "@acme/app", "version": "1.0.0", "source": "registry", "wasm_hash": "",
+             "peer_dependencies": [{"name": "@sdk/greet", "version": "^2.0"}]},
+        ]})
+        .to_string(),
+    )
+    .unwrap();
+    let lock_before = std::fs::read(dir.path().join("specforge.lock")).unwrap();
+
+    let reply = mcp_add(
+        dir.path(),
+        json!({"specifier": "@sdk/greet@0.1.0", "allow_unsigned": true}),
+    );
+
+    let error = crate::e2e_fixtures::tool_error(&reply);
+    assert_eq!(error["diagnostic"]["code"], "R-RES-005", "{reply}");
+    let message = error["message"].as_str().unwrap();
+    assert!(
+        message.contains("installing '@sdk/greet' 0.1.0 breaks '@acme/app': "),
+        "{message}"
+    );
+    assert!(
+        message.contains("@acme/app wants @sdk/greet ^2.0"),
+        "{message}"
+    );
+    assert_eq!(
+        std::fs::read(dir.path().join("specforge.lock")).unwrap(),
+        lock_before,
+        "nothing is installed"
+    );
+    assert!(!dir.path().join(".specforge/extensions/@sdk/greet").exists());
+}

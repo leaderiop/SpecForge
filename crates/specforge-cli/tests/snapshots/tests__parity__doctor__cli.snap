@@ -64,6 +64,7 @@ expression: cli_snap
     "findings": [],
     "issues": [],
     "load_failures": [],
+    "peers": [],
     "shadowed": [],
     "status": "healthy",
     "z3_available": "[Z3]"

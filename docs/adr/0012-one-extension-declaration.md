@@ -70,6 +70,9 @@ signature over the manifest's hash).
 
 ## D11. The registry build owns declaration validation; the environment keeps runtime failures
 
+*(Amended by ADR 0041: the build first puts the declarations in load order, dependencies first; the
+declarations' own diagnostics are E030, W021, the peers' E073 and E027, the cycles' E027, then W145.)*
+
 `build_registries(Vec<ExtensionDeclaration>) -> RegistryBuild` checks the declarations
 themselves (E030 identity and shape, W021 consistency against the loaded peers, E027 peer
 dependencies, W145 pass order cycles, in that order, extension by extension within each),

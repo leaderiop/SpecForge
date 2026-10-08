@@ -90,7 +90,7 @@ fn pin_software() -> ExtensionDeclaration {
     software
 }
 
-/// `@pin/product`: two E027s and a W062 (its peers), E026 (`behavior`),
+/// `@pin/product`: two E027s and an E073 (its peers), E026 (`behavior`),
 /// W018 (`links_to`), W023 (`W900`), I004 (an enhancement of an unknown
 /// kind it owns), E039 (`hello`) and E055 (a tool whose input schema is
 /// not an object). Its enhancement of `module`, owned by an extension that

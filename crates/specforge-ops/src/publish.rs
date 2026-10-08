@@ -245,6 +245,26 @@ mod tests {
         assert_eq!(error.code, "E028", "{error:?}");
     }
 
+    #[specforge_test(
+        behavior = "publish_to_registry",
+        verify = "publish refuses a binary whose declaration has errors before any network call"
+    )]
+    fn a_declaration_whose_peer_range_is_not_semver_is_refused() {
+        let mut declaration = prepare(greet()).unwrap().declaration;
+        declaration
+            .handshake
+            .peer_dependencies
+            .push(PeerDependency {
+                name: "@acme/base".to_string(),
+                version: "one-ish".to_string(),
+                optional: false,
+            });
+        let error = check(&declaration, Vec::new()).unwrap_err();
+        assert_eq!(error.code, "E073", "{error:?}");
+        assert!(error.message.contains("can't be published"), "{error:?}");
+        assert!(error.message.contains("'one-ish'"), "{error:?}");
+    }
+
     #[test]
     fn a_crate_directory_names_its_built_component() {
         let dir = tempfile::tempdir().unwrap();

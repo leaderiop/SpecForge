@@ -605,6 +605,7 @@ pub(crate) fn doctor_op(call: &mut Call<'_>, _args: NoArgs) -> Handled {
         "extensions": report.extensions,
         "enhancements": report.enhancements,
         "shadowed": report.shadowed,
+        "peers": report.peers,
         "load_failures": report.load_failures,
         "issues": report.issues,
         "z3_available": report.z3_available,

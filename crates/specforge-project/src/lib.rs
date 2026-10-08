@@ -133,9 +133,9 @@ impl Environment {
         }
     }
 
-    /// An environment of `declarations` (in load order) and no project:
-    /// the default config, no spec root, the registry build of exactly
-    /// these declarations.
+    /// An environment of `declarations` (in entry order; the registry build
+    /// puts them in load order) and no project: the default config, no spec
+    /// root, the registry build of exactly these declarations.
     pub fn from_declarations(declarations: Vec<ExtensionDeclaration>) -> Self {
         Environment {
             registries: build_registries(declarations),

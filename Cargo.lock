@@ -3144,7 +3144,6 @@ version = "0.1.0"
 dependencies = [
  "insta",
  "regex",
- "semver",
  "serde",
  "serde_json",
  "specforge-common",

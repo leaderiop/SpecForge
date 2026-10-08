@@ -36,26 +36,6 @@ event extension_unloaded "Extension Unloaded" {
 
 // ── Runtime Observability Events ───────────────────────────────
 
-event peer_dependencies_validated "Peer Dependencies Validated" {
-  channel "wasm.peer_dependencies_validated"
-  payload {
-    extensionName string
-    peerCount     integer
-    allSatisfied  boolean
-  }
-  verify integration "emits peer_dependencies_validated with correct peerCount and satisfaction status"
-}
-
-event extensions_sorted "Extensions Sorted" {
-  channel "wasm.extensions_sorted"
-  payload {
-    extensionCount integer
-    loadOrder      string[]
-    hasCycles      boolean
-  }
-  verify integration "emits extensions_sorted with deterministic loadOrder"
-}
-
 event manifest_validated "Manifest Validated" {
   channel "wasm.manifest_validated"
   payload {

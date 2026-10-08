@@ -153,7 +153,7 @@ catalog! {
         "Two extensions register the same entity kind keyword; the first registration wins and the later one is rejected. Rename the conflicting kind keyword.";
     E027: Error core,
         "Unsatisfiable peer dependency",
-        "An extension's required peer dependency can't be satisfied: it isn't installed, the installed version doesn't match the required range, peer dependencies form a cycle, an uninstall would remove an extension others still require, or an upgrade would break a peer's requirement. Install or upgrade the named peer, or use `--force` where the command supports it.";
+        "An extension's peer dependency isn't satisfied: a required peer isn't installed, or an installed peer (optional or not) is at a version the range doesn't accept, a version that isn't SemVer included; or required peers form a cycle, reported once naming its extensions by every compile. `specforge add` and `update` refuse an install that would leave a locked peer unsatisfied (from a registry, a version diamond is R-RES-005/R-RES-006 instead), and `specforge remove` refuses to uninstall an extension others still require. Install or upgrade the named peer, make one peer of a cycle optional, or use `--force` where the command supports it.";
     E028: Error core,
         "Extension load or execution failure",
         "An extension failed somewhere in its lifecycle: its binary is missing, unreadable or does not load as a component, or `specforge.lock` can't be read so nothing is known to be installed (a `.wasm` file entry of `specforge.json` also when the file declares another name than the entry writes, or an extension another entry already loads); its handshake or one of its describe categories failed or does not parse, so its declaration cannot be read (`specforge add` and `specforge publish` refuse such a binary); or a call the host makes on the loaded extension failed. The host calls ten exports: the handshake and describe, a command, an MCP tool, an MCP resource, a compiler pass, a collector, a custom validator, a scanner and the migration hook. Each call fails when the export traps (a limit of its sandbox included: its time, its fuel or its memory, the trap naming which), when the extension does not route it, or when it answers output that is not the protocol type the operation owes; the message names the operation, the export and the extension (`command cmd__x() of '@acme/x' trapped: ...`). What the failure costs is the operation's: a check pass's is the compile's error, an analyze pass's a finding of that pass, a scanner's makes `infer` approximate. Report the failure to the extension's author, and confirm the extension is installed and up to date.";
@@ -253,6 +253,9 @@ catalog! {
     E072: Error core,
         "Invalid package name or version",
         "A name that must be a package name is not one, or a version that must be a SemVer version is not one. A package name is `@scope/name` (what a registry holds) or `name` alone (a local module); each part is lowercase letters, digits, `.`, `_` or `-`, and starts with a letter or digit, so it is always a directory inside `.specforge/extensions`. It is checked where a name does not come from the `add` argument (that is E054): the name a local module declares when `specforge add` installs it, a peer a declaration names, a `specforge.json` `extensions` entry (the entry is not loaded), the name `specforge remove` is given, and the name and version of the declaration `specforge publish` uploads (which must also be scoped and a full version). Nothing is written or deleted. Fix the extension's declared name or version (its SDK `name`/`version`) and rebuild, or fix the `specforge.json` entry.";
+    E073: Error core,
+        "Unreadable peer requirement",
+        "An extension declares a peer dependency whose range is not a SemVer requirement as Cargo reads one (`^1.2`, `~1`, `>=1, <2`, `1.x`, `*`, or a bare version such as `1.2.0`, which means `^1.2.0`), so no version of the peer can satisfy it, whether the peer is installed or not. `specforge check` (and the LSP and MCP) and `doctor` report it, `specforge add` and `update` refuse to install or update around it, and `specforge publish` refuses to upload it. Fix the range in the extension's declaration (its SDK `peer_dependencies`) and rebuild, or install a version of the extension that declares one.";
     I002: Info core,
         "Structural-only mode",
         "Emitted when no extensions are installed, or when every installed extension failed to load, so the compiler falls back to structural-only validation. Install an extension (for example `specforge add @specforge/software`) to enable kind-specific checks.";
@@ -610,9 +613,6 @@ catalog! {
     W061: Warning core,
         "Reference cycle detected",
         "The resolved reference graph contains a cycle among entity references. Break the cycle by removing or inverting one of the references in the reported path.";
-    W062: Warning core,
-        "Malformed semver version",
-        "An extension manifest declares a peer dependency range or a version that is not valid semver. Use a valid semver version (e.g. `1.0.0`) or range (e.g. `^1.0.0`, `~1.2.0`, `>=1.0.0`).";
     W077: Warning product,
         "Invalid feature status",
         "A `feature` entity's `status` field is not one of the recognized values (`proposed`, `accepted`, `in_progress`, `done`, `deferred`, `deprecated`). Set `status` to one of these values.";
