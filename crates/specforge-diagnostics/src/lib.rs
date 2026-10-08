@@ -195,6 +195,7 @@ pub const RETIRED: &[(&str, Option<&str>)] = &[
     ("E038", None),
     ("E047", Some("W139")),
     ("E053", None),
+    ("E060", None),
     ("I006", None),
     ("W024", None),
     ("W025", None),
@@ -833,8 +834,6 @@ mod tests {
     #[test]
     fn untyped_is_called_only_where_codes_cross() {
         const UNTYPED_FILES: &[&str] = &[
-            // An operation's failure back to a diagnostic: `error[CODE]` on stderr.
-            "crates/specforge-cli/src/export.rs",
             // The definition (`new`, `graded` and `from_extension` build through it).
             "crates/specforge-common/src/diagnostic.rs",
             // An MCP failure's code is text from an `OpError` or a message.

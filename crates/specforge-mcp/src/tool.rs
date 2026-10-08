@@ -235,7 +235,7 @@ impl ErrorCode {
 }
 
 /// The code an operation's failure kind is reported as: total, one arm per
-/// kind (ADR 0024 D15).
+/// kind (ADR 0024 D7).
 impl From<OpErrorKind> for ErrorCode {
     fn from(kind: OpErrorKind) -> Self {
         match kind {
@@ -245,6 +245,7 @@ impl From<OpErrorKind> for ErrorCode {
             OpErrorKind::ExtensionNotFound => ErrorCode::ExtensionNotFound,
             OpErrorKind::Conflict => ErrorCode::Conflict,
             OpErrorKind::SchemaMismatch => ErrorCode::SchemaMismatch,
+            OpErrorKind::CompilationFailed => ErrorCode::CompilationFailed,
             OpErrorKind::PreconditionFailed => ErrorCode::PreconditionFailed,
             OpErrorKind::PermissionDenied => ErrorCode::PermissionDenied,
             OpErrorKind::Timeout => ErrorCode::Timeout,
@@ -267,6 +268,10 @@ pub struct McpError {
     /// answered with an error (the URI read).
     pub uri: Option<String>,
     pub entity_id: Option<String>,
+    /// The project file the failure is about (`file_not_found`): what a
+    /// refusal that finds no project to look in names, rather than reading
+    /// it back out of the message.
+    pub file: Option<String>,
     pub argument: Option<String>,
     pub diagnostic: Option<Value>,
     pub data: Option<Value>,
@@ -284,6 +289,7 @@ impl McpError {
             prompt: None,
             uri: None,
             entity_id: None,
+            file: None,
             argument: None,
             diagnostic: None,
             data: None,
@@ -314,6 +320,11 @@ impl McpError {
 
     pub fn with_entity(mut self, entity_id: impl Into<String>) -> Self {
         self.entity_id = Some(entity_id.into());
+        self
+    }
+
+    pub fn with_file(mut self, file: impl Into<String>) -> Self {
+        self.file = Some(file.into());
         self
     }
 
@@ -372,6 +383,7 @@ impl McpError {
             ("prompt", self.prompt.clone().map(Value::from)),
             ("uri", self.uri.clone().map(Value::from)),
             ("entity_id", self.entity_id.clone().map(Value::from)),
+            ("file", self.file.clone().map(Value::from)),
             ("argument", self.argument.clone().map(Value::from)),
             ("diagnostic", self.diagnostic.clone()),
             ("data", self.data.clone()),
@@ -433,7 +445,9 @@ pub(crate) const FILE_NOT_FOUND: &str = "File not found: ";
 /// A question about `file`, which the project has no entity from and does
 /// not hold under its spec root: `file_not_found` on argument `file`.
 pub(crate) fn file_not_found(file: &str) -> McpError {
-    McpError::new(ErrorCode::FileNotFound, format!("{FILE_NOT_FOUND}{file}")).with_argument("file")
+    McpError::new(ErrorCode::FileNotFound, format!("{FILE_NOT_FOUND}{file}"))
+        .with_argument("file")
+        .with_file(file)
 }
 
 /// `("E003", "unresolved …")` for `"E003: unresolved …"`: a leading

@@ -12,10 +12,11 @@
 use crate::options::{Choice, OptionTable};
 use crate::view::ProjectView;
 use crate::{OpError, OpErrorKind};
-use specforge_common::{Code, codes};
+use specforge_common::{Code, Diagnostic, codes};
 use specforge_emitter::{
     EmitFormat, EmitOptions, EmitterError, GraphProtocolSchema, SchemaVersion, emit,
 };
+use std::path::PathBuf;
 
 /// An export format.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -152,6 +153,58 @@ pub fn export(view: &ProjectView, request: &Request) -> Result<String, OpError> 
         field_registry: Some(&view.registries().fields),
     };
     emit(view.graph(), &options).map_err(|error| failure(error, request.scope))
+}
+
+/// What `specforge export` did: the export, the schema's breaking changes
+/// against the view root's cache (W053, found before the export ran), and
+/// what became of the cache.
+#[derive(Debug)]
+pub struct RecordedExport {
+    pub export: Result<String, OpError>,
+    pub breaking: Vec<Diagnostic>,
+    pub cache: CacheWrite,
+}
+
+/// What became of the schema cache after an export.
+#[derive(Debug, PartialEq, Eq)]
+pub enum CacheWrite {
+    /// There is no root, or the export failed: the cache is left as it was.
+    NotWritten,
+    Written,
+    /// The export succeeded; the cache could not be written.
+    WriteFailed {
+        dir: PathBuf,
+        error: String,
+    },
+}
+
+/// The export `specforge export` makes (ADR 0015 D10): compare the schema
+/// the extensions produce with the cache at the view's root, export it
+/// carrying the cached version bumped by what changed, and record it after
+/// a successful export. MCP never calls it.
+pub fn export_recorded(view: &ProjectView, request: &Request) -> RecordedExport {
+    let cache = view.schema_cache();
+    let generated = view.versioned_schema();
+    let breaking = cache
+        .as_ref()
+        .map(|cache| cache.breaking_changes(&generated))
+        .unwrap_or_default();
+    let export = export(view, request);
+    let cache = match (&export, cache) {
+        (Ok(_), Some(cache)) => match cache.record(&generated) {
+            Ok(()) => CacheWrite::Written,
+            Err(error) => CacheWrite::WriteFailed {
+                dir: cache.dir().to_path_buf(),
+                error: error.to_string(),
+            },
+        },
+        _ => CacheWrite::NotWritten,
+    };
+    RecordedExport {
+        export,
+        breaking,
+        cache,
+    }
 }
 
 /// The emitter's failure as the operation's: what kind it is is decided by

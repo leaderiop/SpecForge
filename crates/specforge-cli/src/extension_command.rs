@@ -146,9 +146,8 @@ pub fn run(argv: &[String], builtins: &[String]) -> i32 {
     let recorded = specforge_project::coverage::RecordedCoverage::over(&graph, &env);
     let view = specforge_ops::view::ProjectView::new(&graph, &env, Some(&cwd), &recorded);
     let context = CommandContext {
-        format,
-        today: chrono::Utc::now().format("%Y-%m-%d").to_string(),
         evidence: specforge_ops::command::evidence(&view),
+        ..CommandContext::now(format)
     };
     dispatch(
         &runtime,
@@ -207,7 +206,7 @@ fn failed_run(error: &CallError, format: CommandFormat) -> String {
             line.push('\n');
             line
         }
-        CommandFormat::Human => format!("{}\n", crate::export::render_plain(&diagnostic)),
+        CommandFormat::Human => format!("{}\n", specforge_common::render_plain(&diagnostic)),
     }
 }
 
@@ -242,7 +241,7 @@ pub fn with_extension_commands(mut cli: Command, root: &Path) -> Command {
 
 /// The exit code of a usage error clap catches, `INVALID_INPUT`'s: the
 /// one commands give the usage errors they catch themselves (ADR 0011).
-const INVALID_INPUT_EXIT: i32 = 2;
+const INVALID_INPUT_EXIT: i32 = crate::outcome::Exit::Unjudged.code();
 
 /// Whether `args` ask for `--format json` (`--format json` or
 /// `--format=json`), read before the command line is parsed.

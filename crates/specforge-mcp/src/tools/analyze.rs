@@ -1,8 +1,7 @@
-use std::path::PathBuf;
-
 use crate::args::Arguments;
 use crate::target::Call;
-use crate::tool::{Handled, ToolOutcome};
+use crate::tool::{Handled, McpError, ToolOutcome};
+use specforge_ops::OpError;
 use specforge_ops::analyze::{AnalyzeError, AnalyzeOptions, ReportSource, analyze};
 use specforge_wasm::runtime::WasmRuntime;
 
@@ -34,7 +33,9 @@ pub fn call(call: &mut Call<'_>, args: Args) -> Handled {
         pass: args.pass,
         strict: args.strict,
         report: match args.test_results {
-            Some(named) => ReportSource::File(PathBuf::from(named)),
+            // A relative path names a file under the call's project, as the
+            // paths of `specforge.format` do; an absolute one is itself.
+            Some(named) => ReportSource::File(project.root.join(named)),
             None => ReportSource::Recorded,
         },
         min: None,
@@ -45,15 +46,15 @@ pub fn call(call: &mut Call<'_>, args: Args) -> Handled {
     let runtime: Option<&dyn WasmRuntime> = Some(project.runtime.as_ref());
     Ok(match analyze(&view, runtime, &options) {
         Ok(outcome) => ToolOutcome::ok(outcome.to_json()),
-        Err(e @ AnalyzeError::UnknownPass { .. }) => {
-            ToolOutcome::invalid_input("pass", e.to_string())
+        Err(e) => {
+            // The argument an unknown pass names is this surface's spelling.
+            let unknown_pass = matches!(e, AnalyzeError::UnknownPass { .. });
+            let error = McpError::from(OpError::from(e));
+            match unknown_pass {
+                true => error.with_argument("pass"),
+                false => error,
+            }
+            .into()
         }
-        Err(AnalyzeError::UnusableReport(e)) => {
-            let mut error = crate::tool::McpError::from(e);
-            error.tool = Some("specforge.analyze".to_string());
-            error.into()
-        }
-        // `min` is never set here, so this is not reached today.
-        Err(e) => ToolOutcome::invalid_input("test_results", e.to_string()),
     })
 }

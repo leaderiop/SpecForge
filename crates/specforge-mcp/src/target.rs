@@ -12,13 +12,13 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use serde_json::Value;
-use specforge_common::{Diagnostic, find_project_root};
+use specforge_common::{Diagnostic, project_root_of};
 use specforge_graph::Graph;
 use specforge_ops::view::ProjectView;
 use specforge_project::{CompiledProject, SharedRuntime};
 
 use crate::state::McpState;
-use crate::tool::{ErrorCode, FILE_NOT_FOUND, McpError};
+use crate::tool::{ErrorCode, McpError};
 
 /// Which project a tool may act on, declared on its table entry.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -33,6 +33,18 @@ pub enum Reach {
     WritesAnyProject,
     /// `path` names a directory to create a project in (init).
     NewProject,
+}
+
+impl Reach {
+    /// Whether an entry of this reach names its project by a `path`
+    /// argument: the one predicate for the input schema and for what a
+    /// no-project refusal tells the client to pass.
+    pub(crate) fn takes_path(self) -> bool {
+        matches!(
+            self,
+            Reach::AnyProject | Reach::WritesAnyProject | Reach::NewProject
+        )
+    }
 }
 
 /// Whether the target is brought up to date with disk before the handler.
@@ -65,10 +77,7 @@ impl TargetSpec {
 
     /// Whether the call names its project by a `path` argument.
     fn takes_path(self) -> bool {
-        matches!(
-            self.reach,
-            Reach::AnyProject | Reach::WritesAnyProject | Reach::NewProject
-        )
+        self.reach.takes_path()
     }
 
     /// Whether the call may ask for the last compile with `use_cached`.
@@ -301,17 +310,12 @@ impl From<TargetError> for McpError {
     }
 }
 
-/// Whether an entry of this reach names its project by a `path` argument.
-fn names_path(reach: Reach) -> bool {
-    matches!(reach, Reach::AnyProject | Reach::WritesAnyProject)
-}
-
 /// What a client can do about a missing project, ending every no-project
 /// refusal: an entry that takes a `path` can pass one; one that serves only
 /// the served project (a `Served` tool, a resource, a prompt) refuses a
 /// `path`, so it says to start the server in a project.
 fn serve_a_project(reach: Reach) -> &'static str {
-    if names_path(reach) {
+    if reach.takes_path() {
         "pass {\"path\": ...} or start the server in a project"
     } else {
         "start the server in a project (`specforge mcp <root>`), or call a tool that takes a `path` first (ADR 0014 D5)"
@@ -327,7 +331,7 @@ pub fn no_project(reach: Reach) -> McpError {
         ErrorCode::PreconditionFailed,
         format!("no project is served: {}", serve_a_project(reach)),
     );
-    if names_path(reach) {
+    if reach.takes_path() {
         error.with_argument("path")
     } else {
         error
@@ -348,7 +352,7 @@ pub(crate) fn without_project(target: &CallTarget, error: McpError) -> McpError 
         return error;
     };
     let asked = match error.code {
-        ErrorCode::FileNotFound => match error.message.strip_prefix(FILE_NOT_FOUND) {
+        ErrorCode::FileNotFound => match &error.file {
             Some(file) => format!("'{file}' is no project's file"),
             None => error.message.clone(),
         },
@@ -365,7 +369,7 @@ pub(crate) fn without_project(target: &CallTarget, error: McpError) -> McpError 
             serve_a_project(reach)
         ),
     );
-    if names_path(reach) {
+    if reach.takes_path() {
         refused.argument = Some("path".to_string());
     }
     refused.entity_id = error.entity_id;
@@ -608,7 +612,7 @@ fn argument<T: crate::args::Arg>(
 fn project_at(path: &Path) -> Result<PathBuf, TargetError> {
     let canonical =
         std::fs::canonicalize(path).map_err(|_| TargetError::PathNotFound(path.to_path_buf()))?;
-    Ok(find_project_root(&canonical).unwrap_or(canonical))
+    Ok(project_root_of(&canonical))
 }
 
 /// `path` made absolute and canonical as far as it exists (a directory
@@ -694,7 +698,11 @@ mod tests {
         verify = "a no-project refusal names path only for an entry that takes one"
     )]
     fn no_project_names_path_only_where_the_entry_takes_one() {
-        for reach in [Reach::AnyProject, Reach::WritesAnyProject] {
+        for reach in [
+            Reach::AnyProject,
+            Reach::WritesAnyProject,
+            Reach::NewProject,
+        ] {
             let error = no_project(reach);
             assert_eq!(error.code, ErrorCode::PreconditionFailed);
             assert_eq!(error.argument.as_deref(), Some("path"), "{reach:?}");
@@ -702,7 +710,7 @@ mod tests {
             // The client can fix it: -32602 where there is no `isError`.
             assert_eq!(error.into_rpc_error().code, -32602);
         }
-        for reach in [Reach::Served, Reach::Unscoped, Reach::NewProject] {
+        for reach in [Reach::Served, Reach::Unscoped] {
             let error = no_project(reach);
             assert_eq!(error.code, ErrorCode::PreconditionFailed);
             assert_eq!(error.argument, None, "{reach:?}");
@@ -722,5 +730,32 @@ mod tests {
         let target = CallTarget::NoProject(Reach::AnyProject);
         let refused = without_project(&target, crate::tool::entity_not_found("alpha"));
         assert_eq!(refused.argument.as_deref(), Some("path"));
+    }
+    #[test]
+    fn without_project_names_the_file_from_the_refusal() {
+        let target = CallTarget::NoProject(Reach::Served);
+
+        // The file is what the refusal says it is about, not what its
+        // message happens to start with.
+        let mut refusal = crate::tool::file_not_found("spec/a.spec");
+        refusal.message = "the project holds no such file".to_string();
+        let refused = without_project(&target, refusal);
+        assert_eq!(refused.code, ErrorCode::PreconditionFailed);
+        assert!(
+            refused
+                .message
+                .contains("'spec/a.spec' is no project's file"),
+            "{}",
+            refused.message
+        );
+
+        // A refusal that names no file keeps its own message.
+        let unnamed = McpError::new(ErrorCode::FileNotFound, "gone for another reason");
+        let refused = without_project(&target, unnamed);
+        assert!(
+            refused.message.contains("gone for another reason"),
+            "{}",
+            refused.message
+        );
     }
 }

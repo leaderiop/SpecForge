@@ -332,7 +332,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         },
         output: Some(|| {
             with_files_written(
-                json!({ "type": "object", "properties": { "changed_files": { "type": "array" }, "total_checked": { "type": "integer" }, "all_clean": { "type": "boolean" }, "check_only": { "type": "boolean" }, "diagnostics": { "type": "array" }, "diffs": { "type": "array" } }, "required": ["changed_files", "total_checked", "all_clean", "check_only", "diagnostics"] }),
+                json!({ "type": "object", "properties": { "changed_files": { "type": "array" }, "total_checked": { "type": "integer" }, "ok": { "type": "boolean" }, "all_clean": { "type": "boolean" }, "check_only": { "type": "boolean" }, "diagnostics": { "type": "array" }, "diffs": { "type": "array" } }, "required": ["changed_files", "total_checked", "ok", "all_clean", "check_only", "diagnostics"] }),
             )
         }),
         target: TargetSpec::new(Reach::WritesAnyProject, Freshness::Fresh),
@@ -417,7 +417,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         },
         output: Some(|| {
             with_files_written(
-                json!({ "type": "object", "properties": { "from_version": { "type": "string" }, "to_version": { "type": "string" }, "migrated": { "type": "boolean" }, "dry_run": { "type": "boolean" }, "message": { "type": "string" }, "changes": { "type": "array" }, "files_migrated": { "type": "integer" }, "files_skipped": { "type": "integer" }, "files_failed": { "type": "integer" }, "results": { "type": "array" }, "diffs": { "type": "array" }, "rolled_back": { "type": "boolean" }, "post_migration_validated": { "type": "boolean" }, "post_migration_errors": { "type": "array" } }, "required": ["from_version", "to_version", "migrated", "dry_run"] }),
+                json!({ "type": "object", "properties": { "ok": { "type": "boolean" }, "from_version": { "type": "string" }, "to_version": { "type": "string" }, "migrated": { "type": "boolean" }, "dry_run": { "type": "boolean" }, "message": { "type": "string" }, "changes": { "type": "array" }, "files_migrated": { "type": "integer" }, "files_skipped": { "type": "integer" }, "files_failed": { "type": "integer" }, "results": { "type": "array" }, "diffs": { "type": "array" }, "rolled_back": { "type": "boolean" }, "post_migration_validated": { "type": "boolean" }, "post_migration_errors": { "type": "array" } }, "required": ["ok", "from_version", "to_version", "migrated", "dry_run"] }),
             )
         }),
         target: TargetSpec::new(Reach::WritesAnyProject, Freshness::Fresh),

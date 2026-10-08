@@ -11,7 +11,6 @@ use crate::args::{AgentPlan, Arguments};
 use crate::prompt::{PromptOutcome, Rendered};
 use crate::target::Call;
 use crate::tool::{ErrorCode, McpError, entity_not_found};
-use crate::tools::coverage::report_mcp_error;
 use crate::tools::trace::{analyze_plan, gap_json};
 
 /// `specforge://prompts/trace`'s arguments.
@@ -33,7 +32,7 @@ pub fn render(call: &Call<'_>, args: Args) -> PromptOutcome {
                 PlanError::NotAPlan(why) => {
                     McpError::new(ErrorCode::InvalidInput, why).with_argument("plan")
                 }
-                PlanError::Report(e) => report_mcp_error(&e),
+                PlanError::Report(e) => McpError::from(e),
             })?;
             (analysis.entries, analysis.gaps, "the plan".to_string())
         }
@@ -70,7 +69,7 @@ pub fn render(call: &Call<'_>, args: Args) -> PromptOutcome {
 
     // The affected entities that count toward coverage and are not proven
     // (the coverage view's one definition of unverified).
-    let coverage = view.coverage().map_err(|e| report_mcp_error(&e))?;
+    let coverage = view.coverage().map_err(McpError::from)?;
     let unverified: Vec<&String> = affected
         .iter()
         .filter(|id| coverage.is_unverified(id))

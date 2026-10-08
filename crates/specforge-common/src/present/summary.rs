@@ -1,26 +1,40 @@
-use specforge_common::{Diagnostic, Severity};
+//! The tally of a diagnostic list and its summary line.
+
+use crate::{Diagnostic, Severity};
+use serde::Serialize;
 use std::collections::BTreeMap;
 
-/// Produce a summary line like "2 errors, 1 warning, 1 info".
-/// When errors exist, the line is wrapped in red ANSI escape codes.
-pub fn diagnostic_summary(diagnostics: &[Diagnostic]) -> String {
-    summary_line(diagnostics, true)
+/// Error, warning and info counts of a diagnostic list: the one tally the
+/// summary line, the exit code, `check`, stats and watch all read.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize)]
+pub struct Counts {
+    pub errors: usize,
+    pub warnings: usize,
+    pub infos: usize,
+}
+
+impl Counts {
+    /// The counts of `diagnostics`, by severity.
+    pub fn of<'a>(diagnostics: impl IntoIterator<Item = &'a Diagnostic>) -> Self {
+        let mut counts = Counts::default();
+        for diagnostic in diagnostics {
+            match diagnostic.severity {
+                Severity::Error => counts.errors += 1,
+                Severity::Warning => counts.warnings += 1,
+                Severity::Info => counts.infos += 1,
+            }
+        }
+        counts
+    }
 }
 
 /// The summary line, wrapped in red when `color` is true and errors exist.
 fn summary_line(diagnostics: &[Diagnostic], color: bool) -> String {
-    let errors = diagnostics
-        .iter()
-        .filter(|d| d.severity == Severity::Error)
-        .count();
-    let warnings = diagnostics
-        .iter()
-        .filter(|d| d.severity == Severity::Warning)
-        .count();
-    let infos = diagnostics
-        .iter()
-        .filter(|d| d.severity == Severity::Info)
-        .count();
+    let Counts {
+        errors,
+        warnings,
+        infos,
+    } = Counts::of(diagnostics);
 
     let plural = |n: usize, word: &str| -> String {
         if n == 1 {
@@ -44,17 +58,19 @@ fn summary_line(diagnostics: &[Diagnostic], color: bool) -> String {
     }
 }
 
-/// Produce a detailed summary grouping diagnostics by code, showing top occurrences.
-/// Example:
+/// The summary of `diagnostics`, grouped by code, showing the top
+/// occurrences. Example:
 /// ```text
 /// 3 errors, 2 warnings, 0 infos
-///   E001 (2): Parse error
-///   E003 (1): Unresolved reference
-///   W001 (2): Missing verify statement
+///   E001 (2)
+///   E003 (1)
+///   W001 (2)
 /// ```
-/// The first line is red, as [`diagnostic_summary`]'s, only when `color` is
-/// true; otherwise the summary carries no ANSI escape.
-pub fn diagnostic_summary_detailed(diagnostics: &[Diagnostic], color: bool) -> String {
+/// The first line is red only when `color` is true and errors exist;
+/// otherwise the summary carries no ANSI escape. Up to five codes are
+/// listed by frequency, then `... and N more from M other codes` and the
+/// `specforge explain` hint. A clean list is the first line alone.
+pub fn diagnostic_summary(diagnostics: &[Diagnostic], color: bool) -> String {
     let summary_line = summary_line(diagnostics, color);
 
     if diagnostics.is_empty() {

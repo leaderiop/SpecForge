@@ -24,7 +24,7 @@ pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
     // A recorded report that cannot be read fails the call (ADR 0004 D2-e).
     let coverage = match &facts.coverage {
         Ok(coverage) => coverage,
-        Err(error) => return super::coverage::report_error_result(error),
+        Err(error) => return crate::tool::McpError::from(error.clone()).into(),
     };
     ToolOutcome::ok(result_json(&facts, coverage))
 }

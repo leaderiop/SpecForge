@@ -48,10 +48,10 @@ feature structural_validation "Structural Validation" {
     file references.
   """
   solution """
-    Core structural validation passes check the graph for: dangling
-    reference integrity (resolver bug detection), duplicate IDs (E002), orphan structural nodes
-    of any grammar-level kind — ref, spec — with zero incoming edges
-    (W012), and file-reference existence (E016). Domain-specific
+    Core structural validation checks the graph for: dangling
+    reference integrity (the linker's own debug assertion), duplicate
+    IDs (E002), unreferenced refs with zero incoming edges (W012), and
+    file-reference existence (E016). Domain-specific
     validation is driven by declarative patterns from extensions.
     Note: detect_duplicate_entity_ids runs at all_files_parsed time
     (before graph construction). The remaining structural validators

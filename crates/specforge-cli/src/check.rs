@@ -1,12 +1,12 @@
-use specforge_common::{Diagnostic, Severity};
+use specforge_common::{Diagnostic, Severity, diagnostic_summary, render_diagnostics};
 use specforge_ops::check::{CacheRecord, CheckOptions, check};
 use specforge_ops::view::ProjectView;
 use specforge_project::{CompiledProject, LintProfile};
-use specforge_validator::{diagnostic_summary_detailed, render_diagnostics_colored};
 use specforge_wasm::WasmRuntime;
 use std::path::Path;
 
 use crate::OutputFormat;
+use crate::outcome::Refusal;
 
 pub fn run(
     path: &Path,
@@ -44,10 +44,7 @@ fn run_in(
     let compiled = CompiledProject::compile(path, Some(runtime));
     let outcome = match check(&ProjectView::of(&compiled), compiled.diagnostics(), options) {
         Ok(outcome) => outcome,
-        Err(e) => {
-            eprintln!("error: {e}");
-            return 1;
-        }
+        Err(error) => return Refusal::of(format).report(&error.into()),
     };
     let shown: Vec<Diagnostic> = outcome.shown().into_iter().cloned().collect();
 
@@ -61,11 +58,11 @@ fn run_in(
             let color = crate::color::stderr();
             if !shown.is_empty() {
                 let sources = compiled.source_texts();
-                let rendered = render_diagnostics_colored(&shown, &sources, color);
+                let rendered = render_diagnostics(&shown, &sources, color);
                 eprint!("{}", rendered);
             }
             // The summary counts everything reported, as the verdict does.
-            let summary = diagnostic_summary_detailed(&outcome.reported, color);
+            let summary = diagnostic_summary(&outcome.reported, color);
             eprintln!("{}", with_filter_note(&summary, outcome.severity));
         }
     }

@@ -53,7 +53,7 @@ fn plan_gaps(view: &ProjectView, plan: &Value) -> ToolOutcome {
             "gaps": analysis.gaps,
         })),
         Err(PlanError::NotAPlan(why)) => ToolOutcome::invalid_input("plan", why),
-        Err(PlanError::Report(error)) => super::coverage::report_error_result(&error),
+        Err(PlanError::Report(error)) => crate::tool::McpError::from(error).into(),
     }
 }
 

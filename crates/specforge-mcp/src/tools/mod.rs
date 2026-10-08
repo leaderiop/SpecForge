@@ -481,9 +481,8 @@ fn command_adapter(
     args: &serde_json::Map<String, Value>,
 ) -> (ToolOutcome, Dispatched) {
     let context = specforge_ops::command::CommandContext {
-        format: specforge_ops::command::CommandFormat::Json,
-        today: chrono::Utc::now().format("%Y-%m-%d").to_string(),
         evidence,
+        ..specforge_ops::command::CommandContext::now(specforge_ops::command::CommandFormat::Json)
     };
     let started = std::time::Instant::now();
     let outcome =

@@ -7,9 +7,6 @@ use super::Origin;
 use crate::view::ProjectView;
 use serde_json::{Value, json};
 use specforge_common::{Diagnostic, ExtensionEntry as Entry};
-use specforge_registry::{
-    ProviderStatus, load_provider_configurations, register_provider_schemes_with_status,
-};
 use std::collections::BTreeSet;
 
 /// Whether an extension listed is part of the compiled project.
@@ -171,14 +168,8 @@ pub fn list(view: &ProjectView) -> ExtensionListing {
     }
 }
 
-/// One configured provider, as the scheme registry sees it.
-#[derive(Debug, Clone, PartialEq)]
-pub struct ProviderEntry {
-    pub scheme: String,
-    pub alias: String,
-    pub extension: String,
-    pub status: ProviderStatus,
-}
+/// One configured provider, as the environment registered it.
+pub use specforge_project::providers::Provider as ProviderEntry;
 
 /// The providers the view's config configures, in declaration order, with
 /// their status, and what loading and registering them reported.
@@ -214,29 +205,15 @@ impl ProviderListing {
     }
 }
 
-/// The providers the view's `specforge.json` configures, in declaration
-/// order (the first to declare a scheme wins it), each with its status in
-/// the scheme registry built from the loaded declarations, and the
-/// diagnostics loading and registering them produced (W118, E057).
+/// The providers the view's environment registered when the project was
+/// compiled, in declaration order (the first to declare a scheme wins it),
+/// each with its status, and the diagnostics reading and registering them
+/// produced (W118, E057). Never `specforge.json` again.
 pub fn providers(view: &ProjectView) -> ProviderListing {
-    let config = view.env().config.raw.clone().unwrap_or(Value::Null);
-    let (configs, mut diagnostics) = load_provider_configurations(&config);
-    let (_, statuses, registration) =
-        register_provider_schemes_with_status(&configs, view.registries().declarations());
-    diagnostics.extend(registration);
-    let providers = configs
-        .into_iter()
-        .zip(statuses)
-        .map(|(config, status)| ProviderEntry {
-            scheme: config.scheme,
-            alias: config.alias,
-            extension: config.extension,
-            status,
-        })
-        .collect();
+    let registered = &view.env().providers;
     ProviderListing {
-        providers,
-        diagnostics,
+        providers: registered.iter().cloned().collect(),
+        diagnostics: registered.diagnostics().to_vec(),
     }
 }
 
@@ -372,12 +349,12 @@ mod tests {
         behavior = "list_configured_providers",
         verify = "list shows all configured providers"
     )]
-    fn the_providers_listing_reads_the_config_from_the_view() {
+    fn the_providers_listing_reads_the_registration_from_the_view() {
         let fixture = Fixture::new().config_json(json!({
             "extensions": [],
             "providers": [{"scheme": "gh", "alias": "work", "extension": "@acme/issues"}],
         }));
-        // What is on disk says something else: the view's config is read.
+        // What is on disk says something else: the view's registration is read.
         std::fs::write(fixture.dir.path().join("specforge.json"), "{}").unwrap();
 
         let listing = providers(&fixture.view());

@@ -1,6 +1,6 @@
 use crate::delta::{self, GraphDelta};
 use crate::{Graph, Node};
-use specforge_common::{Diagnostic, SourceSpan, Sym, codes};
+use specforge_common::{Diagnostic, SourceSpan, Sym, codes, structural};
 use specforge_parser::{Entity, FieldValue, SpecFile};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
@@ -346,7 +346,7 @@ fn declarations<'a>(
     if !config.known_provider_schemes.is_empty() {
         for spec_file in files {
             for entity in &spec_file.entities {
-                if entity.kind.raw == "ref"
+                if entity.kind.raw == structural::REF
                     && let Some(FieldValue::String(scheme)) = entity.fields.get("scheme")
                     && !config.known_provider_schemes.contains(scheme)
                 {
@@ -400,7 +400,7 @@ fn node_from_entity(entity: &Entity) -> Node {
 /// grammar still parses them so they can be reported (W143); they never
 /// become graph nodes.
 fn is_define_block(entity: &Entity) -> bool {
-    entity.kind.raw == "define"
+    entity.kind.raw == structural::DEFINE
 }
 
 /// W143: a define block, which declares nothing.
@@ -477,6 +477,11 @@ fn link_and_diagnose(graph: &mut Graph, config: &GraphConfig) -> Vec<Diagnostic>
     // Derived reference fields, after cycle detection: a recursive type is
     // not a reference cycle.
     graph.link_derived_references(&config.derived_references, &config.single_reference_fields);
+
+    // The linker's postcondition (E060, retired): every reference to an
+    // existing entity has its edge.
+    #[cfg(debug_assertions)]
+    graph.assert_linked();
 
     ref_diags.extend(diagnostics);
     ref_diags

@@ -72,7 +72,7 @@ deliverable specforge_mcp_deliverable "specforge-mcp" {
 
 deliverable specforge_core "specforge/core" {
   artifact_type library
-  description   "Core compiler libraries: parser, resolver, graph, validator, emitter, watch."
+  description   "Core compiler libraries: parser, resolver, graph, emitter, watch."
   journeys      [
     validate_spec_files,
     watch_for_changes,
@@ -85,7 +85,6 @@ deliverable specforge_core "specforge/core" {
     specforge_parser,
     specforge_resolver,
     specforge_graph,
-    specforge_validator,
     specforge_emitter,
     specforge_watch,
     specforge_formatter,

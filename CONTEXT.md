@@ -60,9 +60,12 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   registry stores it (ADR 0012).
 - **Registry build**: the pure result of turning extension declarations into kind, field and
   edge registries, the rule set, pass order and derived graph inputs, and the diagnostics of those
-  declarations (`specforge_registry::build_registries`). Its outcomes are the `registry_build_*`
-  behaviors. Tests and every caller reach it only through `build_registries`; its steps are
-  private.
+  declarations (`specforge_registry::build_registries`). It also runs every check over a built
+  graph's entity records, in one order behind one gate: the structural checks, then the rule set
+  (`RegistryBuild::check`), and says which files those checks read (`RegistryBuild::files`). Its
+  outcomes are the `registry_build_*` behaviors and `check_entities_in_one_order`. Tests and every
+  caller reach it only through `build_registries` and that build's methods; its steps and its
+  checks are private (ADR 0031).
 - **Rule set**: the extensions' declared validation rules plus the host's E006 rules for required
   fields, each turned once per registry build into a typed rule that carries only what its check
   reads, resolved against the registries (a compiled regex, an edge rule's peer kind, the fields an
@@ -70,6 +73,16 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   0019), cycles included, and answers which rule applies to a kind, which the snapshot's standing
   reads (`specforge_registry::rules::Rules`, ADR 0020). A declared rule that cannot work is W112; a
   property its check does not read is W147.
+- **Structural checks**: the host's own checks over the entity snapshot's records, run by the
+  registry build before the rule set, in this order: W012 (a `ref` nothing references), E016 (a
+  path a `file_reference` field of the entity's kind names that does not exist under the spec
+  root), then, unless the project is structural-only, E024, E013, E014, W020, E022 and E061
+  (`specforge_registry`'s `checks`, ADR 0031). None reads a graph node. Whether every reference
+  became an edge is the linker's own debug assertion, not a check.
+- **Structural-only**: no loaded extension declares an entity kind
+  (`RegistryBuild::structural_only`). The checks that read kinds, fields and identifiers do not
+  run; with no extension loaded I002 says so, with extensions loaded W151 names the entities left
+  unchecked.
 - **Custom verdict**: an extension's answer, through its `wasm_function`, on one entity for a
   `check: "custom"` rule: pass, or fail naming a field and value. The rule set asks for it through
   the `CustomVerdicts` port; the project's adapter calls the extension (`ExtensionCalls::validate`),
@@ -77,7 +90,9 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Entity snapshot**: every entity of one built graph as every check after the build reads it, taken
   once per compile and per session check (`specforge_project::snapshot::EntitySnapshot`, ADR 0019).
   Each entity's record holds:
-  - what it writes, as field text;
+  - what it writes, as field text, with each value's shape (quoted, bare, a number, a list of
+    strings or references, …) and span beside it for the host's own checks
+    (`specforge_registry::entity::ValueShape`);
   - its references, obligations and methods;
   - its edge counts by peer kind;
   - what exempts it, if anything (a union body, an exempting flag, a kind that accepts no `verify`).
@@ -142,6 +157,11 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   statement, standing (the snapshot's own, borrowed), obligations, references in both directions,
   coverage, and the reported diagnostics about it (`specforge_ops::inspect::EntityFacts`). MCP
   `specforge.inspect` renders it as JSON and the LSP hover as markdown, so the two cannot disagree.
+- **Configured providers**: the `providers` `specforge.json` lists (scheme, alias, extension,
+  settings), registered once per environment against the loaded declarations, each with its
+  status (registered, extension not loaded, not a provider, scheme taken) and the W118/E057 the
+  registration reported (`specforge_project::providers::Providers`). The compile's I005 and the
+  providers listing read this one registration.
 - **Management operation**: an operation about a project's setup and tooling rather than its
   graph: the extensions and providers listings, doctor, remove, collect, inference progress and
   gaps. Like a read view it takes the project view and a request and returns a typed outcome; unlike
@@ -181,8 +201,11 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Operation**: one user-level command (init, add, remove, …) as a typed request and outcome,
   independent of surface. An operation that writes names the files it changed on disk in its
   outcome (`specforge_ops::Writes`), recorded where it wrote. It fails with an `OpError` whose kind
-  (`OpErrorKind`: invalid input, not found, conflict, …) is decided where it is raised; its code is
-  what the CLI prints. The CLI and MCP are adapters over it (`specforge-ops`).
+  (`OpErrorKind`: invalid input, not found, conflict, schema mismatch, compilation failed, …) is
+  decided in ops where it is raised — a recorded test report that cannot be used included
+  (`specforge_ops::report`) — and never by a surface; its code is what the CLI prints. The CLI and MCP
+  are adapters over it (`specforge-ops`); the CLI ends every core command through one renderer
+  (`specforge_cli::outcome`: the refusal, the exit code) (ADR 0029).
 - **Mutation outcome**: what one MCP mutation call wrote: the files its operation changed, the
   entities it changed and the domain event it produces (`specforge_mcp::mutation::Written`), or
   nothing for a preview. The request pipeline's tools adapter alone turns it into the call target's
@@ -207,6 +230,13 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   the severity filter (what is shown, never the verdict) and the opt-in build-cache record
   (`specforge_ops::check`). `specforge check` and MCP `specforge.validate` are its adapters; watch and
   the LSP report a compile's diagnostics without a policy (ADR 0018).
+- **Run verdict**: whether an operation that judges the project passed, computed by the operation
+  (`ok()`): check (no error reported), analyze (no error finding), format (every target read and
+  written, nothing left unformatted, and under `--check` nothing that would change), migrate (no file
+  failed, nothing rolled back). The CLI exits 0 or 1 by it; MCP returns it as `ok`
+  (`specforge.validate`: `_meta["specforge/check"].ok`) and keeps `isError` for refusals (ADR 0004
+  D4-a). A refusal (`OpError`) is not a verdict; a measuring command's refusal exits 2. Not to be
+  confused with an entity's coverage **Verdict** (ADR 0029).
 - **Diagnostic policy**: lint profiles (a closed set: `inferred`, `pedantic`) and strict promotion
   (`specforge_project::DiagnosticPolicy`). It is the only thing that changes a diagnostic's severity
   after the diagnostic is built.

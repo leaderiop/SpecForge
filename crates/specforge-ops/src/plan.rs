@@ -4,7 +4,7 @@
 use serde::Serialize;
 use serde_json::Value;
 use specforge_common::codes;
-use specforge_project::coverage::{ProjectCoverage, ReportError};
+use specforge_project::coverage::ProjectCoverage;
 use std::collections::{HashMap, HashSet};
 
 use specforge_emitter::SCHEMA_VERSION;
@@ -33,8 +33,9 @@ pub enum PlanError {
     /// The value is not an `AgentPlan`: why.
     NotAPlan(String),
     /// The recorded test report, which says which entities owe
-    /// obligations, is there but unusable (E045).
-    Report(ReportError),
+    /// obligations, is there but unusable: E045, classified by the
+    /// operation that read it.
+    Report(OpError),
 }
 
 impl std::fmt::Display for PlanError {
@@ -48,14 +49,15 @@ impl std::fmt::Display for PlanError {
 
 impl std::error::Error for PlanError {}
 
-/// `invalid_input` for a value that is no plan; E045 for the report.
+/// `invalid_input` for a value that is no plan; the report's own failure
+/// for an unusable report.
 impl From<PlanError> for OpError {
     fn from(error: PlanError) -> Self {
         match error {
             PlanError::NotAPlan(why) => {
                 OpError::new(OpErrorKind::InvalidInput, "invalid_input", why)
             }
-            PlanError::Report(error) => error.diagnostic().into(),
+            PlanError::Report(error) => error,
         }
     }
 }

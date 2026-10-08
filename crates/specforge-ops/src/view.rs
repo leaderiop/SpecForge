@@ -16,9 +16,7 @@ use std::sync::Arc;
 use specforge_common::Diagnostic;
 use specforge_emitter::{GraphProtocolSchema, generate_schema};
 use specforge_graph::Graph;
-use specforge_project::coverage::{
-    ProjectCoverage, Recorded, RecordedCoverage, ReportError, TestReport,
-};
+use specforge_project::coverage::{ProjectCoverage, Recorded, RecordedCoverage, TestReport};
 use specforge_project::snapshot::EntitySnapshot;
 use specforge_project::{CompiledProject, Environment, ProjectSession};
 use specforge_registry::RegistryBuild;
@@ -204,21 +202,23 @@ impl<'a> ProjectView<'a> {
     /// `<root>/specforge-report.json`, what `specforge collect` last wrote:
     /// `Ok(None)` without a root or a file; an error (E045) when it is there
     /// but unusable.
-    pub fn test_report(&self) -> Result<Option<Arc<TestReport>>, ReportError> {
-        self.recorded.report(self.root)
+    pub fn test_report(&self) -> Result<Option<Arc<TestReport>>, OpError> {
+        self.recorded
+            .report(self.root)
+            .map_err(crate::report::unusable)
     }
 
     /// The coverage rule over the graph's entity snapshot and the recorded
     /// report, computed once per compile and report content.
-    pub fn coverage(&self) -> Result<Arc<ProjectCoverage>, ReportError> {
+    pub fn coverage(&self) -> Result<Arc<ProjectCoverage>, OpError> {
         self.recorded().map(|recorded| recorded.coverage)
     }
 
     /// The recorded report ([`Self::test_report`]) and the coverage computed
     /// from it ([`Self::coverage`]), read together: one read of the report
     /// file for a view that needs both.
-    pub fn recorded(&self) -> Result<Recorded, ReportError> {
-        self.recorded.at(self.root)
+    pub fn recorded(&self) -> Result<Recorded, OpError> {
+        self.recorded.at(self.root).map_err(crate::report::unusable)
     }
 
     /// The graph's entity snapshot (ADR 0019): every entity with what it
@@ -308,7 +308,8 @@ pub(crate) mod testing {
 
         /// The compile read `config` as `specforge.json` (not written to
         /// disk): its `extensions` entries, each enabling what its text
-        /// names ([`EnabledExtension::of`] with no runtime).
+        /// names ([`EnabledExtension::of`] with no runtime), and its
+        /// `providers`, registered against the loaded declarations.
         pub fn config_json(mut self, config: serde_json::Value) -> Self {
             let entries: Vec<String> = config["extensions"]
                 .as_array()
@@ -324,6 +325,12 @@ pub(crate) mod testing {
                 .map(|e| specforge_project::EnabledExtension::of(e, None))
                 .collect();
             self.env.config.extensions = entries;
+            // ... and registered its `providers` against the loaded
+            // declarations.
+            self.env.providers = specforge_project::providers::Providers::register(
+                Some(&config),
+                self.env.registries.declarations(),
+            );
             self.env.config.raw = Some(config);
             self
         }
@@ -488,7 +495,8 @@ mod tests {
         let recorded = RecordedCoverage::over(&graph, &env);
         let at_root = ProjectView::new(&graph, &env, Some(project), &recorded);
         let error = at_root.test_report().unwrap_err();
-        assert_eq!(error.diagnostic().code, "E045");
+        assert_eq!(error.code, "E045");
+        assert_eq!(error.kind, OpErrorKind::SchemaMismatch);
         assert!(at_root.coverage().is_err());
 
         let recorded = RecordedCoverage::over(&graph, &env);

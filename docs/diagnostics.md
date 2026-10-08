@@ -503,11 +503,13 @@ E045: Invalid test report
 started, it finished without writing a report at the collector's declared
 location (often because the tests didn't build), `--no-run` found no existing
 report, or a report file couldn't be read. Check the runner's output above the
-error and the report path. `specforge analyze` and the MCP coverage, inspect,
-query and analyze tools report the same code when `specforge-report.json` (or
-`--test-results`) exists but can't be read or parsed, rather than scoring the
-project as if no test ran: run `specforge collect` again to rewrite it, or fix
-or remove the file.
+error and the report path. `specforge stats`, `specforge analyze` and every MCP
+tool that reads coverage report the same code when `specforge-report.json`
+exists but can't be read or parsed, or when a `--test-results` (`test_results`)
+file can't be read or doesn't exist (over MCP: `schema_mismatch`,
+`permission_denied`, `file_not_found` or `internal_error`), rather than scoring
+the project as if no test ran: run `specforge collect` again to rewrite it, or
+fix or remove the file.
 
 Owner: core
 Level: error
@@ -650,20 +652,6 @@ asked at an interactive prompt and remembered per project, extension and
 command, in your user-level `~/.specforge/collector-consent.json`, never in the
 project. Without a terminal (CI, `--format json`) nothing is asked: pass `--yes`
 to run the command, or `--no-run` to parse a report the runner already wrote.
-
-Owner: core
-Level: error
-```
-
-## E060
-
-```
-E060: Resolved reference without a graph edge
-
-A reference list names an entity that exists, but the resolver never turned the
-reference into a graph edge. That is a SpecForge bug, not a mistake in your
-spec: queries, traces and coverage would miss the relationship. Please report it
-with the spec that triggers it.
 
 Owner: core
 Level: error
@@ -3068,6 +3056,23 @@ Owner: core
 Level: warning
 ```
 
+## W151
+
+```
+W151: Entity kinds left unchecked
+
+Extensions are loaded, but none of them declares an entity kind, so the
+entities' kinds, fields and identifiers are not checked: no E024 for an unknown
+kind, no W020, E013, E014, E022 or E061. The warning names how many entities
+that leaves unchecked and their kinds. Enable the extension that declares those
+kinds (the suggestion names it when it is a builtin), or remove the entities. A
+project with no extension at all is structural-only on purpose and gets I002
+instead.
+
+Owner: core
+Level: warning
+```
+
 ## W153
 
 ```
@@ -3120,6 +3125,7 @@ These codes are no longer emitted, and are never reused for another meaning.
 | E038 | (nothing) |
 | E047 | [W139](#w139) |
 | E053 | (nothing) |
+| E060 | (nothing) |
 | I006 | (nothing) |
 | W024 | (nothing) |
 | W025 | (nothing) |

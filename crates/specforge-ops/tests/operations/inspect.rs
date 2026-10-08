@@ -123,7 +123,7 @@ fn an_unreadable_report_is_the_coverage_error_not_the_inspects() {
         let error = facts
             .coverage
             .expect_err("the coverage is the report's error");
-        assert_eq!(error.diagnostic().code, "E045", "{id}");
+        assert_eq!(error.code, "E045", "{id}");
         assert_eq!(facts.standing, &readable, "{id}");
     }
 }

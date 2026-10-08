@@ -359,7 +359,8 @@ fn a_rule_reading_verify_statements_on_a_kind_without_verify_is_w112() {
         on("W010", "no_verify_statements", "memo", Some("gherkin")),
         // A kind that accepts verify statements.
         on("W011", "no_verify_statements", "note", None),
-        // A kind no loaded extension declares: inert, not W112.
+        // A kind no loaded extension declares: not registered (inert), not
+        // W112.
         on("W012", "no_verify_statements", "ghost", None),
     ]);
 
@@ -375,7 +376,7 @@ fn a_rule_reading_verify_statements_on_a_kind_without_verify_is_w112() {
             "extension '@test': rule 'W009': check 'verify_kind_allowlist' reads verify statements, which kind 'memo' does not accept — the rule can never fire and was not registered",
         ]
     );
-    assert_eq!(built.codes(), ["W010", "W011", "W012"]);
+    assert_eq!(built.codes(), ["W010", "W011"]);
 }
 
 /// (check, edge_type, constraint, wasm_function, the properties W147 names)
@@ -493,6 +494,9 @@ fn a_property_its_check_does_not_read_is_w147() {
 
         // `@test` declares the edge type, so an edge rule resolves.
         let mut declaration = crate::support::declare("@test", |c| {
+            c.kind("Behavior", |k| {
+                k.keyword("behavior").supports_verify(true);
+            });
             c.edge("enforces", |e| {
                 e.description("e");
             });

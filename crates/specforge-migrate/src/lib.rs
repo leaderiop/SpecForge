@@ -1,6 +1,6 @@
 use serde::Serialize;
 use sha2::{Digest, Sha256};
-use specforge_common::{Diagnostic, Severity, codes, find_project_root, load_project_config};
+use specforge_common::{Diagnostic, Severity, codes, load_project_config, project_root_of};
 use specforge_emitter::schema::{GraphProtocolSchema, SchemaMigration, diff_schemas};
 use specforge_formatter::unified_diff;
 use std::fmt;
@@ -673,7 +673,7 @@ pub fn run_rollback(path: &Path) -> RollbackSummary {
 /// files a compile reads, under `spec_root` without what `exclude` leaves
 /// out (ADR 0021 D3).
 fn project_sources(path: &Path) -> Vec<PathBuf> {
-    let project_root = find_project_root(path).unwrap_or_else(|| path.to_path_buf());
+    let project_root = project_root_of(path);
     load_project_config(&project_root).spec_files(&project_root)
 }
 

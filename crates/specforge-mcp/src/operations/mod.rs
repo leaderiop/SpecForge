@@ -13,7 +13,7 @@
 use serde_json::{Value, json};
 use std::path::{Path, PathBuf};
 
-use specforge_common::{codes, find_project_root};
+use specforge_common::{codes, project_root_of};
 
 use crate::args::{Arguments, NoArgs};
 use crate::mutation::{Mutated, MutationEvent, MutationHandled, Written};
@@ -56,23 +56,19 @@ impl FormatArgs {
 }
 
 pub(crate) fn format_op(call: &mut Call<'_>, args: FormatArgs) -> MutationHandled {
-    use specforge_ops::format::{self, Mode, Request};
+    use specforge_ops::format::{self, Request};
 
     let diff = args.diff;
     // The one reading of check, diff and write: a run that does not write
     // is a preview.
     let mode = args.mode();
-    let preview = mode != Mode::Write;
+    let preview = !mode.writes();
 
     // The project the call formats: the served one, or the one `path`
-    // names; its config decides what is formatted.
-    let root = call.project()?.root.to_path_buf();
-    let Some(project_root) = find_project_root(&root) else {
-        return Ok(Mutated::refused_unless_preview(
-            preview,
-            ToolOutcome::no_project(format!("no specforge project found at {}", root.display())),
-        ));
-    };
+    // names (a directory that is no project is its own root, formatted with
+    // the defaults, as `specforge format` formats it); its config decides
+    // what is formatted.
+    let project_root = project_root_of(call.project()?.root);
 
     // The run `specforge format` makes. Relative paths name files under
     // the project root.
@@ -88,8 +84,9 @@ pub(crate) fn format_op(call: &mut Call<'_>, args: FormatArgs) -> MutationHandle
     let mut result = json!({
         "changed_files": changed_files,
         "total_checked": outcome.checked,
+        "ok": outcome.ok(),
         "all_clean": outcome.clean(),
-        "check_only": mode == Mode::Check,
+        "check_only": !mode.writes(),
         "diagnostics": specforge_common::diagnostics_json(&outcome.diagnostics),
     });
     if diff {
@@ -496,12 +493,6 @@ pub(crate) fn migrate_op(call: &mut Call<'_>, args: MigrateArgs) -> MutationHand
         Err(error) => return Ok(Mutated::refused_after(dry_run, error)),
     };
 
-    if !path.join("specforge.json").is_file() {
-        return Ok(Mutated::refused_unless_preview(
-            dry_run,
-            ToolOutcome::no_project("no specforge.json found in the project root"),
-        ));
-    }
     let runtime = project.runtime;
     // The migration `specforge migrate` runs, hooks and rollback included.
     let request = specforge_ops::migrate::Request {
@@ -527,6 +518,7 @@ pub(crate) fn migrate_op(call: &mut Call<'_>, args: MigrateArgs) -> MutationHand
             "dry_run": dry_run,
             "changes": [],
             "message": "project is already at the latest format version",
+            "ok": outcome.ok(),
         });
         return Ok(migration(ok(current), outcome.writes));
     }
@@ -537,6 +529,7 @@ pub(crate) fn migrate_op(call: &mut Call<'_>, args: MigrateArgs) -> MutationHand
         .map(|d| json!({"code": d.code, "message": d.message}))
         .collect();
     let result = json!({
+        "ok": outcome.ok(),
         "from_version": from,
         "to_version": to,
         "migrated": outcome.migrated(),
@@ -559,18 +552,9 @@ pub(crate) fn migrate_op(call: &mut Call<'_>, args: MigrateArgs) -> MutationHand
     // A failed run's report rides in `data`, and what it left written (its
     // backups after a rollback, the files migrated before a failure) is
     // reported.
-    let reply = if outcome.failed() {
-        let (code, message) = if outcome.post_errors().next().is_some() {
-            (
-                ErrorCode::CompilationFailed,
-                "the migrated project does not compile",
-            )
-        } else {
-            (ErrorCode::InternalError, "the migration failed")
-        };
-        McpError::new(code, message).with_data(result).into()
-    } else {
-        ok(result)
+    let reply = match outcome.failure() {
+        Some(failure) => McpError::from(failure).with_data(result).into(),
+        None => ok(result),
     };
     Ok(migration(reply, outcome.writes))
 }

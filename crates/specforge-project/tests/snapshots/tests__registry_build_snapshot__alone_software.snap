@@ -912,19 +912,6 @@ expression: "digest(&load(&runtime, &[name]))"
     },
     {
       "check": "custom",
-      "code": "E010",
-      "constraint": null,
-      "edge_peer_kind": null,
-      "edge_type": null,
-      "field": null,
-      "message_template": "milestone '{id}' behaviors range is invalid: {reason}",
-      "owner": "@specforge/software",
-      "severity": "Error",
-      "target_kind": "milestone",
-      "wasm_function": "validate__milestone_behavior_ranges"
-    },
-    {
-      "check": "custom",
       "code": "E051",
       "constraint": null,
       "edge_peer_kind": null,
@@ -999,22 +986,6 @@ expression: "digest(&load(&runtime, &[name]))"
       "owner": "@specforge/software",
       "severity": "Warning",
       "target_kind": "event",
-      "wasm_function": null
-    },
-    {
-      "check": "no_incoming_edges",
-      "code": "W008",
-      "constraint": null,
-      "edge_fields": [
-        "features"
-      ],
-      "edge_peer_kind": "behavior",
-      "edge_type": "BehaviorImplementsFeature",
-      "field": null,
-      "message_template": "feature '{id}' is not implemented by any behavior",
-      "owner": "@specforge/software",
-      "severity": "Warning",
-      "target_kind": "feature",
       "wasm_function": null
     },
     {

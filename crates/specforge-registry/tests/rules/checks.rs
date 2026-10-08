@@ -691,12 +691,30 @@ fn a_rule_for_an_unloaded_kind_reports_nothing() {
     let orphans = [
         entity("b1", "behavior", 0, 0),
         entity("b2", "behavior", 0, 0),
+        // The rule's own target, written though nobody declares it.
+        entity("g1", "ghost", 0, 0),
     ];
     assert!(built.rules.check(&over(&orphans), &NoVerdicts).is_empty());
 
     // The same rule on a loaded kind does fire: it is inert, not broken.
     let built = one(rule("W100", "no_incoming_edges"));
     assert_eq!(check(&built, &orphans).len(), 2);
+}
+
+/// The rule for a kind nobody declares is not registered at all (ADR 0020
+/// D5), whether the entities of that keyword are there or not.
+#[test]
+fn a_rule_for_an_unloaded_kind_is_not_registered() {
+    let mut ghost = rule("W100", "no_incoming_edges");
+    ghost.target_kind = Some("ghost".to_string());
+    let built = rules_of(vec![crate::support::software(), declaring(vec![ghost])]);
+    assert!(built.rules.is_empty(), "{:?}", built.rules.len());
+
+    // A structural target is always there: its rule is registered.
+    let mut refs = rule("W101", "no_incoming_edges");
+    refs.target_kind = Some("ref".to_string());
+    let built = rules_of(vec![crate::support::software(), declaring(vec![refs])]);
+    assert_eq!(built.rules.len(), 1);
 }
 
 #[spec(
@@ -723,6 +741,9 @@ fn a_rule_whose_edge_type_no_loaded_extension_declares_reports_nothing() {
 #[test]
 fn an_sdk_declared_rule_runs_as_declared() {
     let declaration = declare("@test/sdk", |c| {
+        c.kind("Behavior", |k| {
+            k.keyword("behavior").testable(true).supports_verify(true);
+        });
         c.rule("W300", |r| {
             r.check(CheckKind::MissingFieldWhenFlagSet)
                 .severity(ValidationSeverity::Warning)
