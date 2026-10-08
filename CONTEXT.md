@@ -25,7 +25,9 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   one (`specforge_project::ProjectSession`; MCP's served one is always opened from disk, ADR 0025);
   watch and the LSP feed it watcher events and follow every update that changes its inputs
   (`Update::inputs_changed`), MCP asks it to be fresh before every request that reads the project
-  (ADR 0014, ADR 0030).
+  (ADR 0014, ADR 0030). The LSP also feeds it its open buffers, each batch of edits as one update
+  (`SourceChange::Buffers`), and a closed document's file is read from disk again
+  (`specforge_lsp::changes`, ADR 0023).
 - **Session inputs**: everything a project session depends on besides its sources' text: where its
   sources are discovered (the spec root and `exclude`), its **environment inputs**
   (`specforge.json`, `specforge.lock`, the extension modules it loaded) and its **check inputs**
@@ -58,9 +60,12 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   registry stores it (ADR 0012).
 - **Registry build**: the pure result of turning extension declarations into kind, field and
   edge registries, the rule set, pass order and derived graph inputs, and the diagnostics of those
-  declarations (`specforge_registry::build_registries`). Its outcomes are the `registry_build_*`
-  behaviors. Tests and every caller reach it only through `build_registries`; its steps are
-  private.
+  declarations (`specforge_registry::build_registries`). It also runs every check over a built
+  graph's entity records, in one order behind one gate: the structural checks, then the rule set
+  (`RegistryBuild::check`), and says which files those checks read (`RegistryBuild::files`). Its
+  outcomes are the `registry_build_*` behaviors and `check_entities_in_one_order`. Tests and every
+  caller reach it only through `build_registries` and that build's methods; its steps and its
+  checks are private (ADR 0031).
 - **Rule set**: the extensions' declared validation rules plus the host's E006 rules for required
   fields, each turned once per registry build into a typed rule that carries only what its check
   reads, resolved against the registries (a compiled regex, an edge rule's peer kind, the fields an
@@ -68,6 +73,16 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   0019), cycles included, and answers which rule applies to a kind, which the snapshot's standing
   reads (`specforge_registry::rules::Rules`, ADR 0020). A declared rule that cannot work is W112; a
   property its check does not read is W147.
+- **Structural checks**: the host's own checks over the entity snapshot's records, run by the
+  registry build before the rule set, in this order: W012 (a `ref` nothing references), E016 (a
+  path a `file_reference` field of the entity's kind names that does not exist under the spec
+  root), then, unless the project is structural-only, E024, E013, E014, W020, E022 and E061
+  (`specforge_registry`'s `checks`, ADR 0031). None reads a graph node. Whether every reference
+  became an edge is the linker's own debug assertion, not a check.
+- **Structural-only**: no loaded extension declares an entity kind
+  (`RegistryBuild::structural_only`). The checks that read kinds, fields and identifiers do not
+  run; with no extension loaded I002 says so, with extensions loaded W151 names the entities left
+  unchecked.
 - **Custom verdict**: an extension's answer, through its `wasm_function`, on one entity for a
   `check: "custom"` rule: pass, or fail naming a field and value. The rule set asks for it through
   the `CustomVerdicts` port; the project's adapter calls the extension (`ExtensionCalls::validate`),
@@ -75,7 +90,9 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Entity snapshot**: every entity of one built graph as every check after the build reads it, taken
   once per compile and per session check (`specforge_project::snapshot::EntitySnapshot`, ADR 0019).
   Each entity's record holds:
-  - what it writes, as field text;
+  - what it writes, as field text, with each value's shape (quoted, bare, a number, a list of
+    strings or references, …) and span beside it for the host's own checks
+    (`specforge_registry::entity::ValueShape`);
   - its references, obligations and methods;
   - its edge counts by peer kind;
   - what exempts it, if anything (a union body, an exempting flag, a kind that accepts no `verify`).
@@ -146,6 +163,11 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   argument that needs a kind's declaration (a schema entry, an inference guide) knows only the
   declared ones and refuses others with `unknown_kind`. Names are exact; both name the closest kind, a
   kind equal but for case first (`specforge_ops::view::KnownKinds`, `ProjectView::kinds`).
+- **Configured providers**: the `providers` `specforge.json` lists (scheme, alias, extension,
+  settings), registered once per environment against the loaded declarations, each with its
+  status (registered, extension not loaded, not a provider, scheme taken) and the W118/E057 the
+  registration reported (`specforge_project::providers::Providers`). The compile's I005 and the
+  providers listing read this one registration.
 - **Management operation**: an operation about a project's setup and tooling rather than its
   graph: the extensions and providers listings, doctor, remove, collect, inference progress and
   gaps. Like a read view it takes the project view and a request and returns a typed outcome; unlike
@@ -335,6 +357,10 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   registry does not type as a non-reference, a `use` binding's imported name) that names an entity;
   hover, definition, references and rename all ask the cursor, completion asks it what completes
   there, and semantic tokens mark the same reference positions (`specforge_lsp::document`, ADR 0023).
+  While the document is not the text the project was compiled from, the cursor never asks navigation
+  about its position (a token of the compiled text): it names what its own word names, and
+  prepareRename and rename wait for the compile. Every request's answer is decided synchronously over
+  the LSP state (`specforge_lsp::answers`); the backend only carries requests.
 - **Proof role**: what a field's value is to the prove pass, declared by its extension
   (`proof_role`): a **bound** the solver assumes (bounds must be consistent, E046) or a **claim**
   that must follow from the bounds (W139 when not; an entailed claim is a proved claim). A field

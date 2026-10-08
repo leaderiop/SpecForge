@@ -11,6 +11,9 @@ use specforge_registry::FieldRegistry;
 use std::collections::BTreeMap;
 use tower_lsp::lsp_types::Position;
 
+/// The rule between the sections of a hover.
+pub const SECTION: &str = "\n\n---\n\n";
+
 /// The published diagnostics whose range (in the document `index`
 /// indexes) holds `position`, in published order.
 pub fn diagnostics_at<'d>(
@@ -62,7 +65,7 @@ pub fn diagnostics(shown: &[&Diagnostic]) -> Option<String> {
             },
         )
         .collect();
-    (!sections.is_empty()).then(|| sections.join("\n\n---\n\n"))
+    (!sections.is_empty()).then(|| sections.join(SECTION))
 }
 
 /// Markdown for an entity's facts:
@@ -195,7 +198,7 @@ pub fn entity(facts: &EntityFacts, shown: &[&Diagnostic], rebuilding: bool) -> S
         ));
     }
 
-    sections.join("\n\n---\n\n")
+    sections.join(SECTION)
 }
 
 /// Whether `value` is the headline statement: the very string the read

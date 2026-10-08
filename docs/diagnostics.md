@@ -657,20 +657,6 @@ Owner: core
 Level: error
 ```
 
-## E060
-
-```
-E060: Resolved reference without a graph edge
-
-A reference list names an entity that exists, but the resolver never turned the
-reference into a graph edge. That is a SpecForge bug, not a mistake in your
-spec: queries, traces and coverage would miss the relationship. Please report it
-with the spec that triggers it.
-
-Owner: core
-Level: error
-```
-
 ## E061
 
 ```
@@ -3073,6 +3059,23 @@ Owner: core
 Level: warning
 ```
 
+## W151
+
+```
+W151: Entity kinds left unchecked
+
+Extensions are loaded, but none of them declares an entity kind, so the
+entities' kinds, fields and identifiers are not checked: no E024 for an unknown
+kind, no W020, E013, E014, E022 or E061. The warning names how many entities
+that leaves unchecked and their kinds. Enable the extension that declares those
+kinds (the suggestion names it when it is a builtin), or remove the entities. A
+project with no extension at all is structural-only on purpose and gets I002
+instead.
+
+Owner: core
+Level: warning
+```
+
 ## W153
 
 ```
@@ -3125,6 +3128,7 @@ These codes are no longer emitted, and are never reused for another meaning.
 | E038 | (nothing) |
 | E047 | [W139](#w139) |
 | E053 | (nothing) |
+| E060 | (nothing) |
 | I006 | (nothing) |
 | W024 | (nothing) |
 | W025 | (nothing) |

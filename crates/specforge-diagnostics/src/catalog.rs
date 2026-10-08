@@ -217,9 +217,6 @@ catalog! {
     E059: Error core,
         "Test command not approved",
         "A runner extension declares the command that runs its tests, and `specforge collect` only runs it after you approve it for the project. The approval is asked at an interactive prompt and remembered per project, extension and command, in your user-level `~/.specforge/collector-consent.json`, never in the project. Without a terminal (CI, `--format json`) nothing is asked: pass `--yes` to run the command, or `--no-run` to parse a report the runner already wrote.";
-    E060: Error core,
-        "Resolved reference without a graph edge",
-        "A reference list names an entity that exists, but the resolver never turned the reference into a graph edge. That is a SpecForge bug, not a mistake in your spec: queries, traces and coverage would miss the relationship. Please report it with the spec that triggers it.";
     E061: Error core,
         "Field value is not the declared type",
         "The extension that registers a field declares its type, and the value given can't be that type: an integer field got something other than an integer, a bool field something other than true or false, an enum field a value outside its declared values (the suggestion names the closest one), or a field declared as a single value got a list. Values that can be read as the declared type are converted without a diagnostic: a single string or reference on a list field becomes a one-item list, and a quoted integer or boolean becomes the number or boolean. Fix the value, or check the field's type with `specforge schema --kind <kind>`.";
@@ -748,6 +745,9 @@ catalog! {
     W150: Warning core,
         "Extension reports a code it may not use",
         "An extension declared a validation rule, or a pass reported a diagnostic, with a code it may not use: a code the catalog gives to core or to another extension, its own code at a level the catalog does not give it, a retired code, a first-party extension's uncatalogued code, or a third-party code outside `E900`-`E998`, `W900`-`W998` and `I900`-`I998` or whose prefix contradicts its level. The rule still runs and the finding is still reported, with the code as given, so its title and docs link may describe another diagnostic. Renumber it in the extension's range (a third-party extension) or catalogue it (a first-party one).";
+    W151: Warning core,
+        "Entity kinds left unchecked",
+        "Extensions are loaded, but none of them declares an entity kind, so the entities' kinds, fields and identifiers are not checked: no E024 for an unknown kind, no W020, E013, E014, E022 or E061. The warning names how many entities that leaves unchecked and their kinds. Enable the extension that declares those kinds (the suggestion names it when it is a builtin), or remove the entities. A project with no extension at all is structural-only on purpose and gets I002 instead.";
     W153: Warning core,
         "Sandbox declaration not honoured",
         "An extension's declaration asks its sandbox for something the host does not give, so the extension runs without it. A component is granted no capability, whatever it declares: no directory, environment, arguments, stdin, socket or name lookup (ADR 0037). So a `sandbox_policy` key other than `max_execution_ms` and `max_memory_mb` that asks for something (`network_access: true`, a non-empty `allowed_paths`, a misspelled limit), and a surface's `sandbox` override, grant nothing. A declared limit above the host's ceiling (30000 ms per call, 512 MB of linear memory) is held to the ceiling. The message names the extension and the key. Remove the key, or lower the limit. An extension that needs a file's content gets it in its input (an analyzer is handed each file); one that needs the network can't run in SpecForge.";

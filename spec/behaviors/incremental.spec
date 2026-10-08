@@ -135,7 +135,8 @@ behavior invalidate_changed_files "Invalidate Changed Files" {
   }
   contract   """
     When a coalesced batch of file changes is received from the debounce
-    stage (or an editor buffer changes), the system MUST compute the
+    stage (or editor buffers change, one or several at once, as one
+    update), the system MUST compute the
     invalidation set: exactly the changed files. A parse depends only on
     its own file's text, and references resolve across the project
     without use (ADR 0004 D1-a), so an importer of a changed file parses
@@ -152,6 +153,8 @@ behavior invalidate_changed_files "Invalidate Changed Files" {
   verify unit "unrelated files are not re-parsed"
   verify unit "deleted file entities removed from graph"
   verify unit "new file entities added to graph"
+  verify unit "several editor buffers changed at once are one update"
+  verify unit "the typing fast path skips the checks while any edited buffer does not parse"
   verify contract "Invalidate Changed Files: file invalidation holds — file_changes_coalesced_fired, invalidation_set_computed, subgraph_invalidated_emitted, unrelated_files_untouched"
 }
 

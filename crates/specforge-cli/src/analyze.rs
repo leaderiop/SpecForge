@@ -6,11 +6,10 @@
 
 use std::path::Path;
 
-use specforge_common::{codes, truncate_diagnostics};
+use specforge_common::{codes, diagnostic_summary, render_diagnostics, truncate_diagnostics};
 use specforge_ops::OpError;
 use specforge_ops::analyze::{AnalyzeOptions, Gate, ProveOptions, ReportSource, analyze};
 use specforge_ops::view::ProjectView;
-use specforge_validator::{diagnostic_summary_detailed, render_diagnostics_colored};
 
 use crate::OutputFormat;
 use crate::outcome::Refusal;
@@ -87,7 +86,7 @@ pub fn run(
             } else {
                 let mut rendered_findings = report.findings.clone();
                 truncate_diagnostics(&mut rendered_findings);
-                let rendered = render_diagnostics_colored(&rendered_findings, &sources, color);
+                let rendered = render_diagnostics(&rendered_findings, &sources, color);
                 if !rendered.is_empty() {
                     println!("{rendered}");
                 } else {
@@ -108,7 +107,7 @@ pub fn run(
         }
         println!(
             "{}",
-            diagnostic_summary_detailed(
+            diagnostic_summary(
                 &reports
                     .iter()
                     .flat_map(|r| r.findings.iter().cloned())

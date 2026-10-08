@@ -12,7 +12,7 @@ use specforge_wasm::WasmRuntime;
 
 use crate::coverage::RecordedCoverage;
 use crate::freshness::DiskSnapshot;
-use crate::inputs::{Changes, SessionInputs, UpdateKind, named_files};
+use crate::inputs::{Changes, SessionInputs, UpdateKind};
 use crate::snapshot::EntitySnapshot;
 use crate::sources::{self, Read, SourceCache};
 use crate::{Environment, SourceBuild};
@@ -65,6 +65,11 @@ pub enum SourceChange<'a> {
         path: &'a str,
         text: Option<&'a str>,
     },
+    /// Several editor buffers, each the truth for its file (relative to the
+    /// spec root), applied as one update with one run of the checks: an edit
+    /// the editor applied to several files at once, or every open buffer
+    /// again after a reload. Files discovery would not find are ignored.
+    Buffers(&'a [(String, String)]),
 }
 
 /// Which checks an update runs on the updated graph.
@@ -72,11 +77,12 @@ pub enum SourceChange<'a> {
 pub enum CheckMode<'a> {
     /// Every check `specforge check` runs.
     Full,
-    /// The editor's fast path while typing: when this file (relative to
-    /// the spec root) has parse errors the graph is broken and the checks
-    /// would evaluate garbage, so they are skipped and only the parse
-    /// layer is reported until it parses again. Otherwise, [`Self::Full`].
-    SyntaxOnlyIfParseErrorsIn(&'a str),
+    /// The editor's fast path while typing: when any of these files
+    /// (relative to the spec root) has parse errors the graph is broken and
+    /// the checks would evaluate garbage, so they are skipped and only the
+    /// parse layer is reported until they parse again. Otherwise,
+    /// [`Self::Full`].
+    SyntaxOnlyIfParseErrorsIn(&'a [&'a str]),
 }
 
 /// What one update of a session did.
@@ -305,17 +311,27 @@ impl ProjectSession {
                 path,
                 text.map_or(Read::Gone, |text| Read::Text(text.to_string())),
             )],
+            SourceChange::Buffers(buffers) => {
+                let held: Vec<&(String, String)> = buffers
+                    .iter()
+                    .filter(|(path, _)| !self.excludes(path))
+                    .collect();
+                held.into_iter()
+                    .map(|(path, text)| self.sources.change(path, Read::Text(text.clone())))
+                    .collect()
+            }
         };
         let applied = self.graph.apply(changes);
         self.recorded = OnceLock::new();
         self.import_diagnostics = self.resolve_imports();
         let (check_diagnostics, inputs_changed) = match mode {
-            CheckMode::SyntaxOnlyIfParseErrorsIn(path)
-                if self
-                    .graph
-                    .file_diagnostics(path)
-                    .iter()
-                    .any(|d| d.is(codes::E001)) =>
+            CheckMode::SyntaxOnlyIfParseErrorsIn(paths)
+                if paths.iter().any(|path| {
+                    self.graph
+                        .file_diagnostics(path)
+                        .iter()
+                        .any(|d| d.is(codes::E001))
+                }) =>
             {
                 (Vec::new(), false)
             }
@@ -564,9 +580,9 @@ impl ProjectSession {
         let entities = self.snapshot_now();
         let mut changed = false;
         if self.inputs.root().is_some() {
-            let next =
-                self.inputs
-                    .with_named(named_files(&self.env, self.graph.graph(), &entities));
+            let next = self
+                .inputs
+                .with_named(self.env.registries.files(&entities.rule_input()));
             changed = next != self.inputs;
             self.inputs = next;
             self.snapshot.stamp_checks(&self.inputs);
