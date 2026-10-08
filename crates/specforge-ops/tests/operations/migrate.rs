@@ -8,7 +8,7 @@ use specforge_extension_sdk::{ContributionsBuilder, ExtensionMeta};
 use specforge_migrate::{CURRENT_FORMAT_VERSION, migrate_project};
 use specforge_ops::OpErrorKind;
 use specforge_ops::migrate::{MigrationInput, Request, invoke_hooks, parse_target, rollback, run};
-use specforge_protocol_types::ExtensionDeclaration;
+use specforge_protocol_types::{ExtensionDeclaration, FieldType, PeerDependency};
 use specforge_test_macros::test as specforge_test;
 use specforge_wasm::testing::InProcessRuntime;
 
@@ -431,4 +431,97 @@ fn a_trapping_hook_is_recorded_and_the_next_one_still_runs() {
         .map(|c| format!("{}:{}", c.extension, c.export))
         .collect();
     assert_eq!(called, ["@acme/a:migrate_a", "@acme/b:migrate_b"]);
+}
+
+/// `@acme/base` (a kind `Thing`, a hook that rewrites `specforge.json` to
+/// enable only itself) and `@acme/extra`, which peers on it and adds a kind
+/// `Gizmo`, an edge `gizmo_links` and an enhancement field `badge` on
+/// `Thing`: what a project loses when the hook drops `@acme/extra`.
+fn schema_runtime() -> InProcessRuntime {
+    InProcessRuntime::new()
+        .with(|| {
+            let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/base", "1.0.0"));
+            c.kind("Thing", |k| {
+                k.keyword("thing");
+            });
+            c.migration_hook_handler("migrate_base", |input| {
+                let root = Path::new(&input.files[0]).parent().unwrap().to_path_buf();
+                std::fs::write(
+                    root.join("specforge.json"),
+                    r#"{"name": "p", "version": "0.1.0", "extensions": ["@acme/base"]}"#,
+                )
+                .map_err(|e| e.to_string())
+            });
+            c
+        })
+        .with(|| {
+            let mut meta = ExtensionMeta::new("@acme/extra", "1.0.0");
+            meta.peer_dependencies = vec![PeerDependency {
+                name: "@acme/base".into(),
+                version: "^1".into(),
+                optional: false,
+            }];
+            let mut c = ContributionsBuilder::new(meta);
+            c.kind("Gizmo", |k| {
+                k.keyword("gizmo");
+            });
+            c.edge("gizmo_links", |e| {
+                e.source_kind("gizmo").target_kind("thing");
+            });
+            c.enhance("thing", "@acme/base", |e| {
+                e.field("badge", |f| {
+                    f.field_type(FieldType::String);
+                });
+            });
+            c
+        })
+}
+
+fn schema_project() -> tempfile::TempDir {
+    let dir = tempfile::TempDir::new().unwrap();
+    std::fs::write(
+        dir.path().join("specforge.json"),
+        r#"{"name": "p", "version": "0.1.0", "extensions": ["@acme/base", "@acme/extra"]}"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.path().join("old.spec"),
+        "// specforge-format: 0.9\nthing t \"T\" {\n}\n",
+    )
+    .unwrap();
+    dir
+}
+
+#[specforge_test(
+    behavior = "capture_pre_migration_schema_snapshot",
+    verify = "snapshot includes node kinds, edge types, and field definitions"
+)]
+fn the_schema_before_the_hooks_holds_their_kinds_edges_and_fields() {
+    let dir = schema_project();
+    let runtime = schema_runtime();
+
+    let outcome = run(&request(dir.path()), Some(&runtime));
+
+    assert!(outcome.validated, "{outcome:?}");
+    assert!(outcome.rollback.is_none(), "{outcome:?}");
+    // Only a pre-migration schema holding all three can name each as lost.
+    let warnings: Vec<String> = outcome
+        .schema_warnings
+        .iter()
+        .map(|d| format!("{}: {}", d.code, d.message).to_lowercase())
+        .collect();
+    for lost in ["kindremoved", "edgeremoved", "fieldremoved"] {
+        assert!(
+            warnings
+                .iter()
+                .any(|w| w.starts_with("w053") && w.contains(lost)),
+            "{lost} not in {warnings:?}"
+        );
+    }
+    for name in ["gizmo", "gizmo_links", "badge"] {
+        assert!(
+            warnings.iter().any(|w| w.contains(name)),
+            "{name} not in {warnings:?}"
+        );
+    }
 }

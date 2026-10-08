@@ -29,7 +29,6 @@ expression: cli_snap
   "ok": false,
   "payload": {
     "backups": [],
-    "diagnostics": [],
     "failed_count": 1,
     "files_written": [],
     "migrated_count": 0,

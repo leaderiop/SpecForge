@@ -35,7 +35,6 @@ expression: cli_snap
         "original_path": "[ROOT]/spec/old.spec"
       }
     ],
-    "diagnostics": [],
     "diffs": [
       {
         "after_hash": "[SHA256]",

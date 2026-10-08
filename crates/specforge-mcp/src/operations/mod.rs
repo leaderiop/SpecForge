@@ -539,7 +539,6 @@ pub(crate) fn migrate_op(call: &mut Call<'_>, args: MigrateArgs) -> MutationHand
         "files_failed": summary.failed_count,
         "results": summary.results,
         "diffs": summary.diffs,
-        "diagnostics": summary.diagnostics,
         "hooks_invoked": outcome.hooks_invoked,
         "hook_failures": outcome.hook_failures,
         "schema_warnings": specforge_common::diagnostics_json(&outcome.schema_warnings),

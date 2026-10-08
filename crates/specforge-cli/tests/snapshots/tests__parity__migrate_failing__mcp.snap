@@ -30,7 +30,6 @@ expression: mcp_snap
   "payload": {
     "code": "internal_error",
     "data": {
-      "diagnostics": [],
       "diffs": [],
       "dry_run": false,
       "files_failed": 1,

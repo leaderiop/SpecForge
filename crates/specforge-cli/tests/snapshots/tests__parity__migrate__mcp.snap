@@ -29,7 +29,6 @@ expression: mcp_snap
   },
   "ok": true,
   "payload": {
-    "diagnostics": [],
     "diffs": [
       {
         "after_hash": "[SHA256]",

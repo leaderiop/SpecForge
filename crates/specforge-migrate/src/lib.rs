@@ -106,7 +106,6 @@ pub struct MigrationSummary {
     pub target_version: FormatVersion,
     pub results: Vec<MigrationResult>,
     pub backups: Vec<MigrationBackup>,
-    pub diagnostics: Vec<Diagnostic>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub diffs: Vec<MigrationDiff>,
 }
@@ -204,9 +203,9 @@ fn set_format_version_header(content: &str, version: &FormatVersion) -> String {
     format!("{new_header}\n{content}")
 }
 
-/// Transform content from one version to the next.
+/// Transform content to version `to`.
 /// Currently v1 is the only version, so this just ensures the header is set.
-fn transform_content(content: &str, _from: &FormatVersion, to: &FormatVersion) -> String {
+fn transform_content(content: &str, to: &FormatVersion) -> String {
     set_format_version_header(content, to)
 }
 
@@ -221,19 +220,8 @@ fn sha256_hash(content: &str) -> String {
 }
 
 // ---------------------------------------------------------------------------
-// Pre-Migration Schema Snapshot
+// Schema and Graph Comparison
 // ---------------------------------------------------------------------------
-
-#[derive(Debug, Clone)]
-pub struct PreMigrationSnapshot {
-    pub schema: GraphProtocolSchema,
-}
-
-pub fn capture_pre_migration_snapshot(schema: &GraphProtocolSchema) -> PreMigrationSnapshot {
-    PreMigrationSnapshot {
-        schema: schema.clone(),
-    }
-}
 
 /// Compare pre/post migration schemas and return breaking change diagnostics.
 pub fn check_schema_compatibility(
@@ -371,43 +359,11 @@ fn comparable_fields(
 }
 
 // ---------------------------------------------------------------------------
-// Extension Hook Runner (trait for testability)
-// ---------------------------------------------------------------------------
-
-#[allow(dead_code)]
-pub trait MigrationHookRunner {
-    fn invoke(
-        &self,
-        extension_name: &str,
-        hook: &str,
-        from: &FormatVersion,
-        to: &FormatVersion,
-    ) -> Result<(), String>;
-}
-
-/// Mock hook runner for testing.
-#[allow(dead_code)]
-pub struct NoOpMigrationHookRunner;
-
-#[allow(dead_code)]
-impl MigrationHookRunner for NoOpMigrationHookRunner {
-    fn invoke(
-        &self,
-        _extension_name: &str,
-        _hook: &str,
-        _from: &FormatVersion,
-        _to: &FormatVersion,
-    ) -> Result<(), String> {
-        Ok(())
-    }
-}
-
-// ---------------------------------------------------------------------------
 // Core Migration Logic
 // ---------------------------------------------------------------------------
 
-/// Run migration on a single file. Returns the result and optionally a diff.
-pub fn migrate_file(
+/// Run migration on a single file. Returns the result, the backup it made and the diff.
+fn migrate_file(
     path: &Path,
     target_version: &FormatVersion,
     dry_run: bool,
@@ -474,7 +430,7 @@ pub fn migrate_file(
     }
 
     // Transform
-    let transformed = transform_content(&content, &detected_version, target_version);
+    let transformed = transform_content(&content, target_version);
 
     // Build diff
     let diff = if content != transformed {
@@ -689,7 +645,6 @@ pub fn migrate_project(
     let mut results = Vec::new();
     let mut backups = Vec::new();
     let mut diffs = Vec::new();
-    let diagnostics: Vec<Diagnostic> = Vec::new();
     let mut migrated = 0;
     let mut skipped = 0;
     let mut failed = 0;
@@ -720,7 +675,6 @@ pub fn migrate_project(
         target_version: target_version.clone(),
         results,
         backups,
-        diagnostics,
         diffs,
     }
 }

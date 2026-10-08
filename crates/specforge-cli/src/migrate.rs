@@ -126,10 +126,6 @@ fn print_migration(
                 }
             }
 
-            for d in &summary.diagnostics {
-                eprintln!("{}: {}", d.code, d.message);
-            }
-
             eprintln!(
                 "{} migrated, {} skipped, {} failed",
                 summary.migrated_count, summary.skipped_count, summary.failed_count
