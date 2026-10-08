@@ -22,6 +22,7 @@ mod navigate;
 mod options;
 mod peers;
 mod plan;
+mod publish;
 mod query;
 mod review;
 mod schema;

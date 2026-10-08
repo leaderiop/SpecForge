@@ -732,6 +732,8 @@ behavior publish_to_registry "Publish to Registry" {
   verify unit "the environment token wins over the stored credential"
   verify unit "a signing key that can't be read is refused with E074 before any network call"
   verify unit "publish asks the registry add fetches the same name from"
+  verify unit "the declaration's warnings are reported even when publish is refused"
+  verify unit "what publish uploads is what add installs"
   verify contract "Publish to Registry: registry publishing holds — declaration_valid, wasm_binary_available, registry_client_available, credentials_available, sha256_computed, duplicate_version_rejected, registry_url_returned, published_event_emitted"
 }
 

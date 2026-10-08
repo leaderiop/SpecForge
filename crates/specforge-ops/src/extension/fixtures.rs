@@ -20,9 +20,9 @@ pub(super) fn greet() -> Vec<u8> {
 
 /// What `wasm` declares, as `publish` would upload it.
 pub(super) fn declaration_of(wasm: &[u8]) -> ExtensionDeclaration {
-    crate::publish::prepare(&crate::testing::candidates(), wasm.to_vec())
+    crate::publish::declare(&crate::testing::candidates(), wasm)
         .expect("a publishable binary")
-        .declaration
+        .0
 }
 
 pub(super) fn entry(
