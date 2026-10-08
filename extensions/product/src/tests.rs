@@ -3,6 +3,10 @@ use specforge_extension_sdk::prelude::{
     CommandFormat, CommandGraph, CommandInput, GraphEdge, GraphNode,
 };
 
+mod host;
+mod journey_coverage;
+mod milestone_completion;
+
 /// A graph built entity by entity.
 #[derive(Default)]
 struct G {
