@@ -679,13 +679,20 @@ impl Outcome {
 /// each one's report, map it through the extension to the view's entities
 /// and merge the answer into `<root>/specforge-report.json`. The request's
 /// `consent` decides whether a collector's command may run; its `announce`
-/// is told just before it runs. Without a root: `no_project`.
+/// is told just before it runs. Without a root, or at a root that holds no
+/// project: `no_project`.
 pub fn collect(
     view: &ProjectView,
     runtime: &dyn specforge_wasm::runtime::WasmRuntime,
     request: Request,
 ) -> Result<Outcome, OpError> {
     let root = view.project_root()?;
+    if !specforge_common::is_project_root(root) {
+        return Err(OpError::no_project(format!(
+            "no specforge project at {} (no specforge.json or specforge.spec)",
+            root.display()
+        )));
+    }
     let Request {
         runner,
         mode,

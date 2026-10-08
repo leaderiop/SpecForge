@@ -477,13 +477,16 @@ behavior provide_mcp_collect_tool "Provide MCP Collect Tool" {
     reports; with run=true it first runs each runner's declared command,
     but only a command the user already approved for the project with
     `specforge collect` in a terminal, and with its output discarded
-    because the server owns stdio. An unapproved command is an E059 error,
+    because the server owns stdio. A path that holds no project is a
+    no_project refusal, as `specforge collect` refuses it. An unapproved
+    command is an E059 error,
     and a missing collector or report is an error naming its code. The
     result lists each runner's counts, the W115 diagnostics and the path of
     the written specforge-report.json.
   """
   verify unit "specforge.collect parses test results and maps to entities"
   verify unit "specforge.collect refuses to run an unapproved command"
+  verify unit "specforge.collect of a directory that holds no project refuses with no_project"
   verify unit "a project without a collector returns an E058 error"
   verify contract "Provide MCP Collect Tool: MCP collect tool holds — filesystem_available, compiler_api_available, report_emitted, collector_delegated, never_prompts, tool_invoked_emitted"
 }

@@ -129,6 +129,8 @@ fn collect_maps_results_to_the_views_entities() {
         "main.spec",
     )]);
     let dir = tempfile::TempDir::new().unwrap();
+    // The root holds a project: collect refuses a directory that holds none.
+    std::fs::write(dir.path().join("specforge.json"), r#"{"name": "shop"}"#).unwrap();
     let report = dir.path().join("target/specforge/shop.json");
     std::fs::create_dir_all(report.parent().unwrap()).unwrap();
     std::fs::write(

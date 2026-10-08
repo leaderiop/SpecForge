@@ -123,7 +123,7 @@ fn test_collect_in_empty_dir_exits_1() {
         .args(["collect", "--path", dir.path().to_str().unwrap()])
         .assert()
         .failure()
-        .stderr(predicate::str::contains("no specforge project found"));
+        .stderr(predicate::str::contains("no specforge project at"));
 }
 
 #[test]

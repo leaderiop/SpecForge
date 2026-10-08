@@ -879,9 +879,11 @@ fn a_relative_out_dir_with_nothing_served_is_refused() {
     assert!(!cwd.join("p15-refused").exists());
 }
 
-// pin (15-T0): today's behaviour; flipped by 15-T13
-#[test]
-fn pin_collect_of_a_directory_that_is_no_project_is_e058() {
+#[specforge_test(
+    behavior = "provide_mcp_collect_tool",
+    verify = "specforge.collect of a directory that holds no project refuses with no_project"
+)]
+fn collect_of_a_directory_that_is_no_project_is_no_project() {
     let mut server = test_server();
     let bare = tempfile::TempDir::new().unwrap();
     let resp = call_tool(
@@ -891,5 +893,11 @@ fn pin_collect_of_a_directory_that_is_no_project_is_e058() {
     );
     let error = crate::tool_errors::mcp_error(&resp);
     assert_eq!(error["code"], "precondition_failed", "{error}");
-    assert_eq!(error["diagnostic"]["code"], "E058", "{error}");
+    assert!(error["diagnostic"].is_null(), "no E058: {error}");
+    assert!(
+        error["message"]
+            .as_str()
+            .is_some_and(|m| m.contains("no specforge project at")),
+        "{error}"
+    );
 }

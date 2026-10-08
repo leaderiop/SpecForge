@@ -224,3 +224,39 @@ fn the_providers_listing_reads_the_registration() {
     assert_eq!(aliases, ["work"], "{listing:?}");
     assert_eq!(listing.diagnostics.len(), 1, "{listing:?}");
 }
+
+#[specforge_test(
+    behavior = "report_command_outcome",
+    verify = "a command run outside any project refuses with no_project"
+)]
+fn collect_at_a_root_that_is_no_project_is_no_project() {
+    let project = project();
+    let recorded = RecordedCoverage::over(&project.graph, &project.env);
+    let bare = tempfile::TempDir::new().unwrap();
+    let view = ProjectView::new(&project.graph, &project.env, Some(bare.path()), &recorded);
+    let runtime = specforge_wasm::testing::InProcessRuntime::new();
+
+    let error = specforge_ops::collect::collect(
+        &view,
+        &runtime,
+        Request {
+            runner: None,
+            mode: Mode::NoRun,
+            consent: Consent::Approved,
+            announce: &mut |_, _| {},
+        },
+    )
+    .map(drop)
+    .unwrap_err();
+
+    assert_eq!(error.code, "no_project", "{error:?}");
+    assert!(
+        error.message.contains("no specforge project at"),
+        "{error:?}"
+    );
+    assert_eq!(
+        std::fs::read_dir(bare.path()).unwrap().count(),
+        0,
+        "nothing was written"
+    );
+}

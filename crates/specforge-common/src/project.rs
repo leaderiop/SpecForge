@@ -1,6 +1,11 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
+/// Whether `dir` is a project root: it holds `specforge.json` or `specforge.spec`.
+pub fn is_project_root(dir: &Path) -> bool {
+    dir.join("specforge.json").exists() || dir.join("specforge.spec").exists()
+}
+
 /// Locate the project root by walking from `start` upward to the filesystem root.
 ///
 /// At each directory level, checks for `specforge.json` (preferred) then `specforge.spec`.
@@ -12,7 +17,7 @@ pub fn find_project_root(start: &Path) -> Option<PathBuf> {
     let mut current = start.canonicalize().ok()?;
 
     loop {
-        if current.join("specforge.json").exists() || current.join("specforge.spec").exists() {
+        if is_project_root(&current) {
             return Some(current);
         }
         if !current.pop() {

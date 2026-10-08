@@ -221,6 +221,12 @@ impl OpError {
         }
     }
 
+    /// `no_project` ([`OpErrorKind::PreconditionFailed`]): the operation
+    /// needs a project and `message` says where there is none.
+    pub fn no_project(message: impl Into<String>) -> Self {
+        Self::new(OpErrorKind::PreconditionFailed, "no_project", message)
+    }
+
     /// A failure reported as the catalogued diagnostic `code`, its kind
     /// [`OpErrorKind::of_diagnostic`]'s.
     pub fn diagnostic(code: Code, message: impl Into<String>) -> Self {

@@ -355,3 +355,24 @@ fn a_build_cache_that_cannot_be_written_is_a_refusal() {
         json.stdout
     );
 }
+
+#[specforge_test_macros::test(
+    behavior = "report_command_outcome",
+    verify = "a command run outside any project refuses with no_project"
+)]
+fn collect_from_a_sub_path_finds_its_project() {
+    // A project without a collector: `collect` finds it from a sub-path and
+    // fails for want of a collector (E058), not for want of a project.
+    let project = rv1(None);
+    let sub = project.path().join("spec");
+
+    let run = run_in(
+        project.path(),
+        &["collect", "--no-run", "--path", sub.to_str().unwrap()],
+        None,
+    );
+
+    assert_eq!(run.code, 1, "{}", run.stderr);
+    assert!(run.stderr.contains("E058"), "{}", run.stderr);
+    assert!(!run.stderr.contains("no_project"), "{}", run.stderr);
+}

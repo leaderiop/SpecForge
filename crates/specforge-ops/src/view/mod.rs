@@ -26,8 +26,8 @@ use specforge_registry::RegistryBuild;
 
 pub use kinds::{KnownKinds, UNKNOWN_KIND};
 
+use crate::OpError;
 use crate::schema_cache::SchemaCache;
-use crate::{OpError, OpErrorKind};
 
 /// The compiled project as one surface sees it, borrowed: what every
 /// operation over a project reads (CONTEXT.md "Project view", ADR 0015).
@@ -195,9 +195,7 @@ impl<'a> ProjectView<'a> {
     /// disk: `no_project` without one.
     pub fn project_root(&self) -> Result<&'a Path, OpError> {
         self.root.ok_or_else(|| {
-            OpError::new(
-                OpErrorKind::PreconditionFailed,
-                "no_project",
+            OpError::no_project(
                 "this operation needs the project on disk, and this project has none",
             )
         })
@@ -505,7 +503,7 @@ mod tests {
         let at_root = ProjectView::new(&graph, &env, Some(project), &recorded);
         let error = at_root.test_report().unwrap_err();
         assert_eq!(error.code, "E045");
-        assert_eq!(error.kind, OpErrorKind::SchemaMismatch);
+        assert_eq!(error.kind, crate::OpErrorKind::SchemaMismatch);
         assert!(at_root.coverage().is_err());
 
         let recorded = RecordedCoverage::over(&graph, &env);
