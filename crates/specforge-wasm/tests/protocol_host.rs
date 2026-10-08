@@ -9,7 +9,7 @@ use specforge_extension_sdk::prelude::*;
 use specforge_protocol_types::{HandshakeResponse, PROTOCOL_VERSION, ProtocolError};
 use specforge_wasm::protocol::{Loaded, load_declaration};
 use specforge_wasm::testing::InProcessRuntime;
-use specforge_wasm::{Limits, WasmCallResult, WasmTrapInfo};
+use specforge_wasm::{ExtensionCalls, Limits, WasmCallResult, WasmTrapInfo};
 
 /// `name`, declaring a testable `behavior` kind, an `Implements` edge and
 /// a `W001` rule.
@@ -78,6 +78,32 @@ fn handshake_applies_declared_max_execution_ms() {
         ContributionsBuilder::new(meta)
     });
     load_declaration(&runtime, "@specforge/software").unwrap();
+    assert_eq!(
+        runtime.limits(),
+        vec![(
+            "@specforge/software".to_string(),
+            Limits {
+                execution_ms: 5000,
+                memory_mb: 512
+            }
+        )]
+    );
+}
+
+// pin (16-T0): today's behaviour; flipped by 16-T2
+#[test]
+fn pin_a_handshake_call_applies_the_declared_limits() {
+    let runtime = InProcessRuntime::new().with(|| {
+        let mut meta = ExtensionMeta::new("@specforge/software", "1.0.0");
+        meta.sandbox_policy = Some(SandboxPolicy {
+            max_execution_ms: Some(5000),
+            ..Default::default()
+        });
+        ContributionsBuilder::new(meta)
+    });
+    ExtensionCalls::new(&runtime)
+        .handshake("@specforge/software")
+        .unwrap();
     assert_eq!(
         runtime.limits(),
         vec![(

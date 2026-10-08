@@ -1114,3 +1114,117 @@ fn an_extension_without_a_theme_color_is_drawn_grey() {
     assert!(output.contains("color=\"#95a5a6\";"), "{output}");
     assert!(!output.contains("#4a90d9"), "no palette by name: {output}");
 }
+
+// =========================================================================
+// Declared text in the text diagrams (plan 16)
+// =========================================================================
+
+/// `multi_extension_schema()` with `behavior` renamed to `kind` and its
+/// `contract` field's description replaced.
+fn with_text(kind: &str, description: &str) -> GraphProtocolSchema {
+    let mut schema = multi_extension_schema();
+    for entity in &mut schema.entity_kinds {
+        if entity.name == "behavior" {
+            entity.name = kind.to_string();
+            for field in &mut entity.fields {
+                if field.name == "contract" {
+                    field.description = Some(description.to_string());
+                }
+            }
+        }
+    }
+    for edge in &mut schema.edge_types {
+        if let Some(sources) = &mut edge.source_kinds {
+            for source in sources.iter_mut().filter(|s| *s == "behavior") {
+                *source = kind.to_string();
+            }
+        }
+    }
+    schema
+}
+
+fn rendered(schema: &GraphProtocolSchema, fields: FieldLevel, format: ModelFormat) -> String {
+    let model = filter_fields(&ModelIntermediate_from_schema(schema), fields);
+    render(&model, &default_options(format))
+}
+
+// pin (16-T0): today's behaviour; flipped by 16-T8
+#[test]
+fn pin_a_quote_in_a_description_is_written_as_rust_escape_text() {
+    let schema = with_text("behavior", "the \"body\"\nnext");
+    let output = rendered(&schema, FieldLevel::All, ModelFormat::Mermaid);
+    assert!(
+        output.contains("\"the \\u{0022}\\u{0022}body\\u{0022}\\u{0022}\nnext\""),
+        "{output}"
+    );
+}
+
+// pin (16-T0): today's behaviour; flipped by 16-T8
+#[test]
+fn pin_a_kind_name_is_written_bare_in_the_er_diagram() {
+    let schema = with_text("no\"te", "the contract");
+    let output = rendered(&schema, FieldLevel::All, ModelFormat::Mermaid);
+    assert!(output.contains("    no\"te {"), "{output}");
+}
+
+// pin (16-T0): today's behaviour; flipped by 16-T9
+#[test]
+fn pin_an_apostrophe_ends_a_dbml_note() {
+    let schema = with_text("behavior", "this event's shape");
+    let output = rendered(&schema, FieldLevel::All, ModelFormat::Dbml);
+    assert!(output.contains("note: 'this event's shape'"), "{output}");
+}
+
+// pin (16-T0): today's behaviour; flipped by 16-T9
+#[test]
+fn pin_a_reference_is_written_inline_and_as_a_named_ref() {
+    let output = rendered(
+        &multi_extension_schema(),
+        FieldLevel::All,
+        ModelFormat::Dbml,
+    );
+    assert!(
+        output.contains(
+            "features text [ref: > feature.id, note: 'BehaviorImplementsFeature -> feature']"
+        ),
+        "{output}"
+    );
+    assert!(
+        output.contains("Ref BehaviorImplementsFeature: behavior.features <> feature.id"),
+        "{output}"
+    );
+}
+
+// pin (16-T0): today's behaviour; flipped by 16-T9
+#[test]
+fn pin_a_ref_names_a_column_the_table_does_not_write() {
+    let output = rendered(
+        &multi_extension_schema(),
+        FieldLevel::None,
+        ModelFormat::Dbml,
+    );
+    let table = output.split("Table behavior {").nth(1).expect("a table");
+    assert!(table.trim_start().starts_with('}'), "{output}");
+    assert!(
+        output.contains("Ref BehaviorImplementsFeature: behavior.features <> feature.id"),
+        "{output}"
+    );
+}
+
+// pin (16-T0): today's behaviour; flipped by 16-T9
+#[test]
+fn pin_an_extension_name_is_a_bare_dbml_table_group() {
+    let mut schema = multi_extension_schema();
+    for info in &mut schema.extensions {
+        if info.name == "@specforge/software" {
+            info.name = "@acme/x".to_string();
+        }
+    }
+    for entity in &mut schema.entity_kinds {
+        if entity.source_extension == "@specforge/software" {
+            entity.source_extension = "@acme/x".to_string();
+        }
+    }
+    let output = rendered(&schema, FieldLevel::Keys, ModelFormat::Dbml);
+    assert!(output.contains("TableGroup @acme/x {"), "{output}");
+}

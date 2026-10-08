@@ -965,3 +965,78 @@ fn transitive_dependencies_are_the_same_on_every_run() {
         );
     }
 }
+
+// ==========================================================================
+// Declared text in the text diagrams (plan 16)
+// ==========================================================================
+
+/// One extension, `@t/q` at `version`, declaring a `note` kind whose keyword
+/// is `no"te`.
+fn quoted(version: &str) -> OutlineIntermediate {
+    use specforge_protocol_types::{EntityKindDescriptor, FieldDescriptor, HandshakeResponse};
+    let declaration = ExtensionDeclaration {
+        handshake: HandshakeResponse {
+            name: "@t/q".to_string(),
+            version: version.to_string(),
+            ..Default::default()
+        },
+        entities: vec![EntityKindDescriptor {
+            name: "note".to_string(),
+            keyword: Some("no\"te".to_string()),
+            fields: vec![FieldDescriptor {
+                name: "body".to_string(),
+                field_type: "string".to_string(),
+                ..Default::default()
+            }],
+            ..Default::default()
+        }],
+        ..Default::default()
+    };
+    OutlineIntermediate_from_declarations(&[declaration])
+}
+
+// pin (16-T0): today's behaviour; flipped by 16-T8
+#[test]
+fn pin_a_quote_in_a_version_or_keyword_ends_the_mermaid_label() {
+    let opts = OutlineOptions {
+        format: OutlineFormat::Mermaid,
+        detail: OutlineDetail::Keys,
+        ..Default::default()
+    };
+    let output = render(&quoted("1.0.0-\"rc\""), &opts);
+    assert!(
+        output.contains("subgraph t_q[\"  @t/q v1.0.0-\"rc\"  \"]"),
+        "{output}"
+    );
+    assert!(output.contains("<br>no\"te\"]"), "{output}");
+}
+
+// pin (16-T0): today's behaviour; flipped by 16-T8
+#[test]
+fn pin_a_pipe_in_a_version_splits_the_outline_markdown_row() {
+    let opts = OutlineOptions {
+        format: OutlineFormat::Markdown,
+        detail: OutlineDetail::Keys,
+        ..Default::default()
+    };
+    let output = render(&quoted("1.0|rc"), &opts);
+    assert!(output.contains("| @t/q | 1.0|rc |"), "{output}");
+}
+
+// pin (16-T0): stays
+#[test]
+fn outline_of_the_builtins_in_every_format() {
+    let outline = OutlineIntermediate_from_declarations(&load_all_manifests());
+    for (format, name) in [
+        (OutlineFormat::Markdown, "markdown"),
+        (OutlineFormat::Mermaid, "mermaid"),
+        (OutlineFormat::Dot, "dot"),
+    ] {
+        let opts = OutlineOptions {
+            format,
+            detail: OutlineDetail::All,
+            deps: DependencyDepth::Full,
+        };
+        insta::assert_snapshot!(format!("outline_builtins_{name}"), render(&outline, &opts));
+    }
+}
