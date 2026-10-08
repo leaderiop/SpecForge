@@ -276,12 +276,14 @@ behavior dispatch_surface_mcp_tool "Dispatch Surface MCP Tool" {
     output MUST be returned as a standard MCP tool result. When the tool
     declares an output_schema, an output that does not match it MUST be
     returned as a schema_mismatch MCP error naming each violation, never
-    as the tool's structured result. The MCP server records each tool
+    as the tool's structured result. A key the output_schema does not
+    allow (additionalProperties false) is such a violation. The MCP server records each tool
     whose export returned as a surface_mcp_tool_dispatched event. An
     export the guest does not route is an E028 error, like a trap.
   """
   verify unit "input validated against declared input_schema"
   verify unit "output that does not match the declared output_schema is a schema_mismatch error"
+  verify unit "an output with a key its declared output_schema does not allow is a schema_mismatch error"
   verify unit "the served project's runtime is the one its compile loaded and serves later calls until the project reloads"
   verify unit "input JSON passed to mcp__ export"
   verify unit "an mcp__ tool export is granted no capability, whatever sandbox its declaration asks for"

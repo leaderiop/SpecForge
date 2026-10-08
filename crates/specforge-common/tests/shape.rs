@@ -458,3 +458,49 @@ fn every_derived_schema_accepts_what_serde_writes() {
         accepts(&list);
     }
 }
+
+#[test]
+fn additional_properties_false_refuses_an_undeclared_key() {
+    let closed = json!({
+        "type": "object",
+        "properties": {"a": {"type": "string"}},
+        "additionalProperties": false,
+    });
+    assert!(violations(&closed, &json!({"a": "x"})).is_empty());
+    assert_eq!(
+        violations(&closed, &json!({"a": "x", "extra": 1})),
+        ["$.extra: undeclared key"]
+    );
+    // Open when it says nothing.
+    let open = json!({"type": "object", "properties": {"a": {"type": "string"}}});
+    assert!(violations(&open, &json!({"a": "x", "extra": 1})).is_empty());
+}
+
+#[test]
+fn additional_properties_schema_checks_each_extra_value() {
+    let map = json!({
+        "type": "object",
+        "properties": {"fixed": {"type": "boolean"}},
+        "additionalProperties": {"type": "integer"},
+    });
+    assert!(violations(&map, &json!({"fixed": true, "a": 1, "b": 2})).is_empty());
+    assert_eq!(
+        violations(&map, &json!({"fixed": true, "a": "one"})),
+        ["$.a: expected integer, got string"]
+    );
+}
+
+#[test]
+fn minimum_refuses_a_smaller_number() {
+    let schema = json!({"type": "integer", "minimum": 5});
+    assert!(violations(&schema, &json!(5)).is_empty());
+    assert_eq!(
+        violations(&schema, &json!(3)),
+        ["$: 3 is below the minimum 5"]
+    );
+    let nested = json!({"type": "object", "properties": {"n": {"type": "integer", "minimum": 5}}});
+    assert_eq!(
+        violations(&nested, &json!({"n": 3})),
+        ["$.n: 3 is below the minimum 5"]
+    );
+}

@@ -895,6 +895,38 @@ fn extension_tool_output_is_checked_against_its_schema() {
     );
 }
 
+#[specforge_test(
+    behavior = "dispatch_surface_mcp_tool",
+    verify = "an output with a key its declared output_schema does not allow is a schema_mismatch error"
+)]
+fn extension_tool_output_with_an_undeclared_key_is_refused() {
+    let closed = FakeExtension::declaring(json!({
+        "mcp_tools": [{
+            "name": "test.closed",
+            "description": "A tool whose output schema is closed",
+            "export": "mcp__closed",
+            "input_schema": {"type": "object"},
+            "output_schema": {
+                "type": "object",
+                "properties": {"checked": {"type": "boolean"}},
+                "additionalProperties": false
+            }
+        }]
+    }));
+    let (mut server, _ext, _dir) = fake_extension::initialized(
+        closed.with_output("mcp__closed", json!({"checked": true, "extra": 1})),
+    );
+    let resp = call_tool(&mut server, "test.closed", json!({}));
+    assert_eq!(resp["result"]["isError"], true, "{resp}");
+    let error = crate::tool_errors::mcp_error(&resp);
+    assert_eq!(error["code"], "schema_mismatch", "{error}");
+    assert_eq!(
+        error["data"]["violations"],
+        json!(["$.extra: undeclared key"]),
+        "{error}"
+    );
+}
+
 #[test]
 fn the_schema_check_finds_type_enum_and_required_violations() {
     let schema = json!({

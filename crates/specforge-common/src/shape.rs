@@ -332,13 +332,43 @@ fn check(schema: &Value, value: &Value, path: &str, found: &mut Vec<String>) {
                 found.push(format!("{path}: missing required {name}"));
             }
         }
-        if let Some(properties) = schema["properties"].as_object() {
+        let properties = schema["properties"].as_object();
+        if let Some(properties) = properties {
             for (name, property) in properties {
                 if let Some(member) = object.get(name) {
                     check(property, member, &format!("{path}.{name}"), found);
                 }
             }
         }
+        // A key `properties` does not list: refused when the object is
+        // closed, checked against the value schema when it is a map.
+        match schema.get("additionalProperties") {
+            Some(Value::Bool(false)) => {
+                for name in object.keys() {
+                    if !properties.is_some_and(|properties| properties.contains_key(name)) {
+                        found.push(format!("{path}.{name}: undeclared key"));
+                    }
+                }
+            }
+            Some(values @ Value::Object(_)) => {
+                for (name, member) in object {
+                    if !properties.is_some_and(|properties| properties.contains_key(name)) {
+                        check(values, member, &format!("{path}.{name}"), found);
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    if let (Some(minimum), Some(number)) = (
+        schema.get("minimum").and_then(Value::as_f64),
+        value.as_f64(),
+    ) && number < minimum
+    {
+        found.push(format!(
+            "{path}: {value} is below the minimum {}",
+            schema["minimum"]
+        ));
     }
     if let (Value::Array(items), Some(item)) = (value, schema.get("items")) {
         for (i, element) in items.iter().enumerate() {
