@@ -3002,7 +3002,6 @@ dependencies = [
  "specforge-graph",
  "specforge-installed",
  "specforge-mcp-macros",
- "specforge-migrate",
  "specforge-ops",
  "specforge-ops-registry",
  "specforge-parser",
