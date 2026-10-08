@@ -21,7 +21,7 @@ specforge-parser = { workspace = true }
 specforge-project = { path = "../specforge-project" }
 specforge-registry = { path = "../specforge-registry" }
 specforge-resolver = { path = "../specforge-resolver" }
-specforge-watch = { path = "../specforge-watch" }
+specforge-watch = { path = "../specforge-watch", features = ["tokio"] }
 tree-sitter = { workspace = true }
 tower-lsp = { workspace = true }
 tokio = { workspace = true }

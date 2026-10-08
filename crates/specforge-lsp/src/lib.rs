@@ -21,7 +21,3 @@ pub use document::{
 pub use hover::hover_field_info;
 pub use navigation::goto_import_definition;
 pub use state::LspState;
-
-/// Quiet window the reparse worker waits for before recompiling: the one
-/// `specforge watch` uses, so both coalesce edits the same way.
-pub const DEBOUNCE_WINDOW: std::time::Duration = specforge_watch::DEFAULT_DEBOUNCE_WINDOW;

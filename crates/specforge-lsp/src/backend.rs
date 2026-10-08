@@ -8,6 +8,7 @@ use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer};
 
 use specforge_project::{OpeningProject, ProjectSession};
+use specforge_watch::Debouncer;
 
 use crate::changes::{Applied, Change, Plan};
 use crate::{ClientSupport, LspState, answers, server_capabilities, server_info};
@@ -57,17 +58,10 @@ impl Backend {
         let worker_watched = Arc::clone(&watched);
         let worker_relative_patterns = Arc::clone(&relative_patterns);
         tokio::spawn(async move {
-            while let Some(first) = update_rx.recv().await {
-                // Coalesce everything already queued, then hold off until
-                // the stream is quiet for DEBOUNCE_WINDOW.
-                let mut pending = vec![first];
-                while let Ok(Some(next)) =
-                    tokio::time::timeout(crate::DEBOUNCE_WINDOW, update_rx.recv()).await
-                {
-                    pending.push(next);
-                }
-                pending.sort();
-                pending.dedup();
+            // The rule `specforge watch` batches file changes by: the burst
+            // is quiet for the debounce window, each document once.
+            let debouncer = Debouncer::new(specforge_watch::DEFAULT_DEBOUNCE_WINDOW);
+            while let Some(pending) = debouncer.coalesce_async(&mut update_rx).await {
                 // Everything the burst edited is one update (ADR 0023 D9).
                 let applied = Self::recompile(
                     &worker_state,
