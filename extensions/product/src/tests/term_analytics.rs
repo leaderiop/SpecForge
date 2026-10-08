@@ -90,15 +90,13 @@ fn term_graph_follows_max_hops_up_to_five() {
         json!(["t1", "t2", "t3", "t4", "t5"])
     );
     // Not a count: refused.
-    let error = RUNTIME.with(|runtime| {
-        run_in(
-            runtime,
-            "term_graph",
-            json!({"term": "t0", "max_hops": -1}),
-            &chain,
-            "json",
-        )
-    });
+    let error = run_in(
+        &runtime(),
+        "term_graph",
+        json!({"term": "t0", "max_hops": -1}),
+        &chain,
+        "json",
+    );
     assert_eq!(error.exit, 2);
     assert_eq!(error.error()["code"], "INVALID_INPUT");
 }

@@ -12,7 +12,9 @@ mod journey_coverage;
 mod lists;
 mod milestone_completion;
 mod persona_channel_features;
+mod project_wide;
 mod rollups;
+mod shared_contract;
 mod term_analytics;
 mod traceability;
 

@@ -101,15 +101,13 @@ fn as_of_overrides_the_hosts_today() {
         json!({"as_of": "tomorrow"}),
         json!({"as_of": 3}),
     ] {
-        let out = RUNTIME.with(|runtime| {
-            run_in(
-                runtime,
-                "milestone_timeline",
-                args.clone(),
-                &timeline(),
-                "json",
-            )
-        });
+        let out = run_in(
+            &runtime(),
+            "milestone_timeline",
+            args.clone(),
+            &timeline(),
+            "json",
+        );
         assert_eq!(out.exit, 2, "{args}");
         assert_eq!(out.error()["code"], "INVALID_INPUT", "{args}");
     }

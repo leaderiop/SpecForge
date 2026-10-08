@@ -137,13 +137,8 @@ pub(super) fn run_input(
     }
 }
 
-thread_local! {
-    /// One runtime per test thread, for the helpers that run many commands.
-    pub(super) static RUNTIME: InProcessRuntime = runtime();
-}
-
 pub(super) fn json_of(id: &str, args: Value, g: &G) -> Value {
-    RUNTIME.with(|runtime| run_in(runtime, id, args, g, "json").json())
+    run_in(&runtime(), id, args, g, "json").json()
 }
 
 pub(super) fn human_of(id: &str, args: Value, g: &G) -> String {
@@ -248,7 +243,7 @@ pub(super) fn shipping() -> G {
 }
 
 pub(super) fn not_found_suggesting(id: &str, args: Value, g: &G) -> Value {
-    let error = RUNTIME.with(|runtime| run_in(runtime, id, args, g, "json").error());
+    let error = run_in(&runtime(), id, args, g, "json").error();
     assert_eq!(error["code"], "ENTITY_NOT_FOUND", "{error}");
     error
 }

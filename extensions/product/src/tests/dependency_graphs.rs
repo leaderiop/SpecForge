@@ -74,15 +74,13 @@ fn feature_ordering_answers_its_payload() {
     verify = "cycles present in output does not cause exit code 1"
 )]
 fn a_feature_cycle_is_reported_with_exit_zero() {
-    let out = RUNTIME.with(|runtime| {
-        run_in(
-            runtime,
-            "feature_ordering",
-            json!({}),
-            &layered_with_a_cycle(),
-            "json",
-        )
-    });
+    let out = run_in(
+        &runtime(),
+        "feature_ordering",
+        json!({}),
+        &layered_with_a_cycle(),
+        "json",
+    );
     assert_eq!(out.exit, 0, "{}", out.stderr);
     assert_eq!(out.json()["has_cycles"], true);
 }
@@ -342,7 +340,7 @@ fn critical_path_of_no_milestones_is_empty() {
 )]
 fn a_milestone_cycle_gives_an_empty_path_and_says_why() {
     let g = schedule().edge("m1", "m3", "depends_on");
-    let out = RUNTIME.with(|runtime| run_in(runtime, "critical_path", json!({}), &g, "json"));
+    let out = run_in(&runtime(), "critical_path", json!({}), &g, "json");
     assert_eq!(out.exit, 0);
     let cp = out.json();
     assert_eq!(cp["critical_path"], json!([]));
@@ -633,15 +631,13 @@ fn module_coupling_answers_its_payload() {
         ),
         (json!(6), json!(true), json!("util"))
     );
-    let error = RUNTIME.with(|runtime| {
-        run_in(
-            runtime,
-            "module_coupling",
-            json!({"offset": -1}),
-            &layers(),
-            "json",
-        )
-    });
+    let error = run_in(
+        &runtime(),
+        "module_coupling",
+        json!({"offset": -1}),
+        &layers(),
+        "json",
+    );
     assert_eq!(error.exit, 2);
     assert_eq!(error.error()["code"], "INVALID_INPUT");
     let human = human_of("module_coupling", json!({}), &layers());

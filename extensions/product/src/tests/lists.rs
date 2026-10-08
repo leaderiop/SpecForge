@@ -126,7 +126,7 @@ fn entry_of(list: &str, id: &str) -> Value {
 
 /// What `list` answers when it refuses `args`: its exit code and error.
 fn refused(list: &str, args: Value) -> (i64, Value) {
-    let out = RUNTIME.with(|runtime| run_in(runtime, list, args, &catalog(), "json"));
+    let out = run_in(&runtime(), list, args, &catalog(), "json");
     let exit = out.exit;
     (exit, out.error())
 }

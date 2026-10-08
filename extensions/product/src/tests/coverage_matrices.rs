@@ -397,8 +397,7 @@ fn a_matrix_limit_above_a_thousand_is_a_thousand() {
         assert_eq!(page["limit"], 1000, "{id}");
         let page = json_of(id, json!({"limit": 0}), &reach());
         assert_eq!(page["limit"], 1, "{id}");
-        let error =
-            RUNTIME.with(|runtime| run_in(runtime, id, json!({"offset": -1}), &reach(), "json"));
+        let error = run_in(&runtime(), id, json!({"offset": -1}), &reach(), "json");
         assert_eq!(error.exit, 2, "{id}");
         assert_eq!(error.error()["code"], "INVALID_INPUT");
     }

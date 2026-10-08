@@ -36,16 +36,14 @@ fn deliverable_traceability_answers_its_payload() {
     verify = "missing deliverable ID returns error with suggestion"
 )]
 fn deliverable_traceability_of_a_mistyped_deliverable_suggests_the_nearest() {
-    let error = RUNTIME.with(|runtime| {
-        run_in(
-            runtime,
-            "deliverable_traceability",
-            json!({"deliverable": "dd1"}),
-            &shipping(),
-            "json",
-        )
-        .error()
-    });
+    let error = run_in(
+        &runtime(),
+        "deliverable_traceability",
+        json!({"deliverable": "dd1"}),
+        &shipping(),
+        "json",
+    )
+    .error();
     assert_eq!(error["code"], "ENTITY_NOT_FOUND");
     assert_eq!(error["suggestion"], "d1");
 }
@@ -156,16 +154,14 @@ fn feature_deliverables_answers_its_payload() {
     verify = "missing feature ID returns error with suggestion"
 )]
 fn feature_deliverables_of_a_mistyped_feature_suggests_the_nearest() {
-    let error = RUNTIME.with(|runtime| {
-        run_in(
-            runtime,
-            "feature_deliverables",
-            json!({"feature": "f11"}),
-            &shipping(),
-            "json",
-        )
-        .error()
-    });
+    let error = run_in(
+        &runtime(),
+        "feature_deliverables",
+        json!({"feature": "f11"}),
+        &shipping(),
+        "json",
+    )
+    .error();
     assert_eq!(error["code"], "ENTITY_NOT_FOUND");
     assert_eq!(error["suggestion"], "f1");
 }
@@ -275,16 +271,14 @@ fn persona_channels_answers_its_payload() {
     verify = "missing persona ID returns error with suggestion"
 )]
 fn persona_channels_of_a_mistyped_persona_suggests_the_nearest() {
-    let error = RUNTIME.with(|runtime| {
-        run_in(
-            runtime,
-            "persona_channels",
-            json!({"persona": "dve"}),
-            &shipping(),
-            "json",
-        )
-        .error()
-    });
+    let error = run_in(
+        &runtime(),
+        "persona_channels",
+        json!({"persona": "dve"}),
+        &shipping(),
+        "json",
+    )
+    .error();
     assert_eq!(error["code"], "ENTITY_NOT_FOUND");
     assert_eq!(error["suggestion"], "dev");
 }
@@ -362,16 +356,14 @@ fn deliverable_personas_answers_its_payload() {
     verify = "missing deliverable ID returns error with suggestion"
 )]
 fn deliverable_personas_of_a_mistyped_deliverable_suggests_the_nearest() {
-    let error = RUNTIME.with(|runtime| {
-        run_in(
-            runtime,
-            "deliverable_personas",
-            json!({"deliverable": "d9"}),
-            &shipping(),
-            "json",
-        )
-        .error()
-    });
+    let error = run_in(
+        &runtime(),
+        "deliverable_personas",
+        json!({"deliverable": "d9"}),
+        &shipping(),
+        "json",
+    )
+    .error();
     assert_eq!(error["code"], "ENTITY_NOT_FOUND");
     assert_eq!(error["suggestion"], "d1");
 }
