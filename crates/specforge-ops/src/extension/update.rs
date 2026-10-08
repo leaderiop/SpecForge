@@ -531,10 +531,7 @@ mod tests {
             entry("@test/probe", "0.0.9", "registry", &[]),
         ]);
         let lock_before = std::fs::read(lock_path(dir.path())).unwrap();
-        let probe = std::fs::read(
-            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/sandbox-probe/probe.wasm"),
-        )
-        .expect("the probe fixture is vendored");
+        let probe = crate::testing::PROBE.to_vec();
         let registry = MemoryRegistry::new()
             .serving(greet_published())
             .serving(Published::new(probe.clone(), declaration_of(&probe)));
