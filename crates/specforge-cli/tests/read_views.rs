@@ -458,6 +458,16 @@ fn cli_and_mcp_model_render_the_same_text() {
     }
 }
 
+// P6 - the ticket that makes the model refuse flips it.
+#[test]
+fn a_model_root_the_project_does_not_have_draws_nothing_today() {
+    let tmp = project("fx1");
+    let run = cli(&["model", s(tmp.path()), "--root", "behaviour"]);
+    assert_eq!(run.code, Some(0), "{}", run.stderr);
+    assert!(run.stdout.contains("0 entity kinds"), "{}", run.stdout);
+    assert!(run.stderr.is_empty(), "{}", run.stderr);
+}
+
 #[specforge_test_macros::test(
     behavior = "read_views_over_the_project_view",
     verify = "specforge outline and specforge.outline_extensions render the same text"

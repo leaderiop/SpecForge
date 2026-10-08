@@ -819,6 +819,32 @@ fn deps_full_shows_everything() {
     );
 }
 
+// P7 - the fix to the JSON outline flips it.
+#[test]
+fn the_json_outline_lists_every_dependency_whatever_deps_today() {
+    let outline = OutlineIntermediate_from_declarations(&load_all_manifests());
+    let listed = |deps| {
+        let options = OutlineOptions {
+            format: OutlineFormat::Json,
+            detail: OutlineDetail::Keys,
+            deps,
+        };
+        let json: serde_json::Value = serde_json::from_str(&render(&outline, &options)).unwrap();
+        json["dependencies"].as_array().unwrap().len()
+    };
+    assert_eq!(
+        listed(DependencyDepth::Direct),
+        listed(DependencyDepth::Full)
+    );
+    assert_eq!(listed(DependencyDepth::Full), outline.dependencies.len());
+    assert!(
+        outline
+            .dependencies
+            .iter()
+            .any(|d| d.kind == DependencyKind::Transitive)
+    );
+}
+
 #[test]
 fn mermaid_card_has_stats_divider_keywords() {
     let manifests = load_all_manifests();

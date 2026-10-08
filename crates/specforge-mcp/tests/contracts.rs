@@ -2967,6 +2967,29 @@ fn model_filters_reach_the_model() {
     assert!(every.len() > keys.len());
 }
 
+// P4 - the ticket that retypes the options flips it.
+#[specforge_test(
+    behavior = "expose_model_mcp_tool",
+    verify = "filter parameters are passed through to model options"
+)]
+fn a_model_depth_without_a_root_is_ignored_today() {
+    let (mut server, _project) = model_server();
+    assert_eq!(
+        model_kinds(&mut server, json!({"depth": 0})),
+        model_kinds(&mut server, json!({}))
+    );
+}
+
+// P5 - the ticket that retypes the options flips it.
+#[specforge_test(
+    behavior = "expose_model_mcp_tool",
+    verify = "filter parameters are passed through to model options"
+)]
+fn an_empty_kind_list_selects_no_kind_today() {
+    let (mut server, _project) = model_server();
+    assert!(model_kinds(&mut server, json!({"kinds": []})).is_empty());
+}
+
 #[specforge_test(
     behavior = "expose_model_mcp_tool",
     verify = "Expose Model as MCP Tool: MCP model tool holds — validation_complete_fired, tool_registered, all_formats_available, all_filters_available, result_is_string"
