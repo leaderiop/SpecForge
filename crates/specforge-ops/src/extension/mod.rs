@@ -2,13 +2,15 @@
 //! `extensions` and their MCP tools.
 
 mod add;
+mod candidate;
 mod diamond;
 mod list;
 mod remove;
 mod resolve;
 mod update;
 
-pub use add::{AddOutcome, AddRequest, Added, Source, Trust, add, declared, parse};
+pub use add::{AddOutcome, AddRequest, Added, Source, Trust, add, parse};
+pub use candidate::{Candidate, Installable, LocalFile};
 pub use diamond::check_diamonds;
 pub use list::{
     ExtensionEntry, ExtensionListing, LockedExtension, ProviderEntry, ProviderListing, Status,
@@ -20,6 +22,8 @@ pub use update::{
     BatchUpdateCompleted, ExtensionUpdate, NO_LOCK, UpdateOutcome, UpdateRequest, UpdateStatus,
     update,
 };
+
+pub(crate) use candidate::required_builtins;
 
 use crate::OpError;
 use crate::registry::Registry;
@@ -117,25 +121,6 @@ pub fn enabled_builtins(config: &specforge_common::ProjectConfig) -> Vec<&'stati
         .extensions
         .iter()
         .filter_map(|entry| builtin_name(entry))
-        .collect()
-}
-
-/// Builtins that `name` requires: its non-optional peer dependencies that
-/// are themselves builtins, read from its declaration.
-pub fn required_builtin_peers(name: &str) -> Vec<&'static str> {
-    let runtime = specforge_component::ComponentRuntime::new();
-    if specforge_component::builtins::load_builtins_for(&runtime, &[name.to_string()]).is_err() {
-        return Vec::new();
-    }
-    let Ok(loaded) = specforge_wasm::protocol::load_declaration(&runtime, name) else {
-        return Vec::new();
-    };
-    loaded
-        .declaration
-        .peers()
-        .iter()
-        .filter(|peer| !peer.optional)
-        .filter_map(|peer| builtin_name(&peer.name))
         .collect()
 }
 

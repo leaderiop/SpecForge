@@ -803,6 +803,7 @@ mod tests {
                 dry_run: false,
             },
             &crate::registry::Unconfigured("add"),
+            &specforge_component::ComponentRuntime::with_user_cache(),
         )
         .unwrap();
         let module = dir
@@ -859,6 +860,7 @@ mod tests {
                 dry_run: false,
             },
             &crate::registry::Unconfigured("add"),
+            &specforge_component::ComponentRuntime::with_user_cache(),
         )
         .unwrap();
         let runtime = specforge_component::ComponentRuntime::with_user_cache();

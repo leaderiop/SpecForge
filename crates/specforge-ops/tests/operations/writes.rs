@@ -85,6 +85,7 @@ fn add(root: &Path, source: Source) -> Result<extension::Added, specforge_ops::O
             dry_run: false,
         },
         &specforge_ops::registry::Unconfigured("test"),
+        &specforge_component::ComponentRuntime::with_user_cache(),
     )
 }
 

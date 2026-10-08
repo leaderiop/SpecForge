@@ -16,9 +16,10 @@ use super::{Trust, published_versions};
 use crate::registry::{NO_REGISTRY, Registry};
 use crate::{OpError, OpErrorKind, Writes};
 use specforge_common::{Code, codes};
-use specforge_installed::{Installed, LockFile, LockSource, LockState, Module, Pin};
+use specforge_installed::{Installed, LockFile, LockSource, LockState, Pin};
 use specforge_protocol_types::PackageName;
 use specforge_protocol_types::package::VersionRequirement;
+use specforge_wasm::WasmRuntime;
 use std::path::Path;
 
 /// The code `update` reports when the project has no lock file.
@@ -140,7 +141,11 @@ pub struct BatchUpdateCompleted {
 /// when `specforge.json` cannot be used, with E033 when the
 /// project has no lock file, and with E063 when a registry install needs a
 /// registry and none is configured.
-pub fn update(req: &UpdateRequest, registry: &dyn Registry) -> Result<UpdateOutcome, OpError> {
+pub fn update(
+    req: &UpdateRequest,
+    registry: &dyn Registry,
+    runtime: &dyn WasmRuntime,
+) -> Result<UpdateOutcome, OpError> {
     // A project whose specforge.json cannot be used is refused before
     // anything is read or written, as `add` and `remove` refuse it.
     crate::config::usable(req.root)?;
@@ -180,22 +185,23 @@ pub fn update(req: &UpdateRequest, registry: &dyn Registry) -> Result<UpdateOutc
             }
         } else {
             registry_used = true;
-            match plan_one(req, registry, &staged, &entry.name, &entry.version) {
+            match plan_one(req, registry, runtime, &staged, &entry.name, &entry.version) {
                 Ok(None) => UpdateStatus::UpToDate {
                     version: entry.version.clone(),
                 },
                 Ok(Some(checked)) => {
                     let status = UpdateStatus::Updated {
                         from: entry.version.clone(),
-                        to: checked.declared.version().to_string(),
+                        to: checked.binary.candidate().version().to_string(),
                         sha256: checked.package.sha256.clone(),
                         key_id: checked.package.key_id.clone(),
                     };
                     if let Some(staged_entry) =
                         staged.entries.iter_mut().find(|e| e.name == entry.name)
                     {
-                        staged_entry.version = checked.declared.version().to_string();
-                        staged_entry.peer_dependencies = checked.declared.peers().to_vec();
+                        staged_entry.version = checked.binary.candidate().version().to_string();
+                        staged_entry.peer_dependencies =
+                            checked.binary.candidate().peers().to_vec();
                     }
                     planned.push((entry.name.to_string(), checked));
                     status
@@ -235,13 +241,13 @@ pub fn update(req: &UpdateRequest, registry: &dyn Registry) -> Result<UpdateOutc
     let mut change = installed.change().map_err(OpError::from)?;
     for (_, checked) in &planned {
         change.install(
-            Module::new(checked.package.wasm.clone()),
+            checked.binary.module().clone(),
             Pin {
                 name: checked.package.name.clone(),
-                version: checked.declared.version().to_string(),
+                version: checked.binary.candidate().version().to_string(),
                 source: LockSource::Registry,
                 key_id: checked.package.key_id.clone(),
-                peers: checked.declared.peers().to_vec(),
+                peers: checked.binary.candidate().peers().to_vec(),
             },
         );
     }
@@ -263,6 +269,7 @@ pub fn update(req: &UpdateRequest, registry: &dyn Registry) -> Result<UpdateOutc
 fn plan_one(
     req: &UpdateRequest,
     registry: &dyn Registry,
+    runtime: &dyn WasmRuntime,
     staged: &LockFile,
     package: &PackageName,
     current: &str,
@@ -282,6 +289,7 @@ fn plan_one(
     others.entries.retain(|e| e.name != *package);
     fetch_checked(
         registry,
+        runtime,
         &others,
         package,
         &latest,
@@ -332,6 +340,10 @@ mod tests {
     /// Where the module of extension `name` is installed under `root`.
     fn installed(root: &Path, name: &str) -> std::path::PathBuf {
         Installed::unread(root).module_path(&PackageName::parse(name).unwrap())
+    }
+
+    fn runtime() -> specforge_component::ComponentRuntime {
+        specforge_component::ComponentRuntime::new()
     }
 
     /// `@sdk/greet` 0.1.0, a real extension binary.
@@ -498,7 +510,7 @@ mod tests {
             .publish("@sdk/greet", &["0.0.9", "0.1.0"])
             .serve("@sdk/greet", "0.1.0", greet());
 
-        let outcome = update(&request(dir.path(), true), &registry).unwrap();
+        let outcome = update(&request(dir.path(), true), &registry, &runtime()).unwrap();
 
         assert!(outcome.applied(), "{outcome:?}");
         assert_eq!(
@@ -532,7 +544,7 @@ mod tests {
             .publish("@sdk/greet", &["0.0.9", "0.1.0"])
             .serve("@sdk/greet", "0.1.0", greet());
 
-        let outcome = update(&request(dir.path(), false), &registry).unwrap();
+        let outcome = update(&request(dir.path(), false), &registry, &runtime()).unwrap();
 
         // Asked for what ^0.0.9 admits: 0.1.0 is not it.
         assert_eq!(registry.listed.borrow().as_slice(), ["@sdk/greet"]);
@@ -568,7 +580,7 @@ mod tests {
             .publish("@acme/liar", &["1.1.0"])
             .serve("@acme/liar", "1.1.0", greet());
 
-        let outcome = update(&request(dir.path(), true), &registry).unwrap();
+        let outcome = update(&request(dir.path(), true), &registry, &runtime()).unwrap();
 
         assert!(!outcome.applied());
         let failures: Vec<(&str, &str)> = outcome
@@ -611,7 +623,7 @@ mod tests {
             greet(),
         );
 
-        let outcome = update(&request(dir.path(), true), &registry).unwrap();
+        let outcome = update(&request(dir.path(), true), &registry, &runtime()).unwrap();
 
         assert!(!outcome.applied());
         let (name, error) = outcome.failures().next().unwrap();
@@ -643,7 +655,7 @@ mod tests {
             return;
         }
 
-        let outcome = update(&request(dir.path(), true), &registry).unwrap();
+        let outcome = update(&request(dir.path(), true), &registry, &runtime()).unwrap();
         std::fs::set_permissions(dir.path(), mode(0o755)).unwrap();
 
         assert!(!outcome.applied(), "{outcome:?}");
@@ -659,7 +671,7 @@ mod tests {
         let dir = project(vec![entry("@sdk/greet", "0.0.9", "local:greet.wasm", &[])]);
         let registry = FakeRegistry::new().publish("@sdk/greet", &["9.9.9"]);
 
-        let outcome = update(&request(dir.path(), true), &registry).unwrap();
+        let outcome = update(&request(dir.path(), true), &registry, &runtime()).unwrap();
 
         assert!(registry.listed.borrow().is_empty());
         assert!(!outcome.registry_used);
@@ -674,12 +686,17 @@ mod tests {
     #[test]
     fn no_lock_and_no_registry_fail_outright() {
         let empty = tempfile::tempdir().unwrap();
-        let error = update(&request(empty.path(), false), &FakeRegistry::new()).unwrap_err();
+        let error = update(
+            &request(empty.path(), false),
+            &FakeRegistry::new(),
+            &runtime(),
+        )
+        .unwrap_err();
         assert!(error.is(NO_LOCK), "{error:?}");
 
         let dir = project(vec![entry("@sdk/greet", "0.0.9", "registry", &[])]);
         let unconfigured = crate::registry::Unconfigured("update");
-        let error = update(&request(dir.path(), false), &unconfigured).unwrap_err();
+        let error = update(&request(dir.path(), false), &unconfigured, &runtime()).unwrap_err();
         assert!(error.is(NO_REGISTRY), "{error:?}");
     }
 
@@ -709,6 +726,7 @@ mod tests {
                 dry_run: false,
             },
             registry,
+            &runtime(),
         )
         .map(|added| added.outcome)
     }
@@ -823,7 +841,8 @@ mod tests {
                 let refused = crate::config::refusal(&read.problems[0]);
 
                 let unconfigured = crate::registry::Unconfigured("update");
-                let error = update(&request(dir.path(), false), &unconfigured).unwrap_err();
+                let error =
+                    update(&request(dir.path(), false), &unconfigured, &runtime()).unwrap_err();
 
                 assert_eq!(error, refused, "{config}, locked: {locked}");
                 assert_eq!(files_under(dir.path()), before, "{config}");

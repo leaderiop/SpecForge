@@ -340,7 +340,8 @@ pub(crate) fn add_extension(call: &mut Call<'_>, args: AddArgs) -> MutationHandl
         trust: Trust::Refuse,
         dry_run,
     };
-    let added = match extension::add(&request, &registry) {
+    let runtime = call.runtime();
+    let added = match extension::add(&request, &registry, runtime.as_ref()) {
         Ok(added) => added,
         // An install that failed after placing its module reports it.
         Err(error) => {

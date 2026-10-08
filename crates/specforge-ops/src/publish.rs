@@ -109,8 +109,7 @@ fn crate_name(cargo_toml: &Path) -> Option<String> {
 /// out: they are installed beside the extension, not with it.
 pub fn declare(wasm: &[u8]) -> Result<(ExtensionDeclaration, Vec<Diagnostic>), OpError> {
     let runtime = specforge_component::ComponentRuntime::new();
-    let module = specforge_installed::Module::new(wasm.to_vec());
-    let loaded = specforge_installed::declaration_of(&module, &runtime)?;
+    let loaded = specforge_installed::declaration_of(wasm, &runtime)?;
     let diagnostics = diagnostics_of(&loaded.declaration, loaded.warnings);
     Ok((loaded.declaration, diagnostics))
 }

@@ -441,6 +441,22 @@ impl<'s> Call<'s> {
         &self.target
     }
 
+    /// The runtime the call's operation reads an extension's declaration in:
+    /// its project's (the served session's, or the one another project was
+    /// compiled in); with none, the host's (`McpState::extension_runtime`),
+    /// else one of its own with the per-user compile cache. `init` and
+    /// `add_extension` pass it to their operation (ADR 0028 D7).
+    pub fn runtime(&self) -> SharedRuntime {
+        let project = match &self.target {
+            CallTarget::Served => self.state.session().runtime().cloned(),
+            CallTarget::Other(other) => Some(Arc::clone(&other.runtime)),
+            CallTarget::New(_) | CallTarget::Unscoped | CallTarget::NoProject(_) => None,
+        };
+        project
+            .or_else(|| self.state.extension_runtime.clone())
+            .unwrap_or_else(own_runtime)
+    }
+
     /// The project view of what the call reads: its project's
     /// ([`ProjectRef::view`]), else, with no project, the empty session's
     /// graph without a root: no recorded report, no schema cache; it

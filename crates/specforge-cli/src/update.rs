@@ -17,6 +17,7 @@ pub fn run(
     assume_yes: bool,
 ) -> i32 {
     let registry = HttpRegistry::for_project(path, "update");
+    let runtime = specforge_component::ComponentRuntime::with_user_cache();
     let request = UpdateRequest {
         root: path,
         name,
@@ -28,7 +29,7 @@ pub fn run(
             (false, OutputFormat::Human) => Trust::Prompt,
         },
     };
-    let outcome = match extension::update(&request, &registry) {
+    let outcome = match extension::update(&request, &registry, &runtime) {
         Ok(outcome) => outcome,
         Err(error) => {
             return Refusal::of(format).report(&error);

@@ -199,6 +199,7 @@ pub fn apply(dir: &Path, plan: &Plan) -> Result<Outcome, OpError> {
             .map_err(|e| write_error(STARTER_FILE, e))?;
         writes.record(dir.join(STARTER_FILE));
         let registry = crate::registry::Unconfigured("init");
+        let runtime = specforge_component::ComponentRuntime::new();
         for wasm in &plan.installs {
             let added = extension::add(
                 &extension::AddRequest {
@@ -209,6 +210,7 @@ pub fn apply(dir: &Path, plan: &Plan) -> Result<Outcome, OpError> {
                     dry_run: false,
                 },
                 &registry,
+                &runtime,
             )?;
             writes.merge(added.writes);
         }
@@ -278,7 +280,10 @@ fn extensions_of(specifiers: &[String]) -> Result<(Vec<String>, Vec<PathBuf>), O
         let name = match extension::parse(specifier).map_err(|e| unresolvable(e.message))? {
             Source::Builtin(name) => name.to_string(),
             Source::Local(path) => {
-                let (name, _) = extension::declared(&path).map_err(|e| unresolvable(e.message))?;
+                let runtime = specforge_component::ComponentRuntime::new();
+                let local = extension::LocalFile::read(&runtime, &path)
+                    .map_err(|e| unresolvable(e.message))?;
+                let name = local.binary.candidate().name().to_string();
                 installs.push(path);
                 name
             }
@@ -314,7 +319,7 @@ fn starter_template(extensions: &[String], installs: &[PathBuf]) -> Option<Strin
         .iter()
         .filter_map(|wasm| {
             let module = specforge_installed::Module::read(wasm).ok()?;
-            let declaration = specforge_installed::declaration_of(&module, &runtime)
+            let declaration = specforge_installed::declaration_of(module.bytes(), &runtime)
                 .ok()?
                 .declaration;
             Some((

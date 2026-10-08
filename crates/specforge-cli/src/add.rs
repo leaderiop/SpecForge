@@ -24,6 +24,7 @@ pub fn run(
     if matches!(source, Source::Registry(_)) {
         format.eprint_diagnostics(registry.diagnostics());
     }
+    let runtime = specforge_component::ComponentRuntime::with_user_cache();
     let request = AddRequest {
         root: path,
         source,
@@ -35,7 +36,7 @@ pub fn run(
         },
         dry_run: false,
     };
-    match extension::add(&request, &registry) {
+    match extension::add(&request, &registry, &runtime) {
         Ok(added) => {
             present(&added.outcome, &added.writes.names_under(path), format);
             0
