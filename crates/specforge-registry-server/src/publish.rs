@@ -4,6 +4,7 @@
 use crate::handlers::ApiError;
 use specforge_protocol_types::PackageName;
 use specforge_protocol_types::package::Version;
+use specforge_registry_wire::code;
 
 /// The package a publish names, read from its URL path: a scoped
 /// `PackageName` (a registry holds no other) and a `Version`.
@@ -19,15 +20,15 @@ pub(crate) fn publish_target(
         Ok(name) if name.scope().is_some() => name,
         Ok(name) => {
             return Err(ApiError::bad_request(
-                "INVALID_NAME",
+                code::INVALID_NAME,
                 format!("'{name}' is not a scoped package name (expected @scope/name)"),
             ));
         }
-        Err(why) => return Err(ApiError::bad_request("INVALID_NAME", why.to_string())),
+        Err(why) => return Err(ApiError::bad_request(code::INVALID_NAME, why.to_string())),
     };
     let version = Version::parse(version).map_err(|_| {
         ApiError::bad_request(
-            "INVALID_VERSION",
+            code::INVALID_VERSION,
             format!("'{version}' is not a valid SemVer version (MAJOR.MINOR.PATCH)"),
         )
     })?;

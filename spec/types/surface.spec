@@ -74,7 +74,7 @@ type CommandArgType = string_arg | path_arg | bool_arg | enum_arg | integer_arg
 
 // What a cmd__{id} export receives. args holds the declared args the
 // caller set (the CLI's parsed command line, or the auto-promoted MCP
-// tool's arguments), typed as declared; cwd is the project root; graph is
+// tool's arguments), typed as declared; cwd is the project root, absolute and canonical (symlinks resolved), the same on both surfaces; graph is
 // the compiled project's graph in the graph export's shape (entities
 // sorted by id, edges by source, target and label); format is the output
 // the caller asked for (the CLI's --format, json over MCP); today is the

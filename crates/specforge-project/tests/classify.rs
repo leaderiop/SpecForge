@@ -71,7 +71,10 @@ fn a_discovered_spec_file_is_a_source_keyed_from_the_spec_root() {
         source("gone.spec")
     );
     assert_eq!(
-        session.source_key(&root.join("spec/sub/b.spec")),
+        session
+            .project()
+            .environment()
+            .source_key(&root.join("spec/sub/b.spec")),
         "sub/b.spec"
     );
     // A .spec file outside the spec root is not a source of the project.
@@ -177,7 +180,13 @@ fn the_build_cache_reruns_the_checks_only() {
             .watched()
             .contains(&Watched::File(cache.clone()))
     );
-    assert!(session.diagnostics().iter().all(|d| d.code != "W144"));
+    assert!(
+        session
+            .project()
+            .diagnostics()
+            .iter()
+            .all(|d| d.code != "W144")
+    );
 
     // An invalid cache: the check passes report W144 when they read it.
     write_cache(&dir, "{ not json");
@@ -219,12 +228,13 @@ fn a_referenced_file_reruns_the_checks() {
         ProjectSession::open_with_runtime(root, Some(Arc::clone(&ext) as SharedRuntime));
     let e016 = |session: &ProjectSession| {
         session
+            .project()
             .diagnostics()
             .iter()
             .filter(|d| d.code == "E016")
             .count()
     };
-    assert_eq!(e016(&session), 1, "{:?}", session.diagnostics());
+    assert_eq!(e016(&session), 1, "{:?}", session.project().diagnostics());
 
     write(root, "docs/guide.md", "# Guide\n");
     let guide = root.join("docs/guide.md");
@@ -233,7 +243,7 @@ fn a_referenced_file_reruns_the_checks() {
         .apply(&session.inputs().changes([guide.as_path()]))
         .expect("a referenced file changed");
     assert_eq!(update.kind, UpdateKind::Checks);
-    assert_eq!(e016(&session), 0, "{:?}", session.diagnostics());
+    assert_eq!(e016(&session), 0, "{:?}", session.project().diagnostics());
 }
 
 #[specforge_test(
@@ -334,6 +344,7 @@ fn a_file_a_file_exists_rule_names_reruns_the_checks() {
         ProjectSession::open_with_runtime(root, Some(Arc::clone(&ext) as SharedRuntime));
     let missing = |session: &ProjectSession| -> Vec<String> {
         session
+            .project()
             .diagnostics()
             .iter()
             .filter(|d| d.code.starts_with('F'))
@@ -365,7 +376,11 @@ fn a_file_a_file_exists_rule_names_reruns_the_checks() {
     session
         .apply(&session.inputs().changes([one.as_path()]))
         .unwrap();
-    assert!(missing(&session).is_empty(), "{:?}", session.diagnostics());
+    assert!(
+        missing(&session).is_empty(),
+        "{:?}",
+        session.project().diagnostics()
+    );
 }
 
 #[specforge_test(

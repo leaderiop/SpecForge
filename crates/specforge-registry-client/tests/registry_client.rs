@@ -1,128 +1,10 @@
 use std::path::PathBuf;
-use std::sync::Mutex;
 
 use specforge_common::Severity;
-use specforge_protocol_types::package::Version;
-use specforge_protocol_types::{ExtensionDeclaration, PackageName};
 use specforge_registry_client::auth;
-use specforge_registry_client::registry_client::{
-    RegistryClient, RegistryError, RegistryResponse, RegistrySearchResult, RetryPolicy,
-};
+use specforge_registry_client::registry_client::{RegistryError, RetryPolicy};
 use specforge_registry_client::registry_config::{AuthMethod, RegistryConfig, RegistryCredential};
-
-// ---------------------------------------------------------------------------
-// Mock client
-// ---------------------------------------------------------------------------
-
-/// A configurable mock that records calls and returns preset results.
-struct MockRegistryClient {
-    fetch_result: Mutex<Option<Result<RegistryResponse, RegistryError>>>,
-    search_result: Mutex<Option<Result<Vec<RegistrySearchResult>, RegistryError>>>,
-    publish_result: Mutex<Option<Result<String, RegistryError>>>,
-    auth_results: Mutex<Vec<Result<Option<String>, RegistryError>>>,
-    auth_call_count: Mutex<u32>,
-}
-
-impl MockRegistryClient {
-    fn new() -> Self {
-        Self {
-            fetch_result: Mutex::new(None),
-            search_result: Mutex::new(None),
-            publish_result: Mutex::new(None),
-            auth_results: Mutex::new(Vec::new()),
-            auth_call_count: Mutex::new(0),
-        }
-    }
-
-    fn with_fetch(self, result: Result<RegistryResponse, RegistryError>) -> Self {
-        *self.fetch_result.lock().unwrap() = Some(result);
-        self
-    }
-
-    fn with_search(self, result: Result<Vec<RegistrySearchResult>, RegistryError>) -> Self {
-        *self.search_result.lock().unwrap() = Some(result);
-        self
-    }
-
-    fn with_publish(self, result: Result<String, RegistryError>) -> Self {
-        *self.publish_result.lock().unwrap() = Some(result);
-        self
-    }
-
-    /// Push auth results in order; each `authenticate()` call pops the next one.
-    fn with_auth_sequence(self, results: Vec<Result<Option<String>, RegistryError>>) -> Self {
-        *self.auth_results.lock().unwrap() = results;
-        self
-    }
-
-    fn auth_call_count(&self) -> u32 {
-        *self.auth_call_count.lock().unwrap()
-    }
-}
-
-impl RegistryClient for MockRegistryClient {
-    fn fetch(
-        &self,
-        _name: &PackageName,
-        _version: &Version,
-        _registry: &RegistryConfig,
-    ) -> Result<RegistryResponse, RegistryError> {
-        self.fetch_result
-            .lock()
-            .unwrap()
-            .clone()
-            .unwrap_or(Err(RegistryError::NetworkError {
-                message: "no mock configured".into(),
-            }))
-    }
-
-    fn search(
-        &self,
-        _query: &str,
-        _registry: &RegistryConfig,
-    ) -> Result<Vec<RegistrySearchResult>, RegistryError> {
-        self.search_result
-            .lock()
-            .unwrap()
-            .clone()
-            .unwrap_or(Err(RegistryError::NetworkError {
-                message: "no mock configured".into(),
-            }))
-    }
-
-    fn publish(
-        &self,
-        _package: &[u8],
-        _declaration: &ExtensionDeclaration,
-        _manifest_json: &str,
-        _signature: Option<&str>,
-        _registry: &RegistryConfig,
-        _credential: Option<&RegistryCredential>,
-    ) -> Result<String, RegistryError> {
-        self.publish_result
-            .lock()
-            .unwrap()
-            .clone()
-            .unwrap_or(Err(RegistryError::NetworkError {
-                message: "no mock configured".into(),
-            }))
-    }
-
-    fn authenticate(
-        &self,
-        _registry: &RegistryConfig,
-        _credential: &RegistryCredential,
-    ) -> Result<Option<String>, RegistryError> {
-        let mut count = self.auth_call_count.lock().unwrap();
-        *count += 1;
-        let mut results = self.auth_results.lock().unwrap();
-        if results.is_empty() {
-            Ok(None)
-        } else {
-            results.remove(0)
-        }
-    }
-}
+use specforge_registry_client::testing::{CallKind, MemoryClient};
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -134,6 +16,21 @@ fn test_registry() -> RegistryConfig {
         url: "https://registry.specforge.dev".to_string(),
         scope_filter: None,
         default_registry: true,
+    }
+}
+
+/// How many `authenticate` calls `client` answered.
+fn auth_calls(client: &MemoryClient) -> usize {
+    client
+        .calls()
+        .iter()
+        .filter(|call| call.kind == CallKind::Authenticate)
+        .count()
+}
+
+fn unauthorized(guidance: &str) -> RegistryError {
+    RegistryError::Unauthorized {
+        guidance: guidance.into(),
     }
 }
 
@@ -158,90 +55,9 @@ fn test_credential_bearer(token: &str) -> RegistryCredential {
     }
 }
 
-fn minimal_manifest() -> ExtensionDeclaration {
-    serde_json::from_value(serde_json::json!({
-        "handshake": {
-            "protocol_version": "1.0.0",
-            "name": "@test/ext",
-            "version": "1.0.0",
-            "contribution_flags": {},
-            "peer_dependencies": [],
-            "sandbox_policy": null
-        }
-    }))
-    .unwrap()
-}
-
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
-
-// B:registry-client — verify unit "mock fetch returns expected response"
-#[test]
-fn mock_client_fetch() {
-    let client = MockRegistryClient::new().with_fetch(Ok(RegistryResponse {
-        name: "@specforge/software".into(),
-        version: "1.0.0".into(),
-        wasm_url: "https://r.specforge.dev/software-1.0.0.wasm".into(),
-        sha256: "abc123".into(),
-        signature: String::new(),
-        key_id: String::new(),
-        manifest: String::new(),
-    }));
-
-    let resp = client
-        .fetch(
-            &PackageName::parse("@specforge/software").unwrap(),
-            &Version::new(1, 0, 0),
-            &test_registry(),
-        )
-        .unwrap();
-    assert_eq!(resp.name, "@specforge/software");
-    assert_eq!(resp.version, "1.0.0");
-    assert_eq!(resp.sha256, "abc123");
-}
-
-// B:registry-client — verify unit "mock search returns results"
-#[test]
-fn mock_client_search() {
-    let client = MockRegistryClient::new().with_search(Ok(vec![RegistrySearchResult {
-        name: "@specforge/software".into(),
-        version: "1.0.0".into(),
-        description: "Software engineering extension".into(),
-    }]));
-
-    let results = client.search("software", &test_registry()).unwrap();
-    assert_eq!(results.len(), 1);
-    assert_eq!(results[0].name, "@specforge/software");
-}
-
-// B:registry-client — verify unit "mock publish returns URL"
-#[test]
-fn mock_client_publish() {
-    let client = MockRegistryClient::new()
-        .with_publish(Ok("https://r.specforge.dev/@test/ext/1.0.0".into()));
-
-    let url = client
-        .publish(
-            b"wasm-bytes",
-            &minimal_manifest(),
-            "{\"name\":\"@test/ext\"}",
-            None,
-            &test_registry(),
-            None,
-        )
-        .unwrap();
-    assert!(url.contains("@test/ext"));
-}
-
-// B:registry-client — verify unit "mock authenticate succeeds"
-#[test]
-fn mock_client_authenticate() {
-    let client = MockRegistryClient::new().with_auth_sequence(vec![Ok(None)]);
-    let cred = test_credential_bearer("test-token");
-    let result = client.authenticate(&test_registry(), &cred);
-    assert!(result.is_ok());
-}
 
 // B:auth-token-resolution — verify unit "token resolved from env var"
 #[test]
@@ -285,30 +101,21 @@ fn resolve_credential_missing_env_var() {
 #[test]
 fn auth_retry_on_first_401() {
     // First call: 401, second call: success
-    let client = MockRegistryClient::new().with_auth_sequence(vec![
-        Err(RegistryError::Unauthorized {
-            guidance: "token expired".into(),
-        }),
-        Ok(None),
-    ]);
+    let client = MemoryClient::new().accepting("some-token");
+    client.fail_next(CallKind::Authenticate, None, unauthorized("token expired"));
 
     let cred = test_credential_bearer("some-token");
     let result = auth::authenticate_with_retry(&client, &test_registry(), &cred);
     assert!(result.is_ok());
-    assert_eq!(client.auth_call_count(), 2);
+    assert_eq!(auth_calls(&client), 2);
 }
 
 // B:auth-retry — verify unit "double 401 produces E-level diagnostic with login guidance"
 #[test]
 fn auth_double_401_produces_error_diagnostic() {
-    let client = MockRegistryClient::new().with_auth_sequence(vec![
-        Err(RegistryError::Unauthorized {
-            guidance: "bad token".into(),
-        }),
-        Err(RegistryError::Unauthorized {
-            guidance: "still bad".into(),
-        }),
-    ]);
+    let client = MemoryClient::new().accepting("some-token");
+    client.fail_next(CallKind::Authenticate, None, unauthorized("bad token"));
+    client.fail_next(CallKind::Authenticate, None, unauthorized("still bad"));
 
     let cred = test_credential_bearer("some-token");
     let err = auth::authenticate_with_retry(&client, &test_registry(), &cred).unwrap_err();
@@ -320,16 +127,20 @@ fn auth_double_401_produces_error_diagnostic() {
             .unwrap()
             .contains("specforge registry login")
     );
-    assert_eq!(client.auth_call_count(), 2);
+    assert_eq!(auth_calls(&client), 2);
 }
 
 // B:auth-forbidden — verify unit "403 produces E-level diagnostic with permission guidance"
 #[test]
 fn auth_403_produces_permission_error() {
-    let client =
-        MockRegistryClient::new().with_auth_sequence(vec![Err(RegistryError::Forbidden {
+    let client = MemoryClient::new().accepting("some-token");
+    client.fail_next(
+        CallKind::Authenticate,
+        None,
+        RegistryError::Forbidden {
             guidance: "insufficient scope".into(),
-        })]);
+        },
+    );
 
     let cred = test_credential_bearer("some-token");
     let err = auth::authenticate_with_retry(&client, &test_registry(), &cred).unwrap_err();
@@ -408,7 +219,7 @@ fn timeout_error_produces_diagnostic() {
 // B:validate-credentials — verify unit "valid credentials pass validation"
 #[test]
 fn validate_credentials_success() {
-    let client = MockRegistryClient::new().with_auth_sequence(vec![Ok(None)]);
+    let client = MemoryClient::new().accepting("valid-token");
     let cred = test_credential_bearer("valid-token");
     let result = auth::validate_credentials(&client, &test_registry(), &cred);
     assert!(result.is_ok());
@@ -458,23 +269,22 @@ fn logout_returns_false_when_not_found() {
 #[test]
 fn auth_failure_does_not_trigger_cache_fallback() {
     // 401 and 403 should produce errors, never silently succeed via cache
-    let client_401 = MockRegistryClient::new().with_auth_sequence(vec![
-        Err(RegistryError::Unauthorized {
-            guidance: "expired".into(),
-        }),
-        Err(RegistryError::Unauthorized {
-            guidance: "still expired".into(),
-        }),
-    ]);
+    let client_401 = MemoryClient::new().accepting("tok");
+    client_401.fail_next(CallKind::Authenticate, None, unauthorized("expired"));
+    client_401.fail_next(CallKind::Authenticate, None, unauthorized("still expired"));
 
     let cred = test_credential_bearer("tok");
     let result = auth::authenticate_with_retry(&client_401, &test_registry(), &cred);
     assert!(result.is_err(), "401 must not silently succeed via cache");
 
-    let client_403 =
-        MockRegistryClient::new().with_auth_sequence(vec![Err(RegistryError::Forbidden {
+    let client_403 = MemoryClient::new().accepting("tok");
+    client_403.fail_next(
+        CallKind::Authenticate,
+        None,
+        RegistryError::Forbidden {
             guidance: "no access".into(),
-        })]);
+        },
+    );
 
     let result = auth::authenticate_with_retry(&client_403, &test_registry(), &cred);
     assert!(result.is_err(), "403 must not silently succeed via cache");
@@ -514,4 +324,27 @@ fn all_registry_errors_convert_to_diagnostics() {
         let diag: specforge_common::Diagnostic = err.into();
         assert_eq!(&diag.code, expected_code, "wrong code for {expected_code}");
     }
+}
+
+#[specforge_test_macros::test(
+    behavior = "resolve_registry_source",
+    verify = "network error produces ExtensionError with retry guidance"
+)]
+fn a_network_error_suggests_a_retry() {
+    let network = RegistryError::NetworkError {
+        message: "connection refused".into(),
+    }
+    .to_diagnostic();
+    assert_eq!(network.code, "R005");
+    assert_eq!(network.severity, Severity::Error);
+    assert!(network.message.contains("connection refused"));
+    assert!(network.suggestion.as_ref().unwrap().contains("retry"));
+
+    let timeout = RegistryError::Timeout {
+        url: "http://registry.invalid/v1".into(),
+    }
+    .to_diagnostic();
+    assert_eq!(timeout.code, "R004");
+    assert_eq!(timeout.severity, Severity::Error);
+    assert!(timeout.suggestion.as_ref().unwrap().contains("retry"));
 }

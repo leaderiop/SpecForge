@@ -3,7 +3,7 @@
 //! loaded through `check`: the loader keyed modules by file stem while
 //! compile looked them up by name, and nothing read the lock.
 
-use crate::fake_registry::{FakeRegistry, Package};
+use crate::published::{Package, serve};
 use crate::registry::{greet_wasm, project_on};
 use serde_json::{Value, json};
 use specforge_test_macros::test as specforge_test;
@@ -128,7 +128,7 @@ fn a_local_install_is_locked_at_its_declared_version() {
     verify = "an extension installed from a registry loads through check"
 )]
 fn a_registry_install_loads_through_check() {
-    let registry = FakeRegistry::serve(vec![Package::new("@sdk/greet", "0.1.0", greet_wasm())]);
+    let registry = serve(vec![Package::new("@sdk/greet", "0.1.0", greet_wasm())]);
     let dir = project_on(&registry);
     std::fs::write(dir.path().join("main.spec"), GREETING).unwrap();
     let home = TempDir::new().unwrap();
@@ -167,7 +167,7 @@ fn add_json_names_a_local_source_and_a_registry_key() {
     assert_eq!(local["source"], "local:greet.wasm");
     assert!(local.get("key_id").is_none(), "{local}");
 
-    let registry = FakeRegistry::serve(vec![Package::new("@sdk/greet", "0.1.0", greet_wasm())]);
+    let registry = serve(vec![Package::new("@sdk/greet", "0.1.0", greet_wasm())]);
     let dir = project_on(&registry);
     let home = TempDir::new().unwrap();
     let out = specforge()
@@ -285,7 +285,7 @@ fn a_legacy_versioned_entry_still_loads() {
 )]
 fn update_never_replaces_a_local_install() {
     // The registry publishes a newer package under the same name.
-    let registry = FakeRegistry::serve(vec![Package::new("@sdk/greet", "9.9.9", greet_wasm())]);
+    let registry = serve(vec![Package::new("@sdk/greet", "9.9.9", greet_wasm())]);
     let dir = project_on(&registry);
     add_local_greet(dir.path());
     let lock_before = std::fs::read(dir.path().join("specforge.lock")).unwrap();
@@ -303,7 +303,7 @@ fn update_never_replaces_a_local_install() {
         lock_before
     );
     assert_eq!(
-        registry.hits(),
+        registry.requests().len(),
         0,
         "update asked the registry about a local build"
     );
@@ -316,7 +316,7 @@ fn update_never_replaces_a_local_install() {
 fn a_bulk_update_reports_batch_update_completed() {
     // greet is locked from the registry one version behind; a local build
     // sits beside it, which a registry never replaces.
-    let registry = FakeRegistry::serve(vec![Package::new("@sdk/greet", "0.1.0", greet_wasm())]);
+    let registry = serve(vec![Package::new("@sdk/greet", "0.1.0", greet_wasm())]);
     let dir = project_on(&registry);
     let lock = json!({
         "lockfile_version": 1,
@@ -673,8 +673,11 @@ fn a_wasm_file_entry_is_removed_by_its_declared_name_or_its_entry() {
         );
         assert_eq!(output["version"], "0.1.0", "{output}");
         // `hello` is a greeting, a kind only greet defines.
-        let warnings = output["orphan_warnings"].to_string();
-        assert!(warnings.contains("'hello'"), "{entry} by {name}: {output}");
+        assert_eq!(
+            output["stranded"],
+            json!([{"entity_id": "hello", "kind": "greeting"}]),
+            "{entry} by {name}: {output}"
+        );
         assert_eq!(enabled(dir.path()), json!(["@specforge/software"]));
         assert!(
             dir.path().join("greet.wasm").is_file(),

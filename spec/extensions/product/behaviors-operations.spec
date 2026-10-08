@@ -39,6 +39,8 @@ behavior pe_declare_surface_contributions "Declare Surface Contributions" {
   features [pe_surface_contributions, product_surface_access]
   verify unit "manifest surfaces declares the specforge product commands, each answered by its export"
   verify unit "manifest surfaces declares the 40 commands surfaces-cli.spec specifies"
+  verify unit "every declared command answers through the component as the host calls it, over a graph holding every kind"
+  verify unit "the dependency commands answer a 5000-long depends_on chain through the component"
 }
 
 behavior pe_migration_hook_absent "Migration Hook Absent in v1" {

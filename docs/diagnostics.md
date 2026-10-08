@@ -889,6 +889,23 @@ Owner: core
 Level: error
 ```
 
+## E074
+
+```
+E074: Publisher signing key unusable
+
+`specforge publish` signs every package with your publisher key, kept in
+`~/.specforge/signing-key.json` and created on your first publish. That file is
+there and can't be read as a key (it is not JSON, or its `secretKey` is not 32
+hex-encoded bytes), or the key could not be created there (the directory or the
+file can't be written). Nothing was sent. Fix the file's permissions, or move it
+aside: the next publish creates a new key, and whoever pinned the old one then
+sees a changed publisher key (R-TRUST-003) for your packages.
+
+Owner: core
+Level: error
+```
+
 ## I002
 
 ```
@@ -910,7 +927,8 @@ I003: No registry configured
 
 The registry configuration has no `registries` array, or none of the configured
 registries is marked as the default. Add a `registries` entry and set
-`"default_registry": true` on one of them.
+`"default_registry": true` on one of them. Without a default, a package no
+`scope_filter` matches has no registry (R-OPS-001).
 
 Owner: core
 Level: info
@@ -1572,7 +1590,9 @@ R-OPS-001: No registry for the package
 No configured registry serves this package: none has a scope that matches it,
 and none is marked as the default (or no registries are configured at all). Add
 a `registries` entry to `specforge.json` with a matching scope, or mark one
-`"default_registry": true`.
+`"default_registry": true`. `specforge add`, `update` and `publish` (and MCP
+`add_extension`) choose the registry by this one rule and ask no other registry;
+a refused name sends no request.
 
 Owner: core
 Level: error
@@ -1785,7 +1805,9 @@ R001: Registry authentication failed
 The registry rejected the request as unauthenticated (HTTP 401), or the
 credentials its `auth` configuration names couldn't be read; a request is
 retried once with re-read credentials first. Log in again with `specforge login
---registry <alias> --token <TOKEN>`.
+--registry <alias> --token <TOKEN>`. `specforge publish` refuses before any
+request when there is no credential for the registry that serves the package:
+none stored for its alias and `SPECFORGE_REGISTRY_TOKEN` unset or blank.
 
 Owner: core
 Level: error

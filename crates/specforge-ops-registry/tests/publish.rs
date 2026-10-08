@@ -1,0 +1,378 @@
+//! `ConfiguredRegistry::publish`: the registry for the name, the credential, the signing key, then the
+//! signed upload (ADR 0045). Each test runs the adapter over a recording in-memory client (ADR 0044) as a
+//! user whose files live in a temporary directory, never in `~/.specforge`.
+
+use sha2::{Digest, Sha256};
+use specforge_ops::OpErrorKind;
+use specforge_ops::extension::Trust;
+use specforge_ops::registry::testing::declaration;
+use specforge_ops::registry::{Registry, Upload};
+use specforge_ops_registry::{ConfiguredRegistry, User};
+use specforge_protocol_types::package::Version;
+use specforge_protocol_types::{ExtensionDeclaration, PackageName};
+use specforge_registry_client::credentials::{CredentialEntry, CredentialStore};
+use specforge_registry_client::testing::{CallKind, MemoryClient};
+use specforge_registry_client::{
+    AuthMethod, PackageSignature, RegistryError, verify_signature, write_credentials,
+};
+use specforge_test_macros::test as specforge_test;
+use tempfile::TempDir;
+
+/// A project, the user's home, and the registry both talk to.
+struct World {
+    project: TempDir,
+    home: TempDir,
+    client: MemoryClient,
+}
+
+impl World {
+    /// A project configuring `registries`; the client accepts the token `"t"`.
+    fn with(registries: serde_json::Value) -> Self {
+        let project = TempDir::new().unwrap();
+        let config =
+            serde_json::json!({ "name": "p", "version": "0.1.0", "registries": registries });
+        std::fs::write(project.path().join("specforge.json"), config.to_string()).unwrap();
+        World {
+            project,
+            home: TempDir::new().unwrap(),
+            client: MemoryClient::new().accepting("t"),
+        }
+    }
+
+    /// One registry, `acme`, serving `@acme`.
+    fn acme() -> Self {
+        Self::with(serde_json::json!([
+            { "alias": "acme", "url": "memory://acme", "scope_filter": "@acme" }
+        ]))
+    }
+
+    fn registry(&self, token: Option<&str>) -> ConfiguredRegistry {
+        ConfiguredRegistry::for_project(self.project.path(), "publish")
+            .as_user(User::at(self.home.path(), token.map(str::to_string)))
+            .with_client(self.client.clone())
+    }
+
+    fn signing_key(&self) -> std::path::PathBuf {
+        self.home.path().join("signing-key.json")
+    }
+
+    fn store_credential(&self, alias: &str, token: &str, expires_at: Option<&str>) {
+        let mut store = CredentialStore::default();
+        store.registries.insert(
+            alias.to_string(),
+            CredentialEntry::Token {
+                token: token.to_string(),
+                expires_at: expires_at.map(str::to_string),
+                in_keyring: false,
+            },
+        );
+        write_credentials(&self.home.path().join("credentials.json"), &store).unwrap();
+    }
+}
+
+/// A package to publish.
+struct Pkg {
+    name: PackageName,
+    version: Version,
+    declaration: ExtensionDeclaration,
+}
+
+fn pkg(name: &str, version: &str) -> Pkg {
+    Pkg {
+        name: PackageName::parse(name).unwrap(),
+        version: Version::parse(version).unwrap(),
+        declaration: declaration(name, version, &[]),
+    }
+}
+
+impl Pkg {
+    fn upload(&self) -> Upload<'_> {
+        Upload {
+            name: &self.name,
+            version: &self.version,
+            wasm: b"\0asm publish test",
+            declaration: &self.declaration,
+        }
+    }
+}
+
+fn sha256(bytes: &[u8]) -> String {
+    Sha256::digest(bytes)
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect()
+}
+
+#[specforge_test(
+    behavior = "publish_to_registry",
+    verify = "publish refuses in one order, each refusal before anything after it is read or asked"
+)]
+fn the_adapter_refuses_before_any_request_in_this_order() {
+    // 1. no specforge.json: E063.
+    let empty = TempDir::new().unwrap();
+    let home = TempDir::new().unwrap();
+    let client = MemoryClient::new().accepting("t");
+    let error = ConfiguredRegistry::for_project(empty.path(), "publish")
+        .as_user(User::at(home.path(), Some("t".into())))
+        .with_client(client.clone())
+        .publish(&pkg("@acme/x", "1.0.0").upload())
+        .unwrap_err();
+    assert!(
+        error.is(specforge_ops::registry::NO_REGISTRY),
+        "1: {error:?}"
+    );
+    assert!(client.calls().is_empty());
+
+    // 2. no registry serves @other: R-OPS-001.
+    let world = World::acme();
+    let error = world
+        .registry(Some("t"))
+        .publish(&pkg("@other/x", "1.0.0").upload())
+        .unwrap_err();
+    assert_eq!(error.code, "R-OPS-001", "2: {error:?}");
+    assert!(world.client.calls().is_empty());
+    assert!(!world.signing_key().exists());
+
+    // 3. acme serves it, there is no credential: R001, naming the registry and how to log in.
+    let error = world
+        .registry(None)
+        .publish(&pkg("@acme/x", "1.0.0").upload())
+        .unwrap_err();
+    assert_eq!(error.code, "R001", "3: {error:?}");
+    assert_eq!(error.kind, OpErrorKind::PreconditionFailed, "3: {error:?}");
+    assert!(error.message.contains("'acme'"), "3: {error:?}");
+    let suggestion = error.suggestion.clone().unwrap_or_default();
+    assert!(
+        suggestion.contains("specforge login --registry acme --token"),
+        "3: {suggestion}"
+    );
+    assert!(
+        suggestion.contains("SPECFORGE_REGISTRY_TOKEN"),
+        "3: {suggestion}"
+    );
+    assert!(world.client.calls().is_empty());
+    assert!(!world.signing_key().exists());
+
+    // 4. credentials.json is not JSON and there is no token: R012.
+    std::fs::write(world.home.path().join("credentials.json"), "{").unwrap();
+    let error = world
+        .registry(None)
+        .publish(&pkg("@acme/x", "1.0.0").upload())
+        .unwrap_err();
+    assert_eq!(error.code, "R012", "4: {error:?}");
+    assert!(world.client.calls().is_empty());
+    assert!(!world.signing_key().exists());
+
+    // 5. a stored token that expired, and no token: R-AUTH-020.
+    world.store_credential("acme", "stored", Some("2000-01-01T00:00:00Z"));
+    let error = world
+        .registry(None)
+        .publish(&pkg("@acme/x", "1.0.0").upload())
+        .unwrap_err();
+    assert_eq!(error.code, "R-AUTH-020", "5: {error:?}");
+    assert!(world.client.calls().is_empty());
+    assert!(!world.signing_key().exists());
+
+    // 6. a token, and a signing key that is not a key: E074, the file left as it was.
+    std::fs::write(world.signing_key(), "not json").unwrap();
+    let error = world
+        .registry(Some("t"))
+        .publish(&pkg("@acme/x", "1.0.0").upload())
+        .unwrap_err();
+    assert_eq!(error.code, "E074", "6: {error:?}");
+    assert_eq!(error.kind, OpErrorKind::PreconditionFailed, "6: {error:?}");
+    assert!(world.client.calls().is_empty());
+    assert_eq!(
+        std::fs::read_to_string(world.signing_key()).unwrap(),
+        "not json"
+    );
+    std::fs::remove_file(world.signing_key()).unwrap();
+
+    // 7. all good: one publish call to acme, the user's first key created; the second reuses it.
+    let first = world
+        .registry(Some("t"))
+        .publish(&pkg("@acme/x", "1.0.0").upload())
+        .unwrap();
+    assert_eq!(first.registry, "acme");
+    assert!(first.key_created);
+    assert!(world.signing_key().exists());
+    let calls = world.client.calls();
+    assert_eq!(calls.len(), 1, "{calls:?}");
+    assert_eq!(calls[0].kind, CallKind::Publish);
+    assert_eq!(calls[0].registry.as_deref(), Some("acme"));
+    let second = world
+        .registry(Some("t"))
+        .publish(&pkg("@acme/x", "1.0.1").upload())
+        .unwrap();
+    assert!(!second.key_created);
+    assert_eq!(second.key_id, first.key_id);
+}
+
+#[specforge_test(
+    behavior = "publish_to_registry",
+    verify = "with no credential for its registry, publish refuses with R001 before any network call and creates no signing key"
+)]
+fn with_no_credential_the_adapter_sends_nothing_and_creates_no_key() {
+    let world = World::acme();
+    let error = world
+        .registry(None)
+        .publish(&pkg("@acme/x", "1.0.0").upload())
+        .unwrap_err();
+    assert_eq!(error.code, "R001", "{error:?}");
+    assert!(world.client.calls().is_empty());
+    assert!(!world.signing_key().exists(), "no key is created");
+}
+
+#[specforge_test(
+    behavior = "publish_to_registry",
+    verify = "the environment token wins over the stored credential"
+)]
+fn the_environment_token_wins_over_the_stored_credential() {
+    let published_with = |world: &World, token: Option<&str>, version: &str| {
+        world
+            .registry(token)
+            .publish(&pkg("@acme/x", version).upload())
+            .map(|_| {
+                world
+                    .client
+                    .calls()
+                    .last()
+                    .unwrap()
+                    .credential
+                    .clone()
+                    .unwrap()
+            })
+    };
+
+    let world = World::acme();
+    world.client.clone().accepting("env").accepting("stored");
+    world.store_credential("acme", "stored", None);
+
+    let credential = published_with(&world, Some("env"), "1.0.0").unwrap();
+    assert_eq!(credential.alias, "acme");
+    assert_eq!(credential.auth_method, AuthMethod::Bearer("env".into()));
+
+    let credential = published_with(&world, Some("  "), "1.0.1").unwrap();
+    assert_eq!(credential.auth_method, AuthMethod::Bearer("stored".into()));
+
+    let credential = published_with(&world, None, "1.0.2").unwrap();
+    assert_eq!(credential.auth_method, AuthMethod::Bearer("stored".into()));
+
+    // Only another registry's credential is stored: there is none for acme.
+    let other = World::acme();
+    other.store_credential("other", "stored", None);
+    let error = published_with(&other, None, "1.0.0").unwrap_err();
+    assert_eq!(error.code, "R001", "{error:?}");
+}
+
+#[specforge_test(
+    behavior = "publish_to_registry",
+    verify = "a signing key that can't be read is refused with E074 before any network call"
+)]
+fn a_corrupt_signing_key_is_refused_with_e074_before_any_request() {
+    let world = World::acme();
+    std::fs::write(world.signing_key(), "not json").unwrap();
+    let error = world
+        .registry(Some("t"))
+        .publish(&pkg("@acme/x", "1.0.0").upload())
+        .unwrap_err();
+    assert_eq!(error.code, "E074", "{error:?}");
+    assert_eq!(error.kind, OpErrorKind::PreconditionFailed);
+    assert!(
+        error
+            .suggestion
+            .unwrap_or_default()
+            .contains("signing-key.json"),
+        "the suggestion names the file"
+    );
+    assert!(world.client.calls().is_empty());
+}
+
+#[specforge_test(
+    behavior = "publish_to_registry",
+    verify = "publish asks the registry add fetches the same name from"
+)]
+fn publish_asks_the_registry_fetch_asks() {
+    let world = World::with(serde_json::json!([
+        { "alias": "acme", "url": "memory://acme", "scope_filter": "@acme" },
+        { "alias": "main", "url": "memory://main", "default_registry": true }
+    ]));
+    let registry = world.registry(Some("t"));
+    let acme = pkg("@acme/x", "1.0.0");
+    registry.publish(&acme.upload()).unwrap();
+    registry
+        .fetch(&acme.name, &acme.version, false, Trust::Refuse)
+        .unwrap();
+    let other = pkg("@other/y", "1.0.0");
+    registry.publish(&other.upload()).unwrap();
+    registry.versions(&other.name).unwrap();
+
+    let asked: Vec<(CallKind, String)> = world
+        .client
+        .calls()
+        .into_iter()
+        .map(|c| (c.kind, c.registry.unwrap_or_default()))
+        .collect();
+    assert_eq!(
+        asked,
+        [
+            (CallKind::Publish, "acme".to_string()),
+            (CallKind::Metadata, "acme".to_string()),
+            (CallKind::Download, String::new()),
+            (CallKind::Publish, "main".to_string()),
+            (CallKind::Versions, "main".to_string()),
+        ]
+    );
+}
+
+#[test]
+fn a_package_is_signed_with_the_users_key() {
+    let world = World::acme();
+    let package = pkg("@acme/x", "1.0.0");
+    let published = world
+        .registry(Some("t"))
+        .publish(&package.upload())
+        .unwrap();
+
+    let call = world.client.calls().remove(0);
+    let signature: PackageSignature = serde_json::from_str(&call.signature.unwrap()).unwrap();
+    assert_eq!(signature.key_id, published.key_id);
+    verify_signature(
+        "@acme/x",
+        "1.0.0",
+        &sha256(package.upload().wasm),
+        &sha256(call.manifest.unwrap().as_bytes()),
+        &signature,
+    )
+    .unwrap();
+}
+
+#[test]
+fn a_version_the_registry_holds_is_r007() {
+    let world = World::acme();
+    world.client.fail_next(
+        CallKind::Publish,
+        None,
+        RegistryError::DuplicateVersion {
+            name: "@acme/x".into(),
+            version: "1.0.0".into(),
+        },
+    );
+    let error = world
+        .registry(Some("t"))
+        .publish(&pkg("@acme/x", "1.0.0").upload())
+        .unwrap_err();
+    assert_eq!(error.code, "R007", "{error:?}");
+    assert_eq!(error.kind, OpErrorKind::Conflict);
+}
+
+#[test]
+fn a_credential_the_registry_refuses_is_a_permission_error() {
+    let world = World::acme();
+    let error = world
+        .registry(Some("not accepted"))
+        .publish(&pkg("@acme/x", "1.0.0").upload())
+        .unwrap_err();
+    assert_eq!(error.code, "R001", "{error:?}");
+    assert_eq!(error.kind, OpErrorKind::PermissionDenied);
+}

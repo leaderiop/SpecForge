@@ -27,7 +27,7 @@ pub fn run(path: &Path) -> i32 {
         if let Some(response) = response {
             let _ = writeln!(out, "{}", response);
         }
-        // What this request queued for subscribed channels follows its response.
+        // What this request queued for its subscriptions follows its response.
         for notification in server.take_notifications() {
             let _ = writeln!(out, "{}", notification);
         }
@@ -35,6 +35,6 @@ pub fn run(path: &Path) -> i32 {
     }
 
     // End of input: the stdio client is gone.
-    server.disconnect(specforge_mcp::DEFAULT_CLIENT_ID);
+    server.disconnect();
     0
 }

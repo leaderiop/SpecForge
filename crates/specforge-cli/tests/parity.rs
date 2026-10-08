@@ -1160,7 +1160,7 @@ fn analyze_payload_is_equal_on_both_surfaces_by_default() {
     assert_eq!(code, Some(0));
     assert!(!refused, "{mcp_payload}");
     assert!(cli_payload["passes"].as_array().unwrap().len() >= 2);
-    assert!(cli_payload.get("orphans").is_none(), "{cli_payload}");
+    assert!(cli_payload.get("stray_records").is_none(), "{cli_payload}");
     assert_same_analyze_payload(&cli_payload, &mcp_payload);
 }
 
@@ -1179,7 +1179,7 @@ fn analyze_payload_is_equal_on_both_surfaces_under_strict() {
 }
 
 #[test]
-fn analyze_payload_is_equal_on_both_surfaces_with_orphaned_records() {
+fn analyze_payload_is_equal_on_both_surfaces_with_stray_records() {
     let dir = tempfile::tempdir().unwrap();
     analyze_project(dir.path());
     let report = analyze_report(dir.path(), Some("wodget"));
@@ -1187,9 +1187,9 @@ fn analyze_payload_is_equal_on_both_surfaces_with_orphaned_records() {
     let (code, cli_payload, stderr) = cli_analyze(dir.path(), &["--test-results", &report]);
     let (_, mcp_payload) = mcp_analyze(dir.path(), json!({"test_results": report}));
 
-    assert_eq!(code, Some(0), "orphans never fail the run: {stderr}");
+    assert_eq!(code, Some(0), "stray records never fail the run: {stderr}");
     assert!(
-        cli_payload["orphans"]
+        cli_payload["stray_records"]
             .as_array()
             .is_some_and(|o| o.len() == 1),
         "{cli_payload}"

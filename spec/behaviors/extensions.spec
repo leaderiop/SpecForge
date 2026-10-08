@@ -368,7 +368,7 @@ behavior remove_extension "Remove Extension" {
     extensions listing names it, or by the entry as specforge.json writes
     it (or its path); removing it MUST only drop that entry from
     specforge.json, never delete the file nor touch specforge.lock, with
-    the same dependents (E027) and orphan checks as any extension. A name
+    the same dependents (E027) and stranded-entity checks as any extension. A name
     more than one specforge.json entry enables MUST be refused as
     ambiguous (extension_conflict), naming the entries and changing
     nothing; a name no entry, lock entry or builtin matches is
@@ -585,7 +585,7 @@ behavior resolve_registry_source "Resolve Registry Source" {
     offline_first_extension_resolution,
   ]
   category   query
-  types      [RegistryConfig, RegistryResponse, CompilerConfig, ExtensionError]
+  types      [RegistryConfig, PackageMetadata, VersionList, CompilerConfig, ExtensionError]
   ports      [RegistryClient]
   consumes   [registries_configured]
   produces   [registry_resolved]
@@ -596,6 +596,7 @@ behavior resolve_registry_source "Resolve Registry Source" {
   ensures {
     scope_routed              "Scope-prefixed specifiers are routed to the matching scope-specific registry"
     default_fallback_used     "Specifiers with no matching scope fall back to the default registry"
+    no_registry_refused       "A name no scope_filter matches, with no default registry, is refused with R-OPS-001 before any network call"
     network_error_diagnosed   "Network errors produce ExtensionError diagnostic with retry guidance"
     registry_resolved_emitted "registry_resolved event fires on successful resolution"
   }
@@ -607,22 +608,27 @@ behavior resolve_registry_source "Resolve Registry Source" {
     fall back to the default registry. "The default registry" means the
     registries entry marked `default_registry: true` in specforge.json:
     SpecForge ships no registry, so no registry URL is a constant in source.
+    With no scope match and no default registry, no registry serves the
+    name: the system MUST refuse with R-OPS-001, naming the scope, before
+    any network call, and MUST NOT ask another registry. add, update and
+    publish choose the registry for a name by this one rule (ADR 0045).
     Network errors MUST produce an ExtensionError diagnostic with retry guidance.
   """
   verify unit "scope-specific registry queried for matching scope"
   verify unit "default registry used when no scope filter matches"
   verify unit "network error produces ExtensionError with retry guidance"
-  verify unit "successful query returns RegistryResponse"
-  verify integration "unreachable scope-specific registry falls back to next scope"
+  verify unit "successful query returns PackageMetadata"
   verify unit "a fetch requests the name and version it was given, from the registry it was given"
-  verify contract "Resolve Registry Source: registry source resolution holds — registries_configured_fired, registry_client_available, scope_routed, default_fallback_used, network_error_diagnosed, registry_resolved_emitted"
+  verify unit "a name no registry serves is refused with R-OPS-001 before any request"
+  verify integration "the registry server answers every call in the JSON its client reads"
+  verify contract "Resolve Registry Source: registry source resolution holds — registries_configured_fired, registry_client_available, scope_routed, default_fallback_used, no_registry_refused, network_error_diagnosed, registry_resolved_emitted"
 }
 
 behavior search_registry "Search Registry" {
   features   [extension_registry]
   invariants [diagnostic_determinism, multi_error_collection, offline_first_extension_resolution]
   category   query
-  types      [RegistryConfig, RegistrySearchResult, RegistryResponse, CompilerConfig, ContributesSummary]
+  types      [RegistryConfig, SearchResults, SearchHit, CompilerConfig]
   ports      [RegistryClient]
   produces   [registry_search_completed]
   requires {
@@ -669,7 +675,7 @@ behavior publish_to_registry "Publish to Registry" {
   features   [extension_registry]
   invariants [registry_integrity, multi_error_collection, credential_secrecy]
   category   command
-  types      [ExtensionDeclaration, RegistryConfig, ExtensionError]
+  types      [ExtensionDeclaration, RegistryConfig, PublishReceipt, ExtensionError]
   ports      [RegistryClient, FileSystem]
   produces   [extension_published_to_registry]
   requires {
@@ -680,7 +686,7 @@ behavior publish_to_registry "Publish to Registry" {
   }
   ensures {
     sha256_computed            "SHA256 hash of .wasm binary is computed and included in the upload"
-    duplicate_version_rejected "Duplicate version numbers are rejected unless --force is provided"
+    duplicate_version_rejected "A version the registry already holds is refused (R007): a published version is immutable"
     registry_url_returned      "Successful publish returns the registry URL for the published version"
     published_event_emitted    "extension_published_to_registry event fires on successful publish"
   }
@@ -691,8 +697,21 @@ behavior publish_to_registry "Publish to Registry" {
     with the .wasm binary and its SHA256 hash, before any network call
     deciding whether to refuse; the request MUST be authenticated. The
     registry MUST refuse a manifest that is not an extension declaration,
-    and takes the description and keywords it shows from the declaration. Duplicate version numbers MUST be rejected unless --force is
-    provided. Successful publish MUST return the registry URL for the
+    and takes the description and keywords it shows from the declaration. A version the registry
+    already holds MUST be refused (R007): a published version is immutable.
+    The package MUST go to the one registry that serves its name, the
+    registry add and update fetch that name from (ADR 0045). The upload MUST
+    be authenticated: with no credential for that registry
+    (SPECFORGE_REGISTRY_TOKEN unset or blank, and none stored for its alias)
+    publish MUST refuse with R001 before any network call and MUST NOT
+    create a publisher signing key; a signing key that can't be read or
+    created MUST be refused with E074 before any network call. Publish
+    refuses in one order, each refusal before anything after it is read or
+    asked: the binary (E040, E028), its declaration's errors, its name and
+    version (E072), the registry configuration (E063, E067), the registry
+    for the name (R-OPS-001), the credential (R001, R012, R-AUTH-020,
+    R-AUTH-021), the signing key (E074); then the registry's answer.
+    Successful publish MUST return the registry URL for the
     published version. With no registry configured, publish MUST make no
     network call and MUST fail with E063, whose suggestion names the
     specforge.json registries key.
@@ -704,10 +723,15 @@ behavior publish_to_registry "Publish to Registry" {
   verify integration "the registry refuses a manifest that is not an extension declaration"
   verify integration "the registry takes a package's description and keywords from its declaration"
   verify unit "SHA256 computed and included in upload"
-  verify unit "duplicate version rejected without --force"
+  verify unit "a version already published is refused with R007"
   verify unit "successful publish returns registry URL"
   verify unit "unauthenticated publish produces ExtensionError"
   verify unit "the registry refuses a name or version that is not a package name or version"
+  verify unit "publish refuses in one order, each refusal before anything after it is read or asked"
+  verify unit "with no credential for its registry, publish refuses with R001 before any network call and creates no signing key"
+  verify unit "the environment token wins over the stored credential"
+  verify unit "a signing key that can't be read is refused with E074 before any network call"
+  verify unit "publish asks the registry add fetches the same name from"
   verify contract "Publish to Registry: registry publishing holds — declaration_valid, wasm_binary_available, registry_client_available, credentials_available, sha256_computed, duplicate_version_rejected, registry_url_returned, published_event_emitted"
 }
 
@@ -715,12 +739,12 @@ behavior verify_registry_integrity "Verify Registry Integrity" {
   features   [extension_registry]
   invariants [registry_integrity, wasm_compile_cache_integrity, offline_first_extension_resolution]
   category   validation
-  types      [RegistryResponse, LockFileEntry, TrustLevel, ExtensionError]
+  types      [PackageMetadata, LockFileEntry, TrustLevel, ExtensionError]
   ports      [FileSystem]
   produces   [registry_integrity_verified]
   requires {
     wasm_binary_downloaded      "A .wasm binary has been downloaded from a registry"
-    registry_response_available "RegistryResponse with declared SHA256 hash is available"
+    registry_response_available "PackageMetadata with declared SHA256 hash is available"
   }
   ensures {
     hash_verified              "SHA256 hash of downloaded binary matches the declared hash"
@@ -731,7 +755,8 @@ behavior verify_registry_integrity "Verify Registry Integrity" {
   }
   contract   """
     After downloading a .wasm binary from a registry, the system MUST
-    verify its SHA256 hash against the hash declared in the RegistryResponse.
+    verify its SHA256 hash against the hash declared in the package's
+    PackageMetadata.
     Mismatches MUST produce a hard error and abort installation. The
     trust level MUST be assigned deterministically from the source:
     local filesystem paths MUST receive "local", git URLs MUST receive
@@ -758,8 +783,8 @@ behavior check_registry_reply "Check Registry Reply" {
   features   [extension_registry]
   invariants [registry_reply_binding, registry_integrity]
   category   validation
-  types      [RegistryResponse, ExtensionError]
-  ports      [RegistryClient]
+  types      [PackageMetadata, ExtensionError]
+  ports      [RegistryClient, Registry]
   requires {
     reply_received "The registry answered a request for name@version and its download passed the SHA256 check"
   }
@@ -802,7 +827,7 @@ behavior verify_publisher_signature "Verify Publisher Signature" {
   features   [extension_registry]
   invariants [publisher_trust, registry_integrity]
   category   validation
-  types      [RegistryResponse, ExtensionError]
+  types      [PackageMetadata, ExtensionError]
   ports      [RegistryClient]
   requires {
     reply_checked "The registry reply passed the SHA256 check and names the package requested"
@@ -834,7 +859,7 @@ behavior pin_publisher_key "Pin Publisher Key" {
   features   [extension_registry]
   invariants [publisher_trust]
   category   command
-  types      [RegistryResponse, LockFileEntry, ExtensionError]
+  types      [PackageMetadata, LockFileEntry, ExtensionError]
   ports      [FileSystem]
   requires {
     signature_verified "The package's publisher signature verified"
@@ -905,6 +930,10 @@ behavior configure_registries "Configure Registries" {
     extensions and local .wasm files MUST install with no registry
     configured. First-use MUST NOT require network access — registries are
     opt-in configuration, and first use is always local/offline per P8.
+    The diagnostics of reading the registries array (E067, W140, I003) are
+    shown by an operation only once it has asked a registry: an add of an
+    exact version already installed, or a dry run of an exact version,
+    asks none and shows none.
   """
   verify unit "registries parsed from specforge.json"
   verify unit "scope_filter routes to correct registry"
@@ -916,6 +945,7 @@ behavior configure_registries "Configure Registries" {
   verify integration "first specforge init succeeds without any registry authentication"
   verify unit "builtins and local .wasm files install with no registry configured"
   verify unit "no registry URL on the specforge.dev domain is compiled into non-test source"
+  verify unit "an operation shows the registry configuration's diagnostics once it has asked a registry"
   verify contract "Configure Registries: registry configuration holds — specforge_json_parsed, filesystem_available, registry_entries_created, scope_filters_set, no_registries_diagnosed, no_hardcoded_urls, registries_configured_emitted"
 }
 
@@ -933,7 +963,14 @@ behavior authenticate_registry_request "Authenticate Registry Request" {
     offline_first_extension_resolution,
   ]
   category   command
-  types      [RegistryConfig, RegistryCredential, ExtensionError, RegistryError, AuthMethod]
+  types      [
+    RegistryConfig,
+    RegistryCredential,
+    TokenVerified,
+    ExtensionError,
+    RegistryError,
+    AuthMethod,
+  ]
   ports      [RegistryClient]
   produces   [registry_authenticated]
   requires {
@@ -980,6 +1017,7 @@ behavior authenticate_registry_request "Authenticate Registry Request" {
   verify unit "403 response produces E-level diagnostic with permission guidance"
   verify unit "unreachable registry with cached extension falls back to cache with I-level diagnostic"
   verify unit "authentication failure (401/403) does not trigger cache fallback"
+  verify unit "every registry call reads an answer's status as one error"
   verify contract "Authenticate Registry Request: registry authentication holds — credential_configured, registry_client_available, token_resolved, auth_header_attached, missing_source_diagnosed, double_401_diagnosed, tokens_never_logged, cache_fallback_on_network_only, authenticated_emitted"
 }
 
@@ -987,7 +1025,7 @@ behavior retry_registry_request "Retry Registry Request" {
   features   [registry_authentication]
   invariants [registry_integrity, multi_error_collection, credential_secrecy]
   category   command
-  types      [RegistryConfig, RegistryError, ExtensionError]
+  types      [RegistryConfig, RegistryError, RegistryErrorBody, ExtensionError]
   ports      [RegistryClient]
   requires {
     registry_request_failed   "A registry request has received a retryable response (429 or timeout)"
@@ -1010,6 +1048,7 @@ behavior retry_registry_request "Retry Registry Request" {
   verify unit "429 response retries with exponential backoff"
   verify unit "network timeout produces ExtensionError with retry guidance"
   verify unit "max retries exceeded produces final error"
+  verify integration "a rate-limited answer is R003 on every registry call"
   verify contract "Retry Registry Request: registry request retry holds — registry_request_failed, registry_client_available, exponential_backoff_applied, timeout_diagnosed, retries_exhausted_emitted"
 }
 
@@ -1086,7 +1125,7 @@ behavior support_private_registries "Support Private Registries" {
   features   [registry_authentication]
   invariants [registry_integrity, wasm_sandbox_integrity, credential_secrecy]
   category   command
-  types      [RegistryConfig, RegistryCredential, TrustLevel, RegistryResponse]
+  types      [RegistryConfig, RegistryCredential, TrustLevel, PackageMetadata]
   ports      [RegistryClient]
   requires {
     credentials_configured    "Registry has configured credentials for authentication"

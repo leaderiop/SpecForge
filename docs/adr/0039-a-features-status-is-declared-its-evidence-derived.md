@@ -32,7 +32,7 @@ because its declarative rules check one entity at a time.
   core), so it passes a command each entity's score: `CommandInput.evidence` is `none` without a
   report, `unreadable` with the reason when the report cannot be used, else
   `recorded { entities }`: obligations, proven obligations and failing tests of every entity that
-  counts toward coverage, from `ProjectView::coverage` (`specforge_ops::command::evidence`, the
+  counts toward coverage, from `ProjectView::coverage` (computed by `specforge_ops::command::run`, the
   numbers `specforge stats` reports). The field is optional on the wire, so the protocol stays 1.1.0:
   an older guest ignores it, a newer guest reads its absence as `none`. An analyze pass, which
   receives the recorded test results, scores with the same crate (`specforge-coverage`).

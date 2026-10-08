@@ -14,7 +14,9 @@ use specforge_project::CompiledProject;
 use specforge_project::coverage::RecordedCoverage;
 use specforge_registry::RegistryBuild;
 use specforge_test_macros::test as spec;
-use tower_lsp::lsp_types::{CompletionItem, CompletionItemKind, CompletionTextEdit, Position};
+use tower_lsp::lsp_types::{
+    CompletionItem, CompletionItemKind, CompletionTextEdit, Documentation, MarkupKind, Position,
+};
 
 /// A project of `files` with `@specforge/software`, compiled with its
 /// extension loaded (and the directory that holds it).
@@ -507,4 +509,32 @@ async fn keywords_complete_from_the_environment_while_indexing_runs() {
         .filter_map(|item| item["label"].as_str())
         .collect();
     assert!(after.contains(&"behavior"), "{after:?}");
+}
+
+#[spec(
+    behavior = "complete_keywords",
+    verify = "a kind keyword's completion documents the kind with its description and inference guide"
+)]
+fn a_kind_keyword_is_documented_by_its_guide() {
+    let (_dir, project) = compiled(&[("test.spec", TWO_KINDS)]);
+    let view = ProjectView::of(&project);
+    let (_, found) = complete(TWO_KINDS, 3, 0, &view);
+
+    let behavior = found.iter().find(|i| i.label == "behavior").unwrap();
+    let Some(Documentation::MarkupContent(markup)) = &behavior.documentation else {
+        panic!("behavior has no markdown documentation: {behavior:?}");
+    };
+    assert_eq!(markup.kind, MarkupKind::Markdown);
+    assert!(
+        markup
+            .value
+            .starts_with("A testable unit of system functionality with a defined contract"),
+        "{}",
+        markup.value
+    );
+    assert!(markup.value.contains("**Inferring it from code**"));
+    assert!(markup.value.contains("Look for public functions"));
+
+    let use_keyword = found.iter().find(|i| i.label == "use").unwrap();
+    assert!(use_keyword.documentation.is_none());
 }

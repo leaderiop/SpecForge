@@ -4,7 +4,7 @@ expression: "shape(&reply, dir.path())"
 ---
 {
   "description": "Discover exploration starting points in the graph",
-  "instruction": "Explore the spec graph using the data below. Start with high-connectivity nodes to understand the core structure, then investigate orphan nodes that may need relationships. Use starting_points for top-down traversal.",
+  "instruction": "Explore the spec graph using the data below. Start with high-connectivity entities to understand the core structure, then investigate unconnected entities that may need relationships. Use starting_points for top-down traversal.",
   "layout": "turns",
   "payload": {
     "high_connectivity": [
@@ -21,7 +21,7 @@ expression: "shape(&reply, dir.path())"
       "feat_login",
       "inv_session"
     ],
-    "orphan_nodes": [],
+    "notices": [],
     "relationship_paths": [],
     "starting_points": [
       "beta",
@@ -29,7 +29,8 @@ expression: "shape(&reply, dir.path())"
       "delta",
       "feat_login",
       "inv_session"
-    ]
+    ],
+    "unconnected": []
   },
   "roles": [
     "user",

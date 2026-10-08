@@ -220,7 +220,7 @@ fn a_session_reports_check_pass_diagnostics_after_an_update() {
         dir.path(),
         Some(Arc::clone(&ext) as specforge_project::SharedRuntime),
     );
-    assert!(with_code(&session.diagnostics(), "E951").is_empty());
+    assert!(with_code(&session.project().diagnostics(), "E951").is_empty());
 
     let update = session.update(SourceChange::Buffer {
         path: "a.spec",
@@ -267,9 +267,9 @@ fn a_pass_without_the_check_phase_runs_only_under_analyze() {
     assert!(with_code(&compiled.diagnostics(), "I950").is_empty());
 
     ext.clear_calls();
-    let registries = &compiled.env.registries;
+    let registries = &compiled.environment().registries;
     let ctx = specforge_project::passes::AnalysisContext {
-        graph: &compiled.graph,
+        graph: compiled.graph(),
         kind_registry: &registries.kinds,
         field_registry: &registries.fields,
         entities: compiled.entities(),
@@ -348,7 +348,12 @@ fn a_pass_diagnostic_naming_an_entity_gets_its_span() {
 
     let diagnostics = compiled.diagnostics();
     let audit = with_code(&diagnostics, "E951");
-    let entity_span = compiled.graph.node("bad_one").unwrap().source_span.clone();
+    let entity_span = compiled
+        .graph()
+        .node("bad_one")
+        .unwrap()
+        .source_span
+        .clone();
     assert_eq!(audit[0].span.as_ref(), Some(&entity_span));
     assert_eq!(entity_span.file.as_str(), "a.spec");
     // A diagnostic that names no entity keeps no span.

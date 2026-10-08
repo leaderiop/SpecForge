@@ -772,6 +772,9 @@ behavior complete_keywords "Complete Keywords" {
     suggestion SHOULD include a snippet template for block scaffolding
     based on the kind's field definitions from the FieldRegistry. The
     detail string MUST show the source extension name for each keyword.
+    Each kind's item MUST document the kind with its description and its
+    inference guide (compute_inference_guide), as markdown; use has no
+    documentation.
     After verify in an entity's body, the verify kinds the entity's kind
     allows (its allowed_verify_kinds) MUST be suggested, and nothing when
     the kind takes no verify statements. The registered kinds come from the
@@ -780,6 +783,7 @@ behavior complete_keywords "Complete Keywords" {
     environment is loaded, while the workspace is still being indexed.
   """
   verify unit "keyword completion includes all registered kinds"
+  verify unit "a kind keyword's completion documents the kind with its description and inference guide"
   verify unit "keyword completion answers with the registered kinds as soon as the environment is loaded, before indexing ends"
   verify unit "use is always suggested and define never is"
   verify unit "verify suggests the kinds the entity's kind allows"

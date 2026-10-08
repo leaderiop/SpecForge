@@ -1364,10 +1364,10 @@ fn schema_reflects_current_state() {
         let runtime = specforge_component::ComponentRuntime::with_user_cache();
         let ctx = specforge_project::CompiledProject::compile(dir, Some(&runtime));
         let schema = generate_schema(
-            &ctx.env.registries.kinds,
-            &ctx.env.registries.edges,
-            &ctx.env.registries.fields,
-            &ctx.env
+            &ctx.environment().registries.kinds,
+            &ctx.environment().registries.edges,
+            &ctx.environment().registries.fields,
+            &ctx.environment()
                 .registries
                 .extension_info()
                 .map(|(name, version)| (name.to_string(), version.to_string()))

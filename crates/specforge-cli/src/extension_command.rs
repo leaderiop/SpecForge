@@ -11,24 +11,24 @@
 //! line (a required arg is positional, in declaration order; any other is a
 //! `--option`; every flag is a `--flag`, set or not) and the args its export
 //! receives, by the one arg rule MCP also sends them by (ADR 0017). This
-//! module renders that derivation as clap's command line, compiles the
-//! project, and runs the command's `cmd__` export over the graph with the
-//! format and today's date (UTC). The export's stdout and stderr are printed
+//! module renders that derivation as clap's command line, routes the
+//! command over the project's environment, compiles the project from that
+//! environment, and runs the command through
+//! `specforge_ops::command::run`; the export's stdout and stderr are printed
 //! as they are, and its exit code is the CLI's.
 
+use crate::outcome::Exit;
 use clap::builder::PossibleValuesParser;
 use clap::parser::ValueSource;
 use clap::{Arg, ArgAction, ArgMatches, Command};
 use serde_json::{Map, Value};
 use specforge_ops::command::{
-    ArgShape, ArgValue, CommandContext, CommandFormat, ExtensionArg, ExtensionCommand,
-    ExtensionCommands, run_command,
+    ArgShape, ArgValue, CommandFormat, ExtensionArg, ExtensionCommand, ExtensionCommands, RunError,
 };
-use specforge_project::Environment;
-use specforge_protocol_types::CommandError;
+use specforge_ops::view::ProjectView;
+use specforge_project::{CompiledProject, Environment};
 use specforge_protocol_types::command_args::{ArgError, normalize_arg};
-use specforge_wasm::CallError;
-use specforge_wasm::runtime::WasmRuntime;
+use specforge_protocol_types::{CommandError, CommandOutput};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
@@ -43,8 +43,9 @@ const FORMAT: &str = "format";
 /// has.
 ///
 /// Only the project's environment (its config and its extensions' declared
-/// surfaces) is loaded to route the command; the project's sources are read
-/// and its graph built only once a declared command is matched.
+/// surfaces) is loaded to route the command; the project is compiled from it
+/// (its sources read, its graph built and checked) only once a declared
+/// command is matched.
 pub fn run(argv: &[String], builtins: &[String]) -> i32 {
     let Some((first, rest)) = argv.split_first() else {
         return 2;
@@ -132,91 +133,73 @@ pub fn run(argv: &[String], builtins: &[String]) -> i32 {
     };
 
     let format = format_value(matches);
-    // What the command line set, normalized by the rule MCP sends its
-    // arguments by: the declared defaults, false for an unset flag.
-    let args = match command.normalize(&arg_values(command, matches)) {
-        Ok(args) => args,
-        Err(error) => {
-            eprintln!("{}", refused_args(&error, format));
-            return INVALID_INPUT_EXIT;
-        }
-    };
-    let cwd = std::fs::canonicalize(&root).unwrap_or(root);
-    let graph = env.build_graph();
-    let recorded = specforge_project::coverage::RecordedCoverage::over(&graph, &env);
-    let view = specforge_ops::view::ProjectView::new(&graph, &env, Some(&cwd), &recorded);
-    let context = CommandContext {
-        evidence: specforge_ops::command::evidence(&view),
-        ..CommandContext::now(format)
-    };
-    dispatch(
+    // What the command line set, as clap typed it; the operation normalizes
+    // it by the rule MCP's arguments go through.
+    let given = arg_values(command, matches);
+    // The project, compiled from the environment that routed the command:
+    // its sources read, its graph built and checked (ADR 0011, "One
+    // operation runs a command", O3).
+    let project = CompiledProject::of(env, Some(&runtime));
+    let outcome = specforge_ops::command::run(
+        &ProjectView::of(&project),
         &runtime,
         command,
-        &graph,
-        &args,
-        &cwd,
-        &context,
+        &given,
+        format,
+    );
+    ended(
+        outcome,
+        format,
         &mut std::io::stdout(),
         &mut std::io::stderr(),
     )
 }
 
-/// Run `command`'s export over `graph` in `runtime`, writing what it
-/// printed to `stdout` and `stderr` as it printed it; its exit code. An
-/// export that did not answer a command output (it trapped, or answered
-/// something else: E028) writes why to `stderr` and exits 1.
-#[allow(clippy::too_many_arguments)]
-fn dispatch(
-    runtime: &dyn WasmRuntime,
-    command: &ExtensionCommand,
-    graph: &specforge_graph::Graph,
-    args: &Map<String, Value>,
-    cwd: &Path,
-    context: &CommandContext,
+/// What a command's run writes, and the exit code: the output's stdout and
+/// stderr as the command printed them and its exit code; a failure written
+/// to stderr in the format asked for ([`written`]), exit 2 for args the rule
+/// refuses (as clap's usage errors, ADR 0011 B), else 1.
+fn ended(
+    outcome: Result<CommandOutput, RunError>,
+    format: CommandFormat,
     stdout: &mut dyn Write,
     stderr: &mut dyn Write,
 ) -> i32 {
-    match run_command(runtime, command, graph, args, cwd, context) {
+    match outcome {
         Ok(output) => {
             let _ = stdout.write_all(output.stdout.as_bytes());
             let _ = stderr.write_all(output.stderr.as_bytes());
             output.exit_code
         }
         Err(error) => {
-            let _ = stderr.write_all(failed_run(&error, context.format).as_bytes());
-            1
+            let _ = stderr.write_all(written(&error, format).as_bytes());
+            match error {
+                RunError::Args(_) => Exit::Unjudged.code(),
+                RunError::NoProject(_) | RunError::Call(_) => Exit::Failed.code(),
+            }
         }
     }
 }
 
-/// What the CLI writes to stderr when a command's export did not answer a
-/// command output (E028), in the format asked for: under `json` one
-/// [`CommandError`] (`{code, message, suggestion?}`), the object commands
-/// write; under `human` the diagnostic line.
-fn failed_run(error: &CallError, format: CommandFormat) -> String {
-    let diagnostic = error.diagnostic();
+/// A failed run as the CLI writes it: under `json` the command's error
+/// object ([`RunError::to_command_error`]) on one line; under `human` the
+/// arg rule's `error: <message>`, the E028 diagnostic's plain rendering, or
+/// `error[no_project]: <message>`.
+fn written(error: &RunError, format: CommandFormat) -> String {
     match format {
         CommandFormat::Json => {
-            let error = CommandError {
-                suggestion: diagnostic.suggestion,
-                ..CommandError::new(diagnostic.code, diagnostic.message)
-            };
-            let mut line =
-                serde_json::to_string(&error).expect("command error serialization cannot fail");
+            let mut line = serde_json::to_string(&error.to_command_error())
+                .expect("command error serialization cannot fail");
             line.push('\n');
             line
         }
-        CommandFormat::Human => format!("{}\n", specforge_common::render_plain(&diagnostic)),
-    }
-}
-
-/// Args the rule refuses after clap parsed them, in the format asked for:
-/// under `json` the `INVALID_INPUT` object; under `human` `error: ` and its
-/// message.
-fn refused_args(error: &ArgError, format: CommandFormat) -> String {
-    match format {
-        CommandFormat::Json => error.to_json().to_string(),
-        CommandFormat::Human => format!("error: {error}"),
+        CommandFormat::Human => match error {
+            RunError::Args(error) => format!("error: {error}\n"),
+            RunError::Call(error) => {
+                format!("{}\n", specforge_common::render_plain(&error.diagnostic()))
+            }
+            RunError::NoProject(error) => format!("error[{}]: {}\n", error.code, error.message),
+        },
     }
 }
 
@@ -488,7 +471,7 @@ mod tests {
     use super::*;
     use specforge_protocol_types::{CommandArgDescriptor, CommandArgType, CommandDescriptor};
     use specforge_test_macros::test as specforge_test;
-    use specforge_wasm::{CallFailure, Operation};
+    use specforge_wasm::{CallError, CallFailure, Operation};
 
     fn arg(
         name: &str,
@@ -648,7 +631,8 @@ mod tests {
                 message: "unreachable: the command panicked".into(),
             },
         );
-        let json = failed_run(&trap, CommandFormat::Json);
+        let trap = RunError::Call(trap);
+        let json = written(&trap, CommandFormat::Json);
         let error: Value = serde_json::from_str(&json).unwrap();
         assert_eq!(
             error,
@@ -657,10 +641,37 @@ mod tests {
                 "suggestion": "report the failure to the author of '@acme/x', or check it is installed and up to date"})
         );
         assert!(json.ends_with('\n') && json.lines().count() == 1, "{json}");
-        let human = failed_run(&trap, CommandFormat::Human);
+        let human = written(&trap, CommandFormat::Human);
         assert!(
             human.starts_with("error[E028]: command cmd__x() of '@acme/x' trapped"),
             "{human}"
+        );
+    }
+
+    #[test]
+    fn a_refused_arg_ends_with_invalid_input_and_exit_2() {
+        let refused = || {
+            Err(RunError::Args(
+                specforge_protocol_types::command_args::ArgError::Missing {
+                    names: vec!["milestone".into()],
+                },
+            ))
+        };
+        let (mut stdout, mut stderr) = (Vec::new(), Vec::new());
+        let code = ended(refused(), CommandFormat::Json, &mut stdout, &mut stderr);
+        assert_eq!(code, 2);
+        assert!(stdout.is_empty());
+        assert_eq!(
+            String::from_utf8(stderr).unwrap(),
+            "{\"code\":\"INVALID_INPUT\",\"message\":\"missing required arg 'milestone'\"}\n"
+        );
+
+        let (mut stdout, mut stderr) = (Vec::new(), Vec::new());
+        let code = ended(refused(), CommandFormat::Human, &mut stdout, &mut stderr);
+        assert_eq!(code, 2);
+        assert_eq!(
+            String::from_utf8(stderr).unwrap(),
+            "error: missing required arg 'milestone'\n"
         );
     }
 
@@ -669,30 +680,21 @@ mod tests {
         verify = "a command whose output is not a CommandOutput is an ExtensionError, not exit 0 with the raw bytes"
     )]
     fn a_command_answering_no_command_output_exits_1_with_e028() {
-        use specforge_wasm::runtime::WasmCallResult;
-        use specforge_wasm::testing::InProcessRuntime;
-
         let c = contribution();
-        let command = ExtensionCommand::new("@acme/x", "x", &c);
         for format in CommandFormat::ALL {
-            let runtime = InProcessRuntime::new().answer_raw(
+            let answered = CallError::new(
+                Operation::Command,
                 "@acme/x",
                 &c.export,
-                WasmCallResult::Ok(b"not json at all".to_vec()),
+                CallFailure::Malformed {
+                    expected: "CommandOutput",
+                    reason: "expected value at line 1 column 1".into(),
+                },
             );
             let (mut stdout, mut stderr) = (Vec::new(), Vec::new());
-            let context = CommandContext {
+            let code = ended(
+                Err(RunError::Call(answered)),
                 format,
-                today: "2026-10-05".into(),
-                ..CommandContext::default()
-            };
-            let code = dispatch(
-                &runtime,
-                &command,
-                &specforge_graph::Graph::new(),
-                &Map::new(),
-                Path::new("/p"),
-                &context,
                 &mut stdout,
                 &mut stderr,
             );

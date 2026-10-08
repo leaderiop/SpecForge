@@ -384,6 +384,7 @@ behavior compute_graph_delta "Compute Graph Delta" {
   verify unit "modified nodes list changed fields"
   verify unit "added and removed edges appear in delta"
   verify unit "affected files listed in delta"
+  verify unit "shifted expression positions are not a modification"
   verify contract "Compute Graph Delta: graph delta computation holds — previous_graph_available"
 }
 

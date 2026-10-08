@@ -7,7 +7,8 @@
 // (ContributionFlags.prompts stays reserved).
 //
 // 5 behaviors: serve, context, review, trace, explore (infer's scopes are in
-// behaviors/infer.spec)
+// behaviors/infer.spec; the exploration and the review they render are in
+// behaviors/output.spec)
 
 use "events/mcp"
 use "invariants/core"
@@ -45,7 +46,8 @@ behavior serve_mcp_prompt "Serve MCP Prompt" {
     instruction, then the JSON payload. prompts/get first brings the
     served project up to date with disk, as tools/call does
     (bring_session_up_to_date). An unknown prompt is -32602 and is not an
-    invocation.
+    invocation. A prompt or the server's instructions name a tool only as
+    tools/list names it, read from the core tool table.
   """
   verify unit "each core prompt lists exactly the arguments its handler reads"
   verify unit "a listed required argument is exactly one the prompt cannot render without"
@@ -56,6 +58,7 @@ behavior serve_mcp_prompt "Serve MCP Prompt" {
   verify unit "every prompt result is an instruction then a JSON payload, both user messages"
   verify unit "an unknown prompt records no mcp_prompt_invoked event"
   verify unit "a stateless prompts/get renders without initialize"
+  verify unit "every tool a prompt or the server's instructions name is a core tool, named as tools/list names it"
 }
 
 behavior provide_mcp_context_prompt "Provide MCP Context Prompt" {
@@ -116,23 +119,21 @@ behavior provide_mcp_review_prompt "Provide MCP Review Prompt" {
   }
   ensures {
     coverage_analysis_returned "Coverage analysis returned for entity and neighbors up to specified depth"
-    gaps_identified            "Missing verification coverage, uncovered verify declarations, and missing evidence links identified"
+    gaps_identified            "Entities that declare no obligation, uncovered verify declarations, missing evidence links and unconnected entities identified"
     prompt_invoked_emitted     "mcp_prompt_invoked event emitted"
   }
   contract   """
     In MCP server mode, the system MUST register a specforge://prompts/review
     prompt that accepts entity_id? (optional; the whole graph when omitted)
-    and depth? (optional count, default 1). The prompt MUST return a coverage analysis for the entity and
-    its neighbors up to the specified depth, identifying missing verification coverage,
-    uncovered verify declarations, and entities lacking evidence links.
+    and depth? (optional count, default 1). It renders the review
+    (review_coverage_gaps) of its arguments: entity_id ("*" for the whole
+    graph), findings (entity_id, severity, message) and coverage_summary
+    (the coverage view's rows, as specforge.coverage lists them), after an
+    instruction to prioritize uncovered and unconnected entities.
   """
   verify unit "specforge://prompts/review returns coverage analysis"
   verify unit "review coverage matches specforge.coverage obligation by obligation"
-  verify unit "response identifies entities with missing verification coverage"
-  verify unit "depth parameter controls neighbor traversal depth"
-  verify unit "review prompt returns empty findings when no testable entities exist"
   verify contract "Provide MCP Review Prompt: MCP review prompt holds — graph_available, coverage_analysis_returned, gaps_identified, prompt_invoked_emitted"
-  verify unit "detects orphan entities"
 }
 
 behavior provide_mcp_trace_prompt "Provide MCP Trace Prompt" {
@@ -190,28 +191,21 @@ behavior provide_mcp_explore_prompt "Provide MCP Explore Prompt" {
     graph_available "Compiled graph is available via CompilerApi"
   }
   ensures {
-    exploration_returned   "Guided exploration returned: starting points, high-connectivity entities, orphan nodes"
+    exploration_returned   "Guided exploration returned: starting points, high-connectivity entities, unconnected entities"
     bfs_from_entity        "When entity_id provided, BFS traversal starts from that node"
     prompt_invoked_emitted "mcp_prompt_invoked event emitted"
   }
   contract   """
     In MCP server mode, the system MUST register a specforge://prompts/explore
-    prompt that accepts entity_id? (optional starting point) and kind? (optional
-    entity kind filter). The prompt MUST return a guided exploration of the graph
-    including suggested starting points, high-connectivity entities, and orphan
-    nodes. When entity_id is provided, exploration MUST start from that entity
-    using BFS traversal from that node. When kind is specified, results MUST
-    be filtered to that entity kind. depth? (optional count; unbounded when
-    omitted) bounds the BFS, which reaches exactly the entities review's
-    depth reaches. If entity_id names no entity, the prompt MUST return an
-    error.
+    prompt that accepts entity_id? (optional starting point), kind? (optional
+    entity kind) and depth? (optional count; unbounded when omitted). It
+    renders the exploration (explore_the_graph) of its arguments:
+    matching_entities, relationship_paths, starting_points,
+    high_connectivity, unconnected and notices, after an instruction to
+    start from the most connected entities and investigate unconnected
+    ones. If entity_id names no entity, the prompt MUST return an error.
   """
   verify unit "specforge://prompts/explore returns exploration starting points"
-  verify unit "entity_id focuses exploration on that entity"
-  verify unit "kind filter restricts results to matching entity kind"
-  verify unit "high_connectivity field lists entities with highest edge degree"
-  verify unit "orphan_nodes field lists entities with zero incoming and outgoing edges"
   verify unit "unknown entity_id returns error"
-  verify unit "explore and review reach the same entities at the same depth"
   verify contract "Provide MCP Explore Prompt: MCP explore prompt holds — graph_available, exploration_returned, bfs_from_entity, prompt_invoked_emitted"
 }

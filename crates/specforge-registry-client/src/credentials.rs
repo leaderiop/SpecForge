@@ -162,8 +162,14 @@ impl CredentialStore {
     }
 }
 
+/// The directory that holds the user's registry files (`credentials.json`,
+/// `signing-key.json`, `known-keys.json`): `$HOME/.specforge`.
+pub fn user_dir() -> PathBuf {
+    dirs_home().join(".specforge")
+}
+
 pub fn credentials_path() -> PathBuf {
-    dirs_home().join(".specforge").join("credentials.json")
+    user_dir().join("credentials.json")
 }
 
 pub fn read_credentials(path: &Path) -> Result<CredentialStore, Diagnostic> {

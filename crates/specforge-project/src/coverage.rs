@@ -252,8 +252,8 @@ impl ProjectCoverage {
 
 /// The entity snapshot of a graph, the recorded test report at a root and
 /// the coverage computed from both, memoized. Owned by whoever owns the
-/// graph it scores (a [`crate::CompiledProject`], a
-/// [`crate::ProjectSession`], which starts a fresh one on every update and
+/// graph it scores (a [`crate::CompiledProject`], one-shot or a session's;
+/// the session ([`crate::ProjectSession`]) starts a fresh one on every update and
 /// reload), so "once per compile" holds by construction. The memo is bound
 /// to its snapshot when it is made: seeded with the one the owner's checks
 /// read ([`Self::of`]), or with one taken from the graph and environment it

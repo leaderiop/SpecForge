@@ -13,7 +13,7 @@ use specforge_extension_sdk::prelude::*;
 
 #[spec(
     behavior = "execute_validation_pattern",
-    verify = "no_incoming_edges detects orphan entities"
+    verify = "no_incoming_edges detects unreferenced entities"
 )]
 fn no_incoming_edges_detects_orphan_entities() {
     let built = one(rule("W100", "no_incoming_edges"));

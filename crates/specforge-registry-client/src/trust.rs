@@ -52,17 +52,10 @@ impl KnownKeys {
 
 /// Default on-disk location of the known-keys store.
 pub fn known_keys_path() -> PathBuf {
-    crate::credentials::dirs_home()
-        .join(".specforge")
-        .join("known-keys.json")
+    crate::credentials::user_dir().join("known-keys.json")
 }
 
-/// Load the user-level trust store; a missing file is an empty store.
-pub fn load_known_keys() -> KnownKeys {
-    load_known_keys_at(&known_keys_path())
-}
-
-/// [`load_known_keys`] at an explicit path (tests, custom homes).
+/// Load the trust store at `path`; a missing file is an empty store.
 pub fn load_known_keys_at(path: &std::path::Path) -> KnownKeys {
     std::fs::read_to_string(path)
         .ok()
@@ -70,12 +63,7 @@ pub fn load_known_keys_at(path: &std::path::Path) -> KnownKeys {
         .unwrap_or_default()
 }
 
-/// Persist the trust store to disk.
-pub fn save_known_keys(keys: &KnownKeys) -> Result<(), String> {
-    save_known_keys_at(&known_keys_path(), keys)
-}
-
-/// [`save_known_keys`] at an explicit path (tests, custom homes).
+/// Persist the trust store to `path`.
 pub fn save_known_keys_at(path: &std::path::Path, keys: &KnownKeys) -> Result<(), String> {
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)

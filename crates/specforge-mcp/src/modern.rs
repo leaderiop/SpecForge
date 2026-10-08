@@ -10,10 +10,9 @@
 
 use serde_json::{Value, json};
 
-use crate::lifecycle::{MODERN_PROTOCOL_VERSIONS, server_info};
+use crate::lifecycle::{MODERN_PROTOCOL_VERSIONS, Revision, server_info};
 use crate::protocol::{JsonRpcError, JsonRpcResponse, error_codes};
-use crate::state::{Listen, McpState, ServerPhase};
-use crate::subscriptions::{Changes, Watched};
+use crate::state::{McpState, ServerPhase};
 
 /// The `_meta` key naming the revision a request is made under.
 pub const PROTOCOL_VERSION_META: &str = "io.modelcontextprotocol/protocolVersion";
@@ -21,8 +20,6 @@ pub const PROTOCOL_VERSION_META: &str = "io.modelcontextprotocol/protocolVersion
 pub const CLIENT_CAPABILITIES_META: &str = "io.modelcontextprotocol/clientCapabilities";
 /// The `_meta` key a result names the server in.
 pub const SERVER_INFO_META: &str = "io.modelcontextprotocol/serverInfo";
-/// The `_meta` key tying a notification to its `subscriptions/listen`.
-pub const SUBSCRIPTION_ID_META: &str = "io.modelcontextprotocol/subscriptionId";
 
 /// The revision's error for a version the server does not speak.
 pub const UNSUPPORTED_PROTOCOL_VERSION: i64 = -32022;
@@ -78,17 +75,19 @@ pub fn handle(
         crate::lifecycle::serve_project(state, root);
     }
 
-    state.request_revision = Some(version);
+    let revision = Revision::Stateless(version);
     let response = match method {
         "server/discover" => Some(crate::lifecycle::handle_discover(id)),
-        "subscriptions/listen" => listen(state, &params, id),
+        "subscriptions/listen" => crate::subscriptions::requests::listen(state, &params, id),
         "tools/list"
         | "tools/call"
         | "resources/list"
         | "resources/templates/list"
         | "resources/read"
         | "prompts/list"
-        | "prompts/get" => Some(crate::protocol::router::route(state, method, params, id)),
+        | "prompts/get" => Some(crate::protocol::router::route(
+            state, revision, method, params, id,
+        )),
         // ping, logging/setLevel, resources/subscribe and the rest are not
         // methods of this revision; completion/complete is not offered.
         _ => Some(JsonRpcResponse::error(
@@ -97,7 +96,6 @@ pub fn handle(
             format!("Method not found: {method}"),
         )),
     };
-    state.request_revision = None;
     response.map(|response| decorate(response, method))
 }
 
@@ -148,87 +146,4 @@ fn decorate(mut response: JsonRpcResponse, method: &str) -> JsonRpcResponse {
         result.insert("cacheScope".into(), Value::from("private"));
     }
     response
-}
-
-/// `subscriptions/listen`: open a stream on which the server tells the
-/// client when the resources it names change. The server honours resource
-/// subscriptions to any resource it serves, and no list-changed types (it
-/// offers none); the acknowledgement, queued first, names the subset
-/// honoured. No response follows until the stream ends.
-fn listen(state: &mut McpState, params: &Value, id: Option<Value>) -> Option<JsonRpcResponse> {
-    let Some(filter) = params.get("notifications").filter(|f| f.is_object()) else {
-        return Some(JsonRpcResponse::error(
-            id,
-            error_codes::INVALID_PARAMS,
-            "Invalid params: subscriptions/listen needs notifications",
-        ));
-    };
-    let id = id.expect("a request has an id");
-    let mut uris: Vec<String> = Vec::new();
-    for uri in filter["resourceSubscriptions"]
-        .as_array()
-        .into_iter()
-        .flatten()
-        .filter_map(Value::as_str)
-    {
-        if crate::resources::is_served(state, uri) {
-            uris.push(uri.to_string());
-        }
-    }
-    state.notification_outbox.push(json!({
-        "jsonrpc": "2.0",
-        "method": "notifications/subscriptions/acknowledged",
-        "params": {
-            "_meta": { SUBSCRIPTION_ID_META: id },
-            "notifications": { "resourceSubscriptions": uris },
-        },
-    }));
-    for uri in &uris {
-        state.push_event(
-            "mcp_subscription_created",
-            json!({"subscriptionType": uri, "clientId": id.to_string()}),
-        );
-    }
-    state.listens.retain(|open| open.id != id);
-    state.listens.push(Listen { id, uris });
-    None
-}
-
-/// End the `subscriptions/listen` stream whose request id is `request_id`,
-/// when one is open. The client cancelled it, so nothing more is sent on
-/// it, not even a response.
-pub fn end_listen(state: &mut McpState, request_id: &Value) -> bool {
-    let Some(position) = state.listens.iter().position(|l| &l.id == request_id) else {
-        return false;
-    };
-    let ended = state.listens.remove(position);
-    for uri in &ended.uris {
-        state.push_event(
-            "mcp_subscription_removed",
-            json!({"subscriptionType": uri, "clientId": ended.id.to_string()}),
-        );
-    }
-    true
-}
-
-/// Queue `notifications/resources/updated` on every open stream for each
-/// resource it listens to whose content a recompile changed (what
-/// [`Watched::of`] says the resource changes with).
-pub fn enqueue_resource_updates(state: &mut McpState, changes: &Changes) {
-    let mut updates = Vec::new();
-    for listen in &state.listens {
-        for uri in &listen.uris {
-            if changes.touched(Watched::of(uri)) {
-                updates.push(json!({
-                    "jsonrpc": "2.0",
-                    "method": "notifications/resources/updated",
-                    "params": {
-                        "_meta": { SUBSCRIPTION_ID_META: listen.id },
-                        "uri": uri,
-                    },
-                }));
-            }
-        }
-    }
-    state.notification_outbox.extend(updates);
 }

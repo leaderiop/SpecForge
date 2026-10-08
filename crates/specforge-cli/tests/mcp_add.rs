@@ -2,7 +2,7 @@
 //! O4.3): builtins offline, the ADR-0001 diamond gate, and a config
 //! `specforge check` accepts.
 
-use crate::fake_registry::{FakeRegistry, Package};
+use crate::published::{Package, serve};
 use serde_json::{Value, json};
 use specforge_mcp::McpServer;
 use specforge_test_macros::test as specforge_test;
@@ -151,7 +151,7 @@ fn mcp_local_add_then_check_loads_the_extension() {
     verify = "a version diamond with a locked peer is refused with R-RES-006, as specforge add refuses it"
 )]
 fn mcp_add_refuses_a_version_diamond() {
-    let registry = FakeRegistry::serve(vec![
+    let registry = serve(vec![
         Package::new("@acme/base", "1.0.0", b"base".to_vec()),
         Package::new("@acme/base", "2.0.0", b"base".to_vec()),
         Package::new("@acme/app", "1.0.0", b"app".to_vec()).with_peer("@acme/base", "^2.0"),
@@ -192,7 +192,7 @@ fn mcp_add_refuses_a_version_diamond() {
     verify = "an install that leaves a locked extension's peer unsatisfied is refused before anything is written, local or from a registry"
 )]
 fn mcp_add_refuses_an_install_a_locked_extension_does_not_accept() {
-    let registry = FakeRegistry::serve(vec![Package::new(
+    let registry = serve(vec![Package::new(
         "@sdk/greet",
         "0.1.0",
         crate::registry::greet_wasm(),

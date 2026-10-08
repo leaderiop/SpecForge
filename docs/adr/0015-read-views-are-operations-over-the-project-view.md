@@ -26,7 +26,7 @@ adapters. Architecture plan 02 makes it the pattern for every read view.
 `RegistryBuild` (kinds, fields, edges, rules, the extension declarations and their ordered passes,
 ADR 0012), the root the project was compiled from, and its owner's coverage memo. Three constructors: `ProjectView::of(&CompiledProject)`
 (the CLI), `ProjectView::of_session(&ProjectSession, root)` (the LSP), `ProjectView::new` (tests and
-graphs built in memory); MCP builds every view through `ProjectRef::view()` of its call target (ADR
+graphs built in memory; an extension command runs over `ProjectView::of` in the CLI too, ADR 0011 "One operation runs a command"); MCP builds every view through `ProjectRef::view()` of its call target (ADR
 0014), or `Call::view()` for a call that may have no project. The view owns the recorded test
 report (`test_report`), the coverage computed from it (`coverage`) and the versioned schema
 (`versioned_schema`, `schema_cache`).
@@ -336,3 +336,56 @@ graph`; MCP navigation refusals carry a suggestion; search refuses a lone `field
 
 What would reopen it: a query that needs more than an export (a path query, a semantic search over
 embeddings), or a third surface for list or search with a shape of its own.
+
+## Prompt read views
+
+*(Added 2026-10, architecture round 5, plan 04.)*
+
+The MCP prompts computed what they showed. `prompts/explore.rs` ranked starting points and hubs and listed
+entities with no edges; `prompts/review.rs` scoped the coverage view to a neighbourhood and flagged entities
+with no edges; `prompts/infer.rs` (30 commits) merged an extension's inference guide with the project's,
+wrote an example entity, counted entities per kind three times and paged the plan. These rules lived only in
+MCP and were tested only through `prompts/get`. They carried live defects: the example wrote a required bool
+or reference as a string (E061, or a reference that links nothing), the prompt sent the agent to `spec/`
+whatever the project's spec root, it named `specforge_validate` (no such tool), explore applied its filters to
+two of five lists, and an entity referencing only itself ranked as the most connected. "Orphan" meant five
+things across the host and the extensions, and CONTEXT.md defined none.
+
+- **P1. The prompts render read views.** `explore::explore` (`Exploration`), `review::review` (`Review`),
+  `infer::guide` / `infer::kind_guide` (`InferenceGuide`, `KindGuide`) and `infer::inference_plan`
+  (`InferencePlan`) are operations over the project view. A prompt maps its arguments, calls one (the file scope
+  adds `navigate::anchors_of_file`), and adds only its instruction and the text that names tools.
+- **P2. One JSON presenter per view, in ops** (`to_json`), the document both the prompt and the CLI print, as
+  `Progress::to_json` is. `CoverageRow::to_json` is the one coverage-row presenter (it was MCP's `row_json`).
+  The inference plan has one surface and its page marker names an MCP argument, so the prompt renders it.
+- **P3. One connectivity rule.** `ProjectView::connectivity()` gives each entity's `Degree`, its edges to and
+  from *other* entities. An entity is unconnected when its degree is zero: a reference that does not resolve is
+  no edge, and an edge to itself links it to nothing else. Stats, the exploration and the review read it;
+  `ProjectView::entities_by_kind` is the one count per kind. `ProjectView::neighbourhood` is the one
+  `Graph::reach` the exploration and the review share, refusing an unknown entity with `navigate::not_found`.
+- **P4. The exploration's selection.** `entity_id`, `depth` and `kind` select the entities every list is about;
+  degrees count every edge of the project. Starting points and the most connected are connected entities only.
+  An unknown kind is an I020 notice in the payload (Q3; a prompt has no `_meta`).
+- **P5. One kind guide.** The kind's declaration is the one the kind registry registered it for (E026's
+  first-wins); its fields are the registered ones, in the overview too; the example writes every field by its
+  type; the spec directory is the project's spec root.
+- **P6. The plan's kind order is derived.** Kinds with no entity first, then each after the kinds its reference
+  fields target; the core names no kind. The spec's unbuilt phases are dropped.
+- **P7. Tools are named from the tool table** (`tools::core_tool_name` over `CORE_TOOLS`), in the prompts and
+  the server's instructions; a test scans every prompt reply for names no core tool has.
+- **P8. Surfaces.** The CLI renders the exploration (`specforge explore`), the review (`specforge review`) and
+  the guide (`specforge infer-guide`); the LSP documents each kind keyword's completion from its guide. The plan
+  stays the prompt's (`specforge infer-status` shows the progress).
+- **P9. "Orphan" is not a host word.** Unconnected entity (P3), unreferenced entity (no incoming edge: W012, the
+  extensions' `no_incoming_edges` rules, which call one an orphan), stray test record (W097,
+  `AnalyzeOutcome::stray_records`), stranded entity (`RemoveOutcome::stranded`, one typed list).
+
+Consequences: `specforge stats` and `specforge.stats` say `unconnected_count` (and count a self-referencing
+entity); the explore payload says `unconnected`, lists only the selection, drops unconnected entities from the
+starting points and carries `notices`; the review says "is unconnected"; the infer prompt's examples are well
+typed, its directories are the project's and its tool names are real; the overview lists registered fields; the
+plan orders its kinds; `analyze` says `stray_records`; `remove` says `stranded`. Prompt tests keep only what a
+prompt adds (arguments, refusals, instructions); the views' rules are tested in ops.
+
+What would reopen it: a prompt that needs data no read view gives (it would get a view first), or a surface
+that needs the plan.

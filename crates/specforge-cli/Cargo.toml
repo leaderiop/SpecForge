@@ -65,6 +65,7 @@ specforge-migrate = { workspace = true }
 specforge-component = { path = "../specforge-component", features = ["testing"] }
 specforge-lsp = { path = "../specforge-lsp" }
 tokio = { workspace = true }
-specforge-registry-server = { path = "../specforge-registry-server" }
+specforge-registry-server = { path = "../specforge-registry-server", features = ["testing"] }
+specforge-registry-client = { path = "../specforge-registry-client", features = ["testing"] }
 axum = "0.8.4"
 tower-lsp = { workspace = true }

@@ -98,9 +98,8 @@ type McpToolAnnotations {
 }
 
 type McpSubscription {
-  client_id     string @readonly
-  channel       string @readonly
-  subscribed_at timestamp
+  uri             string @readonly
+  subscription_id string @readonly @optional
   verify unit "McpSubscription schema is valid"
 }
 
@@ -230,7 +229,7 @@ type McpStatsResult {
   /// Testable entities proven, in percent; null without recorded test results.
   proof_pct          float @optional
   edge_count         integer
-  orphan_count       integer
+  unconnected_count  integer
   diagnostic_summary McpDiagnosticSummary
   verify unit "McpStatsResult schema is valid"
 }
@@ -433,9 +432,15 @@ type McpRenderResult {
 type McpRemoveExtensionResult {
   /// Result of removing an extension via MCP.
   removed_extension string
-  orphan_warnings   string[]
+  stranded          McpStrandedEntity[]
   success           boolean
   verify unit "McpRemoveExtensionResult schema is valid"
+}
+
+type McpStrandedEntity "An entity a removal strands" {
+  entity_id string @readonly
+  kind      string @readonly
+  verify unit "McpStrandedEntity schema is valid"
 }
 
 // The implement prompt provides structured context for agents, NOT generated
@@ -493,19 +498,19 @@ type McpTraceGap {
 }
 
 type McpExplorePromptResult "Explore Prompt Result" {
-  /// Entity IDs matching the explore query filters (entity_id starting point
-  /// and/or kind filter). When no filters are provided, contains all entities.
+  /// The selected entities: those entity_id reaches within depth (every
+  /// entity without it), of kind when given, in id order.
   matching_entities  string[]
   relationship_paths McpRelationshipPath[]
-  /// Suggested entity IDs for agents to begin exploring — typically
-  /// root-level entities (high out-degree, low in-degree).
+  /// The selected connected entities with the highest lead, at most five.
   starting_points    string[]
-  /// Entity IDs with the highest edge counts (in-degree + out-degree), useful
-  /// for understanding the most interconnected parts of the graph.
+  /// The selected connected entities with the most edges to other entities,
+  /// at most ten.
   high_connectivity  string[]
-  /// Entity IDs with no incoming or outgoing edges — candidates for cleanup or
-  /// missing references.
-  orphan_nodes       string[]
+  /// The selected entities no edge links to another entity.
+  unconnected        string[]
+  /// I020 for a kind the project does not know.
+  notices            Diagnostic[]
   verify unit "Explore Prompt Result conforms to schema"
 }
 

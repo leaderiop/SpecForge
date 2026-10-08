@@ -363,9 +363,9 @@ fn applied_says_what_the_update_left() {
     let events = watch.changed(&[fixture.root.join("spec/b.spec")]);
 
     let left = applied(&events[0]);
-    assert_eq!(left.files, watch.session().file_count());
+    assert_eq!(left.files, watch.session().project().file_count());
     assert_eq!(left.files, 2);
-    assert_eq!(left.nodes, watch.session().graph().node_count());
+    assert_eq!(left.nodes, watch.session().project().graph().node_count());
     assert!(
         left.extensions.iter().any(|name| name == "@sdk/docref"),
         "{:?}",

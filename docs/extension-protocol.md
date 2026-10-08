@@ -537,7 +537,7 @@ table below and the goldens in `crates/specforge-wasm/tests/wire/`.
 |---|---|---|---|
 | Handshake | `__handshake` | `HandshakeRequest` `{"host_version", "supported_categories"}` | `HandshakeResponse` |
 | Describe | `__describe` | `DescribeRequest` `{"category"}` | `DescribeResponse` `{"category", "items"}` |
-| Command | the command's `export` (`cmd__<id>`) | `CommandInput` `{"args", "cwd", "format", "today", "graph"}` | `CommandOutput` `{"exit_code", "stdout"?, "stderr"?}` |
+| Command | the command's `export` (`cmd__<id>`) | `CommandInput` `{"args", "cwd", "format", "today", "graph"}`; `cwd` is the project root, absolute and canonical | `CommandOutput` `{"exit_code", "stdout"?, "stderr"?}` |
 | MCP tool | the tool's `export` (`mcp__<name>`) | the JSON its `input_schema` describes | the JSON its `output_schema` describes |
 | MCP resource | the resource's `export` (`mcp__<name>`) | `McpResourceRequest` `{"uri"}` | `McpResourceContent` `{"content", "mime_type"}` |
 | Compiler pass | `__pass_<name>` | `PassInput` | `PassAnswer`: `[PassDiagnostic]` or `{"diagnostics", "summary"?}` |

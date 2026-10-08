@@ -38,6 +38,24 @@ struct Removing<'a> {
     installed: &'a Installed,
 }
 
+/// A stranded entity (CONTEXT.md): one whose kind only the removed
+/// extension declares; the next compile reports it E024.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StrandedEntity {
+    pub entity_id: String,
+    pub kind: String,
+}
+
+impl StrandedEntity {
+    /// `<kind> '<id>' uses a kind only <extension> defines`.
+    pub fn warning(&self, extension: &str) -> String {
+        format!(
+            "{} '{}' uses a kind only {extension} defines",
+            self.kind, self.entity_id
+        )
+    }
+}
+
 /// What a removal did (or, on a dry run, would do).
 #[derive(Debug, Clone, PartialEq)]
 pub struct RemoveOutcome {
@@ -45,11 +63,9 @@ pub struct RemoveOutcome {
     /// The locked version; for a builtin, the loaded one, if it loaded.
     pub version: Option<String>,
     pub origin: Origin,
-    /// One per entity whose kind only the removed extension defines: those
-    /// entities fail E024 on the next compile.
-    pub orphan_warnings: Vec<String>,
-    /// The IDs of the entities `orphan_warnings` describes, sorted.
-    pub orphaned: Vec<String>,
+    /// The entities the removal strands, in id order: their kind only the
+    /// removed extension defines, so they fail E024 on the next compile.
+    pub stranded: Vec<StrandedEntity>,
     pub dry_run: bool,
     /// The files the removal changed: `specforge.json` when an entry was
     /// dropped, and for an uninstall `specforge.lock` and each file deleted
@@ -202,12 +218,11 @@ pub fn remove(view: &ProjectView, req: &RemoveRequest) -> Result<RemoveOutcome, 
 
     refuse_if_required(req, req.name, lock)?;
 
-    let (orphan_warnings, orphaned) = orphans(req.graph, req.kinds, req.name);
+    let stranded = stranded(req.graph, req.kinds, req.name);
     let mut outcome = RemoveOutcome {
         name: req.name.to_string(),
         version,
-        orphan_warnings,
-        orphaned,
+        stranded,
         dry_run: req.dry_run,
         origin,
         writes: Writes::none(),
@@ -242,18 +257,17 @@ pub fn remove(view: &ProjectView, req: &RemoveRequest) -> Result<RemoveOutcome, 
 
 /// Remove the `.wasm` file entry `file`: only its `specforge.json` entry
 /// goes. The extension it loaded as (if it loaded) is what dependents and
-/// orphans are checked against.
+/// stranded entities are checked against.
 fn remove_file(req: &Removing, file: &EnabledExtension) -> Result<RemoveOutcome, OpError> {
     let declaration = req.loaded.iter().find(|d| d.name() == file.name);
     if declaration.is_some() {
         refuse_if_required(req, &file.name, req.installed.lock().file())?;
     }
-    let (orphan_warnings, orphaned) = orphans(req.graph, req.kinds, &file.name);
+    let stranded = stranded(req.graph, req.kinds, &file.name);
     let mut outcome = RemoveOutcome {
         name: file.name.clone(),
         version: declaration.map(|d| d.version().to_string()),
-        orphan_warnings,
-        orphaned,
+        stranded,
         dry_run: req.dry_run,
         origin: Origin::File {
             path: file.file.clone().unwrap_or_default(),
@@ -318,10 +332,10 @@ fn dependents(name: &str, loaded: &[ExtensionDeclaration], lock: Option<&LockFil
     out
 }
 
-/// The entities whose kind only `extension` defines: one warning for each,
-/// sorted, and their IDs, sorted.
-fn orphans(graph: &Graph, kinds: &KindRegistry, extension: &str) -> (Vec<String>, Vec<String>) {
-    let orphaned: Vec<_> = graph
+/// The entities whose kind only `extension` defines, in id order.
+fn stranded(graph: &Graph, kinds: &KindRegistry, extension: &str) -> Vec<StrandedEntity> {
+    // `Graph::nodes` is in id order.
+    graph
         .nodes()
         .into_iter()
         .filter(|node| {
@@ -329,23 +343,11 @@ fn orphans(graph: &Graph, kinds: &KindRegistry, extension: &str) -> (Vec<String>
                 .get(node.kind.raw.as_str())
                 .is_some_and(|kind| kind.source_extension == extension)
         })
-        .collect();
-    let mut warnings: Vec<String> = orphaned
-        .iter()
-        .map(|node| {
-            format!(
-                "{} '{}' uses a kind only {extension} defines",
-                node.kind.raw, node.id.raw
-            )
+        .map(|node| StrandedEntity {
+            entity_id: node.id.raw.to_string(),
+            kind: node.kind.raw.to_string(),
         })
-        .collect();
-    warnings.sort();
-    let mut ids: Vec<String> = orphaned
-        .iter()
-        .map(|node| node.id.raw.to_string())
-        .collect();
-    ids.sort();
-    (warnings, ids)
+        .collect()
 }
 
 #[cfg(test)]

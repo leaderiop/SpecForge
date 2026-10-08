@@ -12,7 +12,8 @@ print_stdout = "deny"
 
 [features]
 # `specforge_ops::testing`: extensions a test serves in process as
-# candidates (`@sdk/greet`, builtin look-alikes).
+# candidates (`@sdk/greet`, builtin look-alikes), and a package registry in
+# memory beside the Registry port with the contract of the port (ADR 0044).
 testing = ["dep:specforge-extension-sdk", "specforge-wasm/testing"]
 
 [dependencies]

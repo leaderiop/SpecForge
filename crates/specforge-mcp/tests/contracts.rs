@@ -219,7 +219,7 @@ fn contract_shutdown() {
     // behavior written to disk, served by the next call.
     server.write("more.spec", "behavior gamma \"Gamma\" {\n}\n");
     call_tool(&mut server, "specforge.stats", json!({}));
-    assert_eq!(server.state().notification_outbox.len(), 1);
+    assert_eq!(server.state().subscriptions().pending(), 2);
 
     let resp = call(&mut server, "shutdown", json!({}));
     assert_eq!(resp["result"], json!({}), "{resp}");
@@ -227,8 +227,8 @@ fn contract_shutdown() {
     // notifications_flushed: the pending notification still reaches the
     // client after the shutdown response.
     let delivered = server.take_notifications();
-    assert_eq!(delivered.len(), 1, "{delivered:?}");
-    let mut added: Vec<&str> = delivered[0]["params"]["added_nodes"]
+    assert_eq!(delivered.len(), 2, "{delivered:?}");
+    let mut added: Vec<&str> = delivered[1]["params"]["added_nodes"]
         .as_array()
         .unwrap()
         .iter()
@@ -238,14 +238,14 @@ fn contract_shutdown() {
     assert_eq!(added, ["gamma"]);
 
     // subscriptions_removed: none left, and each removal was announced.
-    assert!(server.state().subscriptions.is_empty());
+    assert!(server.state().subscriptions().is_empty());
     let mut removed = events(&server, "mcp_subscription_removed");
-    removed.sort_by_key(|p| p["subscriptionType"].to_string());
+    removed.sort_by_key(|p| p["resourceUri"].to_string());
     assert_eq!(
         removed,
         [
-            json!({"subscriptionType": "specforge/diagnosticsChanged", "clientId": "default"}),
-            json!({"subscriptionType": "specforge/graphChanged", "clientId": "default"}),
+            json!({"resourceUri": "specforge://diagnostics"}),
+            json!({"resourceUri": "specforge://graph"}),
         ]
     );
 
@@ -260,7 +260,7 @@ fn contract_shutdown() {
     // shutdown_emitted, with what it released.
     let shutdown = events(&server, "mcp_server_shutdown");
     assert_eq!(shutdown.len(), 1, "{shutdown:?}");
-    assert_eq!(shutdown[0]["pending_notifications_flushed"], 1);
+    assert_eq!(shutdown[0]["pending_notifications_flushed"], 2);
     assert_eq!(shutdown[0]["subscriptions_released"], 2);
     // The served session's runtime went with it.
     assert_eq!(shutdown[0]["wasm_engines_released"], 1);
@@ -609,7 +609,7 @@ fn contract_stats() {
         json!([{"kind": "behavior", "count": 1}, {"kind": "feature", "count": 1}])
     );
     assert_eq!(stats["edge_count"], 1);
-    assert_eq!(stats["orphan_count"], 0);
+    assert_eq!(stats["unconnected_count"], 0);
     assert!(stats["coverage_pct"].is_number(), "{stats}");
     assert_eq!(
         stats["diagnostic_summary"],
@@ -627,7 +627,7 @@ fn contract_stats() {
         stats["entity_counts"],
         json!([{"kind": "behavior", "count": 2}, {"kind": "feature", "count": 1}])
     );
-    assert_eq!(stats["orphan_count"], 1);
+    assert_eq!(stats["unconnected_count"], 1);
     assert_eq!(stats["diagnostic_summary"]["warnings"], 1);
 
     assert_tool_invoked(&server, "specforge.stats");
@@ -1075,7 +1075,7 @@ fn contract_trace_prompt() {
 )]
 fn contract_explore_prompt() {
     // alpha <-behaviors- beta -invariants-> gamma (inv.spec); delta
-    // (test.spec 11–13) is an orphan.
+    // (test.spec 11–13) is unconnected.
     let mut server = contracts_project()
         .file(
             "test.spec",
@@ -1085,14 +1085,14 @@ fn contract_explore_prompt() {
         .file("inv.spec", "invariant gamma \"GAMMA\" {\n}\n")
         .serve(&[extension()]);
 
-    // exploration_returned: starting points, hubs and orphans.
+    // exploration_returned: starting points, hubs and unconnected entities.
     let explore = prompt_payload(&get_prompt(
         &mut server,
         "specforge://prompts/explore",
         json!({}),
     ));
     assert_eq!(explore["high_connectivity"][0], "beta");
-    assert_eq!(explore["orphan_nodes"], json!(["delta"]));
+    assert_eq!(explore["unconnected"], json!(["delta"]));
     assert_eq!(explore["starting_points"][0], "beta");
     assert_eq!(explore["relationship_paths"], json!([]));
 
@@ -1340,7 +1340,7 @@ fn contract_auto_promote_commands() {
 
 #[specforge_test(
     behavior = "dispatch_surface_command",
-    verify = "Dispatch Surface Command: surface command dispatch holds — command_declared, args_serialized, sandbox_restricted, traps_caught, output_returned, surface_command_dispatched_emitted, args_normalized_by_the_host"
+    verify = "Dispatch Surface Command: surface command dispatch holds — command_declared, args_serialized, sandbox_restricted, traps_caught, output_returned, surface_command_dispatched_emitted, args_normalized_by_the_host, evidence_carried, one_operation"
 )]
 fn contract_dispatch_surface_command() {
     // The sandbox probe (fixtures/sandbox-probe), in the component runtime
@@ -1396,7 +1396,10 @@ fn contract_dispatch_surface_command() {
 
     // args_serialized: the args, the project root and the served graph.
     assert_eq!(out["args"], json!({"port": port}));
-    assert_eq!(out["cwd"], root.display().to_string());
+    assert_eq!(
+        out["cwd"],
+        std::fs::canonicalize(&root).unwrap().display().to_string()
+    );
     assert_eq!(out["nodes"], json!(["t1"]));
 
     // sandbox_restricted: though its declaration asks for every capability,
@@ -2384,6 +2387,16 @@ fn rebuild(server: &mut McpServer) {
     assert!(resp["error"].is_null(), "{resp}");
 }
 
+/// `notifications/resources/updated` for `uri`, as a handshake subscriber
+/// hears it.
+fn updated(uri: &str) -> Value {
+    json!({
+        "jsonrpc": "2.0",
+        "method": "notifications/resources/updated",
+        "params": {"uri": uri},
+    })
+}
+
 #[specforge_test(
     behavior = "notify_graph_delta_via_mcp",
     verify = "Notify Graph Delta via MCP: graph delta MCP notification holds — graph_delta_computed_fired, subscribers_notified, no_notification_when_empty, delta_notified_emitted"
@@ -2412,17 +2425,20 @@ fn contract_graph_notification() {
     rebuild(&mut server);
     assert_eq!(
         server.take_notifications(),
-        [json!({
-            "jsonrpc": "2.0",
-            "method": "specforge/graphChanged",
-            "params": {
-                "added_nodes": ["gamma"],
-                "removed_nodes": ["beta"],
-                "modified_nodes": [],
-                "added_edges": [],
-                "removed_edges": [{"source": "beta", "target": "alpha", "label": "behaviors"}],
-            },
-        })]
+        [
+            updated("specforge://graph"),
+            json!({
+                "jsonrpc": "2.0",
+                "method": "specforge/graphChanged",
+                "params": {
+                    "added_nodes": ["gamma"],
+                    "removed_nodes": ["beta"],
+                    "modified_nodes": [],
+                    "added_edges": [],
+                    "removed_edges": [{"source": "beta", "target": "alpha", "label": "behaviors"}],
+                },
+            }),
+        ]
     );
 
     // subscribers_notified: a rebuild that only changes gamma's fields
@@ -2435,17 +2451,20 @@ fn contract_graph_notification() {
     rebuild(&mut server);
     assert_eq!(
         server.take_notifications(),
-        [json!({
-            "jsonrpc": "2.0",
-            "method": "specforge/graphChanged",
-            "params": {
-                "added_nodes": [],
-                "removed_nodes": [],
-                "modified_nodes": ["gamma"],
-                "added_edges": [],
-                "removed_edges": [],
-            },
-        })]
+        [
+            updated("specforge://graph"),
+            json!({
+                "jsonrpc": "2.0",
+                "method": "specforge/graphChanged",
+                "params": {
+                    "added_nodes": [],
+                    "removed_nodes": [],
+                    "modified_nodes": ["gamma"],
+                    "added_edges": [],
+                    "removed_edges": [],
+                },
+            }),
+        ]
     );
 
     // delta_notified_emitted: once per delivered delta.
@@ -2486,9 +2505,9 @@ fn subscribed_graph_server() -> (Served, PathBuf) {
 fn modified_after_rebuild(server: &mut McpServer) -> Value {
     rebuild(server);
     let sent = server.take_notifications();
-    assert_eq!(sent.len(), 1, "{sent:?}");
-    assert_eq!(sent[0]["method"], "specforge/graphChanged");
-    sent[0]["params"]["modified_nodes"].clone()
+    assert_eq!(sent.len(), 2, "{sent:?}");
+    assert_eq!(sent[1]["method"], "specforge/graphChanged");
+    sent[1]["params"]["modified_nodes"].clone()
 }
 
 #[specforge_test(
@@ -2611,7 +2630,10 @@ fn contract_diagnostics_notification() {
     };
     assert_eq!(
         server.take_notifications(),
-        [changed(json!([duplicate]), json!([]))]
+        [
+            updated("specforge://diagnostics"),
+            changed(json!([duplicate]), json!([])),
+        ]
     );
 
     // unchanged_suppressed: rebuilding the same project sends nothing.
@@ -2624,7 +2646,10 @@ fn contract_diagnostics_notification() {
     assert_eq!(server.state().diagnostics(), clean);
     assert_eq!(
         server.take_notifications(),
-        [changed(json!([]), json!([duplicate]))]
+        [
+            updated("specforge://diagnostics"),
+            changed(json!([]), json!([duplicate])),
+        ]
     );
 
     // delta_notified_emitted: once per delivered delta.
