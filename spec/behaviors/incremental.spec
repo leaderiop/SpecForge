@@ -283,16 +283,17 @@ behavior debounce_file_changes "Debounce File Changes" {
   contract   """
     When multiple file_changed events arrive in rapid succession (e.g.,
     save-all or editor reformatting), the system MUST coalesce them into a
-    single invalidation batch. A configurable debounce window (default 50ms)
-    MUST be applied: the system MUST wait until no new changes arrive within
-    the window before emitting a file_changes_coalesced event. The coalesced
-    batch MUST include the union of all changed files within the debounce
-    window.
+    single invalidation batch. A debounce window of 50ms MUST be applied,
+    by one rule watch and the LSP share: the system MUST wait until no new
+    changes arrive within the window before emitting a
+    file_changes_coalesced event. The coalesced batch MUST include the
+    union of all changed files within the debounce window.
   """
   verify unit "rapid successive changes coalesced into single batch"
   verify unit "debounce window prevents redundant recompilation"
   verify unit "coalesced batch includes union of all changed files"
   verify unit "single isolated change triggers after debounce window"
+  verify unit "each change restarts the quiet window"
   verify contract "Debounce File Changes: file change debouncing holds — file_changed_fired, coalesced_batch_produced, redundant_recompilation_prevented"
 }
 

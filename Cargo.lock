@@ -3241,7 +3241,9 @@ dependencies = [
  "notify",
  "specforge-test",
  "specforge-test-macros",
+ "specforge-watch",
  "tempfile",
+ "tokio",
 ]
 
 [[package]]
