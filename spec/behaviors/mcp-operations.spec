@@ -193,6 +193,7 @@ behavior provide_mcp_init_tool "Provide MCP Init Tool" {
   verify unit "extensions installed when specified"
   verify unit "default version is 0.1.0"
   verify unit "path inside current project returns error"
+  verify unit "init inside the served project is refused by the call target as a conflict on path, before anything is written"
   verify unit "invalid project name returns error"
   verify unit "unknown extension returns error with diagnostic"
   verify unit "version parameter overrides default 0.1.0"

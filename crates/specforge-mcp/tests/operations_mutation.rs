@@ -865,6 +865,42 @@ fn init_refuses_a_path_inside_the_current_project() {
 
 #[specforge_test(
     behavior = "provide_mcp_init_tool",
+    verify = "init inside the served project is refused by the call target as a conflict on path, before anything is written"
+)]
+fn init_inside_the_served_project_is_a_conflict_on_path() {
+    let mut server = test_server();
+    let root = server
+        .state()
+        .project_root()
+        .map(std::path::Path::to_path_buf)
+        .unwrap();
+    let nested = root.join("nested");
+
+    let error = init_error(
+        &mut server,
+        json!({"path": nested.to_str().unwrap(), "name": "nested"}),
+    );
+
+    assert_eq!(error["code"], "conflict", "{error}");
+    assert_eq!(error["argument"], "path", "{error}");
+    assert_eq!(error["data"]["files_written"], json!([]), "{error}");
+    assert!(
+        error["message"]
+            .as_str()
+            .unwrap()
+            .contains("is inside the current project at"),
+        "{error}"
+    );
+    assert!(!nested.exists(), "nothing is written");
+    let completed = events(&server, "mcp_mutation_completed");
+    assert_eq!(
+        completed.last().unwrap(),
+        &json!({"toolName": "specforge.init", "files_changed": 0, "entities_affected": 0, "success": false})
+    );
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_init_tool",
     verify = "invalid project name returns error"
 )]
 fn init_rejects_an_invalid_project_name() {

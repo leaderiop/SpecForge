@@ -348,6 +348,48 @@ fn init_with_a_local_extension_writes_its_module_and_lock() {
     );
 }
 
+/// Plan 10 T0: init overwrites an existing starter file. Flipped by T3.
+#[test]
+fn pin_init_overwrites_an_existing_starter() {
+    let scratch = TempDir::new().unwrap();
+    let dir = scratch.path().join("victim");
+    std::fs::create_dir_all(dir.join("spec")).unwrap();
+    std::fs::write(dir.join("spec/hello.spec"), "term mine \"Mine\" {\n}\n").unwrap();
+
+    init(&dir, &[]);
+
+    let starter = std::fs::read_to_string(dir.join("spec/hello.spec")).unwrap();
+    assert!(!starter.contains("mine"), "{starter}");
+}
+
+/// Plan 10 T0: a failed init removes the lock and `.specforge/` that were
+/// there before it ran. Flipped by T3.
+#[test]
+fn pin_a_failed_init_removes_what_was_there() {
+    use specforge_ops::init;
+    let blobs = Blobs::new();
+    let scratch = TempDir::new().unwrap();
+    let dir = scratch.path().join("victim");
+    std::fs::create_dir_all(dir.join(".specforge")).unwrap();
+    std::fs::write(dir.join(".specforge/keep.txt"), "keep\n").unwrap();
+    std::fs::write(dir.join("specforge.lock"), "garbage\n").unwrap();
+    let extensions = [blobs.greet().display().to_string()];
+    let request = init::Request {
+        dir: &dir,
+        name: Some("demo"),
+        version: init::DEFAULT_VERSION,
+        extensions: &extensions,
+        forbid_inside: None,
+    };
+
+    let plan = init::plan(&request, &candidates()).unwrap();
+    let error = init::apply(&dir, plan).unwrap_err();
+
+    assert_eq!(error.code, "E033", "{error:?}");
+    assert!(!dir.join(".specforge").exists());
+    assert!(!dir.join("specforge.lock").exists());
+}
+
 #[test]
 fn enabling_a_builtin_writes_the_config_only() {
     let dir = project(&[], &[]);

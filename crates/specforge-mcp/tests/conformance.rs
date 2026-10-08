@@ -138,8 +138,12 @@ fn every_listed_core_resource_is_readable() {
 /// `tools/list` of a server over the fake extension `@test/cmds`, which
 /// contributes an explicit tool and two auto-promoted commands.
 fn tools_with_an_extension() -> (Served, Vec<Value>) {
-    use crate::fake_extension::{EXT, FakeExtension};
-    let ext = FakeExtension::new();
+    tools_over(crate::fake_extension::FakeExtension::new())
+}
+
+/// `tools/list` of a server over the fake extension `ext`.
+fn tools_over(ext: crate::fake_extension::FakeExtension) -> (Served, Vec<Value>) {
+    use crate::fake_extension::EXT;
     let mut server = TestProject::new()
         .enabling(&[EXT])
         .file("main.spec", "")
@@ -256,5 +260,34 @@ fn an_extension_tool_is_listed_once_across_recompiles() {
     for name in ["specforge.cmds.check", "specforge.cmds.report"] {
         let count = tools.iter().filter(|t| t["name"] == name).count();
         assert_eq!(count, 1, "{name} listed {count} times");
+    }
+}
+
+/// Plan 10 T0: an extension tool that declares `mutation` is listed as one,
+/// and no extension tool carries annotations. Flipped by T9.
+#[test]
+fn pin_an_extension_tool_declared_a_mutation_is_listed_as_one() {
+    use crate::fake_extension::FakeExtension;
+    let ext = FakeExtension::new().with_tool(json!({
+        "name": "specforge.cmds.write",
+        "description": "Writes",
+        "category": "mutation",
+        "export": "mcp__write",
+        "input_schema": {"type": "object"}
+    }));
+    let (_server, tools) = tools_over(ext);
+    let listed = |name: &str| {
+        tools
+            .iter()
+            .find(|t| t["name"] == name)
+            .unwrap_or_else(|| panic!("{name} listed"))
+    };
+    assert_eq!(listed("specforge.cmds.write")["category"], "mutation");
+    for name in [
+        "specforge.cmds.write",
+        "specforge.cmds.check",
+        "specforge.cmds.report",
+    ] {
+        assert!(listed(name).get("annotations").is_none(), "{name}");
     }
 }
