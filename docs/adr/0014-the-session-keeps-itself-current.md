@@ -42,7 +42,8 @@ before each read) with disk, and `ensure_fresh` applies exactly that.
 - **D2. MCP adopts the incremental update.** ADR 0006 makes an update's diagnostics equal a fresh
   compile's, so MCP reloads the environment only when an environment input changed. In a debug build
   every MCP update is verified against a cold rebuild, and a divergence is a debug assertion. This
-  amends CONTEXT.md's "every fresh compile … is an environment reload".
+  amends CONTEXT.md's "every fresh compile … is an environment reload". *(ADR 0035: every session
+  verifies in a debug build; MCP asserts in `applied`.)*
 - **D3. `.specforge/graph.json` is gone**, writer and reader: nothing else read it, and it was not a
   graph. Watch no longer creates it; a stale one is ignored. This supersedes C9-07 (`cacded2f`).
 - **D4. A mutation with another project's `path` acts entirely on that project.** It is planned,
@@ -66,7 +67,9 @@ before each read) with disk, and `ensure_fresh` applies exactly that.
   its watchers from `inputs().watch_roots()` after any update that changes the session's inputs, not
   only a reload (and catches up with `ensure_fresh`); the LSP classifies inside the update, while it
   holds the session, and registers its `didChangeWatchedFiles` watchers from the session's inputs,
-  again after any update that changed them (amended by ADR 0030).
+  again after any update that changed them (amended by ADR 0030). *(ADR 0035: each then catches up on
+  what changed while its watchers moved, and the LSP's follow is one reaction every change goes
+  through.)*
 - **D10. No public root.** `McpState::project_root()` is the session's root. MCP serves only a
   project opened from disk (amended by ADR 0025). An `initialize` root that does not exist serves
   nothing.

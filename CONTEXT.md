@@ -24,8 +24,10 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   holds with no workspace folder and MCP while nothing is served). Watch, the LSP and MCP each hold
   one (`specforge_project::ProjectSession`; MCP's served one is always opened from disk, ADR 0025);
   watch and the LSP feed it watcher events and follow every update that changes its inputs
-  (`Update::inputs_changed`), MCP asks it to be fresh before every request that reads the project
-  (ADR 0014, ADR 0030). The LSP also feeds it its open buffers, each batch of edits as one update
+  (`Update::inputs_changed`) by watching them anew and then bringing the session up to date for what
+  changed meanwhile, MCP asks it to be fresh before every request that reads the project (ADR 0014,
+  ADR 0030, ADR 0035). In a debug build it checks every update against a cold rebuild, whichever
+  surface holds it, and each surface reports a divergence where it reports (ADR 0035). The LSP also feeds it its open buffers, each batch of edits as one update
   (`SourceChange::Buffers`), and a closed document's file is read from disk again
   (`specforge_lsp::changes`, ADR 0023).
 - **Session inputs**: everything a project session depends on besides its sources' text: where its
@@ -44,10 +46,14 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Update**: one change applied to a project session. It re-reads and re-parses exactly the changed files (an
   importer parses the same, since references resolve without `use`), applies them to the session's graph
   build, resolves every file's imports again and re-runs the checks (`specforge_project::Update`, ADR 0006,
-  ADR 0032).
+  ADR 0032). An update says whether the session's inputs changed (`inputs_changed`) and, when it was
+  verified, how it differs from a cold rebuild (`divergence`).
 - **Graph delta**: what an update or a reload changed in the graph: added, removed and modified
   nodes (source positions ignored) and edges. Watch prints it and MCP notifies it
   (`specforge_graph::GraphDelta`, re-exported as `specforge_project::GraphDelta`). A graph build computes it.
+- **Debounce rule**: changes that arrive less than 50 ms apart are one batch, due 50 ms after the last
+  of them, each change once. Watch batches file changes and the LSP batches edited documents by the
+  same rule (`specforge_watch::Coalescer`, ADR 0035).
 - **Graph build**: the graph of a set of parsed `.spec` files and what building it reported (parse errors,
   duplicates, define blocks, unknown ref schemes, unresolved references, reference cycles), kept current one
   whole file at a time (`specforge_graph::GraphBuild`). Files are taken in path order; each entity ID is the
