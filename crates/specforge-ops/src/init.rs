@@ -14,8 +14,7 @@ use specforge_common::validate_project_name;
 use specforge_wasm::WasmRuntime;
 use std::path::{Path, PathBuf};
 
-/// The code an init refused with because the target is already a project,
-/// or is inside the one that forbids it.
+/// The code an init refused with because the directory is already a project.
 pub const PROJECT_EXISTS: &str = "project_exists";
 /// The code for a project name init can't use.
 pub const INVALID_NAME: &str = "invalid_name";
@@ -49,8 +48,6 @@ pub struct Request<'a> {
     pub version: &'a str,
     /// Extension specifiers; an entry may hold several, comma-separated.
     pub extensions: &'a [String],
-    /// A project the new one must not be inside (MCP: the server's own).
-    pub forbid_inside: Option<&'a Path>,
 }
 
 /// Everything init will write, validated.
@@ -92,19 +89,6 @@ pub fn plan(req: &Request, runtime: &dyn WasmRuntime) -> Result<Plan, OpError> {
             OpErrorKind::Conflict,
             PROJECT_EXISTS,
             format!("project already exists at {} ({marker})", req.dir.display()),
-        ));
-    }
-    if let Some(current) = req.forbid_inside
-        && absolute(req.dir).starts_with(absolute(current))
-    {
-        return Err(OpError::new(
-            OpErrorKind::Conflict,
-            PROJECT_EXISTS,
-            format!(
-                "{} is inside the current project at {}",
-                req.dir.display(),
-                current.display()
-            ),
         ));
     }
 
@@ -409,26 +393,6 @@ fn append_gitignore(path: &Path, existing: &str) -> std::io::Result<bool> {
         text.push('\n');
     }
     std::fs::write(path, text).map(|()| true)
-}
-
-/// `path`, absolute and canonical through its nearest existing ancestor.
-fn absolute(path: &Path) -> PathBuf {
-    let path = std::path::absolute(path).unwrap_or_else(|_| path.to_path_buf());
-    let mut existing = path.clone();
-    let mut rest = Vec::new();
-    while !existing.exists() {
-        let Some(name) = existing.file_name().map(|n| n.to_os_string()) else {
-            break;
-        };
-        rest.push(name);
-        if !existing.pop() {
-            break;
-        }
-    }
-    match existing.canonicalize() {
-        Ok(canonical) => rest.iter().rev().fold(canonical, |p, part| p.join(part)),
-        Err(_) => path,
-    }
 }
 
 /// Runner extensions for the test runners the project at `path` uses.

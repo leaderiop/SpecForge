@@ -240,7 +240,6 @@ fn init(dir: &Path, extensions: &[String]) -> specforge_ops::init::Outcome {
         name: Some("demo"),
         version: init::DEFAULT_VERSION,
         extensions,
-        forbid_inside: None,
     };
     let plan = init::plan(&request, &candidates()).unwrap();
     init::apply(dir, plan).unwrap()
@@ -298,7 +297,6 @@ fn the_starter_states_the_project_version() {
             name: Some("demo"),
             version,
             extensions,
-            forbid_inside: None,
         };
         let plan = init::plan(&request, &runtime()).unwrap();
         assert_eq!(plan.config["version"], version);
@@ -379,7 +377,6 @@ fn pin_a_failed_init_removes_what_was_there() {
         name: Some("demo"),
         version: init::DEFAULT_VERSION,
         extensions: &extensions,
-        forbid_inside: None,
     };
 
     let plan = init::plan(&request, &candidates()).unwrap();
@@ -706,7 +703,6 @@ fn init_enables_a_builtin_after_the_builtins_it_requires() {
         name: Some("demo"),
         version: init::DEFAULT_VERSION,
         extensions: &extensions,
-        forbid_inside: None,
     };
 
     let plan = init::plan(&request, &runtime()).unwrap();
@@ -741,7 +737,6 @@ fn init_enables_each_builtin_after_the_builtins_it_requires() {
             name: Some("demo"),
             version: init::DEFAULT_VERSION,
             extensions: &extensions,
-            forbid_inside: None,
         };
 
         let plan = init::plan(&request, &runtime).unwrap();
@@ -786,7 +781,6 @@ fn init_refuses_a_local_binary_that_claims_a_builtins_name_before_writing() {
         name: Some("demo"),
         version: init::DEFAULT_VERSION,
         extensions: &extensions,
-        forbid_inside: None,
     };
 
     let error = init::plan(&request, &impostor).unwrap_err();
@@ -817,7 +811,6 @@ fn init_reads_a_local_file_once() {
         name: Some("demo"),
         version: init::DEFAULT_VERSION,
         extensions: &extensions,
-        forbid_inside: None,
     };
     let runtime = candidates();
     let handshakes = |runtime: &InProcessRuntime| {
