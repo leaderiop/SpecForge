@@ -3,8 +3,8 @@ use specforge_ops::coverage::{CoverageQuery, CoverageRow};
 use specforge_project::coverage::Status;
 
 use crate::args::Arguments;
-use crate::target::Call;
 use crate::tool::{McpError, ToolOutcome};
+use specforge_ops::view::ProjectView;
 
 /// `specforge.coverage`'s arguments.
 #[derive(Debug, Arguments)]
@@ -22,13 +22,13 @@ pub struct Args {
 /// recorded tests read at its root; with nothing served there is no root,
 /// so none). With no filter, the entities that count toward
 /// coverage, the ones stats counts as testable.
-pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
+pub fn call(view: ProjectView<'_>, args: Args) -> ToolOutcome {
     let query = CoverageQuery {
         entity_id: args.entity_id.as_deref(),
         kind: args.kind.as_deref(),
         status: args.status_filter,
     };
-    match specforge_ops::coverage::coverage(&call.view(), &query) {
+    match specforge_ops::coverage::coverage(&view, &query) {
         Ok(outcome) => ToolOutcome::ok(Value::Array(
             outcome.rows.iter().map(CoverageRow::to_json).collect(),
         )),

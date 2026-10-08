@@ -2,8 +2,8 @@ use serde_json::{Value, json};
 use specforge_ops::navigate::{OutlineEntry, outline};
 
 use crate::args::Arguments;
-use crate::target::Call;
 use crate::tool::{Handled, ToolOutcome, file_not_found};
+use specforge_ops::view::ProjectView;
 
 /// `specforge.outline`'s arguments.
 #[derive(Debug, Arguments)]
@@ -16,16 +16,14 @@ pub struct Args {
 /// with its method members, each selecting its name: the tree the LSP's
 /// document symbols are (`specforge_ops::navigate::outline`). `file` is a
 /// spec file of the project, relative to its spec root, as spans name it.
-pub fn call(call: &mut Call<'_>, args: Args) -> Handled {
+pub fn call(view: ProjectView<'_>, args: Args) -> Handled {
     let file = args.file.as_str();
-    let entries = outline(&super::navigator(call), file);
+    let entries = outline(&super::navigator(view), file);
     // A file the graph has no entity from is either empty or not there:
     // under the project's spec root. With nothing served no file is the
     // project's (the dispatcher makes the refusal the no-project one,
     // ADR 0025).
-    let on_disk = call
-        .spec_root()
-        .is_some_and(|spec_root| spec_root.join(file).exists());
+    let on_disk = super::spec_root(&view).is_some_and(|spec_root| spec_root.join(file).exists());
     if entries.is_empty() && !on_disk {
         return Err(file_not_found(file).into());
     }

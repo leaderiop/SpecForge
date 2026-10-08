@@ -1,8 +1,8 @@
 use serde_json::json;
 
 use crate::args::Arguments;
-use crate::target::Call;
 use crate::tool::{Handled, McpError, ToolOutcome};
+use specforge_ops::view::ProjectView;
 
 /// `specforge.find_definition`'s arguments.
 #[derive(Debug, Arguments)]
@@ -15,9 +15,9 @@ pub struct Args {
 /// `column` are its name's (where a cursor goes); `source_span` is its
 /// block, `name_span` its name (the block when the name could not be
 /// read: `precision` says which).
-pub fn call(call: &mut Call<'_>, args: Args) -> Handled {
+pub fn call(view: ProjectView<'_>, args: Args) -> Handled {
     let entity_id = args.entity_id.as_str();
-    let definition = super::navigator(call)
+    let definition = super::navigator(view)
         .definition(entity_id)
         .map_err(McpError::from)?;
     Ok(ToolOutcome::ok(json!({

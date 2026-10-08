@@ -1,8 +1,8 @@
 use specforge_ops::schema::SchemaRequest;
 
 use crate::args::Arguments;
-use crate::target::Call;
 use crate::tool::ToolOutcome;
+use specforge_ops::view::ProjectView;
 
 /// `specforge.schema`'s arguments.
 #[derive(Debug, Arguments)]
@@ -23,13 +23,13 @@ pub struct Args {
 /// start or end at it (a kind no extension declares is `invalid_input` on
 /// `kind`, naming the closest); `include_edges: false` drops `edge_types`;
 /// `include_validation_rules` adds the rules the loaded extensions declare.
-pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
+pub fn call(view: ProjectView<'_>, args: Args) -> ToolOutcome {
     let request = SchemaRequest {
         kind: args.kind.as_deref(),
         edges: args.include_edges,
         validation_rules: args.include_validation_rules,
     };
-    match specforge_ops::schema::schema(&call.view(), &request) {
+    match specforge_ops::schema::schema(&view, &request) {
         Ok(outcome) => {
             ToolOutcome::ok(serde_json::to_value(&outcome).expect("a schema serializes"))
         }

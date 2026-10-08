@@ -4,7 +4,6 @@ use specforge_ops::trace::{Gap, Target};
 use specforge_ops::view::ProjectView;
 
 use crate::args::{AgentPlan, Arguments};
-use crate::target::Call;
 use crate::tool::ToolOutcome;
 
 /// `specforge.trace`'s arguments.
@@ -19,8 +18,7 @@ pub struct Args {
 /// `specforge.trace`: the trace operation over the served project. An
 /// entity's result is the document `specforge trace <entity> --format
 /// json` writes; a plan's is an `McpTracePlanResult`.
-pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
-    let view = call.view();
+pub fn call(view: ProjectView<'_>, args: Args) -> ToolOutcome {
     if let Some(plan) = &args.plan {
         return plan_gaps(&view, &plan.0);
     }

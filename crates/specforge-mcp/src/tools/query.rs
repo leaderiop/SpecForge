@@ -3,8 +3,8 @@ use specforge_ops::export::Format;
 use specforge_ops::query::{QueryRequest, query};
 
 use crate::args::Arguments;
-use crate::target::Call;
 use crate::tool::{McpError, ToolOutcome};
+use specforge_ops::view::ProjectView;
 
 /// `specforge.query`'s arguments.
 #[derive(Debug, Arguments)]
@@ -26,7 +26,7 @@ pub struct Args {
 /// `specforge.query`: the query read view (`specforge_ops::query`), the
 /// document `specforge query` prints for the same arguments; an unknown
 /// kind of the filter rides in `_meta.diagnostics` (I020).
-pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
+pub fn call(view: ProjectView<'_>, args: Args) -> ToolOutcome {
     let request = QueryRequest {
         entity_id: &args.entity_id,
         depth: Some(args.depth),
@@ -34,7 +34,7 @@ pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
         format: Some(args.format),
         include_coverage: args.include_coverage,
     };
-    match query(&call.view(), &request) {
+    match query(&view, &request) {
         Ok(outcome) => {
             let document: Value =
                 serde_json::from_str(&outcome.document).expect("an export is JSON");

@@ -2,8 +2,8 @@ use serde_json::{Value, json};
 use specforge_ops::navigate::{DIRECTION, Direction, Occurrence, ReferenceQuery};
 
 use crate::args::Arguments;
-use crate::target::Call;
 use crate::tool::{Handled, ToolOutcome};
+use specforge_ops::view::ProjectView;
 
 /// `specforge.find_references`'s arguments.
 #[derive(Debug, Arguments)]
@@ -20,14 +20,14 @@ pub struct Args {
 /// `specforge.find_references`: each occurrence of the entity's ID, as
 /// the LSP's references answer it (ADR 0016). Incoming by default, the
 /// declaration only when asked for.
-pub fn call(call: &mut Call<'_>, args: Args) -> Handled {
+pub fn call(view: ProjectView<'_>, args: Args) -> Handled {
     let entity_id = args.entity_id.as_str();
     let direction = args.direction;
     let query = ReferenceQuery {
         direction,
         include_declaration: args.include_declaration,
     };
-    let occurrences = super::navigator(call)
+    let occurrences = super::navigator(view)
         .references(entity_id, query)
         .map_err(crate::tool::McpError::from)?;
     Ok(ToolOutcome::ok(json!({

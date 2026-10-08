@@ -212,7 +212,7 @@ impl Mutated {
 }
 
 /// What a mutation handler returns when it refuses with `?` (only before it
-/// writes: `call.project()?`). A refusal after a write must carry its
+/// writes: `?` on an `McpError`). A refusal after a write must carry its
 /// [`Written`] and is returned as `Ok(Mutated::wrote(error, written))`.
 pub type MutationHandled = Result<Mutated, Box<McpError>>;
 
@@ -254,9 +254,7 @@ pub(crate) fn refresh(call: &mut Call<'_>, mutated: &mut Mutated) -> Option<Path
             }
         }
     }
-    call.new_project_dir()
-        .or_else(|| call.root())
-        .map(Path::to_path_buf)
+    call.written_root().map(Path::to_path_buf)
 }
 
 /// What the completed mutation produced, and its reply: the events to

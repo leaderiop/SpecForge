@@ -1,6 +1,6 @@
 use crate::args::Arguments;
-use crate::target::Call;
-use crate::tool::{Handled, ToolOutcome};
+use crate::target::ProjectRef;
+use crate::tool::ToolOutcome;
 use specforge_ops::check::{CheckError, CheckOptions, check, parse_lint_profiles, parse_severity};
 
 /// `specforge.validate`'s arguments.
@@ -26,17 +26,16 @@ pub const VERDICT_META: &str = "specforge/check";
 /// `path` names for this call). Finding errors is a successful call (ADR
 /// 0004 D4-a); whether the check passed is the `_meta` verdict. The tool
 /// never records the build cache.
-pub fn call(call: &mut Call<'_>, args: Args) -> Handled {
+pub fn call(project: &ProjectRef<'_>, args: Args) -> ToolOutcome {
     let severity = match args.severity_filter.as_deref().map(parse_severity) {
         None => None,
         Some(Ok(severity)) => Some(severity),
-        Some(Err(error)) => return Ok(refused(error, "severity_filter")),
+        Some(Err(error)) => return refused(error, "severity_filter"),
     };
     let lint_profiles = match parse_lint_profiles(&args.lint) {
         Ok(profiles) => profiles,
-        Err(error) => return Ok(refused(error, "lint")),
+        Err(error) => return refused(error, "lint"),
     };
-    let project = call.project()?;
     let options = CheckOptions {
         strict: args.strict,
         lint_profiles,
@@ -45,13 +44,11 @@ pub fn call(call: &mut Call<'_>, args: Args) -> Handled {
     };
     let outcome = match check(&project.view(), project.diagnostics(), &options) {
         Ok(outcome) => outcome,
-        Err(error) => return Ok(refused(error, "path")),
+        Err(error) => return refused(error, "path"),
     };
     let shown: Vec<specforge_common::Diagnostic> = outcome.shown().into_iter().cloned().collect();
-    Ok(
-        ToolOutcome::text(specforge_common::serialize_diagnostics(&shown))
-            .with_meta(VERDICT_META, outcome.verdict_json()),
-    )
+    ToolOutcome::text(specforge_common::serialize_diagnostics(&shown))
+        .with_meta(VERDICT_META, outcome.verdict_json())
 }
 
 /// Why validate could not run: an argument it cannot use (`invalid_input`

@@ -33,19 +33,25 @@ use crate::surface_call::{Event, Found, Invocation, Ran, Surface};
 use crate::surface_table::{ToolEntry, ToolKind};
 use crate::target::{Call, TargetSpec};
 use crate::tool::{Effect, ErrorCode, McpError, ToolOutcome, ToolSpec, envelope};
+use specforge_ops::view::ProjectView;
 pub use table::CORE_TOOLS;
 
-/// The navigator over what the call reads (`specforge_ops::navigate`):
-/// its project's view, else the empty session's graph without a root, each
-/// file's text read from disk under the spec root (with no project, no
-/// file is read). The navigation tools render its answers as JSON and
-/// nothing else (ADR 0016).
-pub(crate) fn navigator<'c>(
-    call: &'c Call<'_>,
-) -> specforge_ops::navigate::Navigator<'c, impl Fn(&str) -> Option<String> + 'c> {
-    let spec_root = call.spec_root().map(std::path::Path::to_path_buf);
-    specforge_ops::navigate::Navigator::new(call.view(), move |file| {
-        std::fs::read_to_string(spec_root.as_ref()?.join(file)).ok()
+/// Where the `.spec` files of the project `view` reads are keyed from: its
+/// spec root, when it has a root (the empty session has none, so no file is
+/// a project's, ADR 0025).
+pub(crate) fn spec_root<'v>(view: &ProjectView<'v>) -> Option<&'v std::path::Path> {
+    view.root().map(|_| view.env().spec_root.as_path())
+}
+
+/// The navigator over `view` (`specforge_ops::navigate`), each file's text
+/// read from disk under its spec root (with no root, no file is read). The
+/// navigation tools render its answers as JSON and nothing else (ADR 0016).
+pub(crate) fn navigator<'v>(
+    view: ProjectView<'v>,
+) -> specforge_ops::navigate::Navigator<'v, impl Fn(&str) -> Option<String> + 'v> {
+    let spec_root = spec_root(&view);
+    specforge_ops::navigate::Navigator::new(view, move |file| {
+        std::fs::read_to_string(spec_root?.join(file)).ok()
     })
 }
 
@@ -140,7 +146,7 @@ impl Surface for Tools {
 
     fn target(found: &Found<&'static ToolSpec, ToolEntry>) -> TargetSpec {
         match found {
-            Found::Core(spec) => spec.target,
+            Found::Core(spec) => spec.target(),
             Found::Extension(_) => TargetSpec::SERVED_PROJECT,
         }
     }
@@ -190,7 +196,7 @@ impl Surface for Tools {
                 effect: Effect::Mutates { handler, .. },
                 ..
             }) => {
-                let mut mutated = (handler.run)(call, arguments);
+                let mut mutated = handler.run(call, arguments);
                 let root = mutation::refresh(call, &mut mutated);
                 let (outcome, events) =
                     mutation::report(&invocation.name, root.as_deref(), mutated);
@@ -199,7 +205,7 @@ impl Surface for Tools {
             Found::Core(ToolSpec {
                 effect: Effect::Reads { handler, .. } | Effect::WritesOutput { handler, .. },
                 ..
-            }) => Ran::of((handler.run)(call, arguments)),
+            }) => Ran::of(handler.run(call, arguments)),
             Found::Extension(entry) => {
                 let (outcome, dispatched) = extension_tool(call, entry, arguments);
                 Ran {

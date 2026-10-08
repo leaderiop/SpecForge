@@ -2,8 +2,8 @@ use serde_json::{Map, Value, json};
 use specforge_ops::query::{ListRequest, Listing, list};
 
 use crate::args::Arguments;
-use crate::target::Call;
 use crate::tool::ToolOutcome;
+use specforge_ops::view::ProjectView;
 
 /// `specforge.list`'s arguments. A `where`, `limit` or `offset` of the wrong
 /// type is invalid input, an `isError` result (ADR 0004 D4-a), as every
@@ -26,14 +26,14 @@ pub struct Args {
 /// free: any kind, any field (an extension's own list commands, such as
 /// `specforge.product.features`, render their kinds their way). A kind the
 /// project does not know lists nothing and is reported (I020).
-pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
+pub fn call(view: ProjectView<'_>, args: Args) -> ToolOutcome {
     let request = ListRequest {
         kind: args.kind.as_deref(),
         fields: args.r#where.as_ref(),
         offset: args.offset.unwrap_or(0),
         limit: args.limit,
     };
-    let listing = list(&call.view(), &request);
+    let listing = list(&view, &request);
     let rows = rows(&listing);
     ToolOutcome::ok(rows).with_diagnostics(listing.notices)
 }

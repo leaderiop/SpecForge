@@ -1,14 +1,14 @@
 use serde_json::Value;
 
-use crate::target::Call;
 use crate::tool::ToolOutcome;
+use specforge_ops::view::ProjectView;
 
 /// `specforge.stats`: the stats operation over the call's project view, its
 /// diagnostics what the server reports for the project (the view's
 /// `reported`). The proof percentage reads the project's recorded tests; a
 /// report that is there but unusable is an error result (ADR 0004, D2-e).
-pub fn call(call: &mut Call<'_>, _args: crate::args::NoArgs) -> ToolOutcome {
-    let stats = match specforge_ops::stats::stats(&call.view()) {
+pub fn call(view: ProjectView<'_>, _args: crate::args::NoArgs) -> ToolOutcome {
+    let stats = match specforge_ops::stats::stats(&view) {
         Ok(stats) => stats,
         Err(error) => return crate::tool::McpError::from(error).into(),
     };

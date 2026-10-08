@@ -285,9 +285,17 @@ pub struct ProjectRef<'a> {
     /// The project view, built once for the call: rooted at the project
     /// root, reporting what the server reports for the project.
     view: ProjectView<'a>,
+    /// Whether it is the served project (not one a `path` named).
+    served: bool,
 }
 
 impl<'a> ProjectRef<'a> {
+    /// Whether it is the served project (not one a `path` named): the server
+    /// serves what a call installs into it from the next call on.
+    pub fn is_served(&self) -> bool {
+        self.served
+    }
+
     /// The project's graph, the view's.
     pub fn graph(&self) -> &'a Graph {
         self.view.graph()
@@ -492,6 +500,7 @@ impl<'s> Call<'s> {
                     runtime,
                     view: ProjectView::of(session.project())
                         .also_reporting(self.state.surfaces().diagnostics()),
+                    served: true,
                 })
             }
             CallTarget::Other(other) => Ok(ProjectRef {
@@ -499,6 +508,7 @@ impl<'s> Call<'s> {
                 runtime: &other.runtime,
                 // Rooted where it was compiled: `other.root`.
                 view: ProjectView::of(&other.project),
+                served: false,
             }),
             CallTarget::EmptySession(reach) => Err(no_project(*reach)),
             // Only a project handler calls this, and its target never
@@ -534,8 +544,7 @@ impl<'s> Call<'s> {
     /// ([`ProjectRef::view`]), else, with no project, the empty session's
     /// graph without a root: no recorded report, no schema cache; it
     /// reports what the server reports for the served session
-    /// ([`McpState::diagnostics`]). For a read view that answers without a
-    /// project.
+    /// ([`McpState::diagnostics`]). For a handler given the view.
     pub(crate) fn view(&self) -> ProjectView<'_> {
         match self.project() {
             Ok(project) => project.view(),
@@ -544,32 +553,23 @@ impl<'s> Call<'s> {
         }
     }
 
-    /// The root of the project the call reads, when it has one: the served
-    /// project's, or the one its path names. `None` with no project served
-    /// (a tool that answers without a project reads the empty session).
-    pub(crate) fn root(&self) -> Option<&Path> {
-        match &self.target {
-            CallTarget::Served => self.state.session().project().root(),
-            CallTarget::Other(other) => Some(&other.root),
-            CallTarget::New(_) | CallTarget::Unscoped | CallTarget::EmptySession(_) => None,
-        }
-    }
-
-    /// Where the `.spec` files of the project the call reads are keyed
-    /// from, when it has a root ([`Self::root`]).
-    pub(crate) fn spec_root(&self) -> Option<&Path> {
-        match &self.target {
-            CallTarget::Served => self.state.spec_root(),
-            CallTarget::Other(other) => Some(&other.project.environment().spec_root),
-            CallTarget::New(_) | CallTarget::Unscoped | CallTarget::EmptySession(_) => None,
-        }
-    }
-
     /// The directory `init` creates its project in.
     pub(crate) fn new_project_dir(&self) -> Option<&Path> {
         match &self.target {
             CallTarget::New(dir) => Some(dir),
             _ => None,
+        }
+    }
+
+    /// The root the files a mutation wrote are named from: the directory
+    /// `init` created, else the root of the project the call acts on
+    /// ([`crate::mutation::report`]).
+    pub(crate) fn written_root(&self) -> Option<&Path> {
+        match &self.target {
+            CallTarget::New(dir) => Some(dir),
+            CallTarget::Served => self.state.session().project().root(),
+            CallTarget::Other(other) => Some(&other.root),
+            CallTarget::Unscoped | CallTarget::EmptySession(_) => None,
         }
     }
 

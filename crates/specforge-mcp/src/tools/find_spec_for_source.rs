@@ -6,8 +6,8 @@ use specforge_ops::navigate::{
 };
 
 use crate::args::Arguments;
-use crate::target::Call;
-use crate::tool::{Handled, McpError, ToolOutcome};
+use crate::target::ProjectRef;
+use crate::tool::{McpError, ToolOutcome};
 
 /// `specforge.find_spec_for_source`'s arguments.
 #[derive(Debug, Arguments)]
@@ -44,13 +44,12 @@ pub(crate) fn anchor_json(anchor: &SourceAnchor, graph: &Graph) -> Value {
 
 /// The entities anchored to the source files `file_path` names, under the
 /// one file rule (`specforge_ops::navigate::anchors_of_file`).
-pub fn call(call: &mut Call<'_>, args: Args) -> Handled {
+pub fn call(project: &ProjectRef<'_>, args: Args) -> ToolOutcome {
     let file_path = args.file_path.as_str();
 
-    let project = call.project()?;
     let manifest = match source_anchors(&project.view()) {
         Ok(m) => m,
-        Err(e) => return Ok(McpError::from(e).into()),
+        Err(e) => return McpError::from(e).into(),
     };
     let FileAnchors { mode, anchors } = anchors_of_file(&manifest, file_path);
     let entities: Vec<Value> = anchors
@@ -58,10 +57,10 @@ pub fn call(call: &mut Call<'_>, args: Args) -> Handled {
         .map(|anchor| anchor_json(anchor, project.graph()))
         .collect();
 
-    Ok(ToolOutcome::ok(json!({
+    ToolOutcome::ok(json!({
         "file_path": file_path,
         "match_mode": file_match_name(mode),
         "entities": entities,
         "count": entities.len(),
-    })))
+    }))
 }
