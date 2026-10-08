@@ -4,7 +4,7 @@
 //! the answers are is navigation's to say (ADR 0016); `use`-path
 //! navigation is the LSP's own (MCP has no import tool).
 
-use specforge_common::{SourceSpan, Sym};
+use specforge_common::{SourceSpan, Sym, structural};
 use specforge_ops::navigate::{Fix, FixKind, Navigator, OutlineEntry};
 use specforge_registry::KindRegistry;
 use specforge_resolver::resolve_import;
@@ -273,7 +273,7 @@ pub fn goto_import_definition(
 /// The symbol kind of an entity kind: its extension-declared LSP icon
 /// (`spec` is a namespace).
 pub(crate) fn symbol_kind_from_entity(kind: &str, kind_registry: &KindRegistry) -> SymbolKind {
-    if kind == "spec" {
+    if kind == structural::SPEC {
         return SymbolKind::NAMESPACE;
     }
     if let Some(entry) = kind_registry.get(kind)
