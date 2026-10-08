@@ -5,8 +5,8 @@ use specforge_ops::explore::{ExplorationRequest, explore};
 
 use crate::args::Arguments;
 use crate::prompt::{PromptOutcome, Rendered};
-use crate::target::Call;
 use crate::tool::McpError;
+use specforge_ops::view::ProjectView;
 
 /// `specforge://prompts/explore`'s arguments.
 #[derive(Debug, Arguments)]
@@ -24,13 +24,13 @@ const INSTRUCTION: &str = "Explore the spec graph using the data below. \
      then investigate unconnected entities that may need relationships. \
      Use starting_points for top-down traversal.";
 
-pub fn render(call: &Call<'_>, args: Args) -> PromptOutcome {
+pub fn render(view: ProjectView<'_>, args: Args) -> PromptOutcome {
     let request = ExplorationRequest {
         entity_id: args.entity_id.as_deref(),
         kind: args.kind.as_deref(),
         depth: args.depth,
     };
-    let exploration = explore(&call.view(), &request).map_err(McpError::from)?;
+    let exploration = explore(&view, &request).map_err(McpError::from)?;
     Ok(Rendered {
         instruction: INSTRUCTION.to_string(),
         payload: exploration.to_json(),

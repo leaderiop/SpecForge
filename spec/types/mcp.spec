@@ -82,13 +82,14 @@ type McpToolDescriptor {
   /// "core" for built-in tools, extension name for contributed tools
   source        string             @optional
   /// MCP ToolAnnotations: what the tool does to its environment.
-  annotations   McpToolAnnotations @optional
+  annotations   McpToolAnnotations
   verify unit "McpToolDescriptor schema is valid"
 }
 
 // MCP's ToolAnnotations (wire names readOnlyHint, destructiveHint,
-// idempotentHint, openWorldHint). A core tool's derive from the same
-// definition its mutation events do.
+// idempotentHint, openWorldHint). A core tool's derive from what its tool
+// spec declares it does; an extension tool's say it only reads, since the
+// host grants an extension no capability.
 type McpToolAnnotations {
   read_only_hint   boolean @optional
   destructive_hint boolean @optional
@@ -108,6 +109,11 @@ type McpSubscription {
 // specforge.collect, specforge.render). The short name is used in the protocol
 // for brevity; UIs and documentation may display "project management".
 type McpToolCategory = "core" | "navigation" | "mutation" | "management"
+
+// The categories a tool that is no mutation is listed in, and the ones an
+// extension tool may declare: only a core tool that writes its target's
+// project files is a mutation.
+type McpToolGroup = "core" | "navigation" | "management"
 
 type McpPromptDescriptor {
   name        string @readonly

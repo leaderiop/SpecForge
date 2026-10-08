@@ -9,9 +9,9 @@ use specforge_ops::trace::{Target, trace};
 
 use crate::args::{AgentPlan, Arguments};
 use crate::prompt::{PromptOutcome, Rendered};
-use crate::target::Call;
 use crate::tool::{ErrorCode, McpError};
 use crate::tools::trace::{analyze_plan, gap_json};
+use specforge_ops::view::ProjectView;
 
 /// `specforge://prompts/trace`'s arguments.
 #[derive(Debug, Arguments)]
@@ -22,8 +22,7 @@ pub struct Args {
     entity_id: Option<String>,
 }
 
-pub fn render(call: &Call<'_>, args: Args) -> PromptOutcome {
-    let view = call.view();
+pub fn render(view: ProjectView<'_>, args: Args) -> PromptOutcome {
     // A plan's entries, or the one entity, seed the trace; the gaps are the
     // plan's, or the entity's chain's missing links.
     let (seeds, coverage_gaps, subject) = match (&args.plan, args.entity_id.as_deref()) {

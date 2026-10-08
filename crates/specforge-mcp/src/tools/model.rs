@@ -2,8 +2,8 @@ use specforge_ops::OpError;
 use specforge_ops::model::{self, FieldLevel, GroupBy, ModelFormat, ModelOptions, ModelRoot};
 
 use crate::args::Arguments;
-use crate::target::Call;
 use crate::tool::{McpError, ToolOutcome};
+use specforge_ops::view::ProjectView;
 
 /// `specforge.model`'s arguments.
 #[derive(Debug, Arguments)]
@@ -31,12 +31,12 @@ pub struct Args {
 /// of `kinds` the project does not know rides in `_meta.diagnostics`
 /// (I020). An unknown `root` or `extension` is refused on that argument,
 /// and so is a `depth` without a `root`.
-pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
+pub fn call(view: ProjectView<'_>, args: Args) -> ToolOutcome {
     let options = match options(args) {
         Ok(options) => options,
         Err(refused) => return refused,
     };
-    match model::model(&call.view(), &options) {
+    match model::model(&view, &options) {
         Ok(outcome) => ToolOutcome::text(outcome.document).with_diagnostics(outcome.notices),
         Err(error) => {
             let argument = argument_of(&error);

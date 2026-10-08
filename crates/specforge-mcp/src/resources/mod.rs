@@ -12,6 +12,7 @@ use crate::target::{Call, TargetSpec};
 use crate::tool::{ErrorCode, McpError};
 use crate::types::McpResourceDescriptor;
 use specforge_ops::export::Format;
+use specforge_ops::view::ProjectView;
 
 /// `resources/read`: the core resources (matched first), then the extension
 /// resource whose template names the URI (ADR 0017 D9). The request
@@ -38,8 +39,8 @@ impl Surface for Resources {
 
     fn target(found: &Found<&'static ResourceSpec, ResourceEntry>) -> TargetSpec {
         match found {
-            Found::Core(spec) => spec.target,
-            Found::Extension(_) => TargetSpec::SERVED,
+            Found::Core(spec) => spec.target(),
+            Found::Extension(_) => TargetSpec::SERVED_PROJECT,
         }
     }
 
@@ -53,7 +54,7 @@ impl Surface for Resources {
         invocation: &Invocation,
     ) -> Ran<ReadOutcome> {
         match found {
-            Found::Core(spec) => Ran::of((spec.read)(call, &invocation.name)),
+            Found::Core(spec) => Ran::of((spec.read)(call.view(), &invocation.name)),
             Found::Extension(entry) => extension_resource(call, entry, &invocation.name),
         }
     }
@@ -174,13 +175,19 @@ pub struct ResourceSpec {
     pub name: &'static str,
     pub description: &'static str,
     pub mime_type: &'static str,
-    /// Which project it reads: the served one, brought up to date first.
-    pub target: TargetSpec,
-    /// Read the resource at a URI it [matches](Self::matches).
-    pub(crate) read: fn(&Call<'_>, &str) -> ReadOutcome,
+    /// Read the resource at a URI it [matches](Self::matches), over the
+    /// project view it is given: the served project's, brought up to date,
+    /// or the empty session's when nothing is served.
+    pub(crate) read: fn(ProjectView<'_>, &str) -> ReadOutcome,
 }
 
 impl ResourceSpec {
+    /// How it reaches its project: every core resource reads the served
+    /// project's view ([`TargetSpec::SERVED_VIEW`]).
+    pub fn target(&self) -> TargetSpec {
+        TargetSpec::SERVED_VIEW
+    }
+
     /// The resource as `resources/list` (or `resources/templates/list`)
     /// describes it.
     pub fn descriptor(&self) -> McpResourceDescriptor {
@@ -216,33 +223,29 @@ pub static CORE_RESOURCES: &[ResourceSpec] = &[
         name: "graph",
         description: "Full spec graph in JSON format",
         mime_type: "application/json",
-        target: TargetSpec::SERVED,
-        read: |call, uri| views::export_view(call, uri, Format::Graph, None),
+        read: |view, uri| views::export_view(view, uri, Format::Graph, None),
     },
     ResourceSpec {
         uri: "specforge://schema",
         name: "schema",
         description: "Graph schema definition",
         mime_type: "application/json",
-        target: TargetSpec::SERVED,
-        read: |call, uri| views::schema_view(call, uri),
+        read: |view, uri| views::schema_view(view, uri),
     },
     ResourceSpec {
         uri: "specforge://context",
         name: "context",
         description: "Context-optimized graph (contract, status, verify fields)",
         mime_type: "application/json",
-        target: TargetSpec::SERVED,
-        read: |call, uri| views::export_view(call, uri, Format::Context, None),
+        read: |view, uri| views::export_view(view, uri, Format::Context, None),
     },
     ResourceSpec {
         uri: "specforge://context/{entity_id}",
         name: "context_entity",
         description: "Context-optimized subgraph rooted at an entity",
         mime_type: "application/json",
-        target: TargetSpec::SERVED,
-        read: |call, uri| {
-            views::export_view(call, uri, Format::Context, Some("specforge://context/"))
+        read: |view, uri| {
+            views::export_view(view, uri, Format::Context, Some("specforge://context/"))
         },
     },
     ResourceSpec {
@@ -250,32 +253,28 @@ pub static CORE_RESOURCES: &[ResourceSpec] = &[
         name: "brief",
         description: "Brief graph (id, kind, title, edges only)",
         mime_type: "application/json",
-        target: TargetSpec::SERVED,
-        read: |call, uri| views::export_view(call, uri, Format::Brief, None),
+        read: |view, uri| views::export_view(view, uri, Format::Brief, None),
     },
     ResourceSpec {
         uri: "specforge://diagnostics",
         name: "diagnostics",
         description: "Current compilation diagnostics",
         mime_type: "application/json",
-        target: TargetSpec::SERVED,
-        read: |call, uri| views::diagnostics_view(call, uri),
+        read: |view, uri| views::diagnostics_view(view, uri),
     },
     ResourceSpec {
         uri: "specforge://graph/{entity_id}",
         name: "entity",
         description: "Subgraph rooted at a specific entity",
         mime_type: "application/json",
-        target: TargetSpec::SERVED,
-        read: |call, uri| views::entity_view(call, uri),
+        read: |view, uri| views::entity_view(view, uri),
     },
     ResourceSpec {
         uri: "specforge://entities/{kind}",
         name: "entities_by_kind",
         description: "All entities of a specific kind (e.g. feature, behavior)",
         mime_type: "application/json",
-        target: TargetSpec::SERVED,
-        read: |call, uri| views::entities_view(call, uri),
+        read: |view, uri| views::entities_view(view, uri),
     },
 ];
 

@@ -77,9 +77,15 @@ invariant mcp_served_project_consistency "MCP Served Project Consistency" {
     the next one, whether the request is a call, a read, a listing or a
     subscription (one freshness decision, owned by the request pipeline). A call
     whose path names a project while none is served serves that project.
-    With no project served, a read that names a file or an entity is the
-    no-project refusal (precondition_failed), never not-found; a read of the
-    whole project answers over the empty session.
+    With no project served and none named, what a call gets is declared by
+    the entry's target: an entry that reads only the project view (the read
+    views, export and render, the navigation reads of the graph, every core
+    prompt and resource) answers over the empty session, and one of its
+    reads that names a file or an entity is the no-project refusal
+    (precondition_failed), never not-found; an entry that acts on the
+    project on disk (a tool that takes a path, a management tool, a read of
+    the inference or anchors manifest, every extension tool and resource)
+    is refused as no project before its arguments are read.
   """
   risk      high
   verify unit "an environment change on disk updates the extension tools listed"
@@ -98,6 +104,8 @@ invariant mcp_served_project_consistency "MCP Served Project Consistency" {
   verify unit "validate with a path to another project leaves the served project in place"
   verify unit "a mutation tool that wrote files leaves the server serving what is on disk"
   verify unit "with no project served, a read naming a file or an entity is the no-project refusal, an aggregate read answers over the empty session"
+  verify unit "with no project served, every core tool, prompt and resource answers or refuses as its target declares"
+  verify unit "with no project served, an entry that acts on the project is refused before its arguments are read"
 }
 
 invariant mcp_type_schema_versioning "MCP Type Schema Versioning" {

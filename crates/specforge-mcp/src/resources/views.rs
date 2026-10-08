@@ -7,8 +7,8 @@
 use specforge_ops::export::{Format, Request};
 
 use crate::resources::{ReadOutcome, ResourceText};
-use crate::target::Call;
 use crate::tool::{ErrorCode, McpError};
+use specforge_ops::view::ProjectView;
 
 /// The query keys a graph view reads.
 const KEYS: &str = "scope (or root), depth, kinds and max_tokens";
@@ -171,7 +171,7 @@ fn no_query(uri: &str) -> Result<(), Box<McpError>> {
 /// function over the call's project view (ADR 0004 D3-a). A failure is the
 /// operation's McpError.
 pub(crate) fn export_view(
-    call: &Call<'_>,
+    view: ProjectView<'_>,
     uri: &str,
     format: Format,
     template: Option<&str>,
@@ -180,19 +180,19 @@ pub(crate) fn export_view(
     if template.is_some() {
         check_entity_id(query.scope.as_deref().unwrap_or_default())?;
     }
-    exported(call, &query, format)
+    exported(view, &query, format)
 }
 
 /// `specforge://graph/{entity_id}`: the entity and its neighbours, the
 /// scoped graph export at depth 1 (a `depth` query widens it). A malformed
 /// ID is `invalid_input` (the 400 case); a well-formed one that names no
 /// entity is the export's `entity_not_found` with its E003 (the 404 case).
-pub(crate) fn entity_view(call: &Call<'_>, uri: &str) -> ReadOutcome {
+pub(crate) fn entity_view(view: ProjectView<'_>, uri: &str) -> ReadOutcome {
     let mut query = ViewQuery::parse(uri, Some("specforge://graph/"))?;
     check_entity_id(query.scope.as_deref().unwrap_or_default())?;
     // The entity and its immediate neighbors, not everything reachable.
     query.depth.get_or_insert(1);
-    exported(call, &query, Format::Graph)
+    exported(view, &query, Format::Graph)
 }
 
 /// An entity ID the URI template names: told apart, when it cannot be one
@@ -218,8 +218,8 @@ fn check_entity_id(entity_id: &str) -> Result<(), Box<McpError>> {
     Ok(())
 }
 
-fn exported(call: &Call<'_>, query: &ViewQuery, format: Format) -> ReadOutcome {
-    specforge_ops::export::export(&call.view(), &query.request(format))
+fn exported(view: ProjectView<'_>, query: &ViewQuery, format: Format) -> ReadOutcome {
+    specforge_ops::export::export(&view, &query.request(format))
         .map(ResourceText::json)
         .map_err(|error| {
             // `depth` without a scope is the query's own mistake: name its key.
@@ -236,7 +236,7 @@ fn exported(call: &Call<'_>, query: &ViewQuery, format: Format) -> ReadOutcome {
 /// `specforge://entities/{kind}`: what `specforge.list {kind}` lists, the
 /// same rows from the same read view and presenter
 /// ([`specforge_ops::query::list`], [`crate::tools::list::rows`]).
-pub(crate) fn entities_view(call: &Call<'_>, uri: &str) -> ReadOutcome {
+pub(crate) fn entities_view(view: ProjectView<'_>, uri: &str) -> ReadOutcome {
     let (path, _) = uri.split_once('?').unwrap_or((uri, ""));
     no_query(uri)?;
     let kind = decode(
@@ -247,7 +247,7 @@ pub(crate) fn entities_view(call: &Call<'_>, uri: &str) -> ReadOutcome {
     // A resource has no `_meta`: the listing's notices (an unknown kind)
     // are not carried.
     let listing = specforge_ops::query::list(
-        &call.view(),
+        &view,
         &specforge_ops::query::ListRequest {
             kind: Some(&kind),
             ..Default::default()
@@ -260,16 +260,16 @@ pub(crate) fn entities_view(call: &Call<'_>, uri: &str) -> ReadOutcome {
 
 /// `specforge://diagnostics`: what the server reports for the call's
 /// project, as `specforge check --format json` writes it.
-pub(crate) fn diagnostics_view(call: &Call<'_>, uri: &str) -> ReadOutcome {
+pub(crate) fn diagnostics_view(view: ProjectView<'_>, uri: &str) -> ReadOutcome {
     no_query(uri)?;
     Ok(ResourceText::json(specforge_common::serialize_diagnostics(
-        &call.view().reported(),
+        &view.reported(),
     )))
 }
 
 /// `specforge://schema`: the GraphProtocolSchema a full export embeds, the
 /// same document `specforge.schema` returns unfiltered.
-pub(crate) fn schema_view(call: &Call<'_>, uri: &str) -> ReadOutcome {
+pub(crate) fn schema_view(view: ProjectView<'_>, uri: &str) -> ReadOutcome {
     no_query(uri)?;
-    crate::resources::schema::read(&call.view())
+    crate::resources::schema::read(&view)
 }

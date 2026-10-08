@@ -558,7 +558,7 @@ fn every_core_tool_lists_its_typed_arguments() {
         for listed in properties.keys() {
             assert!(
                 declared.contains(&listed.as_str())
-                    || tool.target.fields().contains(&listed.as_str()),
+                    || tool.target().fields().contains(&listed.as_str()),
                 "{}: lists {listed}",
                 tool.name
             );
@@ -658,7 +658,7 @@ mod derived {
             .collect();
         assert_eq!(required, ["name"]);
 
-        let schema = input_schema(&declared, TargetSpec::SERVED);
+        let schema = input_schema(&declared, TargetSpec::SERVED_VIEW);
         assert_eq!(schema["required"], json!(["name"]));
         assert_eq!(schema["additionalProperties"], false);
         assert_eq!(

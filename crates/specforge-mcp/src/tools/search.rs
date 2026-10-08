@@ -2,8 +2,8 @@ use serde_json::{Value, json};
 use specforge_ops::query::{FieldHolds, Hit, SearchRequest, search};
 
 use crate::args::Arguments;
-use crate::target::Call;
 use crate::tool::ToolOutcome;
+use specforge_ops::view::ProjectView;
 
 /// `specforge.search`'s arguments.
 #[derive(Debug, Arguments)]
@@ -28,7 +28,7 @@ pub struct Args {
 /// completion rank them, over names and string fields. Every filter is
 /// ANDed: kinds, a field's text (`field` with `value`: one without the other
 /// is refused), and `references` (the entities that reference that one).
-pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
+pub fn call(view: ProjectView<'_>, args: Args) -> ToolOutcome {
     let field = match (args.field.as_deref(), args.value.as_deref()) {
         (Some(field), Some(value)) => Some(FieldHolds { field, value }),
         (None, None) => None,
@@ -52,7 +52,7 @@ pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
         referencing: args.references.as_deref(),
         limit: Some(args.limit),
     };
-    let outcome = search(&call.view(), &request);
+    let outcome = search(&view, &request);
     let results: Vec<Value> = outcome.hits.iter().map(hit_json).collect();
     ToolOutcome::ok(Value::Array(results)).with_diagnostics(outcome.notices)
 }

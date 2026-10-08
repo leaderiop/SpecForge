@@ -1,6 +1,6 @@
 use crate::args::Arguments;
-use crate::target::Call;
-use crate::tool::{Handled, McpError, ToolOutcome};
+use crate::target::ProjectRef;
+use crate::tool::{McpError, ToolOutcome};
 use specforge_ops::OpError;
 use specforge_ops::analyze::{AnalyzeError, AnalyzeOptions, ReportSource, analyze};
 use specforge_wasm::runtime::WasmRuntime;
@@ -24,8 +24,7 @@ pub struct Args {
 /// session's, or the one runtime another project was compiled in for this
 /// call. With no project served and no `path`, there is nothing to
 /// analyze: a no-project refusal (plan 01 D7).
-pub fn call(call: &mut Call<'_>, args: Args) -> Handled {
-    let project = call.project()?;
+pub fn call(project: &ProjectRef<'_>, args: Args) -> ToolOutcome {
     let view = project.view();
     // Without `test_results`, use what `specforge collect` last recorded at
     // the project root, as the CLI does.
@@ -44,7 +43,7 @@ pub fn call(call: &mut Call<'_>, args: Args) -> Handled {
     // The project's runtime: every project a call reaches has one, so its
     // extensions' passes run (ADR 0017).
     let runtime: Option<&dyn WasmRuntime> = Some(project.runtime.as_ref());
-    Ok(match analyze(&view, runtime, &options) {
+    match analyze(&view, runtime, &options) {
         Ok(outcome) => ToolOutcome::ok(outcome.to_json()),
         Err(e) => {
             // The argument an unknown pass names is this surface's spelling.
@@ -56,5 +55,5 @@ pub fn call(call: &mut Call<'_>, args: Args) -> Handled {
             }
             .into()
         }
-    })
+    }
 }

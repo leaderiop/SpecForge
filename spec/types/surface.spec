@@ -130,7 +130,7 @@ type CommandOutput {
 type McpToolContribution {
   name          string          @readonly
   description   string
-  category      McpToolCategory @optional
+  category      McpToolGroup    @optional
   // Wasm export name: mcp__{name}, with . and - as _
   export        string          @readonly
   input_schema  JsonSchema

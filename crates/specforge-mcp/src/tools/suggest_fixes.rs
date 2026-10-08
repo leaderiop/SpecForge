@@ -2,8 +2,8 @@ use serde_json::{Value, json};
 use specforge_ops::navigate::{Fix, FixQuery};
 
 use crate::args::Arguments;
-use crate::target::Call;
 use crate::tool::{Handled, ToolOutcome};
+use specforge_ops::view::ProjectView;
 
 /// `specforge.suggest_fixes`'s arguments.
 #[derive(Debug, Arguments)]
@@ -20,20 +20,20 @@ pub struct Args {
 /// the same diagnostics and entities, each with its edits (ADR 0016). A
 /// diagnostic whose data names no fix contributes none: its suggestion
 /// text stays on the diagnostic (validate, inspect).
-pub fn call(call: &mut Call<'_>, args: Args) -> Handled {
+pub fn call(view: ProjectView<'_>, args: Args) -> Handled {
     if let Some(entity_id) = args.entity_id.as_deref()
-        && call.view().graph().node(entity_id).is_none()
+        && view.graph().node(entity_id).is_none()
     {
-        return Err(crate::tool::entity_not_found(call.view().graph(), entity_id).into());
+        return Err(crate::tool::entity_not_found(view.graph(), entity_id).into());
     }
-    let diagnostics = call.view().reported();
+    let diagnostics = view.reported();
     let query = FixQuery {
         entity: args.entity_id.as_deref(),
         file: args.file_path.as_deref(),
         code: args.diagnostic_code.as_deref(),
         within: None,
     };
-    let fixes = super::navigator(call).fixes(&diagnostics, &query);
+    let fixes = super::navigator(view).fixes(&diagnostics, &query);
     Ok(ToolOutcome::ok(Value::Array(
         fixes.iter().map(suggestion).collect(),
     )))

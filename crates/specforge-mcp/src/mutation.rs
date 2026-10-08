@@ -22,6 +22,12 @@ use crate::tool::{IntoOutcome, McpError, ToolOutcome};
 /// target's root (absolute outside it), sorted.
 pub const FILES_WRITTEN: &str = "files_written";
 
+/// The output-schema property every mutation reply that wrote carries: the
+/// files it wrote, relative to the project root.
+pub(crate) fn files_written_schema() -> Value {
+    json!({ "type": "array", "items": { "type": "string" }, "description": "The files the call created, rewrote or removed, relative to the project root (absolute outside it); absent from a preview" })
+}
+
 /// What one mutation call wrote.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Written {
@@ -206,7 +212,7 @@ impl Mutated {
 }
 
 /// What a mutation handler returns when it refuses with `?` (only before it
-/// writes: `call.project()?`). A refusal after a write must carry its
+/// writes: `?` on an `McpError`). A refusal after a write must carry its
 /// [`Written`] and is returned as `Ok(Mutated::wrote(error, written))`.
 pub type MutationHandled = Result<Mutated, Box<McpError>>;
 
@@ -248,9 +254,7 @@ pub(crate) fn refresh(call: &mut Call<'_>, mutated: &mut Mutated) -> Option<Path
             }
         }
     }
-    call.new_project_dir()
-        .or_else(|| call.root())
-        .map(Path::to_path_buf)
+    call.written_root().map(Path::to_path_buf)
 }
 
 /// What the completed mutation produced, and its reply: the events to

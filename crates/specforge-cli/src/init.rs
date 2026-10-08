@@ -14,14 +14,13 @@ pub fn run(
     extensions: &[String],
     format: OutputFormat,
 ) -> Exit {
+    // A project further up doesn't block init: the new one is separate, and
+    // commands run inside it resolve to it (the nearest wins).
     let request = init::Request {
         dir: path,
         name,
         version,
         extensions,
-        // A project further up doesn't block init: the new one is separate,
-        // and commands run inside it resolve to it (the nearest wins).
-        forbid_inside: None,
     };
     let runtime = specforge_component::ComponentRuntime::with_user_cache();
     let plan = match init::plan(&request, &runtime) {

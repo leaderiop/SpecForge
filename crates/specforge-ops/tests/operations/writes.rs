@@ -240,7 +240,6 @@ fn init(dir: &Path, extensions: &[String]) -> specforge_ops::init::Outcome {
         name: Some("demo"),
         version: init::DEFAULT_VERSION,
         extensions,
-        forbid_inside: None,
     };
     let plan = init::plan(&request, &candidates()).unwrap();
     init::apply(dir, plan).unwrap()
@@ -298,7 +297,6 @@ fn the_starter_states_the_project_version() {
             name: Some("demo"),
             version,
             extensions,
-            forbid_inside: None,
         };
         let plan = init::plan(&request, &runtime()).unwrap();
         assert_eq!(plan.config["version"], version);
@@ -346,6 +344,69 @@ fn init_with_a_local_extension_writes_its_module_and_lock() {
         changed_since(&dir, &Snapshot::new()),
         listed(&outcome.writes, &dir)
     );
+}
+
+#[specforge_test_macros::test(
+    behavior = "scaffold_new_project",
+    verify = "init refuses a directory whose starter file exists, writing nothing"
+)]
+fn init_refuses_a_directory_whose_starter_file_exists() {
+    use specforge_ops::{OpErrorKind, init};
+    let scratch = TempDir::new().unwrap();
+    let dir = scratch.path().join("victim");
+    std::fs::create_dir_all(dir.join("spec")).unwrap();
+    std::fs::write(dir.join("spec/hello.spec"), "term mine \"Mine\" {\n}\n").unwrap();
+    let before = files_under(&dir);
+    let request = init::Request {
+        dir: &dir,
+        name: Some("demo"),
+        version: init::DEFAULT_VERSION,
+        extensions: &[],
+    };
+
+    let error = init::plan(&request, &candidates()).unwrap_err();
+
+    assert_eq!(error.code, init::STARTER_EXISTS, "{error:?}");
+    assert_eq!(error.kind, OpErrorKind::Conflict);
+    assert_eq!(files_under(&dir), before, "the file is byte-identical");
+}
+
+#[specforge_test_macros::test(
+    behavior = "scaffold_new_project",
+    verify = "a failed init leaves the directory as it was, files that were there included"
+)]
+fn a_failed_init_puts_back_what_was_there() {
+    use specforge_ops::init;
+    let blobs = Blobs::new();
+    let scratch = TempDir::new().unwrap();
+    let dir = scratch.path().join("victim");
+    std::fs::create_dir_all(dir.join(".specforge")).unwrap();
+    std::fs::write(dir.join(".specforge/keep.txt"), "keep\n").unwrap();
+    std::fs::write(dir.join("specforge.lock"), "garbage\n").unwrap();
+    let extensions = [blobs.greet().display().to_string()];
+    let request = init::Request {
+        dir: &dir,
+        name: Some("demo"),
+        version: init::DEFAULT_VERSION,
+        extensions: &extensions,
+    };
+
+    let plan = init::plan(&request, &candidates()).unwrap();
+    let error = init::apply(&dir, plan).unwrap_err();
+
+    assert_eq!(error.code, "E033", "{error:?}");
+    assert!(error.writes.is_empty(), "{:?}", error.writes);
+    assert_eq!(
+        std::fs::read_to_string(dir.join(".specforge/keep.txt")).unwrap(),
+        "keep\n"
+    );
+    assert_eq!(
+        std::fs::read_to_string(dir.join("specforge.lock")).unwrap(),
+        "garbage\n"
+    );
+    for gone in ["spec", "specforge.json", ".gitignore"] {
+        assert!(!dir.join(gone).exists(), "{gone} is removed again");
+    }
 }
 
 #[test]
@@ -664,7 +725,6 @@ fn init_enables_a_builtin_after_the_builtins_it_requires() {
         name: Some("demo"),
         version: init::DEFAULT_VERSION,
         extensions: &extensions,
-        forbid_inside: None,
     };
 
     let plan = init::plan(&request, &runtime()).unwrap();
@@ -699,7 +759,6 @@ fn init_enables_each_builtin_after_the_builtins_it_requires() {
             name: Some("demo"),
             version: init::DEFAULT_VERSION,
             extensions: &extensions,
-            forbid_inside: None,
         };
 
         let plan = init::plan(&request, &runtime).unwrap();
@@ -744,7 +803,6 @@ fn init_refuses_a_local_binary_that_claims_a_builtins_name_before_writing() {
         name: Some("demo"),
         version: init::DEFAULT_VERSION,
         extensions: &extensions,
-        forbid_inside: None,
     };
 
     let error = init::plan(&request, &impostor).unwrap_err();
@@ -775,7 +833,6 @@ fn init_reads_a_local_file_once() {
         name: Some("demo"),
         version: init::DEFAULT_VERSION,
         extensions: &extensions,
-        forbid_inside: None,
     };
     let runtime = candidates();
     let handshakes = |runtime: &InProcessRuntime| {

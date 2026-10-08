@@ -32,20 +32,26 @@ use crate::state::McpState;
 use crate::surface_call::{Event, Found, Invocation, Ran, Surface};
 use crate::surface_table::{ToolEntry, ToolKind};
 use crate::target::{Call, TargetSpec};
-use crate::tool::{ErrorCode, Handler, McpError, ToolOutcome, ToolSpec, envelope};
+use crate::tool::{Category, Effect, ErrorCode, McpError, ToolOutcome, ToolSpec, envelope};
+use specforge_ops::view::ProjectView;
 pub use table::CORE_TOOLS;
 
-/// The navigator over what the call reads (`specforge_ops::navigate`):
-/// its project's view, else the empty session's graph without a root, each
-/// file's text read from disk under the spec root (with no project, no
-/// file is read). The navigation tools render its answers as JSON and
-/// nothing else (ADR 0016).
-pub(crate) fn navigator<'c>(
-    call: &'c Call<'_>,
-) -> specforge_ops::navigate::Navigator<'c, impl Fn(&str) -> Option<String> + 'c> {
-    let spec_root = call.spec_root().map(std::path::Path::to_path_buf);
-    specforge_ops::navigate::Navigator::new(call.view(), move |file| {
-        std::fs::read_to_string(spec_root.as_ref()?.join(file)).ok()
+/// Where the `.spec` files of the project `view` reads are keyed from: its
+/// spec root, when it has a root (the empty session has none, so no file is
+/// a project's, ADR 0025).
+pub(crate) fn spec_root<'v>(view: &ProjectView<'v>) -> Option<&'v std::path::Path> {
+    view.root().map(|_| view.env().spec_root.as_path())
+}
+
+/// The navigator over `view` (`specforge_ops::navigate`), each file's text
+/// read from disk under its spec root (with no root, no file is read). The
+/// navigation tools render its answers as JSON and nothing else (ADR 0016).
+pub(crate) fn navigator<'v>(
+    view: ProjectView<'v>,
+) -> specforge_ops::navigate::Navigator<'v, impl Fn(&str) -> Option<String> + 'v> {
+    let spec_root = spec_root(&view);
+    specforge_ops::navigate::Navigator::new(view, move |file| {
+        std::fs::read_to_string(spec_root?.join(file)).ok()
     })
 }
 
@@ -140,8 +146,8 @@ impl Surface for Tools {
 
     fn target(found: &Found<&'static ToolSpec, ToolEntry>) -> TargetSpec {
         match found {
-            Found::Core(spec) => spec.target,
-            Found::Extension(_) => TargetSpec::SERVED,
+            Found::Core(spec) => spec.target(),
+            Found::Extension(_) => TargetSpec::SERVED_PROJECT,
         }
     }
 
@@ -151,8 +157,8 @@ impl Surface for Tools {
     ) -> Option<Event> {
         // The category it is listed with: no second lookup.
         let category = match found {
-            Found::Core(spec) => spec.category.as_str(),
-            Found::Extension(entry) => entry.category.as_str(),
+            Found::Core(spec) => spec.category().as_str(),
+            Found::Extension(entry) => Category::from(entry.group).as_str(),
         };
         let mut event = json!({
             "toolName": invocation.name,
@@ -187,19 +193,19 @@ impl Surface for Tools {
             // target up to date with it (inside the call), `mutation::report`
             // names its events and the files in its reply.
             Found::Core(ToolSpec {
-                handler: Handler::Mutation { run, .. },
+                effect: Effect::Mutates { handler, .. },
                 ..
             }) => {
-                let mut mutated = run(call, arguments);
+                let mut mutated = handler.run(call, arguments);
                 let root = mutation::refresh(call, &mut mutated);
                 let (outcome, events) =
                     mutation::report(&invocation.name, root.as_deref(), mutated);
                 Ran { outcome, events }
             }
             Found::Core(ToolSpec {
-                handler: Handler::Tool { run, .. },
+                effect: Effect::Reads { handler, .. } | Effect::WritesOutput { handler, .. },
                 ..
-            }) => Ran::of(run(call, arguments)),
+            }) => Ran::of(handler.run(call, arguments)),
             Found::Extension(entry) => {
                 let (outcome, dispatched) = extension_tool(call, entry, arguments);
                 Ran {
@@ -216,7 +222,7 @@ impl Surface for Tools {
     fn refused(found: &Found<&'static ToolSpec, ToolEntry>, error: McpError) -> Ran<ToolOutcome> {
         match found {
             // A refused mutation is a failed one: it wrote nothing, and says so.
-            Found::Core(spec) if matches!(spec.handler, Handler::Mutation { .. }) => {
+            Found::Core(spec) if spec.is_mutation() => {
                 let (outcome, events) = mutation::report(spec.name, None, Mutated::refused(error));
                 Ran { outcome, events }
             }
@@ -249,7 +255,7 @@ impl Surface for Tools {
         // A tool with an outputSchema: a core one, or an extension's that
         // declares one.
         let typed = match found {
-            Found::Core(spec) => spec.output.is_some(),
+            Found::Core(spec) => spec.output_schema().is_some(),
             Found::Extension(entry) => entry.output_schema().is_some(),
         };
         envelope(

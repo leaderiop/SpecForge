@@ -214,11 +214,14 @@ behavior provide_mcp_infer_progress_tool "Provide MCP Infer Progress Tool" {
     source_index), and detects stale entries. Returns:
     { summary: InferenceSummary, unanalyzed: [paths], stale: [paths] }.
     If specforge-infer.json does not exist, returns empty summary with all
-    source files as unanalyzed.
+    source files as unanalyzed. With no project served and none named, the
+    tool is the no-project refusal (precondition_failed), as the progress
+    operation refuses a view without a root.
   """
   verify unit "returns summary with unanalyzed files"
   verify unit "detects stale files by content hash"
   verify unit "graceful handling when specforge-infer.json is missing"
+  verify unit "with no project served, infer_progress is the no-project refusal"
 }
 
 behavior provide_mcp_infer_session_tool "Provide MCP Infer Session Tool" {
@@ -270,11 +273,15 @@ behavior provide_mcp_infer_gaps_tool "Provide MCP Infer Gaps Tool" {
     reported in scan_failures (the file and its E028), never counted as a
     file without public items, and makes the report approximate.
     Items in test files, build scripts, and standard trait impls are excluded.
+    With no project served and none named, the tool is the no-project
+    refusal (precondition_failed), as the gap analysis refuses a view
+    without a root.
   """
   verify unit "scans Rust files for pub items via regex"
   verify unit "excludes test files and build scripts"
   verify unit "returns structured InferenceGap items with file and line"
   verify unit "marks output as approximate"
+  verify unit "with no project served, infer_gaps is the no-project refusal"
 }
 
 // ---------------------------------------------------------------------------

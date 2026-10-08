@@ -165,7 +165,7 @@ behavior provide_mcp_init_tool "Provide MCP Init Tool" {
   }
   ensures {
     project_created             "specforge.json and spec directory scaffolded at specified path"
-    path_outside_current        "Target path verified to be outside current project's spec_root"
+    path_outside_current        "Target path verified to be outside the project the server serves (its root), by the call target before the operation runs"
     extensions_validated        "When extensions specified, manifests validated and added to config"
     project_initialized_emitted "project_initialized event emitted on success, with the project name, its extension count and the starter file"
     tool_invoked_emitted        "mcp_tool_invoked event emitted"
@@ -176,8 +176,10 @@ behavior provide_mcp_init_tool "Provide MCP Init Tool" {
     (required), extensions?[] (optional list of extension names to install),
     and version? (optional, defaults to 0.1.0). The tool MUST accept a path
     parameter specifying the target directory for the new project. The path
-    MUST be outside the current project's spec_root. If the path is inside
-    the current project, the tool MUST return an error. The tool MUST create
+    MUST be outside the project the server serves: a path inside its root
+    is refused by the call target (conflict, naming path) before anything
+    is written. A directory whose starter file already exists is refused
+    (conflict), as specforge init refuses it. The tool MUST create
     a new specforge.json project configuration file and scaffold the spec
     directory at the specified path. If extensions are specified, they MUST
     be added to the config and their manifests validated. MCP init is always
@@ -193,6 +195,8 @@ behavior provide_mcp_init_tool "Provide MCP Init Tool" {
   verify unit "extensions installed when specified"
   verify unit "default version is 0.1.0"
   verify unit "path inside current project returns error"
+  verify unit "init inside the served project is refused by the call target as a conflict on path, before anything is written"
+  verify unit "init refuses a directory whose starter file exists, writing nothing"
   verify unit "invalid project name returns error"
   verify unit "unknown extension returns error with diagnostic"
   verify unit "version parameter overrides default 0.1.0"

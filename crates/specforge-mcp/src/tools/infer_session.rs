@@ -7,7 +7,7 @@ use specforge_ops::infer::{
 
 use crate::args::Arguments;
 use crate::mutation::{Mutated, MutationHandled, Written};
-use crate::target::Call;
+use crate::target::ProjectRef;
 use crate::tool::{ErrorCode, McpError, ToolOutcome};
 
 /// `specforge.infer_session`'s arguments.
@@ -33,8 +33,7 @@ pub struct Args {
 
 /// `specforge.infer_session`: one step of an inference session
 /// (`specforge_ops::infer::session`), which writes `specforge-infer.json`.
-pub fn call(call: &mut Call<'_>, args: Args) -> MutationHandled {
-    let project = call.project()?;
+pub fn call(project: &ProjectRef<'_>, args: Args) -> MutationHandled {
     let step = step(&args)?;
     Ok(match infer::session(&project.view(), step) {
         Ok(SessionOutcome { recorded, writes }) => {

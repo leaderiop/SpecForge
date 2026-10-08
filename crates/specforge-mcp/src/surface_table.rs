@@ -24,7 +24,7 @@ use specforge_ops::command::{ExtensionCommand, ExtensionCommands};
 use specforge_registry::RegistryBuild;
 
 use crate::resources::ResourceSpec;
-use crate::tool::{Category, ToolSpec};
+use crate::tool::{Category, ToolGroup, ToolSpec, read_only_annotations};
 use crate::types::{McpResourceDescriptor, McpToolDescriptor};
 
 /// The code reporting an extension contribution MCP does not serve under
@@ -62,10 +62,11 @@ pub struct ToolEntry {
     /// The contributing extension: the tool's `source`.
     pub extension: String,
     pub description: String,
-    /// Its role: an explicit tool's declared category when it is one of
-    /// the four, else core; a command's is core (its own category is a CLI
-    /// grouping).
-    pub category: Category,
+    /// The group it is listed in: an explicit tool's declared category when
+    /// it names one (`core`, `navigation`, `management`), else core; a
+    /// command's is core (its own category is a CLI grouping). Never
+    /// `mutation`: an extension holds no capability to write.
+    pub group: ToolGroup,
     pub kind: ToolKind,
 }
 
@@ -109,9 +110,9 @@ impl ToolEntry {
             description: self.description.clone(),
             input_schema,
             output_schema: self.output_schema().cloned(),
-            category: Some(self.category.as_str().into()),
+            category: Some(Category::from(self.group).as_str().into()),
             source: Some(self.extension.clone()),
-            annotations: None,
+            annotations: read_only_annotations(),
         }
     }
 
@@ -189,11 +190,11 @@ impl ExtensionSurfaceTable {
                     name: tool.name.clone(),
                     extension: extension.to_string(),
                     description: tool.description.clone(),
-                    category: tool
+                    group: tool
                         .category
                         .as_deref()
-                        .and_then(Category::parse)
-                        .unwrap_or(Category::Core),
+                        .and_then(ToolGroup::parse)
+                        .unwrap_or(ToolGroup::Core),
                     kind: ToolKind::McpTool {
                         export: tool.export.clone(),
                         input_schema: tool.input_schema.clone(),
@@ -256,7 +257,7 @@ impl ExtensionSurfaceTable {
                 name,
                 extension: command.extension().to_string(),
                 description: command.description().to_string(),
-                category: Category::Core,
+                group: ToolGroup::Core,
                 kind: ToolKind::Command(Box::new(command.clone())),
             });
             table.stats.promoted += 1;

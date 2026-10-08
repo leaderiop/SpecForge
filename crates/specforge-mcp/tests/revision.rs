@@ -366,9 +366,8 @@ fn structured_results_conform_to_each_tool_output_schema() {
             continue;
         };
         let schema = spec
-            .output
-            .unwrap_or_else(|| panic!("{name} returns an object but declares no outputSchema"))(
-        );
+            .output_schema()
+            .unwrap_or_else(|| panic!("{name} returns an object but declares no outputSchema"));
         let violations = specforge_mcp::json_schema::violations(&schema, structured);
         assert!(
             violations.is_empty(),
@@ -378,7 +377,7 @@ fn structured_results_conform_to_each_tool_output_schema() {
     }
     // Every declared schema was held to a real result.
     for spec in specforge_mcp::tools::CORE_TOOLS {
-        if spec.output.is_some() {
+        if spec.output_schema().is_some() {
             assert!(
                 conforming.contains(spec.name),
                 "{} never checked",

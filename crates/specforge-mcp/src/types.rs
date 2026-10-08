@@ -67,7 +67,7 @@ pub struct McpServerInfo {
     pub version: String,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct McpToolDescriptor {
     pub name: String,
     pub description: String,
@@ -88,10 +88,11 @@ pub struct McpToolDescriptor {
     /// name.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source: Option<String>,
-    /// MCP `ToolAnnotations` (`readOnlyHint`, ...); none for an extension
-    /// tool, whose manifest declares none.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub annotations: Option<Value>,
+    /// MCP `ToolAnnotations` (`readOnlyHint`, ...): what the tool does to
+    /// its environment. A core tool's derive from its effect; an extension
+    /// tool's say it only reads, since the host grants an extension no
+    /// capability.
+    pub annotations: Value,
 }
 
 /// A resource as `resources/list` lists it (MCP `Resource`: `mimeType` on

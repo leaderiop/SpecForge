@@ -692,7 +692,8 @@ fn explicit_mcp_tool_wins_over_auto_promoted() {
             "inputSchema": {"type": "object", "properties": {"strict": {"type": "boolean"}}},
             "outputSchema": {"type": "object", "properties": {"checked": {"type": "boolean"}}},
             "category": "core",
-            "source": "@test/cmds"
+            "source": "@test/cmds",
+            "annotations": {"readOnlyHint": true, "openWorldHint": false}
         })]
     );
     let i017: Vec<_> = server

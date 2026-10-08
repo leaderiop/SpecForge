@@ -251,34 +251,41 @@ fn add_and_remove_extension_refuse_an_unusable_config_alike() {
     }
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_infer_progress_tool",
-    verify = "graceful handling when specforge-infer.json is missing"
-)]
-fn infer_tools_without_a_project_answer_their_empty_documents() {
+/// With no project served, the infer tools are the no-project refusal
+/// (precondition_failed, no argument), as the operations under them refuse a
+/// view without a root.
+fn assert_no_project_refusal(tool: &str) {
     let mut server = McpServer::new();
     server.handle_message(
         &json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}).to_string(),
     );
-
-    let progress = answer(&call_tool(
-        &mut server,
-        "specforge.infer_progress",
-        json!({}),
-    ));
-    assert_eq!(
-        progress["summary"],
-        json!({"files_total": 0, "files_analyzed": 0, "entities_produced": 0}),
-        "{progress}"
+    let resp = call_tool(&mut server, tool, json!({}));
+    let error = crate::tool_errors::mcp_error(&resp);
+    assert_eq!(error["code"], "precondition_failed", "{error}");
+    assert!(error["argument"].is_null(), "{error}");
+    assert!(
+        error["message"]
+            .as_str()
+            .unwrap()
+            .starts_with("no project is served: start the server in a project"),
+        "{error}"
     );
-    assert_eq!(
-        progress["message"], "No project root available",
-        "{progress}"
-    );
+}
 
-    let gaps = answer(&call_tool(&mut server, "specforge.infer_gaps", json!({})));
-    assert_eq!(gaps["total_pub_items"], 0, "{gaps}");
-    assert_eq!(gaps["message"], "No project root available", "{gaps}");
+#[specforge_test(
+    behavior = "provide_mcp_infer_progress_tool",
+    verify = "with no project served, infer_progress is the no-project refusal"
+)]
+fn infer_progress_without_a_project_is_refused() {
+    assert_no_project_refusal("specforge.infer_progress");
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_infer_gaps_tool",
+    verify = "with no project served, infer_gaps is the no-project refusal"
+)]
+fn infer_gaps_without_a_project_is_refused() {
+    assert_no_project_refusal("specforge.infer_gaps");
 }
 
 // R3 (plan 05): an unusable specforge.json is E069 on MCP too: validate's

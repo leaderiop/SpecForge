@@ -16,10 +16,11 @@ use std::path::{Path, PathBuf};
 use specforge_common::{codes, project_root_of};
 
 use crate::args::{Arguments, NoArgs};
-use crate::mutation::{Mutated, MutationEvent, MutationHandled, Written};
-use crate::target::{Call, CallTarget};
-use crate::tool::{ErrorCode, Handled, McpError, ToolOutcome};
+use crate::mutation::{Mutated, MutationEvent, Written};
+use crate::target::ProjectRef;
+use crate::tool::{ErrorCode, McpError, ToolOutcome};
 use specforge_ops::OpErrorKind;
+use specforge_ops::view::ProjectView;
 
 // ── shared helpers ──────────────────────────────────────────────────────────
 
@@ -55,7 +56,7 @@ impl FormatArgs {
     }
 }
 
-pub(crate) fn format_op(call: &mut Call<'_>, args: FormatArgs) -> MutationHandled {
+pub(crate) fn format_op(project: &ProjectRef<'_>, args: FormatArgs) -> Mutated {
     use specforge_ops::format::{self, Request};
 
     let diff = args.diff;
@@ -68,7 +69,7 @@ pub(crate) fn format_op(call: &mut Call<'_>, args: FormatArgs) -> MutationHandle
     // names (a directory that is no project is its own root, formatted with
     // the defaults, as `specforge format` formats it); its config decides
     // what is formatted.
-    let project_root = project_root_of(call.project()?.root);
+    let project_root = project_root_of(project.root);
 
     // The run `specforge format` makes. Relative paths name files under
     // the project root.
@@ -112,7 +113,7 @@ pub(crate) fn format_op(call: &mut Call<'_>, args: FormatArgs) -> MutationHandle
         false => Mutated::wrote(reply, Written::files(outcome.writes())),
     };
     if outcome.succeeded() {
-        return Ok(written(ok(result)));
+        return written(ok(result));
     }
 
     // Every other file was still formatted, and what was written is
@@ -144,9 +145,7 @@ pub(crate) fn format_op(call: &mut Call<'_>, args: FormatArgs) -> MutationHandle
     );
     let message = result["message"].as_str().unwrap_or_default().to_string();
     let code = ErrorCode::from(outcome.failure_kind().unwrap_or(OpErrorKind::Internal));
-    Ok(written(
-        McpError::new(code, message).with_data(result).into(),
-    ))
+    written(McpError::new(code, message).with_data(result).into())
 }
 
 // ── rename ──────────────────────────────────────────────────────────────────
@@ -162,7 +161,7 @@ pub struct RenameArgs {
     dry_run: bool,
 }
 
-pub(crate) fn rename_op(call: &mut Call<'_>, args: RenameArgs) -> MutationHandled {
+pub(crate) fn rename_op(project: &ProjectRef<'_>, args: RenameArgs) -> Mutated {
     use specforge_ops::rename;
     let entity_id = args.entity_id.as_str();
     let new_name = args.new_name.as_str();
@@ -171,9 +170,13 @@ pub(crate) fn rename_op(call: &mut Call<'_>, args: RenameArgs) -> MutationHandle
     // Planned on the call's project as it is on disk (the target brought
     // the served project up to date, or compiled the project `path`
     // names), whose spans are relative to its spec root.
-    let spec_root = call.project()?.spec_root().to_path_buf();
-    let planned = rename::plan(&crate::tools::navigator(call), entity_id, new_name);
-    let refused = |outcome: ToolOutcome| Ok(Mutated::refused_unless_preview(dry_run, outcome));
+    let spec_root = project.spec_root().to_path_buf();
+    let planned = rename::plan(
+        &crate::tools::navigator(project.view()),
+        entity_id,
+        new_name,
+    );
+    let refused = |outcome: ToolOutcome| Mutated::refused_unless_preview(dry_run, outcome);
     let plan = match planned {
         Ok(plan) => plan,
         // The operation decided what kind of failure it is, and which
@@ -212,7 +215,7 @@ pub(crate) fn rename_op(call: &mut Call<'_>, args: RenameArgs) -> MutationHandle
     });
     if dry_run {
         result["dry_run"] = Value::from(true);
-        return Ok(Mutated::preview(ok(result)));
+        return Mutated::preview(ok(result));
     }
     // A failed write restores what it wrote: nothing is left written.
     let writes = match rename::apply(&plan, &spec_root) {
@@ -222,12 +225,12 @@ pub(crate) fn rename_op(call: &mut Call<'_>, args: RenameArgs) -> MutationHandle
     // The reply's `diagnostics` are what `specforge check` reports for the
     // project as it is on disk now, edits made since the last call
     // included (filled in once the target is brought up to date).
-    Ok(Mutated::wrote(
+    Mutated::wrote(
         ok(result),
         Written::files(writes)
             .with_entities([new_name])
             .with_fresh_diagnostics(),
-    ))
+    )
 }
 
 // ── init ────────────────────────────────────────────────────────────────────
@@ -244,29 +247,26 @@ pub struct InitArgs {
     extensions: Vec<String>,
 }
 
-pub(crate) fn init_op(call: &mut Call<'_>, args: InitArgs) -> Mutated {
+pub(crate) fn init_op(
+    path: &Path,
+    runtime: &specforge_project::SharedRuntime,
+    args: InitArgs,
+) -> Mutated {
     use specforge_ops::init;
 
-    // The directory the target names (as given: init creates it); the
-    // target refuses a call that names none.
-    let Some(path) = call.new_project_dir().map(Path::to_path_buf) else {
-        return Mutated::refused(McpError::from(crate::target::TargetError::PathRequired));
-    };
+    // The directory the target names (as given: init creates it).
     let extensions = &args.extensions;
-    let served = call.state.session().project().root().map(Path::to_path_buf);
 
-    // The scaffold `specforge init` writes; the new project must not land
-    // inside the one this server serves.
+    // The scaffold `specforge init` writes. The call target refused a
+    // directory inside the served project before this ran.
     let request = init::Request {
-        dir: &path,
+        dir: path,
         name: args.name.as_deref(),
         version: &args.version,
         extensions,
-        forbid_inside: served.as_deref(),
     };
-    let runtime = call.runtime();
     let outcome =
-        match init::plan(&request, runtime.as_ref()).and_then(|plan| init::apply(&path, plan)) {
+        match init::plan(&request, runtime.as_ref()).and_then(|plan| init::apply(path, plan)) {
             Ok(outcome) => outcome,
             Err(error) => return Mutated::refused_after(false, error),
         };
@@ -304,7 +304,7 @@ pub struct AddArgs {
 /// `specforge.add_extension`: the shared add, its reply, the files it
 /// wrote and `extension_added` (for an extension already there too,
 /// `wasDuplicate`).
-pub(crate) fn add_extension(call: &mut Call<'_>, args: AddArgs) -> MutationHandled {
+pub(crate) fn add_extension(project: &ProjectRef<'_>, args: AddArgs) -> Mutated {
     use specforge_ops::extension::{self, AddOutcome, AddRequest, Origin, Trust};
 
     let allow_unsigned = args.allow_unsigned;
@@ -312,8 +312,8 @@ pub(crate) fn add_extension(call: &mut Call<'_>, args: AddArgs) -> MutationHandl
 
     // The project the call installs into: the served one, or the one
     // `path` names.
-    let root = call.project()?.root.to_path_buf();
-    let served = matches!(call.target(), CallTarget::Served);
+    let root = project.root.to_path_buf();
+    let served = project.is_served();
     // Once it is enabled, the server serves it (the next request brings the
     // project up to date); another project only has it on disk.
     let note = if served {
@@ -323,7 +323,7 @@ pub(crate) fn add_extension(call: &mut Call<'_>, args: AddArgs) -> MutationHandl
     };
     let source = match extension::parse(&args.specifier) {
         Ok(source) => source,
-        Err(error) => return Ok(Mutated::refused_after(dry_run, error)),
+        Err(error) => return Mutated::refused_after(dry_run, error),
     };
 
     let registry = specforge_ops_registry::ConfiguredRegistry::for_project(&root, "add_extension");
@@ -336,8 +336,7 @@ pub(crate) fn add_extension(call: &mut Call<'_>, args: AddArgs) -> MutationHandl
         trust: Trust::Refuse,
         dry_run,
     };
-    let runtime = call.runtime();
-    let added = extension::add(&request, &registry, runtime.as_ref());
+    let added = extension::add(&request, &registry, project.runtime.as_ref());
     // What reading the registry configuration reported (E067, W140, I003), once the add asked a
     // registry, as `specforge add` shows it.
     let reported = registry.reported().to_vec();
@@ -345,7 +344,7 @@ pub(crate) fn add_extension(call: &mut Call<'_>, args: AddArgs) -> MutationHandl
         Ok(added) => added,
         // An install that failed after placing its module reports it.
         Err(error) => {
-            return Ok(Mutated::refused_after(dry_run, error).with_diagnostics(reported));
+            return Mutated::refused_after(dry_run, error).with_diagnostics(reported);
         }
     };
     let source_of = Origin::source;
@@ -406,7 +405,7 @@ pub(crate) fn add_extension(call: &mut Call<'_>, args: AddArgs) -> MutationHandl
                 "version": version,
                 "source": source_of(&origin),
             });
-            return Ok(Mutated::preview(ok(plan).with_diagnostics(reported)));
+            return Mutated::preview(ok(plan).with_diagnostics(reported));
         }
     };
     let event = MutationEvent::ExtensionAdded {
@@ -414,10 +413,10 @@ pub(crate) fn add_extension(call: &mut Call<'_>, args: AddArgs) -> MutationHandl
         total_extensions: added.extensions_enabled,
         was_duplicate,
     };
-    Ok(Mutated::wrote(
+    Mutated::wrote(
         ok(reply).with_diagnostics(reported),
         Written::files(added.writes).with_event(event),
-    ))
+    )
 }
 
 /// `specforge.remove_extension`'s arguments.
@@ -431,7 +430,7 @@ pub struct RemoveArgs {
     dry_run: bool,
 }
 
-pub(crate) fn remove_extension_op(call: &mut Call<'_>, args: RemoveArgs) -> MutationHandled {
+pub(crate) fn remove_extension_op(project: &ProjectRef<'_>, args: RemoveArgs) -> Mutated {
     let name = args.name.clone();
     let force = args.force;
     let dry_run = args.dry_run;
@@ -444,33 +443,31 @@ pub(crate) fn remove_extension_op(call: &mut Call<'_>, args: RemoveArgs) -> Muta
         force,
         dry_run,
     };
-    Ok(
-        match specforge_ops::extension::remove(&call.project()?.view(), &request) {
-            Ok(outcome) => {
-                let mut result = json!({
-                    "removed_extension": outcome.name,
-                    "success": true,
-                    "version": outcome.version,
-                    "stranded": outcome
-                        .stranded
-                        .iter()
-                        .map(|entity| json!({"entity_id": entity.entity_id, "kind": entity.kind}))
-                        .collect::<Vec<_>>(),
-                });
-                if outcome.dry_run {
-                    result["dry_run"] = Value::from(true);
-                    return Ok(Mutated::preview(ok(result)));
-                }
-                Mutated::wrote(
-                    ok(result),
-                    Written::files(outcome.writes)
-                        .with_entities(outcome.stranded.into_iter().map(|entity| entity.entity_id)),
-                )
+    match specforge_ops::extension::remove(&project.view(), &request) {
+        Ok(outcome) => {
+            let mut result = json!({
+                "removed_extension": outcome.name,
+                "success": true,
+                "version": outcome.version,
+                "stranded": outcome
+                    .stranded
+                    .iter()
+                    .map(|entity| json!({"entity_id": entity.entity_id, "kind": entity.kind}))
+                    .collect::<Vec<_>>(),
+            });
+            if outcome.dry_run {
+                result["dry_run"] = Value::from(true);
+                return Mutated::preview(ok(result));
             }
-            // A removal that failed after editing specforge.json reports it.
-            Err(error) => Mutated::refused_after(dry_run, error),
-        },
-    )
+            Mutated::wrote(
+                ok(result),
+                Written::files(outcome.writes)
+                    .with_entities(outcome.stranded.into_iter().map(|entity| entity.entity_id)),
+            )
+        }
+        // A removal that failed after editing specforge.json reports it.
+        Err(error) => Mutated::refused_after(dry_run, error),
+    }
 }
 
 // ── migrate ─────────────────────────────────────────────────────────────────
@@ -486,9 +483,8 @@ pub struct MigrateArgs {
     no_backup: bool,
 }
 
-pub(crate) fn migrate_op(call: &mut Call<'_>, args: MigrateArgs) -> MutationHandled {
+pub(crate) fn migrate_op(project: &ProjectRef<'_>, args: MigrateArgs) -> Mutated {
     // The project the call migrates, and the runtime its hooks run in.
-    let project = call.project()?;
     let path = project.root;
     let dry_run = args.dry_run;
     let no_backup = args.no_backup;
@@ -496,7 +492,7 @@ pub(crate) fn migrate_op(call: &mut Call<'_>, args: MigrateArgs) -> MutationHand
     // --target-version` checks it.
     let target = match specforge_ops::migrate::parse_target(args.target_version.as_deref()) {
         Ok(target) => target,
-        Err(error) => return Ok(Mutated::refused_after(dry_run, error)),
+        Err(error) => return Mutated::refused_after(dry_run, error),
     };
 
     let runtime = project.runtime;
@@ -526,7 +522,7 @@ pub(crate) fn migrate_op(call: &mut Call<'_>, args: MigrateArgs) -> MutationHand
             "message": "project is already at the latest format version",
             "ok": outcome.ok(),
         });
-        return Ok(migration(ok(current), outcome.writes));
+        return migration(ok(current), outcome.writes);
     }
 
     let summary = &outcome.summary;
@@ -561,48 +557,47 @@ pub(crate) fn migrate_op(call: &mut Call<'_>, args: MigrateArgs) -> MutationHand
         Some(failure) => McpError::from(failure).with_data(result).into(),
         None => ok(result),
     };
-    Ok(migration(reply, outcome.writes))
+    migration(reply, outcome.writes)
 }
 
 // ── extensions ──────────────────────────────────────────────────────────────
 
-pub(crate) fn extensions_op(call: &mut Call<'_>, _args: NoArgs) -> Handled {
+pub(crate) fn extensions_op(project: &ProjectRef<'_>, _args: NoArgs) -> ToolOutcome {
     // The shared listing, over the project view: what the project
     // compiled, its lock and the kinds its graph uses.
-    let listing = specforge_ops::extension::list(&call.project()?.view());
+    let listing = specforge_ops::extension::list(&project.view());
     let extensions: Vec<Value> = listing.extensions.iter().map(|e| e.to_json()).collect();
     let lock_entries: Vec<Value> = listing
         .locked
         .iter()
         .map(|e| json!({ "name": e.name, "version": e.version }))
         .collect();
-    Ok(ok(json!({
+    ok(json!({
         "extensions": extensions,
         "lock_file_entries": lock_entries,
         "entity_kinds_in_graph": listing.kinds_in_graph,
-    })))
+    }))
 }
 
 // ── providers ───────────────────────────────────────────────────────────────
 
-pub(crate) fn providers_op(call: &mut Call<'_>, _args: NoArgs) -> Handled {
+pub(crate) fn providers_op(project: &ProjectRef<'_>, _args: NoArgs) -> ToolOutcome {
     // The providers specforge.json configures, as the scheme registry built
     // from the loaded extensions sees them: the listing the CLI prints.
-    let listing = specforge_ops::extension::providers(&call.project()?.view());
-    Ok(ok(listing.to_json()))
+    let listing = specforge_ops::extension::providers(&project.view());
+    ok(listing.to_json())
 }
 
 // ── doctor ──────────────────────────────────────────────────────────────────
 
-pub(crate) fn doctor_op(call: &mut Call<'_>, _args: NoArgs) -> Handled {
+pub(crate) fn doctor_op(project: &ProjectRef<'_>, _args: NoArgs) -> ToolOutcome {
     // The target brought the project up to date with disk unless the
     // caller opted into the last compile (`use_cached`, ADR 0004 D3-d).
-    let project = call.project()?;
     // The same report `specforge doctor` prints, as the spec's
     // McpDoctorReport plus its sections. Credential health is the user's,
     // not the project's: only the CLI reports it.
     let report = specforge_ops::doctor::diagnose(&project.view());
-    Ok(ok(json!({
+    ok(json!({
         "extensions_ok": report.extensions_ok(),
         "conflicts": report.conflict_messages(),
         "cache_status": report.cache_status,
@@ -615,7 +610,7 @@ pub(crate) fn doctor_op(call: &mut Call<'_>, _args: NoArgs) -> Handled {
         "load_failures": report.load_failures,
         "issues": report.issues,
         "z3_available": report.z3_available,
-    })))
+    }))
 }
 
 // ── collect ─────────────────────────────────────────────────────────────────
@@ -629,7 +624,7 @@ pub struct CollectArgs {
     run: bool,
 }
 
-pub(crate) fn collect_op(call: &mut Call<'_>, args: CollectArgs) -> Handled {
+pub(crate) fn collect_op(project: &ProjectRef<'_>, args: CollectArgs) -> ToolOutcome {
     use specforge_ops::collect::{self, Consent, Mode, Request, RunnerOutput};
 
     let runner = args.runner.as_deref().filter(|r| *r != "auto");
@@ -638,7 +633,6 @@ pub(crate) fn collect_op(call: &mut Call<'_>, args: CollectArgs) -> Handled {
     // Tests map to the entities on disk now: the target brought the served
     // project up to date, or compiled the project `path` names for this
     // call, in the runtime it collects with.
-    let project = call.project()?;
     let request = Request {
         runner,
         mode: if run {
@@ -652,21 +646,19 @@ pub(crate) fn collect_op(call: &mut Call<'_>, args: CollectArgs) -> Handled {
         consent: Consent::Approved,
         announce: &mut |_, _| {},
     };
-    Ok(
-        match collect::collect(&project.view(), project.runtime.as_ref(), request) {
-            Ok(outcome) => ok(outcome.to_json()),
-            Err(mut e) => {
-                if e.is(codes::E059) {
-                    e.message = format!(
-                        "the test command isn't approved for this project; run `specforge collect` \
-                         in a terminal once to approve it ({})",
-                        e.message
-                    );
-                }
-                McpError::from(e).into()
+    match collect::collect(&project.view(), project.runtime.as_ref(), request) {
+        Ok(outcome) => ok(outcome.to_json()),
+        Err(mut e) => {
+            if e.is(codes::E059) {
+                e.message = format!(
+                    "the test command isn't approved for this project; run `specforge collect` \
+                     in a terminal once to approve it ({})",
+                    e.message
+                );
             }
-        },
-    )
+            McpError::from(e).into()
+        }
+    }
 }
 
 // ── render ──────────────────────────────────────────────────────────────────
@@ -686,7 +678,7 @@ pub struct RenderArgs {
     scope: Option<String>,
 }
 
-pub(crate) fn render_op(call: &mut Call<'_>, args: RenderArgs) -> ToolOutcome {
+pub(crate) fn render_op(view: ProjectView<'_>, args: RenderArgs) -> ToolOutcome {
     use specforge_ops::export::{FORMAT, Format};
 
     // The renderers are the export formats, named as `specforge export
@@ -718,7 +710,7 @@ pub(crate) fn render_op(call: &mut Call<'_>, args: RenderArgs) -> ToolOutcome {
         scope: args.scope.as_deref(),
         ..specforge_ops::export::Request::default()
     };
-    let output = match specforge_ops::export::export(&call.view(), &request) {
+    let output = match specforge_ops::export::export(&view, &request) {
         Ok(text) => text,
         Err(e) => return McpError::from(e).into(),
     };
@@ -727,7 +719,7 @@ pub(crate) fn render_op(call: &mut Call<'_>, args: RenderArgs) -> ToolOutcome {
     let Some(out_dir) = args.out_dir.as_deref() else {
         return ok(json!({ "format": name, "output": output, "output_files": [] }));
     };
-    let Some(out_dir) = under_root(call.root(), out_dir) else {
+    let Some(out_dir) = under_root(view.root(), out_dir) else {
         return McpError::new(
             ErrorCode::InvalidInput,
             format!(

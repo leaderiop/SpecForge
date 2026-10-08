@@ -138,8 +138,12 @@ fn every_listed_core_resource_is_readable() {
 /// `tools/list` of a server over the fake extension `@test/cmds`, which
 /// contributes an explicit tool and two auto-promoted commands.
 fn tools_with_an_extension() -> (Served, Vec<Value>) {
-    use crate::fake_extension::{EXT, FakeExtension};
-    let ext = FakeExtension::new();
+    tools_over(crate::fake_extension::FakeExtension::new())
+}
+
+/// `tools/list` of a server over the fake extension `ext`.
+fn tools_over(ext: crate::fake_extension::FakeExtension) -> (Served, Vec<Value>) {
+    use crate::fake_extension::EXT;
     let mut server = TestProject::new()
         .enabling(&[EXT])
         .file("main.spec", "")
@@ -191,37 +195,24 @@ fn every_listed_tool_has_a_spec_category_and_a_source() {
     verify = "core tools are annotated: read-only tools readOnlyHint, writing tools how they write"
 )]
 fn core_tool_annotations_follow_what_each_tool_does() {
-    use specforge_mcp::tool::{Access, Category, Handler};
+    use specforge_mcp::tool::{Category, Effect, read_only_annotations};
     let (_server, tools) = tools_with_an_extension();
     for spec in specforge_mcp::tools::CORE_TOOLS {
-        // One definition: a mutation is exactly a tool with a mutation
-        // handler (it says what it wrote), and it writes.
-        let mutation = matches!(spec.handler, Handler::Mutation { .. });
-        assert_eq!(
-            mutation,
-            spec.category == Category::Mutation,
-            "{}",
-            spec.name
-        );
-        if mutation {
-            assert_ne!(spec.access, Access::ReadOnly, "{}", spec.name);
-        }
         let listed = tools.iter().find(|t| t["name"] == spec.name).unwrap();
-        let hints = &listed["annotations"];
-        match spec.access {
-            Access::ReadOnly => {
-                assert_eq!(hints["readOnlyHint"], true, "{listed}");
-                assert_eq!(hints["openWorldHint"], false, "{listed}");
+        // One declaration: the listing is what the effect derives.
+        assert_eq!(listed["category"], spec.category().as_str(), "{listed}");
+        assert_eq!(listed["annotations"], spec.annotations(), "{listed}");
+        match spec.effect {
+            Effect::Reads { .. } => {
+                assert_eq!(spec.annotations(), read_only_annotations(), "{listed}");
             }
-            Access::Writes {
-                destructive,
-                idempotent,
-                open_world,
-            } => {
-                assert_eq!(hints["readOnlyHint"], false, "{listed}");
-                assert_eq!(hints["destructiveHint"], destructive, "{listed}");
-                assert_eq!(hints["idempotentHint"], idempotent, "{listed}");
-                assert_eq!(hints["openWorldHint"], open_world, "{listed}");
+            Effect::WritesOutput { .. } => {
+                assert_ne!(spec.category(), Category::Mutation, "{listed}");
+                assert_eq!(listed["annotations"]["readOnlyHint"], false, "{listed}");
+            }
+            Effect::Mutates { .. } => {
+                assert_eq!(listed["category"], "mutation", "{listed}");
+                assert_eq!(listed["annotations"]["readOnlyHint"], false, "{listed}");
             }
         }
     }
@@ -231,10 +222,28 @@ fn core_tool_annotations_follow_what_each_tool_does() {
     assert_eq!(hint("specforge.query", "readOnlyHint"), true);
     assert_eq!(hint("specforge.format", "destructiveHint"), true);
     assert_eq!(hint("specforge.add_extension", "openWorldHint"), true);
+    assert_eq!(hint("specforge.add_extension", "destructiveHint"), true);
+    assert_eq!(hint("specforge.rename", "idempotentHint"), true);
     assert_eq!(hint("specforge.infer_session", "readOnlyHint"), false);
-    // An extension declares no annotations: none are made up for it.
-    let extension = tools.iter().find(|t| t["name"] == "specforge.cmds.check");
-    assert!(extension.unwrap().get("annotations").is_none());
+}
+
+#[specforge_test(
+    behavior = "list_mcp_tools",
+    verify = "a mutation's outputSchema declares files_written, derived from its effect"
+)]
+fn a_mutations_output_schema_lists_files_written() {
+    for spec in specforge_mcp::tools::CORE_TOOLS {
+        let Some(schema) = spec.output_schema() else {
+            assert!(!spec.is_mutation(), "{} declares no output", spec.name);
+            continue;
+        };
+        assert_eq!(
+            schema["properties"].get("files_written").is_some(),
+            spec.is_mutation(),
+            "{}",
+            spec.name
+        );
+    }
 }
 
 #[specforge_test(
@@ -256,5 +265,42 @@ fn an_extension_tool_is_listed_once_across_recompiles() {
     for name in ["specforge.cmds.check", "specforge.cmds.report"] {
         let count = tools.iter().filter(|t| t["name"] == name).count();
         assert_eq!(count, 1, "{name} listed {count} times");
+    }
+}
+
+#[specforge_test(
+    behavior = "list_mcp_tools",
+    verify = "an extension tool is annotated read-only and is never listed as a mutation"
+)]
+fn an_extension_tool_is_annotated_read_only_and_never_a_mutation() {
+    use crate::fake_extension::FakeExtension;
+    let ext = FakeExtension::new().with_tool(json!({
+        "name": "specforge.cmds.write",
+        "description": "Writes",
+        "category": "mutation",
+        "export": "mcp__write",
+        "input_schema": {"type": "object"}
+    }));
+    let (_server, tools) = tools_over(ext);
+    let listed = |name: &str| {
+        tools
+            .iter()
+            .find(|t| t["name"] == name)
+            .unwrap_or_else(|| panic!("{name} listed"))
+    };
+    // A declared `mutation` is no group: the tool is listed `core`.
+    assert_eq!(listed("specforge.cmds.write")["category"], "core");
+    // The host grants an extension no capability: every extension tool, an
+    // explicit one or an auto-promoted command, is read-only and closed.
+    for name in [
+        "specforge.cmds.write",
+        "specforge.cmds.check",
+        "specforge.cmds.report",
+    ] {
+        assert_eq!(
+            listed(name)["annotations"],
+            json!({"readOnlyHint": true, "openWorldHint": false}),
+            "{name}"
+        );
     }
 }

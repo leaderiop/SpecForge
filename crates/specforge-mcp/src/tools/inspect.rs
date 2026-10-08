@@ -6,8 +6,8 @@ use serde_json::{Value, json};
 use specforge_ops::inspect::{EntityCoverage, EntityFacts, obligation_text};
 
 use crate::args::Arguments;
-use crate::target::Call;
 use crate::tool::ToolOutcome;
+use specforge_ops::view::ProjectView;
 
 /// `specforge.inspect`'s arguments.
 #[derive(Debug, Arguments)]
@@ -16,8 +16,7 @@ pub struct Args {
     entity_id: String,
 }
 
-pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
-    let view = call.view();
+pub fn call(view: ProjectView<'_>, args: Args) -> ToolOutcome {
     let facts = match specforge_ops::inspect::inspect(&view, &args.entity_id) {
         Ok(facts) => facts,
         Err(error) => return crate::tool::McpError::from(error).into(),

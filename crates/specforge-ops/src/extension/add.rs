@@ -1130,7 +1130,6 @@ mod tests {
                 name: Some("demo"),
                 version: crate::init::DEFAULT_VERSION,
                 extensions: &extensions,
-                forbid_inside: None,
             },
             &runtime,
         )

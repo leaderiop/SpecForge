@@ -54,7 +54,7 @@ impl Surface for Prompts {
     }
 
     fn target(found: &Found<&'static PromptSpec, std::convert::Infallible>) -> TargetSpec {
-        found.core_entry().target
+        found.core_entry().target()
     }
 
     fn invoked(
@@ -80,7 +80,7 @@ impl Surface for Prompts {
         if let Some(error) = spec.undeclared(&invocation.arguments) {
             return Ran::of(Err(Box::new(error)));
         }
-        Ran::of((spec.render)(call, invocation.arguments.clone()))
+        Ran::of((spec.render)(call.view(), invocation.arguments.clone()))
     }
 
     fn refused(
