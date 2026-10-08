@@ -419,14 +419,18 @@ fn a_migration_writes_each_file_and_its_backup() {
 
 #[test]
 fn a_rolled_back_migration_keeps_only_its_backups() {
-    let dir = project(&[], &[("old.spec", OLD)]);
+    let dir = project(&["@t/x"], &[("old.spec", OLD)]);
     let root = dir.path();
     let before = files_under(root);
+    let runtime = specforge_wasm::testing::InProcessRuntime::new().with(|| {
+        let mut c = specforge_extension_sdk::ContributionsBuilder::new(
+            specforge_extension_sdk::ExtensionMeta::new("@t/x", "1.0.0"),
+        );
+        c.migration_hook_handler("hook", |_| Err("the hook failed".into()));
+        c
+    });
 
-    let outcome =
-        specforge_ops::migrate::run_with_hooks(&migration(root, false), None, &mut |_, _| {
-            (vec!["@t/x:hook".into()], vec!["the hook failed".into()])
-        });
+    let outcome = specforge_ops::migrate::run(&migration(root, false), Some(&runtime));
 
     assert!(outcome.rollback.is_some());
     assert_eq!(listed(&outcome.writes, root), ["old.spec.bak"]);

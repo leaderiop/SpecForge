@@ -11,6 +11,7 @@ mod failures;
 mod inspect;
 mod kinds;
 mod management;
+mod migrate;
 mod model;
 mod navigate;
 mod options;

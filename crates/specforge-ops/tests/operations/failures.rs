@@ -189,7 +189,7 @@ fn plan_gives_a_report_failure_the_report_s_kind() {
 fn hooks_run_for_the_project_a_sub_path_is_in() {
     use specforge_extension_sdk::{ContributionsBuilder, ExtensionMeta};
     use specforge_migrate::CURRENT_FORMAT_VERSION;
-    use specforge_ops::migrate::{Request, run_with_hooks};
+    use specforge_ops::migrate::{Request, run};
     use specforge_wasm::testing::InProcessRuntime;
 
     let dir = tempfile::tempdir().unwrap();
@@ -217,8 +217,7 @@ fn hooks_run_for_the_project_a_sub_path_is_in() {
             "// specforge-format: 0.1\nbehavior old_one \"Old\" {\n}\n",
         )
         .unwrap();
-        let mut seen: Vec<String> = Vec::new();
-        run_with_hooks(
+        run(
             &Request {
                 root: at,
                 target: CURRENT_FORMAT_VERSION,
@@ -226,19 +225,15 @@ fn hooks_run_for_the_project_a_sub_path_is_in() {
                 no_backup: true,
             },
             Some(&runtime),
-            &mut |declarations, _| {
-                seen = declarations.iter().map(|d| d.name().to_string()).collect();
-                (Vec::new(), Vec::new())
-            },
-        );
-        seen
+        )
+        .hooks_invoked
     };
 
     let from_the_sub_path = declared(&root.join("spec"));
     let from_the_project = declared(root);
 
-    assert_eq!(from_the_sub_path, ["@t/x"]);
-    assert_eq!(from_the_project, ["@t/x"]);
+    assert_eq!(from_the_sub_path, ["@t/x:migrate_x"]);
+    assert_eq!(from_the_project, ["@t/x:migrate_x"]);
 }
 
 #[test]
