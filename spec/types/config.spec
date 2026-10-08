@@ -113,9 +113,9 @@ type PublishReceipt "Publish Receipt" {
 // POST {base}/auth/verify.
 type TokenVerified "Token Verified" {
   valid      boolean
-  scope      string  @optional
+  scope      string @optional
   label      string
-  expires_at string  @optional
+  expires_at string @optional
   verify unit "TokenVerified is the JSON a registry answers a token check with"
 }
 
