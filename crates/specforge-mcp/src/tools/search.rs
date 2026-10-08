@@ -13,7 +13,7 @@ pub struct Args {
     /// Filter by kinds
     kinds: Vec<String>,
     /// Max results
-    #[arg(default = 20)]
+    #[arg(default = specforge_ops::query::DEFAULT_SEARCH_LIMIT)]
     limit: usize,
     /// Only entities whose field of this name contains `value`; needs `value`
     field: Option<String>,

@@ -984,3 +984,26 @@ fn main() {
     };
     std::process::exit(exit_code);
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// `specforge query --depth` defaults to the query operation's constant,
+    /// the one `specforge.query`'s schema advertises (plan 08 T8).
+    #[test]
+    fn the_query_depth_default_is_the_operations() {
+        let command = Cli::command();
+        let query = command.find_subcommand("query").expect("a query command");
+        let depth = query
+            .get_arguments()
+            .find(|argument| argument.get_id() == "depth")
+            .expect("query takes --depth");
+        let defaults: Vec<String> = depth
+            .get_default_values()
+            .iter()
+            .map(|value| value.to_string_lossy().into_owned())
+            .collect();
+        assert_eq!(defaults, [specforge_ops::query::DEFAULT_DEPTH.to_string()]);
+    }
+}

@@ -12,7 +12,7 @@ pub struct Args {
     /// Entity ID to query
     entity_id: String,
     /// Number of hops
-    #[arg(default = 1)]
+    #[arg(default = specforge_ops::query::DEFAULT_DEPTH)]
     depth: usize,
     /// Filter by entity kinds
     kinds: Vec<String>,
