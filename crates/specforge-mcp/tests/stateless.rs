@@ -304,14 +304,24 @@ fn listen(server: &mut McpServer, filter: Value) -> Vec<Value> {
     server.take_notifications()
 }
 
-/// Add an entity to the project and recompile it, as a watch rebuild would.
+/// Any stateless request: it brings the served project up to date with
+/// disk, and the update's notifications are queued.
+fn bring_up_to_date(server: &mut McpServer) {
+    stateless(
+        server,
+        "tools/call",
+        json!({"name": "specforge.stats", "arguments": {}}),
+    );
+}
+
+/// Add an entity to the project and bring it in with a request.
 fn change_graph(server: &mut McpServer, dir: &tempfile::TempDir) {
     std::fs::write(
         dir.path().join("more.spec"),
         "behavior beta \"Beta\" {\n  contract \"MUST also work\"\n}\n",
     )
     .unwrap();
-    server.state_mut().serve(dir.path());
+    bring_up_to_date(server);
 }
 
 #[specforge_test(
@@ -353,8 +363,8 @@ fn a_change_reaches_the_stream() {
         json!({"resourceSubscriptions": ["specforge://graph"]}),
     );
 
-    // A recompile that changes nothing sends nothing.
-    server.state_mut().serve(dir.path());
+    // A request that finds nothing changed sends nothing.
+    bring_up_to_date(&mut server);
     assert!(server.take_notifications().is_empty());
 
     change_graph(&mut server, &dir);
@@ -395,7 +405,7 @@ fn a_stream_hears_only_what_it_asked_for() {
 
     // A broken spec changes the diagnostics: that is heard.
     std::fs::write(dir.path().join("broken.spec"), "behavior {\n").unwrap();
-    server.state_mut().serve(dir.path());
+    bring_up_to_date(&mut server);
     let sent = server.take_notifications();
     assert_eq!(sent.len(), 1, "{sent:?}");
     assert_eq!(sent[0]["params"]["uri"], "specforge://diagnostics");

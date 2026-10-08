@@ -1,7 +1,6 @@
 use crate::support::*;
 use serde_json::json;
 use specforge_mcp::McpServer;
-use specforge_mcp::subscriptions;
 use specforge_test::prelude::*;
 use std::fs;
 use tempfile::TempDir;
@@ -20,32 +19,32 @@ fn init_server() -> McpServer {
 )]
 fn subscribe_adds_subscription() {
     let mut server = init_server();
-    let added = subscriptions::subscribe(
-        server.state_mut(),
-        "client1",
+    let reply = call(
+        &mut server,
+        "resources/subscribe",
+        json!({"uri": "specforge://graph"}),
+    );
+    assert_eq!(reply["result"], json!({}), "{reply}");
+
+    let subs = specforge_mcp::subscriptions::subscribers(
+        server.state(),
         specforge_mcp::subscriptions::Watched::Graph,
     );
-    assert!(added);
-
-    let subs =
-        subscriptions::subscribers(server.state(), specforge_mcp::subscriptions::Watched::Graph);
-    assert_eq!(subs, vec!["client1"]);
+    assert_eq!(subs, vec!["default"]);
 }
 
 #[test]
-fn duplicate_subscribe_returns_false() {
+fn subscribing_twice_records_one_subscription() {
     let mut server = init_server();
-    subscriptions::subscribe(
-        server.state_mut(),
-        "client1",
-        specforge_mcp::subscriptions::Watched::Graph,
-    );
-    let added = subscriptions::subscribe(
-        server.state_mut(),
-        "client1",
-        specforge_mcp::subscriptions::Watched::Graph,
-    );
-    assert!(!added);
+    for _ in 0..2 {
+        let reply = call(
+            &mut server,
+            "resources/subscribe",
+            json!({"uri": "specforge://graph"}),
+        );
+        assert_eq!(reply["result"], json!({}), "{reply}");
+    }
+    assert_eq!(events(&server, "mcp_subscription_created").len(), 1);
 }
 
 // B:mcp_subscription_cleanup — verify unit "unsubscribe removes subscription"
@@ -55,49 +54,23 @@ fn duplicate_subscribe_returns_false() {
 )]
 fn unsubscribe_removes_subscription() {
     let mut server = init_server();
-    subscriptions::subscribe(
-        server.state_mut(),
-        "client1",
-        specforge_mcp::subscriptions::Watched::Graph,
+    call(
+        &mut server,
+        "resources/subscribe",
+        json!({"uri": "specforge://graph"}),
     );
-    let removed = subscriptions::unsubscribe(
-        server.state_mut(),
-        "client1",
-        specforge_mcp::subscriptions::Watched::Graph,
+    let reply = call(
+        &mut server,
+        "resources/unsubscribe",
+        json!({"uri": "specforge://graph"}),
     );
-    assert!(removed);
+    assert_eq!(reply["result"], json!({}), "{reply}");
 
-    let subs =
-        subscriptions::subscribers(server.state(), specforge_mcp::subscriptions::Watched::Graph);
+    let subs = specforge_mcp::subscriptions::subscribers(
+        server.state(),
+        specforge_mcp::subscriptions::Watched::Graph,
+    );
     assert!(subs.is_empty());
-}
-
-#[test]
-fn unsubscribe_all_removes_all() {
-    let mut server = init_server();
-    subscriptions::subscribe(
-        server.state_mut(),
-        "client1",
-        specforge_mcp::subscriptions::Watched::Graph,
-    );
-    subscriptions::subscribe(
-        server.state_mut(),
-        "client1",
-        specforge_mcp::subscriptions::Watched::Diagnostics,
-    );
-    subscriptions::unsubscribe_all(server.state_mut(), "client1");
-
-    assert!(
-        subscriptions::subscribers(server.state(), specforge_mcp::subscriptions::Watched::Graph)
-            .is_empty()
-    );
-    assert!(
-        subscriptions::subscribers(
-            server.state(),
-            specforge_mcp::subscriptions::Watched::Diagnostics
-        )
-        .is_empty()
-    );
 }
 
 // B:mcp_subscription_cleanup — verify unit "shutdown clears all subscriptions"
@@ -107,10 +80,10 @@ fn unsubscribe_all_removes_all() {
 )]
 fn shutdown_clears_subscriptions() {
     let mut server = init_server();
-    subscriptions::subscribe(
-        server.state_mut(),
-        "client1",
-        specforge_mcp::subscriptions::Watched::Graph,
+    call(
+        &mut server,
+        "resources/subscribe",
+        json!({"uri": "specforge://graph"}),
     );
 
     let req = json!({"jsonrpc":"2.0","id":2,"method":"shutdown","params":{}});
@@ -123,7 +96,7 @@ fn shutdown_clears_subscriptions() {
             .events
             .iter()
             .any(|e| e.name == "mcp_subscription_removed"
-                && e.params["clientId"] == "client1"
+                && e.params["clientId"] == "default"
                 && e.params["subscriptionType"] == "specforge/graphChanged"),
         "shutdown emits mcp_subscription_removed"
     );
@@ -295,12 +268,18 @@ fn disconnect_removes_only_that_clients_subscriptions() {
 
     let state = server.state();
     assert_eq!(
-        subscriptions::subscribers(state, specforge_mcp::subscriptions::Watched::Graph),
+        specforge_mcp::subscriptions::subscribers(
+            state,
+            specforge_mcp::subscriptions::Watched::Graph
+        ),
         ["c2"]
     );
     assert!(
-        subscriptions::subscribers(state, specforge_mcp::subscriptions::Watched::Diagnostics)
-            .is_empty()
+        specforge_mcp::subscriptions::subscribers(
+            state,
+            specforge_mcp::subscriptions::Watched::Diagnostics
+        )
+        .is_empty()
     );
     let removed = state
         .events

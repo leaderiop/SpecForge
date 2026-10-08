@@ -583,10 +583,10 @@ fn list_prompts_core_descriptors_no_extensions() {
 )]
 fn cancel_state_consistent() {
     let (mut server, _dir) = init_server_with_project();
-    specforge_mcp::subscriptions::subscribe(
-        server.state_mut(),
-        "client1",
-        specforge_mcp::subscriptions::Watched::Graph,
+    call(
+        &mut server,
+        "resources/subscribe",
+        json!({"uri": "specforge://graph"}),
     );
     let before = state_snapshot(&server);
     assert_eq!(before["nodes"], json!(["greeting", "hello_world"]));
