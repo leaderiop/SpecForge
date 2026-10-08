@@ -134,6 +134,32 @@ fn progress_under(
     }
 }
 
+/// The inference density above which I202 is reported, unless
+/// `inference.density_threshold` says otherwise.
+const DEFAULT_DENSITY_THRESHOLD: f64 = 0.05;
+
+/// The `inferred` lint profile's diagnostics for the view's project: I200
+/// for each indexed file whose content changed since it was analyzed, and
+/// I202 for each indexed file with more entities per line than the
+/// threshold of the config the view was compiled with
+/// (`view.env().config.inference.density_threshold`). Nothing without a
+/// root or a manifest.
+pub fn lint(view: &ProjectView) -> Vec<specforge_common::Diagnostic> {
+    let Some(root) = view.root() else {
+        return Vec::new();
+    };
+    let Ok(manifest) = inference::load_inference_manifest(root) else {
+        return Vec::new();
+    };
+    let density_threshold = view
+        .env()
+        .config
+        .inference
+        .density_threshold
+        .unwrap_or(DEFAULT_DENSITY_THRESHOLD);
+    inference::compute_inference_diagnostics(root, &manifest, density_threshold)
+}
+
 /// The public items of the view's source files that no entity of its
 /// graph names, scanned through its extensions' scanners on `runtime`.
 /// Without a root: `no_project`.

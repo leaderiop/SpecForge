@@ -541,6 +541,7 @@ behavior check_diagnostic_policy "Apply the Diagnostic Policy Once" {
     whether the check passes or whether the build cache is written.
   """
   verify unit "an unknown lint profile is refused by name, and pedantic adds nothing"
+  verify unit "each named lint profile adds its diagnostics once, before strict promotes warnings"
   verify unit "the verdict and the cache decision are taken over every reported diagnostic, never the filtered ones"
   verify unit "strict promotes warnings before the verdict, so a strict check with warnings is not clean"
   verify unit "--lint pedantic is accepted and changes nothing"
