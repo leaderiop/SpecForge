@@ -681,6 +681,7 @@ behavior serve_stateless_mcp_requests "Serve Stateless MCP Requests" {
   verify unit "an unsupported protocol version is -32022 naming the supported versions"
   verify unit "ping and resources/subscribe are not stateless methods"
   verify unit "a stateless request after initialize is served under its own revision"
+  verify unit "a stateless request's revision ends with the request"
 }
 
 behavior listen_for_mcp_resource_updates "Listen for MCP Resource Updates" {
@@ -717,6 +718,7 @@ behavior listen_for_mcp_resource_updates "Listen for MCP Resource Updates" {
   verify unit "a listen stream receives no notification type it did not ask for"
   verify unit "both eras decide what a change touches by one rule"
   verify unit "cancelling the listen request ends the stream"
+  verify unit "the end of the connection ends the stream"
 }
 
 behavior handle_mcp_request_cancellation "Handle MCP Request Cancellation" {

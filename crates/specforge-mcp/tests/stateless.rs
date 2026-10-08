@@ -6,6 +6,8 @@ use serde_json::{Value, json};
 use specforge_mcp::McpServer;
 use specforge_test::prelude::*;
 
+use crate::support::events;
+
 const REVISION: &str = "2026-07-28";
 
 /// A project on disk using `@specforge/software`, with behavior `alpha`.
@@ -241,6 +243,52 @@ fn a_stateless_request_after_initialize_keeps_its_revision() {
     assert_eq!(server.state().protocol_version, "2025-03-26");
 }
 
+/// How many of the listed tools carry an `outputSchema`.
+fn with_output_schema(reply: &Value) -> usize {
+    reply["result"]["tools"]
+        .as_array()
+        .unwrap_or_else(|| panic!("no tools in {reply}"))
+        .iter()
+        .filter(|tool| tool.get("outputSchema").is_some())
+        .count()
+}
+
+#[specforge_test(
+    behavior = "serve_stateless_mcp_requests",
+    verify = "a stateless request's revision ends with the request"
+)]
+fn a_stateless_requests_revision_ends_with_it() {
+    let dir = project();
+    let mut server = server(&dir);
+    let unknown = json!({"uri": "specforge://nope"});
+
+    let stateless_read = stateless(&mut server, "resources/read", unknown.clone());
+    assert_eq!(stateless_read["error"]["code"], -32602, "{stateless_read}");
+    // The next request, without `_meta`, is a handshake request.
+    let bare = send(&mut server, 2, "resources/read", unknown.clone()).unwrap();
+    assert_eq!(bare["error"]["code"], -32600, "{bare}");
+    assert_eq!(bare["error"]["message"], "Server not initialized");
+
+    send(
+        &mut server,
+        3,
+        "initialize",
+        json!({"protocolVersion": "2025-03-26", "capabilities": {}}),
+    );
+    let handshake = send(&mut server, 4, "resources/read", unknown.clone()).unwrap();
+    assert_eq!(handshake["error"]["code"], -32002, "{handshake}");
+    let again = stateless(&mut server, "resources/read", unknown.clone());
+    assert_eq!(again["error"]["code"], -32602, "{again}");
+    let handshake = send(&mut server, 5, "resources/read", unknown).unwrap();
+    assert_eq!(handshake["error"]["code"], -32002, "{handshake}");
+
+    // 2025-03-26 has no structuredContent, so no outputSchema either.
+    let modern = stateless(&mut server, "tools/list", json!({}));
+    assert!(with_output_schema(&modern) > 0, "{modern}");
+    let legacy = send(&mut server, 6, "tools/list", json!({})).unwrap();
+    assert_eq!(with_output_schema(&legacy), 0, "{legacy}");
+}
+
 // --- subscriptions/listen ---
 
 /// Open a listen stream with request id 7 for `filter`; the notifications
@@ -381,6 +429,26 @@ fn cancelling_the_listen_request_ends_the_stream() {
         "no mcp_subscription_removed"
     );
 
+    change_graph(&mut server, &dir);
+    assert!(server.take_notifications().is_empty());
+}
+
+#[specforge_test(
+    behavior = "listen_for_mcp_resource_updates",
+    verify = "the end of the connection ends the stream"
+)]
+fn the_end_of_the_connection_ends_the_stream() {
+    let dir = project();
+    let mut server = server(&dir);
+    listen(
+        &mut server,
+        json!({"resourceSubscriptions": ["specforge://graph"]}),
+    );
+    server.disconnect("default");
+    assert_eq!(
+        events(&server, "mcp_subscription_removed"),
+        [json!({"subscriptionType": "specforge://graph", "clientId": "7"})]
+    );
     change_graph(&mut server, &dir);
     assert!(server.take_notifications().is_empty());
 }

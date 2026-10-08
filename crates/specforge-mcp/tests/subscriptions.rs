@@ -428,3 +428,160 @@ fn resources_subscribe_guards() {
     let resp = call(&mut server, "resources/subscribe", json!({}));
     assert!(resp["error"].is_object(), "must reject missing uri");
 }
+
+// ---- Pins: who hears about what (plan 12, T0) ----
+
+/// The `method` of each notification.
+fn methods(sent: &[serde_json::Value]) -> Vec<String> {
+    sent.iter()
+        .map(|n| n["method"].as_str().unwrap_or_default().to_string())
+        .collect()
+}
+
+/// A served project holding the behavior `alpha`.
+fn alpha() -> Served {
+    TestProject::new()
+        .file("main.spec", "behavior alpha \"Alpha\" {\n}\n")
+        .serve(&[TestExtension::software()])
+}
+
+/// A new behavior on disk, brought in by a request that reads the project.
+fn change(server: &mut Served) {
+    server.write("beta.spec", "behavior beta \"Beta\" {\n}\n");
+    call_tool(server, "specforge.stats", json!({}));
+}
+
+/// The extension names of the served `specforge://schema`.
+fn schema_extensions(server: &mut McpServer) -> Vec<String> {
+    let (_, schema) = resource(server, "specforge://schema");
+    schema["extensions"]
+        .as_array()
+        .unwrap_or_else(|| panic!("no extensions in {schema}"))
+        .iter()
+        .map(|e| e["name"].as_str().unwrap().to_string())
+        .collect()
+}
+
+/// P1 (bug A): an environment reload that changes the schema is heard by
+/// nobody.
+#[test]
+fn an_environment_reload_that_keeps_the_graph_is_heard_by_no_one() {
+    let mut server = TestProject::new()
+        .enabling(&["@specforge/software"])
+        .file(
+            "main.spec",
+            "behavior alpha \"Alpha\" {\n  contract \"MUST work\"\n}\n",
+        )
+        .serve_components();
+    call(
+        &mut server,
+        "resources/subscribe",
+        json!({"uri": "specforge://schema"}),
+    );
+    listen(
+        &mut server,
+        json!(3),
+        &["specforge://schema", "specforge://graph"],
+    );
+    assert_eq!(schema_extensions(&mut server), ["@specforge/software"]);
+
+    server.write(
+        "specforge.json",
+        &json!({"name": "t", "version": "0.1.0",
+            "extensions": ["@specforge/software", "@specforge/product"]})
+        .to_string(),
+    );
+    call_tool(&mut server, "specforge.stats", json!({}));
+
+    assert!(server.take_notifications().is_empty());
+    assert_eq!(
+        schema_extensions(&mut server),
+        ["@specforge/software", "@specforge/product"]
+    );
+}
+
+/// P2 (bug B): unsubscribing one graph view unsubscribes them all.
+#[test]
+fn unsubscribing_one_graph_view_unsubscribes_them_all() {
+    let mut server = alpha();
+    for uri in ["specforge://graph", "specforge://context"] {
+        call(&mut server, "resources/subscribe", json!({"uri": uri}));
+    }
+    call(
+        &mut server,
+        "resources/unsubscribe",
+        json!({"uri": "specforge://context"}),
+    );
+    change(&mut server);
+    assert!(server.take_notifications().is_empty());
+}
+
+/// P3 (bug C): a subscribed resource hears only the SpecForge delta.
+#[test]
+fn a_subscribed_resource_hears_only_the_specforge_delta() {
+    let mut server = alpha();
+    call(
+        &mut server,
+        "resources/subscribe",
+        json!({"uri": "specforge://graph"}),
+    );
+    change(&mut server);
+    assert_eq!(
+        methods(&server.take_notifications()),
+        ["specforge/graphChanged"]
+    );
+}
+
+/// P4 (bug D): shutdown ends a listen stream without recording it.
+#[test]
+fn shutdown_ends_a_listen_stream_without_recording_it() {
+    let mut server = alpha();
+    call(
+        &mut server,
+        "resources/subscribe",
+        json!({"uri": "specforge://graph"}),
+    );
+    listen(&mut server, json!(7), &["specforge://diagnostics"]);
+    call(&mut server, "shutdown", json!({}));
+    assert_eq!(
+        events(&server, "mcp_subscription_removed"),
+        [json!({"subscriptionType": "specforge/graphChanged", "clientId": "default"})]
+    );
+    assert_eq!(
+        events(&server, "mcp_server_shutdown")[0]["subscriptions_released"],
+        1
+    );
+}
+
+/// P5 (bug E): a resource a listen names twice is heard twice.
+#[test]
+fn a_resource_a_listen_names_twice_is_heard_twice() {
+    let mut server = alpha();
+    let ack = listen(
+        &mut server,
+        json!(3),
+        &["specforge://graph", "specforge://graph"],
+    );
+    assert_eq!(
+        ack[0]["params"]["notifications"]["resourceSubscriptions"],
+        json!(["specforge://graph", "specforge://graph"])
+    );
+    change(&mut server);
+    let sent = server.take_notifications();
+    assert_eq!(sent.len(), 2, "{sent:?}");
+    for n in &sent {
+        assert_eq!(n["method"], "notifications/resources/updated");
+        assert_eq!(n["params"]["uri"], "specforge://graph");
+    }
+}
+
+/// P6 (bug F): a string listen id is recorded as JSON text.
+#[test]
+fn a_string_listen_id_is_quoted_in_its_events() {
+    let mut server = alpha();
+    listen(&mut server, json!("abc"), &["specforge://graph"]);
+    assert_eq!(
+        events(&server, "mcp_subscription_created"),
+        [json!({"subscriptionType": "specforge://graph", "clientId": "\"abc\""})]
+    );
+}
