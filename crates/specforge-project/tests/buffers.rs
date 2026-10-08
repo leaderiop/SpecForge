@@ -2,10 +2,15 @@
 //! `hold_editor_buffers`, ADR 0046).
 
 use std::fs;
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use specforge_extension_sdk::prelude::*;
-use specforge_project::{ProjectSession, SharedRuntime, SourceChange};
+use specforge_project::{
+    Buffer, Changes, CheckMode, CompiledProject, ProjectSession, SharedRuntime, SourceChange,
+    UpdateKind,
+};
+use specforge_test::prelude::*;
 use specforge_wasm::testing::InProcessRuntime;
 use tempfile::TempDir;
 
@@ -57,55 +62,160 @@ fn has(session: &ProjectSession, id: &str) -> bool {
     session.project().graph().node(id).is_some()
 }
 
-fn hold(session: &mut ProjectSession, text: &str) {
-    session.update(SourceChange::Buffer {
-        path: "a.spec",
-        text: Some(text),
-    });
+fn hold(session: &mut ProjectSession, dir: &TempDir, text: &str) {
+    session.update(SourceChange::Hold(&[Buffer::new(
+        dir.path().join("a.spec"),
+        text,
+    )]));
 }
 
-/// Pin (flipped by T2): a buffer's file written on disk replaces the buffer
-/// when the session catches up.
-#[test]
-fn pin_a_buffers_file_written_on_disk_replaces_it() {
+#[specforge_test(
+    behavior = "hold_editor_buffers",
+    verify = "a held buffer is the truth for its file until it is released"
+)]
+fn a_held_buffer_is_the_truth_for_its_file_until_released() {
     let rt = counting();
     let (dir, mut session) = opened(&rt);
-    hold(&mut session, OMEGA);
-    fs::write(dir.path().join("a.spec"), ZETA).unwrap();
-    assert_eq!(session.stale().sources, ["a.spec"]);
-    assert!(session.ensure_fresh().is_some());
+    let a = dir.path().join("a.spec");
+    hold(&mut session, &dir, OMEGA);
+    fs::write(&a, ZETA).unwrap();
+    assert!(session.changes(std::iter::once(a.as_path())).is_empty());
+    assert!(session.stale().is_empty());
+    assert!(session.ensure_fresh().is_none());
+    assert!(has(&session, "omega"));
+
+    assert!(session.release(&[a]).is_some());
     assert!(has(&session, "zeta") && !has(&session, "omega"));
+    assert!(session.stale().is_empty());
 }
 
-/// Pin (flipped by T2): a buffer's deleted file leaves the project.
-#[test]
-fn pin_a_buffers_deleted_file_leaves_the_project() {
+#[specforge_test(
+    behavior = "hold_editor_buffers",
+    verify = "a held buffer's file changed or deleted on disk is not stale"
+)]
+fn a_held_buffers_deleted_file_is_not_stale() {
     let rt = counting();
     let (dir, mut session) = opened(&rt);
-    hold(&mut session, OMEGA);
-    fs::remove_file(dir.path().join("a.spec")).unwrap();
-    assert_eq!(session.stale().sources, ["a.spec"]);
-    assert!(session.ensure_fresh().is_some());
+    let a = dir.path().join("a.spec");
+    hold(&mut session, &dir, OMEGA);
+    fs::remove_file(&a).unwrap();
+    assert!(session.stale().is_empty());
+    let named = Changes {
+        sources: vec!["a.spec".into()],
+        ..Changes::default()
+    };
+    assert!(session.apply(&named).is_none());
+    assert!(has(&session, "omega"));
+
+    assert!(session.release(&[a]).is_some());
     assert!(!has(&session, "omega"));
 }
 
-/// Pin (flipped by T2): a buffer whose text is its file's still runs the
-/// checks.
-#[test]
-fn pin_a_buffer_whose_text_is_its_file_runs_the_checks() {
+#[specforge_test(
+    behavior = "hold_editor_buffers",
+    verify = "holding a buffer whose text is its file's runs no check"
+)]
+fn holding_a_buffer_whose_text_is_its_files_runs_no_check() {
+    let rt = counting();
+    let (dir, mut session) = opened(&rt);
+    let before = check_runs(&rt);
+    let update = session.update(SourceChange::Hold(&[Buffer::new(
+        dir.path().join("a.spec"),
+        ALPHA,
+    )
+    .at_version(Some(3))]));
+    assert_eq!(check_runs(&rt) - before, 0);
+    assert!(update.rebuilt_files.is_empty());
+    assert_eq!(session.buffer("a.spec").unwrap().version, Some(3));
+}
+
+#[specforge_test(
+    behavior = "hold_editor_buffers",
+    verify = "releasing a buffer reads its file through the one read and leaves nothing stale"
+)]
+fn releasing_a_saved_buffer_reads_it_once_and_leaves_nothing_stale() {
+    let rt = counting();
+    let (dir, mut session) = opened(&rt);
+    let a = dir.path().join("a.spec");
+    hold(&mut session, &dir, OMEGA);
+    fs::write(&a, OMEGA).unwrap(); // saved
+    let before = check_runs(&rt);
+    assert!(session.release(std::slice::from_ref(&a)).is_none());
+    assert_eq!(check_runs(&rt) - before, 0);
+    assert!(session.stale().is_empty());
+    assert!(session.buffer("a.spec").is_none());
+
+    // The file is the disk's again.
+    fs::write(&a, ZETA).unwrap();
+    assert_eq!(session.stale().sources, ["a.spec"]);
+}
+
+#[specforge_test(
+    behavior = "hold_editor_buffers",
+    verify = "releasing a buffer outside the project drops its file"
+)]
+fn releasing_a_buffer_outside_the_project_drops_it() {
+    // No project: the buffer was the file's only text.
+    let mut detached = ProjectSession::detached();
+    detached.update(SourceChange::Hold(&[Buffer::new("/p/a.spec", ALPHA)]));
+    assert!(has(&detached, "alpha"));
+    assert!(detached.release(&[PathBuf::from("/p/a.spec")]).is_some());
+    assert!(!has(&detached, "alpha"));
+
+    // In a project, a file outside the spec root is held and builds nothing.
     let rt = counting();
     let (_dir, mut session) = opened(&rt);
+    let elsewhere = TempDir::new().unwrap();
+    session.update(SourceChange::Hold(&[Buffer::new(
+        elsewhere.path().join("x.spec"),
+        ZETA,
+    )]));
+    assert!(!has(&session, "zeta"));
     let before = check_runs(&rt);
-    hold(&mut session, ALPHA);
-    assert_eq!(check_runs(&rt) - before, 1);
+    assert!(
+        session
+            .release(&[elsewhere.path().join("x.spec")])
+            .is_none()
+    );
+    assert_eq!(check_runs(&rt) - before, 0);
+}
+
+#[specforge_test(
+    behavior = "hold_editor_buffers",
+    verify = "releasing a buffer that did not parse runs the skipped checks"
+)]
+fn releasing_a_buffer_that_did_not_parse_runs_the_skipped_checks() {
+    let rt = counting();
+    let (dir, mut session) = opened(&rt);
+    let a = dir.path().join("a.spec");
+    let broken = "type alpha \"A\" {\n  contract \"\n";
+    session.update_with(
+        SourceChange::Hold(&[Buffer::new(&a, broken)]),
+        CheckMode::SyntaxOnlyIfParseErrors,
+    );
+    let reported = |s: &ProjectSession| s.project().diagnostics().iter().any(|d| d.code == "I990");
+    assert!(!reported(&session), "the typing fast path skips the checks");
+
+    fs::write(&a, broken).unwrap(); // saved
+    let update = session.release(&[a]).expect("the skipped checks run");
+    assert_eq!(update.kind, UpdateKind::Checks);
+    assert!(reported(&session));
+    let fresh = CompiledProject::compile(dir.path(), Some(&*rt));
+    let codes = |d: Vec<specforge_common::Diagnostic>| -> Vec<String> {
+        d.into_iter().map(|d| d.code).collect()
+    };
+    assert_eq!(
+        codes(session.project().diagnostics()),
+        codes(fresh.diagnostics())
+    );
 }
 
 /// Pin (flipped by T3): a reload rebuilds from disk and forgets the buffers.
 #[test]
 fn pin_a_reload_rebuilds_from_disk_without_the_buffers() {
     let rt = counting();
-    let (_dir, mut session) = opened(&rt);
-    hold(&mut session, OMEGA);
+    let (dir, mut session) = opened(&rt);
+    hold(&mut session, &dir, OMEGA);
     let before = check_runs(&rt);
     session.reload_environment();
     assert_eq!(check_runs(&rt) - before, 1);

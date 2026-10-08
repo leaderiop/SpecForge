@@ -7,7 +7,7 @@
 use std::path::{Path, PathBuf};
 
 use specforge_project::{
-    Changes, CheckMode, InputRole, ProjectSession, SourceChange, Update, UpdateKind,
+    Buffer, Changes, CheckMode, ProjectSession, SourceChange, Update, UpdateKind,
 };
 use tower_lsp::lsp_types::{FileChangeType, FileEvent, Url};
 
@@ -37,27 +37,17 @@ pub enum Change {
     CatchUp,
 }
 
-/// What a closed document's file becomes to the project.
-#[derive(Debug)]
-enum Closed {
-    /// A project source: read from disk again.
-    Reread(String),
-    /// Any other file (outside the spec root, excluded, or any file of a
-    /// session with no project): it leaves the project.
-    Drop(String),
-}
-
 /// What a change will apply.
 pub struct Plan {
     /// The project to open (`Change::Open`).
     root: Option<PathBuf>,
     /// What the watched paths amount to, applied first.
     disk: Option<Changes>,
-    /// The absolute path of the document that was closed.
-    closed: Option<PathBuf>,
-    /// The open buffers to apply, by absolute path: keys are the session's
-    /// to give once the environment it applies them to is loaded.
-    buffers: Vec<(PathBuf, String)>,
+    /// The absolute path of the document that was closed: the session
+    /// releases its buffer.
+    released: Option<PathBuf>,
+    /// The open buffers to hold, by absolute path: the session keys them.
+    buffers: Vec<Buffer>,
     /// The editor is typing: the checks are skipped while a buffer does not
     /// parse.
     typing: bool,
@@ -71,8 +61,9 @@ impl Plan {
     /// - `Open`: the root, then every open buffer, with every check;
     /// - `Edited`: the buffers of the documents still open, the checks
     ///   skipped while any of them does not parse (the typing fast path);
-    /// - `Closed`: a project source is read from disk again; any other file
-    ///   (and every file of a session with no project) leaves the project;
+    /// - `Closed`: the session releases the buffer (a project source is read
+    ///   from disk again; any other file, and every file of a session with no
+    ///   project, leaves the project);
     /// - `Watched`: the paths that are not open documents, and the
     ///   deletions of those that are, as the session classifies them; after
     ///   an environment reload, every open buffer again;
@@ -88,7 +79,7 @@ impl Plan {
         let nothing = Plan {
             root: None,
             disk: None,
-            closed: None,
+            released: None,
             buffers: Vec::new(),
             typing: false,
             edited: None,
@@ -120,7 +111,7 @@ impl Plan {
                     return None;
                 }
                 Some(Plan {
-                    closed: Some(PathBuf::from(uri_to_file_path(&uri))),
+                    released: Some(PathBuf::from(uri_to_file_path(&uri))),
                     ..nothing
                 })
             }
@@ -169,7 +160,7 @@ impl Plan {
         Some(Plan {
             root: None,
             disk: Some(changes),
-            closed: None,
+            released: None,
             buffers,
             typing: false,
             edited: None,
@@ -186,8 +177,8 @@ impl Plan {
 
     /// Apply the plan to `session`. Blocking: it reads files and runs the
     /// checks. The watched changes first (`ProjectSession::apply`), then the
-    /// closed file (nothing when its disk text is the compiled text), then
-    /// every buffer as one update (`SourceChange::Buffers`).
+    /// released buffer (`ProjectSession::release`), then every buffer as one
+    /// update (`SourceChange::Hold`).
     pub fn apply(self, session: &mut ProjectSession) -> Applied {
         let opened = self.root.is_some();
         let mut applied = Applied {
@@ -207,35 +198,24 @@ impl Plan {
             }
             applied.touched.extend(changes.sources.iter().cloned());
         }
-        if let Some(path) = &self.closed {
+        if let Some(path) = &self.released {
             applied.close(session, path);
         }
         if !self.buffers.is_empty() {
-            // Keys are the session's now: a reload may have moved the spec
-            // root.
-            let buffers: Vec<(String, String)> = self
-                .buffers
-                .iter()
-                .map(|(path, text)| {
-                    (
-                        session.project().environment().source_key(path),
-                        text.clone(),
-                    )
-                })
-                .collect();
-            let keys: Vec<&str> = buffers.iter().map(|(key, _)| key.as_str()).collect();
             let mode = if self.typing {
                 // The syntax-only fast path (C4-07): no checks while an
                 // edited file does not parse.
-                CheckMode::SyntaxOnlyIfParseErrorsIn(&keys)
+                CheckMode::SyntaxOnlyIfParseErrors
             } else {
                 CheckMode::Full
             };
-            let update = session.update_with(SourceChange::Buffers(&buffers), mode);
+            let update = session.update_with(SourceChange::Hold(&self.buffers), mode);
             applied.record(update);
-            applied
-                .touched
-                .extend(buffers.iter().map(|(key, _)| key.clone()));
+            applied.touched.extend(
+                self.buffers
+                    .iter()
+                    .map(|buffer| session.source_key(&buffer.path)),
+            );
             applied.changed = true;
         }
         applied
@@ -243,17 +223,17 @@ impl Plan {
 }
 
 /// The open document `uri` as a buffer to apply.
-fn buffer_of(state: &LspState, uri: &str) -> Option<(PathBuf, String)> {
+fn buffer_of(state: &LspState, uri: &str) -> Option<Buffer> {
     let document = state.document(uri)?;
     let url = Url::parse(uri).ok()?;
-    Some((
-        PathBuf::from(uri_to_file_path(&url)),
-        document.text().to_string(),
-    ))
+    Some(
+        Buffer::new(PathBuf::from(uri_to_file_path(&url)), document.text())
+            .at_version(document.version()),
+    )
 }
 
 /// Every open document as a buffer to apply, in URI order.
-fn open_buffers(state: &LspState) -> Vec<(PathBuf, String)> {
+fn open_buffers(state: &LspState) -> Vec<Buffer> {
     state
         .open_uris()
         .into_iter()
@@ -296,40 +276,16 @@ impl Applied {
         self.touched.extend(update.rebuilt_files);
     }
 
-    /// A closed document's file stops being the editor's: a project source
-    /// is read from disk again (nothing to do when the disk text is what
-    /// the project holds), any other file leaves the project. Either way
-    /// the file is published as the project reports it now.
+    /// A closed document's buffer is released: a project source is read
+    /// from disk again (nothing to do when the disk text is what the
+    /// project holds), any other file leaves the project. Either way the
+    /// file is published as the project reports it now.
     fn close(&mut self, session: &mut ProjectSession, path: &Path) {
-        let key = session.project().environment().source_key(path);
         self.closed = true;
-        self.touched.push(key.clone());
-        let source = session.project().root().is_some()
-            && matches!(session.inputs().classify(path), InputRole::Source(_));
-        let closed = if source {
-            Closed::Reread(key)
-        } else {
-            Closed::Drop(key)
-        };
-        match closed {
-            Closed::Reread(key) => {
-                let disk =
-                    std::fs::read_to_string(session.project().environment().spec_root.join(&key))
-                        .ok();
-                if disk.as_deref() != session.project().source_text(&key).as_deref() {
-                    let update = session.update(SourceChange::Disk(std::slice::from_ref(&key)));
-                    self.record(update);
-                    self.changed = true;
-                }
-            }
-            Closed::Drop(key) => {
-                let update = session.update(SourceChange::Buffer {
-                    path: &key,
-                    text: None,
-                });
-                self.record(update);
-                self.changed = true;
-            }
+        self.touched.push(session.source_key(path));
+        if let Some(update) = session.release(std::slice::from_ref(&path.to_path_buf())) {
+            self.record(update);
+            self.changed = true;
         }
     }
 

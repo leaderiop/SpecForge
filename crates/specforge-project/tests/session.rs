@@ -3,7 +3,9 @@ use std::path::Path;
 
 use specforge_common::Diagnostic;
 use specforge_graph::Graph;
-use specforge_project::{CheckMode, CompiledProject, ProjectSession, SourceChange, UpdateKind};
+use specforge_project::{
+    Buffer, CheckMode, CompiledProject, ProjectSession, SourceChange, UpdateKind,
+};
 use specforge_test::prelude::*;
 use tempfile::TempDir;
 
@@ -844,10 +846,10 @@ fn buffer_edits_leave_what_a_fresh_compile_builds() {
         behavior("beta", "  invariants [alpha]\n"),
     ];
     for text in &texts {
-        let update = session.update(SourceChange::Buffer {
-            path: "a.spec",
-            text: Some(text),
-        });
+        let update = session.update(SourceChange::Hold(&[Buffer::new(
+            root.join("a.spec"),
+            text,
+        )]));
         assert_eq!(update.rebuilt_files, ["a.spec"]);
         assert_eq!(update.verification, Some(Ok(())), "{text}");
         write(root, "a.spec", text);
@@ -857,10 +859,9 @@ fn buffer_edits_leave_what_a_fresh_compile_builds() {
     // A buffer that is gone takes its file's entities with it. (Whether an
     // import's target exists is read from disk, as `check` reads it.)
     fs::remove_file(root.join("a.spec")).unwrap();
-    let update = session.update(SourceChange::Buffer {
-        path: "a.spec",
-        text: None,
-    });
+    let update = session
+        .release(&[root.join("a.spec")])
+        .expect("the file is gone on disk: the parse leaves");
     assert_eq!(ids(&update.delta.removed_nodes), ["beta"]);
     assert_matches_a_fresh_compile(&session, root);
 }
@@ -887,10 +888,10 @@ fn the_session_keeps_the_text_each_file_was_built_from() {
     // A buffer the disk does not hold yet: the build, and so the text, is
     // the buffer's.
     let buffer = behavior("beta", "  invariants [alpha]\n");
-    session.update(SourceChange::Buffer {
-        path: "a.spec",
-        text: Some(&buffer),
-    });
+    session.update(SourceChange::Hold(&[Buffer::new(
+        root.join("a.spec"),
+        buffer.clone(),
+    )]));
     assert_eq!(
         session.project().source_text("a.spec").as_deref(),
         Some(&*buffer)
@@ -904,10 +905,8 @@ fn the_session_keeps_the_text_each_file_was_built_from() {
     let kept = session.project().source_texts();
     assert_eq!(kept.get("a.spec").map(|t| &**t), Some(&*buffer));
 
-    session.update(SourceChange::Buffer {
-        path: "a.spec",
-        text: None,
-    });
+    fs::remove_file(root.join("a.spec")).unwrap();
+    session.release(&[root.join("a.spec")]);
     assert_eq!(session.project().source_text("a.spec"), None);
     assert!(kept.contains_key("a.spec"), "a kept copy does not change");
 }
@@ -931,13 +930,13 @@ fn several_buffers_are_one_update() {
     session.set_verify_incremental(true);
 
     let buffers = [
-        ("a.spec".to_string(), behavior("omega", "")),
-        (
-            "b.spec".to_string(),
+        Buffer::new(root.join("a.spec"), behavior("omega", "")),
+        Buffer::new(
+            root.join("b.spec"),
             behavior("beta", "  invariants [omega]\n"),
         ),
     ];
-    let update = session.update_with(SourceChange::Buffers(&buffers), CheckMode::Full);
+    let update = session.update_with(SourceChange::Hold(&buffers), CheckMode::Full);
     assert_eq!(update.rebuilt_files, ["a.spec", "b.spec"]);
     assert_eq!(update.verification, Some(Ok(())));
     assert!(
@@ -947,14 +946,14 @@ fn several_buffers_are_one_update() {
     );
     // The disk does not hold the buffers; once it does, a fresh compile of
     // it is what the session reports (codes and spans).
-    for (path, text) in &buffers {
-        write(root, path, text);
+    for buffer in &buffers {
+        fs::write(&buffer.path, &buffer.text).unwrap();
     }
     assert_matches_a_fresh_compile(&session, root);
 
-    // Files discovery would not find are ignored.
-    let ignored = [("notes.txt".to_string(), "x".to_string())];
-    let update = session.update(SourceChange::Buffers(&ignored));
+    // Files discovery would not find are held and build nothing.
+    let ignored = [Buffer::new(root.join("notes.txt"), "x")];
+    let update = session.update(SourceChange::Hold(&ignored));
     assert!(update.rebuilt_files.is_empty());
     assert_matches_a_fresh_compile(&session, root);
 }
@@ -971,20 +970,29 @@ fn a_parse_error_in_any_edited_buffer_skips_the_checks() {
             ("b.spec", &behavior("beta", "")),
         ],
     );
-    let mut session = ProjectSession::open(dir.path());
+    let root = dir.path();
+    let mut session = ProjectSession::open(root);
     let buffers = [
-        ("a.spec".to_string(), behavior("alpha", "")),
-        (
-            "b.spec".to_string(),
-            "behavior beta \"B\" {\n  contract \"\n".to_string(),
+        Buffer::new(root.join("a.spec"), behavior("alpha", "")),
+        Buffer::new(
+            root.join("b.spec"),
+            "behavior beta \"B\" {\n  contract \"\n",
         ),
     ];
-    let keys = ["a.spec", "b.spec"];
-    let full = session.update_with(SourceChange::Buffers(&buffers), CheckMode::Full);
+    let full = session.update_with(SourceChange::Hold(&buffers), CheckMode::Full);
 
+    // The same buffers again change nothing: b.spec gets one more line, still
+    // unclosed.
+    let more = [
+        buffers[0].clone(),
+        Buffer::new(
+            root.join("b.spec"),
+            "behavior beta \"B\" {\n  contract \"\n\n",
+        ),
+    ];
     let fast = session.update_with(
-        SourceChange::Buffers(&buffers),
-        CheckMode::SyntaxOnlyIfParseErrorsIn(&keys),
+        SourceChange::Hold(&more),
+        CheckMode::SyntaxOnlyIfParseErrors,
     );
     let codes: Vec<&str> = fast.diagnostics.iter().map(|d| d.code.as_str()).collect();
     assert!(
@@ -1000,12 +1008,12 @@ fn a_parse_error_in_any_edited_buffer_skips_the_checks() {
 
     // Every edited buffer parses: the checks run.
     let parses = [
-        ("a.spec".to_string(), behavior("alpha", "")),
-        ("b.spec".to_string(), behavior("beta", "")),
+        Buffer::new(root.join("a.spec"), behavior("alpha", "")),
+        Buffer::new(root.join("b.spec"), behavior("beta", "")),
     ];
     let update = session.update_with(
-        SourceChange::Buffers(&parses),
-        CheckMode::SyntaxOnlyIfParseErrorsIn(&keys),
+        SourceChange::Hold(&parses),
+        CheckMode::SyntaxOnlyIfParseErrors,
     );
     assert!(!update.diagnostics.iter().any(|d| d.code == "E001"));
 }
@@ -1394,10 +1402,15 @@ fn random_updates_leave_what_a_fresh_compile_builds() {
             }
             let previous = session.project().graph().clone();
             let update = match &buffer {
-                Some((path, text)) => session.update(SourceChange::Buffer {
-                    path,
-                    text: Some(text),
-                }),
+                Some((path, text)) => {
+                    let update = session.update(SourceChange::Hold(&[Buffer::new(
+                        spec.join(path),
+                        text.clone(),
+                    )]));
+                    // Saved, so released to nothing: the next disk steps apply.
+                    assert!(session.release(&[spec.join(path)]).is_none());
+                    update
+                }
                 None => session.update(SourceChange::Disk(&touched)),
             };
             let context = format!("seed {seed:#x} step {step}");
@@ -1510,10 +1523,12 @@ fn a_session_reports_what_a_fresh_compile_reports_in_order() {
                 2 => {
                     let (path, text) = (rng.pick(PATHS), random_spec(&mut rng));
                     write(&spec, path, &text);
-                    Some(session.update(SourceChange::Buffer {
-                        path,
-                        text: Some(&text),
-                    }))
+                    let update = session.update(SourceChange::Hold(&[Buffer::new(
+                        spec.join(path),
+                        text.clone(),
+                    )]));
+                    assert!(session.release(&[spec.join(path)]).is_none());
+                    Some(update)
                 }
                 // Two buffers as one update, both saved.
                 3 => {
@@ -1525,7 +1540,14 @@ fn a_session_reports_what_a_fresh_compile_reports_in_order() {
                     for (path, text) in &buffers {
                         write(&spec, path, text);
                     }
-                    Some(session.update(SourceChange::Buffers(&buffers)))
+                    let held: Vec<Buffer> = buffers
+                        .iter()
+                        .map(|(path, text)| Buffer::new(spec.join(path), text.clone()))
+                        .collect();
+                    let update = session.update(SourceChange::Hold(&held));
+                    let paths: Vec<_> = held.iter().map(|b| b.path.clone()).collect();
+                    assert!(session.release(&paths).is_none());
+                    Some(update)
                 }
                 // Disk writes no path names: caught up by `ensure_fresh`.
                 4 => {
@@ -2031,7 +2053,7 @@ fn an_update_that_skips_the_checks_still_scores_its_own_graph() {
     write(root, "b.spec", "behavior b \"B\" {\n  contract \"\n");
     session.update_with(
         SourceChange::Disk(&changed(&["b.spec"])),
-        CheckMode::SyntaxOnlyIfParseErrorsIn(&["b.spec"]),
+        CheckMode::SyntaxOnlyIfParseErrors,
     );
     let entities = session.project().entities();
     assert!(!std::ptr::eq(entities, &*before), "a fresh memo per update");

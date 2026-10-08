@@ -15,6 +15,7 @@ const A_OMEGA: &str = "type omega \"O\" {}\n";
 const B_USES_ALPHA: &str = "behavior user \"U\" {\n  types [alpha]\n}\n";
 const A_DANGLING: &str = "behavior login \"Login\" {\n  invariants [session_limit]\n}\n";
 const B_PLAIN: &str = "type other \"O\" {}\n";
+const B_USES_ZETA: &str = "behavior user \"U\" {\n  types [zeta]\n}\n";
 const B_USES_OMEGA: &str = "behavior user \"U\" {\n  types [omega]\n}\n";
 
 /// `a.spec` and `b.spec`, `b` using what `a` declares, both open.
@@ -212,7 +213,7 @@ fn a_disk_change_to_an_open_document_is_ignored() {
     served.edit("a.spec", "type zeta \"Z\" {}\n");
 
     // The buffer is the truth for its file: its change on disk is nothing,
-    // its deletion is not.
+    // and so is its deletion.
     served.write("a.spec", "type other \"O\" {}\n");
     let change = changed(&served, "a.spec", FileChangeType::CHANGED);
     assert!(Plan::of(Change::Watched(vec![change.clone()]), &served.state()).is_none());
@@ -225,8 +226,11 @@ fn a_disk_change_to_an_open_document_is_ignored() {
             .any(|sent| matches!(sent, Sent::Published { .. })),
         "nothing is published"
     );
+    std::fs::remove_file(served.root().join("a.spec")).unwrap();
     let deleted = changed(&served, "a.spec", FileChangeType::DELETED);
-    assert!(Plan::of(Change::Watched(vec![deleted]), &served.state()).is_some());
+    let applied = served.apply(Change::Watched(vec![deleted]));
+    assert!(applied.is_none_or(|applied| !applied.changed));
+    assert!(served.state().graph().node("zeta").is_some());
 
     // A file that is not open is the disk's.
     let change = changed(&served, "c.spec", FileChangeType::CHANGED);
@@ -290,12 +294,45 @@ fn a_catch_up_reads_the_disk_except_for_an_open_buffer() {
     behavior = "bring_session_up_to_date",
     verify = "the LSP's catch-up keeps an open buffer"
 )]
-fn a_catch_up_sees_the_deletion_of_an_open_documents_file() {
+fn a_catch_up_keeps_an_open_document_whose_file_was_deleted() {
     let mut served = Served::new(&[("a.spec", A_ALPHA), ("c.spec", A_OMEGA)]).open(&["a.spec"]);
     served.edit("a.spec", "type zeta \"Z\" {}\n");
 
     std::fs::remove_file(served.root().join("a.spec")).unwrap();
-    assert!(Plan::of(Change::CatchUp, &served.state()).is_some());
+    assert!(served.apply(Change::CatchUp).is_none());
+    assert!(served.state().graph().node("zeta").is_some());
+}
+
+#[spec(
+    behavior = "document_open_close",
+    verify = "an open document's entities stay when its file is deleted, until it is closed"
+)]
+fn deleting_an_open_documents_file_keeps_its_entities_until_it_is_closed() {
+    let mut served = Served::new(&[("a.spec", A_ALPHA), ("b.spec", B_USES_ZETA)]).open(&["a.spec"]);
+    served.edit("a.spec", "type zeta \"Z\" {}\n");
+
+    std::fs::remove_file(served.root().join("a.spec")).unwrap();
+    let deleted = changed(&served, "a.spec", FileChangeType::DELETED);
+    served.sent();
+    served.apply(Change::Watched(vec![deleted]));
+    let state = served.state();
+    assert!(state.graph().node("zeta").is_some());
+    let session = state.session().expect("held");
+    assert!(
+        session
+            .project()
+            .diagnostics()
+            .iter()
+            .all(|d| d.code != "E003"),
+        "b.spec still resolves zeta"
+    );
+    drop(state);
+
+    let applied = served.close("a.spec").expect("the close is planned");
+    assert!(applied.changed);
+    assert!(served.state().graph().node("zeta").is_none());
+    let codes = last_codes(&served.sent(), &served.uri("b.spec")).expect("published");
+    assert!(codes.contains(&"E003".to_string()), "{codes:?}");
 }
 
 #[test]
@@ -425,40 +462,35 @@ fn pin_a_publication_is_labelled_with_the_buffer_now() {
     );
 }
 
-/// Pin (flipped by T2): a buffer saved then closed is never stamped: it stays stale, and the
-/// next catch-up re-reads it and runs the checks for nothing.
-#[test]
-fn pin_a_saved_and_closed_buffer_stays_stale() {
+#[spec(
+    behavior = "document_open_close",
+    verify = "closing a saved document leaves nothing to catch up on"
+)]
+fn closing_a_saved_buffer_leaves_nothing_stale() {
     let mut served = counted(&[("a.spec", A_ALPHA), ("b.spec", B_USES_ALPHA)]).open(&["a.spec"]);
     served.edit("a.spec", A_OMEGA);
     served.write("a.spec", A_OMEGA); // the editor saves
+    let before = served.check_runs();
     let closed = served.close("a.spec").expect("the close is planned");
     assert!(!closed.changed);
-    assert_eq!(
-        served.state().session().expect("held").stale().sources,
-        ["a.spec"]
-    );
-    let before = served.check_runs();
-    let caught = served.apply(Change::CatchUp).expect("a.spec is stale");
-    assert!(caught.changed);
-    assert_eq!(
-        served.check_runs() - before,
-        1,
-        "the checks ran for nothing"
-    );
+    assert!(served.state().session().expect("held").stale().is_empty());
+    assert!(Plan::of(Change::CatchUp, &served.state()).is_none());
+    assert_eq!(served.check_runs(), before, "no check ran");
     assert!(served.state().graph().node("omega").is_some());
 }
 
-/// Pin (flipped by T2): the typing fast path skipped the checks; the saved buffer is closed with
-/// the same text and they stay skipped.
-#[test]
-fn pin_closing_a_saved_buffer_that_does_not_parse_keeps_the_checks_skipped() {
+#[spec(
+    behavior = "document_open_close",
+    verify = "closing a document that does not parse runs the checks its typing skipped"
+)]
+fn closing_a_saved_buffer_that_does_not_parse_runs_the_checks() {
     let mut served = counted(&[("a.spec", A_ALPHA)]).open(&["a.spec"]);
     assert!(checks_reported(&served));
     let broken = "type alpha \"A\" {\n  contract \"\n";
     served.edit("a.spec", broken);
     assert!(!checks_reported(&served), "the typing fast path skips them");
     served.write("a.spec", broken);
-    served.close("a.spec");
-    assert!(!checks_reported(&served), "still skipped after the close");
+    let closed = served.close("a.spec").expect("the close is planned");
+    assert!(closed.changed);
+    assert!(checks_reported(&served));
 }

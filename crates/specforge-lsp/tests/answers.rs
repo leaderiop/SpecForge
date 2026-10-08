@@ -2,7 +2,7 @@
 //! (`specforge_lsp::answers`): no client, no debounce, no stdio.
 
 use specforge_lsp::{ClientSupport, LspState, answers};
-use specforge_project::{ProjectSession, SourceChange};
+use specforge_project::{Buffer, ProjectSession, SourceChange};
 use specforge_test_macros::test as spec;
 use tempfile::TempDir;
 use tower_lsp::lsp_types::{
@@ -123,13 +123,9 @@ fn typed_since_the_compile(dir: &TempDir) -> (LspState, Url) {
 
 /// The compile catches up with the buffer.
 fn compile(state: &mut LspState) {
-    state
-        .session_mut()
-        .expect("held")
-        .update(SourceChange::Buffer {
-            path: "main.spec",
-            text: Some(STALE_TYPED),
-        });
+    let session = state.session_mut().expect("held");
+    let path = session.project().environment().spec_root.join("main.spec");
+    session.update(SourceChange::Hold(&[Buffer::new(path, STALE_TYPED)]));
 }
 
 fn quad(r: tower_lsp::lsp_types::Range) -> (u32, u32, u32, u32) {

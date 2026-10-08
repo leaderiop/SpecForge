@@ -136,6 +136,23 @@ impl SourceCache {
         }
     }
 
+    /// Whether the cache already holds the state `read` gives for `key`:
+    /// the held parse's text is `read`'s text, or `key` is gone, or it is
+    /// unreadable for the same reason, so changing it would change nothing.
+    pub fn is_current(&self, key: &str, read: &Read) -> bool {
+        let unreadable = self.unreadable.get(key);
+        match read {
+            Read::Text(text) => {
+                unreadable.is_none() && self.texts.get(key).is_some_and(|held| **held == **text)
+            }
+            Read::Gone => unreadable.is_none() && !self.texts.contains_key(key),
+            Read::Unreadable(diagnostic) => {
+                !self.texts.contains_key(key)
+                    && unreadable.is_some_and(|held| held.message == diagnostic.message)
+            }
+        }
+    }
+
     /// The text `path`'s held parse was made from.
     pub fn text(&self, path: &str) -> Option<&Arc<str>> {
         self.texts.get(path)

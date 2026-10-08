@@ -17,6 +17,7 @@
 //!   (watch, the LSP and MCP each hold one). After every update that runs
 //!   the checks it reports what a fresh compile reports, in the same order.
 
+mod buffers;
 mod build_cache;
 mod check_passes;
 mod compiled;
@@ -54,6 +55,7 @@ use specforge_resolver::resolve_imports;
 use specforge_wasm::WasmRuntime;
 use verdicts::WasmVerdicts;
 
+pub use buffers::Buffer;
 pub use build_cache::{BUILD_CACHE_FILE, BUILD_CACHE_FORMAT, BuildCache, CachedStatus};
 pub use compiled::CompiledProject;
 pub use inputs::{Changes, InputRole, SessionInputs, UpdateKind, WatchRoot, Watched, source_key};

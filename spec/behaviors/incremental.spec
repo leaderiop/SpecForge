@@ -115,8 +115,8 @@ behavior bring_session_up_to_date "Bring a Session Up to Date with Disk" {
     anything reads it, the extension runtime included, so a file written
     while the session loads is seen next time. A surface that watches files
     MUST do so each time its watchers move, for what was written while they
-    did not watch; the LSP's catch-up MUST NOT replace an open document's
-    buffer with its file.
+    did not watch; a file an editor buffer holds is not stale, whatever
+    happened to it on disk (hold_editor_buffers).
   """
   verify unit "an up-to-date session reports no change and re-parses nothing"
   verify unit "edits, creations and deletions since the last build are applied as one update"
@@ -126,6 +126,33 @@ behavior bring_session_up_to_date "Bring a Session Up to Date with Disk" {
   verify unit "a specforge.json or module written while the extension runtime loads is seen next time"
   verify integration "after the LSP's watchers move, the session catches up on what changed while they did"
   verify integration "the LSP's catch-up keeps an open buffer"
+}
+
+behavior hold_editor_buffers "Hold Editor Buffers" {
+  features   [incremental_compilation]
+  invariants [incremental_correctness]
+  category   command
+  ports      [FileSystem]
+  contract   """
+    A project session MUST hold the editor buffers it is given: while it
+    holds a buffer, the buffer's text is the truth for its file, whatever
+    happens to the file on disk, its deletion included. A changed path and
+    bringing the session up to date (bring_session_up_to_date) leave every
+    held file out. A buffer whose text is the text the session built its
+    file from changes nothing, and an update that changes no file runs no
+    check. A buffer of a file that is not a project source is held and
+    builds nothing. When the editor releases a buffer, a project source is
+    stamped and read from disk through the session's one read, and any
+    other file leaves the project; a release that changes nothing runs no
+    check, unless the checks were skipped while the buffer did not parse.
+    Watch and MCP hold no buffer.
+  """
+  verify unit "a held buffer is the truth for its file until it is released"
+  verify unit "a held buffer's file changed or deleted on disk is not stale"
+  verify unit "holding a buffer whose text is its file's runs no check"
+  verify unit "releasing a buffer reads its file through the one read and leaves nothing stale"
+  verify unit "releasing a buffer outside the project drops its file"
+  verify unit "releasing a buffer that did not parse runs the skipped checks"
 }
 
 behavior invalidate_changed_files "Invalidate Changed Files" {

@@ -105,6 +105,9 @@ behavior document_open_close "Document Open/Close" {
     file: a project source MUST be compiled from the file on disk again
     (unsaved edits are dropped), and any other file (outside the spec root,
     excluded, or any file when no project is open) MUST leave the project.
+    While a document is open its buffer is the truth for its file,
+    whatever happens to the file on disk, its deletion included (the
+    session holds it, hold_editor_buffers).
     The closed document's file MUST then be published once, as the project
     reports it, in place of the buffer's diagnostics: a project source
     keeps the errors its file on disk has, and a file that left the project
@@ -118,6 +121,9 @@ behavior document_open_close "Document Open/Close" {
   verify unit "closing a document compiles its file from disk again, dropping its unsaved edits"
   verify unit "closing a document outside a project drops its file from the project"
   verify unit "closing a project source publishes what the project reports for its file"
+  verify unit "closing a saved document leaves nothing to catch up on"
+  verify unit "closing a document that does not parse runs the checks its typing skipped"
+  verify unit "an open document's entities stay when its file is deleted, until it is closed"
   verify contract "Document Open/Close: document open/close holds — lsp_initialized_fired, document_tracked, file_changed_emitted, closed_file_published, closed_file_from_disk"
 }
 

@@ -1,7 +1,7 @@
 //! A long-lived compiled project: what watch, the LSP and MCP hold.
 
 use std::collections::BTreeMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use specforge_common::{Diagnostic, ProjectConfig, read_project_config};
@@ -9,6 +9,7 @@ use specforge_graph::{Applied, GraphDelta};
 use specforge_wasm::WasmRuntime;
 
 use crate::Environment;
+use crate::buffers::{Buffer, Held};
 use crate::compiled::CompiledProject;
 use crate::freshness::DiskSnapshot;
 use crate::inputs::{Changes, SessionInputs, UpdateKind};
@@ -55,31 +56,29 @@ impl RuntimeSource {
 pub enum SourceChange<'a> {
     /// Files changed, created or deleted on disk, by path relative to the
     /// spec root. A file that is gone was deleted; one that is there and
-    /// cannot be read is E025 and leaves the graph.
+    /// cannot be read is E025 and leaves the graph. A file a buffer holds is
+    /// left as the buffer has it.
     Disk(&'a [String]),
-    /// An editor buffer is the truth for one file (`None`: it is gone).
-    Buffer {
-        path: &'a str,
-        text: Option<&'a str>,
-    },
-    /// Several editor buffers, each the truth for its file (relative to the
-    /// spec root), applied as one update with one run of the checks: an edit
-    /// the editor applied to several files at once, or every open buffer
-    /// again after a reload. Files discovery would not find are ignored.
-    Buffers(&'a [(String, String)]),
+    /// The editor holds these buffers now, each the truth for its file until
+    /// it is released ([`ProjectSession::release`]), whatever happens to the
+    /// file on disk: one update, one run of the checks. A buffer whose text
+    /// is the text the session built its file from changes nothing (its
+    /// version is still kept). A buffer of a file discovery would not find
+    /// (outside the spec root, excluded, not `.spec`) is held and builds
+    /// nothing.
+    Hold(&'a [Buffer]),
 }
 
 /// Which checks an update runs on the updated graph.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum CheckMode<'a> {
+pub enum CheckMode {
     /// Every check `specforge check` runs.
     Full,
-    /// The editor's fast path while typing: when any of these files
-    /// (relative to the spec root) has parse errors the graph is broken and
-    /// the checks would evaluate garbage, so they are skipped and only the
-    /// parse layer is reported until they parse again. Otherwise,
-    /// [`Self::Full`].
-    SyntaxOnlyIfParseErrorsIn(&'a [&'a str]),
+    /// The editor's fast path while typing: when any file this update
+    /// changes has parse errors the graph is broken and the checks would
+    /// evaluate garbage, so they are skipped, and only the parse layer is
+    /// reported until an update runs them. Otherwise, [`Self::Full`].
+    SyntaxOnlyIfParseErrors,
 }
 
 /// What one update of a session did.
@@ -169,6 +168,12 @@ pub struct ProjectSession {
     /// What the session last built from, as it was when read: what
     /// [`Self::stale`] compares with disk.
     snapshot: DiskSnapshot,
+    /// The editor buffers the session holds: each is the truth for its file
+    /// until released (ADR 0046).
+    held: Held,
+    /// The last update skipped the checks (the typing fast path): the next
+    /// update, or a release, runs them even when it changes no file.
+    checks_skipped: bool,
 }
 
 /// A project whose environment is loaded and whose sources are not read yet
@@ -208,6 +213,8 @@ impl OpeningProject {
             source: self.source,
             inputs: self.inputs,
             snapshot,
+            held: Held::default(),
+            checks_skipped: false,
         };
         session.check();
         session
@@ -224,6 +231,8 @@ impl ProjectSession {
             source: RuntimeSource::Fixed(None),
             inputs: SessionInputs::detached(),
             snapshot: DiskSnapshot::default(),
+            held: Held::default(),
+            checks_skipped: false,
         }
     }
 
@@ -279,22 +288,29 @@ impl ProjectSession {
         self.project.set_verify(enabled);
     }
 
-    /// Apply a change to the project's sources, then run every check.
-    /// Files discovery would not find (an `exclude` entry, a skipped
-    /// directory, not `.spec`) are ignored.
+    /// Apply a change to the project's sources, then run every check. An
+    /// update that changes no file runs no check (unless the checks were
+    /// skipped since they last ran: then it runs them). Files discovery
+    /// would not find (an `exclude` entry, a skipped directory, not `.spec`)
+    /// are ignored.
     pub fn update(&mut self, change: SourceChange<'_>) -> Update {
         self.update_with(change, CheckMode::Full)
     }
 
     /// [`Self::update`], running the checks `mode` asks for.
-    pub fn update_with(&mut self, change: SourceChange<'_>, mode: CheckMode<'_>) -> Update {
+    pub fn update_with(&mut self, change: SourceChange<'_>, mode: CheckMode) -> Update {
+        // A disk change always applies: what an import names is read from
+        // disk, so even a file left out may move an import's diagnostic. A
+        // hold of text the session already has changes nothing.
+        let skippable = matches!(change, SourceChange::Hold(_));
         let reads: Vec<(String, Read)> = match change {
             SourceChange::Disk(paths) => {
-                let keys: Vec<String> = paths
+                let mut keys: Vec<String> = paths
                     .iter()
                     .filter(|path| !self.excludes(path))
                     .cloned()
                     .collect();
+                self.held.leave_out(&mut keys);
                 // Stamped before they are read again (crate::freshness).
                 self.snapshot.stamp_sources(&self.inputs, &keys);
                 keys.into_iter()
@@ -304,26 +320,111 @@ impl ProjectSession {
                     })
                     .collect()
             }
-            SourceChange::Buffer { path, .. } if self.excludes(path) => Vec::new(),
-            SourceChange::Buffer { path, text } => vec![(
-                path.to_string(),
-                text.map_or(Read::Gone, |text| Read::Text(text.to_string())),
-            )],
-            SourceChange::Buffers(buffers) => buffers
-                .iter()
-                .filter(|(path, _)| !self.excludes(path))
-                .map(|(path, text)| (path.clone(), Read::Text(text.clone())))
-                .collect(),
-        };
-        let applied = self.project.apply(reads);
-        let inputs_changed = match mode {
-            CheckMode::SyntaxOnlyIfParseErrorsIn(paths)
-                if self.project.has_parse_errors_in(paths) =>
-            {
-                self.project.skip_checks();
-                false
+            SourceChange::Hold(buffers) => {
+                let mut reads = Vec::new();
+                for buffer in buffers {
+                    let key = self.source_key(&buffer.path);
+                    let read = Read::Text(buffer.text.clone());
+                    if !self.excludes(&key) && !self.project.is_current(&key, &read) {
+                        reads.push((key.clone(), read));
+                    }
+                    self.held.hold(key, buffer.clone());
+                }
+                reads
             }
-            _ => self.check(),
+        };
+        self.applied(reads, mode, skippable)
+    }
+
+    /// The editor no longer holds the buffers of `paths` (absolute): each
+    /// file is the disk's again. A project source is stamped, then read
+    /// through the session's one read: its text, its E025, or gone. Any
+    /// other file (outside the spec root, excluded, not `.spec`) was never
+    /// built and changes nothing. With no project the buffer was the file's
+    /// only text, so the file leaves. One update for all of them. `None`
+    /// when none changed (each source's disk text is the text the session
+    /// built it from) and the checks are current: a release after the
+    /// typing fast path skipped them runs them.
+    pub fn release(&mut self, paths: &[PathBuf]) -> Option<Update> {
+        let mut reads = Vec::new();
+        for path in paths {
+            let key = self.source_key(path);
+            self.held.release(&key);
+            let read = if self.inputs.root().is_none() {
+                // No project: the buffer was the file's only text.
+                Read::Gone
+            } else if self.excludes(&key) {
+                // Never built: nothing to give back.
+                continue;
+            } else {
+                // Stamped before it is read (crate::freshness): a saved
+                // buffer leaves nothing stale.
+                self.snapshot
+                    .stamp_sources(&self.inputs, std::slice::from_ref(&key));
+                self.project.read_source(&key)
+            };
+            if !self.project.is_current(&key, &read) {
+                reads.push((key, read));
+            }
+        }
+        if reads.is_empty() && !self.checks_skipped {
+            return None;
+        }
+        Some(self.applied(reads, CheckMode::Full, true))
+    }
+
+    /// The buffer the editor holds for source `key`, as the session last
+    /// built from it.
+    pub fn buffer(&self, key: &str) -> Option<&Buffer> {
+        self.held.get(key)
+    }
+
+    /// Every buffer the session holds, given up: what a project opened in
+    /// this session's place holds next.
+    pub fn into_buffers(self) -> Vec<Buffer> {
+        self.held.into_buffers()
+    }
+
+    /// What these changed paths are to the session: classified by its
+    /// inputs ([`SessionInputs::changes`]), every file a buffer holds left
+    /// out.
+    pub fn changes<'p>(&self, paths: impl IntoIterator<Item = &'p Path>) -> Changes {
+        let mut changes = self.inputs.changes(paths);
+        self.held.leave_out(&mut changes.sources);
+        changes
+    }
+
+    /// The key of the file at `path` in this session's sources.
+    pub fn source_key(&self, path: &Path) -> String {
+        self.project.environment().source_key(path)
+    }
+
+    /// The one tail of every source update: apply `reads`, resolve the
+    /// imports, then run or skip the checks. With nothing to apply it runs
+    /// the checks only if they were skipped, else it changes nothing (when
+    /// `skippable`: a disk change always applies, to see what imports name).
+    fn applied(&mut self, reads: Vec<(String, Read)>, mode: CheckMode, skippable: bool) -> Update {
+        if reads.is_empty() && skippable {
+            return if self.checks_skipped {
+                self.recheck()
+            } else {
+                Update::of(
+                    UpdateKind::Sources,
+                    false,
+                    Applied::default(),
+                    self.project.diagnostics(),
+                )
+            };
+        }
+        let applied = self.project.apply(reads);
+        let inputs_changed = if mode == CheckMode::SyntaxOnlyIfParseErrors
+            && self.project.has_parse_errors_in(&applied.files)
+        {
+            self.project.skip_checks();
+            self.checks_skipped = true;
+            false
+        } else {
+            self.check()
         };
         Update::of(
             UpdateKind::Sources,
@@ -377,13 +478,15 @@ impl ProjectSession {
 
     /// Apply `changes`: the environment first (a reload rebuilds
     /// everything), else the sources (an update re-runs every check), else
-    /// the checks alone. `None` when there is nothing to apply: `changes` is
-    /// empty.
+    /// the checks alone; every file a buffer holds is left out. `None` when
+    /// there is nothing to apply: `changes` is empty.
     pub fn apply(&mut self, changes: &Changes) -> Option<Update> {
+        let mut sources = changes.sources.clone();
+        self.held.leave_out(&mut sources);
         if changes.environment && self.inputs.root().is_some() {
             Some(self.reload_environment())
-        } else if !changes.sources.is_empty() {
-            Some(self.update(SourceChange::Disk(&changes.sources)))
+        } else if !sources.is_empty() {
+            Some(self.update(SourceChange::Disk(&sources)))
         } else if changes.check_inputs && self.inputs.root().is_some() {
             Some(self.recheck())
         } else {
@@ -394,9 +497,12 @@ impl ProjectSession {
     /// What changed on disk since the session last built (behavior
     /// `bring_session_up_to_date`): the sources discovery finds now against
     /// those it read, and every environment and check input against what
-    /// it read. A session that was not opened from disk reports nothing.
+    /// it read, every file a buffer holds left out, whatever happened to it.
+    /// A session that was not opened from disk reports nothing.
     pub fn stale(&self) -> Changes {
-        self.snapshot.changes(&self.inputs)
+        let mut changes = self.snapshot.changes(&self.inputs);
+        self.held.leave_out(&mut changes.sources);
+        changes
     }
 
     /// Bring the session up to date with disk, without a watcher: apply
@@ -436,6 +542,7 @@ impl ProjectSession {
     /// the check inputs (which the snapshot's `file_exists` rules add to)
     /// stamped first: whether the session's inputs changed.
     fn check(&mut self) -> bool {
+        self.checks_skipped = false;
         let entities = self.project.snapshot_now();
         let mut changed = false;
         if self.inputs.root().is_some() {

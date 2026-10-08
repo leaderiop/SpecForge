@@ -26,7 +26,7 @@ use crate::{Environment, SourceBuild};
 /// checks, a session's compiled project reports exactly what
 /// [`Self::compile`] of the same sources reports, in the same order (ADR
 /// 0047). An editor update that skipped the checks
-/// ([`crate::CheckMode::SyntaxOnlyIfParseErrorsIn`]) reports no check
+/// ([`crate::CheckMode::SyntaxOnlyIfParseErrors`]) reports no check
 /// diagnostic until the next update that runs them.
 pub struct CompiledProject {
     /// Shared, so a reader keeps the environment an update started from
@@ -192,6 +192,11 @@ impl CompiledProject {
         sources::read(&self.env.spec_root, key)
     }
 
+    /// Whether the project already holds the state `read` gives for `key`.
+    pub(crate) fn is_current(&self, key: &str, read: &Read) -> bool {
+        self.sources.is_current(key, read)
+    }
+
     /// Apply each source's new state as one change of the graph build;
     /// the memo starts again and the imports are resolved again (none
     /// when detached). The checks have not run.
@@ -234,7 +239,7 @@ impl CompiledProject {
     }
 
     /// Whether any of `paths` has a parse error (E001) in the graph build.
-    pub(crate) fn has_parse_errors_in(&self, paths: &[&str]) -> bool {
+    pub(crate) fn has_parse_errors_in(&self, paths: &[String]) -> bool {
         paths.iter().any(|path| {
             self.graph
                 .file_diagnostics(path)
