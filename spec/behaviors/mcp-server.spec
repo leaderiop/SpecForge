@@ -715,7 +715,9 @@ behavior listen_for_mcp_resource_updates "Listen for MCP Resource Updates" {
     notifications/subscriptions/acknowledged naming the honoured subset,
     with the listen request's id as _meta
     io.modelcontextprotocol/subscriptionId. After a recompile that changes
-    a listened resource (the graph's views when the graph changed,
+    a listened resource (the graph's views and every extension resource
+    when the graph changed or the environment loaded again,
+    specforge://schema when the environment loaded again,
     specforge://diagnostics when the diagnostics did), it sends
     notifications/resources/updated for it with the same id. It MUST NOT
     send on the stream any notification type the client did not ask for.
@@ -730,6 +732,7 @@ behavior listen_for_mcp_resource_updates "Listen for MCP Resource Updates" {
   verify unit "the end of the connection ends the stream"
   verify unit "a resource a listen names twice is honoured once"
   verify unit "a listen stream's subscription events name its request id"
+  verify unit "an environment reload is heard by the schema, the graph views and the extension resources"
 }
 
 behavior handle_mcp_request_cancellation "Handle MCP Request Cancellation" {

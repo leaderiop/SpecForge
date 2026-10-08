@@ -422,10 +422,11 @@ fn schema_extensions(server: &mut McpServer) -> Vec<String> {
         .collect()
 }
 
-/// P1 (bug A): an environment reload that changes the schema is heard by
-/// nobody.
-#[test]
-fn an_environment_reload_that_keeps_the_graph_is_heard_by_no_one() {
+#[specforge_test(
+    behavior = "listen_for_mcp_resource_updates",
+    verify = "an environment reload is heard by the schema, the graph views and the extension resources"
+)]
+fn an_environment_reload_is_heard_by_the_schema_and_the_graph_views() {
     let mut server = TestProject::new()
         .enabling(&["@specforge/software"])
         .file(
@@ -453,11 +454,33 @@ fn an_environment_reload_that_keeps_the_graph_is_heard_by_no_one() {
     );
     call_tool(&mut server, "specforge.stats", json!({}));
 
-    assert!(server.take_notifications().is_empty());
+    let stream = |uri: &str| {
+        json!({
+            "jsonrpc": "2.0",
+            "method": "notifications/resources/updated",
+            "params": {"_meta": {"io.modelcontextprotocol/subscriptionId": 3}, "uri": uri},
+        })
+    };
+    assert_eq!(
+        server.take_notifications(),
+        [
+            stream("specforge://schema"),
+            stream("specforge://graph"),
+            json!({
+                "jsonrpc": "2.0",
+                "method": "notifications/resources/updated",
+                "params": {"uri": "specforge://schema"},
+            }),
+        ]
+    );
     assert_eq!(
         schema_extensions(&mut server),
         ["@specforge/software", "@specforge/product"]
     );
+
+    // A second request with nothing changed sends nothing.
+    call_tool(&mut server, "specforge.stats", json!({}));
+    assert!(server.take_notifications().is_empty());
 }
 
 #[specforge_test(
@@ -704,7 +727,7 @@ fn the_graph_delta_names_nodes_by_id() {
         added_nodes: vec![node_change("alpha")],
         ..GraphDelta::default()
     };
-    subscriptions.updated(&Changes::new(&delta, None), &mut events);
+    subscriptions.updated(&Changes::new(&delta, false, None), &mut events);
     let sent = subscriptions.drain();
     assert_eq!(
         methods(&sent),
@@ -730,7 +753,7 @@ fn the_graph_delta_names_nodes_by_id() {
         removed_nodes: vec![node_change("alpha")],
         ..GraphDelta::default()
     };
-    subscriptions.updated(&Changes::new(&delta, None), &mut events);
+    subscriptions.updated(&Changes::new(&delta, false, None), &mut events);
     let sent = subscriptions.drain();
     assert_eq!(sent[1]["params"]["added_nodes"], json!([]));
     assert_eq!(sent[1]["params"]["removed_nodes"], json!(["alpha"]));
@@ -749,7 +772,7 @@ fn the_diagnostics_delta_names_what_was_added_and_removed() {
     subscriptions.subscribe("specforge://diagnostics", &mut events);
 
     subscriptions.updated(
-        &Changes::new(&delta, Some((&[], std::slice::from_ref(&warning)))),
+        &Changes::new(&delta, false, Some((&[], std::slice::from_ref(&warning)))),
         &mut events,
     );
     assert_eq!(
@@ -766,7 +789,7 @@ fn the_diagnostics_delta_names_what_was_added_and_removed() {
 
     // A fixed warning shows up as removed.
     subscriptions.updated(
-        &Changes::new(&delta, Some((std::slice::from_ref(&warning), &[]))),
+        &Changes::new(&delta, false, Some((std::slice::from_ref(&warning), &[]))),
         &mut events,
     );
     assert_eq!(
@@ -793,7 +816,7 @@ fn a_diagnostic_is_named_by_code_message_and_file() {
         Diagnostic::new(specforge_common::codes::E001, "test error").with_span(span)
     };
     let touched = |before: &[Diagnostic], after: &[Diagnostic]| {
-        Changes::new(&graph, Some((before, after))).touched(Watched::Diagnostics)
+        Changes::new(&graph, false, Some((before, after))).touched(Watched::Diagnostics)
     };
 
     assert!(touched(&[], std::slice::from_ref(&error)), "added");
@@ -807,7 +830,7 @@ fn a_diagnostic_is_named_by_code_message_and_file() {
         "the same code, message and file on another line"
     );
     assert!(
-        !Changes::new(&graph, None).touched(Watched::Diagnostics),
+        !Changes::new(&graph, false, None).touched(Watched::Diagnostics),
         "not read"
     );
 }
@@ -862,7 +885,7 @@ fn reopening_a_listen_id_ends_the_old_stream() {
         added_nodes: vec![node_change("alpha")],
         ..GraphDelta::default()
     };
-    subscriptions.updated(&Changes::new(&delta, None), &mut events);
+    subscriptions.updated(&Changes::new(&delta, false, None), &mut events);
     assert!(subscriptions.drain().is_empty());
 }
 
@@ -888,7 +911,7 @@ fn one_update_is_heard_in_one_order() {
     };
     let added = Diagnostic::untyped("W001", Severity::Warning, "test warning");
     subscriptions.updated(
-        &Changes::new(&delta, Some((&[], std::slice::from_ref(&added)))),
+        &Changes::new(&delta, false, Some((&[], std::slice::from_ref(&added)))),
         &mut events,
     );
 
@@ -926,4 +949,35 @@ fn one_update_is_heard_in_one_order() {
             ("specforge/diagnosticsChanged", "", false),
         ]
     );
+}
+
+#[test]
+fn an_environment_reload_touches_the_graph_views_and_the_schema() {
+    let none = GraphDelta::default();
+    let reload = Changes::new(&none, true, None);
+    assert!(reload.touched(Watched::Graph));
+    assert!(reload.touched(Watched::Schema));
+    assert!(!reload.touched(Watched::Diagnostics));
+
+    let mut subscriptions = Subscriptions::new();
+    let mut events = Vec::new();
+    subscriptions.subscribe("specforge://graph", &mut events);
+    subscriptions.updated(&reload, &mut events);
+    let sent = subscriptions.drain();
+    // The graph delta is empty: the standard update, and no graphChanged.
+    assert_eq!(methods(&sent), ["notifications/resources/updated"]);
+    assert_eq!(sent[0]["params"]["uri"], "specforge://graph");
+}
+
+#[test]
+fn a_schema_subscriber_hears_no_graph_delta() {
+    let mut subscriptions = Subscriptions::new();
+    let mut events = Vec::new();
+    subscriptions.subscribe("specforge://schema", &mut events);
+    let delta = GraphDelta {
+        added_nodes: vec![node_change("alpha")],
+        ..GraphDelta::default()
+    };
+    subscriptions.updated(&Changes::new(&delta, false, None), &mut events);
+    assert!(subscriptions.drain().is_empty());
 }

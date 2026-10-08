@@ -17,7 +17,7 @@ use std::collections::HashSet;
 
 use serde_json::{Value, json};
 use specforge_common::Diagnostic;
-use specforge_project::{GraphDelta, Update};
+use specforge_project::{GraphDelta, Update, UpdateKind};
 
 use crate::protocol::id_text;
 use crate::types::McpEvent;
@@ -25,10 +25,13 @@ use crate::types::McpEvent;
 /// What a resource's content changes with: the one rule both eras read.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Watched {
-    /// The graph: every graph view (`graph`, `context`, `brief`, an entity's
-    /// subgraph, a kind's entities), the schema, and every extension
-    /// resource.
+    /// The graph or the environment: every graph view (`graph`, `context`,
+    /// `brief`, an entity's subgraph, a kind's entities), whose export is
+    /// shaped by the schema, and every extension resource, which its module
+    /// computes.
     Graph,
+    /// The environment alone: `specforge://schema`.
+    Schema,
     /// What the server reports: `specforge://diagnostics`.
     Diagnostics,
 }
@@ -37,10 +40,10 @@ impl Watched {
     /// What `uri`'s content changes with. `uri` is one the server serves
     /// (the requests check it first).
     pub fn of(uri: &str) -> Self {
-        if uri == "specforge://diagnostics" {
-            Watched::Diagnostics
-        } else {
-            Watched::Graph
+        match uri {
+            "specforge://diagnostics" => Watched::Diagnostics,
+            "specforge://schema" => Watched::Schema,
+            _ => Watched::Graph,
         }
     }
 }
@@ -93,6 +96,7 @@ impl DiagnosticsDelta {
 /// both eras.
 pub struct Changes<'u> {
     graph: &'u GraphDelta,
+    environment: bool,
     diagnostics: Option<DiagnosticsDelta>,
 }
 
@@ -102,25 +106,37 @@ impl<'u> Changes<'u> {
     /// about the diagnostics ([`Subscriptions::hears_diagnostics`]); `None`
     /// reads as "unchanged".
     pub fn of(update: &'u Update, diagnostics: Option<(&[Diagnostic], &[Diagnostic])>) -> Self {
-        Self::new(&update.delta, diagnostics)
+        Self::new(
+            &update.delta,
+            update.kind == UpdateKind::Environment,
+            diagnostics,
+        )
     }
 
-    /// The same from its parts: the graph delta, and the diagnostics before
-    /// and after.
-    pub fn new(graph: &'u GraphDelta, diagnostics: Option<(&[Diagnostic], &[Diagnostic])>) -> Self {
+    /// The same from its parts: the graph delta, whether the environment
+    /// loaded again (or another project was served), and the diagnostics
+    /// before and after.
+    pub fn new(
+        graph: &'u GraphDelta,
+        environment: bool,
+        diagnostics: Option<(&[Diagnostic], &[Diagnostic])>,
+    ) -> Self {
         Changes {
             graph,
+            environment,
             diagnostics: diagnostics
                 .map(|(before, after)| DiagnosticsDelta::between(before, after)),
         }
     }
 
     /// Whether what `watched` names changed: the graph delta is not empty
-    /// (`Graph`); a diagnostic was added or removed, named by its code,
-    /// message and file (`Diagnostics`).
+    /// or the environment loaded again (`Graph`); the environment loaded
+    /// again (`Schema`); a diagnostic was added or removed, named by its
+    /// code, message and file (`Diagnostics`).
     pub fn touched(&self, watched: Watched) -> bool {
         match watched {
-            Watched::Graph => !self.graph.is_empty(),
+            Watched::Graph => !self.graph.is_empty() || self.environment,
+            Watched::Schema => self.environment,
             Watched::Diagnostics => self
                 .diagnostics
                 .as_ref()
@@ -347,11 +363,11 @@ mod tests {
     )]
     fn watched_follows_the_uri() {
         assert_eq!(Watched::of("specforge://diagnostics"), Watched::Diagnostics);
+        assert_eq!(Watched::of("specforge://schema"), Watched::Schema);
         for uri in [
             "specforge://graph",
             "specforge://graph/alpha",
             "specforge://context?scope=alpha",
-            "specforge://schema",
             "acme://doc/1",
         ] {
             assert_eq!(Watched::of(uri), Watched::Graph, "{uri}");
