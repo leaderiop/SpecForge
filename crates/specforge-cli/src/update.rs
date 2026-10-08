@@ -14,7 +14,7 @@ pub fn run(
     format: OutputFormat,
     major: bool,
     allow_unsigned: bool,
-    assume_yes: bool,
+    trust: Trust,
 ) -> i32 {
     let registry = HttpRegistry::for_project(path, "update");
     let runtime = specforge_component::ComponentRuntime::with_user_cache();
@@ -23,11 +23,7 @@ pub fn run(
         name,
         major,
         allow_unsigned,
-        trust: match (assume_yes, format) {
-            (true, _) => Trust::AssumeYes,
-            (false, OutputFormat::Json) => Trust::Refuse,
-            (false, OutputFormat::Human) => Trust::Prompt,
-        },
+        trust,
     };
     let outcome = match extension::update(&request, &registry, &runtime) {
         Ok(outcome) => outcome,

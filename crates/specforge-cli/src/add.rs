@@ -11,7 +11,7 @@ pub fn run(
     path: &Path,
     format: OutputFormat,
     allow_unsigned: bool,
-    assume_yes: bool,
+    trust: Trust,
 ) -> i32 {
     let source = match extension::parse(specifier) {
         Ok(source) => source,
@@ -29,11 +29,7 @@ pub fn run(
         root: path,
         source,
         allow_unsigned,
-        trust: match (assume_yes, format) {
-            (true, _) => Trust::AssumeYes,
-            (false, OutputFormat::Json) => Trust::Refuse,
-            (false, OutputFormat::Human) => Trust::Prompt,
-        },
+        trust,
         dry_run: false,
     };
     match extension::add(&request, &registry, &runtime) {
