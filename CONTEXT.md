@@ -406,6 +406,13 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   about its position (a token of the compiled text): it names what its own word names, and
   prepareRename and rename wait for the compile. Every request's answer is decided synchronously over
   the LSP state (`specforge_lsp::answers`); the backend only carries requests.
+- **LSP reaction**: what the LSP does after the client reports a change (a workspace opened, documents
+  opened, edited or closed, files changed on disk): apply it to the project session as one update,
+  publish what the project reports (a closed document's file always, as the project reports it),
+  announce a reload, follow the session's inputs and catch up, ask the editor to refresh its
+  highlighting. It runs one change at a time, synchronously, and tells the editor everything through
+  one port (`specforge_lsp::reaction::Reaction` over `specforge_lsp::editor::Editor`; ADR 0035,
+  ADR 0043).
 - **Proof role**: what a field's value is to the prove pass, declared by its extension
   (`proof_role`): a **bound** the solver assumes (bounds must be consistent, E046) or a **claim**
   that must follow from the bounds (W139 when not; an entailed claim is a proved claim). A field
