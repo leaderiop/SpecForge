@@ -1,7 +1,5 @@
 use serde::Serialize;
-use specforge_graph::{Graph, Node};
-
-use crate::json::Export;
+use specforge_graph::Node;
 
 #[derive(Serialize)]
 pub(crate) struct BriefNode {
@@ -18,12 +16,4 @@ pub(crate) fn brief_node(n: &Node) -> BriefNode {
         kind: n.kind.raw.to_string(),
         title: n.title.clone(),
     }
-}
-
-/// Emit a brief (minimal) JSON representation of the graph.
-pub fn emit_brief(graph: &Graph) -> String {
-    let nodes = graph.nodes().into_iter().map(brief_node).collect();
-    Export::plain(None, graph, nodes)
-        .to_json()
-        .expect("graph serialization cannot fail")
 }

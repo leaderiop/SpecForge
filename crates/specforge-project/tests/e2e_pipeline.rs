@@ -6,6 +6,18 @@ use specforge_test::prelude::*;
 use std::fs;
 use tempfile::TempDir;
 
+/// `graph` exported as `format`, unscoped and unbudgeted.
+fn export(graph: &specforge_graph::Graph, format: specforge_emitter::EmitFormat) -> String {
+    specforge_emitter::emit(
+        graph,
+        &specforge_emitter::EmitOptions {
+            format,
+            ..specforge_emitter::EmitOptions::default()
+        },
+    )
+    .expect("an unscoped, unbudgeted export cannot fail")
+}
+
 /// Build a Wasm runtime for a temp project listing `ext_names`.
 fn wasm_runtime_for(ext_names: &[&str]) -> specforge_component::ComponentRuntime {
     let runtime = specforge_component::ComponentRuntime::new();
@@ -462,12 +474,12 @@ invariant security "Security Invariant" {
     );
 
     // Brief format
-    let brief = specforge_emitter::brief::emit_brief(&ctx.graph);
+    let brief = export(&ctx.graph, specforge_emitter::EmitFormat::Brief);
     assert!(!brief.is_empty(), "brief must not be empty");
     assert!(brief.contains("auth"), "brief must mention entity");
 
     // Context format
-    let context = specforge_emitter::context::emit_context(&ctx.graph);
+    let context = export(&ctx.graph, specforge_emitter::EmitFormat::Context);
     assert!(!context.is_empty(), "context must not be empty");
 
     // DOT format

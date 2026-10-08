@@ -1,5 +1,5 @@
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
-use specforge_emitter::{brief::emit_brief, context::emit_context, json::emit_json};
+use specforge_emitter::{EmitFormat, EmitOptions, emit, json::emit_json};
 use specforge_graph::build_graph;
 use specforge_parser::parse;
 
@@ -41,15 +41,23 @@ fn bench_emit_json(c: &mut Criterion) {
 
 fn bench_emit_context(c: &mut Criterion) {
     let graph = build_test_graph(200);
+    let context = EmitOptions {
+        format: EmitFormat::Context,
+        ..EmitOptions::default()
+    };
     c.bench_function("emit_context_200_entities", |b| {
-        b.iter(|| emit_context(black_box(&graph)))
+        b.iter(|| emit(black_box(&graph), &context).unwrap())
     });
 }
 
 fn bench_emit_brief(c: &mut Criterion) {
     let graph = build_test_graph(200);
+    let brief = EmitOptions {
+        format: EmitFormat::Brief,
+        ..EmitOptions::default()
+    };
     c.bench_function("emit_brief_200_entities", |b| {
-        b.iter(|| emit_brief(black_box(&graph)))
+        b.iter(|| emit(black_box(&graph), &brief).unwrap())
     });
 }
 
