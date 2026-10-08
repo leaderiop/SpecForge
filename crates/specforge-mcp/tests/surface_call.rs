@@ -629,24 +629,34 @@ fn a_query_the_resource_cannot_read_is_refused_naming_its_key() {
     assert_eq!(error["data"]["argument"], "scope", "{error}");
 }
 
-// pin (15-T0): today's behaviour; flipped by 15-T17
-#[test]
-fn pin_a_resource_count_has_its_own_wording() {
+#[specforge_test(
+    behavior = "serve_graph_resource",
+    verify = "a count in a resource query is read as a tool's count argument is"
+)]
+fn a_resource_count_is_read_as_a_tool_reads_one() {
     let mut server = served();
     let error = read_error(&mut server, "specforge://brief?depth=x");
     assert_eq!(
-        error["message"], "'depth' is a non-negative integer, not 'x'",
+        error["message"], "depth must be a non-negative integer, got 'x'",
         "{error}"
     );
+    assert_eq!(error["data"]["argument"], "depth", "{error}");
+    // A string holding a count, after decoding, is that count.
+    let (_, spaced) = resource(&mut server, "specforge://graph?scope=alpha&depth=%32");
+    let (_, plain) = resource(&mut server, "specforge://graph?scope=alpha&depth=2");
+    assert_eq!(spaced, plain);
 }
 
-// pin (15-T0): today's behaviour; flipped by 15-T17
-#[test]
-fn pin_a_depth_without_a_scope_is_ignored() {
+#[specforge_test(
+    behavior = "serve_graph_resource",
+    verify = "an unknown query key, a repeated key or a malformed value is invalid_input naming the key"
+)]
+fn a_depth_without_a_scope_is_refused() {
     let mut server = served();
-    let (_, with_depth) = resource(&mut server, "specforge://graph?depth=2");
-    let (_, without) = resource(&mut server, "specforge://graph");
-    assert_eq!(with_depth, without);
+    let error = read_error(&mut server, "specforge://graph?depth=2");
+    assert_eq!(error["code"], -32602, "{error}");
+    assert_eq!(error["data"]["code"], "invalid_input", "{error}");
+    assert_eq!(error["data"]["argument"], "depth", "{error}");
 }
 
 // --- P15, P16: the request's own schema ---

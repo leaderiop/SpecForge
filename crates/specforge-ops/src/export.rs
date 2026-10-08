@@ -96,13 +96,18 @@ pub enum Schema {
     Without,
 }
 
+/// The code of the refusal of `depth` without a `scope`: depth limits a
+/// scoped export.
+pub const DEPTH_WITHOUT_SCOPE: &str = "depth_without_scope";
+
 /// What to export.
 #[derive(Debug, Clone, Default)]
 pub struct Request<'a> {
     pub format: Option<Format>,
     /// Restrict to the subgraph reachable from this entity.
     pub scope: Option<&'a str>,
-    /// With `scope`, how far to traverse.
+    /// With `scope`, how far to traverse; without one it is refused
+    /// ([`DEPTH_WITHOUT_SCOPE`]).
     pub depth: Option<usize>,
     /// Keep only nodes of these kinds (the scoped root always stays).
     pub kinds: Vec<&'a str>,
@@ -138,6 +143,13 @@ impl Request<'_> {
 /// carries is the view's versioned schema (`specforge export`'s version,
 /// computed against the root's schema cache, which this only reads).
 pub fn export(view: &ProjectView, request: &Request) -> Result<String, OpError> {
+    if request.depth.is_some() && request.scope.is_none() {
+        return Err(OpError::new(
+            OpErrorKind::InvalidInput,
+            DEPTH_WITHOUT_SCOPE,
+            "depth limits a scoped export: give a scope too",
+        ));
+    }
     let schema = if request.attaches_schema() {
         Some(negotiated(view.versioned_schema(), request.schema_version)?)
     } else {
@@ -280,6 +292,35 @@ mod tests {
     fn failed(request: &Request) -> OpError {
         let fixture = crate::view::testing::Fixture::new();
         export(&fixture.view(), request).unwrap_err()
+    }
+
+    #[specforge_test_macros::test(
+        behavior = "export_agent_graph_format",
+        verify = "depth without a scope is invalid input on every surface"
+    )]
+    fn a_depth_without_a_scope_is_invalid_input() {
+        let error = failed(&Request {
+            depth: Some(2),
+            ..request(Format::Graph)
+        });
+        assert_eq!(error.kind, OpErrorKind::InvalidInput);
+        assert_eq!(error.code, DEPTH_WITHOUT_SCOPE);
+
+        // With a scope it is a hop limit, and the export goes on.
+        let fixture = crate::view::testing::Fixture::new();
+        let scoped = export(
+            &fixture.view(),
+            &Request {
+                scope: Some("ghost"),
+                depth: Some(2),
+                ..request(Format::Graph)
+            },
+        )
+        .unwrap_err();
+        assert_eq!(
+            scoped.code, "E003",
+            "the scope is looked up, not the depth refused"
+        );
     }
 
     #[test]

@@ -60,8 +60,9 @@ project served would be `-32603` (ADR 0017 D14 said `-32602`), a case a real ser
 alias `root`) and `graph/{entity_id}` (depth 1) are `ops::export` over `call.view()` under the export
 schema policy, byte-equal to `specforge export`. The entity list is `specforge.list`'s function; the
 diagnostics are what the view reports. A read answers under the URI it was asked for. A query key the
-read does not know, a repeated key, a value that does not parse, `scope` with `root` or a scope on a
-templated URI is refused as `invalid_input` naming the key; keys and values are percent-decoded.
+read does not know, a repeated key, a value that does not parse, `scope` with `root`, a scope on a
+templated URI or `depth` without a scope is refused as `invalid_input` naming the key; keys and values
+are percent-decoded, and a count is read by ADR 0033 D2's rule.
 
 **D5. The call target declares its arguments.** `TargetSpec` contributes `path` (by reach) and
 `use_cached` (by freshness) to the listed schema and to the field set the drift test reads; handlers
