@@ -256,7 +256,7 @@ fn context_contract_includes_contracts_and_verify_omits_prose() {
     assert_eq!(node_ids(&scoped), vec!["a", "b", "c"]);
     assert_eq!(scoped["edges"].as_array().unwrap().len(), 2);
 
-    // invalid_scope_diagnosed: E003 naming the entity, exit code 1 — through
+    // invalid_scope_diagnosed: E003 naming the entity — through
     // the call `specforge export --format context --scope` makes.
     let err = specforge_emitter::emit(
         &graph,
@@ -269,9 +269,9 @@ fn context_contract_includes_contracts_and_verify_omits_prose() {
     .unwrap_err();
     assert_eq!(
         err.to_string(),
-        "E003: unresolved scope entity 'ghost' — entity not found in graph"
+        "unresolved entity 'ghost' — not found in graph"
     );
-    assert_eq!(err.exit_code(), 1);
+    assert_eq!(err.code(), Some(specforge_diagnostics::codes::E003));
 }
 
 // === export_agent_graph_format contract ===
@@ -322,7 +322,7 @@ fn graph_format_contract_finalized_graph_produces_full_output() {
     assert_eq!(node_ids(&scoped), vec!["a", "b", "c"]);
     assert_eq!(scoped["edges"].as_array().unwrap().len(), 2);
 
-    // invalid_scope_diagnosed: E003 naming the entity, exit code 1 — through
+    // invalid_scope_diagnosed: E003 naming the entity — through
     // the call `specforge export --format graph --scope` makes.
     let err = specforge_emitter::emit(
         &graph,
@@ -334,54 +334,9 @@ fn graph_format_contract_finalized_graph_produces_full_output() {
     .unwrap_err();
     assert_eq!(
         err.to_string(),
-        "E003: unresolved scope entity 'ghost' — entity not found in graph"
+        "unresolved entity 'ghost' — not found in graph"
     );
-    assert_eq!(err.exit_code(), 1);
-}
-
-// === query_graph_multi_resolution contract ===
-
-// B:query_graph_multi_resolution — verify contract "requires/ensures consistency for multi-resolution graph query"
-#[specforge_test(
-    behavior = "query_graph_multi_resolution",
-    verify = "Query Graph at Multiple Resolutions: multi-resolution graph query holds — validation_complete_fired, depth_respected, kind_filter_applied, graph_protocol_conformance, graph_queried_emitted"
-)]
-fn query_contract_valid_entity_returns_subgraph() {
-    // Requires: entity exists in graph, depth >= 0
-    // a(feature) -> b(behavior) -> c(behavior) -> x(invariant)
-    let mut graph = build_graph();
-    graph.add_node(node_with_fields("x", "invariant", "holds", "active"));
-    graph.add_edge(Edge {
-        source: "c".into(),
-        target: "x".into(),
-        label: "invariants".into(),
-    });
-    let query = |depth: usize, kinds: &[&str]| -> serde_json::Value {
-        let out = specforge_emitter::query(&graph, "a", depth, kinds).unwrap();
-        serde_json::from_str(&out).unwrap()
-    };
-
-    // depth_respected: exactly the entities within N hops.
-    assert_eq!(node_ids(&query(0, &[])), vec!["a"]);
-    assert_eq!(node_ids(&query(1, &[])), vec!["a", "b"]);
-    assert_eq!(node_ids(&query(2, &[])), vec!["a", "b", "c"]);
-    assert_eq!(node_ids(&query(3, &[])), vec!["a", "b", "c", "x"]);
-
-    // kind_filter_applied: only the listed kinds, plus the queried root.
-    assert_eq!(node_ids(&query(3, &["behavior"])), vec!["a", "b", "c"]);
-    assert_eq!(node_ids(&query(3, &["invariant"])), vec!["a", "x"]);
-
-    // graph_protocol_conformance: schema_version, and edges only between
-    // returned nodes.
-    let result = query(2, &[]);
-    assert_eq!(result["schema_version"], "0.1.0");
-    assert_eq!(
-        result["edges"],
-        serde_json::json!([
-            { "source": "a", "target": "b", "label": "behaviors" },
-            { "source": "b", "target": "c", "label": "depends_on" },
-        ])
-    );
+    assert_eq!(err.code(), Some(specforge_diagnostics::codes::E003));
 }
 
 // === enforce_token_budget contract ===

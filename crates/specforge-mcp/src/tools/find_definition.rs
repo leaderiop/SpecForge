@@ -2,7 +2,7 @@ use serde_json::json;
 
 use crate::args::Arguments;
 use crate::target::Call;
-use crate::tool::{Handled, ToolOutcome};
+use crate::tool::{Handled, McpError, ToolOutcome};
 
 /// `specforge.find_definition`'s arguments.
 #[derive(Debug, Arguments)]
@@ -19,7 +19,7 @@ pub fn call(call: &mut Call<'_>, args: Args) -> Handled {
     let entity_id = args.entity_id.as_str();
     let definition = super::navigator(call)
         .definition(entity_id)
-        .map_err(|_| crate::tool::entity_not_found(entity_id))?;
+        .map_err(McpError::from)?;
     Ok(ToolOutcome::ok(json!({
         "entity_id": definition.id,
         "file_path": definition.name.file,

@@ -35,7 +35,7 @@ pub fn render(call: &Call<'_>, args: Args) -> PromptOutcome {
         Some(entity_id) => {
             let sub = graph
                 .subgraph_depth(entity_id, args.depth)
-                .ok_or_else(|| entity_not_found(entity_id))?;
+                .ok_or_else(|| entity_not_found(graph, entity_id))?;
             Some(sub.nodes().iter().map(|n| n.id.raw.to_string()).collect())
         }
         None => None,

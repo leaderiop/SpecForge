@@ -4,7 +4,6 @@
 //! function; the entity list and the diagnostics read what `specforge.list`
 //! and `specforge.validate` read. Nothing here reads the server's state.
 
-use serde_json::{Map, Value};
 use specforge_ops::export::{Format, Request};
 
 use crate::resources::{ReadOutcome, ResourceText};
@@ -225,7 +224,8 @@ fn exported(call: &Call<'_>, query: &ViewQuery, format: Format) -> ReadOutcome {
 }
 
 /// `specforge://entities/{kind}`: what `specforge.list {kind}` lists, the
-/// same rows from the same function ([`crate::tools::list::entities`]).
+/// same rows from the same read view and presenter
+/// ([`specforge_ops::query::list`], [`crate::tools::list::rows`]).
 pub(crate) fn entities_view(call: &Call<'_>, uri: &str) -> ReadOutcome {
     let (path, _) = uri.split_once('?').unwrap_or((uri, ""));
     no_query(uri)?;
@@ -234,9 +234,16 @@ pub(crate) fn entities_view(call: &Call<'_>, uri: &str) -> ReadOutcome {
         path.strip_prefix("specforge://entities/")
             .unwrap_or_default(),
     )?;
-    let rows =
-        crate::tools::list::entities(call.view().graph(), Some(&kind), &Map::new(), 0, usize::MAX);
-    let text = serde_json::to_string(&Value::Array(rows))
+    // A resource has no `_meta`: the listing's notices (an unknown kind)
+    // are not carried.
+    let listing = specforge_ops::query::list(
+        &call.view(),
+        &specforge_ops::query::ListRequest {
+            kind: Some(&kind),
+            ..Default::default()
+        },
+    );
+    let text = serde_json::to_string(&crate::tools::list::rows(&listing))
         .map_err(|error| Box::new(McpError::new(ErrorCode::InternalError, error.to_string())))?;
     Ok(ResourceText::json(text))
 }

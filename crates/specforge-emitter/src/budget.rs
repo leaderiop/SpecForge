@@ -1,15 +1,12 @@
 use serde::Serialize;
 use serde_json::Value;
-use specforge_diagnostics::{Code, codes};
+
 use specforge_graph::{Graph, Node};
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use crate::error::EmitterError;
 use crate::json::{JsonEdge, SCHEMA_VERSION, field_map_to_json, sorted_edges};
 use crate::schema::{GraphProtocolSchema, SchemaAttachment, SchemaRefBlock};
-
-/// The diagnostic a budget too small for any export fails with.
-const BUDGET_TOO_SMALL: Code = codes::E062;
 
 /// What wraps the entities of a graph export: `format_version`,
 /// `schema_version`, and for a V2 export the schema, embedded or referenced.
@@ -178,7 +175,7 @@ pub(crate) fn emit_graph_within_budget(
                 .collect(),
             token_budget,
         };
-        serde_json::to_string(&output).map_err(|e| EmitterError::SerializationError(e.to_string()))
+        serde_json::to_string(&output).map_err(|e| EmitterError::Serialization(e.to_string()))
     };
 
     // Everything, in graph order, when it fits.
@@ -190,13 +187,15 @@ pub(crate) fn emit_graph_within_budget(
 
     if let Some(schema) = envelope.schema {
         let schema_json = serde_json::to_string(schema)
-            .map_err(|e| EmitterError::SerializationError(e.to_string()))?;
+            .map_err(|e| EmitterError::Serialization(e.to_string()))?;
         let schema_tokens = estimate_tokens(&schema_json);
         if schema_tokens > max_tokens {
-            return Err(EmitterError::Other(format!(
-                "{BUDGET_TOO_SMALL}: the embedded schema alone costs {schema_tokens} tokens, over \
-                 the token budget of {max_tokens}; raise the budget or export without the schema"
-            )));
+            return Err(EmitterError::BudgetTooSmall {
+                reason: format!(
+                    "the embedded schema alone costs {schema_tokens} tokens, over \
+                     the token budget of {max_tokens}; raise the budget or export without the schema"
+                ),
+            });
         }
     }
 
@@ -227,11 +226,13 @@ pub(crate) fn emit_graph_within_budget(
     let n = priority.len();
     let (_, empty_cost) = with_cut(n)?;
     if empty_cost > max_tokens {
-        return Err(EmitterError::Other(format!(
-            "{BUDGET_TOO_SMALL}: the token budget of {max_tokens} cannot hold even an export \
-             with no entities ({empty_cost} tokens: the envelope and the truncated entity IDs); \
-             raise the budget"
-        )));
+        return Err(EmitterError::BudgetTooSmall {
+            reason: format!(
+                "the token budget of {max_tokens} cannot hold even an export \
+                 with no entities ({empty_cost} tokens: the envelope and the truncated entity IDs); \
+                 raise the budget"
+            ),
+        });
     }
     let (mut lo, mut hi) = (1, n);
     while lo < hi {
@@ -307,10 +308,11 @@ pub fn emit_json_with_budget_strategy(
     }
 
     match strategy {
-        "error" => Err(EmitterError::Other(format!(
-            "token budget exceeded: estimated {} tokens, budget is {}",
-            est, max_tokens
-        ))),
+        "error" => Err(EmitterError::BudgetTooSmall {
+            reason: format!(
+                "token budget exceeded: estimated {est} tokens, budget is {max_tokens}"
+            ),
+        }),
         _ => emit_json_with_budget(graph, max_tokens),
     }
 }

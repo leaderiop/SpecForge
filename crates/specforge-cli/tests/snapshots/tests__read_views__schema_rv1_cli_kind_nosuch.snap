@@ -4,4 +4,4 @@ expression: "format!(\"exit: {:?}\\nstderr:\\n{}\", nosuch.code, nosuch.stderr)"
 ---
 exit: Some(1)
 stderr:
-error[unknown_kind]: unknown entity kind: 'nosuch'
+error[unknown_kind]: unknown entity kind 'nosuch'

@@ -722,13 +722,19 @@ mod tests {
         // A read that named something refuses the same way, its hint the
         // entry's own.
         let target = CallTarget::NoProject(Reach::Served);
-        let refused = without_project(&target, crate::tool::entity_not_found("alpha"));
+        let refused = without_project(
+            &target,
+            crate::tool::entity_not_found(&specforge_graph::Graph::new(), "alpha"),
+        );
         assert_eq!(refused.code, ErrorCode::PreconditionFailed);
         assert_eq!(refused.argument, None);
         assert_eq!(refused.entity_id.as_deref(), Some("alpha"));
         assert!(!refused.message.contains("pass {"), "{}", refused.message);
         let target = CallTarget::NoProject(Reach::AnyProject);
-        let refused = without_project(&target, crate::tool::entity_not_found("alpha"));
+        let refused = without_project(
+            &target,
+            crate::tool::entity_not_found(&specforge_graph::Graph::new(), "alpha"),
+        );
         assert_eq!(refused.argument.as_deref(), Some("path"));
     }
     #[test]

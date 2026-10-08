@@ -6,7 +6,7 @@ expression: "normalized(&schema_digest(value), root)"
   "isError": {
     "argument": "kind",
     "code": "invalid_input",
-    "message": "unknown entity kind: 'nosuch'",
+    "message": "unknown entity kind 'nosuch'",
     "tool": "specforge.schema"
   }
 }

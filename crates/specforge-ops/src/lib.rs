@@ -29,6 +29,7 @@ pub mod options;
 pub mod plan;
 pub mod prove;
 pub mod publish;
+pub mod query;
 pub mod registry;
 pub mod rename;
 mod report;

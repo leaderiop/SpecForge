@@ -166,7 +166,7 @@ fn a_failed_resource_read_carries_its_mcp_error() {
     let error = read_error(&mut server, "specforge://graph/ghost");
     assert_eq!(
         error["message"],
-        "unresolved scope entity 'ghost' — entity not found in graph"
+        "unresolved entity 'ghost' — not found in graph"
     );
 }
 

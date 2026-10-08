@@ -7,7 +7,8 @@
 //! to the dispatcher typed (ADR 0022), never read back from the reply.
 
 use serde_json::{Value, json};
-use specforge_common::{Diagnostic, Severity, codes};
+use specforge_common::{Diagnostic, Severity};
+use specforge_graph::Graph;
 
 use crate::args::Argument;
 use crate::mutation::Mutated;
@@ -307,17 +308,6 @@ impl McpError {
         .with_diagnostic(diagnostic)
     }
 
-    /// A failure whose message leads with a diagnostic code
-    /// (`"E003: unresolved entity 'x' …"`): the code moves to `diagnostic`.
-    pub fn from_coded_message(fallback: ErrorCode, message: &str) -> Self {
-        match split_code(message) {
-            Some((code, rest)) => {
-                Self::from_diagnostic(&Diagnostic::untyped(code, Severity::Error, rest))
-            }
-            None => Self::new(fallback, message),
-        }
-    }
-
     pub fn with_entity(mut self, entity_id: impl Into<String>) -> Self {
         self.entity_id = Some(entity_id.into());
         self
@@ -424,18 +414,12 @@ impl From<OpError> for McpError {
     }
 }
 
-/// A question about `entity_id`, which no entity of the graph declares:
-/// `entity_not_found` naming it, its E003 in `diagnostic` (the one refusal
-/// tools and prompts share).
-pub fn entity_not_found(entity_id: &str) -> McpError {
-    McpError::from_coded_message(
-        ErrorCode::EntityNotFound,
-        &format!(
-            "{}: unresolved entity '{entity_id}' — not found in graph",
-            codes::E003
-        ),
-    )
-    .with_entity(entity_id)
+/// A question about `entity_id`, which no entity of `graph` declares:
+/// `specforge_ops::navigate::not_found` (E003 in `diagnostic`, a
+/// did-you-mean when an id is close), the one refusal tools and prompts
+/// share with every operation.
+pub fn entity_not_found(graph: &Graph, entity_id: &str) -> McpError {
+    specforge_ops::navigate::not_found(graph, entity_id).into()
 }
 
 /// What a refusal of a file the project does not hold says before the file's
@@ -448,13 +432,6 @@ pub(crate) fn file_not_found(file: &str) -> McpError {
     McpError::new(ErrorCode::FileNotFound, format!("{FILE_NOT_FOUND}{file}"))
         .with_argument("file")
         .with_file(file)
-}
-
-/// `("E003", "unresolved …")` for `"E003: unresolved …"`: a leading
-/// diagnostic code, a letter and three digits.
-fn split_code(message: &str) -> Option<(&str, &str)> {
-    let (code, rest) = message.split_once(": ")?;
-    is_diagnostic_code(code).then_some((code, rest))
 }
 
 /// Whether `code` is a diagnostic code (`E003`, `R004`, `R-RES-006`):
@@ -752,9 +729,10 @@ mod tests {
         assert_eq!(json["data"]["suggestion"], "pick another");
         assert!(json.get("diagnostic").is_none(), "{json}");
 
-        let error: McpError = OpError::diagnostic(codes::E062, "the budget is too small")
-            .with_suggestion("raise it")
-            .into();
+        let error: McpError =
+            OpError::diagnostic(specforge_common::codes::E062, "the budget is too small")
+                .with_suggestion("raise it")
+                .into();
         let json = error.to_json();
         assert_eq!(json["code"], "invalid_input");
         assert_eq!(json["diagnostic"]["code"], "E062");
@@ -823,7 +801,7 @@ mod tests {
 
     #[test]
     fn an_unknown_entity_carries_its_e003() {
-        let json = entity_not_found("ghost").to_json();
+        let json = entity_not_found(&Graph::new(), "ghost").to_json();
         assert_eq!(json["code"], "entity_not_found");
         assert_eq!(json["entity_id"], "ghost");
         assert_eq!(json["diagnostic"]["code"], "E003");

@@ -1,5 +1,5 @@
 use serde_json::{Map, Value, json};
-use specforge_graph::Graph;
+use specforge_ops::query::{ListRequest, Listing, list};
 
 use crate::args::Arguments;
 use crate::target::Call;
@@ -20,61 +20,38 @@ pub struct Args {
     offset: Option<usize>,
 }
 
-/// The entities of `kind` (every entity without one) whose fields hold what
+/// `specforge.list`: the list read view (`specforge_ops::query::list`), the
+/// entities of `kind` (every entity without one) whose fields hold what
 /// `where` asks, sorted by id, then paged by `offset` and `limit`. Domain
 /// free: any kind, any field (an extension's own list commands, such as
-/// `specforge.product.features`, render their kinds their way).
+/// `specforge.product.features`, render their kinds their way). A kind the
+/// project does not know lists nothing and is reported (I020).
 pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
-    let Args {
-        kind,
-        r#where,
-        limit,
-        offset,
-    } = args;
-    let kind = kind.as_deref().filter(|k| !k.is_empty());
-    let wanted = r#where.unwrap_or_default();
-    // Unpaged unless asked: no offset is the first entity, no limit all.
-    let entities = entities(
-        call.view().graph(),
-        kind,
-        &wanted,
-        offset.unwrap_or(0),
-        limit.unwrap_or(usize::MAX),
-    );
-    ToolOutcome::ok(Value::Array(entities))
+    let request = ListRequest {
+        kind: args.kind.as_deref(),
+        fields: args.r#where.as_ref(),
+        offset: args.offset.unwrap_or(0),
+        limit: args.limit,
+    };
+    let listing = list(&call.view(), &request);
+    let rows = rows(&listing);
+    ToolOutcome::ok(rows).with_diagnostics(listing.notices)
 }
 
-/// The rows [`call`] answers and `specforge://entities/{kind}` reads: the
-/// graph's entities of `kind` (all of them without one) whose fields hold
-/// what `wanted` asks, sorted by id, then paged by `offset` and `limit`.
-pub(crate) fn entities(
-    graph: &Graph,
-    kind: Option<&str>,
-    wanted: &Map<String, Value>,
-    offset: usize,
-    limit: usize,
-) -> Vec<Value> {
-    graph
-        .nodes()
-        .into_iter()
-        .filter(|n| kind.is_none_or(|k| n.kind.raw.as_str() == k))
-        .filter(|n| {
-            wanted.iter().all(|(field, value)| {
-                n.fields
-                    .entries()
-                    .iter()
-                    .find(|e| e.key.as_str() == field)
-                    .is_some_and(|e| &specforge_emitter::field_value_to_json(&e.value) == value)
+/// `[{id, kind, title}]`: the one presenter of a listing, the tool's and
+/// `specforge://entities/{kind}`'s.
+pub(crate) fn rows(listing: &Listing) -> Value {
+    Value::Array(
+        listing
+            .entities
+            .iter()
+            .map(|node| {
+                json!({
+                    "id": node.id.raw.as_str(),
+                    "kind": node.kind.raw.as_str(),
+                    "title": node.title.as_deref().unwrap_or(""),
+                })
             })
-        })
-        .skip(offset)
-        .take(limit)
-        .map(|n| {
-            json!({
-                "id": n.id.raw.as_str(),
-                "kind": n.kind.raw.as_str(),
-                "title": n.title.as_deref().unwrap_or(""),
-            })
-        })
-        .collect()
+            .collect(),
+    )
 }
