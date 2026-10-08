@@ -253,7 +253,7 @@ pub(crate) fn init_op(call: &mut Call<'_>, args: InitArgs) -> Mutated {
         return Mutated::refused(McpError::from(crate::target::TargetError::PathRequired));
     };
     let extensions = &args.extensions;
-    let served = call.state.session().root().map(Path::to_path_buf);
+    let served = call.state.session().project().root().map(Path::to_path_buf);
 
     // The scaffold `specforge init` writes; the new project must not land
     // inside the one this server serves.

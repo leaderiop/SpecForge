@@ -1244,8 +1244,14 @@ mod tests {
             ["@specforge/product"],
             "only what the project enables"
         );
-        assert!(project.env.enabled.iter().all(|e| e.failure.is_none()));
-        let commands = ExtensionCommands::build(&project.env.registries);
+        assert!(
+            project
+                .environment()
+                .enabled
+                .iter()
+                .all(|e| e.failure.is_none())
+        );
+        let commands = ExtensionCommands::build(&project.environment().registries);
         let features = commands
             .all()
             .iter()

@@ -825,7 +825,7 @@ fn code_action_create_entity_stub_contract() {
     // current file; none without a target kind
     let text = "behavior login \"L\" {\n  invariants [missing_inv]\n}\n";
     let state = buffers(&[("/p/auth.spec", text)]);
-    let diagnostics = state.session().unwrap().diagnostics();
+    let diagnostics = state.session().unwrap().project().diagnostics();
     let fixes_with = |target_kind: Option<&str>| {
         let env = specforge_project::Environment::with_registries({
             let mut build = specforge_registry::RegistryBuild::default();

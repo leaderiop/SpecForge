@@ -204,7 +204,7 @@ fn type_body_syntax_the_grammar_rejects_does_not_surface_parse_errors() {
         "a body-parser kind's body must not produce E001 parse errors, got: {e001:?}"
     );
     assert!(
-        ctx.graph.node("Money").is_some(),
+        ctx.graph().node("Money").is_some(),
         "the type itself is still in the graph"
     );
 }
@@ -232,7 +232,7 @@ type CodeAction "Code Action" {
 
     // `kind` here is an ordinary struct field (of type CodeActionKind), not the
     // struct meta-attribute. It must NOT trip the type-kind enum constraint.
-    let node = ctx.graph.node("CodeAction").expect("CodeAction compiled");
+    let node = ctx.graph().node("CodeAction").expect("CodeAction compiled");
     assert_eq!(
         node.kind.raw.as_str(),
         "type",
@@ -273,18 +273,18 @@ fn single_entity_roundtrip() {
 
     // Graph should contain exactly one node
     assert_eq!(
-        ctx.graph.nodes().len(),
+        ctx.graph().nodes().len(),
         1,
         "expected 1 node, got {}",
-        ctx.graph.nodes().len()
+        ctx.graph().nodes().len()
     );
-    let node = &ctx.graph.nodes()[0];
+    let node = &ctx.graph().nodes()[0];
     assert_eq!(node.id.raw.as_str(), "login");
     assert_eq!(node.kind.raw.as_str(), "behavior");
     assert_eq!(node.title.as_deref(), Some("User Login"));
 
     // Emit as JSON — should produce valid JSON
-    let json = specforge_emitter::json::emit_json(&ctx.graph);
+    let json = specforge_emitter::json::emit_json(ctx.graph());
     let parsed: serde_json::Value =
         serde_json::from_str(&json).expect("emitted JSON must be valid");
     let nodes = parsed["nodes"].as_array().expect("must have nodes array");
@@ -320,7 +320,7 @@ behavior login "User Login" {
     let diagnostics = ctx.diagnostics();
 
     // Should have 2 nodes
-    assert_eq!(ctx.graph.nodes().len(), 2, "expected 2 nodes");
+    assert_eq!(ctx.graph().nodes().len(), 2, "expected 2 nodes");
     // Should have resolved the import (no E025 file-not-found errors)
     let file_errors: Vec<_> = diagnostics.iter().filter(|d| d.code == "E025").collect();
     assert!(
@@ -337,12 +337,12 @@ behavior login "User Login" {
     );
     // The import's types edge links the two files' entities.
     assert!(
-        ctx.graph
+        ctx.graph()
             .edges()
             .iter()
             .any(|e| e.source == "login" && e.target == "user_id"),
         "{:?}",
-        ctx.graph.edges()
+        ctx.graph().edges()
     );
 
     // The path is looked up on disk: a `use` naming no file is E025.
@@ -371,14 +371,14 @@ behavior save_record "Save Record" {
 "#,
     )]);
 
-    assert_eq!(ctx.graph.nodes().len(), 2);
+    assert_eq!(ctx.graph().nodes().len(), 2);
     assert!(
-        !ctx.graph.edges().is_empty(),
+        !ctx.graph().edges().is_empty(),
         "should have at least one edge from behavior to invariant"
     );
 
     // Check edge connects the right nodes
-    let edge = &ctx.graph.edges()[0];
+    let edge = &ctx.graph().edges()[0];
     assert_eq!(edge.source.as_str(), "save_record");
     assert_eq!(edge.target.as_str(), "data_integrity");
 }
@@ -414,7 +414,7 @@ fn validation_diagnostics_surface() {
         e003[0]
     );
     // And no edge to the missing entity.
-    assert!(ctx.graph.edges().is_empty(), "{:?}", ctx.graph.edges());
+    assert!(ctx.graph().edges().is_empty(), "{:?}", ctx.graph().edges());
 }
 
 // B:build_in_memory_graph — verify unit "empty project produces empty graph"
@@ -427,11 +427,11 @@ fn empty_project_produces_empty_graph() {
     let ctx = specforge_project::CompiledProject::compile(dir.path(), None);
 
     assert!(
-        ctx.graph.nodes().is_empty(),
+        ctx.graph().nodes().is_empty(),
         "empty project should have no nodes"
     );
     assert!(
-        ctx.graph.edges().is_empty(),
+        ctx.graph().edges().is_empty(),
         "empty project should have no edges"
     );
 }
@@ -455,28 +455,28 @@ invariant security "Security Invariant" {
     )]);
 
     // JSON format
-    let json = specforge_emitter::json::emit_json(&ctx.graph);
+    let json = specforge_emitter::json::emit_json(ctx.graph());
     assert!(
         serde_json::from_str::<serde_json::Value>(&json).is_ok(),
         "JSON must be valid"
     );
 
     // Brief format
-    let brief = specforge_emitter::brief::emit_brief(&ctx.graph);
+    let brief = specforge_emitter::brief::emit_brief(ctx.graph());
     assert!(!brief.is_empty(), "brief must not be empty");
     assert!(brief.contains("auth"), "brief must mention entity");
 
     // Context format
-    let context = specforge_emitter::context::emit_context(&ctx.graph);
+    let context = specforge_emitter::context::emit_context(ctx.graph());
     assert!(!context.is_empty(), "context must not be empty");
 
     // DOT format
     let dot =
-        specforge_emitter::dot::emit_dot(&ctx.graph, &specforge_emitter::DotOptions::default());
+        specforge_emitter::dot::emit_dot(ctx.graph(), &specforge_emitter::DotOptions::default());
     assert!(dot.contains("digraph"), "DOT must contain digraph");
 
     assert!(
-        ctx.graph.node_count() >= 2,
+        ctx.graph().node_count() >= 2,
         "should have at least 2 entities"
     );
 }

@@ -184,7 +184,7 @@ impl<W: Watchers> SessionWatch<W> {
         if roots.is_empty() {
             return Err(format!(
                 "failed to watch directory: {} does not exist",
-                self.session.environment().root.display()
+                self.session.project().environment().root.display()
             ));
         }
         self.watchers.watch(&roots)?;
@@ -196,10 +196,11 @@ impl<W: Watchers> SessionWatch<W> {
         WatchEvent::Applied(Box::new(Applied {
             update,
             changed,
-            files: self.session.file_count(),
-            nodes: self.session.graph().node_count(),
+            files: self.session.project().file_count(),
+            nodes: self.session.project().graph().node_count(),
             extensions: self
                 .session
+                .project()
                 .environment()
                 .registries
                 .declarations()
@@ -214,8 +215,8 @@ impl<W: Watchers> SessionWatch<W> {
     /// project root (absolute outside it). Paths that change nothing are not
     /// named.
     fn labels(&self, batch: &[PathBuf], roles: &[InputRole]) -> Vec<String> {
-        let root = std::fs::canonicalize(&self.session.environment().root)
-            .unwrap_or_else(|_| self.session.environment().root.clone());
+        let root = std::fs::canonicalize(&self.session.project().environment().root)
+            .unwrap_or_else(|_| self.session.project().environment().root.clone());
         let mut labels: Vec<String> = batch
             .iter()
             .zip(roles)

@@ -691,6 +691,40 @@ fn analyze_of_another_project_runs_its_extensions_in_one_runtime() {
     assert_eq!(server.state().session_generation(), generation);
 }
 
+/// A rename on another project reports what `specforge check` reports for
+/// it afterwards, in order, and the served project is untouched.
+#[test]
+fn a_mutation_on_another_project_reports_what_a_fresh_compile_reports() {
+    use crate::fake_extension::{self, FakeExtension};
+
+    let (mut server, ext, _served) = fake_extension::initialized(FakeExtension::new());
+    let generation = server.state().session_generation();
+    let other = fake_extension::project();
+    fs::write(
+        other.path().join("main.spec"),
+        "behavior alpha \"A\" {\n}\n",
+    )
+    .unwrap();
+    let loads = ext.handshakes();
+
+    let resp = call_tool(
+        &mut server,
+        "specforge.rename",
+        json!({"path": other.path().to_str().unwrap(), "entity_id": "alpha", "new_name": "gamma"}),
+    );
+    assert_eq!(resp["result"]["isError"], false, "{resp}");
+    // PIN (08-T5): compiled at resolve and compiled again after the write.
+    assert_eq!(ext.handshakes() - loads, 2);
+
+    let payload: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+    let runtime = ext.runtime();
+    let fresh = specforge_project::CompiledProject::compile(other.path(), Some(runtime.as_ref()));
+    let expected =
+        serde_json::to_value(specforge_common::diagnostics_json(&fresh.diagnostics())).unwrap();
+    assert_eq!(payload["diagnostics"], expected);
+    assert_eq!(server.state().session_generation(), generation);
+}
+
 #[specforge_test(
     behavior = "provide_mcp_outline_tool",
     verify = "a file under the spec root with no entities has an empty outline"
