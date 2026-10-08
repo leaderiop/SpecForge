@@ -431,7 +431,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         effect: Effect::Mutates {
             hints: WriteHints {
                 destructive: true,
-                idempotent: false,
+                idempotent: true,
                 open_world: false,
             },
             handler: mutation!(
@@ -464,7 +464,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         ),
         effect: Effect::Mutates {
             hints: WriteHints {
-                destructive: false,
+                destructive: true,
                 idempotent: true,
                 open_world: true,
             },
@@ -647,7 +647,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         ),
         effect: Effect::Mutates {
             hints: WriteHints {
-                destructive: false,
+                destructive: true,
                 idempotent: false,
                 open_world: false,
             },

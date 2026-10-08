@@ -1241,7 +1241,7 @@ expression: listing
     "source": "core",
     "annotations": {
       "destructiveHint": true,
-      "idempotentHint": false,
+      "idempotentHint": true,
       "openWorldHint": false,
       "readOnlyHint": false
     }
@@ -1416,7 +1416,7 @@ expression: listing
     "category": "mutation",
     "source": "core",
     "annotations": {
-      "destructiveHint": false,
+      "destructiveHint": true,
       "idempotentHint": true,
       "openWorldHint": true,
       "readOnlyHint": false
@@ -2076,7 +2076,7 @@ expression: listing
     "category": "mutation",
     "source": "core",
     "annotations": {
-      "destructiveHint": false,
+      "destructiveHint": true,
       "idempotentHint": false,
       "openWorldHint": false,
       "readOnlyHint": false

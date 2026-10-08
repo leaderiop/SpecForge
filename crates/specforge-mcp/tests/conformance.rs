@@ -222,6 +222,8 @@ fn core_tool_annotations_follow_what_each_tool_does() {
     assert_eq!(hint("specforge.query", "readOnlyHint"), true);
     assert_eq!(hint("specforge.format", "destructiveHint"), true);
     assert_eq!(hint("specforge.add_extension", "openWorldHint"), true);
+    assert_eq!(hint("specforge.add_extension", "destructiveHint"), true);
+    assert_eq!(hint("specforge.rename", "idempotentHint"), true);
     assert_eq!(hint("specforge.infer_session", "readOnlyHint"), false);
     // An extension declares no annotations: none are made up for it.
     let extension = tools.iter().find(|t| t["name"] == "specforge.cmds.check");

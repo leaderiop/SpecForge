@@ -1100,6 +1100,119 @@ fn add_extension_returns_result() {
     assert!(lock.contains("@sdk/greet"));
 }
 
+/// The annotation `key` of `tool` as `tools/list` lists it.
+fn listed_hint(server: &mut McpServer, tool: &str, key: &str) -> Value {
+    let listed = call(server, "tools/list", json!({}));
+    listed["result"]["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|t| t["name"] == tool)
+        .unwrap_or_else(|| panic!("{tool} listed"))["annotations"][key]
+        .clone()
+}
+
+#[specforge_test(
+    behavior = "list_mcp_tools",
+    verify = "a writing tool's hints say what it does: one that overwrites is destructive, one whose repeat changes nothing is idempotent"
+)]
+fn add_extension_overwrites_a_changed_module() {
+    let mut server = components_server();
+    let root = server.root().to_path_buf();
+    let blob =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/greet-extension/greet.wasm");
+    let add = |server: &mut McpServer| {
+        let resp = call_tool(
+            server,
+            "specforge.add_extension",
+            json!({"specifier": blob.to_str().unwrap()}),
+        );
+        assert_eq!(resp["result"]["isError"], false, "{resp}");
+        tool_json(&resp)
+    };
+    add(&mut server);
+    let module = root.join(".specforge/extensions/@sdk/greet/extension.wasm");
+    let installed = std::fs::read(&module).unwrap();
+    let mut changed = installed.clone();
+    changed.extend_from_slice(b"changed after install");
+    std::fs::write(&module, &changed).unwrap();
+
+    let second = add(&mut server);
+
+    // The existing file was overwritten, which the listing now says.
+    assert_eq!(
+        second["files_written"],
+        json!([".specforge/extensions/@sdk/greet/extension.wasm"]),
+        "{second}"
+    );
+    assert_eq!(std::fs::read(&module).unwrap(), installed);
+    assert_eq!(
+        listed_hint(&mut server, "specforge.add_extension", "destructiveHint"),
+        true
+    );
+}
+
+#[specforge_test(
+    behavior = "list_mcp_tools",
+    verify = "a writing tool's hints say what it does: one that overwrites is destructive, one whose repeat changes nothing is idempotent"
+)]
+fn infer_session_mark_replaces_a_record() {
+    let mut server = TestProject::new()
+        .file("src/lib.rs", "pub fn a() {}\n")
+        .serve(&[TestExtension::software()]);
+    let root = server.root().to_path_buf();
+    let mark = |server: &mut McpServer, entity: &str| {
+        let resp = call_tool(
+            server,
+            "specforge.infer_session",
+            json!({"action": "mark_analyzed", "source_file": "src/lib.rs", "entities_produced": [entity]}),
+        );
+        assert_eq!(resp["result"]["isError"], false, "{resp}");
+    };
+    mark(&mut server, "gamma");
+    mark(&mut server, "delta");
+
+    // The second mark replaced the first record of the file.
+    let manifest = std::fs::read_to_string(root.join("specforge-infer.json")).unwrap();
+    let manifest: Value = serde_json::from_str(&manifest).unwrap();
+    let record = manifest["source_index"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|entry| entry["path"] == "src/lib.rs")
+        .unwrap_or_else(|| panic!("{manifest}"))
+        .to_string();
+    assert!(record.contains("delta"), "{record}");
+    assert!(!record.contains("gamma"), "{record}");
+    assert_eq!(
+        listed_hint(&mut server, "specforge.infer_session", "destructiveHint"),
+        true
+    );
+}
+
+#[specforge_test(
+    behavior = "list_mcp_tools",
+    verify = "a writing tool's hints say what it does: one that overwrites is destructive, one whose repeat changes nothing is idempotent"
+)]
+fn a_repeated_rename_changes_nothing() {
+    let (mut server, root) = server_with_token_project();
+    let args = json!({"entity_id": "token_unique", "new_name": "token_distinct"});
+    let first = call_tool(&mut server, "specforge.rename", args.clone());
+    assert_eq!(first["result"]["isError"], false, "{first}");
+    let before = files_under(&root);
+
+    let second = call_tool(&mut server, "specforge.rename", args);
+
+    let error = crate::tool_errors::mcp_error(&second);
+    assert_eq!(error["code"], "entity_not_found", "{error}");
+    assert_eq!(error["data"]["files_written"], json!([]), "{error}");
+    assert_eq!(files_under(&root), before, "the repeat wrote nothing");
+    assert_eq!(
+        listed_hint(&mut server, "specforge.rename", "idempotentHint"),
+        true
+    );
+}
+
 #[specforge_test(
     behavior = "provide_mcp_add_extension_tool",
     verify = "add, init and publish read a candidate's declaration in the runtime their surface passes"

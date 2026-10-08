@@ -175,6 +175,7 @@ behavior list_mcp_tools "List MCP Tools" {
   verify unit "every listed tool has a spec category and a source"
   verify unit "core tools are annotated: read-only tools readOnlyHint, writing tools how they write"
   verify unit "a mutation's outputSchema declares files_written, derived from its effect"
+  verify unit "a writing tool's hints say what it does: one that overwrites is destructive, one whose repeat changes nothing is idempotent"
   verify unit "an extension tool is listed once across recompiles"
   verify unit "an extension tool's declared output_schema is listed as its outputSchema"
   verify unit "a tool's path and use_cached are declared once, by its target"
