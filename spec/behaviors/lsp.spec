@@ -285,10 +285,12 @@ behavior hover_diagnostic "Hover a Diagnostic" {
     MUST show, as markdown and before any entity hover, the diagnostic's
     code with the catalogue's title, the catalogue's explanation and the
     link to the code's section of docs/diagnostics.md. A code the catalogue
-    does not have shows its code and message only.
+    does not have shows its code and message only. The entity hover that
+    follows does not list that diagnostic again.
   """
   verify unit "hovering a diagnostic shows its catalogued title and explanation"
   verify unit "an uncatalogued diagnostic's hover shows its code and message only"
+  verify unit "the diagnostic under the cursor comes before the entity's hover, which does not list it again"
 }
 
 // Completion behaviors (autocomplete_entity_ids, complete_field_names, complete_keywords)

@@ -144,23 +144,31 @@ impl Served {
 
     /// The hover markdown at a position.
     pub fn hover(&self, file: &str, line: u32, character: u32) -> Option<String> {
-        let hover = answers::hover(&self.state, &self.uri(file), Position::new(line, character))?;
-        match hover.contents {
-            HoverContents::Markup(markup) => Some(markup.value),
-            other => panic!("a hover of markup, not {other:?}"),
-        }
+        hover_text(&self.state, &self.uri(file), Position::new(line, character))
+    }
+
+    /// The position of the declaration of `id` in `file` (on disk): the
+    /// first line whose second word is `id`, one character into the name.
+    pub fn position_of(&self, file: &str, id: &str) -> Position {
+        let text = std::fs::read_to_string(self.dir.path().join(file)).unwrap();
+        text.lines()
+            .enumerate()
+            .find_map(|(n, line)| {
+                let mut words = line.split_whitespace();
+                words.next()?;
+                (words.next()? == id)
+                    .then(|| Position::new(n as u32, line.find(id).unwrap() as u32 + 1))
+            })
+            .unwrap_or_else(|| panic!("no declaration of {id} in {file}"))
     }
 
     /// The hover on the declaration of `id` in `file`: the first line whose
-    /// second word is `id`.
+    /// second word is `id`. `None` when no line declares it.
     pub fn hover_on(&self, file: &str, id: &str) -> Option<String> {
         let text = std::fs::read_to_string(self.dir.path().join(file)).ok()?;
-        let (line, column) = text.lines().enumerate().find_map(|(n, line)| {
-            let mut words = line.split_whitespace();
-            words.next()?;
-            (words.next()? == id).then(|| (n, line.find(id).unwrap()))
-        })?;
-        self.hover(file, line as u32, column as u32 + 1)
+        text.lines()
+            .any(|line| line.split_whitespace().nth(1) == Some(id))
+            .then(|| hover_text(&self.state, &self.uri(file), self.position_of(file, id)))?
     }
 
     /// `f` over the state while the session is out for an update (its
@@ -194,4 +202,39 @@ pub fn apply_change(
         state.record(publication);
     }
     Some((applied, publication))
+}
+
+/// The markdown of the hover at `position` of the open document `uri`.
+pub fn hover_text(state: &LspState, uri: &Url, position: Position) -> Option<String> {
+    match answers::hover(state, uri, position)?.contents {
+        HoverContents::Markup(markup) => Some(markup.value),
+        other => panic!("a hover of markup, not {other:?}"),
+    }
+}
+
+/// A state with no project holding `files` (absolute path, text) as open
+/// buffers, applied through the protocol's change (`Change::Edited`).
+pub fn buffers(files: &[(&str, &str)]) -> LspState {
+    let mut state = LspState::new();
+    for (path, text) in files {
+        edit_buffer(&mut state, path, text);
+    }
+    state
+}
+
+/// The URI of the file at the absolute `path`.
+pub fn uri_of_path(path: &str) -> Url {
+    Url::from_file_path(path).unwrap()
+}
+
+/// The buffer of the file at the absolute `path` becomes `text` (opened if
+/// it was not), applied as the debounce would apply it.
+pub fn edit_buffer(state: &mut LspState, path: &str, text: &str) {
+    let uri = uri_of_path(path);
+    if state.is_open(uri.as_str()) {
+        state.apply_change(uri.as_str(), None, text);
+    } else {
+        state.open_document(uri.as_str(), text);
+    }
+    apply_change(state, Change::Edited(vec![uri]), None).expect("the buffer is open");
 }

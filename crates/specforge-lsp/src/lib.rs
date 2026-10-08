@@ -19,7 +19,7 @@ pub use document::{
     SemanticToken, TOKEN_MODIFIERS, TOKEN_TYPES, Target, Word, WordEdit,
 };
 pub use hover::hover_field_info;
-pub use navigation::{goto_import_definition, navigator};
+pub use navigation::goto_import_definition;
 pub use state::LspState;
 
 /// Quiet window the reparse worker waits for before recompiling: the one

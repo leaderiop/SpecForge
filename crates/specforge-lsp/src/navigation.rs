@@ -21,13 +21,6 @@ use crate::uri::{file_path_to_uri, uri_to_file_path};
 use std::cell::RefCell;
 use std::sync::Arc;
 
-/// The navigator over the session. It reads the text the project was
-/// compiled from ([`Compiled::navigator`]), the text every span it answers
-/// is a position in.
-pub fn navigator(state: &LspState) -> Navigator<'_, impl Fn(&str) -> Option<String> + '_> {
-    Compiled::new(state).navigator()
-}
-
 /// The project as its last compile saw it, read by one request. A span of
 /// the graph or of a diagnostic is a position in the text the compile read
 /// (ADR 0023 D3): `Compiled` converts it against that text (byte columns
