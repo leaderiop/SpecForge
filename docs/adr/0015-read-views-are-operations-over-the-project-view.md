@@ -35,7 +35,9 @@ The operations, each one function over the view returning a typed outcome:
 `stats::stats` (`Stats`), `coverage::{coverage, row}` (`CoverageOutcome`, `CoverageRow`),
 `trace::trace` (`TraceOutcome`, which serializes as the document `specforge trace` writes),
 `plan::check` (`PlanOutcome`), `schema::schema` (`SchemaOutcome`), `export::export`,
-`model::{model, outline}` (`ModelOutcome`), `inspect::inspect` (`EntityFacts`, section "Inspect").
+`model::{model, outline}` (`ModelOutcome`), `inspect::inspect` (`EntityFacts`, section
+"Inspect"), `query::{query, list, search}` (`QueryOutcome`, `Listing`, `SearchOutcome`, section
+"Query").
 The CLI and MCP map arguments in and render the outcome, and the LSP hover renders inspect's; MCP
 has one coverage-row presenter (`tools::coverage::row_json`) and one gap presenter
 (`tools::trace::gap_json`).
@@ -270,3 +272,53 @@ view's (section "Management operations"): MCP's view reports its call target's, 
 what it published (`ProjectView::reporting`), so the hover's dedupe against the cursor's
 diagnostics compares the same copies. While the LSP's session is out for an update, the hover says
 coverage is unavailable rather than reading a stand-in view with no root.
+
+## Query
+
+*(Added 2026-10, architecture round 4, plan 05.)*
+
+`specforge query` had two implementations. The CLI called `specforge_emitter::query` over the raw
+graph; MCP `specforge.query` built its own emitter options, read its format from `AGENT_FORMAT`,
+reported I020 and injected coverage. Of 20 commits to the MCP handler none reached the CLI, which had
+no format, no coverage, no I020 and printed `E003: …` raw; both answered Graph Protocol 1.0 where
+`specforge://graph/{id}` answered 2.0 for the same request. Three modules decided what a known kind
+is (two case rules, three wordings) and `specforge.list` reported nothing. "No such entity" was built
+four ways, one by formatting `"E003: …"` and parsing it back, and the emitter's errors carried their
+code in their text, which ops and MCP split off again.
+
+- **Q1. Query, list and search are read views**: `specforge_ops::query::{query, list, search}`, each a
+  typed request holding its defaults (`DEFAULT_DEPTH` 1, `DEFAULT_SEARCH_LIMIT` 20) and a typed
+  outcome. `specforge query` and `specforge.query` render one query; `specforge.list` and
+  `specforge://entities/{kind}` one listing; `specforge.search` one search. The CLI's query takes
+  `--format` (`export::AGENT_FORMAT`) and `--include-coverage`.
+- **Q2. A query is an export**: scope, depth, kinds and format under the export schema policy
+  (`export::Request`, `Schema::Default`), so `specforge.query {entity_id}` is the document
+  `specforge://graph/{entity_id}` serves; `include_coverage` adds each node's `coverage_status`
+  (`coverage::STATUS`). The kind filter keeps an edge when both its entities are kept.
+- **Q3. One known-kind answer** (`ProjectView::kinds`, `KnownKinds`): a filter over entities knows the
+  declared kinds and the kinds entities are written with, and reports the others as I020 (the filter
+  drops them); an argument that needs a kind's declaration (schema `kind`, the infer prompt's
+  `kind:<name>`) knows the declared kinds and refuses the others with `unknown_kind`. Names are exact
+  (keywords are case-sensitive); one wording, `unknown entity kind '<kind>'`; the suggestion is a kind
+  equal ignoring case, else the closest. `specforge.list` reports I020 too and still lists nothing.
+- **Q4. Emitter errors are typed**: `EmitterError::{ScopeNotFound, BudgetTooSmall, Serialization}`;
+  `code()` is the variant's constant (E003, E062, none), `Display` carries no code. Ops maps the
+  variants to `OpError` in one total `match` (`export::failure`); the kind is the operation's, the
+  emitter does not link ops (ADR 0007). `SchemaVersionError` is read by its `reason` and `code()`.
+  No adapter parses a message: `from_coded_message`, `split_code` and `without_code` are gone.
+- **Q5. One not-found refusal**: `navigate::not_found(graph, id)`: E003, kind `EntityNotFound`,
+  `unresolved entity '<id>' — not found in graph`, `did you mean '<closest>'?`. Export's scope,
+  inspect, the navigator, rename and trace raise it; MCP tools and prompts convert it.
+- **Q6. Search's field filter is a pair**: `field` with `value` keeps the entities whose field's text
+  contains the value, ignoring case; one without the other is `invalid_input` naming the missing one
+  (it was ignored).
+
+Consequences: `specforge query` prints `error[E003]` with a did-you-mean, I020 on stderr, and takes
+`--format` and `--include-coverage`; a graph-format query, CLI or MCP, is Graph Protocol 2.0 with
+`schema_ref`; `specforge.list` reports I020; `specforge.schema`'s refusal loses its colon; the infer
+prompt refuses `kind:Behavior` naming `behavior`, and lists capitalized keywords as declared;
+`specforge export --scope` and the scoped resources say `unresolved entity '<id>' — not found in
+graph`; MCP navigation refusals carry a suggestion; search refuses a lone `field` or `value`.
+
+What would reopen it: a query that needs more than an export (a path query, a semantic search over
+embeddings), or a third surface for list or search with a shape of its own.

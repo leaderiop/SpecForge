@@ -64,8 +64,9 @@ deleted.
   severity, now get W150.
 - Extension diagnostics carry `origin` in the JSON every surface prints, and the hover names the
   extension; host diagnostics print as before.
-- The emitter's errors still carry their code inside message text (`"E003: …"`), formatted from
-  constants. Giving them a typed code is left for later.
+- ~~The emitter's errors still carry their code inside message text (`"E003: …"`), formatted from
+  constants. Giving them a typed code is left for later.~~ Closed by
+  [ADR 0015](0015-read-views-are-operations-over-the-project-view.md), section "Query" (Q4).
 - The decisions land in steps (architecture plan 11): the table and the constants first (D1), then
   the constructors beside the old ones, the conversion of every emit site, the extension check
   (D4, W150), closing construction (D2), `origin`, and last the scanner (D6).
