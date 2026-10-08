@@ -46,10 +46,17 @@ struct Failure {
     error: RegistryError,
 }
 
+/// One version a registry publishes: asked for by `name` and `version`, answered with `metadata`.
+struct Stored {
+    name: String,
+    version: String,
+    metadata: PackageMetadata,
+}
+
 #[derive(Default)]
 struct State {
     /// Per registry URL, the versions it publishes, in store order.
-    registries: HashMap<String, Vec<PackageMetadata>>,
+    registries: HashMap<String, Vec<Stored>>,
     /// The binary of each stored version, by the URL it downloads from.
     binaries: HashMap<String, Vec<u8>>,
     tokens: HashSet<String>,
@@ -91,8 +98,22 @@ impl MemoryClient {
     /// Store `metadata` and `wasm` in `registry` as one published version, unchecked. An empty
     /// `metadata.wasm_url` becomes `memory://{alias}/{name}/{version}`; any other is kept, so a download
     /// can be made to miss.
-    pub fn store(&self, registry: &RegistryConfig, mut metadata: PackageMetadata, wasm: Vec<u8>) {
-        let url = download_url(registry, &metadata.name, &metadata.version);
+    pub fn store(&self, registry: &RegistryConfig, metadata: PackageMetadata, wasm: Vec<u8>) {
+        let (name, version) = (metadata.name.clone(), metadata.version.clone());
+        self.store_as(registry, &name, &version, metadata, wasm);
+    }
+
+    /// [`MemoryClient::store`] `metadata` as the answer for `name@version`, whatever package and version
+    /// it describes: how a test serves a reply for another package than the one asked for.
+    pub fn store_as(
+        &self,
+        registry: &RegistryConfig,
+        name: &str,
+        version: &str,
+        mut metadata: PackageMetadata,
+        wasm: Vec<u8>,
+    ) {
+        let url = download_url(registry, name, version);
         if metadata.wasm_url.is_empty() {
             metadata.wasm_url = url.clone();
         }
@@ -102,7 +123,11 @@ impl MemoryClient {
             .registries
             .entry(key_of(registry))
             .or_default()
-            .push(metadata);
+            .push(Stored {
+                name: name.to_string(),
+                version: version.to_string(),
+                metadata,
+            });
     }
 
     /// Fail the next `kind` call on `registry` (any registry when `None`) with `error`. Queued failures
@@ -220,7 +245,7 @@ impl RegistryClient for MemoryClient {
             .into_iter()
             .flatten()
             .find(|m| m.name == name.as_str() && m.version == version.to_string())
-            .cloned()
+            .map(|m| m.metadata.clone())
             .ok_or(RegistryError::NotFound { specifier: subject })
     }
 
@@ -249,16 +274,20 @@ impl RegistryClient for MemoryClient {
             Some(registry),
         )?;
         let needle = query.to_ascii_lowercase();
-        let matches = |m: &PackageMetadata| {
+        let matches = |m: &Stored| {
             m.name.to_ascii_lowercase().contains(&needle)
-                || m.description.to_ascii_lowercase().contains(&needle)
-                || m.keywords
+                || m.metadata
+                    .description
+                    .to_ascii_lowercase()
+                    .contains(&needle)
+                || m.metadata
+                    .keywords
                     .iter()
                     .any(|k| k.to_ascii_lowercase().contains(&needle))
         };
         let state = self.state.lock().unwrap();
         // The latest version of each matching package, by SemVer, then by name.
-        let mut latest: HashMap<&str, &PackageMetadata> = HashMap::new();
+        let mut latest: HashMap<&str, &Stored> = HashMap::new();
         for stored in state
             .registries
             .get(&key_of(registry))
@@ -283,7 +312,7 @@ impl RegistryClient for MemoryClient {
             .map(|m| SearchHit {
                 name: m.name.clone(),
                 version: m.version.clone(),
-                description: m.description.clone(),
+                description: m.metadata.description.clone(),
             })
             .collect();
         hits.sort_by(|a, b| a.name.cmp(&b.name));

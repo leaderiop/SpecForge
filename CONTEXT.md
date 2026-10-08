@@ -148,13 +148,19 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   It **owes** obligations when a rule applies and nothing exempts it. It **counts** toward coverage
   when testable and owing or declaring. It is **exempt** when testable and neither. W004, the pass
   input's `exempt`, the coverage rule, stats, plan validation and the verify-stub fix read it.
-- **Package registry client**: what talks to a package registry: search, resolve and publish over
-  HTTP, credentials in the OS keyring, publisher trust and package signing
+- **Package registry client**: what talks to a package registry: search, versions, metadata, download and
+  publish over HTTP, credentials in the OS keyring, publisher trust and package signing
   (`specforge-registry-client`). Not the Registry build, which is pure and needs none of it.
-  Operations reach it only through the `Registry` port, which takes a package name and a
-  version (ADR 0036); its adapter (`specforge-ops-registry`)
-  is linked by the CLI and MCP, never the LSP (ADR 0010). Publish derives the stored declaration
-  from the binary; `add` checks the binary declares what was published (ADR 0012).
+  Operations reach it only through the `Registry` port, which takes a package name and a version
+  (ADR 0036); its adapter, `specforge_ops_registry::ConfiguredRegistry`, reads the project's registries,
+  asks the one that serves a name and runs the fetch policy over the `RegistryClient` seam (ADR 0044). It is
+  linked by the CLI and MCP, never the LSP (ADR 0010). Publish derives the stored declaration from the
+  binary; `add` checks the binary declares what was published (ADR 0012).
+- **Fetch policy**: what a package passes before an operation sees it: the registry's reply names the
+  package and version asked for, the binary hashes to the served SHA-256, the served manifest reads as that
+  package's declaration (one from before ADR 0012 is refused), and the publisher signature verifies with a
+  key that matches its pin or is pinned now (`ConfiguredRegistry::fetch`; ADR 0010, 0012, 0044). A refused
+  package pins no key.
 - **Package registry contract**: what a package registry and its client exchange over HTTP: the paths, the
   JSON bodies, the publish form and the error codes, each defined once in `specforge-registry-wire`, which
   `specforge-registry-server` and `specforge-registry-client` both compile against (ADR 0044). A test

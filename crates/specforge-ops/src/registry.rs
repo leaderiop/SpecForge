@@ -6,7 +6,7 @@
 //!
 //! The operations name only the [`Registry`] trait. The adapter that talks
 //! HTTP, checks publisher signatures and pins keys is
-//! `specforge_ops_registry::HttpRegistry`, which only the surfaces that
+//! `specforge_ops_registry::ConfiguredRegistry`, which only the surfaces that
 //! reach a registry (the CLI, MCP) link (ADR 0010).
 
 use crate::extension::Trust;

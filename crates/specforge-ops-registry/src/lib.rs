@@ -1,10 +1,11 @@
-//! Which registries a project uses, and the HTTP adapter behind
-//! `specforge_ops::registry::Registry`.
+//! Which registries a project uses, and the adapter behind `specforge_ops::registry::Registry`: the fetch
+//! policy over the package registry client.
 //!
 //! `specforge-ops` names only the port, so a surface that never reaches a
 //! registry (the LSP) links no HTTP client, keyring or signature code
-//! (ADR 0010). The CLI and MCP, whose `add` and `update` do, build an
-//! [`HttpRegistry`] and pass it in.
+//! (ADR 0010). The CLI and MCP, whose `add` and `update` do, build a
+//! [`ConfiguredRegistry`] and pass it in. What a package passes before an
+//! operation sees it (ADR 0044) is [`ConfiguredRegistry`]'s doc.
 
 use specforge_common::{Code, Diagnostic, codes};
 use specforge_ops::extension::Trust;
@@ -19,6 +20,7 @@ use specforge_registry_client::{
     HttpRegistryClient, RegistryClient, RegistryConfig, RegistryError, find_registry_for,
     parse_registries_from_config, verify_registry_integrity,
 };
+use specforge_registry_wire::PackageMetadata;
 use std::path::{Path, PathBuf};
 
 /// The registries a project configures, and what reading them reported.
@@ -75,26 +77,42 @@ pub fn configured(root: &Path, operation: &str) -> Result<Configured, OpError> {
     })
 }
 
-/// The project's configured registries over HTTP. Built without touching
-/// the network or failing: with no registry configured, each call fails
-/// with E063 before any request.
-pub struct HttpRegistry {
+/// A project's package registry as the `Registry` port (ADR 0010, 0044). It holds the registries the
+/// project's `specforge.json` configures, asks the one that serves a name, and hands ops only a package
+/// that passed the fetch policy:
+///
+/// 1. the reply names the package and version asked for (R-TRUST-004);
+/// 2. the binary hashes to the reply's SHA-256 (R-OPS-002);
+/// 3. the manifest reads as an extension declaration (R-OPS-004; a `manifest.json` from before ADR 0012 is
+///    refused with a re-publish suggestion) naming the package and version asked for (R-TRUST-004);
+/// 4. the publisher signature verifies and the key matches its pin, or is pinned (R-TRUST-001..006).
+///
+/// A refused package pins no key. The policy runs over any [`RegistryClient`]: HTTP unless
+/// [`ConfiguredRegistry::with_client`] gives another. Built without touching the network or failing: with
+/// no registry configured, each call fails with E063 before any request.
+pub struct ConfiguredRegistry {
     registries: Result<Configured, OpError>,
-    client: HttpRegistryClient,
+    client: Box<dyn RegistryClient>,
     /// Where publisher keys are pinned; `None` is the user's
     /// `~/.specforge/known-keys.json`.
     known_keys: Option<PathBuf>,
 }
 
-impl HttpRegistry {
-    /// The registries `root`'s `specforge.json` configures; `operation`
+impl ConfiguredRegistry {
+    /// The registries `root`'s `specforge.json` configures, over HTTP; `operation`
     /// names the command in E063.
     pub fn for_project(root: &Path, operation: &str) -> Self {
         Self {
             registries: configured(root, operation),
-            client: HttpRegistryClient::new(),
+            client: Box::new(HttpRegistryClient::new()),
             known_keys: None,
         }
+    }
+
+    /// Reach the registries through `client` instead of HTTP (a test).
+    pub fn with_client(mut self, client: impl RegistryClient + 'static) -> Self {
+        self.client = Box::new(client);
+        self
     }
 
     /// Pin and check publisher keys in the store at `path` instead of the
@@ -123,7 +141,7 @@ impl HttpRegistry {
     }
 }
 
-impl Registry for HttpRegistry {
+impl Registry for ConfiguredRegistry {
     fn fetch(
         &self,
         name: &PackageName,
@@ -132,30 +150,13 @@ impl Registry for HttpRegistry {
         trust: Trust,
     ) -> Result<Package, OpError> {
         let registry = self.registry_for(name)?;
-        let response = self
+        let metadata = self
             .client
             .metadata(name, version, registry)
-            .map_err(|e| OpError::from(e.to_diagnostic()))?;
-        // The signature covers the name and version the registry answers
-        // with, and the pin is keyed by that name: an answer for another
-        // package (or another version) would be verified, pinned and
-        // installed in place of the one asked for.
-        if response.name != name.as_str() || response.version != version.to_string() {
-            return Err(OpError::coded(
-                OpErrorKind::SchemaMismatch,
-                METADATA_MISMATCH,
-                format!(
-                    "registry answered {name}@{version} with {}@{}",
-                    response.name, response.version
-                ),
-            )
-            .with_suggestion("don't install the package, and check the registry"));
-        }
-        let wasm = self
-            .client
-            .download(&response.wasm_url)
-            .map_err(|e| OpError::from(e.to_diagnostic()))?;
-        verify_registry_integrity(&wasm, &response.sha256).map_err(OpError::from)?;
+            .map_err(failure)?;
+        reply_names(name, version, &metadata)?; // 1
+        let wasm = self.client.download(&metadata.wasm_url).map_err(failure)?;
+        verify_registry_integrity(&wasm, &metadata.sha256).map_err(OpError::from)?; // 2
 
         // The served manifest is the package's declaration (ADR 0012): the
         // peers the diamond gate (ADR 0001) decides on, and what the binary
@@ -163,35 +164,24 @@ impl Registry for HttpRegistry {
         // "no peers", and one describing another package must not be
         // installed as this one. Checked before the signature, so a refused
         // package pins no key.
-        let declaration = read_declaration(name, version, &response.manifest)?;
-        if declaration.name() != name.as_str() || declaration.version() != version.to_string() {
-            return Err(OpError::coded(
-                OpErrorKind::SchemaMismatch,
-                METADATA_MISMATCH,
-                format!(
-                    "registry served {name}@{version} with the declaration of {}@{}",
-                    declaration.name(),
-                    declaration.version()
-                ),
-            )
-            .with_suggestion("don't install the package, and check the registry"));
-        }
+        let declaration = read_declaration(name, version, &metadata.manifest)?; // 3
+        declaration_names(name, version, &declaration)?; // 3
 
         // Publisher signature and the TOFU pin policy.
         let trusted = specforge_registry_client::trust_flow::check_and_pin(
-            &response.name,
-            &response,
+            &metadata.name,
+            &metadata,
             &wasm,
             allow_unsigned,
             policy(trust),
             self.known_keys.as_deref(),
         )
-        .map_err(OpError::from)?;
+        .map_err(OpError::from)?; // 4
 
         Ok(Package {
             name: name.clone(),
             version: version.clone(),
-            sha256: response.sha256,
+            sha256: metadata.sha256,
             wasm,
             declaration,
             key_id: trusted.key_id,
@@ -204,21 +194,74 @@ impl Registry for HttpRegistry {
             .client
             .versions(name, registry)
             .map_err(|error| match error {
-                RegistryError::NotFound { .. } => Diagnostic::new(
-                    codes::R_RES_001,
-                    format!(
-                        "package '{name}' not found in registry '{}'",
-                        registry.alias
+                RegistryError::NotFound { .. } => OpError::from(
+                    Diagnostic::new(
+                        codes::R_RES_001,
+                        format!(
+                            "package '{name}' not found in registry '{}'",
+                            registry.alias
+                        ),
+                    )
+                    .with_suggestion(
+                        "check the package name and registry configuration".to_string(),
                     ),
-                )
-                .with_suggestion("check the package name and registry configuration".to_string()),
-                other => other.to_diagnostic(),
+                ),
+                other => failure(other),
             })?;
         Ok(published
             .iter()
             .filter_map(|text| Version::parse(text).ok())
             .collect())
     }
+}
+
+/// A client failure as ops reports it.
+fn failure(error: RegistryError) -> OpError {
+    OpError::from(error.to_diagnostic())
+}
+
+/// The signature covers the name and version the registry answers
+/// with, and the pin is keyed by that name: an answer for another
+/// package (or another version) would be verified, pinned and
+/// installed in place of the one asked for.
+fn reply_names(
+    name: &PackageName,
+    version: &Version,
+    metadata: &PackageMetadata,
+) -> Result<(), OpError> {
+    if metadata.name != name.as_str() || metadata.version != version.to_string() {
+        return Err(OpError::coded(
+            OpErrorKind::SchemaMismatch,
+            METADATA_MISMATCH,
+            format!(
+                "registry answered {name}@{version} with {}@{}",
+                metadata.name, metadata.version
+            ),
+        )
+        .with_suggestion("don't install the package, and check the registry"));
+    }
+    Ok(())
+}
+
+/// The declaration the registry served must be this package's own.
+fn declaration_names(
+    name: &PackageName,
+    version: &Version,
+    declaration: &ExtensionDeclaration,
+) -> Result<(), OpError> {
+    if declaration.name() != name.as_str() || declaration.version() != version.to_string() {
+        return Err(OpError::coded(
+            OpErrorKind::SchemaMismatch,
+            METADATA_MISMATCH,
+            format!(
+                "registry served {name}@{version} with the declaration of {}@{}",
+                declaration.name(),
+                declaration.version()
+            ),
+        )
+        .with_suggestion("don't install the package, and check the registry"));
+    }
+    Ok(())
 }
 
 /// How the client decides a key change for the way `add` was asked to.
@@ -271,7 +314,7 @@ mod tests {
     #[test]
     fn an_unconfigured_project_fails_each_call_with_e063_before_any_request() {
         let dir = tempfile::tempdir().unwrap();
-        let registry = HttpRegistry::for_project(dir.path(), "update");
+        let registry = ConfiguredRegistry::for_project(dir.path(), "update");
         assert!(registry.diagnostics().is_empty());
         let sdk = PackageName::parse("@sdk/greet").unwrap();
         let error = registry.versions(&sdk).unwrap_err();

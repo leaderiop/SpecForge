@@ -1,20 +1,22 @@
-//! `HttpRegistry::fetch` against a local registry: it refuses a tampered
+//! `ConfiguredRegistry::fetch`, the fetch policy over the client seam: it refuses a tampered
 //! download, a broken or missing signature and a re-keyed publisher, and
 //! pins the key of a correctly signed package (docs/registry-trust.md).
 //!
-//! Each test serves one package from an in-process HTTP server and pins
+//! Each test serves one package from an in-memory client (ADR 0044) and pins
 //! keys in a temporary store, never in `~/.specforge`.
 
 use sha2::{Digest, Sha256};
 use specforge_ops::extension::Trust;
 use specforge_ops::registry::Registry;
-use specforge_ops_registry::HttpRegistry;
+use specforge_ops_registry::ConfiguredRegistry;
 use specforge_protocol_types::PackageName;
 use specforge_protocol_types::package::Version;
-use specforge_registry_client::{KnownKeys, SigningKey, load_known_keys_at, save_known_keys_at};
+use specforge_registry_client::testing::MemoryClient;
+use specforge_registry_client::{
+    KnownKeys, RegistryConfig, SigningKey, load_known_keys_at, save_known_keys_at,
+};
+use specforge_registry_wire::PackageMetadata;
 use specforge_test_macros::test as specforge_test;
-use std::io::{BufRead, BufReader, Write};
-use std::net::TcpListener;
 use std::path::{Path, PathBuf};
 use tempfile::TempDir;
 
@@ -42,6 +44,8 @@ struct Served {
     /// The wire signature object, empty when unsigned.
     signature: String,
     key_id: String,
+    /// Where the metadata says the binary is; empty is where it is.
+    wasm_url: String,
 }
 
 impl Served {
@@ -53,6 +57,7 @@ impl Served {
             manifest: MANIFEST.to_string(),
             signature: String::new(),
             key_id: String::new(),
+            wasm_url: String::new(),
         }
     }
 
@@ -72,6 +77,7 @@ impl Served {
             manifest: manifest.to_string(),
             signature: serde_json::to_string(&signature).unwrap(),
             key_id: signature.key_id,
+            wasm_url: String::new(),
         }
     }
 
@@ -79,49 +85,31 @@ impl Served {
         Served::signed_over(key, NAME, WASM, MANIFEST)
     }
 
-    /// Serve it on a local port until the test process exits; the
-    /// registry base URL (`.../v1`).
-    fn serve(self) -> String {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-        let url = format!("http://{}/v1", listener.local_addr().unwrap());
-        let metadata = serde_json::json!({
-            "name": self.name,
-            "version": VERSION,
-            "sha256": self.sha256,
-            "wasm_url": "/wasm/acme-tool/1.0.0",
-            "manifest": self.manifest,
-            "signature": self.signature,
-            "key_id": self.key_id,
-        })
-        .to_string()
-        .into_bytes();
-        std::thread::spawn(move || {
-            for stream in listener.incoming() {
-                let Ok(mut stream) = stream else { continue };
-                let mut reader = BufReader::new(stream.try_clone().unwrap());
-                let mut request_line = String::new();
-                let _ = reader.read_line(&mut request_line);
-                loop {
-                    let mut line = String::new();
-                    if reader.read_line(&mut line).unwrap_or(0) == 0 || line == "\r\n" {
-                        break;
-                    }
-                }
-                let path = request_line.split_whitespace().nth(1).unwrap_or("/");
-                let body = if path.starts_with("/v1/wasm/") {
-                    &self.wasm
-                } else {
-                    &metadata
-                };
-                let _ = write!(
-                    stream,
-                    "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
-                    body.len()
-                );
-                let _ = stream.write_all(body);
-            }
-        });
-        url
+    /// The reply the client serves for `@acme/tool@1.0.0`, and its binary.
+    fn store(self, client: &MemoryClient) {
+        let metadata = PackageMetadata {
+            name: self.name,
+            version: VERSION.to_string(),
+            sha256: self.sha256,
+            manifest: self.manifest,
+            signature: self.signature,
+            key_id: self.key_id,
+            wasm_url: self.wasm_url,
+            ..Default::default()
+        };
+        // Whatever it describes is the answer for the package asked for.
+        client.store_as(&registry_config(), NAME, VERSION, metadata, self.wasm);
+    }
+}
+
+const REGISTRY_URL: &str = "memory://local";
+
+fn registry_config() -> RegistryConfig {
+    RegistryConfig {
+        alias: "local".to_string(),
+        url: REGISTRY_URL.to_string(),
+        scope_filter: None,
+        default_registry: true,
     }
 }
 
@@ -129,19 +117,21 @@ impl Served {
 /// path inside it.
 struct Project {
     dir: TempDir,
+    client: MemoryClient,
 }
 
 impl Project {
     fn on(served: Served) -> Self {
-        let url = served.serve();
+        let client = MemoryClient::new();
+        served.store(&client);
         let dir = TempDir::new().unwrap();
         let config = serde_json::json!({
             "name": "p",
             "version": "0.1.0",
-            "registries": [{ "alias": "local", "url": url, "default_registry": true }],
+            "registries": [{ "alias": "local", "url": REGISTRY_URL, "default_registry": true }],
         });
         std::fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
-        Project { dir }
+        Project { dir, client }
     }
 
     fn known_keys(&self) -> PathBuf {
@@ -154,8 +144,10 @@ impl Project {
         save_known_keys_at(&self.known_keys(), &known).unwrap();
     }
 
-    fn registry(&self) -> HttpRegistry {
-        HttpRegistry::for_project(self.dir.path(), "add").with_known_keys(self.known_keys())
+    fn registry(&self) -> ConfiguredRegistry {
+        ConfiguredRegistry::for_project(self.dir.path(), "add")
+            .with_client(self.client.clone())
+            .with_known_keys(self.known_keys())
     }
 
     fn fetch(
@@ -499,5 +491,21 @@ fn a_package_published_with_a_legacy_manifest_is_refused() {
         suggestion.contains("re-publish @acme/tool@1.0.0"),
         "{suggestion}"
     );
+    assert_eq!(project.pinned(), None, "nothing is pinned for it");
+}
+
+#[test]
+fn a_download_that_misses_is_refused_and_pins_nothing() {
+    // The reply is signed and describes the package, but the binary is
+    // not where it says: the policy stops at the download.
+    let key = SigningKey::generate();
+    let served = Served {
+        wasm_url: "memory://nowhere".to_string(),
+        ..Served::signed(&key)
+    };
+    let project = Project::on(served);
+
+    let error = project.fetch(true, Trust::AssumeYes).unwrap_err();
+    assert_eq!(error.code, "R006", "{error:?}");
     assert_eq!(project.pinned(), None, "nothing is pinned for it");
 }

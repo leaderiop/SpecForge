@@ -2,7 +2,7 @@ use crate::OutputFormat;
 use crate::outcome::Refusal;
 use serde_json::json;
 use specforge_ops::extension::{self, AddOutcome, AddRequest, Origin, Source, Trust};
-use specforge_ops_registry::HttpRegistry;
+use specforge_ops_registry::ConfiguredRegistry;
 use std::path::Path;
 
 /// `specforge add`: the shared add operation, presented.
@@ -19,7 +19,7 @@ pub fn run(
             return Refusal::of(format).report(&error);
         }
     };
-    let registry = HttpRegistry::for_project(path, "add");
+    let registry = ConfiguredRegistry::for_project(path, "add");
     // Only a registry package reads the registry configuration.
     if matches!(source, Source::Registry(_)) {
         format.eprint_diagnostics(registry.diagnostics());

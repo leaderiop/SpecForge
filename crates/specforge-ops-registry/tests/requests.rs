@@ -1,74 +1,38 @@
-//! What `HttpRegistry` asks a registry for: the request path of every call,
-//! recorded by an in-process server that answers 404 to everything but one
-//! package's version list.
+//! What `ConfiguredRegistry` asks a registry for: the request path of every call, recorded by the real
+//! registry server in process (ADR 0044).
 //!
 //! Plan 12 §3 R1, R4 and R6.
 
+use sha2::{Digest, Sha256};
 use specforge_ops::extension::{Trust, resolve};
 use specforge_ops::registry::Registry;
-use specforge_ops_registry::HttpRegistry;
+use specforge_ops_registry::ConfiguredRegistry;
 use specforge_protocol_types::package::{PackageName, PackageRef, Version};
+use specforge_registry_server::testing::LocalRegistry;
+use specforge_registry_wire::PackageMetadata;
 use specforge_test_macros::test as specforge_test;
-use std::io::{BufRead, BufReader, Write};
-use std::net::TcpListener;
-use std::sync::{Arc, Mutex};
 use tempfile::TempDir;
 
-/// A registry on a local port, and every request line it has been sent.
-struct Recording {
-    /// The base URL (`http://127.0.0.1:<port>/v1`).
-    url: String,
-    requests: Arc<Mutex<Vec<String>>>,
-}
+/// The declaration of `@acme/tool@1.0.0`, as `specforge publish` uploads it.
+const MANIFEST: &str = r#"{"handshake":{"protocol_version":"1.0.0","name":"@acme/tool","version":"1.0.0","contribution_flags":{},"peer_dependencies":[],"sandbox_policy":null}}"#;
 
-impl Recording {
-    /// Serves `/v1/packages/@acme%2Ftool` as a package published at
-    /// `versions`; everything else is 404.
-    fn serving(versions: &[&str]) -> Self {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-        let url = format!("http://{}/v1", listener.local_addr().unwrap());
-        let requests = Arc::new(Mutex::new(Vec::new()));
-        let log = Arc::clone(&requests);
-        let list = serde_json::json!({ "name": "@acme/tool", "versions": versions }).to_string();
-        std::thread::spawn(move || {
-            for stream in listener.incoming() {
-                let Ok(mut stream) = stream else { continue };
-                let mut reader = BufReader::new(stream.try_clone().unwrap());
-                let mut request_line = String::new();
-                let _ = reader.read_line(&mut request_line);
-                loop {
-                    let mut line = String::new();
-                    if reader.read_line(&mut line).unwrap_or(0) == 0 || line == "\r\n" {
-                        break;
-                    }
-                }
-                let path = request_line
-                    .split_whitespace()
-                    .nth(1)
-                    .unwrap_or("/")
-                    .to_string();
-                let (status, body) = if path == "/v1/packages/@acme%2Ftool" {
-                    ("200 OK", list.clone())
-                } else {
-                    (
-                        "404 Not Found",
-                        r#"{"error":{"code":"NOT_FOUND","message":"nope"}}"#.to_string(),
-                    )
-                };
-                log.lock().unwrap().push(path);
-                let _ = write!(
-                    stream,
-                    "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
-                    body.len()
-                );
-            }
-        });
-        Recording { url, requests }
+/// A registry in process publishing `@acme/tool` at `versions`, unsigned.
+fn serving(versions: &[&str]) -> LocalRegistry {
+    let server = LocalRegistry::start();
+    for version in versions {
+        let wasm = b"\0asm-acme-tool";
+        server.store(
+            &PackageMetadata {
+                name: "@acme/tool".to_string(),
+                version: version.to_string(),
+                sha256: hex::encode(Sha256::digest(wasm)),
+                manifest: MANIFEST.to_string(),
+                ..Default::default()
+            },
+            wasm,
+        );
     }
-
-    fn requests(&self) -> Vec<String> {
-        self.requests.lock().unwrap().clone()
-    }
+    server
 }
 
 /// A project whose `registries` is `registry`, as `entry` writes it.
@@ -94,9 +58,9 @@ fn name(text: &str) -> PackageName {
     verify = "a fetch requests the name and version it was given, from the registry it was given"
 )]
 fn the_adapter_requests_these_paths() {
-    let served = Recording::serving(&["1.4.0", "2.0.0-beta.1"]);
-    let dir = project_with(&default_registry(&served.url));
-    let registry = HttpRegistry::for_project(dir.path(), "add");
+    let served = serving(&["1.4.0", "2.0.0-beta.1"]);
+    let dir = project_with(&default_registry(served.url()));
+    let registry = ConfiguredRegistry::for_project(dir.path(), "add");
 
     // The registry is asked for the versions, and ops picks among them:
     // `1.x`, `1.2` and `latest` are no longer fetched as versions (§3 R1,
@@ -111,7 +75,7 @@ fn the_adapter_requests_these_paths() {
         assert_eq!(version.to_string(), want, "{reference}");
         assert_eq!(
             served.requests().last().map(String::as_str),
-            Some("/v1/packages/@acme%2Ftool"),
+            Some("GET /v1/packages/@acme%2Ftool"),
             "{reference}"
         );
     }
@@ -132,13 +96,13 @@ fn the_adapter_requests_these_paths() {
     );
     assert_eq!(
         served.requests().last().map(String::as_str),
-        Some("/v1/packages/@acme%2Ftool/1.0.0")
+        Some("GET /v1/packages/@acme%2Ftool/1.0.0")
     );
     let build = "2.0.0+build.1".parse().unwrap();
     let _ = registry.fetch(&name("@acme/tool"), &build, true, Trust::Refuse);
     assert_eq!(
         served.requests().last().map(String::as_str),
-        Some("/v1/packages/@acme%2Ftool/2.0.0+build.1")
+        Some("GET /v1/packages/@acme%2Ftool/2.0.0+build.1")
     );
 }
 
@@ -149,31 +113,33 @@ fn the_adapter_requests_these_paths() {
 fn the_registry_is_chosen_once() {
     // One registry with no default and no scope filter: the adapter falls
     // back to the first entry, and the client fetches from it (§3 R4).
-    let served = Recording::serving(&["1.0.0"]);
-    let dir = project_with(&format!(r#"{{"alias":"main","url":"{}"}}"#, served.url));
-    let registry = HttpRegistry::for_project(dir.path(), "add");
+    let served = serving(&["1.0.0"]);
+    let dir = project_with(&format!(r#"{{"alias":"main","url":"{}"}}"#, served.url()));
+    let known_keys = dir.path().join("home").join("known-keys.json");
+    let registry = ConfiguredRegistry::for_project(dir.path(), "add").with_known_keys(known_keys);
 
     assert_eq!(
         registry.versions(&name("@acme/tool")).unwrap(),
         [Version::new(1, 0, 0)]
     );
-    assert_eq!(served.requests(), ["/v1/packages/@acme%2Ftool"]);
+    assert_eq!(served.requests(), ["GET /v1/packages/@acme%2Ftool"]);
 
-    // The download goes to the same registry: a request, answered 404.
-    let error = registry
+    // The metadata and the download go to the same registry.
+    let package = registry
         .fetch(
             &name("@acme/tool"),
             &Version::new(1, 0, 0),
             true,
             Trust::Refuse,
         )
-        .unwrap_err();
-    assert_eq!(error.code, "R006", "{error:?}");
+        .unwrap();
+    assert_eq!(package.wasm, b"\0asm-acme-tool");
     assert_eq!(
         served.requests(),
         [
-            "/v1/packages/@acme%2Ftool",
-            "/v1/packages/@acme%2Ftool/1.0.0"
+            "GET /v1/packages/@acme%2Ftool",
+            "GET /v1/packages/@acme%2Ftool/1.0.0",
+            "GET /v1/packages/@acme%2Ftool/1.0.0/download",
         ]
     );
 }
