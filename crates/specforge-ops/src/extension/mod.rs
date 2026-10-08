@@ -14,7 +14,7 @@ pub use list::{
     ExtensionEntry, ExtensionListing, LockedExtension, ProviderEntry, ProviderListing, Status,
     list, providers,
 };
-pub use remove::{RemoveOutcome, RemoveRequest, remove};
+pub use remove::{RemoveOutcome, RemoveRequest, StrandedEntity, remove};
 pub use resolve::{resolve, resolve_requirement};
 pub use update::{
     BatchUpdateCompleted, ExtensionUpdate, NO_LOCK, UpdateOutcome, UpdateRequest, UpdateStatus,

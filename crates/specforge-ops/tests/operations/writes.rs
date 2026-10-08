@@ -5,7 +5,9 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use specforge_ops::Writes;
-use specforge_ops::extension::{self, AddOutcome, AddRequest, RemoveRequest, Source, Trust};
+use specforge_ops::extension::{
+    self, AddOutcome, AddRequest, RemoveRequest, Source, StrandedEntity, Trust,
+};
 use specforge_ops::view::ProjectView;
 use specforge_project::CompiledProject;
 use tempfile::TempDir;
@@ -522,7 +524,7 @@ fn disabling_a_builtin_writes_the_config_only() {
 }
 
 #[test]
-fn orphaned_lists_the_entity_ids() {
+fn stranded_lists_the_entities_by_id() {
     let dir = project(
         &[],
         &[
@@ -535,12 +537,22 @@ fn orphaned_lists_the_entity_ids() {
 
     let outcome = remove(root, GREET, true);
 
-    assert_eq!(outcome.orphaned, ["hello", "zeta"]);
     assert_eq!(
-        outcome.orphan_warnings.len(),
-        2,
-        "{:?}",
-        outcome.orphan_warnings
+        outcome.stranded,
+        [
+            StrandedEntity {
+                entity_id: "hello".to_string(),
+                kind: "greeting".to_string(),
+            },
+            StrandedEntity {
+                entity_id: "zeta".to_string(),
+                kind: "greeting".to_string(),
+            },
+        ]
+    );
+    assert_eq!(
+        outcome.stranded[0].warning(GREET),
+        format!("greeting 'hello' uses a kind only {GREET} defines")
     );
 }
 

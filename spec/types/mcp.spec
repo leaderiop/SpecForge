@@ -433,9 +433,15 @@ type McpRenderResult {
 type McpRemoveExtensionResult {
   /// Result of removing an extension via MCP.
   removed_extension string
-  orphan_warnings   string[]
+  stranded          McpStrandedEntity[]
   success           boolean
   verify unit "McpRemoveExtensionResult schema is valid"
+}
+
+type McpStrandedEntity "An entity a removal strands" {
+  entity_id string @readonly
+  kind      string @readonly
+  verify unit "McpStrandedEntity schema is valid"
 }
 
 // The implement prompt provides structured context for agents, NOT generated

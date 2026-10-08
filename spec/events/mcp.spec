@@ -87,7 +87,7 @@ event mcp_mutation_completed "MCP Mutation Completed" {
   // named on its own. The reply names the same files in files_written
   // (relative to the project root), so a client sees what the event
   // counts. entities_affected: the entities the call changed (the renamed
-  // one, the ones a removal orphans, the ones an inference step produced).
+  // one, the ones a removal strands, the ones an inference step produced).
   // A preview (dry_run, check, diff) is no mutation and emits nothing.
   channel "mcp.mutation_completed"
   payload {

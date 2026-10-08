@@ -740,7 +740,7 @@ behavior provide_mcp_analyze_tool "Provide MCP Analyze Tool" {
     every pass. A `path` naming another project analyzes that project for the
     call and leaves the served project untouched. When the test report holds
     records for entities the graph does not know, the result MUST carry a
-    top-level `orphans` list of `{entity_id, near}`, outside the passes and
+    top-level `stray_records` list of `{entity_id, near}` (stray test records), outside the passes and
     never promoted by `strict`; the field is absent when there are none.
   """
   verify unit "analyze reads the project's specforge-report.json by default"
@@ -752,7 +752,7 @@ behavior provide_mcp_analyze_tool "Provide MCP Analyze Tool" {
   verify unit "strict promotes warnings and clears ok"
   verify unit "analyzing another project leaves the served project untouched"
   verify unit "analyze with no project served and no path is a no-project error"
-  verify unit "orphaned test records come back as an optional orphans field"
+  verify unit "stray test records come back as an optional stray_records field"
   verify contract "Provide MCP Analyze Tool: MCP analyze tool holds — graph_available, passes_run, results_structured, tool_invoked_emitted"
 }
 

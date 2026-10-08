@@ -163,10 +163,10 @@ expression: listing
         "ok": {
           "type": "boolean"
         },
-        "orphans": {
+        "passes": {
           "type": "array"
         },
-        "passes": {
+        "stray_records": {
           "type": "array"
         }
       },
@@ -1430,7 +1430,7 @@ expression: listing
       "properties": {
         "dry_run": {
           "default": false,
-          "description": "Preview the removal, orphan warnings included, without changing any file",
+          "description": "Preview the removal, stranded entities included, without changing any file",
           "type": "boolean"
         },
         "force": {
@@ -1464,11 +1464,14 @@ expression: listing
           },
           "type": "array"
         },
-        "orphan_warnings": {
-          "type": "array"
-        },
         "removed_extension": {
           "type": "string"
+        },
+        "stranded": {
+          "items": {
+            "type": "object"
+          },
+          "type": "array"
         },
         "success": {
           "type": "boolean"
@@ -1483,7 +1486,7 @@ expression: listing
       "required": [
         "removed_extension",
         "success",
-        "orphan_warnings"
+        "stranded"
       ],
       "type": "object"
     },

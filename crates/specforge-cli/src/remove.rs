@@ -27,7 +27,11 @@ pub fn run(name: &str, path: &Path, force: bool, format: OutputFormat) -> i32 {
         OutputFormat::Json => {
             let mut output = json!({
                 "removed": outcome.name,
-                "orphan_warnings": outcome.orphan_warnings,
+                "stranded": outcome
+                    .stranded
+                    .iter()
+                    .map(|entity| json!({"entity_id": entity.entity_id, "kind": entity.kind}))
+                    .collect::<Vec<_>>(),
                 "files_written": outcome.writes.names_under(path),
             });
             match &outcome.origin {
@@ -56,8 +60,8 @@ pub fn run(name: &str, path: &Path, force: bool, format: OutputFormat) -> i32 {
                     outcome.version.as_deref().unwrap_or("?")
                 ),
             }
-            for warning in &outcome.orphan_warnings {
-                eprintln!("warning: {warning}");
+            for entity in &outcome.stranded {
+                eprintln!("warning: {}", entity.warning(&outcome.name));
             }
         }
     }

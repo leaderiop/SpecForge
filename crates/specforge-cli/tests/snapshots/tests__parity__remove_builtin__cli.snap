@@ -30,8 +30,8 @@ expression: cli_snap
     "files_written": [
       "specforge.json"
     ],
-    "orphan_warnings": [],
     "removed": "@specforge/product",
-    "source": "builtin"
+    "source": "builtin",
+    "stranded": []
   }
 }

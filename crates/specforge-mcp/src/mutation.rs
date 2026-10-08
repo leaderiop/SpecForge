@@ -29,7 +29,7 @@ pub struct Written {
     /// [`Writes`], whether the call then succeeded or failed.
     pub files: Writes,
     /// The IDs of the entities the call changed: the renamed entity (by its
-    /// new ID), the entities a removal orphaned, the entities an inference
+    /// new ID), the entities a removal strands, the entities an inference
     /// step produced.
     pub entities: BTreeSet<String>,
     /// The domain event the call produces; recorded only when it succeeded.
