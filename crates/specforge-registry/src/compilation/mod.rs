@@ -8,12 +8,6 @@
 mod build;
 mod declaration;
 mod populate;
-mod provider;
 mod validate;
 
 pub use build::{CHECK_PHASE, DeclaredPass, RegistryBuild, build_registries};
-// The `providers` specforge.json configures, and their schemes.
-pub use provider::{
-    ProviderConfig, ProviderSchemeRegistry, ProviderStatus, SchemeRegistryEntry,
-    load_provider_configurations, register_provider_schemes, register_provider_schemes_with_status,
-};

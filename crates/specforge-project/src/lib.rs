@@ -25,6 +25,7 @@ mod freshness;
 mod inputs;
 pub mod passes;
 mod policy;
+pub mod providers;
 mod session;
 pub mod snapshot;
 mod sources;
@@ -32,7 +33,7 @@ pub mod verdicts;
 
 use std::sync::Arc;
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use sources::SourceCache;
@@ -48,7 +49,7 @@ use specforge_graph::{Graph, GraphBuild, GraphConfig};
 use specforge_parser::SpecFile;
 use specforge_protocol_types::ExtensionDeclaration;
 use specforge_registry::{
-    RegistryBuild, build_registries, load_provider_configurations, register_provider_schemes,
+    RegistryBuild, build_registries,
     rules::{CustomVerdicts, NoVerdicts},
 };
 use specforge_resolver::resolve_imports;
@@ -61,6 +62,7 @@ pub use inputs::{Changes, InputRole, SessionInputs, UpdateKind, WatchRoot, Watch
 pub use policy::{
     DiagnosticPolicy, LINT_PROFILE_NAMES, LintProfile, UnknownLintProfile, apply_policy,
 };
+pub use providers::Providers;
 pub use session::{
     CheckMode, OpeningProject, ProjectSession, RuntimeSource, SharedRuntime, SourceChange, Update,
 };
@@ -98,15 +100,15 @@ pub struct Environment {
     /// The registries, rules, passes and graph inputs built from the loaded
     /// declarations.
     pub registries: RegistryBuild,
-    /// The ref schemes the configured providers registered (ADR 0004
-    /// D3-c): with any registered, a ref with another scheme is I005.
-    pub provider_schemes: HashSet<String>,
+    /// The `providers` specforge.json configures, registered once against
+    /// the loaded declarations (ADR 0004 D3-c): with any scheme registered,
+    /// a ref with another scheme is I005.
+    pub providers: Providers,
     /// Extension loading diagnostics: one E069 per config problem, the
     /// runtime's load failures (E028/E033) in load order, then the
     /// declarations' unknown keys (W138).
     pub load_diagnostics: Vec<Diagnostic>,
-    /// After the registry build: provider registration (W118/E057), then
-    /// I002 when no extension loaded.
+    /// After the registry build: I002 when no extension loaded.
     pub setup_diagnostics: Vec<Diagnostic>,
 }
 
@@ -122,7 +124,7 @@ impl Environment {
             enabled: Vec::new(),
             spec_root: PathBuf::new(),
             registries: RegistryBuild::default(),
-            provider_schemes: HashSet::new(),
+            providers: Providers::default(),
             load_diagnostics: Vec::new(),
             setup_diagnostics: Vec::new(),
         }
@@ -181,8 +183,8 @@ impl Environment {
                 .probe(&verdicts::WasmVerdicts::probe_only(runtime));
             registries.registry_diagnostics.extend(probes);
         }
+        let providers = Providers::register(config.raw.as_ref(), registries.declarations());
         let mut setup_diagnostics = Vec::new();
-        let provider_schemes = register_providers(&config, &registries, &mut setup_diagnostics);
         if registries.declarations().is_empty() {
             setup_diagnostics.push(structural_only_notice(&config.extensions, &read.problems));
         }
@@ -196,17 +198,25 @@ impl Environment {
             enabled,
             spec_root,
             registries,
-            provider_schemes,
+            providers,
             load_diagnostics,
             setup_diagnostics,
         }
     }
 
-    /// The inputs every graph of this project is built with.
+    /// The inputs every graph of this project is built with: every surface
+    /// that builds a graph (`check`, watch, the LSP) takes its `GraphConfig`
+    /// from here, so none can drift.
     pub fn graph_config(&self) -> GraphConfig {
+        let build = &self.registries;
         GraphConfig {
-            known_provider_schemes: self.provider_schemes.clone(),
-            ..compile::graph_config(&self.registries)
+            known_provider_schemes: self.providers.schemes(),
+            bidirectional_pairs: build.bidirectional_pairs.clone(),
+            body_parser_kinds: build.body_parser_kinds.clone(),
+            single_reference_fields: build.single_reference_fields.clone(),
+            absent_reference_targets: build.absent_reference_targets.clone(),
+            field_coercions: field_types::field_coercions(&build.fields),
+            derived_references: field_types::derived_references(&build.fields),
         }
     }
 
@@ -252,6 +262,7 @@ impl Environment {
         self.load_diagnostics
             .iter()
             .chain(&self.registries.declaration_diagnostics)
+            .chain(self.providers.diagnostics())
             .chain(&self.setup_diagnostics)
             .chain(&self.registries.registry_diagnostics)
     }
@@ -323,26 +334,6 @@ pub(crate) struct SourceBuild {
     /// E025 for the unreadable sources, then the resolver's (E025, I004,
     /// W113, W027).
     pub imports: Vec<Diagnostic>,
-}
-
-/// Register the `providers` specforge.json configures against the loaded
-/// extensions, in declaration order, and return the schemes they
-/// registered. W118 (a malformed entry, or an extension that is not
-/// loaded or contributes no providers) and E057 (a scheme declared twice)
-/// go to the load diagnostics.
-fn register_providers(
-    config: &ProjectConfig,
-    registries: &RegistryBuild,
-    diagnostics: &mut Vec<Diagnostic>,
-) -> HashSet<String> {
-    let Some(raw) = config.raw.as_ref() else {
-        return HashSet::new();
-    };
-    let (providers, config_diagnostics) = load_provider_configurations(raw);
-    diagnostics.extend(config_diagnostics);
-    let (schemes, registration) = register_provider_schemes(&providers, registries.declarations());
-    diagnostics.extend(registration);
-    schemes.entries.into_iter().map(|e| e.scheme).collect()
 }
 
 /// E069: one way `specforge.json` is not used as written. An error: a

@@ -11,6 +11,7 @@ mod entity_snapshot;
 mod extension_calls;
 mod field_types;
 mod policy;
+mod providers;
 mod registered_fields;
 mod registry_build_snapshot;
 mod registry_fields;

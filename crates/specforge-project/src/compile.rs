@@ -1,28 +1,11 @@
-//! The graph build's inputs from a registry build, and loading the
-//! extensions they come from. The checks over a built graph's entities are
+//! Loading the extensions a project enables, and what each `extensions`
+//! entry enables. The checks over a built graph's entities are
 //! `RegistryBuild::check`'s (ADR 0031).
 
 use specforge_common::{Diagnostic, ExtensionEntry, codes};
-use specforge_graph::GraphConfig;
 use specforge_protocol_types::ExtensionDeclaration;
-use specforge_registry::RegistryBuild;
 use specforge_wasm::WasmRuntime;
 use std::collections::HashSet;
-
-/// The graph build's inputs, from a registry build. Every surface that
-/// builds a graph (`check`, watch, the LSP) takes its `GraphConfig` from
-/// here, so none can drift.
-pub fn graph_config(build: &RegistryBuild) -> GraphConfig {
-    GraphConfig {
-        known_provider_schemes: HashSet::new(),
-        bidirectional_pairs: build.bidirectional_pairs.clone(),
-        body_parser_kinds: build.body_parser_kinds.clone(),
-        single_reference_fields: build.single_reference_fields.clone(),
-        absent_reference_targets: build.absent_reference_targets.clone(),
-        field_coercions: crate::field_types::field_coercions(&build.fields),
-        derived_references: crate::field_types::derived_references(&build.fields),
-    }
-}
 
 /// What one `specforge.json` `extensions` entry enables, as the runtime
 /// loaded it: the entry read by [`ExtensionEntry`], the rule the runtime
