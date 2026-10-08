@@ -191,6 +191,12 @@ impl ToolSpec {
         matches!(self.effect, Effect::Mutates { .. })
     }
 
+    /// Its call target: what its handler is given decides what a call
+    /// reaches and what it gets with nothing served.
+    pub fn target(&self) -> TargetSpec {
+        self.target
+    }
+
     /// `output`, with the `files_written` property for a mutation
     /// ([`crate::mutation::files_written_schema`]).
     pub fn output_schema(&self) -> Option<Value> {

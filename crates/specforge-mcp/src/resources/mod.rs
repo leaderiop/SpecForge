@@ -39,7 +39,7 @@ impl Surface for Resources {
     fn target(found: &Found<&'static ResourceSpec, ResourceEntry>) -> TargetSpec {
         match found {
             Found::Core(spec) => spec.target,
-            Found::Extension(_) => TargetSpec::SERVED,
+            Found::Extension(_) => TargetSpec::SERVED_PROJECT,
         }
     }
 
@@ -216,7 +216,7 @@ pub static CORE_RESOURCES: &[ResourceSpec] = &[
         name: "graph",
         description: "Full spec graph in JSON format",
         mime_type: "application/json",
-        target: TargetSpec::SERVED,
+        target: TargetSpec::SERVED_VIEW,
         read: |call, uri| views::export_view(call, uri, Format::Graph, None),
     },
     ResourceSpec {
@@ -224,7 +224,7 @@ pub static CORE_RESOURCES: &[ResourceSpec] = &[
         name: "schema",
         description: "Graph schema definition",
         mime_type: "application/json",
-        target: TargetSpec::SERVED,
+        target: TargetSpec::SERVED_VIEW,
         read: |call, uri| views::schema_view(call, uri),
     },
     ResourceSpec {
@@ -232,7 +232,7 @@ pub static CORE_RESOURCES: &[ResourceSpec] = &[
         name: "context",
         description: "Context-optimized graph (contract, status, verify fields)",
         mime_type: "application/json",
-        target: TargetSpec::SERVED,
+        target: TargetSpec::SERVED_VIEW,
         read: |call, uri| views::export_view(call, uri, Format::Context, None),
     },
     ResourceSpec {
@@ -240,7 +240,7 @@ pub static CORE_RESOURCES: &[ResourceSpec] = &[
         name: "context_entity",
         description: "Context-optimized subgraph rooted at an entity",
         mime_type: "application/json",
-        target: TargetSpec::SERVED,
+        target: TargetSpec::SERVED_VIEW,
         read: |call, uri| {
             views::export_view(call, uri, Format::Context, Some("specforge://context/"))
         },
@@ -250,7 +250,7 @@ pub static CORE_RESOURCES: &[ResourceSpec] = &[
         name: "brief",
         description: "Brief graph (id, kind, title, edges only)",
         mime_type: "application/json",
-        target: TargetSpec::SERVED,
+        target: TargetSpec::SERVED_VIEW,
         read: |call, uri| views::export_view(call, uri, Format::Brief, None),
     },
     ResourceSpec {
@@ -258,7 +258,7 @@ pub static CORE_RESOURCES: &[ResourceSpec] = &[
         name: "diagnostics",
         description: "Current compilation diagnostics",
         mime_type: "application/json",
-        target: TargetSpec::SERVED,
+        target: TargetSpec::SERVED_VIEW,
         read: |call, uri| views::diagnostics_view(call, uri),
     },
     ResourceSpec {
@@ -266,7 +266,7 @@ pub static CORE_RESOURCES: &[ResourceSpec] = &[
         name: "entity",
         description: "Subgraph rooted at a specific entity",
         mime_type: "application/json",
-        target: TargetSpec::SERVED,
+        target: TargetSpec::SERVED_VIEW,
         read: |call, uri| views::entity_view(call, uri),
     },
     ResourceSpec {
@@ -274,7 +274,7 @@ pub static CORE_RESOURCES: &[ResourceSpec] = &[
         name: "entities_by_kind",
         description: "All entities of a specific kind (e.g. feature, behavior)",
         mime_type: "application/json",
-        target: TargetSpec::SERVED,
+        target: TargetSpec::SERVED_VIEW,
         read: |call, uri| views::entities_view(call, uri),
     },
 ];

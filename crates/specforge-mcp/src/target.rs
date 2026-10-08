@@ -20,19 +20,13 @@ use specforge_project::{CompiledProject, SharedRuntime};
 use crate::state::McpState;
 use crate::tool::{ErrorCode, McpError};
 
-/// Which project a tool may act on, declared on its table entry.
+/// Which project a call that reads one may act on.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Reach {
-    /// Reads nothing of a project (explain).
-    Unscoped,
-    /// The served project only: no `path` argument.
+    /// The served project only: no listed `path` (its own root is accepted).
     Served,
     /// The served project or, by `path`, another one compiled for this call.
     AnyProject,
-    /// As `AnyProject`; the tool writes the target's files.
-    WritesAnyProject,
-    /// `path` names a directory to create a project in (init).
-    NewProject,
 }
 
 impl Reach {
@@ -40,10 +34,7 @@ impl Reach {
     /// argument: the one predicate for the input schema and for what a
     /// no-project refusal tells the client to pass.
     pub(crate) fn takes_path(self) -> bool {
-        matches!(
-            self,
-            Reach::AnyProject | Reach::WritesAnyProject | Reach::NewProject
-        )
+        self == Reach::AnyProject
     }
 }
 
@@ -56,47 +47,117 @@ pub enum Freshness {
     FreshUnlessCached,
 }
 
-/// How a tool, resource or prompt reaches its project.
+/// How a handler that reads a project reaches it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct TargetSpec {
+pub struct ProjectTarget {
     pub reach: Reach,
     pub freshness: Freshness,
 }
 
+impl ProjectTarget {
+    /// The served project, brought up to date.
+    pub const SERVED: Self = Self {
+        reach: Reach::Served,
+        freshness: Freshness::Fresh,
+    };
+    /// The served project, unless `use_cached` (doctor).
+    pub const SERVED_UNLESS_CACHED: Self = Self {
+        reach: Reach::Served,
+        freshness: Freshness::FreshUnlessCached,
+    };
+    /// The served project or the one `path` names, brought up to date.
+    pub const ANY: Self = Self {
+        reach: Reach::AnyProject,
+        freshness: Freshness::Fresh,
+    };
+    /// The same, unless `use_cached` (validate, analyze).
+    pub const ANY_UNLESS_CACHED: Self = Self {
+        reach: Reach::AnyProject,
+        freshness: Freshness::FreshUnlessCached,
+    };
+}
+
+/// What a call with nothing served, and no project named, gets.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum WithoutProject {
+    /// Its handler reads the empty session (ADR 0014 D7, ADR 0025 D1).
+    EmptySession,
+    /// The target refuses it as no project, before its arguments are read.
+    Refused,
+}
+
+/// How a tool, resource or prompt reaches its project: derived from what its
+/// handler is given, never declared beside it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TargetSpec {
+    /// Reads no project (explain): no `path`, no `use_cached`.
+    Unscoped,
+    /// Reads or acts on a project.
+    Project {
+        target: ProjectTarget,
+        without: WithoutProject,
+    },
+    /// `path` names the directory to create a project in (init): required,
+    /// used as given, never inside the served project.
+    NewProject,
+}
+
 impl TargetSpec {
-    pub const fn new(reach: Reach, freshness: Freshness) -> Self {
-        TargetSpec { reach, freshness }
+    /// The served project, brought up to date, read over the empty session
+    /// when nothing is served: every core prompt and resource.
+    pub const SERVED_VIEW: TargetSpec = TargetSpec::Project {
+        target: ProjectTarget::SERVED,
+        without: WithoutProject::EmptySession,
+    };
+
+    /// The served project, brought up to date, refused when nothing is
+    /// served: every extension tool and resource.
+    pub const SERVED_PROJECT: TargetSpec = TargetSpec::Project {
+        target: ProjectTarget::SERVED,
+        without: WithoutProject::Refused,
+    };
+
+    /// Whether a call answers with nothing served (`Unscoped`, or a project
+    /// target read over the empty session).
+    pub fn answers_without_project(self) -> bool {
+        match self {
+            TargetSpec::Unscoped => true,
+            TargetSpec::Project { without, .. } => without == WithoutProject::EmptySession,
+            TargetSpec::NewProject => false,
+        }
     }
 
-    /// The served project, brought up to date: every read-only tool, every
-    /// extension tool, resource and prompt.
-    pub const SERVED: TargetSpec = TargetSpec::new(Reach::Served, Freshness::Fresh);
-
-    /// No project at all.
-    pub const UNSCOPED: TargetSpec = TargetSpec::new(Reach::Unscoped, Freshness::Fresh);
-
-    /// Whether the call names its project by a `path` argument.
-    fn takes_path(self) -> bool {
-        self.reach.takes_path()
+    /// Whether the call names its project by a `path` argument
+    /// (`AnyProject`, `NewProject`): the input schema and the no-project
+    /// hint.
+    pub fn takes_path(self) -> bool {
+        match self {
+            TargetSpec::Unscoped => false,
+            TargetSpec::Project { target, .. } => target.reach.takes_path(),
+            TargetSpec::NewProject => true,
+        }
     }
 
     /// Whether the call may ask for the last compile with `use_cached`.
     fn takes_use_cached(self) -> bool {
-        self.freshness == Freshness::FreshUnlessCached
+        matches!(
+            self,
+            TargetSpec::Project { target, .. } if target.freshness == Freshness::FreshUnlessCached
+        )
     }
 
     /// The input-schema properties the target reads from a call: `path` for
-    /// a reach that names a project by it (`AnyProject`, `WritesAnyProject`:
-    /// "Project root path (uses initialized root if omitted)"; `NewProject`:
-    /// "Directory for the new project, outside the current one"), and
-    /// `use_cached` for `FreshUnlessCached`. A tool's listed schema is its
-    /// own properties plus these ([`ToolSpec::input_schema`]); its handler
-    /// never reads them.
+    /// a reach that names a project by it (`AnyProject`: "Project root path
+    /// (uses initialized root if omitted)"; `NewProject`: "Directory for the
+    /// new project, outside the current one"), and `use_cached` for
+    /// `FreshUnlessCached`. A tool's listed schema is its own properties
+    /// plus these ([`ToolSpec::input_schema`]); its handler never reads
+    /// them.
     pub fn properties(self) -> serde_json::Map<String, Value> {
         let mut properties = serde_json::Map::new();
         if self.takes_path() {
-            let description = match self.reach {
-                Reach::NewProject => "Directory for the new project, outside the current one",
+            let description = match self {
+                TargetSpec::NewProject => "Directory for the new project, outside the current one",
                 _ => "Project root path (uses initialized root if omitted)",
             };
             properties.insert(
@@ -120,19 +181,19 @@ impl TargetSpec {
     /// The arguments a call cannot be made without: `["path"]` for
     /// `NewProject`, refused by [`resolve`] before the handler runs.
     pub fn required(self) -> &'static [&'static str] {
-        match self.reach {
-            Reach::NewProject => &["path"],
+        match self {
+            TargetSpec::NewProject => &["path"],
             _ => &[],
         }
     }
 
     /// Every name the target reads from a call, listed or not: `path` for
-    /// every reach but `Unscoped` (a `Served` entry accepts its own
+    /// every target but `Unscoped` (a `Served` entry accepts its own
     /// project's root and refuses another's,
     /// [`TargetError::OtherProjectRefused`]), and `use_cached` for
     /// `FreshUnlessCached`. [`Self::fields`] stays the listed ones.
     pub fn accepted(self) -> &'static [&'static str] {
-        match (self.reach != Reach::Unscoped, self.takes_use_cached()) {
+        match (self != TargetSpec::Unscoped, self.takes_use_cached()) {
             (true, true) => &["path", "use_cached"],
             (true, false) => &["path"],
             (false, true) => &["use_cached"],
@@ -161,10 +222,11 @@ pub enum CallTarget {
     New(PathBuf),
     /// The tool reads no project.
     Unscoped,
-    /// Nothing is served and the call names no project: a handler that
-    /// needs one refuses ([`Call::project`]). The reach of the entry it was
-    /// resolved for says what would fix it ([`no_project`]).
-    NoProject(Reach),
+    /// Nothing is served and the call names no project, for a target read
+    /// over the empty session (a `Refused` one never resolves to it). The
+    /// reach of the entry it was resolved for says what would fix a read
+    /// that names something ([`no_project`]).
+    EmptySession(Reach),
 }
 
 /// Another project, compiled for one call, with the one runtime it was
@@ -275,6 +337,9 @@ pub enum TargetError {
         argument: &'static str,
         message: String,
     },
+    /// Nothing is served and the call names no project, for a target that
+    /// refuses then: `no_project(reach)`.
+    NoProject(Reach),
 }
 
 impl From<TargetError> for McpError {
@@ -297,6 +362,7 @@ impl From<TargetError> for McpError {
             TargetError::InvalidArgument { argument, message } => {
                 McpError::new(ErrorCode::InvalidInput, message).with_argument(argument)
             }
+            TargetError::NoProject(reach) => no_project(reach),
             TargetError::InsideServed { dir, served } => McpError::new(
                 ErrorCode::Conflict,
                 format!(
@@ -339,7 +405,7 @@ pub fn no_project(reach: Reach) -> McpError {
 }
 
 /// A refusal that names something of the project (a file, an entity), as
-/// the call's target makes it: with nothing served ([`CallTarget::NoProject`])
+/// the call's target makes it: with nothing served ([`CallTarget::EmptySession`])
 /// a file or an entity is not "not found", there is no project to look in,
 /// so the refusal is [`no_project`] (`precondition_failed`), its message
 /// leading with what was asked, `entity_id` kept and `argument` dropped. Any
@@ -348,7 +414,7 @@ pub fn no_project(reach: Reach) -> McpError {
 /// tools, prompts and resources call it on what their handler refused with
 /// (ADR 0025).
 pub(crate) fn without_project(target: &CallTarget, error: McpError) -> McpError {
-    let CallTarget::NoProject(reach) = *target else {
+    let CallTarget::EmptySession(reach) = *target else {
         return error;
     };
     let asked = match error.code {
@@ -391,24 +457,26 @@ pub(crate) fn refuse_without_project(target: &CallTarget, error: &mut McpError) 
 
 /// One call: the state and its target.
 pub struct Call<'s> {
-    pub state: &'s mut McpState,
+    state: &'s mut McpState,
     target: CallTarget,
 }
 
 impl<'s> Call<'s> {
     /// A call on `target`, resolved by [`resolve`].
-    pub fn new(state: &'s mut McpState, target: CallTarget) -> Self {
+    pub(crate) fn new(state: &'s mut McpState, target: CallTarget) -> Self {
         Call { state, target }
     }
 
-    /// The project the call acts on. `NoProject` (and a target that is no
-    /// project) is `precondition_failed`: tools return it with `?` through
-    /// `From<McpError> for ToolOutcome`, prompts as their refusal.
+    /// The project the call acts on. The empty session is
+    /// `precondition_failed` (a target that refuses then never resolves to
+    /// it), and a target that is no project is an internal error: tools
+    /// return it with `?` through `From<McpError> for ToolOutcome`, prompts
+    /// as their refusal.
     #[allow(
         clippy::result_large_err,
         reason = "the refusal is the McpError tools and prompts return as is (ADR 0014)"
     )]
-    pub fn project(&self) -> Result<ProjectRef<'_>, McpError> {
+    pub(crate) fn project(&self) -> Result<ProjectRef<'_>, McpError> {
         match &self.target {
             CallTarget::Served => {
                 let session = self.state.session();
@@ -432,13 +500,17 @@ impl<'s> Call<'s> {
                 // Rooted where it was compiled: `other.root`.
                 view: ProjectView::of(&other.project),
             }),
-            CallTarget::NoProject(reach) => Err(no_project(*reach)),
-            CallTarget::New(_) => Err(no_project(Reach::NewProject)),
-            CallTarget::Unscoped => Err(no_project(Reach::Unscoped)),
+            CallTarget::EmptySession(reach) => Err(no_project(*reach)),
+            // Only a project handler calls this, and its target never
+            // resolves to these.
+            CallTarget::New(_) | CallTarget::Unscoped => Err(McpError::new(
+                ErrorCode::InternalError,
+                "this call has no project",
+            )),
         }
     }
 
-    pub fn target(&self) -> &CallTarget {
+    pub(crate) fn target(&self) -> &CallTarget {
         &self.target
     }
 
@@ -447,11 +519,11 @@ impl<'s> Call<'s> {
     /// compiled in); with none, the host's (`McpState::extension_runtime`),
     /// else one of its own with the per-user compile cache. `init` and
     /// `add_extension` pass it to their operation (ADR 0028 D7).
-    pub fn runtime(&self) -> SharedRuntime {
+    pub(crate) fn runtime(&self) -> SharedRuntime {
         let project = match &self.target {
             CallTarget::Served => self.state.session().runtime().cloned(),
             CallTarget::Other(other) => Some(Arc::clone(&other.runtime)),
-            CallTarget::New(_) | CallTarget::Unscoped | CallTarget::NoProject(_) => None,
+            CallTarget::New(_) | CallTarget::Unscoped | CallTarget::EmptySession(_) => None,
         };
         project
             .or_else(|| self.state.extension_runtime.clone())
@@ -464,7 +536,7 @@ impl<'s> Call<'s> {
     /// reports what the server reports for the served session
     /// ([`McpState::diagnostics`]). For a read view that answers without a
     /// project.
-    pub fn view(&self) -> ProjectView<'_> {
+    pub(crate) fn view(&self) -> ProjectView<'_> {
         match self.project() {
             Ok(project) => project.view(),
             Err(_) => ProjectView::of(self.state.session().project())
@@ -475,26 +547,26 @@ impl<'s> Call<'s> {
     /// The root of the project the call reads, when it has one: the served
     /// project's, or the one its path names. `None` with no project served
     /// (a tool that answers without a project reads the empty session).
-    pub fn root(&self) -> Option<&Path> {
+    pub(crate) fn root(&self) -> Option<&Path> {
         match &self.target {
             CallTarget::Served => self.state.session().project().root(),
             CallTarget::Other(other) => Some(&other.root),
-            CallTarget::New(_) | CallTarget::Unscoped | CallTarget::NoProject(_) => None,
+            CallTarget::New(_) | CallTarget::Unscoped | CallTarget::EmptySession(_) => None,
         }
     }
 
     /// Where the `.spec` files of the project the call reads are keyed
     /// from, when it has a root ([`Self::root`]).
-    pub fn spec_root(&self) -> Option<&Path> {
+    pub(crate) fn spec_root(&self) -> Option<&Path> {
         match &self.target {
             CallTarget::Served => self.state.spec_root(),
             CallTarget::Other(other) => Some(&other.project.environment().spec_root),
-            CallTarget::New(_) | CallTarget::Unscoped | CallTarget::NoProject(_) => None,
+            CallTarget::New(_) | CallTarget::Unscoped | CallTarget::EmptySession(_) => None,
         }
     }
 
     /// The directory `init` creates its project in.
-    pub fn new_project_dir(&self) -> Option<&Path> {
+    pub(crate) fn new_project_dir(&self) -> Option<&Path> {
         match &self.target {
             CallTarget::New(dir) => Some(dir),
             _ => None,
@@ -524,7 +596,7 @@ impl<'s> Call<'s> {
                 }
                 Vec::new()
             }
-            CallTarget::Unscoped | CallTarget::NoProject(_) => Vec::new(),
+            CallTarget::Unscoped | CallTarget::EmptySession(_) => Vec::new(),
         }
     }
 }
@@ -548,26 +620,10 @@ pub fn resolve(
     // The target's own arguments, read by their type as every argument
     // is (ADR 0033 D4): a `path` that is not a string and a `use_cached`
     // that is not a boolean are refused.
-    let path = match spec.reach {
-        Reach::Unscoped => None,
-        _ => argument::<String>(arguments, "path")?,
-    };
-    let path = path.as_deref();
-    let cached =
-        spec.takes_use_cached() && argument::<bool>(arguments, "use_cached")?.unwrap_or(false);
-    let served = |state: &mut McpState| {
-        if state.project_root().is_none() {
-            return CallTarget::NoProject(spec.reach);
-        }
-        if !cached {
-            state.ensure_fresh();
-        }
-        CallTarget::Served
-    };
-    match spec.reach {
-        Reach::Unscoped => Ok(CallTarget::Unscoped),
-        Reach::NewProject => {
-            let Some(path) = path else {
+    let (target, without) = match spec {
+        TargetSpec::Unscoped => return Ok(CallTarget::Unscoped),
+        TargetSpec::NewProject => {
+            let Some(path) = argument::<String>(arguments, "path")? else {
                 return Err(TargetError::PathRequired);
             };
             let dir = PathBuf::from(path);
@@ -577,32 +633,49 @@ pub fn resolve(
                     return Err(TargetError::InsideServed { dir, served: root });
                 }
             }
-            Ok(CallTarget::New(dir))
+            return Ok(CallTarget::New(dir));
         }
-        Reach::Served | Reach::AnyProject | Reach::WritesAnyProject => {
-            let Some(path) = path else {
-                return Ok(served(state));
+        TargetSpec::Project { target, without } => (target, without),
+    };
+    let path = argument::<String>(arguments, "path")?;
+    let path = path.as_deref();
+    let cached =
+        spec.takes_use_cached() && argument::<bool>(arguments, "use_cached")?.unwrap_or(false);
+    let served = |state: &mut McpState| {
+        if state.project_root().is_none() {
+            // Nothing is served and the call names no project: the target
+            // says what that call gets.
+            return match without {
+                WithoutProject::EmptySession => Ok(CallTarget::EmptySession(target.reach)),
+                WithoutProject::Refused => Err(TargetError::NoProject(target.reach)),
             };
-            let root = project_at(Path::new(path))?;
-            let served_root = state.project_root().map(absolute);
-            if served_root.is_none() && spec.reach != Reach::Served {
-                // Nothing served: the call serves this project, as it is
-                // on disk now.
-                state.serve(&root);
-                return Ok(CallTarget::Served);
-            }
-            if served_root.as_deref() == Some(root.as_path()) {
-                return Ok(served(state));
-            }
-            if spec.reach == Reach::Served {
-                return Err(TargetError::OtherProjectRefused);
-            }
-            Ok(CallTarget::Other(Box::new(OtherProject::compile(
-                root,
-                state.extension_runtime.as_ref(),
-            ))))
         }
+        if !cached {
+            state.ensure_fresh();
+        }
+        Ok(CallTarget::Served)
+    };
+    let Some(path) = path else {
+        return served(state);
+    };
+    let root = project_at(Path::new(path))?;
+    let served_root = state.project_root().map(absolute);
+    if served_root.is_none() && target.reach != Reach::Served {
+        // Nothing served: the call serves this project, as it is on disk
+        // now.
+        state.serve(&root);
+        return Ok(CallTarget::Served);
     }
+    if served_root.as_deref() == Some(root.as_path()) {
+        return served(state);
+    }
+    if target.reach == Reach::Served {
+        return Err(TargetError::OtherProjectRefused);
+    }
+    Ok(CallTarget::Other(Box::new(OtherProject::compile(
+        root,
+        state.extension_runtime.as_ref(),
+    ))))
 }
 
 /// The target argument `name` of the call, read as `T`: none when absent
@@ -663,49 +736,66 @@ mod tests {
     fn target_arguments_follow_reach_and_freshness() {
         let names =
             |spec: TargetSpec| -> Vec<String> { spec.properties().keys().cloned().collect() };
-        for reach in [
-            Reach::Unscoped,
-            Reach::Served,
-            Reach::AnyProject,
-            Reach::WritesAnyProject,
-            Reach::NewProject,
-        ] {
+        let mut specs = vec![TargetSpec::Unscoped, TargetSpec::NewProject];
+        for reach in [Reach::Served, Reach::AnyProject] {
             for freshness in [Freshness::Fresh, Freshness::FreshUnlessCached] {
-                let spec = TargetSpec::new(reach, freshness);
-                let takes_path = matches!(
-                    reach,
-                    Reach::AnyProject | Reach::WritesAnyProject | Reach::NewProject
-                );
-                let takes_cached = freshness == Freshness::FreshUnlessCached;
-                let mut declared = names(spec);
-                declared.sort();
-                let mut fields: Vec<&str> = spec.fields().to_vec();
-                fields.sort();
-                assert_eq!(declared, fields, "{reach:?} {freshness:?}");
-                assert_eq!(declared.iter().any(|n| n == "path"), takes_path);
-                assert_eq!(declared.iter().any(|n| n == "use_cached"), takes_cached);
-                assert_eq!(
-                    spec.required(),
-                    if reach == Reach::NewProject {
-                        &["path"][..]
-                    } else {
-                        &[][..]
-                    }
-                );
+                for without in [WithoutProject::EmptySession, WithoutProject::Refused] {
+                    specs.push(TargetSpec::Project {
+                        target: ProjectTarget { reach, freshness },
+                        without,
+                    });
+                }
             }
         }
+        for spec in specs {
+            let takes_path = match spec {
+                TargetSpec::Unscoped => false,
+                TargetSpec::NewProject => true,
+                TargetSpec::Project { target, .. } => target.reach == Reach::AnyProject,
+            };
+            let takes_cached = matches!(
+                spec,
+                TargetSpec::Project { target, .. }
+                    if target.freshness == Freshness::FreshUnlessCached
+            );
+            let mut declared = names(spec);
+            declared.sort();
+            let mut fields: Vec<&str> = spec.fields().to_vec();
+            fields.sort();
+            assert_eq!(declared, fields, "{spec:?}");
+            assert_eq!(declared.iter().any(|n| n == "path"), takes_path, "{spec:?}");
+            assert_eq!(
+                declared.iter().any(|n| n == "use_cached"),
+                takes_cached,
+                "{spec:?}"
+            );
+            assert_eq!(
+                spec.required(),
+                if spec == TargetSpec::NewProject {
+                    &["path"][..]
+                } else {
+                    &[][..]
+                },
+                "{spec:?}"
+            );
+            assert_eq!(spec.takes_path(), takes_path, "{spec:?}");
+        }
         // `path` reads differently where the call creates its project.
-        let described = |reach| {
-            TargetSpec::new(reach, Freshness::Fresh).properties()["path"]["description"]
+        let described = |spec: TargetSpec| {
+            spec.properties()["path"]["description"]
                 .as_str()
                 .map(str::to_string)
         };
         assert_eq!(
-            described(Reach::NewProject).as_deref(),
+            described(TargetSpec::NewProject).as_deref(),
             Some("Directory for the new project, outside the current one")
         );
         assert_eq!(
-            described(Reach::AnyProject).as_deref(),
+            described(TargetSpec::Project {
+                target: ProjectTarget::ANY,
+                without: WithoutProject::Refused,
+            })
+            .as_deref(),
             Some("Project root path (uses initialized root if omitted)")
         );
     }
@@ -715,30 +805,24 @@ mod tests {
         verify = "a no-project refusal names path only for an entry that takes one"
     )]
     fn no_project_names_path_only_where_the_entry_takes_one() {
-        for reach in [
-            Reach::AnyProject,
-            Reach::WritesAnyProject,
-            Reach::NewProject,
-        ] {
-            let error = no_project(reach);
-            assert_eq!(error.code, ErrorCode::PreconditionFailed);
-            assert_eq!(error.argument.as_deref(), Some("path"), "{reach:?}");
-            assert!(error.message.contains("pass {\"path\": ...}"), "{reach:?}");
-            // The client can fix it: -32602 where there is no `isError`.
-            assert_eq!(error.into_rpc_error().code, -32602);
-        }
-        for reach in [Reach::Served, Reach::Unscoped] {
-            let error = no_project(reach);
-            assert_eq!(error.code, ErrorCode::PreconditionFailed);
-            assert_eq!(error.argument, None, "{reach:?}");
-            assert!(!error.message.contains("pass {"), "{}", error.message);
-            assert!(error.message.contains("specforge mcp <root>"), "{reach:?}");
-            // No params fix it: a server-side -32603.
-            assert_eq!(error.into_rpc_error().code, -32603);
-        }
+        let error = no_project(Reach::AnyProject);
+        assert_eq!(error.code, ErrorCode::PreconditionFailed);
+        assert_eq!(error.argument.as_deref(), Some("path"));
+        assert!(error.message.contains("pass {\"path\": ...}"));
+        // The client can fix it: -32602 where there is no `isError`.
+        assert_eq!(error.into_rpc_error().code, -32602);
+
+        let error = no_project(Reach::Served);
+        assert_eq!(error.code, ErrorCode::PreconditionFailed);
+        assert_eq!(error.argument, None);
+        assert!(!error.message.contains("pass {"), "{}", error.message);
+        assert!(error.message.contains("specforge mcp <root>"));
+        // No params fix it: a server-side -32603.
+        assert_eq!(error.into_rpc_error().code, -32603);
+
         // A read that named something refuses the same way, its hint the
         // entry's own.
-        let target = CallTarget::NoProject(Reach::Served);
+        let target = CallTarget::EmptySession(Reach::Served);
         let refused = without_project(
             &target,
             crate::tool::entity_not_found(&specforge_graph::Graph::new(), "alpha"),
@@ -747,16 +831,46 @@ mod tests {
         assert_eq!(refused.argument, None);
         assert_eq!(refused.entity_id.as_deref(), Some("alpha"));
         assert!(!refused.message.contains("pass {"), "{}", refused.message);
-        let target = CallTarget::NoProject(Reach::AnyProject);
+        let target = CallTarget::EmptySession(Reach::AnyProject);
         let refused = without_project(
             &target,
             crate::tool::entity_not_found(&specforge_graph::Graph::new(), "alpha"),
         );
         assert_eq!(refused.argument.as_deref(), Some("path"));
     }
+
+    #[test]
+    fn a_target_that_needs_a_project_refuses_when_none_is_served() {
+        let mut state = McpState::new();
+        let mut refused = |spec| resolve(&mut state, spec, &serde_json::json!({}));
+
+        assert!(matches!(
+            refused(TargetSpec::SERVED_PROJECT),
+            Err(TargetError::NoProject(Reach::Served))
+        ));
+        let any = TargetSpec::Project {
+            target: ProjectTarget::ANY,
+            without: WithoutProject::Refused,
+        };
+        let error = match refused(any) {
+            Err(error) => error,
+            Ok(_) => panic!("a project target resolved with nothing served"),
+        };
+        assert_eq!(error, TargetError::NoProject(Reach::AnyProject));
+        assert_eq!(McpError::from(error).argument.as_deref(), Some("path"));
+        assert!(matches!(
+            refused(TargetSpec::SERVED_VIEW),
+            Ok(CallTarget::EmptySession(Reach::Served))
+        ));
+        assert!(matches!(
+            refused(TargetSpec::Unscoped),
+            Ok(CallTarget::Unscoped)
+        ));
+    }
+
     #[test]
     fn without_project_names_the_file_from_the_refusal() {
-        let target = CallTarget::NoProject(Reach::Served);
+        let target = CallTarget::EmptySession(Reach::Served);
 
         // The file is what the refusal says it is about, not what its
         // message happens to start with.

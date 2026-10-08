@@ -141,7 +141,7 @@ impl Surface for Tools {
     fn target(found: &Found<&'static ToolSpec, ToolEntry>) -> TargetSpec {
         match found {
             Found::Core(spec) => spec.target,
-            Found::Extension(_) => TargetSpec::SERVED,
+            Found::Extension(_) => TargetSpec::SERVED_PROJECT,
         }
     }
 

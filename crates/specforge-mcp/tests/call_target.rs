@@ -5,6 +5,7 @@
 use crate::support::*;
 use serde_json::{Value, json};
 use specforge_mcp::McpServer;
+use specforge_mcp::target::TargetSpec;
 use specforge_test::prelude::*;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -940,8 +941,6 @@ enum Class {
     /// It refused as no project (`no project is served: ...`), naming `path`
     /// when the entry takes one.
     Refuses { path: bool },
-    /// It answered a document of its own making.
-    Fabricated,
 }
 
 /// Every core tool but init, prompt and resource, with nothing served: its
@@ -1050,13 +1049,7 @@ fn class_of(entry: Entry, resp: &Value) -> Class {
     let refusal = match entry {
         Entry::Tool => {
             if resp["result"]["isError"] != true {
-                let fabricated =
-                    resp["result"]["structuredContent"]["message"] == "No project root available";
-                return if fabricated {
-                    Class::Fabricated
-                } else {
-                    Class::Answers
-                };
+                return Class::Answers;
             }
             crate::tool_errors::mcp_error(resp)
         }
@@ -1080,61 +1073,95 @@ fn class_of(entry: Entry, resp: &Value) -> Class {
     }
 }
 
-/// Today's class of each probe in [`NOTHING_SERVED_PROBES`].
-fn pinned_class(name: &str) -> Class {
-    match name {
-        "specforge.validate"
-        | "specforge.analyze"
-        | "specforge.format"
-        | "specforge.rename"
-        | "specforge.add_extension"
-        | "specforge.remove_extension"
-        | "specforge.migrate"
-        | "specforge.collect" => Class::Refuses { path: true },
-        "specforge.extensions"
-        | "specforge.providers"
-        | "specforge.doctor"
-        | "specforge.infer_session"
-        | "specforge.find_implementation"
-        | "specforge.find_spec_for_source" => Class::Refuses { path: false },
-        "specforge.infer_progress" | "specforge.infer_gaps" => Class::Refuses { path: false },
-        "specforge.query"
-        | "specforge.trace"
-        | "specforge.inspect"
-        | "specforge.find_definition"
-        | "specforge.find_references"
-        | "specforge.outline"
-        | "specforge://prompts/context"
-        | "specforge://prompts/trace"
-        | "specforge://context/x"
-        | "specforge://graph/x" => Class::Names,
-        _ => Class::Answers,
+/// The target a probe's entry declares: a tool's own; every core prompt and
+/// resource reads the view.
+fn declared_target(entry: Entry, name: &str) -> TargetSpec {
+    match entry {
+        Entry::Tool => specforge_mcp::tools::core_tool(name)
+            .unwrap_or_else(|| panic!("{name} is no core tool"))
+            .target(),
+        Entry::Prompt | Entry::Resource => TargetSpec::SERVED_VIEW,
     }
 }
 
-/// Plan 10 T0: each of the 46 entries, with nothing served, answers, names a
-/// file or entity, refuses, or (infer_progress, infer_gaps) answers a
-/// fabricated document. Replaced by the derived test in T5.
-#[test]
-fn pin_every_core_entry_with_nothing_served() {
+/// With nothing served, what a call gets is what its entry's target says: an
+/// entry that reads only the project view answers (or, naming a file or an
+/// entity, is the no-project refusal); one that acts on the project is
+/// refused as no project, naming `path` where it takes one.
+#[specforge_test(
+    invariant = "mcp_served_project_consistency",
+    verify = "with no project served, every core tool, prompt and resource answers or refuses as its target declares"
+)]
+fn every_core_entry_with_nothing_served_answers_or_refuses_as_its_target_declares() {
     let mut server = serving_nothing();
-    assert_eq!(NOTHING_SERVED_PROBES.len(), 46);
     for &(entry, name, arguments) in NOTHING_SERVED_PROBES {
+        let target = declared_target(entry, name);
         let resp = probe(&mut server, entry, name, arguments);
-        assert_eq!(class_of(entry, &resp), pinned_class(name), "{name}: {resp}");
+        let class = class_of(entry, &resp);
+        if target.answers_without_project() {
+            assert!(
+                matches!(class, Class::Answers | Class::Names),
+                "{name} answers without a project: {class:?} {resp}"
+            );
+        } else {
+            assert_eq!(
+                class,
+                Class::Refuses {
+                    path: target.takes_path()
+                },
+                "{name}: {resp}"
+            );
+        }
+    }
+
+    // The probes cover every core tool but init, every prompt and every core
+    // resource.
+    let probed = |entry: Entry| -> Vec<&str> {
+        NOTHING_SERVED_PROBES
+            .iter()
+            .filter(|probe| probe.0 == entry)
+            .map(|probe| probe.1)
+            .collect()
+    };
+    let mut tools: Vec<&str> = specforge_mcp::tools::CORE_TOOLS
+        .iter()
+        .map(|tool| tool.name)
+        .filter(|name| *name != "specforge.init")
+        .collect();
+    tools.sort();
+    let mut probed_tools = probed(Entry::Tool);
+    probed_tools.sort();
+    assert_eq!(probed_tools, tools);
+    let prompts: Vec<&str> = specforge_mcp::prompts::CORE_PROMPTS
+        .iter()
+        .map(|prompt| prompt.name)
+        .collect();
+    assert_eq!(probed(Entry::Prompt), prompts);
+    for resource in specforge_mcp::resources::CORE_RESOURCES {
+        assert!(
+            probed(Entry::Resource)
+                .iter()
+                .any(|uri| resource.matches(uri)),
+            "{} is not probed",
+            resource.uri
+        );
     }
 }
 
-/// Plan 10 T0: with nothing served, an argument the tool does not declare or
-/// cannot read is refused before the no-project refusal. Flipped by T5.
-#[test]
-fn pin_argument_refusals_precede_no_project() {
+/// With nothing served, an entry that acts on the project is refused as no
+/// project before its arguments are read: an argument it does not declare or
+/// cannot read is not the refusal.
+#[specforge_test(
+    invariant = "mcp_served_project_consistency",
+    verify = "with no project served, an entry that acts on the project is refused before its arguments are read"
+)]
+fn a_call_that_needs_a_project_is_refused_before_its_arguments_are_read() {
     let mut server = serving_nothing();
 
     let resp = call_tool(&mut server, "specforge.extensions", json!({"bogus": 1}));
     let error = crate::tool_errors::mcp_error(&resp);
-    assert_eq!(error["code"], "invalid_input", "{error}");
-    assert_eq!(error["argument"], "bogus", "{error}");
+    assert_eq!(error["code"], "precondition_failed", "{error}");
+    assert!(error["argument"].is_null(), "{error}");
 
     let resp = call_tool(
         &mut server,
@@ -1142,8 +1169,8 @@ fn pin_argument_refusals_precede_no_project() {
         json!({"severity_filter": "nope"}),
     );
     let error = crate::tool_errors::mcp_error(&resp);
-    assert_eq!(error["code"], "invalid_input", "{error}");
-    assert_eq!(error["argument"], "severity_filter", "{error}");
+    assert_eq!(error["code"], "precondition_failed", "{error}");
+    assert_eq!(error["argument"], "path", "{error}");
 
     let resp = call_tool(
         &mut server,
@@ -1151,7 +1178,7 @@ fn pin_argument_refusals_precede_no_project() {
         json!({"entity_id": "x", "new_name": "y", "bogus": 1}),
     );
     let error = crate::tool_errors::mcp_error(&resp);
-    assert_eq!(error["code"], "invalid_input", "{error}");
-    assert_eq!(error["argument"], "bogus", "{error}");
+    assert_eq!(error["code"], "precondition_failed", "{error}");
+    assert_eq!(error["argument"], "path", "{error}");
     assert_eq!(error["data"]["files_written"], json!([]), "{error}");
 }

@@ -15,7 +15,7 @@ macro_rules! prompt {
             name: $name,
             description: $description,
             arguments: <$module::Args as crate::args::Arguments>::declared,
-            target: TargetSpec::SERVED,
+            target: TargetSpec::SERVED_VIEW,
             render: |call, arguments| {
                 $module::render(call, crate::args::read::<$module::Args>(&arguments)?)
             },
