@@ -501,3 +501,38 @@ fn infer_file_scope_lists_nothing_for_an_unanchored_file() {
         assert_eq!(infer["match_mode"], "none", "{file}");
     }
 }
+
+/// Over a `specforge-infer.json` that cannot be used, the plan refuses with
+/// E071 instead of listing every source file as unanalyzed (plan 06 R6),
+/// which every `mark_analyzed` would then refuse.
+#[specforge_test(
+    behavior = "provide_infer_plan_scope",
+    verify = "plan refuses a specforge-infer.json it cannot use with E071"
+)]
+fn the_plan_refuses_an_unusable_manifest() {
+    let mut state = TestProject::new()
+        .file("src/lib.rs", "fn stub() {}\n")
+        .file("specforge-infer.json", "{ nope")
+        .serve(&[
+            test_extension("behavior", Some("guide text")).declaring(|c| {
+                c.analyzer("rust", |a| {
+                    a.file_extensions(&[".rs"]).scan(|_| ScanResponse {
+                        items: Vec::new(),
+                        language: None,
+                    });
+                });
+            }),
+        ]);
+    let resp = infer(&mut state, json!({"scope": "plan"}));
+    assert!(resp.get("result").is_none(), "{resp}");
+    let data = &resp["error"]["data"];
+    assert_eq!(data["code"], "schema_mismatch", "{resp}");
+    assert_eq!(data["diagnostic"]["code"], "E071", "{resp}");
+    assert!(
+        data["message"]
+            .as_str()
+            .unwrap()
+            .starts_with("failed to parse specforge-infer.json"),
+        "{resp}"
+    );
+}

@@ -60,23 +60,6 @@ pub(crate) fn span_json(span: &specforge_common::SourceSpan) -> Value {
     })
 }
 
-/// A project file the tool reads (`specforge-infer.json`, the anchors
-/// manifest) that it cannot use: unreadable, or not what it should hold.
-pub(crate) fn manifest_error(message: String) -> ToolOutcome {
-    manifest_mcp_error(message).into()
-}
-
-/// [`manifest_error`]'s `McpError`: what a prompt that reads the file
-/// refuses with.
-pub(crate) fn manifest_mcp_error(message: String) -> McpError {
-    let code = if message.starts_with("failed to read") {
-        ErrorCode::InternalError
-    } else {
-        ErrorCode::SchemaMismatch
-    };
-    McpError::new(code, message)
-}
-
 /// A failed extension call as a failed tool result: the diagnostic the
 /// runtime reported, in `diagnostic`.
 fn extension_error(diag: &specforge_common::Diagnostic) -> ToolOutcome {

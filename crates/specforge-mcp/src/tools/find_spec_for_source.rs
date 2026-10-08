@@ -1,12 +1,13 @@
 use serde_json::{Value, json};
 
-use specforge_common::inference::anchors::{self, SourceAnchor};
 use specforge_graph::Graph;
-use specforge_ops::navigate::{FileAnchors, FileMatch, anchors_of_file};
+use specforge_ops::navigate::{
+    FileAnchors, FileMatch, SourceAnchor, anchors_of_file, source_anchors,
+};
 
 use crate::args::Arguments;
 use crate::target::Call;
-use crate::tool::{Handled, ToolOutcome};
+use crate::tool::{Handled, McpError, ToolOutcome};
 
 /// `specforge.find_spec_for_source`'s arguments.
 #[derive(Debug, Arguments)]
@@ -47,9 +48,9 @@ pub fn call(call: &mut Call<'_>, args: Args) -> Handled {
     let file_path = args.file_path.as_str();
 
     let project = call.project()?;
-    let manifest = match anchors::load_anchor_manifest(project.root) {
+    let manifest = match source_anchors(&project.view()) {
         Ok(m) => m,
-        Err(e) => return Ok(super::manifest_error(e)),
+        Err(e) => return Ok(McpError::from(e).into()),
     };
     let FileAnchors { mode, anchors } = anchors_of_file(&manifest, file_path);
     let entities: Vec<Value> = anchors

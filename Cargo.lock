@@ -2811,7 +2811,6 @@ dependencies = [
  "lasso",
  "serde",
  "serde_json",
- "sha2",
  "specforge-diagnostics",
  "specforge-protocol-types",
  "specforge-test",
@@ -2970,7 +2969,6 @@ name = "specforge-mcp"
 version = "0.1.0"
 dependencies = [
  "chrono",
- "getrandom 0.3.4",
  "insta",
  "serde",
  "serde_json",
@@ -3022,9 +3020,11 @@ name = "specforge-ops"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "getrandom 0.3.4",
  "semver",
  "serde",
  "serde_json",
+ "sha2",
  "specforge-common",
  "specforge-component",
  "specforge-diagnostics",

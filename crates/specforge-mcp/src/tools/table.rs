@@ -519,7 +519,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         category: Category::Core,
         access: Access::ReadOnly,
         output: Some(
-            || json!({ "type": "object", "properties": { "summary": { "type": "object" }, "unanalyzed": { "type": "array" }, "stale": { "type": "array" }, "deleted": { "type": "array" }, "message": { "type": "string" } }, "required": ["summary", "unanalyzed", "stale", "deleted"] }),
+            || json!({ "type": "object", "properties": { "summary": { "type": "object" }, "unanalyzed": { "type": "array" }, "stale": { "type": "array" }, "deleted": { "type": "array" }, "sessions": { "type": "array" }, "message": { "type": "string" } }, "required": ["summary", "unanalyzed", "stale", "deleted"] }),
         ),
         target: TargetSpec::SERVED,
         handler: typed!(infer_progress::call, NoArgs),

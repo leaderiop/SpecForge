@@ -1,6 +1,7 @@
 use crate::support::*;
 use serde_json::{Value, json};
 use specforge_extension_sdk::prelude::*;
+use specforge_mcp::McpServer;
 use specforge_test::prelude::*;
 
 /// An initialized server over `project`, which enables the rust and
@@ -528,4 +529,294 @@ fn infer_session_timestamps_are_rfc_3339() {
             "not RFC 3339: {stamp}"
         );
     }
+}
+
+// --- what the session writes today (plan 06 T0 pins) ---
+
+/// Write `text` as the project's inference manifest.
+fn write_manifest(root: &std::path::Path, text: &str) {
+    std::fs::write(root.join("specforge-infer.json"), text).unwrap();
+}
+
+/// A manifest with a completed session `s-1` and an active `s-2` that has
+/// no `agent`, as an older tool or a merge could leave it.
+const MANIFEST_WITH_AN_UNREADABLE_SESSION: &str = r#"{
+  "version": 1,
+  "source_roots": ["src"],
+  "sessions": [
+    {"session_id": "s-1", "started_at": "2026-10-01T00:00:00Z", "ended_at": "2026-10-01T01:00:00Z", "agent": "claude", "status": "completed"},
+    {"session_id": "s-2", "started_at": "2026-10-02T00:00:00Z", "status": "active"}
+  ]
+}"#;
+
+/// A session the manifest cannot read makes the whole manifest unusable:
+/// every action refuses, naming the file and the missing field, and the
+/// file is not touched (plan 06 R1).
+#[specforge_test(
+    behavior = "load_inference_manifest",
+    verify = "a session the manifest cannot read refuses the load, and nothing is written"
+)]
+fn a_session_the_manifest_cannot_read_refuses_every_action() {
+    let tmp = TestProject::new();
+    setup_project_with_sources(tmp.root());
+    write_manifest(tmp.root(), MANIFEST_WITH_AN_UNREADABLE_SESSION);
+    let mut server = init_server(tmp);
+
+    for args in [
+        json!({"action": "start", "agent": "repro"}),
+        json!({"action": "mark_analyzed", "source_file": "src/lib.rs"}),
+        json!({"action": "end", "session_id": "s-2"}),
+    ] {
+        let resp = call_tool(&mut server, "specforge.infer_session", args.clone());
+        let error = crate::tool_errors::mcp_error(&resp);
+        assert_eq!(error["code"], "schema_mismatch", "{args}: {error}");
+        let message = error["message"].as_str().unwrap();
+        assert!(
+            message.contains("specforge-infer.json") && message.contains("`agent`"),
+            "{args}: {message}"
+        );
+    }
+    let text = std::fs::read_to_string(server.root().join("specforge-infer.json")).unwrap();
+    assert_eq!(text, MANIFEST_WITH_AN_UNREADABLE_SESSION);
+}
+
+/// An active session written to disk by hand is seen by the next start.
+#[specforge_test(
+    behavior = "start_inference_session",
+    verify = "start rejects when another session is active"
+)]
+fn start_refuses_while_a_session_is_active_after_a_reload() {
+    let tmp = TestProject::new();
+    write_manifest(
+        tmp.root(),
+        r#"{"version":1,"source_roots":[],"sessions":[
+            {"session_id":"s-2","started_at":"2026-10-02T00:00:00Z","agent":"claude","status":"active"}]}"#,
+    );
+    let mut server = init_server(tmp);
+
+    let resp = call_tool(
+        &mut server,
+        "specforge.infer_session",
+        json!({"action": "start"}),
+    );
+    let error = crate::tool_errors::mcp_error(&resp);
+    assert_eq!(error["code"], "conflict", "{error}");
+    assert_eq!(recorded_sessions(server.root()).len(), 1);
+}
+
+/// A write changes only what its step changed: the keys the manifest does
+/// not define survive, at the top level and inside a source entry or a
+/// session (plan 06 R2).
+#[specforge_test(
+    behavior = "save_inference_manifest",
+    verify = "save keeps keys the manifest does not define, at every level"
+)]
+fn a_rewrite_keeps_the_keys_it_does_not_define() {
+    let tmp = TestProject::new();
+    write_manifest(
+        tmp.root(),
+        r#"{"version":1,"source_roots":["src"],"notes":"kept by hand",
+            "source_index":[{"path":"src/a.rs","content_hash":"h","entities_produced":[],
+                             "analyzed_at":"2026-10-01T00:00:00Z","note":"by hand"}]}"#,
+    );
+    let mut server = init_server(tmp);
+    call_tool(
+        &mut server,
+        "specforge.infer_session",
+        json!({"action": "start"}),
+    );
+
+    let text = std::fs::read_to_string(server.root().join("specforge-infer.json")).unwrap();
+    let manifest: Value = serde_json::from_str(&text).unwrap();
+    assert_eq!(manifest["notes"], "kept by hand", "{text}");
+    assert_eq!(manifest["source_index"][0]["note"], "by hand", "{text}");
+    assert_eq!(manifest["sessions"].as_array().unwrap().len(), 1, "{text}");
+}
+
+/// A path is recorded root-relative with `/` separators, so a file is
+/// analyzed or unanalyzed, never both (plan 06 R3).
+#[specforge_test(
+    behavior = "mark_source_file_analyzed",
+    verify = "mark records the path root-relative with / separators"
+)]
+fn mark_analyzed_records_the_root_relative_path() {
+    let tmp = TestProject::new();
+    setup_project_with_sources(tmp.root());
+    write_manifest(tmp.root(), r#"{"version":1,"source_roots":["src"]}"#);
+    let mut server = init_server(tmp);
+
+    let marked = call_tool(
+        &mut server,
+        "specforge.infer_session",
+        json!({"action": "mark_analyzed", "source_file": "./src/lib.rs", "entities_produced": ["a"]}),
+    );
+    let reply: Value = serde_json::from_str(&tool_text(&marked)).unwrap();
+    assert_eq!(reply["source_file"], "src/lib.rs");
+
+    let progress = call_tool(&mut server, "specforge.infer_progress", json!({}));
+    let progress: Value = serde_json::from_str(&tool_text(&progress)).unwrap();
+    assert_eq!(progress["summary"]["files_analyzed"], 1);
+    assert_eq!(progress["unanalyzed"], json!(["src/main.rs"]), "{progress}");
+
+    let text = std::fs::read_to_string(server.root().join("specforge-infer.json")).unwrap();
+    let manifest: Value = serde_json::from_str(&text).unwrap();
+    assert_eq!(manifest["source_index"][0]["path"], "src/lib.rs", "{text}");
+}
+
+/// A file outside the project root is refused and nothing is written
+/// (plan 06 R3).
+#[specforge_test(
+    behavior = "mark_source_file_analyzed",
+    verify = "mark refuses a file outside the project root"
+)]
+fn mark_analyzed_refuses_a_file_outside_the_root() {
+    let outside = tempfile::TempDir::new().unwrap();
+    std::fs::write(outside.path().join("outside.rs"), "pub fn o() {}\n").unwrap();
+    let tmp = TestProject::new();
+    write_manifest(tmp.root(), r#"{"version":1,"source_roots":["src"]}"#);
+    let before = std::fs::read_to_string(tmp.root().join("specforge-infer.json")).unwrap();
+    let sibling = outside.path().join("outside.rs");
+    let relative = relative_to(&sibling, tmp.root());
+    let mut server = init_server(tmp);
+
+    for spelling in [relative, sibling.display().to_string()] {
+        let marked = call_tool(
+            &mut server,
+            "specforge.infer_session",
+            json!({"action": "mark_analyzed", "source_file": spelling}),
+        );
+        let error = crate::tool_errors::mcp_error(&marked);
+        assert_eq!(error["code"], "invalid_input", "{spelling}: {error}");
+        assert_eq!(error["argument"], "source_file", "{spelling}: {error}");
+        assert_eq!(error["data"]["files_written"], json!([]), "{error}");
+        assert_eq!(
+            error["message"],
+            format!("source_file '{spelling}' is not a path inside the project root")
+        );
+    }
+    let after = std::fs::read_to_string(server.root().join("specforge-infer.json")).unwrap();
+    assert_eq!(before, after);
+}
+
+/// `target` as a path relative to `from`, through `..` components.
+fn relative_to(target: &std::path::Path, from: &std::path::Path) -> String {
+    let target: Vec<_> = target.components().collect();
+    let from: Vec<_> = from.components().collect();
+    let common = target.iter().zip(&from).take_while(|(a, b)| a == b).count();
+    let mut parts: Vec<String> = vec!["..".to_string(); from.len() - common];
+    parts.extend(
+        target[common..]
+            .iter()
+            .map(|c| c.as_os_str().to_string_lossy().into_owned()),
+    );
+    parts.join("/")
+}
+
+/// Every refusal's code, argument and wording; an unknown action or status
+/// is refused with the option table's wording (ADR 0027 D5).
+#[specforge_test(
+    behavior = "provide_mcp_infer_session_tool",
+    verify = "an unknown action or status is refused with the option table's wording"
+)]
+fn session_refusals_keep_their_codes_arguments_and_wording() {
+    let tmp = TestProject::new();
+    write_manifest(tmp.root(), r#"{"version":1,"source_roots":["src"]}"#);
+    let mut server = init_server(tmp);
+
+    let check = |error: &Value, code: &str, argument: Option<&str>, message: &str| {
+        assert_eq!(error["code"], code, "{error}");
+        assert_eq!(error["message"], message, "{error}");
+        match argument {
+            Some(a) => assert_eq!(error["argument"], a, "{error}"),
+            None => assert!(error.get("argument").is_none_or(Value::is_null), "{error}"),
+        }
+    };
+    let refuse = |server: &mut McpServer, args: Value| {
+        let resp = call_tool(server, "specforge.infer_session", args);
+        let error = crate::tool_errors::mcp_error(&resp);
+        assert_eq!(
+            error["data"]["files_written"],
+            json!([]),
+            "a refusal writes nothing: {error}"
+        );
+        error
+    };
+
+    check(
+        &refuse(&mut server, json!({})),
+        "invalid_input",
+        Some("action"),
+        "Missing required parameter: action",
+    );
+    check(
+        &refuse(&mut server, json!({"action": "resume"})),
+        "invalid_input",
+        Some("action"),
+        "Unknown action: resume. Expected: start, mark_analyzed, end",
+    );
+    check(
+        &refuse(
+            &mut server,
+            json!({"action": "end", "session_id": "x", "status": "done"}),
+        ),
+        "invalid_input",
+        Some("status"),
+        "Unknown status: done. Expected: completed, paused",
+    );
+    check(
+        &refuse(&mut server, json!({"action": "end", "session_id": "nope"})),
+        "invalid_input",
+        Some("session_id"),
+        "Unknown session_id: 'nope'",
+    );
+    check(
+        &refuse(
+            &mut server,
+            json!({"action": "mark_analyzed", "source_file": "src/missing.rs"}),
+        ),
+        "file_not_found",
+        Some("source_file"),
+        "failed to read src/missing.rs",
+    );
+    check(
+        &refuse(&mut server, json!({"action": "mark_analyzed"})),
+        "invalid_input",
+        Some("source_file"),
+        "Missing required parameter: source_file",
+    );
+    check(
+        &refuse(&mut server, json!({"action": "end"})),
+        "invalid_input",
+        Some("session_id"),
+        "Missing required parameter: session_id",
+    );
+
+    // A started session: a second start, then ending it twice.
+    let started = call_tool(
+        &mut server,
+        "specforge.infer_session",
+        json!({"action": "start"}),
+    );
+    let id = serde_json::from_str::<Value>(&tool_text(&started)).unwrap()["session_id"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    check(
+        &refuse(&mut server, json!({"action": "start"})),
+        "conflict",
+        None,
+        "Another inference session is already active. End it first.",
+    );
+    let ended = call_tool(
+        &mut server,
+        "specforge.infer_session",
+        json!({"action": "end", "session_id": id}),
+    );
+    assert!(ended["result"]["isError"] != true, "{ended}");
+    check(
+        &refuse(&mut server, json!({"action": "end", "session_id": id})),
+        "conflict",
+        None,
+        &format!("Session '{id}' is not active"),
+    );
 }

@@ -203,7 +203,10 @@ pub fn check(
         strict: options.strict,
         lint_profiles: options.lint_profiles.clone(),
     };
-    let reported = policy.apply(root, reported);
+    let reported = policy.apply(reported, |profile| match profile {
+        LintProfile::Inferred => crate::infer::lint(view),
+        LintProfile::Pedantic => Vec::new(),
+    });
     let counts = Counts::of(&reported);
     let cache = match (options.record_cache, counts.errors == 0) {
         (false, _) => CacheRecord::NotRequested,

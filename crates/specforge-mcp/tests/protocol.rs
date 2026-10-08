@@ -270,6 +270,7 @@ fn a_tool_that_cannot_read_its_project_file_fails_with_an_mcp_error() {
     let error = crate::tool_errors::mcp_error(&resp);
     assert_eq!(error["code"], "schema_mismatch", "{error}");
     assert_eq!(error["tool"], "specforge.infer_session", "{error}");
+    assert_eq!(error["diagnostic"]["code"], "E071", "{error}");
     assert!(
         error["message"]
             .as_str()
