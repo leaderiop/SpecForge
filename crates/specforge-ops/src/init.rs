@@ -298,15 +298,20 @@ fn starter_template(extensions: &[String], installs: &[PathBuf]) -> Option<Strin
     let runtime = specforge_component::ComponentRuntime::new();
     let _ = specforge_component::builtins::load_builtins_for(&runtime, extensions);
     for wasm in installs {
-        if let Ok((name, _)) = extension::declared(wasm) {
-            let _ = runtime.load_module_as(&name, wasm);
+        if let Ok((name, _)) = extension::declared(wasm)
+            && let Ok(bytes) = std::fs::read(wasm)
+        {
+            let _ = runtime.load_module_bytes(&name, &bytes);
         }
     }
     // A load failure only costs the extension its template.
-    let mut ignored = Vec::new();
-    specforge_project::compile::load_extensions(extensions, &runtime, &mut ignored)
-        .into_iter()
-        .find_map(|declaration| declaration.handshake.starter_template)
+    extensions.iter().find_map(|name| {
+        specforge_wasm::protocol::load_declaration(&runtime, name)
+            .ok()?
+            .declaration
+            .handshake
+            .starter_template
+    })
 }
 
 fn sanitize_entity_id(name: &str) -> String {

@@ -470,11 +470,12 @@ mod tests {
     )]
     fn a_name_two_entries_enable_is_refused() {
         let fixture = Fixture::new().enabled(vec![
-            EnabledExtension::of("@sdk/greet", None),
+            EnabledExtension::unloaded("@sdk/greet"),
             EnabledExtension {
                 entry: "greet.wasm".into(),
                 name: "@sdk/greet".into(),
                 file: Some("greet.wasm".into()),
+                failure: None,
             },
         ]);
         write_config(&fixture, r#"{"extensions": ["@sdk/greet", "greet.wasm"]}"#);

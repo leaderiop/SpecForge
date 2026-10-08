@@ -27,7 +27,7 @@ pub fn compile(extensions: &[&str], files: &[(&str, &str)]) -> Compiled {
         std::fs::create_dir_all(path.parent().unwrap()).unwrap();
         std::fs::write(path, text).unwrap();
     }
-    let runtime = specforge_component::project_runtime(dir.path());
+    let runtime = specforge_component::ComponentRuntime::with_user_cache();
     let project = CompiledProject::compile(dir.path(), Some(&runtime));
     let unloaded: Vec<_> = project
         .diagnostics()
@@ -894,6 +894,7 @@ fn an_untargeted_obligation_rule_stubs_every_kind_that_accepts_verify() {
          memo epsilon \"Epsilon\" {\n}\n",
     )
     .unwrap();
+    specforge_installed::testing::install(dir.path(), &["@pin/untargeted"]);
     let runtime = specforge_wasm::testing::InProcessRuntime::new().with(untargeted_rule);
     let project = CompiledProject::compile(dir.path(), Some(&runtime));
     let reported: Vec<String> = project

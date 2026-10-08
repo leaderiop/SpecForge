@@ -90,7 +90,7 @@ fn add(root: &Path, source: Source) -> Result<extension::Added, specforge_ops::O
 
 /// The project at `root`, compiled with its own component runtime.
 fn compiled(root: &Path) -> CompiledProject {
-    let runtime = specforge_component::project_runtime(root);
+    let runtime = specforge_component::ComponentRuntime::with_user_cache();
     CompiledProject::compile(root, Some(&runtime))
 }
 

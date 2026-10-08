@@ -29,10 +29,11 @@ behavior load_wasm_module "Load Wasm Module" {
     missing_binary_diagnosed     "missing .wasm binary produces ExtensionError diagnostic"
   }
   contract   """
-    When the compiler loads an extension, it MUST locate the .wasm binary
-    from its installed path, verify its content hash against the
+    When the compiler loads an extension, it MUST read its .wasm binary
+    from its installed path once, verify that content's hash against the
     specforge.lock pin (refusing a mismatch with E033; legacy entries
-    without a hash warn and load), and load it into the Wasm runtime.
+    without a hash warn and load), and load those same bytes into the Wasm
+    runtime.
     Component compilation caching is the engine's concern (see
     compile_wasm_component_with_cache). Missing .wasm files MUST produce
     an ExtensionError diagnostic.
@@ -41,6 +42,7 @@ behavior load_wasm_module "Load Wasm Module" {
   verify unit "loads .wasm binary from manifest path"
   verify unit "tampered installed binary refused via E033 lockfile pin"
   verify unit "legacy lockfile entry without hash loads unchanged"
+  verify unit "the hash is checked over the bytes the runtime compiles"
   verify unit "missing .wasm produces ExtensionError"
   verify contract "Load Wasm Module: Wasm module loading holds — manifest_validated_fired, wasm_runtime_available, extension_loaded_emitted, extension_loaded_via_runtime, tampered_binary_refused, missing_binary_diagnosed"
 }

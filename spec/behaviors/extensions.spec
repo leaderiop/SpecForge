@@ -56,7 +56,9 @@ behavior load_extension_manifests "Load Extension Manifests" {
     name, on every surface, only when the binary's hash is the one its
     specforge.lock entry records; a mismatch MUST be refused with E033, and
     an extension enabled but not installed MUST produce E028 naming the
-    command that installs it. An entry ending in .wasm names a component
+    command that installs it. A specforge.lock that is there and can't be
+    read MUST be reported once (E033), before an E028 for each installed
+    extension it leaves unloaded. An entry ending in .wasm names a component
     file instead (path.wasm, or name=path.wasm; a relative path is relative
     to the project root): it MUST load from that file, on every surface,
     under the name the component declares, the one rule the runtime and the
@@ -83,6 +85,8 @@ behavior load_extension_manifests "Load Extension Manifests" {
     contributions.
   """
   verify unit "installed extension manifest is loaded"
+  verify unit "an installed extension loads only when its binary is the one its specforge.lock entry pins"
+  verify unit "an unreadable specforge.lock is reported once (E033) and each installed extension it leaves unloaded is E028 naming it"
   verify integration "an extension installed from a registry loads through check"
   verify integration "an enabled extension with no installed binary produces E028 naming the command that installs it"
   verify integration "an entry naming a .wasm file loads that component from disk under the name it declares"

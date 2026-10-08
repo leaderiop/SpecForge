@@ -1,8 +1,6 @@
-use specforge_protocol_types::PackageName;
-
 use crate::Installed;
+use crate::load::LoadProblem;
 use crate::lock::LockFileEntry;
-use crate::module::hex_sha256;
 
 /// One problem with one lock entry (doctor).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -75,26 +73,25 @@ impl Installed {
         problems
     }
 
-    /// What is wrong with `entry`'s module, if anything.
+    /// What is wrong with `entry`'s module, if anything: the check the
+    /// load makes, so the two cannot disagree.
     fn module_health(&self, entry: &LockFileEntry) -> Option<Health> {
-        let missing = || Health::MissingModule {
-            name: entry.name.clone(),
-        };
-        // A lock entry that names no package has no module to find.
-        let Ok(name) = PackageName::parse(&entry.name) else {
-            return Some(missing());
-        };
-        let path = self.module_path(&name);
-        if !path.exists() {
-            return Some(missing());
+        let name = entry.name.clone();
+        match self.check_module(entry) {
+            Ok(_) => None,
+            // A lock entry that names no package has no module to find.
+            Err(LoadProblem::ModuleMissing { .. } | LoadProblem::NotAPackageName { .. }) => {
+                Some(Health::MissingModule { name })
+            }
+            Err(LoadProblem::Changed { locked, actual }) => Some(Health::Changed {
+                name,
+                locked,
+                actual,
+            }),
+            // A module that cannot be read is not judged here: loading it
+            // says why.
+            Err(_) => None,
         }
-        // A module that cannot be read is not judged here: loading it says why.
-        let actual = hex_sha256(&std::fs::read(&path).ok()?);
-        (actual != entry.wasm_hash).then(|| Health::Changed {
-            name: entry.name.clone(),
-            locked: entry.wasm_hash.clone(),
-            actual,
-        })
     }
 }
 
@@ -102,7 +99,8 @@ impl Installed {
 mod tests {
     use super::*;
     use crate::lock::{LockFile, LockState};
-    use specforge_protocol_types::PeerDependency;
+    use crate::module::hex_sha256;
+    use specforge_protocol_types::{PackageName, PeerDependency};
     use tempfile::TempDir;
 
     fn entry(name: &str, hash: &str, peers: Vec<PeerDependency>) -> LockFileEntry {

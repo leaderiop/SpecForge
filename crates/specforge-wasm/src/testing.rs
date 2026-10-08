@@ -10,7 +10,6 @@
 //! Sandbox obligations stay proven only through the component runtime.
 
 use std::collections::BTreeMap;
-use std::path::Path;
 use std::sync::{Arc, Mutex};
 
 use specforge_extension_sdk::{ContributionsBuilder, ExportHandler, guest_call, no_other_exports};
@@ -177,7 +176,8 @@ fn trap(kind: &str, message: String, export: &str) -> WasmCallResult {
 
 impl WasmRuntime for InProcessRuntime {
     /// A binary this runtime was given ([`InProcessRuntime::binary`]) is
-    /// served under `name`; a name it serves loads as it is (an extension
+    /// served under `name`; a name it serves, or answers raw
+    /// ([`InProcessRuntime::answer_raw`]), loads as it is (an extension
     /// served in process is whatever binary is installed under its name);
     /// any other bytes are no component it serves.
     fn load(&self, name: &str, bytes: &[u8]) -> Result<(), String> {
@@ -186,7 +186,13 @@ impl WasmRuntime for InProcessRuntime {
             extensions.insert(name.to_string(), served.clone());
             return Ok(());
         }
-        if extensions.contains_key(name) {
+        let answered = self
+            .overrides
+            .lock()
+            .expect("overrides lock")
+            .iter()
+            .any(|(extension, ..)| extension == name);
+        if extensions.contains_key(name) || answered {
             return Ok(());
         }
         Err(format!(
@@ -211,28 +217,6 @@ impl WasmRuntime for InProcessRuntime {
             .expect("extensions lock")
             .remove(name)
             .is_some()
-    }
-
-    fn load_module(&self, wasm_path: &Path) -> Result<(), String> {
-        Err(format!(
-            "the in-process runtime serves SDK builders, not binaries ({})",
-            wasm_path.display()
-        ))
-    }
-
-    /// Loading a binary under a name the runtime serves is a no-op: the
-    /// extension is already there. Any other name cannot be loaded.
-    fn load_module_named(&self, extension: &str, wasm_path: &Path) -> Result<(), String> {
-        if self
-            .extensions
-            .lock()
-            .expect("extensions lock")
-            .contains_key(extension)
-        {
-            Ok(())
-        } else {
-            self.load_module(wasm_path)
-        }
     }
 
     fn apply_limits(&self, extension: &str, limits: Limits) {

@@ -27,9 +27,6 @@ wasmtime::component::bindgen!({
 });
 
 pub mod builtins;
-pub mod project;
-
-pub use project::{project_runtime, project_runtime_with};
 
 /// Per-instance state: the WASI context (no capability) and the memory
 /// ceiling the limiter enforces. Builtins are pure-compute, but wasip2
@@ -194,12 +191,6 @@ pub struct ComponentRuntime {
     fuel: u64,
     /// Drives epoch interruption; must outlive every `Store`.
     _ticker: EpochTicker,
-    /// Why an extension the project enables failed to load (a missing or
-    /// tampered installed binary), by name: compile reports it.
-    load_failures: Mutex<HashMap<String, specforge_common::Diagnostic>>,
-    /// The extension each `.wasm` file entry of `specforge.json` loaded
-    /// as (the name its component declares), by the entry.
-    file_entries: Mutex<HashMap<String, String>>,
 }
 
 impl ComponentRuntime {
@@ -208,8 +199,7 @@ impl ComponentRuntime {
         Self::construct(None)
     }
 
-    /// Runtime with wasmtime's on-disk compilation cache enabled
-    /// (`SPECFORGE_WASMTIME_CACHE` selection happens in `project_runtime`).
+    /// Runtime with wasmtime's on-disk compilation cache enabled.
     ///
     /// The cache MUST be configured before the `Engine` is built — wasmtime
     /// reads the cache setting at construction — so this is a constructor,
@@ -217,6 +207,17 @@ impl ComponentRuntime {
     /// byte copy that no runtime ever consumed).
     pub fn new_with_compile_cache(dir: PathBuf) -> Self {
         Self::construct(Some(dir))
+    }
+
+    /// The runtime a project's extensions load into: with the per-user
+    /// compilation cache ([`user_compile_cache_dir`]), or without when it is
+    /// switched off. It loads nothing: the environment's extension load
+    /// does (`Installed::load`).
+    pub fn with_user_cache() -> Self {
+        match user_compile_cache_dir() {
+            Some(dir) => Self::new_with_compile_cache(dir),
+            None => Self::new(),
+        }
     }
 
     fn construct(cache_dir: Option<PathBuf>) -> Self {
@@ -249,26 +250,7 @@ impl ComponentRuntime {
             engine,
             plugins: Mutex::new(HashMap::new()),
             fuel: DEFAULT_FUEL_LIMIT,
-            load_failures: Mutex::new(HashMap::new()),
-            file_entries: Mutex::new(HashMap::new()),
         }
-    }
-
-    /// Record why `name` could not be loaded, for [`WasmRuntime::load_failure`].
-    pub fn record_load_failure(&self, name: &str, diagnostic: specforge_common::Diagnostic) {
-        self.load_failures
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .insert(name.to_string(), diagnostic);
-    }
-
-    /// Record that the `.wasm` file entry `entry` loaded as `extension`,
-    /// for [`WasmRuntime::file_entry_extension`].
-    pub(crate) fn record_file_entry(&self, entry: &str, extension: &str) {
-        self.file_entries
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .insert(entry.to_string(), extension.to_string());
     }
 
     /// Register the extension loaded as `from` under `to` instead, without
@@ -310,13 +292,6 @@ impl ComponentRuntime {
         self.instantiate_with_fuel(name, component, fuel)
     }
 
-    /// Compile a component from a file and register it under `name`.
-    pub fn load_module_as(&self, name: &str, wasm_path: &Path) -> Result<(), String> {
-        let component = Component::from_file(&self.engine, wasm_path)
-            .map_err(|e| format!("failed to compile component {name}: {e}"))?;
-        self.instantiate(name, component)
-    }
-
     /// Atomically replace a loaded extension's component (hot reload / H1).
     pub fn reload_module_bytes(&self, name: &str, wasm_bytes: &[u8]) -> Result<(), String> {
         self.load_module_bytes(name, wasm_bytes)
@@ -341,10 +316,6 @@ impl ComponentRuntime {
             Err(_) => Vec::new(),
         }
     }
-    fn instantiate(&self, name: &str, component: Component) -> Result<(), String> {
-        self.instantiate_with_fuel(name, component, self.fuel)
-    }
-
     fn instantiate_with_fuel(
         &self,
         name: &str,
@@ -537,22 +508,8 @@ impl WasmRuntime for ComponentRuntime {
         ComponentRuntime::unload(self, name)
     }
 
-    fn load_module(&self, wasm_path: &Path) -> Result<(), String> {
-        let bytes = std::fs::read(wasm_path).map_err(|e| e.to_string())?;
-        let name = wasm_path
-            .file_stem()
-            .and_then(|s| s.to_str())
-            .unwrap_or("unknown")
-            .to_string();
-        self.load_module_bytes(&name, &bytes)
-    }
-
     fn call_export(&self, extension_name: &str, export_name: &str, input: &[u8]) -> WasmCallResult {
         self.call(extension_name, export_name, input)
-    }
-
-    fn load_module_named(&self, extension_name: &str, wasm_path: &Path) -> Result<(), String> {
-        ComponentRuntime::load_module_as(self, extension_name, wasm_path)
     }
 
     fn apply_limits(&self, extension_name: &str, limits: Limits) {
@@ -566,21 +523,23 @@ impl WasmRuntime for ComponentRuntime {
             plugin.store.data_mut().memory.bytes = MemoryCeiling::of(limits).bytes;
         }
     }
+}
 
-    fn load_failure(&self, extension_name: &str) -> Option<specforge_common::Diagnostic> {
-        self.load_failures
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .get(extension_name)
-            .cloned()
-    }
-
-    fn file_entry_extension(&self, entry: &str) -> Option<String> {
-        self.file_entries
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .get(entry)
-            .cloned()
+/// Per-user Wasmtime compilation cache directory.
+///
+/// `$SPECFORGE_WASMTIME_CACHE` overrides; setting it to `off` disables the
+/// cache. Default: `$HOME/.cache/specforge/wasmtime` (no cache when `HOME`
+/// is unset).
+fn user_compile_cache_dir() -> Option<PathBuf> {
+    match std::env::var_os("SPECFORGE_WASMTIME_CACHE") {
+        Some(v) if v == "off" => None,
+        Some(v) => Some(PathBuf::from(v)),
+        None => std::env::var_os("HOME").map(|home| {
+            PathBuf::from(home)
+                .join(".cache")
+                .join("specforge")
+                .join("wasmtime")
+        }),
     }
 }
 

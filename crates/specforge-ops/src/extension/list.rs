@@ -304,6 +304,7 @@ mod tests {
                 entry: "greet.wasm".into(),
                 name: "@sdk/greet".into(),
                 file: Some("greet.wasm".into()),
+                failure: None,
             }])
             .declarations(vec![Fixture::declaration("@sdk/greet", "0.1.0")]);
 

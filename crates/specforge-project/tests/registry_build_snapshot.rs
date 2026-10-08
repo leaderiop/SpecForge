@@ -16,15 +16,14 @@ use specforge_protocol_types::{FieldType, SurfaceDescriptor, SurfaceSandboxOverr
 use tempfile::TempDir;
 
 fn runtime() -> ComponentRuntime {
-    let runtime = ComponentRuntime::new();
-    specforge_component::builtins::load_builtins(&runtime).expect("builtins load");
+    ComponentRuntime::new()
+}
+
+/// The SDK greet fixture's component blob.
+fn greet() -> Vec<u8> {
     let greet =
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/greet-extension/greet.wasm");
-    let greet = std::fs::read(greet).expect("vendored greet component blob");
-    runtime
-        .load_module_bytes("@sdk/greet", &greet)
-        .expect("greet loads");
-    runtime
+    std::fs::read(greet).expect("vendored greet component blob")
 }
 
 fn load(runtime: &ComponentRuntime, extensions: &[&str]) -> Environment {
@@ -34,6 +33,9 @@ fn load(runtime: &ComponentRuntime, extensions: &[&str]) -> Environment {
         json!({ "name": "p", "version": "0.1.0", "extensions": extensions }).to_string(),
     )
     .unwrap();
+    if extensions.contains(&"@sdk/greet") {
+        specforge_installed::testing::install_module(dir.path(), "@sdk/greet", &greet());
+    }
     Environment::load(dir.path(), Some(runtime))
 }
 

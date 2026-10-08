@@ -54,7 +54,7 @@ pub struct McpState {
     pub notification_outbox: Vec<serde_json::Value>,
     /// The Wasm runtime extensions run in, when the host supplies one; by
     /// default the served project's session builds the project's runtime
-    /// (`specforge_component::project_runtime`) each time it loads.
+    /// (`specforge_component::ComponentRuntime::with_user_cache`) each time it loads.
     pub extension_runtime: Option<SharedRuntime>,
 }
 

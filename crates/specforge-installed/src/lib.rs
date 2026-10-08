@@ -22,7 +22,7 @@ use specforge_protocol_types::PackageName;
 
 pub use health::Health;
 pub use layout::{LOCK_FILE, lock_path};
-pub use load::Builtins;
+pub use load::{Builtins, EnabledExtension, LoadFailure, LoadProblem, Loaded};
 pub use lock::{LockFile, LockFileEntry, LockState, read_lock_file, write_lock_file};
 pub use module::{Module, hex_sha256};
 

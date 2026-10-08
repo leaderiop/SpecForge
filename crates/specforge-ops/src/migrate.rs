@@ -577,6 +577,7 @@ mod tests {
             r#"{"name": "p", "version": "0.1.0", "extensions": ["@acme/x"]}"#,
         )
         .unwrap();
+        specforge_installed::testing::install(dir.path(), &["@acme/x"]);
         dir
     }
 
@@ -694,10 +695,8 @@ mod tests {
             .map(|(name, _)| *name)
             .collect();
         assert_eq!(names.len(), 9);
-        let dir = tempfile::TempDir::new().unwrap();
-        let config = serde_json::json!({"name": "p", "version": "0.1.0", "extensions": names});
-        std::fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
-        let runtime = specforge_component::project_runtime(dir.path());
+        let runtime = specforge_component::ComponentRuntime::new();
+        specforge_component::builtins::load_builtins(&runtime).unwrap();
         let declarations: Vec<ExtensionDeclaration> = names
             .iter()
             .map(|name| {

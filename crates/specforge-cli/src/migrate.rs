@@ -30,7 +30,7 @@ pub fn run(
 
     // The shared migration: migrate, run the extensions' hooks, then check
     // the graph kept its structure, rolling back when it didn't.
-    let runtime = specforge_component::project_runtime(path);
+    let runtime = specforge_component::ComponentRuntime::with_user_cache();
     let request = Request {
         root: path,
         target,

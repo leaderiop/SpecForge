@@ -25,7 +25,7 @@ fn project() -> Project {
     });
     project.env.config.extensions = vec!["@acme/missing@1.2.0".into()];
     project.env.config.raw = Some(config);
-    project.env.enabled = vec![EnabledExtension::of("@acme/missing@1.2.0", None)];
+    project.env.enabled = vec![EnabledExtension::unloaded("@acme/missing@1.2.0")];
     project.env.config_found = true;
     let root = project.dir.path();
     std::fs::write(

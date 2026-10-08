@@ -16,8 +16,16 @@ fn project(config: serde_json::Value, files: &[(&str, &str)]) -> TempDir {
     dir
 }
 
+/// [`project`] whose enabled extensions an in-process runtime serves: they
+/// are installed too, as a project that enables them has them.
+fn served_project(config: serde_json::Value, files: &[(&str, &str)]) -> TempDir {
+    let dir = project(config, files);
+    specforge_installed::testing::install_configured(dir.path(), &specforge_project::builtins());
+    dir
+}
+
 fn compile(root: &Path) -> CompiledProject {
-    let runtime = specforge_component::project_runtime(root);
+    let runtime = specforge_component::ComponentRuntime::with_user_cache();
     CompiledProject::compile(root, Some(&runtime))
 }
 
@@ -407,7 +415,7 @@ fn compile_with_providers(
     verify = "Wasm-based provider scheme registered and validates ref"
 )]
 fn a_registered_provider_scheme_validates_refs() {
-    let dir = project(
+    let dir = served_project(
         serde_json::json!({
             "name": "p", "version": "0.1.0",
             "extensions": ["@test/gh-provider"],
@@ -434,7 +442,7 @@ fn a_registered_provider_scheme_validates_refs() {
     verify = "duplicate scheme from two providers produces E057"
 )]
 fn a_scheme_declared_twice_is_e057_on_compile() {
-    let dir = project(
+    let dir = served_project(
         serde_json::json!({
             "name": "p", "version": "0.1.0",
             "extensions": ["@test/gh-a", "@test/gh-b"],
@@ -460,7 +468,7 @@ fn a_scheme_declared_twice_is_e057_on_compile() {
 /// Without a provider configured, refs are not checked for their scheme.
 #[test]
 fn no_provider_means_no_scheme_check() {
-    let dir = project(
+    let dir = served_project(
         serde_json::json!({
             "name": "p", "version": "0.1.0", "extensions": ["@test/gh-provider"]
         }),
@@ -503,7 +511,7 @@ fn environment_diagnostics_come_in_load_order() {
         }),
         &[],
     );
-    let runtime = specforge_component::project_runtime(dir.path());
+    let runtime = specforge_component::ComponentRuntime::with_user_cache();
     let env = specforge_project::Environment::load(dir.path(), Some(&runtime));
     let codes: Vec<&str> = env.diagnostics().map(|d| d.code.as_str()).collect();
     // The missing extension's load failure, formal's missing peer, then the
@@ -520,7 +528,7 @@ mod declared_in_process {
     //! Extensions declared with the SDK and served in process: what they
     //! declare is what the environment loads.
 
-    use super::project;
+    use super::served_project as project;
     use specforge_extension_sdk::prelude::*;
     use specforge_project::Environment;
     use specforge_registry::SurfaceType;
@@ -660,7 +668,7 @@ mod passes_of_the_declaration {
     //! read: nothing describes `passes` again, and a passes answer that does
     //! not parse fails the extension's load.
 
-    use super::project;
+    use super::served_project as project;
     use specforge_extension_sdk::prelude::*;
     use specforge_project::{CompiledProject, Environment};
     use specforge_wasm::WasmCallResult;
@@ -781,7 +789,7 @@ mod passes_of_the_declaration {
 fn an_unusable_config_is_e069_then_i002_naming_it() {
     let dir = TempDir::new().unwrap();
     fs::write(dir.path().join("specforge.json"), r#"{ "extensions": ["#).unwrap();
-    let runtime = specforge_component::project_runtime(dir.path());
+    let runtime = specforge_component::ComponentRuntime::with_user_cache();
 
     let env = specforge_project::Environment::load(dir.path(), Some(&runtime));
 
@@ -839,7 +847,7 @@ fn the_environment_reads_the_lock_once_at_its_root() {
     use specforge_installed::{LockFile, LockState};
     let dir = TempDir::new().unwrap();
     fs::write(dir.path().join("specforge.json"), "{}").unwrap();
-    let runtime = specforge_component::project_runtime(dir.path());
+    let runtime = specforge_component::ComponentRuntime::with_user_cache();
     let load = || specforge_project::Environment::load(dir.path(), Some(&runtime));
 
     assert_eq!(load().installed.lock(), &LockState::Absent);
@@ -963,10 +971,13 @@ fn install_greet(root: &Path, hash: Option<&str>) {
     specforge_installed::write_lock_file(&lock, &specforge_installed::lock_path(root)).unwrap();
 }
 
-/// A lock that cannot be read blames each installed extension for having
-/// no lock entry, and reports the lock's own problem nowhere.
-#[test]
-fn an_unreadable_lock_fails_each_installed_extension_as_not_installed() {
+/// A lock that cannot be read is reported once (E033), then each installed
+/// extension it leaves unloaded is E028 naming it.
+#[specforge_test(
+    behavior = "load_extension_manifests",
+    verify = "an unreadable specforge.lock is reported once (E033) and each installed extension it leaves unloaded is E028 naming it"
+)]
+fn an_unreadable_lock_reports_e033_once_then_each_installed_extension() {
     let dir = project(
         serde_json::json!({"name": "p", "version": "0.1.0", "extensions": ["@sdk/greet"]}),
         &[],
@@ -977,22 +988,24 @@ fn an_unreadable_lock_fails_each_installed_extension_as_not_installed() {
         "not valid json {{{",
     )
     .unwrap();
-    let runtime = specforge_component::project_runtime(dir.path());
+    let runtime = specforge_component::ComponentRuntime::with_user_cache();
 
     let env = specforge_project::Environment::load(dir.path(), Some(&runtime));
 
     let diagnostics: Vec<&specforge_common::Diagnostic> = env.diagnostics().collect();
-    let not_installed: Vec<&str> = diagnostics
+    let lock: Vec<&&specforge_common::Diagnostic> =
+        diagnostics.iter().filter(|d| d.code == "E033").collect();
+    assert_eq!(lock.len(), 1, "{diagnostics:?}");
+    assert!(lock[0].message.contains("corrupt lock file"));
+    let unloaded: Vec<&str> = diagnostics
         .iter()
         .filter(|d| d.code == "E028" && d.message.contains("@sdk/greet"))
         .map(|d| d.message.as_str())
         .collect();
-    assert_eq!(not_installed.len(), 1, "{diagnostics:?}");
-    assert!(not_installed[0].contains("no specforge.lock entry"));
-    assert!(
-        diagnostics.iter().all(|d| d.code != "E033"),
-        "{diagnostics:?}"
-    );
+    assert_eq!(unloaded.len(), 1, "{diagnostics:?}");
+    assert!(unloaded[0].contains("specforge.lock can't be read"));
+    let at = |code: &str| diagnostics.iter().position(|d| d.code == code).unwrap();
+    assert!(at("E033") < at("E028"), "the lock comes first");
 }
 
 /// A lock entry that pins no hash loads its extension, and says nothing.
@@ -1003,7 +1016,7 @@ fn an_unpinned_lock_entry_loads_without_a_warning() {
         &[],
     );
     install_greet(dir.path(), Some(""));
-    let runtime = specforge_component::project_runtime(dir.path());
+    let runtime = specforge_component::ComponentRuntime::with_user_cache();
 
     let env = specforge_project::Environment::load(dir.path(), Some(&runtime));
 

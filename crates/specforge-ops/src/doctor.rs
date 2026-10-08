@@ -691,11 +691,12 @@ mod tests {
         let fixture = Fixture::new()
             .config(&["@specforge/product", "greet.wasm", "@acme/stray"])
             .enabled(vec![
-                specforge_project::EnabledExtension::of("@specforge/product", None),
+                specforge_project::EnabledExtension::unloaded("@specforge/product"),
                 specforge_project::EnabledExtension {
                     entry: "greet.wasm".into(),
                     name: "@sdk/greet".into(),
                     file: Some("greet.wasm".into()),
+                    failure: None,
                 },
             ])
             .declarations(vec![
@@ -817,7 +818,7 @@ mod tests {
     #[test]
     fn doctor_reports_a_changed_binary_twice() {
         let dir = project_with_a_changed_greet();
-        let runtime = specforge_component::project_runtime(dir.path());
+        let runtime = specforge_component::ComponentRuntime::with_user_cache();
         let compiled = specforge_project::CompiledProject::compile(dir.path(), Some(&runtime));
 
         let report = diagnose_with(&ProjectView::of(&compiled), true);
@@ -835,9 +836,10 @@ mod tests {
                 && stale.unwrap().1.ends_with(".wasm` to reinstall it"),
             "{stale:?}"
         );
+        // The load's remedy is the same command as the binary check's.
         let e033 = about_greet.iter().find(|(code, _)| *code == "E033");
         assert!(
-            e033.unwrap().1.contains("specforge add \"@sdk/greet\""),
+            e033.unwrap().1.contains("specforge add ") && e033.unwrap().1.ends_with(".wasm"),
             "{e033:?}"
         );
     }

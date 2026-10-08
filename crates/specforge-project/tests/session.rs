@@ -64,7 +64,7 @@ fn graph_contents(graph: &Graph) -> (Vec<String>, Vec<String>) {
 
 /// The session agrees with a fresh compile of what is on disk now.
 fn assert_matches_a_fresh_compile(session: &ProjectSession, root: &Path) {
-    let runtime = specforge_component::project_runtime(root);
+    let runtime = specforge_component::ComponentRuntime::with_user_cache();
     let fresh = CompiledProject::compile(root, Some(&runtime));
     assert_eq!(
         graph_contents(session.graph()),
@@ -454,7 +454,7 @@ fn excluded_files_stay_out_of_the_compile_and_the_session() {
         ],
     );
     let root = dir.path();
-    let runtime = specforge_component::project_runtime(root);
+    let runtime = specforge_component::ComponentRuntime::with_user_cache();
     let compiled = CompiledProject::compile(root, Some(&runtime));
     let mut files: Vec<String> = compiled.source_texts().into_keys().collect();
     files.sort();
@@ -1251,7 +1251,7 @@ fn random_updates_leave_what_a_fresh_compile_builds() {
                 specforge_project::compute_graph_delta(&previous, session.graph()),
                 "{context}"
             );
-            let runtime = specforge_component::project_runtime(root);
+            let runtime = specforge_component::ComponentRuntime::with_user_cache();
             let fresh = CompiledProject::compile(root, Some(&runtime));
             assert_eq!(
                 graph_contents(session.graph()),
@@ -1630,6 +1630,7 @@ fn a_sessions_snapshot_follows_every_update() {
         &[("a.spec", "item gizmo \"Gizmo\" {\n}\n")],
     );
     let root = dir.path();
+    specforge_installed::testing::install_configured(root, &specforge_project::builtins());
     let runtime = Arc::new(InProcessRuntime::new().with(obliging_items));
     let mut session = ProjectSession::open_with_runtime(root, Some(runtime.clone()));
     let last_pass_input = || {
@@ -1779,6 +1780,7 @@ fn source_writing(
 fn a_config_written_while_the_runtime_loads_is_seen_next_time() {
     let dir = project(V1, &[("a.spec", "")]);
     let root = dir.path();
+    specforge_installed::testing::install(root, &["@test/a", "@test/b"]);
     let (source, seen) = source_writing(|root| fs::write(root.join("specforge.json"), V2).unwrap());
 
     let mut session = ProjectSession::open_from(root, source);
@@ -1825,6 +1827,7 @@ fn a_module_rewritten_while_the_runtime_loads_is_seen_next_time() {
 fn a_reload_builds_its_runtime_from_the_config_it_read() {
     let dir = project(V1, &[("a.spec", "")]);
     let root = dir.path();
+    specforge_installed::testing::install(root, &["@test/a", "@test/b"]);
     let (source, seen) = source_writing(|_| {});
     let mut session = ProjectSession::open_from(root, source);
 
@@ -1872,7 +1875,7 @@ fn e025_messages(diagnostics: &[Diagnostic]) -> Vec<String> {
 fn an_unreadable_source_is_reported_after_an_update_of_another_file() {
     let dir = project_with_an_unreadable_source();
     let root = dir.path();
-    let runtime = specforge_component::project_runtime(root);
+    let runtime = specforge_component::ComponentRuntime::with_user_cache();
     let message = "cannot read bad.spec: stream did not contain valid UTF-8";
     let mut session = ProjectSession::open(root);
     assert_eq!(e025_messages(&session.diagnostics()), [message]);
@@ -1982,7 +1985,7 @@ fn the_session_reports_graph_diagnostics_in_build_order() {
         ],
     );
     let root = dir.path();
-    let runtime = specforge_component::project_runtime(root);
+    let runtime = specforge_component::ComponentRuntime::with_user_cache();
     let codes = |diagnostics: &[Diagnostic]| -> Vec<String> {
         diagnostics.iter().map(|d| d.code.to_string()).collect()
     };

@@ -970,7 +970,6 @@ mod tests {
         verify = "the command runs in the runtime that read the project's declarations, which loaded only the extensions the project enables"
     )]
     fn a_command_runs_in_the_runtime_that_read_the_declarations() {
-        use specforge_wasm::runtime::WasmRuntime as _;
         let dir = tempfile::TempDir::new().unwrap();
         std::fs::write(
             dir.path().join("specforge.json"),
@@ -986,21 +985,22 @@ mod tests {
 
         // What the CLI does: one runtime, the project's environment read
         // through it, then the routed command run in it.
-        let runtime = specforge_component::project_runtime(dir.path());
+        let runtime = specforge_component::ComponentRuntime::with_user_cache();
+        assert!(runtime.loaded_names().is_empty(), "a runtime starts empty");
+        let env = specforge_project::Environment::load(dir.path(), Some(&runtime));
         let loaded = runtime.loaded_names();
         assert_eq!(
             loaded,
             ["@specforge/product"],
             "only what the project enables"
         );
-        let env = specforge_project::Environment::load(dir.path(), Some(&runtime));
+        assert!(env.enabled.iter().all(|e| e.failure.is_none()));
         let commands = ExtensionCommands::build(&env.registries);
         let features = commands
             .all()
             .iter()
             .find(|c| c.id() == "features")
             .expect("product declares `features`");
-        assert!(runtime.load_failure(features.extension()).is_none());
 
         let json = CommandContext {
             format: CommandFormat::Json,
@@ -1038,7 +1038,9 @@ mod tests {
                 .to_string(),
         )
         .unwrap();
-        let runtime = specforge_component::project_runtime(dir.path());
+        let runtime = specforge_component::ComponentRuntime::new();
+        specforge_component::builtins::load_builtins_for(&runtime, &["@specforge/product".into()])
+            .unwrap();
         let unrouted = CommandDescriptor {
             export: "cmd__product_no_such_command".into(),
             ..command("no_such_command")
