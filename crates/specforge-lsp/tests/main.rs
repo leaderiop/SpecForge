@@ -12,6 +12,7 @@ mod lifecycle;
 mod navigation;
 mod protocol;
 mod publish;
+mod reaction;
 mod recorder;
 mod registries;
 mod rename;

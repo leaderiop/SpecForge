@@ -1,17 +1,17 @@
-//! What the LSP answers and applies over the protocol, with the decisions in
-//! `answers` and `changes` (architecture plan 10): the same behaviours as the
-//! synchronous tests beside them, asked through a client. The tests that
-//! start `pin_` assert behaviour kept as it was before those modules.
+//! What the LSP answers and sends over the protocol, with the decisions in `answers`, `changes`
+//! and `reaction`: the same behaviours as the synchronous tests beside them, asked through a
+//! client, and the `Editor` port's contract between its two adapters. The tests that start
+//! `pin_` assert behaviour kept as it was before those modules.
 
-use crate::session::{Session, codes, uri_of};
+use crate::recorder::{Sent, codes as sent_codes};
+use crate::served::Served;
+use crate::session::{NAMES_GUIDE, Session, codes, docref_project, registered_globs, uri_of};
 use serde_json::{Value, json};
+use specforge_lsp::editor::WorkDone;
 use specforge_test_macros::test as spec;
 use std::time::Duration;
 use tempfile::TempDir;
 
-const A_ALPHA: &str = "type alpha \"A\" {}\n";
-const A_OMEGA: &str = "type omega \"O\" {}\n";
-const B_USES_ALPHA: &str = "behavior user \"U\" {\n  types [alpha]\n}\n";
 const CYCLE: &str =
     "behavior alpha \"A\" {\n  types [beta]\n}\nbehavior beta \"B\" {\n  types [alpha]\n}\n";
 const A_DANGLING: &str = "behavior login \"Login\" {\n  invariants [session_limit]\n}\n";
@@ -60,66 +60,6 @@ async fn publishes(client: &mut Session, uri: &str, code: &str) -> bool {
         .is_some()
 }
 
-/// Whether diagnostics without `code` are published for `uri` within a few
-/// seconds.
-async fn recovers(client: &mut Session, uri: &str, code: &str) -> bool {
-    client
-        .notification_within(
-            "textDocument/publishDiagnostics",
-            Duration::from_secs(5),
-            |p| {
-                p["uri"] == uri
-                    && p["diagnostics"]
-                        .as_array()
-                        .is_some_and(|d| !codes(d).contains(&code))
-            },
-        )
-        .await
-        .is_some()
-}
-
-/// The names `workspace/symbol` answers for `query`.
-async fn symbols(client: &mut Session, query: &str) -> Vec<String> {
-    client.workspace_symbol(query).await["result"]
-        .as_array()
-        .map(|found| {
-            found
-                .iter()
-                .filter_map(|s| s["name"].as_str().map(str::to_string))
-                .collect()
-        })
-        .unwrap_or_default()
-}
-
-fn whole(text: &str) -> Vec<Value> {
-    vec![json!({"text": text})]
-}
-
-#[tokio::test]
-async fn a_closed_unsaved_buffer_is_read_from_disk() {
-    let dir = project(&[("a.spec", A_ALPHA), ("b.spec", B_USES_ALPHA)]);
-    let (mut client, _) = Session::start(Some(dir.path())).await;
-    let a = uri_of(&dir.path().join("a.spec"));
-    let b = uri_of(&dir.path().join("b.spec"));
-
-    client.open(&a, A_ALPHA).await;
-    client.did_change(&a, 2, whole(A_OMEGA)).await;
-    assert!(
-        publishes(&mut client, &b, "E003").await,
-        "the edit compiled"
-    );
-    settle(&mut client).await;
-    client.close(&a).await;
-
-    // b.spec is compiled against the disk's alpha again.
-    assert!(
-        recovers(&mut client, &b, "E003").await,
-        "b.spec's next diagnostics have no E003"
-    );
-    assert_eq!(symbols(&mut client, "alpha").await, ["alpha"]);
-    assert!(symbols(&mut client, "omega").await.is_empty());
-}
-
 #[tokio::test]
 async fn pin_hover_puts_the_diagnostic_under_the_cursor_first() {
     let (mut client, uri, _dir) = Session::with_extensions(&[], "main.spec", CYCLE).await;
@@ -162,96 +102,6 @@ async fn pin_definition_is_a_link_only_for_a_link_client() {
     assert_eq!(range(&result["range"]), (0, 5, 0, 10));
 }
 
-#[tokio::test]
-async fn a_reload_reapplies_the_open_buffers() {
-    let dir = project(&[("a.spec", A_ALPHA), ("b.spec", B_USES_ALPHA)]);
-    let (mut client, _) = Session::start(Some(dir.path())).await;
-    let a = uri_of(&dir.path().join("a.spec"));
-    let b = uri_of(&dir.path().join("b.spec"));
-    client.open(&a, A_ALPHA).await;
-    client.did_change(&a, 2, whole(A_OMEGA)).await;
-    assert!(
-        publishes(&mut client, &b, "E003").await,
-        "the edit compiled"
-    );
-
-    // The configuration changes on disk: the environment reloads, and the
-    // open buffer is still the truth for its file.
-    std::fs::write(
-        dir.path().join("specforge.json"),
-        r#"{"name":"t","version":"0.2.0","extensions":[]}"#,
-    )
-    .unwrap();
-    let config = uri_of(&dir.path().join("specforge.json"));
-    client
-        .notify(
-            "workspace/didChangeWatchedFiles",
-            json!({"changes": [{"uri": config, "type": 2}]}),
-        )
-        .await;
-    let log = client
-        .notification("window/logMessage", |p| {
-            p["message"]
-                .as_str()
-                .is_some_and(|m| m.contains("extension environment changed"))
-        })
-        .await;
-    assert!(log.is_some(), "the reload is announced");
-
-    assert_eq!(symbols(&mut client, "omega").await, ["omega"]);
-    assert!(symbols(&mut client, "alpha").await.is_empty());
-}
-
-#[tokio::test]
-async fn a_disk_change_to_an_open_document_is_ignored_over_the_protocol() {
-    let dir = project(&[("a.spec", A_ALPHA), ("b.spec", B_USES_ALPHA)]);
-    let (mut client, _) = Session::start(Some(dir.path())).await;
-    let a = uri_of(&dir.path().join("a.spec"));
-    let b = uri_of(&dir.path().join("b.spec"));
-    client.open(&a, A_ALPHA).await;
-    client.did_change(&a, 2, whole(A_OMEGA)).await;
-    assert!(
-        publishes(&mut client, &b, "E003").await,
-        "the edit compiled"
-    );
-    settle(&mut client).await;
-
-    std::fs::write(dir.path().join("a.spec"), "type zeta \"Z\" {}\n").unwrap();
-    client
-        .notify(
-            "workspace/didChangeWatchedFiles",
-            json!({"changes": [{"uri": a, "type": 2}]}),
-        )
-        .await;
-    // Nothing is published and the project keeps the buffer's text.
-    assert!(
-        client
-            .wait_for_notification("textDocument/publishDiagnostics", 600)
-            .await
-            .is_none()
-    );
-    assert_eq!(symbols(&mut client, "omega").await, ["omega"]);
-    assert!(symbols(&mut client, "zeta").await.is_empty());
-}
-
-#[tokio::test]
-async fn closing_a_detached_buffer_drops_it() {
-    let (mut client, test) =
-        Session::with_doc(None, "test.spec", "behavior foo \"Foo\" {}\n").await;
-    let other = "file:///test/b.spec";
-    client
-        .open(other, "behavior user \"U\" {\n  types [foo]\n}\n")
-        .await;
-    settle(&mut client).await;
-
-    client.close(&test).await;
-    assert!(
-        publishes(&mut client, other, "E003").await,
-        "b.spec now names a missing foo"
-    );
-    assert!(symbols(&mut client, "foo").await.is_empty());
-}
-
 #[spec(
     behavior = "document_open_close",
     verify = "closing a project source publishes what the project reports for its file"
@@ -288,69 +138,102 @@ async fn closing_a_clean_source_keeps_its_errors_over_the_protocol() {
     );
 }
 
+/// What the editor was told, in the order it was told, without the protocol's own detail.
+#[derive(Debug, PartialEq)]
+enum Shape {
+    Watched(Vec<String>),
+    Begin(String),
+    Published(String, Vec<String>, Option<i64>),
+    Logged(i64, String),
+    End(Option<String>),
+}
+
+/// The shapes of the messages a client received. The unregistration that precedes a
+/// registration and the progress token's creation are the adapter's own protocol.
+fn shapes_of_wire(messages: &[Value]) -> Vec<Shape> {
+    messages
+        .iter()
+        .filter_map(|m| {
+            let params = &m["params"];
+            match m["method"].as_str()? {
+                "client/registerCapability" => Some(Shape::Watched(registered_globs(m))),
+                "$/progress" => match params["value"]["kind"].as_str()? {
+                    "begin" => Some(Shape::Begin(params["value"]["title"].as_str()?.to_string())),
+                    "end" => Some(Shape::End(
+                        params["value"]["message"].as_str().map(str::to_string),
+                    )),
+                    other => panic!("progress {other}"),
+                },
+                "textDocument/publishDiagnostics" => Some(Shape::Published(
+                    params["uri"].as_str()?.to_string(),
+                    codes(params["diagnostics"].as_array()?)
+                        .into_iter()
+                        .map(str::to_string)
+                        .collect(),
+                    params["version"].as_i64(),
+                )),
+                "window/logMessage" => Some(Shape::Logged(
+                    params["type"].as_i64()?,
+                    params["message"].as_str()?.to_string(),
+                )),
+                _ => None,
+            }
+        })
+        .collect()
+}
+
+/// The shapes of what the recorder was told, one for one.
+fn shapes_of_sent(sent: &[Sent]) -> Vec<Shape> {
+    sent.iter()
+        .map(|s| match s {
+            Sent::Published {
+                uri,
+                diagnostics,
+                version,
+            } => Shape::Published(
+                uri.to_string(),
+                sent_codes(diagnostics),
+                version.map(i64::from),
+            ),
+            Sent::Watched { accepted, .. } => {
+                assert!(accepted, "the recorder accepts every watcher here");
+                Shape::Watched(crate::recorder::watched(std::slice::from_ref(s)).remove(0))
+            }
+            Sent::Logged(level, message) => Shape::Logged(
+                serde_json::to_value(level).unwrap().as_i64().unwrap(),
+                message.clone(),
+            ),
+            Sent::Progress(WorkDone::Begin { title }) => Shape::Begin(title.clone()),
+            Sent::Progress(WorkDone::End { message }) => Shape::End(message.clone()),
+            Sent::TokensRefreshed => panic!("no client here declared refresh support"),
+        })
+        .collect()
+}
+
+/// The open sequence of the docref project told to the editor through both adapters of the
+/// `Editor` port: the client adapter over JSON-RPC, and the recorder. Both say the same.
+#[spec(port = "Editor", verify = "Editor contract is satisfied")]
 #[tokio::test]
-async fn pin_the_open_sequence_reaches_the_client_in_order() {
-    let dir = project(&[("a.spec", A_DANGLING)]);
-    let root = dir.path().to_str().unwrap();
-    let (mut client, _) = Session::launch(Some(root), json!({})).await;
+async fn the_editor_adapters_send_the_same_open_sequence() {
+    let dir = docref_project(NAMES_GUIDE);
+    let root = dir.path().to_str().unwrap().to_string();
+    let (mut client, _) = Session::launch(Some(&root), json!({})).await;
     let end = |m: &Value| m["method"] == "$/progress" && m["params"]["value"]["kind"] == "end";
-    let messages = client
-        .messages_until(Duration::from_secs(10), end)
+    let wire = client
+        .messages_until(Duration::from_secs(20), end)
         .await
         .expect("workspace indexing never ended");
-    let shape = |m: &Value| match m["method"].as_str().unwrap() {
-        "$/progress" => format!(
-            "$/progress {}",
-            m["params"]["value"]["kind"].as_str().unwrap()
-        ),
-        other => other.to_string(),
-    };
-    let kept = [
-        "client/registerCapability",
-        "window/workDoneProgress/create",
-        "$/progress begin",
-        "textDocument/publishDiagnostics",
-        "client/unregisterCapability",
-        "window/logMessage",
-        "$/progress end",
-    ];
-    let sequence: Vec<String> = messages
-        .iter()
-        .map(shape)
-        .filter(|s| kept.contains(&s.as_str()))
-        .collect();
-    assert_eq!(
-        sequence,
-        [
-            "client/registerCapability",
-            "window/workDoneProgress/create",
-            "$/progress begin",
-            "textDocument/publishDiagnostics",
-            "client/unregisterCapability",
-            "client/registerCapability",
-            "window/logMessage",
-            "$/progress end",
-        ]
-    );
-    let published = messages
-        .iter()
-        .find(|m| m["method"] == "textDocument/publishDiagnostics")
-        .unwrap();
-    assert_eq!(
-        published["params"]["uri"],
-        uri_of(&dir.path().join("a.spec"))
-    );
-    let diagnostics = published["params"]["diagnostics"].as_array().unwrap();
-    assert_eq!(codes(diagnostics), ["E003"]);
-    let log = messages
-        .iter()
-        .find(|m| m["method"] == "window/logMessage")
-        .unwrap();
+    drop(client);
+
+    // The reaction takes the state's blocking locks: it runs off the async runtime.
+    let recorded =
+        tokio::task::spawn_blocking(move || Served::at(dir).open(&[]).opening().to_vec())
+            .await
+            .unwrap();
+    let (wire, recorded) = (shapes_of_wire(&wire), shapes_of_sent(&recorded));
     assert!(
-        log["params"]["message"]
-            .as_str()
-            .unwrap()
-            .contains("indexed 1 .spec files"),
-        "{log}"
+        wire.iter().any(|s| matches!(s, Shape::Published(..))),
+        "the project has a diagnostic to publish: {wire:?}"
     );
+    assert_eq!(wire, recorded);
 }

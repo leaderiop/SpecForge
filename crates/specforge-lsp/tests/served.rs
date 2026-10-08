@@ -26,7 +26,6 @@ enum Runtime {
     /// The extensions declared with [`Served::extension`], in process; `open` writes the config.
     InProcess,
     /// The project's own, as `specforge-lsp` runs them (`RuntimeSource::project()`).
-    #[allow(dead_code)] // `Served::at`, used by `tests/reaction.rs`
     Project,
 }
 
@@ -67,7 +66,6 @@ impl Served {
 
     /// The project in `dir` as written (its own `specforge.json`), its extensions run by the
     /// component runtime: builtins, the fixture extensions.
-    #[allow(dead_code)] // used by `tests/reaction.rs`
     pub fn at(dir: TempDir) -> Served {
         Served::with(dir, LspState::new(), Runtime::Project)
     }
@@ -97,14 +95,12 @@ impl Served {
     }
 
     /// The client declared `support` at initialize.
-    #[allow(dead_code)] // the token tests of `tests/reaction.rs`
     pub fn client(self, support: ClientSupport) -> Served {
         self.state.blocking_write().set_client(support);
         self
     }
 
     /// The editor the reaction talks to: refuse its watchers, act while they move.
-    #[allow(dead_code)] // the watcher tests of `tests/reaction.rs`
     pub fn editor(&self) -> &Recorder {
         &self.editor
     }
@@ -172,7 +168,6 @@ impl Served {
     }
 
     /// What opening the workspace and its documents sent.
-    #[allow(dead_code)] // the open tests of `tests/reaction.rs`
     pub fn opening(&self) -> &[Sent] {
         &self.opening
     }
@@ -213,6 +208,16 @@ impl Served {
         self.type_text(file, text);
         let uri = self.uri(file);
         self.apply(Change::Edited(vec![uri]))
+    }
+
+    /// The handler half of `didOpen` for `file`, which is read from disk: the document is held
+    /// as open, and nothing is reacted to yet (the reaction queues behind the open).
+    pub fn hold(&self, file: &str) {
+        let uri = self.uri(file);
+        let text = std::fs::read_to_string(self.dir.path().join(file)).unwrap();
+        self.state
+            .blocking_write()
+            .open_document(uri.as_str(), &text);
     }
 
     /// As `didOpen`: `uri` opened with `text` at version 1, then `Change::Edited([uri])`.

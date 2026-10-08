@@ -59,6 +59,22 @@ pub fn docref_project(spec: &str) -> tempfile::TempDir {
     dir
 }
 
+/// A gadget of the docref project naming `../docs/guide.md` (from `spec/`:
+/// `docs/guide.md` under the root), which does not exist.
+pub const NAMES_GUIDE: &str = "gadget gadget_one \"G\" {\n  docs [\"../docs/guide.md\"]\n}\n";
+
+/// The `didChangeWatchedFiles` watchers of a `client/registerCapability` request.
+pub fn registered_globs(registration: &Value) -> Vec<String> {
+    registration["params"]["registrations"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|r| r["method"] == "workspace/didChangeWatchedFiles")
+        .flat_map(|r| r["registerOptions"]["watchers"].as_array().unwrap().clone())
+        .map(|w| w["globPattern"].as_str().unwrap_or_default().to_string())
+        .collect()
+}
+
 /// The codes of `diagnostics`.
 pub fn codes(diagnostics: &[Value]) -> Vec<&str> {
     diagnostics
@@ -167,13 +183,10 @@ impl Session {
 
         let root = dir.path().to_str().unwrap();
         let (mut session, init) = Self::launch(Some(root), capabilities).await;
-        // The extension-loading and the indexing log messages.
         session
-            .wait_for_notification("window/logMessage", 5000)
-            .await;
-        session
-            .wait_for_notification("window/logMessage", 5000)
-            .await;
+            .notification("$/progress", |p| p["value"]["kind"] == "end")
+            .await
+            .expect("workspace indexing never ended");
 
         let uri = uri_of(&dir.path().join(file_name));
         // Opened for diagnostic publishing (indexing already parsed it).

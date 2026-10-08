@@ -2,7 +2,7 @@
 //! (`specforge_lsp::changes`): the plan and what applying it publishes, with
 //! no client, no debounce and no stdio.
 
-use crate::recorder::{Sent, codes, last_codes, publications};
+use crate::recorder::{Sent, codes, last_codes, logs, publications};
 use crate::served::Served;
 use specforge_lsp::answers;
 use specforge_lsp::changes::{Change, Plan};
@@ -194,6 +194,12 @@ fn a_reload_applies_every_open_buffer_in_one_update() {
         let codes = last_codes(&sent, &served.uri(file)).expect("every buffer's file");
         assert!(!codes.contains(&"E003".to_string()), "{file}: {codes:?}");
     }
+    assert!(
+        logs(&sent).contains(
+            &"specforge-lsp: extension environment changed, reloaded 0 extension(s)".to_string()
+        ),
+        "the reload is announced: {sent:?}"
+    );
 }
 
 #[spec(
@@ -208,7 +214,16 @@ fn a_disk_change_to_an_open_document_is_ignored() {
     // its deletion is not.
     served.write("a.spec", "type other \"O\" {}\n");
     let change = changed(&served, "a.spec", FileChangeType::CHANGED);
-    assert!(Plan::of(Change::Watched(vec![change]), &served.state()).is_none());
+    assert!(Plan::of(Change::Watched(vec![change.clone()]), &served.state()).is_none());
+    served.sent();
+    assert!(served.apply(Change::Watched(vec![change])).is_none());
+    assert!(
+        !served
+            .sent()
+            .iter()
+            .any(|sent| matches!(sent, Sent::Published { .. })),
+        "nothing is published"
+    );
     let deleted = changed(&served, "a.spec", FileChangeType::DELETED);
     assert!(Plan::of(Change::Watched(vec![deleted]), &served.state()).is_some());
 

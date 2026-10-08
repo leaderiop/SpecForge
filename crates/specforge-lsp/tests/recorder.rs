@@ -1,9 +1,6 @@
 //! The test adapter of the LSP's `Editor` port: it records what the reaction tells the editor,
 //! answers watcher registrations as a test says, and can act "while the watchers move".
 
-// The readers and hooks below are used by `tests/reaction.rs`.
-#![allow(dead_code)]
-
 use std::cell::RefCell;
 use std::rc::Rc;
 
