@@ -13,7 +13,7 @@ path = "tests/main.rs"
 [dependencies]
 specforge-common = { workspace = true }
 specforge-protocol-types = { path = "../specforge-protocol-types" }
-specforge-registry-wire = { workspace = true }
+specforge-registry-wire = { path = "../specforge-registry-wire" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 semver = { workspace = true }

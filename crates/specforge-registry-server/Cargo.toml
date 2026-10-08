@@ -12,7 +12,7 @@ path = "src/main.rs"
 [dependencies]
 semver = { workspace = true }
 specforge-protocol-types = { path = "../specforge-protocol-types" }
-specforge-registry-wire = { workspace = true }
+specforge-registry-wire = { path = "../specforge-registry-wire" }
 axum = { version = "0.8.4", features = ["multipart"] }
 tokio = { workspace = true }
 serde = { workspace = true }

@@ -51,7 +51,6 @@ specforge-ops = { path = "crates/specforge-ops" }
 specforge-project = { path = "crates/specforge-project" }
 specforge-wasm = { path = "crates/specforge-wasm" }
 specforge-component = { path = "crates/specforge-component" }
-specforge-registry-wire = { path = "crates/specforge-registry-wire" }
 tree-sitter-specforge = { path = "crates/tree-sitter-specforge" }
 
 # External
