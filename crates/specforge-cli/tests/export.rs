@@ -177,6 +177,28 @@ fn export_with_nonexistent_scope_exits_one() {
         .code(1);
 }
 
+#[specforge_test(
+    behavior = "export_agent_context_format",
+    verify = "non-existent scope entity produces E003 and exit code 1"
+)]
+fn a_context_export_of_a_missing_scope_is_e003() {
+    let dir = setup_project(&[("main.spec", SPEC_CONTENT)]);
+
+    let output = specforge_cmd()
+        .args(["export", "--format=context", "--scope=nope"])
+        .arg(dir.path())
+        .output()
+        .unwrap();
+
+    assert_eq!(output.status.code(), Some(1));
+    assert!(output.stdout.is_empty(), "no partial export");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.starts_with("error[E003]: unresolved entity 'nope'"),
+        "{stderr}"
+    );
+}
+
 // B:embed_schema_in_export — V2 format with embedded schema (default)
 #[test]
 fn export_default_produces_v2_with_schema() {

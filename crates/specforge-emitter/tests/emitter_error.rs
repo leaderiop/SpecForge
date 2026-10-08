@@ -68,7 +68,7 @@ fn emit_nonexistent_scope_is_scope_not_found() {
 #[test]
 fn emit_scoped_nonexistent_returns_scope_not_found() {
     let graph = build_graph();
-    let err = specforge_emitter::scope::emit_json_scoped(&graph, "nonexistent").unwrap_err();
+    let err = crate::support::scoped_json(&graph, "nonexistent").unwrap_err();
     assert!(
         matches!(err, EmitterError::ScopeNotFound { .. }),
         "expected ScopeNotFound, got: {err:?}"
@@ -100,21 +100,29 @@ fn a_failure_carries_its_code_and_its_message_has_none() {
     assert_eq!(err.to_string(), "bad data");
 }
 
+// A budget that cannot hold even an export with no entities is BudgetTooSmall,
+// whose code is E062 (the one budget failure there is: the strategy is
+// `prioritize`).
 #[test]
-fn emitter_error_implements_std_error() {
-    let err = EmitterError::Serialization("test".to_string());
-    let _: &dyn std::error::Error = &err;
-}
-
-// The "error" budget strategy fails with a budget too small for the export.
-#[test]
-fn budget_strategy_error_is_budget_too_small() {
+fn a_budget_too_small_for_the_empty_export_is_budget_too_small() {
     let graph = build_graph();
-    let err = specforge_emitter::budget::emit_json_with_budget_strategy(&graph, 1, "error")
-        .expect_err("a budget of one token cannot hold two entities");
+    let err = specforge_emitter::emit(
+        &graph,
+        &EmitOptions {
+            token_budget: Some(1),
+            ..Default::default()
+        },
+    )
+    .expect_err("a budget of one token cannot hold the envelope");
     assert!(
         matches!(err, EmitterError::BudgetTooSmall { .. }),
         "expected BudgetTooSmall, got: {err:?}"
     );
     assert_eq!(err.code(), Some(codes::E062));
+}
+
+#[test]
+fn emitter_error_implements_std_error() {
+    let err = EmitterError::Serialization("test".to_string());
+    let _: &dyn std::error::Error = &err;
 }

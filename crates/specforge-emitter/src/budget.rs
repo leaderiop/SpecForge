@@ -139,13 +139,6 @@ fn budgeted_node(n: &Node) -> BudgetedNode {
     }
 }
 
-/// The schemaless graph export fitted to `max_tokens`: the whole export when
-/// it fits, otherwise the most central entities that fit with a
-/// `token_budget` block naming the rest. See [`emit_graph_within_budget`].
-pub fn emit_json_with_budget(graph: &Graph, max_tokens: usize) -> Result<String, EmitterError> {
-    emit_graph_within_budget(graph, max_tokens, &Envelope::schemaless())
-}
-
 /// The graph export in `envelope`, fitted to `max_tokens` by the
 /// `prioritize` strategy.
 ///
@@ -248,7 +241,7 @@ pub(crate) fn emit_graph_within_budget(
 
 /// Build the sub-graph that fits `max_tokens` when rendered by `render`,
 /// dropping least-connected nodes first (same prioritize strategy as
-/// [`emit_json_with_budget`]). Returns the filtered graph.
+/// [`emit_graph_within_budget`]). Returns the filtered graph.
 pub fn filter_graph_within_budget<F>(
     graph: &Graph,
     max_tokens: usize,
@@ -292,27 +285,5 @@ where
             return Ok(filtered);
         }
         kept.remove(0);
-    }
-}
-
-pub fn emit_json_with_budget_strategy(
-    graph: &Graph,
-    max_tokens: usize,
-    strategy: &str,
-) -> Result<String, EmitterError> {
-    let full = crate::json::emit_json(graph);
-    let est = estimate_tokens(&full);
-
-    if est <= max_tokens {
-        return Ok(full);
-    }
-
-    match strategy {
-        "error" => Err(EmitterError::BudgetTooSmall {
-            reason: format!(
-                "token budget exceeded: estimated {est} tokens, budget is {max_tokens}"
-            ),
-        }),
-        _ => emit_json_with_budget(graph, max_tokens),
     }
 }

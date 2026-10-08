@@ -7,8 +7,8 @@
 //! stats and the schema cache are `specforge-ops`'.
 
 pub mod brief;
-pub mod budget;
-pub use budget::{estimate_tokens, filter_graph_within_budget};
+mod budget;
+pub use budget::estimate_tokens;
 pub mod context;
 mod diagram;
 pub mod dot;
@@ -18,7 +18,6 @@ pub mod json;
 pub mod model;
 pub mod outline;
 pub mod schema;
-pub mod scope;
 
 pub use dot::DotOptions;
 pub use emit::{EmitFormat, EmitOptions, emit};

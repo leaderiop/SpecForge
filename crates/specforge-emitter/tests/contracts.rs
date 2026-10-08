@@ -251,7 +251,7 @@ fn context_contract_includes_contracts_and_verify_omits_prose() {
     }
 
     // scope_enforced: scoped at a, only the connected a, b, c.
-    let scoped = specforge_emitter::scope::emit_context_scoped(&graph, "a").unwrap();
+    let scoped = crate::support::scoped_context(&graph, "a").unwrap();
     let scoped: serde_json::Value = serde_json::from_str(&scoped).unwrap();
     assert_eq!(node_ids(&scoped), vec!["a", "b", "c"]);
     assert_eq!(scoped["edges"].as_array().unwrap().len(), 2);
@@ -317,7 +317,7 @@ fn graph_format_contract_finalized_graph_produces_full_output() {
     );
 
     // scope_enforced: scoped at c, only the connected a, b, c.
-    let scoped = specforge_emitter::scope::emit_json_scoped(&graph, "c").unwrap();
+    let scoped = crate::support::scoped_json(&graph, "c").unwrap();
     let scoped: serde_json::Value = serde_json::from_str(&scoped).unwrap();
     assert_eq!(node_ids(&scoped), vec!["a", "b", "c"]);
     assert_eq!(scoped["edges"].as_array().unwrap().len(), 2);
@@ -350,10 +350,7 @@ fn budget_contract_within_budget_no_truncation() {
     // Requires: graph + budget
     let graph = build_graph(); // a -> b -> c: b is the most central
     let emit = |budget: usize| -> serde_json::Value {
-        serde_json::from_str(
-            &specforge_emitter::budget::emit_json_with_budget(&graph, budget).unwrap(),
-        )
-        .unwrap()
+        serde_json::from_str(&crate::support::budgeted_json(&graph, budget)).unwrap()
     };
 
     // Within budget: everything, and no truncation metadata.
