@@ -143,7 +143,8 @@ pub fn run_validate(path: &Path, format: OutputFormat) -> i32 {
                 .coded(NOT_BUILT, format!("cannot read {}: {e}", binary.display()));
         }
     };
-    let (declaration, diagnostics) = match specforge_ops::publish::declare(&wasm) {
+    let runtime = specforge_component::ComponentRuntime::with_user_cache();
+    let (declaration, diagnostics) = match specforge_ops::publish::declare(&runtime, &wasm) {
         Ok(declared) => declared,
         Err(error) => {
             return Refusal::of(format).report(&error);

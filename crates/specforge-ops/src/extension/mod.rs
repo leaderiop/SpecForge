@@ -23,6 +23,7 @@ pub use update::{
     update,
 };
 
+pub(crate) use add::install_local;
 pub(crate) use candidate::required_builtins;
 
 use crate::OpError;

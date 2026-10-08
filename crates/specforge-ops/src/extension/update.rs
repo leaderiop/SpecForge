@@ -368,7 +368,7 @@ mod tests {
 
     /// What `wasm` declares, as `publish` would upload it.
     fn declaration_of(wasm: &[u8]) -> ExtensionDeclaration {
-        crate::publish::prepare(wasm.to_vec())
+        crate::publish::prepare(&runtime(), wasm.to_vec())
             .expect("a publishable binary")
             .declaration
     }

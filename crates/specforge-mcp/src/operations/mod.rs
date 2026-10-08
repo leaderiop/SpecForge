@@ -264,10 +264,12 @@ pub(crate) fn init_op(call: &mut Call<'_>, args: InitArgs) -> Mutated {
         extensions,
         forbid_inside: served.as_deref(),
     };
-    let outcome = match init::plan(&request).and_then(|plan| init::apply(&path, &plan)) {
-        Ok(outcome) => outcome,
-        Err(error) => return Mutated::refused_after(false, error),
-    };
+    let runtime = call.runtime();
+    let outcome =
+        match init::plan(&request, runtime.as_ref()).and_then(|plan| init::apply(&path, plan)) {
+            Ok(outcome) => outcome,
+            Err(error) => return Mutated::refused_after(false, error),
+        };
     let result = ok(json!({
         "project_path": path.display().to_string(),
         "config_file": "specforge.json",

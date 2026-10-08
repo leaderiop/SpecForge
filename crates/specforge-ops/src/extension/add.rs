@@ -273,6 +273,31 @@ fn add_local(
     install(req.root, change, local.binary, None, &origin, None, writes)
 }
 
+/// Install `local`, read once by `init`'s plan, into the project at `root`
+/// as `add` installs a `.wasm` file, without reading it again.
+pub(crate) fn install_local(root: &Path, local: LocalFile) -> Result<Added, OpError> {
+    crate::config::required(root)?;
+    let installed = Installed::at(root);
+    let change = installed.change()?;
+    let request = AddRequest {
+        root,
+        source: Source::Local(local.path.clone()),
+        allow_unsigned: false,
+        trust: Trust::Refuse,
+        dry_run: false,
+    };
+    let mut writes = Writes::none();
+    let outcome = add_local(&request, &installed, change, local, &mut writes)?;
+    Ok(Added {
+        outcome,
+        writes,
+        extensions_enabled: specforge_common::read_project_config(root)
+            .config
+            .extensions
+            .len(),
+    })
+}
+
 fn add_from_registry(
     req: &AddRequest,
     registry: &dyn Registry,

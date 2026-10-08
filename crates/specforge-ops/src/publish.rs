@@ -7,7 +7,9 @@ use std::path::{Path, PathBuf};
 
 use specforge_common::{Code, Diagnostic, Severity, codes};
 use specforge_protocol_types::ExtensionDeclaration;
+use specforge_wasm::WasmRuntime;
 
+use crate::extension::Candidate;
 use crate::{OpError, OpErrorKind};
 
 /// The diagnostic for an extension that can't be found or read.
@@ -107,17 +109,19 @@ fn crate_name(cargo_toml: &Path) -> Option<String> {
 /// alone reports of it (its load warnings, W153 and W138, first). A binary
 /// that isn't a loadable extension is E028. Missing peers (E027) are left
 /// out: they are installed beside the extension, not with it.
-pub fn declare(wasm: &[u8]) -> Result<(ExtensionDeclaration, Vec<Diagnostic>), OpError> {
-    let runtime = specforge_component::ComponentRuntime::new();
-    let loaded = specforge_installed::declaration_of(wasm, &runtime)?;
-    let diagnostics = diagnostics_of(&loaded.declaration, loaded.warnings);
-    Ok((loaded.declaration, diagnostics))
+pub fn declare(
+    runtime: &dyn WasmRuntime,
+    wasm: &[u8],
+) -> Result<(ExtensionDeclaration, Vec<Diagnostic>), OpError> {
+    let (declaration, warnings) = Candidate::read(runtime, wasm)?.into_parts();
+    let diagnostics = diagnostics_of(&declaration, warnings);
+    Ok((declaration, diagnostics))
 }
 
 /// Load `wasm`, read its declaration and check it as the registry build
 /// alone would ([`declare`], [`check`]), both before any network call.
-pub fn prepare(wasm: Vec<u8>) -> Result<Prepared, OpError> {
-    let (declaration, diagnostics) = declare(&wasm)?;
+pub fn prepare(runtime: &dyn WasmRuntime, wasm: Vec<u8>) -> Result<Prepared, OpError> {
+    let (declaration, diagnostics) = declare(runtime, &wasm)?;
     refuse_errors(&declaration, &diagnostics)?;
     Ok(Prepared {
         declaration,
@@ -190,6 +194,10 @@ mod tests {
     use specforge_protocol_types::PeerDependency;
     use specforge_test_macros::test as specforge_test;
 
+    fn runtime() -> specforge_component::ComponentRuntime {
+        specforge_component::ComponentRuntime::new()
+    }
+
     fn greet() -> Vec<u8> {
         std::fs::read(
             Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/greet-extension/greet.wasm"),
@@ -202,7 +210,7 @@ mod tests {
         verify = "the declaration is validated before publish"
     )]
     fn a_built_extension_is_prepared_with_its_declaration() {
-        let prepared = prepare(greet()).unwrap();
+        let prepared = prepare(&runtime(), greet()).unwrap();
         assert_eq!(prepared.declaration.name(), "@sdk/greet");
         assert_eq!(prepared.declaration.short(), "greet");
         assert!(
@@ -218,7 +226,7 @@ mod tests {
     )]
     fn a_declaration_with_errors_is_refused_before_any_upload() {
         // `prepare` takes no registry: it decides before anything is sent.
-        let mut declaration = prepare(greet()).unwrap().declaration;
+        let mut declaration = prepare(&runtime(), greet()).unwrap().declaration;
         declaration.handshake.ext_short = Some("Friendly greetings".to_string());
         let error = check(&declaration, Vec::new()).unwrap_err();
         assert_eq!(error.code, "E030", "{error:?}");
@@ -231,7 +239,7 @@ mod tests {
         assert!(error.message.contains("ext_short"), "{error:?}");
 
         // A required peer that isn't installed here is not an error.
-        let mut with_peer = prepare(greet()).unwrap().declaration;
+        let mut with_peer = prepare(&runtime(), greet()).unwrap().declaration;
         with_peer.handshake.peer_dependencies.push(PeerDependency {
             name: "@acme/base".to_string(),
             version: "^1".to_string(),
@@ -240,7 +248,7 @@ mod tests {
         assert!(check(&with_peer, Vec::new()).is_ok());
 
         // A binary that isn't an extension never gets that far.
-        let error = prepare(b"\0asm\x01\0\0\0".to_vec()).unwrap_err();
+        let error = prepare(&runtime(), b"\0asm\x01\0\0\0".to_vec()).unwrap_err();
         assert_eq!(error.code, "E028", "{error:?}");
     }
 
@@ -249,7 +257,7 @@ mod tests {
         verify = "publish refuses a binary whose declaration has errors before any network call"
     )]
     fn a_declaration_whose_peer_range_is_not_semver_is_refused() {
-        let mut declaration = prepare(greet()).unwrap().declaration;
+        let mut declaration = prepare(&runtime(), greet()).unwrap().declaration;
         declaration
             .handshake
             .peer_dependencies

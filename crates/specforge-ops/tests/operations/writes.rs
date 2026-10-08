@@ -179,6 +179,10 @@ fn rename_writes_are_the_files_it_edited() {
     assert_eq!(changed_since(root, &before), ["limit.spec", "login.spec"]);
 }
 
+fn runtime() -> specforge_component::ComponentRuntime {
+    specforge_component::ComponentRuntime::with_user_cache()
+}
+
 /// What `init` scaffolds in `dir` with `extensions`.
 fn init(dir: &Path, extensions: &[String]) -> specforge_ops::init::Outcome {
     use specforge_ops::init;
@@ -189,8 +193,9 @@ fn init(dir: &Path, extensions: &[String]) -> specforge_ops::init::Outcome {
         extensions,
         forbid_inside: None,
     };
-    let plan = init::plan(&request).unwrap();
-    init::apply(dir, &plan).unwrap()
+    let runtime = specforge_component::ComponentRuntime::with_user_cache();
+    let plan = init::plan(&request, &runtime).unwrap();
+    init::apply(dir, plan).unwrap()
 }
 
 #[test]
@@ -247,7 +252,7 @@ fn the_starter_states_the_project_version() {
             extensions,
             forbid_inside: None,
         };
-        let plan = init::plan(&request).unwrap();
+        let plan = init::plan(&request, &runtime()).unwrap();
         assert_eq!(plan.config["version"], version);
         plan.starter
     };
@@ -625,7 +630,7 @@ fn init_enables_a_builtin_without_the_builtins_it_requires() {
         forbid_inside: None,
     };
 
-    let plan = init::plan(&request).unwrap();
+    let plan = init::plan(&request, &runtime()).unwrap();
 
     assert_eq!(plan.extensions, ["@specforge/formal"]);
     assert!(
@@ -651,7 +656,7 @@ fn init_refuses_a_local_binary_that_claims_a_builtins_name_before_writing() {
         forbid_inside: None,
     };
 
-    let error = init::plan(&request).unwrap_err();
+    let error = init::plan(&request, &runtime()).unwrap_err();
 
     assert_eq!(error.code, "extension_not_found");
     assert_eq!(
