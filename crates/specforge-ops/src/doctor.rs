@@ -212,9 +212,9 @@ pub fn diagnose_with(view: &ProjectView, z3_available: bool) -> DoctorReport {
         })
         .collect();
     for entry in lock_entries {
-        if !extensions.iter().any(|e| e.name == entry.name) {
+        if !extensions.iter().any(|e| e.name == entry.name.as_str()) {
             extensions.push(ExtensionHealth {
-                name: entry.name.clone(),
+                name: entry.name.to_string(),
                 version: entry.version.clone(),
                 source: entry.source.clone(),
                 enhancement_count: 0,

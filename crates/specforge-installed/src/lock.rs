@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use specforge_common::{Diagnostic, codes};
+use specforge_protocol_types::PackageName;
 use std::path::Path;
 
 use crate::layout::lock_path;
@@ -14,7 +15,10 @@ pub struct LockFile {
 /// A single entry in the lock file.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct LockFileEntry {
-    pub name: String,
+    /// The package the entry locks: text that is no package name makes the
+    /// whole lock unreadable (E033), since no module could be installed
+    /// under it (ADR 0036).
+    pub name: PackageName,
     pub version: String,
     pub source: String,
     pub wasm_hash: String,
@@ -61,7 +65,7 @@ impl LockFile {
                 e.peer_dependencies
                     .iter()
                     .filter(|p| p.name == peer_name)
-                    .map(move |p| (e.name.clone(), p.version.clone()))
+                    .map(move |p| (e.name.to_string(), p.version.clone()))
             })
             .collect();
         if let Some((name, range)) = extra {
@@ -194,7 +198,7 @@ mod tests {
         let lock = LockFile {
             lockfile_version: 1,
             entries: vec![LockFileEntry {
-                name: "@specforge/software".to_string(),
+                name: specforge_protocol_types::PackageName::parse("@specforge/software").unwrap(),
                 version: "1.0.0".to_string(),
                 source: "registry".to_string(),
                 wasm_hash: "abc123".to_string(),
@@ -236,7 +240,8 @@ mod tests {
             lockfile_version: 1,
             entries: vec![
                 LockFileEntry {
-                    name: "@specforge/software".to_string(),
+                    name: specforge_protocol_types::PackageName::parse("@specforge/software")
+                        .unwrap(),
                     version: "1.0.0".to_string(),
                     source: "registry".to_string(),
                     wasm_hash: "abc123".to_string(),
@@ -244,7 +249,8 @@ mod tests {
                     peer_dependencies: Vec::new(),
                 },
                 LockFileEntry {
-                    name: "@specforge/governance".to_string(),
+                    name: specforge_protocol_types::PackageName::parse("@specforge/governance")
+                        .unwrap(),
                     version: "1.0.0".to_string(),
                     source: "local".to_string(),
                     wasm_hash: "def456".to_string(),
@@ -311,6 +317,42 @@ mod tests {
         );
     }
 
+    #[specforge_test_macros::test(
+        behavior = "run_doctor_check",
+        verify = "a lock file that cannot be read is an error finding naming E033"
+    )]
+    fn a_lock_entry_that_names_no_package_is_unreadable() {
+        let dir = TempDir::new().unwrap();
+        let entry = |name: &str| {
+            format!(
+                r#"{{"name": "{name}", "version": "1.0.0", "source": "registry", "wasm_hash": "h"}}"#
+            )
+        };
+        for name in ["../../../outside1", "@acme/..", "Bad Name", ""] {
+            let lock = format!(r#"{{"lockfile_version": 1, "entries": [{}]}}"#, entry(name));
+            std::fs::write(lock_path(dir.path()), lock).unwrap();
+
+            let state = LockState::at(dir.path());
+
+            let problem = state
+                .problem()
+                .unwrap_or_else(|| panic!("{name:?}: {state:?}"));
+            assert_eq!(problem.code, "E033", "{name:?}");
+            assert!(problem.message.contains("corrupt lock file"), "{problem:?}");
+            assert!(state.entries().is_empty());
+        }
+        // A name is read as a name: the entries of a good lock are typed.
+        let lock = format!(
+            r#"{{"lockfile_version": 1, "entries": [{}]}}"#,
+            entry("@acme/tool")
+        );
+        std::fs::write(lock_path(dir.path()), lock).unwrap();
+        assert_eq!(
+            LockState::at(dir.path()).entries()[0].name.as_str(),
+            "@acme/tool"
+        );
+    }
+
     #[test]
     fn the_lock_lives_at_the_project_root() {
         assert_eq!(
@@ -323,7 +365,7 @@ mod tests {
 
     fn entry(name: &str, peers: Vec<specforge_protocol_types::PeerDependency>) -> LockFileEntry {
         LockFileEntry {
-            name: name.to_string(),
+            name: specforge_protocol_types::PackageName::parse(name).unwrap(),
             version: "1.0.0".to_string(),
             source: "registry".to_string(),
             wasm_hash: "hash".to_string(),

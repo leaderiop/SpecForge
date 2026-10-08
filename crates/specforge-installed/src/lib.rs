@@ -123,7 +123,7 @@ impl Installed {
     /// <name>@<version>` for a registry one (the name alone when the
     /// version is not semver).
     pub fn reinstall(&self, name: &str) -> String {
-        let entry = self.lock.entries().iter().find(|e| e.name == name);
+        let entry = self.lock.entries().iter().find(|e| e.name.as_str() == name);
         let specifier = match entry {
             Some(e) if e.source.starts_with("local:") => e.source["local:".len()..].to_string(),
             Some(e) if semver::Version::parse(&e.version).is_ok() => {
@@ -171,7 +171,7 @@ mod tests {
     #[test]
     fn a_reinstall_command_is_the_one_the_lock_entry_calls_for() {
         let entry = |name: &str, version: &str, source: &str| LockFileEntry {
-            name: name.to_string(),
+            name: specforge_protocol_types::PackageName::parse(name).unwrap(),
             version: version.to_string(),
             source: source.to_string(),
             wasm_hash: "hash".to_string(),

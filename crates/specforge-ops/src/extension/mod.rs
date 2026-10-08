@@ -75,7 +75,9 @@ impl Origin {
         {
             return Origin::File { path };
         }
-        if let Some(entry) = lock.and_then(|lock| lock.entries.iter().find(|e| e.name == name)) {
+        if let Some(entry) =
+            lock.and_then(|lock| lock.entries.iter().find(|e| e.name.as_str() == name))
+        {
             return Origin::Installed {
                 source: entry.source.clone(),
             };

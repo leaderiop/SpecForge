@@ -169,7 +169,7 @@ pub fn remove(view: &ProjectView, req: &RemoveRequest) -> Result<RemoveOutcome, 
         .lock()
         .entries()
         .iter()
-        .find(|e| e.name == req.name);
+        .find(|e| e.name.as_str() == req.name);
 
     let (version, origin) = match (locked, builtin_name(req.name)) {
         (Some(entry), _) => (
@@ -309,8 +309,8 @@ fn dependents(name: &str, loaded: &[ExtensionDeclaration], lock: Option<&LockFil
         .chain(
             lock.iter()
                 .flat_map(|lock| &lock.entries)
-                .filter(|e| e.name != name && requires(&e.peer_dependencies))
-                .map(|e| e.name.clone()),
+                .filter(|e| e.name.as_str() != name && requires(&e.peer_dependencies))
+                .map(|e| e.name.to_string()),
         )
         .collect();
     out.sort();

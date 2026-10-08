@@ -171,7 +171,7 @@ pub fn update(req: &UpdateRequest, registry: &dyn Registry) -> Result<UpdateOutc
     for entry in lock
         .entries
         .iter()
-        .filter(|e| req.name.is_none_or(|n| e.name == n))
+        .filter(|e| req.name.is_none_or(|n| e.name.as_str() == n))
     {
         let status = if entry.source != "registry" {
             UpdateStatus::NotFromRegistry {
@@ -196,7 +196,7 @@ pub fn update(req: &UpdateRequest, registry: &dyn Registry) -> Result<UpdateOutc
                         staged_entry.version = checked.declared.version().to_string();
                         staged_entry.peer_dependencies = checked.declared.peers().to_vec();
                     }
-                    planned.push((entry.name.clone(), checked));
+                    planned.push((entry.name.to_string(), checked));
                     status
                 }
                 Err(error) if error.is(NO_REGISTRY) => return Err(error),
@@ -204,7 +204,7 @@ pub fn update(req: &UpdateRequest, registry: &dyn Registry) -> Result<UpdateOutc
             }
         };
         extensions.push(ExtensionUpdate {
-            name: entry.name.clone(),
+            name: entry.name.to_string(),
             status,
         });
     }
@@ -263,28 +263,26 @@ fn plan_one(
     req: &UpdateRequest,
     registry: &dyn Registry,
     staged: &LockFile,
-    name: &str,
+    package: &PackageName,
     current: &str,
 ) -> Result<Option<Checked>, OpError> {
-    let package = PackageName::parse(name)
-        .map_err(|why| OpError::from(specforge_common::package::invalid(&why)))?;
     // Within the caret range of the locked version unless --major: a new
     // major version is a breaking change the user opts into.
     let requirement = match semver::Version::parse(current) {
         Ok(current) if !req.major => VersionRequirement::compatible_with(&current),
         _ => VersionRequirement::Latest,
     };
-    let latest = super::resolve_requirement(registry, &package, &requirement)?;
+    let latest = super::resolve_requirement(registry, package, &requirement)?;
     if latest.to_string() == current {
         return Ok(None);
     }
     // The package's own locked peers are the ones it replaces.
     let mut others = staged.clone();
-    others.entries.retain(|e| e.name != name);
+    others.entries.retain(|e| e.name != *package);
     fetch_checked(
         registry,
         &others,
-        &package,
+        package,
         &latest,
         req.allow_unsigned,
         req.trust,
@@ -301,7 +299,7 @@ fn broken_dependents(
 ) -> Vec<(String, (String, OpError))> {
     let mut broken = Vec::new();
     for entry in &staged.entries {
-        if planned.iter().any(|(name, _)| *name == entry.name) {
+        if planned.iter().any(|(name, _)| *name == entry.name.as_str()) {
             continue;
         }
         for peer in &entry.peer_dependencies {
@@ -310,11 +308,11 @@ fn broken_dependents(
             }
             if let Err(error) = check_diamonds(
                 staged,
-                &entry.name,
+                entry.name.as_str(),
                 std::slice::from_ref(peer),
                 &published_versions(registry),
             ) {
-                broken.push((entry.name.clone(), (peer.name.clone(), error)));
+                broken.push((entry.name.to_string(), (peer.name.clone(), error)));
             }
         }
     }
@@ -440,7 +438,7 @@ mod tests {
 
     fn entry(name: &str, version: &str, source: &str, peers: &[(&str, &str)]) -> LockFileEntry {
         LockFileEntry {
-            name: name.to_string(),
+            name: specforge_protocol_types::PackageName::parse(name).unwrap(),
             version: version.to_string(),
             source: source.to_string(),
             wasm_hash: hex_sha256(b"old"),
@@ -460,7 +458,7 @@ mod tests {
     fn project(entries: Vec<LockFileEntry>) -> tempfile::TempDir {
         let dir = tempfile::tempdir().unwrap();
         for e in &entries {
-            let path = installed(dir.path(), &e.name);
+            let path = installed(dir.path(), e.name.as_str());
             std::fs::create_dir_all(path.parent().unwrap()).unwrap();
             std::fs::write(path, b"old").unwrap();
         }

@@ -50,9 +50,9 @@ pub fn install_module(root: &Path, name: &str, bytes: &[u8]) {
     std::fs::create_dir_all(module.parent().expect("a module has a directory"))
         .expect("the extensions directory can be created");
     std::fs::write(&module, bytes).expect("the module can be written");
-    lock.entries.retain(|entry| entry.name != name);
+    lock.entries.retain(|entry| entry.name != package);
     lock.entries.push(LockFileEntry {
-        name: name.to_string(),
+        name: package,
         version: "0.0.0-test".to_string(),
         source: "registry".to_string(),
         wasm_hash: hex_sha256(bytes),

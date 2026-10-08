@@ -25,7 +25,17 @@ fn project() -> Project {
     });
     project.env.config.extensions = vec!["@acme/missing@1.2.0".into()];
     project.env.config.raw = Some(config);
-    project.env.enabled = vec![EnabledExtension::unloaded("@acme/missing@1.2.0")];
+    // It did not load: not installed, as the load recorded it.
+    project.env.enabled = vec![EnabledExtension {
+        failure: Some(specforge_installed::LoadFailure {
+            problem: specforge_installed::LoadProblem::NotInstalled,
+            diagnostic: Diagnostic::new(
+                specforge_common::codes::E028,
+                "extension '@acme/missing' is not installed",
+            ),
+        }),
+        ..EnabledExtension::unloaded("@acme/missing@1.2.0")
+    }];
     project.env.config_found = true;
     let root = project.dir.path();
     std::fs::write(

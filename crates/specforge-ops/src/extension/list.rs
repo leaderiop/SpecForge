@@ -110,7 +110,7 @@ pub fn list(view: &ProjectView) -> ExtensionListing {
     let mut names: Vec<String> = enabled_names
         .iter()
         .map(|name| name.to_string())
-        .chain(lock_entries.iter().map(|e| e.name.clone()))
+        .chain(lock_entries.iter().map(|e| e.name.to_string()))
         .chain(loaded.iter().map(|d| d.name().to_string()))
         .collect();
     names.sort();
@@ -120,7 +120,7 @@ pub fn list(view: &ProjectView) -> ExtensionListing {
         .into_iter()
         .map(|name| {
             let declaration = loaded.iter().find(|d| d.name() == name);
-            let locked = lock_entries.iter().find(|e| e.name == name);
+            let locked = lock_entries.iter().find(|e| e.name.as_str() == name);
             let status = match (enabled_names.contains(&name.as_str()), declaration) {
                 (true, Some(_)) => Status::Loaded,
                 (true, None) => Status::NotLoaded,
@@ -158,7 +158,7 @@ pub fn list(view: &ProjectView) -> ExtensionListing {
         locked: lock_entries
             .iter()
             .map(|e| LockedExtension {
-                name: e.name.clone(),
+                name: e.name.to_string(),
                 version: e.version.clone(),
             })
             .collect(),

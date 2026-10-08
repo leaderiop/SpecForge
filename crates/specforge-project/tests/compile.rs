@@ -960,7 +960,7 @@ fn install_greet(root: &Path, hash: Option<&str>) {
     let lock = specforge_installed::LockFile {
         lockfile_version: 1,
         entries: vec![specforge_installed::LockFileEntry {
-            name: "@sdk/greet".into(),
+            name: specforge_protocol_types::PackageName::parse("@sdk/greet").unwrap(),
             version: "0.1.0".into(),
             source: "registry".into(),
             wasm_hash: hash.map_or_else(|| specforge_installed::hex_sha256(&bytes), str::to_string),
@@ -969,6 +969,31 @@ fn install_greet(root: &Path, hash: Option<&str>) {
         }],
     };
     specforge_installed::write_lock_file(&lock, &specforge_installed::lock_path(root)).unwrap();
+}
+
+/// A `specforge.json` entry that names no package is E072 and is not
+/// loaded: no module is looked for under a path it would escape.
+#[specforge_test(
+    behavior = "install_wasm_extension",
+    verify = "an extension is installed under the extensions directory of its project, by its package name"
+)]
+fn an_entry_that_names_no_package_is_e072_and_not_loaded() {
+    let dir = project(
+        serde_json::json!({
+            "name": "p", "version": "0.1.0",
+            "extensions": ["../../../outside1", "@specforge/product"]
+        }),
+        &[],
+    );
+    let runtime = specforge_component::ComponentRuntime::with_user_cache();
+
+    let env = specforge_project::Environment::load(dir.path(), Some(&runtime));
+
+    let e072: Vec<&specforge_common::Diagnostic> =
+        env.diagnostics().filter(|d| d.code == "E072").collect();
+    assert_eq!(e072.len(), 1, "{:?}", env.diagnostics().collect::<Vec<_>>());
+    assert!(e072[0].message.contains("../../../outside1"), "{e072:?}");
+    assert_eq!(runtime.loaded_names(), ["@specforge/product"]);
 }
 
 /// A lock that cannot be read is reported once (E033), then each installed

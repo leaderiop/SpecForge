@@ -83,7 +83,7 @@ fn a_committed_install_places_the_module_and_locks_it() {
     assert_eq!(committed.changed, [module, root.join("specforge.lock")]);
     let installed = Installed::at(root);
     let entry = &installed.lock().entries()[0];
-    assert_eq!(entry.name, "@acme/a");
+    assert_eq!(entry.name, name("@acme/a"));
     assert_eq!(entry.wasm_hash, specforge_installed::hex_sha256(b"one"));
     assert!(installed.health().is_empty());
     assert!(

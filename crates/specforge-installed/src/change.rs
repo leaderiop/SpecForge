@@ -94,7 +94,7 @@ impl Change<'_> {
     /// replacing what it had.
     pub fn install(&mut self, module: Module, pin: Pin) {
         let entry = LockFileEntry {
-            name: pin.name.to_string(),
+            name: pin.name.clone(),
             version: pin.version,
             source: pin.source,
             wasm_hash: module.digest().to_string(),
@@ -114,10 +114,10 @@ impl Change<'_> {
     /// Uninstall `name`: its directory and its lock entry. A name the lock
     /// does not hold stages nothing.
     pub fn uninstall(&mut self, name: &PackageName) {
-        if !self.lock.entries.iter().any(|e| e.name == name.as_str()) {
+        if !self.lock.entries.iter().any(|e| e.name == *name) {
             return;
         }
-        self.lock.entries.retain(|e| e.name != name.as_str());
+        self.lock.entries.retain(|e| e.name != *name);
         self.steps.push(Step::Uninstall { name: name.clone() });
     }
 

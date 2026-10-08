@@ -107,6 +107,50 @@ fn a_changed_module_is_refused_and_not_loaded() {
 }
 
 #[specforge_test_macros::test(
+    behavior = "install_wasm_extension",
+    verify = "an extension is installed under the extensions directory of its project, by its package name"
+)]
+fn an_entry_that_names_no_package_is_e072_and_not_loaded() {
+    let dir = TempDir::new().unwrap();
+    // A lock cannot name it; even an unreadable lock is not asked about it.
+    std::fs::write(dir.path().join("specforge.lock"), "not a lock {{{").unwrap();
+    let runtime = Recording {
+        inner: runtime(),
+        loaded: Mutex::new(Vec::new()),
+    };
+
+    let loaded = load_with(
+        dir.path(),
+        &entries(&["../../../outside1", "@acme/..", "Bad Name"]),
+        &runtime,
+    );
+
+    assert_eq!(
+        codes(&loaded),
+        ["E072", "E072", "E072"],
+        "{:?}",
+        loaded.diagnostics
+    );
+    for (diagnostic, entry) in
+        loaded
+            .diagnostics
+            .iter()
+            .zip(["../../../outside1", "@acme/..", "Bad Name"])
+    {
+        assert!(diagnostic.message.contains(entry), "{diagnostic:?}");
+    }
+    assert!(loaded.declarations.is_empty());
+    assert!(
+        runtime.loaded.lock().unwrap().is_empty(),
+        "nothing was loaded for a name that is no package"
+    );
+    assert!(matches!(
+        loaded.enabled[0].failure.as_ref().unwrap().problem,
+        LoadProblem::NotAPackageName { .. }
+    ));
+}
+
+#[specforge_test_macros::test(
     behavior = "load_extension_manifests",
     verify = "an enabled extension with no installed binary produces E028 naming the command that installs it"
 )]

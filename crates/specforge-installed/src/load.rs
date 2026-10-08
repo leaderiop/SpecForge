@@ -446,7 +446,14 @@ impl Installed {
         let bytes = match builtins.get(name) {
             Some(bytes) => bytes,
             None => {
-                let (pinned, unpinned) = self.pinned_module(name).map_err(fail)?;
+                // What names a directory under `.specforge/extensions` is a
+                // package name, checked before the lock is asked (ADR 0036).
+                let package = PackageName::parse(name).map_err(|why| {
+                    fail(LoadProblem::NotAPackageName {
+                        reason: why.to_string(),
+                    })
+                })?;
+                let (pinned, unpinned) = self.pinned_module(&package).map_err(fail)?;
                 if unpinned {
                     notices.push(
                         Diagnostic::new(
@@ -489,9 +496,9 @@ impl Installed {
 
     /// The module installed as `name`, when its lock entry pins it, and
     /// whether that entry pins no hash.
-    fn pinned_module(&self, name: &str) -> Result<(Module, bool), LoadProblem> {
+    fn pinned_module(&self, name: &PackageName) -> Result<(Module, bool), LoadProblem> {
         let entry = match &self.lock {
-            LockState::Read(lock) => lock.entries.iter().find(|e| e.name == name),
+            LockState::Read(lock) => lock.entries.iter().find(|e| e.name == *name),
             LockState::Absent => None,
             LockState::Unreadable(_) => return Err(LoadProblem::LockUnreadable),
         };
@@ -502,11 +509,7 @@ impl Installed {
 
     /// `entry`'s module, read once, when it is the one the entry pins.
     pub(crate) fn check_module(&self, entry: &LockFileEntry) -> Result<Module, LoadProblem> {
-        let package =
-            PackageName::parse(&entry.name).map_err(|why| LoadProblem::NotAPackageName {
-                reason: why.to_string(),
-            })?;
-        let path = self.module_path(&package);
+        let path = self.module_path(&entry.name);
         let module = Module::read(&path).map_err(|error| {
             if error.kind() == std::io::ErrorKind::NotFound {
                 LoadProblem::ModuleMissing { path: path.clone() }
@@ -591,7 +594,11 @@ impl Installed {
     /// module, for an entry that pins no hash). What "already installed"
     /// means for `add`.
     pub fn verified(&self, name: &str) -> Option<&LockFileEntry> {
-        let entry = self.lock.entries().iter().find(|e| e.name == name)?;
+        let entry = self
+            .lock
+            .entries()
+            .iter()
+            .find(|e| e.name.as_str() == name)?;
         self.check_module(entry).ok().map(|_| entry)
     }
 }

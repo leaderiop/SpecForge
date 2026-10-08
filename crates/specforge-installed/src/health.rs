@@ -47,7 +47,7 @@ impl Installed {
             for peer in &entry.peer_dependencies {
                 let installed = entries
                     .iter()
-                    .find(|e| e.name == peer.name)
+                    .find(|e| e.name.as_str() == peer.name)
                     .map(|e| &e.version);
                 let satisfied = match installed {
                     None => peer.optional,
@@ -61,7 +61,7 @@ impl Installed {
                 };
                 if !satisfied {
                     problems.push(Health::PeerMismatch {
-                        name: entry.name.clone(),
+                        name: entry.name.to_string(),
                         peer: peer.name.clone(),
                         required: peer.version.clone(),
                         installed: installed.cloned(),
@@ -76,13 +76,10 @@ impl Installed {
     /// What is wrong with `entry`'s module, if anything: the check the
     /// load makes, so the two cannot disagree.
     fn module_health(&self, entry: &LockFileEntry) -> Option<Health> {
-        let name = entry.name.clone();
+        let name = entry.name.to_string();
         match self.check_module(entry) {
             Ok(_) => None,
-            // A lock entry that names no package has no module to find.
-            Err(LoadProblem::ModuleMissing { .. } | LoadProblem::NotAPackageName { .. }) => {
-                Some(Health::MissingModule { name })
-            }
+            Err(LoadProblem::ModuleMissing { .. }) => Some(Health::MissingModule { name }),
             Err(LoadProblem::Changed { locked, actual }) => Some(Health::Changed {
                 name,
                 locked,
@@ -105,7 +102,7 @@ mod tests {
 
     fn entry(name: &str, hash: &str, peers: Vec<PeerDependency>) -> LockFileEntry {
         LockFileEntry {
-            name: name.to_string(),
+            name: specforge_protocol_types::PackageName::parse(name).unwrap(),
             version: "1.0.0".to_string(),
             source: "registry".to_string(),
             wasm_hash: hash.to_string(),
@@ -180,19 +177,6 @@ mod tests {
         put_module(&installed, "good-ext", b"wasm");
 
         assert_eq!(installed.health(), []);
-    }
-
-    #[test]
-    fn a_lock_entry_that_names_no_package_has_no_module() {
-        let dir = TempDir::new().unwrap();
-        let installed = installed(&dir, vec![entry("../../outside", "abc", vec![])]);
-
-        assert_eq!(
-            installed.health(),
-            [Health::MissingModule {
-                name: "../../outside".to_string()
-            }]
-        );
     }
 
     // C8-05 acceptance: doctor verifies recorded peers across OTHER entries.

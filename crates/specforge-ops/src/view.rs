@@ -380,7 +380,7 @@ pub(crate) mod testing {
                     .iter()
                     .map(
                         |(name, version, source)| specforge_installed::LockFileEntry {
-                            name: name.to_string(),
+                            name: specforge_protocol_types::PackageName::parse(name).unwrap(),
                             version: version.to_string(),
                             source: source.to_string(),
                             wasm_hash: format!("hash-{name}"),

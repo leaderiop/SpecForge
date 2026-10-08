@@ -22,7 +22,7 @@ pub fn check_diamonds(
     versions: &dyn Fn(&str) -> Result<Vec<String>, OpError>,
 ) -> Result<(), OpError> {
     for peer in peers {
-        let Some(locked) = lock.entries.iter().find(|e| e.name == peer.name) else {
+        let Some(locked) = lock.entries.iter().find(|e| e.name.as_str() == peer.name) else {
             continue;
         };
         let satisfied = match (
@@ -131,7 +131,7 @@ mod tests {
 
     fn entry(name: &str, version: &str, peers: Vec<PeerDependency>) -> LockFileEntry {
         LockFileEntry {
-            name: name.to_string(),
+            name: specforge_protocol_types::PackageName::parse(name).unwrap(),
             version: version.to_string(),
             source: "registry".to_string(),
             wasm_hash: String::new(),
