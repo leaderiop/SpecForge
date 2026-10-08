@@ -549,35 +549,69 @@ const MANIFEST_WITH_AN_UNREADABLE_SESSION: &str = r#"{
   ]
 }"#;
 
-/// Pins plan 06 R1: one session missing a field is read as "no sessions",
-/// the start succeeds over an active session and the file loses both.
-/// Flipped by T3 (`a_session_the_manifest_cannot_read_refuses_every_action`).
-#[test]
-fn start_drops_a_session_the_manifest_cannot_read() {
+/// A session the manifest cannot read makes the whole manifest unusable:
+/// every action refuses, naming the file and the missing field, and the
+/// file is not touched (plan 06 R1).
+#[specforge_test(
+    behavior = "load_inference_manifest",
+    verify = "a session the manifest cannot read refuses the load, and nothing is written"
+)]
+fn a_session_the_manifest_cannot_read_refuses_every_action() {
     let tmp = TestProject::new();
+    setup_project_with_sources(tmp.root());
     write_manifest(tmp.root(), MANIFEST_WITH_AN_UNREADABLE_SESSION);
     let mut server = init_server(tmp);
 
-    let started = call_tool(
-        &mut server,
-        "specforge.infer_session",
+    for args in [
         json!({"action": "start", "agent": "repro"}),
-    );
-    assert!(started["result"]["isError"] != true, "{started}");
-
-    let ids: Vec<String> = recorded_sessions(server.root())
-        .iter()
-        .map(|s| s["session_id"].as_str().unwrap().to_string())
-        .collect();
-    assert_eq!(ids.len(), 1, "s-1 and s-2 are gone: {ids:?}");
-    assert!(!ids.contains(&"s-1".to_string()) && !ids.contains(&"s-2".to_string()));
+        json!({"action": "mark_analyzed", "source_file": "src/lib.rs"}),
+        json!({"action": "end", "session_id": "s-2"}),
+    ] {
+        let resp = call_tool(&mut server, "specforge.infer_session", args.clone());
+        let error = crate::tool_errors::mcp_error(&resp);
+        assert_eq!(error["code"], "schema_mismatch", "{args}: {error}");
+        let message = error["message"].as_str().unwrap();
+        assert!(
+            message.contains("specforge-infer.json") && message.contains("`agent`"),
+            "{args}: {message}"
+        );
+    }
+    let text = std::fs::read_to_string(server.root().join("specforge-infer.json")).unwrap();
+    assert_eq!(text, MANIFEST_WITH_AN_UNREADABLE_SESSION);
 }
 
-/// Pins plan 06 R2: a write drops the keys the manifest type does not
-/// define, at the top level and inside a source entry. Flipped by T3
-/// (`a_rewrite_keeps_the_keys_it_does_not_define`).
-#[test]
-fn a_rewrite_drops_the_keys_the_manifest_does_not_define() {
+/// An active session written to disk by hand is seen by the next start.
+#[specforge_test(
+    behavior = "start_inference_session",
+    verify = "start rejects when another session is active"
+)]
+fn start_refuses_while_a_session_is_active_after_a_reload() {
+    let tmp = TestProject::new();
+    write_manifest(
+        tmp.root(),
+        r#"{"version":1,"source_roots":[],"sessions":[
+            {"session_id":"s-2","started_at":"2026-10-02T00:00:00Z","agent":"claude","status":"active"}]}"#,
+    );
+    let mut server = init_server(tmp);
+
+    let resp = call_tool(
+        &mut server,
+        "specforge.infer_session",
+        json!({"action": "start"}),
+    );
+    let error = crate::tool_errors::mcp_error(&resp);
+    assert_eq!(error["code"], "conflict", "{error}");
+    assert_eq!(recorded_sessions(server.root()).len(), 1);
+}
+
+/// A write changes only what its step changed: the keys the manifest does
+/// not define survive, at the top level and inside a source entry or a
+/// session (plan 06 R2).
+#[specforge_test(
+    behavior = "save_inference_manifest",
+    verify = "save keeps keys the manifest does not define, at every level"
+)]
+fn a_rewrite_keeps_the_keys_it_does_not_define() {
     let tmp = TestProject::new();
     write_manifest(
         tmp.root(),
@@ -594,8 +628,9 @@ fn a_rewrite_drops_the_keys_the_manifest_does_not_define() {
 
     let text = std::fs::read_to_string(server.root().join("specforge-infer.json")).unwrap();
     let manifest: Value = serde_json::from_str(&text).unwrap();
-    assert!(manifest.get("notes").is_none(), "{text}");
-    assert!(manifest["source_index"][0].get("note").is_none(), "{text}");
+    assert_eq!(manifest["notes"], "kept by hand", "{text}");
+    assert_eq!(manifest["source_index"][0]["note"], "by hand", "{text}");
+    assert_eq!(manifest["sessions"].as_array().unwrap().len(), 1, "{text}");
 }
 
 /// Pins plan 06 R3: a path is recorded as the agent spelled it, so one

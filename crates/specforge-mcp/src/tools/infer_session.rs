@@ -1,24 +1,13 @@
-use serde_json::{Value, json};
+use serde_json::json;
 
-use specforge_ops::infer::{self, InferenceManifest, SourceFileEntry};
-
-use specforge_ops::Writes;
+use specforge_ops::infer::{
+    self, InferenceManifest, InferenceSession, SessionStatus, SourceFileEntry,
+};
 
 use crate::args::Arguments;
 use crate::mutation::{Mutated, Written};
-use crate::state::McpState;
 use crate::target::Call;
 use crate::tool::{ErrorCode, McpError, ToolOutcome};
-
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct InferenceSession {
-    pub session_id: String,
-    pub started_at: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub ended_at: Option<String>,
-    pub agent: String,
-    pub status: String,
-}
 
 /// The actions a session takes, in the order the listing states them.
 const ACTIONS: &[&str] = &["start", "mark_analyzed", "end"];
@@ -53,14 +42,13 @@ pub fn call(call: &mut Call<'_>, args: Args) -> Mutated {
     let Some(project_root) = call.root().map(std::path::Path::to_path_buf) else {
         return Mutated::refused(crate::target::no_project(crate::target::Reach::Served));
     };
-    let state = &*call.state;
 
     let action = args.action.as_str();
 
     match action {
-        "start" => handle_start(state, &args, &project_root),
-        "mark_analyzed" => handle_mark_analyzed(state, &args, &project_root),
-        "end" => handle_end(state, &args, &project_root),
+        "start" => handle_start(&args, &project_root),
+        "mark_analyzed" => handle_mark_analyzed(&args, &project_root),
+        "end" => handle_end(&args, &project_root),
         _ => Mutated::refused(ToolOutcome::invalid_input(
             "action",
             format!(
@@ -72,57 +60,48 @@ pub fn call(call: &mut Call<'_>, args: Args) -> Mutated {
     }
 }
 
-fn handle_start(_state: &McpState, args: &Args, project_root: &std::path::Path) -> Mutated {
-    let mut manifest = match infer::load_inference_manifest(project_root) {
+fn handle_start(args: &Args, project_root: &std::path::Path) -> Mutated {
+    let mut manifest = match InferenceManifest::at(project_root) {
         Ok(m) => m,
-        Err(e) => return Mutated::refused(super::manifest_error(e)),
+        Err(e) => return Mutated::refused_after(false, e),
     };
 
-    let agent = args.agent.clone().unwrap_or_else(|| "unknown".to_string());
-
-    let source_roots = args.source_roots.clone();
-
-    if let Some(roots) = source_roots {
-        manifest.source_roots = roots;
-    }
-
-    let session_id = generate_session_id();
-    let now = now_rfc3339();
-
-    let session = InferenceSession {
-        session_id: session_id.clone(),
-        started_at: now,
-        ended_at: None,
-        agent,
-        status: "active".to_string(),
-    };
-
-    let sessions_json = read_sessions_from_manifest(project_root);
-    if sessions_json.iter().any(|s| s.status == "active") {
+    if manifest.active_session().is_some() {
         return Mutated::refused(ToolOutcome::error(
             ErrorCode::Conflict,
             "Another inference session is already active. End it first.",
         ));
     }
 
-    let mut sessions = sessions_json;
-    sessions.push(session);
+    if let Some(roots) = args.source_roots.clone() {
+        manifest.source_roots = roots;
+    }
 
-    let written = match write_sessions_to_manifest(project_root, &manifest, &sessions) {
+    let session_id = generate_session_id();
+    manifest.sessions.push(InferenceSession {
+        session_id: session_id.clone(),
+        started_at: now_rfc3339(),
+        ended_at: None,
+        agent: args.agent.clone().unwrap_or_else(|| "unknown".to_string()),
+        status: SessionStatus::Active,
+        unknown: Default::default(),
+    });
+
+    let written = match manifest.write(project_root) {
         Ok(written) => written,
-        Err(e) => return Mutated::refused(ToolOutcome::error(ErrorCode::InternalError, e)),
+        Err(e) => return Mutated::refused_after(false, e),
     };
 
     Mutated::wrote(
         ToolOutcome::ok(json!({
             "session_id": session_id,
-            "status": "active"
+            "status": SessionStatus::Active.name()
         })),
         Written::files(written),
     )
 }
 
-fn handle_mark_analyzed(_state: &McpState, args: &Args, project_root: &std::path::Path) -> Mutated {
+fn handle_mark_analyzed(args: &Args, project_root: &std::path::Path) -> Mutated {
     let source_file = match args.source_file.as_deref() {
         Some(f) => f.to_string(),
         None => {
@@ -135,9 +114,9 @@ fn handle_mark_analyzed(_state: &McpState, args: &Args, project_root: &std::path
 
     let entities: Vec<String> = args.entities_produced.clone();
 
-    let mut manifest = match infer::load_inference_manifest(project_root) {
+    let mut manifest = match InferenceManifest::at(project_root) {
         Ok(m) => m,
-        Err(e) => return Mutated::refused(super::manifest_error(e)),
+        Err(e) => return Mutated::refused_after(false, e),
     };
 
     let abs_path = project_root.join(&source_file);
@@ -156,17 +135,16 @@ fn handle_mark_analyzed(_state: &McpState, args: &Args, project_root: &std::path
         }
     };
 
-    manifest.upsert_source_entry(SourceFileEntry {
-        path: source_file.clone(),
+    manifest.upsert_source_entry(SourceFileEntry::new(
+        source_file.clone(),
         content_hash,
-        entities_produced: entities.clone(),
-        analyzed_at: now_rfc3339(),
-    });
+        entities.clone(),
+        now_rfc3339(),
+    ));
 
-    let sessions = read_sessions_from_manifest(project_root);
-    let written = match write_sessions_to_manifest(project_root, &manifest, &sessions) {
+    let written = match manifest.write(project_root) {
         Ok(written) => written,
-        Err(e) => return Mutated::refused(ToolOutcome::error(ErrorCode::InternalError, e)),
+        Err(e) => return Mutated::refused_after(false, e),
     };
 
     Mutated::wrote(
@@ -179,7 +157,7 @@ fn handle_mark_analyzed(_state: &McpState, args: &Args, project_root: &std::path
     )
 }
 
-fn handle_end(_state: &McpState, args: &Args, project_root: &std::path::Path) -> Mutated {
+fn handle_end(args: &Args, project_root: &std::path::Path) -> Mutated {
     let session_id = match args.session_id.as_deref() {
         Some(s) => s.to_string(),
         None => {
@@ -190,29 +168,34 @@ fn handle_end(_state: &McpState, args: &Args, project_root: &std::path::Path) ->
         }
     };
 
-    let status = args.status.as_deref().unwrap_or("completed").to_string();
-
-    if !END_STATUSES.contains(&status.as_str()) {
-        return Mutated::refused(ToolOutcome::invalid_input(
-            "status",
-            format!(
-                "Invalid status: '{}'. Expected: {}",
-                status,
-                END_STATUSES.join(", ")
-            ),
-        ));
-    }
-
-    let manifest = match infer::load_inference_manifest(project_root) {
-        Ok(m) => m,
-        Err(e) => return Mutated::refused(super::manifest_error(e)),
+    let status = args.status.as_deref().unwrap_or("completed");
+    let ended = match status {
+        "completed" => SessionStatus::Completed,
+        "paused" => SessionStatus::Paused,
+        _ => {
+            return Mutated::refused(ToolOutcome::invalid_input(
+                "status",
+                format!(
+                    "Invalid status: '{}'. Expected: {}",
+                    status,
+                    END_STATUSES.join(", ")
+                ),
+            ));
+        }
     };
 
-    let mut sessions = read_sessions_from_manifest(project_root);
-    let session = sessions.iter_mut().find(|s| s.session_id == session_id);
-    match session {
-        Some(s) if s.status == "active" => {
-            s.status = status.clone();
+    let mut manifest = match InferenceManifest::at(project_root) {
+        Ok(m) => m,
+        Err(e) => return Mutated::refused_after(false, e),
+    };
+
+    match manifest
+        .sessions
+        .iter_mut()
+        .find(|s| s.session_id == session_id)
+    {
+        Some(s) if s.status == SessionStatus::Active => {
+            s.status = ended;
             s.ended_at = Some(now_rfc3339());
         }
         Some(_) => {
@@ -229,15 +212,15 @@ fn handle_end(_state: &McpState, args: &Args, project_root: &std::path::Path) ->
         }
     }
 
-    let written = match write_sessions_to_manifest(project_root, &manifest, &sessions) {
+    let written = match manifest.write(project_root) {
         Ok(written) => written,
-        Err(e) => return Mutated::refused(ToolOutcome::error(ErrorCode::InternalError, e)),
+        Err(e) => return Mutated::refused_after(false, e),
     };
 
     Mutated::wrote(
         ToolOutcome::ok(json!({
             "session_id": session_id,
-            "status": status
+            "status": ended.name()
         })),
         Written::files(written),
     )
@@ -265,49 +248,4 @@ fn generate_session_id() -> String {
 /// source-file records store it.
 fn now_rfc3339() -> String {
     chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true)
-}
-
-fn sessions_path(project_root: &std::path::Path) -> std::path::PathBuf {
-    project_root.join("specforge-infer.json")
-}
-
-fn read_sessions_from_manifest(project_root: &std::path::Path) -> Vec<InferenceSession> {
-    let path = sessions_path(project_root);
-    if !path.exists() {
-        return Vec::new();
-    }
-    let content = match std::fs::read_to_string(&path) {
-        Ok(c) => c,
-        Err(_) => return Vec::new(),
-    };
-    let value: Value = match serde_json::from_str(&content) {
-        Ok(v) => v,
-        Err(_) => return Vec::new(),
-    };
-    value
-        .get("sessions")
-        .and_then(|v| serde_json::from_value::<Vec<InferenceSession>>(v.clone()).ok())
-        .unwrap_or_default()
-}
-
-/// Write the manifest with `sessions`; what it wrote (the manifest).
-fn write_sessions_to_manifest(
-    project_root: &std::path::Path,
-    manifest: &InferenceManifest,
-    sessions: &[InferenceSession],
-) -> Result<Writes, String> {
-    let path = sessions_path(project_root);
-    let mut value = serde_json::to_value(manifest).unwrap_or(json!({}));
-    if let Value::Object(ref mut map) = value {
-        map.insert(
-            "sessions".to_string(),
-            serde_json::to_value(sessions).unwrap_or(json!([])),
-        );
-    }
-    let json =
-        serde_json::to_string_pretty(&value).map_err(|e| format!("Failed to serialize: {}", e))?;
-    let tmp = path.with_extension("json.tmp");
-    std::fs::write(&tmp, &json).map_err(|e| format!("Failed to write: {}", e))?;
-    std::fs::rename(&tmp, &path).map_err(|e| format!("Failed to rename: {}", e))?;
-    Ok(Writes::from_iter([path]))
 }

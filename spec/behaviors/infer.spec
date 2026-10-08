@@ -24,19 +24,26 @@ behavior load_inference_manifest "Load Inference Manifest" {
     default_on_missing "returns empty manifest when file does not exist"
     version_checked    "rejects manifests with unsupported version numbers"
     summary_computed   "InferenceSummary is derived from source_index on load, never read from file"
+    sessions_read      "sessions are read with the manifest, each with its status"
+    never_empty        "a file that cannot be used is an error, never read as an empty manifest"
   }
   contract """
-    Load the inference manifest from {project_root}/specforge-infer.json.
-    If the file does not exist, return a default empty manifest with
-    version=1, empty source_roots, and empty source_index. If the file
-    exists but has an unsupported version number, return an error.
-    The InferenceSummary MUST be computed from source_index on load —
-    it is never persisted in JSON.
+    Load the inference manifest from {project_root}/specforge-infer.json,
+    once per operation, through the one reader every operation, the MCP
+    tools, the infer prompt and the inferred lint profile share. If the
+    file does not exist, return a default empty manifest with version=1,
+    empty source_roots, source_index and sessions. If the file exists and
+    cannot be used — it cannot be read, is not JSON, does not have the
+    manifest's shape (a session's status included), or has an unsupported
+    version — refuse, naming why; never read it as empty. Keys the
+    manifest does not define are kept. The InferenceSummary MUST be
+    computed from source_index on load — it is never persisted in JSON.
   """
   verify unit "load returns default manifest when file is missing"
   verify unit "load deserializes valid specforge-infer.json"
   verify unit "load rejects unsupported version"
   verify unit "load computes summary from source_index"
+  verify unit "a session the manifest cannot read refuses the load, and nothing is written"
 }
 
 behavior save_inference_manifest "Save Inference Manifest" {
@@ -48,10 +55,12 @@ behavior save_inference_manifest "Save Inference Manifest" {
     summary_excluded    "InferenceSummary is not written to JSON"
     json_formatted      "output is pretty-printed JSON with sorted keys"
     source_index_sorted "source_index serialized as sorted Vec for stable diffs"
+    unknown_kept        "keys the manifest does not define are written back as read"
   }
   contract """
     Save the inference manifest to {project_root}/specforge-infer.json.
-    The source_index HashMap MUST be serialized as a sorted Vec (by path)
+    It is the one writer of the file: the sessions are written with the
+    rest of the manifest. The source_index MUST be sorted by path
     for stable git diffs. The InferenceSummary MUST NOT be written.
     Write to a temporary file in the same directory, then atomically
     rename to the target path. The JSON MUST be pretty-printed.
@@ -60,6 +69,7 @@ behavior save_inference_manifest "Save Inference Manifest" {
   verify unit "save does not include summary in JSON output"
   verify unit "save uses atomic write (temp file + rename)"
   verify unit "save serializes source_index sorted by path"
+  verify unit "save keeps keys the manifest does not define, at every level"
 }
 
 behavior compute_inference_summary "Compute Inference Summary" {

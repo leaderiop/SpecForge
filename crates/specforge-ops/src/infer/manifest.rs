@@ -1,14 +1,19 @@
-//! The inference manifest: `<root>/specforge-infer.json`.
+//! The inference manifest: `<root>/specforge-infer.json`, the source files
+//! an agent analyzed and the inference sessions it ran. Every reader gets
+//! it from one reader ([`InferenceManifest::read`]) and every write goes
+//! through one writer ([`InferenceManifest::write`]); a key this version
+//! does not define, at any level, is kept as read and written back.
 
 use std::collections::HashMap;
 use std::fs;
 use std::io::Write;
 use std::path::Path;
 
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use crate::{OpError, OpErrorKind};
+use crate::{OpError, OpErrorKind, Writes};
 
 const CURRENT_VERSION: u32 = 1;
 /// The inference manifest, at the project root.
@@ -18,33 +23,94 @@ pub const MANIFEST_FILENAME: &str = "specforge-infer.json";
 pub const MANIFEST_UNREADABLE: &str = "infer_manifest_unreadable";
 /// `specforge-infer.json` is not a valid inference manifest.
 pub const MANIFEST_INVALID: &str = "infer_manifest_invalid";
+/// `specforge-infer.json` could not be written.
+pub const MANIFEST_WRITE_FAILED: &str = "infer_manifest_write_failed";
 
-/// The inference manifest at `root`: an empty one when there is none.
-pub(super) fn manifest(root: &Path) -> Result<InferenceManifest, OpError> {
-    load_inference_manifest(root).map_err(|message| {
-        let (kind, code) = if message.starts_with("failed to read") {
-            (OpErrorKind::Internal, MANIFEST_UNREADABLE)
-        } else {
-            (OpErrorKind::SchemaMismatch, MANIFEST_INVALID)
-        };
-        OpError::new(kind, code, message)
-    })
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// `<root>/specforge-infer.json`: the source files an agent analyzed and
+/// the inference sessions it ran. A key this version does not define, at
+/// any level, is kept as read and written back.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct InferenceManifest {
     pub version: u32,
     pub source_roots: Vec<String>,
+    /// Sorted by path ([`Self::upsert_source_entry`]).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub source_index: Vec<SourceFileEntry>,
+    /// In the order they were started. At most one is `Active`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub sessions: Vec<InferenceSession>,
+    /// Keys this version does not define, written back as read.
+    #[serde(flatten)]
+    pub unknown: serde_json::Map<String, serde_json::Value>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// One analyzed source file.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SourceFileEntry {
     pub path: String,
+    /// SHA-256 of the file's bytes, lowercase hex.
     pub content_hash: String,
     pub entities_produced: Vec<String>,
+    /// RFC 3339, UTC, whole seconds.
     pub analyzed_at: String,
+    /// Keys this version does not define, written back as read.
+    #[serde(flatten)]
+    pub unknown: serde_json::Map<String, serde_json::Value>,
+}
+
+impl SourceFileEntry {
+    /// An entry with no keys beyond the ones this version defines.
+    pub fn new(
+        path: impl Into<String>,
+        content_hash: impl Into<String>,
+        entities_produced: Vec<String>,
+        analyzed_at: impl Into<String>,
+    ) -> Self {
+        SourceFileEntry {
+            path: path.into(),
+            content_hash: content_hash.into(),
+            entities_produced,
+            analyzed_at: analyzed_at.into(),
+            unknown: serde_json::Map::new(),
+        }
+    }
+}
+
+/// One inference session an agent ran.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct InferenceSession {
+    /// A random (version 4) UUID.
+    pub session_id: String,
+    /// RFC 3339, UTC, whole seconds.
+    pub started_at: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ended_at: Option<String>,
+    pub agent: String,
+    pub status: SessionStatus,
+    /// Keys this version does not define, written back as read.
+    #[serde(flatten)]
+    pub unknown: serde_json::Map<String, serde_json::Value>,
+}
+
+/// Where a session stands (the spec's `SessionStatus`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SessionStatus {
+    Active,
+    Paused,
+    Completed,
+}
+
+impl SessionStatus {
+    /// `active`, `paused`, `completed`: as the file and every reply spell
+    /// it.
+    pub fn name(self) -> &'static str {
+        match self {
+            SessionStatus::Active => "active",
+            SessionStatus::Paused => "paused",
+            SessionStatus::Completed => "completed",
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -60,11 +126,143 @@ impl Default for InferenceManifest {
             version: CURRENT_VERSION,
             source_roots: Vec::new(),
             source_index: Vec::new(),
+            sessions: Vec::new(),
+            unknown: serde_json::Map::new(),
         }
     }
 }
 
+/// Why a manifest inference keeps at the project root
+/// (`specforge-infer.json`, `specforge-anchors.json`) cannot be used.
+#[derive(Debug)]
+pub(crate) struct ManifestProblem {
+    file: &'static str,
+    why: Why,
+}
+
+#[derive(Debug)]
+enum Why {
+    Unreadable(std::io::Error),
+    Invalid(serde_json::Error),
+    UnsupportedVersion(u32),
+}
+
+impl ManifestProblem {
+    /// What is wrong, naming the file: `failed to read {file}: {e}`,
+    /// `failed to parse {file}: {e}` (serde_json's message names line and
+    /// column), `unsupported {file} version: {n} (expected 1)`.
+    pub(crate) fn message(&self) -> String {
+        let file = self.file;
+        match &self.why {
+            Why::Unreadable(e) => format!("failed to read {file}: {e}"),
+            Why::Invalid(e) => format!("failed to parse {file}: {e}"),
+            Why::UnsupportedVersion(n) => {
+                format!("unsupported {file} version: {n} (expected {CURRENT_VERSION})")
+            }
+        }
+    }
+}
+
+impl From<ManifestProblem> for OpError {
+    fn from(problem: ManifestProblem) -> OpError {
+        let (kind, code) = match problem.why {
+            Why::Unreadable(_) => (OpErrorKind::Internal, MANIFEST_UNREADABLE),
+            Why::Invalid(_) | Why::UnsupportedVersion(_) => {
+                (OpErrorKind::SchemaMismatch, MANIFEST_INVALID)
+            }
+        };
+        OpError::new(kind, code, problem.message())
+    }
+}
+
+/// The one reader of a JSON manifest at the project root: `None` when the
+/// file is absent, the typed value, or the problem. The file is read once
+/// and parsed once.
+pub(crate) fn read_manifest<T: DeserializeOwned>(
+    root: &Path,
+    file: &'static str,
+) -> Result<Option<T>, ManifestProblem> {
+    let text = match fs::read_to_string(root.join(file)) {
+        Ok(text) => text,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(e) => {
+            return Err(ManifestProblem {
+                file,
+                why: Why::Unreadable(e),
+            });
+        }
+    };
+    serde_json::from_str(&text)
+        .map(Some)
+        .map_err(|e| ManifestProblem {
+            file,
+            why: Why::Invalid(e),
+        })
+}
+
 impl InferenceManifest {
+    /// The manifest at `root`. `Ok(None)` when there is none; the problem
+    /// when the file is there and cannot be used: unreadable, not JSON, not
+    /// this shape (a session's status included), or another `version`.
+    /// Never an empty manifest in place of one that did not read.
+    pub(crate) fn read(root: &Path) -> Result<Option<Self>, ManifestProblem> {
+        let manifest = read_manifest::<Self>(root, MANIFEST_FILENAME)?;
+        match manifest {
+            Some(manifest) if manifest.version != CURRENT_VERSION => Err(ManifestProblem {
+                file: MANIFEST_FILENAME,
+                why: Why::UnsupportedVersion(manifest.version),
+            }),
+            other => Ok(other),
+        }
+    }
+
+    /// [`Self::read`] for an operation: an empty manifest when there is
+    /// none, the problem as an `OpError`.
+    pub fn at(root: &Path) -> Result<Self, OpError> {
+        Ok(Self::read(root)?.unwrap_or_default())
+    }
+
+    /// Replace the file at `root` with this manifest: pretty-printed JSON,
+    /// keys sorted, written to `specforge-infer.json.tmp`, synced, then
+    /// renamed. Returns the file it wrote. A failure removes the temporary
+    /// file, leaves the old manifest and is `infer_manifest_write_failed`.
+    pub fn write(&self, root: &Path) -> Result<Writes, OpError> {
+        let path = root.join(MANIFEST_FILENAME);
+        let tmp = path.with_extension("json.tmp");
+        // `to_value` orders the keys (a `BTreeMap`), as the spec's
+        // `json_formatted` promises.
+        let text = serde_json::to_value(self)
+            .and_then(|value| serde_json::to_string_pretty(&value))
+            .map_err(|e| {
+                OpError::new(
+                    OpErrorKind::Internal,
+                    MANIFEST_WRITE_FAILED,
+                    format!("failed to serialize {MANIFEST_FILENAME}: {e}"),
+                )
+            })?;
+        let written = fs::File::create(&tmp).and_then(|mut file| {
+            file.write_all(text.as_bytes())?;
+            file.sync_all()
+        });
+        let result = written.and_then(|()| fs::rename(&tmp, &path));
+        if let Err(e) = result {
+            let _ = fs::remove_file(&tmp);
+            return Err(OpError::new(
+                OpErrorKind::of_io(&e),
+                MANIFEST_WRITE_FAILED,
+                format!("failed to write {MANIFEST_FILENAME}: {e}"),
+            ));
+        }
+        Ok(Writes::from_iter([path]))
+    }
+
+    /// The session in progress, if any.
+    pub fn active_session(&self) -> Option<&InferenceSession> {
+        self.sessions
+            .iter()
+            .find(|s| s.status == SessionStatus::Active)
+    }
+
     pub fn source_index_map(&self) -> HashMap<&str, &SourceFileEntry> {
         self.source_index
             .iter()
@@ -72,6 +270,8 @@ impl InferenceManifest {
             .collect()
     }
 
+    /// Record `entry`, replacing the entry for the same path; the index
+    /// stays sorted by path.
     pub fn upsert_source_entry(&mut self, entry: SourceFileEntry) {
         if let Some(existing) = self.source_index.iter_mut().find(|e| e.path == entry.path) {
             *existing = entry;
@@ -94,51 +294,6 @@ impl InferenceManifest {
             entities_produced,
         }
     }
-}
-
-pub fn load_inference_manifest(project_root: &Path) -> Result<InferenceManifest, String> {
-    let path = project_root.join(MANIFEST_FILENAME);
-    if !path.exists() {
-        return Ok(InferenceManifest::default());
-    }
-
-    let content = fs::read_to_string(&path)
-        .map_err(|e| format!("failed to read {MANIFEST_FILENAME}: {e}"))?;
-    let manifest: InferenceManifest = serde_json::from_str(&content)
-        .map_err(|e| format!("failed to parse {MANIFEST_FILENAME}: {e}"))?;
-
-    if manifest.version != CURRENT_VERSION {
-        return Err(format!(
-            "unsupported {MANIFEST_FILENAME} version: {} (expected {CURRENT_VERSION})",
-            manifest.version
-        ));
-    }
-
-    Ok(manifest)
-}
-
-pub fn save_inference_manifest(
-    project_root: &Path,
-    manifest: &InferenceManifest,
-) -> Result<(), String> {
-    let path = project_root.join(MANIFEST_FILENAME);
-
-    let json = serde_json::to_string_pretty(manifest)
-        .map_err(|e| format!("failed to serialize {MANIFEST_FILENAME}: {e}"))?;
-
-    let tmp_path = path.with_extension("json.tmp");
-    let mut file =
-        fs::File::create(&tmp_path).map_err(|e| format!("failed to create temp file: {e}"))?;
-    file.write_all(json.as_bytes())
-        .map_err(|e| format!("failed to write temp file: {e}"))?;
-    file.sync_all()
-        .map_err(|e| format!("failed to sync temp file: {e}"))?;
-    drop(file);
-
-    fs::rename(&tmp_path, &path)
-        .map_err(|e| format!("failed to rename temp file to {MANIFEST_FILENAME}: {e}"))?;
-
-    Ok(())
 }
 
 pub fn compute_content_hash(file_path: &Path) -> Result<String, String> {
@@ -175,7 +330,28 @@ pub fn detect_stale_entries(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use specforge_test_macros::test as specforge_test;
     use tempfile::TempDir;
+
+    fn entry(path: &str, entities: &[&str]) -> SourceFileEntry {
+        SourceFileEntry::new(
+            path,
+            "h",
+            entities.iter().map(|e| e.to_string()).collect(),
+            "t",
+        )
+    }
+
+    fn session(id: &str, status: SessionStatus) -> InferenceSession {
+        InferenceSession {
+            session_id: id.into(),
+            started_at: "2026-10-01T00:00:00Z".into(),
+            ended_at: None,
+            agent: "claude".into(),
+            status,
+            unknown: serde_json::Map::new(),
+        }
+    }
 
     #[test]
     fn default_manifest_has_current_version() {
@@ -183,6 +359,7 @@ mod tests {
         assert_eq!(m.version, CURRENT_VERSION);
         assert!(m.source_roots.is_empty());
         assert!(m.source_index.is_empty());
+        assert!(m.sessions.is_empty());
     }
 
     #[test]
@@ -191,80 +368,171 @@ mod tests {
             source_roots: vec!["src/".to_string()],
             ..Default::default()
         };
-        m.upsert_source_entry(SourceFileEntry {
-            path: "src/main.rs".to_string(),
-            content_hash: "abc123".to_string(),
-            entities_produced: vec!["my_behavior".to_string()],
-            analyzed_at: "2026-04-24T10:00:00Z".to_string(),
-        });
+        m.upsert_source_entry(SourceFileEntry::new(
+            "src/main.rs",
+            "abc123",
+            vec!["my_behavior".to_string()],
+            "2026-04-24T10:00:00Z",
+        ));
 
         let json = serde_json::to_string_pretty(&m).unwrap();
         let loaded: InferenceManifest = serde_json::from_str(&json).unwrap();
 
+        assert_eq!(loaded, m);
         assert_eq!(loaded.version, CURRENT_VERSION);
         assert_eq!(loaded.source_roots, vec!["src/"]);
-        assert_eq!(loaded.source_index.len(), 1);
-        assert_eq!(loaded.source_index[0].path, "src/main.rs");
         assert_eq!(
             loaded.source_index[0].entities_produced,
             vec!["my_behavior"]
         );
     }
 
+    #[specforge_test(
+        type = "InferenceManifest",
+        verify = "InferenceManifest round-trips through JSON serialization"
+    )]
+    fn sessions_round_trip_with_their_status() {
+        let mut m = InferenceManifest::default();
+        m.sessions.push(session("s-1", SessionStatus::Completed));
+        m.sessions.push(session("s-2", SessionStatus::Active));
+        m.sessions[0].ended_at = Some("2026-10-01T01:00:00Z".into());
+
+        let json = serde_json::to_string(&m).unwrap();
+        assert!(json.contains(r#""status":"completed""#), "{json}");
+        let loaded: InferenceManifest = serde_json::from_str(&json).unwrap();
+        assert_eq!(loaded, m);
+        assert_eq!(loaded.active_session().unwrap().session_id, "s-2");
+    }
+
     #[test]
-    fn load_returns_default_when_file_missing() {
+    fn a_status_outside_the_three_is_refused() {
         let dir = TempDir::new().unwrap();
-        let m = load_inference_manifest(dir.path()).unwrap();
+        let text = r#"{
+  "version": 1,
+  "source_roots": [],
+  "sessions": [
+    {"session_id": "s", "started_at": "t", "agent": "a", "status": "Completed"}
+  ]
+}"#;
+        fs::write(dir.path().join(MANIFEST_FILENAME), text).unwrap();
+        let problem = InferenceManifest::read(dir.path()).unwrap_err();
+        let message = problem.message();
+        assert!(
+            message
+                .starts_with("failed to parse specforge-infer.json: unknown variant `Completed`"),
+            "{message}"
+        );
+        assert!(message.contains("line 5 column"), "{message}");
+    }
+
+    #[specforge_test(
+        behavior = "load_inference_manifest",
+        verify = "load returns default manifest when file is missing"
+    )]
+    fn read_of_an_absent_file_is_none() {
+        let dir = TempDir::new().unwrap();
+        assert_eq!(InferenceManifest::read(dir.path()).unwrap(), None);
+        let m = InferenceManifest::at(dir.path()).unwrap();
         assert_eq!(m.version, CURRENT_VERSION);
         assert!(m.source_index.is_empty());
     }
 
-    #[test]
-    fn load_rejects_unsupported_version() {
+    #[specforge_test(
+        behavior = "load_inference_manifest",
+        verify = "load rejects unsupported version"
+    )]
+    fn read_rejects_unsupported_version() {
         let dir = TempDir::new().unwrap();
         let content = r#"{"version": 999, "source_roots": [], "source_index": []}"#;
         fs::write(dir.path().join(MANIFEST_FILENAME), content).unwrap();
 
-        let result = load_inference_manifest(dir.path());
-        assert!(result.is_err());
-        assert!(result.unwrap_err().contains("unsupported"));
+        let message = InferenceManifest::read(dir.path()).unwrap_err().message();
+        assert!(message.contains("unsupported"), "{message}");
     }
 
     #[test]
-    fn save_and_load_round_trip() {
+    fn write_and_read_round_trip() {
         let dir = TempDir::new().unwrap();
         let mut m = InferenceManifest {
             source_roots: vec!["crates/my-crate/src".to_string()],
             ..Default::default()
         };
-        m.upsert_source_entry(SourceFileEntry {
-            path: "crates/my-crate/src/lib.rs".to_string(),
-            content_hash: "deadbeef".to_string(),
-            entities_produced: vec!["a".to_string(), "b".to_string()],
-            analyzed_at: "2026-04-24T12:00:00Z".to_string(),
-        });
+        m.upsert_source_entry(entry("crates/my-crate/src/lib.rs", &["a", "b"]));
 
-        save_inference_manifest(dir.path(), &m).unwrap();
-        let loaded = load_inference_manifest(dir.path()).unwrap();
+        let writes = m.write(dir.path()).unwrap();
+        assert_eq!(writes.names_under(dir.path()), ["specforge-infer.json"]);
+        let loaded = InferenceManifest::read(dir.path()).unwrap().unwrap();
+        assert_eq!(loaded, m);
+    }
 
-        assert_eq!(loaded.source_roots, m.source_roots);
-        assert_eq!(loaded.source_index.len(), 1);
-        assert_eq!(loaded.source_index[0].entities_produced.len(), 2);
+    #[specforge_test(
+        behavior = "save_inference_manifest",
+        verify = "save uses atomic write (temp file + rename)"
+    )]
+    fn write_sorts_keys_and_leaves_no_temporary_file() {
+        let dir = TempDir::new().unwrap();
+        let mut m = InferenceManifest::default();
+        m.sessions.push(session("s-1", SessionStatus::Paused));
+        m.unknown.insert("notes".into(), "kept".into());
+        m.write(dir.path()).unwrap();
+
+        let text = fs::read_to_string(dir.path().join(MANIFEST_FILENAME)).unwrap();
+        let keys = ["notes", "sessions", "source_roots", "version"];
+        let positions: Vec<usize> = keys
+            .iter()
+            .map(|k| text.find(&format!("\"{k}\"")).unwrap())
+            .collect();
+        assert!(positions.windows(2).all(|w| w[0] < w[1]), "{text}");
+        assert!(!dir.path().join("specforge-infer.json.tmp").exists());
+    }
+
+    #[specforge_test(
+        behavior = "save_inference_manifest",
+        verify = "save keeps keys the manifest does not define, at every level"
+    )]
+    fn a_rewrite_keeps_the_keys_it_does_not_define() {
+        let dir = TempDir::new().unwrap();
+        let text = r#"{
+  "version": 1,
+  "source_roots": ["src"],
+  "notes": "by hand",
+  "source_index": [
+    {"path": "a.rs", "content_hash": "h", "entities_produced": [], "analyzed_at": "t", "note": "x"}
+  ],
+  "sessions": [
+    {"session_id": "s", "started_at": "t", "agent": "a", "status": "active", "model": "m"}
+  ]
+}"#;
+        fs::write(dir.path().join(MANIFEST_FILENAME), text).unwrap();
+        let mut m = InferenceManifest::at(dir.path()).unwrap();
+        m.sessions[0].status = SessionStatus::Completed;
+        m.write(dir.path()).unwrap();
+
+        let value: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(dir.path().join(MANIFEST_FILENAME)).unwrap())
+                .unwrap();
+        assert_eq!(value["notes"], "by hand");
+        assert_eq!(value["source_index"][0]["note"], "x");
+        assert_eq!(value["sessions"][0]["model"], "m");
+        assert_eq!(value["sessions"][0]["status"], "completed");
+    }
+
+    #[test]
+    fn a_failed_write_leaves_the_old_manifest_and_no_temporary_file() {
+        let dir = TempDir::new().unwrap();
+        // A directory where the manifest goes: the rename fails.
+        fs::create_dir(dir.path().join(MANIFEST_FILENAME)).unwrap();
+        let error = InferenceManifest::default().write(dir.path()).unwrap_err();
+        assert_eq!(error.code, MANIFEST_WRITE_FAILED);
+        assert!(!dir.path().join("specforge-infer.json.tmp").exists());
     }
 
     #[test]
     fn source_index_sorted_after_upsert() {
         let mut m = InferenceManifest::default();
-        let entry = |path: &str| SourceFileEntry {
-            path: path.to_string(),
-            content_hash: "h".to_string(),
-            entities_produced: vec![],
-            analyzed_at: "t".to_string(),
-        };
-
-        m.upsert_source_entry(entry("z.rs"));
-        m.upsert_source_entry(entry("a.rs"));
-        m.upsert_source_entry(entry("m.rs"));
+        m.upsert_source_entry(entry("z.rs", &[]));
+        m.upsert_source_entry(entry("a.rs", &[]));
+        m.upsert_source_entry(entry("m.rs", &[]));
 
         let paths: Vec<&str> = m.source_index.iter().map(|e| e.path.as_str()).collect();
         assert_eq!(paths, vec!["a.rs", "m.rs", "z.rs"]);
@@ -273,18 +541,18 @@ mod tests {
     #[test]
     fn upsert_replaces_existing_entry() {
         let mut m = InferenceManifest::default();
-        m.upsert_source_entry(SourceFileEntry {
-            path: "src/lib.rs".to_string(),
-            content_hash: "old".to_string(),
-            entities_produced: vec!["a".to_string()],
-            analyzed_at: "t1".to_string(),
-        });
-        m.upsert_source_entry(SourceFileEntry {
-            path: "src/lib.rs".to_string(),
-            content_hash: "new".to_string(),
-            entities_produced: vec!["a".to_string(), "b".to_string()],
-            analyzed_at: "t2".to_string(),
-        });
+        m.upsert_source_entry(SourceFileEntry::new(
+            "src/lib.rs",
+            "old",
+            vec!["a".to_string()],
+            "t1",
+        ));
+        m.upsert_source_entry(SourceFileEntry::new(
+            "src/lib.rs",
+            "new",
+            vec!["a".to_string(), "b".to_string()],
+            "t2",
+        ));
 
         assert_eq!(m.source_index.len(), 1);
         assert_eq!(m.source_index[0].content_hash, "new");
@@ -294,18 +562,8 @@ mod tests {
     #[test]
     fn compute_summary_counts() {
         let mut m = InferenceManifest::default();
-        m.upsert_source_entry(SourceFileEntry {
-            path: "a.rs".to_string(),
-            content_hash: "h".to_string(),
-            entities_produced: vec!["e1".to_string(), "e2".to_string()],
-            analyzed_at: "t".to_string(),
-        });
-        m.upsert_source_entry(SourceFileEntry {
-            path: "b.rs".to_string(),
-            content_hash: "h".to_string(),
-            entities_produced: vec!["e3".to_string()],
-            analyzed_at: "t".to_string(),
-        });
+        m.upsert_source_entry(entry("a.rs", &["e1", "e2"]));
+        m.upsert_source_entry(entry("b.rs", &["e3"]));
 
         let summary = m.compute_summary(10);
         assert_eq!(summary.files_total, 10);
@@ -331,18 +589,8 @@ mod tests {
         let hash_a = compute_content_hash(&file_a).unwrap();
 
         let mut m = InferenceManifest::default();
-        m.upsert_source_entry(SourceFileEntry {
-            path: "a.rs".to_string(),
-            content_hash: hash_a,
-            entities_produced: vec![],
-            analyzed_at: "t".to_string(),
-        });
-        m.upsert_source_entry(SourceFileEntry {
-            path: "deleted.rs".to_string(),
-            content_hash: "whatever".to_string(),
-            entities_produced: vec![],
-            analyzed_at: "t".to_string(),
-        });
+        m.upsert_source_entry(SourceFileEntry::new("a.rs", hash_a, vec![], "t"));
+        m.upsert_source_entry(SourceFileEntry::new("deleted.rs", "whatever", vec![], "t"));
 
         let (stale, deleted) = detect_stale_entries(dir.path(), &m);
         assert!(stale.is_empty());
@@ -359,5 +607,6 @@ mod tests {
         let m = InferenceManifest::default();
         let json = serde_json::to_string(&m).unwrap();
         assert!(!json.contains("source_index"));
+        assert!(!json.contains("sessions"));
     }
 }

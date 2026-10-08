@@ -9,7 +9,7 @@ use specforge_protocol_types::ExtensionDeclaration;
 
 use super::discovery::source_files;
 use super::gaps::directory_of;
-use super::manifest::{InferenceManifest, InferenceSummary, detect_stale_entries, manifest};
+use super::manifest::{InferenceManifest, InferenceSummary, detect_stale_entries};
 use crate::OpError;
 use crate::view::ProjectView;
 
@@ -34,7 +34,7 @@ pub fn progress(view: &ProjectView) -> Result<Progress, OpError> {
     Ok(progress_under(
         root,
         view.registries().declarations(),
-        &manifest(root)?,
+        &InferenceManifest::at(root)?,
     ))
 }
 
@@ -52,7 +52,7 @@ pub fn progress_or_fresh(view: &ProjectView) -> Progress {
     progress_under(
         root,
         view.registries().declarations(),
-        &manifest(root).unwrap_or_default(),
+        &InferenceManifest::at(root).unwrap_or_default(),
     )
 }
 

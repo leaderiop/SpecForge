@@ -6,7 +6,7 @@ use std::path::Path;
 
 use specforge_common::{Diagnostic, codes};
 
-use super::manifest::{InferenceManifest, detect_stale_entries, load_inference_manifest};
+use super::manifest::{InferenceManifest, detect_stale_entries};
 use crate::view::ProjectView;
 
 /// The inference density above which I202 is reported, unless
@@ -23,7 +23,7 @@ pub fn lint(view: &ProjectView) -> Vec<Diagnostic> {
     let Some(root) = view.root() else {
         return Vec::new();
     };
-    let Ok(manifest) = load_inference_manifest(root) else {
+    let Ok(Some(manifest)) = InferenceManifest::read(root) else {
         return Vec::new();
     };
     let density_threshold = view
@@ -112,6 +112,7 @@ mod tests {
             content_hash: hash,
             entities_produced: vec!["app_main".to_string()],
             analyzed_at: "t".to_string(),
+            unknown: Default::default(),
         });
 
         let diags = compute_inference_diagnostics(dir.path(), &manifest, 0.05);
@@ -141,6 +142,7 @@ mod tests {
                 "e5".into(),
             ],
             analyzed_at: "t".to_string(),
+            unknown: Default::default(),
         });
 
         let diags = compute_inference_diagnostics(dir.path(), &manifest, 0.05);
@@ -163,6 +165,7 @@ mod tests {
             content_hash: hash,
             entities_produced: vec!["one".into()],
             analyzed_at: "t".to_string(),
+            unknown: Default::default(),
         });
 
         let diags = compute_inference_diagnostics(dir.path(), &manifest, 0.05);

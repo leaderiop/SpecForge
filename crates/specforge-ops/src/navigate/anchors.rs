@@ -1,7 +1,6 @@
 //! The source anchors manifest: `<root>/specforge-anchors.json`, which
 //! source item each entity is anchored to.
 
-use std::fs;
 use std::path::Path;
 
 use serde::{Deserialize, Serialize};
@@ -39,17 +38,9 @@ impl Default for AnchorManifest {
 }
 
 pub fn load_anchor_manifest(project_root: &Path) -> Result<AnchorManifest, String> {
-    let path = project_root.join(ANCHORS_FILENAME);
-    if !path.exists() {
-        return Ok(AnchorManifest::default());
-    }
-
-    let content =
-        fs::read_to_string(&path).map_err(|e| format!("failed to read {ANCHORS_FILENAME}: {e}"))?;
-    let manifest: AnchorManifest = serde_json::from_str(&content)
-        .map_err(|e| format!("failed to parse {ANCHORS_FILENAME}: {e}"))?;
-
-    Ok(manifest)
+    crate::infer::read_manifest::<AnchorManifest>(project_root, ANCHORS_FILENAME)
+        .map(Option::unwrap_or_default)
+        .map_err(|problem| problem.message())
 }
 
 #[cfg(test)]
@@ -100,7 +91,7 @@ mod tests {
             ],
             ..Default::default()
         };
-        fs::write(
+        std::fs::write(
             dir.path().join(ANCHORS_FILENAME),
             serde_json::to_string_pretty(&m).unwrap(),
         )
