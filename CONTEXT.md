@@ -4,15 +4,18 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 `docs/adr/`; ADR 0004 records the one-project migration these terms come from.
 
 - **Environment**: everything derived from `specforge.json` and the loaded extensions before any
-  `.spec` file is read: config, spec root, registries, rules, surfaces, and load diagnostics
-  (`specforge_project::Environment`). A `specforge.json` that is there and can't be used is the
+  `.spec` file is read: config, spec root, registries, rules, surfaces, load diagnostics, and the
+  runtime the extensions were loaded in (`runtime`; none when it was loaded without one, so nothing
+  loaded). Every extension call an operation makes over the project, a check's included, runs in
+  that runtime (`specforge_project::Environment`, ADR 0015 "The runtime travels with the
+  environment"). A `specforge.json` that is there and can't be used is the
   default config (for the unusable file or key), with each reason kept (`config_problems`) and
   reported as the error E069. It also holds the project's **installed extensions** (`installed`:
   what `specforge.lock` held when it was read, absent, read or unreadable, once, for every
   operation over the project) and what each `extensions` entry enabled, as the **extension load**
   left it. A session
-  reads `specforge.json` once per load and builds its extension runtime and its environment from
-  that read, after stamping every environment input (ADR 0030). It
+  reads `specforge.json` once per load and builds its extension runtime and, holding it, its
+  environment from that read, after stamping every environment input (ADR 0030). It
   opens in two steps (`ProjectSession::begin_open`, then `OpeningProject::finish`), so an editor
   answers what needs only the environment (keyword completion) while the sources are still being
   read.
@@ -228,7 +231,10 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Project view**: the compiled project as one surface sees it, borrowed: the graph, the
   environment it was compiled in (config, what each `extensions` entry enabled, the registry build:
   kinds, fields, edges, rules, the extension declarations and their ordered passes), the root it was
-  compiled from, and what the surface reports for it; its entity snapshot, through the per-compile
+  compiled from, and what the surface reports for it; the runtime its environment's extensions were
+  loaded in (`ProjectView::runtime`), the one every operation that calls an extension over the view
+  calls it in (analyze's passes, collect's collectors, inference gaps' scanners, an extension
+  command), so none takes a runtime of its own; its entity snapshot, through the per-compile
   memo (`ProjectView::entities`) (`specforge_ops::view::ProjectView`). It owns
   the project's recorded test report and its versioned schema, both read at that root and never an
   ancestor's. The CLI builds one from its compiled project and the LSP from its session's
@@ -394,7 +400,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   an unset flag `false`, each value its declared type (ADR 0017). Both surfaces run it through one
   operation over the project view (`specforge_ops::command::run`): it normalizes the given args,
   sends the project root (absolute and canonical), the evidence and the date, and calls the export
-  in the runtime that loaded the project's extensions; a surface only reads its arguments in and renders the output or the
+  in the view's runtime; a surface only reads its arguments in and renders the output or the
   failure (`RunError`: refused args, no project, or an export that did not answer) (ADR 0011, "One
   operation runs a command").
 - **Extension surface table**: what MCP serves from the project's extensions, built once per

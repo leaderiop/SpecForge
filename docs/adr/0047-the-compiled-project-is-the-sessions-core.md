@@ -21,7 +21,8 @@ project was brought up to date with `ensure_fresh`. `OtherProject` also re-imple
   build, the imports' and the checks' diagnostics, the snapshot and coverage memo, and whether it is on disk.
   `CompiledProject::diagnostics` is the one report order. A one-shot compile (`CompiledProject::compile`)
   is one and keeps no stamp (ADR 0030); a `ProjectSession` holds one (`ProjectSession::project`) plus its
-  runtime, its runtime source, its inputs and its stamps.
+  runtime source, its inputs and its stamps (its runtime is its environment's: ADR 0015, "The runtime
+  travels with the environment").
 - **D2. The session exposes its compiled project; it does not mirror it.** Every reader goes through
   `ProjectSession::project()`; the session's fifteen pass-through readers are gone, the three test-only
   ones (`graph_diagnostics`, `file_diagnostics`, `diagnostic_files`) with them.

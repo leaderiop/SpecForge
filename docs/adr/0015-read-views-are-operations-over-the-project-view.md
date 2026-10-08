@@ -153,9 +153,8 @@ without one.
 
 Each is one function over the view and a request: `extension::list(&view) -> ExtensionListing`,
 `extension::providers(&view) -> ProviderListing`, `extension::remove(&view, &RemoveRequest { name,
-force, dry_run })`, `doctor::diagnose(&view)`, `collect::collect(&view, runtime, Request { runner,
-mode, consent, announce })`, `infer::progress(&view)`, `infer::gaps(&view,
-runtime)`, `infer::session(&view, SessionStep)` and `infer::lint(&view)`. `stats::stats(&view)` reads `reported()` (D7 amended). The CLI compiles once
+force, dry_run })`, `doctor::diagnose(&view)`, `collect::collect(&view, Request { runner,
+mode, consent, announce })`, `infer::progress(&view)`, `infer::gaps(&view)`, `infer::session(&view, SessionStep)` and `infer::lint(&view)`. `stats::stats(&view)` reads `reported()` (D7 amended). The CLI compiles once
 (`pipeline::compile_project`) for every command; `CompilationContext` is deleted.
 
 ### Decisions
@@ -168,7 +167,9 @@ runtime)`, `infer::session(&view, SessionStep)` and `infer::lint(&view)`. `stats
   decides what it reports, by how it builds its view. `check` keeps its `reported` parameter (ADR
   0018).
 - **M3. The extension runtime is a parameter** of the operations that run extension code
-  (`collect`, `gaps`, as `analyze`), never part of the view.
+  (`collect`, `gaps`, as `analyze`), never part of the view. *(Amended by "The runtime travels
+  with the environment": the runtime is the environment's, so the view reaches it and these
+  operations take none.)*
 - **M4. Disk is the view root's.** `specforge.lock`, installed binaries, source files and the
   recorded report are read and written at `root`; `remove`, `collect`, `progress` and `gaps` refuse
   a rootless view (`no_project`); the listings and doctor answer from what the view enabled and
@@ -389,3 +390,34 @@ prompt adds (arguments, refusals, instructions); the views' rules are tested in 
 
 What would reopen it: a prompt that needs data no read view gives (it would get a view first), or a surface
 that needs the plan.
+
+## The runtime travels with the environment (amendment, architecture round 5, plan 09)
+
+M3 kept the extension runtime out of the view, a parameter of each operation that runs extension
+code. Every caller then passed the runtime the view's environment had been loaded in, by hand: the
+CLI's `compile_project` returned the pair (11 of its 14 callers dropped the runtime), the session
+and MCP's other-project compile kept a runtime field beside their environment, and the checks took
+it once more. The pairing is what makes an extension call work at all (an extension is loaded in
+one runtime), and it had slipped before (b122852f: extension resources and inference gaps ignored
+the project's runtime).
+
+- **R1. The Environment holds the runtime it loaded its extensions in** (`Environment::runtime`,
+  `Option<SharedRuntime>`): `Environment::load(root, runtime)` and `from_read` take it and keep it,
+  `run_checks` and the custom-rule probe read it, `CompiledProject::compile(root, runtime)` and
+  `CompiledProject::of(env)` pass it through, and a session's runtime is its environment's.
+- **R2. The view reaches it through the Environment** (`ProjectView::runtime`, M1: the next
+  Environment field reaches the operations without touching a constructor). **M3 is amended:**
+  the operations that call extensions take no runtime: `analyze(view, options)`, `collect(view,
+  request)`, `infer::gaps(view)` and `command::run(view, command, given, format)`.
+- **R3. An environment without a runtime loaded nothing.** Analyze then runs no extension pass
+  (ADR 0013 D12's meaning); a command, a collector or a scanner called over it is E028, not loaded.
+  No "unloaded" runtime adapter exists.
+- **R4. What is not over a view keeps a runtime parameter**: `migrate::run(request, runtime)`
+  compiles the project itself, twice, in the runtime it is given (M8), and reading a candidate
+  extension's declaration has no environment.
+- **R5. MCP's `ProjectRef.runtime` is read from the view**, for MCP's own extension adapters
+  (`mcp__` tools and resources), which are not operations; `pipeline::compile_project` returns the
+  compiled project alone (D12).
+
+The extension command runs over `ProjectView::of` in the CLI too (ADR 0011, "One operation runs a
+command"); `ProjectView::new` has no rooted production caller.
