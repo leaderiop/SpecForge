@@ -614,9 +614,18 @@ fn doctor_reports_an_extension_that_fails_to_load() {
     // A binary that no longer matches its lock entry is refused (E070).
     tamper_with_installed_binary(&root);
     let tampered = doctor(&mut server);
-    let e070 = finding(&tampered, "E070").unwrap_or_else(|| panic!("no E070: {tampered}"));
-    assert_eq!(e070["status"], "error", "{e070}");
-    assert!(e070["check"].as_str().unwrap().contains(GREET), "{e070}");
+    let stale =
+        finding(&tampered, "stale_hash").unwrap_or_else(|| panic!("no finding: {tampered}"));
+    assert_eq!(stale["status"], "error", "{stale}");
+    assert!(stale["check"].as_str().unwrap().contains(GREET), "{stale}");
+    assert!(
+        finding(&tampered, "E070").is_none(),
+        "listed once: {tampered}"
+    );
+    let failures = tampered["load_failures"].as_array().unwrap();
+    assert_eq!(failures.len(), 1, "{tampered}");
+    assert_eq!(failures[0]["code"], "E070", "{tampered}");
+    assert_eq!(failures[0]["binary_issue"], true, "{tampered}");
     assert_eq!(tampered["extensions_ok"], false, "{tampered}");
 
     // Enabled but not installed at all: no lock entry, nothing for the

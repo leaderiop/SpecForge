@@ -351,9 +351,30 @@ fn doctor_reports_an_extension_that_fails_to_load() {
 
     let (ok, report) = doctor(tampered.path());
     assert!(!ok, "{report}");
-    let e070 = finding(&report, "E070");
-    assert_eq!(e070["status"], "error", "{e070}");
-    assert!(e070["check"].as_str().unwrap().contains("@sdk/greet"));
+    // One finding, with the command that reinstalls it; the load failure
+    // that duplicates it stays in the data, marked.
+    let stale = finding(&report, "stale_hash");
+    assert_eq!(stale["status"], "error", "{stale}");
+    assert!(stale["check"].as_str().unwrap().contains("@sdk/greet"));
+    assert!(
+        stale["remediation"]
+            .as_str()
+            .unwrap()
+            .starts_with("run `specforge add "),
+        "{stale}"
+    );
+    let failures = report["load_failures"].as_array().unwrap();
+    assert_eq!(failures.len(), 1, "{report}");
+    assert_eq!(failures[0]["code"], "E070", "{report}");
+    assert_eq!(failures[0]["binary_issue"], true, "{report}");
+    assert!(
+        report["findings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|f| f["code"] != "E070"),
+        "listed once: {report}"
+    );
 
     // Enabled, but neither locked nor installed: only the load knows (E028).
     let missing = greeting_project();
