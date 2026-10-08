@@ -3,7 +3,7 @@
 
 use serde_json::json;
 use specforge_extension_sdk::prelude::*;
-use specforge_ops::infer::{guide, kind_guide};
+use specforge_ops::infer::{InferencePlanRequest, guide, inference_plan, kind_guide};
 use specforge_ops::view::ProjectView;
 use specforge_project::coverage::RecordedCoverage;
 use specforge_protocol_types::ExtensionDeclaration;
@@ -255,4 +255,163 @@ fn kind_guide_refuses_an_undeclared_kind() {
         error.suggestion.as_deref(),
         Some("did you mean 'behavior'?")
     );
+}
+
+/// A declaration of `name`: each of `kinds` (a keyword) with reference-list
+/// fields to the kinds in its entry.
+fn linked(name: &str, kinds: &[(&str, &[&str])]) -> ExtensionDeclaration {
+    let mut c = ContributionsBuilder::new(ExtensionMeta::new(name, "1.0.0"));
+    for (kind, targets) in kinds {
+        c.kind(kind, |k| {
+            for target in *targets {
+                k.field(&format!("{target}s"), |f| {
+                    f.field_type(FieldType::ReferenceList).target_kind(target);
+                });
+            }
+        });
+    }
+    c.declaration()
+}
+
+fn plan_kinds(project: &Project) -> Vec<String> {
+    inference_plan(&project.view(), &InferencePlanRequest::default())
+        .unwrap()
+        .kind_priorities
+        .into_iter()
+        .map(|priority| priority.kind)
+        .collect()
+}
+
+#[specforge_test(
+    behavior = "provide_infer_plan_scope",
+    verify = "plan lists kinds with no entities first, then each kind after the kinds it references"
+)]
+fn kinds_are_ordered_by_what_they_reference() {
+    // behavior -> event, type; event -> type; one behavior is written.
+    let project = project_of(
+        "behavior b \"B\" {\n}\n",
+        vec![linked(
+            "@t/soft",
+            &[
+                ("behavior", &["event", "type"]),
+                ("event", &["type"]),
+                ("type", &[]),
+                ("feature", &[]),
+            ],
+        )],
+    );
+    assert_eq!(
+        plan_kinds(&project),
+        ["type", "event", "feature", "behavior"]
+    );
+
+    // A kind referencing itself waits for nothing; the cycle a -> b -> a
+    // falls back to declaration order.
+    let cycle = project_of(
+        "",
+        vec![linked(
+            "@t/soft",
+            &[("a", &["b"]), ("b", &["a"]), ("c", &["c"])],
+        )],
+    );
+    assert_eq!(plan_kinds(&cycle), ["c", "a", "b"]);
+}
+
+/// A project with an analyzer for `.rs` files, the sources `files` under
+/// `src/`, and `manifest` as `specforge-infer.json` when given.
+fn sources(files: &[String], manifest: Option<serde_json::Value>) -> Project {
+    let mut c = ContributionsBuilder::new(ExtensionMeta::new("@t/rust", "1.0.0"));
+    c.analyzer("rust", |a| {
+        a.file_extensions(&[".rs"]).scan(|_| ScanResponse {
+            items: Vec::new(),
+            language: None,
+        });
+    });
+    let project = project_of("", vec![c.declaration()]);
+    std::fs::create_dir_all(project.dir.path().join("src")).unwrap();
+    for file in files {
+        std::fs::write(project.dir.path().join(file), "fn stub() {}\n").unwrap();
+    }
+    if let Some(manifest) = manifest {
+        std::fs::write(
+            project.dir.path().join("specforge-infer.json"),
+            manifest.to_string(),
+        )
+        .unwrap();
+    }
+    project
+}
+
+#[specforge_test(
+    behavior = "provide_infer_plan_scope",
+    verify = "plan excludes already-analyzed files"
+)]
+fn the_plan_excludes_analyzed_files() {
+    let project = sources(
+        &["src/a.rs".to_string(), "src/b.rs".to_string()],
+        Some(json!({
+            "version": 1,
+            "source_roots": ["src"],
+            "source_index": [{
+                "path": "src/a.rs",
+                "content_hash": "h",
+                "entities_produced": ["e"],
+                "analyzed_at": "2026-10-01T00:00:00Z",
+            }],
+        })),
+    );
+    let plan = inference_plan(&project.view(), &InferencePlanRequest::default()).unwrap();
+    assert_eq!(plan.unanalyzed.files, ["src/b.rs"]);
+    assert_eq!(plan.progress.summary.files_analyzed, 1);
+}
+
+#[specforge_test(
+    behavior = "provide_infer_plan_scope",
+    verify = "plan's target directory defaults to the project's spec root"
+)]
+fn the_plan_targets_the_spec_root_unless_told() {
+    let mut project = project_of("", Vec::new());
+    project.env.root = project.dir.path().to_path_buf();
+    project.env.spec_root = project.dir.path().join("model");
+
+    let default = inference_plan(&project.view(), &InferencePlanRequest::default()).unwrap();
+    assert_eq!(default.target_spec_directory, "model/");
+    let told = inference_plan(
+        &project.view(),
+        &InferencePlanRequest {
+            target_spec_directory: Some("specs/"),
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    assert_eq!(told.target_spec_directory, "specs/");
+}
+
+#[specforge_test(
+    behavior = "provide_infer_plan_scope",
+    verify = "plan pages the file lists 50 at a time from the cursor"
+)]
+fn the_plan_pages_its_file_lists() {
+    let files: Vec<String> = (0..60).map(|i| format!("src/mod_{i:02}.rs")).collect();
+    let project = sources(&files, None);
+
+    let first = inference_plan(&project.view(), &InferencePlanRequest::default()).unwrap();
+    assert_eq!(first.unanalyzed.files.len(), 50);
+    assert_eq!(
+        (first.unanalyzed.total, first.unanalyzed.remaining),
+        (60, 10)
+    );
+    assert_eq!(first.next_cursor, Some(50));
+
+    let second = inference_plan(
+        &project.view(),
+        &InferencePlanRequest {
+            cursor: 50,
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    assert_eq!(second.unanalyzed.files.len(), 10);
+    assert_eq!(second.unanalyzed.files[0], "src/mod_50.rs");
+    assert_eq!(second.next_cursor, None);
 }

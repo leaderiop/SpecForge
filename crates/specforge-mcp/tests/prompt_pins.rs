@@ -135,9 +135,7 @@ fn model_root_project() -> Served {
 }
 
 #[test]
-fn infer_names_the_spec_directory_spec_today() {
-    // The overview names the project's spec directory; the plan still
-    // defaults to `spec/` until the plan is a read view.
+fn infer_names_the_projects_spec_directory() {
     let mut served = model_root_project();
     let overview = infer(&mut served, json!({}));
     assert!(
@@ -148,7 +146,7 @@ fn infer_names_the_spec_directory_spec_today() {
         "{overview}"
     );
     let plan = infer(&mut served, json!({"scope": "plan"}));
-    assert_eq!(plan["plan"]["target_spec_directory"], "spec/");
+    assert_eq!(plan["plan"]["target_spec_directory"], "model/");
 }
 
 #[test]
@@ -167,7 +165,7 @@ fn infer_names_tools_two_ways_today() {
 }
 
 #[test]
-fn infer_plan_lists_kinds_in_declaration_order_today() {
+fn infer_plan_lists_unwritten_kinds_first_in_reference_order() {
     let extension = TestExtension::named("@specforge/test").declaring(|c| {
         c.kind("behavior", |k| {
             k.field("events", |f| {
@@ -191,5 +189,5 @@ fn infer_plan_lists_kinds_in_declaration_order_today() {
         .iter()
         .map(|p| p["kind"].as_str().unwrap())
         .collect();
-    assert_eq!(kinds, ["behavior", "event", "type"]);
+    assert_eq!(kinds, ["type", "event", "behavior"]);
 }

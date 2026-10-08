@@ -12,13 +12,16 @@
 //! inference session. The inference guide (what to look for to infer each
 //! kind's entities, [`guide`] and [`kind_guide`]) is a read view over the
 //! project view that the infer prompt, `specforge infer-guide` and the
-//! LSP's keyword completion render.
+//! LSP's keyword completion render. The inference plan ([`inference_plan`]:
+//! progress, paged file lists and the kinds in the order to write them) is
+//! the infer prompt's plan scope.
 
 mod discovery;
 mod gaps;
 mod guide;
 mod lint;
 mod manifest;
+mod plan;
 mod progress;
 mod session;
 
@@ -30,6 +33,9 @@ pub(crate) use manifest::read_manifest;
 pub use manifest::{
     InferenceManifest, InferenceSession, InferenceSummary, MANIFEST_FILENAME,
     MANIFEST_WRITE_FAILED, SessionStatus, SourceFileEntry,
+};
+pub use plan::{
+    FilePage, InferencePlan, InferencePlanRequest, KindPriority, MAX_LISTED_FILES, inference_plan,
 };
 pub use progress::{Progress, progress};
 pub use session::{

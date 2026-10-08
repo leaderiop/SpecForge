@@ -2,9 +2,7 @@
 //! code, by scope.
 
 use serde_json::{Value, json};
-use specforge_protocol_types::EntityKindDescriptor;
-
-use specforge_ops::infer::{self, Progress};
+use specforge_ops::infer::{self, FilePage, InferencePlanRequest};
 use specforge_ops::navigate::{anchors_of_file, source_anchors};
 
 use crate::args::Arguments;
@@ -13,9 +11,6 @@ use crate::target::Call;
 use crate::tool::{ErrorCode, McpError};
 use crate::tools::find_spec_for_source::{anchor_json, file_match_name};
 use specforge_ops::view::ProjectView;
-
-/// Maximum number of files listed per page in the plan prompt (C9-08).
-const MAX_LISTED_FILES: usize = 50;
 
 /// `specforge://prompts/infer`'s arguments.
 #[derive(Debug, Arguments)]
@@ -72,24 +67,17 @@ impl Scope {
     }
 }
 
-/// Page `files` to the window starting at `cursor`, capped at
-/// MAX_LISTED_FILES entries, with a trailing "... and K more (use the
-/// cursor param)" marker when the tail was cut (C9-08).
-fn page_files(files: &[String], cursor: usize) -> Vec<Value> {
-    let start = cursor.min(files.len());
-    let end = (start + MAX_LISTED_FILES).min(files.len());
-    let mut page: Vec<Value> = files[start..end]
-        .iter()
-        .map(|f| Value::from(f.as_str()))
-        .collect();
-    let remaining = files.len() - end;
-    if remaining > 0 {
-        page.push(Value::from(format!(
+/// A page of a file list with, when files follow it, a trailing "... and K
+/// more (use the cursor param)" marker (C9-08).
+fn page_json(page: &FilePage) -> Vec<Value> {
+    let mut files: Vec<Value> = page.files.iter().map(|f| Value::from(f.as_str())).collect();
+    if page.remaining > 0 {
+        files.push(Value::from(format!(
             "... and {} more (use the cursor param)",
-            remaining
+            page.remaining
         )));
     }
-    page
+    files
 }
 
 pub fn render(call: &Call<'_>, args: Args) -> PromptOutcome {
@@ -197,64 +185,38 @@ fn get_plan(
     target_spec_directory: Option<&str>,
     cursor: usize,
 ) -> PromptOutcome {
-    let target_spec_directory = target_spec_directory.unwrap_or("spec/");
-
-    // Nothing is planned from a specforge-infer.json that cannot be used:
-    // every mark_analyzed the plan sent the agent to make would be refused.
-    // Without a root there is nothing to count.
-    let progress = match project.root() {
-        None => Progress::none(),
-        Some(_) => specforge_ops::infer::progress(project).map_err(McpError::from)?,
+    let request = InferencePlanRequest {
+        target_spec_directory,
+        cursor,
     };
-    let (summary, unanalyzed, stale) = (progress.summary, progress.unanalyzed, progress.stale);
-
-    let kind_priorities: Vec<Value> = project
-        .registries()
-        .declarations()
+    let plan = infer::inference_plan(project, &request).map_err(McpError::from)?;
+    let summary = &plan.progress.summary;
+    let kind_priorities: Vec<Value> = plan
+        .kind_priorities
         .iter()
-        .flat_map(|d| d.entities.iter().map(move |k| (d, k)))
-        .map(|(d, k)| {
-            let keyword = keyword(k).to_string();
-            let existing_count = project
-                .graph()
-                .nodes()
-                .into_iter()
-                .filter(|n| n.kind.raw == keyword.as_str())
-                .count();
+        .map(|priority| {
             json!({
-                "kind": keyword,
-                "extension": d.name(),
-                "existing_count": existing_count,
+                "kind": priority.kind,
+                "extension": priority.extension,
+                "existing_count": priority.existing,
             })
         })
         .collect();
 
-    // File lists are capped to a page so prompt size stays bounded
-    // regardless of project size (C9-08); the remainder pages via `cursor`.
-    let unanalyzed_page = page_files(&unanalyzed, cursor);
-    let stale_page = page_files(&stale, cursor);
-    let next_cursor = if unanalyzed.len() > cursor + MAX_LISTED_FILES
-        || stale.len() > cursor + MAX_LISTED_FILES
-    {
-        Some(cursor + MAX_LISTED_FILES)
-    } else {
-        None
-    };
-
     let result = json!({
         "plan": {
-            "target_spec_directory": target_spec_directory,
+            "target_spec_directory": plan.target_spec_directory,
             "progress": {
                 "files_total": summary.files_total,
                 "files_analyzed": summary.files_analyzed,
                 "entities_produced": summary.entities_produced,
             },
-            "cursor": cursor,
-            "next_cursor": next_cursor,
-            "unanalyzed_files": unanalyzed_page,
-            "unanalyzed_total": unanalyzed.len(),
-            "stale_files": stale_page,
-            "stale_total": stale.len(),
+            "cursor": plan.cursor,
+            "next_cursor": plan.next_cursor,
+            "unanalyzed_files": page_json(&plan.unanalyzed),
+            "unanalyzed_total": plan.unanalyzed.total,
+            "stale_files": page_json(&plan.stale),
+            "stale_total": plan.stale.total,
             "kind_priorities": kind_priorities,
         }
     });
@@ -264,9 +226,7 @@ fn get_plan(
          Write .spec files to '{}'. Process files with the most entity signals first. \
          Use specforge.infer_session to track progress (start → mark_analyzed per file → end). \
          After each file, call specforge.validate to check for errors.",
-        unanalyzed.len(),
-        stale.len(),
-        target_spec_directory
+        plan.unanalyzed.total, plan.stale.total, plan.target_spec_directory
     );
 
     Ok(rendered(instruction, result))
@@ -282,12 +242,10 @@ fn get_workflow(project: &ProjectView) -> Rendered {
         "specforge.schema",
     ];
 
-    let installed_kinds: Vec<String> = project
-        .registries()
-        .declarations()
+    let installed_kinds: Vec<&str> = infer::guide(project)
+        .kinds
         .iter()
-        .flat_map(|d| d.entities.iter())
-        .map(|k| keyword(k).to_string())
+        .map(|kind| kind.keyword)
         .collect();
 
     let result = json!({
@@ -327,9 +285,4 @@ If a file has no identifiable entities, still mark it as analyzed with an empty 
 ";
 
     rendered(workflow, result)
-}
-
-/// The keyword a kind is written with: its declared keyword, else its name.
-fn keyword(kind: &EntityKindDescriptor) -> &str {
-    kind.keyword.as_deref().unwrap_or(&kind.name)
 }

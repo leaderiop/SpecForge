@@ -340,32 +340,33 @@ behavior provide_infer_kind_scope "Provide Infer Prompt Kind Scope" {
 
 behavior provide_infer_plan_scope "Provide Infer Prompt Plan Scope" {
   features [infer_plan_mode]
-  types    [InferencePlan, InferencePlanPhase]
+  types    [InferencePlan, InferenceKindPriority]
   category mcp
   ensures {
-    kinds_prioritized "entity kinds ordered by dependency (types -> behaviors -> events)"
-    zero_first        "kinds with zero existing entities get highest priority"
-    analyzed_excluded "already-analyzed files excluded when specforge-infer.json exists"
-    files_suggested   "source files grouped by relevant kind per phase"
-    placement_guided  "each phase includes target_spec_directory hint"
+    zero_first        "kinds with no existing entity come first"
+    referenced_first  "within each group a kind comes after the kinds its reference fields target"
+    analyzed_excluded "already-analyzed files are not listed as unanalyzed"
+    directory_default "the target directory defaults to the project's spec root"
+    paged             "file lists are pages of at most 50 from the cursor"
   }
   contract """
-    When specforge://prompts/infer is invoked with scope=plan, return an
-    InferencePlan with phases. Each phase targets one entity kind. Priority
-    order: (1) kinds with zero existing entities, (2) dependency order
-    (types before behaviors, behaviors before events, events before
-    invariants, ports after types). Within each phase, suggest source files
-    likely to contain that kind. Each phase includes target_spec_directory
-    (e.g., "spec/types/" for type entities) so agents know where to write.
-    If specforge-infer.json exists, exclude already-analyzed files. If
-    specforge-infer.json exists and cannot be used, the plan is refused
-    with E071.
+    When specforge://prompts/infer is invoked with scope=plan, render the
+    inference plan (specforge_ops::infer::inference_plan): the target
+    spec directory (target_spec_directory, else the project's spec root
+    relative to its root), the inference progress, the unanalyzed and
+    stale source files in pages of 50 from cursor with the cursor of the
+    next page, and the kind priorities. Kinds with no existing entity come
+    first, then the others; within each group a kind comes after the kinds
+    its reference fields target, else in declaration order, a cycle broken
+    in declaration order. The core names no kind. Already-analyzed files
+    are not unanalyzed. If specforge-infer.json exists and cannot be used,
+    the plan is refused with E071.
     Requires explicit Some("plan") match arm in prompt dispatch.
   """
-  verify unit "plan orders types before behaviors"
-  verify unit "plan prioritizes kinds with zero existing entities"
+  verify unit "plan lists kinds with no entities first, then each kind after the kinds it references"
   verify unit "plan excludes already-analyzed files"
-  verify unit "plan includes target_spec_directory per phase"
+  verify unit "plan's target directory defaults to the project's spec root"
+  verify unit "plan pages the file lists 50 at a time from the cursor"
   verify unit "plan refuses a specforge-infer.json it cannot use with E071"
 }
 

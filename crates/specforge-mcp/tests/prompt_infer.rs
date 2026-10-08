@@ -182,8 +182,11 @@ fn plan_scope_returns_kind_priorities() {
     let content: Value = prompt_payload(&resp);
     let priorities = content["plan"]["kind_priorities"].as_array().unwrap();
     assert!(!priorities.is_empty());
-    assert_eq!(priorities[0]["kind"], "behavior");
-    assert_eq!(priorities[0]["existing_count"], 1);
+    // Kinds with no entity come first: the one kind of the test extension
+    // that has an entity is last.
+    let last = priorities.last().unwrap();
+    assert_eq!(last["kind"], "behavior");
+    assert_eq!(last["existing_count"], 1);
 }
 
 #[test]
@@ -229,7 +232,10 @@ fn workflow_scope_lists_tools_and_kinds() {
     assert!(kinds.contains(&Value::from("behavior")));
 }
 
-#[test]
+#[specforge_test(
+    behavior = "provide_infer_plan_scope",
+    verify = "plan pages the file lists 50 at a time from the cursor"
+)]
 fn plan_scope_caps_file_lists_at_50() {
     let mut state = plan_state_with_sources(60);
     let content = plan_payload(&mut state, json!({"scope": "plan"}));
@@ -249,18 +255,6 @@ fn plan_scope_caps_file_lists_at_50() {
     );
     assert_eq!(content["plan"]["unanalyzed_total"], 60);
     assert_eq!(content["plan"]["next_cursor"], 50);
-}
-
-#[test]
-fn plan_scope_pages_remaining_files_via_cursor() {
-    let mut state = plan_state_with_sources(60);
-    let content = plan_payload(&mut state, json!({"scope": "plan", "cursor": 50}));
-    let files = content["plan"]["unanalyzed_files"].as_array().unwrap();
-    assert_eq!(files.len(), 10, "only the remainder is listed");
-    assert!(
-        content["plan"]["next_cursor"].is_null(),
-        "no further page exists"
-    );
 }
 
 #[test]
