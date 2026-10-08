@@ -33,7 +33,8 @@ behavior detect_format_version_mismatch "Detect Format Version Mismatch" {
     format version than the compiler expects. The detected version and the
     expected version MUST be reported as an I007 info diagnostic. The system
     MUST continue parsing with best-effort compatibility. Files without an
-    explicit format version MUST be treated as the oldest supported version.
+    explicit format version MUST be treated as the current version and
+    report nothing.
 
     A file declares its format version with a header comment
     `// specforge-format: <major>.<minor>` as its first non-blank line. The
@@ -44,10 +45,15 @@ behavior detect_format_version_mismatch "Detect Format Version Mismatch" {
     Files declaring an unsupported format version (older than previous major
     or newer than current) MUST produce an E019 diagnostic with upgrade
     guidance indicating which compiler version supports that format.
+
+    The compile reports both as ordinary diagnostics, spanned on the header
+    line, so every surface that shows a project's diagnostics (check, watch,
+    the language server, MCP) shows them; `specforge migrate` reads the
+    version with the same detection.
   """
   verify unit "older format version detected and reported as I007"
   verify unit "current format version produces no diagnostic"
-  verify unit "missing format version treated as oldest supported"
+  verify unit "missing format version treated as the current version"
   verify unit "header comment format version detected correctly"
   verify unit "unsupported format version produces E019 with upgrade guidance"
   verify contract "Detect Format Version Mismatch: format version detection holds — spec_file_available, version_mismatch_reported, unsupported_version_rejected, parsing_continues"

@@ -368,7 +368,7 @@ fn file_emission_order_independent_of_filesystem() {
 fn scoped_json_output_is_deterministic() {
     let graph = build_graph();
     let outputs: Vec<_> = (0..5)
-        .map(|_| specforge_emitter::scope::emit_json_scoped(&graph, "zebra").unwrap())
+        .map(|_| crate::support::scoped_json(&graph, "zebra").unwrap())
         .collect();
     for output in &outputs[1..] {
         assert_eq!(
@@ -386,7 +386,7 @@ fn scoped_json_output_is_deterministic() {
 fn scoped_context_output_is_deterministic() {
     let graph = build_graph();
     let outputs: Vec<_> = (0..5)
-        .map(|_| specforge_emitter::scope::emit_context_scoped(&graph, "zebra").unwrap())
+        .map(|_| crate::support::scoped_context(&graph, "zebra").unwrap())
         .collect();
     for output in &outputs[1..] {
         assert_eq!(

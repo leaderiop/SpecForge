@@ -1,23 +1,64 @@
 use serde::Serialize;
 use serde_json::Value;
 use specforge_graph::{FieldMap, FieldValue, Graph, Node};
+use std::borrow::Cow;
 use std::collections::BTreeMap;
+
+use crate::budget::TokenBudget;
+use crate::error::EmitterError;
+use crate::schema::{GraphProtocolSchema, SchemaRefBlock};
 
 /// V1 export envelope version. V1 is a frozen legacy shape; new consumers
 /// should use the V2 schema-embedded export.
 pub const SCHEMA_VERSION: &str = "0.1.0";
 
+/// The envelope every export is written in: the graph's entities as `N` and
+/// its edges, with the format and schema versions, the schema (embedded, or a
+/// reference to it) and the `token_budget` block when they apply. Field order
+/// is the wire order.
 #[derive(Serialize)]
-struct JsonGraph {
-    /// "1.0": the schemaless graph format (a schema-attached export is 2.0).
-    format_version: &'static str,
-    schema_version: &'static str,
-    nodes: Vec<JsonNode>,
-    edges: Vec<JsonEdge>,
+pub(crate) struct Export<'a, N: Serialize> {
+    /// "1.0" for the schemaless graph format, "2.0" once a schema is
+    /// attached; context and brief without a schema carry none.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub format_version: Option<&'static str>,
+    pub schema_version: Cow<'a, str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub schema: Option<&'a GraphProtocolSchema>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub schema_ref: Option<SchemaRefBlock>,
+    pub nodes: Vec<N>,
+    pub edges: Vec<JsonEdge>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub token_budget: Option<&'a TokenBudget>,
+}
+
+impl<'a, N: Serialize> Export<'a, N> {
+    /// `graph`'s edges and `nodes`, in `format_version` with no schema and no
+    /// budget block.
+    pub(crate) fn plain(
+        format_version: Option<&'static str>,
+        graph: &Graph,
+        nodes: Vec<N>,
+    ) -> Self {
+        Export {
+            format_version,
+            schema_version: Cow::Borrowed(SCHEMA_VERSION),
+            schema: None,
+            schema_ref: None,
+            nodes,
+            edges: sorted_edges(graph),
+            token_budget: None,
+        }
+    }
+
+    pub(crate) fn to_json(&self) -> Result<String, EmitterError> {
+        serde_json::to_string(self).map_err(|e| EmitterError::Serialization(e.to_string()))
+    }
 }
 
 #[derive(Serialize)]
-struct JsonNode {
+pub(crate) struct JsonNode {
     id: String,
     kind: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -25,6 +66,18 @@ struct JsonNode {
     file: String,
     line: usize,
     fields: BTreeMap<String, Value>,
+}
+
+/// `n` as the graph export writes an entity.
+pub(crate) fn graph_node(n: &Node) -> JsonNode {
+    JsonNode {
+        id: n.id.raw.to_string(),
+        kind: n.kind.raw.to_string(),
+        title: n.title.clone(),
+        file: n.source_span.file.to_string(),
+        line: n.source_span.start_line,
+        fields: field_map_to_json(&n.fields),
+    }
 }
 
 #[derive(Serialize)]
@@ -105,27 +158,10 @@ pub(crate) fn sorted_edges(graph: &Graph) -> Vec<JsonEdge> {
 }
 
 pub fn emit_json(graph: &Graph) -> String {
-    let nodes: Vec<JsonNode> = graph
-        .nodes()
-        .iter()
-        .map(|n| JsonNode {
-            id: n.id.raw.to_string(),
-            kind: n.kind.raw.to_string(),
-            title: n.title.clone(),
-            file: n.source_span.file.to_string(),
-            line: n.source_span.start_line,
-            fields: field_map_to_json(&n.fields),
-        })
-        .collect();
-
-    let output = JsonGraph {
-        format_version: "1.0",
-        schema_version: SCHEMA_VERSION,
-        nodes,
-        edges: sorted_edges(graph),
-    };
-
-    serde_json::to_string(&output).expect("graph serialization cannot fail")
+    let nodes = graph.nodes().into_iter().map(graph_node).collect();
+    Export::plain(Some("1.0"), graph, nodes)
+        .to_json()
+        .expect("graph serialization cannot fail")
 }
 
 /// The obligations as the exports write them (`[{kind, description}]`), or

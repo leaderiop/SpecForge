@@ -74,9 +74,9 @@ enum Commands {
         #[arg(long)]
         name: Option<String>,
 
-        /// Project version (defaults to 0.1.0)
-        #[arg(long)]
-        version: Option<String>,
+        /// Project version
+        #[arg(long, default_value = specforge_ops::init::DEFAULT_VERSION)]
+        version: String,
 
         /// Extensions to install
         #[arg(long)]
@@ -162,7 +162,7 @@ enum Commands {
 
         /// Token budget for the export: keeps the most central entities that
         /// fit. The schema is left out unless --with-schema is given, and
-        /// then counts toward the budget. A `graph` export lists the dropped
+        /// then counts toward the budget. The export lists the dropped
         /// entities under `token_budget`; below one entity it is the envelope
         /// with no entities, and below even that it fails (E062). Ignored by
         /// `dot`.
@@ -717,13 +717,7 @@ fn main() {
             format,
         } => {
             let path = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
-            init::run(
-                &path,
-                name.as_deref(),
-                version.as_deref(),
-                &extensions,
-                format,
-            )
+            init::run(&path, name.as_deref(), &version, &extensions, format)
         }
         Commands::Check {
             path,

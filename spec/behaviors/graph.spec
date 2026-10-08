@@ -44,7 +44,6 @@ behavior build_in_memory_graph "Build In-Memory Graph" {
   verify unit "custom bidirectional pairs suppress false-positive cycles"
   verify unit "detects cycles in directed graph"
   verify unit "detects self-referencing cycle"
-  verify unit "has_cycles returns boolean"
   verify unit "no false positives for acyclic graph"
   verify unit "same ID with different kinds does not produce E002"
 }

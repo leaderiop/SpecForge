@@ -184,7 +184,7 @@ fn init(dir: &Path, extensions: &[String]) -> specforge_ops::init::Outcome {
     let request = init::Request {
         dir,
         name: Some("demo"),
-        version: None,
+        version: init::DEFAULT_VERSION,
         extensions,
         forbid_inside: None,
     };
@@ -225,6 +225,30 @@ fn init_writes_include_gitignore_only_when_it_changed() {
         changed_since(&beside, &before),
         listed(&outcome.writes, &beside)
     );
+}
+
+#[specforge_test_macros::test(
+    behavior = "scaffold_starter_spec_file",
+    verify = "the starter spec's version is the project's"
+)]
+fn the_starter_states_the_project_version() {
+    use specforge_ops::init;
+    let scratch = TempDir::new().unwrap();
+    let starter_of = |version: &str| {
+        let request = init::Request {
+            dir: &scratch.path().join(version),
+            name: Some("demo"),
+            version,
+            extensions: &[],
+            forbid_inside: None,
+        };
+        let plan = init::plan(&request).unwrap();
+        assert_eq!(plan.config["version"], version);
+        plan.starter
+    };
+
+    assert!(starter_of("2.3.0").contains("version \"2.3.0\""));
+    assert!(starter_of(init::DEFAULT_VERSION).contains("version \"0.1.0\""));
 }
 
 #[test]
@@ -506,7 +530,7 @@ const OLD: &str = "// specforge-format: 0.9\nbehavior gamma \"Gamma\" {\n}\n";
 fn migration(root: &Path, dry_run: bool) -> specforge_ops::migrate::Request<'_> {
     specforge_ops::migrate::Request {
         root,
-        target: specforge_migrate::CURRENT_FORMAT_VERSION,
+        target: specforge_parser::CURRENT_FORMAT_VERSION,
         dry_run,
         no_backup: false,
     }
@@ -538,14 +562,19 @@ fn a_migration_writes_each_file_and_its_backup() {
 
 #[test]
 fn a_rolled_back_migration_keeps_only_its_backups() {
-    let dir = project(&[], &[("old.spec", OLD)]);
+    let dir = project(&["@t/x"], &[("old.spec", OLD)]);
     let root = dir.path();
+    specforge_installed::testing::install(root, &["@t/x"]);
     let before = files_under(root);
+    let runtime = specforge_wasm::testing::InProcessRuntime::new().with(|| {
+        let mut c = specforge_extension_sdk::ContributionsBuilder::new(
+            specforge_extension_sdk::ExtensionMeta::new("@t/x", "1.0.0"),
+        );
+        c.migration_hook_handler("hook", |_| Err("the hook failed".into()));
+        c
+    });
 
-    let outcome =
-        specforge_ops::migrate::run_with_hooks(&migration(root, false), None, &mut |_, _| {
-            (vec!["@t/x:hook".into()], vec!["the hook failed".into()])
-        });
+    let outcome = specforge_ops::migrate::run(&migration(root, false), Some(&runtime));
 
     assert!(outcome.rollback.is_some());
     assert_eq!(listed(&outcome.writes, root), ["old.spec.bak"]);

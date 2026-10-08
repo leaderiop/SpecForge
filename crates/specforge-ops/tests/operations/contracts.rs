@@ -1,5 +1,6 @@
 use specforge_common::{Diagnostic, Severity, SourceSpan, Sym};
 use specforge_graph::{Edge, Graph, Node};
+use specforge_ops::plan::PlanGapKind;
 use specforge_parser::{EntityId, EntityKind, FieldMap, FieldValue, VerifyStatement};
 use specforge_test::prelude::*;
 
@@ -255,17 +256,15 @@ fn plan_contract_validates_ids_coverage_ordering() {
 
     let result = crate::view_support::plan_check(&graph, &["behavior"], &plan);
     assert!(
-        !result.errors.is_empty(),
+        !crate::view_support::gap_texts(&result, PlanGapKind::UnresolvedEntity).is_empty(),
         "unresolvable IDs must produce errors"
     );
     assert!(
-        !result.warnings.is_empty(),
+        !crate::view_support::gap_texts(&result, PlanGapKind::MissingPlanEntry).is_empty(),
         "missing testable must produce warnings"
     );
-
-    let json = specforge_ops::plan::serialize_plan_result(&result);
-    let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
-    assert!(parsed.is_object(), "structured JSON report required");
+    let report = serde_json::to_value(&result.gaps).unwrap();
+    assert!(report.is_array(), "structured report required");
 }
 
 // === serialize_traceability_data contract ===

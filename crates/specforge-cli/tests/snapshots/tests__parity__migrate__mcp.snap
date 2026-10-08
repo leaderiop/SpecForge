@@ -29,13 +29,12 @@ expression: mcp_snap
   },
   "ok": true,
   "payload": {
-    "diagnostics": [],
     "diffs": [
       {
         "after_hash": "[SHA256]",
         "before_hash": "[SHA256]",
         "file_path": "[ROOT]/spec/old.spec",
-        "unified_text": "--- a/[ROOT]/spec/old.spec\n+++ b/[ROOT]/spec/old.spec\n@@ -1,4 +1,4 @@\n-// specforge-format: 0.1\n+// specforge-format: 1.0\n behavior old_one \"Old\" {\n   category \"core\"\n   contract \"The system MUST work\"\n"
+        "unified_text": "--- a/spec/old.spec\n+++ b/spec/old.spec\n@@ -1,4 +1,4 @@\n-// specforge-format: 0.1\n+// specforge-format: 1.0\n behavior old_one \"Old\" {\n   category \"core\"\n   contract \"The system MUST work\"\n"
       }
     ],
     "dry_run": false,

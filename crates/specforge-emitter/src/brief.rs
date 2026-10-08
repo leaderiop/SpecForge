@@ -1,42 +1,29 @@
 use serde::Serialize;
-use specforge_graph::Graph;
+use specforge_graph::{Graph, Node};
 
-use crate::json::{JsonEdge, SCHEMA_VERSION, sorted_edges};
-
-#[derive(Serialize)]
-struct BriefGraph {
-    schema_version: &'static str,
-    nodes: Vec<BriefNode>,
-    edges: Vec<JsonEdge>,
-}
+use crate::json::Export;
 
 #[derive(Serialize)]
-struct BriefNode {
+pub(crate) struct BriefNode {
     id: String,
     kind: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     title: Option<String>,
 }
 
+/// `n` as the brief export writes an entity: its id, kind and title.
+pub(crate) fn brief_node(n: &Node) -> BriefNode {
+    BriefNode {
+        id: n.id.raw.to_string(),
+        kind: n.kind.raw.to_string(),
+        title: n.title.clone(),
+    }
+}
+
 /// Emit a brief (minimal) JSON representation of the graph.
-///
-/// Returns the JSON string, or an error if serialization fails.
 pub fn emit_brief(graph: &Graph) -> String {
-    let nodes: Vec<BriefNode> = graph
-        .nodes()
-        .iter()
-        .map(|n| BriefNode {
-            id: n.id.raw.to_string(),
-            kind: n.kind.raw.to_string(),
-            title: n.title.clone(),
-        })
-        .collect();
-
-    let output = BriefGraph {
-        schema_version: SCHEMA_VERSION,
-        nodes,
-        edges: sorted_edges(graph),
-    };
-
-    serde_json::to_string(&output).expect("graph serialization cannot fail")
+    let nodes = graph.nodes().into_iter().map(brief_node).collect();
+    Export::plain(None, graph, nodes)
+        .to_json()
+        .expect("graph serialization cannot fail")
 }

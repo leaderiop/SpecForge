@@ -4,18 +4,14 @@ use std::collections::BTreeMap;
 use std::fmt;
 use std::str::FromStr;
 
+use crate::error::EmitterError;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use specforge_diagnostics::{Code, codes};
-use specforge_graph::Graph;
 use specforge_registry::{
     EdgeRegistry, FieldRegistry, FieldRegistryEntry, FieldType, KindRegistry,
 };
-
-use crate::error::EmitterError;
-
-use crate::json::{JsonEdge, field_map_to_json, sorted_edges};
 
 // ---------------------------------------------------------------------------
 // Slice 1: Schema Types
@@ -473,185 +469,6 @@ pub fn generate_schema(
         entity_kinds,
         edge_types,
     }
-}
-
-// ---------------------------------------------------------------------------
-// Slice 3: Embed Schema in Export
-// ---------------------------------------------------------------------------
-
-fn schema_block(
-    schema: &GraphProtocolSchema,
-    attach: SchemaAttachment,
-) -> (Option<GraphProtocolSchema>, Option<SchemaRefBlock>) {
-    match attach {
-        SchemaAttachment::Embedded => (Some(schema.clone()), None),
-        SchemaAttachment::Referenced => (None, Some(SchemaRefBlock::for_schema(schema))),
-    }
-}
-
-#[derive(Serialize)]
-struct JsonGraphV2 {
-    format_version: &'static str,
-    schema_version: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    schema: Option<GraphProtocolSchema>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    schema_ref: Option<SchemaRefBlock>,
-    nodes: Vec<JsonNodeV2>,
-    edges: Vec<JsonEdge>,
-}
-
-#[derive(Serialize)]
-struct JsonNodeV2 {
-    id: String,
-    kind: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    title: Option<String>,
-    file: String,
-    line: usize,
-    fields: BTreeMap<String, Value>,
-}
-
-pub(crate) fn emit_json_attached(
-    graph: &Graph,
-    schema: &GraphProtocolSchema,
-    attach: SchemaAttachment,
-) -> Result<String, EmitterError> {
-    let nodes: Vec<JsonNodeV2> = graph
-        .nodes()
-        .iter()
-        .map(|n| JsonNodeV2 {
-            id: n.id.raw.to_string(),
-            kind: n.kind.raw.to_string(),
-            title: n.title.clone(),
-            file: n.source_span.file.to_string(),
-            line: n.source_span.start_line,
-            fields: field_map_to_json(&n.fields),
-        })
-        .collect();
-
-    let (embedded, reference) = schema_block(schema, attach);
-    let output = JsonGraphV2 {
-        format_version: "2.0",
-        schema_version: schema.schema_version.to_string(),
-        schema: embedded,
-        schema_ref: reference,
-        nodes,
-        edges: sorted_edges(graph),
-    };
-
-    serde_json::to_string(&output).map_err(|e| EmitterError::Serialization(e.to_string()))
-}
-
-#[derive(Serialize)]
-struct ContextGraphV2 {
-    format_version: &'static str,
-    schema_version: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    schema: Option<GraphProtocolSchema>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    schema_ref: Option<SchemaRefBlock>,
-    nodes: Vec<ContextNodeV2>,
-    edges: Vec<JsonEdge>,
-}
-
-#[derive(Serialize)]
-struct ContextNodeV2 {
-    id: String,
-    kind: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    title: Option<String>,
-    /// The fields an extension declares `headline`, by name.
-    #[serde(flatten)]
-    headline: std::collections::BTreeMap<String, Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    verify: Option<Value>,
-    #[serde(skip_serializing_if = "std::collections::BTreeMap::is_empty")]
-    fields: std::collections::BTreeMap<String, Value>,
-}
-
-pub(crate) fn emit_context_attached(
-    graph: &Graph,
-    schema: &GraphProtocolSchema,
-    attach: SchemaAttachment,
-    registry: Option<&specforge_registry::FieldRegistry>,
-) -> Result<String, EmitterError> {
-    let nodes: Vec<ContextNodeV2> = graph
-        .nodes()
-        .iter()
-        .map(|n| {
-            let verify = crate::json::obligations_json(n);
-
-            ContextNodeV2 {
-                id: n.id.raw.to_string(),
-                kind: n.kind.raw.to_string(),
-                title: n.title.clone(),
-                headline: crate::context::headline_fields(n, registry),
-                verify,
-                fields: crate::context::normative_fields(n, registry),
-            }
-        })
-        .collect();
-
-    let (embedded, reference) = schema_block(schema, attach);
-    let output = ContextGraphV2 {
-        format_version: "2.0",
-        schema_version: schema.schema_version.to_string(),
-        schema: embedded,
-        schema_ref: reference,
-        nodes,
-        edges: sorted_edges(graph),
-    };
-
-    serde_json::to_string(&output).map_err(|e| EmitterError::Serialization(e.to_string()))
-}
-
-#[derive(Serialize)]
-struct BriefGraphV2 {
-    format_version: &'static str,
-    schema_version: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    schema: Option<GraphProtocolSchema>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    schema_ref: Option<SchemaRefBlock>,
-    nodes: Vec<BriefNodeV2>,
-    edges: Vec<JsonEdge>,
-}
-
-#[derive(Serialize)]
-struct BriefNodeV2 {
-    id: String,
-    kind: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    title: Option<String>,
-}
-
-pub(crate) fn emit_brief_attached(
-    graph: &Graph,
-    schema: &GraphProtocolSchema,
-    attach: SchemaAttachment,
-) -> Result<String, EmitterError> {
-    let nodes: Vec<BriefNodeV2> = graph
-        .nodes()
-        .iter()
-        .map(|n| BriefNodeV2 {
-            id: n.id.raw.to_string(),
-            kind: n.kind.raw.to_string(),
-            title: n.title.clone(),
-        })
-        .collect();
-
-    let (embedded, reference) = schema_block(schema, attach);
-    let output = BriefGraphV2 {
-        format_version: "2.0",
-        schema_version: schema.schema_version.to_string(),
-        schema: embedded,
-        schema_ref: reference,
-        nodes,
-        edges: sorted_edges(graph),
-    };
-
-    serde_json::to_string(&output).map_err(|e| EmitterError::Serialization(e.to_string()))
 }
 
 // ---------------------------------------------------------------------------

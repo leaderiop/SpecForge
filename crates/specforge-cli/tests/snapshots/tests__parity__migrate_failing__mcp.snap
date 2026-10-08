@@ -4,8 +4,10 @@ expression: mcp_snap
 ---
 {
   "check": {
-    "diagnostics": [],
-    "ok": true
+    "diagnostics": [
+      "Error E019"
+    ],
+    "ok": false
   },
   "config": {
     "extensions": [
@@ -30,7 +32,6 @@ expression: mcp_snap
   "payload": {
     "code": "internal_error",
     "data": {
-      "diagnostics": [],
       "diffs": [],
       "dry_run": false,
       "files_failed": 1,

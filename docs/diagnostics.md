@@ -2022,19 +2022,6 @@ Owner: @specforge/software
 Level: warning
 ```
 
-## W011
-
-```
-W011: Edge references missing node
-
-An edge was about to be added between two entities, but one or both endpoints
-don't exist in the graph, so the edge was dropped. Check the referenced entity
-IDs for typos or missing definitions.
-
-Owner: core
-Level: warning
-```
-
 ## W012
 
 ```
@@ -3172,6 +3159,7 @@ These codes are no longer emitted, and are never reused for another meaning.
 | E053 | (nothing) |
 | E060 | (nothing) |
 | I006 | (nothing) |
+| W011 | (nothing) |
 | W024 | (nothing) |
 | W025 | (nothing) |
 | W026 | (nothing) |
