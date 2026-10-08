@@ -46,7 +46,6 @@ port LspProtocol {
   method didOpen(path: string, content: string) -> Result<DiagnosticBag, ParseError>
   method didChange(path: string, changes: ContentChangeEvent[]) -> Result<DiagnosticBag, ParseError>
   method didClose(path: string) -> Result<void, never>
-  method publishDiagnostics(path: string, diagnostics: Diagnostic[]) -> Result<void, never>
   method gotoDefinition(path: string, line: integer, col: integer) -> Result<SourceSpan, ResolutionError>
   method findReferences(entityId: EntityId) -> Result<SourceSpan[], never>
   method hover(path: string, line: integer, col: integer) -> Result<HoverContent, never>

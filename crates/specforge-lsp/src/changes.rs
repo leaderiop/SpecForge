@@ -197,6 +197,7 @@ impl Plan {
             divergences: Vec::new(),
             edited: self.edited,
             touched: Vec::new(),
+            closed: false,
         };
         if let Some(changes) = &self.disk {
             if let Some(update) = session.apply(changes) {
@@ -270,6 +271,9 @@ pub struct Applied {
     pub divergences: Vec<String>,
     edited: Option<Url>,
     touched: Vec<String>,
+    /// A document was closed: the editor showed its buffer's diagnostics for this file, so the
+    /// file is published as the project reports it now, whether or not the session changed.
+    closed: bool,
 }
 
 impl Applied {
@@ -289,9 +293,12 @@ impl Applied {
 
     /// A closed document's file stops being the editor's: a project source
     /// is read from disk again (nothing to do when the disk text is what
-    /// the project holds), any other file leaves the project.
+    /// the project holds), any other file leaves the project. Either way
+    /// the file is published as the project reports it now.
     fn close(&mut self, session: &mut ProjectSession, path: &Path) {
         let key = session.source_key(path);
+        self.closed = true;
+        self.touched.push(key.clone());
         let source = session.root().is_some()
             && matches!(session.inputs().classify(path), InputRole::Source(_));
         let closed = if source {
@@ -305,7 +312,6 @@ impl Applied {
                 if disk.as_deref() != session.source_text(&key).as_deref() {
                     let update = session.update(SourceChange::Disk(std::slice::from_ref(&key)));
                     self.record(update);
-                    self.touched.push(key);
                     self.changed = true;
                 }
             }
@@ -315,7 +321,6 @@ impl Applied {
                     text: None,
                 });
                 self.record(update);
-                self.touched.push(key);
                 self.changed = true;
             }
         }
@@ -324,9 +329,9 @@ impl Applied {
     /// What to publish now ([`Publication::of`]): the last edited document
     /// is where a diagnostic about no entity goes, and every touched file
     /// without diagnostics gets an empty list. `None` when the session did
-    /// not change.
+    /// not change and no document was closed.
     pub fn publication(&self, state: &LspState) -> Option<Publication> {
-        if !self.changed {
+        if !self.changed && !self.closed {
             return None;
         }
         let compiled = Compiled::new(state);

@@ -59,6 +59,22 @@ pub fn docref_project(spec: &str) -> tempfile::TempDir {
     dir
 }
 
+/// A gadget of the docref project naming `../docs/guide.md` (from `spec/`:
+/// `docs/guide.md` under the root), which does not exist.
+pub const NAMES_GUIDE: &str = "gadget gadget_one \"G\" {\n  docs [\"../docs/guide.md\"]\n}\n";
+
+/// The `didChangeWatchedFiles` watchers of a `client/registerCapability` request.
+pub fn registered_globs(registration: &Value) -> Vec<String> {
+    registration["params"]["registrations"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|r| r["method"] == "workspace/didChangeWatchedFiles")
+        .flat_map(|r| r["registerOptions"]["watchers"].as_array().unwrap().clone())
+        .map(|w| w["globPattern"].as_str().unwrap_or_default().to_string())
+        .collect()
+}
+
 /// The codes of `diagnostics`.
 pub fn codes(diagnostics: &[Value]) -> Vec<&str> {
     diagnostics
@@ -167,13 +183,10 @@ impl Session {
 
         let root = dir.path().to_str().unwrap();
         let (mut session, init) = Self::launch(Some(root), capabilities).await;
-        // The extension-loading and the indexing log messages.
         session
-            .wait_for_notification("window/logMessage", 5000)
-            .await;
-        session
-            .wait_for_notification("window/logMessage", 5000)
-            .await;
+            .notification("$/progress", |p| p["value"]["kind"] == "end")
+            .await
+            .expect("workspace indexing never ended");
 
         let uri = uri_of(&dir.path().join(file_name));
         // Opened for diagnostic publishing (indexing already parsed it).
@@ -267,6 +280,33 @@ impl Session {
             }
             if msg.get("method").is_some() {
                 self.pending.push(msg);
+            }
+        }
+    }
+
+    /// Every message the server sends (its notifications, and its requests, answered) until one
+    /// matching `last` arrives within `wait`, that one included; what was kept before comes
+    /// first. `None` when `last` never comes.
+    pub async fn messages_until(
+        &mut self,
+        wait: Duration,
+        last: impl Fn(&Value) -> bool,
+    ) -> Option<Vec<Value>> {
+        let mut seen = std::mem::take(&mut self.pending);
+        if let Some(i) = seen.iter().position(&last) {
+            self.pending = seen.split_off(i + 1);
+            return Some(seen);
+        }
+        let deadline = tokio::time::Instant::now() + wait;
+        loop {
+            let msg = tokio::time::timeout_at(deadline, self.read()).await.ok()?;
+            if msg.get("method").is_none() {
+                continue;
+            }
+            let done = last(&msg);
+            seen.push(msg);
+            if done {
+                return Some(seen);
             }
         }
     }

@@ -252,20 +252,16 @@ impl ProjectSession {
     /// Open the project at `root`, each environment load getting its
     /// runtime from `source`.
     pub fn open_from(root: &Path, source: RuntimeSource) -> Self {
-        Self::begin_open_from(root, source).finish()
+        Self::begin_open(root, source).finish()
     }
 
-    /// The first half of [`Self::open`]: the environment loaded (config,
-    /// extensions, registries), no `.spec` file read. What needs only the
-    /// environment (the kinds and fields a keyword completion offers) is
-    /// served from [`OpeningProject::environment`] while
-    /// [`OpeningProject::finish`] reads and builds the sources.
-    pub fn begin_open(root: &Path) -> OpeningProject {
-        Self::begin_open_from(root, RuntimeSource::project())
-    }
-
-    /// [`Self::begin_open`] with the runtime `source` gives.
-    pub fn begin_open_from(root: &Path, source: RuntimeSource) -> OpeningProject {
+    /// The first half of [`Self::open_from`]: the environment loaded
+    /// (config, extensions, registries; each load getting its runtime from
+    /// `source`), no `.spec` file read. What needs only the environment (the
+    /// kinds and fields a keyword completion offers) is served from
+    /// [`OpeningProject::environment`] while [`OpeningProject::finish`]
+    /// reads and builds the sources.
+    pub fn begin_open(root: &Path, source: RuntimeSource) -> OpeningProject {
         // Everything is stamped before anything reads it (crate::freshness):
         // the config before its one read, the lock and the modules before
         // the runtime and the environment read them, the sources by `finish`.
