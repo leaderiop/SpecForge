@@ -288,6 +288,20 @@ fn init_creates_starter_spec_file() {
     assert!(!content.is_empty(), "starter spec file should not be empty");
 }
 
+#[test]
+fn init_help_states_the_default_version_from_the_constant() {
+    let help = specforge_cmd().args(["init", "-h"]).output().unwrap();
+    let text = String::from_utf8(help.stdout).unwrap();
+    assert!(
+        text.contains(&format!(
+            "[default: {}]",
+            specforge_ops::init::DEFAULT_VERSION
+        )),
+        "{text}"
+    );
+    assert!(text.contains("[default: 0.1.0]"), "{text}");
+}
+
 #[specforge_test(
     behavior = "scaffold_starter_spec_file",
     verify = "starter spec file passes specforge check with zero errors"

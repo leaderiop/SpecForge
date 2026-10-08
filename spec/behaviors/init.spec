@@ -98,6 +98,8 @@ behavior scaffold_starter_spec_file "Scaffold Starter Spec File" {
     specforge check with zero diagnostics regardless of which extensions
     are installed. This behavior delivers on Principle 8 (seconds to
     value): the user can run specforge check immediately after init.
+    The starter spec's spec block MUST state the project's version, the
+    one specforge.json records.
   """
   verify unit "starter spec file is created alongside specforge.json"
   verify unit "starter spec file passes specforge check with zero errors"
@@ -108,6 +110,7 @@ behavior scaffold_starter_spec_file "Scaffold Starter Spec File" {
   verify integration "when several enabled extensions contribute starter templates, the one listed first in specforge.json is used"
   verify integration "extension-contributed starter file passes specforge check with zero errors"
   verify integration "the software starter passes specforge check with no warnings"
+  verify unit "the starter spec's version is the project's"
   verify contract "Scaffold Starter Spec File: starter spec file scaffolding holds — config_created, filesystem_available, starter_file_created, structural_syntax_only, zero_diagnostic_pass"
 }
 

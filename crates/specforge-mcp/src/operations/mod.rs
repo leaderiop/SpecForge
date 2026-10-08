@@ -238,7 +238,7 @@ pub struct InitArgs {
     /// Project name (defaults to the directory name)
     name: Option<String>,
     /// Project version
-    #[arg(default = "0.1.0".to_string())]
+    #[arg(default = specforge_ops::init::DEFAULT_VERSION.to_string())]
     version: String,
     /// Builtin extensions to enable (e.g. @specforge/software) and local .wasm files to install
     extensions: Vec<String>,
@@ -260,7 +260,7 @@ pub(crate) fn init_op(call: &mut Call<'_>, args: InitArgs) -> Mutated {
     let request = init::Request {
         dir: &path,
         name: args.name.as_deref(),
-        version: Some(args.version.as_str()),
+        version: &args.version,
         extensions,
         forbid_inside: served.as_deref(),
     };
