@@ -29,7 +29,7 @@ impl Recording {
         let url = format!("http://{}/v1", listener.local_addr().unwrap());
         let requests = Arc::new(Mutex::new(Vec::new()));
         let log = Arc::clone(&requests);
-        let list = serde_json::json!({ "versions": versions }).to_string();
+        let list = serde_json::json!({ "name": "@acme/tool", "versions": versions }).to_string();
         std::thread::spawn(move || {
             for stream in listener.incoming() {
                 let Ok(mut stream) = stream else { continue };

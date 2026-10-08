@@ -2,59 +2,15 @@ use std::time::SystemTime;
 
 use reqwest::blocking::Client;
 use reqwest::header::{AUTHORIZATION, CONTENT_TYPE, RETRY_AFTER};
-use serde::Deserialize;
-
-use super::registry_client::{
-    RegistryClient, RegistryError, RegistryResponse, RegistrySearchResult,
+use specforge_registry_wire::{
+    ErrorBody, PackageMetadata, SearchHit, SearchQuery, SearchResults, TokenVerified, VersionList,
+    form, path,
 };
+
+use super::registry_client::{RegistryClient, RegistryError};
 use super::registry_config::{AuthMethod, RegistryConfig, RegistryCredential};
 use specforge_protocol_types::package::Version;
 use specforge_protocol_types::{ExtensionDeclaration, PackageName};
-
-#[derive(Deserialize)]
-struct PackageVersionResponse {
-    name: String,
-    version: String,
-    sha256: String,
-    wasm_url: String,
-    #[serde(default)]
-    signature: String,
-    #[serde(default)]
-    key_id: String,
-    #[serde(default)]
-    manifest: String,
-}
-
-#[derive(Deserialize)]
-struct SearchResponse {
-    results: Vec<SearchHit>,
-}
-
-#[derive(Deserialize)]
-struct SearchHit {
-    name: String,
-    version: String,
-    #[serde(default)]
-    description: String,
-}
-
-#[derive(Deserialize)]
-struct PackageVersionsResponse {
-    versions: Vec<String>,
-}
-
-#[derive(Deserialize)]
-struct ErrorResponse {
-    error: ErrorBody,
-}
-
-#[derive(Deserialize)]
-struct ErrorBody {
-    #[serde(default)]
-    #[allow(dead_code)]
-    code: String,
-    message: String,
-}
 
 pub struct HttpRegistryClient {
     client: Client,
@@ -108,7 +64,7 @@ impl HttpRegistryClient {
         registry: &RegistryConfig,
     ) -> Result<Vec<String>, RegistryError> {
         let base = Self::base_url(registry);
-        let url = format!("{}/packages/{}", base, name.url_segment());
+        let url = format!("{base}{}", path::package(name));
 
         let resp = self.client.get(&url).send().map_err(|e| {
             if e.is_timeout() {
@@ -122,10 +78,9 @@ impl HttpRegistryClient {
 
         match resp.status().as_u16() {
             200 => {
-                let body: PackageVersionsResponse =
-                    resp.json().map_err(|e| RegistryError::NetworkError {
-                        message: format!("invalid response body: {}", e),
-                    })?;
+                let body: VersionList = resp.json().map_err(|e| RegistryError::NetworkError {
+                    message: format!("invalid response body: {}", e),
+                })?;
                 Ok(body.versions)
             }
             404 => Err(RegistryError::NotFound {
@@ -137,7 +92,7 @@ impl HttpRegistryClient {
             429 => Err(rate_limited(&resp)),
             _ => {
                 let msg = resp
-                    .json::<ErrorResponse>()
+                    .json::<ErrorBody>()
                     .map(|e| e.error.message)
                     .unwrap_or_else(|_| "unknown error".to_string());
                 Err(RegistryError::NetworkError { message: msg })
@@ -188,9 +143,9 @@ impl RegistryClient for HttpRegistryClient {
         name: &PackageName,
         version: &Version,
         registry: &RegistryConfig,
-    ) -> Result<RegistryResponse, RegistryError> {
+    ) -> Result<PackageMetadata, RegistryError> {
         let base = Self::base_url(registry);
-        let url = format!("{}/packages/{}/{}", base, name.url_segment(), version);
+        let url = format!("{base}{}", path::version(name, version));
 
         let resp = self.client.get(&url).send().map_err(|e| {
             if e.is_timeout() {
@@ -204,26 +159,16 @@ impl RegistryClient for HttpRegistryClient {
 
         match resp.status().as_u16() {
             200 => {
-                let body: PackageVersionResponse =
+                let mut body: PackageMetadata =
                     resp.json().map_err(|e| RegistryError::NetworkError {
                         message: format!("invalid response body: {}", e),
                     })?;
-                let wasm_url = if body.wasm_url.starts_with('/') {
+                if body.wasm_url.starts_with('/') {
                     // the server may return a root-relative download path;
                     // resolve it against the configured registry base
-                    format!("{base}{}", body.wasm_url)
-                } else {
-                    body.wasm_url
-                };
-                Ok(RegistryResponse {
-                    name: body.name,
-                    version: body.version,
-                    wasm_url,
-                    sha256: body.sha256,
-                    signature: body.signature,
-                    key_id: body.key_id,
-                    manifest: body.manifest,
-                })
+                    body.wasm_url = format!("{base}{}", body.wasm_url);
+                }
+                Ok(body)
             }
             404 => Err(RegistryError::NotFound {
                 specifier: format!("{name}@{version}"),
@@ -237,7 +182,7 @@ impl RegistryClient for HttpRegistryClient {
             429 => Err(rate_limited(&resp)),
             _ => {
                 let msg = resp
-                    .json::<ErrorResponse>()
+                    .json::<ErrorBody>()
                     .map(|e| e.error.message)
                     .unwrap_or_else(|_| "unknown error".to_string());
                 Err(RegistryError::NetworkError { message: msg })
@@ -249,9 +194,13 @@ impl RegistryClient for HttpRegistryClient {
         &self,
         query: &str,
         registry: &RegistryConfig,
-    ) -> Result<Vec<RegistrySearchResult>, RegistryError> {
+    ) -> Result<Vec<SearchHit>, RegistryError> {
         let base = Self::base_url(registry);
-        let url = format!("{}/search?{}", base, search_query(query));
+        let url = format!(
+            "{base}{}?{}",
+            path::SEARCH,
+            SearchQuery::new(query).to_query_string()
+        );
 
         let resp = self.client.get(&url).send().map_err(|e| {
             if e.is_timeout() {
@@ -265,24 +214,15 @@ impl RegistryClient for HttpRegistryClient {
 
         match resp.status().as_u16() {
             200 => {
-                let body: SearchResponse =
-                    resp.json().map_err(|e| RegistryError::NetworkError {
-                        message: format!("invalid search response: {}", e),
-                    })?;
-                Ok(body
-                    .results
-                    .into_iter()
-                    .map(|h| RegistrySearchResult {
-                        name: h.name,
-                        version: h.version,
-                        description: h.description,
-                    })
-                    .collect())
+                let body: SearchResults = resp.json().map_err(|e| RegistryError::NetworkError {
+                    message: format!("invalid search response: {}", e),
+                })?;
+                Ok(body.results)
             }
             429 => Err(rate_limited(&resp)),
             _ => {
                 let msg = resp
-                    .json::<ErrorResponse>()
+                    .json::<ErrorBody>()
                     .map(|e| e.error.message)
                     .unwrap_or_else(|_| "search request failed".to_string());
                 Err(RegistryError::NetworkError { message: msg })
@@ -309,7 +249,7 @@ impl RegistryClient for HttpRegistryClient {
             Version::parse(declaration.version()).map_err(|why| RegistryError::InvalidPackage {
                 message: format!("'{}' is not a SemVer version: {why}", declaration.version()),
             })?;
-        let url = format!("{}/packages/{}/{}", base, name.url_segment(), version);
+        let url = format!("{base}{}", path::version(&name, &version));
 
         // Build the multipart body manually: reqwest's blocking multipart
         // wrapper can fail with a body error on large wasm parts, while an
@@ -321,38 +261,12 @@ impl RegistryClient for HttpRegistryClient {
                 .map(|d| d.as_nanos())
                 .unwrap_or(0)
         );
-        let mut body: Vec<u8> = Vec::new();
-        body.extend_from_slice(
-            format!(
-                "--{boundary}\r\nContent-Disposition: form-data; name=\"manifest\"\r\nContent-Type: application/json\r\n\r\n{manifest_json}\r\n"
-            )
-            .as_bytes(),
-        );
-        body.extend_from_slice(
-            format!(
-                "--{boundary}\r\nContent-Disposition: form-data; name=\"wasm\"; filename=\"extension.wasm\"\r\nContent-Type: application/wasm\r\n\r\n"
-            )
-            .as_bytes(),
-        );
-        body.extend_from_slice(package);
-        body.extend_from_slice(b"\r\n");
-        if let Some(sig) = signature {
-            body.extend_from_slice(
-                format!(
-                    "--{boundary}\r\nContent-Disposition: form-data; name=\"signature\"\r\n\r\n{sig}\r\n"
-                )
-                .as_bytes(),
-            );
-        }
-        body.extend_from_slice(format!("--{boundary}--\r\n").as_bytes());
+        let body = form::body(&boundary, manifest_json, package, signature);
 
         let mut request = self
             .client
             .put(&url)
-            .header(
-                reqwest::header::CONTENT_TYPE,
-                format!("multipart/form-data; boundary={boundary}"),
-            )
+            .header(CONTENT_TYPE, form::content_type(&boundary))
             .body(body);
         if let Some(credential) = credential {
             let token = Self::resolve_token(credential)?;
@@ -383,7 +297,7 @@ impl RegistryClient for HttpRegistryClient {
             }),
             status => {
                 let msg = resp
-                    .json::<ErrorResponse>()
+                    .json::<ErrorBody>()
                     .map(|e| e.error.message)
                     .unwrap_or_else(|_| format!("publish failed with status {status}"));
                 Err(RegistryError::NetworkError { message: msg })
@@ -398,7 +312,7 @@ impl RegistryClient for HttpRegistryClient {
     ) -> Result<Option<String>, RegistryError> {
         let token = Self::resolve_token(credential)?;
         let base = Self::base_url(registry);
-        let url = format!("{}/auth/verify", base);
+        let url = format!("{base}{}", path::AUTH_VERIFY);
 
         let resp = self
             .client
@@ -419,14 +333,10 @@ impl RegistryClient for HttpRegistryClient {
 
         match resp.status().as_u16() {
             200 => {
-                let body: serde_json::Value =
-                    resp.json().map_err(|e| RegistryError::NetworkError {
-                        message: format!("invalid auth response: {}", e),
-                    })?;
-                Ok(body
-                    .get("expires_at")
-                    .and_then(|v| v.as_str())
-                    .map(str::to_string))
+                let body: TokenVerified = resp.json().map_err(|e| RegistryError::NetworkError {
+                    message: format!("invalid auth response: {}", e),
+                })?;
+                Ok(body.expires_at)
             }
             401 => Err(RegistryError::Unauthorized {
                 guidance: "token is invalid or expired".to_string(),
@@ -439,17 +349,6 @@ impl RegistryClient for HttpRegistryClient {
             }),
         }
     }
-}
-
-/// Build the URL query string for a search request.
-///
-/// Uses `application/x-www-form-urlencoded` encoding so reserved characters
-/// in the query (`&`, `=`, `#`, `%`, ...) cannot change the parameter structure.
-fn search_query(query: &str) -> String {
-    form_urlencoded::Serializer::new(String::new())
-        .append_pair("q", query)
-        .append_pair("limit", "50")
-        .finish()
 }
 
 /// Fallback delay when a 429 response carries no usable `Retry-After`.
@@ -492,31 +391,6 @@ fn parse_retry_after_ms(header: Option<&str>, now: SystemTime) -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn search_query_encodes_reserved_characters() {
-        assert_eq!(search_query("a&b=c#d e"), "q=a%26b%3Dc%23d+e&limit=50");
-    }
-
-    #[test]
-    fn search_query_preserves_param_structure() {
-        let pairs: Vec<(String, String)> =
-            form_urlencoded::parse(search_query("a&b=c#d e").as_bytes())
-                .map(|(k, v)| (k.into_owned(), v.into_owned()))
-                .collect();
-        assert_eq!(
-            pairs,
-            vec![
-                ("q".to_string(), "a&b=c#d e".to_string()),
-                ("limit".to_string(), "50".to_string()),
-            ]
-        );
-    }
-
-    #[test]
-    fn search_query_plain_text_is_stable() {
-        assert_eq!(search_query("widget"), "q=widget&limit=50");
-    }
 
     #[test]
     fn retry_after_delta_seconds() {

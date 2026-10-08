@@ -25,9 +25,7 @@ pub use auth::{
 };
 pub use credentials::{CredentialStore, read_credentials, write_credentials};
 pub use http_client::HttpRegistryClient;
-pub use registry_client::{
-    RegistryClient, RegistryError, RegistryResponse, RegistrySearchResult, RetryPolicy,
-};
+pub use registry_client::{RegistryClient, RegistryError, RetryPolicy};
 pub use registry_config::{
     AuthMethod, RegistryConfig, RegistryCredential, find_registry_for, parse_registries_from_config,
 };

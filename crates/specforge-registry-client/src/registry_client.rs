@@ -3,29 +3,7 @@ use specforge_common::{Diagnostic, codes};
 use super::registry_config::{RegistryConfig, RegistryCredential};
 use specforge_protocol_types::package::Version;
 use specforge_protocol_types::{ExtensionDeclaration, PackageName};
-
-/// Response from fetching an extension package from a registry.
-#[derive(Debug, Clone)]
-pub struct RegistryResponse {
-    pub name: String,
-    pub version: String,
-    pub wasm_url: String,
-    pub sha256: String,
-    /// Wire signature object (JSON with sig/keyId/pubkey/signedAt), empty when unsigned.
-    pub signature: String,
-    /// Short publisher key id, empty when unsigned.
-    pub key_id: String,
-    /// Exact manifest JSON as published; empty when the registry does not serve it.
-    pub manifest: String,
-}
-
-/// A single search result from a registry query.
-#[derive(Debug, Clone)]
-pub struct RegistrySearchResult {
-    pub name: String,
-    pub version: String,
-    pub description: String,
-}
+use specforge_registry_wire::{PackageMetadata, SearchHit};
 
 /// Errors that can occur during registry operations.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -122,14 +100,14 @@ pub trait RegistryClient: Send + Sync {
         name: &PackageName,
         version: &Version,
         registry: &RegistryConfig,
-    ) -> Result<RegistryResponse, RegistryError>;
+    ) -> Result<PackageMetadata, RegistryError>;
 
     /// Search for extensions matching a query string.
     fn search(
         &self,
         query: &str,
         registry: &RegistryConfig,
-    ) -> Result<Vec<RegistrySearchResult>, RegistryError>;
+    ) -> Result<Vec<SearchHit>, RegistryError>;
 
     /// Publish an extension package (Wasm binary + manifest) to the registry.
     ///

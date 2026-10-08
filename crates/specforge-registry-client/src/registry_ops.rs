@@ -5,12 +5,11 @@ use std::collections::HashSet;
 use sha2::{Digest, Sha256};
 use specforge_common::{Diagnostic, codes};
 
-use super::registry_client::{
-    RegistryClient, RegistryError, RegistryResponse, RegistrySearchResult,
-};
+use super::registry_client::{RegistryClient, RegistryError};
 use super::registry_config::{RegistryConfig, RegistryCredential};
 use specforge_protocol_types::package::Version;
 use specforge_protocol_types::{ExtensionDeclaration, PackageName};
+use specforge_registry_wire::{PackageMetadata, SearchHit};
 
 /// Compute the hex-encoded SHA256 digest of the given data.
 fn hex_sha256(data: &[u8]) -> String {
@@ -29,7 +28,7 @@ pub fn resolve_from_registry(
     version: &Version,
     registry: &RegistryConfig,
     client: &dyn RegistryClient,
-) -> Result<RegistryResponse, Diagnostic> {
+) -> Result<PackageMetadata, Diagnostic> {
     client.fetch(name, version, registry).map_err(|e| {
         let mut diag = e.to_diagnostic();
         // Append retry guidance for network errors
@@ -51,7 +50,7 @@ pub fn search_registries(
     query: &str,
     registries: &[RegistryConfig],
     client: &dyn RegistryClient,
-) -> (Vec<RegistrySearchResult>, Vec<Diagnostic>) {
+) -> (Vec<SearchHit>, Vec<Diagnostic>) {
     let mut all_results = Vec::new();
     let mut diagnostics = Vec::new();
     let mut seen = HashSet::new();
@@ -198,7 +197,7 @@ pub enum TrustCheck {
 /// tampered manifest, wrong key, or metadata inconsistency between the
 /// server-extracted key id and the signature object.
 pub fn verify_package_signature(
-    response: &RegistryResponse,
+    response: &PackageMetadata,
     wasm_bytes: &[u8],
 ) -> Result<TrustCheck, Diagnostic> {
     if response.signature.is_empty() {

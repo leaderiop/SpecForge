@@ -7,18 +7,18 @@ use specforge_registry_client::registry_ops::{
     publish_to_registry, resolve_from_registry, search_registries, verify_registry_integrity,
 };
 use specforge_registry_client::{
-    AuthMethod, RegistryClient, RegistryConfig, RegistryCredential, RegistryError,
-    RegistryResponse, RegistrySearchResult, SigningKey,
+    AuthMethod, RegistryClient, RegistryConfig, RegistryCredential, RegistryError, SigningKey,
 };
+use specforge_registry_wire::{PackageMetadata, SearchHit};
 
 // ---------------------------------------------------------------------------
 // Mock client
 // ---------------------------------------------------------------------------
 
 struct MockRegistryClient {
-    fetch_results: Mutex<Vec<(String, Result<RegistryResponse, RegistryError>)>>,
+    fetch_results: Mutex<Vec<(String, Result<PackageMetadata, RegistryError>)>>,
     #[allow(clippy::type_complexity)]
-    search_results: Mutex<Vec<(String, Result<Vec<RegistrySearchResult>, RegistryError>)>>,
+    search_results: Mutex<Vec<(String, Result<Vec<SearchHit>, RegistryError>)>>,
     publish_result: Mutex<Option<Result<String, RegistryError>>>,
     publish_credentials: Mutex<Vec<Option<RegistryCredential>>>,
     publish_signatures: Mutex<Vec<Option<String>>>,
@@ -36,17 +36,13 @@ impl MockRegistryClient {
     }
 
     /// Add a fetch result keyed by registry alias.
-    fn with_fetch_for(self, alias: &str, result: Result<RegistryResponse, RegistryError>) -> Self {
+    fn with_fetch_for(self, alias: &str, result: Result<PackageMetadata, RegistryError>) -> Self {
         self.fetch_results.lock().push((alias.to_string(), result));
         self
     }
 
     /// Add a search result keyed by registry alias.
-    fn with_search_for(
-        self,
-        alias: &str,
-        result: Result<Vec<RegistrySearchResult>, RegistryError>,
-    ) -> Self {
+    fn with_search_for(self, alias: &str, result: Result<Vec<SearchHit>, RegistryError>) -> Self {
         self.search_results.lock().push((alias.to_string(), result));
         self
     }
@@ -73,7 +69,7 @@ impl RegistryClient for MockRegistryClient {
         name: &PackageName,
         version: &Version,
         registry: &RegistryConfig,
-    ) -> Result<RegistryResponse, RegistryError> {
+    ) -> Result<PackageMetadata, RegistryError> {
         let results = self.fetch_results.lock();
         for (alias, result) in results.iter() {
             if alias == &registry.alias {
@@ -89,7 +85,7 @@ impl RegistryClient for MockRegistryClient {
         &self,
         _query: &str,
         registry: &RegistryConfig,
-    ) -> Result<Vec<RegistrySearchResult>, RegistryError> {
+    ) -> Result<Vec<SearchHit>, RegistryError> {
         let results = self.search_results.lock();
         for (alias, result) in results.iter() {
             if alias == &registry.alias {
@@ -167,8 +163,8 @@ fn minimal_manifest() -> ExtensionDeclaration {
     .unwrap()
 }
 
-fn make_response(name: &str, version: &str) -> RegistryResponse {
-    RegistryResponse {
+fn make_response(name: &str, version: &str) -> PackageMetadata {
+    PackageMetadata {
         name: name.to_string(),
         version: version.to_string(),
         wasm_url: format!("https://r.specforge.dev/{name}-{version}.wasm"),
@@ -176,11 +172,12 @@ fn make_response(name: &str, version: &str) -> RegistryResponse {
         signature: String::new(),
         key_id: String::new(),
         manifest: String::new(),
+        ..Default::default()
     }
 }
 
-fn make_search_result(name: &str, version: &str, desc: &str) -> RegistrySearchResult {
-    RegistrySearchResult {
+fn make_search_result(name: &str, version: &str, desc: &str) -> SearchHit {
+    SearchHit {
         name: name.to_string(),
         version: version.to_string(),
         description: desc.to_string(),

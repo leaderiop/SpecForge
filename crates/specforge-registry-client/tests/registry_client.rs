@@ -5,10 +5,9 @@ use specforge_common::Severity;
 use specforge_protocol_types::package::Version;
 use specforge_protocol_types::{ExtensionDeclaration, PackageName};
 use specforge_registry_client::auth;
-use specforge_registry_client::registry_client::{
-    RegistryClient, RegistryError, RegistryResponse, RegistrySearchResult, RetryPolicy,
-};
+use specforge_registry_client::registry_client::{RegistryClient, RegistryError, RetryPolicy};
 use specforge_registry_client::registry_config::{AuthMethod, RegistryConfig, RegistryCredential};
+use specforge_registry_wire::{PackageMetadata, SearchHit};
 
 // ---------------------------------------------------------------------------
 // Mock client
@@ -16,8 +15,8 @@ use specforge_registry_client::registry_config::{AuthMethod, RegistryConfig, Reg
 
 /// A configurable mock that records calls and returns preset results.
 struct MockRegistryClient {
-    fetch_result: Mutex<Option<Result<RegistryResponse, RegistryError>>>,
-    search_result: Mutex<Option<Result<Vec<RegistrySearchResult>, RegistryError>>>,
+    fetch_result: Mutex<Option<Result<PackageMetadata, RegistryError>>>,
+    search_result: Mutex<Option<Result<Vec<SearchHit>, RegistryError>>>,
     publish_result: Mutex<Option<Result<String, RegistryError>>>,
     auth_results: Mutex<Vec<Result<Option<String>, RegistryError>>>,
     auth_call_count: Mutex<u32>,
@@ -34,12 +33,12 @@ impl MockRegistryClient {
         }
     }
 
-    fn with_fetch(self, result: Result<RegistryResponse, RegistryError>) -> Self {
+    fn with_fetch(self, result: Result<PackageMetadata, RegistryError>) -> Self {
         *self.fetch_result.lock().unwrap() = Some(result);
         self
     }
 
-    fn with_search(self, result: Result<Vec<RegistrySearchResult>, RegistryError>) -> Self {
+    fn with_search(self, result: Result<Vec<SearchHit>, RegistryError>) -> Self {
         *self.search_result.lock().unwrap() = Some(result);
         self
     }
@@ -66,7 +65,7 @@ impl RegistryClient for MockRegistryClient {
         _name: &PackageName,
         _version: &Version,
         _registry: &RegistryConfig,
-    ) -> Result<RegistryResponse, RegistryError> {
+    ) -> Result<PackageMetadata, RegistryError> {
         self.fetch_result
             .lock()
             .unwrap()
@@ -80,7 +79,7 @@ impl RegistryClient for MockRegistryClient {
         &self,
         _query: &str,
         _registry: &RegistryConfig,
-    ) -> Result<Vec<RegistrySearchResult>, RegistryError> {
+    ) -> Result<Vec<SearchHit>, RegistryError> {
         self.search_result
             .lock()
             .unwrap()
@@ -179,7 +178,7 @@ fn minimal_manifest() -> ExtensionDeclaration {
 // B:registry-client — verify unit "mock fetch returns expected response"
 #[test]
 fn mock_client_fetch() {
-    let client = MockRegistryClient::new().with_fetch(Ok(RegistryResponse {
+    let client = MockRegistryClient::new().with_fetch(Ok(PackageMetadata {
         name: "@specforge/software".into(),
         version: "1.0.0".into(),
         wasm_url: "https://r.specforge.dev/software-1.0.0.wasm".into(),
@@ -187,6 +186,7 @@ fn mock_client_fetch() {
         signature: String::new(),
         key_id: String::new(),
         manifest: String::new(),
+        ..Default::default()
     }));
 
     let resp = client
@@ -204,7 +204,7 @@ fn mock_client_fetch() {
 // B:registry-client — verify unit "mock search returns results"
 #[test]
 fn mock_client_search() {
-    let client = MockRegistryClient::new().with_search(Ok(vec![RegistrySearchResult {
+    let client = MockRegistryClient::new().with_search(Ok(vec![SearchHit {
         name: "@specforge/software".into(),
         version: "1.0.0".into(),
         description: "Software engineering extension".into(),

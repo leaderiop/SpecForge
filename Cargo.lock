@@ -3165,7 +3165,6 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "ed25519-dalek",
- "form_urlencoded",
  "getrandom 0.3.4",
  "hex",
  "httpdate",
@@ -3178,6 +3177,7 @@ dependencies = [
  "sha2",
  "specforge-common",
  "specforge-protocol-types",
+ "specforge-registry-wire",
  "tempfile",
 ]
 
