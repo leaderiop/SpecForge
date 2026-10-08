@@ -70,23 +70,47 @@ impl SourceCache {
     /// `spec_root`, keyed by [`source_key`]): the cold read. An unreadable
     /// one is recorded with its E025; no tree is kept (the first edit of a
     /// file parses it whole).
-    pub fn read_all(spec_root: &Path, discovered: &[PathBuf]) -> (Self, Vec<SpecFile>) {
+    ///
+    /// A `held` text (by source key) is read in place of its file: no file a
+    /// buffer holds is read. A held key discovery does not find (a new file
+    /// not yet saved) is parsed too; the caller passes only source keys.
+    pub fn read_all(
+        spec_root: &Path,
+        discovered: &[PathBuf],
+        held: &BTreeMap<String, &str>,
+    ) -> (Self, Vec<SpecFile>) {
         let mut cache = SourceCache::empty();
-        let mut files = Vec::with_capacity(discovered.len());
-        for path in discovered {
-            let key = source_key(spec_root, path);
-            match read(spec_root, &key) {
-                Read::Text(text) => {
-                    files.push(parse_incremental(&text, &key, None).0);
-                    cache.texts.insert(key, Arc::from(text));
-                }
-                Read::Unreadable(diagnostic) => {
-                    cache.unreadable.insert(key, diagnostic);
-                }
-                Read::Gone => {}
+        let mut files = Vec::with_capacity(discovered.len() + held.len());
+        let keys = discovered.iter().map(|path| source_key(spec_root, path));
+        let mut seen = std::collections::BTreeSet::new();
+        for key in keys {
+            let read = match held.get(&key) {
+                Some(text) => Read::Text((*text).to_string()),
+                None => read(spec_root, &key),
+            };
+            seen.insert(key.clone());
+            cache.add(key, read, &mut files);
+        }
+        for (key, text) in held {
+            if !seen.contains(key) {
+                cache.add(key.clone(), Read::Text((*text).to_string()), &mut files);
             }
         }
         (cache, files)
+    }
+
+    /// One cold-read source: parsed whole, or recorded unreadable.
+    fn add(&mut self, key: String, read: Read, files: &mut Vec<SpecFile>) {
+        match read {
+            Read::Text(text) => {
+                files.push(parse_incremental(&text, &key, None).0);
+                self.texts.insert(key, Arc::from(text));
+            }
+            Read::Unreadable(diagnostic) => {
+                self.unreadable.insert(key, diagnostic);
+            }
+            Read::Gone => {}
+        }
     }
 
     /// One source's new state: its parse (reusing the retained tree,
@@ -236,6 +260,26 @@ mod tests {
             assert_eq!(applied.verification, Some(Ok(())), "{text}");
             assert_eq!(cache.text("a.spec").map(|t| &**t), Some(text));
         }
+    }
+
+    /// A held text is read in place of its file: the file is never read.
+    #[test]
+    fn a_held_text_is_read_in_place_of_its_file() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("a.spec"), b"type x \"X\xff\" {}\n").unwrap();
+        let held = BTreeMap::from([
+            ("a.spec".to_string(), "type held \"H\" {}\n"),
+            ("new.spec".to_string(), "type fresh \"F\" {}\n"),
+        ]);
+        let (cache, files) = SourceCache::read_all(dir.path(), &[dir.path().join("a.spec")], &held);
+        assert_eq!(files.len(), 2);
+        assert!(files.iter().all(|f| f.entities.len() == 1));
+        assert!(cache.text("new.spec").is_some());
+        assert_eq!(
+            cache.text("a.spec").map(|t| &**t),
+            Some("type held \"H\" {}\n")
+        );
+        assert_eq!(cache.unreadable().count(), 0, "the file was never read");
     }
 
     fn unreadable(path: &str) -> Read {

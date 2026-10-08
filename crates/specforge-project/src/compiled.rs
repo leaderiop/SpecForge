@@ -2,7 +2,7 @@
 //! compile built and what it reports. A one-shot compile is one; a project
 //! session holds one and keeps it current.
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, OnceLock};
 
@@ -69,7 +69,7 @@ impl CompiledProject {
     pub fn of(env: Environment, runtime: Option<&dyn WasmRuntime>) -> Self {
         let env = Arc::new(env);
         let discovered = env.discover();
-        let mut project = CompiledProject::read(env, &discovered);
+        let mut project = CompiledProject::read(env, &discovered, &BTreeMap::new());
         let entities = project.snapshot_now();
         project.check_over(entities, runtime);
         project
@@ -164,13 +164,18 @@ impl CompiledProject {
 
     /// The cold read of `discovered` in `env` (ADR 0032's one cold
     /// pipeline, [`Environment::build_sources`]): sources read and parsed,
-    /// the graph built, the imports resolved. The checks have not run.
-    pub(crate) fn read(env: Arc<Environment>, discovered: &[PathBuf]) -> Self {
+    /// the graph built, the imports resolved. The checks have not run. A
+    /// `held` text (by source key) is read in place of its file.
+    pub(crate) fn read(
+        env: Arc<Environment>,
+        discovered: &[PathBuf],
+        held: &BTreeMap<String, &str>,
+    ) -> Self {
         let SourceBuild {
             sources,
             graph,
             imports,
-        } = env.build_sources(discovered);
+        } = env.build_sources(discovered, held);
         CompiledProject {
             env,
             sources,

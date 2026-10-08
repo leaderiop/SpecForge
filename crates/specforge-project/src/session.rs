@@ -1,5 +1,6 @@
 //! A long-lived compiled project: what watch, the LSP and MCP hold.
 
+use std::collections::BTreeMap;
 use std::path::Path;
 use std::sync::Arc;
 
@@ -199,7 +200,7 @@ impl OpeningProject {
         let discovered = self.inputs.discover();
         snapshot.stamp_all_sources(&self.inputs, &discovered);
         // What was stamped is exactly what is read.
-        let mut project = CompiledProject::read(self.env, &discovered);
+        let mut project = CompiledProject::read(self.env, &discovered, &BTreeMap::new());
         project.set_verify(cfg!(debug_assertions));
         let mut session = ProjectSession {
             project,
