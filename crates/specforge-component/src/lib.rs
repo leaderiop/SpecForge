@@ -273,7 +273,7 @@ impl ComponentRuntime {
 
     /// Register the extension loaded as `from` under `to` instead, without
     /// compiling or instantiating it again. False when `from` is not loaded.
-    pub(crate) fn rename(&self, from: &str, to: &str) -> bool {
+    pub fn rename(&self, from: &str, to: &str) -> bool {
         let Ok(mut plugins) = self.plugins.lock() else {
             return false;
         };
@@ -525,6 +525,18 @@ impl Default for ComponentRuntime {
 }
 
 impl WasmRuntime for ComponentRuntime {
+    fn load(&self, name: &str, bytes: &[u8]) -> Result<(), String> {
+        self.load_module_bytes(name, bytes)
+    }
+
+    fn rename(&self, from: &str, to: &str) -> bool {
+        ComponentRuntime::rename(self, from, to)
+    }
+
+    fn unload(&self, name: &str) -> bool {
+        ComponentRuntime::unload(self, name)
+    }
+
     fn load_module(&self, wasm_path: &Path) -> Result<(), String> {
         let bytes = std::fs::read(wasm_path).map_err(|e| e.to_string())?;
         let name = wasm_path

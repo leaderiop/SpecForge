@@ -23,6 +23,18 @@ pub struct WasmTrapInfo {
 /// cache, configured at `ComponentRuntime` construction) — it is not part of
 /// the load contract.
 pub trait WasmRuntime: Send + Sync {
+    /// Compile the component `bytes` and register it under `name`,
+    /// replacing what was loaded under it. The bytes are the ones the
+    /// caller checked: the runtime reads nothing else.
+    fn load(&self, name: &str, bytes: &[u8]) -> Result<(), String>;
+
+    /// Register what is loaded as `from` under `to` instead, without
+    /// compiling it again. False when `from` is not loaded.
+    fn rename(&self, from: &str, to: &str) -> bool;
+
+    /// Drop what is loaded as `name`. False when nothing was.
+    fn unload(&self, name: &str) -> bool;
+
     /// Load a .wasm component binary into the runtime.
     fn load_module(&self, wasm_path: &Path) -> Result<(), String>;
 
