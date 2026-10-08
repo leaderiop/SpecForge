@@ -15,13 +15,15 @@ invariant wasm_sandbox_integrity "Wasm Sandbox Integrity" {
 
 invariant extension_load_order_determinism "Extension Load Order Determinism" {
   guarantee """
-    Given the same set of installed extensions, the compiler MUST produce
-    the same topological load order on every invocation. The ordering
-    MUST be deterministic and reproducible across platforms.
+    Given the same specforge.json extensions, the compiler MUST produce
+    the same load order on every invocation and platform: the entries'
+    order, except that an extension comes after the peers it declares
+    (ADR 0041). The registry build MUST produce it, so every surface
+    reads the same order.
   """
   risk      medium
-  verify property "same extension set produces identical load order across 100 runs"
-  verify unit "load order is deterministic across different platforms"
+  verify unit "the same extensions give the same load order on every build, dependencies first"
+  verify unit "a load order given again comes back unchanged"
 }
 
 invariant peer_dependency_satisfaction "Peer Dependency Satisfaction" {

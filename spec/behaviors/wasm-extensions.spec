@@ -51,9 +51,10 @@ behavior load_extension_manifest "Load Extension Manifest" {
          and populate the kind, field and edge registries and the rules
       4. register_surface_contributions — populate SurfaceRegistry (CLI
          commands, MCP tools, MCP resources)
-    Steps 1-2 run per extension in topological order (see
-    topological_sort_extensions); steps 3-4 run once over every loaded
-    declaration, in that order.
+    Steps 1-2 run per extension in entry order (the extension load); step 3
+    puts the declarations in load order (registry_build_load_order) before
+    anything registers; steps 3-4 run once over every loaded declaration,
+    in that order.
   """
   verify unit "the declaration is read from the binary"
   verify unit "a declaration that cannot be read produces a diagnostic"

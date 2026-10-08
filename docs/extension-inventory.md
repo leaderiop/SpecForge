@@ -38,7 +38,7 @@ Extensions declare peer dependencies that control load order and enable cross-ex
                            └────────────┘ └────────────┘
 ```
 
-Load order: `product` first (no dependencies), then `software` (optionally depends on product), then `formal` and `governance` (depend on software). `testing` depends optionally on `software` and `governance`, whose kinds it makes testable; the runner extensions require `testing`.
+Load order: `product` first (no dependencies), then `software` (optionally depends on product), then `formal` and `governance` (depend on software), then `testing` (optionally depends on software and governance, whose kinds it makes testable), then the runner extensions, which require `testing`. Extensions with no peer between them keep the order `specforge.json` lists them in (ADR 0041).
 
 ## @specforge/product
 

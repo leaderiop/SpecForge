@@ -1,9 +1,9 @@
 //! One registry build: the loaded declarations in, everything the
 //! compiler derives from them out (ADR 0012).
 //!
-//! [`build_registries`] owns the order: it checks the declarations
-//! themselves (identity and shape, consistency, peers, pass order), then
-//! populates the registries, builds the rule set (the declared rules,
+//! [`build_registries`] owns the order: it puts the declarations in load
+//! order (ADR 0041), checks them (identity and shape, consistency, peers,
+//! pass order), then populates the registries, builds the rule set (the declared rules,
 //! checked and resolved, plus the host's E006 rules; ADR 0020) and
 //! registers the surfaces. Callers read [`RegistryBuild`].
 //! It is pure: no I/O, no runtime.
@@ -127,9 +127,10 @@ impl RegistryBuild {
     }
 }
 
-/// Build every registry and derived input from the loaded declarations,
-/// which come in load order (dependencies first).
-pub fn build_registries(mut declarations: Vec<ExtensionDeclaration>) -> RegistryBuild {
+/// Build every registry and derived input from the loaded declarations, given in entry order:
+/// the build puts them in load order first (ADR 0041), and everything after reads that order.
+pub fn build_registries(declarations: Vec<ExtensionDeclaration>) -> RegistryBuild {
+    let mut declarations = peers::in_load_order(declarations);
     // The declarations themselves: E030, W021, the peers' E073 and E027, then W145.
     let mut declaration_diagnostics: Vec<Diagnostic> =
         declarations.iter().flat_map(shape).collect();

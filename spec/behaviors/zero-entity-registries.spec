@@ -368,7 +368,7 @@ behavior registry_build_kinds "Registry Build Registers Kinds" {
   category   command
   types      [ExtensionDeclaration, EntityKindDescriptor, KindRegistryEntry, RegistryBuild]
   requires {
-    declarations_in_load_order "The loaded declarations are given in load order, dependencies first"
+    declarations_in_load_order "The registry build reads the loaded declarations in load order: it puts them there first, dependencies first (registry_build_load_order)"
   }
   ensures {
     kinds_registered "Every declared kind is in the build's KindRegistry under its keyword, embedding its descriptor and naming the extension that declared it"
@@ -389,8 +389,8 @@ behavior registry_build_kinds "Registry Build Registers Kinds" {
     naming both extensions. A kind declared testable that does not support
     verify statements is W017 (advisory: the kind registers); one that
     supports verify without being testable (a formal property) is not
-    reported. Load order is the loader's (topological_sort_extensions);
-    the build does not reorder.
+    reported. Load order is the build's own (registry_build_load_order):
+    an extension after the peers it declares, otherwise in entry order.
   """
   verify unit "every declared kind is registered under its keyword, naming the extension that declared it"
   verify unit "a kind's declared flags and presentation reach its registry entry"
@@ -409,7 +409,7 @@ behavior registry_build_fields "Registry Build Registers Fields" {
   category   command
   types      [ExtensionDeclaration, FieldDescriptor, FieldRegistryEntry, FieldType, RegistryBuild]
   requires {
-    declarations_in_load_order "The loaded declarations are given in load order, dependencies first"
+    declarations_in_load_order "The registry build reads the loaded declarations in load order: it puts them there first, dependencies first (registry_build_load_order)"
   }
   ensures {
     fields_registered "Every kind's declared fields, and its extension's shared fields, are in the build's FieldRegistry for that kind, embedding their descriptor"
@@ -460,7 +460,7 @@ behavior registry_build_edges "Registry Build Registers Edge Types" {
     RegistryBuild,
   ]
   requires {
-    declarations_in_load_order "The loaded declarations are given in load order, dependencies first"
+    declarations_in_load_order "The registry build reads the loaded declarations in load order: it puts them there first, dependencies first (registry_build_load_order)"
   }
   ensures {
     edge_types_registered "Every declared edge type, and every edge label a field maps to without declaring it, is in the build's EdgeRegistry"
@@ -493,7 +493,7 @@ behavior registry_build_rules "Registry Build Collects Rules" {
   category   command
   types      [ExtensionDeclaration, ValidationRulePattern, RegistryBuild]
   requires {
-    declarations_in_load_order "The loaded declarations are given in load order, dependencies first"
+    declarations_in_load_order "The registry build reads the loaded declarations in load order: it puts them there first, dependencies first (registry_build_load_order)"
   }
   ensures {
     rules_collected        "Every declared rule that parses is in the build's rules with the extension that declared it, ordered by code"
@@ -558,7 +558,7 @@ behavior registry_build_declaration_consistency "Registry Build Checks Declarati
     RegistryBuild,
   ]
   requires {
-    declarations_in_load_order "The loaded declarations are given in load order, dependencies first"
+    declarations_in_load_order "The registry build reads the loaded declarations in load order: it puts them there first, dependencies first (registry_build_load_order)"
     peers_loaded               "A declaration's peers are among the loaded declarations, or their kinds are unknown"
   }
   ensures {
@@ -643,4 +643,37 @@ behavior registry_build_peer_dependencies "Registry Build Checks Peer Dependenci
   verify unit "an extension with an unsatisfied peer still registers its kinds"
   verify integration "specforge check reports a missing required peer dependency"
   verify contract "Registry Build Checks Peer Dependencies: peer dependency checking holds — declarations_in_load_order, peers_checked, unsatisfied_failed, unreadable_failed"
+}
+
+behavior registry_build_load_order "Registry Build Orders the Extensions" {
+  features   [wasm_extension_runtime]
+  invariants [extension_load_order_determinism]
+  category   command
+  types      [ExtensionDeclaration, PeerDependency, RegistryBuild]
+  requires {
+    declarations_in_entry_order "The loaded declarations are given in the order specforge.json's extensions entries name them"
+  }
+  ensures {
+    dependencies_first "Each declaration comes after the peers it declares: every required peer, and every optional one unless its edge would close a cycle"
+    entry_order_kept   "Otherwise the declarations keep the order they were given in"
+    deterministic      "The same declarations in the same order give the same load order, and a load order given again comes back unchanged"
+  }
+  contract   """
+    The registry build MUST put the loaded declarations in load order
+    before it reads them, and every first-wins rule (E026 kinds, W018 edge
+    labels, enhancement fields, W023 rule codes, surfaces and short names)
+    and every in-order list (passes, rules, the extensions a schema names,
+    migration hooks) MUST follow it. Load order is entry order, except that
+    an extension comes after the peers it declares: every required one,
+    and an optional one unless that would close a cycle, the optional
+    edges taken in dependent-then-peer name order after the required ones.
+    The order MUST be deterministic and a load order given again MUST come
+    back unchanged (ADR 0041).
+  """
+  verify unit "a dependent listed before its peer loads after it"
+  verify unit "extensions with no peer between them keep the order they were given in"
+  verify unit "extensions naming each other as optional peers load without a cycle"
+  verify unit "a load order given again comes back unchanged"
+  verify unit "E026, W018, passes and surfaces follow the load order"
+  verify contract "Registry Build Orders the Extensions: load order holds — declarations_in_entry_order, dependencies_first, entry_order_kept, deterministic"
 }

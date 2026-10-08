@@ -1,12 +1,28 @@
-//! The registry build's half of the peer requirements (ADR 0041): what the peer rule reports of
-//! the loaded declarations.
+//! The registry build's half of the peer requirements (ADR 0041): the declarations in load order,
+//! and what the peer rule reports of them.
 
 use specforge_common::Diagnostic;
 use specforge_protocol_types::ExtensionDeclaration;
 use specforge_protocol_types::peers::{Member, Peers};
 
-/// The peer diagnostics of `declarations`: each unsatisfied peer (E073, E027), declaration by
-/// declaration.
+/// `declarations` (entry order) in load order (`Peers::load_order`).
+pub(crate) fn in_load_order(declarations: Vec<ExtensionDeclaration>) -> Vec<ExtensionDeclaration> {
+    let order = Peers::of(declarations.iter().map(Member::from))
+        .load_order()
+        .to_vec();
+    let mut slots: Vec<Option<ExtensionDeclaration>> = declarations.into_iter().map(Some).collect();
+    order
+        .into_iter()
+        .map(|i| {
+            slots[i]
+                .take()
+                .expect("a load order names each declaration once")
+        })
+        .collect()
+}
+
+/// The peer diagnostics of `declarations` (load order): each unsatisfied peer (E073, E027),
+/// declaration by declaration.
 pub(crate) fn check(declarations: &[ExtensionDeclaration]) -> Vec<Diagnostic> {
     Peers::of(declarations.iter().map(Member::from))
         .unsatisfied()

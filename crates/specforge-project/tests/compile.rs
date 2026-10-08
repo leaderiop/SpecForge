@@ -1062,3 +1062,71 @@ fn an_unpinned_lock_entry_loads_with_w149() {
         "its declaration loaded"
     );
 }
+
+/// `name`, declaring the kind `widget`, with a required peer on `peer` when given.
+fn widget_extension(
+    name: &'static str,
+    peer: Option<&'static str>,
+) -> impl Fn() -> specforge_extension_sdk::ContributionsBuilder + Send + Sync + 'static {
+    move || {
+        let mut meta = specforge_extension_sdk::ExtensionMeta::new(name, "1.0.0");
+        if let Some(peer) = peer {
+            meta.peer_dependencies = vec![specforge_extension_sdk::PeerDependency {
+                name: peer.to_string(),
+                version: "^1".to_string(),
+                optional: false,
+            }];
+        }
+        let mut c = specforge_extension_sdk::ContributionsBuilder::new(meta);
+        c.kind("Widget", |k| {
+            k.keyword("widget");
+        });
+        c
+    }
+}
+
+#[specforge_test(
+    invariant = "extension_load_order_determinism",
+    verify = "the same extensions give the same load order on every build, dependencies first"
+)]
+fn a_project_listing_a_dependent_first_loads_its_peer_first() {
+    let dir = served_project(
+        serde_json::json!({
+            "name": "p", "version": "0.1.0",
+            "extensions": ["@acme/dep", "@acme/base"]
+        }),
+        &[],
+    );
+    let runtime = specforge_wasm::testing::InProcessRuntime::new()
+        .with(widget_extension("@acme/dep", Some("@acme/base")))
+        .with(widget_extension("@acme/base", None));
+
+    let compiled = CompiledProject::compile(dir.path(), Some(&runtime));
+
+    let e026: Vec<String> = compiled
+        .diagnostics()
+        .into_iter()
+        .filter(|d| d.code == "E026")
+        .map(|d| d.message)
+        .collect();
+    assert_eq!(e026.len(), 1, "{e026:?}");
+    assert!(
+        e026[0].contains("registered by '@acme/dep' conflicts with '@acme/base'"),
+        "{e026:?}"
+    );
+    let loaded: Vec<&str> = compiled
+        .env
+        .registries
+        .declarations()
+        .iter()
+        .map(|d| d.name())
+        .collect();
+    assert_eq!(loaded, ["@acme/base", "@acme/dep"]);
+    let enabled: Vec<&str> = compiled
+        .env
+        .enabled
+        .iter()
+        .map(|e| e.name.as_str())
+        .collect();
+    assert_eq!(enabled, ["@acme/dep", "@acme/base"]);
+}
