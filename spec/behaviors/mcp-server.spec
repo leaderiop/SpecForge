@@ -156,9 +156,13 @@ behavior list_mcp_tools "List MCP Tools" {
     or the contributing extension's name. An extension tool is listed once,
     whatever category it declares, however often the project recompiles,
     with the output_schema it declares as its outputSchema.
-    Each core tool carries MCP annotations derived from the definition its
-    mutation events come from: a tool that only reads is readOnlyHint; a
-    tool that writes says whether it is destructive, idempotent and open
+    Each core tool's category and MCP annotations derive from the one
+    declaration of what it does: a tool that only reads is readOnlyHint and
+    is listed in its group (core, navigation or management); a tool that
+    writes output artifacts is listed in its group, and a tool that writes
+    its target's project files is a mutation whose outputSchema declares
+    files_written; both say whether they are destructive (they may
+    overwrite or remove), idempotent (a repeat changes nothing) and open
     world.
   """
   verify unit "returns all registered tool descriptors after extension load"
@@ -170,6 +174,7 @@ behavior list_mcp_tools "List MCP Tools" {
   verify unit "each core tool's input schema advertises exactly the arguments its handler reads"
   verify unit "every listed tool has a spec category and a source"
   verify unit "core tools are annotated: read-only tools readOnlyHint, writing tools how they write"
+  verify unit "a mutation's outputSchema declares files_written, derived from its effect"
   verify unit "an extension tool is listed once across recompiles"
   verify unit "an extension tool's declared output_schema is listed as its outputSchema"
   verify unit "a tool's path and use_cached are declared once, by its target"

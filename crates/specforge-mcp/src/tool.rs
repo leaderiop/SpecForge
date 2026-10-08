@@ -17,8 +17,21 @@ use crate::target::{Call, TargetSpec};
 use crate::types::McpToolDescriptor;
 use specforge_ops::{OpError, OpErrorKind};
 
-/// A tool's role: the spec's `McpToolCategory`. Where a tool comes from is
-/// its `source`, a separate field (ADR 0004 D4-b).
+/// The group a tool that is no mutation is listed in: the spec's
+/// `McpToolGroup`, every `McpToolCategory` but `mutation`. A core tool
+/// declares it on its effect; an extension tool's is the category it
+/// declares when that names a group, else `Core`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ToolGroup {
+    Core,
+    Navigation,
+    Management,
+}
+
+/// A tool's role as `tools/list` and `mcp_tool_invoked` name it: the spec's
+/// `McpToolCategory`. Never declared: a mutation's is `Mutation`, any other
+/// tool's its group ([`ToolSpec::category`]). Where a tool comes from is its
+/// `source`, a separate field (ADR 0004 D4-b).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Category {
     Core,
@@ -50,63 +63,92 @@ impl Category {
     }
 }
 
-/// The `source` of every core tool; an extension tool's is the
-/// extension's name.
-pub const CORE_SOURCE: &str = "core";
-
-/// What a tool does to its environment, as MCP's tool annotations say it.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Access {
-    /// It only reads: `readOnlyHint`.
-    ReadOnly,
-    /// It writes files.
-    Writes {
-        /// It may overwrite or remove what is there (`destructiveHint`).
-        destructive: bool,
-        /// Calling it again with the same arguments changes nothing more
-        /// (`idempotentHint`).
-        idempotent: bool,
-        /// It reaches beyond the project: a registry, a test runner
-        /// (`openWorldHint`).
-        open_world: bool,
-    },
-}
-
-impl Access {
-    /// The MCP `ToolAnnotations` for this access.
-    pub fn annotations(self) -> Value {
-        match self {
-            Access::ReadOnly => json!({ "readOnlyHint": true, "openWorldHint": false }),
-            Access::Writes {
-                destructive,
-                idempotent,
-                open_world,
-            } => json!({
-                "readOnlyHint": false,
-                "destructiveHint": destructive,
-                "idempotentHint": idempotent,
-                "openWorldHint": open_world,
-            }),
+impl From<ToolGroup> for Category {
+    fn from(group: ToolGroup) -> Self {
+        match group {
+            ToolGroup::Core => Category::Core,
+            ToolGroup::Navigation => Category::Navigation,
+            ToolGroup::Management => Category::Management,
         }
     }
 }
 
-/// How a tool is run: its handler, by role, and the arguments it reads
-/// ([`crate::args::Arguments::declared`] of its `Args` struct).
+/// The `source` of every core tool; an extension tool's is the
+/// extension's name.
+pub const CORE_SOURCE: &str = "core";
+
+/// How a tool that writes writes, as MCP's tool annotations say it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct WriteHints {
+    /// It may overwrite or remove what is there (`destructiveHint`); false:
+    /// it only adds.
+    pub destructive: bool,
+    /// Calling it again with the same arguments changes nothing more
+    /// (`idempotentHint`); a repeat it refuses, writing nothing, counts.
+    pub idempotent: bool,
+    /// It reaches beyond the project: a registry, a test runner
+    /// (`openWorldHint`).
+    pub open_world: bool,
+}
+
+impl WriteHints {
+    /// `{readOnlyHint: false, destructiveHint, idempotentHint, openWorldHint}`.
+    pub fn annotations(self) -> Value {
+        json!({
+            "readOnlyHint": false,
+            "destructiveHint": self.destructive,
+            "idempotentHint": self.idempotent,
+            "openWorldHint": self.open_world,
+        })
+    }
+}
+
+/// The annotations of a tool that only reads and reaches nothing beyond the
+/// project, `{readOnlyHint: true, openWorldHint: false}`: every core read.
+pub fn read_only_annotations() -> Value {
+    json!({ "readOnlyHint": true, "openWorldHint": false })
+}
+
+/// What a tool does to its environment, with the handler that does it: the
+/// one declaration its category, annotations, call target and reply's
+/// `files_written` derive from (ADR 0024, round-5 amendment).
 #[derive(Clone, Copy)]
-pub enum Handler {
-    /// Any tool but a mutation: its reply is all there is (collect and
-    /// render write output artifacts, not project sources; spec feature
-    /// `mcp_project_management_tools`).
-    Tool {
-        arguments: fn() -> Vec<Argument>,
-        run: fn(&mut Call<'_>, Value) -> ToolOutcome,
+pub enum Effect {
+    /// It only reads: `readOnlyHint`, listed in `group`.
+    Reads {
+        group: ToolGroup,
+        handler: ToolHandler,
     },
-    /// A mutation (category `mutation`): its reply and what it wrote.
-    Mutation {
-        arguments: fn() -> Vec<Argument>,
-        run: fn(&mut Call<'_>, Value) -> Mutated,
+    /// It writes output artifacts, not its target's project files (collect
+    /// writes the recorded test report, render an export): listed in
+    /// `group`, annotated with `hints`; its reply is all there is (ADR 0022).
+    WritesOutput {
+        group: ToolGroup,
+        hints: WriteHints,
+        handler: ToolHandler,
     },
+    /// It writes its target's project files: category `mutation`, annotated
+    /// with `hints`; its handler says what it wrote, which the reply lists
+    /// as `files_written` (ADR 0022).
+    Mutates {
+        hints: WriteHints,
+        handler: MutationRun,
+    },
+}
+
+/// How a tool that is no mutation runs: its handler and the arguments it
+/// reads ([`crate::args::Arguments::declared`] of its `Args` struct).
+#[derive(Clone, Copy)]
+pub struct ToolHandler {
+    pub arguments: fn() -> Vec<Argument>,
+    pub run: fn(&mut Call<'_>, Value) -> ToolOutcome,
+}
+
+/// How a mutation runs: its reply and what it wrote.
+#[derive(Clone, Copy)]
+pub struct MutationRun {
+    pub arguments: fn() -> Vec<Argument>,
+    pub run: fn(&mut Call<'_>, Value) -> Mutated,
 }
 
 /// One core tool: everything the server lists, dispatches and reports
@@ -114,21 +156,52 @@ pub enum Handler {
 pub struct ToolSpec {
     pub name: &'static str,
     pub description: &'static str,
-    pub category: Category,
-    /// What it does to its environment: the listing's annotations.
-    pub access: Access,
     /// The schema its `structuredContent` conforms to: for a tool whose
-    /// result is a JSON object.
+    /// result is a JSON object; a mutation's gains `files_written`
+    /// ([`Self::output_schema`]).
     pub output: Option<fn() -> Value>,
     /// Which project it acts on, and whether that project is brought up
     /// to date first: resolved into the call's target before the handler.
     pub target: TargetSpec,
-    /// The handler and its arguments, read from the call's `arguments`: a
-    /// [`Handler::Mutation`] exactly for the `mutation` category.
-    pub handler: Handler,
+    /// What it does, and the handler that does it.
+    pub effect: Effect,
 }
 
 impl ToolSpec {
+    /// `Mutation` for a mutation, else its effect's group.
+    pub fn category(&self) -> Category {
+        match self.effect {
+            Effect::Reads { group, .. } | Effect::WritesOutput { group, .. } => group.into(),
+            Effect::Mutates { .. } => Category::Mutation,
+        }
+    }
+
+    /// `read_only_annotations()` for `Reads`, else its hints' annotations.
+    pub fn annotations(&self) -> Value {
+        match self.effect {
+            Effect::Reads { .. } => read_only_annotations(),
+            Effect::WritesOutput { hints, .. } | Effect::Mutates { hints, .. } => {
+                hints.annotations()
+            }
+        }
+    }
+
+    /// Whether it writes its target's project files (`Effect::Mutates`).
+    pub fn is_mutation(&self) -> bool {
+        matches!(self.effect, Effect::Mutates { .. })
+    }
+
+    /// `output`, with the `files_written` property for a mutation
+    /// ([`crate::mutation::files_written_schema`]).
+    pub fn output_schema(&self) -> Option<Value> {
+        let mut schema = (self.output?)();
+        if self.is_mutation() {
+            schema["properties"][crate::mutation::FILES_WRITTEN] =
+                crate::mutation::files_written_schema();
+        }
+        Some(schema)
+    }
+
     /// The input schema `tools/list` lists: the handler's arguments, then
     /// the target's, and no other property ([`crate::args::input_schema`]).
     pub fn input_schema(&self) -> Value {
@@ -137,8 +210,11 @@ impl ToolSpec {
 
     /// The handler's declared arguments, in field order.
     pub fn arguments(&self) -> Vec<Argument> {
-        match self.handler {
-            Handler::Tool { arguments, .. } | Handler::Mutation { arguments, .. } => arguments(),
+        match self.effect {
+            Effect::Reads { handler, .. } | Effect::WritesOutput { handler, .. } => {
+                (handler.arguments)()
+            }
+            Effect::Mutates { handler, .. } => (handler.arguments)(),
         }
     }
 
@@ -164,10 +240,10 @@ impl ToolSpec {
             name: self.name.into(),
             description: self.description.into(),
             input_schema: self.input_schema(),
-            output_schema: self.output.map(|schema| schema()),
-            category: Some(self.category.as_str().into()),
+            output_schema: self.output_schema(),
+            category: Some(self.category().as_str().into()),
             source: Some(CORE_SOURCE.into()),
-            annotations: Some(self.access.annotations()),
+            annotations: Some(self.annotations()),
         }
     }
 }

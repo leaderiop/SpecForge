@@ -195,37 +195,24 @@ fn every_listed_tool_has_a_spec_category_and_a_source() {
     verify = "core tools are annotated: read-only tools readOnlyHint, writing tools how they write"
 )]
 fn core_tool_annotations_follow_what_each_tool_does() {
-    use specforge_mcp::tool::{Access, Category, Handler};
+    use specforge_mcp::tool::{Category, Effect, read_only_annotations};
     let (_server, tools) = tools_with_an_extension();
     for spec in specforge_mcp::tools::CORE_TOOLS {
-        // One definition: a mutation is exactly a tool with a mutation
-        // handler (it says what it wrote), and it writes.
-        let mutation = matches!(spec.handler, Handler::Mutation { .. });
-        assert_eq!(
-            mutation,
-            spec.category == Category::Mutation,
-            "{}",
-            spec.name
-        );
-        if mutation {
-            assert_ne!(spec.access, Access::ReadOnly, "{}", spec.name);
-        }
         let listed = tools.iter().find(|t| t["name"] == spec.name).unwrap();
-        let hints = &listed["annotations"];
-        match spec.access {
-            Access::ReadOnly => {
-                assert_eq!(hints["readOnlyHint"], true, "{listed}");
-                assert_eq!(hints["openWorldHint"], false, "{listed}");
+        // One declaration: the listing is what the effect derives.
+        assert_eq!(listed["category"], spec.category().as_str(), "{listed}");
+        assert_eq!(listed["annotations"], spec.annotations(), "{listed}");
+        match spec.effect {
+            Effect::Reads { .. } => {
+                assert_eq!(spec.annotations(), read_only_annotations(), "{listed}");
             }
-            Access::Writes {
-                destructive,
-                idempotent,
-                open_world,
-            } => {
-                assert_eq!(hints["readOnlyHint"], false, "{listed}");
-                assert_eq!(hints["destructiveHint"], destructive, "{listed}");
-                assert_eq!(hints["idempotentHint"], idempotent, "{listed}");
-                assert_eq!(hints["openWorldHint"], open_world, "{listed}");
+            Effect::WritesOutput { .. } => {
+                assert_ne!(spec.category(), Category::Mutation, "{listed}");
+                assert_eq!(listed["annotations"]["readOnlyHint"], false, "{listed}");
+            }
+            Effect::Mutates { .. } => {
+                assert_eq!(listed["category"], "mutation", "{listed}");
+                assert_eq!(listed["annotations"]["readOnlyHint"], false, "{listed}");
             }
         }
     }
@@ -239,6 +226,25 @@ fn core_tool_annotations_follow_what_each_tool_does() {
     // An extension declares no annotations: none are made up for it.
     let extension = tools.iter().find(|t| t["name"] == "specforge.cmds.check");
     assert!(extension.unwrap().get("annotations").is_none());
+}
+
+#[specforge_test(
+    behavior = "list_mcp_tools",
+    verify = "a mutation's outputSchema declares files_written, derived from its effect"
+)]
+fn a_mutations_output_schema_lists_files_written() {
+    for spec in specforge_mcp::tools::CORE_TOOLS {
+        let Some(schema) = spec.output_schema() else {
+            assert!(!spec.is_mutation(), "{} declares no output", spec.name);
+            continue;
+        };
+        assert_eq!(
+            schema["properties"].get("files_written").is_some(),
+            spec.is_mutation(),
+            "{}",
+            spec.name
+        );
+    }
 }
 
 #[specforge_test(

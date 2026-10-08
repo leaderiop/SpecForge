@@ -22,6 +22,12 @@ use crate::tool::{IntoOutcome, McpError, ToolOutcome};
 /// target's root (absolute outside it), sorted.
 pub const FILES_WRITTEN: &str = "files_written";
 
+/// The output-schema property every mutation reply that wrote carries: the
+/// files it wrote, relative to the project root.
+pub(crate) fn files_written_schema() -> Value {
+    json!({ "type": "array", "items": { "type": "string" }, "description": "The files the call created, rewrote or removed, relative to the project root (absolute outside it); absent from a preview" })
+}
+
 /// What one mutation call wrote.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Written {
