@@ -558,6 +558,25 @@ fn extension(
     }
 }
 
+/// Pinned until T5 (ADR 0041): a cycle among required peers fails the hooks.
+#[test]
+fn pin_a_required_peer_cycle_fails_the_hooks() {
+    let dir = project_enabling(&["@acme/a", "@acme/b"]);
+    let runtime = InProcessRuntime::new()
+        .with(extension("@acme/a", "migrate_a", &["@acme/b"], |_| Ok(())))
+        .with(extension("@acme/b", "migrate_b", &["@acme/a"], |_| Ok(())));
+
+    let outcome = run(&request(dir.path()), Some(&runtime));
+
+    assert_eq!(
+        outcome.hook_failures,
+        ["cycle detected in peer dependencies: @acme/a, @acme/b"]
+    );
+    assert!(outcome.hooks_invoked.is_empty(), "{outcome:?}");
+    assert!(outcome.rollback.is_some(), "{outcome:?}");
+    assert!(!outcome.ok());
+}
+
 /// A project enabling `extensions`, with one file at the old format version.
 fn project_enabling(extensions: &[&str]) -> tempfile::TempDir {
     let dir = project();

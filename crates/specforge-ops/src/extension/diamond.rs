@@ -225,6 +225,34 @@ mod tests {
         assert_eq!(err.code, "E063");
     }
 
+    /// Pinned until T6 (ADR 0041): a candidate's malformed range passes the gate.
+    #[test]
+    fn pin_a_malformed_candidate_range_passes_the_gate() {
+        assert_eq!(
+            check_diamonds(
+                &lock(">=1.0.0"),
+                "@acme/app",
+                &[peer("@acme/base", "one-ish")],
+                &offline
+            ),
+            Ok(())
+        );
+    }
+
+    /// Pinned until T6: a requirer's malformed range is R-RES-003 in unify.
+    #[test]
+    fn pin_a_malformed_requirer_range_is_r_res_003() {
+        let err = check_diamonds(
+            &lock("one-ish"),
+            "@acme/app",
+            &[peer("@acme/base", "^2.0")],
+            &published,
+        )
+        .unwrap_err();
+        assert_eq!(err.code, "R-RES-003");
+        assert!(err.message.contains("'@acme/other'"), "{err:?}");
+    }
+
     fn versions(vs: &[&str]) -> Vec<String> {
         vs.iter().map(|v| v.to_string()).collect()
     }

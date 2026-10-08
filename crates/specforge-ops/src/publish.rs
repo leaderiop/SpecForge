@@ -245,6 +245,21 @@ mod tests {
         assert_eq!(error.code, "E028", "{error:?}");
     }
 
+    /// Pinned until T2 (ADR 0041): publish never sees a malformed peer range.
+    #[test]
+    fn pin_publish_accepts_a_malformed_peer_range() {
+        let mut declaration = prepare(greet()).unwrap().declaration;
+        declaration
+            .handshake
+            .peer_dependencies
+            .push(PeerDependency {
+                name: "@acme/base".to_string(),
+                version: "one-ish".to_string(),
+                optional: false,
+            });
+        assert!(check(&declaration, Vec::new()).is_ok());
+    }
+
     #[test]
     fn a_crate_directory_names_its_built_component() {
         let dir = tempfile::tempdir().unwrap();

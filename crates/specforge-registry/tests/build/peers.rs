@@ -181,6 +181,36 @@ fn a_malformed_peer_range_or_installed_version_is_w062() {
     );
 }
 
+/// Pinned until T2 (ADR 0041): a malformed range on a missing peer is judged
+/// as a missing peer.
+#[test]
+fn pin_a_malformed_range_on_a_missing_peer_is_e027() {
+    let build = build([versioned(
+        "@t/bad",
+        "1.0.0",
+        vec![peer("@t/base", "one-ish")],
+    )]);
+    assert_eq!(codes(&build), ["E027"]);
+    assert!(
+        coded(&build, "E027")[0]
+            .message
+            .ends_with("'@t/base' one-ish which is not installed"),
+        "{:?}",
+        diagnostics(&build)
+    );
+}
+
+/// Pinned until T2: a malformed range on an absent optional peer is silent.
+#[test]
+fn pin_a_malformed_range_on_an_absent_optional_peer_is_silent() {
+    let build = build([versioned(
+        "@t/bad",
+        "1.0.0",
+        vec![optional_peer("@t/base", "one-ish")],
+    )]);
+    assert!(diagnostics(&build).is_empty(), "{:?}", diagnostics(&build));
+}
+
 #[spec(
     behavior = "registry_build_peer_dependencies",
     verify = "an extension with an unsatisfied peer still registers its kinds"

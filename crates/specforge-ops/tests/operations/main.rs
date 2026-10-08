@@ -17,6 +17,7 @@ mod migrate;
 mod model;
 mod navigate;
 mod options;
+mod peers;
 mod plan;
 mod query;
 mod schema;
