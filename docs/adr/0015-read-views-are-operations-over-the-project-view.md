@@ -26,7 +26,7 @@ adapters. Architecture plan 02 makes it the pattern for every read view.
 `RegistryBuild` (kinds, fields, edges, rules, the extension declarations and their ordered passes,
 ADR 0012), the root the project was compiled from, and its owner's coverage memo. Three constructors: `ProjectView::of(&CompiledProject)`
 (the CLI), `ProjectView::of_session(&ProjectSession, root)` (the LSP), `ProjectView::new` (tests and
-graphs built in memory; an extension command runs over `ProjectView::of` in the CLI too, ADR 0011 "One operation runs a command"); MCP builds every view through `ProjectRef::view()` of its call target (ADR
+graphs built in memory; an extension command runs over `ProjectView::of` in the CLI too, ADR 0011 "One operation runs a command"); *(ADR 0047: two. `ProjectView::of` takes a one-shot compile or a session's compiled project (`ProjectSession::project`); `of_session` is gone.)* MCP builds every view through `ProjectRef::view()` of its call target (ADR
 0014), or `Call::view()` for a call that may have no project. The view owns the recorded test
 report (`test_report`), the coverage computed from it (`coverage`) and the versioned schema
 (`versioned_schema`, `schema_cache`).
@@ -58,7 +58,7 @@ has one coverage-row presenter (`tools::coverage::row_json`) and one gap present
   (`specforge-project`) holds the parsed report and the coverage computed from it, keyed on the
   report's path and a hash of its bytes: one file read per call, no parse and no assessment of every
   entity when nothing changed. mtime is not the key (a rewrite within the same second would be
-  missed). A `CompiledProject` and a `ProjectSession` each own one; the session starts a fresh one on
+  missed). A `CompiledProject` and a `ProjectSession` each own one; *(ADR 0047: the compiled project owns it, one-shot or a session's.)* the session starts a fresh one on
   every update, re-check and reload, and MCP replaces its session when it serves a graph built in
   memory, so no invalidation can be forgotten. Errors are never memoized. The versioned schema is
   not memoized: it is a function of the registries and one small file, and its formats are the
