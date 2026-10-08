@@ -422,7 +422,7 @@ impl<'s> Call<'s> {
                 Ok(ProjectRef {
                     root,
                     runtime,
-                    view: ProjectView::of_session(session, Some(root))
+                    view: ProjectView::of(session.project())
                         .also_reporting(self.state.surfaces().diagnostics()),
                 })
             }
@@ -451,7 +451,7 @@ impl<'s> Call<'s> {
     pub fn view(&self) -> ProjectView<'_> {
         match self.project() {
             Ok(project) => project.view(),
-            Err(_) => ProjectView::of_session(self.state.session(), None)
+            Err(_) => ProjectView::of(self.state.session().project())
                 .also_reporting(self.state.surfaces().diagnostics()),
         }
     }

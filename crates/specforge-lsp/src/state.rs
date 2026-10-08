@@ -251,7 +251,7 @@ impl LspState {
     /// root.
     pub fn view(&self) -> ProjectView<'_> {
         match &self.project {
-            Project::Held(session) => ProjectView::of_session(session, session.project().root()),
+            Project::Held(session) => ProjectView::of(session.project()),
             Project::Out(stand_in) => {
                 ProjectView::new(&stand_in.graph, &stand_in.env, None, &stand_in.recorded)
             }

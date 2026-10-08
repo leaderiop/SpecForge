@@ -1,9 +1,9 @@
 //! The project view: what every operation over a compiled project reads
 //! (CONTEXT.md "Project view", ADR 0015).
 //!
-//! A surface builds one from the project it holds, however it holds it (a
-//! [`CompiledProject`] in the CLI, a [`ProjectSession`] in MCP and the LSP)
-//! and hands it to an operation; the operation returns a typed outcome the
+//! A surface builds one from the compiled project it holds (a one-shot
+//! compile in the CLI, a project session's in MCP and the LSP,
+//! `ProjectSession::project`) and hands it to an operation; the operation returns a typed outcome the
 //! surface only renders. The view borrows the environment the project was
 //! compiled in and says what its surface reports for the project. It owns
 //! the project's recorded test report and the coverage computed from it,
@@ -21,7 +21,7 @@ use specforge_graph::Graph;
 use specforge_installed::{Installed, LockState};
 use specforge_project::coverage::{ProjectCoverage, Recorded, RecordedCoverage, TestReport};
 use specforge_project::snapshot::EntitySnapshot;
-use specforge_project::{CompiledProject, Environment, ProjectSession};
+use specforge_project::{CompiledProject, Environment};
 use specforge_registry::RegistryBuild;
 
 pub use kinds::{KnownKinds, UNKNOWN_KIND};
@@ -57,10 +57,9 @@ pub struct ProjectView<'a> {
 /// an operation needs them.
 #[derive(Clone, Copy)]
 enum Reported<'a> {
-    /// A one-shot compile: what `specforge check` reports for it.
+    /// A compiled project, one-shot or a session's: what `specforge check`
+    /// reports for it.
     Compiled(&'a CompiledProject),
-    /// A project session: what a fresh compile reports.
-    Session(&'a ProjectSession),
     /// A listed slice: a graph built in memory, a test.
     Listed(&'a [Diagnostic]),
 }
@@ -86,31 +85,18 @@ impl<'a> ProjectView<'a> {
         }
     }
 
-    /// The view of a compiled project, rooted where it was compiled; it
-    /// reports what `specforge check` reports for it.
+    /// The view of a compiled project (a one-shot compile, or a session's
+    /// `ProjectSession::project`), rooted where it was compiled (none for
+    /// a detached project); it reports what `specforge check` reports for
+    /// it.
     pub fn of(project: &'a CompiledProject) -> Self {
         ProjectView {
             reported: Reported::Compiled(project),
             ..Self::new(
                 project.graph(),
                 project.environment(),
-                Some(&project.environment().root),
+                project.root(),
                 project.recorded(),
-            )
-        }
-    }
-
-    /// The view of a session's graph and environment, rooted at `root`
-    /// (MCP: its call target's; the LSP: the session's); it reports the
-    /// session's diagnostics.
-    pub fn of_session(session: &'a ProjectSession, root: Option<&'a Path>) -> Self {
-        ProjectView {
-            reported: Reported::Session(session),
-            ..Self::new(
-                session.project().graph(),
-                session.project().environment(),
-                root,
-                session.project().recorded(),
             )
         }
     }
@@ -184,7 +170,6 @@ impl<'a> ProjectView<'a> {
     pub fn reported(&self) -> Vec<Diagnostic> {
         let mut diagnostics = match self.reported {
             Reported::Compiled(project) => project.diagnostics(),
-            Reported::Session(session) => session.project().diagnostics(),
             Reported::Listed(listed) => listed.to_vec(),
         };
         diagnostics.extend(self.also_reported.iter().cloned());
@@ -447,6 +432,7 @@ pub(crate) mod testing {
 mod tests {
     use super::*;
     use specforge_common::{Severity, codes};
+    use specforge_project::ProjectSession;
     use specforge_test_macros::test as specforge_test;
 
     #[specforge_test(
@@ -489,7 +475,7 @@ mod tests {
     fn a_view_of_a_session_is_the_view_of_its_compiled_project() {
         // A detached session: no root, nothing reported, no project on disk.
         let detached = ProjectSession::detached();
-        let view = ProjectView::of_session(&detached, detached.project().root());
+        let view = ProjectView::of(detached.project());
         assert_eq!(view.root(), None);
         assert!(view.reported().is_empty());
         assert_eq!(view.project_root().unwrap_err().code, "no_project");
@@ -504,13 +490,13 @@ mod tests {
         .unwrap();
         let opened = ProjectSession::open_with_runtime(dir.path(), None);
         let compiled = CompiledProject::compile(dir.path(), None);
-        let (of_session, of) = (
-            ProjectView::of_session(&opened, opened.project().root()),
+        let (held, of) = (
+            ProjectView::of(opened.project()),
             ProjectView::of(&compiled),
         );
-        assert_eq!(of_session.root(), of.root());
-        assert_eq!(of_session.reported(), of.reported());
-        assert_eq!(of_session.entities().len(), of.entities().len());
+        assert_eq!(held.root(), of.root());
+        assert_eq!(held.reported(), of.reported());
+        assert_eq!(held.entities().len(), of.entities().len());
     }
 
     #[specforge_test(
