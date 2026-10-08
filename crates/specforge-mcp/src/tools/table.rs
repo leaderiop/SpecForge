@@ -539,7 +539,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         name: "specforge.doctor",
         description: "Run health checks",
         output: Some(
-            || json!({ "type": "object", "properties": { "extensions_ok": { "type": "boolean" }, "conflicts": { "type": "array" }, "cache_status": { "type": "string" }, "findings": { "type": "array" }, "installed_count": { "type": "integer" }, "extensions": { "type": "array" }, "enhancements": { "type": "object" }, "shadowed": { "type": "array" }, "load_failures": { "type": "array" }, "issues": { "type": "array" }, "z3_available": { "type": "boolean" } }, "required": ["extensions_ok", "conflicts", "installed_count", "issues", "load_failures"] }),
+            || json!({ "type": "object", "properties": { "ok": { "type": "boolean" }, "extensions_ok": { "type": "boolean" }, "conflicts": { "type": "array" }, "cache_status": { "type": "string" }, "findings": { "type": "array" }, "installed_count": { "type": "integer" }, "extensions": { "type": "array" }, "enhancements": { "type": "object" }, "z3_available": { "type": "boolean" } }, "required": ["ok", "extensions_ok", "conflicts", "cache_status", "findings"] }),
         ),
         effect: Effect::Reads {
             group: ToolGroup::Management,

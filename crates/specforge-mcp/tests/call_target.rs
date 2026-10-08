@@ -223,7 +223,13 @@ fn doctor_use_cached_reports_the_last_compile() {
     let load_failures = |server: &mut McpServer, arguments: Value| -> Vec<Value> {
         let resp = call_tool(server, "specforge.doctor", arguments);
         let report: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
-        report["load_failures"].as_array().unwrap().clone()
+        report["findings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|f| f["about"] == "load")
+            .cloned()
+            .collect()
     };
     let cached = load_failures(&mut server, json!({"use_cached": true}));
     assert!(cached.is_empty(), "{cached:?}");

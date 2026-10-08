@@ -73,14 +73,14 @@ type McpResourceDescriptor {
 }
 
 type McpToolDescriptor {
-  name          string             @readonly
+  name          string          @readonly
   description   string
   input_schema  JsonSchema
-  output_schema JsonSchema         @optional
+  output_schema JsonSchema      @optional
   /// The tool's role, never where it comes from.
-  category      McpToolCategory    @optional
+  category      McpToolCategory @optional
   /// "core" for built-in tools, extension name for contributed tools
-  source        string             @optional
+  source        string          @optional
   /// MCP ToolAnnotations: what the tool does to its environment.
   annotations   McpToolAnnotations
   verify unit "McpToolDescriptor schema is valid"
@@ -280,18 +280,28 @@ type McpProviderInfo {
 }
 
 type McpDoctorFinding {
+  /// What the finding is about: config, lock, binary, load, conflict, shadowing, peer or toolchain.
+  about       "config" | "lock" | "binary" | "load" | "conflict" | "shadowing" | "peer" | "toolchain"
   check       string
   status      "ok" | "warn" | "error"
   code        string
   remediation string @optional
+  /// A binary finding's issue (missing_binary or stale_hash and its fields).
+  issue       object @optional
+  /// A shadowing finding's keyword.
+  keyword     string @optional
   verify unit "McpDoctorFinding schema is valid"
 }
 
 type McpDoctorReport {
-  extensions_ok boolean
-  conflicts     string[]
-  cache_status  string
-  findings      McpDoctorFinding[]
+  /// The report's verdict: no error-level finding (specforge doctor exits 1 without it).
+  ok              boolean
+  extensions_ok   boolean
+  conflicts       string[]
+  cache_status    string
+  installed_count integer
+  z3_available    boolean
+  findings        McpDoctorFinding[]
   verify unit "McpDoctorReport schema is valid"
 }
 

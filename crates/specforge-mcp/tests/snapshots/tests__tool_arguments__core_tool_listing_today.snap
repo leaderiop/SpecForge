@@ -1711,25 +1711,19 @@ expression: listing
         "installed_count": {
           "type": "integer"
         },
-        "issues": {
-          "type": "array"
-        },
-        "load_failures": {
-          "type": "array"
-        },
-        "shadowed": {
-          "type": "array"
+        "ok": {
+          "type": "boolean"
         },
         "z3_available": {
           "type": "boolean"
         }
       },
       "required": [
+        "ok",
         "extensions_ok",
         "conflicts",
-        "installed_count",
-        "issues",
-        "load_failures"
+        "cache_status",
+        "findings"
       ],
       "type": "object"
     },

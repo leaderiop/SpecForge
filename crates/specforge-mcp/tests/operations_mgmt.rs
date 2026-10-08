@@ -622,10 +622,17 @@ fn doctor_reports_an_extension_that_fails_to_load() {
         finding(&tampered, "E070").is_none(),
         "listed once: {tampered}"
     );
-    let failures = tampered["load_failures"].as_array().unwrap();
-    assert_eq!(failures.len(), 1, "{tampered}");
-    assert_eq!(failures[0]["code"], "E070", "{tampered}");
-    assert_eq!(failures[0]["binary_issue"], true, "{tampered}");
+    assert_eq!(stale["about"], "binary", "{tampered}");
+    assert_eq!(stale["issue"]["status"], "stale_hash", "{tampered}");
+    assert!(
+        tampered["findings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|f| f["about"] != "load"),
+        "{tampered}"
+    );
+    assert_eq!(tampered["ok"], false, "{tampered}");
     assert_eq!(tampered["extensions_ok"], false, "{tampered}");
 
     // Enabled but not installed at all: no lock entry, nothing for the

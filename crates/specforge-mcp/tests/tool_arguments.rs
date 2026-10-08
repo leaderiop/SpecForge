@@ -493,9 +493,15 @@ fn a_target_argument_is_read_by_its_type() {
         r#"{"name":"t","version":"0.1.0","extensions":["@specforge/software","@acme/missing"]}"#,
     );
     let load_failures = |served: &mut Served, arguments: Value| -> Vec<Value> {
-        tool("specforge.doctor", served, arguments)["load_failures"]
+        tool("specforge.doctor", served, arguments)["findings"]
             .as_array()
-            .cloned()
+            .map(|findings| {
+                findings
+                    .iter()
+                    .filter(|f| f["about"] == "load")
+                    .cloned()
+                    .collect()
+            })
             .unwrap_or_default()
     };
     let cached = load_failures(&mut served, json!({"use_cached": "true"}));

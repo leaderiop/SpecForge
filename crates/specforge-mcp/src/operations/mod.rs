@@ -593,24 +593,11 @@ pub(crate) fn providers_op(project: &ProjectRef<'_>, _args: NoArgs) -> ToolOutco
 pub(crate) fn doctor_op(project: &ProjectRef<'_>, _args: NoArgs) -> ToolOutcome {
     // The target brought the project up to date with disk unless the
     // caller opted into the last compile (`use_cached`, ADR 0004 D3-d).
-    // The same report `specforge doctor` prints, as the spec's
-    // McpDoctorReport plus its sections. Credential health is the user's,
-    // not the project's: only the CLI reports it.
+    // The same report `specforge doctor` prints (`DoctorReport::to_json`), as
+    // the spec's McpDoctorReport. Credential health is the user's, not the
+    // project's: only the CLI reports it.
     let report = specforge_ops::doctor::diagnose(&project.view());
-    ok(json!({
-        "extensions_ok": report.extensions_ok(),
-        "conflicts": report.conflict_messages(),
-        "cache_status": report.cache_status,
-        "findings": report.findings,
-        "installed_count": report.extensions_checked,
-        "extensions": report.extensions,
-        "enhancements": report.enhancements,
-        "shadowed": report.shadowed,
-        "peers": report.peers,
-        "load_failures": report.load_failures,
-        "issues": report.issues,
-        "z3_available": report.z3_available,
-    }))
+    ok(report.to_json())
 }
 
 // ── collect ─────────────────────────────────────────────────────────────────

@@ -663,9 +663,14 @@ behavior run_doctor_check "Run Doctor Check" {
     and additional checks (shadowed fields, unknown target entities,
     edge label conflicts). An enabled extension that fails to load (E028:
     not installed; E070: its binary is not the one the lock pins) MUST be
-    reported as an error. A missing or changed installed binary MUST be one
-    finding, whose remediation is the command that reinstalls it as its lock
-    entry records it. Each peer requirement the compile reports unsatisfied
+    reported as an error. Each problem MUST be one finding that says what it
+    is about (the config, the lock, a binary, a load, a conflict, a
+    shadowing, a peer, the toolchain); a missing or changed installed binary
+    is one binary finding, whose remediation is the command that reinstalls
+    it as its lock entry records it. The report MUST carry its verdict (no
+    error-level finding), and specforge doctor --format json and
+    specforge.doctor MUST return the same report (the CLI adds the user's
+    credentials). Each peer requirement the compile reports unsatisfied
     (E027, E073) MUST be an error finding with the remedy its diagnostic
     suggests: doctor and check judge peers by one rule over the loaded
     extensions (ADR 0041), so a peer a builtin or a .wasm file entry
@@ -696,6 +701,7 @@ behavior run_doctor_check "Run Doctor Check" {
   verify unit "doctor gives each extension the source the extensions listing gives it"
   verify unit "doctor in a directory without specforge.json reports config_missing as a warning"
   verify unit "a lock file that cannot be read is an error finding naming E033"
+  verify unit "doctor states each finding once, saying what it is about, and its verdict; the CLI and MCP return one report"
   verify contract "Run Doctor Check: doctor check holds — enhancement_registered_fired, filesystem_available, doctor_check_completed_emitted, report_produced, json_output_supported"
 }
 

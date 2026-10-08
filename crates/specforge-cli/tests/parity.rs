@@ -1415,33 +1415,30 @@ fn doctor_report_is_the_same_on_both_surfaces() {
     let cli_doc: Value = serde_json::from_slice(&out.stdout).unwrap();
     let mcp_doc = mcp_tool(dir.path(), "specforge.doctor");
 
-    // MCP answers with the spec's McpDoctorReport plus the report's
-    // sections; the CLI with the whole report. What both carry is equal.
+    // One report on both surfaces: the CLI adds the user's credentials.
     for key in [
+        "ok",
         "findings",
         "extensions",
         "enhancements",
-        "shadowed",
-        "load_failures",
-        "issues",
+        "conflicts",
         "cache_status",
+        "installed_count",
+        "extensions_ok",
         "z3_available",
     ] {
         assert_eq!(cli_doc[key], mcp_doc[key], "{key} differs");
     }
     assert!(
-        !cli_doc["issues"].as_array().unwrap().is_empty(),
+        cli_doc["findings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|f| f["about"] == "binary"),
         "{cli_doc}"
     );
-    assert_eq!(mcp_doc["installed_count"], cli_doc["extensions_checked"]);
+    assert_eq!(mcp_doc["ok"], false);
     assert_eq!(mcp_doc["extensions_ok"], false);
-    let messages: Vec<&Value> = cli_doc["conflicts"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|c| &c["message"])
-        .collect();
-    assert_eq!(mcp_doc["conflicts"], json!(messages));
     // Registry credentials are the user's, reported by the CLI only.
     assert!(cli_doc.get("credentials").is_some());
     assert!(mcp_doc.get("credentials").is_none());

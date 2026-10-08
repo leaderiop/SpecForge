@@ -527,7 +527,8 @@ behavior report_command_outcome "Report a Command's Outcome" {
     Every core command MUST end in one of three ways. Its run passed:
     exit 0. Its run's verdict failed (check found an error, format --check
     a file that would change, migrate failed or rolled back, analyze an
-    error finding or a gate below its minimum) or its operation refused:
+    error finding or a gate below its minimum, doctor an error-level
+    finding or an unusable credential) or its operation refused:
     exit 1. The command could not judge the project, because the command
     line was refused or a measuring command (stats, analyze) cannot read
     what it measures against, or analyze's coverage gate has no figure:
@@ -539,7 +540,8 @@ behavior report_command_outcome "Report a Command's Outcome" {
     were left written) on stdout, with nothing on stderr. A command run
     outside any project where it needs one MUST refuse with no_project.
     The verdict is the operation's: the CLI's exit code and the ok MCP
-    returns for check, analyze, format and migrate MUST agree.
+    returns for check, analyze, format, migrate and doctor MUST agree
+    (doctor's credentials are the CLI's alone).
   """
   verify unit "an operation's refusal is error[CODE]: message, its hint and the files it left written, on stderr"
   verify unit "under --format json a refusal is the error document on stdout and nothing on stderr"

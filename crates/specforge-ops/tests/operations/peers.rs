@@ -4,7 +4,7 @@ use std::path::Path;
 
 use specforge_common::Severity;
 use specforge_extension_sdk::{ContributionsBuilder, ExtensionMeta};
-use specforge_ops::doctor::diagnose_with;
+use specforge_ops::doctor::{Part, diagnose_with};
 use specforge_ops::view::ProjectView;
 use specforge_project::CompiledProject;
 use specforge_protocol_types::PeerDependency;
@@ -80,9 +80,14 @@ fn a_peer_a_builtin_satisfies_is_not_reported_by_doctor() {
     );
     let report = diagnose_with(&ProjectView::of(&compiled), true);
 
-    assert!(report.peers.is_empty(), "{:?}", report.peers);
-    assert!(report.issues.is_empty(), "{:?}", report.issues);
-    assert!(!report.has_errors(), "{:?}", report.findings);
+    assert_eq!(report.about(Part::Peer).count(), 0, "{:?}", report.findings);
+    assert_eq!(
+        report.about(Part::Binary).count(),
+        0,
+        "{:?}",
+        report.findings
+    );
+    assert!(report.ok(), "{:?}", report.findings);
     assert!(report.extensions_ok());
 }
 
@@ -109,22 +114,17 @@ fn doctor_reports_the_peer_requirements_check_reports() {
     assert_eq!(reported[0].severity, Severity::Error);
 
     let report = diagnose_with(&ProjectView::of(&compiled), true);
-    assert_eq!(report.peers.len(), 1, "{:?}", report.peers);
-    assert_eq!(report.peers[0].code, "E073");
-    assert_eq!(report.peers[0].message, reported[0].message);
+    let peers: Vec<_> = report.about(Part::Peer).collect();
+    assert_eq!(peers.len(), 1, "{:?}", report.findings);
+    assert_eq!(peers[0].code, "E073");
+    assert_eq!(peers[0].check, reported[0].message);
     assert_eq!(
-        Some(report.peers[0].suggestion.as_str()),
+        Some(peers[0].remediation.as_str()),
         reported[0].suggestion.as_deref()
     );
-    let finding = report
-        .findings
-        .iter()
-        .find(|f| f.code == "E073")
-        .expect("doctor reports the peer");
-    assert_eq!(format!("{:?}", finding.status), "Error");
-    assert_eq!(finding.remediation, report.peers[0].suggestion);
-    assert!(report.issues.is_empty());
-    assert!(report.has_errors() && !report.extensions_ok());
+    assert_eq!(format!("{:?}", peers[0].status), "Error");
+    assert_eq!(report.about(Part::Binary).count(), 0);
+    assert!(!report.ok() && !report.extensions_ok());
 
     // An unsatisfied range is reported the same way: `@acme/app` wants a
     // base this project does not have.
@@ -138,9 +138,10 @@ fn doctor_reports_the_peer_requirements_check_reports() {
     let e027: Vec<_> = all.iter().filter(|d| d.code == "E027").collect();
     assert_eq!(e027.len(), 1, "{e027:?}");
     let report = diagnose_with(&ProjectView::of(&compiled), true);
-    assert_eq!(report.peers.len(), 1, "{:?}", report.peers);
-    assert_eq!(report.peers[0].code, "E027");
-    assert_eq!(report.peers[0].message, e027[0].message);
+    let peers: Vec<_> = report.about(Part::Peer).collect();
+    assert_eq!(peers.len(), 1, "{:?}", report.findings);
+    assert_eq!(peers[0].code, "E027");
+    assert_eq!(peers[0].check, e027[0].message);
 }
 
 #[specforge_test(
@@ -173,6 +174,7 @@ fn check_reports_a_cycle_among_required_peers() {
 
     // Doctor lists the same cycle under its peers.
     let report = diagnose_with(&ProjectView::of(&compiled), true);
-    assert_eq!(report.peers.len(), 1, "{:?}", report.peers);
-    assert_eq!(report.peers[0].message, cycles[0].message);
+    let peers: Vec<_> = report.about(Part::Peer).collect();
+    assert_eq!(peers.len(), 1, "{:?}", report.findings);
+    assert_eq!(peers[0].check, cycles[0].message);
 }

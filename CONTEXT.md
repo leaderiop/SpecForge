@@ -370,7 +370,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   unjudged): check (no error reported), analyze (no error finding, and with a minimum the coverage
   gate met; unjudged when the gate has no figure), format (every target read and written, nothing
   left unformatted, and under `--check` nothing that would change), migrate (no file failed, nothing
-  rolled back). The CLI exits 0, 1 or 2 by it (`specforge_cli::outcome::Exit`, the only value a core
+  rolled back), doctor (no error-level finding). The CLI exits 0, 1 or 2 by it (`specforge_cli::outcome::Exit`, the only value a core
   command ends with); MCP returns it as `ok`
   (`specforge.validate`: `_meta["specforge/check"].ok`) and keeps `isError` for refusals (ADR 0004
   D4-a). A refusal (`OpError`) is not a verdict; a measuring command's refusal exits 2. Not to be
