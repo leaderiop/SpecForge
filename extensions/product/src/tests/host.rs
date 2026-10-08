@@ -246,3 +246,9 @@ pub(super) fn shipping() -> G {
         .edge("f5", "f4", "depends_on")
         .edge("f6", "f1", "features")
 }
+
+pub(super) fn not_found_suggesting(id: &str, args: Value, g: &G) -> Value {
+    let error = RUNTIME.with(|runtime| run_in(runtime, id, args, g, "json").error());
+    assert_eq!(error["code"], "ENTITY_NOT_FOUND", "{error}");
+    error
+}

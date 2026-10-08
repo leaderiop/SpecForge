@@ -9,6 +9,7 @@ mod journey_coverage;
 mod lists;
 mod milestone_completion;
 mod persona_channel_features;
+mod rollups;
 mod traceability;
 
 /// A graph built entity by entity.
