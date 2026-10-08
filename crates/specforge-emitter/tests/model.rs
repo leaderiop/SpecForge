@@ -693,7 +693,7 @@ fn filter_by_kinds() {
 
 #[specforge_test_macros::test(
     behavior = "filter_model",
-    verify = "unknown kind name is silently ignored"
+    verify = "a listed kind the project does not know selects nothing in the export"
 )]
 fn filter_unknown_kind_ignored() {
     let m = json_of(

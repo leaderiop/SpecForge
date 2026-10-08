@@ -1,8 +1,9 @@
+use specforge_ops::OpError;
 use specforge_ops::model::{self, FieldLevel, GroupBy, ModelFormat, ModelOptions, ModelRoot};
 
 use crate::args::Arguments;
 use crate::target::Call;
-use crate::tool::ToolOutcome;
+use crate::tool::{McpError, ToolOutcome};
 
 /// `specforge.model`'s arguments.
 #[derive(Debug, Arguments)]
@@ -26,13 +27,26 @@ pub struct Args {
     depth: Option<usize>,
 }
 
-/// `specforge.model`: the model operation over the served project. A
-/// `depth` without a `root` is refused on `root`, as `--depth` needs
-/// `--root`.
+/// `specforge.model`: the model operation over the served project. A kind
+/// of `kinds` the project does not know rides in `_meta.diagnostics`
+/// (I020). An unknown `root` or `extension` is refused on that argument,
+/// and so is a `depth` without a `root`.
 pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
-    match options(args) {
-        Ok(options) => ToolOutcome::text(model::model(&call.view(), &options)),
-        Err(refused) => refused,
+    let options = match options(args) {
+        Ok(options) => options,
+        Err(refused) => return refused,
+    };
+    match model::model(&call.view(), &options) {
+        Ok(outcome) => ToolOutcome::text(outcome.document).with_diagnostics(outcome.notices),
+        Err(error) => {
+            let argument = argument_of(&error);
+            let error = McpError::from(error);
+            match argument {
+                Some(argument) => error.with_argument(argument),
+                None => error,
+            }
+            .into()
+        }
     }
 }
 
@@ -58,4 +72,13 @@ fn options(args: Args) -> Result<ModelOptions, ToolOutcome> {
         kinds: args.kinds,
         root,
     })
+}
+
+/// The argument a model refusal is about.
+fn argument_of(error: &OpError) -> Option<&'static str> {
+    match error.code.as_ref() {
+        specforge_ops::view::UNKNOWN_KIND => Some("root"),
+        specforge_ops::extension::NOT_FOUND => Some("extension"),
+        _ => None,
+    }
 }

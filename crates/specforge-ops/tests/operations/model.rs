@@ -1,6 +1,7 @@
 use serde_json::Value;
 use specforge_emitter::model::{FieldLevel, ModelFormat, ModelOptions, ModelRoot};
-use specforge_ops::model::model;
+use specforge_ops::OpErrorKind;
+use specforge_ops::model::{ModelOutcome, model};
 use specforge_protocol_types::{
     EdgeTypeDescriptor, EntityKindDescriptor, ExtensionDeclaration, FieldDescriptor,
     HandshakeResponse,
@@ -37,6 +38,8 @@ fn the_model_names_a_field_type_as_declared() {
             ..ModelOptions::default()
         };
         model(&project.view(), &options)
+            .expect("no refusal")
+            .document
     };
 
     let markdown = rendered(ModelFormat::Markdown);
@@ -95,16 +98,24 @@ fn two_extensions() -> Project {
     Project::new("", build_registries(vec![soft, declaration("@t/test")]))
 }
 
-/// The JSON model `options` draws over `project`.
-fn json_model(project: &Project, options: ModelOptions) -> Value {
-    let text = model(
+/// The model operation over `project`, drawn as JSON.
+fn outcome_of(
+    project: &Project,
+    options: ModelOptions,
+) -> Result<ModelOutcome, specforge_ops::OpError> {
+    model(
         &project.view(),
         &ModelOptions {
             format: ModelFormat::Json,
             ..options
         },
-    );
-    serde_json::from_str(&text).expect("the json model parses")
+    )
+}
+
+/// The JSON model `options` draws over `project`.
+fn json_model(project: &Project, options: ModelOptions) -> Value {
+    let outcome = outcome_of(project, options).expect("no refusal");
+    serde_json::from_str(&outcome.document).expect("the json model parses")
 }
 
 /// The kinds the JSON model lists, in order.
@@ -133,44 +144,177 @@ fn counts_of(project: &Project, options: ModelOptions) -> Vec<(String, u64, u64)
         .collect()
 }
 
-// P1 - pins today's bug; the ticket that makes the model refuse replaces it.
 #[specforge_test(
     behavior = "filter_model",
-    verify = "unknown kind name is silently ignored"
+    verify = "a root no loaded extension declares is refused with unknown_kind naming the closest declared kind"
 )]
-fn a_name_the_project_does_not_have_selects_nothing() {
+fn a_root_the_project_does_not_declare_is_refused() {
     let project = two_extensions();
+    let root = |kind: &str| ModelOptions {
+        root: Some(ModelRoot {
+            kind: kind.into(),
+            depth: None,
+        }),
+        ..ModelOptions::default()
+    };
+    let error = outcome_of(&project, root("behaviour")).unwrap_err();
+    assert_eq!(error.kind, OpErrorKind::InvalidInput);
+    assert_eq!(error.code, "unknown_kind");
+    assert_eq!(error.message, "unknown entity kind 'behaviour'");
+    assert_eq!(
+        error.suggestion.as_deref(),
+        Some("did you mean 'behavior'?")
+    );
+    let error = outcome_of(&project, root("zzzzzz")).unwrap_err();
+    assert_eq!(error.code, "unknown_kind");
+    assert_eq!(error.suggestion, None);
+}
+
+#[specforge_test(
+    behavior = "filter_model",
+    verify = "an extension the project does not load is refused, naming the loaded one meant"
+)]
+fn an_extension_the_project_does_not_load_is_refused() {
+    let project = two_extensions();
+    let extension = |name: &str| ModelOptions {
+        extension: Some(name.into()),
+        ..ModelOptions::default()
+    };
+    for (name, suggestion) in [
+        ("soft", "did you mean '@t/soft'?"),
+        ("@t/sotf", "did you mean '@t/soft'?"),
+        ("@acme/none", "the project loads @t/soft, @t/test"),
+    ] {
+        let error = outcome_of(&project, extension(name)).unwrap_err();
+        assert_eq!(error.kind, OpErrorKind::ExtensionNotFound, "{name}");
+        assert_eq!(error.code, "extension_not_found", "{name}");
+        assert_eq!(
+            error.message,
+            format!("extension '{name}' is not loaded by this project")
+        );
+        assert_eq!(error.suggestion.as_deref(), Some(suggestion), "{name}");
+    }
+    // Loaded, and declares no kind: an empty model, not a refusal.
+    assert!(kinds_of(&project, extension("@t/test")).is_empty());
+}
+
+#[specforge_test(
+    behavior = "filter_model",
+    verify = "a listed kind the project does not know is reported as I020 and selects nothing"
+)]
+fn a_listed_kind_the_project_does_not_know_is_reported() {
+    let project = two_extensions();
+    let outcome = outcome_of(
+        &project,
+        ModelOptions {
+            kinds: vec!["behaviour".into(), "event".into()],
+            ..ModelOptions::default()
+        },
+    )
+    .expect("a kind filter does not refuse");
+    let json: Value = serde_json::from_str(&outcome.document).unwrap();
+    assert_eq!(json["entities"].as_array().unwrap().len(), 1);
+    assert_eq!(json["entities"][0]["name"], "event");
+    assert_eq!(outcome.notices.len(), 1);
+    assert_eq!(outcome.notices[0].code, "I020");
+    assert_eq!(
+        outcome.notices[0].message,
+        "unknown entity kind 'behaviour'"
+    );
+    assert_eq!(
+        outcome.notices[0].suggestion.as_deref(),
+        Some("did you mean 'behavior'?")
+    );
+}
+
+#[specforge_test(
+    behavior = "filter_model",
+    verify = "Filter Model by Extension, Kind, or Depth: model filtering holds — model_ir_built, extension_filter_applied, kind_filter_applied, depth_filter_applied, edges_pruned, filters_compose, unknown_names_answered"
+)]
+fn model_filtering_contract() {
+    let project = two_extensions();
+    // model_ir_built: both kinds, one relationship.
     assert_eq!(
         kinds_of(&project, ModelOptions::default()),
         ["behavior", "event"]
     );
-    let model = json_model(&project, ModelOptions::default());
+    // extension_filter_applied.
     assert_eq!(
-        model["relationships"][0]["name"], "Triggers",
-        "the guard: one relationship"
+        kinds_of(
+            &project,
+            ModelOptions {
+                extension: Some("@t/soft".into()),
+                ..ModelOptions::default()
+            }
+        ),
+        ["behavior", "event"]
     );
-    for options in [
+    // kind_filter_applied.
+    let kinds = ModelOptions {
+        kinds: vec!["event".into()],
+        ..ModelOptions::default()
+    };
+    assert_eq!(kinds_of(&project, kinds), ["event"]);
+    // depth_filter_applied.
+    let root = ModelOptions {
+        root: Some(ModelRoot {
+            kind: "behavior".into(),
+            depth: Some(0),
+        }),
+        ..ModelOptions::default()
+    };
+    assert_eq!(kinds_of(&project, root), ["behavior"]);
+    // edges_pruned: no relationship when `event` is filtered out.
+    let pruned = json_model(
+        &project,
         ModelOptions {
+            kinds: vec!["behavior".into()],
+            ..ModelOptions::default()
+        },
+    );
+    assert!(pruned["relationships"].as_array().unwrap().is_empty());
+    // filters_compose: an intersection.
+    assert_eq!(
+        kinds_of(
+            &project,
+            ModelOptions {
+                extension: Some("@t/soft".into()),
+                kinds: vec!["event".into()],
+                ..ModelOptions::default()
+            }
+        ),
+        ["event"]
+    );
+    // unknown_names_answered: a root and an extension are refused, a kind
+    // is reported.
+    let unknown = |options| outcome_of(&project, options);
+    assert!(
+        unknown(ModelOptions {
             root: Some(ModelRoot {
                 kind: "behaviour".into(),
-                depth: None,
+                depth: None
             }),
             ..ModelOptions::default()
-        },
-        ModelOptions {
+        })
+        .is_err()
+    );
+    assert!(
+        unknown(ModelOptions {
             extension: Some("soft".into()),
             ..ModelOptions::default()
-        },
-        ModelOptions {
+        })
+        .is_err()
+    );
+    assert_eq!(
+        unknown(ModelOptions {
             kinds: vec!["behaviour".into()],
             ..ModelOptions::default()
-        },
-    ] {
-        assert!(
-            kinds_of(&project, options.clone()).is_empty(),
-            "{options:?}"
-        );
-    }
+        })
+        .unwrap()
+        .notices
+        .len(),
+        1
+    );
 }
 
 // P2 - kept.

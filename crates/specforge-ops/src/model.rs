@@ -10,12 +10,76 @@ pub use specforge_emitter::outline::{
     DependencyDepth, OutlineDetail, OutlineFormat, OutlineOptions,
 };
 
+use specforge_common::{Diagnostic, find_close_match};
+use specforge_protocol_types::ExtensionDeclaration;
+
 use crate::options::{Choice, OptionTable};
 use crate::view::ProjectView;
+use crate::{OpError, OpErrorKind};
+
+/// What `specforge model` and `specforge.model` show.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ModelOutcome {
+    /// The model, drawn in the requested format.
+    pub document: String,
+    /// I020 for each kind of `ModelOptions::kinds` the project does not
+    /// know (ADR 0015 Q3); the filter still drops it.
+    pub notices: Vec<Diagnostic>,
+}
 
 /// The logical data model of the view's extensions, as `options` asks.
-pub fn model(view: &ProjectView, options: &ModelOptions) -> String {
-    specforge_emitter::model::export(&view.schema(), view.registries().declarations(), options)
+///
+/// Err:
+/// - `extension_not_found` (`ExtensionNotFound`) when `options.extension`
+///   names no extension the project loads. It names the loaded one meant
+///   (the one whose short name it is, else the closest), else lists the
+///   loaded ones.
+/// - `unknown_kind` (`InvalidInput`) when `options.root` names a kind no
+///   loaded extension declares, naming the closest declared kind.
+pub fn model(view: &ProjectView, options: &ModelOptions) -> Result<ModelOutcome, OpError> {
+    let declarations = view.registries().declarations();
+    if let Some(extension) = &options.extension {
+        loaded(declarations, extension)?;
+    }
+    let kinds = view.kinds();
+    if let Some(root) = &options.root {
+        kinds.declared(&root.kind)?;
+    }
+    let filter: Vec<&str> = options.kinds.iter().map(String::as_str).collect();
+    Ok(ModelOutcome {
+        notices: kinds.unknown_in(&filter),
+        document: specforge_emitter::model::export(&view.schema(), declarations, options),
+    })
+}
+
+/// `Ok` when an extension the project loads is named `name`; else
+/// `extension_not_found`, with the loaded extension `name` most likely
+/// means as its suggestion.
+fn loaded(declarations: &[ExtensionDeclaration], name: &str) -> Result<(), OpError> {
+    if declarations.iter().any(|d| d.name() == name) {
+        return Ok(());
+    }
+    let names: Vec<&str> = declarations
+        .iter()
+        .map(ExtensionDeclaration::name)
+        .collect();
+    let meant = declarations
+        .iter()
+        .find(|d| d.short() == name)
+        .map(ExtensionDeclaration::name)
+        .or_else(|| find_close_match(name, names.iter().copied()));
+    let suggestion = match meant {
+        Some(meant) => format!("did you mean '{meant}'?"),
+        None if names.is_empty() => "the project loads no extension".to_string(),
+        None => format!("the project loads {}", names.join(", ")),
+    };
+    Err(OpError::new(
+        OpErrorKind::ExtensionNotFound,
+        crate::extension::NOT_FOUND,
+        format!("extension '{name}' is not loaded by this project"),
+    )
+    .with_suggestion(suggestion)
+    .with_data(serde_json::json!({ "extension": name })))
 }
 
 /// The architecture of the view's extensions (dependencies, enhancements,

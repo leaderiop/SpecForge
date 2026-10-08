@@ -458,14 +458,43 @@ fn cli_and_mcp_model_render_the_same_text() {
     }
 }
 
-// P6 - the ticket that makes the model refuse flips it.
 #[test]
-fn a_model_root_the_project_does_not_have_draws_nothing_today() {
+fn a_model_refuses_what_the_project_does_not_have() {
     let tmp = project("fx1");
-    let run = cli(&["model", s(tmp.path()), "--root", "behaviour"]);
+    let root = s(tmp.path());
+
+    let run = cli(&["model", root, "--root", "behaviour"]);
+    assert_eq!(run.code, Some(1), "{}", run.stderr);
+    assert_eq!(run.stdout, "");
+    assert_eq!(
+        run.stderr,
+        "error[unknown_kind]: unknown entity kind 'behaviour'\n  hint: did you mean 'behavior'?\n"
+    );
+
+    let run = cli(&["model", root, "--extension", "software"]);
+    assert_eq!(run.code, Some(1), "{}", run.stderr);
+    assert_eq!(run.stdout, "");
+    assert_eq!(
+        run.stderr,
+        "error[extension_not_found]: extension 'software' is not loaded by this project\n  hint: did you mean '@specforge/software'?\n"
+    );
+
+    // A kind the project does not know is reported, and selects nothing.
+    let run = cli(&["model", root, "--kinds", "behaviour", "--format", "json"]);
     assert_eq!(run.code, Some(0), "{}", run.stderr);
-    assert!(run.stdout.contains("0 entity kinds"), "{}", run.stdout);
-    assert!(run.stderr.is_empty(), "{}", run.stderr);
+    let model: Value = serde_json::from_str(&run.stdout).unwrap();
+    assert!(model["entities"].as_array().unwrap().is_empty());
+    assert!(
+        run.stderr
+            .contains("info[I020]: unknown entity kind 'behaviour'"),
+        "{}",
+        run.stderr
+    );
+    assert!(
+        run.stderr.contains("did you mean 'behavior'?"),
+        "{}",
+        run.stderr
+    );
 }
 
 #[specforge_test_macros::test(
