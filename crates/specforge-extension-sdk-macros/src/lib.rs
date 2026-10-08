@@ -28,6 +28,7 @@
 
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
+use specforge_protocol_types::is_valid_short;
 
 /// The `#[extension(...)]` attributes.
 #[derive(Debug, Default, PartialEq)]
@@ -36,14 +37,6 @@ struct Attrs {
     version: Option<String>,
     short: Option<String>,
     description: Option<String>,
-}
-
-/// Whether `short` can route commands: lowercase kebab case
-/// (`[a-z][a-z0-9-]*`), the shape the host checks too (E030).
-fn is_valid_short(short: &str) -> bool {
-    let mut chars = short.chars();
-    chars.next().is_some_and(|c| c.is_ascii_lowercase())
-        && chars.all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
 }
 
 fn parse_attrs(ts: TokenStream2) -> syn::Result<Attrs> {

@@ -130,6 +130,7 @@ behavior load_extension_declaration "Load Extension Declaration" {
   verify integration "an extension that only declares passes has them in its declaration"
   verify integration "the declared short name reaches the registry build"
   verify integration "an unsupported protocol major version fails the load"
+  verify unit "the SDK's raw category and the host's load parse a category's items through one function"
 }
 
 behavior build_registries_from_declarations "Build Registries From Declarations" {

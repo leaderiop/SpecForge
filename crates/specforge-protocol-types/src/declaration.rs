@@ -49,21 +49,92 @@ pub struct ExtensionDeclaration {
     pub feature_flags: Vec<FeatureFlagDescriptor>,
 }
 
-/// The categories a host reads, in the order it reads them. `fields`
-/// (derived: every kind's fields), `grammars` and `body_parsers` (reserved,
-/// ADR 0004 D5-a) are answered by the SDK but never read.
-pub const DECLARED_CATEGORIES: &[&str] = &[
-    "entities",
-    "edges",
-    "shared_fields",
-    "enhancements",
-    "validation_rules",
-    "surfaces",
-    "collectors",
-    "analyzers",
-    "passes",
-    "feature_flags",
-];
+/// A describe category the host reads, in the order it reads them (ADR
+/// 0012 D2). `fields` (derived: every kind's fields), `grammars` and
+/// `body_parsers` (reserved, ADR 0004 D5-a) are answered by the SDK but
+/// never read, so they are not one.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum DeclaredCategory {
+    Entities,
+    Edges,
+    SharedFields,
+    Enhancements,
+    ValidationRules,
+    Surfaces,
+    Collectors,
+    Analyzers,
+    Passes,
+    FeatureFlags,
+}
+
+impl DeclaredCategory {
+    /// Every declared category, in the host's read order.
+    pub const ALL: [DeclaredCategory; 10] = [
+        DeclaredCategory::Entities,
+        DeclaredCategory::Edges,
+        DeclaredCategory::SharedFields,
+        DeclaredCategory::Enhancements,
+        DeclaredCategory::ValidationRules,
+        DeclaredCategory::Surfaces,
+        DeclaredCategory::Collectors,
+        DeclaredCategory::Analyzers,
+        DeclaredCategory::Passes,
+        DeclaredCategory::FeatureFlags,
+    ];
+
+    /// Its wire name (`shared_fields`).
+    pub const fn name(self) -> &'static str {
+        match self {
+            DeclaredCategory::Entities => "entities",
+            DeclaredCategory::Edges => "edges",
+            DeclaredCategory::SharedFields => "shared_fields",
+            DeclaredCategory::Enhancements => "enhancements",
+            DeclaredCategory::ValidationRules => "validation_rules",
+            DeclaredCategory::Surfaces => "surfaces",
+            DeclaredCategory::Collectors => "collectors",
+            DeclaredCategory::Analyzers => "analyzers",
+            DeclaredCategory::Passes => "passes",
+            DeclaredCategory::FeatureFlags => "feature_flags",
+        }
+    }
+
+    /// The declared category named `name`; `None` for `fields`, the
+    /// reserved categories and any name the protocol does not define.
+    pub fn from_name(name: &str) -> Option<DeclaredCategory> {
+        DeclaredCategory::ALL
+            .into_iter()
+            .find(|category| category.name() == name)
+    }
+
+    /// The shape of its descriptors, for the unknown-key walk.
+    fn shape(self) -> &'static Shape {
+        match self {
+            DeclaredCategory::Entities => &KIND,
+            DeclaredCategory::Edges => &EDGE,
+            DeclaredCategory::SharedFields => &FIELD,
+            DeclaredCategory::Enhancements => &ENHANCEMENT,
+            DeclaredCategory::ValidationRules => &RULE,
+            DeclaredCategory::Surfaces => &SURFACE,
+            DeclaredCategory::Collectors => &COLLECTOR,
+            DeclaredCategory::Analyzers => &ANALYZER,
+            DeclaredCategory::Passes => &PASS,
+            DeclaredCategory::FeatureFlags => &FEATURE_FLAG,
+        }
+    }
+}
+
+/// The names of [`DeclaredCategory::ALL`], in order.
+pub const DECLARED_CATEGORIES: &[&str] = &DECLARED_NAMES;
+
+const DECLARED_NAMES: [&str; DeclaredCategory::ALL.len()] = {
+    let mut names = [""; DeclaredCategory::ALL.len()];
+    let mut index = 0;
+    while index < names.len() {
+        names[index] = DeclaredCategory::ALL[index].name();
+        index += 1;
+    }
+    names
+};
 
 /// A key of a describe item that the protocol does not define: a typo in
 /// a hand-written category, or a field of a newer SDK this host does not
@@ -158,29 +229,67 @@ impl ExtensionDeclaration {
     /// and `body_parsers` empty. `None` for a category the protocol does
     /// not define.
     pub fn describe_items(&self, category: &str) -> Option<Value> {
-        fn items<T: Serialize>(items: &[T]) -> Value {
-            serde_json::to_value(items).expect("descriptors serialize")
+        if let Some(declared) = DeclaredCategory::from_name(category) {
+            return Some(self.items_of(declared));
         }
-        Some(match category {
-            "entities" => items(&self.entities),
-            "edges" => items(&self.edges),
+        match category {
             "fields" => {
                 let fields: Vec<&FieldDescriptor> =
                     self.entities.iter().flat_map(|k| &k.fields).collect();
-                items(&fields)
+                Some(to_items(&fields))
             }
-            "shared_fields" => items(&self.shared_fields),
-            "enhancements" => items(&self.enhancements),
-            "validation_rules" => items(&self.validation_rules),
-            "surfaces" if self.surfaces == SurfaceDescriptor::default() => Value::Array(vec![]),
-            "surfaces" => items(std::slice::from_ref(&self.surfaces)),
-            "collectors" => items(&self.collectors),
-            "analyzers" => items(&self.analyzers),
-            "passes" => items(&self.passes),
-            "feature_flags" => items(&self.feature_flags),
-            "grammars" | "body_parsers" => Value::Array(vec![]),
-            _ => return None,
-        })
+            "grammars" | "body_parsers" => Some(Value::Array(vec![])),
+            _ => None,
+        }
+    }
+
+    /// The wire `items` of a declared category.
+    fn items_of(&self, category: DeclaredCategory) -> Value {
+        match category {
+            DeclaredCategory::Entities => to_items(&self.entities),
+            DeclaredCategory::Edges => to_items(&self.edges),
+            DeclaredCategory::SharedFields => to_items(&self.shared_fields),
+            DeclaredCategory::Enhancements => to_items(&self.enhancements),
+            DeclaredCategory::ValidationRules => to_items(&self.validation_rules),
+            DeclaredCategory::Surfaces if self.surfaces == SurfaceDescriptor::default() => {
+                Value::Array(vec![])
+            }
+            DeclaredCategory::Surfaces => to_items(std::slice::from_ref(&self.surfaces)),
+            DeclaredCategory::Collectors => to_items(&self.collectors),
+            DeclaredCategory::Analyzers => to_items(&self.analyzers),
+            DeclaredCategory::Passes => to_items(&self.passes),
+            DeclaredCategory::FeatureFlags => to_items(&self.feature_flags),
+        }
+    }
+
+    /// Replace `category`'s content with `items`, the `items` of its
+    /// describe answer. Err: they do not parse as its descriptors
+    /// ([`ProtocolError::DescribeFailed`] naming the category), and the
+    /// declaration is unchanged.
+    pub fn set_category(
+        &mut self,
+        category: DeclaredCategory,
+        items: &Value,
+    ) -> Result<(), ProtocolError> {
+        let name = category.name();
+        match category {
+            DeclaredCategory::Entities => self.entities = parse(name, items)?,
+            DeclaredCategory::Edges => self.edges = parse(name, items)?,
+            DeclaredCategory::SharedFields => self.shared_fields = parse(name, items)?,
+            DeclaredCategory::Enhancements => self.enhancements = parse(name, items)?,
+            DeclaredCategory::ValidationRules => self.validation_rules = parse(name, items)?,
+            DeclaredCategory::Surfaces => {
+                self.surfaces = parse::<SurfaceDescriptor>(name, items)?
+                    .into_iter()
+                    .next()
+                    .unwrap_or_default()
+            }
+            DeclaredCategory::Collectors => self.collectors = parse(name, items)?,
+            DeclaredCategory::Analyzers => self.analyzers = parse(name, items)?,
+            DeclaredCategory::Passes => self.passes = parse(name, items)?,
+            DeclaredCategory::FeatureFlags => self.feature_flags = parse(name, items)?,
+        }
+        Ok(())
     }
 
     /// The `__handshake` wire answer: the handshake, pretty JSON.
@@ -203,7 +312,7 @@ impl ExtensionDeclaration {
     }
 
     /// Assemble a declaration from its wire answers: `describe` fetches one
-    /// category's answer, for each of [`DECLARED_CATEGORIES`] in order. A
+    /// category's answer, for each of [`DeclaredCategory::ALL`] in order. A
     /// category whose items do not parse is
     /// [`ProtocolError::DescribeFailed`] naming it; `unknown` receives each
     /// item key a descriptor does not define (a host reports it as W138).
@@ -216,30 +325,18 @@ impl ExtensionDeclaration {
             handshake,
             ..Default::default()
         };
-        for &category in DECLARED_CATEGORIES {
-            let items = describe(category)?.items;
-            match category {
-                "entities" => declaration.entities = parse(category, &items)?,
-                "edges" => declaration.edges = parse(category, &items)?,
-                "shared_fields" => declaration.shared_fields = parse(category, &items)?,
-                "enhancements" => declaration.enhancements = parse(category, &items)?,
-                "validation_rules" => declaration.validation_rules = parse(category, &items)?,
-                "surfaces" => {
-                    declaration.surfaces = parse::<SurfaceDescriptor>(category, &items)?
-                        .into_iter()
-                        .next()
-                        .unwrap_or_default()
-                }
-                "collectors" => declaration.collectors = parse(category, &items)?,
-                "analyzers" => declaration.analyzers = parse(category, &items)?,
-                "passes" => declaration.passes = parse(category, &items)?,
-                "feature_flags" => declaration.feature_flags = parse(category, &items)?,
-                _ => unreachable!("every declared category is read"),
-            }
+        for category in DeclaredCategory::ALL {
+            let items = describe(category.name())?.items;
+            declaration.set_category(category, &items)?;
             report_unknown_keys(category, &items, &mut unknown);
         }
         Ok(declaration)
     }
+}
+
+/// `descriptors` as wire items.
+fn to_items<T: Serialize>(descriptors: &[T]) -> Value {
+    serde_json::to_value(descriptors).expect("descriptors serialize")
 }
 
 /// `items` of `category` as descriptors; the error names the category.
@@ -349,32 +446,22 @@ static FEATURE_FLAG: Shape = Shape {
     nested: &[],
 };
 
-fn category_shape(category: &str) -> Option<&'static Shape> {
-    Some(match category {
-        "entities" => &KIND,
-        "edges" => &EDGE,
-        "shared_fields" => &FIELD,
-        "enhancements" => &ENHANCEMENT,
-        "validation_rules" => &RULE,
-        "surfaces" => &SURFACE,
-        "collectors" => &COLLECTOR,
-        "analyzers" => &ANALYZER,
-        "passes" => &PASS,
-        "feature_flags" => &FEATURE_FLAG,
-        _ => return None,
-    })
-}
-
 fn report_unknown_keys(
-    category: &'static str,
+    category: DeclaredCategory,
     items: &Value,
     unknown: &mut impl FnMut(UnknownKey),
 ) {
-    let (Some(shape), Some(items)) = (category_shape(category), items.as_array()) else {
+    let Some(items) = items.as_array() else {
         return;
     };
     for (index, item) in items.iter().enumerate() {
-        walk(category, shape, &item_name(item, index), item, unknown);
+        walk(
+            category.name(),
+            category.shape(),
+            &item_name(item, index),
+            item,
+            unknown,
+        );
     }
 }
 

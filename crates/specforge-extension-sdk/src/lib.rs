@@ -29,7 +29,7 @@ pub use specforge_protocol_types::{
 
 use specforge_protocol_types::{
     AnalyzerDescriptor, AutoDetectConfig, CollectorDescriptor, CompilerPassDescriptor,
-    DECLARED_CATEGORIES, DescribeRequest, DescribeResponse, SUPPORTED_CATEGORIES,
+    DeclaredCategory, DescribeRequest, DescribeResponse, SUPPORTED_CATEGORIES,
 };
 
 use std::collections::BTreeMap;
@@ -449,8 +449,17 @@ impl ContributionsBuilder {
         let mut declaration = self.decl.clone();
         declaration.surfaces = self.surfaces.descriptor();
         for (category, items) in &self.raw {
-            if DECLARED_CATEGORIES.contains(&category.as_str()) {
-                apply_raw(&mut declaration, category, items);
+            if let Some(declared) = DeclaredCategory::from_name(category) {
+                declaration
+                    .set_category(declared, items)
+                    .unwrap_or_else(|error| match error {
+                        ProtocolError::DescribeFailed { reason, .. } => {
+                            panic!(
+                                "raw category '{category}' does not parse as its descriptors: {reason}"
+                            )
+                        }
+                        other => panic!("raw category '{category}': {other}"),
+                    });
             }
         }
         declaration.handshake = HandshakeResponse {
@@ -508,33 +517,6 @@ impl ContributionsBuilder {
             Some(body) => Ok(body.into_bytes()),
             None => Err(format!("unsupported category: {}", request.category)),
         }
-    }
-}
-
-/// Put a raw category's items in `declaration`, in place of the builders'.
-fn apply_raw(declaration: &mut ExtensionDeclaration, category: &str, items: &serde_json::Value) {
-    fn parse<T: serde::de::DeserializeOwned>(category: &str, items: &serde_json::Value) -> Vec<T> {
-        <Vec<T> as serde::Deserialize>::deserialize(items).unwrap_or_else(|e| {
-            panic!("raw category '{category}' does not parse as its descriptors: {e}")
-        })
-    }
-    match category {
-        "entities" => declaration.entities = parse(category, items),
-        "edges" => declaration.edges = parse(category, items),
-        "shared_fields" => declaration.shared_fields = parse(category, items),
-        "enhancements" => declaration.enhancements = parse(category, items),
-        "validation_rules" => declaration.validation_rules = parse(category, items),
-        "surfaces" => {
-            declaration.surfaces = parse(category, items)
-                .into_iter()
-                .next()
-                .unwrap_or_default()
-        }
-        "collectors" => declaration.collectors = parse(category, items),
-        "analyzers" => declaration.analyzers = parse(category, items),
-        "passes" => declaration.passes = parse(category, items),
-        "feature_flags" => declaration.feature_flags = parse(category, items),
-        _ => {}
     }
 }
 

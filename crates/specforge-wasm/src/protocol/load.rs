@@ -3,12 +3,12 @@
 //! Everything the host knows about an extension it reads here, once per
 //! environment load: the handshake (its protocol major checked, its
 //! sandbox applied), then every category of
-//! [`DECLARED_CATEGORIES`], whatever its contribution flags say. Nothing
+//! [`DeclaredCategory::ALL`], whatever its contribution flags say. Nothing
 //! describes a category again outside this load.
 
 use specforge_common::{Diagnostic, codes};
 #[cfg(doc)]
-use specforge_protocol_types::DECLARED_CATEGORIES;
+use specforge_protocol_types::DeclaredCategory;
 use specforge_protocol_types::{
     ExtensionDeclaration, HandshakeResponse, PROTOCOL_VERSION, ProtocolError, UnknownKey,
 };
