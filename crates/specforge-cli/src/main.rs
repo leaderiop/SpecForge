@@ -286,12 +286,24 @@ enum Commands {
         path: PathBuf,
 
         /// Number of hops from the entity (0 = entity only)
-        #[arg(long, default_value = "1")]
+        #[arg(long, default_value_t = specforge_ops::query::DEFAULT_DEPTH)]
         depth: usize,
 
         /// Filter results to specific entity kinds (can be repeated)
         #[arg(long)]
         kind: Vec<String>,
+
+        /// Output detail level
+        #[arg(
+            long,
+            value_parser = options::choice(&specforge_ops::export::AGENT_FORMAT),
+            default_value = specforge_ops::export::AGENT_FORMAT.default_name()
+        )]
+        format: specforge_ops::export::Format,
+
+        /// Give every entity its coverage status
+        #[arg(long)]
+        include_coverage: bool,
     },
     /// Show traceability chain for an entity, or for every entity
     Trace {
@@ -798,7 +810,18 @@ fn main() {
             path,
             depth,
             kind,
-        } => query::run(&path, &entity, depth, &kind),
+            format,
+            include_coverage,
+        } => query::run(
+            &path,
+            &specforge_ops::query::QueryRequest {
+                entity_id: &entity,
+                depth: Some(depth),
+                kinds: kind.iter().map(String::as_str).collect(),
+                format: Some(format),
+                include_coverage,
+            },
+        ),
         Commands::Trace {
             entity,
             path,

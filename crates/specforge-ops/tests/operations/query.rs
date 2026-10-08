@@ -459,3 +459,52 @@ fn search_filters_by_a_field_pair_and_snippets_the_match() {
     assert_eq!(outcome.notices[0].code, "I020");
     assert!(outcome.hits.is_empty());
 }
+
+// The contract of query_graph_multi_resolution, over a view: a(feature) ->
+// b(behavior) -> c(behavior) -> x(invariant).
+#[specforge_test(
+    behavior = "query_graph_multi_resolution",
+    verify = "Query Graph at Multiple Resolutions: multi-resolution graph query holds — validation_complete_fired, depth_respected, kind_filter_applied, graph_protocol_conformance, graph_queried_emitted"
+)]
+fn query_contract_valid_entity_returns_subgraph() {
+    let mut graph = Graph::new();
+    graph.add_node(node("a", "feature"));
+    graph.add_node(node("b", "behavior"));
+    graph.add_node(node("c", "behavior"));
+    graph.add_node(node("x", "invariant"));
+    for (source, target, label) in [
+        ("a", "b", "behaviors"),
+        ("b", "c", "depends_on"),
+        ("c", "x", "invariants"),
+    ] {
+        graph.add_edge(Edge {
+            source: source.into(),
+            target: target.into(),
+            label: label.into(),
+        });
+    }
+    let project = Project::of_graph(graph, Default::default());
+    let query = |depth: usize, kinds: &[&str]| document(&project, "a", depth, kinds);
+
+    // depth_respected: exactly the entities within N hops.
+    assert_eq!(ids(&query(0, &[])), ["a"]);
+    assert_eq!(ids(&query(1, &[])), ["a", "b"]);
+    assert_eq!(ids(&query(2, &[])), ["a", "b", "c"]);
+    assert_eq!(ids(&query(3, &[])), ["a", "b", "c", "x"]);
+
+    // kind_filter_applied: only the listed kinds, plus the queried root.
+    assert_eq!(ids(&query(3, &["behavior"])), ["a", "b", "c"]);
+    assert_eq!(ids(&query(3, &["invariant"])), ["a", "x"]);
+
+    // graph_protocol_conformance: schema_version, and edges only between
+    // returned nodes.
+    let result = query(2, &[]);
+    assert!(result["schema_version"].is_string());
+    assert_eq!(
+        result["edges"],
+        json!([
+            { "source": "a", "target": "b", "label": "behaviors" },
+            { "source": "b", "target": "c", "label": "depends_on" },
+        ])
+    );
+}

@@ -814,6 +814,27 @@ fn node_ids(document: &str) -> Vec<String> {
         .collect()
 }
 
+/// `text` with every run of 64 hexadecimal digits (a SHA-256) replaced by
+/// `[SHA256]`.
+fn without_hashes(text: &str) -> String {
+    let mut out = String::new();
+    let mut run = String::new();
+    let flush = |run: &mut String, out: &mut String| {
+        out.push_str(if run.len() == 64 { "[SHA256]" } else { run });
+        run.clear();
+    };
+    for ch in text.chars() {
+        if ch.is_ascii_hexdigit() {
+            run.push(ch);
+        } else {
+            flush(&mut run, &mut out);
+            out.push(ch);
+        }
+    }
+    flush(&mut run, &mut out);
+    out
+}
+
 fn mcp_query(arguments: Value) -> Value {
     json!({"name": "specforge.query", "arguments": arguments})
 }
@@ -826,8 +847,10 @@ fn mcp_query(arguments: Value) -> Value {
 fn query_today() {
     let tmp = project("fx1");
     let root = tmp.path();
+    // A schema's content hash moves whenever a builtin extension's
+    // declaration does: it is not what these snapshots pin.
     let snap = |name: &str, text: String| {
-        insta::assert_snapshot!(format!("query_today_{name}"), text);
+        insta::assert_snapshot!(format!("query_today_{name}"), without_hashes(&text));
     };
 
     let login = cli(&["query", "login", "--path", s(root)]);
@@ -837,7 +860,6 @@ fn query_today() {
         run_text(&cli(&["query", "logn", "--path", s(root)]), root),
     );
     let filtered = cli(&["query", "login", "--path", s(root), "--kind", "behaviour"]);
-    assert_eq!(filtered.stderr, "", "the CLI reports no unknown kind today");
     snap(
         "cli_unknown_kind",
         format!(
@@ -906,10 +928,10 @@ fn list_and_search_today() {
     );
 }
 
-/// The wordings of "unknown entity kind" and where each carries its
-/// suggestion today: the schema tool's `unknown entity kind: '<k>'` with
-/// `data.suggestion`, the infer prompt's `unknown entity kind '<k>'` with
-/// `data.data.suggestion`, search's I020 notice with `diagnostic.suggestion`.
+/// The one wording of "unknown entity kind '<k>'" and where each surface
+/// carries its suggestion: the schema tool's refusal in `data.suggestion`,
+/// the infer prompt's in `data.data.suggestion`, search's I020 notice in
+/// `diagnostic.suggestion`.
 #[test]
 fn unknown_kind_wordings_today() {
     let tmp = rv1();
@@ -934,4 +956,69 @@ fn unknown_kind_wordings_today() {
             normalized(&answer, root).to_string()
         );
     }
+}
+
+/// Every entity of `root`, by id.
+fn entity_ids(root: &Path) -> Vec<String> {
+    let rows = &mcp_calls(root, &[json!({"name": "specforge.list", "arguments": {}})])[0];
+    rows.as_array()
+        .expect("specforge.list answers an array")
+        .iter()
+        .map(|row| row["id"].as_str().unwrap().to_string())
+        .collect()
+}
+
+/// For every entity of `root`, `specforge query` prints the document
+/// `specforge.query` answers for the same arguments: the depths, formats and
+/// coverage flag each take both values across the four combinations.
+fn assert_queries_agree(root: &Path) {
+    let combinations = [
+        (0, "graph", false),
+        (2, "graph", true),
+        (2, "context", false),
+        (0, "context", true),
+    ];
+    let ids = entity_ids(root);
+    assert!(!ids.is_empty(), "{root:?}");
+    for (depth, format, include_coverage) in combinations {
+        let calls: Vec<Value> = ids
+            .iter()
+            .map(|id| {
+                mcp_query(json!({
+                    "entity_id": id, "depth": depth, "format": format,
+                    "include_coverage": include_coverage
+                }))
+            })
+            .collect();
+        for (id, mcp) in ids.iter().zip(mcp_calls(root, &calls)) {
+            let mut args = vec![
+                "query".to_string(),
+                id.clone(),
+                "--path".to_string(),
+                s(root).to_string(),
+                "--depth".to_string(),
+                depth.to_string(),
+                "--format".to_string(),
+                format.to_string(),
+            ];
+            if include_coverage {
+                args.push("--include-coverage".to_string());
+            }
+            let args: Vec<&str> = args.iter().map(String::as_str).collect();
+            let cli = cli_json(&args);
+            assert_eq!(
+                cli, mcp,
+                "{id} at depth {depth}, {format}, coverage {include_coverage} on {root:?}"
+            );
+        }
+    }
+}
+
+#[specforge_test_macros::test(
+    behavior = "read_views_over_the_project_view",
+    verify = "specforge query and specforge.query return the same document for an entity"
+)]
+fn cli_and_mcp_query_are_one_document() {
+    assert_queries_agree(project("fx1").path());
+    assert_queries_agree(rv1().path());
 }

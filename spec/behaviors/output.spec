@@ -238,6 +238,7 @@ behavior read_views_over_the_project_view "Read Views over the Project View" {
   verify integration "specforge schema --kind and specforge.schema with a kind return the same document"
   verify integration "specforge outline and specforge.outline_extensions render the same text"
   verify integration "specforge.inspect and the LSP hover report the same facts for an entity"
+  verify integration "specforge query and specforge.query return the same document for an entity"
   verify unit "a kind filter reports each kind the project does not know with I020, naming the closest"
   verify unit "an argument naming an undeclared kind is refused with unknown_kind naming the closest declared kind"
   verify contract "Read Views over the Project View: read views hold — project_compiled, one_report_rule, one_coverage_per_state, surfaces_agree"

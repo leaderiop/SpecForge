@@ -5,4 +5,5 @@ expression: text
 exit: Some(1)
 stdout:
 stderr:
-unresolved entity 'logn' — not found in graph
+error[E003]: unresolved entity 'logn' — not found in graph
+  hint: did you mean 'login'?

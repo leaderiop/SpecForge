@@ -339,51 +339,6 @@ fn graph_format_contract_finalized_graph_produces_full_output() {
     assert_eq!(err.code(), Some(specforge_diagnostics::codes::E003));
 }
 
-// === query_graph_multi_resolution contract ===
-
-// B:query_graph_multi_resolution — verify contract "requires/ensures consistency for multi-resolution graph query"
-#[specforge_test(
-    behavior = "query_graph_multi_resolution",
-    verify = "Query Graph at Multiple Resolutions: multi-resolution graph query holds — validation_complete_fired, depth_respected, kind_filter_applied, graph_protocol_conformance, graph_queried_emitted"
-)]
-fn query_contract_valid_entity_returns_subgraph() {
-    // Requires: entity exists in graph, depth >= 0
-    // a(feature) -> b(behavior) -> c(behavior) -> x(invariant)
-    let mut graph = build_graph();
-    graph.add_node(node_with_fields("x", "invariant", "holds", "active"));
-    graph.add_edge(Edge {
-        source: "c".into(),
-        target: "x".into(),
-        label: "invariants".into(),
-    });
-    let query = |depth: usize, kinds: &[&str]| -> serde_json::Value {
-        let out = specforge_emitter::query(&graph, "a", depth, kinds).unwrap();
-        serde_json::from_str(&out).unwrap()
-    };
-
-    // depth_respected: exactly the entities within N hops.
-    assert_eq!(node_ids(&query(0, &[])), vec!["a"]);
-    assert_eq!(node_ids(&query(1, &[])), vec!["a", "b"]);
-    assert_eq!(node_ids(&query(2, &[])), vec!["a", "b", "c"]);
-    assert_eq!(node_ids(&query(3, &[])), vec!["a", "b", "c", "x"]);
-
-    // kind_filter_applied: only the listed kinds, plus the queried root.
-    assert_eq!(node_ids(&query(3, &["behavior"])), vec!["a", "b", "c"]);
-    assert_eq!(node_ids(&query(3, &["invariant"])), vec!["a", "x"]);
-
-    // graph_protocol_conformance: schema_version, and edges only between
-    // returned nodes.
-    let result = query(2, &[]);
-    assert_eq!(result["schema_version"], "0.1.0");
-    assert_eq!(
-        result["edges"],
-        serde_json::json!([
-            { "source": "a", "target": "b", "label": "behaviors" },
-            { "source": "b", "target": "c", "label": "depends_on" },
-        ])
-    );
-}
-
 // === enforce_token_budget contract ===
 
 // B:enforce_token_budget — verify contract "requires/ensures consistency for token budget enforcement"
