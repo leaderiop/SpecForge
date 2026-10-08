@@ -1079,3 +1079,34 @@ fn infer_status_refuses_an_unusable_manifest_with_e071() {
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("E071"), "{stderr}");
 }
+
+#[specforge_test(
+    behavior = "provide_infer_status_cli",
+    verify = "prints the sessions the manifest records, with their timestamps"
+)]
+fn infer_status_prints_the_session_history() {
+    let dir = setup_project(&[(
+        "specforge-infer.json",
+        r#"{"version": 1, "source_roots": [], "sessions": [
+            {"session_id": "s-1", "agent": "claude", "status": "paused",
+             "started_at": "2026-10-01T00:00:00Z", "ended_at": "2026-10-01T01:00:00Z"},
+            {"session_id": "s-2", "agent": "codex", "status": "active",
+             "started_at": "2026-10-02T00:00:00Z"}]}"#,
+    )]);
+
+    let output = specforge_cmd()
+        .args(["infer-status", "--path"])
+        .arg(dir.path())
+        .output()
+        .unwrap();
+
+    assert_eq!(output.status.code(), Some(0), "{output:?}");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains(
+            "Sessions:\n  s-1  claude  paused  2026-10-01T00:00:00Z \u{2192} 2026-10-01T01:00:00Z\n  s-2  codex  active  2026-10-02T00:00:00Z \u{2192} \u{2026}\n"
+        ),
+        "{stdout}"
+    );
+    assert!(!stdout.contains("No specforge-infer.json yet"), "{stdout}");
+}

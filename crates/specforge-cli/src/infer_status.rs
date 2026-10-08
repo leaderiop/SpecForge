@@ -61,7 +61,7 @@ pub fn run(
                 "{}",
                 render_human(&progress, show_gaps, show_stale, gaps.as_ref())
             );
-            if !path.join(MANIFEST_FILENAME).exists() {
+            if !progress.recorded {
                 println!();
                 println!(
                     "No {MANIFEST_FILENAME} yet: start an inference with the MCP infer prompt \
@@ -96,6 +96,21 @@ fn render_human(progress: &Progress, gaps: bool, stale: bool, detail: Option<&Ga
     if !progress.stale.is_empty() || !progress.deleted.is_empty() {
         line!("  Stale:    {}", progress.stale.len());
         line!("  Deleted:  {}", progress.deleted.len());
+    }
+
+    if !progress.sessions.is_empty() {
+        line!();
+        line!("Sessions:");
+        for session in &progress.sessions {
+            line!(
+                "  {}  {}  {}  {} \u{2192} {}",
+                session.session_id,
+                session.agent,
+                session.status.name(),
+                session.started_at,
+                session.ended_at.as_deref().unwrap_or("\u{2026}")
+            );
+        }
     }
 
     if gaps && !progress.unanalyzed.is_empty() {

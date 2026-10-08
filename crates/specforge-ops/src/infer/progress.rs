@@ -9,7 +9,9 @@ use specforge_protocol_types::ExtensionDeclaration;
 
 use super::discovery::source_files;
 use super::gaps::directory_of;
-use super::manifest::{InferenceManifest, InferenceSummary, detect_stale_entries};
+use super::manifest::{
+    InferenceManifest, InferenceSession, InferenceSummary, detect_stale_entries,
+};
 use crate::OpError;
 use crate::view::ProjectView;
 
@@ -24,6 +26,10 @@ pub struct Progress {
     pub stale: Vec<String>,
     /// Indexed files no longer on disk.
     pub deleted: Vec<String>,
+    /// The sessions the manifest records, in order.
+    pub sessions: Vec<InferenceSession>,
+    /// Whether `specforge-infer.json` exists (false: nothing recorded yet).
+    pub recorded: bool,
 }
 
 /// Inference progress for the project the view was compiled from: the
@@ -31,10 +37,13 @@ pub struct Progress {
 /// `specforge-infer.json` there. Without a root: `no_project`.
 pub fn progress(view: &ProjectView) -> Result<Progress, OpError> {
     let root = view.project_root()?;
+    let manifest = InferenceManifest::read(root)?;
+    let recorded = manifest.is_some();
     Ok(progress_under(
         root,
         view.registries().declarations(),
-        &InferenceManifest::at(root)?,
+        &manifest.unwrap_or_default(),
+        recorded,
     ))
 }
 
@@ -42,6 +51,7 @@ fn progress_under(
     root: &Path,
     declarations: &[ExtensionDeclaration],
     manifest: &InferenceManifest,
+    recorded: bool,
 ) -> Progress {
     let files = source_files(root, declarations, manifest);
     let indexed = manifest.indexed_paths();
@@ -56,6 +66,8 @@ fn progress_under(
         unanalyzed,
         stale,
         deleted,
+        sessions: manifest.sessions.clone(),
+        recorded,
     }
 }
 
@@ -67,6 +79,8 @@ impl Progress {
             unanalyzed: Vec::new(),
             stale: Vec::new(),
             deleted: Vec::new(),
+            sessions: Vec::new(),
+            recorded: false,
         }
     }
 
@@ -80,7 +94,7 @@ impl Progress {
     }
 
     /// The document both surfaces answer with:
-    /// `{summary, unanalyzed, stale, deleted}`.
+    /// `{summary, unanalyzed, stale, deleted, sessions}`.
     pub fn to_json(&self) -> Value {
         json!({
             "summary": {
@@ -91,6 +105,18 @@ impl Progress {
             "unanalyzed": self.unanalyzed,
             "stale": self.stale,
             "deleted": self.deleted,
+            "sessions": self.sessions.iter().map(|session| {
+                let mut entry = json!({
+                    "session_id": session.session_id,
+                    "agent": session.agent,
+                    "status": session.status.name(),
+                    "started_at": session.started_at,
+                });
+                if let Some(ended_at) = &session.ended_at {
+                    entry["ended_at"] = json!(ended_at);
+                }
+                entry
+            }).collect::<Vec<_>>(),
         })
     }
 }
@@ -188,6 +214,43 @@ mod tests {
         let progress = progress(&dir.view()).unwrap();
         assert_eq!(progress.summary.files_analyzed, 0);
         assert!(progress.unanalyzed.contains(&"src/lib.rs".to_string()));
+    }
+
+    #[test]
+    fn progress_lists_the_sessions_in_order() {
+        let dir = project();
+        let none = progress(&dir.view()).unwrap();
+        assert!(none.recorded && none.sessions.is_empty());
+
+        std::fs::write(
+            dir.dir.path().join("specforge-infer.json"),
+            json!({
+                "version": 1,
+                "source_roots": ["src"],
+                "sessions": [
+                    {"session_id": "s-1", "agent": "a", "status": "completed",
+                     "started_at": "t1", "ended_at": "t2"},
+                    {"session_id": "s-2", "agent": "b", "status": "active", "started_at": "t3"}
+                ]
+            })
+            .to_string(),
+        )
+        .unwrap();
+        let progress = progress(&dir.view()).unwrap();
+        let ids: Vec<&str> = progress
+            .sessions
+            .iter()
+            .map(|s| s.session_id.as_str())
+            .collect();
+        assert_eq!(ids, ["s-1", "s-2"]);
+        let doc = progress.to_json();
+        assert_eq!(doc["sessions"][0]["ended_at"], "t2");
+        assert!(doc["sessions"][1].get("ended_at").is_none(), "{doc}");
+
+        // Nothing recorded yet: no file.
+        std::fs::remove_file(dir.dir.path().join("specforge-infer.json")).unwrap();
+        let fresh = super::progress(&dir.view()).unwrap();
+        assert!(!fresh.recorded && fresh.sessions.is_empty());
     }
 
     #[specforge_test(

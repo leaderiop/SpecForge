@@ -401,7 +401,8 @@ behavior provide_infer_status_cli "Provide CLI Infer-Status Command" {
     source files grouped by directory with counts per directory. --stale
     lists files whose content changed since last analysis. If
     specforge-infer.json does not exist, print a message directing the user
-    to the infer prompt.
+    to the infer prompt. The JSON document and specforge.infer_progress
+    list the sessions (session_id, agent, status, started_at, ended_at).
   """
   verify unit "displays summary table"
   verify unit "--format json produces valid JSON"
@@ -410,6 +411,7 @@ behavior provide_infer_status_cli "Provide CLI Infer-Status Command" {
   verify unit "--stale lists files with changed content"
   verify unit "missing manifest shows helpful message"
   verify unit "an unusable manifest is refused with E071"
+  verify unit "prints the sessions the manifest records, with their timestamps"
 }
 
 // ---------------------------------------------------------------------------
