@@ -102,7 +102,7 @@ expression: cli_snap
           "entities_analyzed": 2,
           "extension": "@specforge/testing",
           "invariant_enforced": 0,
-          "invariant_orphans": 1,
+          "invariant_unreferenced": 1,
           "invariants": [
             {
               "risk": "low",

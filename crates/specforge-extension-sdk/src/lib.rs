@@ -387,16 +387,6 @@ impl ContributionsBuilder {
         self
     }
 
-    /// Name the export `specforge migrate` calls without declaring its
-    /// handler: the guest's `handler` must answer it. For an extension not
-    /// written with the builders (as [`ContributionsBuilder::raw_category`]);
-    /// declare the hook with [`ContributionsBuilder::migration_hook_handler`].
-    #[deprecated(note = "declare the hook with its handler: `migration_hook_handler`")]
-    pub fn migration_hook(&mut self, export: &str) -> &mut Self {
-        self.meta.migration_hook = Some(export.to_string());
-        self
-    }
-
     /// Escape hatch for an extension not written with the builders (ADR
     /// 0011): `items` is the raw JSON array the host receives for
     /// `category`, served as given. A declared category's items must parse

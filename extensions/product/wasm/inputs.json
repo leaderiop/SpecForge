@@ -1,15 +1,15 @@
 {
   "artifact": "specforge_ext_product.wasm",
-  "artifact_sha256": "0f8fa4316f3a700ddc328460053f06e96989ed1bf442d915ec5cd16a2b8b1304",
+  "artifact_sha256": "45a56c9dcafb88342130a4ad01ad9e4f0e36a9d93acbfbeacb3b2aa116e52e6d",
   "built_with": "rustc 1.98.1 (48a229cea 2026-09-01)",
   "inputs": {
     "Cargo.toml#workspace-inherited": "f445cf417114d7d1896a3fbd9d2348d9bedf3ac7c437748f18f7bfda2217efc2",
     "crates/specforge-coverage/Cargo.toml": "10a319ef37a9e9ea3dea8bb6ed1e8a6cdb24edb92ece2070b1e99a9cac2f82d8",
-    "crates/specforge-coverage/src/lib.rs": "1bda6c0fd06589300e7526864f9997cbfae9cac4706bb37d97f18b1846109605",
+    "crates/specforge-coverage/src/lib.rs": "88eaea4d02f7caa8e2c0ce3d2093710ccf670c5fb71f418e41c4116717298c90",
     "crates/specforge-extension-sdk-macros/Cargo.toml": "bfe09b19206691f6683a853136148d8fa2453cfbd575f2b65a560691ddee9c56",
     "crates/specforge-extension-sdk-macros/src/lib.rs": "65539d5bead2c749029c1241c3966c24ee4c1e08261c68798ddca78b8e640478",
     "crates/specforge-extension-sdk/Cargo.toml": "8e2dec08a44d91a963414b569936c150366b0c09f94d81881b43be1003124327",
-    "crates/specforge-extension-sdk/src/lib.rs": "564aa0a79cfee978c60ccdf3bdefc9e97c3dd6aa4e9262a21a915a1977ee0504",
+    "crates/specforge-extension-sdk/src/lib.rs": "10c00e6754547a521bc3d052ae66bcd1308d70707f6c52681654946f14439b26",
     "crates/specforge-extension-sdk/src/operations.rs": "5abc571e460dd645044eb5b5c40e505bec76f4ca12600ae1e23a1eb77895c2f4",
     "crates/specforge-extension-sdk/src/surface.rs": "aa9d6a8b06929e4a95286364b1ba457ad8af186544d8f68565d3bdeae13e3e5c",
     "crates/specforge-extension-sdk/src/testing.rs": "d16ef30bebb062d0776505bf4b368e217ad1242fb96ac45e8c0608417ccc5326",
@@ -23,12 +23,12 @@
     "crates/specforge-protocol-types/src/vocabulary.rs": "d263e43cc26e081293bff2de954a703a3005c7030236e4449228c3f70287c1e0",
     "extensions/product/Cargo.lock": "982d7c03d5e9aec6e63934931e7b3cc8be497edd1d9f4e618f2efe32cea667e7",
     "extensions/product/Cargo.toml": "b9855e078d3ded36e42508e568e730c341130611599a0ab8aed1e2a3f9b0d7ca",
-    "extensions/product/src/commands.rs": "09bd47ce49db55cf973587c1f3a5a3468b52102396649761aca78a85665a5aad",
+    "extensions/product/src/commands.rs": "710843c050c71dd867be68048a2ef08e58b9f6bda4030c98cf38adb0209c868f",
     "extensions/product/src/declaration.rs": "4b318b3b2285b829970bdc2fa3b98510ffd98a7d44250a945f81a31b0ee2035c",
     "extensions/product/src/evidence.rs": "39742c4a2367e5154c393aaae5387590d882ed06aec8628d0b413dedead64c25",
     "extensions/product/src/lib.rs": "3c1bca685e4cafc99adc747ccdbcb2aa219fb6979b5ed7be5614e7e5998bb2af",
     "extensions/product/src/lifecycle.rs": "162d7447ad0b56419f71eb46489574c5df8187f78484aa428b81fc11e8103c55",
-    "extensions/product/src/queries.rs": "c04ef5b5bb50ddc41d374190a694391c420df8f87e0bdc4fd6284a41590394f6",
+    "extensions/product/src/queries.rs": "d11d1a3ca6e92e4d4659af9f438bfe8a5ff7c04339191b21d610f13f6d5564b3",
     "extensions/product/src/starter.spec": "9fe4275c3d577f6e4f3450fbf914ab70b828d145e89a21e8680c8658c131f975"
   }
 }

@@ -200,7 +200,7 @@ behavior keeper "Keeper" {
 
     let coverage = coverage(&doc);
     assert_eq!(coverage["summary"]["invariant_enforced"], 1);
-    assert_eq!(coverage["summary"]["invariant_orphans"], 1);
+    assert_eq!(coverage["summary"]["invariant_unreferenced"], 1);
 
     assert!(
         coverage["findings"]

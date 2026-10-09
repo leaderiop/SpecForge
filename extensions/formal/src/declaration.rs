@@ -458,7 +458,7 @@ fn rules(c: &mut ContributionsBuilder) {
     c.rule("W131", |r| {
         r.check(CheckKind::NoIncomingEdges)
             .severity(ValidationSeverity::Warning)
-            .message_template("refinement '{id}' is not referenced — it may be orphaned")
+            .message_template("refinement '{id}' is not referenced by any entity — it may be unused")
             .target_kind("refinement");
     });
     c.rule("W134", |r| {

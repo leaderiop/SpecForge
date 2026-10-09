@@ -66,7 +66,7 @@ pub struct Entity {
     #[serde(default)]
     pub risk: Option<String>,
     /// Something references the entity. A graded entity nothing references is
-    /// an orphan: counted in the summary, reported by software's W003.
+    /// unreferenced: counted in the summary, reported by software's W003.
     #[serde(default)]
     pub referenced: bool,
 }
@@ -271,7 +271,7 @@ pub struct Summary {
     /// Obligations per verify kind (`untyped` for a bare `verify`).
     pub obligation_kinds: BTreeMap<String, usize>,
     pub invariant_enforced: usize,
-    pub invariant_orphans: usize,
+    pub invariant_unreferenced: usize,
     pub discharge_funnel: Funnel,
     pub test_results: Option<TestResultsSummary>,
     /// Per risk level, in risk order.
@@ -326,7 +326,7 @@ pub fn assess(
     let (mut testable_total, mut testable_verified, mut testable_proven) = (0usize, 0usize, 0usize);
     let mut testable_exempt = 0usize;
     let mut funnel = Funnel::default();
-    let (mut invariant_orphans, mut obligations_proven) = (0usize, 0usize);
+    let (mut invariant_unreferenced, mut obligations_proven) = (0usize, 0usize);
     // risk -> (invariants, invariants without obligations)
     let mut invariants: BTreeMap<String, (usize, usize)> = BTreeMap::new();
 
@@ -451,7 +451,7 @@ pub fn assess(
             let tally = invariants.entry(risk.to_string()).or_insert((0, 0));
             tally.0 += 1;
             if !entity.referenced {
-                invariant_orphans += 1;
+                invariant_unreferenced += 1;
             }
             if obligations == 0 {
                 tally.1 += 1;
@@ -500,8 +500,8 @@ pub fn assess(
         testable_exempt,
         obligations: obligation_kinds.values().sum(),
         obligation_kinds,
-        invariant_enforced: invariant_total - invariant_orphans,
-        invariant_orphans,
+        invariant_enforced: invariant_total - invariant_unreferenced,
+        invariant_unreferenced,
         discharge_funnel: funnel,
         test_results,
         invariants: invariants

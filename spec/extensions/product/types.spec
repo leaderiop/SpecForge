@@ -236,10 +236,10 @@ type ProductValidationPayload {
 }
 
 type ProductTraceabilityPayload {
-  journey_count      integer
-  feature_count      integer
-  reachable_features integer
-  orphan_features    integer
+  journey_count         integer
+  feature_count         integer
+  reachable_features    integer
+  unreferenced_features integer
   verify property "ProductTraceabilityPayload"
 }
 
@@ -1121,11 +1121,11 @@ type KindCount {
   verify property "KindCount"
 }
 
-type KindOrphanCount {
-  kind    string
-  orphans integer
-  total   integer
-  verify property "KindOrphanCount"
+type KindUnreferencedCount {
+  kind         string
+  unreferenced integer
+  total        integer
+  verify property "KindUnreferencedCount"
 }
 
 type HealthCompleteness {
@@ -1137,9 +1137,9 @@ type HealthCompleteness {
 }
 
 type HealthPayload {
-  score         HealthScore
-  entity_counts KindCount[]
-  orphan_counts KindOrphanCount[]
-  completeness  HealthCompleteness
+  score               HealthScore
+  entity_counts       KindCount[]
+  unreferenced_counts KindUnreferencedCount[]
+  completeness        HealthCompleteness
   verify property "HealthPayload"
 }

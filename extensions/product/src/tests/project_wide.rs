@@ -73,15 +73,20 @@ fn bulk_status_is_a_table_for_people() {
 
 #[specforge_test(
     behavior = "surface_health",
-    verify = "health reports the score, counts and orphans"
+    verify = "health reports the score, counts and unreferenced entities"
 )]
-fn health_reports_the_score_counts_and_orphans() {
+fn health_reports_the_score_counts_and_unreferenced_entities() {
     let h = json_of("health", json!({}), &plan());
     let mut keys: Vec<&str> = h.as_object().unwrap().keys().map(String::as_str).collect();
     keys.sort_unstable();
     assert_eq!(
         keys,
-        ["completeness", "entity_counts", "orphan_counts", "score"]
+        [
+            "completeness",
+            "entity_counts",
+            "score",
+            "unreferenced_counts"
+        ]
     );
     let score = &h["score"];
     for part in ["overall", "coverage", "connectivity", "completeness"] {
@@ -103,14 +108,17 @@ fn health_reports_the_score_counts_and_orphans() {
             .clone()
     };
     assert_eq!((count("feature"), count("journey")), (json!(3), json!(3)));
-    let orphans = h["orphan_counts"]
+    let unreferenced = h["unreferenced_counts"]
         .as_array()
         .unwrap()
         .iter()
         .find(|c| c["kind"] == "milestone")
         .unwrap();
     assert_eq!(
-        (orphans["orphans"].clone(), orphans["total"].clone()),
+        (
+            unreferenced["unreferenced"].clone(),
+            unreferenced["total"].clone()
+        ),
         (json!(3), json!(3))
     );
     assert_eq!(h["completeness"]["features_total"], 3);

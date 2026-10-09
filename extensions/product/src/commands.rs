@@ -1125,7 +1125,7 @@ pub fn declare(c: &mut ContributionsBuilder) {
         cmd.title("Show project health score")
             .description(
                 "A 0-100 score averaging coverage, connectivity and completeness \
-            of the product graph, with entity and orphan counts.",
+            of the product graph, with entity and unreferenced counts.",
             )
             .category("query");
 
@@ -1412,11 +1412,15 @@ fn health(report: &queries::HealthPayload, out: &mut String) {
     for ec in report.entity_counts.iter().filter(|ec| ec.count > 0) {
         let _ = writeln!(out, "  {}: {}", ec.kind, ec.count);
     }
-    if !report.orphan_counts.is_empty() {
+    if !report.unreferenced_counts.is_empty() {
         let _ = writeln!(out);
-        let _ = writeln!(out, "Orphan entities:");
-        for oc in report.orphan_counts.iter().filter(|oc| oc.orphans > 0) {
-            let _ = writeln!(out, "  {}: {}/{}", oc.kind, oc.orphans, oc.total);
+        let _ = writeln!(out, "Unreferenced entities:");
+        for oc in report
+            .unreferenced_counts
+            .iter()
+            .filter(|oc| oc.unreferenced > 0)
+        {
+            let _ = writeln!(out, "  {}: {}/{}", oc.kind, oc.unreferenced, oc.total);
         }
     }
 }

@@ -157,9 +157,9 @@ type RegistryPackage "Registry Package" {
 // each package found, with the registry it was found in, and the diagnostic
 // of each registry that failed.
 type RegistrySearched "Registry Searched" {
-  found       SearchHit[]
-  failures    Diagnostic[]
-  asked       integer
+  found    SearchHit[]
+  failures Diagnostic[]
+  asked    integer
   verify unit "RegistrySearched is what a search over the configured registries answers with"
 }
 

@@ -5896,7 +5896,7 @@ expression: "digest(&load(&runtime, &all))"
           {
             "args": [],
             "category": "query",
-            "description": "A 0-100 score averaging coverage, connectivity and completeness of the product graph, with entity and orphan counts.",
+            "description": "A 0-100 score averaging coverage, connectivity and completeness of the product graph, with entity and unreferenced counts.",
             "export": "cmd__product_health",
             "id": "health",
             "title": "Show project health score"
@@ -7603,7 +7603,7 @@ expression: "digest(&load(&runtime, &all))"
       "edge_peer_kind": null,
       "edge_type": null,
       "field": null,
-      "message_template": "refinement '{id}' is not referenced — it may be orphaned",
+      "message_template": "refinement '{id}' is not referenced by any entity — it may be unused",
       "owner": "@specforge/formal",
       "severity": "Warning",
       "target_kind": "refinement",

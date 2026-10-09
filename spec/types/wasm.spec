@@ -70,12 +70,12 @@ type WasmTrapInfo {
 // ── Lock File Types ──────────────────────────────────────────
 
 type LockFileEntry {
-  extension_name string     @readonly
-  version        string     @readonly
+  extension_name string @readonly
+  version        string @readonly
   source         ExtensionSource
-  wasm_hash      string     @readonly
+  wasm_hash      string @readonly
   resolved_at    string
-  key_id         string     @optional
+  key_id         string @optional
   verify unit "LockFileEntry schema is valid"
 }
 

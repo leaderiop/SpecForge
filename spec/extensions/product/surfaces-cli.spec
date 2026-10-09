@@ -948,7 +948,7 @@ behavior surface_health "Surface: Project Health" {
     health score, the mean of coverage (product entities something
     references), connectivity (edge density) and completeness (features
     with a status, milestones with references), with the entity counts per
-    product kind, the orphan counts per kind that has entities, and the
+    product kind, the unreferenced counts per kind that has entities, and the
     completeness counts. It takes no args.
     Wasm export: cmd__product_health.
     MCP tool: specforge.product.health.
@@ -959,5 +959,5 @@ behavior surface_health "Surface: Project Health" {
     exit_code     "exit 0 on success"
   }
   features [pe_surface_contributions]
-  verify unit "health reports the score, counts and orphans"
+  verify unit "health reports the score, counts and unreferenced entities"
 }

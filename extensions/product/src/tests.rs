@@ -648,12 +648,12 @@ fn project_health_scores_coverage_and_completeness() {
             .count
     };
     assert_eq!((count("feature"), count("journey")), (2, 1));
-    let orphans = report
-        .orphan_counts
+    let unreferenced = report
+        .unreferenced_counts
         .iter()
         .find(|c| c.kind == "feature")
         .unwrap();
-    assert_eq!((orphans.orphans, orphans.total), (1, 2));
+    assert_eq!((unreferenced.unreferenced, unreferenced.total), (1, 2));
     assert_eq!(report.completeness.features_with_status, 1);
     assert_eq!(report.completeness.features_total, 2);
     assert_eq!(report.completeness.milestones_with_features, 1);

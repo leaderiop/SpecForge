@@ -59,7 +59,7 @@
       "constraint": null,
       "edge_type": null,
       "field": null,
-      "message_template": "refinement '{id}' is not referenced — it may be orphaned",
+      "message_template": "refinement '{id}' is not referenced by any entity — it may be unused",
       "severity": "warning",
       "target_kind": "refinement",
       "wasm_function": null
