@@ -6,7 +6,7 @@ use specforge_registry_client::registry_ops::{
 };
 use specforge_registry_client::testing::{Call, CallKind, MemoryClient, package};
 use specforge_registry_client::{
-    AuthMethod, RegistryClient, RegistryConfig, RegistryCredential, RegistryError, SigningKey,
+    RegistryClient, RegistryConfig, RegistryCredential, RegistryError, SigningKey,
 };
 use specforge_registry_wire::{PackageMetadata, path};
 
@@ -50,10 +50,7 @@ fn minimal_manifest() -> ExtensionDeclaration {
 const TOKEN: &str = "publisher-token";
 
 fn accepted() -> RegistryCredential {
-    RegistryCredential {
-        alias: "default".to_string(),
-        auth_method: AuthMethod::Bearer(TOKEN.to_string()),
-    }
+    RegistryCredential::new("default", TOKEN)
 }
 
 fn client() -> MemoryClient {
@@ -363,11 +360,6 @@ fn error_messages_do_not_leak_auth_details() {
             );
         }
     }
-
-    // Also verify sanitize_token works correctly
-    let sanitized = specforge_registry_client::sanitize_token(raw_token);
-    assert!(!sanitized.contains("super_secret"));
-    assert!(sanitized.ends_with("****"));
 }
 
 // B:publish_to_registry — verify unit "signed publish carries verifiable signature"

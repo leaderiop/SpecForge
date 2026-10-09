@@ -94,13 +94,14 @@ feature registry_authentication "Registry Authentication" {
     authentication, organizations cannot use private extension repositories.
   """
   solution """
-    Registry credential management via specforge login and
-    specforge logout. Credentials are stored as environment variable
-    references or token file paths — never raw tokens. The system authenticates
-    before fetching from configured registries, respects scope filters, assigns
-    appropriate trust levels, and retries on authentication failures. Logout
-    securely removes stored credentials for a given registry. Error messages
-    never leak credential details.
+    Registry credential management via specforge login and specforge
+    logout. login keeps a token per registry alias: a secret in the OS
+    keyring (--token), or a reference to an environment variable
+    (--token-env) or a file (--token-file), never in specforge.json.
+    Every request to a registry carries the credential kept for it, so a
+    registry that requires a token to read can be used; a rate-limited
+    request is retried. Logout removes the stored credential for a given
+    registry. Error messages never leak credential details.
 
     P8 guard: Authentication MUST never be required for first use.
     SpecForge ships no public registry: builtins and local extensions need

@@ -1171,3 +1171,117 @@ fn an_unsigned_add_warns_on_stderr_without_a_code() {
     let json = add("json");
     assert!(!json.contains("UNSIGNED"), "{json}");
 }
+
+// ---------------------------------------------------------------
+// login keeps a secret or a reference (plan 16, T3)
+// ---------------------------------------------------------------
+
+#[specforge_test(
+    behavior = "validate_registry_credentials",
+    verify = "valid credentials stored as RegistryCredential reference"
+)]
+fn login_with_a_token_variable_keeps_the_reference() {
+    use crate::published::serve;
+    let registry = serve(vec![]);
+    let dir = project_on(&registry);
+    let home = TempDir::new().unwrap();
+
+    let output = specforge_cmd()
+        .args([
+            "login",
+            "--registry",
+            "local",
+            "--token-env",
+            "P16_LOGIN_TOKEN",
+            "--format",
+            "json",
+            "--path",
+        ])
+        .arg(dir.path())
+        .env("HOME", home.path())
+        .env("P16_LOGIN_TOKEN", registry.token())
+        .output()
+        .unwrap();
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(json["source"], "env", "{json}");
+    let stored = std::fs::read_to_string(home.path().join(".specforge/credentials.json")).unwrap();
+    assert!(
+        stored.contains("\"token_env\": \"P16_LOGIN_TOKEN\""),
+        "{stored}"
+    );
+    assert!(!stored.contains(registry.token()), "{stored}");
+    assert!(!home.path().join(".specforge/secrets").exists());
+}
+
+#[specforge_test(
+    behavior = "validate_registry_credentials",
+    verify = "login with a token file keeps the file's path, not its content"
+)]
+fn login_with_a_token_file_keeps_the_path() {
+    use crate::published::serve;
+    let registry = serve(vec![]);
+    let dir = project_on(&registry);
+    let home = TempDir::new().unwrap();
+    let file = home.path().join("token.txt");
+    std::fs::write(&file, format!("{}\n", registry.token())).unwrap();
+
+    let output = specforge_cmd()
+        .args(["login", "--registry", "local", "--token-file"])
+        .arg(&file)
+        .args(["--format", "json", "--path"])
+        .arg(dir.path())
+        .env("HOME", home.path())
+        .output()
+        .unwrap();
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(json["source"], "token_file", "{json}");
+    let stored = std::fs::read_to_string(home.path().join(".specforge/credentials.json")).unwrap();
+    assert!(stored.contains("token_file"), "{stored}");
+    assert!(!stored.contains(registry.token()), "{stored}");
+}
+
+#[specforge_test(
+    behavior = "validate_registry_credentials",
+    verify = "login takes exactly one token source"
+)]
+fn login_with_two_token_sources_is_refused() {
+    use crate::published::serve;
+    let registry = serve(vec![]);
+    let dir = project_on(&registry);
+    let home = TempDir::new().unwrap();
+
+    let output = specforge_cmd()
+        .args([
+            "login",
+            "--registry",
+            "local",
+            "--token",
+            "x",
+            "--token-env",
+            "Y",
+            "--format",
+            "json",
+            "--path",
+        ])
+        .arg(dir.path())
+        .env("HOME", home.path())
+        .output()
+        .unwrap();
+
+    assert!(!output.status.success());
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(json["code"], "R-LOGIN-001", "{json}");
+    assert!(registry.requests().is_empty(), "{:?}", registry.requests());
+}

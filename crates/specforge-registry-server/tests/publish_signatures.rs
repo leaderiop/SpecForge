@@ -7,7 +7,7 @@
 //! as a trust anchor.
 
 use specforge_protocol_types::ExtensionDeclaration;
-use specforge_registry_client::registry_config::{AuthMethod, RegistryConfig, RegistryCredential};
+use specforge_registry_client::registry_config::{RegistryConfig, RegistryCredential};
 use specforge_registry_client::{
     HttpRegistryClient, PackageSignature, SigningKey, publish_to_registry, verify_signature,
 };
@@ -41,10 +41,7 @@ fn client_of(server: &LocalRegistry) -> (RegistryConfig, RegistryCredential) {
             scope_filter: None,
             default_registry: true,
         },
-        RegistryCredential {
-            alias: "test".to_string(),
-            auth_method: AuthMethod::Bearer(server.token().to_string()),
-        },
+        RegistryCredential::new("test", server.token()),
     )
 }
 

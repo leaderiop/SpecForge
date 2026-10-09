@@ -965,62 +965,51 @@ behavior authenticate_registry_request "Authenticate Registry Request" {
     offline_first_extension_resolution,
   ]
   category   command
-  types      [
-    RegistryConfig,
-    RegistryCredential,
-    TokenVerified,
-    ExtensionError,
-    RegistryError,
-    AuthMethod,
-  ]
+  types      [RegistryConfig, RegistryCredential, ExtensionError, RegistryError]
   ports      [RegistryClient]
   produces   [registry_authenticated]
   requires {
-    credential_configured     "A RegistryCredential entry exists for the target registry alias"
+    credential_configured     "~/.specforge/credentials.json has an entry for the registry's alias, or SPECFORGE_REGISTRY_TOKEN is set for a publish"
     registry_client_available "RegistryClient port is available for authentication requests"
   }
   ensures {
-    token_resolved                 "Authentication token is resolved from environment variable or token file"
-    auth_header_attached           "Resolved token is attached as Authorization header"
-    missing_source_diagnosed       "Unavailable token source produces ExtensionError diagnostic with guidance"
-    double_401_diagnosed           "Failed re-resolution after 401 emits E-level diagnostic with login guidance"
-    tokens_never_logged            "Raw tokens are never logged or stored in specforge.json"
-    cache_fallback_on_network_only "Cache fallback triggers only on network-level failures, not auth failures"
-    authenticated_emitted          "registry_authenticated event fires on successful authentication"
+    token_resolved           "The token is resolved before any request: the secret login stored (OS keyring, else a 0600 file), an environment variable, or a token file"
+    auth_header_attached     "The resolved token is attached as an Authorization: Bearer header"
+    missing_source_diagnosed "An unset variable is R010 and an unreadable token file R011, before any request"
+    unauthorized_diagnosed   "A 401 is R001 naming how to log in again; a 403 is R002 with permission guidance"
+    tokens_never_logged      "Raw tokens are never logged, printed or stored in specforge.json"
+    authenticated_emitted    "registry_authenticated event fires on successful authentication"
   }
   contract   """
-    When making a request to a registry that has a configured credential,
-    the system MUST resolve the authentication token from the specified
-    source: environment variable (token_env_var) or token file (token_file).
-    The resolved token MUST be attached as an Authorization header. If the
-    token source is unavailable (env var unset, file missing), the system
-    MUST produce an ExtensionError diagnostic with guidance. On receiving
-    a 401 response, the compiler MUST re-resolve the credential from its
-    source. If the re-resolved credential also fails, the compiler MUST
-    emit an E-level diagnostic with resolution guidance (e.g., "run
-    `specforge login --registry <alias> --token <TOKEN>`"). On receiving a 403 response, the
-    compiler MUST emit an E-level diagnostic with permission guidance.
-    Retry logic for transient failures (429, timeout) is handled by
-    retry_registry_request. When the token source is available but the
-    registry is unreachable (network timeout, DNS failure), the system
-    MUST fall back to the cached manifest in specforge.lock and the
-    locally stored .wasm binary if available, emitting an I-level
-    diagnostic. Authentication failure (401/403) MUST NOT trigger cache
-    fallback — only network-level failures. Raw tokens MUST never be
-    logged or stored in specforge.json.
+    A registry credential is kept per registry alias in
+    ~/.specforge/credentials.json, never in specforge.json. Its token
+    comes from one of three sources: the secret specforge login --token
+    stored (in the OS keyring, else in a 0600 file under
+    ~/.specforge/secrets/), an environment variable (login --token-env),
+    or a file whose trimmed content is the token (login --token-file).
+    The system MUST resolve the token before any request: an unset or
+    blank variable MUST be R010 and a token file that can't be read or
+    is empty MUST be R011, each naming the alias and how to fix it; an
+    expired stored token is R-AUTH-020 and an unreadable keyring entry
+    R-AUTH-021. The resolved token MUST be attached as an Authorization:
+    Bearer header. A 401 answer MUST be R001, whose suggestion is
+    `specforge login --registry <alias> --token <TOKEN>`; a 403 answer
+    MUST be R002 with permission guidance. A 429 answer is retried by
+    retry_registry_request. When the registry can't be reached the
+    request fails (R004 or R005) with retry guidance; an add of a version
+    already installed asks no registry (configure_registries). A raw
+    token MUST never be logged, printed, shown in a diagnostic, or stored
+    in specforge.json.
   """
   verify unit "token resolved from environment variable"
   verify unit "token resolved from token file"
   verify unit "missing token source produces ExtensionError"
-  verify unit "401 response triggers credential re-resolution"
-  verify unit "double 401 after re-resolution emits E-level diagnostic with login guidance"
+  verify unit "a token file that can't be read is R011 before any request"
+  verify unit "a 401 is R001 naming how to log in again"
   verify unit "raw tokens never logged or stored in config"
-  verify unit "both token_env_var and token_file absent produces E-level diagnostic"
   verify unit "403 response produces E-level diagnostic with permission guidance"
-  verify unit "unreachable registry with cached extension falls back to cache with I-level diagnostic"
-  verify unit "authentication failure (401/403) does not trigger cache fallback"
   verify unit "every registry call reads an answer's status as one error"
-  verify contract "Authenticate Registry Request: registry authentication holds — credential_configured, registry_client_available, token_resolved, auth_header_attached, missing_source_diagnosed, double_401_diagnosed, tokens_never_logged, cache_fallback_on_network_only, authenticated_emitted"
+  verify contract "Authenticate Registry Request: registry authentication holds — credential_configured, registry_client_available, token_resolved, auth_header_attached, missing_source_diagnosed, unauthorized_diagnosed, tokens_never_logged, authenticated_emitted"
 }
 
 behavior retry_registry_request "Retry Registry Request" {
@@ -1072,7 +1061,7 @@ behavior validate_registry_credentials "Validate Registry Credentials" {
     registry_client_available "RegistryClient port is available for test authentication request"
   }
   ensures {
-    valid_credentials_stored      "Valid credentials stored as RegistryCredential referencing env var or token file path"
+    valid_credentials_stored      "--token is stored as a secret in the OS keyring (0600-file fallback); --token-env and --token-file are stored as references, never as the token"
     invalid_credentials_diagnosed "Invalid credentials produce error diagnostic with guidance"
     raw_token_never_stored        "Raw token value is never stored in specforge.json"
     credentials_validated_emitted "registry_credentials_validated event fires on successful validation"
@@ -1083,15 +1072,22 @@ behavior validate_registry_credentials "Validate Registry Credentials" {
     test request. The credential MUST be stored under the alias of the
     registry it was validated against: the entry --registry names, else the
     default registry; a --registry that names no entry MUST be refused (E063)
-    before any network call. Valid credentials MUST be stored as a RegistryCredential
-    entry referencing only the environment variable name or token file path —
-    never the raw token value. The system MUST confirm successful authentication
+    before any network call. login MUST take exactly one token source:
+    --token, --token-env or --token-file (R-LOGIN-001 otherwise, before any
+    network call). The token is resolved from it and validated; then --token
+    is kept as a secret in the OS keyring (a 0600 file under
+    ~/.specforge/secrets/ when no keyring is available) and --token-env and
+    --token-file are kept as references, so the variable's or the file's
+    token is read on each use. The raw token MUST never be stored in
+    specforge.json or in credentials.json. The system MUST confirm successful authentication
     with an info message including the registry alias and authenticated scope.
     With no registry configured, login MUST make no network call and MUST
     fail with E063, whose suggestion names the specforge.json registries key.
   """
   verify unit "with no registry configured, login makes no network call and reports how to configure one"
   verify unit "valid credentials stored as RegistryCredential reference"
+  verify unit "login with a token file keeps the file's path, not its content"
+  verify unit "login takes exactly one token source"
   verify unit "invalid credentials produce error with guidance"
   verify unit "raw token never stored in specforge.json"
   verify unit "success message includes registry alias and scope"
@@ -1107,7 +1103,7 @@ behavior logout_registry "Logout Registry" {
   ports      [FileSystem]
   produces   [registry_logged_out]
   requires {
-    alias_matches_config "The provided alias matches a RegistryConfig entry's alias field"
+    alias_given          "--registry names the alias, or the project at --path has a default registry"
     filesystem_available "FileSystem port is available for credential removal"
   }
   ensures {
@@ -1122,8 +1118,7 @@ behavior logout_registry "Logout Registry" {
     MUST remove the stored credential reference for the given registry alias.
     Without --registry, the alias is the default registry's, read from
     the specforge.json of the project at --path.
-    The alias MUST match a RegistryConfig entry's alias field. The removal
-    MUST delete only the RegistryCredential entry whose alias matches —
+    The removal MUST delete only the RegistryCredential entry whose alias matches —
     credentials for other aliases (and their scopes) MUST remain untouched.
     If no credential exists for the specified alias, the command MUST succeed
     silently. The system MUST NOT attempt any network requests during logout.
@@ -1133,7 +1128,7 @@ behavior logout_registry "Logout Registry" {
   verify unit "no credential for alias succeeds silently"
   verify unit "no network requests made during logout"
   verify unit "logout without --registry forgets the default registry's credential"
-  verify contract "Logout Registry: registry logout holds — alias_matches_config, filesystem_available, credential_removed, other_credentials_intact, missing_credential_silent, no_network_requests, logged_out_emitted"
+  verify contract "Logout Registry: registry logout holds — alias_given, filesystem_available, credential_removed, other_credentials_intact, missing_credential_silent, no_network_requests, logged_out_emitted"
 }
 
 behavior support_private_registries "Support Private Registries" {

@@ -20,8 +20,8 @@ use specforge_registry_client::credentials::{read_credentials, user_dir};
 use specforge_registry_client::signing::load_or_create_signing_key_at;
 use specforge_registry_client::trust_flow::TrustPolicy;
 use specforge_registry_client::{
-    AuthMethod, HttpRegistryClient, RegistryClient, RegistryConfig, RegistryCredential,
-    RegistryError, Retrying, SigningKey, parse_registries_from_config, publish_to_registry,
+    HttpRegistryClient, RegistryClient, RegistryConfig, RegistryCredential, RegistryError,
+    Retrying, SigningKey, parse_registries_from_config, publish_to_registry,
     verify_registry_integrity,
 };
 use specforge_registry_wire::PackageMetadata;
@@ -386,14 +386,11 @@ impl ConfiguredRegistry {
     /// else the one stored for the registry's alias.
     fn credential_for(&self, registry: &RegistryConfig) -> Result<RegistryCredential, OpError> {
         if let Some(token) = self.user.token() {
-            return Ok(RegistryCredential {
-                alias: registry.alias.clone(),
-                auth_method: AuthMethod::Bearer(token.to_string()),
-            });
+            return Ok(RegistryCredential::new(registry.alias.clone(), token));
         }
         let store = read_credentials(&self.user.credentials()).map_err(OpError::from)?;
         store
-            .get_credential_detail(&registry.alias)
+            .credential(&registry.alias)
             .map_err(OpError::from)?
             .ok_or_else(|| {
                 OpError::coded(

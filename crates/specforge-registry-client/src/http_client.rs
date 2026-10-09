@@ -9,7 +9,7 @@ use specforge_registry_wire::{
 };
 
 use super::registry_client::{RegistryClient, RegistryError};
-use super::registry_config::{AuthMethod, RegistryConfig, RegistryCredential};
+use super::registry_config::{RegistryConfig, RegistryCredential};
 use specforge_protocol_types::package::Version;
 use specforge_protocol_types::{ExtensionDeclaration, PackageName};
 
@@ -55,22 +55,6 @@ impl HttpRegistryClient {
                 }
             }
         })
-    }
-
-    pub(crate) fn resolve_token(credential: &RegistryCredential) -> Result<String, RegistryError> {
-        match &credential.auth_method {
-            AuthMethod::Bearer(token) => Ok(token.clone()),
-            AuthMethod::TokenEnvVar(var) => {
-                std::env::var(var).map_err(|_| RegistryError::Unauthorized {
-                    guidance: format!("environment variable '{}' not set", var),
-                })
-            }
-            AuthMethod::TokenFile(path) => std::fs::read_to_string(path)
-                .map(|s| s.trim().to_string())
-                .map_err(|_| RegistryError::Unauthorized {
-                    guidance: format!("cannot read token file '{}'", path.display()),
-                }),
-        }
     }
 }
 
@@ -204,8 +188,7 @@ impl RegistryClient for HttpRegistryClient {
             .header(CONTENT_TYPE, form::content_type(&boundary))
             .body(body);
         if let Some(credential) = credential {
-            let token = Self::resolve_token(credential)?;
-            request = request.header(AUTHORIZATION, format!("Bearer {}", token));
+            request = request.header(AUTHORIZATION, format!("Bearer {}", credential.token()));
         }
 
         let resp = self.send(request, &url)?;
@@ -224,12 +207,11 @@ impl RegistryClient for HttpRegistryClient {
         registry: &RegistryConfig,
         credential: &RegistryCredential,
     ) -> Result<Option<String>, RegistryError> {
-        let token = Self::resolve_token(credential)?;
         let url = format!("{}{}", Self::base_url(registry), path::AUTH_VERIFY);
         let request = self
             .client
             .post(&url)
-            .header(AUTHORIZATION, format!("Bearer {}", token))
+            .header(AUTHORIZATION, format!("Bearer {}", credential.token()))
             .header(CONTENT_TYPE, "application/json")
             .body("{}");
         let resp = self.send(request, &url)?;

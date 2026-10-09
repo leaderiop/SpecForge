@@ -155,16 +155,17 @@ type TrustLevel = verified | community | local | git
 
 // ── Registry Authentication ───────────────────────────────
 
-// At least one of token_env_var or token_file MUST be present.
-// Validation rule: authenticate_registry_request MUST emit E-level diagnostic if both are absent.
-type AuthMethod = bearer | basic | custom
-
-type RegistryCredential {
-  alias         string @readonly @unique
-  scope         string
-  token_env_var string @optional
-  token_file    string @optional
-  auth_method   AuthMethod
+// One entry of ~/.specforge/credentials.json, keyed by registry alias:
+// where that registry's token comes from. Never in specforge.json. At most
+// one of token_env and token_file is set; with neither, login stored the
+// secret (in the OS keyring when in_keyring, else in a 0600 file under
+// ~/.specforge/secrets/).
+type RegistryCredential "Registry Credential" {
+  alias      string  @readonly @unique
+  token_env  string  @optional
+  token_file string  @optional
+  in_keyring boolean @optional
+  expires_at string  @optional
   verify unit "RegistryCredential schema is valid"
 }
 

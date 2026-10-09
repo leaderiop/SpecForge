@@ -7,7 +7,6 @@
 //! and the package name from `specforge-protocol-types` and diagnostics from
 //! `specforge-common`.
 
-pub mod auth;
 pub mod credential_health;
 pub mod credentials;
 pub mod http_client;
@@ -22,21 +21,15 @@ pub mod testing;
 pub mod trust;
 pub mod trust_flow;
 
-pub use auth::{
-    authenticate_with_retry, logout_registry, resolve_credential, sanitize_token,
-    validate_credentials,
-};
 pub use credentials::{CredentialStore, read_credentials, user_dir, write_credentials};
 pub use http_client::HttpRegistryClient;
 pub use registry_client::{RegistryClient, RegistryError};
-pub use registry_config::{
-    AuthMethod, RegistryConfig, RegistryCredential, parse_registries_from_config,
-};
+pub use registry_config::{RegistryConfig, RegistryCredential, parse_registries_from_config};
 pub use registry_ops::{
     TrustCheck, publish_to_registry, search_registries, verify_package_signature,
     verify_registry_integrity,
 };
-pub use retry::{Retrying, RetryPolicy};
+pub use retry::{RetryPolicy, Retrying};
 pub use signing::{
     PackageSignature, SigningKey, load_or_create_signing_key_at, signing_key_path, verify_signature,
 };

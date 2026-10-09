@@ -1565,9 +1565,10 @@ Level: error
 ## R-LOGIN-001
 
 ```
-R-LOGIN-001: No login token given
+R-LOGIN-001: No single login token source
 
-`specforge login` was run without a token. Pass one with `--token <TOKEN>`.
+`specforge login` needs exactly one of `--token <TOKEN>`, `--token-env <VAR>` or
+`--token-file <PATH>`; none or several were given.
 
 Owner: core
 Level: error
@@ -1806,12 +1807,11 @@ Level: error
 ```
 R001: Registry authentication failed
 
-The registry rejected the request as unauthenticated (HTTP 401), or the
-credentials its `auth` configuration names couldn't be read; a request is
-retried once with re-read credentials first. Log in again with `specforge login
---registry <alias> --token <TOKEN>`. `specforge publish` refuses before any
-request when there is no credential for the registry that serves the package:
-none stored for its alias and `SPECFORGE_REGISTRY_TOKEN` unset or blank.
+The registry rejected the request as unauthenticated (HTTP 401). Log in again
+with `specforge login --registry <alias> --token <TOKEN>`. `specforge publish`
+refuses before any request when there is no credential for the registry that
+serves the package: none stored for its alias and `SPECFORGE_REGISTRY_TOKEN`
+unset or blank.
 
 Owner: core
 Level: error
@@ -1895,9 +1895,10 @@ Level: error
 ```
 R010: Registry token variable not set
 
-The registry's `auth` configuration reads the token from an environment variable
-that isn't set. Set it (`export <VAR>=<token>`) or change the registry's `auth`
-configuration.
+The registry's credential is a reference to an environment variable (`specforge
+login --token-env`, or a `token_env` entry in `~/.specforge/credentials.json`)
+that isn't set, or is blank, where the command runs. Set it, or log in again
+with another source.
 
 Owner: core
 Level: error
@@ -1908,9 +1909,9 @@ Level: error
 ```
 R011: Registry token file unreadable
 
-The registry's `auth` configuration reads the token from a file that can't be
-read. Check that the file exists and is readable, or change the registry's
-`auth` configuration.
+The registry's credential is a reference to a token file (`specforge login
+--token-file`, or a `token_file` entry) that can't be read, or is empty. Check
+the path and its permissions, or log in again with another source.
 
 Owner: core
 Level: error

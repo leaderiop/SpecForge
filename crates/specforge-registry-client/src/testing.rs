@@ -10,8 +10,8 @@ use specforge_protocol_types::{ExtensionDeclaration, PackageName};
 use specforge_registry_wire::{DEFAULT_SEARCH_LIMIT, PackageMetadata, SearchHit, path};
 
 use crate::registry_client::{RegistryClient, RegistryError};
-use crate::registry_config::{AuthMethod, RegistryConfig, RegistryCredential};
-use crate::{HttpRegistryClient, PackageSignature, SigningKey, TrustCheck};
+use crate::registry_config::{RegistryConfig, RegistryCredential};
+use crate::{PackageSignature, SigningKey, TrustCheck};
 
 /// One call a [`MemoryClient`] answered (or failed), in order.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -65,7 +65,7 @@ struct State {
 }
 
 /// A package registry held in memory: the second adapter of [`RegistryClient`], beside
-/// [`HttpRegistryClient`]. For every call the contract exercises it answers as the registry server does.
+/// [`crate::HttpRegistryClient`]. For every call the contract exercises it answers as the registry server does.
 /// It checks nothing a test [`MemoryClient::store`]s, so a test can serve any reply, honest or not, and run
 /// the fetch policy without sockets. Clones share one store.
 #[derive(Clone, Default)]
@@ -185,14 +185,13 @@ impl MemoryClient {
         let Some(credential) = credential else {
             return Err(unauthorized("missing Authorization header"));
         };
-        let token = match &credential.auth_method {
-            AuthMethod::Bearer(token) => token.clone(),
-            other => HttpRegistryClient::resolve_token(&RegistryCredential {
-                alias: credential.alias.clone(),
-                auth_method: other.clone(),
-            })?,
-        };
-        if self.state.lock().unwrap().tokens.contains(&token) {
+        if self
+            .state
+            .lock()
+            .unwrap()
+            .tokens
+            .contains(credential.token())
+        {
             Ok(())
         } else {
             Err(unauthorized("invalid or revoked token"))
@@ -610,10 +609,7 @@ pub fn assert_client_contract(
     client
         .authenticate(registry, credential)
         .expect("K9: the credential authenticates");
-    let wrong = RegistryCredential {
-        alias: credential.alias.clone(),
-        auth_method: AuthMethod::Bearer("not-a-token".to_string()),
-    };
+    let wrong = RegistryCredential::new(credential.alias.clone(), "not-a-token");
     let error = client.authenticate(registry, &wrong).unwrap_err();
     assert!(
         matches!(error, RegistryError::Unauthorized { .. }),

@@ -2,7 +2,7 @@
 //! real server in process, and the in-memory client.
 
 use specforge_registry_client::HttpRegistryClient;
-use specforge_registry_client::registry_config::{AuthMethod, RegistryConfig, RegistryCredential};
+use specforge_registry_client::registry_config::{RegistryConfig, RegistryCredential};
 use specforge_registry_client::testing::{MemoryClient, assert_client_contract};
 use specforge_registry_server::testing::LocalRegistry;
 
@@ -18,10 +18,7 @@ fn the_http_client_keeps_the_client_contract() {
         scope_filter: None,
         default_registry: true,
     };
-    let credential = RegistryCredential {
-        alias: "local".to_string(),
-        auth_method: AuthMethod::Bearer(server.token().to_string()),
-    };
+    let credential = RegistryCredential::new("local", server.token());
     assert_client_contract(&HttpRegistryClient::new(), &registry, &credential);
 }
 
@@ -36,10 +33,7 @@ fn the_memory_client_keeps_the_client_contract() {
         scope_filter: None,
         default_registry: true,
     };
-    let credential = RegistryCredential {
-        alias: "memory".to_string(),
-        auth_method: AuthMethod::Bearer("contract-token".to_string()),
-    };
+    let credential = RegistryCredential::new("memory", "contract-token");
     assert_client_contract(
         &MemoryClient::new().accepting("contract-token"),
         &registry,

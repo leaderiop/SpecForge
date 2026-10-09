@@ -13,7 +13,7 @@ use specforge_protocol_types::{ExtensionDeclaration, PackageName};
 use specforge_registry_client::credentials::{CredentialEntry, CredentialStore};
 use specforge_registry_client::testing::{CallKind, MemoryClient};
 use specforge_registry_client::{
-    AuthMethod, PackageSignature, RegistryError, verify_signature, write_credentials,
+    PackageSignature, RegistryError, verify_signature, write_credentials,
 };
 use specforge_test_macros::test as specforge_test;
 use tempfile::TempDir;
@@ -250,13 +250,13 @@ fn the_environment_token_wins_over_the_stored_credential() {
 
     let credential = published_with(&world, Some("env"), "1.0.0").unwrap();
     assert_eq!(credential.alias, "acme");
-    assert_eq!(credential.auth_method, AuthMethod::Bearer("env".into()));
+    assert_eq!(credential.token(), "env");
 
     let credential = published_with(&world, Some("  "), "1.0.1").unwrap();
-    assert_eq!(credential.auth_method, AuthMethod::Bearer("stored".into()));
+    assert_eq!(credential.token(), "stored");
 
     let credential = published_with(&world, None, "1.0.2").unwrap();
-    assert_eq!(credential.auth_method, AuthMethod::Bearer("stored".into()));
+    assert_eq!(credential.token(), "stored");
 
     // Only another registry's credential is stored: there is none for acme.
     let other = World::acme();
@@ -460,9 +460,11 @@ fn home_with_credentials(json: &str) -> TempDir {
     home
 }
 
-// pin (16-T0): flipped by T3.
-#[test]
-fn an_unset_token_variable_is_r001_after_a_request() {
+#[specforge_test(
+    behavior = "authenticate_registry_request",
+    verify = "missing token source produces ExtensionError"
+)]
+fn an_unset_token_variable_is_r010_before_any_request() {
     let world = World::acme();
     let home = home_with_credentials(
         r#"{"registries":{"acme":{"token_env":"P16_UNSET_TOKEN_VARIABLE"}}}"#,
@@ -475,12 +477,74 @@ fn an_unset_token_variable_is_r001_after_a_request() {
         .publish(&pkg("@acme/x", "1.0.0").upload())
         .unwrap_err();
 
-    assert_eq!(error.code, "R001", "{error:?}");
-    let publishes = world
-        .client
-        .calls()
-        .iter()
-        .filter(|call| call.kind == CallKind::Publish)
-        .count();
-    assert_eq!(publishes, 1);
+    assert_eq!(error.code, "R010", "{error:?}");
+    assert!(
+        error.message.contains("P16_UNSET_TOKEN_VARIABLE"),
+        "{error:?}"
+    );
+    assert!(world.client.calls().is_empty());
+}
+
+#[specforge_test(
+    behavior = "authenticate_registry_request",
+    verify = "token resolved from environment variable"
+)]
+fn a_token_variable_is_sent_as_the_bearer_token() {
+    let world = World::acme();
+    let home = home_with_credentials(r#"{"registries":{"acme":{"token_env":"P16_TOKEN_A"}}}"#);
+    // SAFETY: the variable is named by this test only.
+    unsafe { std::env::set_var("P16_TOKEN_A", "t") };
+    let registry = ConfiguredRegistry::for_project(world.project.path(), "publish")
+        .as_user(User::at(home.path(), None))
+        .with_client(world.client.clone());
+
+    registry.publish(&pkg("@acme/x", "1.0.0").upload()).unwrap();
+
+    let calls = world.client.calls();
+    assert_eq!(calls[0].credential.as_ref().unwrap().token(), "t");
+}
+
+#[specforge_test(
+    behavior = "authenticate_registry_request",
+    verify = "token resolved from token file"
+)]
+fn a_token_file_is_sent_as_the_bearer_token() {
+    let world = World::acme();
+    let file = world.home.path().join("tok");
+    std::fs::write(
+        &file, "t
+",
+    )
+    .unwrap();
+    let home = home_with_credentials(
+        &serde_json::json!({"registries": {"acme": {"token_file": file}}}).to_string(),
+    );
+    let registry = ConfiguredRegistry::for_project(world.project.path(), "publish")
+        .as_user(User::at(home.path(), None))
+        .with_client(world.client.clone());
+
+    registry.publish(&pkg("@acme/x", "1.0.0").upload()).unwrap();
+
+    let calls = world.client.calls();
+    assert_eq!(calls[0].credential.as_ref().unwrap().token(), "t");
+}
+
+#[specforge_test(
+    behavior = "authenticate_registry_request",
+    verify = "a token file that can't be read is R011 before any request"
+)]
+fn an_unreadable_token_file_is_r011_before_any_request() {
+    let world = World::acme();
+    let home =
+        home_with_credentials(r#"{"registries":{"acme":{"token_file":"/nonexistent/p16-token"}}}"#);
+    let registry = ConfiguredRegistry::for_project(world.project.path(), "publish")
+        .as_user(User::at(home.path(), None))
+        .with_client(world.client.clone());
+
+    let error = registry
+        .publish(&pkg("@acme/x", "1.0.0").upload())
+        .unwrap_err();
+
+    assert_eq!(error.code, "R011", "{error:?}");
+    assert!(world.client.calls().is_empty());
 }
