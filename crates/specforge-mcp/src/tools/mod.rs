@@ -1,20 +1,31 @@
+mod add_extension;
 mod analyze;
+mod collect;
 pub(crate) mod coverage;
+mod doctor;
 mod explain;
 mod export;
+mod extensions;
 mod find_definition;
 mod find_implementation;
 mod find_references;
 pub(crate) mod find_spec_for_source;
+mod format;
 mod infer_gaps;
 mod infer_progress;
 mod infer_session;
+mod init;
 mod inspect;
 pub(crate) mod list;
+mod migrate;
 mod model;
 mod outline;
 mod outline_extensions;
+mod providers;
 mod query;
+mod remove_extension;
+mod rename;
+mod render;
 mod schema;
 mod search;
 mod stats;
@@ -26,7 +37,7 @@ mod validate;
 use serde_json::{Value, json};
 
 use crate::lifecycle::Revision;
-use crate::mutation::{self, Mutated};
+use crate::mutation::{self, Replied};
 use crate::protocol::JsonRpcResponse;
 use crate::state::McpState;
 use crate::surface_call::{Event, Found, Invocation, Ran, Surface};
@@ -52,18 +63,6 @@ pub(crate) fn navigator<'v>(
     let spec_root = spec_root(&view);
     specforge_ops::navigate::Navigator::new(view, move |file| {
         std::fs::read_to_string(spec_root?.join(file)).ok()
-    })
-}
-
-/// A span as the MCP tools render it: the `SourceSpan` the spec types name
-/// (1-based lines, 1-based byte columns, end exclusive).
-pub(crate) fn span_json(span: &specforge_common::SourceSpan) -> Value {
-    json!({
-        "file": span.file,
-        "start_line": span.start_line,
-        "start_col": span.start_col,
-        "end_line": span.end_line,
-        "end_col": span.end_col,
     })
 }
 
@@ -192,20 +191,28 @@ impl Surface for Tools {
             // A mutation says what it wrote; `mutation::refresh` brings the
             // target up to date with it (inside the call), `mutation::report`
             // names its events and the files in its reply.
-            Found::Core(ToolSpec {
-                effect: Effect::Mutates { handler, .. },
-                ..
-            }) => {
-                let mut mutated = handler.run(call, arguments);
-                let root = mutation::refresh(call, &mut mutated);
+            // The reply is checked against its outputSchema after the refresh
+            // (which may add `diagnostics`) and before the report (so
+            // `mcp_mutation_completed.success` says what the client gets).
+            Found::Core(
+                spec @ ToolSpec {
+                    effect: Effect::Mutates { handler, .. },
+                    ..
+                },
+            ) => {
+                let mut replied = handler.run(call, arguments);
+                let root = mutation::refresh(call, &mut replied);
+                replied.outcome = conforming(spec, replied.outcome);
                 let (outcome, events) =
-                    mutation::report(&invocation.name, root.as_deref(), mutated);
+                    mutation::report(&invocation.name, root.as_deref(), replied);
                 Ran { outcome, events }
             }
-            Found::Core(ToolSpec {
-                effect: Effect::Reads { handler, .. } | Effect::WritesOutput { handler, .. },
-                ..
-            }) => Ran::of(handler.run(call, arguments)),
+            Found::Core(
+                spec @ ToolSpec {
+                    effect: Effect::Reads { handler, .. } | Effect::WritesOutput { handler, .. },
+                    ..
+                },
+            ) => Ran::of(conforming(spec, handler.run(call, arguments))),
             Found::Extension(entry) => {
                 let (outcome, dispatched) = extension_tool(call, entry, arguments);
                 Ran {
@@ -223,7 +230,7 @@ impl Surface for Tools {
         match found {
             // A refused mutation is a failed one: it wrote nothing, and says so.
             Found::Core(spec) if spec.is_mutation() => {
-                let (outcome, events) = mutation::report(spec.name, None, Mutated::refused(error));
+                let (outcome, events) = mutation::report(spec.name, None, Replied::refused(error));
                 Ran { outcome, events }
             }
             _ => Ran::of(error.into()),
@@ -264,6 +271,15 @@ impl Surface for Tools {
             revision.sends_structured_content(),
             typed,
         )
+    }
+}
+
+/// `outcome` when it conforms to `spec`'s outputSchema (a tool with none is
+/// not checked), else the `schema_mismatch` failure ([`crate::reply::conforming`]).
+fn conforming(spec: &ToolSpec, outcome: ToolOutcome) -> ToolOutcome {
+    match spec.output_schema() {
+        Some(schema) => crate::reply::conforming(spec.name, &schema, outcome),
+        None => outcome,
     }
 }
 
@@ -329,7 +345,7 @@ fn extension_tool(
 /// declares, before its module runs: `invalid_input` naming each
 /// violation (its schema is opaque JSON to the host, ADR 0004 D4-a).
 fn check_input(schema: &Value, arguments: &Value) -> Result<(), ToolOutcome> {
-    let violations = crate::json_schema::violations(schema, arguments);
+    let violations = specforge_common::shape::violations(schema, arguments);
     if violations.is_empty() {
         return Ok(());
     }
@@ -368,7 +384,7 @@ fn mcp_tool_adapter(
             // An output the tool's own schema refuses is never served as
             // its structured result.
             Some(schema) => {
-                let violations = crate::json_schema::violations(schema, &value);
+                let violations = specforge_common::shape::violations(schema, &value);
                 if violations.is_empty() {
                     ToolOutcome::ok(value)
                 } else {

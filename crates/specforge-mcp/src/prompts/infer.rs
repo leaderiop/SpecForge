@@ -9,7 +9,7 @@ use crate::args::Arguments;
 use crate::prompt::{PromptOutcome, Rendered};
 use crate::tool::{ErrorCode, McpError};
 use crate::tools::core_tool_name;
-use crate::tools::find_spec_for_source::{anchor_json, file_match_name};
+use crate::tools::find_spec_for_source::{Anchored, MatchMode};
 use specforge_ops::view::ProjectView;
 
 /// The core tools the workflow protocol names, in the order it lists them.
@@ -165,12 +165,12 @@ fn get_file_scoped(project: &ProjectView, file_path: &str) -> PromptOutcome {
     // project there is no manifest.
     let manifest = source_anchors(project).map_err(McpError::from)?;
     let found = anchors_of_file(&manifest, file_path);
-    let referencing_entities: Vec<Value> = found
+    let referencing_entities: Vec<Anchored> = found
         .anchors
         .iter()
-        .map(|anchor| anchor_json(anchor, project.graph()))
+        .map(|anchor| Anchored::of(anchor, project.graph()))
         .collect();
-    let match_mode = file_match_name(found.mode);
+    let match_mode = MatchMode::from(found.mode);
 
     let guide = infer::guide(project);
     let kinds_info: Vec<Value> = guide

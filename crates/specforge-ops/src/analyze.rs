@@ -4,7 +4,7 @@
 //! selection, reads the test report, runs the built-in passes, the
 //! extension passes (in the view's runtime) and, when asked,
 //! `prove`, then applies strictness once and computes `ok` once. The shape of
-//! the JSON document lives in [`AnalyzeOutcome::to_json`] and nowhere else.
+//! the JSON document lives in [`AnalyzeOutcome::document`] and nowhere else.
 //!
 //! Surfaces keep rendering, exit-code or error-channel mapping, and the
 //! choice of which project to analyse.
@@ -12,8 +12,12 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use serde::Serialize;
+use serde_json::Value;
+use specforge_common::shape::Shape;
+
 use crate::builtin_passes::{COVERAGE_PASS, PASS_NAMES};
-use specforge_common::{Diagnostic, Severity, codes};
+use specforge_common::{Diagnostic, DiagnosticList, Severity, codes};
 use specforge_graph::Graph;
 use specforge_project::coverage;
 use specforge_project::coverage::TestReport;
@@ -81,9 +85,10 @@ pub struct PassOutcome {
 /// report naming an entity the graph does not have, with the closest known
 /// id when one is near. Not a finding of any pass, so strict never promotes
 /// it.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Shape)]
 pub struct StrayRecord {
     pub entity_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub near: Option<String>,
 }
 
@@ -165,12 +170,7 @@ impl Gate {
 
     /// `{status, min, pct?, proven?, total?, reason?}`; `None` when no
     /// minimum was requested.
-    fn to_json(&self) -> Option<serde_json::Value> {
-        let figure = |status: &str, pct: &f64, min: &f64, proven: &usize, total: &usize| {
-            serde_json::json!({
-                "status": status, "min": min, "pct": pct, "proven": proven, "total": total,
-            })
-        };
+    fn document(&self) -> Option<GateDocument> {
         match self {
             Gate::NotRequested => None,
             Gate::Met {
@@ -178,16 +178,27 @@ impl Gate {
                 min,
                 proven,
                 total,
-            } => Some(figure("met", pct, min, proven, total)),
+            } => Some(GateDocument::Met {
+                min: *min,
+                pct: *pct,
+                proven: *proven,
+                total: *total,
+            }),
             Gate::Below {
                 pct,
                 min,
                 proven,
                 total,
-            } => Some(figure("below", pct, min, proven, total)),
-            Gate::Unjudged { min, reason } => {
-                Some(serde_json::json!({"status": "unjudged", "min": min, "reason": reason}))
-            }
+            } => Some(GateDocument::Below {
+                min: *min,
+                pct: *pct,
+                proven: *proven,
+                total: *total,
+            }),
+            Gate::Unjudged { min, reason } => Some(GateDocument::Unjudged {
+                min: *min,
+                reason: reason.clone(),
+            }),
         }
     }
 }
@@ -250,31 +261,68 @@ impl AnalyzeOutcome {
 
     /// The JSON document `{ok, passes: [{pass, findings, summary}]}`, plus
     /// `gate` when `min` was set and `stray_records` when there are any.
-    pub fn to_json(&self) -> serde_json::Value {
-        let mut doc = serde_json::json!({
-            "ok": self.ok(),
-            "passes": self
+    pub fn document(&self) -> AnalyzeDocument {
+        AnalyzeDocument {
+            ok: self.ok(),
+            passes: self
                 .passes
                 .iter()
-                .map(|r| serde_json::json!({
-                    "pass": r.name,
-                    "findings": r.findings,
-                    "summary": r.summary,
-                }))
-                .collect::<Vec<_>>(),
-        });
-        if let Some(gate) = self.gate.to_json() {
-            doc["gate"] = gate;
+                .map(|r| PassDocument {
+                    pass: r.name.clone(),
+                    findings: DiagnosticList(r.findings.clone()),
+                    summary: r.summary.clone(),
+                })
+                .collect(),
+            gate: self.gate.document(),
+            stray_records: self.stray_records.clone(),
         }
-        if !self.stray_records.is_empty() {
-            doc["stray_records"] = self
-                .stray_records
-                .iter()
-                .map(|o| serde_json::json!({"entity_id": o.entity_id, "near": o.near}))
-                .collect();
-        }
-        doc
     }
+}
+
+/// The document both surfaces answer with (`specforge analyze --json`,
+/// `specforge.analyze`).
+#[derive(Debug, Clone, PartialEq, Serialize, Shape)]
+pub struct AnalyzeDocument {
+    /// The run's verdict is `Passed`.
+    pub ok: bool,
+    pub passes: Vec<PassDocument>,
+    /// Where the `min` proof-coverage gate landed; absent without `min`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub gate: Option<GateDocument>,
+    /// Stray test records; absent when there are none.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub stray_records: Vec<StrayRecord>,
+}
+
+/// One pass of an analysis.
+#[derive(Debug, Clone, PartialEq, Serialize, Shape)]
+pub struct PassDocument {
+    pub pass: String,
+    pub findings: DiagnosticList,
+    /// What the pass summarizes: an open value, the pass's own.
+    pub summary: Value,
+}
+
+/// Where the proof-coverage gate landed.
+#[derive(Debug, Clone, PartialEq, Serialize, Shape)]
+#[serde(tag = "status", rename_all = "lowercase")]
+pub enum GateDocument {
+    /// Proof coverage is at or above `min`.
+    Met {
+        min: f64,
+        pct: f64,
+        proven: usize,
+        total: usize,
+    },
+    /// Proof coverage is under `min`.
+    Below {
+        min: f64,
+        pct: f64,
+        proven: usize,
+        total: usize,
+    },
+    /// The coverage pass gave no figure the gate reads.
+    Unjudged { min: f64, reason: String },
 }
 
 /// Why no analysis ran. Raised before any pass runs, in this order.
@@ -570,6 +618,11 @@ fn read_report(
 
 #[cfg(test)]
 mod tests {
+    /// The document as JSON.
+    fn json_of(outcome: &AnalyzeOutcome) -> serde_json::Value {
+        serde_json::to_value(outcome.document()).expect("a document serializes")
+    }
+
     use super::*;
     use serde_json::{Value, json};
     use specforge_extension_sdk::prelude::*;
@@ -700,7 +753,7 @@ mod tests {
     fn json_shape_is_ok_and_passes() {
         let outcome = Project::new().run(&pass("contracts")).unwrap();
         assert_eq!(
-            outcome.to_json(),
+            json_of(&outcome),
             json!({
                 "ok": true,
                 "passes": [{
@@ -1028,7 +1081,7 @@ mod tests {
         assert!(below.findings_ok(), "the findings are fine");
         assert_eq!(below.verdict(), RunVerdict::Failed);
         assert!(!below.ok());
-        assert_eq!(below.to_json()["ok"], false);
+        assert_eq!(json_of(&below)["ok"], false);
         assert_eq!(below.gate_failure().unwrap().code, "E048");
 
         let unjudged = outcome(Gate::Unjudged {
@@ -1036,7 +1089,7 @@ mod tests {
             reason: "no figure".into(),
         });
         assert_eq!(unjudged.verdict(), RunVerdict::Unjudged);
-        assert_eq!(unjudged.to_json()["gate"]["status"], "unjudged");
+        assert_eq!(json_of(&unjudged)["gate"]["status"], "unjudged");
         assert_eq!(unjudged.gate_failure().unwrap().code, "E068");
 
         let met = outcome(Gate::Met {
@@ -1047,7 +1100,7 @@ mod tests {
         });
         assert_eq!(met.verdict(), RunVerdict::Passed);
         assert!(met.gate_failure().is_none());
-        assert!(outcome(Gate::NotRequested).to_json().get("gate").is_none());
+        assert!(json_of(&outcome(Gate::NotRequested)).get("gate").is_none());
     }
 
     #[specforge_test(
@@ -1237,10 +1290,10 @@ mod tests {
             ]
         );
         assert_eq!(
-            outcome.to_json()["stray_records"],
+            json_of(&outcome)["stray_records"],
             json!([
                 {"entity_id": "wodget", "near": "widget"},
-                {"entity_id": "zzzzzzzz", "near": null}
+                {"entity_id": "zzzzzzzz"}
             ])
         );
     }
@@ -1270,9 +1323,9 @@ mod tests {
         write_report(&project, &["widget"]);
         let outcome = project.run(&pass("contracts")).unwrap();
         assert!(outcome.stray_records.is_empty());
-        assert!(outcome.to_json().get("stray_records").is_none());
+        assert!(json_of(&outcome).get("stray_records").is_none());
 
         let none = Project::new().run(&pass("contracts")).unwrap();
-        assert!(none.to_json().get("stray_records").is_none());
+        assert!(json_of(&none).get("stray_records").is_none());
     }
 }

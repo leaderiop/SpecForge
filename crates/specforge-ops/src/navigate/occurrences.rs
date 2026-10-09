@@ -2,6 +2,8 @@
 //! reference (one edge of the graph) as the identifier token its field
 //! holds.
 
+use serde::Serialize;
+use specforge_common::shape::Shape;
 use specforge_common::{SourceSpan, Sym};
 use specforge_graph::{DerivedFrom, Edge, Node};
 use specforge_parser::FieldValue;
@@ -71,37 +73,21 @@ pub struct ReferenceQuery {
 }
 
 /// What an occurrence of an ID is: the declaration, or a reference.
-#[derive(Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord, Serialize, Shape)]
+#[serde(rename_all = "lowercase")]
 pub enum Role {
     Declaration,
     Reference,
 }
 
-impl Role {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::Declaration => "declaration",
-            Self::Reference => "reference",
-        }
-    }
-}
-
 /// `Token` when the span is the identifier as written; `Entity` when the
 /// text was unreadable or did not spell the ID there (a stale graph), and
 /// the span falls back to the holder's block.
-#[derive(Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord, Serialize, Shape)]
+#[serde(rename_all = "lowercase")]
 pub enum Precision {
     Token,
     Entity,
-}
-
-impl Precision {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::Token => "token",
-            Self::Entity => "entity",
-        }
-    }
 }
 
 /// One place an entity's ID is written.

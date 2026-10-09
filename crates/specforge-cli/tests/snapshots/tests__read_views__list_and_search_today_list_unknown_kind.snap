@@ -20,7 +20,7 @@ expression: "normalized(result, root).to_string()"
   },
   "content": [
     {
-      "text": "[]",
+      "text": "{\"entities\":[]}",
       "type": "text"
     }
   ],

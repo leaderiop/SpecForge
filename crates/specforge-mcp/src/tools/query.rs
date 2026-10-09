@@ -1,9 +1,12 @@
+use serde::Serialize;
 use serde_json::Value;
+use specforge_common::shape::{Object, Shape};
 use specforge_ops::export::Format;
 use specforge_ops::query::{QueryRequest, query};
 
 use crate::args::Arguments;
-use crate::tool::{McpError, ToolOutcome};
+use crate::reply::{Answer, Answered};
+use crate::tool::McpError;
 use specforge_ops::view::ProjectView;
 
 /// `specforge.query`'s arguments.
@@ -23,10 +26,27 @@ pub struct Args {
     include_coverage: bool,
 }
 
+/// `specforge.query`'s reply: the export document of the requested format
+/// (ADR 0007), its nodes optionally carrying `coverage_status`. Its schema
+/// is the emitter's derived document schemas plus that key
+/// ([`specforge_ops::query::document_schema`]); the document itself reaches
+/// MCP as the text the emitter wrote.
+#[derive(Debug, Serialize)]
+#[serde(transparent)]
+pub struct Reply(Value);
+
+impl Shape for Reply {
+    fn schema() -> Value {
+        specforge_ops::query::document_schema()
+    }
+}
+
+impl Object for Reply {}
+
 /// `specforge.query`: the query read view (`specforge_ops::query`), the
 /// document `specforge query` prints for the same arguments; an unknown
 /// kind of the filter rides in `_meta.diagnostics` (I020).
-pub fn call(view: ProjectView<'_>, args: Args) -> ToolOutcome {
+pub fn call(view: ProjectView<'_>, args: Args) -> Answered<Reply> {
     let request = QueryRequest {
         entity_id: &args.entity_id,
         depth: Some(args.depth),
@@ -34,12 +54,7 @@ pub fn call(view: ProjectView<'_>, args: Args) -> ToolOutcome {
         format: Some(args.format),
         include_coverage: args.include_coverage,
     };
-    match query(&view, &request) {
-        Ok(outcome) => {
-            let document: Value =
-                serde_json::from_str(&outcome.document).expect("an export is JSON");
-            ToolOutcome::ok(document).with_diagnostics(outcome.notices)
-        }
-        Err(error) => McpError::from(error).into(),
-    }
+    let outcome = query(&view, &request).map_err(McpError::from)?;
+    let document: Value = serde_json::from_str(&outcome.document).expect("an export is JSON");
+    Ok(Answer::new(Reply(document)).with_diagnostics(outcome.notices))
 }

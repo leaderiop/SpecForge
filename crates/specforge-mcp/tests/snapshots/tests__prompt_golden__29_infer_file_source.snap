@@ -9,7 +9,6 @@ expression: "shape(&reply, dir.path())"
   "payload": {
     "existing_entities_referencing_file": [
       {
-        "confidence": null,
         "entity_id": "alpha",
         "file": "src/login.rs",
         "item_kind": "fn",

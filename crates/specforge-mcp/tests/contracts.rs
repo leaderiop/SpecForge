@@ -506,7 +506,7 @@ fn contract_trace() {
 fn contract_search() {
     let mut server = test_server();
     let ids = |resp: &Value| -> Vec<String> {
-        tool_json(resp)
+        tool_json(resp)["results"]
             .as_array()
             .unwrap()
             .iter()
@@ -517,7 +517,7 @@ fn contract_search() {
     // graph_available: results come from the server's compiled graph.
     let by_text = call_tool(&mut server, "specforge.search", json!({"query": "alpha"}));
     assert_eq!(ids(&by_text), ["alpha"]);
-    let hit = &tool_json(&by_text)[0];
+    let hit = &tool_json(&by_text)["results"][0];
     assert_eq!(hit["kind"], "behavior");
     assert_eq!(hit["title"], "Alpha");
     assert_eq!(hit["file_path"], "test.spec");
@@ -611,7 +611,7 @@ fn contract_stats() {
     );
     assert_eq!(stats["edge_count"], 1);
     assert_eq!(stats["unconnected_count"], 0);
-    assert!(stats["coverage_pct"].is_number(), "{stats}");
+    assert!(stats["declared_pct"].is_number(), "{stats}");
     assert_eq!(
         stats["diagnostic_summary"],
         json!({"errors": 0, "warnings": 0, "infos": 0})
@@ -663,7 +663,7 @@ fn contract_inspect() {
     assert_eq!(details["contract"], "MUST work");
     assert_eq!(details["fields"]["contract"], "MUST work");
     assert_eq!(details["verify_declarations"], json!(["unit works"]));
-    assert_eq!(details["references"], json!(["beta"]));
+    assert_eq!(details["referenced_by"], json!(["beta"]));
     assert_eq!(details["coverage_status"], "uncovered");
     let codes: Vec<&str> = details["diagnostics"]
         .as_array()
@@ -791,7 +791,8 @@ fn contract_outline() {
         &mut server,
         "specforge.outline",
         json!({"file": "test.spec"}),
-    );
+    )["entries"]
+        .clone();
     // Every entity in test.spec (beta lives in feat.spec), by line.
     let entries = outline.as_array().unwrap();
     let ids: Vec<&str> = entries
@@ -825,7 +826,7 @@ fn contract_coverage() {
     let mut server = test_server();
 
     // coverage_returned: behaviors are testable, features are not.
-    let coverage = tool(&mut server, "specforge.coverage", json!({}));
+    let coverage = tool(&mut server, "specforge.coverage", json!({}))["entities"].clone();
     assert_eq!(
         coverage,
         json!([{
@@ -850,7 +851,7 @@ fn contract_coverage() {
         ]}}})
         .to_string(),
     );
-    let coverage = tool(&mut server, "specforge.coverage", json!({}));
+    let coverage = tool(&mut server, "specforge.coverage", json!({}))["entities"].clone();
     let alpha = find(&coverage, "entity_id", "alpha");
     assert_eq!(alpha["status"], "covered");
     assert_eq!(alpha["proven"], 1);
@@ -863,7 +864,7 @@ fn contract_coverage() {
     // set is a project of its own.
     let testable_feature = extension().kind("feature", true);
     let mut server = contracts_project().serve(std::slice::from_ref(&testable_feature));
-    let coverage = tool(&mut server, "specforge.coverage", json!({}));
+    let coverage = tool(&mut server, "specforge.coverage", json!({}))["entities"].clone();
     assert!(
         coverage
             .as_array()
@@ -875,12 +876,13 @@ fn contract_coverage() {
         &mut server,
         "specforge.coverage",
         json!({"entity_id": "beta"}),
-    );
+    )["entities"]
+        .clone();
     assert_eq!(beta[0]["exempt"], true, "{beta}");
     assert_eq!(beta[0]["obligations"], 0);
     // Once a rule obliges features to declare obligations, beta counts.
     let mut server = contracts_project().serve(&[testable_feature.obligating("feature")]);
-    let coverage = tool(&mut server, "specforge.coverage", json!({}));
+    let coverage = tool(&mut server, "specforge.coverage", json!({}))["entities"].clone();
     let beta = find(&coverage, "entity_id", "beta");
     assert_eq!(beta["obligations"], 0);
     assert_eq!(beta["status"], "uncovered");
@@ -1957,7 +1959,8 @@ fn contract_suggest_fixes() {
         &mut server,
         "specforge.suggest_fixes",
         json!({"diagnostic_code": "E003"}),
-    );
+    )["fixes"]
+        .clone();
     let replace = fixes
         .as_array()
         .unwrap()
@@ -1978,7 +1981,8 @@ fn contract_suggest_fixes() {
         &mut server,
         "specforge.suggest_fixes",
         json!({"entity_id": "logout"}),
-    );
+    )["fixes"]
+        .clone();
     assert_eq!(for_logout, fixes);
 
     // empty_for_clean: session_limit has no diagnostics.
@@ -1986,7 +1990,8 @@ fn contract_suggest_fixes() {
         &mut server,
         "specforge.suggest_fixes",
         json!({"entity_id": "session_limit"}),
-    );
+    )["fixes"]
+        .clone();
     assert_eq!(for_limit, json!([]));
 
     assert_tool_invoked(&server, "specforge.suggest_fixes");
@@ -3126,7 +3131,8 @@ fn coverage_by_entity_id_is_one_row() {
         &mut server,
         "specforge.coverage",
         json!({"entity_id": "alpha"}),
-    );
+    )["entities"]
+        .clone();
     assert_eq!(rows.as_array().unwrap().len(), 1, "{rows}");
     assert_eq!(rows[0]["entity_id"], "alpha");
     assert_eq!(rows[0]["obligations"], 1);
@@ -3136,13 +3142,15 @@ fn coverage_by_entity_id_is_one_row() {
         &mut server,
         "specforge.coverage",
         json!({"entity_id": "alpha", "kind": "feature"}),
-    );
+    )["entities"]
+        .clone();
     assert_eq!(named, rows);
     let ghost = tool(
         &mut server,
         "specforge.coverage",
         json!({"entity_id": "ghost"}),
-    );
+    )["entities"]
+        .clone();
     assert_eq!(ghost, json!([]));
 }
 

@@ -78,7 +78,6 @@ expression: mcp_snap
         }
       }
     ],
-    "rollback": null,
     "rolled_back": false,
     "schema_warnings": [],
     "structural_differences": [],

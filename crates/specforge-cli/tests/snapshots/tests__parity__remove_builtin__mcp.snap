@@ -32,7 +32,6 @@ expression: mcp_snap
     ],
     "removed_extension": "@specforge/product",
     "stranded": [],
-    "success": true,
     "version": "1.0.0"
   }
 }

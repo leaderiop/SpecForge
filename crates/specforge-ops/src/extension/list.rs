@@ -5,12 +5,14 @@
 
 use super::Origin;
 use crate::view::ProjectView;
-use serde_json::{Value, json};
-use specforge_common::{Diagnostic, ExtensionEntry as Entry};
+use serde::Serialize;
+use specforge_common::shape::Shape;
+use specforge_common::{Diagnostic, DiagnosticList, ExtensionEntry as Entry};
 use std::collections::BTreeSet;
 
 /// Whether an extension listed is part of the compiled project.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Shape)]
+#[serde(rename_all = "snake_case")]
 pub enum Status {
     /// Enabled in `specforge.json` and loaded.
     Loaded,
@@ -49,17 +51,32 @@ pub struct ExtensionEntry {
 impl ExtensionEntry {
     /// `{name, version, source, status, entity_kinds, entity_count,
     /// validation_rules}`: the entry both surfaces print.
-    pub fn to_json(&self) -> Value {
-        json!({
-            "name": self.name,
-            "version": self.version,
-            "source": self.origin.source(),
-            "status": self.status.as_str(),
-            "entity_kinds": self.entity_kinds,
-            "entity_count": self.entity_count,
-            "validation_rules": self.validation_rules,
-        })
+    pub fn info(&self) -> ExtensionInfo {
+        ExtensionInfo {
+            name: self.name.clone(),
+            version: self.version.clone(),
+            source: self.origin.source(),
+            status: self.status,
+            entity_kinds: self.entity_kinds.clone(),
+            entity_count: self.entity_count,
+            validation_rules: self.validation_rules,
+        }
     }
+}
+
+/// One extension as both surfaces print it (`McpExtensionInfo`).
+#[derive(Debug, Clone, PartialEq, Serialize, Shape)]
+pub struct ExtensionInfo {
+    pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub version: Option<String>,
+    /// `builtin`, the lock entry's source, or `file:<path>`.
+    pub source: String,
+    pub status: Status,
+    /// The entity kinds it contributes, sorted.
+    pub entity_kinds: Vec<String>,
+    pub entity_count: usize,
+    pub validation_rules: usize,
 }
 
 /// One entry of the project's `specforge.lock`.
@@ -170,6 +187,7 @@ pub fn list(view: &ProjectView) -> ExtensionListing {
 
 /// One configured provider, as the environment registered it.
 pub use specforge_project::providers::Provider as ProviderEntry;
+pub use specforge_project::providers::ProviderStatus;
 
 /// The providers the view's config configures, in declaration order, with
 /// their status, and what loading and registering them reported.
@@ -184,25 +202,39 @@ pub struct ProviderListing {
 impl ProviderListing {
     /// `{providers, count, diagnostics}`: the document both surfaces
     /// answer with.
-    pub fn to_json(&self) -> Value {
-        let providers: Vec<Value> = self
-            .providers
-            .iter()
-            .map(|p| {
-                json!({
-                    "scheme": p.scheme,
-                    "alias": p.alias,
-                    "extension": p.extension,
-                    "status": p.status.as_str(),
+    pub fn document(&self) -> ProvidersDocument {
+        ProvidersDocument {
+            count: self.providers.len(),
+            providers: self
+                .providers
+                .iter()
+                .map(|p| ProviderRow {
+                    scheme: p.scheme.to_string(),
+                    alias: p.alias.to_string(),
+                    extension: p.extension.to_string(),
+                    status: p.status,
                 })
-            })
-            .collect();
-        json!({
-            "count": providers.len(),
-            "providers": providers,
-            "diagnostics": specforge_common::diagnostics_json(&self.diagnostics),
-        })
+                .collect(),
+            diagnostics: DiagnosticList(self.diagnostics.clone()),
+        }
     }
+}
+
+/// The providers listing as both surfaces answer it (`McpProvidersResult`).
+#[derive(Debug, Clone, PartialEq, Serialize, Shape)]
+pub struct ProvidersDocument {
+    pub providers: Vec<ProviderRow>,
+    pub count: usize,
+    pub diagnostics: DiagnosticList,
+}
+
+/// One configured provider.
+#[derive(Debug, Clone, PartialEq, Serialize, Shape)]
+pub struct ProviderRow {
+    pub scheme: String,
+    pub alias: String,
+    pub extension: String,
+    pub status: ProviderStatus,
 }
 
 /// The providers the view's environment registered when the project was
@@ -221,6 +253,7 @@ pub fn providers(view: &ProjectView) -> ProviderListing {
 mod tests {
     use super::*;
     use crate::view::testing::Fixture;
+    use serde_json::json;
     use specforge_installed::LockSource;
     use specforge_project::EnabledExtension;
     use specforge_test_macros::test as specforge_test;
@@ -371,6 +404,6 @@ mod tests {
             .map(|d| d.code.as_str())
             .collect();
         assert_eq!(codes, ["W118"], "{listing:?}");
-        assert_eq!(listing.to_json()["count"], 1);
+        assert_eq!(listing.document().count, 1);
     }
 }

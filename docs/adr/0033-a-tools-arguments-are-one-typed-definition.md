@@ -61,7 +61,9 @@ ignored, though extension command tools (ADR 0017 D4) and resources (ADR 0024 D4
   and `init --version X` writes `version "X"` in the starter spec too.
 - The serde tracer and probe, `lenient`, `PromptArgs` and its description tables, and every
   `unwrap_or` of an argument default in a handler are gone.
-- Output schemas stay hand-written: results are built with `json!`, not from a typed result.
+- Output schemas stay hand-written: results are built with `json!`, not from a typed result
+  (superseded by [ADR 0048](0048-a-core-tools-reply-is-one-typed-definition.md): a core tool's reply
+  is one typed definition and its output schema is derived).
 - Amended by plan 15 (round 5): a graph resource reads a count in its query by the same rule and wording.
 
 ## Rejected

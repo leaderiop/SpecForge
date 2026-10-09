@@ -199,7 +199,7 @@ behavior detect_stale_inference_entries "Detect Stale Inference Entries" {
 
 behavior provide_mcp_infer_progress_tool "Provide MCP Infer Progress Tool" {
   features [infer_progress_tracking]
-  types    [InferenceManifest, InferenceSummary]
+  types    [InferenceManifest, InferenceSummary, McpInferProgressResult]
   category mcp
   ensures {
     summary_returned  "returns computed InferenceSummary"
@@ -226,7 +226,7 @@ behavior provide_mcp_infer_progress_tool "Provide MCP Infer Progress Tool" {
 
 behavior provide_mcp_infer_session_tool "Provide MCP Infer Session Tool" {
   features [infer_progress_tracking]
-  types    [InferenceManifest, InferenceSession, SourceFileEntry]
+  types    [InferenceManifest, InferenceSession, SourceFileEntry, McpInferSessionResult]
   category mcp
   ensures {
     start_creates_session "start action creates session and returns ID"
@@ -253,7 +253,7 @@ behavior provide_mcp_infer_session_tool "Provide MCP Infer Session Tool" {
 
 behavior provide_mcp_infer_gaps_tool "Provide MCP Infer Gaps Tool" {
   features [infer_gap_analysis]
-  types    [InferenceGapReport, DirectoryGaps, InferenceGap]
+  types    [InferenceGapReport, DirectoryGaps, InferenceGap, McpInferGapsResult]
   category mcp
   ensures {
     source_scanned   "source files scanned for public items"
@@ -410,6 +410,7 @@ behavior provide_infer_workflow_scope "Provide Infer Prompt Workflow Scope" {
 behavior provide_infer_file_scope "Provide Infer Prompt File Scope" {
   features [infer_plan_mode]
   category mcp
+  types    [McpSpecForSourceResult]
   ensures {
     existing_listed "entities that belong to the file are listed so the agent does not duplicate them"
     one_answer      "the same entities specforge.find_spec_for_source finds for that file"

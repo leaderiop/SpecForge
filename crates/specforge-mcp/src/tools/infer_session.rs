@@ -1,14 +1,14 @@
-use serde_json::{Value, json};
-
+use serde::Serialize;
+use specforge_common::shape::Shape;
 use specforge_ops::OpError;
 use specforge_ops::infer::{
     self, EndStatus, Recorded, SessionAction, SessionOutcome, SessionStatus, SessionStep,
 };
 
 use crate::args::Arguments;
-use crate::mutation::{Mutated, MutationHandled, Written};
+use crate::mutation::{Mutated, Mutation, Written};
 use crate::target::ProjectRef;
-use crate::tool::{ErrorCode, McpError, ToolOutcome};
+use crate::tool::{ErrorCode, McpError};
 
 /// `specforge.infer_session`'s arguments.
 #[derive(Debug, Arguments)]
@@ -31,9 +31,24 @@ pub struct Args {
     status: EndStatus,
 }
 
+/// `specforge.infer_session`'s reply (`McpInferSessionResult`): one step's
+/// outcome. The three steps share their keys, so it is one struct.
+#[derive(Debug, Serialize, Shape)]
+pub struct Reply {
+    /// `active` (started), `recorded` (a file marked) or the status the
+    /// session ended with.
+    status: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    session_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    source_file: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    entities_produced: Option<Vec<String>>,
+}
+
 /// `specforge.infer_session`: one step of an inference session
 /// (`specforge_ops::infer::session`), which writes `specforge-infer.json`.
-pub fn call(project: &ProjectRef<'_>, args: Args) -> MutationHandled {
+pub fn call(project: &ProjectRef<'_>, args: Args) -> Mutation<Reply> {
     let step = step(&args)?;
     Ok(match infer::session(&project.view(), step) {
         Ok(SessionOutcome { recorded, writes }) => {
@@ -43,7 +58,7 @@ pub fn call(project: &ProjectRef<'_>, args: Args) -> MutationHandled {
                 }
                 _ => Written::files(writes),
             };
-            Mutated::wrote(ToolOutcome::ok(reply(&recorded)), written)
+            Mutated::wrote(reply(&recorded), written)
         }
         Err(error) => {
             let argument = argument_of(&error);
@@ -101,21 +116,28 @@ fn argument_of(error: &OpError) -> Option<&'static str> {
 }
 
 /// What a recorded step replies.
-fn reply(recorded: &Recorded) -> Value {
+fn reply(recorded: &Recorded) -> Reply {
     match recorded {
-        Recorded::Started { session_id } => {
-            json!({"session_id": session_id, "status": SessionStatus::Active.name()})
-        }
+        Recorded::Started { session_id } => Reply {
+            status: SessionStatus::Active.name().to_string(),
+            session_id: Some(session_id.to_string()),
+            source_file: None,
+            entities_produced: None,
+        },
         Recorded::Marked {
             source_file,
             entities,
-        } => json!({
-            "source_file": source_file,
-            "entities_produced": entities,
-            "status": "recorded",
-        }),
-        Recorded::Ended { session_id, status } => {
-            json!({"session_id": session_id, "status": status.name()})
-        }
+        } => Reply {
+            status: "recorded".to_string(),
+            session_id: None,
+            source_file: Some(source_file.to_string()),
+            entities_produced: Some(entities.clone()),
+        },
+        Recorded::Ended { session_id, status } => Reply {
+            status: status.name().to_string(),
+            session_id: Some(session_id.to_string()),
+            source_file: None,
+            entities_produced: None,
+        },
     }
 }

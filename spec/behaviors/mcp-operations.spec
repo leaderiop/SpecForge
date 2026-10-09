@@ -216,7 +216,7 @@ behavior provide_mcp_add_extension_tool "Provide MCP Add Extension Tool" {
     dry_run_side_effect_freedom,
   ]
   category   query
-  types      [McpExtensionInfo, McpToolDescriptor]
+  types      [McpAddExtensionResult, McpToolDescriptor]
   ports      [McpProtocol, CompilerApi, FileSystem]
   produces   [mcp_tool_invoked, mcp_mutation_completed, extension_added]
   requires {
@@ -317,7 +317,7 @@ behavior provide_mcp_migrate_tool "Provide MCP Migrate Tool" {
   features   [mcp_mutation_tools]
   invariants [diagnostic_determinism, mcp_structured_error_responses, dry_run_side_effect_freedom]
   category   mutation
-  types      [MigrationResult, MigrationSummary, McpToolDescriptor]
+  types      [McpMigrateResult, MigrationResult, MigrationSummary, McpToolDescriptor]
   ports      [McpProtocol, CompilerApi, FileSystem]
   produces   [mcp_tool_invoked, mcp_mutation_completed]
   requires {
@@ -374,7 +374,7 @@ behavior provide_mcp_extensions_tool "Provide MCP Extensions Tool" {
   features   [mcp_project_management_tools]
   invariants [diagnostic_determinism, mcp_structured_error_responses, mcp_tool_idempotency]
   category   query
-  types      [McpExtensionInfo, McpToolDescriptor]
+  types      [McpExtensionsResult, McpExtensionInfo, McpLockEntry, McpToolDescriptor]
   ports      [McpProtocol, CompilerApi]
   produces   [mcp_tool_invoked]
   requires {
@@ -400,7 +400,7 @@ behavior provide_mcp_providers_tool "Provide MCP Providers Tool" {
   features   [mcp_project_management_tools]
   invariants [diagnostic_determinism, mcp_structured_error_responses, mcp_tool_idempotency]
   category   query
-  types      [McpProviderInfo, McpToolDescriptor]
+  types      [McpProvidersResult, McpProviderInfo, McpToolDescriptor]
   ports      [McpProtocol, CompilerApi]
   produces   [mcp_tool_invoked]
   requires {

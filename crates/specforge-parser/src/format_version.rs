@@ -11,10 +11,11 @@ use std::fmt;
 use std::str::FromStr;
 
 use serde::Serialize;
+use specforge_common::shape::Shape;
 use specforge_common::{Diagnostic, SourceSpan, Sym, codes};
 
 /// The DSL format version embedded in spec file headers.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Shape)]
 pub struct FormatVersion {
     pub major: u32,
     pub minor: u32,

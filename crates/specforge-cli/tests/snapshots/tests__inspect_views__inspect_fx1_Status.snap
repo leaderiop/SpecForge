@@ -3,15 +3,26 @@ source: crates/specforge-cli/tests/inspect_views.rs
 expression: "normalized(result, root)"
 ---
 {
-  "contract": null,
   "coverage_status": "uncovered",
   "declared": false,
   "diagnostics": [
     {
       "code": "W002",
+      "column": 1,
+      "file": "main.spec",
+      "line": 16,
       "message": "type 'Status' is not referenced by any behavior, port, or type",
+      "origin": "@specforge/software",
       "severity": "Warning",
-      "suggestion": null
+      "span": {
+        "end_col": 32,
+        "end_line": 16,
+        "file": "main.spec",
+        "start_col": 1,
+        "start_line": 16
+      },
+      "suggestion": null,
+      "title": "Unreferenced type"
     }
   ],
   "entity_id": "Status",
@@ -24,9 +35,7 @@ expression: "normalized(result, root)"
   },
   "kind": "type",
   "obligated": true,
-  "reference_count": 0,
   "referenced_by": [],
-  "references": [],
   "refers_to": [],
   "source_extension": "@specforge/software",
   "source_span": {
@@ -36,7 +45,5 @@ expression: "normalized(result, root)"
     "start_col": 1,
     "start_line": 16
   },
-  "testable": true,
-  "title": null,
-  "verify_declarations": null
+  "testable": true
 }

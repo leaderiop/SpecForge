@@ -71,7 +71,7 @@ pub fn run(
     let reports = &outcome.passes;
 
     if json {
-        let doc = outcome.to_json();
+        let doc = outcome.document();
         println!("{}", serde_json::to_string_pretty(&doc).unwrap_or_default());
     } else {
         // Human output is capped at the codebase-wide diagnostic limit so a

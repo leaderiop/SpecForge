@@ -20,7 +20,7 @@ pub mod outline;
 pub mod schema;
 
 pub use dot::DotOptions;
-pub use emit::{EmitFormat, EmitOptions, emit};
+pub use emit::{EmitFormat, EmitOptions, document_schema, emit};
 pub use error::EmitterError;
 pub use json::{SCHEMA_VERSION, field_map_to_json, field_value_to_json};
 pub use schema::{

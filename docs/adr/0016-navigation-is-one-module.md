@@ -82,8 +82,8 @@ block. Both surfaces offer the same fixes, filtered by entity, file, code and ra
   adds `referenced_entity_id`, `field`, `role`, `precision` and the arguments `direction` and
   `include_declaration`. `find_definition`'s `line`/`column` are the name's; it adds `source_span`,
   `name_span`, `precision`. `search`'s `references` is ANDed with the other filters; its scores are
-  tier bands with `match_field`. `inspect` adds `referenced_by` and `refers_to` and keeps
-  `references` and `reference_count` as **deprecated aliases** (no client breaks in this change);
+  tier bands with `match_field`. `inspect` adds `referenced_by` and `refers_to` and kept
+  `references` and `reference_count` as deprecated aliases until ADR 0048 D7 removed them;
   its diagnostics carry their `suggestion`. `suggest_fixes` returns the LSP's fixes with real edits;
   a diagnostic whose data names no fix contributes none. `outline` adds `name_range`.
 - The LSP hover's outgoing heading is "Refers to"; workspace symbols are fuzzy and ranked;

@@ -111,7 +111,15 @@ fn mcp_result(project: &Project, name: &str, arguments: Value) -> (Value, bool) 
     let text = result["content"][0]["text"]
         .as_str()
         .unwrap_or_else(|| panic!("{name} returned no text: {resp}"));
-    (serde_json::from_str(text).unwrap(), false)
+    let reply: Value = serde_json::from_str(text).unwrap();
+    // The array tools answer an object holding the array.
+    let key = match name {
+        "specforge.search" => "results",
+        "specforge.outline" => "entries",
+        "specforge.suggest_fixes" => "fixes",
+        _ => return (reply, false),
+    };
+    (reply.get(key).cloned().unwrap_or(reply), false)
 }
 
 // ── LSP ─────────────────────────────────────────────────────────────────

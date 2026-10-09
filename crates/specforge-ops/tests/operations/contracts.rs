@@ -220,9 +220,9 @@ fn stats_contract_graph_with_diagnostics_produces_complete_stats() {
     // coverage_computed: b and c of the three behaviors are verified.
     assert_eq!(stats.testable_count, 3);
     assert!(
-        (stats.coverage_pct - 200.0 / 3.0).abs() < 1e-9,
+        (stats.declared_pct - 200.0 / 3.0).abs() < 1e-9,
         "2 of 3 testable verified: {}",
-        stats.coverage_pct
+        stats.declared_pct
     );
     assert_eq!(stats.error_count, 1);
     assert_eq!(stats.warning_count, 1);
@@ -232,7 +232,7 @@ fn stats_contract_graph_with_diagnostics_produces_complete_stats() {
     for testable in [&[][..], &["event"][..]] {
         let none = crate::view_support::stats_of(&graph, testable, &[]);
         assert_eq!(none.testable_count, 0);
-        assert_eq!(none.coverage_pct, 0.0, "testable kinds {testable:?}");
+        assert_eq!(none.declared_pct, 0.0, "testable kinds {testable:?}");
     }
 }
 

@@ -49,23 +49,878 @@ expression: listing
       "type": "object"
     },
     "outputSchema": {
-      "properties": {
-        "edges": {
-          "type": "array"
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "edges": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "label": {
+                    "type": "string"
+                  },
+                  "source": {
+                    "type": "string"
+                  },
+                  "target": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "source",
+                  "target",
+                  "label"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "format_version": {
+              "type": "string"
+            },
+            "nodes": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "coverage_status": {
+                    "enum": [
+                      "covered",
+                      "partial",
+                      "uncovered"
+                    ],
+                    "type": "string"
+                  },
+                  "fields": {
+                    "type": "object"
+                  },
+                  "file": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "type": "string"
+                  },
+                  "kind": {
+                    "type": "string"
+                  },
+                  "line": {
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "title": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id",
+                  "kind",
+                  "file",
+                  "line",
+                  "fields"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "schema": {
+              "additionalProperties": false,
+              "properties": {
+                "edge_types": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "label": {
+                        "type": "string"
+                      },
+                      "source_extension": {
+                        "type": "string"
+                      },
+                      "source_kinds": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      "target_kinds": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      }
+                    },
+                    "required": [
+                      "label",
+                      "source_extension"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "entity_kinds": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "dot_color": {
+                        "type": "string"
+                      },
+                      "fields": {
+                        "items": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "default_value": {
+                              "type": "string"
+                            },
+                            "description": {
+                              "type": "string"
+                            },
+                            "edge": {
+                              "type": "string"
+                            },
+                            "enum_values": {
+                              "items": {
+                                "type": "string"
+                              },
+                              "type": "array"
+                            },
+                            "field_type": {
+                              "enum": [
+                                "string",
+                                "integer",
+                                "bool",
+                                "enum",
+                                "string_list",
+                                "reference",
+                                "reference_list",
+                                "block"
+                              ],
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "required": {
+                              "type": "boolean"
+                            },
+                            "source_extension": {
+                              "type": "string"
+                            },
+                            "target_kind": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "name",
+                            "field_type",
+                            "required",
+                            "source_extension"
+                          ],
+                          "type": "object"
+                        },
+                        "type": "array"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "source_extension": {
+                        "type": "string"
+                      },
+                      "testable": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "source_extension",
+                      "testable",
+                      "fields"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "extensions": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "version": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "version"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "schema_version": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "label": {
+                      "type": "string"
+                    },
+                    "major": {
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "minor": {
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "patch": {
+                      "minimum": 0,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "major",
+                    "minor",
+                    "patch"
+                  ],
+                  "type": "object"
+                }
+              },
+              "required": [
+                "schema_version",
+                "extensions",
+                "entity_kinds",
+                "edge_types"
+              ],
+              "type": "object"
+            },
+            "schema_ref": {
+              "additionalProperties": false,
+              "properties": {
+                "content_hash": {
+                  "type": "string"
+                },
+                "url": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "url",
+                "content_hash"
+              ],
+              "type": "object"
+            },
+            "schema_version": {
+              "type": "string"
+            },
+            "token_budget": {
+              "additionalProperties": false,
+              "properties": {
+                "budget_tokens": {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "estimated_tokens": {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "strategy": {
+                  "type": "string"
+                },
+                "truncated_entities": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                }
+              },
+              "required": [
+                "strategy",
+                "budget_tokens",
+                "estimated_tokens",
+                "truncated_entities"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "schema_version",
+            "nodes",
+            "edges"
+          ],
+          "type": "object"
         },
-        "format_version": {
-          "type": "string"
+        {
+          "additionalProperties": false,
+          "properties": {
+            "edges": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "label": {
+                    "type": "string"
+                  },
+                  "source": {
+                    "type": "string"
+                  },
+                  "target": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "source",
+                  "target",
+                  "label"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "format_version": {
+              "type": "string"
+            },
+            "nodes": {
+              "items": {
+                "properties": {
+                  "coverage_status": {
+                    "enum": [
+                      "covered",
+                      "partial",
+                      "uncovered"
+                    ],
+                    "type": "string"
+                  },
+                  "fields": {
+                    "type": "object"
+                  },
+                  "id": {
+                    "type": "string"
+                  },
+                  "kind": {
+                    "type": "string"
+                  },
+                  "title": {
+                    "type": "string"
+                  },
+                  "verify": {}
+                },
+                "required": [
+                  "id",
+                  "kind"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "schema": {
+              "additionalProperties": false,
+              "properties": {
+                "edge_types": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "label": {
+                        "type": "string"
+                      },
+                      "source_extension": {
+                        "type": "string"
+                      },
+                      "source_kinds": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      "target_kinds": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      }
+                    },
+                    "required": [
+                      "label",
+                      "source_extension"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "entity_kinds": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "dot_color": {
+                        "type": "string"
+                      },
+                      "fields": {
+                        "items": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "default_value": {
+                              "type": "string"
+                            },
+                            "description": {
+                              "type": "string"
+                            },
+                            "edge": {
+                              "type": "string"
+                            },
+                            "enum_values": {
+                              "items": {
+                                "type": "string"
+                              },
+                              "type": "array"
+                            },
+                            "field_type": {
+                              "enum": [
+                                "string",
+                                "integer",
+                                "bool",
+                                "enum",
+                                "string_list",
+                                "reference",
+                                "reference_list",
+                                "block"
+                              ],
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "required": {
+                              "type": "boolean"
+                            },
+                            "source_extension": {
+                              "type": "string"
+                            },
+                            "target_kind": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "name",
+                            "field_type",
+                            "required",
+                            "source_extension"
+                          ],
+                          "type": "object"
+                        },
+                        "type": "array"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "source_extension": {
+                        "type": "string"
+                      },
+                      "testable": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "source_extension",
+                      "testable",
+                      "fields"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "extensions": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "version": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "version"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "schema_version": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "label": {
+                      "type": "string"
+                    },
+                    "major": {
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "minor": {
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "patch": {
+                      "minimum": 0,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "major",
+                    "minor",
+                    "patch"
+                  ],
+                  "type": "object"
+                }
+              },
+              "required": [
+                "schema_version",
+                "extensions",
+                "entity_kinds",
+                "edge_types"
+              ],
+              "type": "object"
+            },
+            "schema_ref": {
+              "additionalProperties": false,
+              "properties": {
+                "content_hash": {
+                  "type": "string"
+                },
+                "url": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "url",
+                "content_hash"
+              ],
+              "type": "object"
+            },
+            "schema_version": {
+              "type": "string"
+            },
+            "token_budget": {
+              "additionalProperties": false,
+              "properties": {
+                "budget_tokens": {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "estimated_tokens": {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "strategy": {
+                  "type": "string"
+                },
+                "truncated_entities": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                }
+              },
+              "required": [
+                "strategy",
+                "budget_tokens",
+                "estimated_tokens",
+                "truncated_entities"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "schema_version",
+            "nodes",
+            "edges"
+          ],
+          "type": "object"
         },
-        "nodes": {
-          "type": "array"
-        },
-        "schema_version": {
-          "type": "string"
+        {
+          "additionalProperties": false,
+          "properties": {
+            "edges": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "label": {
+                    "type": "string"
+                  },
+                  "source": {
+                    "type": "string"
+                  },
+                  "target": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "source",
+                  "target",
+                  "label"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "format_version": {
+              "type": "string"
+            },
+            "nodes": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "coverage_status": {
+                    "enum": [
+                      "covered",
+                      "partial",
+                      "uncovered"
+                    ],
+                    "type": "string"
+                  },
+                  "id": {
+                    "type": "string"
+                  },
+                  "kind": {
+                    "type": "string"
+                  },
+                  "title": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id",
+                  "kind"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "schema": {
+              "additionalProperties": false,
+              "properties": {
+                "edge_types": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "label": {
+                        "type": "string"
+                      },
+                      "source_extension": {
+                        "type": "string"
+                      },
+                      "source_kinds": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      "target_kinds": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      }
+                    },
+                    "required": [
+                      "label",
+                      "source_extension"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "entity_kinds": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "dot_color": {
+                        "type": "string"
+                      },
+                      "fields": {
+                        "items": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "default_value": {
+                              "type": "string"
+                            },
+                            "description": {
+                              "type": "string"
+                            },
+                            "edge": {
+                              "type": "string"
+                            },
+                            "enum_values": {
+                              "items": {
+                                "type": "string"
+                              },
+                              "type": "array"
+                            },
+                            "field_type": {
+                              "enum": [
+                                "string",
+                                "integer",
+                                "bool",
+                                "enum",
+                                "string_list",
+                                "reference",
+                                "reference_list",
+                                "block"
+                              ],
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "required": {
+                              "type": "boolean"
+                            },
+                            "source_extension": {
+                              "type": "string"
+                            },
+                            "target_kind": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "name",
+                            "field_type",
+                            "required",
+                            "source_extension"
+                          ],
+                          "type": "object"
+                        },
+                        "type": "array"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "source_extension": {
+                        "type": "string"
+                      },
+                      "testable": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "source_extension",
+                      "testable",
+                      "fields"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "extensions": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "version": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "version"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "schema_version": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "label": {
+                      "type": "string"
+                    },
+                    "major": {
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "minor": {
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "patch": {
+                      "minimum": 0,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "major",
+                    "minor",
+                    "patch"
+                  ],
+                  "type": "object"
+                }
+              },
+              "required": [
+                "schema_version",
+                "extensions",
+                "entity_kinds",
+                "edge_types"
+              ],
+              "type": "object"
+            },
+            "schema_ref": {
+              "additionalProperties": false,
+              "properties": {
+                "content_hash": {
+                  "type": "string"
+                },
+                "url": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "url",
+                "content_hash"
+              ],
+              "type": "object"
+            },
+            "schema_version": {
+              "type": "string"
+            },
+            "token_budget": {
+              "additionalProperties": false,
+              "properties": {
+                "budget_tokens": {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "estimated_tokens": {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "strategy": {
+                  "type": "string"
+                },
+                "truncated_entities": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                }
+              },
+              "required": [
+                "strategy",
+                "budget_tokens",
+                "estimated_tokens",
+                "truncated_entities"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "schema_version",
+            "nodes",
+            "edges"
+          ],
+          "type": "object"
         }
-      },
-      "required": [
-        "nodes",
-        "edges"
       ],
       "type": "object"
     },
@@ -163,17 +1018,407 @@ expression: listing
       "type": "object"
     },
     "outputSchema": {
+      "additionalProperties": false,
       "properties": {
         "gate": {
+          "oneOf": [
+            {
+              "additionalProperties": false,
+              "properties": {
+                "min": {
+                  "type": "number"
+                },
+                "pct": {
+                  "type": "number"
+                },
+                "proven": {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "status": {
+                  "enum": [
+                    "met"
+                  ],
+                  "type": "string"
+                },
+                "total": {
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "status",
+                "min",
+                "pct",
+                "proven",
+                "total"
+              ],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "min": {
+                  "type": "number"
+                },
+                "pct": {
+                  "type": "number"
+                },
+                "proven": {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "status": {
+                  "enum": [
+                    "below"
+                  ],
+                  "type": "string"
+                },
+                "total": {
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "status",
+                "min",
+                "pct",
+                "proven",
+                "total"
+              ],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "min": {
+                  "type": "number"
+                },
+                "reason": {
+                  "type": "string"
+                },
+                "status": {
+                  "enum": [
+                    "unjudged"
+                  ],
+                  "type": "string"
+                }
+              },
+              "required": [
+                "status",
+                "min",
+                "reason"
+              ],
+              "type": "object"
+            }
+          ],
           "type": "object"
         },
         "ok": {
           "type": "boolean"
         },
         "passes": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "findings": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "column": {
+                      "minimum": 0,
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "data": {
+                      "oneOf": [
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "did_you_mean": {
+                              "type": "string"
+                            },
+                            "entity": {
+                              "type": "string"
+                            },
+                            "field": {
+                              "type": "string"
+                            },
+                            "kind": {
+                              "enum": [
+                                "unresolved_reference"
+                              ],
+                              "type": "string"
+                            },
+                            "target": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "target",
+                            "entity",
+                            "field"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "did_you_mean": {
+                              "type": "string"
+                            },
+                            "kind": {
+                              "enum": [
+                                "unresolved_import"
+                              ],
+                              "type": "string"
+                            },
+                            "path": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "path"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "keyword": {
+                              "type": "string"
+                            },
+                            "kind": {
+                              "enum": [
+                                "shadowed_keyword"
+                              ],
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "keyword"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "kind": {
+                              "enum": [
+                                "reference_cycle"
+                              ],
+                              "type": "string"
+                            },
+                            "path": {
+                              "items": {
+                                "type": "string"
+                              },
+                              "type": "array"
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "path"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "entity": {
+                              "type": "string"
+                            },
+                            "kind": {
+                              "enum": [
+                                "subject"
+                              ],
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "entity"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "failures": {
+                              "items": {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "entity": {
+                                    "type": "string"
+                                  },
+                                  "error": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "entity",
+                                  "error"
+                                ],
+                                "type": "object"
+                              },
+                              "type": "array"
+                            },
+                            "function": {
+                              "type": "string"
+                            },
+                            "kind": {
+                              "enum": [
+                                "custom_rule_failures"
+                              ],
+                              "type": "string"
+                            },
+                            "rule": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "rule",
+                            "function",
+                            "failures"
+                          ],
+                          "type": "object"
+                        }
+                      ],
+                      "type": "object"
+                    },
+                    "file": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "line": {
+                      "minimum": 0,
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "origin": {
+                      "type": "string"
+                    },
+                    "severity": {
+                      "enum": [
+                        "Error",
+                        "Warning",
+                        "Info"
+                      ],
+                      "type": "string"
+                    },
+                    "span": {
+                      "anyOf": [
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "end_col": {
+                              "minimum": 0,
+                              "type": "integer"
+                            },
+                            "end_line": {
+                              "minimum": 0,
+                              "type": "integer"
+                            },
+                            "file": {
+                              "type": "string"
+                            },
+                            "start_col": {
+                              "minimum": 0,
+                              "type": "integer"
+                            },
+                            "start_line": {
+                              "minimum": 0,
+                              "type": "integer"
+                            }
+                          },
+                          "required": [
+                            "file",
+                            "start_line",
+                            "start_col",
+                            "end_line",
+                            "end_col"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "suggestion": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "title": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "title",
+                    "severity",
+                    "message",
+                    "span",
+                    "suggestion",
+                    "file",
+                    "line",
+                    "column"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "pass": {
+                "type": "string"
+              },
+              "summary": {}
+            },
+            "required": [
+              "pass",
+              "findings",
+              "summary"
+            ],
+            "type": "object"
+          },
           "type": "array"
         },
         "stray_records": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "entity_id": {
+                "type": "string"
+              },
+              "near": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "entity_id"
+            ],
+            "type": "object"
+          },
           "type": "array"
         }
       },
@@ -272,9 +1517,40 @@ expression: listing
     "outputSchema": {
       "oneOf": [
         {
+          "additionalProperties": false,
           "properties": {
             "downstream": {
               "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "depth": {
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "edge_label": {
+                    "type": "string"
+                  },
+                  "entity_id": {
+                    "type": "string"
+                  },
+                  "entity_kind": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "enum": [
+                      "resolved",
+                      "missing"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "entity_id",
+                  "entity_kind",
+                  "edge_label",
+                  "depth",
+                  "status"
+                ],
                 "type": "object"
               },
               "type": "array"
@@ -287,6 +1563,47 @@ expression: listing
             },
             "missing": {
               "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "depth": {
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "edge_label": {
+                    "type": "string"
+                  },
+                  "edge_type": {
+                    "type": "string"
+                  },
+                  "expected_kind": {
+                    "type": "string"
+                  },
+                  "from": {
+                    "type": "string"
+                  },
+                  "from_kind": {
+                    "type": "string"
+                  },
+                  "required": {
+                    "type": "boolean"
+                  },
+                  "status": {
+                    "enum": [
+                      "resolved",
+                      "missing"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "from",
+                  "from_kind",
+                  "edge_label",
+                  "expected_kind",
+                  "depth",
+                  "required",
+                  "status"
+                ],
                 "type": "object"
               },
               "type": "array"
@@ -296,6 +1613,36 @@ expression: listing
             },
             "upstream": {
               "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "depth": {
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "edge_label": {
+                    "type": "string"
+                  },
+                  "entity_id": {
+                    "type": "string"
+                  },
+                  "entity_kind": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "enum": [
+                      "resolved",
+                      "missing"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "entity_id",
+                  "entity_kind",
+                  "edge_label",
+                  "depth",
+                  "status"
+                ],
                 "type": "object"
               },
               "type": "array"
@@ -312,6 +1659,7 @@ expression: listing
           "type": "object"
         },
         {
+          "additionalProperties": false,
           "properties": {
             "affected_entities": {
               "items": {
@@ -321,6 +1669,7 @@ expression: listing
             },
             "gaps": {
               "items": {
+                "additionalProperties": false,
                 "properties": {
                   "gap_context": {
                     "type": "string"
@@ -338,7 +1687,8 @@ expression: listing
                 "required": [
                   "source_entity",
                   "target_entity",
-                  "missing_link_type"
+                  "missing_link_type",
+                  "gap_context"
                 ],
                 "type": "object"
               },
@@ -351,8 +1701,7 @@ expression: listing
           ],
           "type": "object"
         }
-      ],
-      "type": "object"
+      ]
     },
     "category": "core",
     "source": "core",
@@ -402,6 +1751,56 @@ expression: listing
       ],
       "type": "object"
     },
+    "outputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "results": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "entity_id": {
+                "type": "string"
+              },
+              "file_path": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string"
+              },
+              "line": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "match_field": {
+                "type": "string"
+              },
+              "match_snippet": {
+                "type": "string"
+              },
+              "score": {
+                "type": "number"
+              },
+              "title": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "entity_id",
+              "kind",
+              "file_path",
+              "line",
+              "score"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "results"
+      ],
+      "type": "object"
+    },
     "category": "core",
     "source": "core",
     "annotations": {
@@ -426,35 +1825,15 @@ expression: listing
       "type": "object"
     },
     "outputSchema": {
-      "properties": {
-        "code": {
-          "type": "string"
-        },
-        "docs": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "explanation": {
-          "type": "string"
-        },
-        "level": {
-          "type": "string"
-        },
-        "owner": {
-          "type": "string"
-        },
-        "replaced_by": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
           "properties": {
             "code": {
               "type": "string"
             },
             "docs": {
-              "type": [
-                "string",
-                "null"
-              ]
+              "type": "string"
             },
             "explanation": {
               "type": "string"
@@ -465,27 +1844,71 @@ expression: listing
             "owner": {
               "type": "string"
             },
+            "retired": {
+              "type": "boolean"
+            },
             "title": {
               "type": "string"
             }
           },
-          "type": [
-            "object",
-            "null"
-          ]
+          "required": [
+            "retired",
+            "code",
+            "title",
+            "owner",
+            "level",
+            "explanation"
+          ],
+          "type": "object"
         },
-        "retired": {
-          "type": "boolean"
-        },
-        "title": {
-          "type": "string"
+        {
+          "additionalProperties": false,
+          "properties": {
+            "code": {
+              "type": "string"
+            },
+            "replaced_by": {
+              "additionalProperties": false,
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "docs": {
+                  "type": "string"
+                },
+                "explanation": {
+                  "type": "string"
+                },
+                "level": {
+                  "type": "string"
+                },
+                "owner": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "title",
+                "owner",
+                "level",
+                "explanation"
+              ],
+              "type": "object"
+            },
+            "retired": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "code",
+            "retired"
+          ],
+          "type": "object"
         }
-      },
-      "required": [
-        "code",
-        "retired"
-      ],
-      "type": "object"
+      ]
     },
     "category": "core",
     "source": "core",
@@ -518,20 +1941,168 @@ expression: listing
       "type": "object"
     },
     "outputSchema": {
+      "additionalProperties": false,
       "properties": {
         "edge_types": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "label": {
+                "type": "string"
+              },
+              "source_extension": {
+                "type": "string"
+              },
+              "source_kinds": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "target_kinds": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "label",
+              "source_extension"
+            ],
+            "type": "object"
+          },
           "type": "array"
         },
         "entity_kinds": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "dot_color": {
+                "type": "string"
+              },
+              "fields": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "default_value": {
+                      "type": "string"
+                    },
+                    "description": {
+                      "type": "string"
+                    },
+                    "edge": {
+                      "type": "string"
+                    },
+                    "enum_values": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    "field_type": {
+                      "enum": [
+                        "string",
+                        "integer",
+                        "bool",
+                        "enum",
+                        "string_list",
+                        "reference",
+                        "reference_list",
+                        "block"
+                      ],
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "required": {
+                      "type": "boolean"
+                    },
+                    "source_extension": {
+                      "type": "string"
+                    },
+                    "target_kind": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "field_type",
+                    "required",
+                    "source_extension"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "name": {
+                "type": "string"
+              },
+              "source_extension": {
+                "type": "string"
+              },
+              "testable": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "name",
+              "source_extension",
+              "testable",
+              "fields"
+            ],
+            "type": "object"
+          },
           "type": "array"
         },
         "extensions": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "version": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "version"
+            ],
+            "type": "object"
+          },
           "type": "array"
         },
         "schema_version": {
+          "additionalProperties": false,
+          "properties": {
+            "label": {
+              "type": "string"
+            },
+            "major": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "minor": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "patch": {
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "major",
+            "minor",
+            "patch"
+          ],
           "type": "object"
         },
         "validation_rules": {
+          "items": {},
           "type": "array"
         }
       },
@@ -689,6 +2260,76 @@ expression: listing
       },
       "type": "object"
     },
+    "outputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "entities": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "declared": {
+                "type": "boolean"
+              },
+              "entity_id": {
+                "type": "string"
+              },
+              "evidence_collected": {
+                "type": "boolean"
+              },
+              "exempt": {
+                "type": "boolean"
+              },
+              "kind": {
+                "type": "string"
+              },
+              "linked": {
+                "type": "boolean"
+              },
+              "obligations": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "proven": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "status": {
+                "enum": [
+                  "covered",
+                  "partial",
+                  "uncovered"
+                ],
+                "type": "string"
+              },
+              "unproven": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "entity_id",
+              "kind",
+              "status",
+              "declared",
+              "linked",
+              "evidence_collected",
+              "obligations",
+              "proven",
+              "unproven",
+              "exempt"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "entities"
+      ],
+      "type": "object"
+    },
     "category": "core",
     "source": "core",
     "annotations": {
@@ -705,36 +2346,69 @@ expression: listing
       "type": "object"
     },
     "outputSchema": {
+      "additionalProperties": false,
       "properties": {
-        "coverage_pct": {
-          "type": "number"
-        },
         "declared_pct": {
           "type": "number"
         },
         "diagnostic_summary": {
+          "additionalProperties": false,
+          "properties": {
+            "errors": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "infos": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "warnings": {
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "errors",
+            "warnings",
+            "infos"
+          ],
           "type": "object"
         },
         "edge_count": {
+          "minimum": 0,
           "type": "integer"
         },
         "entity_counts": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "count": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "kind": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "count"
+            ],
+            "type": "object"
+          },
           "type": "array"
         },
         "proof_pct": {
-          "type": [
-            "number",
-            "null"
-          ]
+          "type": "number"
         },
         "unconnected_count": {
+          "minimum": 0,
           "type": "integer"
         }
       },
       "required": [
         "entity_counts",
         "declared_pct",
-        "proof_pct",
         "edge_count",
         "unconnected_count",
         "diagnostic_summary"
@@ -776,6 +2450,38 @@ expression: listing
       },
       "type": "object"
     },
+    "outputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "entities": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "kind",
+              "title"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "entities"
+      ],
+      "type": "object"
+    },
     "category": "core",
     "source": "core",
     "annotations": {
@@ -800,20 +2506,288 @@ expression: listing
       "type": "object"
     },
     "outputSchema": {
+      "additionalProperties": false,
       "properties": {
         "contract": {
-          "type": [
-            "string",
-            "null"
-          ]
+          "type": "string"
         },
         "coverage_status": {
+          "enum": [
+            "covered",
+            "partial",
+            "uncovered"
+          ],
           "type": "string"
         },
         "declared": {
           "type": "boolean"
         },
         "diagnostics": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "column": {
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "data": {
+                "oneOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "did_you_mean": {
+                        "type": "string"
+                      },
+                      "entity": {
+                        "type": "string"
+                      },
+                      "field": {
+                        "type": "string"
+                      },
+                      "kind": {
+                        "enum": [
+                          "unresolved_reference"
+                        ],
+                        "type": "string"
+                      },
+                      "target": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "target",
+                      "entity",
+                      "field"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "did_you_mean": {
+                        "type": "string"
+                      },
+                      "kind": {
+                        "enum": [
+                          "unresolved_import"
+                        ],
+                        "type": "string"
+                      },
+                      "path": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "path"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "keyword": {
+                        "type": "string"
+                      },
+                      "kind": {
+                        "enum": [
+                          "shadowed_keyword"
+                        ],
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "keyword"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "enum": [
+                          "reference_cycle"
+                        ],
+                        "type": "string"
+                      },
+                      "path": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "path"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "entity": {
+                        "type": "string"
+                      },
+                      "kind": {
+                        "enum": [
+                          "subject"
+                        ],
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "entity"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "failures": {
+                        "items": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "entity": {
+                              "type": "string"
+                            },
+                            "error": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "entity",
+                            "error"
+                          ],
+                          "type": "object"
+                        },
+                        "type": "array"
+                      },
+                      "function": {
+                        "type": "string"
+                      },
+                      "kind": {
+                        "enum": [
+                          "custom_rule_failures"
+                        ],
+                        "type": "string"
+                      },
+                      "rule": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "rule",
+                      "function",
+                      "failures"
+                    ],
+                    "type": "object"
+                  }
+                ],
+                "type": "object"
+              },
+              "file": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "line": {
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "origin": {
+                "type": "string"
+              },
+              "severity": {
+                "enum": [
+                  "Error",
+                  "Warning",
+                  "Info"
+                ],
+                "type": "string"
+              },
+              "span": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "end_col": {
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "end_line": {
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "file": {
+                        "type": "string"
+                      },
+                      "start_col": {
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "start_line": {
+                        "minimum": 0,
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "file",
+                      "start_line",
+                      "start_col",
+                      "end_line",
+                      "end_col"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "suggestion": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "title": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "code",
+              "title",
+              "severity",
+              "message",
+              "span",
+              "suggestion",
+              "file",
+              "line",
+              "column"
+            ],
+            "type": "object"
+          },
           "type": "array"
         },
         "entity_id": {
@@ -822,25 +2796,17 @@ expression: listing
         "exempt": {
           "type": "boolean"
         },
-        "fields": {
-          "type": "object"
-        },
+        "fields": {},
         "kind": {
           "type": "string"
         },
         "obligated": {
           "type": "boolean"
         },
-        "reference_count": {
-          "type": "integer"
-        },
         "referenced_by": {
           "items": {
             "type": "string"
           },
-          "type": "array"
-        },
-        "references": {
           "type": "array"
         },
         "refers_to": {
@@ -850,28 +2816,51 @@ expression: listing
           "type": "array"
         },
         "source_extension": {
-          "type": [
-            "string",
-            "null"
-          ]
+          "type": "string"
         },
         "source_span": {
+          "additionalProperties": false,
+          "properties": {
+            "end_col": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "end_line": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "file": {
+              "type": "string"
+            },
+            "start_col": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "start_line": {
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "file",
+            "start_line",
+            "start_col",
+            "end_line",
+            "end_col"
+          ],
           "type": "object"
         },
         "testable": {
           "type": "boolean"
         },
         "title": {
-          "type": [
-            "string",
-            "null"
-          ]
+          "type": "string"
         },
         "verify_declarations": {
-          "type": [
-            "array",
-            "null"
-          ]
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         }
       },
       "required": [
@@ -885,7 +2874,6 @@ expression: listing
         "fields",
         "referenced_by",
         "refers_to",
-        "references",
         "coverage_status",
         "diagnostics"
       ],
@@ -915,8 +2903,10 @@ expression: listing
       "type": "object"
     },
     "outputSchema": {
+      "additionalProperties": false,
       "properties": {
         "column": {
+          "minimum": 0,
           "type": "integer"
         },
         "entity_id": {
@@ -926,9 +2916,39 @@ expression: listing
           "type": "string"
         },
         "line": {
+          "minimum": 0,
           "type": "integer"
         },
         "name_span": {
+          "additionalProperties": false,
+          "properties": {
+            "end_col": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "end_line": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "file": {
+              "type": "string"
+            },
+            "start_col": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "start_line": {
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "file",
+            "start_line",
+            "start_col",
+            "end_line",
+            "end_col"
+          ],
           "type": "object"
         },
         "precision": {
@@ -939,6 +2959,35 @@ expression: listing
           "type": "string"
         },
         "source_span": {
+          "additionalProperties": false,
+          "properties": {
+            "end_col": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "end_line": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "file": {
+              "type": "string"
+            },
+            "start_col": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "start_line": {
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "file",
+            "start_line",
+            "start_col",
+            "end_line",
+            "end_col"
+          ],
           "type": "object"
         }
       },
@@ -992,8 +3041,14 @@ expression: listing
       "type": "object"
     },
     "outputSchema": {
+      "additionalProperties": false,
       "properties": {
         "direction": {
+          "enum": [
+            "incoming",
+            "outgoing",
+            "both"
+          ],
           "type": "string"
         },
         "entity_id": {
@@ -1001,12 +3056,10 @@ expression: listing
         },
         "locations": {
           "items": {
+            "additionalProperties": false,
             "properties": {
               "field": {
-                "type": [
-                  "string",
-                  "null"
-                ]
+                "type": "string"
               },
               "precision": {
                 "enum": [
@@ -1029,13 +3082,41 @@ expression: listing
                 "type": "string"
               },
               "source_span": {
+                "additionalProperties": false,
+                "properties": {
+                  "end_col": {
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "end_line": {
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "file": {
+                    "type": "string"
+                  },
+                  "start_col": {
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "start_line": {
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "file",
+                  "start_line",
+                  "start_col",
+                  "end_line",
+                  "end_col"
+                ],
                 "type": "object"
               }
             },
             "required": [
               "referencing_entity_id",
               "referenced_entity_id",
-              "field",
               "role",
               "precision",
               "source_span"
@@ -1075,6 +3156,195 @@ expression: listing
       ],
       "type": "object"
     },
+    "outputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "entries": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "children": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "entity_id": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "enum": [
+                        "method"
+                      ],
+                      "type": "string"
+                    },
+                    "name_range": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "end_col": {
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "end_line": {
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "file": {
+                          "type": "string"
+                        },
+                        "start_col": {
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "start_line": {
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "file",
+                        "start_line",
+                        "start_col",
+                        "end_line",
+                        "end_col"
+                      ],
+                      "type": "object"
+                    },
+                    "range": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "end_col": {
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "end_line": {
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "file": {
+                          "type": "string"
+                        },
+                        "start_col": {
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "start_line": {
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "file",
+                        "start_line",
+                        "start_col",
+                        "end_line",
+                        "end_col"
+                      ],
+                      "type": "object"
+                    },
+                    "title": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "entity_id",
+                    "kind",
+                    "title",
+                    "range",
+                    "name_range"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "entity_id": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string"
+              },
+              "name_range": {
+                "additionalProperties": false,
+                "properties": {
+                  "end_col": {
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "end_line": {
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "file": {
+                    "type": "string"
+                  },
+                  "start_col": {
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "start_line": {
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "file",
+                  "start_line",
+                  "start_col",
+                  "end_line",
+                  "end_col"
+                ],
+                "type": "object"
+              },
+              "range": {
+                "additionalProperties": false,
+                "properties": {
+                  "end_col": {
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "end_line": {
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "file": {
+                    "type": "string"
+                  },
+                  "start_col": {
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "start_line": {
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "file",
+                  "start_line",
+                  "start_col",
+                  "end_line",
+                  "end_col"
+                ],
+                "type": "object"
+              },
+              "title": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "entity_id",
+              "kind",
+              "range",
+              "name_range"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "entries"
+      ],
+      "type": "object"
+    },
     "category": "navigation",
     "source": "core",
     "annotations": {
@@ -1101,6 +3371,97 @@ expression: listing
           "type": "string"
         }
       },
+      "type": "object"
+    },
+    "outputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "fixes": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "diagnostic_code": {
+                "type": "string"
+              },
+              "edits": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "file_path": {
+                      "type": "string"
+                    },
+                    "new_text": {
+                      "type": "string"
+                    },
+                    "range": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "end_col": {
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "end_line": {
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "file": {
+                          "type": "string"
+                        },
+                        "start_col": {
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "start_line": {
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "file",
+                        "start_line",
+                        "start_col",
+                        "end_line",
+                        "end_col"
+                      ],
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "file_path",
+                    "range",
+                    "new_text"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "entity_id": {
+                "type": "string"
+              },
+              "kind": {
+                "enum": [
+                  "quickfix",
+                  "refactor"
+                ],
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "title",
+              "kind",
+              "edits"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "fixes"
+      ],
       "type": "object"
     },
     "category": "navigation",
@@ -1145,33 +3506,368 @@ expression: listing
       "type": "object"
     },
     "outputSchema": {
+      "additionalProperties": false,
       "properties": {
         "all_clean": {
           "type": "boolean"
         },
         "changed_files": {
+          "items": {
+            "type": "string"
+          },
           "type": "array"
         },
         "check_only": {
           "type": "boolean"
         },
         "diagnostics": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "column": {
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "data": {
+                "oneOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "did_you_mean": {
+                        "type": "string"
+                      },
+                      "entity": {
+                        "type": "string"
+                      },
+                      "field": {
+                        "type": "string"
+                      },
+                      "kind": {
+                        "enum": [
+                          "unresolved_reference"
+                        ],
+                        "type": "string"
+                      },
+                      "target": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "target",
+                      "entity",
+                      "field"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "did_you_mean": {
+                        "type": "string"
+                      },
+                      "kind": {
+                        "enum": [
+                          "unresolved_import"
+                        ],
+                        "type": "string"
+                      },
+                      "path": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "path"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "keyword": {
+                        "type": "string"
+                      },
+                      "kind": {
+                        "enum": [
+                          "shadowed_keyword"
+                        ],
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "keyword"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "enum": [
+                          "reference_cycle"
+                        ],
+                        "type": "string"
+                      },
+                      "path": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "path"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "entity": {
+                        "type": "string"
+                      },
+                      "kind": {
+                        "enum": [
+                          "subject"
+                        ],
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "entity"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "failures": {
+                        "items": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "entity": {
+                              "type": "string"
+                            },
+                            "error": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "entity",
+                            "error"
+                          ],
+                          "type": "object"
+                        },
+                        "type": "array"
+                      },
+                      "function": {
+                        "type": "string"
+                      },
+                      "kind": {
+                        "enum": [
+                          "custom_rule_failures"
+                        ],
+                        "type": "string"
+                      },
+                      "rule": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "rule",
+                      "function",
+                      "failures"
+                    ],
+                    "type": "object"
+                  }
+                ],
+                "type": "object"
+              },
+              "file": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "line": {
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "origin": {
+                "type": "string"
+              },
+              "severity": {
+                "enum": [
+                  "Error",
+                  "Warning",
+                  "Info"
+                ],
+                "type": "string"
+              },
+              "span": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "end_col": {
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "end_line": {
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "file": {
+                        "type": "string"
+                      },
+                      "start_col": {
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "start_line": {
+                        "minimum": 0,
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "file",
+                      "start_line",
+                      "start_col",
+                      "end_line",
+                      "end_col"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "suggestion": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "title": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "code",
+              "title",
+              "severity",
+              "message",
+              "span",
+              "suggestion",
+              "file",
+              "line",
+              "column"
+            ],
+            "type": "object"
+          },
           "type": "array"
         },
         "diffs": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "after": {
+                "type": "string"
+              },
+              "before": {
+                "type": "string"
+              },
+              "deletions": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "file_path": {
+                "type": "string"
+              },
+              "insertions": {
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "file_path",
+              "before",
+              "after",
+              "insertions",
+              "deletions"
+            ],
+            "type": "object"
+          },
           "type": "array"
         },
-        "files_written": {
-          "description": "The files the call created, rewrote or removed, relative to the project root (absolute outside it); absent from a preview",
+        "failed_files": {
           "items": {
             "type": "string"
           },
           "type": "array"
         },
+        "failures": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "file": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "operation": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "file",
+              "operation",
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "files_written": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "message": {
+          "type": "string"
+        },
         "ok": {
           "type": "boolean"
         },
         "total_checked": {
+          "minimum": 0,
           "type": "integer"
         }
       },
@@ -1225,21 +3921,320 @@ expression: listing
       "type": "object"
     },
     "outputSchema": {
+      "additionalProperties": false,
       "properties": {
         "affected_files": {
+          "items": {
+            "type": "string"
+          },
           "type": "array"
         },
         "diagnostics": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "column": {
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "data": {
+                "oneOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "did_you_mean": {
+                        "type": "string"
+                      },
+                      "entity": {
+                        "type": "string"
+                      },
+                      "field": {
+                        "type": "string"
+                      },
+                      "kind": {
+                        "enum": [
+                          "unresolved_reference"
+                        ],
+                        "type": "string"
+                      },
+                      "target": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "target",
+                      "entity",
+                      "field"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "did_you_mean": {
+                        "type": "string"
+                      },
+                      "kind": {
+                        "enum": [
+                          "unresolved_import"
+                        ],
+                        "type": "string"
+                      },
+                      "path": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "path"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "keyword": {
+                        "type": "string"
+                      },
+                      "kind": {
+                        "enum": [
+                          "shadowed_keyword"
+                        ],
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "keyword"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "enum": [
+                          "reference_cycle"
+                        ],
+                        "type": "string"
+                      },
+                      "path": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "path"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "entity": {
+                        "type": "string"
+                      },
+                      "kind": {
+                        "enum": [
+                          "subject"
+                        ],
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "entity"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "failures": {
+                        "items": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "entity": {
+                              "type": "string"
+                            },
+                            "error": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "entity",
+                            "error"
+                          ],
+                          "type": "object"
+                        },
+                        "type": "array"
+                      },
+                      "function": {
+                        "type": "string"
+                      },
+                      "kind": {
+                        "enum": [
+                          "custom_rule_failures"
+                        ],
+                        "type": "string"
+                      },
+                      "rule": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "rule",
+                      "function",
+                      "failures"
+                    ],
+                    "type": "object"
+                  }
+                ],
+                "type": "object"
+              },
+              "file": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "line": {
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "origin": {
+                "type": "string"
+              },
+              "severity": {
+                "enum": [
+                  "Error",
+                  "Warning",
+                  "Info"
+                ],
+                "type": "string"
+              },
+              "span": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "end_col": {
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "end_line": {
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "file": {
+                        "type": "string"
+                      },
+                      "start_col": {
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "start_line": {
+                        "minimum": 0,
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "file",
+                      "start_line",
+                      "start_col",
+                      "end_line",
+                      "end_col"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "suggestion": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "title": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "code",
+              "title",
+              "severity",
+              "message",
+              "span",
+              "suggestion",
+              "file",
+              "line",
+              "column"
+            ],
+            "type": "object"
+          },
           "type": "array"
         },
         "dry_run": {
           "type": "boolean"
         },
         "edits": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "end_col": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "file": {
+                "type": "string"
+              },
+              "line": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "new_text": {
+                "type": "string"
+              },
+              "start_col": {
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "file",
+              "line",
+              "start_col",
+              "end_col",
+              "new_text"
+            ],
+            "type": "object"
+          },
           "type": "array"
         },
         "files_written": {
-          "description": "The files the call created, rewrote or removed, relative to the project root (absolute outside it); absent from a preview",
           "items": {
             "type": "string"
           },
@@ -1302,15 +4297,18 @@ expression: listing
       "type": "object"
     },
     "outputSchema": {
+      "additionalProperties": false,
       "properties": {
         "config_file": {
           "type": "string"
         },
         "extensions_installed": {
+          "items": {
+            "type": "string"
+          },
           "type": "array"
         },
         "files_written": {
-          "description": "The files the call created, rewrote or removed, relative to the project root (absolute outside it); absent from a preview",
           "items": {
             "type": "string"
           },
@@ -1379,60 +4377,159 @@ expression: listing
       "type": "object"
     },
     "outputSchema": {
-      "properties": {
-        "already_present": {
-          "type": "boolean"
-        },
-        "changed": {
-          "type": "boolean"
-        },
-        "dry_run": {
-          "type": "boolean"
-        },
-        "extension": {
-          "type": "string"
-        },
-        "files_written": {
-          "description": "The files the call created, rewrote or removed, relative to the project root (absolute outside it); absent from a preview",
-          "items": {
-            "type": "string"
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "changed": {
+              "type": "boolean"
+            },
+            "extension": {
+              "type": "string"
+            },
+            "files_written": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "installed": {
+              "type": "boolean"
+            },
+            "note": {
+              "type": "string"
+            },
+            "peers_enabled": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "source": {
+              "enum": [
+                "builtin"
+              ],
+              "type": "string"
+            }
           },
-          "type": "array"
+          "required": [
+            "extension",
+            "installed",
+            "source",
+            "changed",
+            "peers_enabled",
+            "note"
+          ],
+          "type": "object"
         },
-        "installed": {
-          "type": "boolean"
+        {
+          "additionalProperties": false,
+          "properties": {
+            "extension": {
+              "type": "string"
+            },
+            "files_written": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "installed": {
+              "type": "boolean"
+            },
+            "key_id": {
+              "type": "string"
+            },
+            "note": {
+              "type": "string"
+            },
+            "sha256": {
+              "type": "string"
+            },
+            "source": {
+              "type": "string"
+            },
+            "version": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "extension",
+            "installed",
+            "version",
+            "sha256",
+            "source",
+            "note"
+          ],
+          "type": "object"
         },
-        "key_id": {
-          "type": [
-            "string",
-            "null"
-          ]
+        {
+          "additionalProperties": false,
+          "properties": {
+            "already_present": {
+              "type": "boolean"
+            },
+            "extension": {
+              "type": "string"
+            },
+            "files_written": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "installed": {
+              "type": "boolean"
+            },
+            "message": {
+              "type": "string"
+            },
+            "version": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "extension",
+            "installed",
+            "already_present",
+            "version",
+            "message"
+          ],
+          "type": "object"
         },
-        "message": {
-          "type": "string"
-        },
-        "note": {
-          "type": "string"
-        },
-        "peers_enabled": {
-          "type": "array"
-        },
-        "sha256": {
-          "type": "string"
-        },
-        "source": {
-          "type": "string"
-        },
-        "version": {
-          "type": [
-            "string",
-            "null"
-          ]
+        {
+          "additionalProperties": false,
+          "properties": {
+            "dry_run": {
+              "type": "boolean"
+            },
+            "extension": {
+              "type": "string"
+            },
+            "files_written": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "installed": {
+              "type": "boolean"
+            },
+            "source": {
+              "type": "string"
+            },
+            "version": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "extension",
+            "installed",
+            "dry_run",
+            "source"
+          ],
+          "type": "object"
         }
-      },
-      "required": [
-        "extension",
-        "installed"
       ],
       "type": "object"
     },
@@ -1476,12 +4573,12 @@ expression: listing
       "type": "object"
     },
     "outputSchema": {
+      "additionalProperties": false,
       "properties": {
         "dry_run": {
           "type": "boolean"
         },
         "files_written": {
-          "description": "The files the call created, rewrote or removed, relative to the project root (absolute outside it); absent from a preview",
           "items": {
             "type": "string"
           },
@@ -1492,23 +4589,29 @@ expression: listing
         },
         "stranded": {
           "items": {
+            "additionalProperties": false,
+            "properties": {
+              "entity_id": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "entity_id",
+              "kind"
+            ],
             "type": "object"
           },
           "type": "array"
         },
-        "success": {
-          "type": "boolean"
-        },
         "version": {
-          "type": [
-            "string",
-            "null"
-          ]
+          "type": "string"
         }
       },
       "required": [
         "removed_extension",
-        "success",
         "stranded"
       ],
       "type": "object"
@@ -1550,66 +4653,1111 @@ expression: listing
       "type": "object"
     },
     "outputSchema": {
-      "properties": {
-        "changes": {
-          "type": "array"
-        },
-        "diffs": {
-          "type": "array"
-        },
-        "dry_run": {
-          "type": "boolean"
-        },
-        "files_failed": {
-          "type": "integer"
-        },
-        "files_migrated": {
-          "type": "integer"
-        },
-        "files_skipped": {
-          "type": "integer"
-        },
-        "files_written": {
-          "description": "The files the call created, rewrote or removed, relative to the project root (absolute outside it); absent from a preview",
-          "items": {
-            "type": "string"
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "dry_run": {
+              "type": "boolean"
+            },
+            "files_written": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "from_version": {
+              "type": "string"
+            },
+            "message": {
+              "type": "string"
+            },
+            "migrated": {
+              "type": "boolean"
+            },
+            "ok": {
+              "type": "boolean"
+            },
+            "to_version": {
+              "type": "string"
+            }
           },
-          "type": "array"
+          "required": [
+            "ok",
+            "from_version",
+            "to_version",
+            "migrated",
+            "dry_run",
+            "message"
+          ],
+          "type": "object"
         },
-        "from_version": {
-          "type": "string"
-        },
-        "message": {
-          "type": "string"
-        },
-        "migrated": {
-          "type": "boolean"
-        },
-        "ok": {
-          "type": "boolean"
-        },
-        "post_migration_errors": {
-          "type": "array"
-        },
-        "post_migration_validated": {
-          "type": "boolean"
-        },
-        "results": {
-          "type": "array"
-        },
-        "rolled_back": {
-          "type": "boolean"
-        },
-        "to_version": {
-          "type": "string"
+        {
+          "additionalProperties": false,
+          "properties": {
+            "diffs": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "after_hash": {
+                    "type": "string"
+                  },
+                  "before_hash": {
+                    "type": "string"
+                  },
+                  "file_path": {
+                    "type": "string"
+                  },
+                  "unified_text": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "file_path",
+                  "before_hash",
+                  "after_hash",
+                  "unified_text"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "dry_run": {
+              "type": "boolean"
+            },
+            "files_failed": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "files_migrated": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "files_skipped": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "files_written": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "from_version": {
+              "type": "string"
+            },
+            "hook_failures": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "hooks_invoked": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "migrated": {
+              "type": "boolean"
+            },
+            "ok": {
+              "type": "boolean"
+            },
+            "post_migration_errors": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "code": {
+                    "type": "string"
+                  },
+                  "column": {
+                    "minimum": 0,
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  },
+                  "data": {
+                    "oneOf": [
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "did_you_mean": {
+                            "type": "string"
+                          },
+                          "entity": {
+                            "type": "string"
+                          },
+                          "field": {
+                            "type": "string"
+                          },
+                          "kind": {
+                            "enum": [
+                              "unresolved_reference"
+                            ],
+                            "type": "string"
+                          },
+                          "target": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "target",
+                          "entity",
+                          "field"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "did_you_mean": {
+                            "type": "string"
+                          },
+                          "kind": {
+                            "enum": [
+                              "unresolved_import"
+                            ],
+                            "type": "string"
+                          },
+                          "path": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "path"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "keyword": {
+                            "type": "string"
+                          },
+                          "kind": {
+                            "enum": [
+                              "shadowed_keyword"
+                            ],
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "keyword"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "kind": {
+                            "enum": [
+                              "reference_cycle"
+                            ],
+                            "type": "string"
+                          },
+                          "path": {
+                            "items": {
+                              "type": "string"
+                            },
+                            "type": "array"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "path"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "entity": {
+                            "type": "string"
+                          },
+                          "kind": {
+                            "enum": [
+                              "subject"
+                            ],
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "entity"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "failures": {
+                            "items": {
+                              "additionalProperties": false,
+                              "properties": {
+                                "entity": {
+                                  "type": "string"
+                                },
+                                "error": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "entity",
+                                "error"
+                              ],
+                              "type": "object"
+                            },
+                            "type": "array"
+                          },
+                          "function": {
+                            "type": "string"
+                          },
+                          "kind": {
+                            "enum": [
+                              "custom_rule_failures"
+                            ],
+                            "type": "string"
+                          },
+                          "rule": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "rule",
+                          "function",
+                          "failures"
+                        ],
+                        "type": "object"
+                      }
+                    ],
+                    "type": "object"
+                  },
+                  "file": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "line": {
+                    "minimum": 0,
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  },
+                  "message": {
+                    "type": "string"
+                  },
+                  "origin": {
+                    "type": "string"
+                  },
+                  "severity": {
+                    "enum": [
+                      "Error",
+                      "Warning",
+                      "Info"
+                    ],
+                    "type": "string"
+                  },
+                  "span": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "end_col": {
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "end_line": {
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "file": {
+                            "type": "string"
+                          },
+                          "start_col": {
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "start_line": {
+                            "minimum": 0,
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "file",
+                          "start_line",
+                          "start_col",
+                          "end_line",
+                          "end_col"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "suggestion": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "title": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "code",
+                  "title",
+                  "severity",
+                  "message",
+                  "span",
+                  "suggestion",
+                  "file",
+                  "line",
+                  "column"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "post_migration_validated": {
+              "type": "boolean"
+            },
+            "results": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "error": {
+                    "type": "string"
+                  },
+                  "file_path": {
+                    "type": "string"
+                  },
+                  "from_version": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "major": {
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "minor": {
+                        "minimum": 0,
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "major",
+                      "minor"
+                    ],
+                    "type": "object"
+                  },
+                  "status": {
+                    "enum": [
+                      "migrated",
+                      "skipped",
+                      "failed",
+                      "restored"
+                    ],
+                    "type": "string"
+                  },
+                  "to_version": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "major": {
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "minor": {
+                        "minimum": 0,
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "major",
+                      "minor"
+                    ],
+                    "type": "object"
+                  }
+                },
+                "required": [
+                  "file_path",
+                  "status"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "rollback": {
+              "additionalProperties": false,
+              "properties": {
+                "failed_count": {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "restored_count": {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "results": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "error": {
+                        "type": "string"
+                      },
+                      "file_path": {
+                        "type": "string"
+                      },
+                      "from_version": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "major": {
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "minor": {
+                            "minimum": 0,
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "major",
+                          "minor"
+                        ],
+                        "type": "object"
+                      },
+                      "status": {
+                        "enum": [
+                          "migrated",
+                          "skipped",
+                          "failed",
+                          "restored"
+                        ],
+                        "type": "string"
+                      },
+                      "to_version": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "major": {
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "minor": {
+                            "minimum": 0,
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "major",
+                          "minor"
+                        ],
+                        "type": "object"
+                      }
+                    },
+                    "required": [
+                      "file_path",
+                      "status"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "skipped_count": {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "warnings": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                }
+              },
+              "required": [
+                "restored_count",
+                "skipped_count",
+                "failed_count",
+                "results",
+                "warnings"
+              ],
+              "type": "object"
+            },
+            "rolled_back": {
+              "type": "boolean"
+            },
+            "schema_warnings": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "code": {
+                    "type": "string"
+                  },
+                  "column": {
+                    "minimum": 0,
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  },
+                  "data": {
+                    "oneOf": [
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "did_you_mean": {
+                            "type": "string"
+                          },
+                          "entity": {
+                            "type": "string"
+                          },
+                          "field": {
+                            "type": "string"
+                          },
+                          "kind": {
+                            "enum": [
+                              "unresolved_reference"
+                            ],
+                            "type": "string"
+                          },
+                          "target": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "target",
+                          "entity",
+                          "field"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "did_you_mean": {
+                            "type": "string"
+                          },
+                          "kind": {
+                            "enum": [
+                              "unresolved_import"
+                            ],
+                            "type": "string"
+                          },
+                          "path": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "path"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "keyword": {
+                            "type": "string"
+                          },
+                          "kind": {
+                            "enum": [
+                              "shadowed_keyword"
+                            ],
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "keyword"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "kind": {
+                            "enum": [
+                              "reference_cycle"
+                            ],
+                            "type": "string"
+                          },
+                          "path": {
+                            "items": {
+                              "type": "string"
+                            },
+                            "type": "array"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "path"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "entity": {
+                            "type": "string"
+                          },
+                          "kind": {
+                            "enum": [
+                              "subject"
+                            ],
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "entity"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "failures": {
+                            "items": {
+                              "additionalProperties": false,
+                              "properties": {
+                                "entity": {
+                                  "type": "string"
+                                },
+                                "error": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "entity",
+                                "error"
+                              ],
+                              "type": "object"
+                            },
+                            "type": "array"
+                          },
+                          "function": {
+                            "type": "string"
+                          },
+                          "kind": {
+                            "enum": [
+                              "custom_rule_failures"
+                            ],
+                            "type": "string"
+                          },
+                          "rule": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "rule",
+                          "function",
+                          "failures"
+                        ],
+                        "type": "object"
+                      }
+                    ],
+                    "type": "object"
+                  },
+                  "file": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "line": {
+                    "minimum": 0,
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  },
+                  "message": {
+                    "type": "string"
+                  },
+                  "origin": {
+                    "type": "string"
+                  },
+                  "severity": {
+                    "enum": [
+                      "Error",
+                      "Warning",
+                      "Info"
+                    ],
+                    "type": "string"
+                  },
+                  "span": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "end_col": {
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "end_line": {
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "file": {
+                            "type": "string"
+                          },
+                          "start_col": {
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "start_line": {
+                            "minimum": 0,
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "file",
+                          "start_line",
+                          "start_col",
+                          "end_line",
+                          "end_col"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "suggestion": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "title": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "code",
+                  "title",
+                  "severity",
+                  "message",
+                  "span",
+                  "suggestion",
+                  "file",
+                  "line",
+                  "column"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "structural_differences": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "code": {
+                    "type": "string"
+                  },
+                  "column": {
+                    "minimum": 0,
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  },
+                  "data": {
+                    "oneOf": [
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "did_you_mean": {
+                            "type": "string"
+                          },
+                          "entity": {
+                            "type": "string"
+                          },
+                          "field": {
+                            "type": "string"
+                          },
+                          "kind": {
+                            "enum": [
+                              "unresolved_reference"
+                            ],
+                            "type": "string"
+                          },
+                          "target": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "target",
+                          "entity",
+                          "field"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "did_you_mean": {
+                            "type": "string"
+                          },
+                          "kind": {
+                            "enum": [
+                              "unresolved_import"
+                            ],
+                            "type": "string"
+                          },
+                          "path": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "path"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "keyword": {
+                            "type": "string"
+                          },
+                          "kind": {
+                            "enum": [
+                              "shadowed_keyword"
+                            ],
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "keyword"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "kind": {
+                            "enum": [
+                              "reference_cycle"
+                            ],
+                            "type": "string"
+                          },
+                          "path": {
+                            "items": {
+                              "type": "string"
+                            },
+                            "type": "array"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "path"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "entity": {
+                            "type": "string"
+                          },
+                          "kind": {
+                            "enum": [
+                              "subject"
+                            ],
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "entity"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "failures": {
+                            "items": {
+                              "additionalProperties": false,
+                              "properties": {
+                                "entity": {
+                                  "type": "string"
+                                },
+                                "error": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "entity",
+                                "error"
+                              ],
+                              "type": "object"
+                            },
+                            "type": "array"
+                          },
+                          "function": {
+                            "type": "string"
+                          },
+                          "kind": {
+                            "enum": [
+                              "custom_rule_failures"
+                            ],
+                            "type": "string"
+                          },
+                          "rule": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "rule",
+                          "function",
+                          "failures"
+                        ],
+                        "type": "object"
+                      }
+                    ],
+                    "type": "object"
+                  },
+                  "file": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "line": {
+                    "minimum": 0,
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  },
+                  "message": {
+                    "type": "string"
+                  },
+                  "origin": {
+                    "type": "string"
+                  },
+                  "severity": {
+                    "enum": [
+                      "Error",
+                      "Warning",
+                      "Info"
+                    ],
+                    "type": "string"
+                  },
+                  "span": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "end_col": {
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "end_line": {
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "file": {
+                            "type": "string"
+                          },
+                          "start_col": {
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "start_line": {
+                            "minimum": 0,
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "file",
+                          "start_line",
+                          "start_col",
+                          "end_line",
+                          "end_col"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "suggestion": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "title": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "code",
+                  "title",
+                  "severity",
+                  "message",
+                  "span",
+                  "suggestion",
+                  "file",
+                  "line",
+                  "column"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "to_version": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "ok",
+            "from_version",
+            "to_version",
+            "migrated",
+            "dry_run",
+            "files_migrated",
+            "files_skipped",
+            "files_failed",
+            "results",
+            "diffs",
+            "hooks_invoked",
+            "hook_failures",
+            "schema_warnings",
+            "structural_differences",
+            "rolled_back",
+            "post_migration_validated",
+            "post_migration_errors"
+          ],
+          "type": "object"
         }
-      },
-      "required": [
-        "ok",
-        "from_version",
-        "to_version",
-        "migrated",
-        "dry_run"
       ],
       "type": "object"
     },
@@ -1631,14 +5779,79 @@ expression: listing
       "type": "object"
     },
     "outputSchema": {
+      "additionalProperties": false,
       "properties": {
         "entity_kinds_in_graph": {
+          "items": {
+            "type": "string"
+          },
           "type": "array"
         },
         "extensions": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "entity_count": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "entity_kinds": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "name": {
+                "type": "string"
+              },
+              "source": {
+                "type": "string"
+              },
+              "status": {
+                "enum": [
+                  "loaded",
+                  "not_loaded",
+                  "not_configured"
+                ],
+                "type": "string"
+              },
+              "validation_rules": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "version": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "source",
+              "status",
+              "entity_kinds",
+              "entity_count",
+              "validation_rules"
+            ],
+            "type": "object"
+          },
           "type": "array"
         },
         "lock_file_entries": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "version": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "version"
+            ],
+            "type": "object"
+          },
           "type": "array"
         }
       },
@@ -1665,14 +5878,311 @@ expression: listing
       "type": "object"
     },
     "outputSchema": {
+      "additionalProperties": false,
       "properties": {
         "count": {
+          "minimum": 0,
           "type": "integer"
         },
         "diagnostics": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "column": {
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "data": {
+                "oneOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "did_you_mean": {
+                        "type": "string"
+                      },
+                      "entity": {
+                        "type": "string"
+                      },
+                      "field": {
+                        "type": "string"
+                      },
+                      "kind": {
+                        "enum": [
+                          "unresolved_reference"
+                        ],
+                        "type": "string"
+                      },
+                      "target": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "target",
+                      "entity",
+                      "field"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "did_you_mean": {
+                        "type": "string"
+                      },
+                      "kind": {
+                        "enum": [
+                          "unresolved_import"
+                        ],
+                        "type": "string"
+                      },
+                      "path": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "path"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "keyword": {
+                        "type": "string"
+                      },
+                      "kind": {
+                        "enum": [
+                          "shadowed_keyword"
+                        ],
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "keyword"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "enum": [
+                          "reference_cycle"
+                        ],
+                        "type": "string"
+                      },
+                      "path": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "path"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "entity": {
+                        "type": "string"
+                      },
+                      "kind": {
+                        "enum": [
+                          "subject"
+                        ],
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "entity"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "failures": {
+                        "items": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "entity": {
+                              "type": "string"
+                            },
+                            "error": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "entity",
+                            "error"
+                          ],
+                          "type": "object"
+                        },
+                        "type": "array"
+                      },
+                      "function": {
+                        "type": "string"
+                      },
+                      "kind": {
+                        "enum": [
+                          "custom_rule_failures"
+                        ],
+                        "type": "string"
+                      },
+                      "rule": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "rule",
+                      "function",
+                      "failures"
+                    ],
+                    "type": "object"
+                  }
+                ],
+                "type": "object"
+              },
+              "file": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "line": {
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "origin": {
+                "type": "string"
+              },
+              "severity": {
+                "enum": [
+                  "Error",
+                  "Warning",
+                  "Info"
+                ],
+                "type": "string"
+              },
+              "span": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "end_col": {
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "end_line": {
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "file": {
+                        "type": "string"
+                      },
+                      "start_col": {
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "start_line": {
+                        "minimum": 0,
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "file",
+                      "start_line",
+                      "start_col",
+                      "end_line",
+                      "end_col"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "suggestion": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "title": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "code",
+              "title",
+              "severity",
+              "message",
+              "span",
+              "suggestion",
+              "file",
+              "line",
+              "column"
+            ],
+            "type": "object"
+          },
           "type": "array"
         },
         "providers": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "alias": {
+                "type": "string"
+              },
+              "extension": {
+                "type": "string"
+              },
+              "scheme": {
+                "type": "string"
+              },
+              "status": {
+                "enum": [
+                  "registered",
+                  "extension_not_loaded",
+                  "not_a_provider",
+                  "scheme_taken"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "scheme",
+              "alias",
+              "extension",
+              "status"
+            ],
+            "type": "object"
+          },
           "type": "array"
         }
       },
@@ -1705,26 +6215,444 @@ expression: listing
       "type": "object"
     },
     "outputSchema": {
+      "additionalProperties": false,
       "properties": {
         "cache_status": {
+          "enum": [
+            "ok",
+            "stale"
+          ],
           "type": "string"
         },
         "conflicts": {
+          "items": {
+            "type": "string"
+          },
           "type": "array"
         },
         "enhancements": {
+          "additionalProperties": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "edge_types": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "extension": {
+                  "type": "string"
+                },
+                "fields": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "verify_kinds": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                }
+              },
+              "required": [
+                "extension",
+                "fields",
+                "edge_types"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
           "type": "object"
         },
         "extensions": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "enhancement_count": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "name": {
+                "type": "string"
+              },
+              "source": {
+                "type": "string"
+              },
+              "version": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "version",
+              "source",
+              "enhancement_count"
+            ],
+            "type": "object"
+          },
           "type": "array"
         },
         "extensions_ok": {
           "type": "boolean"
         },
         "findings": {
+          "items": {
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "about": {
+                    "enum": [
+                      "config"
+                    ],
+                    "type": "string"
+                  },
+                  "check": {
+                    "type": "string"
+                  },
+                  "code": {
+                    "type": "string"
+                  },
+                  "remediation": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "enum": [
+                      "ok",
+                      "warn",
+                      "error"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "check",
+                  "status",
+                  "code",
+                  "remediation",
+                  "about"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "about": {
+                    "enum": [
+                      "lock"
+                    ],
+                    "type": "string"
+                  },
+                  "check": {
+                    "type": "string"
+                  },
+                  "code": {
+                    "type": "string"
+                  },
+                  "remediation": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "enum": [
+                      "ok",
+                      "warn",
+                      "error"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "check",
+                  "status",
+                  "code",
+                  "remediation",
+                  "about"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "about": {
+                    "enum": [
+                      "binary"
+                    ],
+                    "type": "string"
+                  },
+                  "check": {
+                    "type": "string"
+                  },
+                  "code": {
+                    "type": "string"
+                  },
+                  "issue": {
+                    "oneOf": [
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "enum": [
+                              "missing_binary"
+                            ],
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "status",
+                          "name"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "actual": {
+                            "type": "string"
+                          },
+                          "expected": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "enum": [
+                              "stale_hash"
+                            ],
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "status",
+                          "name",
+                          "expected",
+                          "actual"
+                        ],
+                        "type": "object"
+                      }
+                    ],
+                    "type": "object"
+                  },
+                  "remediation": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "enum": [
+                      "ok",
+                      "warn",
+                      "error"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "check",
+                  "status",
+                  "code",
+                  "remediation",
+                  "about",
+                  "issue"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "about": {
+                    "enum": [
+                      "load"
+                    ],
+                    "type": "string"
+                  },
+                  "check": {
+                    "type": "string"
+                  },
+                  "code": {
+                    "type": "string"
+                  },
+                  "remediation": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "enum": [
+                      "ok",
+                      "warn",
+                      "error"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "check",
+                  "status",
+                  "code",
+                  "remediation",
+                  "about"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "about": {
+                    "enum": [
+                      "conflict"
+                    ],
+                    "type": "string"
+                  },
+                  "check": {
+                    "type": "string"
+                  },
+                  "code": {
+                    "type": "string"
+                  },
+                  "remediation": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "enum": [
+                      "ok",
+                      "warn",
+                      "error"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "check",
+                  "status",
+                  "code",
+                  "remediation",
+                  "about"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "about": {
+                    "enum": [
+                      "shadowing"
+                    ],
+                    "type": "string"
+                  },
+                  "check": {
+                    "type": "string"
+                  },
+                  "code": {
+                    "type": "string"
+                  },
+                  "keyword": {
+                    "type": "string"
+                  },
+                  "remediation": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "enum": [
+                      "ok",
+                      "warn",
+                      "error"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "check",
+                  "status",
+                  "code",
+                  "remediation",
+                  "about",
+                  "keyword"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "about": {
+                    "enum": [
+                      "peer"
+                    ],
+                    "type": "string"
+                  },
+                  "check": {
+                    "type": "string"
+                  },
+                  "code": {
+                    "type": "string"
+                  },
+                  "remediation": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "enum": [
+                      "ok",
+                      "warn",
+                      "error"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "check",
+                  "status",
+                  "code",
+                  "remediation",
+                  "about"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "about": {
+                    "enum": [
+                      "toolchain"
+                    ],
+                    "type": "string"
+                  },
+                  "check": {
+                    "type": "string"
+                  },
+                  "code": {
+                    "type": "string"
+                  },
+                  "remediation": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "enum": [
+                      "ok",
+                      "warn",
+                      "error"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "check",
+                  "status",
+                  "code",
+                  "remediation",
+                  "about"
+                ],
+                "type": "object"
+              }
+            ],
+            "type": "object"
+          },
           "type": "array"
         },
         "installed_count": {
+          "minimum": 0,
           "type": "integer"
         },
         "ok": {
@@ -1737,8 +6665,12 @@ expression: listing
       "required": [
         "ok",
         "extensions_ok",
-        "conflicts",
         "cache_status",
+        "installed_count",
+        "z3_available",
+        "extensions",
+        "enhancements",
+        "conflicts",
         "findings"
       ],
       "type": "object"
@@ -1773,8 +6705,274 @@ expression: listing
       "type": "object"
     },
     "outputSchema": {
+      "additionalProperties": false,
       "properties": {
         "diagnostics": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "column": {
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "data": {
+                "oneOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "did_you_mean": {
+                        "type": "string"
+                      },
+                      "entity": {
+                        "type": "string"
+                      },
+                      "field": {
+                        "type": "string"
+                      },
+                      "kind": {
+                        "enum": [
+                          "unresolved_reference"
+                        ],
+                        "type": "string"
+                      },
+                      "target": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "target",
+                      "entity",
+                      "field"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "did_you_mean": {
+                        "type": "string"
+                      },
+                      "kind": {
+                        "enum": [
+                          "unresolved_import"
+                        ],
+                        "type": "string"
+                      },
+                      "path": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "path"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "keyword": {
+                        "type": "string"
+                      },
+                      "kind": {
+                        "enum": [
+                          "shadowed_keyword"
+                        ],
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "keyword"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "enum": [
+                          "reference_cycle"
+                        ],
+                        "type": "string"
+                      },
+                      "path": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "path"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "entity": {
+                        "type": "string"
+                      },
+                      "kind": {
+                        "enum": [
+                          "subject"
+                        ],
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "entity"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "failures": {
+                        "items": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "entity": {
+                              "type": "string"
+                            },
+                            "error": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "entity",
+                            "error"
+                          ],
+                          "type": "object"
+                        },
+                        "type": "array"
+                      },
+                      "function": {
+                        "type": "string"
+                      },
+                      "kind": {
+                        "enum": [
+                          "custom_rule_failures"
+                        ],
+                        "type": "string"
+                      },
+                      "rule": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "rule",
+                      "function",
+                      "failures"
+                    ],
+                    "type": "object"
+                  }
+                ],
+                "type": "object"
+              },
+              "file": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "line": {
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "origin": {
+                "type": "string"
+              },
+              "severity": {
+                "enum": [
+                  "Error",
+                  "Warning",
+                  "Info"
+                ],
+                "type": "string"
+              },
+              "span": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "end_col": {
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "end_line": {
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "file": {
+                        "type": "string"
+                      },
+                      "start_col": {
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "start_line": {
+                        "minimum": 0,
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "file",
+                      "start_line",
+                      "start_col",
+                      "end_line",
+                      "end_col"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "suggestion": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "title": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "code",
+              "title",
+              "severity",
+              "message",
+              "span",
+              "suggestion",
+              "file",
+              "line",
+              "column"
+            ],
+            "type": "object"
+          },
           "type": "array"
         },
         "report": {
@@ -1782,11 +6980,14 @@ expression: listing
         },
         "runners": {
           "items": {
+            "additionalProperties": false,
             "properties": {
               "by_convention": {
+                "minimum": 0,
                 "type": "integer"
               },
               "entities": {
+                "minimum": 0,
                 "type": "integer"
               },
               "exit_code": {
@@ -1796,21 +6997,25 @@ expression: listing
                 "type": "string"
               },
               "failed": {
+                "minimum": 0,
                 "type": "integer"
               },
               "files": {
+                "minimum": 0,
                 "type": "integer"
               },
               "name": {
                 "type": "string"
               },
               "passed": {
+                "minimum": 0,
                 "type": "integer"
               },
               "ran": {
                 "type": "boolean"
               },
               "skipped": {
+                "minimum": 0,
                 "type": "integer"
               }
             },
@@ -1819,11 +7024,11 @@ expression: listing
               "extension",
               "ran",
               "files",
+              "by_convention",
               "entities",
               "passed",
               "failed",
-              "skipped",
-              "by_convention"
+              "skipped"
             ],
             "type": "object"
           },
@@ -1885,14 +7090,24 @@ expression: listing
       "type": "object"
     },
     "outputSchema": {
+      "additionalProperties": false,
       "properties": {
         "format": {
+          "enum": [
+            "graph",
+            "context",
+            "brief",
+            "dot"
+          ],
           "type": "string"
         },
         "output": {
           "type": "string"
         },
         "output_files": {
+          "items": {
+            "type": "string"
+          },
           "type": "array"
         }
       },
@@ -1920,23 +7135,77 @@ expression: listing
       "type": "object"
     },
     "outputSchema": {
+      "additionalProperties": false,
       "properties": {
         "deleted": {
+          "items": {
+            "type": "string"
+          },
           "type": "array"
         },
-        "message": {
-          "type": "string"
-        },
         "sessions": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "agent": {
+                "type": "string"
+              },
+              "ended_at": {
+                "type": "string"
+              },
+              "session_id": {
+                "type": "string"
+              },
+              "started_at": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "session_id",
+              "agent",
+              "status",
+              "started_at"
+            ],
+            "type": "object"
+          },
           "type": "array"
         },
         "stale": {
+          "items": {
+            "type": "string"
+          },
           "type": "array"
         },
         "summary": {
+          "additionalProperties": false,
+          "properties": {
+            "entities_produced": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "files_analyzed": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "files_total": {
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "files_total",
+            "files_analyzed",
+            "entities_produced"
+          ],
           "type": "object"
         },
         "unanalyzed": {
+          "items": {
+            "type": "string"
+          },
           "type": "array"
         }
       },
@@ -1944,7 +7213,8 @@ expression: listing
         "summary",
         "unanalyzed",
         "stale",
-        "deleted"
+        "deleted",
+        "sessions"
       ],
       "type": "object"
     },
@@ -1964,39 +7234,110 @@ expression: listing
       "type": "object"
     },
     "outputSchema": {
+      "additionalProperties": false,
       "properties": {
         "approximate": {
           "type": "boolean"
         },
         "by_directory": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "count": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "directory": {
+                "type": "string"
+              },
+              "items": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "file": {
+                      "type": "string"
+                    },
+                    "item_kind": {
+                      "type": "string"
+                    },
+                    "line": {
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "name": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "item_kind",
+                    "file",
+                    "line"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "directory",
+              "count",
+              "items"
+            ],
+            "type": "object"
+          },
           "type": "array"
         },
         "covered_items": {
+          "minimum": 0,
           "type": "integer"
         },
         "gap_count": {
+          "minimum": 0,
           "type": "integer"
         },
-        "gaps": {
-          "type": "array"
-        },
-        "message": {
-          "type": "string"
-        },
         "scan_failures": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "file": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "file",
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
           "type": "array"
         },
         "scanners_used": {
+          "items": {
+            "type": "string"
+          },
           "type": "array"
         },
         "total_pub_items": {
+          "minimum": 0,
           "type": "integer"
         }
       },
       "required": [
         "total_pub_items",
         "covered_items",
-        "approximate"
+        "gap_count",
+        "approximate",
+        "scanners_used",
+        "scan_failures",
+        "by_directory"
       ],
       "type": "object"
     },
@@ -2064,12 +7405,15 @@ expression: listing
       "type": "object"
     },
     "outputSchema": {
+      "additionalProperties": false,
       "properties": {
         "entities_produced": {
+          "items": {
+            "type": "string"
+          },
           "type": "array"
         },
         "files_written": {
-          "description": "The files the call created, rewrote or removed, relative to the project root (absolute outside it); absent from a preview",
           "items": {
             "type": "string"
           },
@@ -2116,14 +7460,45 @@ expression: listing
       "type": "object"
     },
     "outputSchema": {
+      "additionalProperties": false,
       "properties": {
         "count": {
+          "minimum": 0,
           "type": "integer"
         },
         "entity_id": {
           "type": "string"
         },
         "implementations": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "file": {
+                "type": "string"
+              },
+              "item_kind": {
+                "type": "string"
+              },
+              "line": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "scanner": {
+                "type": "string"
+              },
+              "symbol_name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "file",
+              "line",
+              "symbol_name",
+              "item_kind",
+              "scanner"
+            ],
+            "type": "object"
+          },
           "type": "array"
         }
       },
@@ -2158,11 +7533,48 @@ expression: listing
       "type": "object"
     },
     "outputSchema": {
+      "additionalProperties": false,
       "properties": {
         "count": {
+          "minimum": 0,
           "type": "integer"
         },
         "entities": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "confidence": {
+                "type": "number"
+              },
+              "entity_id": {
+                "type": "string"
+              },
+              "file": {
+                "type": "string"
+              },
+              "item_kind": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string"
+              },
+              "line": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "symbol_name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "entity_id",
+              "file",
+              "line",
+              "symbol_name",
+              "item_kind"
+            ],
+            "type": "object"
+          },
           "type": "array"
         },
         "file_path": {

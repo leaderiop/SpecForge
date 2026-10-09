@@ -809,7 +809,7 @@ fn outline_finds_an_empty_file_under_the_spec_root() {
         json!({"file": "empty.spec"}),
     );
     assert_eq!(resp["result"]["isError"], false, "{resp}");
-    assert_eq!(tool_text(&resp), "[]");
+    assert_eq!(tool_json(&resp), json!({"entries": []}));
     // A file that is not there is still not found.
     let resp = call_tool(
         &mut server,

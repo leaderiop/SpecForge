@@ -5,7 +5,9 @@
 //! with no entity named it lists exactly the entities stats counts as
 //! testable, so its rows and stats' numbers cannot disagree.
 
-use serde_json::{Value, json};
+use serde::Serialize;
+use serde_json::Value;
+use specforge_common::shape::Shape;
 use specforge_project::coverage::{Status, Summary, Verdict};
 use specforge_project::snapshot::{EntityRecord, Standing};
 
@@ -57,19 +59,24 @@ impl CoverageRow {
     /// `entity_id`, `kind`, `status` (a [`STATUS`] name), `declared`,
     /// `linked`, `evidence_collected`, `obligations`, `proven`, `unproven`,
     /// `exempt`.
+    pub fn document(&self) -> CoverageRowDocument {
+        CoverageRowDocument {
+            entity_id: self.entity_id.clone(),
+            kind: self.kind.clone(),
+            status: STATUS.name_of(self.status()).to_string(),
+            declared: self.declared(),
+            linked: self.linked(),
+            evidence_collected: self.linked(),
+            obligations: self.verdict.obligations,
+            proven: self.verdict.proven,
+            unproven: self.verdict.unproven.clone(),
+            exempt: self.exempt,
+        }
+    }
+
+    /// [`Self::document`] as JSON.
     pub fn to_json(&self) -> Value {
-        json!({
-            "entity_id": self.entity_id,
-            "kind": self.kind,
-            "status": STATUS.name_of(self.status()),
-            "declared": self.declared(),
-            "linked": self.linked(),
-            "evidence_collected": self.linked(),
-            "obligations": self.verdict.obligations,
-            "proven": self.verdict.proven,
-            "unproven": self.verdict.unproven,
-            "exempt": self.exempt,
-        })
+        serde_json::to_value(self.document()).expect("a coverage row serializes")
     }
 
     /// It declares at least one obligation.
@@ -87,6 +94,23 @@ impl CoverageRow {
     pub fn unverified(&self) -> bool {
         self.testable && !self.exempt && !self.verdict.is_proven()
     }
+}
+
+/// One row as every surface writes it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Shape)]
+pub struct CoverageRowDocument {
+    pub entity_id: String,
+    pub kind: String,
+    #[shape(names = STATUS)]
+    pub status: String,
+    pub declared: bool,
+    pub linked: bool,
+    /// Always equals `linked`.
+    pub evidence_collected: bool,
+    pub obligations: usize,
+    pub proven: usize,
+    pub unproven: Vec<String>,
+    pub exempt: bool,
 }
 
 /// The rows a query selects, and the project's coverage summary.

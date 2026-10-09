@@ -27,9 +27,6 @@ pub struct Stats {
     /// `declared_count` over `testable_count`, in percent (0 when nothing
     /// is testable): declared intent.
     pub declared_pct: f64,
-    /// Deprecated alias of [`Self::declared_pct`], kept for readers of the
-    /// old name.
-    pub coverage_pct: f64,
     /// The share of testable entities proven, in percent: the
     /// `analyze coverage --min` gate's figure. `None` without recorded
     /// test results.
@@ -83,7 +80,6 @@ fn tally(view: &ProjectView, coverage: &Summary, diagnostics: &[Diagnostic]) -> 
         testable_count,
         declared_count: testable_verified,
         declared_pct,
-        coverage_pct: declared_pct,
         proof_pct,
         error_count: counts.errors,
         warning_count: counts.warnings,

@@ -17,12 +17,12 @@ specforge-graph = { path = "../specforge-graph" }
 specforge-registry = { workspace = true }
 specforge-protocol-types = { path = "../specforge-protocol-types" }
 specforge-diagnostics = { path = "../specforge-diagnostics" }
+specforge-common = { path = "../specforge-common" }
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
 
 [dev-dependencies]
-specforge-common = { path = "../specforge-common" }
 specforge-parser = { workspace = true }
 specforge-component = { path = "../specforge-component", features = ["testing"] }
 # The outline tests read the real builtin declarations.

@@ -2812,6 +2812,7 @@ dependencies = [
  "serde_json",
  "specforge-diagnostics",
  "specforge-protocol-types",
+ "specforge-shape-macros",
  "specforge-test",
  "specforge-test-macros",
  "strsim",
@@ -3236,6 +3237,15 @@ dependencies = [
  "specforge-test",
  "specforge-test-macros",
  "tempfile",
+]
+
+[[package]]
+name = "specforge-shape-macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.117",
 ]
 
 [[package]]

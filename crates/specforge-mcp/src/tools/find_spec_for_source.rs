@@ -1,13 +1,14 @@
-use serde_json::{Value, json};
-
+use serde::Serialize;
+use specforge_common::shape::Shape;
 use specforge_graph::Graph;
 use specforge_ops::navigate::{
     FileAnchors, FileMatch, SourceAnchor, anchors_of_file, source_anchors,
 };
 
 use crate::args::Arguments;
+use crate::reply::Answered;
 use crate::target::ProjectRef;
-use crate::tool::{McpError, ToolOutcome};
+use crate::tool::McpError;
 
 /// `specforge.find_spec_for_source`'s arguments.
 #[derive(Debug, Arguments)]
@@ -16,51 +17,83 @@ pub struct Args {
     file_path: String,
 }
 
-/// How a source-file query matched its anchors, as MCP spells it: the
-/// file itself, a directory the files are under, or a trailing part of
-/// their paths.
-pub(crate) fn file_match_name(mode: FileMatch) -> &'static str {
-    match mode {
-        FileMatch::Exact => "exact",
-        FileMatch::Under => "directory",
-        FileMatch::Suffix => "suffix_path",
-        FileMatch::None => "none",
+/// `specforge.find_spec_for_source`'s reply (`McpSpecForSourceResult`).
+#[derive(Debug, Serialize, Shape)]
+pub struct Reply {
+    file_path: String,
+    match_mode: MatchMode,
+    entities: Vec<Anchored>,
+    count: usize,
+}
+
+/// How a source-file query matched its anchors, as MCP spells it: the file
+/// itself, a directory the files are under, or a trailing part of their
+/// paths.
+#[derive(Debug, Clone, Copy, Serialize, Shape)]
+#[serde(rename_all = "snake_case")]
+pub enum MatchMode {
+    Exact,
+    Directory,
+    SuffixPath,
+    None,
+}
+
+impl From<FileMatch> for MatchMode {
+    fn from(mode: FileMatch) -> Self {
+        match mode {
+            FileMatch::Exact => MatchMode::Exact,
+            FileMatch::Under => MatchMode::Directory,
+            FileMatch::Suffix => MatchMode::SuffixPath,
+            FileMatch::None => MatchMode::None,
+        }
     }
 }
 
-/// One entity anchored to a source file, as MCP spells it: the anchor,
-/// and the entity's kind when the graph has it.
-pub(crate) fn anchor_json(anchor: &SourceAnchor, graph: &Graph) -> Value {
-    json!({
-        "entity_id": anchor.entity_id,
-        "kind": graph.node(&anchor.entity_id).map(|n| n.kind.raw.as_str()),
-        "file": anchor.file,
-        "line": anchor.line,
-        "symbol_name": anchor.symbol_name,
-        "item_kind": anchor.item_kind,
-        "confidence": anchor.confidence,
-    })
+/// One entity anchored to a source file, as MCP spells it: the anchor, and
+/// the entity's kind when the graph has it.
+#[derive(Debug, Serialize, Shape)]
+pub struct Anchored {
+    entity_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    kind: Option<String>,
+    file: String,
+    line: usize,
+    symbol_name: String,
+    item_kind: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    confidence: Option<f64>,
+}
+
+impl Anchored {
+    pub(crate) fn of(anchor: &SourceAnchor, graph: &Graph) -> Self {
+        Anchored {
+            entity_id: anchor.entity_id.clone(),
+            kind: graph
+                .node(&anchor.entity_id)
+                .map(|n| n.kind.raw.to_string()),
+            file: anchor.file.clone(),
+            line: anchor.line,
+            symbol_name: anchor.symbol_name.clone(),
+            item_kind: anchor.item_kind.clone(),
+            confidence: anchor.confidence,
+        }
+    }
 }
 
 /// The entities anchored to the source files `file_path` names, under the
 /// one file rule (`specforge_ops::navigate::anchors_of_file`).
-pub fn call(project: &ProjectRef<'_>, args: Args) -> ToolOutcome {
-    let file_path = args.file_path.as_str();
-
-    let manifest = match source_anchors(&project.view()) {
-        Ok(m) => m,
-        Err(e) => return McpError::from(e).into(),
-    };
-    let FileAnchors { mode, anchors } = anchors_of_file(&manifest, file_path);
-    let entities: Vec<Value> = anchors
+pub fn call(project: &ProjectRef<'_>, args: Args) -> Answered<Reply> {
+    let manifest = source_anchors(&project.view()).map_err(McpError::from)?;
+    let FileAnchors { mode, anchors } = anchors_of_file(&manifest, &args.file_path);
+    let entities: Vec<Anchored> = anchors
         .iter()
-        .map(|anchor| anchor_json(anchor, project.graph()))
+        .map(|anchor| Anchored::of(anchor, project.graph()))
         .collect();
-
-    ToolOutcome::ok(json!({
-        "file_path": file_path,
-        "match_mode": file_match_name(mode),
-        "entities": entities,
-        "count": entities.len(),
-    }))
+    Ok(Reply {
+        file_path: args.file_path,
+        match_mode: mode.into(),
+        count: entities.len(),
+        entities,
+    }
+    .into())
 }

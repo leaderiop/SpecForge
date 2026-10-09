@@ -1,7 +1,9 @@
 use crate::SourceSpan;
 use specforge_diagnostics::{Code, GradedCode, Level};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, crate::shape::Shape,
+)]
 pub enum Severity {
     Error,
     Warning,
@@ -39,7 +41,7 @@ impl Severity {
 /// };
 /// ```
 #[non_exhaustive]
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, crate::shape::Shape)]
 pub struct Diagnostic {
     pub code: String,
     /// The code's catalogued level when built; a diagnostic policy may
@@ -67,7 +69,9 @@ pub struct Diagnostic {
 /// A diagnostic's structured payload: the values its message names, as
 /// data. Serialized with a `kind` tag (`{"kind": "unresolved_reference",
 /// …}`); a variant exists only for a diagnostic some consumer acts on.
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, crate::shape::Shape,
+)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum DiagnosticData {
     /// E003: `entity`'s reference field `field` names `target`, which no
@@ -108,7 +112,9 @@ pub enum DiagnosticData {
 }
 
 /// One entity a custom rule's function failed on, with the call's error.
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, crate::shape::Shape,
+)]
 pub struct CustomRuleFailure {
     pub entity: String,
     pub error: String,

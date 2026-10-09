@@ -298,12 +298,7 @@ behavior expose_graph_as_mcp_resource "Expose Graph as MCP Resource" {
 
 behavior expose_schema_as_mcp_resource "Expose Schema as MCP Resource" {
   features   [mcp_resource_exposure]
-  invariants [
-    graph_schema_completeness,
-    diagnostic_determinism,
-    mcp_structured_error_responses,
-    mcp_type_schema_versioning,
-  ]
+  invariants [graph_schema_completeness, diagnostic_determinism, mcp_structured_error_responses]
   category   command
   types      [GraphProtocolSchema, McpResourceDescriptor]
   ports      [McpProtocol, CompilerApi]
@@ -647,10 +642,17 @@ behavior follow_negotiated_mcp_revision "Follow the Negotiated MCP Revision" {
     MUST also carry that object as structuredContent, alongside the text
     block holding its JSON, and tools/list MUST give each tool whose result
     is an object an outputSchema that every structured result conforms to.
+    Each core tool's outputSchema is derived from its typed reply: every
+    object it closes lists its keys and states additionalProperties false,
+    every array states its items. A core tool's reply that its outputSchema
+    refuses MUST be a schema_mismatch error naming each violation, never
+    structured content.
     A failed call of a tool with an outputSchema carries no
     structuredContent: its McpError is in the text block. A 2025-03-26
     session is listed no outputSchema.
   """
+  verify unit "a core tool's reply its output schema refuses is a schema_mismatch error, never structured content"
+  verify unit "a core tool's output schema is derived from its typed reply: every object it closes lists its keys, every array its items"
   verify unit "a 2025-03-26 session answers a batch with the response to each request"
   verify unit "a batch of notifications gets no response"
   verify unit "an empty batch is an invalid request"

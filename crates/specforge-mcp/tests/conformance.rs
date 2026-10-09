@@ -237,12 +237,19 @@ fn a_mutations_output_schema_lists_files_written() {
             assert!(!spec.is_mutation(), "{} declares no output", spec.name);
             continue;
         };
-        assert_eq!(
-            schema["properties"].get("files_written").is_some(),
-            spec.is_mutation(),
-            "{}",
-            spec.name
-        );
+        // A union reply (add_extension, migrate) states it in each branch.
+        let branches: Vec<&Value> = match schema.get("oneOf").and_then(Value::as_array) {
+            Some(branches) => branches.iter().collect(),
+            None => vec![&schema],
+        };
+        for branch in branches {
+            assert_eq!(
+                branch["properties"].get("files_written").is_some(),
+                spec.is_mutation(),
+                "{}",
+                spec.name
+            );
+        }
     }
 }
 

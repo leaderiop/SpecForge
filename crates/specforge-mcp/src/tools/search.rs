@@ -1,8 +1,10 @@
-use serde_json::{Value, json};
+use serde::Serialize;
+use specforge_common::shape::Shape;
 use specforge_ops::query::{FieldHolds, Hit, SearchRequest, search};
 
 use crate::args::Arguments;
-use crate::tool::ToolOutcome;
+use crate::reply::{Answer, Answered};
+use crate::tool::McpError;
 use specforge_ops::view::ProjectView;
 
 /// `specforge.search`'s arguments.
@@ -23,26 +25,64 @@ pub struct Args {
     references: Option<String>,
 }
 
+/// `specforge.search`'s reply (`McpSearchResults`): the hits, best first.
+#[derive(Debug, Serialize, Shape)]
+pub struct Reply {
+    results: Vec<Found>,
+}
+
+/// One hit (`McpSearchResult`).
+#[derive(Debug, Serialize, Shape)]
+pub struct Found {
+    entity_id: String,
+    kind: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    title: Option<String>,
+    file_path: String,
+    line: usize,
+    score: f64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    match_field: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    match_snippet: Option<String>,
+}
+
+impl Found {
+    fn of(hit: &Hit) -> Self {
+        let found = &hit.found;
+        Found {
+            entity_id: found.node.id.raw.to_string(),
+            kind: found.node.kind.raw.to_string(),
+            title: found.node.title.as_ref().map(ToString::to_string),
+            file_path: found.node.source_span.file.to_string(),
+            line: found.node.source_span.start_line,
+            score: found.score,
+            match_field: found.on.field_name().map(ToString::to_string),
+            match_snippet: hit.snippet.clone(),
+        }
+    }
+}
+
 /// `specforge.search`: the search read view (`specforge_ops::query::search`),
 /// the entities the query finds, ranked as the LSP's workspace symbols and
 /// completion rank them, over names and string fields. Every filter is
 /// ANDed: kinds, a field's text (`field` with `value`: one without the other
 /// is refused), and `references` (the entities that reference that one).
-pub fn call(view: ProjectView<'_>, args: Args) -> ToolOutcome {
+pub fn call(view: ProjectView<'_>, args: Args) -> Answered<Reply> {
     let field = match (args.field.as_deref(), args.value.as_deref()) {
         (Some(field), Some(value)) => Some(FieldHolds { field, value }),
         (None, None) => None,
         (Some(_), None) => {
-            return ToolOutcome::invalid_input(
+            return Err(Box::new(McpError::invalid_input(
                 "value",
                 "'field' needs 'value': the text the field must contain",
-            );
+            )));
         }
         (None, Some(_)) => {
-            return ToolOutcome::invalid_input(
+            return Err(Box::new(McpError::invalid_input(
                 "field",
                 "'value' needs 'field': the field whose text it must be in",
-            );
+            )));
         }
     };
     let request = SearchRequest {
@@ -53,24 +93,8 @@ pub fn call(view: ProjectView<'_>, args: Args) -> ToolOutcome {
         limit: Some(args.limit),
     };
     let outcome = search(&view, &request);
-    let results: Vec<Value> = outcome.hits.iter().map(hit_json).collect();
-    ToolOutcome::ok(Value::Array(results)).with_diagnostics(outcome.notices)
-}
-
-/// One hit as `specforge.search` reports it.
-fn hit_json(hit: &Hit) -> Value {
-    let found = &hit.found;
-    let mut result = json!({
-        "entity_id": found.node.id.raw,
-        "kind": found.node.kind.raw,
-        "title": found.node.title,
-        "file_path": found.node.source_span.file,
-        "line": found.node.source_span.start_line,
-        "score": found.score,
-        "match_field": found.on.field_name(),
-    });
-    if let Some(snippet) = &hit.snippet {
-        result["match_snippet"] = Value::String(snippet.clone());
-    }
-    result
+    Ok(Answer::new(Reply {
+        results: outcome.hits.iter().map(Found::of).collect(),
+    })
+    .with_diagnostics(outcome.notices))
 }

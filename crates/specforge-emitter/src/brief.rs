@@ -1,7 +1,8 @@
 use serde::Serialize;
+use specforge_common::shape::Shape;
 use specforge_graph::Node;
 
-#[derive(Serialize)]
+#[derive(Serialize, Shape)]
 pub(crate) struct BriefNode {
     id: String,
     kind: String,

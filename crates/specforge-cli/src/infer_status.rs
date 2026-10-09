@@ -38,7 +38,7 @@ pub fn run(
 
     match format {
         OutputFormat::Json => {
-            let mut doc = progress.to_json();
+            let mut doc = serde_json::to_value(progress.document()).expect("a document serializes");
             if show_gaps {
                 doc["unanalyzed_by_directory"] = progress
                     .unanalyzed_by_directory()
@@ -49,7 +49,8 @@ pub fn run(
                     .collect();
             }
             if let Some(gaps) = &gaps {
-                doc["gap_analysis"] = gaps.to_json();
+                doc["gap_analysis"] =
+                    serde_json::to_value(gaps.document()).expect("a document serializes");
             }
             println!(
                 "{}",

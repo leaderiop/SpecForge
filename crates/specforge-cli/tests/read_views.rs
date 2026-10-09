@@ -171,7 +171,7 @@ fn assert_stats_agree(root: &Path) {
     assert_eq!(cli["total_entities"], json!(total));
     assert_eq!(cli["total_edges"], mcp["edge_count"]);
     assert_eq!(cli["unconnected_count"], mcp["unconnected_count"]);
-    for key in ["declared_pct", "proof_pct", "coverage_pct"] {
+    for key in ["declared_pct", "proof_pct"] {
         assert_eq!(cli[key], mcp[key], "{key} on {root:?}");
     }
     let summary = &mcp["diagnostic_summary"];
@@ -775,7 +775,7 @@ fn contract_read_views() {
     );
     assert_eq!(cli_json(&["schema", s(root)]), mcp[0]);
     assert_eq!(
-        json!(mcp[1].as_array().unwrap().len()),
+        json!(mcp[1]["entities"].as_array().unwrap().len()),
         stats["testable_count"],
         "{}",
         mcp[1]
@@ -794,7 +794,7 @@ fn contract_read_views() {
             serde_json::from_str(&server.handle_message(&request.to_string()).unwrap()).unwrap();
         let text = response["result"]["content"][0]["text"].as_str().unwrap();
         let rows: Value = serde_json::from_str(text).unwrap();
-        rows[0]["status"].as_str().unwrap().to_string()
+        rows["entities"][0]["status"].as_str().unwrap().to_string()
     };
     assert_eq!(alpha_status(), "uncovered");
     record_alpha(root, "fail");
@@ -1000,8 +1000,9 @@ fn unknown_kind_wordings_today() {
 /// Every entity of `root`, by id.
 fn entity_ids(root: &Path) -> Vec<String> {
     let rows = &mcp_calls(root, &[json!({"name": "specforge.list", "arguments": {}})])[0];
-    rows.as_array()
-        .expect("specforge.list answers an array")
+    rows["entities"]
+        .as_array()
+        .expect("specforge.list answers an object holding the entities")
         .iter()
         .map(|row| row["id"].as_str().unwrap().to_string())
         .collect()

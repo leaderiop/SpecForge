@@ -1,8 +1,13 @@
 use crate::args::Arguments;
+use crate::reply::Answered;
 use crate::target::ProjectRef;
-use crate::tool::{McpError, ToolOutcome};
+use crate::tool::McpError;
 use specforge_ops::OpError;
 use specforge_ops::analyze::{AnalyzeError, AnalyzeOptions, ReportSource, analyze};
+
+/// `specforge.analyze`'s reply: the document `specforge analyze --json`
+/// prints (`McpAnalyzeResult`).
+pub use specforge_ops::analyze::AnalyzeDocument as Reply;
 
 /// `specforge.analyze`'s arguments.
 #[derive(Debug, Arguments)]
@@ -25,7 +30,7 @@ pub struct Args {
 /// the environment"): the served session's, or the session another project
 /// was opened as for this call. With no project served and no `path`, there is nothing to
 /// analyze: a no-project refusal (plan 01 D7).
-pub fn call(project: &ProjectRef<'_>, args: Args) -> ToolOutcome {
+pub fn call(project: &ProjectRef<'_>, args: Args) -> Answered<Reply> {
     let view = project.view();
     // Without `test_results`, use what `specforge collect` last recorded at
     // the project root, as the CLI does.
@@ -42,16 +47,15 @@ pub fn call(project: &ProjectRef<'_>, args: Args) -> ToolOutcome {
         prove: None,
     };
     match analyze(&view, &options) {
-        Ok(outcome) => ToolOutcome::ok(outcome.to_json()),
+        Ok(outcome) => Ok(outcome.document().into()),
         Err(e) => {
             // The argument an unknown pass names is this surface's spelling.
             let unknown_pass = matches!(e, AnalyzeError::UnknownPass { .. });
             let error = McpError::from(OpError::from(e));
-            match unknown_pass {
+            Err(Box::new(match unknown_pass {
                 true => error.with_argument("pass"),
                 false => error,
-            }
-            .into()
+            }))
         }
     }
 }

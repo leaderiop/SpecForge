@@ -20,7 +20,7 @@ expression: "normalized(&answer, root).to_string()"
   },
   "content": [
     {
-      "text": "[]",
+      "text": "{\"results\":[]}",
       "type": "text"
     }
   ],

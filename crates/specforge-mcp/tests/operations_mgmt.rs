@@ -193,24 +193,7 @@ fn collect_returns_result() {
     assert_eq!(report["results"]["alpha"]["tests"][0]["status"], "pass");
 }
 
-/// Each `(field, type)` of a spec type holds in `value`: `string`,
-/// `integer`, `boolean`, `array` or `string[]`.
-fn assert_fields(value: &Value, fields: &[(&str, &str)]) {
-    for (field, kind) in fields {
-        let v = &value[*field];
-        let holds = match *kind {
-            "string" => v.is_string(),
-            "integer" => v.is_u64() || v.is_i64(),
-            "boolean" => v.is_boolean(),
-            "array" => v.is_array(),
-            "string[]" => v.as_array().is_some_and(|a| a.iter().all(Value::is_string)),
-            other => panic!("no check for {other}"),
-        };
-        assert!(holds, "{field} is not {kind}: {value}");
-    }
-}
-
-#[specforge_test(type = "McpExtensionInfo", verify = "McpExtensionInfo schema is valid")]
+#[test]
 fn each_listed_extension_is_an_mcp_extension_info() {
     let (mut server, _root) = server_with_product();
 
@@ -220,18 +203,6 @@ fn each_listed_extension_is_an_mcp_extension_info() {
     let entries = listing["extensions"].as_array().unwrap();
     assert!(!entries.is_empty(), "{listing}");
     for entry in entries {
-        assert_fields(
-            entry,
-            &[
-                ("name", "string"),
-                ("version", "string"),
-                ("source", "string"),
-                ("entity_kinds", "string[]"),
-                ("entity_count", "integer"),
-                ("validation_rules", "integer"),
-                ("status", "string"),
-            ],
-        );
         let status = entry["status"].as_str().unwrap();
         assert!(
             ["loaded", "not_loaded", "not_configured"].contains(&status),
@@ -256,22 +227,12 @@ fn collected(root: &std::path::Path) -> Value {
     serde_json::from_str(&tool_text(&resp)).unwrap_or_else(|_| panic!("{resp}"))
 }
 
-#[specforge_test(type = "McpCollectResult", verify = "McpCollectResult schema is valid")]
+#[test]
 fn collect_result_is_an_mcp_collect_result() {
     let project = collect_project();
     let root = project.path();
 
     let result = collected(root);
-
-    assert_fields(
-        &result,
-        &[
-            ("status", "string"),
-            ("runners", "array"),
-            ("diagnostics", "array"),
-            ("report", "string"),
-        ],
-    );
     assert_eq!(
         result["report"],
         std::fs::canonicalize(root)
@@ -283,7 +244,7 @@ fn collect_result_is_an_mcp_collect_result() {
     assert_eq!(result["diagnostics"][0]["code"], "W115", "{result}");
 }
 
-#[specforge_test(type = "McpCollectRunner", verify = "McpCollectRunner schema is valid")]
+#[test]
 fn each_collect_runner_is_an_mcp_collect_runner() {
     let project = collect_project();
     let root = project.path();
@@ -291,20 +252,6 @@ fn each_collect_runner_is_an_mcp_collect_runner() {
     let result = collected(root);
 
     let runner = &result["runners"][0];
-    assert_fields(
-        runner,
-        &[
-            ("name", "string"),
-            ("extension", "string"),
-            ("ran", "boolean"),
-            ("files", "integer"),
-            ("entities", "integer"),
-            ("passed", "integer"),
-            ("failed", "integer"),
-            ("skipped", "integer"),
-            ("by_convention", "integer"),
-        ],
-    );
     // Read, not run: no exit code.
     assert!(runner.get("exit_code").is_none(), "{runner}");
 }

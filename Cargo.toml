@@ -24,6 +24,7 @@ members = [
     "crates/specforge-lsp",
     "crates/specforge-mcp",
     "crates/specforge-mcp-macros",
+    "crates/specforge-shape-macros",
     "crates/specforge-migrate",
     "crates/specforge-ops",
     "crates/specforge-ops-registry",

@@ -148,7 +148,7 @@ fn list_tool_returns_entities_by_kind() {
         resp
     );
     let text = tool_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
+    let parsed: Value = serde_json::from_str::<Value>(&text).unwrap()["entities"].clone();
     let entities = parsed.as_array().unwrap();
 
     assert_eq!(
@@ -165,7 +165,8 @@ fn list_tool_returns_entities_by_kind() {
 /// The ids `specforge.list` returns for `args`.
 fn listed_ids(server: &mut McpServer, args: Value) -> Vec<String> {
     let resp = call_tool(server, "specforge.list", args);
-    let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+    let parsed: Value =
+        serde_json::from_str::<Value>(&tool_text(&resp)).unwrap()["entities"].clone();
     parsed
         .as_array()
         .unwrap()
@@ -234,7 +235,7 @@ fn list_tool_empty_for_unknown_kind() {
         json!({"kind": "nonexistent"}),
     );
     let text = tool_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
+    let parsed: Value = serde_json::from_str::<Value>(&text).unwrap()["entities"].clone();
     assert_eq!(parsed.as_array().unwrap().len(), 0);
 }
 
@@ -895,6 +896,38 @@ fn extension_tool_output_is_checked_against_its_schema() {
     );
 }
 
+#[specforge_test(
+    behavior = "dispatch_surface_mcp_tool",
+    verify = "an output with a key its declared output_schema does not allow is a schema_mismatch error"
+)]
+fn extension_tool_output_with_an_undeclared_key_is_refused() {
+    let closed = FakeExtension::declaring(json!({
+        "mcp_tools": [{
+            "name": "test.closed",
+            "description": "A tool whose output schema is closed",
+            "export": "mcp__closed",
+            "input_schema": {"type": "object"},
+            "output_schema": {
+                "type": "object",
+                "properties": {"checked": {"type": "boolean"}},
+                "additionalProperties": false
+            }
+        }]
+    }));
+    let (mut server, _ext, _dir) = fake_extension::initialized(
+        closed.with_output("mcp__closed", json!({"checked": true, "extra": 1})),
+    );
+    let resp = call_tool(&mut server, "test.closed", json!({}));
+    assert_eq!(resp["result"]["isError"], true, "{resp}");
+    let error = crate::tool_errors::mcp_error(&resp);
+    assert_eq!(error["code"], "schema_mismatch", "{error}");
+    assert_eq!(
+        error["data"]["violations"],
+        json!(["$.extra: undeclared key"]),
+        "{error}"
+    );
+}
+
 #[test]
 fn the_schema_check_finds_type_enum_and_required_violations() {
     let schema = json!({
@@ -905,7 +938,7 @@ fn the_schema_check_finds_type_enum_and_required_violations() {
         },
         "required": ["format"],
     });
-    let check = |value: Value| specforge_mcp::json_schema::violations(&schema, &value);
+    let check = |value: Value| specforge_common::shape::violations(&schema, &value);
     assert!(check(json!({"format": "md", "paths": ["a"]})).is_empty());
     assert_eq!(check(json!({})), ["$: missing required format"]);
     assert_eq!(check(json!({"format": "xml"})).len(), 1);

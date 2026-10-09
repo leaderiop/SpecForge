@@ -1,5 +1,6 @@
 use serde::Serialize;
 use sha2::{Digest, Sha256};
+use specforge_common::shape::Shape;
 use specforge_common::{Diagnostic, Severity, codes, load_project_config, project_root_of};
 use specforge_emitter::schema::{GraphProtocolSchema, SchemaMigration, diff_schemas};
 use specforge_formatter::unified_diff;
@@ -10,7 +11,7 @@ use std::path::{Path, PathBuf};
 // Migration Types
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Shape)]
 pub struct MigrationResult {
     pub file_path: String,
     pub status: MigrationStatus,
@@ -22,7 +23,7 @@ pub struct MigrationResult {
     pub error: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Shape)]
 #[serde(rename_all = "snake_case")]
 pub enum MigrationStatus {
     Migrated,
@@ -31,13 +32,13 @@ pub enum MigrationStatus {
     Restored,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Shape)]
 pub struct MigrationBackup {
     pub original_path: String,
     pub backup_path: String,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Shape)]
 pub struct MigrationDiff {
     pub file_path: String,
     pub before_hash: String,
@@ -45,7 +46,7 @@ pub struct MigrationDiff {
     pub unified_text: String,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Shape)]
 pub struct MigrationSummary {
     pub migrated_count: usize,
     pub skipped_count: usize,
@@ -57,7 +58,7 @@ pub struct MigrationSummary {
     pub diffs: Vec<MigrationDiff>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Shape)]
 pub struct RollbackSummary {
     pub restored_count: usize,
     pub skipped_count: usize,

@@ -147,7 +147,7 @@ fn stats_coverage_over_the_testable_kinds() {
     // 1 verified out of 2 testable = 50%
     assert_eq!(stats.testable_count, 2);
     assert_eq!(stats.verified_count, 1);
-    assert!((stats.coverage_pct - 50.0).abs() < 0.01);
+    assert!((stats.declared_pct - 50.0).abs() < 0.01);
 }
 
 // B:compute_project_statistics — verify unit "coverage is 0% when testable_entity_count is zero"
@@ -162,7 +162,7 @@ fn stats_coverage_zero_when_no_testable_entities() {
     let testable: &[&str] = &["behavior"]; // no behaviors in graph
     let stats = crate::view_support::stats_of(&graph, testable, &[]);
     assert_eq!(stats.testable_count, 0);
-    assert_eq!(stats.coverage_pct, 0.0);
+    assert_eq!(stats.declared_pct, 0.0);
 }
 
 // B:compute_project_statistics — verify unit "stats reports diagnostic summary"
@@ -204,7 +204,7 @@ fn stats_counts_obligations_behind_a_verify_member() {
     let stats = crate::view_support::stats_of(&graph, &["type"], &[]);
     assert_eq!(stats.testable_count, 2);
     assert_eq!(stats.verified_count, 1, "Payload declares an obligation");
-    assert!((stats.coverage_pct - 50.0).abs() < 0.01);
+    assert!((stats.declared_pct - 50.0).abs() < 0.01);
 }
 
 #[specforge_test(
@@ -231,7 +231,7 @@ fn stats_leaves_union_types_out_of_the_testable_count() {
 
     let stats = crate::view_support::stats_of(&graph, &["type"], &[]);
     assert_eq!(stats.testable_count, 2, "Named and Payload");
-    assert!((stats.coverage_pct - 50.0).abs() < 0.01);
+    assert!((stats.declared_pct - 50.0).abs() < 0.01);
 }
 
 /// The contracts graph (a feature listing b, b depending on c, both
@@ -265,7 +265,6 @@ const STATS_TODAY: &str = r#"{
     testable_count: 3,
     declared_count: 2,
     declared_pct: 66.66666666666666,
-    coverage_pct: 66.66666666666666,
     proof_pct: None,
     error_count: 1,
     warning_count: 1,

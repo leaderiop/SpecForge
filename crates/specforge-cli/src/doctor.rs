@@ -20,7 +20,8 @@ pub fn run(path: &Path, format: OutputFormat) -> Exit {
 
     match format {
         OutputFormat::Json => {
-            let mut output = report.to_json();
+            let mut output =
+                serde_json::to_value(report.document()).expect("a document serializes");
             output["credentials"] = json!(credentials.lines);
             output["credentials_failures"] = json!(credentials.failures);
             println!(

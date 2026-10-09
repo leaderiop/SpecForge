@@ -199,8 +199,7 @@ behavior compute_project_statistics "Compute Project Statistics" {
     pass's testable count.
     An entity is "declared" when it has at least one verify statement.
     The declared percentage is declared testable entities /
-    testable_entity_count; coverage percentage is its deprecated alias,
-    kept for readers of the old name. When testable_entity_count is zero,
+    testable_entity_count. When testable_entity_count is zero,
     it MUST be reported as 0%, not as a division error. When the project
     has recorded test results (specforge-report.json), stats also reports
     the proof percentage: the share of testable entities the coverage

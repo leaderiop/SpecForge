@@ -17,6 +17,7 @@
 //! (`McpDoctorReport`) is about the project, does not.
 
 use serde::Serialize;
+use specforge_common::shape::Shape;
 use specforge_common::{Code, Diagnostic, DiagnosticData, Severity, codes};
 use specforge_installed::Health;
 use std::collections::BTreeMap;
@@ -62,7 +63,7 @@ pub struct DoctorReport {
     pub findings: Vec<Finding>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Shape)]
 pub struct ExtensionHealth {
     pub name: String,
     pub version: String,
@@ -73,7 +74,7 @@ pub struct ExtensionHealth {
     pub enhancement_count: usize,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Shape)]
 pub struct EnhancementEntry {
     /// The extension contributing the enhancement.
     pub extension: String,
@@ -83,7 +84,7 @@ pub struct EnhancementEntry {
     pub verify_kinds: Option<Vec<String>>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Shape)]
 #[serde(tag = "status", rename_all = "snake_case")]
 pub enum BinaryIssue {
     MissingBinary {
@@ -96,14 +97,14 @@ pub enum BinaryIssue {
     },
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Shape)]
 #[serde(rename_all = "snake_case")]
 pub enum CacheStatus {
     Ok,
     Stale,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Shape)]
 #[serde(rename_all = "snake_case")]
 pub enum FindingStatus {
     Ok,
@@ -111,7 +112,7 @@ pub enum FindingStatus {
     Error,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Shape)]
 pub struct Finding {
     /// What the finding is about, with what that part knows.
     #[serde(flatten)]
@@ -123,7 +124,7 @@ pub struct Finding {
 }
 
 /// What a doctor finding is about: the report's sections.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Shape)]
 #[serde(tag = "about", rename_all = "snake_case")]
 pub enum About {
     /// `specforge.json`: E069, or none at the root (`config_missing`).
@@ -216,25 +217,40 @@ impl DoctorReport {
         })
     }
 
-    /// The one JSON both surfaces return: `{ok, extensions_ok,
+    /// The one document both surfaces return: `{ok, extensions_ok,
     /// cache_status, installed_count, z3_available, extensions,
     /// enhancements, conflicts: [message…], findings: [...]}`.
-    pub fn to_json(&self) -> serde_json::Value {
-        serde_json::json!({
-            "ok": self.ok(),
-            "extensions_ok": self.extensions_ok(),
-            "cache_status": self.cache_status(),
-            "installed_count": self.installed_count,
-            "z3_available": self.z3_available,
-            "extensions": self.extensions,
-            "enhancements": self.enhancements,
-            "conflicts": self
-                .conflicts()
-                .map(|f| f.check.as_str())
-                .collect::<Vec<_>>(),
-            "findings": self.findings,
-        })
+    pub fn document(&self) -> DoctorDocument {
+        DoctorDocument {
+            ok: self.ok(),
+            extensions_ok: self.extensions_ok(),
+            cache_status: self.cache_status(),
+            installed_count: self.installed_count,
+            z3_available: self.z3_available,
+            extensions: self.extensions.clone(),
+            enhancements: self.enhancements.clone(),
+            conflicts: self.conflicts().map(|f| f.check.clone()).collect(),
+            findings: self.findings.clone(),
+        }
     }
+}
+
+/// What `specforge doctor --format json` and `specforge.doctor` answer with
+/// (`McpDoctorReport`; the CLI adds the user's credential health).
+#[derive(Debug, Clone, Serialize, Shape)]
+pub struct DoctorDocument {
+    /// No error-level finding.
+    pub ok: bool,
+    pub extensions_ok: bool,
+    pub cache_status: CacheStatus,
+    pub installed_count: usize,
+    pub z3_available: bool,
+    pub extensions: Vec<ExtensionHealth>,
+    /// Entity enhancements keyed by the entity kind they target.
+    pub enhancements: BTreeMap<String, Vec<EnhancementEntry>>,
+    /// The `check` of each conflicting finding.
+    pub conflicts: Vec<String>,
+    pub findings: Vec<Finding>,
 }
 
 /// The health report of the project the view was compiled from: its

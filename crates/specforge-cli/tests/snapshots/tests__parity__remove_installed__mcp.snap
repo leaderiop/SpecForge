@@ -35,7 +35,6 @@ expression: mcp_snap
     ],
     "removed_extension": "@sdk/greet",
     "stranded": [],
-    "success": true,
     "version": "0.1.0"
   }
 }

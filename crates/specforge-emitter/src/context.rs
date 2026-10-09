@@ -1,10 +1,11 @@
 use serde::Serialize;
 use serde_json::Value;
+use specforge_common::shape::Shape;
 use specforge_graph::{FieldValue, Node};
 use specforge_registry::FieldRegistry;
 use std::collections::BTreeMap;
 
-#[derive(Serialize)]
+#[derive(Serialize, Shape)]
 pub(crate) struct ContextNode {
     id: String,
     kind: String,

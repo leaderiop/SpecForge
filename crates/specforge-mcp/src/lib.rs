@@ -1,15 +1,14 @@
 extern crate self as specforge_mcp;
 
 pub mod args;
-pub mod json_schema;
 pub mod lifecycle;
 pub mod modern;
 pub mod mutation;
-pub mod operations;
 pub mod prompt;
 pub mod prompts;
 pub mod protocol;
 pub mod registry;
+pub mod reply;
 pub mod resources;
 pub mod state;
 pub mod subscriptions;

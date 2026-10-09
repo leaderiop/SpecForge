@@ -1,4 +1,5 @@
 use serde::Serialize;
+use specforge_common::shape::Shape;
 
 use specforge_graph::{Graph, Node};
 use std::collections::{HashMap, HashSet};
@@ -7,7 +8,7 @@ use crate::error::EmitterError;
 
 /// The `token_budget` block of an export that did not fit its budget whole:
 /// what was dropped to make it fit.
-#[derive(Serialize)]
+#[derive(Serialize, Shape)]
 pub(crate) struct TokenBudget {
     strategy: &'static str,
     budget_tokens: usize,

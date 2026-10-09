@@ -277,8 +277,8 @@ prompt, read the same headline, edges and obligations.
   codicon of the SymbolKind the server reports for the entity's workspace symbol) and finds the
   entity header on any line.
 - **I5. Additive MCP fields**: `exempt` (the coverage row's meaning), `obligated` and `source_extension`;
-  `references` and `reference_count` stay deprecated aliases, now derived from the same reference
-  list.
+  `references` and `reference_count` were deprecated aliases, derived from the same reference list,
+  until ADR 0048 D7 removed them.
 
 Consequences: hover gains the headline as a summary, a Coverage line and the entity's diagnostics not
 already shown, and a long non-ASCII field value no longer crashes the server. A parity test holds

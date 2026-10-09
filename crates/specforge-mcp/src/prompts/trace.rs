@@ -10,7 +10,7 @@ use specforge_ops::trace::{Target, trace};
 use crate::args::{AgentPlan, Arguments};
 use crate::prompt::{PromptOutcome, Rendered};
 use crate::tool::{ErrorCode, McpError};
-use crate::tools::trace::{analyze_plan, gap_json};
+use crate::tools::trace::{Gap, analyze_plan};
 use specforge_ops::view::ProjectView;
 
 /// `specforge://prompts/trace`'s arguments.
@@ -39,7 +39,7 @@ pub fn render(view: ProjectView<'_>, args: Args) -> PromptOutcome {
             // As the trace tool traces it: its chain and missing links.
             let outcome = trace(&view, Target::Entity(entity_id))
                 .map_err(|error| McpError::from(specforge_ops::OpError::from(error)))?;
-            let gaps = outcome.gaps().iter().map(gap_json).collect();
+            let gaps = outcome.gaps().iter().map(Gap::of).collect();
             (
                 vec![entity_id.to_string()],
                 gaps,

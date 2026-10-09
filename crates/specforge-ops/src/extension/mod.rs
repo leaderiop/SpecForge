@@ -15,8 +15,8 @@ pub use add::{AddOutcome, AddRequest, Added, Source, Trust, add, parse};
 pub use candidate::{Candidate, Installable, LocalFile};
 pub use diamond::check_diamonds;
 pub use list::{
-    ExtensionEntry, ExtensionListing, LockedExtension, ProviderEntry, ProviderListing, Status,
-    list, providers,
+    ExtensionEntry, ExtensionInfo, ExtensionListing, LockedExtension, ProviderEntry,
+    ProviderListing, ProviderRow, ProviderStatus, ProvidersDocument, Status, list, providers,
 };
 pub use remove::{RemoveOutcome, RemoveRequest, StrandedEntity, remove};
 pub use resolve::{resolve, resolve_requirement};

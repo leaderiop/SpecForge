@@ -1,6 +1,8 @@
 use crate::Sym;
 
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, crate::shape::Shape,
+)]
 pub struct SourceSpan {
     pub file: Sym,
     pub start_line: usize,
