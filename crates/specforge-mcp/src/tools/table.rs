@@ -251,7 +251,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         output: None,
         effect: Effect::Reads {
             group: ToolGroup::Core,
-            handler: view!(search::call, search::Args, ProjectTarget::SERVED),
+            handler: view!(search::call, search::Args => search::Reply, ProjectTarget::SERVED),
         },
     },
     ToolSpec {
@@ -300,7 +300,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         output: None,
         effect: Effect::Reads {
             group: ToolGroup::Core,
-            handler: view!(coverage::call, coverage::Args, ProjectTarget::SERVED),
+            handler: view!(coverage::call, coverage::Args => coverage::Reply, ProjectTarget::SERVED),
         },
     },
     ToolSpec {
@@ -318,7 +318,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         output: None,
         effect: Effect::Reads {
             group: ToolGroup::Core,
-            handler: view!(list::call, list::Args, ProjectTarget::SERVED),
+            handler: view!(list::call, list::Args => list::Reply, ProjectTarget::SERVED),
         },
     },
     ToolSpec {
@@ -362,7 +362,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         output: None,
         effect: Effect::Reads {
             group: ToolGroup::Navigation,
-            handler: view!(outline::call, outline::Args, ProjectTarget::SERVED),
+            handler: view!(outline::call, outline::Args => outline::Reply, ProjectTarget::SERVED),
         },
     },
     ToolSpec {
@@ -373,7 +373,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             group: ToolGroup::Navigation,
             handler: view!(
                 suggest_fixes::call,
-                suggest_fixes::Args,
+                suggest_fixes::Args => suggest_fixes::Reply,
                 ProjectTarget::SERVED
             ),
         },

@@ -874,6 +874,64 @@ expression: listing
       ],
       "type": "object"
     },
+    "outputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "results": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "entity_id": {
+                "type": "string"
+              },
+              "file_path": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string"
+              },
+              "line": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "match_field": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "match_snippet": {
+                "type": "string"
+              },
+              "score": {
+                "type": "number"
+              },
+              "title": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "entity_id",
+              "kind",
+              "title",
+              "file_path",
+              "line",
+              "score",
+              "match_field"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "results"
+      ],
+      "type": "object"
+    },
     "category": "core",
     "source": "core",
     "annotations": {
@@ -1349,6 +1407,76 @@ expression: listing
       },
       "type": "object"
     },
+    "outputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "entities": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "declared": {
+                "type": "boolean"
+              },
+              "entity_id": {
+                "type": "string"
+              },
+              "evidence_collected": {
+                "type": "boolean"
+              },
+              "exempt": {
+                "type": "boolean"
+              },
+              "kind": {
+                "type": "string"
+              },
+              "linked": {
+                "type": "boolean"
+              },
+              "obligations": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "proven": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "status": {
+                "enum": [
+                  "covered",
+                  "partial",
+                  "uncovered"
+                ],
+                "type": "string"
+              },
+              "unproven": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "entity_id",
+              "kind",
+              "status",
+              "declared",
+              "linked",
+              "evidence_collected",
+              "obligations",
+              "proven",
+              "unproven",
+              "exempt"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "entities"
+      ],
+      "type": "object"
+    },
     "category": "core",
     "source": "core",
     "annotations": {
@@ -1475,6 +1603,38 @@ expression: listing
           "type": "object"
         }
       },
+      "type": "object"
+    },
+    "outputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "entities": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "kind",
+              "title"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "entities"
+      ],
       "type": "object"
     },
     "category": "core",
@@ -1954,6 +2114,199 @@ expression: listing
       ],
       "type": "object"
     },
+    "outputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "entries": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "children": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "entity_id": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "enum": [
+                        "method"
+                      ],
+                      "type": "string"
+                    },
+                    "name_range": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "end_col": {
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "end_line": {
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "file": {
+                          "type": "string"
+                        },
+                        "start_col": {
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "start_line": {
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "file",
+                        "start_line",
+                        "start_col",
+                        "end_line",
+                        "end_col"
+                      ],
+                      "type": "object"
+                    },
+                    "range": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "end_col": {
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "end_line": {
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "file": {
+                          "type": "string"
+                        },
+                        "start_col": {
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "start_line": {
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "file",
+                        "start_line",
+                        "start_col",
+                        "end_line",
+                        "end_col"
+                      ],
+                      "type": "object"
+                    },
+                    "title": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "entity_id",
+                    "kind",
+                    "title",
+                    "range",
+                    "name_range"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "entity_id": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string"
+              },
+              "name_range": {
+                "additionalProperties": false,
+                "properties": {
+                  "end_col": {
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "end_line": {
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "file": {
+                    "type": "string"
+                  },
+                  "start_col": {
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "start_line": {
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "file",
+                  "start_line",
+                  "start_col",
+                  "end_line",
+                  "end_col"
+                ],
+                "type": "object"
+              },
+              "range": {
+                "additionalProperties": false,
+                "properties": {
+                  "end_col": {
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "end_line": {
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "file": {
+                    "type": "string"
+                  },
+                  "start_col": {
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "start_line": {
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "file",
+                  "start_line",
+                  "start_col",
+                  "end_line",
+                  "end_col"
+                ],
+                "type": "object"
+              },
+              "title": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "entity_id",
+              "kind",
+              "title",
+              "range",
+              "name_range"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "entries"
+      ],
+      "type": "object"
+    },
     "category": "navigation",
     "source": "core",
     "annotations": {
@@ -1980,6 +2333,105 @@ expression: listing
           "type": "string"
         }
       },
+      "type": "object"
+    },
+    "outputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "fixes": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "diagnostic_code": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "edits": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "file_path": {
+                      "type": "string"
+                    },
+                    "new_text": {
+                      "type": "string"
+                    },
+                    "range": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "end_col": {
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "end_line": {
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "file": {
+                          "type": "string"
+                        },
+                        "start_col": {
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "start_line": {
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "file",
+                        "start_line",
+                        "start_col",
+                        "end_line",
+                        "end_col"
+                      ],
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "file_path",
+                    "range",
+                    "new_text"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "entity_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "kind": {
+                "enum": [
+                  "quickfix",
+                  "refactor"
+                ],
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "title",
+              "kind",
+              "diagnostic_code",
+              "entity_id",
+              "edits"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "fixes"
+      ],
       "type": "object"
     },
     "category": "navigation",

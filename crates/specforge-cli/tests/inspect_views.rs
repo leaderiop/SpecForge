@@ -205,7 +205,7 @@ fn assert_hover_and_inspect_agree(root: &Path, file: &str) {
     let listed = mcp_calls(root, &[json!({"name": "specforge.list", "arguments": {}})])
         .pop()
         .unwrap();
-    let ids: Vec<String> = listed
+    let ids: Vec<String> = listed["entities"]
         .as_array()
         .unwrap_or_else(|| panic!("specforge.list: {listed}"))
         .iter()

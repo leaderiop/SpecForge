@@ -581,7 +581,7 @@ fn mcp_tool_search_fuzzy_match() {
     let result_ids = |id: u64| -> Vec<String> {
         let resp = find_response(&responses, id).expect("search response");
         assert!(resp["error"].is_null(), "should not be error: {}", resp);
-        parse_tool_content(resp)
+        parse_tool_content(resp)["results"]
             .as_array()
             .expect("search returns an array")
             .iter()
@@ -967,7 +967,9 @@ fn mcp_tool_coverage_returns_status() {
     let resp = find_response(&responses, 1).expect("should get response for id 1");
     assert!(resp["error"].is_null(), "should not be error: {}", resp);
     let content = parse_tool_content(resp);
-    let arr = content.as_array().expect("coverage should return array");
+    let arr = content["entities"]
+        .as_array()
+        .expect("coverage should return array");
     // No filter: one entry for every testable entity — the behaviors and
     // the invariant — none left out. The feature (gamma) is not testable.
     let mut ids: Vec<&str> = arr
@@ -1165,7 +1167,9 @@ fn mcp_tool_outline_returns_entities_in_file() {
     let resp = find_response(&responses, 1).expect("should get response for id 1");
     assert!(resp["error"].is_null(), "should not be error: {}", resp);
     let content = parse_tool_content(resp);
-    let arr = content.as_array().expect("outline should return array");
+    let arr = content["entries"]
+        .as_array()
+        .expect("outline should return array");
     assert!(
         arr.len() >= 4,
         "BASIC_SPEC has 4 entities, got {}",
@@ -1449,7 +1453,7 @@ fn mcp_tool_search_with_kinds() {
     let kinds_of = |id: u64| -> Vec<(String, String)> {
         let resp = find_response(&responses, id).expect("search response");
         assert!(resp["error"].is_null(), "should not be error: {}", resp);
-        let mut hits: Vec<(String, String)> = parse_tool_content(resp)
+        let mut hits: Vec<(String, String)> = parse_tool_content(resp)["results"]
             .as_array()
             .expect("search returns an array")
             .iter()
@@ -1505,7 +1509,9 @@ fn mcp_tool_search_references() {
     let resp = find_response(&responses, 1).expect("should get response for id 1");
     assert!(resp["error"].is_null(), "should not be error: {}", resp);
     let content = parse_tool_content(resp);
-    let arr = content.as_array().expect("search should return array");
+    let arr = content["results"]
+        .as_array()
+        .expect("search should return array");
     // gamma references alpha via behaviors [alpha, beta], and inv via
     // enforced_by [alpha]; alpha itself is not a referrer.
     let mut ids: Vec<&str> = arr
@@ -1554,7 +1560,7 @@ fn mcp_tool_search_references_combines_with_the_other_filters() {
     );
     let ids = |id: u64| -> Vec<String> {
         let resp = find_response(&responses, id).expect("a response");
-        parse_tool_content(resp)
+        parse_tool_content(resp)["results"]
             .as_array()
             .expect("search returns an array")
             .iter()
@@ -2630,12 +2636,12 @@ fn mcp_tool_suggest_fixes_returns_array() {
     };
     assert_eq!(
         content(1),
-        serde_json::json!([]),
+        serde_json::json!({"fixes": []}),
         "the clean entity gets no suggestions"
     );
     // The project does have a fix to offer — just not for beta.
     let broken = content(2);
-    let fixes = broken.as_array().expect("array");
+    let fixes = broken["fixes"].as_array().expect("array");
     assert_eq!(fixes.len(), 1, "{broken}");
     assert_eq!(fixes[0]["diagnostic_code"], "E003", "{broken}");
     // The LSP's title, and the edit that applies it: the token.
@@ -2697,7 +2703,9 @@ fn mcp_tool_coverage_kind_filter() {
     let resp = find_response(&responses, 1).expect("should get response for id 1");
     assert!(resp["error"].is_null(), "should not be error: {}", resp);
     let content = parse_tool_content(resp);
-    let arr = content.as_array().expect("coverage should return array");
+    let arr = content["entities"]
+        .as_array()
+        .expect("coverage should return array");
     for entry in arr {
         assert_eq!(
             entry["kind"].as_str().unwrap(),
@@ -2802,7 +2810,7 @@ fn mcp_tool_search_with_limit() {
     let ids = |id: u64| -> Vec<String> {
         let resp = find_response(&responses, id).expect("search response");
         assert!(resp["error"].is_null(), "should not be error: {}", resp);
-        parse_tool_content(resp)
+        parse_tool_content(resp)["results"]
             .as_array()
             .expect("search should return array")
             .iter()

@@ -379,7 +379,8 @@ fn a_write_is_served_by_the_next_request() {
         .file("test.spec", ALPHA)
         .serve(&[TestExtension::software()]);
     let ids = |served: &mut Served| -> Vec<String> {
-        rpc::tool(served, "specforge.list", json!({}))
+        rpc::tool(served, "specforge.list", json!({}))["entities"]
+            .clone()
             .as_array()
             .expect("a list")
             .iter()

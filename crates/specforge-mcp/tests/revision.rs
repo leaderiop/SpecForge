@@ -138,14 +138,20 @@ fn structured_content_from_2025_06_18() {
         assert!(text.is_object());
         assert_eq!(stats["result"]["structuredContent"], text, "{version}");
 
-        // An array payload is not an object: text only.
-        let list = call(
+        // A tool answering text has no structured content.
+        let export = call(
             &mut server,
             "tools/call",
-            json!({"name": "specforge.list", "arguments": {}}),
+            json!({"name": "specforge.export", "arguments": {}}),
         );
-        assert!(list["result"]["content"][0]["text"].is_string(), "{list}");
-        assert!(list["result"].get("structuredContent").is_none(), "{list}");
+        assert!(
+            export["result"]["content"][0]["text"].is_string(),
+            "{export}"
+        );
+        assert!(
+            export["result"].get("structuredContent").is_none(),
+            "{export}"
+        );
     }
 }
 
@@ -344,11 +350,13 @@ fn structured_results_conform_to_each_tool_output_schema() {
             "specforge.collect",
             json!({"path": collected.path().to_str().unwrap()}),
         ),
-        // Tools whose results are arrays or text: no structured result.
-        ("specforge.validate", json!({"use_cached": true})),
         ("specforge.search", json!({"query": "alpha"})),
         ("specforge.coverage", json!({})),
         ("specforge.list", json!({})),
+        ("specforge.outline", json!({"file": "test.spec"})),
+        ("specforge.suggest_fixes", json!({})),
+        // Tools whose results are text: no structured result.
+        ("specforge.validate", json!({"use_cached": true})),
         ("specforge.model", json!({})),
         ("specforge.export", json!({})),
     ];

@@ -36,7 +36,8 @@ fn at_line(line: usize, text: &str) -> String {
 /// The outline of `file`, as entity ids in the order returned.
 fn outline_ids(server: &mut McpServer, file: &str) -> Vec<String> {
     let resp = call_tool(server, "specforge.outline", json!({"file": file}));
-    let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+    let parsed: Value =
+        serde_json::from_str::<Value>(&tool_text(&resp)).unwrap()["entries"].clone();
     parsed
         .as_array()
         .unwrap_or_else(|| panic!("no outline in {resp}"))
@@ -80,7 +81,15 @@ const LOGIN: &str = "behavior login \"Login\" {\n  invariants [session_limit]\n}
 /// The result of `tool` with `args`, parsed.
 fn result(server: &mut McpServer, tool: &str, args: Value) -> Value {
     let resp = call_tool(server, tool, args);
-    serde_json::from_str(&tool_text(&resp)).unwrap_or_else(|e| panic!("{e}: {resp}"))
+    let parsed: Value =
+        serde_json::from_str(&tool_text(&resp)).unwrap_or_else(|e| panic!("{e}: {resp}"));
+    // The array tools answer an object holding the array.
+    let key = match tool {
+        "specforge.outline" => "entries",
+        "specforge.suggest_fixes" => "fixes",
+        _ => return parsed,
+    };
+    parsed.get(key).cloned().unwrap_or(parsed)
 }
 
 // --- specforge.inspect ---
@@ -204,7 +213,8 @@ fn inspect_coverage_matches_the_coverage_tool() {
         let resp = call_tool(server, "specforge.inspect", json!({"entity_id": "alpha"}));
         let inspect: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
         let resp = call_tool(server, "specforge.coverage", json!({"entity_id": "alpha"}));
-        let coverage: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+        let coverage: Value =
+            serde_json::from_str::<Value>(&tool_text(&resp)).unwrap()["entities"].clone();
         (
             inspect["coverage_status"].as_str().unwrap().to_string(),
             coverage[0]["status"].as_str().unwrap().to_string(),
@@ -523,7 +533,7 @@ fn outline_returns_entities_in_file() {
         json!({"file": "test.spec"}),
     );
     let text = tool_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
+    let parsed: Value = serde_json::from_str::<Value>(&text).unwrap()["entries"].clone();
     let entries = parsed.as_array().unwrap();
     for entry in entries {
         assert_eq!(entry["range"]["file"], "test.spec");
@@ -565,7 +575,8 @@ fn outline_of_an_existing_file_without_entities_is_empty() {
         "specforge.outline",
         json!({"file": "empty.spec"}),
     );
-    let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+    let parsed: Value =
+        serde_json::from_str::<Value>(&tool_text(&resp)).unwrap()["entries"].clone();
     assert_eq!(parsed, json!([]));
 }
 
@@ -727,7 +738,8 @@ fn outline_nests_an_entitys_methods() {
         "specforge.outline",
         json!({"file": "store.spec"}),
     );
-    let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+    let parsed: Value =
+        serde_json::from_str::<Value>(&tool_text(&resp)).unwrap()["entries"].clone();
 
     let children = parsed[0]["children"].as_array().unwrap();
     assert_eq!(children.len(), 1, "{parsed}");
@@ -790,7 +802,8 @@ fn outline_sorted_by_line_extended() {
         "specforge.outline",
         json!({"file": "order.spec"}),
     );
-    let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+    let parsed: Value =
+        serde_json::from_str::<Value>(&tool_text(&resp)).unwrap()["entries"].clone();
     let lines: Vec<u64> = parsed
         .as_array()
         .unwrap()

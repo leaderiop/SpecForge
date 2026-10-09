@@ -66,18 +66,6 @@ pub(crate) fn navigator<'v>(
     })
 }
 
-/// A span as the MCP tools render it: the `SourceSpan` the spec types name
-/// (1-based lines, 1-based byte columns, end exclusive).
-pub(crate) fn span_json(span: &specforge_common::SourceSpan) -> Value {
-    json!({
-        "file": span.file,
-        "start_line": span.start_line,
-        "start_col": span.start_col,
-        "end_line": span.end_line,
-        "end_col": span.end_col,
-    })
-}
-
 /// A failed extension call as a failed tool result: the diagnostic the
 /// runtime reported, in `diagnostic`.
 fn extension_error(diag: &specforge_common::Diagnostic) -> ToolOutcome {

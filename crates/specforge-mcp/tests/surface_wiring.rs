@@ -148,7 +148,7 @@ fn list_tool_returns_entities_by_kind() {
         resp
     );
     let text = tool_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
+    let parsed: Value = serde_json::from_str::<Value>(&text).unwrap()["entities"].clone();
     let entities = parsed.as_array().unwrap();
 
     assert_eq!(
@@ -165,7 +165,8 @@ fn list_tool_returns_entities_by_kind() {
 /// The ids `specforge.list` returns for `args`.
 fn listed_ids(server: &mut McpServer, args: Value) -> Vec<String> {
     let resp = call_tool(server, "specforge.list", args);
-    let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+    let parsed: Value =
+        serde_json::from_str::<Value>(&tool_text(&resp)).unwrap()["entities"].clone();
     parsed
         .as_array()
         .unwrap()
@@ -234,7 +235,7 @@ fn list_tool_empty_for_unknown_kind() {
         json!({"kind": "nonexistent"}),
     );
     let text = tool_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
+    let parsed: Value = serde_json::from_str::<Value>(&text).unwrap()["entities"].clone();
     assert_eq!(parsed.as_array().unwrap().len(), 0);
 }
 

@@ -632,7 +632,8 @@ fn the_entities_resource_lists_what_list_lists() {
     let mut server = served();
     // `zeta` is declared before `alpha`: both answer them sorted by id.
     let (_, resource_rows) = resource(&mut server, "specforge://entities/behavior");
-    let listed = tool(&mut server, "specforge.list", json!({"kind": "behavior"}));
+    let listed =
+        tool(&mut server, "specforge.list", json!({"kind": "behavior"}))["entities"].clone();
     assert_eq!(resource_rows, listed);
     let ids: Vec<&str> = listed
         .as_array()

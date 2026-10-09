@@ -1,8 +1,10 @@
-use serde_json::{Map, Value, json};
+use serde::Serialize;
+use serde_json::{Map, Value};
+use specforge_common::shape::Shape;
 use specforge_ops::query::{ListRequest, Listing, list};
 
 use crate::args::Arguments;
-use crate::tool::ToolOutcome;
+use crate::reply::{Answer, Answered};
 use specforge_ops::view::ProjectView;
 
 /// `specforge.list`'s arguments. A `where`, `limit` or `offset` of the wrong
@@ -20,13 +22,42 @@ pub struct Args {
     offset: Option<usize>,
 }
 
+/// `specforge.list`'s reply (`McpListResult`): the entities, sorted by id.
+#[derive(Debug, Serialize, Shape)]
+pub struct Reply {
+    entities: Vec<Listed>,
+}
+
+/// One entity of a listing (`McpListedEntity`).
+#[derive(Debug, Serialize, Shape)]
+pub struct Listed {
+    id: String,
+    kind: String,
+    /// The entity's title; empty when it has none.
+    title: String,
+}
+
+/// The rows of a listing: the one presenter of it, the tool's and
+/// `specforge://entities/{kind}`'s (which answers the bare array).
+pub(crate) fn rows(listing: &Listing) -> Vec<Listed> {
+    listing
+        .entities
+        .iter()
+        .map(|node| Listed {
+            id: node.id.raw.to_string(),
+            kind: node.kind.raw.to_string(),
+            title: node.title.as_deref().unwrap_or("").to_string(),
+        })
+        .collect()
+}
+
 /// `specforge.list`: the list read view (`specforge_ops::query::list`), the
 /// entities of `kind` (every entity without one) whose fields hold what
 /// `where` asks, sorted by id, then paged by `offset` and `limit`. Domain
 /// free: any kind, any field (an extension's own list commands, such as
 /// `specforge.product.features`, render their kinds their way). A kind the
 /// project does not know lists nothing and is reported (I020).
-pub fn call(view: ProjectView<'_>, args: Args) -> ToolOutcome {
+pub fn call(view: ProjectView<'_>, args: Args) -> Answered<Reply> {
     let request = ListRequest {
         kind: args.kind.as_deref(),
         fields: args.r#where.as_ref(),
@@ -34,24 +65,8 @@ pub fn call(view: ProjectView<'_>, args: Args) -> ToolOutcome {
         limit: args.limit,
     };
     let listing = list(&view, &request);
-    let rows = rows(&listing);
-    ToolOutcome::ok(rows).with_diagnostics(listing.notices)
-}
-
-/// `[{id, kind, title}]`: the one presenter of a listing, the tool's and
-/// `specforge://entities/{kind}`'s.
-pub(crate) fn rows(listing: &Listing) -> Value {
-    Value::Array(
-        listing
-            .entities
-            .iter()
-            .map(|node| {
-                json!({
-                    "id": node.id.raw.as_str(),
-                    "kind": node.kind.raw.as_str(),
-                    "title": node.title.as_deref().unwrap_or(""),
-                })
-            })
-            .collect(),
-    )
+    Ok(Answer::new(Reply {
+        entities: rows(&listing),
+    })
+    .with_diagnostics(listing.notices))
 }

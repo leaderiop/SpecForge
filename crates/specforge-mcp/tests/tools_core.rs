@@ -107,7 +107,7 @@ fn inspect_exempt_is_the_coverage_rows() {
     for id in STANDING_IDS {
         let inspect = inspected(&mut server, id);
         let resp = call_tool(&mut server, "specforge.coverage", json!({"entity_id": id}));
-        let rows = tool_json(&resp);
+        let rows = tool_json(&resp)["entities"].clone();
         let row = &rows.as_array().unwrap_or_else(|| panic!("{rows}"))[0];
         assert_eq!(inspect["exempt"], row["exempt"], "{id}");
         exempt.push((id, inspect["exempt"].as_bool().unwrap()));
@@ -456,7 +456,7 @@ fn search_returns_matches() {
     let mut server = test_server();
     let resp = call_tool(&mut server, "specforge.search", json!({"query": "alpha"}));
     let text = tool_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
+    let parsed: Value = serde_json::from_str::<Value>(&text).unwrap()["results"].clone();
     let results = parsed.as_array().unwrap();
     assert!(!results.is_empty());
     assert_eq!(results[0]["entity_id"], "alpha");
@@ -475,7 +475,7 @@ fn search_respects_kind_filter() {
         json!({"query": "alpha", "kinds": ["feature"]}),
     );
     let text = tool_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
+    let parsed: Value = serde_json::from_str::<Value>(&text).unwrap()["results"].clone();
     // Alpha is a behavior, not a feature, so should not match with feature filter
     let results = parsed.as_array().unwrap();
     for r in results {
@@ -496,7 +496,7 @@ fn search_respects_limit() {
         json!({"query": "a", "limit": 1}),
     );
     let text = tool_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
+    let parsed: Value = serde_json::from_str::<Value>(&text).unwrap()["results"].clone();
     assert!(parsed.as_array().unwrap().len() <= 1);
 }
 
@@ -534,7 +534,14 @@ fn search_refuses_a_lone_field_or_value() {
         "specforge.search",
         json!({"query": "", "field": "contract", "value": "must"}),
     );
-    assert!(!tool_json(&resp).as_array().unwrap().is_empty(), "{resp}");
+    assert!(
+        !tool_json(&resp)["results"]
+            .clone()
+            .as_array()
+            .unwrap()
+            .is_empty(),
+        "{resp}"
+    );
 }
 
 #[specforge_test(
@@ -544,7 +551,7 @@ fn search_refuses_a_lone_field_or_value() {
 fn list_reports_an_unknown_kind() {
     let mut server = test_server();
     let resp = call_tool(&mut server, "specforge.list", json!({"kind": "behaviour"}));
-    assert_eq!(tool_json(&resp), json!([]), "{resp}");
+    assert_eq!(tool_json(&resp)["entities"].clone(), json!([]), "{resp}");
     let notices = &resp["result"]["_meta"]["diagnostics"];
     assert_eq!(notices[0]["code"], "I020", "{resp}");
     assert_eq!(
@@ -665,7 +672,7 @@ fn coverage_returns_per_entity() {
     let mut server = test_server();
     let resp = call_tool(&mut server, "specforge.coverage", json!({}));
     let text = tool_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
+    let parsed: Value = serde_json::from_str::<Value>(&text).unwrap()["entities"].clone();
     let results = parsed.as_array().unwrap();
     assert!(!results.is_empty());
 
@@ -683,7 +690,8 @@ fn coverage_returns_per_entity() {
 fn coverage_returns_all_testable_entities() {
     let mut server = test_server();
     let resp = call_tool(&mut server, "specforge.coverage", json!({}));
-    let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+    let parsed: Value =
+        serde_json::from_str::<Value>(&tool_text(&resp)).unwrap()["entities"].clone();
     let mut ids: Vec<&str> = parsed
         .as_array()
         .unwrap()
@@ -700,7 +708,8 @@ fn coverage_returns_all_testable_entities() {
         "specforge.coverage",
         json!({"entity_id": "beta_feature"}),
     );
-    let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+    let parsed: Value =
+        serde_json::from_str::<Value>(&tool_text(&resp)).unwrap()["entities"].clone();
     assert_eq!(parsed[0]["entity_id"], "beta_feature");
 }
 
@@ -713,7 +722,7 @@ fn coverage_alpha_uncovered_without_tests() {
         json!({"entity_id": "alpha"}),
     );
     let text = tool_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
+    let parsed: Value = serde_json::from_str::<Value>(&text).unwrap()["entities"].clone();
     let results = parsed.as_array().unwrap();
     assert_eq!(results.len(), 1);
     assert_eq!(results[0]["entity_id"], "alpha");
@@ -745,7 +754,8 @@ fn server_with_report(tests: &[(&str, &str)]) -> Served {
 /// `specforge.coverage`'s result for `two`.
 fn coverage_of_two(server: &mut McpServer) -> Value {
     let resp = call_tool(server, "specforge.coverage", json!({"entity_id": "two"}));
-    let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+    let parsed: Value =
+        serde_json::from_str::<Value>(&tool_text(&resp)).unwrap()["entities"].clone();
     parsed[0].clone()
 }
 
@@ -804,7 +814,8 @@ fn coverage_sees_statements_behind_a_verify_field() {
         "specforge.coverage",
         json!({"entity_id": "payload"}),
     );
-    let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+    let parsed: Value =
+        serde_json::from_str::<Value>(&tool_text(&resp)).unwrap()["entities"].clone();
     let payload = &parsed[0];
     assert_eq!(payload["declared"], true, "{payload}");
     assert_eq!(payload["obligations"], 1, "{payload}");
@@ -1685,7 +1696,8 @@ fn search_empty_query_returns_all() {
     let mut server = test_server();
     let ids = |server: &mut McpServer, args: Value| {
         let resp = call_tool(server, "specforge.search", args);
-        let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+        let parsed: Value =
+            serde_json::from_str::<Value>(&tool_text(&resp)).unwrap()["results"].clone();
         let mut ids: Vec<String> = parsed
             .as_array()
             .unwrap()
@@ -1765,7 +1777,7 @@ fn coverage_kind_filter() {
         json!({"kind": "behavior"}),
     );
     let text = tool_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
+    let parsed: Value = serde_json::from_str::<Value>(&text).unwrap()["entities"].clone();
     let results = parsed.as_array().unwrap();
     for r in results {
         assert_eq!(r["kind"], "behavior");
@@ -1786,7 +1798,8 @@ fn coverage_status_filter_restricts_status() {
             "specforge.coverage",
             json!({"status_filter": status}),
         );
-        let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+        let parsed: Value =
+            serde_json::from_str::<Value>(&tool_text(&resp)).unwrap()["entities"].clone();
         parsed
             .as_array()
             .unwrap()
@@ -1957,7 +1970,7 @@ fn search_field_value_filter() {
         json!({"query": "alpha", "field": "contract", "value": "MUST"}),
     );
     let text = tool_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
+    let parsed: Value = serde_json::from_str::<Value>(&text).unwrap()["results"].clone();
     let results = parsed.as_array().unwrap();
     assert!(!results.is_empty());
     assert_eq!(results[0]["entity_id"], "alpha");
@@ -1969,7 +1982,8 @@ fn search_field_value_filter() {
         "specforge.search",
         json!({"query": "", "field": "contract", "value": "string"}),
     );
-    let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+    let parsed: Value =
+        serde_json::from_str::<Value>(&tool_text(&resp)).unwrap()["results"].clone();
     assert_eq!(parsed, json!([]));
 }
 
@@ -1986,7 +2000,7 @@ fn search_references_filter() {
         json!({"query": "", "references": "alpha"}),
     );
     let text = tool_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
+    let parsed: Value = serde_json::from_str::<Value>(&text).unwrap()["results"].clone();
     let results = parsed.as_array().unwrap();
     // beta_feature has an edge to alpha
     assert!(results.iter().any(|r| r["entity_id"] == "beta_feature"));

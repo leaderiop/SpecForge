@@ -235,7 +235,8 @@ fn exported(view: ProjectView<'_>, query: &ViewQuery, format: Format) -> ReadOut
 
 /// `specforge://entities/{kind}`: what `specforge.list {kind}` lists, the
 /// same rows from the same read view and presenter
-/// ([`specforge_ops::query::list`], [`crate::tools::list::rows`]).
+/// ([`specforge_ops::query::list`], [`crate::tools::list::rows`]), as a bare
+/// array (a resource is not a tool result).
 pub(crate) fn entities_view(view: ProjectView<'_>, uri: &str) -> ReadOutcome {
     let (path, _) = uri.split_once('?').unwrap_or((uri, ""));
     no_query(uri)?;

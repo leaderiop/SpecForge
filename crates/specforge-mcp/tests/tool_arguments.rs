@@ -76,7 +76,7 @@ fn fact(tool: &str, result: &Value, response: &Value) -> String {
         "specforge.rename" => format!("dry_run={}", result["dry_run"]),
         "specforge.migrate" => format!("dry_run={}", result["dry_run"]),
         "specforge.query" | "specforge.export" => format!("nodes={}", count(&result["nodes"])),
-        "specforge.search" => format!("results={}", count(result)),
+        "specforge.search" => format!("results={}", count(&result["results"])),
         "specforge.validate" => {
             let verdict = &response["result"]["_meta"]["specforge/check"];
             format!(
@@ -357,9 +357,17 @@ fn a_core_tool_reads_a_value_by_its_type() {
 
     // search and list read a limit the same way.
     let found = answer("specforge.search", json!({"query": "a", "limit": "1"}));
-    assert_eq!(found.as_array().map(Vec::len), Some(1), "{found}");
+    assert_eq!(
+        found["results"].as_array().map(Vec::len),
+        Some(1),
+        "{found}"
+    );
     let listed = answer("specforge.list", json!({"limit": "1"}));
-    assert_eq!(listed.as_array().map(Vec::len), Some(1), "{listed}");
+    assert_eq!(
+        listed["entities"].as_array().map(Vec::len),
+        Some(1),
+        "{listed}"
+    );
 
     // Anything else of the wrong type is refused naming the argument.
     let error = refused("specforge.validate", json!({"strict": "yes"}));

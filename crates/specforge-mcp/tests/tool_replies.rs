@@ -5,7 +5,8 @@
 //! re-blesses its snapshot in the same commit, so the diff is the
 //! user-visible change.
 
-use serde_json::Value;
+use serde_json::{Value, json};
+use specforge_test::prelude::*;
 
 use crate::support::replies::{Observed, listed_output_schemas, read_all, undeclared, write_all};
 
@@ -75,4 +76,67 @@ fn undeclared_reply_keys_today() {
         }
     }
     insta::assert_snapshot!(lines.join("\n"));
+}
+
+/// The reply of `tool` on the fixture, whole: the call's `result`.
+fn result_of(tool: &str, arguments: Value) -> Value {
+    let mut served = crate::support::replies::reading();
+    crate::support::call_tool(&mut served, tool, arguments)["result"].clone()
+}
+
+/// `result` is an object holding `rows` under `key`, sent as the
+/// structured result as well as the text.
+fn holds_rows(result: &Value, key: &str) {
+    assert_eq!(result["isError"], false, "{result}");
+    let structured = &result["structuredContent"];
+    assert!(structured[key].is_array(), "{key}: {result}");
+    let text: Value =
+        serde_json::from_str(result["content"][0]["text"].as_str().expect("a text")).unwrap();
+    assert_eq!(&text, structured, "the text is the structured result");
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_search_tool",
+    verify = "the result is an object holding the hits as results, with structuredContent"
+)]
+fn search_answers_an_object() {
+    holds_rows(
+        &result_of("specforge.search", json!({"query": "a"})),
+        "results",
+    );
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_entities_by_kind",
+    verify = "the result is an object holding the entities"
+)]
+fn list_answers_an_object() {
+    holds_rows(&result_of("specforge.list", json!({})), "entities");
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_coverage_tool",
+    verify = "the result is an object holding the rows as entities"
+)]
+fn coverage_answers_an_object() {
+    holds_rows(&result_of("specforge.coverage", json!({})), "entities");
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_outline_tool",
+    verify = "the result is an object holding the outline as entries"
+)]
+fn outline_answers_an_object() {
+    holds_rows(
+        &result_of("specforge.outline", json!({"file": "test.spec"})),
+        "entries",
+    );
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_suggest_fixes_tool",
+    verify = "the result is an object holding the fixes"
+)]
+fn suggest_fixes_answers_an_object() {
+    holds_rows(&result_of("specforge.suggest_fixes", json!({})), "fixes");
 }
