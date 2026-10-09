@@ -9,11 +9,11 @@
 use specforge_common::{Diagnostic, Severity, codes};
 /// The migration crate's report types, as this operation's interface.
 pub use specforge_migrate::{
-    MigrationBackup, MigrationDiff, MigrationResult, MigrationStatus, MigrationSummary,
-    RollbackSummary,
+    MigrationBackup, MigrationDiff, MigrationRecord, MigrationResult, MigrationStatus,
+    MigrationSummary, RecordChange, RollbackSummary,
 };
 use specforge_migrate::{
-    check_schema_compatibility, compare_graphs, migrate_project, run_rollback,
+    check_schema_compatibility, compare_graphs, migrate_project, restore, run_rollback,
 };
 use specforge_parser::{
     CURRENT_FORMAT_VERSION, FormatVersion, MAX_SUPPORTED_VERSION, MIN_SUPPORTED_VERSION,
@@ -208,7 +208,7 @@ pub fn run(request: &Request, runtime: Option<SharedRuntime>) -> Outcome {
     outcome.hooks_invoked = invoked;
     outcome.hook_failures = failures;
     if !outcome.hook_failures.is_empty() {
-        roll_back(root, &mut outcome);
+        roll_back(&mut outcome);
         return outcome;
     }
 
@@ -219,9 +219,31 @@ pub fn run(request: &Request, runtime: Option<SharedRuntime>) -> Outcome {
     outcome.structural_differences = compare_graphs(pre.graph(), post.graph());
     outcome.post_diagnostics = post.diagnostics();
     if !outcome.structural_differences.is_empty() {
-        roll_back(root, &mut outcome);
+        roll_back(&mut outcome);
+        return outcome;
     }
+    keep_record(root, request, &mut outcome);
     outcome
+}
+
+/// A kept migration made with backups is recorded for a later `--rollback`; one made without removes
+/// the record, since a rollback after it would mix versions.
+fn keep_record(root: &Path, request: &Request, outcome: &mut Outcome) {
+    if outcome.summary.migrated_count == 0 {
+        return;
+    }
+    let record = root.join(MigrationRecord::PATH);
+    if request.no_backup {
+        if matches!(MigrationRecord::remove(root), Ok(true)) {
+            outcome.writes.record(&record);
+        }
+        return;
+    }
+    let made = MigrationRecord::of(root, &request.target, &outcome.summary.backups)
+        .and_then(|record| record.write(root));
+    if made.is_ok() {
+        outcome.writes.record(&record);
+    }
 }
 
 /// What `migrate_project` wrote: each file it migrated and each backup
@@ -236,26 +258,16 @@ fn summary_writes(summary: &MigrationSummary) -> Writes {
     migrated.chain(backups).collect()
 }
 
-/// Restore the project's files from their backups after a failed check: a
-/// file this run migrated holds its old text again and is forgotten; any
-/// other file a backup restored was rewritten, and is recorded.
-fn roll_back(root: &Path, outcome: &mut Outcome) {
-    let summary = run_rollback(root);
+/// Restore the files this run migrated, with the text it read before them (backups or not) after a
+/// failed check: each is forgotten as a write. No other file is touched.
+fn roll_back(outcome: &mut Outcome) {
+    let summary = restore(&outcome.summary.originals);
     for restored in summary
         .results
         .iter()
         .filter(|r| r.status == MigrationStatus::Restored)
     {
-        let path = Path::new(&restored.file_path);
-        let migrated_here =
-            outcome.summary.results.iter().any(|r| {
-                r.status == MigrationStatus::Migrated && r.file_path == restored.file_path
-            });
-        if migrated_here {
-            outcome.writes.forget(path);
-        } else {
-            outcome.writes.record(path);
-        }
+        outcome.writes.forget(Path::new(&restored.file_path));
     }
     outcome.rollback = Some(summary);
 }
@@ -290,7 +302,10 @@ impl RollbackOutcome {
 /// backup.
 pub fn rollback(root: &Path) -> RollbackOutcome {
     let summary = run_rollback(root);
-    let writes = restored_writes(&summary);
+    let mut writes = restored_writes(&summary);
+    if summary.record != RecordChange::Unchanged {
+        writes.record(specforge_common::project_root_of(root).join(MigrationRecord::PATH));
+    }
     RollbackOutcome { summary, writes }
 }
 

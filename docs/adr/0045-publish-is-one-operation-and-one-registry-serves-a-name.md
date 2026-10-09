@@ -81,3 +81,15 @@ A registry protocol that routes by something other than the scope (a per-package
 which would grow the rule, not add a second one; for D6, a protocol step through which the server
 can require the human's confirmation before an irreversible act (MCP elicitation), and even then
 with a dry-run default.
+
+## Amendment (architecture round 5, plan 16): where a credential comes from, and which requests carry it
+
+- `specforge login` keeps a registry's token one of three ways, per alias: a secret in the OS keyring (`--token`;
+  a 0600 file when there is no keyring), or a reference to an environment variable (`--token-env`) or a file
+  (`--token-file`). A reference resolves before any request (R010, R011).
+- A publish authenticates with `SPECFORGE_REGISTRY_TOKEN`, else the kept credential, else refuses (R001), as D4
+  says. Every read authenticates with the kept credential only: the environment token names no registry, and a
+  search asks every registry.
+- `logout --registry X` needs no `specforge.json` entry for X (D5 and 06 D6); the spec no longer says otherwise.
+- The `Registry` port also searches (`Registry::search`), so `specforge search` reaches registries the way add,
+  update and publish do (ADR 0010).

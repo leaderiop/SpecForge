@@ -7,7 +7,7 @@
 //! as a trust anchor.
 
 use specforge_protocol_types::ExtensionDeclaration;
-use specforge_registry_client::registry_config::{AuthMethod, RegistryConfig, RegistryCredential};
+use specforge_registry_client::registry_config::{RegistryConfig, RegistryCredential};
 use specforge_registry_client::{
     HttpRegistryClient, PackageSignature, SigningKey, publish_to_registry, verify_signature,
 };
@@ -41,10 +41,7 @@ fn client_of(server: &LocalRegistry) -> (RegistryConfig, RegistryCredential) {
             scope_filter: None,
             default_registry: true,
         },
-        RegistryCredential {
-            alias: "test".to_string(),
-            auth_method: AuthMethod::Bearer(server.token().to_string()),
-        },
+        RegistryCredential::new("test", server.token()),
     )
 }
 
@@ -116,6 +113,7 @@ fn a_rate_limited_publish_is_r003() {
     let server = LocalRegistry::start_with(PublishLimits {
         per_token: 1,
         per_ip: 100,
+        window: std::time::Duration::from_secs(60),
     });
     let (registry, credential) = client_of(&server);
     let key = SigningKey::generate();

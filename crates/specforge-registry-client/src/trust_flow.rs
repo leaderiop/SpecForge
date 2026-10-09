@@ -2,82 +2,91 @@
 //!
 //! Sequence per package, after sha256 integrity:
 //! 1. verify the publisher signature offline (`verify_package_signature`)
-//! 2. refuse unsigned packages unless `--allow-unsigned`
+//! 2. refuse unsigned packages unless `--allow-unsigned` (accepting one is W155)
 //! 3. refuse keys on the deny list (config-level revocation)
 //! 4. TOFU: pin on first install; on later installs require a match —
-//!    a mismatch is a key change, resolved interactively (`--yes` for CI)
+//!    a mismatch is a key change, accepted when the key is on `trusted_keys`
+//!    or when the caller's `decide` says so (accepting one is W156)
 //! 5. operator allowlist (`trusted_keys`) accepts a key without a prior pin
 //!    and re-pins it
+//!
+//! The flow writes nothing to the terminal and reads nothing from it: what it
+//! accepted is data ([`Accepted`]), what a user should hear is a diagnostic
+//! ([`Trusted::diagnostics`]), and the question of a key change is the
+//! caller's `decide`.
 
 use crate::{KnownKeys, TrustCheck, verify_package_signature};
 use specforge_registry_wire::PackageMetadata;
-use std::io::Write;
 use std::path::Path;
 
 use specforge_common::{Diagnostic, codes};
 
-/// How a key change in a signed package is decided, and whether the flow
-/// speaks: whether to prompt is the policy, not an output format.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum TrustPolicy {
-    /// Refuse it, quietly: a surface nobody can be asked on (MCP,
-    /// `--format json`).
-    Refuse,
-    /// Accept it (`--yes`).
-    AssumeYes,
-    /// Ask on the terminal, refusing when there is none.
-    Prompt,
+/// A signed package whose key is not the one pinned for its name.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct KeyChange {
+    pub package: String,
+    pub pinned: String,
+    pub offered: String,
 }
 
-impl TrustPolicy {
-    /// Whether the flow says what it did on stderr (an unsigned package
-    /// accepted, a key pinned or re-pinned).
-    fn announces(self) -> bool {
-        self != TrustPolicy::Refuse
-    }
+/// What the trust check accepted.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Accepted {
+    /// No signature; `allow_unsigned`. Reported as W155.
+    Unsigned,
+    /// Signed by `key_id`; `pinned_now` when no pin existed and this check made it (trust on first use).
+    Signed { key_id: String, pinned_now: bool },
+    /// Signed by `key_id`, re-pinned from `previous` with consent (`trusted_keys`, or `decide`). Reported
+    /// as W156.
+    Repinned { key_id: String, previous: String },
 }
 
-/// Outcome of the trust flow: the key id to record in the lockfile (if any).
+/// The checked package's trust, and what it reports (W155, W156).
 #[derive(Debug)]
-pub struct TrustOutcome {
-    pub key_id: Option<String>,
+pub struct Trusted {
+    pub accepted: Accepted,
+    pub diagnostics: Vec<Diagnostic>,
 }
 
-/// Run the verification + TOFU flow for a downloaded registry package.
+/// Verify `metadata`'s publisher signature over `wasm`, then apply the pin store at `known_keys` (trust on
+/// first use). A key change is accepted when the key is on `trusted_keys`, else when `decide` says so;
+/// refused with R-TRUST-003 otherwise. Writes nothing but the pin store.
 ///
-/// `known_keys` is the file the user's pins live in (the user's
-/// `known-keys.json`): the caller says whose, so a test never reads or writes
-/// the real one.
+/// `known_keys` is the file the user's pins live in (the user's `known-keys.json`): the caller says
+/// whose, so a test never reads or writes the real one.
 pub fn check_and_pin(
     name: &str,
-    response: &PackageMetadata,
+    metadata: &PackageMetadata,
     wasm_bytes: &[u8],
     allow_unsigned: bool,
-    policy: TrustPolicy,
+    decide: &dyn Fn(&KeyChange) -> bool,
     known_keys: &Path,
-) -> Result<TrustOutcome, Diagnostic> {
-    let unsigned = |message: String, suggestion: Option<String>| {
-        let mut diagnostic = Diagnostic::new(codes::R_TRUST_001, message);
-        diagnostic.suggestion = suggestion;
-        diagnostic
-    };
-
-    match verify_package_signature(response, wasm_bytes)? {
+) -> Result<Trusted, Diagnostic> {
+    match verify_package_signature(metadata, wasm_bytes)? {
         TrustCheck::Unsigned => {
-            if allow_unsigned {
-                if policy.announces() {
-                    eprintln!(
-                        "warning: installing UNSIGNED package '{}' (--allow-unsigned)",
-                        name
-                    );
-                }
-                Ok(TrustOutcome { key_id: None })
-            } else {
-                Err(unsigned(
-                    format!("package '{}' is not signed", name),
-                    Some("re-run with --allow-unsigned to accept the risk".to_string()),
-                ))
+            if !allow_unsigned {
+                return Err(Diagnostic::new(
+                    codes::R_TRUST_001,
+                    format!("package '{name}' is not signed"),
+                )
+                .with_suggestion("re-run with --allow-unsigned to accept the risk".to_string()));
             }
+            Ok(Trusted {
+                accepted: Accepted::Unsigned,
+                diagnostics: vec![
+                    Diagnostic::new(
+                        codes::W155,
+                        format!(
+                            "{name} {} is not signed, and was installed because --allow-unsigned was given",
+                            metadata.version
+                        ),
+                    )
+                    .with_suggestion(
+                        "ask the publisher to sign it (specforge publish signs every package)"
+                            .to_string(),
+                    ),
+                ],
+            })
         }
         TrustCheck::Verified { key_id } => {
             let mut known = load_known_keys_at(known_keys);
@@ -103,23 +112,29 @@ pub fn check_and_pin(
                 None => {
                     known.pin(name, &key_id);
                     save(&known, known_keys)?;
-                    if policy.announces() {
-                        eprintln!("key pinned for '{}': {}", name, key_id);
-                    }
-                    Ok(TrustOutcome {
-                        key_id: Some(key_id),
+                    Ok(Trusted {
+                        accepted: Accepted::Signed {
+                            key_id,
+                            pinned_now: true,
+                        },
+                        diagnostics: Vec::new(),
                     })
                 }
-                Some(pinned) if pinned == key_id => Ok(TrustOutcome {
-                    key_id: Some(key_id),
+                Some(pinned) if pinned == key_id => Ok(Trusted {
+                    accepted: Accepted::Signed {
+                        key_id,
+                        pinned_now: false,
+                    },
+                    diagnostics: Vec::new(),
                 }),
                 // Key change: the pin and the new signature disagree.
                 Some(pinned) => {
-                    let trusted = known.is_trusted(&key_id);
-                    let accepted = trusted
-                        || policy == TrustPolicy::AssumeYes
-                        || prompt_accept(name, &pinned, &key_id, policy);
-                    if !accepted {
+                    let change = KeyChange {
+                        package: name.to_string(),
+                        pinned: pinned.clone(),
+                        offered: key_id.clone(),
+                    };
+                    if !known.is_trusted(&key_id) && !decide(&change) {
                         return Err(Diagnostic::new(
                             codes::R_TRUST_003,
                             format!(
@@ -134,11 +149,22 @@ pub fn check_and_pin(
                     }
                     known.pin(name, &key_id);
                     save(&known, known_keys)?;
-                    if policy.announces() {
-                        eprintln!("re-pinned key for '{}': {} -> {}", name, pinned, key_id);
-                    }
-                    Ok(TrustOutcome {
-                        key_id: Some(key_id),
+                    let diagnostic = Diagnostic::new(
+                        codes::W156,
+                        format!(
+                            "the publisher key of {name} changed from {pinned} to {key_id}, and the new key is now pinned"
+                        ),
+                    )
+                    .with_suggestion(
+                        "confirm the change with the publisher if you did not expect it"
+                            .to_string(),
+                    );
+                    Ok(Trusted {
+                        accepted: Accepted::Repinned {
+                            key_id,
+                            previous: pinned,
+                        },
+                        diagnostics: vec![diagnostic],
                     })
                 }
             }
@@ -151,28 +177,6 @@ fn save(known: &KnownKeys, path: &Path) -> Result<(), Diagnostic> {
         Diagnostic::new(codes::R_TRUST_006, message)
             .with_suggestion("check permissions on the file".to_string())
     })
-}
-
-/// Ask the human to accept a key change. Refusal is the default.
-fn prompt_accept(name: &str, old: &str, new: &str, policy: TrustPolicy) -> bool {
-    use std::io::IsTerminal;
-    if policy != TrustPolicy::Prompt || !std::io::stdin().is_terminal() {
-        // Non-interactive (nobody to ask, or no human at stdin — CI,
-        // pipes): never prompt; blocking on a pipe that never answers
-        // would hang.
-        return false;
-    }
-    eprintln!(
-        "KEY CHANGE for '{}': pinned '{}' but new package is signed '{}'",
-        name, old, new
-    );
-    eprint!("trust the new key and re-pin? [y/N] ");
-    let _ = std::io::stderr().flush();
-    let mut answer = String::new();
-    if std::io::stdin().read_line(&mut answer).is_err() {
-        return false;
-    }
-    matches!(answer.trim().to_ascii_lowercase().as_str(), "y" | "yes")
 }
 
 // Re-exported so callers can hit the same store paths in tests.
@@ -229,15 +233,22 @@ mod tests {
         Path::new("unused-known-keys.json")
     }
 
+    fn never(_: &KeyChange) -> bool {
+        false
+    }
+
+    fn always(_: &KeyChange) -> bool {
+        true
+    }
+
     #[test]
     fn unsigned_package_is_refused_without_flag() {
-        let response = unsigned_response();
         let err = check_and_pin(
             "@acme/tool",
-            &response,
+            &unsigned_response(),
             WASM,
             false,
-            TrustPolicy::Prompt,
+            &always,
             no_store(),
         )
         .unwrap_err();
@@ -250,18 +261,20 @@ mod tests {
     }
 
     #[test]
-    fn unsigned_package_passes_with_flag_and_no_pin() {
-        let response = unsigned_response();
-        let outcome = check_and_pin(
+    fn unsigned_package_passes_with_flag_and_no_pin_and_is_w155() {
+        let trusted = check_and_pin(
             "@acme/tool",
-            &response,
+            &unsigned_response(),
             WASM,
             true,
-            TrustPolicy::Prompt,
+            &never,
             no_store(),
         )
         .unwrap();
-        assert!(outcome.key_id.is_none());
+        assert_eq!(trusted.accepted, Accepted::Unsigned);
+        assert_eq!(trusted.diagnostics.len(), 1);
+        assert_eq!(trusted.diagnostics[0].code, "W155");
+        assert!(trusted.diagnostics[0].message.contains("@acme/tool 1.0.0"));
     }
 
     #[test]
@@ -271,92 +284,73 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let store = dir.path().join("known-keys.json");
 
-        let outcome = check_and_pin(
-            "@acme/tool",
-            &response,
-            WASM,
-            false,
-            TrustPolicy::Prompt,
-            &store,
-        )
-        .unwrap();
-        assert_eq!(outcome.key_id.as_deref(), Some(key.key_id().as_str()));
+        let trusted = check_and_pin("@acme/tool", &response, WASM, false, &never, &store).unwrap();
+        assert_eq!(
+            trusted.accepted,
+            Accepted::Signed {
+                key_id: key.key_id(),
+                pinned_now: true
+            }
+        );
+        assert!(trusted.diagnostics.is_empty());
 
         let known = load_known_keys_at(&store);
         assert_eq!(known.pin_for("@acme/tool"), Some(key.key_id().as_str()));
     }
 
     #[test]
-    fn matching_pin_accepts_without_reprompt() {
+    fn matching_pin_accepts_without_asking() {
         let key = SigningKey::generate();
         let response = signed_response(&key, MANIFEST, WASM);
         let dir = tempfile::tempdir().unwrap();
         let store = dir.path().join("known-keys.json");
 
-        check_and_pin(
-            "@acme/tool",
-            &response,
-            WASM,
-            false,
-            TrustPolicy::Prompt,
-            &store,
-        )
-        .unwrap();
+        check_and_pin("@acme/tool", &response, WASM, false, &never, &store).unwrap();
         // Second install of the same package/key: accepted, pin unchanged.
-        let outcome = check_and_pin(
-            "@acme/tool",
-            &response,
-            WASM,
-            false,
-            TrustPolicy::Prompt,
-            &store,
-        )
-        .unwrap();
-        assert_eq!(outcome.key_id.as_deref(), Some(key.key_id().as_str()));
+        let trusted = check_and_pin("@acme/tool", &response, WASM, false, &never, &store).unwrap();
+        assert_eq!(
+            trusted.accepted,
+            Accepted::Signed {
+                key_id: key.key_id(),
+                pinned_now: false
+            }
+        );
     }
 
     #[test]
-    fn key_change_without_consent_is_refused() {
+    fn a_key_change_is_decided_by_decide_and_reported_as_w156() {
         let key_a = SigningKey::generate();
         let key_b = SigningKey::generate();
         let dir = tempfile::tempdir().unwrap();
         let store = dir.path().join("known-keys.json");
 
         let first = signed_response(&key_a, MANIFEST, WASM);
-        check_and_pin(
-            "@acme/tool",
-            &first,
-            WASM,
-            false,
-            TrustPolicy::Prompt,
-            &store,
-        )
-        .unwrap();
+        check_and_pin("@acme/tool", &first, WASM, false, &never, &store).unwrap();
 
-        // Different key signs the same package: non-interactive refusal.
+        // Different key signs the same package: refused when nobody consents.
         let second = signed_response(&key_b, MANIFEST, WASM);
-        let err = check_and_pin(
-            "@acme/tool",
-            &second,
-            WASM,
-            false,
-            TrustPolicy::Prompt,
-            &store,
-        )
-        .unwrap_err();
+        let err = check_and_pin("@acme/tool", &second, WASM, false, &never, &store).unwrap_err();
         assert_eq!(err.code, "R-TRUST-003");
 
-        // assume_yes accepts and re-pins.
-        let outcome = check_and_pin(
-            "@acme/tool",
-            &second,
-            WASM,
-            false,
-            TrustPolicy::AssumeYes,
-            &store,
-        )
-        .unwrap();
-        assert_eq!(outcome.key_id.as_deref(), Some(key_b.key_id().as_str()));
+        // The asker sees both keys; yes accepts and re-pins.
+        let asked = |change: &KeyChange| {
+            assert_eq!(change.package, "@acme/tool");
+            assert_eq!(change.pinned, key_a.key_id());
+            assert_eq!(change.offered, key_b.key_id());
+            true
+        };
+        let trusted = check_and_pin("@acme/tool", &second, WASM, false, &asked, &store).unwrap();
+        assert_eq!(
+            trusted.accepted,
+            Accepted::Repinned {
+                key_id: key_b.key_id(),
+                previous: key_a.key_id()
+            }
+        );
+        assert_eq!(trusted.diagnostics.len(), 1);
+        assert_eq!(trusted.diagnostics[0].code, "W156");
+        assert!(trusted.diagnostics[0].message.contains(&key_a.key_id()));
+        assert!(trusted.diagnostics[0].message.contains(&key_b.key_id()));
         let known = load_known_keys_at(&store);
         assert_eq!(known.pin_for("@acme/tool"), Some(key_b.key_id().as_str()));
     }
@@ -373,16 +367,8 @@ mod tests {
         save_known_keys_at(&store, &known).unwrap();
 
         let response = signed_response(&key, MANIFEST, WASM);
-        let outcome = check_and_pin(
-            "@acme/tool",
-            &response,
-            WASM,
-            false,
-            TrustPolicy::Prompt,
-            &store,
-        )
-        .unwrap();
-        assert_eq!(outcome.key_id.as_deref(), Some(key.key_id().as_str()));
+        let trusted = check_and_pin("@acme/tool", &response, WASM, false, &never, &store).unwrap();
+        assert!(matches!(trusted.accepted, Accepted::Signed { .. }));
     }
 
     #[test]
@@ -397,15 +383,7 @@ mod tests {
         save_known_keys_at(&store, &known).unwrap();
 
         let response = signed_response(&key, MANIFEST, WASM);
-        let err = check_and_pin(
-            "@acme/tool",
-            &response,
-            WASM,
-            false,
-            TrustPolicy::Prompt,
-            &store,
-        )
-        .unwrap_err();
+        let err = check_and_pin("@acme/tool", &response, WASM, false, &always, &store).unwrap_err();
         assert_eq!(err.code, "R-TRUST-005");
     }
 
@@ -419,57 +397,9 @@ mod tests {
         let tampered: &[u8] = b"\0asm-evil";
 
         // No --allow-unsigned escape for broken signatures.
-        let err = check_and_pin(
-            "@acme/tool",
-            &response,
-            tampered,
-            true,
-            TrustPolicy::Prompt,
-            &store,
-        )
-        .unwrap_err();
+        let err =
+            check_and_pin("@acme/tool", &response, tampered, true, &always, &store).unwrap_err();
         assert_eq!(err.code, "R-TRUST-002");
-    }
-
-    /// The three policies decide as the flag combinations did: `Refuse`
-    /// (JSON output) and `Prompt` (no terminal here) refuse a key change,
-    /// `AssumeYes` accepts and re-pins it; an unsigned package passes under
-    /// `--allow-unsigned` whatever the policy.
-    #[test]
-    fn each_policy_decides_a_key_change_as_its_flags_did() {
-        let key_a = SigningKey::generate();
-        let key_b = SigningKey::generate();
-        for (policy, accepts) in [
-            (TrustPolicy::Refuse, false),
-            (TrustPolicy::Prompt, false),
-            (TrustPolicy::AssumeYes, true),
-        ] {
-            let dir = tempfile::tempdir().unwrap();
-            let store = dir.path().join("known-keys.json");
-            let first = signed_response(&key_a, MANIFEST, WASM);
-            check_and_pin("@acme/tool", &first, WASM, false, policy, &store).unwrap();
-
-            let second = signed_response(&key_b, MANIFEST, WASM);
-            let decided = check_and_pin("@acme/tool", &second, WASM, false, policy, &store);
-
-            match (accepts, decided) {
-                (true, Ok(outcome)) => {
-                    assert_eq!(outcome.key_id.as_deref(), Some(key_b.key_id().as_str()))
-                }
-                (false, Err(err)) => assert_eq!(err.code, "R-TRUST-003", "{policy:?}"),
-                (accepts, decided) => panic!("{policy:?}: accepts {accepts}: {decided:?}"),
-            }
-
-            let unsigned = check_and_pin(
-                "@acme/tool",
-                &unsigned_response(),
-                WASM,
-                true,
-                policy,
-                no_store(),
-            );
-            assert!(unsigned.unwrap().key_id.is_none(), "{policy:?}");
-        }
     }
 
     // Keep the unused import referenced when hex is only used in helpers.

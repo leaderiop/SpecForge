@@ -1,7 +1,5 @@
 #![allow(clippy::result_large_err)]
 
-use std::collections::HashSet;
-
 use sha2::{Digest, Sha256};
 use specforge_common::{Diagnostic, codes};
 
@@ -9,52 +7,13 @@ use super::registry_client::{RegistryClient, RegistryError};
 use super::registry_config::{RegistryConfig, RegistryCredential};
 use specforge_protocol_types::ExtensionDeclaration;
 use specforge_protocol_types::package::Version;
-use specforge_registry_wire::{PackageMetadata, SearchHit};
+use specforge_registry_wire::PackageMetadata;
 
 /// Compute the hex-encoded SHA256 digest of the given data.
 fn hex_sha256(data: &[u8]) -> String {
     let mut hasher = Sha256::new();
     hasher.update(data);
     format!("{:x}", hasher.finalize())
-}
-
-/// Search ALL configured registries, dedup by name+version, sort by name.
-///
-/// Errors from individual registries are collected but do not abort the search.
-pub fn search_registries(
-    query: &str,
-    registries: &[RegistryConfig],
-    client: &dyn RegistryClient,
-) -> (Vec<SearchHit>, Vec<Diagnostic>) {
-    let mut all_results = Vec::new();
-    let mut diagnostics = Vec::new();
-    let mut seen = HashSet::new();
-
-    for registry in registries {
-        match client.search(query, registry) {
-            Ok(results) => {
-                for result in results {
-                    let key = (result.name.clone(), result.version.clone());
-                    if seen.insert(key) {
-                        all_results.push(result);
-                    }
-                }
-            }
-            Err(e) => {
-                let mut diag = e.to_diagnostic();
-                diag.message = format!(
-                    "Search failed on registry '{}': {}",
-                    registry.alias, diag.message
-                );
-                diagnostics.push(diag);
-            }
-        }
-    }
-
-    // Sort deterministically by name, then version
-    all_results.sort_by(|a, b| a.name.cmp(&b.name).then_with(|| a.version.cmp(&b.version)));
-
-    (all_results, diagnostics)
 }
 
 /// Publish to a registry, optionally signing the package.

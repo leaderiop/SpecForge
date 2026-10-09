@@ -9,7 +9,7 @@ use specforge_registry_wire::{
 };
 
 use super::registry_client::{RegistryClient, RegistryError};
-use super::registry_config::{AuthMethod, RegistryConfig, RegistryCredential};
+use super::registry_config::{RegistryConfig, RegistryCredential};
 use specforge_protocol_types::package::Version;
 use specforge_protocol_types::{ExtensionDeclaration, PackageName};
 
@@ -56,22 +56,6 @@ impl HttpRegistryClient {
             }
         })
     }
-
-    pub(crate) fn resolve_token(credential: &RegistryCredential) -> Result<String, RegistryError> {
-        match &credential.auth_method {
-            AuthMethod::Bearer(token) => Ok(token.clone()),
-            AuthMethod::TokenEnvVar(var) => {
-                std::env::var(var).map_err(|_| RegistryError::Unauthorized {
-                    guidance: format!("environment variable '{}' not set", var),
-                })
-            }
-            AuthMethod::TokenFile(path) => std::fs::read_to_string(path)
-                .map(|s| s.trim().to_string())
-                .map_err(|_| RegistryError::Unauthorized {
-                    guidance: format!("cannot read token file '{}'", path.display()),
-                }),
-        }
-    }
 }
 
 impl Default for HttpRegistryClient {
@@ -85,9 +69,10 @@ impl RegistryClient for HttpRegistryClient {
         &self,
         name: &PackageName,
         registry: &RegistryConfig,
+        credential: Option<&RegistryCredential>,
     ) -> Result<Vec<String>, RegistryError> {
         let url = format!("{}{}", Self::base_url(registry), path::package(name));
-        let resp = self.send(self.client.get(&url), &url)?;
+        let resp = self.send(authorized(self.client.get(&url), credential), &url)?;
         match resp.status() {
             StatusCode::OK => {
                 let body: VersionList = resp.json().map_err(|e| RegistryError::NetworkError {
@@ -104,10 +89,11 @@ impl RegistryClient for HttpRegistryClient {
         name: &PackageName,
         version: &Version,
         registry: &RegistryConfig,
+        credential: Option<&RegistryCredential>,
     ) -> Result<PackageMetadata, RegistryError> {
         let base = Self::base_url(registry);
         let url = format!("{base}{}", path::version(name, version));
-        let resp = self.send(self.client.get(&url), &url)?;
+        let resp = self.send(authorized(self.client.get(&url), credential), &url)?;
         match resp.status() {
             StatusCode::OK => {
                 let mut body: PackageMetadata =
@@ -125,8 +111,15 @@ impl RegistryClient for HttpRegistryClient {
         }
     }
 
-    fn download(&self, wasm_url: &str) -> Result<Vec<u8>, RegistryError> {
-        let resp = self.send(self.client.get(wasm_url), wasm_url)?;
+    fn download(
+        &self,
+        wasm_url: &str,
+        registry: &RegistryConfig,
+        credential: Option<&RegistryCredential>,
+    ) -> Result<Vec<u8>, RegistryError> {
+        // The registry's token goes to the registry, not to wherever it points a download.
+        let credential = credential.filter(|_| same_origin(wasm_url, &Self::base_url(registry)));
+        let resp = self.send(authorized(self.client.get(wasm_url), credential), wasm_url)?;
         match resp.status() {
             StatusCode::OK => {
                 resp.bytes()
@@ -141,16 +134,17 @@ impl RegistryClient for HttpRegistryClient {
 
     fn search(
         &self,
-        query: &str,
+        query: &SearchQuery,
         registry: &RegistryConfig,
+        credential: Option<&RegistryCredential>,
     ) -> Result<Vec<SearchHit>, RegistryError> {
         let url = format!(
             "{}{}?{}",
             Self::base_url(registry),
             path::SEARCH,
-            SearchQuery::new(query).to_query_string()
+            query.to_query_string()
         );
-        let resp = self.send(self.client.get(&url), &url)?;
+        let resp = self.send(authorized(self.client.get(&url), credential), &url)?;
         match resp.status() {
             StatusCode::OK => {
                 let body: SearchResults = resp.json().map_err(|e| RegistryError::NetworkError {
@@ -158,7 +152,7 @@ impl RegistryClient for HttpRegistryClient {
                 })?;
                 Ok(body.results)
             }
-            _ => Err(failure_of(resp, query)),
+            _ => Err(failure_of(resp, &query.q)),
         }
     }
 
@@ -204,8 +198,7 @@ impl RegistryClient for HttpRegistryClient {
             .header(CONTENT_TYPE, form::content_type(&boundary))
             .body(body);
         if let Some(credential) = credential {
-            let token = Self::resolve_token(credential)?;
-            request = request.header(AUTHORIZATION, format!("Bearer {}", token));
+            request = request.header(AUTHORIZATION, format!("Bearer {}", credential.token()));
         }
 
         let resp = self.send(request, &url)?;
@@ -224,12 +217,11 @@ impl RegistryClient for HttpRegistryClient {
         registry: &RegistryConfig,
         credential: &RegistryCredential,
     ) -> Result<Option<String>, RegistryError> {
-        let token = Self::resolve_token(credential)?;
         let url = format!("{}{}", Self::base_url(registry), path::AUTH_VERIFY);
         let request = self
             .client
             .post(&url)
-            .header(AUTHORIZATION, format!("Bearer {}", token))
+            .header(AUTHORIZATION, format!("Bearer {}", credential.token()))
             .header(CONTENT_TYPE, "application/json")
             .body("{}");
         let resp = self.send(request, &url)?;
@@ -242,6 +234,26 @@ impl RegistryClient for HttpRegistryClient {
             }
             _ => Err(failure_of(resp, &registry.url)),
         }
+    }
+}
+
+/// `request` with `credential` as its bearer token, when there is one.
+fn authorized(request: RequestBuilder, credential: Option<&RegistryCredential>) -> RequestBuilder {
+    match credential {
+        Some(credential) => request.header(AUTHORIZATION, format!("Bearer {}", credential.token())),
+        None => request,
+    }
+}
+
+/// Whether `url` has `base`'s origin: the same scheme, host and port.
+fn same_origin(url: &str, base: &str) -> bool {
+    match (reqwest::Url::parse(url), reqwest::Url::parse(base)) {
+        (Ok(a), Ok(b)) => {
+            a.scheme() == b.scheme()
+                && a.host_str() == b.host_str()
+                && a.port_or_known_default() == b.port_or_known_default()
+        }
+        _ => false,
     }
 }
 
@@ -328,6 +340,19 @@ mod tests {
     use super::*;
 
     const NOW: SystemTime = SystemTime::UNIX_EPOCH;
+
+    #[specforge_test_macros::test(
+        behavior = "support_private_registries",
+        verify = "a download from another origin carries no credential"
+    )]
+    fn a_download_elsewhere_carries_no_credential() {
+        let base = "http://a:1/v1";
+        assert!(same_origin("http://a:1/v1/packages/x/download", base));
+        assert!(!same_origin("http://b:1/v1/packages/x/download", base));
+        assert!(!same_origin("https://a:1/v1/packages/x/download", base));
+        assert!(!same_origin("http://a:2/v1/packages/x/download", base));
+        assert!(!same_origin("not a url", base));
+    }
 
     fn error_body(message: &str) -> String {
         serde_json::to_string(&ErrorBody::new("ANY", message)).unwrap()

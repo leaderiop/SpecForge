@@ -889,7 +889,7 @@ expression: "digest(&load(&runtime, &[name]))"
       "edge_peer_kind": null,
       "edge_type": null,
       "field": null,
-      "message_template": "refinement '{id}' is not referenced — it may be orphaned",
+      "message_template": "refinement '{id}' is not referenced by any entity — it may be unused",
       "owner": "@specforge/formal",
       "severity": "Warning",
       "target_kind": "refinement",

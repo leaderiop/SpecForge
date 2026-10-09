@@ -41,13 +41,13 @@ feature se_validation_suite "Software Validation Suite" {
   status   done
   problem  """
     Without domain-specific validation rules, the compiler can only
-    perform structural checks. Orphan entities, unverified testables,
+    perform structural checks. Unreferenced entities, unverified testables,
     invalid trigger references, and type annotation errors go undetected.
     Users receive no warnings about specification quality issues.
   """
   solution """
     Declarative validation rules (W001-W005, W007-W010, E051, E004)
-    detect common specification quality issues: orphan entities without
+    detect common specification quality issues: unreferenced entities without
     incoming edges, testable entities without verify statements, invalid
     event triggers, features with empty behavior lists, unknown field
     annotations, unenforced invariants, and invalid verify kinds for entity

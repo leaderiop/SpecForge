@@ -2,6 +2,7 @@
 //! client's contract run, the configured registry's (ADR 0044).
 
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use axum::extract::{Request, State};
 use axum::middleware::Next;
@@ -10,7 +11,7 @@ use specforge_registry_wire::PackageMetadata;
 use tempfile::TempDir;
 
 use crate::db::PackageVersion;
-use crate::state::{AppState, PublishLimits};
+use crate::state::{AppState, PublishLimits, ReadAccess};
 use crate::{auth, handlers};
 
 /// The registry server on a free local port, with an empty store and one publisher token, serving until
@@ -33,12 +34,30 @@ impl LocalRegistry {
         Self::start_with(PublishLimits {
             per_token: 100,
             per_ip: 100,
+            window: Duration::from_secs(60),
         })
     }
 
     pub fn start_with(limits: PublishLimits) -> Self {
+        Self::start_as(limits, ReadAccess::Public)
+    }
+
+    /// [`LocalRegistry::start`] for a registry that requires a token to read (`serve --private`).
+    pub fn start_private() -> Self {
+        Self::start_as(
+            PublishLimits {
+                per_token: 100,
+                per_ip: 100,
+                window: Duration::from_secs(60),
+            },
+            ReadAccess::Token,
+        )
+    }
+
+    fn start_as(limits: PublishLimits, read_access: ReadAccess) -> Self {
         let data = TempDir::new().expect("a temporary data directory");
-        let state = Arc::new(AppState::open(data.path(), limits).expect("an empty registry"));
+        let state =
+            Arc::new(AppState::open(data.path(), limits, read_access).expect("an empty registry"));
         let token = auth::create_token(&state.database, None, "publisher", Some(1), false);
         let requests = Arc::new(Mutex::new(Vec::new()));
         let app = handlers::router(Arc::clone(&state)).layer(axum::middleware::from_fn_with_state(

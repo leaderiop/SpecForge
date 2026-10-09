@@ -315,7 +315,7 @@ type KindRegistryEntry {
   supports_verify      boolean
   // Subset of extension verify_kinds allowed on this entity kind; empty = all allowed
   allowed_verify_kinds string[] @optional
-  // Orphan checking handled by extension validation_rules (e.g. no_incoming_edges pattern)
+  // Unreferenced checking handled by extension validation_rules (e.g. no_incoming_edges pattern)
   semantic_token       string   @optional
   lsp_icon             string   @optional
   dot_shape            string   @optional

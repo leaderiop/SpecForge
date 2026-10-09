@@ -19,7 +19,8 @@ pub fn run(
             return Refusal::of(format).report(&error);
         }
     };
-    let registry = ConfiguredRegistry::for_project(path, "add");
+    let registry =
+        ConfiguredRegistry::for_project(path, "add").asking(crate::trust::ask_key_change);
     let runtime = specforge_component::ComponentRuntime::with_user_cache();
     let request = AddRequest {
         root: path,
@@ -30,7 +31,7 @@ pub fn run(
     };
     let added = extension::add(&request, &registry, &runtime);
     // What reading the registry configuration reported, once the add asked a registry.
-    format.eprint_diagnostics(registry.reported());
+    format.eprint_diagnostics(&registry.reported());
     match added {
         Ok(added) => {
             present(&added.outcome, &added.writes.names_under(path), format);
@@ -82,7 +83,7 @@ fn present(outcome: &AddOutcome, files_written: &[String], format: OutputFormat)
                 name,
                 version,
                 sha256,
-                key_id,
+                publisher,
                 origin,
             },
             OutputFormat::Json,
@@ -98,7 +99,12 @@ fn present(outcome: &AddOutcome, files_written: &[String], format: OutputFormat)
                 Origin::Installed { source } if !source.is_registry() => {
                     output["source"] = json!(source.to_string());
                 }
-                _ => output["key_id"] = json!(key_id),
+                _ => {
+                    output["key_id"] = json!(publisher.as_ref().and_then(|p| p.key_id()));
+                    if let Some(publisher) = publisher {
+                        output["publisher"] = json!(publisher.as_str());
+                    }
+                }
             }
             print_json(output);
         }
@@ -106,7 +112,7 @@ fn present(outcome: &AddOutcome, files_written: &[String], format: OutputFormat)
             AddOutcome::Installed {
                 name,
                 version,
-                key_id,
+                publisher,
                 origin,
                 ..
             },
@@ -117,9 +123,8 @@ fn present(outcome: &AddOutcome, files_written: &[String], format: OutputFormat)
             }
             _ => {
                 println!("installed {} v{}", name, version);
-                match key_id {
-                    Some(key_id) => println!("  signed by key: {}", key_id),
-                    None => println!("  unsigned"),
+                if let Some(publisher) = publisher {
+                    println!("  {}", publisher_line(publisher));
                 }
             }
         },
@@ -140,4 +145,20 @@ fn present(outcome: &AddOutcome, files_written: &[String], format: OutputFormat)
 
 fn print_json(value: serde_json::Value) {
     println!("{}", serde_json::to_string_pretty(&value).unwrap());
+}
+
+/// How the install's publisher is told on the human surface.
+pub(crate) fn publisher_line(publisher: &specforge_ops::registry::Publisher) -> String {
+    use specforge_ops::registry::Publisher;
+    match publisher {
+        Publisher::Unsigned => "unsigned".to_string(),
+        Publisher::Signed {
+            key_id,
+            first_use: true,
+        } => format!("signed by key: {key_id} (pinned on first use)"),
+        Publisher::Signed { key_id, .. } => format!("signed by key: {key_id}"),
+        Publisher::Repinned { key_id, previous } => {
+            format!("signed by key: {key_id} (re-pinned; was {previous})")
+        }
+    }
 }

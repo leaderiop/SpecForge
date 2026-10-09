@@ -93,7 +93,7 @@ From the project's [principles](../../vision/principles.md):
 > to work with than a page of prose." You never need full coverage to get value.
 
 > **Validation is the value.** "What separates SpecForge from a fancy comment format is the
-> compiler." It catches dangling references, orphans, missing test coverage, cycles, and
+> compiler." It catches dangling references, unreferenced entities, missing test coverage, cycles, and
 > contradictions — every error caught at compile time is a round-trip saved with an agent.
 
 The practical consequence, which we'll repeat throughout: **maximize edges.** A behavior
@@ -262,7 +262,7 @@ Read it like a pair programmer: **code** (`E003`), **message** (unresolved refer
 | Level | Symbol | Meaning |
 |-------|--------|---------|
 | Error | `E003` | Blocks compilation. Must fix. |
-| Warning | `W001` | A likely problem (orphan, missing coverage). Doesn't block. |
+| Warning | `W001` | A likely problem (unreferenced, missing coverage). Doesn't block. |
 | Info | `I010` | Advice. Always reported; `--severity info` shows only it. |
 
 Use `specforge check --strict` in CI to treat warnings as errors.
@@ -706,13 +706,13 @@ behavior create_task "Create a Task" {
 ```
 
 Once behaviors reference the types, ports, events, and invariants, the earlier `W002`
-orphan warnings disappear. **The graph is now connected.**
+unreferenced warnings disappear. **The graph is now connected.**
 
 ### Step 6 — Product layer
 
 Add the `feature`, `persona`, `channel`, `journey`, `module`, `milestone`, `deliverable`,
 and `term` (see `spec/features/` and `spec/product/` in the example). The behaviors already
-point up to `task_management` via `features [...]`, so the feature isn't an orphan.
+point up to `task_management` via `features [...]`, so the feature isn't an unreferenced.
 
 ### Step 7 — Governance & formal taste
 
@@ -758,7 +758,7 @@ KB of JSON, is what replaces an agent's expensive codebase exploration.
 You can now author and validate real specs. To go from competent to expert:
 
 - **[Best Practices](spec-best-practices.md)** — the prescriptive rules (maximize edges,
-  RFC 2119, one-concept-per-entity, naming) and **named anti-patterns** (God entity, orphan
+  RFC 2119, one-concept-per-entity, naming) and **named anti-patterns** (God entity, unreferenced
   node, prose-only behavior, stringly-typed status) with fixes.
 - **[Cookbook](spec-cookbook.md)** — copy-paste recipes for common modeling tasks.
 - **[Troubleshooting](spec-troubleshooting.md)** — every common diagnostic code, what

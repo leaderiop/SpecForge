@@ -202,10 +202,10 @@ fn min_without_the_coverage_pass_exits_2_with_e068() {
 }
 
 #[specforge_test(
-    behavior = "te_orphaned_test_records",
+    behavior = "te_stray_test_records",
     verify = "an unknown entity in a test record warns W097 with a close-match hint and does not fail the run"
 )]
-fn orphaned_test_records_warn_with_suggestion() {
+fn stray_test_records_warn_with_suggestion() {
     let tmp = TempDir::new().unwrap();
     seed(tmp.path());
     // Report proves "widget" and orphans "wodget" (typo of widget).
@@ -265,10 +265,10 @@ fn analyze_json(path: &Path, strict: bool) -> (Option<i32>, serde_json::Value) {
 }
 
 #[specforge_test(
-    behavior = "te_orphaned_test_records",
-    verify = "orphans appear in the json output only when records exist"
+    behavior = "te_stray_test_records",
+    verify = "stray_records appear in the json output only when records exist"
 )]
-fn json_carries_orphans_only_when_records_exist() {
+fn json_carries_stray_records_only_when_records_exist() {
     let tmp = TempDir::new().unwrap();
     seed(tmp.path());
     write_report(tmp.path(), &["widget"]);
@@ -285,10 +285,10 @@ fn json_carries_orphans_only_when_records_exist() {
 }
 
 #[specforge_test(
-    behavior = "te_orphaned_test_records",
-    verify = "strict neither promotes an orphan nor changes ok or the exit code"
+    behavior = "te_stray_test_records",
+    verify = "strict neither promotes a stray record nor changes ok or the exit code"
 )]
-fn strict_leaves_orphans_alone() {
+fn strict_leaves_stray_records_alone() {
     let tmp = TempDir::new().unwrap();
     seed(tmp.path());
     write_report(tmp.path(), &["widget", "wodget"]);

@@ -23,7 +23,9 @@ fn app_state(dir: &std::path::Path, publish_limit_per_token: u32) -> Arc<AppStat
             PublishLimits {
                 per_token: publish_limit_per_token,
                 per_ip: 10_000,
+                window: std::time::Duration::from_secs(60),
             },
+            specforge_registry_server::state::ReadAccess::Public,
         )
         .expect("open registry"),
     )
@@ -769,4 +771,143 @@ async fn the_server_answers_in_these_json_shapes() {
     let yanked = json_of(response).await;
     assert_eq!(yanked, serde_json::json!({"yanked": true}));
     round_trips::<Yanked>(&yanked);
+}
+
+#[tokio::test]
+async fn a_private_registry_refuses_anonymous_reads() {
+    let dir = tempfile::tempdir().unwrap();
+    let state = Arc::new(
+        AppState::open(
+            dir.path(),
+            PublishLimits {
+                per_token: 100,
+                per_ip: 100,
+                window: std::time::Duration::from_secs(60),
+            },
+            specforge_registry_server::state::ReadAccess::Token,
+        )
+        .unwrap(),
+    );
+    let raw = auth::create_token(&state.database, None, "reader", Some(90), false);
+    let reads = [
+        "/v1/packages/%40acme%2Fx",
+        "/v1/packages/%40acme%2Fx/1.0.0",
+        "/v1/packages/%40acme%2Fx/1.0.0/download",
+        "/v1/search?q=x",
+    ];
+    for uri in reads {
+        let anonymous = app(Arc::clone(&state))
+            .oneshot(Request::builder().uri(uri).body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(anonymous.status(), StatusCode::UNAUTHORIZED, "{uri}");
+        let body: serde_json::Value = serde_json::from_slice(
+            &axum::body::to_bytes(anonymous.into_body(), 1_000_000)
+                .await
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(body["error"]["code"], "UNAUTHORIZED", "{uri}");
+
+        let authorized = app(Arc::clone(&state))
+            .oneshot(
+                Request::builder()
+                    .uri(uri)
+                    .header("authorization", format!("Bearer {raw}"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_ne!(authorized.status(), StatusCode::UNAUTHORIZED, "{uri}");
+    }
+}
+
+fn stored(state: &AppState, name: &str, declares_entities: bool) {
+    let entities = if declares_entities {
+        serde_json::json!([{ "name": "thing" }])
+    } else {
+        serde_json::json!([])
+    };
+    let manifest = serde_json::json!({
+        "handshake": {
+            "protocol_version": "1.0.0",
+            "name": name,
+            "version": "1.0.0",
+            "contribution_flags": {},
+            "peer_dependencies": [],
+            "sandbox_policy": null
+        },
+        "entities": entities,
+    })
+    .to_string();
+    state
+        .database
+        .insert_package(&specforge_registry_server::db::PackageVersion {
+            name: name.to_string(),
+            version: "1.0.0".to_string(),
+            sha256: "00".to_string(),
+            size_bytes: 1,
+            description: String::new(),
+            keywords: String::new(),
+            publisher: String::new(),
+            published_at: "2026-01-01T00:00:00+00:00".to_string(),
+            signature: String::new(),
+            key_id: String::new(),
+            manifest,
+        })
+        .unwrap();
+}
+
+#[specforge_test_macros::test(
+    behavior = "search_registry",
+    verify = "filters by declared category"
+)]
+#[tokio::test]
+async fn search_filters_by_declared_category() {
+    let dir = tempfile::tempdir().unwrap();
+    let state = app_state(dir.path(), 100);
+    stored(&state, "@acme/with", true);
+    stored(&state, "@acme/without", false);
+    let get = |uri: &'static str| {
+        let state = Arc::clone(&state);
+        async move {
+            let response = app(state)
+                .oneshot(Request::builder().uri(uri).body(Body::empty()).unwrap())
+                .await
+                .unwrap();
+            let status = response.status();
+            let body: serde_json::Value = serde_json::from_slice(
+                &axum::body::to_bytes(response.into_body(), 1_000_000)
+                    .await
+                    .unwrap(),
+            )
+            .unwrap();
+            (status, body)
+        }
+    };
+
+    let (status, body) = get("/v1/search?q=&contributes=entities").await;
+    assert_eq!(status, StatusCode::OK);
+    let names: Vec<&str> = body["results"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|r| r["name"].as_str().unwrap())
+        .collect();
+    assert_eq!(names, ["@acme/with"]);
+
+    let (status, body) = get("/v1/search?q=").await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["results"].as_array().unwrap().len(), 2);
+
+    let (status, body) = get("/v1/search?q=&contributes=widgets").await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert!(
+        body["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("surfaces"),
+        "{body}"
+    );
 }

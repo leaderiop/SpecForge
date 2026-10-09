@@ -16,7 +16,8 @@ pub fn run(
     allow_unsigned: bool,
     trust: Trust,
 ) -> Exit {
-    let registry = ConfiguredRegistry::for_project(path, "update");
+    let registry =
+        ConfiguredRegistry::for_project(path, "update").asking(crate::trust::ask_key_change);
     let runtime = specforge_component::ComponentRuntime::with_user_cache();
     let request = UpdateRequest {
         root: path,
@@ -26,7 +27,7 @@ pub fn run(
         trust,
     };
     let updated = extension::update(&request, &registry, &runtime);
-    format.eprint_diagnostics(registry.reported());
+    format.eprint_diagnostics(&registry.reported());
     let outcome = match updated {
         Ok(outcome) => outcome,
         Err(error) => {
@@ -64,8 +65,24 @@ pub fn run(
     }
 
     let updated: Vec<_> = outcome
-        .updated()
-        .map(|(name, from, to)| json!({"name": name, "from": from, "to": to}))
+        .extensions
+        .iter()
+        .filter_map(|e| match &e.status {
+            extension::UpdateStatus::Updated {
+                from,
+                to,
+                publisher,
+                ..
+            } => {
+                let mut entry = json!({"name": e.name, "from": from, "to": to});
+                if let Some(key_id) = publisher.key_id() {
+                    entry["key_id"] = json!(key_id);
+                }
+                entry["publisher"] = json!(publisher.as_str());
+                Some(entry)
+            }
+            _ => None,
+        })
         .collect();
     match format {
         OutputFormat::Json => {
@@ -78,8 +95,17 @@ pub fn run(
         OutputFormat::Human if updated.is_empty() => println!("all extensions are up to date"),
         OutputFormat::Human => {
             println!("updated {} extension(s):", updated.len());
-            for (name, from, to) in outcome.updated() {
-                println!("  {name} {from} -> {to}");
+            for e in &outcome.extensions {
+                if let extension::UpdateStatus::Updated {
+                    from,
+                    to,
+                    publisher,
+                    ..
+                } = &e.status
+                {
+                    println!("  {} {from} -> {to}", e.name);
+                    println!("    {}", crate::add::publisher_line(publisher));
+                }
             }
         }
     }

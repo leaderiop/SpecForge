@@ -114,3 +114,10 @@ shape is exact.
 - C: a rule that compares a field other than a kind's lifecycle across builds (then format 2).
 - D: a consumer that needs the headline names in the schema (then `headline` joins the Graph
   Protocol's field schema, a minor-version addition).
+
+## Amendment (architecture round 5, plan 16): `invariant_unreferenced`
+
+The summary key `invariant_orphans` is renamed `invariant_unreferenced`: an invariant nothing references is an
+unreferenced entity (CONTEXT.md). The reason this ADR gave for keeping the keys, that renaming them would break
+consumers, does not hold before a release (no backward compatibility); `invariant_enforced` and `invariants` keep
+their names, which say what they are.

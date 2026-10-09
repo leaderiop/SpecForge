@@ -3,7 +3,7 @@ use specforge_common::{Diagnostic, codes};
 use super::registry_config::{RegistryConfig, RegistryCredential};
 use specforge_protocol_types::package::Version;
 use specforge_protocol_types::{ExtensionDeclaration, PackageName};
-use specforge_registry_wire::{PackageMetadata, SearchHit};
+use specforge_registry_wire::{PackageMetadata, SearchHit, SearchQuery};
 
 /// Errors that can occur during registry operations.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -97,11 +97,13 @@ impl From<RegistryError> for Diagnostic {
 /// `crate::testing::assert_client_contract`.
 pub trait RegistryClient: Send + Sync {
     /// Every version `registry` publishes of `name`, as served (not parsed). `NotFound` when it has no
-    /// such package.
+    /// such package. A read carries `credential` as `Authorization: Bearer` when given; a registry that
+    /// requires one answers `Unauthorized` without it.
     fn versions(
         &self,
         name: &PackageName,
         registry: &RegistryConfig,
+        credential: Option<&RegistryCredential>,
     ) -> Result<Vec<String>, RegistryError>;
 
     /// What `registry` stores for `name@version`, its `wasm_url` absolute. `NotFound` when it has none.
@@ -110,16 +112,25 @@ pub trait RegistryClient: Send + Sync {
         name: &PackageName,
         version: &Version,
         registry: &RegistryConfig,
+        credential: Option<&RegistryCredential>,
     ) -> Result<PackageMetadata, RegistryError>;
 
-    /// The bytes at `wasm_url` (a [`RegistryClient::metadata`] answer's).
-    fn download(&self, wasm_url: &str) -> Result<Vec<u8>, RegistryError>;
+    /// The bytes at `wasm_url` (a [`RegistryClient::metadata`] answer's). `credential` is sent only when
+    /// `wasm_url` has `registry.url`'s origin (scheme, host and port): a download served elsewhere (a CDN)
+    /// never sees the registry's token.
+    fn download(
+        &self,
+        wasm_url: &str,
+        registry: &RegistryConfig,
+        credential: Option<&RegistryCredential>,
+    ) -> Result<Vec<u8>, RegistryError>;
 
-    /// The latest version of each package matching `query`.
+    /// The latest version of each package matching `query`, and declaring its category when it names one.
     fn search(
         &self,
-        query: &str,
+        query: &SearchQuery,
         registry: &RegistryConfig,
+        credential: Option<&RegistryCredential>,
     ) -> Result<Vec<SearchHit>, RegistryError>;
 
     /// Publish an extension package (Wasm binary + manifest) to the registry.
@@ -146,34 +157,4 @@ pub trait RegistryClient: Send + Sync {
         registry: &RegistryConfig,
         credential: &RegistryCredential,
     ) -> Result<Option<String>, RegistryError>;
-}
-
-/// Retry policy for registry operations using exponential backoff.
-#[derive(Debug, Clone)]
-pub struct RetryPolicy {
-    pub base_delay_ms: u64,
-    pub max_delay_ms: u64,
-    pub max_retries: u32,
-}
-
-impl Default for RetryPolicy {
-    fn default() -> Self {
-        Self {
-            base_delay_ms: 1000,
-            max_delay_ms: 30_000,
-            max_retries: 3,
-        }
-    }
-}
-
-impl RetryPolicy {
-    /// Calculate the delay in milliseconds for a given attempt (0-indexed).
-    ///
-    /// Uses exponential backoff: `base_delay_ms * 2^attempt`, capped at `max_delay_ms`.
-    pub fn delay_for_attempt(&self, attempt: u32) -> u64 {
-        let delay = self
-            .base_delay_ms
-            .saturating_mul(2u64.saturating_pow(attempt));
-        delay.min(self.max_delay_ms)
-    }
 }

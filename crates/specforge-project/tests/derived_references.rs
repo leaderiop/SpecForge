@@ -143,7 +143,7 @@ fn w002(compiled: &CompiledProject) -> Vec<String> {
 }
 
 #[specforge_test(
-    behavior = "se_validate_orphan_types",
+    behavior = "se_validate_unreferenced_types",
     verify = "a type named in another type's field type is referenced"
 )]
 fn a_type_named_in_a_field_type_is_referenced() {
@@ -168,7 +168,7 @@ type Holder {
 }
 
 #[specforge_test(
-    behavior = "se_validate_orphan_types",
+    behavior = "se_validate_unreferenced_types",
     verify = "a type named in a port method signature is referenced"
 )]
 fn a_type_named_in_a_port_method_signature_is_referenced() {
@@ -194,7 +194,7 @@ port Scanner {
 }
 
 #[specforge_test(
-    behavior = "se_validate_orphan_types",
+    behavior = "se_validate_unreferenced_types",
     verify = "a primitive or generic wrapper name references no type"
 )]
 fn a_primitive_or_generic_wrapper_references_no_type() {

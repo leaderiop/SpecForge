@@ -13,7 +13,7 @@
 use super::add::{Checked, fetch_checked};
 use super::diamond::broken_requirers;
 use super::{Trust, published_versions};
-use crate::registry::{NO_REGISTRY, Registry};
+use crate::registry::{NO_REGISTRY, Publisher, Registry};
 use crate::{OpError, OpErrorKind, Writes};
 use specforge_common::{Code, codes};
 use specforge_installed::{Installed, LockFile, LockSource, LockState, Pin};
@@ -48,7 +48,7 @@ pub enum UpdateStatus {
         from: String,
         to: String,
         sha256: String,
-        key_id: Option<String>,
+        publisher: Publisher,
     },
     /// Already at the newest version the request allows.
     UpToDate { version: String },
@@ -192,7 +192,7 @@ pub fn update(
                         from: entry.version.clone(),
                         to: checked.binary.candidate().version().to_string(),
                         sha256: checked.package.sha256.clone(),
-                        key_id: checked.package.key_id.clone(),
+                        publisher: checked.package.publisher.clone(),
                     };
                     if let Some(staged_entry) =
                         staged.entries.iter_mut().find(|e| e.name == entry.name)
@@ -241,7 +241,7 @@ pub fn update(
                 name: checked.package.name.clone(),
                 version: checked.binary.candidate().version().to_string(),
                 source: LockSource::Registry,
-                key_id: checked.package.key_id.clone(),
+                key_id: checked.package.publisher.key_id().map(str::to_string),
                 peers: checked.binary.candidate().peers().to_vec(),
             },
         );

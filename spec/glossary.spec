@@ -81,7 +81,7 @@ term t_in_memory_graph "in-memory graph" {
 term t_validator "validator" {
   definition """
     The compiler stage that enforces graph invariants: no dangling references,
-    no duplicate IDs, no import cycles, orphan detection. Emits diagnostics
+    no duplicate IDs, no import cycles, unreferenced detection. Emits diagnostics
     at error, warning, and info levels.
   """
 }

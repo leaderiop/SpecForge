@@ -112,7 +112,7 @@ milestone output_and_export "Phase 4: Output & Agent Export" {
     "specforge export --format=brief produces id, kind and title per entity, plus edges",
     "Multi-resolution queries: export --scope <id> and query <id> --depth N [--kind K] return subgraphs",
     "specforge trace prints full traceability chains",
-    "specforge stats reports accurate entity/edge/orphan counts",
+    "specforge stats reports accurate entity/edge/unreferenced counts",
     "Output is deterministic: same input always produces same bytes",
   ]
 }

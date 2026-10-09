@@ -10,7 +10,7 @@ use "invariants/validation"
 use "types/diagnostics"
 use "types/graph"
 
-behavior detect_orphan_features "Detect Orphan Features" {
+behavior detect_unreferenced_features "Detect Unreferenced Features" {
   features [pe_validation_suite]
   category validation
   types    [Diagnostic]

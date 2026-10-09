@@ -144,7 +144,7 @@ persona -> journey -> feature -> module -> deliverable -> release
             channel             milestone
 ```
 
-Every arrow is a validated graph edge. Orphan detection finds disconnected entities.
+Every arrow is a validated graph edge. Unreferenced detection finds disconnected entities.
 
 ### Effort estimation
 

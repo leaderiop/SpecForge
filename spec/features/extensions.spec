@@ -72,10 +72,10 @@ feature extension_registry "Extension Registry" {
     schema MUST be published as an open specification so that third-party
     registries can implement it — SpecForge MUST NOT be the only possible
     registry host. specforge.json declares registry configs with scope-based
-    routing. specforge search queries registries with contribution type
-    filtering. specforge extension publish uploads validated .wasm binaries
+    routing. specforge search queries every
+    configured registry, filtered by declared category. specforge extension publish uploads validated .wasm binaries
     with SHA256 integrity. Downloaded binaries are verified against declared
-    hashes and assigned trust levels (verified, community, local, git)
+    hashes and their publisher signatures, and the hash and key id are
     recorded in specforge.lock. First-use MUST NOT require network access —
     local path and git sources work offline; network registries are opt-in
     configuration. At build/release time, a keyword-to-extension index is generated from the registry catalog and bundled as a data file. This index powers the suggest-missing-extensions diagnostic (E024 help text) for offline use.
@@ -90,17 +90,18 @@ feature registry_authentication "Registry Authentication" {
   problem  """
     Extension registries may require authentication for private or enterprise
     extensions. There is no mechanism to configure credentials, authenticate
-    requests, or manage trust levels for private registries. Without
+    requests, or read a registry that requires a token. Without
     authentication, organizations cannot use private extension repositories.
   """
   solution """
-    Registry credential management via specforge login and
-    specforge logout. Credentials are stored as environment variable
-    references or token file paths — never raw tokens. The system authenticates
-    before fetching from configured registries, respects scope filters, assigns
-    appropriate trust levels, and retries on authentication failures. Logout
-    securely removes stored credentials for a given registry. Error messages
-    never leak credential details.
+    Registry credential management via specforge login and specforge
+    logout. login keeps a token per registry alias: a secret in the OS
+    keyring (--token), or a reference to an environment variable
+    (--token-env) or a file (--token-file), never in specforge.json.
+    Every request to a registry carries the credential kept for it, so a
+    registry that requires a token to read can be used; a rate-limited
+    request is retried. Logout removes the stored credential for a given
+    registry. Error messages never leak credential details.
 
     P8 guard: Authentication MUST never be required for first use.
     SpecForge ships no public registry: builtins and local extensions need

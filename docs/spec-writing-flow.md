@@ -129,7 +129,7 @@ Cross-cutting: `ref` — attach external references at any phase.
 
 ### Checkpoint
 - [ ] Every journey traces to at least one feature
-- [ ] Every feature has at least one behavior (avoids W001 for orphan behaviors)
+- [ ] Every feature has at least one behavior (avoids W001 for unreferenced behaviors)
 - [ ] Every behavior has a `contract` with RFC 2119 keywords
 - [ ] Every behavior has a `verify` statement (avoids W004)
 - [ ] Types cover all data shapes mentioned in behavior contracts
@@ -328,10 +328,10 @@ And minimal warnings:
 
 | Check | What it catches |
 |-------|----------------|
-| No orphan behaviors (W001) | Every behavior belongs to a feature |
-| No orphan features (W002) | Every feature belongs to a journey |
-| No orphan events (W007) | Every event has consumers |
-| No orphan modules (W009) | Every module belongs to a deliverable |
-| No orphan journeys (W042) | Every journey belongs to a deliverable |
+| No unreferenced behaviors (W001) | Every behavior belongs to a feature |
+| No unreferenced features (W002) | Every feature belongs to a journey |
+| No unreferenced events (W007) | Every event has consumers |
+| No unreferenced modules (W009) | Every module belongs to a deliverable |
+| No unreferenced journeys (W042) | Every journey belongs to a deliverable |
 | Verified behaviors (W004) | Every behavior has a verify statement |
 | Mitigated risks (W005) | High-risk invariants have failure modes |

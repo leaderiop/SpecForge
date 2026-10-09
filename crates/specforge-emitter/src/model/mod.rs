@@ -115,8 +115,9 @@ pub(crate) struct ModelIntermediate {
     pub extensions: Vec<ModelExtension>,
     pub entities: Vec<ModelEntity>,
     pub relationships: Vec<ModelRelationship>,
-    /// Maps edge label -> declaring extension name. Used for accurate
-    /// extension edge counts after filtering. Not serialized to output.
+    /// Maps edge label -> declaring extension name, whole whatever the selection: an ownership map,
+    /// not a selection. [`ModelIntermediate::recount`] counts an extension's drawn edge types from
+    /// it. Not serialized to output.
     #[serde(skip)]
     pub edge_type_owners: Vec<(String, String)>,
 }

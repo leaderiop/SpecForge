@@ -4,20 +4,30 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 use specforge_common::{Diagnostic, codes};
 
-use super::registry_config::{AuthMethod, RegistryCredential};
+use super::registry_config::RegistryCredential;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct CredentialStore {
     pub registries: HashMap<String, CredentialEntry>,
 }
 
+/// One registry's entry in `~/.specforge/credentials.json`: where its token comes from. Never in
+/// `specforge.json`.
+///
+/// Untagged: the variants with a required key come first, so `{"token_env": ...}` is a reference
+/// and not a `Token` whose every field has a default.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum CredentialEntry {
+    /// The value of an environment variable (`login --token-env VAR`).
+    EnvVar { token_env: String },
+    /// The trimmed content of a file (`login --token-file PATH`).
+    File { token_file: PathBuf },
+    /// The secret `specforge login --token` stored: in the OS keyring (`in_keyring`), else in a 0600
+    /// file under `~/.specforge/secrets/`; `token` holds a plaintext token only in a file written by
+    /// hand (or by a test).
     Token {
-        /// The raw token. Empty when the secret lives in the OS keyring
-        /// (`in_keyring = true`); legacy plaintext stores keep it here until
-        /// the next login migrates it.
+        /// The raw token. Empty when the secret lives in the OS keyring or the secrets file.
         #[serde(default, skip_serializing_if = "String::is_empty")]
         token: String,
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -26,27 +36,67 @@ pub enum CredentialEntry {
         #[serde(default, skip_serializing_if = "std::ops::Not::not")]
         in_keyring: bool,
     },
-    EnvVar {
-        token_env: String,
-    },
+}
+
+/// What `login --token-env` / `--token-file` keeps.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TokenReference {
+    Env(String),
+    File(PathBuf),
 }
 
 impl CredentialStore {
-    pub fn get_credential(&self, alias: &str) -> Option<RegistryCredential> {
-        self.get_credential_detail(alias).ok().flatten()
-    }
-
-    /// Resolve a credential, pulling keyring-backed secrets and rejecting
-    /// expired tokens with an actionable re-login diagnostic (spec #21, T5).
-    pub fn get_credential_detail(
-        &self,
-        alias: &str,
-    ) -> Result<Option<RegistryCredential>, Diagnostic> {
-        let entry = match self.registries.get(alias) {
-            Some(e) => e,
-            None => return Ok(None),
+    /// The credential the user keeps for `alias`, resolved: `None` when there is no entry. Refused:
+    /// R-AUTH-020 (the stored token expired), R-AUTH-021 (the keyring entry is unreadable), R010 (the
+    /// variable is unset or blank), R011 (the file can't be read, or is empty). Each refusal's
+    /// suggestion names `specforge login --registry <alias>`.
+    pub fn credential(&self, alias: &str) -> Result<Option<RegistryCredential>, Diagnostic> {
+        let Some(entry) = self.registries.get(alias) else {
+            return Ok(None);
         };
-        let auth_method = match entry {
+        let relogin = || format!("run: specforge login --registry {alias} --token <NEW_TOKEN>");
+        let token = match entry {
+            CredentialEntry::EnvVar { token_env } => match std::env::var(token_env) {
+                Ok(value) if !value.trim().is_empty() => value.trim().to_string(),
+                _ => {
+                    return Err(Diagnostic::new(
+                        codes::R010,
+                        format!(
+                            "environment variable '{token_env}' is not set for registry '{alias}'"
+                        ),
+                    )
+                    .with_suggestion(format!(
+                        "set it (export {token_env}=<token>), or log in again with `specforge login --registry {alias}`"
+                    )));
+                }
+            },
+            CredentialEntry::File { token_file } => match std::fs::read_to_string(token_file) {
+                Ok(text) if !text.trim().is_empty() => text.trim().to_string(),
+                Ok(_) => {
+                    return Err(Diagnostic::new(
+                        codes::R011,
+                        format!(
+                            "token file '{}' for registry '{alias}' is empty",
+                            token_file.display()
+                        ),
+                    )
+                    .with_suggestion(format!(
+                        "put the token in the file, or log in again with `specforge login --registry {alias}`"
+                    )));
+                }
+                Err(e) => {
+                    return Err(Diagnostic::new(
+                        codes::R011,
+                        format!(
+                            "cannot read token file '{}' for registry '{alias}': {e}",
+                            token_file.display()
+                        ),
+                    )
+                    .with_suggestion(format!(
+                        "check that the file exists and is readable, or log in again with `specforge login --registry {alias}`"
+                    )));
+                }
+            },
             CredentialEntry::Token {
                 token,
                 expires_at,
@@ -66,12 +116,9 @@ impl CredentialStore {
                             alias, expires_at
                         ),
                     )
-                    .with_suggestion(format!(
-                        "run: specforge login --registry {} --token <NEW_TOKEN>",
-                        alias
-                    )));
+                    .with_suggestion(relogin()));
                 }
-                let secret = if *in_keyring {
+                if *in_keyring {
                     match super::secrets::load_secret(alias) {
                         Ok(Some(secret)) if !secret.is_empty() => secret,
                         Ok(_) => {
@@ -82,39 +129,35 @@ impl CredentialStore {
                                     alias
                                 ),
                             )
-                            .with_suggestion(format!(
-                                "run: specforge login --registry {} --token <NEW_TOKEN>",
-                                alias
-                            )));
+                            .with_suggestion(relogin()));
                         }
                         Err(message) => {
                             return Err(Diagnostic::new(codes::R_AUTH_021, message)
-                                .with_suggestion(format!(
-                                    "run: specforge login --registry {} --token <NEW_TOKEN>",
-                                    alias
-                                )));
+                                .with_suggestion(relogin()));
                         }
                     }
+                } else if !token.is_empty() {
+                    // A plaintext entry written by hand.
+                    token.clone()
                 } else {
-                    // Either a legacy plaintext entry, or the file fallback
-                    // written when the keyring round-trip failed at login.
-                    if !token.is_empty() {
-                        token.clone()
-                    } else {
-                        match super::secrets::load_secret(alias) {
-                            Ok(Some(secret)) if !secret.is_empty() => secret,
-                            _ => token.clone(),
-                        }
+                    // The file fallback written when the keyring round-trip failed at login.
+                    match super::secrets::load_secret(alias) {
+                        Ok(Some(secret)) if !secret.is_empty() => secret,
+                        _ => token.clone(),
                     }
-                };
-                AuthMethod::Bearer(secret)
+                }
             }
-            CredentialEntry::EnvVar { token_env } => AuthMethod::TokenEnvVar(token_env.clone()),
         };
-        Ok(Some(RegistryCredential {
-            alias: alias.to_string(),
-            auth_method,
-        }))
+        Ok(Some(RegistryCredential::new(alias, token)))
+    }
+
+    /// Keep `alias`'s token as a reference to `source` (no secret is stored).
+    pub fn set_reference(&mut self, alias: &str, source: TokenReference) {
+        let entry = match source {
+            TokenReference::Env(token_env) => CredentialEntry::EnvVar { token_env },
+            TokenReference::File(token_file) => CredentialEntry::File { token_file },
+        };
+        self.registries.insert(alias.to_string(), entry);
     }
 
     /// Store a login: the secret goes to the OS keyring when available
@@ -289,11 +332,8 @@ mod tests {
 
         // The store reconstructs the credential from the keyring.
         let loaded = read_credentials(&path).unwrap();
-        let cred = loaded.get_credential("default").unwrap();
-        assert_eq!(
-            cred.auth_method,
-            AuthMethod::Bearer("sfr_super_secret".to_string())
-        );
+        let cred = loaded.credential("default").unwrap().unwrap();
+        assert_eq!(cred.token(), "sfr_super_secret");
     }
 
     #[test]
@@ -309,7 +349,7 @@ mod tests {
             )
             .unwrap();
 
-        let err = store.get_credential_detail("default").unwrap_err();
+        let err = store.credential("default").unwrap_err();
         assert_eq!(err.code, "R-AUTH-020");
         assert!(err.message.contains("expired"));
         assert!(
@@ -317,6 +357,22 @@ mod tests {
                 .unwrap_or_default()
                 .contains("specforge login")
         );
+    }
+
+    #[test]
+    fn a_reference_entry_is_not_read_as_a_stored_token() {
+        let store: CredentialStore = serde_json::from_str(
+            r#"{"registries":{"a":{"token_env":"X"},"b":{"token_file":"/t"}}}"#,
+        )
+        .unwrap();
+        assert!(matches!(
+            store.registries["a"],
+            CredentialEntry::EnvVar { .. }
+        ));
+        assert!(matches!(
+            store.registries["b"],
+            CredentialEntry::File { .. }
+        ));
     }
 
     #[test]
@@ -330,10 +386,7 @@ mod tests {
                 in_keyring: false,
             },
         );
-        let cred = store.get_credential("default").unwrap();
-        assert_eq!(
-            cred.auth_method,
-            AuthMethod::Bearer("sfr_legacy".to_string())
-        );
+        let cred = store.credential("default").unwrap().unwrap();
+        assert_eq!(cred.token(), "sfr_legacy");
     }
 }

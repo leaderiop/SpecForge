@@ -41,7 +41,7 @@ impl Package {
     /// The package's manifest: its declaration (ADR 0012). A loadable binary is published with what it
     /// declares, plus any peer `with_peer` adds; other bytes with a declaration of just its name, version
     /// and peers.
-    fn manifest(&self) -> String {
+    pub fn manifest(&self) -> String {
         let peers: Vec<serde_json::Value> = self
             .peers
             .iter()

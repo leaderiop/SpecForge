@@ -115,3 +115,10 @@ and the schema.
 - ~~**`specforge-cli/src/product`** implements product queries natively.~~ Closed by
   [ADR 0008](0008-extension-commands-run-over-the-graph.md): they are `@specforge/product`'s commands.
 - The model's DOT cluster ids strip the `@specforge/` scope (snapshot-locked output).
+
+## Amendment (architecture round 5, plan 16): an extension's counts are what the model draws
+
+An extension's `entity_count` is the kinds it declares that the model keeps, and its `edge_count` the edge types
+it declares that name at least one relationship the model draws: one rule before and after a selection. A
+standalone edge type (no source or target kinds) draws nothing and is not counted, and an extension that keeps no
+kind still counts its enhancement edge types between kept kinds. The markdown summary's "N edge types" is the sum.

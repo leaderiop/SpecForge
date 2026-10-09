@@ -6,7 +6,7 @@ use specforge_test_macros::test as specforge_test;
 // B:build_in_memory_graph — verify contract "requires/ensures consistency for in-memory graph construction"
 #[specforge_test(
     behavior = "build_in_memory_graph",
-    verify = "Build In-Memory Graph: in-memory graph construction holds — resolution_complete, one_node_per_entity, one_edge_per_reference, no_orphan_edges"
+    verify = "Build In-Memory Graph: in-memory graph construction holds — resolution_complete, one_node_per_entity, one_edge_per_reference, no_dangling_edges"
 )]
 fn build_in_memory_graph_contract() {
     // Two files: `b.spec` references entities declared in `a.spec` (cross-file
@@ -75,7 +75,7 @@ feature delta "D" { behaviors [alpha] }
     .collect();
     assert_eq!(edges, expected);
 
-    // no_orphan_edges: every edge connects two existing nodes.
+    // no_dangling_edges: every edge connects two existing nodes.
     for e in graph.edges() {
         assert!(
             graph.node(e.source.as_str()).is_some(),

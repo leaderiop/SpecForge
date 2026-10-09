@@ -1,5 +1,5 @@
 // Validation features — core structural validation
-// Domain-specific validation (orphan entity checks, unused entity warnings, etc.)
+// Domain-specific validation (unreferenced entity checks, unused entity warnings, etc.)
 // is extension-driven via the declarative validation engine. These features cover
 // only core structural validation behaviors.
 
@@ -44,7 +44,7 @@ feature structural_validation "Structural Validation" {
   status   done
   problem  """
     The compiled graph may contain structural inconsistencies: dangling
-    references, duplicate IDs, orphan structural nodes, and missing
+    references, duplicate IDs, unreferenced structural nodes, and missing
     file references.
   """
   solution """

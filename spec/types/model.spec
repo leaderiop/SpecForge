@@ -58,6 +58,7 @@ type ModelExtension {
   name         string  @readonly
   version      string  @readonly
   entity_count integer @readonly
+  // the edge types it declares that name a drawn relationship
   edge_count   integer @readonly
   verify unit "ModelExtension schema is valid"
 }

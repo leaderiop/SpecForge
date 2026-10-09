@@ -7,7 +7,7 @@
 
 use sha2::{Digest, Sha256};
 use specforge_ops::extension::Trust;
-use specforge_ops::registry::Registry;
+use specforge_ops::registry::{Publisher, Registry};
 use specforge_ops_registry::{ConfiguredRegistry, User};
 use specforge_protocol_types::PackageName;
 use specforge_protocol_types::package::Version;
@@ -308,7 +308,7 @@ fn an_unsigned_package_is_accepted_with_allow_unsigned_and_pins_nothing() {
 
     let package = project.fetch(true, Trust::Refuse).unwrap();
     assert_eq!(package.wasm, WASM);
-    assert_eq!(package.key_id, None);
+    assert_eq!(package.publisher, Publisher::Unsigned);
     assert_eq!(project.pinned(), None);
 }
 
@@ -325,12 +325,24 @@ fn a_correctly_signed_package_is_accepted_and_its_key_pinned() {
     assert_eq!(package.version.to_string(), VERSION);
     assert_eq!(package.wasm, WASM);
     assert_eq!(package.sha256, sha256(WASM));
-    assert_eq!(package.key_id, Some(key.key_id()));
+    assert_eq!(
+        package.publisher,
+        Publisher::Signed {
+            key_id: key.key_id(),
+            first_use: true
+        }
+    );
     assert_eq!(project.pinned(), Some(key.key_id()));
 
     // A second install under the same pin is accepted as is.
     let again = project.fetch(false, Trust::Refuse).unwrap();
-    assert_eq!(again.key_id, Some(key.key_id()));
+    assert_eq!(
+        again.publisher,
+        Publisher::Signed {
+            key_id: key.key_id(),
+            first_use: false
+        }
+    );
     assert_eq!(project.pinned(), Some(key.key_id()));
 }
 
@@ -365,7 +377,13 @@ fn consent_to_a_key_change_re_pins_the_new_key() {
     project.pin(&pinned);
 
     let package = project.fetch(false, Trust::AssumeYes).unwrap();
-    assert_eq!(package.key_id, Some(other.key_id()));
+    assert_eq!(
+        package.publisher,
+        Publisher::Repinned {
+            key_id: other.key_id(),
+            previous: pinned.key_id()
+        }
+    );
     assert_eq!(project.pinned(), Some(other.key_id()));
 }
 
@@ -508,4 +526,181 @@ fn a_download_that_misses_is_refused_and_pins_nothing() {
     let error = project.fetch(true, Trust::AssumeYes).unwrap_err();
     assert_eq!(error.code, "R006", "{error:?}");
     assert_eq!(project.pinned(), None, "nothing is pinned for it");
+}
+
+/// `home` with `credentials.json` holding `json`.
+fn store_credentials(project: &Project, json: &str) {
+    let home = project.dir.path().join("home");
+    std::fs::create_dir_all(&home).unwrap();
+    std::fs::write(home.join("credentials.json"), json).unwrap();
+}
+
+/// Every read the client answered: versions, metadata and download calls.
+fn reads(project: &Project) -> Vec<specforge_registry_client::testing::Call> {
+    use specforge_registry_client::testing::CallKind;
+    project
+        .client
+        .calls()
+        .into_iter()
+        .filter(|call| {
+            matches!(
+                call.kind,
+                CallKind::Versions | CallKind::Metadata | CallKind::Download
+            )
+        })
+        .collect()
+}
+
+#[specforge_test(
+    behavior = "support_private_registries",
+    verify = "authentication occurs before fetch from private registry"
+)]
+fn a_read_carries_the_stored_credential() {
+    let project = Project::on(Reply::unsigned());
+    store_credentials(&project, r#"{"registries":{"local":{"token":"t"}}}"#);
+    let registry = project.registry();
+    let name = PackageName::parse(NAME).unwrap();
+
+    registry.versions(&name).unwrap();
+    registry
+        .fetch(
+            &name,
+            &Version::parse(VERSION).unwrap(),
+            true,
+            Trust::Refuse,
+        )
+        .unwrap();
+
+    let reads = reads(&project);
+    assert_eq!(reads.len(), 3, "{reads:?}");
+    assert!(
+        reads
+            .iter()
+            .all(|call| call.credential.as_ref().map(|c| c.token()) == Some("t")),
+        "{reads:?}"
+    );
+}
+
+#[specforge_test(
+    behavior = "support_private_registries",
+    verify = "an unusable stored credential refuses the read before any request"
+)]
+fn an_expired_stored_credential_refuses_a_read() {
+    let project = Project::on(Reply::unsigned());
+    store_credentials(
+        &project,
+        r#"{"registries":{"local":{"token":"t","expires_at":"2000-01-01T00:00:00Z"}}}"#,
+    );
+
+    let error = project
+        .registry()
+        .versions(&PackageName::parse(NAME).unwrap())
+        .unwrap_err();
+
+    assert_eq!(error.code, "R-AUTH-020", "{error:?}");
+    assert!(project.client.calls().is_empty());
+}
+
+#[test]
+fn the_environment_token_is_not_sent_on_a_read() {
+    let project = Project::on(Reply::unsigned());
+    let registry = ConfiguredRegistry::for_project(project.dir.path(), "add")
+        .with_client(project.client.clone())
+        .as_user(User::at(
+            project.dir.path().join("home"),
+            Some("env".to_string()),
+        ));
+
+    registry
+        .versions(&PackageName::parse(NAME).unwrap())
+        .unwrap();
+
+    let reads = reads(&project);
+    assert_eq!(reads.len(), 1);
+    assert!(reads[0].credential.is_none());
+}
+
+#[specforge_test(
+    behavior = "verify_publisher_signature",
+    verify = "an unsigned package accepted with --allow-unsigned is reported as W155"
+)]
+fn an_unsigned_fetch_is_reported_as_w155() {
+    let project = Project::on(Reply::unsigned());
+    let registry = project.registry();
+
+    let package = registry
+        .fetch(
+            &PackageName::parse(NAME).unwrap(),
+            &Version::parse(VERSION).unwrap(),
+            true,
+            Trust::Refuse,
+        )
+        .unwrap();
+
+    assert_eq!(package.publisher, Publisher::Unsigned);
+    let reported = registry.reported();
+    let w155: Vec<_> = reported.iter().filter(|d| d.code == "W155").collect();
+    assert_eq!(w155.len(), 1, "{reported:?}");
+    assert!(w155[0].message.contains("@acme/tool 1.0.0"), "{w155:?}");
+}
+
+#[specforge_test(
+    behavior = "pin_publisher_key",
+    verify = "consent to a key change is reported as W156"
+)]
+fn a_consented_key_change_is_reported_as_w156() {
+    let pinned = SigningKey::generate();
+    let other = SigningKey::generate();
+    let project = Project::on(Reply::signed(&other));
+    project.pin(&pinned);
+    let registry = project.registry();
+
+    registry
+        .fetch(
+            &PackageName::parse(NAME).unwrap(),
+            &Version::parse(VERSION).unwrap(),
+            false,
+            Trust::AssumeYes,
+        )
+        .unwrap();
+
+    let reported = registry.reported();
+    let w156: Vec<_> = reported.iter().filter(|d| d.code == "W156").collect();
+    assert_eq!(w156.len(), 1, "{reported:?}");
+    assert!(w156[0].message.contains(&pinned.key_id()), "{w156:?}");
+    assert!(w156[0].message.contains(&other.key_id()), "{w156:?}");
+}
+
+#[specforge_test(
+    behavior = "pin_publisher_key",
+    verify = "a key change is decided by the surface that can ask"
+)]
+fn a_key_change_is_decided_by_the_asker() {
+    let pinned = SigningKey::generate();
+    let other = SigningKey::generate();
+    let (a, b) = (pinned.key_id(), other.key_id());
+    let name = PackageName::parse(NAME).unwrap();
+    let version = Version::parse(VERSION).unwrap();
+
+    let project = Project::on(Reply::signed(&other));
+    project.pin(&pinned);
+    let asked = project.registry().asking(move |change| {
+        assert_eq!(
+            (change.pinned.as_str(), change.offered.as_str()),
+            (a.as_str(), b.as_str())
+        );
+        true
+    });
+    asked
+        .fetch(&name, &version, false, Trust::Prompt)
+        .expect("the asker said yes");
+
+    // Without an asker, a Prompt is a refusal.
+    let project = Project::on(Reply::signed(&other));
+    project.pin(&pinned);
+    let error = project
+        .registry()
+        .fetch(&name, &version, false, Trust::Prompt)
+        .unwrap_err();
+    assert_eq!(error.code, "R-TRUST-003", "{error:?}");
 }

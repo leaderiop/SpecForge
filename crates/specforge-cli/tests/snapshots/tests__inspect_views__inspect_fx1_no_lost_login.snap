@@ -22,7 +22,7 @@ expression: "normalized(result, root)"
         "start_line": 28
       },
       "suggestion": null,
-      "title": "Orphan property"
+      "title": "Unreferenced property"
     }
   ],
   "entity_id": "no_lost_login",

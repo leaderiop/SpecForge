@@ -266,11 +266,12 @@ fn migrate_reads_the_project_sources() {
         .collect();
     assert_eq!(visited.len(), 1, "{visited:?}");
     assert!(visited[0].ends_with("specs/a.spec"), "{visited:?}");
-    // Rollback looks at the same files (none has a backup: a dry run).
+    // A dry run records nothing, so there is nothing to roll back.
     let rollback = rollback(root).summary;
-    assert_eq!(rollback.skipped_count, 1, "{rollback:?}");
+    assert!(rollback.results.is_empty(), "{rollback:?}");
+    assert_eq!(rollback.warnings.len(), 1, "{rollback:?}");
     assert!(
-        rollback.results[0].file_path.ends_with("specs/a.spec"),
+        rollback.warnings[0].contains("nothing to roll back"),
         "{rollback:?}"
     );
 }
@@ -291,8 +292,18 @@ fn a_rollback_reports_the_files_it_restored_as_written() {
     assert!(outcome.ok(), "{outcome:?}");
     assert_eq!(std::fs::read_to_string(root.join("old.spec")).unwrap(), OLD);
     let written: Vec<&Path> = outcome.writes.paths().collect();
-    assert_eq!(written.len(), 1, "{written:?}");
-    assert!(written[0].ends_with("old.spec"), "{written:?}");
+    assert_eq!(written.len(), 2, "{written:?}");
+    assert!(
+        written.iter().any(|p| p.ends_with("old.spec")),
+        "{written:?}"
+    );
+    assert!(
+        written
+            .iter()
+            .any(|p| p.ends_with(".specforge/migration.json")),
+        "the record, removed, is a write: {written:?}"
+    );
+    assert!(!root.join(".specforge/migration.json").exists());
     assert!(
         root.join("old.spec.bak").exists(),
         "the backup is preserved for the user"
@@ -931,4 +942,117 @@ fn the_project_is_checked_once_after_the_files_and_the_hooks() {
     );
     // One compile before the files, one after the hooks.
     assert_eq!(handshakes_of(&runtime, "@acme/x"), 2);
+}
+
+#[specforge_test(
+    behavior = "rollback_failed_migration",
+    verify = "an automatic rollback restores only the files its run migrated"
+)]
+fn an_automatic_rollback_restores_only_what_its_run_migrated() {
+    let dir = project_with_extension();
+    let root = dir.path();
+    let first = run(&request(root), Some(Arc::new(unhooked())));
+    assert!(first.ok(), "{first:?}");
+    let old = root.join("old.spec");
+    let migrated = std::fs::read_to_string(&old).unwrap();
+    let edited = format!("{migrated}// edited\n");
+    std::fs::write(&old, &edited).unwrap();
+    std::fs::write(root.join("second.spec"), OLD).unwrap();
+
+    let second = run(
+        &request(root),
+        Some(Arc::new(hooked(|_| Err("trapped".into())))),
+    );
+
+    assert!(second.rollback.is_some() && !second.ok(), "{second:?}");
+    assert_eq!(
+        std::fs::read_to_string(&old).unwrap(),
+        edited,
+        "an earlier migration's file keeps its edit"
+    );
+    assert_eq!(
+        std::fs::read_to_string(root.join("second.spec")).unwrap(),
+        OLD
+    );
+    assert!(
+        !second
+            .writes
+            .paths()
+            .any(|p| p.ends_with("old.spec") || p.ends_with("second.spec")),
+        "{:?}",
+        second.writes
+    );
+}
+
+#[specforge_test(
+    behavior = "rollback_failed_migration",
+    verify = "an automatic rollback restores a run made without backups"
+)]
+fn an_automatic_rollback_restores_a_run_without_backups() {
+    let dir = project_with_extension();
+    let root = dir.path();
+    let mut req = request(root);
+    req.no_backup = true;
+
+    let outcome = run(&req, Some(Arc::new(hooked(|_| Err("trapped".into())))));
+
+    assert!(outcome.rollback.is_some() && !outcome.ok(), "{outcome:?}");
+    assert_eq!(std::fs::read_to_string(root.join("old.spec")).unwrap(), OLD);
+    assert!(!root.join("old.spec.bak").exists());
+}
+
+#[specforge_test(
+    behavior = "migrate_spec_files_in_place",
+    verify = "a kept migration records its files in .specforge/migration.json"
+)]
+fn a_kept_migration_records_what_a_rollback_undoes() {
+    let dir = project_with_extension();
+    let root = dir.path();
+
+    let outcome = run(&request(root), Some(Arc::new(unhooked())));
+
+    assert!(outcome.ok(), "{outcome:?}");
+    let record = specforge_migrate::MigrationRecord::read(root)
+        .unwrap()
+        .expect("a record");
+    assert_eq!(record.files.len(), 1, "{record:?}");
+    assert_eq!(record.files[0].path, "old.spec");
+    assert_eq!(record.files[0].backup, "old.spec.bak");
+    let migrated = std::fs::read_to_string(root.join("old.spec")).unwrap();
+    assert_eq!(
+        record.files[0].sha256,
+        specforge_installed::hex_sha256(migrated.as_bytes())
+    );
+    assert!(
+        outcome
+            .writes
+            .paths()
+            .any(|p| p.ends_with(".specforge/migration.json")),
+        "{:?}",
+        outcome.writes
+    );
+}
+
+#[test]
+fn a_migration_without_backups_removes_the_record() {
+    let dir = project_with_extension();
+    let root = dir.path();
+    run(&request(root), Some(Arc::new(unhooked())));
+    assert!(
+        specforge_migrate::MigrationRecord::read(root)
+            .unwrap()
+            .is_some()
+    );
+    std::fs::write(root.join("newer.spec"), OLD).unwrap();
+    let mut req = request(root);
+    req.no_backup = true;
+
+    let outcome = run(&req, Some(Arc::new(unhooked())));
+
+    assert!(outcome.ok(), "{outcome:?}");
+    assert!(
+        specforge_migrate::MigrationRecord::read(root)
+            .unwrap()
+            .is_none()
+    );
 }

@@ -98,7 +98,19 @@ type SearchHit "Search Hit" {
   verify unit "SearchHit is the JSON of one search hit"
 }
 
-// GET {base}/search?q=&limit=: the latest version of each matching package.
+// GET {base}/search's query (specforge_registry_wire::SearchQuery): what to
+// look for, at most how many (50 when absent), and a declared category a
+// package must declare.
+type SearchQuery "Search Query" {
+  q           string
+  limit       integer @optional
+  contributes string  @optional
+  verify unit "SearchQuery is the query string a registry search reads"
+}
+
+// GET {base}/search?q=&limit=&contributes=: the latest version of each
+// matching package; contributes keeps those whose declaration declares that
+// category.
 type SearchResults "Search Results" {
   results SearchHit[]
   verify unit "SearchResults is the JSON a registry answers a search with"
@@ -141,6 +153,16 @@ type RegistryPackage "Registry Package" {
   verify unit "RegistryPackage is what a package that passed the fetch policy hands an operation"
 }
 
+// What the Registry port's search answers (specforge_ops::registry::Searched):
+// each package found, with the registry it was found in, and the diagnostic
+// of each registry that failed.
+type RegistrySearched "Registry Searched" {
+  found    SearchHit[]
+  failures Diagnostic[]
+  asked    integer
+  verify unit "RegistrySearched is what a search over the configured registries answers with"
+}
+
 // What the Registry port's publish answers: the registry that took the
 // package and the publisher key it is signed with (specforge_ops::registry::Published).
 type RegistryPublished "Registry Published" {
@@ -151,20 +173,19 @@ type RegistryPublished "Registry Published" {
   verify unit "RegistryPublished is what the registry that took a publish answers with"
 }
 
-type TrustLevel = verified | community | local | git
-
 // ── Registry Authentication ───────────────────────────────
 
-// At least one of token_env_var or token_file MUST be present.
-// Validation rule: authenticate_registry_request MUST emit E-level diagnostic if both are absent.
-type AuthMethod = bearer | basic | custom
-
-type RegistryCredential {
-  alias         string @readonly @unique
-  scope         string
-  token_env_var string @optional
-  token_file    string @optional
-  auth_method   AuthMethod
+// One entry of ~/.specforge/credentials.json, keyed by registry alias:
+// where that registry's token comes from. Never in specforge.json. At most
+// one of token_env and token_file is set; with neither, login stored the
+// secret (in the OS keyring when in_keyring, else in a 0600 file under
+// ~/.specforge/secrets/).
+type RegistryCredential "Registry Credential" {
+  alias      string  @readonly @unique
+  token_env  string  @optional
+  token_file string  @optional
+  in_keyring boolean @optional
+  expires_at string  @optional
   verify unit "RegistryCredential schema is valid"
 }
 

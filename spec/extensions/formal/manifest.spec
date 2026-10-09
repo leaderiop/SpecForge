@@ -89,12 +89,12 @@ behavior fa_declare_manifest "Declare @specforge/formal Manifest" {
     - event_graph_analyze: E034, E042, W029, W032, W033, W034, I009
     - coverage_tracking: W035, I008, I014
 
-    Validation rules (declarative, run in every check): W123 orphan
+    Validation rules (declarative, run in every check): W123 unreferenced
     property, W124 empty property description, W125 invalid
-    property_type, W126 orphan axiom, W127 empty axiom description, W128
-    orphan protocol, W129 empty protocol description, W131 orphan
+    property_type, W126 unreferenced axiom, W127 empty axiom description, W128
+    unreferenced protocol, W129 empty protocol description, W131 unreferenced
     refinement, W132 empty refinement description, W133 refinement
-    without invariant_deltas (a custom rule), W134 orphan process, W135
+    without invariant_deltas (a custom rule), W134 unreferenced process, W135
     empty process description, W136 empty process alphabet.
 
     Verify kinds contributed: contract, refinement, deadlock_free, liveness.

@@ -68,6 +68,21 @@ pub struct SearchQuery {
     pub q: String,
     #[serde(default = "default_limit")]
     pub limit: u32,
+    /// Only packages whose declaration declares this category (a `DeclaredCategory` name, e.g. `surfaces`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub contributes: Option<String>,
+}
+
+/// Whether `declaration` declares anything in `category`: its describe items for it are not empty. What a
+/// registry filters a search on, and what the in-memory client filters on.
+pub fn declares(
+    declaration: &specforge_protocol_types::ExtensionDeclaration,
+    category: specforge_protocol_types::DeclaredCategory,
+) -> bool {
+    declaration
+        .describe_items(category.name())
+        .and_then(|items| items.as_array().map(|a| !a.is_empty()))
+        .unwrap_or(false)
 }
 
 impl SearchQuery {
@@ -76,16 +91,27 @@ impl SearchQuery {
         Self {
             q: query.to_string(),
             limit: DEFAULT_SEARCH_LIMIT,
+            contributes: None,
         }
+    }
+
+    /// Only packages declaring `category`.
+    pub fn contributing(mut self, category: specforge_protocol_types::DeclaredCategory) -> Self {
+        self.contributes = Some(category.name().to_string());
+        self
     }
 
     /// The URL query string, `application/x-www-form-urlencoded`, so reserved characters in `q`
     /// (`&`, `=`, `#`, `%`) cannot change the parameters: `q=a%26b&limit=50`.
     pub fn to_query_string(&self) -> String {
-        form_urlencoded::Serializer::new(String::new())
+        let mut query = form_urlencoded::Serializer::new(String::new());
+        query
             .append_pair("q", &self.q)
-            .append_pair("limit", &self.limit.to_string())
-            .finish()
+            .append_pair("limit", &self.limit.to_string());
+        if let Some(contributes) = &self.contributes {
+            query.append_pair("contributes", contributes);
+        }
+        query.finish()
     }
 }
 
@@ -476,6 +502,25 @@ mod tests {
                 ("q".to_string(), "a&b=c#d e".to_string()),
                 ("limit".to_string(), "50".to_string()),
             ]
+        );
+    }
+
+    #[specforge_test_macros::test(
+        type = "SearchQuery",
+        verify = "SearchQuery is the query string a registry search reads"
+    )]
+    fn a_search_query_names_its_category() {
+        use specforge_protocol_types::DeclaredCategory;
+        assert_eq!(
+            SearchQuery::new("a&b")
+                .contributing(DeclaredCategory::Surfaces)
+                .to_query_string(),
+            "q=a%26b&limit=50&contributes=surfaces"
+        );
+        assert!(
+            !SearchQuery::new("a")
+                .to_query_string()
+                .contains("contributes")
         );
     }
 

@@ -1,4 +1,4 @@
-use specforge_registry_server::state::{AppState, PublishLimits};
+use specforge_registry_server::state::{AppState, PublishLimits, ReadAccess};
 use specforge_registry_server::{auth, db::Database, handlers};
 
 use clap::{Parser, Subcommand};
@@ -31,6 +31,10 @@ enum Commands {
         /// Data directory for storage and database
         #[arg(long, default_value = "./registry-data")]
         data_dir: PathBuf,
+
+        /// Require a valid token for every read (versions, metadata, download, search)
+        #[arg(long, default_value_t = false)]
+        private: bool,
     },
     /// Create an authentication token
     Token {
@@ -103,9 +107,16 @@ async fn main() {
             port,
             host,
             data_dir,
+            private,
         } => {
+            let read_access = if private {
+                ReadAccess::Token
+            } else {
+                ReadAccess::Public
+            };
             let app_state = Arc::new(
-                AppState::open(&data_dir, PublishLimits::SERVE).expect("failed to open registry"),
+                AppState::open(&data_dir, PublishLimits::SERVE, read_access)
+                    .expect("failed to open registry"),
             );
 
             let app = handlers::router(app_state);

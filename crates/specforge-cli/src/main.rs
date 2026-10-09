@@ -31,6 +31,7 @@ mod review;
 mod search;
 mod stats;
 mod trace;
+mod trust;
 mod update;
 mod watch;
 
@@ -495,6 +496,10 @@ enum Commands {
         /// Search query
         query: String,
 
+        /// Only extensions that declare this category of contribution
+        #[arg(long, value_parser = options::choice(&specforge_ops::registry::CONTRIBUTES))]
+        contributes: Option<specforge_protocol_types::DeclaredCategory>,
+
         /// Path to the project root (for registry config)
         #[arg(long, default_value = ".")]
         path: PathBuf,
@@ -598,9 +603,18 @@ enum Commands {
         #[arg(long)]
         registry: Option<String>,
 
-        /// Authentication token
+        /// Authentication token, kept as a secret (OS keyring, else a 0600 file).
+        /// Exactly one of --token, --token-env, --token-file
         #[arg(long)]
         token: Option<String>,
+
+        /// Environment variable that holds the token; the variable's name is kept, not the token
+        #[arg(long)]
+        token_env: Option<String>,
+
+        /// File that holds the token; the file's path is kept, not the token
+        #[arg(long)]
+        token_file: Option<PathBuf>,
 
         /// Path to the project root (for registry config)
         #[arg(long, default_value = ".")]
@@ -1021,9 +1035,10 @@ fn run(command: Commands) -> Exit {
         } => publish::run(extension.as_deref().unwrap_or(&path), &path, format),
         Commands::Search {
             query,
+            contributes,
             path,
             format,
-        } => search::run(&query, &path, format),
+        } => search::run(&query, contributes, &path, format),
         Commands::Update {
             name,
             path,
@@ -1042,9 +1057,20 @@ fn run(command: Commands) -> Exit {
         Commands::Login {
             registry,
             token,
+            token_env,
+            token_file,
             path,
             format,
-        } => login::run(registry.as_deref(), token.as_deref(), &path, format),
+        } => login::run(
+            registry.as_deref(),
+            &login::TokenSource {
+                token: token.as_deref(),
+                token_env: token_env.as_deref(),
+                token_file: token_file.as_deref(),
+            },
+            &path,
+            format,
+        ),
         Commands::Logout {
             registry,
             path,

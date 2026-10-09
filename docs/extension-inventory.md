@@ -139,7 +139,7 @@ Load order: `product` first (no dependencies), then `software` (optionally depen
 
 - No testable or verify concepts: `@specforge/testing` contributes those.
 - Cross-extension edges to `feature` (product) use the peer dependency mechanism.
-- Enhancement edges (`MilestoneIncludesBehavior`, `ModuleConsumesPort`, `ModuleDefinesPort`) are declared via `#[enhance]` on product entity kinds.
+- Enhancement edges (`MilestoneIncludesBehavior`, `ModuleConsumesPort`, `ModuleDefinesPort`) are declared with `c.enhance(..)` on product entity kinds.
 
 ## @specforge/governance
 

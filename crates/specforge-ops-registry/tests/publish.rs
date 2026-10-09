@@ -13,7 +13,7 @@ use specforge_protocol_types::{ExtensionDeclaration, PackageName};
 use specforge_registry_client::credentials::{CredentialEntry, CredentialStore};
 use specforge_registry_client::testing::{CallKind, MemoryClient};
 use specforge_registry_client::{
-    AuthMethod, PackageSignature, RegistryError, verify_signature, write_credentials,
+    PackageSignature, RegistryError, verify_signature, write_credentials,
 };
 use specforge_test_macros::test as specforge_test;
 use tempfile::TempDir;
@@ -250,13 +250,13 @@ fn the_environment_token_wins_over_the_stored_credential() {
 
     let credential = published_with(&world, Some("env"), "1.0.0").unwrap();
     assert_eq!(credential.alias, "acme");
-    assert_eq!(credential.auth_method, AuthMethod::Bearer("env".into()));
+    assert_eq!(credential.token(), "env");
 
     let credential = published_with(&world, Some("  "), "1.0.1").unwrap();
-    assert_eq!(credential.auth_method, AuthMethod::Bearer("stored".into()));
+    assert_eq!(credential.token(), "stored");
 
     let credential = published_with(&world, None, "1.0.2").unwrap();
-    assert_eq!(credential.auth_method, AuthMethod::Bearer("stored".into()));
+    assert_eq!(credential.token(), "stored");
 
     // Only another registry's credential is stored: there is none for acme.
     let other = World::acme();
@@ -318,7 +318,7 @@ fn publish_asks_the_registry_fetch_asks() {
         [
             (CallKind::Publish, "acme".to_string()),
             (CallKind::Metadata, "acme".to_string()),
-            (CallKind::Download, String::new()),
+            (CallKind::Download, "acme".to_string()),
             (CallKind::Publish, "main".to_string()),
             (CallKind::Versions, "main".to_string()),
         ]
@@ -375,4 +375,176 @@ fn a_credential_the_registry_refuses_is_a_permission_error() {
         .unwrap_err();
     assert_eq!(error.code, "R001", "{error:?}");
     assert_eq!(error.kind, OpErrorKind::PermissionDenied);
+}
+
+/// A project on `server`, and the user's home, for a publish over HTTP.
+fn on_server(server: &specforge_registry_server::testing::LocalRegistry) -> (TempDir, TempDir) {
+    let project = TempDir::new().unwrap();
+    let config = serde_json::json!({
+        "name": "p",
+        "version": "0.1.0",
+        "registries": server.config_entry(),
+    });
+    std::fs::write(project.path().join("specforge.json"), config.to_string()).unwrap();
+    (project, TempDir::new().unwrap())
+}
+
+#[specforge_test(
+    behavior = "retry_registry_request",
+    verify = "a Retry-After longer than the longest backoff is not waited for"
+)]
+fn a_retry_after_beyond_the_longest_backoff_is_not_waited_for() {
+    use specforge_registry_server::state::PublishLimits;
+    let server = specforge_registry_server::testing::LocalRegistry::start_with(PublishLimits {
+        per_token: 1,
+        per_ip: 100,
+        window: std::time::Duration::from_secs(60),
+    });
+    let (project, home) = on_server(&server);
+    let registry = ConfiguredRegistry::for_project(project.path(), "publish")
+        .as_user(User::at(home.path(), Some(server.token().to_string())));
+
+    registry
+        .publish(&pkg("@acme/x", "1.0.0").upload())
+        .expect("the first publish is within the limit");
+    let started = std::time::Instant::now();
+    let error = registry
+        .publish(&pkg("@acme/x", "1.0.1").upload())
+        .unwrap_err();
+
+    assert_eq!(error.code, "R003", "{error:?}");
+    // The 60 s window's Retry-After exceeds the longest backoff: no wait, no second request.
+    assert!(started.elapsed() < std::time::Duration::from_secs(1));
+    let puts = server
+        .requests()
+        .iter()
+        .filter(|request| request.starts_with("PUT"))
+        .count();
+    assert_eq!(puts, 2, "{:?}", server.requests());
+}
+
+#[specforge_test(
+    behavior = "retry_registry_request",
+    verify = "a rate-limited publish is sent again once the registry's wait has passed"
+)]
+fn a_rate_limited_publish_is_sent_again_after_its_wait() {
+    use specforge_registry_server::state::PublishLimits;
+    let server = specforge_registry_server::testing::LocalRegistry::start_with(PublishLimits {
+        per_token: 1,
+        per_ip: 100,
+        window: std::time::Duration::from_secs(1),
+    });
+    let (project, home) = on_server(&server);
+    let registry = ConfiguredRegistry::for_project(project.path(), "publish")
+        .as_user(User::at(home.path(), Some(server.token().to_string())));
+
+    registry
+        .publish(&pkg("@acme/x", "1.0.0").upload())
+        .expect("the first publish is within the limit");
+    registry
+        .publish(&pkg("@acme/x", "1.0.1").upload())
+        .expect("the second is sent again after the window");
+
+    let puts = server
+        .requests()
+        .iter()
+        .filter(|request| request.starts_with("PUT"))
+        .count();
+    assert_eq!(puts, 3, "{:?}", server.requests());
+}
+
+/// `home` with `credentials.json` holding `json`.
+fn home_with_credentials(json: &str) -> TempDir {
+    let home = TempDir::new().unwrap();
+    std::fs::write(home.path().join("credentials.json"), json).unwrap();
+    home
+}
+
+#[specforge_test(
+    behavior = "authenticate_registry_request",
+    verify = "missing token source produces ExtensionError"
+)]
+fn an_unset_token_variable_is_r010_before_any_request() {
+    let world = World::acme();
+    let home = home_with_credentials(
+        r#"{"registries":{"acme":{"token_env":"P16_UNSET_TOKEN_VARIABLE"}}}"#,
+    );
+    let registry = ConfiguredRegistry::for_project(world.project.path(), "publish")
+        .as_user(User::at(home.path(), None))
+        .with_client(world.client.clone());
+
+    let error = registry
+        .publish(&pkg("@acme/x", "1.0.0").upload())
+        .unwrap_err();
+
+    assert_eq!(error.code, "R010", "{error:?}");
+    assert!(
+        error.message.contains("P16_UNSET_TOKEN_VARIABLE"),
+        "{error:?}"
+    );
+    assert!(world.client.calls().is_empty());
+}
+
+#[specforge_test(
+    behavior = "authenticate_registry_request",
+    verify = "token resolved from environment variable"
+)]
+fn a_token_variable_is_sent_as_the_bearer_token() {
+    let world = World::acme();
+    let home = home_with_credentials(r#"{"registries":{"acme":{"token_env":"P16_TOKEN_A"}}}"#);
+    // SAFETY: the variable is named by this test only.
+    unsafe { std::env::set_var("P16_TOKEN_A", "t") };
+    let registry = ConfiguredRegistry::for_project(world.project.path(), "publish")
+        .as_user(User::at(home.path(), None))
+        .with_client(world.client.clone());
+
+    registry.publish(&pkg("@acme/x", "1.0.0").upload()).unwrap();
+
+    let calls = world.client.calls();
+    assert_eq!(calls[0].credential.as_ref().unwrap().token(), "t");
+}
+
+#[specforge_test(
+    behavior = "authenticate_registry_request",
+    verify = "token resolved from token file"
+)]
+fn a_token_file_is_sent_as_the_bearer_token() {
+    let world = World::acme();
+    let file = world.home.path().join("tok");
+    std::fs::write(
+        &file, "t
+",
+    )
+    .unwrap();
+    let home = home_with_credentials(
+        &serde_json::json!({"registries": {"acme": {"token_file": file}}}).to_string(),
+    );
+    let registry = ConfiguredRegistry::for_project(world.project.path(), "publish")
+        .as_user(User::at(home.path(), None))
+        .with_client(world.client.clone());
+
+    registry.publish(&pkg("@acme/x", "1.0.0").upload()).unwrap();
+
+    let calls = world.client.calls();
+    assert_eq!(calls[0].credential.as_ref().unwrap().token(), "t");
+}
+
+#[specforge_test(
+    behavior = "authenticate_registry_request",
+    verify = "a token file that can't be read is R011 before any request"
+)]
+fn an_unreadable_token_file_is_r011_before_any_request() {
+    let world = World::acme();
+    let home =
+        home_with_credentials(r#"{"registries":{"acme":{"token_file":"/nonexistent/p16-token"}}}"#);
+    let registry = ConfiguredRegistry::for_project(world.project.path(), "publish")
+        .as_user(User::at(home.path(), None))
+        .with_client(world.client.clone());
+
+    let error = registry
+        .publish(&pkg("@acme/x", "1.0.0").upload())
+        .unwrap_err();
+
+    assert_eq!(error.code, "R011", "{error:?}");
+    assert!(world.client.calls().is_empty());
 }

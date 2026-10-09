@@ -1565,9 +1565,10 @@ Level: error
 ## R-LOGIN-001
 
 ```
-R-LOGIN-001: No login token given
+R-LOGIN-001: No single login token source
 
-`specforge login` was run without a token. Pass one with `--token <TOKEN>`.
+`specforge login` needs exactly one of `--token <TOKEN>`, `--token-env <VAR>` or
+`--token-file <PATH>`; none or several were given.
 
 Owner: core
 Level: error
@@ -1806,12 +1807,11 @@ Level: error
 ```
 R001: Registry authentication failed
 
-The registry rejected the request as unauthenticated (HTTP 401), or the
-credentials its `auth` configuration names couldn't be read; a request is
-retried once with re-read credentials first. Log in again with `specforge login
---registry <alias> --token <TOKEN>`. `specforge publish` refuses before any
-request when there is no credential for the registry that serves the package:
-none stored for its alias and `SPECFORGE_REGISTRY_TOKEN` unset or blank.
+The registry rejected the request as unauthenticated (HTTP 401). Log in again
+with `specforge login --registry <alias> --token <TOKEN>`. `specforge publish`
+refuses before any request when there is no credential for the registry that
+serves the package: none stored for its alias and `SPECFORGE_REGISTRY_TOKEN`
+unset or blank.
 
 Owner: core
 Level: error
@@ -1895,9 +1895,10 @@ Level: error
 ```
 R010: Registry token variable not set
 
-The registry's `auth` configuration reads the token from an environment variable
-that isn't set. Set it (`export <VAR>=<token>`) or change the registry's `auth`
-configuration.
+The registry's credential is a reference to an environment variable (`specforge
+login --token-env`, or a `token_env` entry in `~/.specforge/credentials.json`)
+that isn't set, or is blank, where the command runs. Set it, or log in again
+with another source.
 
 Owner: core
 Level: error
@@ -1908,9 +1909,9 @@ Level: error
 ```
 R011: Registry token file unreadable
 
-The registry's `auth` configuration reads the token from a file that can't be
-read. Check that the file exists and is readable, or change the registry's
-`auth` configuration.
+The registry's credential is a reference to a token file (`specforge login
+--token-file`, or a `token_file` entry) that can't be read, or is empty. Check
+the path and its permissions, or log in again with another source.
 
 Owner: core
 Level: error
@@ -2308,7 +2309,7 @@ Level: warning
 ## W041
 
 ```
-W041: Orphan feature
+W041: Unreferenced feature
 
 A `feature` entity has no incoming edges, meaning no `journey`, `milestone`, or
 `module` references it. Link it from at least one referencing entity, or remove
@@ -2321,7 +2322,7 @@ Level: warning
 ## W042
 
 ```
-W042: Orphan journey
+W042: Unreferenced journey
 
 A `journey` entity has no incoming edges, meaning no `deliverable` references
 it. Reference the journey from a deliverable's `journeys` field, or remove it if
@@ -2347,7 +2348,7 @@ Level: warning
 ## W044
 
 ```
-W044: Orphan module
+W044: Unreferenced module
 
 A `module` entity has no incoming edges, meaning no `deliverable` or `milestone`
 references it. Reference the module from a deliverable or milestone, or remove
@@ -2758,7 +2759,7 @@ Level: warning
 ## W123
 
 ```
-W123: Orphan property
+W123: Unreferenced property
 
 A `property` entity is not referenced by any `behavior`, so it may be unused.
 Reference the property from a behavior's `verify` block, or remove it if it is
@@ -2797,7 +2798,7 @@ Level: warning
 ## W126
 
 ```
-W126: Orphan axiom
+W126: Unreferenced axiom
 
 An `axiom` entity is not referenced by any other entity, so it may be unused.
 Reference the axiom from a relevant entity, or remove it if it is no longer
@@ -2823,7 +2824,7 @@ Level: warning
 ## W128
 
 ```
-W128: Orphan protocol
+W128: Unreferenced protocol
 
 A `protocol` entity is not referenced by any `event`, so it may be unused.
 Reference the protocol from an event, or remove it if it is no longer needed.
@@ -2848,11 +2849,11 @@ Level: warning
 ## W131
 
 ```
-W131: Orphan refinement
+W131: Unreferenced refinement
 
-A `refinement` entity is not referenced by anything, so it may be orphaned.
-Reference the refinement from the entity it refines, or remove it if it is no
-longer needed.
+A `refinement` entity is not referenced by any other entity, so it may be
+unused. Reference the refinement from the entity it refines, or remove it if it
+is no longer needed.
 
 Owner: @specforge/formal
 Level: warning
@@ -2888,7 +2889,7 @@ Level: warning
 ## W134
 
 ```
-W134: Orphan process
+W134: Unreferenced process
 
 A `process` entity is not referenced by any other entity, so it may be unused.
 Reference the process from a relevant entity, or remove it if it is no longer
@@ -3173,6 +3174,36 @@ features do not. Reported once per such feature, by the `lifecycle` pass of
 out of the milestone or set the milestone back to `in_progress`.
 
 Owner: @specforge/product
+Level: warning
+```
+
+## W155
+
+```
+W155: Unsigned package installed
+
+`specforge add` or `specforge update` installed a registry package that carries
+no publisher signature, because `--allow-unsigned` was given. Where it came from
+can't be verified, and no publisher key is pinned for it, so a later signed
+version is pinned on first use. Install signed packages where you can; ask the
+publisher to sign with `specforge publish`.
+
+Owner: core
+Level: warning
+```
+
+## W156
+
+```
+W156: Publisher key re-pinned
+
+A registry package is signed with a different key than the one pinned for it,
+and the change was accepted (`--yes`, a yes at the prompt, or the new key on
+`trusted_keys`), so the new key is now pinned. That is what a key rotation looks
+like, and also what a compromised publisher looks like: confirm the change with
+the publisher if you did not expect it. The message names both key ids.
+
+Owner: core
 Level: warning
 ```
 

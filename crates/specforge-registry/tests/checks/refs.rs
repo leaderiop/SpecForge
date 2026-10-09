@@ -13,7 +13,7 @@ fn w012(records: &[EntityRecord]) -> Vec<specforge_common::Diagnostic> {
 }
 
 #[spec(
-    behavior = "detect_orphan_refs",
+    behavior = "detect_unreferenced_refs",
     verify = "unreferenced ref produces W012"
 )]
 fn an_unreferenced_ref_produces_w012() {
@@ -28,7 +28,7 @@ fn an_unreferenced_ref_produces_w012() {
 }
 
 #[spec(
-    behavior = "detect_orphan_refs",
+    behavior = "detect_unreferenced_refs",
     verify = "referenced ref suppresses W012"
 )]
 fn a_referenced_ref_suppresses_w012() {
@@ -47,7 +47,7 @@ fn a_referenced_ref_suppresses_w012() {
 }
 
 #[spec(
-    behavior = "detect_orphan_refs",
+    behavior = "detect_unreferenced_refs",
     verify = "spec block is a root container and does not produce W012"
 )]
 fn a_spec_block_does_not_produce_w012() {
@@ -80,11 +80,11 @@ fn w012_runs_with_no_extension_loaded() {
 }
 
 #[spec(
-    behavior = "detect_orphan_refs",
-    verify = "Detect Orphan Structural Nodes: orphan structural node detection holds — graph_built_fired, orphans_detected, referenced_nodes_clean"
+    behavior = "detect_unreferenced_refs",
+    verify = "Detect Unreferenced Refs: unreferenced ref detection holds — graph_built_fired, unreferenced_detected, referenced_nodes_clean"
 )]
 fn the_orphan_refs_contract_holds() {
-    // orphans_detected: a ref with zero incoming edges → W012.
+    // unreferenced_detected: a ref with zero incoming edges → W012.
     let orphan = w012(&[
         EntityRecord::new("behavior", "alpha", span("main.spec")),
         EntityRecord::new("ref", "gh.issue:42", span("main.spec")),

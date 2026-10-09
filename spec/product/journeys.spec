@@ -292,7 +292,7 @@ journey view_project_statistics "View Project Statistics" {
   features [ci_integration]
   flow     """
     1. Developer runs specforge stats
-    2. System computes entity counts, coverage %, and orphan count
+    2. System computes entity counts, coverage %, and unreferenced count
     3. Summary table is printed
     4. Developer uses this to track project health
   """
@@ -431,7 +431,7 @@ journey see_live_errors_while_typing "See Live Errors While Typing" {
     1. Developer edits a .spec file
     2. LSP incrementally recompiles within 100ms
     3. Red squiggles appear on broken references
-    4. Yellow squiggles appear on orphans
+    4. Yellow squiggles appear on unreferenced entities
     5. Semantic tokens color entity IDs by type and highlight keywords
     6. Diagnostics update in real time as user types
   """
@@ -543,7 +543,7 @@ journey review_persona_channel_landscape "Review Persona and Channel Landscape" 
     2. Product manager runs specforge product:channels to list all channels
     3. Product manager identifies deprecated personas/channels without reasons (I069, I070)
     4. Product manager uses persona-journeys and channel-journeys queries to review coverage
-    5. Product manager identifies orphan personas (I046) and channels (I047) not used by any journey
+    5. Product manager identifies unreferenced personas (I046) and channels (I047) not used by any journey
     6. Success: persona and channel landscape is reviewed for completeness and lifecycle hygiene
   """
 }
@@ -693,7 +693,7 @@ journey j_validate_agent_plan "Validate Agent Implementation Plan" {
     1. AI agent produces a plan.json mapping entities to planned actions
     2. Developer runs specforge trace --plan plan.json
     3. System validates every testable entity has a planned implementation
-    4. System checks no orphan plans reference nonexistent entities
+    4. System checks no unreferenced plans reference nonexistent entities
     5. System verifies dependency order is valid
     6. Success: plan is consistent with the spec graph
     7. Failure: gaps and inconsistencies reported with suggestions

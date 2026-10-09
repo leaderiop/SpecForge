@@ -66,10 +66,12 @@ port RegistryClient {
   // The transport to a package registry (ADR 0044): it chooses no registry
   // and checks no reply. Its adapters are the HTTP client (production) and
   // the in-memory client (tests); both keep one contract suite.
-  method versions(name: PackageName, registry: RegistryConfig) -> Result<string[], RegistryError>
-  method metadata(name: PackageName, version: string, registry: RegistryConfig) -> Result<PackageMetadata, RegistryError>
-  method download(wasmUrl: string) -> Result<u8[], RegistryError>
-  method search(query: string, registry: RegistryConfig) -> Result<SearchHit[], RegistryError>
+  // A read carries the credential the user keeps for the registry, when
+  // there is one; a download carries it only to the registry's own origin.
+  method versions(name: PackageName, registry: RegistryConfig, credential: RegistryCredential) -> Result<string[], RegistryError>
+  method metadata(name: PackageName, version: string, registry: RegistryConfig, credential: RegistryCredential) -> Result<PackageMetadata, RegistryError>
+  method download(wasmUrl: string, registry: RegistryConfig, credential: RegistryCredential) -> Result<u8[], RegistryError>
+  method search(query: SearchQuery, registry: RegistryConfig, credential: RegistryCredential) -> Result<SearchHit[], RegistryError>
   method publish(wasm: u8[], declaration: ExtensionDeclaration, manifest: string, signature: string, registry: RegistryConfig, credential: RegistryCredential) -> Result<string, RegistryError>
   method authenticate(registry: RegistryConfig, credential: RegistryCredential) -> Result<string, RegistryError>
   verify integration "RegistryClient contract is satisfied"
@@ -86,6 +88,7 @@ port Registry {
   method versions(name: PackageName) -> Result<string[], ExtensionError>
   method fetch(name: PackageName, version: string, allowUnsigned: boolean, trust: string) -> Result<RegistryPackage, ExtensionError>
   method publish(name: PackageName, version: string, wasm: u8[], declaration: ExtensionDeclaration) -> Result<RegistryPublished, ExtensionError>
+  method search(query: string, contributes: string) -> Result<RegistrySearched, ExtensionError>
   verify integration "Registry contract is satisfied"
 }
 

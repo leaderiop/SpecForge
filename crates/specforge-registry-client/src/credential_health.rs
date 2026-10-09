@@ -4,6 +4,7 @@
 use crate::credentials::{CredentialEntry, credentials_path, read_credentials};
 use crate::signing::signing_key_path;
 use serde::Serialize;
+use specforge_common::codes;
 use std::path::Path;
 
 /// How serious a credential line is.
@@ -54,7 +55,15 @@ pub fn credential_health(
     let mut aliases: Vec<String> = store.registries.keys().cloned().collect();
     aliases.sort();
     for alias in aliases {
-        match store.get_credential_detail(&alias) {
+        match store.credential(&alias) {
+            // A reference resolves in the shell that runs a command, which need not be
+            // doctor's: a variable not set here, or a file not readable here, is a warning.
+            Err(diag) if diag.is(codes::R010) || diag.is(codes::R011) => {
+                lines.push(CredentialLine {
+                    level: CredentialLevel::Warning,
+                    text: format!("registry '{alias}': {}", diag.message),
+                });
+            }
             Err(diag) => {
                 failures += 1;
                 lines.push(CredentialLine {
@@ -78,7 +87,7 @@ pub fn credential_health(
                             "registry '{alias}': token expires in {days} day(s) — re-login soon"
                         ),
                     },
-                    // An expired token already failed get_credential_detail.
+                    // An expired token already failed `credential`.
                     Some(TokenExpiry::Valid) | Some(TokenExpiry::Expired) => CredentialLine {
                         level: CredentialLevel::Ok,
                         text: format!("registry '{alias}': token ok"),
@@ -155,6 +164,27 @@ mod tests {
         );
         assert_eq!(assess_expiry(None, now), None);
         assert_eq!(assess_expiry(Some("not-a-date"), now), None);
+    }
+
+    #[test]
+    fn an_unset_token_variable_is_a_warning_in_doctor() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let store = dir.path().join("credentials.json");
+        std::fs::write(
+            &store,
+            r#"{"registries":{"ci":{"token_env":"P16_DOCTOR_UNSET_VARIABLE"}}}"#,
+        )
+        .unwrap();
+
+        let health = credential_health(&store, &dir.path().join("no-key"), chrono::Utc::now());
+
+        assert_eq!(health.failures, 0, "{health:?}");
+        assert_eq!(health.lines.len(), 1);
+        assert_eq!(health.lines[0].level, CredentialLevel::Warning);
+        assert!(
+            health.lines[0].text.contains("P16_DOCTOR_UNSET_VARIABLE"),
+            "{health:?}"
+        );
     }
 
     #[test]

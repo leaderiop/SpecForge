@@ -213,7 +213,7 @@ behavior cp_minimal "Composition Pattern: Minimal (Product Only)" {
 
     Product validation rules fire, for example:
       - E007 (module dependency cycle), E015 (milestone dependency cycle)
-      - W041 (orphan feature), W042 (orphan journey), W044 (orphan module)
+      - W041 (unreferenced feature), W042 (unreferenced journey), W044 (unreferenced module)
       - I010 (term with no edges)
 
     No testable entities exist in this configuration (product declares

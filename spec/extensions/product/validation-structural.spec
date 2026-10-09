@@ -1,32 +1,32 @@
-// Structural validation rules — orphan detection, cycle detection, and gap analysis
+// Structural validation rules — unreferenced detection, cycle detection, and gap analysis
 //
 // Split from validation-rules.spec. These behaviors describe structural graph
 // checks declared as ValidationRulePattern entries in the @specforge/product
 // manifest. The core declarative validation engine executes these patterns.
 //
-// Naming convention: detect_* — structural graph checks (orphans, cycles, gaps, tags)
+// Naming convention: detect_* — structural graph checks (unreferenced entities, cycles, gaps, tags)
 
 use "types/diagnostics"
 use "types/graph"
 
-behavior detect_orphan_journeys "Detect Orphan Journeys" {
+behavior detect_unreferenced_journeys "Detect Unreferenced Journeys" {
   category validation
   types    [Diagnostic]
   contract """
     The @specforge/product extension MUST declare a no_incoming_edges
     validation pattern that detects journeys not referenced by any
-    deliverable. Orphan journeys MUST produce a W042 warning.
+    deliverable. Unreferenced journeys MUST produce a W042 warning.
   """
   ensures {
-    fires_when_orphan      "journey with zero incoming DeliverableSupportsJourney edges produces W042"
-    suppresses_deliverable "journey in at least one deliverable suppresses W042"
+    fires_when_unreferenced "journey with zero incoming DeliverableSupportsJourney edges produces W042"
+    suppresses_deliverable  "journey in at least one deliverable suppresses W042"
   }
   features [pe_validation_suite]
   verify unit "journey not in any deliverable produces W042"
   verify unit "journey in a deliverable suppresses W042"
 }
 
-behavior detect_orphan_modules "Detect Orphan Modules" {
+behavior detect_unreferenced_modules "Detect Unreferenced Modules" {
   category validation
   types    [Diagnostic]
   contract """
@@ -36,8 +36,8 @@ behavior detect_orphan_modules "Detect Orphan Modules" {
     term belongs to it) MUST produce a W044 warning.
   """
   ensures {
-    fires_when_orphan     "module with zero incoming edges produces W044"
-    suppresses_referenced "module referenced by a deliverable, milestone, module or term suppresses W044"
+    fires_when_unreferenced "module with zero incoming edges produces W044"
+    suppresses_referenced   "module referenced by a deliverable, milestone, module or term suppresses W044"
   }
   features [pe_validation_suite]
   verify unit "module nothing references produces W044"
@@ -45,7 +45,7 @@ behavior detect_orphan_modules "Detect Orphan Modules" {
   verify unit "module referenced only by a milestone suppresses W044"
 }
 
-behavior detect_orphan_terms "Detect Orphan Terms" {
+behavior detect_unreferenced_terms "Detect Unreferenced Terms" {
   category validation
   types    [Diagnostic]
   contract """
@@ -64,7 +64,7 @@ behavior detect_orphan_terms "Detect Orphan Terms" {
   verify unit "term with no edges produces I010"
 }
 
-behavior detect_orphan_personas "Detect Orphan Personas" {
+behavior detect_unreferenced_personas "Detect Unreferenced Personas" {
   category validation
   types    [Diagnostic]
   contract """
@@ -75,15 +75,15 @@ behavior detect_orphan_personas "Detect Orphan Personas" {
     personas may be declared before journeys reference them.
   """
   ensures {
-    fires_when_orphan     "persona with zero incoming JourneyTargetsPersona edges produces I046"
-    suppresses_referenced "persona referenced by at least one journey suppresses I046"
+    fires_when_unreferenced "persona with zero incoming JourneyTargetsPersona edges produces I046"
+    suppresses_referenced   "persona referenced by at least one journey suppresses I046"
   }
   features [pe_validation_suite]
   verify unit "persona referenced by a journey suppresses I046"
   verify unit "persona not referenced by any journey produces I046"
 }
 
-behavior detect_orphan_channels "Detect Orphan Channels" {
+behavior detect_unreferenced_channels "Detect Unreferenced Channels" {
   category validation
   types    [Diagnostic]
   contract """
@@ -94,8 +94,8 @@ behavior detect_orphan_channels "Detect Orphan Channels" {
     channels may be declared before journeys reference them.
   """
   ensures {
-    fires_when_orphan     "channel with zero incoming JourneyUsesChannel edges produces I047"
-    suppresses_referenced "channel referenced by at least one journey suppresses I047"
+    fires_when_unreferenced "channel with zero incoming JourneyUsesChannel edges produces I047"
+    suppresses_referenced   "channel referenced by at least one journey suppresses I047"
   }
   features [pe_validation_suite]
   verify unit "channel referenced by a journey suppresses I047"

@@ -52,6 +52,7 @@ async fn health_check() -> &'static str {
 
 async fn get_package_versions(
     State(state): State<Arc<AppState>>,
+    _reader: Reader,
     Path(name): Path<String>,
 ) -> Result<Json<VersionList>, ApiError> {
     let name = read_name(&name)?.to_string();
@@ -73,6 +74,7 @@ async fn get_package_versions(
 
 async fn get_package_version(
     State(state): State<Arc<AppState>>,
+    _reader: Reader,
     Path((name, version)): Path<(String, String)>,
 ) -> Result<Json<PackageMetadata>, ApiError> {
     let package = read_name(&name)?;
@@ -128,6 +130,7 @@ async fn get_package_version(
 
 async fn download_package(
     State(state): State<Arc<AppState>>,
+    _reader: Reader,
     Path((name, version)): Path<(String, String)>,
 ) -> Result<Response, ApiError> {
     let name = read_name(&name)?.to_string();
@@ -200,13 +203,30 @@ async fn download_package(
 
 async fn search_packages(
     State(state): State<Arc<AppState>>,
+    _reader: Reader,
     Query(query): Query<SearchQuery>,
 ) -> Result<Json<SearchResults>, ApiError> {
+    let contributes = match query.contributes.as_deref() {
+        None => None,
+        Some(name) => Some(
+            specforge_protocol_types::DeclaredCategory::from_name(name).ok_or_else(|| {
+                ApiError::bad_request(
+                    code::BAD_REQUEST,
+                    format!(
+                        "'{name}' is not a declared category; one of: {}",
+                        specforge_protocol_types::DECLARED_CATEGORIES.join(", ")
+                    ),
+                )
+            })?,
+        ),
+    };
     // rusqlite queries are blocking: run the search on the blocking pool.
-    let results = tokio::task::spawn_blocking(move || state.database.search(&query.q, query.limit))
-        .await
-        .expect("search query task panicked")
-        .map_err(|e| ApiError::internal(code::DB_ERROR, e))?;
+    let results = tokio::task::spawn_blocking(move || {
+        state.database.search(&query.q, query.limit, contributes)
+    })
+    .await
+    .expect("search query task panicked")
+    .map_err(|e| ApiError::internal(code::DB_ERROR, e))?;
 
     let results = results
         .into_iter()
@@ -354,6 +374,26 @@ impl FromRequestParts<Arc<AppState>> for AuthToken {
         state: &Arc<AppState>,
     ) -> Result<Self, Self::Rejection> {
         Self::extract(state, &parts.headers).await
+    }
+}
+
+/// Extractor for the read routes: under [`crate::state::ReadAccess::Token`] the request must carry a
+/// valid token (any scope), else 401; under `Public` it admits everyone.
+pub struct Reader;
+
+impl FromRequestParts<Arc<AppState>> for Reader {
+    type Rejection = ApiError;
+
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &Arc<AppState>,
+    ) -> Result<Self, Self::Rejection> {
+        if state.read_access == crate::state::ReadAccess::Token {
+            AuthToken::extract(state, &parts.headers)
+                .await
+                .map_err(|_| ApiError::unauthorized("this registry requires a token to read"))?;
+        }
+        Ok(Reader)
     }
 }
 

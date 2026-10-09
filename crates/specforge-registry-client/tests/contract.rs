@@ -2,8 +2,10 @@
 //! real server in process, and the in-memory client.
 
 use specforge_registry_client::HttpRegistryClient;
-use specforge_registry_client::registry_config::{AuthMethod, RegistryConfig, RegistryCredential};
-use specforge_registry_client::testing::{MemoryClient, assert_client_contract};
+use specforge_registry_client::registry_config::{RegistryConfig, RegistryCredential};
+use specforge_registry_client::testing::{
+    MemoryClient, assert_client_contract, assert_private_client_contract,
+};
 use specforge_registry_server::testing::LocalRegistry;
 
 #[specforge_test_macros::test(
@@ -18,10 +20,7 @@ fn the_http_client_keeps_the_client_contract() {
         scope_filter: None,
         default_registry: true,
     };
-    let credential = RegistryCredential {
-        alias: "local".to_string(),
-        auth_method: AuthMethod::Bearer(server.token().to_string()),
-    };
+    let credential = RegistryCredential::new("local", server.token());
     assert_client_contract(&HttpRegistryClient::new(), &registry, &credential);
 }
 
@@ -36,13 +35,44 @@ fn the_memory_client_keeps_the_client_contract() {
         scope_filter: None,
         default_registry: true,
     };
-    let credential = RegistryCredential {
-        alias: "memory".to_string(),
-        auth_method: AuthMethod::Bearer("contract-token".to_string()),
-    };
+    let credential = RegistryCredential::new("memory", "contract-token");
     assert_client_contract(
         &MemoryClient::new().accepting("contract-token"),
         &registry,
         &credential,
     );
+}
+
+#[specforge_test_macros::test(
+    behavior = "support_private_registries",
+    verify = "a private registry refuses an anonymous read and answers an authenticated one"
+)]
+fn the_private_contract_holds_over_http() {
+    let server = LocalRegistry::start_private();
+    let registry = RegistryConfig {
+        alias: "local".to_string(),
+        url: server.url().to_string(),
+        scope_filter: None,
+        default_registry: true,
+    };
+    let credential = RegistryCredential::new("local", server.token());
+    assert_private_client_contract(&HttpRegistryClient::new(), &registry, &credential);
+}
+
+#[specforge_test_macros::test(
+    behavior = "support_private_registries",
+    verify = "a private registry refuses an anonymous read and answers an authenticated one"
+)]
+fn the_private_contract_holds_in_memory() {
+    let registry = RegistryConfig {
+        alias: "memory".to_string(),
+        url: "memory://registry/v1".to_string(),
+        scope_filter: None,
+        default_registry: true,
+    };
+    let credential = RegistryCredential::new("memory", "contract-token");
+    let client = MemoryClient::new()
+        .accepting("contract-token")
+        .private(&registry);
+    assert_private_client_contract(&client, &registry, &credential);
 }

@@ -1,12 +1,10 @@
 use specforge_common::Severity;
 use specforge_protocol_types::package::Version;
 use specforge_protocol_types::{ExtensionDeclaration, PackageName};
-use specforge_registry_client::registry_ops::{
-    publish_to_registry, search_registries, verify_registry_integrity,
-};
+use specforge_registry_client::registry_ops::{publish_to_registry, verify_registry_integrity};
 use specforge_registry_client::testing::{Call, CallKind, MemoryClient, package};
 use specforge_registry_client::{
-    AuthMethod, RegistryClient, RegistryConfig, RegistryCredential, RegistryError, SigningKey,
+    RegistryClient, RegistryConfig, RegistryCredential, RegistryError, SigningKey,
 };
 use specforge_registry_wire::{PackageMetadata, path};
 
@@ -20,15 +18,6 @@ fn default_registry() -> RegistryConfig {
         url: "https://registry.specforge.dev".to_string(),
         scope_filter: None,
         default_registry: true,
-    }
-}
-
-fn scoped_registry(alias: &str, scope: &str) -> RegistryConfig {
-    RegistryConfig {
-        alias: alias.to_string(),
-        url: format!("https://{alias}.registry.dev"),
-        scope_filter: Some(scope.to_string()),
-        default_registry: false,
     }
 }
 
@@ -50,17 +39,14 @@ fn minimal_manifest() -> ExtensionDeclaration {
 const TOKEN: &str = "publisher-token";
 
 fn accepted() -> RegistryCredential {
-    RegistryCredential {
-        alias: "default".to_string(),
-        auth_method: AuthMethod::Bearer(TOKEN.to_string()),
-    }
+    RegistryCredential::new("default", TOKEN)
 }
 
 fn client() -> MemoryClient {
     MemoryClient::new().accepting(TOKEN)
 }
 
-/// `registry` holds `name@version`, found by `desc` in a search.
+/// `registry` holds `name@version`.
 fn store(client: &MemoryClient, registry: &RegistryConfig, name: &str, version: &str, desc: &str) {
     client.store(
         registry,
@@ -80,88 +66,6 @@ fn publishes(client: &MemoryClient) -> Vec<Call> {
         .into_iter()
         .filter(|call| call.kind == CallKind::Publish)
         .collect()
-}
-
-// ---------------------------------------------------------------------------
-// Tests: search_registries
-// ---------------------------------------------------------------------------
-
-// B:search_registry — verify unit "queries ALL configured registries"
-#[test]
-fn search_queries_all_registries() {
-    let (a, b) = (
-        scoped_registry("reg-a", "@alpha"),
-        scoped_registry("reg-b", "@beta"),
-    );
-    let client = MemoryClient::new();
-    store(&client, &a, "@alpha/ext", "1.0.0", "Alpha ext");
-    store(&client, &b, "@beta/ext", "1.0.0", "Beta ext");
-
-    let (results, diags) = search_registries("ext", &[a, b], &client);
-    assert!(diags.is_empty());
-    assert_eq!(results.len(), 2);
-    // Both registries contributed results
-    let names: Vec<&str> = results.iter().map(|r| r.name.as_str()).collect();
-    assert!(names.contains(&"@alpha/ext"));
-    assert!(names.contains(&"@beta/ext"));
-}
-
-// B:search_registry — verify unit "results deduplicated by name+version"
-#[test]
-fn search_deduplicates_by_name_and_version() {
-    let (a, b) = (
-        scoped_registry("reg-a", "@specforge"),
-        scoped_registry("reg-b", "@specforge"),
-    );
-    // Both registries return the same package
-    let client = MemoryClient::new();
-    store(&client, &a, "@specforge/software", "1.0.0", "From A");
-    store(&client, &b, "@specforge/software", "1.0.0", "From B");
-
-    let (results, diags) = search_registries("software", &[a, b], &client);
-    assert!(diags.is_empty());
-    assert_eq!(results.len(), 1, "duplicate should be removed");
-    assert_eq!(results[0].name, "@specforge/software");
-}
-
-// B:search_registry — verify unit "search output deterministic (sorted)"
-#[test]
-fn search_results_sorted_deterministically() {
-    let registry = default_registry();
-    let client = MemoryClient::new();
-    for name in ["@z/ext", "@a/ext", "@m/ext"] {
-        store(&client, &registry, name, "1.0.0", "ext");
-    }
-
-    let (results, _) = search_registries("ext", &[registry], &client);
-    assert_eq!(results.len(), 3);
-    assert_eq!(results[0].name, "@a/ext");
-    assert_eq!(results[1].name, "@m/ext");
-    assert_eq!(results[2].name, "@z/ext");
-}
-
-// B:search_registry — verify unit "error from one registry doesn't abort others"
-#[test]
-fn search_error_from_one_registry_does_not_abort_others() {
-    let (failing, working) = (
-        scoped_registry("failing", "@fail"),
-        scoped_registry("working", "@work"),
-    );
-    let client = MemoryClient::new();
-    client.fail_next(
-        CallKind::Search,
-        Some(&failing),
-        RegistryError::Timeout {
-            url: "https://failing.registry.dev".into(),
-        },
-    );
-    store(&client, &working, "@work/ext", "1.0.0", "Works");
-
-    let (results, diags) = search_registries("ext", &[failing, working], &client);
-    assert_eq!(results.len(), 1);
-    assert_eq!(results[0].name, "@work/ext");
-    assert_eq!(diags.len(), 1);
-    assert!(diags[0].message.contains("failing"));
 }
 
 // ---------------------------------------------------------------------------
@@ -192,6 +96,7 @@ fn publish_computes_sha256() {
             &PackageName::parse("@test/ext").unwrap(),
             &Version::new(1, 0, 0),
             &registry,
+            None,
         )
         .unwrap();
     assert_eq!(
@@ -363,11 +268,6 @@ fn error_messages_do_not_leak_auth_details() {
             );
         }
     }
-
-    // Also verify sanitize_token works correctly
-    let sanitized = specforge_registry_client::sanitize_token(raw_token);
-    assert!(!sanitized.contains("super_secret"));
-    assert!(sanitized.ends_with("****"));
 }
 
 // B:publish_to_registry — verify unit "signed publish carries verifiable signature"

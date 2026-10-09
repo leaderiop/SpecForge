@@ -3036,6 +3036,7 @@ dependencies = [
  "specforge-protocol-types",
  "specforge-test",
  "specforge-test-macros",
+ "tempfile",
 ]
 
 [[package]]

@@ -10,23 +10,26 @@
 use specforge_common::{Code, Diagnostic, codes};
 use specforge_ops::extension::Trust;
 use specforge_ops::registry::{
-    METADATA_MISMATCH, NO_REGISTRY, NO_REGISTRY_FOR_NAME, NOT_AUTHENTICATED, Package, Published,
-    Registry, UNREADABLE_MANIFEST, UNUSABLE_SIGNING_KEY, Upload, no_registry,
+    Found, METADATA_MISMATCH, NO_REGISTRY, NO_REGISTRY_FOR_NAME, NOT_AUTHENTICATED, Package,
+    Published, Publisher, Registry, Searched, UNREADABLE_MANIFEST, UNUSABLE_SIGNING_KEY, Upload,
+    no_registry,
 };
 use specforge_ops::{OpError, OpErrorKind};
 use specforge_protocol_types::package::Version;
-use specforge_protocol_types::{ExtensionDeclaration, PackageName};
+use specforge_protocol_types::{DeclaredCategory, ExtensionDeclaration, PackageName};
 use specforge_registry_client::credentials::{read_credentials, user_dir};
 use specforge_registry_client::signing::load_or_create_signing_key_at;
-use specforge_registry_client::trust_flow::TrustPolicy;
 use specforge_registry_client::{
-    AuthMethod, HttpRegistryClient, RegistryClient, RegistryConfig, RegistryCredential,
-    RegistryError, SigningKey, parse_registries_from_config, publish_to_registry,
+    Accepted, HttpRegistryClient, KeyChange, RegistryClient, RegistryConfig, RegistryCredential,
+    RegistryError, Retrying, SigningKey, parse_registries_from_config, publish_to_registry,
     verify_registry_integrity,
 };
-use specforge_registry_wire::PackageMetadata;
+use specforge_registry_wire::{PackageMetadata, SearchQuery};
 use std::path::{Path, PathBuf};
-use std::sync::OnceLock;
+use std::sync::{Mutex, OnceLock};
+
+/// Whom a key change is asked of.
+type Asker = Box<dyn Fn(&KeyChange) -> bool + Send + Sync>;
 
 /// The environment variable whose token `publish` authenticates with, ahead
 /// of a stored credential.
@@ -231,6 +234,10 @@ pub struct ConfiguredRegistry {
     client: Box<dyn RegistryClient>,
     /// Whose registry files are read (pins, credentials, signing key).
     user: User,
+    /// Whom a key change is asked of when a fetch is `Trust::Prompt`ed; nobody by default.
+    asker: Option<Asker>,
+    /// What the fetch policy reported (W155, W156), in fetch order.
+    fetched: Mutex<Vec<Diagnostic>>,
 }
 
 impl ConfiguredRegistry {
@@ -241,8 +248,10 @@ impl ConfiguredRegistry {
             root: root.to_path_buf(),
             operation: operation.to_string(),
             registries: OnceLock::new(),
-            client: Box::new(HttpRegistryClient::new()),
+            client: Box::new(Retrying::new(HttpRegistryClient::new())),
             user: User::current(),
+            asker: None,
+            fetched: Mutex::new(Vec::new()),
         }
     }
 
@@ -259,14 +268,34 @@ impl ConfiguredRegistry {
         self
     }
 
-    /// What reading the registry configuration reported (E067 for an entry it skipped, W140 for a
-    /// duplicate alias, I003 when none is the default), once an operation has asked this registry
-    /// anything; nothing before, and nothing when reading failed outright (each call then fails with
-    /// that error). A surface shows these after the operation, whatever its result.
-    pub fn reported(&self) -> &[Diagnostic] {
-        match self.registries.get() {
-            Some(Ok(configured)) => &configured.diagnostics,
-            _ => &[],
+    /// Ask `ask` about a key change when a fetch is `Trust::Prompt`ed (the CLI's terminal). Without
+    /// one, such a key change is refused.
+    pub fn asking(mut self, ask: impl Fn(&KeyChange) -> bool + Send + Sync + 'static) -> Self {
+        self.asker = Some(Box::new(ask));
+        self
+    }
+
+    /// What this registry reported, once an operation has asked it anything: the registry
+    /// configuration's diagnostics (E067 for an entry it skipped, W140 for a duplicate alias, I003
+    /// when none is the default; nothing when reading failed outright, each call then failing with
+    /// that error), then the fetch policy's (W155 for an unsigned package accepted, W156 for a key
+    /// change accepted) in fetch order. A surface shows these after the operation, whatever its
+    /// result.
+    pub fn reported(&self) -> Vec<Diagnostic> {
+        let mut reported = match self.registries.get() {
+            Some(Ok(configured)) => configured.diagnostics.clone(),
+            _ => Vec::new(),
+        };
+        reported.extend(self.fetched.lock().unwrap().iter().cloned());
+        reported
+    }
+
+    /// How a key change is decided for the way `add` was asked to.
+    fn decider(&self, trust: Trust) -> impl Fn(&KeyChange) -> bool + '_ {
+        move |change| match trust {
+            Trust::Refuse => false,
+            Trust::AssumeYes => true,
+            Trust::Prompt => self.asker.as_ref().is_some_and(|ask| ask(change)),
         }
     }
 
@@ -294,12 +323,16 @@ impl Registry for ConfiguredRegistry {
         trust: Trust,
     ) -> Result<Package, OpError> {
         let registry = self.registry_for(name)?;
+        let credential = self.read_credential(registry)?; // R-AUTH-020/021, R010, R011, R012
         let metadata = self
             .client
-            .metadata(name, version, registry)
+            .metadata(name, version, registry, credential.as_ref())
             .map_err(failure)?;
         reply_names(name, version, &metadata)?; // 1
-        let wasm = self.client.download(&metadata.wasm_url).map_err(failure)?;
+        let wasm = self
+            .client
+            .download(&metadata.wasm_url, registry, credential.as_ref())
+            .map_err(failure)?;
         verify_registry_integrity(&wasm, &metadata.sha256).map_err(OpError::from)?; // 2
 
         // The served manifest is the package's declaration (ADR 0012): the
@@ -317,10 +350,11 @@ impl Registry for ConfiguredRegistry {
             &metadata,
             &wasm,
             allow_unsigned,
-            policy(trust),
+            &self.decider(trust),
             &self.user.known_keys(),
         )
         .map_err(OpError::from)?; // 4
+        self.fetched.lock().unwrap().extend(trusted.diagnostics);
 
         Ok(Package {
             name: name.clone(),
@@ -328,15 +362,23 @@ impl Registry for ConfiguredRegistry {
             sha256: metadata.sha256,
             wasm,
             declaration,
-            key_id: trusted.key_id,
+            publisher: match trusted.accepted {
+                Accepted::Unsigned => Publisher::Unsigned,
+                Accepted::Signed { key_id, pinned_now } => Publisher::Signed {
+                    key_id,
+                    first_use: pinned_now,
+                },
+                Accepted::Repinned { key_id, previous } => Publisher::Repinned { key_id, previous },
+            },
         })
     }
 
     fn versions(&self, name: &PackageName) -> Result<Vec<Version>, OpError> {
         let registry = self.registry_for(name)?;
+        let credential = self.read_credential(registry)?;
         let published = self
             .client
-            .versions(name, registry)
+            .versions(name, registry, credential.as_ref())
             .map_err(|error| match error {
                 RegistryError::NotFound { .. } => OpError::from(
                     Diagnostic::new(
@@ -356,6 +398,58 @@ impl Registry for ConfiguredRegistry {
             .iter()
             .filter_map(|text| Version::parse(text).ok())
             .collect())
+    }
+
+    fn search(
+        &self,
+        query: &str,
+        contributes: Option<DeclaredCategory>,
+    ) -> Result<Searched, OpError> {
+        let registries = &self.registries()?.registries;
+        let mut wire = SearchQuery::new(query);
+        if let Some(category) = contributes {
+            wire = wire.contributing(category);
+        }
+        let mut found: Vec<Found> = Vec::new();
+        let mut failures = Vec::new();
+        for registry in registries {
+            let hits = self.stored_credential(registry).and_then(|credential| {
+                self.client
+                    .search(&wire, registry, credential.as_ref())
+                    .map_err(|error| error.to_diagnostic())
+            });
+            match hits {
+                Ok(hits) => {
+                    for hit in hits {
+                        // The first registry that lists a name and version wins.
+                        if !found
+                            .iter()
+                            .any(|f| f.name == hit.name && f.version == hit.version)
+                        {
+                            found.push(Found {
+                                name: hit.name,
+                                version: hit.version,
+                                description: hit.description,
+                                registry: registry.alias.clone(),
+                            });
+                        }
+                    }
+                }
+                Err(mut diagnostic) => {
+                    diagnostic.message = format!(
+                        "search failed on registry '{}': {}",
+                        registry.alias, diagnostic.message
+                    );
+                    failures.push(diagnostic);
+                }
+            }
+        }
+        found.sort_by(|a, b| a.name.cmp(&b.name).then_with(|| a.version.cmp(&b.version)));
+        Ok(Searched {
+            found,
+            failures,
+            asked: registries.len(),
+        })
     }
 
     fn publish(&self, package: &Upload<'_>) -> Result<Published, OpError> {
@@ -381,19 +475,36 @@ impl Registry for ConfiguredRegistry {
 }
 
 impl ConfiguredRegistry {
+    /// The credential the user keeps for `registry`, for a read: the stored one
+    /// ([`specforge_registry_client::CredentialStore::credential`]), `None` when there is none. The
+    /// environment's `SPECFORGE_REGISTRY_TOKEN` is not used: it is the token of the registry a publish
+    /// goes to, and a read may ask every registry (search). A stored credential that can't be used
+    /// refuses the read before any request.
+    fn read_credential(
+        &self,
+        registry: &RegistryConfig,
+    ) -> Result<Option<RegistryCredential>, OpError> {
+        self.stored_credential(registry).map_err(OpError::from)
+    }
+
+    /// [`ConfiguredRegistry::read_credential`] as the diagnostic that refuses it.
+    fn stored_credential(
+        &self,
+        registry: &RegistryConfig,
+    ) -> Result<Option<RegistryCredential>, Diagnostic> {
+        read_credentials(&self.user.credentials())?.credential(&registry.alias)
+    }
+
     /// The credential a publish to `registry` authenticates with: the
     /// environment's token when set and not blank (the store is not read),
     /// else the one stored for the registry's alias.
     fn credential_for(&self, registry: &RegistryConfig) -> Result<RegistryCredential, OpError> {
         if let Some(token) = self.user.token() {
-            return Ok(RegistryCredential {
-                alias: registry.alias.clone(),
-                auth_method: AuthMethod::Bearer(token.to_string()),
-            });
+            return Ok(RegistryCredential::new(registry.alias.clone(), token));
         }
         let store = read_credentials(&self.user.credentials()).map_err(OpError::from)?;
         store
-            .get_credential_detail(&registry.alias)
+            .credential(&registry.alias)
             .map_err(OpError::from)?
             .ok_or_else(|| {
                 OpError::coded(
@@ -468,15 +579,6 @@ fn declaration_names(
         .with_suggestion("don't install the package, and check the registry"));
     }
     Ok(())
-}
-
-/// How the client decides a key change for the way `add` was asked to.
-fn policy(trust: Trust) -> TrustPolicy {
-    match trust {
-        Trust::Refuse => TrustPolicy::Refuse,
-        Trust::AssumeYes => TrustPolicy::AssumeYes,
-        Trust::Prompt => TrustPolicy::Prompt,
-    }
 }
 
 /// The declaration a registry stores as `name@version`'s manifest. A

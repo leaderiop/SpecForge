@@ -5,10 +5,10 @@ use std::sync::Mutex;
 
 use specforge_common::codes;
 use specforge_installed::hex_sha256;
-use specforge_protocol_types::ExtensionDeclaration;
 use specforge_protocol_types::package::{PackageName, Version};
+use specforge_protocol_types::{DeclaredCategory, ExtensionDeclaration};
 
-use super::{Package, Published as Receipt, Registry, Upload};
+use super::{Found, Package, Published as Receipt, Publisher, Registry, Searched, Upload};
 use crate::OpError;
 use crate::extension::Trust;
 
@@ -216,7 +216,13 @@ impl Registry for MemoryRegistry {
             sha256: hex_sha256(&published.wasm),
             wasm: published.wasm.clone(),
             declaration: published.declaration.clone(),
-            key_id: published.key_id.clone(),
+            publisher: match &published.key_id {
+                Some(key_id) => Publisher::Signed {
+                    key_id: key_id.clone(),
+                    first_use: false,
+                },
+                None => Publisher::Unsigned,
+            },
         })
     }
 
@@ -252,6 +258,75 @@ impl Registry for MemoryRegistry {
             key_id: IN_MEMORY_KEY.to_string(),
             key_created: false,
         })
+    }
+
+    /// The latest version of each held package matching `query` in its name, description or keywords,
+    /// declaring `contributes` when given, sorted by name; every hit names the registry
+    /// [`IN_MEMORY_KEY`].
+    fn search(
+        &self,
+        query: &str,
+        contributes: Option<DeclaredCategory>,
+    ) -> Result<Searched, OpError> {
+        let needle = query.to_ascii_lowercase();
+        let held = self.held.lock().unwrap();
+        let mut latest: Vec<&Published> = Vec::new();
+        for published in held.iter() {
+            let handshake = &published.declaration.handshake;
+            let matches = published
+                .name()
+                .as_str()
+                .to_ascii_lowercase()
+                .contains(&needle)
+                || handshake
+                    .description
+                    .as_deref()
+                    .unwrap_or_default()
+                    .to_ascii_lowercase()
+                    .contains(&needle)
+                || handshake
+                    .keywords
+                    .iter()
+                    .any(|k| k.to_ascii_lowercase().contains(&needle));
+            if !matches || contributes.is_some_and(|c| !Self::declares(published, c)) {
+                continue;
+            }
+            match latest.iter().position(|p| p.name() == published.name()) {
+                Some(at) if latest[at].version() >= published.version() => {}
+                Some(at) => latest[at] = published,
+                None => latest.push(published),
+            }
+        }
+        latest.sort_by_key(|p| p.name().to_string());
+        Ok(Searched {
+            found: latest
+                .into_iter()
+                .map(|p| Found {
+                    name: p.name().to_string(),
+                    version: p.version().to_string(),
+                    description: p
+                        .declaration
+                        .handshake
+                        .description
+                        .clone()
+                        .unwrap_or_default(),
+                    registry: IN_MEMORY_KEY.to_string(),
+                })
+                .collect(),
+            failures: Vec::new(),
+            asked: 1,
+        })
+    }
+}
+
+impl MemoryRegistry {
+    /// Whether `published` declares `category`.
+    fn declares(published: &Published, category: DeclaredCategory) -> bool {
+        published
+            .declaration
+            .describe_items(category.name())
+            .and_then(|items| items.as_array().map(|a| !a.is_empty()))
+            .unwrap_or(false)
     }
 }
 
@@ -314,11 +389,19 @@ pub fn assert_registry_contract(registry: &dyn Registry, published: &[Published]
     assert_eq!(fetched.wasm, expected.wasm, "C3: the published bytes");
     assert_eq!(fetched.sha256, hex_sha256(&fetched.wasm), "C3: sha256");
     assert_eq!(fetched.declaration, expected.declaration, "C3: declaration");
-    assert_eq!(fetched.key_id, expected.key_id, "C3: the signer");
+    assert_eq!(
+        fetched.publisher.key_id(),
+        expected.key_id.as_deref(),
+        "C3: the signer"
+    );
     let again = registry
         .fetch(&base, &one_one, false, Trust::Refuse)
         .unwrap_or_else(|e| panic!("C3: a second fetch under the same key fails: {e:?}"));
-    assert_eq!(again.key_id, expected.key_id, "C3: the same signer again");
+    assert_eq!(
+        again.publisher.key_id(),
+        expected.key_id.as_deref(),
+        "C3: the same signer again"
+    );
 
     // C4
     let error = registry
@@ -362,7 +445,11 @@ pub fn assert_registry_contract(registry: &dyn Registry, published: &[Published]
     let allowed = registry
         .fetch(&plain, &one, true, Trust::Refuse)
         .unwrap_or_else(|e| panic!("C6: unsigned allowed fails: {e:?}"));
-    assert_eq!(allowed.key_id, None, "C6: an unsigned package has no key");
+    assert_eq!(
+        allowed.publisher,
+        Publisher::Unsigned,
+        "C6: an unsigned package has no key"
+    );
 
     // C7
     let fresh = PackageName::parse("@contract/fresh").unwrap();
@@ -390,7 +477,7 @@ pub fn assert_registry_contract(registry: &dyn Registry, published: &[Published]
     assert_eq!(served.wasm, wasm, "C7: its bytes are served");
     assert_eq!(served.declaration, declaration, "C7: its declaration");
     assert_eq!(
-        served.key_id.as_deref(),
+        served.publisher.key_id(),
         Some(receipt.key_id.as_str()),
         "C7: signed by the key the receipt names"
     );
@@ -400,6 +487,25 @@ pub fn assert_registry_contract(registry: &dyn Registry, published: &[Published]
         again.kind,
         crate::OpErrorKind::Conflict,
         "C7: a held version is a conflict"
+    );
+
+    // R-S
+    let searched = registry
+        .search("contract/fresh", None)
+        .unwrap_or_else(|e| panic!("R-S: search fails: {e:?}"));
+    assert!(!searched.failed(), "R-S: {searched:?}");
+    let names: Vec<&str> = searched.found.iter().map(|f| f.name.as_str()).collect();
+    assert_eq!(
+        names,
+        ["@contract/fresh"],
+        "R-S: a published package is found by a substring of its name"
+    );
+    let searched = registry
+        .search("contract/fresh", Some(DeclaredCategory::Analyzers))
+        .unwrap_or_else(|e| panic!("R-S: filtered search fails: {e:?}"));
+    assert!(
+        searched.found.is_empty(),
+        "R-S: not found under a category it does not declare: {searched:?}"
     );
 }
 
@@ -440,7 +546,7 @@ mod tests {
         assert_eq!(package.version, published.version());
         assert_eq!(package.sha256, hex_sha256(b"\0asm tool"));
         assert_eq!(package.declaration, published.declaration);
-        assert_eq!(package.key_id.as_deref(), Some("key-1"));
+        assert_eq!(package.publisher.key_id(), Some("key-1"));
     }
 
     #[test]
@@ -486,8 +592,25 @@ mod tests {
         let served = registry
             .fetch(&name, &version, false, Trust::Refuse)
             .unwrap();
-        assert_eq!(served.key_id.as_deref(), Some(IN_MEMORY_KEY));
+        assert_eq!(served.publisher.key_id(), Some(IN_MEMORY_KEY));
         assert_eq!(registry.published(), [(name, version)]);
+    }
+
+    #[specforge_test_macros::test(
+        type = "RegistrySearched",
+        verify = "RegistrySearched is what a search over the configured registries answers with"
+    )]
+    fn a_search_answers_what_was_found_what_failed_and_how_many_were_asked() {
+        let registry = MemoryRegistry::new().serving(Published::new(
+            b"\0asm".to_vec(),
+            declaration("@acme/tool", "1.0.0", &[]),
+        ));
+        let searched = registry.search("tool", None).unwrap();
+        assert_eq!(searched.found.len(), 1);
+        assert_eq!(searched.found[0].registry, IN_MEMORY_KEY);
+        assert!(searched.failures.is_empty());
+        assert_eq!(searched.asked, 1);
+        assert!(!searched.failed());
     }
 
     #[test]

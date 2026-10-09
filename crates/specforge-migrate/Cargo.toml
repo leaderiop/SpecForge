@@ -19,3 +19,4 @@ specforge-parser = { workspace = true }
 specforge-protocol-types = { path = "../specforge-protocol-types" }
 specforge-test-macros = { workspace = true }
 specforge-test = { workspace = true }
+tempfile = { workspace = true }

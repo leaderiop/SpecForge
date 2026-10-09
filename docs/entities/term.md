@@ -73,13 +73,13 @@ term invariant_violation "Invariant Violation" {
 
 Term entities participate in the graph via `TermSeeAlso` edges, which are **navigation-only** — they model cross-references between terms for discovery and browsing, but do not carry traceability semantics. The `see_also` field creates `TermSeeAlso` edges (term→term) in the graph, enabling tools to build term relationship maps.
 
-Terms are documentation aids. Their edges support navigation and consistency checking (e.g., orphan term detection via I010), not dependency tracking or coverage computation.
+Terms are documentation aids. Their edges support navigation and consistency checking (e.g., unreferenced term detection via I010), not dependency tracking or coverage computation.
 
 ## Validation Rules
 
 | Code | Level | Rule |
 |------|-------|------|
-| I010 | info | Term not referenced by any other term via `TermSeeAlso` (orphan term). |
+| I010 | info | Term not referenced by any other term via `TermSeeAlso` (unreferenced term). |
 
 ## Design Guidance
 
@@ -212,13 +212,13 @@ term rpn "RPN" {
   see_also [write_loss, email_race]
 }
 
-term orphan "Orphan" {
+term unreferenced "Unreferenced" {
   definition """
     An entity that exists in the spec but is not referenced by any
-    higher-level entity. An orphan behavior is not in any feature.
-    An orphan feature is not in any journey.
+    higher-level entity. An unreferenced behavior is not in any feature.
+    An unreferenced feature is not in any journey.
   """
-  context "Orphans emit compiler warnings (W001, W002). They are not errors — they may be work in progress."
+  context "Unreferenced entities emit compiler warnings (W001, W002). They are not errors — they may be work in progress."
 }
 ```
 

@@ -404,8 +404,8 @@ catalog! {
         "Stored registry token unreadable",
         "The OS keyring entry that holds this registry's token is missing or can't be read, although the credentials file refers to it. Log in again: `specforge login --registry <alias> --token <NEW_TOKEN>`.";
     R_LOGIN_001 = "R-LOGIN-001": Error core,
-        "No login token given",
-        "`specforge login` was run without a token. Pass one with `--token <TOKEN>`.";
+        "No single login token source",
+        "`specforge login` needs exactly one of `--token <TOKEN>`, `--token-env <VAR>` or `--token-file <PATH>`; none or several were given.";
     R_LOGIN_002 = "R-LOGIN-002": Error core,
         "Login token not stored",
         "`specforge login` couldn't store the token in the OS keyring or in the fallback file `~/.specforge/credentials.json`. Check that the keyring service is available and that `~/.specforge` is writable.";
@@ -459,7 +459,7 @@ catalog! {
         "The publisher key pinned for the package couldn't be saved to `~/.specforge/known-keys.json`. Check the permissions on that file and its directory.";
     R001: Error core,
         "Registry authentication failed",
-        "The registry rejected the request as unauthenticated (HTTP 401), or the credentials its `auth` configuration names couldn't be read; a request is retried once with re-read credentials first. Log in again with `specforge login --registry <alias> --token <TOKEN>`. `specforge publish` refuses before any request when there is no credential for the registry that serves the package: none stored for its alias and `SPECFORGE_REGISTRY_TOKEN` unset or blank.";
+        "The registry rejected the request as unauthenticated (HTTP 401). Log in again with `specforge login --registry <alias> --token <TOKEN>`. `specforge publish` refuses before any request when there is no credential for the registry that serves the package: none stored for its alias and `SPECFORGE_REGISTRY_TOKEN` unset or blank.";
     R002: Error core,
         "Registry access forbidden",
         "The registry accepted the credentials but refused the request (HTTP 403). Check your permissions for the registry or the package scope.";
@@ -480,10 +480,10 @@ catalog! {
         "`specforge publish` tried to publish a version that already exists for the package, and published versions are immutable. Bump the version in the manifest and publish again.";
     R010: Error core,
         "Registry token variable not set",
-        "The registry's `auth` configuration reads the token from an environment variable that isn't set. Set it (`export <VAR>=<token>`) or change the registry's `auth` configuration.";
+        "The registry's credential is a reference to an environment variable (`specforge login --token-env`, or a `token_env` entry in `~/.specforge/credentials.json`) that isn't set, or is blank, where the command runs. Set it, or log in again with another source.";
     R011: Error core,
         "Registry token file unreadable",
-        "The registry's `auth` configuration reads the token from a file that can't be read. Check that the file exists and is readable, or change the registry's `auth` configuration.";
+        "The registry's credential is a reference to a token file (`specforge login --token-file`, or a `token_file` entry) that can't be read, or is empty. Check the path and its permissions, or log in again with another source.";
     R012: Error core,
         "Credentials file unreadable",
         "`~/.specforge/credentials.json` can't be read, or isn't in the expected format. Check its permissions, or delete it and log in again.";
@@ -572,16 +572,16 @@ catalog! {
         "Invariant without expression",
         "`specforge analyze`'s `condition_check` pass found an `invariant` whose `guarantee` has no `expression`: the guarantee is prose only, so `specforge analyze --prove` has no claim to check. Add an `expression` stating the guarantee as a machine-checkable claim, or keep it prose and prove it with tests.";
     W041: Warning product,
-        "Orphan feature",
+        "Unreferenced feature",
         "A `feature` entity has no incoming edges, meaning no `journey`, `milestone`, or `module` references it. Link it from at least one referencing entity, or remove it if it is no longer needed.";
     W042: Warning product,
-        "Orphan journey",
+        "Unreferenced journey",
         "A `journey` entity has no incoming edges, meaning no `deliverable` references it. Reference the journey from a deliverable's `journeys` field, or remove it if it is unused.";
     W043: Warning product,
         "Deliverable without journeys",
         "A `deliverable` has no edge to a `journey`: no `journeys` field, an empty list, or only references that don't resolve. Nothing says which user journeys it supports. List the journeys it serves in `journeys`.";
     W044: Warning product,
-        "Orphan module",
+        "Unreferenced module",
         "A `module` entity has no incoming edges, meaning no `deliverable` or `milestone` references it. Reference the module from a deliverable or milestone, or remove it if it is unused.";
     W045: Warning product,
         "Feature dependency cycle",
@@ -674,7 +674,7 @@ catalog! {
         "Invalid failure mode detection",
         "A `failure_mode` entity's `detection` or `post_detection` field is not one of the recognized values (`certain`, `likely`, `moderate`, `unlikely`, `undetectable`). Set the field to one of these values.";
     W123: Warning formal,
-        "Orphan property",
+        "Unreferenced property",
         "A `property` entity is not referenced by any `behavior`, so it may be unused. Reference the property from a behavior's `verify` block, or remove it if it is no longer needed.";
     W124: Warning formal,
         "Empty property description",
@@ -683,20 +683,20 @@ catalog! {
         "Invalid property type",
         "A `property` entity's `property_type` field is not one of the recognized values (`safety`, `liveness`, `fairness`). Set `property_type` to one of these values.";
     W126: Warning formal,
-        "Orphan axiom",
+        "Unreferenced axiom",
         "An `axiom` entity is not referenced by any other entity, so it may be unused. Reference the axiom from a relevant entity, or remove it if it is no longer needed.";
     W127: Warning formal,
         "Empty axiom description",
         "An `axiom` entity writes a `description` that is empty or only whitespace, which leaves the assumption unexplained. Write the description, or remove the field. An axiom that writes no description is not reported.";
     W128: Warning formal,
-        "Orphan protocol",
+        "Unreferenced protocol",
         "A `protocol` entity is not referenced by any `event`, so it may be unused. Reference the protocol from an event, or remove it if it is no longer needed.";
     W129: Warning formal,
         "Empty protocol description",
         "A `protocol` entity writes a `description` that is empty or only whitespace, which makes the synchronization contract opaque. Write the description, or remove the field. A protocol that writes no description is not reported.";
     W131: Warning formal,
-        "Orphan refinement",
-        "A `refinement` entity is not referenced by anything, so it may be orphaned. Reference the refinement from the entity it refines, or remove it if it is no longer needed.";
+        "Unreferenced refinement",
+        "A `refinement` entity is not referenced by any other entity, so it may be unused. Reference the refinement from the entity it refines, or remove it if it is no longer needed.";
     W132: Warning formal,
         "Empty refinement description",
         "A `refinement` entity writes a `description` that is empty or only whitespace, which makes the abstract-to-concrete mapping opaque. Write the description, or remove the field. A refinement that writes no description is not reported.";
@@ -704,7 +704,7 @@ catalog! {
         "Refinement without invariant deltas",
         "A `refinement` entity declares no `invariant_deltas` (the field is absent or an empty list), so it records no change between its abstract and concrete behaviors. List the invariants the refinement adds or relaxes in `invariant_deltas`.";
     W134: Warning formal,
-        "Orphan process",
+        "Unreferenced process",
         "A `process` entity is not referenced by any other entity, so it may be unused. Reference the process from a relevant entity, or remove it if it is no longer needed.";
     W135: Warning formal,
         "Empty process description",
@@ -760,4 +760,10 @@ catalog! {
     W154: Warning product,
         "Completed milestone delivers an unfinished feature",
         "A `milestone` has `status: completed` but a feature its `features` names is neither `done` nor `deprecated`, so the milestone's completion claims what its features do not. Reported once per such feature, by the `lifecycle` pass of @specforge/product. Mark the feature done if it was delivered; otherwise move it out of the milestone or set the milestone back to `in_progress`.";
+    W155: Warning core,
+        "Unsigned package installed",
+        "`specforge add` or `specforge update` installed a registry package that carries no publisher signature, because `--allow-unsigned` was given. Where it came from can't be verified, and no publisher key is pinned for it, so a later signed version is pinned on first use. Install signed packages where you can; ask the publisher to sign with `specforge publish`.";
+    W156: Warning core,
+        "Publisher key re-pinned",
+        "A registry package is signed with a different key than the one pinned for it, and the change was accepted (`--yes`, a yes at the prompt, or the new key on `trusted_keys`), so the new key is now pinned. That is what a key rotation looks like, and also what a compromised publisher looks like: confirm the change with the publisher if you did not expect it. The message names both key ids.";
 }

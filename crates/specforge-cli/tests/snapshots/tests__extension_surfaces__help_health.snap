@@ -2,7 +2,7 @@
 source: crates/specforge-cli/tests/extension_surfaces.rs
 expression: help
 ---
-A 0-100 score averaging coverage, connectivity and completeness of the product graph, with entity and orphan counts.
+A 0-100 score averaging coverage, connectivity and completeness of the product graph, with entity and unreferenced counts.
 
 Usage: specforge product health [OPTIONS]
 

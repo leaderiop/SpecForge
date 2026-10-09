@@ -73,3 +73,19 @@ or a dry run of an exact version, asks nothing and shows nothing.
   crate.
 - A registry the policy must trust differently per source (a mirror that re-signs): the policy then takes
   the trust source from the configuration, still over the seam.
+
+## Amendment (architecture round 5, plan 16): retries, read credentials, search by category
+
+- **A rate-limited call is sent again.** `Retrying<C>` is an adapter of the `RegistryClient` seam over any other:
+  a `RateLimited` answer is sent again after the longer of `RetryPolicy::REGISTRY`'s backoff (1 s doubling, at most
+  30 s) and the registry's `Retry-After`, at most 3 times; a `Retry-After` beyond 30 s is not waited for. Every call
+  is retried alike, publish included (a registry refuses a rate-limited publish before reading it).
+  `ConfiguredRegistry::for_project` builds `Retrying::new(HttpRegistryClient::new())`; a test passes its own client.
+- **Reads carry the user's credential.** `versions`, `metadata`, `download` and `search` take the credential the
+  user keeps for that registry, when any; `download` sends it only to the registry's own origin. A credential at
+  the seam is a resolved token (`RegistryCredential { alias, token }`): the client reads no variable or file.
+- **Search takes a declared category.** `SearchQuery::contributes` names one of the ten declared categories; a
+  registry keeps the latest versions whose stored declaration declares something in it
+  (`specforge_registry_wire::declares`). The reference server can require a token to read
+  (`ReadAccess::Token`, `serve --private`).
+- The contract suite gains the private-registry clauses (K-P1..K-P4) and the port contract a search clause (R-S).

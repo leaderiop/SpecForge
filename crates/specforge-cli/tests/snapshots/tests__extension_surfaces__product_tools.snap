@@ -1189,7 +1189,7 @@ expression: product
       "readOnlyHint": true
     },
     "category": "core",
-    "description": "A 0-100 score averaging coverage, connectivity and completeness of the product graph, with entity and orphan counts.",
+    "description": "A 0-100 score averaging coverage, connectivity and completeness of the product graph, with entity and unreferenced counts.",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {},

@@ -11,10 +11,11 @@
 //! reach a registry (the CLI, MCP) link (ADR 0010).
 
 use crate::extension::Trust;
+use crate::options::{Choice, OptionTable};
 use crate::{OpError, OpErrorKind};
-use specforge_common::{Code, codes};
-use specforge_protocol_types::ExtensionDeclaration;
+use specforge_common::{Code, Diagnostic, codes};
 use specforge_protocol_types::package::{PackageName, Version};
+use specforge_protocol_types::{DeclaredCategory, ExtensionDeclaration};
 
 /// The diagnostic a registry operation reports when no registry is
 /// configured.
@@ -70,9 +71,44 @@ pub struct Package {
     /// reads its peers before the binary is loaded, and the binary must then
     /// declare exactly the same (ADR 0012).
     pub declaration: ExtensionDeclaration,
-    /// The publisher key it was signed with; `None` when unsigned (and
-    /// unsigned packages were allowed).
-    pub key_id: Option<String>,
+    /// How the fetch policy accepted its publisher.
+    pub publisher: Publisher,
+}
+
+/// How the fetch policy accepted a package's publisher.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Publisher {
+    /// Not signed; accepted because the caller allowed it (W155 was reported).
+    Unsigned,
+    /// Signed by `key_id`, which matched its pin (`first_use: false`) or was pinned by this fetch
+    /// (`first_use: true`).
+    Signed { key_id: String, first_use: bool },
+    /// Signed by `key_id`, which replaced the pinned `previous` with consent (W156 was reported).
+    Repinned { key_id: String, previous: String },
+}
+
+impl Publisher {
+    /// The publisher key id; `None` when unsigned.
+    pub fn key_id(&self) -> Option<&str> {
+        match self {
+            Publisher::Unsigned => None,
+            Publisher::Signed { key_id, .. } | Publisher::Repinned { key_id, .. } => Some(key_id),
+        }
+    }
+
+    /// `unsigned`, `pinned`, `pinned_now` or `repinned`: the JSON `publisher` value.
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Publisher::Unsigned => "unsigned",
+            Publisher::Signed {
+                first_use: false, ..
+            } => "pinned",
+            Publisher::Signed {
+                first_use: true, ..
+            } => "pinned_now",
+            Publisher::Repinned { .. } => "repinned",
+        }
+    }
 }
 
 /// A package `publish` hands the registry: a scoped package name and a full
@@ -98,6 +134,87 @@ pub struct Published {
     /// Whether that key was created for this publish (the user's first).
     pub key_created: bool,
 }
+
+/// One package a search found.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Found {
+    pub name: String,
+    pub version: String,
+    pub description: String,
+    /// The alias of the registry it was found in: the first in `specforge.json` order that lists it.
+    pub registry: String,
+}
+
+/// What a search found, and the registries that failed (each failure is reported, the others still asked).
+#[derive(Debug, Clone, PartialEq)]
+pub struct Searched {
+    pub found: Vec<Found>,
+    pub failures: Vec<Diagnostic>,
+    /// How many registries were asked.
+    pub asked: usize,
+}
+
+impl Searched {
+    /// Every registry asked failed: nothing was searched (the CLI exits 1).
+    pub fn failed(&self) -> bool {
+        self.asked > 0 && self.failures.len() == self.asked
+    }
+}
+
+const fn category(
+    name: &'static str,
+    help: &'static str,
+    value: DeclaredCategory,
+) -> Choice<DeclaredCategory> {
+    Choice {
+        name,
+        aliases: &[],
+        help,
+        value,
+    }
+}
+
+/// `specforge search --contributes`: a declared category. A filter, so no default.
+pub const CONTRIBUTES: OptionTable<DeclaredCategory> = OptionTable {
+    argument: "contribution",
+    choices: &[
+        category("entities", "entity kinds", DeclaredCategory::Entities),
+        category("edges", "edge types", DeclaredCategory::Edges),
+        category(
+            "shared_fields",
+            "shared fields",
+            DeclaredCategory::SharedFields,
+        ),
+        category(
+            "enhancements",
+            "enhancements of other extensions' kinds",
+            DeclaredCategory::Enhancements,
+        ),
+        category(
+            "validation_rules",
+            "validation rules",
+            DeclaredCategory::ValidationRules,
+        ),
+        category(
+            "surfaces",
+            "commands, MCP tools and resources",
+            DeclaredCategory::Surfaces,
+        ),
+        category(
+            "collectors",
+            "test collectors",
+            DeclaredCategory::Collectors,
+        ),
+        category("analyzers", "source analyzers", DeclaredCategory::Analyzers),
+        category("passes", "compiler passes", DeclaredCategory::Passes),
+        category(
+            "feature_flags",
+            "feature flags",
+            DeclaredCategory::FeatureFlags,
+        ),
+    ],
+    default: None,
+};
 
 /// The registry port the extension operations use. It lists a package's versions,
 /// fetches one and publishes one; it does not resolve a requirement (ADR 0036): ops
@@ -136,6 +253,15 @@ pub trait Registry {
     /// Then the registry's own refusals: R007 for a version it holds,
     /// R001/R002 for a credential it refuses.
     fn publish(&self, package: &Upload<'_>) -> Result<Published, OpError>;
+    /// The latest version of each package whose name, description or keywords contain `query`, in every
+    /// configured registry: one entry per name and version, from the first registry `specforge.json` lists
+    /// that has it, sorted by name, then version. `contributes`: only packages whose declaration declares
+    /// that category. A registry that fails is in `failures`; the others are still asked.
+    fn search(
+        &self,
+        query: &str,
+        contributes: Option<DeclaredCategory>,
+    ) -> Result<Searched, OpError>;
 }
 
 #[cfg(any(test, feature = "testing"))]
@@ -156,6 +282,10 @@ impl Registry for Unconfigured {
     }
 
     fn publish(&self, _: &Upload<'_>) -> Result<Published, OpError> {
+        Err(no_registry(self.0))
+    }
+
+    fn search(&self, _: &str, _: Option<DeclaredCategory>) -> Result<Searched, OpError> {
         Err(no_registry(self.0))
     }
 }
