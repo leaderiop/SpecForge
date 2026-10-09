@@ -16,6 +16,7 @@ mod prompt_infer;
 mod prompt_pins;
 mod prompts;
 mod protocol;
+mod reply_spec;
 mod resources;
 mod revision;
 mod schema_reflection;

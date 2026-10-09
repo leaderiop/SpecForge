@@ -195,7 +195,15 @@ behavior provide_mcp_trace_tool "Provide MCP Trace Tool" {
     mcp_tool_idempotency,
   ]
   category   query
-  types      [Graph, TraceChain, TraceLink, McpTracePlanResult, McpToolDescriptor]
+  types      [
+    Graph,
+    TraceChain,
+    TraceLink,
+    McpTraceResult,
+    McpTraceChainResult,
+    McpTracePlanResult,
+    McpToolDescriptor,
+  ]
   ports      [McpProtocol, CompilerApi]
   produces   [mcp_tool_invoked]
   requires {
@@ -236,7 +244,7 @@ behavior provide_mcp_search_tool "Provide MCP Search Tool" {
     mcp_tool_idempotency,
   ]
   category   query
-  types      [Graph, McpSearchResult, McpToolDescriptor]
+  types      [Graph, McpSearchResults, McpSearchResult, McpToolDescriptor]
   ports      [McpProtocol, CompilerApi]
   produces   [mcp_tool_invoked]
   requires {
@@ -281,7 +289,7 @@ behavior provide_mcp_explain_tool "Provide MCP Explain Tool" {
   features   [mcp_core_tools]
   invariants [diagnostic_determinism, mcp_structured_error_responses, mcp_tool_idempotency]
   category   query
-  types      [McpToolDescriptor]
+  types      [McpExplainResult, McpToolDescriptor]
   ports      [McpProtocol]
   produces   [mcp_tool_invoked]
   requires {
@@ -356,7 +364,7 @@ behavior provide_mcp_coverage_tool "Provide MCP Coverage Tool" {
     testable_entity_classification,
   ]
   category   query
-  types      [McpCoverageResult, McpToolDescriptor, CoverageStatus]
+  types      [McpCoverageResults, McpCoverageResult, McpToolDescriptor, CoverageStatus]
   ports      [McpProtocol, CompilerApi]
   produces   [mcp_tool_invoked]
   requires {
@@ -599,6 +607,7 @@ behavior provide_mcp_find_implementation_tool "Provide MCP Find Implementation T
   features   [mcp_navigation_tools]
   invariants [diagnostic_determinism, mcp_structured_error_responses, mcp_tool_idempotency]
   category   query
+  types      [McpImplementationResult, McpToolDescriptor]
   ensures {
     anchors_listed   "every anchor of the entity in specforge-anchors.json, in manifest order"
     empty_when_none  "an entity with no anchor, or no anchors manifest, has no implementations"
@@ -627,7 +636,7 @@ behavior provide_mcp_outline_tool "Provide MCP Outline Tool" {
     mcp_tool_idempotency,
   ]
   category   query
-  types      [McpOutlineEntry, McpToolDescriptor]
+  types      [McpOutlineResult, McpOutlineEntry, McpOutlineChild, McpToolDescriptor]
   ports      [McpProtocol, CompilerApi]
   produces   [mcp_tool_invoked]
   requires {
@@ -669,7 +678,7 @@ behavior provide_mcp_suggest_fixes_tool "Provide MCP Suggest Fixes Tool" {
     mcp_tool_idempotency,
   ]
   category   query
-  types      [McpFixSuggestion, McpToolDescriptor]
+  types      [McpFixSuggestions, McpFixSuggestion, McpToolDescriptor]
   ports      [McpProtocol, CompilerApi]
   produces   [mcp_tool_invoked]
   requires {
@@ -708,7 +717,7 @@ behavior provide_mcp_analyze_tool "Provide MCP Analyze Tool" {
   features   [mcp_core_tools]
   invariants [diagnostic_determinism, mcp_structured_error_responses, mcp_tool_idempotency]
   category   query
-  types      [McpToolDescriptor]
+  types      [McpAnalyzeResult, McpToolDescriptor]
   ports      [McpProtocol, CompilerApi]
   produces   [mcp_tool_invoked]
   requires {
@@ -774,7 +783,7 @@ behavior provide_mcp_entities_by_kind "List Entities by Kind over MCP" {
   features   [mcp_core_tools]
   invariants [graph_traversal_integrity, mcp_tool_idempotency]
   category   query
-  types      [McpToolDescriptor]
+  types      [McpListResult, McpListedEntity, McpToolDescriptor]
   ports      [McpProtocol, CompilerApi]
   produces   [mcp_tool_invoked]
   requires {

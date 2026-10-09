@@ -109,13 +109,3 @@ invariant mcp_served_project_consistency "MCP Served Project Consistency" {
   verify unit "with no project served, every core tool, prompt and resource answers or refuses as its target declares"
   verify unit "with no project served, an entry that acts on the project is refused before its arguments are read"
 }
-
-invariant mcp_type_schema_versioning "MCP Type Schema Versioning" {
-  guarantee """
-    Breaking changes to types consumed by MCP tools (McpToolDescriptor,
-    McpCoverageResult, McpInspectResult, McpTracePlanResult) MUST trigger
-    a major version increment in the Graph Protocol schema version.
-  """
-  risk      high
-  verify unit "adding required field to MCP type triggers major version bump"
-}

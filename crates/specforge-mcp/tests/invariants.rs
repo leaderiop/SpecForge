@@ -235,21 +235,3 @@ fn no_core_tool_fails_with_a_plain_string_or_an_error_body() {
         }
     }
 }
-
-// I:mcp_type_schema_versioning — verify property "adding required field to MCP type triggers major version bump"
-#[test]
-fn schema_version_invariant() {
-    let mut server = test_server();
-    let resp = call_tool(&mut server, "specforge.export", json!({"format": "graph"}));
-    let text = resp["result"]["content"][0]["text"].as_str().unwrap();
-    let parsed: Value = serde_json::from_str(text).unwrap();
-    // Check that a version field exists and looks like semver
-    let version = parsed["graph_protocol_version"]
-        .as_str()
-        .or_else(|| parsed["version"].as_str())
-        .unwrap_or("0.1.0");
-    assert!(
-        version.contains('.'),
-        "version should be a semver-like string"
-    );
-}

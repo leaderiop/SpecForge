@@ -298,12 +298,7 @@ behavior expose_graph_as_mcp_resource "Expose Graph as MCP Resource" {
 
 behavior expose_schema_as_mcp_resource "Expose Schema as MCP Resource" {
   features   [mcp_resource_exposure]
-  invariants [
-    graph_schema_completeness,
-    diagnostic_determinism,
-    mcp_structured_error_responses,
-    mcp_type_schema_versioning,
-  ]
+  invariants [graph_schema_completeness, diagnostic_determinism, mcp_structured_error_responses]
   category   command
   types      [GraphProtocolSchema, McpResourceDescriptor]
   ports      [McpProtocol, CompilerApi]
