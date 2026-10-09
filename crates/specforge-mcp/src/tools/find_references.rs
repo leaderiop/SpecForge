@@ -35,6 +35,7 @@ pub struct Location {
     referencing_entity_id: String,
     referenced_entity_id: String,
     /// The field naming the referenced entity; none for its declaration.
+    #[serde(skip_serializing_if = "Option::is_none")]
     field: Option<String>,
     role: Role,
     precision: Precision,

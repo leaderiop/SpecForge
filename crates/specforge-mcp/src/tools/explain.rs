@@ -35,6 +35,7 @@ pub struct Explained {
 pub struct Retired {
     code: String,
     retired: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
     replaced_by: Option<Entry>,
 }
 
@@ -46,6 +47,7 @@ pub struct Entry {
     owner: String,
     level: String,
     explanation: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     docs: Option<String>,
 }
 

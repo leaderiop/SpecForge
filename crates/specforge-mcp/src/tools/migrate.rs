@@ -66,6 +66,7 @@ pub struct Ran {
     /// How the migrated graph differs from the one before (W054).
     structural_differences: DiagnosticList,
     rolled_back: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
     rollback: Option<RollbackSummary>,
     post_migration_validated: bool,
     post_migration_errors: Vec<PostMigrationError>,

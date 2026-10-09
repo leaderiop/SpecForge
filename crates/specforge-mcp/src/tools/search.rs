@@ -36,10 +36,12 @@ pub struct Reply {
 pub struct Found {
     entity_id: String,
     kind: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     title: Option<String>,
     file_path: String,
     line: usize,
     score: f64,
+    #[serde(skip_serializing_if = "Option::is_none")]
     match_field: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     match_snippet: Option<String>,

@@ -11,6 +11,7 @@ use specforge_ops::view::ProjectView;
 pub struct Reply {
     entity_counts: Vec<EntityCount>,
     declared_pct: f64,
+    #[serde(skip_serializing_if = "Option::is_none")]
     proof_pct: Option<f64>,
     /// Deprecated alias of declared_pct.
     coverage_pct: f64,

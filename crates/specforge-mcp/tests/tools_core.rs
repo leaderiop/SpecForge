@@ -168,10 +168,9 @@ fn inspect_names_the_declaring_extension() {
     }
     // A kind no loaded extension declares.
     let thing = inspected(&mut server, "thing");
-    assert!(thing["source_extension"].is_null(), "{thing}");
     assert!(
-        thing.as_object().unwrap().contains_key("source_extension"),
-        "always present"
+        !thing.as_object().unwrap().contains_key("source_extension"),
+        "absent when no extension declares the kind: {thing}"
     );
 }
 
@@ -2327,10 +2326,7 @@ fn explain_a_retired_code_names_its_replacement() {
         json!({"code": "W024"}),
     )))
     .unwrap();
-    assert_eq!(
-        gone,
-        json!({"code": "W024", "retired": true, "replaced_by": null})
-    );
+    assert_eq!(gone, json!({"code": "W024", "retired": true}));
 }
 
 #[specforge_test(

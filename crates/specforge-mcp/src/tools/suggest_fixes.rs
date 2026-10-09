@@ -31,8 +31,10 @@ pub struct Suggestion {
     title: String,
     kind: FixKind,
     /// The code of the diagnostic the fix resolves.
+    #[serde(skip_serializing_if = "Option::is_none")]
     diagnostic_code: Option<String>,
     /// The entity the fix is about.
+    #[serde(skip_serializing_if = "Option::is_none")]
     entity_id: Option<String>,
     edits: Vec<Edit>,
 }

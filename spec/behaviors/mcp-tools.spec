@@ -441,7 +441,7 @@ behavior provide_mcp_stats_tool "Provide MCP Stats Tool" {
     no required parameters. The tool MUST return aggregate statistics about the
     current graph: entity counts by kind, total edge count, the declared
     percentage (declared_pct; coverage_pct is its deprecated alias), the proof
-    percentage (proof_pct, null without recorded test results), the unconnected entity
+    percentage (proof_pct, absent without recorded test results), the unconnected entity
     count (unconnected_count), and a diagnostic summary (counts by severity). A
     specforge-report.json that exists but cannot be read is an error result. The
     response MUST reflect the latest compilation state.
@@ -490,7 +490,7 @@ behavior provide_mcp_inspect_tool "Provide MCP Inspect Tool" {
     coverage (specforge.coverage's row says the same). obligated says
     whether its kind must declare obligations (a no_verify_statements rule
     targets it), the reason an exempt entity is exempt. source_extension
-    names the extension that declares its kind, null when no loaded
+    names the extension that declares its kind, absent when no loaded
     extension does. The fields MUST include every
     field the entity declares, whatever its kind names them (an invariant's
     guarantee, a decision's rationale), not just contract. The coverage status
@@ -509,6 +509,7 @@ behavior provide_mcp_inspect_tool "Provide MCP Inspect Tool" {
   """
   verify unit "specforge.inspect returns full entity details"
   verify unit "response includes references and verify declarations"
+  verify unit "an untitled entity's reply has no title"
   verify unit "non-existent entity returns error response"
   verify unit "response includes every field, like an invariant's guarantee"
   verify unit "coverage status matches specforge.coverage obligation by obligation"

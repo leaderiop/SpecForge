@@ -46,6 +46,5 @@ expression: "normalized(result, root)"
     "start_line": 7
   },
   "testable": true,
-  "title": "Log out",
-  "verify_declarations": null
+  "title": "Log out"
 }

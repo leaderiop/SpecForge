@@ -28,6 +28,7 @@ pub struct Reply {
 pub struct Entry {
     entity_id: String,
     kind: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     title: Option<String>,
     range: SourceSpan,
     name_range: SourceSpan,

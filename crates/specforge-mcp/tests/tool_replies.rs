@@ -216,3 +216,17 @@ fn outline_answers_an_object() {
 fn suggest_fixes_answers_an_object() {
     holds_rows(&result_of("specforge.suggest_fixes", json!({})), "fixes");
 }
+
+#[specforge_test(
+    behavior = "provide_mcp_inspect_tool",
+    verify = "an untitled entity's reply has no title"
+)]
+fn an_untitled_entity_has_no_title() {
+    let reply = result_of("specforge.inspect", json!({"entity_id": "untitled_one"}));
+    let structured = reply["structuredContent"].as_object().expect("an object");
+    assert!(!structured.contains_key("title"), "{structured:?}");
+    // A reply never carries null: an absent value is an absent key.
+    for key in ["source_extension", "contract"] {
+        assert_ne!(structured.get(key), Some(&Value::Null), "{key}");
+    }
+}

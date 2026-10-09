@@ -26,6 +26,7 @@ pub struct Args {
 pub struct Reply {
     entity_id: String,
     kind: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     title: Option<String>,
     /// Its kind's testability, the standing the hover shows (ADR 0004
     /// D2-d).
@@ -37,15 +38,18 @@ pub struct Reply {
     /// Whether its kind must declare obligations: why it is exempt.
     obligated: bool,
     /// The extension that declares its kind.
+    #[serde(skip_serializing_if = "Option::is_none")]
     source_extension: Option<String>,
     /// Deprecated alias of the references (ADR 0016).
     reference_count: usize,
     source_span: SourceSpan,
     /// The statement the extension declares (headline and normative): a
     /// behavior's `contract`.
+    #[serde(skip_serializing_if = "Option::is_none")]
     contract: Option<String>,
     /// Every field, whatever the kind names its text: an open value.
     fields: Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
     verify_declarations: Option<Vec<String>>,
     referenced_by: Vec<String>,
     refers_to: Vec<String>,

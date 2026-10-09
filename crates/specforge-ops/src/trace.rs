@@ -55,6 +55,7 @@ pub struct MissingLink {
     /// The field that would declare the edge — the graph's edge label.
     pub edge_label: String,
     /// The registered edge type the field instantiates, if it names one.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub edge_type: Option<String>,
     /// The kind the edge would point at.
     pub expected_kind: String,

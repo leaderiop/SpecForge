@@ -3,7 +3,6 @@ source: crates/specforge-cli/tests/inspect_views.rs
 expression: "normalized(&result, root)"
 ---
 {
-  "contract": null,
   "coverage_status": "uncovered",
   "declared": false,
   "diagnostics": [
@@ -61,6 +60,5 @@ expression: "normalized(&result, root)"
     "start_line": 1
   },
   "testable": false,
-  "title": "A",
-  "verify_declarations": null
+  "title": "A"
 }

@@ -68,6 +68,7 @@ impl ExtensionEntry {
 #[derive(Debug, Clone, PartialEq, Serialize, Shape)]
 pub struct ExtensionInfo {
     pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub version: Option<String>,
     /// `builtin`, the lock entry's source, or `file:<path>`.
     pub source: String,

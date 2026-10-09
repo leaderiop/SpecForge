@@ -24,6 +24,7 @@ pub struct Reply {
     removed_extension: String,
     /// Always true: a failed removal is an `isError` result.
     success: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
     version: Option<String>,
     /// The entities of the removed extension's kinds, which the project
     /// still holds.

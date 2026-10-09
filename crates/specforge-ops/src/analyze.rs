@@ -88,6 +88,7 @@ pub struct PassOutcome {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Shape)]
 pub struct StrayRecord {
     pub entity_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub near: Option<String>,
 }
 
@@ -1292,7 +1293,7 @@ mod tests {
             json_of(&outcome)["stray_records"],
             json!([
                 {"entity_id": "wodget", "near": "widget"},
-                {"entity_id": "zzzzzzzz", "near": null}
+                {"entity_id": "zzzzzzzz"}
             ])
         );
     }

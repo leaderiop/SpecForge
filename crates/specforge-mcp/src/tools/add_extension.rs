@@ -56,6 +56,7 @@ pub struct Package {
     installed: bool,
     version: String,
     sha256: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     key_id: Option<String>,
     source: String,
     note: String,
@@ -77,6 +78,7 @@ pub struct Planned {
     extension: String,
     installed: bool,
     dry_run: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
     version: Option<String>,
     source: String,
 }

@@ -54,11 +54,13 @@ impl From<FileMatch> for MatchMode {
 #[derive(Debug, Serialize, Shape)]
 pub struct Anchored {
     entity_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     kind: Option<String>,
     file: String,
     line: usize,
     symbol_name: String,
     item_kind: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     confidence: Option<f64>,
 }
 

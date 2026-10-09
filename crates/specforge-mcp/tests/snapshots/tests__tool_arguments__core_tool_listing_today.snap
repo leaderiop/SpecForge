@@ -1381,15 +1381,11 @@ expression: listing
                 "type": "string"
               },
               "near": {
-                "type": [
-                  "string",
-                  "null"
-                ]
+                "type": "string"
               }
             },
             "required": [
-              "entity_id",
-              "near"
+              "entity_id"
             ],
             "type": "object"
           },
@@ -1547,10 +1543,7 @@ expression: listing
                     "type": "string"
                   },
                   "edge_type": {
-                    "type": [
-                      "string",
-                      "null"
-                    ]
+                    "type": "string"
                   },
                   "expected_kind": {
                     "type": "string"
@@ -1576,7 +1569,6 @@ expression: listing
                   "from",
                   "from_kind",
                   "edge_label",
-                  "edge_type",
                   "expected_kind",
                   "depth",
                   "required",
@@ -1750,10 +1742,7 @@ expression: listing
                 "type": "integer"
               },
               "match_field": {
-                "type": [
-                  "string",
-                  "null"
-                ]
+                "type": "string"
               },
               "match_snippet": {
                 "type": "string"
@@ -1762,20 +1751,15 @@ expression: listing
                 "type": "number"
               },
               "title": {
-                "type": [
-                  "string",
-                  "null"
-                ]
+                "type": "string"
               }
             },
             "required": [
               "entity_id",
               "kind",
-              "title",
               "file_path",
               "line",
-              "score",
-              "match_field"
+              "score"
             ],
             "type": "object"
           },
@@ -1819,10 +1803,7 @@ expression: listing
               "type": "string"
             },
             "docs": {
-              "type": [
-                "string",
-                "null"
-              ]
+              "type": "string"
             },
             "explanation": {
               "type": "string"
@@ -1846,8 +1827,7 @@ expression: listing
             "title",
             "owner",
             "level",
-            "explanation",
-            "docs"
+            "explanation"
           ],
           "type": "object"
         },
@@ -1858,46 +1838,35 @@ expression: listing
               "type": "string"
             },
             "replaced_by": {
-              "anyOf": [
-                {
-                  "additionalProperties": false,
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "docs": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
-                    },
-                    "explanation": {
-                      "type": "string"
-                    },
-                    "level": {
-                      "type": "string"
-                    },
-                    "owner": {
-                      "type": "string"
-                    },
-                    "title": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "title",
-                    "owner",
-                    "level",
-                    "explanation",
-                    "docs"
-                  ],
-                  "type": "object"
+              "additionalProperties": false,
+              "properties": {
+                "code": {
+                  "type": "string"
                 },
-                {
-                  "type": "null"
+                "docs": {
+                  "type": "string"
+                },
+                "explanation": {
+                  "type": "string"
+                },
+                "level": {
+                  "type": "string"
+                },
+                "owner": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
                 }
-              ]
+              },
+              "required": [
+                "code",
+                "title",
+                "owner",
+                "level",
+                "explanation"
+              ],
+              "type": "object"
             },
             "retired": {
               "type": "boolean"
@@ -1905,8 +1874,7 @@ expression: listing
           },
           "required": [
             "code",
-            "retired",
-            "replaced_by"
+            "retired"
           ],
           "type": "object"
         }
@@ -2404,10 +2372,7 @@ expression: listing
           "type": "array"
         },
         "proof_pct": {
-          "type": [
-            "number",
-            "null"
-          ]
+          "type": "number"
         },
         "unconnected_count": {
           "minimum": 0,
@@ -2417,7 +2382,6 @@ expression: listing
       "required": [
         "entity_counts",
         "declared_pct",
-        "proof_pct",
         "coverage_pct",
         "edge_count",
         "unconnected_count",
@@ -2519,10 +2483,7 @@ expression: listing
       "additionalProperties": false,
       "properties": {
         "contract": {
-          "type": [
-            "string",
-            "null"
-          ]
+          "type": "string"
         },
         "coverage_status": {
           "enum": [
@@ -2606,10 +2567,7 @@ expression: listing
           "type": "array"
         },
         "source_extension": {
-          "type": [
-            "string",
-            "null"
-          ]
+          "type": "string"
         },
         "source_span": {
           "additionalProperties": false,
@@ -2647,39 +2605,25 @@ expression: listing
           "type": "boolean"
         },
         "title": {
-          "type": [
-            "string",
-            "null"
-          ]
+          "type": "string"
         },
         "verify_declarations": {
-          "anyOf": [
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         }
       },
       "required": [
         "entity_id",
         "kind",
-        "title",
         "testable",
         "declared",
         "exempt",
         "obligated",
-        "source_extension",
         "reference_count",
         "source_span",
-        "contract",
         "fields",
-        "verify_declarations",
         "referenced_by",
         "refers_to",
         "references",
@@ -2868,10 +2812,7 @@ expression: listing
             "additionalProperties": false,
             "properties": {
               "field": {
-                "type": [
-                  "string",
-                  "null"
-                ]
+                "type": "string"
               },
               "precision": {
                 "enum": [
@@ -2929,7 +2870,6 @@ expression: listing
             "required": [
               "referencing_entity_id",
               "referenced_entity_id",
-              "field",
               "role",
               "precision",
               "source_span"
@@ -3139,16 +3079,12 @@ expression: listing
                 "type": "object"
               },
               "title": {
-                "type": [
-                  "string",
-                  "null"
-                ]
+                "type": "string"
               }
             },
             "required": [
               "entity_id",
               "kind",
-              "title",
               "range",
               "name_range"
             ],
@@ -3198,10 +3134,7 @@ expression: listing
             "additionalProperties": false,
             "properties": {
               "diagnostic_code": {
-                "type": [
-                  "string",
-                  "null"
-                ]
+                "type": "string"
               },
               "edits": {
                 "items": {
@@ -3256,10 +3189,7 @@ expression: listing
                 "type": "array"
               },
               "entity_id": {
-                "type": [
-                  "string",
-                  "null"
-                ]
+                "type": "string"
               },
               "kind": {
                 "enum": [
@@ -3275,8 +3205,6 @@ expression: listing
             "required": [
               "title",
               "kind",
-              "diagnostic_code",
-              "entity_id",
               "edits"
             ],
             "type": "object"
@@ -4263,10 +4191,7 @@ expression: listing
               "type": "boolean"
             },
             "key_id": {
-              "type": [
-                "string",
-                "null"
-              ]
+              "type": "string"
             },
             "note": {
               "type": "string"
@@ -4286,7 +4211,6 @@ expression: listing
             "installed",
             "version",
             "sha256",
-            "key_id",
             "source",
             "note"
           ],
@@ -4348,17 +4272,13 @@ expression: listing
               "type": "string"
             },
             "version": {
-              "type": [
-                "string",
-                "null"
-              ]
+              "type": "string"
             }
           },
           "required": [
             "extension",
             "installed",
             "dry_run",
-            "version",
             "source"
           ],
           "type": "object"
@@ -4443,16 +4363,12 @@ expression: listing
           "type": "boolean"
         },
         "version": {
-          "type": [
-            "string",
-            "null"
-          ]
+          "type": "string"
         }
       },
       "required": [
         "removed_extension",
         "success",
-        "version",
         "stranded"
       ],
       "type": "object"
@@ -4699,106 +4615,99 @@ expression: listing
               "type": "array"
             },
             "rollback": {
-              "anyOf": [
-                {
-                  "additionalProperties": false,
-                  "properties": {
-                    "failed_count": {
-                      "minimum": 0,
-                      "type": "integer"
-                    },
-                    "restored_count": {
-                      "minimum": 0,
-                      "type": "integer"
-                    },
-                    "results": {
-                      "items": {
+              "additionalProperties": false,
+              "properties": {
+                "failed_count": {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "restored_count": {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "results": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "error": {
+                        "type": "string"
+                      },
+                      "file_path": {
+                        "type": "string"
+                      },
+                      "from_version": {
                         "additionalProperties": false,
                         "properties": {
-                          "error": {
-                            "type": "string"
+                          "major": {
+                            "minimum": 0,
+                            "type": "integer"
                           },
-                          "file_path": {
-                            "type": "string"
-                          },
-                          "from_version": {
-                            "additionalProperties": false,
-                            "properties": {
-                              "major": {
-                                "minimum": 0,
-                                "type": "integer"
-                              },
-                              "minor": {
-                                "minimum": 0,
-                                "type": "integer"
-                              }
-                            },
-                            "required": [
-                              "major",
-                              "minor"
-                            ],
-                            "type": "object"
-                          },
-                          "status": {
-                            "enum": [
-                              "migrated",
-                              "skipped",
-                              "failed",
-                              "restored"
-                            ],
-                            "type": "string"
-                          },
-                          "to_version": {
-                            "additionalProperties": false,
-                            "properties": {
-                              "major": {
-                                "minimum": 0,
-                                "type": "integer"
-                              },
-                              "minor": {
-                                "minimum": 0,
-                                "type": "integer"
-                              }
-                            },
-                            "required": [
-                              "major",
-                              "minor"
-                            ],
-                            "type": "object"
+                          "minor": {
+                            "minimum": 0,
+                            "type": "integer"
                           }
                         },
                         "required": [
-                          "file_path",
-                          "status"
+                          "major",
+                          "minor"
                         ],
                         "type": "object"
                       },
-                      "type": "array"
-                    },
-                    "skipped_count": {
-                      "minimum": 0,
-                      "type": "integer"
-                    },
-                    "warnings": {
-                      "items": {
+                      "status": {
+                        "enum": [
+                          "migrated",
+                          "skipped",
+                          "failed",
+                          "restored"
+                        ],
                         "type": "string"
                       },
-                      "type": "array"
-                    }
+                      "to_version": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "major": {
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "minor": {
+                            "minimum": 0,
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "major",
+                          "minor"
+                        ],
+                        "type": "object"
+                      }
+                    },
+                    "required": [
+                      "file_path",
+                      "status"
+                    ],
+                    "type": "object"
                   },
-                  "required": [
-                    "restored_count",
-                    "skipped_count",
-                    "failed_count",
-                    "results",
-                    "warnings"
-                  ],
-                  "type": "object"
+                  "type": "array"
                 },
-                {
-                  "type": "null"
+                "skipped_count": {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "warnings": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
                 }
-              ]
+              },
+              "required": [
+                "restored_count",
+                "skipped_count",
+                "failed_count",
+                "results",
+                "warnings"
+              ],
+              "type": "object"
             },
             "rolled_back": {
               "type": "boolean"
@@ -5359,7 +5268,6 @@ expression: listing
             "schema_warnings",
             "structural_differences",
             "rolled_back",
-            "rollback",
             "post_migration_validated",
             "post_migration_errors"
           ],
@@ -5427,15 +5335,11 @@ expression: listing
                 "type": "integer"
               },
               "version": {
-                "type": [
-                  "string",
-                  "null"
-                ]
+                "type": "string"
               }
             },
             "required": [
               "name",
-              "version",
               "source",
               "status",
               "entity_kinds",
@@ -7155,10 +7059,7 @@ expression: listing
             "additionalProperties": false,
             "properties": {
               "confidence": {
-                "type": [
-                  "number",
-                  "null"
-                ]
+                "type": "number"
               },
               "entity_id": {
                 "type": "string"
@@ -7170,10 +7071,7 @@ expression: listing
                 "type": "string"
               },
               "kind": {
-                "type": [
-                  "string",
-                  "null"
-                ]
+                "type": "string"
               },
               "line": {
                 "minimum": 0,
@@ -7185,12 +7083,10 @@ expression: listing
             },
             "required": [
               "entity_id",
-              "kind",
               "file",
               "line",
               "symbol_name",
-              "item_kind",
-              "confidence"
+              "item_kind"
             ],
             "type": "object"
           },
