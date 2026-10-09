@@ -20,7 +20,7 @@ behavior build_in_memory_graph "Build In-Memory Graph" {
   ensures {
     one_node_per_entity    "Graph contains exactly one node per declared entity"
     one_edge_per_reference "Graph contains one edge per resolved reference"
-    no_dangling_edges        "No dangling edges exist (every edge connects two existing nodes)"
+    no_dangling_edges      "No dangling edges exist (every edge connects two existing nodes)"
   }
   contract   """
     After resolution, the compiler MUST construct an in-memory directed

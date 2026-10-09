@@ -114,11 +114,11 @@ behavior te_coverage_pass "Coverage Analysis Pass" {
     obligations, proven, formally discharged, report failures).
   """
   ensures {
-    intent_scored      "entities without obligations are A001, invariants A002"
+    intent_scored        "entities without obligations are A001, invariants A002"
     unreferenced_counted "unreferenced invariants are counted, not re-reported"
-    proof_recorded     "recorded passing tests prove an entity; a failing one is A014"
-    obligations_proven "each obligation needs a passing test that names it (A015); unknown names are A016"
-    formal_discharge   "entailed formal claims discharge verify property obligations"
+    proof_recorded       "recorded passing tests prove an entity; a failing one is A014"
+    obligations_proven   "each obligation needs a passing test that names it (A015); unknown names are A016"
+    formal_discharge     "entailed formal claims discharge verify property obligations"
   }
   verify unit "a high-risk invariant without obligations is an A002 error"
   verify unit "invariant references count as enforcement"

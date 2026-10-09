@@ -16,10 +16,10 @@ behavior se_validate_unreferenced_behaviors "W001: Unreferenced Behaviors" {
     graph_built "entity graph is fully constructed with all edges"
   }
   ensures {
-    unreferenced_detected   "behavior with no incoming Implements edge produces W001 warning"
-    referenced_passes "behavior with incoming Implements edge produces no diagnostic"
-    correct_severity  "W001 severity is warning"
-    correct_template  "message template is: behavior '{id}' is not referenced by any feature"
+    unreferenced_detected "behavior with no incoming Implements edge produces W001 warning"
+    referenced_passes     "behavior with incoming Implements edge produces no diagnostic"
+    correct_severity      "W001 severity is warning"
+    correct_template      "message template is: behavior '{id}' is not referenced by any feature"
   }
   verify unit "behavior with no incoming Implements edge produces W001"
   verify unit "behavior with incoming Implements edge passes"
@@ -44,8 +44,8 @@ behavior se_validate_unreferenced_types "W002: Unreferenced Types" {
     graph_built "entity graph is fully constructed with all edges"
   }
   ensures {
-    unreferenced_detected  "type with no incoming edge produces W002 warning"
-    correct_template "message template is: type '{id}' is not referenced by any behavior, port, or type"
+    unreferenced_detected "type with no incoming edge produces W002 warning"
+    correct_template      "message template is: type '{id}' is not referenced by any behavior, port, or type"
   }
   verify unit "type with no incoming UsesType edge produces W002"
   verify unit "type with incoming UsesType edge passes"
@@ -83,8 +83,8 @@ behavior se_validate_unreferenced_ports "W005: Unreferenced Ports" {
     Detect port entities with no incoming UsesPort edges.
   """
   ensures {
-    unreferenced_detected  "port with no incoming UsesPort edge produces W005"
-    correct_template "message template is: port '{id}' is not referenced by any behavior"
+    unreferenced_detected "port with no incoming UsesPort edge produces W005"
+    correct_template      "message template is: port '{id}' is not referenced by any behavior"
   }
   verify unit "port with no incoming UsesPort edge produces W005"
   verify unit "port with incoming UsesPort edge passes"
@@ -125,8 +125,8 @@ behavior se_validate_unreferenced_events "W007: Unreferenced Events" {
     Detect event entities with no incoming Produces edges.
   """
   ensures {
-    unreferenced_detected  "event with no incoming Produces edge produces W007"
-    correct_template "message template is: event '{id}' is not produced by any behavior"
+    unreferenced_detected "event with no incoming Produces edge produces W007"
+    correct_template      "message template is: event '{id}' is not produced by any behavior"
   }
   verify unit "event with no incoming Produces edge produces W007"
   verify unit "event with incoming Produces edge passes"

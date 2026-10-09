@@ -35,9 +35,9 @@ behavior fa_validate_unreferenced_property "W123: Unreferenced Property" {
     strict_warning_level "warning_level is set to strict"
   }
   ensures {
-    unreferenced_detected   "property with no incoming Satisfies edges produces W123 warning"
-    referenced_passes "property with at least one incoming Satisfies edge produces no diagnostic"
-    correct_template  "message template is: property '{id}' is not satisfied by any behavior"
+    unreferenced_detected "property with no incoming Satisfies edges produces W123 warning"
+    referenced_passes     "property with at least one incoming Satisfies edge produces no diagnostic"
+    correct_template      "message template is: property '{id}' is not satisfied by any behavior"
   }
   features   [fa_temporal_properties]
   verify unit "property with no incoming Satisfies edges produces W123"
@@ -101,9 +101,9 @@ behavior fa_validate_unreferenced_axiom "W126: Unreferenced Axiom" {
     strict_warning_level "warning_level is set to strict"
   }
   ensures {
-    unreferenced_detected   "axiom with no incoming AssumedBy edges produces W126 warning"
-    referenced_passes "axiom with at least one incoming AssumedBy edge produces no diagnostic"
-    correct_template  "message template is: axiom '{id}' is not assumed by any condition"
+    unreferenced_detected "axiom with no incoming AssumedBy edges produces W126 warning"
+    referenced_passes     "axiom with at least one incoming AssumedBy edge produces no diagnostic"
+    correct_template      "message template is: axiom '{id}' is not assumed by any condition"
   }
   features   [fa_axiom_foundations]
   verify unit "axiom with no incoming AssumedBy edges produces W126"
@@ -147,9 +147,9 @@ behavior fa_validate_unreferenced_protocol "W128: Unreferenced Protocol" {
     strict_warning_level "warning_level is set to strict"
   }
   ensures {
-    unreferenced_detected   "protocol with no incoming FollowsProtocol edges produces W128 warning"
-    referenced_passes "protocol with at least one incoming FollowsProtocol edge produces no diagnostic"
-    correct_template  "message template is: protocol '{id}' is not followed by any event"
+    unreferenced_detected "protocol with no incoming FollowsProtocol edges produces W128 warning"
+    referenced_passes     "protocol with at least one incoming FollowsProtocol edge produces no diagnostic"
+    correct_template      "message template is: protocol '{id}' is not followed by any event"
   }
   features   [fa_protocol_contracts]
   verify unit "protocol with no incoming FollowsProtocol edges produces W128"
@@ -194,9 +194,9 @@ behavior fa_validate_unreferenced_refinement "W131: Unreferenced Refinement" {
     strict_warning_level "warning_level is set to strict"
   }
   ensures {
-    unreferenced_detected   "refinement with no refinement edges produces W131 warning"
-    referenced_passes "refinement with at least one refinement edge produces no diagnostic"
-    correct_template  "message template is: refinement '{id}' is not connected to any behavior or refinement chain"
+    unreferenced_detected "refinement with no refinement edges produces W131 warning"
+    referenced_passes     "refinement with at least one refinement edge produces no diagnostic"
+    correct_template      "message template is: refinement '{id}' is not connected to any behavior or refinement chain"
   }
   features   [fa_refinement_layering]
   verify unit "refinement with no edges produces W131"
@@ -285,9 +285,9 @@ behavior fa_validate_unreferenced_process "W134: Unreferenced Process" {
     strict_warning_level "warning_level is set to strict"
   }
   ensures {
-    unreferenced_detected   "process with no incoming ParticipatesIn edges produces W134 warning"
-    referenced_passes "process with at least one incoming ParticipatesIn edge produces no diagnostic"
-    correct_template  "message template is: process '{id}' has no events participating in it"
+    unreferenced_detected "process with no incoming ParticipatesIn edges produces W134 warning"
+    referenced_passes     "process with at least one incoming ParticipatesIn edge produces no diagnostic"
+    correct_template      "message template is: process '{id}' has no events participating in it"
   }
   features   [fa_process_modeling]
   verify unit "process with no incoming ParticipatesIn edges produces W134"

@@ -18,8 +18,8 @@ behavior detect_unreferenced_journeys "Detect Unreferenced Journeys" {
     deliverable. Unreferenced journeys MUST produce a W042 warning.
   """
   ensures {
-    fires_when_unreferenced      "journey with zero incoming DeliverableSupportsJourney edges produces W042"
-    suppresses_deliverable "journey in at least one deliverable suppresses W042"
+    fires_when_unreferenced "journey with zero incoming DeliverableSupportsJourney edges produces W042"
+    suppresses_deliverable  "journey in at least one deliverable suppresses W042"
   }
   features [pe_validation_suite]
   verify unit "journey not in any deliverable produces W042"
@@ -36,8 +36,8 @@ behavior detect_unreferenced_modules "Detect Unreferenced Modules" {
     term belongs to it) MUST produce a W044 warning.
   """
   ensures {
-    fires_when_unreferenced     "module with zero incoming edges produces W044"
-    suppresses_referenced "module referenced by a deliverable, milestone, module or term suppresses W044"
+    fires_when_unreferenced "module with zero incoming edges produces W044"
+    suppresses_referenced   "module referenced by a deliverable, milestone, module or term suppresses W044"
   }
   features [pe_validation_suite]
   verify unit "module nothing references produces W044"
@@ -75,8 +75,8 @@ behavior detect_unreferenced_personas "Detect Unreferenced Personas" {
     personas may be declared before journeys reference them.
   """
   ensures {
-    fires_when_unreferenced     "persona with zero incoming JourneyTargetsPersona edges produces I046"
-    suppresses_referenced "persona referenced by at least one journey suppresses I046"
+    fires_when_unreferenced "persona with zero incoming JourneyTargetsPersona edges produces I046"
+    suppresses_referenced   "persona referenced by at least one journey suppresses I046"
   }
   features [pe_validation_suite]
   verify unit "persona referenced by a journey suppresses I046"
@@ -94,8 +94,8 @@ behavior detect_unreferenced_channels "Detect Unreferenced Channels" {
     channels may be declared before journeys reference them.
   """
   ensures {
-    fires_when_unreferenced     "channel with zero incoming JourneyUsesChannel edges produces I047"
-    suppresses_referenced "channel referenced by at least one journey suppresses I047"
+    fires_when_unreferenced "channel with zero incoming JourneyUsesChannel edges produces I047"
+    suppresses_referenced   "channel referenced by at least one journey suppresses I047"
   }
   features [pe_validation_suite]
   verify unit "channel referenced by a journey suppresses I047"

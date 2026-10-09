@@ -124,7 +124,7 @@ behavior detect_unreferenced_refs "Detect Unreferenced Refs" {
     graph_built_fired "graph_built event has fired, confirming the in-memory graph is fully constructed with all edges"
   }
   ensures {
-    unreferenced_detected       "Every ref with zero incoming edges produces a W012 warning; a spec block, the root container, does not"
+    unreferenced_detected  "Every ref with zero incoming edges produces a W012 warning; a spec block, the root container, does not"
     referenced_nodes_clean "Structural nodes with at least one incoming edge produce no warning"
   }
   contract   """
