@@ -3,7 +3,6 @@ source: crates/specforge-cli/tests/read_views.rs
 expression: "normalized(mcp, root)"
 ---
 {
-  "coverage_pct": 75.0,
   "declared_pct": 75.0,
   "diagnostic_summary": {
     "errors": 0,

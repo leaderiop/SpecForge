@@ -39,8 +39,6 @@ pub struct Current {
     to_version: String,
     migrated: bool,
     dry_run: bool,
-    /// Always empty.
-    changes: Vec<String>,
     message: String,
 }
 
@@ -113,7 +111,6 @@ pub(crate) fn call(project: &ProjectRef<'_>, args: Args) -> Mutation<Reply> {
             to_version: to,
             migrated: false,
             dry_run,
-            changes: Vec::new(),
             message: "project is already at the latest format version".to_string(),
         });
         return Ok(migration(current, None, outcome.writes));

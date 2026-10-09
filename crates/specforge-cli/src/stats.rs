@@ -63,8 +63,6 @@ fn print_json(stats: &Stats) {
         "declared_count": stats.declared_count,
         "declared_pct": stats.declared_pct,
         "proof_pct": stats.proof_pct,
-        // Deprecated alias of declared_pct.
-        "coverage_pct": stats.coverage_pct,
         "error_count": stats.error_count,
         "warning_count": stats.warning_count,
         "info_count": stats.info_count,

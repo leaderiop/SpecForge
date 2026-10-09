@@ -87,12 +87,7 @@ expression: "normalized(&result, root)"
   },
   "kind": "behavior",
   "obligated": false,
-  "reference_count": 2,
   "referenced_by": [
-    "alpha"
-  ],
-  "references": [
-    "alpha",
     "alpha"
   ],
   "refers_to": [

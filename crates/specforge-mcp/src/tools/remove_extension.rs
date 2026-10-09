@@ -22,8 +22,6 @@ pub struct Args {
 #[derive(Debug, Serialize, Shape)]
 pub struct Reply {
     removed_extension: String,
-    /// Always true: a failed removal is an `isError` result.
-    success: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     version: Option<String>,
     /// The entities of the removed extension's kinds, which the project
@@ -57,7 +55,6 @@ pub(crate) fn call(project: &ProjectRef<'_>, args: Args) -> Mutation<Reply> {
         Ok(outcome) => {
             let reply = Reply {
                 removed_extension: outcome.name.to_string(),
-                success: true,
                 version: outcome.version.as_ref().map(ToString::to_string),
                 stranded: outcome
                     .stranded

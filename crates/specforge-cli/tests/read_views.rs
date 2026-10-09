@@ -171,7 +171,7 @@ fn assert_stats_agree(root: &Path) {
     assert_eq!(cli["total_entities"], json!(total));
     assert_eq!(cli["total_edges"], mcp["edge_count"]);
     assert_eq!(cli["unconnected_count"], mcp["unconnected_count"]);
-    for key in ["declared_pct", "proof_pct", "coverage_pct"] {
+    for key in ["declared_pct", "proof_pct"] {
         assert_eq!(cli[key], mcp[key], "{key} on {root:?}");
     }
     let summary = &mcp["diagnostic_summary"];

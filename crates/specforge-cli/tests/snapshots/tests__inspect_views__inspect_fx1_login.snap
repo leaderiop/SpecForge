@@ -42,11 +42,7 @@ expression: "normalized(result, root)"
   },
   "kind": "behavior",
   "obligated": true,
-  "reference_count": 1,
   "referenced_by": [],
-  "references": [
-    "signin"
-  ],
   "refers_to": [
     "signin"
   ],

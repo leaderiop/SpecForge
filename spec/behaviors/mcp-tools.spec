@@ -440,7 +440,7 @@ behavior provide_mcp_stats_tool "Provide MCP Stats Tool" {
     In MCP server mode, the system MUST register a specforge.stats tool with
     no required parameters. The tool MUST return aggregate statistics about the
     current graph: entity counts by kind, total edge count, the declared
-    percentage (declared_pct; coverage_pct is its deprecated alias), the proof
+    percentage (declared_pct), the proof
     percentage (proof_pct, absent without recorded test results), the unconnected entity
     count (unconnected_count), and a diagnostic summary (counts by severity). A
     specforge-report.json that exists but cannot be read is an error result. The
@@ -496,8 +496,7 @@ behavior provide_mcp_inspect_tool "Provide MCP Inspect Tool" {
     guarantee, a decision's rationale), not just contract. The coverage status
     MUST count the recorded test results in specforge-report.json exactly as
     specforge.coverage does. References are split by direction:
-    referenced_by (incoming) and refers_to (outgoing); references and
-    reference_count remain as deprecated aliases. The related diagnostics,
+    referenced_by (incoming) and refers_to (outgoing). The related diagnostics,
     in the shape specforge.validate reports them, are those about the entity: the entities a diagnostic's data names, or,
     when its data names none, the innermost entity whose source span holds
     the diagnostic's span. A diagnostic's message is never read; an entity
@@ -508,7 +507,7 @@ behavior provide_mcp_inspect_tool "Provide MCP Inspect Tool" {
     exist, the tool MUST return an error response.
   """
   verify unit "specforge.inspect returns full entity details"
-  verify unit "response includes references and verify declarations"
+  verify unit "response includes referenced_by, refers_to and verify declarations"
   verify unit "an untitled entity's reply has no title"
   verify unit "the entity's diagnostics are in the shape validate reports them"
   verify unit "non-existent entity returns error response"

@@ -112,7 +112,7 @@ feature gamma "G" { behaviors [alpha, beta] }
     assert!(output.status.success());
     let parsed: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
     assert_eq!(parsed["testable_count"], 2, "{parsed}");
-    assert_eq!(parsed["coverage_pct"], 50.0, "{parsed}");
+    assert_eq!(parsed["declared_pct"], 50.0, "{parsed}");
 
     let output = specforge_cmd()
         .arg("stats")

@@ -1024,15 +1024,15 @@ fn mcp_tool_inspect_returns_entity_detail() {
         "{content}"
     );
     // gamma and inv both reference alpha.
-    assert_eq!(content["reference_count"], 2, "{content}");
-    let mut references: Vec<&str> = content["references"]
+    let mut referenced_by: Vec<&str> = content["referenced_by"]
         .as_array()
-        .expect("references array")
+        .expect("referenced_by array")
         .iter()
         .map(|r| r.as_str().unwrap())
         .collect();
-    references.sort_unstable();
-    assert_eq!(references, ["gamma", "inv"], "{content}");
+    referenced_by.sort_unstable();
+    assert_eq!(referenced_by, ["gamma", "inv"], "{content}");
+    assert!(content.get("references").is_none(), "{content}");
     assert_eq!(content["source_span"]["file"], "main.spec", "{content}");
     assert_eq!(content["source_span"]["start_line"], 1, "{content}");
     assert_eq!(content["coverage_status"], "uncovered", "{content}");

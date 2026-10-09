@@ -69,11 +69,7 @@ expression: "normalized(result, root)"
   },
   "kind": "feature",
   "obligated": false,
-  "reference_count": 1,
   "referenced_by": [
-    "login"
-  ],
-  "references": [
     "login"
   ],
   "refers_to": [],

@@ -271,7 +271,8 @@ fn assert_hover_and_inspect_agree(root: &Path, file: &str) {
         );
         assert_eq!(
             in_count + out_count,
-            inspect["reference_count"].as_u64().unwrap(),
+            (strings(&inspect["refers_to"]).len() + strings(&inspect["referenced_by"]).len())
+                as u64,
             "{id}: reference counts"
         );
 

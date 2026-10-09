@@ -39,9 +39,7 @@ expression: "normalized(result, root)"
   },
   "kind": "property",
   "obligated": false,
-  "reference_count": 0,
   "referenced_by": [],
-  "references": [],
   "refers_to": [],
   "source_extension": "@specforge/formal",
   "source_span": {

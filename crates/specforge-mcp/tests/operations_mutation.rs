@@ -1342,7 +1342,7 @@ fn remove_extension_removes_it_from_config_lock_and_disk() {
     );
 
     let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
-    assert_eq!(parsed["success"], true, "{parsed}");
+    assert!(parsed.get("success").is_none(), "{parsed}");
     assert_eq!(parsed["removed_extension"], GREET);
     assert!(
         !config_extensions(&root)
@@ -1387,7 +1387,7 @@ fn remove_extension_removes_a_wasm_file_entry_by_its_declared_name() {
     );
 
     let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
-    assert_eq!(parsed["success"], true, "{parsed}");
+    assert!(parsed["removed_extension"].is_string(), "{parsed}");
     assert_eq!(parsed["removed_extension"], GREET, "{parsed}");
     assert_eq!(parsed["version"], "0.1.0", "{parsed}");
     assert_eq!(
@@ -1446,7 +1446,10 @@ fn remove_extension_lists_stranded_entities() {
         json!([{"entity_id": "hello", "kind": "greeting"}]),
         "{parsed}"
     );
-    assert_eq!(parsed["success"], true, "removal still proceeds");
+    assert!(
+        parsed["removed_extension"].is_string(),
+        "removal still proceeds"
+    );
     assert!(!root.join(".specforge/extensions").join(GREET).exists());
 }
 
@@ -1491,7 +1494,7 @@ fn remove_extension_disables_an_enabled_builtin() {
     );
 
     let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
-    assert_eq!(parsed["success"], true, "{parsed}");
+    assert!(parsed["removed_extension"].is_string(), "{parsed}");
     assert_eq!(parsed["removed_extension"], "@specforge/product");
     assert_eq!(config_extensions(dir.path()), ["@specforge/software"]);
 }
@@ -2170,7 +2173,7 @@ fn remove_on_another_project_checks_that_projects_dependents() {
     );
     assert_eq!(resp["result"]["isError"], false, "{resp}");
     let payload: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
-    assert_eq!(payload["success"], true, "{payload}");
+    assert!(payload["removed_extension"].is_string(), "{payload}");
 
     // In the served project formal still requires it.
     let resp = call_tool(

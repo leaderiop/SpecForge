@@ -1870,7 +1870,7 @@ fn stats_includes_coverage_percentage() {
     let coverage = |server: &mut McpServer| {
         let resp = call_tool(server, "specforge.stats", json!({}));
         let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
-        parsed["coverage_pct"].as_f64().unwrap()
+        parsed["declared_pct"].as_f64().unwrap()
     };
     // Testable: alpha (behavior, declares verify) and gamma_orphan
     // (invariant, none). beta_feature's kind is not testable.

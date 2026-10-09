@@ -611,7 +611,7 @@ fn contract_stats() {
     );
     assert_eq!(stats["edge_count"], 1);
     assert_eq!(stats["unconnected_count"], 0);
-    assert!(stats["coverage_pct"].is_number(), "{stats}");
+    assert!(stats["declared_pct"].is_number(), "{stats}");
     assert_eq!(
         stats["diagnostic_summary"],
         json!({"errors": 0, "warnings": 0, "infos": 0})
@@ -663,7 +663,7 @@ fn contract_inspect() {
     assert_eq!(details["contract"], "MUST work");
     assert_eq!(details["fields"]["contract"], "MUST work");
     assert_eq!(details["verify_declarations"], json!(["unit works"]));
-    assert_eq!(details["references"], json!(["beta"]));
+    assert_eq!(details["referenced_by"], json!(["beta"]));
     assert_eq!(details["coverage_status"], "uncovered");
     let codes: Vec<&str> = details["diagnostics"]
         .as_array()

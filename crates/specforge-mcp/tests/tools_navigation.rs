@@ -133,9 +133,9 @@ fn inspect_returns_details() {
 // B:provide_mcp_inspect_tool — verify unit "includes reference count"
 #[specforge_test(
     behavior = "provide_mcp_inspect_tool",
-    verify = "response includes references and verify declarations"
+    verify = "response includes referenced_by, refers_to and verify declarations"
 )]
-fn inspect_includes_reference_count() {
+fn inspect_includes_referenced_by_and_refers_to() {
     let mut server = test_server();
     let parsed = result(
         &mut server,
@@ -147,9 +147,9 @@ fn inspect_includes_reference_count() {
     assert_eq!(parsed["referenced_by"], json!(["beta"]));
     assert_eq!(parsed["refers_to"], json!([]));
     assert_eq!(parsed["verify_declarations"], json!(["unit test alpha"]));
-    // The deprecated aliases: both directions, unlabeled.
-    assert_eq!(parsed["references"], json!(["beta"]));
-    assert_eq!(parsed["reference_count"], 1);
+    // The deprecated aliases are gone.
+    assert!(parsed.get("references").is_none(), "{parsed}");
+    assert!(parsed.get("reference_count").is_none(), "{parsed}");
 
     let parsed = result(
         &mut server,

@@ -40,8 +40,6 @@ pub struct Reply {
     /// The extension that declares its kind.
     #[serde(skip_serializing_if = "Option::is_none")]
     source_extension: Option<String>,
-    /// Deprecated alias of the references (ADR 0016).
-    reference_count: usize,
     source_span: SourceSpan,
     /// The statement the extension declares (headline and normative): a
     /// behavior's `contract`.
@@ -53,9 +51,6 @@ pub struct Reply {
     verify_declarations: Option<Vec<String>>,
     referenced_by: Vec<String>,
     refers_to: Vec<String>,
-    /// Deprecated alias (ADR 0016): both directions, unlabeled, in edge
-    /// order, one per reference.
-    references: Vec<String>,
     #[shape(names = specforge_ops::coverage::STATUS)]
     coverage_status: String,
     /// The diagnostics about the entity, in the shape `specforge.validate`
@@ -77,12 +72,6 @@ impl Reply {
     fn of(facts: &EntityFacts, coverage: &EntityCoverage) -> Self {
         let node = facts.node;
         let refs = &facts.references;
-        let references: Vec<String> = refs
-            .incoming
-            .iter()
-            .chain(&refs.outgoing)
-            .map(|r| r.peer.to_string())
-            .collect();
         let declared = coverage.declared();
         Reply {
             entity_id: node.id.raw.to_string(),
@@ -93,7 +82,6 @@ impl Reply {
             exempt: facts.standing.exempt(),
             obligated: facts.standing.obligated(),
             source_extension: facts.kind.map(|kind| kind.source_extension.to_string()),
-            reference_count: references.len(),
             source_span: node.source_span.clone(),
             contract: facts.headline.as_ref().map(ToString::to_string),
             fields: Value::Object(
@@ -105,7 +93,6 @@ impl Reply {
                 .then(|| facts.obligations.iter().map(obligation_text).collect()),
             referenced_by: refs.referenced_by().into_iter().map(String::from).collect(),
             refers_to: refs.refers_to().into_iter().map(String::from).collect(),
-            references,
             coverage_status: specforge_ops::coverage::STATUS
                 .name_of(coverage.status())
                 .to_string(),

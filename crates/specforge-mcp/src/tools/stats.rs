@@ -13,8 +13,6 @@ pub struct Reply {
     declared_pct: f64,
     #[serde(skip_serializing_if = "Option::is_none")]
     proof_pct: Option<f64>,
-    /// Deprecated alias of declared_pct.
-    coverage_pct: f64,
     edge_count: usize,
     unconnected_count: usize,
     diagnostic_summary: DiagnosticSummary,
@@ -52,7 +50,6 @@ pub fn call(view: ProjectView<'_>, _args: NoArgs) -> Answered<Reply> {
             .collect(),
         declared_pct: stats.declared_pct,
         proof_pct: stats.proof_pct,
-        coverage_pct: stats.coverage_pct,
         edge_count: stats.total_edges,
         unconnected_count: stats.unconnected_count,
         diagnostic_summary: DiagnosticSummary {
