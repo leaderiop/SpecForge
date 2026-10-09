@@ -72,8 +72,8 @@ feature extension_registry "Extension Registry" {
     schema MUST be published as an open specification so that third-party
     registries can implement it — SpecForge MUST NOT be the only possible
     registry host. specforge.json declares registry configs with scope-based
-    routing. specforge search queries registries with contribution type
-    filtering. specforge extension publish uploads validated .wasm binaries
+    routing. specforge search queries every
+    configured registry, filtered by declared category. specforge extension publish uploads validated .wasm binaries
     with SHA256 integrity. Downloaded binaries are verified against declared
     hashes and assigned trust levels (verified, community, local, git)
     recorded in specforge.lock. First-use MUST NOT require network access —

@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use specforge_protocol_types::package::Version;
 use specforge_protocol_types::{ExtensionDeclaration, PackageName};
-use specforge_registry_wire::{PackageMetadata, SearchHit};
+use specforge_registry_wire::{PackageMetadata, SearchHit, SearchQuery};
 
 use crate::registry_client::{RegistryClient, RegistryError};
 use crate::registry_config::{RegistryConfig, RegistryCredential};
@@ -134,7 +134,7 @@ impl<C: RegistryClient> RegistryClient for Retrying<C> {
 
     fn search(
         &self,
-        query: &str,
+        query: &SearchQuery,
         registry: &RegistryConfig,
         credential: Option<&RegistryCredential>,
     ) -> Result<Vec<SearchHit>, RegistryError> {

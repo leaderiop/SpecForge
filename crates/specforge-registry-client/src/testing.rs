@@ -6,8 +6,10 @@ use std::sync::{Arc, Mutex};
 
 use sha2::{Digest, Sha256};
 use specforge_protocol_types::package::Version;
-use specforge_protocol_types::{ExtensionDeclaration, PackageName};
-use specforge_registry_wire::{DEFAULT_SEARCH_LIMIT, PackageMetadata, SearchHit, path};
+use specforge_protocol_types::{DeclaredCategory, ExtensionDeclaration, PackageName};
+use specforge_registry_wire::{
+    DEFAULT_SEARCH_LIMIT, PackageMetadata, SearchHit, SearchQuery, path,
+};
 
 use crate::registry_client::{RegistryClient, RegistryError};
 use crate::registry_config::{RegistryConfig, RegistryCredential};
@@ -306,22 +308,31 @@ impl RegistryClient for MemoryClient {
 
     fn search(
         &self,
-        query: &str,
+        query: &SearchQuery,
         registry: &RegistryConfig,
         credential: Option<&RegistryCredential>,
     ) -> Result<Vec<SearchHit>, RegistryError> {
-        self.read(CallKind::Search, registry, query.to_string(), credential)?;
-        let needle = query.to_ascii_lowercase();
+        self.read(CallKind::Search, registry, query.q.clone(), credential)?;
+        let needle = query.q.to_ascii_lowercase();
+        let category = query
+            .contributes
+            .as_deref()
+            .and_then(DeclaredCategory::from_name);
         let matches = |m: &Stored| {
-            m.name.to_ascii_lowercase().contains(&needle)
-                || m.metadata
-                    .description
-                    .to_ascii_lowercase()
-                    .contains(&needle)
-                || m.metadata
-                    .keywords
-                    .iter()
-                    .any(|k| k.to_ascii_lowercase().contains(&needle))
+            let declares = category.is_none_or(|category| {
+                serde_json::from_str::<ExtensionDeclaration>(&m.metadata.manifest)
+                    .is_ok_and(|d| specforge_registry_wire::declares(&d, category))
+            });
+            declares
+                && (m.name.to_ascii_lowercase().contains(&needle)
+                    || m.metadata
+                        .description
+                        .to_ascii_lowercase()
+                        .contains(&needle)
+                    || m.metadata
+                        .keywords
+                        .iter()
+                        .any(|k| k.to_ascii_lowercase().contains(&needle)))
         };
         let state = self.state.lock().unwrap();
         // The latest version of each matching package, by SemVer, then by name.
@@ -636,7 +647,7 @@ pub fn assert_client_contract(
 
     // K8
     let hits = client
-        .search("contract", registry, None)
+        .search(&SearchQuery::new("contract"), registry, None)
         .expect("K8: search");
     assert_eq!(hits.len(), 1, "K8: one hit for \"contract\": {hits:?}");
     assert_eq!(hits[0].name, "@contract/tool", "K8: the hit's name");
@@ -644,7 +655,7 @@ pub fn assert_client_contract(
     assert_eq!(hits[0].description, "Contract tool", "K8: the description");
     assert_eq!(
         client
-            .search("a&b=c#d", registry, None)
+            .search(&SearchQuery::new("a&b=c#d"), registry, None)
             .expect("K8: odd query"),
         vec![],
         "K8: a query cannot change the parameters"
@@ -713,7 +724,12 @@ pub fn assert_private_client_contract(
             )
             .map(|_| ()),
     );
-    unauthorized("search", client.search("x", registry, None).map(|_| ()));
+    unauthorized(
+        "search",
+        client
+            .search(&SearchQuery::new("x"), registry, None)
+            .map(|_| ()),
+    );
 
     // K-P2
     let error = client
@@ -725,7 +741,7 @@ pub fn assert_private_client_contract(
     );
     assert_eq!(
         client
-            .search("x", registry, Some(credential))
+            .search(&SearchQuery::new("x"), registry, Some(credential))
             .expect("K-P2: search with the credential"),
         vec![],
         "K-P2: nothing is published yet"

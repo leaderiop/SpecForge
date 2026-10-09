@@ -1,63 +1,81 @@
 use crate::OutputFormat;
 use crate::outcome::{Exit, Refusal};
 use serde_json::json;
-use specforge_registry_client::{HttpRegistryClient, search_registries};
+use specforge_ops::registry::{Found, Registry};
+use specforge_ops_registry::ConfiguredRegistry;
+use specforge_protocol_types::DeclaredCategory;
 use std::path::Path;
 
-pub fn run(query: &str, path: &Path, format: OutputFormat) -> Exit {
+pub fn run(
+    query: &str,
+    contributes: Option<DeclaredCategory>,
+    path: &Path,
+    format: OutputFormat,
+) -> Exit {
     // No registry configured: fail before any network call (ADR 0004 N1).
-    let registries = match specforge_ops_registry::configured(path, "search") {
-        Ok(configured) => {
-            format.eprint_diagnostics(&configured.diagnostics);
-            configured.registries
-        }
-        Err(error) => {
-            return Refusal::of(format).report(&error);
-        }
+    let registry = ConfiguredRegistry::for_project(path, "search");
+    let searched = registry.search(query, contributes);
+    format.eprint_diagnostics(registry.reported());
+    let searched = match searched {
+        Ok(searched) => searched,
+        Err(error) => return Refusal::of(format).report(&error),
     };
+    // Each registry that failed, once.
+    format.eprint_diagnostics(&searched.failures);
+    print_found(
+        query,
+        contributes,
+        &searched.found,
+        &searched.failures,
+        format,
+    );
+    Exit::of_verdict(!searched.failed())
+}
 
-    let client = HttpRegistryClient::new();
-    let (results, diagnostics) = search_registries(query, &registries, &client);
-
+fn print_found(
+    query: &str,
+    contributes: Option<DeclaredCategory>,
+    found: &[Found],
+    failures: &[specforge_common::Diagnostic],
+    format: OutputFormat,
+) {
     match format {
         OutputFormat::Json => {
             let output = json!({
                 "query": query,
-                "results": results.iter().map(|r| json!({
+                "contributes": contributes.map(DeclaredCategory::name),
+                "results": found.iter().map(|r| json!({
                     "name": r.name,
                     "version": r.version,
                     "description": r.description,
+                    "registry": r.registry,
                 })).collect::<Vec<_>>(),
-                "errors": diagnostics.iter().map(|d| d.message.clone()).collect::<Vec<_>>(),
+                "diagnostics": failures,
             });
             println!("{}", serde_json::to_string_pretty(&output).unwrap());
         }
         OutputFormat::Human => {
-            if results.is_empty() {
-                if diagnostics.is_empty() {
-                    println!("no extensions found matching '{}'", query);
-                } else {
-                    for diag in &diagnostics {
-                        eprintln!("warning: {}", diag.message);
-                    }
-                    println!("no extensions found matching '{}'", query);
-                }
-            } else {
-                println!("found {} extension(s) matching '{}':", results.len(), query);
-                println!();
-                for result in &results {
-                    println!("  {} v{}", result.name, result.version);
-                    if !result.description.is_empty() {
-                        println!("    {}", result.description);
-                    }
-                }
+            let clause = contributes
+                .map(|c| format!(" that declare {}", c.name()))
+                .unwrap_or_default();
+            if found.is_empty() {
+                println!("no extensions found matching '{query}'{clause}");
+                return;
             }
-
-            for diag in &diagnostics {
-                eprintln!("warning: {}", diag.message);
+            println!(
+                "found {} extension(s) matching '{query}'{clause}:",
+                found.len()
+            );
+            println!();
+            for result in found {
+                println!(
+                    "  {} v{}  ({})",
+                    result.name, result.version, result.registry
+                );
+                if !result.description.is_empty() {
+                    println!("    {}", result.description);
+                }
             }
         }
     }
-
-    Exit::Passed
 }

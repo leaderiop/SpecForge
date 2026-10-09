@@ -134,7 +134,7 @@ impl RegistryClient for HttpRegistryClient {
 
     fn search(
         &self,
-        query: &str,
+        query: &SearchQuery,
         registry: &RegistryConfig,
         credential: Option<&RegistryCredential>,
     ) -> Result<Vec<SearchHit>, RegistryError> {
@@ -142,7 +142,7 @@ impl RegistryClient for HttpRegistryClient {
             "{}{}?{}",
             Self::base_url(registry),
             path::SEARCH,
-            SearchQuery::new(query).to_query_string()
+            query.to_query_string()
         );
         let resp = self.send(authorized(self.client.get(&url), credential), &url)?;
         match resp.status() {
@@ -152,7 +152,7 @@ impl RegistryClient for HttpRegistryClient {
                 })?;
                 Ok(body.results)
             }
-            _ => Err(failure_of(resp, query)),
+            _ => Err(failure_of(resp, &query.q)),
         }
     }
 

@@ -628,7 +628,7 @@ behavior search_registry "Search Registry" {
   features   [extension_registry]
   invariants [diagnostic_determinism, multi_error_collection, offline_first_extension_resolution]
   category   query
-  types      [RegistryConfig, SearchResults, SearchHit, CompilerConfig]
+  types      [RegistryConfig, SearchQuery, SearchResults, SearchHit, CompilerConfig]
   ports      [RegistryClient]
   produces   [registry_search_completed]
   requires {
@@ -638,7 +638,9 @@ behavior search_registry "Search Registry" {
   ensures {
     all_registries_queried   "All configured registries are queried with the search term"
     results_deduplicated     "Results from multiple registries are deduplicated by name + version"
-    output_deterministic     "Output is sorted by relevance score then extension name"
+    output_deterministic     "Output is sorted by name, then version"
+    category_filtered        "With --contributes, only packages whose declaration declares that category are listed"
+    failures_reported_once   "Each registry that fails is reported once, with its code; search fails when every registry failed"
     search_completed_emitted "registry_search_completed event fires after results are collected"
   }
   maintains {
@@ -646,13 +648,21 @@ behavior search_registry "Search Registry" {
   }
   contract   """
     When specforge search is invoked, the system MUST query all configured
-    registries with the search term. Results MUST be filterable by
-    contribution type (entities, validators, renderers, providers,
-    collectors, prompts, parsers). Results from multiple registries MUST be merged and
-    deduplicated using a composite key of name + version — when the
-    same name + version appears from multiple registries, the first
-    registry in specforge.json declaration order wins. Output MUST be
-    deterministic — sorted by relevance score then extension name.
+    registries with the search term. Results MUST be filterable by declared
+    category (--contributes, one of entities, edges, shared_fields,
+    enhancements, validation_rules, surfaces, collectors, analyzers, passes,
+    feature_flags): a registry lists only the packages whose stored
+    declaration declares something in that category, and an unknown
+    category is refused before any request. Results from multiple
+    registries MUST be merged and deduplicated using a composite key of
+    name + version — when the same name + version appears from multiple
+    registries, the first registry in specforge.json declaration order
+    wins, and each result names that registry. Output MUST be
+    deterministic — sorted by name, then version. Each registry that
+    fails MUST be reported once, with its code; the others are still
+    asked, and the search fails only when every registry failed. Each
+    registry is asked with the credential kept for it
+    (support_private_registries).
     With no registry configured, search MUST make no network call and MUST
     fail with E063, whose suggestion names the specforge.json registries key.
     A specforge.json that is there and can't be used MUST be refused as add
@@ -662,11 +672,12 @@ behavior search_registry "Search Registry" {
   verify unit "with no registry configured, search makes no network call and reports how to configure one"
   verify unit "an unusable specforge.json is refused with the refusal add gives, before any network call"
   verify unit "queries all configured registries"
-  verify unit "filters by contribution type"
+  verify unit "filters by declared category"
+  verify unit "each failed registry is reported once, and search fails when every registry failed"
   verify unit "deduplicates results across registries"
   verify unit "output is deterministic"
   verify unit "error from one registry does not abort search of others"
-  verify contract "Search Registry: registry search holds — registries_available, registry_client_available, all_registries_queried, results_deduplicated, output_deterministic, search_completed_emitted, partial_failure_resilience"
+  verify contract "Search Registry: registry search holds — registries_available, registry_client_available, all_registries_queried, results_deduplicated, output_deterministic, category_filtered, failures_reported_once, search_completed_emitted, partial_failure_resilience"
 }
 
 // CLI entry point: `specforge publish`. Delegates Wasm binary packaging

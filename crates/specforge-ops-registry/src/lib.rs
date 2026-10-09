@@ -10,12 +10,12 @@
 use specforge_common::{Code, Diagnostic, codes};
 use specforge_ops::extension::Trust;
 use specforge_ops::registry::{
-    METADATA_MISMATCH, NO_REGISTRY, NO_REGISTRY_FOR_NAME, NOT_AUTHENTICATED, Package, Published,
-    Registry, UNREADABLE_MANIFEST, UNUSABLE_SIGNING_KEY, Upload, no_registry,
+    Found, METADATA_MISMATCH, NO_REGISTRY, NO_REGISTRY_FOR_NAME, NOT_AUTHENTICATED, Package,
+    Published, Registry, Searched, UNREADABLE_MANIFEST, UNUSABLE_SIGNING_KEY, Upload, no_registry,
 };
 use specforge_ops::{OpError, OpErrorKind};
 use specforge_protocol_types::package::Version;
-use specforge_protocol_types::{ExtensionDeclaration, PackageName};
+use specforge_protocol_types::{DeclaredCategory, ExtensionDeclaration, PackageName};
 use specforge_registry_client::credentials::{read_credentials, user_dir};
 use specforge_registry_client::signing::load_or_create_signing_key_at;
 use specforge_registry_client::trust_flow::TrustPolicy;
@@ -24,7 +24,7 @@ use specforge_registry_client::{
     Retrying, SigningKey, parse_registries_from_config, publish_to_registry,
     verify_registry_integrity,
 };
-use specforge_registry_wire::PackageMetadata;
+use specforge_registry_wire::{PackageMetadata, SearchQuery};
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
@@ -363,6 +363,58 @@ impl Registry for ConfiguredRegistry {
             .collect())
     }
 
+    fn search(
+        &self,
+        query: &str,
+        contributes: Option<DeclaredCategory>,
+    ) -> Result<Searched, OpError> {
+        let registries = &self.registries()?.registries;
+        let mut wire = SearchQuery::new(query);
+        if let Some(category) = contributes {
+            wire = wire.contributing(category);
+        }
+        let mut found: Vec<Found> = Vec::new();
+        let mut failures = Vec::new();
+        for registry in registries {
+            let hits = self.stored_credential(registry).and_then(|credential| {
+                self.client
+                    .search(&wire, registry, credential.as_ref())
+                    .map_err(|error| error.to_diagnostic())
+            });
+            match hits {
+                Ok(hits) => {
+                    for hit in hits {
+                        // The first registry that lists a name and version wins.
+                        if !found
+                            .iter()
+                            .any(|f| f.name == hit.name && f.version == hit.version)
+                        {
+                            found.push(Found {
+                                name: hit.name,
+                                version: hit.version,
+                                description: hit.description,
+                                registry: registry.alias.clone(),
+                            });
+                        }
+                    }
+                }
+                Err(mut diagnostic) => {
+                    diagnostic.message = format!(
+                        "search failed on registry '{}': {}",
+                        registry.alias, diagnostic.message
+                    );
+                    failures.push(diagnostic);
+                }
+            }
+        }
+        found.sort_by(|a, b| a.name.cmp(&b.name).then_with(|| a.version.cmp(&b.version)));
+        Ok(Searched {
+            found,
+            failures,
+            asked: registries.len(),
+        })
+    }
+
     fn publish(&self, package: &Upload<'_>) -> Result<Published, OpError> {
         let registry = self.registry_for(package.name)?; // E063, E067, R-OPS-001
         let credential = self.credential_for(registry)?; // R001, R012, R-AUTH-020/021
@@ -395,8 +447,15 @@ impl ConfiguredRegistry {
         &self,
         registry: &RegistryConfig,
     ) -> Result<Option<RegistryCredential>, OpError> {
-        let store = read_credentials(&self.user.credentials()).map_err(OpError::from)?;
-        store.credential(&registry.alias).map_err(OpError::from)
+        self.stored_credential(registry).map_err(OpError::from)
+    }
+
+    /// [`ConfiguredRegistry::read_credential`] as the diagnostic that refuses it.
+    fn stored_credential(
+        &self,
+        registry: &RegistryConfig,
+    ) -> Result<Option<RegistryCredential>, Diagnostic> {
+        read_credentials(&self.user.credentials())?.credential(&registry.alias)
     }
 
     /// The credential a publish to `registry` authenticates with: the

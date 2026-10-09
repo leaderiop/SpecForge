@@ -225,14 +225,21 @@ impl Database {
         Ok(rows)
     }
 
-    pub fn search(&self, query: &str, limit: u32) -> Result<Vec<PackageVersion>, String> {
+    /// The latest version of each package matching `query`, sorted by name; with `contributes`, only
+    /// those whose stored declaration declares that category (an unreadable manifest is not kept).
+    pub fn search(
+        &self,
+        query: &str,
+        limit: u32,
+        contributes: Option<specforge_protocol_types::DeclaredCategory>,
+    ) -> Result<Vec<PackageVersion>, String> {
         use std::collections::HashMap;
 
         let conn = self.conn();
         let pattern = format!("%{query}%");
         let mut stmt = conn
             .prepare(
-                "SELECT name, version, sha256, size_bytes, description, keywords, publisher, published_at
+                "SELECT name, version, sha256, size_bytes, description, keywords, publisher, published_at, manifest
                  FROM packages
                  WHERE yanked = 0 AND (name LIKE ?1 OR description LIKE ?1 OR keywords LIKE ?1)",
             )
@@ -250,7 +257,7 @@ impl Database {
                     published_at: row.get(7)?,
                     signature: String::new(),
                     key_id: String::new(),
-                    manifest: String::new(),
+                    manifest: row.get(8)?,
                 })
             })
             .map_err(|e| format!("search query failed: {e}"))?
@@ -269,6 +276,12 @@ impl Database {
             }
         }
         let mut out: Vec<PackageVersion> = latest.into_values().collect();
+        if let Some(category) = contributes {
+            out.retain(|p| {
+                serde_json::from_str::<specforge_protocol_types::ExtensionDeclaration>(&p.manifest)
+                    .is_ok_and(|d| specforge_registry_wire::declares(&d, category))
+            });
+        }
         out.sort_by(|a, b| a.name.cmp(&b.name));
         out.truncate(limit as usize);
         Ok(out)
@@ -444,7 +457,7 @@ mod tests {
         let db = Database::open(&dir.path().join("t.db")).unwrap();
         db.insert_package(&pv("pkg", "9.0.0")).unwrap();
         db.insert_package(&pv("pkg", "10.0.0")).unwrap();
-        let hits = db.search("pkg", 10).unwrap();
+        let hits = db.search("pkg", 10, None).unwrap();
         assert_eq!(hits.len(), 1, "one row per package name");
         assert_eq!(hits[0].version, "10.0.0", "10.0.0 must outrank 9.0.0");
     }
@@ -457,12 +470,12 @@ mod tests {
         let db = Database::open(&dir.path().join("t.db")).unwrap();
         db.insert_package(&pv("pkg", "2.0.0-beta.1")).unwrap();
         db.insert_package(&pv("pkg", "1.9.0")).unwrap();
-        let hits = db.search("pkg", 10).unwrap();
+        let hits = db.search("pkg", 10, None).unwrap();
         assert_eq!(hits[0].version, "2.0.0-beta.1");
 
         // ...but a pre-release never outranks its own release triple.
         db.insert_package(&pv("pkg", "2.0.0")).unwrap();
-        let hits = db.search("pkg", 10).unwrap();
+        let hits = db.search("pkg", 10, None).unwrap();
         assert_eq!(hits[0].version, "2.0.0");
     }
 }

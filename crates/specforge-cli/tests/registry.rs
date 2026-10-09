@@ -1111,9 +1111,11 @@ fn login_with_an_unknown_registry_is_refused_before_any_request() {
 // Pins of plan 16 (T0): what the registry commands do today
 // ---------------------------------------------------------------
 
-// pin (16-T0): flipped by T5.
-#[test]
-fn a_failed_registry_is_warned_twice_and_search_exits_0() {
+#[specforge_test(
+    behavior = "search_registry",
+    verify = "each failed registry is reported once, and search fails when every registry failed"
+)]
+fn a_failed_registry_is_reported_once_and_search_fails_when_all_did() {
     let dir = project_with_registries(serde_json::json!([
         {"alias": "down", "url": "http://127.0.0.1:9/v1", "default_registry": true}
     ]));
@@ -1126,13 +1128,55 @@ fn a_failed_registry_is_warned_twice_and_search_exits_0() {
         .output()
         .unwrap();
 
-    assert_eq!(output.status.code(), Some(0));
+    assert_eq!(output.status.code(), Some(1));
     let stderr = stderr_of(&output);
     assert_eq!(
-        stderr.matches("Search failed on registry 'down'").count(),
-        2,
+        stderr.matches("search failed on registry 'down'").count(),
+        1,
         "{stderr}"
     );
+    assert!(stderr.contains("R005"), "{stderr}");
+}
+
+#[test]
+fn search_names_the_registry_of_each_hit() {
+    use crate::published::{Package, serve};
+    let registry = serve(vec![Package::new("@sdk/greet", "0.1.0", greet_wasm())]);
+    let dir = project_on(&registry);
+    let home = TempDir::new().unwrap();
+
+    let output = specforge_cmd()
+        .args(["search", "greet", "--format", "json", "--path"])
+        .arg(dir.path())
+        .env("HOME", home.path())
+        .output()
+        .unwrap();
+
+    assert!(output.status.success());
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(json["results"][0]["registry"], "local", "{json}");
+    assert_eq!(json["contributes"], serde_json::Value::Null, "{json}");
+    assert_eq!(json["diagnostics"], serde_json::json!([]), "{json}");
+}
+
+#[test]
+fn an_unknown_category_is_refused_before_any_request() {
+    use crate::published::serve;
+    let registry = serve(vec![]);
+    let dir = project_on(&registry);
+    let home = TempDir::new().unwrap();
+
+    let output = specforge_cmd()
+        .args(["search", "x", "--contributes", "widgets", "--path"])
+        .arg(dir.path())
+        .env("HOME", home.path())
+        .output()
+        .unwrap();
+
+    assert_eq!(output.status.code(), Some(2));
+    let stderr = stderr_of(&output);
+    assert!(stderr.contains("surfaces"), "{stderr}");
+    assert!(registry.requests().is_empty());
 }
 
 // pin (16-T0): flipped by T7.

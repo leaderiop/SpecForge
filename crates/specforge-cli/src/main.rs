@@ -495,6 +495,10 @@ enum Commands {
         /// Search query
         query: String,
 
+        /// Only extensions that declare this category of contribution
+        #[arg(long, value_parser = options::choice(&specforge_ops::registry::CONTRIBUTES))]
+        contributes: Option<specforge_protocol_types::DeclaredCategory>,
+
         /// Path to the project root (for registry config)
         #[arg(long, default_value = ".")]
         path: PathBuf,
@@ -1030,9 +1034,10 @@ fn run(command: Commands) -> Exit {
         } => publish::run(extension.as_deref().unwrap_or(&path), &path, format),
         Commands::Search {
             query,
+            contributes,
             path,
             format,
-        } => search::run(&query, &path, format),
+        } => search::run(&query, contributes, &path, format),
         Commands::Update {
             name,
             path,

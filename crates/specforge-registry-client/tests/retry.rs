@@ -8,6 +8,7 @@ use specforge_registry_client::Retrying;
 use specforge_registry_client::registry_client::{RegistryClient, RegistryError};
 use specforge_registry_client::registry_config::RegistryConfig;
 use specforge_registry_client::testing::{CallKind, MemoryClient, package};
+use specforge_registry_wire::SearchQuery;
 
 fn registry() -> RegistryConfig {
     RegistryConfig {
@@ -138,7 +139,9 @@ fn every_call_is_retried_alike() {
     assert_eq!(count(&client, CallKind::Download), 2);
 
     rate_limited(&client, CallKind::Search, 1, 0);
-    retrying.search("acme", &registry, None).unwrap();
+    retrying
+        .search(&SearchQuery::new("acme"), &registry, None)
+        .unwrap();
     assert_eq!(count(&client, CallKind::Search), 2);
 }
 

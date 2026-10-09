@@ -206,11 +206,27 @@ async fn search_packages(
     _reader: Reader,
     Query(query): Query<SearchQuery>,
 ) -> Result<Json<SearchResults>, ApiError> {
+    let contributes = match query.contributes.as_deref() {
+        None => None,
+        Some(name) => Some(
+            specforge_protocol_types::DeclaredCategory::from_name(name).ok_or_else(|| {
+                ApiError::bad_request(
+                    code::BAD_REQUEST,
+                    format!(
+                        "'{name}' is not a declared category; one of: {}",
+                        specforge_protocol_types::DECLARED_CATEGORIES.join(", ")
+                    ),
+                )
+            })?,
+        ),
+    };
     // rusqlite queries are blocking: run the search on the blocking pool.
-    let results = tokio::task::spawn_blocking(move || state.database.search(&query.q, query.limit))
-        .await
-        .expect("search query task panicked")
-        .map_err(|e| ApiError::internal(code::DB_ERROR, e))?;
+    let results = tokio::task::spawn_blocking(move || {
+        state.database.search(&query.q, query.limit, contributes)
+    })
+    .await
+    .expect("search query task panicked")
+    .map_err(|e| ApiError::internal(code::DB_ERROR, e))?;
 
     let results = results
         .into_iter()

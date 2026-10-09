@@ -3,7 +3,7 @@ use specforge_common::{Diagnostic, codes};
 use super::registry_config::{RegistryConfig, RegistryCredential};
 use specforge_protocol_types::package::Version;
 use specforge_protocol_types::{ExtensionDeclaration, PackageName};
-use specforge_registry_wire::{PackageMetadata, SearchHit};
+use specforge_registry_wire::{PackageMetadata, SearchHit, SearchQuery};
 
 /// Errors that can occur during registry operations.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -125,10 +125,10 @@ pub trait RegistryClient: Send + Sync {
         credential: Option<&RegistryCredential>,
     ) -> Result<Vec<u8>, RegistryError>;
 
-    /// The latest version of each package matching `query`.
+    /// The latest version of each package matching `query`, and declaring its category when it names one.
     fn search(
         &self,
-        query: &str,
+        query: &SearchQuery,
         registry: &RegistryConfig,
         credential: Option<&RegistryCredential>,
     ) -> Result<Vec<SearchHit>, RegistryError>;

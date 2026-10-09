@@ -98,7 +98,19 @@ type SearchHit "Search Hit" {
   verify unit "SearchHit is the JSON of one search hit"
 }
 
-// GET {base}/search?q=&limit=: the latest version of each matching package.
+// GET {base}/search's query (specforge_registry_wire::SearchQuery): what to
+// look for, at most how many (50 when absent), and a declared category a
+// package must declare.
+type SearchQuery "Search Query" {
+  q           string
+  limit       integer @optional
+  contributes string  @optional
+  verify unit "SearchQuery is the query string a registry search reads"
+}
+
+// GET {base}/search?q=&limit=&contributes=: the latest version of each
+// matching package; contributes keeps those whose declaration declares that
+// category.
 type SearchResults "Search Results" {
   results SearchHit[]
   verify unit "SearchResults is the JSON a registry answers a search with"
@@ -139,6 +151,16 @@ type RegistryPackage "Registry Package" {
   declaration ExtensionDeclaration
   key_id      string @optional
   verify unit "RegistryPackage is what a package that passed the fetch policy hands an operation"
+}
+
+// What the Registry port's search answers (specforge_ops::registry::Searched):
+// each package found, with the registry it was found in, and the diagnostic
+// of each registry that failed.
+type RegistrySearched "Registry Searched" {
+  found       SearchHit[]
+  failures    Diagnostic[]
+  asked       integer
+  verify unit "RegistrySearched is what a search over the configured registries answers with"
 }
 
 // What the Registry port's publish answers: the registry that took the
