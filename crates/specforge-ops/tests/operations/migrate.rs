@@ -932,3 +932,34 @@ fn the_project_is_checked_once_after_the_files_and_the_hooks() {
     // One compile before the files, one after the hooks.
     assert_eq!(handshakes_of(&runtime, "@acme/x"), 2);
 }
+
+// pin (16-T0): flipped by T8.
+#[test]
+fn an_automatic_rollback_restores_an_earlier_migrations_file() {
+    let dir = project_with_extension();
+    let root = dir.path();
+    let first = run(&request(root), Some(Arc::new(unhooked())));
+    assert!(first.ok(), "{first:?}");
+    assert!(root.join("old.spec.bak").exists());
+    let old = root.join("old.spec");
+    let migrated = std::fs::read_to_string(&old).unwrap();
+    std::fs::write(&old, format!("{migrated}// edited\n")).unwrap();
+    std::fs::write(root.join("second.spec"), OLD).unwrap();
+
+    let second = run(
+        &request(root),
+        Some(Arc::new(hooked(|_| Err("trapped".into())))),
+    );
+
+    assert!(second.rollback.is_some() && !second.ok(), "{second:?}");
+    assert_eq!(
+        std::fs::read_to_string(&old).unwrap(),
+        OLD,
+        "the earlier migration's backup replaced the edit"
+    );
+    assert!(
+        second.writes.paths().any(|p| p.ends_with("old.spec")),
+        "{:?}",
+        second.writes
+    );
+}

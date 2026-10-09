@@ -1106,3 +1106,68 @@ fn login_with_an_unknown_registry_is_refused_before_any_request() {
     );
     assert_eq!(spy.hits(), 0, "login reached the network");
 }
+
+// ---------------------------------------------------------------
+// Pins of plan 16 (T0): what the registry commands do today
+// ---------------------------------------------------------------
+
+// pin (16-T0): flipped by T5.
+#[test]
+fn a_failed_registry_is_warned_twice_and_search_exits_0() {
+    let dir = project_with_registries(serde_json::json!([
+        {"alias": "down", "url": "http://127.0.0.1:9/v1", "default_registry": true}
+    ]));
+    let home = TempDir::new().unwrap();
+
+    let output = specforge_cmd()
+        .args(["search", "x", "--path"])
+        .arg(dir.path())
+        .env("HOME", home.path())
+        .output()
+        .unwrap();
+
+    assert_eq!(output.status.code(), Some(0));
+    let stderr = stderr_of(&output);
+    assert_eq!(
+        stderr.matches("Search failed on registry 'down'").count(),
+        2,
+        "{stderr}"
+    );
+}
+
+// pin (16-T0): flipped by T7.
+#[test]
+fn an_unsigned_add_warns_on_stderr_without_a_code() {
+    use crate::published::{Package, serve};
+    let registry = serve(vec![Package::new("@sdk/greet", "0.1.0", greet_wasm())]);
+
+    let add = |format: &str| {
+        let dir = project_on(&registry);
+        let home = TempDir::new().unwrap();
+        let output = specforge_cmd()
+            .args([
+                "add",
+                "@sdk/greet@0.1.0",
+                "--allow-unsigned",
+                "--format",
+                format,
+            ])
+            .arg("--path")
+            .arg(dir.path())
+            .env("HOME", home.path())
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stdout)
+        );
+        stderr_of(&output)
+    };
+
+    let human = add("human");
+    assert!(human.contains("installing UNSIGNED package"), "{human}");
+    assert!(!human.contains("W155"), "{human}");
+    let json = add("json");
+    assert!(!json.contains("UNSIGNED"), "{json}");
+}

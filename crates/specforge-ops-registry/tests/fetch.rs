@@ -509,3 +509,70 @@ fn a_download_that_misses_is_refused_and_pins_nothing() {
     assert_eq!(error.code, "R006", "{error:?}");
     assert_eq!(project.pinned(), None, "nothing is pinned for it");
 }
+
+/// `home` with `credentials.json` holding `json`.
+fn store_credentials(project: &Project, json: &str) {
+    let home = project.dir.path().join("home");
+    std::fs::create_dir_all(&home).unwrap();
+    std::fs::write(home.join("credentials.json"), json).unwrap();
+}
+
+// pin (16-T0): flipped by T4.
+#[test]
+fn a_read_sends_no_credential() {
+    use specforge_registry_client::testing::CallKind;
+    let project = Project::on(Reply::unsigned());
+    store_credentials(&project, r#"{"registries":{"local":{"token":"t"}}}"#);
+    let registry = project.registry();
+    let name = PackageName::parse(NAME).unwrap();
+
+    registry.versions(&name).unwrap();
+    registry
+        .fetch(
+            &name,
+            &Version::parse(VERSION).unwrap(),
+            true,
+            Trust::Refuse,
+        )
+        .unwrap();
+
+    let reads: Vec<_> = project
+        .client
+        .calls()
+        .into_iter()
+        .filter(|call| {
+            matches!(
+                call.kind,
+                CallKind::Versions | CallKind::Metadata | CallKind::Download
+            )
+        })
+        .collect();
+    assert_eq!(reads.len(), 3, "{reads:?}");
+    assert!(reads.iter().all(|call| call.credential.is_none()));
+}
+
+// pin (16-T0): flipped by T7.
+#[test]
+fn an_unsigned_fetch_reports_nothing() {
+    let project = Project::on(Reply::unsigned());
+    let registry = project.registry();
+
+    let package = registry
+        .fetch(
+            &PackageName::parse(NAME).unwrap(),
+            &Version::parse(VERSION).unwrap(),
+            true,
+            Trust::Refuse,
+        )
+        .unwrap();
+
+    assert_eq!(package.key_id, None);
+    assert!(
+        registry
+            .reported()
+            .iter()
+            .all(|d| d.severity != specforge_common::Severity::Warning),
+        "{:?}",
+        registry.reported()
+    );
+}

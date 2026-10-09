@@ -1417,3 +1417,42 @@ fn an_empty_kind_list_selects_every_kind() {
     assert_eq!(names(&empty["entities"]), names(&all["entities"]));
     assert!(!names(&all["entities"]).is_empty());
 }
+
+// pin (16-T0): flipped by T12.
+#[test]
+fn an_unfiltered_model_counts_an_edge_type_it_draws_nothing_for() {
+    let kind = |name: &str| SchemaEntityKind {
+        name: name.to_string(),
+        source_extension: "@specforge/software".to_string(),
+        testable: false,
+        dot_color: None,
+        fields: vec![],
+    };
+    let schema = GraphProtocolSchema {
+        schema_version: SchemaVersion::new(1, 0, 0),
+        extensions: vec![SchemaExtensionInfo {
+            name: "@specforge/software".to_string(),
+            version: "1.0.0".to_string(),
+        }],
+        entity_kinds: vec![kind("behavior"), kind("event")],
+        edge_types: vec![
+            SchemaEdgeType {
+                label: "Triggers".to_string(),
+                source_extension: "@specforge/software".to_string(),
+                source_kinds: Some(vec!["behavior".to_string()]),
+                target_kinds: Some(vec!["event".to_string()]),
+            },
+            SchemaEdgeType {
+                label: "References".to_string(),
+                source_extension: "@specforge/software".to_string(),
+                source_kinds: None,
+                target_kinds: None,
+            },
+        ],
+    };
+
+    let model = built(&schema);
+
+    assert_eq!(model["relationships"].as_array().unwrap().len(), 1);
+    assert_eq!(model["extensions"][0]["edge_count"], 2);
+}

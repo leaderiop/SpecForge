@@ -376,3 +376,75 @@ fn a_credential_the_registry_refuses_is_a_permission_error() {
     assert_eq!(error.code, "R001", "{error:?}");
     assert_eq!(error.kind, OpErrorKind::PermissionDenied);
 }
+
+/// A project on `server`, and the user's home, for a publish over HTTP.
+fn on_server(server: &specforge_registry_server::testing::LocalRegistry) -> (TempDir, TempDir) {
+    let project = TempDir::new().unwrap();
+    let config = serde_json::json!({
+        "name": "p",
+        "version": "0.1.0",
+        "registries": server.config_entry(),
+    });
+    std::fs::write(project.path().join("specforge.json"), config.to_string()).unwrap();
+    (project, TempDir::new().unwrap())
+}
+
+// pin (16-T0): flipped by T2 (it keeps the bug-free half: a wait past the longest backoff is not taken).
+#[test]
+fn a_rate_limited_publish_is_sent_once() {
+    use specforge_registry_server::state::PublishLimits;
+    let server = specforge_registry_server::testing::LocalRegistry::start_with(PublishLimits {
+        per_token: 1,
+        per_ip: 100,
+    });
+    let (project, home) = on_server(&server);
+    let registry = ConfiguredRegistry::for_project(project.path(), "publish")
+        .as_user(User::at(home.path(), Some(server.token().to_string())));
+
+    registry
+        .publish(&pkg("@acme/x", "1.0.0").upload())
+        .expect("the first publish is within the limit");
+    let error = registry
+        .publish(&pkg("@acme/x", "1.0.1").upload())
+        .unwrap_err();
+
+    assert_eq!(error.code, "R003", "{error:?}");
+    let puts = server
+        .requests()
+        .iter()
+        .filter(|request| request.starts_with("PUT"))
+        .count();
+    assert_eq!(puts, 2, "{:?}", server.requests());
+}
+
+/// `home` with `credentials.json` holding `json`.
+fn home_with_credentials(json: &str) -> TempDir {
+    let home = TempDir::new().unwrap();
+    std::fs::write(home.path().join("credentials.json"), json).unwrap();
+    home
+}
+
+// pin (16-T0): flipped by T3.
+#[test]
+fn an_unset_token_variable_is_r001_after_a_request() {
+    let world = World::acme();
+    let home = home_with_credentials(
+        r#"{"registries":{"acme":{"token_env":"P16_UNSET_TOKEN_VARIABLE"}}}"#,
+    );
+    let registry = ConfiguredRegistry::for_project(world.project.path(), "publish")
+        .as_user(User::at(home.path(), None))
+        .with_client(world.client.clone());
+
+    let error = registry
+        .publish(&pkg("@acme/x", "1.0.0").upload())
+        .unwrap_err();
+
+    assert_eq!(error.code, "R001", "{error:?}");
+    let publishes = world
+        .client
+        .calls()
+        .iter()
+        .filter(|call| call.kind == CallKind::Publish)
+        .count();
+    assert_eq!(publishes, 1);
+}
