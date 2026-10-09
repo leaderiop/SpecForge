@@ -49,23 +49,878 @@ expression: listing
       "type": "object"
     },
     "outputSchema": {
-      "properties": {
-        "edges": {
-          "type": "array"
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "edges": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "label": {
+                    "type": "string"
+                  },
+                  "source": {
+                    "type": "string"
+                  },
+                  "target": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "source",
+                  "target",
+                  "label"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "format_version": {
+              "type": "string"
+            },
+            "nodes": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "coverage_status": {
+                    "enum": [
+                      "covered",
+                      "partial",
+                      "uncovered"
+                    ],
+                    "type": "string"
+                  },
+                  "fields": {
+                    "type": "object"
+                  },
+                  "file": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "type": "string"
+                  },
+                  "kind": {
+                    "type": "string"
+                  },
+                  "line": {
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "title": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id",
+                  "kind",
+                  "file",
+                  "line",
+                  "fields"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "schema": {
+              "additionalProperties": false,
+              "properties": {
+                "edge_types": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "label": {
+                        "type": "string"
+                      },
+                      "source_extension": {
+                        "type": "string"
+                      },
+                      "source_kinds": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      "target_kinds": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      }
+                    },
+                    "required": [
+                      "label",
+                      "source_extension"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "entity_kinds": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "dot_color": {
+                        "type": "string"
+                      },
+                      "fields": {
+                        "items": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "default_value": {
+                              "type": "string"
+                            },
+                            "description": {
+                              "type": "string"
+                            },
+                            "edge": {
+                              "type": "string"
+                            },
+                            "enum_values": {
+                              "items": {
+                                "type": "string"
+                              },
+                              "type": "array"
+                            },
+                            "field_type": {
+                              "enum": [
+                                "string",
+                                "integer",
+                                "bool",
+                                "enum",
+                                "string_list",
+                                "reference",
+                                "reference_list",
+                                "block"
+                              ],
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "required": {
+                              "type": "boolean"
+                            },
+                            "source_extension": {
+                              "type": "string"
+                            },
+                            "target_kind": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "name",
+                            "field_type",
+                            "required",
+                            "source_extension"
+                          ],
+                          "type": "object"
+                        },
+                        "type": "array"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "source_extension": {
+                        "type": "string"
+                      },
+                      "testable": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "source_extension",
+                      "testable",
+                      "fields"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "extensions": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "version": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "version"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "schema_version": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "label": {
+                      "type": "string"
+                    },
+                    "major": {
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "minor": {
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "patch": {
+                      "minimum": 0,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "major",
+                    "minor",
+                    "patch"
+                  ],
+                  "type": "object"
+                }
+              },
+              "required": [
+                "schema_version",
+                "extensions",
+                "entity_kinds",
+                "edge_types"
+              ],
+              "type": "object"
+            },
+            "schema_ref": {
+              "additionalProperties": false,
+              "properties": {
+                "content_hash": {
+                  "type": "string"
+                },
+                "url": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "url",
+                "content_hash"
+              ],
+              "type": "object"
+            },
+            "schema_version": {
+              "type": "string"
+            },
+            "token_budget": {
+              "additionalProperties": false,
+              "properties": {
+                "budget_tokens": {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "estimated_tokens": {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "strategy": {
+                  "type": "string"
+                },
+                "truncated_entities": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                }
+              },
+              "required": [
+                "strategy",
+                "budget_tokens",
+                "estimated_tokens",
+                "truncated_entities"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "schema_version",
+            "nodes",
+            "edges"
+          ],
+          "type": "object"
         },
-        "format_version": {
-          "type": "string"
+        {
+          "additionalProperties": false,
+          "properties": {
+            "edges": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "label": {
+                    "type": "string"
+                  },
+                  "source": {
+                    "type": "string"
+                  },
+                  "target": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "source",
+                  "target",
+                  "label"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "format_version": {
+              "type": "string"
+            },
+            "nodes": {
+              "items": {
+                "properties": {
+                  "coverage_status": {
+                    "enum": [
+                      "covered",
+                      "partial",
+                      "uncovered"
+                    ],
+                    "type": "string"
+                  },
+                  "fields": {
+                    "type": "object"
+                  },
+                  "id": {
+                    "type": "string"
+                  },
+                  "kind": {
+                    "type": "string"
+                  },
+                  "title": {
+                    "type": "string"
+                  },
+                  "verify": {}
+                },
+                "required": [
+                  "id",
+                  "kind"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "schema": {
+              "additionalProperties": false,
+              "properties": {
+                "edge_types": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "label": {
+                        "type": "string"
+                      },
+                      "source_extension": {
+                        "type": "string"
+                      },
+                      "source_kinds": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      "target_kinds": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      }
+                    },
+                    "required": [
+                      "label",
+                      "source_extension"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "entity_kinds": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "dot_color": {
+                        "type": "string"
+                      },
+                      "fields": {
+                        "items": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "default_value": {
+                              "type": "string"
+                            },
+                            "description": {
+                              "type": "string"
+                            },
+                            "edge": {
+                              "type": "string"
+                            },
+                            "enum_values": {
+                              "items": {
+                                "type": "string"
+                              },
+                              "type": "array"
+                            },
+                            "field_type": {
+                              "enum": [
+                                "string",
+                                "integer",
+                                "bool",
+                                "enum",
+                                "string_list",
+                                "reference",
+                                "reference_list",
+                                "block"
+                              ],
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "required": {
+                              "type": "boolean"
+                            },
+                            "source_extension": {
+                              "type": "string"
+                            },
+                            "target_kind": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "name",
+                            "field_type",
+                            "required",
+                            "source_extension"
+                          ],
+                          "type": "object"
+                        },
+                        "type": "array"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "source_extension": {
+                        "type": "string"
+                      },
+                      "testable": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "source_extension",
+                      "testable",
+                      "fields"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "extensions": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "version": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "version"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "schema_version": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "label": {
+                      "type": "string"
+                    },
+                    "major": {
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "minor": {
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "patch": {
+                      "minimum": 0,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "major",
+                    "minor",
+                    "patch"
+                  ],
+                  "type": "object"
+                }
+              },
+              "required": [
+                "schema_version",
+                "extensions",
+                "entity_kinds",
+                "edge_types"
+              ],
+              "type": "object"
+            },
+            "schema_ref": {
+              "additionalProperties": false,
+              "properties": {
+                "content_hash": {
+                  "type": "string"
+                },
+                "url": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "url",
+                "content_hash"
+              ],
+              "type": "object"
+            },
+            "schema_version": {
+              "type": "string"
+            },
+            "token_budget": {
+              "additionalProperties": false,
+              "properties": {
+                "budget_tokens": {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "estimated_tokens": {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "strategy": {
+                  "type": "string"
+                },
+                "truncated_entities": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                }
+              },
+              "required": [
+                "strategy",
+                "budget_tokens",
+                "estimated_tokens",
+                "truncated_entities"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "schema_version",
+            "nodes",
+            "edges"
+          ],
+          "type": "object"
         },
-        "nodes": {
-          "type": "array"
-        },
-        "schema_version": {
-          "type": "string"
+        {
+          "additionalProperties": false,
+          "properties": {
+            "edges": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "label": {
+                    "type": "string"
+                  },
+                  "source": {
+                    "type": "string"
+                  },
+                  "target": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "source",
+                  "target",
+                  "label"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "format_version": {
+              "type": "string"
+            },
+            "nodes": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "coverage_status": {
+                    "enum": [
+                      "covered",
+                      "partial",
+                      "uncovered"
+                    ],
+                    "type": "string"
+                  },
+                  "id": {
+                    "type": "string"
+                  },
+                  "kind": {
+                    "type": "string"
+                  },
+                  "title": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id",
+                  "kind"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "schema": {
+              "additionalProperties": false,
+              "properties": {
+                "edge_types": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "label": {
+                        "type": "string"
+                      },
+                      "source_extension": {
+                        "type": "string"
+                      },
+                      "source_kinds": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      "target_kinds": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      }
+                    },
+                    "required": [
+                      "label",
+                      "source_extension"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "entity_kinds": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "dot_color": {
+                        "type": "string"
+                      },
+                      "fields": {
+                        "items": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "default_value": {
+                              "type": "string"
+                            },
+                            "description": {
+                              "type": "string"
+                            },
+                            "edge": {
+                              "type": "string"
+                            },
+                            "enum_values": {
+                              "items": {
+                                "type": "string"
+                              },
+                              "type": "array"
+                            },
+                            "field_type": {
+                              "enum": [
+                                "string",
+                                "integer",
+                                "bool",
+                                "enum",
+                                "string_list",
+                                "reference",
+                                "reference_list",
+                                "block"
+                              ],
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "required": {
+                              "type": "boolean"
+                            },
+                            "source_extension": {
+                              "type": "string"
+                            },
+                            "target_kind": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "name",
+                            "field_type",
+                            "required",
+                            "source_extension"
+                          ],
+                          "type": "object"
+                        },
+                        "type": "array"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "source_extension": {
+                        "type": "string"
+                      },
+                      "testable": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "source_extension",
+                      "testable",
+                      "fields"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "extensions": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "version": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "version"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "schema_version": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "label": {
+                      "type": "string"
+                    },
+                    "major": {
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "minor": {
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "patch": {
+                      "minimum": 0,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "major",
+                    "minor",
+                    "patch"
+                  ],
+                  "type": "object"
+                }
+              },
+              "required": [
+                "schema_version",
+                "extensions",
+                "entity_kinds",
+                "edge_types"
+              ],
+              "type": "object"
+            },
+            "schema_ref": {
+              "additionalProperties": false,
+              "properties": {
+                "content_hash": {
+                  "type": "string"
+                },
+                "url": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "url",
+                "content_hash"
+              ],
+              "type": "object"
+            },
+            "schema_version": {
+              "type": "string"
+            },
+            "token_budget": {
+              "additionalProperties": false,
+              "properties": {
+                "budget_tokens": {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "estimated_tokens": {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "strategy": {
+                  "type": "string"
+                },
+                "truncated_entities": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                }
+              },
+              "required": [
+                "strategy",
+                "budget_tokens",
+                "estimated_tokens",
+                "truncated_entities"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "schema_version",
+            "nodes",
+            "edges"
+          ],
+          "type": "object"
         }
-      },
-      "required": [
-        "nodes",
-        "edges"
       ],
       "type": "object"
     },

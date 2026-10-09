@@ -657,6 +657,7 @@ behavior follow_negotiated_mcp_revision "Follow the Negotiated MCP Revision" {
     session is listed no outputSchema.
   """
   verify unit "a core tool's reply its output schema refuses is a schema_mismatch error, never structured content"
+  verify unit "a core tool's output schema is derived from its typed reply: every object it closes lists its keys, every array its items"
   verify unit "a 2025-03-26 session answers a batch with the response to each request"
   verify unit "a batch of notifications gets no response"
   verify unit "an empty batch is an invalid request"

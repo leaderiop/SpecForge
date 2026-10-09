@@ -5,10 +5,12 @@
 //! re-blesses its snapshot in the same commit, so the diff is the
 //! user-visible change.
 
+use std::collections::BTreeSet;
+
 use serde_json::{Value, json};
 use specforge_test::prelude::*;
 
-use crate::support::replies::{Observed, listed_output_schemas, read_all, undeclared, write_all};
+use crate::support::replies::{Observed, read_all, write_all};
 
 /// An object as `{k: shape, …}` with sorted keys, an array as
 /// `[shape | shape …]` (the distinct element shapes, sorted), a scalar as
@@ -60,22 +62,96 @@ fn reply_shapes_today() {
     insta::assert_snapshot!(lines.join("\n"));
 }
 
-#[test]
-fn undeclared_reply_keys_today() {
-    let listing = listed_output_schemas();
-    let mut lines = Vec::new();
-    for call in observed() {
-        let Some(structured) = call.response["result"].get("structuredContent") else {
-            continue;
-        };
-        let Some(schema) = listing.get(call.tool) else {
-            continue;
-        };
-        for path in undeclared(schema, structured) {
-            lines.push(format!("{} {} {path}", call.tool, call.arguments));
+/// The paths of `schema` that are open: an object without `properties` or
+/// without `additionalProperties: false`, an array without `items`, a value
+/// of any shape (`{}`). A union is open where its branches are.
+fn open_paths(schema: &Value, path: &str, found: &mut BTreeSet<String>) {
+    let Some(object) = schema.as_object() else {
+        return;
+    };
+    if object.is_empty() {
+        found.insert(path.to_string());
+        return;
+    }
+    let mut composed = false;
+    for key in ["oneOf", "anyOf"] {
+        if let Some(branches) = schema.get(key).and_then(Value::as_array) {
+            composed = true;
+            for branch in branches {
+                open_paths(branch, path, found);
+            }
         }
     }
-    insta::assert_snapshot!(lines.join("\n"));
+    let types: Vec<&str> = match schema.get("type") {
+        Some(Value::String(name)) => vec![name.as_str()],
+        Some(Value::Array(names)) => names.iter().filter_map(Value::as_str).collect(),
+        _ => Vec::new(),
+    };
+    if types.contains(&"object") || schema.get("properties").is_some() {
+        let properties = schema.get("properties").and_then(Value::as_object);
+        if !composed
+            && (properties.is_none() || schema.get("additionalProperties") != Some(&json!(false)))
+        {
+            found.insert(path.to_string());
+        }
+        for (key, property) in properties.into_iter().flatten() {
+            open_paths(property, &format!("{path}.{key}"), found);
+        }
+    }
+    if types.contains(&"array") {
+        match schema.get("items") {
+            Some(items) => open_paths(items, &format!("{path}[]"), found),
+            None => {
+                found.insert(format!("{path}[] (no items)"));
+            }
+        }
+    }
+}
+
+/// The open values of the core output schemas: content an extension
+/// defines, which no core type can close.
+const OPEN: &[(&str, &str)] = &[
+    // The export document: a context node is open to the headline fields
+    // its extension declares; `fields` and `verify` are content too.
+    ("specforge.query", "$.nodes[]"),
+    ("specforge.query", "$.nodes[].fields"),
+    ("specforge.query", "$.nodes[].verify"),
+    // What a pass summarizes is the pass's own.
+    ("specforge.analyze", "$.passes[].summary"),
+    // The rules an extension declares.
+    ("specforge.schema", "$.validation_rules[]"),
+    // Every field the entity declares, whatever its kind names them.
+    ("specforge.inspect", "$.fields"),
+    // A map from an entity kind to its enhancements: the keys are kinds.
+    ("specforge.doctor", "$.enhancements"),
+];
+
+#[specforge_test(
+    behavior = "follow_negotiated_mcp_revision",
+    verify = "a core tool's output schema is derived from its typed reply: every object it closes lists its keys, every array its items"
+)]
+fn every_core_output_schema_is_closed() {
+    let mut found = BTreeSet::new();
+    for spec in specforge_mcp::tools::CORE_TOOLS {
+        let Some(schema) = spec.output_schema() else {
+            continue;
+        };
+        let mut paths = BTreeSet::new();
+        open_paths(&schema, "$", &mut paths);
+        for path in paths {
+            found.insert((spec.name.to_string(), path));
+        }
+    }
+    let listed: BTreeSet<(String, String)> = OPEN
+        .iter()
+        .map(|(tool, path)| (tool.to_string(), path.to_string()))
+        .collect();
+    let unlisted: Vec<_> = found.difference(&listed).collect();
+    let stale: Vec<_> = listed.difference(&found).collect();
+    assert!(
+        unlisted.is_empty() && stale.is_empty(),
+        "open and not listed: {unlisted:#?}\nlisted and no longer open: {stale:#?}"
+    );
 }
 
 /// The reply of `tool` on the fixture, whole: the call's `result`.

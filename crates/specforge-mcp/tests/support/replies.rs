@@ -2,8 +2,6 @@
 //! pins of `tool_replies.rs` and the conformance probe of `revision.rs`
 //! read the same calls (plan 11).
 
-use std::collections::{BTreeMap, BTreeSet};
-
 use serde_json::{Value, json};
 use tempfile::TempDir;
 
@@ -238,79 +236,4 @@ pub fn write_all() -> Vec<Observed> {
 
 fn parse(arguments: &str) -> Value {
     serde_json::from_str(arguments).expect("the arguments are JSON")
-}
-
-/// Each core tool's listed outputSchema, by tool name.
-pub fn listed_output_schemas() -> BTreeMap<&'static str, Value> {
-    specforge_mcp::tools::CORE_TOOLS
-        .iter()
-        .filter_map(|spec| Some((spec.name, spec.output_schema()?)))
-        .collect()
-}
-
-/// The JSON paths `schema` does not declare in `value`: a key absent from
-/// `properties`, an array whose schema has no `items`, an object whose
-/// schema has no `properties` (a `oneOf` branch chosen by its `required`
-/// keys).
-pub fn undeclared(schema: &Value, value: &Value) -> BTreeSet<String> {
-    let mut found = BTreeSet::new();
-    walk(schema, value, "$", &mut found);
-    found
-}
-
-fn walk(schema: &Value, value: &Value, path: &str, found: &mut BTreeSet<String>) {
-    let schema = branch(schema, value);
-    match value {
-        Value::Object(object) => {
-            let Some(properties) = schema.get("properties").and_then(Value::as_object) else {
-                found.insert(format!("{path}: object without properties"));
-                return;
-            };
-            for (key, inner) in object {
-                match properties.get(key) {
-                    Some(declared) => walk(declared, inner, &format!("{path}.{key}"), found),
-                    None => {
-                        found.insert(format!("{path}.{key}: undeclared"));
-                    }
-                }
-            }
-        }
-        Value::Array(items) => {
-            let Some(declared) = schema.get("items") else {
-                found.insert(format!("{path}: array without items"));
-                return;
-            };
-            for item in items {
-                walk(declared, item, &format!("{path}[]"), found);
-            }
-        }
-        _ => {}
-    }
-}
-
-/// The `oneOf`/`anyOf` branch of `schema` that `value` matches by its
-/// required keys, else the first; `schema` itself when it has none.
-fn branch<'s>(schema: &'s Value, value: &Value) -> &'s Value {
-    let Some(branches) = schema
-        .get("oneOf")
-        .or_else(|| schema.get("anyOf"))
-        .and_then(Value::as_array)
-    else {
-        return schema;
-    };
-    branches
-        .iter()
-        .find(|branch| {
-            branch
-                .get("required")
-                .and_then(Value::as_array)
-                .is_some_and(|required| {
-                    required
-                        .iter()
-                        .filter_map(Value::as_str)
-                        .all(|key| value.get(key).is_some())
-                })
-        })
-        .or(branches.first())
-        .unwrap_or(schema)
 }

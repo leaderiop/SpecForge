@@ -146,7 +146,7 @@ pub enum Effect {
 #[derive(Clone, Copy)]
 pub enum Handler {
     /// Reads no project (explain). Its handler is
-    /// `fn(Args) -> impl IntoOutcome`.
+    /// `fn(Args) -> Answered<Reply>` (or `Answered<Text>`).
     Unscoped {
         arguments: fn() -> Vec<Argument>,
         reply: Option<fn() -> Value>,
@@ -155,7 +155,7 @@ pub enum Handler {
     /// Reads the project view of `target`'s project; with nothing served,
     /// the empty session's (a read that then names a file or an entity is
     /// refused as no project, ADR 0025). Its handler is
-    /// `fn(ProjectView<'_>, Args) -> impl IntoOutcome`.
+    /// `fn(ProjectView<'_>, Args) -> Answered<Reply>` (or `Answered<Text>`).
     View {
         target: ProjectTarget,
         arguments: fn() -> Vec<Argument>,
@@ -165,7 +165,7 @@ pub enum Handler {
     /// Acts on `target`'s project on disk (its root, its runtime, its view):
     /// with nothing served and no project named, the call target refuses it
     /// as no project before it runs. Its handler is
-    /// `fn(&ProjectRef<'_>, Args) -> impl IntoOutcome`.
+    /// `fn(&ProjectRef<'_>, Args) -> Answered<Reply>` (or `Answered<Text>`).
     Project {
         target: ProjectTarget,
         arguments: fn() -> Vec<Argument>,
@@ -202,7 +202,7 @@ impl Handler {
     }
 
     /// The outputSchema its reply type derives: `None` for a handler
-    /// answering text (or, while tools are converted, an untyped reply).
+    /// answering text.
     pub fn reply(&self) -> Option<fn() -> Value> {
         match *self {
             Handler::Unscoped { reply, .. }
@@ -286,13 +286,10 @@ impl MutationHandler {
 }
 
 /// One core tool: everything the server lists, dispatches and reports about
-/// it, from four fields.
+/// it, from three fields.
 pub struct ToolSpec {
     pub name: &'static str,
     pub description: &'static str,
-    /// The schema of a tool not yet typed (a tool whose handler names its
-    /// reply type derives it, [`Self::output_schema`]).
-    pub output: Option<fn() -> Value>,
     /// What it does, and the handler that does it.
     pub effect: Effect,
 }
@@ -332,16 +329,15 @@ impl ToolSpec {
         }
     }
 
-    /// The outputSchema `tools/list` lists: its handler's reply's, else,
-    /// for a tool not yet typed, `output`.
+    /// The outputSchema `tools/list` lists: the one its handler's reply type
+    /// derives (a mutation's with `files_written`); none for a tool whose
+    /// reply is text.
     pub fn output_schema(&self) -> Option<Value> {
-        let typed = match &self.effect {
-            Effect::Reads { handler, .. } | Effect::WritesOutput { handler, .. } => handler.reply(),
-            Effect::Mutates { handler, .. } => Some(handler.reply()),
-        };
-        match typed {
-            Some(reply) => Some(reply()),
-            None => self.output.map(|output| output()),
+        match &self.effect {
+            Effect::Reads { handler, .. } | Effect::WritesOutput { handler, .. } => {
+                handler.reply().map(|reply| reply())
+            }
+            Effect::Mutates { handler, .. } => Some(handler.reply()()),
         }
     }
 
@@ -810,34 +806,6 @@ impl From<McpError> for ToolOutcome {
         ToolOutcome::Refused(Box::new(error))
     }
 }
-
-/// What a handler returns: an outcome, or a refusal it raised with `?`
-/// (`?` on an `McpError`): a [`Handled`].
-pub trait IntoOutcome {
-    fn into_outcome(self) -> ToolOutcome;
-}
-
-impl IntoOutcome for ToolOutcome {
-    fn into_outcome(self) -> ToolOutcome {
-        self
-    }
-}
-
-impl IntoOutcome for McpError {
-    fn into_outcome(self) -> ToolOutcome {
-        self.into()
-    }
-}
-
-impl IntoOutcome for Handled {
-    fn into_outcome(self) -> ToolOutcome {
-        self.unwrap_or_else(ToolOutcome::Refused)
-    }
-}
-
-/// A handler's result when it refuses with `?`: the `McpError` boxed, as
-/// [`ToolOutcome::Refused`] holds it.
-pub type Handled = Result<ToolOutcome, Box<McpError>>;
 
 /// The `tools/call` reply for `outcome`: the only place that builds
 /// `content`, `structuredContent`, `isError` and `_meta`. A failure is an
