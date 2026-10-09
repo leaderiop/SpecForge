@@ -9,7 +9,7 @@ persona developer "Developer" {
   status          active
   goals           [
     "Write .spec files that compile cleanly on first attempt",
-    "Get instant feedback on broken references and orphan entities",
+    "Get instant feedback on broken references and unreferenced entities",
     "Export structured context that makes AI agents produce correct output",
     "Format, validate, and trace specs as part of daily workflow",
   ]
@@ -62,7 +62,7 @@ persona architect "Architect" {
     "Verify full traceability from features to tests",
     "Visualize the dependency graph for architectural review",
     "Export graph data for external dashboards and analysis tools",
-    "Identify orphan entities and traceability gaps",
+    "Identify unreferenced entities and traceability gaps",
   ]
   pain_points     [
     "Invisible traceability gaps between features and tests",

@@ -4,7 +4,7 @@ use "extensions/software/invariants"
 use "extensions/software/types"
 use "types/zero-entity-core"
 
-behavior se_validate_orphan_behaviors "W001: Orphan Behaviors" {
+behavior se_validate_unreferenced_behaviors "W001: Unreferenced Behaviors" {
   features   [se_validation_suite]
   category   query
   invariants [se_edge_consistency]
@@ -16,8 +16,8 @@ behavior se_validate_orphan_behaviors "W001: Orphan Behaviors" {
     graph_built "entity graph is fully constructed with all edges"
   }
   ensures {
-    orphan_detected   "behavior with no incoming Implements edge produces W001 warning"
-    non_orphan_passes "behavior with incoming Implements edge produces no diagnostic"
+    unreferenced_detected   "behavior with no incoming Implements edge produces W001 warning"
+    referenced_passes "behavior with incoming Implements edge produces no diagnostic"
     correct_severity  "W001 severity is warning"
     correct_template  "message template is: behavior '{id}' is not referenced by any feature"
   }
@@ -26,7 +26,7 @@ behavior se_validate_orphan_behaviors "W001: Orphan Behaviors" {
   verify unit "W001 severity is warning"
 }
 
-behavior se_validate_orphan_types "W002: Orphan Types" {
+behavior se_validate_unreferenced_types "W002: Unreferenced Types" {
   features [se_validation_suite]
   category query
   types    [ValidationRulePattern]
@@ -44,7 +44,7 @@ behavior se_validate_orphan_types "W002: Orphan Types" {
     graph_built "entity graph is fully constructed with all edges"
   }
   ensures {
-    orphan_detected  "type with no incoming edge produces W002 warning"
+    unreferenced_detected  "type with no incoming edge produces W002 warning"
     correct_template "message template is: type '{id}' is not referenced by any behavior, port, or type"
   }
   verify unit "type with no incoming UsesType edge produces W002"
@@ -61,7 +61,7 @@ behavior se_validate_unused_invariants "W003: Unused Invariants" {
   contract """
     Detect invariant entities that nothing references: no behavior lists
     them in `invariants`, `requires`, `ensures` or `maintains`. This is the
-    only orphan-invariant finding; `analyze coverage` counts them without
+    only unreferenced-invariant finding; `analyze coverage` counts them without
     reporting them again.
   """
   requires {
@@ -75,7 +75,7 @@ behavior se_validate_unused_invariants "W003: Unused Invariants" {
   verify unit "invariant with incoming reference edge passes"
 }
 
-behavior se_validate_orphan_ports "W005: Orphan Ports" {
+behavior se_validate_unreferenced_ports "W005: Unreferenced Ports" {
   features [se_validation_suite]
   category query
   types    [ValidationRulePattern]
@@ -83,14 +83,14 @@ behavior se_validate_orphan_ports "W005: Orphan Ports" {
     Detect port entities with no incoming UsesPort edges.
   """
   ensures {
-    orphan_detected  "port with no incoming UsesPort edge produces W005"
+    unreferenced_detected  "port with no incoming UsesPort edge produces W005"
     correct_template "message template is: port '{id}' is not referenced by any behavior"
   }
   verify unit "port with no incoming UsesPort edge produces W005"
   verify unit "port with incoming UsesPort edge passes"
 }
 
-// W006 is allocated to @specforge/product (Orphan Capabilities → W042)
+// W006 is allocated to @specforge/product (Unreferenced Capabilities → W042)
 
 behavior se_validate_event_triggers "E051: Invalid Event Triggers" {
   features   [se_validation_suite]
@@ -117,7 +117,7 @@ behavior se_validate_event_triggers "E051: Invalid Event Triggers" {
   // (generic required-field check), not by this rule.
 }
 
-behavior se_validate_orphan_events "W007: Orphan Events" {
+behavior se_validate_unreferenced_events "W007: Unreferenced Events" {
   features [se_validation_suite]
   category query
   types    [ValidationRulePattern]
@@ -125,7 +125,7 @@ behavior se_validate_orphan_events "W007: Orphan Events" {
     Detect event entities with no incoming Produces edges.
   """
   ensures {
-    orphan_detected  "event with no incoming Produces edge produces W007"
+    unreferenced_detected  "event with no incoming Produces edge produces W007"
     correct_template "message template is: event '{id}' is not produced by any behavior"
   }
   verify unit "event with no incoming Produces edge produces W007"

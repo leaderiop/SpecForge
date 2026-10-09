@@ -19,7 +19,7 @@ behavior ce_validate_compliance_graph "Validate Compliance Graph" {
     executed by the core's execute_validation_pattern engine.
   """
   verify unit "regulation without controls produces W102"
-  verify unit "orphan control produces W101"
+  verify unit "unreferenced control produces W101"
   verify unit "implemented control without evidence produces W103"
   verify unit "expired evidence produces W104"
   verify unit "valid compliance chain passes without warnings"

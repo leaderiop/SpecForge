@@ -8,7 +8,7 @@ A `channel` declares an **interaction medium** — a first-class entity modeling
 
 It answers: **"Where does the interaction happen?"**
 
-While journeys describe *how* users interact and personas describe *who* they are, channels describe *through what medium* the interaction occurs. Declaring channels as entities (rather than bare identifiers or config enums) enables orphan detection, interaction model validation, and graph queries across the product model.
+While journeys describe *how* users interact and personas describe *who* they are, channels describe *through what medium* the interaction occurs. Declaring channels as entities (rather than bare identifiers or config enums) enables unreferenced detection, interaction model validation, and graph queries across the product model.
 
 ## ID Pattern
 
@@ -66,7 +66,7 @@ None. Channels are leaf nodes in the product graph.
 |------|-------|------|
 | E003 | error | Journey `channels` entries must resolve to declared entities (E022 when the target isn't a channel). |
 | W084 | warning | Invalid `status` value (not in ChannelStatus enum). |
-| I047 | info | Channel not referenced by any journey (orphan channel). |
+| I047 | info | Channel not referenced by any journey (unreferenced channel). |
 | I070 | info | Deprecated channel without a `reason`. |
 
 ## Design Guidance

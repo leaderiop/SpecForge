@@ -47,22 +47,22 @@ decision pe_persona_channel_as_entities "Persona and Channel as First-Class Enti
     Option B provides validation but no graph addressability — cannot query
     "which journeys reference this persona?" without special-case code.
     Option C makes personas and channels full graph nodes with edges,
-    enabling orphan detection, cross-reference validation, and standard
+    enabling unreferenced detection, cross-reference validation, and standard
     graph queries.
   """
   decision     """
     Declare persona and channel as first-class entity kinds in
     @specforge/product. Journeys reference them via JourneyTargetsPersona and
-    JourneyUsesChannel edges. Both are testable=false. Orphan detection
+    JourneyUsesChannel edges. Both are testable=false. Unreferenced detection
     via I046 (persona) and I047 (channel) at info level to support
     incremental adoption.
   """
   consequences [
     "Personas and channels are graph-addressable nodes",
     "Reusable across journeys without duplication",
-    "Orphan detection catches unused personas/channels",
+    "Unreferenced detection catches unused personas/channels",
     "The core validates references at compile time (E003 unresolved, E022 wrong kind)",
-    "Info-level orphan diagnostics support incremental adoption",
+    "Info-level unreferenced diagnostics support incremental adoption",
     "Slight overhead vs bare identifiers — justified by validation value",
   ]
 }
@@ -380,7 +380,7 @@ decision pe_validation_naming_convention "Validation Behavior Naming Convention"
   date         2026-03-10
   context      """
     Validation-rules.spec behaviors use two naming prefixes: detect_* for
-    structural checks (orphans, cycles, gaps, singleton tags) and validate_*
+    structural checks (unreferenced entities, cycles, gaps, singleton tags) and validate_*
     for field-level checks (enum values, date formats, references). This
     convention emerged organically during specification development.
   """
@@ -568,7 +568,7 @@ decision pe_scalability_tiers "Scalability Tiers" {
     - Tier 1 (≤500 entities): validation <50ms, queries <100ms (MUST)
     - Tier 2 (≤5000 entities): validation <500ms, queries <1s (SHOULD)
     - Tier 3 (>5000 entities): validation <2s, queries <2s or timeout (SHOULD)
-    Cycle detection and orphan detection MUST remain O(V+E) at all tiers.
+    Cycle detection and unreferenced detection MUST remain O(V+E) at all tiers.
     Feature ordering (global topological sort) is the most expensive query
     and gets a dedicated 2-second budget at Tier 2.
   """
@@ -1161,7 +1161,7 @@ decision pe_module_term_no_status "Module and Term Lack Status Lifecycle" {
     "Module deprecation is documented via the reason field (free-text, no enum)",
     "Term evolution is expressed via see_also references to successor terms",
     "Six of nine kinds have status; three do not (term, module, journey) — this asymmetry is accepted",
-    "No new validation rules needed — existing orphan detection (W044, I010) covers unused modules/terms",
+    "No new validation rules needed — existing unreferenced detection (W044, I010) covers unused modules/terms",
   ]
 }
 
@@ -1957,7 +1957,7 @@ decision pe_diagnostic_profiles "Diagnostic Profiles for Progressive Adoption" {
     The product extension declares 68+ validation rules across three severity
     levels. A user writing their first spec file with a single feature entity
     would see multiple I-code diagnostics (I048 missing acceptance, I080 no
-    owner, I081 no effort, W041 orphan feature). This punishing first
+    owner, I081 no effort, W041 unreferenced feature). This punishing first
     experience violates the vision principle "structure is a spectrum" and
     "seconds to value" — one entity should be better than zero, not a wall
     of warnings.
@@ -1967,7 +1967,7 @@ decision pe_diagnostic_profiles "Diagnostic Profiles for Progressive Adoption" {
 
     - default: Only E-codes (errors) and W-codes (warnings) are emitted.
       This is the out-of-the-box experience. A minimal spec file produces
-      at most structural warnings (orphans, cycles) — never informational
+      at most structural warnings (unreferenced entities, cycles) — never informational
       suggestions about missing optional fields.
 
     - pedantic: All E-codes, W-codes, AND I-codes are emitted. Enabled

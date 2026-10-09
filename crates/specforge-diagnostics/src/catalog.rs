@@ -572,16 +572,16 @@ catalog! {
         "Invariant without expression",
         "`specforge analyze`'s `condition_check` pass found an `invariant` whose `guarantee` has no `expression`: the guarantee is prose only, so `specforge analyze --prove` has no claim to check. Add an `expression` stating the guarantee as a machine-checkable claim, or keep it prose and prove it with tests.";
     W041: Warning product,
-        "Orphan feature",
+        "Unreferenced feature",
         "A `feature` entity has no incoming edges, meaning no `journey`, `milestone`, or `module` references it. Link it from at least one referencing entity, or remove it if it is no longer needed.";
     W042: Warning product,
-        "Orphan journey",
+        "Unreferenced journey",
         "A `journey` entity has no incoming edges, meaning no `deliverable` references it. Reference the journey from a deliverable's `journeys` field, or remove it if it is unused.";
     W043: Warning product,
         "Deliverable without journeys",
         "A `deliverable` has no edge to a `journey`: no `journeys` field, an empty list, or only references that don't resolve. Nothing says which user journeys it supports. List the journeys it serves in `journeys`.";
     W044: Warning product,
-        "Orphan module",
+        "Unreferenced module",
         "A `module` entity has no incoming edges, meaning no `deliverable` or `milestone` references it. Reference the module from a deliverable or milestone, or remove it if it is unused.";
     W045: Warning product,
         "Feature dependency cycle",
@@ -674,7 +674,7 @@ catalog! {
         "Invalid failure mode detection",
         "A `failure_mode` entity's `detection` or `post_detection` field is not one of the recognized values (`certain`, `likely`, `moderate`, `unlikely`, `undetectable`). Set the field to one of these values.";
     W123: Warning formal,
-        "Orphan property",
+        "Unreferenced property",
         "A `property` entity is not referenced by any `behavior`, so it may be unused. Reference the property from a behavior's `verify` block, or remove it if it is no longer needed.";
     W124: Warning formal,
         "Empty property description",
@@ -683,20 +683,20 @@ catalog! {
         "Invalid property type",
         "A `property` entity's `property_type` field is not one of the recognized values (`safety`, `liveness`, `fairness`). Set `property_type` to one of these values.";
     W126: Warning formal,
-        "Orphan axiom",
+        "Unreferenced axiom",
         "An `axiom` entity is not referenced by any other entity, so it may be unused. Reference the axiom from a relevant entity, or remove it if it is no longer needed.";
     W127: Warning formal,
         "Empty axiom description",
         "An `axiom` entity writes a `description` that is empty or only whitespace, which leaves the assumption unexplained. Write the description, or remove the field. An axiom that writes no description is not reported.";
     W128: Warning formal,
-        "Orphan protocol",
+        "Unreferenced protocol",
         "A `protocol` entity is not referenced by any `event`, so it may be unused. Reference the protocol from an event, or remove it if it is no longer needed.";
     W129: Warning formal,
         "Empty protocol description",
         "A `protocol` entity writes a `description` that is empty or only whitespace, which makes the synchronization contract opaque. Write the description, or remove the field. A protocol that writes no description is not reported.";
     W131: Warning formal,
-        "Orphan refinement",
-        "A `refinement` entity is not referenced by anything, so it may be orphaned. Reference the refinement from the entity it refines, or remove it if it is no longer needed.";
+        "Unreferenced refinement",
+        "A `refinement` entity is not referenced by any other entity, so it may be unused. Reference the refinement from the entity it refines, or remove it if it is no longer needed.";
     W132: Warning formal,
         "Empty refinement description",
         "A `refinement` entity writes a `description` that is empty or only whitespace, which makes the abstract-to-concrete mapping opaque. Write the description, or remove the field. A refinement that writes no description is not reported.";
@@ -704,7 +704,7 @@ catalog! {
         "Refinement without invariant deltas",
         "A `refinement` entity declares no `invariant_deltas` (the field is absent or an empty list), so it records no change between its abstract and concrete behaviors. List the invariants the refinement adds or relaxes in `invariant_deltas`.";
     W134: Warning formal,
-        "Orphan process",
+        "Unreferenced process",
         "A `process` entity is not referenced by any other entity, so it may be unused. Reference the process from a relevant entity, or remove it if it is no longer needed.";
     W135: Warning formal,
         "Empty process description",

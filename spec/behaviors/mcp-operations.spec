@@ -432,7 +432,7 @@ behavior provide_mcp_doctor_tool "Provide MCP Doctor Tool" {
     compiler_api_available "CompilerApi port is available for project health inspection"
   }
   ensures {
-    health_checked            "Project health checked: extension conflicts, stale cache, missing fields, version mismatches, orphans"
+    health_checked            "Project health checked: extension conflicts, stale cache, missing fields, version mismatches, unreferenced entities"
     resolution_steps_provided "Deterministic resolution steps included for each detected issue"
     tool_invoked_emitted      "mcp_tool_invoked event emitted"
   }
@@ -440,7 +440,7 @@ behavior provide_mcp_doctor_tool "Provide MCP Doctor Tool" {
     In MCP server mode, the system MUST register a specforge.doctor tool with
     no required parameters. The tool MUST check project health: extension
     conflicts, stale Wasm cache entries, extensions that fail to load (E028,
-    E070), missing specforge.json fields, version mismatches, and orphan
+    E070), missing specforge.json fields, version mismatches, and unreferenced
     entities. A specforge.json the server could not use (E069) MUST be a
     finding. The response MUST be the report specforge doctor computes: its
     verdict ok and each detected issue once, with what it is about and a

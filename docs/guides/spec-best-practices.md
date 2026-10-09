@@ -124,7 +124,7 @@ unrelated concerns, and it hides the real edges (which event? which port?).
 **Do instead:** one behavior per operation, each with its own contract, edges, and `verify`.
 Compose them via a feature or an event chain.
 
-### The orphan node
+### The unreferenced node
 
 **Looks like:** a `type`, `feature`, or `invariant` that nothing references — flagged by
 `W002`, `W008`, `W003`, `W041`, `I010`, etc.
@@ -133,7 +133,7 @@ Compose them via a feature or an event chain.
 value to an agent and usually signals a missing edge.
 
 **Do instead:** connect it (a behavior should reference the type; a behavior should implement
-the feature) — or delete it. An orphan is either a missing edge or dead weight.
+the feature) — or delete it. An unreferenced node is either a missing edge or dead weight.
 
 ### The prose-only behavior
 

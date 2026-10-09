@@ -2309,7 +2309,7 @@ Level: warning
 ## W041
 
 ```
-W041: Orphan feature
+W041: Unreferenced feature
 
 A `feature` entity has no incoming edges, meaning no `journey`, `milestone`, or
 `module` references it. Link it from at least one referencing entity, or remove
@@ -2322,7 +2322,7 @@ Level: warning
 ## W042
 
 ```
-W042: Orphan journey
+W042: Unreferenced journey
 
 A `journey` entity has no incoming edges, meaning no `deliverable` references
 it. Reference the journey from a deliverable's `journeys` field, or remove it if
@@ -2348,7 +2348,7 @@ Level: warning
 ## W044
 
 ```
-W044: Orphan module
+W044: Unreferenced module
 
 A `module` entity has no incoming edges, meaning no `deliverable` or `milestone`
 references it. Reference the module from a deliverable or milestone, or remove
@@ -2759,7 +2759,7 @@ Level: warning
 ## W123
 
 ```
-W123: Orphan property
+W123: Unreferenced property
 
 A `property` entity is not referenced by any `behavior`, so it may be unused.
 Reference the property from a behavior's `verify` block, or remove it if it is
@@ -2798,7 +2798,7 @@ Level: warning
 ## W126
 
 ```
-W126: Orphan axiom
+W126: Unreferenced axiom
 
 An `axiom` entity is not referenced by any other entity, so it may be unused.
 Reference the axiom from a relevant entity, or remove it if it is no longer
@@ -2824,7 +2824,7 @@ Level: warning
 ## W128
 
 ```
-W128: Orphan protocol
+W128: Unreferenced protocol
 
 A `protocol` entity is not referenced by any `event`, so it may be unused.
 Reference the protocol from an event, or remove it if it is no longer needed.
@@ -2849,11 +2849,11 @@ Level: warning
 ## W131
 
 ```
-W131: Orphan refinement
+W131: Unreferenced refinement
 
-A `refinement` entity is not referenced by anything, so it may be orphaned.
-Reference the refinement from the entity it refines, or remove it if it is no
-longer needed.
+A `refinement` entity is not referenced by any other entity, so it may be
+unused. Reference the refinement from the entity it refines, or remove it if it
+is no longer needed.
 
 Owner: @specforge/formal
 Level: warning
@@ -2889,7 +2889,7 @@ Level: warning
 ## W134
 
 ```
-W134: Orphan process
+W134: Unreferenced process
 
 A `process` entity is not referenced by any other entity, so it may be unused.
 Reference the process from a relevant entity, or remove it if it is no longer

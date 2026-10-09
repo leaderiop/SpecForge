@@ -72,7 +72,7 @@ behavior detect_duplicate_entity_ids "Detect Duplicate Entity IDs" {
 }
 
 // ── Domain-Specific Validation ──────────────────────────────
-// Domain-specific validations (orphan entity checks, unused reference
+// Domain-specific validations (unreferenced entity checks, unused reference
 // warnings, unverified entity warnings, trigger consistency checks, etc.)
 // are declared as ValidationRulePatterns in extension manifests and are
 // defined in their owning extension directories:
@@ -94,14 +94,14 @@ behavior detect_duplicate_entity_ids "Detect Duplicate Entity IDs" {
 // ordering (see diagnostic_determinism invariant).
 // Core structural validations operate on graph topology and field presence
 // WITHOUT knowledge of entity semantics. They check: dangling references,
-// duplicate IDs, import cycles, orphan structural nodes (W012 for any
+// duplicate IDs, import cycles, unreferenced structural nodes (W012 for any
 // grammar-level structural kind — ref, spec — with zero incoming edges),
 // and file-reference existence. Extension-defined entity kinds opt into
-// generic orphan detection via extension-defined `no_incoming_edges`
-// ValidationRulePatterns. Domain-specific orphan rules (e.g., W001 orphan
+// generic unreferenced detection via extension-defined `no_incoming_edges`
+// ValidationRulePatterns. Domain-specific unreferenced rules (e.g., W001 unreferenced
 // entity) are extension-defined ValidationRulePatterns.
 
-behavior detect_orphan_refs "Detect Orphan Structural Nodes" {
+behavior detect_unreferenced_refs "Detect Unreferenced Refs" {
   features   [structural_validation]
   invariants [
     reference_resolution_completeness,
@@ -115,8 +115,8 @@ behavior detect_orphan_refs "Detect Orphan Structural Nodes" {
   // aggregate and ultimately to validation_complete. No separate event produced.
   // H1: ref and spec are grammar-level structural constructs — parsed by the
   // core grammar (like `use` and `define`), NOT extension-defined entity kinds.
-  // Because they are structural, their orphan detection belongs in core, not in
-  // extension manifests. Extension-defined entity kinds that want orphan
+  // Because they are structural, their unreferenced detection belongs in core, not in
+  // extension manifests. Extension-defined entity kinds that want unreferenced
   // detection declare a `no_incoming_edges` ValidationRulePattern in their
   // extension manifest, which the declarative validation engine handles
   // separately.
@@ -124,7 +124,7 @@ behavior detect_orphan_refs "Detect Orphan Structural Nodes" {
     graph_built_fired "graph_built event has fired, confirming the in-memory graph is fully constructed with all edges"
   }
   ensures {
-    orphans_detected       "Every ref with zero incoming edges produces a W012 warning; a spec block, the root container, does not"
+    unreferenced_detected       "Every ref with zero incoming edges produces a W012 warning; a spec block, the root container, does not"
     referenced_nodes_clean "Structural nodes with at least one incoming edge produce no warning"
   }
   contract   """
@@ -139,7 +139,7 @@ behavior detect_orphan_refs "Detect Orphan Structural Nodes" {
     defined by the grammar (currently ref and spec), not by
     extensions.
 
-    Extension-defined entity kinds that want generic orphan detection
+    Extension-defined entity kinds that want generic unreferenced detection
     declare a `no_incoming_edges` ValidationRulePattern in their
     extension manifest, which the declarative validation engine
     handles separately.
@@ -148,7 +148,7 @@ behavior detect_orphan_refs "Detect Orphan Structural Nodes" {
   verify unit "referenced ref suppresses W012"
   verify unit "unreferenced structural node of any grammar-level kind produces W012"
   verify unit "structural node with at least one incoming edge suppresses W012"
-  verify contract "Detect Orphan Structural Nodes: orphan structural node detection holds — graph_built_fired, orphans_detected, referenced_nodes_clean"
+  verify contract "Detect Unreferenced Refs: unreferenced ref detection holds — graph_built_fired, unreferenced_detected, referenced_nodes_clean"
   verify unit "spec block is a root container and does not produce W012"
 }
 

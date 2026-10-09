@@ -35,7 +35,7 @@ invariant fa_property_entity_reachability "Property Entity Reachability" {
   guarantee """
     Every property entity MUST be referenced by at least one Satisfies
     edge from a behavior. Unreferenced property entities produce W123
-    warning. This prevents orphaned temporal assertions that exist in
+    warning. This prevents unreferenced temporal assertions that exist in
     the graph but no behavior claims to satisfy.
   """
   risk      low
@@ -47,7 +47,7 @@ invariant fa_axiom_entity_reachability "Axiom Entity Reachability" {
   guarantee """
     Every axiom entity MUST be referenced by at least one AssumedBy
     edge from a condition. Unreferenced axiom entities produce W126
-    warning. This prevents orphaned assumptions that no condition
+    warning. This prevents unreferenced assumptions that no condition
     depends on.
   """
   risk      low
@@ -59,7 +59,7 @@ invariant fa_protocol_entity_reachability "Protocol Entity Reachability" {
   guarantee """
     Every protocol entity MUST be referenced by at least one
     FollowsProtocol edge from an event. Unreferenced protocol entities
-    produce W128 warning. This prevents orphaned sync contracts that
+    produce W128 warning. This prevents unreferenced sync contracts that
     no event follows.
   """
   risk      low

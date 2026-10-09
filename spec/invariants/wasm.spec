@@ -175,7 +175,7 @@ invariant extension_operation_atomicity "Extension Operation Atomicity" {
   guarantee """
     Extension install, uninstall, and update operations MUST be atomic.
     On failure, all changes MUST be rolled back — no partial installs,
-    no orphaned files, no inconsistent lock state.
+    no stray files, no inconsistent lock state.
   """
   risk      high
   verify unit "failed install rolls back to previous state"

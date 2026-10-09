@@ -213,7 +213,7 @@ constraint validation_pass_correctness "Validation Pass Correctness" {
     detect_dangling_references,
     detect_duplicate_entity_ids,
     detect_import_cycles,
-    detect_orphan_refs,
+    detect_unreferenced_refs,
     validate_file_reference_paths,
   ]
   protects    [reference_resolution_completeness]

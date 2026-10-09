@@ -105,7 +105,7 @@ event graph_built "Graph Built" {
   // Core structural validators and the declarative validation engine all
   // run after the graph is built. detect_dangling_references verifies
   // resolver integrity. The remaining checks are core structural checks
-  // (orphan refs, file reference existence). execute_validation_pattern
+  // (unreferenced refs, file reference existence). execute_validation_pattern
   // runs extension-defined declarative rules.
   verify integration "emits graph_built with accurate nodeCount and edgeCount after graph construction"
   verify integration "consumers receive graph_built and trigger structural validation and declarative pattern execution"

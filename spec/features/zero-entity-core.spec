@@ -29,11 +29,11 @@ feature declarative_validation_rules "Declarative Validation Rules" {
     access and `specforge.emit_diagnostic` for reporting. Declarative
     patterns are the primary mechanism; Wasm validators are the escape hatch.
 
-    Extension-defined entity kinds are NOT automatically orphan-checked.
-    Orphan detection (no_incoming_edges) is an opt-in validation pattern
+    Extension-defined entity kinds are NOT automatically unreferenced-checked.
+    Unreferenced detection (no_incoming_edges) is an opt-in validation pattern
     that each extension explicitly declares in its validationRules array.
     An entity kind without an explicit no_incoming_edges pattern in its
-    extension manifest will NOT produce orphan warnings, even if it has
+    extension manifest will NOT produce unreferenced warnings, even if it has
     zero incoming edges. This is intentional — some entity kinds are
     naturally root nodes with no expected incoming edges.
   """

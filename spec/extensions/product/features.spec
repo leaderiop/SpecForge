@@ -161,7 +161,7 @@ feature pe_validation_suite "Product Validation Suite" {
   status   in_progress
   problem  """
     Without domain-specific validation rules, the compiler cannot detect
-    product-level quality issues: orphan journeys, dependency cycles,
+    product-level quality issues: unreferenced journeys, dependency cycles,
     milestones without features, or unused modules.
   """
   solution """
@@ -257,7 +257,7 @@ feature pe_cross_extension_cooperation "Cross-Extension Cooperation" {
 feature pe_partial_graph_queries "Partial Graph Query Behavior" {
   status   done
   problem  """
-    When the entity graph contains validation errors (e.g., orphan entities,
+    When the entity graph contains validation errors (e.g., unreferenced entities,
     broken references), the behavior of product queries is unspecified.
     Consumers cannot predict whether queries return partial results, fail
     entirely, or silently omit invalid entities.

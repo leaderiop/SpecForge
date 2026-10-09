@@ -23,15 +23,15 @@ constraint product_validation_latency "Product Validation Latency" {
     50ms for a project with up to 500 product entities across all 9 kinds.
   """
   constrains  [
-    detect_orphan_features,
+    detect_unreferenced_features,
     detect_module_cycles,
     detect_milestone_cycles,
     detect_feature_dependency_cycles,
-    detect_orphan_journeys,
-    detect_orphan_modules,
-    detect_orphan_terms,
-    detect_orphan_personas,
-    detect_orphan_channels,
+    detect_unreferenced_journeys,
+    detect_unreferenced_modules,
+    detect_unreferenced_terms,
+    detect_unreferenced_personas,
+    detect_unreferenced_channels,
     detect_empty_milestones,
     detect_deliverables_with_no_journeys,
     detect_deliverables_with_no_modules,
@@ -128,12 +128,12 @@ constraint product_cycle_detection_correctness "Product Cycle Detection Correctn
   verify property "cycle detection has zero false positives on acyclic random graphs"
 }
 
-constraint product_orphan_detection_correctness "Product Orphan Detection Correctness" {
-  description "Orphan detection must fire if and only if an entity has no incoming edge (I010: no edge at all)."
+constraint product_unreferenced_detection_correctness "Product Unreferenced Detection Correctness" {
+  description "Unreferenced detection must fire if and only if an entity has no incoming edge (I010: no edge at all)."
   category    reliability
   priority    critical
   metric      """
-    Orphan detection for features (W041), journeys (W042), modules (W044),
+    Unreferenced detection for features (W041), journeys (W042), modules (W044),
     personas (I046) and channels (I047) MUST fire if and only if the entity
     has no incoming edge of any type. Unreferenced-term detection (I010)
     MUST fire if and only if the term has no incoming and no outgoing edge.
@@ -141,15 +141,15 @@ constraint product_orphan_detection_correctness "Product Orphan Detection Correc
     negatives when entities are truly unreferenced.
   """
   constrains  [
-    detect_orphan_features,
-    detect_orphan_journeys,
-    detect_orphan_modules,
-    detect_orphan_terms,
-    detect_orphan_personas,
-    detect_orphan_channels,
+    detect_unreferenced_features,
+    detect_unreferenced_journeys,
+    detect_unreferenced_modules,
+    detect_unreferenced_terms,
+    detect_unreferenced_personas,
+    detect_unreferenced_channels,
   ]
   protects    [pe_feature_non_testable, pe_persona_non_testable, pe_channel_non_testable]
-  verify unit "each orphan rule fires iff the entity has no incoming edge, and I010 iff the term has no edge"
+  verify unit "each unreferenced rule fires iff the entity has no incoming edge, and I010 iff the term has no edge"
 }
 
 constraint product_query_correctness "Product Query Correctness" {
@@ -271,7 +271,7 @@ constraint product_tag_detection_correctness "Product Tag Detection Correctness"
 }
 
 constraint product_large_scale_validation "Product Large-Scale Validation" {
-  description "Validation rules must complete under 500ms for 5000 entities and under 2s beyond that, with O(V+E) cycle and orphan detection."
+  description "Validation rules must complete under 500ms for 5000 entities and under 2s beyond that, with O(V+E) cycle and unreferenced detection."
   category    performance
   priority    high
   metric      """
@@ -279,7 +279,7 @@ constraint product_large_scale_validation "Product Large-Scale Validation" {
     a project with up to 5000 product entities across all 9 kinds. For
     projects exceeding 5000 entities, validation SHOULD complete in under
     2 seconds. Cycle detection algorithms MUST remain O(V+E) regardless
-    of graph size. Orphan detection MUST remain O(V+E) by leveraging
+    of graph size. Unreferenced detection MUST remain O(V+E) by leveraging
     pre-computed incoming-edge indexes.
   """
   constrains  [
@@ -287,12 +287,12 @@ constraint product_large_scale_validation "Product Large-Scale Validation" {
     detect_milestone_cycles,
     detect_feature_dependency_cycles,
     detect_deliverable_cycles,
-    detect_orphan_features,
-    detect_orphan_journeys,
-    detect_orphan_modules,
-    detect_orphan_personas,
-    detect_orphan_channels,
-    detect_orphan_terms,
+    detect_unreferenced_features,
+    detect_unreferenced_journeys,
+    detect_unreferenced_modules,
+    detect_unreferenced_personas,
+    detect_unreferenced_channels,
+    detect_unreferenced_terms,
     detect_singleton_tags,
   ]
   protects    [module_dag, milestone_dag, feature_dag, deliverable_dag]

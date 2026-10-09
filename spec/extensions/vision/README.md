@@ -146,10 +146,10 @@ Behaviors point UP to features via the `features [...]` field (cross-extension v
 | E007 | Module dependency cycle | Module has a dependency DAG |
 | E008 | Undeclared persona reference | Validates against declared persona entity kinds |
 | E009 | Undeclared channel reference | Validates against declared channel entity kinds |
-| W041 | Orphan feature (not in any journey) | Pure product concern |
-| W042 | Orphan journey (not in any deliverable) | Pure product concern |
+| W041 | Unreferenced feature (not in any journey) | Pure product concern |
+| W042 | Unreferenced journey (not in any deliverable) | Pure product concern |
 | W043 | Deliverable with no journeys | Pure product concern |
-| W044 | Orphan module (not in any deliverable) | Pure product concern |
+| W044 | Unreferenced module (not in any deliverable) | Pure product concern |
 | I010 | Unused term | Pure product concern |
 
 ### What Product Does NOT Own

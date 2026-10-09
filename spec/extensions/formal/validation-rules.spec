@@ -20,12 +20,12 @@ use "types/zero-entity-core"
 
 // ── Property Validation (W123-W125) ──────────────────────────
 
-behavior fa_validate_orphan_property "W123: Orphan Property" {
+behavior fa_validate_unreferenced_property "W123: Unreferenced Property" {
   category   query
   invariants [fa_property_entity_reachability]
   types      [FormalProperty]
   contract   """
-    Detect property entities with no incoming Satisfies edges. An orphan
+    Detect property entities with no incoming Satisfies edges. An unreferenced
     property is a temporal assertion that no behavior claims to satisfy —
     it should either be referenced via the satisfies field or removed.
     Requires warning_level=strict to fire.
@@ -35,7 +35,7 @@ behavior fa_validate_orphan_property "W123: Orphan Property" {
     strict_warning_level "warning_level is set to strict"
   }
   ensures {
-    orphan_detected   "property with no incoming Satisfies edges produces W123 warning"
+    unreferenced_detected   "property with no incoming Satisfies edges produces W123 warning"
     referenced_passes "property with at least one incoming Satisfies edge produces no diagnostic"
     correct_template  "message template is: property '{id}' is not satisfied by any behavior"
   }
@@ -86,12 +86,12 @@ behavior fa_validate_property_without_kind "W125: Property Without Kind" {
 
 // ── Axiom Validation (W126-W127) ─────────────────────────────
 
-behavior fa_validate_orphan_axiom "W126: Orphan Axiom" {
+behavior fa_validate_unreferenced_axiom "W126: Unreferenced Axiom" {
   category   query
   invariants [fa_axiom_entity_reachability]
   types      [FormalAxiom]
   contract   """
-    Detect axiom entities with no incoming AssumedBy edges. An orphan
+    Detect axiom entities with no incoming AssumedBy edges. An unreferenced
     axiom is an assumption that no condition depends on — it should
     either be referenced via the assumes field or removed.
     Requires warning_level=strict to fire.
@@ -101,7 +101,7 @@ behavior fa_validate_orphan_axiom "W126: Orphan Axiom" {
     strict_warning_level "warning_level is set to strict"
   }
   ensures {
-    orphan_detected   "axiom with no incoming AssumedBy edges produces W126 warning"
+    unreferenced_detected   "axiom with no incoming AssumedBy edges produces W126 warning"
     referenced_passes "axiom with at least one incoming AssumedBy edge produces no diagnostic"
     correct_template  "message template is: axiom '{id}' is not assumed by any condition"
   }
@@ -132,13 +132,13 @@ behavior fa_validate_empty_axiom_description "W127: Empty Axiom Description" {
 
 // ── Protocol Validation (W128-W129) ──────────────────────────
 
-behavior fa_validate_orphan_protocol "W128: Orphan Protocol" {
+behavior fa_validate_unreferenced_protocol "W128: Unreferenced Protocol" {
   category   query
   invariants [fa_protocol_entity_reachability]
   types      [FormalProtocol]
   contract   """
     Detect protocol entities with no incoming FollowsProtocol edges.
-    An orphan protocol is a sync contract that no event follows — it
+    An unreferenced protocol is a sync contract that no event follows — it
     should either be referenced via the follows_protocol field or removed.
     Requires warning_level=strict to fire.
   """
@@ -147,7 +147,7 @@ behavior fa_validate_orphan_protocol "W128: Orphan Protocol" {
     strict_warning_level "warning_level is set to strict"
   }
   ensures {
-    orphan_detected   "protocol with no incoming FollowsProtocol edges produces W128 warning"
+    unreferenced_detected   "protocol with no incoming FollowsProtocol edges produces W128 warning"
     referenced_passes "protocol with at least one incoming FollowsProtocol edge produces no diagnostic"
     correct_template  "message template is: protocol '{id}' is not followed by any event"
   }
@@ -178,13 +178,13 @@ behavior fa_validate_empty_protocol_description "W129: Empty Protocol Descriptio
 
 // ── Refinement Validation (W131-W133) ───────────────────────
 
-behavior fa_validate_orphan_refinement "W131: Orphan Refinement" {
+behavior fa_validate_unreferenced_refinement "W131: Unreferenced Refinement" {
   category   query
   invariants [fa_refinement_entity_reachability]
   types      [FormalRefinement]
   contract   """
     Detect refinement entities with no RefinementRefinesAbstract,
-    RefinementRefinesConcrete, or RefinementChainsToRefinement edges. An orphan refinement is a graph node
+    RefinementRefinesConcrete, or RefinementChainsToRefinement edges. An unreferenced refinement is a graph node
     that captures an abstract-to-concrete mapping but is disconnected
     from all behaviors and other refinements — it should either be
     connected or removed. Requires warning_level=strict to fire.
@@ -194,7 +194,7 @@ behavior fa_validate_orphan_refinement "W131: Orphan Refinement" {
     strict_warning_level "warning_level is set to strict"
   }
   ensures {
-    orphan_detected   "refinement with no refinement edges produces W131 warning"
+    unreferenced_detected   "refinement with no refinement edges produces W131 warning"
     referenced_passes "refinement with at least one refinement edge produces no diagnostic"
     correct_template  "message template is: refinement '{id}' is not connected to any behavior or refinement chain"
   }
@@ -270,13 +270,13 @@ behavior fa_validate_refinement_self_reference "E041b: Refinement Self-Reference
 
 // ── Process Validation (W134-W136) ──────────────────────────
 
-behavior fa_validate_orphan_process "W134: Orphan Process" {
+behavior fa_validate_unreferenced_process "W134: Unreferenced Process" {
   category   query
   invariants [fa_process_entity_reachability]
   types      [FormalProcess]
   contract   """
     Detect process entities with no incoming ParticipatesIn edges. An
-    orphan process is a communicating process that no event participates
+    unreferenced process is a communicating process that no event participates
     in — it should either have events assigned to its alphabet or be
     removed. Requires warning_level=strict to fire.
   """
@@ -285,7 +285,7 @@ behavior fa_validate_orphan_process "W134: Orphan Process" {
     strict_warning_level "warning_level is set to strict"
   }
   ensures {
-    orphan_detected   "process with no incoming ParticipatesIn edges produces W134 warning"
+    unreferenced_detected   "process with no incoming ParticipatesIn edges produces W134 warning"
     referenced_passes "process with at least one incoming ParticipatesIn edge produces no diagnostic"
     correct_template  "message template is: process '{id}' has no events participating in it"
   }

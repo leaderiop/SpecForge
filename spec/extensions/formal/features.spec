@@ -66,7 +66,7 @@ feature fa_specification_layering "Specification Layering" {
     refinements to behaviors; RefinementChainsToRefinement edges support
     multi-level refinement. Dual-mode:
     refinement entities coexist with abstract/refines field annotations.
-    W131-W133 validation rules detect orphan refinements, empty
+    W131-W133 validation rules detect unreferenced refinements, empty
     descriptions, and missing invariant deltas.
   """
 }
@@ -96,7 +96,7 @@ feature fa_event_graph_linting "Event Graph Linting" {
     ProcessComposition edges model hierarchical composition, whose
     cycles are E042. Dual-mode: process entities
     coexist with inline sync blocks. W134-W136 validation rules detect
-    orphan processes, empty descriptions, and missing alphabets.
+    unreferenced processes, empty descriptions, and missing alphabets.
   """
 }
 
@@ -170,7 +170,7 @@ feature fa_temporal_properties "Temporal Properties" {
     with a kind classifier (safety/liveness/fairness). Behaviors
     declare which properties they satisfy via the satisfies field,
     creating Satisfies edges. Properties can depend on conditions via
-    PropertyDependsOn edges. Orphan properties (W123), empty
+    PropertyDependsOn edges. Unreferenced properties (W123), empty
     descriptions (W124), and missing kinds (W125) are detected.
   """
 }
@@ -187,7 +187,7 @@ feature fa_axiom_foundations "Axiom Foundations" {
     The axiom entity kind represents an assumed-true foundation that
     conditions depend on. Axioms require no proof and generate no
     coverage tracking items. Conditions reference axioms via the
-    assumes field, creating AssumedBy edges. Orphan axioms (W126)
+    assumes field, creating AssumedBy edges. Unreferenced axioms (W126)
     and empty descriptions (W127) are detected.
   """
 }
@@ -204,7 +204,7 @@ feature fa_protocol_contracts "Protocol Contracts" {
     The protocol entity kind represents a shared synchronization
     contract with ordering, timeout, and delivery semantics. Events
     reference protocols via the follows_protocol field, creating
-    FollowsProtocol edges. Orphan protocols (W128) and empty
+    FollowsProtocol edges. Unreferenced protocols (W128) and empty
     descriptions (W129) are detected. Protocols
     coexist with inline sync blocks — dual-mode like conditions.
   """

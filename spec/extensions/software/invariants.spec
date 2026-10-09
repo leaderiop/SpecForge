@@ -7,11 +7,11 @@ invariant se_edge_consistency "Edge-Field Mapping Consistency" {
     Every field definition with an edge mapping MUST have a corresponding
     edgeType declaration in the manifest. The field's targetKind MUST
     reference an entity kind declared in this manifest or a peer
-    dependency. No orphan edge mappings MUST exist.
+    dependency. No dangling edge mappings MUST exist.
   """
   risk      medium
   verify property "every field edge mapping has a corresponding edgeType"
-  verify unit "orphan edge mapping detected and reported"
+  verify unit "dangling edge mapping detected and reported"
 }
 
 invariant se_event_trigger_validity "Event Trigger Validity" {
